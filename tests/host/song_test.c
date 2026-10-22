@@ -174,6 +174,7 @@ static void test_library(void)
             {9, MODE_IONIAN, "Fmaj7 G7 Em7 Am7"}, {15, MODE_IONIAN, "Dm7 Db7 Cmaj7 Cmaj7"},
             {6, MODE_DORIAN, "Cm7 Bb7"}, {18, MODE_AEOLIAN, "Cm7 Bb7 Abmaj7 G7"}, {13, MODE_MIXOLYDIAN, "Fmaj7 E7 Am7 C7"},
             {22, MODE_AEOLIAN, "Cm7 Fm7 Abmaj7 G7"}, {24, MODE_DORIAN, "Cm7 Dbmaj7"},
+            {25, MODE_DORIAN, "Cm7 F7 Bbmaj7 Ebmaj7"}, {26, MODE_AEOLIAN, "Cm7 Dm7 Ebmaj7 F7"},
         };
         int k;
         for (k = 0; k < (int)(sizeof sp / sizeof sp[0]); k++) {
@@ -310,7 +311,7 @@ static void test_roll(void)
     {   /* R8: the progression mix the listener hears is ~40/45/15 */
         static const int want[3] = {40, 45, 15};
         for (k = 0; k < 3; k++)
-            CHECK(kinds[k] * 100 / 1999 >= want[k] - 10 && kinds[k] * 100 / 1999 <= want[k] + 10,
+            CHECK(kinds[k] * 100 / 1999 >= want[k] - 5 && kinds[k] * 100 / 1999 <= want[k] + 5,
                   "rolled kind %d is %d%%", k, kinds[k] * 100 / 1999);
     }
     CHECK(secs_lo < 135 && secs_hi > 190, "seconds span %d-%d", secs_lo, secs_hi);

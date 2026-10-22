@@ -54,6 +54,10 @@ const lib_prog_t LIB_PROGS[] = {
      (1 << MODE_AEOLIAN), "brainstorm R8: im9-bVI7-V7-im9 (Cm7 Ab7 G7 Cm7)"},
     {24, PK_JAZZY, 2, 2, {{0, 0, Q_MIN7}, {1, -1, Q_MAJ7}, {0, 0, 0}, {0, 0, 0}}, MOOD_SAD | MOOD_WISTFUL | MOOD_WARM,
      (1 << MODE_DORIAN) | (1 << MODE_AEOLIAN), "brainstorm R8: im9-bIImaj7 Neapolitan color (Cm7 Dbmaj7)"},
+    {25, PK_LOOP, 4, 1, {{0, 0, Q_MIN7}, {3, 0, Q_DOM7}, {6, 0, Q_MAJ7}, {2, 0, Q_MAJ7}}, MOOD_WARM | MOOD_SUNNY,
+     (1 << MODE_DORIAN) | (1 << MODE_AEOLIAN), "brainstorm R8: bright Dorian i7-IV7-bVIImaj7-bIIImaj7 loop (Cm7 F7 Bbmaj7 Ebmaj7)"},
+    {26, PK_LOOP, 4, 1, {{0, 0, Q_MIN7}, {1, 0, Q_MIN7}, {2, 0, Q_MAJ7}, {3, 0, Q_DOM7}}, MOOD_WISTFUL | MOOD_WARM | MOOD_SUNNY,
+     (1 << MODE_DORIAN) | (1 << MODE_AEOLIAN), "brainstorm R8: rising Dorian i7-ii7-bIIImaj7-IV7 loop (Cm7 Dm7 Ebmaj7 F7)"},
 };
 const int LIB_NPROGS = (int)(sizeof LIB_PROGS / sizeof LIB_PROGS[0]);
 
