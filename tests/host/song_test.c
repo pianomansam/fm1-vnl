@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <string.h>
 #include "rng.h"
+#include "theory.h"
 
 static int fails;
 #define CHECK(c, ...)                                                                                              \
@@ -69,9 +70,79 @@ static void test_rng(void)
     CHECK(rng_weighted(&a, z, 3) == -1, "all-zero weights return -1");
 }
 
+static void test_theory(void)
+{
+    int pcs[6], n, i, k, d, col, mode, key, out[4], prev[4], bad = 0, third, seventh, move = 0;
+    char nm[16];
+    th_chord_spec_t c;
+
+    c.degree = 1; c.alter = 0; c.quality = Q_DIATONIC;
+    n = th_chord_pcs(0, MODE_IONIAN, c, COLOR_9, pcs);
+    CHECK(n == 5 && pcs[0] == 2 && pcs[1] == 5 && pcs[2] == 9 && pcs[3] == 0 && pcs[4] == 4, "ii9 pcs");
+    CHECK(!strcmp(th_chord_name(pcs, n, nm), "Dm9"), "name %s, want Dm9", nm);
+    {
+        int dm9[6], g13[6], n2;
+        memcpy(dm9, pcs, sizeof dm9);
+        th_voice(dm9, n, NULL, prev);
+        c.degree = 4;
+        n2 = th_chord_pcs(0, MODE_IONIAN, c, COLOR_RICH, g13);
+        CHECK(!strcmp(th_chord_name(g13, n2, nm), "G13"), "name %s, want G13", nm);
+        th_voice(g13, n2, prev, out);
+        for (i = 0; i < 4; i++)
+            if (out[i] - prev[i] > move || prev[i] - out[i] > move)
+                move = out[i] > prev[i] ? out[i] - prev[i] : prev[i] - out[i];
+        CHECK(move <= 4, "Dm9 to G13 moved a voice %d semitones", move);
+    }
+    c.degree = 0;
+    n = th_chord_pcs(0, MODE_IONIAN, c, COLOR_9, pcs);
+    CHECK(!strcmp(th_chord_name(pcs, n, nm), "Cmaj9"), "name %s, want Cmaj9", nm);
+    c.degree = 3; c.alter = 0; c.quality = Q_MIN7;
+    n = th_chord_pcs(0, MODE_IONIAN, c, COLOR_7, pcs);
+    CHECK(!strcmp(th_chord_name(pcs, n, nm), "Fm7"), "name %s, want Fm7", nm);
+    c.degree = 4; c.quality = Q_DIATONIC;
+    n = th_chord_pcs(0, MODE_IONIAN, c, COLOR_7, pcs);
+    CHECK(!strcmp(th_chord_name(pcs, n, nm), "G7"), "name %s, want G7", nm);
+    th_guide_tones(pcs, n, &third, &seventh);
+    CHECK(third == 11 && seventh == 5, "G7 guide tones %d %d, want 11 5", third, seventh);
+
+    for (mode = 0; mode < MODE_N; mode++)
+        for (key = 0; key < 12; key++)
+            for (d = 0; d < 7; d++)
+                for (col = COLOR_7; col <= COLOR_RICH; col++) {
+                    c.degree = (int8_t)d; c.alter = 0; c.quality = Q_DIATONIC;
+                    n = th_chord_pcs(key, mode, c, col, pcs);
+                    th_voice(pcs, n, NULL, out);
+                    for (i = 0; i < 4; i++) {
+                        if (out[i] > 72 || out[i] < 48)
+                            bad++;
+                        for (k = i + 1; k < 4; k++)
+                            if (out[i] == out[k])
+                                bad++;
+                    }
+                    if (out[0] < 48 || out[0] > 55)
+                        bad++;
+                    for (i = 1; i < 4; i++)
+                        if (out[i] < out[0])
+                            bad++;
+                    if (n < 4 || n > 5)
+                        bad++;
+                    for (i = 0; i < n; i++)
+                        if (!th_in_scale(key, mode, pcs[i]) && col != COLOR_RICH)
+                            bad++;
+                }
+    CHECK(bad == 0, "voicing/chord invariants broken %d times", bad);
+
+    pcs[0] = 0; pcs[1] = 4; pcs[2] = 7; pcs[3] = 11;
+    CHECK(th_is_avoid(0, MODE_IONIAN, pcs, 4, 65) == 1, "F4 over Cmaj7 is an avoid note");
+    CHECK(th_is_avoid(0, MODE_IONIAN, pcs, 4, 64) == 0, "E4 over Cmaj7 is not an avoid note");
+    CHECK(th_in_scale(0, MODE_IONIAN, 64) == 1 && th_in_scale(0, MODE_IONIAN, 63) == 0, "th_in_scale");
+    CHECK(th_mode_pool(MODE_IONIAN) == 0xAB5u, "ionian pool 0x%x", th_mode_pool(MODE_IONIAN));
+}
+
 int main(void)
 {
     test_rng();
+    test_theory();
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;
