@@ -2,8 +2,9 @@
 # A knob's change waits for the next 4-bar boundary, then lands.
 wait 2000
 expect pending -1
-# K2: tempo +6 BPM
-turn K2 6
+# K1: the key +3 semitones (the key wraps, so this is a change whatever song 1 is; tempo, motion and mood stop
+# at their ends)
+turn K1 3
 expect pending >0
 shot pending.png
 # 4 bars at the slowest tempo (70 BPM) last 13715 ms: past the next boundary by then

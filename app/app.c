@@ -22,6 +22,23 @@
 
 #define BARRIER() __asm__ volatile("" ::: "memory")
 
+#ifndef PLAT_HOST
+/* the firmware's memmove (app/inc/string.h: the toolchain is freestanding). Built with -fno-builtin, so the loops
+   stay loops (no call back into a memmove). */
+void *vnl_memmove(void *d, const void *s, unsigned n)
+{
+    unsigned char *p = d;
+    const unsigned char *q = s;
+    if (p < q)
+        while (n--)
+            *p++ = *q++;
+    else
+        while (n--)
+            p[n] = q[n];
+    return d;
+}
+#endif
+
 static const char *const KEY_NAME[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 static const char *const MODE_NAME[MODE_N] = {"MAJOR", "DORIAN", "PHRYGIAN", "LYDIAN", "MIXOLYDIAN", "MINOR"};
 static const char *const MOOD_NAME[4] = {"SAD", "WISTFUL", "WARM", "SUNNY"};
@@ -246,8 +263,9 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     }
     for (k = 0; k < n; k++) {
         gain_now += (gain - gain_now) * 0.004f;   /* ~5 ms: turning MASTER does not click */
-        lr[2 * k] = (int32_t)(mix_l[k] * gain_now);
-        lr[2 * k + 1] = (int32_t)(mix_r[k] * gain_now);
+        float a = mix_l[k] * gain_now, b = mix_r[k] * gain_now;
+        lr[2 * k] = (int32_t)(a > 8388607.0f ? 8388607.0f : a < -8388607.0f ? -8388607.0f : a);   /* 24-bit */
+        lr[2 * k + 1] = (int32_t)(b > 8388607.0f ? 8388607.0f : b < -8388607.0f ? -8388607.0f : b);
     }
     publish();
 }
@@ -260,7 +278,8 @@ void app_panic(void)
 /* --------------------------------------------------------- the roller --- */
 static song_roll_t last_roll;
 static uint32_t next_seed;
-static uint8_t rolled_any;
+static uint8_t rolled_any, seeded;
+static uint32_t boot_spins;              /* main-loop passes between frames, until the first seed */
 
 static uint32_t seed_next(uint32_t s)   /* the chain: a song's seed gives the next one's (xorshift32) */
 {
@@ -270,9 +289,30 @@ static uint32_t seed_next(uint32_t s)   /* the chain: a song's seed gives the ne
     return s ? s : 0x9E3779B9u;
 }
 
+/* The first seed, in the main loop. The simulator (and the emulator) seed from the time alone, so a script plays
+   the same songs every run. The FM-1 boots in nearly the same number of milliseconds every time, so it also mixes
+   in MASTER's reading, the time at its first two frames and the main loop's passes between them (USB, the timer
+   and the render make those vary): power-on is a fresh roll, with nothing written to the flash. Rolled at the
+   second frame, ~16 ms after the first; the render is silent until then. */
+static void seed_boot(void)
+{
+#ifdef PLAT_HOST
+    next_seed = seed_next(plat_ms() * 2654435761u + 0x5EEDu);
+    seeded = 1;
+#else
+    static uint32_t frames, mix;
+    mix = (mix ^ plat_ms() ^ plat_master() << 12 ^ boot_spins << 20) * 2654435761u;
+    mix ^= mix >> 15;
+    if (++frames < 2u)
+        return;
+    next_seed = seed_next(mix + 0x5EEDu);
+    seeded = 1;
+#endif
+}
+
 static void roll_next(void)             /* main loop: keep the mailbox full */
 {
-    if (mb_full)
+    if (mb_full || !seeded)
         return;
     roll_song(rolled_any ? &last_roll : 0, next_seed, &mb_roll);
     last_roll = mb_roll;
@@ -284,9 +324,7 @@ static void roll_next(void)             /* main loop: keep the mailbox full */
 
 void app_init(void)
 {
-    vx_init();
-    next_seed = seed_next(plat_ms() * 2654435761u + 0x5EEDu);
-    roll_next();
+    vx_init();                           /* the first song: app_frame, once seeded */
 }
 
 /* --------------------------------------------------------------------- UI --- */
@@ -480,7 +518,12 @@ static void input(void)
     plat_leds(btn | (ui.shown.playing ? 1u << B_PLAY : 0u), 0);
 }
 
-void app_input_only(void) { input(); }
+void app_input_only(void)
+{
+    if (!seeded)
+        boot_spins++;
+    input();
+}
 
 static void draw(void)
 {
@@ -537,6 +580,8 @@ void app_frame(void)
 {
     snap_t s;
     uint32_t now = plat_ms();
+    if (!seeded)
+        seed_boot();
     roll_next();
     snap_read(&s);
     if (s.has_song != ui.shown.has_song || s.stopped != ui.shown.stopped || s.bar != ui.shown.bar

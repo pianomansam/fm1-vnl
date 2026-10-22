@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MPL-2.0
 # VNL-1 plays a whole generated song, a silent gap of 2-4 s, then the next song. Writes songs.wav (listen to it).
 #   app/build/host/vnl_host tests/scenarios/songs.vnl app/build/scenarios
+# MASTER all the way up (the simulator starts it at half: -12 dB), so songs.wav has the engine's own level
+master 4096
 wait 1000
 expect playing 1
 expect songs 1
@@ -12,6 +14,6 @@ wait 215000
 expect songs 2
 expect playing 1
 wavstop
-# heard, and never past full scale
-expect peak_db_min -30
+# heard near -6 dBFS, and never past full scale
+expect peak_db_min -9
 expect peak_db_max <0
