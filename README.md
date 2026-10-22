@@ -39,8 +39,14 @@ on USB, `base/bsp/tools/fm1_rescue.sh` restores stock firmware.
 
 ## Notes
 
-- `app/fm1.toml`: Bluetooth is off (neither the lo-fi nor dub direction needs it; saves ~130 KB flash).
-  Identity `FM-1_22` (dev builds FM-1_2200).
+- `app/fm1.toml`: Bluetooth is off (neither the lo-fi nor dub direction needs it; saves ~130 KB flash), so the
+  template's Bluetooth checks are cut from `app/tests/basic.txt`.
+- Identity `FM-1_22` (dev builds FM-1_2200; V is the 22nd letter). Taken by others: 0 (default), 6 CTL-1, 7 AMB-1,
+  8 dub, 11 template, 13 Radio. The installer checks it, so never reuse another firmware's.
+- Why the venv: `brew install emscripten` pulls in a newer Homebrew Python and repoints `python3` to one without
+  Pillow. `build.sh` uses `.venv/bin/python` when it exists; `PYTHON=...` overrides.
+- Status: the template app builds (80 KB image, 28 KB RAM), passes in the simulator and runs in the browser
+  emulator. Not yet installed on a real FM-1. The lo-fi engine itself is next; fm1-amb is the model to follow.
 - Budget: 581 KB flash app slot, 96 KB RAM, 336 KB buffer pool, no external RAM.
 - `ref/` (git-ignored) holds read-only clones: `fm1_open` (M-VAVE's official V14, Windows toolchain, binary engine
   SDK, GPLv3), `fm1-base`, `felucca-bsp`, `fm1-amb` and `fm1-dub` (the two direction references).
