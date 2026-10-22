@@ -152,6 +152,40 @@ static void test_library(void)
         CHECK(p->kind <= PK_JAZZY && p->moods != 0 && p->src && p->src[0] && p->bars_per_chord >= 1, "prog %d fields", p->id);
         if (p->kind <= PK_JAZZY) kc[p->kind]++;
     }
+    for (i = 0; i < LIB_NPROGS; i++) {
+        int cyc = LIB_PROGS[i].n * LIB_PROGS[i].bars_per_chord;
+        CHECK(LIB_PROGS[i].modes != 0 && !(LIB_PROGS[i].modes & (1 << MODE_PHRYGIAN)), "prog %d modes", LIB_PROGS[i].id);
+        CHECK(cyc == 2 || cyc == 4 || cyc == 8, "prog %d cycle %d bars", LIB_PROGS[i].id, cyc);
+    }
+    {
+        int m;
+        for (i = 0; i < 4; i++)
+            for (m = 0; m < MODE_N; m++) {
+                int cnt = 0;
+                if (!LIB_MOODS[i].mode_w[m]) continue;
+                for (j = 0; j < LIB_NPROGS; j++)
+                    if ((LIB_PROGS[j].moods & (1 << i)) && (LIB_PROGS[j].modes & (1 << m))) cnt++;
+                CHECK(cnt >= 3, "mood %d mode %d has %d progressions", i, m, cnt);
+            }
+    }
+    {   /* spot-check the claimed chords by name */
+        static const struct { int id, mode; const char *want; } sp[] = {
+            {9, MODE_IONIAN, "Fmaj7 G7 Em7 Am7"}, {15, MODE_IONIAN, "Dm7 Db7 Cmaj7 Cmaj7"},
+            {6, MODE_DORIAN, "Cm7 Bb7"}, {18, MODE_AEOLIAN, "Cm7 Bb7 Abmaj7 G7"}, {13, MODE_MIXOLYDIAN, "Fmaj7 E7 Am7 C7"},
+        };
+        int k;
+        for (k = 0; k < (int)(sizeof sp / sizeof sp[0]); k++) {
+            const lib_prog_t *p = lib_prog_by_id((uint8_t)sp[k].id);
+            char got[64] = "", nm[16];
+            int pcs[8];
+            for (j = 0; j < p->n; j++) {
+                int n = th_chord_pcs(0, sp[k].mode, p->c[j], COLOR_7, pcs);
+                if (j) strcat(got, " ");
+                strcat(got, th_chord_name(pcs, n, nm));
+            }
+            CHECK(strcmp(got, sp[k].want) == 0, "prog %d: got '%s' want '%s'", sp[k].id, got, sp[k].want);
+        }
+    }
     CHECK(lib_prog_by_id(255) == NULL, "prog 255");
     {
         int pct[3] = {40, 45, 15};

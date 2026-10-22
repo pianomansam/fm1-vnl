@@ -20,7 +20,8 @@ enum { EN_TOGETHER, EN_SNARE_FIRST, EN_FROM_TOP };
 enum { MID_BREAK, MID_KICK_OUT, MID_HATS_ONLY, MID_NONE };
 enum { END_KEYS_OUTRO, END_FADE, END_RING };
 
-typedef struct { uint8_t id; uint8_t kind; uint8_t n; uint8_t bars_per_chord; th_chord_spec_t c[4]; uint8_t moods; const char *src; } lib_prog_t;
+typedef struct { uint8_t id; uint8_t kind; uint8_t n; uint8_t bars_per_chord; th_chord_spec_t c[4]; uint8_t moods; uint8_t modes; const char *src; } lib_prog_t;
+/* modes: bit (1 << MODE_x) for each mode whose degrees give the chords the note claims; moods: MOOD_* bits. n * bars_per_chord is 2, 4 or 8. */
 typedef struct { uint8_t id; const char *name; uint8_t chords, bass, lead, candy, kit; uint8_t flavor; uint8_t moods; const char *src; } lib_set_t;
 /* hit/ghost: 16 steps per lane, bit i = step i. poly3: the shaker lane is a period-3 polymeter (hit[D_SHAKER] holds it). */
 typedef struct { uint8_t id; uint8_t family; uint16_t hit[6]; uint16_t ghost[6]; uint8_t half_time; uint8_t poly3; const char *src; } lib_pattern_t;
