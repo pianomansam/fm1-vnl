@@ -17,10 +17,11 @@ typedef struct { uint32_t seed; int16_t v[RF_N]; } song_roll_t;
 
 void roll_song(const song_roll_t *prev, uint32_t seed, song_roll_t *out);   /* prev NULL for the first song */
 int roll_dice(song_roll_t *r, int field, uint32_t salt);  /* 1: changed to another legal value; 0: none exists */
-int roll_set(song_roll_t *r, int field, int value);       /* manual pick, validated and clamped; the value applied */
+int roll_set(song_roll_t *r, int field, int value);       /* manual pick, validated and clamped; the value applied
+                                                             (the current one if refused); -1 if field is out of range */
 int roll_seconds(const song_roll_t *r);                   /* RF_BARS * 240 / RF_TEMPO */
 
-/* Progression table the roll draws from (default LIB_PROGS); NULL restores it. For tests and curation. */
+/* Test only: the progression table the roll draws from (default LIB_PROGS); NULL restores it. */
 void roll_use_progs(const lib_prog_t *progs, int n);
 
 #endif

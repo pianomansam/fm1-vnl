@@ -48,6 +48,12 @@ const lib_prog_t LIB_PROGS[] = {
      (1 << MODE_DORIAN) | (1 << MODE_AEOLIAN), "brainstorm: i7-iv7-bVII7-bIIImaj7 (Cm7 Fm7 Bb7 Ebmaj7)"},
     {21, PK_VAMP, 2, 2, {{3, 0, Q_DOM7}, {6, 0, Q_DOM7}, {0, 0, 0}, {0, 0, 0}}, MOOD_WARM | MOOD_SUNNY,
      (1 << MODE_DORIAN) | (1 << MODE_AEOLIAN), "brainstorm: Dorian IV7-bVII7 funk vamp (F7 Bb7 in C)"},
+    {22, PK_JAZZY, 4, 1, {{0, 0, Q_MIN7}, {3, 0, Q_MIN7}, {5, 0, Q_MAJ7}, {4, 0, Q_DOM7}}, MOOD_SAD | MOOD_WISTFUL,
+     (1 << MODE_AEOLIAN), "brainstorm R8: im9-iv9-bVImaj7-V7, major V forced (Cm7 Fm7 Abmaj7 G7)"},
+    {23, PK_JAZZY, 4, 1, {{0, 0, Q_MIN7}, {5, 0, Q_DOM7}, {4, 0, Q_DOM7}, {0, 0, Q_MIN7}}, MOOD_SAD | MOOD_WISTFUL,
+     (1 << MODE_AEOLIAN), "brainstorm R8: im9-bVI7-V7-im9 (Cm7 Ab7 G7 Cm7)"},
+    {24, PK_JAZZY, 2, 2, {{0, 0, Q_MIN7}, {1, -1, Q_MAJ7}, {0, 0, 0}, {0, 0, 0}}, MOOD_SAD | MOOD_WISTFUL | MOOD_WARM,
+     (1 << MODE_DORIAN) | (1 << MODE_AEOLIAN), "brainstorm R8: im9-bIImaj7 Neapolitan color (Cm7 Dbmaj7)"},
 };
 const int LIB_NPROGS = (int)(sizeof LIB_PROGS / sizeof LIB_PROGS[0]);
 

@@ -173,6 +173,7 @@ static void test_library(void)
         static const struct { int id, mode; const char *want; } sp[] = {
             {9, MODE_IONIAN, "Fmaj7 G7 Em7 Am7"}, {15, MODE_IONIAN, "Dm7 Db7 Cmaj7 Cmaj7"},
             {6, MODE_DORIAN, "Cm7 Bb7"}, {18, MODE_AEOLIAN, "Cm7 Bb7 Abmaj7 G7"}, {13, MODE_MIXOLYDIAN, "Fmaj7 E7 Am7 C7"},
+            {22, MODE_AEOLIAN, "Cm7 Fm7 Abmaj7 G7"}, {24, MODE_DORIAN, "Cm7 Dbmaj7"},
         };
         int k;
         for (k = 0; k < (int)(sizeof sp / sizeof sp[0]); k++) {
@@ -276,6 +277,7 @@ static void test_roll(void)
     song_roll_t prev, cur, again;
     int i, f, k, bad_valid = 0, bad_nov = 0, bad_key = 0, bad_det = 0;
     long swing_sum = 0;
+    int kinds[3] = {0, 0, 0};
     int secs_lo = 999, secs_hi = 0, tempo_peak = 0, tempo_n = 0;
 
     roll_song(NULL, 1, &prev);
@@ -291,8 +293,9 @@ static void test_roll(void)
         dk = ((cur.v[RF_KEY] - prev.v[RF_KEY]) % 12 + 12) % 12;
         a = major_family(prev.v[RF_MODE]);
         b = major_family(cur.v[RF_MODE]);
-        if (!(dk == 5 || dk == 7 || (a != b && (dk == 3 || dk == 9))) || dk == 0) bad_key++;
+        if (!(dk == 5 || dk == 7 || (a && !b && dk == 9) || (!a && b && dk == 3))) bad_key++;
         swing_sum += cur.v[RF_SWING];
+        kinds[lib_prog_by_id((uint8_t)cur.v[RF_PROG])->kind]++;
         k = roll_seconds(&cur);
         if (k < secs_lo) secs_lo = k;
         if (k > secs_hi) secs_hi = k;
@@ -304,6 +307,12 @@ static void test_roll(void)
     CHECK(bad_nov == 0, "%d rolls with fewer than 5 novel choices or tempo within 6 BPM", bad_nov);
     CHECK(bad_key == 0, "%d unrelated or repeated keys", bad_key);
     CHECK(swing_sum / 1999 >= 545 && swing_sum / 1999 <= 565, "swing mean %ld", swing_sum / 1999);
+    {   /* R8: the progression mix the listener hears is ~40/45/15 */
+        static const int want[3] = {40, 45, 15};
+        for (k = 0; k < 3; k++)
+            CHECK(kinds[k] * 100 / 1999 >= want[k] - 10 && kinds[k] * 100 / 1999 <= want[k] + 10,
+                  "rolled kind %d is %d%%", k, kinds[k] * 100 / 1999);
+    }
     CHECK(secs_lo < 135 && secs_hi > 190, "seconds span %d-%d", secs_lo, secs_hi);
     for (i = 1; i <= 2000; i++) {   /* first songs: tempo peaks at 80-84 */
         roll_song(NULL, (uint32_t)i, &cur);
