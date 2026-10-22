@@ -2,15 +2,11 @@
 #   app/build/host/vnl_host app/tests/screens.txt app/docs/img
 wait 900
 shot screen-ready.png
-key 7 down 90 50
-press FX
-turn K3 3
-wait 1400
+wait 12000
+turn K2 3
+wait 300
 shot screen-playing.png
-release FX
-key 7 up
-tap OCT+
-wait 30
-turn PRESET 1
+wait 2000
+tap PLAY
 wait 30
 shot screen-settings.png

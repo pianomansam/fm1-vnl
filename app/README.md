@@ -7,10 +7,10 @@ manual.
 | File | What |
 | --- | --- |
 | `app.h` | The app's settings (name, block size, the store's objects) and its half of the contract with the platform |
-| `app.c` | The app: input, sound, screen, saving |
+| `app.c` | The app: the song engine and voices on the platform (roll, render, knobs, screen) |
+| `song/`, `engine/` | The song engine and the placeholder voices (compiled apart at -O2) |
 | `fm1.toml` | Build and site settings: name, package identity, USB names, tagline, source, licence |
 | `words.tsv` | The screen reader's words (fm1-reader): the screen's text and how to say it |
-| `tests/basic.txt` | Host simulator checks: keys, MIDI, settings across a reboot, the sound, the screen reader |
 | `tests/screens.txt` | The manual's screenshots |
 | `docs/MANUAL.md` | The manual (an example to rewrite) |
 | `site/landing.md` | The site's front page |

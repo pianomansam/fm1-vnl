@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: MPL-2.0
+# VNL-1 plays a whole generated song, a silent gap of 2-4 s, then the next song. Writes songs.wav (listen to it).
+#   app/build/host/vnl_host tests/scenarios/songs.vnl app/build/scenarios
+wait 1000
+expect playing 1
+expect songs 1
+shot now.png
+wav songs.wav
+peakreset
+# a song lasts at most 210 s and the gap at most 4 s; the next song lasts at least 120 s
+wait 215000
+expect songs 2
+expect playing 1
+wavstop
+# heard, and never past full scale
+expect peak_db_min -30
+expect peak_db_max <0

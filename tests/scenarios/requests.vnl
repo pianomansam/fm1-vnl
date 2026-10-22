@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: MPL-2.0
+# A knob's change waits for the next 4-bar boundary, then lands.
+wait 2000
+expect pending -1
+# K2: tempo +6 BPM
+turn K2 6
+expect pending >0
+shot pending.png
+# 4 bars at the slowest tempo (70 BPM) last 13715 ms: past the next boundary by then
+wait 14000
+expect pending -1

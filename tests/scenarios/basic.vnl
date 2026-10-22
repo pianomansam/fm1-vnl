@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: MPL-2.0
+# VNL-1 in the host simulator: it boots playing, the screen shows the song, the knobs are heard and read out.
+#   ./build.sh --host, then app/build/host/vnl_host tests/scenarios/basic.vnl app/build/scenarios
+wait 600
+shot boot.png
+expect playing 1
+expect songs 1
+expect bar <2
+expect section >-1
+expect tempo >69
+expect tempo <91
+expect key >-1
+expect key <12
+expect peak_db_max <0
+# the screen reader hears the whole screen
+listen
+wait 100
+said VNL-1
+# K1: the key one semitone up, waiting for the next 4-bar boundary
+turn K1 1
+wait 50
+expect pending >0
+said KEY
+# MASTER down to nothing: silence after the glide
+master 0
+wait 100
+peakreset
+wait 200
+expect peak_db_max <-90
+master 4096
+wait 300

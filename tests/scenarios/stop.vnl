@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: MPL-2.0
+# PLAY stops the music (true silence), PLAY again starts a freshly rolled song.
+wait 20000
+tap PLAY
+wait 100
+expect playing 0
+expect voices 0
+peakreset
+wait 1000
+expect peak_db_max <-90
+tap PLAY
+wait 500
+expect playing 1
+expect songs 2
