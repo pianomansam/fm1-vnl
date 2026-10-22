@@ -40,11 +40,52 @@ static th_chord_spec_t spec_at(const song_roll_t *r, const lib_prog_t *p, int ba
     return c;
 }
 
+static int has_iv(const int *pcs, int n, int iv)
+{
+    int i;
+    for (i = 1; i < n; i++)
+        if ((pcs[i] - pcs[0] + 12) % 12 == iv)
+            return 1;
+    return 0;
+}
+
+static int drop_iv(int *pcs, int n, int iv)
+{
+    int i, m = 0;
+    for (i = 0; i < n; i++)
+        if (i == 0 || (pcs[i] - pcs[0] + 12) % 12 != iv)
+            pcs[m++] = pcs[i];
+    return m;
+}
+
+/* Dominants (major 3rd, minor 7th) never sound bare (Sam: a plain Eb7 sounded bad): at least a 9th, a 13th in a
+ * rich song, and no 5th, so the 4-voice voicing keeps 3rd, 7th and the extension. Where the mode gives no
+ * extension (each would clash), the chord drops its 7th: a plain major triad. */
+static int dominant_colors(const song_roll_t *r, th_chord_spec_t c, int color, int *pcs)
+{
+    int key = r->v[RF_KEY], mode = r->v[RF_MODE], n, k, ext = 0;
+    if (color < COLOR_9) color = COLOR_9;
+    n = th_chord_pcs(key, mode, c, color, pcs);
+    if (n == 4 && color < COLOR_RICH)                    /* the 9th was a clash: try the 13th */
+        n = th_chord_pcs(key, mode, c, COLOR_RICH, pcs);
+    for (k = 1; k < n; k++) {
+        int iv = (pcs[k] - pcs[0] + 12) % 12;
+        ext |= iv != 4 && iv != 7 && iv != 10;
+    }
+    if (ext)
+        return drop_iv(pcs, n, 7);
+    n = th_chord_pcs(key, mode, c, COLOR_7, pcs);
+    return drop_iv(pcs, n, 10);
+}
+
 int harmony_chord_at(const song_roll_t *r, int bar, int pass, int dark, int *pcs)
 {
-    int color;
+    int color, n;
     th_chord_spec_t c = spec_at(r, prog_of(r), bar < 0 ? 0 : bar, pass, &color);
     if (dark && color > COLOR_7) color--;
+    n = th_chord_pcs(r->v[RF_KEY], r->v[RF_MODE], c, COLOR_7, pcs);
+    if (has_iv(pcs, n, 4) && has_iv(pcs, n, 10))
+        return dominant_colors(r, c, color, pcs);
     return th_chord_pcs(r->v[RF_KEY], r->v[RF_MODE], c, color, pcs);
 }
 

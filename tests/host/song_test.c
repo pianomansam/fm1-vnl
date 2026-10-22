@@ -793,6 +793,8 @@ static void test_groove(void)
 
 static int first_step(int st) { return st == CS_STABS ? 0 : 2; }
 
+static int has_iv(const int *pcs, int n, int iv);
+
 static void test_harmony(void)
 {
     song_roll_t r;
@@ -816,6 +818,14 @@ static void test_harmony(void)
                         int got[5], want[5], ng, nw;
                         const th_chord_spec_t c = p->c[(bar / p->bars_per_chord) % p->n];
                         ng = harmony_chord_at(&r, bar, 1, 0, got);
+                        nw = th_chord_pcs(key, mode, c, COLOR_7, want);
+                        if (has_iv(want, nw, 4) && has_iv(want, nw, 10)) {
+                            /* a dominant: its own root and 3rd, its 7th unless it fell back to a triad (colors are
+                             * test_dominant_extensions' business) */
+                            if (ng < 3 || got[0] != want[0] || !has_iv(got, ng, 4) || (ng > 3 && !has_iv(got, ng, 10)))
+                                bad_pass1++;
+                            continue;
+                        }
                         nw = th_chord_pcs(key, mode, c, color, want);
                         if (ng != nw || memcmp(got, want, sizeof(int) * (size_t)nw)) bad_pass1++;
                     }
@@ -1455,9 +1465,64 @@ static void test_no_substitution(void)
     }
 }
 
+/* Dominants (major 3rd + minor 7th) always carry an upper extension, heard in the voicing; where the mode offers
+ * none, the chord drops its 7th (Sam: a bare Eb7 sounded bad in song 1 of songs.wav). */
+static int is_ext(int iv) { return iv != 0 && iv != 4 && iv != 7 && iv != 10; }
+
+static void test_dominant_extensions(void)
+{
+    int pi, mode, s, b, dark, doms = 0, bare = 0, unvoiced = 0, triads = 0;
+    for (pi = 0; pi < LIB_NPROGS; pi++) {
+        const lib_prog_t *p = &LIB_PROGS[pi];
+        for (mode = 0; mode < MODE_N; mode++) {
+            if (!(p->modes & (1u << mode)))
+                continue;
+            for (s = 1; s <= 30; s++) {
+                song_roll_t r;
+                roll_song(0, (uint32_t)s * 104729u, &r);
+                r.v[RF_PROG] = p->id;
+                r.v[RF_MODE] = (int16_t)mode;
+                r.v[RF_COLOR] = (int16_t)(s % 3);
+                for (dark = 0; dark < 2; dark++)
+                    for (b = 0; b < 16; b++) {
+                        int pcs[5], out[4], n = harmony_chord_at(&r, b, b / 4 + 1, dark, pcs), k, ext = 0, vext = 0;
+                        if (n < 3)
+                            continue;
+                        if (!(has_iv(pcs, n, 4) && has_iv(pcs, n, 10))) {
+                            triads += n == 3;
+                            continue;
+                        }
+                        doms++;
+                        for (k = 1; k < n; k++)
+                            ext |= is_ext((pcs[k] - pcs[0] + 12) % 12);
+                        th_voice(pcs, n, NULL, out);
+                        for (k = 0; k < 4; k++)
+                            vext |= is_ext((out[k] - pcs[0] + 24) % 12);
+                        bare += !ext;
+                        unvoiced += ext && !vext;
+                    }
+            }
+        }
+    }
+    CHECK(doms > 0, "no dominant chords seen");
+    CHECK(bare == 0, "%d dominant chords without an upper extension", bare);
+    CHECK(unvoiced == 0, "%d dominant voicings drop their extension", unvoiced);
+    {
+        song_roll_t r;                                   /* song 1 of songs.wav: the D#7 (Eb7) of bars 3, 7, 11 */
+        int pcs[5], n, k, ext = 0;
+        roll_song(0, 3248581516u, &r);
+        n = harmony_chord_at(&r, 2, 1, 0, pcs);
+        for (k = 1; k < n; k++)
+            ext |= is_ext((pcs[k] - pcs[0] + 12) % 12);
+        CHECK(pcs[0] == 3 && ext, "song 1 bar 3: D# dominant without an extension");
+    }
+    printf("harmony: %d dominants checked, %d dominant-turned-triads\n", doms, triads);
+}
+
 int main(void)
 {
     test_rng();
+    test_dominant_extensions();
     test_no_substitution();
     test_theory();
     test_library();
