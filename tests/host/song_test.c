@@ -5,6 +5,7 @@
 #include <string.h>
 #include "rng.h"
 #include "theory.h"
+#include "library.h"
 
 static int fails;
 #define CHECK(c, ...)                                                                                              \
@@ -139,10 +140,65 @@ static void test_theory(void)
     CHECK(th_mode_pool(MODE_IONIAN) == 0xAB5u, "ionian pool 0x%x", th_mode_pool(MODE_IONIAN));
 }
 
+static void test_library(void)
+{
+    int i, j, kc[3] = {0, 0, 0};
+    CHECK(LIB_NPROGS >= 14 && LIB_NSETS >= 10 && LIB_NPATTERNS >= 8 && LIB_NMAPS == 5, "table sizes");
+    for (i = 0; i < LIB_NPROGS; i++) {
+        const lib_prog_t *p = &LIB_PROGS[i];
+        for (j = i + 1; j < LIB_NPROGS; j++) CHECK(LIB_PROGS[j].id != p->id, "prog id %d reused", p->id);
+        CHECK(lib_prog_by_id(p->id) == p, "prog by id %d", p->id);
+        CHECK(p->n >= 2 && p->n <= 4, "prog %d n=%d", p->id, p->n);
+        CHECK(p->kind <= PK_JAZZY && p->moods != 0 && p->src && p->src[0] && p->bars_per_chord >= 1, "prog %d fields", p->id);
+        if (p->kind <= PK_JAZZY) kc[p->kind]++;
+    }
+    CHECK(lib_prog_by_id(255) == NULL, "prog 255");
+    {
+        int pct[3] = {40, 45, 15};
+        for (i = 0; i < 3; i++) {
+            int got = kc[i] * 100 / LIB_NPROGS;
+            CHECK(got >= pct[i] - 10 && got <= pct[i] + 10, "kind %d is %d%%", i, got);
+        }
+    }
+    for (i = 0; i < LIB_NSETS; i++) {
+        const lib_set_t *s = &LIB_SETS[i];
+        for (j = i + 1; j < LIB_NSETS; j++) CHECK(LIB_SETS[j].id != s->id, "set id %d reused", s->id);
+        CHECK(lib_set_by_id(s->id) == s, "set by id %d", s->id);
+        CHECK(s->chords < INS_NONE && s->bass < INS_NONE && s->lead < INS_NONE && s->candy <= INS_NONE, "set %d insts", s->id);
+        CHECK(s->kit <= KIT_BRUSHES && s->flavor <= FL_CHILLWAVE && s->moods && s->name && s->src, "set %d fields", s->id);
+    }
+    CHECK(lib_set_by_id(255) == NULL, "set 255");
+    for (i = 0; i < LIB_NPATTERNS; i++) {
+        const lib_pattern_t *p = &LIB_PATTERNS[i];
+        for (j = i + 1; j < LIB_NPATTERNS; j++) CHECK(LIB_PATTERNS[j].id != p->id, "pattern id %d reused", p->id);
+        CHECK(lib_pattern_by_id(p->id) == p, "pattern by id %d", p->id);
+        CHECK(p->hit[D_SNARE] != 0 && p->hit[D_KICK] != 0 && p->family <= PF_BOSSA && p->src, "pattern %d", p->id);
+    }
+    CHECK(lib_pattern_by_id(255) == NULL, "pattern 255");
+    {
+        static const char *names[5] = {"Classic", "Slow bloom", "Straight in", "Breather", "Drift"};
+        for (i = 0; i < LIB_NMAPS; i++) {
+            const lib_map_t *m = &LIB_MAPS[i];
+            for (j = i + 1; j < LIB_NMAPS; j++) CHECK(LIB_MAPS[j].id != m->id, "map id %d reused", m->id);
+            CHECK(lib_map_by_id(m->id) == m, "map by id %d", m->id);
+            CHECK(strcmp(m->name, names[i]) == 0 && m->src, "map %d name", i);
+        }
+        CHECK(lib_map_by_id(255) == NULL, "map 255");
+        CHECK(LIB_MAPS[1].intro_bars == 8 && LIB_MAPS[1].entry == EN_SNARE_FIRST && LIB_MAPS[2].intro_bars == 0 &&
+              LIB_MAPS[3].middle == MID_KICK_OUT && LIB_MAPS[4].sparse == 1 && LIB_MAPS[0].sparse == 0, "map values");
+    }
+    for (i = 0; i < 4; i++) {
+        int sum = 0;
+        for (j = 0; j < MODE_N; j++) sum += LIB_MOODS[i].mode_w[j];
+        CHECK(sum > 0 && LIB_MOODS[i].mode_w[MODE_PHRYGIAN] == 0, "mood %d weights", i);
+    }
+}
+
 int main(void)
 {
     test_rng();
     test_theory();
+    test_library();
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;
