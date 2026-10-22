@@ -448,7 +448,7 @@ static void test_plan(void)
     int s, mi, i;
     int bad_cover = 0, bad_grid = 0, bad_lead0 = 0, bad_intro = 0, bad_step = 0, bad_break = 0, bad_outro = 0;
     int bad_fade = 0, bad_entry = 0, bad_kickout = 0, bad_sparse = 0, bad_candy = 0, bad_bed = 0, bad_det = 0;
-    int bad_m0 = 0, bad_at = 0;
+    int bad_m0 = 0, bad_at = 0, bad_steady = 0, bad_hatsonly = 0, bad_sec = 0, bad_lead = 0;
     long lead_bars = 0, mid_bars_all = 0;
 
     CHECK(strcmp(plan_section_name(SEC_INTRO), "intro") == 0 && strcmp(plan_section_name(SEC_GROOVE), "groove") == 0 &&
@@ -484,7 +484,18 @@ static void test_plan(void)
                 if (kick_at < 0 && (L & L_KICK)) { kick_at = b->start; if (!(L & L_BASS)) bad_entry++; }
                 if (snare_at < 0 && (L & L_SNARE)) snare_at = b->start;
                 if (hats_at < 0 && (L & L_HATS)) hats_at = b->start;
+                /* R11: the skeleton binds over Motion. Slow bloom: once the kick is in, no drum-layer moves at all.
+                   Straight in: hat drop-outs only, never a 1-bar drum drop. */
+                if (m->middle == MID_NONE && !m->sparse && kick_at >= 0 &&
+                    ((L & (DRUMS | L_BASS)) != (DRUMS | L_BASS) || (b->flags & PB_DROP_LAST)))
+                    bad_steady++;
+                if (m->middle == MID_HATS_ONLY &&
+                    ((L & (L_KICK | L_SNARE | L_BASS)) != (L_KICK | L_SNARE | L_BASS) || (b->flags & PB_DROP_LAST)))
+                    bad_hatsonly++;
                 if (b->section != SEC_INTRO && b->section != SEC_OUTRO) {
+                    /* R12: a break is drums out or thinned: kick and snare both out, or Breather's kick-out block */
+                    int kickout = m->middle == MID_KICK_OUT && (L & L_SNARE) && (L & L_HATS) && !(L & (L_KICK | L_BASS));
+                    if ((b->section == SEC_BREAK) != (!(L & (L_KICK | L_SNARE)) || kickout)) bad_sec++;
                     mid += b->bars;
                     if (L & DRUMS) drum_mid += b->bars;
                     else {
@@ -553,6 +564,34 @@ static void test_plan(void)
     CHECK(bad_det == 0, "%d plans not deterministic", bad_det);
     CHECK(bad_m0 == 0, "%d Motion-0 plans with candy or drops", bad_m0);
     CHECK(bad_at == 0, "%d plan_at misses", bad_at);
+    CHECK(bad_steady == 0, "R11: %d Slow bloom blocks with a drum move after the kick enters", bad_steady);
+    CHECK(bad_hatsonly == 0, "R11: %d Straight in blocks with more than a hat drop-out", bad_hatsonly);
+    CHECK(bad_sec == 0, "R12: %d middle blocks with the wrong break section", bad_sec);
+
+    /* every song hears its lead: a middle (between intro and outro) of 16+ bars has lead in at least a quarter of
+       it and at least 8 bars; every map, every length, Motion 0 and 100 */
+    for (s = 1; s <= 2000; s++)
+        for (mi = 0; mi < LIB_NMAPS; mi++) {
+            int bars, motion;
+            for (bars = 36; bars <= 76; bars += 4)
+                for (motion = 0; motion <= 100; motion += 100) {
+                    int mid = 0, lead = 0;
+                    plan_roll(&r, (uint32_t)s, LIB_MAPS[mi].id, bars, motion);
+                    plan_build(&r, &p);
+                    for (i = 0; i < p.n; i++)
+                        if (p.b[i].section != SEC_INTRO && p.b[i].section != SEC_OUTRO) {
+                            mid += p.b[i].bars;
+                            if (p.b[i].layers & L_LEAD) lead += p.b[i].bars;
+                        }
+                    if (mid >= 16 && (lead < 8 || 4 * lead < mid)) {
+                        bad_lead++;
+                        if (bad_lead < 4)
+                            printf("  lead %d of %d: map %d seed %d bars %d motion %d\n", lead, mid, LIB_MAPS[mi].id,
+                                   s, bars, motion);
+                    }
+                }
+        }
+    CHECK(bad_lead == 0, "%d songs with lead under a quarter of the middle or 8 bars", bad_lead);
     CHECK(mid_bars_all > 0 && lead_bars * 100 >= mid_bars_all * 30 && lead_bars * 100 <= mid_bars_all * 70,
           "lead in about half the middle: %ld of %ld bars", lead_bars, mid_bars_all);
 

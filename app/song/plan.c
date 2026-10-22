@@ -151,10 +151,10 @@ static void skeleton(grid_t *g, const lib_map_t *m, rng_t *sk)
 }
 
 /* Motion's moves on the layers: hats out, lead toggles, ear candy. mo: the Motion rng; motion 0-100. */
-static void moves(grid_t *g, rng_t *mo, int motion)
+static void moves(grid_t *g, rng_t *mo, int motion, int hats_ok)
 {
     int u, s, i, j, t;
-    int nl, lead_u[MAXS], pick[MAXS], f;
+    int nl, lead_u[MAXS], pick[MAXS], f, need;
 
     /* hats out for 4-8 bars: full-groove units after the first, apart from other hat drop-outs and away from the
        kick-out block (its snare + hats carry) */
@@ -163,7 +163,7 @@ static void moves(grid_t *g, rng_t *mo, int motion)
         for (s = a; s < e; s++) if (g->skel[s] != FULL || g->kind[s]) ok = 0;
         if (g->kind[a - 1] & (S_KICKOUT | S_HATSOUT)) ok = 0;
         if (e < g->oe && (g->kind[e] & (S_KICKOUT | S_HATSOUT))) ok = 0;
-        if (!ok || !roll) continue;
+        if (!ok || !roll || !hats_ok) continue;
         for (s = a; s < e; s++)
             if (e - a == 1 || half == 0 || (half == 1 && s == a) || (half == 2 && s == e - 1)) {
                 g->skel[s] &= (uint8_t)~L_HATS;
@@ -195,6 +195,24 @@ static void moves(grid_t *g, rng_t *mo, int motion)
         if (s > 0 && want != g->lead[s] && room(g, s) > 0) g->lead[s] = (uint8_t)want;   /* blocked: 4 bars later */
     }
 
+    /* make sure the lead is heard: if dice and mandated moves left it under a quarter of the middle (or 8 bars),
+       place one run instead, starting and ending only where a boundary has room (it may carry through a break) */
+    need = (g->oe - g->ni + 3) / 4;
+    if (need < 2) need = 2;
+    for (s = g->ms, t = 0; s < g->oe; s++) t += g->lead[s];
+    if (t < need) {
+        int c[MAXS], nc = 0, aligned;
+        memset(g->lead, 0, sizeof g->lead);
+        for (aligned = 1; aligned >= 0 && nc == 0; aligned--)
+            for (s = g->ms > 0 ? g->ms : 1; s + need <= g->oe; s++)
+                if (room(g, s) > 0 && (!aligned || (s - g->ms) % 2 == 0)) c[nc++] = s;
+        if (nc) {
+            int a = c[rng_int(mo, nc)], e = a + need;
+            while (e < g->oe && room(g, e) <= 0) e++;
+            for (s = a; s < e; s++) g->lead[s] = 1;
+        }
+    }
+
     /* ear candy: whole units, never the unit of the lead's first statement, never back to back, only where both
        of its edges have room left */
     memset(g->candy, 0, sizeof g->candy);
@@ -213,7 +231,7 @@ void plan_build(const song_roll_t *r, song_plan_t *p)
 {
     static grid_t g;   /* static: no stack burden on the device */
     const lib_map_t *m = lib_map_by_id((uint8_t)r->v[RF_MAP]);
-    int bars = r->v[RF_BARS], motion = r->v[RF_MOTION], s, i, run = 0;
+    int bars = r->v[RF_BARS], motion = r->v[RF_MOTION], s, i, run = 0, steady, drops_ok;
     rng_t sk, mo;
 
     if (!m) m = &LIB_MAPS[0];
@@ -228,14 +246,19 @@ void plan_build(const song_roll_t *r, song_plan_t *p)
     rng_seed(&sk, r->seed ^ 0x504C414Eu, 100);   /* skeleton dice: independent of Motion */
     rng_seed(&mo, r->seed ^ 0x4D4F5645u, 100);   /* Motion dice */
     skeleton(&g, m, &sk);
-    moves(&g, &mo, motion);
+    /* R11: the skeleton binds over Motion. Slow bloom's drums never drop once the kick is in (no hats-out, no
+       drops); Straight in has only small hat drop-outs (no 1-bar drops). */
+    steady = m->middle == MID_NONE && !m->sparse;
+    moves(&g, &mo, motion, !steady);
+    drops_ok = !steady && m->middle != MID_HATS_ONLY;
 
     /* merge slots into blocks: a new block on a layer or section change, at each 8-bar unit of the middle, at the
        entry, middle and outro starts, and after 8 bars */
     for (s = 0; s < g.n; s++) {
         uint8_t L = (uint8_t)(g.skel[s] | (g.lead[s] ? L_LEAD : 0) | (g.candy[s] ? L_CANDY : 0));
         uint8_t sec = (g.kind[s] & S_INTRO) ? SEC_INTRO : (g.kind[s] & S_OUTRO) ? SEC_OUTRO
-                    : (g.kind[s] & S_BREAK) ? SEC_BREAK : (L & L_LEAD) ? SEC_LEAD : SEC_GROOVE;
+                    : ((g.kind[s] & (S_BREAK | S_KICKOUT)) || !(L & (L_KICK | L_SNARE))) ? SEC_BREAK
+                    : (L & L_LEAD) ? SEC_LEAD : SEC_GROOVE;   /* R12: break = drums out or thinned */
         plan_block_t *b = p->n ? &p->b[p->n - 1] : 0;
         int cut = !b || b->layers != L || b->section != sec || run == 2 || s == g.ni || s == g.ms || s == g.oe ||
                   (s > g.ms && s < g.oe && (s - g.ms) % 2 == 0 && !(g.kind[s - 1] & g.kind[s] & S_BREAK));
@@ -260,7 +283,7 @@ void plan_build(const song_roll_t *r, song_plan_t *p)
         if (!nx) continue;
         if (!(b->layers & DRUMS) && (nx->layers & DRUMS)) b->flags |= PB_SWELL;
         if (!(b->layers & (L_KICK | L_SNARE))) continue;
-        if (drop && b->bars == 8 && ((b->layers ^ nx->layers) & (DRUMS | L_BASS)) == 0) b->flags |= PB_DROP_LAST;
+        if (drop && drops_ok && b->bars == 8 && ((b->layers ^ nx->layers) & (DRUMS | L_BASS)) == 0) b->flags |= PB_DROP_LAST;
         else if ((b->layers ^ nx->layers) & (L_KICK | L_SNARE | L_BASS)) b->flags |= PB_FILL_LAST;
     }
     if (m->ending == END_FADE) p->b[p->n - 1].flags |= PB_FADE;
