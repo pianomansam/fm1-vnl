@@ -11,6 +11,7 @@
 #include "groove.h"
 #include "harmony.h"
 #include "melody.h"
+#include "voices.h"
 
 static int fails;
 #define CHECK(c, ...)                                                                                              \
@@ -1072,6 +1073,188 @@ static void test_melody(void)
            kinds[2], lead_n, candy_n);
 }
 
+static uint32_t vt_seed = 12345u;
+static uint32_t vt_rnd(void)
+{
+    vt_seed = vt_seed * 1664525u + 1013904223u;
+    return vt_seed >> 8;
+}
+
+static void vt_ev(int voice, int note, int vel, uint32_t delay, uint32_t len)
+{
+    song_ev_t e;
+    memset(&e, 0, sizeof e);
+    e.voice = (uint8_t)voice;
+    e.note = (uint8_t)note;
+    e.vel = (uint8_t)vel;
+    e.delay = delay;
+    e.len = len;
+    vx_event(&e);
+}
+
+static float vt_l[4096], vt_r[4096];
+
+static void test_voices(void)
+{
+    int i, step, k, nan = 0;
+    float peak = 0.0f;
+    uint32_t first;
+
+    /* one kick: silent before its delay, audible at it (+-1 sample) */
+    vx_init();
+    vx_set_gain(1.0f);
+    vt_ev(V_KICK, 0, 100, 1000, 0);
+    memset(vt_l, 0, sizeof vt_l);
+    memset(vt_r, 0, sizeof vt_r);
+    vx_render(vt_l, vt_r, 3000);
+    first = 0xFFFFFFFFu;
+    for (i = 0; i < 3000; i++)
+        if (vt_l[i] != 0.0f || vt_r[i] != 0.0f) {
+            first = (uint32_t)i;
+            break;
+        }
+    CHECK(first >= 999 && first <= 1001, "kick starts at sample %u, wanted 1000 +-1", (unsigned)first);
+    {
+        float m = 0.0f;
+        for (i = 1000; i < 3000; i++)
+            if (vt_l[i] > m)
+                m = vt_l[i];
+        CHECK(m > 0.05f, "kick is audible (peak %.3f)", (double)m);
+    }
+
+    /* the same kick split over small blocks lands on the same sample */
+    vx_init();
+    vt_ev(V_KICK, 0, 100, 1000, 0);
+    first = 0xFFFFFFFFu;
+    for (k = 0; k < 40; k++) {
+        memset(vt_l, 0, 100 * sizeof(float));
+        memset(vt_r, 0, 100 * sizeof(float));
+        vx_render(vt_l, vt_r, 100);
+        for (i = 0; i < 100 && first == 0xFFFFFFFFu; i++)
+            if (vt_l[i] != 0.0f)
+                first = (uint32_t)(k * 100 + i);
+    }
+    CHECK(first >= 999 && first <= 1001, "split-block kick starts at %u", (unsigned)first);
+
+    /* 10 s of a dense, song-like stream: finite, below -3 dBFS */
+    vx_init();
+    vx_set_gain(1.0f);
+    for (step = 0; step < 90; step++) { /* 90 sixteenths of 7779 samples = 15.9 s; render the first 10 s */
+        int sp = step & 15;
+        if (step * 7779 >= 441000)
+            break;
+        if (sp == 0 || sp == 10)
+            vt_ev(V_KICK, 0, 110, 0, 0);
+        if (sp == 4 || sp == 12) {
+            vt_ev(V_SNARE, 0, 105, 900, 0);
+            vt_ev(V_RIM, 0, 60, 0, 0);
+        }
+        if (sp % 2 == 0)
+            vt_ev(V_HAT, 0, 55, (uint32_t)(vt_rnd() % 3000), 0);
+        if (sp == 7)
+            vt_ev(V_OHAT, 0, 50, 0, 0);
+        if (sp % 4 == 3)
+            vt_ev(V_SHAKER, 0, 40, 0, 0);
+        if (sp == 0)
+            for (k = 0; k < 4; k++)
+                vt_ev(V_CHORD, 52 + k * 4, 100, (uint32_t)(k * 600), 7779u * 14u);
+        if (sp % 4 == 0)
+            vt_ev(V_BASS, 36 + (int)(vt_rnd() % 8), 105, 0, 7779u * 3u);
+        if (vt_rnd() % 3 == 0)
+            vt_ev(V_LEAD, 60 + (int)(vt_rnd() % 14), 100, (uint32_t)(vt_rnd() % 2000), 7779u * 2u);
+        if (vt_rnd() % 5 == 0)
+            vt_ev(V_CANDY, 72 + (int)(vt_rnd() % 12), 90, 0, 7779u * 4u);
+        {
+            int left = 7779;
+            while (left > 0) {
+                int n = left > 4096 ? 4096 : left;
+                memset(vt_l, 0, (size_t)n * sizeof(float));
+                memset(vt_r, 0, (size_t)n * sizeof(float));
+                vx_render(vt_l, vt_r, (uint32_t)n);
+                for (i = 0; i < n; i++) {
+                    float a = vt_l[i] < 0 ? -vt_l[i] : vt_l[i], b = vt_r[i] < 0 ? -vt_r[i] : vt_r[i];
+                    if (!(a == a) || !(b == b) || a > 1e9f || b > 1e9f)
+                        nan++;
+                    if (a > peak)
+                        peak = a;
+                    if (b > peak)
+                        peak = b;
+                }
+                left -= n;
+            }
+        }
+    }
+    CHECK(nan == 0, "%d NaN/Inf samples in the dense stream", nan);
+    CHECK(peak < 0.708f, "dense stream peak %.3f, wanted < 0.708 (-3 dBFS)", (double)peak);
+    CHECK(peak > 0.1f, "dense stream is audible (peak %.3f)", (double)peak);
+
+    /* 64 overlapping notes, then release_all: silent within 60 ms */
+    vx_init();
+    for (k = 0; k < 64; k++)
+        vt_ev(k % 4 == 0 ? V_CHORD : k % 4 == 1 ? V_BASS : k % 4 == 2 ? V_LEAD : V_CANDY, 40 + k % 30, 100, 0,
+              441000u);
+    vt_ev(V_KICK, 0, 100, 0, 0);
+    vt_ev(V_OHAT, 0, 100, 0, 0);
+    vt_ev(V_LEAD, 60, 100, 500000, 1000); /* pending: release_all clears it */
+    memset(vt_l, 0, sizeof vt_l);
+    memset(vt_r, 0, sizeof vt_r);
+    vx_render(vt_l, vt_r, 2000);
+    CHECK(vx_active() > 4, "notes sounding before release (%d)", vx_active());
+    vx_release_all();
+    for (k = 0; k < 2646 / 441; k++) {
+        memset(vt_l, 0, 441 * sizeof(float));
+        memset(vt_r, 0, 441 * sizeof(float));
+        vx_render(vt_l, vt_r, 441);
+    }
+    CHECK(vx_active() == 0, "%d voices still active 60 ms after release_all", vx_active());
+    memset(vt_l, 0, sizeof vt_l);
+    memset(vt_r, 0, sizeof vt_r);
+    vx_render(vt_l, vt_r, 4096);
+    {
+        float m = 0.0f;
+        for (i = 0; i < 4096; i++)
+            if (vt_l[i] > m || -vt_l[i] > m)
+                m = vt_l[i] < 0 ? -vt_l[i] : vt_l[i];
+        CHECK(m < 1e-3f, "silence after release (%.5f); the queue was cleared", (double)m);
+    }
+
+    /* queue overflow by 200 events keeps the newest 64 */
+    vx_init();
+    for (k = 0; k < 200; k++)
+        vt_ev(V_KICK, 0, 100, 1000u + (uint32_t)k * 200u, 0);
+    first = 0xFFFFFFFFu;
+    for (k = 0; k < 40000 / 1000 && first == 0xFFFFFFFFu; k++) {
+        memset(vt_l, 0, 1000 * sizeof(float));
+        memset(vt_r, 0, 1000 * sizeof(float));
+        vx_render(vt_l, vt_r, 1000);
+        for (i = 0; i < 1000; i++)
+            if (vt_l[i] != 0.0f) {
+                first = (uint32_t)(k * 1000 + i);
+                break;
+            }
+    }
+    CHECK(first >= 1000u + 136u * 200u - 1u && first <= 1000u + 136u * 200u + 1u,
+          "first surviving kick at %u, wanted %u (events 0-135 dropped)", (unsigned)first, 1000u + 136u * 200u);
+
+    /* gain ramps: 0 silences, and moves smoothly */
+    vx_init();
+    vx_set_gain(0.0f);
+    for (k = 0; k < 4; k++) {
+        memset(vt_l, 0, sizeof vt_l);
+        memset(vt_r, 0, sizeof vt_r);
+        vt_ev(V_BASS, 40, 100, 0, 100000);
+        vx_render(vt_l, vt_r, 4096);
+    }
+    {
+        float m = 0.0f;
+        for (i = 2000; i < 4096; i++)
+            if (vt_l[i] > m || -vt_l[i] > m)
+                m = vt_l[i] < 0 ? -vt_l[i] : vt_l[i];
+        CHECK(m < 1e-4f, "gain 0 is silent (%.5f)", (double)m);
+    }
+    printf("voices: dense peak %.3f\n", (double)peak);
+}
+
 int main(void)
 {
     test_rng();
@@ -1082,6 +1265,7 @@ int main(void)
     test_groove();
     test_harmony();
     test_melody();
+    test_voices();
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;
