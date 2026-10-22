@@ -6,6 +6,7 @@
 #include "rng.h"
 #include "theory.h"
 #include "library.h"
+#include "roll.h"
 
 static int fails;
 #define CHECK(c, ...)                                                                                              \
@@ -228,11 +229,181 @@ static void test_library(void)
     }
 }
 
+static int major_family(int mode) { return mode == MODE_IONIAN || mode == MODE_LYDIAN || mode == MODE_MIXOLYDIAN; }
+
+static int prog_legal(const song_roll_t *r, int id)
+{
+    const lib_prog_t *p = lib_prog_by_id((uint8_t)id);
+    return p && (p->moods & (1 << r->v[RF_MOOD])) && (p->modes & (1 << r->v[RF_MODE]));
+}
+
+static int set_legal(const song_roll_t *r, int id)
+{
+    const lib_set_t *s = lib_set_by_id((uint8_t)id);
+    return s && (s->moods & (1 << r->v[RF_MOOD]));
+}
+
+static int novelty(const song_roll_t *a, const song_roll_t *b)
+{
+    int d = 0, t = a->v[RF_TEMPO] - b->v[RF_TEMPO];
+    d += a->v[RF_MAP] != b->v[RF_MAP];
+    d += a->v[RF_PROG] != b->v[RF_PROG];
+    d += a->v[RF_SET] != b->v[RF_SET];
+    d += lib_pattern_by_id((uint8_t)a->v[RF_PATTERN])->family != lib_pattern_by_id((uint8_t)b->v[RF_PATTERN])->family;
+    d += a->v[RF_MODE] != b->v[RF_MODE];
+    d += a->v[RF_DUST] != b->v[RF_DUST];
+    d += a->v[RF_NOISE] != b->v[RF_NOISE];
+    d += a->v[RF_AMBIENCE] != b->v[RF_AMBIENCE];
+    d += t >= 6 || t <= -6;
+    return d;
+}
+
+static int roll_valid(const song_roll_t *r)
+{
+    const int16_t *v = r->v;
+    int s = roll_seconds(r);
+    return v[RF_KEY] >= 0 && v[RF_KEY] <= 11 && v[RF_TEMPO] >= 70 && v[RF_TEMPO] <= 90 && v[RF_MOTION] >= 0 &&
+           v[RF_MOTION] <= 100 && v[RF_MOOD] >= 0 && v[RF_MOOD] <= 3 && v[RF_MODE] >= 0 && v[RF_MODE] < MODE_N &&
+           lib_map_by_id((uint8_t)v[RF_MAP]) && prog_legal(r, v[RF_PROG]) && set_legal(r, v[RF_SET]) &&
+           lib_pattern_by_id((uint8_t)v[RF_PATTERN]) && v[RF_COLOR] >= 0 && v[RF_COLOR] <= 2 && v[RF_SWING] >= 520 &&
+           v[RF_SWING] <= 620 && v[RF_DUST] >= 0 && v[RF_DUST] <= 3 && v[RF_NOISE] >= 0 && v[RF_NOISE] <= 2 &&
+           v[RF_AMBIENCE] >= 0 && v[RF_AMBIENCE] <= 1 && v[RF_BARS] % 4 == 0 && v[RF_BARS] >= 36 &&
+           v[RF_BARS] <= 76 && s >= 120 && s <= 210;
+}
+
+static void test_roll(void)
+{
+    song_roll_t prev, cur, again;
+    int i, f, k, bad_valid = 0, bad_nov = 0, bad_key = 0, bad_det = 0;
+    long swing_sum = 0;
+    int secs_lo = 999, secs_hi = 0, tempo_peak = 0, tempo_n = 0;
+
+    roll_song(NULL, 1, &prev);
+    CHECK(roll_valid(&prev), "first roll valid");
+    for (i = 2; i <= 2000; i++) {
+        int dk, a, b;
+        roll_song(&prev, (uint32_t)i, &cur);
+        roll_song(&prev, (uint32_t)i, &again);
+        if (memcmp(&cur, &again, sizeof cur) != 0) bad_det++;
+        if (!roll_valid(&cur)) { bad_valid++; if (bad_valid < 4) printf("  invalid roll at seed %d\n", i); }
+        if (novelty(&cur, &prev) < 5) bad_nov++;
+        if (cur.v[RF_TEMPO] - prev.v[RF_TEMPO] < 6 && prev.v[RF_TEMPO] - cur.v[RF_TEMPO] < 6) bad_nov++;
+        dk = ((cur.v[RF_KEY] - prev.v[RF_KEY]) % 12 + 12) % 12;
+        a = major_family(prev.v[RF_MODE]);
+        b = major_family(cur.v[RF_MODE]);
+        if (!(dk == 5 || dk == 7 || (a != b && (dk == 3 || dk == 9))) || dk == 0) bad_key++;
+        swing_sum += cur.v[RF_SWING];
+        k = roll_seconds(&cur);
+        if (k < secs_lo) secs_lo = k;
+        if (k > secs_hi) secs_hi = k;
+        prev = cur;
+    }
+    CHECK(cur.seed == 2000, "seed stored");
+    CHECK(bad_det == 0, "same seed + prev differed %d times", bad_det);
+    CHECK(bad_valid == 0, "%d invalid rolls", bad_valid);
+    CHECK(bad_nov == 0, "%d rolls with fewer than 5 novel choices or tempo within 6 BPM", bad_nov);
+    CHECK(bad_key == 0, "%d unrelated or repeated keys", bad_key);
+    CHECK(swing_sum / 1999 >= 545 && swing_sum / 1999 <= 565, "swing mean %ld", swing_sum / 1999);
+    CHECK(secs_lo < 135 && secs_hi > 190, "seconds span %d-%d", secs_lo, secs_hi);
+    for (i = 1; i <= 2000; i++) {   /* first songs: tempo peaks at 80-84 */
+        roll_song(NULL, (uint32_t)i, &cur);
+        CHECK(roll_valid(&cur), "first roll seed %d valid", i);
+        tempo_n++;
+        if (cur.v[RF_TEMPO] >= 80 && cur.v[RF_TEMPO] <= 84) tempo_peak++;
+    }
+    CHECK(tempo_peak * 100 / tempo_n >= 35, "tempo 80-84 only %d of %d", tempo_peak, tempo_n);
+
+    /* Review Focus 3: tempo picks re-clamp the length */
+    roll_song(NULL, 7, &cur);
+    roll_set(&cur, RF_TEMPO, 90);
+    roll_set(&cur, RF_BARS, 76);
+    CHECK(cur.v[RF_BARS] == 76, "76 bars at 90 BPM allowed");
+    CHECK(roll_set(&cur, RF_TEMPO, 70) == 70 && roll_seconds(&cur) <= 210 && roll_valid(&cur), "70 BPM: %d s",
+          roll_seconds(&cur));
+    roll_set(&cur, RF_BARS, 36);
+    CHECK(cur.v[RF_BARS] == 36, "36 bars at 70 BPM allowed");
+    CHECK(roll_set(&cur, RF_TEMPO, 90) == 90 && roll_seconds(&cur) >= 120 && roll_valid(&cur), "90 BPM: %d s",
+          roll_seconds(&cur));
+    CHECK(roll_set(&cur, RF_TEMPO, 200) == 90 && roll_set(&cur, RF_TEMPO, 10) == 70, "tempo clamps");
+    CHECK(roll_set(&cur, RF_BARS, 1000) <= 76 && roll_valid(&cur), "bars clamp");
+    CHECK(roll_set(&cur, RF_SWING, 900) == 620 && roll_set(&cur, RF_NOISE, -4) == 0, "clamps");
+    {
+        int old = cur.v[RF_PATTERN];
+        CHECK(roll_set(&cur, RF_PATTERN, 200) == old, "unknown pattern id rejected");
+    }
+
+    /* Review Focus 4: dice with one or two legal progressions */
+    {
+        static lib_prog_t one[1], two[2];
+        one[0] = *lib_prog_by_id(1);
+        two[0] = *lib_prog_by_id(1);
+        two[1] = *lib_prog_by_id(8);
+        roll_song(NULL, 3, &cur);
+        roll_set(&cur, RF_MOOD, 3);      /* sunny */
+        roll_set(&cur, RF_MODE, MODE_IONIAN);
+        roll_use_progs(one, 1);
+        cur.v[RF_PROG] = 1;
+        CHECK(roll_dice(&cur, RF_PROG, 5) == 0 && cur.v[RF_PROG] == 1, "one progression: dice returns 0");
+        roll_use_progs(two, 2);
+        CHECK(roll_dice(&cur, RF_PROG, 5) == 1 && cur.v[RF_PROG] == 8, "two progressions: dice gives the other");
+        CHECK(roll_dice(&cur, RF_PROG, 6) == 1 && cur.v[RF_PROG] == 1, "and back");
+        roll_use_progs(NULL, 0);
+        /* the real library: sad + Lydian allows exactly progressions 5 and 10 */
+        roll_set(&cur, RF_MOOD, 0);
+        CHECK(roll_set(&cur, RF_MODE, MODE_LYDIAN) == MODE_LYDIAN, "sad Lydian pickable");
+        CHECK(prog_legal(&cur, cur.v[RF_PROG]), "prog re-picked on mode change");
+        k = cur.v[RF_PROG];
+        CHECK(roll_dice(&cur, RF_PROG, 9) == 1 && cur.v[RF_PROG] == (k == 5 ? 10 : 5), "sad Lydian dice");
+    }
+    for (f = 0; f < RF_N; f++) {
+        int same = 0, illegal = 0, unrelated = 0;
+        roll_song(NULL, 11, &cur);
+        for (i = 0; i < 100; i++) {
+            song_roll_t before = cur;
+            int ch = roll_dice(&cur, f, (uint32_t)i), g;
+            if (ch && cur.v[f] == before.v[f]) same++;
+            if (!ch && memcmp(&cur, &before, sizeof cur) != 0) same++;
+            if (!roll_valid(&cur)) illegal++;
+            if (f == RF_TEMPO && ch && cur.v[f] - before.v[f] < 2 && before.v[f] - cur.v[f] < 2) same++;
+            for (g = 0; g < RF_N; g++) {   /* only the field and its dependents may move */
+                int dep = g == f || (f == RF_TEMPO && g == RF_BARS) ||
+                          (f == RF_MODE && g == RF_PROG) ||
+                          (f == RF_MOOD && (g == RF_MODE || g == RF_PROG || g == RF_SET));
+                if (!dep && cur.v[g] != before.v[g]) unrelated++;
+            }
+        }
+        CHECK(same == 0, "field %d: dice returned 1 without a change (or 0 with one) %d times", f, same);
+        CHECK(illegal == 0, "field %d: dice left %d illegal rolls", f, illegal);
+        CHECK(unrelated == 0, "field %d: dice moved %d unrelated fields", f, unrelated);
+    }
+    /* R4: mood and mode changes keep the progression legal; illegal mode picks are refused */
+    {
+        int m, bad = 0;
+        for (i = 1; i <= 200; i++) {
+            roll_song(NULL, (uint32_t)i, &cur);
+            for (m = 0; m < 4; m++) {
+                roll_set(&cur, RF_MOOD, m);
+                if (cur.v[RF_MOOD] != m || !roll_valid(&cur)) bad++;
+            }
+            for (m = 0; m < MODE_N; m++) {
+                int got = roll_set(&cur, RF_MODE, m), any = 0, j;
+                for (j = 0; j < LIB_NPROGS; j++)
+                    if ((LIB_PROGS[j].moods & (1 << cur.v[RF_MOOD])) && (LIB_PROGS[j].modes & (1 << m))) any = 1;
+                if ((got == m) != any || !roll_valid(&cur)) bad++;
+            }
+        }
+        CHECK(bad == 0, "R4: %d bad mood/mode picks", bad);
+        roll_song(NULL, 5, &cur);
+        CHECK(roll_set(&cur, RF_MODE, MODE_PHRYGIAN) != MODE_PHRYGIAN, "Phrygian has no progression");
+    }
+}
+
 int main(void)
 {
     test_rng();
     test_theory();
     test_library();
+    test_roll();
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;
