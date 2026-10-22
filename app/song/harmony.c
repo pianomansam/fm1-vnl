@@ -99,16 +99,23 @@ int harmony_style(const song_roll_t *r)
 /* Voice the chord from the previous voicing (th_voice holds still when the chord is unchanged). The voice-led state
    stays in the keys' register; a dark chord sounds a second voicing kept under E4, so the groove after a dark intro
    voice-leads from the real register, and darkening never makes a semitone rub. */
-static void voice_chord(const int *pcs, int n, int dark, int *state, int *sound)
+static void voice_chord(const int *pcs, int n, int dark, int bass, int *state, int *sound)
 {
     int have = state[0] || state[1] || state[2] || state[3];
     int prev[4];
     memcpy(prev, state, sizeof prev);
-    th_voice(pcs, n, have ? prev : NULL, state);         /* voice-led in the keys' own register, always */
-    if (dark)                                            /* darker: voice-led again under E4, for this chord only */
-        th_voice_range(pcs, n, have ? prev : NULL, sound, 64);
-    else
+    th_voice_range(pcs, n, have ? prev : NULL, state, 72, bass);   /* in the keys' own register; rootless only */
+    if (dark) {                                                     /* when the bass has the root */
+        static const int HI[3] = {64, 67, 72};                     /* darker: voiced again under E4, a little */
+        int k, i, rub = 1;                                          /* higher when a kept root would rub its 7th */
+        for (k = 0; k < 3 && rub; k++) {
+            th_voice_range(pcs, n, have ? prev : NULL, sound, HI[k], bass);
+            for (rub = 0, i = 0; i < 3; i++)
+                rub |= sound[i + 1] - sound[i] == 1;
+        }
+    } else {
         memcpy(sound, state, 4 * sizeof(int));
+    }
 }
 
 static int emit_chord(const int *notes, int n, uint32_t gap, int lo, int hi, uint32_t len, int dark, uint32_t salt,
@@ -166,7 +173,7 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
     }
     dark = (b->flags & PB_DARK) != 0;
     n = harmony_chord_at(r, bar, pass, dark, pcs);
-    voice_chord(pcs, n, dark, voicing_state, notes);
+    voice_chord(pcs, n, dark, (b->layers & L_BASS) != 0, voicing_state, notes);
     if (style == CS_ARP) {
         k = ARP[(bar * 8 + step / 2) % 6];
         one = notes[k];

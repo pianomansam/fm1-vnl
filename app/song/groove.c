@@ -3,6 +3,8 @@
 #include <string.h>
 #include "groove.h"
 #include "rng.h"
+#include "theory.h"
+#include "harmony.h"
 
 enum { BASS_LO = 28, BASS_HI = 47 };
 
@@ -40,14 +42,28 @@ int groove_bass_style(const song_roll_t *r)
     return fifth ? BS_ROOT_FIFTH : BS_ROOTS;
 }
 
-/* the pitch (MIDI, 28-47) of pitch class pc plus an interval, folded into the bass register */
-static int bass_pitch(int pc, int interval)
+/* Where the bass plays pitch class pc: in a 12-semitone window centered on the song's tonic (A1-Ab2 for the tonic),
+   so roots a step apart in the key sound a step apart, not nearly an octave (a fold by pitch class alone put Eb and E
+   11 semitones apart); folded into E1-B2. */
+static int bass_place(const song_roll_t *r, int pc)
 {
-    int n = BASS_LO + (((pc - BASS_LO) % 12) + 12) % 12;
-    n += interval;
+    int key = r->v[RF_KEY], t = 33 + ((key - 9) % 12 + 12) % 12, n = t + ((pc - key) % 12 + 12) % 12;
+    if (n > t + 6) n -= 12;
     while (n > BASS_HI) n -= 12;
     while (n < BASS_LO) n += 12;
     return n;
+}
+
+/* 1 if bass note n would rub the chord: a chord tone a minor 2nd above it, or a major 7th above it when n is not
+   the root (root and major 7th are the maj7 chord itself) */
+static int rubs_chord(int n, const int *pcs, int npcs)
+{
+    int i, pc = ((n % 12) + 12) % 12, root = ((pcs[0] % 12) + 12) % 12;
+    for (i = 0; i < npcs; i++) {
+        int iv = ((pcs[i] - pc) % 12 + 12) % 12;
+        if (iv == 1 || (iv == 11 && pc != root)) return 1;
+    }
+    return 0;
 }
 
 /* 7 when the chord holds a perfect fifth above its root, else 0 (the root): a fifth the chord lacks could rub the
@@ -60,29 +76,95 @@ static int chord_fifth_interval(const int *pcs, int npcs)
     return 0;
 }
 
-/* the bass note (MIDI) on this step, 0 when none; style is the effective one (walk already resolved) */
-static int bass_note(int style, const lib_pattern_t *p, int bar, int step, const int *pcs, int npcs, int bpc)
+/* The walking line's last beat leads into the next chord's root (next_root, a pitch class; < 0 at the song's end):
+   the scale tone a step below or above it, on the side the line comes from, never one that rubs the chord still
+   sounding; failing both, the chord's 5th (or root). Diatonic only (Sam: nothing out of the key). */
+static int root_place(const song_roll_t *r, int pc, int bar);
+
+static int approach(const song_roll_t *r, int bar, int from, const int *pcs, int npcs, int next_root, int fallback)
 {
-    int root = pcs[0], fifth = chord_fifth_interval(pcs, npcs);
+    int target, d, side, k, cand[2], nc = 0;
+    if (next_root < 0) return fallback;
+    target = root_place(r, next_root, bar + 1);           /* exactly where the next bar's root lands */
+    side = from < target ? -1 : 1;                       /* arrive in the line's direction */
+    for (k = 0; k < 2; k++, side = -side)
+        for (d = 1; d <= 2; d++) {
+            int n = target + side * d;
+            if (th_in_scale(r->v[RF_KEY], r->v[RF_MODE], n)) {
+                if (n >= BASS_LO && n <= BASS_HI) cand[nc++] = n;   /* (folded, it would land an octave away) */
+                break;
+            }
+        }
+    for (k = 0; k < nc; k++)
+        if (!rubs_chord(cand[k], pcs, npcs)) return cand[k];
+    return fallback;
+}
+
+static int prev_root_of(const song_roll_t *r, int bar);
+
+/* the chord's root in the bass: in the tonic's window, moved an octave when that keeps a step-wise root motion from
+   the previous chord's root a step (the window's edge would otherwise split it nearly an octave) */
+static int root_place(const song_roll_t *r, int pc, int bar)
+{
+    int n = bass_place(r, pc), q = prev_root_of(r, bar), p;
+    if (q < 0) return n;
+    p = bass_place(r, q);
+    if (n - p > 6 && n - 12 >= BASS_LO) n -= 12;
+    if (p - n > 6 && n + 12 <= BASS_HI) n += 12;
+    return n;
+}
+
+/* the bass note (MIDI) on this step, 0 when none; style is the effective one (walk already resolved) */
+static int bass_note(const song_roll_t *r, int style, const lib_pattern_t *p, int bar, int step, const int *pcs,
+                     int npcs, int bpc, int next_root)
+{
+    int root = root_place(r, pcs[0], bar), fifth = chord_fifth_interval(pcs, npcs);
     switch (style) {
     case BS_PEDAL:                        /* R21: the root at every chord change, held to the next */
-        return step == 0 && bar % bpc == 0 ? bass_pitch(root, 0) : 0;
-    case BS_WALK: {                       /* quarter notes: root, third, fifth, chromatic approach */
-        int third = npcs > 1 ? ((pcs[1] - root) % 12 + 12) % 12 : 4;
+        return step == 0 && bar % bpc == 0 ? root : 0;
+    case BS_WALK: {                       /* quarter notes up from the root: root, third, fifth, then the approach */
+        int third = npcs > 1 ? ((pcs[1] - pcs[0]) % 12 + 12) % 12 : 4;
+        int up3 = root + third > BASS_HI ? root + third - 12 : root + third;
+        int up5 = root + fifth > BASS_HI ? root + fifth - 12 : root + fifth;
+        if (rubs_chord(up3, pcs, npcs)) up3 = root;     /* a note the chord's colors rub gives way to the root */
+        if (rubs_chord(up5, pcs, npcs)) up5 = root;
         if (step & 3) return 0;
         switch (step >> 2) {
-        case 0: return bass_pitch(root, 0);
-        case 1: return bass_pitch(root, third);
-        case 2: return bass_pitch(root, fifth);
-        default: return bass_pitch(root, (bar & 1) ? 2 : -1);
+        case 0: return root;
+        case 1: return up3;
+        case 2: return up5;
+        default: return approach(r, bar, up5, pcs, npcs, (bar + 1) % bpc ? pcs[0] : next_root, up5);
         }
     }
     case BS_ROOT_FIFTH:
         if (step != 0 && !((p->hit[D_KICK] >> step) & 1)) return 0;
-        return bass_pitch(root, step == 8 || step == 10 ? fifth : 0);
+        if (step == 8 || step == 10) {
+            int f = root + fifth > BASS_HI ? root + fifth - 12 : root + fifth;
+            return rubs_chord(f, pcs, npcs) ? root : f;
+        }
+        return root;
     default:                              /* BS_ROOTS: the root on kick hits */
-        return (p->hit[D_KICK] >> step) & 1 ? bass_pitch(root, 0) : 0;
+        return (p->hit[D_KICK] >> step) & 1 ? root : 0;
     }
+}
+
+/* the root (pitch class) of the chord before `bar`'s chord, -1 at the song's start */
+static int prev_root_of(const song_roll_t *r, int bar)
+{
+    const lib_prog_t *pr = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
+    int bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1, b = bar - bar % bpc - 1, loop, pcs[5];
+    if (b < 0) return -1;
+    loop = pr && pr->n * pr->bars_per_chord ? pr->n * pr->bars_per_chord : 4;
+    return harmony_chord_at(r, b, b / loop + 1, 0, pcs) > 0 ? pcs[0] : -1;
+}
+
+/* the root (pitch class) of the chord after `bar`, -1 past the song's end: the walking line's target */
+static int next_root_of(const song_roll_t *r, int bar)
+{
+    const lib_prog_t *pr = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
+    int loop = pr && pr->n * pr->bars_per_chord ? pr->n * pr->bars_per_chord : 4, pcs[5];
+    if (bar + 1 >= r->v[RF_BARS]) return -1;
+    return harmony_chord_at(r, bar + 1, (bar + 1) / loop + 1, 0, pcs) > 0 ? pcs[0] : -1;
 }
 
 /* the bass style playing at `bar`: BS_WALK only inside its 8-bar window (seed stream 113), root and fifth elsewhere */
@@ -103,7 +185,7 @@ int groove_bass_note(const song_roll_t *r, const plan_block_t *b, int bar, int s
     const lib_prog_t *pr = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
     int bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1;
     if (!p || !b || !(b->layers & L_BASS) || !chord_pcs || npcs <= 0 || step < 0 || step > 15) return 0;
-    return bass_note(bass_style_at(r, bar), p, bar, step, chord_pcs, npcs, bpc);
+    return bass_note(r, bass_style_at(r, bar), p, bar, step, chord_pcs, npcs, bpc, next_root_of(r, bar));
 }
 
 static int push(song_ev_t *out, int n, int max, int voice, int note, int vel, uint32_t delay, uint32_t len)
@@ -191,9 +273,9 @@ int groove_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, 
 
     if ((b->layers & L_BASS) && chord_pcs && npcs > 0) {
         const lib_prog_t *pr = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
-        int note, bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1;
+        int note, bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1, nr = next_root_of(r, bar);
         style = bass_style_at(r, bar);
-        note = bass_note(style, p, bar, step, chord_pcs, npcs, bpc);
+        note = bass_note(r, style, p, bar, step, chord_pcs, npcs, bpc, nr);
         if (note) {
             uint32_t len;
             int vel = 78 + (int)(frand(mix(salt, bar, step, 30)) * 12.0f);
@@ -203,7 +285,7 @@ int groove_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, 
                 len = (uint32_t)(4.0f * step_samples);
             else {
                 int d = 1;      /* distance in steps to the next bass note, at most one beat */
-                while (d < 4 && !bass_note(style, p, bar, (step + d) & 15, chord_pcs, npcs, bpc)) d++;
+                while (d < 4 && !bass_note(r, style, p, bar, (step + d) & 15, chord_pcs, npcs, bpc, nr)) d++;
                 len = (uint32_t)((float)d * step_samples);
             }
             n = push(out, n, max, V_BASS, note, vel, swing, len);

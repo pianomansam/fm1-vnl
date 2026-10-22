@@ -38,6 +38,7 @@ typedef struct {
     uint32_t at[MAXT + 1];        /* start sample of each tick */
     int bar[MAXT], step[MAXT];    /* where each tick was */
     int key[MAXT];                /* the roll's key while it played */
+    int root[MAXT];               /* the chord's root (pitch class) at each tick */
     int first[MAXT + 1];          /* index of each tick's first event */
     int ne;
     rev_t ev[MAXE];
@@ -48,6 +49,7 @@ typedef void (*hook_t)(song_t *s, int tick, void *ctx);
 static rec_t R1, R2;
 static int clash_checks = 1;
 static long strong_checked, strong_skipped, strong_in, weak_checked, rubs[2][4];   /* rubs[strong?0:1][kind] */
+static long bass_checked, bass_rubs;                     /* bass notes against the sounding keys */
 
 static float base_ss(int bpm) { return 44100.0f * 60.0f / ((float)bpm * 4.0f); }
 
@@ -184,6 +186,30 @@ static void check_sounding(const rec_t *rec, uint32_t seed)
             }
             if (strong && ((mask >> (e->note % 12)) & 1)) strong_in++;
         }
+        /* the bass against the keys (a walking approach that rubbed the chord's b7 went unseen while only the lead
+           was checked): no keys note a minor 9th (minor 2nd) above a bass note, struck now or held into this step;
+           and none a major 7th above it unless the bass is the chord's root (root and major 7th are a maj7 chord) */
+        for (k = rec->first[lo]; k < rec->first[t + 1]; k++) {
+            const rev_t *e = &rec->ev[k];
+            uint32_t m;
+            unsigned cmask = 0, near;
+            if (e->voice != V_BASS) continue;
+            if (e->tick != t && !(e->start < now && e->end > now)) continue;
+            m = e->start > now ? e->start : now;
+            for (j = rec->first[lo]; j < rec->first[t + 1]; j++) {
+                const rev_t *x = &rec->ev[j];
+                if (x->voice != V_CHORD || x->end <= m || (x->start > m && x->tick != t)) continue;
+                cmask |= 1u << (x->note % 12);
+            }
+            near = 1u << ((e->note + 1) % 12);
+            if (e->note % 12 != rec->root[t]) near |= 1u << ((e->note + 11) % 12);
+            bass_checked++;
+            if (cmask & near) {
+                bass_rubs++;
+                CHECK(bass_rubs > 5, "bass rub: seed %u bar %d step %d bass %d over keys %03x", seed, rec->bar[t], st,
+                      e->note, cmask);
+            }
+        }
     }
 }
 
@@ -212,6 +238,11 @@ static void run(song_t *s, rec_t *rec, hook_t hook, void *ctx, song_t *other)
             rec->bar[t] = bar;
             rec->step[t] = step;
             rec->key[t] = s->roll.v[RF_KEY];
+            {
+                const lib_prog_t *pp = lib_prog_by_id((uint8_t)s->roll.v[RF_PROG]);
+                int loop = pp && pp->n * pp->bars_per_chord ? pp->n * pp->bars_per_chord : 4, pcs[5];
+                rec->root[t] = harmony_chord_at(&s->roll, bar, bar / loop + 1, 0, pcs) > 0 ? pcs[0] : -1;
+            }
             rec->first[t] = rec->ne;
         }
         if (clash_checks) check_step(s, bar, step, ev, n, pos, &lead_end, &candy_end, &last_start, s->roll.seed);
@@ -710,6 +741,8 @@ int main(void)
     printf("strong steps: %ld lead/candy notes checked against the sounding chord and bass (%ld of them sounding "
            "tones), %ld with neither\n", strong_checked, strong_in, strong_skipped);
     printf("other steps: %ld lead/candy notes checked against the sounding chord and bass\n", weak_checked);
+    printf("bass: %ld notes checked against the sounding keys, %ld semitone rubs\n", bass_checked, bass_rubs);
+    CHECK(bass_rubs == 0, "%ld bass notes rub a semitone against the keys", bass_rubs);
     for (i = 0; i < 2; i++)
         printf("semitone rubs on %s steps (0 allowed): over the chord part %ld onset / %ld held; over the bass only "
                "%ld onset / %ld held\n", i ? "other" : "strong", rubs[i][0], rubs[i][1], rubs[i][2], rubs[i][3]);

@@ -875,7 +875,10 @@ static void test_harmony(void)
                 for (i = 0; i < ne; i++) {
                     if (ev[i].voice != V_CHORD) bad_range++;
                     if (ev[i].note < 48 || ev[i].note > 72) bad_range++;
-                    if (b == &dark && ev[i].note > 64) bad_dark++;
+                    if (b == &dark && ev[i].note > 64) {   /* dark: under E4, unless a kept root (no bass in this */
+                        int dp[5], dn = harmony_chord_at(&r, bar, 1 + bar / 4, 1, dp);   /* block) would rub */
+                        if (!(dn > 0 && has_iv(dp, dn, 11))) bad_dark++;               /* its major 7th */
+                    }
                     if (ev[i].vel < 25 || ev[i].vel > 110) bad_vel++;
                     if (ev[i].len == 0) bad_range++;
                 }
@@ -892,7 +895,7 @@ static void test_harmony(void)
             }
     }
     CHECK(bad_range == 0, "harmony: %d events out of range or wrong voice", bad_range);
-    CHECK(bad_dark == 0, "harmony: %d dark notes above 64", bad_dark);
+    CHECK(bad_dark == 0, "harmony: %d dark notes above 64 that no root-vs-major-7th rub required", bad_dark);
     CHECK(bad_vel == 0, "harmony: %d velocities outside 25-110", bad_vel);
     CHECK(bad_roll == 0, "harmony: %d rolled-chord violations", bad_roll);
     CHECK(chords_seen > 0, "harmony: no chord events");
@@ -1552,6 +1555,79 @@ static int top_can_stay(const int *pcs, int n, int top)
     return 0;
 }
 
+/* The bass and the keys in real songs (the auto-accompaniment comparison):
+   - roots a step apart in the key (1-2 semitones) are played a step apart in the bass, not folded nearly an octave;
+   - a walking bar's last beat leads by a step into the next bar's root;
+   - with no bass playing (keys-only intros and outros), the keys voice the chord's root themselves. */
+static void test_bass_and_roots(void)
+{
+    static song_t s;
+    uint32_t seed = 9001;
+    song_roll_t prev, r;
+    song_ev_t ev[64];
+    long steps = 0, close = 0, walks = 0, led = 0, nobass = 0, rooted = 0;
+    int k, i;
+    for (k = 0; k < 300; k++) {
+        int last_root = -1, last_pc = -1, approach_note = -1, bar_keys = 0, bar_nobass = 0, bar_root = 0;
+        seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+        roll_song(k ? &prev : 0, seed, &r);
+        prev = r;
+        song_start(&s, &r);
+        while (s.state == SS_PLAYING) {
+            int bar = s.bar, st = s.step, n = song_tick(&s, ev, 64), bassnote = -1, keys = 0, pcs[5], np;
+            const plan_block_t *b = plan_at(&s.plan, bar);
+            const lib_prog_t *p = lib_prog_by_id((uint8_t)s.roll.v[RF_PROG]);
+            int loop = p && p->n * p->bars_per_chord ? p->n * p->bars_per_chord : 4;
+            for (i = 0; i < n; i++) {
+                if (ev[i].voice == V_BASS) bassnote = ev[i].note;
+                if (ev[i].voice == V_CHORD) keys |= 1 << (ev[i].note % 12);
+            }
+            np = harmony_chord_at(&s.roll, bar, bar / loop + 1, 0, pcs);
+            if (st == 0 && bassnote >= 0 && np > 0 && bassnote % 12 == pcs[0] % 12) {
+                if (last_root >= 0 && last_pc != pcs[0] % 12) {
+                    int d = (pcs[0] - last_pc + 12) % 12, step = d == 1 || d == 2 || d == 10 || d == 11;
+                    if (step) {
+                        steps++;
+                        close += bassnote - last_root <= 2 && last_root - bassnote <= 2;
+                    }
+                }
+                if (approach_note >= 0) {
+                    walks++;
+                    led += bassnote - approach_note <= 2 && approach_note - bassnote <= 2 && bassnote != approach_note;
+                }
+                approach_note = -1;
+                last_root = bassnote;
+                last_pc = pcs[0] % 12;
+            }
+            if (st == 0)
+                approach_note = -1;                    /* (a next bar without bass leads nowhere: not counted) */
+            if (st == 12 && bassnote >= 0 && b && groove_bass_style(&s.roll) == BS_WALK && (bar + 1) % 1 == 0) {
+                int next[5], nn = harmony_chord_at(&s.roll, bar + 1, (bar + 1) / loop + 1, 0, next);
+                int fifth = (pcs[0] + 7) % 12;
+                /* a walking approach into a new root; when both scale neighbors would rub the chord still sounding,
+                   the line plays its 5th instead (the no-clash rule wins), which is not an approach */
+                if (nn > 0 && next[0] % 12 != pcs[0] % 12 && bassnote % 12 != pcs[0] % 12 && bassnote % 12 != fifth)
+                    approach_note = bassnote;
+            }
+            if (st == 0) {                             /* a keys-only bar's notes, whole (an arpeggio's too) */
+                if (bar_keys && bar_nobass) {
+                    nobass++;
+                    rooted += (bar_keys >> bar_root) & 1;
+                }
+                bar_keys = 0;
+                bar_nobass = b && !(b->layers & L_BASS) && np > 0;
+                bar_root = np > 0 ? pcs[0] % 12 : 0;
+            }
+            bar_keys |= keys;
+        }
+    }
+    printf("bass: %ld/%ld step-wise root moves placed a step apart; %ld/%ld walking approaches lead by a step; "
+           "keys without bass voice the root %ld/%ld\n", close, steps, led, walks, rooted, nobass);
+    CHECK(steps > 100 && close * 100 >= steps * 95, "step-wise roots placed a step apart only %ld of %ld", close, steps);
+    CHECK(walks > 20 && led * 100 >= walks * 95, "walking approaches led into the next root only %ld of %ld", led, walks);
+    CHECK(nobass > 100 && rooted == nobass, "keys without bass voiced the root only %ld of %ld chords", rooted, nobass);
+}
+
 /* every chord as it sounds in real songs (intro darkening included): no two notes a semitone apart */
 static void test_no_chord_clusters(void)
 {
@@ -1662,6 +1738,7 @@ int main(void)
     test_rng();
     test_voice_leading();
     test_no_chord_clusters();
+    test_bass_and_roots();
     test_dominant_extensions();
     test_no_substitution();
     test_theory();

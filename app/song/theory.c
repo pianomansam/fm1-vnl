@@ -166,7 +166,7 @@ static int role_of(const int *pcs, int n, int i)
    a dominant keeps at least one extension. Register E3-A4 (52-69) preferred, C3-C5 (48-72) allowed so no two
    notes are ever forced a semitone apart; the bottom at most C4, the top pulled back up when it drifts low, no
    semitone clusters and no tight seconds low down. */
-void th_voice_range(const int *pcs, int n, const int *prev, int *out4, int hi)
+void th_voice_range(const int *pcs, int n, const int *prev, int *out4, int hi, int rootless)
 {
     int ref[4], best = 1 << 30, i, drop, v, next = 0, role[5], dom;
     if (prev) {
@@ -184,10 +184,11 @@ void th_voice_range(const int *pcs, int n, const int *prev, int *out4, int hi)
         int t[4], m = 0, cand[4][3], nc[4], pen = 0, ix[4];
         if (n > 4) {                                       /* five tones: drop one */
             if (drop < 0 || role[drop] == 1 || role[drop] == 3) continue;
+            if (role[drop] == 0 && !rootless) continue;   /* no bass: the keys keep the root */
             if (role[drop] == 4 && next < 2 && dom) continue;   /* a dominant keeps an extension */
             pen = role[drop] == 0 ? 0 : role[drop] == 2 ? 1 : 3;
         } else if (n == 4 && drop >= 0) {                  /* four tones: may go rootless, the 5th doubled */
-            if (role[drop] != 0) continue;
+            if (role[drop] != 0 || !rootless) continue;
             pen = 2;
         } else if (drop >= 0) {
             continue;
@@ -255,7 +256,7 @@ void th_voice_range(const int *pcs, int n, const int *prev, int *out4, int hi)
     }
 }
 
-void th_voice(const int *pcs, int n, const int *prev, int *out4) { th_voice_range(pcs, n, prev, out4, 72); }
+void th_voice(const int *pcs, int n, const int *prev, int *out4) { th_voice_range(pcs, n, prev, out4, 72, 1); }
 
 static const char *const NOTE[12] = {"C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"};
 
