@@ -1,0 +1,14 @@
+# VNL-1's build settings (fm1-base's tools/build.py: ./build.sh)
+name = "VNL"                    # the build's files: vnl.fwsc, vnl-X.Y.fwsc
+id_prefix = "FM-1_22"          # dev FM-1_2200, releases FM-1_22XXYYZZ (taken: 0 default, 6 CTL-1, 7 AMB-1, 8 dub, 11 template, 13 Radio)
+usb_manufacturer = "VNL-1"
+usb_product = "VNL-1 FM-1"
+o2 = []                        # separate units compiled at -O2 (an app's DSP)
+words = "words.tsv"
+ble = false                    # no radio: neither target (lo-fi, dub) needs it; saves ~130 KB flash
+ble_central = false
+# the site (tools/make_site.py, tools/publish_site.sh)
+tagline = "A lo-fi hip hop machine for the FM-1"
+repo = "https://github.com/pianomansam/fm1-vnl"
+licence = "MPL-2.0"
+credits = "Built on fm1-base and felucca-bsp, from Felucca by Leo Kuroshita (Hügelton Instruments)."
