@@ -11,12 +11,14 @@
 
    Requests: one slot per field, landing on the next 4-bar boundary, applied at that boundary's first tick (Mood
    first, then by field). What each field rebuilds:
-     RF_KEY      the roll's key; the motif is transposed (same scale steps), nothing regenerated
+     RF_KEY      the roll's key; the motif is transposed (same scale steps; another starting degree, or an octave,
+                 if that keeps it in the lead's register); melody_plan again (which phrases may restate it)
      RF_TEMPO    a linear glide of step samples over 2 bars; RF_BARS is kept
      RF_MOTION,  plan_build again; blocks before the boundary stay, the new plan's blocks from it on; melody_plan
      RF_MAP       again on the merged plan
      RF_MOOD     roll_set (re-picks an illegal mode/progression/set), one roll_dice of the progression toward the
                  mood; motif and phrases rebuilt (as for RF_MODE, RF_PROG, RF_COLOR: the motif depends on the chords)
+   A boundary rebuilds at most one plan, one motif and one phrase plan (all bounded loops).
      RF_BARS     ignored: the bar count never changes
      the rest    roll_set only (set, pattern, swing, dust, noise, ambience take effect from the boundary) */
 #include <stdint.h>
@@ -101,21 +103,26 @@ static int motif_spill(const motif_t *m, int key, const int *off, int first, int
     return spill;
 }
 
-static void transpose_motif(song_t *s, int d)
+/* The motif moved by d semitones keeps its scale steps. If no octave of it fits the lead's register, it starts on
+   the nearest scale degree that fits (same steps, from another degree); failing that (never with 3-8 notes of a
+   20-semitone register), it is rebuilt. Returns 0 when a rebuild is needed. */
+static int transpose_motif(song_t *s, int d)
 {
-    static const int8_t tries[3] = {0, -12, 12};
-    int off[7], i, key = s->roll.v[RF_KEY], best = -1, bs = 0;
+    static const int8_t shift[15] = {0, -7, 7, -1, 1, -2, 2, -3, 3, -4, 4, -5, 5, -6, 6};
+    int off[7], i, key = s->roll.v[RF_KEY], d0;
     int mood = s->roll.v[RF_MOOD] < 0 ? 0 : s->roll.v[RF_MOOD] > 3 ? 3 : s->roll.v[RF_MOOD];
     int lo = 64 + LIB_MOODS[mood].lead_shift;
-    if (s->motif.n == 0) return;
+    if (s->motif.n == 0) return 1;
     mode_offsets(s->roll.v[RF_MODE], off);
-    for (i = 0; i < 3; i++) {
-        int f = s->motif.first + d + tries[i], sp;
-        if (f < 0 || f > 127) continue;
-        sp = motif_spill(&s->motif, key, off, f, lo, lo + 20);
-        if (best < 0 || sp < bs) { best = f; bs = sp; }
+    d0 = deg_of(key, off, s->motif.first + d);
+    for (i = 0; i < 15; i++) {
+        int f = note_of(key, off, d0 + shift[i]);
+        if (f >= 0 && f <= 127 && motif_spill(&s->motif, key, off, f, lo, lo + 20) == 0) {
+            s->motif.first = (uint8_t)f;
+            return 1;
+        }
     }
-    if (best >= 0) s->motif.first = (uint8_t)best;
+    return 0;
 }
 
 /* ---- the plan from a boundary on ---- */
@@ -146,7 +153,7 @@ static void merge_plan(song_t *s, int B)
 
 /* ---- requests landing at B ---- */
 
-enum { RE_PLAN = 1, RE_MELODY = 2 };
+enum { RE_PLAN = 1, RE_MELODY = 2, RE_PHRASES = 4 };
 
 static int apply_one(song_t *s, int f, int B)
 {
@@ -158,8 +165,8 @@ static int apply_one(song_t *s, int f, int B)
         int d;
         roll_set(&s->roll, RF_KEY, v);
         d = ((s->roll.v[RF_KEY] - before.v[RF_KEY]) % 12 + 18) % 12 - 6;   /* -6..5 */
-        if (d) transpose_motif(s, d);
-        return 0;
+        if (d && !transpose_motif(s, d)) return RE_MELODY;
+        return d ? RE_PHRASES : 0;
     }
     case RF_TEMPO: {
         float to;
@@ -197,8 +204,8 @@ static void apply_requests(song_t *s, int B)
     for (f = 0; f < RF_N; f++)
         if (s->pend[f] && s->pend_bar[f] == B) re |= apply_one(s, f, B);
     if (re & RE_PLAN) merge_plan(s, B);
-    if (re & RE_MELODY) melody_motif(&s->roll, s->roll.seed, &s->motif);
-    if (re) melody_plan(&s->roll, &s->plan, &s->ph);
+    if (re & RE_MELODY) melody_motif_for(&s->roll, &s->plan, s->roll.seed, &s->motif);
+    if (re) melody_plan_for(&s->roll, &s->plan, &s->motif, &s->ph);
 }
 
 /* ---- the public face ---- */
@@ -208,8 +215,8 @@ void song_start(song_t *s, const song_roll_t *r)
     memset(s, 0, sizeof *s);
     s->roll = *r;
     plan_build(&s->roll, &s->plan);
-    melody_motif(&s->roll, s->roll.seed, &s->motif);
-    melody_plan(&s->roll, &s->plan, &s->ph);
+    melody_motif_for(&s->roll, &s->plan, s->roll.seed, &s->motif);
+    melody_plan_for(&s->roll, &s->plan, &s->motif, &s->ph);
     s->glide_to = s->glide_from = s->ss = ss_of(s->roll.v[RF_TEMPO] > 0 ? s->roll.v[RF_TEMPO] : 80);
     s->glide_t0 = -64;
     s->state = s->roll.v[RF_BARS] > 0 ? SS_PLAYING : SS_ENDED;
@@ -219,8 +226,9 @@ int song_tick(song_t *s, song_ev_t *out, int max)
 {
     song_ev_t buf[BUF];
     const plan_block_t *b;
-    int bar, step, idx, n = 0, i, j;
+    int bar, step, idx, n = 0, i, j, k;
     uint32_t salt;
+    float gs;
     if (!s || s->state != SS_PLAYING) return 0;
     bar = s->bar;
     step = s->step;
@@ -230,20 +238,27 @@ int song_tick(song_t *s, song_ev_t *out, int max)
         find_edge(s, idx);
     }
     s->ss = ss_at(s, idx);
+    /* the generators size held notes from one step's samples; during a speed-up glide later steps are shorter, so
+       they get the glide's target and held notes end early rather than late */
+    gs = s->ss < s->glide_to ? s->ss : s->glide_to;
     salt = s->roll.seed;
     b = plan_at(&s->plan, bar);
     if (b) {
         int pcs[5], np, pass = bar / loop_bars(&s->roll) + 1, dark = (b->flags & PB_DARK) != 0;
         np = harmony_chord_at(&s->roll, bar, pass, dark, pcs);
-        n += groove_step(&s->roll, b, bar, step, s->ss, pcs, np, salt, buf + n, BUF - n);
-        n += harmony_step(&s->roll, b, bar, step, pass, s->ss, s->voicing, salt, buf + n, BUF - n);
-        n += melody_step(&s->roll, &s->plan, &s->ph, &s->motif, bar, step, s->ss, salt, buf + n, BUF - n);
+        n += groove_step(&s->roll, b, bar, step, gs, pcs, np, salt, buf + n, BUF - n);
+        n += harmony_step(&s->roll, b, bar, step, pass, gs, s->voicing, salt, buf + n, BUF - n);
+        n += melody_step(&s->roll, &s->plan, &s->ph, &s->motif, bar, step, gs, salt, buf + n, BUF - n);
     }
-    for (i = 0; i < n; i++) {                       /* the 4-bar note-off line */
+    for (i = k = 0; i < n; i++) {                   /* the 4-bar note-off line */
         uint32_t at = s->pos + buf[i].delay;
-        if (buf[i].voice > V_CANDY || buf[i].len == 0) continue;
-        if (at + buf[i].len > s->edge) buf[i].len = s->edge > at ? s->edge - at : 1u;
+        if (buf[i].voice <= V_CANDY && buf[i].len) {
+            if (at >= s->edge) continue;            /* would start past the line: dropped, not clicked */
+            if (at + buf[i].len > s->edge) buf[i].len = s->edge - at;
+        }
+        buf[k++] = buf[i];
     }
+    n = k;
     for (i = 1; i < n; i++)                         /* stable sort by delay */
         for (j = i; j > 0 && buf[j].delay < buf[j - 1].delay; j--) {
             song_ev_t t = buf[j];

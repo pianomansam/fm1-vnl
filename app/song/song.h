@@ -35,7 +35,8 @@ typedef struct {
 } song_t;
 
 void song_start(song_t *s, const song_roll_t *r);           /* plan, motif, phrases; bar 0, step 0 */
-int song_tick(song_t *s, song_ev_t *out, int max);          /* one 16th: its events sorted by delay; 0 once ended */
+/* One 16th: its events sorted by delay; 0 once ended. Events beyond max are dropped: pass max >= 64. */
+int song_tick(song_t *s, song_ev_t *out, int max);
 float song_step_samples(const song_t *s);                   /* 44100 * 60 / (tempo * 4), following a tempo glide */
 void song_request(song_t *s, int field, int value);         /* lands on the next 4-bar boundary */
 int song_pending(const song_t *s, int *field, int *bars_left);  /* the earliest pending change; 0 if none */

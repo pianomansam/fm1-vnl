@@ -38,6 +38,7 @@ typedef struct {
     uint32_t at[MAXT + 1];        /* start sample of each tick */
     int bar[MAXT], step[MAXT];    /* where each tick was */
     int key[MAXT];                /* the roll's key while it played */
+    int first[MAXT + 1];          /* index of each tick's first event */
     int ne;
     rev_t ev[MAXE];
 } rec_t;
@@ -46,6 +47,7 @@ typedef void (*hook_t)(song_t *s, int tick, void *ctx);
 
 static rec_t R1, R2;
 static int clash_checks = 1;
+static long strong_checked, strong_skipped, strong_in, rubs[4];
 
 static float base_ss(int bpm) { return 44100.0f * 60.0f / ((float)bpm * 4.0f); }
 
@@ -111,6 +113,69 @@ static void check_step(const song_t *s, int bar, int step, const song_ev_t *ev, 
     }
 }
 
+/* Checks against what actually sounds, from the recorded events (no harmony derivation):
+   - no chord note still sounds when the next chord strike begins;
+   - on steps 0 and 8, every lead/candy note starting then or held into it, against the pitch classes heard in that
+     bar (chord-part and bass notes struck in the bar, plus those held into the step): it is one of them, or none of
+     them lies a semitone below it (no minor-9th rub). The voicing may leave out a color tone (a 9th) that the lead
+     then plays, so "one of them" alone would be too strict; check_step holds onsets to harmony's chord tones.
+     Rubs are counted and reported, not failed: the ones found come from melody/voicing/bass rules upstream of the
+     sequencer (see the Task 9 report), pending a ruling. */
+static void check_sounding(const rec_t *rec, uint32_t seed)
+{
+    static uint32_t strike[MAXT + 1];
+    int t, k, nxt = -1;
+    uint32_t none = 0xFFFFFFFFu;
+    for (t = rec->ticks - 1; t >= 0; t--) {
+        uint32_t on = none;
+        for (k = rec->first[t]; k < rec->first[t + 1]; k++)
+            if (rec->ev[k].voice == V_CHORD && rec->ev[k].start < on) on = rec->ev[k].start;
+        strike[t] = on;
+        for (k = rec->first[t]; k < rec->first[t + 1]; k++)
+            if (rec->ev[k].voice == V_CHORD && nxt >= 0)
+                CHECK(rec->ev[k].end <= strike[nxt], "seed %u step %d: chord note %d sounds %u samples into the next "
+                      "strike", seed, t, rec->ev[k].note, rec->ev[k].end - strike[nxt]);
+        if (on != none) nxt = t;
+    }
+    for (t = 0; t < rec->ticks; t++) {
+        int st = rec->step[t], b0 = t - st, lo = b0 - 32 < 0 ? 0 : b0 - 32, hi = b0 + 16;
+        uint32_t now = rec->at[t];
+        unsigned mask = 0, cmask = 0;
+        if (st != 0 && st != 8) continue;
+        if (hi > rec->ticks) hi = rec->ticks;
+        for (k = rec->first[lo]; k < rec->first[hi]; k++) {
+            const rev_t *e = &rec->ev[k];
+            if ((e->voice == V_CHORD || e->voice == V_BASS) &&
+                ((e->tick >= b0 && e->tick < b0 + 16) || (e->start <= now && e->end > now)))
+            {
+                mask |= 1u << (e->note % 12);
+                if (e->voice == V_CHORD) cmask |= 1u << (e->note % 12);
+            }
+        }
+        for (k = rec->first[lo]; k < rec->first[t + 1]; k++) {
+            const rev_t *e = &rec->ev[k];
+            if (e->voice != V_LEAD && e->voice != V_CANDY) continue;
+            if (e->tick != t && !(e->start < now && e->end > now)) continue;
+            if (!mask) {
+                strong_skipped++;
+                continue;
+            }
+            strong_checked++;
+            if ((mask >> (e->note % 12)) & 1) {
+                strong_in++;
+                continue;
+            }
+            if ((mask >> ((e->note + 11) % 12)) & 1) {
+                int kind = ((cmask >> ((e->note + 11) % 12)) & 1 ? 0 : 2) + (e->tick == t ? 0 : 1);
+                if (rubs[kind]++ < 2)
+                    printf("rub (%s, %s): seed %u bar %d step %d %s note %d over chord %03x bass+chord %03x\n",
+                           kind < 2 ? "chord part" : "bass only", kind & 1 ? "held" : "onset", seed, rec->bar[t], st,
+                           e->voice == V_LEAD ? "lead" : "candy", e->note, cmask, mask);
+            }
+        }
+    }
+}
+
 /* Run a started song to its end, recording into rec; hook (may be NULL) runs before every tick; other (may be
    NULL) is a second song ticked between this song's ticks, to show the two share nothing. */
 static void run(song_t *s, rec_t *rec, hook_t hook, void *ctx, song_t *other)
@@ -136,6 +201,7 @@ static void run(song_t *s, rec_t *rec, hook_t hook, void *ctx, song_t *other)
             rec->bar[t] = bar;
             rec->step[t] = step;
             rec->key[t] = s->roll.v[RF_KEY];
+            rec->first[t] = rec->ne;
         }
         if (clash_checks) check_step(s, bar, step, ev, n, pos, &lead_end, &candy_end, &last_start, s->roll.seed);
         for (i = 0; i < n; i++) {
@@ -158,9 +224,13 @@ static void run(song_t *s, rec_t *rec, hook_t hook, void *ctx, song_t *other)
         pos += ip;
         rec->ticks++;
     }
-    if (rec->ticks <= MAXT) rec->at[rec->ticks] = pos;
+    if (rec->ticks <= MAXT) {
+        rec->at[rec->ticks] = pos;
+        rec->first[rec->ticks] = rec->ne;
+    }
     rec->samples = pos;
     rec->ended = s->state == SS_ENDED;
+    if (clash_checks && rec->ticks <= MAXT) check_sounding(rec, s->roll.seed);
     {
         song_ev_t x[8];
         CHECK(song_tick(s, x, 8) == 0, "song_tick after the end must return 0");
@@ -321,6 +391,14 @@ static void test_tempo_edges(void)
     CHECK(song_pending(&s, &f, &left) == 0, "the next song starts with nothing pending");
 }
 
+/* sample x as a position in steps on a run's grid */
+static float grid_pos(const rec_t *rec, uint32_t x)
+{
+    int k = 0;
+    while (k + 1 < rec->ticks && rec->at[k + 1] <= x) k++;
+    return (float)k + (float)(x - rec->at[k]) / (float)(rec->at[k + 1] - rec->at[k]);
+}
+
 /* Review Focus 2: 70 -> 90 at bar 8 */
 static void test_tempo_glide(void)
 {
@@ -348,12 +426,28 @@ static void test_tempo_glide(void)
         else if (t < 160) CHECK(R1.ss[t] < R1.ss[t - 1], "70->90: glide not speeding up at %d", t);
         else CHECK(R1.ss[t] == base_ss(90), "70->90: step %d not at 90", t);
     }
-    {   /* drums, bass and lead still sit within the step that emitted them (rolled chords may spread further) */
+    {   /* every event sits within the step that emitted it; a rolled chord's notes within its roll (3 gaps of at
+           most 60 ms, which at 90 BPM is longer than a step) */
         int k, bad = 0;
-        for (k = 0; k < R1.ne; k++)
-            if (R1.ev[k].voice != V_CHORD &&
-                R1.ev[k].start - R1.at[R1.ev[k].tick] >= R1.at[R1.ev[k].tick + 1] - R1.at[R1.ev[k].tick]) bad++;
+        for (k = 0; k < R1.ne; k++) {
+            uint32_t off = R1.ev[k].start - R1.at[R1.ev[k].tick];
+            uint32_t lim = R1.ev[k].voice == V_CHORD ? 3u * 2646u + 1u : R1.at[R1.ev[k].tick + 1] - R1.at[R1.ev[k].tick] - 1u;
+            if (off > lim) bad++;
+        }
         CHECK(bad == 0, "70->90: %d events land after their step", bad);
+    }
+    {   /* on the step grid, no chord or bass note ends later than the same note at a steady 70 BPM */
+        int k, bad = 0;
+        song_start(&s, &r);
+        run(&s, &R2, NULL, NULL, NULL);
+        CHECK(R1.ne == R2.ne, "70->90: %d events, %d at a steady tempo", R1.ne, R2.ne);
+        for (k = 0; k < R1.ne && k < R2.ne; k++) {
+            const rev_t *a = &R1.ev[k], *b = &R2.ev[k];
+            CHECK(a->tick == b->tick && a->voice == b->voice && a->note == b->note, "70->90: event %d differs", k);
+            if ((a->voice == V_CHORD || a->voice == V_BASS) && grid_pos(&R1, a->end) > grid_pos(&R2, b->end) + 0.001f)
+                bad++;
+        }
+        CHECK(bad == 0, "70->90: %d chord/bass notes outlast their place on the grid", bad);
     }
 }
 
@@ -420,6 +514,76 @@ static void test_key_change(void)
     CHECK(crossing > 0, "key change: the test needs chords sounding before the boundary");
     CHECK(chords_after > 0, "key change: chords must play after the boundary");
     CHECK(bad == 0, "key change: %d old-key notes ring past the boundary", bad);
+}
+
+/* Key changes on 20 songs by +-1, +-5, +-7 semitones: the key turns exactly at bar 16 and no note of the old key
+   rings past it; every clash check holds after the change (registers included: the motif is transposed) */
+static void test_key_sweep(void)
+{
+    static const int dk[6] = {1, -1, 5, -5, 7, -7};
+    static song_t s;
+    song_roll_t r;
+    int seed, d, k, B = 16;
+    for (seed = 1; seed <= 20; seed++)
+        for (d = 0; d < 6; d++) {
+            req_t q = {14, 3, RF_KEY, 0, 0, 0};
+            int bad = 0, old;
+            roll_song(NULL, (uint32_t)seed, &r);
+            old = r.v[RF_KEY];
+            q.value = (old + dk[d] + 12) % 12;
+            song_start(&s, &r);
+            run(&s, &R1, at_hook, &q, NULL);
+            CHECK(R1.ended && R1.ticks == r.v[RF_BARS] * 16, "key sweep %d %+d: the song must end", seed, dk[d]);
+            CHECK(R1.key[B * 16 - 1] == old && R1.key[B * 16] == q.value, "key sweep %d %+d: key not turned at bar 16",
+                  seed, dk[d]);
+            for (k = 0; k < R1.ne; k++)
+                if (pitched(R1.ev[k].voice) && R1.ev[k].tick < B * 16 && R1.ev[k].end > R1.at[B * 16]) bad++;
+            CHECK(bad == 0, "key sweep %d %+d: %d old-key notes ring past the boundary", seed, dk[d], bad);
+        }
+}
+
+typedef struct { int n; req_t q[4]; } reqs_t;
+
+static void n_hook(song_t *s, int tick, void *ctx)
+{
+    reqs_t *rs = (reqs_t *)ctx;
+    int i;
+    for (i = 0; i < rs->n; i++) at_hook(s, tick, &rs->q[i]);
+}
+
+/* Determinism with requests: key, tempo, motion and mood at various points, run twice (the second time with
+   another song ticking in between) */
+static void test_request_determinism(void)
+{
+    static song_t s, o;
+    song_roll_t r, ro;
+    int i, pass;
+    uint32_t h[21];
+    for (pass = 0; pass < 2; pass++)
+        for (i = 1; i <= 20; i++) {
+            reqs_t rs;
+            memset(&rs, 0, sizeof rs);
+            roll_song(NULL, (uint32_t)(100 + i), &r);
+            rs.n = 4;
+            rs.q[0].bar = 4 + i % 4; rs.q[0].step = i % 16; rs.q[0].field = RF_KEY;
+            rs.q[0].value = (r.v[RF_KEY] + 1 + i % 11) % 12;
+            rs.q[1].bar = 9; rs.q[1].step = 3; rs.q[1].field = RF_TEMPO; rs.q[1].value = 70 + (i * 7) % 21;
+            rs.q[2].bar = 13; rs.q[2].step = 0; rs.q[2].field = RF_MOTION; rs.q[2].value = (i * 37) % 101;
+            rs.q[3].bar = 17 + i % 8; rs.q[3].step = 5; rs.q[3].field = RF_MOOD; rs.q[3].value = i % 4;
+            song_start(&s, &r);
+            if (pass == 0) {
+                run(&s, &R1, n_hook, &rs, NULL);
+                h[i] = R1.hash;
+                CHECK(R1.ended && R1.ticks == r.v[RF_BARS] * 16, "requests %d: the song must end on schedule", i);
+                CHECK(rs.q[0].fired && rs.q[1].fired && rs.q[2].fired && rs.q[3].fired, "requests %d: not all fired",
+                      i);
+            } else {
+                roll_song(&r, (uint32_t)(9000 + i), &ro);
+                song_start(&o, &ro);
+                run(&s, &R2, n_hook, &rs, &o);
+                CHECK(R2.hash == h[i], "requests %d: second run hash %08x != %08x", i, R2.hash, h[i]);
+            }
+        }
 }
 
 /* Mood and Motion requests: the merged plan keeps what played, and nothing clashes after the change */
@@ -512,12 +676,18 @@ int main(void)
     test_tempo_edges();
     test_tempo_glide();
     test_key_change();
+    test_key_sweep();
+    test_request_determinism();
     test_mood_motion();
     test_pending();
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;
     }
+    printf("strong steps: %ld lead/candy notes checked against the sounding chord and bass (%ld of them sounding "
+           "tones), %ld with neither\n", strong_checked, strong_in, strong_skipped);
+    printf("semitone rubs on strong steps (reported, not failed): over the chord part %ld onset / %ld held; over the "
+           "bass only %ld onset / %ld held\n", rubs[0], rubs[1], rubs[2], rubs[3]);
     printf("clash: all checks passed\n");
     return 0;
 }

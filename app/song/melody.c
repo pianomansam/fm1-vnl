@@ -337,11 +337,16 @@ static int motif_fits(const ctx_t *c, const motif_t *m, int P)
 void melody_motif(const song_roll_t *r, uint32_t salt, motif_t *m)
 {
     song_plan_t p;
+    plan_build(r, &p);
+    melody_motif_for(r, &p, salt, m);
+}
+
+void melody_motif_for(const song_roll_t *r, const song_plan_t *p, uint32_t salt, motif_t *m)
+{
     ctx_t c;
     int starts[MAXP], np, set, attempt, lo, i;
-    plan_build(r, &p);
-    ctx_init(&c, r, &p);
-    np = lead_starts(&p, starts);
+    ctx_init(&c, r, p);
+    np = lead_starts(p, starts);
     if (np == 0) { starts[0] = 0; np = 1; }
     lo = lead_lo(r);
     memset(m, 0, sizeof *m);
@@ -377,17 +382,22 @@ void melody_motif(const song_roll_t *r, uint32_t salt, motif_t *m)
 
 void melody_plan(const song_roll_t *r, const song_plan_t *p, melody_phrases_t *ph)
 {
-    ctx_t c;
     motif_t m;
+    melody_motif(r, r->seed, &m);
+    melody_plan_for(r, p, &m, ph);
+}
+
+void melody_plan_for(const song_roll_t *r, const song_plan_t *p, const motif_t *m, melody_phrases_t *ph)
+{
+    ctx_t c;
     rng_t g;
     int starts[MAXP], np, i, ok[MAXP], mid, ns, nv, slot[MAXP];
     ctx_init(&c, r, p);
     memset(ph, PH_NEW, sizeof *ph);
     np = lead_starts(p, starts);
     if (np == 0) return;
-    melody_motif(r, r->seed, &m);
     rng_seed(&g, r->seed, 131);
-    for (i = 0; i < np; i++) ok[i] = motif_fits(&c, &m, starts[i]);
+    for (i = 0; i < np; i++) ok[i] = motif_fits(&c, m, starts[i]);
     ph->kind[0] = PH_STATE;
     ph->kind[np - 1] = PH_STATE;
     mid = np - 2;
