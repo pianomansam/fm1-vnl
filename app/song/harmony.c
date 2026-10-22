@@ -21,6 +21,19 @@ static const lib_prog_t *prog_of(const song_roll_t *r)
     return p ? p : &LIB_PROGS[0];
 }
 
+static int is_dom(th_chord_spec_t c, int mode)
+{
+    return c.quality == Q_DOM7 || (c.degree == 4 && c.alter == 0 && c.quality == Q_DIATONIC &&
+                                   (mode == MODE_IONIAN || mode == MODE_LYDIAN));
+}
+
+static int is_iv(th_chord_spec_t c, int mode)
+{
+    return c.degree == 3 && c.alter == 0 &&
+           (c.quality == Q_MAJ7 || (c.quality == Q_DIATONIC &&
+                                    (mode == MODE_IONIAN || mode == MODE_DORIAN || mode == MODE_MIXOLYDIAN)));
+}
+
 /* the chord of this bar after any reharmonization; color is the song color (before dark) */
 static th_chord_spec_t spec_at(const song_roll_t *r, const lib_prog_t *p, int bar, int pass, int *color)
 {
@@ -34,15 +47,19 @@ static th_chord_spec_t spec_at(const song_roll_t *r, const lib_prog_t *p, int ba
     rng_seed(&g, r->seed, 120);
     chance = 25 + rng_int(&g, 26);
     if ((int)(mix(r->seed, (uint32_t)pass, 1, 120) % 100u) >= chance) return c;
-    if ((int)(mix(r->seed, (uint32_t)pass, 2, 120) % (uint32_t)p->n) != idx) return c;
-    if (c.quality == Q_DOM7 || (c.degree == 4 && c.alter == 0 && c.quality == Q_DIATONIC &&
-                                (mode == MODE_IONIAN || mode == MODE_LYDIAN))) {
+    {
+        int elig[4], ne = 0, i, t;
+        for (i = 0; i < p->n; i++)
+            if (*color < COLOR_RICH || is_dom(p->c[i], mode) || is_iv(p->c[i], mode)) elig[ne++] = i;
+        if (ne == 0) return c;
+        t = elig[mix(r->seed, (uint32_t)pass, 2, 120) % (uint32_t)ne];
+        if (t != idx) return c;
+    }
+    if (is_dom(c, mode)) {
         int a = c.alter + 6;
         c.alter = (int8_t)(a > 6 ? a - 12 : a);          /* tritone substitution */
         c.quality = Q_DOM7;
-    } else if (c.degree == 3 && c.alter == 0 &&
-               (c.quality == Q_MAJ7 || (c.quality == Q_DIATONIC &&
-                                        (mode == MODE_IONIAN || mode == MODE_DORIAN || mode == MODE_MIXOLYDIAN)))) {
+    } else if (is_iv(c, mode)) {
         c.quality = Q_MIN7;                              /* IV becomes iv */
     } else if (*color < COLOR_RICH) {
         (*color)++;
@@ -65,21 +82,14 @@ int harmony_style(const song_roll_t *r)
     return rng_int(&g, 4);
 }
 
-/* Voice the chord, reusing the held voicing while the chord is the same; dark drops tops above 64 an octave. */
+/* Voice the chord from the previous voicing (th_voice holds still when the chord is unchanged); dark drops tops
+   above 64 an octave. */
 static void voice_chord(const int *pcs, int n, int dark, int *state)
 {
     int have = state[0] || state[1] || state[2] || state[3];
-    int i, j, same = have;
+    int i, j;
     int out[4];
-    if (have)
-        for (i = 0; i < 4 && same; i++) {
-            int in = 0;
-            for (j = 0; j < n; j++) if (state[i] % 12 == pcs[j]) in = 1;
-            for (j = 0; j < i; j++) if (state[j] % 12 == state[i] % 12) in = 0;
-            if (!in) same = 0;
-        }
-    if (same) memcpy(out, state, sizeof out);
-    else th_voice(pcs, n, have ? state : NULL, out);
+    th_voice(pcs, n, have ? state : NULL, out);
     if (dark)
         for (i = 0; i < 4; i++) {
             int top = 0;
@@ -105,7 +115,7 @@ static int emit_chord(const int *notes, int n, uint32_t gap, int lo, int hi, uin
         out[cnt].vel = (uint8_t)clampi(v, 25, 110);
         out[cnt].pad = 0;
         out[cnt].delay = gap * (uint32_t)i;
-        out[cnt].len = len;
+        out[cnt].len = len > out[cnt].delay ? len - out[cnt].delay : 1u;   /* all notes end together */
         cnt++;
     }
     return cnt;

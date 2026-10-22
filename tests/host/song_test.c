@@ -758,10 +758,12 @@ static void test_groove(void)
           "groove: bass styles drawn %d/%d/%d/%d", styles[0], styles[1], styles[2], styles[3]);
 }
 
+static int first_step(int st) { return st == CS_STABS ? 0 : 2; }
+
 static void test_harmony(void)
 {
     song_roll_t r;
-    int pi, key, mode, color, bar, n, i, seed, pass, step;
+    int pi, key, mode, color, bar, i, seed, pass, step;
     int bad_pass1 = 0, reharm = 0, bad_dark = 0, bad_range = 0, bad_roll = 0, bad_vel = 0, bad_det = 0;
     int styles[4] = {0, 0, 0, 0}, chords_seen = 0;
     plan_block_t keys = {0, 8, SEC_GROOVE, L_KEYS, 0}, dark = {0, 4, SEC_INTRO, L_KEYS, PB_DARK};
@@ -826,10 +828,6 @@ static void test_harmony(void)
                 const plan_block_t *b = (bar < 4) ? &dark : &keys;
                 int *vs = (bar < 4) ? prev : prev2;
                 int ne = harmony_step(&r, b, bar, step, 1 + bar / 4, SPS16, vs, 3u, ev, 16);
-                int ne2;
-                int vs2[4];
-                memcpy(vs2, vs, sizeof vs2);
-                (void)vs2;
                 for (i = 0; i < ne; i++) {
                     if (ev[i].voice != V_CHORD) bad_range++;
                     if (ev[i].note < 48 || ev[i].note > 72) bad_range++;
@@ -847,7 +845,6 @@ static void test_harmony(void)
                     }
                     if (ev[0].delay != 0) bad_roll++;
                 }
-                (void)ne2;
             }
     }
     CHECK(bad_range == 0, "harmony: %d events out of range or wrong voice", bad_range);
@@ -860,7 +857,7 @@ static void test_harmony(void)
 
     /* style shapes, no events without L_KEYS, determinism */
     for (seed = 1; seed <= 60; seed++) {
-        int count[16], bpc, st, total = 0, held_bar = 0;
+        int count[16], bpc, st, total = 0, held_bar = 0, bar_notes[4] = {0, 0, 0, 0};
         const lib_prog_t *p;
         int vs[4] = {0, 0, 0, 0}, vsb[4] = {0, 0, 0, 0};
         roll_song(NULL, (uint32_t)seed, &r);
@@ -879,9 +876,20 @@ static void test_harmony(void)
                     if (step != 0 || bar % bpc != 0) held_bar++;
                     for (i = 0; i < a; i++) {
                         uint32_t want = (uint32_t)((float)(bpc * 16) * SPS16) - 441u;
-                        if (ev[i].len + 2 < want || ev[i].len > want + 2) held_bar++;
+                        uint32_t tot = ev[i].len + ev[i].delay;
+                        if (tot + 2 < want || tot > want + 2) held_bar++;
                     }
                 }
+                for (i = 0; i < a; i++) {
+                    float end = (float)(bar * 16 + step) * SPS16 + (float)ev[i].delay + (float)ev[i].len;
+                    float lim = (float)((bar / bpc + 1) * bpc * 16) * SPS16;
+                    if (end > lim + 2.0f) held_bar++;
+                    if (st >= CS_STABS && st <= CS_OFFBEATS && a == 4 && ev[i].note != bar_notes[i]) {
+                        if (step == first_step(st)) bar_notes[i] = ev[i].note;
+                        else held_bar++;
+                    }
+                }
+                if (a == 4 && step == first_step(st)) for (i = 0; i < 4; i++) bar_notes[i] = ev[i].note;
                 if (harmony_step(&r, &nokeys, bar, step, 1, SPS16, vs, 9u, ev, 16) != 0) bad_det++;
             }
         CHECK(held_bar == 0, "harmony: held chords wrong (seed %d)", seed);
@@ -896,7 +904,6 @@ static void test_harmony(void)
         }
     }
     CHECK(bad_det == 0, "harmony: %d determinism or L_KEYS violations", bad_det);
-    (void)n;
 }
 
 int main(void)
