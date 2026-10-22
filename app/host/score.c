@@ -394,18 +394,29 @@ static void write_xml(const char *path)
 
 /* ---- the song's files ---- */
 
-static void finish(void)
+static void write_song(const char *tag)
 {
     char path[512];
     log_flush();
     if (!live)
         return;
     live = 0;
-    snprintf(path, sizeof path, "%s-%d.mid", prefix, count);
+    snprintf(path, sizeof path, "%s-%d%s.mid", prefix, count, tag);
     write_midi(path);
-    snprintf(path, sizeof path, "%s-%d.musicxml", prefix, count);
+    snprintf(path, sizeof path, "%s-%d%s.musicxml", prefix, count, tag);
     write_xml(path);
     if (logf) fflush(logf);
+}
+
+static void finish(void) { write_song(""); }
+
+/* at exit: a song the run stopped in the middle of is written too, but named -partial so it can't pass for a whole
+   song (a cut-off song 2 once looked like a lead that never played) */
+static void finish_partial(void)
+{
+    if (live && logf)
+        fprintf(logf, "(run ended mid-song: song %d is partial)\n", count);
+    write_song("-partial");
 }
 
 static int ready(void)
@@ -418,7 +429,7 @@ static int ready(void)
             snprintf(path, sizeof path, "%s.log", prefix);
             logf = fopen(path, "w");
             recs = malloc(sizeof *recs * MAXREC);
-            atexit(finish);                              /* a song the run stops in the middle of */
+            atexit(finish_partial);                      /* a song the run stops in the middle of */
         }
     }
     return prefix && recs;

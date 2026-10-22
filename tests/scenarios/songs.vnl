@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MPL-2.0
-# VNL-1 plays a whole generated song, a silent gap of 2-4 s, then the next song. Writes songs.wav (listen to it).
+# VNL-1 plays two whole generated songs with their 2-4 s silent gaps. Writes songs.wav (listen to it).
 #   app/build/host/vnl_host tests/scenarios/songs.vnl app/build/scenarios
 #   VNL_SCORE=app/build/scenarios/songs ... writes songs.log, songs-N.mid, songs-N.musicxml (tests/run_tests.sh does):
 #   the log's times are times in songs.wav, which records from boot
@@ -11,9 +11,10 @@ expect playing 1
 expect songs 1
 shot now.png
 peakreset
-# a song lasts at most 210 s and the gap at most 4 s; the next song lasts at least 120 s
-wait 215000
-expect songs 2
+# two whole songs: a song lasts at most 210 s and a gap at most 4 s, so by 430 s the third has started (and, lasting at
+# least 120 s, is the only one cut off: its files are marked partial). Stopping at 215 s once hid song 2's lead section.
+wait 430000
+expect songs 3
 expect playing 1
 wavstop
 # heard near -6 dBFS, and never past full scale
