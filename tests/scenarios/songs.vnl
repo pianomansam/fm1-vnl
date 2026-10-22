@@ -1,13 +1,15 @@
 # SPDX-License-Identifier: MPL-2.0
 # VNL-1 plays a whole generated song, a silent gap of 2-4 s, then the next song. Writes songs.wav (listen to it).
 #   app/build/host/vnl_host tests/scenarios/songs.vnl app/build/scenarios
+#   VNL_SONGLOG=app/build/scenarios/songs.log ... writes the song log (tests/run_tests.sh does): times in it are
+#   times in songs.wav, which records from boot
+wav songs.wav
 # MASTER all the way up (the simulator starts it at half: -12 dB), so songs.wav has the engine's own level
 master 4096
 wait 1000
 expect playing 1
 expect songs 1
 shot now.png
-wav songs.wav
 peakreset
 # a song lasts at most 210 s and the gap at most 4 s; the next song lasts at least 120 s
 wait 215000

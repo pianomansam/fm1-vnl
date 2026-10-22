@@ -29,7 +29,8 @@ run clash sh -c "$CC -O2 -std=c99 -ffp-contract=off -Wall -Wextra -Wdouble-promo
 run host-build sh build.sh --host
 mkdir -p $B/scenarios
 for f in tests/scenarios/*.vnl; do      # the app in the host simulator; outputs (songs.wav, shots) in app/build/scenarios
-    run "scenario-$(basename "$f" .vnl)" $B/host/vnl_host "$f" $B/scenarios
+    name=$(basename "$f" .vnl)         # each scenario's song log beside its outputs (songs.log goes with songs.wav)
+    run "scenario-$name" env VNL_SONGLOG=$B/scenarios/$name.log $B/host/vnl_host "$f" $B/scenarios
 done
 if command -v emcc >/dev/null 2>&1; then
     run emu sh build.sh --web
