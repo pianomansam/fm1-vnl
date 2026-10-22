@@ -728,15 +728,18 @@ static void test_groove(void)
 
     /* bass styles over many seeds */
     for (seed = 1; seed <= 300; seed++) {
-        int style, root_ok = 1, pedal_n = 0;
+        int style, root_ok = 1, pedal_n = 0, bpc, sounded = 0;
+        const lib_prog_t *pr;
         groove_roll(&r2, (uint32_t)seed, (seed % 8) + 1);
         if (up >= 0 && (seed & 1)) r2.v[RF_SET] = (int16_t)up;
         style = groove_bass_style(&r2);
         if (style < 0 || style > 3) { CHECK(0, "groove: bad style %d", style); continue; }
         styles[style]++;
+        pr = lib_prog_by_id((uint8_t)r2.v[RF_PROG]);
+        bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1;
         for (bar = 0; bar < 16; bar++)
             for (step = 0; step < 16; step++) {
-                int root = (bar * 7) % 12, chord[3];
+                int root = (bar / bpc * 7) % 12, chord[3];   /* a new chord every bpc bars, as harmony has it */
                 chord[0] = root; chord[1] = (root + 4) % 12; chord[2] = (root + 7) % 12;
                 n = groove_step(&r2, &all, bar, step, SPS, chord, 3, 2, ev, 16);
                 for (i = 0; i < n; i++) {
@@ -746,14 +749,22 @@ static void test_groove(void)
                     pc = ev[i].note % 12;
                     if (style != BS_WALK && pc != root && pc != (root + 7) % 12) root_ok = 0;
                     if (style == BS_PEDAL) {
+                        /* R21: one note at each chord change, the root, held for the chord's length (rounding
+                           aside), so no bar is silent */
+                        float want = (float)(16 * bpc) * SPS, got = (float)ev[i].len;
                         pedal_n++;
-                        if ((bar & 1) || step != 0 || ev[i].len != (uint32_t)(32.0f * SPS)) root_ok = 0;
+                        if (bar % bpc || step != 0 || pc != root || got < want - 1.0f || got > want + 1.0f)
+                            root_ok = 0;
+                        else
+                            sounded |= ((1 << bpc) - 1) << bar;
                     }
                     if (ev[i].len == 0) root_ok = 0;
                 }
             }
         CHECK(root_ok, "groove: seed %d style %d bass notes out of range, off the chord or mis-timed", seed, style);
-        if (style == BS_PEDAL) CHECK(pedal_n == 8, "groove: seed %d pedal emitted %d notes in 16 bars", seed, pedal_n);
+        if (style == BS_PEDAL)
+            CHECK(pedal_n == 16 / bpc && sounded == 0xFFFF, "groove: seed %d pedal emitted %d notes in 16 bars "
+                  "(%d bars a chord), bars sounded %04x", seed, pedal_n, bpc, sounded);
     }
     CHECK(styles[BS_ROOTS] > 0 && styles[BS_ROOT_FIFTH] > 0 && styles[BS_WALK] > 0 && styles[BS_PEDAL] > 0,
           "groove: bass styles drawn %d/%d/%d/%d", styles[0], styles[1], styles[2], styles[3]);

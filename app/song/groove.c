@@ -61,12 +61,12 @@ static int chord_fifth_interval(const int *pcs, int npcs)
 }
 
 /* the bass note (MIDI) on this step, 0 when none; style is the effective one (walk already resolved) */
-static int bass_note(int style, const lib_pattern_t *p, int bar, int step, const int *pcs, int npcs)
+static int bass_note(int style, const lib_pattern_t *p, int bar, int step, const int *pcs, int npcs, int bpc)
 {
     int root = pcs[0], fifth = chord_fifth_interval(pcs, npcs);
     switch (style) {
-    case BS_PEDAL:
-        return step == 0 && (bar & 1) == 0 ? bass_pitch(root, 0) : 0;
+    case BS_PEDAL:                        /* R21: the root at every chord change, held to the next */
+        return step == 0 && bar % bpc == 0 ? bass_pitch(root, 0) : 0;
     case BS_WALK: {                       /* quarter notes: root, third, fifth, chromatic approach */
         int third = npcs > 1 ? ((pcs[1] - root) % 12 + 12) % 12 : 4;
         if (step & 3) return 0;
@@ -169,23 +169,24 @@ int groove_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, 
     }
 
     if ((b->layers & L_BASS) && chord_pcs && npcs > 0) {
-        int note;
+        const lib_prog_t *pr = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
+        int note, bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1;
         style = groove_bass_style(r);
         if (style == BS_WALK) {
             rng_seed(&g, r->seed, 113);
             if ((bar / 8) % 4 != (int)(rng_next(&g) % 4u)) style = BS_ROOT_FIFTH;
         }
-        note = bass_note(style, p, bar, step, chord_pcs, npcs);
+        note = bass_note(style, p, bar, step, chord_pcs, npcs, bpc);
         if (note) {
             uint32_t len;
             int vel = 78 + (int)(frand(mix(salt, bar, step, 30)) * 12.0f);
             if (style == BS_PEDAL)
-                len = (uint32_t)(32.0f * step_samples);
+                len = (uint32_t)((float)(16 * bpc) * step_samples);
             else if (style == BS_WALK)
                 len = (uint32_t)(4.0f * step_samples);
             else {
                 int d = 1;      /* distance in steps to the next bass note, at most one beat */
-                while (d < 4 && !bass_note(style, p, bar, (step + d) & 15, chord_pcs, npcs)) d++;
+                while (d < 4 && !bass_note(style, p, bar, (step + d) & 15, chord_pcs, npcs, bpc)) d++;
                 len = (uint32_t)((float)d * step_samples);
             }
             n = push(out, n, max, V_BASS, note, vel, swing, len);

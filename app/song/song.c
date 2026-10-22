@@ -5,7 +5,7 @@
    the same boundary samples.
 
    Every 4-bar boundary (and the song's end) is a note-off line: a pitched note that would ring past it is clipped
-   to end on it. With the library's chords (at most 2 bars each, starting on their bar) and the 2-bar pedal bass,
+   to end on it. With the library's chords (at most 2 bars each, starting on their bar) and the pedal bass (one chord long),
    that only trims swing and rounding spill, and it means a key or harmony change never overlaps the old key's
    notes, even when the request came after those notes were emitted.
 
