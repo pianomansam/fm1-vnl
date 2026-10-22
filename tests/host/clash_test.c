@@ -47,7 +47,7 @@ typedef void (*hook_t)(song_t *s, int tick, void *ctx);
 
 static rec_t R1, R2;
 static int clash_checks = 1;
-static long strong_checked, strong_skipped, strong_in, rubs[4];
+static long strong_checked, strong_skipped, strong_in, weak_checked, rubs[2][4];   /* rubs[strong?0:1][kind] */
 
 static float base_ss(int bpm) { return 44100.0f * 60.0f / ((float)bpm * 4.0f); }
 
@@ -62,6 +62,18 @@ static uint32_t fnv(uint32_t h, uint32_t x)
 }
 
 static int pitched(int v) { return v == V_CHORD || v == V_BASS || v == V_LEAD || v == V_CANDY; }
+
+/* R25: pc is in the chord-scale: a chord tone, or a scale note no chord tone lies a semitone from */
+static int in_chord_scale(int key, int mode, const int *pcs, int n, int note)
+{
+    int k, pc = note % 12, near = 0;
+    for (k = 0; k < n; k++) {
+        int d = ((pcs[k] - pc) % 12 + 12) % 12;
+        if (d == 0) return 1;
+        if (d == 1 || d == 11) near = 1;
+    }
+    return !near && th_in_scale(key, mode, pc);
+}
 
 /* every rule a single step's events must keep, against the roll and plan the sequencer used for it */
 static void check_step(const song_t *s, int bar, int step, const song_ev_t *ev, int n, uint32_t pos,
@@ -92,8 +104,8 @@ static void check_step(const song_t *s, int bar, int step, const song_ev_t *ev, 
         default: CHECK(e->note >= 70 && e->note <= 98, "seed %u: candy note %d", seed, e->note); break;
         }
         if (e->voice != V_LEAD && e->voice != V_CANDY) continue;
-        CHECK(th_in_scale(key, mode, e->note), "seed %u bar %d step %d: note %d out of scale", seed, bar, step,
-              e->note);
+        CHECK(in_chord_scale(key, mode, pcs, np, e->note), "seed %u bar %d step %d: note %d out of the chord-scale",
+              seed, bar, step, e->note);
         CHECK(!th_is_avoid(key, mode, pcs, np, e->note), "seed %u bar %d step %d: avoid note %d", seed, bar, step,
               e->note);
         if (step == 0 || step == 8) {
@@ -115,12 +127,12 @@ static void check_step(const song_t *s, int bar, int step, const song_ev_t *ev, 
 
 /* Checks against what actually sounds, from the recorded events (no harmony derivation):
    - no chord note still sounds when the next chord strike begins;
-   - on steps 0 and 8, every lead/candy note starting then or held into it, against the chord-part and bass notes
-     sounding at that moment (the later of the step and the note's start): struck at or before the step and not yet
-     ended, the notes of a chord rolled from this very step included. None of them may lie a semitone above or below
-     it (a hard failure, tested first, so a pitch class heard elsewhere excuses nothing). Whether it is one of them is
-     only counted: the voicing may leave out a color tone (a 9th) that the lead then plays; check_step holds onsets
-     to harmony's chord tones. */
+   - on every step (R25; R20 checked only steps 0 and 8), every lead/candy note starting then or held into it, against
+     the chord-part and bass notes sounding at that moment (the later of the step and the note's start): struck at or
+     before the step and not yet ended, the notes of a chord rolled from this very step included. None of them may lie a semitone above or below
+     it (a hard failure, tested first, so a pitch class heard elsewhere excuses nothing). On steps 0 and 8, whether
+     it is one of them is only counted: the voicing may leave out a color tone (a 9th) that the lead then plays;
+     check_step holds onsets to harmony's chord tones. */
 static void check_sounding(const rec_t *rec, uint32_t seed)
 {
     static uint32_t strike[MAXT + 1];
@@ -140,7 +152,7 @@ static void check_sounding(const rec_t *rec, uint32_t seed)
     for (t = 0; t < rec->ticks; t++) {
         int st = rec->step[t], lo = t - 64 < 0 ? 0 : t - 64;
         uint32_t now = rec->at[t];
-        if (st != 0 && st != 8) continue;
+        int strong = st == 0 || st == 8;
         for (k = rec->first[lo]; k < rec->first[t + 1]; k++) {
             const rev_t *e = &rec->ev[k];
             uint32_t m;
@@ -156,20 +168,21 @@ static void check_sounding(const rec_t *rec, uint32_t seed)
                 if (x->voice == V_CHORD) cmask |= 1u << (x->note % 12);
             }
             if (!mask) {
-                strong_skipped++;
+                if (strong) strong_skipped++;
                 continue;
             }
-            strong_checked++;
+            if (strong) strong_checked++;
+            else weak_checked++;
             near = 1u << ((e->note + 11) % 12) | 1u << ((e->note + 1) % 12);
             if (mask & near) {
                 int kind = (cmask & near ? 0 : 2) + (e->tick == t ? 0 : 1);
-                rubs[kind]++;
+                rubs[strong ? 0 : 1][kind]++;
                 CHECK(0, "rub (%s, %s): seed %u bar %d step %d %s note %d over chord %03x bass+chord %03x",
                       kind < 2 ? "chord part" : "bass only", kind & 1 ? "held" : "onset", seed, rec->bar[t], st,
                       e->voice == V_LEAD ? "lead" : "candy", e->note, cmask, mask);
                 continue;
             }
-            if ((mask >> (e->note % 12)) & 1) strong_in++;
+            if (strong && ((mask >> (e->note % 12)) & 1)) strong_in++;
         }
     }
 }
@@ -685,6 +698,7 @@ static void test_pending(void)
 
 int main(void)
 {
+    int i;
     test_chain();
     test_tempo_edges();
     test_tempo_glide();
@@ -695,8 +709,10 @@ int main(void)
     test_pending();
     printf("strong steps: %ld lead/candy notes checked against the sounding chord and bass (%ld of them sounding "
            "tones), %ld with neither\n", strong_checked, strong_in, strong_skipped);
-    printf("semitone rubs on strong steps (0 allowed): over the chord part %ld onset / %ld held; over the bass only "
-           "%ld onset / %ld held\n", rubs[0], rubs[1], rubs[2], rubs[3]);
+    printf("other steps: %ld lead/candy notes checked against the sounding chord and bass\n", weak_checked);
+    for (i = 0; i < 2; i++)
+        printf("semitone rubs on %s steps (0 allowed): over the chord part %ld onset / %ld held; over the bass only "
+               "%ld onset / %ld held\n", i ? "other" : "strong", rubs[i][0], rubs[i][1], rubs[i][2], rubs[i][3]);
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;

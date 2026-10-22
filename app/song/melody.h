@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 /* The melody: one generated motif per song, developed head-solos-head over 4-bar lead phrases (exact restatement,
    variant, new), and the ear candy that answers it (trading fours) or sprinkles candy-only blocks.
-   No clashes: every note in the scale, chord tones on steps 0 and 8, no avoid notes, no note across a chord
-   change, lead and candy never sounding together. Notes are 5-25 ms late (no swing). Pure functions of inputs.
+   No clashes: every note in the bar's chord-scale and never a semitone from a chord tone or a walking bass's
+   approach note (R25), chord tones on steps 0 and 8, no avoid notes, no note across a chord change, lead and candy
+   never sounding together. Notes are 5-25 ms late (no swing). Pure functions of inputs.
 
    A lead phrase is 4 bars of a block with L_LEAD where the lead plays: in blocks with both L_LEAD and L_CANDY the
    4-bar phrases alternate lead, candy, lead... (lead first). Phrase layout: the head (motif or its development)

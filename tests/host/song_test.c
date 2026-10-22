@@ -174,12 +174,32 @@ static void test_library(void)
                 CHECK(cnt >= 3, "mood %d mode %d has %d progressions", i, m, cnt);
             }
     }
+    {   /* R25: a non-jazzy progression's chords, at every color, lie in each mode it claims (jazzy ones may borrow) */
+        int m, c, k;
+        for (j = 0; j < LIB_NPROGS; j++) {
+            const lib_prog_t *p = &LIB_PROGS[j];
+            if (p->kind == PK_JAZZY) continue;
+            for (m = 0; m < MODE_N; m++) {
+                if (!(p->modes & (1 << m))) continue;
+                for (i = 0; i < p->n; i++)
+                    for (c = COLOR_7; c <= COLOR_RICH; c++) {
+                        int pcs[8], n = th_chord_pcs(0, m, p->c[i], c, pcs);
+                        for (k = 0; k < n; k++)
+                            if (!th_in_scale(0, m, pcs[k])) {
+                                CHECK(0, "R25: prog %d mode %d chord %d color %d: pc %d out of scale", p->id, m, i, c,
+                                      pcs[k]);
+                                break;
+                            }
+                    }
+            }
+        }
+    }
     {   /* spot-check the claimed chords by name */
         static const struct { int id, mode; const char *want; } sp[] = {
             {9, MODE_IONIAN, "Fmaj7 G7 Em7 Am7"}, {15, MODE_IONIAN, "Dm7 Db7 Cmaj7 Cmaj7"},
             {6, MODE_DORIAN, "Cm7 Bb7"}, {18, MODE_AEOLIAN, "Cm7 Bb7 Abmaj7 G7"}, {13, MODE_MIXOLYDIAN, "Fmaj7 E7 Am7 C7"},
             {22, MODE_AEOLIAN, "Cm7 Fm7 Abmaj7 G7"}, {24, MODE_DORIAN, "Cm7 Dbmaj7"},
-            {25, MODE_DORIAN, "Cm7 F7 Bbmaj7 Ebmaj7"}, {26, MODE_AEOLIAN, "Cm7 Dm7 Ebmaj7 F7"},
+            {25, MODE_DORIAN, "Cm7 F7 Bbmaj7 Ebmaj7"}, {26, MODE_DORIAN, "Cm7 Dm7 Ebmaj7 F7"},
         };
         int k;
         for (k = 0; k < (int)(sizeof sp / sizeof sp[0]); k++) {
@@ -363,12 +383,12 @@ static void test_roll(void)
         CHECK(roll_dice(&cur, RF_PROG, 5) == 1 && cur.v[RF_PROG] == 8, "two progressions: dice gives the other");
         CHECK(roll_dice(&cur, RF_PROG, 6) == 1 && cur.v[RF_PROG] == 1, "and back");
         roll_use_progs(NULL, 0);
-        /* the real library: sad + Lydian allows exactly progressions 5 and 10 */
-        roll_set(&cur, RF_MOOD, 0);
-        CHECK(roll_set(&cur, RF_MODE, MODE_LYDIAN) == MODE_LYDIAN, "sad Lydian pickable");
+        /* the real library: wistful + Lydian allows exactly progressions 27 and 36 (R25) */
+        roll_set(&cur, RF_MOOD, 1);
+        CHECK(roll_set(&cur, RF_MODE, MODE_LYDIAN) == MODE_LYDIAN, "wistful Lydian pickable");
         CHECK(prog_legal(&cur, cur.v[RF_PROG]), "prog re-picked on mode change");
         k = cur.v[RF_PROG];
-        CHECK(roll_dice(&cur, RF_PROG, 9) == 1 && cur.v[RF_PROG] == (k == 5 ? 10 : 5), "sad Lydian dice");
+        CHECK(roll_dice(&cur, RF_PROG, 9) == 1 && cur.v[RF_PROG] == (k == 27 ? 36 : 27), "wistful Lydian dice");
     }
     for (f = 0; f < RF_N; f++) {
         int same = 0, illegal = 0, unrelated = 0;
@@ -942,6 +962,18 @@ static int lead_phrase_starts(const song_plan_t *p, int *starts)
 
 typedef struct { int bar, step, voice, note; float on, off; } mel_note_t;
 
+/* R25: pc is in the chord-scale: a chord tone, or a scale note no chord tone lies a semitone from */
+static int in_chord_scale(int key, int mode, const int *pcs, int n, int note)
+{
+    int k, pc = note % 12, near = 0;
+    for (k = 0; k < n; k++) {
+        int d = ((pcs[k] - pc) % 12 + 12) % 12;
+        if (d == 0) return 1;
+        if (d == 1 || d == 11) near = 1;
+    }
+    return !near && th_in_scale(key, mode, pc);
+}
+
 static void test_melody(void)
 {
     static mel_note_t ns[76 * 16 * 2];
@@ -997,7 +1029,7 @@ static void test_melody(void)
                         if (!(b->layers & L_LEAD)) candy_only_n++;
                         if (n < 70 || n > 98) bad_candy_reg++;
                     } else bad_voice++;
-                    if (!th_in_scale(r.v[RF_KEY], r.v[RF_MODE], n)) bad_scale++;
+                    if (!in_chord_scale(r.v[RF_KEY], r.v[RF_MODE], pcs, npc, n)) bad_scale++;
                     for (k = 0; k < npc; k++) if (pcs[k] == n % 12) ct = 1;
                     if ((step == 0 || step == 8) && !ct) bad_strong++;
                     if (th_is_avoid(r.v[RF_KEY], r.v[RF_MODE], pcs, npc, n)) bad_avoid++;
@@ -1048,7 +1080,7 @@ static void test_melody(void)
         }
     }
     CHECK(bad_motif == 0, "melody: %d motif shape violations", bad_motif);
-    CHECK(bad_scale == 0, "melody: %d notes out of scale", bad_scale);
+    CHECK(bad_scale == 0, "melody: %d notes out of the chord-scale", bad_scale);
     CHECK(bad_strong == 0, "melody: %d notes on steps 0/8 not chord tones", bad_strong);
     CHECK(bad_avoid == 0, "melody: %d avoid notes", bad_avoid);
     CHECK(bad_lead_reg == 0, "melody: %d lead notes outside 62-86", bad_lead_reg);

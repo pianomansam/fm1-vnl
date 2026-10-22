@@ -2,12 +2,16 @@
 /* The melody. Development after the idea of Tuna's motif handling (stated, moved onto the next chord with the same
    shape, given a new ending, restated), reimplemented from the spec; no code from it.
 
-   Legality is held as pitch-class masks per bar of a phrase: `weak` (in scale, not an avoid note under the bar's
-   chord) for any step, `safe` (no semitone from any chord pitch class: the voicing is 4 of them, chosen elsewhere, so
-   this covers whatever sounds, the root under a rootless maj7 included), `strong` (weak, safe and a chord tone) for
-   steps 0 and 8, and `bound`, the step at which the next chord change (or the region's end) falls. A note held into
-   step 0 or 8 must be safe there, or it ends before it. Every note is picked from those masks, so no rule can be broken; the
-   motif uses masks intersected over every lead phrase of the song, so an exact restatement is legal anywhere. */
+   Legality is held as pitch-class masks per bar of a phrase. `safe` (local): no semitone from any chord pitch class
+   (the voicing is 4 of them, chosen elsewhere, so this covers whatever sounds, the root under a rootless maj7
+   included). `weak`, for any step (R25): the bar's chord-scale, the mode's scale with each note a semitone from a
+   chord tone replaced by that chord tone, kept only where safe; so a borrowed chord's tones replace the scale notes
+   they would rub, and no avoid note is left. `beat4`: weak, clear of a walking bass's approach note, for steps
+   12-15. `strong`: weak and a chord tone, for steps 0 and 8. `bound`: the step at which the next chord change (or
+   the region's end) falls. A held note must stay legal on every step it sounds on, or it ends before the first that
+   is not. Every note is picked from those masks, so no rule can be broken; the motif uses masks intersected over
+   every lead phrase of the song and kept to the mode's scale (it is restated by scale degree), so an exact
+   restatement is legal anywhere. */
 #include <stdint.h>
 #include <string.h>
 #include "melody.h"
@@ -32,7 +36,7 @@ typedef struct {
 } ctx_t;
 
 /* Legal pitch classes per bar of a region (up to 4 bars), and where each bar's notes must end. */
-typedef struct { uint16_t weak[4], strong[4], ct[4], safe[4]; int8_t g3[4], g7[4]; uint8_t bound[4]; } region_t;
+typedef struct { uint16_t weak[4], strong[4], ct[4], beat4[4]; int8_t g3[4], g7[4]; uint8_t bound[4]; } region_t;
 
 static uint32_t mix(uint32_t a, uint32_t b, uint32_t c, uint32_t d)
 {
@@ -95,16 +99,23 @@ static void bar_masks(const ctx_t *c, int bar, int origin, region_t *R, int k)
 {
     const plan_block_t *b = plan_at(c->p, bar);
     int pcs[5], n, i, pass = bar / c->loop + 1, t3, t7;
-    uint16_t ct = 0, weak = 0, safe;
+    uint16_t ct = 0, weak, safe;
     n = harmony_chord_at(c->r, bar, pass, b && (b->flags & PB_DARK), pcs);
     for (i = 0; i < n; i++) ct |= (uint16_t)(1u << mod12(pcs[i]));
-    for (i = 0; i < 12; i++)
-        if (((c->scale >> i) & 1) && !th_is_avoid(c->key, c->mode, pcs, n, i)) weak |= (uint16_t)(1u << i);
     safe = (uint16_t)(~(rot(ct, 1) | rot(ct, -1)) & 0xFFFu);
+    weak = (uint16_t)((c->scale | ct) & safe);     /* the chord-scale, where safe */
     th_guide_tones(pcs, n, &t3, &t7);
     R->weak[k] = weak;
-    R->safe[k] = safe;
-    R->strong[k] = weak & ct & safe;
+    R->beat4[k] = weak;
+    if (b && (b->layers & L_BASS) && groove_bass_style(c->r) == BS_WALK) {
+        rng_t g;                                   /* groove.h: the walk's 8-bar window, else root and fifth */
+        rng_seed(&g, c->r->seed, 113);
+        if ((bar / 8) % 4 == (int)(rng_next(&g) % 4u)) {
+            int ap = pcs[0] + ((bar & 1) ? 2 : -1);     /* beat 4 walks to root + 2 (odd bars) or root - 1 */
+            R->beat4[k] &= (uint16_t)~(rot(1, ap + 1) | rot(1, ap - 1));
+        }
+    }
+    R->strong[k] = weak & ct;
     R->ct[k] = ct;
     R->g3[k] = (int8_t)t3;
     R->g7[k] = (int8_t)t7;
@@ -124,24 +135,30 @@ static void region_and(region_t *a, const region_t *b, int bars)
     int k;
     for (k = 0; k < bars; k++) {
         a->weak[k] &= b->weak[k];
+        a->beat4[k] &= b->beat4[k];
         a->strong[k] &= b->strong[k];
-        a->safe[k] &= b->safe[k];
         if (b->bound[k] < a->bound[k]) a->bound[k] = b->bound[k];
     }
+}
+
+/* what may sound at step t: the chord-scale, narrowed on beat 4 clear of a walking bass's approach note */
+static uint16_t hold_mask(const region_t *R, int t)
+{
+    return t % 16 >= 12 ? R->beat4[t / 16] : R->weak[t / 16];
 }
 
 static uint16_t mask_at(const region_t *R, int t)
 {
     int s = t % 16;
-    return (s == 0 || s == 8) ? R->strong[t / 16] : R->weak[t / 16];
+    return (s == 0 || s == 8) ? R->strong[t / 16] : hold_mask(R, t);
 }
 
-/* the longest a note from t may be held without sounding unsafe on a later step 0 or 8: at most len */
+/* the longest a note from t may be held while every later step it sounds on allows it: at most len */
 static int hold_len(const region_t *R, int t, int len, int note)
 {
     int s;
-    for (s = (t / 8 + 1) * 8; s < t + len && s < 64; s += 8)
-        if (!((R->safe[s / 16] >> mod12(note)) & 1)) return s - t;
+    for (s = t + 1; s < t + len && s < 64; s++)
+        if (!((hold_mask(R, s) >> mod12(note)) & 1)) return s - t;
     return len;
 }
 
@@ -375,6 +392,11 @@ void melody_motif_for(const song_roll_t *r, const song_plan_t *p, uint32_t salt,
                 region_at(&c, starts[k], 2, &Q);
                 region_and(&R, &Q, 2);
             }
+        for (k = 0; k < 2; k++) {                      /* restated by scale degree: keep to the mode's scale */
+            R.weak[k] &= c.scale;
+            R.beat4[k] &= c.scale;
+            R.strong[k] &= c.scale;
+        }
         for (attempt = 0; attempt < 24; attempt++) {
             rng_t g;
             nt_t f[16];
