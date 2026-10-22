@@ -24,6 +24,8 @@ run() {
 }
 run song sh -c "$CC -O2 -std=c99 -ffp-contract=off -Wall -Wextra -Wdouble-promotion -Werror -Iapp/song -Iapp/engine -Ibase/include \
     -o $OUT/song_test tests/host/song_test.c app/song/*.c && $OUT/song_test"
+run clash sh -c "$CC -O2 -std=c99 -ffp-contract=off -Wall -Wextra -Wdouble-promotion -Werror -Iapp/song -Iapp/engine -Ibase/include \
+    -o $OUT/clash_test tests/host/clash_test.c app/song/*.c && $OUT/clash_test"
 run host-build sh build.sh --host
 if command -v emcc >/dev/null 2>&1; then
     run emu sh build.sh --web
