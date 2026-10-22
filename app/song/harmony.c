@@ -21,57 +21,22 @@ static const lib_prog_t *prog_of(const song_roll_t *r)
     return p ? p : &LIB_PROGS[0];
 }
 
-/* a real dominant 7th in this mode (major 3rd and minor 7th above the root): only those take a tritone
- * substitution. Asking the chord itself covers each mode's own dominant (V7 in Ionian, II7 in Lydian, I7 in
- * Mixolydian, IV7 in Dorian) and never the Lydian Vmaj7, which a degree-based test once turned into a foreign D7. */
-static int is_dom(th_chord_spec_t c, int mode)
-{
-    int pcs[5], n = th_chord_pcs(0, mode, c, COLOR_7, pcs), i, third = 0, seventh = 0;
-    for (i = 1; i < n; i++) {
-        int iv = (pcs[i] - pcs[0] + 12) % 12;
-        third |= iv == 4;
-        seventh |= iv == 10;
-    }
-    return third && seventh;
-}
-
-static int is_iv(th_chord_spec_t c, int mode)
-{
-    return c.degree == 3 && c.alter == 0 &&
-           (c.quality == Q_MAJ7 || (c.quality == Q_DIATONIC &&
-                                    (mode == MODE_IONIAN || mode == MODE_DORIAN || mode == MODE_MIXOLYDIAN)));
-}
-
-/* the chord of this bar after any reharmonization; color is the song color (before dark) */
+/* the chord of this bar after any reharmonization; color is the song color (before dark). Reharmonizing only
+ * colors one chord of a later pass richer: no substitutions (Sam, after songs.wav: a tritone sub and a borrowed iv
+ * both sounded foreign to the key). */
 static th_chord_spec_t spec_at(const song_roll_t *r, const lib_prog_t *p, int bar, int pass, int *color)
 {
     int idx = (bar / p->bars_per_chord) % p->n;
     th_chord_spec_t c = p->c[idx];
-    int mode = r->v[RF_MODE];
     rng_t g;
     int chance;
     *color = r->v[RF_COLOR];
-    if (pass < 2) return c;
+    if (pass < 2 || *color >= COLOR_RICH) return c;
     rng_seed(&g, r->seed, 120);
     chance = 25 + rng_int(&g, 26);
     if ((int)(mix(r->seed, (uint32_t)pass, 1, 120) % 100u) >= chance) return c;
-    {
-        int elig[4], ne = 0, i, t;
-        for (i = 0; i < p->n; i++)
-            if (*color < COLOR_RICH || is_dom(p->c[i], mode) || is_iv(p->c[i], mode)) elig[ne++] = i;
-        if (ne == 0) return c;
-        t = elig[mix(r->seed, (uint32_t)pass, 2, 120) % (uint32_t)ne];
-        if (t != idx) return c;
-    }
-    if (is_dom(c, mode)) {
-        int a = c.alter + 6;
-        c.alter = (int8_t)(a > 6 ? a - 12 : a);          /* tritone substitution */
-        c.quality = Q_DOM7;
-    } else if (is_iv(c, mode)) {
-        c.quality = Q_MIN7;                              /* IV becomes iv */
-    } else if (*color < COLOR_RICH) {
-        (*color)++;
-    }
+    if ((int)(mix(r->seed, (uint32_t)pass, 2, 120) % (uint32_t)p->n) == idx)
+        (*color)++;                                      /* one chord of the pass, a richer color */
     return c;
 }
 

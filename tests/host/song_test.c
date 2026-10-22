@@ -196,7 +196,7 @@ static void test_library(void)
     }
     {   /* spot-check the claimed chords by name */
         static const struct { int id, mode; const char *want; } sp[] = {
-            {9, MODE_IONIAN, "Fmaj7 G7 Em7 Am7"}, {15, MODE_IONIAN, "Dm7 Db7 Cmaj7 Cmaj7"},
+            {9, MODE_IONIAN, "Fmaj7 G7 Em7 Am7"}, {15, MODE_IONIAN, "Dm7 G7 Cmaj7 A7"},
             {6, MODE_DORIAN, "Cm7 Bb7"}, {18, MODE_AEOLIAN, "Cm7 Bb7 Abmaj7 G7"}, {13, MODE_IONIAN, "Fmaj7 E7 Am7 C7"},
             {22, MODE_AEOLIAN, "Cm7 Fm7 Abmaj7 G7"}, {24, MODE_DORIAN, "Cm7 Dbmaj7"},
             {25, MODE_DORIAN, "Cm7 F7 Bbmaj7 Ebmaj7"}, {26, MODE_DORIAN, "Cm7 Dm7 Ebmaj7 F7"},
@@ -1383,8 +1383,9 @@ static void test_voices_fix(void)
             CHECK(0, "gain above 1 leaked: %.3f", (double)vt_l[i]);
 }
 
-/* A tritone substitution only ever replaces a real dominant 7th (major 3rd and minor 7th above its root): song 1
- * of songs.wav (C# Lydian, Dbmaj7-Abmaj7) once turned the Lydian Vmaj7 into D7, four notes outside the key. */
+/* No substitutions (Sam, after hearing songs.wav): a reharmonized pass only colors its chord richer. Song 1 (C#
+ * Lydian, Dbmaj7-Abmaj7) once turned Abmaj7 into a tritone-sub D7, and song 2 (F# major, Bmaj7-Bbm7) turned Bmaj7
+ * into a borrowed Bm7: both foreign to the key. And no progression has a tritone sub written in. */
 static int has_iv(const int *pcs, int n, int iv)
 {
     int i;
@@ -1394,14 +1395,25 @@ static int has_iv(const int *pcs, int n, int iv)
     return 0;
 }
 
-static void test_tritone_sub(void)
+static int third_of(const int *pcs, int n) { return has_iv(pcs, n, 4) ? 4 : has_iv(pcs, n, 3) ? 3 : 0; }
+static int seventh_of(const int *pcs, int n) { return has_iv(pcs, n, 11) ? 11 : has_iv(pcs, n, 10) ? 10 : 0; }
+
+static void test_no_substitution(void)
 {
-    int pi, mode, s, pass, bar, bad = 0, subs = 0;
+    int pi, mode, s, pass, bar, i, changed = 0, recolored = 0;
     for (pi = 0; pi < LIB_NPROGS; pi++) {
         const lib_prog_t *p = &LIB_PROGS[pi];
         for (mode = 0; mode < MODE_N; mode++) {
             if (!(p->modes & (1u << mode)))
                 continue;
+            /* written in: a dominant 7th whose root falls a semitone to the next chord's root is a tritone sub */
+            for (i = 0; i < p->n; i++) {
+                int a[5], b[5], na = th_chord_pcs(0, mode, p->c[i], COLOR_7, a);
+                int nb = th_chord_pcs(0, mode, p->c[(i + 1) % p->n], COLOR_7, b);
+                int dom = has_iv(a, na, 4) && has_iv(a, na, 10);
+                CHECK(!(dom && nb > 0 && (a[0] - b[0] + 12) % 12 == 1),
+                      "progression %d (mode %d) has a tritone sub at chord %d", p->id, mode, i);
+            }
             for (s = 1; s <= 200; s++) {
                 song_roll_t r;
                 roll_song(0, (uint32_t)s * 7919u, &r);
@@ -1409,38 +1421,44 @@ static void test_tritone_sub(void)
                 r.v[RF_MODE] = (int16_t)mode;
                 for (pass = 2; pass <= 6; pass++)
                     for (bar = 0; bar < p->n * p->bars_per_chord; bar++) {
-                        int a[5], b[5], na, nb;
+                        int a[5], b[5], na, nb, k, more = 0;
                         int at = bar + (pass - 1) * p->n * p->bars_per_chord;
                         na = harmony_chord_at(&r, bar, 1, 0, a);
                         nb = harmony_chord_at(&r, at, pass, 0, b);
-                        if (na < 1 || nb < 1 || (b[0] - a[0] + 12) % 12 != 6)
+                        if (na < 1 || nb < 1)
                             continue;
-                        subs++;
-                        if (!has_iv(a, na, 4) || !has_iv(a, na, 10))
-                            bad++;
+                        if (b[0] != a[0] || third_of(a, na) != third_of(b, nb) || seventh_of(a, na) != seventh_of(b, nb))
+                            changed++;
+                        for (k = 0; k < nb; k++)
+                            more |= !has_iv(a, na, (b[k] - a[0] + 12) % 12);
+                        recolored += more;
                     }
             }
         }
     }
-    CHECK(bad == 0, "%d tritone substitutions replaced a chord that is not a dominant 7th", bad);
-    CHECK(subs > 0, "no tritone substitution ever happened");
+    CHECK(changed == 0, "%d reharmonized chords changed root, 3rd or 7th (a substitution)", changed);
+    CHECK(recolored > 0, "reharmonize on repeat never colored a chord richer");
     {
-        /* the regression itself: song 1's Abmaj7 in C# Lydian is never turned into D7 */
-        song_roll_t r;
-        int pcs[5], n, pass, bar;
-        roll_song(0, 3248581516u, &r);
-        for (pass = 2; pass <= 14; pass++)
-            for (bar = 0; bar < 4; bar++) {
-                n = harmony_chord_at(&r, (pass - 1) * 4 + bar, pass, 0, pcs);
-                CHECK(n > 0 && pcs[0] != 2, "song 1 bar %d: a D chord in C# Lydian", (pass - 1) * 4 + bar + 1);
-            }
+        song_roll_t r1, r2;
+        int pcs[5], n, b;
+        roll_song(0, 3248581516u, &r1);                  /* song 1 and song 2 of songs.wav */
+        roll_song(&r1, 1992499556u, &r2);                /* the app chains seeds with xorshift32 */
+        CHECK(r2.v[RF_KEY] == 6 && r2.v[RF_TEMPO] == 74, "song 2 of songs.wav is F# at 74 BPM");
+        for (b = 0; b < r1.v[RF_BARS]; b++) {
+            n = harmony_chord_at(&r1, b, b / 4 + 1, 0, pcs);
+            CHECK(n > 0 && pcs[0] != 2, "song 1 bar %d: a D chord in C# Lydian", b + 1);
+        }
+        for (b = 0; b < r2.v[RF_BARS]; b++) {
+            n = harmony_chord_at(&r2, b, b / 4 + 1, 0, pcs);
+            CHECK(!(n > 0 && pcs[0] == 11 && third_of(pcs, n) == 3), "song 2 bar %d: Bm7 in F# major", b + 1);
+        }
     }
 }
 
 int main(void)
 {
     test_rng();
-    test_tritone_sub();
+    test_no_substitution();
     test_theory();
     test_library();
     test_roll();
