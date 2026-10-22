@@ -8,6 +8,7 @@
 #include "library.h"
 #include "roll.h"
 #include "plan.h"
+#include "groove.h"
 
 static int fails;
 #define CHECK(c, ...)                                                                                              \
@@ -610,6 +611,152 @@ static void test_plan(void)
     }
 }
 
+/* ---- groove ---- */
+#define SPS 7782.4f   /* one 16th at 85 BPM */
+
+static void groove_roll(song_roll_t *r, uint32_t seed, int pattern)
+{
+    roll_song(NULL, seed, r);
+    r->v[RF_PATTERN] = (int16_t)pattern;
+    r->v[RF_TEMPO] = 85;
+    r->v[RF_SWING] = 560;
+}
+
+static int upright_set(void)
+{
+    int i;
+    for (i = 0; i < LIB_NSETS; i++)
+        if (LIB_SETS[i].bass == INS_UPRIGHT) return LIB_SETS[i].id;
+    return -1;
+}
+
+static void test_groove(void)
+{
+    song_roll_t r, r2;
+    plan_block_t all = {0, 64, SEC_GROOVE, 0xFF, 0}, nokick = {0, 64, SEC_GROOVE, 0xFF & ~L_KICK, 0};
+    plan_block_t drop = {0, 8, SEC_GROOVE, 0xFF, PB_DROP_LAST}, fill = {0, 8, SEC_GROOVE, 0xFF, PB_FILL_LAST};
+    song_ev_t ev[16], ev2[16];
+    int bar, step, i, n, n2;
+    int bad_snare = 0, bad_hat = 0, bad_even = 0, bad_odd = 0, kicks = 0, drops = 0, bad_det = 0;
+    int bad_bass = 0, snare_n = 0, hat_n = 0;
+    long snare_sum = 0, hat_sum = 0;
+    uint32_t sw = (uint32_t)(0.12f * SPS + 0.5f);
+    int up = upright_set(), styles[4] = {0, 0, 0, 0}, seed, fills_s = 0, fills_k = 0, s;
+
+    groove_roll(&r, 7, 1);
+    for (bar = 0; bar < 64; bar++)
+        for (step = 0; step < 16; step++) {
+            int chord[3] = {(bar * 5) % 12, (bar * 5 + 4) % 12, (bar * 5 + 7) % 12};
+            uint32_t base = (step & 1) ? sw : 0;
+            n = groove_step(&r, &all, bar, step, SPS, chord, 3, 99, ev, 16);
+            n2 = groove_step(&r, &all, bar, step, SPS, chord, 3, 99, ev2, 16);
+            if (n != n2 || memcmp(ev, ev2, sizeof(song_ev_t) * (size_t)n)) bad_det++;
+            for (i = 0; i < n; i++) {
+                uint32_t d = ev[i].delay;
+                if (ev[i].vel < 25 || ev[i].vel > 110) bad_bass++;
+                if (ev[i].voice == V_SNARE || ev[i].voice == V_HAT || ev[i].voice == V_OHAT || ev[i].voice == V_SHAKER) {
+                    int ok = d + 1 >= base;
+                    uint32_t late = ok ? d - base : 0;
+                    if (ev[i].voice == V_SNARE) {
+                        if (!ok || late + 1 < (uint32_t)(10.0f * 44.1f) || late > (uint32_t)(30.0f * 44.1f) + 1) bad_snare++;
+                        if (ev[i].vel >= 50) { snare_sum += ev[i].vel; snare_n++; }
+                    } else if (!ok || late > (uint32_t)(70.0f * 44.1f) + 1) bad_hat++;
+                    if (ev[i].voice == V_HAT) { hat_sum += ev[i].vel; hat_n++; }
+                } else if (ev[i].voice == V_KICK) {
+                    if (d + 1 < base || d > base + 1) { if (step & 1) bad_odd++; else bad_even++; }
+                }
+            }
+            /* on-beat 16ths: no swing at all on the kick and bass */
+            for (i = 0; i < n; i++)
+                if ((step & 1) == 0 && (ev[i].voice == V_KICK || ev[i].voice == V_BASS) && ev[i].delay != 0) bad_even++;
+            n = groove_step(&r, &nokick, bar, step, SPS, chord, 3, 99, ev, 16);
+            for (i = 0; i < n; i++) if (ev[i].voice == V_KICK) kicks++;
+        }
+    CHECK(bad_det == 0, "groove: %d steps differ between identical calls", bad_det);
+    CHECK(bad_snare == 0, "groove: %d snare delays outside 10-30 ms", bad_snare);
+    CHECK(bad_hat == 0, "groove: %d hat delays over 70 ms", bad_hat);
+    CHECK(bad_even == 0 && bad_odd == 0, "groove: swing wrong (%d on-beat, %d off)", bad_even, bad_odd);
+    CHECK(bad_bass == 0, "groove: %d velocities outside 25-110", bad_bass);
+    CHECK(snare_n > 0 && hat_n > 0 && hat_sum * snare_n * 10 >= snare_sum * hat_n * 4 &&
+          hat_sum * snare_n * 10 <= snare_sum * hat_n * 6, "groove: hat/snare velocity %ld/%d vs %ld/%d", hat_sum, hat_n,
+          snare_sum, snare_n);
+    CHECK(kicks == 0, "groove: %d kicks in a block without L_KICK", kicks);
+
+    /* an off-16th kick (pattern 1 has kick on step 6? use pattern 2, step 7) carries exactly the swing delay */
+    {
+        int found = 0, wrong = 0;
+        for (s = 0; s < 16; s += 1) {
+            int chord[3] = {0, 4, 7};
+            n = groove_step(&r, &all, 0, s, SPS, chord, 3, 5, ev, 16);
+            for (i = 0; i < n; i++)
+                if ((s & 1) && ev[i].voice == V_BASS) { found++; if (ev[i].delay + 1 < sw || ev[i].delay > sw + 1) wrong++; }
+        }
+        CHECK(wrong == 0, "groove: off-16th bass swing delay wrong");
+        (void)found;
+    }
+
+    /* drop: no drums in the last bar, bass continues */
+    for (seed = 1; seed < 40 && drops == 0; seed++) {
+        int bassn = 0, drum = 0;
+        groove_roll(&r2, (uint32_t)seed, 1);
+        if (groove_bass_style(&r2) == BS_PEDAL) continue;
+        for (step = 0; step < 16; step++) {
+            int chord[3] = {0, 4, 7};
+            n = groove_step(&r2, &drop, 7, step, SPS, chord, 3, 1, ev, 16);
+            for (i = 0; i < n; i++) { if (ev[i].voice == V_BASS) bassn++; else drum++; }
+        }
+        CHECK(drum == 0, "groove: %d drum events in a dropped bar", drum);
+        CHECK(bassn > 0, "groove: bass silent in a dropped bar");
+        drops++;
+    }
+
+    /* fill: snares on 12-15 and a kick on 14 in the last bar; none in the bar before */
+    groove_roll(&r2, 3, 1);
+    for (step = 12; step < 16; step++) {
+        int chord[3] = {0, 4, 7}, sn = 0, k = 0;
+        n = groove_step(&r2, &fill, 7, step, SPS, chord, 3, 1, ev, 16);
+        for (i = 0; i < n; i++) {
+            if (ev[i].voice == V_SNARE && ev[i].vel >= 60 && ev[i].vel <= 90) sn++;
+            if (ev[i].voice == V_KICK && step == 14) k++;
+        }
+        fills_s += sn >= 1;
+        fills_k += k;
+    }
+    CHECK(fills_s == 4 && fills_k >= 1, "groove: fill has %d of 4 snare steps and %d kick on 14", fills_s, fills_k);
+
+    /* bass styles over many seeds */
+    for (seed = 1; seed <= 300; seed++) {
+        int style, root_ok = 1, pedal_n = 0;
+        groove_roll(&r2, (uint32_t)seed, (seed % 8) + 1);
+        if (up >= 0 && (seed & 1)) r2.v[RF_SET] = (int16_t)up;
+        style = groove_bass_style(&r2);
+        if (style < 0 || style > 3) { CHECK(0, "groove: bad style %d", style); continue; }
+        styles[style]++;
+        for (bar = 0; bar < 16; bar++)
+            for (step = 0; step < 16; step++) {
+                int root = (bar * 7) % 12, chord[3];
+                chord[0] = root; chord[1] = (root + 4) % 12; chord[2] = (root + 7) % 12;
+                n = groove_step(&r2, &all, bar, step, SPS, chord, 3, 2, ev, 16);
+                for (i = 0; i < n; i++) {
+                    int pc;
+                    if (ev[i].voice != V_BASS) continue;
+                    if (ev[i].note < 28 || ev[i].note > 47) root_ok = 0;
+                    pc = ev[i].note % 12;
+                    if (style != BS_WALK && pc != root && pc != (root + 7) % 12) root_ok = 0;
+                    if (style == BS_PEDAL) {
+                        pedal_n++;
+                        if ((bar & 1) || step != 0 || ev[i].len != (uint32_t)(32.0f * SPS)) root_ok = 0;
+                    }
+                    if (ev[i].len == 0) root_ok = 0;
+                }
+            }
+        CHECK(root_ok, "groove: seed %d style %d bass notes out of range, off the chord or mis-timed", seed, style);
+        if (style == BS_PEDAL) CHECK(pedal_n == 8, "groove: seed %d pedal emitted %d notes in 16 bars", seed, pedal_n);
+    }
+    CHECK(styles[BS_ROOTS] > 0 && styles[BS_ROOT_FIFTH] > 0 && styles[BS_WALK] > 0 && styles[BS_PEDAL] > 0,
+          "groove: bass styles drawn %d/%d/%d/%d", styles[0], styles[1], styles[2], styles[3]);
+}
+
 int main(void)
 {
     test_rng();
@@ -617,6 +764,7 @@ int main(void)
     test_library();
     test_roll();
     test_plan();
+    test_groove();
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;
