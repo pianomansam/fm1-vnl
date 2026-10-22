@@ -7,6 +7,7 @@
 #include "theory.h"
 #include "library.h"
 #include "roll.h"
+#include "plan.h"
 
 static int fails;
 #define CHECK(c, ...)                                                                                              \
@@ -408,12 +409,175 @@ static void test_roll(void)
     }
 }
 
+#define DRUMS (L_KICK | L_SNARE | L_HATS)
+
+static int bits(int x)
+{
+    int n = 0;
+    for (; x; x >>= 1) n += x & 1;
+    return n;
+}
+
+/* Optional moves (what Motion adds): 1-bar drops, hats-only toggles, lead and candy toggles. */
+static int optional_moves(const song_plan_t *p)
+{
+    int i, n = 0;
+    for (i = 0; i < p->n; i++) {
+        if (p->b[i].flags & PB_DROP_LAST) n++;
+        if (i > 0) {
+            int d = p->b[i].layers ^ p->b[i - 1].layers;
+            if ((d & DRUMS) == L_HATS) n++;
+            n += bits(d & (L_LEAD | L_CANDY));
+        }
+    }
+    return n;
+}
+
+static void plan_roll(song_roll_t *r, uint32_t seed, int map, int bars, int motion)
+{
+    roll_song(NULL, seed, r);
+    r->v[RF_MAP] = (int16_t)map;
+    r->v[RF_BARS] = (int16_t)bars;
+    r->v[RF_MOTION] = (int16_t)motion;
+}
+
+static void test_plan(void)
+{
+    song_roll_t r;
+    song_plan_t p, q;
+    int s, mi, i;
+    int bad_cover = 0, bad_grid = 0, bad_lead0 = 0, bad_intro = 0, bad_step = 0, bad_break = 0, bad_outro = 0;
+    int bad_fade = 0, bad_entry = 0, bad_kickout = 0, bad_sparse = 0, bad_candy = 0, bad_bed = 0, bad_det = 0;
+    int bad_m0 = 0, bad_at = 0;
+    long lead_bars = 0, mid_bars_all = 0;
+
+    CHECK(strcmp(plan_section_name(SEC_INTRO), "intro") == 0 && strcmp(plan_section_name(SEC_GROOVE), "groove") == 0 &&
+              strcmp(plan_section_name(SEC_LEAD), "lead") == 0 && strcmp(plan_section_name(SEC_BREAK), "break") == 0 &&
+              strcmp(plan_section_name(SEC_OUTRO), "outro") == 0,
+          "section names");
+
+    for (s = 1; s <= 2000; s++) {
+        for (mi = 0; mi < LIB_NMAPS; mi++) {
+            const lib_map_t *m = &LIB_MAPS[mi];
+            int bars = 36 + 4 * (s % 11), motion = (s * 37) % 101, sum = 0;
+            int nbreak = 0, nkick = 0, drum_mid = 0, mid = 0, first_lead = -1;
+            int kick_at = -1, snare_at = -1, hats_at = -1;
+            plan_roll(&r, (uint32_t)s, m->id, bars, motion);
+            plan_build(&r, &p);
+            plan_build(&r, &q);
+            if (memcmp(&p, &q, sizeof p) != 0) bad_det++;
+            if (p.bars != bars || p.n < 1 || p.n > 24) { bad_cover++; continue; }
+            for (i = 0; i < p.n; i++) {
+                const plan_block_t *b = &p.b[i];
+                int L = b->layers;
+                if (b->start != sum || b->bars == 0) bad_cover++;
+                sum += b->bars;
+                if (b->start % 4 || b->bars % 4) bad_grid++;
+                if ((L & L_LEAD) && b->start == 0) bad_lead0++;
+                if (L & L_BED) bad_bed++;
+                if ((L & L_LEAD) && first_lead < 0) {
+                    first_lead = i;
+                    if (L & L_CANDY) bad_candy++;
+                }
+                if ((L & L_LEAD) && (b->section == SEC_INTRO || !(L & L_KEYS))) bad_lead0++;
+                if (motion == 0 && ((L & L_CANDY) || (b->flags & PB_DROP_LAST))) bad_m0++;
+                if (kick_at < 0 && (L & L_KICK)) { kick_at = b->start; if (!(L & L_BASS)) bad_entry++; }
+                if (snare_at < 0 && (L & L_SNARE)) snare_at = b->start;
+                if (hats_at < 0 && (L & L_HATS)) hats_at = b->start;
+                if (b->section != SEC_INTRO && b->section != SEC_OUTRO) {
+                    mid += b->bars;
+                    if (L & DRUMS) drum_mid += b->bars;
+                    else {
+                        nbreak++;
+                        if (m->middle == MID_BREAK &&
+                            (b->bars < 4 || b->bars > 8 || b->section != SEC_BREAK || 100 * b->start < 43 * bars ||
+                             100 * b->start > 65 * bars))
+                            bad_break++;
+                    }
+                    if ((L & L_SNARE) && (L & L_HATS) && !(L & (L_KICK | L_BASS)) && i > 0 && (p.b[i - 1].layers & L_KICK)) {
+                        nkick++;
+                        if (b->bars != 8) bad_kickout++;
+                    }
+                    if (L & L_LEAD) lead_bars += b->bars;
+                    mid_bars_all += b->bars;
+                }
+                if (i > 0) {
+                    int a = p.b[i - 1].layers, d = a ^ L;
+                    /* At most 2 of keys/kick/snare/hats/bass/lead/candy change per boundary. Exempt: the map's
+                       mandated moves that need more, and nothing else may ride along with them: drums entering or
+                       leaving (entry, break, Drift's comings and goings: only drum and bass bits change, one side
+                       drumless) and the keys outro (everything but keys leaves, keys alone to the end). */
+                    int drum_move = !(d & ~(DRUMS | L_BASS)) && (!(a & DRUMS) || !(L & DRUMS));
+                    int keys_outro = i == p.n - 1 && L == L_KEYS && b->section == SEC_OUTRO;
+                    if (bits(d) > 2 && !drum_move && !keys_outro) {
+                        bad_step++;
+                        if (bad_step < 4) printf("  step %02x->%02x map %d seed %d block %d\n", a, L, m->id, s, i);
+                    }
+                }
+                if (plan_at(&p, b->start) != b || plan_at(&p, b->start + b->bars - 1) != b) bad_at++;
+            }
+            if (sum != bars) bad_cover++;
+            if (plan_at(&p, -1) || plan_at(&p, bars)) bad_at++;
+            if (m->intro_bars > 0 && m->entry != EN_FROM_TOP &&
+                (p.b[0].layers != L_KEYS || !(p.b[0].flags & PB_DARK) || p.b[0].section != SEC_INTRO ||
+                 p.b[0].bars != m->intro_bars))
+                bad_intro++;
+            if (m->entry == EN_FROM_TOP && (p.b[0].layers & (DRUMS | L_BASS)) != (DRUMS | L_BASS)) bad_entry++;
+            if (m->entry == EN_TOGETHER && (kick_at != snare_at || hats_at - kick_at < 4 || hats_at - kick_at > 8))
+                bad_entry++;
+            if (m->entry == EN_SNARE_FIRST && (snare_at != hats_at || kick_at - snare_at != 8)) bad_entry++;
+            if (m->middle == MID_BREAK && nbreak != 1) bad_break++;
+            if (m->middle == MID_KICK_OUT && nkick != 1) bad_kickout++;
+            if (m->ending == END_KEYS_OUTRO) {
+                const plan_block_t *e = &p.b[p.n - 1];
+                if (e->layers != L_KEYS || e->bars < 4 || e->bars > 8 || !(e->flags & PB_DARK) || e->section != SEC_OUTRO)
+                    bad_outro++;
+            }
+            if (m->ending == END_FADE && !(p.b[p.n - 1].flags & PB_FADE)) bad_fade++;
+            if (m->sparse && motion > 0 && drum_mid * 10 > mid * 6) bad_sparse++;
+        }
+    }
+    CHECK(bad_cover == 0, "%d plans do not cover RF_BARS contiguously", bad_cover);
+    CHECK(bad_grid == 0, "%d blocks off the 4-bar grid", bad_grid);
+    CHECK(bad_lead0 == 0, "%d lead blocks at bar 0, in an intro or without keys", bad_lead0);
+    CHECK(bad_bed == 0, "%d blocks set L_BED", bad_bed);
+    CHECK(bad_intro == 0, "%d intros not keys-only, dark, map length", bad_intro);
+    CHECK(bad_step == 0, "%d boundaries change more than 2 layers outside a mandated move", bad_step);
+    CHECK(bad_break == 0, "%d MID_BREAK plans without exactly one 4-8 bar break at 43-65%%", bad_break);
+    CHECK(bad_kickout == 0, "%d MID_KICK_OUT plans without exactly one 8-bar kick+bass-out block", bad_kickout);
+    CHECK(bad_outro == 0, "%d END_KEYS_OUTRO plans without a 4-8 bar dark keys-only outro", bad_outro);
+    CHECK(bad_fade == 0, "%d END_FADE plans without PB_FADE on the last block", bad_fade);
+    CHECK(bad_entry == 0, "%d plans with a wrong drum/bass/hats entry", bad_entry);
+    CHECK(bad_sparse == 0, "%d sparse plans with drums in over 60%% of middle bars", bad_sparse);
+    CHECK(bad_candy == 0, "%d plans with candy on the lead's first statement", bad_candy);
+    CHECK(bad_det == 0, "%d plans not deterministic", bad_det);
+    CHECK(bad_m0 == 0, "%d Motion-0 plans with candy or drops", bad_m0);
+    CHECK(bad_at == 0, "%d plan_at misses", bad_at);
+    CHECK(mid_bars_all > 0 && lead_bars * 100 >= mid_bars_all * 30 && lead_bars * 100 <= mid_bars_all * 70,
+          "lead in about half the middle: %ld of %ld bars", lead_bars, mid_bars_all);
+
+    for (mi = 0; mi < LIB_NMAPS; mi++) {
+        long lo = 0, hi = 0;
+        for (s = 1; s <= 500; s++) {
+            int bars = 36 + 4 * (s % 11);
+            plan_roll(&r, (uint32_t)s, LIB_MAPS[mi].id, bars, 0);
+            plan_build(&r, &p);
+            lo += optional_moves(&p);
+            plan_roll(&r, (uint32_t)s, LIB_MAPS[mi].id, bars, 100);
+            plan_build(&r, &p);
+            hi += optional_moves(&p);
+        }
+        CHECK(hi > lo, "map %d: optional moves at Motion 100 (%ld) not above Motion 0 (%ld)", LIB_MAPS[mi].id, hi, lo);
+    }
+}
+
 int main(void)
 {
     test_rng();
     test_theory();
     test_library();
     test_roll();
+    test_plan();
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;
