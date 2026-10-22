@@ -10,6 +10,7 @@
 #include "plan.h"
 #include "groove.h"
 #include "harmony.h"
+#include "melody.h"
 
 static int fails;
 #define CHECK(c, ...)                                                                                              \
@@ -906,6 +907,160 @@ static void test_harmony(void)
     CHECK(bad_det == 0, "harmony: %d determinism or L_KEYS violations", bad_det);
 }
 
+/* Scale-degree index of an in-scale note (octave * 7 + position), counted from the key. */
+static int deg_of(int key, int mode, int note)
+{
+    int d = 0, n;
+    for (n = key - 12; n < note; n++) if (th_in_scale(key, mode, n)) d++;
+    return d;
+}
+
+/* The 4-bar lead phrases of a plan, in song order (trading fours: lead, candy, lead... in blocks with both). */
+static int lead_phrase_starts(const song_plan_t *p, int *starts)
+{
+    int i, j, n = 0;
+    for (i = 0; i < p->n; i++) {
+        const plan_block_t *b = &p->b[i];
+        if (!(b->layers & L_LEAD)) continue;
+        for (j = 0; j < b->bars / 4; j++)
+            if (!(b->layers & L_CANDY) || (j & 1) == 0) starts[n++] = b->start + 4 * j;
+    }
+    return n;
+}
+
+typedef struct { int bar, step, voice, note; float on, off; } mel_note_t;
+
+static void test_melody(void)
+{
+    static mel_note_t ns[76 * 16 * 2];
+    song_roll_t r, r2;
+    song_plan_t p;
+    melody_phrases_t ph;
+    motif_t m, m2;
+    song_ev_t ev[8], ev2[8];
+    int seed, bar, step, i, j;
+    int bad_scale = 0, bad_strong = 0, bad_avoid = 0, bad_lead_reg = 0, bad_candy_reg = 0, bad_both = 0;
+    int bad_late = 0, bad_vel = 0, bad_cross = 0, bad_overlap = 0, bad_det = 0, bad_ends = 0, bad_state = 0;
+    int bad_motif = 0, bad_voice = 0, bad_trade = 0, trade_n = 0;
+    int kinds[3] = {0, 0, 0}, lead_n = 0, candy_n = 0, candy_only_n = 0, phrases = 0;
+
+    for (seed = 1; seed <= 1000; seed++) {
+        int starts[32], np, nn = 0, mb, bpc, loop;
+        float sps;
+        const lib_prog_t *pr;
+        roll_song(NULL, (uint32_t)seed, &r);
+        plan_build(&r, &p);
+        pr = lib_prog_by_id((uint8_t)r.v[RF_PROG]);
+        bpc = pr->bars_per_chord;
+        loop = pr->n * bpc;
+        sps = 44100.0f * 60.0f / (float)r.v[RF_TEMPO] / 4.0f;
+        melody_motif(&r, r.seed, &m);
+        melody_plan(&r, &p, &ph);
+        memcpy(&r2, &r, sizeof r);
+        melody_motif(&r2, r.seed, &m2);
+        if (memcmp(&m, &m2, sizeof m)) bad_det++;
+        if (m.n < 3 || m.n > 8) bad_motif++;
+        mb = 1;
+        for (i = 0; i < m.n; i++) {
+            if (m.at[i] >= 32 || (i > 0 && m.at[i] <= m.at[i - 1]) || m.len[i] == 0) bad_motif++;
+            if (m.at[i] >= 16) mb = 2;
+        }
+        if (m.n > 0 && m.step[0] != 0) bad_motif++;
+
+        for (bar = 0; bar < p.bars; bar++) {
+            const plan_block_t *b = plan_at(&p, bar);
+            int pass = bar / loop + 1, pcs[5], npc, dark = (b->flags & PB_DARK) != 0;
+            npc = harmony_chord_at(&r, bar, pass, dark, pcs);
+            for (step = 0; step < 16; step++) {
+                int ne = melody_step(&r, &p, &ph, &m, bar, step, sps, r.seed, ev, 8), hasl = 0, hasc = 0;
+                int ne2 = melody_step(&r, &p, &ph, &m, bar, step, sps, r.seed, ev2, 8);
+                if (ne != ne2 || memcmp(ev, ev2, sizeof(song_ev_t) * (size_t)ne)) bad_det++;
+                for (i = 0; i < ne; i++) {
+                    int n = ev[i].note, k, ct = 0;
+                    float on = (float)(bar * 16 + step) * sps + (float)ev[i].delay;
+                    float lim = (float)((bar / bpc + 1) * bpc * 16) * sps;
+                    if (ev[i].voice == V_LEAD) { hasl = 1; lead_n++; if (n < 62 || n > 86) bad_lead_reg++; }
+                    else if (ev[i].voice == V_CANDY) {
+                        hasc = 1; candy_n++;
+                        if (!(b->layers & L_LEAD)) candy_only_n++;
+                        if (n < 70 || n > 98) bad_candy_reg++;
+                    } else bad_voice++;
+                    if (!th_in_scale(r.v[RF_KEY], r.v[RF_MODE], n)) bad_scale++;
+                    for (k = 0; k < npc; k++) if (pcs[k] == n % 12) ct = 1;
+                    if ((step == 0 || step == 8) && !ct) bad_strong++;
+                    if (th_is_avoid(r.v[RF_KEY], r.v[RF_MODE], pcs, npc, n)) bad_avoid++;
+                    if (ev[i].delay < 220 || ev[i].delay > 1103) bad_late++;
+                    if (ev[i].vel < 25 || ev[i].vel > 110) bad_vel++;
+                    if (ev[i].len == 0 || on + (float)ev[i].len > lim + 1.0f) bad_cross++;
+                    if (!(b->layers & (ev[i].voice == V_LEAD ? L_LEAD : L_CANDY))) bad_voice++;
+                    if ((b->layers & L_LEAD) && (b->layers & L_CANDY)) {   /* trading fours, lead first */
+                        int cphr = ((bar - b->start) / 4) & 1;
+                        if (cphr != (ev[i].voice == V_CANDY)) bad_trade++;
+                        if (cphr) trade_n++;
+                    }
+                    if (nn < (int)(sizeof ns / sizeof ns[0])) {
+                        ns[nn].bar = bar; ns[nn].step = step; ns[nn].voice = ev[i].voice; ns[nn].note = n;
+                        ns[nn].on = on; ns[nn].off = on + (float)ev[i].len; nn++;
+                    }
+                }
+                if (hasl && hasc) bad_both++;
+            }
+        }
+        for (i = 0; i < nn; i++)
+            for (j = 0; j < nn; j++)
+                if (ns[i].voice == V_LEAD && ns[j].voice == V_CANDY && ns[i].on < ns[j].off && ns[j].on < ns[i].off)
+                    bad_overlap++;
+
+        /* phrase plan: head-solos-head, kinds counted, exact restatement of the motif */
+        np = lead_phrase_starts(&p, starts);
+        phrases += np;
+        for (i = 0; i < np; i++) {
+            if (ph.kind[i] > PH_NEW) { bad_ends++; continue; }
+            kinds[ph.kind[i]]++;
+        }
+        if (np >= 1 && ph.kind[0] != PH_STATE) bad_ends++;
+        if (np >= 2 && ph.kind[np - 1] != PH_STATE) bad_ends++;
+        for (i = 0; i < np; i++) {
+            int got = 0, d0 = 0, ok = 1;
+            if (ph.kind[i] != PH_STATE) continue;
+            for (j = 0; j < nn; j++) {
+                int rel = (ns[j].bar - starts[i]) * 16 + ns[j].step;
+                if (ns[j].voice != V_LEAD || rel < 0 || rel >= mb * 16) continue;
+                if (got >= m.n) { ok = 0; break; }
+                if (got == 0) d0 = deg_of(r.v[RF_KEY], r.v[RF_MODE], ns[j].note);
+                if (rel != m.at[got] || deg_of(r.v[RF_KEY], r.v[RF_MODE], ns[j].note) - d0 != m.step[got]) ok = 0;
+                if (got == 0 && ns[j].note != m.first) ok = 0;
+                got++;
+            }
+            if (got != m.n || !ok) bad_state++;
+        }
+    }
+    CHECK(bad_motif == 0, "melody: %d motif shape violations", bad_motif);
+    CHECK(bad_scale == 0, "melody: %d notes out of scale", bad_scale);
+    CHECK(bad_strong == 0, "melody: %d notes on steps 0/8 not chord tones", bad_strong);
+    CHECK(bad_avoid == 0, "melody: %d avoid notes", bad_avoid);
+    CHECK(bad_lead_reg == 0, "melody: %d lead notes outside 62-86", bad_lead_reg);
+    CHECK(bad_candy_reg == 0, "melody: %d candy notes outside 70-98", bad_candy_reg);
+    CHECK(bad_both == 0, "melody: %d steps with both lead and candy", bad_both);
+    CHECK(bad_overlap == 0, "melody: %d lead/candy overlaps", bad_overlap);
+    CHECK(bad_late == 0, "melody: %d notes not 5-25 ms late", bad_late);
+    CHECK(bad_vel == 0, "melody: %d velocities outside 25-110", bad_vel);
+    CHECK(bad_cross == 0, "melody: %d notes across a chord change", bad_cross);
+    CHECK(bad_voice == 0, "melody: %d events with a wrong voice or layer", bad_voice);
+    CHECK(bad_det == 0, "melody: %d determinism violations", bad_det);
+    CHECK(bad_trade == 0 && trade_n > 0, "melody: trading fours broken %d times (%d candy answers)", bad_trade, trade_n);
+    CHECK(bad_ends == 0, "melody: %d songs not head-solos-head", bad_ends);
+    CHECK(bad_state == 0, "melody: %d PH_STATE phrases not an exact restatement", bad_state);
+    CHECK(phrases > 0 && kinds[PH_STATE] * 100 >= 40 * phrases && kinds[PH_STATE] * 100 <= 60 * phrases,
+          "melody: restatements %d of %d phrases", kinds[PH_STATE], phrases);
+    CHECK(phrases > 0 && kinds[PH_VARIANT] * 100 >= 10 * phrases && kinds[PH_VARIANT] * 100 <= 20 * phrases,
+          "melody: variants %d of %d phrases", kinds[PH_VARIANT], phrases);
+    CHECK(lead_n > 0 && candy_n > 0 && candy_only_n > 0, "melody: lead %d candy %d (candy-only %d) notes",
+          lead_n, candy_n, candy_only_n);
+    printf("melody: %d phrases, state %d variant %d new %d; lead %d candy %d notes\n", phrases, kinds[0], kinds[1],
+           kinds[2], lead_n, candy_n);
+}
+
 int main(void)
 {
     test_rng();
@@ -915,6 +1070,7 @@ int main(void)
     test_plan();
     test_groove();
     test_harmony();
+    test_melody();
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;
