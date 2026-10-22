@@ -1383,9 +1383,64 @@ static void test_voices_fix(void)
             CHECK(0, "gain above 1 leaked: %.3f", (double)vt_l[i]);
 }
 
+/* A tritone substitution only ever replaces a real dominant 7th (major 3rd and minor 7th above its root): song 1
+ * of songs.wav (C# Lydian, Dbmaj7-Abmaj7) once turned the Lydian Vmaj7 into D7, four notes outside the key. */
+static int has_iv(const int *pcs, int n, int iv)
+{
+    int i;
+    for (i = 0; i < n; i++)
+        if ((pcs[i] - pcs[0] + 24) % 12 == iv)
+            return 1;
+    return 0;
+}
+
+static void test_tritone_sub(void)
+{
+    int pi, mode, s, pass, bar, bad = 0, subs = 0;
+    for (pi = 0; pi < LIB_NPROGS; pi++) {
+        const lib_prog_t *p = &LIB_PROGS[pi];
+        for (mode = 0; mode < MODE_N; mode++) {
+            if (!(p->modes & (1u << mode)))
+                continue;
+            for (s = 1; s <= 200; s++) {
+                song_roll_t r;
+                roll_song(0, (uint32_t)s * 7919u, &r);
+                r.v[RF_PROG] = p->id;
+                r.v[RF_MODE] = (int16_t)mode;
+                for (pass = 2; pass <= 6; pass++)
+                    for (bar = 0; bar < p->n * p->bars_per_chord; bar++) {
+                        int a[5], b[5], na, nb;
+                        int at = bar + (pass - 1) * p->n * p->bars_per_chord;
+                        na = harmony_chord_at(&r, bar, 1, 0, a);
+                        nb = harmony_chord_at(&r, at, pass, 0, b);
+                        if (na < 1 || nb < 1 || (b[0] - a[0] + 12) % 12 != 6)
+                            continue;
+                        subs++;
+                        if (!has_iv(a, na, 4) || !has_iv(a, na, 10))
+                            bad++;
+                    }
+            }
+        }
+    }
+    CHECK(bad == 0, "%d tritone substitutions replaced a chord that is not a dominant 7th", bad);
+    CHECK(subs > 0, "no tritone substitution ever happened");
+    {
+        /* the regression itself: song 1's Abmaj7 in C# Lydian is never turned into D7 */
+        song_roll_t r;
+        int pcs[5], n, pass, bar;
+        roll_song(0, 3248581516u, &r);
+        for (pass = 2; pass <= 14; pass++)
+            for (bar = 0; bar < 4; bar++) {
+                n = harmony_chord_at(&r, (pass - 1) * 4 + bar, pass, 0, pcs);
+                CHECK(n > 0 && pcs[0] != 2, "song 1 bar %d: a D chord in C# Lydian", (pass - 1) * 4 + bar + 1);
+            }
+    }
+}
+
 int main(void)
 {
     test_rng();
+    test_tritone_sub();
     test_theory();
     test_library();
     test_roll();

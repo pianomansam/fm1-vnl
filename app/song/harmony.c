@@ -21,10 +21,18 @@ static const lib_prog_t *prog_of(const song_roll_t *r)
     return p ? p : &LIB_PROGS[0];
 }
 
+/* a real dominant 7th in this mode (major 3rd and minor 7th above the root): only those take a tritone
+ * substitution. Asking the chord itself covers each mode's own dominant (V7 in Ionian, II7 in Lydian, I7 in
+ * Mixolydian, IV7 in Dorian) and never the Lydian Vmaj7, which a degree-based test once turned into a foreign D7. */
 static int is_dom(th_chord_spec_t c, int mode)
 {
-    return c.quality == Q_DOM7 || (c.degree == 4 && c.alter == 0 && c.quality == Q_DIATONIC &&
-                                   (mode == MODE_IONIAN || mode == MODE_LYDIAN));
+    int pcs[5], n = th_chord_pcs(0, mode, c, COLOR_7, pcs), i, third = 0, seventh = 0;
+    for (i = 1; i < n; i++) {
+        int iv = (pcs[i] - pcs[0] + 12) % 12;
+        third |= iv == 4;
+        seventh |= iv == 10;
+    }
+    return third && seventh;
 }
 
 static int is_iv(th_chord_spec_t c, int mode)
