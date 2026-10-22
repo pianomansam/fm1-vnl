@@ -115,16 +115,16 @@ static void check_step(const song_t *s, int bar, int step, const song_ev_t *ev, 
 
 /* Checks against what actually sounds, from the recorded events (no harmony derivation):
    - no chord note still sounds when the next chord strike begins;
-   - on steps 0 and 8, every lead/candy note starting then or held into it, against the pitch classes heard in that
-     bar (chord-part and bass notes struck in the bar, plus those held into the step): it is one of them, or none of
-     them lies a semitone below it (no minor-9th rub). The voicing may leave out a color tone (a 9th) that the lead
-     then plays, so "one of them" alone would be too strict; check_step holds onsets to harmony's chord tones.
-     Rubs are counted and reported, not failed: the ones found come from melody/voicing/bass rules upstream of the
-     sequencer (see the Task 9 report), pending a ruling. */
+   - on steps 0 and 8, every lead/candy note starting then or held into it, against the chord-part and bass notes
+     sounding at that moment (the later of the step and the note's start): struck at or before the step and not yet
+     ended, the notes of a chord rolled from this very step included. None of them may lie a semitone above or below
+     it (a hard failure, tested first, so a pitch class heard elsewhere excuses nothing). Whether it is one of them is
+     only counted: the voicing may leave out a color tone (a 9th) that the lead then plays; check_step holds onsets
+     to harmony's chord tones. */
 static void check_sounding(const rec_t *rec, uint32_t seed)
 {
     static uint32_t strike[MAXT + 1];
-    int t, k, nxt = -1;
+    int t, k, j, nxt = -1;
     uint32_t none = 0xFFFFFFFFu;
     for (t = rec->ticks - 1; t >= 0; t--) {
         uint32_t on = none;
@@ -138,40 +138,38 @@ static void check_sounding(const rec_t *rec, uint32_t seed)
         if (on != none) nxt = t;
     }
     for (t = 0; t < rec->ticks; t++) {
-        int st = rec->step[t], b0 = t - st, lo = b0 - 32 < 0 ? 0 : b0 - 32, hi = b0 + 16;
+        int st = rec->step[t], lo = t - 64 < 0 ? 0 : t - 64;
         uint32_t now = rec->at[t];
-        unsigned mask = 0, cmask = 0;
         if (st != 0 && st != 8) continue;
-        if (hi > rec->ticks) hi = rec->ticks;
-        for (k = rec->first[lo]; k < rec->first[hi]; k++) {
-            const rev_t *e = &rec->ev[k];
-            if ((e->voice == V_CHORD || e->voice == V_BASS) &&
-                ((e->tick >= b0 && e->tick < b0 + 16) || (e->start <= now && e->end > now)))
-            {
-                mask |= 1u << (e->note % 12);
-                if (e->voice == V_CHORD) cmask |= 1u << (e->note % 12);
-            }
-        }
         for (k = rec->first[lo]; k < rec->first[t + 1]; k++) {
             const rev_t *e = &rec->ev[k];
+            uint32_t m;
+            unsigned mask = 0, cmask = 0, near;
             if (e->voice != V_LEAD && e->voice != V_CANDY) continue;
             if (e->tick != t && !(e->start < now && e->end > now)) continue;
+            m = e->start > now ? e->start : now;
+            for (j = rec->first[lo]; j < rec->first[t + 1]; j++) {
+                const rev_t *x = &rec->ev[j];
+                if (x->voice != V_CHORD && x->voice != V_BASS) continue;
+                if (x->end <= m || (x->start > m && x->tick != t)) continue;
+                mask |= 1u << (x->note % 12);
+                if (x->voice == V_CHORD) cmask |= 1u << (x->note % 12);
+            }
             if (!mask) {
                 strong_skipped++;
                 continue;
             }
             strong_checked++;
-            if ((mask >> (e->note % 12)) & 1) {
-                strong_in++;
+            near = 1u << ((e->note + 11) % 12) | 1u << ((e->note + 1) % 12);
+            if (mask & near) {
+                int kind = (cmask & near ? 0 : 2) + (e->tick == t ? 0 : 1);
+                rubs[kind]++;
+                CHECK(0, "rub (%s, %s): seed %u bar %d step %d %s note %d over chord %03x bass+chord %03x",
+                      kind < 2 ? "chord part" : "bass only", kind & 1 ? "held" : "onset", seed, rec->bar[t], st,
+                      e->voice == V_LEAD ? "lead" : "candy", e->note, cmask, mask);
                 continue;
             }
-            if ((mask >> ((e->note + 11) % 12)) & 1) {
-                int kind = ((cmask >> ((e->note + 11) % 12)) & 1 ? 0 : 2) + (e->tick == t ? 0 : 1);
-                if (rubs[kind]++ < 2)
-                    printf("rub (%s, %s): seed %u bar %d step %d %s note %d over chord %03x bass+chord %03x\n",
-                           kind < 2 ? "chord part" : "bass only", kind & 1 ? "held" : "onset", seed, rec->bar[t], st,
-                           e->voice == V_LEAD ? "lead" : "candy", e->note, cmask, mask);
-            }
+            if ((mask >> (e->note % 12)) & 1) strong_in++;
         }
     }
 }
@@ -244,8 +242,8 @@ static void test_chain(void)
     static song_t s, o;
     song_roll_t prev, r, ro;
     uint32_t hashes[51];
-    long count[V_N];
-    int i, v, worst_t = 0;
+    long count[V_N], gestures = 0;
+    int i, v, worst_t = 0, with_candy = 0;
     memset(count, 0, sizeof count);
     for (i = 1; i <= 1000; i++) {
         float ss;
@@ -274,9 +272,24 @@ static void test_chain(void)
             for (k = 0; k < R1.ne; k++) count[R1.ev[k].voice]++;
             CHECK(R1.ne < MAXE, "seed %d: event record full", i);
         }
+        {   /* ear candy: a gesture is a run of candy notes less than a beat apart (end to next start) */
+            int k, nc = 0;
+            uint32_t last_end = 0, beat = (uint32_t)(4.0f * ss);
+            for (k = 0; k < R1.ne; k++) {
+                if (R1.ev[k].voice != V_CANDY) continue;
+                if (nc == 0 || R1.ev[k].start >= last_end + beat) gestures++;
+                if (R1.ev[k].end > last_end) last_end = R1.ev[k].end;
+                nc++;
+            }
+            with_candy += nc > 0;
+        }
         if (i <= 50) hashes[i] = R1.hash;
         prev = r;
     }
+    /* R19: ear candy is occasional, not absent: in at least 70% of songs, at least 3 gestures a song on average */
+    CHECK(with_candy >= 700, "candy in %d of 1000 songs, want at least 700", with_candy);
+    CHECK(gestures >= 3000, "%ld candy gestures in 1000 songs, want at least 3 a song", gestures);
+    printf("candy: in %d of 1000 songs, %ld gestures (%.2f a song)\n", with_candy, gestures, (double)gestures / 1000.0);
     /* determinism: songs 1-50 again, each with a second song ticking in between */
     clash_checks = 0;
     for (i = 1; i <= 50; i++) {
@@ -680,14 +693,14 @@ int main(void)
     test_request_determinism();
     test_mood_motion();
     test_pending();
+    printf("strong steps: %ld lead/candy notes checked against the sounding chord and bass (%ld of them sounding "
+           "tones), %ld with neither\n", strong_checked, strong_in, strong_skipped);
+    printf("semitone rubs on strong steps (0 allowed): over the chord part %ld onset / %ld held; over the bass only "
+           "%ld onset / %ld held\n", rubs[0], rubs[1], rubs[2], rubs[3]);
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;
     }
-    printf("strong steps: %ld lead/candy notes checked against the sounding chord and bass (%ld of them sounding "
-           "tones), %ld with neither\n", strong_checked, strong_in, strong_skipped);
-    printf("semitone rubs on strong steps (reported, not failed): over the chord part %ld onset / %ld held; over the "
-           "bass only %ld onset / %ld held\n", rubs[0], rubs[1], rubs[2], rubs[3]);
     printf("clash: all checks passed\n");
     return 0;
 }

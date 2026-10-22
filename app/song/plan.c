@@ -213,17 +213,22 @@ static void moves(grid_t *g, rng_t *mo, int motion, int hats_ok)
         }
     }
 
-    /* ear candy: whole units, never the unit of the lead's first statement, never back to back, only where both
-       of its edges have room left */
+    /* ear candy, more of it with Motion: a whole unit, or failing that one of its halves (a map's drum moves leave
+       no room at many unit edges), never the unit of the lead's first statement, never back to back, only where
+       both of its edges have room left */
     memset(g->candy, 0, sizeof g->candy);
     f = -1;
     for (s = 0; s < g->n && f < 0; s++) if (g->lead[s]) f = unit_of(g, s);
     for (u = 0; u < g->nu; u++) {
-        int a = unit_start(g, u), e = unit_end(g, u);
-        if (!chance(mo, 50 * motion / 100) || u == f || a == 0) continue;
-        if (g->candy[a - 1]) continue;
-        if (room(g, a) < 1 || (e < g->oe && room(g, e) < 1)) continue;
-        for (s = a; s < e; s++) g->candy[s] = 1;
+        int a = unit_start(g, u), e = unit_end(g, u), k;
+        static const int8_t TRY[3][2] = {{0, 0}, {0, -1}, {1, 0}};   /* offsets of [start, end) from [a, e) */
+        if (!motion || !chance(mo, 25 + 55 * motion / 100) || u == f || a == 0) continue;
+        for (k = 0; k < (e - a == 2 ? 3 : 1); k++) {
+            int x = a + TRY[k][0], y = e + TRY[k][1];
+            if (g->candy[x - 1] || room(g, x) < 1 || (y < g->oe && room(g, y) < 1)) continue;
+            for (s = x; s < y; s++) g->candy[s] = 1;
+            break;
+        }
     }
 }
 

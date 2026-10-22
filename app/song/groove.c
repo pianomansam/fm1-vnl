@@ -50,15 +50,14 @@ static int bass_pitch(int pc, int interval)
     return n;
 }
 
+/* 7 when the chord holds a perfect fifth above its root, else 0 (the root): a fifth the chord lacks could rub the
+   melody, which keeps clear of the chord's own pitch classes only */
 static int chord_fifth_interval(const int *pcs, int npcs)
 {
-    int i, iv = 7;
-    for (i = 1; i < npcs; i++) {
-        int d = ((pcs[i] - pcs[0]) % 12 + 12) % 12;
-        if (d == 7) return 7;
-        if (d == 6 || d == 8) iv = d;
-    }
-    return iv;
+    int i;
+    for (i = 1; i < npcs; i++)
+        if (((pcs[i] - pcs[0]) % 12 + 12) % 12 == 7) return 7;
+    return 0;
 }
 
 /* the bass note (MIDI) on this step, 0 when none; style is the effective one (walk already resolved) */

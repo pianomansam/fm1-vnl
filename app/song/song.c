@@ -250,6 +250,18 @@ int song_tick(song_t *s, song_ev_t *out, int max)
         n += harmony_step(&s->roll, b, bar, step, pass, gs, s->voicing, salt, buf + n, BUF - n);
         n += melody_step(&s->roll, &s->plan, &s->ph, &s->motif, bar, step, gs, salt, buf + n, BUF - n);
     }
+    {   /* a bass note (a swung one runs a little long) ends by the next chord change: the melody keeps clear of
+           the chord it plays over, not of the one before */
+        const lib_prog_t *pr = lib_prog_by_id((uint8_t)s->roll.v[RF_PROG]);
+        int bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1;
+        if ((bar + 1) % bpc == 0) {
+            float left = (float)(16 - step) * gs;   /* gs: never longer than the steps to come */
+            uint32_t line = s->pos + (left > 1.0f ? (uint32_t)left - 1u : 0u);
+            for (i = 0; i < n; i++)
+                if (buf[i].voice == V_BASS && s->pos + buf[i].delay + buf[i].len > line)
+                    buf[i].len = line > s->pos + buf[i].delay + 1u ? line - s->pos - buf[i].delay : 1u;
+        }
+    }
     for (i = k = 0; i < n; i++) {                   /* the 4-bar note-off line */
         uint32_t at = s->pos + buf[i].delay;
         if (buf[i].voice <= V_CANDY && buf[i].len) {

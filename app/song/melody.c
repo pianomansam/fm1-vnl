@@ -3,8 +3,10 @@
    shape, given a new ending, restated), reimplemented from the spec; no code from it.
 
    Legality is held as pitch-class masks per bar of a phrase: `weak` (in scale, not an avoid note under the bar's
-   chord) for any step, `strong` (weak and a chord tone) for steps 0 and 8, and `bound`, the step at which the next
-   chord change (or the region's end) falls. Every note is picked from those masks, so no rule can be broken; the
+   chord) for any step, `safe` (no semitone from any chord pitch class: the voicing is 4 of them, chosen elsewhere, so
+   this covers whatever sounds, the root under a rootless maj7 included), `strong` (weak, safe and a chord tone) for
+   steps 0 and 8, and `bound`, the step at which the next chord change (or the region's end) falls. A note held into
+   step 0 or 8 must be safe there, or it ends before it. Every note is picked from those masks, so no rule can be broken; the
    motif uses masks intersected over every lead phrase of the song, so an exact restatement is legal anywhere. */
 #include <stdint.h>
 #include <string.h>
@@ -30,7 +32,7 @@ typedef struct {
 } ctx_t;
 
 /* Legal pitch classes per bar of a region (up to 4 bars), and where each bar's notes must end. */
-typedef struct { uint16_t weak[4], strong[4], ct[4]; int8_t g3[4], g7[4]; uint8_t bound[4]; } region_t;
+typedef struct { uint16_t weak[4], strong[4], ct[4], safe[4]; int8_t g3[4], g7[4]; uint8_t bound[4]; } region_t;
 
 static uint32_t mix(uint32_t a, uint32_t b, uint32_t c, uint32_t d)
 {
@@ -93,14 +95,16 @@ static void bar_masks(const ctx_t *c, int bar, int origin, region_t *R, int k)
 {
     const plan_block_t *b = plan_at(c->p, bar);
     int pcs[5], n, i, pass = bar / c->loop + 1, t3, t7;
-    uint16_t ct = 0, weak = 0;
+    uint16_t ct = 0, weak = 0, safe;
     n = harmony_chord_at(c->r, bar, pass, b && (b->flags & PB_DARK), pcs);
     for (i = 0; i < n; i++) ct |= (uint16_t)(1u << mod12(pcs[i]));
     for (i = 0; i < 12; i++)
         if (((c->scale >> i) & 1) && !th_is_avoid(c->key, c->mode, pcs, n, i)) weak |= (uint16_t)(1u << i);
+    safe = (uint16_t)(~(rot(ct, 1) | rot(ct, -1)) & 0xFFFu);
     th_guide_tones(pcs, n, &t3, &t7);
     R->weak[k] = weak;
-    R->strong[k] = weak & ct;
+    R->safe[k] = safe;
+    R->strong[k] = weak & ct & safe;
     R->ct[k] = ct;
     R->g3[k] = (int8_t)t3;
     R->g7[k] = (int8_t)t7;
@@ -121,6 +125,7 @@ static void region_and(region_t *a, const region_t *b, int bars)
     for (k = 0; k < bars; k++) {
         a->weak[k] &= b->weak[k];
         a->strong[k] &= b->strong[k];
+        a->safe[k] &= b->safe[k];
         if (b->bound[k] < a->bound[k]) a->bound[k] = b->bound[k];
     }
 }
@@ -131,9 +136,19 @@ static uint16_t mask_at(const region_t *R, int t)
     return (s == 0 || s == 8) ? R->strong[t / 16] : R->weak[t / 16];
 }
 
+/* the longest a note from t may be held without sounding unsafe on a later step 0 or 8: at most len */
+static int hold_len(const region_t *R, int t, int len, int note)
+{
+    int s;
+    for (s = (t / 8 + 1) * 8; s < t + len && s < 64; s += 8)
+        if (!((R->safe[s / 16] >> mod12(note)) & 1)) return s - t;
+    return len;
+}
+
 static int legal(const region_t *R, int t, int len, int note)
 {
-    return t < 64 && ((mask_at(R, t) >> mod12(note)) & 1) && t + len <= R->bound[t / 16] && len > 0;
+    return t < 64 && ((mask_at(R, t) >> mod12(note)) & 1) && t + len <= R->bound[t / 16] && len > 0 &&
+           hold_len(R, t, len, note) == len;
 }
 
 /* the note in [lo, hi] nearest to target whose pitch class is in mask; -1 if none */
@@ -222,7 +237,7 @@ static int gen_figure(const ctx_t *c, rng_t *g, const region_t *R, int mb, int l
         }
         if (note < 0) continue;
         out[n].at = (uint8_t)t;
-        out[n].len = (uint8_t)len;
+        out[n].len = (uint8_t)hold_len(R, t, len, note);
         out[n].note = (uint8_t)note;
         prev = note;
         n++;
@@ -263,7 +278,7 @@ static int vary(const ctx_t *c, rng_t *g, const region_t *R, const nt_t *h, int 
         }
         if (note < 0) continue;
         out[n].at = (uint8_t)t;
-        out[n].len = (uint8_t)len;
+        out[n].len = (uint8_t)hold_len(R, t, len, note);
         out[n].note = (uint8_t)note;
         prev = note;
         n++;
@@ -455,24 +470,21 @@ static int lead_phrase(const ctx_t *c, const melody_phrases_t *ph, const motif_t
     return n;
 }
 
-/* Ear candy answering the lead: 1-4 notes early in the candy's 4-bar phrase from bar Q. */
-static int answer_phrase(const ctx_t *c, int Q, uint32_t salt, nt_t *out)
+/* A candy figure: up to cnt notes from 16th t, 2 or 4 apart (rising when `up`), the first a chord tone near
+   `target`, all ending by `end`; appended at out + n. Returns the new count. */
+static int candy_figure(const ctx_t *c, rng_t *g, const region_t *R, int t, int cnt, int end, int target, int up,
+                        nt_t *out, int n)
 {
-    region_t R;
-    rng_t g;
-    int cnt, i, n = 0, t, prev = -1;
-    region_at(c, Q, 4, &R);
-    rng_seed(&g, mix(salt, (uint32_t)Q, 3, 0), 134);
-    cnt = 1 + rng_int(&g, 4);
-    t = 2 + 2 * rng_int(&g, 3);
-    for (i = 0; i < cnt && t < 32; i++) {
-        int gap = 2 + 2 * rng_int(&g, 2), len, note;
-        len = fit_len(&R, t, i + 1 < cnt ? gap : 4 + rng_int(&g, 3), 64);
-        note = prev < 0 ? pick_near(mask_at(&R, t) & R.ct[t / 16], 82 + rng_int(&g, 6), 72, 96)
-                        : next_pitch(c, &g, &R, t, prev, 72, 96);
+    int i, prev = -1;
+    for (i = 0; i < cnt && t < end; i++) {
+        int gap = 2 + 2 * rng_int(g, 2), len, note;
+        len = fit_len(R, t, i + 1 < cnt ? gap : 4 + rng_int(g, 3), end);
+        if (prev < 0) note = pick_near(mask_at(R, t) & R->ct[t / 16], target, 72, 96);
+        else if (up) note = pick_near(mask_at(R, t), note_of(c, deg_of(c, prev) + 1 + rng_int(g, 2)), prev + 1, 96);
+        else note = next_pitch(c, g, R, t, prev, 72, 96);
         if (len > 0 && note >= 0) {
             out[n].at = (uint8_t)t;
-            out[n].len = (uint8_t)len;
+            out[n].len = (uint8_t)hold_len(R, t, len, note);
             out[n].note = (uint8_t)note;
             prev = note;
             n++;
@@ -482,32 +494,51 @@ static int answer_phrase(const ctx_t *c, int Q, uint32_t salt, nt_t *out)
     return n;
 }
 
-/* Sparse ear candy in a candy-only bar: 1-2 notes, the bar played with the mood's candy_pct chance. */
+/* Ear candy answering the lead in the candy's 4-bar phrase from bar Q: 1-4 notes early on, and about half the time
+   a second, shorter answer in bar 3. */
+static int answer_phrase(const ctx_t *c, int Q, uint32_t salt, nt_t *out)
+{
+    region_t R;
+    rng_t g;
+    int n, t, cnt, tgt;                            /* draws in a fixed order: argument order is unspecified */
+    region_at(c, Q, 4, &R);
+    rng_seed(&g, mix(salt, (uint32_t)Q, 3, 0), 134);
+    t = 2 + 2 * rng_int(&g, 3);
+    cnt = 1 + rng_int(&g, 4);
+    tgt = 82 + rng_int(&g, 6);
+    n = candy_figure(c, &g, &R, t, cnt, 32, tgt, 0, out, 0);
+    if (rng_int(&g, 2)) {
+        t = 34 + 2 * rng_int(&g, 3);
+        cnt = 1 + rng_int(&g, 3);
+        tgt = 80 + rng_int(&g, 8);
+        n = candy_figure(c, &g, &R, t, cnt, 64, tgt, 0, out, n);
+    }
+    return n;
+}
+
+/* Ear candy in a candy-only bar: 1-2 notes, the bar played with the mood's candy_pct chance raised by Motion; the
+   last bar before a layer change always plays, a 2-3 note rising figure into the change. */
 static int sparse_bar(const ctx_t *c, int bar, uint32_t salt, nt_t *out)
 {
     static const uint8_t ON[6] = {2, 4, 6, 10, 12, 14};
+    const plan_block_t *b = plan_at(c->p, bar), *nx = plan_at(c->p, bar + 1);
     region_t R;
     rng_t g;
-    int cnt, i, n = 0, t, note, prev = -1;
+    int pct = LIB_MOODS[clampi(c->r->v[RF_MOOD], 0, 3)].candy_pct + clampi(c->r->v[RF_MOTION], 0, 100) / 5;
+    int edge = b && nx && nx != b && nx->layers != b->layers, t, cnt, tgt;
     rng_seed(&g, mix(salt, (uint32_t)bar, 4, 0), 135);
-    if (rng_int(&g, 100) >= LIB_MOODS[clampi(c->r->v[RF_MOOD], 0, 3)].candy_pct) return 0;
+    if (rng_int(&g, 100) >= pct && !edge) return 0;
     region_at(c, bar, 1, &R);
-    cnt = 1 + (rng_int(&g, 3) == 0);
-    t = ON[rng_int(&g, 6)];
-    for (i = 0; i < cnt && t < 16; i++) {
-        int len = fit_len(&R, t, 3 + rng_int(&g, 4), 16);
-        note = prev < 0 ? pick_near(mask_at(&R, t) & R.ct[0], 80 + rng_int(&g, 10), 72, 96)
-                        : next_pitch(c, &g, &R, t, prev, 72, 96);
-        if (len > 0 && note >= 0) {
-            out[n].at = (uint8_t)t;
-            out[n].len = (uint8_t)len;
-            out[n].note = (uint8_t)note;
-            prev = note;
-            n++;
-        }
-        t += 4;
+    if (edge) {
+        t = 8 + 2 * rng_int(&g, 2);
+        cnt = 2 + rng_int(&g, 2);
+        tgt = 78 + rng_int(&g, 6);
+    } else {
+        t = ON[rng_int(&g, 6)];
+        cnt = 1 + (rng_int(&g, 3) == 0);
+        tgt = 80 + rng_int(&g, 10);
     }
-    return n;
+    return candy_figure(c, &g, &R, t, cnt, 16, tgt, edge, out, 0);
 }
 
 int melody_step(const song_roll_t *r, const song_plan_t *p, const melody_phrases_t *ph, const motif_t *m, int bar,
