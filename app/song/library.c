@@ -69,7 +69,7 @@ const lib_prog_t LIB_PROGS[] = {
     {30, PK_VAMP, 2, 2, {{0, 0, Q_DIATONIC}, {3, 0, Q_DIATONIC}, {0, 0, 0}, {0, 0, 0}}, MOOD_WARM | MOOD_SUNNY,
      (1 << MODE_MIXOLYDIAN), "R25: Mixolydian I7-IVmaj7 vamp (C7 Fmaj7)"},
     {31, PK_VAMP, 2, 2, {{4, 0, Q_DIATONIC}, {0, 0, Q_DIATONIC}, {0, 0, 0}, {0, 0, 0}}, MOOD_SAD | MOOD_WISTFUL,
-     (1 << MODE_DORIAN) | (1 << MODE_MIXOLYDIAN), "R25: v7-I vamp (Dorian Gm7 Cm7; Mixolydian Gm7 C7)"},
+     (1 << MODE_DORIAN) | (1 << MODE_MIXOLYDIAN), "R25: v7-i vamp (Dorian Gm7 Cm7; Mixolydian Gm7 C7)"},
     {32, PK_VAMP, 2, 2, {{0, 0, Q_DIATONIC}, {1, 0, Q_DIATONIC}, {0, 0, 0}, {0, 0, 0}}, MOOD_SAD | MOOD_WISTFUL | MOOD_SUNNY,
      (1 << MODE_DORIAN), "R25: Dorian i7-ii7 vamp (Cm7 Dm7)"},
     {33, PK_VAMP, 2, 2, {{0, 0, Q_DIATONIC}, {2, 0, Q_DIATONIC}, {0, 0, 0}, {0, 0, 0}}, MOOD_SAD | MOOD_WISTFUL | MOOD_WARM,

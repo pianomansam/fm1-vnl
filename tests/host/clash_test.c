@@ -129,10 +129,10 @@ static void check_step(const song_t *s, int bar, int step, const song_ev_t *ev, 
    - no chord note still sounds when the next chord strike begins;
    - on every step (R25; R20 checked only steps 0 and 8), every lead/candy note starting then or held into it, against
      the chord-part and bass notes sounding at that moment (the later of the step and the note's start): struck at or
-     before the step and not yet ended, the notes of a chord rolled from this very step included. None of them may lie a semitone above or below
-     it (a hard failure, tested first, so a pitch class heard elsewhere excuses nothing). On steps 0 and 8, whether
-     it is one of them is only counted: the voicing may leave out a color tone (a 9th) that the lead then plays;
-     check_step holds onsets to harmony's chord tones. */
+     before the step and not yet ended, the notes of a chord rolled from this very step included. None of them may lie
+     a semitone above or below it (a hard failure, tested first, so a pitch class heard elsewhere excuses nothing). On
+     steps 0 and 8, whether it is one of them is only counted: the voicing may leave out a color tone (a 9th) that the
+     lead then plays; check_step holds onsets to harmony's chord tones. */
 static void check_sounding(const rec_t *rec, uint32_t seed)
 {
     static uint32_t strike[MAXT + 1];

@@ -20,6 +20,10 @@ int groove_bass_style(const song_roll_t *r);
    chord_pcs: the bar's chord, root first. Returns the number of events written (at most max).
    BS_WALK is a one-in-four 8-bar window: it plays where (bar / 8) % 4 equals a seed hash mod 4, and elsewhere
    the bass plays root and fifth. */
+/* The bass note (MIDI, 0 = none) struck at this step of `bar` over chord_pcs (root first), by the same rule
+   groove_step plays: 0 unless the block has L_BASS. Lets the melody keep clear of what the bass sounds. */
+int groove_bass_note(const song_roll_t *r, const plan_block_t *b, int bar, int step, const int *chord_pcs, int npcs);
+
 int groove_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, float step_samples,
                 const int *chord_pcs, int npcs, uint32_t salt, song_ev_t *out, int max);
 

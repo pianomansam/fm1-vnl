@@ -197,7 +197,7 @@ static void test_library(void)
     {   /* spot-check the claimed chords by name */
         static const struct { int id, mode; const char *want; } sp[] = {
             {9, MODE_IONIAN, "Fmaj7 G7 Em7 Am7"}, {15, MODE_IONIAN, "Dm7 Db7 Cmaj7 Cmaj7"},
-            {6, MODE_DORIAN, "Cm7 Bb7"}, {18, MODE_AEOLIAN, "Cm7 Bb7 Abmaj7 G7"}, {13, MODE_MIXOLYDIAN, "Fmaj7 E7 Am7 C7"},
+            {6, MODE_DORIAN, "Cm7 Bb7"}, {18, MODE_AEOLIAN, "Cm7 Bb7 Abmaj7 G7"}, {13, MODE_IONIAN, "Fmaj7 E7 Am7 C7"},
             {22, MODE_AEOLIAN, "Cm7 Fm7 Abmaj7 G7"}, {24, MODE_DORIAN, "Cm7 Dbmaj7"},
             {25, MODE_DORIAN, "Cm7 F7 Bbmaj7 Ebmaj7"}, {26, MODE_DORIAN, "Cm7 Dm7 Ebmaj7 F7"},
         };

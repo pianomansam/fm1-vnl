@@ -85,6 +85,27 @@ static int bass_note(int style, const lib_pattern_t *p, int bar, int step, const
     }
 }
 
+/* the bass style playing at `bar`: BS_WALK only inside its 8-bar window (seed stream 113), root and fifth elsewhere */
+static int bass_style_at(const song_roll_t *r, int bar)
+{
+    int style = groove_bass_style(r);
+    if (style == BS_WALK) {
+        rng_t g;
+        rng_seed(&g, r->seed, 113);
+        if ((bar / 8) % 4 != (int)(rng_next(&g) % 4u)) style = BS_ROOT_FIFTH;
+    }
+    return style;
+}
+
+int groove_bass_note(const song_roll_t *r, const plan_block_t *b, int bar, int step, const int *chord_pcs, int npcs)
+{
+    const lib_pattern_t *p = lib_pattern_by_id((uint8_t)r->v[RF_PATTERN]);
+    const lib_prog_t *pr = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
+    int bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1;
+    if (!p || !b || !(b->layers & L_BASS) || !chord_pcs || npcs <= 0 || step < 0 || step > 15) return 0;
+    return bass_note(bass_style_at(r, bar), p, bar, step, chord_pcs, npcs, bpc);
+}
+
 static int push(song_ev_t *out, int n, int max, int voice, int note, int vel, uint32_t delay, uint32_t len)
 {
     if (n >= max) return n;
@@ -171,11 +192,7 @@ int groove_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, 
     if ((b->layers & L_BASS) && chord_pcs && npcs > 0) {
         const lib_prog_t *pr = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
         int note, bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1;
-        style = groove_bass_style(r);
-        if (style == BS_WALK) {
-            rng_seed(&g, r->seed, 113);
-            if ((bar / 8) % 4 != (int)(rng_next(&g) % 4u)) style = BS_ROOT_FIFTH;
-        }
+        style = bass_style_at(r, bar);
         note = bass_note(style, p, bar, step, chord_pcs, npcs, bpc);
         if (note) {
             uint32_t len;

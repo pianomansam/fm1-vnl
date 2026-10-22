@@ -6,12 +6,12 @@
    (the voicing is 4 of them, chosen elsewhere, so this covers whatever sounds, the root under a rootless maj7
    included). `weak`, for any step (R25): the bar's chord-scale, the mode's scale with each note a semitone from a
    chord tone replaced by that chord tone, kept only where safe; so a borrowed chord's tones replace the scale notes
-   they would rub, and no avoid note is left. `beat4`: weak, clear of a walking bass's approach note, for steps
-   12-15. `strong`: weak and a chord tone, for steps 0 and 8. `bound`: the step at which the next chord change (or
-   the region's end) falls. A held note must stay legal on every step it sounds on, or it ends before the first that
-   is not. Every note is picked from those masks, so no rule can be broken; the motif uses masks intersected over
-   every lead phrase of the song and kept to the mode's scale (it is restated by scale degree), so an exact
-   restatement is legal anywhere. */
+   they would rub, and no avoid note is left. `beat4`: weak, clear of the bass note struck on beat 4 (a walking
+   bass's approach note), for steps 12-15. `strong`: weak and a chord tone, for steps 0 and 8. `bound`: the step at
+   which the next chord change (or the region's end) falls. A held note must stay legal on every step it sounds on,
+   or it ends before the first that is not. Every note is picked from those masks, so no rule can be broken; the
+   motif uses masks intersected over every lead phrase of the song and kept to the mode's scale (it is restated by
+   scale degree), so an exact restatement is legal anywhere. */
 #include <stdint.h>
 #include <string.h>
 #include "melody.h"
@@ -107,13 +107,9 @@ static void bar_masks(const ctx_t *c, int bar, int origin, region_t *R, int k)
     th_guide_tones(pcs, n, &t3, &t7);
     R->weak[k] = weak;
     R->beat4[k] = weak;
-    if (b && (b->layers & L_BASS) && groove_bass_style(c->r) == BS_WALK) {
-        rng_t g;                                   /* groove.h: the walk's 8-bar window, else root and fifth */
-        rng_seed(&g, c->r->seed, 113);
-        if ((bar / 8) % 4 == (int)(rng_next(&g) % 4u)) {
-            int ap = pcs[0] + ((bar & 1) ? 2 : -1);     /* beat 4 walks to root + 2 (odd bars) or root - 1 */
-            R->beat4[k] &= (uint16_t)~(rot(1, ap + 1) | rot(1, ap - 1));
-        }
+    {   /* beat 4: clear of the bass note struck there (a walking bass's approach note may be no chord tone) */
+        int bn = groove_bass_note(c->r, b, bar, 12, pcs, n);
+        if (bn) R->beat4[k] &= (uint16_t)~(rot(1, bn + 1) | rot(1, bn - 1));
     }
     R->strong[k] = weak & ct;
     R->ct[k] = ct;
