@@ -1,5 +1,7 @@
 # Lo-fi hip hop: design research for a generative FM-1 firmware
 
+> Source material, kept as researched. The distilled, current reading (general musicianship vs. lo-fi choices) is in [`docs/music/`](../music/README.md).
+
 Research date: 2026-10-22. Target: an M-VAVE FM-1 (single-core MCU, ~96 KB RAM, ~336 KB buffer pool, ~580 KB flash) that generates ~5-minute "songs" from probability, each one deliberately different from the last.
 
 **How to read this.** Claims carry a source link. Anything marked **[inferred]** is my own derivation or synthesis, not a sourced fact. Tutorial and blog numbers are producer heuristics, not measurements, and I say so where they disagree. No corpus-scale academic study of lo-fi tempo, key, or form turned up. The one academic paper on the genre, [Winston & Saywood, IASPM Journal 9(2), 2019](https://iaspmjournal.net/index.php/IASPM_Journal/article/view/949), is qualitative. So the hard numbers below come from three places: track durations I scraped from Bandcamp, two open-source generators I read line by line, and MIDI files I parsed myself.

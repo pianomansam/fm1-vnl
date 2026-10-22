@@ -1,5 +1,7 @@
 # How AMB-1 works, and how VNL-1's songs fit on it
 
+> Source material, kept as researched. The distilled, current reading (general musicianship vs. lo-fi choices) is in [`docs/music/`](../music/README.md).
+
 Source read: `ref/fm1-amb/app/dsp/amb.h`, `amb.c` (the engine, ~1,800 lines), `ui.c`, and `ref/fm1-dub/PLAN.md`
 (DUB-1, a fork of AMB-1 that already turned it toward a beat-driven genre).
 

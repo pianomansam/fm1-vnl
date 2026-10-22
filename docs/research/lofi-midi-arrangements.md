@@ -1,5 +1,7 @@
 # Lo-fi MIDI arrangements: what full-song MIDI shows about form
 
+> Source material, kept as researched. The distilled, current reading (general musicianship vs. lo-fi choices) is in [`docs/music/`](../music/README.md).
+
 Follow-up to [lofi-hip-hop.md](lofi-hip-hop.md) (sections 6 and 7 cover the Magenta loops and the generator projects; this report doesn't repeat them). The goal was multi-track, whole-song (32+ bar) lo-fi MIDI, analyzed for arrangement: who plays when, section lengths, intros, breaks, outros, melody reuse, loop lengths, and drum grids.
 
 **Labels.** **[measured]** means computed by the stdlib parser over the files. **[inferred]** means my interpretation. Role labels (drums, bass, chords, lead) are themselves inferred from program, register and polyphony (see Method), so every role-based number inherits that error.

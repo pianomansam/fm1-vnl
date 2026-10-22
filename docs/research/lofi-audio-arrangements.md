@@ -1,5 +1,7 @@
 # Lo-fi hip hop arrangements measured from audio
 
+> Source material, kept as researched. The distilled, current reading (general musicianship vs. lo-fi choices) is in [`docs/music/`](../music/README.md).
+
 Companion to [lofi-hip-hop.md](lofi-hip-hop.md), which found no published bar-by-bar arrangement maps. This report measures them from the audio of 19 freely licensed lo-fi tracks: when the drums, bass, keys and top line come in and drop out, how intros, breaks and outros work, and how long each section runs in bars.
 
 Labels used throughout:

@@ -1,5 +1,7 @@
 # Auto-accompaniment engines vs. VNL-1
 
+> Source material, kept as researched. The distilled, current reading (general musicianship vs. lo-fi choices) is in [`docs/music/`](../music/README.md).
+
 Research note, 2026-10-22. How open-source "Band-in-a-Box / iReal Pro"-style engines generate drums, bass, comping
 and melody; how VNL-1's song engine (`app/song/`) compares; what to change.
 

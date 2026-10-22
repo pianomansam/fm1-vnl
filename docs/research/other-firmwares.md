@@ -1,5 +1,7 @@
 # Other FM-1 firmwares: ideas to borrow
 
+> Source material, kept as researched. The distilled, current reading (general musicianship vs. lo-fi choices) is in [`docs/music/`](../music/README.md).
+
 ## RedtailWorks (HYP-1, LOF-1, ECO-1, GRAV-1)
 
 Source: `ref/fm1-HYP1` (github.com/rustypawz/fm1-HYP1), one repo holding all four, each in its own directory.

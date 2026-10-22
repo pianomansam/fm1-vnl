@@ -1,5 +1,14 @@
 # SDD ledger — plan: docs/superpowers/plans/2026-10-22-song-engine.md
 
+## How to read this
+
+This ledger records the build: rulings (R1–R30), deferred findings per task, and items to revisit after listening.
+The music behind the rulings is kept in [`docs/music/`](../../music/README.md), split by why a rule exists:
+[general.md](../../music/general.md) (genre-independent musicianship: chord-scales, voice leading, bass lines,
+rhythm, form, melody), [lofi.md](../../music/lofi.md) (lo-fi hip hop and Sam's taste: tempo, swing, maps, one loop,
+no substitutions, diatonic bass) and [ideas-from-other-apps.md](../../music/ideas-from-other-apps.md) (not adopted
+yet). "To revisit" below follows the same split.
+
 Spec: docs/superpowers/specs/2026-10-22-vnl-1-design.md. Branch: song-engine (from main da06323).
 Baseline: fm1-base tests pass with `PATH=/Users/samueloltz/Documents/fm-1/.venv/bin:$PATH` (system python3 lacks Pillow); host sim template test passes.
 
@@ -134,9 +143,24 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
 
 ## To revisit (Sam, after listening)
 
+### General
+
 - **Lead phrase starts are square.** Over 1,000 songs: 35% of lead gestures start exactly on beat 1, 59% on a beat,
   19% on 8th offbeats, 21% on 16ths, and true pickups are impossible (phrases begin on their first bar; notes may not
   cross a chord change). Cause: melody.c `gen_figure` picks beat 1 first 60% of the time, and 8 of 14 rhythm-cell
   weights include the beat. Proposed (not done): starts ~15% beat 1, 25% other beats, 35% 8th offbeats (and-of-1,
   and-of-4), 10% 16ths, 15% pickups (1–3 short notes in the bar before, ending before the chord change, landing on a
   chord tone at or just after the downbeat); offbeat-leaning cells inside phrases; restatements keep the rhythm.
+  (General: phrase starts need variety in any style; the target percentages are a lo-fi amount, see
+  `docs/music/lofi.md`.)
+- **Lead strong-beat choice (R28, R30).** Strong steps often allow only 2 pitch classes; decide at the listening
+  check. A rub-free loosening (voiced color tones on strong beats) is in `docs/music/ideas-from-other-apps.md`.
+- **Lead and candy swing (R16).** They are late but straight while hats and kick swing; every engine studied swings
+  all parts. Hear both before reversing R16.
+
+### Lo-fi / taste
+
+- **Progressions 27–44 (R26)** await curation by ear; 28 and 34 are tonally ambiguous (Task 8c minor).
+- **Drum kicks to check by ear** (Task 3 minor): pattern #2 busy (steps 7+8), #5 half-time kick on 2 and 4, bossa
+  kick 0,3,8,11.
+- **Slow bloom's "long fade"** often lands on a 4-bar last block (Task 5 minor).
