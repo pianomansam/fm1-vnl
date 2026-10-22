@@ -9,6 +9,7 @@
 #include "roll.h"
 #include "plan.h"
 #include "groove.h"
+#include "harmony.h"
 
 static int fails;
 #define CHECK(c, ...)                                                                                              \
@@ -757,6 +758,147 @@ static void test_groove(void)
           "groove: bass styles drawn %d/%d/%d/%d", styles[0], styles[1], styles[2], styles[3]);
 }
 
+static void test_harmony(void)
+{
+    song_roll_t r;
+    int pi, key, mode, color, bar, n, i, seed, pass, step;
+    int bad_pass1 = 0, reharm = 0, bad_dark = 0, bad_range = 0, bad_roll = 0, bad_vel = 0, bad_det = 0;
+    int styles[4] = {0, 0, 0, 0}, chords_seen = 0;
+    plan_block_t keys = {0, 8, SEC_GROOVE, L_KEYS, 0}, dark = {0, 4, SEC_INTRO, L_KEYS, PB_DARK};
+    plan_block_t nokeys = {0, 8, SEC_GROOVE, L_BASS, 0};
+    song_ev_t ev[16], ev2[16];
+    const float SPS16 = 5512.5f;   /* a 16th at 90 BPM is 0.1667 s */
+
+    memset(&r, 0, sizeof r);
+    for (pi = 0; pi < LIB_NPROGS; pi++)
+        for (key = 0; key < 12; key++)
+            for (mode = 0; mode < MODE_N; mode++)
+                for (color = 0; color < 3; color++) {
+                    const lib_prog_t *p = &LIB_PROGS[pi];
+                    r.v[RF_KEY] = (int16_t)key; r.v[RF_MODE] = (int16_t)mode; r.v[RF_PROG] = p->id;
+                    r.v[RF_COLOR] = (int16_t)color; r.seed = (uint32_t)(pi * 7 + key);
+                    for (bar = 0; bar < 16; bar++) {
+                        int got[5], want[5], ng, nw;
+                        const th_chord_spec_t c = p->c[(bar / p->bars_per_chord) % p->n];
+                        ng = harmony_chord_at(&r, bar, 1, 0, got);
+                        nw = th_chord_pcs(key, mode, c, color, want);
+                        if (ng != nw || memcmp(got, want, sizeof(int) * (size_t)nw)) bad_pass1++;
+                    }
+                }
+    CHECK(bad_pass1 == 0, "harmony: %d pass-1 chords differ from the progression", bad_pass1);
+
+    /* reharmonize on repeat: over 200 seeds some pass >= 2 chord differs; at most one chord index per pass */
+    for (seed = 1; seed <= 200; seed++) {
+        const lib_prog_t *p;
+        roll_song(NULL, (uint32_t)seed, &r);
+        p = lib_prog_by_id((uint8_t)r.v[RF_PROG]);
+        for (pass = 2; pass <= 4; pass++) {
+            int diff_idx = 0;
+            for (i = 0; i < p->n; i++) {
+                int a[5], b[5], na = harmony_chord_at(&r, i * p->bars_per_chord, 1, 0, a);
+                int nb = harmony_chord_at(&r, i * p->bars_per_chord, pass, 0, b);
+                int same_bars = 1;
+                if (na != nb || memcmp(a, b, sizeof(int) * (size_t)na)) { diff_idx++; }
+                for (bar = 1; bar < p->bars_per_chord; bar++) {
+                    int c1[5], c2[5];
+                    int n1 = harmony_chord_at(&r, i * p->bars_per_chord + bar, pass, 0, c1);
+                    int n2 = harmony_chord_at(&r, i * p->bars_per_chord, pass, 0, c2);
+                    if (n1 != n2 || memcmp(c1, c2, sizeof(int) * (size_t)n1)) same_bars = 0;
+                }
+                if (!same_bars) bad_det++;
+            }
+            CHECK(diff_idx <= 1, "harmony: seed %d pass %d reharmonizes %d chords", seed, pass, diff_idx);
+            reharm += diff_idx;
+        }
+    }
+    CHECK(reharm > 0, "harmony: no reharmonized chord in 200 seeds");
+    CHECK(reharm > 40 && reharm < 400, "harmony: reharmonize count %d implausible", reharm);
+    CHECK(bad_det == 0, "harmony: a chord changes inside its own bars");
+
+    /* dark: lower color; events never above 64; all events 48-72, rolled 10-60 ms apart, velocities 25-110 */
+    for (seed = 1; seed <= 120; seed++) {
+        int prev[4] = {0, 0, 0, 0};
+        int prev2[4] = {0, 0, 0, 0};
+        roll_song(NULL, (uint32_t)seed, &r);
+        styles[harmony_style(&r)]++;
+        for (bar = 0; bar < 8; bar++)
+            for (step = 0; step < 16; step++) {
+                const plan_block_t *b = (bar < 4) ? &dark : &keys;
+                int *vs = (bar < 4) ? prev : prev2;
+                int ne = harmony_step(&r, b, bar, step, 1 + bar / 4, SPS16, vs, 3u, ev, 16);
+                int ne2;
+                int vs2[4];
+                memcpy(vs2, vs, sizeof vs2);
+                (void)vs2;
+                for (i = 0; i < ne; i++) {
+                    if (ev[i].voice != V_CHORD) bad_range++;
+                    if (ev[i].note < 48 || ev[i].note > 72) bad_range++;
+                    if (b == &dark && ev[i].note > 64) bad_dark++;
+                    if (ev[i].vel < 25 || ev[i].vel > 110) bad_vel++;
+                    if (ev[i].len == 0) bad_range++;
+                }
+                if (harmony_style(&r) != CS_ARP && ne > 0) {
+                    chords_seen++;
+                    if (ne != 4) bad_roll++;
+                    for (i = 1; i < ne; i++) {
+                        uint32_t gap = ev[i].delay - ev[i - 1].delay;
+                        if (ev[i].delay <= ev[i - 1].delay || ev[i].note <= ev[i - 1].note) bad_roll++;
+                        if (gap < 441 || gap > 2646) bad_roll++;
+                    }
+                    if (ev[0].delay != 0) bad_roll++;
+                }
+                (void)ne2;
+            }
+    }
+    CHECK(bad_range == 0, "harmony: %d events out of range or wrong voice", bad_range);
+    CHECK(bad_dark == 0, "harmony: %d dark notes above 64", bad_dark);
+    CHECK(bad_vel == 0, "harmony: %d velocities outside 25-110", bad_vel);
+    CHECK(bad_roll == 0, "harmony: %d rolled-chord violations", bad_roll);
+    CHECK(chords_seen > 0, "harmony: no chord events");
+    CHECK(styles[CS_HELD] > 0 && styles[CS_STABS] > 0 && styles[CS_OFFBEATS] > 0 && styles[CS_ARP] > 0,
+          "harmony: styles drawn %d/%d/%d/%d", styles[0], styles[1], styles[2], styles[3]);
+
+    /* style shapes, no events without L_KEYS, determinism */
+    for (seed = 1; seed <= 60; seed++) {
+        int count[16], bpc, st, total = 0, held_bar = 0;
+        const lib_prog_t *p;
+        int vs[4] = {0, 0, 0, 0}, vsb[4] = {0, 0, 0, 0};
+        roll_song(NULL, (uint32_t)seed, &r);
+        p = lib_prog_by_id((uint8_t)r.v[RF_PROG]);
+        bpc = p->bars_per_chord;
+        st = harmony_style(&r);
+        memset(count, 0, sizeof count);
+        for (bar = 0; bar < 8; bar++)
+            for (step = 0; step < 16; step++) {
+                int a = harmony_step(&r, &keys, bar, step, 1, SPS16, vs, 9u, ev, 16);
+                int b2 = harmony_step(&r, &keys, bar, step, 1, SPS16, vsb, 9u, ev2, 16);
+                if (a != b2 || memcmp(ev, ev2, sizeof(song_ev_t) * (size_t)a) || memcmp(vs, vsb, sizeof vs)) bad_det++;
+                count[step] += a;
+                total += a;
+                if (st == CS_HELD && a > 0) {
+                    if (step != 0 || bar % bpc != 0) held_bar++;
+                    for (i = 0; i < a; i++) {
+                        uint32_t want = (uint32_t)((float)(bpc * 16) * SPS16) - 441u;
+                        if (ev[i].len + 2 < want || ev[i].len > want + 2) held_bar++;
+                    }
+                }
+                if (harmony_step(&r, &nokeys, bar, step, 1, SPS16, vs, 9u, ev, 16) != 0) bad_det++;
+            }
+        CHECK(held_bar == 0, "harmony: held chords wrong (seed %d)", seed);
+        if (st == CS_HELD) CHECK(total == 4 * (8 / bpc), "harmony: held count %d", total);
+        if (st == CS_STABS) CHECK(count[0] == 32 && count[6] == 32 && total == 64, "harmony: stabs %d/%d/%d", count[0], count[6], total);
+        if (st == CS_OFFBEATS) CHECK(count[2] == 32 && count[6] == 32 && count[10] == 32 && count[14] == 32 && total == 128,
+                                     "harmony: offbeats total %d", total);
+        if (st == CS_ARP) {
+            int evens = 1;
+            for (step = 0; step < 16; step++) if ((step & 1) == 0 ? count[step] != 8 : count[step] != 0) evens = 0;
+            CHECK(evens && total == 64, "harmony: arp shape total %d", total);
+        }
+    }
+    CHECK(bad_det == 0, "harmony: %d determinism or L_KEYS violations", bad_det);
+    (void)n;
+}
+
 int main(void)
 {
     test_rng();
@@ -765,6 +907,7 @@ int main(void)
     test_roll();
     test_plan();
     test_groove();
+    test_harmony();
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;
