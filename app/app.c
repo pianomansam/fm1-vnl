@@ -104,16 +104,14 @@ static void snap_read(snap_t *o)        /* main loop: a consistent copy */
     } while (a != b || (a & 1u));
 }
 
-/* The song log (host simulator only): what each song rolled and, bar by bar, the chord and its voicing, so a render
-   can be read alongside its WAV. VNL_SONGLOG names the file; times are seconds since boot. */
+/* What each song played, for a musician (host simulator only, app/host/score.c): the song log, MIDI and MusicXML */
 #if defined(PLAT_HOST) && !defined(PLAT_WEB)
-static void slog_song(const song_t *s);
-static void slog_step(const song_t *s, int bar, int st, const song_ev_t *ev, int n);
-static void slog_gap(float secs);
+#include "score.h"
 static uint32_t slog_samples;
-#define SLOG_SONG(s) slog_song(s)
-#define SLOG_STEP(s, bar, st, ev, n) slog_step(s, bar, st, ev, n)
-#define SLOG_GAP(secs) slog_gap(secs)
+#define SLOG_NOW() ((float)slog_samples / 44100.0f)
+#define SLOG_SONG(s) score_song(s, SLOG_NOW())
+#define SLOG_STEP(s, bar, st, ev, n) score_step(s, bar, st, ev, n, SLOG_NOW())
+#define SLOG_GAP(secs) score_gap(SLOG_NOW(), secs)
 #define SLOG_TIME(n) (slog_samples += (n))
 #else
 #define SLOG_SONG(s) ((void)0)
@@ -650,122 +648,3 @@ int app_expect(const char *what, int *got)
 }
 #endif
 
-#if defined(PLAT_HOST) && !defined(PLAT_WEB)
-#include <stdio.h>
-#include <stdlib.h>
-#include "groove.h"
-
-static FILE *slog_f;
-static int slog_opened, slog_bar = -1, slog_nn, slog_lead, slog_candy, slog_notes[4];
-static char slog_line[160];
-static const char *const FLATS[12] = {"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"};
-static const char *const SHARPS[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
-static const char *const SLOG_MODE[MODE_N] = {"major", "Dorian", "Phrygian", "Lydian", "Mixolydian", "minor"};
-static const char *const STYLE_NAME[4] = {"held", "stabs", "offbeats", "arpeggio"};
-static const char *const BASS_NAME[4] = {"roots", "root-fifth", "walking", "pedal"};
-
-static FILE *slog_file(void)
-{
-    if (!slog_opened) {
-        const char *path = getenv("VNL_SONGLOG");
-        slog_opened = 1;
-        slog_f = path ? fopen(path, "w") : NULL;
-    }
-    return slog_f;
-}
-
-static float slog_now(void) { return (float)slog_samples / 44100.0f; }
-
-/* the key in its simplest spelling (Sam: Bb, not A#): the parent major scale with the fewest accidentals, flats on
-   a tie */
-static const char *slog_key(int key, int mode)
-{
-    static const int8_t OFF[MODE_N] = {0, 2, 4, 5, 7, 9}, SHARPS_N[12] = {0, 7, 2, 9, 4, 11, 6, 1, 8, 3, 10, 5};
-    static const int8_t FLATS_N[12] = {0, 5, 10, 3, 8, 1, 6, 11, 4, 9, 2, 7};
-    int parent = (key - OFF[mode] + 12) % 12;
-    return SHARPS_N[parent] < FLATS_N[parent] ? SHARPS[key] : FLATS[key];
-}
-
-static void slog_flush(void)
-{
-    FILE *f = slog_file();
-    int i;
-    if (!f || slog_bar < 0)
-        return;
-    fputs(slog_line, f);
-    for (i = 0; i < slog_nn; i++)
-        fprintf(f, "%s%s%d", i ? " " : "  ", FLATS[slog_notes[i] % 12], slog_notes[i] / 12 - 1);
-    fprintf(f, "%s%s\n", slog_lead ? "  +lead" : "", slog_candy ? "  +candy" : "");
-    slog_bar = -1;
-}
-
-static void slog_song(const song_t *s)
-{
-    FILE *f = slog_file();
-    const song_roll_t *r = &s->roll;
-    const lib_prog_t *p = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
-    const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
-    const lib_map_t *m = lib_map_by_id((uint8_t)r->v[RF_MAP]);
-    static int count;
-    int i, secs = r->v[RF_BARS] * 240 / r->v[RF_TEMPO];
-    if (!f)
-        return;
-    slog_flush();
-    fprintf(f, "\n=== song %d at %.2fs (seed %u)\n", ++count, (double)slog_now(), (unsigned)r->seed);
-    fprintf(f, "key %s %s, %d BPM, %d bars (%d:%02d), mood %s, motion %d, swing %.1f%%\n",
-            slog_key(r->v[RF_KEY], r->v[RF_MODE]), SLOG_MODE[r->v[RF_MODE]], r->v[RF_TEMPO], r->v[RF_BARS], secs / 60,
-            secs % 60, (const char *[]){"sad", "wistful", "warm", "sunny"}[r->v[RF_MOOD] & 3], r->v[RF_MOTION],
-            (double)r->v[RF_SWING] / 10.0);
-    fprintf(f, "map %s; progression %d (%s); set %s; color %s; comping %s; bass %s\n", m ? m->name : "?",
-            p ? p->id : 0, p ? p->src : "?", set ? set->name : "?",
-            (const char *[]){"7ths", "9ths", "rich"}[r->v[RF_COLOR] % 3], STYLE_NAME[harmony_style(r) & 3],
-            BASS_NAME[groove_bass_style(r) & 3]);
-    fprintf(f, "blocks:");
-    for (i = 0; i < s->plan.n; i++) {
-        const plan_block_t *b = &s->plan.b[i];
-        fprintf(f, " %d-%d %s%s%s", b->start + 1, b->start + b->bars, plan_section_name(b->section),
-                (b->flags & PB_DARK) ? " (dark)" : "", (b->flags & PB_FADE) ? " (fade)" : "");
-        fputc(i + 1 < s->plan.n ? ',' : '\n', f);
-    }
-}
-
-static void slog_step(const song_t *s, int bar, int st, const song_ev_t *ev, int n)
-{
-    int i;
-    if (!slog_file())
-        return;
-    if (st == 0) {
-        const plan_block_t *b = plan_at(&s->plan, bar);
-        const lib_prog_t *p = lib_prog_by_id((uint8_t)s->roll.v[RF_PROG]);
-        int loop = p ? p->n * p->bars_per_chord : 4, pcs[5], np;
-        char nm[16];
-        slog_flush();
-        np = harmony_chord_at(&s->roll, bar, bar / (loop ? loop : 4) + 1, b && (b->flags & PB_DARK), pcs);
-        snprintf(slog_line, sizeof slog_line, "%6.2fs  bar %2d  %-6s  %-8s", (double)slog_now(), bar + 1,
-                 b ? plan_section_name(b->section) : "?", th_chord_name(pcs, np, nm));
-        slog_bar = bar;
-        slog_nn = slog_lead = slog_candy = 0;
-    }
-    for (i = 0; i < n; i++) {
-        if (ev[i].voice == V_CHORD && slog_nn < 4) {          /* the bar's voicing, as first struck */
-            int k, dup = 0;
-            for (k = 0; k < slog_nn; k++) dup |= slog_notes[k] == ev[i].note;
-            if (!dup) slog_notes[slog_nn++] = ev[i].note;
-        }
-        slog_lead |= ev[i].voice == V_LEAD;
-        slog_candy |= ev[i].voice == V_CANDY;
-    }
-    if (s->state != SS_PLAYING)
-        slog_flush();
-}
-
-static void slog_gap(float secs)
-{
-    FILE *f = slog_file();
-    slog_flush();
-    if (f) {
-        fprintf(f, "%6.2fs  end; %.2fs of silence\n", (double)slog_now(), (double)secs);
-        fflush(f);
-    }
-}
-#endif
