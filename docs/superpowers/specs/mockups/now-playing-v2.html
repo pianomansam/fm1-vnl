@@ -1,0 +1,101 @@
+<style>
+  .scr{width:240px;height:240px;transform:scale(1.6);transform-origin:top left;background:#17141c;color:#efe6d2;
+       font-family:ui-sans-serif,-apple-system,Helvetica,sans-serif;font-size:10px;position:relative;overflow:hidden;border-radius:4px}
+  .wrap{width:384px;height:384px;margin:8px auto 4px}
+  .dim{color:#8d8597}.acc{color:#f0b36a}.pend{color:#86d0ae}
+  .hdr{position:absolute;top:6px;left:8px;right:8px;display:flex;align-items:center;gap:5px}
+  .chip{background:#f0b36a;color:#17141c;font-weight:700;padding:1px 5px;border-radius:3px;font-size:10px}
+  .knobs{position:absolute;bottom:0;left:0;right:0;height:46px;display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid #2d2936}
+  .knobs div{text-align:center;padding-top:4px}
+  .knobs .g{width:18px;height:18px;margin:0 auto 1px;border-radius:50%;border:2.5px solid #3a3544;border-top-color:#f0b36a;border-right-color:#f0b36a}
+  .knobs b{display:block;font-size:10px}.knobs span{font-size:7px;color:#8d8597;letter-spacing:.5px}
+  .page{position:absolute;bottom:47px;right:8px;font-size:7px;color:#f0b36a;letter-spacing:.5px}
+  .seg{display:flex;gap:2px;height:8px}.seg i{flex:1;border-radius:2px;background:#2d2936;position:relative}
+  .seg i.done{background:#6d5a44}.seg i.cur{background:#f0b36a}
+  .dots{display:flex;gap:2px;justify-content:center;margin-top:2px}.dots i{width:3px;height:3px;border-radius:50%;background:#efe6d2}
+  .dots i.off{background:#3a3544}
+</style>
+
+<h2>Round 2: informed by the other FM-1 firmwares</h2>
+<p class="subtitle">Every AMB-family firmware shares one frame: a header (name chip, key, tempo), a big centerpiece, and the four knobs
+as gauges along the bottom with the page name above them. FM-1 owners already know it, so all three keep it.
+LOF-1's "DREAMS IN 7 BARS" countdown is borrowed for pending changes.</p>
+
+<div class="cards">
+  <div class="card" data-choice="d-chord" onclick="toggleSelect(this)">
+    <div class="card-image"><div class="wrap"><div class="scr">
+      <div class="hdr"><span class="chip">SONG 14</span><span>D Dorian</span><span style="margin-left:auto" class="pend">84→78</span></div>
+      <div style="position:absolute;top:24px;left:8px;font-size:12px">rainy window</div>
+      <div class="dim" style="position:absolute;top:39px;left:8px;font-size:8px">Rhodes · upright · flute · crackle + rain</div>
+      <div style="position:absolute;top:60px;left:0;right:0;text-align:center">
+        <div style="font-size:30px;font-weight:700">Cmaj9</div>
+        <div class="dim" style="font-size:9px;margin-top:2px">Dm9 · G13 · <span class="acc">Cmaj9</span> · Am7</div>
+        <div class="pend" style="font-size:8px;margin-top:8px;letter-spacing:.6px">TEMPO 78 IN 3 BARS</div>
+      </div>
+      <div style="position:absolute;top:142px;left:8px;right:8px">
+        <div style="display:flex;justify-content:space-between;font-size:8px;margin-bottom:3px"><span class="acc">B · bar 37/60</span><span class="dim">1:32 / 2:41</span></div>
+        <div class="seg"><i class="done"></i><i class="done"></i><i class="done" style="flex:2"></i><i class="done" style="flex:.5"></i><i class="cur" style="flex:2"></i><i style="flex:2"></i><i style="flex:.7"></i></div>
+        <div class="dim" style="font-size:7px;display:flex;justify-content:space-between;margin-top:2px"><span>intro</span><span>A</span><span>break</span><span>B</span><span>A</span><span>out</span></div>
+      </div>
+      <div class="page">HOME ● ○</div>
+      <div class="knobs">
+        <div><i class="g" style="display:block"></i><b>D min</b><span>KEY</span></div>
+        <div><i class="g" style="display:block"></i><b class="pend">78</b><span>TEMPO</span></div>
+        <div><i class="g" style="display:block"></i><b>low</b><span>MOTION</span></div>
+        <div><i class="g" style="display:block"></i><b>wistful</b><span>MOOD</span></div>
+      </div>
+    </div></div></div>
+    <div class="card-body"><h3>D · Chord + song strip</h3><p>A and B merged: the chord as the centerpiece (the chords are the star), a progress bar cut into the song's sections, the countdown for your change.</p></div>
+  </div>
+
+  <div class="card" data-choice="e-band" onclick="toggleSelect(this)">
+    <div class="card-image"><div class="wrap"><div class="scr">
+      <div class="hdr"><span class="chip">SONG 14</span><span>D Dorian</span><span style="margin-left:auto">84</span></div>
+      <div style="position:absolute;top:24px;left:8px;font-size:12px">rainy window <span class="dim" style="font-size:8px">· B · 1:32</span></div>
+      <div style="position:absolute;top:44px;left:8px;right:8px;display:grid;grid-template-columns:repeat(6,1fr);gap:4px;text-align:center;font-size:7px">
+        <div><div style="height:58px;background:#2d2936;border-radius:3px;position:relative"><i style="position:absolute;bottom:0;left:0;right:0;height:40%;background:#7c6e8f;border-radius:3px"></i></div><div class="dim" style="margin-top:2px">bed</div></div>
+        <div><div style="height:58px;background:#2d2936;border-radius:3px;position:relative"><i style="position:absolute;bottom:0;left:0;right:0;height:85%;background:#f0b36a;border-radius:3px"></i></div><div style="margin-top:2px">keys</div></div>
+        <div><div style="height:58px;background:#2d2936;border-radius:3px;position:relative"><i style="position:absolute;bottom:0;left:0;right:0;height:70%;background:#d98b6a;border-radius:3px"></i></div><div style="margin-top:2px">drums</div></div>
+        <div><div style="height:58px;background:#2d2936;border-radius:3px;position:relative"><i style="position:absolute;bottom:0;left:0;right:0;height:60%;background:#c9a15a;border-radius:3px"></i></div><div style="margin-top:2px">bass</div></div>
+        <div><div style="height:58px;background:#2d2936;border-radius:3px;position:relative;outline:1px dashed #86d0ae"></div><div class="pend" style="margin-top:2px">lead<br>in 3</div></div>
+        <div><div style="height:58px;background:#2d2936;border-radius:3px"></div><div class="dim" style="margin-top:2px">candy</div></div>
+      </div>
+      <div style="position:absolute;top:128px;left:0;right:0;text-align:center"><span style="font-size:18px;font-weight:700">Cmaj9</span>
+        <span class="dim" style="font-size:8px"> &nbsp;Dm9 · G13 · Cmaj9 · Am7</span></div>
+      <div style="position:absolute;top:156px;left:8px;right:8px"><div class="seg"><i class="done"></i><i class="done"></i><i class="done" style="flex:2"></i><i class="done" style="flex:.5"></i><i class="cur" style="flex:2"></i><i style="flex:2"></i><i style="flex:.7"></i></div></div>
+      <div class="page">HOME ● ○</div>
+      <div class="knobs">
+        <div><i class="g" style="display:block"></i><b>D min</b><span>KEY</span></div>
+        <div><i class="g" style="display:block"></i><b>84</b><span>TEMPO</span></div>
+        <div><i class="g" style="display:block"></i><b>low</b><span>MOTION</span></div>
+        <div><i class="g" style="display:block"></i><b>wistful</b><span>MOOD</span></div>
+      </div>
+    </div></div></div>
+    <div class="card-body"><h3>E · The band</h3><p>Six columns, one per role, glowing with what each plays right now (as AMB-1/DUB-1's level bars). You watch the arrangement breathe: the lead is about to come in.</p></div>
+  </div>
+
+  <div class="card" data-choice="f-preview" onclick="toggleSelect(this)">
+    <div class="card-image"><div class="wrap"><div class="scr">
+      <div class="hdr"><span class="chip" style="background:#86d0ae">NEXT</span><span>roll 3</span><span style="margin-left:auto" class="dim">stopped</span></div>
+      <div style="position:absolute;top:30px;left:0;right:0;text-align:center">
+        <div style="font-size:15px">golden hour walk</div>
+        <div class="dim" style="font-size:8px;margin-top:3px">2:52 · 64 bars · loop progression</div>
+      </div>
+      <div style="position:absolute;top:66px;left:14px;right:14px;display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:9px">
+        <span class="dim">band</span><span>Wurli · electric bass · vibes</span>
+        <span class="dim">drums</span><span>soft synth kit · half-time</span>
+        <span class="dim">chords</span><span>Fmaj7 · G7 · Em7 · Am7</span>
+        <span class="dim">bed</span><span>tape hiss · dust ●○○</span>
+      </div>
+      <div style="position:absolute;top:142px;left:0;right:0;text-align:center;font-size:8px;letter-spacing:.6px"><span class="acc">⚄ ROLL AGAIN</span> &nbsp; <span class="dim">·</span> &nbsp; ▶ PLAY THIS</div>
+      <div class="page">PREVIEW</div>
+      <div class="knobs">
+        <div><i class="g" style="display:block"></i><b>A maj</b><span>KEY</span></div>
+        <div><i class="g" style="display:block"></i><b>81</b><span>TEMPO</span></div>
+        <div><i class="g" style="display:block"></i><b>mid</b><span>MOTION</span></div>
+        <div><i class="g" style="display:block"></i><b>sunny</b><span>MOOD</span></div>
+      </div>
+    </div></div></div>
+    <div class="card-body"><h3>F · Preview (stopped)</h3><p>Not a choice against D/E: the companion screen for your universal re-roller. Each roll shows the whole song; knobs can tweak it before PLAY.</p></div>
+  </div>
+</div>
