@@ -1255,6 +1255,102 @@ static void test_voices(void)
     printf("voices: dense peak %.3f\n", (double)peak);
 }
 
+/* largest sample-to-sample step of the left output over n samples starting at the current state */
+static float vt_maxdelta(uint32_t n, uint32_t from, float *prev)
+{
+    float m = 0.0f;
+    uint32_t i;
+    memset(vt_l, 0, n * sizeof(float));
+    memset(vt_r, 0, n * sizeof(float));
+    vx_render(vt_l, vt_r, n);
+    for (i = from; i < n; i++) {
+        float d = vt_l[i] - (i ? vt_l[i - 1] : *prev);
+        if (d < 0)
+            d = -d;
+        if (d > m)
+            m = d;
+    }
+    *prev = vt_l[n - 1];
+    return m;
+}
+
+static void test_voices_fix(void)
+{
+    int k, seed, i;
+    float prev = 0.0f, d, dmax;
+    float peak = 0.0f;
+
+    /* a loud steady bass retriggered at a new level and note: no step */
+    vx_init();
+    vt_ev(V_BASS, 40, 127, 0, 400000);
+    vt_maxdelta(4096, 4096, &prev);
+    vt_ev(V_BASS, 47, 40, 0, 400000);
+    d = vt_maxdelta(4096, 0, &prev);
+    printf("voices: bass retrigger max delta %.4f\n", (double)d);
+    CHECK(d < 0.01f, "bass retrigger click: max step %.4f", (double)d);
+
+    /* a fifth chord note steals a loud held voice: the step stays near the 4-voice baseline (quiet thief, so any step is the victim cut) */
+    {
+        float base = 0.0f;
+        int pass;
+        dmax = 0.0f;
+        for (pass = 0; pass < 2; pass++) {
+            vx_init();
+            for (k = 0; k < 4; k++)
+                vt_ev(V_CHORD, 30 + k * 3, 127, 0, 400000);
+            vt_maxdelta(4096, 4096, &prev);
+            if (pass)
+                vt_ev(V_CHORD, 31, 1, 0, 400000);
+            for (i = 0; i < 4; i++) {
+                d = vt_maxdelta(1024, 0, &prev);
+                if (d > (pass ? dmax : base))
+                    *(pass ? &dmax : &base) = d;
+            }
+        }
+        printf("voices: chord steal max delta %.4f (baseline %.4f)\n", (double)dmax, (double)base);
+        CHECK(dmax < base * 1.5f, "chord steal click: max step %.4f vs baseline %.4f", (double)dmax, (double)base);
+    }
+
+    /* stress: every voice at vel 110, drums stacked on the same samples, several seeds: under -3 dBFS */
+    for (seed = 1; seed <= 6; seed++) {
+        vx_init();
+        vt_seed = (uint32_t)seed * 7919u;
+        for (k = 0; k < 40; k++) {
+            int j;
+            for (j = 0; j < 4; j++)
+                vt_ev(V_CHORD, 48 + (int)(vt_rnd() % 17), 110, 0, 20000);
+            vt_ev(V_BASS, 33 + (int)(vt_rnd() % 12), 110, 0, 20000);
+            for (j = 0; j < 2; j++) {
+                vt_ev(V_LEAD, 55 + (int)(vt_rnd() % 25), 110, 0, 20000);
+                vt_ev(V_CANDY, 60 + (int)(vt_rnd() % 25), 110, 0, 20000);
+            }
+            for (j = V_KICK; j < V_N; j++)
+                vt_ev(j, 0, 110, 0, 0);
+            memset(vt_l, 0, 2048 * sizeof(float));
+            memset(vt_r, 0, 2048 * sizeof(float));
+            vx_render(vt_l, vt_r, 2048);
+            for (i = 0; i < 2048; i++) {
+                float a = vt_l[i] < 0 ? -vt_l[i] : vt_l[i];
+                if (a > peak)
+                    peak = a;
+            }
+        }
+    }
+    printf("voices: stress peak %.3f\n", (double)peak);
+    CHECK(peak < 0.708f, "stress peak %.3f, wanted < 0.708", (double)peak);
+
+    /* gain is clamped to [0, 1] and lands exactly */
+    vx_init();
+    vx_set_gain(5.0f);
+    memset(vt_l, 0, 2000 * sizeof(float));
+    memset(vt_r, 0, 2000 * sizeof(float));
+    vt_ev(V_BASS, 40, 127, 0, 100000);
+    vx_render(vt_l, vt_r, 2000);
+    for (i = 0; i < 2000; i++)
+        if (vt_l[i] > 0.708f || vt_l[i] < -0.708f)
+            CHECK(0, "gain above 1 leaked: %.3f", (double)vt_l[i]);
+}
+
 int main(void)
 {
     test_rng();
@@ -1266,6 +1362,7 @@ int main(void)
     test_harmony();
     test_melody();
     test_voices();
+    test_voices_fix();
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;

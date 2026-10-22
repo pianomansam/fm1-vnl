@@ -17,17 +17,24 @@
 #define G_REL 0.006f /* gate fall per sample: below 1e-3 in about 26 ms */
 #define OFF_THR 1e-3f
 #define MIX_LP 0.509f /* one-pole low-pass at 5 kHz on the mix */
+#define G_STEAL 0.02f /* gate fall per sample for a steal: below STEAL_THR in about 4 ms */
+#define STEAL_THR 0.02f
+#define AMP_K 0.01f /* bass level slew per sample (about 2 ms) */
+#define CLIP_T 0.4f /* soft clip: linear below, then a knee that approaches CLIP_L and never reaches it */
+#define CLIP_L 0.70f
 
 enum { K_CHORD, K_LEAD, K_CANDY };
 
 typedef struct {
-    float pc, ic, im, nat, dec, idx, idec, g, amp, tine;
+    float pc, pm, ic, im, nat, dec, idx, idec, g, amp, tine;
     uint32_t gate, age;
     uint8_t on, held, kind;
+    uint8_t pend; /* a steal in progress: fade out, then start pe */
+    song_ev_t pe;
 } fm_t;
 
 typedef struct {
-    float p1, p2, i1, i2, g, amp;
+    float p1, p2, i1, i2, g, amp, amp_t;
     uint32_t gate;
     uint8_t on, held;
 } bass_t;
@@ -48,7 +55,7 @@ static fm_t fv[NFM];
 static bass_t bs;
 static drum_t dr[V_N]; /* indexed by voice id; the pitched slots are unused */
 static uint32_t age_ctr, rng = 0x1234567u;
-static float lp_y, gain, gain_step;
+static float lp_y, gain, gain_tgt, gain_step;
 static uint32_t gain_n;
 
 static float noise(void)
@@ -74,7 +81,7 @@ void vx_init(void)
     age_ctr = 0;
     rng = 0x1234567u;
     lp_y = 0.0f;
-    gain = 1.0f;
+    gain = gain_tgt = 1.0f;
     gain_step = 0.0f;
     gain_n = 0;
 }
@@ -90,28 +97,16 @@ void vx_event(const song_ev_t *e)
     qn++;
 }
 
-static void fm_on(const song_ev_t *e, int first, int count, uint8_t kind)
+static void fm_start(fm_t *v, const song_ev_t *e, uint8_t kind)
 {
-    int i, pick = first;
-    fm_t *v;
-    float f, v01 = (float)e->vel * (1.0f / 127.0f);
-    for (i = first; i < first + count; i++) { /* a free voice, else the oldest */
-        if (!fv[i].on) {
-            pick = i;
-            break;
-        }
-        if (fv[i].age < fv[pick].age)
-            pick = i;
-    }
-    v = &fv[pick];
-    f = note_inc(e->note);
+    float f = note_inc(e->note), v01 = (float)e->vel * (1.0f / 127.0f);
     v->ic = f;
     v->kind = kind;
     v->nat = 1.0f;
-    v->age = ++age_ctr;
     v->gate = e->len;
     v->held = 1;
     v->on = 1;
+    v->pend = 0;
     if (kind == K_CHORD) { /* EP: 1:1 body, 1:14 tine, low index */
         v->im = f;
         v->idx = 0.35f + 0.9f * v01;
@@ -119,7 +114,7 @@ static void fm_on(const song_ev_t *e, int first, int count, uint8_t kind)
         v->dec = 0.99997f;
         v->amp = 0.07f * v01;
         v->tine = 0.12f * v01;
-    } else { /* bell: 1:3.5 */
+    } else { /* bell: 1:3.5, the modulator on its own phase */
         v->im = f * 3.5f;
         v->idx = 0.6f + 1.4f * v01;
         v->idec = kind == K_LEAD ? 0.99985f : 0.99975f;
@@ -129,12 +124,44 @@ static void fm_on(const song_ev_t *e, int first, int count, uint8_t kind)
     }
 }
 
+/* A free voice starts at once. Otherwise the victim is the quietest released voice, else the oldest held one, and it
+   fades out over about 4 ms (G_STEAL) before the new note starts: the new note begins up to ~5 ms after its
+   sample-accurate time, with no step in the output. */
+static void fm_on(const song_ev_t *e, int first, int count, uint8_t kind)
+{
+    int i, pick = -1;
+    fm_t *v;
+    for (i = first; i < first + count; i++)
+        if (!fv[i].on) {
+            pick = i;
+            break;
+        }
+    if (pick < 0)
+        for (i = first; i < first + count; i++)
+            if (!fv[i].held && !fv[i].pend && (pick < 0 || fv[i].g < fv[pick].g))
+                pick = i;
+    if (pick < 0)
+        for (i = first; i < first + count; i++)
+            if (pick < 0 || fv[i].age < fv[pick].age)
+                pick = i;
+    v = &fv[pick];
+    v->age = ++age_ctr;
+    if (!v->on) {
+        v->g = 0.0f;
+        fm_start(v, e, kind);
+    } else {
+        v->pe = *e;
+        v->kind = kind;
+        v->pend = 1;
+    }
+}
+
 static void bass_on(const song_ev_t *e)
 {
     float f = note_inc(e->note);
     bs.i1 = f;
     bs.i2 = f * 0.5f;
-    bs.amp = 0.17f * (float)e->vel * (1.0f / 127.0f);
+    bs.amp_t = 0.17f * (float)e->vel * (1.0f / 127.0f);
     bs.gate = e->len;
     bs.held = 1;
     bs.on = 1; /* phases and gate level carry over: a retrigger is continuous */
@@ -196,12 +223,22 @@ static float fm_sample(fm_t *v)
     v->pc += v->ic;
     if (v->pc >= 1.0f)
         v->pc -= 1.0f;
-    mod = fm_sin_turns(v->pc * (v->kind == K_CHORD ? 1.0f : 3.5f)) * v->idx;
+    v->pm += v->im;
+    if (v->pm >= 1.0f)
+        v->pm -= 1.0f;
+    mod = fm_sin_turns(v->pm) * v->idx;
     s = fm_sin_turns(v->pc + mod * 0.159155f);
     if (v->kind == K_CHORD) /* the tine fades with the index */
         s += v->tine * fm_sin_turns(v->pc * 14.0f) * v->idx;
     v->idx *= v->idec;
     v->nat *= v->dec;
+    if (v->pend) { /* fade the victim out, then start the queued note on the same phases */
+        float o = s * v->amp * v->nat * v->g;
+        v->g -= v->g * G_STEAL;
+        if (v->g < STEAL_THR)
+            fm_start(v, &v->pe, v->kind);
+        return o;
+    }
     if (v->held && v->gate && --v->gate == 0)
         v->held = 0;
     tg = v->held ? 1.0f : 0.0f;
@@ -220,6 +257,7 @@ static float bass_sample(void)
     bs.p2 += bs.i2;
     if (bs.p2 >= 1.0f)
         bs.p2 -= 1.0f;
+    bs.amp += (bs.amp_t - bs.amp) * AMP_K;
     s = fm_sin_turns(bs.p1) + 0.6f * fm_sin_turns(bs.p2);
     if (bs.held && bs.gate && --bs.gate == 0)
         bs.held = 0;
@@ -281,11 +319,19 @@ static void render_seg(float *l, float *r, uint32_t n)
         lp_y = fm_flush(lp_y);
         if (gain_n) {
             gain += gain_step;
-            gain_n--;
+            if (--gain_n == 0)
+                gain = gain_tgt;
         }
         g = gain;
-        l[i] += lp_y * g;
-        r[i] += lp_y * g;
+        x = lp_y < 0.0f ? -lp_y : lp_y; /* soft clip: |y| < CLIP_L whatever the sum */
+        if (x > CLIP_T) {
+            x -= CLIP_T;
+            x = CLIP_T + (CLIP_L - CLIP_T) * x / (x + (CLIP_L - CLIP_T));
+        }
+        if (lp_y < 0.0f)
+            x = -x;
+        l[i] += x * g;
+        r[i] += x * g;
     }
 }
 
@@ -315,8 +361,10 @@ void vx_render(float *l, float *r, uint32_t n)
 void vx_release_all(void)
 {
     int i;
-    for (i = 0; i < NFM; i++)
+    for (i = 0; i < NFM; i++) {
         fv[i].held = 0;
+        fv[i].pend = 0;
+    }
     bs.held = 0;
     for (i = V_KICK; i < V_N; i++)
         if (dr[i].on)
@@ -326,7 +374,8 @@ void vx_release_all(void)
 
 void vx_set_gain(float g)
 {
-    gain_step = (g - gain) * (1.0f / 882.0f);
+    gain_tgt = g < 0.0f ? 0.0f : g > 1.0f ? 1.0f : g;
+    gain_step = (gain_tgt - gain) * (1.0f / 882.0f);
     gain_n = 882;
 }
 
