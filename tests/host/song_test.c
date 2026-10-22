@@ -12,6 +12,7 @@
 #include "harmony.h"
 #include "melody.h"
 #include "voices.h"
+#include "song.h"
 
 static int fails;
 #define CHECK(c, ...)                                                                                              \
@@ -120,13 +121,13 @@ static void test_theory(void)
                     n = th_chord_pcs(key, mode, c, col, pcs);
                     th_voice(pcs, n, NULL, out);
                     for (i = 0; i < 4; i++) {
-                        if (out[i] > 72 || out[i] < 48)
+                        if (out[i] > 72 || out[i] < 48)  /* the keys' register: C3-C5, E3-A4 preferred */
                             bad++;
                         for (k = i + 1; k < 4; k++)
                             if (out[i] == out[k])
                                 bad++;
                     }
-                    if (out[0] < 48 || out[0] > 55)
+                    if (out[0] < 48 || out[0] > 60)
                         bad++;
                     for (i = 1; i < 4; i++)
                         if (out[i] < out[0])
@@ -1519,9 +1520,148 @@ static void test_dominant_extensions(void)
     printf("harmony: %d dominants checked, %d dominant-turned-triads\n", doms, triads);
 }
 
+/* Voice leading (Sam): hold common tones, move the rest to the nearest chord tone, the top voice first (it stays when
+ * the new chord has it). Song 1 of songs.wav, A#m7 -> D#9 in C# Lydian (heard as ii -> V in G#): only G# moves (to
+ * F##), A# stays on top, the voicing is rootless 7-9-3-5. */
+/* a clean 4-note voicing of these pitch classes (E3-A4, bottom at most C4, no semitone neighbours, 3rd and 7th in)
+   with `top` on top: when none exists, moving the top voice is right */
+static int top_can_stay(const int *pcs, int n, int top)
+{
+    int a, b, c, v, i;
+    for (a = 52; a <= 60 && a < top; a++)
+        for (b = a + 1; b < top; b++)
+            for (c = b + 1; c < top; c++) {
+                int o[4], ok = 1, h3 = 0, h7 = 0, hx = 0, w, dom = has_iv(pcs, n, 4) && has_iv(pcs, n, 10);
+                o[0] = a; o[1] = b; o[2] = c; o[3] = top;
+                for (v = 0; v < 4 && ok; v++) {
+                    int in = 0, iv = (o[v] - pcs[0] + 120) % 12;
+                    for (i = 0; i < n; i++)
+                        in |= (o[v] - pcs[i] + 120) % 12 == 0;
+                    for (w = 0; w < v && n >= 4; w++)          /* four tones: no pitch class twice */
+                        in &= (o[v] - o[w] + 120) % 12 != 0;
+                    ok = in;
+                    h3 |= iv == 3 || iv == 4;
+                    h7 |= iv == 10 || iv == 11;
+                    hx |= iv != 0 && iv != 3 && iv != 4 && iv != 7 && iv != 10 && iv != 11;
+                }
+                for (v = 0; v < 3 && ok; v++)
+                    ok = o[v + 1] - o[v] != 1;
+                if (ok && h3 && (h7 || n < 4) && (!dom || hx))      /* a dominant sounds its extension */
+                    return 1;
+            }
+    return 0;
+}
+
+/* every chord as it sounds in real songs (intro darkening included): no two notes a semitone apart */
+static void test_no_chord_clusters(void)
+{
+    static song_t s;
+    uint32_t seed = 4242;
+    song_roll_t prev, r;
+    song_ev_t ev[64];
+    int k, i, j, strikes = 0, clusters = 0;
+    for (k = 0; k < 200; k++) {
+        seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+        roll_song(k ? &prev : 0, seed, &r);
+        prev = r;
+        song_start(&s, &r);
+        while (s.state == SS_PLAYING) {
+            int n = song_tick(&s, ev, 64), notes[16], m = 0;
+            for (i = 0; i < n; i++)
+                if (ev[i].voice == V_CHORD && m < 16)
+                    notes[m++] = ev[i].note;
+            if (m < 2)
+                continue;
+            strikes++;
+            for (i = 0; i < m; i++)
+                for (j = 0; j < m; j++)
+                    if (notes[j] - notes[i] == 1)
+                        clusters++;
+        }
+    }
+    CHECK(strikes > 1000, "only %d chord strikes", strikes);
+    CHECK(clusters == 0, "%d semitone rubs inside sounding chords (of %d strikes)", clusters, strikes);
+}
+
+static void test_voice_leading(void)
+{
+    uint32_t seed = 777;
+    song_roll_t prev, r;
+    long changes = 0, moved = 0, common = 0, held = 0, could = 0, kept = 0, leaps = 0;
+    int k, b, v, w;
+    for (k = 0; k < 300; k++) {
+        int st[4], have = 0, last[5], ln = 0;
+        seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+        roll_song(k ? &prev : 0, seed, &r);
+        prev = r;
+        for (b = 0; b < r.v[RF_BARS]; b++) {
+            int pcs[5], o[4], n = harmony_chord_at(&r, b, b / 4 + 1, 0, pcs);
+            if (have && ln == n && !memcmp(pcs, last, sizeof(int) * (size_t)n))
+                continue;
+            th_voice(pcs, n, have ? st : NULL, o);
+            if (have) {
+                changes++;
+                for (v = 0; v < 4; v++) {
+                    int in = 0, at = 0;
+                    moved += o[v] != st[v];
+                    for (w = 0; w < 4; w++)
+                        in |= (o[w] - st[v] + 120) % 12 == 0;
+                    for (w = 0; w < 4; w++)
+                        at |= o[w] == st[v];
+                    common += in;
+                    held += in && at;
+                }
+                if (top_can_stay(pcs, n, st[3])) {
+                    could++;
+                    kept += o[3] == st[3];
+                }
+                leaps += o[3] - st[3] > 2 || st[3] - o[3] > 2;
+            }
+            memcpy(st, o, sizeof st);
+            memcpy(last, pcs, sizeof(int) * (size_t)n);
+            ln = n;
+            have = 1;
+        }
+    }
+    printf("voicing: %.2f voices moved per change, common tones held %.0f%%, top kept %.0f%% of %ld, top leaps %.0f%%\n",
+           (double)moved / (double)changes, 100.0 * (double)held / (double)common, 100.0 * (double)kept / (double)could,
+           could, 100.0 * (double)leaps / (double)changes);
+    CHECK(held * 100 >= common * 95, "common tones held only %ld of %ld", held, common);
+    CHECK(kept * 100 >= could * 95, "top voice kept only %ld of %ld times a clean voicing could keep it", kept, could);
+    CHECK(leaps * 100 <= changes * 5, "top voice leaped %ld of %ld changes", leaps, changes);
+    {
+        /* song 1, bars 1-3: Dbmaj7 -> Bbm7 -> Eb9 (Db Lydian, heard as IV -> ii -> V in Ab): every common tone held,
+           the top moves at most a step, the 9th (F) sounds and the root (Eb) is left to the bass */
+        int pcs[5], a[4], bb[4], c[4], n, held2 = 0, common2 = 0, has9 = 0;
+        roll_song(0, 3248581516u, &r);
+        n = harmony_chord_at(&r, 0, 1, 0, pcs);
+        th_voice(pcs, n, NULL, a);
+        n = harmony_chord_at(&r, 1, 1, 0, pcs);
+        th_voice(pcs, n, a, bb);
+        n = harmony_chord_at(&r, 2, 1, 0, pcs);
+        th_voice(pcs, n, bb, c);
+        for (v = 0; v < 4; v++) {
+            int in = 0, at = 0;
+            for (w = 0; w < n; w++)
+                in |= (bb[v] - pcs[w] + 120) % 12 == 0;
+            for (w = 0; w < 4; w++)
+                at |= c[w] == bb[v];
+            common2 += in;
+            held2 += in && at;
+            has9 |= c[v] % 12 == 5;
+            CHECK(c[v] % 12 != 3, "song 1 bar 3: the Eb root is voiced (the bass has it)");
+        }
+        CHECK(held2 == common2, "song 1 bar 2->3: %d of %d common tones held", held2, common2);
+        CHECK(c[3] - bb[3] <= 2 && bb[3] - c[3] <= 2, "song 1 bar 3: the top leaped from %d to %d", bb[3], c[3]);
+        CHECK(has9, "song 1 bar 3: Eb9 without its 9th (F) in the voicing");
+    }
+}
+
 int main(void)
 {
     test_rng();
+    test_voice_leading();
+    test_no_chord_clusters();
     test_dominant_extensions();
     test_no_substitution();
     test_theory();

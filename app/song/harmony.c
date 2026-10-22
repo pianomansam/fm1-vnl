@@ -59,7 +59,7 @@ static int drop_iv(int *pcs, int n, int iv)
 }
 
 /* Dominants (major 3rd, minor 7th) never sound bare (Sam: a plain Eb7 sounded bad): at least a 9th, a 13th in a
- * rich song, and no 5th, so the 4-voice voicing keeps 3rd, 7th and the extension. Where the mode gives no
+ * rich song; th_voice keeps 3rd, 7th and the extension and drops the root (the bass has it). Where the mode gives no
  * extension (each would clash), the chord drops its 7th: a plain major triad. */
 static int dominant_colors(const song_roll_t *r, th_chord_spec_t c, int color, int *pcs)
 {
@@ -73,7 +73,7 @@ static int dominant_colors(const song_roll_t *r, th_chord_spec_t c, int color, i
         ext |= iv != 4 && iv != 7 && iv != 10;
     }
     if (ext)
-        return drop_iv(pcs, n, 7);
+        return n;                                        /* th_voice drops the root first, never the extension */
     n = th_chord_pcs(key, mode, c, COLOR_7, pcs);
     return drop_iv(pcs, n, 10);
 }
@@ -96,24 +96,19 @@ int harmony_style(const song_roll_t *r)
     return rng_int(&g, 4);
 }
 
-/* Voice the chord from the previous voicing (th_voice holds still when the chord is unchanged); dark drops tops
-   above 64 an octave. */
-static void voice_chord(const int *pcs, int n, int dark, int *state)
+/* Voice the chord from the previous voicing (th_voice holds still when the chord is unchanged). The voice-led state
+   stays in the keys' register; a dark chord sounds a second voicing kept under E4, so the groove after a dark intro
+   voice-leads from the real register, and darkening never makes a semitone rub. */
+static void voice_chord(const int *pcs, int n, int dark, int *state, int *sound)
 {
     int have = state[0] || state[1] || state[2] || state[3];
-    int i, j;
-    int out[4];
-    th_voice(pcs, n, have ? state : NULL, out);
-    if (dark)
-        for (i = 0; i < 4; i++) {
-            int top = 0;
-            for (j = 1; j < 4; j++) if (out[j] > out[top]) top = j;
-            if (out[top] <= 64) break;
-            out[top] -= 12;
-        }
-    for (i = 1; i < 4; i++)                              /* ascending order */
-        for (j = i; j > 0 && out[j] < out[j - 1]; j--) { int t = out[j]; out[j] = out[j - 1]; out[j - 1] = t; }
-    memcpy(state, out, sizeof out);
+    int prev[4];
+    memcpy(prev, state, sizeof prev);
+    th_voice(pcs, n, have ? prev : NULL, state);         /* voice-led in the keys' own register, always */
+    if (dark)                                            /* darker: voice-led again under E4, for this chord only */
+        th_voice_range(pcs, n, have ? prev : NULL, sound, 64);
+    else
+        memcpy(sound, state, 4 * sizeof(int));
 }
 
 static int emit_chord(const int *notes, int n, uint32_t gap, int lo, int hi, uint32_t len, int dark, uint32_t salt,
@@ -171,8 +166,7 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
     }
     dark = (b->flags & PB_DARK) != 0;
     n = harmony_chord_at(r, bar, pass, dark, pcs);
-    voice_chord(pcs, n, dark, voicing_state);
-    memcpy(notes, voicing_state, sizeof notes);
+    voice_chord(pcs, n, dark, voicing_state, notes);
     if (style == CS_ARP) {
         k = ARP[(bar * 8 + step / 2) % 6];
         one = notes[k];

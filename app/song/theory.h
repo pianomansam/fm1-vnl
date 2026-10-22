@@ -19,6 +19,8 @@ int th_chord_pcs(int key, int mode, th_chord_spec_t c, int color, int *pcs);
 
 /* Four notes (ascending), bottom 48-55, top <= 72. May leave out the root or 5th. prev NULL: near E3-D4. */
 void th_voice(const int *pcs, int n, const int *prev, int *out4);
+/* th_voice with the top note at most `hi` (the dark intro and outro: 64) */
+void th_voice_range(const int *pcs, int n, const int *prev, int *out4, int hi);
 
 void th_guide_tones(const int *pcs, int n, int *third, int *seventh);   /* pitch classes, -1 if absent */
 int th_is_avoid(int key, int mode, const int *pcs, int n, int note);    /* scale note a semitone above a chord tone */
