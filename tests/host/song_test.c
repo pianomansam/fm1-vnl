@@ -911,6 +911,18 @@ static void test_harmony(void)
     CHECK(chords_seen > 0, "harmony: no chord events");
     CHECK(styles[CS_HELD] > 0 && styles[CS_STABS] > 0 && styles[CS_OFFBEATS] > 0 && styles[CS_ARP] > 0,
           "harmony: styles drawn %d/%d/%d/%d", styles[0], styles[1], styles[2], styles[3]);
+    {   /* (Sam, after hearing comping-styles.musicxml) mostly held: 55% held, 20% stabs, 15% offbeats, 10% arpeggio */
+        int w[4] = {0, 0, 0, 0}, want[4] = {55, 20, 15, 10}, k2;
+        song_roll_t q;
+        roll_song(NULL, 1u, &q);
+        for (k2 = 0; k2 < 10000; k2++) {
+            q.seed = (uint32_t)k2 * 2654435761u + 1u;
+            w[harmony_style(&q)]++;
+        }
+        for (k2 = 0; k2 < 4; k2++)
+            CHECK(w[k2] >= want[k2] * 100 - 200 && w[k2] <= want[k2] * 100 + 200,
+                  "harmony: style %d drawn %d of 10000, want %d%% (+-2)", k2, w[k2], want[k2]);
+    }
 
     /* style shapes, no events without L_KEYS, determinism */
     for (seed = 1; seed <= 60; seed++) {
@@ -956,10 +968,10 @@ static void test_harmony(void)
         if (st == CS_STABS) CHECK(count[0] == 32 && count[6] == 32 && total == 64, "harmony: stabs %d/%d/%d", count[0], count[6], total);
         if (st == CS_OFFBEATS) CHECK(count[2] == 32 && count[6] == 32 && count[10] == 32 && count[14] == 32 && total == 128,
                                      "harmony: offbeats total %d", total);
-        if (st == CS_ARP) {
-            int evens = 1;
-            for (step = 0; step < 16; step++) if ((step & 1) == 0 ? count[step] != 8 : count[step] != 0) evens = 0;
-            CHECK(evens && total == 64, "harmony: arp shape total %d", total);
+        if (st == CS_ARP) {                    /* (Sam) a 16th-note arpeggio: in 8ths it reads as a melody */
+            int every = 1;
+            for (step = 0; step < 16; step++) if (count[step] != 8) every = 0;
+            CHECK(every && total == 128, "harmony: arp in 16ths: total %d", total);
         }
     }
     CHECK(bad_det == 0, "harmony: %d determinism or L_KEYS violations", bad_det);

@@ -89,11 +89,13 @@ int harmony_chord_at(const song_roll_t *r, int bar, int pass, int dark, int *pcs
     return th_chord_pcs(r->v[RF_KEY], r->v[RF_MODE], c, color, pcs);
 }
 
+/* per song, mostly held (Sam, after hearing the four side by side): held 55%, stabs 20%, offbeats 15%, arpeggio 10% */
 int harmony_style(const song_roll_t *r)
 {
+    static const uint8_t W[4] = {55, 20, 15, 10};
     rng_t g;
     rng_seed(&g, r->seed, 121);
-    return rng_int(&g, 4);
+    return rng_weighted(&g, W, 4);
 }
 
 /* how far voicing b is from a, as the voicer weighs it: the lower voices' moves, the top's 8 a semitone (and 6 for a
@@ -222,9 +224,8 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
         len = (uint32_t)(2.0f * step_samples * 0.8f);
         lo = 60; hi = 85;
         break;
-    default:
-        if (step & 1) return 0;
-        len = (uint32_t)(2.0f * step_samples);
+    default:                              /* the arpeggio: one chord tone a 16th (Sam: in 8ths it reads as a melody) */
+        len = (uint32_t)step_samples;
         lo = 50; hi = 70;
         break;
     }
@@ -232,7 +233,7 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
     n = harmony_chord_at(r, bar, pass, dark, pcs);
     voice_chord(r, bar, pcs, n, vs, notes);
     if (style == CS_ARP) {
-        k = ARP[(bar * 8 + step / 2) % 6];
+        k = ARP[(bar * 16 + step) % 6];
         one = notes[k];
         return emit_chord(&one, 1, 0, lo, hi, len, dark, salt, bar, step, out, max);
     }

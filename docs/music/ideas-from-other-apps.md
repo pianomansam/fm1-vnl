@@ -31,6 +31,11 @@ and how many modules it touches. *Priority*: **P1** next, **P2** soon, **P3** la
 
 ## Melody
 
+From listening (Sam, not from another app), to start the lead rework with: the **slow 8th-note arpeggio** of the
+song's voicings as lead material (as comping it sounded like a melody), and **simple whole-note voice-leading lines**
+(a chord tone to the nearest one, a note per chord) built on the keys' voice leading. See the ledger's "Leads".
+
+
 | Idea | From | Kind | Fit | Cost | Priority |
 | --- | --- | --- | --- | --- | --- |
 | **Color tones on strong beats:** allow an extension the current voicing actually contains (the 9th of a sounding maj9 or m9). Grammars weight chord / color / scale tones about 0.7 / 0.2 / 0.1. | Impro-Visor grammars; lofi-engine weights | general | fits (a voiced tone cannot rub the voicing) | a `color` mask per bar in `melody.c: bar_masks`; trivial | **P1** |

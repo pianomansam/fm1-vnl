@@ -158,6 +158,17 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
 - **Lead and candy swing (R16).** They are late but straight while hats and kick swing; every engine studied swings
   all parts. Hear both before reversing R16.
 
+### Leads (Sam: not happy with the current leads; start here when we revisit them)
+
+- **The slow arpeggio as a lead.** One chord tone per 8th, up then down, sounded *melodic* rather than like
+  accompaniment when it was a comping style (it's now in 16ths for comping). Use that 8th-note arpeggio, drawn from
+  the song's voicings, as lead material.
+- **"Simple" whole-note voice-leading lines.** Lines that move one chord tone to the nearest one, a note per chord
+  (whole notes), built on the voice-leading work the keys already do (common tones held, smallest steps, top voice
+  first), as a lead or a counter-line. A strong, safe starting point before more ornate melody.
+- Together with the phrase-start item above (more off-beat starts and pickups) and the research's "land on the
+  keys' color tones" idea (docs/music/ideas-from-other-apps.md).
+
 ### Lo-fi / taste
 
 - **Progressions 27–44 (R26)** await curation by ear; 28 and 34 are tonally ambiguous (Task 8c minor).
@@ -166,6 +177,9 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
 - **Slow bloom's "long fade"** often lands on a 4-bar last block (Task 5 minor).
 
 ## Approved by ear
+
+- **Comping style weights (Sam, after comping-styles.musicxml):** held 55%, stabs 20%, offbeats 15%, arpeggio 10%;
+  the comping arpeggio in 16ths (in 8ths it read as a melody).
 
 - **Chord voicing (Sam, after listening to song 1 at c25d4af):** rootless, one voicing per chord voiced as a cycle,
   pianist voice leading (common tones held, top voice first), dominants always extended, no dark re-voicing. E.g.
