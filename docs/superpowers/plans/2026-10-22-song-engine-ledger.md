@@ -168,6 +168,9 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   first), as a lead or a counter-line. A strong, safe starting point before more ornate melody.
 - Together with the phrase-start item above (more off-beat starts and pickups) and the research's "land on the
   keys' color tones" idea (docs/music/ideas-from-other-apps.md).
+- **Move away from the hybrid lead toward a sophisticated arpeggiator (Sam, 2026-10-23: the hybrid "still doesn't
+  feel musical").** Research first: docs/research/arpeggiators.md (how sophisticated arpeggiators work, and existing
+  work to use or learn from).
 - **A cap on how busy the lead can get (Sam, 2026-10-23: "I will also want to work towards putting a limit on how
   busy it can get").** After the hybrid follows the motion lever (lead plan Task 6): a ceiling on onsets per bar or
   per phrase, whatever the motion.
@@ -177,6 +180,13 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
 - **To judge by ear with real instruments (Plan 3):** the pad placements (especially "above"), the sung line on a
   real flute, sax or trumpet, whether the lead belongs only in lead blocks (lead plan Task 1 ruling), and the sung
   line without suspensions (dropped: a held non-chord tone on 1 breaks the no-rub rules; could return as a tie).
+
+### Accompaniment
+
+- **Guitar strumming as a comping style (Sam, 2026-10-23, for later).** A good concept of strumming for the
+  accompaniment: down/up strokes on a 16th grid, the strings spread a few ms apart (low to high on downstrokes, high
+  to low on upstrokes), muted "chuck" strokes, accents, and patterns per song; voiced for a guitar's six strings
+  rather than the keys' four voices. Would pair with the nylon and guitar plucks (Karplus–Strong, Plan 3a Task 4).
 
 ### Bass rhythm (spike VNL_BASS, kept as is by Sam to revisit)
 
