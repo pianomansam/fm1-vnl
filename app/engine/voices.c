@@ -1558,3 +1558,21 @@ float vx_comp_db(void)
 {
     return -6.0206f * fm_log2f(cp_g * (1.0f / CP_MAKEUP));
 }
+
+static int vx_tiny_of(const float *x, int n)
+{
+    int i, c = 0;
+    for (i = 0; i < n; i++)
+        c += x[i] != 0.0f && fm_fabsf(x[i]) < 1e-20f;
+    return c;
+}
+
+int vx_tiny(void)
+{
+    int r, c = vx_tiny_of(&mud_z[0][0], (int)(sizeof mud_z / sizeof(float))) +
+               vx_tiny_of(&mud_zh[0][0], (int)(sizeof mud_zh / sizeof(float))) + vx_tiny_of(&cp_env, 1) +
+               vx_tiny_of(&cp_g, 1);
+    for (r = 0; r < NBUS; r++)
+        c += vx_tiny_of(&bus[r].y, 1) + vx_tiny_of(&bus[r].z, 1) + vx_tiny_of(&bus[r].hm, 1);
+    return c;
+}

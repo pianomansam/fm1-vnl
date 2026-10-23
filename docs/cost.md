@@ -17,7 +17,8 @@ budget; below it, the song engine is cheaper than something already known to fit
 - **Device caveat:** this is a host proxy. The FM-1's core, its FPU, its flash/cache and its memory bus all change the
   proportions (float math, table lookups and big-buffer access scale differently). **The FM-1 bench replaces this
   ledger**; use it for the shape of the costs, not as a prediction.
-- **Reproduce:** `tools/cost-bench.sh --forced 20 100 128 183` for the history rows, and the same bench built with
+- **Reproduce:** `tools/cost-bench.sh --forced 20 100 128 183` for the history rows (the standard list from Task 8's
+  fix round is `--forced 7 20 49 100 128 183`, with the picker `tools/cost-bench.sh` ranking 200 seeds by forced time), and the same bench built with
   `--parts` for the components (build line as in `tools/cost-bench.sh`, then run `app/build/bench --parts`).
 
 ## Cost per task (seeds 20, 100, 128, 183)
@@ -256,6 +257,11 @@ Same bench, `--parts` best of 7 and the songs best of 3, on a busy host (AMB-1's
 0.814 / 0.731, within noise). A held-pad song is now the heaviest kind: seed 7 (Pad and guitar, held, from bar 1)
 measured 0.825-0.839 forced over three runs (one outlier of 1.33 plain, a host stall: it re-ran at 0.830). The picker
 (a single noisy run per seed over 200) chose seed 108 at 0.631. Budget 1.0; headroom about 0.16.
+
+**Fix round 1:** the picker now ranks the 200 seeds by forced time (best of 2, about 40 s) and the standard list is
+`--forced 7 20 49 100 128 183`. The picker found seed 7: 0.843 plain, 0.845 forced. The list: 7 0.852 / **0.871**, 20
+0.773 / 0.807, 49 0.742 / 0.770, 100 0.724 / 0.744, 128 0.805 / 0.814, 183 0.733 / 0.744 (plain / forced). Max
+**0.871** (seed 7, a held pad); headroom about 0.13. Memory: image 160456 B, RAM 45964 B, pool 179644 B.
 
 **Memory** (`tools/mem-check.sh`): image 160200 B, RAM 45964 B, pool 179644 B (was 157048 / 45040 / 162492): the pool
 grew by the 4 new chord voices' Karplus-Strong lines (4 x 1072 floats), RAM by their voice structs and the

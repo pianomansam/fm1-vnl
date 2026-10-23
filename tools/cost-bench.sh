@@ -1,9 +1,10 @@
 #!/bin/sh
 # SPDX-License-Identifier: MPL-2.0
 # Host cost bench: 60 s of a VNL song (placeholder voices today) against 60 s of AMB-1's engine at its heaviest piece.
-#   tools/cost-bench.sh [--forced] [SEED...]   no seeds: the heaviest roll among 200 (seeds 1-200, by measured
-#   render time), also timed with its chain forced to the heaviest (dust 3, vinyl, rain): the upper bound;
-#   --forced does the same for the given seeds
+#   tools/cost-bench.sh [--forced] [SEED...]   no seeds: the heaviest roll among 200 (seeds 1-200, ranked by their
+#   render time with the chain forced to the heaviest: dust 3, vinyl, rain; best of 2), timed plain and forced: the
+#   upper bound; --forced does the same for the given seeds. The standard list (docs/cost.md):
+#   --forced 7 20 49 100 128 183 (7 a held pad, 49 a pad arpeggio, 128 the busiest keys)
 # Prints: vnl <ms> amb <ms> ratio <x> (and a `forced` line per seed when forcing). Needs ref/fm1-amb (gitignored)
 # and base/include/fastmath.h.
 set -e

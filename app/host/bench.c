@@ -132,15 +132,17 @@ static double best3_vnl(uint32_t seed, int force)
     return best;
 }
 
-/* The heaviest roll among seeds 1..200: the slowest by measured render time (one full 60 s render each, ~10 s in all;
-   the per-seed time is noisy, so the pick is then re-timed best-of-3 in main). */
+/* The heaviest roll among seeds 1..200, ranked by its forced time (the chain forced to dust 3, vinyl and rain: what
+   the budget is judged on), the best of 2 full 60 s renders each (~25 s in all; the per-seed time is noisy, so the
+   pick is then re-timed best-of-3 in main) */
 static uint32_t heaviest(void)
 {
     uint32_t seed, best = 1;
     long ev;
     double t, slowest = -1;
     for (seed = 1; seed <= 200; seed++) {
-        t = run_vnl(seed, 1, &ev, 0);
+        double a = run_vnl(seed, 1, &ev, 1), b = run_vnl(seed, 1, &ev, 1);
+        t = a < b ? a : b;
         if (t > slowest) { slowest = t; best = seed; }
     }
     return best;

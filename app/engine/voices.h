@@ -55,6 +55,9 @@ enum { VX_OFF_COMP = 1, VX_OFF_FILTERS = 2, VX_OFF_CHORUS = 4, VX_OFF_DELAY = 8,
 void vx_fx_off(unsigned mask);
 /* Tests: the drums' compressor's gain reduction now, in dB (its make-up not counted). */
 float vx_comp_db(void);
+/* Tests: the mix's stored states (the mud high-pass, the drums' compressor, the buses' filters) that are neither 0
+   nor at least 1e-20 in magnitude (denormal-bound); should be 0. */
+int vx_tiny(void);
 /* Queue an event; its delay counts from now, in samples at 44.1 kHz (the engine assumes that rate). 64 pending at
    most; when full the oldest by insertion order is dropped (not the one due first). When all voices of a pitched lane
    are busy, the victim fades out over about 4 ms first, so a stolen note starts up to ~5 ms late. The chords' pool is

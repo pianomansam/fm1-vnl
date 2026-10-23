@@ -4854,6 +4854,34 @@ static float mx_dip(const float *x, uint32_t a, uint32_t b, uint32_t c, uint32_t
     return db_of(lo / ref);
 }
 
+/* Task 8's new states never rest as denormals: a loud passage (the glue's hold rises), then 100 s of a quiet held
+   chord (the glue running, its reduction under 1 dB, so the hold decays; the mud filters ringing out after the
+   notes end); then every state of the chain (fx_tiny) and the voices' mix (vx_tiny) is exactly 0 or >= 1e-20 */
+static void test_mix_denormals(void)
+{
+    song_roll_t roll;
+    int i, b, bad = 0;
+    roll_song(NULL, 3u, &roll);
+    roll.v[RF_NOISE] = roll.v[RF_AMBIENCE] = 0;
+    vx_init();
+    vx_configure(&roll);
+    for (i = 0; i < 4; i++)
+        vt_ev(V_CHORD, 60 + 4 * i, 127, 0, 44100u);
+    for (i = 0; i < 8; i++)
+        vt_ev(V_KICK, 0, 127, (uint32_t)i * 5512u, 0);
+    vt_ev(V_LEAD, 72, 110, 0, 22050u);
+    vt_ev(V_CANDY, 84, 110, 0, 22050u);
+    for (b = 0; b < 22; b++)
+        vt_block(4096, &bad);
+    for (i = 0; i < 3; i++)
+        vt_ev(V_CHORD, 55 + 4 * i, 4, 0, 90u * 44100u);
+    for (b = 0; b < (int)(100u * 44100u / 4096u); b++)
+        vt_block(4096, &bad);
+    printf("mix: after 100 s quiet, %d chain and %d mix states denormal-bound\n", fx_tiny(), vx_tiny());
+    CHECK(fx_tiny() == 0 && vx_tiny() == 0 && !bad, "denormals: chain %d, mix %d tiny states (bad %d)", fx_tiny(),
+          vx_tiny(), bad);
+}
+
 #define MX_BAR 124518u /* a bar at 85 BPM */
 static void test_mix_parts(void)
 {
@@ -5210,6 +5238,7 @@ int main(int argc, char **argv)
     RUN(test_cost_moves);
     RUN(test_rings_pair);
     RUN(test_mix_parts);
+    RUN(test_mix_denormals);
     RUN(test_levels_steady);
     if (fails) {
         printf("%d check(s) failed\n", fails);

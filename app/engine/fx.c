@@ -544,7 +544,7 @@ static int tiny(const float *x, int n)
 
 int fx_tiny(void)
 {
-    float st[] = {gl_p, lp_y, sh_y, duck_s, dl_y, w_el0, w_el1, w_er0, w_er1, w_ac, w_ad, w_ml, w_sl, clk_l, clk_r, dp_y1, dp_y2, b_l0, b_l1, b_r0, b_r1, pl_bw, pl_damp_l, pl_damp_r, pl_acc, pl_wl0, pl_wl1,
+    float st[] = {gl_p, gl_h, gl_gr, gl_g, lp_y, sh_y, duck_s, dl_y, w_el0, w_el1, w_er0, w_er1, w_ac, w_ad, w_ml, w_sl, clk_l, clk_r, dp_y1, dp_y2, b_l0, b_l1, b_r0, b_r1, pl_bw, pl_damp_l, pl_damp_r, pl_acc, pl_wl0, pl_wl1,
                   pl_wr0, pl_wr1};
     return rfx_tiny() + tiny(pl_buf, (int)PL_N) + tiny(ch_buf, (int)CH_N) + tiny(dl_buf, (int)DL_N) + tiny(wl, WL_N) + tiny(st, (int)(sizeof st / sizeof st[0])) + tiny(hv_l, 2) +
            tiny(hv_r, 2) + tiny(ht_l, 2) + tiny(ht_r, 2) + tiny(rw_l, 2) + tiny(rw_r, 2);
@@ -747,7 +747,7 @@ static void glue_control(float acc)
     gr = over <= -0.5f * GL_KNEE ? 0.0f
          : over >= 0.5f * GL_KNEE ? GL_SLOPE * over
                                   : GL_SLOPE * (over + 0.5f * GL_KNEE) * (over + 0.5f * GL_KNEE) * (0.5f / GL_KNEE);
-    gl_h += ((gr > 1.0f ? 1.0f : 0.0f) - gl_h) * GL_HOLD;
+    gl_h = fm_flush(gl_h + ((gr > 1.0f ? 1.0f : 0.0f) - gl_h) * GL_HOLD); /* (flushed: it decays toward 0) */
     gl_gr = gr;
     gl_g = gl_mu * fm_exp2f(-gr * 0.16609640f);
 }
