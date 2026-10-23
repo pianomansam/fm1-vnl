@@ -513,6 +513,9 @@ void fx_rings(int on)
 void fx_tempo(float bpm)
 {
     dl_tt = fm_clampf(0.75f * 60.0f / fm_maxf(bpm, 1.0f) * DR - DL_LAT, 2.0f, (float)DL_N - 8.0f);
+    /* a song's start lands the time at its tempo (the same seed, the same samples) rather than gliding: a delay tail
+       still ringing from the last song jumps to the new time, its repeats re-spaced (heard, rarely: the gap is 2-4 s);
+       the trade for determinism */
     if (dl_land || dl_peak <= PL_QUIET)
         dl_t = dl_tt;
     dl_land = 0;
