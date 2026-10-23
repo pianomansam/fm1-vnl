@@ -865,21 +865,22 @@ static void test_harmony(void)
        voices every chord exactly as the same block unmarked, only softer; all events 48-72, rolled 10-60 ms apart,
        velocities 25-110 */
     for (seed = 1; seed <= 120; seed++) {
-        int prev[4] = {0, 0, 0, 0};
-        int prev2[4] = {0, 0, 0, 0};
-        int same[4] = {0, 0, 0, 0};
+        harmony_voicing_t prev, prev2, same;
+        memset(&prev, 0, sizeof prev);
+        memset(&prev2, 0, sizeof prev2);
+        memset(&same, 0, sizeof same);
         roll_song(NULL, (uint32_t)seed, &r);
         styles[harmony_style(&r)]++;
         for (bar = 0; bar < 8; bar++)
             for (step = 0; step < 16; step++) {
                 const plan_block_t *b = (bar < 4) ? &dark : &keys;
-                int *vs = (bar < 4) ? prev : prev2;
+                harmony_voicing_t *vs = (bar < 4) ? &prev : &prev2;
                 int ne = harmony_step(&r, b, bar, step, 1 + bar / 4, SPS16, vs, 3u, ev, 16);
                 if (b == &dark) {                      /* the same block unmarked, from the same voicing */
                     plan_block_t lit = dark;
                     int ne2;
                     lit.flags = 0;
-                    ne2 = harmony_step(&r, &lit, bar, step, 1 + bar / 4, SPS16, same, 3u, ev2, 16);
+                    ne2 = harmony_step(&r, &lit, bar, step, 1 + bar / 4, SPS16, &same, 3u, ev2, 16);
                     if (ne2 != ne) bad_dark++;
                     for (i = 0; i < ne && i < ne2; i++)
                         if (ev[i].note != ev2[i].note || ev[i].delay != ev2[i].delay || ev[i].len != ev2[i].len)
@@ -915,7 +916,9 @@ static void test_harmony(void)
     for (seed = 1; seed <= 60; seed++) {
         int count[16], bpc, st, total = 0, held_bar = 0, bar_notes[4] = {0, 0, 0, 0};
         const lib_prog_t *p;
-        int vs[4] = {0, 0, 0, 0}, vsb[4] = {0, 0, 0, 0};
+        harmony_voicing_t vs, vsb;
+        memset(&vs, 0, sizeof vs);
+        memset(&vsb, 0, sizeof vsb);
         roll_song(NULL, (uint32_t)seed, &r);
         p = lib_prog_by_id((uint8_t)r.v[RF_PROG]);
         bpc = p->bars_per_chord;
@@ -923,9 +926,9 @@ static void test_harmony(void)
         memset(count, 0, sizeof count);
         for (bar = 0; bar < 8; bar++)
             for (step = 0; step < 16; step++) {
-                int a = harmony_step(&r, &keys, bar, step, 1, SPS16, vs, 9u, ev, 16);
-                int b2 = harmony_step(&r, &keys, bar, step, 1, SPS16, vsb, 9u, ev2, 16);
-                if (a != b2 || memcmp(ev, ev2, sizeof(song_ev_t) * (size_t)a) || memcmp(vs, vsb, sizeof vs)) bad_det++;
+                int a = harmony_step(&r, &keys, bar, step, 1, SPS16, &vs, 9u, ev, 16);
+                int b2 = harmony_step(&r, &keys, bar, step, 1, SPS16, &vsb, 9u, ev2, 16);
+                if (a != b2 || memcmp(ev, ev2, sizeof(song_ev_t) * (size_t)a) || memcmp(&vs, &vsb, sizeof vs)) bad_det++;
                 count[step] += a;
                 total += a;
                 if (st == CS_HELD && a > 0) {
@@ -946,7 +949,7 @@ static void test_harmony(void)
                     }
                 }
                 if (a == 4 && step == first_step(st)) for (i = 0; i < 4; i++) bar_notes[i] = ev[i].note;
-                if (harmony_step(&r, &nokeys, bar, step, 1, SPS16, vs, 9u, ev, 16) != 0) bad_det++;
+                if (harmony_step(&r, &nokeys, bar, step, 1, SPS16, &vs, 9u, ev, 16) != 0) bad_det++;
             }
         CHECK(held_bar == 0, "harmony: held chords wrong (seed %d)", seed);
         if (st == CS_HELD) CHECK(total == 4 * (8 / bpc), "harmony: held count %d", total);
@@ -1567,7 +1570,7 @@ static int top_can_stay(const int *pcs, int n, int top)
 /* The bass and the keys in real songs (the auto-accompaniment comparison):
    - roots a step apart in the key (1-2 semitones) are played a step apart in the bass, not folded nearly an octave;
    - a walking bar's last beat leads by a step into the next bar's root;
-   - with no bass playing (keys-only intros and outros), the keys voice the chord's root themselves. */
+   - keys-only bars are counted (Sam: they stay rootless, the song's one voicing; see test_loop_voicings). */
 static void test_bass_and_roots(void)
 {
     static song_t s;
@@ -1634,7 +1637,61 @@ static void test_bass_and_roots(void)
            "keys without bass voice the root %ld/%ld\n", close, steps, led, walks, rooted, nobass);
     CHECK(steps > 100 && close * 100 >= steps * 95, "step-wise roots placed a step apart only %ld of %ld", close, steps);
     CHECK(walks > 20 && led * 100 >= walks * 95, "walking approaches led into the next root only %ld of %ld", led, walks);
-    CHECK(nobass > 100 && rooted == nobass, "keys without bass voiced the root only %ld of %ld chords", rooted, nobass);
+    (void)rooted;                                    /* (Sam: keys-only sections stay rootless, like the rest; */
+    CHECK(nobass > 100, "only %ld keys-only bars", nobass);   /* test_loop_voicings holds them to the same shapes) */
+}
+
+/* One voicing per chord through the whole song (Sam): the loop is voiced once, as a cycle that voice-leads smoothly all
+   the way around (the wrap from its last chord back to its first included), and every pass plays it; only a chord
+   the reharmonizer recolors on a pass is voiced on its own. Keys-only sections play the same rootless shapes. */
+static void test_loop_voicings(void)
+{
+    static song_t s;
+    uint32_t seed = 31337;
+    song_roll_t prev, r;
+    song_ev_t ev[64];
+    long strikes = 0, differ = 0, wraps = 0, wrap_steps = 0;
+    int k, i, j;
+    for (k = 0; k < 300; k++) {
+        int seen[8][5], have[8], voice[8][4], last_top = -1, last_idx = -1;
+        seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+        roll_song(k ? &prev : 0, seed, &r);
+        prev = r;
+        song_start(&s, &r);
+        memset(have, 0, sizeof have);
+        while (s.state == SS_PLAYING) {
+            int bar = s.bar, n = song_tick(&s, ev, 64), notes[4], m = 0, pcs[5], base[5], np, nb, idx;
+            const lib_prog_t *p = lib_prog_by_id((uint8_t)s.roll.v[RF_PROG]);
+            int bpc = p && p->bars_per_chord ? p->bars_per_chord : 1, nch = p ? p->n : 1, loop = bpc * nch;
+            for (i = 0; i < n; i++)
+                if (ev[i].voice == V_CHORD && m < 4) notes[m++] = ev[i].note;
+            if (m != 4) continue;                       /* a whole chord strike (arpeggios are checked by note) */
+            for (i = 1; i < 4; i++)
+                for (j = i; j > 0 && notes[j] < notes[j - 1]; j--) { int t = notes[j]; notes[j] = notes[j - 1]; notes[j - 1] = t; }
+            idx = (bar / bpc) % nch;
+            np = harmony_chord_at(&s.roll, bar, bar / loop + 1, 0, pcs);
+            nb = harmony_chord_at(&s.roll, bar, 1, 0, base);
+            if (np != nb || memcmp(pcs, base, sizeof(int) * (size_t)np)) continue;   /* recolored this pass */
+            strikes++;
+            if (!have[idx]) {
+                have[idx] = 1;
+                memcpy(voice[idx], notes, sizeof notes);
+                memcpy(seen[idx], pcs, sizeof seen[idx]);
+            } else if (memcmp(voice[idx], notes, sizeof notes)) {
+                differ++;
+            }
+            if (last_idx == nch - 1 && idx == 0 && last_top >= 0) {   /* the loop's wrap, last chord -> first */
+                wraps++;
+                wrap_steps += notes[3] - last_top <= 2 && last_top - notes[3] <= 2;
+            }
+            if (idx != last_idx) { last_top = notes[3]; last_idx = idx; }
+        }
+    }
+    printf("loop: %ld strikes, %ld voiced differently from the chord's first; %ld/%ld wraps with the top moving a step or less\n",
+           strikes, differ, wrap_steps, wraps);
+    CHECK(strikes > 1000 && differ == 0, "%ld of %ld strikes voiced a chord differently from its first", differ, strikes);
+    CHECK(wraps > 100 && wrap_steps * 100 >= wraps * 95, "the loop's wrap moved the top more than a step in %ld of %ld",
+          wraps - wrap_steps, wraps);
 }
 
 /* every chord as it sounds in real songs (intro darkening included): no two notes a semitone apart */
@@ -1748,6 +1805,7 @@ int main(void)
     test_voice_leading();
     test_no_chord_clusters();
     test_bass_and_roots();
+    test_loop_voicings();
     test_dominant_extensions();
     test_no_substitution();
     test_theory();

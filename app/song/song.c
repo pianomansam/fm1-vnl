@@ -247,7 +247,7 @@ int song_tick(song_t *s, song_ev_t *out, int max)
         int pcs[5], np, pass = bar / loop_bars(&s->roll) + 1, dark = (b->flags & PB_DARK) != 0;
         np = harmony_chord_at(&s->roll, bar, pass, dark, pcs);
         n += groove_step(&s->roll, b, bar, step, gs, pcs, np, salt, buf + n, BUF - n);
-        n += harmony_step(&s->roll, b, bar, step, pass, gs, s->voicing, salt, buf + n, BUF - n);
+        n += harmony_step(&s->roll, b, bar, step, pass, gs, &s->voicing, salt, buf + n, BUF - n);
         n += melody_step(&s->roll, &s->plan, &s->ph, &s->motif, bar, step, gs, salt, buf + n, BUF - n);
     }
     {   /* a bass note (a swung one runs a little long) ends by the next chord change: the melody keeps clear of

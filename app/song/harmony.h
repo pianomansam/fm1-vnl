@@ -20,7 +20,14 @@ int harmony_style(const song_roll_t *r);   /* CS_*, per song (seed stream 121) *
 /* Chord-part events of one 16th step (bar and step from 0). Writes nothing unless the block has L_KEYS.
    voicing_state: the previous chord's 4 notes (all 0 = none), updated here for voice leading. Chords are rolled:
    notes 10-60 ms apart, bottom up (not for CS_ARP). Returns the number of events written (at most max). */
+/* The chord part's voicing state: the last voicing sounded, and the loop's voicings, worked out once per song (and
+   again when the harmony changes) as a cycle that voice-leads smoothly all the way around, wrap included. Every pass
+   plays them (Sam: one voicing per chord through the song); a chord recolored on a pass is voiced on its own.
+   Zero it at a song's start. */
+typedef struct { int last[4]; int loop[4][4]; int nloop; uint32_t sig; } harmony_voicing_t;
+/* the loop lock above, on by default; off, each chord is voiced from the last sounded (VNL_LOOPLOCK=0 in renders) */
+void harmony_set_loop_lock(int on);
 int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, int pass, float step_samples,
-                 int *voicing_state, uint32_t salt, song_ev_t *out, int max);
+                 harmony_voicing_t *vs, uint32_t salt, song_ev_t *out, int max);
 
 #endif

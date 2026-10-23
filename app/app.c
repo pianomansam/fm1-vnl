@@ -348,9 +348,10 @@ static void roll_next(void)             /* main loop: keep the mailbox full */
 void app_init(void)
 {
 #if defined(PLAT_HOST) && !defined(PLAT_WEB)
-    {                                    /* exploring in renders: VNL_DROP2=1, VNL_SWAP (below) */
-        const char *d = getenv("VNL_DROP2"), *w = getenv("VNL_SWAP");
+    {                                    /* exploring in renders: VNL_DROP2=1, VNL_LOOPLOCK=0, VNL_SWAP (below) */
+        const char *d = getenv("VNL_DROP2"), *w = getenv("VNL_SWAP"), *l = getenv("VNL_LOOPLOCK");
         th_set_drop2(d && *d == '1');
+        harmony_set_loop_lock(!(l && *l == '0'));
         while (w && *w) {                /* VNL_SWAP="Eb3 G3 Db4 F4=Db3 G3 Eb4 F4;...": hear an alternative voicing */
             int v[8], k = 0;
             while (*w && *w != ';' && k < 8) {

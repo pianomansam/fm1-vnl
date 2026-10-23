@@ -8,6 +8,7 @@
 #include "roll.h"
 #include "plan.h"
 #include "groove.h"
+#include "harmony.h"
 #include "melody.h"
 
 enum { SS_PLAYING, SS_ENDED };
@@ -22,7 +23,7 @@ typedef struct {
     int step;                     /* the next step to tick, 0-15 */
     motif_t motif;
     melody_phrases_t ph;
-    int voicing[4];               /* the chord part's last voicing, for voice leading */
+    harmony_voicing_t voicing;    /* the chord part's voicings: the loop's, and the last sounded */
     float ss;                     /* samples of the step last ticked (before the first tick: the first step) */
     float glide_from, glide_to;   /* step samples before and after a tempo glide */
     int glide_t0;                 /* the glide's first step (song step index) */

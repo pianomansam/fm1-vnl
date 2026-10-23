@@ -96,16 +96,83 @@ int harmony_style(const song_roll_t *r)
     return rng_int(&g, 4);
 }
 
-/* Voice the chord from the previous voicing (th_voice holds still when the chord is unchanged): rootless only when
-   the bass has the root. Intro and outro (dark) voice exactly as the rest: lo-fi keeps its voicings through a song
-   (Sam); they only play softer, and Plan 3's lo-fi chain darkens their sound. */
-static void voice_chord(const int *pcs, int n, int bass, int *state, int *sound)
+/* how far voicing b is from a, as the voicer weighs it: the lower voices' moves, the top's 8 a semitone (and 6 for a
+   leap), 6 for each common tone that moved */
+static int vl_cost(const int *a, const int *b)
 {
-    int have = state[0] || state[1] || state[2] || state[3];
-    int prev[4];
-    memcpy(prev, state, sizeof prev);
-    th_voice_range(pcs, n, have ? prev : NULL, state, 72, bass);
-    memcpy(sound, state, 4 * sizeof(int));
+    int c = 0, v, w, d = b[3] > a[3] ? b[3] - a[3] : a[3] - b[3];
+    for (v = 0; v < 3; v++)
+        c += b[v] > a[v] ? b[v] - a[v] : a[v] - b[v];
+    c += 8 * d + (d > 2 ? 6 : 0);
+    for (v = 0; v < 4; v++) {
+        int in = 0, at = 0;
+        for (w = 0; w < 4; w++) {
+            in |= (b[w] - a[v] + 120) % 12 == 0;
+            at |= b[w] == a[v];
+        }
+        if (in && !at) c += 6;
+    }
+    return c;
+}
+
+/* The loop's voicings as a cycle: voice the loop pass after pass (each chord from the one before, the first from the
+   last, so the wrap is voiced too) until it repeats, and keep the pass that voice-leads most smoothly all the way
+   around. Rootless throughout (Sam: keys-only sections too). */
+static void loop_voicings(const song_roll_t *r, harmony_voicing_t *vs)
+{
+    enum { PASSES = 8 };
+    const lib_prog_t *p = prog_of(r);
+    int pcs[4][5], np[4], v[PASSES][4][4], i, k, best = 1 << 30, pick = 0, nch = p->n < 4 ? p->n : 4;
+    const int *prev = NULL;
+    for (i = 0; i < nch; i++)
+        np[i] = harmony_chord_at(r, i * p->bars_per_chord, 1, 0, pcs[i]);
+    for (k = 0; k < PASSES; k++)
+        for (i = 0; i < nch; i++) {
+            th_voice_range(pcs[i], np[i], prev, v[k][i], 72, 1);
+            prev = v[k][i];
+        }
+    for (k = 1; k < PASSES; k++) {                       /* (pass 0 began from nothing) */
+        int c = 0;
+        for (i = 0; i < nch; i++)
+            c += vl_cost(v[k][(i + nch - 1) % nch], v[k][i]);
+        if (c < best) { best = c; pick = k; }
+    }
+    for (i = 0; i < nch; i++)
+        memcpy(vs->loop[i], v[pick][i], sizeof vs->loop[i]);
+    vs->nloop = nch;
+}
+
+/* Locking the loop's voicings (option 2) is a switch, on by default: off, every chord is voiced from the last one
+   sounded, rootless as always (whether always-rootless voicing keeps the loop steady by itself is the question) */
+static int lock_loop = 1;
+void harmony_set_loop_lock(int on) { lock_loop = on != 0; }
+
+/* what the loop's voicings depend on: when it changes (a request lands), they are worked out again */
+static uint32_t harmony_sig(const song_roll_t *r)
+{
+    uint32_t h = 2166136261u;
+    int f[5] = {RF_KEY, RF_MODE, RF_PROG, RF_COLOR, 0}, i;
+    for (i = 0; i < 4; i++) h = (h ^ (uint32_t)(r->v[f[i]] + 1)) * 16777619u;
+    return (h ^ r->seed) * 16777619u | 1u;               /* never 0: 0 means not yet worked out */
+}
+
+/* The bar's voicing: the loop's for its chord, or (a chord recolored on this pass) voiced from the last one.
+   Intro and outro (dark) voice exactly as the rest: lo-fi keeps its voicings through a song (Sam); they only play
+   softer, and Plan 3's lo-fi chain darkens their sound. */
+static void voice_chord(const song_roll_t *r, int bar, const int *pcs, int n, harmony_voicing_t *vs, int *sound)
+{
+    const lib_prog_t *p = prog_of(r);
+    int base[5], nb, idx = (bar / p->bars_per_chord) % p->n, have = vs->last[0] || vs->last[3];
+    if (vs->sig != harmony_sig(r)) {
+        loop_voicings(r, vs);
+        vs->sig = harmony_sig(r);
+    }
+    nb = harmony_chord_at(r, bar, 1, 0, base);
+    if (lock_loop && idx < vs->nloop && nb == n && !memcmp(base, pcs, sizeof(int) * (size_t)n))
+        memcpy(sound, vs->loop[idx], 4 * sizeof(int));
+    else
+        th_voice_range(pcs, n, have ? vs->last : NULL, sound, 72, 1);
+    memcpy(vs->last, sound, 4 * sizeof(int));
 }
 
 static int emit_chord(const int *notes, int n, uint32_t gap, int lo, int hi, uint32_t len, int dark, uint32_t salt,
@@ -128,7 +195,7 @@ static int emit_chord(const int *notes, int n, uint32_t gap, int lo, int hi, uin
 }
 
 int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, int pass, float step_samples,
-                 int *voicing_state, uint32_t salt, song_ev_t *out, int max)
+                 harmony_voicing_t *vs, uint32_t salt, song_ev_t *out, int max)
 {
     static const uint8_t ARP[6] = {0, 1, 2, 3, 2, 1};
     const lib_prog_t *p;
@@ -163,7 +230,7 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
     }
     dark = (b->flags & PB_DARK) != 0;
     n = harmony_chord_at(r, bar, pass, dark, pcs);
-    voice_chord(pcs, n, (b->layers & L_BASS) != 0, voicing_state, notes);
+    voice_chord(r, bar, pcs, n, vs, notes);
     if (style == CS_ARP) {
         k = ARP[(bar * 8 + step / 2) % 6];
         one = notes[k];
