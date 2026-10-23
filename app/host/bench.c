@@ -386,7 +386,7 @@ int main(int argc, char **argv)
         if (!strcmp(argv[i], "--forced")) forced = 1;
         else if (!strcmp(argv[i], "--parts")) doparts = 1;
         else if (argv[i][0] == '-') heavy = 1;
-        else seeds[ns++] = (uint32_t)strtoul(argv[i], 0, 10);
+        else if (ns < 64) seeds[ns++] = (uint32_t)strtoul(argv[i], 0, 10); /* (64 at most) */
     }
     if (!doparts && (heavy || !ns)) { seeds[0] = heaviest(); ns = 1; forced = 1; printf("heaviest seed %u\n", (unsigned)seeds[0]); }
     /* AMB-1's heaviest piece: the slowest of its eight (best of 3 each) */

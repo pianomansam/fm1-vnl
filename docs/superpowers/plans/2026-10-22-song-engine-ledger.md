@@ -226,6 +226,27 @@ Renders: `app/build/new/<seed>/` and `<seed>-nobed/`, one per set (Task 8's repo
 - **The glue compressor** (2:1, −26 dBFS, 30 ms, 200–400 ms auto release, 4.5 dB make-up): 1–3 dB on full sections.
 - **The mud high-pass** (135 Hz, 150 on pads): thinner keys, or clearer?
 
+### Synths and the lead's level (judge by ear, synths plan and the lead-level fix, 2026-10-23)
+
+Renders: `app/build/new/<seed>/` and `<seed>-nobed/`, one per synth set, and the 11 earlier sets again (the synths
+plan's Task 5 report lists them by set).
+
+- **The new patches' character:** the Juno (a saw and sub under 600 Hz: hazy enough?), the organ (a square and its
+  sub, no envelope), the Moog bass (the 4-pole at resonance 0.35, plucked open), the saw, square and sine leads,
+  the synth pluck, the DX EP (the 14x tine over a faster body), the FM bass's slap (gone in 150 ms), the FM bell.
+- **The glide times:** Moog bass 30 ms, saw lead 90 ms, sine lead 70 ms, square lead 60 ms. Too slidey or too
+  subtle? A glide happens only from a held note.
+- **The chip grit:** a 7-bit crush over each note's own level (6 bits failed the aliasing limit at note 88). More
+  or less grit?
+- **The Juno's chorus depth:** 0.8, the deepest of the keys (Rhodes 0.7).
+- **The square lead's vibrato:** 10 cents, delayed like the winds' (a voicing choice; the sine lead has 14).
+- **The pairings:** the Moog bass in three sets (Juno, organ, Rhodes) and the FM bell in three (Juno, DX, organ).
+- **The guitar lick's retone** (the lead-level fix): a longer, brighter ring (3 s, damping 4500 Hz plus 3x the note)
+  so it carries a line; its peaks stand out more than a wind's.
+- **The lead over the keys:** 4–6 dB in every set while the lead plays (each set's mean 4.3–5.7 dB), the keys ducking
+  3 dB under a held lead note (25 ms in, 400 ms out). The duck follows the gate, so a ringing pluck releases it while
+  it still sounds.
+
 ### Lo-fi / taste
 
 - **Progressions 27–44 (R26)** await curation by ear; 28 and 34 are tonally ambiguous (Task 8c minor).

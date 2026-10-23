@@ -88,7 +88,7 @@ engine would not make: zero tolerance for semitone rubs, no substitutions, diato
 | Choice | Value | Kind | Status | Source |
 | --- | --- | --- | --- | --- |
 | Six roles | chords, drums, bass, lead, ear candy, bed | genre | **Done** (`voices.c`, `drums.c`, `fx.c`) | spec |
-| Curated instrument sets | Rhodes, Wurli, felt piano, nylon, pad; upright, sub, electric bass; kalimba, vibes, bells, music box, vox pad, flute, sax, muted trumpet, guitar lick; flavors lo-fi, bossa, city pop, neo-soul, chillwave | genre **(Sam: curated sets, not free mixing)** | **Done** (`library.c` 11 sets, `patch.c`) | *genre* §4; Tuna, LOF-1 (*firmwares*) |
+| Curated instrument sets | Rhodes, Wurli, felt piano, nylon, pad; upright, sub, electric bass; kalimba, vibes, bells, music box, vox pad, flute, sax, muted trumpet, guitar lick; the synths (below); flavors lo-fi, bossa, city pop, neo-soul, chillwave | genre **(Sam: curated sets, not free mixing)** | **Done** (`library.c` 17 sets, 6 of them synth sets; `patch.c`) | *genre* §4; Tuna, LOF-1 (*firmwares*) |
 | Dust | low-pass about 1.5–5 kHz, wow and flutter, soft saturation, bit/rate grit; warm vinyl or wobbly tape | genre | **Done** (`fx.c`, four levels) | *genre* §5 |
 | Surface noise, ambience | vinyl crackle or tape hiss or none; rain or none; steady, opens and closes the song | genre **(Sam: three independent layers; quieter, Task 8)** | **Done** (`fx.c` bed, about 35 dB under the music) | *genre* §5; MAKU, LOF-1 |
 | Automation arcs, evolving weather, noise swell before drums | slow filter / wobble / reverb arcs over 16–32 bars; rain builds and passes | neighboring genres, approved **(Sam)** | **Partial**: section filter moves (intro and outro dark, breaks, drops, swells, a high-pass build into a groove; Task 7b) and rain gusts; no long arcs yet | spec |
@@ -106,6 +106,45 @@ engine would not make: zero tolerance for semitone rubs, no substitutions, diato
   envelope, with a mute, breath noise, a chiff and a delayed vibrato. The guitar lick is a Karplus–Strong pluck.
 - **Drums:** four kits (dusty, soft, 808, brushes), each lane a swept sine or filtered noise.
 - Keys and pads whose partials stay under 9 kHz render at half the rate (Task 7c, a cost move; inaudible by test).
+
+### The synths (synths plan, 2026-10-23)
+
+Three families, every role covered, all warm by default (low-passed or band-limited; the dust still colors them).
+
+- **Vintage analog (M_SUB):** frugal as a Juno-106: one oscillator (saw, pulse, sine or triangle), a sub-octave
+  square and noise into a low-pass with its own envelope (a 2-pole, or a 4-pole ladder slope for the Moog), mono with
+  glide on the leads and the bass. A glide only from a held note; a note after a rest starts clean.
+  - **Juno** (keys): a saw and its sub under a 600 Hz low-pass, a gentle envelope, the deepest chorus of the keys (0.8).
+  - **Organ** (keys): a square and its sub (16' and 8'), no envelope, a steady drawbar tone.
+  - **Moog bass:** a saw and its sub through the 4-pole at some resonance, plucked open, a 30 ms glide.
+  - **Saw lead** (90 ms glide), **square lead** (60 ms glide, a 10-cent delayed vibrato), **sine lead** (70 ms glide,
+    14 cents): mono, singing lines.
+  - **Synth pluck** (lead): a pulse snapped open and shut by its filter envelope.
+- **80s FM (the existing FM models, new patches):**
+  - **DX electric piano** (keys): the 14x tine on the attack over a clean, faster-decaying body.
+  - **FM bass:** a slap: the index strikes high and is gone in 150 ms.
+  - **FM bell** (ear candy): an inharmonic ratio, its brightness falling slowly.
+- **Chiptune (M_CHIP):** a NES-style channel at the full rate with no filter: a pulse at a fixed duty, a triangle
+  stepped to 16 levels, noise; on the semitone (no arpeggio). A 7-bit crush over each note's own level gives the grit
+  and steppy decays.
+  - **Chip chords** (a 25% pulse), **chip lead** (a 50% pulse, a 6.5 Hz vibrato), **chip bass** (the triangle),
+    **chip blip** (a 12.5% pulse with a noise tick).
+
+**The sets** (each rolls about 5–7% of songs; any synth instrument in about 35%):
+
+| Set | Keys | Bass | Lead | Ear candy | Kit | Flavor | Moods |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Juno and saw lead | Juno | Moog bass | saw lead | FM bell | 808 | chillwave | sad, warm |
+| DX keys and FM bass | DX EP | FM bass | square lead | FM bell | soft | city pop | warm, sunny |
+| Chip lo-fi | chip chords | chip bass | chip lead | chip blip | dusty | lo-fi | wistful, sunny |
+| Organ and sine lead | organ | Moog bass | sine lead | FM bell | soft | neo-soul | sad, wistful |
+| Rhodes and Moog | Rhodes | Moog bass | square lead | bells | dusty | lo-fi | sad, sunny |
+| Nylon and synth pluck | nylon | sub | synth pluck | kalimba | brushes | bossa | wistful, sunny |
+
+**Character:** the Juno set is the hazy chillwave one; DX and FM bass the bright 80s city pop; the chip set a
+lo-fi game soundtrack, not a bleepy one (the dust and the crush soften it); the organ under a sine lead the
+churchy neo-soul; Rhodes and Moog and nylon and pluck mix a synth into the classic sets. Every set keeps the
+lead 4–6 dB over its keys while it plays, the keys ducking 3 dB under it.
 
 ### The chain, in order (`voices.c`, `fx.c`)
 

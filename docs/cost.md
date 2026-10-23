@@ -18,7 +18,8 @@ budget; below it, the song engine is cheaper than something already known to fit
   proportions (float math, table lookups and big-buffer access scale differently). **The FM-1 bench replaces this
   ledger**; use it for the shape of the costs, not as a prediction.
 - **Reproduce:** `tools/cost-bench.sh --forced 20 100 128 183` for the history rows (the standard list from Task 8's
-  fix round is `--forced 7 20 49 100 128 183`, with the picker `tools/cost-bench.sh` ranking 200 seeds by forced time), and the same bench built with
+  fix round was `--forced 7 20 49 100 128 183`; from the synths plan's Task 5 it is `--forced 22 20 7 138 100 200`, with
+  the picker `tools/cost-bench.sh` ranking 200 seeds by forced time), and the same bench built with
   `--parts` for the components (build line as in `tools/cost-bench.sh`, then run `app/build/bench --parts`).
 
 ## Cost per task (seeds 20, 100, 128, 183)
@@ -342,6 +343,51 @@ the organ set). The picker (`tools/cost-bench.sh`, 200 seeds): the heaviest is n
 headroom. `--parts` for the chips with the crush (one run): chords 0.263, lead 0.184, bass 0.113, blip 0.177, within
 the noise of Task 1's rows. **Memory:** image 169004 B, RAM 46172 B, pool 179644 B.
 
+## Synths Task 5: balance, the new standard list, every patch's row
+
+**The levels** (test_lead_over_keys, each set's mean 4-6.5 dB and median 4-6): kalimba 1.69 to 1.614, saw lead 1.06 to
+0.945, sine lead 0.82 to 0.899, square lead 0.61 to 0.70, muted trumpet 1.56 to 1.75, felt piano 0.668 to 0.716, synth
+pluck 1.4 to 1.307. Levels cost nothing.
+
+**The new standard list.** The synth sets redrew the old list's seeds (only 7 kept its set), so a forced sweep of seeds
+1-200 (`--forced`, best of 3 each) picked the heaviest real roll overall and per family. Held comping is the heaviest
+style in every family (the chord pool stays full):
+
+| Seed | Set | Why on the list | Plain | Forced |
+|---|---|---|---|---|
+| 22 | Rhodes and Moog (held, rain) | the heaviest of the 200 | 0.832 | **0.863** |
+| 20 | Organ and sine lead (held, dust 3) | the heaviest organ set | 0.828 | 0.845 |
+| 7 | Pad and guitar (held pad) | the heaviest held pad | 0.830 | 0.833 |
+| 138 | DX keys and FM bass (held, tape) | the heaviest DX set | 0.790 | 0.820 |
+| 100 | Juno and saw lead (held, dust 3) | the heaviest Juno set | 0.788 | 0.804 |
+| 200 | Chip lo-fi (held, tape and rain) | the heaviest chip set | 0.651 | 0.682 |
+
+`--forced 22 20 7 138 100 200`: max **0.863** (seed 22), 0.14 of headroom. The lightest family is the nylon and
+synth pluck (its heaviest, seed 80, 0.662 forced). The picker (no arguments, best of 2 per seed) is noise-limited at
+this spread: across four runs it chose 22 (0.857 forced), 183 (0.782), 6 (0.618) and, under load, 90; the top ten of the sweep lie
+within 0.05 of each other, so the list above, not the picker, is the bound.
+
+**`--parts`, every synth patch** (best of 7, AMB-1 138.5 ms, idle floor 0.097; old rows in the same run for scale):
+
+| Component | Role | Ratio | Same run |
+|---|---|---|---|
+| Chip chords | chords | 0.269 | Rhodes 0.304, pad 0.275 |
+| Juno | chords | 0.303 | |
+| Organ | chords | 0.247 | nylon 0.247 |
+| DX EP | chords | 0.332 | the dearest chords |
+| Chip bass | bass | 0.117 | sub 0.141 |
+| Moog bass | bass | 0.233 | the dearest bass (elec 0.162) |
+| FM bass | bass | 0.175 | |
+| Chip lead | lead | 0.176 | flute 0.247 |
+| Saw lead | lead | 0.168 | |
+| Square lead | lead | 0.177 | |
+| Sine lead | lead | 0.172 | |
+| Synth pluck | lead | 0.261 | vibes 0.272 |
+| Chip blip | candy | 0.175 | music box 0.227 |
+| FM bells | candy | 0.247 | bells 0.261 |
+
+**Memory:** image 169148 B, RAM 46172 B, pool 179644 B (`tools/mem-check.sh`: ok).
+
 ## The three biggest costs
 
 1. **The FM electric-piano chords (Rhodes, felt piano and Wurli: 0.36 to 0.48, four voices).** Each voice runs, per
@@ -483,4 +529,5 @@ idle floor 0.099).
 | FM bass (M_BASS, slap index) | 1 bass voice | 0.172 | elec bass 0.160 |
 | FM bells (M_BELL, ratio 3.5) | candy voices | 0.241 | bells 0.247 |
 
-No set uses them yet (sets are Task 4). Forced maximum: see the task report. Memory: image 168444 B, RAM 46172 B.
+At Task 3 no set used them (sets came in Task 4). The forced maximum then: **0.822** on `--forced 7 20 49 100 128
+183`. Memory: image 168444 B, RAM 46172 B.
