@@ -373,8 +373,10 @@ static void roll_next(void)             /* main loop: keep the mailbox full */
     if (mb_full || !seeded)
         return;
     roll_song(rolled_any ? &last_roll : 0, next_seed, &mb_roll);
+#if defined(PLAT_HOST) && !defined(PLAT_WEB)
     if (set_override && !rolled_any)
         roll_set(&mb_roll, RF_SET, set_override);
+#endif
     last_roll = mb_roll;
     rolled_any = 1;
     next_seed = seed_next(next_seed);
