@@ -2911,6 +2911,136 @@ static void test_voice_leading(void)
     }
 }
 
+
+/* ---- drum kits ---- */
+#define DK_N 176400
+static float dk_buf[DK_N];
+
+/* One hit of voice v in kit kit at velocity vel, starting at sample 0, into dk_buf (left); *act gets the voices still
+   active at the tail limit (1.5 s, 2.5 s for the 808 kick). */
+static void dk_hit(int kit, int v, int vel, int *act)
+{
+    int pos = 0;
+    vx_init();
+    vx_set_gain(1.0f);
+    vx_set_kit(kit);
+    vt_ev(v, 0, vel, 0, 0);
+    *act = -1;
+    while (pos < DK_N) {
+        int n = DK_N - pos > 4096 ? 4096 : DK_N - pos, lim = (kit == KIT_808 && v == V_KICK) ? 110250 : 66150;
+        memset(vt_l, 0, sizeof vt_l);
+        memset(vt_r, 0, sizeof vt_r);
+        vx_render(vt_l, vt_r, (uint32_t)n);
+        memcpy(dk_buf + pos, vt_l, (size_t)n * sizeof(float));
+        pos += n;
+        if (*act < 0 && pos >= lim)
+            *act = vx_active();
+    }
+}
+
+static float dk_peak(int from, int to)
+{
+    float m = 0.0f;
+    int i;
+    for (i = from; i < to; i++) {
+        float a = dk_buf[i] < 0.0f ? -dk_buf[i] : dk_buf[i];
+        if (a > m) m = a;
+    }
+    return m;
+}
+
+/* the end of the last 20 ms step with a peak of 0.01 or more */
+static int dk_ring(void)
+{
+    int i, last = 0;
+    for (i = 0; i + 882 <= DK_N; i += 882)
+        if (dk_peak(i, i + 882) >= 0.01f) last = i + 882;
+    return last;
+}
+
+static int dk_cross(int from, int to)
+{
+    int i, c = 0;
+    for (i = from + 1; i < to; i++)
+        if ((dk_buf[i - 1] < 0.0f) != (dk_buf[i] < 0.0f)) c++;
+    return c;
+}
+
+/* the highest normalized autocorrelation of the first 0.3 s over lags 20..800 */
+static float dk_autocorr(void)
+{
+    int lag, i, n = 13230;
+    double e0 = 0.0, best = 0.0;
+    for (i = 0; i < n; i++) e0 += (double)dk_buf[i] * (double)dk_buf[i];
+    if (e0 <= 0.0) return 1.0f;
+    for (lag = 20; lag <= 800; lag++) {
+        double a = 0.0;
+        for (i = 0; i + lag < n; i++) a += (double)dk_buf[i] * (double)dk_buf[i + lag];
+        a /= e0;
+        if (a > best) best = a;
+    }
+    return (float)best;
+}
+
+static void test_drum_kits(void)
+{
+    static const char *const kn[] = { "dusty", "soft", "808", "brushes" };
+    static const char *const vn[] = { "kick", "snare", "hat", "ohat", "shaker", "rim" };
+    static const int vels[] = { 20, 60, 100, 127 };
+    int kit, v, act, cr_d, cr_8, ring_d, ring_8;
+    float ac_b, ac_d;
+
+    for (kit = KIT_DUSTY; kit <= KIT_BRUSHES; kit++)
+        for (v = V_KICK; v <= V_RIM; v++) {
+            float pk, last, prev = 0.0f;
+            int k, ok = 1, lim = (kit == KIT_808 && v == V_KICK) ? 110250 : 66150;
+            dk_hit(kit, v, 100, &act);
+            pk = dk_peak(0, 8820);
+            CHECK(pk > 0.05f && pk < 0.9f, "%s %s: peak %.3f outside 0.05-0.9", kn[kit], vn[v - V_KICK], (double)pk);
+            last = dk_peak(lim, DK_N);
+            CHECK(last < 1e-3f, "%s %s: still %.5f after the tail limit", kn[kit], vn[v - V_KICK], (double)last);
+            CHECK(act == 0, "%s %s: voice still active at the tail limit", kn[kit], vn[v - V_KICK]);
+            for (k = 0; k < 4; k++) {
+                dk_hit(kit, v, vels[k], &act);
+                pk = dk_peak(0, 8820);
+                if (!(pk > prev)) ok = 0;
+                prev = pk;
+            }
+            CHECK(ok, "%s %s: level not monotonic in velocity", kn[kit], vn[v - V_KICK]);
+        }
+
+    dk_hit(KIT_DUSTY, V_KICK, 100, &act);
+    cr_d = dk_cross(11025, 19845);
+    ring_d = dk_ring();
+    dk_hit(KIT_808, V_KICK, 100, &act);
+    cr_8 = dk_cross(11025, 19845);
+    ring_8 = dk_ring();
+    CHECK(cr_8 < cr_d, "808 kick tail pitch not lower than dusty's (%d vs %d crossings)", cr_8, cr_d);
+    CHECK(ring_8 > ring_d + ring_d / 2, "808 kick rings %d samples, dusty %d: not clearly longer", ring_8, ring_d);
+
+    dk_hit(KIT_BRUSHES, V_SNARE, 100, &act);
+    ac_b = dk_autocorr();
+    dk_hit(KIT_DUSTY, V_SNARE, 100, &act);
+    ac_d = dk_autocorr();
+    CHECK(ac_b < 0.3f, "brushes snare autocorrelation %.3f, wanted < 0.3 (a swish)", (double)ac_b);
+    CHECK(ac_d > ac_b, "dusty snare (%.3f) should be more tonal than brushes (%.3f)", (double)ac_d, (double)ac_b);
+
+    /* the kick envelope: silent after init, about vel/127 at the hit, falling, silent when the kick ends */
+    vx_init();
+    CHECK(vx_kick_env() == 0.0f, "kick env not 0 after init");
+    vt_ev(V_KICK, 0, 127, 0, 0);
+    vx_render(vt_l, vt_r, 64);
+    {
+        float e1 = vx_kick_env(), e2;
+        CHECK(e1 > 0.9f && e1 <= 1.0f, "kick env %.3f right after a full-velocity hit", (double)e1);
+        vx_render(vt_l, vt_r, 4096);
+        e2 = vx_kick_env();
+        CHECK(e2 < e1 && e2 > 0.0f, "kick env should fall (%.3f -> %.3f)", (double)e1, (double)e2);
+        for (act = 0; act < 40; act++) vx_render(vt_l, vt_r, 4096);
+        CHECK(vx_kick_env() == 0.0f, "kick env not 0 after the kick ends");
+    }
+}
+
 int main(void)
 {
     test_rng();
@@ -2944,6 +3074,7 @@ int main(void)
     test_vx_keys();
     test_vx_plucks_basses();
     test_vx_leads();
+    test_drum_kits();
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;

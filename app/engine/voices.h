@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 /* The song engine's voices and mix. Pitched roles play the instrument patches (patch.h); the bells and winds render
-   with the placeholder FM until Task 5 gives them code. Drums are the placeholder kit. Float only. */
+   with the placeholder FM until Task 5 gives them code. Drums are in drums.c. Float only. */
 #ifndef ENGINE_VOICES_H
 #define ENGINE_VOICES_H
 #include <stdint.h>
@@ -25,6 +25,10 @@ void vx_configure(const song_roll_t *r);
 /* One pitched role's instrument (voice V_CHORD, V_BASS, V_LEAD or V_CANDY; others ignored). */
 void vx_assign(int voice, int ins);
 const vx_config_t *vx_config(void);
+/* The drum kit (KIT_*); vx_configure sets it from the song's set. */
+void vx_set_kit(int kit);
+/* The kick's amplitude envelope, 0-1 (see drums.h): the lo-fi chain's ducking source. */
+float vx_kick_env(void);
 /* The dark treatment, 0 (open) to 1: a low-pass on the music (down to 1.5 kHz at 1). It ramps linearly, 0 to 1 in
    3 s (about a bar at 70-90 BPM); with nothing sounding it lands at once. */
 void vx_set_dark(float d);

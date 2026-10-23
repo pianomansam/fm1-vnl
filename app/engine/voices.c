@@ -12,6 +12,7 @@
 #include "fastmath.h"
 #include "library.h"
 #include "voices.h"
+#include "drums.h"
 
 #define QN 64
 #define NCH 4 /* chord voices */
@@ -114,11 +115,6 @@ typedef struct {
 } voice_t;
 
 typedef struct {
-    float env, dec, amp, a, b, ph, pe; /* kick: ph, pe; noise lanes: a, b are filter states */
-    uint8_t on;
-} drum_t;
-
-typedef struct {
     song_ev_t e;
     uint32_t rem;
 } qe_t;
@@ -127,7 +123,6 @@ static qe_t q[QN];
 static int qn;
 static voice_t fv[NV];
 static float ks[NV][VX_KS_N] VX_POOL; /* the Karplus-Strong lines, one per voice */
-static drum_t dr[V_N]; /* indexed by voice id; the pitched slots are unused */
 static uint32_t age_ctr, rng = 0x1234567u;
 static float lp_y, gain, gain_tgt, gain_step;
 static uint32_t gain_n;
@@ -156,7 +151,7 @@ void vx_init(void)
 {
     memset(q, 0, sizeof q);
     memset(fv, 0, sizeof fv);
-    memset(dr, 0, sizeof dr);
+    drums_init();
     qn = 0;
     age_ctr = 0;
     rng = 0x1234567u;
@@ -196,7 +191,7 @@ void vx_configure(const song_roll_t *r)
         vx_assign(V_BASS, s->bass);
         vx_assign(V_LEAD, s->lead);
         vx_assign(V_CANDY, s->candy);
-        cfg.kit = s->kit;
+        vx_set_kit(s->kit);
         cfg.flavor = s->flavor;
     }
     cfg.dust = (uint8_t)fm_clampf((float)r->v[RF_DUST], 0.0f, 3.0f);
@@ -479,42 +474,6 @@ static void pool_on(const song_ev_t *e, int role)
     }
 }
 
-static void drum_on(const song_ev_t *e)
-{
-    drum_t *d = &dr[e->voice];
-    float v01 = (float)e->vel * (1.0f / 127.0f);
-    d->env = 1.0f;
-    d->on = 1;
-    switch (e->voice) {
-    case V_KICK:
-        d->amp = 0.4f * v01;
-        d->dec = 0.99985f;
-        d->ph = 0.25f; /* cosine start: the click is the first sample */
-        d->pe = 1.0f;
-        break;
-    case V_SNARE:
-        d->amp = 0.2f * v01;
-        d->dec = 0.9998f;
-        break;
-    case V_RIM:
-        d->amp = 0.12f * v01;
-        d->dec = 0.9985f;
-        break;
-    case V_HAT:
-        d->amp = 0.07f * v01;
-        d->dec = 0.9992f;
-        break;
-    case V_OHAT:
-        d->amp = 0.06f * v01;
-        d->dec = 0.99985f;
-        break;
-    default: /* V_SHAKER */
-        d->amp = 0.06f * v01;
-        d->dec = 0.9995f;
-        break;
-    }
-}
-
 static void fire(const song_ev_t *e)
 {
     switch (e->voice) {
@@ -524,7 +483,7 @@ static void fire(const song_ev_t *e)
     case V_BASS: pool_on(e, e->voice); break;
     default:
         if (e->voice < V_N)
-            drum_on(e);
+            drums_on(e);
         break;
     }
 }
@@ -758,51 +717,16 @@ static float voice_sample(voice_t *v)
     return o;
 }
 
-/* One sample of a drum lane; env falls by dec each sample and the lane is off below the threshold. */
-static float drum_sample(int id)
-{
-    drum_t *d = &dr[id];
-    float n, s;
-    switch (id) {
-    case V_KICK:
-        d->ph += (45.0f + 105.0f * d->pe) * INV_SR;
-        if (d->ph >= 1.0f)
-            d->ph -= 1.0f;
-        d->pe *= 0.99924f; /* about 30 ms constant: the drop is done in 120 ms */
-        s = fm_sin_turns(d->ph);
-        break;
-    case V_SNARE:
-    case V_RIM:
-        n = noise();
-        d->a += 0.4f * (n - d->a);          /* low-pass near 4 kHz */
-        d->b += (id == V_SNARE ? 0.03f : 0.12f) * (d->a - d->b); /* high-pass below: tracks the low end */
-        s = (d->a - d->b) * 1.4f;
-        break;
-    default: /* hats, shaker: high-passed noise */
-        n = noise();
-        d->a += (id == V_SHAKER ? 0.45f : 0.7f) * (n - d->a);
-        s = n - d->a;
-        break;
-    }
-    s *= d->amp * d->env;
-    d->env *= d->dec;
-    if (d->env < OFF_THR)
-        d->on = 0;
-    return s;
-}
-
 static void render_seg(float *l, float *r, uint32_t n)
 {
     uint32_t i;
-    int j, d;
+    int j;
     for (i = 0; i < n; i++) {
         float x = 0.0f, g;
         for (j = 0; j < NV; j++)
             if (fv[j].on)
                 x += voice_sample(&fv[j]);
-        for (d = V_KICK; d < V_N; d++)
-            if (dr[d].on)
-                x += drum_sample(d);
+        x += drums_sample();
         lp_y += MIX_LP * (x - lp_y);
         lp_y = fm_flush(lp_y);
         if (dark != dark_tgt) /* the ramp: linear, landing exactly */
@@ -861,9 +785,7 @@ void vx_release_all(void)
         fv[i].pend = 0;
         fv[i].kr = fm_maxf(fv[i].kr, KR_STOP);
     }
-    for (i = V_KICK; i < V_N; i++)
-        if (dr[i].on)
-            dr[i].dec = dr[i].dec < 0.996f ? dr[i].dec : 0.996f; /* under 40 ms to the threshold */
+    drums_release();
     qn = 0;
 }
 
@@ -879,9 +801,18 @@ int vx_active(void)
     int i, c = 0;
     for (i = 0; i < NV; i++)
         c += fv[i].on;
-    for (i = V_KICK; i < V_N; i++)
-        c += dr[i].on;
-    return c;
+    return c + drums_active();
+}
+
+void vx_set_kit(int kit)
+{
+    cfg.kit = (uint8_t)kit;
+    drums_set_kit(kit);
+}
+
+float vx_kick_env(void)
+{
+    return drums_kick_env();
 }
 
 void vx_set_dark(float d)
