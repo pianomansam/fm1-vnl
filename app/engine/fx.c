@@ -16,8 +16,8 @@
        under slow gusts, droplet pings). The bed is neither dusted, darkened nor faded by the song gain: it has its
        own open/close ramp (FX_RAMP_S) and each layer its own level ramp, so a change crossfades. Together, surface
        and rain each sit 2.5 dB lower (the pairing rule: the bed's level stays put, it does not thicken into mud).
-   Cost: the plate runs at a third of the rate (14.7 kHz; its highs are damped anyway) in one masked ring, the bed at
-   half rate; the dust's parameters and LFOs move at a control rate of CR samples. Dust changes ramp over FX_RAMP_S
+   Cost: the plate and the bed run at a third of the rate (14.7 kHz; the plate's highs are damped anyway, the hiss
+   tops out near 7 kHz), the plate in one masked ring; the dust's parameters and LFOs move at a control rate of CR samples. Dust changes ramp over FX_RAMP_S
    through a continuous dust value (the parameters interpolate between the levels' tables). Noise is a seeded
    xorshift; every decaying state is flushed. */
 #include <stdint.h>
@@ -68,18 +68,20 @@ static uint32_t cr_n;
 static float sh_ph, sh_y, lp_y, duck_s, dg = 1.0f, dg_step;
 
 /* ----------------------------------------------------------------------------------------------- bed --- */
-/* The bed runs at half rate (BR: its hiss tops out near 7 kHz), each step's output interpolated over two samples. */
-#define BR (SR * 0.5f)
-#define TICK_N 39690u       /* the rotation tick: every 1.8 s (in bed steps) */
+/* The bed runs at a third of the rate (BR, 14.7 kHz: its hiss tops out near 7 kHz), each step's output interpolated
+   over three samples. */
+#define BDIV 3u
+#define BR (SR / (float)BDIV)
+#define TICK_N 26460u       /* the rotation tick: every 1.8 s (in bed steps) */
 #define CLICK_P 3.0f        /* random clicks a second (the rotation's tick besides) */
-#define CLICK_DEC 0.30f     /* a click's fall per step: about 0.1 ms */
-#define TICK_A 0.29f        /* the tick's peak; random clicks 0.3-0.7 of it */
-#define HISS_V 0.0180f      /* vinyl hiss level (white, before its band-pass) */
+#define CLICK_DEC 0.17f     /* a click's fall per step: about 0.1 ms */
+#define TICK_A 0.33f        /* the tick's peak; random clicks 0.3-0.7 of it */
+#define HISS_V 0.0203f      /* vinyl hiss level (white, before its band-pass) */
 #define HISS_T 0.0130f      /* tape hiss level */
-#define RAIN_W 0.051f       /* rain wash level (white, before its low-pass) */
-#define DROP_A 0.0038f      /* droplet ping level */
+#define RAIN_W 0.049f       /* rain wash level (white, before its low-pass) */
+#define DROP_A 0.0037f      /* droplet ping level */
 #define DROP_P 14.0f        /* droplets a second */
-#define DROP_R 0.984f       /* a droplet's ring: about 20 ms to -60 dB */
+#define DROP_R 0.977f       /* a droplet's ring: about 20 ms to -60 dB */
 #define PAIR 0.75f          /* surface and rain together: each a little lower, the bed's sum stays put */
 #define GUST_K (1.0f / (1.2f * BR)) /* the gusts' smoother, per step: 1.2 s, twice */
 #define BCR 16              /* the gusts update every 16 steps */
@@ -109,7 +111,7 @@ static const int DL_LEN[L_N] = {PRE_N, HS(142), HS(107), HS(379), HS(277), HS(67
 #define PL_N 16384u          /* a power of two above the lines' sum (11.3 k) */
 #define PL_DECAY 0.5f        /* a small plate: about 1.8 s to -60 dB */
 #define PL_DD2 0.5f
-#define PL_OUT 0.6f
+#define PL_OUT_4 0.65f       /* the return over four taps a side (AMB-1: 0.6 over seven) */
 #define PL_QUIET 1e-5f       /* -100 dB: below this the tail is over */
 static float pl_buf[PL_N] FX_POOL;
 static uint32_t pl_base[L_N], pw;
@@ -178,12 +180,9 @@ static void plate(float in, float *ol, float *or_)
     pl_damp_r = fm_flush(pl_damp_r + 0.61f * (b - pl_damp_r));
     b = allpass(L_AP2R, HS(2656), pl_damp_r * PL_DECAY, PL_DD2);
     push(L_D2R, b);
-    *ol = PL_OUT * (tap(L_D1R, HS(266)) + tap(L_D1R, HS(2974)) - tap(L_AP2R, HS(1913)) +
-                    tap(L_D2R, HS(1996)) - tap(L_D1L, HS(1990)) - tap(L_AP2L, HS(187)) -
-                    tap(L_D2L, HS(1066)));
-    *or_ = PL_OUT * (tap(L_D1L, HS(353)) + tap(L_D1L, HS(3627)) - tap(L_AP2L, HS(1228)) +
-                     tap(L_D2L, HS(2673)) - tap(L_D1R, HS(2111)) - tap(L_AP2R, HS(335)) -
-                     tap(L_D2R, HS(121)));
+    /* four of Dattorro's seven taps a side (the cost; the small plate keeps its density from the tank) */
+    *ol = PL_OUT_4 * (tap(L_D1R, HS(266)) + tap(L_D1R, HS(2974)) - tap(L_AP2R, HS(1913)) - tap(L_D1L, HS(1990)));
+    *or_ = PL_OUT_4 * (tap(L_D1L, HS(353)) + tap(L_D1L, HS(3627)) - tap(L_AP2L, HS(1228)) - tap(L_D1R, HS(2111)));
     pw = (pw - 1u) & (PL_N - 1u);
 }
 
@@ -362,33 +361,36 @@ static uint32_t next_gap(float rate)
     return 1u + (uint32_t)(-fm_logf(1.0f - xs_u()) * (BR / rate));
 }
 
-/* the bed into l and r, at half rate: one xorshift a step gives both channels' white noise; clicks and droplets
+/* the bed into l and r, at a third of the rate: one xorshift a step gives both channels' white noise; clicks and droplets
    come at Poisson-drawn gaps; the state in locals (l's stores may alias the statics) */
 static void bed(float *l, float *r, uint32_t n)
 {
     uint32_t i, rs = brng, tk = tick_n, cn = clk_n, dn = drop_n, ph = b_ph;
     float b = bo, v = lv, t = lt, w = lr, cl = clk_l, cr = clk_r, gs = gust;
     float h0l = hv_l[0], h0r = hv_r[0], h1l = hv_l[1], h1r = hv_r[1];
-    float t0l = ht_l[0], t0r = ht_r[0], t1l = ht_l[1], t1r = ht_r[1];
+    float t1l = ht_l[1], t1r = ht_r[1];
     float r0l = rw_l[0], r0r = rw_r[0], r1l = rw_l[1], r1r = rw_r[1];
     float y1 = dp_y1, y2 = dp_y2, l0 = b_l0, l1 = b_l1, q0 = b_r0, q1 = b_r1;
-    float bstep = stopping ? 2.0f * STOP_STEP : 2.0f * RAMP;
+    float bstep = (float)BDIV * (stopping ? STOP_STEP : RAMP);
     for (i = 0; i < n; i++) {
         float nl, nr, ol = 0.0f, or_ = 0.0f, g;
-        ph ^= 1u;
-        if (!ph) { /* the sample between two steps: halfway */
-            l[i] += 0.5f * (l0 + l1);
-            r[i] += 0.5f * (q0 + q1);
+        if (ph) { /* a sample between two steps: interpolated */
+            float f = (float)ph * (1.0f / (float)BDIV);
+            l[i] += l0 + (l1 - l0) * f;
+            r[i] += q0 + (q1 - q0) * f;
+            if (++ph == BDIV)
+                ph = 0;
             continue;
         }
+        ph = 1;
         if (b != bo_t)
             b = ramp(b, bo_t, bstep);
         if (v != lv_t)
-            v = ramp(v, lv_t, 2.0f * RAMP);
+            v = ramp(v, lv_t, (float)BDIV * RAMP);
         if (t != lt_t)
-            t = ramp(t, lt_t, 2.0f * RAMP);
+            t = ramp(t, lt_t, (float)BDIV * RAMP);
         if (w != lr_t)
-            w = ramp(w, lr_t, 2.0f * RAMP);
+            w = ramp(w, lr_t, (float)BDIV * RAMP);
         rs ^= rs << 13;
         rs ^= rs >> 17;
         rs ^= rs << 5;
@@ -397,10 +399,10 @@ static void bed(float *l, float *r, uint32_t n)
         if (v > 0.0f) { /* vinyl: a band of hiss (about 1.6-6.8 kHz), clicks, the rotation tick */
             float a = 0.0f, pan = 0.5f;
             g = v * b;
-            h0l += 0.86f * (nl - h0l);
-            h0r += 0.86f * (nr - h0r);
-            h1l += 0.37f * (h0l - h1l);
-            h1r += 0.37f * (h0r - h1r);
+            h0l += 0.945f * (nl - h0l);
+            h0r += 0.945f * (nr - h0r);
+            h1l += 0.495f * (h0l - h1l);
+            h1r += 0.495f * (h0r - h1r);
             if (++tk >= TICK_N) {
                 tk = 0;
                 a = TICK_A;
@@ -416,14 +418,12 @@ static void bed(float *l, float *r, uint32_t n)
             ol += g * (HISS_V * (h0l - h1l) + cl);
             or_ += g * (HISS_V * (h0r - h1r) + cr);
         }
-        if (t > 0.0f) { /* tape: broadband hiss, its lows thinned (about 350 Hz), its top softened (about 9 kHz) */
+        if (t > 0.0f) { /* tape: broadband hiss to the step rate's top, its lows thinned (about 350 Hz) */
             g = t * b * HISS_T;
-            t0l += 0.92f * (nl - t0l);
-            t0r += 0.92f * (nr - t0r);
-            t1l += 0.098f * (t0l - t1l);
-            t1r += 0.098f * (t0r - t1r);
-            ol += g * (t0l - t1l);
-            or_ += g * (t0r - t1r);
+            t1l += 0.139f * (nl - t1l);
+            t1r += 0.139f * (nr - t1r);
+            ol += g * (nl - t1l);
+            or_ += g * (nr - t1r);
         }
         if (w > 0.0f) { /* rain: a wash (two one-poles, about 900 Hz) under the gusts, droplet pings */
             float x = 0.0f;
@@ -439,10 +439,10 @@ static void bed(float *l, float *r, uint32_t n)
                 gust1 += GUST_K * (float)BCR * (gust_t - gust1);
                 gs += GUST_K * (float)BCR * (gust1 - gs);
             }
-            r0l += 0.226f * (nl - r0l);
-            r0r += 0.226f * (nr - r0r);
-            r1l += 0.226f * (r0l - r1l);
-            r1r += 0.226f * (r0r - r1r);
+            r0l += 0.319f * (nl - r0l);
+            r0r += 0.319f * (nr - r0r);
+            r1l += 0.319f * (r0l - r1l);
+            r1r += 0.319f * (r0r - r1r);
             if (--dn == 0) { /* a droplet: a ping at 1.5-4.5 kHz, about 20 ms long */
                 float f;
                 brng = rs;
@@ -483,8 +483,6 @@ static void bed(float *l, float *r, uint32_t n)
     hv_r[0] = fm_flush(h0r);
     hv_l[1] = fm_flush(h1l);
     hv_r[1] = fm_flush(h1r);
-    ht_l[0] = fm_flush(t0l);
-    ht_r[0] = fm_flush(t0r);
     ht_l[1] = fm_flush(t1l);
     ht_r[1] = fm_flush(t1r);
     rw_l[0] = fm_flush(r0l);
@@ -508,6 +506,7 @@ static void dust_run(float *l, uint32_t n, float dt)
         uint32_t m, k, w = wl_w;
         float d = del, ds, lp = lp_y, g = dg, gs, sh = sh_ph, shy = sh_y;
         float drive, idrive, grit, rate, q, a;
+        int wow;
         if (cr_n == 0) {
             dust_control();
             duck_s += (dt - duck_s) * (dt > duck_s ? DUCK_ATT : DUCK_REL) * (float)CR;
@@ -516,6 +515,7 @@ static void dust_run(float *l, uint32_t n, float dt)
         }
         m = CR - cr_n < n - i ? CR - cr_n : n - i;
         ds = del_step;
+        wow = d != 0.0f || ds != 0.0f;
         gs = dg_step;
         drive = p_drive;
         idrive = p_idrive;
@@ -526,13 +526,16 @@ static void dust_run(float *l, uint32_t n, float dt)
         for (k = 0; k < m; k++) {
             float y, f, u;
             int j;
-            /* wow and flutter */
-            wl[w] = l[i + k];
-            d += ds;
-            j = (int)d;
-            f = d - (float)j;
-            y = wl[(w - (uint32_t)j) & (WL_N - 1)];
-            y += (wl[(w - (uint32_t)j - 1u) & (WL_N - 1)] - y) * f;
+            /* wow and flutter (at dust 0 the delay sits at 0: the line is kept, the read skipped) */
+            y = l[i + k];
+            wl[w] = y;
+            if (wow) {
+                d += ds;
+                j = (int)d;
+                f = d - (float)j;
+                y = wl[(w - (uint32_t)j) & (WL_N - 1)];
+                y += (wl[(w - (uint32_t)j - 1u) & (WL_N - 1)] - y) * f;
+            }
             w = (w + 1) & (WL_N - 1);
             /* saturation: a cubic soft clip of the driven signal (flat at 1 from |u| = 1.5), gain-matched */
             u = fm_clampf(y * drive, -1.5f, 1.5f);

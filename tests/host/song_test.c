@@ -3237,7 +3237,8 @@ static void test_fx_chain(void)
             }
         }
 
-    /* vinyl: clicks at 0.5-8 a second, and the loudest recur every 1.8 s +-5% (the rotation tick) */
+    /* vinyl: clicks at 0.5-8 a second, and the loudest (within 80% of the top: random clicks reach 70% of a tick) recur
+       every 1.8 s +-5% (the rotation tick) */
     rms = fx_bed_rms(1, 0, 20, NULL);
     fx_thr = 8.0f * rms;
     fx_nclk = 0;
@@ -3251,7 +3252,7 @@ static void test_fx_chain(void)
             if (fx_clk_p[i] > top)
                 top = fx_clk_p[i];
         for (i = 0; i < fx_nclk; i++)
-            if (fx_clk_p[i] >= 0.9f * top) {
+            if (fx_clk_p[i] >= 0.8f * top) { /* the hiss moves a peak a few percent */
                 if (nt) {
                     float dt = (float)(fx_clk_t[i] - last) / 44100.0f;
                     if (dt < 1.71f || dt > 1.89f)

@@ -131,6 +131,7 @@ static float ks[NV][VX_KS_N] VX_POOL; /* the Karplus-Strong lines, one per voice
 static uint32_t age_ctr, rng = 0x1234567u;
 static float gain, gain_tgt, gain_step;
 static float ch_m[CHUNK], ch_s[CHUNK]; /* a chunk's music and plate send, into fx_process */
+static float vsend[NV];                /* each voice's plate send: its role's SEND */
 static uint32_t gain_n;
 static vx_config_t cfg;
 static const vx_patch_t *role_pt[V_CANDY + 1]; /* the configured patch per pitched role, NULL for none */
@@ -155,6 +156,7 @@ static float k_att(float t) { return t * SR > 1.0f ? 1.0f / (t * SR) : 1.0f; }
 
 void vx_init(void)
 {
+    int i, k;
     memset(q, 0, sizeof q);
     memset(fv, 0, sizeof fv);
     drums_init();
@@ -172,6 +174,9 @@ void vx_init(void)
     vx_assign(V_CANDY, INS_MUSIC_BOX);
     cfg.kit = KIT_DUSTY;
     cfg.flavor = FL_LOFI;
+    for (i = V_CHORD; i <= V_CANDY; i++)
+        for (k = ROLES[i].first; k < ROLES[i].first + ROLES[i].count; k++)
+            vsend[k] = SEND[i];
     fx_init();
 }
 
@@ -730,19 +735,15 @@ static float voice_sample(voice_t *v)
 static void render_seg(float *m, float *s, uint32_t n)
 {
     uint32_t i;
-    int j, k;
+    int j;
     for (i = 0; i < n; i++) {
-        float x = 0.0f, snd, d = drums_sample();
-        snd = d * SEND_DRUMS;
-        for (k = V_CHORD; k <= V_CANDY; k++) {
-            float y = 0.0f;
-            for (j = ROLES[k].first; j < ROLES[k].first + ROLES[k].count; j++)
-                if (fv[j].on)
-                    y += voice_sample(&fv[j]);
-            x += y;
-            snd += y * SEND[k];
-        }
-        x += d;
+        float x = drums_sample(), snd = x * SEND_DRUMS;
+        for (j = 0; j < NV; j++)
+            if (fv[j].on) {
+                float y = voice_sample(&fv[j]);
+                x += y;
+                snd += y * vsend[j];
+            }
         if (dark != dark_tgt) /* the ramp: linear, landing exactly */
             dark = dark < dark_tgt ? fm_minf(dark + DARK_STEP, dark_tgt) : fm_maxf(dark - DARK_STEP, dark_tgt);
         if (dark > 0.0f) { /* the dark one-pole: open (a = 1) at 0, 1.5 kHz at 1 */
