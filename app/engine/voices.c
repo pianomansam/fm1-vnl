@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: MPL-2.0 */
+/* Formant filters adapted from AMB-1 (fm1-amb), MPL-2.0. */
 /* Voices and mix (see voices.h). The pitched roles are pools of voices (chords 4, lead 2, candy 2) plus the mono
-   bass; each voice keeps the patch it was struck with, and voice_sample() dispatches on the patch's model (every model
-   falls back to the FM voice for now: Tasks 3-5 add a case each). A pitched note's level is the patch envelope: a
-   natural decay (nat, from 1 toward sus) times a gate (g: a linear rise, a smoothed fall), so a note-off, a steal or
-   vx_release_all fades instead of clicking. Drums are a noise burst or a swept sine. Then the mix: a 5 kHz one-pole,
+   bass; each voice keeps the patch it was struck with, and voice_sample() dispatches on the patch's model: the keys
+   (M_EP) and pads (M_PAD) have their own; the rest fall back to the FM voice until Tasks 4-5 add theirs. A pitched
+   note's level is the patch envelope: a natural decay (nat, from 1 toward sus) times a gate (g: a linear rise, a
+   smoothed fall), so a note-off, a steal or vx_release_all fades instead of clicking. Drums are a noise burst or a swept sine. Then the mix: a 5 kHz one-pole,
    the dark low-pass, the song gain and the soft clip. Per-sample work is bounded by the fixed voice count. */
 #include <stdint.h>
 #include <string.h>
@@ -28,6 +29,11 @@
 #define CLIP_L 0.70f
 #define DARK_A 0.192f            /* the dark one-pole's coefficient at d = 1: 1.5 kHz */
 #define DARK_STEP (1.0f / 132300.0f) /* the dark ramp per sample: 0 to 1 in 3 s */
+#define KR_STOP (T60 / (0.04f * SR)) /* vx_release_all's release: 40 ms to -60 dB */
+#define TINE_R 14.0f   /* the EP tine: a high partial, fading with the index */
+#define STRIKE_T60 0.25f /* the EP strike's fade */
+#define BARK_T60 0.04f   /* the Wurli bark's fade */
+#define BARK_LP 0.3f     /* the bark's one-pole on the noise: about 2.5 kHz */
 
 /* The pool roles: their voices fv[first .. first+count) and level. The bass is its own mono voice (BASS_GAIN). */
 typedef struct {
@@ -41,11 +47,22 @@ static const role_t ROLES[V_CANDY + 1] = {
 };
 #define BASS_GAIN 0.17f
 
-/* A pooled voice. The envelope fields are shared by every model; the FM fields are the fallback model's. */
+/* A pooled voice. The envelope fields are shared by every model; m is the model's own state. */
 typedef struct {
     const vx_patch_t *pt; /* the patch it was struck with (kept through its release) */
     float nat, nk, sus, g, ka, kr, amp;        /* envelope: nat *= nk; g rises by ka, falls by g * kr */
-    float pc, pm, ic, im, idx, idec, tine;     /* fallback FM */
+    union {
+        struct { /* M_EP and the fallback FM: phases, increments, index and its decay, tine */
+            float pc, pm, ic, im, idx, idec, tine;
+            float hit, hk, bark, bk, by; /* EP: strike and its decay, bark level, decay, noise state */
+            float la, ly;                /* EP: the tone one-pole's coefficient (0: none) and state */
+        } ep;
+        struct { /* M_PAD: two saws, then one SVF (a low-pass) or two (the formants) */
+            float p1, p2, i1, i2, l2;
+            float c1[4], c2[4], s[4]; /* SVF coefficients (a1, a2, a3, k) and states */
+            uint8_t vox;
+        } pad;
+    } m;
     uint32_t gate, age;
     uint8_t on, held, role;
     uint8_t pend; /* a steal in progress: fade out, then start pe on ppt */
@@ -191,18 +208,78 @@ static void fm_start(voice_t *v, const song_ev_t *e)
 {
     const vx_patch_t *p = v->pt;
     float f = note_inc(e->note), v01 = (float)e->vel * (1.0f / 127.0f);
-    v->ic = f;
-    v->im = f * p->p[0];
-    v->idx = p->p[1] + p->p[2] * v01;
-    v->idec = 1.0f - k_t60(p->p[3]);
-    v->tine = p->p[4] * v01;
+    v->m.ep.ic = f;
+    v->m.ep.im = f * p->p[0];
+    v->m.ep.idx = p->p[1] + p->p[2] * v01;
+    v->m.ep.idec = 1.0f - k_t60(p->p[3]);
+    v->m.ep.tine = p->p[4] * v01;
+}
+
+/* one-pole low-pass coefficient for a cutoff in Hz (note-on only: it calls fm_expf) */
+static float k_lp1(float hz) { return 1.0f - fm_expf(-FM_TWO_PI * fm_clampf(hz, 20.0f, 18000.0f) * INV_SR); }
+
+/* M_EP: the fallback's 2-op FM (velocity into the index, the index decaying: the tine's bell into a round body) plus
+   a strike that fades fast, a noise bark and a tone one-pole, as patch.c lays out p[]. The modulator restarts at
+   the carrier's phase, so every note of a patch has the same attack. */
+static void ep_start(voice_t *v, const song_ev_t *e)
+{
+    const vx_patch_t *p = v->pt;
+    float v01 = (float)e->vel * (1.0f / 127.0f);
+    fm_start(v, e);
+    v->m.ep.pm = v->m.ep.pc;
+    v->m.ep.hit = p->p[5] * v01;
+    v->m.ep.hk = 1.0f - k_t60(STRIKE_T60);
+    v->m.ep.bark = p->p[6] * v01;
+    v->m.ep.bk = 1.0f - k_t60(BARK_T60);
+    v->m.ep.by = v->m.ep.ly = 0.0f; /* the union may hold another model's state */
+    v->m.ep.la = p->p[7] > 0.0f ? k_lp1(p->p[7] * (0.6f + 0.4f * v01)) : 0.0f;
+}
+
+/* The TPT state-variable filter's coefficients (Zavalishin), as AMB-1's svf_coefs: f in Hz, k the damping (1/Q). */
+static void svf_coefs(float *c, float f, float k)
+{
+    float g = fm_tanf(FM_PI * fm_clampf(f, 40.0f, 16000.0f) * INV_SR);
+    c[0] = 1.0f / (1.0f + g * (g + k));
+    c[1] = g * c[0];
+    c[2] = g * c[1];
+    c[3] = k;
+}
+
+/* AMB-1's vowels (u, o, a, e): the first two formants in Hz */
+static const float VOWEL[4][2] = {{320.0f, 800.0f}, {480.0f, 900.0f}, {730.0f, 1090.0f}, {530.0f, 1840.0f}};
+
+/* M_PAD: two saws detuned apart, the second at a ratio; a pad into one low-pass SVF, a vox pad into AMB-1's two
+   formant filters at a vowel. The filters don't move during a note: their coefficients are set here. */
+static void pad_start(voice_t *v, const song_ev_t *e)
+{
+    const vx_patch_t *p = v->pt;
+    float f = note_inc(e->note), dt = fm_exp2f(p->p[0] * (1.0f / 1200.0f));
+    v->m.pad.i1 = f / dt;
+    v->m.pad.i2 = f * dt * p->p[1];
+    v->m.pad.p1 = 0.0f;
+    v->m.pad.p2 = 0.5f;
+    v->m.pad.l2 = p->p[2];
+    v->m.pad.vox = p->p[7] > 0.0f;
+    memset(v->m.pad.s, 0, sizeof v->m.pad.s);
+    if (v->m.pad.vox) {
+        float vw = fm_clampf(p->p[6], 0.0f, 2.999f), f1, f2;
+        int a = (int)vw;
+        vw -= (float)a;
+        f1 = VOWEL[a][0] + (VOWEL[a + 1][0] - VOWEL[a][0]) * vw;
+        f2 = VOWEL[a][1] + (VOWEL[a + 1][1] - VOWEL[a][1]) * vw;
+        svf_coefs(v->m.pad.c1, f1, 0.45f);
+        svf_coefs(v->m.pad.c2, f2, 0.3f);
+    } else
+        svf_coefs(v->m.pad.c1, p->p[3] + p->p[4] * f * SR, p->p[5]);
 }
 
 static void voice_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e)
 {
     env_start(v, p, e);
     switch (p->model) {
-    default: fm_start(v, e); break; /* M_EP ... M_BASS: Tasks 3-5 */
+    case M_EP: ep_start(v, e); break;
+    case M_PAD: pad_start(v, e); break;
+    default: fm_start(v, e); break; /* M_PLUCK ... M_BASS: Tasks 4-5 */
     }
 }
 
@@ -318,18 +395,77 @@ static void fire(const song_ev_t *e)
 static float fm_sample(voice_t *v)
 {
     float s, mod;
-    v->pc += v->ic;
-    if (v->pc >= 1.0f)
-        v->pc -= 1.0f;
-    v->pm += v->im;
-    if (v->pm >= 1.0f)
-        v->pm -= 1.0f;
-    mod = fm_sin_turns(v->pm) * v->idx;
-    s = fm_sin_turns(v->pc + mod * 0.159155f);
-    if (v->tine > 0.0f) /* the tine fades with the index */
-        s += v->tine * fm_sin_turns(v->pc * 14.0f) * v->idx;
-    v->idx *= v->idec;
+    v->m.ep.pc += v->m.ep.ic;
+    if (v->m.ep.pc >= 1.0f)
+        v->m.ep.pc -= 1.0f;
+    v->m.ep.pm += v->m.ep.im;
+    if (v->m.ep.pm >= 1.0f)
+        v->m.ep.pm -= 1.0f;
+    mod = fm_sin_turns(v->m.ep.pm) * v->m.ep.idx;
+    s = fm_sin_turns(v->m.ep.pc + mod * 0.159155f);
+    if (v->m.ep.tine > 0.0f) /* the tine fades with the index */
+        s += v->m.ep.tine * fm_sin_turns(v->m.ep.pc * TINE_R) * v->m.ep.idx;
+    v->m.ep.idx *= v->m.ep.idec;
     return s;
+}
+
+/* M_EP's raw sample: the FM and tine, the strike, the bark, the tone. */
+static float ep_sample(voice_t *v)
+{
+    float s = fm_sample(v) * (1.0f + v->m.ep.hit);
+    v->m.ep.hit *= v->m.ep.hk;
+    if (v->m.ep.bark > 1e-4f) { /* band-limited noise, gated by the tone: a reed's bark */
+        v->m.ep.by += BARK_LP * (noise() - v->m.ep.by);
+        s += v->m.ep.bark * v->m.ep.by * (s < 0.0f ? -s : s);
+        v->m.ep.bark *= v->m.ep.bk;
+    }
+    if (v->m.ep.la > 0.0f) {
+        v->m.ep.ly = fm_flush(v->m.ep.ly + v->m.ep.la * (s - v->m.ep.ly));
+        s = v->m.ep.ly;
+    }
+    return s;
+}
+
+/* a naive saw with a polyBLEP at the wrap: t the phase in turns, dt its increment */
+static float saw_blep(float t, float dt)
+{
+    float y = 2.0f * t - 1.0f;
+    if (t < dt) {
+        float x = t / dt;
+        y -= x + x - x * x - 1.0f;
+    } else if (t > 1.0f - dt) {
+        float x = (t - 1.0f) / dt;
+        y -= x * x + x + x + 1.0f;
+    }
+    return y;
+}
+
+/* one TPT SVF step on x: the band-pass (unscaled) in *bp, the low-pass returned; s[0..1] its states */
+static float svf_step(const float *c, float *s, float x, float *bp)
+{
+    float v3 = x - s[1], v1 = c[0] * s[0] + c[1] * v3, v2 = s[1] + c[1] * s[0] + c[2] * v3;
+    s[0] = fm_flush(2.0f * v1 - s[0]);
+    s[1] = fm_flush(2.0f * v2 - s[1]);
+    *bp = v1;
+    return v2;
+}
+
+/* M_PAD's raw sample: the two saws, then the low-pass or the formants (AMB-1's mix: b1 + b2 / 2 + 0.45 l1). */
+static float pad_sample(voice_t *v)
+{
+    float x, l1, b1, b2;
+    x = saw_blep(v->m.pad.p1, v->m.pad.i1) + v->m.pad.l2 * saw_blep(v->m.pad.p2, v->m.pad.i2);
+    v->m.pad.p1 += v->m.pad.i1;
+    if (v->m.pad.p1 >= 1.0f)
+        v->m.pad.p1 -= 1.0f;
+    v->m.pad.p2 += v->m.pad.i2;
+    if (v->m.pad.p2 >= 1.0f)
+        v->m.pad.p2 -= 1.0f;
+    l1 = svf_step(v->m.pad.c1, v->m.pad.s, x, &b1);
+    if (!v->m.pad.vox)
+        return l1;
+    svf_step(v->m.pad.c2, v->m.pad.s + 2, x, &b2);
+    return b1 * v->m.pad.c1[3] + 0.5f * b2 * v->m.pad.c2[3] + 0.45f * l1;
 }
 
 /* One sample of a pooled voice: the model's raw sample times the envelope. */
@@ -337,7 +473,9 @@ static float voice_sample(voice_t *v)
 {
     float s, o;
     switch (v->pt->model) {
-    default: s = fm_sample(v); break; /* M_EP ... M_BASS: Tasks 3-5 */
+    case M_EP: s = ep_sample(v); break;
+    case M_PAD: s = pad_sample(v); break;
+    default: s = fm_sample(v); break; /* M_PLUCK ... M_BASS: Tasks 4-5 */
     }
     v->nat *= v->nk;
     o = s * v->amp * (v->sus + (1.0f - v->sus) * v->nat) * v->g;
@@ -487,9 +625,10 @@ void vx_render(float *l, float *r, uint32_t n)
 void vx_release_all(void)
 {
     int i;
-    for (i = 0; i < NFM; i++) {
+    for (i = 0; i < NFM; i++) { /* a long release (a pad's) shortened to 40 ms */
         fv[i].held = 0;
         fv[i].pend = 0;
+        fv[i].kr = fm_maxf(fv[i].kr, KR_STOP);
     }
     bs.held = 0;
     for (i = V_KICK; i < V_N; i++)

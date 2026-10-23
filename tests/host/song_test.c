@@ -5,6 +5,7 @@
 #include <string.h>
 #include "rng.h"
 #include "theory.h"
+#include "fastmath.h"
 #include "library.h"
 #include "roll.h"
 #include "plan.h"
@@ -1491,6 +1492,102 @@ static float vt_hf(uint32_t n)
     return s / (float)n;
 }
 
+/* A note on a role, rendered for n windows of w samples: each window's peak |x| in env[] and its RMS in rms[], the
+   sample of the loudest in *at, and the zero crossings of the first difference in the first zc_n samples (the
+   signal's turning points: a crude spectral centroid, enough to order timbres; the plain signal's crossings miss a
+   phase-locked FM's harmonics, which bend the wave between its crossings). */
+static int vt_note_env(int role, int ins, int note, int vel, uint32_t len, int n, uint32_t w, float *env,
+                       float *rms, uint32_t *at, uint32_t zc_n, int *bad)
+{
+    int k, zc = 0;
+    uint32_t i, t = 0;
+    float prev = 0.0f, dprev = 0.0f, top = 0.0f;
+    vx_init();
+    vx_assign(role, ins);
+    vt_ev(role, note, vel, 0, len);
+    *at = 0;
+    for (k = 0; k < n; k++) {
+        float m = 0.0f, e = 0.0f;
+        memset(vt_l, 0, w * sizeof(float));
+        memset(vt_r, 0, w * sizeof(float));
+        vx_render(vt_l, vt_r, w);
+        for (i = 0; i < w; i++, t++) {
+            float x = vt_l[i], a = x < 0.0f ? -x : x;
+            if (x != x || a > 1e30f)
+                *bad = 1;
+            if (a > m)
+                m = a;
+            e += x * x;
+            if (a > top) {
+                top = a;
+                *at = t;
+            }
+            if (t < zc_n && t > 1 && ((x - prev >= 0.0f) != (dprev >= 0.0f)))
+                zc++;
+            dprev = x - prev;
+            prev = x;
+        }
+        env[k] = m;
+        rms[k] = fm_sqrtf(e / (float)w);
+    }
+    return zc;
+}
+
+/* The keys (M_EP) and pads (M_PAD): a struck key peaks within 15 ms and decays (under half the peak 1 s later), and
+   the three keys order by brightness, Wurli > Rhodes > felt piano; a pad swells (at least 150 ms to its peak) and
+   sustains while held (at least 70% of the peak at 2 s). */
+static void test_vx_keys(void)
+{
+    static float env[600], rms[600];
+    static const int KEYS[3] = {INS_WURLI, INS_RHODES, INS_FELT_PIANO};
+    static const int PADS[2] = {INS_PAD, INS_VOX_PAD};
+    static const int NOTES[3] = {55, 60, 67};
+    int i, j, bad = 0, zc[3][3];
+
+    CHECK(vx_patch(INS_RHODES)->model == M_EP && vx_patch(INS_WURLI)->model == M_EP &&
+              vx_patch(INS_FELT_PIANO)->model == M_EP && vx_patch(INS_PAD)->model == M_PAD &&
+              vx_patch(INS_VOX_PAD)->model == M_PAD,
+          "keys and pads on the wrong models");
+    for (j = 0; j < 3; j++)
+        for (i = 0; i < 3; i++) { /* 5 ms windows over 1.5 s; 1 s on, the loudest of two (a period at least) */
+            int k;
+            uint32_t at;
+            float pk, later;
+            zc[j][i] = vt_note_env(V_CHORD, KEYS[i], NOTES[j], 100, 3u * 44100u, 300, 220, env, rms, &at, 8820,
+                                   &bad);
+            pk = env[at / 220];
+            k = (int)(at + 44100u) / 220;
+            later = env[k] > env[k + 1] ? env[k] : env[k + 1];
+            printf("keys: ins %2d note %d peak %.4f at %.1f ms, 1 s later %.4f (%.0f%%), zc %d\n", KEYS[i], NOTES[j],
+                   (double)pk, (double)at / 44.1, (double)later, 100.0 * (double)(later / pk), zc[j][i]);
+            CHECK(at <= 661u, "ins %d note %d: peak at %.1f ms, wanted within 15 ms", KEYS[i], NOTES[j],
+                  (double)at / 44.1);
+            CHECK(later < 0.5f * pk, "ins %d note %d: %.0f%% of the peak 1 s later, wanted under 50%%", KEYS[i],
+                  NOTES[j], 100.0 * (double)(later / pk));
+        }
+    for (j = 0; j < 3; j++)
+        CHECK(zc[j][0] > zc[j][1] && zc[j][1] > zc[j][2],
+              "note %d: brightness (zero crossings in 200 ms) wurli %d, rhodes %d, felt %d: wanted that order",
+              NOTES[j], zc[j][0], zc[j][1], zc[j][2]);
+
+    for (j = 0; j < 3; j++)
+        for (i = 0; i < 2; i++) { /* RMS in 50 ms windows (many periods) over 2.5 s, held 3 s */
+            int k, pk = 0, role = vt_role_of(PADS[i]);
+            uint32_t at;
+            vt_note_env(role, PADS[i], NOTES[j], 100, 3u * 44100u, 50, 2205, env, rms, &at, 0, &bad);
+            for (k = 1; k < 50; k++)
+                if (rms[k] > rms[pk])
+                    pk = k;
+            printf("pads: ins %2d note %d peak %.4f at %d ms, at 2 s %.4f (%.0f%%)\n", PADS[i], NOTES[j],
+                   (double)rms[pk], pk * 50 + 25, (double)rms[40], 100.0 * (double)(rms[40] / rms[pk]));
+            CHECK(pk * 50 + 25 >= 150, "ins %d note %d: peak at %d ms, wanted 150 ms or later", PADS[i], NOTES[j],
+                  pk * 50 + 25);
+            CHECK(rms[40] >= 0.7f * rms[pk], "ins %d note %d: %.0f%% of the peak at 2 s, wanted 70%% or more",
+                  PADS[i], NOTES[j], 100.0 * (double)(rms[40] / rms[pk]));
+        }
+    CHECK(!bad, "a key or pad rendered NaN or inf");
+}
+
 static void test_vx_patches(void)
 {
     int ins, s, bad = 0;
@@ -1574,13 +1671,13 @@ static void test_vx_patches(void)
         int k;
         vx_init();
         vx_set_dark(0.0f);
-        vt_ev(V_CHORD, 64, 127, 0, 400000);
+        vt_ev(V_CHORD, 64, 80, 0, 400000); /* soft: the key's fundamental is below any 1.5 kHz low-pass */
         vt_ev(V_HAT, 0, 127, 0, 0);
         vt_block(4096, &bad);
         bright = vt_hf(4096);
         vx_init();
         vx_set_dark(1.0f);
-        vt_ev(V_CHORD, 64, 127, 0, 400000);
+        vt_ev(V_CHORD, 64, 80, 0, 400000);
         vt_ev(V_HAT, 0, 127, 0, 0);
         vt_block(4096, &bad);
         dark = vt_hf(4096);
@@ -2535,6 +2632,7 @@ int main(void)
     test_voices();
     test_voices_fix();
     test_vx_patches();
+    test_vx_keys();
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;
