@@ -5214,6 +5214,64 @@ static void test_sub(void)
     vx_fx_off(0u);
 }
 
+/* The FM patches (new patches on M_EP, M_BASS and M_BELL). The DX electric piano's first 30 ms is brighter than the
+   Rhodes' (spectral centroid) and it falls to half its level sooner; the FM bass's slap: its centroid at 10 ms at
+   least 3x its centroid at 200 ms; the FM bells' ratio is non-integer (0.1 or more off one) and their centroid
+   differs from the bells' and the music box's by 15% or more. */
+static void test_fm_patches(void)
+{
+    int bad = 0, i;
+    float c[3], h[2];
+    static const int KE[2] = {INS_DX_EP, INS_RHODES};
+    static const int BE[3] = {INS_FM_BELL, INS_BELLS, INS_MUSIC_BOX};
+
+    CHECK(vx_patch(INS_DX_EP)->model == M_EP && vx_patch(INS_FM_BASS)->model == M_BASS &&
+              vx_patch(INS_FM_BELL)->model == M_BELL,
+          "FM patches on the wrong models");
+    CHECK(!lib_ins_sustained(INS_DX_EP) && !lib_ins_sustained(INS_FM_BASS) && !lib_ins_sustained(INS_FM_BELL),
+          "the FM patches are struck, not sustained");
+    vx_fx_off(VX_OFF_MUD | VX_OFF_DELAY);
+    for (i = 0; i < 2; i++) { /* centroid over the first 30 ms (1024 samples is 23 ms, centred at 12 ms), 50% time */
+        uint32_t n;
+        float pk, e;
+        vt_note(V_CHORD, KE[i], 60, 100, 3u * 44100u, VT_LONG, &bad);
+        c[i] = sb_centroid(0);
+        pk = vt_peak(0, 2205);
+        h[i] = 3.0f;
+        for (n = 2205; n + 220 < 3u * 44100u; n += 220) {
+            e = vt_peak(n, n + 220);
+            if (e < 0.5f * pk) { h[i] = (float)n / 44100.0f; break; }
+        }
+        printf("fm keys: ins %d centroid %.0f Hz, half level at %.2f s\n", KE[i], (double)c[i], (double)h[i]);
+    }
+    CHECK(c[0] > c[1], "DX EP centroid %.0f Hz over its first 30 ms, Rhodes %.0f: wanted brighter", (double)c[0],
+          (double)c[1]);
+    CHECK(h[0] < h[1], "DX EP half level at %.2f s, Rhodes %.2f s: wanted faster", (double)h[0], (double)h[1]);
+    { /* the slap */
+        float a, b;
+        vt_note(V_BASS, INS_FM_BASS, 40, 110, 44100u, 5u * 4096u, &bad);
+        a = sb_centroid(0u);
+        b = sb_centroid(8820u - 512u);
+        printf("fm bass: centroid at 10 ms %.0f Hz, at 200 ms %.0f Hz\n", (double)a, (double)b);
+        CHECK(a >= 3.0f * b, "FM bass centroid %.0f Hz at 10 ms, %.0f at 200 ms: wanted 3x", (double)a, (double)b);
+    }
+    {
+        float r = vx_patch(INS_FM_BELL)->p[0];
+        CHECK(fm_fabsf(r - (float)(int)(r + 0.5f)) >= 0.1f, "FM bell ratio %.3f: wanted inharmonic", (double)r);
+    }
+    for (i = 0; i < 3; i++) {
+        vt_note(V_CANDY, BE[i], 72, 100, 2u * 44100u, VT_LONG, &bad);
+        c[i] = sb_centroid(441u);
+        printf("fm bells: ins %d centroid %.0f Hz\n", BE[i], (double)c[i]);
+    }
+    for (i = 1; i < 3; i++)
+        CHECK(fm_fabsf(c[0] - c[i]) >= 0.15f * c[i], "FM bell centroid %.0f Hz vs ins %d %.0f: wanted 15%% apart",
+              (double)c[0], BE[i], (double)c[i]);
+    CHECK(!bad, "FM patches: NaN or blow-up");
+    vx_fx_off(0);
+}
+
+
 /* Task 7c's head-to-head: Rings' reverb and chorus (the default since Sam's pick; ours is fx_rings(0), host only)
    through the plate's impulse, denormal and random-input tests; the reverb tuned to the plate (its -60 dB time within 10%, its tail's energy 0.1-1 s within
    1 dB); the chorus's dry scale. */
@@ -5922,6 +5980,7 @@ int main(int argc, char **argv)
     RUN(test_wet);
     RUN(test_cost_moves);
     RUN(test_sub);
+    RUN(test_fm_patches);
     RUN(test_rings_pair);
     RUN(test_mix_parts);
     RUN(test_mix_denormals);

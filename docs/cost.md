@@ -459,3 +459,16 @@ interrupt.
 
 The remaining headroom today is about 0.08 at the heaviest seed with the heaviest chain (0.918); moves 1 and 3 together
 would leave roughly 0.3 to 0.35 of headroom on the host proxy.
+
+## FM patches (DX electric piano, FM bass, FM bells; synths Task 3)
+
+New patches on the existing M_EP, M_BASS and M_BELL models: no new model code. `--parts` best of 7 (AMB-1 136.6 ms,
+idle floor 0.099).
+
+| Component | Role | Ratio (net of floor) | Same run, for scale |
+|---|---|---|---|
+| DX EP (M_EP, tine + tone one-pole) | 4 chord voices | 0.324 | Rhodes 0.294 |
+| FM bass (M_BASS, slap index) | 1 bass voice | 0.172 | elec bass 0.160 |
+| FM bells (M_BELL, ratio 3.5) | candy voices | 0.241 | bells 0.247 |
+
+No set uses them yet (sets are Task 4). Forced maximum: see the task report. Memory: image 168444 B, RAM 46172 B.
