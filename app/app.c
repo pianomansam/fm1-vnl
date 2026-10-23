@@ -302,6 +302,10 @@ void app_panic(void)
 static song_roll_t last_roll;
 static uint32_t next_seed;
 static uint8_t rolled_any, seeded;
+#if defined(PLAT_HOST) && !defined(PLAT_WEB)
+static uint32_t seed_override;           /* VNL_SEED (host): the first song's seed */
+static int has_seed_override;
+#endif
 static uint32_t boot_spins;              /* main-loop passes between frames, until the first seed */
 
 static uint32_t seed_next(uint32_t s)   /* the chain: a song's seed gives the next one's (xorshift32) */
@@ -321,6 +325,9 @@ static void seed_boot(void)
 {
 #ifdef PLAT_HOST
     next_seed = seed_next(plat_ms() * 2654435761u + 0x5EEDu);
+#ifndef PLAT_WEB
+    if (has_seed_override) next_seed = seed_override;
+#endif
     seeded = 1;
 #else
     static uint32_t frames, mix;
@@ -355,6 +362,10 @@ void app_init(void)
         {
             const char *sp = getenv("VNL_LEADSPIKE");   /* SPIKE: 1 voice-leading line, 2 8th-note arpeggio */
             song_set_lead_spike(sp ? *sp - '0' : 0);
+        }
+        {
+            const char *sd = getenv("VNL_SEED");   /* the first song's seed, as a log prints it: replay or roll anew */
+            if (sd && *sd) { seed_override = (uint32_t)strtoul(sd, 0, 10); has_seed_override = 1; }
         }
         while (w && *w) {                /* VNL_SWAP="Eb3 G3 Db4 F4=Db3 G3 Eb4 F4;...": hear an alternative voicing */
             int v[8], k = 0;
