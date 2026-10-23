@@ -363,14 +363,15 @@ int song_tick(song_t *s, song_ev_t *out, int max)
     if (b) {
         int pcs[5], np, pass = bar / loop_bars(&s->roll) + 1, dark = (b->flags & PB_DARK) != 0;
         np = harmony_chord_at(&s->roll, bar, pass, dark, pcs);
-        n += groove_step(&s->roll, b, bar, step, gs, pcs, np, salt, buf + n, BUF - n);
-        n += harmony_step(&s->roll, b, bar, step, pass, gs, &s->voicing, salt, buf + n, BUF - n);
-        n += melody_step(&s->roll, &s->plan, &s->ph, &s->motif, bar, step, gs, salt, buf + n, BUF - n);
-        if (step == 0) {
+        if (step == 0) {                            /* the lead plans its bar first: the comping makes room for it */
             int keys[4];
             harmony_voicing_at(&s->roll, bar, pass, &s->voicing, keys);
             lead_plan_bar(&s->lead, &s->roll, b, bar, keys, pcs, np);
         }
+        n += groove_step(&s->roll, b, bar, step, gs, pcs, np, salt, buf + n, BUF - n);
+        n += harmony_step(&s->roll, b, bar, step, pass, gs, &s->voicing, s->lead.onsets >= 4, salt, buf + n,
+                          BUF - n);
+        n += melody_step(&s->roll, &s->plan, &s->ph, &s->motif, bar, step, gs, salt, buf + n, BUF - n);
         if (lead_plays(b)) {                        /* the lead's blocks: no melody lead; candy only where it rests */
             for (i = k = 0; i < n; i++)
                 if (buf[i].voice != V_LEAD && !(buf[i].voice == V_CANDY && s->lead.active)) buf[k++] = buf[i];

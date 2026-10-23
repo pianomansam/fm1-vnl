@@ -222,6 +222,7 @@ int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b,
     for (i = 0; i < 16; i++) ls->on[i] = 0;
     ls->acc = 0;
     ls->active = ls->tied;
+    ls->onsets = 0;
     if (!lead_plays(b) || np <= 0) { ls->tied = 0; return 0; }
     c.r = r; c.keys = keys; c.pcs = pcs; c.np = np; c.bass = 0;
     for (i = 0; i < 16; i++) {
@@ -233,6 +234,7 @@ int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b,
     else plan_hybrid(ls, &c, bar, bpc, npcs, nn);
     for (i = 0; i < 16; i++) n += ls->on[i] > 0;
     ls->active |= n > 0;
+    ls->onsets = n;
     return n;
 }
 

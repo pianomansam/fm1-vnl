@@ -875,12 +875,12 @@ static void test_harmony(void)
             for (step = 0; step < 16; step++) {
                 const plan_block_t *b = (bar < 4) ? &dark : &keys;
                 harmony_voicing_t *vs = (bar < 4) ? &prev : &prev2;
-                int ne = harmony_step(&r, b, bar, step, 1 + bar / 4, SPS16, vs, 3u, ev, 16);
+                int ne = harmony_step(&r, b, bar, step, 1 + bar / 4, SPS16, vs, 0, 3u, ev, 16);
                 if (b == &dark) {                      /* the same block unmarked, from the same voicing */
                     plan_block_t lit = dark;
                     int ne2;
                     lit.flags = 0;
-                    ne2 = harmony_step(&r, &lit, bar, step, 1 + bar / 4, SPS16, &same, 3u, ev2, 16);
+                    ne2 = harmony_step(&r, &lit, bar, step, 1 + bar / 4, SPS16, &same, 0, 3u, ev2, 16);
                     if (ne2 != ne) bad_dark++;
                     for (i = 0; i < ne && i < ne2; i++)
                         if (ev[i].note != ev2[i].note || ev[i].delay != ev2[i].delay || ev[i].len != ev2[i].len)
@@ -938,8 +938,8 @@ static void test_harmony(void)
         memset(count, 0, sizeof count);
         for (bar = 0; bar < 8; bar++)
             for (step = 0; step < 16; step++) {
-                int a = harmony_step(&r, &keys, bar, step, 1, SPS16, &vs, 9u, ev, 16);
-                int b2 = harmony_step(&r, &keys, bar, step, 1, SPS16, &vsb, 9u, ev2, 16);
+                int a = harmony_step(&r, &keys, bar, step, 1, SPS16, &vs, 0, 9u, ev, 16);
+                int b2 = harmony_step(&r, &keys, bar, step, 1, SPS16, &vsb, 0, 9u, ev2, 16);
                 if (a != b2 || memcmp(ev, ev2, sizeof(song_ev_t) * (size_t)a) || memcmp(&vs, &vsb, sizeof vs)) bad_det++;
                 count[step] += a;
                 total += a;
@@ -961,7 +961,7 @@ static void test_harmony(void)
                     }
                 }
                 if (a == 4 && step == first_step(st)) for (i = 0; i < 4; i++) bar_notes[i] = ev[i].note;
-                if (harmony_step(&r, &nokeys, bar, step, 1, SPS16, &vs, 9u, ev, 16) != 0) bad_det++;
+                if (harmony_step(&r, &nokeys, bar, step, 1, SPS16, &vs, 0, 9u, ev, 16) != 0) bad_det++;
             }
         CHECK(held_bar == 0, "harmony: held chords wrong (seed %d)", seed);
         if (st == CS_HELD) CHECK(total == 4 * (8 / bpc), "harmony: held count %d", total);
@@ -1687,6 +1687,75 @@ static void test_lead_push_legal(void)
           lr_cross);
 }
 
+/* Lead design: busier lead == sparser comping (Sam). With percussive keys, stabs, offbeats and the arpeggio strike
+   at most two thirds as often in bars where the lead has 4+ onsets as in bars with 0-1; held comping and sustained
+   keys never change; thinning only drops strikes, never changes a note. */
+static void test_comping_makes_room(void)
+{
+    static song_t s;
+    uint32_t seed = 3131;
+    song_roll_t prev, r;
+    song_ev_t ev[64], e0[16], e1[16];
+    long strikes[4][2] = {{0}}, bars[4][2] = {{0}}, bad_same = 0, bad_subset = 0;
+    int k, i, cs;
+    for (k = 0; k < 300; k++) {
+        const lib_set_t *set;
+        int sust_keys, cur = -1, lead_on = 0, keys_strikes = 0, bar, step;
+        harmony_voicing_t v0, v1;
+        seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+        roll_song(k ? &prev : 0, seed, &r);
+        prev = r;
+        set = lib_set_by_id((uint8_t)r.v[RF_SET]);
+        sust_keys = set && lib_ins_sustained(set->chords);
+        cs = harmony_style(&r);
+        song_start(&s, &r);
+        while (s.state == SS_PLAYING) {
+            int b0 = s.bar, n = song_tick(&s, ev, 64), struck = 0;
+            const plan_block_t *b = plan_at(&s.plan, b0);
+            if (b0 != cur) {
+                if (cur >= 0 && !sust_keys && cs != CS_HELD && (lead_on >= 4 || lead_on <= 1)) {
+                    strikes[cs][lead_on >= 4] += keys_strikes;
+                    bars[cs][lead_on >= 4]++;
+                }
+                cur = b0;
+                lead_on = keys_strikes = 0;
+            }
+            for (i = 0; i < n; i++) {
+                if (ev[i].voice == V_LEAD) lead_on++;
+                if (ev[i].voice == V_CHORD) struck = 1;
+            }
+            keys_strikes += struck && b && (b->layers & L_KEYS);
+        }
+        /* busy against not, strike for strike, from the same voicings */
+        memset(&v0, 0, sizeof v0);
+        memset(&v1, 0, sizeof v1);
+        for (bar = 0; bar < s.plan.bars; bar++) {
+            const plan_block_t *b = plan_at(&s.plan, bar);
+            const lib_prog_t *pr = lib_prog_by_id((uint8_t)r.v[RF_PROG]);
+            int loop = pr && pr->n * pr->bars_per_chord ? pr->n * pr->bars_per_chord : 4;
+            for (step = 0; step < 16; step++) {
+                int n0 = harmony_step(&r, b, bar, step, bar / loop + 1, 5512.5f, &v0, 0, 5u, e0, 16);
+                int n1 = harmony_step(&r, b, bar, step, bar / loop + 1, 5512.5f, &v1, 1, 5u, e1, 16);
+                if (sust_keys || cs == CS_HELD) {
+                    if (n0 != n1 || memcmp(e0, e1, sizeof(song_ev_t) * (size_t)n0)) bad_same++;
+                } else if (n1 && (n1 != n0 || memcmp(e0, e1, sizeof(song_ev_t) * (size_t)n0))) {
+                    bad_subset++;
+                }
+            }
+        }
+    }
+    for (cs = CS_STABS; cs <= CS_ARP; cs++) {
+        double q = bars[cs][0] ? (double)strikes[cs][0] / (double)bars[cs][0] : 0.0;
+        double bz = bars[cs][1] ? (double)strikes[cs][1] / (double)bars[cs][1] : 0.0;
+        printf("comping %d: %.2f strikes a quiet bar (%ld), %.2f a busy one (%ld)\n", cs, q, bars[cs][0], bz,
+               bars[cs][1]);
+        CHECK(bars[cs][1] > 20 && bz * 3.0 <= q * 2.0, "comping style %d: busy bars strike %.2f, quiet %.2f", cs, bz,
+              q);
+    }
+    CHECK(bad_same == 0, "%ld held or sustained-keys strikes changed by busy", bad_same);
+    CHECK(bad_subset == 0, "%ld busy strikes or voicings that differ from the full comping", bad_subset);
+}
+
 /* Sam: the keys and the bass never share a rhythm of more than a note on 1 (stabs on a kick of 1 and the and of 2) */
 static void test_keys_bass_rhythms_differ(void)
 {
@@ -1957,6 +2026,7 @@ int main(void)
     test_lead_by_class();
     test_lead_where();
     test_lead_push_legal();
+    test_comping_makes_room();
     test_loop_voicings();
     test_dominant_extensions();
     test_no_substitution();

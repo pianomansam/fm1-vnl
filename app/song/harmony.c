@@ -207,9 +207,16 @@ static int emit_chord(const int *notes, int n, uint32_t gap, int lo, int hi, uin
     return cnt;
 }
 
-int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, int pass, float step_samples,
-                 harmony_voicing_t *vs, uint32_t salt, song_ev_t *out, int max)
+static int keys_sustained(const song_roll_t *r)
 {
+    const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
+    return set && lib_ins_sustained(set->chords);
+}
+
+int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, int pass, float step_samples,
+                 harmony_voicing_t *vs, int busy, uint32_t salt, song_ev_t *out, int max)
+{
+
     static const uint8_t ARP[6] = {0, 1, 2, 3, 2, 1};
     const lib_prog_t *p;
     int style, pcs[5], n, dark, lo, hi, k;
@@ -239,6 +246,11 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
         len = (uint32_t)step_samples;
         lo = 50; hi = 70;
         break;
+    }
+    if (busy && style != CS_HELD && !keys_sustained(r)) {   /* the lead is busy: the comping makes room (Sam) */
+        if (style == CS_STABS && step != 0) return 0;
+        if (style == CS_OFFBEATS && step != 6 && step != 14) return 0;
+        if (style == CS_ARP && (step & 1)) return 0;
     }
     dark = (b->flags & PB_DARK) != 0;
     n = harmony_chord_at(r, bar, pass, dark, pcs);

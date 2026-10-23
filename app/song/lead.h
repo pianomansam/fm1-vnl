@@ -19,6 +19,7 @@ typedef struct {
     int last;                     /* the last skeleton note (0: none yet) */
     int tied;                     /* the next bar's landing was pushed into this one */
     int active;                   /* the lead sounds in the planned bar (an onset, or a note pushed in) */
+    int onsets;                   /* lead onsets that start in the planned bar */
     int chosen;                   /* the song's arpeggio pattern is chosen */
     int pat, rhy, rev, swap;
 } lead_state_t;

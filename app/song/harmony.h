@@ -30,7 +30,9 @@ void harmony_set_loop_lock(int on);
 /* The voicing this bar's chord sounds with (what harmony_step strikes), without striking it: vs->last is unchanged
    (its loop cache may fill). Lets the lead plan a bar over the keys before they strike. */
 void harmony_voicing_at(const song_roll_t *r, int bar, int pass, harmony_voicing_t *vs, int out4[4]);
+/* One step of the keys. busy: the lead has 4+ onsets this bar, so stabs strike on 1 only, offbeats on 6 and 14, the
+   arpeggio on even steps (held comping and sustained keys unchanged); the voicing never changes. */
 int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, int pass, float step_samples,
-                 harmony_voicing_t *vs, uint32_t salt, song_ev_t *out, int max);
+                 harmony_voicing_t *vs, int busy, uint32_t salt, song_ev_t *out, int max);
 
 #endif
