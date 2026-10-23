@@ -290,6 +290,65 @@ static int novelty(const song_roll_t *a, const song_roll_t *b)
     return d;
 }
 
+/* a synth instrument (the synths plan's: the chip voices, M_SUB's, the FM keys, bass and bells) */
+static int is_synth(int ins) { return ins >= INS_CHIP_CHORDS && ins < INS_NONE; }
+static int set_all_synth(const lib_set_t *s)
+{
+    return is_synth(s->chords) && is_synth(s->bass) && is_synth(s->lead) && (s->candy == INS_NONE || is_synth(s->candy));
+}
+static int moods_n(int m) { return (m & 1) + (m >> 1 & 1) + (m >> 2 & 1) + (m >> 3 & 1); }
+
+/* The synth sets (synths plan Task 4): the six are there with their families, two moods each; every mood has an
+   all-synth set; over 3,000 chained songs (the app's xorshift32 seeds) each new set rolls in 3% or more, and the sets
+   with any synth instrument in 25% or more. */
+static void test_synth_sets(void)
+{
+    static const char *names[6] = {"Juno and saw lead", "DX keys and FM bass", "Chip lo-fi", "Organ and sine lead",
+                                   "Rhodes and Moog", "Nylon and synth pluck"};
+    const lib_set_t *ns[6];
+    long got[6] = {0, 0, 0, 0, 0, 0}, synth = 0;
+    uint32_t seed = 4242u;
+    song_roll_t prev, r;
+    int i, k, m;
+    for (i = 0; i < 6; i++) {
+        ns[i] = NULL;
+        for (k = 0; k < LIB_NSETS; k++)
+            if (strcmp(LIB_SETS[k].name, names[i]) == 0) ns[i] = &LIB_SETS[k];
+        CHECK(ns[i] != NULL, "synth sets: no set \"%s\"", names[i]);
+        if (ns[i]) CHECK(moods_n(ns[i]->moods) == 2, "synth sets: %s has %d moods, wanted 2", names[i], moods_n(ns[i]->moods));
+    }
+    if (!ns[0] || !ns[1] || !ns[2] || !ns[3] || !ns[4] || !ns[5]) return;
+    CHECK(ns[0]->chords == INS_JUNO && ns[0]->lead == INS_SAW_LEAD && ns[0]->flavor == FL_CHILLWAVE, "Juno set");
+    CHECK(ns[1]->chords == INS_DX_EP && ns[1]->bass == INS_FM_BASS && ns[1]->flavor == FL_CITYPOP, "DX set");
+    CHECK(ns[2]->chords == INS_CHIP_CHORDS && ns[2]->lead == INS_CHIP_LEAD && ns[2]->bass == INS_CHIP_BASS &&
+              ns[2]->candy == INS_CHIP_BLIP, "chip set");
+    CHECK(ns[3]->chords == INS_ORGAN && ns[3]->lead == INS_SINE_LEAD, "organ set");
+    CHECK(ns[4]->chords == INS_RHODES && ns[4]->bass == INS_MOOG_BASS &&
+              (ns[4]->lead == INS_SAW_LEAD || ns[4]->lead == INS_SQUARE_LEAD), "Rhodes and Moog set");
+    CHECK(ns[5]->chords == INS_NYLON && ns[5]->lead == INS_SYNTH_PLUCK, "nylon and pluck set");
+    for (m = 0; m < 4; m++) {
+        int any = 0;
+        for (k = 0; k < LIB_NSETS; k++) any |= (LIB_SETS[k].moods & (1 << m)) && set_all_synth(&LIB_SETS[k]);
+        CHECK(any, "synth sets: mood %d has no all-synth set", m);
+    }
+    for (k = 0; k < 3000; k++) {
+        const lib_set_t *s;
+        seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+        roll_song(k ? &prev : 0, seed, &r);
+        prev = r;
+        s = lib_set_by_id((uint8_t)r.v[RF_SET]);
+        if (!s) continue;
+        synth += is_synth(s->chords) || is_synth(s->bass) || is_synth(s->lead) || is_synth(s->candy);
+        for (i = 0; i < 6; i++) got[i] += s == ns[i];
+    }
+    for (i = 0; i < 6; i++) {
+        printf("synth sets: %-21s %.1f%% of 3000 songs\n", names[i], (double)got[i] / 30.0);
+        CHECK(got[i] >= 90, "synth sets: %s in %ld of 3000 songs, wanted 3%%+", names[i], got[i]);
+    }
+    printf("synth sets: any synth in %.1f%% of 3000 songs\n", (double)synth / 30.0);
+    CHECK(synth >= 750, "synth sets: a synth set in %ld of 3000 songs, wanted 25%%+", synth);
+}
+
 static int roll_valid(const song_roll_t *r)
 {
     const int16_t *v = r->v;
@@ -2002,6 +2061,37 @@ static void test_chip(void)
         db = 10.0f * 0.30103f * fm_log2f(off / fund + 1e-20f);
         printf("chip: lead at note 88: energy under 4 kHz off its harmonics %.1f dB\n", (double)db);
         CHECK(db < -40.0f, "chip lead at note 88: %.1f dB off its harmonics under 4 kHz, wanted under -40", (double)db);
+    }
+    { /* the bit crush: every chip patch quantizes its output to p[7] bits over its own level (2^(bits-1) steps from
+         0 to it). The lead at note 60 held 2 s, its voice's output read a sample at a time in the crush's steps
+         (vx_chip_out): every sample from the onset through the decay a whole step, within +-2^(bits-1), and in one
+         cycle at its sustain (from 1 s) at most 2^bits + 1 distinct levels */
+        static const int CH[4] = {INS_CHIP_CHORDS, INS_CHIP_LEAD, INS_CHIP_BASS, INS_CHIP_BLIP};
+        float q, lv[256], l1, r1;
+        uint32_t t, per = 169u; /* 44100 / 261.63 */
+        int bits = (int)vx_patch(INS_CHIP_LEAD)->p[7], nl = 0, off = 0, a;
+        for (a = 0; a < 4; a++)
+            CHECK(vx_patch(CH[a])->p[7] >= 4.0f && vx_patch(CH[a])->p[7] <= 8.0f, "chip ins %d: crush %.0f bits, wanted 4-8",
+                  CH[a], (double)vx_patch(CH[a])->p[7]);
+        q = (float)(1 << (bits > 0 ? bits - 1 : 0));
+        vx_init();
+        vx_assign(V_LEAD, INS_CHIP_LEAD);
+        vt_ev(V_LEAD, 60, 100, 0, 2u * 44100u);
+        for (t = 0; t < 44100u + per; t++) {
+            float y;
+            l1 = r1 = 0.0f;
+            vx_render(&l1, &r1, 1u);
+            y = vx_chip_out(V_LEAD);
+            off += y != fm_floorf(y + 0.5f) || fm_fabsf(y) > q;
+            if (t >= 44100u) {
+                for (a = 0; a < nl && lv[a] != vx_chip_out(V_LEAD); a++) {
+                }
+                if (a == nl && nl < 256) lv[nl++] = vx_chip_out(V_LEAD);
+            }
+        }
+        printf("chip: crush %d bits: %d levels in a cycle of the lead at sustain, %d samples off its steps\n", bits, nl, off);
+        CHECK(bits >= 4 && off == 0, "chip crush: %d of the lead's samples off its %d-bit steps", off, bits);
+        CHECK(nl >= 2 && nl <= (1 << bits) + 1, "chip crush: %d levels in a cycle, wanted 2 to %d", nl, (1 << bits) + 1);
     }
     CHECK(!bad, "a chip voice rendered NaN or inf");
     vx_fx_off(0u);
@@ -4044,21 +4134,30 @@ static void cv_begin(const song_roll_t *roll)
 /* Determinism across songs (the plan's constraint): a seed renders the same samples whether or not another song played
    before it. Song A, then the app's gap (vx_release_all, 2-4 s from A's seed), then song B through song_begin's path,
    against song B alone: from 12 s (A's tails long over) the two agree exactly; in B's first second they differ by at
-   most what A's tail still adds. The pairs' B sets cover plucks, the Wurli's bark, winds' breath and the drums. */
+   most what A's tail still adds. The pairs' B sets cover plucks, the Wurli's bark, winds' breath and the drums, then
+   the synths (the chip voices' noise and crush; M_SUB's filters, sub and glide; the FM bells). Each pair's
+   sets are pinned (roll_set), not left to the draw: adding sets redraws them (synths plan, Review Focus 4). */
 #define CV_SECS 20u
 static float cv_ref_l[CV_SECS * 44100u], cv_ref_r[CV_SECS * 44100u], cv_l[CV_SECS * 44100u], cv_r[CV_SECS * 44100u];
 static void test_song_carryover(void)
 {
-    static const uint32_t A[] = {11u, 128u, 7u, 183u, 20u, 49u};
-    static const uint32_t B[] = {12u, 904880372u, 4185943442u, 100u, 77u, 333u};
+    static const uint32_t A[] = {11u, 128u, 7u, 183u, 20u, 49u, 11u, 20u};
+    static const uint32_t B[] = {12u, 904880372u, 4185943442u, 100u, 77u, 333u, 904880372u, 77u};
+    /* the sets these seeds drew before the synth sets (Bossa nylon, Rhodes neo-soul, Pad and guitar, Rhodes dusty,
+       Neo-soul Wurli, Chillwave pad; Rhodes neo-soul, Bossa nylon, Nylon and sax, Neo-soul Wurli x3), then Chip lo-fi
+       and Organ and sine lead */
+    static const int SA[] = {2, 11, 10, 1, 3, 5, 2, 3};
+    static const int SB[] = {11, 2, 9, 3, 3, 3, 14, 15};
     int p, i;
-    for (p = 0; p < 6; p++) {
+    for (p = 0; p < 8; p++) {
         song_roll_t ra, rb;
         uint32_t gap, h, j;
         float tail = 0.0f, d0 = 0.0f, d1 = 0.0f;
         const vx_config_t *c;
         roll_song(NULL, A[p], &ra);
         roll_song(NULL, B[p], &rb);
+        CHECK(roll_set(&ra, RF_SET, SA[p]) == SA[p] && roll_set(&rb, RF_SET, SB[p]) == SB[p],
+              "carryover: pair %d's sets %d, %d not legal in its moods", p, SA[p], SB[p]);
         vx_init(); /* B alone */
         vx_song(&rb);
         cv_play(&rb, CV_SECS, cv_ref_l, cv_ref_r);
@@ -5634,7 +5733,7 @@ static int lv_quiet(const plan_block_t *b)
     return b->section == SEC_INTRO || b->section == SEC_OUTRO || b->section == SEC_BREAK || (b->flags & PB_FADE);
 }
 
-#define LIB_NSETS_MAX 16
+#define LIB_NSETS_MAX 32 /* test_lead_over_keys' arrays; it CHECKs LIB_NSETS fits */
 static int lk_cmp_f(const void *a, const void *b);
 static int lv_cmp(const void *a, const void *b)
 {
@@ -5841,6 +5940,7 @@ static void test_lead_over_keys(void)
 {
     float d[LIB_NSETS_MAX * LK_PER], sorted[LIB_NSETS_MAX * LK_PER], med;
     int k, n = 0;
+    CHECK(LIB_NSETS <= LIB_NSETS_MAX, "lead over keys: %d sets, LIB_NSETS_MAX %d: raise it", LIB_NSETS, LIB_NSETS_MAX);
     for (k = 0; k < LIB_NSETS && k < LIB_NSETS_MAX; k++) {
         const lib_set_t *t = &LIB_SETS[k];
         uint32_t seed;
@@ -5959,6 +6059,7 @@ int main(int argc, char **argv)
     RUN(test_theory);
     RUN(test_library);
     RUN(test_roll);
+    RUN(test_synth_sets);
     RUN(test_plan);
     RUN(test_groove);
     RUN(test_harmony);

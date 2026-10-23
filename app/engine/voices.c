@@ -148,8 +148,10 @@ typedef struct {
                     plus a sub-octave sine */
             float pc, pm, ps, ic, im, is, ix, it, i0, ik, sub;
         } bs;
-        struct { /* M_CHIP: a phase, the wave's duty and DC, the vibrato (control rate), a noise tick, held noise */
-            float ph, inc, f0, d, dc, vp, vr, vd, tick, tk, nz;
+        struct { /* M_CHIP: a phase, the wave's duty and DC, the vibrato (control rate), a noise tick, held noise; the
+                    crush: its steps per unit of output (a unit of the voice's level, amp_t, is 2^(bits-1) steps; 0 for
+                    none), their size, the last output in steps (tests: vx_chip_out) */
+            float ph, inc, f0, d, dc, vp, vr, vd, tick, tk, nz, q, qi, out;
             uint8_t wave, cc, nk;
         } ch;
         struct { /* M_SUB: a phase and its increment now, the base increment gliding (by gk a step, gn steps, to ft)
@@ -707,6 +709,9 @@ static void chip_start(voice_t *v, const song_ev_t *e)
     v->m.ch.tk = 1.0f - k_t60(p->p[6]);
     v->m.ch.nz = 0.0f;
     v->m.ch.nk = 0xff;
+    v->m.ch.qi = p->p[7] >= 1.0f ? v->amp_t * fm_exp2f(1.0f - fm_floorf(p->p[7])) : 0.0f;
+    v->m.ch.q = v->m.ch.qi > 0.0f ? 1.0f / v->m.ch.qi : 0.0f;
+    v->m.ch.out = 0.0f;
 }
 
 /* M_SUB's highest cutoff in Hz for a note of hz at velocity v01: the key-tracked base with the envelope at its top */
@@ -1202,14 +1207,17 @@ static float sub_sample(voice_t *v)
 /* One sample of a pooled voice: the model's raw sample times the envelope (a slewing voice's: its slewed level). */
 static float voice_sample(voice_t *v)
 {
-    float s, o, lv;
+    float s, o, lv, q = 0.0f;
     switch (v->pt->model) {
     case M_EP: s = ep_sample(v); break;
     case M_PLUCK: s = pluck_sample(v); break;
     case M_PAD: s = pad_sample(v); break;
     case M_BELL: s = bell_sample(v); break;
     case M_WIND: s = wind_sample(v); break;
-    case M_CHIP: s = chip_sample(v); break;
+    case M_CHIP:
+        s = chip_sample(v);
+        q = v->m.ch.q;
+        break;
     case M_SUB: s = sub_sample(v); break;
     default: s = bass_sample(v); break; /* M_BASS */
     }
@@ -1220,6 +1228,10 @@ static float voice_sample(voice_t *v)
         o = s * v->amp * v->g;
     } else
         o = s * v->amp * lv * v->g;
+    if (q > 0.0f) { /* the chip's bit crush: the output rounded to its steps (a tail under half a step is 0) */
+        v->m.ch.out = fm_floorf(o * q + 0.5f);
+        o = v->m.ch.out * v->m.ch.qi;
+    }
     if (v->pend) { /* fade the victim out, then start the queued note */
         v->g -= v->g * (v->hr ? 2.0f * G_STEAL : G_STEAL);
         if (v->g < STEAL_THR)
@@ -1892,6 +1904,15 @@ void vx_fx_off(unsigned mask)
 void vx_solo(int role)
 {
     solo_bus = role < 0 ? -1 : bus_of(role);
+}
+
+float vx_chip_out(int role)
+{
+    int j;
+    for (j = 0; j < NV; j++)
+        if (fv[j].on && fv[j].pt && fv[j].pt->model == M_CHIP && role_bit(j) == 1u << role)
+            return fv[j].m.ch.out;
+    return 0.0f;
 }
 
 float vx_duck_db(void)

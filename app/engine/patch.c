@@ -35,7 +35,9 @@
      noise held for a 16th of the note's period; pitch on the semitone, except a vibrato.
      p[0] the wave (0 pulse, 1 triangle, 2 noise), p[1] the pulse's duty (0.125, 0.25 or 0.5), p[2] the vibrato's rate
      in Hz, p[3] its depth in cents (0 for none), p[4] the arpeggio (0: off, the only setting), p[5] a noise tick's
-     level at the onset at full velocity (0 for none), p[6] its fall to -60 dB (s).
+     level at the onset at full velocity (0 for none), p[6] its fall to -60 dB (s), p[7] the bit crush: the voice's
+     output (after its envelope) rounded to this many bits over its own full level (2^(p[7]-1) steps from 0 to the
+     note's level; 0 for none; the chips: 7, a few-bit DAC's grit and steppy decays).
    M_SUB (Juno, organ, Moog bass, saw, square and sine leads, synth pluck; voices.c sub_*): frugal as a Juno-106, one
      oscillator, a sub-octave square and noise into a low-pass with its own envelope; mono and glide for the leads and
      the bass. On the chords a 2-pole patch whose highest cutoff stays at 8 kHz or under renders at half the rate.
@@ -75,10 +77,10 @@ static const vx_patch_t PATCHES[INS_NONE] = {
     [INS_BELLS] = {M_BELL, {3.53f, 0.6f, 1.2f, 1.2f, 0.0f, 0.0f, 0.3f}, 0.003f, 3.5f, 0.0f, 0.2f, 0.87f, 0.0f, 0.35f},
     [INS_VOX_PAD] = {M_PAD, {4.0f, 2.0f, 0.35f, 0.0f, 0.0f, 0.0f, 0.6f, 1.0f}, 0.8f, 4.0f, 0.85f, 0.9f, 1.77f, 0.5f, 0.25f},
     /* the chip voices: provisional levels (the synths' Task 5 balances them in their sets) */
-    [INS_CHIP_CHORDS] = {M_CHIP, {0.0f, 0.25f}, 0.004f, 3.0f, 0.6f, 0.12f, 0.5f, 0.0f, 0.08f},
-    [INS_CHIP_LEAD] = {M_CHIP, {0.0f, 0.5f, 6.5f, 12.0f}, 0.003f, 1.5f, 0.3f, 0.1f, 0.7f, 0.0f, 0.3f},
-    [INS_CHIP_BASS] = {M_CHIP, {1.0f}, 0.003f, 7.0f, 1.0f, 0.05f, 1.3f, 0.0f, 0.0f},
-    [INS_CHIP_BLIP] = {M_CHIP, {0.0f, 0.125f, 0.0f, 0.0f, 0.0f, 0.6f, 0.02f}, 0.001f, 0.25f, 0.0f, 0.05f, 0.8f, 0.0f, 0.4f},
+    [INS_CHIP_CHORDS] = {M_CHIP, {0.0f, 0.25f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 7.0f}, 0.004f, 3.0f, 0.6f, 0.12f, 0.32f, 0.0f, 0.08f},
+    [INS_CHIP_LEAD] = {M_CHIP, {0.0f, 0.5f, 6.5f, 12.0f, 0.0f, 0.0f, 0.0f, 7.0f}, 0.003f, 1.5f, 0.3f, 0.1f, 0.7f, 0.0f, 0.3f},
+    [INS_CHIP_BASS] = {M_CHIP, {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 7.0f}, 0.003f, 7.0f, 1.0f, 0.05f, 1.3f, 0.0f, 0.0f},
+    [INS_CHIP_BLIP] = {M_CHIP, {0.0f, 0.125f, 0.0f, 0.0f, 0.0f, 0.6f, 0.02f, 7.0f}, 0.001f, 0.25f, 0.0f, 0.05f, 0.8f, 0.0f, 0.4f},
     /* the subtractive synths, warm (their cutoffs low): provisional levels (the synths' Task 5 balances them). The
        Juno: a saw and its sub, a gentle envelope, the chorus deep (the Juno's); the organ: a square and its sub
        (16' and 8'), no envelope; the Moog bass: a saw and its sub through the 4-pole, plucked open, a short glide; the
@@ -98,10 +100,10 @@ static const vx_patch_t PATCHES[INS_NONE] = {
     [INS_SYNTH_PLUCK] = {M_SUB, {1.0f, 0.35f, 0.0f, 0.0f, 200.0f, 0.25f, 0.6f, 4.5f, 0.001f, 0.3f}, 0.002f, 1.2f, 0.0f,
                          0.1f, 1.4f, 0.0f, 0.35f},
     /* the 80s FM keys: a 14x tine on the attack (a high ratio, a bright index falling fast) over a clean body */
-    [INS_DX_EP] = {M_EP, {1.0f, 0.3f, 1.8f, 0.9f, 0.12f, 0.4f, 0.0f, 6500.0f}, 0.002f, 2.6f, 0.0f, 0.08f, 0.9f,
+    [INS_DX_EP] = {M_EP, {1.0f, 0.3f, 1.8f, 0.9f, 0.12f, 0.4f, 0.0f, 6500.0f}, 0.002f, 2.6f, 0.0f, 0.08f, 1.0f,
                    0.5f, 0.08f},
     /* the slap FM bass: the index strikes high and is gone in 150 ms */
-    [INS_FM_BASS] = {M_BASS, {1.0f, 0.1f, 8.0f, 0.15f, 0.15f}, 0.002f, 4.0f, 0.6f, 0.05f, 1.2f, 0.0f, 0.0f},
+    [INS_FM_BASS] = {M_BASS, {1.0f, 0.1f, 8.0f, 0.15f, 0.15f}, 0.002f, 4.0f, 0.6f, 0.05f, 1.3f, 0.0f, 0.0f},
     /* DX digital bells: an inharmonic ratio, a bright index falling slowly */
     [INS_FM_BELL] = {M_BELL, {3.5f, 1.0f, 1.8f, 1.5f, 0.0f, 0.0f, 0.3f}, 0.002f, 3.0f, 0.0f, 0.15f, 0.85f, 0.0f,
                      0.35f},

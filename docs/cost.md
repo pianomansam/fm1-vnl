@@ -330,6 +330,18 @@ always moving under 8ths.
 noise. **Memory:** image 168156 B (was 162848: the seven patches and the voice's code), RAM 46172 B (was 45964: the
 voice union grows to M_SUB's 128 B, 8 B a voice, and a slew flag), pool 179644 B (unchanged).
 
+## Synths Task 4: the synth sets, measured
+
+Six sets (ids 12-17) and the chip voices' bit crush (a multiply, a floor and a multiply a chip sample). Adding sets
+redraws the set of many seeds: of the standard list only 7 keeps its set (Pad and guitar); 20 is now Organ and sine
+lead, 49 DX keys and FM bass, 100 Juno and saw lead, 128 Bossa nylon, 183 Chillwave pad.
+
+`--forced 7 20 49 100 128 183` gave 0.844 / 0.845 / 0.717 / 0.811 / 0.737 / 0.799 (forced), max **0.845** (seed 20,
+the organ set). The picker (`tools/cost-bench.sh`, 200 seeds): the heaviest is now seed **22, Rhodes and Moog**, at
+0.833 plain and **0.863** forced (was 0.822): a synth set is the heaviest roll, inside the budget with 0.14 of
+headroom. `--parts` for the chips with the crush (one run): chords 0.263, lead 0.184, bass 0.113, blip 0.177, within
+the noise of Task 1's rows. **Memory:** image 169004 B, RAM 46172 B, pool 179644 B.
+
 ## The three biggest costs
 
 1. **The FM electric-piano chords (Rhodes, felt piano and Wurli: 0.36 to 0.48, four voices).** Each voice runs, per
