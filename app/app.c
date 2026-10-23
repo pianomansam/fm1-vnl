@@ -184,16 +184,11 @@ static void step(void)
     }
     if (st == 0 && bar % 4 == 0)
         memset(req_set, 0, sizeof req_set);   /* every waiting request lands on this boundary */
-    {                                     /* a request that lands here on the set or the chain reaches the voices */
-        static const uint8_t SOUND_F[5] = {RF_SET, RF_DUST, RF_NOISE, RF_AMBIENCE, RF_TEMPO};
-        int16_t before[5];
-        for (i = 0; i < 5; i++)
-            before[i] = song.roll.v[SOUND_F[i]];
+    {                                     /* a request that lands here on what the voices read reaches them */
+        song_roll_t before = song.roll;
         n = song_tick(&song, evs, 64);
-        for (i = 0; i < 5 && before[i] == song.roll.v[SOUND_F[i]]; i++)
-            ;
-        if (i < 5)                        /* sounding notes keep their patches; dust and bed changes ramp, the
-                                             delay's time glides to a new tempo */
+        if (vx_reconfigures(&before, &song.roll)) /* sounding notes keep their patches; dust and bed changes ramp,
+                                                     the delay's time glides to a new tempo */
             vx_configure(&song.roll);
     }
     SLOG_STEP(&song, bar, st, evs, n);

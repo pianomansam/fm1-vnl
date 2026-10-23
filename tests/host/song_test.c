@@ -3996,6 +3996,41 @@ static void test_song_carryover(void)
     }
 }
 
+/* A mood request that re-rolls the progression reaches the voices (the keys' level reads its bars per chord): through
+   the song's own request path, the roll before and after the boundary's tick, as app.c's step compares them. */
+static void test_mood_reconfigures(void)
+{
+    static song_t s;
+    song_ev_t ev[64];
+    uint32_t seed;
+    int found = 0, mood;
+    for (seed = 1; seed < 200 && found < 5; seed++)
+        for (mood = 0; mood < 4 && found < 5; mood++) {
+            song_roll_t roll, before;
+            const lib_prog_t *pa, *pb;
+            roll_song(NULL, seed, &roll);
+            if (mood == roll.v[RF_MOOD])
+                continue;
+            song_start(&s, &roll);
+            song_request(&s, RF_MOOD, mood);
+            while (s.roll.v[RF_MOOD] != mood && s.bar < 9 && s.state == SS_PLAYING) { /* (it lands at bar 4) */
+                before = s.roll;
+                (void)song_tick(&s, ev, 64);
+            }
+            if (before.v[RF_PROG] == s.roll.v[RF_PROG])
+                continue;
+            pa = lib_prog_by_id((uint8_t)before.v[RF_PROG]);
+            pb = lib_prog_by_id((uint8_t)s.roll.v[RF_PROG]);
+            if (!pa || !pb || pa->bars_per_chord == pb->bars_per_chord)
+                continue;
+            found++;
+            CHECK(vx_reconfigures(&before, &s.roll), "seed %u: mood %d -> %d re-rolls the progression (%d to %d bars a "
+                  "chord), the voices not told", (unsigned)seed, before.v[RF_MOOD], mood, pa->bars_per_chord,
+                  pb->bars_per_chord);
+        }
+    CHECK(found == 5, "only %d mood requests re-rolled the progression's bars per chord", found);
+}
+
 static void test_moves(void)
 {
     song_plan_t p;
@@ -5339,6 +5374,7 @@ int main(int argc, char **argv)
     RUN(test_fx_chain);
     RUN(test_fx_engine);
     RUN(test_song_carryover);
+    RUN(test_mood_reconfigures);
     RUN(test_moves);
     RUN(test_dynamics);
     RUN(test_wet);

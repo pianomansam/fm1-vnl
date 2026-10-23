@@ -339,6 +339,17 @@ void vx_configure(const song_roll_t *r)
         fx_land();
 }
 
+int vx_reconfigures(const song_roll_t *a, const song_roll_t *b)
+{
+    /* the set's instruments, the progression (the keys' level: keys_gain), the chain, the delay's time */
+    static const uint8_t F[] = {RF_SET, RF_PROG, RF_DUST, RF_NOISE, RF_AMBIENCE, RF_TEMPO};
+    unsigned i;
+    for (i = 0; i < sizeof F; i++)
+        if (a->v[F[i]] != b->v[F[i]])
+            return 1;
+    return 0;
+}
+
 void vx_song(const song_roll_t *r)
 {
     /* the app skips vx_init while a tail (the plate's, the bed's fade) still sounds: with the voices silent, their
