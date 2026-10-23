@@ -52,7 +52,7 @@
 #define HP_OCT 4.3219f   /* ... up to 600 Hz at 1: log2(20); its mix fades in over the first eighth */
 /* the drums' compressor: a threshold (peak) per kit (KIT_*: 3-6 dB off a full-velocity kick and snare in every kit),
    4:1, at most 6 dB, 0.9 dB of make-up */
-static const float CP_THR_KIT[4] = {0.095f, 0.090f, 0.084f, 0.151f};
+static const float CP_THR_KIT[4] = {0.095f, 0.090f, 0.084f, 0.162f};
 #define CP_SLOPE 0.75f   /* 1 - 1/4 */
 #define CP_MIN 0.5f
 #define CP_MAKEUP 1.11f
