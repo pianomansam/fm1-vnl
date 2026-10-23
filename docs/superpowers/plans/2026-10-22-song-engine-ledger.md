@@ -172,6 +172,14 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   Think it through before building. Two considerations Sam named: register (keep them apart) and percussive vs.
   sustained instruments (a plucked or struck lead against pads, or a sustained lead against stabs or arpeggios).
 
+### Bass rhythm (spike VNL_BASS, kept as is by Sam to revisit)
+
+- Tones approved by ear; rhythm was the open question. The spike (roots and root-fifth songs only) keeps all four
+  cells, one per song: the kick's with beat 3 sat out now and then 34%, half notes on 1 and 3 22%, beats 1 and 2
+  22%, beats 1, 2 and 4 22%. Plus anticipation (~35% of chord changes, an 8th or 16th early, ringing over), beat 1
+  held and the rest long or short per song, ghost notes (60% of songs, ~30% of strikes). Revisit: the weights, how
+  much anticipation, and whether to bring it into the engine proper (it lives in song.c as a spike).
+
 ### Lo-fi / taste
 
 - **Progressions 27–44 (R26)** await curation by ear; 28 and 34 are tonally ambiguous (Task 8c minor).

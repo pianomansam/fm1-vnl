@@ -201,6 +201,119 @@ static void sp_land(int at, int note, int len)            /* the skeleton note, 
     if (at >= 0 && at < 16) spike_acc |= 1u << at;
 }
 
+/* SPIKE (throwaway): bass rhythm (Sam: the tones are good, more rhythm). The groove's tones, in a rhythm cell per
+   song: the kick's (with beat 3 sat out now and then), half notes on 1 and 3, or beats 1 and 2. Then anticipation
+   (the next chord's note an 8th or 16th early, ringing over the bar line), long and short notes, and ghost notes (a
+   soft, muted 16th before a strike). Roots and root-fifth songs only; pedal and walk play as they did. VNL_BASS: 1 a
+   cell per song, 2 the kick's, 3 half notes, 4 beats 1 and 2, 5 beats 1, 2 and 4. */
+static int pending_any(const song_t *s)
+{
+    int i;
+    for (i = 0; i < RF_N; i++)
+        if (s->pend[i]) return 1;
+    return 0;
+}
+
+static int bass_spike, sb_tied;
+static int sb_on[16], sb_len[16], sb_vel[16];              /* the bar's bass onsets: MIDI (0 none), 16ths, velocity */
+static uint32_t sb_tie_mask;                               /* onsets that ring past the bar line */
+void song_set_bass_spike(int mode) { bass_spike = mode; sb_tied = 0; }
+
+static uint32_t sb_hash(uint32_t seed, int bar, int lane)
+{
+    uint32_t h = seed * 0x9E3779B1u ^ (uint32_t)(bar + 1) * 0x85EBCA6Bu ^ (uint32_t)(lane + 1) * 0xC2B2AE35u;
+    h ^= h >> 15; h *= 0x2C1B3C6Du; h ^= h >> 13; h *= 0x297A2D39u; h ^= h >> 15;
+    return h;
+}
+
+static int sb_anticipates(const song_t *s, int bar)      /* 0 none, 2 an 8th early, 1 a 16th early, into `bar` */
+{
+    uint32_t h = sb_hash(s->roll.seed, bar, 3);
+    if (h % 100u >= 35u) return 0;                     /* about a third of chord changes */
+    return (h >> 8) % 3u ? 2 : 1;
+}
+
+static void sb_plan(song_t *s, const plan_block_t *b, int bar, int bpc, const int *pcs, int np)
+{
+    rng_t g;
+    int tone[16], i, cell, legato, ghosts, last = 0, nn, npcs[5];
+    uint32_t on = 0;
+    const plan_block_t *nb = plan_at(&s->plan, bar + 1);
+    rng_seed(&g, s->roll.seed, 150);
+    cell = rng_int(&g, 100);
+    cell = cell < 34 ? 0 : cell < 56 ? 1 : cell < 78 ? 2 : 3;
+    if (bass_spike >= 2 && bass_spike <= 5) cell = bass_spike - 2;
+    legato = rng_int(&g, 2);
+    ghosts = rng_int(&g, 100) < 60;
+    for (i = 0; i < 16; i++) {
+        tone[i] = groove_bass_note(&s->roll, b, bar, i, pcs, np);
+        if (tone[i]) on |= 1u << i;
+        sb_on[i] = 0;
+    }
+    if (cell == 1) on = 0x0101u;                         /* half notes on 1 and 3 */
+    if (cell == 2) on = 0x0011u;                         /* beats 1 and 2 */
+    if (cell == 3) on = 0x1011u;                         /* beats 1, 2 and 4 */
+    if (cell == 0 && sb_hash(s->roll.seed, bar, 1) % 4u == 0) on &= ~0x0F00u;   /* beat 3 sat out */
+    if (sb_tied) on &= ~1u;                             /* the note pushed into this bar still rings */
+    nn = (bar + 1) % bpc == 0 && nb && (nb->layers & L_BASS) ? harmony_chord_at(&s->roll, bar + 1,
+             (bar + 1) / loop_bars(&s->roll) + 1, 0, npcs) : 0;
+    if (nn > 0 && sb_anticipates(s, bar + 1)) {
+        int at = 16 - sb_anticipates(s, bar + 1);
+        on &= (1u << at) - 1u;
+        on |= 1u << at;
+        tone[at] = groove_bass_note(&s->roll, nb, bar + 1, 0, npcs, nn);
+        if (!tone[at]) on &= ~(1u << at);
+    }
+    sb_tie_mask = 0;
+    for (i = 0; i < 16; i++) {
+        int d;
+        if (!((on >> i) & 1)) continue;
+        if (!tone[i]) tone[i] = last ? last : groove_bass_note(&s->roll, b, bar, 0, pcs, np);
+        if (!tone[i]) continue;
+        last = tone[i];
+        for (d = 1; i + d < 16 && !((on >> (i + d)) & 1); d++)
+            ;
+        sb_on[i] = tone[i];
+        if (i >= 14 && nn > 0 && i == 16 - sb_anticipates(s, bar + 1)) {
+            sb_len[i] = d + 4;                           /* rings through the next beat 1 */
+            sb_tie_mask |= 1u << i;
+        } else {                                        /* beat 1 held; the rest long or short per song */
+            sb_len[i] = i == 0 || legato ? d : (d + 1) / 2;
+        }
+        sb_vel[i] = (i & 3) == 0 ? 84 : 76;
+        if (ghosts && i > 1 && !((on >> (i - 1)) & 1) && sb_hash(s->roll.seed, bar, 10 + i) % 100u < 30u) {
+            sb_on[i - 1] = tone[i];                      /* a ghost: soft and muted, a 16th before */
+            sb_len[i - 1] = -1;
+            sb_vel[i - 1] = 34;
+        }
+    }
+    sb_tied = sb_tie_mask != 0;
+}
+
+static int spike_bass(song_t *s, const plan_block_t *b, int bar, int step, float gs, const int *pcs, int np,
+                      song_ev_t *buf, int n)
+{
+    const lib_prog_t *pr = lib_prog_by_id((uint8_t)s->roll.v[RF_PROG]);
+    int bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1, style = groove_bass_style(&s->roll), i, k = 0;
+    uint32_t swing = 0;
+    if (style != BS_ROOTS && style != BS_ROOT_FIFTH) return n;
+    for (i = 0; i < n; i++)
+        if (buf[i].voice != V_BASS) buf[k++] = buf[i];
+    n = k;
+    if (!(b->layers & L_BASS) || np <= 0) { sb_tied = 0; return n; }
+    if (step == 0) sb_plan(s, b, bar, bpc, pcs, np);
+    if (!sb_on[step] || n >= 60) return n;
+    if (step & 1) {
+        float sw = ((float)s->roll.v[RF_SWING] * 0.001f - 0.5f) * 2.0f * gs;
+        swing = sw > 0.0f ? (uint32_t)(sw + 0.5f) : 0u;
+    }
+    buf[n].voice = V_BASS; buf[n].note = (uint8_t)sb_on[step]; buf[n].vel = (uint8_t)sb_vel[step];
+    buf[n].pad = (uint8_t)((sb_tie_mask >> step) & 1);   /* 1: rings past the chord change */
+    buf[n].delay = swing;
+    buf[n].len = sb_len[step] < 0 ? (uint32_t)(gs * 0.4f) : (uint32_t)((float)sb_len[step] * gs);
+    return n + 1;
+}
+
 static int spike_lead(song_t *s, const plan_block_t *b, int bar, int step, float gs, const int *pcs, int np,
                       song_ev_t *buf, int n)
 {
@@ -492,6 +605,8 @@ int song_tick(song_t *s, song_ev_t *out, int max)
         n += melody_step(&s->roll, &s->plan, &s->ph, &s->motif, bar, step, gs, salt, buf + n, BUF - n);
         if (lead_spike)
             n = spike_lead(s, b, bar, step, gs, pcs, np, buf, n);
+        if (bass_spike)
+            n = spike_bass(s, b, bar, step, gs, pcs, np, buf, n);
     }
     {   /* a bass note (a swung one runs a little long) ends by the next chord change: the melody keeps clear of
            the chord it plays over, not of the one before */
@@ -501,7 +616,7 @@ int song_tick(song_t *s, song_ev_t *out, int max)
             float left = (float)(16 - step) * gs;   /* gs: never longer than the steps to come */
             uint32_t line = s->pos + (left > 1.0f ? (uint32_t)left - 1u : 0u);
             for (i = 0; i < n; i++)
-                if (buf[i].voice == V_BASS && s->pos + buf[i].delay + buf[i].len > line)
+                if (buf[i].voice == V_BASS && !buf[i].pad && s->pos + buf[i].delay + buf[i].len > line)
                     buf[i].len = line > s->pos + buf[i].delay + 1u ? line - s->pos - buf[i].delay : 1u;
         }
     }
@@ -509,7 +624,8 @@ int song_tick(song_t *s, song_ev_t *out, int max)
         uint32_t at = s->pos + buf[i].delay;
         if (buf[i].voice <= V_CANDY && buf[i].len) {
             if (at >= s->edge) continue;            /* would start past the line: dropped, not clicked */
-            if (at + buf[i].len > s->edge) buf[i].len = s->edge - at;
+            if (at + buf[i].len > s->edge && !(buf[i].voice == V_BASS && buf[i].pad && !pending_any(s)))
+                buf[i].len = s->edge - at;          /* (SPIKE: an anticipated bass note rings on, unless a change lands) */
         }
         buf[k++] = buf[i];
     }

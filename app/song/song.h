@@ -45,5 +45,8 @@ int song_pending(const song_t *s, int *field, int *bars_left);  /* the earliest 
 /* SPIKE (branch spike/leads): replace the lead: 1 voice-leading line, 2 8th arpeggio, 3 skeleton + rhythm (A),
    4 shaped arpeggio (B), 5 hybrid (C); 0 off */
 void song_set_lead_spike(int mode);
+/* SPIKE: bass rhythm: 1 a cell per song, 2 the kick's, 3 half notes on 1 and 3, 4 beats 1 and 2,
+   5 beats 1, 2 and 4; 0 off */
+void song_set_bass_spike(int mode);
 
 #endif
