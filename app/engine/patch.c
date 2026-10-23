@@ -36,22 +36,24 @@
 
 /* model, {p[0..7]}, att, dec, sus, rel, level, chorus, delay. The chorus (on the chords' bus): the electric keys and
    the pads deep, the felt piano and the nylon a touch. The delay's send: leads and ear candy wet, keys a little,
-   basses dry. */
+   basses dry. The levels: the lead about 4-6 dB over the keys while it plays, in every set (song_test's
+   test_lead_over_keys); the guitar lick rings longer and brighter (3 s, damping 4500 Hz plus 3x the note) so a pluck
+   carries as a lead without its peaks standing far out. */
 static const vx_patch_t PATCHES[INS_NONE] = {
-    [INS_RHODES] = {M_EP, {1.0f, 0.4f, 1.2f, 1.2f, 0.05f, 0.5f, 0.0f, 0.0f}, 0.002f, 4.5f, 0.0f, 0.08f, 1.0f, 0.7f, 0.08f},
-    [INS_WURLI] = {M_EP, {2.0f, 0.8f, 2.0f, 1.5f, 0.0f, 0.6f, 1.0f, 0.0f}, 0.002f, 3.5f, 0.0f, 0.06f, 1.0f, 0.6f, 0.08f},
-    [INS_FELT_PIANO] = {M_EP, {1.0f, 0.2f, 0.6f, 0.8f, 0.0f, 0.4f, 0.0f, 1100.0f}, 0.004f, 5.0f, 0.0f, 0.15f, 0.89f, 0.2f, 0.06f},
-    [INS_NYLON] = {M_PLUCK, {1.8f, 3000.0f, 2500.0f, 0.0f, 0.0f, 2.0f}, 0.002f, 6.0f, 0.0f, 0.08f, 1.3f, 0.15f, 0.08f},
-    [INS_PAD] = {M_PAD, {5.0f, 2.0f, 0.35f, 900.0f, 1.5f, 1.2f, 0.0f, 0.0f}, 0.6f, 4.0f, 0.85f, 2.0f, 0.66f, 0.6f, 0.1f},
+    [INS_RHODES] = {M_EP, {1.0f, 0.4f, 1.2f, 1.2f, 0.05f, 0.5f, 0.0f, 0.0f}, 0.002f, 4.5f, 0.0f, 0.08f, 0.944f, 0.7f, 0.08f},
+    [INS_WURLI] = {M_EP, {2.0f, 0.8f, 2.0f, 1.5f, 0.0f, 0.6f, 1.0f, 0.0f}, 0.002f, 3.5f, 0.0f, 0.06f, 0.88f, 0.6f, 0.08f},
+    [INS_FELT_PIANO] = {M_EP, {1.0f, 0.2f, 0.6f, 0.8f, 0.0f, 0.4f, 0.0f, 1100.0f}, 0.004f, 5.0f, 0.0f, 0.15f, 0.668f, 0.2f, 0.06f},
+    [INS_NYLON] = {M_PLUCK, {1.8f, 3000.0f, 2500.0f, 0.0f, 0.0f, 2.0f}, 0.002f, 6.0f, 0.0f, 0.08f, 1.62f, 0.15f, 0.08f},
+    [INS_PAD] = {M_PAD, {5.0f, 2.0f, 0.35f, 900.0f, 1.5f, 1.2f, 0.0f, 0.0f}, 0.6f, 4.0f, 0.85f, 2.0f, 0.616f, 0.6f, 0.1f},
     [INS_UPRIGHT] = {M_PLUCK, {0.9f, 700.0f, 1500.0f, 0.5f, 0.08f, 3.0f}, 0.002f, 4.0f, 0.0f, 0.05f, 3.4f, 0.0f, 0.0f},
     [INS_ELEC_BASS] = {M_BASS, {1.0f, 0.6f, 2.4f, 0.12f, 0.0f}, 0.003f, 7.0f, 0.6f, 0.04f, 1.57f, 0.0f, 0.0f},
     [INS_SUB] = {M_BASS, {1.0f, 0.0f, 0.0f, 0.1f, 0.6f}, 0.008f, 7.0f, 1.0f, 0.06f, 1.0f, 0.0f, 0.0f},
-    [INS_FLUTE] = {M_WIND, {0.25f, 0.5f, 3.0f, 0.13f, 1800.0f, 14.0f, 0.0f, 0.0f}, 0.06f, 7.0f, 0.75f, 0.12f, 1.3f, 0.0f, 0.3f},
-    [INS_MUTED_TPT] = {M_WIND, {2.0f, 0.2f, 12.0f, 0.08f, 2200.0f, 10.0f, 1400.0f, 0.35f}, 0.04f, 5.5f, 0.7f, 0.1f, 1.73f, 0.0f, 0.3f},
-    [INS_SAX] = {M_WIND, {1.6f, 0.35f, 5.0f, 0.11f, 1500.0f, 18.0f, 0.0f, 0.0f}, 0.05f, 6.2f, 0.7f, 0.1f, 1.66f, 0.0f, 0.25f},
-    [INS_VIBES] = {M_BELL, {4.0f, 0.3f, 0.9f, 0.6f, 0.35f, 5.0f, 0.3f}, 0.002f, 3.0f, 0.0f, 0.15f, 1.5f, 0.0f, 0.3f},
-    [INS_KALIMBA] = {M_BELL, {3.0f, 0.4f, 1.4f, 0.12f, 0.0f, 0.0f, 0.4f}, 0.002f, 1.4f, 0.0f, 0.06f, 1.47f, 0.0f, 0.35f},
-    [INS_GUITAR_LICK] = {M_PLUCK, {0.7f, 2200.0f, 5000.0f, 0.0f, 0.0f, 1.0f}, 0.002f, 3.0f, 0.0f, 0.05f, 1.58f, 0.0f, 0.3f},
+    [INS_FLUTE] = {M_WIND, {0.25f, 0.5f, 3.0f, 0.13f, 1800.0f, 14.0f, 0.0f, 0.0f}, 0.06f, 7.0f, 0.75f, 0.12f, 1.228f, 0.0f, 0.3f},
+    [INS_MUTED_TPT] = {M_WIND, {2.0f, 0.2f, 12.0f, 0.08f, 2200.0f, 10.0f, 1400.0f, 0.35f}, 0.04f, 5.5f, 0.7f, 0.1f, 1.56f, 0.0f, 0.3f},
+    [INS_SAX] = {M_WIND, {1.6f, 0.35f, 5.0f, 0.11f, 1500.0f, 18.0f, 0.0f, 0.0f}, 0.05f, 6.2f, 0.7f, 0.1f, 1.4f, 0.0f, 0.25f},
+    [INS_VIBES] = {M_BELL, {4.0f, 0.3f, 0.9f, 0.6f, 0.35f, 5.0f, 0.3f}, 0.002f, 3.0f, 0.0f, 0.15f, 1.414f, 0.0f, 0.3f},
+    [INS_KALIMBA] = {M_BELL, {3.0f, 0.4f, 1.4f, 0.12f, 0.0f, 0.0f, 0.4f}, 0.002f, 1.4f, 0.0f, 0.06f, 1.69f, 0.0f, 0.35f},
+    [INS_GUITAR_LICK] = {M_PLUCK, {3.0f, 4500.0f, 3500.0f, 0.0f, 0.0f, 3.0f}, 0.002f, 3.0f, 0.0f, 0.05f, 3.18f, 0.0f, 0.3f},
     [INS_MUSIC_BOX] = {M_BELL, {5.0f, 0.3f, 0.9f, 0.25f, 0.0f, 0.0f, 0.3f}, 0.002f, 1.2f, 0.0f, 0.05f, 1.1f, 0.0f, 0.4f},
     [INS_BELLS] = {M_BELL, {3.53f, 0.6f, 1.2f, 1.2f, 0.0f, 0.0f, 0.3f}, 0.003f, 3.5f, 0.0f, 0.2f, 0.87f, 0.0f, 0.35f},
     [INS_VOX_PAD] = {M_PAD, {4.0f, 2.0f, 0.35f, 0.0f, 0.0f, 0.0f, 0.6f, 1.0f}, 0.8f, 4.0f, 0.85f, 0.9f, 1.77f, 0.5f, 0.25f},

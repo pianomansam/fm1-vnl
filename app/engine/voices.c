@@ -92,12 +92,13 @@ typedef struct {
 } role_t;
 #define SEND_DRUMS 0.06f
 static const float PUMP_DB[VX_PUMP_N] = {1.0f, 3.0f, 6.0f};
-/* The role gains (Task 8's mix): the keys and the lead the focus, the bass felt under them, the ear candy an ornament;
-   each patch's level (patch.c) evens its instruments out within the role, so every set mixes alike. */
+/* The role gains (Task 8's mix): the lead the focus, the keys under it, the bass felt under them, the ear candy an
+   ornament; each patch's level (patch.c) evens its instruments out within the role, so every set mixes alike: while
+   the lead plays it sits about 4-6 dB over the keys (with the keys' duck, DUCK_*), whatever the set. */
 static const role_t ROLES[V_CANDY + 1] = {
     [V_CHORD] = {0, NCH, 0.15f},
     [V_BASS] = {VB, 1, 0.0625f},
-    [V_LEAD] = {NCH, NLD, 0.102f},
+    [V_LEAD] = {NCH, NLD, 0.161f},
     [V_CANDY] = {NCH + NLD, NCD, 0.118f},
 };
 
@@ -203,9 +204,19 @@ static void mud_coefs(float *c, float hz, float sr)
 }
 static float cg = 1.0f;     /* the chords' dry scale, toward fx_chorus_dry() */
 static float keys_g = 1.0f; /* the song's keys level for its comping (keys_gain) */
+/* The keys' duck under the lead (Sam: "the lead leads"): while a lead note's gate is open the chords' bus dips
+   DUCK_DB, a follower at the chunk rate (a one-pole toward 1 with a note held, else 0: about 25 ms in, 400 ms out,
+   so a run of notes holds it down and a rest lets the keys back), the keys' gain ramped linearly over each chunk. */
+#define DUCK_DEPTH 0.29205f /* 1 - 10^(-3/20): 3 dB down at full duck */
+#define DUCK_KA 0.20717f    /* 1 - exp(-CHUNK / (25 ms * SR)) */
+#define DUCK_KR 0.014409f   /* 1 - exp(-CHUNK / (400 ms * SR)) */
+static float dk_env;        /* the follower: 0 at rest, 1 fully ducked */
+static float kg = 1.0f;     /* the keys' gain (the chorus's dry scale times the duck) at the last chunk's end */
+static float kg0, kgd;      /* this chunk's: at its start, the step per sample */
 static float cp_env, cp_g = CP_MAKEUP; /* the compressor's level and gain (make-up included) */
 static float cp_thr = 0.095f;          /* the kit's threshold */
 static unsigned fx_off;     /* VX_OFF_*: kept through vx_init */
+static int solo_bus = -1;   /* vx_solo: the one bus mixed, -1 for all (kept through vx_init) */
 static uint32_t gain_n;
 static vx_config_t cfg;
 static const vx_patch_t *role_pt[V_CANDY + 1]; /* the configured patch per pitched role, NULL for none */
@@ -248,6 +259,8 @@ static void voices_clear(uint32_t seed)
     hr_tail = 0u;
     cp_env = 0.0f;
     cp_g = CP_MAKEUP;
+    dk_env = 0.0f;
+    kg = cg;
 }
 
 void vx_init(void)
@@ -256,7 +269,7 @@ void vx_init(void)
     gain = gain_tgt = 1.0f;
     gain_step = 0.0f;
     gain_n = 0;
-    cg = 1.0f;
+    cg = kg = 1.0f;
     keys_g = 1.0f;
     fx_init(); /* before the roles: the chords' patch sets the chorus */
     memset(&cfg, 0, sizeof cfg);
@@ -359,7 +372,7 @@ void vx_song(const song_roll_t *r)
     fx_song(r->seed, !vx_active());
     vx_configure(r);
     if (!vx_active()) /* the chorus's dry scale lands (it eases only while rendering) */
-        cg = fx_chorus_dry();
+        kg = cg = fx_chorus_dry();
 }
 
 const vx_config_t *vx_config(void)
@@ -1062,7 +1075,8 @@ static void render_seg(uint32_t pos, uint32_t n, int filt)
     uint32_t i, k3 = tk, t3 = tt, m = hn;
     int j;
     unsigned live, mf, mh;
-    float c0 = sendp[V_CHORD], c2 = sendp[V_LEAD], c3 = sendp[V_CANDY], g = cg; /* (the bass is dry: no sends) */
+    float c0 = sendp[V_CHORD], c2 = sendp[V_LEAD], c3 = sendp[V_CANDY]; /* (the bass is dry: no sends) */
+    float g = kg0 + kgd * (float)pos, dg = kgd; /* the keys' gain, ramping over the chunk */
     float d0 = dsend[V_CHORD], d2 = dsend[V_LEAD], d3 = dsend[V_CANDY], as = ts, ac = tc, ad = td;
     int hw_on;
     int dr = drums_active(); /* (a drum starts only at a segment's start, as a voice does) */
@@ -1150,6 +1164,7 @@ static void render_seg(uint32_t pos, uint32_t n, int filt)
             bb[V_LEAD][i] = l;
             bb[V_CANDY][i] = k;
         } else {
+            g += dg;
             c *= g;
             ch_m[i] = c + b + l + k;
             as += c * c0 + l * c2 + k * c3;
@@ -1195,7 +1210,7 @@ static void hx_mix(uint32_t c, int filt)
     int r;
     for (r = V_CHORD; r <= V_CANDY; r++) {
         uint32_t i, k3 = ph3, t3 = 0;
-        float sum = 0.0f, gl, sp, sc, sd;
+        float sum = 0.0f, gl, dgl, sp, sc, sd;
         const float *h;
         if (r == V_BASS || !((hr_live | hr_tail) & (1u << r)))
             continue;
@@ -1211,13 +1226,14 @@ static void hx_mix(uint32_t c, int filt)
                 bb[r][i] += hup[i];
             continue;
         }
-        gl = r == V_CHORD ? cg : 1.0f; /* the chords' dry scale (the chorus) */
-        sp = sendp[r] * gl;
-        sc = r == V_CHORD ? gl : 0.0f;
-        sd = dsend[r] * gl;
+        gl = r == V_CHORD ? kg0 : 1.0f; /* the keys' gain (the chorus's dry scale, the duck), ramping */
+        dgl = r == V_CHORD ? kgd : 0.0f;
+        sp = sendp[r];
+        sc = r == V_CHORD ? 1.0f : 0.0f;
+        sd = dsend[r];
         for (i = 0; i < c; i++) {
-            float x = hup[i];
-            ch_m[i] += x * gl;
+            float x = hup[i] * (gl += dgl);
+            ch_m[i] += x;
             sum += x;
             if (++k3 == FX_PAIR) {
                 t_s[t3] += sum * sp;
@@ -1337,7 +1353,7 @@ static void mix_chunk(uint32_t c, int filt, unsigned live)
         } else if (!(fx_off & VX_OFF_COMP))
             comp(d, n, &g, &dg);
         if (filt) {
-            float s0 = sendp[V_CHORD], s2 = sendp[V_LEAD], s3 = sendp[V_CANDY], cgl = cg;
+            float s0 = sendp[V_CHORD], s2 = sendp[V_LEAD], s3 = sendp[V_CANDY], cgl = kg0 + kgd * (float)o;
             float e0 = dsend[V_CHORD], e2 = dsend[V_LEAD], e3 = dsend[V_CANDY];
             const float *b0 = bb[V_CHORD] + o, *b1 = bb[V_BASS] + o, *b2 = bb[V_LEAD] + o, *b3 = bb[V_CANDY] + o;
             int r;
@@ -1353,8 +1369,12 @@ static void mix_chunk(uint32_t c, int filt, unsigned live)
                     bus[r].hm = fm_minf(8.0f * bus[r].h, 1.0f);
                     bus[r].y = bus[r].z = 0.0f;
                 }
+            if (solo_bus >= 0)
+                for (r = 0; r < NBUS; r++)
+                    if (r != solo_bus)
+                        memset(bb[r] + o, 0, n * sizeof(float));
             for (i = 0; i < n; i++) {
-                float x = b0[i] * cgl;
+                float x = b0[i] * (cgl += kgd);
                 ch_m[o + i] = x + b1[i] + b2[i] + b3[i] + d[i];
                 as += x * s0 + b2[i] * s2 + b3[i] * s3 + d[i] * SEND_DRUMS;
                 ac += x;
@@ -1410,12 +1430,31 @@ static void mix_chunk(uint32_t c, int filt, unsigned live)
 static int filtering(void)
 {
     int r;
+    if (solo_bus >= 0)
+        return 1; /* (vx_solo: the buses kept apart, the others zeroed in the mix) */
     if (fx_off & VX_OFF_FILTERS)
         return 0;
     for (r = 0; r < NBUS; r++)
         if (bus[r].a > 0.0f || bus[r].at > 0.0f || bus[r].h > 0.0f || bus[r].ht > 0.0f || bus[r].hm > 0.0f)
             return 1;
     return 0;
+}
+
+/* the duck's follower a chunk (c samples) on, from the lead's gates now; the keys' gain's ramp over the chunk */
+static void duck_chunk(uint32_t c)
+{
+    int k, held = 0;
+    float t;
+    for (k = NCH; k < NCH + NLD; k++)
+        held |= fv[k].on && fv[k].held && fv[k].amp_t > 0.0f; /* (a velocity-0 note is silent) */
+    if (held)
+        dk_env += (1.0f - dk_env) * DUCK_KA;
+    else if (dk_env > 0.0f)
+        dk_env = dk_env < 1e-5f ? 0.0f : dk_env * (1.0f - DUCK_KR);
+    t = cg * (1.0f - DUCK_DEPTH * dk_env);
+    kg0 = kg;
+    kgd = (t - kg) / (float)c;
+    kg = t;
 }
 
 /* The mix, in chunks: the voices and drums (event starts sample-accurate) into the chunk's buses, the mix, then the
@@ -1443,6 +1482,7 @@ void vx_render(float *l, float *r, uint32_t n)
             cg += (cd - cg) * 0.25f; /* the chorus's dry scale, eased over a few chunks */
             cg = fm_fabsf(cg - cd) < 1e-6f ? cd : cg;
         }
+        duck_chunk(c);
         while (pos < c) {
             int i, w = 0;
             uint32_t seg = c - pos;
@@ -1579,6 +1619,16 @@ void vx_fx_off(unsigned mask)
     vx_assign(V_CANDY, cfg.candy);
 }
 
+void vx_solo(int role)
+{
+    solo_bus = role < 0 ? -1 : bus_of(role);
+}
+
+float vx_duck_db(void)
+{
+    return 6.0206f * fm_log2f(1.0f - DUCK_DEPTH * dk_env);
+}
+
 float vx_comp_db(void)
 {
     return -6.0206f * fm_log2f(cp_g * (1.0f / CP_MAKEUP));
@@ -1596,7 +1646,7 @@ int vx_tiny(void)
 {
     int r, c = vx_tiny_of(&mud_z[0][0], (int)(sizeof mud_z / sizeof(float))) +
                vx_tiny_of(&mud_zh[0][0], (int)(sizeof mud_zh / sizeof(float))) + vx_tiny_of(&cp_env, 1) +
-               vx_tiny_of(&cp_g, 1);
+               vx_tiny_of(&cp_g, 1) + vx_tiny_of(&dk_env, 1);
     for (r = 0; r < NBUS; r++)
         c += vx_tiny_of(&bus[r].y, 1) + vx_tiny_of(&bus[r].z, 1) + vx_tiny_of(&bus[r].hm, 1);
     return c;

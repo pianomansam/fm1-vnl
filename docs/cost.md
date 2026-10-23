@@ -267,6 +267,15 @@ measured 0.825-0.839 forced over three runs (one outlier of 1.33 plain, a host s
 grew by the 4 new chord voices' Karplus-Strong lines (4 x 1072 floats), RAM by their voice structs and the
 high-pass's states.
 
+**The keys' duck under the lead** (the lead leads, by level): a follower per 256-sample chunk (the two lead voices'
+gates, a one-pole: about 25 ms in, 400 ms out) and the keys' gain ramped across the chunk in place of the chorus's
+stepped dry scale: one add per keys sample on each path (full rate, half rate, the filtered mix), a multiply-add per
+half-rate sample of the lead and candy. Not separable on the host bench: `--forced 7 20 49 100 128 183` gave 0.848 /
+0.785 / 0.758 / 0.745 / 0.817 / 0.742 (forced), max **0.848** (seed 7), against 0.843 before and seed 7 at HEAD
+re-run beside it at 0.846 / 0.838: within the noise (about 0.007). The rebalanced patch levels and the guitar lick's
+longer ring (its notes end at note-off as before) cost nothing measurable. Memory: image 161216 B (was 160712), RAM
+45964 B, pool 179644 B: four floats of state.
+
 ## The three biggest costs
 
 1. **The FM electric-piano chords (Rhodes, felt piano and Wurli: 0.36 to 0.48, four voices).** Each voice runs, per

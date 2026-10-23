@@ -58,6 +58,12 @@ enum { VX_OFF_COMP = 1, VX_OFF_FILTERS = 2, VX_OFF_CHORUS = 4, VX_OFF_DELAY = 8,
 void vx_fx_off(unsigned mask);
 /* Tests: the drums' compressor's gain reduction now, in dB (its make-up not counted). */
 float vx_comp_db(void);
+/* Tests and level checks: only one role's bus reaches the mix (V_CHORD, V_BASS, V_LEAD, V_CANDY, or any drum voice
+   for the drums' bus; -1, the default, for all). Every voice still plays, so the keys' duck still follows the lead.
+   Kept through vx_init. */
+void vx_solo(int role);
+/* Tests: the keys' duck under the lead now, in dB (0 at rest, negative while ducked). */
+float vx_duck_db(void);
 /* Tests: the mix's stored states (the mud high-pass, the drums' compressor, the buses' filters) that are neither 0
    nor at least 1e-20 in magnitude (denormal-bound); should be 0. */
 int vx_tiny(void);
@@ -67,7 +73,8 @@ int vx_tiny(void);
    4 voices, 8 for a pad (its release crosses the next chord's swell), and a pad's swell takes at most half its note. */
 void vx_event(const song_ev_t *e);
 /* Adds the mix into l and r (sample-accurate event starts). The chords', the lead's and the ear candy's sums through
-   the mud high-pass (about 135 Hz, 150 on a pad; VX_OFF_MUD), the keys at the song's comping level; per role bus: the
+   the mud high-pass (about 135 Hz, 150 on a pad; VX_OFF_MUD), the keys at the song's comping level and ducked about
+   3 dB while a lead note sounds (in about 25 ms, back over about 400 ms once the lead rests); per role bus: the
    drums through a compressor (a peak level, instant at a 32-sample block, released over 120 ms; 4:1 above the kit's
    threshold, at most 6 dB, 0.9 dB of make-up), each bus through its section filters; then the chain (fx.h: its glue
    compressor, VX_OFF_GLUE). */
