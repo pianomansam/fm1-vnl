@@ -14,6 +14,7 @@ Version {{VERSION}}. Installing is at your own risk; the installer can put M-VAV
 - [Manual](manual/): the screen, the controls, saving, MIDI.
 - [Download {{PKG}}](firmware/{{PKG}}): for the command-line installer, `python3 tools/fm1_install.py {{PKG}}`.
 - [Source](https://github.com/charlesvestal/fm1-base): MPL-2.0. Built on fm1-base and felucca-bsp, from Felucca by
-  Leo Kuroshita, Hügelton Instruments.
+  Leo Kuroshita, Hügelton Instruments. The reverb and chorus are adapted from Mutable Instruments Rings by Emilie
+  Gillet (MIT; the notice is in the source's README).
 
 M-VAVE and FM-1 are trademarks of their owners. TEMPLATE is not affiliated with M-VAVE.
