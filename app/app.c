@@ -348,9 +348,26 @@ static void roll_next(void)             /* main loop: keep the mailbox full */
 void app_init(void)
 {
 #if defined(PLAT_HOST) && !defined(PLAT_WEB)
-    {                                    /* exploring voicing families in renders: VNL_DROP2=1 */
-        const char *d = getenv("VNL_DROP2");
+    {                                    /* exploring in renders: VNL_DROP2=1, VNL_SWAP (below) */
+        const char *d = getenv("VNL_DROP2"), *w = getenv("VNL_SWAP");
         th_set_drop2(d && *d == '1');
+        while (w && *w) {                /* VNL_SWAP="Eb3 G3 Db4 F4=Db3 G3 Eb4 F4;...": hear an alternative voicing */
+            int v[8], k = 0;
+            while (*w && *w != ';' && k < 8) {
+                static const int8_t LETTER[7] = {9, 11, 0, 2, 4, 5, 7};   /* A B C D E F G */
+                int pc, oct = 0, neg = 0;
+                while (*w == ' ' || *w == '=') w++;
+                if (*w < 'A' || *w > 'G') break;
+                pc = LETTER[*w++ - 'A'];
+                if (*w == 'b') { pc--; w++; } else if (*w == '#') { pc++; w++; }
+                if (*w == '-') { neg = 1; w++; }
+                while (*w >= '0' && *w <= '9') oct = oct * 10 + *w++ - '0';
+                v[k++] = (neg ? -oct : oct) * 12 + 12 + pc;
+            }
+            if (k == 8) th_add_swap(v, v + 4);
+            while (*w && *w != ';') w++;
+            if (*w == ';') w++;
+        }
     }
 #endif
     vx_init();                           /* the first song: app_frame, once seeded */

@@ -174,6 +174,18 @@ void th_set_drop2(int on) { drop2 = on != 0; }
 static th_why_t *why;
 void th_set_why(th_why_t *w) { why = w; }
 
+/* Hearing an alternative (host renders only): wherever the voicer would choose `from`, it plays `to` instead */
+static int swaps, swap_from[4][4], swap_to[4][4];
+void th_add_swap(const int *from, const int *to)
+{
+    if (swaps == 4) return;
+    memcpy(swap_from[swaps], from, sizeof swap_from[0]);
+    memcpy(swap_to[swaps], to, sizeof swap_to[0]);
+    sort4(swap_from[swaps]);
+    sort4(swap_to[swaps]);
+    swaps++;
+}
+
 static void why_keep(const th_cand_t *k)                 /* the three lowest totals, in order */
 {
     int i, j;
@@ -309,6 +321,9 @@ void th_voice_range(const int *pcs, int n, const int *prev, int *out4, int hi, i
         th_voice_range(pcs, n, prev, out4, hi, rootless);
         drop2 = 1;
     }
+    for (i = 0; i < swaps; i++)                          /* an alternative being heard (host only) */
+        if (!memcmp(out4, swap_from[i], sizeof swap_from[i]))
+            memcpy(out4, swap_to[i], sizeof swap_to[i]);
 }
 
 void th_voice(const int *pcs, int n, const int *prev, int *out4) { th_voice_range(pcs, n, prev, out4, 72, 1); }

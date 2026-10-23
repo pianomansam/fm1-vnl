@@ -36,6 +36,9 @@ typedef struct {
 } th_why_t;
 void th_set_why(th_why_t *w);
 
+/* hearing an alternative (host renders only): wherever the voicer would choose `from`, play `to` (4 notes, MIDI) */
+void th_add_swap(const int *from, const int *to);
+
 void th_guide_tones(const int *pcs, int n, int *third, int *seventh);   /* pitch classes, -1 if absent */
 int th_is_avoid(int key, int mode, const int *pcs, int n, int note);    /* scale note a semitone above a chord tone */
 const char *th_chord_name(const int *pcs, int n, char *buf);            /* buf >= 9 bytes */
