@@ -7,7 +7,8 @@
    heaviest seed may not carry the heaviest chain: the picked seed (and every seed with --forced) is also timed with
    its chain forced to the heaviest real one (dust 3, vinyl, rain), printed as `forced`: the upper bound.
    Each step sets the section moves (plan_moves) as the app's step() does. VNL_FXOFF=<VX_OFF_* mask> switches effects
-   off, to measure what each costs.
+   off, to measure what each costs. VNL_RUNS=<n> takes the best of n runs everywhere (default: 3 for the songs and
+   AMB-1, 7 for --parts), for a busy host.
    The AMB-1 engine's headers clash with ours (MODE_*), so its few entry points are declared here by hand. */
 #include <stdint.h>
 #ifdef VNL_BENCH
@@ -33,6 +34,12 @@ void en_midi_out(uint32_t st, uint32_t d1, uint32_t d2) { (void)st; (void)d1; (v
 #define SR 44100u
 #define SECS 60u
 #define BLK 256u                        /* the app's audio block */
+
+static int runs(int dflt)
+{
+    const char *e = getenv("VNL_RUNS");
+    return e && atoi(e) > 0 ? atoi(e) : dflt;
+}
 
 static double now_ms(void)
 {
@@ -113,7 +120,7 @@ static double best3_vnl(uint32_t seed, int force)
     double best = 1e30, t;
     long ev;
     int i;
-    for (i = 0; i < 3; i++) { t = run_vnl(seed, 1, &ev, force); if (t < best) best = t; }
+    for (i = 0; i < runs(3); i++) { t = run_vnl(seed, 1, &ev, force); if (t < best) best = t; }
     return best;
 }
 
@@ -134,7 +141,7 @@ static uint32_t heaviest(void)
 /* --parts: each component rendering alone for 60 s at 80 BPM, as a ratio to AMB-1's heaviest piece. The engine is
    dry (vx_init leaves fx_init's chain: the plate shut, no bed, dust 0) unless a part opens the chain with
    fx_configure; every row is the best of PART_RUNS, net of the idle dry engine's render (the floor). */
-#define PART_RUNS 7
+#define PART_RUNS (runs(7))
 enum { P_IDLE, P_CHORDS, P_LEAD, P_CANDY, P_BASS, P_DRUMS, P_SOURCE };
 
 static void ev(int voice, int note, int vel, uint32_t len)
@@ -327,7 +334,7 @@ int main(int argc, char **argv)
     /* AMB-1's heaviest piece: the slowest of its eight (best of 3 each) */
     for (p = 0; p < EN_NPIECES; p++) {
         double b = 1e30;
-        for (i = 0; i < 3; i++) { t = run_amb(p); if (t < b) b = t; }
+        for (i = 0; i < runs(3); i++) { t = run_amb(p); if (t < b) b = t; }
         if (b > amb) { amb = b; ap = p; }
     }
     if (doparts) { parts(amb); return 0; }

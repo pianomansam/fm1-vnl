@@ -46,8 +46,9 @@ void vx_set_hp(int role, float amount);
 /* The song's pump (VX_PUMP_*): the kick ducking at about 1, 3 or 6 dB. vx_configure picks it per song (the seed's
    stream 170, a third each). */
 void vx_set_pump(int pump);
-/* Tests and the cost bench: switch effects off (VX_OFF_*; 0 for all on). Kept through vx_init. */
-enum { VX_OFF_COMP = 1, VX_OFF_FILTERS = 2, VX_OFF_CHORUS = 4, VX_OFF_DELAY = 8 };
+/* Tests and the cost bench: switch effects off (VX_OFF_*; 0 for all on). Kept through vx_init. VX_OFF_HALF renders
+   the keys and pads at the full rate (the reference for the half-rate path). */
+enum { VX_OFF_COMP = 1, VX_OFF_FILTERS = 2, VX_OFF_CHORUS = 4, VX_OFF_DELAY = 8, VX_OFF_HALF = 16 };
 void vx_fx_off(unsigned mask);
 /* Queue an event; its delay counts from now, in samples at 44.1 kHz (the engine assumes that rate). 64 pending at
    most; when full the oldest by insertion order is dropped (not the one due first). When all voices of a pitched lane

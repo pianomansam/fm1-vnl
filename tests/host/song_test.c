@@ -4357,6 +4357,259 @@ static void test_wet(void)
     }
 }
 
+/* ------------------------- Task 7c: half-rate keys and pads, the dust's fast path, a quarter-rate plate --- */
+#define CM_N 32768u
+static double cm_re[CM_N], cm_im[CM_N], cm_pa[CM_N / 2 + 1], cm_pb[CM_N / 2 + 1];
+static float cm_x[2u * 44100u], cm_y[2u * 44100u];
+
+/* an in-place radix-2 FFT of cm_re/cm_im (n a power of two, at most CM_N) */
+static void cm_fft(uint32_t n)
+{
+    uint32_t i, j, len, k;
+    for (i = 1, j = 0; i < n; i++) {
+        uint32_t bit = n >> 1;
+        for (; j & bit; bit >>= 1)
+            j ^= bit;
+        j ^= bit;
+        if (i < j) {
+            double t = cm_re[i];
+            cm_re[i] = cm_re[j];
+            cm_re[j] = t;
+            t = cm_im[i];
+            cm_im[i] = cm_im[j];
+            cm_im[j] = t;
+        }
+    }
+    for (len = 2; len <= n; len <<= 1)
+        for (k = 0; k < len / 2; k++) {
+            double wr = (double)fm_cosf(FM_TWO_PI * (float)k / (float)len);
+            double wi = -(double)fm_sinf(FM_TWO_PI * (float)k / (float)len);
+            for (i = k; i < n; i += len) {
+                uint32_t q = i + len / 2;
+                double xr = cm_re[q] * wr - cm_im[q] * wi, xi = cm_re[q] * wi + cm_im[q] * wr;
+                cm_re[q] = cm_re[i] - xr;
+                cm_im[q] = cm_im[i] - xi;
+                cm_re[i] += xr;
+                cm_im[i] += xi;
+            }
+        }
+}
+
+/* the power spectrum of x[0, n) under a Hann window into pw[0 .. n/2] (n a power of two, at most CM_N); with add,
+   added to what pw holds (a stereo pair's two channels) */
+static void cm_spec(const float *x, uint32_t n, double *pw, int add)
+{
+    uint32_t i;
+    for (i = 0; i < n; i++) {
+        cm_re[i] = (double)x[i] * (double)(0.5f - 0.5f * fm_cosf(FM_TWO_PI * (float)i / (float)n));
+        cm_im[i] = 0.0;
+    }
+    cm_fft(n);
+    for (i = 0; i <= n / 2; i++)
+        pw[i] = (add ? pw[i] : 0.0) + cm_re[i] * cm_re[i] + cm_im[i] * cm_im[i];
+}
+
+/* the energy in [lo, hi) Hz of a spectrum of n points */
+static double cm_band(const double *pw, uint32_t n, float lo, float hi)
+{
+    double e = 0.0;
+    uint32_t k;
+    for (k = 1; k <= n / 2; k++) {
+        float f = (float)k * 44100.0f / (float)n;
+        if (f >= lo && f < hi)
+            e += pw[k];
+    }
+    return e;
+}
+
+/* the largest bin of a spectrum of n points off every partial k * fb[j] (+-8 bins) from 20 Hz to 20 kHz, in dB below
+   its largest bin: what is neither the note's partials nor their leakage (aliasing and imaging products) */
+static float cm_alias(const double *pw, uint32_t n, const float *fb, int nb)
+{
+    double top = 0.0, off = 1e-30;
+    uint32_t k;
+    for (k = 1; k <= n / 2; k++)
+        top = pw[k] > top ? pw[k] : top;
+    for (k = 1; k <= n / 2; k++) {
+        float f = (float)k * 44100.0f / (float)n, bw = 8.0f * 44100.0f / (float)n;
+        int j, on = 0;
+        if (f < 20.0f || f > 20000.0f)
+            continue;
+        for (j = 0; j < nb && !on; j++) {
+            float h = (float)(int)(f / fb[j] + 0.5f) * fb[j];
+            on = h > 0.0f && fm_fabsf(f - h) <= bw;
+        }
+        if (!on && pw[k] > off)
+            off = pw[k];
+    }
+    return db_of(off / top);
+}
+
+/* one note on a role from a dry engine (full: the keys and pads at the full rate), n samples of the left channel */
+static void cm_note(int role, int ins, int note, int vel, int full, float *out, uint32_t n)
+{
+    uint32_t d = 0;
+    vx_fx_off(full ? VX_OFF_HALF : 0u);
+    vx_init();
+    vx_assign(role, ins);
+    vt_ev(role, note, vel, 0, n);
+    while (d < n) {
+        uint32_t b = n - d < 4096u ? n - d : 4096u;
+        memset(vt_l, 0, b * sizeof(float));
+        memset(vt_r, 0, b * sizeof(float));
+        vx_render(vt_l, vt_r, b);
+        memcpy(out + d, vt_l, b * sizeof(float));
+        d += b;
+    }
+    vx_fx_off(0u);
+}
+
+/* the third-rate plate's tail (0df8ddc, before Task 7c): an impulse's energy per octave band, 94 Hz to 3 kHz, over
+   0.74 s from 0.1 s, both channels (dB) */
+static const float PLATE_REF[5] = {13.81f, 15.22f, 17.79f, 19.79f, 19.23f};
+
+static void test_cost_moves(void)
+{
+    static const int CH[6] = {INS_RHODES, INS_WURLI, INS_FELT_PIANO, INS_NYLON, INS_PAD, INS_VOX_PAD};
+    static const int NOTES[4] = {48, 60, 72, 84}, VELS[2] = {64, 110};
+    float worst_band = 0.0f, worst_alias = -999.0f;
+    int c, j, v, b;
+
+    /* half-rate keys and pads: every chords-role patch, notes to MIDI 84, two velocities. Per octave band below 8 kHz
+       the half-rate render's energy is within 1 dB of the full rate's; no aliasing or imaging product reaches -50 dB
+       (or, where the full-rate render already has one there, it grows by under 1 dB) */
+    for (c = 0; c < 6; c++)
+        for (j = 0; j < 4; j++)
+            for (v = 0; v < 2; v++) {
+                const vx_patch_t *p = vx_patch(CH[c]);
+                float f0 = 440.0f * fm_exp2f(((float)NOTES[j] - 69.0f) * (1.0f / 12.0f)), fb[2], ah, af, top = 0.0f;
+                int nb = 1, pad = p->model == M_PAD;
+                uint32_t w0 = pad ? 44100u : 0u, a0 = pad ? 44100u : 4410u;
+                double eb[2][7];
+                fb[0] = f0;
+                if (pad) { /* the two saws: detuned apart, the second at its ratio */
+                    float dt = fm_exp2f(p->p[0] * (1.0f / 1200.0f));
+                    fb[0] = f0 / dt;
+                    fb[1] = f0 * dt * p->p[1];
+                    nb = 2;
+                }
+                cm_note(V_CHORD, CH[c], NOTES[j], VELS[v], 1, cm_x, 2u * 44100u);
+                cm_note(V_CHORD, CH[c], NOTES[j], VELS[v], 0, cm_y, 2u * 44100u);
+                cm_spec(cm_x + w0, CM_N, cm_pa, 0);
+                cm_spec(cm_y + w0, CM_N, cm_pb, 0);
+                for (b = 0; b < 7; b++) {
+                    float lo = 62.5f * (float)(1 << b);
+                    eb[0][b] = cm_band(cm_pa, CM_N, lo, 2.0f * lo);
+                    eb[1][b] = cm_band(cm_pb, CM_N, lo, 2.0f * lo);
+                    top = fm_maxf(top, (float)eb[0][b]);
+                }
+                for (b = 0; b < 7; b++) {
+                    float d = db_of(eb[1][b] / eb[0][b]);
+                    if (db_of(eb[0][b] / (double)top) < -60.0f)
+                        continue; /* a band with nothing in it */
+                    worst_band = fm_maxf(worst_band, fm_fabsf(d));
+                    CHECK(fm_fabsf(d) <= 1.0f, "half rate: ins %d note %d vel %d: band %.0f-%.0f Hz off by %.2f dB",
+                          CH[c], NOTES[j], VELS[v], (double)(62.5f * (float)(1 << b)),
+                          (double)(125.0f * (float)(1 << b)), (double)d);
+                }
+                cm_spec(cm_x + a0, CM_N / 2u, cm_pa, 0);
+                cm_spec(cm_y + a0, CM_N / 2u, cm_pb, 0);
+                af = cm_alias(cm_pa, CM_N / 2u, fb, nb);
+                ah = cm_alias(cm_pb, CM_N / 2u, fb, nb);
+                worst_alias = fm_maxf(worst_alias, ah);
+                if (ah > -50.0f || af > -50.0f)
+                    printf("half rate: ins %2d note %d vel %3d: off-partial peak %.1f dB (full rate %.1f dB)\n", CH[c],
+                           NOTES[j], VELS[v], (double)ah, (double)af);
+                CHECK(ah <= -50.0f || ah <= af + 1.0f,
+                      "half rate: ins %d note %d vel %d: an aliasing product at %.1f dB (full rate %.1f dB)", CH[c],
+                      NOTES[j], VELS[v], (double)ah, (double)af);
+            }
+    printf("half rate: worst band difference %.2f dB, worst off-partial peak %.1f dB\n", (double)worst_band,
+           (double)worst_alias);
+
+    /* the dust's fast path: at dust 0 and 1 (both flavors) the chain's output matches the full path within -80 dB
+       (error RMS and peak against the music's), and exactly over silence; and through the wow coming on and going
+       off under steady music (dust 2 in DL: 0 ramping to 1 from 0.05 s; 3: 1 ramping to 0, then back to 1 at 1.7 s) */
+    {
+        static const int DL[4] = {0, 1, 2, 3}, FLV[2] = {FL_LOFI, FL_CHILLWAVE};
+        int d, fl, k;
+        for (d = 0; d < 4; d++)
+            for (fl = 0; fl < 2; fl++) {
+                double e = 0.0, s = 0.0;
+                float pk = 0.0f, ep = 0.0f, quiet = 0.0f;
+                uint32_t i, t;
+                for (k = 0; k < 2; k++) {
+                    fx_fast(k == 0);
+                    fx_fresh(DL[d] < 2 ? DL[d] : DL[d] - 2, 0, 0, FLV[fl]);
+                    fx_seed = 31u;
+                    for (t = 0; t < 2u * 44100u; t += 256u) {
+                        float l[256], r[256], duck = (t / 11025u) & 1u ? 0.9f : 0.0f;
+                        if (DL[d] >= 2 && t == 2048u)
+                            fx_configure(DL[d] == 2 ? 1 : 0, 0, 0, FLV[fl]);
+                        if (DL[d] == 3 && t == 74752u)
+                            fx_configure(1, 0, 0, FLV[fl]);
+                        for (i = 0; i < 256; i++) { /* a swell to 0.6, a quiet bar, then silence; steady music in the
+                                                       transitions */
+                            float u = (float)(t + i) * (1.0f / 44100.0f);
+                            float a = DL[d] >= 2 ? 0.3f : u < 1.2f ? 0.5f * u : u < 1.6f ? 0.005f : 0.0f;
+                            l[i] = a * (0.6f * fm_sinf(FM_TWO_PI * 110.0f * u) + 0.3f * fm_sinf(FM_TWO_PI * 443.0f * u) +
+                                        0.1f * fx_white());
+                            r[i] = 0.3f * l[i];
+                        }
+                        fx_process(l, r, 256, duck);
+                        for (i = 0; i < 256; i++)
+                            (k == 0 ? cm_x : cm_y)[t + i] = l[i] + r[i];
+                    }
+                }
+                fx_fast(1);
+                for (i = 0; i < 2u * 44100u; i++) {
+                    float x = cm_y[i], dd = cm_x[i] - cm_y[i];
+                    e += (double)dd * (double)dd;
+                    s += (double)x * (double)x;
+                    pk = fm_maxf(pk, fm_fabsf(x));
+                    ep = fm_maxf(ep, fm_fabsf(dd));
+                    if (i >= 74000u && DL[d] < 2) /* from 1.68 s: silence in, only the plate's tail */
+                        quiet = fm_maxf(quiet, fm_fabsf(dd));
+                }
+                printf("dust fast path: dust %d flavor %d: error RMS %.1f dB, peak %.1f dB (music peak %.3f), silence %.1e\n",
+                       DL[d], FLV[fl], (double)db_of(e / s), 20.0 * (double)fm_log2f(fm_maxf(ep, 1e-30f) / pk) * 0.30103,
+                       (double)pk, (double)quiet);
+                CHECK(db_of(e / s) <= -80.0f && ep <= 1e-4f * pk,
+                      "dust fast path: dust %d flavor %d: error RMS %.1f dB, peak %.2e against %.3f", DL[d], FLV[fl],
+                      (double)db_of(e / s), (double)ep, (double)pk);
+                CHECK(quiet <= 1e-4f * pk, "dust fast path: dust %d flavor %d: %.2e over silence", DL[d], FLV[fl],
+                      (double)quiet);
+            }
+    }
+
+    /* the plate's tail: per octave band below 3 kHz within 1.5 dB of the third-rate plate (its decay under -60 dB in
+       4 s and the denormal checks are test_fx_chain's) */
+    {
+        uint32_t t;
+        float d;
+        fx_fresh(0, 0, 0, FL_LOFI);
+        for (t = 0; t < 2u * 44100u; t += 2205u) {
+            memset(fx_l, 0, 2205 * sizeof(float));
+            memset(fx_r, 0, 2205 * sizeof(float));
+            if (t == 0)
+                fx_r[0] = 1.0f;
+            fx_process(fx_l, fx_r, 2205, 0.0f);
+            memcpy(cm_x + t, fx_l, 2205 * sizeof(float));
+            memcpy(cm_y + t, fx_r, 2205 * sizeof(float));
+        }
+        cm_spec(cm_x + 4410, CM_N, cm_pa, 0);
+        cm_spec(cm_y + 4410, CM_N, cm_pa, 1);
+        for (b = 0; b < 5; b++) {
+            float lo = 93.75f * (float)(1 << b);
+            d = db_of(cm_band(cm_pa, CM_N, lo, 2.0f * lo));
+            printf("plate tail: %.0f-%.0f Hz %.2f dB (third-rate %.2f dB)\n", (double)lo, (double)(2.0f * lo),
+                   (double)d, (double)PLATE_REF[b]);
+            CHECK(fm_fabsf(d - PLATE_REF[b]) <= 1.5f, "plate tail: band %.0f-%.0f Hz at %.2f dB, the third-rate %.2f dB",
+                  (double)lo, (double)(2.0f * lo), (double)d, (double)PLATE_REF[b]);
+        }
+    }
+}
+
 int main(void)
 {
     test_rng();
@@ -4396,6 +4649,7 @@ int main(void)
     test_moves();
     test_dynamics();
     test_wet();
+    test_cost_moves();
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;

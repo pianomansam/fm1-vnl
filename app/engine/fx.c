@@ -10,7 +10,7 @@
        -> the kick ducking: the kick's envelope above 0.4, squared, smoothed (5 ms in, 150 ms out), on the kick's
           body only, never its long 808 tail; its depth is the song's pump (fx_pump: about 1, 3 or 6 dB)
        -> the soft clip (below 0.7)
-     + the wet returns, all from one loop at a third of the rate, over the clip (which they rarely reach):
+     + the wet returns, all from one loop on a 12-sample cycle, over the clip (which they rarely reach):
        - the plate's stereo return (its input: the role buses' sends, voices.c; not dusted, so the dust's wobble
          does not smear twice, and not ducked);
        - the chorus on the chords' bus: two taps swinging in quadrature (0.6 Hz, up to 10 cents) on a short line,
@@ -23,12 +23,12 @@
        under slow gusts, droplet pings). The bed is neither dusted, filtered nor faded by the song gain: it has its
        own open/close ramp (FX_RAMP_S) and each layer its own level ramp, so a change crossfades. Together, surface
        and rain each sit 2.5 dB lower (the pairing rule: the bed's level stays put, it does not thicken into mud).
-   Cost: the plate and the bed run at a third of the rate (14.7 kHz; the plate's highs are damped anyway, the hiss
-   tops out near 7 kHz), the chorus and the delay at a sixth (7.35 kHz) on alternate plate steps, their returns
-   riding the plate's interpolation; the inputs come summed per third-rate step (fx_process_tri). The plate is one
-   masked ring; the dust's parameters and LFOs move at a control rate of CR samples. Dust changes ramp over
-   FX_RAMP_S through a continuous dust value (the parameters interpolate between the levels' tables). Noise is a
-   seeded xorshift; every decaying state is flushed. */
+   Cost: the plate runs at a quarter of the rate (11.025 kHz; its input is band-limited to 3.4 kHz and its tank damped
+   at 2.2 kHz anyway), the bed at a third (14.7 kHz: the hiss tops out near 7 kHz), the chorus and the delay at a
+   sixth (7.35 kHz), each output interpolated linearly; the wet inputs come summed per pair of samples
+   (fx_process_pairs). The plate is one masked ring; the dust's parameters and LFOs move at a control rate of CR
+   samples. Dust changes ramp over FX_RAMP_S through a continuous dust value (the parameters interpolate between the
+   levels' tables). Noise is a seeded xorshift; every decaying state is flushed. */
 #include <stdint.h>
 #include <string.h>
 #include "fastmath.h"
@@ -72,6 +72,9 @@ static float dust, dust_t, dust_s, flav, flav_t, flav_s; /* the continuous dust 
 static float p_lp, p_lpw, p_wd, p_fd, p_drive, p_idrive, p_grit, p_rate, p_q; /* the current parameters */
 static float wl[WL_N];
 static uint32_t wl_w;
+static float wl_last;  /* the fast path, wow off: the line is not written, only its newest sample kept */
+static uint8_t wl_on;  /* the line is being written (the wow is on, or the full path) */
+static uint8_t fast_off; /* fx_fast(0): every stage runs (the reference for the fast path) */
 static float wow_ph, drift_ph, flut_ph, del, del_step;
 static uint32_t cr_n;
 static float sh_ph, sh_y, lp_y, duck_s, dg = 1.0f, dg_step;
@@ -110,9 +113,8 @@ static float dp_y1, dp_y2, dp_a1, dp_pl, dp_pr;
 
 /* ----------------------------------------------------------------------------- chorus and tape delay --- */
 /* Both at a sixth of the rate (DR, 7.35 kHz, as AMB-1's tape runs at 11 kHz; a band-limited chorus, as a bucket
-   brigade's), on alternate steps of the plate's third-rate loop (the chorus on one, the delay on the other): each
-   input the six samples' mean, each output the midpoint to its new value, then the value, at the third rate. */
-#define WR (SR / 3.0f)
+   brigade's), on the same step of the wet loop's 12-sample cycle (two a cycle): each input the six samples' mean,
+   their return interpolated linearly over the next six. */
 #define DR (SR / 6.0f)
 #define CH_N 256u            /* the chorus's line: 35 ms at DR */
 #define CH_A (0.012f * DR)   /* tap A's centre (left): 12 ms */
@@ -131,28 +133,28 @@ static float dp_y1, dp_y2, dp_a1, dp_pl, dp_pr;
 static float ch_buf[CH_N] FX_POOL, dl_buf[DL_N] FX_POOL;
 static uint32_t ch_w, dl_w;
 static float ch_dep, ch_dep_t, ch_s, ch_c = 1.0f;        /* depth (0-1) and its target; the LFO (sine, cosine) */
-static float ch_m0, ch_m1, ch_s0, ch_s1;                 /* the chorus's mid and side: the last two values */
-static float dl_t, dl_tt = 0.75f * DR - DL_LAT, dl_y, dl_y0, dl_ws, dl_wc = 1.0f;
+static float w_el0, w_el1, w_er0, w_er1;                 /* the chorus's and delay's return, left, right: the last two */
+static float dl_t, dl_tt = 0.75f * DR - DL_LAT, dl_y, dl_ws, dl_wc = 1.0f;
 /* the line's level: a peak hold of what is written, falling no faster than the loop loses (9 dB a pass, 0.35's): above
    PL_QUIET the tail still rings */
 static float dl_peak, dl_k = 0.99993f;
 static float w_ac, w_ad;                 /* the chorus's and the delay's input sums */
 static float w_ml, w_sl;                 /* their return's mid and side, through the dust's low-pass */
-static uint8_t w_ph, dl_ph, dl_off, dl_land;      /* the wet loop's phase (the plate's too); the delay's (every other step) */
+static uint8_t w_ph, dl_off, dl_land; /* the wet loop's phase: samples into its 12-sample cycle */
 #define FX_BLK 256u
-#define FX_TRI (FX_BLK / 3u + 2u)
+#define FX_NP (FX_BLK / FX_PAIR + 2u)
 
 /* --------------------------------------------------------------------------------------------- plate --- */
-/* AMB-1's Dattorro plate at 14.7 kHz: the paper's lengths (for 29761 Hz) scaled by HS(), a 10 ms predelay. */
-#define HS(n) (((n) * 4939 + 5000) / 10000)  /* 14700 / 29761 */
-#define PRE_N 147
+/* AMB-1's Dattorro plate at 11.025 kHz: the paper's lengths (for 29761 Hz) scaled by HS(), a 10 ms predelay. */
+#define HS(n) (((n) * 3705 + 5000) / 10000)  /* 11025 / 29761 */
+#define PRE_N 110
 #define EXC HS(16)
 enum { L_PRE, L_IN1, L_IN2, L_IN3, L_IN4, L_APL, L_D1L, L_AP2L, L_D2L, L_APR, L_D1R, L_AP2R, L_D2R, L_N };
 static const int DL_LEN[L_N] = {PRE_N, HS(142), HS(107), HS(379), HS(277), HS(672) + EXC + 2, HS(4453), HS(1800),
                                 HS(3720), HS(908) + EXC + 2, HS(4217), HS(2656), HS(3163)};
 /* One ring for every line (as Mutable Instruments' FxEngine): a single write position pw, falling one per step; line
    k lives at offsets [pl_base[k], pl_base[k] + DL_LEN[k] + 1) from it, so a read or a write is an add and a mask. */
-#define PL_N 16384u          /* a power of two above the lines' sum (11.3 k) */
+#define PL_N 16384u          /* a power of two above the lines' sum (8.5 k) */
 #define PL_DECAY 0.5f        /* a small plate: about 1.8 s to -60 dB */
 #define PL_DD2 0.5f
 #define PL_OUT_4 0.65f       /* the return over four taps a side (AMB-1: 0.6 over seven) */
@@ -196,32 +198,32 @@ static inline float allpass_mod(int k, float len, float x, float g)
     return z + g * v;
 }
 
-/* one step of the plate (AMB-1's reverb(), its decay fixed, its filters retuned for 14.7 kHz) */
+/* one step of the plate (AMB-1's reverb(), its decay fixed, its filters retuned for 11.025 kHz) */
 static void plate_step(float in, float *ol, float *or_)
 {
     float x, a, b, fb_l = tap(L_D2R, HS(3163)), fb_r = tap(L_D2L, HS(3720));
     push(L_PRE, in);
     x = tap(L_PRE, PRE_N);
-    pl_bw = fm_flush(pl_bw + 0.77f * (x - pl_bw)); /* about 3.4 kHz */
+    pl_bw = fm_flush(pl_bw + 0.859f * (x - pl_bw)); /* about 3.4 kHz */
     x = allpass(L_IN1, HS(142), pl_bw, 0.75f);
     x = allpass(L_IN2, HS(107), x, 0.75f);
     x = allpass(L_IN3, HS(379), x, 0.625f);
     x = allpass(L_IN4, HS(277), x, 0.625f);
     {
-        float s = lfo_s + 0.0003f * lfo_c, c = lfo_c - 0.0003f * s; /* about 0.7 Hz */
+        float s = lfo_s + 0.0004f * lfo_c, c = lfo_c - 0.0004f * s; /* about 0.7 Hz */
         lfo_s = s;
         lfo_c = c;
     }
     a = allpass_mod(L_APL, (float)HS(672) + (float)EXC * lfo_s, x + PL_DECAY * fb_l, -0.7f);
     push(L_D1L, a);
     b = tap(L_D1L, HS(4453));
-    pl_damp_l = fm_flush(pl_damp_l + 0.61f * (b - pl_damp_l)); /* about 2.2 kHz */
+    pl_damp_l = fm_flush(pl_damp_l + 0.715f * (b - pl_damp_l)); /* about 2.2 kHz */
     b = allpass(L_AP2L, HS(1800), pl_damp_l * PL_DECAY, PL_DD2);
     push(L_D2L, b);
     a = allpass_mod(L_APR, (float)HS(908) + (float)EXC * lfo_c, x + PL_DECAY * fb_r, -0.7f);
     push(L_D1R, a);
     b = tap(L_D1R, HS(4217));
-    pl_damp_r = fm_flush(pl_damp_r + 0.61f * (b - pl_damp_r));
+    pl_damp_r = fm_flush(pl_damp_r + 0.715f * (b - pl_damp_r));
     b = allpass(L_AP2R, HS(2656), pl_damp_r * PL_DECAY, PL_DD2);
     push(L_D2R, b);
     /* four of Dattorro's seven taps a side (the cost; the small plate keeps its density from the tank) */
@@ -241,7 +243,8 @@ static void dust_params(void)
     }
 #define LERP(t) ((t)[i] + ((t)[i + 1] - (t)[i]) * f)
     p_lp = LERP(D_LP);
-    p_lpw = 1.0f - (1.0f - p_lp) * (1.0f - p_lp) * (1.0f - p_lp); /* the same one-pole at a third of the rate */
+    w = (1.0f - p_lp) * (1.0f - p_lp) * (1.0f - p_lp);
+    p_lpw = 1.0f - w * w; /* the same one-pole at a sixth of the rate (the chorus's and delay's) */
     w = LERP(D_WOW) * (1.0f + (TAPE_WOW - 1.0f) * flav);
     fl = LERP(D_FLUT) * (1.0f + (TAPE_FLUT - 1.0f) * flav);
     p_drive = LERP(D_DRIVE);
@@ -260,6 +263,8 @@ static void dust_clear(void)
 {
     memset(wl, 0, sizeof wl);
     wl_w = 0;
+    wl_last = 0.0f;
+    wl_on = 0;
     wow_ph = drift_ph = flut_ph = 0.0f;
     del = del_step = 0.0f;
     cr_n = 0;
@@ -274,7 +279,7 @@ static void chorus_clear(void)
     ch_w = 0;
     ch_s = 0.0f;
     ch_c = 1.0f;
-    w_ac = ch_m0 = ch_m1 = ch_s0 = ch_s1 = 0.0f;
+    w_ac = 0.0f;
 }
 
 /* the delay silent: its line, loop filter and wow cleared, its time landed */
@@ -282,12 +287,11 @@ static void delay_clear(void)
 {
     memset(dl_buf, 0, sizeof dl_buf);
     dl_w = 0;
-    dl_y = dl_y0 = dl_ws = dl_peak = 0.0f;
+    dl_y = dl_ws = dl_peak = 0.0f;
     dl_wc = 1.0f;
-    dl_ph = 0;
     dl_k = fm_expf(-1.05f / fm_maxf(dl_tt, 1.0f)); /* ln(1 / 0.35) per pass */
     dl_t = dl_tt;
-    w_ad = w_ml = w_sl = 0.0f;
+    w_ad = w_ml = w_sl = w_el0 = w_el1 = w_er0 = w_er1 = 0.0f;
 }
 
 /* the bed's noise and every state it keeps, restarted from seed (its levels left alone) */
@@ -378,7 +382,7 @@ void fx_song(uint32_t seed, int quiet)
     dl_ws = 0.0f;
     dl_wc = 1.0f;
     dl_land = 1;
-    w_ph = dl_ph = 0;
+    w_ph = 0;
 }
 
 void fx_configure(int dust_lv, int noise, int ambience, int flavor)
@@ -456,6 +460,11 @@ void fx_wet_off(int delay_off)
     dl_off = (uint8_t)(delay_off != 0);
 }
 
+void fx_fast(int on)
+{
+    fast_off = (uint8_t)(on == 0);
+}
+
 void fx_pump(float db)
 {
     pump_k = fm_clampf((1.0f - fm_db2lin(-db)) * PUMP_CAL, 0.0f, 0.9f);
@@ -471,7 +480,7 @@ static int tiny(const float *x, int n)
 
 int fx_tiny(void)
 {
-    float st[] = {lp_y, sh_y, duck_s, dl_y, dl_y0, ch_m0, ch_m1, ch_s0, ch_s1, w_ac, w_ad, w_ml, w_sl, clk_l, clk_r, dp_y1, dp_y2, b_l0, b_l1, b_r0, b_r1, pl_bw, pl_damp_l, pl_damp_r, pl_acc, pl_wl0, pl_wl1,
+    float st[] = {lp_y, sh_y, duck_s, dl_y, w_el0, w_el1, w_er0, w_er1, w_ac, w_ad, w_ml, w_sl, clk_l, clk_r, dp_y1, dp_y2, b_l0, b_l1, b_r0, b_r1, pl_bw, pl_damp_l, pl_damp_r, pl_acc, pl_wl0, pl_wl1,
                   pl_wr0, pl_wr1};
     return tiny(pl_buf, (int)PL_N) + tiny(ch_buf, (int)CH_N) + tiny(dl_buf, (int)DL_N) + tiny(wl, WL_N) + tiny(st, (int)(sizeof st / sizeof st[0])) + tiny(hv_l, 2) +
            tiny(hv_r, 2) + tiny(ht_l, 2) + tiny(ht_r, 2) + tiny(rw_l, 2) + tiny(rw_r, 2);
@@ -501,6 +510,8 @@ static void dust_control(void)
     d = p_wd * (1.0f + 0.4f * flav) + p_fd + p_wd * fm_sin_turns(wow_ph) + 0.4f * flav * p_wd * fm_sin_turns(drift_ph) +
         p_fd * fm_sin_turns(flut_ph);
     d = fm_clampf(d, 0.0f, (float)(WL_N - 2));
+    if (d == 0.0f && del < 1e-3f) /* the wow gone (dust 0): the delay lands at 0, not ever closer (the read stops) */
+        del = 0.0f;
     del_step = (d - del) * (1.0f / (float)CR);
 }
 
@@ -657,15 +668,20 @@ static void bed(float *l, float *r, uint32_t n)
 }
 
 /* the dust on the music in l, in place: control steps of CR samples, the state in locals inside each (l's stores may
-   alias the statics, so the compiler would reload them every sample) */
+   alias the statics, so the compiler would reload them every sample). The fast path (fx_fast): with the wow off (dust
+   0: its delay sits at 0) the line is not written, only its newest sample kept; when the wow comes on, the line is
+   cleared and that sample put back, which is all it can read before it has written its own (its delay grows by far
+   under a sample a sample from 0, and lands at once only when nothing sounds, the line's history silence); the
+   saturation in its expanded form, y - K y^3 on y clamped at 1.5 / drive (K = 4/27 drive^2: the same curve, to a
+   rounding); grit, at 0 (dust 0-1), skipped on both paths. */
 static void dust_run(float *l, uint32_t n, float dt)
 {
     uint32_t i = 0;
     while (i < n) {
         uint32_t m, k, w = wl_w;
         float d = del, ds, lp = lp_y, g = dg, gs, sh = sh_ph, shy = sh_y;
-        float drive, idrive, grit, rate, q, a;
-        int wow;
+        float drive, idrive, grit, rate, q, a, kk, lim;
+        int wow, fast = !fast_off;
         if (cr_n == 0) {
             dust_control();
             duck_s += (dt - duck_s) * (dt > duck_s ? DUCK_ATT : DUCK_REL) * (float)CR;
@@ -682,6 +698,37 @@ static void dust_run(float *l, uint32_t n, float dt)
         rate = p_rate;
         q = p_q;
         a = p_lp;
+        if (fast && !wow && grit == 0.0f) { /* the fast path: no wow, no grit */
+            float y = 0.0f;
+            kk = (4.0f / 27.0f) * drive * drive;
+            lim = 1.5f * idrive;
+            for (k = 0; k < m; k++) {
+                y = l[i + k];
+                {
+                    float u = fm_clampf(y, -lim, lim);
+                    u -= kk * u * u * u;
+                    lp += a * (u - lp);
+                }
+                g += gs;
+                l[i + k] = lp * g;
+            }
+            if (m) {
+                wl_last = y;
+                wl_on = 0;
+            }
+            lp_y = fm_flush(lp);
+            dg = g;
+            cr_n = (cr_n + m) & (CR - 1);
+            i += m;
+            continue;
+        }
+        kk = (4.0f / 27.0f) * drive * drive;
+        lim = 1.5f * idrive;
+        if (!wl_on) { /* the line comes back: cleared, its newest sample put back */
+            memset(wl, 0, sizeof wl);
+            wl[(w - 1u) & (WL_N - 1)] = wl_last;
+            wl_on = 1;
+        }
         for (k = 0; k < m; k++) {
             float y, f, u;
             int j;
@@ -697,8 +744,13 @@ static void dust_run(float *l, uint32_t n, float dt)
             }
             w = (w + 1) & (WL_N - 1);
             /* saturation: a cubic soft clip of the driven signal (flat at 1 from |u| = 1.5), gain-matched */
-            u = fm_clampf(y * drive, -1.5f, 1.5f);
-            y = u * (1.0f - (4.0f / 27.0f) * u * u) * idrive;
+            if (fast) {
+                u = fm_clampf(y, -lim, lim);
+                y = u - kk * u * u * u;
+            } else {
+                u = fm_clampf(y * drive, -1.5f, 1.5f);
+                y = u * (1.0f - (4.0f / 27.0f) * u * u) * idrive;
+            }
             /* grit: hold at the rate, quantize, mix in */
             if (grit > 0.0f) {
                 sh += rate;
@@ -732,47 +784,73 @@ static inline float rd(const float *b, uint32_t mask, uint32_t w, float d)
     return a + (b[(w - j - 1u) & mask] - a) * f;
 }
 
-/* Every wet return in one loop at a third of the rate (a triple's mean in, each output interpolated over three
-   samples, a step late), added to the music in l after its soft clip: the plate on the send in r; the chorus on the
-   chords' bus ch and the tape delay on its send dl (either NULL), their mid and side through the dust's low-pass (at
-   this rate) and the duck's gain (its value at the block's end), so they sit in the dusted music. The state in
-   locals. */
-static void wet_run(float *l, float *r, const float *s3, const float *c3, const float *d3, uint32_t n)
+/* Every wet return in one loop on a 12-sample cycle (its phase ph): the inputs' pair sums in at every second sample;
+   the plate stepped at every fourth (on the four samples' mean), the chorus and the delay at every sixth (on the six's
+   mean); each output interpolated linearly over its step, a step late, and added to the music in l after its soft
+   clip. The plate on the send; the chorus on the chords' bus and the tape delay on its send, their mid and side
+   through the dust's low-pass (at their rate) and the duck's gain (its value at the block's end), so they sit in the
+   dusted music. The state in locals. */
+static void wet_run(float *l, float *r, const float *s2, const float *c2, const float *d2, uint32_t n)
 {
     uint32_t i, ph = w_ph, cw = ch_w, dw = dl_w, t = 0;
     float acc = pl_acc, ac = w_ac, ad = w_ad, pk = 0.0f;
     float wl0 = pl_wl0, wl1 = pl_wl1, wr0 = pl_wr0, wr1 = pl_wr1, ml = w_ml, sl = w_sl, lk = p_lpw, g = dg;
-    float cs = ch_s, cc = ch_c, dep = ch_dep, dt = dl_t, ws = dl_ws, wc = dl_wc, y = dl_y, y0 = dl_y0, dpk = dl_peak;
-    float kp = dl_k, gate = pl_open ? 1.0f / 3.0f : 0.0f;
-    uint32_t dph = dl_ph;
-    float cm0 = ch_m0, cm1 = ch_m1, cs0 = ch_s0, cs1 = ch_s1;
+    float el0 = w_el0, el1 = w_el1, er0 = w_er0, er1 = w_er1;
+    /* the outputs' interpolation as running values and their steps (exact at every step) */
+    float pvl, pvr, dpl, dpr, evl, evr, del_, der;
+    {
+        float f4 = (float)(ph & 3u) * 0.25f, f6 = (float)(ph < 6u ? ph : ph - 6u) * (1.0f / 6.0f);
+        dpl = (wl1 - wl0) * 0.25f;
+        dpr = (wr1 - wr0) * 0.25f;
+        pvl = wl0 + (wl1 - wl0) * f4;
+        pvr = wr0 + (wr1 - wr0) * f4;
+        del_ = (el1 - el0) * (1.0f / 6.0f);
+        der = (er1 - er0) * (1.0f / 6.0f);
+        evl = el0 + (el1 - el0) * f6;
+        evr = er0 + (er1 - er0) * f6;
+    }
+    float cs = ch_s, cc = ch_c, dep = ch_dep, dt = dl_t, ws = dl_ws, wc = dl_wc, y = dl_y, dpk = dl_peak;
+    float kp = dl_k, open = pl_open ? 1.0f : 0.0f;
     int plate = pl_open || pl_peak > PL_QUIET;
     int chorus = dep > 0.0f || ch_dep_t > 0.0f;
     int delay = !dl_off && (pl_open || dpk > PL_QUIET);
-    int wet = chorus || delay || ml != 0.0f || sl != 0.0f || ch_m1 != 0.0f || ch_s1 != 0.0f;
+    int wet = chorus || delay || ml != 0.0f || sl != 0.0f || el1 != 0.0f || er1 != 0.0f || el0 != 0.0f || er0 != 0.0f;
     for (i = 0; i < n; i++) {
         float ol, or_, f, x;
-        if (++ph == 3u) { /* a triple complete: its sums in */
-            acc += s3[t];
-            ac += c3[t];
-            ad += d3[t];
-            t++;
+        if (++ph == 12u)
             ph = 0;
+        if (!(ph & 1u)) { /* a pair complete: its sums in */
+            acc += s2[t];
+            ac += c2[t];
+            ad += d2[t];
+            t++;
+        }
+        if (!(ph & 3u)) { /* the plate's step */
             wl0 = wl1;
             wr0 = wr1;
             if (plate) {
-                plate_step(gate * acc, &wl1, &wr1);
+                plate_step((0.25f * open) * acc, &wl1, &wr1);
                 wl1 = fm_flush(wl1);
                 wr1 = fm_flush(wr1);
             } else
                 wl1 = wr1 = 0.0f;
-            if (wet) { /* the chorus and the delay, their return riding the plate's interpolation */
-                float mid, side;
-                dph ^= 1u;
-                if (chorus && !dph) { /* two taps in quadrature, one a side */
+            acc = 0.0f;
+            pvl = wl0;
+            pvr = wr0;
+            dpl = (wl1 - wl0) * 0.25f;
+            dpr = (wr1 - wr0) * 0.25f;
+        } else {
+            pvl += dpl;
+            pvr += dpr;
+        }
+        if (ph == 0u || ph == 6u) { /* the chorus's and the delay's step */
+            el0 = el1;
+            er0 = er1;
+            if (wet) {
+                float mid = 0.0f, side = 0.0f;
+                if (chorus) { /* two taps in quadrature, one a side */
                     float sw, a, b;
-                    ch_buf[cw] = fm_flush((0.5f * gate) * ac);
-                    ac = 0.0f;
+                    ch_buf[cw] = fm_flush((open * (1.0f / 6.0f)) * ac);
                     cs += (FM_TWO_PI * CH_HZ / DR) * cc;
                     cc -= (FM_TWO_PI * CH_HZ / DR) * cs;
                     dep = dep < ch_dep_t ? fm_minf(dep + CH_SLEW, ch_dep_t) : fm_maxf(dep - CH_SLEW, ch_dep_t);
@@ -780,45 +858,37 @@ static void wet_run(float *l, float *r, const float *s3, const float *c3, const 
                     a = rd(ch_buf, CH_N - 1u, cw, CH_A + sw * cs);
                     b = rd(ch_buf, CH_N - 1u, cw, CH_B + sw * cc);
                     cw = (cw + 1u) & (CH_N - 1u);
-                    cm0 = cm1;
-                    cs0 = cs1;
-                    cm1 = (0.5f * CH_W) * dep * (a + b);
-                    cs1 = (0.5f * CH_W) * dep * (a - b);
-                    mid = 0.5f * (cm0 + cm1);
-                    side = 0.5f * (cs0 + cs1);
-                } else {
-                    mid = cm1;
-                    side = cs1;
+                    mid = (0.5f * CH_W) * dep * (a + b);
+                    side = (0.5f * CH_W) * dep * (a - b);
                 }
-                if (delay && dph) { /* the tape delay: read (with wow), the loop's one-pole, write the send and the
-                                       feedback */
-                    y0 = y;
+                if (delay) { /* the tape delay: read (with wow), the loop's one-pole, write the send and the feedback */
                     ws += (FM_TWO_PI * DL_HZ / DR) * wc;
                     wc -= (FM_TWO_PI * DL_HZ / DR) * ws;
                     dt += (dl_tt - dt) * DL_GLIDE;
                     y = fm_flush(y + DL_LPK * (rd(dl_buf, DL_N - 1u, dw, dt + DL_WOW * ws) - y));
                     dw = (dw + 1u) & (DL_N - 1u);
-                    x = fm_flush((0.5f * gate) * ad + DL_FB * y);
+                    x = fm_flush((open * (1.0f / 6.0f)) * ad + DL_FB * y);
                     dl_buf[dw] = x;
                     dpk = fm_maxf(fm_fabsf(x), dpk * kp);
-                    ad = 0.0f;
-                    mid += 0.5f * (y0 + y);
-                } else
-                    mid += y;
+                }
+                mid += y;
                 ml = fm_flush(ml + lk * (mid - ml));
                 sl = fm_flush(sl + lk * (side - sl));
-                wl1 += g * (ml + sl);
-                wr1 += g * (ml - sl);
-            }
-            acc = 0.0f;
-            if (!chorus)
-                ac = 0.0f;
-            if (!delay)
-                ad = 0.0f;
+                el1 = g * (ml + sl);
+                er1 = g * (ml - sl);
+            } else
+                el1 = er1 = 0.0f;
+            ac = ad = 0.0f;
+            evl = el0;
+            evr = er0;
+            del_ = (el1 - el0) * (1.0f / 6.0f);
+            der = (er1 - er0) * (1.0f / 6.0f);
+        } else {
+            evl += del_;
+            evr += der;
         }
-        f = (float)ph * (1.0f / 3.0f);
-        ol = wl0 + (wl1 - wl0) * f;
-        or_ = wr0 + (wr1 - wr0) * f;
+        ol = pvl + evl;
+        or_ = pvr + evr;
         if (stopping) {
             og = fm_maxf(og - STOP_STEP, 0.0f);
             ol *= og;
@@ -830,10 +900,10 @@ static void wet_run(float *l, float *r, const float *s3, const float *c3, const 
         l[i] = x + ol;
         r[i] = x + or_;
     }
-    if (ph) { /* a triple left open: its part so far carried */
-        acc += s3[t];
-        ac += c3[t];
-        ad += d3[t];
+    if (ph & 1u) { /* a pair left open: its part so far carried */
+        acc += s2[t];
+        ac += c2[t];
+        ad += d2[t];
     }
     w_ph = (uint8_t)ph;
     pl_wl0 = wl0;
@@ -846,6 +916,10 @@ static void wet_run(float *l, float *r, const float *s3, const float *c3, const 
     w_ad = fm_flush(ad);
     w_ml = fm_flush(ml);
     w_sl = fm_flush(sl);
+    w_el0 = fm_flush(el0);
+    w_el1 = fm_flush(el1);
+    w_er0 = fm_flush(er0);
+    w_er1 = fm_flush(er1);
     ch_w = cw;
     dl_w = dw;
     ch_s = cs;
@@ -855,39 +929,34 @@ static void wet_run(float *l, float *r, const float *s3, const float *c3, const 
     dl_ws = ws;
     dl_wc = wc;
     dl_y = fm_flush(y);
-    dl_y0 = fm_flush(y0);
-    dl_ph = (uint8_t)dph;
-    ch_m0 = cm0;
-    ch_m1 = cm1;
-    ch_s0 = cs0;
-    ch_s1 = cs1;
     dl_peak = fm_flush(dpk);
 }
 
 static int wet_active(void)
 {
-    return pl_open || pl_peak > PL_QUIET || dl_peak > PL_QUIET || w_ml != 0.0f || w_sl != 0.0f || ch_m1 != 0.0f;
+    return pl_open || pl_peak > PL_QUIET || dl_peak > PL_QUIET || w_ml != 0.0f || w_sl != 0.0f || w_el1 != 0.0f ||
+           w_er1 != 0.0f;
 }
 
 uint32_t fx_phase(void)
 {
-    return w_ph;
+    return w_ph & 1u;
 }
 
-void fx_process_tri(float *l, float *r, const float *s3, const float *c3, const float *d3, uint32_t n, float duck)
+void fx_process_pairs(float *l, float *r, const float *s2, const float *c2, const float *d2, uint32_t n, float duck)
 {
     uint32_t i;
     float dt = fm_clampf((duck - DUCK_THR) * (1.0f / (1.0f - DUCK_THR)), 0.0f, 1.0f);
     dust_run(l, n, dt * dt);
     if (wet_active())
-        wet_run(l, r, s3, c3, d3, n);
+        wet_run(l, r, s2, c2, d2, n);
     else
         for (i = 0; i < n; i++)
             l[i] = r[i] = clip(l[i]);
     if (stopping && og == 0.0f) { /* stopped: the plate and the delay shut (their tails left for vx_init to clear) */
         pl_open = 0;
         pl_peak = dl_peak = 0.0f;
-        w_ml = w_sl = ch_m0 = ch_m1 = ch_s0 = ch_s1 = 0.0f;
+        w_ml = w_sl = w_el0 = w_el1 = w_er0 = w_er1 = 0.0f;
     }
     if (bo > 0.0f || bo_t > 0.0f)
         bed(l, r, n);
@@ -895,23 +964,23 @@ void fx_process_tri(float *l, float *r, const float *s3, const float *c3, const 
 
 void fx_process_buses(float *l, float *r, const float *ch, const float *dl, uint32_t n, float duck)
 {
-    static float s3[FX_TRI], c3[FX_TRI], d3[FX_TRI];
+    static float s2[FX_NP], c2[FX_NP], d2[FX_NP];
     uint32_t d = 0;
-    while (d < n) { /* in blocks of FX_BLK: the inputs summed per triple, then the chain */
-        uint32_t b = n - d < FX_BLK ? n - d : FX_BLK, i, k = w_ph, t = 0;
-        memset(s3, 0, sizeof s3);
-        memset(c3, 0, sizeof c3);
-        memset(d3, 0, sizeof d3);
+    while (d < n) { /* in blocks of FX_BLK: the inputs summed per pair, then the chain */
+        uint32_t b = n - d < FX_BLK ? n - d : FX_BLK, i, k = fx_phase(), t = 0;
+        memset(s2, 0, sizeof s2);
+        memset(c2, 0, sizeof c2);
+        memset(d2, 0, sizeof d2);
         for (i = 0; i < b; i++) {
-            s3[t] += r[d + i];
-            c3[t] += ch ? ch[d + i] : 0.0f;
-            d3[t] += dl ? dl[d + i] : 0.0f;
-            if (++k == 3u) {
+            s2[t] += r[d + i];
+            c2[t] += ch ? ch[d + i] : 0.0f;
+            d2[t] += dl ? dl[d + i] : 0.0f;
+            if (++k == FX_PAIR) {
                 k = 0;
                 t++;
             }
         }
-        fx_process_tri(l + d, r + d, s3, c3, d3, b, duck);
+        fx_process_pairs(l + d, r + d, s2, c2, d2, b, duck);
         d += b;
     }
 }

@@ -3,7 +3,8 @@
 /* Voices and mix (see voices.h). The pitched roles are pools of voices: chords 4, lead 2, candy 2 and the bass, a
    mono pool of 1 whose level slews (AMP_K) and whose M_BASS retriggers are legato. Each voice keeps the patch it was
    struck with, and voice_sample() dispatches on the patch's model: keys (M_EP), plucked strings (M_PLUCK), pads
-   (M_PAD), bells (M_BELL), winds (M_WIND) and basses (M_BASS). A pitched
+   (M_PAD), bells (M_BELL), winds (M_WIND) and basses (M_BASS). A key's or a pad's note whose partials stay under
+   9 kHz renders at half the rate (half_ok), its role's half-rate voices upsampled by a half-band. A pitched
    note's level is the patch envelope: a natural decay (nat, from 1 toward sus) times a gate (g: a linear rise, a
    smoothed fall), so a note-off, a steal or vx_release_all fades instead of clicking. Drums are a noise burst or a
    swept sine. Then the mix, per role bus (chords, bass, lead, candy, drums): the drums through their compressor, each
@@ -65,6 +66,10 @@
 #define CHIFF 1.5f       /* the breath's extra at the onset (the chiff), gone in CHIFF_T60 */
 #define CHIFF_T60 0.08f
 #define MUTE_DRY 0.2f    /* a muted wind keeps this much of the open tone under the mute's band */
+#define HR_TOP 9000.0f   /* a half-rate voice's highest partial: below its 11 kHz Nyquist and the upsampler's band edge */
+#define HR_PAD_H 2.0f   /* a pad's highest partial counted: its upper saw's second harmonic (the filter takes the rest) */
+#define HB_M 7           /* the 2x upsampler: a 27-tap half-band (Kaiser, beta 5), 7 coefficient pairs */
+#define HB_H (2 * HB_M)  /* the half-rate samples it keeps between chunks (its latency: 2 HB_M = 14 samples) */
 
 /* big zero-initialised buffers go in the device's .pool RAM region (fm1-base's PLAT_POOL; a Mach-O host has no such
    section) */
@@ -98,10 +103,13 @@ typedef struct {
             float pc, pm, ic, im, idx, idec, tine;
             float hit, hk, bark, bk, by; /* EP: strike and its decay, bark level, decay, noise state */
             float la, ly;                /* EP: the tone one-pole's coefficient (0: none) and state */
+            float bc;                    /* EP: the bark's noise one-pole's coefficient (at the voice's rate) */
         } ep;
-        struct { /* M_PAD: two saws, then one SVF (a low-pass) or two (the formants) */
+        struct { /* M_PAD: two saws, then one SVF (a low-pass) or two (the formants); at half the rate, matched
+                    biquads in their place */
             float p1, p2, i1, i2, l2;
-            float c1[4], c2[4], s[4]; /* SVF coefficients (a1, a2, a3, k) and states */
+            float c1[4], c2[4], s[4]; /* SVF coefficients (a1, a2, a3, k) and states (the biquads': w1, w2 each) */
+            float bq[2][5];           /* the half-rate biquads: b0, b1, b2, a1, a2 */
             uint8_t vox;
         } pad;
         struct { /* M_PLUCK: a Karplus-Strong line (this voice's ks[] row) and the upright's thump */
@@ -128,6 +136,7 @@ typedef struct {
     } m;
     uint32_t gate, age;
     uint8_t on, held, role;
+    uint8_t hr;   /* rendered at half the rate, on even samples (a step is two), into its role's upsampler */
     uint8_t pend; /* a steal in progress: fade out, then start pe on ppt */
     const vx_patch_t *ppt;
     song_ev_t pe;
@@ -144,7 +153,7 @@ static voice_t fv[NV];
 static float ks[NV][VX_KS_N] VX_POOL; /* the Karplus-Strong lines, one per voice */
 static uint32_t age_ctr, rng = 0x1234567u;
 static float gain, gain_tgt, gain_step;
-static float ch_m[CHUNK], ch_s[CHUNK]; /* a chunk's music (into fx_process_tri) and its right channel (out) */
+static float ch_m[CHUNK], ch_s[CHUNK]; /* a chunk's music (into fx_process_pairs) and its right channel (out) */
 static float bb[NBUS][CHUNK];          /* the chunk's role buses (the drums' always; the others while filtering) */
 /* a bus's section filters: amounts ramping to their targets (steps per block), the one-poles' coefficients, states */
 typedef struct {
@@ -153,6 +162,17 @@ typedef struct {
     float ka, kh, ac, hc;       /* the one-poles' coefficients, and the amounts they were made for */
 } bus_t;
 static bus_t bus[NBUS];
+/* The half-rate voices: summed per role (V_CHORD, V_LEAD, V_CANDY; the bass is never half-rate) at every even sample of
+   the engine's clock into hx[role], after HB_H samples of the last chunk's (the upsampler's history); then each role
+   with something in it is upsampled to the full rate into its bus. */
+#define NHX (HB_H + CHUNK / 2 + 1)
+static float hx[V_CANDY + 1][NHX] VX_POOL;
+static float hup[CHUNK] VX_POOL;
+static uint32_t hpar;        /* the engine's clock's parity at the chunk's start: 0, its first sample is even */
+static uint32_t hn;          /* render_seg's place: the half-rate samples made so far in the chunk */
+static unsigned hr_live, hr_tail; /* per role bit: a half-rate voice rendered in the chunk; the history not yet silent */
+static uint32_t hw;          /* hx holds the chunk's half-rate samples [0, hw) (rendered or zeroed) */
+static int dr_live;          /* a drum sounded in the chunk (else the drums' bus is all zeros) */
 /* The plate's per-bus sends (a fraction of the bus's level): keys and lead wet, ear candy wetter, the bass dry, the
    drums a touch. */
 static const float sendp[NBUS] = {[V_CHORD] = 0.30f, [V_BASS] = 0.0f, [V_LEAD] = 0.35f, [V_CANDY] = 0.45f,
@@ -194,6 +214,9 @@ void vx_init(void)
     gain_step = 0.0f;
     gain_n = 0;
     memset(bus, 0, sizeof bus);
+    memset(hx, 0, sizeof hx);
+    hpar = 0u;
+    hr_tail = 0u;
     cg = 1.0f;
     cp_env = 0.0f;
     cp_g = CP_MAKEUP;
@@ -278,16 +301,17 @@ void vx_event(const song_ev_t *e)
    slews from where it is on a legato retrigger, else starts at its target. */
 static void env_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int legato)
 {
+    float dv = v->hr ? 2.0f : 1.0f; /* a half-rate voice's steps are two samples long */
     v->pt = p;
     v->nat = 1.0f;
-    v->nk = 1.0f - k_t60(p->dec);
+    v->nk = 1.0f - k_t60(p->dec / dv);
     v->sus = p->sus;
-    v->ka = k_att(p->att);
-    v->kr = k_t60(p->rel);
+    v->ka = k_att(p->att / dv);
+    v->kr = k_t60(p->rel / dv);
     v->amp_t = ROLES[v->role].gain * p->level * (float)e->vel * (1.0f / 127.0f);
     if (!legato)
         v->amp = v->amp_t;
-    v->gate = e->len;
+    v->gate = v->hr ? (e->len + 1u) >> 1 : e->len;
     v->held = 1;
     v->on = 1;
     v->pend = 0;
@@ -297,11 +321,11 @@ static void env_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int l
 static void fm_start(voice_t *v, const song_ev_t *e)
 {
     const vx_patch_t *p = v->pt;
-    float f = note_inc(e->note), v01 = (float)e->vel * (1.0f / 127.0f);
+    float dv = v->hr ? 2.0f : 1.0f, f = note_inc(e->note) * dv, v01 = (float)e->vel * (1.0f / 127.0f);
     v->m.ep.ic = f;
     v->m.ep.im = f * p->p[0];
     v->m.ep.idx = p->p[1] + p->p[2] * v01;
-    v->m.ep.idec = 1.0f - k_t60(p->p[3]);
+    v->m.ep.idec = 1.0f - k_t60(p->p[3] / dv);
     v->m.ep.tine = p->p[4] * v01;
 }
 
@@ -314,15 +338,16 @@ static float k_lp1(float hz) { return 1.0f - fm_expf(-FM_TWO_PI * fm_clampf(hz, 
 static void ep_start(voice_t *v, const song_ev_t *e)
 {
     const vx_patch_t *p = v->pt;
-    float v01 = (float)e->vel * (1.0f / 127.0f);
+    float dv = v->hr ? 2.0f : 1.0f, v01 = (float)e->vel * (1.0f / 127.0f);
     fm_start(v, e);
     v->m.ep.pm = v->m.ep.pc;
     v->m.ep.hit = p->p[5] * v01;
-    v->m.ep.hk = 1.0f - k_t60(STRIKE_T60);
+    v->m.ep.hk = 1.0f - k_t60(STRIKE_T60 / dv);
     v->m.ep.bark = p->p[6] * v01;
-    v->m.ep.bk = 1.0f - k_t60(BARK_T60);
+    v->m.ep.bk = 1.0f - k_t60(BARK_T60 / dv);
+    v->m.ep.bc = v->hr ? 1.0f - (1.0f - BARK_LP) * (1.0f - BARK_LP) : BARK_LP; /* the same one-pole, two samples a step */
     v->m.ep.by = v->m.ep.ly = 0.0f; /* the union may hold another model's state */
-    v->m.ep.la = p->p[7] > 0.0f ? k_lp1(p->p[7] * (0.6f + 0.4f * v01)) : 0.0f;
+    v->m.ep.la = p->p[7] > 0.0f ? k_lp1(p->p[7] * (0.6f + 0.4f * v01) * dv) : 0.0f;
 }
 
 /* The TPT state-variable filter's coefficients (Zavalishin), as AMB-1's svf_coefs: f in Hz, k the damping (1/Q). */
@@ -335,6 +360,45 @@ static void svf_coefs(float *c, float f, float k)
     c[3] = k;
 }
 
+/* A second-order low-pass (lp: 1) or a band-pass (unity peak) at f Hz, damping k (1/Q), at the rate SR / dv, matched
+   to the analog response up to Nyquist (Vicanek 2016, "Matched Second Order Digital Filters"): the bilinear SVF falls
+   short of it toward Nyquist, which at half the rate is inside the band the keys' and pads' spectrum is kept to. The
+   numerator is added, scaled by gain, into q[0..2] (the poles into q[3..4]), so two responses can share the poles. */
+static void bq_match(float *q, float f, float k, int lp, float gain, float dv)
+{
+    float w = FM_TWO_PI * fm_clampf(f, 40.0f, 9000.0f) * dv * INV_SR, z = fm_clampf(0.5f * k, 0.01f, 0.99f), qq = 1.0f / k;
+    float a1 = -2.0f * fm_expf(-z * w) * fm_cosf(fm_sqrtf(1.0f - z * z) * w), a2 = fm_expf(-2.0f * z * w);
+    float sn = fm_sinf(0.5f * w), p1 = sn * sn, p0 = 1.0f - p1, p2 = 4.0f * p0 * p1;
+    float A0 = (1.0f + a1 + a2) * (1.0f + a1 + a2), A1 = (1.0f - a1 + a2) * (1.0f - a1 + a2), A2 = -4.0f * a2;
+    float b0, b1, b2;
+    if (lp) {
+        float r1 = (A0 * p0 + A1 * p1 + A2 * p2) * qq * qq, B1 = fm_maxf((r1 - A0 * p0) / p1, 0.0f);
+        b0 = 0.5f * (fm_sqrtf(A0) + fm_sqrtf(B1));
+        b1 = fm_sqrtf(A0) - b0;
+        b2 = 0.0f;
+    } else {
+        float r1 = A0 * p0 + A1 * p1 + A2 * p2, r2 = -A0 + A1 + 4.0f * (p0 - p1) * A2;
+        float B2 = (r1 - r2 * p1) / (4.0f * p1 * p1), B1 = fm_maxf(r2 + 4.0f * (p1 - p0) * B2, 0.0f);
+        b1 = -0.5f * fm_sqrtf(B1);
+        b0 = 0.5f * (fm_sqrtf(fm_maxf(B2 + b1 * b1, 0.0f)) - b1);
+        b2 = -b0 - b1;
+    }
+    q[0] += gain * b0;
+    q[1] += gain * b1;
+    q[2] += gain * b2;
+    q[3] = a1;
+    q[4] = a2;
+}
+
+/* one direct-form-II step of a biquad q on x, its states w[0..1] */
+static float bq_step(const float *q, float *w, float x)
+{
+    float u = x - q[3] * w[0] - q[4] * w[1], y = q[0] * u + q[1] * w[0] + q[2] * w[1];
+    w[1] = w[0];
+    w[0] = fm_flush(u);
+    return y;
+}
+
 /* AMB-1's vowels (u, o, a, e): the first two formants in Hz */
 static const float VOWEL[4][2] = {{320.0f, 800.0f}, {480.0f, 900.0f}, {730.0f, 1090.0f}, {530.0f, 1840.0f}};
 
@@ -343,9 +407,9 @@ static const float VOWEL[4][2] = {{320.0f, 800.0f}, {480.0f, 900.0f}, {730.0f, 1
 static void pad_start(voice_t *v, const song_ev_t *e)
 {
     const vx_patch_t *p = v->pt;
-    float f = note_inc(e->note), dt = fm_exp2f(p->p[0] * (1.0f / 1200.0f));
-    v->m.pad.i1 = f / dt;
-    v->m.pad.i2 = f * dt * p->p[1];
+    float dv = v->hr ? 2.0f : 1.0f, f = note_inc(e->note), dt = fm_exp2f(p->p[0] * (1.0f / 1200.0f));
+    v->m.pad.i1 = f * dv / dt;
+    v->m.pad.i2 = f * dv * dt * p->p[1];
     v->m.pad.p1 = 0.0f;
     v->m.pad.p2 = 0.5f;
     v->m.pad.l2 = p->p[2];
@@ -359,6 +423,15 @@ static void pad_start(voice_t *v, const song_ev_t *e)
         f2 = VOWEL[a][1] + (VOWEL[a + 1][1] - VOWEL[a][1]) * vw;
         svf_coefs(v->m.pad.c1, f1, 0.45f);
         svf_coefs(v->m.pad.c2, f2, 0.3f);
+        if (v->hr) { /* the formants' mix (pad_sample's): band 1, half of band 2, 0.45 of filter 1's low-pass */
+            memset(v->m.pad.bq, 0, sizeof v->m.pad.bq);
+            bq_match(v->m.pad.bq[0], f1, 0.45f, 0, 1.0f, dv);
+            bq_match(v->m.pad.bq[0], f1, 0.45f, 1, 0.45f, dv);
+            bq_match(v->m.pad.bq[1], f2, 0.3f, 0, 0.5f, dv);
+        }
+    } else if (v->hr) {
+        memset(v->m.pad.bq, 0, sizeof v->m.pad.bq);
+        bq_match(v->m.pad.bq[0], p->p[3] + p->p[4] * f * SR, p->p[5], 1, 1.0f, dv);
     } else
         svf_coefs(v->m.pad.c1, p->p[3] + p->p[4] * f * SR, p->p[5]);
 }
@@ -481,8 +554,28 @@ static void bass_start(voice_t *v, const song_ev_t *e, int legato)
     v->m.bs.sub = p->p[4];
 }
 
+/* Whether a note renders at half the rate: the keys and pads (not on the bass), when their highest partial (the FM's
+   sidebands, the index plus three; the tine; the pad's upper saw's second harmonic) is below HR_TOP. Higher notes, and
+   everything with VX_OFF_HALF, stay at the full rate. */
+static int half_ok(const voice_t *v, const vx_patch_t *p, const song_ev_t *e)
+{
+    float hz = note_inc(e->note) * SR, v01 = (float)e->vel * (1.0f / 127.0f), top;
+    if ((fx_off & VX_OFF_HALF) || v->role == V_BASS)
+        return 0;
+    if (p->model == M_EP) {
+        top = hz * (1.0f + p->p[0] * (p->p[1] + p->p[2] * v01 + 3.0f));
+        if (p->p[4] > 0.0f)
+            top = fm_maxf(top, TINE_R * hz);
+    } else if (p->model == M_PAD)
+        top = HR_PAD_H * hz * fm_maxf(p->p[1], 1.0f);
+    else
+        return 0;
+    return top < HR_TOP;
+}
+
 static void voice_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int legato)
 {
+    v->hr = (uint8_t)half_ok(v, p, e);
     env_start(v, p, e, legato);
     switch (p->model) {
     case M_EP: ep_start(v, e); break;
@@ -570,7 +663,7 @@ static float ep_sample(voice_t *v)
     float s = fm_sample(v) * (1.0f + v->m.ep.hit);
     v->m.ep.hit = fm_flush(v->m.ep.hit * v->m.ep.hk);
     if (v->m.ep.bark > 1e-4f) { /* band-limited noise, gated by the tone: a reed's bark */
-        v->m.ep.by += BARK_LP * (noise() - v->m.ep.by);
+        v->m.ep.by += v->m.ep.bc * (noise() - v->m.ep.by);
         s += v->m.ep.bark * v->m.ep.by * (s < 0.0f ? -s : s);
         v->m.ep.bark *= v->m.ep.bk;
     }
@@ -616,6 +709,8 @@ static float pad_sample(voice_t *v)
     v->m.pad.p2 += v->m.pad.i2;
     if (v->m.pad.p2 >= 1.0f)
         v->m.pad.p2 -= 1.0f;
+    if (v->hr) /* the matched biquads */
+        return bq_step(v->m.pad.bq[0], v->m.pad.s, x) + (v->m.pad.vox ? bq_step(v->m.pad.bq[1], v->m.pad.s + 2, x) : 0.0f);
     l1 = svf_step(v->m.pad.c1, v->m.pad.s, x, &b1);
     if (!v->m.pad.vox)
         return l1;
@@ -756,7 +851,7 @@ static float voice_sample(voice_t *v)
     } else
         o = s * v->amp * lv * v->g;
     if (v->pend) { /* fade the victim out, then start the queued note */
-        v->g -= v->g * G_STEAL;
+        v->g -= v->g * (v->hr ? 2.0f * G_STEAL : G_STEAL);
         if (v->g < STEAL_THR)
             voice_start(v, v->ppt, &v->pe, 0);
         return o;
@@ -775,36 +870,137 @@ static float voice_sample(voice_t *v)
     return o;
 }
 
-/* the chunk's wet inputs, summed per triple of the lo-fi chain's third-rate steps (fx_process_tri): sample i of the
-   chunk is in triple (ph3 + i) / 3; the sums of a triple are built in registers and stored once */
-#define NTRI (CHUNK / 3 + 2)
+/* the chunk's wet inputs, summed per pair of samples (the lo-fi chain's wet step, fx_process_pairs): sample i of the
+   chunk is in pair (ph3 + i) / FX_PAIR; the sums of a pair are built in registers and stored once */
+#define NTRI (CHUNK / FX_PAIR + 2)
 static float t_s[NTRI], t_c[NTRI], t_d[NTRI]; /* the plate's send, the chords' bus, the delay's send */
-static uint32_t ph3, tk, tt;                  /* the chunk's phase; render_seg's place: samples in its triple, index */
-static float ts, tc, td;                      /* render_seg's open triple's sums */
+static uint32_t ph3, tk, tt;                  /* the chunk's phase; render_seg's place: samples in its pair, index */
+static float ts, tc, td;                      /* render_seg's open pair's sums */
+
+/* the half-band's odd phase (its even phase is the centre tap, 1): a Kaiser-windowed sinc, normalized to unity */
+static const float HB_G[HB_M] = {0.628231535f, -0.188138067f, 0.090460645f, -0.045399865f,
+                                 0.020987195f, -0.007939147f, 0.001797704f};
+
+/* one role's half-rate samples of the chunk (nm of them, after its history) to the full rate, c samples into hup;
+   then the history kept */
+static void hx_up(float *h, uint32_t nm, uint32_t c)
+{
+    const float *x = h + HB_H; /* x[m]: the chunk's m-th half-rate sample; x[-1] .. x[-HB_H] the history */
+    uint32_t i;
+    int m = 0;
+    for (i = 0; i < c; i++)
+        if (((hpar + i) & 1u) == 0u) { /* an even sample: its half-rate sample x[m] is in; out comes x[m - HB_M] */
+            hup[i] = x[m - HB_M];
+            m++;
+        } else { /* an odd one: halfway between x[m-1-HB_M] and x[m-HB_M] */
+            const float *q = x + m - HB_M; /* q[0] the later of the two */
+            float y = 0.0f;
+            int k;
+            for (k = 0; k < HB_M; k++)
+                y += HB_G[k] * (q[k] + q[-1 - k]);
+            hup[i] = y;
+        }
+    memmove(h, h + nm, HB_H * sizeof(float));
+}
+
+/* a voice's role bit (its pool's) */
+static unsigned role_bit(int j)
+{
+    return j < NCH ? 1u << V_CHORD : j < NCH + NLD ? 1u << V_LEAD : j < NFM ? 1u << V_CANDY : 1u << V_BASS;
+}
+
+/* the voices sounding: bit j of *mf at the full rate, of the return at half; *hb the half-rate ones' role bits */
+static unsigned seg_mask(unsigned *mf, unsigned *hb)
+{
+    unsigned h = 0u;
+    int j;
+    *mf = 0u;
+    *hb = 0u;
+    for (j = 0; j < NV; j++)
+        if (fv[j].on) {
+            if (fv[j].hr) {
+                h |= 1u << j;
+                *hb |= role_bit(j);
+            } else
+                *mf |= 1u << j;
+        }
+    return h;
+}
+
+/* hx's half-rate samples [hw, to) of the chunk zeroed (nothing was rendered there) */
+static void hx_zero(uint32_t to)
+{
+    if (hw < to) {
+        memset(hx[V_CHORD] + HB_H + hw, 0, (to - hw) * sizeof(float));
+        memset(hx[V_LEAD] + HB_H + hw, 0, (to - hw) * sizeof(float));
+        memset(hx[V_CANDY] + HB_H + hw, 0, (to - hw) * sizeof(float));
+        hw = to;
+    }
+}
 
 /* n samples from pos of the chunk: the drums into their bus; the pitched roles summed per role, into their buses
-   (filt: the section filters are on) or straight into the chunk's music and the wet inputs' triples */
+   (filt: the section filters are on) or straight into the chunk's music and the wet inputs' pairs. The half-rate
+   voices render on even samples of the engine's clock only, their sums per role into hx (written only while there are
+   some, or their upsampler still rings; the rest of hx is zeroed when it is needed). */
 static void render_seg(uint32_t pos, uint32_t n, int filt)
 {
-    uint32_t i, k3 = tk, t3 = tt;
+    uint32_t i, k3 = tk, t3 = tt, m = hn;
     int j;
+    unsigned live, mf, mh;
     float c0 = sendp[V_CHORD], c2 = sendp[V_LEAD], c3 = sendp[V_CANDY], g = cg; /* (the bass is dry: no sends) */
     float d0 = dsend[V_CHORD], d2 = dsend[V_LEAD], d3 = dsend[V_CANDY], as = ts, ac = tc, ad = td;
+    int hw_on;
+    int dr = drums_active(); /* (a drum starts only at a segment's start, as a voice does) */
+    dr_live |= dr;
+    mh = seg_mask(&mf, &live);
+    hw_on = mh || hr_tail;
+    if (hw_on)
+        hx_zero(m);
     for (i = pos; i < pos + n; i++) {
-        float c = 0.0f, b = 0.0f, l = 0.0f, k = 0.0f;
-        bb[DRB][i] = drums_sample();
-        for (j = 0; j < NV; j++) /* one call site, so voice_sample inlines; the sums stay in registers */
-            if (fv[j].on) {
-                float y = voice_sample(&fv[j]);
+        float c = 0.0f, b = 0.0f, l = 0.0f, k = 0.0f, hc = 0.0f, hl = 0.0f, hk = 0.0f;
+        int odd = (int)((hpar + i) & 1u), moved = 0;
+        unsigned msk = odd ? mf : mf | mh;
+        bb[DRB][i] = dr ? drums_sample() : 0.0f;
+        for (j = 0; msk && j < NV; j++) { /* one call site, so voice_sample inlines; the sums stay in registers */
+            int h = (int)(mh >> j) & 1;
+            float y;
+            if (!((msk >> j) & 1u) || !fv[j].on)
+                continue;
+            y = voice_sample(&fv[j]);
+            moved |= fv[j].hr != h; /* a steal's new note at the other rate */
+            if (h) {
                 if (j < NCH)
-                    c += y;
+                    hc += y;
                 else if (j < NCH + NLD)
-                    l += y;
-                else if (j < NFM)
-                    k += y;
+                    hl += y;
                 else
-                    b += y;
+                    hk += y;
+            } else if (j < NCH)
+                c += y;
+            else if (j < NCH + NLD)
+                l += y;
+            else if (j < NFM)
+                k += y;
+            else
+                b += y;
+        }
+        if (moved) {
+            unsigned hb;
+            mh = seg_mask(&mf, &hb);
+            live |= hb;
+            if (mh && !hw_on) {
+                hw_on = 1;
+                hx_zero(m);
             }
+        }
+        if (!odd) {
+            if (hw_on) {
+                hx[V_CHORD][HB_H + m] = hc;
+                hx[V_LEAD][HB_H + m] = hl;
+                hx[V_CANDY][HB_H + m] = hk;
+            }
+            m++;
+        }
         if (filt) {
             bb[V_CHORD][i] = c;
             bb[V_BASS][i] = b;
@@ -816,7 +1012,7 @@ static void render_seg(uint32_t pos, uint32_t n, int filt)
             as += c * c0 + l * c2 + k * c3;
             ac += c;
             ad += c * d0 + l * d2 + k * d3;
-            if (++k3 == 3u) {
+            if (++k3 == FX_PAIR) {
                 t_s[t3] += as;
                 t_c[t3] += ac;
                 t_d[t3] += ad;
@@ -831,6 +1027,58 @@ static void render_seg(uint32_t pos, uint32_t n, int filt)
     ts = as;
     tc = ac;
     td = ad;
+    hn = m;
+    if (hw_on)
+        hw = m;
+    hr_live |= live;
+}
+
+/* the half-rate roles of the chunk (c samples) to the full rate, into their buses (filt) or straight into the music
+   and the wet inputs' pairs */
+static void hx_mix(uint32_t c, int filt)
+{
+    int r;
+    for (r = V_CHORD; r <= V_CANDY; r++) {
+        uint32_t i, k3 = ph3, t3 = 0;
+        float sum = 0.0f, gl, sp, sc, sd;
+        const float *h;
+        if (r == V_BASS || !((hr_live | hr_tail) & (1u << r)))
+            continue;
+        hx_zero(hn);
+        hx_up(hx[r], hn, c);
+        h = hx[r];
+        hr_tail &= ~(1u << r);
+        for (i = 0; i < HB_H; i++)
+            if (h[i] != 0.0f)
+                hr_tail |= 1u << r;
+        if (filt) {
+            for (i = 0; i < c; i++)
+                bb[r][i] += hup[i];
+            continue;
+        }
+        gl = r == V_CHORD ? cg : 1.0f; /* the chords' dry scale (the chorus) */
+        sp = sendp[r] * gl;
+        sc = r == V_CHORD ? gl : 0.0f;
+        sd = dsend[r] * gl;
+        for (i = 0; i < c; i++) {
+            float x = hup[i];
+            ch_m[i] += x * gl;
+            sum += x;
+            if (++k3 == FX_PAIR) {
+                t_s[t3] += sum * sp;
+                t_c[t3] += sum * sc;
+                t_d[t3] += sum * sd;
+                t3++;
+                k3 = 0;
+                sum = 0.0f;
+            }
+        }
+        if (k3) {
+            t_s[t3] += sum * sp;
+            t_c[t3] += sum * sc;
+            t_d[t3] += sum * sd;
+        }
+    }
 }
 
 /* one block of a bus through its section filters, in place: the amounts ramp a step, the one-poles' coefficients
@@ -893,7 +1141,7 @@ static unsigned live_buses(void)
     for (r = 0; r < NBUS; r++)
         if (fm_fabsf(bus[r].y) > 1e-7f || fm_fabsf(bus[r].z) > 1e-7f)
             m |= 1u << r;
-    return m;
+    return m | hr_tail; /* (a half-rate role's upsampler still ringing out) */
 }
 
 /* the drums' compressor's gain over one block: the block's peak (a pre-scan: the attack is instant at the block's
@@ -914,22 +1162,30 @@ static void comp(float *x, uint32_t n, float *g0, float *dg)
 }
 
 /* the chunk's mix (c samples): per block, the drums compressed, the buses filtered (filt) and summed, into the music
-   and the wet inputs' triples; the song gain on everything */
+   and the wet inputs' pairs; the song gain on everything */
 static void mix_chunk(uint32_t c, int filt, unsigned live)
 {
     uint32_t o, i, k3 = ph3, t3 = 0;
     float as = 0.0f, ac = 0.0f, ad = 0.0f;
+    /* the drums' bus silent and the compressor at rest (its gain the make-up, its level under the threshold): the
+       compressor's scan and gain, and the drums' adds, are skipped (they would add zeros); its level still falls */
+    int dz = !dr_live && cp_env <= CP_THR && cp_g == CP_MAKEUP;
     for (o = 0; o < c; o += BCR) {
         uint32_t n = c - o < BCR ? c - o : BCR;
         float *d = bb[DRB] + o, g = 1.0f, dg = 0.0f;
-        if (!(fx_off & VX_OFF_COMP))
+        if (dz) {
+            if (!(fx_off & VX_OFF_COMP))
+                cp_env = fm_flush(cp_env * (1.0f - CP_REL * (float)n));
+            if (!filt)
+                continue;
+        } else if (!(fx_off & VX_OFF_COMP))
             comp(d, n, &g, &dg);
         if (filt) {
             float s0 = sendp[V_CHORD], s2 = sendp[V_LEAD], s3 = sendp[V_CANDY], cgl = cg;
             float e0 = dsend[V_CHORD], e2 = dsend[V_LEAD], e3 = dsend[V_CANDY];
             const float *b0 = bb[V_CHORD] + o, *b1 = bb[V_BASS] + o, *b2 = bb[V_LEAD] + o, *b3 = bb[V_CANDY] + o;
             int r;
-            for (i = 0; i < n; i++) { /* the compressor before the drums' filters */
+            for (i = 0; !dz && i < n; i++) { /* the compressor before the drums' filters */
                 g += dg;
                 d[i] *= g;
             }
@@ -947,7 +1203,7 @@ static void mix_chunk(uint32_t c, int filt, unsigned live)
                 as += x * s0 + b2[i] * s2 + b3[i] * s3 + d[i] * SEND_DRUMS;
                 ac += x;
                 ad += x * e0 + b2[i] * e2 + b3[i] * e3;
-                if (++k3 == 3u) {
+                if (++k3 == FX_PAIR) {
                     t_s[t3] += as;
                     t_c[t3] += ac;
                     t_d[t3] += ad;
@@ -963,7 +1219,7 @@ static void mix_chunk(uint32_t c, int filt, unsigned live)
                 x = d[i] * g;
                 ch_m[o + i] += x;
                 as += x;
-                if (++k3 == 3u) {
+                if (++k3 == FX_PAIR) {
                     t_s[t3] += as * SEND_DRUMS;
                     t3++;
                     k3 = 0;
@@ -971,20 +1227,20 @@ static void mix_chunk(uint32_t c, int filt, unsigned live)
                 }
             }
     }
-    if (k3) { /* the open triple */
+    if (k3) { /* the open pair */
         t_s[t3] += filt ? as : as * SEND_DRUMS;
         t_c[t3] += ac;
         t_d[t3] += ad;
     }
     if (gain_n || gain != 1.0f)
-        for (i = 0, k3 = ph3, t3 = 0; i < c; i++) { /* (each triple at its last sample's gain) */
+        for (i = 0, k3 = ph3, t3 = 0; i < c; i++) { /* (each pair at its last sample's gain) */
             if (gain_n) {
                 gain += gain_step;
                 if (--gain_n == 0)
                     gain = gain_tgt;
             }
             ch_m[i] *= gain;
-            if (++k3 == 3u || i == c - 1u) {
+            if (++k3 == FX_PAIR || i == c - 1u) {
                 t_s[t3] *= gain;
                 t_c[t3] *= gain;
                 t_d[t3] *= gain;
@@ -1019,12 +1275,18 @@ void vx_render(float *l, float *r, uint32_t n)
         c = n - done < CHUNK ? n - done : CHUNK;
         ph3 = tk = fx_phase();
         tt = 0;
+        hn = hw = 0;
+        hr_live = 0u;
+        dr_live = 0;
         ts = tc = td = 0.0f;
         memset(t_s, 0, sizeof t_s);
         memset(t_c, 0, sizeof t_c);
         memset(t_d, 0, sizeof t_d);
-        cg += (fx_chorus_dry() - cg) * 0.25f; /* the chorus's dry scale, eased over a few chunks */
-        cg = fm_fabsf(cg - fx_chorus_dry()) < 1e-6f ? fx_chorus_dry() : cg;
+        {
+            float cd = fx_chorus_dry();
+            cg += (cd - cg) * 0.25f; /* the chorus's dry scale, eased over a few chunks */
+            cg = fm_fabsf(cg - cd) < 1e-6f ? cd : cg;
+        }
         while (pos < c) {
             int i, w = 0;
             uint32_t seg = c - pos;
@@ -1043,15 +1305,17 @@ void vx_render(float *l, float *r, uint32_t n)
                 q[i].rem -= seg;
             pos += seg;
         }
-        if (tk) { /* render_seg's open triple */
+        if (tk) { /* render_seg's open pair */
             t_s[tt] += ts;
             t_c[tt] += tc;
             t_d[tt] += td;
         }
+        hx_mix(c, filt);
+        hpar ^= c & 1u;
         if (filt)
             live |= live_buses(); /* (a voice that started in the chunk) */
         mix_chunk(c, filt, live);
-        fx_process_tri(ch_m, ch_s, t_s, t_c, t_d, c, drums_kick_env());
+        fx_process_pairs(ch_m, ch_s, t_s, t_c, t_d, c, drums_kick_env());
         for (k = 0; k < c; k++) {
             l[done + k] += ch_m[k];
             r[done + k] += ch_s[k];
@@ -1066,7 +1330,7 @@ void vx_release_all(void)
     for (i = 0; i < NV; i++) { /* a long release (a pad's) shortened to 40 ms */
         fv[i].held = 0;
         fv[i].pend = 0;
-        fv[i].kr = fm_maxf(fv[i].kr, KR_STOP);
+        fv[i].kr = fm_maxf(fv[i].kr, fv[i].hr ? 2.0f * KR_STOP : KR_STOP);
     }
     drums_release();
     qn = 0;

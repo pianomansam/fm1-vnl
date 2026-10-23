@@ -1,6 +1,7 @@
 # CPU cost ledger
 
-What the song engine costs to run, per task and per component, measured on the host at commit 16e24ba.
+What the song engine costs to run, per task and per component, measured on the host at commit 16e24ba; Task 7c's
+moves are re-measured against 0df8ddc in [Task 7c: moves 1 to 3, measured](#task-7c-moves-1-to-3-measured).
 
 ## What the number means
 
@@ -36,6 +37,10 @@ the roll, which only means something from Task 7 on; before it, the plain and fo
 | 6 drums | c852f6a | 0.690 | 0.656 | 0.807 | 0.750 | 0.726 | 100.6 | +0.013 |
 | 7 lo-fi chain and plate | 16e24ba | 0.799 | 0.762 | 0.910 | 0.838 | 0.827 | 117.9 | +0.101 |
 | 7, chain forced (dust 3, vinyl, rain) | 16e24ba | 0.814 | 0.781 | 0.918 | 0.850 | 0.841 | 119.9 | +0.115 |
+| 7b wet and dynamics (re-measured with 7c) | 0df8ddc | 0.893 | 0.858 | 1.002 | 0.935 | 0.922 | 128.2 | +0.095 |
+| 7b, chain forced | 0df8ddc | 0.905 | 0.872 | 1.014 | 0.948 | 0.935 | 130.0 | |
+| 7c half-rate keys and pads, dust fast path, quarter-rate plate | 7c | 0.725 | 0.670 | 0.757 | 0.680 | 0.708 | 99.5 | -0.214 |
+| 7c, chain forced | 7c | 0.748 | 0.687 | 0.766 | 0.680 | 0.720 | 101.2 | -0.215 |
 
 Reading it:
 
@@ -105,6 +110,84 @@ real song pays that floor once.
 The dust, vinyl, rain and tape rows are at or under the noise (0.01 to 0.02); read them as "small", not as an order.
 The plate is the one measurable block: 0.075. A typical song (an instrument per role, drums, the chain) is the sum of
 these plus the floor, which lands where the history table says (0.83 to 0.92).
+
+## Task 7c: moves 1 to 3, measured
+
+Moves 1 to 3 of the shortlist below, built and measured. Before is 0df8ddc (Task 7b), after is Task 7c, both timed in
+the same session with the same bench (`VNL_RUNS=11` for `--parts`, 5 for the songs; the AMB-1 denominator was 137.9
+and 137.3 ms for the two `--parts` runs, 139.0 and 140.5 ms for the songs). The host was busy: two identical runs of
+an unchanged build differed by up to 0.05 on the Rhodes row, so read differences under 0.03 as noise.
+
+### What changed
+
+- **Half-rate keys and pads (moves 1 and 2).** A key (M_EP) or pad (M_PAD) note renders at 22.05 kHz, on even
+  samples, when its highest partial is under 9 kHz: the FM's sidebands (the index plus three) and the Rhodes tine
+  (14x) for the keys, the upper saw's second harmonic for the pads. Higher notes stay at the full rate (the Rhodes from
+  about MIDI 76, the Wurli from about 79, the felt piano and the pads only above MIDI 96). Each role's half-rate voices
+  are summed and upsampled by a 27-tap half-band (7 coefficient pairs, flat within 0.01 dB to 8 kHz, -60 dB from 14
+  kHz; 14 samples, 0.3 ms, of latency). The envelope and every coefficient are rescaled to the step of two samples;
+  the half-rate pads swap their bilinear SVF for matched biquads (Vicanek 2016), since at 22 kHz the bilinear filter
+  loses 2 to 3 dB at 4 to 8 kHz. The bass is never half-rate; nylon (Karplus-Strong) stays at the full rate.
+- **Skipping idle work (from Task 7b's review, and move 3's "skipping idle").** The voice loop runs over a per-segment
+  mask of the voices sounding (skipped when none is), the drums are not called when no drum sounds, the drums'
+  compressor skips its scan and gain when the drums' bus is silent and the compressor at rest, and `fx_chorus_dry()`
+  is read once per chunk. All bit-exact: with these and the half-rate path in, but before the fx changes below, a 40 s
+  render of seeds 20, 128 and 183 (plain and forced) with the keys held at the full rate (`VX_OFF_HALF`) hashed the
+  same as 0df8ddc.
+- **The dust's fast path (move 3).** With the wow off (dust 0), the wow's line is not written; the saturation runs in
+  its expanded form, y - K y^3 (the same curve, to a rounding). Grit was already skipped at 0. The chain's output
+  matches the full path to -144 dB, through the wow coming on and going off.
+- **A quarter-rate plate (move 3).** The plate moved from 14.7 to 11.025 kHz (lengths and filters rescaled in Hz). The
+  chorus and the delay stay at 7.35 kHz, so the wet loop is now a 12-sample cycle: the inputs summed per pair, the
+  plate every fourth sample, the chorus and the delay every sixth, each output interpolated with running steps. The
+  tail stays within 0.9 dB of the third-rate plate per octave band below 3 kHz. The ring stays 16384 floats: the lines
+  sum to 8.5 k at the new rate, just over 8192.
+
+### Per component, before and after
+
+Rows are best of 11. "Total" is the whole render over the AMB-1 time; "net" subtracts the idle floor, as the tables
+above do. The idle floor dropped because the engine now skips work when nothing sounds, so the net rows shift up for
+everything: read the totals.
+
+| Component | Total before | Total after | Saved | Net before | Net after |
+|---|---|---|---|---|---|
+| Idle dry engine (60 s of silence) | 0.171 | 0.093 | 0.078 | | |
+| Rhodes, 4 chord voices | 0.675 | 0.371 | 0.304 | 0.504 | 0.278 |
+| Felt piano | 0.621 | 0.353 | 0.268 | 0.449 | 0.260 |
+| Wurli | 0.558 | 0.318 | 0.240 | 0.387 | 0.226 |
+| Vox pad | 0.457 | 0.276 | 0.181 | 0.285 | 0.184 |
+| Pad | 0.402 | 0.261 | 0.141 | 0.231 | 0.168 |
+| Nylon (full rate) | 0.326 | 0.302 | 0.024 | 0.154 | 0.209 |
+| Leads, candy, basses (each) | 0.24 to 0.38 | 0.21 to 0.34 | 0.02 to 0.04 | 0.07 to 0.21 | 0.12 to 0.24 |
+| Drums (each kit) | 0.23 | 0.20 to 0.22 | 0.02 to 0.04 | 0.05 to 0.06 | 0.11 to 0.13 |
+| Source dry (Rhodes, sub, dusty kit) | 0.827 | 0.609 | 0.218 | 0.656 | 0.516 |
+| Plate + dust 0, over the source | | | | 0.105 | 0.086 |
+| Full chain (dust 3, vinyl, rain), over the source | | | | 0.148 | 0.130 |
+
+The lo-fi chain alone (dust 0, the plate open, the chorus at 0.7, steady input on every wet input, 60 s, best of 15)
+went from 28.5 to 24.3 ms (about 0.03): 26.8 ms with the dust's fast path and the quarter-rate plate, its outputs
+still interpolated with a multiply each (the 12-sample cycle needs a second interpolation, which ate most of the
+plate's saving), then 24.3 ms with the interpolation as running steps. Dust 1 and 3: 30.9 to 26.4 and 32.2 to 27.8 ms.
+
+### The forced maximum, before and after
+
+| Seed | Before (0df8ddc) | After (7c) | Forced before | Forced after |
+|---|---|---|---|---|
+| 20 | 0.893 | 0.725 | 0.905 | 0.748 |
+| 100 | 0.858 | 0.670 | 0.872 | 0.687 |
+| 128 | 1.002 | 0.757 | **1.014** | **0.766** |
+| 183 | 0.935 | 0.680 | 0.948 | 0.680 |
+| heaviest of 200 (picker) | 128 at 1.023 (the Task 7b run) | | | 128 at 0.775 |
+
+The heaviest seed is back inside the budget with about 0.23 of headroom, against the shortlist's estimate of 0.3 to
+0.35 for moves 1 and 3: the estimate assumed a song's chords are all Rhodes; seed 128 is not.
+
+### The gate
+
+`tools/cost-gate.sh BEFORE.txt [AFTER.txt]` checks the brief's measured gate: the Rhodes, felt piano and Wurli rows
+each drop by at least 0.10, the pad and vox pad by 0.05 and the idle floor by 0.025 (half the shortlist's lower
+estimates). Against 0df8ddc: Rhodes -0.226, felt -0.189, Wurli -0.161, pad -0.063, vox pad -0.101, idle floor -0.078.
+The pad clears its gate narrowly on the net rows because of the floor's shift; its total dropped 0.141.
 
 ## The three biggest costs
 

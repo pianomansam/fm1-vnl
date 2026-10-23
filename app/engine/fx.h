@@ -34,12 +34,13 @@ void fx_process(float *l, float *r, uint32_t n, float duck);
 /* fx_process with the role buses' wet inputs: ch the chords' bus (the chorus's input; its dry is already in l) and dl
    the tape delay's send. Either may be NULL (no input; tails ring on). */
 void fx_process_buses(float *l, float *r, const float *ch, const float *dl, uint32_t n, float duck);
-/* The engine's way in (voices.c): fx_process_buses with its inputs already summed per triple of the wet loop's
-   third-rate steps: s3[t], c3[t] and d3[t] the sums of the plate's send, the chords' bus and the delay's send over
-   the block's samples in triple t, where sample i is in triple (fx_phase() + i) / 3 (fx_phase() read before the
-   call); r is output only. n at most 256. */
+/* The engine's way in (voices.c): fx_process_buses with its inputs already summed per pair of samples (the wet
+   loop's step, FX_PAIR): s2[t], c2[t] and d2[t] the sums of the plate's send, the chords' bus and the delay's send
+   over the block's samples in pair t, where sample i is in pair (fx_phase() + i) / FX_PAIR (fx_phase() read before
+   the call); r is output only. n at most 256. */
+#define FX_PAIR 2u
 uint32_t fx_phase(void);
-void fx_process_tri(float *l, float *r, const float *s3, const float *c3, const float *d3, uint32_t n, float duck);
+void fx_process_pairs(float *l, float *r, const float *s2, const float *c2, const float *d2, uint32_t n, float duck);
 /* The chorus's depth on the chords' bus, 0-1 (the chords patch's chorus; it ramps). */
 void fx_chorus(float depth);
 /* What the chords' dry is scaled by so the chorus's wet does not raise their level (1 with the chorus off or shut). */
@@ -48,6 +49,8 @@ float fx_chorus_dry(void);
 void fx_tempo(float bpm);
 /* Tests and the cost bench: the delay off (not run; its input ignored). Kept through fx_init. */
 void fx_wet_off(int delay_off);
+/* Tests: the dust's fast path on (1, the default) or off (0: every stage runs, the reference). Kept through fx_init. */
+void fx_fast(int on);
 /* The kick ducking's depth: about db dB at a full kick body. */
 void fx_pump(float db);
 /* The bed is open or fading, or the plate's or the delay's tail is still above -100 dB. */
