@@ -4,9 +4,9 @@
    the bass, a mono pool of 1 whose level slews (AMP_K) and whose M_BASS retriggers are legato. Each voice keeps the
    patch it was struck with, and voice_sample() dispatches on the patch's model: keys (M_EP), plucked strings
    (M_PLUCK), pads (M_PAD), bells (M_BELL), winds (M_WIND), basses (M_BASS), chip voices (M_CHIP) and the subtractive
-   synths (M_SUB; a mono one on the lead or the bass glides from a held note). A key's or a pad's note whose partials
-   stay under 9 kHz, and a synth's on the chords whose low-pass stays at 8 kHz or under, renders at half the rate
-   (half_ok), its role's half-rate voices upsampled by a half- band. A
+   synths (M_SUB; a mono one on the lead or the bass glides from a held note, or a near one just ended: LEG_GAP). A
+   key's or a pad's note whose partials stay under 9 kHz, and a synth's on the chords whose low-pass stays at 8 kHz or
+   under, renders at half the rate (half_ok), its role's half-rate voices upsampled by a half- band. A
    pitched note's level is the patch envelope: a natural decay (nat, from 1 toward sus) times a gate (g: a linear rise,
    a smoothed fall), so a note-off, a steal or vx_release_all fades instead of clicking. Drums are a noise burst or a
    swept sine. Then the mix (Task 8: the role gains, the keys' level per comping, the mud high-pass on the chords', the
@@ -43,6 +43,11 @@
 #define STEAL_THR 0.02f
 #define AMP_K 0.01f /* bass level slew per sample (about 2 ms) */
 #define CHUNK 256 /* vx_render's blocks through the lo-fi chain */
+/* A mono synth's legato after a short rest (the ruling, 2026-10-23: the songs' lines rarely overlap, so a glide only
+   from a held note almost never sounded): a note within LEG_GAP samples of its voice's last note's end, and LEG_INT
+   semitones or less from it (a perfect 4th), glides. Sam judges both by ear. */
+#define LEG_GAP 1102u /* 25 ms */
+#define LEG_INT 5
 #define NBUS 5   /* the role buses: V_CHORD, V_BASS, V_LEAD, V_CANDY and the drums (PM_*) */
 #define DRB 4    /* the drums' bus */
 #define BCR 32u  /* the buses' control rate: filters and the compressor per 32 samples */
@@ -112,7 +117,7 @@ static const role_t ROLES[V_CANDY + 1] = {
 typedef struct {
     const vx_patch_t *pt; /* the patch it was struck with (kept through its release) */
     float nat, nk, sus, g, ka, kr, amp;        /* envelope: nat *= nk; g rises by ka, falls by g * kr */
-    float amp_t;                               /* the bass: amp slews to amp_t times the natural decay */
+    float amp_t;                               /* a slewing voice (slew): amp slews to amp_t times the natural decay */
     union {
         struct { /* M_EP: phases, increments, index and its decay, tine */
             float pc, pm, ic, im, idx, idec, tine;
@@ -169,6 +174,8 @@ typedef struct {
     } m;
     uint32_t gate, age;
     uint8_t on, held, role;
+    uint8_t note; /* the last note struck */
+    uint32_t off; /* when its gate closes (or closed): the engine's clock (t_on) at its onset plus its length */
     uint8_t slew; /* the level slews (the bass's AMP_K): the bass, and a mono synth (its legato notes) */
     uint8_t hr;   /* rendered at half the rate, on even samples (a step is two), into its role's upsampler */
     uint8_t pend; /* a steal in progress: fade out, then start pe on ppt */
@@ -186,6 +193,9 @@ static int qn;
 static voice_t fv[NV];
 static float ks[NV][VX_KS_N] VX_POOL; /* the Karplus-Strong lines, one per voice */
 static uint32_t age_ctr, rng = 0x1234567u;
+static uint32_t clk;  /* the engine's clock at the chunk's start */
+static uint32_t t_on; /* the engine's clock (samples since vx_init) at the events firing now (vx_render) */
+static uint32_t n_glide[2]; /* tests (vx_glides): mono synths' legato notes to a new pitch, the lead's, the bass's */
 static float gain, gain_tgt, gain_step;
 static float ch_m[CHUNK], ch_s[CHUNK]; /* a chunk's music (into fx_process_pairs) and its right channel (out) */
 static float bb[NBUS][CHUNK];          /* the chunk's role buses (the drums' always; the others while filtering) */
@@ -273,6 +283,8 @@ static void voices_clear(uint32_t seed)
     drums_song(seed);
     qn = 0;
     age_ctr = 0;
+    n_glide[0] = n_glide[1] = 0u;
+    t_on = clk = 0u;
     rng = seed * 2654435761u ^ 0x1234567u;
     if (!rng)
         rng = 0x1234567u;
@@ -448,6 +460,8 @@ static void env_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int l
     v->held = 1;
     v->on = 1;
     v->pend = 0;
+    v->note = e->note;
+    v->off = t_on + e->len; /* (a stolen voice's note starts up to ~5 ms later: its end is read a little early) */
 }
 
 /* M_EP's 2-op FM core: p[0..4] as patch.c documents. */
@@ -722,8 +736,8 @@ static float sub_top(const vx_patch_t *p, float hz, float v01)
 
 /* M_SUB, frugal as a Juno-106: one oscillator (a polyBLEP saw or pulse, a sine or a triangle), a sub-octave square
    and noise into a low-pass that its own envelope opens (an attack, then a fall to the key-tracked base). A legato
-   note (a mono patch, a held note: pool_on) keeps the phases, the filter, its envelope and the vibrato, and glides to
-   its pitch over the patch's glide time, evenly in pitch; a fresh note starts on its pitch. */
+   note (a mono patch, a held or just-ended note: pool_on) keeps the phases, the filter, its envelope and the
+   vibrato, and glides to its pitch over the patch's glide time, evenly in pitch; a fresh note starts on its pitch. */
 static void sub_start(voice_t *v, const song_ev_t *e, int legato)
 {
     const vx_patch_t *p = v->pt;
@@ -807,7 +821,8 @@ static void voice_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int
 
 /* The chords' pool is NCH_KEYS voices, NCH for a held pad's note (PAD_LONG). A mono synth (M_SUB, p[11]) on the lead
    or the bass glides: a note while one of its role's voices still holds that patch's note (its gate open, not being
-   stolen) goes legato onto it (the bass role's rule, held notes only: a note after a rest starts on its pitch). A
+   stolen) goes legato onto it; so does one within LEG_GAP of a voice's last note's end and LEG_INT semitones of it
+   (still releasing, or silent but not reused). A note after a longer rest, or a wider leap, starts on its pitch. A
    free voice starts at once. Otherwise the victim is the
    quietest released voice, else the oldest held one, and it fades out over about 4 ms (G_STEAL) before the new note
    starts: the new note begins up to ~5 ms after its sample-accurate time, with no step in the output. */
@@ -820,13 +835,27 @@ static void pool_on(const song_ev_t *e, int role)
         return; /* no instrument on this role */
     if (role == V_CHORD && (p->model != M_PAD || e->len < PAD_LONG))
         count = NCH_KEYS; /* (a held pad's chord change overlaps: its old chord releases under the new one's swell) */
-    if (p->model == M_SUB && p->p[11] > 0.0f && (role == V_LEAD || role == V_BASS))
+    if (p->model == M_SUB && p->p[11] > 0.0f && (role == V_LEAD || role == V_BASS)) {
         for (i = first; i < first + count; i++)
             if (fv[i].on && fv[i].held && !fv[i].pend && fv[i].pt == p) {
-                fv[i].age = ++age_ctr;
-                voice_start(&fv[i], p, e, 1); /* legato: it glides from where it is */
-                return;
+                pick = i;
+                break;
             }
+        if (pick < 0) /* the voice whose note ended last, within LEG_GAP and LEG_INT (sounding or not) */
+            for (i = first; i < first + count; i++) {
+                int d = (int)e->note - (int)fv[i].note;
+                if (!fv[i].held && !fv[i].pend && fv[i].pt == p && t_on - fv[i].off < LEG_GAP && d <= LEG_INT &&
+                    d >= -LEG_INT && (pick < 0 || t_on - fv[i].off < t_on - fv[pick].off))
+                    pick = i;
+            }
+        if (pick >= 0) {
+            v = &fv[pick];
+            v->age = ++age_ctr;
+            n_glide[role == V_BASS] += e->note != v->note;
+            voice_start(v, p, e, 1); /* legato: it glides from where it is */
+            return;
+        }
+    }
     for (i = first; i < first + count; i++)
         if (!fv[i].on) {
             pick = i;
@@ -1769,6 +1798,7 @@ void vx_render(float *l, float *r, uint32_t n)
         while (pos < c) {
             int i, w = 0;
             uint32_t seg = c - pos;
+            t_on = clk + pos;
             for (i = 0; i < qn; i++) { /* start what is due, keeping the order of the rest */
                 if (q[i].rem == 0)
                     fire(&q[i].e);
@@ -1791,6 +1821,7 @@ void vx_render(float *l, float *r, uint32_t n)
         }
         hx_mix(c, filt);
         hpar ^= c & 1u;
+        clk += c;
         if (filt)
             live |= live_buses(); /* (a voice that started in the chunk) */
         mix_chunk(c, filt, live);
@@ -1918,6 +1949,11 @@ float vx_chip_out(int role, float *raw, float *step)
         }
     *raw = *step = 0.0f;
     return 0.0f;
+}
+
+uint32_t vx_glides(int role)
+{
+    return role == V_LEAD ? n_glide[0] : role == V_BASS ? n_glide[1] : 0u;
 }
 
 float vx_duck_db(void)

@@ -69,6 +69,9 @@ void vx_solo(int role);
    envelope and its bit crush); *raw the same sample before the crush, *step the crush's step (the voice's level over
    2^(bits-1)). All 0 for none or no crush. */
 float vx_chip_out(int role, float *raw, float *step);
+/* Tests: the mono synth's legato notes to a new pitch (its glides) on V_LEAD or V_BASS since vx_init (0 for any other
+   role). */
+uint32_t vx_glides(int role);
 /* Tests: the keys' duck under the lead now, in dB (0 at rest, negative while ducked). */
 float vx_duck_db(void);
 /* Tests: the mix's stored states (the mud high-pass, the drums' compressor, the buses' filters) that are neither 0
@@ -77,8 +80,9 @@ int vx_tiny(void);
 /* Queue an event; its delay counts from now, in samples at 44.1 kHz (the engine assumes that rate). 64 pending at
    most; when full the oldest by insertion order is dropped (not the one due first). When all voices of a pitched lane
    are busy, the victim fades out over about 4 ms first, so a stolen note starts up to ~5 ms late. A mono synth patch
-   (M_SUB) on the lead or the bass plays a note that arrives while its last is still held legato on that voice,
-   gliding to it; after a rest it starts on its pitch. The chords' pool is
+   (M_SUB) on the lead or the bass plays a note that arrives while its last is still held, or within 25 ms of its
+   end and a 4th or less from it, legato on that voice, gliding to it; after a longer rest or a wider leap it starts
+   on its pitch. The chords' pool is
    4 voices, 8 for a pad (its release crosses the next chord's swell), and a pad's swell takes at most half its note. */
 void vx_event(const song_ev_t *e);
 /* Adds the mix into l and r (sample-accurate event starts). The chords', the lead's and the ear candy's sums through

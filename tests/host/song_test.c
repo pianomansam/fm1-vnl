@@ -5138,11 +5138,45 @@ static float sb_centroid(uint32_t from)
 
 static float sb_hz(int note) { return 440.0f * fm_exp2f(((float)note - 69.0f) * (1.0f / 12.0f)); }
 
+/* A mono lead (pt) at n1 for 0.3 s, then n2 gap samples after its release: the pitch (cents from n2) in 512-sample
+   windows every 64 samples from 2048 before n2's onset; *lo the lowest, *reach when it is within 10 cents for good
+   (samples after the onset), *c10 the cents 10 ms in, *mono whether it never turned back */
+static void sb_glide(const vx_patch_t *pt, int n1, int n2, uint32_t gap, float *lo, float *reach, float *c10, int *mono)
+{
+    static float ct[1024];
+    float tg = pt->p[12] * 0.001f * 44100.0f;
+    uint32_t on = 13230u + gap, t;
+    int n = 0, j, bad = 0, lo_p = (int)(44100.0f / sb_hz(n2 > n1 ? n2 : n1) * 0.9f),
+        hi_p = (int)(44100.0f / sb_hz(n2 > n1 ? n1 : n2) * 1.1f);
+    sb_pt = *pt;
+    vx_init();
+    vx_assign_patch(V_LEAD, &sb_pt);
+    vt_ev(V_LEAD, n1, 100, 0, 13230u);
+    vt_ev(V_LEAD, n2, 100, on, 22050u);
+    sb_run(12u * 4096u, &bad);
+    CHECK(!bad, "sb_glide: the render went bad");
+    *lo = 1e9f;
+    *mono = 1;
+    *reach = -1.0f;
+    for (t = on - 2048u; t + 256u < on + (uint32_t)(3.0f * tg) && n < 1024; t += 64u, n++) {
+        ct[n] = 1200.0f * fm_log2f(44100.0f / sb_hz(n2) / sb_period(t - 256u, 512u, lo_p, hi_p));
+        if (t >= on) {
+            *lo = fm_minf(*lo, ct[n]);
+            if (ct[n] < ct[n - 1] - 2.0f)
+                *mono = 0;
+        }
+    }
+    for (j = n - 1; j >= 0 && fm_fabsf(ct[j]) <= 10.0f; j--)
+        *reach = (float)(on - 2048u) + 64.0f * (float)j - (float)on;
+    *c10 = 1200.0f * fm_log2f(44100.0f / sb_hz(n2) / sb_period(on + 441u, 512u, lo_p, hi_p));
+}
+
 /* The subtractive voice (M_SUB: Juno, organ, Moog bass, saw, square and sine leads, synth pluck). Its filter envelope
    sweeps (the Moog bass's and the synth pluck's spectral centroid at 20 ms at least twice their centroid at 400 ms);
    the 4-pole falls faster (a saw's harmonic two octaves over a fixed cutoff 18 dB or more under the 2-pole's); a mono
-   lead glides only from a held note (Review Focus 1: the saw lead's legato note on its target within the patch's
-   glide time +-20%, monotonically; a note after a rest on pitch at once; a stolen voice gone within 5 ms); the sine
+   lead glides from a held note (Review Focus 1: the saw lead's legato note on its target within the patch's glide
+   time +-20%, monotonically; a note after a rest on pitch at once; a stolen voice gone within 5 ms), and from one
+   ended 10 ms before a 3rd up (the ruling: within 25 ms and a 4th; a 5th, or a 40 ms rest, on pitch); the sine
    lead's vibrato waits (as the winds'); the Moog bass at full resonance, swept, stays bounded at every note 28-55
    (Review Focus 2); a patch on the chords role renders at half the rate exactly when its highest cutoff with the
    envelope is 8 kHz or under (test_cost_moves holds the Juno's and the organ's half rate to the full rate's). */
@@ -5247,6 +5281,33 @@ static void test_sub(void)
         CHECK(tail == 1, "after a rest: %d voices sounding before the note, wanted the last note's tail", tail);
         CHECK(fm_fabsf(c) <= 5.0f, "after a rest: %.1f cents off the note 10 ms in, wanted no glide", (double)c);
     }
+    { /* the ruling (2026-10-23): a mono lead's note within 25 ms of its last one's end and a 4th or less from it
+         glides (the saw lead, still releasing; and with a 5 ms release, gone, its voice not reused); a 5th, or a
+         40 ms gap, starts on pitch */
+        const vx_patch_t *p = vx_patch(INS_SAW_LEAD);
+        float tg = p->p[12] * 0.001f * 44100.0f, lo, reach, c10;
+        int mono, k;
+        vx_patch_t sh = *p;
+        sh.rel = 0.005f;
+        for (k = 0; k < 2; k++) {
+            sb_glide(k ? &sh : p, 64, 67, 441u, &lo, &reach, &c10, &mono);
+            printf("sub: saw lead (release %.0f ms) 64, 10 ms rest, 67: from %.1f cents, on pitch %.1f ms in, %s\n",
+                   (double)(k ? sh.rel : p->rel) * 1000.0, (double)lo, (double)reach / 44.1,
+                   mono ? "monotonic" : "not monotonic");
+            CHECK(lo < -270.0f, "glide after a 10 ms rest (k %d): lowest %.1f cents, wanted from about -300", k,
+                  (double)lo);
+            CHECK(reach >= 0.8f * tg && reach <= 1.2f * tg,
+                  "glide after a 10 ms rest (k %d): on pitch %.1f ms in, wanted %.0f ms +-20%%", k,
+                  (double)reach / 44.1, (double)p->p[12]);
+            CHECK(mono, "glide after a 10 ms rest (k %d): the pitch turned back", k);
+        }
+        sb_glide(&sh, 64, 71, 441u, &lo, &reach, &c10, &mono);
+        printf("sub: saw lead 64, 10 ms rest, 71 (a 5th): %.1f cents 10 ms in\n", (double)c10);
+        CHECK(fm_fabsf(c10) <= 5.0f, "a 5th after a 10 ms rest: %.1f cents 10 ms in, wanted on pitch", (double)c10);
+        sb_glide(&sh, 64, 67, 1764u, &lo, &reach, &c10, &mono);
+        printf("sub: saw lead 64, 40 ms rest, 67: %.1f cents 10 ms in\n", (double)c10);
+        CHECK(fm_fabsf(c10) <= 5.0f, "a 3rd after a 40 ms rest: %.1f cents 10 ms in, wanted on pitch", (double)c10);
+    }
     { /* a steal: the sine lead (release 2 s) at 57, released; 69 after a rest, released; 81 then takes 57's voice,
          which fades: 57's tone 5 to 25 ms after 81's start is 30 dB or more under its level before it */
         float a0, a1, c1;
@@ -5332,6 +5393,77 @@ static void test_sub(void)
     }
     CHECK(!bad, "a subtractive voice rendered NaN or inf");
     vx_fx_off(0u);
+}
+
+/* The ruling (2026-10-23): in rolled songs a mono synth glides. Over 3 songs of each set with a mono patch on the
+   lead or the bass (12, 13, 15, 16, pinned with roll_set: the first seeds whose roll takes it), the engine's glides
+   (vx_glides) are 15% or more of each mono role's note changes (a note after another at a new pitch), in every set;
+   a poly role never glides. */
+static void test_glide_songs(void)
+{
+    static const int SETS[4] = {12, 13, 15, 16};
+    static song_t s;
+    int k;
+    for (k = 0; k < 4; k++) {
+        const lib_set_t *set = lib_set_by_id((uint8_t)SETS[k]);
+        uint32_t seed, ch[2] = {0, 0}, gl[2] = {0, 0}, sm[2] = {0, 0};
+        int r, mono[2], got;
+        mono[0] = vx_patch(set->lead)->model == M_SUB && vx_patch(set->lead)->p[11] > 0.0f;
+        mono[1] = vx_patch(set->bass)->model == M_SUB && vx_patch(set->bass)->p[11] > 0.0f;
+        CHECK(mono[0] || mono[1], "glides: set %d has no mono synth", SETS[k]);
+        for (seed = 1u, got = 0; got < 3 && seed < 600u; seed++) {
+            song_roll_t ro;
+            song_ev_t ev[64];
+            int last[2] = {-1, -1};
+            float frac = 0.0f;
+            roll_song(NULL, seed, &ro);
+            if (roll_set(&ro, RF_SET, SETS[k]) != SETS[k])
+                continue; /* (a seed whose roll won't take the set) */
+            got++;
+            ro.v[RF_NOISE] = ro.v[RF_AMBIENCE] = 0;
+            vx_init();
+            song_start(&s, &ro);
+            vx_song(&s.roll);
+            while (s.state == SS_PLAYING) {
+                int n = song_tick(&s, ev, 64), i;
+                float adv;
+                uint32_t left;
+                for (i = 0; i < n; i++) {
+                    int j = ev[i].voice == V_LEAD ? 0 : ev[i].voice == V_BASS ? 1 : -1;
+                    if (j >= 0 && ev[i].len) {
+                        if (last[j] >= 0 && last[j] != ev[i].note)
+                            ch[j]++;
+                        last[j] = ev[i].note;
+                    }
+                    vx_event(&ev[i]);
+                }
+                adv = song_step_samples(&s) + frac;
+                left = (uint32_t)adv;
+                frac = adv - (float)left;
+                while (left) {
+                    uint32_t b = left < 1024u ? left : 1024u;
+                    memset(vt_l, 0, b * sizeof(float));
+                    memset(vt_r, 0, b * sizeof(float));
+                    vx_render(vt_l, vt_r, b);
+                    left -= b;
+                }
+            }
+            gl[0] += vx_glides(V_LEAD);
+            gl[1] += vx_glides(V_BASS);
+        }
+        CHECK(got == 3, "glides: %d seeds take set %d, wanted 3", got, SETS[k]);
+        for (r = 0; r < 2; r++)
+            sm[r] = mono[r] ? ch[r] : 0u;
+        printf("glides: set %d (%s): lead %s %u of %u note changes, bass %s %u of %u; %.0f%%\n", SETS[k], set->name,
+               mono[0] ? "mono" : "poly", gl[0], ch[0], mono[1] ? "mono" : "poly", gl[1], ch[1],
+               100.0 * (double)(gl[0] + gl[1]) / (double)(sm[0] + sm[1] ? sm[0] + sm[1] : 1u));
+        for (r = 0; r < 2; r++)
+            if (mono[r])
+                CHECK(gl[r] * 100u >= 15u * ch[r], "glides: set %d's %s glides %u of %u note changes, wanted 15%%+",
+                      SETS[k], r ? "bass" : "lead", gl[r], ch[r]);
+            else
+                CHECK(gl[r] == 0u, "glides: set %d's poly %s glided %u times", SETS[k], r ? "bass" : "lead", gl[r]);
+    }
 }
 
 /* The FM patches (new patches on M_EP, M_BASS and M_BELL). The DX electric piano's first 30 ms is brighter than the
@@ -6196,6 +6328,7 @@ int main(int argc, char **argv)
     RUN(test_wet);
     RUN(test_cost_moves);
     RUN(test_sub);
+    RUN(test_glide_songs);
     RUN(test_fm_patches);
     RUN(test_rings_pair);
     RUN(test_mix_parts);

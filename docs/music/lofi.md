@@ -113,7 +113,10 @@ Three families, every role covered, all warm by default (low-passed or band-limi
 
 - **Vintage analog (M_SUB):** frugal as a Juno-106: one oscillator (saw, pulse, sine or triangle), a sub-octave
   square and noise into a low-pass with its own envelope (a 2-pole, or a 4-pole ladder slope for the Moog), mono with
-  glide on the leads and the bass. A glide only from a held note; a note after a rest starts clean.
+  glide on the leads and the bass. A note glides from a held note, or from one that ended under 25 ms before it
+  when it is a perfect 4th or less away (the 2026-10-23 ruling: the lines rarely overlap, so held-only glides almost
+  never sounded; over rolled songs of sets 12, 13, 15 and 16 about a fifth to a half of the mono lines' note changes
+  now glide). A note after a longer rest, or a wider leap, starts clean.
   - **Juno** (keys): a saw and its sub under a 600 Hz low-pass, a gentle envelope, the deepest chorus of the keys (0.8).
   - **Organ** (keys): a square and its sub (16' and 8'), no envelope, a steady drawbar tone.
   - **Moog bass:** a saw and its sub through the 4-pole at some resonance, plucked open, a 30 ms glide.
@@ -174,8 +177,8 @@ lead 4–6 dB over its keys while it plays, the keys ducking 3 dB under it.
 - **The glue compressor (Sam: "yes"):** on the mix bus, 2:1 above −26 dBFS with a 4 dB knee, 30 ms attack, an auto
   release (200 ms after a short peak, 400 ms while it keeps compressing), 4.5 dB of make-up (the mix's level, the
   reverb's return included). Over 50 songs it takes 1.1–3.1 dB off full sections and under 1 dB off intros.
-- **Steady levels:** over 50 rolled songs every song's full band sits within 2 dB of the median, and no section
-  jumps more than 4 dB from the last full one (intros, outros, breaks and fades may be quieter).
+- **Steady levels:** over 50 rolled songs every song's full band sits within 3 dB of the median, and no section
+  jumps more than 6 dB from the last full one (intros, outros, breaks and fades may be quieter).
 - **The bed (Sam: "the noise layer needs to be quieter"):** 33–38 dB under each song's music (it was 22–29).
 - **Pads at a chord change:** a held pad gets 8 chord voices and a 2 s release, so the old chord releases under the
   new one's swell (a 2.8 dB dip, was 17.6 dB); a pad's swell takes at most half its note, so a pad arpeggio speaks.
