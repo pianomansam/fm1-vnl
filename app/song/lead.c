@@ -14,6 +14,7 @@ typedef struct {                  /* what one bar's planning reads */
     int lo, hi;                   /* the lead's range this bar (a 4th over percussive keys' top; set by a pad's place) */
     int lo_x;                     /* the floor for a note that sounds on into the next chord */
     int shift;                    /* the keys' octave shift (a pad with or above the lead) */
+    int can_push;                 /* the next bar's chord is known (no request lands on it) */
 } ctx_t;
 
 static int is_ct(int note, const int *pcs, int np)
@@ -151,9 +152,10 @@ static void plan_line(lead_state_t *ls, const ctx_t *c, int bar, int bpc, const 
     if (phrase_end) {                                    /* breathe at the phrase's end */
         for (i = 8; i < 16; i++) ls->on[i] = 0;
         for (i = 0; i < 8; i++) if (ls->on[i] && i + ls->len[i] > 8) ls->len[i] = 8 - i;
-    } else if ((cell == 4 || cell == 2) && (bar + 1) % bpc == 0 && push_ok(c, next)) {
+    } else if ((cell == 4 || cell == 2) && (bar + 1) % bpc == 0 && c->can_push && push_ok(c, next)) {
         for (i = 14; i < 16; i++) ls->on[i] = 0;
-        put(ls, 14, next, 2);
+        put(ls, 14, next, 4);                            /* rings across the bar line into the next chord */
+        ls->ring |= 1u << 14;
         ls->tied = 1;
         cur = next;
     } else if ((bar + 1) % bpc == 0 && next > 0 && (next - cur >= 3 || cur - next >= 3) && !ls->on[12] &&
@@ -231,7 +233,7 @@ static void plan_arp(lead_state_t *ls, const ctx_t *c, int bar)
 
 /* how a chord change lands on the skeleton note: on 1 for an 8th, on 1 for a quarter, an 8th late, a 16th late,
    pushed an 8th early, or a beat's rest then on 2 (Sam: not always a quarter on 1; 1 can rest) */
-static int landing(uint32_t seed, int bar)
+int lead_landing(uint32_t seed, int bar)
 {
     static const uint8_t W[6] = {15, 15, 20, 10, 20, 20};
     uint32_t h = seed * 0x9E3779B1u ^ (uint32_t)(bar + 1) * 0x85EBCA6Bu;
@@ -248,8 +250,9 @@ static void plan_hybrid(lead_state_t *ls, const ctx_t *c, int bar, int bpc, cons
     ls->tied = 0;
     plan_arp(ls, c, bar);
     if (bar % bpc == 0) {
-        int how = landing(c->r->seed, bar);
-        if (how == 4 && pushed) {
+        int how = lead_landing(c->r->seed, bar);
+        if (how == 4 && !pushed) how = 0;                /* the push was refused: land on 1 instead */
+        if (how == 4) {
             land(ls, 0, 0, 2);                           /* it already sounds from the last bar: let it ring */
         } else {
             static const int8_t AT[6] = {0, 0, 2, 3, 2, 4}, LEN[6] = {2, 4, 4, 3, 4, 4};
@@ -259,11 +262,12 @@ static void plan_hybrid(lead_state_t *ls, const ctx_t *c, int bar, int bpc, cons
             land(ls, AT[how], note, LEN[how]);
         }
     }
-    if ((bar + 1) % bpc == 0 && nn > 0 && landing(c->r->seed, bar + 1) == 4) {
+    if ((bar + 1) % bpc == 0 && nn > 0 && c->can_push && lead_landing(c->r->seed, bar + 1) == 4) {
         int nxt = skel_from(c, npcs, nn, ls->last, c->lo_x);
         if (push_ok(c, nxt)) {
             ls->last = nxt;
             land(ls, 14, nxt, 4);                        /* the next chord's note an 8th early, across the bar */
+            ls->ring |= 1u << 14;
             ls->tied = 1;
         }
     }
@@ -275,7 +279,7 @@ int lead_plays(const plan_block_t *b)
 }
 
 int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b, int bar, const int keys[4],
-                  const int nkeys[4], const int *pcs, int np)
+                  const int nkeys[4], const int *pcs, int np, int can_push)
 {
     const lib_prog_t *pr = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
@@ -284,10 +288,11 @@ int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b,
     ctx_t c;
     for (i = 0; i < 16; i++) ls->on[i] = 0;
     ls->acc = 0;
+    ls->ring = 0;
     ls->active = ls->tied;
     ls->onsets = 0;
     if (!lead_plays(b) || np <= 0) { ls->tied = 0; return 0; }
-    c.r = r; c.keys = keys; c.pcs = pcs; c.np = np; c.bass = 0;
+    c.r = r; c.keys = keys; c.pcs = pcs; c.np = np; c.bass = 0; c.can_push = can_push;
     if (set && lib_ins_sustained(set->chords)) {         /* a pad: the octave doesn't matter (Sam), its place does */
         int pl = harmony_pad_place(r);
         c.lo = c.lo_x = 60;
@@ -325,7 +330,7 @@ int lead_step(const lead_state_t *ls, int step, float step_samples, song_ev_t *o
     out->voice = V_LEAD;
     out->note = (uint8_t)ls->on[step];
     out->vel = (uint8_t)((ls->acc >> step) & 1 ? 84 : 74);
-    out->pad = 0;
+    out->pad = (uint8_t)((ls->ring >> step) & 1);      /* 1: a push, ringing past the bar (and the 4-bar line) */
     out->delay = 0;
     out->len = len > 1.0f ? (uint32_t)len : 1u;
     return 1;

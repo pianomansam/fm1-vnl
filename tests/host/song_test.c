@@ -1992,6 +1992,69 @@ static void test_never_both_silent(void)
     CHECK(bars > 5000 && silent == 0, "%ld of %ld keys bars with neither keys nor lead sounding", silent, bars);
 }
 
+/* Review fixes. A push (the next chord's note an 8th early) rings across the bar line, in the sung line and the
+   hybrid alike, the 4-bar note-off line included when no request waits; a push the next chord rejects lands on 1
+   instead; and no push rings into a bar where a request lands (the next chord isn't known yet). */
+static void test_pushes(void)
+{
+    static song_t s;
+    uint32_t seed = 1212;
+    song_roll_t prev, r;
+    song_ev_t ev[64];
+    long pushes = 0, short_push = 0, rejected = 0, late = 0, req_bars = 0, into_req = 0;
+    int k, i;
+    for (k = 0; k < 300; k++) {
+        const lib_set_t *set;
+        const lib_prog_t *pr;
+        int bpc, hybrid, pushed_in = 0, tied_now = 0, req_at = -1, cur = -1;
+        uint32_t lead_end = 0;
+        seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+        roll_song(k ? &prev : 0, seed, &r);
+        prev = r;
+        set = lib_set_by_id((uint8_t)r.v[RF_SET]);
+        hybrid = set && !lib_ins_sustained(set->lead);
+        pr = lib_prog_by_id((uint8_t)r.v[RF_PROG]);
+        bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1;
+        song_start(&s, &r);
+        while (s.state == SS_PLAYING) {
+            int bar = s.bar, st = s.step, n;
+            const plan_block_t *b = plan_at(&s.plan, bar);
+            uint32_t now = s.pos;
+            float ss = song_step_samples(&s);
+            if (k % 2 && st == 0 && bar % 4 == 1 && lead_plays(b) && req_at < 0) {
+                song_request(&s, RF_KEY, (s.roll.v[RF_KEY] + 5) % 12);   /* odd songs: a key change mid-lead */
+                req_at = (bar / 4 + 1) * 4;
+            }
+            if (bar != cur && st == 0) {
+                if (bar == req_at) { req_bars++; into_req += lead_end > now; }
+                cur = bar;
+                pushed_in = tied_now;
+            }
+            n = song_tick(&s, ev, 64);
+            if (st == 0) tied_now = lead_plays(b) && s.lead.tied;
+            if (st == 0 && hybrid && lead_plays(b) && bar % bpc == 0 && !pushed_in && s.lead.acc &&
+                lead_landing(s.roll.seed, bar) == 4) {
+                rejected++;
+                late += !(s.lead.acc & 1u);
+            }
+            for (i = 0; i < n; i++) {
+                if (ev[i].voice != V_LEAD) continue;
+                if (now + ev[i].delay + ev[i].len > lead_end) lead_end = now + ev[i].delay + ev[i].len;
+                if (st == 14 && tied_now && req_at != bar + 1) {
+                    pushes++;
+                    short_push += (float)ev[i].delay + (float)ev[i].len <= 2.0f * ss + 1.0f;
+                }
+            }
+        }
+    }
+    printf("pushes: %ld, %ld end before the bar line; %ld rejected pushes, %ld landed late; %ld request bars, %ld rung "
+           "into\n", pushes, short_push, rejected, late, req_bars, into_req);
+    CHECK(pushes > 300 && short_push == 0, "%ld of %ld pushes end before the bar line", short_push, pushes);
+    CHECK(rejected > 20 && late == 0, "%ld of %ld rejected pushes landed late, not on 1", late, rejected);
+    CHECK(req_bars > 50 && into_req == 0, "lead notes rang into %ld of %ld bars where a request lands", into_req,
+          req_bars);
+}
+
 /* Sam: the keys and the bass never share a rhythm of more than a note on 1 (stabs on a kick of 1 and the and of 2) */
 static void test_keys_bass_rhythms_differ(void)
 {
@@ -2268,6 +2331,7 @@ int main(void)
     test_line_wanders();
     test_hybrid_follows_motion();
     test_never_both_silent();
+    test_pushes();
     test_loop_voicings();
     test_dominant_extensions();
     test_no_substitution();

@@ -351,6 +351,8 @@ int song_tick(song_t *s, song_ev_t *out, int max)
     step = s->step;
     idx = bar * 16 + step;
     if (step == 0 && bar % 4 == 0) {
+        for (i = 0; i < RF_N; i++)                  /* a request lands: a push into this bar was cut at the line */
+            if (s->pend[i] && s->pend_bar[i] == bar) s->lead.tied = 0;
         apply_requests(s, bar);
         find_edge(s, idx);
     }
@@ -367,7 +369,9 @@ int song_tick(song_t *s, song_ev_t *out, int max)
             int keys[4], nkeys[4];
             harmony_voicing_at(&s->roll, bar, pass, &s->voicing, keys);
             harmony_voicing_at(&s->roll, bar + 1, (bar + 1) / loop_bars(&s->roll) + 1, &s->voicing, nkeys);
-            lead_plan_bar(&s->lead, &s->roll, b, bar, keys, nkeys, pcs, np);
+            for (i = 0, k = bar + 1 < s->plan.bars; i < RF_N; i++)   /* no push past the end, or into a change */
+                if (s->pend[i] && s->pend_bar[i] == bar + 1) k = 0;
+            lead_plan_bar(&s->lead, &s->roll, b, bar, keys, nkeys, pcs, np, k);
         }
         n += groove_step(&s->roll, b, bar, step, gs, pcs, np, salt, buf + n, BUF - n);
         n += harmony_step(&s->roll, b, bar, step, pass, gs, &s->voicing, s->lead.onsets >= 4, salt, buf + n,
@@ -398,8 +402,9 @@ int song_tick(song_t *s, song_ev_t *out, int max)
         uint32_t at = s->pos + buf[i].delay;
         if (buf[i].voice <= V_CANDY && buf[i].len) {
             if (at >= s->edge) continue;            /* would start past the line: dropped, not clicked */
-            if (at + buf[i].len > s->edge && !(buf[i].voice == V_BASS && buf[i].pad && !pending_any(s)))
-                buf[i].len = s->edge - at;          /* (SPIKE: an anticipated bass note rings on, unless a change lands) */
+            if (at + buf[i].len > s->edge &&
+                !((buf[i].voice == V_BASS || buf[i].voice == V_LEAD) && buf[i].pad && !pending_any(s)))
+                buf[i].len = s->edge - at;          /* a push (lead, or the bass spike) rings on unless a change lands */
         }
         buf[k++] = buf[i];
     }
