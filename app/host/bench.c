@@ -7,7 +7,7 @@
    heaviest seed may not carry the heaviest chain: the picked seed (and every seed with --forced) is also timed with
    its chain forced to the heaviest real one (dust 3, vinyl, rain), printed as `forced`: the upper bound.
    Each step sets the section moves (plan_moves) as the app's step() does. VNL_FXOFF=<VX_OFF_* mask> switches effects
-   off, to measure what each costs. VNL_FX=rings puts Rings' reverb and chorus in place of ours (the head-to-head).
+   off, to measure what each costs. VNL_FX=ours puts our plate and chorus in place of Rings' (the default).
    VNL_RUNS=<n> takes the best of n runs everywhere (default: 3 for the songs and
    AMB-1, 7 for --parts), for a busy host.
    The AMB-1 engine's headers clash with ours (MODE_*), so its few entry points are declared here by hand. */
@@ -45,7 +45,7 @@ static int runs(int dflt)
 static void rings_switch(void)
 {
     const char *e = getenv("VNL_FX");
-    fx_rings(e && !strcmp(e, "rings"));
+    fx_rings(!(e && !strcmp(e, "ours")));
 }
 
 static double now_ms(void)
@@ -249,6 +249,34 @@ static double best_part(const part_t *p)
     return b;
 }
 
+/* the lo-fi chain alone, 60 s at dust 0, the plate open, the chorus at 0.7, the delay on: a steady noise on the music
+   and every wet input (what move 3 of docs/cost.md targets: the always-on chain, not the voices) */
+static double run_chain(void)
+{
+    static float l[BLK], r[BLK], ch[BLK], dl[BLK];
+    uint32_t done, x = 1u, k;
+    double t0;
+    rings_switch();
+    fx_init();
+    fx_configure(0, 0, 0, FL_LOFI);
+    fx_chorus(0.7f);
+    fx_land();
+    t0 = now_ms();
+    for (done = 0; done < SR * SECS; done += BLK) {
+        for (k = 0; k < BLK; k++) {
+            x ^= x << 13;
+            x ^= x >> 17;
+            x ^= x << 5;
+            l[k] = (float)(int32_t)x * 1e-10f;
+            r[k] = 0.3f * l[k];
+            ch[k] = l[k];
+            dl[k] = 0.05f * l[k];
+        }
+        fx_process_buses(l, r, ch, dl, BLK, 0.0f);
+    }
+    return now_ms() - t0;
+}
+
 static void row(const char *grp, const char *name, double t, double base, double amb)
 {
     printf("%-7s %-24s %7.1f ms  net %7.1f ms  ratio %.3f\n", grp, name, t, t - base, (t - base) / amb);
@@ -325,6 +353,8 @@ static void parts(double amb)
     q.noise = 1;
     row("fx", "full chain (3,vinyl,rain)", best_part(&q), src, amb);
     printf("(kick ducking runs inside dust_run at every level: not separable)\n");
+    for (k = 0, b = 1e30; k < PART_RUNS; k++) { t = run_chain(); if (t < b) b = t; }
+    row("fx", "chain alone (dust 0)", b, 0.0, amb);
 }
 
 int main(int argc, char **argv)

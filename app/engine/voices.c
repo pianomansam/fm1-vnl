@@ -347,9 +347,12 @@ static void ep_start(voice_t *v, const song_ev_t *e)
     v->m.ep.pm = v->m.ep.pc;
     v->m.ep.hit = p->p[5] * v01;
     v->m.ep.hk = 1.0f - k_t60(STRIKE_T60 / dv);
-    v->m.ep.bark = p->p[6] * v01;
     v->m.ep.bk = 1.0f - k_t60(BARK_T60 / dv);
     v->m.ep.bc = v->hr ? 1.0f - (1.0f - BARK_LP) * (1.0f - BARK_LP) : BARK_LP; /* the same one-pole, two samples a step */
+    /* white noise drawn at half the rate has twice the power in band: the bark scaled so its one-pole's output power
+       (a / (2 - a) of the noise's) matches the full rate's */
+    v->m.ep.bark = p->p[6] * v01 *
+                   (v->hr ? fm_sqrtf((BARK_LP / (2.0f - BARK_LP)) * (2.0f - v->m.ep.bc) / v->m.ep.bc) : 1.0f);
     v->m.ep.by = v->m.ep.ly = 0.0f; /* the union may hold another model's state */
     v->m.ep.la = p->p[7] > 0.0f ? k_lp1(p->p[7] * (0.6f + 0.4f * v01) * dv) : 0.0f;
 }
