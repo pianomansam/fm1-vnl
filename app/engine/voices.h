@@ -37,6 +37,9 @@ void vx_bed_off(int on);                 /* 1: no surface noise or rain (host re
 void vx_song(const song_roll_t *r);
 /* One pitched role's instrument (voice V_CHORD, V_BASS, V_LEAD or V_CANDY; others ignored). */
 void vx_assign(int voice, int ins);
+/* Tests: a role's patch given directly (a changed copy of a table patch; it must outlive its notes), its sends and
+   filters as vx_assign sets them; the config is left as it was. */
+void vx_assign_patch(int voice, const vx_patch_t *p);
 const vx_config_t *vx_config(void);
 /* The drum kit (KIT_*); vx_configure sets it from the song's set. */
 void vx_set_kit(int kit);
@@ -69,7 +72,9 @@ float vx_duck_db(void);
 int vx_tiny(void);
 /* Queue an event; its delay counts from now, in samples at 44.1 kHz (the engine assumes that rate). 64 pending at
    most; when full the oldest by insertion order is dropped (not the one due first). When all voices of a pitched lane
-   are busy, the victim fades out over about 4 ms first, so a stolen note starts up to ~5 ms late. The chords' pool is
+   are busy, the victim fades out over about 4 ms first, so a stolen note starts up to ~5 ms late. A mono synth patch
+   (M_SUB) on the lead or the bass plays a note that arrives while its last is still held legato on that voice,
+   gliding to it; after a rest it starts on its pitch. The chords' pool is
    4 voices, 8 for a pad (its release crosses the next chord's swell), and a pad's swell takes at most half its note. */
 void vx_event(const song_ev_t *e);
 /* Adds the mix into l and r (sample-accurate event starts). The chords', the lead's and the ear candy's sums through

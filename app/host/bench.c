@@ -306,12 +306,14 @@ static void parts(double amb)
 {
     static const named_t CH[] = {{"rhodes", INS_RHODES}, {"wurli", INS_WURLI}, {"felt piano", INS_FELT_PIANO},
                                  {"nylon", INS_NYLON}, {"pad", INS_PAD}, {"vox pad", INS_VOX_PAD},
-                                 {"chip chords", INS_CHIP_CHORDS}};
+                                 {"chip chords", INS_CHIP_CHORDS}, {"juno", INS_JUNO}, {"organ", INS_ORGAN}};
     static const named_t BS[] = {{"upright", INS_UPRIGHT}, {"elec bass", INS_ELEC_BASS}, {"sub", INS_SUB},
-                                 {"chip bass", INS_CHIP_BASS}};
+                                 {"chip bass", INS_CHIP_BASS}, {"moog bass", INS_MOOG_BASS}};
     static const named_t LD[] = {{"flute", INS_FLUTE}, {"muted trumpet", INS_MUTED_TPT}, {"sax", INS_SAX},
                                  {"vibes", INS_VIBES}, {"kalimba", INS_KALIMBA}, {"guitar lick", INS_GUITAR_LICK},
-                                 {"chip lead", INS_CHIP_LEAD}};
+                                 {"chip lead", INS_CHIP_LEAD}, {"saw lead", INS_SAW_LEAD},
+                                 {"square lead", INS_SQUARE_LEAD}, {"sine lead", INS_SINE_LEAD},
+                                 {"synth pluck", INS_SYNTH_PLUCK}};
     static const named_t CD[] = {{"music box", INS_MUSIC_BOX}, {"bells", INS_BELLS}, {"chip blip", INS_CHIP_BLIP}};
     static const named_t KT[] = {{"dusty", KIT_DUSTY}, {"soft", KIT_SOFT}, {"808", KIT_808}, {"brushes", KIT_BRUSHES}};
     static const uint32_t sd[4] = {20, 100, 128, 183};
@@ -324,9 +326,9 @@ static void parts(double amb)
     for (k = 0; k < 4; k++)
         for (j = 0; j < PART_RUNS; j++) { t = run_vnl(sd[k], 0, &e, 0); if (t < b) b = t; }
     printf("floor: song engine ticking only (seeds 20/100/128/183, best, no render): %.1f ms = ratio %.3f\n", b, b / amb);
-    role_rows("chords", P_CHORDS, V_CHORD, CH, 7, base, amb);
-    role_rows("bass", P_BASS, V_BASS, BS, 4, base, amb);
-    role_rows("lead", P_LEAD, V_LEAD, LD, 7, base, amb);
+    role_rows("chords", P_CHORDS, V_CHORD, CH, 9, base, amb);
+    role_rows("bass", P_BASS, V_BASS, BS, 5, base, amb);
+    role_rows("lead", P_LEAD, V_LEAD, LD, 11, base, amb);
     role_rows("candy", P_CANDY, V_CANDY, CD, 3, base, amb);
     for (k = 0; k < 4; k++) {
         p = part_of(P_DRUMS);

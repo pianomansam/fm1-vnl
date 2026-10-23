@@ -12,7 +12,8 @@ enum { PK_VAMP, PK_LOOP, PK_JAZZY };
 
 enum { INS_RHODES, INS_WURLI, INS_FELT_PIANO, INS_NYLON, INS_PAD, INS_UPRIGHT, INS_ELEC_BASS, INS_SUB, INS_FLUTE,
        INS_MUTED_TPT, INS_SAX, INS_VIBES, INS_KALIMBA, INS_GUITAR_LICK, INS_MUSIC_BOX, INS_BELLS, INS_VOX_PAD,
-       INS_CHIP_CHORDS, INS_CHIP_LEAD, INS_CHIP_BASS, INS_CHIP_BLIP, INS_NONE }; /* append new ones before INS_NONE */
+       INS_CHIP_CHORDS, INS_CHIP_LEAD, INS_CHIP_BASS, INS_CHIP_BLIP, INS_JUNO, INS_ORGAN, INS_MOOG_BASS,
+       INS_SAW_LEAD, INS_SQUARE_LEAD, INS_SINE_LEAD, INS_SYNTH_PLUCK, INS_NONE }; /* append new ones before INS_NONE */
 enum { KIT_DUSTY, KIT_SOFT, KIT_808, KIT_BRUSHES };
 enum { FL_LOFI, FL_BOSSA, FL_CITYPOP, FL_NEOSOUL, FL_CHILLWAVE };
 enum { D_KICK, D_SNARE, D_HAT, D_OHAT, D_SHAKER, D_RIM };
@@ -37,7 +38,9 @@ extern const lib_mood_t LIB_MOODS[4];      /* sad, wistful, warm, sunny */
 
 const lib_prog_t *lib_prog_by_id(uint8_t id);        /* all four: NULL if unknown */
 const lib_set_t *lib_set_by_id(uint8_t id);
-int lib_ins_sustained(int ins);                       /* 1: slow attack, held breath or a held tone (pads, winds, chip chords); 0: struck, plucked, chip lead and blips */
+/* 1: slow attack, held breath or a held tone (pads, winds, chip chords, the Juno, the organ, the saw, square and sine
+   leads); 0: struck, plucked, the chip lead and blips, the synth pluck */
+int lib_ins_sustained(int ins);
 const lib_pattern_t *lib_pattern_by_id(uint8_t id);
 const lib_map_t *lib_map_by_id(uint8_t id);
 

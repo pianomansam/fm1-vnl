@@ -176,5 +176,6 @@ const lib_map_t *lib_map_by_id(uint8_t id)
 int lib_ins_sustained(int ins)
 {
     return ins == INS_PAD || ins == INS_FLUTE || ins == INS_SAX || ins == INS_MUTED_TPT || ins == INS_VOX_PAD ||
-           ins == INS_CHIP_CHORDS;
+           ins == INS_CHIP_CHORDS || ins == INS_JUNO || ins == INS_ORGAN || ins == INS_SAW_LEAD ||
+           ins == INS_SQUARE_LEAD || ins == INS_SINE_LEAD;
 }

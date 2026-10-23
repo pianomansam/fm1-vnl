@@ -301,6 +301,35 @@ case): `--forced 7 20 49 100 128 183` gave 0.838 / 0.787 / 0.758 / 0.740 / 0.819
 const patches, 672 B of flash, and the chip's code), RAM 45964 B, pool 179644 B: unchanged (the chip's state fits in
 the voice union).
 
+## Synths Task 2: the subtractive voice (M_SUB), measured
+
+`--parts` best of 7 (AMB-1's time 138.1 ms in this run, the idle floor 0.098). One oscillator (a polyBLEP saw or
+pulse, a sine or a triangle), a sub-octave square sharing the oscillator's polyBLEP, noise, then the low-pass: a TPT
+SVF per sample, its envelope and coefficients at a control rate of 16 samples (a `fm_exp2f` and a `fm_tanf`, only
+while the cutoff moves). On the chords a 2-pole patch whose highest cutoff stays at 8 kHz or under renders at half the
+rate through a matched biquad (`bq_match`, as the pads; a bilinear SVF at half the rate measured 3 dB short in the
+4-8 kHz band). The Moog bass's 4-pole (two SVFs, a zero-delay feedback solve) runs at the full rate on its one voice.
+
+| Component | Role | Ratio (net of floor) | Same run, for scale |
+|---|---|---|---|
+| Juno (saw + sub, half rate) | 4 chord voices | 0.284 | Rhodes 0.292, pad 0.267, chip chords 0.231 |
+| Organ (square + sub, no envelope, half rate) | 4 chord voices | 0.224 | vox pad 0.229, nylon 0.225 |
+| Moog bass (saw + sub, 4-pole, full rate) | 1 bass voice | 0.231 | elec bass 0.163, sub 0.132 |
+| Saw lead (mono, glide 90 ms) | 1 lead voice (legato) | 0.156 | flute 0.240, chip lead 0.158 |
+| Square lead (mono, glide 60 ms, vibrato) | 1 lead voice (legato) | 0.166 | |
+| Sine lead (mono, glide 70 ms, vibrato) | 1 lead voice (legato) | 0.161 | |
+| Synth pluck (pulse, poly) | 2 lead voices | 0.249 | vibes 0.269, kalimba 0.205 |
+
+The bench's lead part overlaps its 8ths, so a mono lead holds one voice, gliding, where the poly leads use two. The
+Juno pays for its matched biquad's redesign while its filter envelope moves (about 1 s a chord); the organ's cutoff
+never moves, so it is set once a note. The Moog bass is the dearest bass: the 4-pole at the full rate, its envelope
+always moving under 8ths.
+
+**The forced maximum** (no set uses a subtractive voice yet; sets are Task 4): `--forced 7 20 49 100 128 183` gave
+0.821 / 0.781 / 0.747 / 0.735 / 0.818 / 0.746 (forced), max **0.821** (seed 7), against 0.838 before: within the
+noise. **Memory:** image 168156 B (was 162848: the seven patches and the voice's code), RAM 46172 B (was 45964: the
+voice union grows to M_SUB's 128 B, 8 B a voice, and a slew flag), pool 179644 B (unchanged).
+
 ## The three biggest costs
 
 1. **The FM electric-piano chords (Rhodes, felt piano and Wurli: 0.36 to 0.48, four voices).** Each voice runs, per

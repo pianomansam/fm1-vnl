@@ -4776,15 +4776,16 @@ static const float PLATE_REF[5] = {13.81f, 15.22f, 17.79f, 19.79f, 19.23f};
 
 static void test_cost_moves(void)
 {
-    static const int CH[6] = {INS_RHODES, INS_WURLI, INS_FELT_PIANO, INS_NYLON, INS_PAD, INS_VOX_PAD};
+    static const int CH[8] = {INS_RHODES, INS_WURLI, INS_FELT_PIANO, INS_NYLON, INS_PAD, INS_VOX_PAD,
+                              INS_JUNO, INS_ORGAN};
     static const int NOTES[4] = {48, 60, 72, 84}, VELS[2] = {64, 110};
     float worst_band = 0.0f, worst_alias = -999.0f;
     int c, j, v, b;
 
-    /* half-rate keys and pads: every chords-role patch, notes to MIDI 84, two velocities. Per octave band below 8 kHz
-       the half-rate render's energy is within 1 dB of the full rate's; no aliasing or imaging product reaches -50 dB
-       (or, where the full-rate render already has one there, it grows by under 1 dB) */
-    for (c = 0; c < 6; c++)
+    /* half-rate keys, pads, the Juno and the organ: every chords-role patch, notes to MIDI 84, two velocities. Per
+       octave band below 8 kHz the half-rate render's energy is within 1 dB of the full rate's; no aliasing or imaging
+       product reaches -50 dB (or, where the full-rate render already has one there, it grows by under 1 dB) */
+    for (c = 0; c < 8; c++)
         for (j = 0; j < 4; j++)
             for (v = 0; v < 2; v++) {
                 const vx_patch_t *p = vx_patch(CH[c]);
@@ -4799,6 +4800,8 @@ static void test_cost_moves(void)
                     fb[1] = f0 * dt * p->p[1];
                     nb = 2;
                 }
+                if (p->model == M_SUB && p->p[2] > 0.0f)
+                    fb[0] = 0.5f * f0; /* the sub-octave's partials */
                 cm_note(V_CHORD, CH[c], NOTES[j], VELS[v], 1, cm_x, 2u * 44100u);
                 cm_note(V_CHORD, CH[c], NOTES[j], VELS[v], 0, cm_y, 2u * 44100u);
                 cm_spec(cm_x + w0, CM_N, cm_pa, 0);
@@ -4954,6 +4957,261 @@ static void test_cost_moves(void)
         fx_glue_off(0);
         fx_rings(1);
     }
+}
+
+/* ------------------------- Synths Task 2: the subtractive voice (M_SUB) --- */
+static const int SUB_INS[7] = {INS_JUNO, INS_ORGAN, INS_MOOG_BASS, INS_SAW_LEAD, INS_SQUARE_LEAD, INS_SINE_LEAD,
+                               INS_SYNTH_PLUCK};
+static vx_patch_t sb_pt; /* a table patch's copy with a field changed (vx_assign_patch) */
+
+/* vt_long[0, n) of the left output from the events queued (n a multiple of 4096, at most VT_LONG) */
+static void sb_run(uint32_t n, int *bad)
+{
+    uint32_t k;
+    for (k = 0; k < n; k += 4096u) {
+        vt_block(4096, bad);
+        memcpy(vt_long + k, vt_l, 4096 * sizeof(float));
+    }
+}
+
+/* the period of vt_long[from .. from+w) between lo and hi samples: the normalized autocorrelation's peak,
+   parabolically interpolated */
+static float sb_period(uint32_t from, uint32_t w, int lo, int hi)
+{
+    float r[512], a, b, c, d;
+    int lag, best = lo;
+    for (lag = lo; lag <= hi; lag++) {
+        float s = 0.0f, e0 = 0.0f, e1 = 0.0f;
+        uint32_t i;
+        for (i = from; i < from + w; i++) {
+            s += vt_long[i] * vt_long[i + (uint32_t)lag];
+            e0 += vt_long[i] * vt_long[i];
+            e1 += vt_long[i + (uint32_t)lag] * vt_long[i + (uint32_t)lag];
+        }
+        r[lag - lo] = s * (e0 > 0.0f && e1 > 0.0f ? fm_rsqrtf(e0 * e1) : 0.0f);
+        if (r[lag - lo] > r[best - lo])
+            best = lag;
+    }
+    if (best == lo || best == hi)
+        return (float)best;
+    a = r[best - lo - 1];
+    b = r[best - lo];
+    c = r[best - lo + 1];
+    d = a - 2.0f * b + c;
+    return (float)best + (d != 0.0f ? 0.5f * (a - c) / d : 0.0f);
+}
+
+/* the spectral centroid (Hz) of vt_long[from, from + 1024), Hann-windowed: the bins' frequencies weighted by their
+   magnitudes */
+static float sb_centroid(uint32_t from)
+{
+    double s = 0.0, e = 0.0;
+    uint32_t k;
+    cm_spec(vt_long + from, 1024u, cm_pa, 0);
+    for (k = 1; k <= 512u; k++) {
+        double a = (double)fm_sqrtf((float)cm_pa[k]);
+        s += (double)k * a;
+        e += a;
+    }
+    return e > 0.0 ? (float)(s / e) * 44100.0f / 1024.0f : 0.0f;
+}
+
+static float sb_hz(int note) { return 440.0f * fm_exp2f(((float)note - 69.0f) * (1.0f / 12.0f)); }
+
+/* The subtractive voice (M_SUB: Juno, organ, Moog bass, saw, square and sine leads, synth pluck). Its filter envelope
+   sweeps (the Moog bass's and the synth pluck's spectral centroid at 20 ms at least twice their centroid at 400 ms);
+   the 4-pole falls faster (a saw's harmonic two octaves over a fixed cutoff 18 dB or more under the 2-pole's); a mono
+   lead glides only from a held note (Review Focus 1: the saw lead's legato note on its target within the patch's
+   glide time +-20%, monotonically; a note after a rest on pitch at once; a stolen voice gone within 5 ms); the sine
+   lead's vibrato waits (as the winds'); the Moog bass at full resonance, swept, stays bounded at every note 28-55
+   (Review Focus 2); a patch on the chords role renders at half the rate exactly when its highest cutoff with the
+   envelope is 8 kHz or under (test_cost_moves holds the Juno's and the organ's half rate to the full rate's). */
+static void test_sub(void)
+{
+    int bad = 0, i, j, v;
+    for (i = 0; i < 7; i++)
+        CHECK(vx_patch(SUB_INS[i])->model == M_SUB, "ins %d: not an M_SUB", SUB_INS[i]);
+    CHECK(lib_ins_sustained(INS_JUNO) && lib_ins_sustained(INS_ORGAN) && lib_ins_sustained(INS_SAW_LEAD) &&
+              lib_ins_sustained(INS_SQUARE_LEAD) && lib_ins_sustained(INS_SINE_LEAD) &&
+              !lib_ins_sustained(INS_SYNTH_PLUCK),
+          "sub class: wanted the Juno, organ and the saw, square and sine leads sustained, the synth pluck percussive");
+    CHECK(vx_patch(INS_JUNO)->chorus >= 0.6f, "Juno: chorus %.2f, wanted the Juno's depth",
+          (double)vx_patch(INS_JUNO)->chorus);
+    CHECK(vx_patch(INS_MOOG_BASS)->p[10] > 0.0f && vx_patch(INS_JUNO)->p[10] == 0.0f &&
+              vx_patch(INS_ORGAN)->p[10] == 0.0f,
+          "poles: wanted the Moog bass 4-pole, the Juno and organ 2-pole");
+    CHECK(vx_patch(INS_SAW_LEAD)->p[11] > 0.0f && vx_patch(INS_SAW_LEAD)->p[12] > 0.0f,
+          "saw lead: wanted mono with a glide");
+    vx_fx_off(VX_OFF_DELAY);
+
+    { /* the filter envelope's sweep: the centroid at 20 ms and at 400 ms (1024-sample windows centred there) */
+        static const int INS[2] = {INS_MOOG_BASS, INS_SYNTH_PLUCK}, ROLE[2] = {V_BASS, V_LEAD}, NOTE[2] = {40, 67};
+        for (i = 0; i < 2; i++) {
+            float a, b;
+            vt_note(ROLE[i], INS[i], NOTE[i], 110, 44100u, 5u * 4096u, &bad);
+            a = sb_centroid(882u - 512u);
+            b = sb_centroid(17640u - 512u);
+            printf("sub: ins %d centroid at 20 ms %.0f Hz, at 400 ms %.0f Hz (%.2fx)\n", INS[i], (double)a, (double)b,
+                   (double)(a / b));
+            CHECK(a >= 2.0f * b, "ins %d: centroid %.0f Hz at 20 ms, %.0f at 400 ms: wanted a sweep (2x)", INS[i],
+                  (double)a, (double)b);
+        }
+    }
+    { /* the 4-pole's slope: a plain saw at note 45 under a fixed 440 Hz cutoff, its 16th harmonic (two octaves over) */
+        float h[2], f1;
+        f1 = sb_hz(45) / 44100.0f;
+        for (j = 0; j < 2; j++) {
+            sb_pt = *vx_patch(INS_MOOG_BASS);
+            sb_pt.p[0] = 0.0f;
+            sb_pt.p[2] = sb_pt.p[3] = sb_pt.p[5] = sb_pt.p[6] = sb_pt.p[7] = 0.0f;
+            sb_pt.p[4] = 440.0f;
+            sb_pt.p[10] = (float)j;
+            vx_init();
+            vx_assign_patch(V_BASS, &sb_pt);
+            vt_ev(V_BASS, 45, 100, 0, 88200u);
+            sb_run(8u * 4096u, &bad);
+            h[j] = vt_tone(22050u, 8192u, 16.0f * f1) / vt_tone(22050u, 8192u, f1);
+        }
+        printf("sub: the 16th harmonic two octaves over the cutoff: 2-pole %.1f dB, 4-pole %.1f dB\n",
+               20.0 * 0.30103 * (double)fm_log2f(h[0]), 20.0 * 0.30103 * (double)fm_log2f(h[1]));
+        CHECK(h[1] <= 0.1259f * h[0], "4-pole: the harmonic two octaves over the cutoff %.1f dB under the 2-pole's, "
+              "wanted 18+", -20.0 * 0.30103 * (double)fm_log2f(h[1] / h[0]));
+    }
+    { /* glide: the saw lead at 64, held; 69 arrives at 0.5 s while 64 still holds. Pitch (cents from 69) in 512-sample
+         windows every 64 samples */
+        static float ct[1024];
+        const vx_patch_t *p = vx_patch(INS_SAW_LEAD);
+        float tg = p->p[12] * 0.001f * 44100.0f, reach = -1.0f, lo = 1e9f;
+        uint32_t on = 22050u, t;
+        int n = 0, mono = 1, lo_p = (int)(44100.0f / sb_hz(69) * 0.9f), hi_p = (int)(44100.0f / sb_hz(64) * 1.1f);
+        vx_init();
+        vx_assign(V_LEAD, INS_SAW_LEAD);
+        vt_ev(V_LEAD, 64, 100, 0, 44100u);
+        vt_ev(V_LEAD, 69, 100, on, 22050u);
+        sb_run(12u * 4096u, &bad);
+        for (t = on - 2048u; t + 256u < on + (uint32_t)(3.0f * tg) && n < 1024; t += 64u, n++) {
+            ct[n] = 1200.0f * fm_log2f(44100.0f / sb_hz(69) / sb_period(t - 256u, 512u, lo_p, hi_p));
+            lo = fm_minf(lo, ct[n]);
+            if (n && ct[n] < ct[n - 1] - 2.0f)
+                mono = 0;
+        }
+        for (j = n - 1; j >= 0 && fm_fabsf(ct[j]) <= 10.0f; j--)
+            reach = (float)(on - 2048u) + 64.0f * (float)j - (float)on;
+        printf("sub: saw lead glide 64 to 69: from %.1f cents, on pitch %.1f ms after the note (glide %.0f ms), %s\n",
+               (double)lo, (double)reach / 44.1, (double)p->p[12], mono ? "monotonic" : "not monotonic");
+        CHECK(lo < -480.0f && lo > -520.0f, "glide: started at %.1f cents from the target, wanted -500", (double)lo);
+        CHECK(reach >= 0.8f * tg && reach <= 1.2f * tg, "glide: on pitch %.1f ms after the note, wanted %.0f ms +-20%%",
+              (double)reach / 44.1, (double)p->p[12]);
+        CHECK(mono, "glide: the pitch turned back on the way");
+    }
+    { /* after a rest: 64 released at 0.3 s (its release lengthened to 0.3 s, so its tail still sounds, about 40 dB
+         down), 69 at 0.5 s: on pitch in its first window (10 to 22 ms) */
+        float c;
+        int lo_p = (int)(44100.0f / sb_hz(69) * 0.9f), hi_p = (int)(44100.0f / sb_hz(64) * 1.1f), tail = -1;
+        uint32_t k;
+        sb_pt = *vx_patch(INS_SAW_LEAD);
+        sb_pt.rel = 0.3f;
+        vx_init();
+        vx_assign_patch(V_LEAD, &sb_pt);
+        vt_ev(V_LEAD, 64, 100, 0, 13230u);
+        vt_ev(V_LEAD, 69, 100, 22050u, 22050u);
+        for (k = 0; k < 8u * 4096u; k += 2048u) {
+            vt_block(2048, &bad);
+            memcpy(vt_long + k, vt_l, 2048 * sizeof(float));
+            if (k + 2048u == 20480u) /* 30 ms before 69 */
+                tail = vx_active();
+        }
+        c = 1200.0f * fm_log2f(44100.0f / sb_hz(69) / sb_period(22050u + 441u, 512u, lo_p, hi_p));
+        printf("sub: saw lead after a rest (the last note's tail on: %d): %.1f cents from the note 10 ms in\n",
+               tail == 1, (double)c);
+        CHECK(tail == 1, "after a rest: %d voices sounding before the note, wanted the last note's tail", tail);
+        CHECK(fm_fabsf(c) <= 5.0f, "after a rest: %.1f cents off the note 10 ms in, wanted no glide", (double)c);
+    }
+    { /* a steal: the sine lead (release 2 s) at 57, released; 69 after a rest, released; 81 then takes 57's voice,
+         which fades: 57's tone 5 to 25 ms after 81's start is 30 dB or more under its level before it */
+        float a0, a1, c1;
+        uint32_t on = 13230u;
+        sb_pt = *vx_patch(INS_SINE_LEAD);
+        sb_pt.rel = 2.0f;
+        vx_init();
+        vx_assign_patch(V_LEAD, &sb_pt);
+        vt_ev(V_LEAD, 57, 100, 0, 4410u);
+        vt_ev(V_LEAD, 69, 100, 6615u, 4410u);
+        vt_ev(V_LEAD, 81, 100, on, 22050u);
+        sb_run(8u * 4096u, &bad);
+        a0 = vt_tone(on - 882u, 882u, sb_hz(57) / 44100.0f);
+        a1 = vt_tone(on + 221u, 882u, sb_hz(57) / 44100.0f);
+        c1 = vt_tone(on + 221u, 882u, sb_hz(81) / 44100.0f);
+        printf("sub: steal: the victim's tone 5-25 ms after the thief %.1f dB of its level before; the thief at %.2f\n",
+               20.0 * 0.30103 * (double)fm_log2f(a1 / a0 + 1e-9f), (double)(c1 / a0));
+        CHECK(a1 < 0.0316f * a0, "steal: the victim at %.1f dB 5 ms after, wanted gone (-30 dB)",
+              20.0 * 0.30103 * (double)fm_log2f(a1 / a0 + 1e-9f));
+        CHECK(c1 > 0.1f * a0, "steal: the new note hardly sounds 5-25 ms in (%.3f)", (double)(c1 / a0));
+    }
+    { /* the sine lead's delayed vibrato, held 3 s at 67 (as test_vx_leads' winds) */
+        float pp = 44100.0f / sb_hz(67), early = 0.0f, late = 0.0f;
+        uint32_t t;
+        vt_note(V_LEAD, INS_SINE_LEAD, 67, 100, 3u * 44100u, 24u * 4096u, &bad);
+        for (t = 4410; t + 2048 <= 66150; t += 441) {
+            float c = fm_fabsf(1200.0f * fm_log2f(pp / vt_period(t, 2048, pp)));
+            if (t + 2048 <= 11025)
+                early = fm_maxf(early, c);
+            else
+                late = fm_maxf(late, c);
+        }
+        printf("sub: sine lead vibrato by 250 ms %.1f cents, later %.1f\n", (double)early, (double)late);
+        CHECK(early < 3.0f && late >= 4.0f, "sine lead: vibrato %.1f cents by 250 ms, %.1f later: wanted it delayed",
+              (double)early, (double)late);
+    }
+    { /* Review Focus 2: the Moog bass at full resonance, its envelope sweeping, every note 28-55 at full velocity */
+        float pk = 0.0f;
+        int nt, worst = 28, tiny = 0;
+        sb_pt = *vx_patch(INS_MOOG_BASS);
+        sb_pt.p[5] = 1.0f;
+        for (nt = 28; nt <= 55; nt++) {
+            float m = 0.0f;
+            int k;
+            vx_init();
+            vx_assign_patch(V_BASS, &sb_pt);
+            vt_ev(V_BASS, nt, 127, 0, 22050u);
+            for (k = 0; k < 8; k++)
+                m = fm_maxf(m, vt_block(4096, &bad));
+            tiny += vx_tiny();
+            if (m > pk) {
+                pk = m;
+                worst = nt;
+            }
+        }
+        printf("sub: Moog bass at full resonance, notes 28-55: peak %.3f (note %d)\n", (double)pk, worst);
+        CHECK(!bad && pk < 1.0f && tiny == 0, "Moog bass at full resonance: peak %.3f at note %d, NaN %d, tiny %d",
+              (double)pk, worst, bad, tiny);
+        /* (the chain's soft clip is linear only to 0.4 and bends toward 0.7: a filter running away would hide under
+           it, so the peak must stay in its linear range) */
+        CHECK(pk < 0.4f, "Moog bass at full resonance: peak %.3f at note %d, past the soft clip's linear range",
+              (double)pk, worst);
+    }
+    { /* the half-rate rule on the chords role: a render differs from the full rate's exactly when the patch's highest
+         cutoff (key tracked, the envelope at full) is 8 kHz or under, on a 2-pole */
+        static const int NOTES[4] = {48, 60, 72, 84}, VELS[2] = {64, 110};
+        for (i = 0; i < 7; i++)
+            for (j = 0; j < 4; j++)
+                for (v = 0; v < 2; v++) {
+                    const vx_patch_t *p = vx_patch(SUB_INS[i]);
+                    float top = (p->p[4] + p->p[6] * sb_hz(NOTES[j])) *
+                                fm_exp2f(p->p[7] * (0.5f + 0.5f * (float)VELS[v] / 127.0f));
+                    int want = p->p[10] == 0.0f && top <= 8000.0f, half;
+                    cm_note(V_CHORD, SUB_INS[i], NOTES[j], VELS[v], 1, cm_x, 8192u);
+                    cm_note(V_CHORD, SUB_INS[i], NOTES[j], VELS[v], 0, cm_y, 8192u);
+                    half = memcmp(cm_x, cm_y, 8192u * sizeof(float)) != 0;
+                    CHECK(half == want, "half rate: ins %d note %d vel %d (top cutoff %.0f Hz): %s, wanted %s",
+                          SUB_INS[i], NOTES[j], VELS[v], (double)top, half ? "half" : "full", want ? "half" : "full");
+                    if ((SUB_INS[i] == INS_JUNO || SUB_INS[i] == INS_ORGAN))
+                        CHECK(want, "half rate: ins %d note %d vel %d: top cutoff %.0f Hz, wanted the half rate",
+                              SUB_INS[i], NOTES[j], VELS[v], (double)top);
+                }
+    }
+    CHECK(!bad, "a subtractive voice rendered NaN or inf");
+    vx_fx_off(0u);
 }
 
 /* Task 7c's head-to-head: Rings' reverb and chorus (the default since Sam's pick; ours is fx_rings(0), host only)
@@ -5663,6 +5921,7 @@ int main(int argc, char **argv)
     RUN(test_dynamics);
     RUN(test_wet);
     RUN(test_cost_moves);
+    RUN(test_sub);
     RUN(test_rings_pair);
     RUN(test_mix_parts);
     RUN(test_mix_denormals);
