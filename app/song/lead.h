@@ -26,10 +26,12 @@ typedef struct {
 
 /* 1 where the lead plays: blocks with L_LEAD and L_KEYS, not intro or outro */
 int lead_plays(const plan_block_t *b);
-/* Plans one bar (call at step 0). keys: the bar's sounding keys voicing (4 notes, 0 none); pcs: its chord, root
-   first. Returns the number of lead onsets that start in the bar (0 where the lead doesn't play). */
+/* Plans one bar (call at step 0). keys, nkeys: this bar's and the next bar's sounding keys voicings (4 notes, 0
+   none); pcs: this bar's chord, root first. Over percussive keys every note sits a 4th or more above the keys' top
+   (of both chords for a note that sounds on into the next), at most E6, or drops; with a pad the lead keeps to
+   C4-B5, C4-C5 when the pad sits above. Returns the number of lead onsets that start in the bar (0 where the lead doesn't play). */
 int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b, int bar, const int keys[4],
-                  const int *pcs, int np);
+                  const int nkeys[4], const int *pcs, int np);
 /* The lead's events of one step of the planned bar. */
 int lead_step(const lead_state_t *ls, int step, float step_samples, song_ev_t *out, int max);
 

@@ -364,9 +364,10 @@ int song_tick(song_t *s, song_ev_t *out, int max)
         int pcs[5], np, pass = bar / loop_bars(&s->roll) + 1, dark = (b->flags & PB_DARK) != 0;
         np = harmony_chord_at(&s->roll, bar, pass, dark, pcs);
         if (step == 0) {                            /* the lead plans its bar first: the comping makes room for it */
-            int keys[4];
+            int keys[4], nkeys[4];
             harmony_voicing_at(&s->roll, bar, pass, &s->voicing, keys);
-            lead_plan_bar(&s->lead, &s->roll, b, bar, keys, pcs, np);
+            harmony_voicing_at(&s->roll, bar + 1, (bar + 1) / loop_bars(&s->roll) + 1, &s->voicing, nkeys);
+            lead_plan_bar(&s->lead, &s->roll, b, bar, keys, nkeys, pcs, np);
         }
         n += groove_step(&s->roll, b, bar, step, gs, pcs, np, salt, buf + n, BUF - n);
         n += harmony_step(&s->roll, b, bar, step, pass, gs, &s->voicing, s->lead.onsets >= 4, salt, buf + n,

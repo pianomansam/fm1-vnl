@@ -27,6 +27,11 @@ int harmony_style(const song_roll_t *r);   /* CS_*, per song (seed stream 121) *
 typedef struct { int last[4]; int loop[4][4]; int nloop; uint32_t sig; } harmony_voicing_t;
 /* the loop lock above, on by default; off, each chord is voiced from the last sounded (VNL_LOOPLOCK=0 in renders) */
 void harmony_set_loop_lock(int on);
+/* Where sustained keys (a pad) sit against the lead, one per song (seed stream 160, equal weights): below (as
+   percussive keys always do), with (the keys an octave up, in the lead's range) or above (the keys an octave up,
+   the lead kept to C4-C5). The lead design's register rule. */
+enum { PL_BELOW, PL_WITH, PL_ABOVE };
+int harmony_pad_place(const song_roll_t *r);
 /* The voicing this bar's chord sounds with (what harmony_step strikes), without striking it: vs->last is unchanged
    (its loop cache may fill). Lets the lead plan a bar over the keys before they strike. */
 void harmony_voicing_at(const song_roll_t *r, int bar, int pass, harmony_voicing_t *vs, int out4[4]);

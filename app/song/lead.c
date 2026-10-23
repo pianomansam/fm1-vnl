@@ -11,6 +11,9 @@ typedef struct {                  /* what one bar's planning reads */
     const int *keys, *pcs;
     int np;
     unsigned bass;                /* pitch classes the bass strikes in the bar */
+    int lo, hi;                   /* the lead's range this bar (a 4th over percussive keys' top; set by a pad's place) */
+    int lo_x;                     /* the floor for a note that sounds on into the next chord */
+    int shift;                    /* the keys' octave shift (a pad with or above the lead) */
 } ctx_t;
 
 static int is_ct(int note, const int *pcs, int np)
@@ -35,10 +38,19 @@ static int legal(const song_roll_t *r, int note, const int *pcs, int np, unsigne
     return is_ct(note, pcs, np) || th_in_scale(r->v[RF_KEY], r->v[RF_MODE], note);
 }
 
-static int skel(const ctx_t *c, const int *pcs, int np, int from)   /* the nearest chord tone, root least */
+/* the skeleton's range: E4-A5 as the spike sang it, raised to the floor, a pad placed above keeping it to C4-C5 */
+static void skel_range(const ctx_t *c, int floor, int *lo, int *hi)
 {
-    int best = -1, bc = 1 << 30, note, j;
-    for (note = 67; note <= 81; note++)
+    *lo = c->hi <= 72 ? 60 : floor > 67 ? floor : 67;
+    *hi = c->hi <= 72 ? 72 : *lo + 12 > 81 ? *lo + 12 : 81;
+    if (*hi > c->hi) *hi = c->hi;
+}
+
+static int skel_from(const ctx_t *c, const int *pcs, int np, int from, int floor)   /* the nearest chord tone, root least */
+{
+    int best = -1, bc = 1 << 30, note, j, lo, hi;
+    skel_range(c, floor, &lo, &hi);
+    for (note = lo; note <= hi; note++)
         for (j = 0; j < np; j++)
             if ((note - pcs[j] + 120) % 12 == 0 && legal(c->r, note, pcs, np, c->bass)) {
                 int iv = (pcs[j] - pcs[0] + 12) % 12, cost = (note > from ? note - from : from - note) * 4;
@@ -50,11 +62,24 @@ static int skel(const ctx_t *c, const int *pcs, int np, int from)   /* the neare
     return best;
 }
 
+static int skel(const ctx_t *c, const int *pcs, int np, int from) { return skel_from(c, pcs, np, from, c->lo); }
+
+static int place(int pc, int lo, int hi, int near)          /* pc's octave in [lo, hi] nearest `near`; 0 if none */
+{
+    int best = 0, note;
+    for (note = lo; note <= hi; note++)
+        if (note % 12 == pc && (!best || (note > near ? note - near : near - note) < (best > near ? best - near : near - best)))
+            best = note;
+    return best;
+}
+
 static int step_toward(const ctx_t *c, int from, int to)    /* a scale step from `from` toward `to` */
 {
     int dir = to >= from ? 1 : -1, d;
     for (d = 1; d <= 2; d++)
-        if (legal(c->r, from + dir * d, c->pcs, c->np, c->bass) && from + dir * d != to) return from + dir * d;
+        if (legal(c->r, from + dir * d, c->pcs, c->np, c->bass) && from + dir * d != to && from + dir * d >= c->lo &&
+            from + dir * d <= c->hi)
+            return from + dir * d;
     return 0;
 }
 
@@ -81,7 +106,7 @@ static void plan_line(lead_state_t *ls, const ctx_t *c, int bar, int bpc, const 
 {
     rng_t g;
     int prev = ls->last ? ls->last : 74, cur = skel(c, c->pcs, c->np, prev);
-    int next = nn > 0 ? skel(c, npcs, nn, cur) : 0, cells[2], cell, phrase_end = bar % 4 == 3, i;
+    int next = nn > 0 ? skel_from(c, npcs, nn, cur, c->lo_x) : 0, cells[2], cell, phrase_end = bar % 4 == 3, i;
     int start = ls->tied ? -1 : 0;
     rng_seed(&g, c->r->seed, 140);
     cells[0] = rng_int(&g, 5);
@@ -162,7 +187,10 @@ static void plan_arp(lead_state_t *ls, const ctx_t *c, int bar)
         v = c->keys[idx];
         for (k = 1; k < 4 && v && !legal(c->r, v, c->pcs, c->np, c->bass); k++)
             v = c->keys[(idx + k) & 3];                  /* a tone that would rub gives way to the next */
-        if (v && legal(c->r, v, c->pcs, c->np, c->bass)) put(ls, at, v + 12, RHY[ls->rhy][i][1]);
+        if (v && legal(c->r, v, c->pcs, c->np, c->bass)) {
+            int len = RHY[ls->rhy][i][1], note = place(v % 12, at + len > 16 ? c->lo_x : c->lo, c->hi, v + 12 - c->shift);
+            put(ls, at, note, len);
+        }
     }
 }
 
@@ -197,7 +225,7 @@ static void plan_hybrid(lead_state_t *ls, const ctx_t *c, int bar, int bpc, cons
         }
     }
     if ((bar + 1) % bpc == 0 && nn > 0 && landing(c->r->seed, bar + 1) == 4) {
-        int nxt = skel(c, npcs, nn, ls->last);
+        int nxt = skel_from(c, npcs, nn, ls->last, c->lo_x);
         if (push_ok(c, nxt)) {
             ls->last = nxt;
             land(ls, 14, nxt, 4);                        /* the next chord's note an 8th early, across the bar */
@@ -212,7 +240,7 @@ int lead_plays(const plan_block_t *b)
 }
 
 int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b, int bar, const int keys[4],
-                  const int *pcs, int np)
+                  const int nkeys[4], const int *pcs, int np)
 {
     const lib_prog_t *pr = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
@@ -225,6 +253,22 @@ int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b,
     ls->onsets = 0;
     if (!lead_plays(b) || np <= 0) { ls->tied = 0; return 0; }
     c.r = r; c.keys = keys; c.pcs = pcs; c.np = np; c.bass = 0;
+    if (set && lib_ins_sustained(set->chords)) {         /* a pad: the octave doesn't matter (Sam), its place does */
+        int pl = harmony_pad_place(r);
+        c.lo = c.lo_x = 60;
+        c.hi = pl == PL_ABOVE ? 72 : 83;
+        c.shift = pl == PL_BELOW ? 0 : 12;
+    } else {                                             /* percussive keys: a 4th or more over their top */
+        int top = 0, ntop = 0;
+        for (i = 0; i < 4; i++) {
+            if (keys[i] > top) top = keys[i];
+            if (nkeys[i] > ntop) ntop = nkeys[i];
+        }
+        c.lo = top + 5;
+        c.lo_x = (ntop > top ? ntop : top) + 5;
+        c.hi = 88;
+        c.shift = 0;
+    }
     for (i = 0; i < 16; i++) {
         int bn = groove_bass_note(r, b, bar, i, pcs, np);
         if (bn) c.bass |= 1u << (bn % 12);

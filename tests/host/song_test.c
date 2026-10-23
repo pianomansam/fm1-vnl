@@ -888,7 +888,10 @@ static void test_harmony(void)
                 }
                 for (i = 0; i < ne; i++) {
                     if (ev[i].voice != V_CHORD) bad_range++;
-                    if (ev[i].note < 48 || ev[i].note > 72) bad_range++;
+                    {                          /* a pad with or above the lead sounds an octave up (lead design) */
+                        int up = harmony_pad_place(&r) == PL_BELOW ? 0 : 12;
+                        if (ev[i].note < 48 + up || ev[i].note > 72 + up) bad_range++;
+                    }
                     if (ev[i].vel < 25 || ev[i].vel > 110) bad_vel++;
                     if (ev[i].len == 0) bad_range++;
                 }
@@ -1756,6 +1759,105 @@ static void test_comping_makes_room(void)
     CHECK(bad_subset == 0, "%ld busy strikes or voicings that differ from the full comping", bad_subset);
 }
 
+/* Lead design, register by the keys' attack: over percussive keys every lead note sits a 4th or more above the keys'
+   top (of every chord it sounds over), at most E6 (doubling the keys' top pitch class is fine, Sam: printed only); with
+   sustained keys (pads) each song places them below, with or above the lead about a third of the time each, the lead
+   kept to C4-C5 when the pad is above. */
+static void test_register_floor(void)
+{
+    static song_t s;
+    static int ln[4096], lbar[4096], lcross[4096];
+    uint32_t seed = 5151;
+    song_roll_t prev, r;
+    song_ev_t ev[64];
+    long notes = 0, low = 0, high = 0, toppc = 0;
+    int k, i;
+    for (k = 0; k < 300; k++) {
+        const lib_set_t *set;
+        int top[256], nl = 0, cur = -1, bt = 0;
+        seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+        roll_song(k ? &prev : 0, seed, &r);
+        prev = r;
+        set = lib_set_by_id((uint8_t)r.v[RF_SET]);
+        if (!set || lib_ins_sustained(set->chords)) continue;
+        song_start(&s, &r);
+        while (s.state == SS_PLAYING) {
+            int bar = s.bar, st = s.step, n;
+            float ss = song_step_samples(&s);
+            n = song_tick(&s, ev, 64);
+            if (bar != cur) {
+                if (cur >= 0 && cur < 256) top[cur] = bt;
+                cur = bar;
+                bt = 0;
+            }
+            for (i = 0; i < n; i++) {
+                if (ev[i].voice == V_CHORD && ev[i].note > bt) bt = ev[i].note;
+                if (ev[i].voice == V_LEAD && nl < 4096) {
+                    ln[nl] = ev[i].note;
+                    lbar[nl] = bar;
+                    lcross[nl] = (float)st * ss + (float)ev[i].delay + (float)ev[i].len > 16.0f * ss + 1.0f;
+                    nl++;
+                }
+            }
+        }
+        if (cur >= 0 && cur < 256) top[cur] = bt;
+        for (i = 1; i < 256 && i <= cur; i++) if (!top[i]) top[i] = top[i - 1];   /* a held chord: last strike's top */
+        for (i = 0; i < nl; i++) {
+            int b0 = lbar[i] < 256 ? lbar[i] : 255, t = top[b0];
+            if (lcross[i] && b0 + 1 <= cur && b0 + 1 < 256 && top[b0 + 1] > t) t = top[b0 + 1];
+            notes++;
+            low += t && ln[i] < t + 5;
+
+            high += ln[i] > 88;
+            toppc += t && ln[i] % 12 == t % 12;
+        }
+    }
+    printf("register: %ld lead notes over percussive keys, %ld under the floor, %.1f%% the keys' top pitch class\n",
+           notes, low, notes ? 100.0 * (double)toppc / (double)notes : 0.0);
+    CHECK(notes > 5000 && low == 0, "%ld of %ld lead notes under the keys' top + a 4th", low, notes);
+    CHECK(high == 0, "%ld lead notes above E6", high);
+}
+
+static void test_pad_places(void)
+{
+    static song_t s;
+    uint32_t seed = 6161;
+    song_roll_t prev, r;
+    song_ev_t ev[64];
+    long songs = 0, place[3] = {0}, above_high = 0, shifted_low = 0;
+    int k, i;
+    for (k = 0; k < 1500; k++) {
+        const lib_set_t *set;
+        int pl;
+        seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+        roll_song(k ? &prev : 0, seed, &r);
+        prev = r;
+        set = lib_set_by_id((uint8_t)r.v[RF_SET]);
+        if (!set || !lib_ins_sustained(set->chords)) {
+            CHECK(harmony_pad_place(&r) == PL_BELOW, "percussive keys placed %d", harmony_pad_place(&r));
+            continue;
+        }
+        pl = harmony_pad_place(&r);
+        songs++;
+        place[pl]++;
+        if (k % 5) continue;                             /* every fifth song played through */
+        song_start(&s, &r);
+        while (s.state == SS_PLAYING) {
+            int n = song_tick(&s, ev, 64);
+            for (i = 0; i < n; i++) {
+                if (ev[i].voice == V_LEAD && pl == PL_ABOVE && ev[i].note > 72) above_high++;
+                if (ev[i].voice == V_CHORD && pl != PL_BELOW && ev[i].note < 60) shifted_low++;
+            }
+        }
+    }
+    printf("pads: %ld songs, below %ld, with %ld, above %ld\n", songs, place[0], place[1], place[2]);
+    for (i = 0; i < 3; i++)
+        CHECK(songs > 100 && place[i] * 100 >= songs * 25 && place[i] * 100 <= songs * 41,
+              "pad placement %d in %ld of %ld songs", i, place[i], songs);
+    CHECK(above_high == 0, "%ld lead notes over C5 under a pad placed above", above_high);
+    CHECK(shifted_low == 0, "%ld keys notes under C4 in a pad placed with or above the lead", shifted_low);
+}
+
 /* Sam: the keys and the bass never share a rhythm of more than a note on 1 (stabs on a kick of 1 and the and of 2) */
 static void test_keys_bass_rhythms_differ(void)
 {
@@ -2027,6 +2129,8 @@ int main(void)
     test_lead_where();
     test_lead_push_legal();
     test_comping_makes_room();
+    test_register_floor();
+    test_pad_places();
     test_loop_voicings();
     test_dominant_extensions();
     test_no_substitution();

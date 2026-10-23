@@ -163,6 +163,24 @@ static uint32_t harmony_sig(const song_roll_t *r)
    softer, and Plan 3's lo-fi chain darkens their sound. */
 static void voice_chord(const song_roll_t *r, int bar, const int *pcs, int n, harmony_voicing_t *vs, int *sound);
 
+static int keys_sustained(const song_roll_t *r);
+
+int harmony_pad_place(const song_roll_t *r)
+{
+    rng_t g;
+    if (!keys_sustained(r)) return PL_BELOW;
+    rng_seed(&g, r->seed, 160);
+    return rng_int(&g, 3);
+}
+
+static void place_keys(const song_roll_t *r, int *notes)  /* a pad with or above the lead: an octave up */
+{
+    int i;
+    if (harmony_pad_place(r) == PL_BELOW) return;
+    for (i = 0; i < 4; i++)
+        if (notes[i]) notes[i] += 12;
+}
+
 void harmony_voicing_at(const song_roll_t *r, int bar, int pass, harmony_voicing_t *vs, int out4[4])
 {
     int pcs[5], n, keep[4];
@@ -170,6 +188,7 @@ void harmony_voicing_at(const song_roll_t *r, int bar, int pass, harmony_voicing
     memcpy(keep, vs->last, sizeof keep);
     voice_chord(r, bar, pcs, n, vs, out4);
     memcpy(vs->last, keep, sizeof keep);                 /* a peek: the strike still voices from the same last */
+    place_keys(r, out4);
 }
 
 static void voice_chord(const song_roll_t *r, int bar, const int *pcs, int n, harmony_voicing_t *vs, int *sound)
@@ -255,6 +274,7 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
     dark = (b->flags & PB_DARK) != 0;
     n = harmony_chord_at(r, bar, pass, dark, pcs);
     voice_chord(r, bar, pcs, n, vs, notes);
+    place_keys(r, notes);
     if (style == CS_ARP) {
         k = ARP[(bar * 16 + step) % 6];
         one = notes[k];
