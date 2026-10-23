@@ -166,6 +166,11 @@ static int role_of(const int *pcs, int n, int i)
    a dominant keeps at least one extension. Register E3-A4 (52-69) preferred, C3-C5 (48-72) allowed so no two
    notes are ever forced a semitone apart; the bottom at most C4, the top pulled back up when it drifts low, no
    semitone clusters and no tight seconds low down. */
+/* Exploring voicing families (host renders only, off by default): drop 2 keeps only voicings that are a close
+   position (four notes inside an octave) with its second-highest note dropped an octave. */
+static int drop2;
+void th_set_drop2(int on) { drop2 = on != 0; }
+
 void th_voice_range(const int *pcs, int n, const int *prev, int *out4, int hi, int rootless)
 {
     int ref[4], best = 1 << 30, i, drop, v, next = 0, role[5], dom;
@@ -222,6 +227,8 @@ void th_voice_range(const int *pcs, int n, const int *prev, int *out4, int hi, i
                sort4(o);
                if (o[0] > 60 || o[0] == o[1] || o[1] == o[2] || o[2] == o[3])
                    continue;
+               if (drop2 && !(o[2] < o[0] + 12 && o[0] + 12 < o[3] && o[3] - o[1] < 12))
+                   continue;                               /* drop 2: a close voicing with its 2nd from top an octave down */
                if (prev) {
                    for (v = 0; v < 3; v++)
                        c += o[v] > ref[v] ? o[v] - ref[v] : ref[v] - o[v];
@@ -253,6 +260,11 @@ void th_voice_range(const int *pcs, int n, const int *prev, int *out4, int hi, i
                        out4[v] = o[v];
                }
            }
+    }
+    if (best == 1 << 30 && drop2) {                      /* no drop-2 shape fits this chord: the usual voicing */
+        drop2 = 0;
+        th_voice_range(pcs, n, prev, out4, hi, rootless);
+        drop2 = 1;
     }
 }
 

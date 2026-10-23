@@ -14,6 +14,9 @@
  * song's next 4-bar boundary. Part of the unity build (device/unity.c, host/plat_host.c), after the platform:
  * gfx.c and announce.c are in scope. */
 #include <string.h>
+#if defined(PLAT_HOST) && !defined(PLAT_WEB)
+#include <stdlib.h>
+#endif
 #include "song.h"
 #include "harmony.h"
 #include "theory.h"
@@ -344,6 +347,12 @@ static void roll_next(void)             /* main loop: keep the mailbox full */
 
 void app_init(void)
 {
+#if defined(PLAT_HOST) && !defined(PLAT_WEB)
+    {                                    /* exploring voicing families in renders: VNL_DROP2=1 */
+        const char *d = getenv("VNL_DROP2");
+        th_set_drop2(d && *d == '1');
+    }
+#endif
     vx_init();                           /* the first song: app_frame, once seeded */
 }
 

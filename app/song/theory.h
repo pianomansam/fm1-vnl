@@ -21,6 +21,8 @@ int th_chord_pcs(int key, int mode, th_chord_spec_t c, int color, int *pcs);
 void th_voice(const int *pcs, int n, const int *prev, int *out4);
 /* th_voice with the top note at most `hi` (the dark intro and outro: 64); rootless 0 keeps the root (no bass) */
 void th_voice_range(const int *pcs, int n, const int *prev, int *out4, int hi, int rootless);
+/* exploring voicing families (off by default; the host simulator turns it on with VNL_DROP2=1): drop-2 voicings */
+void th_set_drop2(int on);
 
 void th_guide_tones(const int *pcs, int n, int *third, int *seventh);   /* pitch classes, -1 if absent */
 int th_is_avoid(int key, int mode, const int *pcs, int n, int note);    /* scale note a semitone above a chord tone */
