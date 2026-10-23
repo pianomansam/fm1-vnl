@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 /* Host cost bench (tools/cost-bench.sh): how long 60 s of a VNL song takes to render, against 60 s of AMB-1's engine
    at its heaviest piece. Built only with -DVNL_BENCH, otherwise this file is empty (it sits in host/ so the
-   firmware globs skip nothing; it has a main()). No audio device. Usage: bench [--heaviest | [--forced] SEED...]
+   firmware globs skip nothing; it has a main()). No audio device. Usage: bench [--heaviest | [--forced] SEED... | --parts]
    Prints `vnl <ms> amb <ms> ratio <x>` (best of 3 runs each) for the seed(s), and for --heaviest the seed chosen.
    The lo-fi chain's cost does not depend on the song, and its fields are rolled independently of the rest, so the
    heaviest seed may not carry the heaviest chain: the picked seed (and every seed with --forced) is also timed with
@@ -17,6 +17,8 @@
 #include <string.h>
 #include "song.h"
 #include "voices.h"
+#include "fx.h"
+#include "library.h"
 
 void en_init(void);
 void en_set(int param, int value);
@@ -129,24 +131,206 @@ static uint32_t heaviest(void)
     return best;
 }
 
+/* --parts: each component rendering alone for 60 s at 80 BPM, as a ratio to AMB-1's heaviest piece. The engine is
+   dry (vx_init leaves fx_init's chain: the plate shut, no bed, dust 0) unless a part opens the chain with
+   fx_configure; every row is the best of PART_RUNS, net of the idle dry engine's render (the floor). */
+#define PART_RUNS 7
+enum { P_IDLE, P_CHORDS, P_LEAD, P_CANDY, P_BASS, P_DRUMS, P_SOURCE };
+
+static void ev(int voice, int note, int vel, uint32_t len)
+{
+    song_ev_t e;
+    memset(&e, 0, sizeof e);
+    e.voice = (uint8_t)voice;
+    e.note = (uint8_t)note;
+    e.vel = (uint8_t)vel;
+    e.len = len;
+    vx_event(&e);
+}
+
+/* The events of one 16th step (0-15) of a bar; st is a 16th in samples. */
+static void part_step(int kind, int bar, int step, uint32_t st)
+{
+    static const int ch[4] = {55, 59, 62, 66}, ch2[4] = {53, 57, 60, 64};
+    const int *c = (bar & 1) ? ch2 : ch;
+    int i;
+    switch (kind) {
+    case P_CHORDS: /* four voices: a chord held a bar, re-struck each bar */
+        if (!step)
+            for (i = 0; i < 4; i++) ev(V_CHORD, c[i], 90, st * 15);
+        break;
+    case P_LEAD: /* 8ths, each held a dotted 8th, so two voices overlap */
+        if (!(step & 1)) ev(V_LEAD, 72 + c[(step >> 1) & 3] % 12, 85, st * 3);
+        break;
+    case P_CANDY:
+        if (!(step & 1)) ev(V_CANDY, 84 + c[(step >> 1) & 3] % 12, 80, st * 3);
+        break;
+    case P_BASS: /* one voice, 8ths, legato */
+        if (!(step & 1)) ev(V_BASS, 36 + c[(step >> 1) & 3] % 12, 95, st * 2);
+        break;
+    case P_DRUMS: /* boom-bap, all six lanes */
+        if (step == 0 || step == 7 || step == 10) ev(V_KICK, 0, 110, 0);
+        if (step == 4 || step == 12) ev(V_SNARE, 0, 105, 0);
+        if (!(step & 1)) ev(V_HAT, 0, 80, 0);
+        if (step == 14) ev(V_OHAT, 0, 85, 0);
+        if (step & 1) ev(V_SHAKER, 0, 60, 0);
+        if (step == 6 || step == 15) ev(V_RIM, 0, 70, 0);
+        break;
+    case P_SOURCE: /* the fx source: a chord, a bass and the kit (a mix to run the chain on) */
+        part_step(P_CHORDS, bar, step, st);
+        part_step(P_BASS, bar, step, st);
+        part_step(P_DRUMS, bar, step, st);
+        break;
+    }
+}
+
+typedef struct { int kind, chords, bass, lead, candy, kit, dust, noise, amb, chain; } part_t;
+
+static part_t part_of(int kind)
+{
+    part_t p;
+    memset(&p, 0, sizeof p);
+    p.chords = p.bass = p.lead = p.candy = INS_NONE;
+    p.kit = KIT_DUSTY;
+    p.kind = kind;
+    return p;
+}
+
+static double run_part(const part_t *p)
+{
+    static float l[BLK], r[BLK];
+    uint32_t st = SR * 60u / 80u / 4u, total = SR * SECS, done = 0;
+    int bar = 0, step = 0;
+    double t0;
+    vx_init();
+    vx_assign(V_CHORD, p->chords);
+    vx_assign(V_BASS, p->bass);
+    vx_assign(V_LEAD, p->lead);
+    vx_assign(V_CANDY, p->candy);
+    vx_set_kit(p->kit);
+    if (p->chain) fx_configure(p->dust, p->noise, p->amb, FL_LOFI);
+    t0 = now_ms();
+    while (done < total) {
+        uint32_t left;
+        part_step(p->kind, bar, step, st);
+        for (left = st; left; ) {
+            uint32_t b = left < BLK ? left : BLK, k;
+            for (k = 0; k < b; k++) l[k] = r[k] = 0.0f;
+            vx_render(l, r, b);
+            left -= b;
+        }
+        done += st;
+        if (++step == 16) { step = 0; bar++; }
+    }
+    return now_ms() - t0;
+}
+
+static double best_part(const part_t *p)
+{
+    double b = 1e30, t;
+    int i;
+    for (i = 0; i < PART_RUNS; i++) { t = run_part(p); if (t < b) b = t; }
+    return b;
+}
+
+static void row(const char *grp, const char *name, double t, double base, double amb)
+{
+    printf("%-7s %-24s %7.1f ms  net %7.1f ms  ratio %.3f\n", grp, name, t, t - base, (t - base) / amb);
+}
+
+typedef struct { const char *n; int ins; } named_t;
+
+static void role_rows(const char *grp, int kind, int role, const named_t *l, int n, double base, double amb)
+{
+    int i;
+    for (i = 0; i < n; i++) {
+        part_t p = part_of(kind);
+        if (role == V_CHORD) p.chords = l[i].ins;
+        else if (role == V_BASS) p.bass = l[i].ins;
+        else if (role == V_LEAD) p.lead = l[i].ins;
+        else p.candy = l[i].ins;
+        row(grp, l[i].n, best_part(&p), base, amb);
+    }
+}
+
+static void parts(double amb)
+{
+    static const named_t CH[] = {{"rhodes", INS_RHODES}, {"wurli", INS_WURLI}, {"felt piano", INS_FELT_PIANO},
+                                 {"nylon", INS_NYLON}, {"pad", INS_PAD}, {"vox pad", INS_VOX_PAD}};
+    static const named_t BS[] = {{"upright", INS_UPRIGHT}, {"elec bass", INS_ELEC_BASS}, {"sub", INS_SUB}};
+    static const named_t LD[] = {{"flute", INS_FLUTE}, {"muted trumpet", INS_MUTED_TPT}, {"sax", INS_SAX},
+                                 {"vibes", INS_VIBES}, {"kalimba", INS_KALIMBA}, {"guitar lick", INS_GUITAR_LICK}};
+    static const named_t CD[] = {{"music box", INS_MUSIC_BOX}, {"bells", INS_BELLS}};
+    static const named_t KT[] = {{"dusty", KIT_DUSTY}, {"soft", KIT_SOFT}, {"808", KIT_808}, {"brushes", KIT_BRUSHES}};
+    static const uint32_t sd[4] = {20, 100, 128, 183};
+    part_t p = part_of(P_IDLE), q;
+    double base = best_part(&p), src, plate, t, b = 1e30;
+    long e;
+    int k, j;
+    printf("floor: idle dry engine, 60 s of silence: %.1f ms = ratio %.3f (subtracted from the rows; amb %.1f ms)\n",
+           base, base / amb, amb);
+    for (k = 0; k < 4; k++)
+        for (j = 0; j < PART_RUNS; j++) { t = run_vnl(sd[k], 0, &e, 0); if (t < b) b = t; }
+    printf("floor: song engine ticking only (seeds 20/100/128/183, best, no render): %.1f ms = ratio %.3f\n", b, b / amb);
+    role_rows("chords", P_CHORDS, V_CHORD, CH, 6, base, amb);
+    role_rows("bass", P_BASS, V_BASS, BS, 3, base, amb);
+    role_rows("lead", P_LEAD, V_LEAD, LD, 6, base, amb);
+    role_rows("candy", P_CANDY, V_CANDY, CD, 2, base, amb);
+    for (k = 0; k < 4; k++) {
+        p = part_of(P_DRUMS);
+        p.kit = KT[k].ins;
+        row("drums", KT[k].n, best_part(&p), base, amb);
+    }
+    /* the chain on a fixed source (rhodes chord, sub bass, dusty kit); the rows are net of the source dry, except
+       the "over plate" ones, which are net of the source with the plate open and dust 0 */
+    q = part_of(P_SOURCE);
+    q.chords = INS_RHODES;
+    q.bass = INS_SUB;
+    src = best_part(&q);
+    row("source", "dry (no chain)", src, base, amb);
+    q.chain = 1;
+    plate = best_part(&q);
+    row("fx", "plate + dust 0", plate, src, amb);
+    for (k = 1; k <= 3; k++) {
+        char nm[32];
+        q.dust = k;
+        snprintf(nm, sizeof nm, "dust %d (over plate)", k);
+        row("fx", nm, best_part(&q), plate, amb);
+    }
+    q.dust = 0;
+    q.noise = 1;
+    row("fx", "vinyl (over plate)", best_part(&q), plate, amb);
+    q.noise = 2;
+    row("fx", "tape (over plate)", best_part(&q), plate, amb);
+    q.noise = 0;
+    q.amb = 1;
+    row("fx", "rain (over plate)", best_part(&q), plate, amb);
+    q.dust = 3;
+    q.noise = 1;
+    row("fx", "full chain (3,vinyl,rain)", best_part(&q), src, amb);
+    printf("(kick ducking runs inside dust_run at every level: not separable)\n");
+}
+
 int main(int argc, char **argv)
 {
     double amb = 0, t;
-    int p, heavy = 0, i, ap = 0, forced = 0;
+    int p, heavy = 0, i, ap = 0, forced = 0, doparts = 0;
     uint32_t seeds[64];
     int ns = 0;
     for (i = 1; i < argc && ns < 64; i++) {
         if (!strcmp(argv[i], "--forced")) forced = 1;
+        else if (!strcmp(argv[i], "--parts")) doparts = 1;
         else if (argv[i][0] == '-') heavy = 1;
         else seeds[ns++] = (uint32_t)strtoul(argv[i], 0, 10);
     }
-    if (heavy || !ns) { seeds[0] = heaviest(); ns = 1; forced = 1; printf("heaviest seed %u\n", (unsigned)seeds[0]); }
+    if (!doparts && (heavy || !ns)) { seeds[0] = heaviest(); ns = 1; forced = 1; printf("heaviest seed %u\n", (unsigned)seeds[0]); }
     /* AMB-1's heaviest piece: the slowest of its eight (best of 3 each) */
     for (p = 0; p < EN_NPIECES; p++) {
         double b = 1e30;
         for (i = 0; i < 3; i++) { t = run_amb(p); if (t < b) b = t; }
         if (b > amb) { amb = b; ap = p; }
     }
+    if (doparts) { parts(amb); return 0; }
     for (i = 0; i < ns; i++) {
         double v = best3_vnl(seeds[i], 0);
         printf("vnl %.1f amb %.1f ratio %.3f  (seed %u, amb piece %d)\n", v, amb, v / amb, (unsigned)seeds[i], ap);
