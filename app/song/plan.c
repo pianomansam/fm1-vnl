@@ -9,6 +9,13 @@
 #include <string.h>
 #include "rng.h"
 #include "plan.h"
+#include "groove.h"
+
+/* plan_moves' buses are the voices' roles by number (PM_x is V_x; the drums' bus is V_KICK's, any drum voice): callers
+   pass lp[i] and hp[i] straight to vx_set_filter(i) and vx_set_hp(i). C99 has no _Static_assert: an array of size -1
+   fails the build if the orders part. */
+typedef char pm_is_v_[(PM_CHORDS == V_CHORD && PM_BASS == V_BASS && PM_LEAD == V_LEAD && PM_CANDY == V_CANDY &&
+                       PM_DRUMS == V_KICK) ? 1 : -1];
 
 #define MAXS 24                                   /* slots: RF_BARS / 4 */
 #define DRUMS (L_KICK | L_SNARE | L_HATS)
@@ -307,4 +314,36 @@ const char *plan_section_name(int section)
 {
     static const char *const names[] = {"intro", "groove", "lead", "break", "outro"};
     return section >= 0 && section <= SEC_OUTRO ? names[section] : "?";
+}
+
+/* the moves (see plan.h): each move's amount per bus, the largest winning, except a swell, which opens whatever the
+   block holds; a sweep moves per step, reaching its end value on the bar's last step */
+void plan_moves(const song_plan_t *p, int bar, int step, float *lp, float *hp)
+{
+    const plan_block_t *b = plan_at(p, bar), *nx;
+    float prog = (float)(step + 1) * (1.0f / 16.0f), v = 0.0f;
+    int r, last;
+    for (r = 0; r < PM_N; r++)
+        lp[r] = hp[r] = 0.0f;
+    if (!b)
+        return;
+    last = bar == b->start + b->bars - 1;
+    nx = plan_at(p, b->start + b->bars);
+    if (b->flags & PB_DARK) { /* intro and outro: the drums and bass darker than the keys */
+        lp[PM_CHORDS] = lp[PM_LEAD] = lp[PM_CANDY] = 0.4f;
+        lp[PM_BASS] = lp[PM_DRUMS] = 0.7f;
+    }
+    if (b->section == SEC_BREAK)
+        v = last ? 0.8f * (1.0f - prog) : 0.8f;
+    if (last && (b->flags & PB_DROP_LAST) && v < 0.6f)
+        v = 0.6f;
+    for (r = 0; r < PM_N; r++)
+        if (lp[r] < v)
+            lp[r] = v;
+    if (last && (b->flags & PB_SWELL)) /* a swell opens the bar: from the block's own amount (0.5 where it is open) */
+        for (r = 0; r < PM_N; r++)
+            lp[r] = (b->section == SEC_BREAK ? 0.8f : lp[r] > 0.0f ? lp[r] : 0.5f) * (1.0f - prog);
+    if (last && nx && nx->section == SEC_GROOVE && (b->section == SEC_BREAK || (b->flags & PB_DROP_LAST)))
+        for (r = 0; r < PM_N; r++)
+            hp[r] = r == PM_LEAD ? 0.0f : prog;
 }

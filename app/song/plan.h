@@ -20,6 +20,15 @@ enum {
 typedef struct { uint8_t start, bars; uint8_t section; uint8_t layers; uint8_t flags; } plan_block_t; /* layers: L_* */
 typedef struct { uint8_t n; uint8_t bars; plan_block_t b[24]; } song_plan_t;
 
+/* The section moves, per role bus (PM_*: the same numbers as V_CHORD..V_CANDY, and V_KICK for the drums; plan.c
+   checks): at bar and step (0-15), each bus's low-pass amount lp[] (0 open .. 1 closed) and high-pass amount hp[] (0 off .. 1),
+   for vx_set_filter and vx_set_hp. Intro and outro (PB_DARK): drums and bass 0.7, the rest 0.4. A break: 0.8,
+   opening to 0 across its last bar. A drum-drop bar: 0.6. A swell: 0.5 to 0 over the block's last bar (a dark or
+   dropped block's own amounts to 0: the swell opens it). The bar
+   before a groove block that follows a break or a drum drop: the high-pass rises 0 to 1 on every bus but the lead,
+   open again on the downbeat. Elsewhere (and outside the plan) 0. */
+enum { PM_CHORDS, PM_BASS, PM_LEAD, PM_CANDY, PM_DRUMS, PM_N };
+void plan_moves(const song_plan_t *p, int bar, int step, float *lp, float *hp);
 void plan_build(const song_roll_t *r, song_plan_t *p);           /* deterministic per roll */
 const plan_block_t *plan_at(const song_plan_t *p, int bar);      /* NULL outside [0, bars) */
 const char *plan_section_name(int section);                      /* "intro", "groove", "lead", "break", "outro" */

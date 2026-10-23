@@ -13,7 +13,7 @@ Research short names: *genre* = `lofi-hip-hop.md`, *audio* = `lofi-audio-arrange
 Sam listens while studying and coding **(Sam)**. This purpose drives several choices below that a jazz or pop
 engine would not make: zero tolerance for semitone rubs, no substitutions, diatonic bass, no startling transitions
 (record skips, backspins, stutters, tape stops excluded), true silence of 2–4 s between songs. Status: **Done**
-(clash checks, `app/app.c` gap), except level checks between sections (planned).
+(clash checks, `app/app.c` gap, and steady levels between sections and songs: `test_levels_steady`, Task 8).
 
 ## Length, tempo, feel
 
@@ -71,7 +71,7 @@ engine would not make: zero tolerance for semitone rubs, no substitutions, diato
 | Pattern families | boom-bap, half-time, sparse, brushes and ride, bossa; snare on 2 and 4 (or 3 in half-time); kick on 1 plus 1–3 offbeats; hats in 8ths at about half velocity; ghosts | genre | **Done** (`library.c: LIB_PATTERNS`); some kicks to check by ear (Task 3 minor) | *genre* §3.1; *midi* §3.4 |
 | Polymeter | a brief 3-against-4 shaker | neighboring genre, approved **(Sam)** | **Done** (`poly3`) | spec |
 | Fills | only at boundaries; no crashes, no rolls into drops | genre + taste (nothing startling) | **Partial** (before layer changes only) | spec; R13 |
-| Kick ducking | light, −2 to −4 dB on chords and bass | genre | **Not yet** (Plan 3) | *genre* §5 |
+| Kick ducking | light, −2 to −4 dB on chords and bass | genre; depth per song **(Sam: yes)** | **Done**: the pump, subtle 1 / medium 3 / obvious 6 dB, a third of songs each (Task 7b) | *genre* §5 |
 
 ## Melody and ear candy
 
@@ -87,12 +87,60 @@ engine would not make: zero tolerance for semitone rubs, no substitutions, diato
 
 | Choice | Value | Kind | Status | Source |
 | --- | --- | --- | --- | --- |
-| Six roles | chords, drums, bass, lead, ear candy, bed | genre | **Done** in the engine; bed **Not yet** | spec |
-| Curated instrument sets | Rhodes, Wurli, felt piano, nylon, pad; upright, sub, electric bass; kalimba, vibes, bells, sax, muted trumpet; flavors lo-fi, bossa, city pop, neo-soul, chillwave | genre **(Sam: curated sets, not free mixing)** | **Partial** (`library.c` sets; placeholder voices only, Plan 3) | *genre* §4; Tuna, LOF-1 (*firmwares*) |
-| Dust | low-pass about 1–5 kHz, wow and flutter, soft saturation, bit/rate grit; warm vinyl or wobbly tape | genre | **Not yet** (Plan 3) | *genre* §5 |
-| Surface noise, ambience | vinyl crackle or tape hiss or none; rain or none; steady, opens and closes the song | genre **(Sam: three independent layers)** | **Not yet** (`L_BED` unset, Plan 3) | *genre* §5; MAKU, LOF-1 |
-| Automation arcs, evolving weather, noise swell before drums | slow filter / wobble / reverb arcs over 16–32 bars; rain builds and passes | neighboring genres, approved **(Sam)** | **Partial** (`PB_SWELL` flagged; sound in Plan 3) | spec |
+| Six roles | chords, drums, bass, lead, ear candy, bed | genre | **Done** (`voices.c`, `drums.c`, `fx.c`) | spec |
+| Curated instrument sets | Rhodes, Wurli, felt piano, nylon, pad; upright, sub, electric bass; kalimba, vibes, bells, music box, vox pad, flute, sax, muted trumpet, guitar lick; flavors lo-fi, bossa, city pop, neo-soul, chillwave | genre **(Sam: curated sets, not free mixing)** | **Done** (`library.c` 11 sets, `patch.c`) | *genre* §4; Tuna, LOF-1 (*firmwares*) |
+| Dust | low-pass about 1.5–5 kHz, wow and flutter, soft saturation, bit/rate grit; warm vinyl or wobbly tape | genre | **Done** (`fx.c`, four levels) | *genre* §5 |
+| Surface noise, ambience | vinyl crackle or tape hiss or none; rain or none; steady, opens and closes the song | genre **(Sam: three independent layers; quieter, Task 8)** | **Done** (`fx.c` bed, about 35 dB under the music) | *genre* §5; MAKU, LOF-1 |
+| Automation arcs, evolving weather, noise swell before drums | slow filter / wobble / reverb arcs over 16–32 bars; rain builds and passes | neighboring genres, approved **(Sam)** | **Partial**: section filter moves (intro and outro dark, breaks, drops, swells, a high-pass build into a groove; Task 7b) and rain gusts; no long arcs yet | spec |
 | Self-sampling chops, vocal chops, reverb freeze | later features | neighboring genres **(Sam: later)** | **Not yet** | spec |
+
+### The instrument models (Plan 3a; `patch.c` documents every parameter)
+
+- **Keys:** Rhodes, Wurli and felt piano are one 2-op FM model with a decaying index (the tine's bell into a round
+  body), a strike, a noise bark (Wurli) and a tone low-pass (felt). Nylon is a Karplus–Strong pluck.
+- **Pads:** two detuned polyBLEP saws into a low-pass (pad) or AMB-1's two formant filters (vox pad).
+- **Basses:** sub and electric bass are FM with a struck index plus a sub-octave sine (legato retriggers); the
+  upright is a Karplus–Strong pluck with a thump.
+- **Bells:** AMB-1's 2-op FM bell (vibes with the motor's tremolo, kalimba, music box, bells), the decay tracking the key.
+- **Winds:** flute, sax and muted trumpet blend sine, triangle and pulse into a low-pass that opens with the
+  envelope, with a mute, breath noise, a chiff and a delayed vibrato. The guitar lick is a Karplus–Strong pluck.
+- **Drums:** four kits (dusty, soft, 808, brushes), each lane a swept sine or filtered noise.
+- Keys and pads whose partials stay under 9 kHz render at half the rate (Task 7c, a cost move; inaudible by test).
+
+### The chain, in order (`voices.c`, `fx.c`)
+
+1. **Voices into role buses** (chords, bass, lead, candy, drums). The keys' level follows the song's comping.
+2. **The mud high-pass** on the chords', the lead's and the ear candy's sums: a Butterworth at 135 Hz (150 Hz on a
+   pad), so the bass and the kick own the low end **(Sam: "add both")**.
+3. **The drums' compressor**: 4:1, instant attack, 120 ms release, a threshold per kit (3–6 dB off a full-velocity
+   kick or snare in every kit).
+4. **Section filters** per bus: the plan's moves (a low-pass from 18 kHz to 200 Hz, a high-pass build to 600 Hz).
+5. **Sends:** reverb (Rings', Sam's pick; keys 0.30, lead 0.35, candy 0.45, drums 0.06, bass dry), the chords' bus into
+   the chorus (Rings'; Rhodes deepest), a tape delay (a dotted 8th; leads and candy wet, keys a touch, basses dry).
+6. **Dust** on the music: wow and flutter, saturation, grit, the dust low-pass.
+7. **The pump** (the kick ducking, per song) and **the glue compressor** (below), as one gain.
+8. **The soft clip** (linear to 0.4, a knee to 0.7), then the wet returns over it, then **the bed**.
+
+### The mix (Task 8)
+
+- **Balance:** the keys and the lead are the focus; the bass sits about 1–5 dB under them, the drums 0–6 dB under
+  (the 808 about level with the keys), measured as the 90th percentile of 50 ms levels in full-band sections; the
+  ear candy an ornament under the lead; the bed about 35 dB under the music. The upright sits lower in body (6–15
+  dB under the keys): its pluck's peak, near the soft clip, caps it. Role gains set the balance; each patch's level evens a role's instruments
+  out (nylon up, pad and felt down, the basses brought together, the leads together), so every set mixes alike.
+- **The keys per comping:** struck keys held a bar are lifted 2 dB, held two bars 4.5 dB (nylon 2 dB more: it decays
+  fastest), an arpeggio 1 dB; a pad's arpeggio 3 dB. Without it, held songs sat 3–6 dB under stab songs.
+- **The drums:** within each kit the hats sit about 10 dB under the snare per hit after the chain's low-pass, the
+  open hat 5, the shaker 10, the rim 8; each kit has its own level (the 808's sub a little hotter).
+- **The glue compressor (Sam: "yes"):** on the mix bus, 2:1 above −26 dBFS with a 4 dB knee, 30 ms attack, an auto
+  release (200 ms after a short peak, 400 ms while it keeps compressing), 4.5 dB of make-up (the mix's level, the
+  reverb's return included). Over 50 songs it takes 1.1–3.1 dB off full sections and under 1 dB off intros.
+- **Steady levels:** over 50 rolled songs every song's full band sits within 2 dB of the median, and no section
+  jumps more than 4 dB from the last full one (intros, outros, breaks and fades may be quieter).
+- **The bed (Sam: "the noise layer needs to be quieter"):** 33–38 dB under each song's music (it was 22–29).
+- **Pads at a chord change:** a held pad gets 8 chord voices and a 2 s release, so the old chord releases under the
+  new one's swell (a 2.8 dB dip, was 17.6 dB); a pad's swell takes at most half its note, so a pad arpeggio speaks.
+- The choices to judge by ear are in the song-engine ledger's "Sound" list.
 
 ## Excluded on purpose (genre or taste)
 

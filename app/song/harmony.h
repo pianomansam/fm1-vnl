@@ -16,6 +16,7 @@ enum { CS_HELD, CS_STABS, CS_OFFBEATS, CS_ARP };
 int harmony_chord_at(const song_roll_t *r, int bar, int pass, int dark, int *pcs);
 
 int harmony_style(const song_roll_t *r);   /* CS_*, per song (seed stream 121) */
+unsigned harmony_stab_steps(const song_roll_t *r);   /* the steps stab comping strikes: 1 and a step the kick leaves free */
 
 /* Chord-part events of one 16th step (bar and step from 0). Writes nothing unless the block has L_KEYS.
    voicing_state: the previous chord's 4 notes (all 0 = none), updated here for voice leading. Chords are rolled:

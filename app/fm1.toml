@@ -13,4 +13,4 @@ ble_central = false
 tagline = "A lo-fi hip hop machine for the FM-1"
 repo = "https://github.com/pianomansam/fm1-vnl"
 licence = "MPL-2.0"
-credits = "Built on fm1-base and felucca-bsp, from Felucca by Leo Kuroshita (Hügelton Instruments)."
+credits = "Built on fm1-base and felucca-bsp, from Felucca by Leo Kuroshita (Hügelton Instruments). Reverb and chorus adapted from Mutable Instruments Rings by Emilie Gillet (MIT, Copyright 2014 Emilie Gillet; notice in the README)."

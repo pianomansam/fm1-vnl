@@ -232,6 +232,23 @@ static int keys_sustained(const song_roll_t *r)
     return set && lib_ins_sustained(set->chords);
 }
 
+/* Sam: the stabs answer a sparse kick, never double it ("they can be on the same beat, but only if both aren't a
+   sparse pattern"; stabs always are): over a kick of 3 hits a bar or fewer, the second stab goes on the and of 2, or,
+   where the kick plays there, on the and of 3, beat 2 or beat 4, the first the kick leaves free; over a busier kick
+   it stays on the and of 2 */
+unsigned harmony_stab_steps(const song_roll_t *r)
+{
+    static const uint8_t SECOND[4] = {6, 10, 4, 12};
+    const lib_pattern_t *p = lib_pattern_by_id((uint8_t)r->v[RF_PATTERN]);
+    unsigned kick = p ? p->hit[D_KICK] : 0u;
+    int i, hits = 0;
+    for (i = 0; i < 16; i++) hits += (kick >> i) & 1u;
+    if (hits > 3) return 0x41u;
+    for (i = 0; i < 4; i++)
+        if (!((kick >> SECOND[i]) & 1u)) return 1u | 1u << SECOND[i];
+    return 1u;
+}
+
 int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, int pass, float step_samples,
                  harmony_voicing_t *vs, int busy, uint32_t salt, song_ev_t *out, int max)
 {
@@ -252,7 +269,7 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
         lo = 55; hi = 75;
         break;
     case CS_STABS:
-        if (step != 0 && step != 6) return 0;
+        if (!((harmony_stab_steps(r) >> step) & 1u)) return 0;
         len = (uint32_t)(4.0f * step_samples * 0.6f);
         lo = 60; hi = 85;
         break;

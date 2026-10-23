@@ -168,6 +168,14 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   first), as a lead or a counter-line. A strong, safe starting point before more ornate melody.
 - Together with the phrase-start item above (more off-beat starts and pickups) and the research's "land on the
   keys' color tones" idea (docs/music/ideas-from-other-apps.md).
+- **Move away from the hybrid lead toward a sophisticated arpeggiator (Sam, 2026-10-23: the hybrid "still doesn't
+  feel musical").** Research first: docs/research/arpeggiators.md (how sophisticated arpeggiators work, and existing
+  work to use or learn from). **Sam: the research informs both the lead AND the accompaniment** — one phrase engine
+  (authored figures over chord-tone indexes, lanes for rhythm/octave/accent/gate, phrase repetition A A A′ B with
+  looped variation, rank-based thinning by motion) serving the lead and the comping (today's 16th-note comping
+  arpeggio, and the guitar strumming idea below), each with its own figure library and register.
+  **Before applying it, walk Sam through all the research again (arpeggiators.md and fm1-accompaniment-code.md),
+  separated into accompaniment and lead** (Sam, 2026-10-23), then design each.
 - **A cap on how busy the lead can get (Sam, 2026-10-23: "I will also want to work towards putting a limit on how
   busy it can get").** After the hybrid follows the motion lever (lead plan Task 6): a ceiling on onsets per bar or
   per phrase, whatever the motion.
@@ -178,6 +186,13 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   real flute, sax or trumpet, whether the lead belongs only in lead blocks (lead plan Task 1 ruling), and the sung
   line without suspensions (dropped: a held non-chord tone on 1 breaks the no-rub rules; could return as a tie).
 
+### Accompaniment
+
+- **Guitar strumming as a comping style (Sam, 2026-10-23, for later).** A good concept of strumming for the
+  accompaniment: down/up strokes on a 16th grid, the strings spread a few ms apart (low to high on downstrokes, high
+  to low on upstrokes), muted "chuck" strokes, accents, and patterns per song; voiced for a guitar's six strings
+  rather than the keys' four voices. Would pair with the nylon and guitar plucks (Karplus–Strong, Plan 3a Task 4).
+
 ### Bass rhythm (spike VNL_BASS, kept as is by Sam to revisit)
 
 - Tones approved by ear; rhythm was the open question. The spike (roots and root-fifth songs only) keeps all four
@@ -185,6 +200,31 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   22%, beats 1, 2 and 4 22%. Plus anticipation (~35% of chord changes, an 8th or 16th early, ringing over), beat 1
   held and the rest long or short per song, ghost notes (60% of songs, ~30% of strikes). Revisit: the weights, how
   much anticipation, and whether to bring it into the engine proper (it lives in song.c as a spike).
+
+### Sound (judge by ear, Task 8)
+
+Renders: `app/build/new/<seed>/` and `<seed>-nobed/`, one per set (Task 8's report lists them).
+
+- **Rings' reverb and chorus against ours.** Sam picked Rings' (Task 7c); ours stays host-only (`VNL_FX=ours`).
+  Rings' chorus wobbles ±14 cents, near its test's 15-cent window: don't deepen it without moving the window.
+- **The drums' compressor.** Its attack is instant (a 10 ms attack let the snare's transient through, against the
+  peak-to-body test); per-kit thresholds give full-velocity kicks 5.5–5.7 dB and snares 3.2–3.5 dB.
+  Too squashed or too little?
+- **The chorus and the delay at 7.35 kHz.** Some aliasing in their wet above 3.7 kHz (a cost trade); listen on the
+  Rhodes and the Wurli.
+- **The pump depths** (subtle 1, medium 3, obvious 6 dB; the 808 pumps about 2 dB deeper, the brushes shallower).
+- **The bed's level:** about 35 dB under the music (33–38 by song); `BED=0` renders leave it out.
+- **The wind breath levels:** tuned to a test (the breath's residual −30 dB) in Task 5, kept in Task 8; the sax and
+  muted trumpet patches moved up as a whole (the breath with them). Seed 4185943442 is the one to check.
+- **The section filter amounts** (intro and outro: drums and bass 0.7, keys, lead and candy 0.4; breaks 0.8; the
+  drop bar 0.6). Keys in intros sit at about 3 kHz; darker would be the curve's knob.
+- **The pad crossfade:** a held pad takes 8 voices and a 2 s release (its old chord rings under the new one's swell);
+  a pad's swell takes at most half its note (a pad arpeggio speaks, with a faster swell than the patch's 0.6 s).
+- **The mix's balance:** the keys per comping (held keys lifted 2–4.5 dB, nylon 2 more), the upright's body under
+  the other basses, the kits' levels (the 808 a little hot), the hats about 10 dB under the snare, the vibes as ear
+  candy (in Rhodes neo-soul) about 4 dB over the other candy (the patch is shared with the lead role).
+- **The glue compressor** (2:1, −26 dBFS, 30 ms, 200–400 ms auto release, 4.5 dB make-up): 1–3 dB on full sections.
+- **The mud high-pass** (135 Hz, 150 on pads): thinner keys, or clearer?
 
 ### Lo-fi / taste
 
@@ -202,3 +242,29 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   pianist voice leading (common tones held, top voice first), dominants always extended, no dark re-voicing. E.g.
   Db Lydian loop: Ab3 C4 F4 Ab4 / Bb3 Db4 F4 Ab4 / Bb3 Db4 F4 G4 / Ab3 C4 Eb4 G4. Treat changes to the voicer as
   needing a fresh listen.
+
+### Sound engine: deferred minors (Plan 3a reviews, 2026-10-23)
+
+From the task and final reviews; none blocks merging. Revisit when the area is next touched.
+
+- **Task 1:** bench.c:41 comment claims P_NPARAMS is checked; nothing checks it.
+- **Task 1:** timed region includes roll_song/vx_init; fractional step truncation; early song end unflagged.
+- **Task 1:** bench.c:22 confusing comment; any '-' arg treated as --heaviest; mem-check over-budget path unexercised.
+- **Task 2:** vx_init clears state when vx_active()==0 (voices+drums only) — once reverb/bed exist, a song change would cut their tails; fx_configure would switch bed abruptly; dark snaps to 0. Task 7 must keep FX tails across song changes.
+- **Task 2:** bass is a separate bass_t sine with no model dispatch; UPRIGHT (M_PLUCK) / ELEC_BASS (M_BASS) need it (or bass as a mono voice_t pool).
+- **Task 2:** model state as flat voice_t fields (a union would cap growth); no carryover test; dark-ramp test readability; patch.h says p[] layouts documented in patch.c — each model task adds its layout.
+- **Task 3:** pad releases are cut by 4 ms steals at each chord change in the 4-voice chord pool, then the next pad swells — an audible dip; consider more chord voices for pads or overlap.
+- **Task 3:** dark test HF proxy near its noise floor for keys; voices.c:91 long comment; Wurli bark shares the drum noise stream.
+- **Task 4:** upright retrigger waits up to ~4.4 ms for the steal fade (timing jitter on walking lines; listen to 4185943442); notes below 28 clamp to 28's pitch; guitar lick decay untested.
+- **Task 5:** breath test has no negative control (reviewer measured −48…−62 dB with breath off vs −26 dB on; −30 dB bar); comb uses nominal period; `default:` routes unknown models to bass (prefer explicit case M_BASS); candy peaks 0.059–0.060 vs 0.05 floor; breath levels tuned to the test — Task 8 confirms by ear (4185943442).
+- **Task 6:** vx_kick_env is the raw exponential (808 tail ~2.2 s) and block-granular — shape it for ducking.
+- **Task 6:** drums.h claims sounding hits keep their kit (they read kit params live); vx_set_kit stores cfg.kit unvalidated; stale voices.c:251 header; retrigger resets phase/filters (pre-existing); test chunk-boundary margins; no vx_configure→kit test; hat/shaker/rim amps for Task 8 by ear.
+- **Task 7:** quick replay within ~40 ms of stop can return a stale plate tail; 64 KB memset in the ISR at song start; plate decimation aliasing; send not darkened in dark sections (deliberate); bed fixed absolute level vs quiet songs; no end-to-end test of mid-song reconfigure (no knob yet); fx_tiny test hook ships in firmware; fx.c:173 long comment; pre-existing UBSan report at fastmath.h:58; set change re-sweeps a ringing kick.
+- **Task 7b:** comp() pre-scan/post-pass runs with no drums active; fx_chorus_dry called 3× per chunk.
+- **Task 7b:** attack gain step at block start can tick on a sounding 808 body; break+drop-bar holds the sweep at 0.6; no NaN/denormal check for bus filter/compressor states; chorus dry compensation lowers chords' sends ~1.4 dB, sends now post-filter (untested); test hooks ship in firmware (vx_fx_off, fx_wet_off, ~1 KB triple buffers); PM_*↔V_* mapping by enum order; a migrated test's comment/printf disagree; thin margins (scenario −8.8 vs −9; delay −63 vs −60).
+- **Task 7b:** fx_song lands dl_t immediately, so a still-ringing delay tail jumps (~0.11 s read shift on a 70→85 BPM change) — keep the glide for a ringing tail; the fx.c:54-56 / fx.h:138 comment overstates 0.25 ms.
+- **Task 7c:** half-rate note grid skips each patch's top half-rate notes (pads up to ~96 untested; consider capping pads at 84 or extending the test); quarter-rate plate input aliasing untested and its comment's rationale wrong; hpar/hx/hr_tail not reset per song (harmless at 256-sample calls); half-rate also applies to lead/candy M_EP/M_PAD patches, untested; stale "triple" names; cost-gate.sh needs mkdir -p; noisy per-case test output.
+- **Task 7c:** two overlong comment lines (rings_fx.c ~220, song_test.c ~4688); Rings chorus wobble ±14 cents near the test's 15-cent window (Task 8 must not deepen it without moving the window); Rings CPU unmeasured on device.
+- **Task 8:** quiet blocks allowed +1 dB over full band (brief: never louder); 044f590 alone breaks the web build (squash with a803785 before merging?); glue test margins brittle by design; glue's reduction doesn't reach the reverb return (wet rises 1–3 dB in dense passages); voices.c includes harmony.h for keys_gain (engine→song dependency); stale log paths in 2-set4 and -nobed renders.
+- **Task 8:** picker time stated inconsistently (~25 s vs 40 s); a long line in docs/cost.md; an older cost.md paragraph keeps pre-fix seed-7 numbers as history.
+- **Final:** squash 044f590 with a803785 (web build) — not done (history rewrite; Sam's call at merge); memsets in the ISR at song start (~52 KB on device) — measure on device; unused plate/our-chorus code and ~1 KB pool on device; plus the earlier deferred minors the final review triaged as "To revisit".

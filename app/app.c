@@ -9,6 +9,11 @@
  * voices at that moment, renders, and scales by MASTER. What the screen shows the render publishes as a snapshot
  * (a sequence count around it, so the main loop never reads it half written; the render never waits).
  *
+ * The bed (vinyl or tape surface, rain) opens and closes each song: it fades in as the song starts and out over the
+ * gap's first 1.5 s (vx_release_all closes it). The engine is cleared at a song's start only when nothing is left
+ * to hear (vx_sounding: no notes, no plate tail, no bed fade), so a song change never cuts a tail; a request that
+ * changes the set, the dust, the noise or the ambience reconfigures the voices where it lands (step()).
+ *
  * Controls (minimal; the real UI comes later): PLAY stops / plays (a stop is true silence; play after a stop is a
  * fresh song), K1 key +-1 semitone, K2 tempo +-1 BPM, K3 motion +-5, K4 mood +-1: each a request that lands on the
  * song's next 4-bar boundary. Part of the unity build (device/unity.c, host/plat_host.c), after the platform:
@@ -22,6 +27,7 @@
 #include "theory.h"
 #include "library.h"
 #include "voices.h"
+#include "fx.h"
 
 #define BARRIER() __asm__ volatile("" ::: "memory")
 
@@ -144,10 +150,13 @@ static void song_begin(void)
     song_start(&song, &mb_roll);
     BARRIER();
     mb_full = 0;                         /* the main loop rolls the next one */
-    if (vx_active())
+    if (vx_sounding())                   /* a tail (notes, the plate, the bed's fade) rings on: keep it */
         vx_set_gain(1.0f);
     else
         vx_init();
+    vx_song(&song.roll);                 /* this song's instruments, kit and chain (the bed fades in, the dust ramps
+                                            if anything still sounds; the chain's noise from its seed), before its
+                                            first event */
     r_now = r_pos = r_tick = 0;
     r_frac = 0.0f;
     memset(req_set, 0, sizeof req_set);
@@ -156,20 +165,32 @@ static void song_begin(void)
     SLOG_SONG(&song);
 }
 
-/* one 16th: the fade (if the song's last block fades), the requests' slots, the step's events to the voices */
+/* one 16th: the fade (if the song's last block fades), the section moves (each role bus's filters, plan_moves), the
+   requests' slots, the step's events to the voices */
 static void step(void)
 {
     const plan_block_t *last = &song.plan.b[song.plan.n ? song.plan.n - 1 : 0];
     int bar = song.bar, st = (int)(r_tick & 15u), n, i;
-    float adv;
+    float adv, lp[PM_N], hp[PM_N];
     uint32_t ip;
+    plan_moves(&song.plan, bar, st, lp, hp);   /* the engine ramps them (about 50 ms; sweeps move per step) */
+    for (i = 0; i < PM_N; i++) {
+        vx_set_filter(i, lp[i]);
+        vx_set_hp(i, hp[i]);
+    }
     if (song.plan.n && (last->flags & PB_FADE) && bar >= last->start) {
         int len = last->bars * 16, at = (bar - last->start) * 16 + st + 1;
         vx_set_gain(1.0f - (float)at / (float)len);
     }
     if (st == 0 && bar % 4 == 0)
         memset(req_set, 0, sizeof req_set);   /* every waiting request lands on this boundary */
-    n = song_tick(&song, evs, 64);
+    {                                     /* a request that lands here on what the voices read reaches them */
+        song_roll_t before = song.roll;
+        n = song_tick(&song, evs, 64);
+        if (vx_reconfigures(&before, &song.roll)) /* sounding notes keep their patches; dust and bed changes ramp,
+                                                     the delay's time glides to a new tempo */
+            vx_configure(&song.roll);
+    }
     SLOG_STEP(&song, bar, st, evs, n);
     for (i = 0; i < n; i++)
         vx_event(&evs[i]);
@@ -188,7 +209,7 @@ static void command(uint32_t c)
         if (rs == RS_STOP)
             rs = RS_WAIT;                /* a fresh song from the mailbox */
         else {
-            vx_release_all();
+            vx_stop();                   /* the notes, the bed and the plate out in 40 ms */
             rs = RS_STOP;
         }
     } else if (op == C_REQ && rs == RS_SONG && song.state == SS_PLAYING && a < RF_N) {
@@ -278,7 +299,8 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                 seg = gap_left;
             gap_left -= seg;
         }
-        if (rs == RS_SONG || vx_active())   /* true silence once the last release is over */
+        if (rs == RS_SONG || vx_sounding())   /* true silence once the last release, the plate's tail and the
+                                                  bed's fade are over */
             vx_render(mix_l + i, mix_r + i, seg);
         r_now += seg;
         SLOG_TIME(seg);
@@ -304,6 +326,7 @@ static uint32_t next_seed;
 static uint8_t rolled_any, seeded;
 #if defined(PLAT_HOST) && !defined(PLAT_WEB)
 static uint32_t seed_override;           /* VNL_SEED (host): the first song's seed */
+static int set_override;                 /* VNL_SET (host): the first song's instrument set (roll_set: if its mood allows) */
 static int has_seed_override;
 #endif
 static uint32_t boot_spins;              /* main-loop passes between frames, until the first seed */
@@ -345,6 +368,10 @@ static void roll_next(void)             /* main loop: keep the mailbox full */
     if (mb_full || !seeded)
         return;
     roll_song(rolled_any ? &last_roll : 0, next_seed, &mb_roll);
+#if defined(PLAT_HOST) && !defined(PLAT_WEB)
+    if (set_override && !rolled_any)
+        roll_set(&mb_roll, RF_SET, set_override);
+#endif
     last_roll = mb_roll;
     rolled_any = 1;
     next_seed = seed_next(next_seed);
@@ -364,8 +391,21 @@ void app_init(void)
             song_set_bass_spike(sp ? *sp - '0' : 0);
         }
         {
+            const char *fx = getenv("VNL_FX");     /* VNL_FX=ours: our plate and chorus in place of Rings' (compare) */
+            fx_rings(!(fx && !strcmp(fx, "ours")));
+        }
+        {
+            const char *bd = getenv("VNL_BED");    /* VNL_BED=0: no surface noise or rain, to hear the music */
+            vx_bed_off(bd && *bd == '0');
+        }
+        {
             const char *sd = getenv("VNL_SEED");   /* the first song's seed, as a log prints it: replay or roll anew */
             if (sd && *sd) { seed_override = (uint32_t)strtoul(sd, 0, 10); has_seed_override = 1; }
+        }
+        {
+            const char *st = getenv("VNL_SET");    /* VNL_SET=4: the first song on that set (a render of one the roll
+                                                      seldom picks first) */
+            set_override = st ? atoi(st) : 0;
         }
         while (w && *w) {                /* VNL_SWAP="Eb3 G3 Db4 F4=Db3 G3 Eb4 F4;...": hear an alternative voicing */
             int v[8], k = 0;
