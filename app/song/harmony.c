@@ -82,7 +82,7 @@ int harmony_chord_at(const song_roll_t *r, int bar, int pass, int dark, int *pcs
 {
     int color, n;
     th_chord_spec_t c = spec_at(r, prog_of(r), bar < 0 ? 0 : bar, pass, &color);
-    if (dark && color > COLOR_7) color--;
+    (void)dark;                          /* dark is a sound (filter, softer), not a different chord (Sam) */
     n = th_chord_pcs(r->v[RF_KEY], r->v[RF_MODE], c, COLOR_7, pcs);
     if (has_iv(pcs, n, 4) && has_iv(pcs, n, 10))
         return dominant_colors(r, c, color, pcs);
@@ -96,26 +96,16 @@ int harmony_style(const song_roll_t *r)
     return rng_int(&g, 4);
 }
 
-/* Voice the chord from the previous voicing (th_voice holds still when the chord is unchanged). The voice-led state
-   stays in the keys' register; a dark chord sounds a second voicing kept under E4, so the groove after a dark intro
-   voice-leads from the real register, and darkening never makes a semitone rub. */
-static void voice_chord(const int *pcs, int n, int dark, int bass, int *state, int *sound)
+/* Voice the chord from the previous voicing (th_voice holds still when the chord is unchanged): rootless only when
+   the bass has the root. Intro and outro (dark) voice exactly as the rest: lo-fi keeps its voicings through a song
+   (Sam); they only play softer, and Plan 3's lo-fi chain darkens their sound. */
+static void voice_chord(const int *pcs, int n, int bass, int *state, int *sound)
 {
     int have = state[0] || state[1] || state[2] || state[3];
     int prev[4];
     memcpy(prev, state, sizeof prev);
-    th_voice_range(pcs, n, have ? prev : NULL, state, 72, bass);   /* in the keys' own register; rootless only */
-    if (dark) {                                                     /* when the bass has the root */
-        static const int HI[3] = {64, 67, 72};                     /* darker: voiced again under E4, a little */
-        int k, i, rub = 1;                                          /* higher when a kept root would rub its 7th */
-        for (k = 0; k < 3 && rub; k++) {
-            th_voice_range(pcs, n, have ? prev : NULL, sound, HI[k], bass);
-            for (rub = 0, i = 0; i < 3; i++)
-                rub |= sound[i + 1] - sound[i] == 1;
-        }
-    } else {
-        memcpy(sound, state, 4 * sizeof(int));
-    }
+    th_voice_range(pcs, n, have ? prev : NULL, state, 72, bass);
+    memcpy(sound, state, 4 * sizeof(int));
 }
 
 static int emit_chord(const int *notes, int n, uint32_t gap, int lo, int hi, uint32_t len, int dark, uint32_t salt,
@@ -173,7 +163,7 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
     }
     dark = (b->flags & PB_DARK) != 0;
     n = harmony_chord_at(r, bar, pass, dark, pcs);
-    voice_chord(pcs, n, dark, (b->layers & L_BASS) != 0, voicing_state, notes);
+    voice_chord(pcs, n, (b->layers & L_BASS) != 0, voicing_state, notes);
     if (style == CS_ARP) {
         k = ARP[(bar * 8 + step / 2) % 6];
         one = notes[k];

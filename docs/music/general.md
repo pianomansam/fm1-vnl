@@ -35,7 +35,7 @@ Pianist rules **(Sam, 03c8cdb)**, all in `theory.c: th_voice_range`, called from
 | **Rootless voicings only when the bass plays the root.** Five-tone chords drop the root first, then the 5th, never the 3rd or 7th. Keys alone (intros, outros) voice the root themselves. | **Done.** `rootless` flag = bass layer present (`harmony.c: voice_chord`); keys-only root 60% → 100%. | 03c8cdb, 8dde786 |
 | **No semitone clusters; no tight 2nds low** (muddy below about C4). | **Done.** Inside sounding chords 2,830 → 0 rubs (of 18,224 strikes). | 03c8cdb |
 | **Keep the comp in its register:** E3–A4 preferred, C3–C5 allowed (room so no voicing is forced into a rub), bottom at most C4, top pulled back up when it drifts low. | **Done.** | 03c8cdb |
-| **A darker voicing is a lower ceiling, not a transposition:** voice-lead under E4 instead of shifting the chord down (shifting made rubs and dragged the register). | **Done.** `harmony.c: voice_chord` (dark path, ceilings 64 / 67 / 72). The *use* of a dark intro is lo-fi. | 03c8cdb, 8dde786 |
+| **Keep one voicing through a song:** an intro or outro is darkened by its sound (filter, softer playing), not by different voicings, so voice leading never breaks at a section seam. | **Done.** `harmony.c: voice_chord` voices dark blocks exactly as the rest; they play softer (`emit_chord`). An earlier lower-ceiling dark voicing was removed (Sam). | 03c8cdb, this change |
 | **A loop's voicings should breathe:** a pianist re-voices on repeats (the top line moves over passes). | **Not yet.** Same voicings every pass; see ideas file (slow top line). | *accomp* §6.5 |
 
 ## 3. Bass lines

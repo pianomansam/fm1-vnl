@@ -861,10 +861,13 @@ static void test_harmony(void)
     CHECK(reharm > 40 && reharm < 400, "harmony: reharmonize count %d implausible", reharm);
     CHECK(bad_det == 0, "harmony: a chord changes inside its own bars");
 
-    /* dark: lower color; events never above 64; all events 48-72, rolled 10-60 ms apart, velocities 25-110 */
+    /* dark (intro, outro) is a sound, not a voicing (Sam: lo-fi keeps its voicings through the song): a dark block
+       voices every chord exactly as the same block unmarked, only softer; all events 48-72, rolled 10-60 ms apart,
+       velocities 25-110 */
     for (seed = 1; seed <= 120; seed++) {
         int prev[4] = {0, 0, 0, 0};
         int prev2[4] = {0, 0, 0, 0};
+        int same[4] = {0, 0, 0, 0};
         roll_song(NULL, (uint32_t)seed, &r);
         styles[harmony_style(&r)]++;
         for (bar = 0; bar < 8; bar++)
@@ -872,13 +875,19 @@ static void test_harmony(void)
                 const plan_block_t *b = (bar < 4) ? &dark : &keys;
                 int *vs = (bar < 4) ? prev : prev2;
                 int ne = harmony_step(&r, b, bar, step, 1 + bar / 4, SPS16, vs, 3u, ev, 16);
+                if (b == &dark) {                      /* the same block unmarked, from the same voicing */
+                    plan_block_t lit = dark;
+                    int ne2;
+                    lit.flags = 0;
+                    ne2 = harmony_step(&r, &lit, bar, step, 1 + bar / 4, SPS16, same, 3u, ev2, 16);
+                    if (ne2 != ne) bad_dark++;
+                    for (i = 0; i < ne && i < ne2; i++)
+                        if (ev[i].note != ev2[i].note || ev[i].delay != ev2[i].delay || ev[i].len != ev2[i].len)
+                            bad_dark++;
+                }
                 for (i = 0; i < ne; i++) {
                     if (ev[i].voice != V_CHORD) bad_range++;
                     if (ev[i].note < 48 || ev[i].note > 72) bad_range++;
-                    if (b == &dark && ev[i].note > 64) {   /* dark: under E4, unless a kept root (no bass in this */
-                        int dp[5], dn = harmony_chord_at(&r, bar, 1 + bar / 4, 1, dp);   /* block) would rub */
-                        if (!(dn > 0 && has_iv(dp, dn, 11))) bad_dark++;               /* its major 7th */
-                    }
                     if (ev[i].vel < 25 || ev[i].vel > 110) bad_vel++;
                     if (ev[i].len == 0) bad_range++;
                 }
@@ -895,7 +904,7 @@ static void test_harmony(void)
             }
     }
     CHECK(bad_range == 0, "harmony: %d events out of range or wrong voice", bad_range);
-    CHECK(bad_dark == 0, "harmony: %d dark notes above 64 that no root-vs-major-7th rub required", bad_dark);
+    CHECK(bad_dark == 0, "harmony: %d dark-block notes voiced differently from the same block unmarked", bad_dark);
     CHECK(bad_vel == 0, "harmony: %d velocities outside 25-110", bad_vel);
     CHECK(bad_roll == 0, "harmony: %d rolled-chord violations", bad_roll);
     CHECK(chords_seen > 0, "harmony: no chord events");

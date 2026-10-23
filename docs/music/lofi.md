@@ -34,7 +34,7 @@ engine would not make: zero tolerance for semitone rubs, no substitutions, diato
 | One chord loop per song | 2–4 chords, cycle 2, 4 or 8 bars; no B section, no key change in the plan | genre | **Done** (`library.c: LIB_PROGS`, R5) | *audio* §1 ("no track has a B section") **(Sam)** |
 | Song maps | Classic, Slow bloom, Straight in, Breather, Drift: skeleton fixed, small moves rolled with Motion | genre shapes, curated **(Sam)** | **Done** (`library.c: LIB_MAPS`, `plan.c`, R9, R11, R12) | *audio* §4, §7; *midi* §5 |
 | Layers in and out on 4/8-bar boundaries | at most 1–2 roles per boundary; map-mandated entries exempt | genre (subtractive arrangement) | **Done** (`plan.c: moves`, R9) | *genre* §1.4; *audio* §1; *midi* §0 |
-| Intro | keys alone, darker, about 4 bars (0–8); bed alone 1–3 bars | genre | **Done** (`PB_DARK`, dark voicing under E4); bed **Not yet** | *audio* §4.2 |
+| Intro | keys alone, darker, about 4 bars (0–8); bed alone 1–3 bars | genre | **Done** (`PB_DARK` marks it: softer now, filtered in Plan 3; same voicings as the song); bed **Not yet** | *audio* §4.2 |
 | Drum entry | drums and bass together on a 4-bar line; hats 4–8 bars later | genre | **Done** | *audio* §4.3 |
 | Middle event | hats out 4–8; kick and bass out 8; one drum break 4–8 bars at 43–65% through; 1-bar drops on an 8-bar phrase's last bar; ~40% of tracks never drop drums | genre | **Done** (`plan.c: skeleton`, `PB_DROP_LAST`) | *audio* §4.4; *midi* §0 |
 | Outro | drums leave 4–10 bars early, keys alone mirror the intro; ring out or fade | genre | **Done** (`PB_FADE`; fades sometimes on a 4-bar block, deferred) | *audio* §4.6 |
@@ -54,7 +54,7 @@ engine would not make: zero tolerance for semitone rubs, no substitutions, diato
 | Progression library | classic lo-fi shapes as roman numerals: vamp / loop / jazzy (one twist chord), mix about 40 / 45 / 15; 18 new entries (27–44) await curation by ear | genre **(Sam: curated)**; mix (call) | **Done** (`library.c: LIB_PROGS`, R6, R8, R26) | *genre* §2.1–2.2 |
 | Mood steers mode and color | sad ↔ happy: minor/Dorian ↔ major/Lydian; Phrygian and Locrian never | genre + taste **(Sam)** | **Done** (`library.c: LIB_MOODS`, `roll.c`) | *genre* §2.3, §8.1 |
 | Chord rhythm | one comp style per song: held, stabs, offbeats, arpeggio; rolled 10–60 ms | genre (sampled-loop feel) | **Done** (`harmony.c: harmony_style`, R15); no anticipations | *genre* §2.4; LOF-1 (*firmwares*) |
-| Darker intro and outro | lower color, voiced under E4 | genre (filtered intro) | **Done** (`harmony.c: voice_chord`) | *audio* §4.2 |
+| Darker intro and outro | the same voicings, played softer, low-passed by the lo-fi chain (Sam: lo-fi keeps its voicings through a song) | genre (filtered intro) | **Partly** (softer: `emit_chord`); filter **Plan 3** | *audio* §4.2 |
 
 ## Bass
 

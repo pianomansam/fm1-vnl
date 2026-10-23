@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* Harmony over time: the chord for each bar (reharmonized on repeat, darker in the intro and outro) and the
+/* Harmony over time: the chord for each bar (reharmonized on repeat: a richer color only) and the
    chord part's events per 16th step, in one of four playing styles. Pure functions of their inputs. */
 #ifndef SONG_HARMONY_H
 #define SONG_HARMONY_H
@@ -12,7 +12,7 @@ enum { CS_HELD, CS_STABS, CS_OFFBEATS, CS_ARP };
 
 /* Pitch classes (root first, up to 5) of the chord at `bar` (from 0). pass is 1-based: 1 = the first time through
    the loop (bar / (n * bars_per_chord) + 1). Passes >= 2 may recolor or substitute exactly one chord of the pass
-   (per-song chance 25-50%); dark lowers the color one step. Returns the count. */
+   (per-song chance 25-50%); dark (intro, outro) changes nothing here: it is a sound, not a chord. Returns the count. */
 int harmony_chord_at(const song_roll_t *r, int bar, int pass, int dark, int *pcs);
 
 int harmony_style(const song_roll_t *r);   /* CS_*, per song (seed stream 121) */
