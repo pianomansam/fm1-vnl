@@ -1972,6 +1972,11 @@ static void test_vx_leads(void)
    cents of the note's, the swing itself there); at note 88 the lead's edges don't alias into the band under 4 kHz (the
    energy there off its harmonics, under -40 dB of the fundamental's band: Review Focus 3). The delay is off: its
    echoes only blur the measures. */
+static int ch_cmp(const void *a, const void *b)
+{
+    float x = *(const float *)a, y = *(const float *)b;
+    return x < y ? -1 : x > y;
+}
 static void test_chip(void)
 {
     static float fr[400];
@@ -2063,35 +2068,47 @@ static void test_chip(void)
         CHECK(db < -40.0f, "chip lead at note 88: %.1f dB off its harmonics under 4 kHz, wanted under -40", (double)db);
     }
     { /* the bit crush: every chip patch quantizes its output to p[7] bits over its own level (2^(bits-1) steps from
-         0 to it). The lead at note 60 held 2 s, its voice's output read a sample at a time in the crush's steps
-         (vx_chip_out): every sample from the onset through the decay a whole step, within +-2^(bits-1), and in one
-         cycle at its sustain (from 1 s) at most 2^bits + 1 distinct levels */
+         0 to it). Each on its role, a note held 1 s, its voice read a sample at a time (vx_chip_out: the sample the
+         voice hands the mix, and the same before the crush): every output sample its pre-crush sample rounded to the
+         step, and over the second (the attack, the decay, the sustain) the output takes at most 2^bits + 1 distinct
+         levels where the pre-crush signal takes more */
         static const int CH[4] = {INS_CHIP_CHORDS, INS_CHIP_LEAD, INS_CHIP_BASS, INS_CHIP_BLIP};
-        float q, lv[256], l1, r1;
-        uint32_t t, per = 169u; /* 44100 / 261.63 */
-        int bits = (int)vx_patch(INS_CHIP_LEAD)->p[7], nl = 0, off = 0, a;
-        for (a = 0; a < 4; a++)
-            CHECK(vx_patch(CH[a])->p[7] >= 4.0f && vx_patch(CH[a])->p[7] <= 8.0f, "chip ins %d: crush %.0f bits, wanted 4-8",
-                  CH[a], (double)vx_patch(CH[a])->p[7]);
-        q = (float)(1 << (bits > 0 ? bits - 1 : 0));
-        vx_init();
-        vx_assign(V_LEAD, INS_CHIP_LEAD);
-        vt_ev(V_LEAD, 60, 100, 0, 2u * 44100u);
-        for (t = 0; t < 44100u + per; t++) {
-            float y;
-            l1 = r1 = 0.0f;
-            vx_render(&l1, &r1, 1u);
-            y = vx_chip_out(V_LEAD);
-            off += y != fm_floorf(y + 0.5f) || fm_fabsf(y) > q;
-            if (t >= 44100u) {
-                for (a = 0; a < nl && lv[a] != vx_chip_out(V_LEAD); a++) {
+        static const int RL[4] = {V_CHORD, V_LEAD, V_BASS, V_CANDY}, NT[4] = {60, 60, 36, 76};
+        static float vo[44100], vr[44100];
+        float l1, r1;
+        uint32_t t;
+        int a;
+        for (a = 0; a < 4; a++) {
+            int bits = (int)vx_patch(CH[a])->p[7], off = 0, no = 0, nr = 0, lim = (1 << bits) + 1;
+            uint32_t k;
+            float step = 0.0f;
+            CHECK(bits >= 4 && bits <= 8, "chip ins %d: crush %d bits, wanted 4-8", CH[a], bits);
+            vx_init();
+            vx_assign(RL[a], CH[a]);
+            vt_ev(RL[a], NT[a], 100, 0, 44100u);
+            for (t = 0; t < 44100u; t++) {
+                float raw, st;
+                l1 = r1 = 0.0f;
+                vx_render(&l1, &r1, 1u);
+                vo[t] = vx_chip_out(RL[a], &raw, &st);
+                vr[t] = raw;
+                if (st > 0.0f) {
+                    step = st;
+                    off += vo[t] != fm_floorf(raw * (1.0f / st) + 0.5f) * st;
                 }
-                if (a == nl && nl < 256) lv[nl++] = vx_chip_out(V_LEAD);
             }
+            qsort(vo, 44100u, sizeof vo[0], ch_cmp);
+            qsort(vr, 44100u, sizeof vr[0], ch_cmp);
+            for (k = 0; k < 44100u; k++) {
+                no += !k || vo[k] != vo[k - 1];
+                nr += !k || vr[k] != vr[k - 1];
+            }
+            printf("chip: ins %d crush %d bits (step %.5f): %d output levels in 1 s (%d before the crush), %d samples "
+                   "off the steps\n", CH[a], bits, (double)step, no, nr, off);
+            CHECK(step > 0.0f && off == 0, "chip crush: ins %d: %d samples off its %d-bit steps", CH[a], off, bits);
+            CHECK(nr > lim && no >= 4 && no <= lim, "chip crush: ins %d: %d output levels (%d before), wanted 4 to %d",
+                  CH[a], no, nr, lim);
         }
-        printf("chip: crush %d bits: %d levels in a cycle of the lead at sustain, %d samples off its steps\n", bits, nl, off);
-        CHECK(bits >= 4 && off == 0, "chip crush: %d of the lead's samples off its %d-bit steps", off, bits);
-        CHECK(nl >= 2 && nl <= (1 << bits) + 1, "chip crush: %d levels in a cycle, wanted 2 to %d", nl, (1 << bits) + 1);
     }
     CHECK(!bad, "a chip voice rendered NaN or inf");
     vx_fx_off(0u);

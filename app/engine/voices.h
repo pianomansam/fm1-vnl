@@ -65,9 +65,10 @@ float vx_comp_db(void);
    for the drums' bus; -1, the default, for all). Every voice still plays, so the keys' duck still follows the lead.
    Kept through vx_init. */
 void vx_solo(int role);
-/* Tests: a sounding chip voice's (M_CHIP) last output sample on role, in its bit crush's steps (an integer, within
-   +-2^(bits-1) at the voice's full level); 0 for none or no crush. */
-float vx_chip_out(int role);
+/* Tests: a sounding chip voice's (M_CHIP) last output sample on role, as the voice returns it to the mix (after its
+   envelope and its bit crush); *raw the same sample before the crush, *step the crush's step (the voice's level over
+   2^(bits-1)). All 0 for none or no crush. */
+float vx_chip_out(int role, float *raw, float *step);
 /* Tests: the keys' duck under the lead now, in dB (0 at rest, negative while ducked). */
 float vx_duck_db(void);
 /* Tests: the mix's stored states (the mud high-pass, the drums' compressor, the buses' filters) that are neither 0

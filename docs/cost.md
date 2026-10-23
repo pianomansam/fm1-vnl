@@ -295,8 +295,8 @@ The chip chords are the dearest chords row only because they are the one chord i
 (the Rhodes and the pads render at half): the oscillator is cheap, the voice's envelope, its mud high-pass at the full
 rate and the mix are what a full-rate voice pays. A chip set's forced cost is Task 5's to bench.
 
-**The forced maximum** (no set uses a chip voice yet, so this is the cost of widening `p[]` and the new dispatch
-case): `--forced 7 20 49 100 128 183` gave 0.838 / 0.787 / 0.758 / 0.740 / 0.819 / 0.740 (forced), max **0.838**
+**The forced maximum** (at Task 1 no set used a chip voice, so this is the cost of widening `p[]` and the new
+dispatch case): `--forced 7 20 49 100 128 183` gave 0.838 / 0.787 / 0.758 / 0.740 / 0.819 / 0.740 (forced), max **0.838**
 (seed 7), against 0.848 before: within the noise. **Memory:** image 162848 B (was 161216: `p[]` 8 to 16 floats in 21
 const patches, 672 B of flash, and the chip's code), RAM 45964 B, pool 179644 B: unchanged (the chip's state fits in
 the voice union).
@@ -325,7 +325,7 @@ Juno pays for its matched biquad's redesign while its filter envelope moves (abo
 never moves, so it is set once a note. The Moog bass is the dearest bass: the 4-pole at the full rate, its envelope
 always moving under 8ths.
 
-**The forced maximum** (no set uses a subtractive voice yet; sets are Task 4): `--forced 7 20 49 100 128 183` gave
+**The forced maximum** (at Task 2 no set used a subtractive voice; the sets came in Task 4, below): `--forced 7 20 49 100 128 183` gave
 0.821 / 0.781 / 0.747 / 0.735 / 0.818 / 0.746 (forced), max **0.821** (seed 7), against 0.838 before: within the
 noise. **Memory:** image 168156 B (was 162848: the seven patches and the voice's code), RAM 46172 B (was 45964: the
 voice union grows to M_SUB's 128 B, 8 B a voice, and a slew flag), pool 179644 B (unchanged).
