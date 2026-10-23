@@ -9,6 +9,13 @@
 #include <string.h>
 #include "rng.h"
 #include "plan.h"
+#include "groove.h"
+
+/* plan_moves' buses are the voices' roles by number (PM_x is V_x; the drums' bus is V_KICK's, any drum voice): callers
+   pass lp[i] and hp[i] straight to vx_set_filter(i) and vx_set_hp(i). C99 has no _Static_assert: an array of size -1
+   fails the build if the orders part. */
+typedef char pm_is_v_[(PM_CHORDS == V_CHORD && PM_BASS == V_BASS && PM_LEAD == V_LEAD && PM_CANDY == V_CANDY &&
+                       PM_DRUMS == V_KICK) ? 1 : -1];
 
 #define MAXS 24                                   /* slots: RF_BARS / 4 */
 #define DRUMS (L_KICK | L_SNARE | L_HATS)
