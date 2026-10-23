@@ -46,20 +46,30 @@ static void skel_range(const ctx_t *c, int floor, int *lo, int *hi)
     if (*hi > c->hi) *hi = c->hi;
 }
 
-static int skel_from(const ctx_t *c, const int *pcs, int np, int from, int floor)   /* the nearest chord tone, root least */
+/* the chord tone nearest `from`, root least, within a 5th of the last skeleton note `prev` where one is */
+static int skel_near(const ctx_t *c, const int *pcs, int np, int from, int prev, int floor)
 {
-    int best = -1, bc = 1 << 30, note, j, lo, hi;
-    skel_range(c, floor, &lo, &hi);
-    for (note = lo; note <= hi; note++)
-        for (j = 0; j < np; j++)
-            if ((note - pcs[j] + 120) % 12 == 0 && legal(c->r, note, pcs, np, c->bass)) {
+    int best = -1, bc = 1 << 30, note, j, lo, hi, pass;
+    for (pass = 0; pass < 3 && best < 0; pass++) {      /* the usual range, the lead's whole range, then a leap */
+        skel_range(c, floor, &lo, &hi);
+        if (pass == 1) { lo = floor > 60 ? floor : 60; hi = c->hi; }
+        for (note = lo; note <= hi; note++)
+            for (j = 0; j < np; j++)
+                if ((note - pcs[j] + 120) % 12 == 0 && legal(c->r, note, pcs, np, c->bass) &&
+                    (pass == 2 || !prev || (note > prev ? note - prev : prev - note) <= 7)) {
                 int iv = (pcs[j] - pcs[0] + 12) % 12, cost = (note > from ? note - from : from - note) * 4;
                 if (iv == 0) cost += 6;
                 if (iv == 7) cost += 3;
                 if (c->keys[3] && note == c->keys[3] + 12) cost += 4;
                 if (cost < bc) { bc = cost; best = note; }
             }
+    }
     return best;
+}
+
+static int skel_from(const ctx_t *c, const int *pcs, int np, int from, int floor)
+{
+    return skel_near(c, pcs, np, from, from, floor);
 }
 
 static int skel(const ctx_t *c, const int *pcs, int np, int from) { return skel_from(c, pcs, np, from, c->lo); }
@@ -104,10 +114,20 @@ static int push_ok(const ctx_t *c, int note) { return note > 0 && legal(c->r, no
 /* the sung line: the skeleton note per chord in the song's two rhythm cells, a breath at the phrase's end */
 static void plan_line(lead_state_t *ls, const ctx_t *c, int bar, int bpc, const int *npcs, int nn)
 {
+    static const int8_t ARC[4] = {0, 4, 7, 3};          /* each phrase arcs away and back: up, then down the next */
     rng_t g;
-    int prev = ls->last ? ls->last : 74, cur = skel(c, c->pcs, c->np, prev);
-    int next = nn > 0 ? skel_from(c, npcs, nn, cur, c->lo_x) : 0, cells[2], cell, phrase_end = bar % 4 == 3, i;
+    int prev = ls->last ? ls->last : 74, cur;
+    int next, cells[2], cell, phrase_end = bar % 4 == 3, i;
     int start = ls->tied ? -1 : 0;
+    if (bar % 4 == 0 || !ls->anchor) ls->anchor = prev;
+    {
+        int dir = (bar / 4) & 1 ? -1 : 1, ndir = ((bar + 1) / 4) & 1 ? -1 : 1;
+        cur = bar % bpc && ls->last ? ls->last
+                                    : skel_near(c, c->pcs, c->np, ls->anchor + dir * ARC[bar % 4], prev, c->lo);
+        next = nn > 0 ? skel_near(c, npcs, nn, (bar + 1) % 4 ? ls->anchor + ndir * ARC[(bar + 1) % 4] : cur, cur,
+                                  c->lo_x)
+                      : 0;
+    }
     rng_seed(&g, c->r->seed, 140);
     cells[0] = rng_int(&g, 5);
     cells[1] = (cells[0] + 1 + rng_int(&g, 4)) % 5;
@@ -136,6 +156,11 @@ static void plan_line(lead_state_t *ls, const ctx_t *c, int bar, int bpc, const 
         put(ls, 14, next, 2);
         ls->tied = 1;
         cur = next;
+    } else if ((bar + 1) % bpc == 0 && next > 0 && (next - cur >= 3 || cur - next >= 3) && !ls->on[12] &&
+               !ls->on[14]) {
+        int pn = step_toward(c, cur, next);              /* a passing note into the next chord's note */
+        for (i = 0; i < 14; i++) if (ls->on[i] && i + ls->len[i] > 14) ls->len[i] = 14 - i;
+        put(ls, 14, pn, 2);
     }
     ls->last = cur;
 }

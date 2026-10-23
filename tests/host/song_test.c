@@ -1858,6 +1858,52 @@ static void test_pad_places(void)
     CHECK(shifted_low == 0, "%ld keys notes under C4 in a pad placed with or above the lead", shifted_low);
 }
 
+/* Lead design: the sung line (a sustained lead's skeleton) wanders: 4+ distinct skeleton notes in at least 70% of
+   sustained-lead songs (75% measured; the spike's 19%, song 1 only alternating C5 and Db5), and a leap past a 5th
+   in at most 0.3% of skeleton steps (only where a 4th over percussive keys' top leaves no closer note). */
+static void test_line_wanders(void)
+{
+    static song_t s;
+    uint32_t seed = 7171;
+    song_roll_t prev, r;
+    song_ev_t ev[64];
+    long songs = 0, wide = 0, leaps = 0, steps = 0;
+    int k;
+    for (k = 0; k < 300; k++) {
+        const lib_set_t *set;
+        const lib_prog_t *pr;
+        int seen[128] = {0}, distinct = 0, last = 0, bpc;
+        seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+        roll_song(k ? &prev : 0, seed, &r);
+        prev = r;
+        set = lib_set_by_id((uint8_t)r.v[RF_SET]);
+        if (!set || !lib_ins_sustained(set->lead)) continue;
+        pr = lib_prog_by_id((uint8_t)r.v[RF_PROG]);
+        bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1;
+        song_start(&s, &r);
+        while (s.state == SS_PLAYING) {
+            int bar = s.bar, st = s.step;
+            const plan_block_t *b = plan_at(&s.plan, bar);
+            song_tick(&s, ev, 64);
+            if (st != 0 || bar % bpc || !lead_plays(b) || s.lead.last <= 0) continue;
+            if (!seen[s.lead.last]++) distinct++;
+            if (last) {
+                steps++;
+                leaps += (s.lead.last > last ? s.lead.last - last : last - s.lead.last) > 7;
+            }
+            last = s.lead.last;
+        }
+        if (last) {
+            songs++;
+            wide += distinct >= 4;
+        }
+    }
+    printf("line: %ld of %ld sustained-lead songs reach 4+ skeleton notes; %ld of %ld steps "
+                                   "leap past a 5th\n", wide, songs, leaps, steps);
+    CHECK(songs > 30 && wide * 100 >= songs * 70, "the line reaches 4+ notes in %ld of %ld songs", wide, songs);
+    CHECK(leaps * 1000 <= steps * 3, "%ld of %ld skeleton steps leap past a 5th", leaps, steps);
+}
+
 /* Sam: the keys and the bass never share a rhythm of more than a note on 1 (stabs on a kick of 1 and the and of 2) */
 static void test_keys_bass_rhythms_differ(void)
 {
@@ -2131,6 +2177,7 @@ int main(void)
     test_comping_makes_room();
     test_register_floor();
     test_pad_places();
+    test_line_wanders();
     test_loop_voicings();
     test_dominant_extensions();
     test_no_substitution();

@@ -17,6 +17,7 @@ typedef struct {
     int on[16], len[16];          /* the bar's onsets (MIDI, 0 none) and lengths in 16ths */
     unsigned acc;                 /* accented onsets */
     int last;                     /* the last skeleton note (0: none yet) */
+    int anchor;                   /* the sung line's note at its phrase's start: the arc's base */
     int tied;                     /* the next bar's landing was pushed into this one */
     int active;                   /* the lead sounds in the planned bar (an onset, or a note pushed in) */
     int onsets;                   /* lead onsets that start in the planned bar */
