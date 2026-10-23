@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* Formant filters adapted from AMB-1 (fm1-amb), MPL-2.0. */
+/* Formant filters adapted from AMB-1 (fm1-amb), MPL-2.0. FM bell adapted from AMB-1 (fm1-amb), MPL-2.0. */
 /* Voices and mix (see voices.h). The pitched roles are pools of voices: chords 4, lead 2, candy 2 and the bass, a
    mono pool of 1 whose level slews (AMP_K) and whose M_BASS retriggers are legato. Each voice keeps the patch it was
    struck with, and voice_sample() dispatches on the patch's model: keys (M_EP), plucked strings (M_PLUCK), pads
-   (M_PAD) and basses (M_BASS) have their own; the bells and winds fall back to the FM voice until Task 5. A pitched
+   (M_PAD), bells (M_BELL), winds (M_WIND) and basses (M_BASS). A pitched
    note's level is the patch envelope: a natural decay (nat, from 1 toward sus) times a gate (g: a linear rise, a
    smoothed fall), so a note-off, a steal or vx_release_all fades instead of clicking. Drums are a noise burst or a swept sine. Then the mix: a 5 kHz one-pole,
    the dark low-pass, the song gain and the soft clip. Per-sample work is bounded by the fixed voice count. */
@@ -38,6 +38,15 @@
 #define BARK_T60 0.04f   /* the Wurli bark's fade */
 #define BARK_LP 0.3f     /* the bark's one-pole on the noise: about 2.5 kHz */
 #define IDX_K 0.02f      /* the electric bass's index slew per sample (about 1 ms): a legato restrike doesn't step */
+#define WIND_CR 32       /* the winds' control rate: the vibrato updates every 32 samples */
+#define WIND_LP_LO 0.3f  /* a wind's low-pass at envelope 0, as a fraction of its cutoff at full */
+#define VIB_RATE 5.0f    /* the winds' vibrato: 5 Hz, waiting 0.3 s, then fading in over 0.6 s */
+#define VIB_DELAY 0.3f
+#define VIB_FADE 0.6f
+#define BREATH_K 1.4f    /* the breath's band-pass damping (1/Q): a wide band */
+#define CHIFF 1.5f       /* the breath's extra at the onset (the chiff), gone in CHIFF_T60 */
+#define CHIFF_T60 0.08f
+#define MUTE_DRY 0.2f    /* a muted wind keeps this much of the open tone under the mute's band */
 
 /* big zero-initialised buffers go in the device's .pool RAM region (fm1-base's PLAT_POOL; a Mach-O host has no such
    section) */
@@ -65,7 +74,7 @@ typedef struct {
     float nat, nk, sus, g, ka, kr, amp;        /* envelope: nat *= nk; g rises by ka, falls by g * kr */
     float amp_t;                               /* the bass: amp slews to amp_t times the natural decay */
     union {
-        struct { /* M_EP and the fallback FM: phases, increments, index and its decay, tine */
+        struct { /* M_EP: phases, increments, index and its decay, tine */
             float pc, pm, ic, im, idx, idec, tine;
             float hit, hk, bark, bk, by; /* EP: strike and its decay, bark level, decay, noise state */
             float la, ly;                /* EP: the tone one-pole's coefficient (0: none) and state */
@@ -81,6 +90,17 @@ typedef struct {
             float tp, ti, th, tk;      /* thump: phase, increment, level, decay */
             uint16_t wp, li;           /* write index, the read delay's whole samples */
         } pl;
+        struct { /* M_BELL: AMB-1's 2-op FM bell (phases, increments, the decaying index) and a tremolo */
+            float pc, pm, ic, im, idx, idec, tp, ti, td;
+        } bl;
+        struct { /* M_WIND: an oscillator blend, a two-pole low-pass following the envelope, a mute, breath, vibrato */
+            float ph, inc, f0, pw, shp, a0, a1, l1, l2;
+            float bc[4], bs[2], br, ch, chk; /* the breath's band-pass (coefficients, states), level, chiff */
+            float mc[4], ms[2];             /* the mute's band-pass (mc[3] = 0: no mute) */
+            float vp, vd;                   /* vibrato phase (turns) and depth (a fraction of f0) */
+            uint32_t vt;                    /* samples since the onset, in control steps */
+            uint8_t cc;
+        } wd;
         struct { /* M_BASS: 2-op FM (the index's excess ix over the floor i0 slewing to the struck it, which falls)
                     plus a sub-octave sine */
             float pc, pm, ps, ic, im, is, ix, it, i0, ik, sub;
@@ -220,7 +240,7 @@ static void env_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int l
     v->pend = 0;
 }
 
-/* The fallback FM (every model, for now): p[] as patch.c documents. */
+/* M_EP's 2-op FM core: p[0..4] as patch.c documents. */
 static void fm_start(voice_t *v, const song_ev_t *e)
 {
     const vx_patch_t *p = v->pt;
@@ -235,7 +255,7 @@ static void fm_start(voice_t *v, const song_ev_t *e)
 /* one-pole low-pass coefficient for a cutoff in Hz (note-on only: it calls fm_expf) */
 static float k_lp1(float hz) { return 1.0f - fm_expf(-FM_TWO_PI * fm_clampf(hz, 20.0f, 18000.0f) * INV_SR); }
 
-/* M_EP: the fallback's 2-op FM (velocity into the index, the index decaying: the tine's bell into a round body) plus
+/* M_EP: the 2-op FM (velocity into the index, the index decaying: the tine's bell into a round body) plus
    a strike that fades fast, a noise bark and a tone one-pole, as patch.c lays out p[]. The modulator restarts at
    the carrier's phase, so every note of a patch has the same attack. */
 static void ep_start(voice_t *v, const song_ev_t *e)
@@ -288,6 +308,54 @@ static void pad_start(voice_t *v, const song_ev_t *e)
         svf_coefs(v->m.pad.c2, f2, 0.3f);
     } else
         svf_coefs(v->m.pad.c1, p->p[3] + p->p[4] * f * SR, p->p[5]);
+}
+
+/* M_BELL: AMB-1's bell (bell_voice): a sine carrier, its modulator at a ratio, the index (velocity into it) falling
+   on its own -60 dB time; the envelope's decay scaled by the key (higher bells ring shorter); the vibes' tremolo. */
+static void bell_start(voice_t *v, const song_ev_t *e)
+{
+    const vx_patch_t *p = v->pt;
+    float f = note_inc(e->note), v01 = (float)e->vel * (1.0f / 127.0f);
+    v->m.bl.pc = v->m.bl.pm = 0.0f;
+    v->m.bl.ic = f;
+    v->m.bl.im = f * p->p[0];
+    v->m.bl.idx = (p->p[1] + p->p[2] * v01) * (1.0f / FM_TWO_PI); /* radians, as turns */
+    v->m.bl.idec = 1.0f - k_t60(p->p[3]);
+    v->m.bl.td = fm_clampf(p->p[4], 0.0f, 1.0f);
+    v->m.bl.ti = p->p[5] * INV_SR;
+    v->m.bl.tp = 0.0f;
+    v->nk = 1.0f - k_t60(p->dec * fm_exp2f(-((float)e->note - 60.0f) * (1.0f / 12.0f) * p->p[6]));
+}
+
+/* M_WIND: one phase drives the blend (sine, triangle, pulse); a two-pole low-pass opens with the envelope; a muted
+   wind goes through a narrow band-pass; a band of breath noise rides under it, with a chiff at the onset; the
+   vibrato waits, then fades in. */
+static void wind_start(voice_t *v, const song_ev_t *e)
+{
+    const vx_patch_t *p = v->pt;
+    float f = note_inc(e->note), v01 = (float)e->vel * (1.0f / 127.0f);
+    float hi = k_lp1(p->p[2] * f * SR * (0.6f + 0.4f * v01));
+    v->m.wd.ph = 0.0f;
+    v->m.wd.inc = v->m.wd.f0 = f;
+    v->m.wd.pw = fm_clampf(p->p[1], 0.05f, 0.5f);
+    v->m.wd.shp = fm_clampf(p->p[0], 0.0f, 2.0f);
+    v->m.wd.a0 = k_lp1(WIND_LP_LO * p->p[2] * f * SR);
+    v->m.wd.a1 = hi - v->m.wd.a0;
+    v->m.wd.l1 = v->m.wd.l2 = 0.0f;
+    svf_coefs(v->m.wd.bc, p->p[4], BREATH_K);
+    v->m.wd.bs[0] = v->m.wd.bs[1] = 0.0f;
+    v->m.wd.br = p->p[3];
+    v->m.wd.ch = CHIFF;
+    v->m.wd.chk = 1.0f - k_t60(CHIFF_T60);
+    if (p->p[6] > 0.0f)
+        svf_coefs(v->m.wd.mc, p->p[6], p->p[7]);
+    else
+        v->m.wd.mc[3] = 0.0f;
+    v->m.wd.ms[0] = v->m.wd.ms[1] = 0.0f;
+    v->m.wd.vp = 0.0f;
+    v->m.wd.vd = p->p[5] * (FM_LN2 / 1200.0f); /* cents, as a fraction of the frequency */
+    v->m.wd.vt = 0;
+    v->m.wd.cc = 0;
 }
 
 /* atan(y / x) for x > 0, y >= 0 (note-on only): a polynomial on [0, 1], folded; about 1e-5 rad */
@@ -367,8 +435,9 @@ static void voice_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int
     case M_EP: ep_start(v, e); break;
     case M_PLUCK: pluck_start(v, e); break;
     case M_PAD: pad_start(v, e); break;
-    case M_BASS: bass_start(v, e, legato); break;
-    default: fm_start(v, e); break; /* M_BELL, M_WIND: Task 5 */
+    case M_BELL: bell_start(v, e); break;
+    case M_WIND: wind_start(v, e); break;
+    default: bass_start(v, e, legato); break; /* M_BASS */
     }
 }
 
@@ -460,7 +529,7 @@ static void fire(const song_ev_t *e)
     }
 }
 
-/* The fallback FM's raw sample (unit level). */
+/* M_EP's FM core: the raw sample (unit level). */
 static float fm_sample(voice_t *v)
 {
     float s, mod;
@@ -562,6 +631,68 @@ static float pluck_sample(voice_t *v)
     return y;
 }
 
+/* M_BELL's raw sample: AMB-1's render_bells (the FM, the index falling), times the tremolo (1 at the onset, down by
+   the depth at its trough). */
+static float bell_sample(voice_t *v)
+{
+    float s = fm_sin_turns(v->m.bl.pc + fm_sin_turns(v->m.bl.pm) * v->m.bl.idx);
+    v->m.bl.pc += v->m.bl.ic;
+    if (v->m.bl.pc >= 1.0f)
+        v->m.bl.pc -= 1.0f;
+    v->m.bl.pm += v->m.bl.im;
+    if (v->m.bl.pm >= 1.0f)
+        v->m.bl.pm -= 1.0f;
+    v->m.bl.idx = fm_flush(v->m.bl.idx * v->m.bl.idec); /* decays: flushed before it goes denormal */
+    if (v->m.bl.td > 0.0f) {
+        s *= 1.0f - v->m.bl.td * (0.5f - 0.5f * fm_sin_turns(v->m.bl.tp + 0.25f));
+        v->m.bl.tp += v->m.bl.ti;
+        if (v->m.bl.tp >= 1.0f)
+            v->m.bl.tp -= 1.0f;
+    }
+    return s;
+}
+
+/* M_WIND's raw sample. The vibrato runs at the control rate (WIND_CR). */
+static float wind_sample(voice_t *v)
+{
+    float t = v->m.wd.ph, s = v->m.wd.shp, x, e, a, bp;
+    if (++v->m.wd.cc == WIND_CR) {
+        float r = ((float)(++v->m.wd.vt) * (WIND_CR * INV_SR) - VIB_DELAY) * (1.0f / VIB_FADE);
+        v->m.wd.cc = 0;
+        if (r > 0.0f) {
+            v->m.wd.inc = v->m.wd.f0 * (1.0f + fm_minf(r, 1.0f) * v->m.wd.vd * fm_sin_turns(v->m.wd.vp));
+            v->m.wd.vp += VIB_RATE * WIND_CR * INV_SR;
+            if (v->m.wd.vp >= 1.0f)
+                v->m.wd.vp -= 1.0f;
+        }
+    }
+    if (s < 1.0f) /* sine to triangle */
+        x = (1.0f - s) * fm_sin_turns(t) + s * (1.0f - 4.0f * fm_fabsf(t - 0.5f));
+    else { /* triangle to pulse: a saw less a saw a width later, each with its polyBLEP */
+        float t2 = t + v->m.wd.pw;
+        if (t2 >= 1.0f)
+            t2 -= 1.0f;
+        x = (2.0f - s) * (1.0f - 4.0f * fm_fabsf(t - 0.5f)) +
+            (s - 1.0f) * (saw_blep(t, v->m.wd.inc) - saw_blep(t2, v->m.wd.inc));
+    }
+    v->m.wd.ph = t + v->m.wd.inc;
+    if (v->m.wd.ph >= 1.0f)
+        v->m.wd.ph -= 1.0f;
+    e = v->g * (v->sus + (1.0f - v->sus) * v->nat); /* the envelope opens the low-pass */
+    a = v->m.wd.a0 + v->m.wd.a1 * e;
+    v->m.wd.l1 = fm_flush(v->m.wd.l1 + a * (x - v->m.wd.l1));
+    v->m.wd.l2 = fm_flush(v->m.wd.l2 + a * (v->m.wd.l1 - v->m.wd.l2));
+    x = v->m.wd.l2;
+    if (v->m.wd.mc[3] > 0.0f) { /* the mute: a narrow band, unity at its center */
+        svf_step(v->m.wd.mc, v->m.wd.ms, x, &bp);
+        x = MUTE_DRY * x + bp * v->m.wd.mc[3];
+    }
+    svf_step(v->m.wd.bc, v->m.wd.bs, noise(), &bp);
+    x += v->m.wd.br * (1.0f + v->m.wd.ch) * bp * BREATH_K;
+    v->m.wd.ch = fm_flush(v->m.wd.ch * v->m.wd.chk);
+    return x;
+}
+
 /* M_BASS's raw sample: the FM and the sub-octave sine. */
 static float bass_sample(voice_t *v)
 {
@@ -596,8 +727,9 @@ static float voice_sample(voice_t *v)
     case M_EP: s = ep_sample(v); break;
     case M_PLUCK: s = pluck_sample(v); break;
     case M_PAD: s = pad_sample(v); break;
-    case M_BASS: s = bass_sample(v); break;
-    default: s = fm_sample(v); break; /* M_BELL, M_WIND: Task 5 */
+    case M_BELL: s = bell_sample(v); break;
+    case M_WIND: s = wind_sample(v); break;
+    default: s = bass_sample(v); break; /* M_BASS */
     }
     v->nat = fm_flush(v->nat * v->nk); /* a note held past ~50 s would reach denormals */
     lv = v->sus + (1.0f - v->sus) * v->nat;

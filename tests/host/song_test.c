@@ -1761,6 +1761,142 @@ static void test_vx_plucks_basses(void)
     CHECK(!bad, "a pluck or bass rendered NaN or inf");
 }
 
+/* RMS of vt_long[from .. from+w) */
+static float vt_rms(uint32_t from, uint32_t w)
+{
+    float e = 0.0f;
+    uint32_t i;
+    for (i = from; i < from + w; i++)
+        e += vt_long[i] * vt_long[i];
+    return fm_sqrtf(e / (float)w);
+}
+
+/* The bells (M_BELL: vibes, kalimba, music box, bells) and the winds (M_WIND: flute, sax, muted trumpet). A bell
+   decays freely, held (no sustain: under -20 dB of its peak 3 s in); the vibes' level has a tremolo (4-6 Hz, at
+   least 20% deep, on the detrended log RMS); the bells' modulator ratio is non-integer, and they are the least
+   periodic of the four. A wind sustains while held (half its peak RMS or more at 2 s); its vibrato waits (no pitch
+   swing over 3 cents in any window ending by 250 ms; then at least 4 cents by 1.5 s); its breath is there (the
+   residual after the periodic part is combed out, before the vibrato, is over -30 dB); and the muted trumpet is
+   brighter than the sax, the sax brighter than the flute. */
+static void test_vx_leads(void)
+{
+    static const int BELLS[4] = {INS_VIBES, INS_KALIMBA, INS_MUSIC_BOX, INS_BELLS};
+    static const int WINDS[3] = {INS_FLUTE, INS_SAX, INS_MUTED_TPT};
+    static const int NOTES[3] = {60, 67, 74};
+    static float lr[400];
+    int i, j, bad = 0;
+    float per[4];
+
+    for (i = 0; i < 4; i++)
+        CHECK(vx_patch(BELLS[i])->model == M_BELL && vx_patch(BELLS[i])->sus == 0.0f, "ins %d: not a free M_BELL",
+              BELLS[i]);
+    for (i = 0; i < 3; i++)
+        CHECK(vx_patch(WINDS[i])->model == M_WIND, "ins %d: not an M_WIND", WINDS[i]);
+    { /* the bells' ratio: the furthest from an integer of the four, and at least 0.1 from one */
+        float fr[4];
+        for (i = 0; i < 4; i++) {
+            float r = vx_patch(BELLS[i])->p[0];
+            fr[i] = fm_fabsf(r - (float)(int)(r + 0.5f));
+        }
+        CHECK(fr[3] >= 0.1f && fr[3] > fr[0] && fr[3] > fr[1] && fr[3] > fr[2],
+              "bells' ratio %.3f off an integer by %.3f: wanted the most of the four, at least 0.1",
+              (double)vx_patch(INS_BELLS)->p[0], (double)fr[3]);
+    }
+    for (i = 0; i < 4; i++) { /* held 3.2 s at note 72: the free decay, and the periodicity at the period */
+        float pk, at, s = 0.0f, e0 = 0.0f, e1 = 0.0f, p = 44100.0f / 523.2511f;
+        uint32_t n, lag = (uint32_t)(p + 0.5f);
+        vt_note(vt_role_of(BELLS[i]), BELLS[i], 72, 100, 4u * 44100u, VT_LONG, &bad);
+        pk = vt_peak(0, 4410);
+        at = vt_peak(132300, 136710);
+        /* 523.25 Hz: 84.28 samples; the normalized correlation at 3 periods (252.8, so 253) over 4096 from 50 ms */
+        lag = (uint32_t)(3.0f * p + 0.5f);
+        for (n = 2205; n < 2205 + 4096; n++) {
+            s += vt_long[n] * vt_long[n + lag];
+            e0 += vt_long[n] * vt_long[n];
+            e1 += vt_long[n + lag] * vt_long[n + lag];
+        }
+        per[i] = s * fm_rsqrtf(e0 * e1 + 1e-30f);
+        printf("bells: ins %2d peak %.4f, at 3 s %.1f dB, periodicity %.4f\n", BELLS[i], (double)pk,
+               20.0 * (double)fm_log2f(at / pk + 1e-9f) * 0.30103, (double)per[i]);
+        CHECK(at < 0.1f * pk, "ins %d: %.1f dB at 3 s held, wanted a free decay (-20 dB or lower)", BELLS[i],
+              20.0 * (double)fm_log2f(at / pk + 1e-9f) * 0.30103);
+    }
+    CHECK(per[3] < per[0] && per[3] < per[1] && per[3] < per[2] && per[3] < 0.95f,
+          "bells' periodicity %.4f: wanted the least periodic of the four (vibes %.4f, kalimba %.4f, music box %.4f)",
+          (double)per[3], (double)per[0], (double)per[1], (double)per[2]);
+    { /* the vibes' tremolo: log RMS in 10 ms windows from 0.1 to 1.6 s, the decay's line taken out */
+        int k, nw = 150, zc = 0;
+        float sx = 0.0f, sy = 0.0f, sxx = 0.0f, sxy = 0.0f, b, a, lo = 1e9f, hi = -1e9f, rate, depth;
+        vt_note(V_LEAD, INS_VIBES, 72, 100, 4u * 44100u, 20u * 4096u, &bad);
+        for (k = 0; k < nw; k++) {
+            float x = (float)k, y = fm_log2f(vt_rms(4410u + (uint32_t)k * 441u, 441u) + 1e-12f);
+            lr[k] = y;
+            sx += x;
+            sy += y;
+            sxx += x * x;
+            sxy += x * y;
+        }
+        b = ((float)nw * sxy - sx * sy) / ((float)nw * sxx - sx * sx);
+        a = (sy - b * sx) / (float)nw;
+        for (k = 0; k < nw; k++) {
+            lr[k] -= a + b * (float)k;
+            lo = fm_minf(lo, lr[k]);
+            hi = fm_maxf(hi, lr[k]);
+            if (k && (lr[k] >= 0.0f) != (lr[k - 1] >= 0.0f))
+                zc++;
+        }
+        rate = (float)zc * 0.5f / 1.5f;
+        depth = 1.0f - fm_exp2f(lo - hi);
+        printf("bells: vibes tremolo %.2f Hz, depth %.0f%%\n", (double)rate, 100.0 * (double)depth);
+        CHECK(rate >= 4.0f && rate <= 6.0f && depth >= 0.2f, "vibes tremolo %.2f Hz, %.0f%% deep: wanted 4-6 Hz, 20%%+",
+              (double)rate, 100.0 * (double)depth);
+    }
+
+    for (i = 0; i < 3; i++) { /* held 3 s at 67: sustain at 2 s, the vibrato's onset, the breath */
+        float p = 44100.0f / 391.9954f, pk = 0.0f, early = 0.0f, late = 0.0f, d = 0.0f, x = 0.0f, fr;
+        uint32_t t, li;
+        int k;
+        vt_note(V_LEAD, WINDS[i], 67, 100, 3u * 44100u, 24u * 4096u, &bad);
+        for (k = 0; k < 50; k++)
+            pk = fm_maxf(pk, vt_rms((uint32_t)k * 2205u, 2205u));
+        for (t = 4410; t + 2048 <= 66150; t += 441) { /* 46 ms windows from 100 ms to 1.5 s */
+            float c = fm_fabsf(1200.0f * fm_log2f(p / vt_period(t, 2048, p)));
+            if (t + 2048 <= 11025)
+                early = fm_maxf(early, c);
+            else
+                late = fm_maxf(late, c);
+        }
+        li = (uint32_t)p;
+        fr = p - (float)li;
+        for (t = 5292; t < 5292 + 5292; t++) { /* 120 to 240 ms: x[n] - x[n + P] */
+            float y = vt_long[t + li] + fr * (vt_long[t + li + 1] - vt_long[t + li]), r = vt_long[t] - y;
+            d += r * r;
+            x += vt_long[t] * vt_long[t];
+        }
+        d = 10.0f * fm_log2f(d / (2.0f * x) + 1e-12f) * 0.30103f;
+        printf("winds: ins %2d peak rms %.4f, at 2 s %.0f%%, vibrato by 250 ms %.1f cents, later %.1f, breath %.1f dB\n",
+               WINDS[i], (double)pk, 100.0 * (double)(vt_rms(88200, 2205) / pk), (double)early, (double)late,
+               (double)d);
+        CHECK(vt_rms(88200, 2205) >= 0.5f * pk, "ins %d: %.0f%% of its peak at 2 s held, wanted 50%%+", WINDS[i],
+              100.0 * (double)(vt_rms(88200, 2205) / pk));
+        CHECK(early < 3.0f && late >= 4.0f, "ins %d: vibrato %.1f cents by 250 ms, %.1f later: wanted it delayed",
+              WINDS[i], (double)early, (double)late);
+        CHECK(d > -30.0f, "ins %d: breath residual %.1f dB, wanted over -30 dB", WINDS[i], (double)d);
+    }
+    for (j = 0; j < 3; j++) { /* brightness from 300 ms, 8192 samples */
+        float br[3];
+        for (i = 0; i < 3; i++) {
+            vt_note(V_LEAD, WINDS[i], NOTES[j], 100, 2u * 44100u, 8u * 4096u, &bad);
+            br[i] = vt_bright(13230, 8192);
+        }
+        printf("winds: note %d brightness flute %.4f, sax %.4f, muted trumpet %.4f\n", NOTES[j], (double)br[0],
+               (double)br[1], (double)br[2]);
+        CHECK(br[2] > br[1] && br[1] > br[0], "note %d: brightness flute %.4f, sax %.4f, muted %.4f: wanted rising",
+              NOTES[j], (double)br[0], (double)br[1], (double)br[2]);
+    }
+    CHECK(!bad, "a bell or wind rendered NaN or inf");
+}
+
 static void test_vx_patches(void)
 {
     int ins, s, bad = 0;
@@ -2807,6 +2943,7 @@ int main(void)
     test_vx_patches();
     test_vx_keys();
     test_vx_plucks_basses();
+    test_vx_leads();
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;

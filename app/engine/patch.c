@@ -20,8 +20,16 @@
      octave down. On the bass role a retrigger of the same patch is legato.
      p[0] modulator ratio, p[1] the settled index, p[2] the index added at the strike at full velocity, p[3] its fall
      to -60 dB (s), p[4] the sub-octave sine's level.
-   The bells and winds still render with the fallback FM voice, which reads p[0..4] as M_EP does; their rows are
-   rough guesses (the bells are the old lead and candy bells) until Task 5 replaces them. */
+   M_BELL (vibes, kalimba, music box, bells; voices.c bell_*): AMB-1's 2-op FM bell, decaying freely (sus 0).
+     p[0] modulator ratio (the bells' non-integer: inharmonic), p[1] index at velocity 0, p[2] index added at full
+     velocity, p[3] the index's fall to -60 dB (s), p[4] the tremolo's depth (0..1; the vibes' motor), p[5] its rate
+     in Hz, p[6] the decay's key tracking (octaves of decay time lost per octave above note 60).
+   M_WIND (flute, sax, muted trumpet; voices.c wind_*): an oscillator blend into a two-pole low-pass that opens with
+     the envelope, a mute, breath noise and a delayed vibrato (5 Hz, after 0.3 s, faded in over 0.6 s).
+     p[0] the blend (0 sine, 1 triangle, 2 pulse, crossfaded between), p[1] the pulse's width, p[2] the low-pass
+     cutoff at full envelope and velocity, as a multiple of the note's frequency (60% of it at velocity 0, 30% at
+     envelope 0), p[3] the breath's level, p[4] its band's center in Hz, p[5] the vibrato's depth in cents, p[6] the
+     mute: a band-pass center in Hz (0 for none), p[7] its damping k (1/Q: small is narrow). */
 #include <stddef.h>
 #include "library.h"
 #include "patch.h"
@@ -36,14 +44,14 @@ static const vx_patch_t PATCHES[INS_NONE] = {
     [INS_UPRIGHT] = {M_PLUCK, {0.9f, 700.0f, 1500.0f, 0.5f, 0.08f, 3.0f}, 0.002f, 4.0f, 0.0f, 0.05f, 1.0f},
     [INS_ELEC_BASS] = {M_BASS, {1.0f, 0.6f, 2.4f, 0.12f, 0.0f}, 0.003f, 7.0f, 0.6f, 0.04f, 1.0f},
     [INS_SUB] = {M_BASS, {1.0f, 0.0f, 0.0f, 0.1f, 0.6f}, 0.008f, 7.0f, 1.0f, 0.06f, 1.0f},
-    [INS_FLUTE] = {M_WIND, {1.0f, 0.2f, 0.4f, 7.0f, 0.0f}, 0.06f, 7.0f, 0.7f, 0.12f, 1.1f},
-    [INS_MUTED_TPT] = {M_WIND, {1.0f, 0.8f, 1.2f, 4.0f, 0.0f}, 0.04f, 5.5f, 0.6f, 0.1f, 1.0f},
-    [INS_SAX] = {M_WIND, {1.0f, 0.6f, 1.0f, 5.5f, 0.0f}, 0.05f, 6.2f, 0.65f, 0.1f, 1.0f},
-    [INS_VIBES] = {M_BELL, {3.5f, 0.6f, 1.4f, 1.04f, 0.0f}, 0.003f, 2.5f, 0.0f, 0.026f, 1.0f},
-    [INS_KALIMBA] = {M_BELL, {3.5f, 0.6f, 1.2f, 0.5f, 0.0f}, 0.003f, 1.4f, 0.0f, 0.026f, 1.0f},
+    [INS_FLUTE] = {M_WIND, {0.25f, 0.5f, 3.0f, 0.13f, 1800.0f, 14.0f, 0.0f, 0.0f}, 0.06f, 7.0f, 0.75f, 0.12f, 1.3f},
+    [INS_MUTED_TPT] = {M_WIND, {2.0f, 0.2f, 12.0f, 0.08f, 2200.0f, 10.0f, 1400.0f, 0.35f}, 0.04f, 5.5f, 0.7f, 0.1f, 1.6f},
+    [INS_SAX] = {M_WIND, {1.6f, 0.35f, 5.0f, 0.11f, 1500.0f, 18.0f, 0.0f, 0.0f}, 0.05f, 6.2f, 0.7f, 0.1f, 1.1f},
+    [INS_VIBES] = {M_BELL, {4.0f, 0.3f, 0.9f, 0.6f, 0.35f, 5.0f, 0.3f}, 0.002f, 3.0f, 0.0f, 0.15f, 1.05f},
+    [INS_KALIMBA] = {M_BELL, {3.0f, 0.4f, 1.4f, 0.12f, 0.0f, 0.0f, 0.4f}, 0.002f, 1.4f, 0.0f, 0.06f, 1.1f},
     [INS_GUITAR_LICK] = {M_PLUCK, {0.7f, 2200.0f, 5000.0f, 0.0f, 0.0f, 1.0f}, 0.002f, 3.0f, 0.0f, 0.05f, 1.0f},
-    [INS_MUSIC_BOX] = {M_BELL, {3.5f, 0.6f, 1.4f, 0.63f, 0.0f}, 0.003f, 1.04f, 0.0f, 0.026f, 1.0f},
-    [INS_BELLS] = {M_BELL, {3.5f, 0.8f, 1.6f, 1.4f, 0.0f}, 0.003f, 3.5f, 0.0f, 0.026f, 1.0f},
+    [INS_MUSIC_BOX] = {M_BELL, {5.0f, 0.3f, 0.9f, 0.25f, 0.0f, 0.0f, 0.3f}, 0.002f, 1.2f, 0.0f, 0.05f, 1.1f},
+    [INS_BELLS] = {M_BELL, {3.53f, 0.6f, 1.2f, 1.2f, 0.0f, 0.0f, 0.3f}, 0.003f, 3.5f, 0.0f, 0.2f, 1.1f},
     [INS_VOX_PAD] = {M_PAD, {4.0f, 2.0f, 0.35f, 0.0f, 0.0f, 0.0f, 0.6f, 1.0f}, 0.8f, 4.0f, 0.85f, 0.9f, 1.5f},
 };
 
