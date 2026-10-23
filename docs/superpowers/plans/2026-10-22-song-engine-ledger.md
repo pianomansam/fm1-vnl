@@ -175,7 +175,8 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   line for winds); the comping making room; register by the keys' attack; the line's phrase arc; the hybrid
   following motion. See docs/superpowers/specs/2026-10-22-lead-accompaniment-design.md.
 - **To judge by ear with real instruments (Plan 3):** the pad placements (especially "above"), the sung line on a
-  real flute, sax or trumpet, and whether the lead belongs only in lead blocks (lead plan Task 1 ruling).
+  real flute, sax or trumpet, whether the lead belongs only in lead blocks (lead plan Task 1 ruling), and the sung
+  line without suspensions (dropped: a held non-chord tone on 1 breaks the no-rub rules; could return as a tie).
 
 ### Bass rhythm (spike VNL_BASS, kept as is by Sam to revisit)
 
