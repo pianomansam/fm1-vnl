@@ -2662,15 +2662,16 @@ static void test_pushes(void)
 
 /* Sam: the keys and the bass never share a rhythm of more than a note on 1 (stabs on a kick of 1 and the and of 2) */
 /* Sam: the keys and the kick never share a rhythm either ("the bass drum and accompaniment rhythms copy each other
-   ... I don't like that"): a stab's second hit never lands on a kick, and no bar's keys rhythm (more than a note on 1)
-   equals the kick's. */
+   ... I don't like that"), refined: "they can be on the same beat, but only if both aren't a sparse pattern". Stabs
+   are always sparse, so over a sparse kick (3 hits a bar or fewer) a stab's second hit never lands on a kick; over a
+   busier kick it stays on the and of 2. No bar's keys rhythm (more than a note on 1) equals the kick's. */
 static void test_keys_kick_differ(void)
 {
     static song_t s;
     uint32_t seed = 5353;
     song_roll_t prev, r;
     song_ev_t ev[64];
-    long bars = 0, same = 0, stab_on_kick = 0;
+    long bars = 0, same = 0, stab_on_kick = 0, dense = 0, moved = 0;
     int k, i;
     for (k = 0; k < 300; k++) {
         unsigned km = 0, dm = 0;
@@ -2679,6 +2680,14 @@ static void test_keys_kick_differ(void)
         roll_song(k ? &prev : 0, seed, &r);
         prev = r;
         stabs = harmony_style(&r) == CS_STABS;
+        {
+            const lib_pattern_t *dp = lib_pattern_by_id((uint8_t)r.v[RF_PATTERN]);
+            unsigned kk = dp ? dp->hit[D_KICK] : 0u;
+            int hits = 0, j;
+            for (j = 0; j < 16; j++) hits += (kk >> j) & 1;
+            if (stabs && hits > 3) { dense++; moved += harmony_stab_steps(&r) != 0x41u; }
+            if (hits > 3) stabs = 0;                     /* a busy kick may share the stab's steps */
+        }
         song_start(&s, &r);
         while (s.state == SS_PLAYING) {
             int bar = s.bar, st = s.step, n = song_tick(&s, ev, 64);
@@ -2695,7 +2704,8 @@ static void test_keys_kick_differ(void)
         }
     }
     CHECK(bars > 1000 && same == 0, "keys and kick share a bar's rhythm in %ld of %ld bars", same, bars);
-    CHECK(stab_on_kick == 0, "%ld bars with a stab on a kick", stab_on_kick);
+    CHECK(stab_on_kick == 0, "%ld bars with a stab on a sparse kick", stab_on_kick);
+    CHECK(dense > 5 && moved == 0, "%ld of %ld stab songs over a busy kick moved the stab", moved, dense);
 }
 
 static void test_keys_bass_rhythms_differ(void)
