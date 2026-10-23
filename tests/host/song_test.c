@@ -1955,6 +1955,43 @@ static void test_hybrid_follows_motion(void)
           landed[0], changes[0], landed[1], changes[1]);
 }
 
+/* Lead design anti-goal: the lead and the comping never leave a bar silent together: in every bar of a block with
+   keys (not intro or outro), a keys note (a held chord counts) or a lead note sounds at some step. */
+static void test_never_both_silent(void)
+{
+    static song_t s;
+    uint32_t seed = 9191;
+    song_roll_t prev, r;
+    song_ev_t ev[64];
+    long bars = 0, silent = 0;
+    int k, i;
+    for (k = 0; k < 300; k++) {
+        uint32_t until = 0;
+        int cur = -1, heard = 0, check = 0;
+        seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+        roll_song(k ? &prev : 0, seed, &r);
+        prev = r;
+        song_start(&s, &r);
+        while (s.state == SS_PLAYING) {
+            int bar = s.bar, n;
+            uint32_t now = s.pos;
+            const plan_block_t *b = plan_at(&s.plan, bar);
+            n = song_tick(&s, ev, 64);
+            if (bar != cur) {
+                if (check) { bars++; silent += !heard; }
+                cur = bar;
+                heard = 0;
+                check = b && b->section != SEC_INTRO && b->section != SEC_OUTRO && (b->layers & L_KEYS);
+            }
+            for (i = 0; i < n; i++)
+                if ((ev[i].voice == V_CHORD || ev[i].voice == V_LEAD) && now + ev[i].delay + ev[i].len > until)
+                    until = now + ev[i].delay + ev[i].len;
+            heard |= until > now;
+        }
+    }
+    CHECK(bars > 5000 && silent == 0, "%ld of %ld keys bars with neither keys nor lead sounding", silent, bars);
+}
+
 /* Sam: the keys and the bass never share a rhythm of more than a note on 1 (stabs on a kick of 1 and the and of 2) */
 static void test_keys_bass_rhythms_differ(void)
 {
@@ -2230,6 +2267,7 @@ int main(void)
     test_pad_places();
     test_line_wanders();
     test_hybrid_follows_motion();
+    test_never_both_silent();
     test_loop_voicings();
     test_dominant_extensions();
     test_no_substitution();

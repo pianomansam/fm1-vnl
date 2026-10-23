@@ -85,7 +85,10 @@ Pianist rules **(Sam, 03c8cdb)**, all in `theory.c: th_voice_range`, called from
 | Principle | Status in VNL-1 | Source |
 | --- | --- | --- |
 | **Each role has its own register band,** so parts don't collide: bass E1–B2 (28–47), keys C3–C5 (48–72, E3–A4 preferred), lead 64–84 (shifted by mood), ear candy 72–96. | **Done.** `groove.c`, `theory.c`, `melody.h`. | spec The band |
-| **Melody above the accompaniment:** the keys' top stays under the lead's floor while the lead plays. | **Not yet.** Bands overlap (keys up to 72, lead from about 64); no clash is possible (pitch-class masks) but the lines can cross. | *accomp* §6.5 guard |
+| **Melody above percussive accompaniment:** over struck or plucked keys, the lead sits a 4th or more above the keys' top. | **Done.** Every lead note is at least the keys' top + 5 semitones, over every chord it sounds over, up to E6, or it drops (`lead.c`). | lead design |
+| **A sustained, slow-attack accompaniment frees the register:** a pad can sit below, with, or above the lead, since its attack doesn't compete. | **Done.** One placement per song (`harmony_pad_place`). With or above, the pad sounds an octave up; above keeps the lead to C4–C5. | lead design (Sam) |
+| **The lead leads:** a busier lead means sparser comping, never the reverse. | **Done.** In bars with 4+ lead onsets, stabs strike on 1 only, offbeats on 6 and 14, the comping arpeggio on even steps. Held chords and pads are unchanged (`harmony_step`, `busy`). | lead design (Sam) |
+| **A lead plays like its instrument:** struck and plucked leads arpeggiate; wind leads sing lines that breathe. | **Done.** Vibes, kalimba and guitar play the hybrid; flute, sax and trumpet sing the skeleton line, with an arc over each phrase (`lead.c`). | lead design (Sam) |
 | **Steady levels:** no loudness jumps between sections or songs; headroom kept. | **Partial.** Engine soft clip and about −6 dBFS peak (`app/engine`, bed46a3); section and song level checks planned (spec Testing). | spec; R23 |
 
 ## 8. Communication and process

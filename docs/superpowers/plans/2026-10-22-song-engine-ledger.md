@@ -171,9 +171,11 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
 - **A cap on how busy the lead can get (Sam, 2026-10-23: "I will also want to work towards putting a limit on how
   busy it can get").** After the hybrid follows the motion lever (lead plan Task 6): a ceiling on onsets per bar or
   per phrase, whatever the motion.
-- **Next, once the lead adjustments are done (Sam asked to be reminded): how accompaniment and lead interact.**
-  Think it through before building. Two considerations Sam named: register (keep them apart) and percussive vs.
-  sustained instruments (a plucked or struck lead against pads, or a sustained lead against stabs or arpeggios).
+- **Done (lead plan, 2026-10-23):** the lead by instrument class (hybrid for struck and plucked leads, the sung
+  line for winds); the comping making room; register by the keys' attack; the line's phrase arc; the hybrid
+  following motion. See docs/superpowers/specs/2026-10-22-lead-accompaniment-design.md.
+- **To judge by ear with real instruments (Plan 3):** the pad placements (especially "above"), the sung line on a
+  real flute, sax or trumpet, and whether the lead belongs only in lead blocks (lead plan Task 1 ruling).
 
 ### Bass rhythm (spike VNL_BASS, kept as is by Sam to revisit)
 
