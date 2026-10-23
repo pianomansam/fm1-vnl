@@ -360,9 +360,7 @@ void app_init(void)
         th_set_drop2(d && *d == '1');
         harmony_set_loop_lock(!(l && *l == '0'));
         {
-            const char *sp = getenv("VNL_LEADSPIKE");   /* SPIKE: 1 voice-leading line, 2 8th-note arpeggio */
-            song_set_lead_spike(sp ? *sp - '0' : 0);
-            sp = getenv("VNL_BASS");                    /* SPIKE: bass rhythm, 1-5 */
+            const char *sp = getenv("VNL_BASS");                    /* SPIKE: bass rhythm, 1-5 */
             song_set_bass_spike(sp ? *sp - '0' : 0);
         }
         {

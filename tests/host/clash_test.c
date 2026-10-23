@@ -102,7 +102,7 @@ static void check_step(const song_t *s, int bar, int step, const song_ev_t *ev, 
         switch (e->voice) {
         case V_CHORD: CHECK(e->note >= 48 && e->note <= 76, "seed %u: chord note %d", seed, e->note); break;
         case V_BASS: CHECK(e->note >= 28 && e->note <= 47, "seed %u: bass note %d", seed, e->note); break;
-        case V_LEAD: CHECK(e->note >= 62 && e->note <= 86, "seed %u: lead note %d", seed, e->note); break;
+        case V_LEAD: CHECK(e->note >= 60 && e->note <= 88, "seed %u: lead note %d", seed, e->note); break;
         default: CHECK(e->note >= 70 && e->note <= 98, "seed %u: candy note %d", seed, e->note); break;
         }
         if (e->voice != V_LEAD && e->voice != V_CANDY) continue;

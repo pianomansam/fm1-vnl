@@ -161,6 +161,17 @@ static uint32_t harmony_sig(const song_roll_t *r)
 /* The bar's voicing: the loop's for its chord, or (a chord recolored on this pass) voiced from the last one.
    Intro and outro (dark) voice exactly as the rest: lo-fi keeps its voicings through a song (Sam); they only play
    softer, and Plan 3's lo-fi chain darkens their sound. */
+static void voice_chord(const song_roll_t *r, int bar, const int *pcs, int n, harmony_voicing_t *vs, int *sound);
+
+void harmony_voicing_at(const song_roll_t *r, int bar, int pass, harmony_voicing_t *vs, int out4[4])
+{
+    int pcs[5], n, keep[4];
+    n = harmony_chord_at(r, bar, pass, 0, pcs);
+    memcpy(keep, vs->last, sizeof keep);
+    voice_chord(r, bar, pcs, n, vs, out4);
+    memcpy(vs->last, keep, sizeof keep);                 /* a peek: the strike still voices from the same last */
+}
+
 static void voice_chord(const song_roll_t *r, int bar, const int *pcs, int n, harmony_voicing_t *vs, int *sound)
 {
     const lib_prog_t *p = prog_of(r);

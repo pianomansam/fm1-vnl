@@ -36,6 +36,7 @@ extern const lib_mood_t LIB_MOODS[4];      /* sad, wistful, warm, sunny */
 
 const lib_prog_t *lib_prog_by_id(uint8_t id);        /* all four: NULL if unknown */
 const lib_set_t *lib_set_by_id(uint8_t id);
+int lib_ins_sustained(int ins);                       /* 1: slow attack or held breath (pad, winds); 0: struck, plucked */
 const lib_pattern_t *lib_pattern_by_id(uint8_t id);
 const lib_map_t *lib_map_by_id(uint8_t id);
 

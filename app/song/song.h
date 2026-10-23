@@ -10,6 +10,7 @@
 #include "groove.h"
 #include "harmony.h"
 #include "melody.h"
+#include "lead.h"
 
 enum { SS_PLAYING, SS_ENDED };
 
@@ -23,6 +24,7 @@ typedef struct {
     int step;                     /* the next step to tick, 0-15 */
     motif_t motif;
     melody_phrases_t ph;
+    lead_state_t lead;            /* the lead's bar plan and its song-long choices */
     harmony_voicing_t voicing;    /* the chord part's voicings: the loop's, and the last sounded */
     float ss;                     /* samples of the step last ticked (before the first tick: the first step) */
     float glide_from, glide_to;   /* step samples before and after a tempo glide */
@@ -42,9 +44,6 @@ float song_step_samples(const song_t *s);                   /* 44100 * 60 / (tem
 void song_request(song_t *s, int field, int value);         /* lands on the next 4-bar boundary */
 int song_pending(const song_t *s, int *field, int *bars_left);  /* the earliest pending change; 0 if none */
 
-/* SPIKE (branch spike/leads): replace the lead: 1 voice-leading line, 2 8th arpeggio, 3 skeleton + rhythm (A),
-   4 shaped arpeggio (B), 5 hybrid (C); 0 off */
-void song_set_lead_spike(int mode);
 /* SPIKE: bass rhythm: 1 a cell per song, 2 the kick's, 3 half notes on 1 and 3, 4 beats 1 and 2,
    5 beats 1, 2 and 4; 0 off */
 void song_set_bass_spike(int mode);

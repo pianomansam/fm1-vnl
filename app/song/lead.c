@@ -1,0 +1,251 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+#include <stdint.h>
+#include "lead.h"
+#include "harmony.h"
+#include "library.h"
+#include "theory.h"
+#include "rng.h"
+
+typedef struct {                  /* what one bar's planning reads */
+    const song_roll_t *r;
+    const int *keys, *pcs;
+    int np;
+    unsigned bass;                /* pitch classes the bass strikes in the bar */
+} ctx_t;
+
+static int is_ct(int note, const int *pcs, int np)
+{
+    int j;
+    for (j = 0; j < np; j++)
+        if ((note - pcs[j] + 120) % 12 == 0) return 1;
+    return 0;
+}
+
+/* a chord tone or a scale note, never a semitone from a chord tone or a note the bass strikes (R25: the maj7 over
+   the root rubs), and not an avoid note */
+static int legal(const song_roll_t *r, int note, const int *pcs, int np, unsigned bass)
+{
+    int j, pc = note % 12;
+    if (th_is_avoid(r->v[RF_KEY], r->v[RF_MODE], pcs, np, note)) return 0;
+    if (bass & (1u << ((pc + 1) % 12) | 1u << ((pc + 11) % 12))) return 0;
+    for (j = 0; j < np; j++) {
+        int d = (note - pcs[j] + 120) % 12;
+        if (d == 1 || d == 11) return 0;
+    }
+    return is_ct(note, pcs, np) || th_in_scale(r->v[RF_KEY], r->v[RF_MODE], note);
+}
+
+static int skel(const ctx_t *c, const int *pcs, int np, int from)   /* the nearest chord tone, root least */
+{
+    int best = -1, bc = 1 << 30, note, j;
+    for (note = 67; note <= 81; note++)
+        for (j = 0; j < np; j++)
+            if ((note - pcs[j] + 120) % 12 == 0 && legal(c->r, note, pcs, np, c->bass)) {
+                int iv = (pcs[j] - pcs[0] + 12) % 12, cost = (note > from ? note - from : from - note) * 4;
+                if (iv == 0) cost += 6;
+                if (iv == 7) cost += 3;
+                if (c->keys[3] && note == c->keys[3] + 12) cost += 4;
+                if (cost < bc) { bc = cost; best = note; }
+            }
+    return best;
+}
+
+static int step_toward(const ctx_t *c, int from, int to)    /* a scale step from `from` toward `to` */
+{
+    int dir = to >= from ? 1 : -1, d;
+    for (d = 1; d <= 2; d++)
+        if (legal(c->r, from + dir * d, c->pcs, c->np, c->bass) && from + dir * d != to) return from + dir * d;
+    return 0;
+}
+
+static void put(lead_state_t *ls, int at, int note, int len)
+{
+    if (at < 0 || at > 15 || note <= 0) return;
+    ls->on[at] = note;
+    ls->len[at] = len;
+}
+
+static void land(lead_state_t *ls, int at, int note, int len)   /* the skeleton note, the arpeggio out of its way */
+{
+    int i;
+    for (i = at < 0 ? 0 : at; i < at + len && i < 16; i++) ls->on[i] = 0;
+    put(ls, at, note, len);
+    if (at >= 0 && at < 16 && note > 0) ls->acc |= 1u << at;
+}
+
+/* a push: the next chord's note an 8th early, only when it is also legal over this chord */
+static int push_ok(const ctx_t *c, int note) { return note > 0 && legal(c->r, note, c->pcs, c->np, c->bass); }
+
+/* the sung line: the skeleton note per chord in the song's two rhythm cells, a breath at the phrase's end */
+static void plan_line(lead_state_t *ls, const ctx_t *c, int bar, int bpc, const int *npcs, int nn)
+{
+    rng_t g;
+    int prev = ls->last ? ls->last : 74, cur = skel(c, c->pcs, c->np, prev);
+    int next = nn > 0 ? skel(c, npcs, nn, cur) : 0, cells[2], cell, phrase_end = bar % 4 == 3, i;
+    int start = ls->tied ? -1 : 0;
+    rng_seed(&g, c->r->seed, 140);
+    cells[0] = rng_int(&g, 5);
+    cells[1] = (cells[0] + 1 + rng_int(&g, 4)) % 5;
+    cell = cells[(bar / 2) & 1];
+    if (ls->tied) cur = ls->last;                        /* pushed in from the last bar: it still rings */
+    if (bar % bpc) {                                     /* a chord's second bar: hold, maybe a neighbor */
+        if (cell == 3) { put(ls, 10, step_toward(c, cur, cur + 2), 2); put(ls, 12, cur, 4); }
+        ls->last = cur;
+        ls->tied = 0;
+        return;
+    }
+    switch (cell) {
+    case 0: put(ls, start, cur, 12); put(ls, 12, step_toward(c, cur, next ? next : cur), 4); break;   /* passing */
+    case 1: put(ls, start, cur, 6); put(ls, 6, cur, 2); put(ls, 8, cur, 8); break;                     /* re-strike */
+    case 2: put(ls, 2, ls->tied ? 0 : cur, 12); break;                                                /* late */
+    case 3: put(ls, start, cur, 10); put(ls, 10, step_toward(c, cur, cur + 2), 2); put(ls, 12, cur, 4); break;
+    default: put(ls, start, cur, 10); break;                                                          /* then a push */
+    }
+    if (ls->on[0]) ls->acc |= 1u;
+    ls->tied = 0;
+    if (phrase_end) {                                    /* breathe at the phrase's end */
+        for (i = 8; i < 16; i++) ls->on[i] = 0;
+        for (i = 0; i < 8; i++) if (ls->on[i] && i + ls->len[i] > 8) ls->len[i] = 8 - i;
+    } else if ((cell == 4 || cell == 2) && (bar + 1) % bpc == 0 && push_ok(c, next)) {
+        for (i = 14; i < 16; i++) ls->on[i] = 0;
+        put(ls, 14, next, 2);
+        ls->tied = 1;
+        cur = next;
+    }
+    ls->last = cur;
+}
+
+/* the hybrid's arpeggio rhythms; the song's is the one that lands least on the snare (Sam), not forced */
+static const int8_t RHY[6][9][2] = {
+    {{0, 2}, {2, 2}, {4, 2}, {6, 2}, {8, 2}, {10, 2}, {12, 2}, {14, 2}, {-1, 0}},   /* 8ths */
+    {{0, 3}, {3, 1}, {4, 3}, {7, 1}, {8, 3}, {11, 1}, {12, 4}, {-1, 0}},             /* dotted */
+    {{0, 2}, {2, 2}, {6, 2}, {8, 2}, {10, 2}, {14, 2}, {-1, 0}},                     /* gaps */
+    {{0, 4}, {4, 2}, {6, 2}, {8, 4}, {12, 1}, {13, 1}, {14, 2}, {-1, 0}},            /* long-short */
+    {{0, 3}, {3, 3}, {6, 2}, {8, 3}, {11, 3}, {14, 2}, {-1, 0}},                     /* 3+3+2 */
+    {{2, 2}, {4, 2}, {6, 3}, {10, 2}, {12, 2}, {14, 2}, {-1, 0}}};                   /* off the one */
+static const int8_t PAT[6][6] = {{0, 1, 2, 3, -1}, {3, 2, 1, 0, -1}, {0, 1, 2, 3, 2, 1}, {0, 2, 1, 3, -1},
+                                 {0, 3, 1, 3, -1}, {3, 0, 2, 1, -1}};
+
+static void choose(lead_state_t *ls, const song_roll_t *r)   /* one pattern, rhythm, direction and swap per song */
+{
+    const lib_pattern_t *dp = lib_pattern_by_id((uint8_t)r->v[RF_PATTERN]);
+    unsigned snare = dp ? (unsigned)dp->hit[D_SNARE] : 0x1010u;
+    int i, j, best = 1 << 30, tie;
+    rng_t g;
+    rng_seed(&g, r->seed, 142);
+    ls->pat = rng_int(&g, 6);
+    ls->rev = rng_int(&g, 3) == 0;
+    ls->swap = rng_int(&g, 2) ? rng_int(&g, 5) : -1;    /* two neighboring notes swapped, or none */
+    tie = rng_int(&g, 1000);
+    for (i = 0; i < 6; i++) {                            /* share of notes on a snare hit, in per mille */
+        int on = 0, all = 0, cost;
+        for (j = 0; RHY[i][j][0] >= 0; j++) { all++; on += (snare >> RHY[i][j][0]) & 1; }
+        cost = on * 1000 / all * 4 + (tie + i * 377) % 1000;
+        if (cost < best) { best = cost; ls->rhy = i; }
+    }
+    ls->chosen = 1;
+}
+
+static void plan_arp(lead_state_t *ls, const ctx_t *c, int bar)
+{
+    int i, k, plen;
+    if (!ls->chosen) choose(ls, c->r);
+    for (plen = 0; plen < 6 && PAT[ls->pat][plen] >= 0; plen++)
+        ;
+    for (i = 0; RHY[ls->rhy][i][0] >= 0; i++) {
+        int at = RHY[ls->rhy][i][0], pos = (bar * 8 + i) % plen, idx, v;
+        if (ls->swap >= 0 && ls->swap % (plen - 1) == pos) pos++;
+        else if (ls->swap >= 0 && ls->swap % (plen - 1) + 1 == pos) pos--;
+        idx = PAT[ls->pat][pos];
+        if ((bar & 1) && ls->rev) idx = 3 - idx;         /* the direction turned every other bar */
+        if (bar % 4 == 3 && (i == 2 || i == 5)) continue;   /* the phrase's last bar drops two notes */
+        v = c->keys[idx];
+        for (k = 1; k < 4 && v && !legal(c->r, v, c->pcs, c->np, c->bass); k++)
+            v = c->keys[(idx + k) & 3];                  /* a tone that would rub gives way to the next */
+        if (v && legal(c->r, v, c->pcs, c->np, c->bass)) put(ls, at, v + 12, RHY[ls->rhy][i][1]);
+    }
+}
+
+/* how a chord change lands on the skeleton note: on 1 for an 8th, on 1 for a quarter, an 8th late, a 16th late,
+   pushed an 8th early, or a beat's rest then on 2 (Sam: not always a quarter on 1; 1 can rest) */
+static int landing(uint32_t seed, int bar)
+{
+    static const uint8_t W[6] = {15, 15, 20, 10, 20, 20};
+    uint32_t h = seed * 0x9E3779B1u ^ (uint32_t)(bar + 1) * 0x85EBCA6Bu;
+    int x, i;
+    h ^= h >> 15; h *= 0x2C1B3C6Du; h ^= h >> 13;
+    x = (int)(h % 100u);
+    for (i = 0; i < 5 && x >= W[i]; i++) x -= W[i];
+    return i;
+}
+
+static void plan_hybrid(lead_state_t *ls, const ctx_t *c, int bar, int bpc, const int *npcs, int nn)
+{
+    int pushed = ls->tied;
+    ls->tied = 0;
+    plan_arp(ls, c, bar);
+    if (bar % bpc == 0) {
+        int how = landing(c->r->seed, bar);
+        if (how == 4 && pushed) {
+            land(ls, 0, 0, 2);                           /* it already sounds from the last bar: let it ring */
+        } else {
+            static const int8_t AT[6] = {0, 0, 2, 3, 2, 4}, LEN[6] = {2, 4, 4, 3, 4, 4};
+            int note = skel(c, c->pcs, c->np, ls->last ? ls->last : 74);
+            ls->last = note;
+            if (AT[how]) land(ls, 0, 0, AT[how]);        /* beat 1 rests until the landing */
+            land(ls, AT[how], note, LEN[how]);
+        }
+    }
+    if ((bar + 1) % bpc == 0 && nn > 0 && landing(c->r->seed, bar + 1) == 4) {
+        int nxt = skel(c, npcs, nn, ls->last);
+        if (push_ok(c, nxt)) {
+            ls->last = nxt;
+            land(ls, 14, nxt, 4);                        /* the next chord's note an 8th early, across the bar */
+            ls->tied = 1;
+        }
+    }
+}
+
+int lead_plays(const plan_block_t *b)
+{
+    return b && b->section != SEC_INTRO && b->section != SEC_OUTRO && (b->layers & L_KEYS) && (b->layers & L_LEAD);
+}
+
+int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b, int bar, const int keys[4],
+                  const int *pcs, int np)
+{
+    const lib_prog_t *pr = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
+    const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
+    int bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1, loop = pr && pr->n ? pr->n * bpc : 4;
+    int i, n = 0, npcs[5], nn;
+    ctx_t c;
+    for (i = 0; i < 16; i++) ls->on[i] = 0;
+    ls->acc = 0;
+    ls->active = ls->tied;
+    if (!lead_plays(b) || np <= 0) { ls->tied = 0; return 0; }
+    c.r = r; c.keys = keys; c.pcs = pcs; c.np = np; c.bass = 0;
+    for (i = 0; i < 16; i++) {
+        int bn = groove_bass_note(r, b, bar, i, pcs, np);
+        if (bn) c.bass |= 1u << (bn % 12);
+    }
+    nn = harmony_chord_at(r, bar + 1, (bar + 1) / loop + 1, 0, npcs);
+    if (set && lib_ins_sustained(set->lead)) plan_line(ls, &c, bar, bpc, npcs, nn);
+    else plan_hybrid(ls, &c, bar, bpc, npcs, nn);
+    for (i = 0; i < 16; i++) n += ls->on[i] > 0;
+    ls->active |= n > 0;
+    return n;
+}
+
+int lead_step(const lead_state_t *ls, int step, float step_samples, song_ev_t *out, int max)
+{
+    float len;
+    if (step < 0 || step > 15 || ls->on[step] <= 0 || max <= 0) return 0;
+    len = (float)ls->len[step] * step_samples - 200.0f;
+    out->voice = V_LEAD;
+    out->note = (uint8_t)ls->on[step];
+    out->vel = (uint8_t)((ls->acc >> step) & 1 ? 84 : 74);
+    out->pad = 0;
+    out->delay = 0;
+    out->len = len > 1.0f ? (uint32_t)len : 1u;
+    return 1;
+}

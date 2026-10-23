@@ -30,176 +30,7 @@
 #include "theory.h"
 #include "rng.h"
 
-/* SPIKE (throwaway, branch spike/leads): lead styles to hear before designing (Sam), replacing the melody's lead and
-   ear candy outside the intro and outro. 1: a voice-leading line, one note per chord to the nearest chord tone, held.
-   2: the song's voicings arpeggiated in 8ths an octave up, up then down. 3 (A): the line as a skeleton with rhythm
-   (push, late arrival, re-strike, neighbor, passing note, suspension, breathing). 4 (B): a shaped arpeggio (patterns,
-   rhythms, dropped notes, direction changes, a new pattern now and then at a phrase). 5 (C): B landing on A's
-   skeleton note at each chord change. */
 static int loop_bars(const song_roll_t *r);
-static int lead_spike, spike_last, spike_tied;
-static int spike_on[16], spike_len[16];                /* the bar's planned onsets (MIDI, 0 none), lengths in 16ths */
-static uint32_t spike_seed;
-static unsigned spike_acc;                             /* the bar's accented onsets */
-static int spike_pat, spike_rhy, spike_rev, spike_swap = -1, spike_phrase = -1;
-void song_set_lead_spike(int mode) { lead_spike = mode; spike_last = spike_tied = 0; spike_phrase = -1; }
-
-static int sp_ok(const song_t *s, int note, const int *pcs, int np)  /* in the scale, no semitone off a chord tone */
-{
-    int j, ct = 0;
-    for (j = 0; j < np; j++) ct |= (note - pcs[j] + 120) % 12 == 0;
-    if (ct) return 1;
-    if (!th_in_scale(s->roll.v[RF_KEY], s->roll.v[RF_MODE], note)) return 0;
-    for (j = 0; j < np; j++) {
-        int d = (note - pcs[j] + 120) % 12;
-        if (d == 1 || d == 11) return 0;
-    }
-    return 1;
-}
-
-static int sp_skel(const song_t *s, const int *pcs, int np, int from)   /* the nearest chord tone, root least */
-{
-    int best = -1, bc = 1 << 30, note, j;
-    for (note = 67; note <= 81; note++)
-        for (j = 0; j < np; j++)
-            if ((note - pcs[j] + 120) % 12 == 0) {
-                int iv = (pcs[j] - pcs[0] + 12) % 12, c = (note > from ? note - from : from - note) * 4;
-                if (iv == 0) c += 6;
-                if (iv == 7) c += 3;
-                if (note == s->voicing.last[3] + 12) c += 4;
-                if (c < bc) { bc = c; best = note; }
-            }
-    return best;
-}
-
-static int sp_step(const song_t *s, int from, int to, const int *pcs, int np)   /* a scale step from `from` toward `to` */
-{
-    int dir = to > from ? 1 : -1, d;
-    if (to == from) dir = 1;
-    for (d = 1; d <= 2; d++)
-        if (sp_ok(s, from + dir * d, pcs, np) && from + dir * d != to) return from + dir * d;
-    return 0;
-}
-
-static void sp_put(int at, int note, int len)
-{
-    if (at < 0 || at > 15 || note <= 0) return;
-    spike_on[at] = note;
-    spike_len[at] = len;
-}
-
-/* plan one bar of the skeleton line (A): its note, the next chord's, and the song's rhythm cells */
-static void sp_plan_line(const song_t *s, int bar, int bpc, const int *pcs, int np, const int *npcs, int nn)
-{
-    rng_t g;
-    int prev = spike_last ? spike_last : 74, cur = sp_skel(s, pcs, np, prev), next = sp_skel(s, npcs, nn, cur);
-    int cells[2], cell, phrase_end = bar % 4 == 3, i;
-    rng_seed(&g, s->roll.seed, 140);
-    cells[0] = rng_int(&g, 5);
-    cells[1] = (cells[0] + 1 + rng_int(&g, 4)) % 5;
-    cell = cells[(bar / 2) & 1];
-    for (i = 0; i < 16; i++) spike_on[i] = 0;
-    if (bar % bpc) {                                     /* a chord's second bar: hold, maybe a neighbor */
-        if (cell == 3) { sp_put(8, sp_step(s, cur, cur + 2, pcs, np), 2); sp_put(10, cur, 6); }
-        spike_last = cur;
-        return;
-    }
-    if (!spike_tied && prev != cur && prev - cur >= 1 && prev - cur <= 2 && rng_int(&g, 2) && cell != 2) {
-        sp_put(0, prev, 4);                              /* a suspension: the old note held over, then down */
-        sp_put(4, cur, phrase_end ? 4 : 12);
-    } else {
-        int start = spike_tied ? -1 : 0;
-        switch (cell) {
-        case 0: sp_put(start, cur, 12); sp_put(12, sp_step(s, cur, next, pcs, np), 4); break;   /* passing */
-        case 1: sp_put(start, cur, 6); sp_put(6, cur, 2); sp_put(8, cur, 8); break;            /* re-strike */
-        case 2: sp_put(2, cur, 12); break;                                                    /* late */
-        case 3: sp_put(start, cur, 8); sp_put(8, sp_step(s, cur, cur + 2, pcs, np), 2); sp_put(10, cur, 6); break;
-        default: sp_put(start, cur, 10); break;                                               /* then a push */
-        }
-    }
-    spike_tied = 0;
-    if (phrase_end) {                                    /* breathe at the phrase's end */
-        for (i = 8; i < 16; i++) spike_on[i] = 0;
-        for (i = 0; i < 8; i++) if (spike_on[i] && i + spike_len[i] > 8) spike_len[i] = 8 - i;
-    } else if ((cell == 4 || cell == 2) && next > 0 && (bar + 1) % bpc == 0) {
-        sp_put(14, next, 2);                             /* the push: the next chord's note an 8th early */
-        spike_tied = 1;
-    }
-    spike_last = cur;
-}
-
-/* plan one bar of the shaped arpeggio (B): one pattern, rhythm, direction and swap per song (Sam: a single lead
-   pattern per song), the rhythm the one that lands least on the snare (Sam: fewer notes on the snare) */
-static const int8_t RHY[6][9][2] = {
-    {{0, 2}, {2, 2}, {4, 2}, {6, 2}, {8, 2}, {10, 2}, {12, 2}, {14, 2}, {-1, 0}},   /* 8ths */
-    {{0, 3}, {3, 1}, {4, 3}, {7, 1}, {8, 3}, {11, 1}, {12, 4}, {-1, 0}},             /* dotted */
-    {{0, 2}, {2, 2}, {6, 2}, {8, 2}, {10, 2}, {14, 2}, {-1, 0}},                     /* gaps */
-    {{0, 4}, {4, 2}, {6, 2}, {8, 4}, {12, 1}, {13, 1}, {14, 2}, {-1, 0}},            /* long-short */
-    {{0, 3}, {3, 3}, {6, 2}, {8, 3}, {11, 3}, {14, 2}, {-1, 0}},                     /* 3+3+2 */
-    {{2, 2}, {4, 2}, {6, 3}, {10, 2}, {12, 2}, {14, 2}, {-1, 0}}};                   /* off the one */
-
-static void sp_choose(const song_t *s)
-{
-    const lib_pattern_t *dp = lib_pattern_by_id((uint8_t)s->roll.v[RF_PATTERN]);
-    unsigned drums = dp ? (unsigned)dp->hit[D_SNARE] : 0x1010u;
-    int i, j, best = 1 << 30, tie;
-    rng_t g;
-    rng_seed(&g, s->roll.seed, 142);
-    spike_pat = rng_int(&g, 6);
-    spike_rev = rng_int(&g, 3) == 0;
-    spike_swap = rng_int(&g, 2) ? rng_int(&g, 5) : -1;   /* two neighboring notes swapped, or none */
-    tie = rng_int(&g, 1000);
-    for (i = 0; i < 6; i++) {                            /* share of notes on a snare hit, in per mille */
-        int on = 0, all = 0, c;
-        for (j = 0; RHY[i][j][0] >= 0; j++) { all++; on += (drums >> RHY[i][j][0]) & 1; }
-        c = on * 1000 / all * 4 + (tie + i * 377) % 1000;   /* fewer on the snare favored, not forced: a seeded pick */
-        if (c < best) { best = c; spike_rhy = i; }
-    }
-    spike_phrase = 0;
-    spike_seed = s->roll.seed;
-}
-
-static void sp_plan_arp(const song_t *s, int bar)
-{
-    static const int8_t PAT[6][6] = {{0, 1, 2, 3, -1}, {3, 2, 1, 0, -1}, {0, 1, 2, 3, 2, 1}, {0, 2, 1, 3, -1},
-                                     {0, 3, 1, 3, -1}, {3, 0, 2, 1, -1}};
-    int i, plen;
-    if (spike_seed != s->roll.seed || spike_phrase < 0) sp_choose(s);
-    for (i = 0; i < 16; i++) spike_on[i] = 0;
-    for (plen = 0; plen < 6 && PAT[spike_pat][plen] >= 0; plen++)
-        ;
-    for (i = 0; RHY[spike_rhy][i][0] >= 0; i++) {
-        int at = RHY[spike_rhy][i][0], pos = (bar * 8 + i) % plen, idx, v;
-        if (spike_swap >= 0 && spike_swap % (plen - 1) == pos) pos++;
-        else if (spike_swap >= 0 && spike_swap % (plen - 1) + 1 == pos) pos--;
-        idx = PAT[spike_pat][pos];
-        if ((bar & 1) && spike_rev) idx = 3 - idx;      /* the direction turned every other bar */
-        if (bar % 4 == 3 && (i == 2 || i == 5)) continue;   /* the phrase's last bar drops two notes */
-        v = s->voicing.last[idx];
-        if (v) sp_put(at, v + 12, RHY[spike_rhy][i][1]);
-    }
-}
-
-/* C: how the chord change lands on the skeleton note: 0 on 1 for an 8th, 1 on 1 for a quarter, 2 an 8th late,
-   3 a 16th late, 4 pushed an 8th early, 5 a beat's rest, then on 2 (Sam: not always a quarter on 1; 1 can rest) */
-static int sp_landing(const song_t *s, int bar)
-{
-    static const uint8_t W[6] = {15, 15, 20, 10, 20, 20};
-    uint32_t h = s->roll.seed * 0x9E3779B1u ^ (uint32_t)(bar + 1) * 0x85EBCA6Bu;
-    int r, i;
-    h ^= h >> 15; h *= 0x2C1B3C6Du; h ^= h >> 13;
-    r = (int)(h % 100u);
-    for (i = 0; i < 5 && r >= W[i]; i++) r -= W[i];
-    return i;
-}
-
-static void sp_land(int at, int note, int len)            /* the skeleton note, the arpeggio out of its way */
-{
-    int i;
-    for (i = at < 0 ? 0 : at; i < at + len && i < 16; i++) spike_on[i] = 0;
-    sp_put(at, note, len);
-    if (at >= 0 && at < 16) spike_acc |= 1u << at;
-}
 
 /* SPIKE (throwaway): bass rhythm (Sam: the tones are good, more rhythm). The groove's tones, in a rhythm cell per
    song: the kick's (with beat 3 sat out now and then), half notes on 1 and 3, or beats 1 and 2. Then anticipation
@@ -312,74 +143,6 @@ static int spike_bass(song_t *s, const plan_block_t *b, int bar, int step, float
     buf[n].delay = swing;
     buf[n].len = sb_len[step] < 0 ? (uint32_t)(gs * 0.4f) : (uint32_t)((float)sb_len[step] * gs);
     return n + 1;
-}
-
-static int spike_lead(song_t *s, const plan_block_t *b, int bar, int step, float gs, const int *pcs, int np,
-                      song_ev_t *buf, int n)
-{
-    const lib_prog_t *pr = lib_prog_by_id((uint8_t)s->roll.v[RF_PROG]);
-    int bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1, i, k = 0;
-    for (i = 0; i < n; i++)                             /* the melody's lead and candy out */
-        if (buf[i].voice != V_LEAD && buf[i].voice != V_CANDY) buf[k++] = buf[i];
-    n = k;
-    if (b->section == SEC_INTRO || b->section == SEC_OUTRO || !(b->layers & L_KEYS) || n >= 60) return n;
-    if (lead_spike == 1 && step == 0 && bar % bpc == 0) {
-        int best = sp_skel(s, pcs, np, spike_last ? spike_last : 74);
-        if (best > 0) {
-            buf[n].voice = V_LEAD; buf[n].note = (uint8_t)best; buf[n].vel = 82; buf[n].pad = 0;
-            buf[n].delay = 0; buf[n].len = (uint32_t)((float)(16 * bpc) * gs) - 441u;
-            n++;
-            spike_last = best;
-        }
-        return n;
-    }
-    if (lead_spike == 2) {
-        static const uint8_t UPDOWN[6] = {0, 1, 2, 3, 2, 1};
-        int v = s->voicing.last[UPDOWN[(bar * 8 + step / 2) % 6]];
-        if (!(step & 1) && v) {
-            buf[n].voice = V_LEAD; buf[n].note = (uint8_t)(v + 12); buf[n].vel = 76; buf[n].pad = 0;
-            buf[n].delay = 0; buf[n].len = (uint32_t)(2.0f * gs) - 200u;
-            n++;
-        }
-        return n;
-    }
-    if (step == 0) {                                     /* plan the bar */
-        int npcs[5], nn, pass = (bar + 1) / loop_bars(&s->roll) + 1;
-        nn = harmony_chord_at(&s->roll, bar + 1, pass, 0, npcs);
-        if (lead_spike == 3) {
-            sp_plan_line(s, bar, bpc, pcs, np, npcs, nn);
-        } else {
-            int pushed = spike_tied;
-            spike_acc = 0;
-            spike_tied = 0;
-            sp_plan_arp(s, bar);
-            if (lead_spike == 5 && bar % bpc == 0) {
-                int land = sp_landing(s, bar), skel;
-                if (land == 4 && pushed) {               /* it already sounds from the last bar: let it ring */
-                    sp_land(0, 0, 2);
-                } else {
-                    static const int8_t AT[6] = {0, 0, 2, 3, 2, 4}, LEN[6] = {2, 4, 4, 3, 4, 4};
-                    skel = sp_skel(s, pcs, np, spike_last ? spike_last : 74);
-                    spike_last = skel;
-                    if (AT[land]) sp_land(0, 0, AT[land]);  /* beat 1 rests until the landing */
-                    sp_land(AT[land], skel, LEN[land]);
-                }
-            }
-            if (lead_spike == 5 && (bar + 1) % bpc == 0 && nn > 0 && sp_landing(s, bar + 1) == 4) {
-                int nxt = sp_skel(s, npcs, nn, spike_last);
-                spike_last = nxt;
-                sp_land(14, nxt, 4);                     /* the next chord's note an 8th early, across the bar */
-                spike_tied = 1;
-            }
-        }
-    }
-    if (spike_on[step] > 0) {
-        buf[n].voice = V_LEAD; buf[n].note = (uint8_t)spike_on[step]; buf[n].vel = (uint8_t)((spike_acc >> step) & 1 ? 84 : 74);
-        buf[n].pad = 0; buf[n].delay = 0;
-        buf[n].len = (uint32_t)((float)spike_len[step] * gs) - 200u;
-        n++;
-    }
-    return n;
 }
 
 #define BUF 64
@@ -603,8 +366,17 @@ int song_tick(song_t *s, song_ev_t *out, int max)
         n += groove_step(&s->roll, b, bar, step, gs, pcs, np, salt, buf + n, BUF - n);
         n += harmony_step(&s->roll, b, bar, step, pass, gs, &s->voicing, salt, buf + n, BUF - n);
         n += melody_step(&s->roll, &s->plan, &s->ph, &s->motif, bar, step, gs, salt, buf + n, BUF - n);
-        if (lead_spike)
-            n = spike_lead(s, b, bar, step, gs, pcs, np, buf, n);
+        if (step == 0) {
+            int keys[4];
+            harmony_voicing_at(&s->roll, bar, pass, &s->voicing, keys);
+            lead_plan_bar(&s->lead, &s->roll, b, bar, keys, pcs, np);
+        }
+        if (lead_plays(b)) {                        /* the lead's blocks: no melody lead; candy only where it rests */
+            for (i = k = 0; i < n; i++)
+                if (buf[i].voice != V_LEAD && !(buf[i].voice == V_CANDY && s->lead.active)) buf[k++] = buf[i];
+            n = k;
+        }
+        n += lead_step(&s->lead, step, gs, buf + n, BUF - n);
         if (bass_spike)
             n = spike_bass(s, b, bar, step, gs, pcs, np, buf, n);
     }

@@ -27,6 +27,9 @@ int harmony_style(const song_roll_t *r);   /* CS_*, per song (seed stream 121) *
 typedef struct { int last[4]; int loop[4][4]; int nloop; uint32_t sig; } harmony_voicing_t;
 /* the loop lock above, on by default; off, each chord is voiced from the last sounded (VNL_LOOPLOCK=0 in renders) */
 void harmony_set_loop_lock(int on);
+/* The voicing this bar's chord sounds with (what harmony_step strikes), without striking it: vs->last is unchanged
+   (its loop cache may fill). Lets the lead plan a bar over the keys before they strike. */
+void harmony_voicing_at(const song_roll_t *r, int bar, int pass, harmony_voicing_t *vs, int out4[4]);
 int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, int pass, float step_samples,
                  harmony_voicing_t *vs, uint32_t salt, song_ev_t *out, int max);
 

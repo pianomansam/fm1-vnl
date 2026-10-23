@@ -172,3 +172,8 @@ const lib_map_t *lib_map_by_id(uint8_t id)
     for (i = 0; i < LIB_NMAPS; i++) if (LIB_MAPS[i].id == id) return &LIB_MAPS[i];
     return NULL;
 }
+
+int lib_ins_sustained(int ins)
+{
+    return ins == INS_PAD || ins == INS_FLUTE || ins == INS_SAX || ins == INS_MUTED_TPT || ins == INS_VOX_PAD;
+}

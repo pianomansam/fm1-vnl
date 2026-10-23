@@ -1583,6 +1583,110 @@ static int top_can_stay(const int *pcs, int n, int top)
    - roots a step apart in the key (1-2 semitones) are played a step apart in the bass, not folded nearly an octave;
    - a walking bar's last beat leads by a step into the next bar's root;
    - keys-only bars are counted (Sam: they stay rootless, the song's one voicing; see test_loop_voicings). */
+/* The lead plays like its instrument (lead design): a sustained lead (flute, sax, muted trumpet) never runs an
+   arpeggio; a percussive one sings in most bars where it may play. Also where the lead may play, and pushes legal
+   over both chords. One pass over 300 chained songs feeds all three tests. */
+static long lr_runs, lr_perc_bars, lr_perc_led, lr_bad_where, lr_candy_where, lr_cross, lr_bad_cross;
+
+static int lr_chord_scale(int key, int mode, const int *pcs, int n, int note)
+{
+    int k, pc = note % 12, near = 0;
+    for (k = 0; k < n; k++) {
+        int d = ((pcs[k] - pc) % 12 + 12) % 12;
+        if (d == 0) return 1;
+        if (d == 1 || d == 11) near = 1;
+    }
+    return !near && th_in_scale(key, mode, pc);
+}
+
+static void lr_scan(void)
+{
+    static song_t s;
+    static int done;
+    uint32_t seed = 777;
+    song_roll_t prev, r;
+    song_ev_t ev[64];
+    int k, i;
+    if (done) return;
+    done = 1;
+    for (k = 0; k < 300; k++) {
+        const lib_set_t *set;
+        int sust, run = 0, runpcs = 0, last_at = -100, cur = -1, led = 0, may = 0;
+        seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+        roll_song(k ? &prev : 0, seed, &r);
+        prev = r;
+        set = lib_set_by_id((uint8_t)r.v[RF_SET]);
+        sust = set && lib_ins_sustained(set->lead);
+        song_start(&s, &r);
+        while (s.state == SS_PLAYING) {
+            int bar = s.bar, st = s.step, n, pcs[5], np, npcs[5], nn;
+            const plan_block_t *b = plan_at(&s.plan, bar);
+            const lib_prog_t *pr = lib_prog_by_id((uint8_t)s.roll.v[RF_PROG]);
+            int loop = pr && pr->n * pr->bars_per_chord ? pr->n * pr->bars_per_chord : 4;
+            float ss = song_step_samples(&s);
+            n = song_tick(&s, ev, 64);
+            if (bar != cur) {
+                if (!sust && may) { lr_perc_bars++; lr_perc_led += led; }
+                cur = bar;
+                led = 0;
+                may = b && b->section != SEC_INTRO && b->section != SEC_OUTRO && (b->layers & L_KEYS) &&
+                      (b->layers & L_LEAD);
+            }
+            np = harmony_chord_at(&s.roll, bar, bar / loop + 1, 0, pcs);
+            nn = harmony_chord_at(&s.roll, bar + 1, (bar + 1) / loop + 1, 0, npcs);
+            for (i = 0; i < n; i++) {
+                int at = bar * 16 + st, ct = 0, j, note = ev[i].note;
+                if (ev[i].voice == V_CANDY && may && led) lr_candy_where++;
+                if (ev[i].voice != V_LEAD) continue;
+                led = 1;
+                if (!may) lr_bad_where++;
+                for (j = 0; j < np; j++) ct |= pcs[j] % 12 == note % 12;
+                if (sust) {
+                    if (ct && at - last_at <= 2) { run++; runpcs |= 1 << (note % 12); }
+                    else { run = ct; runpcs = ct ? 1 << (note % 12) : 0; }
+                    if (run == 3) {
+                        int c = 0;
+                        for (j = 0; j < 12; j++) c += (runpcs >> j) & 1;
+                        lr_runs += c >= 3;
+                    }
+                    last_at = at;
+                }
+                if ((float)st * ss + (float)ev[i].delay + (float)ev[i].len > 16.0f * ss + 1.0f && nn > 0 &&
+                    memcmp(pcs, npcs, sizeof(int) * (size_t)(np < nn ? np : nn))) {
+                    lr_cross++;
+                    if (!lr_chord_scale(s.roll.v[RF_KEY], s.roll.v[RF_MODE], pcs, np, note) ||
+                        !lr_chord_scale(s.roll.v[RF_KEY], s.roll.v[RF_MODE], npcs, nn, note) ||
+                        th_is_avoid(s.roll.v[RF_KEY], s.roll.v[RF_MODE], pcs, np, note) ||
+                        th_is_avoid(s.roll.v[RF_KEY], s.roll.v[RF_MODE], npcs, nn, note))
+                        lr_bad_cross++;
+                }
+            }
+        }
+    }
+}
+
+static void test_lead_by_class(void)
+{
+    lr_scan();
+    CHECK(lr_runs == 0, "sustained leads ran %ld arpeggios", lr_runs);
+    CHECK(lr_perc_bars > 1000 && lr_perc_led * 100 >= lr_perc_bars * 80,
+          "percussive leads sang in %ld of %ld bars where they may play", lr_perc_led, lr_perc_bars);
+}
+
+static void test_lead_where(void)
+{
+    lr_scan();
+    CHECK(lr_bad_where == 0, "%ld lead notes outside a lead block with keys", lr_bad_where);
+    CHECK(lr_candy_where == 0, "%ld candy notes in a bar the lead sings in", lr_candy_where);
+}
+
+static void test_lead_push_legal(void)
+{
+    lr_scan();
+    CHECK(lr_bad_cross == 0, "%ld of %ld lead notes across a chord change not legal over both chords", lr_bad_cross,
+          lr_cross);
+}
+
 /* Sam: the keys and the bass never share a rhythm of more than a note on 1 (stabs on a kick of 1 and the and of 2) */
 static void test_keys_bass_rhythms_differ(void)
 {
@@ -1850,6 +1954,9 @@ int main(void)
     test_no_chord_clusters();
     test_bass_and_roots();
     test_keys_bass_rhythms_differ();
+    test_lead_by_class();
+    test_lead_where();
+    test_lead_push_legal();
     test_loop_voicings();
     test_dominant_extensions();
     test_no_substitution();
