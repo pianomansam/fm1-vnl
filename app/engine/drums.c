@@ -102,10 +102,17 @@ void drums_set_kit(int kit)
     }
 }
 
-void drums_init(void)
+void drums_song(uint32_t seed)
 {
     memset(ln, 0, sizeof ln);
-    rng = 0x2545F491u;
+    rng = seed * 2654435761u ^ 0x2545F491u;
+    if (!rng)
+        rng = 0x2545F491u;
+}
+
+void drums_init(void)
+{
+    drums_song(0u);
     drums_set_kit(KIT_DUSTY);
 }
 

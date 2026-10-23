@@ -3890,6 +3890,112 @@ static uint32_t sg_run(uint32_t seed, int moves, int bars_to)
     return h;
 }
 
+/* Song `roll` as the app plays it (app.c's step: plan_moves per 16th, the events, the step's samples), for `secs`
+   seconds or to its end; into out_l/out_r when given. Returns the samples rendered. */
+static uint32_t cv_play(const song_roll_t *roll, uint32_t secs, float *out_l, float *out_r)
+{
+    static song_t s;
+    song_ev_t ev[64];
+    float frac = 0.0f, lp[PM_N], hp[PM_N];
+    uint32_t done = 0, tot = secs * 44100u, tick = 0;
+    song_start(&s, roll);
+    while (done < tot && s.state == SS_PLAYING) {
+        int n, i;
+        uint32_t k;
+        plan_moves(&s.plan, s.bar, (int)(tick++ & 15u), lp, hp);
+        for (i = 0; i < PM_N; i++) {
+            vx_set_filter(i, lp[i]);
+            vx_set_hp(i, hp[i]);
+        }
+        n = song_tick(&s, ev, 64);
+        for (i = 0; i < n; i++)
+            vx_event(&ev[i]);
+        frac += song_step_samples(&s);
+        k = (uint32_t)frac;
+        frac -= (float)k;
+        while (k && done < tot) {
+            uint32_t b = k < 4096 ? k : 4096;
+            if (b > tot - done)
+                b = tot - done;
+            memset(vt_l, 0, b * sizeof(float));
+            memset(vt_r, 0, b * sizeof(float));
+            vx_render(vt_l, vt_r, b);
+            if (out_l) {
+                memcpy(out_l + done, vt_l, b * sizeof(float));
+                memcpy(out_r + done, vt_r, b * sizeof(float));
+            }
+            done += b;
+            k -= b;
+        }
+    }
+    return done;
+}
+
+/* app.c's song_begin: a tail still sounding keeps the engine (the gain back up), else vx_init; then vx_song */
+static void cv_begin(const song_roll_t *roll)
+{
+    if (vx_sounding())
+        vx_set_gain(1.0f);
+    else
+        vx_init();
+    vx_song(roll);
+}
+
+/* Determinism across songs (the plan's constraint): a seed renders the same samples whether or not another song played
+   before it. Song A, then the app's gap (vx_release_all, 2-4 s from A's seed), then song B through song_begin's path,
+   against song B alone: from 12 s (A's tails long over) the two agree exactly; in B's first second they differ by at
+   most what A's tail still adds. The pairs' B sets cover plucks, the Wurli's bark, winds' breath and the drums. */
+#define CV_SECS 20u
+static float cv_ref_l[CV_SECS * 44100u], cv_ref_r[CV_SECS * 44100u], cv_l[CV_SECS * 44100u], cv_r[CV_SECS * 44100u];
+static void test_song_carryover(void)
+{
+    static const uint32_t A[] = {11u, 128u, 7u, 183u, 20u, 49u};
+    static const uint32_t B[] = {12u, 904880372u, 4185943442u, 100u, 77u, 333u};
+    int p, i;
+    for (p = 0; p < 6; p++) {
+        song_roll_t ra, rb;
+        uint32_t gap, h, j;
+        float tail = 0.0f, d0 = 0.0f, d1 = 0.0f;
+        const vx_config_t *c;
+        roll_song(NULL, A[p], &ra);
+        roll_song(NULL, B[p], &rb);
+        vx_init(); /* B alone */
+        vx_song(&rb);
+        cv_play(&rb, CV_SECS, cv_ref_l, cv_ref_r);
+        c = vx_config();
+        printf("carryover: B %u chords %d bass %d lead %d candy %d kit %d\n", (unsigned)B[p], c->chords, c->bass,
+               c->lead, c->candy, c->kit);
+        vx_init();
+        vx_song(&ra);
+        cv_play(&ra, 30u, NULL, NULL);
+        vx_release_all(); /* the song's end, then the gap (app.c's) */
+        h = ra.seed * 2654435761u;
+        gap = (2000u + (h >> 16) % 2001u) * 441u / 10u;
+        for (j = 0; j < gap;) {
+            uint32_t b = gap - j < 4096 ? gap - j : 4096;
+            tail = vt_block(b, &i);
+            j += b;
+        }
+        printf("carryover: A %u gap %.2f s, at B's start active %d sounding %d (last block peak %.2e)\n",
+               (unsigned)A[p], (double)gap / 44100.0, vx_active(), vx_sounding(), (double)tail);
+        cv_begin(&rb);
+        cv_play(&rb, CV_SECS, cv_l, cv_r);
+        for (j = 0; j < CV_SECS * 44100u; j++) {
+            float d = fm_maxf(fm_fabsf(cv_l[j] - cv_ref_l[j]), fm_fabsf(cv_r[j] - cv_ref_r[j]));
+            if (j < 44100u)
+                d0 = fm_maxf(d0, d);
+            else if (j >= 12u * 44100u)
+                d1 = fm_maxf(d1, d);
+        }
+        printf("carryover: A %u -> B %u: first second %.2e, from 12 s %.2e\n", (unsigned)A[p], (unsigned)B[p],
+               (double)d0, (double)d1);
+        CHECK(d1 <= 1e-6f, "seed %u after seed %u renders differently from 12 s on (max %.3e)", (unsigned)B[p],
+              (unsigned)A[p], (double)d1);
+        CHECK(d0 <= 2.0f * tail + 1e-6f, "seed %u after seed %u: its first second differs by %.3e, more than the old "
+              "tail (%.3e at the gap's end)", (unsigned)B[p], (unsigned)A[p], (double)d0, (double)tail);
+    }
+}
+
 static void test_moves(void)
 {
     song_plan_t p;
@@ -5232,6 +5338,7 @@ int main(int argc, char **argv)
     RUN(test_drum_kits);
     RUN(test_fx_chain);
     RUN(test_fx_engine);
+    RUN(test_song_carryover);
     RUN(test_moves);
     RUN(test_dynamics);
     RUN(test_wet);

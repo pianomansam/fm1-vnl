@@ -7,6 +7,9 @@
 
 /* Everything silent, the default kit (dusty), the noise generator reseeded. */
 void drums_init(void);
+/* A song's start with nothing sounding: every lane cleared and the noise generator seeded from the song's seed (the
+   same seed, the same hits); the kit kept. */
+void drums_song(uint32_t seed);
 /* The kit for the hits that follow (KIT_*; anything else is dusty). Hits already sounding keep playing. */
 void drums_set_kit(int kit);
 /* Start a hit: e->voice V_KICK..V_RIM (others ignored), e->vel 1-127 scales the level. A new hit on a voice

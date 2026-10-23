@@ -227,26 +227,36 @@ static float note_inc(int note)
 static float k_t60(float t) { return t * SR > T60 ? T60 / (t * SR) : 1.0f; }
 static float k_att(float t) { return t * SR > 1.0f ? 1.0f / (t * SR) : 1.0f; }
 
-void vx_init(void)
+/* The voices' side cleared for a song (every voice and drum off, the queue, the buses' filters, the half-rate
+   history and clock parity, the mud states, the compressor), the noise generators seeded from the song's seed: with
+   nothing sounding, a song starts from the same state whatever played before it (the same seed, the same samples). */
+static void voices_clear(uint32_t seed)
 {
     memset(q, 0, sizeof q);
     memset(fv, 0, sizeof fv);
-    drums_init();
+    drums_song(seed);
     qn = 0;
     age_ctr = 0;
-    rng = 0x1234567u;
-    gain = gain_tgt = 1.0f;
-    gain_step = 0.0f;
-    gain_n = 0;
+    rng = seed * 2654435761u ^ 0x1234567u;
+    if (!rng)
+        rng = 0x1234567u;
     memset(bus, 0, sizeof bus);
     memset(hx, 0, sizeof hx);
     memset(mud_z, 0, sizeof mud_z);
     memset(mud_zh, 0, sizeof mud_zh);
     hpar = 0u;
     hr_tail = 0u;
-    cg = 1.0f;
     cp_env = 0.0f;
     cp_g = CP_MAKEUP;
+}
+
+void vx_init(void)
+{
+    voices_clear(0u); /* (the kit: vx_set_kit below) */
+    gain = gain_tgt = 1.0f;
+    gain_step = 0.0f;
+    gain_n = 0;
+    cg = 1.0f;
     keys_g = 1.0f;
     fx_init(); /* before the roles: the chords' patch sets the chorus */
     memset(&cfg, 0, sizeof cfg);
@@ -331,6 +341,10 @@ void vx_configure(const song_roll_t *r)
 
 void vx_song(const song_roll_t *r)
 {
+    /* the app skips vx_init while a tail (the plate's, the bed's fade) still sounds: with the voices silent, their
+       side starts afresh here too (a voice still sounding keeps the engine as it is) */
+    if (!vx_active())
+        voices_clear(r->seed);
     fx_song(r->seed, !vx_active());
     vx_configure(r);
     if (!vx_active()) /* the chorus's dry scale lands (it eases only while rendering) */
