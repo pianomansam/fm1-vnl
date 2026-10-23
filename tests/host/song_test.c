@@ -971,7 +971,13 @@ static void test_harmony(void)
             }
         CHECK(held_bar == 0, "harmony: held chords wrong (seed %d)", seed);
         if (st == CS_HELD) CHECK(total == 4 * (8 / bpc), "harmony: held count %d", total);
-        if (st == CS_STABS) CHECK(count[0] == 32 && count[6] == 32 && total == 64, "harmony: stabs %d/%d/%d", count[0], count[6], total);
+        if (st == CS_STABS) {                    /* 1, and the step the kick leaves free (harmony_stab_steps) */
+            unsigned sm = harmony_stab_steps(&r);
+            int s2 = 0;
+            while (s2 < 15 && !((sm >> ++s2) & 1u))
+                ;
+            CHECK(count[0] == 32 && count[s2] == 32 && total == 64, "harmony: stabs %d/%d/%d", count[0], count[s2], total);
+        }
         if (st == CS_OFFBEATS) CHECK(count[2] == 32 && count[6] == 32 && count[10] == 32 && count[14] == 32 && total == 128,
                                      "harmony: offbeats total %d", total);
         if (st == CS_ARP) {                    /* (Sam) a 16th-note arpeggio: in 8ths it reads as a melody */
@@ -2652,6 +2658,43 @@ static void test_pushes(void)
 }
 
 /* Sam: the keys and the bass never share a rhythm of more than a note on 1 (stabs on a kick of 1 and the and of 2) */
+/* Sam: the keys and the kick never share a rhythm either ("the bass drum and accompaniment rhythms copy each other
+   ... I don't like that"): a stab's second hit never lands on a kick, and no bar's keys rhythm (more than a note on 1)
+   equals the kick's. */
+static void test_keys_kick_differ(void)
+{
+    static song_t s;
+    uint32_t seed = 5353;
+    song_roll_t prev, r;
+    song_ev_t ev[64];
+    long bars = 0, same = 0, stab_on_kick = 0;
+    int k, i;
+    for (k = 0; k < 300; k++) {
+        unsigned km = 0, dm = 0;
+        int cur = 0, stabs;
+        seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+        roll_song(k ? &prev : 0, seed, &r);
+        prev = r;
+        stabs = harmony_style(&r) == CS_STABS;
+        song_start(&s, &r);
+        while (s.state == SS_PLAYING) {
+            int bar = s.bar, st = s.step, n = song_tick(&s, ev, 64);
+            if (bar != cur) {
+                if (km && dm && km != 1u) { bars++; same += km == dm; }
+                if (stabs) stab_on_kick += (km & dm & ~1u) != 0;
+                km = dm = 0;
+                cur = bar;
+            }
+            for (i = 0; i < n; i++) {
+                if (ev[i].voice == V_CHORD) km |= 1u << st;
+                if (ev[i].voice == V_KICK && ev[i].vel > 60) dm |= 1u << st;
+            }
+        }
+    }
+    CHECK(bars > 1000 && same == 0, "keys and kick share a bar's rhythm in %ld of %ld bars", same, bars);
+    CHECK(stab_on_kick == 0, "%ld bars with a stab on a kick", stab_on_kick);
+}
+
 static void test_keys_bass_rhythms_differ(void)
 {
     static song_t s;
@@ -4745,6 +4788,7 @@ int main(void)
     test_no_chord_clusters();
     test_bass_and_roots();
     test_keys_bass_rhythms_differ();
+    test_keys_kick_differ();
     test_lead_by_class();
     test_lead_where();
     test_lead_push_legal();
