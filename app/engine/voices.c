@@ -81,8 +81,9 @@ typedef struct {
             float tp, ti, th, tk;      /* thump: phase, increment, level, decay */
             uint16_t wp, li;           /* write index, the read delay's whole samples */
         } pl;
-        struct { /* M_BASS: 2-op FM (index slewing to a struck target that falls) plus a sub-octave sine */
-            float pc, pm, ps, ic, im, is, idx, it, i0, ik, sub;
+        struct { /* M_BASS: 2-op FM (the index's excess ix over the floor i0 slewing to the struck it, which falls)
+                    plus a sub-octave sine */
+            float pc, pm, ps, ic, im, is, ix, it, i0, ik, sub;
         } bs;
     } m;
     uint32_t gate, age;
@@ -348,7 +349,7 @@ static void bass_start(voice_t *v, const song_ev_t *e, int legato)
     float f = note_inc(e->note), v01 = (float)e->vel * (1.0f / 127.0f);
     if (!legato) {
         v->m.bs.pc = v->m.bs.pm = v->m.bs.ps = 0.0f;
-        v->m.bs.idx = p->p[1] + p->p[2] * v01;
+        v->m.bs.ix = p->p[2] * v01;
     }
     v->m.bs.ic = f;
     v->m.bs.im = f * p->p[0];
@@ -564,21 +565,26 @@ static float pluck_sample(voice_t *v)
 /* M_BASS's raw sample: the FM and the sub-octave sine. */
 static float bass_sample(voice_t *v)
 {
-    float s;
+    float s, idx;
     v->m.bs.pc += v->m.bs.ic;
     if (v->m.bs.pc >= 1.0f)
         v->m.bs.pc -= 1.0f;
     v->m.bs.pm += v->m.bs.im;
     if (v->m.bs.pm >= 1.0f)
         v->m.bs.pm -= 1.0f;
-    v->m.bs.ps += v->m.bs.is;
-    if (v->m.bs.ps >= 1.0f)
-        v->m.bs.ps -= 1.0f;
-    v->m.bs.it = fm_flush(v->m.bs.it * v->m.bs.ik);
-    v->m.bs.idx = fm_flush(v->m.bs.idx + IDX_K * (v->m.bs.i0 + v->m.bs.it - v->m.bs.idx));
-    s = fm_sin_turns(v->m.bs.pc + fm_sin_turns(v->m.bs.pm) * v->m.bs.idx * 0.159155f);
-    if (v->m.bs.sub > 0.0f)
+    if (v->m.bs.it > 0.0f || v->m.bs.ix > 0.0f) { /* the strike: both flush to exactly 0 once it has settled */
+        v->m.bs.it = fm_flush(v->m.bs.it * v->m.bs.ik);
+        v->m.bs.ix = fm_flush(v->m.bs.ix + IDX_K * (v->m.bs.it - v->m.bs.ix));
+    }
+    idx = v->m.bs.i0 + v->m.bs.ix;
+    s = idx > 0.0f ? fm_sin_turns(v->m.bs.pc + fm_sin_turns(v->m.bs.pm) * idx * 0.159155f)
+                   : fm_sin_turns(v->m.bs.pc); /* the sub: no modulator */
+    if (v->m.bs.sub > 0.0f) {
+        v->m.bs.ps += v->m.bs.is;
+        if (v->m.bs.ps >= 1.0f)
+            v->m.bs.ps -= 1.0f;
         s += v->m.bs.sub * fm_sin_turns(v->m.bs.ps);
+    }
     return s;
 }
 

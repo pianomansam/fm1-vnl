@@ -1735,6 +1735,29 @@ static void test_vx_plucks_basses(void)
         CHECK(fm_fabsf(b1 - b3) < 0.1f * b3, "electric bass note %d: not settled at 100 ms (%.4f vs %.4f)", note,
               (double)b1, (double)b3);
     }
+    { /* an upright re-pluck (a loud string, then a quiet note): no step beyond the string's own or a fresh pluck's */
+        float prev = 0.0f, fresh, own = 0.0f, re = 0.0f;
+        int pass, k;
+        vx_init();
+        vx_assign(V_BASS, INS_UPRIGHT);
+        vt_ev(V_BASS, 47, 20, 0, 400000);
+        fresh = vt_maxdelta(4096, 0, &prev);
+        for (pass = 0; pass < 2; pass++) {
+            vx_init();
+            vx_assign(V_BASS, INS_UPRIGHT);
+            vt_ev(V_BASS, 40, 127, 0, 400000);
+            prev = 0.0f;
+            vt_maxdelta(1024, 1024, &prev); /* 23 ms in: the string still loud */
+            if (pass)
+                vt_ev(V_BASS, 47, 20, 0, 400000);
+            for (k = 0; k < 4; k++)
+                *(pass ? &re : &own) = fm_maxf(*(pass ? &re : &own), vt_maxdelta(1024, 0, &prev));
+        }
+        printf("plucks: upright re-pluck max step %.4f (string %.4f, fresh pluck %.4f)\n", (double)re, (double)own,
+               (double)fresh);
+        CHECK(re < 1.5f * fm_maxf(own, fresh), "upright re-pluck click: max step %.4f vs %.4f / %.4f", (double)re,
+              (double)own, (double)fresh);
+    }
     CHECK(!bad, "a pluck or bass rendered NaN or inf");
 }
 
