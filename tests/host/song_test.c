@@ -3576,6 +3576,72 @@ static void test_fx_engine(void)
         vt_block(2205, &i);
         e = vt_block(4096, &i);
         CHECK(e < 3.2e-5f && !vx_sounding(), "stop: %.2e left 100 ms on, sounding %d", (double)e, vx_sounding());
+
+        /* a replay right after a stop (inside the stop's 40 ms) does not bring the old plate tail back */
+        vx_init();
+        roll.v[RF_NOISE] = 0;
+        roll.v[RF_AMBIENCE] = 0;
+        vx_song(&roll);
+        for (k = 0; k < 4; k++)
+            vt_ev(V_CHORD, 60 + k * 4, 110, 0, 441000);
+        for (b = 0; b < 30; b++)
+            vt_block(4096, &i);
+        vx_stop();
+        vt_block(441, &i); /* 10 ms */
+        vx_song(&roll);
+        vt_block(2205, &i);
+        e = vt_block(4096, &i);
+        /* (the old tail came back at 4.6e-2; what is left is the stopped notes' last 30 ms of release reaching the
+           reopened plate, about -52 dBFS) */
+        CHECK(e < 5e-3f, "replay after a stop: the old plate tail is back at %.2e", (double)e);
+    }
+
+    /* determinism: a seed's bed (vinyl and rain) is the same whether or not another song played before it, here one
+       whose plate still rings when the new song starts (so the app skips vx_init) */
+    {
+        static float ref_l[4096 * 8];
+        int pass;
+        float worst = 0.0f;
+        for (pass = 0; pass < 2; pass++) {
+            fx_init();
+            if (pass) { /* song 11: tape and rain, a loud send, then the gap: the bed closed, the plate ringing */
+                fx_song(11u, 1);
+                fx_configure(1, 2, 1, FL_LOFI);
+                for (b = 0; b < 30; b++) {
+                    memset(fx_l, 0, sizeof fx_l);
+                    memset(fx_r, 0, sizeof fx_r);
+                    if (b == 29)
+                        fx_r[0] = 1.0f;
+                    fx_process(fx_l, fx_r, 4096, 0.0f);
+                }
+                fx_close();
+                for (b = 0; b < 17; b++) { /* 1.58 s */
+                    memset(fx_l, 0, sizeof fx_l);
+                    memset(fx_r, 0, sizeof fx_r);
+                    fx_process(fx_l, fx_r, 4096, 0.0f);
+                }
+                CHECK(fx_active(), "the test wants song 11's plate still ringing at song 12's start");
+            }
+            fx_song(12u, 1);
+            fx_configure(0, 1, 1, FL_LOFI);
+            fx_land();
+            for (b = 0; b < 30; b++) { /* 2.8 s: the bed's opening ramp, then 8 blocks compared */
+                memset(fx_l, 0, sizeof fx_l);
+                memset(fx_r, 0, sizeof fx_r);
+                fx_process(fx_l, fx_r, 4096, 0.0f);
+                if (b >= 22)
+                    for (k = 0; k < 4096; k++) {
+                        float *ref = &ref_l[(b - 22) * 4096 + k];
+                        if (!pass)
+                            *ref = fx_l[k];
+                        else if (fm_fabsf(fx_l[k] - *ref) > worst)
+                            worst = fm_fabsf(fx_l[k] - *ref);
+                    }
+            }
+        }
+        printf("fx: seed 12's bed alone vs after song 11: max difference %.2e\n", (double)worst);
+        CHECK(worst < 1e-5f, "a seed's bed depends on the song before it (max difference %.2e; song 11's plate tail, "
+              "under -100 dB, is allowed)", (double)worst);
     }
 }
 

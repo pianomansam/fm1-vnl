@@ -1,14 +1,18 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 /* Host cost bench (tools/cost-bench.sh): how long 60 s of a VNL song takes to render, against 60 s of AMB-1's engine
    at its heaviest piece. Built only with -DVNL_BENCH, otherwise this file is empty (it sits in host/ so the
-   firmware globs skip nothing; it has a main()). No audio device. Usage: bench [--heaviest | SEED...]
+   firmware globs skip nothing; it has a main()). No audio device. Usage: bench [--heaviest | [--forced] SEED...]
    Prints `vnl <ms> amb <ms> ratio <x>` (best of 3 runs each) for the seed(s), and for --heaviest the seed chosen.
+   The lo-fi chain's cost does not depend on the song, and its fields are rolled independently of the rest, so the
+   heaviest seed may not carry the heaviest chain: the picked seed (and every seed with --forced) is also timed with
+   its chain forced to the heaviest real one (dust 3, vinyl, rain), printed as `forced`: the upper bound.
    The AMB-1 engine's headers clash with ours (MODE_*), so its few entry points are declared here by hand. */
 #include <stdint.h>
 #ifdef VNL_BENCH
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <string.h>
 #include "song.h"
 #include "voices.h"
 
@@ -35,7 +39,7 @@ static double now_ms(void)
 
 /* 60 s of the song at `seed`: ticks, events to the voices at the step's start (delays honored by the voices), and
    the render in blocks. *events gets the event count. Milliseconds. */
-static double run_vnl(uint32_t seed, int render, long *events)
+static double run_vnl(uint32_t seed, int render, long *events, int force)
 {
     static song_t s;
     static float l[BLK], r[BLK];
@@ -45,9 +49,14 @@ static double run_vnl(uint32_t seed, int render, long *events)
     double t0 = now_ms();
     *events = 0;
     roll_song(0, seed, &roll);
+    if (force) {
+        roll.v[RF_DUST] = 3;
+        roll.v[RF_NOISE] = 1;
+        roll.v[RF_AMBIENCE] = 1;
+    }
     vx_init();
     song_start(&s, &roll);
-    vx_configure(&s.roll);
+    vx_song(&s.roll);
     while (done < total) {
         int n = song_tick(&s, ev, 64), i;
         float adv = song_step_samples(&s);
@@ -85,12 +94,12 @@ static double run_amb(int piece)
     return now_ms() - t0;
 }
 
-static double best3_vnl(uint32_t seed)
+static double best3_vnl(uint32_t seed, int force)
 {
     double best = 1e30, t;
     long ev;
     int i;
-    for (i = 0; i < 3; i++) { t = run_vnl(seed, 1, &ev); if (t < best) best = t; }
+    for (i = 0; i < 3; i++) { t = run_vnl(seed, 1, &ev, force); if (t < best) best = t; }
     return best;
 }
 
@@ -102,7 +111,7 @@ static uint32_t heaviest(void)
     long ev;
     double t, slowest = -1;
     for (seed = 1; seed <= 200; seed++) {
-        t = run_vnl(seed, 1, &ev);
+        t = run_vnl(seed, 1, &ev, 0);
         if (t > slowest) { slowest = t; best = seed; }
     }
     return best;
@@ -111,14 +120,15 @@ static uint32_t heaviest(void)
 int main(int argc, char **argv)
 {
     double amb = 0, t;
-    int p, heavy = 0, i, ap = 0;
+    int p, heavy = 0, i, ap = 0, forced = 0;
     uint32_t seeds[64];
     int ns = 0;
     for (i = 1; i < argc && ns < 64; i++) {
-        if (argv[i][0] == '-') heavy = 1;
+        if (!strcmp(argv[i], "--forced")) forced = 1;
+        else if (argv[i][0] == '-') heavy = 1;
         else seeds[ns++] = (uint32_t)strtoul(argv[i], 0, 10);
     }
-    if (heavy || !ns) { seeds[0] = heaviest(); ns = 1; printf("heaviest seed %u\n", (unsigned)seeds[0]); }
+    if (heavy || !ns) { seeds[0] = heaviest(); ns = 1; forced = 1; printf("heaviest seed %u\n", (unsigned)seeds[0]); }
     /* AMB-1's heaviest piece: the slowest of its eight (best of 3 each) */
     for (p = 0; p < EN_NPIECES; p++) {
         double b = 1e30;
@@ -126,8 +136,13 @@ int main(int argc, char **argv)
         if (b > amb) { amb = b; ap = p; }
     }
     for (i = 0; i < ns; i++) {
-        double v = best3_vnl(seeds[i]);
+        double v = best3_vnl(seeds[i], 0);
         printf("vnl %.1f amb %.1f ratio %.3f  (seed %u, amb piece %d)\n", v, amb, v / amb, (unsigned)seeds[i], ap);
+        if (forced) {
+            v = best3_vnl(seeds[i], 1);
+            printf("vnl %.1f amb %.1f ratio %.3f  (seed %u forced: dust 3, vinyl, rain)\n", v, amb, v / amb,
+                   (unsigned)seeds[i]);
+        }
     }
     return 0;
 }

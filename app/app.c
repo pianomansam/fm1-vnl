@@ -153,8 +153,9 @@ static void song_begin(void)
         vx_set_gain(1.0f);
     else
         vx_init();
-    vx_configure(&song.roll);            /* this song's instruments, kit and chain (the bed fades in, the dust ramps
-                                            if anything still sounds), before its first event */
+    vx_song(&song.roll);                 /* this song's instruments, kit and chain (the bed fades in, the dust ramps
+                                            if anything still sounds; the chain's noise from its seed), before its
+                                            first event */
     r_now = r_pos = r_tick = 0;
     r_frac = 0.0f;
     memset(req_set, 0, sizeof req_set);

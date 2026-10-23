@@ -24,6 +24,10 @@ void vx_init(void);
    opens; dust and bed changes ramp, the dust landing at once if no voice sounds). Notes already sounding keep the
    instrument they were struck with through their release. */
 void vx_configure(const song_roll_t *r);
+/* A new song (the app's song start, before its first event): the lo-fi chain's noise and its LFOs restart from the
+   roll's seed wherever nothing is left to hear them, so a seed renders the same bed and dust whatever played before
+   (a previous song's ringing tail still sounds), then vx_configure. */
+void vx_song(const song_roll_t *r);
 /* One pitched role's instrument (voice V_CHORD, V_BASS, V_LEAD or V_CANDY; others ignored). */
 void vx_assign(int voice, int ins);
 const vx_config_t *vx_config(void);

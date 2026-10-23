@@ -13,6 +13,10 @@ void fx_init(void);
    plate (fx_init leaves the plate shut: a dry engine, for the voices' own tests). Changes ramp over FX_RAMP_S (dust
    and each bed layer crossfade); a layer that comes in while the bed is closed lands at once. */
 void fx_configure(int dust, int noise, int ambience, int flavor);
+/* A new song (before fx_configure): the bed's noise, clicks and gusts restart from seed if the bed is closed (it
+   always is after the app's 2-4 s gap), else only its noise is reseeded; if quiet (no voice sounds), the dust's
+   state and LFOs restart too. A previous song's plate tail rings on. */
+void fx_song(uint32_t seed, int quiet);
 /* Land the dust ramps at once (nothing is sounding, so nobody hears the jump). */
 void fx_land(void);
 /* The bed fades out over FX_RAMP_S (the song's end). The plate rings on. */

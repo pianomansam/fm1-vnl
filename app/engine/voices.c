@@ -213,6 +213,12 @@ void vx_configure(const song_roll_t *r)
         fx_land();
 }
 
+void vx_song(const song_roll_t *r)
+{
+    fx_song(r->seed, !vx_active());
+    vx_configure(r);
+}
+
 const vx_config_t *vx_config(void)
 {
     return &cfg;

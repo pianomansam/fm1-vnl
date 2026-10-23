@@ -211,13 +211,9 @@ static void dust_params(void)
     p_q = fm_exp2f(11.0f - 2.0f * fm_clampf(dust - 2.0f, 0.0f, 1.0f));          /* 12 bits, then 10 */
 }
 
-void fx_init(void)
+/* the dust's state: its delay line, filters, LFOs and grit cleared (the ramps' targets left alone) */
+static void dust_clear(void)
 {
-    uint32_t b;
-    int k;
-    dust = dust_t = 0.0f;
-    dust_s = flav_s = 0.0f;
-    flav = flav_t = 0.0f;
     memset(wl, 0, sizeof wl);
     wl_w = 0;
     wow_ph = drift_ph = flut_ph = 0.0f;
@@ -225,9 +221,17 @@ void fx_init(void)
     cr_n = 0;
     sh_ph = sh_y = lp_y = duck_s = dg_step = 0.0f;
     dg = 1.0f;
-    dust_params();
-    bo = bo_t = lv = lv_t = lt = lt_t = lr = lr_t = 0.0f;
-    brng = 0x9E3779B9u;
+}
+
+/* the bed's noise and every state it keeps, restarted from seed (its levels left alone) */
+static void bed_clear(uint32_t seed)
+{
+    int k;
+    brng = seed * 2654435761u ^ 0x9E3779B9u;
+    if (!brng)
+        brng = 0x9E3779B9u;
+    for (k = 0; k < 4; k++)
+        (void)xs();
     memset(hv_l, 0, sizeof hv_l);
     memset(hv_r, 0, sizeof hv_r);
     memset(ht_l, 0, sizeof ht_l);
@@ -242,19 +246,52 @@ void fx_init(void)
     gust = gust1 = gust_t = 0.7f;
     gust_n = 0;
     dp_y1 = dp_y2 = dp_a1 = dp_pl = dp_pr = 0.0f;
-    for (k = 0, b = 0; k < L_N; k++) {
-        pl_base[k] = b;
-        b += (uint32_t)DL_LEN[k] + 1u;
-    }
+}
+
+/* the plate silent: its ring, filters and LFO cleared */
+static void plate_clear(void)
+{
     pw = 0;
     memset(pl_buf, 0, sizeof pl_buf);
     pl_bw = pl_damp_l = pl_damp_r = 0.0f;
     lfo_s = 0.0f;
     lfo_c = 1.0f;
     pl_acc = pl_wl0 = pl_wl1 = pl_wr0 = pl_wr1 = pl_peak = 0.0f;
-    pl_ph = pl_open = 0;
+    pl_ph = 0;
+}
+
+void fx_init(void)
+{
+    uint32_t b;
+    int k;
+    dust = dust_t = 0.0f;
+    dust_s = flav_s = 0.0f;
+    flav = flav_t = 0.0f;
+    dust_clear();
+    dust_params();
+    bo = bo_t = lv = lv_t = lt = lt_t = lr = lr_t = 0.0f;
+    bed_clear(0u);
+    for (k = 0, b = 0; k < L_N; k++) {
+        pl_base[k] = b;
+        b += (uint32_t)DL_LEN[k] + 1u;
+    }
+    plate_clear();
+    pl_open = 0;
     og = 1.0f;
     stopping = 0;
+}
+
+void fx_song(uint32_t seed, int quiet)
+{
+    if (bo == 0.0f && bo_t == 0.0f)
+        bed_clear(seed);
+    else { /* still fading (a replay straight after a stop): reseed the noise, keep the filters running */
+        brng = seed * 2654435761u ^ 0x9E3779B9u;
+        if (!brng)
+            brng = 0x9E3779B9u;
+    }
+    if (quiet)
+        dust_clear();
 }
 
 void fx_configure(int dust_lv, int noise, int ambience, int flavor)
@@ -274,6 +311,8 @@ void fx_configure(int dust_lv, int noise, int ambience, int flavor)
         lr = lr_t;
     }
     bo_t = 1.0f;
+    if (stopping) /* a replay inside a stop's fade: the old tail stays gone */
+        plate_clear();
     pl_open = 1;
     og = 1.0f;
     stopping = 0;
