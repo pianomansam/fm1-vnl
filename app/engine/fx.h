@@ -49,6 +49,9 @@ float fx_chorus_dry(void);
 void fx_tempo(float bpm);
 /* Tests and the cost bench: the delay off (not run; its input ignored). Kept through fx_init. */
 void fx_wet_off(int delay_off);
+/* The host's head-to-head (VNL_FX=rings): Rings' reverb and chorus (rings_fx.c) in place of the plate and our chorus
+   (1), or ours (0, the default). A switch starts the new pair silent. Kept through fx_init. */
+void fx_rings(int on);
 /* Tests: the dust's fast path on (1, the default) or off (0: every stage runs, the reference). Kept through fx_init. */
 void fx_fast(int on);
 /* The kick ducking's depth: about db dB at a full kick body. */

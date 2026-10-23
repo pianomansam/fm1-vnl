@@ -189,6 +189,41 @@ each drop by at least 0.10, the pad and vox pad by 0.05 and the idle floor by 0.
 estimates). Against 0df8ddc: Rhodes -0.226, felt -0.189, Wurli -0.161, pad -0.063, vox pad -0.101, idle floor -0.078.
 The pad clears its gate narrowly on the net rows because of the floor's shift; its total dropped 0.141.
 
+### Head-to-head: Rings' reverb and chorus against our plate and chorus
+
+Rings' reverb and chorus (MIT, Emilie Gillet; `app/engine/rings_fx.c`) ported to C99 with their 16-bit delay memory,
+their lengths and LFO rates rescaled from Rings' 48 kHz (the rate its reverb's LFOs are written for; this ref's
+`dsp.h` says 44.1 kHz because Mutable Dreams runs it unscaled) to the slots they replace: the reverb at the plate's
+11.025 kHz (x 0.2297), the chorus at our chorus's 7.35 kHz (x 0.1531). Rings' chorus, not its ensemble: the ensemble's
+taps give L = R from a mono input, and the chords' bus is mono. The reverb's settings are tuned to the plate: Rings'
+diffusion (0.625) and FX_REVERB damping (about 2.7 kHz), a reverb time of 0.485 for the plate's -60 dB time, an input
+gain of 4 (our sends peak near 0.05; Rings' 0.2 is for full-scale input) and the return matched to the plate's tail
+energy. The chorus maps the chords patch's chorus p to Rings' amount p and depth 0.15 + 0.5 p, its dry to 1 - p/2.
+`VNL_FX=rings` switches the pair in on the host (the app, the bench); the device and web images leave it out.
+
+| | Ours (plate, chorus) | Rings (reverb, chorus) |
+|---|---|---|
+| Plate + dust 0 over the source (Rhodes, chorus 0.7), net | 0.091 | 0.122 |
+| Full chain over the source, net | 0.133 | 0.164 |
+| The chain alone, 60 s: reverb only / with the chorus at 0.7 | 25.2 / 26.3 ms | 28.6 / 31.0 ms |
+| Forced, seeds 20 / 100 / 128 / 183 | 0.750 / 0.698 / 0.775 / 0.693 | 0.787 / 0.734 / 0.821 / 0.731 |
+| Memory (pool) | 64 KB plate ring + 1 KB chorus line | 16 KB reverb (8192 x 16 bit) + 1 KB chorus line |
+| Impulse below -60 dB within 4 s; no denormals; 60 s of random input | pass | pass |
+| -60 dB time; tail energy 0.1 to 1 s | 1.71 s; reference | 1.66 s; -0.06 dB |
+| Tail spectrum and stereo | Dattorro's output taps; L/R correlation -0.02 | the two loops' outputs; 0.01, more early energy (+0.9 dB in the first 0.1 s) |
+| Chorus on a Rhodes chord at 0.7: L/R correlation; wobble | 0.930; +-7.9 cents at 0.53 Hz | 0.854; +-14.0 cents at 0.83 Hz |
+| A seed's wet after another song, against alone (Task 7b's test, < 1e-5) | 3e-8, pass | 3.5e-5 (-89 dBFS), fails: 16-bit rounding carries the last song's tail |
+| Renders (seeds 904880372, 4185943442, 3228541874): RMS; peak; side/mid | -23.1, -30.3, -19.6 dBFS; -7.8, -8.2, -7.3; -23.6, -15.1, -25.4 dB | within 0.1 dB; 0.1 dB; 0.4 dB |
+
+Reading it: ours is cheaper in CPU (Rings' 16-bit reads and writes, a float-int conversion and a clip each, cost more
+than they save on the host; its chorus reads four taps to our two), Rings' is cheaper in memory (48 KB less pool).
+CPU is the binding constraint here and the pool has about 95 KB to spare, so **ours stays the default**. The sound differs
+clearly in the chorus (Rings' wobbles about twice as far and spreads wider) and in kind in the reverb (no output
+taps, its long delays modulated: a shimmer), at the same level and decay. Rings' pair stays a host-only switch for
+Sam to compare by ear (`app/build/new/<seed>-ours/` and `-rings/`); if it is chosen, the 16-bit determinism test
+needs a -80 dB tolerance, and its CPU cost should be measured on the device, where float-int conversions may be
+cheaper than on the host.
+
 ## The three biggest costs
 
 1. **The FM electric-piano chords (Rhodes, felt piano and Wurli: 0.36 to 0.48, four voices).** Each voice runs, per

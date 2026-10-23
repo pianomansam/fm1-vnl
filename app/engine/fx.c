@@ -28,12 +28,14 @@
    sixth (7.35 kHz), each output interpolated linearly; the wet inputs come summed per pair of samples
    (fx_process_pairs). The plate is one masked ring; the dust's parameters and LFOs move at a control rate of CR
    samples. Dust changes ramp over FX_RAMP_S through a continuous dust value (the parameters interpolate between the
-   levels' tables). Noise is a seeded xorshift; every decaying state is flushed. */
+   levels' tables). Noise is a seeded xorshift; every decaying state is flushed. On the host, fx_rings (VNL_FX=rings)
+   puts Rings' reverb and chorus (rings_fx.c) in the plate's and the chorus's slots, for a head-to-head by ear. */
 #include <stdint.h>
 #include <string.h>
 #include "fastmath.h"
 #include "library.h"
 #include "fx.h"
+#include "rings_fx.h"
 
 #if defined PLAT_HOST || defined __APPLE__
 #define FX_POOL
@@ -164,6 +166,7 @@ static uint32_t pl_base[L_N], pw;
 static float pl_bw, pl_damp_l, pl_damp_r, lfo_s, lfo_c = 1.0f;
 static float pl_acc, pl_wl0, pl_wl1, pl_wr0, pl_wr1, pl_peak;
 static uint8_t pl_open;
+static uint8_t rings;   /* fx_rings: Rings' reverb and chorus in place of the plate and our chorus */
 static float og = 1.0f; /* the plate's return level: 1, or falling to 0 after fx_stop */
 static uint8_t stopping;
 
@@ -275,6 +278,7 @@ static void dust_clear(void)
 /* the chorus's line and LFO, the side's filter */
 static void chorus_clear(void)
 {
+    rfx_chorus_clear();
     memset(ch_buf, 0, sizeof ch_buf);
     ch_w = 0;
     ch_s = 0.0f;
@@ -319,9 +323,10 @@ static void bed_clear(uint32_t seed)
     dp_y1 = dp_y2 = dp_a1 = dp_pl = dp_pr = 0.0f;
 }
 
-/* the plate silent: its ring, filters and LFO cleared */
+/* the plate silent: its ring, filters and LFO cleared (and Rings' reverb's) */
 static void plate_clear(void)
 {
+    rfx_reverb_clear();
     pw = 0;
     memset(pl_buf, 0, sizeof pl_buf);
     pl_bw = pl_damp_l = pl_damp_r = 0.0f;
@@ -377,6 +382,7 @@ void fx_song(uint32_t seed, int quiet)
        ringing tail keeps its lines' contents (its read moves by at most the wow's 0.25 ms) */
     lfo_s = 0.0f;
     lfo_c = 1.0f;
+    rfx_lfo_restart();
     ch_s = 0.0f;
     ch_c = 1.0f;
     dl_ws = 0.0f;
@@ -443,7 +449,17 @@ void fx_chorus(float depth)
 
 float fx_chorus_dry(void)
 {
-    return pl_open ? 1.0f / (1.0f + 0.5f * CH_W * ch_dep_t) : 1.0f;
+    return !pl_open ? 1.0f : rings ? rfx_chorus_dry(ch_dep_t) : 1.0f / (1.0f + 0.5f * CH_W * ch_dep_t);
+}
+
+void fx_rings(int on)
+{
+    on = RFX_ON && on != 0; /* (host-only: see rings_fx.h) */
+    if (on != rings) { /* the other pair starts silent */
+        rings = (uint8_t)on;
+        plate_clear();
+        chorus_clear();
+    }
 }
 
 void fx_tempo(float bpm)
@@ -482,7 +498,7 @@ int fx_tiny(void)
 {
     float st[] = {lp_y, sh_y, duck_s, dl_y, w_el0, w_el1, w_er0, w_er1, w_ac, w_ad, w_ml, w_sl, clk_l, clk_r, dp_y1, dp_y2, b_l0, b_l1, b_r0, b_r1, pl_bw, pl_damp_l, pl_damp_r, pl_acc, pl_wl0, pl_wl1,
                   pl_wr0, pl_wr1};
-    return tiny(pl_buf, (int)PL_N) + tiny(ch_buf, (int)CH_N) + tiny(dl_buf, (int)DL_N) + tiny(wl, WL_N) + tiny(st, (int)(sizeof st / sizeof st[0])) + tiny(hv_l, 2) +
+    return rfx_tiny() + tiny(pl_buf, (int)PL_N) + tiny(ch_buf, (int)CH_N) + tiny(dl_buf, (int)DL_N) + tiny(wl, WL_N) + tiny(st, (int)(sizeof st / sizeof st[0])) + tiny(hv_l, 2) +
            tiny(hv_r, 2) + tiny(ht_l, 2) + tiny(ht_r, 2) + tiny(rw_l, 2) + tiny(rw_r, 2);
 }
 
@@ -829,7 +845,10 @@ static void wet_run(float *l, float *r, const float *s2, const float *c2, const 
             wl0 = wl1;
             wr0 = wr1;
             if (plate) {
-                plate_step((0.25f * open) * acc, &wl1, &wr1);
+                if (rings)
+                    rfx_reverb((0.25f * open) * acc, &wl1, &wr1);
+                else
+                    plate_step((0.25f * open) * acc, &wl1, &wr1);
                 wl1 = fm_flush(wl1);
                 wr1 = fm_flush(wr1);
             } else
@@ -848,7 +867,13 @@ static void wet_run(float *l, float *r, const float *s2, const float *c2, const 
             er0 = er1;
             if (wet) {
                 float mid = 0.0f, side = 0.0f;
-                if (chorus) { /* two taps in quadrature, one a side */
+                if (chorus && rings) { /* Rings' chorus: its wet sides as mid and side */
+                    float a, b;
+                    dep = dep < ch_dep_t ? fm_minf(dep + CH_SLEW, ch_dep_t) : fm_maxf(dep - CH_SLEW, ch_dep_t);
+                    rfx_chorus((open * (1.0f / 6.0f)) * ac, dep, &a, &b);
+                    mid = 0.5f * (a + b);
+                    side = 0.5f * (a - b);
+                } else if (chorus) { /* two taps in quadrature, one a side */
                     float sw, a, b;
                     ch_buf[cw] = fm_flush((open * (1.0f / 6.0f)) * ac);
                     cs += (FM_TWO_PI * CH_HZ / DR) * cc;

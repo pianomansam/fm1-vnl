@@ -4610,6 +4610,97 @@ static void test_cost_moves(void)
     }
 }
 
+/* Task 7c's head-to-head: Rings' reverb and chorus (fx_rings, host-only) through the plate's impulse, denormal and
+   random-input tests; the reverb tuned to the plate (its -60 dB time within 10%, its tail's energy 0.1-1 s within
+   1 dB); the chorus's dry scale. */
+static float rp_t60(int rings, double *tail)
+{
+    static double edc[2u * 44100u];
+    uint32_t t, i;
+    double e = 0.0;
+    int t5 = -1, t35 = -1;
+    fx_rings(rings);
+    fx_fresh(0, 0, 0, FL_LOFI);
+    for (t = 0; t < 2u * 44100u; t += 2205u) {
+        memset(fx_l, 0, 2205 * sizeof(float));
+        memset(fx_r, 0, 2205 * sizeof(float));
+        if (t == 0)
+            fx_r[0] = 0.2f;
+        fx_process(fx_l, fx_r, 2205, 0.0f);
+        memcpy(cm_x + t, fx_l, 2205 * sizeof(float));
+        memcpy(cm_y + t, fx_r, 2205 * sizeof(float));
+    }
+    *tail = 0.0;
+    for (i = 2u * 44100u; i-- > 0;) {
+        double x = (double)cm_x[i] * (double)cm_x[i] + (double)cm_y[i] * (double)cm_y[i];
+        e += x;
+        edc[i] = e;
+        if (i >= 4410u && i < 44100u)
+            *tail += x;
+    }
+    for (i = 0; i < 2u * 44100u; i++) {
+        float db = db_of(edc[i] / edc[0]);
+        if (t5 < 0 && db < -5.0f)
+            t5 = (int)i;
+        if (t35 < 0 && db < -35.0f)
+            t35 = (int)i;
+    }
+    fx_rings(0);
+    return (float)(t35 - t5) * (2.0f / 44100.0f);
+}
+
+static void test_rings_pair(void)
+{
+    double tp, tr;
+    float a = rp_t60(0, &tp), b = rp_t60(1, &tr), wpk = 0.0f, late = 0.0f;
+    int i, k, bad = 0;
+    uint32_t t = 0;
+    printf("rings: reverb -60 dB time %.2f s (plate %.2f s), tail energy %.2f dB against the plate's\n", (double)b,
+           (double)a, (double)db_of(tr / tp));
+    CHECK(fm_fabsf(b - a) <= 0.1f * a, "rings: the reverb's -60 dB time %.2f s, the plate's %.2f s", (double)b, (double)a);
+    CHECK(fm_fabsf(db_of(tr / tp)) <= 1.0f, "rings: the reverb's tail %.2f dB from the plate's", (double)db_of(tr / tp));
+    fx_rings(1);
+    fx_fresh(0, 0, 0, FL_LOFI); /* the plate's impulse test: below -60 dB within 4 s */
+    for (k = 0; k < 5 * 44100 / 2205; k++) {
+        memset(fx_l, 0, 2205 * sizeof(float));
+        memset(fx_r, 0, 2205 * sizeof(float));
+        if (k == 0)
+            fx_r[0] = 1.0f;
+        fx_process(fx_l, fx_r, 2205, 0.0f);
+        for (i = 0; i < 2205; i++, t++) {
+            float x = fm_maxf(fm_fabsf(fx_l[i]), fm_fabsf(fx_r[i]));
+            wpk = fm_maxf(wpk, x);
+            if (t >= 4u * 44100u)
+                late = fm_maxf(late, x);
+        }
+    }
+    CHECK(wpk > 1e-3f && late < wpk * 1e-3f, "rings: reverb peak %.4f, %.2e after 4 s", (double)wpk, (double)late);
+    fx_fresh(3, 1, 1, FL_CHILLWAVE); /* 60 s of random input, the chorus on, then 10 s of silence */
+    fx_chorus(0.7f);
+    fx_seed = 4242u;
+    for (k = 0; k < 70 * 44100 / 2205; k++) {
+        static float ch[2205];
+        for (i = 0; i < 2205; i++) {
+            fx_l[i] = k < 60 * 44100 / 2205 ? fx_white() : 0.0f;
+            fx_r[i] = k < 60 * 44100 / 2205 ? fx_white() : 0.0f;
+            ch[i] = fx_l[i];
+        }
+        fx_process_buses(fx_l, fx_r, ch, NULL, 2205, 0.5f);
+        for (i = 0; i < 2205; i++)
+            if (fx_l[i] != fx_l[i] || fx_r[i] != fx_r[i] || fm_fabsf(fx_l[i]) > 4.0f ||
+                (fx_l[i] != 0.0f && fm_fabsf(fx_l[i]) < 1.2e-38f))
+                bad++;
+    }
+    printf("rings: reverb peak %.4f, after 4 s %.2e; random input: %d bad samples, %d tiny states\n", (double)wpk,
+           (double)late, bad, fx_tiny());
+    CHECK(bad == 0 && fx_tiny() == 0, "rings: %d bad samples, %d tiny states after random input and silence", bad,
+          fx_tiny());
+    fx_chorus(0.6f);
+    CHECK(fm_fabsf(fx_chorus_dry() - 0.7f) < 1e-6f, "rings: the chorus's dry at 0.6 is %.3f, wanted Rings' 0.7",
+          (double)fx_chorus_dry());
+    fx_rings(0);
+}
+
 int main(void)
 {
     test_rng();
@@ -4650,6 +4741,7 @@ int main(void)
     test_dynamics();
     test_wet();
     test_cost_moves();
+    test_rings_pair();
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;

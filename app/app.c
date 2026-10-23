@@ -27,6 +27,7 @@
 #include "theory.h"
 #include "library.h"
 #include "voices.h"
+#include "fx.h"
 
 #define BARRIER() __asm__ volatile("" ::: "memory")
 
@@ -388,6 +389,10 @@ void app_init(void)
         {
             const char *sp = getenv("VNL_BASS");                    /* SPIKE: bass rhythm, 1-5 */
             song_set_bass_spike(sp ? *sp - '0' : 0);
+        }
+        {
+            const char *fx = getenv("VNL_FX");     /* VNL_FX=rings: Rings' reverb and chorus (the head-to-head) */
+            fx_rings(fx && !strcmp(fx, "rings"));
         }
         {
             const char *sd = getenv("VNL_SEED");   /* the first song's seed, as a log prints it: replay or roll anew */

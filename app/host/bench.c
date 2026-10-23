@@ -7,7 +7,8 @@
    heaviest seed may not carry the heaviest chain: the picked seed (and every seed with --forced) is also timed with
    its chain forced to the heaviest real one (dust 3, vinyl, rain), printed as `forced`: the upper bound.
    Each step sets the section moves (plan_moves) as the app's step() does. VNL_FXOFF=<VX_OFF_* mask> switches effects
-   off, to measure what each costs. VNL_RUNS=<n> takes the best of n runs everywhere (default: 3 for the songs and
+   off, to measure what each costs. VNL_FX=rings puts Rings' reverb and chorus in place of ours (the head-to-head).
+   VNL_RUNS=<n> takes the best of n runs everywhere (default: 3 for the songs and
    AMB-1, 7 for --parts), for a busy host.
    The AMB-1 engine's headers clash with ours (MODE_*), so its few entry points are declared here by hand. */
 #include <stdint.h>
@@ -41,6 +42,12 @@ static int runs(int dflt)
     return e && atoi(e) > 0 ? atoi(e) : dflt;
 }
 
+static void rings_switch(void)
+{
+    const char *e = getenv("VNL_FX");
+    fx_rings(e && !strcmp(e, "rings"));
+}
+
 static double now_ms(void)
 {
     struct timespec t;
@@ -66,6 +73,7 @@ static double run_vnl(uint32_t seed, int render, long *events, int force)
         roll.v[RF_AMBIENCE] = 1;
     }
     vx_fx_off(getenv("VNL_FXOFF") ? (unsigned)atoi(getenv("VNL_FXOFF")) : 0u);
+    rings_switch();
     vx_init();
     song_start(&s, &roll);
     vx_song(&s.roll);
@@ -209,6 +217,7 @@ static double run_part(const part_t *p)
     uint32_t st = SR * 60u / 80u / 4u, total = SR * SECS, done = 0;
     int bar = 0, step = 0;
     double t0;
+    rings_switch();
     vx_init();
     vx_assign(V_CHORD, p->chords);
     vx_assign(V_BASS, p->bass);
