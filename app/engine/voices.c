@@ -3,7 +3,7 @@
 /* Voices and mix (see voices.h). The pitched roles are pools of voices: chords 4 (8 for a pad), lead 2, candy 2 and
    the bass, a mono pool of 1 whose level slews (AMP_K) and whose M_BASS retriggers are legato. Each voice keeps the
    patch it was struck with, and voice_sample() dispatches on the patch's model: keys (M_EP), plucked strings
-   (M_PLUCK), pads (M_PAD), bells (M_BELL), winds (M_WIND) and basses (M_BASS). A key's or a pad's note whose partials
+   (M_PLUCK), pads (M_PAD), bells (M_BELL), winds (M_WIND), basses (M_BASS) and chip voices (M_CHIP). A key's or a pad's note whose partials
    stay under 9 kHz renders at half the rate (half_ok), its role's half-rate voices upsampled by a half- band. A
    pitched note's level is the patch envelope: a natural decay (nat, from 1 toward sus) times a gate (g: a linear rise,
    a smoothed fall), so a note-off, a steal or vx_release_all fades instead of clicking. Drums are a noise burst or a
@@ -142,6 +142,10 @@ typedef struct {
                     plus a sub-octave sine */
             float pc, pm, ps, ic, im, is, ix, it, i0, ik, sub;
         } bs;
+        struct { /* M_CHIP: a phase, the wave's duty and DC, the vibrato (control rate), a noise tick, held noise */
+            float ph, inc, f0, d, dc, vp, vr, vd, tick, tk, nz;
+            uint8_t wave, cc, nk;
+        } ch;
     } m;
     uint32_t gate, age;
     uint8_t on, held, role;
@@ -652,6 +656,27 @@ static void bass_start(voice_t *v, const song_ev_t *e, int legato)
     v->m.bs.sub = p->p[4];
 }
 
+/* M_CHIP: the phase from 0 (a pulse starts on its rising edge), the pulse's DC taken out (it sits at 2 d - 1), the
+   vibrato's rate per control step and its depth as a fraction of the frequency, the tick by velocity. */
+static void chip_start(voice_t *v, const song_ev_t *e)
+{
+    const vx_patch_t *p = v->pt;
+    float f = note_inc(e->note), v01 = (float)e->vel * (1.0f / 127.0f);
+    v->m.ch.ph = 0.0f;
+    v->m.ch.inc = v->m.ch.f0 = f;
+    v->m.ch.wave = (uint8_t)fm_clampf(p->p[0], 0.0f, 2.0f);
+    v->m.ch.d = fm_clampf(p->p[1], 0.0625f, 0.5f);
+    v->m.ch.dc = v->m.ch.wave == 0 ? 2.0f * v->m.ch.d - 1.0f : 0.0f;
+    v->m.ch.vp = 0.0f;
+    v->m.ch.vr = p->p[2] * (WIND_CR * INV_SR);
+    v->m.ch.vd = p->p[3] * (FM_LN2 / 1200.0f);
+    v->m.ch.cc = 0;
+    v->m.ch.tick = p->p[5] * v01;
+    v->m.ch.tk = 1.0f - k_t60(p->p[6]);
+    v->m.ch.nz = 0.0f;
+    v->m.ch.nk = 0xff;
+}
+
 /* Whether a note renders at half the rate: the keys and pads (not on the bass), when their highest partial (the FM's
    sidebands, the index plus three; the tine; the pad's upper saw's second harmonic) is below HR_TOP. Higher notes, and
    everything with VX_OFF_HALF, stay at the full rate. */
@@ -681,6 +706,7 @@ static void voice_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int
     case M_PAD: pad_start(v, e); break;
     case M_BELL: bell_start(v, e); break;
     case M_WIND: wind_start(v, e); break;
+    case M_CHIP: chip_start(v, e); break;
     default: bass_start(v, e, legato); break; /* M_BASS */
     }
 }
@@ -931,6 +957,48 @@ static float bass_sample(voice_t *v)
     return s;
 }
 
+/* M_CHIP's raw sample. The pulse is the naive one averaged over the sample's interval (the phase from t - inc to t):
+   at an edge inside it, the fraction on each side (a box-filtered step, the cheapest band-limited edge). The triangle
+   is 32 steps a cycle, 16 levels; the noise holds a value for a 16th of the period. The vibrato runs at the control
+   rate (WIND_CR). */
+static float chip_sample(voice_t *v)
+{
+    float t = v->m.ch.ph, dt = v->m.ch.inc, d = v->m.ch.d, s;
+    if (v->m.ch.vd > 0.0f && ++v->m.ch.cc == WIND_CR) {
+        v->m.ch.cc = 0;
+        v->m.ch.inc = v->m.ch.f0 * (1.0f + v->m.ch.vd * fm_sin_turns(v->m.ch.vp));
+        v->m.ch.vp += v->m.ch.vr;
+        if (v->m.ch.vp >= 1.0f)
+            v->m.ch.vp -= 1.0f;
+    }
+    if (v->m.ch.wave == 0) {
+        if (t < dt) /* the rising edge (the wrap) inside the interval */
+            s = 2.0f * t / dt - 1.0f;
+        else if (t >= d && t - dt < d) /* the falling edge */
+            s = 1.0f - 2.0f * (t - d) / dt;
+        else
+            s = t < d ? 1.0f : -1.0f;
+        s -= v->m.ch.dc;
+    } else if (v->m.ch.wave == 1) {
+        int k = (int)(t * 32.0f);
+        s = (float)(k < 16 ? k : 31 - k) * (2.0f / 15.0f) - 1.0f;
+    } else {
+        uint8_t k = (uint8_t)(t * 16.0f);
+        if (k != v->m.ch.nk) {
+            v->m.ch.nk = k;
+            v->m.ch.nz = noise();
+        }
+        s = v->m.ch.nz;
+    }
+    t += v->m.ch.inc;
+    v->m.ch.ph = t >= 1.0f ? t - 1.0f : t;
+    if (v->m.ch.tick > 1e-4f) { /* the tick: white noise, falling (it stops above the denormals) */
+        s += v->m.ch.tick * noise();
+        v->m.ch.tick *= v->m.ch.tk;
+    }
+    return s;
+}
+
 /* One sample of a pooled voice: the model's raw sample times the envelope (on the bass, its slewed level). */
 static float voice_sample(voice_t *v)
 {
@@ -941,6 +1009,7 @@ static float voice_sample(voice_t *v)
     case M_PAD: s = pad_sample(v); break;
     case M_BELL: s = bell_sample(v); break;
     case M_WIND: s = wind_sample(v); break;
+    case M_CHIP: s = chip_sample(v); break;
     default: s = bass_sample(v); break; /* M_BASS */
     }
     v->nat = fm_flush(v->nat * v->nk); /* a note held past ~50 s would reach denormals */
@@ -1649,5 +1718,8 @@ int vx_tiny(void)
                vx_tiny_of(&cp_g, 1) + vx_tiny_of(&dk_env, 1);
     for (r = 0; r < NBUS; r++)
         c += vx_tiny_of(&bus[r].y, 1) + vx_tiny_of(&bus[r].z, 1) + vx_tiny_of(&bus[r].hm, 1);
+    for (r = 0; r < NV; r++) /* the chip's tick (it stops falling at 1e-4) */
+        if (fv[r].on && fv[r].pt && fv[r].pt->model == M_CHIP)
+            c += vx_tiny_of(&fv[r].m.ch.tick, 1);
     return c;
 }

@@ -29,12 +29,18 @@
      p[0] the blend (0 sine, 1 triangle, 2 pulse, crossfaded between), p[1] the pulse's width, p[2] the low-pass
      cutoff at full envelope and velocity, as a multiple of the note's frequency (60% of it at velocity 0, 30% at
      envelope 0), p[3] the breath's level, p[4] its band's center in Hz, p[5] the vibrato's depth in cents, p[6] the
-     mute: a band-pass center in Hz (0 for none), p[7] its damping k (1/Q: small is narrow). */
+     mute: a band-pass center in Hz (0 for none), p[7] its damping k (1/Q: small is narrow).
+   M_CHIP (chip chords, lead, bass, blips; voices.c chip_*): a NES-style channel at full rate and no filter (the dust
+     colors it): a pulse at a fixed duty (its edges band-limited over one sample), a triangle stepped to 16 levels, or
+     noise held for a 16th of the note's period; pitch on the semitone, except a vibrato.
+     p[0] the wave (0 pulse, 1 triangle, 2 noise), p[1] the pulse's duty (0.125, 0.25 or 0.5), p[2] the vibrato's rate
+     in Hz, p[3] its depth in cents (0 for none), p[4] the arpeggio (0: off, the only setting), p[5] a noise tick's
+     level at the onset at full velocity (0 for none), p[6] its fall to -60 dB (s). */
 #include <stddef.h>
 #include "library.h"
 #include "patch.h"
 
-/* model, {p[0..7]}, att, dec, sus, rel, level, chorus, delay. The chorus (on the chords' bus): the electric keys and
+/* model, {p[0..15]}, att, dec, sus, rel, level, chorus, delay. The chorus (on the chords' bus): the electric keys and
    the pads deep, the felt piano and the nylon a touch. The delay's send: leads and ear candy wet, keys a little,
    basses dry. The levels: the lead about 4-6 dB over the keys while it plays, in every set (song_test's
    test_lead_over_keys); the guitar lick rings longer and brighter (3 s, damping 4500 Hz plus 3x the note) so a pluck
@@ -57,6 +63,11 @@ static const vx_patch_t PATCHES[INS_NONE] = {
     [INS_MUSIC_BOX] = {M_BELL, {5.0f, 0.3f, 0.9f, 0.25f, 0.0f, 0.0f, 0.3f}, 0.002f, 1.2f, 0.0f, 0.05f, 1.1f, 0.0f, 0.4f},
     [INS_BELLS] = {M_BELL, {3.53f, 0.6f, 1.2f, 1.2f, 0.0f, 0.0f, 0.3f}, 0.003f, 3.5f, 0.0f, 0.2f, 0.87f, 0.0f, 0.35f},
     [INS_VOX_PAD] = {M_PAD, {4.0f, 2.0f, 0.35f, 0.0f, 0.0f, 0.0f, 0.6f, 1.0f}, 0.8f, 4.0f, 0.85f, 0.9f, 1.77f, 0.5f, 0.25f},
+    /* the chip voices: provisional levels (the synths' Task 5 balances them in their sets) */
+    [INS_CHIP_CHORDS] = {M_CHIP, {0.0f, 0.25f}, 0.004f, 3.0f, 0.6f, 0.12f, 0.5f, 0.0f, 0.08f},
+    [INS_CHIP_LEAD] = {M_CHIP, {0.0f, 0.5f, 6.5f, 12.0f}, 0.003f, 1.5f, 0.3f, 0.1f, 0.7f, 0.0f, 0.3f},
+    [INS_CHIP_BASS] = {M_CHIP, {1.0f}, 0.003f, 7.0f, 1.0f, 0.05f, 1.3f, 0.0f, 0.0f},
+    [INS_CHIP_BLIP] = {M_CHIP, {0.0f, 0.125f, 0.0f, 0.0f, 0.0f, 0.6f, 0.02f}, 0.001f, 0.25f, 0.0f, 0.05f, 0.8f, 0.0f, 0.4f},
 };
 
 const vx_patch_t *vx_patch(int ins)

@@ -276,6 +276,31 @@ re-run beside it at 0.846 / 0.838: within the noise (about 0.007). The rebalance
 longer ring (its notes end at note-off as before) cost nothing measurable. Memory: image 161216 B (was 160712), RAM
 45964 B, pool 179644 B: four floats of state.
 
+## Synths Task 1: the chip voice (M_CHIP), measured
+
+`--parts` best of 7 on a busy host (AMB-1's time 166.5 ms in this run against 141-142 ms for the songs, so every row
+reads low against the Task 7c and 8 tables: compare a chip row with its role's rows from the same run, shown here).
+The chip voice runs at the full rate (no half-rate path: its edges are the sound), a phase, a compare and, at an edge,
+the one-sample band-limiting; the vibrato at the winds' control rate (32 samples); the blip's noise tick until it
+falls under 1e-4.
+
+| Component | Role | Ratio (net of floor) | Same run, for scale |
+|---|---|---|---|
+| Chip chords (pulse, duty 0.25) | 4 chord voices | 0.272 | Rhodes 0.258, pad 0.237, nylon 0.205 |
+| Chip lead (pulse, duty 0.5, vibrato) | 2 lead voices | 0.207 | flute 0.207, vibes 0.230, guitar lick 0.130 |
+| Chip bass (stepped triangle) | 1 bass voice | 0.097 | sub 0.113, upright 0.111 |
+| Chip blip (pulse 0.125, noise tick) | 2 candy voices | 0.150 | music box 0.177, bells 0.195 |
+
+The chip chords are the dearest chords row only because they are the one chord instrument always at the full rate
+(the Rhodes and the pads render at half): the oscillator is cheap, the voice's envelope, its mud high-pass at the full
+rate and the mix are what a full-rate voice pays. A chip set's forced cost is Task 5's to bench.
+
+**The forced maximum** (no set uses a chip voice yet, so this is the cost of widening `p[]` and the new dispatch
+case): `--forced 7 20 49 100 128 183` gave 0.838 / 0.787 / 0.758 / 0.740 / 0.819 / 0.740 (forced), max **0.838**
+(seed 7), against 0.848 before: within the noise. **Memory:** image 162848 B (was 161216: `p[]` 8 to 16 floats in 21
+const patches, 672 B of flash, and the chip's code), RAM 45964 B, pool 179644 B: unchanged (the chip's state fits in
+the voice union).
+
 ## The three biggest costs
 
 1. **The FM electric-piano chords (Rhodes, felt piano and Wurli: 0.36 to 0.48, four voices).** Each voice runs, per

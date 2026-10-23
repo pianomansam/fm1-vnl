@@ -1907,6 +1907,106 @@ static void test_vx_leads(void)
     CHECK(!bad, "a bell or wind rendered NaN or inf");
 }
 
+/* The chip voices (M_CHIP: chip chords, lead, bass, blips). The chords' pulse at duty 0.25 has no 4th harmonic (under
+   -30 dB of the fundamental); the bass's triangle is stepped to 16 levels (its plateaus in one cycle at note 36,
+   clustered); the lead's vibrato swings around the semitone (the median of its short-window frequencies within 3
+   cents of the note's, the swing itself there); at note 88 the lead's edges don't alias into the band under 4 kHz (the
+   energy there off its harmonics, under -40 dB of the fundamental's band: Review Focus 3). The delay is off: its
+   echoes only blur the measures. */
+static void test_chip(void)
+{
+    static float fr[400];
+    int bad = 0, i, n;
+    vx_fx_off(VX_OFF_DELAY);
+    CHECK(vx_patch(INS_CHIP_CHORDS)->model == M_CHIP && vx_patch(INS_CHIP_LEAD)->model == M_CHIP &&
+              vx_patch(INS_CHIP_BASS)->model == M_CHIP && vx_patch(INS_CHIP_BLIP)->model == M_CHIP,
+          "the chip instruments: not all M_CHIP");
+    CHECK(lib_ins_sustained(INS_CHIP_CHORDS) && !lib_ins_sustained(INS_CHIP_LEAD) && !lib_ins_sustained(INS_CHIP_BLIP),
+          "chip class: wanted the chords sustained, the lead and the blips percussive");
+    { /* the pulse at duty 0.25: harmonics 1-3 there, the 4th missing */
+        float f = 261.6256f / 44100.0f, h[5];
+        int k;
+        CHECK(vx_patch(INS_CHIP_CHORDS)->p[0] == 0.0f && vx_patch(INS_CHIP_CHORDS)->p[1] == 0.25f,
+              "chip chords: wanted a pulse at duty 0.25");
+        vt_note(V_CHORD, INS_CHIP_CHORDS, 60, 100, 44100u, 8u * 4096u, &bad);
+        for (k = 1; k <= 4; k++)
+            h[k] = vt_tone(13230u, 8192u, f * (float)k);
+        printf("chip: pulse 0.25 harmonics 2 %.1f, 3 %.1f, 4 %.1f dB\n", 20.0 * 0.30103 * (double)fm_log2f(h[2] / h[1]),
+               20.0 * 0.30103 * (double)fm_log2f(h[3] / h[1]), 20.0 * 0.30103 * (double)fm_log2f(h[4] / h[1] + 1e-9f));
+        CHECK(h[2] > 0.3f * h[1] && h[3] > 0.15f * h[1], "pulse 0.25: harmonics 2, 3 at %.3f, %.3f of the fundamental",
+              (double)(h[2] / h[1]), (double)(h[3] / h[1]));
+        CHECK(h[4] < 0.0316f * h[1], "pulse 0.25: the 4th harmonic at %.1f dB, wanted under -30 dB",
+              20.0 * 0.30103 * (double)fm_log2f(h[4] / h[1]));
+    }
+    { /* the triangle at note 36 (674 samples a cycle): its plateaus' levels in one cycle from 0.5 s, clustered */
+        static float lv[1024];
+        float lo = 1e9f, hi = -1e9f, eps;
+        uint32_t from = 22050u, per = 674u, t;
+        int nl = 0, cl = 0, a, b;
+        CHECK(vx_patch(INS_CHIP_BASS)->p[0] == 1.0f, "chip bass: wanted the triangle");
+        vt_note(V_BASS, INS_CHIP_BASS, 36, 100, 44100u, 8u * 4096u, &bad);
+        for (t = from; t < from + per; t++) {
+            lo = fm_minf(lo, vt_long[t]);
+            hi = fm_maxf(hi, vt_long[t]);
+        }
+        eps = 0.01f * (hi - lo);
+        for (t = from + 1; t < from + per; t++)
+            if (fm_fabsf(vt_long[t] - vt_long[t - 1]) < eps && fm_fabsf(vt_long[t + 1] - vt_long[t]) < eps)
+                lv[nl++] = vt_long[t];
+        for (a = 1; a < nl; a++) /* sort */
+            for (b = a; b > 0 && lv[b] < lv[b - 1]; b--) {
+                float x = lv[b];
+                lv[b] = lv[b - 1];
+                lv[b - 1] = x;
+            }
+        for (a = 0; a < nl; a++)
+            cl += !a || lv[a] - lv[a - 1] > (hi - lo) / 30.0f; /* half a step of 16 levels */
+        printf("chip: triangle at note 36: %d levels in a cycle (range %.4f)\n", cl, (double)(hi - lo));
+        CHECK(cl >= 15 && cl <= 17, "triangle: %d levels in a cycle, wanted 16", cl);
+    }
+    { /* the lead at note 69: frequencies over 1024-sample windows every 256 from 0.1 s to 1.3 s */
+        float p = 44100.0f / 440.0f, lo = 1e9f, hi = -1e9f, med;
+        int a, b;
+        vt_note(V_LEAD, INS_CHIP_LEAD, 69, 100, 2u * 44100u, 16u * 4096u, &bad);
+        for (n = 0, i = 4410; i + 1024 + 128 < 57330; i += 256, n++) {
+            fr[n] = 1200.0f * fm_log2f(p / vt_period((uint32_t)i, 1024u, p));
+            lo = fm_minf(lo, fr[n]);
+            hi = fm_maxf(hi, fr[n]);
+        }
+        for (a = 1; a < n; a++)
+            for (b = a; b > 0 && fr[b] < fr[b - 1]; b--) {
+                float x = fr[b];
+                fr[b] = fr[b - 1];
+                fr[b - 1] = x;
+            }
+        med = fr[n / 2];
+        printf("chip: lead at note 69: median %.2f cents, swing %.1f to %.1f\n", (double)med, (double)lo, (double)hi);
+        CHECK(fm_fabsf(med) <= 3.0f, "chip lead: median pitch %.2f cents off the semitone, wanted within 3", (double)med);
+        CHECK(hi - lo >= 10.0f, "chip lead: the vibrato swings %.1f cents, wanted 10+", (double)(hi - lo));
+    }
+    { /* the lead at note 88 (1318.5 Hz): a Hann DFT of 8192 samples from 0.3 s, bins 40 Hz to 4 kHz; the harmonics'
+         bands (the vibrato's swing at each, plus 40 Hz) against the rest */
+        float f0 = 1318.51f, dep = vx_patch(INS_CHIP_LEAD)->p[3], fund = 0.0f, off = 0.0f, db;
+        uint32_t w = 8192u, k;
+        vt_note(V_LEAD, INS_CHIP_LEAD, 88, 100, 2u * 44100u, 12u * 4096u, &bad);
+        for (k = (uint32_t)(40.0f * (float)w / 44100.0f); k <= (uint32_t)(4000.0f * (float)w / 44100.0f); k++) {
+            float hz = (float)k * 44100.0f / (float)w, a = vt_tone(13230u, w, (float)k / (float)w), hn;
+            int m = (int)(hz / f0 + 0.5f);
+            hn = (float)m * f0;
+            if (m >= 1 && fm_fabsf(hz - hn) <= hn * (fm_exp2f(dep / 1200.0f) - 1.0f) + 40.0f) {
+                if (m == 1)
+                    fund += a * a;
+            } else
+                off += a * a;
+        }
+        db = 10.0f * 0.30103f * fm_log2f(off / fund + 1e-20f);
+        printf("chip: lead at note 88: energy under 4 kHz off its harmonics %.1f dB\n", (double)db);
+        CHECK(db < -40.0f, "chip lead at note 88: %.1f dB off its harmonics under 4 kHz, wanted under -40", (double)db);
+    }
+    CHECK(!bad, "a chip voice rendered NaN or inf");
+    vx_fx_off(0u);
+}
+
 static void test_vx_patches(void)
 {
     int ins, s, bad = 0;
@@ -1917,7 +2017,7 @@ static void test_vx_patches(void)
         int role, k, silent_at = -1;
         float peak = 0.0f, tail = 0.0f;
         uint32_t off_blocks;
-        CHECK(p != NULL && p->level > 0.0f && p->model <= M_BASS, "ins %d: no patch, level 0 or bad model", ins);
+        CHECK(p != NULL && p->level > 0.0f && p->model < M_N, "ins %d: no patch, level 0 or bad model", ins);
         if (!p)
             continue;
         /* a note for 2 s at middle register on a role it plays, then its release */
@@ -5553,6 +5653,7 @@ int main(int argc, char **argv)
     RUN(test_vx_keys);
     RUN(test_vx_plucks_basses);
     RUN(test_vx_leads);
+    RUN(test_chip);
     RUN(test_drum_kits);
     RUN(test_fx_chain);
     RUN(test_fx_engine);
