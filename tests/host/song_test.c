@@ -4153,20 +4153,24 @@ static void cv_begin(const song_roll_t *roll)
    against song B alone: from 12 s (A's tails long over) the two agree exactly; in B's first second they differ by at
    most what A's tail still adds. The pairs' B sets cover plucks, the Wurli's bark, winds' breath and the drums, then
    the synths (the chip voices' noise and crush; M_SUB's filters, sub and glide; the FM bells). Each pair's
-   sets are pinned (roll_set), not left to the draw: adding sets redraws them (synths plan, Review Focus 4). */
+   sets are pinned (roll_set), not left to the draw: adding sets redraws them (synths plan, Review Focus 4). The last
+   pair, a chillwave song into the Juno set, is held to -80 dBFS (1e-4), not 1e-6: Rings' reverb keeps its memory in
+   16 bits, so A's faded tail rounds into B's plate as a residue near -91 dBFS for as long as B plays (the same bound
+   and reason as the fx test's Rings path: inaudible, under the bed; our float plate, fx_rings(0), keeps none). */
 #define CV_SECS 20u
 static float cv_ref_l[CV_SECS * 44100u], cv_ref_r[CV_SECS * 44100u], cv_l[CV_SECS * 44100u], cv_r[CV_SECS * 44100u];
 static void test_song_carryover(void)
 {
-    static const uint32_t A[] = {11u, 128u, 7u, 183u, 20u, 49u, 11u, 20u};
-    static const uint32_t B[] = {12u, 904880372u, 4185943442u, 100u, 77u, 333u, 904880372u, 77u};
+    static const uint32_t A[] = {11u, 128u, 7u, 183u, 20u, 49u, 11u, 20u, 49u};
+    static const uint32_t B[] = {12u, 904880372u, 4185943442u, 100u, 77u, 333u, 904880372u, 77u, 333u};
     /* the sets these seeds drew before the synth sets (Bossa nylon, Rhodes neo-soul, Pad and guitar, Rhodes dusty,
        Neo-soul Wurli, Chillwave pad; Rhodes neo-soul, Bossa nylon, Nylon and sax, Neo-soul Wurli x3), then Chip lo-fi
-       and Organ and sine lead */
-    static const int SA[] = {2, 11, 10, 1, 3, 5, 2, 3};
-    static const int SB[] = {11, 2, 9, 3, 3, 3, 14, 15};
+       and Organ and sine lead; Chillwave pad into Juno and saw lead */
+    static const int SA[] = {2, 11, 10, 1, 3, 5, 2, 3, 5};
+    static const int SB[] = {11, 2, 9, 3, 3, 3, 14, 15, 12};
+    static const float LIM[] = {1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-4f};
     int p, i;
-    for (p = 0; p < 8; p++) {
+    for (p = 0; p < 9; p++) {
         song_roll_t ra, rb;
         uint32_t gap, h, j;
         float tail = 0.0f, d0 = 0.0f, d1 = 0.0f;
@@ -4205,9 +4209,9 @@ static void test_song_carryover(void)
         }
         printf("carryover: A %u -> B %u: first second %.2e, from 12 s %.2e\n", (unsigned)A[p], (unsigned)B[p],
                (double)d0, (double)d1);
-        CHECK(d1 <= 1e-6f, "seed %u after seed %u renders differently from 12 s on (max %.3e)", (unsigned)B[p],
+        CHECK(d1 <= LIM[p], "seed %u after seed %u renders differently from 12 s on (max %.3e)", (unsigned)B[p],
               (unsigned)A[p], (double)d1);
-        CHECK(d0 <= 2.0f * tail + 1e-6f, "seed %u after seed %u: its first second differs by %.3e, more than the old "
+        CHECK(d0 <= 2.0f * tail + LIM[p], "seed %u after seed %u: its first second differs by %.3e, more than the old "
               "tail (%.3e at the gap's end)", (unsigned)B[p], (unsigned)A[p], (double)d0, (double)tail);
     }
 }
@@ -5674,13 +5678,15 @@ typedef struct {
     int bars;
 } lv_t;
 static lv_t lv;
-static void lv_song(uint32_t seed, int bed)
+static void lv_song(uint32_t seed, int set, int bed)
 {
     static song_t s;
     song_ev_t ev[64];
     float frac = 0.0f;
     memset(&lv, 0, sizeof lv);
     roll_song(NULL, seed, &lv.roll);
+    if (set >= 0)
+        (void)roll_set(&lv.roll, RF_SET, set);
     if (!bed)
         lv.roll.v[RF_NOISE] = lv.roll.v[RF_AMBIENCE] = 0;
     vx_init();
@@ -5758,31 +5764,58 @@ static int lv_cmp(const void *a, const void *b)
     return x < y ? -1 : x > y;
 }
 
-/* Step 1: over 50 rolled songs, each song's full-band RMS within 3 dB of the median song's; inside a song no block's
-   RMS more than 6 dB from the last full-level block's (intros, outros, breaks and fades may be quieter, never louder
-   than the song's full band); the peak under 0 dBFS. */
+/* Step 1: over 50 rolled songs (seeds 1-50, the roll's own set draw), then one song of each set the 50 left out
+   (pinned with roll_set: the synth sets' songs are judged too), each song's full-band RMS within 3 dB of the median
+   song's; inside a song no block's RMS more than 6 dB from the last full-level block's (intros, outros, breaks and
+   fades may be quieter, never louder than the song's full band); the peak under 0 dBFS. */
 #define LV_N 50
-static float lv_song_db[LV_N], lv_song_gr[LV_N], lv_intro_gr[LV_N], lv_intro_db[LV_N], lv_worst_jump;
+#define LV_ALL (LV_N + LIB_NSETS_MAX)
+static float lv_song_db[LV_ALL], lv_song_gr[LV_ALL], lv_intro_gr[LV_ALL], lv_intro_db[LV_ALL], lv_worst_jump;
 static void test_levels_steady(void)
 {
-    float sorted[LV_N], med, peak = 0.0f, worst = 0.0f;
-    int k, bad_jump = 0, bad_quiet = 0;
+    float sorted[LV_ALL], med, peak = 0.0f, worst = 0.0f;
+    uint32_t sd[LV_ALL];
+    int pin[LV_ALL], seen[LIB_NSETS_MAX + 1], k, n = 0, bad_jump = 0, bad_quiet = 0;
     lv_worst_jump = 0.0f;
-    for (k = 0; k < LV_N; k++) {
+    memset(seen, 0, sizeof seen);
+    CHECK(LIB_NSETS <= LIB_NSETS_MAX, "levels: %d sets, LIB_NSETS_MAX %d: raise it", LIB_NSETS, LIB_NSETS_MAX);
+    for (k = 0; k < LV_N; k++) { /* the draw, then a pinned song for each set it missed */
+        song_roll_t r;
+        roll_song(NULL, (uint32_t)k + 1u, &r);
+        sd[n] = (uint32_t)k + 1u;
+        pin[n++] = -1;
+        if (r.v[RF_SET] <= LIB_NSETS_MAX)
+            seen[r.v[RF_SET]] = 1;
+    }
+    for (k = 0; k < LIB_NSETS && k < LIB_NSETS_MAX; k++) {
+        uint32_t seed;
+        if (seen[LIB_SETS[k].id])
+            continue;
+        for (seed = 51u; seed < 600u; seed++) {
+            song_roll_t r;
+            roll_song(NULL, seed, &r);
+            if (roll_set(&r, RF_SET, LIB_SETS[k].id) == LIB_SETS[k].id)
+                break;
+        }
+        CHECK(seed < 600u, "levels: no seed takes set %s", LIB_SETS[k].name);
+        sd[n] = seed;
+        pin[n++] = LIB_SETS[k].id;
+    }
+    for (k = 0; k < n; k++) {
         const lib_set_t *set;
         float full, prev = -999.0f;
         double e = 0.0;
-        uint32_t n = 0;
+        uint32_t nn = 0;
         int j, b;
-        lv_song((uint32_t)k + 1u, 0);
+        lv_song(sd[k], pin[k], 0);
         set = lib_set_by_id((uint8_t)lv.roll.v[RF_SET]);
         for (j = 0; j < lv.plan.n; j++)
             if (lv_full(&lv.plan.b[j]))
                 for (b = lv.plan.b[j].start; b < lv.plan.b[j].start + lv.plan.b[j].bars && b < LV_BARS; b++) {
                     e += lv.e[b];
-                    n += lv.n[b];
+                    nn += lv.n[b];
                 }
-        full = n ? db_of(e / n) : -999.0f;
+        full = nn ? db_of(e / nn) : -999.0f;
         lv_song_db[k] = full;
         {
             float gs = 0.0f, gi = 0.0f;
@@ -5809,7 +5842,7 @@ static void test_levels_steady(void)
             if (lv_quiet(pb)) {
                 if (d > full + 1.0f) {
                     bad_quiet++;
-                    printf("levels: seed %d block %d (%s) %.1f dB, louder than the full band's %.1f\n", k + 1, j,
+                    printf("levels: seed %d block %d (%s) %.1f dB, louder than the full band's %.1f\n", (int)sd[k], j,
                            plan_section_name(pb->section), (double)d, (double)full);
                 }
                 continue;
@@ -5820,26 +5853,26 @@ static void test_levels_steady(void)
                     lv_worst_jump = jmp;
                 if (jmp > 6.0f) {
                     bad_jump++;
-                    printf("levels: seed %d block %d (%s) %.1f dB after %.1f\n", k + 1, j,
+                    printf("levels: seed %d block %d (%s) %.1f dB after %.1f\n", (int)sd[k], j,
                            plan_section_name(pb->section), (double)d, (double)prev);
                 }
             }
             prev = d;
         }
-        printf("levels: seed %2d set %-17s full %.1f dB, glue %.1f dB; intro %.1f dB, glue %.1f; peak %.3f\n", k + 1,
+        printf("levels: seed %2d set %-17s full %.1f dB, glue %.1f dB; intro %.1f dB, glue %.1f; peak %.3f\n", (int)sd[k],
                set ? set->name : "?", (double)full, (double)lv_song_gr[k], (double)lv_intro_db[k],
                (double)lv_intro_gr[k], (double)lv.peak);
     }
-    memcpy(sorted, lv_song_db, sizeof sorted);
-    qsort(sorted, LV_N, sizeof sorted[0], lv_cmp);
-    med = 0.5f * (sorted[LV_N / 2 - 1] + sorted[LV_N / 2]);
-    for (k = 0; k < LV_N; k++)
+    memcpy(sorted, lv_song_db, (size_t)n * sizeof sorted[0]);
+    qsort(sorted, (size_t)n, sizeof sorted[0], lv_cmp);
+    med = n & 1 ? sorted[n / 2] : 0.5f * (sorted[n / 2 - 1] + sorted[n / 2]);
+    for (k = 0; k < n; k++)
         worst = fm_maxf(worst, fm_fabsf(lv_song_db[k] - med));
     printf("levels: median %.1f dB, spread %.1f..%.1f (worst %.1f off), worst block jump %.1f dB, peak %.3f\n",
-           (double)med, (double)sorted[0], (double)sorted[LV_N - 1], (double)worst, (double)lv_worst_jump,
+           (double)med, (double)sorted[0], (double)sorted[n - 1], (double)worst, (double)lv_worst_jump,
            (double)peak);
-    for (k = 0; k < LV_N; k++)
-        CHECK(fm_fabsf(lv_song_db[k] - med) <= 3.0f, "levels: seed %d's full band %.1f dB, the median %.1f", k + 1,
+    for (k = 0; k < n; k++)
+        CHECK(fm_fabsf(lv_song_db[k] - med) <= 3.0f, "levels: seed %d's full band %.1f dB, the median %.1f", (int)sd[k],
               (double)lv_song_db[k], (double)med);
     CHECK(bad_jump == 0, "levels: %d block jumps over 6 dB", bad_jump);
     CHECK(bad_quiet == 0, "levels: %d quiet blocks louder than the full band", bad_quiet);
@@ -5852,22 +5885,22 @@ static void test_levels_steady(void)
         bed[1] = fx_bed_rms(2, 0, 10, NULL);
         for (j = 0; j < 2; j++) {
             float lo = 999.0f, hi = -999.0f;
-            for (k = 0; k < LV_N; k++) {
+            for (k = 0; k < n; k++) {
                 float d = 20.0f * fm_log2f(bed[j]) * 0.30103f - lv_song_db[k];
                 lo = fm_minf(lo, d);
                 hi = fm_maxf(hi, d);
                 CHECK(d >= -40.0f && d <= -30.0f, "the bed (%s) %.1f dB under seed %d's music, wanted 30-40",
-                      j ? "tape" : "vinyl and rain", (double)-d, k + 1);
+                      j ? "tape" : "vinyl and rain", (double)-d, (int)sd[k]);
             }
             printf("levels: the bed (%s) %.1f..%.1f dB under the songs' music\n", j ? "tape" : "vinyl and rain",
                    (double)-hi, (double)-lo);
         }
     }
     /* the glue: 1-4 dB on average over a song's full band, under 1 dB in its intro */
-    for (k = 0; k < LV_N; k++) {
-        CHECK(lv_song_gr[k] >= 1.0f && lv_song_gr[k] <= 4.0f, "glue: seed %d's full band %.2f dB, wanted 1-4", k + 1,
+    for (k = 0; k < n; k++) {
+        CHECK(lv_song_gr[k] >= 1.0f && lv_song_gr[k] <= 4.0f, "glue: seed %d's full band %.2f dB, wanted 1-4", (int)sd[k],
               (double)lv_song_gr[k]);
-        CHECK(lv_intro_gr[k] < 1.0f, "glue: seed %d's intro %.2f dB, wanted under 1", k + 1, (double)lv_intro_gr[k]);
+        CHECK(lv_intro_gr[k] < 1.0f, "glue: seed %d's intro %.2f dB, wanted under 1", (int)sd[k], (double)lv_intro_gr[k]);
     }
 }
 
@@ -5950,9 +5983,10 @@ static float lk_diff(const song_roll_t *roll, int *nb)
 }
 
 /* The lead leads (Sam: "the accompaniment is way too loud. I can barely hear the lead above it"): in every set (so
-   every lead instrument over every keys instrument), three songs each, while the lead plays it sits 4-7 dB over the
-   keys at the median, and no song under 2 dB. */
-#define LK_PER 3
+   every lead instrument over every keys instrument, the synths' too), six songs each, while the lead plays it sits
+   over the keys: each set's mean 4-6.5 dB and its median 4-6 (the spec: 4-6 dB in every set), the median over all
+   songs 4-6, and no song under 2 dB. Each song's keys and lead are its set's (no set left out: LIB_NSETS_MAX). */
+#define LK_PER 6
 static void test_lead_over_keys(void)
 {
     float d[LIB_NSETS_MAX * LK_PER], sorted[LIB_NSETS_MAX * LK_PER], med;
@@ -5961,9 +5995,9 @@ static void test_lead_over_keys(void)
     for (k = 0; k < LIB_NSETS && k < LIB_NSETS_MAX; k++) {
         const lib_set_t *t = &LIB_SETS[k];
         uint32_t seed;
-        int got = 0;
-        float lo = 99.0f, hi = -99.0f;
-        for (seed = 1u; got < LK_PER && seed < 400u; seed++) {
+        int got = 0, n0 = n;
+        float lo = 99.0f, hi = -99.0f, mean = 0.0f, smed, ss[LK_PER];
+        for (seed = 1u; got < LK_PER && seed < 600u; seed++) {
             song_roll_t r;
             int nb;
             float x;
@@ -5973,22 +6007,35 @@ static void test_lead_over_keys(void)
             x = lk_diff(&r, &nb);
             if (nb < 4)
                 continue;
+            CHECK(vx_config()->chords == t->chords && vx_config()->lead == t->lead,
+                  "lead over keys: %s seed %u plays keys %d lead %d, its set's %d %d", t->name, (unsigned)seed,
+                  vx_config()->chords, vx_config()->lead, t->chords, t->lead);
             d[n++] = x;
             got++;
+            mean += x;
             lo = fm_minf(lo, x);
             hi = fm_maxf(hi, x);
             CHECK(x >= 2.0f, "lead over keys: %s seed %u's lead %.1f dB over its keys, wanted 2 at least", t->name,
                   (unsigned)seed, (double)x);
         }
         CHECK(got == LK_PER, "lead over keys: only %d songs found for %s", got, t->name);
-        printf("lead over keys: %-17s %+.1f..%+.1f dB\n", t->name, (double)lo, (double)hi);
+        if (!got)
+            continue;
+        mean /= (float)got;
+        memcpy(ss, d + n0, (size_t)got * sizeof ss[0]);
+        qsort(ss, (size_t)got, sizeof ss[0], lk_cmp_f);
+        smed = got & 1 ? ss[got / 2] : 0.5f * (ss[got / 2 - 1] + ss[got / 2]);
+        printf("lead over keys: %-21s mean %+.1f median %+.1f (%+.1f..%+.1f) dB\n", t->name, (double)mean,
+               (double)smed, (double)lo, (double)hi);
+        CHECK(mean >= 4.0f && mean <= 6.5f, "lead over keys: %s's mean %.1f dB, wanted 4-6.5", t->name, (double)mean);
+        CHECK(smed >= 4.0f && smed <= 6.0f, "lead over keys: %s's median %.1f dB, wanted 4-6", t->name, (double)smed);
     }
     memcpy(sorted, d, (size_t)n * sizeof sorted[0]);
     qsort(sorted, (size_t)n, sizeof sorted[0], lk_cmp_f);
     med = n ? (n & 1 ? sorted[n / 2] : 0.5f * (sorted[n / 2 - 1] + sorted[n / 2])) : 0.0f;
     printf("lead over keys: median %+.1f dB over %d songs (%+.1f..%+.1f)\n", (double)med, n, (double)sorted[0],
            (double)sorted[n - 1]);
-    CHECK(med >= 4.0f && med <= 7.0f, "lead over keys: the median %.1f dB, wanted 4-7", (double)med);
+    CHECK(med >= 4.0f && med <= 6.0f, "lead over keys: the median %.1f dB, wanted 4-6", (double)med);
 }
 
 /* The keys duck under the lead: a held pad chord (keys only in the mix, vx_solo) against the same chord with a lead
@@ -6048,6 +6095,57 @@ static void test_keys_duck(void)
     CHECK(rest == 0.0f, "duck: %.1f dB with no lead", (double)rest);
 }
 
+/* The duck on the mix paths the songs take (test_keys_duck hears it through vx_solo, which forces the filtered
+   path): the section filters off (the unfiltered mix, as with every bus open), the keys at half rate (the pad's
+   default) and at full rate (VX_OFF_HALF). The keys alone can't be soloed there, so they come by subtraction: the
+   chain here is linear (no drums, glue or bed; the soft clip idle at these levels), so the mix of keys and lead minus
+   the lead alone is the ducked keys; against the keys alone, 2-4 dB down while the lead plays, back within 0.3 dB
+   1.5 s after it, and the same (0.3 dB) before it. A vibes lead: no noise draw to shift with the keys. */
+static void test_keys_duck_mix(void)
+{
+    static const int ch[4] = {57, 60, 64, 67};
+    int pass, k, i;
+    uint32_t t, N = 4u * 44100u + 22050u;
+    for (pass = 0; pass < 2; pass++) {
+        unsigned off = VX_OFF_FILTERS | VX_OFF_GLUE | (pass ? VX_OFF_HALF : 0u);
+        float pre, dip, back;
+        vx_bed_off(1);
+        vx_fx_off(off);
+        for (k = 0; k < 3; k++) { /* 0: keys alone (sb_l), 1: keys and lead (sb_x), 2: the lead alone (sb_r) */
+            float *out = k == 0 ? sb_l : k == 1 ? sb_x : sb_r;
+            vx_init();
+            vx_assign(V_CHORD, INS_PAD);
+            vx_assign(V_LEAD, INS_VIBES);
+            if (k < 2)
+                for (i = 0; i < 4; i++)
+                    vt_ev(V_CHORD, ch[i], 90, 0, 4u * 44100u);
+            if (k)
+                vt_ev(V_LEAD, 76, 100, 44100u, 44100u);
+            for (t = 0; t < N; t += 256u) {
+                memset(vt_l, 0, 256 * sizeof(float));
+                memset(vt_r, 0, 256 * sizeof(float));
+                vx_render(vt_l, vt_r, 256);
+                memcpy(out + t, vt_l, 256 * sizeof(float));
+            }
+        }
+        for (t = 0; t < N; t++)
+            sb_x[t] -= sb_r[t];
+        pre = db_of(lk_win(sb_x, 22050u, 44100u) / lk_win(sb_l, 22050u, 44100u));
+        dip = db_of(lk_win(sb_x, 66150u, 88200u) / lk_win(sb_l, 66150u, 88200u));
+        back = db_of(lk_win(sb_x, 154350u, 176400u) / lk_win(sb_l, 154350u, 176400u));
+        printf("duck (unfiltered mix, %s rate): keys %.2f dB before the lead, %.2f under it, %.2f 1.5 s after\n",
+               pass ? "full" : "half", (double)pre, (double)dip, (double)back);
+        CHECK(fm_fabsf(pre) <= 0.3f, "duck (%s rate): the keys %.2f dB off before the lead", pass ? "full" : "half",
+              (double)pre);
+        CHECK(dip <= -2.0f && dip >= -4.0f, "duck (%s rate, unfiltered): the keys %.1f dB under the lead, wanted 2-4",
+              pass ? "full" : "half", (double)-dip);
+        CHECK(fm_fabsf(back) <= 0.3f, "duck (%s rate): the keys %.2f dB off 1.5 s after the lead",
+              pass ? "full" : "half", (double)back);
+    }
+    vx_fx_off(0u);
+    vx_bed_off(0);
+}
+
 static int lk_cmp_f(const void *a, const void *b) { return lv_cmp(a, b); }
 
 int main(int argc, char **argv)
@@ -6104,6 +6202,7 @@ int main(int argc, char **argv)
     RUN(test_mix_denormals);
     RUN(test_levels_steady);
     RUN(test_keys_duck);
+    RUN(test_keys_duck_mix);
     RUN(test_lead_over_keys);
     if (fails) {
         printf("%d check(s) failed\n", fails);

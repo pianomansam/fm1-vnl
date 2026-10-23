@@ -61,27 +61,27 @@
 static const vx_patch_t PATCHES[INS_NONE] = {
     [INS_RHODES] = {M_EP, {1.0f, 0.4f, 1.2f, 1.2f, 0.05f, 0.5f, 0.0f, 0.0f}, 0.002f, 4.5f, 0.0f, 0.08f, 0.944f, 0.7f, 0.08f},
     [INS_WURLI] = {M_EP, {2.0f, 0.8f, 2.0f, 1.5f, 0.0f, 0.6f, 1.0f, 0.0f}, 0.002f, 3.5f, 0.0f, 0.06f, 0.88f, 0.6f, 0.08f},
-    [INS_FELT_PIANO] = {M_EP, {1.0f, 0.2f, 0.6f, 0.8f, 0.0f, 0.4f, 0.0f, 1100.0f}, 0.004f, 5.0f, 0.0f, 0.15f, 0.668f, 0.2f, 0.06f},
+    [INS_FELT_PIANO] = {M_EP, {1.0f, 0.2f, 0.6f, 0.8f, 0.0f, 0.4f, 0.0f, 1100.0f}, 0.004f, 5.0f, 0.0f, 0.15f, 0.716f, 0.2f, 0.06f},
     [INS_NYLON] = {M_PLUCK, {1.8f, 3000.0f, 2500.0f, 0.0f, 0.0f, 2.0f}, 0.002f, 6.0f, 0.0f, 0.08f, 1.62f, 0.15f, 0.08f},
     [INS_PAD] = {M_PAD, {5.0f, 2.0f, 0.35f, 900.0f, 1.5f, 1.2f, 0.0f, 0.0f}, 0.6f, 4.0f, 0.85f, 2.0f, 0.616f, 0.6f, 0.1f},
     [INS_UPRIGHT] = {M_PLUCK, {0.9f, 700.0f, 1500.0f, 0.5f, 0.08f, 3.0f}, 0.002f, 4.0f, 0.0f, 0.05f, 3.4f, 0.0f, 0.0f},
     [INS_ELEC_BASS] = {M_BASS, {1.0f, 0.6f, 2.4f, 0.12f, 0.0f}, 0.003f, 7.0f, 0.6f, 0.04f, 1.57f, 0.0f, 0.0f},
     [INS_SUB] = {M_BASS, {1.0f, 0.0f, 0.0f, 0.1f, 0.6f}, 0.008f, 7.0f, 1.0f, 0.06f, 1.0f, 0.0f, 0.0f},
     [INS_FLUTE] = {M_WIND, {0.25f, 0.5f, 3.0f, 0.13f, 1800.0f, 14.0f, 0.0f, 0.0f}, 0.06f, 7.0f, 0.75f, 0.12f, 1.228f, 0.0f, 0.3f},
-    [INS_MUTED_TPT] = {M_WIND, {2.0f, 0.2f, 12.0f, 0.08f, 2200.0f, 10.0f, 1400.0f, 0.35f}, 0.04f, 5.5f, 0.7f, 0.1f, 1.56f, 0.0f, 0.3f},
+    [INS_MUTED_TPT] = {M_WIND, {2.0f, 0.2f, 12.0f, 0.08f, 2200.0f, 10.0f, 1400.0f, 0.35f}, 0.04f, 5.5f, 0.7f, 0.1f, 1.75f, 0.0f, 0.3f},
     [INS_SAX] = {M_WIND, {1.6f, 0.35f, 5.0f, 0.11f, 1500.0f, 18.0f, 0.0f, 0.0f}, 0.05f, 6.2f, 0.7f, 0.1f, 1.4f, 0.0f, 0.25f},
     [INS_VIBES] = {M_BELL, {4.0f, 0.3f, 0.9f, 0.6f, 0.35f, 5.0f, 0.3f}, 0.002f, 3.0f, 0.0f, 0.15f, 1.414f, 0.0f, 0.3f},
-    [INS_KALIMBA] = {M_BELL, {3.0f, 0.4f, 1.4f, 0.12f, 0.0f, 0.0f, 0.4f}, 0.002f, 1.4f, 0.0f, 0.06f, 1.69f, 0.0f, 0.35f},
+    [INS_KALIMBA] = {M_BELL, {3.0f, 0.4f, 1.4f, 0.12f, 0.0f, 0.0f, 0.4f}, 0.002f, 1.4f, 0.0f, 0.06f, 1.614f, 0.0f, 0.35f},
     [INS_GUITAR_LICK] = {M_PLUCK, {3.0f, 4500.0f, 3500.0f, 0.0f, 0.0f, 3.0f}, 0.002f, 3.0f, 0.0f, 0.05f, 3.18f, 0.0f, 0.3f},
     [INS_MUSIC_BOX] = {M_BELL, {5.0f, 0.3f, 0.9f, 0.25f, 0.0f, 0.0f, 0.3f}, 0.002f, 1.2f, 0.0f, 0.05f, 1.1f, 0.0f, 0.4f},
     [INS_BELLS] = {M_BELL, {3.53f, 0.6f, 1.2f, 1.2f, 0.0f, 0.0f, 0.3f}, 0.003f, 3.5f, 0.0f, 0.2f, 0.87f, 0.0f, 0.35f},
     [INS_VOX_PAD] = {M_PAD, {4.0f, 2.0f, 0.35f, 0.0f, 0.0f, 0.0f, 0.6f, 1.0f}, 0.8f, 4.0f, 0.85f, 0.9f, 1.77f, 0.5f, 0.25f},
-    /* the chip voices: provisional levels (the synths' Task 5 balances them in their sets) */
+    /* the chip voices (their levels balanced in their set: the lead over the chip chords, test_lead_over_keys) */
     [INS_CHIP_CHORDS] = {M_CHIP, {0.0f, 0.25f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 7.0f}, 0.004f, 3.0f, 0.6f, 0.12f, 0.32f, 0.0f, 0.08f},
     [INS_CHIP_LEAD] = {M_CHIP, {0.0f, 0.5f, 6.5f, 12.0f, 0.0f, 0.0f, 0.0f, 7.0f}, 0.003f, 1.5f, 0.3f, 0.1f, 0.7f, 0.0f, 0.3f},
     [INS_CHIP_BASS] = {M_CHIP, {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 7.0f}, 0.003f, 7.0f, 1.0f, 0.05f, 1.3f, 0.0f, 0.0f},
     [INS_CHIP_BLIP] = {M_CHIP, {0.0f, 0.125f, 0.0f, 0.0f, 0.0f, 0.6f, 0.02f, 7.0f}, 0.001f, 0.25f, 0.0f, 0.05f, 0.8f, 0.0f, 0.4f},
-    /* the subtractive synths, warm (their cutoffs low): provisional levels (the synths' Task 5 balances them). The
+    /* the subtractive synths, warm (their cutoffs low), their levels balanced in their sets like the rest. The
        Juno: a saw and its sub, a gentle envelope, the chorus deep (the Juno's); the organ: a square and its sub
        (16' and 8'), no envelope; the Moog bass: a saw and its sub through the 4-pole, plucked open, a short glide; the
        leads mono and gliding; the synth pluck: a pulse snapped open and shut */
@@ -91,14 +91,14 @@ static const vx_patch_t PATCHES[INS_NONE] = {
     [INS_MOOG_BASS] = {M_SUB, {0.0f, 0.5f, 0.5f, 0.0f, 200.0f, 0.35f, 1.0f, 3.0f, 0.001f, 0.35f, 1.0f, 1.0f, 30.0f},
                        0.003f, 1.5f, 0.5f, 0.06f, 1.78f, 0.0f, 0.0f},
     [INS_SAW_LEAD] = {M_SUB, {0.0f, 0.5f, 0.0f, 0.0f, 900.0f, 0.2f, 1.5f, 1.0f, 0.02f, 0.6f, 0.0f, 1.0f, 90.0f},
-                      0.01f, 3.0f, 0.8f, 0.12f, 1.06f, 0.0f, 0.3f},
+                      0.01f, 3.0f, 0.8f, 0.12f, 0.945f, 0.0f, 0.3f},
     [INS_SQUARE_LEAD] = {M_SUB, {1.0f, 0.5f, 0.0f, 0.0f, 800.0f, 0.1f, 1.5f, 0.8f, 0.02f, 0.6f, 0.0f, 1.0f, 60.0f,
                                  10.0f},
-                         0.01f, 3.0f, 0.8f, 0.12f, 0.61f, 0.0f, 0.3f},
+                         0.01f, 3.0f, 0.8f, 0.12f, 0.70f, 0.0f, 0.3f},
     [INS_SINE_LEAD] = {M_SUB, {2.0f, 0.5f, 0.0f, 0.0f, 3000.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.1f, 0.0f, 1.0f, 70.0f, 14.0f},
-                       0.03f, 3.0f, 0.8f, 0.15f, 0.82f, 0.0f, 0.3f},
+                       0.03f, 3.0f, 0.8f, 0.15f, 0.899f, 0.0f, 0.3f},
     [INS_SYNTH_PLUCK] = {M_SUB, {1.0f, 0.35f, 0.0f, 0.0f, 200.0f, 0.25f, 0.6f, 4.5f, 0.001f, 0.3f}, 0.002f, 1.2f, 0.0f,
-                         0.1f, 1.4f, 0.0f, 0.35f},
+                         0.1f, 1.307f, 0.0f, 0.35f},
     /* the 80s FM keys: a 14x tine on the attack (a high ratio, a bright index falling fast) over a clean body */
     [INS_DX_EP] = {M_EP, {1.0f, 0.3f, 1.8f, 0.9f, 0.12f, 0.4f, 0.0f, 6500.0f}, 0.002f, 2.6f, 0.0f, 0.08f, 1.0f,
                    0.5f, 0.08f},
