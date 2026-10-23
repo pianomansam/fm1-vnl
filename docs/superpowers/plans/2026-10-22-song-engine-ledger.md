@@ -242,3 +242,29 @@ Renders: `app/build/new/<seed>/` and `<seed>-nobed/`, one per set (Task 8's repo
   pianist voice leading (common tones held, top voice first), dominants always extended, no dark re-voicing. E.g.
   Db Lydian loop: Ab3 C4 F4 Ab4 / Bb3 Db4 F4 Ab4 / Bb3 Db4 F4 G4 / Ab3 C4 Eb4 G4. Treat changes to the voicer as
   needing a fresh listen.
+
+### Sound engine: deferred minors (Plan 3a reviews, 2026-10-23)
+
+From the task and final reviews; none blocks merging. Revisit when the area is next touched.
+
+- **Task 1:** bench.c:41 comment claims P_NPARAMS is checked; nothing checks it.
+- **Task 1:** timed region includes roll_song/vx_init; fractional step truncation; early song end unflagged.
+- **Task 1:** bench.c:22 confusing comment; any '-' arg treated as --heaviest; mem-check over-budget path unexercised.
+- **Task 2:** vx_init clears state when vx_active()==0 (voices+drums only) — once reverb/bed exist, a song change would cut their tails; fx_configure would switch bed abruptly; dark snaps to 0. Task 7 must keep FX tails across song changes.
+- **Task 2:** bass is a separate bass_t sine with no model dispatch; UPRIGHT (M_PLUCK) / ELEC_BASS (M_BASS) need it (or bass as a mono voice_t pool).
+- **Task 2:** model state as flat voice_t fields (a union would cap growth); no carryover test; dark-ramp test readability; patch.h says p[] layouts documented in patch.c — each model task adds its layout.
+- **Task 3:** pad releases are cut by 4 ms steals at each chord change in the 4-voice chord pool, then the next pad swells — an audible dip; consider more chord voices for pads or overlap.
+- **Task 3:** dark test HF proxy near its noise floor for keys; voices.c:91 long comment; Wurli bark shares the drum noise stream.
+- **Task 4:** upright retrigger waits up to ~4.4 ms for the steal fade (timing jitter on walking lines; listen to 4185943442); notes below 28 clamp to 28's pitch; guitar lick decay untested.
+- **Task 5:** breath test has no negative control (reviewer measured −48…−62 dB with breath off vs −26 dB on; −30 dB bar); comb uses nominal period; `default:` routes unknown models to bass (prefer explicit case M_BASS); candy peaks 0.059–0.060 vs 0.05 floor; breath levels tuned to the test — Task 8 confirms by ear (4185943442).
+- **Task 6:** vx_kick_env is the raw exponential (808 tail ~2.2 s) and block-granular — shape it for ducking.
+- **Task 6:** drums.h claims sounding hits keep their kit (they read kit params live); vx_set_kit stores cfg.kit unvalidated; stale voices.c:251 header; retrigger resets phase/filters (pre-existing); test chunk-boundary margins; no vx_configure→kit test; hat/shaker/rim amps for Task 8 by ear.
+- **Task 7:** quick replay within ~40 ms of stop can return a stale plate tail; 64 KB memset in the ISR at song start; plate decimation aliasing; send not darkened in dark sections (deliberate); bed fixed absolute level vs quiet songs; no end-to-end test of mid-song reconfigure (no knob yet); fx_tiny test hook ships in firmware; fx.c:173 long comment; pre-existing UBSan report at fastmath.h:58; set change re-sweeps a ringing kick.
+- **Task 7b:** comp() pre-scan/post-pass runs with no drums active; fx_chorus_dry called 3× per chunk.
+- **Task 7b:** attack gain step at block start can tick on a sounding 808 body; break+drop-bar holds the sweep at 0.6; no NaN/denormal check for bus filter/compressor states; chorus dry compensation lowers chords' sends ~1.4 dB, sends now post-filter (untested); test hooks ship in firmware (vx_fx_off, fx_wet_off, ~1 KB triple buffers); PM_*↔V_* mapping by enum order; a migrated test's comment/printf disagree; thin margins (scenario −8.8 vs −9; delay −63 vs −60).
+- **Task 7b:** fx_song lands dl_t immediately, so a still-ringing delay tail jumps (~0.11 s read shift on a 70→85 BPM change) — keep the glide for a ringing tail; the fx.c:54-56 / fx.h:138 comment overstates 0.25 ms.
+- **Task 7c:** half-rate note grid skips each patch's top half-rate notes (pads up to ~96 untested; consider capping pads at 84 or extending the test); quarter-rate plate input aliasing untested and its comment's rationale wrong; hpar/hx/hr_tail not reset per song (harmless at 256-sample calls); half-rate also applies to lead/candy M_EP/M_PAD patches, untested; stale "triple" names; cost-gate.sh needs mkdir -p; noisy per-case test output.
+- **Task 7c:** two overlong comment lines (rings_fx.c ~220, song_test.c ~4688); Rings chorus wobble ±14 cents near the test's 15-cent window (Task 8 must not deepen it without moving the window); Rings CPU unmeasured on device.
+- **Task 8:** quiet blocks allowed +1 dB over full band (brief: never louder); 044f590 alone breaks the web build (squash with a803785 before merging?); glue test margins brittle by design; glue's reduction doesn't reach the reverb return (wet rises 1–3 dB in dense passages); voices.c includes harmony.h for keys_gain (engine→song dependency); stale log paths in 2-set4 and -nobed renders.
+- **Task 8:** picker time stated inconsistently (~25 s vs 40 s); a long line in docs/cost.md; an older cost.md paragraph keeps pre-fix seed-7 numbers as history.
+- **Final:** squash 044f590 with a803785 (web build) — not done (history rewrite; Sam's call at merge); memsets in the ISR at song start (~52 KB on device) — measure on device; unused plate/our-chorus code and ~1 KB pool on device; plus the earlier deferred minors the final review triaged as "To revisit".
