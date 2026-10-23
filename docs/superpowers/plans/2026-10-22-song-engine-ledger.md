@@ -208,7 +208,7 @@ Renders: `app/build/new/<seed>/` and `<seed>-nobed/`, one per set (Task 8's repo
 - **Rings' reverb and chorus against ours.** Sam picked Rings' (Task 7c); ours stays host-only (`VNL_FX=ours`).
   Rings' chorus wobbles ±14 cents, near its test's 15-cent window: don't deepen it without moving the window.
 - **The drums' compressor.** Its attack is instant (a 10 ms attack let the snare's transient through, against the
-  peak-to-body test); per-kit thresholds give full-velocity kicks about 5.5–5.9 dB and snares about 3.2–3.4 dB.
+  peak-to-body test); per-kit thresholds give full-velocity kicks 5.5–5.7 dB and snares 3.2–3.5 dB.
   Too squashed or too little?
 - **The chorus and the delay at 7.35 kHz.** Some aliasing in their wet above 3.7 kHz (a cost trade); listen on the
   Rhodes and the Wurli.
