@@ -1904,6 +1904,57 @@ static void test_line_wanders(void)
     CHECK(leaps * 1000 <= steps * 3, "%ld of %ld skeleton steps leap past a 5th", leaps, steps);
 }
 
+/* Sam: the hybrid lead follows the motion lever: in songs with motion <= 35 it plays at most 3/4 the onsets a lead
+   bar of songs with motion >= 65, and its skeleton landings sound as often at low motion as at high. */
+static void test_hybrid_follows_motion(void)
+{
+    static song_t s;
+    uint32_t seed = 8181;
+    song_roll_t prev, r;
+    song_ev_t ev[64];
+    long on[2] = {0}, bars[2] = {0}, changes[2] = {0}, landed[2] = {0};
+    int k, i;
+    for (k = 0; k < 600; k++) {
+        const lib_set_t *set;
+        const lib_prog_t *pr;
+        int m, hi, cur = -1, cnt = 0, bpc, lead_bar = 0;
+        seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+        roll_song(k ? &prev : 0, seed, &r);
+        prev = r;
+        set = lib_set_by_id((uint8_t)r.v[RF_SET]);
+        m = r.v[RF_MOTION];
+        if (!set || lib_ins_sustained(set->lead) || (m > 35 && m < 65)) continue;
+        hi = m >= 65;
+        pr = lib_prog_by_id((uint8_t)r.v[RF_PROG]);
+        bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1;
+        song_start(&s, &r);
+        while (s.state == SS_PLAYING) {
+            int bar = s.bar, st = s.step, n;
+            const plan_block_t *b = plan_at(&s.plan, bar);
+            n = song_tick(&s, ev, 64);
+            if (bar != cur) {
+                if (lead_bar) { on[hi] += cnt; bars[hi]++; }
+                cur = bar;
+                cnt = 0;
+                lead_bar = lead_plays(b);
+            }
+            if (st == 0 && lead_bar && bar % bpc == 0) {
+                changes[hi]++;
+                landed[hi] += s.lead.acc != 0 || s.lead.active > (s.lead.onsets > 0);
+            }
+            for (i = 0; i < n; i++) cnt += ev[i].voice == V_LEAD;
+        }
+    }
+    printf("motion: %.2f lead onsets a bar at low motion, %.2f at high; landings %.1f%% low, %.1f%% high\n",
+           bars[0] ? (double)on[0] / (double)bars[0] : 0.0, bars[1] ? (double)on[1] / (double)bars[1] : 0.0,
+           changes[0] ? 100.0 * (double)landed[0] / (double)changes[0] : 0.0,
+           changes[1] ? 100.0 * (double)landed[1] / (double)changes[1] : 0.0);
+    CHECK(bars[0] > 200 && bars[1] > 200 && (double)on[0] / (double)bars[0] <= 0.75 * (double)on[1] / (double)bars[1],
+          "low motion %ld onsets in %ld bars, high %ld in %ld", on[0], bars[0], on[1], bars[1]);
+    CHECK(landed[0] * changes[1] * 100 >= landed[1] * changes[0] * 98, "landings: low %ld of %ld, high %ld of %ld",
+          landed[0], changes[0], landed[1], changes[1]);
+}
+
 /* Sam: the keys and the bass never share a rhythm of more than a note on 1 (stabs on a kick of 1 and the and of 2) */
 static void test_keys_bass_rhythms_differ(void)
 {
@@ -2178,6 +2229,7 @@ int main(void)
     test_register_floor();
     test_pad_places();
     test_line_wanders();
+    test_hybrid_follows_motion();
     test_loop_voicings();
     test_dominant_extensions();
     test_no_substitution();

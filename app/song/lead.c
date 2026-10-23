@@ -196,9 +196,18 @@ static void choose(lead_state_t *ls, const song_roll_t *r)   /* one pattern, rhy
     ls->chosen = 1;
 }
 
+static uint32_t note_hash(uint32_t seed, int bar, int i)
+{
+    uint32_t h = seed * 0x9E3779B1u ^ (uint32_t)(bar + 1) * 0x85EBCA6Bu ^ (uint32_t)(i + 1) * 0xC2B2AE35u;
+    h ^= h >> 15; h *= 0x2C1B3C6Du; h ^= h >> 13;
+    return h;
+}
+
+/* the arpeggio keeps each note with 40% + 0.75% x motion: 55% at motion 20, all of them at 80; the motion lever (a
+   request) reaches it at the next bar. Skeleton landings are placed after, so they always sound. */
 static void plan_arp(lead_state_t *ls, const ctx_t *c, int bar)
 {
-    int i, k, plen;
+    int i, k, plen, keep = 40 + c->r->v[RF_MOTION] * 3 / 4;
     if (!ls->chosen) choose(ls, c->r);
     for (plen = 0; plen < 6 && PAT[ls->pat][plen] >= 0; plen++)
         ;
@@ -209,6 +218,7 @@ static void plan_arp(lead_state_t *ls, const ctx_t *c, int bar)
         idx = PAT[ls->pat][pos];
         if ((bar & 1) && ls->rev) idx = 3 - idx;         /* the direction turned every other bar */
         if (bar % 4 == 3 && (i == 2 || i == 5)) continue;   /* the phrase's last bar drops two notes */
+        if ((int)(note_hash(c->r->seed, bar, i) % 100u) >= keep) continue;   /* motion thins it (Sam) */
         v = c->keys[idx];
         for (k = 1; k < 4 && v && !legal(c->r, v, c->pcs, c->np, c->bass); k++)
             v = c->keys[(idx + k) & 3];                  /* a tone that would rub gives way to the next */
