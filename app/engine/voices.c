@@ -405,7 +405,7 @@ static float fm_sample(voice_t *v)
     s = fm_sin_turns(v->m.ep.pc + mod * 0.159155f);
     if (v->m.ep.tine > 0.0f) /* the tine fades with the index */
         s += v->m.ep.tine * fm_sin_turns(v->m.ep.pc * TINE_R) * v->m.ep.idx;
-    v->m.ep.idx *= v->m.ep.idec;
+    v->m.ep.idx = fm_flush(v->m.ep.idx * v->m.ep.idec); /* decays: flushed before it goes denormal */
     return s;
 }
 
@@ -413,7 +413,7 @@ static float fm_sample(voice_t *v)
 static float ep_sample(voice_t *v)
 {
     float s = fm_sample(v) * (1.0f + v->m.ep.hit);
-    v->m.ep.hit *= v->m.ep.hk;
+    v->m.ep.hit = fm_flush(v->m.ep.hit * v->m.ep.hk);
     if (v->m.ep.bark > 1e-4f) { /* band-limited noise, gated by the tone: a reed's bark */
         v->m.ep.by += BARK_LP * (noise() - v->m.ep.by);
         s += v->m.ep.bark * v->m.ep.by * (s < 0.0f ? -s : s);
@@ -477,7 +477,7 @@ static float voice_sample(voice_t *v)
     case M_PAD: s = pad_sample(v); break;
     default: s = fm_sample(v); break; /* M_PLUCK ... M_BASS: Tasks 4-5 */
     }
-    v->nat *= v->nk;
+    v->nat = fm_flush(v->nat * v->nk); /* a note held past ~50 s would reach denormals */
     o = s * v->amp * (v->sus + (1.0f - v->sus) * v->nat) * v->g;
     if (v->pend) { /* fade the victim out, then start the queued note on the same phases */
         v->g -= v->g * G_STEAL;
@@ -508,7 +508,7 @@ static float bass_sample(void)
     bs.p2 += bs.i2;
     if (bs.p2 >= 1.0f)
         bs.p2 -= 1.0f;
-    bs.nat *= bs.nk;
+    bs.nat = fm_flush(bs.nat * bs.nk);
     bs.amp += (bs.amp_t * (bs.sus + (1.0f - bs.sus) * bs.nat) - bs.amp) * AMP_K;
     s = fm_sin_turns(bs.p1) + 0.6f * fm_sin_turns(bs.p2);
     if (bs.held && bs.gate && --bs.gate == 0)
