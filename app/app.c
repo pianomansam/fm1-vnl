@@ -9,6 +9,11 @@
  * voices at that moment, renders, and scales by MASTER. What the screen shows the render publishes as a snapshot
  * (a sequence count around it, so the main loop never reads it half written; the render never waits).
  *
+ * The bed (vinyl or tape surface, rain) opens and closes each song: it fades in as the song starts and out over the
+ * gap's first 1.5 s (vx_release_all closes it). The engine is cleared at a song's start only when nothing is left
+ * to hear (vx_sounding: no notes, no plate tail, no bed fade), so a song change never cuts a tail; a request that
+ * changes the set, the dust, the noise or the ambience reconfigures the voices where it lands (step()).
+ *
  * Controls (minimal; the real UI comes later): PLAY stops / plays (a stop is true silence; play after a stop is a
  * fresh song), K1 key +-1 semitone, K2 tempo +-1 BPM, K3 motion +-5, K4 mood +-1: each a request that lands on the
  * song's next 4-bar boundary. Part of the unity build (device/unity.c, host/plat_host.c), after the platform:
@@ -144,11 +149,12 @@ static void song_begin(void)
     song_start(&song, &mb_roll);
     BARRIER();
     mb_full = 0;                         /* the main loop rolls the next one */
-    if (vx_active())
+    if (vx_sounding())                   /* a tail (notes, the plate, the bed's fade) rings on: keep it */
         vx_set_gain(1.0f);
     else
         vx_init();
-    vx_configure(&song.roll);            /* this song's instruments, kit and chain, before its first event */
+    vx_configure(&song.roll);            /* this song's instruments, kit and chain (the bed fades in, the dust ramps
+                                            if anything still sounds), before its first event */
     r_now = r_pos = r_tick = 0;
     r_frac = 0.0f;
     memset(req_set, 0, sizeof req_set);
@@ -173,7 +179,17 @@ static void step(void)
     }
     if (st == 0 && bar % 4 == 0)
         memset(req_set, 0, sizeof req_set);   /* every waiting request lands on this boundary */
-    n = song_tick(&song, evs, 64);
+    {                                     /* a request that lands here on the set or the chain reaches the voices */
+        static const uint8_t SOUND_F[4] = {RF_SET, RF_DUST, RF_NOISE, RF_AMBIENCE};
+        int16_t before[4];
+        for (i = 0; i < 4; i++)
+            before[i] = song.roll.v[SOUND_F[i]];
+        n = song_tick(&song, evs, 64);
+        for (i = 0; i < 4 && before[i] == song.roll.v[SOUND_F[i]]; i++)
+            ;
+        if (i < 4)                        /* sounding notes keep their patches; dust and bed changes ramp */
+            vx_configure(&song.roll);
+    }
     SLOG_STEP(&song, bar, st, evs, n);
     for (i = 0; i < n; i++)
         vx_event(&evs[i]);
@@ -192,7 +208,7 @@ static void command(uint32_t c)
         if (rs == RS_STOP)
             rs = RS_WAIT;                /* a fresh song from the mailbox */
         else {
-            vx_release_all();
+            vx_stop();                   /* the notes, the bed and the plate out in 40 ms */
             rs = RS_STOP;
         }
     } else if (op == C_REQ && rs == RS_SONG && song.state == SS_PLAYING && a < RF_N) {
@@ -282,7 +298,8 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                 seg = gap_left;
             gap_left -= seg;
         }
-        if (rs == RS_SONG || vx_active())   /* true silence once the last release is over */
+        if (rs == RS_SONG || vx_sounding())   /* true silence once the last release, the plate's tail and the
+                                                  bed's fade are over */
             vx_render(mix_l + i, mix_r + i, seg);
         r_now += seg;
         SLOG_TIME(seg);

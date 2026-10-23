@@ -15,6 +15,7 @@
 #include "voices.h"
 #include "patch.h"
 #include "song.h"
+#include "fx.h"
 
 static int fails;
 #define CHECK(c, ...)                                                                                              \
@@ -3041,6 +3042,542 @@ static void test_drum_kits(void)
     }
 }
 
+/* ---------------------------------------------------------------- the lo-fi chain and the bed (fx.c) --- */
+static float fx_l[4096], fx_r[4096];
+static uint32_t fx_seed = 1u;
+static float fx_white(void)
+{
+    fx_seed ^= fx_seed << 13;
+    fx_seed ^= fx_seed >> 17;
+    fx_seed ^= fx_seed << 5;
+    return (float)(int32_t)fx_seed * (1.0f / 2147483648.0f);
+}
+
+/* A fresh chain at (dust, noise, ambience, flavor), its ramps landed. */
+static void fx_fresh(int dust, int noise, int amb, int flavor)
+{
+    fx_init();
+    fx_configure(dust, noise, amb, flavor);
+    fx_land();
+}
+
+/* Energy above 6 kHz of white noise (0.1) through the chain (no send, no duck): 1024-point DFTs over 16 blocks. */
+static double fx_hf_energy(int dust)
+{
+    static float cs[1024], sn[1024];
+    double e = 0.0;
+    int b, k, i;
+    for (i = 0; i < 1024; i++) {
+        cs[i] = fm_cosf(FM_TWO_PI * (float)i / 1024.0f);
+        sn[i] = fm_sinf(FM_TWO_PI * (float)i / 1024.0f);
+    }
+    fx_fresh(dust, 0, 0, FL_LOFI);
+    fx_seed = 99u;
+    for (b = 0; b < 20; b++) {
+        for (i = 0; i < 1024; i++) {
+            fx_l[i] = 0.1f * fx_white();
+            fx_r[i] = 0.0f;
+        }
+        fx_process(fx_l, fx_r, 1024, 0.0f);
+        if (b < 4)
+            continue; /* settle */
+        for (k = 140; k < 512; k++) { /* bin 140 = 6029 Hz */
+            double re = 0.0, im = 0.0;
+            for (i = 0; i < 1024; i++) {
+                re += (double)fx_l[i] * (double)cs[(i * k) & 1023];
+                im += (double)fx_l[i] * (double)sn[(i * k) & 1023];
+            }
+            e += re * re + im * im;
+        }
+    }
+    return e;
+}
+
+/* A 440 Hz sine (0.2) through the chain for 12 s: the pitch's peak deviation in cents and its rate in Hz (each 50 ms
+   window's frequency from its rising zero crossings, against the mean; the rate from the deviation's sign changes with
+   hysteresis). */
+static void fx_wow(int dust, int flavor, float *peak, float *rate)
+{
+    static float cents[300];
+    float ph = 0.0f, prev = 0.0f, t_first = -1.0f, t_last = 0.0f, mean = 0.0f;
+    int nc = 0, nw = 0, i, w, blk, changes = 0, sgn = 0;
+    uint32_t t = 0;
+    fx_fresh(dust, 0, 0, flavor);
+    for (blk = 0; blk < 12 * 44100 / 2205; blk++) {
+        for (i = 0; i < 2205; i++) {
+            fx_l[i] = 0.2f * fm_sin_turns(ph);
+            fx_r[i] = 0.0f;
+            ph += 440.0f / 44100.0f;
+            if (ph >= 1.0f)
+                ph -= 1.0f;
+        }
+        fx_process(fx_l, fx_r, 2205, 0.0f);
+        t_first = -1.0f;
+        nc = 0;
+        for (i = 0; i < 2205; i++, t++) {
+            float x = fx_l[i];
+            if (prev < 0.0f && x >= 0.0f) {
+                float tc = (float)t - 1.0f + prev / (prev - x);
+                if (t_first < 0.0f)
+                    t_first = tc;
+                t_last = tc;
+                nc++;
+            }
+            prev = x;
+        }
+        if (blk >= 20 && nc > 2 && nw < 300) /* past the first second */
+            cents[nw++] = 1200.0f * fm_log2f((float)(nc - 1) * 44100.0f / (t_last - t_first) / 440.0f);
+    }
+    for (w = 0; w < nw; w++)
+        mean += cents[w] / (float)nw;
+    *peak = 0.0f;
+    for (w = 0; w < nw; w++)
+        if (fm_fabsf(cents[w] - mean) > *peak)
+            *peak = fm_fabsf(cents[w] - mean);
+    for (w = 0; w < nw; w++) {
+        float d = cents[w] - mean;
+        int s = d > 0.3f * *peak ? 1 : d < -0.3f * *peak ? -1 : 0;
+        if (s && s != sgn) {
+            if (sgn)
+                changes++;
+            sgn = s;
+        }
+    }
+    *rate = (float)changes * 0.5f / ((float)nw * 0.05f);
+}
+
+/* The bed alone (no music, no send) at (noise, amb): open it, skip 2 s, then render secs into a mono buffer
+   (l+r)/2 that the caller scans block by block through fn. Returns the RMS. */
+static float fx_bed_rms(int noise, int amb, int secs, void (*fn)(const float *, uint32_t, uint32_t))
+{
+    double e = 0.0;
+    uint32_t t = 0, total = (uint32_t)secs * 44100u;
+    int b, i;
+    fx_fresh(0, noise, amb, FL_LOFI);
+    for (b = 0; b < 2 * 44100 / 2205; b++) {
+        memset(fx_l, 0, sizeof fx_l);
+        memset(fx_r, 0, sizeof fx_r);
+        fx_process(fx_l, fx_r, 2205, 0.0f);
+    }
+    while (t < total) {
+        memset(fx_l, 0, 2205 * sizeof(float));
+        memset(fx_r, 0, 2205 * sizeof(float));
+        fx_process(fx_l, fx_r, 2205, 0.0f);
+        for (i = 0; i < 2205; i++) {
+            fx_l[i] = 0.5f * (fx_l[i] + fx_r[i]);
+            e += (double)fx_l[i] * (double)fx_l[i];
+        }
+        if (fn)
+            fn(fx_l, 2205, t);
+        t += 2205;
+    }
+    return fm_sqrtf((float)(e / (double)total));
+}
+
+/* click detection over a bed render: |x| above fx_thr, 20 ms dead time; times and peaks */
+static float fx_thr;
+static int fx_nclk;
+static uint32_t fx_clk_t[400];
+static float fx_clk_p[400];
+static uint32_t fx_clk_until;
+static void fx_clicks(const float *x, uint32_t n, uint32_t t0)
+{
+    uint32_t i;
+    for (i = 0; i < n; i++) {
+        float a = fm_fabsf(x[i]);
+        uint32_t t = t0 + i;
+        if (fx_nclk && t < fx_clk_until) {
+            if (a > fx_clk_p[fx_nclk - 1])
+                fx_clk_p[fx_nclk - 1] = a;
+        } else if (a > fx_thr && fx_nclk < 400) {
+            fx_clk_t[fx_nclk] = t;
+            fx_clk_p[fx_nclk++] = a;
+            fx_clk_until = t + 882u;
+        }
+    }
+}
+
+/* the bed's RMS in 100 ms windows, for the gusts */
+static float fx_env[700];
+static int fx_nenv;
+static void fx_envelope(const float *x, uint32_t n, uint32_t t0)
+{
+    uint32_t i;
+    float e = 0.0f;
+    (void)t0;
+    for (i = 0; i < n; i++)
+        e += x[i] * x[i];
+    if (fx_nenv < 700) /* 2205-sample blocks: 50 ms; pair them */
+        fx_env[fx_nenv++] = e;
+}
+
+static void test_fx_chain(void)
+{
+    double hf[4];
+    int d, fl, i, b, bad;
+    float peak, rate, rms;
+
+    /* dust: the highs fall as it rises */
+    for (d = 0; d < 4; d++)
+        hf[d] = fx_hf_energy(d);
+    printf("fx: energy above 6 kHz by dust %.3g %.3g %.3g %.3g\n", hf[0], hf[1], hf[2], hf[3]);
+    CHECK(hf[0] > 0.0 && hf[0] > hf[1] && hf[1] > hf[2] && hf[2] > hf[3], "dust: HF energy not falling 0 > 1 > 2 > 3");
+
+    /* wow and flutter: 2-15 cents peak at 0.3-6 Hz, at dust 1-3 in both flavors (FL_CHILLWAVE: the wobbly tape) */
+    for (fl = 0; fl < 2; fl++)
+        for (d = 0; d <= 3; d++) {
+            fx_wow(d, fl ? FL_CHILLWAVE : FL_LOFI, &peak, &rate);
+            printf("fx: wow dust %d %s: %.2f cents peak at %.2f Hz\n", d, fl ? "tape" : "vinyl", (double)peak,
+                   (double)rate);
+            if (d == 0)
+                CHECK(peak < 1.5f, "dust 0 should not wobble (%.2f cents)", (double)peak);
+            else {
+                CHECK(peak >= 2.0f && peak <= 15.0f, "wow dust %d flavor %d: %.2f cents peak", d, fl, (double)peak);
+                CHECK(rate >= 0.3f && rate <= 6.0f, "wow dust %d flavor %d: rate %.2f Hz", d, fl, (double)rate);
+            }
+        }
+
+    /* vinyl: clicks at 0.5-8 a second, and the loudest recur every 1.8 s +-5% (the rotation tick) */
+    rms = fx_bed_rms(1, 0, 20, NULL);
+    fx_thr = 8.0f * rms;
+    fx_nclk = 0;
+    fx_clk_until = 0;
+    fx_bed_rms(1, 0, 20, fx_clicks);
+    {
+        float top = 0.0f, rate_c = (float)fx_nclk / 20.0f;
+        int nt = 0, ok = 1;
+        uint32_t last = 0;
+        for (i = 0; i < fx_nclk; i++)
+            if (fx_clk_p[i] > top)
+                top = fx_clk_p[i];
+        for (i = 0; i < fx_nclk; i++)
+            if (fx_clk_p[i] >= 0.9f * top) {
+                if (nt) {
+                    float dt = (float)(fx_clk_t[i] - last) / 44100.0f;
+                    if (dt < 1.71f || dt > 1.89f)
+                        ok = 0;
+                }
+                last = fx_clk_t[i];
+                nt++;
+            }
+        printf("fx: vinyl rms %.5f, %d clicks in 20 s, %d rotation ticks\n", (double)rms, fx_nclk, nt);
+        CHECK(rate_c >= 0.5f && rate_c <= 8.0f, "vinyl: %.2f clicks a second", (double)rate_c);
+        CHECK(nt >= 10 && nt <= 12 && ok, "vinyl: %d rotation ticks, spaced 1.8 s +-5%%: %d", nt, ok);
+    }
+    /* tape: hiss, no clicks */
+    rms = fx_bed_rms(2, 0, 20, NULL);
+    fx_thr = 8.0f * rms;
+    fx_nclk = 0;
+    fx_clk_until = 0;
+    fx_bed_rms(2, 0, 20, fx_clicks);
+    printf("fx: tape rms %.5f, %d clicks\n", (double)rms, fx_nclk);
+    CHECK(rms > 1e-4f, "tape: no hiss (rms %.6f)", (double)rms);
+    CHECK(fx_nclk == 0, "tape: %d clicks", fx_nclk);
+    /* none: the bed is silent alone */
+    rms = fx_bed_rms(0, 0, 5, NULL);
+    CHECK(rms == 0.0f, "no bed: rms %.8f, wanted exactly 0", (double)rms);
+
+    /* rain: energy when on, none when off; gusts slow (the envelope's period at least 3 s) */
+    fx_nenv = 0;
+    rms = fx_bed_rms(0, 1, 60, fx_envelope);
+    CHECK(rms > 1e-4f, "rain: no wash (rms %.6f)", (double)rms);
+    {
+        float sm[700], mean = 0.0f;
+        int n = 0, changes = 0, sgn = 0, k;
+        for (i = 0; i + 10 <= fx_nenv; i += 2) { /* 100 ms windows, smoothed over 0.5 s */
+            float s = 0.0f;
+            for (k = 0; k < 10; k++)
+                s += fx_env[i + k];
+            sm[n++] = s;
+        }
+        for (i = 0; i < n; i++)
+            mean += sm[i] / (float)n;
+        for (i = 0; i < n; i++) {
+            int s = sm[i] > 1.1f * mean ? 1 : sm[i] < 0.9f * mean ? -1 : 0;
+            if (s && s != sgn) {
+                if (sgn)
+                    changes++;
+                sgn = s;
+            }
+        }
+        printf("fx: rain rms %.5f, gust envelope period %.1f s (%d changes)\n", (double)rms,
+               changes ? 2.0 * n * 0.1 / changes : 999.0, changes);
+        CHECK(changes >= 2, "rain: no gusts (the wash is flat)");
+        CHECK(changes == 0 || 2.0f * (float)n * 0.1f / (float)changes >= 3.0f, "rain: gusts too fast (%d changes in %d s)",
+              changes, n / 10);
+    }
+    rms = fx_bed_rms(1, 0, 5, NULL);
+    {
+        float both = fx_bed_rms(1, 1, 5, NULL), off = fx_bed_rms(1, 0, 5, NULL);
+        CHECK(off == rms && both != off, "rain off must leave the vinyl bed as it was, on must change it (%.6f vs %.6f)",
+              (double)both, (double)off);
+    }
+
+    /* the plate: an impulse decays below -60 dB within 4 s */
+    fx_fresh(0, 0, 0, FL_LOFI);
+    {
+        float wpk = 0.0f, late = 0.0f;
+        uint32_t t = 0;
+        for (b = 0; b < 5 * 44100 / 2205; b++) {
+            memset(fx_l, 0, 2205 * sizeof(float));
+            memset(fx_r, 0, 2205 * sizeof(float));
+            if (b == 0)
+                fx_r[0] = 1.0f;
+            fx_process(fx_l, fx_r, 2205, 0.0f);
+            for (i = 0; i < 2205; i++, t++) {
+                float a = fm_fabsf(fx_l[i]) > fm_fabsf(fx_r[i]) ? fm_fabsf(fx_l[i]) : fm_fabsf(fx_r[i]);
+                if (a > wpk)
+                    wpk = a;
+                if (t >= 4u * 44100u && a > late)
+                    late = a;
+            }
+        }
+        printf("fx: plate peak %.4f, after 4 s %.2e (%.1f dB)\n", (double)wpk, (double)late,
+               late > 0.0f ? 20.0 * (double)fm_log2f(late / wpk) * 0.30103 : -999.0);
+        CHECK(wpk > 1e-3f, "plate: no return from an impulse (%.5f)", (double)wpk);
+        CHECK(late < wpk * 1e-3f, "plate: %.2e after 4 s, not below -60 dB of %.4f", (double)late, (double)wpk);
+        /* no denormals: 10 s of silence, every stored state (the delay lines, the filters) exactly 0 or at least 1e-20
+           (fm_flush's floor), and no output sample a denormal */
+        bad = 0;
+        for (b = 0; b < 10 * 44100 / 2205; b++) {
+            memset(fx_l, 0, 2205 * sizeof(float));
+            memset(fx_r, 0, 2205 * sizeof(float));
+            fx_process(fx_l, fx_r, 2205, 0.0f);
+            for (i = 0; i < 2205; i++)
+                if ((fx_l[i] != 0.0f && fm_fabsf(fx_l[i]) < 1.2e-38f) || (fx_r[i] != 0.0f && fm_fabsf(fx_r[i]) < 1.2e-38f))
+                    bad++;
+        }
+        CHECK(bad == 0 && fx_tiny() == 0, "plate: %d tiny samples, %d tiny states after 10 s of silence", bad, fx_tiny());
+    }
+    /* no NaN after 60 s of random input, everything on, a random duck */
+    fx_fresh(3, 1, 1, FL_CHILLWAVE);
+    fx_seed = 4242u;
+    bad = 0;
+    for (b = 0; b < 60 * 44100 / 2205; b++) {
+        for (i = 0; i < 2205; i++) {
+            fx_l[i] = fx_white();
+            fx_r[i] = fx_white();
+        }
+        fx_process(fx_l, fx_r, 2205, 0.5f + 0.5f * fx_white());
+        for (i = 0; i < 2205; i++)
+            if (fx_l[i] != fx_l[i] || fx_r[i] != fx_r[i] || fm_fabsf(fx_l[i]) > 10.0f || fm_fabsf(fx_r[i]) > 10.0f)
+                bad++;
+    }
+    CHECK(bad == 0, "fx: %d NaN or runaway samples from 60 s of random input", bad);
+
+    /* ducking: light (0.5-2.5 dB) on the kick's body, gone on the 808's long tail */
+    for (d = 0; d < 4; d++) {
+        float ph = 0.0f, ref = 0.0f, lo = 1.0f, tail = 0.0f;
+        int blk;
+        fx_fresh(d, 0, 0, FL_LOFI);
+        for (blk = 0; blk < 2 * 44100 / 256; blk++) {
+            float t = (float)(blk - 172) * 256.0f / 44100.0f, env = blk < 172 ? 0.0f : fm_expf(-6.9078f * t / 2.2f), m = 0.0f;
+            for (i = 0; i < 256; i++) {
+                fx_l[i] = 0.2f * fm_sin_turns(ph);
+                fx_r[i] = 0.0f;
+                ph += 220.0f / 44100.0f;
+                if (ph >= 1.0f)
+                    ph -= 1.0f;
+            }
+            fx_process(fx_l, fx_r, 256, env);
+            for (i = 0; i < 256; i++)
+                if (fm_fabsf(fx_l[i]) > m)
+                    m = fm_fabsf(fx_l[i]);
+            if (blk >= 100 && blk < 172 && m > ref)
+                ref = m;
+            if (blk >= 172 && blk < 172 + 35 && m < lo)
+                lo = m;
+            if (blk >= 172 + 104) /* 0.6 s on: the 808's level is 0.15 */
+                tail = m;
+        }
+        lo /= ref;
+        tail /= ref;
+        printf("fx: duck dust %d: body %.2f dB, 0.6 s on %.2f dB\n", d, 20.0 * (double)fm_log2f(lo) * 0.30103,
+               20.0 * (double)fm_log2f(tail) * 0.30103);
+        CHECK(lo < 0.944f && lo > 0.75f, "duck dust %d: the body ducks %.3f, wanted -0.5..-2.5 dB", d, (double)lo);
+        CHECK(tail > 0.99f, "duck dust %d: still ducked %.3f on the 808's tail", d, (double)tail);
+    }
+
+    /* a dust change ramps: switching 0 -> 3 under a steady sine steps no more than the two steady states do */
+    {
+        float ph = 0.0f, prev = 0.0f, base = 0.0f, sw = 0.0f;
+        int pass, blk;
+        for (pass = 0; pass < 3; pass++) {
+            fx_fresh(pass == 1 ? 3 : 0, 0, 0, FL_LOFI);
+            for (blk = 0; blk < 4 * 44100 / 2205; blk++) {
+                if (pass == 2 && blk == 20)
+                    fx_configure(3, 0, 0, FL_LOFI);
+                for (i = 0; i < 2205; i++) {
+                    fx_l[i] = 0.3f * fm_sin_turns(ph);
+                    fx_r[i] = 0.0f;
+                    ph += 330.0f / 44100.0f;
+                    if (ph >= 1.0f)
+                        ph -= 1.0f;
+                }
+                fx_process(fx_l, fx_r, 2205, 0.0f);
+                for (i = 0; i < 2205; i++) {
+                    float dd = fm_fabsf(fx_l[i] - prev);
+                    prev = fx_l[i];
+                    if (blk < 2)
+                        continue;
+                    if (pass < 2 && dd > base)
+                        base = dd;
+                    if (pass == 2 && dd > sw)
+                        sw = dd;
+                }
+            }
+        }
+        printf("fx: dust switch max step %.4f (steady %.4f)\n", (double)sw, (double)base);
+        CHECK(sw <= base * 1.1f, "dust switch jumps: max step %.4f vs steady %.4f", (double)sw, (double)base);
+    }
+    /* a bed change crossfades: vinyl -> tape, the 100 ms just after is still near the level just before (+-3 dB) */
+    {
+        float a = 0.0f, c = 0.0f;
+        fx_fresh(0, 1, 0, FL_LOFI);
+        for (b = 0; b < 40; b++) { /* 3.7 s, 93 ms blocks */
+            memset(fx_l, 0, sizeof fx_l);
+            memset(fx_r, 0, sizeof fx_r);
+            if (b == 30)
+                fx_configure(0, 2, 0, FL_LOFI);
+            fx_process(fx_l, fx_r, 4096, 0.0f);
+            if (b == 29 || b == 30) {
+                float e = 0.0f;
+                for (i = 0; i < 4096; i++)
+                    e += fx_l[i] * fx_l[i];
+                *(b == 29 ? &a : &c) = e;
+            }
+        }
+        CHECK(c > a * 0.5f && c < a * 2.0f, "bed switch jumps: energy %.3g -> %.3g", (double)a, (double)c);
+    }
+    /* closing: the bed fades out and the chain goes quiet; exactly silent once faded */
+    fx_fresh(1, 1, 1, FL_LOFI);
+    for (b = 0; b < 20; b++) {
+        memset(fx_l, 0, sizeof fx_l);
+        memset(fx_r, 0, sizeof fx_r);
+        fx_process(fx_l, fx_r, 4096, 0.0f);
+    }
+    CHECK(fx_active(), "fx inactive with the bed open");
+    fx_close();
+    for (b = 0; b < 20; b++) {
+        memset(fx_l, 0, sizeof fx_l);
+        memset(fx_r, 0, sizeof fx_r);
+        fx_process(fx_l, fx_r, 4096, 0.0f);
+    }
+    bad = 0;
+    for (i = 0; i < 4096; i++)
+        bad += fx_l[i] != 0.0f || fx_r[i] != 0.0f;
+    CHECK(bad == 0 && !fx_active(), "bed closed: %d nonzero samples, active %d", bad, fx_active());
+}
+
+/* Seconds [from, from + secs) of song `seed` through the engine (its own bed off: noise and ambience forced to 0);
+   the RMS of l. */
+static float fx_song_rms(uint32_t seed, int from, int secs)
+{
+    static song_t s;
+    song_roll_t roll;
+    song_ev_t ev[64];
+    uint32_t done = 0, start = (uint32_t)from * 44100u, end = start + (uint32_t)secs * 44100u;
+    double e = 0.0;
+    roll_song(NULL, seed, &roll);
+    roll.v[RF_NOISE] = 0;
+    roll.v[RF_AMBIENCE] = 0;
+    vx_init();
+    song_start(&s, &roll);
+    vx_configure(&s.roll);
+    while (done < end && s.state == SS_PLAYING) {
+        int n = song_tick(&s, ev, 64), i;
+        uint32_t step = (uint32_t)song_step_samples(&s), left;
+        for (i = 0; i < n; i++)
+            vx_event(&ev[i]);
+        for (left = step; left;) {
+            uint32_t b = left < 4096 ? left : 4096, k;
+            memset(vt_l, 0, b * sizeof(float));
+            memset(vt_r, 0, b * sizeof(float));
+            vx_render(vt_l, vt_r, b);
+            for (k = 0; k < b; k++)
+                if (done + k >= start && done + k < end)
+                    e += (double)vt_l[k] * (double)vt_l[k];
+            done += b;
+            left -= b;
+        }
+    }
+    return fm_sqrtf((float)(e / (double)(end - start)));
+}
+
+/* the engine: the bed's level against real songs, the chain reached through vx_configure, tails past the voices */
+static void test_fx_engine(void)
+{
+    static const uint32_t seeds[] = {3, 77, 183, 904880372u};
+    static const int beds[][2] = {{1, 0}, {2, 0}, {0, 1}, {1, 1}, {2, 1}};
+    float bed[5];
+    int k, j, i, b;
+    for (j = 0; j < 5; j++)
+        bed[j] = fx_bed_rms(beds[j][0], beds[j][1], 10, NULL);
+    for (k = 0; k < 4; k++) {
+        float m = fx_song_rms(seeds[k], 40, 30);
+        for (j = 0; j < 5; j++) {
+            float db = 20.0f * fm_log2f(bed[j] / m) * 0.30103f;
+            printf("fx: seed %u music rms %.4f, bed %d/%d %.1f dB under\n", (unsigned)seeds[k], (double)m, beds[j][0],
+                   beds[j][1], (double)-db);
+            CHECK(db >= -30.0f && db <= -18.0f, "seed %u bed noise %d rain %d at %.1f dB, wanted -30..-18",
+                  (unsigned)seeds[k], beds[j][0], beds[j][1], (double)db);
+        }
+    }
+
+    /* vx_configure reaches the chain: rain plays with no voices, vx_release_all closes it */
+    {
+        song_roll_t roll;
+        float e = 0.0f;
+        roll_song(NULL, 5, &roll);
+        roll.v[RF_NOISE] = 0;
+        roll.v[RF_AMBIENCE] = 1;
+        vx_init();
+        vx_configure(&roll);
+        for (b = 0; b < 12; b++)
+            e = vt_block(4096, &i);
+        CHECK(e > 1e-4f, "vx_configure: the rain does not play (peak %.6f)", (double)e);
+        CHECK(vx_active() == 0 && vx_sounding(), "the bed sounds with no voices (active %d sounding %d)", vx_active(),
+              vx_sounding());
+        vx_release_all();
+        for (b = 0; b < 30; b++)
+            e = vt_block(4096, &i);
+        CHECK(e == 0.0f && !vx_sounding(), "vx_release_all: the bed still at %.6f, sounding %d", (double)e,
+              vx_sounding());
+
+        /* the plate outlives the voices: a chord, released; after the voices end it still sounds, then stops */
+        vx_init();
+        vx_configure(&roll);
+        vx_release_all(); /* the bed closed: only the plate's tail is left to hear */
+        for (k = 0; k < 4; k++)
+            vt_ev(V_CHORD, 60 + k * 4, 110, 0, 4410);
+        for (b = 0; b < 4; b++)
+            vt_block(4096, &i);
+        vx_release_all();
+        for (b = 0; b < 4 && vx_active(); b++)
+            vt_block(4096, &i);
+        e = vt_block(4096, &i);
+        CHECK(vx_active() == 0 && vx_sounding() && e > 1e-5f, "the plate's tail: active %d sounding %d peak %.6f",
+              vx_active(), vx_sounding(), (double)e);
+        for (b = 0; b < 120 && vx_sounding(); b++)
+            vt_block(4096, &i);
+        CHECK(!vx_sounding(), "the plate's tail never ends");
+
+        /* a stop: notes, bed and plate gone within 100 ms (below -90 dBFS), then nothing sounding */
+        vx_init();
+        roll.v[RF_NOISE] = 1;
+        vx_configure(&roll);
+        for (k = 0; k < 4; k++)
+            vt_ev(V_CHORD, 60 + k * 4, 110, 0, 441000);
+        for (b = 0; b < 30; b++)
+            vt_block(4096, &i);
+        vx_stop();
+        vt_block(2205, &i);
+        vt_block(2205, &i);
+        e = vt_block(4096, &i);
+        CHECK(e < 3.2e-5f && !vx_sounding(), "stop: %.2e left 100 ms on, sounding %d", (double)e, vx_sounding());
+    }
+}
+
 int main(void)
 {
     test_rng();
@@ -3075,6 +3612,8 @@ int main(void)
     test_vx_plucks_basses();
     test_vx_leads();
     test_drum_kits();
+    test_fx_chain();
+    test_fx_engine();
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;

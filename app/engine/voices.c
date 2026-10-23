@@ -5,14 +5,17 @@
    struck with, and voice_sample() dispatches on the patch's model: keys (M_EP), plucked strings (M_PLUCK), pads
    (M_PAD), bells (M_BELL), winds (M_WIND) and basses (M_BASS). A pitched
    note's level is the patch envelope: a natural decay (nat, from 1 toward sus) times a gate (g: a linear rise, a
-   smoothed fall), so a note-off, a steal or vx_release_all fades instead of clicking. Drums are a noise burst or a swept sine. Then the mix: a 5 kHz one-pole,
-   the dark low-pass, the song gain and the soft clip. Per-sample work is bounded by the fixed voice count. */
+   smoothed fall), so a note-off, a steal or vx_release_all fades instead of clicking. Drums are a noise burst or a
+   swept sine. Then the mix: the dark low-pass and the song gain on the music, each role's plate send (SEND) beside
+   it, then the lo-fi chain (fx.c: dust, ducking, the soft clip, the plate, the bed). Per-sample work is bounded by
+   the fixed voice count. */
 #include <stdint.h>
 #include <string.h>
 #include "fastmath.h"
 #include "library.h"
 #include "voices.h"
 #include "drums.h"
+#include "fx.h"
 
 #define QN 64
 #define NCH 4 /* chord voices */
@@ -25,12 +28,10 @@
 #define SR 44100.0f
 #define T60 6.9078f  /* ln 1000: time constants in a -60 dB time */
 #define OFF_THR 1e-3f
-#define MIX_LP 0.509f /* one-pole low-pass at 5 kHz on the mix */
 #define G_STEAL 0.02f /* gate fall per sample for a steal: below STEAL_THR in about 4 ms */
 #define STEAL_THR 0.02f
 #define AMP_K 0.01f /* bass level slew per sample (about 2 ms) */
-#define CLIP_T 0.4f /* soft clip: linear below, then a knee that approaches CLIP_L and never reaches it */
-#define CLIP_L 0.70f
+#define CHUNK 256 /* vx_render's blocks through the lo-fi chain */
 #define DARK_A 0.192f            /* the dark one-pole's coefficient at d = 1: 1.5 kHz */
 #define DARK_STEP (1.0f / 132300.0f) /* the dark ramp per sample: 0 to 1 in 3 s */
 #define KR_STOP (T60 / (0.04f * SR)) /* vx_release_all's release: 40 ms to -60 dB */
@@ -62,6 +63,10 @@ typedef struct {
     uint8_t first, count;
     float gain;
 } role_t;
+/* The plate's per-role sends (a fraction of the role's dry level): keys and lead wet, ear candy wetter, the bass dry,
+   the drums a touch. */
+static const float SEND[V_CANDY + 1] = {[V_CHORD] = 0.30f, [V_BASS] = 0.0f, [V_LEAD] = 0.35f, [V_CANDY] = 0.45f};
+#define SEND_DRUMS 0.06f
 static const role_t ROLES[V_CANDY + 1] = {
     [V_CHORD] = {0, NCH, 0.07f},
     [V_BASS] = {VB, 1, 0.17f},
@@ -124,7 +129,8 @@ static int qn;
 static voice_t fv[NV];
 static float ks[NV][VX_KS_N] VX_POOL; /* the Karplus-Strong lines, one per voice */
 static uint32_t age_ctr, rng = 0x1234567u;
-static float lp_y, gain, gain_tgt, gain_step;
+static float gain, gain_tgt, gain_step;
+static float ch_m[CHUNK], ch_s[CHUNK]; /* a chunk's music and plate send, into fx_process */
 static uint32_t gain_n;
 static vx_config_t cfg;
 static const vx_patch_t *role_pt[V_CANDY + 1]; /* the configured patch per pitched role, NULL for none */
@@ -155,7 +161,6 @@ void vx_init(void)
     qn = 0;
     age_ctr = 0;
     rng = 0x1234567u;
-    lp_y = 0.0f;
     gain = gain_tgt = 1.0f;
     gain_step = 0.0f;
     gain_n = 0;
@@ -167,6 +172,7 @@ void vx_init(void)
     vx_assign(V_CANDY, INS_MUSIC_BOX);
     cfg.kit = KIT_DUSTY;
     cfg.flavor = FL_LOFI;
+    fx_init();
 }
 
 void vx_assign(int voice, int ins)
@@ -197,7 +203,9 @@ void vx_configure(const song_roll_t *r)
     cfg.dust = (uint8_t)fm_clampf((float)r->v[RF_DUST], 0.0f, 3.0f);
     cfg.noise = (uint8_t)fm_clampf((float)r->v[RF_NOISE], 0.0f, 2.0f);
     cfg.ambience = (uint8_t)fm_clampf((float)r->v[RF_AMBIENCE], 0.0f, 1.0f);
-    /* Task 7: fx_configure(cfg.dust, cfg.noise, cfg.ambience, cfg.flavor) */
+    fx_configure(cfg.dust, cfg.noise, cfg.ambience, cfg.flavor);
+    if (!vx_active()) /* nothing to hear the dust ramp on */
+        fx_land();
 }
 
 const vx_config_t *vx_config(void)
@@ -717,63 +725,73 @@ static float voice_sample(voice_t *v)
     return o;
 }
 
-static void render_seg(float *l, float *r, uint32_t n)
+/* n samples of the music and the plate's send into m and s (mono): the voices, each role into the send at its own
+   level, the drums, the dark filter (on the music; the send stays open), the song gain on both */
+static void render_seg(float *m, float *s, uint32_t n)
 {
     uint32_t i;
-    int j;
+    int j, k;
     for (i = 0; i < n; i++) {
-        float x = 0.0f, g;
-        for (j = 0; j < NV; j++)
-            if (fv[j].on)
-                x += voice_sample(&fv[j]);
-        x += drums_sample();
-        lp_y += MIX_LP * (x - lp_y);
-        lp_y = fm_flush(lp_y);
+        float x = 0.0f, snd, d = drums_sample();
+        snd = d * SEND_DRUMS;
+        for (k = V_CHORD; k <= V_CANDY; k++) {
+            float y = 0.0f;
+            for (j = ROLES[k].first; j < ROLES[k].first + ROLES[k].count; j++)
+                if (fv[j].on)
+                    y += voice_sample(&fv[j]);
+            x += y;
+            snd += y * SEND[k];
+        }
+        x += d;
         if (dark != dark_tgt) /* the ramp: linear, landing exactly */
             dark = dark < dark_tgt ? fm_minf(dark + DARK_STEP, dark_tgt) : fm_maxf(dark - DARK_STEP, dark_tgt);
         if (dark > 0.0f) { /* the dark one-pole: open (a = 1) at 0, 1.5 kHz at 1 */
-            dk_y += (1.0f - dark * (1.0f - DARK_A)) * (lp_y - dk_y);
+            dk_y += (1.0f - dark * (1.0f - DARK_A)) * (x - dk_y);
             dk_y = fm_flush(dk_y);
         } else
-            dk_y = lp_y;
+            dk_y = x;
         if (gain_n) {
             gain += gain_step;
             if (--gain_n == 0)
                 gain = gain_tgt;
         }
-        g = gain;
-        x = dk_y < 0.0f ? -dk_y : dk_y; /* soft clip: |y| < CLIP_L whatever the sum */
-        if (x > CLIP_T) {
-            x -= CLIP_T;
-            x = CLIP_T + (CLIP_L - CLIP_T) * x / (x + (CLIP_L - CLIP_T));
-        }
-        if (dk_y < 0.0f)
-            x = -x;
-        l[i] += x * g;
-        r[i] += x * g;
+        m[i] = dk_y * gain;
+        s[i] = snd * gain;
     }
 }
 
+/* The mix, in chunks: the voices and drums (event starts sample-accurate) into the chunk's music and send, then the
+   lo-fi chain (fx.c: dust, ducking by the kick's envelope at the chunk's end, the plate, the clip, the bed). */
 void vx_render(float *l, float *r, uint32_t n)
 {
-    uint32_t pos = 0;
-    while (pos < n) {
-        int i, w = 0;
-        uint32_t seg = n - pos;
-        for (i = 0; i < qn; i++) { /* start what is due, keeping the order of the rest */
-            if (q[i].rem == 0)
-                fire(&q[i].e);
-            else
-                q[w++] = q[i];
+    uint32_t done = 0, c, k;
+    while (done < n) {
+        uint32_t pos = 0;
+        c = n - done < CHUNK ? n - done : CHUNK;
+        while (pos < c) {
+            int i, w = 0;
+            uint32_t seg = c - pos;
+            for (i = 0; i < qn; i++) { /* start what is due, keeping the order of the rest */
+                if (q[i].rem == 0)
+                    fire(&q[i].e);
+                else
+                    q[w++] = q[i];
+            }
+            qn = w;
+            for (i = 0; i < qn; i++)
+                if (q[i].rem < seg)
+                    seg = q[i].rem;
+            render_seg(ch_m + pos, ch_s + pos, seg);
+            for (i = 0; i < qn; i++)
+                q[i].rem -= seg;
+            pos += seg;
         }
-        qn = w;
-        for (i = 0; i < qn; i++)
-            if (q[i].rem < seg)
-                seg = q[i].rem;
-        render_seg(l + pos, r + pos, seg);
-        for (i = 0; i < qn; i++)
-            q[i].rem -= seg;
-        pos += seg;
+        fx_process(ch_m, ch_s, c, drums_kick_env());
+        for (k = 0; k < c; k++) {
+            l[done + k] += ch_m[k];
+            r[done + k] += ch_s[k];
+        }
+        done += c;
     }
 }
 
@@ -787,6 +805,13 @@ void vx_release_all(void)
     }
     drums_release();
     qn = 0;
+    fx_close(); /* the bed fades out; the plate rings on */
+}
+
+void vx_stop(void)
+{
+    vx_release_all();
+    fx_stop();
 }
 
 void vx_set_gain(float g)
@@ -802,6 +827,11 @@ int vx_active(void)
     for (i = 0; i < NV; i++)
         c += fv[i].on;
     return c + drums_active();
+}
+
+int vx_sounding(void)
+{
+    return vx_active() + fx_active();
 }
 
 void vx_set_kit(int kit)

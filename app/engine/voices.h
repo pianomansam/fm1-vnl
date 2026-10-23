@@ -13,14 +13,16 @@
 #define VX_KS_N 1072
 
 /* The song's sound: one instrument per pitched role (INS_*; INS_NONE silences the role), the kit, the flavor and the
-   lo-fi chain's fields (dust 0-3, noise 0-2, ambience 0-1; stored for the chain, Task 7). */
+   lo-fi chain's fields (dust 0-3, noise 0-2, ambience 0-1). */
 typedef struct { uint8_t chords, bass, lead, candy, kit, flavor, dust, noise, ambience; } vx_config_t;
 
 /* Everything silent and cleared; the config back to its defaults (Rhodes, sub, vibes, music box; dusty kit, no
-   chain), the dark filter open. */
+   chain: fx_init), the dark filter open. */
 void vx_init(void);
-/* At song start, before the first event: the set's instruments, kit and flavor, and the roll's RF_DUST, RF_NOISE and
-   RF_AMBIENCE. Notes already sounding keep the instrument they were struck with through their release. */
+/* At song start, before the first event, and again when a request changes one of these mid-song: the set's
+   instruments, kit and flavor, and the roll's RF_DUST, RF_NOISE and RF_AMBIENCE into the lo-fi chain (fx.h: the bed
+   opens; dust and bed changes ramp, the dust landing at once if no voice sounds). Notes already sounding keep the
+   instrument they were struck with through their release. */
 void vx_configure(const song_roll_t *r);
 /* One pitched role's instrument (voice V_CHORD, V_BASS, V_LEAD or V_CANDY; others ignored). */
 void vx_assign(int voice, int ins);
@@ -38,11 +40,17 @@ void vx_set_dark(float d);
 void vx_event(const song_ev_t *e);
 /* Adds the mix into l and r (sample-accurate event starts). */
 void vx_render(float *l, float *r, uint32_t n);
-/* Every voice into release (about 40 ms), the queue cleared. */
+/* Every voice into release (about 40 ms), the queue cleared; the bed fades out (FX_RAMP_S), the plate rings on: the
+   song's end. */
 void vx_release_all(void);
+/* vx_release_all, and the bed and the plate's tail out in 40 ms too: a stop, true silence. */
+void vx_stop(void);
 /* The song's level ramp: g is clamped to [0, 1], reached linearly (exactly) over 20 ms. */
 void vx_set_gain(float g);
 /* Voices still sounding (queued events not counted). */
 int vx_active(void);
+/* Anything still to hear: voices, or the chain (the bed open or fading, the plate's tail). The app renders while
+   this is nonzero and clears the engine (vx_init) at a song's start only when it is 0. */
+int vx_sounding(void);
 
 #endif
