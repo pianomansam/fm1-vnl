@@ -391,8 +391,8 @@ void app_init(void)
             song_set_bass_spike(sp ? *sp - '0' : 0);
         }
         {
-            const char *fx = getenv("VNL_FX");     /* VNL_FX=rings: Rings' reverb and chorus (the head-to-head) */
-            fx_rings(fx && !strcmp(fx, "rings"));
+            const char *fx = getenv("VNL_FX");     /* VNL_FX=ours: our plate and chorus in place of Rings' (compare) */
+            fx_rings(!(fx && !strcmp(fx, "ours")));
         }
         {
             const char *bd = getenv("VNL_BED");    /* VNL_BED=0: no surface noise or rain, to hear the music */

@@ -3703,7 +3703,10 @@ static void test_fx_engine(void)
             }
         }
         printf("fx: seed 12's chorus, delay and plate alone vs after song 11: max difference %.2e\n", (double)wworst);
-        CHECK(wworst < 1e-5f, "a seed's chorus/delay/plate depend on the song before it (max difference %.2e)",
+        /* (Rings' reverb, the default: its 16-bit memory rounds the last song's faded tail into the new one's, a
+           residue near -89 dBFS that float lines would not keep; inaudible, under the bed, so -80 dBFS is the bound.
+           Our float plate, fx_rings(0), stays under 1e-5.) */
+        CHECK(wworst < 1e-4f, "a seed's chorus/delay/reverb depend on the song before it (max difference %.2e)",
               (double)wworst);
     }
     }
@@ -4527,6 +4530,38 @@ static void test_cost_moves(void)
     printf("half rate: worst band difference %.2f dB, worst off-partial peak %.1f dB\n", (double)worst_band,
            (double)worst_alias);
 
+    /* the Wurli's bark (the only noise in a half-rate voice; the pads have none): its level over the first 40 ms, as
+       the difference of two renders whose noise differs (a silent guitar-lick pluck first draws from the noise), is
+       within 0.5 dB of the full rate's, over three notes and two velocities */
+    {
+        static const int BN[3] = {48, 60, 67}, BV[2] = {100, 127};
+        double eb[2] = {0.0, 0.0};
+        int full, nn, vv, pass;
+        for (full = 0; full < 2; full++)
+            for (nn = 0; nn < 3; nn++)
+                for (vv = 0; vv < 2; vv++) {
+                    for (pass = 0; pass < 2; pass++) {
+                        vx_fx_off(full ? VX_OFF_HALF : 0u);
+                        vx_init();
+                        vx_assign(V_CHORD, INS_WURLI);
+                        vx_assign(V_LEAD, INS_GUITAR_LICK);
+                        if (pass)
+                            vt_ev(V_LEAD, 60, 0, 0, 100);
+                        vt_ev(V_CHORD, BN[nn], BV[vv], 0, 8820);
+                        memset(vt_l, 0, 1764 * sizeof(float));
+                        memset(vt_r, 0, 1764 * sizeof(float));
+                        vx_render(vt_l, vt_r, 1764);
+                        memcpy(pass ? cm_y : cm_x, vt_l, 1764 * sizeof(float));
+                    }
+                    for (b = 0; b < 1764; b++)
+                        eb[full] += (double)(cm_x[b] - cm_y[b]) * (double)(cm_x[b] - cm_y[b]);
+                }
+        vx_fx_off(0u);
+        printf("half rate: the Wurli's bark %.2f dB against the full rate's\n", (double)db_of(eb[0] / eb[1]));
+        CHECK(eb[1] > 0.0 && fm_fabsf(db_of(eb[0] / eb[1])) <= 0.5f,
+              "half rate: the Wurli's bark %.2f dB from the full rate's", (double)db_of(eb[0] / eb[1]));
+    }
+
     /* the dust's fast path: at dust 0 and 1 (both flavors) the chain's output matches the full path within -80 dB
        (error RMS and peak against the music's), and exactly over silence; and through the wow coming on and going
        off under steady music (dust 2 in DL: 0 ramping to 1 from 0.05 s; 3: 1 ramping to 0, then back to 1 at 1.7 s) */
@@ -4582,11 +4617,13 @@ static void test_cost_moves(void)
             }
     }
 
-    /* the plate's tail: per octave band below 3 kHz within 1.5 dB of the third-rate plate (its decay under -60 dB in
-       4 s and the denormal checks are test_fx_chain's) */
+    /* our plate's tail (fx_rings(0): host only, Rings' reverb is the default): per octave band below 3 kHz within
+       1.5 dB of the third-rate plate (its decay under -60 dB in 4 s and the denormal checks are test_fx_chain's on
+       Rings' reverb, and test_rings_pair's on both) */
     {
         uint32_t t;
         float d;
+        fx_rings(0);
         fx_fresh(0, 0, 0, FL_LOFI);
         for (t = 0; t < 2u * 44100u; t += 2205u) {
             memset(fx_l, 0, 2205 * sizeof(float));
@@ -4607,11 +4644,12 @@ static void test_cost_moves(void)
             CHECK(fm_fabsf(d - PLATE_REF[b]) <= 1.5f, "plate tail: band %.0f-%.0f Hz at %.2f dB, the third-rate %.2f dB",
                   (double)lo, (double)(2.0f * lo), (double)d, (double)PLATE_REF[b]);
         }
+        fx_rings(1);
     }
 }
 
-/* Task 7c's head-to-head: Rings' reverb and chorus (fx_rings, host-only) through the plate's impulse, denormal and
-   random-input tests; the reverb tuned to the plate (its -60 dB time within 10%, its tail's energy 0.1-1 s within
+/* Task 7c's head-to-head: Rings' reverb and chorus (the default since Sam's pick; ours is fx_rings(0), host only)
+   through the plate's impulse, denormal and random-input tests; the reverb tuned to the plate (its -60 dB time within 10%, its tail's energy 0.1-1 s within
    1 dB); the chorus's dry scale. */
 static float rp_t60(int rings, double *tail)
 {
@@ -4645,7 +4683,7 @@ static float rp_t60(int rings, double *tail)
         if (t35 < 0 && db < -35.0f)
             t35 = (int)i;
     }
-    fx_rings(0);
+    fx_rings(1);
     return (float)(t35 - t5) * (2.0f / 44100.0f);
 }
 
@@ -4698,7 +4736,6 @@ static void test_rings_pair(void)
     fx_chorus(0.6f);
     CHECK(fm_fabsf(fx_chorus_dry() - 0.7f) < 1e-6f, "rings: the chorus's dry at 0.6 is %.3f, wanted Rings' 0.7",
           (double)fx_chorus_dry());
-    fx_rings(0);
 }
 
 int main(void)

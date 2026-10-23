@@ -41,6 +41,7 @@ the roll, which only means something from Task 7 on; before it, the plain and fo
 | 7b, chain forced | 0df8ddc | 0.905 | 0.872 | 1.014 | 0.948 | 0.935 | 130.0 | |
 | 7c half-rate keys and pads, dust fast path, quarter-rate plate | 7c | 0.725 | 0.670 | 0.757 | 0.680 | 0.708 | 99.5 | -0.214 |
 | 7c, chain forced | 7c | 0.748 | 0.687 | 0.766 | 0.680 | 0.720 | 101.2 | -0.215 |
+| 7c with Rings' reverb and chorus (Sam's pick, the default), forced | 7c fix | 0.787 | 0.734 | 0.814 | 0.731 | 0.767 | | +0.047 |
 
 Reading it:
 
@@ -169,6 +170,13 @@ went from 28.5 to 24.3 ms (about 0.03): 26.8 ms with the dust's fast path and th
 still interpolated with a multiply each (the 12-sample cycle needs a second interpolation, which ate most of the
 plate's saving), then 24.3 ms with the interpolation as running steps. Dust 1 and 3: 30.9 to 26.4 and 32.2 to 27.8 ms.
 
+**Move 3 on its own, measured.** The chain alone is also a `--parts` row now ("chain alone (dust 0)"; the same
+setup, best of 11): 28.4 ms at 0df8ddc, 25.6 ms with our plate after move 3, a saving of **0.021** of a ratio. That
+is under the shortlist's 0.05 to 0.1 for move 3, and under the brief's gate (half of 0.05, 0.025): move 3 delivered
+about 0.02, not 0.05. (The idle floor's fall, 0.171 to 0.093, is mostly not move 3: it came with moves 1 and 2, from
+skipping the voices and the drums while nothing sounds, and is real only in silence.) With Rings' reverb and chorus,
+now the default, the chain alone is 29.8 ms, 0.010 above 0df8ddc's: the reverb's choice gives back move 3's saving.
+
 ### The forced maximum, before and after
 
 | Seed | Before (0df8ddc) | After (7c) | Forced before | Forced after |
@@ -180,14 +188,20 @@ plate's saving), then 24.3 ms with the interpolation as running steps. Dust 1 an
 | heaviest of 200 (picker) | 128 at 1.023 (the Task 7b run) | | | 128 at 0.775 |
 
 The heaviest seed is back inside the budget with about 0.23 of headroom, against the shortlist's estimate of 0.3 to
-0.35 for moves 1 and 3: the estimate assumed a song's chords are all Rhodes; seed 128 is not.
+0.35 for moves 1 and 3: the estimate assumed a song's chords are all Rhodes; seed 128 is not. With Rings' reverb and
+chorus (the default since the head-to-head below) seed 128 forced is 0.814 (our pair, same run: 0.785): about 0.19 of
+headroom.
 
 ### The gate
 
-`tools/cost-gate.sh BEFORE.txt [AFTER.txt]` checks the brief's measured gate: the Rhodes, felt piano and Wurli rows
-each drop by at least 0.10, the pad and vox pad by 0.05 and the idle floor by 0.025 (half the shortlist's lower
-estimates). Against 0df8ddc: Rhodes -0.226, felt -0.189, Wurli -0.161, pad -0.063, vox pad -0.101, idle floor -0.078.
-The pad clears its gate narrowly on the net rows because of the floor's shift; its total dropped 0.141.
+`tools/cost-gate.sh BEFORE.txt [AFTER.txt]` checks the brief's measured gate, half the shortlist's lower estimates:
+moves 1 and 2 on the Rhodes, felt piano and Wurli rows (0.10 each) and the pad and vox pad (0.05); move 3 on the chain
+alone (0.025). The idle floor is printed, not gated. Both sides are divided by the before run's AMB-1 time (it drifts
+up to 10% between runs on a busy host). Against 0df8ddc, with our plate (`VNL_FX=ours`): Rhodes -0.211, felt -0.176,
+Wurli -0.147, pad -0.064, vox pad -0.107: ok; **the chain alone -0.021: below the estimate** (the gate reports it so,
+and exits 1). With Rings' pair, the default: the chain alone +0.010. The pad's margin is smaller than its total
+suggests (its total dropped 0.141): the net rows subtract a floor that fell with the silence skip, which raises every
+net row, so the floor's shift shrinks the pad's net saving, not the other way round.
 
 ### Head-to-head: Rings' reverb and chorus against our plate and chorus
 
@@ -199,7 +213,9 @@ taps give L = R from a mono input, and the chords' bus is mono. The reverb's set
 diffusion (0.625) and FX_REVERB damping (about 2.7 kHz), a reverb time of 0.485 for the plate's -60 dB time, an input
 gain of 4 (our sends peak near 0.05; Rings' 0.2 is for full-scale input) and the return matched to the plate's tail
 energy. The chorus maps the chords patch's chorus p to Rings' amount p and depth 0.15 + 0.5 p, its dry to 1 - p/2.
-`VNL_FX=rings` switches the pair in on the host (the app, the bench); the device and web images leave it out.
+Sam's pick by ear (the no-bed renders): **Rings' pair is the default on every build** ("ours sounds more like an
+echo"); ours stays on the host only, `VNL_FX=ours` (the app, the bench), for comparison, and the device and web
+images leave the plate's ring out.
 
 | | Ours (plate, chorus) | Rings (reverb, chorus) |
 |---|---|---|
@@ -207,22 +223,20 @@ energy. The chorus maps the chords patch's chorus p to Rings' amount p and depth
 | Full chain over the source, net | 0.133 | 0.164 |
 | The chain alone, 60 s: reverb only / with the chorus at 0.7 | 25.2 / 26.3 ms | 28.6 / 31.0 ms |
 | Forced, seeds 20 / 100 / 128 / 183 | 0.750 / 0.698 / 0.775 / 0.693 | 0.787 / 0.734 / 0.821 / 0.731 |
-| Memory (pool) | 64 KB plate ring + 1 KB chorus line | 16 KB reverb (8192 x 16 bit) + 1 KB chorus line |
+| Memory (pool) | 64 KB plate ring + 1 KB chorus line | 16 KB reverb (8192 x 16 bit) + 1 KB chorus line; the device's pool 210616 -> 162492 B |
 | Impulse below -60 dB within 4 s; no denormals; 60 s of random input | pass | pass |
 | -60 dB time; tail energy 0.1 to 1 s | 1.71 s; reference | 1.66 s; -0.06 dB |
 | Tail spectrum and stereo | Dattorro's output taps; L/R correlation -0.02 | the two loops' outputs; 0.01, more early energy (+0.9 dB in the first 0.1 s) |
 | Chorus on a Rhodes chord at 0.7: L/R correlation; wobble | 0.930; +-7.9 cents at 0.53 Hz | 0.854; +-14.0 cents at 0.83 Hz |
-| A seed's wet after another song, against alone (Task 7b's test, < 1e-5) | 3e-8, pass | 3.5e-5 (-89 dBFS), fails: 16-bit rounding carries the last song's tail |
+| A seed's wet after another song, against alone (Task 7b's test) | 3e-8 | 3.5e-5 (-89 dBFS): 16-bit rounding carries the last song's tail; the test's bound is now -80 dBFS (inaudible, under the bed) |
 | Renders (seeds 904880372, 4185943442, 3228541874): RMS; peak; side/mid | -23.1, -30.3, -19.6 dBFS; -7.8, -8.2, -7.3; -23.6, -15.1, -25.4 dB | within 0.1 dB; 0.1 dB; 0.4 dB |
 
 Reading it: ours is cheaper in CPU (Rings' 16-bit reads and writes, a float-int conversion and a clip each, cost more
 than they save on the host; its chorus reads four taps to our two), Rings' is cheaper in memory (48 KB less pool).
-CPU is the binding constraint here and the pool has about 95 KB to spare, so **ours stays the default**. The sound differs
-clearly in the chorus (Rings' wobbles about twice as far and spreads wider) and in kind in the reverb (no output
-taps, its long delays modulated: a shimmer), at the same level and decay. Rings' pair stays a host-only switch for
-Sam to compare by ear (`app/build/new/<seed>-ours/` and `-rings/`); if it is chosen, the 16-bit determinism test
-needs a -80 dB tolerance, and its CPU cost should be measured on the device, where float-int conversions may be
-cheaper than on the host.
+The sound differs clearly in the chorus (Rings' wobbles about twice as far and spreads wider) and in kind in the
+reverb (no output taps, its long delays modulated: a shimmer), at the same level and decay. Sam chose Rings' by ear,
+so it is the default: it costs about 0.03 to 0.05 per song on the host (seed 128 forced 0.814 against 0.785), still
+under the budget, and should be measured on the device, where float-int conversions may be cheaper than here.
 
 ## The three biggest costs
 

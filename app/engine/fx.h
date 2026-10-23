@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* The lo-fi chain and the bed (see fx.c): dust colors the music, a small plate reverb takes per-role sends from the
-   voices, a chorus takes the chords' bus and a tape delay its own sends, and the bed (surface noise and ambience)
-   sits beside them, neither dusted nor filtered. Float only, seeded noise, no malloc. */
+/* The lo-fi chain and the bed (see fx.c): dust colors the music, a reverb takes per-role sends from the voices, a
+   chorus takes the chords' bus and a tape delay its own sends, and the bed (surface noise and ambience) sits beside
+   them, neither dusted nor filtered. The reverb and the chorus are Rings' (rings_fx.c); on the host, fx_rings(0) puts
+   our plate and chorus in their place. "The plate" below names the reverb's slot, whichever fills it. Float only,
+   seeded noise, no malloc. */
 #ifndef ENGINE_FX_H
 #define ENGINE_FX_H
 #include <stdint.h>
@@ -49,8 +51,9 @@ float fx_chorus_dry(void);
 void fx_tempo(float bpm);
 /* Tests and the cost bench: the delay off (not run; its input ignored). Kept through fx_init. */
 void fx_wet_off(int delay_off);
-/* The host's head-to-head (VNL_FX=rings): Rings' reverb and chorus (rings_fx.c) in place of the plate and our chorus
-   (1), or ours (0, the default). A switch starts the new pair silent. Kept through fx_init. */
+/* The reverb and chorus: Rings' (rings_fx.c; 1, the default) or, on the host only, our plate and chorus (0, VNL_FX=ours,
+   for comparison; the device and web images have only Rings'). A switch starts the new pair silent. Kept through
+   fx_init. */
 void fx_rings(int on);
 /* Tests: the dust's fast path on (1, the default) or off (0: every stage runs, the reference). Kept through fx_init. */
 void fx_fast(int on);

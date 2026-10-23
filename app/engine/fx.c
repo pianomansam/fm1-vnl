@@ -28,14 +28,23 @@
    sixth (7.35 kHz), each output interpolated linearly; the wet inputs come summed per pair of samples
    (fx_process_pairs). The plate is one masked ring; the dust's parameters and LFOs move at a control rate of CR
    samples. Dust changes ramp over FX_RAMP_S through a continuous dust value (the parameters interpolate between the
-   levels' tables). Noise is a seeded xorshift; every decaying state is flushed. On the host, fx_rings (VNL_FX=rings)
-   puts Rings' reverb and chorus (rings_fx.c) in the plate's and the chorus's slots, for a head-to-head by ear. */
+   levels' tables). Noise is a seeded xorshift; every decaying state is flushed.
+   The reverb and the chorus are Rings' (rings_fx.c; Sam's pick in Task 7c's head-to-head: "ours sounds more like an
+   echo"), in the slots described above for the plate and our chorus. Ours stays on the host only, for comparison
+   (fx_rings(0), VNL_FX=ours); the device and web images leave the plate's ring out. */
 #include <stdint.h>
 #include <string.h>
 #include "fastmath.h"
 #include "library.h"
 #include "fx.h"
 #include "rings_fx.h"
+
+/* our plate and chorus, kept on the host for comparison (fx_rings) */
+#if (defined PLAT_HOST || defined __APPLE__) && !defined PLAT_WEB
+#define FX_OURS 1
+#else
+#define FX_OURS 0
+#endif
 
 #if defined PLAT_HOST || defined __APPLE__
 #define FX_POOL
@@ -156,7 +165,8 @@ static const int DL_LEN[L_N] = {PRE_N, HS(142), HS(107), HS(379), HS(277), HS(67
                                 HS(3720), HS(908) + EXC + 2, HS(4217), HS(2656), HS(3163)};
 /* One ring for every line (as Mutable Instruments' FxEngine): a single write position pw, falling one per step; line
    k lives at offsets [pl_base[k], pl_base[k] + DL_LEN[k] + 1) from it, so a read or a write is an add and a mask. */
-#define PL_N 16384u          /* a power of two above the lines' sum (8.5 k) */
+#define PL_N (FX_OURS ? 16384u : 1u) /* a power of two above the lines' sum (8.5 k); one sample where ours is left out
+                                        (plate_step never runs there) */
 #define PL_DECAY 0.5f        /* a small plate: about 1.8 s to -60 dB */
 #define PL_DD2 0.5f
 #define PL_OUT_4 0.65f       /* the return over four taps a side (AMB-1: 0.6 over seven) */
@@ -166,7 +176,7 @@ static uint32_t pl_base[L_N], pw;
 static float pl_bw, pl_damp_l, pl_damp_r, lfo_s, lfo_c = 1.0f;
 static float pl_acc, pl_wl0, pl_wl1, pl_wr0, pl_wr1, pl_peak;
 static uint8_t pl_open;
-static uint8_t rings;   /* fx_rings: Rings' reverb and chorus in place of the plate and our chorus */
+static uint8_t rings = 1; /* Rings' reverb and chorus (the default), or (fx_rings(0), host only) our plate and chorus */
 static float og = 1.0f; /* the plate's return level: 1, or falling to 0 after fx_stop */
 static uint8_t stopping;
 
@@ -454,7 +464,7 @@ float fx_chorus_dry(void)
 
 void fx_rings(int on)
 {
-    on = RFX_ON && on != 0; /* (host-only: see rings_fx.h) */
+    on = !FX_OURS || on != 0; /* (ours is host-only) */
     if (on != rings) { /* the other pair starts silent */
         rings = (uint8_t)on;
         plate_clear();

@@ -4,6 +4,7 @@
 #   ./new-song.sh          a fresh seed
 #   ./new-song.sh SEED     replay a song by the seed its log prints
 #   BED=0 ./new-song.sh    no surface noise or rain (VNL_BED)
+#   VNL_FX=ours ./new-song.sh   our plate and chorus in place of Rings' reverb and chorus (the default), to compare
 #   BASS=0 ./new-song.sh   the groove's own bass rhythm instead of the bass spike (VNL_BASS: 1 a rhythm cell per song,
 #                          2 the kick's, 3 half notes on 1 and 3, 4 beats 1 and 2, 5 beats 1, 2 and 4)
 set -e

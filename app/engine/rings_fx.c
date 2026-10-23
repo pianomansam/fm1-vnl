@@ -17,7 +17,7 @@
    OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 /* Rings' reverb (the Griesinger topology from Dattorro's paper: four allpass diffusers, then two loops of two
    allpasses and a delay, crossed, the long delays read with a slow LFO) and its chorus (one line, two taps a side in
-   quadrature on two slow LFOs), as C99 for VNL-1. As Rings: 16-bit delay memory (stored as int16, scaled by 32768,
+   quadrature on two slow LFOs), as C99 for VNL-1: the lo-fi chain's reverb and chorus. As Rings: 16-bit delay memory (stored as int16, scaled by 32768,
    truncated and clipped), all lines in one ring whose write position falls one a step. Changed for VNL-1: the delay
    lengths and LFO rates rescaled from Rings' 48 kHz to the rate each runs at here (the reverb at our plate's 11.025
    kHz, x 0.2297; the chorus at our chorus's 7.35 kHz, x 0.1531); the LFOs as rotating phasors, every step; the
@@ -27,7 +27,6 @@
 #include <string.h>
 #include "fastmath.h"
 #include "rings_fx.h"
-#if RFX_ON
 
 #if defined PLAT_HOST || defined __APPLE__
 #define RFX_POOL
@@ -213,6 +212,3 @@ int rfx_tiny(void)
         c += st[i] != 0.0f && fm_fabsf(st[i]) < 1e-20f;
     return c;
 }
-#else
-typedef int rfx_off_t; /* (not built for the device) */
-#endif
