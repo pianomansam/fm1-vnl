@@ -174,6 +174,8 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   (authored figures over chord-tone indexes, lanes for rhythm/octave/accent/gate, phrase repetition A A A′ B with
   looped variation, rank-based thinning by motion) serving the lead and the comping (today's 16th-note comping
   arpeggio, and the guitar strumming idea below), each with its own figure library and register.
+  **Before applying it, walk Sam through all the research again (arpeggiators.md and fm1-accompaniment-code.md),
+  separated into accompaniment and lead** (Sam, 2026-10-23), then design each.
 - **A cap on how busy the lead can get (Sam, 2026-10-23: "I will also want to work towards putting a limit on how
   busy it can get").** After the hybrid follows the motion lever (lead plan Task 6): a ceiling on onsets per bar or
   per phrase, whatever the motion.
