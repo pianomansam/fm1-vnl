@@ -289,3 +289,11 @@ From the task and final reviews; none blocks merging. Revisit when the area is n
 - **Task 8:** quiet blocks allowed +1 dB over full band (brief: never louder); 044f590 alone breaks the web build (squash with a803785 before merging?); glue test margins brittle by design; glue's reduction doesn't reach the reverb return (wet rises 1–3 dB in dense passages); voices.c includes harmony.h for keys_gain (engine→song dependency); stale log paths in 2-set4 and -nobed renders.
 - **Task 8:** picker time stated inconsistently (~25 s vs 40 s); a long line in docs/cost.md; an older cost.md paragraph keeps pre-fix seed-7 numbers as history.
 - **Final:** squash 044f590 with a803785 (web build) — not done (history rewrite; Sam's call at merge); memsets in the ISR at song start (~52 KB on device) — measure on device; unused plate/our-chorus code and ~1 KB pool on device; plus the earlier deferred minors the final review triaged as "To revisit".
+
+### Synths and levels: to judge by ear (mix-synths, 2026-10-23)
+
+- Two old-set instruments moved for the lead-over-keys rule: the muted trumpet +1.0 dB, the felt piano +0.6 dB.
+- Glide: a mono synth glides from a note that ended under 25 ms earlier, within a 4th (21–58% of note changes);
+  a glide after silence re-attacks over the patch's attack and does not re-strike the filter envelope.
+- Thin level margins (a future voice change needs a rebalance): Felt and trumpet's median 5.9 of 6 dB; the lowest
+  songs +2.4/+2.5 dB; Felt and flute's mean 4.3. All rulings: docs/superpowers/plans/2026-10-23-synths-ledger.md.
