@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 /* Formant filters adapted from AMB-1 (fm1-amb), MPL-2.0. */
-/* Voices and mix (see voices.h). The pitched roles are pools of voices (chords 4, lead 2, candy 2) plus the mono
-   bass; each voice keeps the patch it was struck with, and voice_sample() dispatches on the patch's model: the keys
-   (M_EP) and pads (M_PAD) have their own; the rest fall back to the FM voice until Tasks 4-5 add theirs. A pitched
+/* Voices and mix (see voices.h). The pitched roles are pools of voices: chords 4, lead 2, candy 2 and the bass, a
+   mono pool of 1 whose level slews (AMP_K) and whose M_BASS retriggers are legato. Each voice keeps the patch it was
+   struck with, and voice_sample() dispatches on the patch's model: keys (M_EP), plucked strings (M_PLUCK), pads
+   (M_PAD) and basses (M_BASS) have their own; the bells and winds fall back to the FM voice until Task 5. A pitched
    note's level is the patch envelope: a natural decay (nat, from 1 toward sus) times a gate (g: a linear rise, a
    smoothed fall), so a note-off, a steal or vx_release_all fades instead of clicking. Drums are a noise burst or a swept sine. Then the mix: a 5 kHz one-pole,
    the dark low-pass, the song gain and the soft clip. Per-sample work is bounded by the fixed voice count. */
@@ -17,6 +18,8 @@
 #define NLD 2 /* lead voices */
 #define NCD 2 /* candy voices */
 #define NFM (NCH + NLD + NCD)
+#define VB NFM       /* the bass voice: fv[VB] */
+#define NV (NFM + 1) /* every pitched voice */
 #define INV_SR (1.0f / 44100.0f)
 #define SR 44100.0f
 #define T60 6.9078f  /* ln 1000: time constants in a -60 dB time */
@@ -34,23 +37,33 @@
 #define STRIKE_T60 0.25f /* the EP strike's fade */
 #define BARK_T60 0.04f   /* the Wurli bark's fade */
 #define BARK_LP 0.3f     /* the bark's one-pole on the noise: about 2.5 kHz */
+#define IDX_K 0.02f      /* the electric bass's index slew per sample (about 1 ms): a legato restrike doesn't step */
 
-/* The pool roles: their voices fv[first .. first+count) and level. The bass is its own mono voice (BASS_GAIN). */
+/* big zero-initialised buffers go in the device's .pool RAM region (fm1-base's PLAT_POOL; a Mach-O host has no such
+   section) */
+#if defined PLAT_HOST || defined __APPLE__
+#define VX_POOL
+#else
+#define VX_POOL __attribute__((section(".pool")))
+#endif
+
+/* The pool roles: their voices fv[first .. first+count) and level. */
 typedef struct {
     uint8_t first, count;
     float gain;
 } role_t;
 static const role_t ROLES[V_CANDY + 1] = {
     [V_CHORD] = {0, NCH, 0.07f},
+    [V_BASS] = {VB, 1, 0.17f},
     [V_LEAD] = {NCH, NLD, 0.075f},
     [V_CANDY] = {NCH + NLD, NCD, 0.055f},
 };
-#define BASS_GAIN 0.17f
 
 /* A pooled voice. The envelope fields are shared by every model; m is the model's own state. */
 typedef struct {
     const vx_patch_t *pt; /* the patch it was struck with (kept through its release) */
     float nat, nk, sus, g, ka, kr, amp;        /* envelope: nat *= nk; g rises by ka, falls by g * kr */
+    float amp_t;                               /* the bass: amp slews to amp_t times the natural decay */
     union {
         struct { /* M_EP and the fallback FM: phases, increments, index and its decay, tine */
             float pc, pm, ic, im, idx, idec, tine;
@@ -62,6 +75,15 @@ typedef struct {
             float c1[4], c2[4], s[4]; /* SVF coefficients (a1, a2, a3, k) and states */
             uint8_t vox;
         } pad;
+        struct { /* M_PLUCK: a Karplus-Strong line (this voice's ks[] row) and the upright's thump */
+            float *buf;
+            float fr, xp, ly, c, rho;  /* read fraction, the averager's last input, the damping one-pole, loop gain */
+            float tp, ti, th, tk;      /* thump: phase, increment, level, decay */
+            uint16_t wp, li;           /* write index, the read delay's whole samples */
+        } pl;
+        struct { /* M_BASS: 2-op FM (index slewing to a struck target that falls) plus a sub-octave sine */
+            float pc, pm, ps, ic, im, is, idx, it, i0, ik, sub;
+        } bs;
     } m;
     uint32_t gate, age;
     uint8_t on, held, role;
@@ -69,14 +91,6 @@ typedef struct {
     const vx_patch_t *ppt;
     song_ev_t pe;
 } voice_t;
-
-typedef struct {
-    const vx_patch_t *pt;
-    float nat, nk, sus, g, ka, kr;
-    float p1, p2, i1, i2, amp, amp_t;
-    uint32_t gate;
-    uint8_t on, held;
-} bass_t;
 
 typedef struct {
     float env, dec, amp, a, b, ph, pe; /* kick: ph, pe; noise lanes: a, b are filter states */
@@ -90,8 +104,8 @@ typedef struct {
 
 static qe_t q[QN];
 static int qn;
-static voice_t fv[NFM];
-static bass_t bs;
+static voice_t fv[NV];
+static float ks[NV][VX_KS_N] VX_POOL; /* the Karplus-Strong lines, one per voice */
 static drum_t dr[V_N]; /* indexed by voice id; the pitched slots are unused */
 static uint32_t age_ctr, rng = 0x1234567u;
 static float lp_y, gain, gain_tgt, gain_step;
@@ -121,7 +135,6 @@ void vx_init(void)
 {
     memset(q, 0, sizeof q);
     memset(fv, 0, sizeof fv);
-    memset(&bs, 0, sizeof bs);
     memset(dr, 0, sizeof dr);
     qn = 0;
     age_ctr = 0;
@@ -187,8 +200,9 @@ void vx_event(const song_ev_t *e)
     qn++;
 }
 
-/* The envelope's start, shared by every model: nat back to 1, the gate rising from where it is. */
-static void env_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e)
+/* The envelope's start, shared by every model: nat back to 1, the gate rising from where it is. The bass's level
+   slews from where it is on a legato retrigger, else starts at its target. */
+static void env_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int legato)
 {
     v->pt = p;
     v->nat = 1.0f;
@@ -196,7 +210,9 @@ static void env_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e)
     v->sus = p->sus;
     v->ka = k_att(p->att);
     v->kr = k_t60(p->rel);
-    v->amp = ROLES[v->role].gain * p->level * (float)e->vel * (1.0f / 127.0f);
+    v->amp_t = ROLES[v->role].gain * p->level * (float)e->vel * (1.0f / 127.0f);
+    if (!legato)
+        v->amp = v->amp_t;
     v->gate = e->len;
     v->held = 1;
     v->on = 1;
@@ -273,13 +289,85 @@ static void pad_start(voice_t *v, const song_ev_t *e)
         svf_coefs(v->m.pad.c1, p->p[3] + p->p[4] * f * SR, p->p[5]);
 }
 
-static void voice_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e)
+/* atan(y / x) for x > 0, y >= 0 (note-on only): a polynomial on [0, 1], folded; about 1e-5 rad */
+static float atan_pos(float y, float x)
 {
-    env_start(v, p, e);
+    int fold = y > x;
+    float t = fold ? x / y : y / x, t2 = t * t, a;
+    a = t * (0.9998660f + t2 * (-0.3302995f + t2 * (0.1801410f + t2 * (-0.0851330f + t2 * 0.0208351f))));
+    return fold ? 0.5f * FM_PI - a : a;
+}
+
+/* M_PLUCK: Karplus-Strong. A burst of low-passed noise (zero mean, unit RMS) fills the line; the loop is the line
+   (a fractional delay, linear interpolation), a two-point averager and a damping one-pole, then a gain that sets the
+   fundamental's -60 dB time. The loop's delay is the period: the averager's half sample and the one-pole's phase
+   delay at the fundamental come off the line. The upright adds a thump: a sine at the fundamental, gone fast. */
+static void pluck_start(voice_t *v, const song_ev_t *e)
+{
+    const vx_patch_t *p = v->pt;
+    float f = note_inc(e->note), v01 = (float)e->vel * (1.0f / 127.0f), w = FM_TWO_PI * f, cw = fm_cosf(w);
+    float a, len, bc, by = 0.0f, sum = 0.0f, sq = 0.0f, mean, sc, mag;
+    int i, n;
+    v->m.pl.buf = ks[v - fv];
+    v->m.pl.c = k_lp1((p->p[1] + p->p[5] * f * SR) * (0.6f + 0.4f * v01));
+    a = 1.0f - v->m.pl.c;
+    len = 1.0f / f - 0.5f - atan_pos(a * fm_sinf(w), 1.0f - a * cw) / w;
+    len = fm_clampf(len, 2.0f, (float)(VX_KS_N - 1) - 0.001f);
+    v->m.pl.li = (uint16_t)len;
+    v->m.pl.fr = len - (float)v->m.pl.li;
+    /* the fundamental's loss per period, less what the averager and the one-pole already take there */
+    mag = fm_cosf(0.5f * w) * v->m.pl.c * fm_rsqrtf(1.0f - 2.0f * a * cw + a * a);
+    v->m.pl.rho = fm_minf(fm_expf(-T60 / (p->p[0] * SR * f)) / mag, 0.99999f);
+    /* the burst: ages 1 .. li + 1 (buf[li] .. buf[0]) are all the loop reads before it writes its own */
+    n = v->m.pl.li + 1;
+    bc = k_lp1(p->p[2] * (0.6f + 0.4f * v01));
+    for (i = 0; i < n; i++) {
+        by += bc * (noise() - by);
+        v->m.pl.buf[i] = by;
+        sum += by;
+        sq += by * by;
+    }
+    mean = sum / (float)n;
+    sc = fm_rsqrtf(fm_maxf(sq / (float)n - mean * mean, 1e-12f));
+    for (i = 0; i < n; i++)
+        v->m.pl.buf[i] = (v->m.pl.buf[i] - mean) * sc;
+    v->m.pl.wp = (uint16_t)(n == VX_KS_N ? 0 : n);
+    v->m.pl.xp = v->m.pl.buf[0];
+    v->m.pl.ly = 0.0f;
+    v->m.pl.tp = 0.0f;
+    v->m.pl.ti = f;
+    v->m.pl.th = p->p[3] * v01;
+    v->m.pl.tk = 1.0f - k_t60(p->p[4]);
+}
+
+/* M_BASS: 2-op FM whose index slews to a struck target falling to its floor, plus a sine an octave down. A legato
+   retrigger keeps the phases and slews the index, so it doesn't step; a fresh note starts every phase at 0. */
+static void bass_start(voice_t *v, const song_ev_t *e, int legato)
+{
+    const vx_patch_t *p = v->pt;
+    float f = note_inc(e->note), v01 = (float)e->vel * (1.0f / 127.0f);
+    if (!legato) {
+        v->m.bs.pc = v->m.bs.pm = v->m.bs.ps = 0.0f;
+        v->m.bs.idx = p->p[1] + p->p[2] * v01;
+    }
+    v->m.bs.ic = f;
+    v->m.bs.im = f * p->p[0];
+    v->m.bs.is = f * 0.5f;
+    v->m.bs.i0 = p->p[1];
+    v->m.bs.it = p->p[2] * v01;
+    v->m.bs.ik = 1.0f - k_t60(p->p[3]);
+    v->m.bs.sub = p->p[4];
+}
+
+static void voice_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int legato)
+{
+    env_start(v, p, e, legato);
     switch (p->model) {
     case M_EP: ep_start(v, e); break;
+    case M_PLUCK: pluck_start(v, e); break;
     case M_PAD: pad_start(v, e); break;
-    default: fm_start(v, e); break; /* M_PLUCK ... M_BASS: Tasks 4-5 */
+    case M_BASS: bass_start(v, e, legato); break;
+    default: fm_start(v, e); break; /* M_BELL, M_WIND: Task 5 */
     }
 }
 
@@ -311,34 +399,14 @@ static void pool_on(const song_ev_t *e, int role)
     if (!v->on) {
         v->g = 0.0f;
         v->role = (uint8_t)role;
-        voice_start(v, p, e);
-    } else {
+        voice_start(v, p, e, 0);
+    } else if (role == V_BASS && !v->pend && v->pt == p && p->model == M_BASS) {
+        voice_start(v, p, e, 1); /* legato: phases, gate and level carry over */
+    } else { /* a steal; on the bass, a re-pluck or a new patch */
         v->pe = *e;
         v->ppt = p;
         v->pend = 1;
     }
-}
-
-/* The sine bass (every bass-role model, for now), with the patch's envelope. A retrigger is continuous: phases and
-   gate carry over, and the level (nat included) slews. */
-static void bass_on(const song_ev_t *e)
-{
-    const vx_patch_t *p = role_pt[V_BASS];
-    float f = note_inc(e->note);
-    if (!p)
-        return;
-    bs.pt = p;
-    bs.nat = 1.0f;
-    bs.nk = 1.0f - k_t60(p->dec);
-    bs.sus = p->sus;
-    bs.ka = k_att(p->att);
-    bs.kr = k_t60(p->rel);
-    bs.i1 = f;
-    bs.i2 = f * 0.5f;
-    bs.amp_t = BASS_GAIN * p->level * (float)e->vel * (1.0f / 127.0f);
-    bs.gate = e->len;
-    bs.held = 1;
-    bs.on = 1; /* phases and gate level carry over: a retrigger is continuous */
 }
 
 static void drum_on(const song_ev_t *e)
@@ -382,8 +450,8 @@ static void fire(const song_ev_t *e)
     switch (e->voice) {
     case V_CHORD:
     case V_LEAD:
-    case V_CANDY: pool_on(e, e->voice); break;
-    case V_BASS: bass_on(e); break;
+    case V_CANDY:
+    case V_BASS: pool_on(e, e->voice); break;
     default:
         if (e->voice < V_N)
             drum_on(e);
@@ -468,21 +536,74 @@ static float pad_sample(voice_t *v)
     return b1 * v->m.pad.c1[3] + 0.5f * b2 * v->m.pad.c2[3] + 0.45f * l1;
 }
 
-/* One sample of a pooled voice: the model's raw sample times the envelope. */
+/* M_PLUCK's raw sample: the line's output through the averager and the damping, back into the line; the thump. */
+static float pluck_sample(voice_t *v)
+{
+    float *b = v->m.pl.buf, x, y;
+    int i0 = (int)v->m.pl.wp - (int)v->m.pl.li, i1;
+    if (i0 < 0)
+        i0 += VX_KS_N;
+    i1 = i0 ? i0 - 1 : VX_KS_N - 1;
+    x = b[i0] + v->m.pl.fr * (b[i1] - b[i0]);
+    v->m.pl.ly = fm_flush(v->m.pl.ly + v->m.pl.c * (0.5f * (x + v->m.pl.xp) - v->m.pl.ly));
+    v->m.pl.xp = x;
+    y = v->m.pl.ly * v->m.pl.rho;
+    b[v->m.pl.wp] = y;
+    if (++v->m.pl.wp == VX_KS_N)
+        v->m.pl.wp = 0;
+    if (v->m.pl.th > 0.0f) {
+        y += v->m.pl.th * fm_sin_turns(v->m.pl.tp);
+        v->m.pl.tp += v->m.pl.ti;
+        if (v->m.pl.tp >= 1.0f)
+            v->m.pl.tp -= 1.0f;
+        v->m.pl.th = fm_flush(v->m.pl.th * v->m.pl.tk);
+    }
+    return y;
+}
+
+/* M_BASS's raw sample: the FM and the sub-octave sine. */
+static float bass_sample(voice_t *v)
+{
+    float s;
+    v->m.bs.pc += v->m.bs.ic;
+    if (v->m.bs.pc >= 1.0f)
+        v->m.bs.pc -= 1.0f;
+    v->m.bs.pm += v->m.bs.im;
+    if (v->m.bs.pm >= 1.0f)
+        v->m.bs.pm -= 1.0f;
+    v->m.bs.ps += v->m.bs.is;
+    if (v->m.bs.ps >= 1.0f)
+        v->m.bs.ps -= 1.0f;
+    v->m.bs.it = fm_flush(v->m.bs.it * v->m.bs.ik);
+    v->m.bs.idx = fm_flush(v->m.bs.idx + IDX_K * (v->m.bs.i0 + v->m.bs.it - v->m.bs.idx));
+    s = fm_sin_turns(v->m.bs.pc + fm_sin_turns(v->m.bs.pm) * v->m.bs.idx * 0.159155f);
+    if (v->m.bs.sub > 0.0f)
+        s += v->m.bs.sub * fm_sin_turns(v->m.bs.ps);
+    return s;
+}
+
+/* One sample of a pooled voice: the model's raw sample times the envelope (on the bass, its slewed level). */
 static float voice_sample(voice_t *v)
 {
-    float s, o;
+    float s, o, lv;
     switch (v->pt->model) {
     case M_EP: s = ep_sample(v); break;
+    case M_PLUCK: s = pluck_sample(v); break;
     case M_PAD: s = pad_sample(v); break;
-    default: s = fm_sample(v); break; /* M_PLUCK ... M_BASS: Tasks 4-5 */
+    case M_BASS: s = bass_sample(v); break;
+    default: s = fm_sample(v); break; /* M_BELL, M_WIND: Task 5 */
     }
     v->nat = fm_flush(v->nat * v->nk); /* a note held past ~50 s would reach denormals */
-    o = s * v->amp * (v->sus + (1.0f - v->sus) * v->nat) * v->g;
-    if (v->pend) { /* fade the victim out, then start the queued note on the same phases */
+    lv = v->sus + (1.0f - v->sus) * v->nat;
+    if (v->role == V_BASS) {
+        v->amp = fm_flush(v->amp + (v->amp_t * lv - v->amp) * AMP_K);
+        o = s * v->amp * v->g;
+    } else
+        o = s * v->amp * lv * v->g;
+    if (v->pend) { /* fade the victim out, then start the queued note */
         v->g -= v->g * G_STEAL;
         if (v->g < STEAL_THR)
-            voice_start(v, v->ppt, &v->pe);
+            voice_start(v, v->ppt, &v->pe, 0);
         return o;
     }
     if (v->held && v->gate && --v->gate == 0)
@@ -497,32 +618,6 @@ static float voice_sample(voice_t *v)
             v->on = 0;
     }
     return o;
-}
-
-static float bass_sample(void)
-{
-    float s;
-    bs.p1 += bs.i1;
-    if (bs.p1 >= 1.0f)
-        bs.p1 -= 1.0f;
-    bs.p2 += bs.i2;
-    if (bs.p2 >= 1.0f)
-        bs.p2 -= 1.0f;
-    bs.nat = fm_flush(bs.nat * bs.nk);
-    bs.amp += (bs.amp_t * (bs.sus + (1.0f - bs.sus) * bs.nat) - bs.amp) * AMP_K;
-    s = fm_sin_turns(bs.p1) + 0.6f * fm_sin_turns(bs.p2);
-    if (bs.held && bs.gate && --bs.gate == 0)
-        bs.held = 0;
-    if (bs.held) {
-        bs.g += bs.ka;
-        if (bs.g > 1.0f)
-            bs.g = 1.0f;
-    } else {
-        bs.g -= bs.g * bs.kr;
-        if (bs.g < OFF_THR)
-            bs.on = 0;
-    }
-    return s * bs.amp * bs.g;
 }
 
 /* One sample of a drum lane; env falls by dec each sample and the lane is off below the threshold. */
@@ -564,11 +659,9 @@ static void render_seg(float *l, float *r, uint32_t n)
     int j, d;
     for (i = 0; i < n; i++) {
         float x = 0.0f, g;
-        for (j = 0; j < NFM; j++)
+        for (j = 0; j < NV; j++)
             if (fv[j].on)
                 x += voice_sample(&fv[j]);
-        if (bs.on)
-            x += bass_sample();
         for (d = V_KICK; d < V_N; d++)
             if (dr[d].on)
                 x += drum_sample(d);
@@ -625,12 +718,11 @@ void vx_render(float *l, float *r, uint32_t n)
 void vx_release_all(void)
 {
     int i;
-    for (i = 0; i < NFM; i++) { /* a long release (a pad's) shortened to 40 ms */
+    for (i = 0; i < NV; i++) { /* a long release (a pad's) shortened to 40 ms */
         fv[i].held = 0;
         fv[i].pend = 0;
         fv[i].kr = fm_maxf(fv[i].kr, KR_STOP);
     }
-    bs.held = 0;
     for (i = V_KICK; i < V_N; i++)
         if (dr[i].on)
             dr[i].dec = dr[i].dec < 0.996f ? dr[i].dec : 0.996f; /* under 40 ms to the threshold */
@@ -646,8 +738,8 @@ void vx_set_gain(float g)
 
 int vx_active(void)
 {
-    int i, c = bs.on;
-    for (i = 0; i < NFM; i++)
+    int i, c = 0;
+    for (i = 0; i < NV; i++)
         c += fv[i].on;
     for (i = V_KICK; i < V_N; i++)
         c += dr[i].on;

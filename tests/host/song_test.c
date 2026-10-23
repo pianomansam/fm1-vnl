@@ -1588,6 +1588,156 @@ static void test_vx_keys(void)
     CHECK(!bad, "a key or pad rendered NaN or inf");
 }
 
+/* A note on a role, from silence, held len samples: n samples of the left output into out (n a multiple of 4096 at
+   most VT_LONG). */
+#define VT_LONG (36u * 4096u)
+static float vt_long[VT_LONG];
+static void vt_note(int role, int ins, int note, int vel, uint32_t len, uint32_t n, int *bad)
+{
+    uint32_t k;
+    vx_init();
+    vx_assign(role, ins);
+    vt_ev(role, note, vel, 0, len);
+    for (k = 0; k < n; k += 4096u) {
+        vt_block(4096, bad);
+        memcpy(vt_long + k, vt_l, 4096 * sizeof(float));
+    }
+}
+
+/* The period of vt_long[from .. from+w) near p (within 10%): the normalized autocorrelation's peak, parabolically
+   interpolated. */
+static float vt_period(uint32_t from, uint32_t w, float p)
+{
+    int lo = (int)(p * 0.9f), hi = (int)(p * 1.1f) + 1, lag, best = lo;
+    float r[2048], a, b, c, d;
+    for (lag = lo; lag <= hi; lag++) {
+        float s = 0.0f, e0 = 0.0f, e1 = 0.0f;
+        uint32_t i;
+        for (i = from; i < from + w; i++) {
+            s += vt_long[i] * vt_long[i + (uint32_t)lag];
+            e0 += vt_long[i] * vt_long[i];
+            e1 += vt_long[i + (uint32_t)lag] * vt_long[i + (uint32_t)lag];
+        }
+        s *= e0 > 0.0f && e1 > 0.0f ? fm_rsqrtf(e0 * e1) : 0.0f; /* normalized: a decay doesn't pull the peak */
+        r[lag - lo] = s;
+        if (s > r[best - lo])
+            best = lag;
+    }
+    if (best == lo || best == hi)
+        return (float)best;
+    a = r[best - lo - 1];
+    b = r[best - lo];
+    c = r[best - lo + 1];
+    d = a - 2.0f * b + c;
+    return (float)best + (d != 0.0f ? 0.5f * (a - c) / d : 0.0f);
+}
+
+/* The amplitude of frequency hz (cycles per sample) in vt_long[from .. from+w), Hann-windowed (Goertzel). */
+static float vt_tone(uint32_t from, uint32_t w, float f)
+{
+    float k = 2.0f * fm_cosf(FM_TWO_PI * f), s1 = 0.0f, s2 = 0.0f;
+    uint32_t i;
+    for (i = 0; i < w; i++) {
+        float h = 0.5f - 0.5f * fm_cosf(FM_TWO_PI * (float)i / (float)w), s = vt_long[from + i] * h + k * s1 - s2;
+        s2 = s1;
+        s1 = s;
+    }
+    return fm_sqrtf(fm_maxf(s1 * s1 + s2 * s2 - k * s1 * s2, 0.0f));
+}
+
+/* Brightness of vt_long[from .. from+w): RMS of the first difference over RMS of the signal (a centroid proxy). */
+static float vt_bright(uint32_t from, uint32_t w)
+{
+    float e = 0.0f, d = 0.0f;
+    uint32_t i;
+    for (i = from + 1; i < from + w; i++) {
+        float x = vt_long[i], dx = x - vt_long[i - 1];
+        e += x * x;
+        d += dx * dx;
+    }
+    return e > 0.0f ? fm_sqrtf(d / e) : 0.0f;
+}
+
+static float vt_peak(uint32_t from, uint32_t to)
+{
+    float m = 0.0f;
+    uint32_t i;
+    for (i = from; i < to; i++)
+        m = fm_maxf(m, fm_fabsf(vt_long[i]));
+    return m;
+}
+
+/* The plucked strings (M_PLUCK: nylon, guitar lick, upright) and the basses (M_BASS: sub, electric bass). A pluck is
+   in tune by its period (within 10 cents) at 40, 55 and 70; nylon falls to -40 dB within 3 s and upright within
+   1.5 s, held; the Karplus-Strong line is sized for note 28. The sub's 2x and 3x partials are each 12 dB under the
+   fundamental; the electric bass's attack is brighter and settles within 100 ms. */
+static void test_vx_plucks_basses(void)
+{
+    static const int PLUCKS[3] = {INS_NYLON, INS_GUITAR_LICK, INS_UPRIGHT};
+    static const int NOTES[3] = {40, 55, 70};
+    int i, j, bad = 0;
+
+    CHECK(vx_patch(INS_NYLON)->model == M_PLUCK && vx_patch(INS_GUITAR_LICK)->model == M_PLUCK &&
+              vx_patch(INS_UPRIGHT)->model == M_PLUCK && vx_patch(INS_SUB)->model == M_BASS &&
+              vx_patch(INS_ELEC_BASS)->model == M_BASS,
+          "plucks and basses on the wrong models");
+    CHECK(VX_KS_N <= 44100 / 41 && (float)VX_KS_N >= 44100.0f / 41.2034f + 1.0f,
+          "the Karplus-Strong line is %d samples: wanted note 28's period (+1 for the interpolation) to 44100/41",
+          VX_KS_N);
+    for (i = 0; i < 3; i++)
+        for (j = 0; j < 3; j++) {
+            int role = vt_role_of(PLUCKS[i]);
+            float p = 44100.0f / (440.0f * fm_exp2f(((float)NOTES[j] - 69.0f) / 12.0f)), got, cents;
+            vt_note(role, PLUCKS[i], NOTES[j], 100, 4u * 44100u, 16u * 4096u, &bad);
+            got = vt_period(4410, 8192, p);
+            cents = 1200.0f * fm_log2f(p / got);
+            printf("plucks: ins %2d note %d period %.2f (wanted %.2f) %+.1f cents\n", PLUCKS[i], NOTES[j], (double)got,
+                   (double)p, (double)cents);
+            CHECK(fm_fabsf(cents) <= 10.0f, "ins %d note %d: %+.1f cents out", PLUCKS[i], NOTES[j], (double)cents);
+        }
+    for (i = 0; i < 3; i += 2)
+        for (j = 0; j < 3; j++) { /* held 5 s: the string's own decay */
+            float t = PLUCKS[i] == INS_NYLON ? 3.0f : 1.5f, pk, at;
+            uint32_t s = (uint32_t)(t * 44100.0f);
+            vt_note(vt_role_of(PLUCKS[i]), PLUCKS[i], NOTES[j], 100, 5u * 44100u, VT_LONG, &bad);
+            pk = vt_peak(0, 4410);
+            at = vt_peak(s, s + 2205);
+            printf("plucks: ins %2d note %d peak %.4f, at %.1f s %.1f dB\n", PLUCKS[i], NOTES[j], (double)pk,
+                   (double)t, 20.0 * (double)fm_log2f(at / pk + 1e-9f) * 0.30103);
+            CHECK(at < 0.01f * pk, "ins %d note %d: %.1f dB at %.1f s, wanted -40 dB or lower", PLUCKS[i], NOTES[j],
+                  20.0 * (double)fm_log2f(at / pk + 1e-9f) * 0.30103, (double)t);
+        }
+
+    for (j = 0; j < 3; j++) { /* the sub at 33, 40, 47: Goertzel at 1x, 2x, 3x over 8192 samples from 0.2 s */
+        int note = 33 + 7 * j;
+        float f = 440.0f * fm_exp2f(((float)note - 69.0f) / 12.0f) / 44100.0f, a1, a2, a3;
+        vt_note(V_BASS, INS_SUB, note, 100, 2u * 44100u, 16u * 4096u, &bad);
+        a1 = vt_tone(8820, 8192, f);
+        a2 = vt_tone(8820, 8192, 2.0f * f);
+        a3 = vt_tone(8820, 8192, 3.0f * f);
+        printf("basses: sub note %d 2x %.1f dB, 3x %.1f dB\n", note, 20.0 * (double)fm_log2f(a2 / a1 + 1e-9f) * 0.30103,
+               20.0 * (double)fm_log2f(a3 / a1 + 1e-9f) * 0.30103);
+        CHECK(a2 < 0.251f * a1 && a3 < 0.251f * a1, "sub note %d: a 2x or 3x partial within 12 dB of the fundamental",
+              note);
+    }
+    for (j = 0; j < 3; j++) { /* the electric bass: brightness over two periods at the attack, 100 ms and 300 ms */
+        int note = 33 + 7 * j;
+        uint32_t w = (uint32_t)(2.0f * 44100.0f / (440.0f * fm_exp2f(((float)note - 69.0f) / 12.0f)) + 0.5f);
+        float b0, b1, b3;
+        vt_note(V_BASS, INS_ELEC_BASS, note, 100, 2u * 44100u, 4u * 4096u, &bad);
+        b0 = vt_bright(0, w);
+        b1 = vt_bright(4410, w);
+        b3 = vt_bright(13230, w);
+        printf("basses: electric note %d brightness attack %.4f, 100 ms %.4f, 300 ms %.4f\n", note, (double)b0,
+               (double)b1, (double)b3);
+        CHECK(b0 > 1.5f * b3, "electric bass note %d: attack %.4f not brighter than %.4f settled", note, (double)b0,
+              (double)b3);
+        CHECK(fm_fabsf(b1 - b3) < 0.1f * b3, "electric bass note %d: not settled at 100 ms (%.4f vs %.4f)", note,
+              (double)b1, (double)b3);
+    }
+    CHECK(!bad, "a pluck or bass rendered NaN or inf");
+}
+
 static void test_vx_patches(void)
 {
     int ins, s, bad = 0;
@@ -2633,6 +2783,7 @@ int main(void)
     test_voices_fix();
     test_vx_patches();
     test_vx_keys();
+    test_vx_plucks_basses();
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;

@@ -1,12 +1,16 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* The song engine's voices and mix. Pitched roles play the instrument patches (patch.h); every model renders with
-   the placeholder FM (and the sine bass) until its task gives it code. Drums are the placeholder kit. Float only. */
+/* The song engine's voices and mix. Pitched roles play the instrument patches (patch.h); the bells and winds render
+   with the placeholder FM until Task 5 gives them code. Drums are the placeholder kit. Float only. */
 #ifndef ENGINE_VOICES_H
 #define ENGINE_VOICES_H
 #include <stdint.h>
 #include "groove.h"
 #include "roll.h"
 #include "patch.h"
+
+/* A plucked voice's Karplus-Strong line, in samples: one per voice, in the pool. Sized for note 28 (E1, 41.2 Hz):
+   its period plus one for the interpolation. Lower notes play at 28's period. */
+#define VX_KS_N 1072
 
 /* The song's sound: one instrument per pitched role (INS_*; INS_NONE silences the role), the kit, the flavor and the
    lo-fi chain's fields (dust 0-3, noise 0-2, ambience 0-1; stored for the chain, Task 7). */
