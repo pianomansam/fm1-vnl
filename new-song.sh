@@ -3,6 +3,7 @@
 # Render a new random song to listen to, with its log, MIDI and MusicXML, and open it.
 #   ./new-song.sh          a fresh seed
 #   ./new-song.sh SEED     replay a song by the seed its log prints
+#   BED=0 ./new-song.sh    no surface noise or rain (VNL_BED)
 #   BASS=0 ./new-song.sh   the groove's own bass rhythm instead of the bass spike (VNL_BASS: 1 a rhythm cell per song,
 #                          2 the kick's, 3 half notes on 1 and 3, 4 beats 1 and 2, 5 beats 1, 2 and 4)
 set -e
@@ -11,7 +12,7 @@ seed=${1:-$(od -An -N4 -tu4 /dev/urandom | tr -d ' ')}
 out=app/build/new/$seed
 ./build.sh --host >/dev/null
 mkdir -p "$out"
-VNL_SEED=$seed VNL_BASS=${BASS:-1} VNL_SCORE=$out/song app/build/host/vnl_host new-song.vnl "$out" >/dev/null
+VNL_SEED=$seed VNL_BASS=${BASS:-1} VNL_BED=${BED:-1} VNL_SCORE=$out/song app/build/host/vnl_host new-song.vnl "$out" >/dev/null
 rm -f "$out"/song-2* "$out"/now.png "$out"/midi_out.txt
 .venv/bin/python - "$out" <<'PY'
 import re, sys, wave

@@ -248,6 +248,9 @@ void vx_assign(int voice, int ins)
     }
 }
 
+static uint8_t bed_off;                   /* host renders: VNL_BED=0 leaves surface noise and rain out */
+void vx_bed_off(int on) { bed_off = (uint8_t)(on != 0); }
+
 void vx_configure(const song_roll_t *r)
 {
     const lib_set_t *s = lib_set_by_id((uint8_t)r->v[RF_SET]);
@@ -262,6 +265,7 @@ void vx_configure(const song_roll_t *r)
     cfg.dust = (uint8_t)fm_clampf((float)r->v[RF_DUST], 0.0f, 3.0f);
     cfg.noise = (uint8_t)fm_clampf((float)r->v[RF_NOISE], 0.0f, 2.0f);
     cfg.ambience = (uint8_t)fm_clampf((float)r->v[RF_AMBIENCE], 0.0f, 1.0f);
+    if (bed_off) cfg.noise = cfg.ambience = 0;
     {
         rng_t g;
         rng_seed(&g, r->seed, 170); /* the pump: a third of songs each */

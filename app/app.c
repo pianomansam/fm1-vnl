@@ -395,6 +395,10 @@ void app_init(void)
             fx_rings(fx && !strcmp(fx, "rings"));
         }
         {
+            const char *bd = getenv("VNL_BED");    /* VNL_BED=0: no surface noise or rain, to hear the music */
+            vx_bed_off(bd && *bd == '0');
+        }
+        {
             const char *sd = getenv("VNL_SEED");   /* the first song's seed, as a log prints it: replay or roll anew */
             if (sd && *sd) { seed_override = (uint32_t)strtoul(sd, 0, 10); has_seed_override = 1; }
         }
