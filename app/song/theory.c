@@ -171,6 +171,21 @@ static int role_of(const int *pcs, int n, int i)
 static int drop2;
 void th_set_drop2(int on) { drop2 = on != 0; }
 
+static th_why_t *why;
+void th_set_why(th_why_t *w) { why = w; }
+
+static void why_keep(const th_cand_t *k)                 /* the three lowest totals, in order */
+{
+    int i, j;
+    for (i = 0; i < why->nbest && why->best[i].total <= k->total; i++)
+        ;
+    if (i >= 3) return;
+    for (j = (why->nbest < 3 ? why->nbest : 2); j > i; j--)
+        why->best[j] = why->best[j - 1];
+    why->best[i] = *k;
+    if (why->nbest < 3) why->nbest++;
+}
+
 void th_voice_range(const int *pcs, int n, const int *prev, int *out4, int hi, int rootless)
 {
     int ref[4], best = 1 << 30, i, drop, v, next = 0, role[5], dom;
@@ -183,6 +198,19 @@ void th_voice_range(const int *pcs, int n, const int *prev, int *out4, int hi, i
         next += role[i] == 4;
     }
     dom = n > 2 && role_iv(pcs, n, 4) && role_iv(pcs, n, 10);
+    if (why) {
+        why->n = n < 5 ? n : 5;
+        for (i = 0; i < why->n; i++) {
+            why->pcs[i] = pcs[i];
+            why->role[i] = role[i];
+        }
+        why->rootless = rootless;
+        why->dominant = dom;
+        why->have_prev = prev != NULL;
+        if (prev) memcpy(why->prev, ref, sizeof ref);
+        why->hi = hi;
+        why->nbest = 0;
+    }
     for (v = 0; v < 4; v++)
         out4[v] = 52 + 4 * v;                              /* fallback; always replaced below */
     for (drop = -1; drop < (n >= 4 ? n : 0); drop++) {
@@ -221,7 +249,7 @@ void th_voice_range(const int *pcs, int n, const int *prev, int *out4, int hi, i
          for (ix[1] = 0; ix[1] < nc[1]; ix[1]++)
           for (ix[2] = 0; ix[2] < nc[2]; ix[2]++)
            for (ix[3] = 0; ix[3] < nc[3]; ix[3]++) {
-               int o[4], c = pen, w, d;
+               int o[4], c = pen, w, d, c_move = 0, c_top = 0, c_common = 0, c_range = 0, c_low2 = 0, c_clus = 0, moved = 0;
                for (v = 0; v < 4; v++)
                    o[v] = cand[v][ix[v]];
                sort4(o);
@@ -231,28 +259,43 @@ void th_voice_range(const int *pcs, int n, const int *prev, int *out4, int hi, i
                    continue;                               /* drop 2: a close voicing with its 2nd from top an octave down */
                if (prev) {
                    for (v = 0; v < 3; v++)
-                       c += o[v] > ref[v] ? o[v] - ref[v] : ref[v] - o[v];
+                       c_move += o[v] > ref[v] ? o[v] - ref[v] : ref[v] - o[v];
                    d = o[3] > ref[3] ? o[3] - ref[3] : ref[3] - o[3];
-                   c += 8 * d + (d > 2 ? 6 : 0);            /* the top voice: stay, else step */
+                   c_top = 8 * d + (d > 2 ? 6 : 0);         /* the top voice: stay, else step */
                    for (v = 0; v < 4; v++) {               /* a common tone that moved */
                        int in = 0, at = 0;
                        for (w = 0; w < 4; w++) {
                            in |= mod12(t[w] - ref[v]) == 0;
                            at |= o[w] == ref[v];
                        }
-                       if (in && !at) c += 6;
+                       if (in && !at) {
+                           c_common += 6;
+                           moved |= 1 << mod12(ref[v]);
+                       }
                    }
-               } else {
-                   c += (o[3] > 65 ? o[3] - 65 : 65 - o[3]) + (o[0] > 55 ? o[0] - 55 : 55 - o[0]);
+               } else {                                    /* the first chord: near a reference spread */
+                   c_move = (o[3] > 65 ? o[3] - 65 : 65 - o[3]) + (o[0] > 55 ? o[0] - 55 : 55 - o[0]);
                }
-               if (o[3] < 60) c += 60 - o[3];               /* keep the top line up, not muddy */
+               if (o[3] < 60) c_range += 60 - o[3];         /* keep the top line up, not muddy */
                for (v = 0; v < 4; v++) {                   /* E3-A4 preferred; C3-C5 when a rub needs room */
-                   if (o[v] < 52) c += 4 * (52 - o[v]);
-                   if (o[v] > 69) c += 4 * (o[v] - 69);
+                   if (o[v] < 52) c_range += 4 * (52 - o[v]);
+                   if (o[v] > 69) c_range += 4 * (o[v] - 69);
                }
                for (v = 0; v < 3; v++) {
-                   if (o[v + 1] - o[v] == 1) c += 100;     /* no semitone clusters (unless nothing else fits) */
-                   if (o[v + 1] - o[v] == 2 && o[v] < 55) c += 3;   /* no tight seconds low down */
+                   if (o[v + 1] - o[v] == 1) c_clus += 100;   /* no semitone clusters (unless nothing else fits) */
+                   if (o[v + 1] - o[v] == 2 && o[v] < 55) c_low2 += 3;   /* no tight seconds low down */
+               }
+               c += c_move + c_top + c_common + c_range + c_low2 + c_clus;
+               if (why) {
+                   th_cand_t k;
+                   memcpy(k.o, o, sizeof o);
+                   k.drop_role = drop >= 0 ? role[drop] : -1;
+                   k.drop_pc = drop >= 0 ? mod12(pcs[drop]) : -1;
+                   k.double_pc = n == 4 && drop >= 0 ? mod12(t[3]) : n == 3 ? mod12(pcs[0]) : -1;
+                   k.moved_mask = moved;
+                   k.total = c; k.drop = pen; k.move = c_move; k.top = c_top; k.common = c_common;
+                   k.range = c_range; k.low2 = c_low2; k.cluster = c_clus;
+                   why_keep(&k);
                }
                if (c < best) {
                    best = c;

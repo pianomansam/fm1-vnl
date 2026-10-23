@@ -37,9 +37,10 @@ static int nrec, bars, fifths;
 static float step_ss[MAXBARS * 16];                     /* samples a 16th, per step (tempo glides) */
 static char chord[MAXBARS][16];
 static int section[MAXBARS], newblock[MAXBARS];
-/* the log's line for the bar in progress */
-static int lbar = -1, lnn, llead, lcandy, lnotes[4];
+/* the log's line for the bar in progress, and why its chord is voiced as it is (on chord changes) */
+static int lbar = -1, lnn, llead, lcandy, lnotes[4], lwhy_ok, lchanged;
 static char lline[160];
+static th_why_t why_live, lwhy;
 
 /* ---- spelling ---- */
 
@@ -56,6 +57,83 @@ static const char *pc_name(int pc) { return fifths > 0 ? SHARPS[pc % 12] : FLATS
 
 /* ---- the log ---- */
 
+static const char *ext_name(int iv)
+{
+    switch (iv) {
+    case 1: return "b9"; case 2: return "9th"; case 3: return "#9"; case 5: return "11th"; case 6: return "#11";
+    case 8: return "b13"; case 9: return "13th"; default: return "color";
+    }
+}
+
+static const char *role_name(const th_why_t *w, int i, char *buf)
+{
+    static const char *const R[4] = {"root", "3rd", "5th", "7th"};
+    if (w->role[i] < 4) return R[w->role[i]];
+    snprintf(buf, 8, "%s", ext_name(((w->pcs[i] - w->pcs[0]) % 12 + 12) % 12));
+    return buf;
+}
+
+static void note_list(const int *o, char *buf, size_t n)
+{
+    snprintf(buf, n, "%s%d %s%d %s%d %s%d", pc_name(o[0] % 12), o[0] / 12 - 1, pc_name(o[1] % 12), o[1] / 12 - 1,
+             pc_name(o[2] % 12), o[2] / 12 - 1, pc_name(o[3] % 12), o[3] / 12 - 1);
+}
+
+static void cand_line(const th_cand_t *k, const char *label, int first)
+{
+    char nl[40], moved[40] = "";
+    int pc, m = 0;
+    note_list(k->o, nl, sizeof nl);
+    for (pc = 0; pc < 12; pc++)
+        if ((k->moved_mask >> pc) & 1)
+            m += snprintf(moved + m, sizeof moved - (size_t)m, "%s%s", m ? "," : "", pc_name(pc));
+    fprintf(logf, "             %-7s %-16s %3d =", label, nl, k->total);
+    if (k->drop) fprintf(logf, " drop %d", k->drop);
+    if (k->move) fprintf(logf, first ? " start-shape %d" : " move %d", k->move);
+    if (k->top) fprintf(logf, " top %d", k->top);
+    if (k->common) fprintf(logf, " common-tone-moved %d (%s)", k->common, moved);
+    if (k->range) fprintf(logf, " range %d", k->range);
+    if (k->low2) fprintf(logf, " low-second %d", k->low2);
+    if (k->cluster) fprintf(logf, " semitone %d", k->cluster);
+    fputc('\n', logf);
+}
+
+/* why the bar's chord is voiced as it is: its tones, which one gave way and the rule, then the scores */
+static void log_why(const th_why_t *w)
+{
+    const th_cand_t *b = &w->best[0];
+    char rb[8], tones[96];
+    int i, m = 0, top = b->o[3];
+    if (!w->nbest) return;
+    for (i = 0; i < w->n; i++)
+        m += snprintf(tones + m, sizeof tones - (size_t)m, "%s%s %s", i ? ", " : "", pc_name(w->pcs[i]),
+                      role_name(w, i, rb));
+    fprintf(logf, "        why: %s.", tones);
+    if (b->drop_role >= 0 && w->n >= 5)
+        fprintf(logf, " Four voices, so the %s (%s) gives way: the 3rd and 7th always stay%s, and %s.",
+                b->drop_role == 4 ? "extension" : (const char *[]){"root", "3rd", "5th", "7th"}[b->drop_role],
+                pc_name(b->drop_pc), w->dominant ? ", a dominant keeps its extension" : "",
+                w->rootless ? "the bass has the root" : "with no bass here the root stays");
+    else if (b->drop_role == 0 && w->n == 4)
+        fprintf(logf, " Rootless, since the bass has the root: %s doubled.", pc_name(b->double_pc));
+    else if (w->n == 3)
+        fprintf(logf, " A triad: the root doubled.");
+    else
+        fprintf(logf, " All four tones%s.", w->rootless ? " (the root kept: it voice-leads best)" : "; no bass here, so the root stays");
+    if (w->have_prev) {
+        int held = 0;
+        for (i = 0; i < 4; i++) held |= b->o[i] == w->prev[3];
+        if (top == w->prev[3])
+            fprintf(logf, " Top: %s holds.", pc_name(top % 12));
+        else
+            fprintf(logf, " Top: %s -> %s (%s).", pc_name(w->prev[3] % 12), pc_name(top % 12),
+                    held ? "kept inside the chord" : "not in this chord, so it steps");
+    }
+    fputc('\n', logf);
+    for (i = 0; i < w->nbest; i++)
+        cand_line(&w->best[i], i ? "next" : "chosen", !w->have_prev);
+}
+
 static void log_flush(void)
 {
     int i;
@@ -65,6 +143,8 @@ static void log_flush(void)
     for (i = 0; i < lnn; i++)
         fprintf(logf, "%s%s%d", i ? " " : "  ", pc_name(lnotes[i]), lnotes[i] / 12 - 1);
     fprintf(logf, "%s%s\n", llead ? "  +lead" : "", lcandy ? "  +candy" : "");
+    if (lchanged && lwhy_ok)
+        log_why(&lwhy);
     lbar = -1;
 }
 
@@ -428,7 +508,20 @@ static int ready(void)
         if (prefix) {
             snprintf(path, sizeof path, "%s.log", prefix);
             logf = fopen(path, "w");
+            if (logf)
+                fputs("VNL-1 song log. Times are seconds since boot (= songs.wav). On each chord change, \"why\" gives the\n"
+                      "chord's tones, which one gave way and the rule, then the best voicings and their scores (lower wins):\n"
+                      "  drop               a tone given up: the root 0 (only with bass), the 5th 1, an extension 3;\n"
+                      "                     rootless four-tone chords 2\n"
+                      "  move               semitones the lower three voices move (start-shape: distance from a\n"
+                      "                     reference spread, for a song's first chord)\n"
+                      "  top                8 per semitone the top voice moves, +6 if it leaps more than a step\n"
+                      "  common-tone-moved  6 for each note shared with the last chord that didn't stay where it was\n"
+                      "  range              4 per semitone below E3 or above A4, 1 per semitone the top is below C4\n"
+                      "  low-second         3 for a whole step below G3; semitone 100 for two notes a semitone apart\n",
+                      logf);
             recs = malloc(sizeof *recs * MAXREC);
+            th_set_why(&why_live);                       /* the voicer records why, for the log */
             atexit(finish_partial);                      /* a song the run stops in the middle of */
         }
     }
@@ -493,7 +586,14 @@ void score_step(const song_t *s, int bar, int st, const song_ev_t *ev, int n, fl
                  b ? plan_section_name(b->section) : "?", chord[bar]);
         lbar = bar;
         lnn = llead = lcandy = 0;
+        lwhy_ok = 0;
+        lchanged = !bar || strcmp(chord[bar], chord[bar - 1]);
     }
+    for (i = 0; i < n && !lwhy_ok; i++)                  /* the bar's first chord strike: its voicing's why */
+        if (ev[i].voice == V_CHORD) {
+            lwhy = why_live;
+            lwhy_ok = 1;
+        }
     for (i = 0; i < n; i++) {
         if (nrec < MAXREC)
             recs[nrec++] = (rec_t){bar, st, ev[i].voice, ev[i].note, ev[i].vel, (float)ev[i].delay, (float)ev[i].len, ss};
