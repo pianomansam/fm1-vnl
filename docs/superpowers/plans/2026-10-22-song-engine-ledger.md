@@ -168,6 +168,9 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   first), as a lead or a counter-line. A strong, safe starting point before more ornate melody.
 - Together with the phrase-start item above (more off-beat starts and pickups) and the research's "land on the
   keys' color tones" idea (docs/music/ideas-from-other-apps.md).
+- **A cap on how busy the lead can get (Sam, 2026-10-23: "I will also want to work towards putting a limit on how
+  busy it can get").** After the hybrid follows the motion lever (lead plan Task 6): a ceiling on onsets per bar or
+  per phrase, whatever the motion.
 - **Next, once the lead adjustments are done (Sam asked to be reminded): how accompaniment and lead interact.**
   Think it through before building. Two considerations Sam named: register (keep them apart) and percussive vs.
   sustained instruments (a plucked or struck lead against pads, or a sustained lead against stabs or arpeggios).

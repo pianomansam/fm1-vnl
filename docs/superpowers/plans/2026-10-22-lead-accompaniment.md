@@ -219,3 +219,20 @@ The keys' class picks the register rule: a floor above percussive keys, or a per
   and their folders in the report.
 
 - [ ] **Step 5: Commit:** `docs: lead and accompaniment rules; test: never both silent`
+
+### Task 6: The hybrid follows the motion lever (added mid-run, Sam)
+
+Sam: "On our hybrid lead logic, I feel it's pretty busy. Is it tied into our motion lever? If not, it should be."
+
+**Files:** Modify `app/song/lead.c`; Test `tests/host/song_test.c`
+
+- [ ] **Step 1: Write the failing test** `test_hybrid_follows_motion`, over 300 songs:
+  - Scope: percussive-lead songs.
+  - The mean lead onsets per lead bar in songs with motion ≤ 35 is at most 0.75 × that in songs with motion ≥ 65.
+  - Every chord change's skeleton landing still sounds at every motion.
+- [ ] **Step 2: Run it to see it fail** (today the arpeggio ignores motion).
+- [ ] **Step 3: Implement.** The hybrid keeps each arpeggio note with probability 40% + 0.75% × motion. That's 55% at
+  motion 20 and 100% at motion 80, rolled from a per-note hash, so a seed replays. Skeleton landings are never
+  dropped. The lead reads `RF_MOTION` from the live roll each bar, so the lever applies at the next bar.
+- [ ] **Step 4: Run all tests; all pass.**
+- [ ] **Step 5: Commit:** `feat(song): the hybrid lead's density follows motion`
