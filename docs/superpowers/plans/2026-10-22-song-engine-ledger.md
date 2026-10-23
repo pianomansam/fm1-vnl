@@ -201,6 +201,31 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   held and the rest long or short per song, ghost notes (60% of songs, ~30% of strikes). Revisit: the weights, how
   much anticipation, and whether to bring it into the engine proper (it lives in song.c as a spike).
 
+### Sound (judge by ear, Task 8)
+
+Renders: `app/build/new/<seed>/` and `<seed>-nobed/`, one per set (Task 8's report lists them).
+
+- **Rings' reverb and chorus against ours.** Sam picked Rings' (Task 7c); ours stays host-only (`VNL_FX=ours`).
+  Rings' chorus wobbles ±14 cents, near its test's 15-cent window: don't deepen it without moving the window.
+- **The drums' compressor.** Its attack is instant (a 10 ms attack let the snare's transient through, against the
+  peak-to-body test); per-kit thresholds give full-velocity kicks about 5.5–5.9 dB and snares about 3.2–3.4 dB.
+  Too squashed or too little?
+- **The chorus and the delay at 7.35 kHz.** Some aliasing in their wet above 3.7 kHz (a cost trade); listen on the
+  Rhodes and the Wurli.
+- **The pump depths** (subtle 1, medium 3, obvious 6 dB; the 808 pumps about 2 dB deeper, the brushes shallower).
+- **The bed's level:** about 35 dB under the music (33–38 by song); `BED=0` renders leave it out.
+- **The wind breath levels:** tuned to a test (the breath's residual −30 dB) in Task 5, kept in Task 8; the sax and
+  muted trumpet patches moved up as a whole (the breath with them). Seed 4185943442 is the one to check.
+- **The section filter amounts** (intro and outro: drums and bass 0.7, keys, lead and candy 0.4; breaks 0.8; the
+  drop bar 0.6). Keys in intros sit at about 3 kHz; darker would be the curve's knob.
+- **The pad crossfade:** a held pad takes 8 voices and a 2 s release (its old chord rings under the new one's swell);
+  a pad's swell takes at most half its note (a pad arpeggio speaks, with a faster swell than the patch's 0.6 s).
+- **The mix's balance:** the keys per comping (held keys lifted 2–4.5 dB, nylon 2 more), the upright's body under
+  the other basses, the kits' levels (the 808 a little hot), the hats about 10 dB under the snare, the vibes as ear
+  candy (in Rhodes neo-soul) about 4 dB over the other candy (the patch is shared with the lead role).
+- **The glue compressor** (2:1, −26 dBFS, 30 ms, 200–400 ms auto release, 4.5 dB make-up): 1–3 dB on full sections.
+- **The mud high-pass** (135 Hz, 150 on pads): thinner keys, or clearer?
+
 ### Lo-fi / taste
 
 - **Progressions 27–44 (R26)** await curation by ear; 28 and 34 are tonally ambiguous (Task 8c minor).

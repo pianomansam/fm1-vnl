@@ -1,7 +1,8 @@
 # CPU cost ledger
 
 What the song engine costs to run, per task and per component, measured on the host at commit 16e24ba; Task 7c's
-moves are re-measured against 0df8ddc in [Task 7c: moves 1 to 3, measured](#task-7c-moves-1-to-3-measured).
+moves are re-measured against 0df8ddc in [Task 7c: moves 1 to 3, measured](#task-7c-moves-1-to-3-measured), and Task
+8's mix in [Task 8: the mix, measured](#task-8-the-mix-measured).
 
 ## What the number means
 
@@ -42,6 +43,8 @@ the roll, which only means something from Task 7 on; before it, the plain and fo
 | 7c half-rate keys and pads, dust fast path, quarter-rate plate | 7c | 0.725 | 0.670 | 0.757 | 0.680 | 0.708 | 99.5 | -0.214 |
 | 7c, chain forced | 7c | 0.748 | 0.687 | 0.766 | 0.680 | 0.720 | 101.2 | -0.215 |
 | 7c with Rings' reverb and chorus (Sam's pick, the default), forced | 7c fix | 0.787 | 0.734 | 0.814 | 0.731 | 0.767 | | +0.047 |
+| 8 the mix (mud high-pass, glue, 8 voices for a held pad) | 7ac4bdb | 0.765 | 0.730 | 0.804 | 0.723 | 0.756 | 113.5 | |
+| 8, chain forced | 7ac4bdb | 0.797 | 0.746 | 0.815 | 0.743 | 0.775 | 116.4 | +0.008 |
 
 Reading it:
 
@@ -237,6 +240,26 @@ The sound differs clearly in the chorus (Rings' wobbles about twice as far and s
 reverb (no output taps, its long delays modulated: a shimmer), at the same level and decay. Sam chose Rings' by ear,
 so it is the default: it costs about 0.03 to 0.05 per song on the host (seed 128 forced 0.814 against 0.785), still
 under the budget, and should be measured on the device, where float-int conversions may be cheaper than here.
+
+## Task 8: the mix, measured
+
+Same bench, `--parts` best of 7 and the songs best of 3, on a busy host (AMB-1's time 144-153 ms across these runs).
+
+| Piece | Cost | Notes |
+|---|---|---|
+| The mud high-pass (a Butterworth per role and rate, on the source: a Rhodes chord, sub, dusty kit) | 0.011 | `mix mud high-pass` row: the source with it against `VX_OFF_MUD`. It runs only for a role with voices at that rate, or while its states ring: the first version, running all six filters every sample, cost 0.051 and lifted the idle floor by about 0.1 |
+| The glue compressor (over the plate + dust 0) | 0.00 (-0.002, noise) | a mean square per sample, a log and an exp per 16 samples; its gain rides the duck's |
+| A held pad's 8 voices (2 s release) | pad row 0.167 -> 0.245 | the bench's pad re-strikes a chord every bar, so the old chord's 4 voices release under the new one's for 2 s: about twice the voices. Only held pad notes (half a second or longer) take the other 4 voices; a pad arpeggio stays on 4 (one at 8 cost 0.92 forced at seed 49) |
+| Per-kit drum levels, compressor thresholds, role gains, the keys per comping, the bed's level | 0 | constants |
+
+**The forced maximum:** seeds 20 / 100 / 128 / 183 forced 0.797 / 0.746 / 0.815 / 0.743 (7c's fix: 0.787 / 0.734 /
+0.814 / 0.731, within noise). A held-pad song is now the heaviest kind: seed 7 (Pad and guitar, held, from bar 1)
+measured 0.825-0.839 forced over three runs (one outlier of 1.33 plain, a host stall: it re-ran at 0.830). The picker
+(a single noisy run per seed over 200) chose seed 108 at 0.631. Budget 1.0; headroom about 0.16.
+
+**Memory** (`tools/mem-check.sh`): image 160200 B, RAM 45964 B, pool 179644 B (was 157048 / 45040 / 162492): the pool
+grew by the 4 new chord voices' Karplus-Strong lines (4 x 1072 floats), RAM by their voice structs and the
+high-pass's states.
 
 ## The three biggest costs
 

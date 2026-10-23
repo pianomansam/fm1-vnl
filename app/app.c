@@ -331,6 +331,7 @@ static uint32_t next_seed;
 static uint8_t rolled_any, seeded;
 #if defined(PLAT_HOST) && !defined(PLAT_WEB)
 static uint32_t seed_override;           /* VNL_SEED (host): the first song's seed */
+static int set_override;                 /* VNL_SET (host): the first song's instrument set (roll_set: if its mood allows) */
 static int has_seed_override;
 #endif
 static uint32_t boot_spins;              /* main-loop passes between frames, until the first seed */
@@ -372,6 +373,8 @@ static void roll_next(void)             /* main loop: keep the mailbox full */
     if (mb_full || !seeded)
         return;
     roll_song(rolled_any ? &last_roll : 0, next_seed, &mb_roll);
+    if (set_override && !rolled_any)
+        roll_set(&mb_roll, RF_SET, set_override);
     last_roll = mb_roll;
     rolled_any = 1;
     next_seed = seed_next(next_seed);
@@ -401,6 +404,11 @@ void app_init(void)
         {
             const char *sd = getenv("VNL_SEED");   /* the first song's seed, as a log prints it: replay or roll anew */
             if (sd && *sd) { seed_override = (uint32_t)strtoul(sd, 0, 10); has_seed_override = 1; }
+        }
+        {
+            const char *st = getenv("VNL_SET");    /* VNL_SET=4: the first song on that set (a render of one the roll
+                                                      seldom picks first) */
+            set_override = st ? atoi(st) : 0;
         }
         while (w && *w) {                /* VNL_SWAP="Eb3 G3 Db4 F4=Db3 G3 Eb4 F4;...": hear an alternative voicing */
             int v[8], k = 0;
