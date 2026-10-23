@@ -78,6 +78,10 @@ Identity note: it uses `FM-1_710`; ours is `FM-1_22`, no clash.
 
 ## Tuna (delirioux/tuna): generative styles as data, including LO-FI HIP HOP
 
+> Correction (2026-10-23): the code-level read in [`fm1-accompaniment-code.md`](fm1-accompaniment-code.md) found this
+> section misread the LO-FI HIP HOP progression as scale degrees; it plays IVmaj7–iii7–ii9–Imaj7, switching to
+> vi7–ii7–V9–Imaj7.
+
 Source: `ref/tuna`. On Felucca, **GPL-3.0-only** (its Marbles port and Felucca-Engines submodule are MIT upstream).
 Runs on the FM-1. Generates endlessly in the manner of 89 composers and 86 genres. **The most relevant generator
 so far**, because it defines a style as one data record and has a lo-fi hip hop entry

@@ -170,7 +170,10 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   keys' color tones" idea (docs/music/ideas-from-other-apps.md).
 - **Move away from the hybrid lead toward a sophisticated arpeggiator (Sam, 2026-10-23: the hybrid "still doesn't
   feel musical").** Research first: docs/research/arpeggiators.md (how sophisticated arpeggiators work, and existing
-  work to use or learn from).
+  work to use or learn from). **Sam: the research informs both the lead AND the accompaniment** — one phrase engine
+  (authored figures over chord-tone indexes, lanes for rhythm/octave/accent/gate, phrase repetition A A A′ B with
+  looped variation, rank-based thinning by motion) serving the lead and the comping (today's 16th-note comping
+  arpeggio, and the guitar strumming idea below), each with its own figure library and register.
 - **A cap on how busy the lead can get (Sam, 2026-10-23: "I will also want to work towards putting a limit on how
   busy it can get").** After the hybrid follows the motion lever (lead plan Task 6): a ceiling on onsets per bar or
   per phrase, whatever the motion.
