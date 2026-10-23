@@ -1,7 +1,7 @@
 #!/bin/sh
 # SPDX-License-Identifier: MPL-2.0
 # Host cost bench: 60 s of a VNL song (placeholder voices today) against 60 s of AMB-1's engine at its heaviest piece.
-#   tools/cost-bench.sh [SEED...]   no seeds: the heaviest roll among 200 (seeds 1-200)
+#   tools/cost-bench.sh [SEED...]   no seeds: the heaviest roll among 200 (seeds 1-200, by measured render time)
 # Prints: vnl <ms> amb <ms> ratio <x>. Needs ref/fm1-amb (gitignored) and base/include/fastmath.h.
 set -e
 cd "$(dirname "$0")/.."

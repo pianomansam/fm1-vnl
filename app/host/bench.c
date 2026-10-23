@@ -93,15 +93,16 @@ static double best3_vnl(uint32_t seed)
     return best;
 }
 
-/* The heaviest roll among seeds 1..200. Proxy until patches exist: the roll with the most events in its first 60 s
-   (more events, more simultaneous voices); tick only, no render. Later tasks refine this with voice cost. */
+/* The heaviest roll among seeds 1..200: the slowest by measured render time (one full 60 s render each, ~10 s in all;
+   the per-seed time is noisy, so the pick is then re-timed best-of-3 in main). */
 static uint32_t heaviest(void)
 {
     uint32_t seed, best = 1;
-    long ev, most = -1;
+    long ev;
+    double t, slowest = -1;
     for (seed = 1; seed <= 200; seed++) {
-        run_vnl(seed, 0, &ev);
-        if (ev > most) { most = ev; best = seed; }
+        t = run_vnl(seed, 1, &ev);
+        if (t > slowest) { slowest = t; best = seed; }
     }
     return best;
 }
