@@ -42,4 +42,8 @@ float song_step_samples(const song_t *s);                   /* 44100 * 60 / (tem
 void song_request(song_t *s, int field, int value);         /* lands on the next 4-bar boundary */
 int song_pending(const song_t *s, int *field, int *bars_left);  /* the earliest pending change; 0 if none */
 
+/* SPIKE (branch spike/leads): replace the lead: 1 voice-leading line, 2 8th arpeggio, 3 skeleton + rhythm (A),
+   4 shaped arpeggio (B), 5 hybrid (C); 0 off */
+void song_set_lead_spike(int mode);
+
 #endif

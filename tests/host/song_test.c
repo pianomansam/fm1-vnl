@@ -1583,6 +1583,38 @@ static int top_can_stay(const int *pcs, int n, int top)
    - roots a step apart in the key (1-2 semitones) are played a step apart in the bass, not folded nearly an octave;
    - a walking bar's last beat leads by a step into the next bar's root;
    - keys-only bars are counted (Sam: they stay rootless, the song's one voicing; see test_loop_voicings). */
+/* Sam: the keys and the bass never share a rhythm of more than a note on 1 (stabs on a kick of 1 and the and of 2) */
+static void test_keys_bass_rhythms_differ(void)
+{
+    static song_t s;
+    uint32_t seed = 4242;
+    song_roll_t prev, r;
+    song_ev_t ev[64];
+    long bars = 0, same = 0;
+    int k, i;
+    for (k = 0; k < 300; k++) {
+        unsigned km = 0, bm = 0;
+        int cur = 0;
+        seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+        roll_song(k ? &prev : 0, seed, &r);
+        prev = r;
+        song_start(&s, &r);
+        while (s.state == SS_PLAYING) {
+            int bar = s.bar, st = s.step, n = song_tick(&s, ev, 64);
+            if (bar != cur) {
+                if (km && bm) { bars++; same += km == bm && km != 1u; }
+                km = bm = 0;
+                cur = bar;
+            }
+            for (i = 0; i < n; i++) {
+                if (ev[i].voice == V_CHORD) km |= 1u << st;
+                if (ev[i].voice == V_BASS) bm |= 1u << st;
+            }
+        }
+    }
+    CHECK(bars > 1000 && same == 0, "keys and bass share a bar's rhythm in %ld of %ld bars", same, bars);
+}
+
 static void test_bass_and_roots(void)
 {
     static song_t s;
@@ -1817,6 +1849,7 @@ int main(void)
     test_voice_leading();
     test_no_chord_clusters();
     test_bass_and_roots();
+    test_keys_bass_rhythms_differ();
     test_loop_voicings();
     test_dominant_extensions();
     test_no_substitution();

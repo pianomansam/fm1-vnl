@@ -26,8 +26,27 @@ static uint32_t to_samples(float ms)
 
 static int clampi(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }
 
+/* the onsets a bass style plays in a bar over pattern p, fills and ghosts aside */
+static unsigned bass_rhythm(int style, const lib_pattern_t *p)
+{
+    unsigned kick = p ? p->hit[D_KICK] : 1u;
+    switch (style) {
+    case BS_PEDAL: return 1u;
+    case BS_WALK: return 0x1111u;
+    case BS_ROOT_FIFTH: return kick | 1u;
+    default: return kick;
+    }
+}
+
 int groove_bass_style(const song_roll_t *r)
 {
+    static const uint8_t ALT[4][4] = {{BS_ROOT_FIFTH, BS_PEDAL, BS_WALK, BS_ROOTS},          /* the next to try */
+                                      {BS_ROOTS, BS_PEDAL, BS_WALK, BS_ROOT_FIFTH},
+                                      {BS_ROOTS, BS_PEDAL, BS_ROOT_FIFTH, BS_WALK},
+                                      {BS_ROOT_FIFTH, BS_ROOTS, BS_WALK, BS_PEDAL}};
+    const lib_pattern_t *p = lib_pattern_by_id((uint8_t)r->v[RF_PATTERN]);
+    unsigned keys;
+    int style, first, i;
     rng_t g;
     const lib_set_t *s = lib_set_by_id((uint8_t)r->v[RF_SET]);
     const lib_map_t *m = lib_map_by_id((uint8_t)r->v[RF_MAP]);
@@ -37,9 +56,13 @@ int groove_bass_style(const song_roll_t *r)
     pedal = rng_int(&g, 100);
     walk = rng_int(&g, 100);
     fifth = rng_int(&g, 2);
-    if (((m && m->sparse) || r->v[RF_MOOD] == 0) && pedal < 50) return BS_PEDAL;
-    if (s && s->bass == INS_UPRIGHT && walk < 35) return BS_WALK;
-    return fifth ? BS_ROOT_FIFTH : BS_ROOTS;
+    if (((m && m->sparse) || r->v[RF_MOOD] == 0) && pedal < 50) style = BS_PEDAL;
+    else if (s && s->bass == INS_UPRIGHT && walk < 35) style = BS_WALK;
+    else style = fifth ? BS_ROOT_FIFTH : BS_ROOTS;
+    /* never the keys' rhythm when it is more than a note on 1 (Sam): stabs on a kick of 1 and the and of 2 */
+    keys = harmony_style(r) == CS_STABS ? 0x41u : 0u;
+    for (i = 0, first = style; keys && i < 4 && bass_rhythm(style, p) == keys; i++) style = ALT[first][i];
+    return style;
 }
 
 /* Where the bass plays pitch class pc: in a 12-semitone window centered on the song's tonic (A1-Ab2 for the tonic),
