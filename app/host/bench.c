@@ -47,6 +47,7 @@ static double run_vnl(uint32_t seed, int render, long *events)
     roll_song(0, seed, &roll);
     vx_init();
     song_start(&s, &roll);
+    vx_configure(&s.roll);
     while (done < total) {
         int n = song_tick(&s, ev, 64), i;
         float adv = song_step_samples(&s);

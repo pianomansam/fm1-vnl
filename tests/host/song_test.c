@@ -12,6 +12,7 @@
 #include "harmony.h"
 #include "melody.h"
 #include "voices.h"
+#include "patch.h"
 #include "song.h"
 
 static int fails;
@@ -1424,6 +1425,195 @@ static void test_voices_fix(void)
             CHECK(0, "gain above 1 leaked: %.3f", (double)vt_l[i]);
 }
 
+/* Render n samples (n <= 4096) into vt_l/vt_r from silence; peak |l|, and whether any sample was NaN or inf. */
+static float vt_block(uint32_t n, int *bad)
+{
+    float m = 0.0f;
+    uint32_t i;
+    memset(vt_l, 0, n * sizeof(float));
+    memset(vt_r, 0, n * sizeof(float));
+    vx_render(vt_l, vt_r, n);
+    for (i = 0; i < n; i++) {
+        float a = vt_l[i] < 0 ? -vt_l[i] : vt_l[i];
+        if (vt_l[i] != vt_l[i] || a > 1e30f || vt_r[i] != vt_r[i])
+            *bad = 1;
+        if (a > m)
+            m = a;
+    }
+    return m;
+}
+
+/* A role an instrument plays in the library's sets (the first found; chords if none). */
+static int vt_role_of(int ins)
+{
+    int s;
+    for (s = 0; s < LIB_NSETS; s++) {
+        const lib_set_t *t = &LIB_SETS[s];
+        if (t->chords == ins) return V_CHORD;
+        if (t->bass == ins) return V_BASS;
+        if (t->lead == ins) return V_LEAD;
+        if (t->candy == ins) return V_CANDY;
+    }
+    return V_CHORD;
+}
+
+/* A mixed passage on every lane (noise drums included); a checksum of its samples. */
+static uint32_t vt_passage(void)
+{
+    uint32_t h = 2166136261u;
+    int k, i;
+    vt_seed = 777u;
+    for (k = 0; k < 20; k++) {
+        vt_ev(V_CHORD, 50 + (int)(vt_rnd() % 20), 90, (uint32_t)(vt_rnd() % 1000), 6000);
+        vt_ev(V_BASS, 36 + (int)(vt_rnd() % 12), 100, 0, 3000);
+        vt_ev(V_LEAD, 62 + (int)(vt_rnd() % 12), 100, 0, 3000);
+        vt_ev(V_CANDY, 74 + (int)(vt_rnd() % 12), 80, 0, 2000);
+        vt_ev(V_KICK + (int)(vt_rnd() % (V_N - V_KICK)), 0, 100, 0, 0);
+        memset(vt_l, 0, 4096 * sizeof(float));
+        memset(vt_r, 0, 4096 * sizeof(float));
+        vx_render(vt_l, vt_r, 4096);
+        for (i = 0; i < 4096; i++) {
+            union { float f; uint32_t u; } b;
+            b.f = vt_l[i];
+            h = (h ^ b.u) * 16777619u;
+        }
+    }
+    return h;
+}
+
+/* High-frequency content: mean |first difference| over the block. */
+static float vt_hf(uint32_t n)
+{
+    float s = 0.0f;
+    uint32_t i;
+    for (i = 1; i < n; i++)
+        s += vt_l[i] > vt_l[i - 1] ? vt_l[i] - vt_l[i - 1] : vt_l[i - 1] - vt_l[i];
+    return s / (float)n;
+}
+
+static void test_vx_patches(void)
+{
+    int ins, s, bad = 0;
+
+    CHECK(vx_patch(INS_NONE) == NULL, "INS_NONE has a patch");
+    for (ins = 0; ins < INS_NONE; ins++) {
+        const vx_patch_t *p = vx_patch(ins);
+        int role, k, silent_at = -1;
+        float peak = 0.0f, tail = 0.0f;
+        uint32_t off_blocks;
+        CHECK(p != NULL && p->level > 0.0f && p->model <= M_BASS, "ins %d: no patch, level 0 or bad model", ins);
+        if (!p)
+            continue;
+        /* a note for 2 s at middle register on a role it plays, then its release */
+        role = vt_role_of(ins);
+        vx_init();
+        vx_assign(role, ins);
+        vt_ev(role, role == V_BASS ? 43 : 60, 127, 0, 88200);
+        for (k = 0; k < 22; k++) {           /* 22 * 4096 > 88200 */
+            float m = vt_block(4096, &bad);
+            if (m > peak)
+                peak = m;
+        }
+        off_blocks = (uint32_t)((p->rel + 0.5f) * 44100.0f) / 4096u + 1u;
+        for (k = 0; k < (int)off_blocks; k++)
+            vt_block(4096, &bad);
+        for (k = 0; k < 4; k++) {
+            float m = vt_block(4096, &bad);
+            if (m > tail)
+                tail = m;
+            if (m < 1e-4f && silent_at < 0)
+                silent_at = k;
+        }
+        printf("patches: ins %2d model %d role %d peak %.3f\n", ins, p->model, role, (double)peak);
+        CHECK(peak >= 0.05f && peak <= 0.9f, "ins %d: peak %.3f, wanted 0.05-0.9", ins, (double)peak);
+        CHECK(tail < 1e-4f, "ins %d: %.5f still sounding %.2f s after note-off", ins, (double)tail,
+              (double)(p->rel + 0.5f));
+        CHECK(vx_active() == 0, "ins %d: a voice still on after its release", ins);
+    }
+    CHECK(!bad, "a patch rendered NaN or inf");
+
+    /* determinism: the same events twice give the same samples */
+    {
+        uint32_t a, b;
+        vx_init();
+        a = vt_passage();
+        vx_init();
+        b = vt_passage();
+        CHECK(a == b, "the same events rendered different samples (%08x vs %08x)", (unsigned)a, (unsigned)b);
+    }
+
+    /* vx_configure takes every role's instrument, the kit and the chain fields from the roll */
+    for (s = 0; s < LIB_NSETS; s++) {
+        const lib_set_t *t = &LIB_SETS[s];
+        song_roll_t r;
+        const vx_config_t *c;
+        roll_song(0, 100u + (uint32_t)s, &r);
+        r.v[RF_SET] = t->id;
+        r.v[RF_DUST] = (int16_t)(s % 4);
+        r.v[RF_NOISE] = (int16_t)(s % 3);
+        r.v[RF_AMBIENCE] = (int16_t)(s % 2);
+        vx_init();
+        vx_configure(&r);
+        c = vx_config();
+        CHECK(c->chords == t->chords && c->bass == t->bass && c->lead == t->lead && c->candy == t->candy &&
+                  c->kit == t->kit && c->flavor == t->flavor,
+              "set %d: configure took the wrong instruments", t->id);
+        CHECK(c->dust == s % 4 && c->noise == s % 3 && c->ambience == s % 2, "set %d: configure took the wrong chain",
+              t->id);
+    }
+
+    /* a role with no instrument (INS_NONE) stays silent */
+    vx_init();
+    vx_assign(V_CANDY, INS_NONE);
+    vt_ev(V_CANDY, 80, 127, 0, 20000);
+    CHECK(vt_block(4096, &bad) == 0.0f && vx_active() == 0, "a candy note sounded with no candy instrument");
+
+    /* dark: a low-pass on the music. Nothing sounding, it lands at once; then it ramps (about 3 s, a bar) */
+    {
+        float bright, dark, mid = 0.0f, ramped = 0.0f, landed = 0.0f;
+        int k;
+        vx_init();
+        vx_set_dark(0.0f);
+        vt_ev(V_CHORD, 64, 127, 0, 400000);
+        vt_ev(V_HAT, 0, 127, 0, 0);
+        vt_block(4096, &bad);
+        bright = vt_hf(4096);
+        vx_init();
+        vx_set_dark(1.0f);
+        vt_ev(V_CHORD, 64, 127, 0, 400000);
+        vt_ev(V_HAT, 0, 127, 0, 0);
+        vt_block(4096, &bad);
+        dark = vt_hf(4096);
+        printf("voices: dark hf %.5f vs bright %.5f\n", (double)dark, (double)bright);
+        CHECK(dark < bright * 0.6f, "dark: high frequencies %.5f vs %.5f bright", (double)dark, (double)bright);
+        /* while sounding (a held pad, a hat every block): 1 s in it is partway, by 3.2 s it is fully dark (same as landed at once) */
+        for (k = 0; k < 2; k++) {
+            int j;
+            vx_init();
+            vx_assign(V_CHORD, INS_PAD);
+            vx_set_dark(k ? 0.0f : 1.0f);
+            vt_ev(V_CHORD, 64, 127, 0, 400000);
+            vt_block(4096, &bad);
+            vx_set_dark(1.0f);
+            for (j = 0; j < 10; j++) {
+                vt_ev(V_HAT, 0, 127, 0, 0);
+                vt_block(4096, &bad);
+            }
+            *(k ? &mid : &dark) = vt_hf(4096);
+            for (j = 0; j < 24; j++) {
+                vt_ev(V_HAT, 0, 127, 0, 0);
+                vt_block(4096, &bad);
+            }
+            *(k ? &ramped : &landed) = vt_hf(4096);
+        }
+        printf("voices: dark ramp hf at 1 s %.6f (landed %.6f), at 3.2 s %.6f (landed %.6f)\n", (double)mid,
+               (double)dark, (double)ramped, (double)landed);
+        CHECK(mid > dark * 1.05f, "dark: 1 s into the ramp already fully dark (%.6f vs %.6f)", (double)mid, (double)dark);
+        CHECK(ramped < landed * 1.02f && ramped > landed * 0.98f, "dark: not fully dark after 3.2 s (%.6f vs %.6f)",
+              (double)ramped, (double)landed);
+    }
+}
+
 /* No substitutions (Sam, after hearing songs.wav): a reharmonized pass only colors its chord richer. Song 1 (C#
  * Lydian, Dbmaj7-Abmaj7) once turned Abmaj7 into a tritone-sub D7, and song 2 (F# major, Bmaj7-Bbm7) turned Bmaj7
  * into a borrowed Bm7: both foreign to the key. And no progression has a tritone sub written in. */
@@ -2344,6 +2534,7 @@ int main(void)
     test_melody();
     test_voices();
     test_voices_fix();
+    test_vx_patches();
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;

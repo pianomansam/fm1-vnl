@@ -1,11 +1,29 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* Placeholder voices and mix for the song engine (Plan 3 replaces them). Plain FM, sines and noise; float only. */
+/* The song engine's voices and mix. Pitched roles play the instrument patches (patch.h); every model renders with
+   the placeholder FM (and the sine bass) until its task gives it code. Drums are the placeholder kit. Float only. */
 #ifndef ENGINE_VOICES_H
 #define ENGINE_VOICES_H
 #include <stdint.h>
 #include "groove.h"
+#include "roll.h"
+#include "patch.h"
 
+/* The song's sound: one instrument per pitched role (INS_*; INS_NONE silences the role), the kit, the flavor and the
+   lo-fi chain's fields (dust 0-3, noise 0-2, ambience 0-1; stored for the chain, Task 7). */
+typedef struct { uint8_t chords, bass, lead, candy, kit, flavor, dust, noise, ambience; } vx_config_t;
+
+/* Everything silent and cleared; the config back to its defaults (Rhodes, sub, vibes, music box; dusty kit, no
+   chain), the dark filter open. */
 void vx_init(void);
+/* At song start, before the first event: the set's instruments, kit and flavor, and the roll's RF_DUST, RF_NOISE and
+   RF_AMBIENCE. Notes already sounding keep the instrument they were struck with through their release. */
+void vx_configure(const song_roll_t *r);
+/* One pitched role's instrument (voice V_CHORD, V_BASS, V_LEAD or V_CANDY; others ignored). */
+void vx_assign(int voice, int ins);
+const vx_config_t *vx_config(void);
+/* The dark treatment, 0 (open) to 1: a low-pass on the music (down to 1.5 kHz at 1). It ramps linearly, 0 to 1 in
+   3 s (about a bar at 70-90 BPM); with nothing sounding it lands at once. */
+void vx_set_dark(float d);
 /* Queue an event; its delay counts from now, in samples at 44.1 kHz (the engine assumes that rate). 64 pending at
    most; when full the oldest by insertion order is dropped (not the one due first). When all voices of a pitched lane
    are busy, the victim fades out over about 4 ms first, so a stolen note starts up to ~5 ms late. */

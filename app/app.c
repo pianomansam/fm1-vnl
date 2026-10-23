@@ -148,6 +148,7 @@ static void song_begin(void)
         vx_set_gain(1.0f);
     else
         vx_init();
+    vx_configure(&song.roll);            /* this song's instruments, kit and chain, before its first event */
     r_now = r_pos = r_tick = 0;
     r_frac = 0.0f;
     memset(req_set, 0, sizeof req_set);
@@ -156,13 +157,16 @@ static void song_begin(void)
     SLOG_SONG(&song);
 }
 
-/* one 16th: the fade (if the song's last block fades), the requests' slots, the step's events to the voices */
+/* one 16th: the fade (if the song's last block fades), the dark treatment, the requests' slots, the step's events to
+   the voices */
 static void step(void)
 {
     const plan_block_t *last = &song.plan.b[song.plan.n ? song.plan.n - 1 : 0];
+    const plan_block_t *cur = plan_at(&song.plan, song.bar);
     int bar = song.bar, st = (int)(r_tick & 15u), n, i;
     float adv;
     uint32_t ip;
+    vx_set_dark(cur && (cur->flags & PB_DARK) ? 1.0f : 0.0f);   /* the engine ramps it (3 s, about a bar) */
     if (song.plan.n && (last->flags & PB_FADE) && bar >= last->start) {
         int len = last->bars * 16, at = (bar - last->start) * 16 + st + 1;
         vx_set_gain(1.0f - (float)at / (float)len);
