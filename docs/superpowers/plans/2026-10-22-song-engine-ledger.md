@@ -164,3 +164,10 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
 - **Drum kicks to check by ear** (Task 3 minor): pattern #2 busy (steps 7+8), #5 half-time kick on 2 and 4, bossa
   kick 0,3,8,11.
 - **Slow bloom's "long fade"** often lands on a 4-bar last block (Task 5 minor).
+
+## Approved by ear
+
+- **Chord voicing (Sam, after listening to song 1 at c25d4af):** rootless, one voicing per chord voiced as a cycle,
+  pianist voice leading (common tones held, top voice first), dominants always extended, no dark re-voicing. E.g.
+  Db Lydian loop: Ab3 C4 F4 Ab4 / Bb3 Db4 F4 Ab4 / Bb3 Db4 F4 G4 / Ab3 C4 Eb4 G4. Treat changes to the voicer as
+  needing a fresh listen.
