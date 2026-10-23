@@ -59,6 +59,10 @@ void fx_rings(int on);
 void fx_fast(int on);
 /* The kick ducking's depth: about db dB at a full kick body. */
 void fx_pump(float db);
+/* The glue compressor's gain reduction now, in dB (0 for none; its make-up not counted). */
+float fx_glue_db(void);
+/* Tests and the cost bench: the glue off (1; kept through fx_init). */
+void fx_glue_off(int off);
 /* The bed is open or fading, or the plate's or the delay's tail is still above -100 dB. */
 int fx_active(void);
 /* Tests: stored state values that are neither 0 nor at least 1e-20 in magnitude (denormal-bound); should be 0. */

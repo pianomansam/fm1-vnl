@@ -21,7 +21,8 @@ typedef struct { uint8_t chords, bass, lead, candy, kit, flavor, dust, noise, am
    chain: fx_init, the subtle pump), every bus's filters open, the drums' compressor at rest. */
 void vx_init(void);
 /* At song start, before the first event, and again when a request changes one of these mid-song: the set's
-   instruments, kit and flavor (the chords' patch sets the chorus's depth, each role's patch its delay send), the
+   instruments, kit and flavor (the chords' patch sets the chorus's depth, each role's patch its delay send; the
+   song's comping sets the keys' level), the
    roll's RF_DUST, RF_NOISE and RF_AMBIENCE into the lo-fi chain (fx.h: the bed opens; dust and bed changes ramp, the
    dust landing at once if no voice sounds), RF_TEMPO into the delay's time, and the pump from the seed. Notes already sounding keep the
    instrument they were struck with through their release. */
@@ -49,15 +50,21 @@ void vx_set_hp(int role, float amount);
 void vx_set_pump(int pump);
 /* Tests and the cost bench: switch effects off (VX_OFF_*; 0 for all on). Kept through vx_init. VX_OFF_HALF renders
    the keys and pads at the full rate (the reference for the half-rate path). */
-enum { VX_OFF_COMP = 1, VX_OFF_FILTERS = 2, VX_OFF_CHORUS = 4, VX_OFF_DELAY = 8, VX_OFF_HALF = 16 };
+enum { VX_OFF_COMP = 1, VX_OFF_FILTERS = 2, VX_OFF_CHORUS = 4, VX_OFF_DELAY = 8, VX_OFF_HALF = 16, VX_OFF_MUD = 32,
+       VX_OFF_GLUE = 64 };
 void vx_fx_off(unsigned mask);
+/* Tests: the drums' compressor's gain reduction now, in dB (its make-up not counted). */
+float vx_comp_db(void);
 /* Queue an event; its delay counts from now, in samples at 44.1 kHz (the engine assumes that rate). 64 pending at
    most; when full the oldest by insertion order is dropped (not the one due first). When all voices of a pitched lane
-   are busy, the victim fades out over about 4 ms first, so a stolen note starts up to ~5 ms late. */
+   are busy, the victim fades out over about 4 ms first, so a stolen note starts up to ~5 ms late. The chords' pool is
+   4 voices, 8 for a pad (its release crosses the next chord's swell), and a pad's swell takes at most half its note. */
 void vx_event(const song_ev_t *e);
-/* Adds the mix into l and r (sample-accurate event starts). Per role bus: the drums through a compressor (a peak
-   level, instant at a 32-sample block, released over 120 ms; 4:1 above 0.2, at most 6 dB, 0.9 dB of make-up), each
-   bus through its section filters; then the chain (fx.h). */
+/* Adds the mix into l and r (sample-accurate event starts). The chords', the lead's and the ear candy's sums through
+   the mud high-pass (about 135 Hz, 150 on a pad; VX_OFF_MUD), the keys at the song's comping level; per role bus: the
+   drums through a compressor (a peak level, instant at a 32-sample block, released over 120 ms; 4:1 above the kit's
+   threshold, at most 6 dB, 0.9 dB of make-up), each bus through its section filters; then the chain (fx.h: its glue
+   compressor, VX_OFF_GLUE). */
 void vx_render(float *l, float *r, uint32_t n);
 /* Every voice into release (about 40 ms), the queue cleared; the bed fades out (FX_RAMP_S), the plate rings on: the
    song's end. */

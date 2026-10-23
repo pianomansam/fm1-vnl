@@ -91,6 +91,25 @@ static uint32_t cr_n;
 static float sh_ph, sh_y, lp_y, duck_s, dg = 1.0f, dg_step;
 static float pump_k = 0.12f; /* the duck's gain loss at a full kick body (fx_pump) */
 
+/* ------------------------------------------------------------------------------------- the glue --- */
+/* The mix bus's glue compressor (Sam: "yes"): the music's mean square over each control step into a level (30 ms
+   attack; an auto release, 200 ms after a short peak, lengthening to 400 ms while it keeps compressing, so dense
+   passages don't pump); 2:1 above GL_THR with a 4 dB soft knee, then GL_MU of make-up (the mix's level: on the
+   reverb's return too, so the wet keeps its balance). Its gain rides with the duck's (the same per-sample ramp, so the
+   chorus's and the delay's returns get it too), before the soft clip. Off in a dry engine (fx_init) until a song's
+   fx_configure. */
+#define GL_THR (-26.0f)   /* dBFS, the music's mean square */
+#define GL_KNEE 4.0f
+#define GL_SLOPE 0.5f     /* 1 - 1/2 */
+#define GL_MU 4.5f        /* make-up, dB: the mix's level */
+#define GL_ATT ((float)CR / (0.03f * SR))
+#define GL_REL_A ((float)CR / (0.2f * SR))
+#define GL_REL_B ((float)CR / (0.4f * SR))
+#define GL_HOLD ((float)CR / (1.0f * SR)) /* the release lengthens (and shortens) over about a second */
+static float gl_acc, gl_p, gl_h, gl_gr, gl_g = 1.0f;
+static float gl_mu = 1.0f; /* the make-up, linear, while the glue is on: on the reverb's return too (the mix's level) */
+static uint8_t gl_on, gl_off;
+
 /* ----------------------------------------------------------------------------------------------- bed --- */
 /* The bed runs at a third of the rate (BR, 14.7 kHz: its hiss tops out near 7 kHz), each step's output interpolated
    over three samples. */
@@ -99,11 +118,15 @@ static float pump_k = 0.12f; /* the duck's gain loss at a full kick body (fx_pum
 #define TICK_N 26460u       /* the rotation tick: every 1.8 s (in bed steps) */
 #define CLICK_P 3.0f        /* random clicks a second (the rotation's tick besides) */
 #define CLICK_DEC 0.17f     /* a click's fall per step: about 0.1 ms */
-#define TICK_A 0.33f        /* the tick's peak; random clicks 0.3-0.7 of it */
-#define HISS_V 0.0203f      /* vinyl hiss level (white, before its band-pass) */
-#define HISS_T 0.0130f      /* tape hiss level */
-#define RAIN_W 0.049f       /* rain wash level (white, before its low-pass) */
-#define DROP_A 0.0037f      /* droplet ping level */
+/* The bed's level (Task 8, Sam: "the noise layer needs to be quieter"): about 35 dB under the music's RMS (Task 7
+   had it 22-29 dB under); the songs' levels sit within a few dB of each other (the mix), so a fixed level lands each
+   song's bed 30-40 dB under its own music. */
+#define BED_LV 0.25f
+#define TICK_A (0.33f * BED_LV)   /* the tick's peak; random clicks 0.3-0.7 of it */
+#define HISS_V (0.0203f * BED_LV) /* vinyl hiss level (white, before its band-pass) */
+#define HISS_T (0.0130f * BED_LV) /* tape hiss level */
+#define RAIN_W (0.049f * BED_LV)  /* rain wash level (white, before its low-pass) */
+#define DROP_A (0.0037f * BED_LV) /* droplet ping level */
 #define DROP_P 14.0f        /* droplets a second */
 #define DROP_R 0.977f       /* a droplet's ring: about 20 ms to -60 dB */
 #define PAIR 0.75f          /* surface and rain together: each a little lower, the bed's sum stays put */
@@ -283,6 +306,8 @@ static void dust_clear(void)
     cr_n = 0;
     sh_ph = sh_y = lp_y = duck_s = dg_step = 0.0f;
     dg = 1.0f;
+    gl_acc = gl_p = gl_h = gl_gr = 0.0f;
+    gl_g = 1.0f;
 }
 
 /* the chorus's line and LFO, the side's filter */
@@ -352,6 +377,8 @@ void fx_init(void)
     dust = dust_t = 0.0f;
     dust_s = flav_s = 0.0f;
     flav = flav_t = 0.0f;
+    gl_on = 0;
+    gl_mu = 1.0f;
     dust_clear();
     pump_k = 0.12f;
     ch_dep = ch_dep_t = 0.0f;
@@ -424,6 +451,7 @@ void fx_configure(int dust_lv, int noise, int ambience, int flavor)
         chorus_clear();
     }
     pl_open = 1;
+    gl_on = 1;
     og = 1.0f;
     stopping = 0;
 }
@@ -445,6 +473,16 @@ void fx_stop(void)
 {
     bo_t = 0.0f;
     stopping = 1;
+}
+
+float fx_glue_db(void)
+{
+    return gl_gr;
+}
+
+void fx_glue_off(int off)
+{
+    gl_off = (uint8_t)(off != 0);
 }
 
 int fx_active(void)
@@ -506,7 +544,7 @@ static int tiny(const float *x, int n)
 
 int fx_tiny(void)
 {
-    float st[] = {lp_y, sh_y, duck_s, dl_y, w_el0, w_el1, w_er0, w_er1, w_ac, w_ad, w_ml, w_sl, clk_l, clk_r, dp_y1, dp_y2, b_l0, b_l1, b_r0, b_r1, pl_bw, pl_damp_l, pl_damp_r, pl_acc, pl_wl0, pl_wl1,
+    float st[] = {gl_p, lp_y, sh_y, duck_s, dl_y, w_el0, w_el1, w_er0, w_er1, w_ac, w_ad, w_ml, w_sl, clk_l, clk_r, dp_y1, dp_y2, b_l0, b_l1, b_r0, b_r1, pl_bw, pl_damp_l, pl_damp_r, pl_acc, pl_wl0, pl_wl1,
                   pl_wr0, pl_wr1};
     return rfx_tiny() + tiny(pl_buf, (int)PL_N) + tiny(ch_buf, (int)CH_N) + tiny(dl_buf, (int)DL_N) + tiny(wl, WL_N) + tiny(st, (int)(sizeof st / sizeof st[0])) + tiny(hv_l, 2) +
            tiny(hv_r, 2) + tiny(ht_l, 2) + tiny(ht_r, 2) + tiny(rw_l, 2) + tiny(rw_r, 2);
@@ -693,6 +731,27 @@ static void bed(float *l, float *r, uint32_t n)
     b_r1 = fm_flush(q1);
 }
 
+/* a control step of the glue: the last step's mean square (acc) into its level, the gain from it */
+static void glue_control(float acc)
+{
+    float ms = acc * (1.0f / (float)CR), lv, over, gr;
+    if (!gl_on || gl_off) {
+        gl_p = gl_h = gl_gr = 0.0f;
+        gl_g = gl_mu = 1.0f;
+        return;
+    }
+    gl_mu = fm_db2lin(GL_MU);
+    gl_p = fm_flush(gl_p + (ms - gl_p) * (ms > gl_p ? GL_ATT : GL_REL_A + (GL_REL_B - GL_REL_A) * gl_h));
+    lv = 3.0103f * fm_log2f(gl_p + 1e-12f);
+    over = lv - GL_THR;
+    gr = over <= -0.5f * GL_KNEE ? 0.0f
+         : over >= 0.5f * GL_KNEE ? GL_SLOPE * over
+                                  : GL_SLOPE * (over + 0.5f * GL_KNEE) * (over + 0.5f * GL_KNEE) * (0.5f / GL_KNEE);
+    gl_h += ((gr > 1.0f ? 1.0f : 0.0f) - gl_h) * GL_HOLD;
+    gl_gr = gr;
+    gl_g = gl_mu * fm_exp2f(-gr * 0.16609640f);
+}
+
 /* the dust on the music in l, in place: control steps of CR samples, the state in locals inside each (l's stores may
    alias the statics, so the compiler would reload them every sample). The fast path (fx_fast): with the wow off (dust
    0: its delay sits at 0) the line is not written, only its newest sample kept; when the wow comes on, the line is
@@ -710,9 +769,11 @@ static void dust_run(float *l, uint32_t n, float dt)
         int wow, fast = !fast_off;
         if (cr_n == 0) {
             dust_control();
+            glue_control(gl_acc);
+            gl_acc = 0.0f;
             duck_s += (dt - duck_s) * (dt > duck_s ? DUCK_ATT : DUCK_REL) * (float)CR;
             duck_s = fm_flush(duck_s);
-            dg_step = (1.0f - pump_k * duck_s - dg) * (1.0f / (float)CR);
+            dg_step = (gl_g * (1.0f - pump_k * duck_s) - dg) * (1.0f / (float)CR);
         }
         m = CR - cr_n < n - i ? CR - cr_n : n - i;
         ds = del_step;
@@ -725,11 +786,12 @@ static void dust_run(float *l, uint32_t n, float dt)
         q = p_q;
         a = p_lp;
         if (fast && !wow && grit == 0.0f) { /* the fast path: no wow, no grit */
-            float y = 0.0f;
+            float y = 0.0f, acc = gl_acc;
             kk = (4.0f / 27.0f) * drive * drive;
             lim = 1.5f * idrive;
             for (k = 0; k < m; k++) {
                 y = l[i + k];
+                acc += y * y;
                 {
                     float u = fm_clampf(y, -lim, lim);
                     u -= kk * u * u * u;
@@ -742,6 +804,7 @@ static void dust_run(float *l, uint32_t n, float dt)
                 wl_last = y;
                 wl_on = 0;
             }
+            gl_acc = acc;
             lp_y = fm_flush(lp);
             dg = g;
             cr_n = (cr_n + m) & (CR - 1);
@@ -760,6 +823,7 @@ static void dust_run(float *l, uint32_t n, float dt)
             int j;
             /* wow and flutter (at dust 0 the delay sits at 0: the line is kept, the read skipped) */
             y = l[i + k];
+            gl_acc += y * y; /* (the glue's detector) */
             wl[w] = y;
             if (wow) {
                 d += ds;
@@ -836,7 +900,7 @@ static void wet_run(float *l, float *r, const float *s2, const float *c2, const 
         evr = er0 + (er1 - er0) * f6;
     }
     float cs = ch_s, cc = ch_c, dep = ch_dep, dt = dl_t, ws = dl_ws, wc = dl_wc, y = dl_y, dpk = dl_peak;
-    float kp = dl_k, open = pl_open ? 1.0f : 0.0f;
+    float kp = dl_k, open = pl_open ? 1.0f : 0.0f, mu = gl_mu;
     int plate = pl_open || pl_peak > PL_QUIET;
     int chorus = dep > 0.0f || ch_dep_t > 0.0f;
     int delay = !dl_off && (pl_open || dpk > PL_QUIET);
@@ -859,8 +923,8 @@ static void wet_run(float *l, float *r, const float *s2, const float *c2, const 
                     rfx_reverb((0.25f * open) * acc, &wl1, &wr1);
                 else
                     plate_step((0.25f * open) * acc, &wl1, &wr1);
-                wl1 = fm_flush(wl1);
-                wr1 = fm_flush(wr1);
+                wl1 = fm_flush(wl1 * mu);
+                wr1 = fm_flush(wr1 * mu);
             } else
                 wl1 = wr1 = 0.0f;
             acc = 0.0f;

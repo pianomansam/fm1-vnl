@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
 #include "rng.h"
 #include "theory.h"
 #include "fastmath.h"
@@ -1551,6 +1552,7 @@ static void test_vx_keys(void)
     static const int NOTES[3] = {55, 60, 67};
     int i, j, bad = 0, zc[3][3];
 
+    vx_fx_off(VX_OFF_MUD); /* the voices' own timbre (zero crossings): the mix's mud high-pass left out */
     CHECK(vx_patch(INS_RHODES)->model == M_EP && vx_patch(INS_WURLI)->model == M_EP &&
               vx_patch(INS_FELT_PIANO)->model == M_EP && vx_patch(INS_PAD)->model == M_PAD &&
               vx_patch(INS_VOX_PAD)->model == M_PAD,
@@ -1593,6 +1595,7 @@ static void test_vx_keys(void)
                   PADS[i], NOTES[j], 100.0 * (double)(rms[40] / rms[pk]));
         }
     CHECK(!bad, "a key or pad rendered NaN or inf");
+    vx_fx_off(0u);
 }
 
 /* A note on a role, from silence, held len samples: n samples of the left output into out (n a multiple of 4096 at
@@ -3039,7 +3042,9 @@ static void test_drum_kits(void)
             int k, ok = 1, lim = (kit == KIT_808 && v == V_KICK) ? 110250 : 66150;
             dk_hit(kit, v, 100, &act);
             pk = dk_peak(0, 8820);
-            CHECK(pk > 0.05f && pk < 0.9f, "%s %s: peak %.3f outside 0.05-0.9", kn[kit], vn[v - V_KICK], (double)pk);
+            /* (the floor was 0.05; Task 8's mix puts the hats and the shaker about 10 dB under the snare and every kit
+               under the keys, so 0.02: audible, and above the bed) */
+            CHECK(pk > 0.02f && pk < 0.9f, "%s %s: peak %.3f outside 0.02-0.9", kn[kit], vn[v - V_KICK], (double)pk);
             last = dk_peak(lim, DK_N);
             CHECK(last < 1e-3f, "%s %s: still %.5f after the tail limit", kn[kit], vn[v - V_KICK], (double)last);
             CHECK(act == 0, "%s %s: voice still active at the tail limit", kn[kit], vn[v - V_KICK]);
@@ -3410,6 +3415,7 @@ static void test_fx_chain(void)
 
     /* ducking (Task 7b: its depth is the song's pump, no longer the dust's): on an 808 kick's body about the pump's
        depth (its long body ducks a little deeper than the dusty kick the depth is calibrated on), gone on its tail */
+    fx_glue_off(1); /* (the duck alone: the glue would ride the test's loud sine) */
     for (d = 0; d < 3; d++) {
         static const float pump_db[3] = {1.0f, 3.0f, 6.0f};
         float ph = 0.0f, ref = 0.0f, lo = 1.0f, tail = 0.0f, lo_db;
@@ -3445,6 +3451,7 @@ static void test_fx_chain(void)
               (double)pump_db[d], (double)lo_db);
         CHECK(tail > 0.99f, "duck at %.0f dB: still ducked %.3f on the 808's tail", (double)pump_db[d], (double)tail);
     }
+    fx_glue_off(0);
 
     /* a dust change ramps: switching 0 -> 3 under a steady sine steps no more than the two steady states do */
     {
@@ -3567,7 +3574,7 @@ static void test_fx_engine(void)
             float db = 20.0f * fm_log2f(bed[j] / m) * 0.30103f;
             printf("fx: seed %u music rms %.4f, bed %d/%d %.1f dB under\n", (unsigned)seeds[k], (double)m, beds[j][0],
                    beds[j][1], (double)-db);
-            CHECK(db >= -30.0f && db <= -18.0f, "seed %u bed noise %d rain %d at %.1f dB, wanted -30..-18",
+            CHECK(db >= -40.0f && db <= -30.0f, "seed %u bed noise %d rain %d at %.1f dB, wanted -40..-30",
                   (unsigned)seeds[k], beds[j][0], beds[j][1], (double)db);
         }
     }
@@ -4267,6 +4274,7 @@ static void test_wet(void)
        -60 dB by 3 s; a send of 0 gives no echo; the tail survives a song change */
     {
         static const int tempos[] = {70, 80, 90};
+        vx_fx_off(VX_OFF_GLUE); /* (the delay's own levels: the mix's make-up left out) */
         for (k = 0; k < 3; k++) {
             song_roll_t roll;
             float T = 0.75f * 60.0f / (float)tempos[k] * 44100.0f, prevpk = 1e9f, late = 0.0f, worst = 0.0f;
@@ -4312,6 +4320,7 @@ static void test_wet(void)
             CHECK(mono, "delay %d BPM: a repeat not quieter than the last", tempos[k]);
             CHECK(late < 1e-3f, "delay %d BPM: %.2e after 3 s, not below -60 dB", tempos[k], (double)late);
         }
+        vx_fx_off(0u);
         /* a send of 0: the music's impulse makes no echo */
         {
             song_roll_t roll;
@@ -4667,6 +4676,7 @@ static void test_cost_moves(void)
         uint32_t t;
         float d;
         fx_rings(0);
+        fx_glue_off(1); /* (the reference has no make-up) */
         fx_fresh(0, 0, 0, FL_LOFI);
         for (t = 0; t < 2u * 44100u; t += 2205u) {
             memset(fx_l, 0, 2205 * sizeof(float));
@@ -4687,6 +4697,7 @@ static void test_cost_moves(void)
             CHECK(fm_fabsf(d - PLATE_REF[b]) <= 1.5f, "plate tail: band %.0f-%.0f Hz at %.2f dB, the third-rate %.2f dB",
                   (double)lo, (double)(2.0f * lo), (double)d, (double)PLATE_REF[b]);
         }
+        fx_glue_off(0);
         fx_rings(1);
     }
 }
@@ -4781,48 +4792,415 @@ static void test_rings_pair(void)
           (double)fx_chorus_dry());
 }
 
-int main(void)
+/* Task 8's mix parts: the mud high-pass, the pads' chord changes, the drums' compression per kit */
+/* n samples of the engine's left channel into out, from where it is */
+static void mx_render(float *out, uint32_t n)
 {
-    test_rng();
-    test_voice_leading();
-    test_no_chord_clusters();
-    test_bass_and_roots();
-    test_keys_bass_rhythms_differ();
-    test_keys_kick_differ();
-    test_lead_by_class();
-    test_lead_where();
-    test_lead_push_legal();
-    test_comping_makes_room();
-    test_register_floor();
-    test_pad_places();
-    test_line_wanders();
-    test_hybrid_follows_motion();
-    test_never_both_silent();
-    test_pushes();
-    test_loop_voicings();
-    test_dominant_extensions();
-    test_no_substitution();
-    test_theory();
-    test_library();
-    test_roll();
-    test_plan();
-    test_groove();
-    test_harmony();
-    test_melody();
-    test_voices();
-    test_voices_fix();
-    test_vx_patches();
-    test_vx_keys();
-    test_vx_plucks_basses();
-    test_vx_leads();
-    test_drum_kits();
-    test_fx_chain();
-    test_fx_engine();
-    test_moves();
-    test_dynamics();
-    test_wet();
-    test_cost_moves();
-    test_rings_pair();
+    uint32_t d = 0;
+    while (d < n) {
+        uint32_t b = n - d < 4096u ? n - d : 4096u;
+        memset(vt_l, 0, b * sizeof(float));
+        memset(vt_r, 0, b * sizeof(float));
+        vx_render(vt_l, vt_r, b);
+        memcpy(out + d, vt_l, b * sizeof(float));
+        d += b;
+    }
+}
+
+/* a chord (rolled 20 ms a note, as the keys play it) from a dry engine, with the mud high-pass on or off: low, voiced
+   from C2 (65 Hz; nothing else under 98 Hz), or in the keys' register (E3-D4); the energy of [from, from + CM_N) in
+   bands below 80 Hz and above 200 Hz */
+static void mx_chord(int ins, int mud, int low, uint32_t from, double *lo, double *hi)
+{
+    static const int ch[2][4] = {{52, 55, 59, 62}, {36, 43, 48, 52}};
+    int i;
+    vx_fx_off(mud ? 0u : VX_OFF_MUD);
+    vx_init();
+    vx_assign(V_CHORD, ins);
+    for (i = 0; i < 4; i++)
+        vt_ev(V_CHORD, ch[low][i], 100, (uint32_t)i * 882u, 3u * 44100u);
+    mx_render(cm_x, from + CM_N);
+    cm_spec(cm_x + from, CM_N, cm_pa, 0);
+    *lo = cm_band(cm_pa, CM_N, 1.0f, 80.0f);
+    *hi = cm_band(cm_pa, CM_N, 200.0f, 20000.0f);
+    vx_fx_off(0u);
+}
+
+/* the level (dB, 50 ms windows) of buf: the lowest window in [a, b) against the mean of [c, d) */
+static float mx_dip(const float *x, uint32_t a, uint32_t b, uint32_t c, uint32_t d)
+{
+    double ref = 0.0, lo = 1e30;
+    uint32_t i, w;
+    for (i = c; i < d; i++)
+        ref += (double)x[i] * (double)x[i];
+    ref /= (double)(d - c);
+    for (w = a; w + 2205u <= b; w += 441u) {
+        double e = 0.0;
+        for (i = w; i < w + 2205u; i++)
+            e += (double)x[i] * (double)x[i];
+        e /= 2205.0;
+        lo = e < lo ? e : lo;
+    }
+    return db_of(lo / ref);
+}
+
+#define MX_BAR 124518u /* a bar at 85 BPM */
+static void test_mix_parts(void)
+{
+    static const int mud_ins[2] = {INS_RHODES, INS_PAD};
+    int k, i;
+    /* the mud high-pass: a Rhodes and a pad chord voiced from C2 lose 12 dB or more below 80 Hz; in the keys'
+       register, little above 200 Hz */
+    for (k = 0; k < 2; k++) {
+        double lo0, hi0, lo1, hi1;
+        uint32_t from = k ? 30000u : 4410u;
+        double x;
+        mx_chord(mud_ins[k], 0, 1, from, &lo0, &x);
+        mx_chord(mud_ins[k], 1, 1, from, &lo1, &x);
+        mx_chord(mud_ins[k], 0, 0, from, &x, &hi0);
+        mx_chord(mud_ins[k], 1, 0, from, &x, &hi1);
+        printf("mix: %s chord below 80 Hz %.1f dB with the mud high-pass, above 200 Hz %.2f dB\n", k ? "pad" : "rhodes",
+               (double)db_of(lo1 / lo0), (double)db_of(hi1 / hi0));
+        CHECK(db_of(lo1 / lo0) <= -12.0f, "mud high-pass: %s below 80 Hz only %.1f dB down", k ? "pad" : "rhodes",
+              (double)db_of(lo1 / lo0));
+        CHECK(db_of(hi1 / hi0) >= -1.5f, "mud high-pass: %s above 200 Hz %.2f dB down", k ? "pad" : "rhodes",
+              (double)db_of(hi1 / hi0));
+    }
+
+    /* the pads' chord change: a held chord (its notes overlapping the next bar by 6%, as the keys hold them), then
+       the next chord; the lowest 50 ms around the change against the old chord's level before it */
+    {
+        static const int a[4] = {57, 60, 64, 67}, b[4] = {55, 59, 62, 65};
+        uint32_t n = 3u * MX_BAR;
+        float dip;
+        vx_init();
+        vx_assign(V_CHORD, INS_PAD);
+        for (i = 0; i < 4; i++) {
+            vt_ev(V_CHORD, a[i], 70, (uint32_t)i * 882u, MX_BAR * 106u / 100u - (uint32_t)i * 882u);
+            vt_ev(V_CHORD, b[i], 70, MX_BAR + (uint32_t)i * 882u, 2u * MX_BAR);
+        }
+        mx_render(sb_x, n);
+        dip = mx_dip(sb_x, MX_BAR, MX_BAR + 44100u, MX_BAR - 30000u, MX_BAR - 4410u);
+        printf("mix: a pad's chord change dips %.1f dB\n", (double)dip);
+        CHECK(dip >= -3.0f, "pads: the chord change dips %.1f dB, wanted 3 dB at most", (double)dip);
+
+        /* an arpeggio on a pad (a note a 16th, held a little over a 16th) speaks: within 6 dB of the held chord */
+        vx_init();
+        vx_assign(V_CHORD, INS_PAD);
+        for (i = 0; i < 32; i++)
+            vt_ev(V_CHORD, a[i & 3], 70, (uint32_t)i * (MX_BAR / 16u), MX_BAR * 19u / 256u);
+        mx_render(sb_l, 2u * MX_BAR);
+        {
+            double e0 = 0.0, e1 = 0.0;
+            uint32_t j;
+            for (j = MX_BAR / 2u; j < 2u * MX_BAR; j++)
+                e1 += (double)sb_l[j] * (double)sb_l[j];
+            for (j = MX_BAR / 2u; j < 2u * MX_BAR; j++)
+                e0 += (double)sb_x[j] * (double)sb_x[j];
+            dip = db_of(e1 / e0);
+        }
+        printf("mix: a pad's arpeggio sits %.1f dB against its held chord\n", (double)dip);
+        CHECK(dip >= -6.0f, "pads: an arpeggio sits %.1f dB under the held chord, wanted 6 dB at most", (double)dip);
+    }
+
+    /* the drums' compressor, per kit: 3-6 dB of reduction on a full-velocity kick and snare */
+    {
+        static const char *const kn[] = {"dusty", "soft", "808", "brushes"};
+        int kit, v;
+        for (kit = KIT_DUSTY; kit <= KIT_BRUSHES; kit++)
+            for (v = V_KICK; v <= V_SNARE; v++) {
+                float gr = 0.0f;
+                int b;
+                vx_init();
+                vx_set_kit(kit);
+                vt_ev(v, 0, 127, 0, 0);
+                for (b = 0; b < 200; b++) {
+                    vx_render(vt_l, vt_r, 32);
+                    gr = fm_maxf(gr, vx_comp_db());
+                }
+                printf("mix: %s %s at 127: %.1f dB of compression\n", kn[kit], v == V_KICK ? "kick" : "snare",
+                       (double)gr);
+                CHECK(gr >= 3.0f && gr <= 6.0f, "compressor: %s %s at 127 gets %.1f dB, wanted 3-6", kn[kit],
+                      v == V_KICK ? "kick" : "snare", (double)gr);
+            }
+    }
+
+    /* the glue: none in a dry engine (vx_init), on once a song configures the chain */
+    {
+        song_roll_t roll;
+        vx_init();
+        for (i = 0; i < 4; i++)
+            vt_ev(V_CHORD, 60 + 4 * i, 127, 0, 44100u);
+        vt_ev(V_KICK, 0, 127, 0, 0);
+        mx_render(sb_l, 22050u);
+        CHECK(fx_glue_db() == 0.0f, "glue: %.2f dB in a dry engine", (double)fx_glue_db());
+        roll_song(NULL, 3u, &roll);
+        vx_init();
+        vx_configure(&roll);
+        for (i = 0; i < 4; i++)
+            vt_ev(V_CHORD, 60 + 4 * i, 127, 0, 44100u);
+        for (i = 0; i < 4; i++)
+            vt_ev(V_KICK, 0, 127, (uint32_t)i * 11025u, 0);
+        mx_render(sb_l, 44100u);
+        CHECK(fx_glue_db() > 0.5f, "glue: %.2f dB on a loud passage", (double)fx_glue_db());
+    }
+}
+
+/* ------------------------------------------------------------------- Task 8: the mix, steady levels --- */
+/* A whole song through the engine as the app plays it (vx_song, the section moves and the last block's fade each
+   step, song_tick, vx_render with the chain), its bed off unless bed: per bar the energy of both channels, the glue
+   compressor's mean reduction (dB), the peak. */
+#define LV_BARS 80
+typedef struct {
+    double e[LV_BARS], gr[LV_BARS];
+    uint32_t n[LV_BARS];
+    float peak;
+    song_plan_t plan;
+    song_roll_t roll;
+    int bars;
+} lv_t;
+static lv_t lv;
+static void lv_song(uint32_t seed, int bed)
+{
+    static song_t s;
+    song_ev_t ev[64];
+    float frac = 0.0f;
+    memset(&lv, 0, sizeof lv);
+    roll_song(NULL, seed, &lv.roll);
+    if (!bed)
+        lv.roll.v[RF_NOISE] = lv.roll.v[RF_AMBIENCE] = 0;
+    vx_init();
+    song_start(&s, &lv.roll);
+    vx_song(&s.roll);
+    lv.plan = s.plan;
+    lv.bars = s.roll.v[RF_BARS];
+    while (s.state == SS_PLAYING) {
+        const plan_block_t *last = &s.plan.b[s.plan.n ? s.plan.n - 1 : 0];
+        int bar = s.bar, st = s.step, n, i;
+        float adv;
+        uint32_t left;
+        sb_moves(&s.plan, bar, st, 1);
+        if (s.plan.n && (last->flags & PB_FADE) && bar >= last->start)
+            vx_set_gain(1.0f - (float)((bar - last->start) * 16 + st + 1) / (float)(last->bars * 16));
+        n = song_tick(&s, ev, 64);
+        for (i = 0; i < n; i++)
+            vx_event(&ev[i]);
+        adv = song_step_samples(&s) + frac;
+        left = (uint32_t)adv;
+        frac = adv - (float)left;
+        while (left) {
+            uint32_t b = left < 1024u ? left : 1024u, k;
+            double e = 0.0;
+            memset(vt_l, 0, b * sizeof(float));
+            memset(vt_r, 0, b * sizeof(float));
+            vx_render(vt_l, vt_r, b);
+            for (k = 0; k < b; k++) {
+                e += (double)vt_l[k] * (double)vt_l[k] + (double)vt_r[k] * (double)vt_r[k];
+                lv.peak = fm_maxf(lv.peak, fm_maxf(fm_fabsf(vt_l[k]), fm_fabsf(vt_r[k])));
+            }
+            if (bar < LV_BARS) {
+                lv.e[bar] += e;
+                lv.n[bar] += 2u * b;
+                lv.gr[bar] += (double)fx_glue_db() * b;
+            }
+            left -= b;
+        }
+    }
+}
+
+/* the RMS (dB) and the glue's mean reduction over bars [b0, b1) */
+static float lv_db(int b0, int b1, float *gr)
+{
+    double e = 0.0, g = 0.0;
+    uint32_t n = 0;
+    int b;
+    for (b = b0; b < b1 && b < LV_BARS; b++) {
+        e += lv.e[b];
+        g += lv.gr[b];
+        n += lv.n[b];
+    }
+    if (gr)
+        *gr = n ? (float)(2.0 * g / n) : 0.0f;
+    return n ? db_of(e / n) : -999.0f;
+}
+
+/* a block that plays the full band: keys, kick, snare and bass, a groove or a lead section, no fade */
+static int lv_full(const plan_block_t *b)
+{
+    int want = L_KEYS | L_KICK | L_SNARE | L_BASS;
+    return (b->layers & want) == want && (b->section == SEC_GROOVE || b->section == SEC_LEAD) && !(b->flags & PB_FADE);
+}
+/* a block allowed to be quieter: an intro, an outro, a break, the fade */
+static int lv_quiet(const plan_block_t *b)
+{
+    return b->section == SEC_INTRO || b->section == SEC_OUTRO || b->section == SEC_BREAK || (b->flags & PB_FADE);
+}
+
+static int lv_cmp(const void *a, const void *b)
+{
+    float x = *(const float *)a, y = *(const float *)b;
+    return x < y ? -1 : x > y;
+}
+
+/* Step 1: over 50 rolled songs, each song's full-band RMS within 3 dB of the median song's; inside a song no block's
+   RMS more than 6 dB from the last full-level block's (intros, outros, breaks and fades may be quieter, never louder
+   than the song's full band); the peak under 0 dBFS. */
+#define LV_N 50
+static float lv_song_db[LV_N], lv_song_gr[LV_N], lv_intro_gr[LV_N], lv_intro_db[LV_N], lv_worst_jump;
+static void test_levels_steady(void)
+{
+    float sorted[LV_N], med, peak = 0.0f, worst = 0.0f;
+    int k, bad_jump = 0, bad_quiet = 0;
+    lv_worst_jump = 0.0f;
+    for (k = 0; k < LV_N; k++) {
+        const lib_set_t *set;
+        float full, prev = -999.0f;
+        double e = 0.0;
+        uint32_t n = 0;
+        int j, b;
+        lv_song((uint32_t)k + 1u, 0);
+        set = lib_set_by_id((uint8_t)lv.roll.v[RF_SET]);
+        for (j = 0; j < lv.plan.n; j++)
+            if (lv_full(&lv.plan.b[j]))
+                for (b = lv.plan.b[j].start; b < lv.plan.b[j].start + lv.plan.b[j].bars && b < LV_BARS; b++) {
+                    e += lv.e[b];
+                    n += lv.n[b];
+                }
+        full = n ? db_of(e / n) : -999.0f;
+        lv_song_db[k] = full;
+        {
+            float gs = 0.0f, gi = 0.0f;
+            double g = 0.0;
+            int gn = 0;
+            for (j = 0; j < lv.plan.n; j++)
+                if (lv_full(&lv.plan.b[j])) {
+                    lv_db(lv.plan.b[j].start, lv.plan.b[j].start + lv.plan.b[j].bars, &gs);
+                    g += (double)gs * lv.plan.b[j].bars;
+                    gn += lv.plan.b[j].bars;
+                }
+            lv_song_gr[k] = gn ? (float)(g / gn) : 0.0f;
+            lv_intro_gr[k] = -1.0f;
+            lv_intro_db[k] = -999.0f;
+            if (lv.plan.n && lv.plan.b[0].section == SEC_INTRO) {
+                lv_intro_db[k] = lv_db(lv.plan.b[0].start, lv.plan.b[0].start + lv.plan.b[0].bars, &gi);
+                lv_intro_gr[k] = gi;
+            }
+        }
+        peak = fm_maxf(peak, lv.peak);
+        for (j = 0; j < lv.plan.n; j++) {
+            const plan_block_t *pb = &lv.plan.b[j];
+            float d = lv_db(pb->start, pb->start + pb->bars, NULL);
+            if (lv_quiet(pb)) {
+                if (d > full + 1.0f) {
+                    bad_quiet++;
+                    printf("levels: seed %d block %d (%s) %.1f dB, louder than the full band's %.1f\n", k + 1, j,
+                           plan_section_name(pb->section), (double)d, (double)full);
+                }
+                continue;
+            }
+            if (prev > -999.0f) {
+                float jmp = fm_fabsf(d - prev);
+                if (jmp > lv_worst_jump)
+                    lv_worst_jump = jmp;
+                if (jmp > 6.0f) {
+                    bad_jump++;
+                    printf("levels: seed %d block %d (%s) %.1f dB after %.1f\n", k + 1, j,
+                           plan_section_name(pb->section), (double)d, (double)prev);
+                }
+            }
+            prev = d;
+        }
+        printf("levels: seed %2d set %-17s full %.1f dB, glue %.1f dB; intro %.1f dB, glue %.1f; peak %.3f\n", k + 1,
+               set ? set->name : "?", (double)full, (double)lv_song_gr[k], (double)lv_intro_db[k],
+               (double)lv_intro_gr[k], (double)lv.peak);
+    }
+    memcpy(sorted, lv_song_db, sizeof sorted);
+    qsort(sorted, LV_N, sizeof sorted[0], lv_cmp);
+    med = 0.5f * (sorted[LV_N / 2 - 1] + sorted[LV_N / 2]);
+    for (k = 0; k < LV_N; k++)
+        worst = fm_maxf(worst, fm_fabsf(lv_song_db[k] - med));
+    printf("levels: median %.1f dB, spread %.1f..%.1f (worst %.1f off), worst block jump %.1f dB, peak %.3f\n",
+           (double)med, (double)sorted[0], (double)sorted[LV_N - 1], (double)worst, (double)lv_worst_jump,
+           (double)peak);
+    for (k = 0; k < LV_N; k++)
+        CHECK(fm_fabsf(lv_song_db[k] - med) <= 3.0f, "levels: seed %d's full band %.1f dB, the median %.1f", k + 1,
+              (double)lv_song_db[k], (double)med);
+    CHECK(bad_jump == 0, "levels: %d block jumps over 6 dB", bad_jump);
+    CHECK(bad_quiet == 0, "levels: %d quiet blocks louder than the full band", bad_quiet);
+    CHECK(peak < 1.0f, "levels: peak %.3f", (double)peak);
+    /* the bed (vinyl and rain, its loudest pairing, and tape alone) sits 30-40 dB under each song's own full band */
+    {
+        float bed[2];
+        int j;
+        bed[0] = fx_bed_rms(1, 1, 10, NULL);
+        bed[1] = fx_bed_rms(2, 0, 10, NULL);
+        for (j = 0; j < 2; j++) {
+            float lo = 999.0f, hi = -999.0f;
+            for (k = 0; k < LV_N; k++) {
+                float d = 20.0f * fm_log2f(bed[j]) * 0.30103f - lv_song_db[k];
+                lo = fm_minf(lo, d);
+                hi = fm_maxf(hi, d);
+                CHECK(d >= -40.0f && d <= -30.0f, "the bed (%s) %.1f dB under seed %d's music, wanted 30-40",
+                      j ? "tape" : "vinyl and rain", (double)-d, k + 1);
+            }
+            printf("levels: the bed (%s) %.1f..%.1f dB under the songs' music\n", j ? "tape" : "vinyl and rain",
+                   (double)-hi, (double)-lo);
+        }
+    }
+    /* the glue: 1-4 dB on average over a song's full band, under 1 dB in its intro */
+    for (k = 0; k < LV_N; k++) {
+        CHECK(lv_song_gr[k] >= 1.0f && lv_song_gr[k] <= 4.0f, "glue: seed %d's full band %.2f dB, wanted 1-4", k + 1,
+              (double)lv_song_gr[k]);
+        CHECK(lv_intro_gr[k] < 1.0f, "glue: seed %d's intro %.2f dB, wanted under 1", k + 1, (double)lv_intro_gr[k]);
+    }
+}
+
+int main(int argc, char **argv)
+{
+    const char *only = argc > 1 ? argv[1] : NULL;
+#define RUN(t) do { if (!only || strstr(#t, only)) t(); } while (0)
+    RUN(test_rng);
+    RUN(test_voice_leading);
+    RUN(test_no_chord_clusters);
+    RUN(test_bass_and_roots);
+    RUN(test_keys_bass_rhythms_differ);
+    RUN(test_keys_kick_differ);
+    RUN(test_lead_by_class);
+    RUN(test_lead_where);
+    RUN(test_lead_push_legal);
+    RUN(test_comping_makes_room);
+    RUN(test_register_floor);
+    RUN(test_pad_places);
+    RUN(test_line_wanders);
+    RUN(test_hybrid_follows_motion);
+    RUN(test_never_both_silent);
+    RUN(test_pushes);
+    RUN(test_loop_voicings);
+    RUN(test_dominant_extensions);
+    RUN(test_no_substitution);
+    RUN(test_theory);
+    RUN(test_library);
+    RUN(test_roll);
+    RUN(test_plan);
+    RUN(test_groove);
+    RUN(test_harmony);
+    RUN(test_melody);
+    RUN(test_voices);
+    RUN(test_voices_fix);
+    RUN(test_vx_patches);
+    RUN(test_vx_keys);
+    RUN(test_vx_plucks_basses);
+    RUN(test_vx_leads);
+    RUN(test_drum_kits);
+    RUN(test_fx_chain);
+    RUN(test_fx_engine);
+    RUN(test_moves);
+    RUN(test_dynamics);
+    RUN(test_wet);
+    RUN(test_cost_moves);
+    RUN(test_rings_pair);
+    RUN(test_mix_parts);
+    RUN(test_levels_steady);
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;

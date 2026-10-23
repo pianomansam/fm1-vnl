@@ -199,7 +199,7 @@ static void part_step(int kind, int bar, int step, uint32_t st)
     }
 }
 
-typedef struct { int kind, chords, bass, lead, candy, kit, dust, noise, amb, chain; } part_t;
+typedef struct { int kind, chords, bass, lead, candy, kit, dust, noise, amb, chain; unsigned off; } part_t;
 
 static part_t part_of(int kind)
 {
@@ -218,6 +218,7 @@ static double run_part(const part_t *p)
     int bar = 0, step = 0;
     double t0;
     rings_switch();
+    vx_fx_off(p->off);
     vx_init();
     vx_assign(V_CHORD, p->chords);
     vx_assign(V_BASS, p->bass);
@@ -238,7 +239,9 @@ static double run_part(const part_t *p)
         done += st;
         if (++step == 16) { step = 0; bar++; }
     }
-    return now_ms() - t0;
+    t0 = now_ms() - t0;
+    vx_fx_off(0u);
+    return t0;
 }
 
 static double best_part(const part_t *p)
@@ -332,9 +335,17 @@ static void parts(double amb)
     q.bass = INS_SUB;
     src = best_part(&q);
     row("source", "dry (no chain)", src, base, amb);
+    q.off = VX_OFF_MUD;
+    t = best_part(&q);
+    q.off = 0u;
+    row("mix", "mud high-pass (on source)", src, t, amb);
     q.chain = 1;
     plate = best_part(&q);
     row("fx", "plate + dust 0", plate, src, amb);
+    q.off = VX_OFF_GLUE;
+    t = best_part(&q);
+    q.off = 0u;
+    row("mix", "glue (over plate)", plate, t, amb);
     for (k = 1; k <= 3; k++) {
         char nm[32];
         q.dust = k;

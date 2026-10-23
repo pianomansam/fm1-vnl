@@ -17,7 +17,7 @@
 
 /* one voice of one kit */
 typedef struct {
-    float amp;       /* level at velocity 127 */
+    float amp;       /* level at velocity 127 (times the kit's KIT_LV) */
     float t60;       /* the level's -60 dB time */
     float f0, f1;    /* kick: the sweep from f0 to f1 Hz ... */
     float ptau;      /* ... with this time constant (s); the snare's tone uses f0 as its pitch */
@@ -30,32 +30,38 @@ static const dk_t kits[4][ND] = {
     { /* KIT_DUSTY: boom-bap, punchy but soft */
       { 0.40f, 0.70f, 150.0f, 50.0f, 0.030f, 0, 0, 0, 0 },
       { 0.22f, 0.35f, 185.0f, 0, 0, 0.55f, 0.12f, 0.40f, 0.03f },
-      { 0.55f, 0.12f, 0, 0, 0, 0, 0, 0.70f, 0 },
-      { 0.50f, 0.80f, 0, 0, 0, 0, 0, 0.70f, 0 },
+      { 0.45f, 0.12f, 0, 0, 0, 0, 0, 0.70f, 0 },
+      { 0.31f, 0.80f, 0, 0, 0, 0, 0, 0.70f, 0 },
       { 0.11f, 0.20f, 0, 0, 0, 0, 0, 0.45f, 0.02f },
-      { 0.16f, 0.10f, 0, 0, 0, 0, 0, 0.40f, 0.12f } },
+      { 0.25f, 0.10f, 0, 0, 0, 0, 0, 0.40f, 0.12f } },
     { /* KIT_SOFT: gentle */
       { 0.34f, 0.50f, 110.0f, 55.0f, 0.020f, 0, 0, 0, 0 },
-      { 0.16f, 0.30f, 170.0f, 0, 0, 0.35f, 0.10f, 0.30f, 0.04f },
-      { 0.30f, 0.10f, 0, 0, 0, 0, 0, 0.35f, 0 },
-      { 0.26f, 0.60f, 0, 0, 0, 0, 0, 0.35f, 0 },
-      { 0.13f, 0.25f, 0, 0, 0, 0, 0, 0.35f, 0.02f },
-      { 0.16f, 0.10f, 0, 0, 0, 0, 0, 0.30f, 0.10f } },
+      { 0.25f, 0.30f, 170.0f, 0, 0, 0.35f, 0.10f, 0.30f, 0.04f },
+      { 0.18f, 0.10f, 0, 0, 0, 0, 0, 0.35f, 0 },
+      { 0.125f, 0.60f, 0, 0, 0, 0, 0, 0.35f, 0 },
+      { 0.08f, 0.25f, 0, 0, 0, 0, 0, 0.35f, 0.02f },
+      { 0.21f, 0.10f, 0, 0, 0, 0, 0, 0.30f, 0.10f } },
     { /* KIT_808: a long sub kick, crisp hats */
       { 0.50f, 2.20f, 130.0f, 40.0f, 0.080f, 0, 0, 0, 0 },
-      { 0.22f, 0.40f, 200.0f, 0, 0, 0.40f, 0.14f, 0.50f, 0.03f },
-      { 0.30f, 0.06f, 0, 0, 0, 0, 0, 0.60f, 0 },
-      { 0.26f, 0.50f, 0, 0, 0, 0, 0, 0.60f, 0 },
-      { 0.10f, 0.12f, 0, 0, 0, 0, 0, 0.60f, 0.04f },
-      { 0.16f, 0.06f, 0, 0, 0, 0, 0, 0.55f, 0.18f } },
+      { 0.26f, 0.40f, 200.0f, 0, 0, 0.40f, 0.14f, 0.50f, 0.03f },
+      { 0.52f, 0.06f, 0, 0, 0, 0, 0, 0.60f, 0 },
+      { 0.31f, 0.50f, 0, 0, 0, 0, 0, 0.60f, 0 },
+      { 0.135f, 0.12f, 0, 0, 0, 0, 0, 0.60f, 0.04f },
+      { 0.33f, 0.06f, 0, 0, 0, 0, 0, 0.55f, 0.18f } },
     { /* KIT_BRUSHES: a swishy snare with no body, a soft kick */
       { 0.30f, 0.35f, 100.0f, 52.0f, 0.020f, 0, 0, 0, 0 },
-      { 0.16f, 0.45f, 0, 0, 0, 0, 0, 0.30f, 0.06f },
-      { 0.30f, 0.15f, 0, 0, 0, 0, 0, 0.35f, 0 },
-      { 0.26f, 0.70f, 0, 0, 0, 0, 0, 0.35f, 0 },
-      { 0.10f, 0.30f, 0, 0, 0, 0, 0, 0.40f, 0.03f },
-      { 0.20f, 0.08f, 0, 0, 0, 0, 0, 0.30f, 0.10f } },
+      { 0.28f, 0.45f, 0, 0, 0, 0, 0, 0.30f, 0.06f },
+      { 0.17f, 0.15f, 0, 0, 0, 0, 0, 0.35f, 0 },
+      { 0.135f, 0.70f, 0, 0, 0, 0, 0, 0.35f, 0 },
+      { 0.08f, 0.30f, 0, 0, 0, 0, 0, 0.40f, 0.03f },
+      { 0.28f, 0.08f, 0, 0, 0, 0, 0, 0.30f, 0.10f } },
 };
+
+/* Each kit's level in the mix (Task 8: the drums under the keys and the lead, every kit alike; the 808's sub sits a
+   little hotter): the rows above balance a kit's lanes against its snare (hats about 10 dB under it per hit after the
+   chain's 5 kHz low-pass, the open hat 5, the shaker 10, the rim 8), this sets the kit. */
+static const float KIT_LV[4] = {0.56f, 0.62f, 0.40f, 1.26f};
+static float kit_lv = 0.56f;
 
 /* the kit's decays as per-sample multipliers */
 typedef struct { float dec, pdec, tdec; } dk_rt_t;
@@ -86,7 +92,9 @@ static float dec_of(float t60) { return t60 > 0.0f ? fm_expf(-T60 / (t60 * SR)) 
 void drums_set_kit(int kit)
 {
     int i;
-    kit_p = kits[kit >= 0 && kit < 4 ? kit : 0];
+    kit = kit >= 0 && kit < 4 ? kit : 0;
+    kit_p = kits[kit];
+    kit_lv = KIT_LV[kit];
     for (i = 0; i < ND; i++) {
         rt[i].dec = dec_of(kit_p[i].t60);
         rt[i].pdec = kit_p[i].ptau > 0.0f ? fm_expf(-INV_SR / kit_p[i].ptau) : 0.0f;
@@ -111,7 +119,7 @@ void drums_on(const song_ev_t *e)
     d = &ln[i];
     p = &kit_p[i];
     d->lvl = (float)e->vel * (1.0f / 127.0f);
-    d->amp = p->amp * d->lvl;
+    d->amp = p->amp * kit_lv * d->lvl;
     d->env = 1.0f;
     d->dec = rt[i].dec;
     d->a = d->b = 0.0f;
