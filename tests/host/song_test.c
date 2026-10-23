@@ -1975,48 +1975,47 @@ static void test_vx_patches(void)
     vt_ev(V_CANDY, 80, 127, 0, 20000);
     CHECK(vt_block(4096, &bad) == 0.0f && vx_active() == 0, "a candy note sounded with no candy instrument");
 
-    /* dark: a low-pass on the music. Nothing sounding, it lands at once; then it ramps (about 3 s, a bar) */
+    /* the dark treatment, now the intro's section filter (Task 7b: vx_set_dark became vx_set_filter per role bus):
+       keys 0.4 and drums 0.7 darken the music. Nothing sounding, it lands at once; then it ramps (about 50 ms) */
     {
         float bright, dark, mid = 0.0f, ramped = 0.0f, landed = 0.0f;
         int k;
         vx_init();
-        vx_set_dark(0.0f);
-        vt_ev(V_CHORD, 64, 80, 0, 400000); /* soft: the key's fundamental is below any 1.5 kHz low-pass */
+        vt_ev(V_CHORD, 64, 80, 0, 400000); /* soft: the key's fundamental is below the low-passes */
         vt_ev(V_HAT, 0, 127, 0, 0);
         vt_block(4096, &bad);
         bright = vt_hf(4096);
         vx_init();
-        vx_set_dark(1.0f);
+        vx_set_filter(V_CHORD, 0.4f);
+        vx_set_filter(V_KICK, 0.7f);
         vt_ev(V_CHORD, 64, 80, 0, 400000);
         vt_ev(V_HAT, 0, 127, 0, 0);
         vt_block(4096, &bad);
         dark = vt_hf(4096);
-        printf("voices: dark hf %.5f vs bright %.5f\n", (double)dark, (double)bright);
+        printf("voices: dark (intro filters) hf %.5f vs bright %.5f\n", (double)dark, (double)bright);
         CHECK(dark < bright * 0.6f, "dark: high frequencies %.5f vs %.5f bright", (double)dark, (double)bright);
-        /* while sounding (a held pad, a hat every block): 1 s in it is partway, by 3.2 s it is fully dark (same as landed at once) */
+        /* while sounding (a held pad, a hat every block): 15 ms in it is partway, by 100 ms it is fully closed (the
+           same as landed at once) */
         for (k = 0; k < 2; k++) {
             int j;
             vx_init();
             vx_assign(V_CHORD, INS_PAD);
-            vx_set_dark(k ? 0.0f : 1.0f);
+            vx_set_filter(V_CHORD, k ? 0.0f : 0.8f);
             vt_ev(V_CHORD, 64, 127, 0, 400000);
             vt_block(4096, &bad);
-            vx_set_dark(1.0f);
-            for (j = 0; j < 10; j++) {
-                vt_ev(V_HAT, 0, 127, 0, 0);
+            vx_set_filter(V_CHORD, 0.8f);
+            vt_block(661, &bad); /* 15 ms */
+            *(k ? &mid : &dark) = vt_hf(661);
+            vt_block(3749, &bad);
+            for (j = 0; j < 2; j++)
                 vt_block(4096, &bad);
-            }
-            *(k ? &mid : &dark) = vt_hf(4096);
-            for (j = 0; j < 24; j++) {
-                vt_ev(V_HAT, 0, 127, 0, 0);
-                vt_block(4096, &bad);
-            }
             *(k ? &ramped : &landed) = vt_hf(4096);
         }
-        printf("voices: dark ramp hf at 1 s %.6f (landed %.6f), at 3.2 s %.6f (landed %.6f)\n", (double)mid,
+        printf("voices: filter ramp hf at 15 ms %.6f (landed %.6f), at 300 ms %.6f (landed %.6f)\n", (double)mid,
                (double)dark, (double)ramped, (double)landed);
-        CHECK(mid > dark * 1.05f, "dark: 1 s into the ramp already fully dark (%.6f vs %.6f)", (double)mid, (double)dark);
-        CHECK(ramped < landed * 1.02f && ramped > landed * 0.98f, "dark: not fully dark after 3.2 s (%.6f vs %.6f)",
+        CHECK(mid > dark * 1.05f, "filter: 15 ms into the ramp already fully closed (%.6f vs %.6f)", (double)mid,
+              (double)dark);
+        CHECK(ramped < landed * 1.02f && ramped > landed * 0.98f, "filter: not fully closed after 300 ms (%.6f vs %.6f)",
               (double)ramped, (double)landed);
     }
 }
@@ -3366,11 +3365,14 @@ static void test_fx_chain(void)
     }
     CHECK(bad == 0, "fx: %d NaN or runaway samples from 60 s of random input", bad);
 
-    /* ducking: light (0.5-2.5 dB) on the kick's body, gone on the 808's long tail */
-    for (d = 0; d < 4; d++) {
-        float ph = 0.0f, ref = 0.0f, lo = 1.0f, tail = 0.0f;
+    /* ducking (Task 7b: its depth is the song's pump, no longer the dust's): on an 808 kick's body about the pump's
+       depth (its long body ducks a little deeper than the dusty kick the depth is calibrated on), gone on its tail */
+    for (d = 0; d < 3; d++) {
+        static const float pump_db[3] = {1.0f, 3.0f, 6.0f};
+        float ph = 0.0f, ref = 0.0f, lo = 1.0f, tail = 0.0f, lo_db;
         int blk;
         fx_fresh(d, 0, 0, FL_LOFI);
+        fx_pump(pump_db[d]);
         for (blk = 0; blk < 2 * 44100 / 256; blk++) {
             float t = (float)(blk - 172) * 256.0f / 44100.0f, env = blk < 172 ? 0.0f : fm_expf(-6.9078f * t / 2.2f), m = 0.0f;
             for (i = 0; i < 256; i++) {
@@ -3393,10 +3395,12 @@ static void test_fx_chain(void)
         }
         lo /= ref;
         tail /= ref;
-        printf("fx: duck dust %d: body %.2f dB, 0.6 s on %.2f dB\n", d, 20.0 * (double)fm_log2f(lo) * 0.30103,
+        lo_db = 20.0f * fm_log2f(lo) * 0.30103f;
+        printf("fx: duck at a %.0f dB pump: 808 body %.2f dB, 0.6 s on %.2f dB\n", (double)pump_db[d], (double)lo_db,
                20.0 * (double)fm_log2f(tail) * 0.30103);
-        CHECK(lo < 0.944f && lo > 0.75f, "duck dust %d: the body ducks %.3f, wanted -0.5..-2.5 dB", d, (double)lo);
-        CHECK(tail > 0.99f, "duck dust %d: still ducked %.3f on the 808's tail", d, (double)tail);
+        CHECK(-lo_db > 0.7f * pump_db[d] && -lo_db < 1.6f * pump_db[d], "duck at %.0f dB: the 808's body ducks %.2f dB",
+              (double)pump_db[d], (double)lo_db);
+        CHECK(tail > 0.99f, "duck at %.0f dB: still ducked %.3f on the 808's tail", (double)pump_db[d], (double)tail);
     }
 
     /* a dust change ramps: switching 0 -> 3 under a steady sine steps no more than the two steady states do */
@@ -3645,6 +3649,654 @@ static void test_fx_engine(void)
     }
 }
 
+/* ------------------------------ Task 7b: section filters, chorus, tape delay, drum compression, the pump --- */
+#define SB_N (8u * 44100u)
+static float sb_l[SB_N], sb_r[SB_N], sb_x[SB_N];
+
+/* n samples of the engine into sb_l/sb_r from sample `from` */
+static void sb_render(uint32_t from, uint32_t n)
+{
+    uint32_t d = 0;
+    while (d < n) {
+        uint32_t b = n - d < 4096u ? n - d : 4096u;
+        memset(sb_l + from + d, 0, b * sizeof(float));
+        memset(sb_r + from + d, 0, b * sizeof(float));
+        vx_render(sb_l + from + d, sb_r + from + d, b);
+        d += b;
+    }
+}
+
+/* a two-pole (RBJ, Q 0.707) high-pass (hp 1) or low-pass, run in double */
+typedef struct { double b0, b1, b2, a1, a2, x1, x2, y1, y2; } bq_t;
+static void bq_init(bq_t *q, int hp, float f)
+{
+    float w = FM_TWO_PI * f / 44100.0f, cs = fm_cosf(w), al = fm_sinf(w) / (2.0f * 0.7071f), a0 = 1.0f + al;
+    memset(q, 0, sizeof *q);
+    q->b0 = (double)((hp ? (1.0f + cs) : (1.0f - cs)) * 0.5f / a0);
+    q->b1 = (double)((hp ? -(1.0f + cs) : (1.0f - cs)) / a0);
+    q->b2 = q->b0;
+    q->a1 = (double)(-2.0f * cs / a0);
+    q->a2 = (double)((1.0f - al) / a0);
+}
+static double bq_run(bq_t *q, float xf)
+{
+    double x = (double)xf, y = q->b0 * x + q->b1 * q->x1 + q->b2 * q->x2 - q->a1 * q->y1 - q->a2 * q->y2;
+    q->x2 = q->x1;
+    q->x1 = x;
+    q->y2 = q->y1;
+    q->y1 = y;
+    return y;
+}
+/* energy of x[from, from + n) through a fresh filter (after a 10 ms warm-up from from - 441) */
+static double bq_energy(const float *x, int hp, float f, uint32_t from, uint32_t n)
+{
+    bq_t q;
+    double e = 0.0, y;
+    uint32_t i, w = from >= 441u ? from - 441u : 0u;
+    bq_init(&q, hp, f);
+    for (i = w; i < from + n; i++) {
+        y = bq_run(&q, x[i]);
+        if (i >= from)
+            e += y * y;
+    }
+    return e;
+}
+static float db_of(double r) { return r > 0.0 ? 10.0f * fm_log2f((float)r) * 0.30103f : -999.0f; } /* energy ratio */
+
+/* the plan's moves through every bus at (bar, step) */
+static void sb_moves(const song_plan_t *p, int bar, int st, int hp_on)
+{
+    float lp[PM_N], hp[PM_N];
+    int r;
+    plan_moves(p, bar, st, lp, hp);
+    for (r = 0; r < PM_N; r++) {
+        vx_set_filter(r, lp[r]);
+        vx_set_hp(r, hp_on ? hp[r] : 0.0f);
+    }
+}
+
+/* a song through the engine as the app plays it (the moves on or off), to the end of bar bars_to: each beat's energy
+   above 2 kHz in sg_hf; a hash of the event stream */
+static double sg_hf[512];
+static uint32_t sg_run(uint32_t seed, int moves, int bars_to)
+{
+    static song_t s;
+    song_roll_t roll;
+    song_ev_t ev[64];
+    uint32_t h = 2166136261u;
+    float frac = 0.0f;
+    bq_t q;
+    roll_song(NULL, seed, &roll);
+    roll.v[RF_NOISE] = 0;
+    roll.v[RF_AMBIENCE] = 0;
+    roll.v[RF_DUST] = 0;
+    vx_init();
+    song_start(&s, &roll);
+    vx_song(&s.roll);
+    bq_init(&q, 1, 2000.0f);
+    memset(sg_hf, 0, sizeof sg_hf);
+    while (s.state == SS_PLAYING && s.bar < bars_to) {
+        int bar = s.bar, st = s.step, n, i;
+        float adv;
+        uint32_t step, k;
+        if (moves)
+            sb_moves(&s.plan, bar, st, 1);
+        n = song_tick(&s, ev, 64);
+        for (i = 0; i < n; i++) {
+            uint32_t f[5];
+            int j;
+            f[0] = ev[i].voice;
+            f[1] = ev[i].note;
+            f[2] = ev[i].vel;
+            f[3] = ev[i].delay;
+            f[4] = ev[i].len;
+            for (j = 0; j < 5; j++)
+                h = (h ^ f[j]) * 16777619u;
+            vx_event(&ev[i]);
+        }
+        adv = song_step_samples(&s) + frac;
+        step = (uint32_t)adv;
+        frac = adv - (float)step;
+        sb_render(0, step);
+        for (k = 0; k < step; k++) {
+            double y = bq_run(&q, sb_l[k]);
+            if (bar * 4 + st / 4 < 512)
+                sg_hf[bar * 4 + st / 4] += y * y;
+        }
+    }
+    return h;
+}
+
+static void test_moves(void)
+{
+    song_plan_t p;
+    float lp[PM_N], hp[PM_N];
+    int r, st, ok, bad = 0;
+
+    /* the mapping (Sam's: recorded in the brief) */
+    memset(&p, 0, sizeof p);
+    p.n = 5;
+    p.bars = 20;
+    p.b[0] = (plan_block_t){0, 4, SEC_INTRO, L_KEYS, PB_DARK};
+    p.b[1] = (plan_block_t){4, 4, SEC_GROOVE, L_KEYS | L_BASS | L_KICK | L_SNARE | L_HATS, PB_DROP_LAST};
+    p.b[2] = (plan_block_t){8, 4, SEC_BREAK, L_KEYS, 0};
+    p.b[3] = (plan_block_t){12, 4, SEC_GROOVE, L_KEYS | L_BASS | L_KICK | L_SNARE | L_HATS, PB_SWELL};
+    p.b[4] = (plan_block_t){16, 4, SEC_OUTRO, L_KEYS, PB_DARK};
+    plan_moves(&p, 1, 5, lp, hp);
+    CHECK(lp[PM_CHORDS] == 0.4f && lp[PM_LEAD] == 0.4f && lp[PM_CANDY] == 0.4f && lp[PM_BASS] == 0.7f &&
+              lp[PM_DRUMS] == 0.7f, "moves: intro filters %.2f %.2f %.2f %.2f %.2f", (double)lp[0], (double)lp[1],
+          (double)lp[2], (double)lp[3], (double)lp[4]);
+    plan_moves(&p, 17, 0, lp, hp);
+    CHECK(lp[PM_CHORDS] == 0.4f && lp[PM_DRUMS] == 0.7f, "moves: outro filters %.2f %.2f", (double)lp[0],
+          (double)lp[4]);
+    for (r = 0, ok = 1; r < PM_N; r++) {
+        float a[PM_N], b[PM_N];
+        plan_moves(&p, 5, 3, a, b);
+        ok &= a[r] == 0.0f && b[r] == 0.0f;
+        plan_moves(&p, 7, 9, a, b); /* the drop bar, before a break: through the wall, no high-pass */
+        ok &= a[r] == 0.6f && b[r] == 0.0f;
+        plan_moves(&p, 9, 9, a, b);
+        ok &= a[r] == 0.8f && b[r] == 0.0f;
+        plan_moves(&p, 12, 0, a, b); /* the downbeat after the break: open */
+        ok &= a[r] == 0.0f && b[r] == 0.0f;
+        plan_moves(&p, 15, 7, a, b); /* the swell */
+        ok &= fm_fabsf(a[r] - 0.5f * (1.0f - 8.0f / 16.0f)) < 1e-6f && b[r] == 0.0f;
+        plan_moves(&p, 25, 0, a, b);
+        ok &= a[r] == 0.0f && b[r] == 0.0f;
+    }
+    CHECK(ok, "moves: groove, drop, break, downbeat, swell or outside-the-plan values wrong");
+    /* the break's last bar: the low-pass opens to 0, the high-pass rises to 1 on every bus but the lead */
+    for (st = 0, ok = 1; st < 16; st++) {
+        float a[PM_N], b[PM_N], pa[PM_N], pb[PM_N];
+        plan_moves(&p, 11, st, a, b);
+        if (st)
+            plan_moves(&p, 11, st - 1, pa, pb);
+        for (r = 0; r < PM_N; r++) {
+            if (st && !(a[r] < pa[r]))
+                ok = 0;
+            if (r == PM_LEAD ? b[r] != 0.0f : (st && !(b[r] > pb[r])))
+                ok = 0;
+        }
+        if (st == 15 && (a[0] != 0.0f || b[0] != 1.0f))
+            ok = 0;
+    }
+    CHECK(ok, "moves: the break's last bar does not open the low-pass and raise the high-pass");
+    /* a swell ending a dark intro opens it: each bus sweeps to 0 from its own amount */
+    p.b[0].flags |= PB_SWELL;
+    plan_moves(&p, 3, 7, lp, hp);
+    CHECK(fm_fabsf(lp[PM_CHORDS] - 0.2f) < 1e-6f && fm_fabsf(lp[PM_DRUMS] - 0.35f) < 1e-6f,
+          "moves: a swell out of a dark intro: keys %.3f drums %.3f half-way", (double)lp[PM_CHORDS],
+          (double)lp[PM_DRUMS]);
+    p.b[0].flags &= (uint8_t)~PB_SWELL;
+    /* a drum drop into a groove block also builds */
+    p.b[2].section = SEC_GROOVE;
+    plan_moves(&p, 7, 15, lp, hp);
+    CHECK(lp[PM_CHORDS] == 0.6f && hp[PM_CHORDS] == 1.0f && hp[PM_DRUMS] == 1.0f && hp[PM_LEAD] == 0.0f,
+          "moves: a drop before a groove: lp %.2f hp %.2f/%.2f/%.2f", (double)lp[0], (double)hp[0], (double)hp[4],
+          (double)hp[2]);
+
+    /* real songs: break bars darker than groove bars; the break's last bar opening beat by beat; notes unchanged */
+    {
+        uint32_t seed, found = 0;
+        int bk = -1;
+        for (seed = 1; seed < 3000 && !found; seed++) {
+            song_roll_t roll;
+            song_plan_t q;
+            int i;
+            roll_song(NULL, seed, &roll);
+            plan_build(&roll, &q);
+            for (i = 1; i + 1 < q.n; i++)
+                if (q.b[i].section == SEC_BREAK && q.b[i].bars >= 2 && q.b[i + 1].section == SEC_GROOVE &&
+                    q.b[i - 1].section == SEC_GROOVE && q.b[i - 1].bars >= 4 && q.b[i].start + q.b[i].bars < 40) {
+                    found = seed;
+                    bk = i;
+                    p = q;
+                    break;
+                }
+        }
+        CHECK(found, "moves: no seed with a groove, a break, then a groove");
+        if (found) {
+            static double off[512], on[512];
+            const plan_block_t *b = &p.b[bk], *g = &p.b[bk - 1];
+            int end = b->start + b->bars, last = end - 1, i, mono = 1;
+            uint32_t h0, h1;
+            double gb_on = 0.0, br_on = 0.0, gb_off = 0.0, br_off = 0.0;
+            float rat[4];
+            h0 = sg_run(found, 0, end + 1);
+            memcpy(off, sg_hf, sizeof off);
+            h1 = sg_run(found, 1, end + 1);
+            memcpy(on, sg_hf, sizeof on);
+            CHECK(h0 == h1, "moves: the event stream changed with the filters on (%08x vs %08x)", (unsigned)h0,
+                  (unsigned)h1);
+            for (i = g->start * 4; i < (g->start + g->bars - 1) * 4; i++) { /* the groove, its last bar aside */
+                gb_on += on[i];
+                gb_off += off[i];
+            }
+            for (i = b->start * 4; i < last * 4; i++) {
+                br_on += on[i];
+                br_off += off[i];
+            }
+            gb_on /= (double)((g->bars - 1) * 4);
+            gb_off /= (double)((g->bars - 1) * 4);
+            br_on /= (double)((b->bars - 1) * 4);
+            br_off /= (double)((b->bars - 1) * 4);
+            for (i = 0; i < 4; i++) {
+                rat[i] = db_of(on[last * 4 + i] / off[last * 4 + i]);
+                if (i && !(rat[i] > rat[i - 1]))
+                    mono = 0;
+            }
+            printf("moves: seed %u, break bars %d-%d: >2 kHz energy %.3g vs groove %.3g (filtered/open: break %.1f dB, "
+                   "groove %.1f dB); last bar per beat %.1f %.1f %.1f %.1f dB\n",
+                   (unsigned)found, b->start, last, br_on, gb_on, (double)db_of(br_on / br_off),
+                   (double)db_of(gb_on / gb_off), (double)rat[0], (double)rat[1], (double)rat[2], (double)rat[3]);
+            CHECK(br_on < gb_on, "moves: break bars %.3g above 2 kHz, not below the groove's %.3g", br_on, gb_on);
+            CHECK(db_of(br_on / br_off) < -6.0f && db_of(gb_on / gb_off) > -0.5f,
+                  "moves: the filter takes %.1f dB off the break, %.1f dB off the groove", (double)db_of(br_on / br_off),
+                  (double)db_of(gb_on / gb_off));
+            CHECK(mono, "moves: the break's last bar does not open beat by beat");
+        }
+    }
+
+    /* intro bars: the drums lose more above 2 kHz than the keys */
+    {
+        double e[4];
+        int k, j;
+        memset(&p, 0, sizeof p);
+        p.n = 1;
+        p.bars = 4;
+        p.b[0] = (plan_block_t){0, 4, SEC_INTRO, L_KEYS, PB_DARK};
+        for (k = 0; k < 4; k++) {
+            vx_init();
+            if (k & 1)
+                sb_moves(&p, 0, 0, 1);
+            if (k < 2)
+                for (j = 0; j < 10; j++) {
+                    vt_ev(V_HAT, 0, 110, (uint32_t)j * 4410u, 0);
+                    vt_ev(V_SNARE, 0, 100, (uint32_t)j * 4410u + 2205u, 0);
+                }
+            else
+                for (j = 0; j < 4; j++)
+                    vt_ev(V_CHORD, 60 + 4 * j - (j == 3), 100, 0, 44100);
+            sb_render(0, 44100);
+            e[k] = bq_energy(sb_l, 1, 2000.0f, 441, 43659);
+        }
+        printf("moves: intro filters above 2 kHz: drums %.1f dB, keys %.1f dB\n", (double)db_of(e[1] / e[0]),
+               (double)db_of(e[3] / e[2]));
+        CHECK(e[1] / e[0] < e[3] / e[2] && e[3] < e[2], "moves: intro drums lose %.1f dB, keys %.1f dB",
+              (double)db_of(e[1] / e[0]), (double)db_of(e[3] / e[2]));
+    }
+
+    /* the high-pass build: across the bar before the drop the energy below 200 Hz falls beat by beat, and it is back
+       within 10 ms of the downbeat */
+    {
+        double lo[2][4], rec[2];
+        int pass, bar;
+        uint32_t ss = 8269u; /* a 16th at 80 BPM */
+        memset(&p, 0, sizeof p);
+        p.n = 2;
+        p.bars = 8;
+        p.b[0] = (plan_block_t){0, 4, SEC_BREAK, L_KEYS | L_BASS, 0};
+        p.b[1] = (plan_block_t){4, 4, SEC_GROOVE, L_KEYS | L_BASS | L_KICK | L_SNARE | L_HATS, 0};
+        for (pass = 0; pass < 2; pass++) {
+            vx_init();
+            vx_assign(V_CHORD, INS_PAD);
+            vt_ev(V_BASS, 40, 110, 0, 20u * 44100u);
+            vt_ev(V_CHORD, 60, 90, 0, 20u * 44100u);
+            vt_ev(V_CHORD, 64, 90, 0, 20u * 44100u);
+            for (bar = 2; bar < 5; bar++) /* from half-way through bar 2 (the notes settle) to the drop's first bar */
+                for (st = bar == 2 ? 8 : 0; st < 16; st++) {
+                    uint32_t at = (uint32_t)((bar - 2) * 16 + st - 8) * ss;
+                    sb_moves(&p, bar, st, pass);
+                    sb_render(at, ss);
+                }
+            for (st = 0; st < 4; st++)
+                lo[pass][st] = bq_energy(sb_l, 0, 200.0f, 8u * ss + (uint32_t)st * 4u * ss, 4u * ss);
+            rec[pass] = bq_energy(sb_l, 0, 200.0f, 24u * ss + 441u, 441u);
+        }
+        printf("moves: high-pass build, below 200 Hz per beat %.1f %.1f %.1f %.1f dB (vs no build), 10-20 ms after the "
+               "downbeat %.2f dB\n", (double)db_of(lo[1][0] / lo[0][0]), (double)db_of(lo[1][1] / lo[0][1]),
+               (double)db_of(lo[1][2] / lo[0][2]), (double)db_of(lo[1][3] / lo[0][3]), (double)db_of(rec[1] / rec[0]));
+        for (st = 1, ok = 1; st < 4; st++)
+            if (!(lo[1][st] < lo[1][st - 1]))
+                ok = 0;
+        CHECK(ok && db_of(lo[1][3] / lo[0][3]) < -6.0f, "moves: the build does not take the lows down beat by beat");
+        CHECK(db_of(rec[1] / rec[0]) > -1.0f, "moves: the lows %.2f dB down 10 ms after the downbeat",
+              (double)db_of(rec[1] / rec[0]));
+    }
+    (void)bad;
+}
+
+/* the drum bus compressor and the per-song pump */
+static void test_dynamics(void)
+{
+    float pk[2], body[2], gpk[2];
+    int k, i, bad = 0;
+    for (k = 0; k < 2; k++) { /* k 1: the compressor off */
+        double e = 0.0;
+        vx_fx_off(k ? VX_OFF_COMP : 0u);
+        vx_init();
+        vt_ev(V_SNARE, 0, 127, 0, 0);
+        sb_render(0, 4410);
+        pk[k] = 0.0f;
+        for (i = 0; i < 441; i++)
+            pk[k] = fm_maxf(pk[k], fm_fabsf(sb_l[i]));
+        for (i = 882; i < 2646; i++)
+            e += (double)sb_l[i] * (double)sb_l[i];
+        body[k] = fm_sqrtf((float)(e / 1764.0));
+        vx_init();
+        vt_ev(V_SNARE, 0, 30, 0, 0);
+        sb_render(0, 4410);
+        gpk[k] = 0.0f;
+        for (i = 0; i < 441; i++)
+            gpk[k] = fm_maxf(gpk[k], fm_fabsf(sb_l[i]));
+    }
+    vx_fx_off(0u);
+    printf("dynamics: snare peak/body %.2f compressed vs %.2f open (peak %.1f dB); ghost %.2f dB\n",
+           (double)(pk[0] / body[0]), (double)(pk[1] / body[1]), (double)db_of((double)(pk[0] * pk[0]) / (double)(pk[1] * pk[1])),
+           (double)db_of((double)(gpk[0] * gpk[0]) / (double)(gpk[1] * gpk[1])));
+    CHECK(pk[0] / body[0] < pk[1] / body[1] * 0.95f, "compressor: peak/body %.2f, open %.2f", (double)(pk[0] / body[0]),
+          (double)(pk[1] / body[1]));
+    CHECK(fm_fabsf(db_of((double)(gpk[0] * gpk[0]) / (double)(gpk[1] * gpk[1]))) < 1.0f, "compressor: a ghost note moved %.2f dB",
+          (double)db_of((double)(gpk[0] * gpk[0]) / (double)(gpk[1] * gpk[1])));
+
+    /* the pump: a third each over 300 rolls; a held pad under kicks dips by the depth (1, 3, 6 dB) */
+    {
+        int n[VX_PUMP_N] = {0, 0, 0}, s;
+        static const float want[VX_PUMP_N] = {1.0f, 3.0f, 6.0f};
+        for (s = 0; s < 300; s++) {
+            song_roll_t roll;
+            roll_song(NULL, 5000u + (uint32_t)s, &roll);
+            vx_init();
+            vx_configure(&roll);
+            if (vx_config()->pump < VX_PUMP_N)
+                n[vx_config()->pump]++;
+        }
+        printf("dynamics: pumps over 300 rolls %d %d %d\n", n[0], n[1], n[2]);
+        for (k = 0; k < VX_PUMP_N; k++)
+            CHECK(n[k] >= 75 && n[k] <= 123, "pump %d: %d of 300 rolls, wanted 33%% +- 8%%", k, n[k]);
+        for (k = 0; k < VX_PUMP_N; k++) {
+            float dip = 0.0f;
+            int run, w;
+            for (run = 0; run < 3; run++) { /* 0: pad and kicks, 1: kicks, 2: pad */
+                vx_init();
+                vx_set_pump(k);
+                vx_assign(V_CHORD, INS_PAD);
+                if (run != 1)
+                    for (i = 0; i < 3; i++)
+                        vt_ev(V_CHORD, 57 + 4 * i, 100, 0, 4u * 44100u);
+                if (run != 2)
+                    vt_ev(V_KICK, 0, 127, 2u * 44100u, 0);
+                sb_render(0, 3u * 44100u);
+                if (run == 0)
+                    memcpy(sb_x, sb_l, 3u * 44100u * sizeof(float));
+                else if (run == 1)
+                    for (i = 0; i < (int)(3u * 44100u); i++)
+                        sb_x[i] -= sb_l[i];
+            }
+            /* sb_x: the pad as ducked; sb_l: the pad alone. The deepest 5 ms window's level, 0-200 ms after the kick */
+            for (w = 0; w < 40; w++) {
+                double a = 0.0, b = 0.0;
+                uint32_t from = 2u * 44100u + (uint32_t)w * 220u;
+                for (i = 0; i < 220; i++) {
+                    a += (double)sb_x[from + (uint32_t)i] * (double)sb_x[from + (uint32_t)i];
+                    b += (double)sb_l[from + (uint32_t)i] * (double)sb_l[from + (uint32_t)i];
+                }
+                dip = fm_minf(dip, db_of(a / b));
+            }
+            printf("dynamics: pump %d dips the pad %.2f dB\n", k, (double)dip);
+            CHECK(fm_fabsf(-dip - want[k]) <= 1.0f, "pump %d: the pad dips %.2f dB, wanted %.0f +- 1", k, (double)dip,
+                  (double)want[k]);
+        }
+    }
+    (void)bad;
+}
+
+/* the chorus on the chords' bus and the tape delay (fx.c) */
+static void test_wet(void)
+{
+    int i, k, b, bad = 0;
+    static const int keys[] = {INS_RHODES, INS_WURLI, INS_PAD, INS_FELT_PIANO, INS_NYLON};
+    static const int leads[] = {INS_FLUTE, INS_MUTED_TPT, INS_SAX, INS_VIBES, INS_KALIMBA, INS_GUITAR_LICK,
+                                INS_MUSIC_BOX, INS_BELLS, INS_VOX_PAD};
+    /* the patches' amounts */
+    for (k = 0; k < 5; k++) {
+        const vx_patch_t *p = vx_patch(keys[k]);
+        CHECK(k < 3 ? p->chorus >= 0.5f : p->chorus > 0.0f && p->chorus <= 0.25f, "patch %d: chorus %.2f", keys[k],
+              (double)p->chorus);
+        CHECK(p->delay > 0.0f && p->delay <= 0.15f, "patch %d (keys): delay send %.2f, wanted a little", keys[k],
+              (double)p->delay);
+    }
+    for (k = 0; k < 9; k++)
+        CHECK(vx_patch(leads[k])->delay >= 0.15f, "patch %d (lead, candy): delay send %.2f", leads[k],
+              (double)vx_patch(leads[k])->delay);
+    CHECK(vx_patch(INS_SUB)->delay == 0.0f && vx_patch(INS_ELEC_BASS)->delay == 0.0f &&
+              vx_patch(INS_UPRIGHT)->delay == 0.0f, "the basses send to the delay");
+
+    /* a held Rhodes chord (rendered dry) through the chorus: L and R apart; at chorus 0, L = R */
+    {
+        float corr[2], dmax = 0.0f;
+        vx_init();
+        for (i = 0; i < 4; i++)
+            vt_ev(V_CHORD, 55 + 4 * i - (i == 3), 100, 0, 4u * 44100u);
+        sb_render(0, 2u * 44100u);
+        memcpy(sb_x, sb_l, 2u * 44100u * sizeof(float));
+        for (k = 0; k < 2; k++) {
+            double ll = 0.0, rr = 0.0, lr = 0.0;
+            fx_fresh(0, 0, 0, FL_LOFI);
+            fx_chorus(k ? 0.0f : vx_patch(INS_RHODES)->chorus);
+            for (b = 0; b < 2 * 44100 / 2205; b++) {
+                float ch[2205];
+                memcpy(fx_l, sb_x + b * 2205, 2205 * sizeof(float));
+                memcpy(ch, fx_l, sizeof ch);
+                memset(fx_r, 0, 2205 * sizeof(float));
+                fx_process_buses(fx_l, fx_r, ch, NULL, 2205, 0.0f);
+                for (i = 0; i < 2205; i++) {
+                    if (b >= 10) {
+                        ll += (double)fx_l[i] * (double)fx_l[i];
+                        rr += (double)fx_r[i] * (double)fx_r[i];
+                        lr += (double)fx_l[i] * (double)fx_r[i];
+                    }
+                    if (k)
+                        dmax = fm_maxf(dmax, fm_fabsf(fx_l[i] - fx_r[i]));
+                }
+            }
+            corr[k] = (float)(lr / (double)fm_sqrtf((float)(ll * rr)));
+        }
+        printf("wet: Rhodes chord L/R correlation %.3f chorused, %.3f at chorus 0 (max |L-R| %.2e)\n", (double)corr[0],
+               (double)corr[1], (double)dmax);
+        CHECK(corr[0] < 0.95f, "chorus: L/R correlation %.3f, wanted < 0.95", (double)corr[0]);
+        CHECK(dmax == 0.0f, "chorus 0: L and R differ by %.2e", (double)dmax);
+    }
+    /* the chorus's pitch wobble: a 440 Hz sine into the chorus alone, its period by zero crossings */
+    {
+        static float fr[4000];
+        int nf = 0, cross = 0;
+        float ph = 0.0f, last = 0.0f, prev = 0.0f, lo = 1e9f, hi = 0.0f, mean = 0.0f;
+        uint32_t t = 0;
+        fx_fresh(0, 0, 0, FL_LOFI);
+        fx_chorus(vx_patch(INS_RHODES)->chorus);
+        for (b = 0; b < 8 * 44100 / 2205; b++) {
+            float ch[2205];
+            for (i = 0; i < 2205; i++) {
+                ch[i] = 0.2f * fm_sin_turns(ph);
+                ph += 440.0f / 44100.0f;
+                ph -= ph >= 1.0f ? 1.0f : 0.0f;
+            }
+            memset(fx_l, 0, 2205 * sizeof(float));
+            memset(fx_r, 0, 2205 * sizeof(float));
+            fx_process_buses(fx_l, fx_r, ch, NULL, 2205, 0.0f);
+            for (i = 0; i < 2205; i++, t++) {
+                float x = fx_l[i];
+                if (t > 44100u && prev < 0.0f && x >= 0.0f) { /* a rising crossing, interpolated */
+                    float at = (float)t - x / (x - prev);
+                    if (last > 0.0f && nf < 4000) {
+                        fr[nf] = 44100.0f * 100.0f / (at - last); /* over 100 periods: smooth */
+                    }
+                    if (++cross % 100 == 0) {
+                        if (last > 0.0f && nf < 4000)
+                            nf++;
+                        last = at;
+                    }
+                }
+                prev = x;
+            }
+        }
+        for (i = 0; i < nf; i++) {
+            lo = fm_minf(lo, fr[i]);
+            hi = fm_maxf(hi, fr[i]);
+            mean += fr[i] / (float)nf;
+        }
+        for (i = 1, cross = 0; i < nf; i++)
+            cross += (fr[i - 1] < mean) != (fr[i] < mean);
+        {
+            float cents = 1731.234f * fm_logf(hi / lo) * 0.5f, secs = (float)nf * 100.0f / 440.0f,
+                  hz = (float)cross * 0.5f / secs;
+            printf("wet: chorus wobble +-%.1f cents at %.2f Hz (%d frames)\n", (double)cents, (double)hz, nf);
+            CHECK(cents >= 2.0f && cents <= 15.0f && hz >= 0.2f && hz <= 2.0f,
+                  "chorus: wobble +-%.1f cents at %.2f Hz, wanted 2-15 cents at 0.2-2 Hz", (double)cents, (double)hz);
+        }
+    }
+
+    /* the tape delay: an impulse on the send echoes every dotted 8th of the song's tempo, each repeat quieter, under
+       -60 dB by 3 s; a send of 0 gives no echo; the tail survives a song change */
+    {
+        static const int tempos[] = {70, 80, 90};
+        for (k = 0; k < 3; k++) {
+            song_roll_t roll;
+            float T = 0.75f * 60.0f / (float)tempos[k] * 44100.0f, prevpk = 1e9f, late = 0.0f, worst = 0.0f;
+            int e, mono = 1;
+            roll_song(NULL, 7, &roll);
+            roll.v[RF_TEMPO] = (int16_t)tempos[k];
+            roll.v[RF_DUST] = roll.v[RF_NOISE] = roll.v[RF_AMBIENCE] = 0;
+            vx_init();
+            vx_configure(&roll);
+            for (b = 0; b < (int)(SB_N / 2205u); b++) {
+                float dl[2205];
+                memset(dl, 0, sizeof dl);
+                if (b == 0)
+                    dl[0] = 1.0f;
+                memset(fx_l, 0, 2205 * sizeof(float));
+                memset(fx_r, 0, 2205 * sizeof(float));
+                fx_process_buses(fx_l, fx_r, NULL, dl, 2205, 0.0f);
+                memcpy(sb_l + b * 2205, fx_l, 2205 * sizeof(float));
+            }
+            for (e = 1; (float)e * T < 3.0f * 44100.0f; e++) {
+                uint32_t c = (uint32_t)((float)e * T), at = c;
+                float pk = 0.0f;
+                for (i = (int)c - 441; i < (int)c + 441; i++)
+                    if (fm_fabsf(sb_l[i]) > pk) {
+                        pk = fm_fabsf(sb_l[i]);
+                        at = (uint32_t)i;
+                    }
+                worst = fm_maxf(worst, fm_fabsf((float)at - (float)e * T) / 44.1f);
+                if (!(pk < prevpk))
+                    mono = 0;
+                prevpk = pk;
+                if (e == 1)
+                    CHECK(pk > 0.01f, "delay %d BPM: no first echo (%.2e)", tempos[k], (double)pk);
+                if (e == 1)
+                    printf("wet: %d BPM echo 1 at %.2f ms (want %.2f), %.1f dB\n", tempos[k], (double)((float)at / 44.1f),
+                           (double)(T / 44.1f), 20.0 * (double)fm_log2f(pk) * 0.30103);
+            }
+            for (i = 3 * 44100; i < (int)SB_N; i++)
+                late = fm_maxf(late, fm_fabsf(sb_l[i]));
+            printf("wet: %d BPM: echoes within %.2f ms of the dotted 8th, after 3 s %.1f dB\n", tempos[k],
+                   (double)worst, late > 0.0f ? 20.0 * (double)fm_log2f(late) * 0.30103 : -999.0);
+            CHECK(worst <= 1.0f, "delay %d BPM: an echo %.2f ms off the dotted 8th", tempos[k], (double)worst);
+            CHECK(mono, "delay %d BPM: a repeat not quieter than the last", tempos[k]);
+            CHECK(late < 1e-3f, "delay %d BPM: %.2e after 3 s, not below -60 dB", tempos[k], (double)late);
+        }
+        /* a send of 0: the music's impulse makes no echo */
+        {
+            song_roll_t roll;
+            float m = 0.0f;
+            roll_song(NULL, 7, &roll);
+            roll.v[RF_TEMPO] = 80;
+            roll.v[RF_DUST] = roll.v[RF_NOISE] = roll.v[RF_AMBIENCE] = 0;
+            vx_init();
+            vx_configure(&roll);
+            for (b = 0; b < 40; b++) {
+                float dl[2205];
+                memset(dl, 0, sizeof dl);
+                memset(fx_l, 0, 2205 * sizeof(float));
+                memset(fx_r, 0, 2205 * sizeof(float));
+                if (b == 0)
+                    fx_l[0] = 1.0f;
+                fx_process_buses(fx_l, fx_r, NULL, dl, 2205, 0.0f);
+                if (b >= 2)
+                    for (i = 0; i < 2205; i++)
+                        m = fm_maxf(m, fm_fabsf(fx_l[i]) + fm_fabsf(fx_r[i]));
+            }
+            CHECK(m == 0.0f, "delay: a send of 0 echoes (%.2e)", (double)m);
+        }
+        /* the tail survives a song change: a lead note, the song ends, the next one starts; the echoes ring on (the
+           output against the same run with the delay off) */
+        {
+            float d = 0.0f;
+            int pass;
+            for (pass = 0; pass < 2; pass++) {
+                song_roll_t roll;
+                vx_fx_off(pass ? VX_OFF_DELAY : 0u);
+                roll_song(NULL, 7, &roll);
+                roll.v[RF_TEMPO] = 80;
+                roll.v[RF_SET] = 1; /* flute lead */
+                roll.v[RF_DUST] = roll.v[RF_NOISE] = roll.v[RF_AMBIENCE] = 0;
+                vx_init();
+                vx_song(&roll);
+                vt_ev(V_LEAD, 72, 120, 0, 4410);
+                sb_render(0, 8820);
+                vx_release_all();
+                sb_render(0, 8820);
+                roll_song(NULL, 8, &roll);
+                roll.v[RF_DUST] = roll.v[RF_NOISE] = roll.v[RF_AMBIENCE] = 0;
+                vx_song(&roll);
+                sb_render(0, 44100);
+                if (!pass)
+                    memcpy(sb_x, sb_l, 44100 * sizeof(float));
+            }
+            vx_fx_off(0u);
+            for (i = 0; i < 44100; i++)
+                d = fm_maxf(d, fm_fabsf(sb_x[i] - sb_l[i]));
+            printf("wet: the delay's tail after a song change peaks %.2e\n", (double)d);
+            CHECK(d > 1e-3f, "delay: no tail after the song change (%.2e)", (double)d);
+        }
+    }
+
+    /* safety: 60 s of random input through the chorus and the delay, then 10 s of silence: no NaN, no runaway, no
+       denormal state */
+    {
+        float ch[2205], dl[2205];
+        fx_fresh(3, 0, 0, FL_CHILLWAVE);
+        fx_chorus(1.0f);
+        fx_tempo(70.0f);
+        fx_seed = 777u;
+        for (b = 0; b < 60 * 44100 / 2205; b++) {
+            for (i = 0; i < 2205; i++) {
+                fx_l[i] = fx_white();
+                fx_r[i] = fx_white();
+                ch[i] = fx_white();
+                dl[i] = fx_white();
+            }
+            fx_process_buses(fx_l, fx_r, ch, dl, 2205, 0.5f + 0.5f * fx_white());
+            for (i = 0; i < 2205; i++)
+                if (fx_l[i] != fx_l[i] || fx_r[i] != fx_r[i] || fm_fabsf(fx_l[i]) > 10.0f || fm_fabsf(fx_r[i]) > 10.0f)
+                    bad++;
+        }
+        memset(ch, 0, sizeof ch);
+        memset(dl, 0, sizeof dl);
+        for (b = 0; b < 10 * 44100 / 2205; b++) {
+            memset(fx_l, 0, 2205 * sizeof(float));
+            memset(fx_r, 0, 2205 * sizeof(float));
+            fx_process_buses(fx_l, fx_r, ch, dl, 2205, 0.0f);
+            for (i = 0; i < 2205; i++)
+                if ((fx_l[i] != 0.0f && fm_fabsf(fx_l[i]) < 1.2e-38f) || (fx_r[i] != 0.0f && fm_fabsf(fx_r[i]) < 1.2e-38f))
+                    bad++;
+        }
+        CHECK(bad == 0 && fx_tiny() == 0, "wet: %d bad samples, %d tiny states after random input and silence", bad,
+              fx_tiny());
+    }
+}
+
 int main(void)
 {
     test_rng();
@@ -3681,6 +4333,9 @@ int main(void)
     test_drum_kits();
     test_fx_chain();
     test_fx_engine();
+    test_moves();
+    test_dynamics();
+    test_wet();
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;

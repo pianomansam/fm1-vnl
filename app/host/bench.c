@@ -6,6 +6,8 @@
    The lo-fi chain's cost does not depend on the song, and its fields are rolled independently of the rest, so the
    heaviest seed may not carry the heaviest chain: the picked seed (and every seed with --forced) is also timed with
    its chain forced to the heaviest real one (dust 3, vinyl, rain), printed as `forced`: the upper bound.
+   Each step sets the section moves (plan_moves) as the app's step() does. VNL_FXOFF=<VX_OFF_* mask> switches effects
+   off, to measure what each costs.
    The AMB-1 engine's headers clash with ours (MODE_*), so its few entry points are declared here by hand. */
 #include <stdint.h>
 #ifdef VNL_BENCH
@@ -54,11 +56,21 @@ static double run_vnl(uint32_t seed, int render, long *events, int force)
         roll.v[RF_NOISE] = 1;
         roll.v[RF_AMBIENCE] = 1;
     }
+    vx_fx_off(getenv("VNL_FXOFF") ? (unsigned)atoi(getenv("VNL_FXOFF")) : 0u);
     vx_init();
     song_start(&s, &roll);
     vx_song(&s.roll);
     while (done < total) {
-        int n = song_tick(&s, ev, 64), i;
+        int n, i;
+        if (render) {
+            float lp[PM_N], hp[PM_N];
+            plan_moves(&s.plan, s.bar, s.step, lp, hp);
+            for (i = 0; i < PM_N; i++) {
+                vx_set_filter(i, lp[i]);
+                vx_set_hp(i, hp[i]);
+            }
+        }
+        n = song_tick(&s, ev, 64);
         float adv = song_step_samples(&s);
         uint32_t step = (uint32_t)adv, left;
         if (!n && s.state == SS_ENDED) break;

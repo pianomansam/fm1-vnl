@@ -164,16 +164,19 @@ static void song_begin(void)
     SLOG_SONG(&song);
 }
 
-/* one 16th: the fade (if the song's last block fades), the dark treatment, the requests' slots, the step's events to
-   the voices */
+/* one 16th: the fade (if the song's last block fades), the section moves (each role bus's filters, plan_moves), the
+   requests' slots, the step's events to the voices */
 static void step(void)
 {
     const plan_block_t *last = &song.plan.b[song.plan.n ? song.plan.n - 1 : 0];
-    const plan_block_t *cur = plan_at(&song.plan, song.bar);
     int bar = song.bar, st = (int)(r_tick & 15u), n, i;
-    float adv;
+    float adv, lp[PM_N], hp[PM_N];
     uint32_t ip;
-    vx_set_dark(cur && (cur->flags & PB_DARK) ? 1.0f : 0.0f);   /* the engine ramps it (3 s, about a bar) */
+    plan_moves(&song.plan, bar, st, lp, hp);   /* the engine ramps them (about 50 ms; sweeps move per step) */
+    for (i = 0; i < PM_N; i++) {
+        vx_set_filter(i, lp[i]);
+        vx_set_hp(i, hp[i]);
+    }
     if (song.plan.n && (last->flags & PB_FADE) && bar >= last->start) {
         int len = last->bars * 16, at = (bar - last->start) * 16 + st + 1;
         vx_set_gain(1.0f - (float)at / (float)len);
@@ -181,14 +184,15 @@ static void step(void)
     if (st == 0 && bar % 4 == 0)
         memset(req_set, 0, sizeof req_set);   /* every waiting request lands on this boundary */
     {                                     /* a request that lands here on the set or the chain reaches the voices */
-        static const uint8_t SOUND_F[4] = {RF_SET, RF_DUST, RF_NOISE, RF_AMBIENCE};
-        int16_t before[4];
-        for (i = 0; i < 4; i++)
+        static const uint8_t SOUND_F[5] = {RF_SET, RF_DUST, RF_NOISE, RF_AMBIENCE, RF_TEMPO};
+        int16_t before[5];
+        for (i = 0; i < 5; i++)
             before[i] = song.roll.v[SOUND_F[i]];
         n = song_tick(&song, evs, 64);
-        for (i = 0; i < 4 && before[i] == song.roll.v[SOUND_F[i]]; i++)
+        for (i = 0; i < 5 && before[i] == song.roll.v[SOUND_F[i]]; i++)
             ;
-        if (i < 4)                        /* sounding notes keep their patches; dust and bed changes ramp */
+        if (i < 5)                        /* sounding notes keep their patches; dust and bed changes ramp, the
+                                             delay's time glides to a new tempo */
             vx_configure(&song.roll);
     }
     SLOG_STEP(&song, bar, st, evs, n);

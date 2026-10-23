@@ -13,15 +13,17 @@
 #define VX_KS_N 1072
 
 /* The song's sound: one instrument per pitched role (INS_*; INS_NONE silences the role), the kit, the flavor and the
-   lo-fi chain's fields (dust 0-3, noise 0-2, ambience 0-1). */
-typedef struct { uint8_t chords, bass, lead, candy, kit, flavor, dust, noise, ambience; } vx_config_t;
+   lo-fi chain's fields (dust 0-3, noise 0-2, ambience 0-1), and the pump (VX_PUMP_*: the kick ducking's depth). */
+enum { VX_PUMP_SUBTLE, VX_PUMP_MEDIUM, VX_PUMP_OBVIOUS, VX_PUMP_N };
+typedef struct { uint8_t chords, bass, lead, candy, kit, flavor, dust, noise, ambience, pump; } vx_config_t;
 
 /* Everything silent and cleared; the config back to its defaults (Rhodes, sub, vibes, music box; dusty kit, no
-   chain: fx_init), the dark filter open. */
+   chain: fx_init, the subtle pump), every bus's filters open, the drums' compressor at rest. */
 void vx_init(void);
 /* At song start, before the first event, and again when a request changes one of these mid-song: the set's
-   instruments, kit and flavor, and the roll's RF_DUST, RF_NOISE and RF_AMBIENCE into the lo-fi chain (fx.h: the bed
-   opens; dust and bed changes ramp, the dust landing at once if no voice sounds). Notes already sounding keep the
+   instruments, kit and flavor (the chords' patch sets the chorus's depth, each role's patch its delay send), the
+   roll's RF_DUST, RF_NOISE and RF_AMBIENCE into the lo-fi chain (fx.h: the bed opens; dust and bed changes ramp, the
+   dust landing at once if no voice sounds), RF_TEMPO into the delay's time, and the pump from the seed. Notes already sounding keep the
    instrument they were struck with through their release. */
 void vx_configure(const song_roll_t *r);
 /* A new song (the app's song start, before its first event): the lo-fi chain's noise and its LFOs restart from the
@@ -35,14 +37,25 @@ const vx_config_t *vx_config(void);
 void vx_set_kit(int kit);
 /* The kick's amplitude envelope, 0-1 (see drums.h): the lo-fi chain's ducking source. */
 float vx_kick_env(void);
-/* The dark treatment, 0 (open) to 1: a low-pass on the music (down to 1.5 kHz at 1). It ramps linearly, 0 to 1 in
-   3 s (about a bar at 70-90 BPM); with nothing sounding it lands at once. */
-void vx_set_dark(float d);
+/* A role bus's section filter (the plan's moves, plan_moves): role V_CHORD, V_BASS, V_LEAD, V_CANDY, or any drum
+   voice (V_KICK..V_RIM: the drums' bus). vx_set_filter's amount runs 0 (open) to 1 (closed): a one-pole low-pass from
+   18 kHz down to 200 Hz. vx_set_hp's runs 0 (off) to 1 (a one-pole high-pass at about 600 Hz). A change lands in
+   about 50 ms (a high-pass opening, in about 3 ms); with nothing sounding, at once. */
+void vx_set_filter(int role, float amount);
+void vx_set_hp(int role, float amount);
+/* The song's pump (VX_PUMP_*): the kick ducking at about 1, 3 or 6 dB. vx_configure picks it per song (the seed's
+   stream 170, a third each). */
+void vx_set_pump(int pump);
+/* Tests and the cost bench: switch effects off (VX_OFF_*; 0 for all on). Kept through vx_init. */
+enum { VX_OFF_COMP = 1, VX_OFF_FILTERS = 2, VX_OFF_CHORUS = 4, VX_OFF_DELAY = 8 };
+void vx_fx_off(unsigned mask);
 /* Queue an event; its delay counts from now, in samples at 44.1 kHz (the engine assumes that rate). 64 pending at
    most; when full the oldest by insertion order is dropped (not the one due first). When all voices of a pitched lane
    are busy, the victim fades out over about 4 ms first, so a stolen note starts up to ~5 ms late. */
 void vx_event(const song_ev_t *e);
-/* Adds the mix into l and r (sample-accurate event starts). */
+/* Adds the mix into l and r (sample-accurate event starts). Per role bus: the drums through a compressor (a peak
+   level, instant at a 32-sample block, released over 120 ms; 4:1 above 0.2, at most 6 dB, 0.9 dB of make-up), each
+   bus through its section filters; then the chain (fx.h). */
 void vx_render(float *l, float *r, uint32_t n);
 /* Every voice into release (about 40 ms), the queue cleared; the bed fades out (FX_RAMP_S), the plate rings on: the
    song's end. */

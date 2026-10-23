@@ -6,9 +6,12 @@
    (M_PAD), bells (M_BELL), winds (M_WIND) and basses (M_BASS). A pitched
    note's level is the patch envelope: a natural decay (nat, from 1 toward sus) times a gate (g: a linear rise, a
    smoothed fall), so a note-off, a steal or vx_release_all fades instead of clicking. Drums are a noise burst or a
-   swept sine. Then the mix: the dark low-pass and the song gain on the music, each role's plate send (SEND) beside
-   it, then the lo-fi chain (fx.c: dust, ducking, the soft clip, the plate, the bed). Per-sample work is bounded by
-   the fixed voice count. */
+   swept sine. Then the mix, per role bus (chords, bass, lead, candy, drums): the drums through their compressor, each
+   bus through its section filters (a one-pole high-pass and low-pass, vx_set_filter/vx_set_hp; skipped while every
+   bus is open), the chords' dry scaled for the chorus, the song gain; the buses summed into the music, the plate's
+   send (SEND per role) and the tape delay's (each role's patch's delay), the chords' bus kept for the chorus; then
+   the lo-fi chain (fx.c: chorus, delay, dust, ducking, the soft clip, the plate, the bed). Per-sample work is bounded
+   by the fixed voice count; the filters and the compressor move at a control rate of BCR samples. */
 #include <stdint.h>
 #include <string.h>
 #include "fastmath.h"
@@ -16,6 +19,7 @@
 #include "voices.h"
 #include "drums.h"
 #include "fx.h"
+#include "rng.h"
 
 #define QN 64
 #define NCH 4 /* chord voices */
@@ -32,8 +36,20 @@
 #define STEAL_THR 0.02f
 #define AMP_K 0.01f /* bass level slew per sample (about 2 ms) */
 #define CHUNK 256 /* vx_render's blocks through the lo-fi chain */
-#define DARK_A 0.192f            /* the dark one-pole's coefficient at d = 1: 1.5 kHz */
-#define DARK_STEP (1.0f / 132300.0f) /* the dark ramp per sample: 0 to 1 in 3 s */
+#define NBUS 5   /* the role buses: V_CHORD, V_BASS, V_LEAD, V_CANDY and the drums (PM_*) */
+#define DRB 4    /* the drums' bus */
+#define BCR 32u  /* the buses' control rate: filters and the compressor per 32 samples */
+#define FLT_RAMP ((float)BCR / 2205.0f) /* a filter move lands in 50 ms ... */
+#define HP_OPEN ((float)BCR / 132.0f)   /* ... a high-pass opening in 3 ms */
+#define LP_TOP 18000.0f  /* the low-pass at amount 0 (bypassed once settled there) ... */
+#define LP_OCT 6.4919f   /* ... down to 200 Hz at 1: log2(18000 / 200) */
+#define HP_BOT 30.0f     /* the high-pass's one-pole at amount 0+ ... */
+#define HP_OCT 4.3219f   /* ... up to 600 Hz at 1: log2(20); its mix fades in over the first eighth */
+#define CP_THR 0.2f      /* the drums' compressor: threshold (peak), 4:1, at most 6 dB, 0.9 dB of make-up */
+#define CP_SLOPE 0.75f   /* 1 - 1/4 */
+#define CP_MIN 0.5f
+#define CP_MAKEUP 1.11f
+#define CP_REL (1.0f / (0.12f * 44100.0f)) /* the level's release: 120 ms */
 #define KR_STOP (T60 / (0.04f * SR)) /* vx_release_all's release: 40 ms to -60 dB */
 #define TINE_R 14.0f   /* the EP tine: a high partial, fading with the index */
 #define STRIKE_T60 0.25f /* the EP strike's fade */
@@ -63,10 +79,8 @@ typedef struct {
     uint8_t first, count;
     float gain;
 } role_t;
-/* The plate's per-role sends (a fraction of the role's dry level): keys and lead wet, ear candy wetter, the bass dry,
-   the drums a touch. */
-static const float SEND[V_CANDY + 1] = {[V_CHORD] = 0.30f, [V_BASS] = 0.0f, [V_LEAD] = 0.35f, [V_CANDY] = 0.45f};
 #define SEND_DRUMS 0.06f
+static const float PUMP_DB[VX_PUMP_N] = {1.0f, 3.0f, 6.0f};
 static const role_t ROLES[V_CANDY + 1] = {
     [V_CHORD] = {0, NCH, 0.07f},
     [V_BASS] = {VB, 1, 0.17f},
@@ -130,12 +144,26 @@ static voice_t fv[NV];
 static float ks[NV][VX_KS_N] VX_POOL; /* the Karplus-Strong lines, one per voice */
 static uint32_t age_ctr, rng = 0x1234567u;
 static float gain, gain_tgt, gain_step;
-static float ch_m[CHUNK], ch_s[CHUNK]; /* a chunk's music and plate send, into fx_process */
-static float vsend[NV];                /* each voice's plate send: its role's SEND */
+static float ch_m[CHUNK], ch_s[CHUNK]; /* a chunk's music (into fx_process_tri) and its right channel (out) */
+static float bb[NBUS][CHUNK];          /* the chunk's role buses (the drums' always; the others while filtering) */
+/* a bus's section filters: amounts ramping to their targets (steps per block), the one-poles' coefficients, states */
+typedef struct {
+    float a, at, as, h, ht, hs; /* low-pass, high-pass amounts */
+    float y, z, hm;             /* low-pass state; high-pass one-pole state and mix */
+    float ka, kh, ac, hc;       /* the one-poles' coefficients, and the amounts they were made for */
+} bus_t;
+static bus_t bus[NBUS];
+/* The plate's per-bus sends (a fraction of the bus's level): keys and lead wet, ear candy wetter, the bass dry, the
+   drums a touch. */
+static const float sendp[NBUS] = {[V_CHORD] = 0.30f, [V_BASS] = 0.0f, [V_LEAD] = 0.35f, [V_CANDY] = 0.45f,
+                                  [DRB] = SEND_DRUMS}; /* (the bass's 0 is not summed: the mix leaves it out) */
+static float dsend[NBUS];   /* the delay's per-bus send: the role's patch's delay */
+static float cg = 1.0f;     /* the chords' dry scale, toward fx_chorus_dry() */
+static float cp_env, cp_g = CP_MAKEUP; /* the compressor's level and gain (make-up included) */
+static unsigned fx_off;     /* VX_OFF_*: kept through vx_init */
 static uint32_t gain_n;
 static vx_config_t cfg;
 static const vx_patch_t *role_pt[V_CANDY + 1]; /* the configured patch per pitched role, NULL for none */
-static float dark, dark_tgt, dk_y;
 
 static float noise(void)
 {
@@ -156,7 +184,6 @@ static float k_att(float t) { return t * SR > 1.0f ? 1.0f / (t * SR) : 1.0f; }
 
 void vx_init(void)
 {
-    int i, k;
     memset(q, 0, sizeof q);
     memset(fv, 0, sizeof fv);
     drums_init();
@@ -166,7 +193,11 @@ void vx_init(void)
     gain = gain_tgt = 1.0f;
     gain_step = 0.0f;
     gain_n = 0;
-    dark = dark_tgt = dk_y = 0.0f;
+    memset(bus, 0, sizeof bus);
+    cg = 1.0f;
+    cp_env = 0.0f;
+    cp_g = CP_MAKEUP;
+    fx_init(); /* before the roles: the chords' patch sets the chorus */
     memset(&cfg, 0, sizeof cfg);
     vx_assign(V_CHORD, INS_RHODES);
     vx_assign(V_BASS, INS_SUB);
@@ -174,10 +205,7 @@ void vx_init(void)
     vx_assign(V_CANDY, INS_MUSIC_BOX);
     cfg.kit = KIT_DUSTY;
     cfg.flavor = FL_LOFI;
-    for (i = V_CHORD; i <= V_CANDY; i++)
-        for (k = ROLES[i].first; k < ROLES[i].first + ROLES[i].count; k++)
-            vsend[k] = SEND[i];
-    fx_init();
+    vx_set_pump(VX_PUMP_SUBTLE);
 }
 
 void vx_assign(int voice, int ins)
@@ -186,6 +214,9 @@ void vx_assign(int voice, int ins)
         return;
     role_pt[voice] = vx_patch(ins);
     ins = role_pt[voice] ? ins : INS_NONE;
+    dsend[voice] = role_pt[voice] && voice != V_BASS && !(fx_off & VX_OFF_DELAY) ? role_pt[voice]->delay : 0.0f;
+    if (voice == V_CHORD)
+        fx_chorus(role_pt[voice] && !(fx_off & VX_OFF_CHORUS) ? role_pt[voice]->chorus : 0.0f);
     switch (voice) {
     case V_CHORD: cfg.chords = (uint8_t)ins; break;
     case V_BASS: cfg.bass = (uint8_t)ins; break;
@@ -208,7 +239,13 @@ void vx_configure(const song_roll_t *r)
     cfg.dust = (uint8_t)fm_clampf((float)r->v[RF_DUST], 0.0f, 3.0f);
     cfg.noise = (uint8_t)fm_clampf((float)r->v[RF_NOISE], 0.0f, 2.0f);
     cfg.ambience = (uint8_t)fm_clampf((float)r->v[RF_AMBIENCE], 0.0f, 1.0f);
+    {
+        rng_t g;
+        rng_seed(&g, r->seed, 170); /* the pump: a third of songs each */
+        vx_set_pump(rng_int(&g, VX_PUMP_N));
+    }
     fx_configure(cfg.dust, cfg.noise, cfg.ambience, cfg.flavor);
+    fx_tempo((float)r->v[RF_TEMPO]);
     if (!vx_active()) /* nothing to hear the dust ramp on */
         fx_land();
 }
@@ -217,6 +254,8 @@ void vx_song(const song_roll_t *r)
 {
     fx_song(r->seed, !vx_active());
     vx_configure(r);
+    if (!vx_active()) /* the chorus's dry scale lands (it eases only while rendering) */
+        cg = fx_chorus_dry();
 }
 
 const vx_config_t *vx_config(void)
@@ -736,45 +775,256 @@ static float voice_sample(voice_t *v)
     return o;
 }
 
-/* n samples of the music and the plate's send into m and s (mono): the voices, each role into the send at its own
-   level, the drums, the dark filter (on the music; the send stays open), the song gain on both */
-static void render_seg(float *m, float *s, uint32_t n)
+/* the chunk's wet inputs, summed per triple of the lo-fi chain's third-rate steps (fx_process_tri): sample i of the
+   chunk is in triple (ph3 + i) / 3; the sums of a triple are built in registers and stored once */
+#define NTRI (CHUNK / 3 + 2)
+static float t_s[NTRI], t_c[NTRI], t_d[NTRI]; /* the plate's send, the chords' bus, the delay's send */
+static uint32_t ph3, tk, tt;                  /* the chunk's phase; render_seg's place: samples in its triple, index */
+static float ts, tc, td;                      /* render_seg's open triple's sums */
+
+/* n samples from pos of the chunk: the drums into their bus; the pitched roles summed per role, into their buses
+   (filt: the section filters are on) or straight into the chunk's music and the wet inputs' triples */
+static void render_seg(uint32_t pos, uint32_t n, int filt)
 {
-    uint32_t i;
+    uint32_t i, k3 = tk, t3 = tt;
     int j;
-    for (i = 0; i < n; i++) {
-        float x = drums_sample(), snd = x * SEND_DRUMS;
-        for (j = 0; j < NV; j++)
+    float c0 = sendp[V_CHORD], c2 = sendp[V_LEAD], c3 = sendp[V_CANDY], g = cg; /* (the bass is dry: no sends) */
+    float d0 = dsend[V_CHORD], d2 = dsend[V_LEAD], d3 = dsend[V_CANDY], as = ts, ac = tc, ad = td;
+    for (i = pos; i < pos + n; i++) {
+        float c = 0.0f, b = 0.0f, l = 0.0f, k = 0.0f;
+        bb[DRB][i] = drums_sample();
+        for (j = 0; j < NV; j++) /* one call site, so voice_sample inlines; the sums stay in registers */
             if (fv[j].on) {
                 float y = voice_sample(&fv[j]);
-                x += y;
-                snd += y * vsend[j];
+                if (j < NCH)
+                    c += y;
+                else if (j < NCH + NLD)
+                    l += y;
+                else if (j < NFM)
+                    k += y;
+                else
+                    b += y;
             }
-        if (dark != dark_tgt) /* the ramp: linear, landing exactly */
-            dark = dark < dark_tgt ? fm_minf(dark + DARK_STEP, dark_tgt) : fm_maxf(dark - DARK_STEP, dark_tgt);
-        if (dark > 0.0f) { /* the dark one-pole: open (a = 1) at 0, 1.5 kHz at 1 */
-            dk_y += (1.0f - dark * (1.0f - DARK_A)) * (x - dk_y);
-            dk_y = fm_flush(dk_y);
-        } else
-            dk_y = x;
-        if (gain_n) {
-            gain += gain_step;
-            if (--gain_n == 0)
-                gain = gain_tgt;
+        if (filt) {
+            bb[V_CHORD][i] = c;
+            bb[V_BASS][i] = b;
+            bb[V_LEAD][i] = l;
+            bb[V_CANDY][i] = k;
+        } else {
+            c *= g;
+            ch_m[i] = c + b + l + k;
+            as += c * c0 + l * c2 + k * c3;
+            ac += c;
+            ad += c * d0 + l * d2 + k * d3;
+            if (++k3 == 3u) {
+                t_s[t3] += as;
+                t_c[t3] += ac;
+                t_d[t3] += ad;
+                t3++;
+                k3 = 0;
+                as = ac = ad = 0.0f;
+            }
         }
-        m[i] = dk_y * gain;
-        s[i] = snd * gain;
+    }
+    tk = k3;
+    tt = t3;
+    ts = as;
+    tc = ac;
+    td = ad;
+}
+
+/* one block of a bus through its section filters, in place: the amounts ramp a step, the one-poles' coefficients
+   follow (a block's coefficient held; the high-pass's mix reached linearly) */
+static void bus_amounts(bus_t *f)
+{
+    if (f->a != f->at)
+        f->a = f->a < f->at ? fm_minf(f->a + f->as, f->at) : fm_maxf(f->a - f->as, f->at);
+    if (f->h != f->ht)
+        f->h = f->h < f->ht ? fm_minf(f->h + f->hs, f->ht) : fm_maxf(f->h - f->hs, f->ht);
+}
+
+static void bus_filter(bus_t *f, float *x, uint32_t n)
+{
+    uint32_t i;
+    float a0 = f->a, h0 = f->h + f->hm;
+    bus_amounts(f);
+    if (f->h > 0.0f || f->hm > 0.0f) { /* y = x - mix * one-pole(x): a high-pass at full mix */
+        float k, m = f->hm, m1 = fm_minf(8.0f * f->h, 1.0f), dm = (m1 - m) / (float)n;
+        float z = h0 > 0.0f ? f->z : x[0]; /* (a move starts from the signal) */
+        if (f->h != f->hc) {
+            f->hc = f->h;
+            f->kh = k_lp1(HP_BOT * fm_exp2f(HP_OCT * f->h));
+        }
+        k = f->kh;
+        for (i = 0; i < n; i++) {
+            z += k * (x[i] - z);
+            m += dm;
+            x[i] -= m * z;
+        }
+        f->hm = m1;
+        f->z = fm_flush(z);
+    } else
+        f->z = 0.0f;
+    if (f->a > 0.0f) {
+        float k, y = a0 > 0.0f ? f->y : x[0];
+        if (f->a != f->ac) {
+            f->ac = f->a;
+            f->ka = k_lp1(LP_TOP * fm_exp2f(-LP_OCT * f->a));
+        }
+        k = f->ka;
+        for (i = 0; i < n; i++) {
+            y = fm_flush(y + k * (x[i] - y)); /* (fast at the top: a bus falling silent would reach denormals) */
+            x[i] = y;
+        }
+        f->y = y;
     }
 }
 
-/* The mix, in chunks: the voices and drums (event starts sample-accurate) into the chunk's music and send, then the
-   lo-fi chain (fx.c: dust, ducking by the kick's envelope at the chunk's end, the plate, the clip, the bed). */
+/* the buses with something to filter in this chunk (a bit per bus): a voice of the role (or a drum) sounding, or its
+   filters' state still ringing; the others are silent (all zeros) and only their amounts move */
+static unsigned live_buses(void)
+{
+    unsigned m = drums_active() ? 1u << DRB : 0u;
+    int r, k;
+    for (r = V_CHORD; r <= V_CANDY; r++)
+        for (k = ROLES[r].first; k < ROLES[r].first + ROLES[r].count; k++)
+            if (fv[k].on)
+                m |= 1u << r;
+    for (r = 0; r < NBUS; r++)
+        if (fm_fabsf(bus[r].y) > 1e-7f || fm_fabsf(bus[r].z) > 1e-7f)
+            m |= 1u << r;
+    return m;
+}
+
+/* the drums' compressor's gain over one block: the block's peak (a pre-scan: the attack is instant at the block's
+   start) into a level releasing over 120 ms; the gain from it (4:1 above CP_THR, at most 6 dB, make-up), stepped down
+   at once, released linearly over the block: *g0 at its start, *dg added each sample (applied in the mix) */
+static void comp(float *x, uint32_t n, float *g0, float *dg)
+{
+    uint32_t i;
+    float pk = 0.0f, t;
+    for (i = 0; i < n; i++)
+        pk = fm_maxf(pk, fm_fabsf(x[i]));
+    cp_env = fm_flush(fm_maxf(pk, cp_env * (1.0f - CP_REL * (float)n)));
+    t = cp_env > CP_THR ? fm_maxf(fm_exp2f(-CP_SLOPE * fm_log2f(cp_env * (1.0f / CP_THR))), CP_MIN) : 1.0f;
+    t *= CP_MAKEUP;
+    *g0 = t < cp_g ? t : cp_g;
+    *dg = (t - *g0) / (float)n;
+    cp_g = t;
+}
+
+/* the chunk's mix (c samples): per block, the drums compressed, the buses filtered (filt) and summed, into the music
+   and the wet inputs' triples; the song gain on everything */
+static void mix_chunk(uint32_t c, int filt, unsigned live)
+{
+    uint32_t o, i, k3 = ph3, t3 = 0;
+    float as = 0.0f, ac = 0.0f, ad = 0.0f;
+    for (o = 0; o < c; o += BCR) {
+        uint32_t n = c - o < BCR ? c - o : BCR;
+        float *d = bb[DRB] + o, g = 1.0f, dg = 0.0f;
+        if (!(fx_off & VX_OFF_COMP))
+            comp(d, n, &g, &dg);
+        if (filt) {
+            float s0 = sendp[V_CHORD], s2 = sendp[V_LEAD], s3 = sendp[V_CANDY], cgl = cg;
+            float e0 = dsend[V_CHORD], e2 = dsend[V_LEAD], e3 = dsend[V_CANDY];
+            const float *b0 = bb[V_CHORD] + o, *b1 = bb[V_BASS] + o, *b2 = bb[V_LEAD] + o, *b3 = bb[V_CANDY] + o;
+            int r;
+            for (i = 0; i < n; i++) { /* the compressor before the drums' filters */
+                g += dg;
+                d[i] *= g;
+            }
+            for (r = 0; r < NBUS; r++)
+                if (live & (1u << r))
+                    bus_filter(&bus[r], bb[r] + o, n);
+                else { /* silent: the amounts move, the states rest */
+                    bus_amounts(&bus[r]);
+                    bus[r].hm = fm_minf(8.0f * bus[r].h, 1.0f);
+                    bus[r].y = bus[r].z = 0.0f;
+                }
+            for (i = 0; i < n; i++) {
+                float x = b0[i] * cgl;
+                ch_m[o + i] = x + b1[i] + b2[i] + b3[i] + d[i];
+                as += x * s0 + b2[i] * s2 + b3[i] * s3 + d[i] * SEND_DRUMS;
+                ac += x;
+                ad += x * e0 + b2[i] * e2 + b3[i] * e3;
+                if (++k3 == 3u) {
+                    t_s[t3] += as;
+                    t_c[t3] += ac;
+                    t_d[t3] += ad;
+                    t3++;
+                    k3 = 0;
+                    as = ac = ad = 0.0f;
+                }
+            }
+        } else
+            for (i = 0; i < n; i++) { /* the drums into the music and the plate's send */
+                float x;
+                g += dg;
+                x = d[i] * g;
+                ch_m[o + i] += x;
+                as += x;
+                if (++k3 == 3u) {
+                    t_s[t3] += as * SEND_DRUMS;
+                    t3++;
+                    k3 = 0;
+                    as = 0.0f;
+                }
+            }
+    }
+    if (k3) { /* the open triple */
+        t_s[t3] += filt ? as : as * SEND_DRUMS;
+        t_c[t3] += ac;
+        t_d[t3] += ad;
+    }
+    if (gain_n || gain != 1.0f)
+        for (i = 0, k3 = ph3, t3 = 0; i < c; i++) { /* (each triple at its last sample's gain) */
+            if (gain_n) {
+                gain += gain_step;
+                if (--gain_n == 0)
+                    gain = gain_tgt;
+            }
+            ch_m[i] *= gain;
+            if (++k3 == 3u || i == c - 1u) {
+                t_s[t3] *= gain;
+                t_c[t3] *= gain;
+                t_d[t3] *= gain;
+                t3++;
+                k3 = 0;
+            }
+        }
+}
+
+/* any bus's filter not open and settled (the filtered mix path) */
+static int filtering(void)
+{
+    int r;
+    if (fx_off & VX_OFF_FILTERS)
+        return 0;
+    for (r = 0; r < NBUS; r++)
+        if (bus[r].a > 0.0f || bus[r].at > 0.0f || bus[r].h > 0.0f || bus[r].ht > 0.0f || bus[r].hm > 0.0f)
+            return 1;
+    return 0;
+}
+
+/* The mix, in chunks: the voices and drums (event starts sample-accurate) into the chunk's buses, the mix, then the
+   lo-fi chain (fx.c: chorus and delay, dust, ducking by the kick's envelope at the chunk's end, the plate, the clip,
+   the bed). */
 void vx_render(float *l, float *r, uint32_t n)
 {
     uint32_t done = 0, c, k;
     while (done < n) {
         uint32_t pos = 0;
+        int filt = filtering();
+        unsigned live = filt ? live_buses() : 0u;
         c = n - done < CHUNK ? n - done : CHUNK;
+        ph3 = tk = fx_phase();
+        tt = 0;
+        ts = tc = td = 0.0f;
+        memset(t_s, 0, sizeof t_s);
+        memset(t_c, 0, sizeof t_c);
+        memset(t_d, 0, sizeof t_d);
+        cg += (fx_chorus_dry() - cg) * 0.25f; /* the chorus's dry scale, eased over a few chunks */
+        cg = fm_fabsf(cg - fx_chorus_dry()) < 1e-6f ? fx_chorus_dry() : cg;
         while (pos < c) {
             int i, w = 0;
             uint32_t seg = c - pos;
@@ -788,12 +1038,20 @@ void vx_render(float *l, float *r, uint32_t n)
             for (i = 0; i < qn; i++)
                 if (q[i].rem < seg)
                     seg = q[i].rem;
-            render_seg(ch_m + pos, ch_s + pos, seg);
+            render_seg(pos, seg, filt);
             for (i = 0; i < qn; i++)
                 q[i].rem -= seg;
             pos += seg;
         }
-        fx_process(ch_m, ch_s, c, drums_kick_env());
+        if (tk) { /* render_seg's open triple */
+            t_s[tt] += ts;
+            t_c[tt] += tc;
+            t_d[tt] += td;
+        }
+        if (filt)
+            live |= live_buses(); /* (a voice that started in the chunk) */
+        mix_chunk(c, filt, live);
+        fx_process_tri(ch_m, ch_s, t_s, t_c, t_d, c, drums_kick_env());
         for (k = 0; k < c; k++) {
             l[done + k] += ch_m[k];
             r[done + k] += ch_s[k];
@@ -852,9 +1110,49 @@ float vx_kick_env(void)
     return drums_kick_env();
 }
 
-void vx_set_dark(float d)
+/* a bus's index for a role (any drum voice: the drums' bus), -1 for none */
+static int bus_of(int role)
 {
-    dark_tgt = fm_clampf(d, 0.0f, 1.0f);
-    if (!vx_active()) /* a ramp nobody hears */
-        dark = dark_tgt;
+    return role >= V_CHORD && role <= V_CANDY ? role : role >= V_KICK && role < V_N ? DRB : -1;
+}
+
+void vx_set_filter(int role, float amount)
+{
+    int k = bus_of(role);
+    float t = fm_clampf(amount, 0.0f, 1.0f);
+    if (k < 0 || t == bus[k].at)
+        return;
+    bus[k].at = t;
+    bus[k].as = fm_fabsf(t - bus[k].a) * FLT_RAMP;
+    if (!vx_active()) /* a move nobody hears */
+        bus[k].a = t;
+}
+
+void vx_set_hp(int role, float amount)
+{
+    int k = bus_of(role);
+    float t = fm_clampf(amount, 0.0f, 1.0f);
+    if (k < 0 || t == bus[k].ht)
+        return;
+    bus[k].ht = t;
+    bus[k].hs = fm_fabsf(t - bus[k].h) * (t < bus[k].h ? HP_OPEN : FLT_RAMP);
+    if (!vx_active())
+        bus[k].h = t;
+}
+
+void vx_set_pump(int pump)
+{
+    pump = pump < 0 ? 0 : pump >= VX_PUMP_N ? VX_PUMP_N - 1 : pump;
+    cfg.pump = (uint8_t)pump;
+    fx_pump(PUMP_DB[pump]);
+}
+
+void vx_fx_off(unsigned mask)
+{
+    fx_off = mask;
+    fx_wet_off((mask & VX_OFF_DELAY) != 0);
+    vx_assign(V_CHORD, cfg.chords); /* the sends and the chorus's depth again */
+    vx_assign(V_BASS, cfg.bass);
+    vx_assign(V_LEAD, cfg.lead);
+    vx_assign(V_CANDY, cfg.candy);
 }
