@@ -3646,6 +3646,66 @@ static void test_fx_engine(void)
         printf("fx: seed 12's bed alone vs after song 11: max difference %.2e\n", (double)worst);
         CHECK(worst < 1e-5f, "a seed's bed depends on the song before it (max difference %.2e; song 11's plate tail, "
               "under -100 dB, is allowed)", (double)worst);
+    /* determinism of the wet's modulation (Task 7b fix round 1): song 12's chorus and delay (and the plate) sound the
+       same alone as after song 11, whose chorus, delay and plate were fed (a different chords patch and tempo), once
+       song 11's tails are gone: the LFOs, the delay's time and the loop's phases restart with each song */
+    {
+        static float ref_w[4096 * 6];
+        float ch[4096], dl[4096], wworst = 0.0f;
+        int pass;
+        for (pass = 0; pass < 2; pass++) {
+            fx_init();
+            if (pass) { /* song 11: chorus 0.7, 70 BPM, the chords' bus and the delay's send fed for 2 s, then 1.6 s */
+                fx_song(11u, 1);
+                fx_configure(0, 0, 0, FL_LOFI);
+                fx_land();
+                fx_chorus(0.7f);
+                fx_tempo(70.0f);
+                fx_seed = 31u;
+                for (b = 0; b < 39; b++) {
+                    for (k = 0; k < 4096; k++) {
+                        float x = b < 22 ? 0.1f * fx_white() : 0.0f;
+                        fx_l[k] = x;
+                        fx_r[k] = 0.3f * x;
+                        ch[k] = x;
+                        dl[k] = 0.3f * x;
+                    }
+                    fx_process_buses(fx_l, fx_r, ch, dl, 4096, 0.0f);
+                }
+                fx_close();
+            }
+            fx_song(12u, 1); /* (quiet: no voice sounds; song 11's delay tail still rings) */
+            fx_configure(0, 0, 0, FL_LOFI);
+            fx_chorus(0.6f);
+            fx_tempo(85.0f);
+            fx_land();
+            fx_seed = 77u;
+            for (b = 0; b < 130; b++) { /* 12 s; compared over the last 6 blocks, song 11's tails long gone */
+                float ph = 0.0f;
+                for (k = 0; k < 4096; k++) {
+                    float x = 0.05f * fm_sin_turns(ph) + 0.02f * fx_white();
+                    ph += 0.0123f;
+                    ph -= ph >= 1.0f ? 1.0f : 0.0f;
+                    fx_l[k] = x;
+                    fx_r[k] = 0.3f * x;
+                    ch[k] = x;
+                    dl[k] = 0.3f * x;
+                }
+                fx_process_buses(fx_l, fx_r, ch, dl, 4096, 0.0f);
+                if (b >= 124)
+                    for (k = 0; k < 4096; k++) {
+                        float *ref = &ref_w[(b - 124) * 4096 + k];
+                        if (!pass)
+                            *ref = fx_l[k] - fx_r[k] + fx_l[k];
+                        else if (fm_fabsf(fx_l[k] - fx_r[k] + fx_l[k] - *ref) > wworst)
+                            wworst = fm_fabsf(fx_l[k] - fx_r[k] + fx_l[k] - *ref);
+                    }
+            }
+        }
+        printf("fx: seed 12's chorus, delay and plate alone vs after song 11: max difference %.2e\n", (double)wworst);
+        CHECK(wworst < 1e-5f, "a seed's chorus/delay/plate depend on the song before it (max difference %.2e)",
+              (double)wworst);
+    }
     }
 }
 

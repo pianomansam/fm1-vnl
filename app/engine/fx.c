@@ -138,7 +138,7 @@ static float dl_t, dl_tt = 0.75f * DR - DL_LAT, dl_y, dl_y0, dl_ws, dl_wc = 1.0f
 static float dl_peak, dl_k = 0.99993f;
 static float w_ac, w_ad;                 /* the chorus's and the delay's input sums */
 static float w_ml, w_sl;                 /* their return's mid and side, through the dust's low-pass */
-static uint8_t w_ph, dl_ph, dl_off;      /* the wet loop's phase (the plate's too); the delay's (every other step) */
+static uint8_t w_ph, dl_ph, dl_off, dl_land;      /* the wet loop's phase (the plate's too); the delay's (every other step) */
 #define FX_BLK 256u
 #define FX_TRI (FX_BLK / 3u + 2u)
 
@@ -366,8 +366,19 @@ void fx_song(uint32_t seed, int quiet)
         dust_clear();
         chorus_clear();
     }
-    if (dl_peak <= PL_QUIET) /* the delay's tail over: its wow restarts (else the tail rings on, like the plate's) */
+    if (dl_peak <= PL_QUIET) /* the delay's tail over: its line too */
         delay_clear();
+    /* a song's modulation and timing are its own (the same seed renders the same samples): the plate's, the chorus's
+       and the delay's LFOs, the delay's time (landing at this song's tempo) and the wet loop's phases restart; a
+       ringing tail keeps its lines' contents (its read moves by at most the wow's 0.25 ms) */
+    lfo_s = 0.0f;
+    lfo_c = 1.0f;
+    ch_s = 0.0f;
+    ch_c = 1.0f;
+    dl_ws = 0.0f;
+    dl_wc = 1.0f;
+    dl_land = 1;
+    w_ph = dl_ph = 0;
 }
 
 void fx_configure(int dust_lv, int noise, int ambience, int flavor)
@@ -402,6 +413,7 @@ void fx_land(void)
     dust = dust_t;
     flav = flav_t;
     dust_params();
+    ch_dep = ch_dep_t; /* the chorus's depth too: none of it carries from the previous song's chords */
 }
 
 void fx_close(void)
@@ -433,8 +445,9 @@ float fx_chorus_dry(void)
 void fx_tempo(float bpm)
 {
     dl_tt = fm_clampf(0.75f * 60.0f / fm_maxf(bpm, 1.0f) * DR - DL_LAT, 2.0f, (float)DL_N - 8.0f);
-    if (dl_peak <= PL_QUIET)
+    if (dl_land || dl_peak <= PL_QUIET)
         dl_t = dl_tt;
+    dl_land = 0;
     dl_k = fm_expf(-1.05f / fm_maxf(fm_minf(dl_t, dl_tt), 1.0f));
 }
 

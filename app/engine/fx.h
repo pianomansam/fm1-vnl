@@ -17,9 +17,10 @@ void fx_configure(int dust, int noise, int ambience, int flavor);
 /* A new song (before fx_configure): the bed's noise, clicks and gusts restart from seed if the bed is closed (it
    always is after the app's 2-4 s gap), else only its noise is reseeded; if quiet (no voice sounds), the dust's and
    the chorus's state and LFOs restart too; if the delay's tail is over (below -100 dB), its line and wow restart. A
-   previous song's plate and delay tails ring on. */
+   previous song's plate and delay tails ring on, but every LFO (the plate's, the chorus's, the delay's wow), the
+   delay's time (it lands at the next fx_tempo) and the wet loop's phases restart, so a seed's wet is its own. */
 void fx_song(uint32_t seed, int quiet);
-/* Land the dust ramps at once (nothing is sounding, so nobody hears the jump). */
+/* Land the dust ramps and the chorus's depth at once (nothing is sounding, so nobody hears the jump). */
 void fx_land(void);
 /* The bed fades out over FX_RAMP_S (the song's end). The plate rings on. */
 void fx_close(void);
