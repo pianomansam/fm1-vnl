@@ -121,3 +121,33 @@ A new, quiet background layer with two parts:
 
 The ensemble voice's exact design and patch values, the share numbers' fine tuning, the set-to-pad-instrument table,
 and the role's voice count, within the constraints above.
+
+## Revision 2 (Sam, 2026-10-24, after listening)
+
+What Sam heard and decided:
+- The chord pads were "a bit loud": now 3 dB down, about 8.4 dB under the keys (done, 49703b0).
+- The solo note was hard to hear, and Sam "intended for the solo note to be an option when the chord voice wasn't
+  playing". In demos Sam liked the strings an octave up and quiet, and the choir, flute and soft organ at the original
+  octave ("all of these sound nice at this octave... have them be rolls for the voice on this part"); a plain sine
+  ("mellow synth") was rejected.
+- "We don't always need the solo voice. It can even NOT show up in a song."
+- "For the comp plucks/percussive, in addition to on chord changes, they could also do half notes."
+
+The changes:
+1. **Either the chord or the solo, never both** (per section). Over struck keys the chord part is the default and the
+   solo note takes a section in about 25% of sections (intro and break about 35%, groove 25%, lead 15%, outro 30%).
+   Over sustained keys (no chord part) the solo note keeps the first design's shares (intro, break, outro 50%,
+   groove 60%, lead 30%).
+2. **A song may have no solo note:** 40% of songs never play it (my call); in the rest, the shares above apply.
+3. **The solo note's voice is rolled per song** from choir (INS_VOX_PAD), flute (INS_FLUTE), soft organ (INS_ORGAN)
+   at the original range (MIDI 72-84), and strings (the pad's own voice) an octave up (MIDI 84-96), equally likely.
+   Never the flute when the song's lead is the flute, nor the organ over organ keys. Each voice level-matched to the
+   strings demo Sam chose (about the same loudness, under the chord part's level).
+4. **Half-note comping:** a new comp style for the keys: the voicing struck on beats 1 and 3 (steps 0 and 8), the
+   second strike a little softer, held to the next strike; a busy lead (4+ onsets a bar) thins it to the chord
+   changes. Comp shares (my call): held 55%, half notes 25%, arpeggio 20%. It applies to all keys; on sustained keys
+   (pad, vox pad, organ) a restrike every half bar is wrong, so there it stays held.
+
+CPU: the chord and the solo note never sound together, so the layer costs no more than before (one lane's voice
+replaces up to two of the chord's). Half-note comping adds keys strikes, not voices (the keys' 4 voices already
+cover a held chord's release).
