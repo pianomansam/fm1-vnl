@@ -160,6 +160,10 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   brightness fall, decay shortening with pitch; about the felt piano's cost, 0.43 for 4 voices) and (2) a waveguide
   piano on the Karplus-Strong lines (2 detuned strings, a hammer noise burst, stiffness allpass, a soundboard filter;
   roughly 1.5-2x the felt piano a voice). Samples are out (synthesis only; the 400 KB image).
+  First (Sam): survey the existing FM-1 firmwares (ref/: fm1-base, fm1-dub, the others) for piano, string or bowed
+  voices to borrow (MIT/BSD/MPL with attribution; GPL ideas only) or learn lessons from. Also search the web for
+  FM-1 firmwares released since the last survey (Sam: "new firmwares coming out all the time") and add them to ref/
+  and docs/research.
 - **String leads: a string ensemble and a cello (Sam, 2026-10-24: "explore strings for the leads, as well as a cello
   for leads"; corrected: "Not a solo-violin strings. A string orchestra/ensemble").** Sustained leads (they would sing
   the phrase lead). The ensemble lead: the melody played by a section (several detuned voices or the pads' ensemble
