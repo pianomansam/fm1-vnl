@@ -18,8 +18,9 @@ docs/research/fm1-accompaniment-code.md, Tuna's `melody_tick` and LOF-1's Daydre
    tone, long), and a breath after each.
 2. **A motif the ear can follow:** one 1–2-bar idea per song (rhythm and contour), stated at the start, varied with
    small nudges, and **restated literally** at the start of the answer.
-3. **Phrased like a wind player:** few, long notes (about 2–5 onsets a bar), phrases that start off beat 1 more often
-   than on it, a rest on beat 1 of at least every second bar, leaps answered by a step back.
+3. **Phrased like a wind player:** few, long notes (about 2–5 onsets a bar), leaps answered by a step back. Beat 1 is
+   the norm, varied (Sam, 2026-10-24: the first build's "rest on beat 1" rules were "too literal and strict"): phrases
+   start on beat 1 about 60% of the time, and beat 1 is struck in about two bars of three.
 4. Applies to the sustained leads: flute, sax, muted trumpet, saw lead (with its glide).
 
 ## Non-goals
@@ -83,8 +84,8 @@ breath noise on the winds; the saw lead glides by the existing rule (under 25 ms
   steps) in every lead block of ≥ 8 bars.
 - **Question and arrival:** bar 4 ends on the chord's 3rd or 5th; bar 8 ends on a stable tone; both held ≥ a half note.
 - **Breath:** ≥ half a bar of rest after bars 4 and 8.
-- **Wind phrasing:** onsets per bar ≤ 5 on average ≤ 3.5; the phrase starts off beat 1 in ≥ 55% of phrases; ≥ 70% of
-  leaps (≥ a 4th) are followed by a step back the other way; beat 1 rests in at least every second bar.
+- **Wind phrasing:** onsets per bar ≤ 5 on average ≤ 3.5; phrases start off beat 1 in 25–55%; beat 1 struck in 55–85%
+  of lead bars; ≥ 70% of leaps (≥ a 4th) are followed by a step back the other way.
 - **Motion by rank:** a lower motion's onsets are a subset of a higher motion's, phrase by phrase, and its notes are
   held longer to cover the dropped ones (sounding time within 10%).
 - **Rules unchanged:** the clash test (rubs, avoid notes, chord tones on 0 and 8, registers), the lead-over-keys level

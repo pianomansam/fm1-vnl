@@ -31,3 +31,22 @@ Final: Ruling: lead_state_t gained vel, leap and ctrun (spec call 7 said nothing
 Final: minor (deferred): thin margins are deterministic at fixed seeds (won't flake; will break on future tuning); the synth-trim minors stay open (test_glide_songs half vacuous, test_chip message, cost.md notes, old comment).
 Final: fix wave 170ef6e (key-wrapped re-anchor, tied-in arrival home, unset-anchor re-anchor, cosmetics). Incident: the implementer's script deleted gitignored app/build/new/ (renders only; regenerable); controller re-renders. minor (deferred): at a key change about half the songs move the keys an octave, shifting the lead's floor and answer 4–8 st (engine behavior; the new test skips them); ~half the arrivals on prog 23's home chord reached by more than a step.
 Final: fix wave clean (re-review: all addressed; minor: no test of two key requests in a row). Known engine behavior (deferred): on a key change about half the songs revoice the percussive keys an octave away, and the sustained lead's range follows, so its answer jumps 4–8 semitones.
+
+## Beat 1 loosened (Sam, 2026-10-24: "your rule to not play on beat one is too literal and strict")
+
+Measured before: the phrase plan struck beat 1 in 17-32% of bars, and 46% of songs first struck it in bar 4. Sam's
+only beat-1 direction had been "vary that a bit"; the stacked rules (motif 65% off 1, a 1-bar motif never on 1, beat 1
+resting every second bar, tie-ins, the hybrid on 1 at 30% of chord changes) made it rare. His "bar" directions were
+reviewed: all were bars, none meant beats.
+
+- The motif starts on beat 1 60% of the time; the "rest every second bar" rules (planner and adapter) are gone;
+  questions and arrivals tie in 1 time in 4, else struck on 1. Beat 1 is struck in 68% of sustained lead bars.
+- The hybrid lands on 1 at 55% of chord changes (25% late, 20% pushed).
+- Ruling: restatement contour kept >= 85% (was 90%) plus zero reversals: a restated note struck on beat 1 snaps to a
+  chord tone more often, and where the next step would rub it repeats instead (46 cases, all step <-> repeat, none
+  turned the other way). The snap now weights the planned direction 16 (was 8), a repeat 8. Cost if wrong: restatements
+  that sound less literal.
+- Levels: the lead plays more, so trims: lead bus -0.4 dB, sax -1.3 dB, flute -0.5, muted trumpet -0.3, saw lead
+  -0.2, synth pluck -0.3. The break's low-pass on the lead is 0.85 of the others' (it stays over the darkened keys:
+  Rhodes neo-soul seed 4 dipped to +1.0 dB in its break). Two level tests pull against each other here (a break no
+  louder than the full band, every song's lead 2 dB over its keys); both pass with thin margins (+2.1 dB).

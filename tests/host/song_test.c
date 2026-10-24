@@ -4190,9 +4190,9 @@ static void test_moves(void)
         plan_moves(&p, 5, 3, a, b);
         ok &= a[r] == 0.0f && b[r] == 0.0f;
         plan_moves(&p, 7, 9, a, b); /* the drop bar, before a break: through the wall, no high-pass */
-        ok &= a[r] == 0.6f && b[r] == 0.0f;
+        ok &= a[r] == (r == PM_LEAD ? 0.85f * 0.6f : 0.6f) && b[r] == 0.0f;   /* the lead a little brighter */
         plan_moves(&p, 9, 9, a, b);
-        ok &= a[r] == 0.8f && b[r] == 0.0f;
+        ok &= a[r] == (r == PM_LEAD ? 0.85f * 0.8f : 0.8f) && b[r] == 0.0f;
         plan_moves(&p, 12, 0, a, b); /* the downbeat after the break: open */
         ok &= a[r] == 0.0f && b[r] == 0.0f;
         plan_moves(&p, 15, 7, a, b); /* the swell */
@@ -6190,7 +6190,7 @@ static void test_phrase_plan(void)
                         bars++;
                         if (n[k] > 5) bad_dens++;
                         if (n[k] > maxb) maxb = n[k];
-                        if (n[k] && b[k][0].at == 0 && n[(k + 1) & 7] && b[(k + 1) & 7][0].at == 0) bad_b1++;
+                        if (n[k] && b[k][0].at == 0) bad_b1++;   /* beat 1 struck */
                         for (j = 0; j < n[k]; j++) {
                             const phrase_note_t *e = &b[k][j];
                             if (!e->on || e->at > 15 || e->len == 0) bad_mono++;
@@ -6256,7 +6256,7 @@ static void test_phrase_plan(void)
            leapy, backs, (double)onsets / bars, maxb, arc_up, plans, settle, plans, revaried, plans / 2, ties,
            2 * plans, pleaps, pbacks);
     CHECK(badm == 0, "motif shape broken %d times", badm);
-    CHECK(offb1 * 100 >= 55 * nseeds && offb1 * 100 <= 75 * nseeds, "motif off beat 1 in %d of %d seeds (want 55-75%%)",
+    CHECK(offb1 * 100 >= 30 * nseeds && offb1 * 100 <= 50 * nseeds, "motif off beat 1 in %d of %d seeds (want 30-50%%)",
           offb1, nseeds);
     CHECK(leapy > 0 && backs * 100 >= 70 * leapy, "leaps followed by a step back %d of %d (want >= 70%%)", backs, leapy);
     CHECK(bad_nudge == 0, "bars 5-6 or the nudged bars 3 and 7 broken %d times", bad_nudge);
@@ -6265,7 +6265,9 @@ static void test_phrase_plan(void)
     CHECK(bad_rest == 0, "a question or arrival without half a bar's breath %d times", bad_rest);
     CHECK(bad_dens == 0 && onsets * 2 <= bars * 7, "density: %d bars over 5 onsets, mean %.2f (want <= 3.5)", bad_dens,
           (double)onsets / bars);
-    CHECK(bad_b1 == 0, "two bars in a row with an onset on beat 1, %d times", bad_b1);
+    /* Sam: beat 1 is the norm, varied (not avoided): struck in about 65% of bars */
+    CHECK(bad_b1 * 100 >= 55 * bars && bad_b1 * 100 <= 80 * bars, "beat 1 struck in %d of %d bars (want 55-80%%)",
+          bad_b1, bars);
     CHECK(bad_mono == 0, "overlapping or malformed notes %d times", bad_mono);
     CHECK(bad_orn == 0, "an ornament on beat 1 or 3, or on a cadence note, %d times", bad_orn);
     CHECK(pleaps > 0 && pbacks * 100 >= 70 * pleaps, "phrase leaps followed by a step back %d of %d (want >= 70%%)",
@@ -6415,9 +6417,9 @@ static int sl_roll(uint32_t seed, int set, int motion, song_roll_t *r)
 
 static void test_sustained_phrases(void)
 {
-    long phrases = 0, rest_ok = 0, rhythm_bad = 0, contour_same = 0, q_bad = 0, a_bad = 0, breath_bad = 0;
+    long phrases = 0, reversed = 0, rest_ok = 0, rhythm_bad = 0, contour_same = 0, q_bad = 0, a_bad = 0, breath_bad = 0;
     long halves = 0, half_bad = 0, onsets = 0, leadbars = 0, starts = 0, off1 = 0, leaps = 0, backs = 0, b1_bad = 0;
-    long lens_same = 0, a_third = 0, arrivals = 0, questions = 0, b1_cad = 0, songs = 0, varied = 0, steps = 0;
+    long lens_same = 0, a_third = 0, arrivals = 0, questions = 0, songs = 0, varied = 0, steps = 0;
     long wide = 0;
     int k, got;
     uint32_t seed;
@@ -6446,11 +6448,7 @@ static void test_sustained_phrases(void)
                 if (!o->lead[bar]) continue;
                 leadbars++;
                 for (j = 0; j < o->n; j++) onsets += o->nt[j].start >= P && o->nt[j].start < P + 16;
-                if (bar + 1 < 80 && o->lead[bar + 1] && o->run[bar + 1] == o->run[bar] && o->on0[bar] &&
-                    o->on0[bar + 1]) {
-                    if (o->bip[bar] == o->pbars[bar] - 1 && o->bip[bar + 1] == 0) b1_cad++;
-                    else b1_bad++;
-                }
+                b1_bad += o->on0[bar];                   /* beat 1 struck */
                 if (o->bip[bar] != 0) continue;
                 /* a phrase (or half a phrase) starts here */
                 starts++;
@@ -6479,7 +6477,9 @@ static void test_sustained_phrases(void)
                             lsame &= o->nt[a0 + i].end - o->nt[a0 + i].start == o->nt[b0 + i].end - o->nt[b0 + i].start;
                             if (i && sl_sgn(o->nt[a0 + i].note - o->nt[a0 + i - 1].note) !=
                                          sl_sgn(o->nt[b0 + i].note - o->nt[b0 + i - 1].note))
-                                same = 0;
+                                same = 0, reversed += sl_sgn(o->nt[a0 + i].note - o->nt[a0 + i - 1].note) ==
+                                    -sl_sgn(o->nt[b0 + i].note - o->nt[b0 + i - 1].note) && o->nt[a0 + i].note !=
+                                    o->nt[a0 + i - 1].note;
                         }
                         lens_same += lsame;
                         contour_same += same;
@@ -6520,26 +6520,29 @@ static void test_sustained_phrases(void)
            "(%ld broken)\n", phrases, rhythm_bad, contour_same, phrases ? 100.0 * (double)contour_same / (double)phrases
            : 0.0, lens_same, questions, q_bad, arrivals, a_bad, a_third, rest_ok, breath_bad, halves, half_bad);
     printf("sustained: %.2f onsets a lead bar; phrases off beat 1 %ld of %ld; leaps (a 4th+) answered by a step back "
-           "%ld of %ld; beat 1 struck two bars running %ld (and %ld across a breath, a refused "
-           "tie struck on 1 then the next phrase)\n", leadbars ? (double)onsets / (double)leadbars : 0.0, off1, starts, backs, leaps, b1_bad,
-           b1_cad);
+           "%ld of %ld; beat 1 struck in %ld lead bars\n", leadbars ? (double)onsets / (double)leadbars : 0.0, off1,
+           starts, backs, leaps, b1_bad);
     printf("sustained: %ld of %ld songs sing 4+ distinct notes; %ld of %ld steps within a gesture leap past a 5th\n",
            varied, songs, wide, steps);
     CHECK(songs > 100 && varied * 10 >= songs * 7, "the line sings 4+ notes in %ld of %ld songs", varied, songs);
     CHECK(wide * 1000 <= steps * 3, "%ld of %ld sung steps leap past a 5th", wide, steps);
     CHECK(phrases > 100 && rhythm_bad == 0, "restatements: rhythm broken in %ld of %ld", rhythm_bad, phrases);
-    CHECK(contour_same * 10 >= phrases * 9, "restatements: contour kept in %ld of %ld (want >= 90%%)", contour_same,
+    /* beat 1 struck more often (Sam) snaps more restated notes to chord tones: a step may become a repeat where the
+       step would rub, but the line never turns the other way */
+    CHECK(contour_same * 100 >= phrases * 85, "restatements: contour kept in %ld of %ld (want >= 85%%)", contour_same,
           phrases);
+    CHECK(reversed == 0, "restatements: %ld steps turned the other way", reversed);
     CHECK(questions > 100 && q_bad == 0, "questions: %ld of %ld not a held 3rd or 5th", q_bad, questions);
     CHECK(arrivals > 100 && a_bad == 0, "arrivals: %ld of %ld not a held stable tone", a_bad, arrivals);
     CHECK(breath_bad == 0, "%ld questions or arrivals without half a bar's breath after", breath_bad);
     CHECK(half_bad == 0, "%ld of %ld half phrases broken", half_bad, halves);
     CHECK(leadbars > 500 && onsets * 2 <= leadbars * 7, "%ld onsets in %ld lead bars (want a mean <= 3.5)", onsets,
           leadbars);
-    CHECK(off1 * 100 >= starts * 55, "phrases off beat 1 in %ld of %ld (want >= 55%%)", off1, starts);
+    CHECK(off1 * 100 >= starts * 25 && off1 * 100 <= starts * 55, "phrases off beat 1 in %ld of %ld (want 25-55%%)",
+          off1, starts);
     CHECK(leaps > 0 && backs * 10 >= leaps * 7, "leaps answered by a step back %ld of %ld (want >= 70%%)", backs, leaps);
-    CHECK(b1_bad == 0, "beat 1 struck in two lead bars running %ld times", b1_bad);
-    CHECK(b1_cad * 10 <= arrivals, "a cadence struck on 1 before a phrase struck on 1 %ld times", b1_cad);
+    CHECK(b1_bad * 100 >= leadbars * 55 && b1_bad * 100 <= leadbars * 85, "beat 1 struck in %ld of %ld lead bars "
+          "(want 55-85%%)", b1_bad, leadbars);
 }
 
 /* A full plan (24 blocks, the most a plan holds): the lead reads each block's next neighbor, up to the zero block

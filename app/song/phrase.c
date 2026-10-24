@@ -18,10 +18,10 @@ void phrase_motif(uint32_t seed, motif_t2 *m)
     uint8_t li[8], gap[8];
     rng_seed(&g, seed, 180);
     for (i = 0; i < 8; i++) { m->at[i] = m->len[i] = m->orn[i] = 0; m->step[i] = 0; }
-    /* Rhythm: a 1-bar motif (3 notes) always starts off beat 1, so it can repeat without two beat-1 bars in a row; a
-       2-bar motif starts on 1 half the time (about 65% off beat 1 overall). */
+    /* Rhythm: starts on beat 1 60% of the time, else on the "and" of 1 or on beat 2 (Sam: beat 1 is the norm,
+       varied, not avoided). */
     bars = rng_int(&g, 10) < 3 ? 1 : 2;
-    f = (bars == 2 && rng_int(&g, 2) == 0) ? 0 : 1 + rng_int(&g, 2);
+    f = rng_int(&g, 10) < 6 ? 0 : 1 + rng_int(&g, 2);
     n = bars == 1 ? 3 : 3 + rng_weighted(&g, nw, 4);
     for (tr = 0; tr < 17; tr++) {
         int room, k, t, ok = 1;
@@ -41,7 +41,6 @@ void phrase_motif(uint32_t seed, motif_t2 *m)
             m->at[i] = (uint8_t)t;
             m->len[i] = vocab[li[i]];
             t += vocab[li[i]];
-            if (f == 0 && m->at[i] == 8) ok = 0;   /* beat 1 rests in bar 2 when bar 1 starts on it */
             if (m->at[i] < 8 && m->at[i] > (f == 0 ? 5 : 6)) ok = 0;   /* room in bar 3 for the cadence's pickup */
         }
         if (ok) break;
@@ -202,15 +201,13 @@ static int build(uint32_t seed, int block, int pass, pn_t *p)
     motif_t2 m;
     pn_t mo[8], b1[8], v[8];
     rng_t g;
-    int i, n = 0, nm, n1 = 0, deg = 0, k3 = -1, b1ok, lim, last, q = 0, a;
+    int i, n = 0, nm, n1 = 0, deg = 0, k3 = -1, lim = 12, last, q = 0, a;   /* lim: bars 3/7's last onset */
     phrase_motif(seed, &m);
     for (i = 0, nm = m.n; i < nm; i++) {
         deg += m.step[i];
         mo[i].t = m.at[i] * 2; mo[i].len = m.len[i] * 2; mo[i].deg = deg; mo[i].role = PR_MOTIF; mo[i].orn = m.orn[i];
         if (mo[i].t < 16) b1[n1++] = mo[i];
     }
-    b1ok = mo[0].t != 0;   /* bar 1 rests on beat 1, so a cadence may strike on beat 1 */
-    lim = b1ok ? 12 : 10;  /* bars 3 and 7's last onset: room for a pickup (and a tie in when beat 1 rests) */
     rng_seed(&g, seed ^ ((uint32_t)block * 0x27D4EB2Fu) ^ ((uint32_t)pass * 0x165667B1u), 181);
     for (i = 0; i < 2; i++) {   /* the question (bars 1-4), then the answer (bars 5-8) */
         int t0 = i * 64, j, tie, k, tries, pend, ld, d;
@@ -235,7 +232,7 @@ static int build(uint32_t seed, int block, int pass, pn_t *p)
         last = p[n - 1].deg;
         d = n1 > 1 ? last - p[n - 2].deg : 0;
         ld = n1 > 1 && iabs(d) >= 3 && p[n - 2].t + p[n - 2].len >= p[n - 1].t ? (d > 0 ? 1 : -1) : 0;
-        tie = !b1ok || (p[n - 1].t <= t0 + 42 && rng_int(&g, 3) == 0);   /* beat 1 must rest, or now and then */
+        tie = p[n - 1].t <= t0 + 42 && rng_int(&g, 4) == 0;   /* tied in now and then; mostly struck on beat 1 */
         if (!i) {   /* the question: the nearest 3rd or 5th a step or two up (else just below), by step */
             static const int8_t near[6] = { 2, 1, 3, 0, -1, 4 };
             q = -99;

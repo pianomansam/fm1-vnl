@@ -338,8 +338,8 @@ void plan_moves(const song_plan_t *p, int bar, int step, float *lp, float *hp)
     if (last && (b->flags & PB_DROP_LAST) && v < 0.6f)
         v = 0.6f;
     for (r = 0; r < PM_N; r++)
-        if (lp[r] < v)
-            lp[r] = v;
+        if (lp[r] < (r == PM_LEAD ? 0.85f * v : v))   /* the lead a little brighter (0.85): it stays over the darkened keys */
+            lp[r] = r == PM_LEAD ? 0.85f * v : v;
     if (last && (b->flags & PB_SWELL)) /* a swell opens the bar: from the block's own amount (0.5 where it is open) */
         for (r = 0; r < PM_N; r++)
             lp[r] = (b->section == SEC_BREAK ? 0.8f : lp[r] > 0.0f ? lp[r] : 0.5f) * (1.0f - prog);

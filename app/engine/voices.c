@@ -108,7 +108,7 @@ static const float PUMP_DB[VX_PUMP_N] = {1.0f, 3.0f, 6.0f};
 static const role_t ROLES[V_CANDY + 1] = {
     [V_CHORD] = {0, NCH, 0.15f},
     [V_BASS] = {VB, 1, 0.0625f},
-    [V_LEAD] = {NCH, NLD, 0.161f},
+    [V_LEAD] = {NCH, NLD, 0.154f},
     [V_CANDY] = {NCH + NLD, NCD, 0.118f},
 };
 

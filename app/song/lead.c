@@ -268,7 +268,8 @@ static int pick(const ctx_t *c, const aim_t *a, int dir, int kind, const int *kp
         if (a->prev) {
             int m = note - a->prev, w = note - a->want;
             cost += (w < 0 ? -w : w) * 2;                /* the planned interval */
-            if (dir && (m > 0) - (m < 0) != dir) cost += 8;   /* the contour: the planned direction */
+            if ((m > 0) - (m < 0) != dir) cost += dir ? 16 : 8;   /* the contour: the planned direction (or a
+                                                                    repeat), kept where a chord tone allows */
             if (a->conn && (m > 7 || m < -7)) cost += 40 * ((m > 0 ? m : -m) - 7);   /* no leap past a 5th */
             if (a->fast && (m > 2 || m < -2)) cost += 4 * ((m > 0 ? m : -m) - 2);
             if ((a->fast || a->pass) && kind == K_ANY && ct) cost += 3;   /* a quick or passing note: off the chord */
@@ -319,11 +320,11 @@ static int sing(const ctx_t *c, const aim_t *a, int dir, int role, int home, con
    (or, when the tie was refused, strikes again on 1); a note that rings into the next bar is a push, legal over both
    chords, or cut at the bar line. Velocity: an arc with the line's height, softening into the arrival. */
 static void plan_phrase(lead_state_t *ls, const ctx_t *c, const plan_block_t *b, int bar, int home, const nxt_t *nx,
-                        int b1, const int *lpcs, int lnp)
+                        const int *lpcs, int lnp)
 {
     tl_t tl[TLMAX];
     int run, pass, bip, pbars, last, n, i, sc[7], key = c->r->v[RF_KEY], P, prev = ls->last, pdeg = 0, has = 0;
-    int dmin = 99, dmax = -99, tied = ls->tied, lt = -1, leap = ls->leap, restrike = 0;
+    int dmin = 99, dmax = -99, tied = ls->tied, lt = -1, leap = ls->leap;
     int ctrun = ls->ctrun, pnp = lnp;
     const int *pct = lpcs;
     phrase_at(b, bar, &run, &pass, &bip, &pbars, &last);
@@ -349,7 +350,6 @@ static void plan_phrase(lead_state_t *ls, const ctx_t *c, const plan_block_t *b,
         aim_t a;
         const nxt_t *x;
         if (t >= 16) break;
-        if (t >= 0 && end >= 20) restrike = 1;           /* (unless it rings into the next bar after all) */
         if (end <= 0 || (t < 0 && (tied || end < 4))) {  /* before the bar, or tied in and still ringing */
             pdeg = tl[i].deg;
             has = 1;
@@ -428,13 +428,6 @@ static void plan_phrase(lead_state_t *ls, const ctx_t *c, const plan_block_t *b,
         }
         prev = note;
     }
-    if ((bip & 3) == 2 && (b1 || (restrike && !ls->tied)) && ls->on[0] && ls->len[0] > 2 && !ls->on[1] &&
-        !ls->on[2]) {                                    /* (bars 1-2 and 5-6 keep the motif's rhythm) */
-        put(ls, 2, ls->on[0], ls->len[0] - 2);           /* beat 1 rests in one bar of two: an 8th late */
-        ls->vel[2] = ls->vel[0];
-        ls->on[0] = 0;
-        ls->vel[0] = 0;
-    }
     ls->last = prev;
     ls->leap = leap;
     ls->ctrun = ctrun;
@@ -506,10 +499,11 @@ static void plan_arp(lead_state_t *ls, const ctx_t *c, int bar)
 }
 
 /* how a chord change lands on the skeleton note: on 1 for an 8th, on 1 for a quarter, an 8th late, a 16th late,
-   pushed an 8th early, or a beat's rest then on 2 (Sam: not always a quarter on 1; 1 can rest) */
+   pushed an 8th early, or a beat's rest then on 2 (Sam: not always a quarter on 1, but mostly on 1: 55% on 1,
+   25% late, 20% pushed) */
 int lead_landing(uint32_t seed, int bar)
 {
-    static const uint8_t W[6] = {15, 15, 20, 10, 20, 20};
+    static const uint8_t W[6] = {25, 30, 10, 5, 20, 10};
     uint32_t h = seed * 0x9E3779B1u ^ (uint32_t)(bar + 1) * 0x85EBCA6Bu;
     int x, i;
     h ^= h >> 15; h *= 0x2C1B3C6Du; h ^= h >> 13;
@@ -554,9 +548,8 @@ int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b,
     const lib_prog_t *pr = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
     int bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1, loop = pr && pr->n ? pr->n * bpc : 4;
-    int i, n = 0, npcs[5], nn, b1;
+    int i, n = 0, npcs[5], nn;
     ctx_t c;
-    b1 = ls->on[0] > 0;                                  /* the last bar struck beat 1 */
     for (i = 0; i < 16; i++) ls->on[i] = 0;
     ls->acc = 0;
     ls->ring = 0;
@@ -604,7 +597,7 @@ int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b,
         harmony_chord_at(r, bar + 1 - (bar + 1) % loop, (bar + 1) / loop + 1, 0, nhp);
         nx.home = nhp[0] % 12 == npcs[0] % 12;
         lnp = bar > 0 ? harmony_chord_at(r, bar - 1, (bar - 1) / loop + 1, 0, lpcs) : 0;   /* the last bar's chord */
-        plan_phrase(ls, &c, b, bar, hp[0] % 12 == pcs[0] % 12, &nx, b1, lpcs, lnp);
+        plan_phrase(ls, &c, b, bar, hp[0] % 12 == pcs[0] % 12, &nx, lpcs, lnp);
     } else {
         ls->akey = 0;                                    /* a later sustained lead places its own anchor */
         plan_hybrid(ls, &c, bar, bpc, npcs, nn);
