@@ -5,7 +5,8 @@
    (flute, sax, muted trumpet, saw lead) sings phrases (sustained-lead design, phrase.h): the song's motif in an 8-bar
    question and answer, each planned degree re-anchored to the bar's chord, a breath after the question and the
    arrival. It plays in the plan's lead blocks (L_LEAD, with keys, not the intro or outro). Notes keep the melody's
-   rules: in the chord-scale, no avoid notes, chord tones on steps 0 and 8; a note pushed across a chord change is legal over both.
+   rules: in the chord-scale, no avoid notes, chord tones on steps 0 and 8; a note pushed across a chord change is
+   legal over both.
    Planned a bar at a time; all state in lead_state_t. */
 #ifndef SONG_LEAD_H
 #define SONG_LEAD_H
@@ -20,7 +21,8 @@ typedef struct {
     unsigned acc;                 /* accented onsets */
     unsigned ring;                /* onsets that ring across the bar line (pushes) */
     int last;                     /* the last skeleton note, or the sustained lead's last note sung (0: none yet) */
-    int anchor;                   /* the sustained lead's phrase anchor (a scale index over the key: degree 0) */
+    int anchor;                   /* the sustained lead's phrase anchor (a scale index over akey: degree 0) */
+    int akey;                     /* the key the anchor counts from, plus 1 (0: no anchor yet) */
     int leap;                     /* the last interval sung leapt (+1 up, -1 down): the next note steps back */
     int ctrun;                    /* quick chord tones by skips ending at the last note sung (no arpeggio) */
     int tied;                     /* the next bar's landing was pushed into this one */

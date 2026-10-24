@@ -6292,7 +6292,7 @@ static const int SL_SETS[] = {1, 3, 4, 7, 9, 11, 13, 18, 19};
 typedef struct { int start, end, note, vel; } sl_note_t;
 typedef struct {
     int n, bars, lead[80], pcs[80][5], np[80], home[80], on0[80];
-    int run[80], pass[80], bip[80], pbars[80], last[80];
+    int run[80], pass[80], bip[80], pbars[80], last[80], ktop[80];
     sl_note_t nt[SL_MAXN];
 } sl_song_t;
 static sl_song_t sl_a, sl_b;
@@ -6319,6 +6319,10 @@ static void sl_pos(const song_plan_t *p, int bar, int *start, int *pass, int *bi
     *pbars = e - (s + *pass * 8) >= 8 ? 8 : 4;
 }
 
+/* a key request issued at sl_req_bar (step 0), landing on the next 4-bar line; the lead's state wiped at sl_wipe_bar
+   (step 0) to what a hybrid lead leaves (no anchor, its last skeleton note): -1 none */
+static int sl_req_bar = -1, sl_req_key, sl_wipe_bar = -1;
+
 static void sl_play(const song_roll_t *r, sl_song_t *o)
 {
     static song_t s;
@@ -6332,7 +6336,15 @@ static void sl_play(const song_roll_t *r, sl_song_t *o)
     while (s.state == SS_PLAYING) {
         int bar = s.bar, st = s.step, hp[5];
         const plan_block_t *b = plan_at(&s.plan, bar);
-        int n = song_tick(&s, ev, 64);
+        int n;
+        if (st == 0 && bar == sl_req_bar) song_request(&s, RF_KEY, sl_req_key);
+        if (st == 0 && bar == sl_wipe_bar) {
+            memset(&s.lead, 0, sizeof s.lead);
+            s.lead.last = 50;
+        }
+        n = song_tick(&s, ev, 64);
+        for (i = 0; i < n && bar < 80; i++)
+            if (ev[i].voice == V_CHORD && ev[i].note > o->ktop[bar]) o->ktop[bar] = ev[i].note;
         if (st != 0 || bar >= 80) continue;
         (void)n;
         o->lead[bar] = lead_plays(b);
@@ -6629,6 +6641,127 @@ static void test_sustained_motion(void)
     CHECK(sound_bad == 0, "low motion's sounding time off by more than 10%% in %ld of %ld phrases", sound_bad, ph);
 }
 
+/* the mean pitch of o's notes starting in bars [b0, b1); 0 if none */
+static double sl_mean(const sl_song_t *o, int b0, int b1)
+{
+    int i, k = 0;
+    double sum = 0.0;
+    for (i = 0; i < o->n; i++)
+        if (o->nt[i].start >= b0 * 16 && o->nt[i].start < b1 * 16) { sum += o->nt[i].note; k++; }
+    return k ? sum / k : 0.0;
+}
+
+/* the first 8-bar phrase's start on a 4-bar line (bip 0, 8 bars), -1 none */
+static int sl_phrase8(const sl_song_t *o)
+{
+    int bar;
+    for (bar = 0; bar + 8 < o->bars && bar + 8 < 80; bar++)
+        if (o->lead[bar] && o->bip[bar] == 0 && o->pbars[bar] == 8 && bar % 4 == 0) return bar;
+    return -1;
+}
+
+/* Final review fixes. A key request landing mid-phrase (the answer, bip 4) resumes the phrase (call 1): the answer
+   moves with the key (the wrapped interval, -6..5, as the motif does), never by an octave where the key crosses C
+   (B to C, C to B, D down to B). And a lead that starts singing mid-phrase with no anchor yet (a set change from a
+   percussive lead) places one: its answer sits where the unbroken phrase's does. */
+static void test_sustained_key_request(void)
+{
+    static const int from[3] = {11, 0, 2}, to[3] = {0, 11, 11}, dk[3] = {1, -1, -3};
+    long n[3] = {0, 0, 0}, far[3] = {0, 0, 0}, revoiced[3] = {0, 0, 0}, nw = 0, wfar = 0;
+    double err[3] = {0, 0, 0}, worst[3] = {0, 0, 0}, werr = 0.0, wworst = 0.0;
+    int k, c, got;
+    uint32_t seed;
+    for (c = 0; c < 3; c++)
+        for (k = 0; k < SL_NSETS; k++)
+            for (seed = 1u, got = 0; got < 8 && seed < 900u; seed++) {
+                song_roll_t r;
+                int S, i;
+                double e;
+                if (!sl_roll(seed, SL_SETS[k], -1, &r)) continue;
+                roll_set(&r, RF_KEY, from[c]);
+                sl_req_bar = sl_wipe_bar = -1;
+                sl_play(&r, &sl_a);
+                S = sl_phrase8(&sl_a);
+                if (S < 0) continue;
+                sl_req_bar = S + 1;                      /* lands on S + 4: the answer */
+                sl_req_key = to[c];
+                sl_play(&r, &sl_b);
+                sl_req_bar = -1;
+                if (!sl_b.lead[S + 4] || sl_b.run[S + 4] != S || sl_b.bip[S + 4] != 4 || sl_b.pbars[S + 4] != 8 ||
+                    sl_mean(&sl_a, S + 4, S + 8) == 0.0 || sl_mean(&sl_b, S + 4, S + 8) == 0.0)
+                    continue;
+                for (i = S + 4; i < S + 8; i++)          /* the keys moved with the key: the lead's floor did too */
+                    if (sl_b.ktop[i] - sl_a.ktop[i] - dk[c] > 2 || sl_b.ktop[i] - sl_a.ktop[i] - dk[c] < -2) break;
+                if (i < S + 8) { revoiced[c]++; continue; }
+                got++;
+                n[c]++;
+                e = sl_mean(&sl_b, S + 4, S + 8) - sl_mean(&sl_a, S + 4, S + 8) - dk[c];
+                if (e < 0) e = -e;
+                err[c] += e;
+                if (e > worst[c]) worst[c] = e;
+                far[c] += e > 3.0;
+                if (c == 0) {                            /* the lead's state wiped at the answer: it re-anchors */
+                    sl_wipe_bar = S + 4;
+                    sl_play(&r, &sl_b);
+                    sl_wipe_bar = -1;
+                    if (!sl_b.lead[S + 4] || sl_mean(&sl_b, S + 4, S + 8) == 0.0) continue;
+                    e = sl_mean(&sl_b, S + 4, S + 8) - sl_mean(&sl_a, S + 4, S + 8);
+                    if (e < 0) e = -e;
+                    nw++;
+                    werr += e;
+                    if (e > wworst) wworst = e;
+                    wfar += e > 3.0;
+                }
+            }
+    for (c = 0; c < 3; c++) {
+        printf("key request at the answer, %d to %d: %ld songs, the answer off the key's move by %.2f semitones on "
+               "average (worst %.1f), %ld by more than 3 (%ld more where the keys revoiced in another octave)\n",
+               from[c], to[c], n[c], n[c] ? err[c] / (double)n[c] : 0.0, worst[c], far[c], revoiced[c]);
+        CHECK(n[c] > 30 && err[c] <= 1.5 * (double)n[c] && far[c] * 10 <= n[c],
+              "key request %d to %d: the answer moved %.2f semitones off the key's move on average, %ld of %ld by 3+",
+              from[c], to[c], n[c] ? err[c] / (double)n[c] : 0.0, far[c], n[c]);
+    }
+    printf("lead wiped at the answer: %ld songs, the answer off by %.2f semitones on average (worst %.1f), %ld by more "
+           "than 3\n", nw, nw ? werr / (double)nw : 0.0, wworst, wfar);
+    CHECK(nw > 30 && werr <= 3.0 * (double)nw, "wiped lead: the answer off by %.2f semitones on average",
+          nw ? werr / (double)nw : 0.0);
+}
+
+/* Final review fix: a cadence planned across the bar line takes the next bar's chord and its home. In i-iv-V-i (prog
+   23) the arrival lands on the home i (bar 8) from a note struck over the V (bar 7): it aims a step from where the
+   arrival lands, which over home may be the i's 3rd, so an arrival on the 3rd is stepped into (2 semitones or less)
+   at least half the time (a third of the time when the step aimed as if bar 7's V were the arrival's chord). */
+static void test_sustained_tied_home(void)
+{
+    long arr = 0, thirds = 0, far = 0, tfar = 0, songs = 0;
+    int k;
+    uint32_t seed;
+    for (k = 0; k < SL_NSETS; k++)
+        for (seed = 1u; seed < 3000u; seed++) {
+            song_roll_t r;
+            int bar, i;
+            if (!sl_roll(seed, SL_SETS[k], -1, &r) || roll_set(&r, RF_PROG, 23) != 23) continue;
+            songs++;
+            sl_play(&r, &sl_a);
+            for (bar = 1; bar < sl_a.bars && bar < 80; bar++) {
+                if (!sl_a.lead[bar] || sl_a.bip[bar] != 7 || !sl_a.home[bar] || sl_a.home[bar - 1]) continue;
+                for (i = 1; i < sl_a.n; i++)
+                    if (sl_a.nt[i].start == bar * 16 && sl_a.nt[i - 1].start >= bar * 16 - 4 &&
+                        sl_a.nt[i - 1].end >= bar * 16 - 2) {   /* the arrival on 1, stepped into from bar 7 */
+                        int iv = sl_iv(&sl_a, bar, sl_a.nt[i].note), d = sl_a.nt[i].note - sl_a.nt[i - 1].note;
+                        arr++;
+                        thirds += iv == 3 || iv == 4;
+                        far += d > 2 || d < -2;
+                        tfar += (iv == 3 || iv == 4) && (d > 2 || d < -2);
+                    }
+            }
+        }
+    printf("tied home: %ld prog-23 songs, %ld arrivals on the home i stepped into from the V, %ld on its 3rd, %ld "
+           "after more than a step (%ld on the 3rd)\n", songs, arr, thirds, far, tfar);
+    CHECK(thirds > 100 && tfar * 2 <= thirds, "tied home: %ld of %ld arrivals on the home 3rd not stepped into",
+          tfar, thirds);
+}
+
 int main(int argc, char **argv)
 {
     const char *only = argc > 1 ? argv[1] : NULL;
@@ -6688,6 +6821,8 @@ int main(int argc, char **argv)
     RUN(test_phrase_plan);
     RUN(test_sustained_phrases);
     RUN(test_sustained_motion);
+    RUN(test_sustained_key_request);
+    RUN(test_sustained_tied_home);
     RUN(test_lead_full_plan);
     if (fails) {
         printf("%d check(s) failed\n", fails);

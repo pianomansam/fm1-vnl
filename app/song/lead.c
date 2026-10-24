@@ -6,14 +6,13 @@
 #include "theory.h"
 #include "rng.h"
 #include "phrase.h"
-#include "groove.h"
 
 typedef struct {                  /* what one bar's planning reads */
     const song_roll_t *r;
     const int *keys, *pcs;
     int np;
     unsigned bass;                /* pitch classes the bass strikes in the bar */
-    int lo, hi;                   /* the lead's range this bar (a 4th over percussive keys' top; set by a pad's place) */
+    int lo, hi;                   /* the lead's range this bar (a 4th over percussive keys' top; a pad's place) */
     int lo_x;                     /* the floor for a note that sounds on into the next chord */
     int shift;                    /* the keys' octave shift (a pad with or above the lead) */
     int can_push;                 /* the next bar's chord is known (no request lands on it) */
@@ -82,7 +81,8 @@ static int place(int pc, int lo, int hi, int near)          /* pc's octave in [l
 {
     int best = 0, note;
     for (note = lo; note <= hi; note++)
-        if (note % 12 == pc && (!best || (note > near ? note - near : near - note) < (best > near ? best - near : near - best)))
+        if (note % 12 == pc &&
+            (!best || (note > near ? note - near : near - note) < (best > near ? best - near : near - best)))
             best = note;
     return best;
 }
@@ -216,6 +216,7 @@ typedef struct {                                         /* the next bar, for a 
     const int *pcs;
     int np;
     unsigned bass;
+    int home;                                            /* its chord is home (the progression's first) */
 } nxt_t;
 
 typedef struct {
@@ -293,7 +294,11 @@ static int sing(const ctx_t *c, const aim_t *a, int dir, int role, int home, con
 {
     const int *kp = c->pcs;
     int kn = c->np, note = 0;
-    if (x && (role == PR_QUESTION || role == PR_ARRIVAL)) { kp = x->pcs; kn = x->np; }   /* tied in: its chord's */
+    if (x && (role == PR_QUESTION || role == PR_ARRIVAL)) {   /* tied in: its chord's, and its home */
+        kp = x->pcs;
+        kn = x->np;
+        home = x->home;
+    }
     if (role == PR_QUESTION) {
         note = pick(c, a, dir, K_Q, kp, kn, home, x);
         if (!note && !x) note = pick(c, a, dir, K_OPEN, kp, kn, home, x);
@@ -324,11 +329,15 @@ static void plan_phrase(lead_state_t *ls, const ctx_t *c, const plan_block_t *b,
     phrase_at(b, bar, &run, &pass, &bip, &pbars, &last);
     n = timeline(c->r->seed, run, pass, pbars, last, c->r->v[RF_MOTION], tl);
     scale_of(c->r, sc);
-    if (bip == 0) {                                      /* a new phrase: its anchor, no line to follow yet */
+    if (bip == 0 || !ls->akey) {                         /* a new phrase (or none placed): its anchor, no line yet */
         ls->anchor = phrase_anchor(c, tl, n, key, sc);
         prev = 0;
         leap = 0;
+    } else if (ls->akey - 1 != key) {                    /* a key request mid-phrase: the anchor moves with the key */
+        int d = ((key - (ls->akey - 1)) % 12 + 18) % 12 - 6;   /* -6..5, as the motif moves */
+        ls->anchor += 7 * (ls->akey - 1 + d - key) / 12;       /* an octave (7 degrees) where the move crosses C */
     }
+    ls->akey = key + 1;
     ls->tied = 0;
     for (i = 0; i < n; i++) {
         if (tl[i].deg < dmin) dmin = tl[i].deg;
@@ -375,15 +384,15 @@ static void plan_phrase(lead_state_t *ls, const ctx_t *c, const plan_block_t *b,
         if (a.next && (tl[i + 1].role == PR_QUESTION || tl[i + 1].role == PR_ARRIVAL) && tl[i].role == PR_CLOSE) {
             ctx_t c2 = *c;                               /* the step into a cadence: aim a step from where it lands */
             aim_t a2 = a;
-            int t2 = tl[i + 1].t - P, tx, side = tl[i].deg > tl[i + 1].deg ? 1 : -1;
+            int t2 = tl[i + 1].t - P, tx, side = tl[i].deg > tl[i + 1].deg ? 1 : -1, h2 = home;
             const nxt_t *x2 = t2 < 16 && t2 + tl[i + 1].len > 16 && c->can_push && nx->np > 0 ? nx : 0;
-            if (t2 >= 16) { c2.pcs = nx->pcs; c2.np = nx->np; c2.bass = nx->bass; }
+            if (t2 >= 16) { c2.pcs = nx->pcs; c2.np = nx->np; c2.bass = nx->bass; h2 = nx->home; }
             a2.target = si_note(key, sc, ls->anchor + tl[i + 1].deg);
             a2.prev = 0;
             a2.strong = t2 % 8 == 0;
             a2.next = a2.fast = a2.pass = 0;
-            tx = sing(&c2, &a2, 0, tl[i + 1].role, home, x2);
-            if (!tx && x2) tx = sing(&c2, &a2, 0, tl[i + 1].role, home, 0);
+            tx = sing(&c2, &a2, 0, tl[i + 1].role, h2, x2);
+            if (!tx && x2) tx = sing(&c2, &a2, 0, tl[i + 1].role, h2, 0);
             if (tx) a.target = a.want = tx + side * 2;
         }
         note = sing(c, &a, dir, tl[i].role, home, x);
@@ -489,7 +498,8 @@ static void plan_arp(lead_state_t *ls, const ctx_t *c, int bar)
         for (k = 1; k < 4 && v && !legal(c->r, v, c->pcs, c->np, c->bass); k++)
             v = c->keys[(idx + k) & 3];                  /* a tone that would rub gives way to the next */
         if (v && legal(c->r, v, c->pcs, c->np, c->bass)) {
-            int len = RHY[ls->rhy][i][1], note = place(v % 12, at + len > 16 ? c->lo_x : c->lo, c->hi, v + 12 - c->shift);
+            int len = RHY[ls->rhy][i][1];
+            int note = place(v % 12, at + len > 16 ? c->lo_x : c->lo, c->hi, v + 12 - c->shift);
             put(ls, at, note, len);
         }
     }
@@ -581,7 +591,7 @@ int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b,
     if (set && lib_ins_sustained(set->lead)) {
         const plan_block_t *nb = bar + 1 < b->start + b->bars ? b
                                : (b + 1)->bars && (b + 1)->start == b->start + b->bars ? b + 1 : 0;
-        int hp[5], lpcs[5], lnp;
+        int hp[5], nhp[5], lpcs[5], lnp;
         nxt_t nx;
         nx.pcs = npcs;
         nx.np = nb ? nn : 0;
@@ -591,9 +601,14 @@ int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b,
             if (bn) nx.bass |= 1u << (bn % 12);
         }
         harmony_chord_at(r, bar - bar % loop, bar / loop + 1, 0, hp);   /* home: the progression's first chord */
+        harmony_chord_at(r, bar + 1 - (bar + 1) % loop, (bar + 1) / loop + 1, 0, nhp);
+        nx.home = nhp[0] % 12 == npcs[0] % 12;
         lnp = bar > 0 ? harmony_chord_at(r, bar - 1, (bar - 1) / loop + 1, 0, lpcs) : 0;   /* the last bar's chord */
         plan_phrase(ls, &c, b, bar, hp[0] % 12 == pcs[0] % 12, &nx, b1, lpcs, lnp);
-    } else plan_hybrid(ls, &c, bar, bpc, npcs, nn);
+    } else {
+        ls->akey = 0;                                    /* a later sustained lead places its own anchor */
+        plan_hybrid(ls, &c, bar, bpc, npcs, nn);
+    }
     for (i = 0; i < 16; i++) n += ls->on[i] > 0;
     ls->active |= n > 0;
     ls->onsets = n;
