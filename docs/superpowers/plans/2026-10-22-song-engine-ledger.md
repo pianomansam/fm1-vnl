@@ -155,6 +155,23 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
 - **The pad's solo note against the lead (Sam, 2026-10-24: "leave out for right now... we can revisit later").** The
   pads design's solo note ignores the lead; if they clash by ear, add the check (sit out a bar where the lead comes
   within a 3rd or a semitone).
+- **Acoustic piano spike (Sam, 2026-10-24: "yes", queued after the pads plan).** A throwaway spike, the same chords
+  rendered two ways for Sam's ear: (1) a better FM patch (3 operators, a detuned string pair for beating, a fast
+  brightness fall, decay shortening with pitch; about the felt piano's cost, 0.43 for 4 voices) and (2) a waveguide
+  piano on the Karplus-Strong lines (2 detuned strings, a hammer noise burst, stiffness allpass, a soundboard filter;
+  roughly 1.5-2x the felt piano a voice). Samples are out (synthesis only; the 400 KB image).
+- **String leads: a string ensemble and a cello (Sam, 2026-10-24: "explore strings for the leads, as well as a cello
+  for leads"; corrected: "Not a solo-violin strings. A string orchestra/ensemble").** Sustained leads (they would sing
+  the phrase lead). The ensemble lead: the melody played by a section (several detuned voices or the pads' ensemble
+  voice with chorus, a slower attack, octave doubling as an option), not a solo violin. The cello: a solo bowed voice
+  (a saw with bow noise, a delayed vibrato and a body filter, or a bowed waveguide). Spike both beside the piano. The cello wants a lower register
+  than the lead's (60-88 today, the floor over percussive keys): a cello lead sits around C3-A4, so it needs its own
+  register rule and room in the keys (they move up or thin out under it).
+- **Tape warble per instrument (Sam, 2026-10-24: "tape warble, on instruments it makes sense").** Pitch wow and
+  flutter on the instruments that suit it (keys, pads, the sustained leads), not on the drums or bass. Today's wow sits
+  on the whole mix in the chain (fx.c's wow line); this would make it per role, with depth by instrument.
+- **Birds in the bed (Sam, 2026-10-24: "on the noise layer, birds chirping in the background").** A synthesized
+  birdsong layer for the bed beside vinyl, tape and rain: sparse chirps, far back, seeded per song.
 - **Two lead parts, A-B-A (Sam, 2026-10-24).** "The lead taking that long to come in seems strange... a different
   lead at the beginning. So two different lead parts. Never playing the same time, but like A B A." Today every map
   brings the lead in late (average first lead bar 17-31 of about 53, by map; 30-58% in). Next after the pads.
