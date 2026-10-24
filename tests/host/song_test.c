@@ -7329,7 +7329,7 @@ static void pd_play(song_t *s, pd_rec_t *rec, song_t *other)
     rec->first[rec->bars] = rec->ne;
 }
 
-/* the notes of lane lo..hi sounding at sample t (their count; out ascending by lane) */
+/* the notes of lane lo..hi sounding at sample t (their count; out ascending by pitch) */
 static int pd_sounding(const pd_rec_t *rec, int bar, uint32_t t, int lo, int hi, int *out)
 {
     int k, n = 0, from = bar >= 4 ? rec->first[bar - 4] : 0, to = bar + 1 < rec->bars ? rec->first[bar + 1] : rec->ne;
@@ -7339,7 +7339,11 @@ static int pd_sounding(const pd_rec_t *rec, int bar, uint32_t t, int lo, int hi,
         if (e->voice == V_PAD && e->lane >= lo && e->lane <= hi && e->start <= t && e->end > t) lane[e->lane - 1] = e->note;
     }
     for (k = lo; k <= hi; k++)
-        if (lane[k - 1]) out[n++] = lane[k - 1];
+        if (lane[k - 1]) {                               /* ascending (lanes keep common tones: not in pitch order) */
+            int j = n++;
+            for (; j > 0 && out[j - 1] > lane[k - 1]; j--) out[j] = out[j - 1];
+            out[j] = lane[k - 1];
+        }
     return n;
 }
 
@@ -7389,8 +7393,8 @@ static int pd_bpc(const song_roll_t *r)
     return pr && pr->bars_per_chord ? pr->bars_per_chord : 1;
 }
 
-/* Present in every keys bar over percussive keys, absent over sustained keys; 3 notes in >= 80% of chords, never
-   fewer than 2; onsets only at chord changes; the top voice moves 2 semitones or less in >= 80% of changes; MIDI
+/* Present in every keys bar over percussive keys, absent over sustained keys; 2 notes (the budget's cut (c), pads
+   design call 1), never 3 or fewer than 2, the 3rd and the 7th in >= 80% of the chords that have both; onsets only at chord changes; the top voice moves 2 semitones or less in >= 80% of changes; MIDI
    55-72; no note a semitone from a sounding keys, bass or lead note */
 static void test_pad_chord(void)
 {
@@ -7398,11 +7402,12 @@ static void test_pad_chord(void)
     song_roll_t prev, r;
     uint32_t seed = 9191;
     long chords = 0, three = 0, two = 0, few = 0, missing = 0, over_sus = 0, off_change = 0, range = 0, changes = 0,
-         smooth = 0, rubs = 0, checked = 0, songs_perc = 0, common = 0, lane_moved = 0, restruck = 0;
+         smooth = 0, rubs = 0, checked = 0, songs_perc = 0, common = 0, lane_moved = 0, restruck = 0, guide = 0,
+         both = 0, moves = 0, vsmooth = 0;
     int k, bar, i;
     for (k = 0; k < 500; k++) {
         const lib_set_t *set;
-        int sus, bpc, top_prev = 0;
+        int sus, bpc, top_prev = 0, pv[4], npv = 0;
         seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
         roll_song(k ? &prev : 0, seed, &r);
         prev = r;
@@ -7421,9 +7426,9 @@ static void test_pad_chord(void)
         }
         for (bar = 0; bar < pd_a.bars; bar++) {
             int notes[4], n;
-            if (sus || !(pd_a.layers[bar] & L_KEYS)) { top_prev = 0; continue; }
+            if (sus || !(pd_a.layers[bar] & L_KEYS)) { top_prev = npv = 0; continue; }
             n = pd_sounding(&pd_a, bar, pd_a.at[bar * 16], 1, 3, notes);
-            if (n == 0) { missing++; top_prev = 0; continue; }
+            if (n == 0) { missing++; top_prev = npv = 0; continue; }
             if (bar % bpc) continue;
             if (bar > 0 && (pd_a.layers[bar - 1] & L_KEYS)) {   /* a common pitch rings on, on its lane */
                 int l, j, was[4], now[4];
@@ -7441,6 +7446,21 @@ static void test_pad_chord(void)
                 }
             }
             chords++;
+            {
+                int h3 = 0, h7 = 0, g3 = 0, g7 = 0, j;
+                for (j = 1; j < pd_a.np[bar]; j++) {
+                    int iv = ((pd_a.pcs[bar][j] - pd_a.pcs[bar][0]) % 12 + 12) % 12;
+                    h3 |= iv == 3 || iv == 4;
+                    h7 |= iv == 10 || iv == 11;
+                }
+                for (j = 0; j < n; j++) {
+                    int iv = ((notes[j] - pd_a.pcs[bar][0]) % 12 + 12) % 12;
+                    g3 |= iv == 3 || iv == 4;
+                    g7 |= iv == 10 || iv == 11;
+                }
+                guide += h3 && h7;
+                both += h3 && h7 && g3 && g7;
+            }
             three += n == 3;
             two += n == 2;
             few += n < 2;
@@ -7449,6 +7469,21 @@ static void test_pad_chord(void)
                 changes++;
                 smooth += d <= 2 && d >= -2;
             }
+            if (npv) {                                   /* each voice: its move from the nearest note before */
+                int j, q;
+                for (j = 0; j < n; j++) {
+                    int best = 99;
+                    for (q = 0; q < npv; q++) {
+                        int d = notes[j] - pv[q];
+                        if (d < 0) d = -d;
+                        if (d < best) best = d;
+                    }
+                    moves++;
+                    vsmooth += best <= 2;
+                }
+            }
+            memcpy(pv, notes, sizeof pv);
+            npv = n;
             top_prev = notes[n - 1];
         }
         rubs += pd_rubs(&pd_a, 1, 3, 1, &checked);
@@ -7460,7 +7495,10 @@ static void test_pad_chord(void)
     CHECK(songs_perc > 100 && chords > 5000, "pad chord: only %ld songs, %ld chords", songs_perc, chords);
     CHECK(missing == 0, "pad chord: missing in %ld keys bars over percussive keys", missing);
     CHECK(over_sus == 0, "pad chord: %ld notes over sustained keys", over_sus);
-    CHECK(three * 100 >= chords * 80 && few == 0, "pad chord: 3 notes in %ld of %ld, %ld under 2", three, chords, few);
+    printf("pad chord: the 3rd and the 7th in %ld of %ld chords that have both; each voice a step or less in %ld of "
+           "%ld moves (%.1f%%)\n", both, guide, vsmooth, moves, moves ? 100.0 * (double)vsmooth / (double)moves : 0.0);
+    CHECK(three == 0 && few == 0, "pad chord: %ld chords of 3 notes, %ld under 2 (of %ld)", three, few, chords);
+    CHECK(both * 100 >= guide * 80 && guide > 1000, "pad chord: the 3rd and 7th in only %ld of %ld", both, guide);
     CHECK(off_change == 0, "pad chord: %ld onsets off a chord change", off_change);
     CHECK(smooth * 100 >= changes * 80, "pad chord: top voice smooth in %ld of %ld changes", smooth, changes);
     CHECK(range == 0, "pad chord: %ld notes outside 55-72", range);

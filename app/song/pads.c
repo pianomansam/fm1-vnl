@@ -115,15 +115,7 @@ int pads_chord(const song_roll_t *r, const int keys[4], const int *pcs, int np, 
             pen[nc] = iv == 3 || iv == 4 || iv == 10 || iv == 11 ? 0 : iv == 2 || (iv >= 6 && iv <= 8) ? 1 : 2;
             cand[nc++] = k;
         }
-    for (i = 0; i < nc; i++)
-        for (j = i + 1; j < nc; j++)
-            for (k = j + 1; k < nc; k++) {
-                int v[3], w[3];
-                v[0] = cand[i]; v[1] = cand[j]; v[2] = cand[k];
-                w[0] = pen[i]; w[1] = pen[j]; w[2] = pen[k];
-                consider(&b, v, w, 3, pcs[0], have3, have7, p);
-            }
-    for (i = 0; i < nc && b.cost == 1 << 30; i++)        /* 2 notes only where no 3 are legal */
+    for (i = 0; i < nc; i++)                             /* 2 notes (the budget's cut (c)): the guide tones first */
         for (j = i + 1; j < nc; j++) {
             int v[2], w[2];
             v[0] = cand[i]; v[1] = cand[j];

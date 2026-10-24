@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* The pad layer (pads design, 2026-10-24): a quiet background of two parts on V_PAD. The chord part: 3 notes (2 where
-   the rules force it) in the mid range, the chord's guide tones first, voice-led from chord to chord, over percussive
+/* The pad layer (pads design, 2026-10-24): a quiet background of two parts on V_PAD. The chord part: 2 notes (the
+   design's budget cut (c): the 3rd and the 7th first) in the mid range, voice-led from chord to chord, over percussive
    keys only. The solo note: one high note a bar, the scale's 1st, 2nd, 3rd or 7th, kept while it stays legal, in the
    blocks that roll "in". Pure functions; song.c plans and emits them on the pad voice's lanes (voices.h). */
 #ifndef SONG_PADS_H
@@ -20,10 +20,11 @@ int pads_section_in(const song_roll_t *r, int block, int section);
 int pads_rub(int a, int b);
 
 /* The chord part for a chord (pcs, root first): its notes by lane into out (lane k+1; 0 silent), voice-led from prev
-   (the same, all 0 for none). Guide tones first (3rd and 7th), then the 5th or the 9th; MIDI 55-72; common tones held,
+   (the same, all 0 for none). 2 notes (budget cut (c)): the guide tones first (3rd and 7th), then the 5th or the 9th;
+   MIDI 55-72; common tones held,
    the rest moving to the nearest legal tone, the top voice smoothest. No note rubs a keys note (keys: 4, 0 none) or a
-   lead note, or sits a minor 9th over the bass (bass_pc), nor two of its own. out may be prev. Returns the count: 3, or
-   2 where no 3 are legal (fewer only if nothing is). A pitch common to prev and out keeps its lane (it rings on).
+   lead note, or sits a minor 9th over the bass (bass_pc), nor two of its own. out may be prev. Returns the count: 2
+   (0 only if no pair is legal). A pitch common to prev and out keeps its lane (it rings on).
    song.c passes the lead's notes of a 4-bar group's first bar only (the later bars' are not planned yet); there the
    chord part's avoidance of the lead rests on its notes being chord tones while the lead keeps to the chord-scale
    (the clash test enforces it). */
