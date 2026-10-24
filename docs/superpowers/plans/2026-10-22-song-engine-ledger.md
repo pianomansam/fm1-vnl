@@ -205,7 +205,7 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   lead at the beginning. So two different lead parts. Never playing the same time, but like A B A." Today every map
   brings the lead in late (average first lead bar 17-31 of about 53, by map; 30-58% in). Next after the pads.
 - **Background pads/strings layer (Sam, 2026-10-24: "would make a nice layer").** A quiet, slow-moving sustained
-  layer under the keys, out of the lead's register. Needs its own design (role/bus, which sets, voicing, cost).
+  layer under the keys, out of the lead's register. Needs its own design (role/bus, which sets, voicing, cost). **Done** (2026-10-24; see "Pads: done" below).
 
 - **Lead phrase starts are square.** Over 1,000 songs: 35% of lead gestures start exactly on beat 1, 59% on a beat,
   19% on 8th offbeats, 21% on 16ths, and true pickups are impossible (phrases begin on their first bar; notes may not
@@ -404,3 +404,20 @@ From the task and final reviews; none blocks merging. Revisit when the area is n
 - Thin, deterministic margins (contour 90.6% of 90%; Nylon and sax and Rhodes neo-soul medians at 6.0 of 6): a future
   voice or level change will need a rebalance. All rulings: docs/superpowers/plans/2026-10-24-sustained-lead-ledger.md.
 
+### Pads: done (2026-10-24)
+
+The background layer (pads design and plan, 2026-10-24; branch mix-synths): a 2-note chord part (the 3rd and the 7th)
+over percussive keys and a high solo note on its own voice, strings or a warm pad per set, 4-8 dB under the keys
+(test_pad_level). Budget: the bus's filters moved to the layer's quarter rate, then the design's cut (c), the 2-note
+chord part; cut (a) (the solo note riding a chord voice) saved nothing and was undone (Sam). Seed 20 forced about 0.97
+on the host bench, accepted by Sam (under 1.0; the device is measured in Plan 2): docs/cost.md. Host renders can A/B
+the chord part against a doubling of the keys' voicing: `PADS=double ./new-song.sh SEED`.
+
+To judge by ear:
+- The levels: the chord part 4-8 dB under the keys (set medians 4.1-7.8); the solo note's level (not tested).
+- The solo note's shares by section (groove 60%, intro/break/outro 50%, under the lead 30%).
+- Strings vs the warm pad, per set.
+- The 2-note chord part: if thin, a follow-up wins CPU elsewhere and restores 3 notes.
+- The chord part vs PADS=double (the keys' own voicing doubled), Sam's A/B.
+- The solo note's quarter-rate grit: about -31 dB of aliasing at C6; half rate for MIDI 72 and up is the fix if heard.
+- (The solo note against the lead is already in "To revisit".)

@@ -93,6 +93,7 @@ engine would not make: zero tolerance for semitone rubs, no substitutions, diato
 | Dust | low-pass about 1.5–5 kHz, wow and flutter, soft saturation, bit/rate grit; warm vinyl or wobbly tape | genre | **Done** (`fx.c`, four levels) | *genre* §5 |
 | Surface noise, ambience | vinyl crackle or tape hiss or none; rain or none; steady, opens and closes the song | genre **(Sam: three independent layers; quieter, Task 8)** | **Done** (`fx.c` bed, about 35 dB under the music) | *genre* §5; MAKU, LOF-1 |
 | Automation arcs, evolving weather, noise swell before drums | slow filter / wobble / reverb arcs over 16–32 bars; rain builds and passes | neighboring genres, approved **(Sam)** | **Partial**: section filter moves (intro and outro dark, breaks, drops, swells, a high-pass build into a groove; Task 7b) and rain gusts; no long arcs yet | spec |
+| Background pad layer | a quiet layer on its own bus (V_PAD): over percussive keys (Rhodes, Wurli, felt, DX, nylon) a mid-range chord part, **2 notes, the 3rd and the 7th** (MIDI 55–72), voice-led, changing only at chord changes, 4–8 dB under the keys; over every set a high solo note (MIDI 72–84), one a bar on beat 1, held, the scale's 1st/2nd/3rd/7th (the tonic about 60%), kept while legal, else the smallest step; "in" per section: groove 60%, intro/break/outro 50%, under the lead 30%. Strings under the acoustic sets, a warm pad under the synth sets. Over sustained keys (pad, vox pad, organ) the chord part sits out. | genre (background strings) + taste **(Sam: "a mid-range chord throughout", "a solo note an octave above", "often tonic or near it", "sometimes cutting out during a break")**; 2 notes, not the design's 3, to fit the CPU budget (**Sam**, 2026-10-24: the design's cut (c); a follow-up that wins CPU elsewhere restores 3) | **Done** (`pads.c`, `song.c: pads_group`, `voices.c` M_ENS; host A/B: `PADS=double` doubles the keys' voicing instead) | pads design 2026-10-24 |
 | Self-sampling chops, vocal chops, reverb freeze | later features | neighboring genres **(Sam: later)** | **Not yet** | spec |
 
 ### The instrument models (Plan 3a; `patch.c` documents every parameter)
@@ -100,6 +101,9 @@ engine would not make: zero tolerance for semitone rubs, no substitutions, diato
 - **Keys:** Rhodes, Wurli and felt piano are one 2-op FM model with a decaying index (the tine's bell into a round
   body), a strike, a noise bark (Wurli) and a tone low-pass (felt). Nylon is a Karplus–Strong pluck.
 - **Pads:** two detuned polyBLEP saws into a low-pass (pad) or AMB-1's two formant filters (vox pad).
+- **The pad layer (M_ENS):** a polyBLEP saw and a partner a few cents sharp into a fixed 2-pole low-pass, per lane
+  (lanes 1–3 carry the chord part's 2 notes, 4 the solo note; a held lane glides to its next note), at a quarter of
+  the rate with its bus's filters, through the chorus at its own depth and the plate.
 - **Basses:** sub and electric bass are FM with a struck index plus a sub-octave sine (legato retriggers); the
   upright is a Karplus–Strong pluck with a thump.
 - **Bells:** AMB-1's 2-op FM bell (vibes with the motor's tremolo, kalimba, music box, bells), the decay tracking the key.

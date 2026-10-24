@@ -643,3 +643,11 @@ Not enough: the pads plan's rule (stop and report) applies; the layer's fixed pa
   now riding): pad strings **0.054**, warm pad **0.052**; over the source, full chain 0.056 / 0.057, dry 0.051 / 0.051
   (was 0.080-0.082).
 - **Memory:** image 187508 B, RAM 50944 B, pool 180216 B (`tools/mem-check.sh`: ok).
+
+**Sam's decision (2026-10-24):** keep cut (c), the 2-note chord part; revert cut (a) (the solo note on its own lane-4
+voice again: riding a chord voice saved nothing measurable). The budget is **accepted at about 0.97 on the host
+bench**, under the hard limit 1.0; the device is measured in Plan 2. Final numbers after the revert (host load 4.2-5.3,
+AMB-1 140.9-152.6 ms): seed 20 forced, `VNL_RUNS=7`, three runs **0.985 / 0.937 / 0.979**; the standard list once,
+`--forced 20 7 155 138 100 22`: 0.944 / 0.871 / 0.848 / 0.845 / 0.788 / 0.779 plain, **0.956** / 0.874 / 0.906 / 0.855
+/ 0.793 / 0.804 forced. Memory: image 185412 B, RAM 50944 B, pool 180216 B (`tools/mem-check.sh`: ok).
+
