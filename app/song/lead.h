@@ -22,6 +22,7 @@ typedef struct {
     int last;                     /* the last skeleton note, or the sustained lead's last note sung (0: none yet) */
     int anchor;                   /* the sustained lead's phrase anchor (a scale index over the key: degree 0) */
     int leap;                     /* the last interval sung leapt (+1 up, -1 down): the next note steps back */
+    int ctrun;                    /* quick chord tones by skips ending at the last note sung (no arpeggio) */
     int tied;                     /* the next bar's landing was pushed into this one */
     int active;                   /* the lead sounds in the planned bar (an onset, or a note pushed in) */
     int onsets;                   /* lead onsets that start in the planned bar */

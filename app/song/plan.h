@@ -18,7 +18,9 @@ enum {
 };
 
 typedef struct { uint8_t start, bars; uint8_t section; uint8_t layers; uint8_t flags; } plan_block_t; /* layers: L_* */
-typedef struct { uint8_t n; uint8_t bars; plan_block_t b[24]; } song_plan_t;
+/* b[n] is always a zero block (n <= 24; plan_build and the merge zero the plan first): the lead reads a block's
+   next neighbor up to it */
+typedef struct { uint8_t n; uint8_t bars; plan_block_t b[25]; } song_plan_t;
 
 /* The section moves, per role bus (PM_*: the same numbers as V_CHORD..V_CANDY, and V_KICK for the drums; plan.c
    checks): at bar and step (0-15), each bus's low-pass amount lp[] (0 open .. 1 closed) and high-pass amount hp[] (0 off .. 1),

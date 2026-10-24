@@ -2335,10 +2335,8 @@ static int top_can_stay(const int *pcs, int n, int top)
    - a walking bar's last beat leads by a step into the next bar's root;
    - keys-only bars are counted (Sam: they stay rootless, the song's one voicing; see test_loop_voicings). */
 /* The lead plays like its instrument (lead design): a sustained lead (flute, sax, muted trumpet, saw lead) never runs
-   an arpeggio (three chord tones an 8th or less apart, each a skip: a step is the phrase's line; at most 1 in 200
-   bars, where a cadence's quick steps find no step legal over the chord); a percussive one sings in most bars where
-   it may play. Also where the lead may play, and pushes legal
-   over both chords. One pass over 300 chained songs feeds all three tests. */
+   an arpeggio (three chord tones an 8th or less apart, each a skip: a step is the phrase's line); a percussive one
+   sings in most bars where it may play. Also where the lead may play, and pushes legal over both chords. One pass over 300 chained songs feeds all three tests. */
 static long lr_sust_bars;
 static long lr_runs, lr_perc_bars, lr_perc_led, lr_bad_where, lr_candy_where, lr_cross, lr_bad_cross;
 
@@ -2427,8 +2425,8 @@ static void test_lead_by_class(void)
 {
     lr_scan();
     printf("lead: sustained leads ran %ld arpeggios in %ld bars\n", lr_runs, lr_sust_bars);
-    CHECK(lr_sust_bars > 1000 && lr_runs * 200 <= lr_sust_bars, "sustained leads ran %ld arpeggios in %ld bars",
-          lr_runs, lr_sust_bars);
+    CHECK(lr_sust_bars > 1000 && lr_runs == 0, "sustained leads ran %ld arpeggios in %ld bars", lr_runs,
+          lr_sust_bars);
     CHECK(lr_perc_bars > 1000 && lr_perc_led * 100 >= lr_perc_bars * 80,
           "percussive leads sang in %ld of %ld bars where they may play", lr_perc_led, lr_perc_bars);
 }
@@ -6285,8 +6283,7 @@ static void test_phrase_plan(void)
    notes. Phrase position (the design's call 1): a run of contiguous lead blocks (a request that splits a block, or a
    4-bar lead block after another, resumes the phrase); 8-bar phrases from the run's start; a 4-bar remainder plays
    half a phrase, the answer when the run is the song's last lead run. Rules beat phrasing (the design's call 4): a
-   leap's "step back" is 1-3 semitones (rubs with 9th and 11th chords leave gapped chord-scales; the strict 1-2 rate
-   is printed); a question takes another chord tone than the root where its 3rd and 5th rub the chord; an arrival takes
+   question takes another chord tone than the root where its 3rd and 5th rub the chord; an arrival takes
    the 3rd over home or where the root rubs a maj7; a tie the rules refuse lands on 1, so a cadence and the next
    phrase may both strike beat 1 across the breath (at most 1 cadence in 10). */
 static const int SL_SETS[] = {1, 3, 4, 7, 9, 11, 13, 18, 19};
@@ -6408,7 +6405,8 @@ static void test_sustained_phrases(void)
 {
     long phrases = 0, rest_ok = 0, rhythm_bad = 0, contour_same = 0, q_bad = 0, a_bad = 0, breath_bad = 0;
     long halves = 0, half_bad = 0, onsets = 0, leadbars = 0, starts = 0, off1 = 0, leaps = 0, backs = 0, b1_bad = 0;
-    long lens_same = 0, a_third = 0, arrivals = 0, questions = 0, b1_cad = 0, strict = 0;
+    long lens_same = 0, a_third = 0, arrivals = 0, questions = 0, b1_cad = 0, songs = 0, varied = 0, steps = 0;
+    long wide = 0;
     int k, got;
     uint32_t seed;
     for (k = 0; k < SL_NSETS; k++)
@@ -6419,6 +6417,18 @@ static void test_sustained_phrases(void)
             if (!sl_roll(seed, SL_SETS[k], -1, &r)) continue;
             got++;
             sl_play(&r, o);
+            {   /* the line's variety (4+ distinct notes), and its leaps past a 5th within a gesture */
+                int seen[128] = {0}, distinct = 0;
+                for (i = 0; i < o->n; i++) {
+                    if (!seen[o->nt[i].note]++) distinct++;
+                    if (i && o->nt[i].start - o->nt[i - 1].end <= 2) {
+                        int d = o->nt[i].note - o->nt[i - 1].note;
+                        steps++;
+                        wide += d > 7 || d < -7;
+                    }
+                }
+                if (o->n) { songs++; varied += distinct >= 4; }
+            }
             for (bar = 0; bar < o->bars && bar < 80; bar++) {
                 int P = bar * 16, j, end, nx, lb;
                 if (!o->lead[bar]) continue;
@@ -6440,8 +6450,7 @@ static void test_sustained_phrases(void)
                         (d1 < 5 && d1 > -5))
                         continue;                        /* a leap within a gesture (no rest after it) */
                     leaps++;
-                    backs += sl_sgn(d2) == -sl_sgn(d1) && d2 >= -3 && d2 <= 3;
-                    strict += sl_sgn(d2) == -sl_sgn(d1) && d2 >= -2 && d2 <= 2;
+                    backs += sl_sgn(d2) == -sl_sgn(d1) && d2 >= -2 && d2 <= 2;
                 }
                 if (o->pbars[bar] == 8) {
                     int a0 = j, a1 = sl_first(o, P + 32), b0 = sl_first(o, P + 64), b1 = sl_first(o, P + 96), same = 1;
@@ -6499,9 +6508,13 @@ static void test_sustained_phrases(void)
            "(%ld broken)\n", phrases, rhythm_bad, contour_same, phrases ? 100.0 * (double)contour_same / (double)phrases
            : 0.0, lens_same, questions, q_bad, arrivals, a_bad, a_third, rest_ok, breath_bad, halves, half_bad);
     printf("sustained: %.2f onsets a lead bar; phrases off beat 1 %ld of %ld; leaps (a 4th+) answered by a step back "
-           "%ld of %ld (%ld by 1-2 semitones); beat 1 struck two bars running %ld (and %ld across a breath, a refused "
-           "tie struck on 1 then the next phrase)\n", leadbars ? (double)onsets / (double)leadbars : 0.0, off1, starts, backs, leaps, strict, b1_bad,
+           "%ld of %ld; beat 1 struck two bars running %ld (and %ld across a breath, a refused "
+           "tie struck on 1 then the next phrase)\n", leadbars ? (double)onsets / (double)leadbars : 0.0, off1, starts, backs, leaps, b1_bad,
            b1_cad);
+    printf("sustained: %ld of %ld songs sing 4+ distinct notes; %ld of %ld steps within a gesture leap past a 5th\n",
+           varied, songs, wide, steps);
+    CHECK(songs > 100 && varied * 10 >= songs * 7, "the line sings 4+ notes in %ld of %ld songs", varied, songs);
+    CHECK(wide * 1000 <= steps * 3, "%ld of %ld sung steps leap past a 5th", wide, steps);
     CHECK(phrases > 100 && rhythm_bad == 0, "restatements: rhythm broken in %ld of %ld", rhythm_bad, phrases);
     CHECK(contour_same * 10 >= phrases * 9, "restatements: contour kept in %ld of %ld (want >= 90%%)", contour_same,
           phrases);
@@ -6514,7 +6527,38 @@ static void test_sustained_phrases(void)
     CHECK(off1 * 100 >= starts * 55, "phrases off beat 1 in %ld of %ld (want >= 55%%)", off1, starts);
     CHECK(leaps > 0 && backs * 10 >= leaps * 7, "leaps answered by a step back %ld of %ld (want >= 70%%)", backs, leaps);
     CHECK(b1_bad == 0, "beat 1 struck in two lead bars running %ld times", b1_bad);
-    CHECK(b1_cad * 10 <= arrivals + questions, "a cadence struck on 1 before a phrase struck on 1 %ld times", b1_cad);
+    CHECK(b1_cad * 10 <= arrivals, "a cadence struck on 1 before a phrase struck on 1 %ld times", b1_cad);
+}
+
+/* A full plan (24 blocks, the most a plan holds): the lead reads each block's next neighbor, up to the zero block
+   after the last (song_plan_t's b[24]); every bar plans, and the run's 6 phrases each sing. */
+static void test_lead_full_plan(void)
+{
+    static song_plan_t p;
+    static lead_state_t ls;
+    song_roll_t r;
+    int i, bar, onsets = 0, phrases = 0, inph = 0, keys[4] = {48, 52, 55, 60};
+    CHECK(sl_roll(2u, 7, 70, &r), "full plan: seed 2 takes set 7");
+    memset(&p, 0, sizeof p);
+    memset(&ls, 0, sizeof ls);
+    p.n = 24;
+    p.bars = 48;
+    for (i = 0; i < 24; i++) {
+        p.b[i].start = (uint8_t)(2 * i);
+        p.b[i].bars = 2;
+        p.b[i].section = SEC_LEAD;
+        p.b[i].layers = L_KEYS | L_LEAD;
+    }
+    CHECK(p.b[24].bars == 0 && sizeof p.b / sizeof p.b[0] == 25, "full plan: no zero block after the 24th");
+    for (bar = 0; bar < 48; bar++) {
+        int pcs[5], np = harmony_chord_at(&r, bar, 1, 0, pcs), n;
+        n = lead_plan_bar(&ls, &r, &p.b[bar / 2], bar, keys, keys, pcs, np, bar + 1 < 48);
+        onsets += n;
+        inph += n;
+        if (bar % 8 == 7) { phrases += inph > 0; inph = 0; }
+    }
+    printf("full plan: %d lead onsets over 48 bars of 24 blocks\n", onsets);
+    CHECK(onsets > 48 && phrases == 6, "full plan: %d onsets, %d phrases", onsets, phrases);
 }
 
 /* Motion by rank (the design's call 5): the same seed at motion 30 and 70; where the phrase is the same (the same
@@ -6644,6 +6688,7 @@ int main(int argc, char **argv)
     RUN(test_phrase_plan);
     RUN(test_sustained_phrases);
     RUN(test_sustained_motion);
+    RUN(test_lead_full_plan);
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;

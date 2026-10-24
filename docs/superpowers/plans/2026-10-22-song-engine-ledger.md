@@ -194,7 +194,9 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   related enough; the breath (half a bar: too long at slow tempos?); the arrival (the root, or the 3rd over home and
   over maj7 chords, where the root rubs: about 40% land on the 3rd); the tie-in push (the question or arrival tied
   over from the bar before; where a rule refuses the tie it lands on 1, and then beat 1 can sound in two bars
-  running across the breath); the velocity arc (68–84 with the line's height, the arrival 8 softer); phrases high
+  running across the breath); the velocity arc (+16 with the line's height, the arrival 8 softer, short notes and low
+  notes among percussive keys louder so every song sits 4–6 dB over the keys; the muted trumpet 0.5 dB down); a
+  planned leap past a 5th sung within a 5th, and a leap answered by a step back where one is legal; phrases high
   over percussive keys (a 4th over the keys' top leaves about an octave, so long phrases fold at the top).
 - **A cap on how busy the lead can get (Sam, 2026-10-23: "I will also want to work towards putting a limit on how
   busy it can get").** After the hybrid follows the motion lever (lead plan Task 6): a ceiling on onsets per bar or

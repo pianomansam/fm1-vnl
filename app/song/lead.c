@@ -17,6 +17,7 @@ typedef struct {                  /* what one bar's planning reads */
     int lo_x;                     /* the floor for a note that sounds on into the next chord */
     int shift;                    /* the keys' octave shift (a pad with or above the lead) */
     int can_push;                 /* the next bar's chord is known (no request lands on it) */
+    int pad;                      /* the keys sustain (a pad, the organ) */
 } ctx_t;
 
 static int is_ct(int note, const int *pcs, int np)
@@ -223,6 +224,10 @@ typedef struct {
     int next;                        /* the next note follows at once: 1 any legal note, 2 a chord tone */
     int fast;                        /* an 8th or less after the last onset: it moves by step */
     int pass;                        /* the step into a cadence (a passing note) */
+    int conn;                        /* it follows the last note at once (within an 8th): one gesture */
+    int leap;                        /* the last interval leapt (+1 up, -1 down) */
+    int ctrun;                       /* quick chord tones by skips ending at the last note (1: it alone) */
+    int nfast;                       /* the next note is struck an 8th or less after this one */
     const nxt_t *nx;                 /* ... over the next bar's chord (0: this bar's) */
 } aim_t;
 
@@ -263,11 +268,18 @@ static int pick(const ctx_t *c, const aim_t *a, int dir, int kind, const int *kp
             int m = note - a->prev, w = note - a->want;
             cost += (w < 0 ? -w : w) * 2;                /* the planned interval */
             if (dir && (m > 0) - (m < 0) != dir) cost += 8;   /* the contour: the planned direction */
-            if (m > 9 || m < -9) cost += 3 * ((m > 0 ? m : -m) - 9);
+            if (a->conn && (m > 7 || m < -7)) cost += 40 * ((m > 0 ? m : -m) - 7);   /* no leap past a 5th */
             if (a->fast && (m > 2 || m < -2)) cost += 4 * ((m > 0 ? m : -m) - 2);
             if ((a->fast || a->pass) && kind == K_ANY && ct) cost += 3;   /* a quick or passing note: off the chord */
             if (a->next && (m >= 5 || m <= -5) && !step_back(c, a, note, m > 0 ? 1 : -1))
-                cost += 10;                              /* a leap the next note can't answer by a step */
+                cost += 30;                              /* a leap the next note can't answer by a step */
+            if (a->leap && (m > 0) - (m < 0) == -a->leap && m <= 2 && m >= -2)
+                cost -= 12;                              /* a leap answered by a step back */
+            if (is_ct(note, c->pcs, c->np)) {            /* never an arpeggio: three quick chord tones by skips */
+                int run = a->fast && (m >= 3 || m <= -3) ? a->ctrun + 1 : 1;
+                if (run >= 3) cost += 200;
+                else if (run == 2 && a->next == 2 && a->nfast) cost += 30;   /* the next is a chord tone too */
+            }
         }
         if (cost < bc) { bc = cost; best = note; }
     }
@@ -302,11 +314,13 @@ static int sing(const ctx_t *c, const aim_t *a, int dir, int role, int home, con
    (or, when the tie was refused, strikes again on 1); a note that rings into the next bar is a push, legal over both
    chords, or cut at the bar line. Velocity: an arc with the line's height, softening into the arrival. */
 static void plan_phrase(lead_state_t *ls, const ctx_t *c, const plan_block_t *b, int bar, int home, const nxt_t *nx,
-                        int b1)
+                        int b1, const int *lpcs, int lnp)
 {
     tl_t tl[TLMAX];
     int run, pass, bip, pbars, last, n, i, sc[7], key = c->r->v[RF_KEY], P, prev = ls->last, pdeg = 0, has = 0;
     int dmin = 99, dmax = -99, tied = ls->tied, lt = -1, leap = ls->leap, restrike = 0;
+    int ctrun = ls->ctrun, pnp = lnp;
+    const int *pct = lpcs;
     phrase_at(b, bar, &run, &pass, &bip, &pbars, &last);
     n = timeline(c->r->seed, run, pass, pbars, last, c->r->v[RF_MOTION], tl);
     scale_of(c->r, sc);
@@ -348,6 +362,10 @@ static void plan_phrase(lead_state_t *ls, const ctx_t *c, const plan_block_t *b,
         a.nx = 0;
         a.fast = i && tl[i].t - tl[i - 1].t <= 2;
         a.pass = tl[i].role == PR_CLOSE;
+        a.conn = i && tl[i].t - (tl[i - 1].t + tl[i - 1].len) <= 2;
+        a.leap = a.conn ? leap : 0;
+        a.ctrun = prev && is_ct(prev, pct, pnp) ? ctrun : 0;
+        a.nfast = i + 1 < n && tl[i + 1].t - tl[i].t <= 2;
         if (i + 1 < n && tl[i + 1].t - P < 32 && tl[i + 1].t - (tl[i].t + tl[i].len) <= 2 &&
             (tl[i + 1].t - P < 16 || nx->np > 0)) {
             a.next = (tl[i + 1].t - P) % 8 == 0 || tl[i + 1].role == PR_QUESTION || tl[i + 1].role == PR_ARRIVAL
@@ -385,11 +403,16 @@ static void plan_phrase(lead_state_t *ls, const ctx_t *c, const plan_block_t *b,
         put(ls, t, note, len);
         lt = t;
         leap = prev && (note - prev >= 5 || prev - note >= 5) ? (note > prev ? 1 : -1) : 0;
+        ctrun = !is_ct(note, c->pcs, c->np) ? 0
+              : a.fast && prev && is_ct(prev, pct, pnp) && (note - prev >= 3 || prev - note >= 3) ? ctrun + 1 : 1;
+        pct = c->pcs;
+        pnp = c->np;
         v = 52 + (dmax > dmin ? 16 * (tl[i].deg - dmin) / (dmax - dmin) : 8);   /* the arc, with the height */
         v += len <= 4 ? 28 : len <= 6 ? 14 : 0;   /* a short note sounds less of its swell */
+        if (!c->pad && note < 76) v += 76 - note + (note < 72 ? 72 - note : 0);   /* low: among percussive keys */
         if (tl[i].role == PR_ARRIVAL) v -= 8;            /* softening into the arrival */
         else if (tl[i].role == PR_CLOSE && tl[i].t >= 96) v -= 4;
-        ls->vel[t] = (uint8_t)v;
+        ls->vel[t] = (uint8_t)(v > 110 ? 110 : v);
         if (x) {
             ls->ring |= 1u << t;                         /* rings across the bar line into the next chord */
             ls->tied = 1;
@@ -405,6 +428,7 @@ static void plan_phrase(lead_state_t *ls, const ctx_t *c, const plan_block_t *b,
     }
     ls->last = prev;
     ls->leap = leap;
+    ls->ctrun = ctrun;
 }
 
 /* the hybrid's arpeggio rhythms; the song's is the one that lands least on the snare (Sam), not forced */
@@ -533,6 +557,7 @@ int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b,
     c.r = r; c.keys = keys; c.pcs = pcs; c.np = np; c.bass = 0; c.can_push = can_push;
     if (set && lib_ins_sustained(set->chords)) {         /* a pad: the octave doesn't matter (Sam), its place does */
         int pl = harmony_pad_place(r);
+        c.pad = 1;
         c.lo = c.lo_x = 60;
         c.hi = pl == PL_ABOVE ? 72 : 83;
         c.shift = pl == PL_BELOW ? 0 : 12;
@@ -542,6 +567,7 @@ int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b,
             if (keys[i] > top) top = keys[i];
             if (nkeys[i] > ntop) ntop = nkeys[i];
         }
+        c.pad = 0;
         c.lo = top + 5;
         c.lo_x = (ntop > top ? ntop : top) + 5;
         c.hi = 88;
@@ -555,7 +581,7 @@ int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b,
     if (set && lib_ins_sustained(set->lead)) {
         const plan_block_t *nb = bar + 1 < b->start + b->bars ? b
                                : (b + 1)->bars && (b + 1)->start == b->start + b->bars ? b + 1 : 0;
-        int hp[5];
+        int hp[5], lpcs[5], lnp;
         nxt_t nx;
         nx.pcs = npcs;
         nx.np = nb ? nn : 0;
@@ -565,7 +591,8 @@ int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b,
             if (bn) nx.bass |= 1u << (bn % 12);
         }
         harmony_chord_at(r, bar - bar % loop, bar / loop + 1, 0, hp);   /* home: the progression's first chord */
-        plan_phrase(ls, &c, b, bar, hp[0] % 12 == pcs[0] % 12, &nx, b1);
+        lnp = bar > 0 ? harmony_chord_at(r, bar - 1, (bar - 1) / loop + 1, 0, lpcs) : 0;   /* the last bar's chord */
+        plan_phrase(ls, &c, b, bar, hp[0] % 12 == pcs[0] % 12, &nx, b1, lpcs, lnp);
     } else plan_hybrid(ls, &c, bar, bpc, npcs, nn);
     for (i = 0; i < 16; i++) n += ls->on[i] > 0;
     ls->active |= n > 0;
