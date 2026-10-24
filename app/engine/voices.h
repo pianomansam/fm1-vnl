@@ -45,6 +45,14 @@ void vx_song(const song_roll_t *r);
    starts fresh (its swell), and on one still releasing the old note fades out (about 4 ms, as a steal) first. A lane
    never moves another's voice. */
 void vx_assign(int voice, int ins);
+/* The pad layer's solo lane (lane 4) its own patch: INS_VOX_PAD (the choir), INS_FLUTE, INS_ORGAN or INS_STRINGS,
+   anything else (INS_NONE) the pad's (vx_assign's V_PAD). Lane 4 alone plays it, in its own model at that model's
+   usual rate (the ensemble at a quarter, the choir at half, the flute and the organ at full), on the pad's bus (its
+   filters, its sends), trimmed to the strings' loudness; lanes 1-3 and lane-less notes keep the pad's M_ENS patch. A
+   held lane-4 note goes on legato to its next note of the same patch (gliding, as any lane's); a note of another patch
+   (a solo voice changed) starts fresh, the old one fading out first. Kept until the next call or vx_init (none);
+   vx_assign and vx_configure leave it. */
+void vx_assign_pad_solo(int ins);
 /* Tests: a role's patch given directly (a changed copy of a table patch; it must outlive its notes), its sends and
    filters as vx_assign sets them; the config is left as it was. */
 void vx_assign_patch(int voice, const vx_patch_t *p);
@@ -80,6 +88,8 @@ float vx_chip_out(int role, float *raw, float *step);
 /* Tests: a pad lane's (1-4) voice now: its frequency in Hz (gliding), *step its rate's step (1, 2 or 4 samples) and
    *held its gate; all 0 for a silent lane. */
 float vx_pad_lane(int lane, int *step, int *held);
+/* Tests: a pad lane's (1-4) voice's patch now, NULL for a silent lane. */
+const vx_patch_t *vx_pad_lane_patch(int lane);
 /* Tests: the mono synth's legato notes to a new pitch (its glides) on V_LEAD since vx_init (0 for any other role). */
 uint32_t vx_glides(int role);
 /* Tests: the keys' duck under the lead now, in dB (0 at rest, negative while ducked). */

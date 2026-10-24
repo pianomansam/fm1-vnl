@@ -6,10 +6,11 @@
    strings (M_PLUCK), pads (M_PAD), bells (M_BELL), winds (M_WIND), basses (M_BASS), a chip triangle (M_CHIP), the
    subtractive synths (M_SUB; a mono one on the lead glides from a held note, or a near one just ended: LEG_GAP) and the
    pad layer's ensemble (M_ENS, at a quarter of the rate in a loop of its own: pad_seg). A key's or a pad's note whose
-   partials stay under 9 kHz, and a synth's on the chords whose low-pass stays at 8 kHz or under, render at half the
-   rate (half_ok), its role's half-rate voices upsampled by a half- band. A pitched note's level is the patch envelope:
-   a natural decay (nat, from 1 toward sus) times a gate (g: a linear rise, a smoothed fall), so a note-off, a steal or
-   vx_release_all fades instead of clicking. Drums are a noise burst or a swept sine. Then the mix (Task 8: the role
+   partials stay under 9 kHz, and a synth's on the chords (or the pad's solo lane) whose low-pass stays at 8 kHz or
+   under, render at half the rate (half_ok), its role's half-rate voices upsampled by a half- band. The pad's solo
+   lane (lane 4) may hold its own patch (vx_assign_pad_solo), rendered beside the ensemble (pad_seg) into the pad's
+   bus. A pitched note's level is the patch envelope: a natural decay (nat, from 1 toward sus) times a gate
+   (g: a linear rise, a smoothed fall), so a note-off, a steal or vx_release_all fades instead of clicking. Drums are a noise burst or a swept sine. Then the mix (Task 8: the role
    gains, the keys' level per comping, the mud high-pass on the chords', the lead's, the ear candy's and the pad layer's
    sums), per role bus (chords, bass, lead, candy, pad, drums): the drums through their compressor, each bus through its
    section filters (a one-pole high-pass and low-pass, vx_set_filter/vx_set_hp; skipped while every bus is open), the
@@ -102,6 +103,10 @@ static const float CP_THR_KIT[4] = {0.095f, 0.090f, 0.084f, 0.162f};
 #define VX_POOL __attribute__((section(".pool")))
 #endif
 
+/* the models the pad's solo lane may play (solo_sample) beside voice_sample: inlined into both, so voice_sample's
+   loop (render_seg) keeps them inline */
+#define VX_INLINE static inline __attribute__((always_inline))
+
 /* The pool roles: their voices fv[first .. first+count) and level. */
 typedef struct {
     uint8_t first, count;
@@ -137,6 +142,8 @@ typedef struct {
             float p1, p2, i1, i2, l2;
             float c1[4], c2[4], s[4]; /* SVF coefficients (a1, a2, a3, k) and states (the biquads': w1, w2 each) */
             float bq[2][5];           /* the half-rate biquads: b0, b1, b2, a1, a2 */
+            float t1, t2, gk;         /* the solo lane's glide: by gk a step, gn steps, to t1, t2 (lane_legato) */
+            uint32_t gn;
             uint8_t vox;
         } pad;
         struct { /* M_PLUCK: a Karplus-Strong line (this voice's ks[] row) and the upright's thump */
@@ -153,6 +160,8 @@ typedef struct {
             float bc[4], bs[2], br, ch, chk; /* the breath's band-pass (coefficients, states), level, chiff */
             float mc[4], ms[2];             /* the mute's band-pass (mc[3] = 0: no mute) */
             float vp, vd;                   /* vibrato phase (turns) and depth (a fraction of f0) */
+            float ft, gk;                   /* the solo lane's glide: f0 by gk a step, gn steps, to ft */
+            uint32_t gn;
             uint32_t vt;                    /* samples since the onset, in control steps */
             uint8_t cc;
         } wd;
@@ -289,6 +298,13 @@ static int solo_bus = -1;   /* vx_solo: the one bus mixed, -1 for all (kept thro
 static uint32_t gain_n;
 static vx_config_t cfg;
 static const vx_patch_t *role_pt[V_PAD + 1]; /* the configured patch per pitched role, NULL for none */
+/* The pad's solo lane (lane 4, vx_assign_pad_solo): its patch (NULL: the pad's) and its level's trim, by ear and by
+   the level test (song_test's test_pad_solo_patch): each voice as loud as the strings an octave up (in RMS, the choir,
+   the flute and the organ at MIDI 76, the strings at 88). */
+static const vx_patch_t *solo_pt;
+static float solo_trim = 1.0f;
+static const float SOLO_TRIM[INS_NONE] = {[INS_VOX_PAD] = 1.334f, [INS_FLUTE] = 0.804f, [INS_ORGAN] = 1.288f,
+                                         [INS_STRINGS] = 1.0f};
 
 static float noise(void)
 {
@@ -350,6 +366,7 @@ void vx_init(void)
     keys_g = 1.0f;
     fx_init(); /* before the roles: the chords' patch sets the chorus */
     memset(&cfg, 0, sizeof cfg);
+    vx_assign_pad_solo(INS_NONE);
     vx_assign(V_CHORD, INS_RHODES);
     vx_assign(V_BASS, INS_SUB);
     vx_assign(V_LEAD, INS_VIBES);
@@ -495,6 +512,12 @@ void vx_event(const song_ev_t *e)
     qn++;
 }
 
+/* the solo lane's level trim: lane 4's voice on its own patch (SOLO_TRIM), else 1 */
+static float solo_lvl(const voice_t *v, const vx_patch_t *p)
+{
+    return v == &fv[NV - 1] && p == solo_pt ? solo_trim : 1.0f;
+}
+
 /* a voice's step in samples: 1, 2 at half the rate, 4 at a quarter */
 static float step_len(const voice_t *v) { return v->qr ? 4.0f : v->hr ? 2.0f : 1.0f; }
 
@@ -513,8 +536,11 @@ static void env_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int l
                                                                       : p->att) /
                   dv);
     v->kr = k_t60(p->rel / dv);
-    v->amp_t = ROLES[v->role].gain * p->level * (float)e->vel * (1.0f / 127.0f) * (v->role == V_CHORD ? keys_g : 1.0f);
-    v->slew = (uint8_t)(v->role == V_BASS || (v->role == V_LEAD && p->model == M_SUB && p->p[9] > 0.0f));
+    v->amp_t = ROLES[v->role].gain * p->level * (float)e->vel * (1.0f / 127.0f) *
+               (v->role == V_CHORD ? keys_g : solo_lvl(v, p));
+    /* (the solo lane's own voice slews, so its legato notes ramp to their velocity's level: lane_legato) */
+    v->slew = (uint8_t)(v->role == V_BASS || (v->role == V_LEAD && p->model == M_SUB && p->p[9] > 0.0f) ||
+                        (v->role == V_PAD && p->model != M_ENS));
     if (!legato)
         v->amp = v->amp_t;
     v->gate = (e->len + (uint32_t)dv - 1u) / (uint32_t)dv;
@@ -624,6 +650,7 @@ static void pad_start(voice_t *v, const song_ev_t *e)
     v->m.pad.p1 = 0.0f;
     v->m.pad.p2 = 0.5f;
     v->m.pad.l2 = p->p[2];
+    v->m.pad.gn = 0u;
     v->m.pad.vox = p->p[7] > 0.0f;
     memset(v->m.pad.s, 0, sizeof v->m.pad.s);
     if (v->m.pad.vox) {
@@ -689,7 +716,8 @@ static void ens_legato(voice_t *v, const song_ev_t *e)
     v->gate = (e->len + (uint32_t)dv - 1u) / (uint32_t)dv;
     v->held = 1;
     v->off = t_on + e->len;
-    v->amp_t = ROLES[v->role].gain * p->level * (float)e->vel * (1.0f / 127.0f);   /* (as env_start: V_PAD) */
+    v->amp_t = ROLES[v->role].gain * p->level * (float)e->vel * (1.0f / 127.0f) *
+               solo_lvl(v, p); /* (as env_start: V_PAD) */
     if (v->amp_t != v->amp) {
         v->m.en.an = (uint32_t)na;
         v->m.en.ak = (v->amp_t - v->amp) / (float)v->m.en.an;
@@ -751,6 +779,7 @@ static void wind_start(voice_t *v, const song_ev_t *e)
     v->m.wd.vd = p->p[5] * (FM_LN2 / 1200.0f); /* cents, as a fraction of the frequency */
     v->m.wd.vt = 0;
     v->m.wd.cc = 0;
+    v->m.wd.gn = 0u;
 }
 
 /* atan(y / x) for x > 0, y >= 0 (note-on only): a polynomial on [0, 1], folded; about 1e-5 rad */
@@ -880,11 +909,55 @@ static void sub_start(voice_t *v, const song_ev_t *e, int legato)
     v->m.sb.cc = 0;
 }
 
+/* The solo lane's own voice (not M_ENS: M_PAD, M_WIND, M_SUB) on a held lane (pool_on), as ens_legato: the same pitch
+   extends the note; another glides to it over ENS_GLIDE in even steps of pitch, the envelope, the filters' states
+   and the breath going on (no restrike; a pad's low-pass and a wind's follow the new note at once); the level slews
+   to the new velocity's (env_start's slew). The voice keeps its rate. */
+static void lane_legato(voice_t *v, const song_ev_t *e)
+{
+    const vx_patch_t *p = v->pt;
+    float dv = step_len(v), f = note_inc(e->note), n = fm_maxf(ENS_GLIDE * SR / dv, 1.0f), r;
+    v->gate = (e->len + (uint32_t)dv - 1u) / (uint32_t)dv;
+    v->held = 1;
+    v->off = t_on + e->len;
+    v->amp_t = ROLES[v->role].gain * p->level * (float)e->vel * (1.0f / 127.0f) * solo_lvl(v, p);
+    if (e->note == v->note)
+        return;
+    v->note = e->note;
+    if (p->model == M_PAD) {
+        float dt = fm_exp2f(p->p[0] * (1.0f / 1200.0f));
+        v->m.pad.t1 = f * dv / dt;
+        v->m.pad.t2 = f * dv * dt * p->p[1];
+        v->m.pad.gn = (uint32_t)n;
+        v->m.pad.gk = fm_exp2f(fm_log2f(v->m.pad.t1 / v->m.pad.i1) / (float)v->m.pad.gn);
+        if (!v->m.pad.vox) { /* (the formants stay where they are) */
+            if (v->hr) {
+                memset(v->m.pad.bq, 0, sizeof v->m.pad.bq);
+                bq_match(v->m.pad.bq[0], p->p[3] + p->p[4] * f * SR, p->p[5], 1, 1.0f, dv);
+            } else
+                svf_coefs(v->m.pad.c1, p->p[3] + p->p[4] * f * SR, p->p[5]);
+        }
+    } else if (p->model == M_WIND) {
+        float hi = k_lp1(p->p[2] * f * SR * (0.6f + 0.4f * (float)e->vel * (1.0f / 127.0f)));
+        v->m.wd.ft = f;
+        v->m.wd.gn = (uint32_t)n;
+        v->m.wd.gk = fm_exp2f(fm_log2f(f / v->m.wd.f0) / (float)v->m.wd.gn);
+        v->m.wd.a0 = k_lp1(WIND_LP_LO * p->p[2] * f * SR);
+        v->m.wd.a1 = hi - v->m.wd.a0;
+    } else if (p->model == M_SUB) {
+        r = f * dv;
+        v->m.sb.ft = r;
+        v->m.sb.gn = (uint32_t)n;
+        v->m.sb.gk = fm_exp2f(fm_log2f(r / v->m.sb.f0) / (float)v->m.sb.gn);
+    }
+}
+
 /* Whether a note renders at half the rate: the keys and pads (not on the bass), when their highest partial (the FM's
    sidebands, the index plus three; the tine; the pad's upper saw's second harmonic) is below HR_TOP; a synth on the
    chords, when its highest cutoff (sub_top) is HR_SUB_TOP or under. Higher notes, and everything with VX_OFF_HALF,
    stay at the full rate. The pad layer's ensemble renders at a quarter of the rate where its key-tracked low-pass is
-   ENS_QR_TOP or under (voice_start), else at half (all in pad_seg). */
+   ENS_QR_TOP or under (voice_start), else at half (all in pad_seg); the pad's solo lane's own voice as its model does
+   (a synth as on the chords). */
 static int half_ok(const voice_t *v, const vx_patch_t *p, const song_ev_t *e)
 {
     float hz = note_inc(e->note) * SR, v01 = (float)e->vel * (1.0f / 127.0f), top;
@@ -897,7 +970,8 @@ static int half_ok(const voice_t *v, const vx_patch_t *p, const song_ev_t *e)
     } else if (p->model == M_PAD)
         top = HR_PAD_H * hz * fm_maxf(p->p[1], 1.0f);
     else if (p->model == M_SUB)
-        return v->role == V_CHORD && sub_top(p, hz, v01) <= HR_SUB_TOP;
+        return (v->role == V_CHORD || v->role == V_PAD) && sub_top(p, hz, v01) <= HR_SUB_TOP; /* (V_PAD: the solo
+                                                                                                    lane's organ) */
     else if (p->model == M_ENS) /* half where its low-pass is too high for a quarter */
         return p->p[2] + p->p[3] * hz > ENS_QR_TOP;
     else
@@ -935,13 +1009,18 @@ static void pool_on(const song_ev_t *e, int role)
     int i, pick = -1, first = ROLES[role].first, count = ROLES[role].count;
     const vx_patch_t *p = role_pt[role];
     voice_t *v;
-    if (!p || (first >= PD) != (p->model == M_ENS))
+    if (role == V_PAD && e->pad == NPD && solo_pt && p)
+        p = solo_pt; /* the solo lane's own patch (any model: render_seg's, or the ensemble's pad_seg) */
+    else if (!p || (first >= PD) != (p->model == M_ENS))
         return; /* no instrument on this role; the pad layer plays M_ENS only (pad_seg), and only it */
     if (role == V_PAD && e->pad >= 1 && e->pad <= NPD) { /* a lane (voices.h): its own voice */
         v = &fv[PD + e->pad - 1];
         v->age = ++age_ctr;
         if (v->on && !v->pend && v->pt == p && (v->held || t_on - v->off < LEG_GAP)) {
-            ens_legato(v, e); /* held (or just ended): extended, or gliding */
+            if (p->model == M_ENS)
+                ens_legato(v, e); /* held (or just ended): extended, or gliding */
+            else
+                lane_legato(v, e);
             return;
         }
         if (!v->on) {
@@ -1081,10 +1160,19 @@ static float svf_step(const float *c, float *s, float x, float *bp)
 }
 
 /* M_PAD's raw sample: the two saws, then the low-pass or the formants (AMB-1's mix: b1 + b2 / 2 + 0.45 l1). */
-static float pad_sample(voice_t *v)
+VX_INLINE float pad_sample(voice_t *v)
 {
     float x, l1, b1, b2;
     x = saw_blep(v->m.pad.p1, v->m.pad.i1) + v->m.pad.l2 * saw_blep(v->m.pad.p2, v->m.pad.i2);
+    if (v->m.pad.gn) { /* the solo lane's glide: even steps in pitch, landing exactly */
+        if (--v->m.pad.gn) {
+            v->m.pad.i1 *= v->m.pad.gk;
+            v->m.pad.i2 *= v->m.pad.gk;
+        } else {
+            v->m.pad.i1 = v->m.pad.t1;
+            v->m.pad.i2 = v->m.pad.t2;
+        }
+    }
     v->m.pad.p1 += v->m.pad.i1;
     if (v->m.pad.p1 >= 1.0f)
         v->m.pad.p1 -= 1.0f;
@@ -1173,9 +1261,14 @@ static float bell_sample(voice_t *v)
 }
 
 /* M_WIND's raw sample. The vibrato runs at the control rate (WIND_CR). */
-static float wind_sample(voice_t *v)
+VX_INLINE float wind_sample(voice_t *v)
 {
     float t = v->m.wd.ph, s = v->m.wd.shp, x, e, a, bp;
+    if (v->m.wd.gn) { /* the solo lane's glide: even steps in pitch, landing exactly (the vibrato rides on it) */
+        float k = --v->m.wd.gn ? v->m.wd.gk : v->m.wd.ft / v->m.wd.f0;
+        v->m.wd.f0 = v->m.wd.gn ? v->m.wd.f0 * k : v->m.wd.ft;
+        v->m.wd.inc *= k;
+    }
     if (++v->m.wd.cc == WIND_CR) {
         float r = ((float)(++v->m.wd.vt) * (WIND_CR * INV_SR) - VIB_DELAY) * (1.0f / VIB_FADE);
         v->m.wd.cc = 0;
@@ -1280,7 +1373,7 @@ static void sub_ctl(voice_t *v)
 
 /* M_SUB's raw sample: the glide, the oscillator, the sub-octave (a square flipping at each of the oscillator's wraps,
    with the saw's polyBLEP at its edge), then the low-pass. */
-static float sub_sample(voice_t *v)
+VX_INLINE float sub_sample(voice_t *v)
 {
     float t = v->m.sb.ph, dt = v->m.sb.f0, x, bp;
     if (v->m.sb.cc == 0)
@@ -1478,8 +1571,23 @@ static unsigned mud_on(int mud, unsigned mf, unsigned mh)
     return m;
 }
 
-/* A segment's pad layer (fv[PD..NV), M_ENS only): its voices side by side in a loop of their own (no dispatch, the
-   model and the envelope inline), times its dry scale (pdg, ramped). A quarter-rate voice renders on the samples where
+/* The pad's solo lane's own voice (lane 4 on a patch not M_ENS: vx_assign_pad_solo), rendered in pad_seg at its
+   model's rate (M_PAD, M_WIND or M_SUB: vx_assign_pad_solo's), out of line and apart from voice_sample, which keeps
+   its one call site (render_seg's loop, inlined there). */
+#define SOLO_V (NV - 1)
+static __attribute__((noinline)) float solo_sample(voice_t *v)
+{
+    float s = v->pt->model == M_PAD ? pad_sample(v) : v->pt->model == M_WIND ? wind_sample(v) : sub_sample(v);
+    v->nat = fm_flush(v->nat * v->nk); /* (voice_sample's envelope, a slewing voice's: env_start) */
+    v->amp = fm_flush(v->amp + (v->amp_t * (v->sus + (1.0f - v->sus) * v->nat) - v->amp) * AMP_K);
+    s *= v->amp * v->g;
+    gate_step(v);
+    return s;
+}
+
+/* A segment's pad layer (fv[PD..NV)): its M_ENS voices side by side in a loop of their own (no dispatch, the
+   model and the envelope inline), times its dry scale (pdg, ramped); the solo lane's own voice (solo_sample) beside
+   them at its model's rate, full or half, as a full- or half-rate ensemble voice. A quarter-rate voice renders on the samples where
    the engine's clock is a multiple of 4, their sum through the layer's mud high-pass at that rate (pq_mc), back to the
    full rate by linear interpolation (a quarter-rate sample's latency; its low-pass keeps the folds and images quiet)
    into pd_f; a half-rate one (its low-pass too high for a quarter) on the even samples into pd_h, for its role's
@@ -1566,16 +1674,20 @@ static float k4_of(float k)
 }
 static unsigned pad_seg(uint32_t pos, uint32_t n)
 {
-    voice_t *vs[NPD];
+    voice_t *vs[NPD], *so = &fv[SOLO_V];
     uint32_t i, ih = 0;
     unsigned got = 0u;
     int k, nv = 0, mud = !(fx_off & VX_OFF_MUD);
     float z0 = pq_mz[0], z1 = pq_mz[1], a0 = pq0, a1 = pq1, gd = pdgd, g0 = pdg0 + gd * (float)pos;
     for (k = PD; k < NV; k++)
-        if (fv[k].on) {
+        if (fv[k].on && fv[k].pt->model == M_ENS) {
             vs[nv++] = &fv[k];
             got |= fv[k].qr ? PAD_Q : fv[k].hr ? PAD_H : PAD_F;
         }
+    if (so->on && so->pt->model != M_ENS) /* the solo lane's own voice, at its own rate */
+        got |= so->hr ? PAD_H : PAD_F;
+    else
+        so = NULL;
     if (!(got & PAD_Q)) { /* the quarter-rate path still ringing out, or at rest (then it is silent: no work) */
         if (fm_fabsf(a0) > 1e-7f || fm_fabsf(a1) > 1e-7f || fm_fabsf(z0) > 1e-7f || fm_fabsf(z1) > 1e-7f ||
             fm_fabsf(pb_y) > 1e-7f || fm_fabsf(pb_z) > 1e-7f)
@@ -1665,23 +1777,28 @@ static unsigned pad_seg(uint32_t pos, uint32_t n)
             g += gd;
             if ((got & PAD_H) && !(t & 1u)) {
                 float x = 0.0f;
-                for (k = 0; k < nv; k++)
-                    if (vs[k]->on && vs[k]->hr)
+                for (k = 0; k < nv; k++) /* (a steal's new note may have left the ensemble) */
+                    if (vs[k]->on && vs[k]->hr && vs[k]->pt->model == M_ENS)
                         x += ens_tick(vs[k]);
+                if (so && so->on && so->hr && so->pt->model != M_ENS) /* (or joined it: pad_seg's next segment) */
+                    x += solo_sample(so);
                 pd_h[ih++] = x * g;
             }
             if (got & PAD_F)
                 for (k = 0; k < nv; k++)
-                    if (vs[k]->on && !vs[k]->qr && !vs[k]->hr)
+                    if (vs[k]->on && !vs[k]->qr && !vs[k]->hr && vs[k]->pt->model == M_ENS)
                         f += ens_tick(vs[k]);
+            if (so && so->on && !so->hr && so->pt->model != M_ENS)
+                f += solo_sample(so);
             pd_f[i] = f * g;
         }
     }
-    for (k = 0; k < nv; k++) {
-        vs[k]->nat = fm_flush(vs[k]->nat);
-        vs[k]->m.en.y1 = fm_flush(vs[k]->m.en.y1);
-        vs[k]->m.en.y2 = fm_flush(vs[k]->m.en.y2);
-    }
+    for (k = 0; k < nv; k++)
+        if (vs[k]->pt->model == M_ENS) {
+            vs[k]->nat = fm_flush(vs[k]->nat);
+            vs[k]->m.en.y1 = fm_flush(vs[k]->m.en.y1);
+            vs[k]->m.en.y2 = fm_flush(vs[k]->m.en.y2);
+        }
     return got;
 }
 
@@ -2304,7 +2421,25 @@ float vx_pad_lane(int lane, int *step, int *held)
     }
     *step = (int)step_len(v);
     *held = v->held;
-    return v->m.en.i1 / step_len(v) * SR;
+    switch (v->pt->model) { /* (the solo lane's own voice: its model's pitch) */
+    case M_PAD: return v->m.pad.i1 * fm_exp2f(v->pt->p[0] * (1.0f / 1200.0f)) / step_len(v) * SR;
+    case M_WIND: return v->m.wd.f0 * SR;
+    case M_SUB: return v->m.sb.f0 / step_len(v) * SR;
+    default: return v->m.en.i1 / step_len(v) * SR;
+    }
+}
+
+void vx_assign_pad_solo(int ins)
+{
+    int ok = ins == INS_VOX_PAD || ins == INS_FLUTE || ins == INS_ORGAN || ins == INS_STRINGS;
+    solo_pt = ok ? vx_patch(ins) : NULL;
+    solo_trim = ok ? SOLO_TRIM[ins] : 1.0f;
+}
+
+const vx_patch_t *vx_pad_lane_patch(int lane)
+{
+    const voice_t *v = lane >= 1 && lane <= NPD ? &fv[PD + lane - 1] : NULL;
+    return v && v->on ? v->pt : NULL;
 }
 
 uint32_t vx_glides(int role)

@@ -152,7 +152,7 @@ static uint32_t heaviest(void)
    dry (vx_init leaves fx_init's chain: the plate shut, no bed, dust 0) unless a part opens the chain with
    fx_configure; every row is the best of PART_RUNS, net of the idle dry engine's render (the floor). */
 #define PART_RUNS (runs(7))
-enum { P_IDLE, P_CHORDS, P_LEAD, P_CANDY, P_BASS, P_DRUMS, P_SOURCE, P_PAD };
+enum { P_IDLE, P_CHORDS, P_LEAD, P_CANDY, P_BASS, P_DRUMS, P_SOURCE, P_PAD, P_SOLO };
 
 static void ev(int voice, int note, int vel, uint32_t len)
 {
@@ -164,6 +164,8 @@ static void ev(int voice, int note, int vel, uint32_t len)
     e.len = len;
     vx_event(&e);
 }
+
+static int solo_ins = INS_NONE; /* the part's solo patch (P_SOLO) */
 
 /* The events of one 16th step (0-15) of a bar; st is a 16th in samples. */
 static void part_step(int kind, int bar, int step, uint32_t st)
@@ -192,6 +194,20 @@ static void part_step(int kind, int bar, int step, uint32_t st)
                 vx_event(&e);
             }
         break;
+    case P_SOLO: /* the pad's solo note alone (it never sounds with the chord part: pads revision 2) on lane 4's own
+                    patch, held a bar and gliding to the next bar's (the choir, flute, organ at 72-84, the strings an
+                    octave up) */
+        if (!step) {
+            song_ev_t e;
+            memset(&e, 0, sizeof e);
+            e.voice = V_PAD;
+            e.note = (uint8_t)(c[3] + (solo_ins == INS_STRINGS ? 24 : 12));
+            e.vel = 58;
+            e.len = st * 16;
+            e.pad = 4;
+            vx_event(&e);
+        }
+        break;
     case P_LEAD: /* 8ths, each held a dotted 8th, so two voices overlap */
         if (!(step & 1)) ev(V_LEAD, 72 + c[(step >> 1) & 3] % 12, 85, st * 3);
         break;
@@ -219,13 +235,13 @@ static void part_step(int kind, int bar, int step, uint32_t st)
     }
 }
 
-typedef struct { int kind, chords, bass, lead, candy, pad, kit, dust, noise, amb, chain; unsigned off; } part_t;
+typedef struct { int kind, chords, bass, lead, candy, pad, solo, kit, dust, noise, amb, chain; unsigned off; } part_t;
 
 static part_t part_of(int kind)
 {
     part_t p;
     memset(&p, 0, sizeof p);
-    p.chords = p.bass = p.lead = p.candy = p.pad = INS_NONE;
+    p.chords = p.bass = p.lead = p.candy = p.pad = p.solo = INS_NONE;
     p.kit = KIT_DUSTY;
     p.kind = kind;
     return p;
@@ -245,6 +261,8 @@ static double run_part(const part_t *p)
     vx_assign(V_LEAD, p->lead);
     vx_assign(V_CANDY, p->candy);
     vx_assign(V_PAD, p->pad);
+    vx_assign_pad_solo(p->solo);
+    solo_ins = p->solo;
     vx_set_kit(p->kit);
     if (p->chain) fx_configure(p->dust, p->noise, p->amb, FL_LOFI);
     t0 = now_ms();
@@ -335,6 +353,8 @@ static void parts(double amb)
                                  {"saw lead", INS_SAW_LEAD}, {"synth pluck", INS_SYNTH_PLUCK}};
     static const named_t CD[] = {{"music box", INS_MUSIC_BOX}, {"bells", INS_BELLS}};
     static const named_t PDL[] = {{"strings", INS_STRINGS}, {"warm pad", INS_WARM_PAD}};
+    static const named_t SOL[] = {{"choir", INS_VOX_PAD}, {"flute", INS_FLUTE}, {"organ", INS_ORGAN},
+                                  {"strings", INS_STRINGS}};
     static const named_t KT[] = {{"dusty", KIT_DUSTY}, {"soft", KIT_SOFT}, {"808", KIT_808}, {"brushes", KIT_BRUSHES}};
     static const uint32_t sd[4] = {20, 100, 128, 183};
     part_t p = part_of(P_IDLE), q;
@@ -351,6 +371,12 @@ static void parts(double amb)
     role_rows("lead", P_LEAD, V_LEAD, LD, NEL(LD), base, amb);
     role_rows("candy", P_CANDY, V_CANDY, CD, NEL(CD), base, amb);
     role_rows("pad", P_PAD, V_PAD, PDL, NEL(PDL), base, amb);
+    for (k = 0; k < NEL(SOL); k++) { /* the solo note alone on lane 4, over the strings pad */
+        p = part_of(P_SOLO);
+        p.pad = INS_STRINGS;
+        p.solo = SOL[k].ins;
+        row("solo", SOL[k].n, best_part(&p), base, amb);
+    }
     for (k = 0; k < 4; k++) {
         p = part_of(P_DRUMS);
         p.kit = KT[k].ins;

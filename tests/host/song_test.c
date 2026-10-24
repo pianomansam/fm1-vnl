@@ -2331,6 +2331,159 @@ static void test_pad_solo_voice(void)
     CHECK(!bad, "pad solo voice: NaN or inf");
 }
 
+/* The pad's solo lane takes its own voice (pads revision 2, Task 1): vx_assign_pad_solo's patch (choir, flute, organ
+   or strings) plays lane 4 with that patch's model at its usual rate, renders no NaN or inf, is silent 3 s after its
+   release with no state denormal-bound, and sounds on the pad's bus only; the four level-matched (choir, flute, organ
+   at MIDI 76, the strings an octave up at 88: within 2 dB in RMS while sounding); the pad bus's section filter darkens
+   it; lanes 1-3 keep the pad's patch (M_ENS); another patch falls back to the pad's; a held choir, flute or organ lane
+   glides to its next note (no restrike: no 100 ms window after the change under half the held level); a note on a
+   lane holding another patch starts fresh on its own pitch; vx_release_all ends it within 100 ms. */
+static void test_pad_solo_patch(void)
+{
+    static const int ins[4] = {INS_VOX_PAD, INS_FLUTE, INS_ORGAN, INS_STRINGS};
+    static const int note[4] = {76, 76, 76, 88};
+    static const int rate[4] = {2, 1, 2, 4}; /* the choir and the organ at half the rate, the strings at a quarter */
+    static const char *const name[4] = {"choir", "flute", "organ", "strings"};
+    float db[4], lo = 1e9f, hi = -1e9f, hz;
+    int i, k, step, held, bad = 0;
+    for (i = 0; i < 4; i++) {
+        float e = 0.0f, tail = 0.0f, dark = 0.0f, other = 0.0f;
+        uint32_t nw = 0;
+        vx_init();
+        vx_assign(V_PAD, INS_STRINGS);
+        vx_assign_pad_solo(ins[i]);
+        vx_solo(V_PAD);
+        vt_lane(4, note[i], 0, 132300u); /* 3 s */
+        for (k = 0; k < 32 + 33 + 1; k++) { /* 3 s held, 3 s of release, then the tail */
+            float m = vt_block(4096, &bad);
+            uint32_t j;
+            if (k == 1) {
+                CHECK(vx_pad_lane_patch(4) == vx_patch(ins[i]), "pad solo patch: lane 4 not on the %s", name[i]);
+                hz = vx_pad_lane(4, &step, &held);
+                CHECK(held && fm_fabsf(hz / (440.0f * fm_exp2f((float)(note[i] - 69) / 12.0f)) - 1.0f) < 0.01f,
+                      "pad solo patch: %s at %.1f Hz (held %d)", name[i], (double)hz, held);
+                CHECK(step == rate[i], "pad solo patch: %s at a step of %d, wanted %d", name[i], step, rate[i]);
+            }
+            if (k >= 11 && k < 32) { /* 1-3 s */
+                for (j = 0; j < 4096; j++)
+                    e += vt_l[j] * vt_l[j];
+                nw += 4096u;
+            }
+            if (k == 65)
+                tail = m;
+        }
+        db[i] = 10.0f * 0.30103f * fm_log2f(e / (float)nw + 1e-30f);
+        lo = fm_minf(lo, db[i]);
+        hi = fm_maxf(hi, db[i]);
+        CHECK(tail < 3.16e-5f && vx_active() == 0, "pad solo patch: %s still %.2e 3 s after its release", name[i],
+              (double)tail);
+        CHECK(vx_tiny() == 0, "pad solo patch: %s left %d denormal-bound states", name[i], vx_tiny());
+        /* the pad's bus only; its section filter closes on it */
+        vx_init();
+        vx_assign(V_PAD, INS_STRINGS);
+        vx_assign_pad_solo(ins[i]);
+        vx_solo(V_CHORD);
+        vt_lane(4, note[i], 0, 88200u);
+        for (k = 0; k < 8; k++)
+            other = fm_maxf(other, vt_block(4096, &bad));
+        vx_init();
+        vx_assign(V_PAD, INS_STRINGS);
+        vx_assign_pad_solo(ins[i]);
+        vx_solo(V_PAD);
+        vx_set_filter(V_PAD, 0.9f);
+        vt_lane(4, note[i], 0, 132300u);
+        e = 0.0f;
+        for (k = 0; k < 32; k++) {
+            vt_block(4096, &bad);
+            if (k >= 11) {
+                uint32_t j;
+                for (j = 0; j < 4096; j++)
+                    e += vt_l[j] * vt_l[j];
+            }
+        }
+        dark = 10.0f * 0.30103f * fm_log2f(e / (21.0f * 4096.0f) + 1e-30f);
+        printf("pad solo patch: %s at MIDI %d: %.1f dBFS RMS (step %d), %.1f under the closed filter\n", name[i],
+               note[i], (double)db[i], step, (double)dark);
+        CHECK(other < 1e-7f, "pad solo patch: %s on the keys' bus: peak %.2e", name[i], (double)other);
+        CHECK(dark < db[i] - 6.0f, "pad solo patch: %s under the closed filter %.1f dB vs %.1f open", name[i],
+              (double)dark, (double)db[i]);
+    }
+    CHECK(hi - lo <= 2.0f, "pad solo patch: the solo voices' levels span %.1f dB (%.1f to %.1f)", (double)(hi - lo),
+          (double)lo, (double)hi);
+    /* lanes 1-3 (and a lane-less note) keep the pad's patch; another solo patch falls back to the pad's */
+    vx_init();
+    vx_assign(V_PAD, INS_STRINGS);
+    vx_assign_pad_solo(INS_ORGAN);
+    vt_lane(1, 60, 0, 88200u);
+    vt_ev(V_PAD, 64, 100, 0, 88200u);
+    vt_block(4096, &bad);
+    hz = vx_pad_lane(1, &step, &held);
+    CHECK(vx_pad_lane_patch(1) == vx_patch(INS_STRINGS) && step == 4 && held,
+          "pad solo patch: lane 1 off the strings (step %d)", step);
+    CHECK(vx_pad_lane_patch(2) == vx_patch(INS_STRINGS), "pad solo patch: a lane-less note off the strings");
+    vx_assign_pad_solo(INS_RHODES);
+    vt_lane(4, 76, 0, 88200u);
+    vt_block(4096, &bad);
+    CHECK(vx_pad_lane_patch(4) == vx_patch(INS_STRINGS), "pad solo patch: the Rhodes on lane 4, no fallback");
+    /* a held lane (the choir, the flute, the organ) glides to its next note, no restrike */
+    for (i = 0; i < 3; i++) {
+        float held_rms = 0.0f, low = 1e9f, mid = 0.0f;
+        vx_init();
+        vx_assign(V_PAD, INS_STRINGS);
+        vx_assign_pad_solo(ins[i]);
+        vx_solo(V_PAD);
+        vt_lane(4, 76, 0, 88200u);
+        vt_lane(4, 79, 88200u, 88200u);
+        for (k = 0; k < 48; k++) { /* to 2.4 s in 100 ms windows (two blocks each): held 1.6-2.0 s, after the
+                                        change 2.0-2.4 s (a restrike would swell from silence) */
+            static float e;
+            uint32_t j;
+            if (!(k & 1))
+                e = 0.0f;
+            vt_block(2205, &bad);
+            for (j = 0; j < 2205; j++)
+                e += vt_l[j] * vt_l[j];
+            if (k == 40) /* 2.05 s: 50 ms into its 60 ms glide */
+                mid = vx_pad_lane(4, &step, &held);
+            if (k & 1) {
+                float r = fm_sqrtf(e / 4410.0f);
+                if (k / 2 >= 16 && k / 2 < 20)
+                    held_rms += 0.25f * r;
+                else if (k / 2 >= 20)
+                    low = fm_minf(low, r);
+            }
+        }
+        hz = vx_pad_lane(4, &step, &held);
+        printf("pad solo patch: %s legato: held %.4f, lowest %.4f across the change, %.1f Hz mid-glide, %.1f after\n",
+               name[i], (double)held_rms, (double)low, (double)mid, (double)hz);
+        CHECK(low > 0.5f * held_rms, "pad solo patch: the %s's change dips to %.4f of %.4f", name[i], (double)low,
+              (double)held_rms);
+        CHECK(mid > 662.0f && mid < 782.0f, "pad solo patch: the %s at %.1f Hz 50 ms into its glide", name[i],
+              (double)mid);
+        CHECK(fm_fabsf(hz - 783.99f) < 2.0f && held, "pad solo patch: the %s at %.1f Hz after its glide", name[i],
+              (double)hz);
+    }
+    /* a lane holding the strings, its next note on the organ: fresh, on its pitch (no glide across patches) */
+    vx_init();
+    vx_assign(V_PAD, INS_STRINGS);
+    vt_lane(4, 88, 0, 44100u);
+    for (k = 0; k < 10; k++)
+        vt_block(4096, &bad);
+    vx_assign_pad_solo(INS_ORGAN);
+    vt_lane(4, 76, 0, 44100u);
+    vt_block(1024, &bad);
+    hz = vx_pad_lane(4, &step, &held);
+    CHECK(vx_pad_lane_patch(4) == vx_patch(INS_ORGAN) && fm_fabsf(hz - 659.26f) < 1.0f,
+          "pad solo patch: the organ after the strings at %.1f Hz", (double)hz);
+    /* the song's end: the organ released within 100 ms */
+    vx_release_all();
+    for (k = 0; k < 2; k++)
+        vt_block(2205, &bad);
+    CHECK(vx_pad_lane_patch(4) == NULL, "pad solo patch: the organ still sounding 100 ms after vx_release_all");
+    vx_solo(-1);
+    CHECK(!bad, "pad solo patch: NaN or inf");
+}
+
 /* The pad layer's lanes (voices.h): two notes back to back on lane 1 glide (the level never under 80% of the held
    level across the change; the pitch at the target within 100 ms); a held lane's same pitch extends it; a lane never
    moves another's voice. */
@@ -7850,6 +8003,7 @@ int main(int argc, char **argv)
     RUN(test_pad_lanes);
     RUN(test_pad_bus_filter);
     RUN(test_pad_solo_voice);
+    RUN(test_pad_solo_patch);
     RUN(test_pad_chorus);
     RUN(test_vx_keys);
     RUN(test_vx_plucks_basses);

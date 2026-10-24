@@ -678,3 +678,22 @@ lanes at a change: 15,750 -> 1,236 of 16,023 over 500 songs). Measured on a busy
   with AMB-1 at 197.6 ms, a host stall, is left out.)
 - No saving shows above the host's noise: VNL's ms for seed 20 forced (135-139) match the accepted numbers'
   (135.8-136.4): a releasing voice is a quarter-rate saw pair, under the bench's noise. The budget stays at about 0.97 (Sam's acceptance), under the hard limit 1.0.
+
+**Pads revision 2, Task 1 (2026-10-24): the pad's solo lane takes its own voice.** Lane 4 may hold its own patch
+(`vx_assign_pad_solo`: the choir, flute, organ or strings), rendered in `pad_seg` beside the ensemble at its model's
+rate (the choir and the organ at half, the flute at full, the strings at a quarter) through `solo_sample`, out of
+line. A first cut rendered it in `render_seg`'s voice loop: +6 ms on seed 20 forced with no solo playing (the loop's
+extra work); a second call to `voice_sample` outlined it (+9 ms). The models' samplers (`pad_sample`, `wind_sample`,
+`sub_sample`) are now always inlined, into `voice_sample` and `solo_sample` both: seed 20 forced at parity with the
+base, alternating binaries, `VNL_RUNS=7`, three pairs (host load 4.1-4.7): base 0.975 / 0.967 / 0.974, new 0.972 /
+0.971 / 0.967.
+- **`--parts`, the new `solo` rows** (the solo note alone on lane 4 over the strings pad, held a bar and gliding, vel
+  58; best of 7, AMB-1 139.8 ms, idle floor 0.108): choir **0.107**, flute **0.220**, organ **0.111**, strings
+  **0.025**; the pad's chord part (2 notes) 0.047 / 0.046 in the same run. So a solo section costs about what the
+  chord part does on the strings, about 0.06 more on the choir or the organ, and about 0.17 more on the flute (a wind
+  at the full rate, its breath noise and filters), while it plays. Task 2 rolls solo voices into songs: the standard
+  list will need re-measuring there.
+- **The standard list** (no song plays a solo yet), `--forced 20 7 155 138 100 22`: 0.941 / 0.887 / 0.845 / 0.819 /
+  0.755 / 0.768 plain, **0.958** / 0.889 / 0.871 / 0.846 / 0.778 / 0.796 forced (AMB-1 139.8).
+- **Memory:** image 193096 B (185652 at the base: +7.4 KB, the samplers inlined twice), RAM 51216 B (+272: the
+  voices' glide fields), pool 180216 B (`tools/mem-check.sh`: ok).
