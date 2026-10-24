@@ -80,7 +80,7 @@ static const vx_patch_t PATCHES[INS_NONE] = {
     [INS_SAW_LEAD] = {M_SUB, {0.0f, 0.5f, 0.0f, 900.0f, 0.2f, 1.5f, 1.0f, 0.02f, 0.6f, 1.0f, 90.0f},
                       0.01f, 3.0f, 0.8f, 0.12f, 1.09f, 0.0f, 0.3f},
     [INS_SYNTH_PLUCK] = {M_SUB, {1.0f, 0.35f, 0.0f, 200.0f, 0.25f, 0.6f, 4.5f, 0.001f, 0.3f}, 0.002f, 1.2f, 0.0f,
-                         0.1f, 1.26f, 0.0f, 0.35f},
+                         0.1f, 1.24f, 0.0f, 0.35f},
     /* the 80s FM keys: a 14x tine on the attack (a high ratio, a bright index falling fast) over a clean body */
     [INS_DX_EP] = {M_EP, {1.0f, 0.3f, 1.8f, 0.9f, 0.12f, 0.4f, 0.0f, 6500.0f}, 0.002f, 2.6f, 0.0f, 0.08f, 0.944f,
                    0.5f, 0.08f},

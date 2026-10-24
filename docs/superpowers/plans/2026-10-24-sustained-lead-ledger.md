@@ -57,3 +57,20 @@ A one-pole low-pass after the chip's crush at 5x the note's frequency (patch p[1
 register is mellowed alike). The 16-level check now reads the voice's triangle before its crush and filter; a new
 check wants the output's sample-to-sample energy under 0.15 of the raw triangle's (0.34 unfiltered, 0.05 now). Cost
 unchanged (max ratio 0.896).
+
+## The hybrid's arpeggio capped, offbeat comping retired (Sam, 2026-10-24)
+
+Sam: set 5 (kalimba, motion 69) "much more arp-based, and not in a good way"; "liking the 'and' offbeat eighth notes
+comp pattern less and less".
+
+- The hybrid's arpeggio keeps 2 + motion/33 notes a bar (at most 4), by rank: beats 1 and 3, then 2 and 4, the
+  "ands", then 16ths (earlier first). The same notes drop every bar (Sam's "dropping different notes is bad", fixed).
+  With a push, the weakest arpeggio note gives way so a bar strikes at most 5. Onsets a lead bar: 2.3 at low motion,
+  3.4 at high (were 3.5 and 4.9).
+- Ruling: the sparser hybrid measured 3.5-4 dB under its keys; its velocities rise (landings 84 -> 110, the arpeggio
+  74 -> 106; 110 is the project's velocity cap) and the synth pluck trims -0.4 dB. Cost if wrong: struck leads a
+  touch brighter.
+- Comping: held 60%, stabs 25%, arpeggio 15%; offbeats weighted 0 (the style's code stays, unused).
+- Found on the way: a reverb tail ringing into the next song left Rings' 16-bit loop carrying its state at the floor
+  (about 3e-5) for the whole next song, so a song after another wasn't bit-identical. A new song now clears a tail
+  under -60 dB (PL_FLOOR); measured tails at the gap's end are 1e-5 to 4e-4.

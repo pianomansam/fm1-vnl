@@ -194,6 +194,7 @@ static const int DL_LEN[L_N] = {PRE_N, HS(142), HS(107), HS(379), HS(277), HS(67
 #define PL_DD2 0.5f
 #define PL_OUT_4 0.65f       /* the return over four taps a side (AMB-1: 0.6 over seven) */
 #define PL_QUIET 1e-5f       /* -100 dB: below this the tail is over */
+#define PL_FLOOR 1e-3f       /* -60 dB: a new song clears a tail under this (inaudible under its start) */
 static float pl_buf[PL_N] FX_POOL;
 static uint32_t pl_base[L_N], pw;
 static float pl_bw, pl_damp_l, pl_damp_r, lfo_s, lfo_c = 1.0f;
@@ -411,6 +412,8 @@ void fx_song(uint32_t seed, int quiet)
     if (quiet) {
         dust_clear();
         chorus_clear();
+        if (pl_peak < PL_FLOOR) /* Rings' 16-bit loop would carry a faint tail's state at its floor for ever */
+            plate_clear();
     }
     if (dl_peak <= PL_QUIET) /* the delay's tail over: its line too */
         delay_clear();

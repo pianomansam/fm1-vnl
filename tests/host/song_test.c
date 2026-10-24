@@ -981,10 +981,11 @@ static void test_harmony(void)
     CHECK(bad_vel == 0, "harmony: %d velocities outside 25-110", bad_vel);
     CHECK(bad_roll == 0, "harmony: %d rolled-chord violations", bad_roll);
     CHECK(chords_seen > 0, "harmony: no chord events");
-    CHECK(styles[CS_HELD] > 0 && styles[CS_STABS] > 0 && styles[CS_OFFBEATS] > 0 && styles[CS_ARP] > 0,
+    CHECK(styles[CS_HELD] > 0 && styles[CS_STABS] > 0 && styles[CS_OFFBEATS] == 0 && styles[CS_ARP] > 0,
           "harmony: styles drawn %d/%d/%d/%d", styles[0], styles[1], styles[2], styles[3]);
-    {   /* (Sam, after hearing comping-styles.musicxml) mostly held: 55% held, 20% stabs, 15% offbeats, 10% arpeggio */
-        int w[4] = {0, 0, 0, 0}, want[4] = {55, 20, 15, 10}, k2;
+    {   /* (Sam, after hearing comping-styles.musicxml) mostly held: 60% held, 25% stabs, 15% arpeggio; offbeats
+           retired (Sam) */
+        int w[4] = {0, 0, 0, 0}, want[4] = {60, 25, 0, 15}, k2;
         song_roll_t q;
         roll_song(NULL, 1u, &q);
         for (k2 = 0; k2 < 10000; k2++) {
@@ -2526,8 +2527,10 @@ static void test_comping_makes_room(void)
         }
     }
     for (cs = CS_STABS; cs <= CS_ARP; cs++) {
-        double q = bars[cs][0] ? (double)strikes[cs][0] / (double)bars[cs][0] : 0.0;
-        double bz = bars[cs][1] ? (double)strikes[cs][1] / (double)bars[cs][1] : 0.0;
+        double q, bz;
+        if (cs == CS_OFFBEATS) continue;   /* retired (Sam) */
+        q = bars[cs][0] ? (double)strikes[cs][0] / (double)bars[cs][0] : 0.0;
+        bz = bars[cs][1] ? (double)strikes[cs][1] / (double)bars[cs][1] : 0.0;
         printf("comping %d: %.2f strikes a quiet bar (%ld), %.2f a busy one (%ld)\n", cs, q, bars[cs][0], bz,
                bars[cs][1]);
         CHECK(bars[cs][1] > 20 && bz * 3.0 <= q * 2.0, "comping style %d: busy bars strike %.2f, quiet %.2f", cs, bz,
@@ -2644,12 +2647,12 @@ static void test_hybrid_follows_motion(void)
     uint32_t seed = 8181;
     song_roll_t prev, r;
     song_ev_t ev[64];
-    long on[2] = {0}, bars[2] = {0}, changes[2] = {0}, landed[2] = {0};
+    long on[2] = {0}, bars[2] = {0}, changes[2] = {0}, landed[2] = {0}, over = 0;
     int k, i;
     for (k = 0; k < 600; k++) {
         const lib_set_t *set;
         const lib_prog_t *pr;
-        int m, hi, cur = -1, cnt = 0, bpc, lead_bar = 0;
+        int m, hi, cur = -1, cnt = 0, bpc, lead_bar = 0, strikes = 0;
         seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
         roll_song(k ? &prev : 0, seed, &r);
         prev = r;
@@ -2665,16 +2668,19 @@ static void test_hybrid_follows_motion(void)
             const plan_block_t *b = plan_at(&s.plan, bar);
             n = song_tick(&s, ev, 64);
             if (bar != cur) {
-                if (lead_bar) { on[hi] += cnt; bars[hi]++; }
+                if (lead_bar) { on[hi] += cnt; bars[hi]++; over += strikes > 5; }
                 cur = bar;
-                cnt = 0;
+                cnt = strikes = 0;
                 lead_bar = lead_plays(b);
             }
             if (st == 0 && lead_bar && bar % bpc == 0) {
                 changes[hi]++;
                 landed[hi] += s.lead.acc != 0 || s.lead.active > (s.lead.onsets > 0);
             }
-            for (i = 0; i < n; i++) cnt += ev[i].voice == V_LEAD;
+            for (i = 0; i < n; i++) {
+                cnt += ev[i].voice == V_LEAD;
+                strikes += ev[i].voice == V_LEAD && ev[i].vel > 0;
+            }
         }
     }
     printf("motion: %.2f lead onsets a bar at low motion, %.2f at high; landings %.1f%% low, %.1f%% high\n",
@@ -2685,6 +2691,8 @@ static void test_hybrid_follows_motion(void)
           "low motion %ld onsets in %ld bars, high %ld in %ld", on[0], bars[0], on[1], bars[1]);
     CHECK(landed[0] * changes[1] * 100 >= landed[1] * changes[0] * 98, "landings: low %ld of %ld, high %ld of %ld",
           landed[0], changes[0], landed[1], changes[1]);
+    /* Sam: not a wall of arpeggio: at most 4 arpeggio notes a bar, 5 with the landing */
+    CHECK(over == 0, "hybrid: %ld lead bars strike over 5 notes", over);
 }
 
 /* Lead design anti-goal: the lead and the comping never leave a bar silent together: in every bar of a block with

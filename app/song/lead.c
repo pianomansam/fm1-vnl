@@ -464,21 +464,24 @@ static void choose(lead_state_t *ls, const song_roll_t *r)   /* one pattern, rhy
     ls->chosen = 1;
 }
 
-static uint32_t note_hash(uint32_t seed, int bar, int i)
-{
-    uint32_t h = seed * 0x9E3779B1u ^ (uint32_t)(bar + 1) * 0x85EBCA6Bu ^ (uint32_t)(i + 1) * 0xC2B2AE35u;
-    h ^= h >> 15; h *= 0x2C1B3C6Du; h ^= h >> 13;
-    return h;
-}
 
-/* the arpeggio keeps each note with 40% + 0.75% x motion: 55% at motion 20, all of them at 80; the motion lever (a
-   request) reaches it at the next bar. Skeleton landings are placed after, so they always sound. */
+/* the arpeggio keeps 2 + motion/33 of its notes a bar, at most 4 (Sam: not a wall of arpeggio): by rank, the strongest
+   beats first (1 and 3, then 2 and 4, then the "ands", then 16ths; earlier first), so the same notes drop every bar
+   (Sam: dropping different notes is bad). The motion lever (a request) reaches it at the next bar. Skeleton landings
+   are placed after, so they always sound. */
+static int arp_rank(int at) { return at % 8 == 0 ? 0 : at % 4 == 0 ? 1 : at % 2 == 0 ? 2 : 3; }
+
 static void plan_arp(lead_state_t *ls, const ctx_t *c, int bar)
 {
-    int i, k, plen, keep = 40 + c->r->v[RF_MOTION] * 3 / 4;
+    int i, k, plen, n = 0, keep = 2 + c->r->v[RF_MOTION] / 33;
+    unsigned kept = 0;
     if (!ls->chosen) choose(ls, c->r);
     for (plen = 0; plen < 6 && PAT[ls->pat][plen] >= 0; plen++)
         ;
+    if (keep > 4) keep = 4;
+    for (k = 0; k < 4 && n < keep; k++)                  /* the kept slots, by rank */
+        for (i = 0; RHY[ls->rhy][i][0] >= 0 && n < keep; i++)
+            if (arp_rank(RHY[ls->rhy][i][0]) == k) { kept |= 1u << i; n++; }
     for (i = 0; RHY[ls->rhy][i][0] >= 0; i++) {
         int at = RHY[ls->rhy][i][0], pos = (bar * 8 + i) % plen, idx, v;
         if (ls->swap >= 0 && ls->swap % (plen - 1) == pos) pos++;
@@ -486,7 +489,7 @@ static void plan_arp(lead_state_t *ls, const ctx_t *c, int bar)
         idx = PAT[ls->pat][pos];
         if ((bar & 1) && ls->rev) idx = 3 - idx;         /* the direction turned every other bar */
         if (bar % 4 == 3 && (i == 2 || i == 5)) continue;   /* the phrase's last bar drops two notes */
-        if ((int)(note_hash(c->r->seed, bar, i) % 100u) >= keep) continue;   /* motion thins it (Sam) */
+        if (!(kept >> i & 1)) continue;                  /* motion thins it, by rank */
         v = c->keys[idx];
         for (k = 1; k < 4 && v && !legal(c->r, v, c->pcs, c->np, c->bass); k++)
             v = c->keys[(idx + k) & 3];                  /* a tone that would rub gives way to the next */
@@ -534,9 +537,14 @@ static void plan_hybrid(lead_state_t *ls, const ctx_t *c, int bar, int bpc, cons
         int nxt = skel_from(c, npcs, nn, ls->last, c->lo_x);
         if (push_ok(c, nxt)) {
             ls->last = nxt;
+            int i, n = 0, w = -1;
             land(ls, 14, nxt, 4);                        /* the next chord's note an 8th early, across the bar */
             ls->ring |= 1u << 14;
             ls->tied = 1;
+            for (i = 0; i < 16; i++) n += ls->on[i] > 0;
+            for (i = 1; n > 5 && i < 14; i++)          /* at most 5 a bar: the weakest arpeggio note gives way */
+                if (ls->on[i] && !(ls->acc >> i & 1) && (w < 0 || arp_rank(i) >= arp_rank(w))) w = i;
+            if (n > 5 && w >= 0) { ls->on[w] = 0; ls->vel[w] = 0; }
         }
     }
 }
@@ -615,7 +623,8 @@ int lead_step(const lead_state_t *ls, int step, float step_samples, song_ev_t *o
     len = (float)ls->len[step] * step_samples - 200.0f;
     out->voice = V_LEAD;
     out->note = (uint8_t)ls->on[step];
-    out->vel = ls->vel[step] ? ls->vel[step] : (uint8_t)((ls->acc >> step) & 1 ? 84 : 74);
+    /* the hybrid: landings 110, the arpeggio 106 (sparser since the arpeggio's cap, so each note carries more) */
+    out->vel = ls->vel[step] ? ls->vel[step] : (uint8_t)((ls->acc >> step) & 1 ? 110 : 106);
     out->pad = (uint8_t)((ls->ring >> step) & 1);      /* 1: a push, ringing past the bar (and the 4-bar line) */
     out->delay = 0;
     out->len = len > 1.0f ? (uint32_t)len : 1u;

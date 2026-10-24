@@ -89,10 +89,11 @@ int harmony_chord_at(const song_roll_t *r, int bar, int pass, int dark, int *pcs
     return th_chord_pcs(r->v[RF_KEY], r->v[RF_MODE], c, color, pcs);
 }
 
-/* per song, mostly held (Sam, after hearing the four side by side): held 55%, stabs 20%, offbeats 15%, arpeggio 10% */
+/* per song, mostly held (Sam, after hearing the four side by side): held 60%, stabs 25%, arpeggio 15%; offbeats
+   retired (Sam: liking the "and" 8ths less and less) */
 int harmony_style(const song_roll_t *r)
 {
-    static const uint8_t W[4] = {55, 20, 15, 10};
+    static const uint8_t W[4] = {60, 25, 0, 15};
     rng_t g;
     rng_seed(&g, r->seed, 121);
     return rng_weighted(&g, W, 4);

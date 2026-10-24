@@ -559,3 +559,7 @@ idle floor 0.099).
 
 At Task 3 no set used them (sets came in Task 4). The forced maximum then: **0.822** on `--forced 7 20 49 100 128
 183`. Memory: image 168444 B, RAM 46172 B.
+
+**2026-10-24, the arpeggio cap and offbeat comping retired:** the forced maximum on the standard list
+(`--forced 20 7 155 138 100 22`) is **0.902** (0.896 before; noise-level, held comping a little more often). Memory
+unchanged (mem-check ok).
