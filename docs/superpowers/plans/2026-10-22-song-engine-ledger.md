@@ -333,3 +333,12 @@ From the task and final reviews; none blocks merging. Revisit when the area is n
   a glide after silence re-attacks over the patch's attack and does not re-strike the filter envelope.
 - Thin level margins (a future voice change needs a rebalance): Felt and trumpet's median 5.9 of 6 dB; the lowest
   songs +2.4/+2.5 dB; Felt and flute's mean 4.3. All rulings: docs/superpowers/plans/2026-10-23-synths-ledger.md.
+
+### Sustained lead: open items (2026-10-24)
+
+- On a key change, about half the songs revoice the percussive keys an octave away; the sustained lead's range
+  follows the keys' top, so its answer jumps 4–8 semitones. Fix in the voicer/register, not the lead.
+- About half the arrivals on prog 23's home chord are reached by more than a step.
+- Thin, deterministic margins (contour 90.6% of 90%; Nylon and sax and Rhodes neo-soul medians at 6.0 of 6): a future
+  voice or level change will need a rebalance. All rulings: docs/superpowers/plans/2026-10-24-sustained-lead-ledger.md.
+
