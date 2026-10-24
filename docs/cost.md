@@ -610,7 +610,7 @@ stolen notes. `--forced 20 7 155 138 100 22`, two runs (the AMB-1 denominator dr
 **0.917** and **0.905** (seed 20); no song plays the layer yet, so the change from 0.903 is bench noise and the
 per-segment check for pad voices.
 
-## Pads Task 3: the layer in the songs, measured (over budget)
+## Pads Task 3: the layer in the songs, measured (about 0.97, accepted by Sam)
 
 With Task 2's songs playing the layer (and its level at `ROLES[V_PAD]` 0.048, was 0.06: a gain only), on a busy host
 (load about 5; AMB-1 138-153 ms across these runs). `--forced 20 7 155 138 100 22`: 0.969 / 0.911 / 0.893 / 0.846 /
@@ -629,8 +629,15 @@ Not enough: the pads plan's rule (stop and report) applies; the layer's fixed pa
 
 **The controller's ruling, then the cuts (2026-10-24).** Measured on the same busy host (load about 5).
 - *The fixed part:* the pad bus's section filters (and its mud high-pass, already) run on the quarter-rate sum before
-  the interpolation; the quarter-rate path does nothing once silent; the quarter-rate voices render voice by voice
-  (bit-exact). A profile (sample, voices.c and fx.c not inlined) showed the layer's cost is its voices (the polyBLEP
+  the interpolation; the quarter-rate path does nothing once silent; the quarter-rate voices render voice by voice.
+  Only the voice-by-voice rendering is bit-exact. The rest changes the output slightly, by design:
+  - the gain ramp per quarter-rate sample is computed as `g0 + gd*(i+1)`, not accumulated, so it rounds differently
+    while the pad's chorus dry scale eases;
+  - the bus filters run at the quarter rate when engaged, with their amounts read once per chunk (one chunk late)
+    (test_pad_bus_filter: within 1.5 dB of the full-rate reference);
+  - the idle cutoff moved from exactly 0 to 1e-7.
+  A hash comparison (seeds 20 and 1013, 60 s) matched before and after the voice-by-voice step only. It didn't
+  exercise the chorus-dry easing, and the full-rate filter path is only the reference. A profile (sample, voices.c and fx.c not inlined) showed the layer's cost is its voices (the polyBLEP
   saws and the envelope), not the bus: these saved about 2-3 ms. Seed 20 forced: 0.973-0.989.
 - *Cut (a), the solo note on a chord lane's voice:* no measurable saving on seed 20 (the solo note plays 8 of the
   bench's 20 bars): 0.981-0.989.
@@ -639,9 +646,8 @@ Not enough: the pads plan's rule (stop and report) applies; the layer's fixed pa
   plain, **1.001** / 0.885 / 0.878 / 0.855 / 0.783 / 0.804 forced, then 0.946 / ..., **0.961** / 0.887 / 0.874 / 0.853 /
   0.779 / 0.800 forced. The picker re-picks seed 20: 0.933 plain, **0.949** forced (AMB-1 143.1). On the line, not
   reliably under 0.97.
-- `--parts` (best of 7, AMB-1 141.1 ms, idle floor 0.114; the bench's pad part still a 3-note chord, its solo note
-  now riding): pad strings **0.054**, warm pad **0.052**; over the source, full chain 0.056 / 0.057, dry 0.051 / 0.051
-  (was 0.080-0.082).
+- `--parts` at the time of cut (a) (the bench's pad part still a 3-note chord, its solo note riding): pad strings
+  0.054, warm pad 0.052. Superseded below.
 - **Memory:** image 187508 B, RAM 50944 B, pool 180216 B (`tools/mem-check.sh`: ok).
 
 **Sam's decision (2026-10-24):** keep cut (c), the 2-note chord part; revert cut (a) (the solo note on its own lane-4
@@ -650,4 +656,12 @@ bench**, under the hard limit 1.0; the device is measured in Plan 2. Final numbe
 AMB-1 140.9-152.6 ms): seed 20 forced, `VNL_RUNS=7`, three runs **0.985 / 0.937 / 0.979**; the standard list once,
 `--forced 20 7 155 138 100 22`: 0.944 / 0.871 / 0.848 / 0.845 / 0.788 / 0.779 plain, **0.956** / 0.874 / 0.906 / 0.855
 / 0.793 / 0.804 forced. Memory: image 185412 B, RAM 50944 B, pool 180216 B (`tools/mem-check.sh`: ok).
+
+**Re-measured after the revert (fix round 1).** The bench's pad part now plays as the songs do: a 2-note chord on
+lanes 1-2 and the solo note on its own lane-4 voice (`app/host/bench.c`, P_PAD).
+- **`--parts`, best of 7, two runs** (AMB-1 146.0 / 142.7 ms, idle floor 0.115 / 0.118, host load 5.5-5.8):
+  - pad strings **0.046 / 0.047**, warm pad **0.045 / 0.046**;
+  - over the source with the full chain 0.048-0.049 (strings) and 0.045-0.048 (warm pad);
+  - dry 0.050 / 0.050. The first run's dry rows read 0.011-0.013, which is noise.
+- **The picker** (200 seeds, host load 4.9) re-picks seed 20: 0.954 plain, **0.967** forced (AMB-1 142.4).
 

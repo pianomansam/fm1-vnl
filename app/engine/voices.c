@@ -1577,7 +1577,7 @@ static unsigned pad_seg(uint32_t pos, uint32_t n)
                 memset(pq_buf + pos, 0, n * sizeof(float));
         }
     }
-    if (got & PAD_Q) {
+    if (got & PAD_Q) { /* (the bus's amounts as the last chunk's mix left them: they follow a chunk late) */
         const bus_t *bf = &bus[V_PAD];
         int lon = pd_filt && bf->a > 0.0f, hon = pd_filt && (bf->h > 0.0f || bf->hm > 0.0f);
         float hm = bf->hm, y = pb_y, z = pb_z, d = (a1 - a0) * 0.25f, *o = pq_buf + pos;

@@ -176,11 +176,13 @@ static void part_step(int kind, int bar, int step, uint32_t st)
         if (!step)
             for (i = 0; i < 4; i++) ev(V_CHORD, c[i], 90, st * 15);
         break;
-    case P_PAD: /* the pad layer, as the song engine plays it: a 3-note chord on lanes 1-3 and a solo note an octave
-                   up on lane 4, each held to the next bar's, where it glides to its new note */
+    case P_PAD: /* the pad layer, as the song engine plays it: a 2-note chord on lanes 1-2 (the budget's cut (c)) and
+                   a solo note an octave up on lane 4, each held to the next bar's, where it glides to its new note */
         if (!step)
             for (i = 0; i < 4; i++) {
                 song_ev_t e;
+                if (i == 2)
+                    continue;
                 memset(&e, 0, sizeof e);
                 e.voice = V_PAD;
                 e.note = (uint8_t)(i < 3 ? c[i] : c[3] + 12);
