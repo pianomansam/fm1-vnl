@@ -212,8 +212,10 @@ static long tick_of(const rec_t *r) { return (long)(r->bar * 16 + r->st) * 120 +
 
 static void write_midi(const char *path)
 {
-    static const char *const NAME[5] = {"Keys", "Bass", "Lead", "Ear candy", "Drums"};
-    static const int PROG[4] = {4, 32, 73, 11};          /* GM: electric piano 1, acoustic bass, flute, vibraphone */
+    static const char *const NAME[6] = {"Keys", "Bass", "Lead", "Ear candy", "Pads", "Drums"};
+    static const int VOICE[5] = {V_CHORD, V_BASS, V_LEAD, V_CANDY, V_PAD};
+    static const int PROG[5] = {4, 32, 73, 11, 49};      /* GM: electric piano 1, acoustic bass, flute, vibraphone,
+                                                            string ensemble 1 */
     static const int DRUM[V_N] = {0, 0, 0, 0, 0, 36, 38, 42, 46, 70, 37}; /* (the pitched roles 0) */
     static char texts[MAXBARS * 2][48];
     FILE *f = fopen(path, "wb");
@@ -225,7 +227,7 @@ static void write_midi(const char *path)
         free(ev);
         return;
     }
-    fwrite("MThd\0\0\0\6\0\1\0\6", 1, 12, f);
+    fwrite("MThd\0\0\0\6\0\1\0\7", 1, 12, f);
     fputc(PPQ >> 8, f); fputc(PPQ & 0xFF, f);
     n = 0;                                               /* the conductor: tempo, meter, sections, chords */
     ev[n] = (mev_t){0, 0, {4, 2, 24, 8}, 4, NULL, 0x58};
@@ -249,17 +251,17 @@ static void write_midi(const char *path)
         }
     }
     track(f, ev, n);
-    for (t = 0; t < 5; t++) {                            /* keys, bass, lead, candy (channels 1-4), drums (10) */
-        int ch = t < 4 ? t : 9;
+    for (t = 0; t < 6; t++) {                            /* keys, bass, lead, candy, pads (channels 1-5), drums (10) */
+        int ch = t < 5 ? t : 9;
         n = 0;
         ev[n++] = (mev_t){0, 0, {0}, 0, NAME[t], 0x03};
-        if (t < 4)
+        if (t < 5)
             ev[n++] = (mev_t){0, 1, {(unsigned char)(0xC0 | ch), (unsigned char)PROG[t]}, 2, NULL, 0};
         for (i = 0; i < nrec; i++) {
             const rec_t *r = &recs[i];
-            int is = t == 4 ? r->voice >= V_KICK : r->voice == (t == 0 ? V_CHORD : t == 1 ? V_BASS : t == 2 ? V_LEAD : V_CANDY);
-            int note = t == 4 ? DRUM[r->voice] : r->note;
-            long on = tick_of(r), len = t == 4 ? 60 : (long)(r->len / r->ss * 120.0f + 0.5f);
+            int is = t == 5 ? r->voice >= V_KICK : r->voice == VOICE[t];
+            int note = t == 5 ? DRUM[r->voice] : r->note;
+            long on = tick_of(r), len = t == 5 ? 60 : (long)(r->len / r->ss * 120.0f + 0.5f);
             if (!is || !note) continue;
             if (len < 1) len = 1;
             ev[n++] = (mev_t){on, 3, {(unsigned char)(0x90 | ch), (unsigned char)note, (unsigned char)r->vel}, 3, NULL, 0};

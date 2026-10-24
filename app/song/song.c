@@ -2,7 +2,7 @@
 /* The sequencer. One tick = one 16th: the block covering the bar (plan_at), the bar's chord, then groove, harmony
    and melody for that step, sorted by delay. The sample position of every step is tracked as an integer plus a
    float fraction, advanced by song_step_samples() after each tick, so a caller that accumulates the same way sees
-   the same boundary samples.
+   the same boundary samples. The pad layer (pads.h) is planned a 4-bar group at a time, after the lead's bar.
 
    Every 4-bar boundary (and the song's end) is a note-off line: a pitched note that would ring past it is clipped
    to end on it. With the library's chords (at most 2 bars each, starting on their bar) and the pedal bass (one chord long),
@@ -29,6 +29,7 @@
 #include "library.h"
 #include "theory.h"
 #include "rng.h"
+#include "pads.h"
 
 static int loop_bars(const song_roll_t *r);
 
@@ -325,6 +326,79 @@ static void apply_requests(song_t *s, int B)
     if (re) melody_plan_for(&s->roll, &s->plan, &s->motif, &s->ph);
 }
 
+/* ---- the pad layer (pads design) ---- */
+
+/* The pad layer for the 4 bars from B, a 4-bar boundary (roll and plan hold until the next, and a block covers the
+   whole group): only where the keys play; the chord part at each chord change over percussive keys, voice-led from
+   the last; the solo note in each bar of a block that rolled "in". The keys' voicings are followed as they will
+   strike. The lead's notes are known for bar B only; the chord part's notes are chord tones and the lead keeps to the
+   chord-scale, so the later bars' lead never rubs them. */
+static void pads_group(song_t *s, const plan_block_t *b, int B)
+{
+    const lib_set_t *set = lib_set_by_id((uint8_t)s->roll.v[RF_SET]);
+    const lib_prog_t *pr = lib_prog_by_id((uint8_t)s->roll.v[RF_PROG]);
+    int bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1, k, i, lead[16], nlead = 0;
+    int up = harmony_pad_place(&s->roll) == PL_BELOW ? 0 : 12, keys_on = (b->layers & L_KEYS) != 0;
+    int chord_on = keys_on && set && !lib_ins_sustained(set->chords);
+    int solo_on = keys_on && pads_section_in(&s->roll, (int)(b - s->plan.b), b->section);
+    harmony_voicing_t vs = s->voicing;
+    for (i = 0; i < 16; i++)
+        if (s->lead.on[i] > 0) lead[nlead++] = s->lead.on[i];
+    memset(s->pads.note, 0, sizeof s->pads.note);
+    if (!chord_on) memset(s->pads.chord, 0, sizeof s->pads.chord);
+    for (k = 0; keys_on && k < 4 && B + k < s->roll.v[RF_BARS]; k++) {
+        int bar = B + k, pass = bar / loop_bars(&s->roll) + 1, pcs[5], np, keys[4], top = 0;
+        np = harmony_chord_at(&s->roll, bar, pass, 0, pcs);
+        harmony_voicing_at(&s->roll, bar, pass, &vs, keys);
+        if (bar % bpc == 0) {
+            for (i = 0; i < 4; i++) vs.last[i] = keys[i] ? keys[i] - up : 0;   /* the keys strike it */
+            if (chord_on)
+                pads_chord(&s->roll, keys, pcs, np, (unsigned)pcs[0], lead, k ? 0 : nlead, s->pads.chord,
+                           s->pads.chord);
+        }
+        for (i = 0; i < 3; i++) {
+            s->pads.note[k][i] = s->pads.chord[i];
+            if (s->pads.chord[i] > top) top = s->pads.chord[i];
+        }
+        if (solo_on) {
+            int bass[16], nb = 0, st, n;
+            for (st = 0; st < 16; st++) {                /* the bar's bass notes, as the groove strikes them */
+                int x = groove_bass_note(&s->roll, b, bar, st, pcs, np);
+                for (i = 0; i < nb && bass[i] != x; i++) {}
+                if (x && i == nb) bass[nb++] = x;
+            }
+            n = pads_solo(&s->roll, s->roll.v[RF_KEY], s->roll.v[RF_MODE], pcs, np, keys, bass, nb, top, s->pads.solo);
+            if (n) s->pads.solo = n;
+            s->pads.note[k][3] = n;
+        }
+    }
+}
+
+/* The pad layer's events on step 0 of bar: a lane's note strikes where it changes (or the group begins) and lasts
+   to the end of its run of bars with the same note (a tie), ending exactly on that bar line */
+static int pads_step(const song_t *s, int bar, song_ev_t *out, int max)
+{
+    int k = bar % 4, l, j, n = 0, dark;
+    const plan_block_t *b = plan_at(&s->plan, bar);
+    dark = b && (b->flags & PB_DARK);
+    for (l = 0; l < 4 && n < max; l++) {
+        int note = s->pads.note[k][l], idx;
+        uint32_t pos = s->pos;
+        float frac = s->frac;
+        if (!note || (k > 0 && s->pads.note[k - 1][l] == note)) continue;
+        for (j = k + 1; j < 4 && s->pads.note[j][l] == note; j++) {}
+        for (idx = bar * 16; idx < (bar - k + j) * 16; idx++) advance(&pos, &frac, ss_at(s, idx));
+        out[n].voice = V_PAD;
+        out[n].note = (uint8_t)note;
+        out[n].vel = (uint8_t)((l < 3 ? 64 : 58) - (dark ? 8 : 0));
+        out[n].pad = (uint8_t)(l + 1);
+        out[n].delay = 0;
+        out[n].len = pos - s->pos;
+        n++;
+    }
+    return n;
+}
+
 /* ---- the public face ---- */
 
 void song_start(song_t *s, const song_roll_t *r)
@@ -372,6 +446,7 @@ int song_tick(song_t *s, song_ev_t *out, int max)
             for (i = 0, k = bar + 1 < s->plan.bars; i < RF_N; i++)   /* no push past the end, or into a change */
                 if (s->pend[i] && s->pend_bar[i] == bar + 1) k = 0;
             lead_plan_bar(&s->lead, &s->roll, b, bar, keys, nkeys, pcs, np, k);
+            if (bar % 4 == 0) pads_group(s, b, bar);
         }
         n += groove_step(&s->roll, b, bar, step, gs, pcs, np, salt, buf + n, BUF - n);
         n += harmony_step(&s->roll, b, bar, step, pass, gs, &s->voicing, s->lead.onsets >= 4, salt, buf + n,
@@ -383,6 +458,7 @@ int song_tick(song_t *s, song_ev_t *out, int max)
             n = k;
         }
         n += lead_step(&s->lead, step, gs, buf + n, BUF - n);
+        if (step == 0) n += pads_step(s, bar, buf + n, BUF - n);
         if (bass_spike)
             n = spike_bass(s, b, bar, step, gs, pcs, np, buf, n);
     }

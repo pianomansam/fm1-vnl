@@ -18,6 +18,7 @@
 #include "song.h"
 #include "fx.h"
 #include "phrase.h"
+#include "pads.h"
 
 static int fails;
 #define CHECK(c, ...)                                                                                              \
@@ -7089,6 +7090,405 @@ static void test_sustained_tied_home(void)
           tfar, thirds);
 }
 
+/* ---- the pad layer (pads design, 2026-10-24): a mid-range chord over percussive keys and a high solo note ----
+   Rolled songs played through song_tick; every pitched note recorded with its sample span and, on V_PAD, its lane
+   (1-3 the chord part, 4 the solo note). */
+#define PD_BARS 76
+#define PD_MAXE 12000
+typedef struct { uint32_t start, end; int bar; uint8_t voice, note, lane; } pd_ev_t;
+typedef struct {
+    int bars, ne, first[PD_BARS + 1];                    /* first: each bar's first event */
+    uint32_t at[PD_BARS * 16 + 1];                       /* each step's start sample */
+    int layers[PD_BARS], sec[PD_BARS], blk[PD_BARS], in[PD_BARS], key[PD_BARS], mode[PD_BARS], np[PD_BARS];
+    int pcs[PD_BARS][5];
+    uint32_t hash;                                       /* the pad events */
+    pd_ev_t ev[PD_MAXE];
+} pd_rec_t;
+static pd_rec_t pd_a, pd_b;
+static int pd_req_bar = -1, pd_req_key;                  /* a key request at this bar's step 3 (-1: none) */
+
+static void pd_play(song_t *s, pd_rec_t *rec, song_t *other)
+{
+    song_ev_t ev[64], oev[64];
+    uint32_t pos = 0;
+    float frac = 0.0f;
+    int t, i;
+    rec->ne = 0;
+    rec->hash = 2166136261u;
+    for (t = 0; s->state == SS_PLAYING && t < PD_BARS * 16; t++) {
+        int bar = s->bar, step = s->step, n;
+        float adv;
+        if (pd_req_bar == bar && step == 3) song_request(s, RF_KEY, pd_req_key);
+        if (other && other->state == SS_PLAYING) song_tick(other, oev, 64);
+        n = song_tick(s, ev, 64);
+        if (step == 0) {                                 /* the roll and plan as they play this bar (a request lands on 0) */
+            const plan_block_t *b = plan_at(&s->plan, bar);
+            const lib_prog_t *pr = lib_prog_by_id((uint8_t)s->roll.v[RF_PROG]);
+            int loop = pr ? pr->n * pr->bars_per_chord : 4;
+            rec->first[bar] = rec->ne;
+            rec->layers[bar] = b ? b->layers : 0;
+            rec->sec[bar] = b ? b->section : -1;
+            rec->blk[bar] = b ? (int)(b - s->plan.b) : -1;
+            rec->in[bar] = b ? pads_section_in(&s->roll, rec->blk[bar], b->section) : 0;
+            rec->key[bar] = s->roll.v[RF_KEY];
+            rec->mode[bar] = s->roll.v[RF_MODE];
+            rec->np[bar] = harmony_chord_at(&s->roll, bar, bar / loop + 1, 0, rec->pcs[bar]);
+        }
+        rec->at[t] = pos;
+        for (i = 0; i < n; i++) {
+            pd_ev_t *e;
+            if (ev[i].voice > V_PAD || rec->ne >= PD_MAXE) continue;
+            e = &rec->ev[rec->ne++];
+            e->start = pos + ev[i].delay;
+            e->end = e->start + ev[i].len;
+            e->bar = bar;
+            e->voice = ev[i].voice;
+            e->note = ev[i].note;
+            e->lane = ev[i].voice == V_PAD ? ev[i].pad : 0;
+            if (ev[i].voice == V_PAD) {
+                uint32_t h = rec->hash;
+                h = (h ^ (uint32_t)t) * 16777619u;
+                h = (h ^ (uint32_t)(ev[i].note | ev[i].pad << 8 | ev[i].vel << 16)) * 16777619u;
+                rec->hash = (h ^ ev[i].len) * 16777619u;
+            }
+        }
+        adv = song_step_samples(s) + frac;
+        frac = adv - (float)(uint32_t)adv;
+        pos += (uint32_t)adv;
+    }
+    rec->bars = t / 16;
+    rec->at[t] = pos;
+    rec->first[rec->bars] = rec->ne;
+}
+
+/* the notes of lane lo..hi sounding at sample t (their count; out ascending by lane) */
+static int pd_sounding(const pd_rec_t *rec, int bar, uint32_t t, int lo, int hi, int *out)
+{
+    int k, n = 0, from = bar >= 4 ? rec->first[bar - 4] : 0, to = bar + 1 < rec->bars ? rec->first[bar + 1] : rec->ne;
+    int lane[4] = {0, 0, 0, 0};
+    for (k = from; k < to; k++) {
+        const pd_ev_t *e = &rec->ev[k];
+        if (e->voice == V_PAD && e->lane >= lo && e->lane <= hi && e->start <= t && e->end > t) lane[e->lane - 1] = e->note;
+    }
+    for (k = lo; k <= hi; k++)
+        if (lane[k - 1]) out[n++] = lane[k - 1];
+    return n;
+}
+
+/* a semitone rub between two sounding notes: the upper a minor 2nd (or 9th) above the lower; over the bass, a major
+   7th above it too unless the bass is the chord's root (clash_test's bass rule) */
+static int pd_rub(int a, int b) { int d = a > b ? a - b : b - a; return d % 12 == 1; }
+static int pd_rub_bass(int pad, int bass, int root)
+{
+    int d = ((pad - bass) % 12 + 12) % 12;
+    return d == 1 || (d == 11 && bass % 12 != root);
+}
+
+/* rubs of the pad events of lanes lo..hi against overlapping keys, bass and (with_lead) lead notes */
+static long pd_rubs(const pd_rec_t *rec, int lo, int hi, int with_lead, long *checked)
+{
+    long bad = 0;
+    int k, j;
+    for (k = 0; k < rec->ne; k++) {
+        const pd_ev_t *e = &rec->ev[k];
+        int from, to;
+        if (e->voice != V_PAD || e->lane < lo || e->lane > hi) continue;
+        from = e->bar >= 2 ? rec->first[e->bar - 2] : 0;
+        for (to = e->bar; to < rec->bars && rec->at[to * 16] < e->end; to++) {}
+        to = to < rec->bars ? rec->first[to] : rec->ne;
+        for (j = from; j < to; j++) {
+            const pd_ev_t *x = &rec->ev[j];
+            int r;
+            if (x->start >= e->end || x->end <= e->start) continue;
+            if (x->voice == V_CHORD || (with_lead && x->voice == V_LEAD)) r = pd_rub(e->note, x->note);
+            else if (x->voice == V_BASS) r = pd_rub_bass(e->note, x->note, rec->pcs[x->bar][0]);
+            else continue;
+            (*checked)++;
+            if (r) {
+                if (bad < 5)
+                    printf("  pad rub: lane %d note %d bar %d against %s %d (bar %d)\n", e->lane, e->note, e->bar,
+                           x->voice == V_CHORD ? "keys" : x->voice == V_BASS ? "bass" : "lead", x->note, x->bar);
+                bad++;
+            }
+        }
+    }
+    return bad;
+}
+
+static int pd_bpc(const song_roll_t *r)
+{
+    const lib_prog_t *pr = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
+    return pr && pr->bars_per_chord ? pr->bars_per_chord : 1;
+}
+
+/* Present in every keys bar over percussive keys, absent over sustained keys; 3 notes in >= 80% of chords, never
+   fewer than 2; onsets only at chord changes; the top voice moves 2 semitones or less in >= 80% of changes; MIDI
+   55-72; no note a semitone from a sounding keys, bass or lead note */
+static void test_pad_chord(void)
+{
+    static song_t s;
+    song_roll_t prev, r;
+    uint32_t seed = 9191;
+    long chords = 0, three = 0, two = 0, few = 0, missing = 0, over_sus = 0, off_change = 0, range = 0, changes = 0,
+         smooth = 0, rubs = 0, checked = 0, songs_perc = 0;
+    int k, bar, i;
+    for (k = 0; k < 500; k++) {
+        const lib_set_t *set;
+        int sus, bpc, top_prev = 0;
+        seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+        roll_song(k ? &prev : 0, seed, &r);
+        prev = r;
+        set = lib_set_by_id((uint8_t)r.v[RF_SET]);
+        sus = set && lib_ins_sustained(set->chords);
+        bpc = pd_bpc(&r);
+        songs_perc += !sus;
+        song_start(&s, &r);
+        pd_play(&s, &pd_a, NULL);
+        for (i = 0; i < pd_a.ne; i++) {
+            const pd_ev_t *e = &pd_a.ev[i];
+            if (e->voice != V_PAD || e->lane < 1 || e->lane > 3) continue;
+            if (sus) over_sus++;
+            if (e->start != pd_a.at[e->bar * 16] || e->bar % bpc) off_change++;
+            if (e->note < 55 || e->note > 72) range++;
+        }
+        for (bar = 0; bar < pd_a.bars; bar++) {
+            int notes[4], n;
+            if (sus || !(pd_a.layers[bar] & L_KEYS)) { top_prev = 0; continue; }
+            n = pd_sounding(&pd_a, bar, pd_a.at[bar * 16], 1, 3, notes);
+            if (n == 0) { missing++; top_prev = 0; continue; }
+            if (bar % bpc) continue;
+            chords++;
+            three += n == 3;
+            two += n == 2;
+            few += n < 2;
+            if (top_prev) {
+                int d = notes[n - 1] - top_prev;
+                changes++;
+                smooth += d <= 2 && d >= -2;
+            }
+            top_prev = notes[n - 1];
+        }
+        rubs += pd_rubs(&pd_a, 1, 3, 1, &checked);
+    }
+    printf("pad chord: %ld songs over percussive keys, %ld chords: 3 notes %ld (%.1f%%), 2 notes %ld, fewer %ld; top "
+           "voice a step or less in %ld of %ld changes (%.1f%%); %ld rubs in %ld pairs checked\n", songs_perc, chords,
+           three, chords ? 100.0 * (double)three / (double)chords : 0.0, two, few, smooth, changes,
+           changes ? 100.0 * (double)smooth / (double)changes : 0.0, rubs, checked);
+    CHECK(songs_perc > 100 && chords > 5000, "pad chord: only %ld songs, %ld chords", songs_perc, chords);
+    CHECK(missing == 0, "pad chord: missing in %ld keys bars over percussive keys", missing);
+    CHECK(over_sus == 0, "pad chord: %ld notes over sustained keys", over_sus);
+    CHECK(three * 100 >= chords * 80 && few == 0, "pad chord: 3 notes in %ld of %ld, %ld under 2", three, chords, few);
+    CHECK(off_change == 0, "pad chord: %ld onsets off a chord change", off_change);
+    CHECK(smooth * 100 >= changes * 80, "pad chord: top voice smooth in %ld of %ld changes", smooth, changes);
+    CHECK(range == 0, "pad chord: %ld notes outside 55-72", range);
+    CHECK(rubs == 0 && checked > 10000, "pad chord: %ld rubs with keys, bass or lead (%ld checked)", rubs, checked);
+}
+
+static const int PD_DEG[4] = {0, 1, 2, 6};             /* the solo's scale degrees: 1, 2, 3, 7 */
+
+static int pd_degree(int key, int mode, int note)       /* index into PD_DEG, -1 if another degree */
+{
+    uint16_t pool = th_mode_pool(mode);
+    int off[7], i, n = 0, pc = ((note - key) % 12 + 12) % 12;
+    for (i = 0; i < 12 && n < 7; i++)
+        if ((pool >> i) & 1) off[n++] = i;
+    for (i = 0; i < 4; i++)
+        if (PD_DEG[i] < n && off[PD_DEG[i]] == pc) return i;
+    return -1;
+}
+
+/* the solo note held over `bar` is legal there: its degree, range, at least 3 above the chord part's top, no avoid
+   note, no rub with the keys struck in the bar or the bass */
+static int pd_solo_legal(const pd_rec_t *rec, int bar, int note)
+{
+    int chord[4], n, k, to = bar + 1 < rec->bars ? rec->first[bar + 1] : rec->ne;
+    if (pd_degree(rec->key[bar], rec->mode[bar], note) < 0 || note < 72 || note > 84) return 0;
+    n = pd_sounding(rec, bar, rec->at[bar * 16], 1, 3, chord);
+    if (n && note < chord[n - 1] + 3) return 0;
+    if (th_is_avoid(rec->key[bar], rec->mode[bar], rec->pcs[bar], rec->np[bar], note)) return 0;
+    for (k = rec->first[bar]; k < to; k++) {
+        const pd_ev_t *x = &rec->ev[k];
+        if (x->voice == V_CHORD && pd_rub(note, x->note)) return 0;
+        if (x->voice == V_BASS && pd_rub_bass(note, x->note, rec->pcs[bar][0])) return 0;
+    }
+    return 1;
+}
+
+/* At most one onset a bar, on step 0, sounding to the bar's end (or tied); scale degrees 1, 2, 3, 7 only, the tonic
+   in >= 35%; a note legal over the next chord is kept, otherwise it moves 2 semitones or less in >= 90%; MIDI 72-84,
+   3 or more above the chord part's top; no rubs with the keys or bass. A key request mid-section: no solo note
+   sounds outside the new key after it lands. */
+static void test_pad_solo(void)
+{
+    static song_t s;
+    song_roll_t prev, r;
+    uint32_t seed = 4747;
+    long notes = 0, tonic = 0, bars = 0, btonic = 0, deg_bad = 0, twice = 0, off_step = 0, short_ = 0, range = 0,
+         low = 0, kept = 0, keep_bad = 0, moved = 0, near = 0, rubs = 0, checked = 0, avoid = 0;
+    int k, bar, i, found = 0;
+    for (k = 0; k < 500; k++) {
+        int bpc, onsets[PD_BARS];
+        seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+        roll_song(k ? &prev : 0, seed, &r);
+        prev = r;
+        bpc = pd_bpc(&r);
+        song_start(&s, &r);
+        pd_play(&s, &pd_a, NULL);
+        memset(onsets, 0, sizeof onsets);
+        for (i = 0; i < pd_a.ne; i++) {
+            const pd_ev_t *e = &pd_a.ev[i];
+            int d, b2;
+            if (e->voice != V_PAD || e->lane != 4) continue;
+            notes++;
+            onsets[e->bar]++;
+            if (e->start != pd_a.at[e->bar * 16]) off_step++;
+            for (b2 = e->bar + 1; b2 <= pd_a.bars && pd_a.at[b2 * 16] < e->end; b2++) {}
+            if (b2 > pd_a.bars || pd_a.at[b2 * 16] != e->end) short_++;   /* ends on a bar line */
+            d = pd_degree(pd_a.key[e->bar], pd_a.mode[e->bar], e->note);
+            deg_bad += d < 0;
+            tonic += d == 0;
+            range += e->note < 72 || e->note > 84;
+            avoid += th_is_avoid(pd_a.key[e->bar], pd_a.mode[e->bar], pd_a.pcs[e->bar], pd_a.np[e->bar], e->note);
+        }
+        for (bar = 0; bar < pd_a.bars; bar++) {
+            int so[4], ch[4], n, nc, was[4];
+            twice += onsets[bar] > 1;
+            n = pd_sounding(&pd_a, bar, pd_a.at[bar * 16], 4, 4, so);
+            if (!n) continue;
+            bars++;
+            btonic += pd_degree(pd_a.key[bar], pd_a.mode[bar], so[0]) == 0;
+            nc = pd_sounding(&pd_a, bar, pd_a.at[bar * 16], 1, 3, ch);
+            if (nc && so[0] < ch[nc - 1] + 3) low++;
+            if (bar == 0 || bar % bpc || pd_a.key[bar] != pd_a.key[bar - 1]) continue;
+            if (!pd_sounding(&pd_a, bar - 1, pd_a.at[bar * 16 - 1], 4, 4, was)) continue;
+            if (pd_solo_legal(&pd_a, bar, was[0])) {    /* a chord change: keep a legal note */
+                kept++;
+                keep_bad += so[0] != was[0];
+            } else {
+                moved++;
+                near += so[0] - was[0] <= 2 && so[0] - was[0] >= -2;
+            }
+        }
+        rubs += pd_rubs(&pd_a, 4, 4, 0, &checked);
+    }
+    printf("pad solo: %ld notes, the tonic %.1f%% (of %ld bars sounding, %.1f%%); kept over %ld changes (%ld not), "
+           "moved at %ld (%ld by a step or less, %.1f%%); %ld rubs in %ld pairs checked\n", notes,
+           notes ? 100.0 * (double)tonic / (double)notes : 0.0, bars, bars ? 100.0 * (double)btonic / (double)bars : 0.0,
+           kept, keep_bad, moved, near, moved ? 100.0 * (double)near / (double)moved : 0.0, rubs, checked);
+    CHECK(notes > 3000, "pad solo: only %ld notes", notes);
+    CHECK(twice == 0 && off_step == 0, "pad solo: %ld bars with 2+ onsets, %ld off step 0", twice, off_step);
+    CHECK(short_ == 0, "pad solo: %ld notes not held to a bar line", short_);
+    CHECK(deg_bad == 0 && tonic * 100 >= notes * 35, "pad solo: %ld notes off degrees 1, 2, 3, 7; the tonic in %ld of "
+          "%ld", deg_bad, tonic, notes);
+    CHECK(avoid == 0, "pad solo: %ld avoid notes", avoid);
+    CHECK(keep_bad == 0 && kept > 500, "pad solo: a legal note left at %ld of %ld chord changes", keep_bad, kept);
+    CHECK(near * 100 >= moved * 90, "pad solo: moved a step or less at %ld of %ld changes", near, moved);
+    CHECK(range == 0 && low == 0, "pad solo: %ld notes outside 72-84, %ld bars under the chord part's top + 3", range,
+          low);
+    CHECK(rubs == 0 && checked > 10000, "pad solo: %ld rubs with keys or bass (%ld checked)", rubs, checked);
+    /* a key request landing at bar 16 in a section where the solo plays */
+    for (seed = 1; seed < 2000 && found < 20; seed++) {
+        int nk, bad = 0, after = 0;
+        roll_song(NULL, seed, &r);
+        song_start(&s, &r);
+        if (r.v[RF_BARS] < 24) continue;
+        pd_req_bar = -1;
+        pd_play(&s, &pd_a, NULL);
+        if (!pd_a.in[15] || !pd_a.in[16] || pd_a.blk[15] != pd_a.blk[16] || !(pd_a.layers[16] & L_KEYS)) continue;
+        nk = (r.v[RF_KEY] + 1 + (int)(seed % 11u)) % 12;
+        pd_req_bar = 14;
+        pd_req_key = nk;
+        song_start(&s, &r);
+        pd_play(&s, &pd_b, NULL);
+        pd_req_bar = -1;
+        if (pd_b.key[16] != nk) continue;
+        found++;
+        for (i = 0; i < pd_b.ne; i++) {
+            const pd_ev_t *e = &pd_b.ev[i];
+            if (e->voice != V_PAD || e->lane != 4 || e->end <= pd_b.at[16 * 16]) continue;
+            after += e->lane == 4;
+            if (e->lane == 4) bad += pd_degree(nk, pd_b.mode[16], e->note) < 0;
+        }
+        CHECK(after > 0 && bad == 0, "pad key request, seed %u: %d of %d solo notes after it outside the new key", seed,
+              bad, after);
+    }
+    CHECK(found >= 20, "pad key request: only %d songs", found);
+}
+
+/* Each section kind is "in" within 10 points of its share (groove 60%, intro, break, outro 50%, lead 30%); a block
+   is all in or all out: no solo note in an "out" block, one in every keys bar of an "in" block */
+static void test_pad_sections(void)
+{
+    static song_t s;
+    static const int want[5] = {50, 60, 30, 50, 50};    /* SEC_INTRO, GROOVE, LEAD, BREAK, OUTRO */
+    song_roll_t prev, r;
+    uint32_t seed = 3131;
+    long blocks[5] = {0}, in[5] = {0}, out_notes = 0, in_bars = 0, in_sounding = 0;
+    int k, bar, i, c;
+    for (k = 0; k < 500; k++) {
+        seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+        roll_song(k ? &prev : 0, seed, &r);
+        prev = r;
+        song_start(&s, &r);
+        for (i = 0; i < s.plan.n; i++) {
+            int sec = s.plan.b[i].section;
+            blocks[sec]++;
+            in[sec] += pads_section_in(&r, i, sec) != 0;
+            CHECK(pads_section_in(&r, i, sec) == pads_section_in(&r, i, sec), "pads_section_in is not pure");
+        }
+        if (k % 4) continue;                             /* every fourth song played through */
+        pd_play(&s, &pd_a, NULL);
+        for (bar = 0; bar < pd_a.bars; bar++) {
+            int so[4], n = pd_sounding(&pd_a, bar, pd_a.at[bar * 16], 4, 4, so);
+            if (!pd_a.in[bar] || !(pd_a.layers[bar] & L_KEYS)) { out_notes += n; continue; }
+            in_bars++;
+            in_sounding += n;
+        }
+    }
+    for (c = 0; c < 5; c++) {
+        long pct = blocks[c] ? in[c] * 100 / blocks[c] : 0;
+        printf("pad sections: %-6s in %ld of %ld blocks (%ld%%, want %d%%)\n", plan_section_name(c), in[c], blocks[c],
+               pct, want[c]);
+        CHECK(blocks[c] > 100 && pct >= want[c] - 10 && pct <= want[c] + 10, "pad sections: %s in %ld%%",
+              plan_section_name(c), pct);
+    }
+    printf("pad sections: solo in %ld of %ld keys bars of \"in\" blocks; %ld bars sounding in \"out\" blocks\n",
+           in_sounding, in_bars, out_notes);
+    CHECK(out_notes == 0, "pad sections: the solo sounds in %ld bars of \"out\" blocks", out_notes);
+    CHECK(in_bars > 1000 && in_sounding * 100 >= in_bars * 95, "pad sections: the solo in %ld of %ld keys bars of "
+          "\"in\" blocks", in_sounding, in_bars);
+}
+
+/* the same seed gives the same pad events, alone, after another song, or with another ticking in between */
+static void test_pad_determinism(void)
+{
+    static song_t s, o;
+    song_roll_t r, ro;
+    uint32_t seed;
+    long pads = 0;
+    int i;
+    for (seed = 11; seed < 31; seed++) {
+        uint32_t h;
+        roll_song(NULL, seed, &r);
+        roll_song(&r, seed + 900u, &ro);
+        song_start(&s, &r);
+        pd_play(&s, &pd_a, NULL);
+        h = pd_a.hash;
+        for (i = 0; i < pd_a.ne; i++) pads += pd_a.ev[i].voice == V_PAD;
+        song_start(&o, &ro);
+        pd_play(&o, &pd_b, NULL);                        /* another song first */
+        song_start(&s, &r);
+        pd_play(&s, &pd_b, NULL);
+        CHECK(pd_b.hash == h, "pad determinism, seed %u: after another song %08x != %08x", seed, pd_b.hash, h);
+        roll_song(&r, seed + 900u, &ro);
+        song_start(&o, &ro);
+        song_start(&s, &r);
+        pd_play(&s, &pd_b, &o);                          /* another ticking in between */
+        CHECK(pd_b.hash == h, "pad determinism, seed %u: with another in between %08x != %08x", seed, pd_b.hash, h);
+    }
+    CHECK(pads > 100, "pad determinism: only %ld pad events", pads);
+}
+
 int main(int argc, char **argv)
 {
     const char *only = argc > 1 ? argv[1] : NULL;
@@ -7156,6 +7556,10 @@ int main(int argc, char **argv)
     RUN(test_sustained_key_request);
     RUN(test_sustained_tied_home);
     RUN(test_lead_full_plan);
+    RUN(test_pad_chord);
+    RUN(test_pad_solo);
+    RUN(test_pad_sections);
+    RUN(test_pad_determinism);
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;
