@@ -201,6 +201,8 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   on the whole mix in the chain (fx.c's wow line); this would make it per role, with depth by instrument.
 - **Birds in the bed (Sam, 2026-10-24: "on the noise layer, birds chirping in the background").** A synthesized
   birdsong layer for the bed beside vinyl, tape and rain: sparse chirps, far back, seeded per song.
+- **The pad's notes against the ear candy (final review, 2026-10-24).** The pad rules check keys, bass and lead only;
+  the solo note's 7th could rub a candy tonic. Check by ear; add the candy to the pad's clear-of set if it does.
 - **Two lead parts, A-B-A (Sam, 2026-10-24).** "The lead taking that long to come in seems strange... a different
   lead at the beginning. So two different lead parts. Never playing the same time, but like A B A." Today every map
   brings the lead in late (average first lead bar 17-31 of about 53, by map; 30-58% in). Next after the pads.
