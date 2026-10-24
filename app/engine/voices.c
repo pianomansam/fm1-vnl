@@ -172,11 +172,6 @@ typedef struct {
             float q[5], w[2];
             float t1, t2, gk;
             uint32_t gn;
-            /* the solo note riding a chord lane's voice (budget cut (a): no voice of its own): its saw's phase and
-               increment (0: none), its level now and its target (over the host's amp), the rise and fall a step, the
-               steps its gate has left */
-            float rp, ri, rg, rl, ra, rr;
-            uint32_t rn;
         } en;
         struct { /* M_SUB: a phase, the increment gliding (by gk a step, gn steps, to ft); the pulse's width, the
                     sub-octave's sign and level */
@@ -679,25 +674,6 @@ static void ens_start(voice_t *v, const song_ev_t *e)
     v->m.en.w[0] = v->m.en.w[1] = 0.0f;
     ens_lp(v, f);
     v->m.en.gn = 0u;
-    v->m.en.rp = v->m.en.ri = v->m.en.rg = 0.0f;
-    v->m.en.rn = 0u;
-}
-
-/* The solo note (lane NPD) on a chord lane's voice h (budget cut (a)): a plain saw at its pitch into h's low-pass,
-   under h's envelope, at its own level (over h's amp) rising over the patch's attack (at most half the note) while
-   its gate is open, then falling over the release. A rider already there moves to the new pitch, its phase going on. */
-static void ens_ride(voice_t *h, const song_ev_t *e)
-{
-    const vx_patch_t *p = h->pt;
-    float dv = step_len(h), att = e->len ? fm_minf(p->att, 0.5f * (float)e->len * INV_SR) : p->att;
-    float lvl = ROLES[V_PAD].gain * p->level * (float)e->vel * (1.0f / 127.0f) / fm_maxf(h->amp, 1e-6f);
-    if (h->m.en.ri == 0.0f)
-        h->m.en.rp = h->m.en.rg = 0.0f;
-    h->m.en.ri = note_inc(e->note) * dv;
-    h->m.en.rl = lvl;
-    h->m.en.ra = lvl * k_att(att / dv);
-    h->m.en.rr = k_t60(p->rel / dv);
-    h->m.en.rn = (e->len + (uint32_t)dv - 1u) / (uint32_t)dv;
 }
 
 /* M_ENS on a held lane (pool_on): the same pitch extends the note; another glides to it over ENS_GLIDE, in even steps
@@ -953,24 +929,6 @@ static void pool_on(const song_ev_t *e, int role)
     voice_t *v;
     if (!p || (first >= PD) != (p->model == M_ENS))
         return; /* no instrument on this role; the pad layer plays M_ENS only (pad_seg), and only it */
-    if (role == V_PAD && e->pad == NPD && !fv[PD + NPD - 1].on) { /* the solo note rides a sounding chord lane */
-        voice_t *h = NULL;
-        for (i = PD; i < PD + NPD - 1; i++) {
-            voice_t *c = &fv[i];
-            if (!c->on || !c->held || c->pend || !c->qr || c->pt != p)
-                continue;
-            if (!h || (c->m.en.ri > 0.0f) > (h->m.en.ri > 0.0f) ||
-                ((c->m.en.ri > 0.0f) == (h->m.en.ri > 0.0f) && c->note > h->note))
-                h = c; /* the one it rides already, else the highest */
-        }
-        if (h) {
-            for (i = PD; i < PD + NPD - 1; i++) /* (one rider: another host's lets go) */
-                if (&fv[i] != h)
-                    fv[i].m.en.rn = 0u;
-            ens_ride(h, e);
-            return;
-        }
-    }
     if (role == V_PAD && e->pad >= 1 && e->pad <= NPD) { /* a lane (voices.h): its own voice */
         v = &fv[PD + e->pad - 1];
         v->age = ++age_ctr;
@@ -1135,27 +1093,9 @@ static float pad_sample(voice_t *v)
 }
 
 /* M_ENS's raw sample: the saw and its partner through the two one-poles. */
-/* the riding solo note's step (ens_ride): its saw into x, its level rising while its gate is open, then falling */
-#define RIDER_STEP(x, rp, ri, rg, rl, ra, rr, rn)                                                                  \
-    do {                                                                                                           \
-        (x) += (rg) * saw_blep(rp, ri);                                                                            \
-        (rp) += (ri);                                                                                              \
-        if ((rp) >= 1.0f)                                                                                          \
-            (rp) -= 1.0f;                                                                                          \
-        if (rn) {                                                                                                  \
-            (rn)--;                                                                                                \
-            (rg) = fm_minf((rg) + (ra), (rl));                                                                     \
-        } else {                                                                                                   \
-            (rg) -= (rg) * (rr);                                                                                   \
-            if ((rg) < 1e-4f)                                                                                      \
-                (rg) = (ri) = 0.0f;                                                                                \
-        }                                                                                                          \
-    } while (0)
 static float ens_sample(voice_t *v)
 {
     float x = saw_blep(v->m.en.p1, v->m.en.i1) + v->m.en.l2 * saw_blep(v->m.en.p2, v->m.en.i2), a = v->m.en.a;
-    if (v->m.en.ri > 0.0f)
-        RIDER_STEP(x, v->m.en.rp, v->m.en.ri, v->m.en.rg, v->m.en.rl, v->m.en.ra, v->m.en.rr, v->m.en.rn);
     v->m.en.p1 += v->m.en.i1;
     if (v->m.en.p1 >= 1.0f)
         v->m.en.p1 -= 1.0f;
@@ -1565,13 +1505,10 @@ static void ens_run(voice_t *v, float *xq, uint32_t nq)
             float p1 = v->m.en.p1, p2 = v->m.en.p2, i1 = v->m.en.i1, i2 = v->m.en.i2, l2 = v->m.en.l2, a = v->m.en.a;
             float y1 = v->m.en.y1, y2 = v->m.en.y2, nat = v->nat, nk = v->nk, amp = v->amp, sus = v->sus, g = v->g;
             float ka = v->ka, kr = v->kr;
-            float rp = v->m.en.rp, ri = v->m.en.ri, rg = v->m.en.rg, rl = v->m.en.rl, ra = v->m.en.ra, rr = v->m.en.rr;
-            uint32_t gate = v->gate, rn = v->m.en.rn;
+            uint32_t gate = v->gate;
             int held = v->held, on = 1;
             for (; j < nq; j++) {
                 float x = saw_blep(p1, i1) + l2 * saw_blep(p2, i2), o;
-                if (ri > 0.0f)
-                    RIDER_STEP(x, rp, ri, rg, rl, ra, rr, rn);
                 p1 += i1;
                 if (p1 >= 1.0f)
                     p1 -= 1.0f;
@@ -1601,10 +1538,6 @@ static void ens_run(voice_t *v, float *xq, uint32_t nq)
             }
             v->m.en.p1 = p1;
             v->m.en.p2 = p2;
-            v->m.en.rp = rp;
-            v->m.en.ri = ri;
-            v->m.en.rg = rg;
-            v->m.en.rn = rn;
             v->m.en.y1 = y1;
             v->m.en.y2 = y2;
             v->nat = nat;
