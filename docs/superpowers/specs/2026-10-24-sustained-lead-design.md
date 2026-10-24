@@ -85,7 +85,8 @@ breath noise on the winds; the saw lead glides by the existing rule (under 25 ms
 - **Breath:** ≥ half a bar of rest after bars 4 and 8.
 - **Wind phrasing:** onsets per bar ≤ 5 on average ≤ 3.5; the phrase starts off beat 1 in ≥ 55% of phrases; ≥ 70% of
   leaps (≥ a 4th) are followed by a step back the other way; beat 1 rests in at least every second bar.
-- **Motion by rank:** a lower motion's notes are a subset of a higher motion's, phrase by phrase.
+- **Motion by rank:** a lower motion's onsets are a subset of a higher motion's, phrase by phrase, and its notes are
+  held longer to cover the dropped ones (sounding time within 10%).
 - **Rules unchanged:** the clash test (rubs, avoid notes, chord tones on 0 and 8, registers), the lead-over-keys level
   test, pushes legal over both chords, determinism.
 
@@ -106,7 +107,10 @@ breath noise on the winds; the saw lead glides by the existing rule (under 25 ms
    identical in every restatement; contour identical in ≥ 90% of restatements after snapping.
 5. **Motion:** the motif generator tags each note anchor (first, strong-beat, question, arrival) or ornament (passing,
    neighbor). Motion under 40 drops the ornaments; 40 and over keeps them. The rule applies the same way to the
-   restatement. The subset test is for the same seed at two motion values.
+   restatement. The subset test is for the same seed at two motion values. **Fewer notes, held longer (Sam): when an
+   ornament drops, the anchor before it holds through the ornament's time,** so a low-motion phrase covers the same
+   span with fewer, longer notes and no new gaps. Test: per phrase, the sounding time at low motion is within 10% of
+   the high-motion phrase's, while its onsets are fewer.
 6. **Comping:** the busy threshold stays at 4 onsets a bar: long sustained notes are not busy, so the comping keeps
    playing under them; the keys' 3 dB duck still makes room in level.
 7. **State:** the motif and each pass's variations are a pure function of (song seed, lead block, pass number),
