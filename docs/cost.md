@@ -626,3 +626,20 @@ per-sample loop and interpolation, the pad bus's section filter, mud high-pass a
 (c) (2 chord notes) at most one more: (a) and (c) together at most 2.5-4 ms, about 0.975 against AMB-1's 139-140 ms.
 Not enough: the pads plan's rule (stop and report) applies; the layer's fixed part is where the rest is.
 **Memory:** image 183228 B, RAM 49600 B, pool 180216 B (`tools/mem-check.sh`: ok).
+
+**The controller's ruling, then the cuts (2026-10-24).** Measured on the same busy host (load about 5).
+- *The fixed part:* the pad bus's section filters (and its mud high-pass, already) run on the quarter-rate sum before
+  the interpolation; the quarter-rate path does nothing once silent; the quarter-rate voices render voice by voice
+  (bit-exact). A profile (sample, voices.c and fx.c not inlined) showed the layer's cost is its voices (the polyBLEP
+  saws and the envelope), not the bus: these saved about 2-3 ms. Seed 20 forced: 0.973-0.989.
+- *Cut (a), the solo note on a chord lane's voice:* no measurable saving on seed 20 (the solo note plays 8 of the
+  bench's 20 bars): 0.981-0.989.
+- *Cut (c), the chord part 2 notes:* seed 20 forced, `VNL_RUNS=7`, five runs: **0.970 / 0.973 / 0.973 / 0.973 / 0.970**
+  (VNL 135.8-136.4 ms, AMB-1 139.7-140.2). The standard list, two runs: 0.947 / 0.885 / 0.849 / 0.825 / 0.759 / 0.773
+  plain, **1.001** / 0.885 / 0.878 / 0.855 / 0.783 / 0.804 forced, then 0.946 / ..., **0.961** / 0.887 / 0.874 / 0.853 /
+  0.779 / 0.800 forced. The picker re-picks seed 20: 0.933 plain, **0.949** forced (AMB-1 143.1). On the line, not
+  reliably under 0.97.
+- `--parts` (best of 7, AMB-1 141.1 ms, idle floor 0.114; the bench's pad part still a 3-note chord, its solo note
+  now riding): pad strings **0.054**, warm pad **0.052**; over the source, full chain 0.056 / 0.057, dry 0.051 / 0.051
+  (was 0.080-0.082).
+- **Memory:** image 187508 B, RAM 50944 B, pool 180216 B (`tools/mem-check.sh`: ok).
