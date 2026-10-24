@@ -38,8 +38,10 @@ static int clear_of(int n, const int keys[4], const int *lead, int nlead, int ba
 
 /* the cost of moving from prev (by lane) to the notes t (ascending, m of them) on lanes ln: each lane's move, the top
    voice's 8 a semitone (and 6 for a leap), 6 for a common tone that moved, and 1000 for a common pitch on another lane
-   (it would strike again rather than ring on: never chosen, as a lane order that keeps it always exists); with no
-   prev, the top near G4 */
+   (it would strike again rather than ring on: never chosen, as a lane order that keeps it always exists). A step
+   glides on its own lane: 100 for a glide over 4 semitones (a leap strikes fresh on the free lane instead), 400 for
+   each new note within 4 semitones of a lane left releasing, or rubbing it (its tail would smear under the swell), 3
+   for any lane left releasing. With no prev, the top near G4 */
 static int move_cost(const int prev[3], const int *t, const int *ln, int m)
 {
     int c = 0, k, j, ptop = 0, have = 0;
@@ -62,6 +64,17 @@ static int move_cost(const int prev[3], const int *t, const int *ln, int m)
         if (in && !at) c += 6;
         for (k = 0; k < m; k++)
             if (t[k] == prev[j] && ln[k] != j) c += 1000;
+    }
+    for (k = 0; k < m; k++)                              /* a glide over 4 semitones: a fresh strike instead */
+        if (prev[ln[k]] && absi(t[k] - prev[ln[k]]) > 4) c += 100;
+    for (j = 0; j < 3; j++) {                            /* a lane left to release under the new chord */
+        int held = 0;
+        if (!prev[j]) continue;
+        for (k = 0; k < m; k++) held |= ln[k] == j;
+        if (held) continue;
+        for (k = 0; k < m; k++)                          /* a step taken there swells beside the old tail: glide it */
+            if (t[k] != prev[ln[k]] && (absi(t[k] - prev[j]) <= 4 || pads_rub(t[k], prev[j]))) c += 400;
+        c += 3;
     }
     return c;
 }

@@ -2390,6 +2390,35 @@ static void test_pad_lanes(void)
     hz = vx_pad_lane(2, &step, &held);
     CHECK(!moved && fm_fabsf(f1 - 261.63f) < 0.5f, "pad lanes: lane 1 moved (%.2f Hz)", (double)f1);
     CHECK(fm_fabsf(hz - 493.88f) < 1.0f, "pad lanes: lane 2 at %.1f Hz, wanted 493.9", (double)hz);
+    /* a held lane takes its new note's velocity (dark blocks, the solo's level): vel 100 then 60, extended at 1 s,
+       sits 20 log10(0.6) = -4.4 dB under the same note held at 100, 200-300 ms on */
+    {
+        float rms[2];
+        for (k = 0; k < 2; k++) {
+            song_ev_t e;
+            uint32_t i;
+            int b2;
+            float en = 0.0f;
+            vx_init();
+            vt_lane(1, 60, 0, 2u * 44100u);
+            memset(&e, 0, sizeof e);
+            e.voice = V_PAD; e.note = 60; e.vel = k ? 60 : 100; e.pad = 1; e.delay = 44100u; e.len = 44100u;
+            vx_event(&e);
+            for (b2 = 0; b2 < 120; b2++) /* to 1.2 s in 10 ms blocks, then 1.2-1.3 s measured */
+                vt_block(441, &bad);
+            for (b2 = 0; b2 < 10; b2++) {
+                vt_block(441, &bad);
+                for (i = 0; i < 441; i++) en += vt_l[i] * vt_l[i];
+            }
+            rms[k] = fm_sqrtf(en);
+        }
+        {
+            float db = 20.0f * fm_log2f(rms[1] / rms[0]) * 0.30103f;
+            printf("pad lanes: a held lane re-struck at vel 60 over 100 sits %.2f dB under\n", (double)db);
+            CHECK(db < -3.9f && db > -4.9f, "pad lanes: a held lane at vel 60 over 100 sits %.2f dB, wanted -4.4",
+                  (double)db);
+        }
+    }
     CHECK(!bad, "pad lanes: NaN or inf");
 }
 
@@ -7386,7 +7415,7 @@ static void test_pad_chord(void)
     uint32_t seed = 9191;
     long chords = 0, three = 0, two = 0, few = 0, missing = 0, over_sus = 0, off_change = 0, range = 0, changes = 0,
          smooth = 0, rubs = 0, checked = 0, songs_perc = 0, common = 0, lane_moved = 0, restruck = 0, guide = 0,
-         both = 0, moves = 0, vsmooth = 0;
+         both = 0, moves = 0, vsmooth = 0, lchanges = 0, released = 0, smear = 0, swell = 0, glides = 0, wide = 0;
     int k, bar, i;
     for (k = 0; k < 500; k++) {
         const lib_set_t *set;
@@ -7426,6 +7455,35 @@ static void test_pad_chord(void)
                                                             the same lane extends it) */
                         for (i = pd_a.first[bar]; i < (bar + 1 < pd_a.bars ? pd_a.first[bar + 1] : pd_a.ne); i++)
                             restruck += pd_a.ev[i].voice == V_PAD && pd_a.ev[i].lane == l && pd_a.ev[i].note == was[0];
+                }
+            }
+            if (bar > 0 && (pd_a.layers[bar - 1] & L_KEYS)) {   /* by lane: a step glides on its own lane */
+                int l, was[4] = {0, 0, 0, 0}, on[4] = {0, 0, 0, 0}, held[4] = {0, 0, 0, 0}, x[4];
+                uint32_t t0 = pd_a.at[bar * 16];
+                for (l = 1; l <= 3; l++) {
+                    if (pd_sounding(&pd_a, bar, t0 - 1, l, l, x)) was[l] = x[0];
+                    if (pd_sounding(&pd_a, bar, t0, l, l, x)) held[l] = x[0];
+                }
+                for (i = pd_a.first[bar]; i < (bar + 1 < pd_a.bars ? pd_a.first[bar + 1] : pd_a.ne); i++)
+                    if (pd_a.ev[i].voice == V_PAD && pd_a.ev[i].lane >= 1 && pd_a.ev[i].lane <= 3 &&
+                        pd_a.ev[i].start == t0 && pd_a.ev[i].note != was[pd_a.ev[i].lane])
+                        on[pd_a.ev[i].lane] = pd_a.ev[i].note;   /* a new pitch on the lane (not an extension) */
+                lchanges++;
+                for (l = 1; l <= 3; l++) {
+                    int m, near = 0, rub = 0;
+                    if (was[l] && on[l]) {               /* a glide: the lane held, a new pitch on it */
+                        glides++;
+                        wide += on[l] - was[l] > 5 || was[l] - on[l] > 5;
+                    }
+                    if (!was[l] || held[l]) continue;
+                    released++;                          /* the lane stops here, its tail under the new chord */
+                    for (m = 1; m <= 3; m++) {
+                        if (m == l || !on[m]) continue;
+                        near |= on[m] - was[l] <= 4 && was[l] - on[m] <= 4;
+                        rub |= pads_rub(on[m], was[l]);
+                    }
+                    swell += near;
+                    smear += rub;
                 }
             }
             chords++;
@@ -7488,6 +7546,12 @@ static void test_pad_chord(void)
     CHECK(rubs == 0 && checked > 10000, "pad chord: %ld rubs with keys, bass or lead (%ld checked)", rubs, checked);
     printf("pad chord: %ld common pitches across chord changes, %ld on another lane, %ld struck again\n", common,
            lane_moved, restruck);
+    printf("pad chord: %ld changes by lane: %ld lanes released (%ld a semitone from a new note), %ld with a new note "
+           "4 semitones or less from it on another lane; %ld glides, %ld over 5 semitones\n", lchanges, released, smear,
+           swell, glides, wide);
+    CHECK(swell == 0 && smear == 0 && wide == 0 && glides > 5000, "pad chord: %ld step moves released and swelled on "
+          "another lane, %ld released lanes a semitone from a new note, %ld glides over 5 semitones (of %ld)", swell,
+          smear, wide, glides);
     CHECK(common > 5000 && lane_moved == 0 && restruck == 0, "pad chord: of %ld common pitches %ld changed lanes, %ld "
           "struck again", common, lane_moved, restruck);
 }

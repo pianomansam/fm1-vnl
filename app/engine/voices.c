@@ -167,11 +167,12 @@ typedef struct {
         } ch;
         struct { /* M_ENS: the saw's and its partner's phases and increments, the partner's level; the 2-pole
                     low-pass's coefficient and states, or at half the rate its matched biquad's (q, w); a lane's glide
-                    (gn steps left, by gk a step, to t1, t2) */
+                    (gn steps left, by gk a step, to t1, t2), and its level's ramp to a new velocity's (an steps left, by
+                    ak a step, to the voice's amp_t) */
             float p1, p2, i1, i2, l2, a, y1, y2;
             float q[5], w[2];
-            float t1, t2, gk;
-            uint32_t gn;
+            float t1, t2, gk, ak;
+            uint32_t gn, an;
         } en;
         struct { /* M_SUB: a phase, the increment gliding (by gk a step, gn steps, to ft); the pulse's width, the
                     sub-octave's sign and level */
@@ -674,18 +675,25 @@ static void ens_start(voice_t *v, const song_ev_t *e)
     v->m.en.w[0] = v->m.en.w[1] = 0.0f;
     ens_lp(v, f);
     v->m.en.gn = 0u;
+    v->m.en.an = 0u;
 }
 
 /* M_ENS on a held lane (pool_on): the same pitch extends the note; another glides to it over ENS_GLIDE, in even steps
-   of pitch, the envelope going on (no restrike) and the low-pass's key tracking set to the new note. The voice keeps
+   of pitch, the envelope going on (no restrike) and the low-pass's key tracking set to the new note. Either way the
+   level ramps to the new velocity's over ENS_GLIDE (a dark block's softer note, the solo's own level). The voice keeps
    its rate. */
 static void ens_legato(voice_t *v, const song_ev_t *e)
 {
     const vx_patch_t *p = v->pt;
-    float dv = step_len(v);
+    float dv = step_len(v), na = fm_maxf(ENS_GLIDE * SR / dv, 1.0f);
     v->gate = (e->len + (uint32_t)dv - 1u) / (uint32_t)dv;
     v->held = 1;
     v->off = t_on + e->len;
+    v->amp_t = ROLES[v->role].gain * p->level * (float)e->vel * (1.0f / 127.0f);   /* (as env_start: V_PAD) */
+    if (v->amp_t != v->amp) {
+        v->m.en.an = (uint32_t)na;
+        v->m.en.ak = (v->amp_t - v->amp) / (float)v->m.en.an;
+    }
     if (e->note != v->note) {
         float f = note_inc(e->note), n = fm_maxf(ENS_GLIDE * SR / dv, 1.0f);
         v->m.en.t1 = f * dv;
@@ -1485,6 +1493,8 @@ static float pd_f[CHUNK], pd_h[CHUNK / 2 + 1];
 static float ens_tick(voice_t *v)
 {
     float o = ens_sample(v);
+    if (v->m.en.an) /* a held lane's level ramping to its new velocity's */
+        v->amp = --v->m.en.an ? v->amp + v->m.en.ak : v->amp_t;
     v->nat *= v->nk; /* (flushed per segment) */
     o *= v->amp * (v->sus + (1.0f - v->sus) * v->nat) * v->g;
     gate_step(v);
@@ -1497,7 +1507,7 @@ static void ens_run(voice_t *v, float *xq, uint32_t nq)
 {
     uint32_t j = 0;
     while (j < nq && v->on && v->qr) {
-        if (v->pend || v->m.en.gn) {
+        if (v->pend || v->m.en.gn || v->m.en.an) {
             xq[j++] += ens_tick(v);
             continue;
         }
