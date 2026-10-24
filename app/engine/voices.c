@@ -3,8 +3,8 @@
 /* Voices and mix (see voices.h). The pitched roles are pools of voices: chords 4 (8 for a pad), lead 2, candy 2 and
    the bass, a mono pool of 1 whose level slews (AMP_K) and whose M_BASS retriggers are legato. Each voice keeps the
    patch it was struck with, and voice_sample() dispatches on the patch's model: keys (M_EP), plucked strings
-   (M_PLUCK), pads (M_PAD), bells (M_BELL), winds (M_WIND), basses (M_BASS), chip voices (M_CHIP) and the subtractive
-   synths (M_SUB; a mono one on the lead or the bass glides from a held note, or a near one just ended: LEG_GAP). A
+   (M_PLUCK), pads (M_PAD), bells (M_BELL), winds (M_WIND), basses (M_BASS), a chip triangle (M_CHIP) and the
+   subtractive synths (M_SUB; a mono one on the lead glides from a held note, or a near one just ended: LEG_GAP). A
    key's or a pad's note whose partials stay under 9 kHz, and a synth's on the chords whose low-pass stays at 8 kHz or
    under, renders at half the rate (half_ok), its role's half-rate voices upsampled by a half- band. A
    pitched note's level is the patch envelope: a natural decay (nat, from 1 toward sus) times a gate (g: a linear rise,
@@ -82,9 +82,8 @@ static const float CP_THR_KIT[4] = {0.095f, 0.090f, 0.084f, 0.162f};
 #define HR_TOP 9000.0f   /* a half-rate voice's highest partial: below its 11 kHz Nyquist and the upsampler's band edge */
 #define HR_PAD_H 2.0f   /* a pad's highest partial counted: its upper saw's second harmonic (the filter takes the rest) */
 #define HR_SUB_TOP 8000.0f /* a half-rate synth's highest cutoff (with its envelope) */
-#define SUB_CR 16u       /* the synths' control rate in samples: the filter's envelope and coefficients, the vibrato */
-#define SUB_RES_K 0.85f  /* a 2-pole's damping k at full resonance, as a fraction off Butterworth's (1.414) */
-#define SUB_RES_R 3.6f   /* the 4-pole's feedback at full resonance (4 self-oscillates) */
+#define SUB_CR 16u       /* the synths' control rate in samples: the filter's envelope and coefficients */
+#define SUB_RES_K 0.85f  /* the low-pass's damping k at full resonance, as a fraction off Butterworth's (1.414) */
 #define HB_M 7           /* the 2x upsampler: a 27-tap half-band (Kaiser, beta 5), 7 coefficient pairs */
 #define HB_H (2 * HB_M)  /* the half-rate samples it keeps between chunks (its latency: 2 HB_M = 14 samples) */
 
@@ -153,23 +152,20 @@ typedef struct {
                     plus a sub-octave sine */
             float pc, pm, ps, ic, im, is, ix, it, i0, ik, sub;
         } bs;
-        struct { /* M_CHIP: a phase, the wave's duty and DC, the vibrato (control rate), a noise tick, held noise; the
-                    crush: its steps per unit of output (a unit of the voice's level, amp_t, is 2^(bits-1) steps; 0 for
-                    none) and their size; the last output before and after it (tests: vx_chip_out) */
-            float ph, inc, f0, d, dc, vp, vr, vd, tick, tk, nz, q, qi, raw, out;
-            uint8_t wave, cc, nk;
+        struct { /* M_CHIP: a phase and its increment; the crush: its steps per unit of output (a unit of the
+                    voice's level, amp_t, is 2^(bits-1) steps; 0 for none) and their size; the last output before and
+                    after it (tests: vx_chip_out) */
+            float ph, inc, q, qi, raw, out;
         } ch;
-        struct { /* M_SUB: a phase and its increment now, the base increment gliding (by gk a step, gn steps, to ft)
-                    under the vibrato's factor vm; the pulse's width, the sub-octave's sign and level, the noise's */
-            float ph, inc, f0, ft, gk, vm, pw, sg, sl, nl;
+        struct { /* M_SUB: a phase, the increment gliding (by gk a step, gn steps, to ft); the pulse's width, the
+                    sub-octave's sign and level */
+            float ph, f0, ft, gk, pw, sg, sl;
             float fe, fa, fk, fam;  /* the filter's envelope, its attack's rise and decay per control step, its depth
                                        in octaves */
-            float k, r, gc, cz;     /* the 2-pole's damping, the 4-pole's feedback and make-up; the cutoff last set */
-            float c[5], s[4];       /* the SVF's coefficients (and the 4-pole's feedback solve) or the half-rate
-                                       biquad's; the states (the 4-pole's two SVFs) */
-            float vp, vd;           /* the vibrato's phase (turns) and depth (a fraction of the frequency) */
-            uint32_t gn, vt;        /* glide steps left; control steps since the onset */
-            uint8_t wave, cc, p4, fat; /* the wave, the control count, the 4-pole, the envelope in its attack */
+            float k, cz;            /* the damping; the cutoff last set */
+            float c[5], s[2];       /* the SVF's coefficients or the half-rate biquad's; the states */
+            uint32_t gn;            /* glide steps left */
+            uint8_t wave, cc, fat;  /* the wave, the control count, the envelope in its attack */
         } sb;
     } m;
     uint32_t gate, age;
@@ -195,7 +191,7 @@ static float ks[NV][VX_KS_N] VX_POOL; /* the Karplus-Strong lines, one per voice
 static uint32_t age_ctr, rng = 0x1234567u;
 static uint32_t clk;  /* the engine's clock at the chunk's start */
 static uint32_t t_on; /* the engine's clock (samples since vx_init) at the events firing now (vx_render) */
-static uint32_t n_glide[2]; /* tests (vx_glides): mono synths' legato notes to a new pitch, the lead's, the bass's */
+static uint32_t n_glide; /* tests (vx_glides): the mono lead's legato notes to a new pitch */
 static float gain, gain_tgt, gain_step;
 static float ch_m[CHUNK], ch_s[CHUNK]; /* a chunk's music (into fx_process_pairs) and its right channel (out) */
 static float bb[NBUS][CHUNK];          /* the chunk's role buses (the drums' always; the others while filtering) */
@@ -283,7 +279,7 @@ static void voices_clear(uint32_t seed)
     drums_song(seed);
     qn = 0;
     age_ctr = 0;
-    n_glide[0] = n_glide[1] = 0u;
+    n_glide = 0u;
     t_on = clk = 0u;
     rng = seed * 2654435761u ^ 0x1234567u;
     if (!rng)
@@ -453,7 +449,7 @@ static void env_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int l
     v->ka = k_att((p->model == M_PAD && e->len ? fm_minf(p->att, 0.5f * (float)e->len * INV_SR) : p->att) / dv);
     v->kr = k_t60(p->rel / dv);
     v->amp_t = ROLES[v->role].gain * p->level * (float)e->vel * (1.0f / 127.0f) * (v->role == V_CHORD ? keys_g : 1.0f);
-    v->slew = (uint8_t)(v->role == V_BASS || (v->role == V_LEAD && p->model == M_SUB && p->p[11] > 0.0f));
+    v->slew = (uint8_t)(v->role == V_BASS || (v->role == V_LEAD && p->model == M_SUB && p->p[9] > 0.0f));
     if (!legato)
         v->amp = v->amp_t;
     v->gate = v->hr ? (e->len + 1u) >> 1 : e->len;
@@ -704,26 +700,13 @@ static void bass_start(voice_t *v, const song_ev_t *e, int legato)
     v->m.bs.sub = p->p[4];
 }
 
-/* M_CHIP: the phase from 0 (a pulse starts on its rising edge), the pulse's DC taken out (it sits at 2 d - 1), the
-   vibrato's rate per control step and its depth as a fraction of the frequency, the tick by velocity. */
+/* M_CHIP: the phase from 0; the crush's step from the voice's level. */
 static void chip_start(voice_t *v, const song_ev_t *e)
 {
     const vx_patch_t *p = v->pt;
-    float f = note_inc(e->note), v01 = (float)e->vel * (1.0f / 127.0f);
     v->m.ch.ph = 0.0f;
-    v->m.ch.inc = v->m.ch.f0 = f;
-    v->m.ch.wave = (uint8_t)fm_clampf(p->p[0], 0.0f, 2.0f);
-    v->m.ch.d = fm_clampf(p->p[1], 0.0625f, 0.5f);
-    v->m.ch.dc = v->m.ch.wave == 0 ? 2.0f * v->m.ch.d - 1.0f : 0.0f;
-    v->m.ch.vp = 0.0f;
-    v->m.ch.vr = p->p[2] * (WIND_CR * INV_SR);
-    v->m.ch.vd = p->p[3] * (FM_LN2 / 1200.0f);
-    v->m.ch.cc = 0;
-    v->m.ch.tick = p->p[5] * v01;
-    v->m.ch.tk = 1.0f - k_t60(p->p[6]);
-    v->m.ch.nz = 0.0f;
-    v->m.ch.nk = 0xff;
-    v->m.ch.qi = p->p[7] >= 1.0f ? v->amp_t * fm_exp2f(1.0f - fm_floorf(p->p[7])) : 0.0f;
+    v->m.ch.inc = note_inc(e->note);
+    v->m.ch.qi = p->p[0] >= 1.0f ? v->amp_t * fm_exp2f(1.0f - fm_floorf(p->p[0])) : 0.0f;
     v->m.ch.q = v->m.ch.qi > 0.0f ? 1.0f / v->m.ch.qi : 0.0f;
     v->m.ch.raw = v->m.ch.out = 0.0f;
 }
@@ -731,19 +714,19 @@ static void chip_start(voice_t *v, const song_ev_t *e)
 /* M_SUB's highest cutoff in Hz for a note of hz at velocity v01: the key-tracked base with the envelope at its top */
 static float sub_top(const vx_patch_t *p, float hz, float v01)
 {
-    return (p->p[4] + p->p[6] * hz) * fm_exp2f(p->p[7] * (0.5f + 0.5f * v01));
+    return (p->p[3] + p->p[5] * hz) * fm_exp2f(p->p[6] * (0.5f + 0.5f * v01));
 }
 
-/* M_SUB, frugal as a Juno-106: one oscillator (a polyBLEP saw or pulse, a sine or a triangle), a sub-octave square
-   and noise into a low-pass that its own envelope opens (an attack, then a fall to the key-tracked base). A legato
-   note (a mono patch, a held or just-ended note: pool_on) keeps the phases, the filter, its envelope and the
-   vibrato, and glides to its pitch over the patch's glide time, evenly in pitch; a fresh note starts on its pitch. */
+/* M_SUB, frugal as a Juno-106: one oscillator (a polyBLEP saw or pulse) and a sub-octave square into a 2-pole
+   low-pass that its own envelope opens (an attack, then a fall to the key-tracked base). A legato note (a mono patch,
+   a held or just-ended note: pool_on) keeps the phases, the filter and its envelope, and glides to its pitch over
+   the patch's glide time, evenly in pitch; a fresh note starts on its pitch. */
 static void sub_start(voice_t *v, const song_ev_t *e, int legato)
 {
     const vx_patch_t *p = v->pt;
-    float dv = v->hr ? 2.0f : 1.0f, f = note_inc(e->note) * dv, v01 = (float)e->vel * (1.0f / 127.0f), res;
+    float dv = v->hr ? 2.0f : 1.0f, f = note_inc(e->note) * dv, v01 = (float)e->vel * (1.0f / 127.0f);
     if (legato) {
-        float n = p->p[12] * 0.001f * SR / dv;
+        float n = p->p[10] * 0.001f * SR / dv;
         v->m.sb.ft = f;
         if (n >= 1.0f && f != v->m.sb.f0) {
             v->m.sb.gn = (uint32_t)n;
@@ -755,35 +738,26 @@ static void sub_start(voice_t *v, const song_ev_t *e, int legato)
         return;
     }
     v->m.sb.ph = 0.0f;
-    v->m.sb.inc = v->m.sb.f0 = v->m.sb.ft = f;
+    v->m.sb.f0 = v->m.sb.ft = f;
     v->m.sb.gn = 0u;
-    v->m.sb.vm = 1.0f;
-    v->m.sb.wave = (uint8_t)fm_clampf(p->p[0], 0.0f, 3.0f);
+    v->m.sb.wave = (uint8_t)(p->p[0] > 0.0f);
     v->m.sb.pw = fm_clampf(p->p[1], 0.05f, 0.5f);
     v->m.sb.sg = 1.0f;
     v->m.sb.sl = p->p[2];
-    v->m.sb.nl = p->p[3] * (v->hr ? 0.70710678f : 1.0f); /* white noise at half the rate: twice the power in band */
-    v->m.sb.fam = p->p[7] * (0.5f + 0.5f * v01);
-    v->m.sb.fat = p->p[8] > 0.0f;
+    v->m.sb.fam = p->p[6] * (0.5f + 0.5f * v01);
+    v->m.sb.fat = p->p[7] > 0.0f;
     v->m.sb.fe = v->m.sb.fat ? 0.0f : 1.0f;
-    v->m.sb.fa = v->m.sb.fat ? (float)SUB_CR / (p->p[8] * SR) : 0.0f;
-    v->m.sb.fk = fm_expf(-T60 * (float)SUB_CR / (fm_maxf(p->p[9], 0.001f) * SR));
-    v->m.sb.p4 = p->p[10] > 0.0f && !v->hr;
-    res = fm_clampf(p->p[5], 0.0f, 1.0f); /* the resonance, clamped: the 4-pole's feedback stays under 4 */
-    v->m.sb.k = 1.41421356f * (1.0f - SUB_RES_K * res);
-    v->m.sb.r = v->m.sb.p4 ? SUB_RES_R * res : 0.0f;
-    v->m.sb.gc = 1.0f + 0.5f * v->m.sb.r; /* half the 4-pole's bass loss (1 / (1 + r)) made up */
+    v->m.sb.fa = v->m.sb.fat ? (float)SUB_CR / (p->p[7] * SR) : 0.0f;
+    v->m.sb.fk = fm_expf(-T60 * (float)SUB_CR / (fm_maxf(p->p[8], 0.001f) * SR));
+    v->m.sb.k = 1.41421356f * (1.0f - SUB_RES_K * fm_clampf(p->p[4], 0.0f, 1.0f));
     v->m.sb.cz = -1.0f;
     memset(v->m.sb.s, 0, sizeof v->m.sb.s);
-    v->m.sb.vp = 0.0f;
-    v->m.sb.vd = p->p[13] * (FM_LN2 / 1200.0f); /* cents, as a fraction of the frequency */
-    v->m.sb.vt = 0u;
     v->m.sb.cc = 0;
 }
 
 /* Whether a note renders at half the rate: the keys and pads (not on the bass), when their highest partial (the FM's
    sidebands, the index plus three; the tine; the pad's upper saw's second harmonic) is below HR_TOP; a synth on the
-   chords on a 2-pole, when its highest cutoff (sub_top) is HR_SUB_TOP or under. Higher notes, and everything with
+   chords, when its highest cutoff (sub_top) is HR_SUB_TOP or under. Higher notes, and everything with
    VX_OFF_HALF, stay at the full rate. */
 static int half_ok(const voice_t *v, const vx_patch_t *p, const song_ev_t *e)
 {
@@ -797,7 +771,7 @@ static int half_ok(const voice_t *v, const vx_patch_t *p, const song_ev_t *e)
     } else if (p->model == M_PAD)
         top = HR_PAD_H * hz * fm_maxf(p->p[1], 1.0f);
     else if (p->model == M_SUB)
-        return v->role == V_CHORD && p->p[10] <= 0.0f && sub_top(p, hz, v01) <= HR_SUB_TOP;
+        return v->role == V_CHORD && sub_top(p, hz, v01) <= HR_SUB_TOP;
     else
         return 0;
     return top < HR_TOP;
@@ -819,8 +793,8 @@ static void voice_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int
     }
 }
 
-/* The chords' pool is NCH_KEYS voices, NCH for a held pad's note (PAD_LONG). A mono synth (M_SUB, p[11]) on the lead
-   or the bass glides: a note while one of its role's voices still holds that patch's note (its gate open, not being
+/* The chords' pool is NCH_KEYS voices, NCH for a held pad's note (PAD_LONG). A mono synth (M_SUB, p[9]) on the lead
+   glides: a note while one of its role's voices still holds that patch's note (its gate open, not being
    stolen) goes legato onto it; so does one within LEG_GAP of a voice's last note's end and LEG_INT semitones of it
    (still releasing, or silent but not reused). A note after a longer rest, or a wider leap, starts on its pitch. A
    free voice starts at once. Otherwise the victim is the
@@ -835,7 +809,7 @@ static void pool_on(const song_ev_t *e, int role)
         return; /* no instrument on this role */
     if (role == V_CHORD && (p->model != M_PAD || e->len < PAD_LONG))
         count = NCH_KEYS; /* (a held pad's chord change overlaps: its old chord releases under the new one's swell) */
-    if (p->model == M_SUB && p->p[11] > 0.0f && (role == V_LEAD || role == V_BASS)) {
+    if (p->model == M_SUB && p->p[9] > 0.0f && role == V_LEAD) {
         for (i = first; i < first + count; i++)
             if (fv[i].on && fv[i].held && !fv[i].pend && fv[i].pt == p) {
                 pick = i;
@@ -851,7 +825,7 @@ static void pool_on(const song_ev_t *e, int role)
         if (pick >= 0) {
             v = &fv[pick];
             v->age = ++age_ctr;
-            n_glide[role == V_BASS] += e->note != v->note;
+            n_glide += e->note != v->note;
             voice_start(v, p, e, 1); /* legato: it glides from where it is */
             return;
         }
@@ -1090,51 +1064,19 @@ static float bass_sample(voice_t *v)
     return s;
 }
 
-/* M_CHIP's raw sample. The pulse is the naive one averaged over the sample's interval (the phase from t - inc to t):
-   at an edge inside it, the fraction on each side (a box-filtered step, the cheapest band-limited edge). The triangle
-   is 32 steps a cycle, 16 levels; the noise holds a value for a 16th of the period. The vibrato runs at the control
-   rate (WIND_CR). */
+/* M_CHIP's raw sample: a triangle of 32 steps a cycle, 16 levels. */
 static float chip_sample(voice_t *v)
 {
-    float t = v->m.ch.ph, dt = v->m.ch.inc, d = v->m.ch.d, s;
-    if (v->m.ch.vd > 0.0f && ++v->m.ch.cc == WIND_CR) {
-        v->m.ch.cc = 0;
-        v->m.ch.inc = v->m.ch.f0 * (1.0f + v->m.ch.vd * fm_sin_turns(v->m.ch.vp));
-        v->m.ch.vp += v->m.ch.vr;
-        if (v->m.ch.vp >= 1.0f)
-            v->m.ch.vp -= 1.0f;
-    }
-    if (v->m.ch.wave == 0) {
-        if (t < dt) /* the rising edge (the wrap) inside the interval */
-            s = 2.0f * t / dt - 1.0f;
-        else if (t >= d && t - dt < d) /* the falling edge */
-            s = 1.0f - 2.0f * (t - d) / dt;
-        else
-            s = t < d ? 1.0f : -1.0f;
-        s -= v->m.ch.dc;
-    } else if (v->m.ch.wave == 1) {
-        int k = (int)(t * 32.0f);
-        s = (float)(k < 16 ? k : 31 - k) * (2.0f / 15.0f) - 1.0f;
-    } else {
-        uint8_t k = (uint8_t)(t * 16.0f);
-        if (k != v->m.ch.nk) {
-            v->m.ch.nk = k;
-            v->m.ch.nz = noise();
-        }
-        s = v->m.ch.nz;
-    }
+    float t = v->m.ch.ph;
+    int k = (int)(t * 32.0f);
     t += v->m.ch.inc;
     v->m.ch.ph = t >= 1.0f ? t - 1.0f : t;
-    if (v->m.ch.tick > 1e-4f) { /* the tick: white noise, falling (it stops above the denormals) */
-        s += v->m.ch.tick * noise();
-        v->m.ch.tick *= v->m.ch.tk;
-    }
-    return s;
+    return (float)(k < 16 ? k : 31 - k) * (2.0f / 15.0f) - 1.0f;
 }
 
-/* M_SUB's control step (every SUB_CR samples): the filter's envelope, the vibrato, then the low-pass's coefficients
-   for the cutoff (key-tracked from the gliding pitch), set only when it moved: the SVF's (the 4-pole's two SVFs share
-   them, with their feedback's solve), or at half the rate the matched biquad's. */
+/* M_SUB's control step (every SUB_CR samples): the filter's envelope, then the low-pass's coefficients for the cutoff
+   (key-tracked from the gliding pitch), set only when it moved: the SVF's, or at half the rate the matched
+   biquad's. */
 static void sub_ctl(voice_t *v)
 {
     const vx_patch_t *p = v->pt;
@@ -1150,53 +1092,32 @@ static void sub_ctl(voice_t *v)
         if (v->m.sb.fe < 1e-4f) /* settled: the cutoff stops moving (and nothing nears the denormals) */
             v->m.sb.fe = 0.0f;
     }
-    if (v->m.sb.vd > 0.0f) { /* the winds' vibrato: 5 Hz, waiting VIB_DELAY, then fading in over VIB_FADE */
-        float r = ((float)(++v->m.sb.vt) * ((float)SUB_CR * INV_SR) - VIB_DELAY) * (1.0f / VIB_FADE);
-        if (r > 0.0f) {
-            v->m.sb.vm = 1.0f + fm_minf(r, 1.0f) * v->m.sb.vd * fm_sin_turns(v->m.sb.vp);
-            v->m.sb.vp += VIB_RATE * (float)SUB_CR * INV_SR;
-            if (v->m.sb.vp >= 1.0f)
-                v->m.sb.vp -= 1.0f;
-        }
-    }
-    hz = (p->p[4] + p->p[6] * v->m.sb.f0 * (SR / dv)) * fm_exp2f(v->m.sb.fam * v->m.sb.fe);
+    hz = (p->p[3] + p->p[5] * v->m.sb.f0 * (SR / dv)) * fm_exp2f(v->m.sb.fam * v->m.sb.fe);
     if (hz == v->m.sb.cz)
         return;
     v->m.sb.cz = hz;
     if (v->hr) {
         memset(v->m.sb.c, 0, sizeof v->m.sb.c);
         bq_match(v->m.sb.c, hz, v->m.sb.k, 1, 1.0f, dv);
-    } else if (v->m.sb.p4) { /* two critically damped SVFs: four equal poles, a ladder's */
-        float g2;
-        svf_coefs(v->m.sb.c, hz, 2.0f);
-        g2 = v->m.sb.c[2] * v->m.sb.c[2];
-        v->m.sb.c[4] = 1.0f / (1.0f + v->m.sb.r * g2);
     } else
         svf_coefs(v->m.sb.c, hz, v->m.sb.k);
 }
 
 /* M_SUB's raw sample: the glide, the oscillator, the sub-octave (a square flipping at each of the oscillator's wraps,
-   with the saw's polyBLEP at its edge), the noise, then the low-pass. The 4-pole's feedback (the second SVF's output
-   into the first's input, less r times it) is solved without a delay: each TPT SVF's low-pass is G x + S (G its
-   instantaneous gain, S from its states), so the cascade's output is (G^2 x + G S1 + S2) / (1 + r G^2). */
+   with the saw's polyBLEP at its edge), then the low-pass. */
 static float sub_sample(voice_t *v)
 {
-    float t = v->m.sb.ph, dt = v->m.sb.inc, x, y, bp;
+    float t = v->m.sb.ph, dt = v->m.sb.f0, x, bp;
     if (v->m.sb.cc == 0)
         sub_ctl(v);
     if (++v->m.sb.cc == (v->hr ? SUB_CR / 2u : SUB_CR))
         v->m.sb.cc = 0;
-    switch (v->m.sb.wave) {
-    case 0: x = saw_blep(t, dt); break;
-    case 1: {
+    x = saw_blep(t, dt);
+    if (v->m.sb.wave) { /* the pulse: two saws apart by its width */
         float t2 = t + v->m.sb.pw;
         if (t2 >= 1.0f)
             t2 -= 1.0f;
-        x = saw_blep(t, dt) - saw_blep(t2, dt);
-        break;
-    }
-    case 2: x = fm_sin_turns(t); break;
-    default: x = 1.0f - 4.0f * fm_fabsf(t - 0.5f); break;
+        x -= saw_blep(t2, dt);
     }
     if (v->m.sb.sl > 0.0f) {
         float sg = v->m.sb.sg, q = sg;
@@ -1209,13 +1130,10 @@ static float sub_sample(voice_t *v)
         }
         x += v->m.sb.sl * q;
     }
-    if (v->m.sb.nl > 0.0f)
-        x += v->m.sb.nl * noise();
     if (v->m.sb.gn) { /* the glide: even steps in pitch, landing exactly */
         v->m.sb.f0 = --v->m.sb.gn ? v->m.sb.f0 * v->m.sb.gk : v->m.sb.ft;
     }
-    v->m.sb.inc = v->m.sb.f0 * v->m.sb.vm;
-    t += v->m.sb.inc;
+    t += v->m.sb.f0;
     if (t >= 1.0f) {
         t -= 1.0f;
         v->m.sb.sg = -v->m.sb.sg;
@@ -1223,13 +1141,6 @@ static float sub_sample(voice_t *v)
     v->m.sb.ph = t;
     if (v->hr)
         return bq_step(v->m.sb.c, v->m.sb.s, x);
-    if (v->m.sb.p4) {
-        const float *c = v->m.sb.c;
-        float *s = v->m.sb.s, g = c[2], s1 = s[1] * (1.0f - g) + c[1] * s[0], s2 = s[3] * (1.0f - g) + c[1] * s[2];
-        y = (g * g * x + g * s1 + s2) * c[4];
-        y = svf_step(c, s, x - v->m.sb.r * y, &bp);
-        return svf_step(c, s + 2, y, &bp) * v->m.sb.gc;
-    }
     return svf_step(v->m.sb.c, v->m.sb.s, x, &bp);
 }
 
@@ -1953,7 +1864,7 @@ float vx_chip_out(int role, float *raw, float *step)
 
 uint32_t vx_glides(int role)
 {
-    return role == V_LEAD ? n_glide[0] : role == V_BASS ? n_glide[1] : 0u;
+    return role == V_LEAD ? n_glide : 0u;
 }
 
 float vx_duck_db(void)
@@ -1981,10 +1892,8 @@ int vx_tiny(void)
                vx_tiny_of(&cp_g, 1) + vx_tiny_of(&dk_env, 1);
     for (r = 0; r < NBUS; r++)
         c += vx_tiny_of(&bus[r].y, 1) + vx_tiny_of(&bus[r].z, 1) + vx_tiny_of(&bus[r].hm, 1);
-    for (r = 0; r < NV; r++) /* the chip's tick (it stops falling at 1e-4); a synth's filter envelope and states */
-        if (fv[r].on && fv[r].pt && fv[r].pt->model == M_CHIP)
-            c += vx_tiny_of(&fv[r].m.ch.tick, 1);
-        else if (fv[r].on && fv[r].pt && fv[r].pt->model == M_SUB)
-            c += vx_tiny_of(&fv[r].m.sb.fe, 1) + vx_tiny_of(fv[r].m.sb.s, 4);
+    for (r = 0; r < NV; r++) /* a synth's filter envelope and states */
+        if (fv[r].on && fv[r].pt && fv[r].pt->model == M_SUB)
+            c += vx_tiny_of(&fv[r].m.sb.fe, 1) + vx_tiny_of(fv[r].m.sb.s, 2);
     return c;
 }

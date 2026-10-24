@@ -4,8 +4,9 @@
 #   tools/cost-bench.sh [--forced] [SEED...]   no seeds: the heaviest roll among 200 (seeds 1-200, ranked by their
 #   render time with the chain forced to the heaviest: dust 3, vinyl, rain; best of 2), timed plain and forced: the
 #   upper bound; --forced does the same for the given seeds. The standard list (docs/cost.md):
-#   --forced 22 20 7 138 100 200 (the synths plan's Task 5, from a forced sweep of seeds 1-200: 22 Rhodes and Moog,
-#   the heaviest; 20 the heaviest organ set, 7 a held pad, 138 DX keys, 100 the Juno set, 200 the chip set)
+#   --forced 20 7 155 138 100 22 (Sam's synth cut, from a forced sweep of seeds 1-200: 20 Rhodes and saw lead, the
+#   heaviest; 7 a held pad; the heaviest of the other synth sets: 155 DX keys and FM bass, 138 DX and pluck, 100 Organ
+#   and saw lead, 22 Nylon and synth pluck)
 # Prints: vnl <ms> amb <ms> ratio <x> (and a `forced` line per seed when forcing). Needs ref/fm1-amb (gitignored)
 # and base/include/fastmath.h.
 set -e

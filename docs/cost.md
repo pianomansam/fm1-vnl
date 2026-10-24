@@ -18,8 +18,9 @@ budget; below it, the song engine is cheaper than something already known to fit
   proportions (float math, table lookups and big-buffer access scale differently). **The FM-1 bench replaces this
   ledger**; use it for the shape of the costs, not as a prediction.
 - **Reproduce:** `tools/cost-bench.sh --forced 20 100 128 183` for the history rows (the standard list from Task 8's
-  fix round was `--forced 7 20 49 100 128 183`; from the synths plan's Task 5 it is `--forced 22 20 7 138 100 200`, with
-  the picker `tools/cost-bench.sh` ranking 200 seeds by forced time), and the same bench built with
+  fix round was `--forced 7 20 49 100 128 183`; from the synths plan's Task 5 `--forced 22 20 7 138 100 200`; since
+  Sam's synth cut it is `--forced 20 7 155 138 100 22`, with the picker `tools/cost-bench.sh` ranking 200 seeds by
+  forced time), and the same bench built with
   `--parts` for the components (build line as in `tools/cost-bench.sh`, then run `app/build/bench --parts`).
 
 ## Cost per task (seeds 20, 100, 128, 183)
@@ -371,22 +372,49 @@ within 0.05 of each other, so the list above, not the picker, is the bound.
 
 | Component | Role | Ratio | Same run |
 |---|---|---|---|
-| Chip chords | chords | 0.269 | Rhodes 0.304, pad 0.275 |
-| Juno | chords | 0.303 | |
 | Organ | chords | 0.247 | nylon 0.247 |
 | DX EP | chords | 0.332 | the dearest chords |
-| Chip bass | bass | 0.117 | sub 0.141 |
-| Moog bass | bass | 0.233 | the dearest bass (elec 0.162) |
+| Chip (triangle) bass | bass | 0.117 | sub 0.141 |
 | FM bass | bass | 0.175 | |
-| Chip lead | lead | 0.176 | flute 0.247 |
-| Saw lead | lead | 0.168 | |
-| Square lead | lead | 0.177 | |
-| Sine lead | lead | 0.172 | |
+| Saw lead | lead | 0.168 | flute 0.247 |
 | Synth pluck | lead | 0.261 | vibes 0.272 |
-| Chip blip | candy | 0.175 | music box 0.227 |
-| FM bells | candy | 0.247 | bells 0.261 |
+
+(The rows of the patches Sam cut, below, are gone: the chip chords, lead and blip, the Juno, the Moog bass, the square
+and sine leads, the FM bells.)
 
 **Memory:** image 169148 B, RAM 46172 B, pool 179644 B (`tools/mem-check.sh`: ok).
+
+## Sam's synth cut (2026-10-24), measured
+
+Sam kept six synths (the DX EP, the FM slap bass, the triangle bass, the organ, the saw lead, the synth pluck) and the
+sets became DX keys and FM bass, Organ and saw lead, Rhodes and saw lead, DX and pluck, Nylon and synth pluck. The cut
+patches went, and the model code only they used: M_SUB's 4-pole, sine, triangle, noise and vibrato; M_CHIP's pulse,
+noise, vibrato and tick (the triangle and the crush stay).
+
+**The picker** (`tools/cost-bench.sh`, 200 seeds): seed **20, Rhodes and saw lead**, 0.847 plain, **0.866** forced. A
+forced sweep of seeds 1-200 (one run each) kept five of Task 5's six seeds on their families; 200 (the chip set) is now
+Rhodes neo-soul, so 155 (DX keys and FM bass, the heaviest of that set) takes its place:
+
+| Seed | Set | Why on the list | Plain | Forced |
+|---|---|---|---|---|
+| 20 | Rhodes and saw lead | the heaviest of the 200 | 0.859 | **0.875** |
+| 7 | Pad and guitar (held pad) | the heaviest held pad | 0.831 | 0.835 |
+| 155 | DX keys and FM bass | the heaviest DX keys set | 0.783 | 0.808 |
+| 138 | DX and pluck | the heaviest DX and pluck set | 0.759 | 0.783 |
+| 100 | Organ and saw lead | the heaviest organ set | 0.681 | 0.699 |
+| 22 | Nylon and synth pluck | the heaviest nylon and pluck set | 0.694 | 0.725 |
+
+`--forced 20 7 155 138 100 22`: max **0.875** (seed 20), 0.125 of headroom.
+
+**`--parts`, the kept synths** (best of 7, AMB-1 137.0 ms, idle floor 0.098): organ 0.211, DX EP 0.324 (the dearest
+chords; Rhodes 0.292), triangle bass 0.107, FM bass 0.171, saw lead 0.151, synth pluck 0.242. (`--parts` had its role
+counts hard-coded; it now counts its tables.)
+
+**The levels** (test_lead_over_keys): the saw lead 0.945 to 1.12 (it leads three sets now), the DX EP 1.0 to 0.944,
+the organ 0.27 to 0.248; each new set's mean 4.4-5.4 dB, median 4.9-5.4. DX and pluck plays the soft kit: on the 808
+the Slow bloom map's kick-and-bass entry (seed 47) jumped 7 dB over the keys, snare and hats block before it.
+
+**Memory:** image 166652 B (was 169148), RAM 46028 B (was 46172), pool 179644 B (`tools/mem-check.sh`: ok).
 
 ## The three biggest costs
 

@@ -112,12 +112,14 @@ const lib_set_t LIB_SETS[] = {
     {9, "Nylon and sax", INS_NYLON, INS_UPRIGHT, INS_SAX, INS_NONE, KIT_BRUSHES, FL_BOSSA, MOOD_WISTFUL | MOOD_WARM, "brainstorm: late-night bossa"},
     {10, "Pad and guitar", INS_PAD, INS_ELEC_BASS, INS_GUITAR_LICK, INS_VOX_PAD, KIT_808, FL_CHILLWAVE, MOOD_SAD | MOOD_WISTFUL, "brainstorm: hazy chillwave"},
     {11, "Rhodes neo-soul", INS_RHODES, INS_ELEC_BASS, INS_MUTED_TPT, INS_VIBES, KIT_SOFT, FL_NEOSOUL, MOOD_WARM | MOOD_SUNNY, "brainstorm: smooth neo-soul"},
-    /* the synth sets (synths plan Task 4): the first four all synth, so every mood has one */
-    {12, "Juno and saw lead", INS_JUNO, INS_MOOG_BASS, INS_SAW_LEAD, INS_FM_BELL, KIT_808, FL_CHILLWAVE, MOOD_SAD | MOOD_WARM, "synths spec: a Juno poly and a saw lead, chillwave"},
-    {13, "DX keys and FM bass", INS_DX_EP, INS_FM_BASS, INS_SQUARE_LEAD, INS_FM_BELL, KIT_SOFT, FL_CITYPOP, MOOD_WARM | MOOD_SUNNY, "synths spec: 80s FM keys and bass, city pop"},
-    {14, "Chip lo-fi", INS_CHIP_CHORDS, INS_CHIP_BASS, INS_CHIP_LEAD, INS_CHIP_BLIP, KIT_DUSTY, FL_LOFI, MOOD_WISTFUL | MOOD_SUNNY, "synths spec: chiptune lo-fi, every role a chip voice"},
-    {15, "Organ and sine lead", INS_ORGAN, INS_MOOG_BASS, INS_SINE_LEAD, INS_FM_BELL, KIT_SOFT, FL_NEOSOUL, MOOD_SAD | MOOD_WISTFUL, "synths spec: an organ under a sine lead"},
-    {16, "Rhodes and Moog", INS_RHODES, INS_MOOG_BASS, INS_SQUARE_LEAD, INS_BELLS, KIT_DUSTY, FL_LOFI, MOOD_SAD | MOOD_SUNNY, "synths spec: a Moog bass and square lead under a Rhodes"},
+    /* the synth sets (synths plan Task 4; Sam's cut, 2026-10-24: only the DX EP, the FM slap bass, the triangle bass,
+       the organ, the saw lead and the synth pluck kept). 13, 18 and 20 all synth (keys, bass and lead), so every mood
+       has one; the ear candy acoustic or none. Ids 12, 14-16 retired (the Juno, chip, organ and sine, Rhodes and Moog
+       sets). */
+    {13, "DX keys and FM bass", INS_DX_EP, INS_FM_BASS, INS_SAW_LEAD, INS_VIBES, KIT_SOFT, FL_CITYPOP, MOOD_WARM | MOOD_SUNNY, "synths spec: 80s FM keys and bass, city pop; Sam's cut: the saw lead"},
+    {18, "Organ and saw lead", INS_ORGAN, INS_CHIP_BASS, INS_SAW_LEAD, INS_MUSIC_BOX, KIT_SOFT, FL_NEOSOUL, MOOD_SAD | MOOD_WISTFUL, "Sam's cut: an organ over the triangle bass under a saw lead"},
+    {19, "Rhodes and saw lead", INS_RHODES, INS_FM_BASS, INS_SAW_LEAD, INS_NONE, KIT_DUSTY, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "Sam's cut: a dusty Rhodes, the FM slap bass, a saw lead (was Rhodes and Moog)"},
+    {20, "DX and pluck", INS_DX_EP, INS_CHIP_BASS, INS_SYNTH_PLUCK, INS_KALIMBA, KIT_SOFT, FL_CHILLWAVE, MOOD_SAD | MOOD_WARM, "Sam's cut: DX keys, the triangle bass, a synth pluck, chillwave"},
     {17, "Nylon and synth pluck", INS_NYLON, INS_SUB, INS_SYNTH_PLUCK, INS_KALIMBA, KIT_BRUSHES, FL_BOSSA, MOOD_WISTFUL | MOOD_SUNNY, "synths spec: a nylon guitar under a synth pluck"},
 };
 const int LIB_NSETS = (int)(sizeof LIB_SETS / sizeof LIB_SETS[0]);
@@ -183,6 +185,5 @@ const lib_map_t *lib_map_by_id(uint8_t id)
 int lib_ins_sustained(int ins)
 {
     return ins == INS_PAD || ins == INS_FLUTE || ins == INS_SAX || ins == INS_MUTED_TPT || ins == INS_VOX_PAD ||
-           ins == INS_CHIP_CHORDS || ins == INS_JUNO || ins == INS_ORGAN || ins == INS_SAW_LEAD ||
-           ins == INS_SQUARE_LEAD || ins == INS_SINE_LEAD;
+           ins == INS_ORGAN || ins == INS_SAW_LEAD;
 }

@@ -30,25 +30,19 @@
      cutoff at full envelope and velocity, as a multiple of the note's frequency (60% of it at velocity 0, 30% at
      envelope 0), p[3] the breath's level, p[4] its band's center in Hz, p[5] the vibrato's depth in cents, p[6] the
      mute: a band-pass center in Hz (0 for none), p[7] its damping k (1/Q: small is narrow).
-   M_CHIP (chip chords, lead, bass, blips; voices.c chip_*): a NES-style channel at full rate and no filter (the dust
-     colors it): a pulse at a fixed duty (its edges band-limited over one sample), a triangle stepped to 16 levels, or
-     noise held for a 16th of the note's period; pitch on the semitone, except a vibrato.
-     p[0] the wave (0 pulse, 1 triangle, 2 noise), p[1] the pulse's duty (0.125, 0.25 or 0.5), p[2] the vibrato's rate
-     in Hz, p[3] its depth in cents (0 for none), p[4] the arpeggio (0: off, the only setting), p[5] a noise tick's
-     level at the onset at full velocity (0 for none), p[6] its fall to -60 dB (s), p[7] the bit crush: the voice's
-     output (after its envelope) rounded to this many bits over its own full level (2^(p[7]-1) steps from 0 to the
-     note's level; 0 for none; the chips: 7, a few-bit DAC's grit and steppy decays).
-   M_SUB (Juno, organ, Moog bass, saw, square and sine leads, synth pluck; voices.c sub_*): frugal as a Juno-106, one
-     oscillator, a sub-octave square and noise into a low-pass with its own envelope; mono and glide for the leads and
-     the bass. On the chords a 2-pole patch whose highest cutoff stays at 8 kHz or under renders at half the rate.
-     p[0] the wave (0 saw, 1 pulse, 2 sine, 3 triangle), p[1] the pulse's width (0.05-0.5), p[2] the sub-octave
-     square's level, p[3] the noise's level, p[4] the low-pass's cutoff in Hz plus p[6] times the note's frequency (the
-     key tracking), p[5] the resonance (0-1, clamped: the 2-pole's damping from Butterworth's down by 85%, the 4-pole's
-     feedback to 3.6 of the 4 that self-oscillates), p[7] the filter envelope's depth in octaves over the cutoff at full
-     velocity (half of it at velocity 0), p[8] its attack (s), p[9] its fall to -60 dB (s), p[10] 1 for the 4-pole (two
-     SVFs, four equal poles, a ladder's slope; never at half the rate), p[11] 1 for mono (on the lead or the bass: a
-     note while the last is held goes legato, gliding), p[12] the glide's time in ms (0: legato, no glide), p[13] a
-     delayed vibrato's depth in cents (the winds': 5 Hz, after 0.3 s, faded in over 0.6 s; 0 for none). */
+   M_CHIP (the triangle bass; voices.c chip_*): a NES-style triangle channel at full rate and no filter (the dust
+     colors it): stepped to 16 levels, pitch on the semitone.
+     p[0] the bit crush: the voice's output (after its envelope) rounded to this many bits over its own full level
+     (2^(p[0]-1) steps from 0 to the note's level; 0 for none; 7: a few-bit DAC's grit and steppy decays).
+   M_SUB (organ, saw lead, synth pluck; voices.c sub_*): frugal as a Juno-106, one oscillator and a sub-octave square
+     into a 2-pole low-pass with its own envelope; mono and glide for the lead. On the chords a patch whose highest
+     cutoff stays at 8 kHz or under renders at half the rate.
+     p[0] the wave (0 saw, 1 pulse), p[1] the pulse's width (0.05-0.5), p[2] the sub-octave square's level, p[3] the
+     low-pass's cutoff in Hz plus p[5] times the note's frequency (the key tracking), p[4] the resonance (0-1,
+     clamped: the damping from Butterworth's down by 85%), p[6] the filter envelope's depth in octaves over the cutoff
+     at full velocity (half of it at velocity 0), p[7] its attack (s), p[8] its fall to -60 dB (s), p[9] 1 for mono
+     (on the lead: a note while the last is held goes legato, gliding), p[10] the glide's time in ms (0: legato, no
+     glide). */
 #include <stddef.h>
 #include "library.h"
 #include "patch.h"
@@ -76,37 +70,21 @@ static const vx_patch_t PATCHES[INS_NONE] = {
     [INS_MUSIC_BOX] = {M_BELL, {5.0f, 0.3f, 0.9f, 0.25f, 0.0f, 0.0f, 0.3f}, 0.002f, 1.2f, 0.0f, 0.05f, 1.1f, 0.0f, 0.4f},
     [INS_BELLS] = {M_BELL, {3.53f, 0.6f, 1.2f, 1.2f, 0.0f, 0.0f, 0.3f}, 0.003f, 3.5f, 0.0f, 0.2f, 0.87f, 0.0f, 0.35f},
     [INS_VOX_PAD] = {M_PAD, {4.0f, 2.0f, 0.35f, 0.0f, 0.0f, 0.0f, 0.6f, 1.0f}, 0.8f, 4.0f, 0.85f, 0.9f, 1.77f, 0.5f, 0.25f},
-    /* the chip voices (their levels balanced in their set: the lead over the chip chords, test_lead_over_keys) */
-    [INS_CHIP_CHORDS] = {M_CHIP, {0.0f, 0.25f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 7.0f}, 0.004f, 3.0f, 0.6f, 0.12f, 0.32f, 0.0f, 0.08f},
-    [INS_CHIP_LEAD] = {M_CHIP, {0.0f, 0.5f, 6.5f, 12.0f, 0.0f, 0.0f, 0.0f, 7.0f}, 0.003f, 1.5f, 0.3f, 0.1f, 0.7f, 0.0f, 0.3f},
-    [INS_CHIP_BASS] = {M_CHIP, {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 7.0f}, 0.003f, 7.0f, 1.0f, 0.05f, 1.3f, 0.0f, 0.0f},
-    [INS_CHIP_BLIP] = {M_CHIP, {0.0f, 0.125f, 0.0f, 0.0f, 0.0f, 0.6f, 0.02f, 7.0f}, 0.001f, 0.25f, 0.0f, 0.05f, 0.8f, 0.0f, 0.4f},
-    /* the subtractive synths, warm (their cutoffs low), their levels balanced in their sets like the rest. The
-       Juno: a saw and its sub, a gentle envelope, the chorus deep (the Juno's); the organ: a square and its sub
-       (16' and 8'), no envelope; the Moog bass: a saw and its sub through the 4-pole, plucked open, a short glide; the
-       leads mono and gliding; the synth pluck: a pulse snapped open and shut */
-    [INS_JUNO] = {M_SUB, {0.0f, 0.5f, 0.4f, 0.0f, 600.0f, 0.15f, 1.0f, 1.0f, 0.005f, 0.8f}, 0.01f, 4.0f, 0.75f, 0.35f,
-                  0.55f, 0.8f, 0.1f},
-    [INS_ORGAN] = {M_SUB, {1.0f, 0.5f, 0.6f, 0.0f, 1200.0f, 0.0f, 1.0f}, 0.005f, 6.0f, 1.0f, 0.08f, 0.27f, 0.4f, 0.08f},
-    [INS_MOOG_BASS] = {M_SUB, {0.0f, 0.5f, 0.5f, 0.0f, 200.0f, 0.35f, 1.0f, 3.0f, 0.001f, 0.35f, 1.0f, 1.0f, 30.0f},
-                       0.003f, 1.5f, 0.5f, 0.06f, 1.78f, 0.0f, 0.0f},
-    [INS_SAW_LEAD] = {M_SUB, {0.0f, 0.5f, 0.0f, 0.0f, 900.0f, 0.2f, 1.5f, 1.0f, 0.02f, 0.6f, 0.0f, 1.0f, 90.0f},
-                      0.01f, 3.0f, 0.8f, 0.12f, 0.945f, 0.0f, 0.3f},
-    [INS_SQUARE_LEAD] = {M_SUB, {1.0f, 0.5f, 0.0f, 0.0f, 800.0f, 0.1f, 1.5f, 0.8f, 0.02f, 0.6f, 0.0f, 1.0f, 60.0f,
-                                 10.0f},
-                         0.01f, 3.0f, 0.8f, 0.12f, 0.70f, 0.0f, 0.3f},
-    [INS_SINE_LEAD] = {M_SUB, {2.0f, 0.5f, 0.0f, 0.0f, 3000.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.1f, 0.0f, 1.0f, 70.0f, 14.0f},
-                       0.03f, 3.0f, 0.8f, 0.15f, 0.899f, 0.0f, 0.3f},
-    [INS_SYNTH_PLUCK] = {M_SUB, {1.0f, 0.35f, 0.0f, 0.0f, 200.0f, 0.25f, 0.6f, 4.5f, 0.001f, 0.3f}, 0.002f, 1.2f, 0.0f,
+    /* the triangle bass (a chip voice) */
+    [INS_CHIP_BASS] = {M_CHIP, {7.0f}, 0.003f, 7.0f, 1.0f, 0.05f, 1.3f, 0.0f, 0.0f},
+    /* the subtractive synths, warm (their cutoffs low), their levels balanced in their sets like the rest. The organ:
+       a square and its sub (16' and 8'), no envelope; the saw lead mono and gliding; the synth pluck: a pulse snapped
+       open and shut */
+    [INS_ORGAN] = {M_SUB, {1.0f, 0.5f, 0.6f, 1200.0f, 0.0f, 1.0f}, 0.005f, 6.0f, 1.0f, 0.08f, 0.248f, 0.4f, 0.08f},
+    [INS_SAW_LEAD] = {M_SUB, {0.0f, 0.5f, 0.0f, 900.0f, 0.2f, 1.5f, 1.0f, 0.02f, 0.6f, 1.0f, 90.0f},
+                      0.01f, 3.0f, 0.8f, 0.12f, 1.12f, 0.0f, 0.3f},
+    [INS_SYNTH_PLUCK] = {M_SUB, {1.0f, 0.35f, 0.0f, 200.0f, 0.25f, 0.6f, 4.5f, 0.001f, 0.3f}, 0.002f, 1.2f, 0.0f,
                          0.1f, 1.307f, 0.0f, 0.35f},
     /* the 80s FM keys: a 14x tine on the attack (a high ratio, a bright index falling fast) over a clean body */
-    [INS_DX_EP] = {M_EP, {1.0f, 0.3f, 1.8f, 0.9f, 0.12f, 0.4f, 0.0f, 6500.0f}, 0.002f, 2.6f, 0.0f, 0.08f, 1.0f,
+    [INS_DX_EP] = {M_EP, {1.0f, 0.3f, 1.8f, 0.9f, 0.12f, 0.4f, 0.0f, 6500.0f}, 0.002f, 2.6f, 0.0f, 0.08f, 0.944f,
                    0.5f, 0.08f},
     /* the slap FM bass: the index strikes high and is gone in 150 ms */
     [INS_FM_BASS] = {M_BASS, {1.0f, 0.1f, 8.0f, 0.15f, 0.15f}, 0.002f, 4.0f, 0.6f, 0.05f, 1.3f, 0.0f, 0.0f},
-    /* DX digital bells: an inharmonic ratio, a bright index falling slowly */
-    [INS_FM_BELL] = {M_BELL, {3.5f, 1.0f, 1.8f, 1.5f, 0.0f, 0.0f, 0.3f}, 0.002f, 3.0f, 0.0f, 0.15f, 0.85f, 0.0f,
-                     0.35f},
 };
 
 const vx_patch_t *vx_patch(int ins)
