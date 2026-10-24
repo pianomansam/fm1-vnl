@@ -665,3 +665,16 @@ lanes 1-2 and the solo note on its own lane-4 voice (`app/host/bench.c`, P_PAD).
   - dry 0.050 / 0.050. The first run's dry rows read 0.011-0.013, which is noise.
 - **The picker** (200 seeds, host load 4.9) re-picks seed 20: 0.954 plain, **0.967** forced (AMB-1 142.4).
 
+
+**Final-review fix (2026-10-24): a step glides on its own lane; a held lane takes its new velocity.** The 2-note chord
+part used to move a note onto its spare lane at nearly every change, leaving the old lane's 1.5-2 s release under the
+new chord, a third voice sounding where 2 would do. A step now glides on its own lane (released
+lanes at a change: 15,750 -> 1,236 of 16,023 over 500 songs). Measured on a busy host (load 4.8-8.0):
+- seed 20 forced, `VNL_RUNS=7`, five runs: **0.971 / 0.978 / 0.980 / 0.994 / 0.916** (VNL 135.2-138.6 ms, AMB-1
+  139.2-149.2);
+- the standard list, `--forced 20 7 155 138 100 22`, twice: 0.949 / 0.963 / 0.899 / 0.852 / 0.779 / 0.793 plain,
+  **0.976** / 0.928 / 0.914 / 0.864 / 0.797 / 0.805 forced (AMB-1 140.9); then (`VNL_RUNS=3`) 0.942 / 0.893 / 0.842 /
+  0.823 / 0.770 / 0.771 plain, **0.959** / 0.889 / 0.876 / 0.851 / 0.789 / 0.803 forced (AMB-1 142.5). (A first run
+  with AMB-1 at 197.6 ms, a host stall, is left out.)
+- No saving shows above the host's noise: VNL's ms for seed 20 forced (135-139) match the accepted numbers'
+  (135.8-136.4): a releasing voice is a quarter-rate saw pair, under the bench's noise. The budget stays at about 0.97 (Sam's acceptance), under the hard limit 1.0.
