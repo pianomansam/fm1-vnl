@@ -25,8 +25,8 @@ void phrase_motif(uint32_t seed, motif_t2 *m)
     n = bars == 1 ? 3 : 3 + rng_weighted(&g, nw, 4);
     for (tr = 0; tr < 17; tr++) {
         int room, k, t, ok = 1;
-        if (tr == 16) f = 1;   /* a last resort: quarters from the "and" of 1 never land on bar 2's beat 1 */
         for (i = 0; i < n; i++) li[i] = gap[i] = 0;
+        if (tr == 16) { f = 1; li[0] = 1; }   /* a last resort: a dotted quarter and quarters from the "and" of 1 */
         room = bars * 8 - f - 2 * n;
         for (k = 0; tr < 16 && k < 24 && room > 0; k++) {   /* lengthen notes (and now and then a breath) */
             i = rng_int(&g, n);
@@ -41,7 +41,8 @@ void phrase_motif(uint32_t seed, motif_t2 *m)
             m->at[i] = (uint8_t)t;
             m->len[i] = vocab[li[i]];
             t += vocab[li[i]];
-            if (f == 0 && t - vocab[li[i]] == 8) ok = 0;   /* beat 1 rests in bar 2 when bar 1 starts on it */
+            if (f == 0 && m->at[i] == 8) ok = 0;   /* beat 1 rests in bar 2 when bar 1 starts on it */
+            if (m->at[i] < 8 && m->at[i] > (f == 0 ? 5 : 6)) ok = 0;   /* room in bar 3 for the cadence's pickup */
         }
         if (ok) break;
     }
@@ -78,7 +79,7 @@ enum { N_STEP, N_LAST, N_INV, N_DELAY };
 
 /* Whether a nudge changes the bar; up (bar 3, rising into the question) also keeps an inversion from lowering
    the bar's high point. */
-static int nudge_ok(int kind, int up, const pn_t *b, int n)
+static int nudge_ok(int kind, int up, int lim, const pn_t *b, int n)
 {
     int i, h = n / 2, hi = -99, ihi = -99, moved = 0;
     if (n == 0) return 0;
@@ -93,15 +94,16 @@ static int nudge_ok(int kind, int up, const pn_t *b, int n)
         return moved && (!up || ihi >= hi);
     }
     if (kind == N_DELAY) {
-        for (i = 0; i < n; i++) if (b[i].t % 16 <= 13 && b[i].len >= 4) return 1;
+        for (i = 0; i < n; i++) if (b[i].t + 2 <= lim && b[i].len >= 4) return 1;
         return 0;
     }
     return 1;
 }
 
 /* One nudge to a bar's notes. up: bar 3 rises into the question (its highest note, or its last interval, goes up);
-   bar 7 moves either way. */
-static void nudge(rng_t *g, int kind, int up, pn_t *b, int n)
+   bar 7 moves either way. A delay lands by 16th lim, leaving room for the cadence's pickup. Ornaments are re-tagged
+   after: off beats 1 and 3, reached and left by step inside the bar. */
+static void nudge(rng_t *g, int kind, int up, int lim, pn_t *b, int n)
 {
     int i, h = n / 2, d = up || rng_int(g, 2) ? 1 : -1;
     switch (kind) {
@@ -119,34 +121,64 @@ static void nudge(rng_t *g, int kind, int up, pn_t *b, int n)
         break;
     default: {
         int c[8], k = 0;
-        for (i = 0; i < n; i++) if (b[i].t % 16 <= 13 && b[i].len >= 4) c[k++] = i;
+        for (i = 0; i < n; i++) if (b[i].t + 2 <= lim && b[i].len >= 4) c[k++] = i;
         i = c[rng_int(g, k)];
         b[i].t += 2;   /* delayed an 8th, ending where it did */
         b[i].len -= 2;
     }
     }
+    for (i = 0; i < n; i++)
+        b[i].orn = i > 0 && i < n - 1 && b[i].t % 8 != 0 && iabs(b[i].deg - b[i - 1].deg) <= 1 &&
+                   iabs(b[i + 1].deg - b[i].deg) <= 1;
 }
+
+#define PMAX 48   /* notes in a plan; 8 bars use about 32 at most */
 
 static int add(pn_t *p, int n, int t, int len, int deg, int role, int orn)
 {
+    if (n >= PMAX) return n;
     p[n].t = t; p[n].len = len; p[n].deg = deg; p[n].role = role; p[n].orn = orn;
     return n + 1;
 }
 
-/* The cadence bar at t0: a step (or two) into the target, held, then at least half a bar of rest. */
-static int cadence(rng_t *g, pn_t *p, int n, int t0, int target, int dir, int b1ok, int close, int role)
+/* The pickup into a target: a step from it. After a leap into the bar's last note it steps back the other way when
+   that is a step from the target; else it comes from the near side (no new leap), or from past the target when the
+   target is a leap away (a leap, then a step back); dir: the side when there's no leap to answer. */
+static int approach(int last, int ld, int target, int dir)
 {
-    static const uint8_t w[4] = { 2, 1, 1, 1 };
-    int pat = b1ok ? rng_weighted(g, w, close ? 4 : 3) : 0;
-    switch (pat) {
-    case 0: n = add(p, n, t0 + 2, 2, target - dir, PR_CLOSE, 0); return add(p, n, t0 + 4, 4, target, role, 0);
-    case 1: n = add(p, n, t0, 2, target - dir, PR_CLOSE, 0); return add(p, n, t0 + 2, 6, target, role, 0);
-    case 2: n = add(p, n, t0, 4, target - dir, PR_CLOSE, 0); return add(p, n, t0 + 4, 4, target, role, 0);
-    default:
-        n = add(p, n, t0, 2, target - 2 * dir, PR_CLOSE, 0);
-        n = add(p, n, t0 + 2, 2, target - dir, PR_CLOSE, 0);
-        return add(p, n, t0 + 4, 4, target, role, 0);
+    int dl = last - target;
+    if (ld && iabs(target - (last - ld)) == 1) return last - ld;
+    if (dl == 0) return target - dir;
+    if (dl <= 3 && dl >= -3) return target + (dl > 0 ? 1 : -1);
+    return target - (dl > 0 ? 1 : -1);
+}
+
+/* The cadence at bar t0: the target sounds from beat 1 to beat 3, then rests. It is struck on beat 1 after a
+   pickup (ap) at the end of the bar before, or (tie) tied in from that bar's end so beat 1 rests. */
+static int cadence(rng_t *g, pn_t *p, int n, int t0, int target, int ap, int tie, int role)
+{
+    int lt = p[n - 1].t, c;
+    if (tie) {
+        c = lt <= t0 - 8 && rng_int(g, 2) ? t0 - 6 : t0 - 4;
+        n = add(p, n, c, 2, ap, PR_CLOSE, 0);
+        return add(p, n, c + 2, t0 + 8 - (c + 2), target, role, 0);
     }
+    c = lt <= t0 - 6 && rng_int(g, 2) ? t0 - 4 : t0 - 2;
+    n = add(p, n, c, t0 - c, ap, PR_CLOSE, 0);
+    return add(p, n, t0, 8, target, role, 0);
+}
+
+/* Leaps (3+ steps, legato from the note before) not answered by a step back, in a bar's notes after a note of
+   degree prev that sounds until pend (bar time); a leap into the last note is left to the cadence's pickup. */
+static int unanswered(const pn_t *b, int n, int prev, int pend)
+{
+    int i, k = 0;
+    for (i = 0; i + 1 < n; i++) {
+        int d = b[i].deg - (i ? b[i - 1].deg : prev), nd = b[i + 1].deg - b[i].deg;
+        int legato = i ? b[i - 1].t + b[i - 1].len >= b[i].t : pend >= b[i].t;
+        if (legato && iabs(d) >= 3 && !(d > 0 ? nd == -1 : nd == 1)) k++;
+    }
+    return k;
 }
 
 /* Places a bar's notes (t within the bar or the motif) from t0, their degrees shifted. */
@@ -170,35 +202,55 @@ static int build(uint32_t seed, int block, int pass, pn_t *p)
     motif_t2 m;
     pn_t mo[8], b1[8], v[8];
     rng_t g;
-    int i, n = 0, nm, n1 = 0, deg = 0, k3, k7, b1ok, last, q = 0, a;
+    int i, n = 0, nm, n1 = 0, deg = 0, k3 = -1, b1ok, lim, last, q = 0, a;
     phrase_motif(seed, &m);
     for (i = 0, nm = m.n; i < nm; i++) {
         deg += m.step[i];
         mo[i].t = m.at[i] * 2; mo[i].len = m.len[i] * 2; mo[i].deg = deg; mo[i].role = PR_MOTIF; mo[i].orn = m.orn[i];
         if (mo[i].t < 16) b1[n1++] = mo[i];
     }
-    b1ok = mo[0].t != 0;   /* bar 1 rests on beat 1, so a cadence bar may start on it */
+    b1ok = mo[0].t != 0;   /* bar 1 rests on beat 1, so a cadence may strike on beat 1 */
+    lim = b1ok ? 12 : 10;  /* bars 3 and 7's last onset: room for a pickup (and a tie in when beat 1 rests) */
     rng_seed(&g, seed ^ ((uint32_t)block * 0x27D4EB2Fu) ^ ((uint32_t)pass * 0x165667B1u), 181);
-    do k3 = rng_int(&g, 4); while (!nudge_ok(k3, 1, b1, n1));
-    do k7 = rng_int(&g, 4); while (k7 == k3 || !nudge_ok(k7, 0, b1, n1));
     for (i = 0; i < 2; i++) {   /* the question (bars 1-4), then the answer (bars 5-8) */
-        int t0 = i * 64, j;
+        int t0 = i * 64, j, tie, k, tries, pend, ld, d;
         n = place(p, n, mo, nm, t0, 0, PR_MOTIF);
         if (m.bars == 1) n = place(p, n, mo, nm, t0 + 16, 1, PR_MOTIF);   /* a 1-bar motif again, a step higher */
-        for (j = 0; j < n1; j++) v[j] = b1[j];
-        nudge(&g, i ? k7 : k3, !i, v, n1);
+        /* a breath before bar 3 restarts the motif with a leap (the same in both halves: bars 5-6 = bars 1-2) */
+        pend = p[n - 1].t + p[n - 1].len - (t0 + 32);
+        if (pend >= b1[0].t && iabs(b1[0].deg - p[n - 1].deg) >= 3) {
+            p[n - 1].len -= pend - (b1[0].t - 2);
+            pend = b1[0].t - 2;
+        }
+        /* bar 3 (7): one nudge, a different kind in the answer; up to 8 draws for one that leaves no leap
+           unanswered */
+        for (tries = 0; tries < 8; tries++) {
+            do k = rng_int(&g, 4); while ((i && k == k3) || !nudge_ok(k, !i, lim, b1, n1));
+            for (j = 0; j < n1; j++) v[j] = b1[j];
+            nudge(&g, k, !i, lim, v, n1);
+            if (!unanswered(v, n1, p[n - 1].deg, pend)) break;
+        }
+        if (!i) k3 = k;
         n = place(p, n, v, n1, t0 + 32, 0, PR_VARIED);
         last = p[n - 1].deg;
+        d = n1 > 1 ? last - p[n - 2].deg : 0;
+        ld = n1 > 1 && iabs(d) >= 3 && p[n - 2].t + p[n - 2].len >= p[n - 1].t ? (d > 0 ? 1 : -1) : 0;
+        tie = !b1ok || (p[n - 1].t <= t0 + 42 && rng_int(&g, 3) == 0);   /* beat 1 must rest, or now and then */
         if (!i) {   /* the question: the nearest 3rd or 5th a step or two up (else just below), by step */
             static const int8_t near[6] = { 2, 1, 3, 0, -1, 4 };
-            for (j = 0, q = last; j < 6; j++)
-                if (mod7(last + near[j]) == 2 || mod7(last + near[j]) == 4) { q = last + near[j]; break; }
-            n = cadence(&g, p, n, t0 + 48, q, q > last ? 1 : -1, b1ok, 0, PR_QUESTION);
+            q = -99;
+            if (ld) {   /* after a leap, one the pickup can step back toward */
+                for (j = 1; j >= -1 && q == -99; j -= 2)
+                    if (mod7(last - ld + j) == 2 || mod7(last - ld + j) == 4) q = last - ld + j;
+            }
+            for (j = 0; j < 6 && q == -99; j++)
+                if (mod7(last + near[j]) == 2 || mod7(last + near[j]) == 4) q = last + near[j];
+            n = cadence(&g, p, n, t0 + 48, q, approach(last, ld, q, 1), tie, PR_QUESTION);
         } else {    /* the answer settles by step down to the anchor degree nearest a step below, under the question */
             a = last - 1;
             a = a - mod7(a) + (mod7(a) >= 4 ? 7 : 0);
             if (a >= q && last - (a - 7) <= 6) a -= 7;   /* under the question, unless that means a leap past a 6th */
-            n = cadence(&g, p, n, t0 + 48, a, -1, b1ok, 1, PR_ARRIVAL);
+            n = cadence(&g, p, n, t0 + 48, a, approach(last, ld, a, -1), tie, PR_ARRIVAL);
         }
     }
     clip(p, n);
@@ -208,7 +260,7 @@ static int build(uint32_t seed, int block, int pass, pn_t *p)
 int phrase_bar(uint32_t seed, int block, int pass, int bar_in_phrase, int phrase_bars, int last_block,
                phrase_note_t *out, int max)
 {
-    pn_t p[48];
+    pn_t p[PMAX];
     int n, i, k = 0, t0;
     if (bar_in_phrase < 0 || bar_in_phrase >= (phrase_bars < 8 ? 4 : 8)) return 0;
     if (phrase_bars < 8 && last_block) bar_in_phrase += 4;
