@@ -592,3 +592,20 @@ its events): `--forced 20 7 155 138 100 22` gave 0.903 / 0.850 / 0.813 / 0.786 /
 warm pad) should land near 0.97. **Memory:** image 176296 B (was 166652), RAM 48960 B (was 46028: four voices and the
 layer's segment buffer), pool 179644 B (unchanged: the layer's voices have no Karplus-Strong line)
 (`tools/mem-check.sh`: ok).
+
+**Fix round (pads Task 1 review):** the layer's notes now play on lanes (lanes 1-3 the chord, 4 the solo; a held
+lane glides to its next note), a note whose key-tracked low-pass is above 4 kHz renders at half the rate (a matched
+biquad, through the upsampler; none of the patches' notes up to C6 crosses it), and the pad's send into the chorus is
+scaled to its own patch's depth, its dry scaled to match. The bench's pad part now plays lanes, each held into the next
+bar and gliding there (the old part stole each chord's release instead). `--parts` best of 7 (AMB-1 143.1 ms, idle
+floor 0.106):
+
+| Component | Role | Ratio (net of floor) | Over the source, dry | Over the source, full chain |
+|---|---|---|---|---|
+| Pad layer (M_ENS), strings, lanes | 4 pad voices | **0.082** | 0.067 | 0.072 |
+| Pad layer (M_ENS), warm pad, lanes | 4 pad voices | **0.080** | 0.068 | 0.079 |
+
+At the 0.08 target (the alone rows a hair over, the over-source rows under). The glides cost about 0.01 against the
+stolen notes. `--forced 20 7 155 138 100 22`, two runs (the AMB-1 denominator drifting 145.8 to 150.1 ms): max
+**0.917** and **0.905** (seed 20); no song plays the layer yet, so the change from 0.903 is bench noise and the
+per-segment check for pad voices.

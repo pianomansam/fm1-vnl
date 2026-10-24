@@ -11,7 +11,8 @@
 enum { V_CHORD, V_BASS, V_LEAD, V_CANDY, V_PAD, V_KICK, V_SNARE, V_HAT, V_OHAT, V_SHAKER, V_RIM, V_N };
 enum { BS_ROOTS, BS_ROOT_FIFTH, BS_WALK, BS_PEDAL };
 
-/* delay and len in samples at 44100 Hz (delay is late only); note is MIDI (drums 0); vel 1-127. */
+/* delay and len in samples at 44100 Hz (delay is late only); note is MIDI (drums 0); vel 1-127. pad: the bass's and
+   the lead's push flag; on V_PAD, the note's lane (1-4, 0 for none: voices.h). */
 typedef struct { uint8_t voice, note, vel; uint8_t pad; uint32_t delay; uint32_t len; } song_ev_t;
 
 /* Per-song bass style from the set's bass instrument, the map and the mood (seed streams 110+). */

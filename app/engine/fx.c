@@ -500,7 +500,12 @@ void fx_chorus(float depth)
 
 float fx_chorus_dry(void)
 {
-    return !pl_open ? 1.0f : rings ? rfx_chorus_dry(ch_dep_t) : 1.0f / (1.0f + 0.5f * CH_W * ch_dep_t);
+    return fx_chorus_dry_at(ch_dep_t);
+}
+
+float fx_chorus_dry_at(float depth)
+{
+    return !pl_open ? 1.0f : rings ? rfx_chorus_dry(depth) : 1.0f / (1.0f + 0.5f * CH_W * depth);
 }
 
 void fx_rings(int on)

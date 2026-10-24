@@ -2152,6 +2152,221 @@ static void test_role_buses(void)
     CHECK(!bad, "role buses: NaN or inf");
 }
 
+/* A pad lane's note (song_ev_t.pad = lane) on V_PAD. */
+static void vt_lane(int lane, int note, uint32_t delay, uint32_t len)
+{
+    song_ev_t e;
+    memset(&e, 0, sizeof e);
+    e.voice = V_PAD;
+    e.note = (uint8_t)note;
+    e.vel = 100;
+    e.delay = delay;
+    e.len = len;
+    e.pad = (uint8_t)lane;
+    vx_event(&e);
+}
+
+/* How far (dB) the energy off the harmonics of note's pitch lies under the energy on them, over 0-11 kHz, in
+   vt_long[from .. from + 8192) (Hann; within 4 bins of a harmonic counts as on it): the folds and images. */
+static float vt_alias_db(uint32_t from, int note)
+{
+    static float win[8192];
+    float f0 = 440.0f * fm_exp2f(((float)note - 69.0f) * (1.0f / 12.0f)), on = 1e-30f, off = 1e-30f;
+    int b, i;
+    for (i = 0; i < 8192; i++)
+        win[i] = vt_long[from + (uint32_t)i] * (0.5f - 0.5f * fm_cosf(FM_TWO_PI * (float)i / 8192.0f));
+    for (b = 2; b < 2043; b++) { /* 11 kHz */
+        float k = 2.0f * fm_cosf(FM_TWO_PI * (float)b / 8192.0f), s1 = 0.0f, s2 = 0.0f, pw, hn, d;
+        for (i = 0; i < 8192; i++) {
+            float x = win[i] + k * s1 - s2;
+            s2 = s1;
+            s1 = x;
+        }
+        pw = s1 * s1 + s2 * s2 - k * s1 * s2;
+        hn = (float)b * (44100.0f / 8192.0f) / f0;
+        d = fm_fabsf(hn - fm_floorf(hn + 0.5f)) * f0 * (8192.0f / 44100.0f);
+        *(d < 4.0f ? &on : &off) += pw;
+    }
+    return 10.0f * fm_log2f(on / off) * 0.30103f;
+}
+
+/* The pad layer's rates (pads Task 1, fix round): a note renders at a quarter of the rate while its low-pass (with
+   its key tracking) is 4 kHz or under, else at half. A high note on the strings (MIDI 98: 4149 Hz) is half-rate, and
+   its folds lie at least as low as the half-rate path's (M_PAD, one saw into a 2-pole at the same cutoff, on the
+   chords); a low note (G3) stays at a quarter. The partner saw is off, so only the folds are off the harmonics. */
+static void test_pad_rates(void)
+{
+    static vx_patch_t ens, pad;
+    float a_ens, a_pad, a_full;
+    int step, held, bad = 0, k;
+    ens = *vx_patch(INS_STRINGS);
+    ens.p[1] = 0.0f;
+    pad = *vx_patch(INS_PAD);
+    pad.p[0] = 0.0f; /* one saw: no detune, no second saw (its ratio 1: the note stays at half the rate) */
+    pad.p[1] = 1.0f;
+    pad.p[2] = 0.0f;
+    pad.p[3] = ens.p[2];
+    pad.p[4] = ens.p[3];
+    pad.p[5] = 1.4142f;
+    vx_init();
+    vx_assign_patch(V_PAD, &ens);
+    vt_lane(1, 55, 0, 44100u);
+    vt_block(64, &bad);
+    vx_pad_lane(1, &step, &held);
+    CHECK(step == 4, "pad rates: G3 renders at step %d, wanted a quarter (4)", step);
+    for (k = 0; k < 3; k++) {
+        vx_fx_off(k == 2 ? VX_OFF_HALF : 0u);
+        vx_init();
+        if (k == 1)
+            vx_assign_patch(V_CHORD, &pad);
+        else
+            vx_assign_patch(V_PAD, &ens);
+        if (k == 1)
+            vt_ev(V_CHORD, 98, 100, 0, 88200u);
+        else
+            vt_lane(1, 98, 0, 88200u);
+        vt_block(64, &bad);
+        if (k == 0) {
+            vx_pad_lane(1, &step, &held);
+            CHECK(step == 2, "pad rates: MIDI 98 renders at step %d, wanted half (2)", step);
+        }
+        {
+            uint32_t at;
+            for (at = 0; at < 8u * 4096u; at += 4096u) {
+                vt_block(4096, &bad);
+                memcpy(vt_long + at, vt_l, 4096 * sizeof(float));
+            }
+        }
+        *(k == 0 ? &a_ens : k == 1 ? &a_pad : &a_full) = vt_alias_db(16384u, 98);
+    }
+    vx_fx_off(0u);
+    printf("pad rates: MIDI 98 folds %.1f dB under (half rate), %.1f (M_PAD's half rate), %.1f (full rate)\n",
+           (double)a_ens, (double)a_pad, (double)a_full);
+    CHECK(a_ens >= a_pad - 0.5f, "pad rates: MIDI 98's folds %.1f dB under, the half-rate path's %.1f", (double)a_ens,
+          (double)a_pad);
+    CHECK(!bad, "pad rates: NaN or inf");
+}
+
+/* The pad layer's lanes (voices.h): two notes back to back on lane 1 glide (the level never under 80% of the held
+   level across the change; the pitch at the target within 100 ms); a held lane's same pitch extends it; a lane never
+   moves another's voice. */
+static void test_pad_lanes(void)
+{
+    float held_rms = 0.0f, low = 1e9f, hz, f1, f2;
+    int step, held, k, bad = 0, moved = 0;
+    vx_init();
+    vt_lane(1, 60, 0, 44100u);
+    vt_lane(1, 67, 44100u, 44100u);
+    vt_block(4096, &bad);
+    for (k = 0; k < 9; k++) /* to 0.93 s */
+        vt_block(4096, &bad);
+    for (k = 0; k < 60; k++) { /* 0.93 s to 1.37 s in 10 ms windows */
+        uint32_t i;
+        float e = 0.0f, r;
+        vt_block(441, &bad);
+        for (i = 0; i < 441; i++)
+            e += vt_l[i] * vt_l[i];
+        r = fm_sqrtf(e / 441.0f);
+        if (k < 6)
+            held_rms = fm_maxf(held_rms, r);
+        else if (r < low)
+            low = r;
+        if (k == 16) { /* 1.1 s: 100 ms after the change */
+            hz = vx_pad_lane(1, &step, &held);
+            CHECK(fm_fabsf(hz - 392.0f) < 2.0f && held, "pad lanes: lane 1 at %.1f Hz 100 ms into its glide, wanted 392",
+                  (double)hz);
+        }
+        if (k == 8) { /* 20 ms in: on its way */
+            hz = vx_pad_lane(1, &step, &held);
+            CHECK(hz > 263.0f && hz < 390.0f, "pad lanes: lane 1 at %.1f Hz 20 ms into its glide", (double)hz);
+        }
+    }
+    printf("pad lanes: held %.4f, lowest across the glide %.4f\n", (double)held_rms, (double)low);
+    CHECK(low >= 0.8f * held_rms, "pad lanes: the glide dipped to %.4f of a held %.4f", (double)low, (double)held_rms);
+    /* the same pitch on a held lane extends it; lane 2's moves leave lane 1 alone */
+    vx_init();
+    vt_lane(1, 60, 0, 88200u);
+    vt_lane(3, 62, 0, 22050u);
+    vt_lane(3, 62, 22050u, 44100u);
+    vt_lane(2, 64, 0, 22050u);
+    vt_lane(2, 69, 22050u, 22050u);
+    vt_lane(2, 71, 44100u, 22050u);
+    f1 = vx_pad_lane(1, &step, &held);
+    for (k = 0; k < 40; k++) { /* to 1.6 s */
+        vt_block(1764, &bad);
+        f2 = vx_pad_lane(1, &step, &held);
+        moved |= f2 != f1 && k > 0;
+        f1 = f2;
+        if (k == 30) { /* 1.2 s: lane 3's extended note still held, at its pitch */
+            hz = vx_pad_lane(3, &step, &held);
+            CHECK(held && fm_fabsf(hz - 293.66f) < 0.5f, "pad lanes: lane 3 not extended (held %d, %.1f Hz)", held,
+                  (double)hz);
+        }
+    }
+    hz = vx_pad_lane(2, &step, &held);
+    CHECK(!moved && fm_fabsf(f1 - 261.63f) < 0.5f, "pad lanes: lane 1 moved (%.2f Hz)", (double)f1);
+    CHECK(fm_fabsf(hz - 493.88f) < 1.0f, "pad lanes: lane 2 at %.1f Hz, wanted 493.9", (double)hz);
+    CHECK(!bad, "pad lanes: NaN or inf");
+}
+
+/* The pad layer's chorus (fix round): its wet is its own patch's depth whatever the keys' (one chorus at the keys'
+   depth, the pad's send scaled to it, its dry scaled as theirs). Held strings, soloed, rendered with the chorus and
+   without (the same seed: the same plate): the chorus's wet is what the first adds over the second scaled to its dry
+   (a least-squares fit), over that dry; the same under the felt piano (depth 0.2) as under the Rhodes (0.7), within
+   10%. */
+#define PC_N (21u * 4096u)
+static float pc_on[2][PC_N], pc_off[2][PC_N];
+static void test_pad_chorus(void)
+{
+    static const int set[2] = {7, 1}; /* Felt and flute, Rhodes dusty: both strings */
+    float ratio[2];
+    int s, k, off, bad = 0;
+    for (s = 0; s < 2; s++) {
+        double xy = 0.0, yy = 0.0, ww = 0.0, g;
+        uint32_t i;
+        for (off = 0; off < 2; off++) {
+            song_roll_t r;
+            roll_song(NULL, 5u, &r);
+            r.v[RF_SET] = (int16_t)set[s];
+            r.v[RF_DUST] = r.v[RF_NOISE] = r.v[RF_AMBIENCE] = 0;
+            vx_fx_off(off ? VX_OFF_CHORUS : 0u);
+            vx_init();
+            vx_song(&r);
+            vx_solo(V_PAD);
+            for (k = 0; k < 3; k++)
+                vt_lane(k + 1, 55 + 4 * k, 0, 4u * 44100u);
+            for (k = 0; k < 32; k++) { /* 3 s; kept from 1 s */
+                vt_block(4096, &bad);
+                if (k >= 11) {
+                    memcpy((off ? pc_off : pc_on)[0] + (uint32_t)(k - 11) * 4096u, vt_l, 4096 * sizeof(float));
+                    memcpy((off ? pc_off : pc_on)[1] + (uint32_t)(k - 11) * 4096u, vt_r, 4096 * sizeof(float));
+                }
+            }
+        }
+        for (k = 0; k < 2; k++)
+            for (i = 0; i < PC_N; i++) {
+                xy += (double)pc_on[k][i] * (double)pc_off[k][i];
+                yy += (double)pc_off[k][i] * (double)pc_off[k][i];
+            }
+        g = xy / (yy > 1e-30 ? yy : 1e-30);
+        for (k = 0; k < 2; k++)
+            for (i = 0; i < PC_N; i++) {
+                double w = (double)pc_on[k][i] - g * (double)pc_off[k][i];
+                ww += w * w;
+            }
+        ratio[s] = (float)(ww / (g * g * (yy > 1e-30 ? yy : 1e-30)));
+        ratio[s] = fm_sqrtf(ratio[s]);
+    }
+    vx_fx_off(0u);
+    vx_solo(-1);
+    printf("pad chorus: wet over dry %.4f (felt piano's chorus) vs %.4f (the Rhodes')\n", (double)ratio[0],
+           (double)ratio[1]);
+    CHECK(ratio[0] > 0.01f && ratio[0] < 1.1f * ratio[1] && ratio[1] < 1.1f * ratio[0],
+          "pad chorus: wet over dry %.4f under the felt piano vs %.4f under the Rhodes", (double)ratio[0],
+          (double)ratio[1]);
+    CHECK(!bad, "pad chorus: NaN or inf");
+}
+
 static void test_vx_patches(void)
 {
     int ins, s, bad = 0;
@@ -6909,6 +7124,9 @@ int main(int argc, char **argv)
     RUN(test_vx_patches);
     RUN(test_pad_voice);
     RUN(test_role_buses);
+    RUN(test_pad_rates);
+    RUN(test_pad_lanes);
+    RUN(test_pad_chorus);
     RUN(test_vx_keys);
     RUN(test_vx_plucks_basses);
     RUN(test_vx_leads);
