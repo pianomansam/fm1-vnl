@@ -4397,15 +4397,16 @@ static void cv_begin(const song_roll_t *roll)
 static float cv_ref_l[CV_SECS * 44100u], cv_ref_r[CV_SECS * 44100u], cv_l[CV_SECS * 44100u], cv_r[CV_SECS * 44100u];
 static void test_song_carryover(void)
 {
-    static const uint32_t A[] = {11u, 128u, 7u, 183u, 20u, 49u, 11u, 20u, 49u, 3u};
-    static const uint32_t B[] = {12u, 904880372u, 4185943442u, 100u, 77u, 333u, 904880372u, 77u, 333u, 5u};
+    static const uint32_t A[] = {11u, 128u, 7u, 183u, 20u, 49u, 11u, 20u, 49u, 3u, 1013u};
+    static const uint32_t B[] = {12u, 904880372u, 4185943442u, 100u, 77u, 333u, 904880372u, 77u, 333u, 5u, 1010u};
     /* the sets these seeds drew before the synth sets (Bossa nylon, Rhodes neo-soul, Pad and guitar, Rhodes dusty,
        Neo-soul Wurli, Chillwave pad; Rhodes neo-soul, Bossa nylon, Nylon and sax, Neo-soul Wurli x3), then DX keys and FM
        bass and Organ and saw lead; Chillwave pad into DX and pluck; the sustained lead's phrases: Felt and trumpet into
-       Felt and flute */
-    static const int SA[] = {2, 11, 10, 1, 3, 5, 2, 3, 5, 4};
-    static const int SB[] = {11, 2, 9, 3, 3, 3, 13, 18, 20, 7};
-    static const float LIM[] = {1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f};
+       Felt and flute; the pad layer (pads plan, Review Focus 5): Rhodes and saw lead's warm pad, its solo note in, into
+       City pop Rhodes' strings */
+    static const int SA[] = {2, 11, 10, 1, 3, 5, 2, 3, 5, 4, 19};
+    static const int SB[] = {11, 2, 9, 3, 3, 3, 13, 18, 20, 7, 6};
+    static const float LIM[] = {1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f};
     int p, i;
     for (p = 0; p < (int)(sizeof A / sizeof A[0]); p++) {
         song_roll_t ra, rb;
@@ -6192,6 +6193,7 @@ static void test_levels_steady(void)
 #define LK_BARS 512
 static double lk_db[2][LK_BARS];
 static uint8_t lk_on[LK_BARS];
+static int lk_skip_lane; /* a V_PAD lane (1-4) whose events lk_song drops (test_pad_level: 4, the solo note), 0 none */
 static int lk_song(const song_roll_t *roll, int role, double *db)
 {
     static song_t s;
@@ -6223,6 +6225,8 @@ static int lk_song(const song_roll_t *roll, int role, double *db)
         }
         n = song_tick(&s, ev, 64);
         for (i = 0; i < n; i++) {
+            if (lk_skip_lane && ev[i].voice == V_PAD && ev[i].pad == lk_skip_lane)
+                continue;
             vx_event(&ev[i]);
             if (ev[i].voice == V_LEAD && bar < LK_BARS)
                 lk_on[bar] = 1;
@@ -6316,6 +6320,70 @@ static void test_lead_over_keys(void)
     printf("lead over keys: median %+.1f dB over %d songs (%+.1f..%+.1f)\n", (double)med, n, (double)sorted[0],
            (double)sorted[n - 1]);
     CHECK(med >= 4.0f && med <= 6.0f, "lead over keys: the median %.1f dB, wanted 4-6", (double)med);
+}
+
+/* The pad layer's chord part sits under the keys (pads design, Mix: about 6 dB): in every set with percussive keys
+   (the chord part plays over those only), six songs each as test_lead_over_keys picks them, the pad bus soloed with
+   its solo note left out (lane 4's events dropped) against the keys' bus, over the bars where both sound (over -60
+   dB): each set's mean and median 4-8 dB under, and no song under 2 dB or over 10. */
+static void test_pad_level(void)
+{
+    float d[LIB_NSETS_MAX * LK_PER], sorted[LIB_NSETS_MAX * LK_PER], med;
+    int k, n = 0, sets = 0;
+    for (k = 0; k < LIB_NSETS && k < LIB_NSETS_MAX; k++) {
+        const lib_set_t *t = &LIB_SETS[k];
+        uint32_t seed;
+        int got = 0, n0 = n;
+        float lo = 99.0f, hi = -99.0f, mean = 0.0f, smed, ss[LK_PER];
+        if (lib_ins_sustained(t->chords))
+            continue;
+        sets++;
+        for (seed = 1u; got < LK_PER && seed < 600u; seed++) {
+            song_roll_t r;
+            int b, nk, np, c = 0;
+            double sum = 0.0;
+            float x;
+            roll_song(NULL, seed, &r);
+            if (roll_set(&r, RF_SET, t->id) != t->id)
+                continue;
+            nk = lk_song(&r, V_CHORD, lk_db[0]);
+            lk_skip_lane = 4;
+            np = lk_song(&r, V_PAD, lk_db[1]);
+            lk_skip_lane = 0;
+            for (b = 0; b < nk && b < np; b++)
+                if (lk_db[0][b] > -60.0 && lk_db[1][b] > -60.0) {
+                    sum += lk_db[0][b] - lk_db[1][b];
+                    c++;
+                }
+            if (c < 8)
+                continue;
+            x = (float)(sum / c);
+            d[n++] = x;
+            got++;
+            mean += x;
+            lo = fm_minf(lo, x);
+            hi = fm_maxf(hi, x);
+            CHECK(x >= 2.0f && x <= 10.0f, "pad level: %s seed %u's chord part %.1f dB under its keys, wanted 2-10",
+                  t->name, (unsigned)seed, (double)x);
+        }
+        CHECK(got == LK_PER, "pad level: only %d songs found for %s", got, t->name);
+        if (!got)
+            continue;
+        mean /= (float)got;
+        memcpy(ss, d + n0, (size_t)got * sizeof ss[0]);
+        qsort(ss, (size_t)got, sizeof ss[0], lk_cmp_f);
+        smed = got & 1 ? ss[got / 2] : 0.5f * (ss[got / 2 - 1] + ss[got / 2]);
+        printf("pad level: %-21s chord part under the keys: mean %.1f median %.1f (%.1f..%.1f) dB\n", t->name,
+               (double)mean, (double)smed, (double)lo, (double)hi);
+        CHECK(mean >= 4.0f && mean <= 8.0f, "pad level: %s's mean %.1f dB under, wanted 4-8", t->name, (double)mean);
+        CHECK(smed >= 4.0f && smed <= 8.0f, "pad level: %s's median %.1f dB under, wanted 4-8", t->name, (double)smed);
+    }
+    CHECK(sets >= 10, "pad level: only %d sets with percussive keys", sets);
+    memcpy(sorted, d, (size_t)n * sizeof sorted[0]);
+    qsort(sorted, (size_t)n, sizeof sorted[0], lk_cmp_f);
+    med = n ? (n & 1 ? sorted[n / 2] : 0.5f * (sorted[n / 2 - 1] + sorted[n / 2])) : 0.0f;
+    printf("pad level: median %.1f dB under over %d songs (%.1f..%.1f)\n", (double)med, n, n ? (double)sorted[0] : 0.0,
+           n ? (double)sorted[n - 1] : 0.0);
 }
 
 /* The keys duck under the lead: a held pad chord (keys only in the mix, vx_solo) against the same chord with a lead
@@ -7508,6 +7576,56 @@ static void test_pad_determinism(void)
     CHECK(pads > 100, "pad determinism: only %ld pad events", pads);
 }
 
+/* The A/B switch (host renders, VNL_PADS=double): over percussive keys with held comping, the chord part doubles the
+   keys' voicing (the same pitches, struck with them) instead of its own voice-led notes: every chord-part note one the
+   keys sound, and the default (the switch off) does not do so throughout. */
+static int pdbl_play(const song_roll_t *r, int *bad, int *notes)
+{
+    static song_t s;
+    song_ev_t ev[64];
+    int cur[4] = {0}, nc = 0, strikes = 0;
+    *bad = *notes = 0;
+    song_start(&s, r);
+    while (s.state == SS_PLAYING) {
+        int n = song_tick(&s, ev, 64), i, j, fresh = 1;
+        for (i = 0; i < n; i++)
+            if (ev[i].voice == V_CHORD) {
+                if (fresh) { nc = 0; strikes++; fresh = 0; }
+                if (nc < 4) cur[nc++] = ev[i].note;
+            }
+        for (i = 0; i < n; i++)
+            if (ev[i].voice == V_PAD && ev[i].pad >= 1 && ev[i].pad <= 3) {
+                int in = 0;
+                for (j = 0; j < nc; j++) in |= cur[j] == ev[i].note;
+                (*notes)++;
+                *bad += !in;
+            }
+    }
+    return strikes;
+}
+static void test_pad_double(void)
+{
+    static const uint32_t SEED[3] = {1001u, 1004u, 1013u};
+    static const int SET[3] = {1, 4, 19};
+    int k;
+    for (k = 0; k < 3; k++) {
+        song_roll_t r;
+        int bad, notes, bad0, notes0, strikes;
+        roll_song(NULL, SEED[k], &r);
+        CHECK(roll_set(&r, RF_SET, SET[k]) == SET[k] && harmony_style(&r) == CS_HELD,
+              "pad double: seed %u on set %d is not a held-comping song", (unsigned)SEED[k], SET[k]);
+        pdbl_play(&r, &bad0, &notes0);
+        song_set_pads_double(1);
+        strikes = pdbl_play(&r, &bad, &notes);
+        song_set_pads_double(0);
+        printf("pad double: seed %u set %d: %d keys strikes, %d chord-part notes, %d not the keys' (default: %d of %d)\n",
+               (unsigned)SEED[k], SET[k], strikes, notes, bad, bad0, notes0);
+        CHECK(notes >= strikes && bad == 0, "pad double: seed %u: %d of %d chord-part notes not the keys' (%d strikes)",
+              (unsigned)SEED[k], bad, notes, strikes);
+        CHECK(bad0 > 0, "pad double: seed %u's default chord part already doubles the keys", (unsigned)SEED[k]);
+    }
+}
+
 int main(int argc, char **argv)
 {
     const char *only = argc > 1 ? argv[1] : NULL;
@@ -7569,6 +7687,7 @@ int main(int argc, char **argv)
     RUN(test_keys_duck);
     RUN(test_keys_duck_mix);
     RUN(test_lead_over_keys);
+    RUN(test_pad_level);
     RUN(test_phrase_plan);
     RUN(test_sustained_phrases);
     RUN(test_sustained_motion);
@@ -7579,6 +7698,7 @@ int main(int argc, char **argv)
     RUN(test_pad_solo);
     RUN(test_pad_sections);
     RUN(test_pad_determinism);
+    RUN(test_pad_double);
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;

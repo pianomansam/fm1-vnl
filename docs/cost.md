@@ -609,3 +609,20 @@ At the 0.08 target (the alone rows a hair over, the over-source rows under). The
 stolen notes. `--forced 20 7 155 138 100 22`, two runs (the AMB-1 denominator drifting 145.8 to 150.1 ms): max
 **0.917** and **0.905** (seed 20); no song plays the layer yet, so the change from 0.903 is bench noise and the
 per-segment check for pad voices.
+
+## Pads Task 3: the layer in the songs, measured (over budget)
+
+With Task 2's songs playing the layer (and its level at `ROLES[V_PAD]` 0.048, was 0.06: a gain only), on a busy host
+(load about 5; AMB-1 138-153 ms across these runs). `--forced 20 7 155 138 100 22`: 0.969 / 0.911 / 0.893 / 0.846 /
+0.768 / 0.795 plain, **0.987** / 0.897 / 0.914 / 0.872 / 0.785 / 0.829 forced; seed 20 (Rhodes and saw lead, the warm
+pad) again over four more runs (`VNL_RUNS=5`): 0.976-0.999 forced. The picker (`tools/cost-bench.sh`, 200 seeds)
+re-picks seed 20: 0.942 plain, **0.976** forced. Over the 0.97 line on every run.
+
+**What the cuts could save** (seed 20 forced, `VNL_RUNS=5`, best VNL time of three runs each; a temporary engine hack
+dropping the pad events above a lane, not committed): all 4 lanes 140.0 ms, lanes 1-3 138.4, lanes 1-2 135.9, lane 1 134.1,
+none 128.9. So a lane costs about 1.5-2.5 ms (0.011-0.018) and the layer's fixed part (its
+per-sample loop and interpolation, the pad bus's section filter, mud high-pass and sends) about 5 ms (0.037). Cut (a)
+(the solo note on the ensemble voice) saves at most a lane (dropping lane 4 outright: 0.964-0.977); (b) is in place;
+(c) (2 chord notes) at most one more: (a) and (c) together at most 2.5-4 ms, about 0.975 against AMB-1's 139-140 ms.
+Not enough: the pads plan's rule (stop and report) applies; the layer's fixed part is where the rest is.
+**Memory:** image 183228 B, RAM 49600 B, pool 180216 B (`tools/mem-check.sh`: ok).

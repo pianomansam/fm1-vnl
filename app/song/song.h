@@ -50,4 +50,8 @@ int song_pending(const song_t *s, int *field, int *bars_left);  /* the earliest 
    5 beats 1, 2 and 4; 0 off */
 void song_set_bass_spike(int mode);
 
+/* Host renders (VNL_PADS=double, an A/B against the design's chord part): 1 makes the pad layer's chord part double the
+   keys' voicing (the same pitches, on their strikes) over held comping, instead of its own voice-led notes; 0 off */
+void song_set_pads_double(int on);
+
 #endif

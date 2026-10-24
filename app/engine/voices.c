@@ -117,7 +117,7 @@ static const role_t ROLES[V_PAD + 1] = {
     [V_BASS] = {VB, 1, 0.0625f},
     [V_LEAD] = {NCH, NLD, 0.154f},
     [V_CANDY] = {NCH + NLD, NCD, 0.118f},
-    [V_PAD] = {PD, NPD, 0.06f}, /* the pad layer under the keys (levels: the pads plan's Task 3) */
+    [V_PAD] = {PD, NPD, 0.048f}, /* the pad layer under the keys (levels: the pads plan's Task 3) */
 };
 
 /* A pooled voice. The envelope fields are shared by every model; m is the model's own state. */

@@ -50,6 +50,8 @@ static int bass_spike, sb_tied;
 static int sb_on[16], sb_len[16], sb_vel[16];              /* the bar's bass onsets: MIDI (0 none), 16ths, velocity */
 static uint32_t sb_tie_mask;                               /* onsets that ring past the bar line */
 void song_set_bass_spike(int mode) { bass_spike = mode; sb_tied = 0; }
+static int pads_double;
+void song_set_pads_double(int on) { pads_double = on; }
 
 static uint32_t sb_hash(uint32_t seed, int bar, int lane)
 {
@@ -352,7 +354,9 @@ static void pads_group(song_t *s, const plan_block_t *b, int B)
         harmony_voicing_at(&s->roll, bar, pass, &vs, keys);
         if (bar % bpc == 0) {
             for (i = 0; i < 4; i++) vs.last[i] = keys[i] ? keys[i] - up : 0;   /* the keys strike it */
-            if (chord_on)
+            if (chord_on && pads_double && harmony_style(&s->roll) == CS_HELD)
+                pads_double_keys(keys, s->pads.chord);
+            else if (chord_on)
                 pads_chord(&s->roll, keys, pcs, np, (unsigned)pcs[0], lead, k ? 0 : nlead, s->pads.chord,
                            s->pads.chord);
         }

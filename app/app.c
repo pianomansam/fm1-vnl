@@ -391,6 +391,10 @@ void app_init(void)
             song_set_bass_spike(sp ? *sp - '0' : 0);
         }
         {
+            const char *pd = getenv("VNL_PADS");   /* VNL_PADS=double: the pad's chord part doubles the keys (A/B) */
+            song_set_pads_double(pd && !strcmp(pd, "double"));
+        }
+        {
             const char *fx = getenv("VNL_FX");     /* VNL_FX=ours: our plate and chorus in place of Rings' (compare) */
             fx_rings(!(fx && !strcmp(fx, "ours")));
         }

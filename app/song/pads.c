@@ -141,6 +141,25 @@ int pads_chord(const song_roll_t *r, const int keys[4], const int *pcs, int np, 
     return m;
 }
 
+int pads_double_keys(const int keys[4], int out[3])
+{
+    int v[4], n = 0, i, j, t, nl[3] = {0, 0, 0}, used[3] = {0, 0, 0};
+    for (i = 0; i < 4; i++)
+        if (keys[i] >= LO && keys[i] <= HI) v[n++] = keys[i];
+    for (i = 1; i < n; i++)                              /* ascending */
+        for (j = i; j > 0 && v[j - 1] > v[j]; j--) { t = v[j]; v[j] = v[j - 1]; v[j - 1] = t; }
+    if (n > 3) { v[0] = v[1]; v[1] = v[2]; v[2] = v[3]; n = 3; }
+    for (i = 0; i < n; i++)                              /* a common pitch rings on in its lane */
+        for (j = 0; j < 3; j++)
+            if (!nl[j] && out[j] == v[i]) { nl[j] = v[i]; used[i] = 1; break; }
+    for (i = 0; i < n; i++)                              /* the rest by voice position, into the free lanes */
+        if (!used[i])
+            for (j = i < 3 ? i : 0; ; j = (j + 1) % 3)
+                if (!nl[j]) { nl[j] = v[i]; break; }
+    for (i = 0; i < 3; i++) out[i] = nl[i];
+    return n;
+}
+
 int pads_solo(const song_roll_t *r, int key, int mode, const int *pcs, int np, const int keys[4], const int *bass,
               int nbass, int chord_top, int prev)
 {

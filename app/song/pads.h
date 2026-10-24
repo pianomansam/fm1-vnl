@@ -30,6 +30,11 @@ int pads_rub(int a, int b);
 int pads_chord(const song_roll_t *r, const int keys[4], const int *pcs, int np, unsigned bass_pc,
                const int *lead_notes, int nlead, const int prev[3], int out[3]);
 
+/* The A/B switch's chord part (song_set_pads_double): the keys' voicing doubled, its notes in the chord part's range
+   (MIDI 55-72; one outside it is skipped) by voice position, the lowest on lane 1, the top 3 where 4 fit; a pitch
+   common to prev keeps its lane (it rings on). out may be prev. Returns the count. */
+int pads_double_keys(const int keys[4], int out[3]);
+
 /* The bar's solo note (0: none legal): the scale's 1st, 2nd, 3rd or 7th degree, MIDI 72-84, at least 3 semitones over
    chord_top (0: no chord part), no avoid note over pcs, no rub with the keys or the bar's bass notes (nbass of them;
    over the bass a major 7th rubs too, unless the bass is the root). prev (0: none) is kept if legal; otherwise the

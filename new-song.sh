@@ -5,6 +5,8 @@
 #   ./new-song.sh SEED     replay a song by the seed its log prints
 #   BED=0 ./new-song.sh    no surface noise or rain (VNL_BED)
 #   SET=4 ./new-song.sh SEED   the song on instrument set 4 (VNL_SET; if the song's mood allows it)
+#   PADS=double ./new-song.sh SEED   the pad's chord part doubles the keys' voicing over held comping (VNL_PADS; an
+#                          A/B against its own voice-led chord part, the default)
 #   VNL_FX=ours ./new-song.sh   our plate and chorus in place of Rings' reverb and chorus (the default), to compare
 #   BASS=0 ./new-song.sh   the groove's own bass rhythm instead of the bass spike (VNL_BASS: 1 a rhythm cell per song,
 #                          2 the kick's, 3 half notes on 1 and 3, 4 beats 1 and 2, 5 beats 1, 2 and 4)
@@ -14,7 +16,7 @@ seed=${1:-$(od -An -N4 -tu4 /dev/urandom | tr -d ' ')}
 out=app/build/new/$seed
 ./build.sh --host >/dev/null
 mkdir -p "$out"
-VNL_SEED=$seed VNL_BASS=${BASS:-1} VNL_BED=${BED:-1} VNL_SET=${SET:-0} VNL_SCORE=$out/song app/build/host/vnl_host new-song.vnl "$out" >/dev/null
+VNL_SEED=$seed VNL_BASS=${BASS:-1} VNL_BED=${BED:-1} VNL_SET=${SET:-0} VNL_PADS=${PADS:-} VNL_SCORE=$out/song app/build/host/vnl_host new-song.vnl "$out" >/dev/null
 rm -f "$out"/song-2* "$out"/now.png "$out"/midi_out.txt
 .venv/bin/python - "$out" <<'PY'
 import re, sys, wave
