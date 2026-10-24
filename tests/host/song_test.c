@@ -2334,9 +2334,12 @@ static int top_can_stay(const int *pcs, int n, int top)
    - roots a step apart in the key (1-2 semitones) are played a step apart in the bass, not folded nearly an octave;
    - a walking bar's last beat leads by a step into the next bar's root;
    - keys-only bars are counted (Sam: they stay rootless, the song's one voicing; see test_loop_voicings). */
-/* The lead plays like its instrument (lead design): a sustained lead (flute, sax, muted trumpet) never runs an
-   arpeggio; a percussive one sings in most bars where it may play. Also where the lead may play, and pushes legal
+/* The lead plays like its instrument (lead design): a sustained lead (flute, sax, muted trumpet, saw lead) never runs
+   an arpeggio (three chord tones an 8th or less apart, each a skip: a step is the phrase's line; at most 1 in 200
+   bars, where a cadence's quick steps find no step legal over the chord); a percussive one sings in most bars where
+   it may play. Also where the lead may play, and pushes legal
    over both chords. One pass over 300 chained songs feeds all three tests. */
+static long lr_sust_bars;
 static long lr_runs, lr_perc_bars, lr_perc_led, lr_bad_where, lr_candy_where, lr_cross, lr_bad_cross;
 
 static int lr_chord_scale(int key, int mode, const int *pcs, int n, int note)
@@ -2362,7 +2365,7 @@ static void lr_scan(void)
     done = 1;
     for (k = 0; k < 300; k++) {
         const lib_set_t *set;
-        int sust, run = 0, runpcs = 0, last_at = -100, cur = -1, led = 0, may = 0;
+        int sust, run = 0, runpcs = 0, last_at = -100, cur = -1, led = 0, may = 0, last_note = 0;
         seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
         roll_song(k ? &prev : 0, seed, &r);
         prev = r;
@@ -2378,6 +2381,7 @@ static void lr_scan(void)
             n = song_tick(&s, ev, 64);
             if (bar != cur) {
                 if (!sust && may) { lr_perc_bars++; lr_perc_led += led; }
+                if (sust && may) lr_sust_bars++;
                 cur = bar;
                 led = 0;
                 may = b && b->section != SEC_INTRO && b->section != SEC_OUTRO && (b->layers & L_KEYS) &&
@@ -2393,8 +2397,11 @@ static void lr_scan(void)
                 if (!may) lr_bad_where++;
                 for (j = 0; j < np; j++) ct |= pcs[j] % 12 == note % 12;
                 if (sust) {
-                    if (ct && at - last_at <= 2) { run++; runpcs |= 1 << (note % 12); }
-                    else { run = ct; runpcs = ct ? 1 << (note % 12) : 0; }
+                    if (ct && at - last_at <= 2 && (note - last_note >= 3 || last_note - note >= 3)) {
+                        run++;                           /* a skip between chord tones (a step is a line) */
+                        runpcs |= 1 << (note % 12);
+                    } else { run = ct; runpcs = ct ? 1 << (note % 12) : 0; }
+                    last_note = note;
                     if (run == 3) {
                         int c = 0;
                         for (j = 0; j < 12; j++) c += (runpcs >> j) & 1;
@@ -2419,7 +2426,9 @@ static void lr_scan(void)
 static void test_lead_by_class(void)
 {
     lr_scan();
-    CHECK(lr_runs == 0, "sustained leads ran %ld arpeggios", lr_runs);
+    printf("lead: sustained leads ran %ld arpeggios in %ld bars\n", lr_runs, lr_sust_bars);
+    CHECK(lr_sust_bars > 1000 && lr_runs * 200 <= lr_sust_bars, "sustained leads ran %ld arpeggios in %ld bars",
+          lr_runs, lr_sust_bars);
     CHECK(lr_perc_bars > 1000 && lr_perc_led * 100 >= lr_perc_bars * 80,
           "percussive leads sang in %ld of %ld bars where they may play", lr_perc_led, lr_perc_bars);
 }
@@ -2606,52 +2615,6 @@ static void test_pad_places(void)
     CHECK(shifted_low == 0, "%ld keys notes under C4 in a pad placed with or above the lead", shifted_low);
 }
 
-/* Lead design: the sung line (a sustained lead's skeleton) wanders: 4+ distinct skeleton notes in at least 70% of
-   sustained-lead songs (75% measured; the spike's 19%, song 1 only alternating C5 and Db5), and a leap past a 5th
-   in at most 0.3% of skeleton steps (only where a 4th over percussive keys' top leaves no closer note). */
-static void test_line_wanders(void)
-{
-    static song_t s;
-    uint32_t seed = 7171;
-    song_roll_t prev, r;
-    song_ev_t ev[64];
-    long songs = 0, wide = 0, leaps = 0, steps = 0;
-    int k;
-    for (k = 0; k < 300; k++) {
-        const lib_set_t *set;
-        const lib_prog_t *pr;
-        int seen[128] = {0}, distinct = 0, last = 0, bpc;
-        seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
-        roll_song(k ? &prev : 0, seed, &r);
-        prev = r;
-        set = lib_set_by_id((uint8_t)r.v[RF_SET]);
-        if (!set || !lib_ins_sustained(set->lead)) continue;
-        pr = lib_prog_by_id((uint8_t)r.v[RF_PROG]);
-        bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1;
-        song_start(&s, &r);
-        while (s.state == SS_PLAYING) {
-            int bar = s.bar, st = s.step;
-            const plan_block_t *b = plan_at(&s.plan, bar);
-            song_tick(&s, ev, 64);
-            if (st != 0 || bar % bpc || !lead_plays(b) || s.lead.last <= 0) continue;
-            if (!seen[s.lead.last]++) distinct++;
-            if (last) {
-                steps++;
-                leaps += (s.lead.last > last ? s.lead.last - last : last - s.lead.last) > 7;
-            }
-            last = s.lead.last;
-        }
-        if (last) {
-            songs++;
-            wide += distinct >= 4;
-        }
-    }
-    printf("line: %ld of %ld sustained-lead songs reach 4+ skeleton notes; %ld of %ld steps "
-                                   "leap past a 5th\n", wide, songs, leaps, steps);
-    CHECK(songs > 30 && wide * 100 >= songs * 70, "the line reaches 4+ notes in %ld of %ld songs", wide, songs);
-    CHECK(leaps * 1000 <= steps * 3, "%ld of %ld skeleton steps leap past a 5th", leaps, steps);
-}
-
 /* Sam: the hybrid lead follows the motion lever: in songs with motion <= 35 it plays at most 3/4 the onsets a lead
    bar of songs with motion >= 65, and its skeleton landings sound as often at low motion as at high. */
 static void test_hybrid_follows_motion(void)
@@ -2742,25 +2705,29 @@ static void test_never_both_silent(void)
 
 /* Review fixes. A push (the next chord's note an 8th early) rings across the bar line, in the sung line and the
    hybrid alike, the 4-bar note-off line included when no request waits; a push the next chord rejects lands on 1
-   instead; and no push rings into a bar where a request lands (the next chord isn't known yet). */
+   instead; and no push rings into a bar where a request lands (the next chord isn't known yet). The sustained
+   lead's ties (its pushes, legal over both chords) never cross a 4-bar line, where requests land: its question and
+   arrival end with a breath (Review Focus 3); a tie a rule refuses lands on 1 instead. */
 static void test_pushes(void)
 {
     static song_t s;
     uint32_t seed = 1212;
     song_roll_t prev, r;
     song_ev_t ev[64];
-    long pushes = 0, short_push = 0, rejected = 0, late = 0, req_bars = 0, into_req = 0;
+    long pushes = 0, short_push = 0, rejected = 0, late = 0, req_bars = 0, into_req = 0, sties = 0, sties_line = 0;
+    long sreq = 0;
     int k, i;
     for (k = 0; k < 300; k++) {
         const lib_set_t *set;
         const lib_prog_t *pr;
-        int bpc, hybrid, pushed_in = 0, tied_now = 0, req_at = -1, cur = -1;
+        int bpc, hybrid, sust, pushed_in = 0, tied_now = 0, req_at = -1, cur = -1;
         uint32_t lead_end = 0;
         seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
         roll_song(k ? &prev : 0, seed, &r);
         prev = r;
         set = lib_set_by_id((uint8_t)r.v[RF_SET]);
         hybrid = set && !lib_ins_sustained(set->lead);
+        sust = set && !hybrid;
         pr = lib_prog_by_id((uint8_t)r.v[RF_PROG]);
         bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1;
         song_start(&s, &r);
@@ -2774,12 +2741,18 @@ static void test_pushes(void)
                 req_at = (bar / 4 + 1) * 4;
             }
             if (bar != cur && st == 0) {
-                if (bar == req_at) { req_bars++; into_req += lead_end > now; }
+                if (bar == req_at) { req_bars++; sreq += sust; into_req += lead_end > now; }
                 cur = bar;
                 pushed_in = tied_now;
             }
             n = song_tick(&s, ev, 64);
             if (st == 0) tied_now = lead_plays(b) && s.lead.tied;
+            if (st == 0 && sust && lead_plays(b))        /* the sustained lead's ties over the bar line */
+                for (i = 0; i < 16; i++)
+                    if ((s.lead.ring >> i) & 1u) {
+                        sties++;
+                        sties_line += (bar + 1) % 4 == 0;
+                    }
             if (st == 0 && hybrid && lead_plays(b) && bar % bpc == 0 && !pushed_in && s.lead.acc &&
                 lead_landing(s.roll.seed, bar) == 4) {
                 rejected++;
@@ -2799,6 +2772,10 @@ static void test_pushes(void)
            "into\n", pushes, short_push, rejected, late, req_bars, into_req);
     CHECK(pushes > 300 && short_push == 0, "%ld of %ld pushes end before the bar line", short_push, pushes);
     CHECK(rejected > 20 && late == 0, "%ld of %ld rejected pushes landed late, not on 1", late, rejected);
+    printf("pushes: the sustained lead tied %ld notes over a bar line, %ld over a 4-bar line (where requests land); "
+           "%ld request bars in sustained-lead songs\n", sties, sties_line, sreq);
+    CHECK(sties > 100 && sties_line == 0 && sreq > 20, "sustained ties: %ld, %ld over a 4-bar line; %ld request bars",
+          sties, sties_line, sreq);
     CHECK(req_bars > 50 && into_req == 0, "lead notes rang into %ld of %ld bars where a request lands", into_req,
           req_bars);
 }
@@ -4097,16 +4074,17 @@ static void cv_begin(const song_roll_t *roll)
 static float cv_ref_l[CV_SECS * 44100u], cv_ref_r[CV_SECS * 44100u], cv_l[CV_SECS * 44100u], cv_r[CV_SECS * 44100u];
 static void test_song_carryover(void)
 {
-    static const uint32_t A[] = {11u, 128u, 7u, 183u, 20u, 49u, 11u, 20u, 49u};
-    static const uint32_t B[] = {12u, 904880372u, 4185943442u, 100u, 77u, 333u, 904880372u, 77u, 333u};
+    static const uint32_t A[] = {11u, 128u, 7u, 183u, 20u, 49u, 11u, 20u, 49u, 3u};
+    static const uint32_t B[] = {12u, 904880372u, 4185943442u, 100u, 77u, 333u, 904880372u, 77u, 333u, 5u};
     /* the sets these seeds drew before the synth sets (Bossa nylon, Rhodes neo-soul, Pad and guitar, Rhodes dusty,
        Neo-soul Wurli, Chillwave pad; Rhodes neo-soul, Bossa nylon, Nylon and sax, Neo-soul Wurli x3), then DX keys and FM
-       bass and Organ and saw lead; Chillwave pad into DX and pluck */
-    static const int SA[] = {2, 11, 10, 1, 3, 5, 2, 3, 5};
-    static const int SB[] = {11, 2, 9, 3, 3, 3, 13, 18, 20};
-    static const float LIM[] = {1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f};
+       bass and Organ and saw lead; Chillwave pad into DX and pluck; the sustained lead's phrases: Felt and trumpet into
+       Felt and flute */
+    static const int SA[] = {2, 11, 10, 1, 3, 5, 2, 3, 5, 4};
+    static const int SB[] = {11, 2, 9, 3, 3, 3, 13, 18, 20, 7};
+    static const float LIM[] = {1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f};
     int p, i;
-    for (p = 0; p < 9; p++) {
+    for (p = 0; p < (int)(sizeof A / sizeof A[0]); p++) {
         song_roll_t ra, rb;
         uint32_t gap, h, j;
         float tail = 0.0f, d0 = 0.0f, d1 = 0.0f;
@@ -6302,6 +6280,311 @@ static void test_phrase_plan(void)
     CHECK(bad_pure == 0, "phrase_bar not pure %d times", bad_pure);
 }
 
+/* ---- the sustained lead sings phrases (sustained-lead design, Task 2) ----
+   Songs pinned to the sustained-lead sets, played through song_tick; each bar's plan (s.lead.on/len) recorded as
+   notes. Phrase position (the design's call 1): a run of contiguous lead blocks (a request that splits a block, or a
+   4-bar lead block after another, resumes the phrase); 8-bar phrases from the run's start; a 4-bar remainder plays
+   half a phrase, the answer when the run is the song's last lead run. Rules beat phrasing (the design's call 4): a
+   leap's "step back" is 1-3 semitones (rubs with 9th and 11th chords leave gapped chord-scales; the strict 1-2 rate
+   is printed); a question takes another chord tone than the root where its 3rd and 5th rub the chord; an arrival takes
+   the 3rd over home or where the root rubs a maj7; a tie the rules refuse lands on 1, so a cadence and the next
+   phrase may both strike beat 1 across the breath (at most 1 cadence in 10). */
+static const int SL_SETS[] = {1, 3, 4, 7, 9, 11, 13, 18, 19};
+#define SL_NSETS ((int)(sizeof SL_SETS / sizeof SL_SETS[0]))
+#define SL_MAXN 640
+typedef struct { int start, end, note, vel; } sl_note_t;
+typedef struct {
+    int n, bars, lead[80], pcs[80][5], np[80], home[80], on0[80];
+    int run[80], pass[80], bip[80], pbars[80], last[80];
+    sl_note_t nt[SL_MAXN];
+} sl_song_t;
+static sl_song_t sl_a, sl_b;
+
+static void sl_pos(const song_plan_t *p, int bar, int *start, int *pass, int *bip, int *pbars, int *last)
+{
+    int i, k = -1, s, e, j;
+    *start = -1;
+    for (i = 0; i < p->n; i++)
+        if (bar >= p->b[i].start && bar < p->b[i].start + p->b[i].bars) k = i;
+    if (k < 0 || !lead_plays(&p->b[k])) return;
+    for (i = k; i > 0 && lead_plays(&p->b[i - 1]); i--)
+        ;
+    s = p->b[i].start;
+    for (i = k; i + 1 < p->n && lead_plays(&p->b[i + 1]); i++)
+        ;
+    e = p->b[i].start + p->b[i].bars;
+    *last = 1;
+    for (j = i + 1; j < p->n; j++)
+        if (lead_plays(&p->b[j])) *last = 0;
+    *start = s;
+    *pass = (bar - s) / 8;
+    *bip = (bar - s) % 8;
+    *pbars = e - (s + *pass * 8) >= 8 ? 8 : 4;
+}
+
+static void sl_play(const song_roll_t *r, sl_song_t *o)
+{
+    static song_t s;
+    song_ev_t ev[64];
+    const lib_prog_t *pr = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
+    int loop = pr && pr->n * pr->bars_per_chord ? pr->n * pr->bars_per_chord : 4, i, cur[128];
+    memset(o, 0, sizeof *o);
+    for (i = 0; i < 128; i++) cur[i] = -1;
+    song_start(&s, r);
+    o->bars = s.plan.bars;
+    while (s.state == SS_PLAYING) {
+        int bar = s.bar, st = s.step, hp[5];
+        const plan_block_t *b = plan_at(&s.plan, bar);
+        int n = song_tick(&s, ev, 64);
+        if (st != 0 || bar >= 80) continue;
+        (void)n;
+        o->lead[bar] = lead_plays(b);
+        o->np[bar] = harmony_chord_at(&s.roll, bar, bar / loop + 1, 0, o->pcs[bar]);
+        harmony_chord_at(&s.roll, bar - bar % loop, bar / loop + 1, 0, hp);
+        o->home[bar] = hp[0] % 12 == o->pcs[bar][0] % 12;
+        sl_pos(&s.plan, bar, &o->run[bar], &o->pass[bar], &o->bip[bar], &o->pbars[bar], &o->last[bar]);
+        o->on0[bar] = s.lead.on[0] > 0;
+        for (i = 0; i < 16; i++)
+            if (s.lead.on[i] > 0 && o->n < SL_MAXN) {
+                sl_note_t *x = &o->nt[o->n++];
+                x->start = bar * 16 + i;
+                x->end = x->start + s.lead.len[i];
+                x->note = s.lead.on[i];
+                x->vel = s.lead.vel[i];
+            }
+    }
+}
+
+static int sl_first(const sl_song_t *o, int t)   /* the first note starting at or after t */
+{
+    int i;
+    for (i = 0; i < o->n; i++)
+        if (o->nt[i].start >= t) return i;
+    return o->n;
+}
+
+static int sl_iv(const sl_song_t *o, int bar, int note)   /* the note's interval over bar's chord root */
+{
+    return ((note - o->pcs[bar][0]) % 12 + 12) % 12;
+}
+
+static int sl_has_maj7(const sl_song_t *o, int bar)
+{
+    int j;
+    for (j = 1; j < o->np[bar]; j++)
+        if (((o->pcs[bar][j] - o->pcs[bar][0]) % 12 + 12) % 12 == 11) return 1;
+    return 0;
+}
+
+/* the chord's 3rd and 5th both rub another chord tone a semitone away (or the 5th is left out): the question takes
+   another tone than the root */
+static int sl_no_q(const sl_song_t *o, int bar)
+{
+    int j, i, free = 0;
+    for (j = 1; j < o->np[bar]; j++) {
+        int iv = ((o->pcs[bar][j] - o->pcs[bar][0]) % 12 + 12) % 12, rub = 0;
+        if (!(iv == 3 || iv == 4 || (iv >= 6 && iv <= 8))) continue;
+        for (i = 0; i < o->np[bar]; i++) {
+            int d = ((o->pcs[bar][i] - o->pcs[bar][j]) % 12 + 12) % 12;
+            rub |= d == 1 || d == 11;
+        }
+        free |= !rub;
+    }
+    return !free;
+}
+
+static int sl_sgn(int x) { return x > 0 ? 1 : x < 0 ? -1 : 0; }
+
+/* Roll a song pinned to set; 0 if the set isn't legal in the seed's mood. */
+static int sl_roll(uint32_t seed, int set, int motion, song_roll_t *r)
+{
+    roll_song(NULL, seed, r);
+    if (roll_set(r, RF_SET, set) != set) return 0;
+    if (motion >= 0) roll_set(r, RF_MOTION, motion);
+    return 1;
+}
+
+static void test_sustained_phrases(void)
+{
+    long phrases = 0, rest_ok = 0, rhythm_bad = 0, contour_same = 0, q_bad = 0, a_bad = 0, breath_bad = 0;
+    long halves = 0, half_bad = 0, onsets = 0, leadbars = 0, starts = 0, off1 = 0, leaps = 0, backs = 0, b1_bad = 0;
+    long lens_same = 0, a_third = 0, arrivals = 0, questions = 0, b1_cad = 0, strict = 0;
+    int k, got;
+    uint32_t seed;
+    for (k = 0; k < SL_NSETS; k++)
+        for (seed = 1u, got = 0; got < 14 && seed < 900u; seed++) {
+            song_roll_t r;
+            sl_song_t *o = &sl_a;
+            int bar, i;
+            if (!sl_roll(seed, SL_SETS[k], -1, &r)) continue;
+            got++;
+            sl_play(&r, o);
+            for (bar = 0; bar < o->bars && bar < 80; bar++) {
+                int P = bar * 16, j, end, nx, lb;
+                if (!o->lead[bar]) continue;
+                leadbars++;
+                for (j = 0; j < o->n; j++) onsets += o->nt[j].start >= P && o->nt[j].start < P + 16;
+                if (bar + 1 < 80 && o->lead[bar + 1] && o->run[bar + 1] == o->run[bar] && o->on0[bar] &&
+                    o->on0[bar + 1]) {
+                    if (o->bip[bar] == o->pbars[bar] - 1 && o->bip[bar + 1] == 0) b1_cad++;
+                    else b1_bad++;
+                }
+                if (o->bip[bar] != 0) continue;
+                /* a phrase (or half a phrase) starts here */
+                starts++;
+                j = sl_first(o, P);
+                off1 += j < o->n && o->nt[j].start != P;
+                for (i = j; i + 2 < o->n && o->nt[i + 2].start < P + o->pbars[bar] * 16; i++) {
+                    int d1 = o->nt[i + 1].note - o->nt[i].note, d2 = o->nt[i + 2].note - o->nt[i + 1].note;
+                    if (o->nt[i + 1].start - o->nt[i].end > 2 || o->nt[i + 2].start - o->nt[i + 1].end > 2 ||
+                        (d1 < 5 && d1 > -5))
+                        continue;                        /* a leap within a gesture (no rest after it) */
+                    leaps++;
+                    backs += sl_sgn(d2) == -sl_sgn(d1) && d2 >= -3 && d2 <= 3;
+                    strict += sl_sgn(d2) == -sl_sgn(d1) && d2 >= -2 && d2 <= 2;
+                }
+                if (o->pbars[bar] == 8) {
+                    int a0 = j, a1 = sl_first(o, P + 32), b0 = sl_first(o, P + 64), b1 = sl_first(o, P + 96), same = 1;
+                    phrases++;
+                    if (a1 - a0 != b1 - b0) rhythm_bad++;
+                    else {
+                        int lsame = 1;
+                        for (i = 0; i < a1 - a0; i++) {
+                            if (o->nt[a0 + i].start - P != o->nt[b0 + i].start - P - 64) {
+                                rhythm_bad++;
+                                same = 0;
+                                break;
+                            }
+                            lsame &= o->nt[a0 + i].end - o->nt[a0 + i].start == o->nt[b0 + i].end - o->nt[b0 + i].start;
+                            if (i && sl_sgn(o->nt[a0 + i].note - o->nt[a0 + i - 1].note) !=
+                                         sl_sgn(o->nt[b0 + i].note - o->nt[b0 + i - 1].note))
+                                same = 0;
+                        }
+                        lens_same += lsame;
+                        contour_same += same;
+                    }
+                }
+                /* the question (bar 4) and the arrival (bar 8), or the half phrase's end */
+                for (lb = 3; lb < o->pbars[bar]; lb += 4) {
+                    int qb = bar + lb, ans = lb == 7 || (o->pbars[bar] == 4 && o->last[bar]), iv;
+                    j = sl_first(o, (qb + 1) * 16) - 1;
+                    if (o->pbars[bar] == 4) halves++;
+                    if (j < 0 || o->nt[j].start < P) { if (ans) a_bad++; else q_bad++; continue; }
+                    end = o->nt[j].end;
+                    iv = sl_iv(o, qb, o->nt[j].note);
+                    nx = j + 1 < o->n ? o->nt[j + 1].start : 1 << 20;
+                    if (nx - end < 8 || end > (qb + 1) * 16 - 8) { breath_bad++; if (o->pbars[bar] == 4) half_bad++; }
+                    else rest_ok++;
+                    if (ans) {
+                        arrivals++;
+                        a_third += iv == 3 || iv == 4;
+                        if (!(iv == 0 || ((iv == 3 || iv == 4) && (o->home[qb] || sl_has_maj7(o, qb)))) ||
+                            end - o->nt[j].start < 8) {
+                            a_bad++;
+                            if (o->pbars[bar] == 4) half_bad++;
+                        }
+                    } else {
+                        questions++;
+                        if (!(iv == 3 || iv == 4 || (iv >= 6 && iv <= 8) || (iv && sl_no_q(o, qb))) ||
+                            end - o->nt[j].start < 8) {
+                            q_bad++;
+                            if (o->pbars[bar] == 4) half_bad++;
+                        }
+                    }
+                }
+            }
+        }
+    printf("sustained: %ld phrases, restated rhythm broken %ld, contour kept %ld (%.1f%%), lengths kept %ld; questions "
+           "%ld (%ld broken), arrivals %ld (%ld broken, %ld on the 3rd), %ld breaths kept, %ld broken; %ld half phrases "
+           "(%ld broken)\n", phrases, rhythm_bad, contour_same, phrases ? 100.0 * (double)contour_same / (double)phrases
+           : 0.0, lens_same, questions, q_bad, arrivals, a_bad, a_third, rest_ok, breath_bad, halves, half_bad);
+    printf("sustained: %.2f onsets a lead bar; phrases off beat 1 %ld of %ld; leaps (a 4th+) answered by a step back "
+           "%ld of %ld (%ld by 1-2 semitones); beat 1 struck two bars running %ld (and %ld across a breath, a refused "
+           "tie struck on 1 then the next phrase)\n", leadbars ? (double)onsets / (double)leadbars : 0.0, off1, starts, backs, leaps, strict, b1_bad,
+           b1_cad);
+    CHECK(phrases > 100 && rhythm_bad == 0, "restatements: rhythm broken in %ld of %ld", rhythm_bad, phrases);
+    CHECK(contour_same * 10 >= phrases * 9, "restatements: contour kept in %ld of %ld (want >= 90%%)", contour_same,
+          phrases);
+    CHECK(questions > 100 && q_bad == 0, "questions: %ld of %ld not a held 3rd or 5th", q_bad, questions);
+    CHECK(arrivals > 100 && a_bad == 0, "arrivals: %ld of %ld not a held stable tone", a_bad, arrivals);
+    CHECK(breath_bad == 0, "%ld questions or arrivals without half a bar's breath after", breath_bad);
+    CHECK(half_bad == 0, "%ld of %ld half phrases broken", half_bad, halves);
+    CHECK(leadbars > 500 && onsets * 2 <= leadbars * 7, "%ld onsets in %ld lead bars (want a mean <= 3.5)", onsets,
+          leadbars);
+    CHECK(off1 * 100 >= starts * 55, "phrases off beat 1 in %ld of %ld (want >= 55%%)", off1, starts);
+    CHECK(leaps > 0 && backs * 10 >= leaps * 7, "leaps answered by a step back %ld of %ld (want >= 70%%)", backs, leaps);
+    CHECK(b1_bad == 0, "beat 1 struck in two lead bars running %ld times", b1_bad);
+    CHECK(b1_cad * 10 <= arrivals + questions, "a cadence struck on 1 before a phrase struck on 1 %ld times", b1_cad);
+}
+
+/* Motion by rank (the design's call 5): the same seed at motion 30 and 70; where the phrase is the same (the same
+   run, pass and position: the plan may move lead blocks with motion), the low-motion onsets are a subset of the
+   high-motion ones, and per phrase fewer onsets, the sounding time within 10% (Sam: fewer notes, held longer). */
+static int sl_same_phrase(const sl_song_t *a, const sl_song_t *b, int bar)
+{
+    return a->lead[bar] && b->lead[bar] && a->run[bar] == b->run[bar] && a->pass[bar] == b->pass[bar] &&
+           a->pbars[bar] == b->pbars[bar] && a->last[bar] == b->last[bar];
+}
+
+static void test_sustained_motion(void)
+{
+    long bars = 0, not_sub = 0, ph = 0, fewer = 0, more = 0, sound_bad = 0, on_lo = 0, on_hi = 0;
+    double snd_lo = 0.0, snd_hi = 0.0;
+    int k, got;
+    uint32_t seed;
+    for (k = 0; k < SL_NSETS; k++)
+        for (seed = 1u, got = 0; got < 10 && seed < 900u; seed++) {
+            song_roll_t ra, rb;
+            int bar;
+            if (!sl_roll(seed, SL_SETS[k], 30, &ra) || !sl_roll(seed, SL_SETS[k], 70, &rb)) continue;
+            got++;
+            sl_play(&ra, &sl_a);
+            sl_play(&rb, &sl_b);
+            for (bar = 0; bar < sl_a.bars && bar < 80; bar++) {
+                int i, j, ok = 1, P = bar * 16, nb, b2, cl = 0, ch = 0, sl = 0, sh = 0;
+                if (!sl_same_phrase(&sl_a, &sl_b, bar)) continue;
+                bars++;
+                for (i = 0; i < sl_a.n; i++) {
+                    int found = 0;
+                    if (sl_a.nt[i].start < P || sl_a.nt[i].start >= P + 16) continue;
+                    for (j = 0; j < sl_b.n; j++) found |= sl_b.nt[j].start == sl_a.nt[i].start;
+                    if (!found) ok = 0;
+                }
+                not_sub += !ok;
+                if (sl_a.bip[bar] != 0) continue;
+                nb = sl_a.pbars[bar];
+                for (b2 = bar; b2 < bar + nb; b2++)
+                    if (b2 >= 80 || !sl_same_phrase(&sl_a, &sl_b, b2)) break;
+                if (b2 < bar + nb) continue;
+                for (i = 0; i < sl_a.n; i++)
+                    if (sl_a.nt[i].start >= P && sl_a.nt[i].start < P + nb * 16) {
+                        cl++;
+                        sl += sl_a.nt[i].end - sl_a.nt[i].start;
+                    }
+                for (i = 0; i < sl_b.n; i++)
+                    if (sl_b.nt[i].start >= P && sl_b.nt[i].start < P + nb * 16) {
+                        ch++;
+                        sh += sl_b.nt[i].end - sl_b.nt[i].start;
+                    }
+                ph++;
+                fewer += cl < ch;
+                more += cl > ch;
+                on_lo += cl;
+                on_hi += ch;
+                snd_lo += sl;
+                snd_hi += sh;
+                if (sl * 10 < sh * 9 || sl * 10 > sh * 11) sound_bad++;
+            }
+        }
+    printf("sustained motion: %ld bars compared, %ld not a subset; %ld phrases, low motion fewer onsets in %ld, more in "
+           "%ld (%ld against %ld); sounding %.0f against %.0f 16ths, %ld phrases off by more than 10%%\n", bars,
+           not_sub, ph, fewer, more, on_lo, on_hi, snd_lo, snd_hi, sound_bad);
+    CHECK(bars > 300 && not_sub == 0, "low-motion onsets not a subset of high-motion in %ld of %ld bars", not_sub, bars);
+    CHECK(ph > 50 && more == 0 && on_lo < on_hi, "low motion: more onsets in %ld of %ld phrases (%ld against %ld)",
+          more, ph, on_lo, on_hi);
+    CHECK(sound_bad == 0, "low motion's sounding time off by more than 10%% in %ld of %ld phrases", sound_bad, ph);
+}
+
 int main(int argc, char **argv)
 {
     const char *only = argc > 1 ? argv[1] : NULL;
@@ -6318,7 +6601,6 @@ int main(int argc, char **argv)
     RUN(test_comping_makes_room);
     RUN(test_register_floor);
     RUN(test_pad_places);
-    RUN(test_line_wanders);
     RUN(test_hybrid_follows_motion);
     RUN(test_never_both_silent);
     RUN(test_pushes);
@@ -6360,6 +6642,8 @@ int main(int argc, char **argv)
     RUN(test_keys_duck_mix);
     RUN(test_lead_over_keys);
     RUN(test_phrase_plan);
+    RUN(test_sustained_phrases);
+    RUN(test_sustained_motion);
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;

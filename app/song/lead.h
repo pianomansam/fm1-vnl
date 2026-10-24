@@ -2,9 +2,10 @@
 /* The lead (lead design, 2026-10-22): it plays like its instrument. A percussive lead (vibes, kalimba, guitar lick)
    plays the hybrid: one shaped arpeggio per song over the keys' voicing an octave up, landing on a voice-leading
    skeleton note at each chord change (on 1, late, pushed an 8th early, or after a beat's rest). A sustained lead
-   (flute, sax, muted trumpet) sings the skeleton line with the song's two rhythm cells and a breath at each 4-bar
-   phrase's end. It plays in the plan's lead blocks (L_LEAD, with keys, not the intro or outro). Notes keep the melody's rules: in the
-   chord-scale, no avoid notes, chord tones on steps 0 and 8; a note pushed across a chord change is legal over both.
+   (flute, sax, muted trumpet, saw lead) sings phrases (sustained-lead design, phrase.h): the song's motif in an 8-bar
+   question and answer, each planned degree re-anchored to the bar's chord, a breath after the question and the
+   arrival. It plays in the plan's lead blocks (L_LEAD, with keys, not the intro or outro). Notes keep the melody's
+   rules: in the chord-scale, no avoid notes, chord tones on steps 0 and 8; a note pushed across a chord change is legal over both.
    Planned a bar at a time; all state in lead_state_t. */
 #ifndef SONG_LEAD_H
 #define SONG_LEAD_H
@@ -15,10 +16,12 @@
 
 typedef struct {
     int on[16], len[16];          /* the bar's onsets (MIDI, 0 none) and lengths in 16ths */
+    uint8_t vel[16];              /* the onsets' velocities (0: 84 accented, else 74) */
     unsigned acc;                 /* accented onsets */
     unsigned ring;                /* onsets that ring across the bar line (pushes) */
-    int last;                     /* the last skeleton note (0: none yet) */
-    int anchor;                   /* the sung line's note at its phrase's start: the arc's base */
+    int last;                     /* the last skeleton note, or the sustained lead's last note sung (0: none yet) */
+    int anchor;                   /* the sustained lead's phrase anchor (a scale index over the key: degree 0) */
+    int leap;                     /* the last interval sung leapt (+1 up, -1 down): the next note steps back */
     int tied;                     /* the next bar's landing was pushed into this one */
     int active;                   /* the lead sounds in the planned bar (an onset, or a note pushed in) */
     int onsets;                   /* lead onsets that start in the planned bar */
@@ -31,7 +34,9 @@ int lead_plays(const plan_block_t *b);
 /* Plans one bar (call at step 0). keys, nkeys: this bar's and the next bar's sounding keys voicings (4 notes, 0
    none); pcs: this bar's chord, root first. Over percussive keys every note sits a 4th or more above the keys' top
    (of both chords for a note that sounds on into the next), at most E6, or drops; with a pad the lead keeps to
-   C4-B5, C4-C5 when the pad sits above. can_push 0: a request lands on the next bar, so nothing is pushed into it. Returns the number of lead onsets that start in the bar (0 where the lead doesn't play). */
+   C4-B5, C4-C5 when the pad sits above. can_push 0: a request lands on the next bar, so nothing is pushed into it.
+   b must be the plan's own block (the sustained lead reads its neighbors for the phrase's position). Returns the
+   number of lead onsets that start in the bar (0 where the lead doesn't play). */
 int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b, int bar, const int keys[4],
                   const int nkeys[4], const int *pcs, int np, int can_push);
 /* How the hybrid lands on bar's skeleton note: 0 on 1 for an 8th, 1 on 1 for a quarter, 2 an 8th late, 3 a 16th

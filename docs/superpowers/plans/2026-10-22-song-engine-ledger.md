@@ -183,6 +183,19 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   nudges and a literal restatement — phrased like a wind player). Then the figure library and the accompaniment
   work (comp figures, strumming). Sam: "Get rid of the ugly, then optionally come back and improve the decent" — the sustained
   lead first (docs/superpowers/specs/2026-10-24-sustained-lead-design.md); the hybrid's rank thinning after, optional.
+- **Done (sustained-lead plan, 2026-10-24):** the sustained lead (flute, sax, muted trumpet, saw lead) sings phrases
+  instead of the skeleton line: one motif per song, an 8-bar question and answer with a literal restatement, a held
+  question and arrival, breaths, wind phrasing, motion by rank (low motion: fewer notes held longer). See
+  docs/superpowers/specs/2026-10-24-sustained-lead-design.md and `docs/music/lofi.md`. The skeleton line's
+  `test_line_wanders` is gone (it measured the old line); `test_sustained_phrases` and `test_sustained_motion`
+  replace it.
+- **Sustained lead: judge by ear (2026-10-24).** The motif's length (1 bar played twice a step apart, or 2 bars);
+  the nudges (a step, the last interval, an inverted second half, an 8th's delay) and whether bar 3 and 7 sound
+  related enough; the breath (half a bar: too long at slow tempos?); the arrival (the root, or the 3rd over home and
+  over maj7 chords, where the root rubs: about 40% land on the 3rd); the tie-in push (the question or arrival tied
+  over from the bar before; where a rule refuses the tie it lands on 1, and then beat 1 can sound in two bars
+  running across the breath); the velocity arc (68–84 with the line's height, the arrival 8 softer); phrases high
+  over percussive keys (a 4th over the keys' top leaves about an octave, so long phrases fold at the top).
 - **A cap on how busy the lead can get (Sam, 2026-10-23: "I will also want to work towards putting a limit on how
   busy it can get").** After the hybrid follows the motion lever (lead plan Task 6): a ceiling on onsets per bar or
   per phrase, whatever the motion.
