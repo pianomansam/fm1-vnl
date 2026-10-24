@@ -152,6 +152,9 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   deterministic per loop position. Pedal-like ringing; velocity about 50 to 70 up the climb, 75 on the top chord. Under
   the lead in lead sections (tops at the voicing's top), an octave higher elsewhere; a busy lead thins it to 8ths with
   no top chord. Open question for Sam: 16ths (two climbs a bar), 8ths (one climb landing near beat 4), or both per song.
+- **The pad's solo note against the lead (Sam, 2026-10-24: "leave out for right now... we can revisit later").** The
+  pads design's solo note ignores the lead; if they clash by ear, add the check (sit out a bar where the lead comes
+  within a 3rd or a semitone).
 - **Two lead parts, A-B-A (Sam, 2026-10-24).** "The lead taking that long to come in seems strange... a different
   lead at the beginning. So two different lead parts. Never playing the same time, but like A B A." Today every map
   brings the lead in late (average first lead bar 17-31 of about 53, by map; 30-58% in). Next after the pads.

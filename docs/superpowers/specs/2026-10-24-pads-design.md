@@ -61,9 +61,9 @@ A new, quiet background layer with two parts:
   otherwise it moves the smallest step that is legal, preferring the tonic, then the 3rd, the 2nd, the 7th. Over a V7
   the tonic rubs the chord's 3rd, so it steps down to the 7th degree, a typical move.
 - **Variety by section (Sam):** each section rolls in or out per song (seeded): about 60% in for a groove, 50% for an
-  intro, a break or the outro, and 30% under the lead. In a lead section it is also legal against the lead's notes
-  (no rub) and drops out of any bar where the lead climbs within a 3rd of it. A section that rolls "in" holds it for
-  the whole section, so it enters and leaves at section lines.
+  intro, a break or the outro, and 30% under the lead. A section that rolls "in" holds it for the whole section, so
+  it enters and leaves at section lines. It does not yet react to the lead's notes (Sam: "I don't think that will be
+  a problem, but we can revisit later").
 
 ### Sound
 
@@ -90,7 +90,7 @@ A new, quiet background layer with two parts:
   keys, bass or lead; register G3–C5.
 - **Solo note:** at most one onset a bar, on step 0, sounding to the bar's end (or tied); scale degrees 1, 2, 3, 7 in
   100% of notes and the tonic in ≥ 35%; a common tone held across a chord change whenever it is legal; otherwise moves
-  ≤ 2 semitones in ≥ 90%; never within a 3rd under a lead note in the same bar; no rubs.
+  ≤ 2 semitones in ≥ 90%; no rubs with the keys or bass.
 - **Variety:** over 500 songs, each section kind is "in" within ±10% of its share; a section is all in or all out.
 - **Level:** the layer's RMS under the keys by 4–8 dB (chord part) where both play; the lead-over-keys test passes.
 - **Budget:** cost ≤ 1.0 on the standard list, recorded in docs/cost.md; memory within budget; determinism and the
@@ -104,14 +104,12 @@ A new, quiet background layer with two parts:
    (b) the ensemble renders at quarter rate where its low-pass allows; (c) the chord part drops to 2 notes (3rd and
    7th). Never drop the layer from a set silently; if (a)-(c) are not enough, stop and report.
 2. **Order:** the layer is planned per bar after the lead (song.c: the lead's plan for the bar, `lead_state_t.on/len`,
-   is known at the bar's start), a pure function of roll, plan, voicing and the lead's bar plan. Both parts avoid rubs
-   with the lead's notes of that bar.
+   is known at the bar's start), a pure function of roll, plan, voicing and the lead's bar plan. The chord part avoids
+   rubs with the lead's notes of that bar; the solo note ignores the lead for now (call 4).
 3. **Chord part under the rules:** 3 notes in ≥ 80% of chords (test); 2 where the rules force it, with the count
    reported.
-4. **Solo note against the lead:** decided at the bar's start from the lead's plan: the bar sits out if any lead note
-   in it lands within a 3rd of, or a semitone from, the solo note's choice (after trying the other legal choices). So
-   a struck solo note always sounds the whole bar. The variety test measures the rolled in/out per section; the bars
-   the lead removes are counted and reported separately (expected mostly in lead sections).
+4. **Solo note against the lead: left out for now (Sam, 2026-10-24).** No drop-out or rub check against the lead;
+   to revisit by ear (ledger "To revisit").
 5. **Ranges:** the chord part is clamped to G3–C5; the solo note to C5–C6, at least a 3rd above the chord part's top
    note in the same bar (taking the next legal choice up, else sitting out the bar).
 6. **Tails:** the layer's notes release like the keys' (the song's end releases everything, vx_release_all); the
