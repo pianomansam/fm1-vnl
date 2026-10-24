@@ -17,6 +17,7 @@
 #include "patch.h"
 #include "song.h"
 #include "fx.h"
+#include "phrase.h"
 
 static int fails;
 #define CHECK(c, ...)                                                                                              \
@@ -6126,6 +6127,160 @@ static void test_keys_duck_mix(void)
 
 static int lk_cmp_f(const void *a, const void *b) { return lv_cmp(a, b); }
 
+/* The sustained lead's phrase plan (sustained-lead design): the motif's shape and the 8-bar question and answer. */
+static int pp_bar(uint32_t seed, int block, int pass, int bar, int pbars, int last, phrase_note_t *o)
+{
+    return phrase_bar(seed, block, pass, bar, pbars, last, o, 8);
+}
+
+static int pp_same(const phrase_note_t *a, int na, const phrase_note_t *b, int nb)
+{
+    int i;
+    if (na != nb) return 0;
+    for (i = 0; i < na; i++)
+        if (a[i].at != b[i].at || a[i].len != b[i].len || a[i].deg != b[i].deg || a[i].role != b[i].role ||
+            a[i].orn != b[i].orn || a[i].on != b[i].on)
+            return 0;
+    return 1;
+}
+
+/* b is a with exactly one nudge: one note moved 1-2 steps (a step, or the last interval altered), the contour
+   from some note on inverted, or one note delayed an 8th (2 16ths). Compares onsets and degrees. */
+static int pp_one_nudge(const phrase_note_t *a, int na, const phrase_note_t *b, int nb)
+{
+    int i, h, dat = 0, ddeg = 0, wat = -1, wdeg = -1;
+    if (na != nb || na == 0) return 0;
+    for (i = 0; i < na; i++) {
+        if (a[i].at != b[i].at) { dat++; wat = i; }
+        if (a[i].deg != b[i].deg) { ddeg++; wdeg = i; }
+    }
+    if (dat == 1 && ddeg == 0) return b[wat].at == a[wat].at + 2;
+    if (dat != 0 || ddeg == 0) return 0;
+    if (ddeg == 1 && b[wdeg].deg - a[wdeg].deg >= -2 && b[wdeg].deg - a[wdeg].deg <= 2) return 1;
+    for (h = 1; h < na; h++) {
+        int ok = 1;
+        for (i = 0; i < h; i++) if (a[i].deg != b[i].deg) ok = 0;
+        for (i = h; i < na; i++) if (b[i].deg != 2 * a[h - 1].deg - a[i].deg) ok = 0;
+        if (ok) return 1;
+    }
+    return 0;
+}
+
+static int pp_mod7(int d) { return ((d % 7) + 7) % 7; }
+
+static void test_phrase_plan(void)
+{
+    static const uint8_t vocab[5] = { 2, 3, 4, 6, 8 };
+    int s, offb1 = 0, leapy = 0, backs = 0, badm = 0, nseeds = 500;
+    int bad_rest = 0, bad_nudge = 0, bad_q = 0, bad_a = 0, bad_dens = 0, bad_b1 = 0, bad_mono = 0, bad_short = 0;
+    int bad_pure = 0, onsets = 0, bars = 0, arc_up = 0, settle = 0, revaried = 0, plans = 0, maxb = 0;
+    for (s = 0; s < nseeds; s++) {
+        uint32_t seed = (uint32_t)s * 2654435761u + 12345u;
+        motif_t2 m;
+        int i, leaps = 0, end;
+        phrase_motif(seed, &m);
+        /* the motif: 3-6 onsets over 1-2 bars, long-note lengths, monophonic, one leap at most and a step back */
+        if (m.n < 3 || m.n > 6 || m.bars < 1 || m.bars > 2) badm++;
+        for (i = 0; i < m.n && i < 8; i++) {
+            int k, inv = 1;
+            for (k = 0; k < 5; k++) if (m.len[i] == vocab[k]) inv = 0;
+            end = m.at[i] + m.len[i];
+            if (inv || end > m.bars * 8 || (i + 1 < m.n && end > m.at[i + 1])) badm++;
+            if (i > 0 && (m.step[i] >= 3 || m.step[i] <= -3)) {
+                leaps++;
+                if (i + 1 < m.n && (m.step[i] > 0 ? m.step[i + 1] == -1 : m.step[i + 1] == 1)) backs++;
+            }
+        }
+        if (leaps > 1) badm++;
+        if (leaps) leapy++;
+        if (m.at[0] != 0) offb1++;
+        { /* the 8-bar plan, for two blocks and two passes */
+            int block, pass;
+            for (block = 0; block < 2; block++)
+                for (pass = 0; pass < 2; pass++) {
+                    phrase_note_t b[8][8], o[8];
+                    int n[8], no, k, last = -1, lastend = 0, prevdeg = 0, qdeg = 0, adeg = 0, hi01 = -99, hi23 = -99;
+                    for (k = 0; k < 8; k++) n[k] = pp_bar(seed, block, pass, k, 8, 0, b[k]);
+                    plans++;
+                    if (!pp_same(b[4], n[4], b[0], n[0]) || !pp_same(b[5], n[5], b[1], n[1])) bad_nudge++;
+                    if (!pp_one_nudge(b[0], n[0], b[2], n[2]) || !pp_one_nudge(b[4], n[4], b[6], n[6])) bad_nudge++;
+                    for (k = 0; k < 8; k++) {
+                        int j;
+                        onsets += n[k];
+                        bars++;
+                        if (n[k] > 5) bad_dens++;
+                        if (n[k] > maxb) maxb = n[k];
+                        if (n[k] && b[k][0].at == 0 && n[(k + 1) & 7] && b[(k + 1) & 7][0].at == 0) bad_b1++;
+                        for (j = 0; j < n[k]; j++) {
+                            int t = k * 16 + b[k][j].at;
+                            if (!b[k][j].on || b[k][j].at > 15 || b[k][j].len == 0) bad_mono++;
+                            if (last >= 0 && t < lastend) bad_mono++;
+                            if (k < 2 && b[k][j].deg > hi01) hi01 = b[k][j].deg;
+                            if ((k == 2 || k == 3) && b[k][j].deg > hi23) hi23 = b[k][j].deg;
+                            if (j == n[k] - 1 && (k == 3 || k == 7)) {
+                                const phrase_note_t *e = &b[k][j];
+                                int ok = e->len >= 4 && e->at + e->len <= 8 && last >= 0 &&
+                                         (prevdeg - e->deg == 1 || prevdeg - e->deg == -1);
+                                if (k == 3) { qdeg = e->deg; if (!ok || e->role != PR_QUESTION ||
+                                              (pp_mod7(e->deg) != 2 && pp_mod7(e->deg) != 4)) bad_q++; }
+                                else { adeg = e->deg; if (!ok || e->role != PR_ARRIVAL || pp_mod7(e->deg) != 0)
+                                       bad_a++; }
+                                if (e->at + e->len > 8) bad_rest++;
+                            }
+                            last = t;
+                            lastend = t + b[k][j].len;
+                            prevdeg = b[k][j].deg;
+                        }
+                    }
+                    if (n[3] == 0 || n[7] == 0) { bad_q++; bad_a++; }
+                    if (hi23 >= hi01) arc_up++;
+                    if (adeg < qdeg) settle++;
+                    /* the motif re-varied each pass */
+                    if (pass == 1) {
+                        no = pp_bar(seed, block, 0, 2, 8, 0, o);
+                        if (!pp_same(o, no, b[2], n[2])) revaried++;
+                    }
+                    /* a short block: the question, or the answer when it ends the song's lead */
+                    for (k = 0; k < 4; k++) {
+                        no = pp_bar(seed, block, pass, k, 4, 0, o);
+                        if (!pp_same(o, no, b[k], n[k])) bad_short++;
+                        no = pp_bar(seed, block, pass, k, 4, 1, o);
+                        if (!pp_same(o, no, b[k + 4], n[k + 4])) bad_short++;
+                    }
+                    if (pp_bar(seed, block, pass, 4, 4, 0, o) != 0 || pp_bar(seed, block, pass, 8, 8, 0, o) != 0)
+                        bad_short++;
+                    /* pure: backwards, and after another seed's plan */
+                    for (k = 7; k >= 0; k--) {
+                        pp_bar(seed + 1u, block + 1, pass, 7 - k, 8, 1, o);
+                        no = pp_bar(seed, block, pass, k, 8, 0, o);
+                        if (!pp_same(o, no, b[k], n[k])) bad_pure++;
+                    }
+                }
+        }
+    }
+    printf("phrase: off beat 1 %d/%d, leap %d (step back %d), onsets/bar %.2f (max %d), arc up %d/%d, "
+           "settles %d/%d, re-varied %d/%d\n", offb1, nseeds, leapy, backs, (double)onsets / bars, maxb, arc_up,
+           plans, settle, plans, revaried, plans / 2);
+    CHECK(badm == 0, "motif shape broken %d times", badm);
+    CHECK(offb1 * 100 >= 55 * nseeds && offb1 * 100 <= 75 * nseeds, "motif off beat 1 in %d of %d seeds (want 55-75%%)",
+          offb1, nseeds);
+    CHECK(leapy > 0 && backs * 100 >= 70 * leapy, "leaps followed by a step back %d of %d (want >= 70%%)", backs, leapy);
+    CHECK(bad_nudge == 0, "bars 5-6 or the nudged bars 3 and 7 broken %d times", bad_nudge);
+    CHECK(bad_q == 0, "bar 4's question broken %d times", bad_q);
+    CHECK(bad_a == 0, "bar 8's arrival broken %d times", bad_a);
+    CHECK(bad_rest == 0, "a question or arrival without half a bar's breath %d times", bad_rest);
+    CHECK(bad_dens == 0 && onsets * 2 <= bars * 7, "density: %d bars over 5 onsets, mean %.2f (want <= 3.5)", bad_dens,
+          (double)onsets / bars);
+    CHECK(bad_b1 == 0, "two bars in a row with an onset on beat 1, %d times", bad_b1);
+    CHECK(bad_mono == 0, "overlapping or malformed notes %d times", bad_mono);
+    CHECK(arc_up * 100 >= 70 * plans, "bars 3-4 reach bars 1-2's height in %d of %d plans (want >= 70%%)", arc_up, plans);
+    CHECK(settle * 100 >= 90 * plans, "the arrival under the question in %d of %d plans (want >= 90%%)", settle,
+          plans);
+    CHECK(revaried * 100 >= 50 * (plans / 2), "pass 2 re-varied bar 3 in %d of %d", revaried, plans / 2);
+    CHECK(bad_short == 0, "short blocks broken %d times", bad_short);
+    CHECK(bad_pure == 0, "phrase_bar not pure %d times", bad_pure);
+}
+
 int main(int argc, char **argv)
 {
     const char *only = argc > 1 ? argv[1] : NULL;
@@ -6183,6 +6338,7 @@ int main(int argc, char **argv)
     RUN(test_keys_duck);
     RUN(test_keys_duck_mix);
     RUN(test_lead_over_keys);
+    RUN(test_phrase_plan);
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;
