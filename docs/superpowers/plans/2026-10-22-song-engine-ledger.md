@@ -176,6 +176,13 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   arpeggio, and the guitar strumming idea below), each with its own figure library and register.
   **Before applying it, walk Sam through all the research again (arpeggiators.md and fm1-accompaniment-code.md),
   separated into accompaniment and lead** (Sam, 2026-10-23), then design each.
+  **Walkthrough done (2026-10-24). Sam's priorities:** struck/plucked leads (the hybrid) "aren't terrible, but
+  dropping different notes is bad and should be corrected" (fix: thinning by rank, so motion always drops the same
+  notes); wind and sustained synth leads (the skeleton line) "are down right terrible right now and need the most
+  improvement" (next design: the phrase spine — Tuna-style question/answer/arrival/breath, motif memory with small
+  nudges and a literal restatement — phrased like a wind player). Then the figure library and the accompaniment
+  work (comp figures, strumming). Sam: "Get rid of the ugly, then optionally come back and improve the decent" — the sustained
+  lead first (docs/superpowers/specs/2026-10-24-sustained-lead-design.md); the hybrid's rank thinning after, optional.
 - **A cap on how busy the lead can get (Sam, 2026-10-23: "I will also want to work towards putting a limit on how
   busy it can get").** After the hybrid follows the motion lever (lead plan Task 6): a ceiling on onsets per bar or
   per phrase, whatever the motion.
@@ -192,6 +199,13 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   accompaniment: down/up strokes on a 16th grid, the strings spread a few ms apart (low to high on downstrokes, high
   to low on upstrokes), muted "chuck" strokes, accents, and patterns per song; voiced for a guitar's six strings
   rather than the keys' four voices. Would pair with the nylon and guitar plucks (Karplus–Strong, Plan 3a Task 4).
+  **Sam (2026-10-24), after the accompaniment walkthrough:** strum speed varies, slow (each string heard on its own,
+  roughly 30–80 ms apart) or quick (roughly 5–15 ms, one chunky hit); real strumming patterns with lots of strums in
+  a bar (e.g. D DU UDU on an 8th/16th grid, downstrokes on beats, upstrokes on the "ands", muted chucks, ghost
+  strokes), in contrast to today's single rolled chord. The accompaniment walkthrough's proposal (approved as
+  direction): a comp-figure library (lanes: rhythm, tone, accent, length; re-voiced per chord), variation by phrase
+  (a planned bar-4 variant, new figure at section changes), thinning by rank, pushes shared with the lead, strumming
+  as a figure family, a counter-melody voice later.
 
 ### Bass rhythm (spike VNL_BASS, kept as is by Sam to revisit)
 
@@ -230,6 +244,13 @@ Renders: `app/build/new/<seed>/` and `<seed>-nobed/`, one per set (Task 8's repo
 
 Renders: `app/build/new/<seed>/` and `<seed>-nobed/`, one per synth set, and the 11 earlier sets again (the synths
 plan's Task 5 report lists them by set).
+
+- **Sam's cut (2026-10-24, after the synth renders: "Some of these sound bad"):** kept the DX electric piano, the FM
+  slap bass, the triangle (chip) bass, the organ, the saw lead and the synth pluck; removed the Juno, the Moog bass,
+  the square and sine leads, the chip chords, lead and blip, and the FM bell (patches, the 4-pole, the chip's pulse,
+  noise, vibrato and tick, M_SUB's sine, triangle, noise and vibrato; mono glide now only on the lead). The synth
+  sets are now DX keys and FM bass, Organ and saw lead, Rhodes and saw lead, DX and pluck, Nylon and synth pluck
+  (ids 12, 14-16 retired). The bullets below on the removed patches are history.
 
 - **The new patches' character:** the Juno (a saw and sub under 600 Hz: hazy enough?), the organ (a square and its
   sub, no envelope), the Moog bass (the 4-pole at resonance 0.35, plucked open), the saw, square and sine leads,
