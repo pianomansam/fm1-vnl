@@ -2248,6 +2248,68 @@ static void test_pad_rates(void)
     CHECK(!bad, "pad rates: NaN or inf");
 }
 
+/* The pad bus's section filter darkens the pad (pads Task 3's fix: the filter, the mud high-pass and the sends run at
+   the quarter-rate sum's rate, before its interpolation up): a held chord and solo note on the strings, soloed, then
+   the bus's low-pass to 0.85 (a deep break) and its high-pass to 0.8. Each move's drop in the high band (the first
+   difference's energy) and in all of it matches the full-rate reference's (VX_OFF_HALF: every pad voice at the full
+   rate, through the bus's own filters) within 1.5 dB, and the low-pass takes 6 dB off the high band at least. */
+static void pbf_measure(int bad[1], double *all, double *hi)
+{
+    int k;
+    uint32_t i;
+    *all = *hi = 1e-30;
+    for (k = 0; k < 10; k++) {
+        vt_block(4096, bad);
+        for (i = 1; i < 4096; i++) {
+            double d = (double)vt_l[i] - (double)vt_l[i - 1];
+            *all += (double)vt_l[i] * (double)vt_l[i];
+            *hi += d * d;
+        }
+    }
+}
+static void test_pad_bus_filter(void)
+{
+    double drop[2][3];
+    int m, bad = 0;
+    for (m = 0; m < 2; m++) {
+        double a0, h0, a1, h1, a2, h2;
+        int k;
+        vx_fx_off(m ? VX_OFF_HALF : 0u);
+        vx_init();
+        vx_solo(V_PAD);
+        vx_assign(V_PAD, INS_STRINGS);
+        vt_lane(1, 55, 0, 30u * 44100u);
+        vt_lane(2, 60, 0, 30u * 44100u);
+        vt_lane(3, 64, 0, 30u * 44100u);
+        vt_lane(4, 76, 0, 30u * 44100u);
+        for (k = 0; k < 20; k++)
+            vt_block(4096, &bad);
+        pbf_measure(&bad, &a0, &h0);
+        vx_set_filter(V_PAD, 0.85f);
+        for (k = 0; k < 5; k++)
+            vt_block(4096, &bad);
+        pbf_measure(&bad, &a1, &h1);
+        vx_set_filter(V_PAD, 0.0f);
+        vx_set_hp(V_PAD, 0.8f);
+        for (k = 0; k < 5; k++)
+            vt_block(4096, &bad);
+        pbf_measure(&bad, &a2, &h2);
+        vx_set_hp(V_PAD, 0.0f);
+        drop[m][0] = 3.0103 * (double)fm_log2f((float)(h0 / h1));
+        drop[m][1] = 3.0103 * (double)fm_log2f((float)(a0 / a1));
+        drop[m][2] = 3.0103 * (double)fm_log2f((float)(a0 / a2));
+    }
+    vx_fx_off(0u);
+    vx_solo(-1);
+    printf("pad bus filter: low-pass high band -%.1f dB (reference -%.1f), all -%.1f (-%.1f); high-pass all -%.1f "
+           "(-%.1f)\n", drop[0][0], drop[1][0], drop[0][1], drop[1][1], drop[0][2], drop[1][2]);
+    for (m = 0; m < 3; m++)
+        CHECK(fm_fabsf((float)(drop[0][m] - drop[1][m])) <= 1.5f, "pad bus filter: move %d drops %.1f dB, the reference %.1f", m,
+              drop[0][m], drop[1][m]);
+    CHECK(drop[0][0] >= 6.0, "pad bus filter: the low-pass takes only %.1f dB off the high band", drop[0][0]);
+    CHECK(!bad, "pad bus filter: NaN or inf");
+}
+
 /* The pad layer's lanes (voices.h): two notes back to back on lane 1 glide (the level never under 80% of the held
    level across the change; the pitch at the target within 100 ms); a held lane's same pitch extends it; a lane never
    moves another's voice. */
@@ -7663,6 +7725,7 @@ int main(int argc, char **argv)
     RUN(test_role_buses);
     RUN(test_pad_rates);
     RUN(test_pad_lanes);
+    RUN(test_pad_bus_filter);
     RUN(test_pad_chorus);
     RUN(test_vx_keys);
     RUN(test_vx_plucks_basses);

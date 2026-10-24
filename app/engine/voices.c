@@ -227,6 +227,16 @@ static float hx[V_PAD + 1][NHX] VX_POOL;
 static float hup[CHUNK] VX_POOL;
 static float pq0, pq1; /* the pad layer's quarter-rate sum's last two samples: its interpolation's ends (pad_seg) */
 static float pq_mc[3], pq_mz[2]; /* its mud high-pass at a quarter of the rate: coefficients, states */
+/* The pad bus's section filters on the quarter-rate sum (pad_seg), at that rate, before its interpolation up: the
+   bus's own amounts (bus[V_PAD], moved in the mix as any bus's), the one-poles' coefficients for a step of 4 samples
+   (1 - (1 - k)^4: the same corner), their states and whether each ran in the last segment (a move starts from the
+   signal, as bus_filter's). The bus's full-rate filters then see only its full- and half-rate voices (rare: a note
+   whose low-pass is over 4 kHz, or VX_OFF_HALF). */
+static float pb_y, pb_z, pb_ka4, pb_kh4, pb_ac = -1.0f, pb_hc = -1.0f;
+static uint8_t pb_lon, pb_hon;
+static float pq_buf[CHUNK]; /* the chunk's quarter-rate sum, filtered, at the full rate (pq_used: written) */
+static int pq_used;         /* pq_buf holds the chunk's quarter-rate sum so far (else it is silent: not read) */
+static int pd_filt;         /* the chunk's section filters run (vx_render's filt) */
 static uint32_t hpar;        /* the engine's clock's parity at the chunk's start: 0, its first sample is even */
 static uint32_t hn;          /* render_seg's place: the half-rate samples made so far in the chunk */
 static unsigned hr_live, hr_tail; /* per role bit: a half-rate voice rendered in the chunk; the history not yet silent */
@@ -317,6 +327,9 @@ static void voices_clear(uint32_t seed)
     memset(mud_zh, 0, sizeof mud_zh);
     pq0 = pq1 = 0.0f;
     pq_mz[0] = pq_mz[1] = 0.0f;
+    pb_y = pb_z = 0.0f;
+    pb_lon = pb_hon = 0;
+    pq_used = 0;
     hpar = 0u;
     hr_tail = 0u;
     cp_env = 0.0f;
@@ -1477,54 +1490,183 @@ static float ens_tick(voice_t *v)
     gate_step(v);
     return o;
 }
+/* A quarter-rate voice's next nq ticks added into xq (voice by voice, its state in registers: the same arithmetic as
+   ens_tick, tick by tick); a steal's fade or a glide goes through ens_tick. Stops where the voice falls silent or
+   leaves the quarter rate (a steal's new note at another). */
+static void ens_run(voice_t *v, float *xq, uint32_t nq)
+{
+    uint32_t j = 0;
+    while (j < nq && v->on && v->qr) {
+        if (v->pend || v->m.en.gn) {
+            xq[j++] += ens_tick(v);
+            continue;
+        }
+        {
+            float p1 = v->m.en.p1, p2 = v->m.en.p2, i1 = v->m.en.i1, i2 = v->m.en.i2, l2 = v->m.en.l2, a = v->m.en.a;
+            float y1 = v->m.en.y1, y2 = v->m.en.y2, nat = v->nat, nk = v->nk, amp = v->amp, sus = v->sus, g = v->g;
+            float ka = v->ka, kr = v->kr;
+            uint32_t gate = v->gate;
+            int held = v->held, on = 1;
+            for (; j < nq; j++) {
+                float x = saw_blep(p1, i1) + l2 * saw_blep(p2, i2), o;
+                p1 += i1;
+                if (p1 >= 1.0f)
+                    p1 -= 1.0f;
+                p2 += i2;
+                if (p2 >= 1.0f)
+                    p2 -= 1.0f;
+                y1 += a * (x - y1);
+                y2 += a * (y1 - y2);
+                nat *= nk;
+                o = y2;
+                o *= amp * (sus + (1.0f - sus) * nat) * g;
+                xq[j] += o;
+                if (held && gate && --gate == 0)
+                    held = 0;
+                if (held) {
+                    g += ka;
+                    if (g > 1.0f)
+                        g = 1.0f;
+                } else {
+                    g -= g * kr;
+                    if (g < OFF_THR) {
+                        on = 0;
+                        j++;
+                        break;
+                    }
+                }
+            }
+            v->m.en.p1 = p1;
+            v->m.en.p2 = p2;
+            v->m.en.y1 = y1;
+            v->m.en.y2 = y2;
+            v->nat = nat;
+            v->g = g;
+            v->gate = gate;
+            v->held = (uint8_t)held;
+            v->on = (uint8_t)on;
+        }
+    }
+}
+static float k4_of(float k)
+{
+    float r = 1.0f - k;
+    r *= r;
+    return 1.0f - r * r;
+}
 static unsigned pad_seg(uint32_t pos, uint32_t n)
 {
     voice_t *vs[NPD];
     uint32_t i, ih = 0;
     unsigned got = 0u;
     int k, nv = 0, mud = !(fx_off & VX_OFF_MUD);
-    float z0 = pq_mz[0], z1 = pq_mz[1], a0 = pq0, a1 = pq1, gd = pdgd, g = pdg0 + gd * (float)pos;
+    float z0 = pq_mz[0], z1 = pq_mz[1], a0 = pq0, a1 = pq1, gd = pdgd, g0 = pdg0 + gd * (float)pos;
     for (k = PD; k < NV; k++)
         if (fv[k].on) {
             vs[nv++] = &fv[k];
             got |= fv[k].qr ? PAD_Q : fv[k].hr ? PAD_H : PAD_F;
         }
-    if (a0 != 0.0f || a1 != 0.0f || z0 != 0.0f || z1 != 0.0f)
-        got |= PAD_Q;
-    if (!got)
-        return 0u;
-    for (i = 0; i < n; i++) {
-        uint32_t t = clk + pos + i, ph = t & 3u;
-        float f = 0.0f;
-        g += gd;
-        if (ph == 0u && (got & PAD_Q)) {
-            float x = 0.0f;
-            for (k = 0; k < nv; k++)
-                if (vs[k]->on && vs[k]->qr)
-                    x += ens_tick(vs[k]);
-            x *= g;
-            if (mud)
-                MUD_STEP(x, pq_mc, z0, z1);
-            a0 = a1;
-            a1 = x;
+    if (!(got & PAD_Q)) { /* the quarter-rate path still ringing out, or at rest (then it is silent: no work) */
+        if (fm_fabsf(a0) > 1e-7f || fm_fabsf(a1) > 1e-7f || fm_fabsf(z0) > 1e-7f || fm_fabsf(z1) > 1e-7f ||
+            fm_fabsf(pb_y) > 1e-7f || fm_fabsf(pb_z) > 1e-7f)
+            got |= PAD_Q;
+        else {
+            pq0 = pq1 = pq_mz[0] = pq_mz[1] = pb_y = pb_z = 0.0f;
+            pb_lon = pb_hon = 0;
+            if (pq_used)
+                memset(pq_buf + pos, 0, n * sizeof(float));
         }
-        if ((got & PAD_H) && !(t & 1u)) {
-            float x = 0.0f;
-            for (k = 0; k < nv; k++)
-                if (vs[k]->on && vs[k]->hr)
-                    x += ens_tick(vs[k]);
-            pd_h[ih++] = x * g;
-        }
-        if (got & PAD_F)
-            for (k = 0; k < nv; k++)
-                if (vs[k]->on && !vs[k]->qr && !vs[k]->hr)
-                    f += ens_tick(vs[k]);
-        pd_f[i] = f * g + a0 + (a1 - a0) * ((float)ph * 0.25f);
     }
-    pq0 = fm_flush(a0);
-    pq1 = fm_flush(a1);
-    pq_mz[0] = fm_flush(z0);
-    pq_mz[1] = fm_flush(z1);
+    if (got & PAD_Q) {
+        const bus_t *bf = &bus[V_PAD];
+        int lon = pd_filt && bf->a > 0.0f, hon = pd_filt && (bf->h > 0.0f || bf->hm > 0.0f);
+        float hm = bf->hm, y = pb_y, z = pb_z, d = (a1 - a0) * 0.25f, *o = pq_buf + pos;
+        uint32_t ph = (clk + pos) & 3u, f0 = (4u - ph) & 3u, nq = f0 < n ? (n - f0 + 3u) / 4u : 0u, t = 0;
+        static float xq[CHUNK / 4 + 2];
+        memset(xq, 0, nq * sizeof(float));
+        for (k = 0; k < nv; k++)
+            if (vs[k]->qr)
+                ens_run(vs[k], xq, nq);
+        if (!pq_used && pos)
+            memset(pq_buf, 0, pos * sizeof(float));
+        pq_used = 1;
+        if (lon && bf->a != pb_ac) {
+            pb_ac = bf->a;
+            pb_ka4 = k4_of(k_lp1(LP_TOP * fm_exp2f(-LP_OCT * bf->a)));
+        }
+        if (hon && bf->h != pb_hc) {
+            pb_hc = bf->h;
+            pb_kh4 = k4_of(k_lp1(HP_BOT * fm_exp2f(HP_OCT * bf->h)));
+        }
+        for (i = 0; i < n;) {
+            uint32_t run = 4u - ph, j;
+            if (ph == 0u) {
+                float x = xq[t++];
+                x *= g0 + gd * (float)(i + 1u);
+                if (mud)
+                    MUD_STEP(x, pq_mc, z0, z1);
+                if (hon) { /* the bus's high-pass: y = x - mix * one-pole(x) */
+                    if (!pb_hon) {
+                        z = x;
+                        pb_hon = 1;
+                    }
+                    z += pb_kh4 * (x - z);
+                    x -= hm * z;
+                }
+                if (lon) { /* its low-pass */
+                    if (!pb_lon) {
+                        y = x;
+                        pb_lon = 1;
+                    }
+                    y += pb_ka4 * (x - y);
+                    x = y;
+                }
+                a0 = a1;
+                a1 = x;
+                d = (a1 - a0) * 0.25f;
+            }
+            if (run > n - i)
+                run = n - i;
+            for (j = 0; j < run; j++)
+                o[i + j] = a0 + d * (float)(ph + j);
+            i += run;
+            ph = (ph + run) & 3u;
+        }
+        if (!hon) {
+            z = 0.0f;
+            pb_hon = 0;
+        }
+        if (!lon) {
+            y = 0.0f;
+            pb_lon = 0;
+        }
+        pb_y = fm_flush(y);
+        pb_z = fm_flush(z);
+        pq0 = fm_flush(a0);
+        pq1 = fm_flush(a1);
+        pq_mz[0] = fm_flush(z0);
+        pq_mz[1] = fm_flush(z1);
+    }
+    if (got & (PAD_F | PAD_H)) { /* the full- and half-rate voices (rare): through the bus's own filters */
+        float g = g0;
+        for (i = 0; i < n; i++) {
+            uint32_t t = clk + pos + i;
+            float f = 0.0f;
+            g += gd;
+            if ((got & PAD_H) && !(t & 1u)) {
+                float x = 0.0f;
+                for (k = 0; k < nv; k++)
+                    if (vs[k]->on && vs[k]->hr)
+                        x += ens_tick(vs[k]);
+                pd_h[ih++] = x * g;
+            }
+            if (got & PAD_F)
+                for (k = 0; k < nv; k++)
+                    if (vs[k]->on && !vs[k]->qr && !vs[k]->hr)
+                        f += ens_tick(vs[k]);
+            pd_f[i] = f * g;
+        }
+    }
     for (k = 0; k < nv; k++) {
         vs[k]->nat = fm_flush(vs[k]->nat);
         vs[k]->m.en.y1 = fm_flush(vs[k]->m.en.y1);
@@ -1575,7 +1717,7 @@ static void render_seg(uint32_t pos, uint32_t n, int filt)
         int odd = (int)((hpar + i) & 1u), moved = 0;
         unsigned msk = odd ? mf : mf | mh;
         bb[DRB][i] = dr ? drums_sample() : 0.0f;
-        if (pg & (PAD_F | PAD_Q))
+        if (pg & PAD_F)
             pa = pd_f[i - pos]; /* (the full-rate voices' mud high-pass below; the quarter-rate sum's had its own) */
         if (ph && !odd)
             hpa = pd_h[ih++];
@@ -1648,6 +1790,8 @@ static void render_seg(uint32_t pos, uint32_t n, int filt)
             bb[V_CANDY][i] = k;
             bb[V_PAD][i] = pa;
         } else {
+            if (pg & PAD_Q)
+                pa += pq_buf[i]; /* the quarter-rate sum (no section filters here: they are open) */
             g += dg;
             c *= g;
             ch_m[i] = c + b + l + k + pa;
@@ -1795,13 +1939,11 @@ static unsigned live_buses(void)
     int r, k;
     for (r = V_CHORD; r <= V_PAD; r++)
         for (k = ROLES[r].first; k < ROLES[r].first + ROLES[r].count; k++)
-            if (fv[k].on)
+            if (fv[k].on && !fv[k].qr) /* (the pad layer's quarter-rate voices: filtered in pad_seg) */
                 m |= 1u << r;
     for (r = 0; r < NBUS; r++)
         if (fm_fabsf(bus[r].y) > 1e-7f || fm_fabsf(bus[r].z) > 1e-7f)
             m |= 1u << r;
-    if (pq0 != 0.0f || pq1 != 0.0f || pq_mz[0] != 0.0f || pq_mz[1] != 0.0f)
-        m |= 1u << V_PAD; /* (the pad layer's quarter-rate sum still ringing out) */
     return m | hr_tail; /* (a half-rate role's upsampler still ringing out) */
 }
 
@@ -1825,6 +1967,7 @@ static void comp(float *x, uint32_t n, float *g0, float *dg)
 
 /* the chunk's mix (c samples): per block, the drums compressed, the buses filtered (filt) and summed, into the music
    and the wet inputs' pairs; the song gain on everything */
+static const float pq_zero[CHUNK];
 static void mix_chunk(uint32_t c, int filt, unsigned live)
 {
     uint32_t o, i, k3 = ph3, t3 = 0;
@@ -1848,6 +1991,8 @@ static void mix_chunk(uint32_t c, int filt, unsigned live)
             float e0 = dsend[V_CHORD], e2 = dsend[V_LEAD], e3 = dsend[V_CANDY], e4 = dsend[V_PAD];
             const float *b0 = bb[V_CHORD] + o, *b1 = bb[V_BASS] + o, *b2 = bb[V_LEAD] + o, *b3 = bb[V_CANDY] + o;
             const float *b4 = bb[V_PAD] + o;
+            /* the pad's quarter-rate sum, filtered already (pad_seg), beside its bus's full-rate voices */
+            const float *q4 = pq_used && (solo_bus < 0 || solo_bus == V_PAD) ? pq_buf + o : pq_zero;
             int r;
             for (i = 0; !dz && i < n; i++) { /* the compressor before the drums' filters */
                 g += dg;
@@ -1867,10 +2012,11 @@ static void mix_chunk(uint32_t c, int filt, unsigned live)
                         memset(bb[r] + o, 0, n * sizeof(float));
             for (i = 0; i < n; i++) {
                 float x = b0[i] * (cgl += kgd);
-                ch_m[o + i] = x + b1[i] + b2[i] + b3[i] + b4[i] + d[i];
-                as += x * s0 + b2[i] * s2 + b3[i] * s3 + b4[i] * s4 + d[i] * SEND_DRUMS;
-                ac += x + b4[i] * cs;
-                ad += x * e0 + b2[i] * e2 + b3[i] * e3 + b4[i] * e4;
+                float p4 = b4[i] + q4[i];
+                ch_m[o + i] = x + b1[i] + b2[i] + b3[i] + p4 + d[i];
+                as += x * s0 + b2[i] * s2 + b3[i] * s3 + p4 * s4 + d[i] * SEND_DRUMS;
+                ac += x + p4 * cs;
+                ad += x * e0 + b2[i] * e2 + b3[i] * e3 + p4 * e4;
                 if (++k3 == FX_PAIR) {
                     t_s[t3] += as;
                     t_c[t3] += ac;
@@ -1965,6 +2111,8 @@ void vx_render(float *l, float *r, uint32_t n)
         hn = hw = 0;
         hr_live = 0u;
         dr_live = 0;
+        pq_used = 0;
+        pd_filt = filt;
         ts = tc = td = 0.0f;
         memset(t_s, 0, sizeof t_s);
         memset(t_c, 0, sizeof t_c);
@@ -2179,7 +2327,7 @@ int vx_tiny(void)
                vx_tiny_of(&cp_g, 1) + vx_tiny_of(&dk_env, 1);
     for (r = 0; r < NBUS; r++)
         c += vx_tiny_of(&bus[r].y, 1) + vx_tiny_of(&bus[r].z, 1) + vx_tiny_of(&bus[r].hm, 1);
-    c += vx_tiny_of(pq_mz, 2) + vx_tiny_of(&pq0, 1) + vx_tiny_of(&pq1, 1);
+    c += vx_tiny_of(pq_mz, 2) + vx_tiny_of(&pq0, 1) + vx_tiny_of(&pq1, 1) + vx_tiny_of(&pb_y, 1) + vx_tiny_of(&pb_z, 1);
     for (r = 0; r < NV; r++) /* a synth's filter envelope and states; an ensemble voice's low-pass */
         if (fv[r].on && fv[r].pt && fv[r].pt->model == M_SUB)
             c += vx_tiny_of(&fv[r].m.sb.fe, 1) + vx_tiny_of(fv[r].m.sb.s, 2);
