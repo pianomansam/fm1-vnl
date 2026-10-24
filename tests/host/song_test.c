@@ -6475,7 +6475,7 @@ static void test_pad_level(void)
             mean += x;
             lo = fm_minf(lo, x);
             hi = fm_maxf(hi, x);
-            CHECK(x >= 2.0f && x <= 10.0f, "pad level: %s seed %u's chord part %.1f dB under its keys, wanted 2-10",
+            CHECK(x >= 5.0f && x <= 13.0f, "pad level: %s seed %u's chord part %.1f dB under its keys, wanted 5-13",
                   t->name, (unsigned)seed, (double)x);
         }
         CHECK(got == LK_PER, "pad level: only %d songs found for %s", got, t->name);
@@ -6487,8 +6487,8 @@ static void test_pad_level(void)
         smed = got & 1 ? ss[got / 2] : 0.5f * (ss[got / 2 - 1] + ss[got / 2]);
         printf("pad level: %-21s chord part under the keys: mean %.1f median %.1f (%.1f..%.1f) dB\n", t->name,
                (double)mean, (double)smed, (double)lo, (double)hi);
-        CHECK(mean >= 4.0f && mean <= 8.0f, "pad level: %s's mean %.1f dB under, wanted 4-8", t->name, (double)mean);
-        CHECK(smed >= 4.0f && smed <= 8.0f, "pad level: %s's median %.1f dB under, wanted 4-8", t->name, (double)smed);
+        CHECK(mean >= 7.0f && mean <= 11.0f, "pad level: %s's mean %.1f dB under, wanted 7-11", t->name, (double)mean);
+        CHECK(smed >= 7.0f && smed <= 11.0f, "pad level: %s's median %.1f dB under, wanted 7-11", t->name, (double)smed);
     }
     CHECK(sets >= 10, "pad level: only %d sets with percussive keys", sets);
     memcpy(sorted, d, (size_t)n * sizeof sorted[0]);
