@@ -183,6 +183,12 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   root while the upper voices move) for the pads or a break; (4) Auto song's bank: 40% of the time return to an
   earlier pattern (~line 5212), for A-B-A and long streams; (5) a check on our drums: lo-fi kicks [0,10], [0,7,10],
   [0,3,10] with snare 4 and 12, swing 62.
+  Its rhythm engines (the ENGINES table, ~line 1023): for lo-fi take World cycles (the TIMELINES table ~line 1101:
+  son/bossa/rumba clave, tresillo 0 3 6, habanera 0 3 4 6; bossa percussion, bass and kick rhythms), Bursts (rolls,
+  flams, ghost-note clusters: phrase-end drum fills, which we lack), Polyrhythm (3 against 4: a dotted-8th hat or
+  shaker), and sparingly Drift (ear candy on a loop a step shorter than the bar). Weighted, Markov and Offbeat are what
+  we already do; Cellular, Fractal, Number, Pi, Chaos, Sieve, L-system, Golomb, Collatz, Accelerando, Random walk and
+  Mirror don't groove: skip.
 - **String leads: a string ensemble and a cello (Sam, 2026-10-24: "explore strings for the leads, as well as a cello
   for leads"; corrected: "Not a solo-violin strings. A string orchestra/ensemble").** Sustained leads (they would sing
   the phrase lead). The ensemble lead: the melody played by a section (several detuned voices or the pads' ensemble
