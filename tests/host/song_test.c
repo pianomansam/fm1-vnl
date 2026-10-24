@@ -981,11 +981,11 @@ static void test_harmony(void)
     CHECK(bad_vel == 0, "harmony: %d velocities outside 25-110", bad_vel);
     CHECK(bad_roll == 0, "harmony: %d rolled-chord violations", bad_roll);
     CHECK(chords_seen > 0, "harmony: no chord events");
-    CHECK(styles[CS_HELD] > 0 && styles[CS_STABS] > 0 && styles[CS_OFFBEATS] == 0 && styles[CS_ARP] > 0,
+    CHECK(styles[CS_HELD] > 0 && styles[CS_STABS] == 0 && styles[CS_OFFBEATS] == 0 && styles[CS_ARP] > 0,
           "harmony: styles drawn %d/%d/%d/%d", styles[0], styles[1], styles[2], styles[3]);
-    {   /* (Sam, after hearing comping-styles.musicxml) mostly held: 60% held, 25% stabs, 15% arpeggio; offbeats
+    {   /* (Sam, after hearing comping-styles.musicxml) mostly held: 80% held, 20% arpeggio; offbeats and stabs
            retired (Sam) */
-        int w[4] = {0, 0, 0, 0}, want[4] = {60, 25, 0, 15}, k2;
+        int w[4] = {0, 0, 0, 0}, want[4] = {80, 0, 0, 20}, k2;
         song_roll_t q;
         roll_song(NULL, 1u, &q);
         for (k2 = 0; k2 < 10000; k2++) {
@@ -2528,7 +2528,7 @@ static void test_comping_makes_room(void)
     }
     for (cs = CS_STABS; cs <= CS_ARP; cs++) {
         double q, bz;
-        if (cs == CS_OFFBEATS) continue;   /* retired (Sam) */
+        if (cs != CS_ARP) continue;   /* stabs and offbeats retired (Sam) */
         q = bars[cs][0] ? (double)strikes[cs][0] / (double)bars[cs][0] : 0.0;
         bz = bars[cs][1] ? (double)strikes[cs][1] / (double)bars[cs][1] : 0.0;
         printf("comping %d: %.2f strikes a quiet bar (%ld), %.2f a busy one (%ld)\n", cs, q, bars[cs][0], bz,
@@ -2854,7 +2854,7 @@ static void test_keys_kick_differ(void)
     }
     CHECK(bars > 1000 && same == 0, "keys and kick share a bar's rhythm in %ld of %ld bars", same, bars);
     CHECK(stab_on_kick == 0, "%ld bars with a stab on a sparse kick", stab_on_kick);
-    CHECK(dense > 5 && moved == 0, "%ld of %ld stab songs over a busy kick moved the stab", moved, dense);
+    CHECK(moved == 0, "%ld of %ld stab songs over a busy kick moved the stab", moved, dense);   /* (stabs retired) */
 }
 
 static void test_keys_bass_rhythms_differ(void)

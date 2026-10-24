@@ -53,7 +53,7 @@ engine would not make: zero tolerance for semitone rubs, no substitutions, diato
 | Chords stay in the mode | vamps and loops list only modes where every chord, at every color, lies in the scale; borrowing only in "jazzy" entries, and the melody follows the chord-scale there | taste (stay in key) | **Done** (`lib_prog_t.modes`, R4, R25, R26) | 1aeaa20 |
 | Progression library | classic lo-fi shapes as roman numerals: vamp / loop / jazzy (one twist chord), mix about 40 / 45 / 15; 18 new entries (27–44) await curation by ear | genre **(Sam: curated)**; mix (call) | **Done** (`library.c: LIB_PROGS`, R6, R8, R26) | *genre* §2.1–2.2 |
 | Mood steers mode and color | sad ↔ happy: minor/Dorian ↔ major/Lydian; Phrygian and Locrian never | genre + taste **(Sam)** | **Done** (`library.c: LIB_MOODS`, `roll.c`) | *genre* §2.3, §8.1 |
-| Chord rhythm | one comp style per song: held 60%, stabs 25%, arpeggio 15% (offbeats retired, **Sam**); rolled 10–60 ms | genre (sampled-loop feel) | **Done** (`harmony.c: harmony_style`, R15); no anticipations | *genre* §2.4; LOF-1 (*firmwares*) |
+| Chord rhythm | one comp style per song: held 80%, arpeggio 20% (offbeats and stabs retired, **Sam**); rolled 10–60 ms | genre (sampled-loop feel) | **Done** (`harmony.c: harmony_style`, R15); no anticipations | *genre* §2.4; LOF-1 (*firmwares*) |
 | Darker intro and outro | the same voicings, played softer, low-passed by the lo-fi chain (Sam: lo-fi keeps its voicings through a song) | genre (filtered intro) | **Partly** (softer: `emit_chord`); filter **Plan 3** | *audio* §4.2 |
 
 ## Bass

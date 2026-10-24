@@ -74,3 +74,8 @@ comp pattern less and less".
 - Found on the way: a reverb tail ringing into the next song left Rings' 16-bit loop carrying its state at the floor
   (about 3e-5) for the whole next song, so a song after another wasn't bit-identical. A new song now clears a tail
   under -60 dB (PL_FLOOR); measured tails at the gap's end are 1e-5 to 4e-4.
+
+## Stabs retired (Sam, 2026-10-24: "I don't like the 'stabs' comping. It's just not working. Remove it.")
+
+Comping: held 80%, arpeggio 20% (stabs and offbeats weighted 0; their code stays unused, as does the kick-avoiding
+stab placement). More held keys moved two level medians: the guitar lick +0.3 dB, the muted trumpet -0.1 dB.
