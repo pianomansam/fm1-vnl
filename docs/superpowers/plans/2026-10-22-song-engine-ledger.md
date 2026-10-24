@@ -145,6 +145,16 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
 
 ### General
 
+- **Piano broken-chord climb (Sam, 2026-10-24: "soon, just not quite yet").** The arpeggio comping on piano-like keys
+  (Rhodes, Wurli, felt, DX EP) as a rising broken chord over 2-3 octaves: root an octave below the voicing, 5th,
+  10th, then the voicing and the voicing an octave up; chord tones only down low. It sometimes lands on the voicing as a
+  block chord at the top, held to the bar's end: always in a 4-bar phrase's last bar, about 1 in 3 other bars,
+  deterministic per loop position. Pedal-like ringing; velocity about 50 to 70 up the climb, 75 on the top chord. Under
+  the lead in lead sections (tops at the voicing's top), an octave higher elsewhere; a busy lead thins it to 8ths with
+  no top chord. Open question for Sam: 16ths (two climbs a bar), 8ths (one climb landing near beat 4), or both per song.
+- **Background pads/strings layer (Sam, 2026-10-24: "would make a nice layer").** A quiet, slow-moving sustained
+  layer under the keys, out of the lead's register. Needs its own design (role/bus, which sets, voicing, cost).
+
 - **Lead phrase starts are square.** Over 1,000 songs: 35% of lead gestures start exactly on beat 1, 59% on a beat,
   19% on 8th offbeats, 21% on 16ths, and true pickups are impossible (phrases begin on their first bar; notes may not
   cross a chord change). Cause: melody.c `gen_figure` picks beat 1 first 60% of the time, and 8 of 14 rhythm-cell
