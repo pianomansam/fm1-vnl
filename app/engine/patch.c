@@ -30,10 +30,11 @@
      cutoff at full envelope and velocity, as a multiple of the note's frequency (60% of it at velocity 0, 30% at
      envelope 0), p[3] the breath's level, p[4] its band's center in Hz, p[5] the vibrato's depth in cents, p[6] the
      mute: a band-pass center in Hz (0 for none), p[7] its damping k (1/Q: small is narrow).
-   M_CHIP (the triangle bass; voices.c chip_*): a NES-style triangle channel at full rate and no filter (the dust
-     colors it): stepped to 16 levels, pitch on the semitone.
+   M_CHIP (the triangle bass; voices.c chip_*): a NES-style triangle channel at full rate (the dust colors it), stepped
+     to 16 levels, pitch on the semitone, a gentle low-pass after its crush.
      p[0] the bit crush: the voice's output (after its envelope) rounded to this many bits over its own full level
-     (2^(p[0]-1) steps from 0 to the note's level; 0 for none; 7: a few-bit DAC's grit and steppy decays).
+     (2^(p[0]-1) steps from 0 to the note's level; 0 for none; 7: a few-bit DAC's grit and steppy decays); p[1] a
+     one-pole low-pass after the crush at this multiple of the note's frequency (0 for none; Sam: more mellow).
    M_SUB (organ, saw lead, synth pluck; voices.c sub_*): frugal as a Juno-106, one oscillator and a sub-octave square
      into a 2-pole low-pass with its own envelope; mono and glide for the lead. On the chords a patch whose highest
      cutoff stays at 8 kHz or under renders at half the rate.
@@ -71,7 +72,7 @@ static const vx_patch_t PATCHES[INS_NONE] = {
     [INS_BELLS] = {M_BELL, {3.53f, 0.6f, 1.2f, 1.2f, 0.0f, 0.0f, 0.3f}, 0.003f, 3.5f, 0.0f, 0.2f, 0.87f, 0.0f, 0.35f},
     [INS_VOX_PAD] = {M_PAD, {4.0f, 2.0f, 0.35f, 0.0f, 0.0f, 0.0f, 0.6f, 1.0f}, 0.8f, 4.0f, 0.85f, 0.9f, 1.77f, 0.5f, 0.25f},
     /* the triangle bass (a chip voice) */
-    [INS_CHIP_BASS] = {M_CHIP, {7.0f}, 0.003f, 7.0f, 1.0f, 0.05f, 1.3f, 0.0f, 0.0f},
+    [INS_CHIP_BASS] = {M_CHIP, {7.0f, 5.0f}, 0.003f, 7.0f, 1.0f, 0.05f, 1.3f, 0.0f, 0.0f},
     /* the subtractive synths, warm (their cutoffs low), their levels balanced in their sets like the rest. The organ:
        a square and its sub (16' and 8'), no envelope; the saw lead mono and gliding; the synth pluck: a pulse snapped
        open and shut */

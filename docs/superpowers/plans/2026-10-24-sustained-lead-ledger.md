@@ -50,3 +50,10 @@ reviewed: all were bars, none meant beats.
   -0.2, synth pluck -0.3. The break's low-pass on the lead is 0.85 of the others' (it stays over the darkened keys:
   Rhodes neo-soul seed 4 dipped to +1.0 dB in its break). Two level tests pull against each other here (a break no
   louder than the full band, every song's lead 2 dB over its keys); both pass with thin margins (+2.1 dB).
+
+## Triangle bass mellowed (Sam, 2026-10-24: "a little more mellow… filter it a bit?")
+
+A one-pole low-pass after the chip's crush at 5x the note's frequency (patch p[1]; it tracks the note, so every
+register is mellowed alike). The 16-level check now reads the voice's triangle before its crush and filter; a new
+check wants the output's sample-to-sample energy under 0.15 of the raw triangle's (0.34 unfiltered, 0.05 now). Cost
+unchanged (max ratio 0.896).

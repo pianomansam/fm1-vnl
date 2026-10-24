@@ -155,7 +155,7 @@ typedef struct {
         struct { /* M_CHIP: a phase and its increment; the crush: its steps per unit of output (a unit of the
                     voice's level, amp_t, is 2^(bits-1) steps; 0 for none) and their size; the last output before and
                     after it (tests: vx_chip_out) */
-            float ph, inc, q, qi, raw, out;
+            float ph, inc, q, qi, raw, out, lk, lp;
         } ch;
         struct { /* M_SUB: a phase, the increment gliding (by gk a step, gn steps, to ft); the pulse's width, the
                     sub-octave's sign and level */
@@ -708,7 +708,9 @@ static void chip_start(voice_t *v, const song_ev_t *e)
     v->m.ch.inc = note_inc(e->note);
     v->m.ch.qi = p->p[0] >= 1.0f ? v->amp_t * fm_exp2f(1.0f - fm_floorf(p->p[0])) : 0.0f;
     v->m.ch.q = v->m.ch.qi > 0.0f ? 1.0f / v->m.ch.qi : 0.0f;
-    v->m.ch.raw = v->m.ch.out = 0.0f;
+    v->m.ch.raw = v->m.ch.out = v->m.ch.lp = 0.0f;
+    /* the one-pole low-pass's coefficient for a cutoff p[1] times the note's frequency (0: none) */
+    v->m.ch.lk = p->p[1] > 0.0f ? 1.0f - fm_exp2f(-9.0647f * p->p[1] * v->m.ch.inc) : 1.0f;   /* 2 pi / ln 2 */
 }
 
 /* M_SUB's highest cutoff in Hz for a note of hz at velocity v01: the key-tracked base with the envelope at its top */
@@ -1173,6 +1175,8 @@ static float voice_sample(voice_t *v)
         o = fm_floorf(o * q + 0.5f) * v->m.ch.qi;
         v->m.ch.out = o;
     }
+    if (v->pt->model == M_CHIP) /* the chip's low-pass after its crush (Sam: a little more mellow) */
+        o = v->m.ch.lp = fm_flush(v->m.ch.lp + (o - v->m.ch.lp) * v->m.ch.lk);
     if (v->pend) { /* fade the victim out, then start the queued note */
         v->g -= v->g * (v->hr ? 2.0f * G_STEAL : G_STEAL);
         if (v->g < STEAL_THR)

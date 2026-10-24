@@ -1993,7 +1993,22 @@ static void test_chip(void)
         float lo = 1e9f, hi = -1e9f, eps;
         uint32_t from = 22050u, per = 674u, t;
         int nl = 0, cl = 0, a, b;
+        float dr = 0.0f, dout = 0.0f, olo = 1e9f, ohi = -1e9f;
         vt_note(V_BASS, INS_CHIP_BASS, 36, 100, 44100u, 8u * 4096u, &bad);
+        for (t = from; t < from + per; t++) {
+            olo = fm_minf(olo, vt_long[t]);
+            ohi = fm_maxf(ohi, vt_long[t]);
+            dout += (vt_long[t + 1] - vt_long[t]) * (vt_long[t + 1] - vt_long[t]);
+        }
+        vx_init();
+        vx_assign(V_BASS, INS_CHIP_BASS);
+        vt_ev(V_BASS, 36, 100, 0, 44100u);
+        for (t = 0; t < from + per + 1; t++) {   /* the voice's triangle before its crush and low-pass */
+            float l1 = 0.0f, r1 = 0.0f, raw, st;
+            vx_render(&l1, &r1, 1u);
+            vx_chip_out(V_BASS, &raw, &st);
+            vt_long[t] = raw;
+        }
         for (t = from; t < from + per; t++) {
             lo = fm_minf(lo, vt_long[t]);
             hi = fm_maxf(hi, vt_long[t]);
@@ -2010,6 +2025,14 @@ static void test_chip(void)
             }
         for (a = 0; a < nl; a++)
             cl += !a || lv[a] - lv[a - 1] > (hi - lo) / 30.0f; /* half a step of 16 levels */
+        for (t = from; t < from + per; t++) dr += (vt_long[t + 1] - vt_long[t]) * (vt_long[t + 1] - vt_long[t]);
+        dout /= (ohi - olo) * (ohi - olo);
+        dr /= (hi - lo) * (hi - lo);
+        /* mellow (Sam: "a little more mellow... filter it a bit"): the low-pass smooths the steps: the output's
+           sample-to-sample motion (its energy: steps are sharp) under 0.15 of the raw triangle's, each over its range */
+        printf("chip: the triangle bass's output moves %.2f of its raw triangle's motion a sample\n",
+               (double)(dout / dr));
+        CHECK(dout < 0.15f * dr, "triangle bass: not mellowed (output motion %.2f of the raw's)", (double)(dout / dr));
         printf("chip: triangle at note 36: %d levels in a cycle (range %.4f)\n", cl, (double)(hi - lo));
         CHECK(cl >= 15 && cl <= 17, "triangle: %d levels in a cycle, wanted 16", cl);
     }
