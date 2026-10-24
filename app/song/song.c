@@ -400,7 +400,7 @@ int song_tick(song_t *s, song_ev_t *out, int max)
     }
     for (i = k = 0; i < n; i++) {                   /* the 4-bar note-off line */
         uint32_t at = s->pos + buf[i].delay;
-        if (buf[i].voice <= V_CANDY && buf[i].len) {
+        if (buf[i].voice <= V_PAD && buf[i].len) {     /* the pitched roles */
             if (at >= s->edge) continue;            /* would start past the line: dropped, not clicked */
             if (at + buf[i].len > s->edge &&
                 !((buf[i].voice == V_BASS || buf[i].voice == V_LEAD) && buf[i].pad && !pending_any(s)))

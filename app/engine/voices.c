@@ -1,21 +1,23 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 /* Formant filters adapted from AMB-1 (fm1-amb), MPL-2.0. FM bell adapted from AMB-1 (fm1-amb), MPL-2.0. */
-/* Voices and mix (see voices.h). The pitched roles are pools of voices: chords 4 (8 for a pad), lead 2, candy 2 and
-   the bass, a mono pool of 1 whose level slews (AMP_K) and whose M_BASS retriggers are legato. Each voice keeps the
-   patch it was struck with, and voice_sample() dispatches on the patch's model: keys (M_EP), plucked strings
-   (M_PLUCK), pads (M_PAD), bells (M_BELL), winds (M_WIND), basses (M_BASS), a chip triangle (M_CHIP) and the
-   subtractive synths (M_SUB; a mono one on the lead glides from a held note, or a near one just ended: LEG_GAP). A
-   key's or a pad's note whose partials stay under 9 kHz, and a synth's on the chords whose low-pass stays at 8 kHz or
-   under, renders at half the rate (half_ok), its role's half-rate voices upsampled by a half- band. A
-   pitched note's level is the patch envelope: a natural decay (nat, from 1 toward sus) times a gate (g: a linear rise,
-   a smoothed fall), so a note-off, a steal or vx_release_all fades instead of clicking. Drums are a noise burst or a
-   swept sine. Then the mix (Task 8: the role gains, the keys' level per comping, the mud high-pass on the chords', the
-   lead's and the ear candy's sums), per role bus (chords, bass, lead, candy, drums): the drums through their
-   compressor, each bus through its section filters (a one-pole high-pass and low-pass, vx_set_filter/vx_set_hp;
-   skipped while every bus is open), the chords' dry scaled for the chorus, the song gain; the buses summed into the
-   music, the plate's send (SEND per role) and the tape delay's (each role's patch's delay), the chords' bus kept for
-   the chorus; then the lo-fi chain (fx.c: chorus, delay, dust, ducking, the soft clip, the plate, the bed). Per-sample
-   work is bounded by the fixed voice count; the filters and the compressor move at a control rate of BCR samples. */
+/* Voices and mix (see voices.h). The pitched roles are pools of voices: chords 4 (8 for a pad), lead 2, candy 2, the
+   bass, a mono pool of 1 whose level slews (AMP_K) and whose M_BASS retriggers are legato, and the pad layer 4. Each
+   voice keeps the patch it was struck with, and voice_sample() dispatches on the patch's model: keys (M_EP), plucked
+   strings (M_PLUCK), pads (M_PAD), bells (M_BELL), winds (M_WIND), basses (M_BASS), a chip triangle (M_CHIP), the
+   subtractive synths (M_SUB; a mono one on the lead glides from a held note, or a near one just ended: LEG_GAP) and the
+   pad layer's ensemble (M_ENS, at a quarter of the rate in a loop of its own: pad_seg). A key's or a pad's note whose
+   partials stay under 9 kHz, and a synth's on the chords whose low-pass stays at 8 kHz or under, render at half the
+   rate (half_ok), its role's half-rate voices upsampled by a half- band. A pitched note's level is the patch envelope:
+   a natural decay (nat, from 1 toward sus) times a gate (g: a linear rise, a smoothed fall), so a note-off, a steal or
+   vx_release_all fades instead of clicking. Drums are a noise burst or a swept sine. Then the mix (Task 8: the role
+   gains, the keys' level per comping, the mud high-pass on the chords', the lead's, the ear candy's and the pad layer's
+   sums), per role bus (chords, bass, lead, candy, pad, drums): the drums through their compressor, each bus through its
+   section filters (a one-pole high-pass and low-pass, vx_set_filter/vx_set_hp; skipped while every bus is open), the
+   chords' dry scaled for the chorus, the song gain; the buses summed into the music, the plate's send (SEND per role)
+   and the tape delay's (each role's patch's delay), the chords' bus and the pad layer's send (its patch's chorus) kept
+   for the chorus; then the lo-fi chain (fx.c: chorus, delay, dust, ducking, the soft clip, the plate, the bed).
+   Per-sample work is bounded by the fixed voice count; the filters and the compressor move at a control rate of BCR
+   samples. */
 #include <stdint.h>
 #include <string.h>
 #include "fastmath.h"
@@ -32,9 +34,11 @@
 #define PAD_LONG 22050u /* a pad note this long (half a second) or longer is held: it may take the pool's other 4 */
 #define NLD 2 /* lead voices */
 #define NCD 2 /* candy voices */
+#define NPD 4 /* the pad layer's voices: a 3-note chord and the solo note */
 #define NFM (NCH + NLD + NCD)
 #define VB NFM       /* the bass voice: fv[VB] */
-#define NV (NFM + 1) /* every pitched voice */
+#define PD (VB + 1)  /* the pad layer's first voice, after the bass (no Karplus-Strong line: ks[] stops at PD) */
+#define NV (PD + NPD) /* every pitched voice */
 #define INV_SR (1.0f / 44100.0f)
 #define SR 44100.0f
 #define T60 6.9078f  /* ln 1000: time constants in a -60 dB time */
@@ -48,8 +52,8 @@
    semitones or less from it (a perfect 4th), glides. Sam judges both by ear. */
 #define LEG_GAP 1102u /* 25 ms */
 #define LEG_INT 5
-#define NBUS 5   /* the role buses: V_CHORD, V_BASS, V_LEAD, V_CANDY and the drums (PM_*) */
-#define DRB 4    /* the drums' bus */
+#define NBUS 6   /* the role buses: V_CHORD, V_BASS, V_LEAD, V_CANDY, V_PAD and the drums (PM_*) */
+#define DRB 5    /* the drums' bus */
 #define BCR 32u  /* the buses' control rate: filters and the compressor per 32 samples */
 #define FLT_RAMP ((float)BCR / 2205.0f) /* a filter move lands in 50 ms ... */
 #define HP_OPEN ((float)BCR / 132.0f)   /* ... a high-pass opening in 3 ms */
@@ -105,11 +109,12 @@ static const float PUMP_DB[VX_PUMP_N] = {1.0f, 3.0f, 6.0f};
 /* The role gains (Task 8's mix): the lead the focus, the keys under it, the bass felt under them, the ear candy an
    ornament; each patch's level (patch.c) evens its instruments out within the role, so every set mixes alike: while
    the lead plays it sits about 4-6 dB over the keys (with the keys' duck, DUCK_*), whatever the set. */
-static const role_t ROLES[V_CANDY + 1] = {
+static const role_t ROLES[V_PAD + 1] = {
     [V_CHORD] = {0, NCH, 0.15f},
     [V_BASS] = {VB, 1, 0.0625f},
     [V_LEAD] = {NCH, NLD, 0.154f},
     [V_CANDY] = {NCH + NLD, NCD, 0.118f},
+    [V_PAD] = {PD, NPD, 0.06f}, /* the pad layer under the keys (levels: the pads plan's Task 3) */
 };
 
 /* A pooled voice. The envelope fields are shared by every model; m is the model's own state. */
@@ -157,6 +162,10 @@ typedef struct {
                     after it (tests: vx_chip_out) */
             float ph, inc, q, qi, raw, out, lk, lp;
         } ch;
+        struct { /* M_ENS: the saw's and its partner's phases and increments, the partner's level; the 2-pole
+                    low-pass's coefficient and states */
+            float p1, p2, i1, i2, l2, a, y1, y2;
+        } en;
         struct { /* M_SUB: a phase, the increment gliding (by gk a step, gn steps, to ft); the pulse's width, the
                     sub-octave's sign and level */
             float ph, f0, ft, gk, pw, sg, sl;
@@ -174,6 +183,7 @@ typedef struct {
     uint32_t off; /* when its gate closes (or closed): the engine's clock (t_on) at its onset plus its length */
     uint8_t slew; /* the level slews (the bass's AMP_K): the bass, and a mono synth (its legato notes) */
     uint8_t hr;   /* rendered at half the rate, on even samples (a step is two), into its role's upsampler */
+    uint8_t qr;   /* the pad layer's: rendered at a quarter of the rate (a step is four; pad_seg) */
     uint8_t pend; /* a steal in progress: fade out, then start pe on ppt */
     const vx_patch_t *ppt;
     song_ev_t pe;
@@ -187,7 +197,7 @@ typedef struct {
 static qe_t q[QN];
 static int qn;
 static voice_t fv[NV];
-static float ks[NV][VX_KS_N] VX_POOL; /* the Karplus-Strong lines, one per voice */
+static float ks[PD][VX_KS_N] VX_POOL; /* the Karplus-Strong lines, one per voice (not the pad layer's) */
 static uint32_t age_ctr, rng = 0x1234567u;
 static uint32_t clk;  /* the engine's clock at the chunk's start */
 static uint32_t t_on; /* the engine's clock (samples since vx_init) at the events firing now (vx_render) */
@@ -208,24 +218,27 @@ static bus_t bus[NBUS];
 #define NHX (HB_H + CHUNK / 2 + 1)
 static float hx[V_CANDY + 1][NHX] VX_POOL;
 static float hup[CHUNK] VX_POOL;
+static float pq0, pq1; /* the pad layer's quarter-rate sum's last two samples: its interpolation's ends (pad_seg) */
 static uint32_t hpar;        /* the engine's clock's parity at the chunk's start: 0, its first sample is even */
 static uint32_t hn;          /* render_seg's place: the half-rate samples made so far in the chunk */
 static unsigned hr_live, hr_tail; /* per role bit: a half-rate voice rendered in the chunk; the history not yet silent */
 static uint32_t hw;          /* hx holds the chunk's half-rate samples [0, hw) (rendered or zeroed) */
 static int dr_live;          /* a drum sounded in the chunk (else the drums' bus is all zeros) */
-/* The plate's per-bus sends (a fraction of the bus's level): keys and lead wet, ear candy wetter, the bass dry, the
-   drums a touch. */
+/* The plate's per-bus sends (a fraction of the bus's level): keys and lead wet, ear candy and the pad layer wetter,
+   the bass dry, the drums a touch. */
 static const float sendp[NBUS] = {[V_CHORD] = 0.30f, [V_BASS] = 0.0f, [V_LEAD] = 0.35f, [V_CANDY] = 0.45f,
-                                  [DRB] = SEND_DRUMS}; /* (the bass's 0 is not summed: the mix leaves it out) */
+                                  [V_PAD] = 0.40f, [DRB] = SEND_DRUMS}; /* (the bass's 0 is not summed) */
 static float dsend[NBUS];   /* the delay's per-bus send: the role's patch's delay */
-/* The mud high-pass (Sam: "add both"): a second-order (Butterworth) high-pass on the chords', the lead's and the ear
-   candy's sums at MUD_HZ (MUD_PAD_HZ for a pad), so the bass and the kick keep the low end. Per role, at the full rate
-   and at half (its half-rate voices' sum, before the upsampler): b0, a1, a2 (b1 = -2 b0, b2 = b0; transposed direct
-   form II, two states); b0 = 0 with no patch. VX_OFF_MUD leaves it out. */
+static float csend;         /* the pad layer's send into the chorus (its patch's chorus; the depth is the chords') */
+/* The mud high-pass (Sam: "add both"): a second-order (Butterworth) high-pass on the chords', the lead's, the ear
+   candy's and the pad layer's sums at MUD_HZ (MUD_PAD_HZ for a pad or the pad layer), so the bass and the kick keep
+   the low end. Per role, at the full rate and at half (its half-rate voices' sum, before the upsampler; the pad
+   layer's at a quarter, its quarter-rate sum's): b0, a1, a2 (b1 = -2 b0, b2 = b0; transposed direct form II, two
+   states); b0 = 0 with no patch. VX_OFF_MUD leaves it out. */
 #define MUD_HZ 135.0f
 #define MUD_PAD_HZ 150.0f
-static float mud_c[V_CANDY + 1][2][3];               /* [role][full, half][b0, a1, a2] */
-static float mud_z[V_CANDY + 1][2], mud_zh[V_CANDY + 1][2]; /* the states, full rate and half */
+static float mud_c[V_PAD + 1][2][3];               /* [role][full, half][b0, a1, a2] */
+static float mud_z[V_PAD + 1][2], mud_zh[V_PAD + 1][2]; /* the states, full rate and half */
 static void mud_coefs(float *c, float hz, float sr)
 {
     float w = FM_TWO_PI * hz / sr, cs = fm_cosf(w), al = fm_sinf(w) * 0.70710678f, a0 = 1.0f / (1.0f + al);
@@ -250,7 +263,7 @@ static unsigned fx_off;     /* VX_OFF_*: kept through vx_init */
 static int solo_bus = -1;   /* vx_solo: the one bus mixed, -1 for all (kept through vx_init) */
 static uint32_t gain_n;
 static vx_config_t cfg;
-static const vx_patch_t *role_pt[V_CANDY + 1]; /* the configured patch per pitched role, NULL for none */
+static const vx_patch_t *role_pt[V_PAD + 1]; /* the configured patch per pitched role, NULL for none */
 
 static float noise(void)
 {
@@ -288,6 +301,7 @@ static void voices_clear(uint32_t seed)
     memset(hx, 0, sizeof hx);
     memset(mud_z, 0, sizeof mud_z);
     memset(mud_zh, 0, sizeof mud_zh);
+    pq0 = pq1 = 0.0f;
     hpar = 0u;
     hr_tail = 0u;
     cp_env = 0.0f;
@@ -310,34 +324,39 @@ void vx_init(void)
     vx_assign(V_BASS, INS_SUB);
     vx_assign(V_LEAD, INS_VIBES);
     vx_assign(V_CANDY, INS_MUSIC_BOX);
+    vx_assign(V_PAD, INS_STRINGS);
     vx_set_kit(KIT_DUSTY);
     cfg.flavor = FL_LOFI;
     vx_set_pump(VX_PUMP_SUBTLE);
 }
 
-/* a role's patch, its delay send, its mud high-pass and (the chords') the chorus's depth */
+/* a role's patch, its delay send, its mud high-pass and (the chords') the chorus's depth or (the pad layer's) its
+   send into the chorus */
 static void assign_pt(int voice, const vx_patch_t *p)
 {
     role_pt[voice] = p;
     dsend[voice] = role_pt[voice] && voice != V_BASS && !(fx_off & VX_OFF_DELAY) ? role_pt[voice]->delay : 0.0f;
     if (voice != V_BASS) {
-        float hz = role_pt[voice] && role_pt[voice]->model == M_PAD ? MUD_PAD_HZ : MUD_HZ;
+        float hz = role_pt[voice] && (role_pt[voice]->model == M_PAD || role_pt[voice]->model == M_ENS) ? MUD_PAD_HZ
+                                                                                                        : MUD_HZ;
         mud_coefs(mud_c[voice][0], hz, SR);
-        mud_coefs(mud_c[voice][1], hz, 0.5f * SR);
+        mud_coefs(mud_c[voice][1], hz, (voice == V_PAD ? 0.25f : 0.5f) * SR); /* (the pad layer's at a quarter) */
     }
     if (voice == V_CHORD)
         fx_chorus(role_pt[voice] && !(fx_off & VX_OFF_CHORUS) ? role_pt[voice]->chorus : 0.0f);
+    if (voice == V_PAD)
+        csend = role_pt[voice] && !(fx_off & VX_OFF_CHORUS) ? role_pt[voice]->chorus : 0.0f;
 }
 
 void vx_assign_patch(int voice, const vx_patch_t *p)
 {
-    if (voice >= V_CHORD && voice <= V_CANDY)
+    if (voice >= V_CHORD && voice <= V_PAD)
         assign_pt(voice, p);
 }
 
 void vx_assign(int voice, int ins)
 {
-    if (voice < V_CHORD || voice > V_CANDY)
+    if (voice < V_CHORD || voice > V_PAD)
         return;
     assign_pt(voice, vx_patch(ins));
     ins = role_pt[voice] ? ins : INS_NONE;
@@ -345,6 +364,7 @@ void vx_assign(int voice, int ins)
     case V_CHORD: cfg.chords = (uint8_t)ins; break;
     case V_BASS: cfg.bass = (uint8_t)ins; break;
     case V_LEAD: cfg.lead = (uint8_t)ins; break;
+    case V_PAD: cfg.pad = (uint8_t)ins; break;
     default: cfg.candy = (uint8_t)ins; break;
     }
 }
@@ -378,6 +398,7 @@ void vx_configure(const song_roll_t *r)
         vx_assign(V_BASS, s->bass);
         vx_assign(V_LEAD, s->lead);
         vx_assign(V_CANDY, s->candy);
+        vx_assign(V_PAD, s->pad);
         vx_set_kit(s->kit);
         cfg.flavor = s->flavor;
     }
@@ -436,23 +457,29 @@ void vx_event(const song_ev_t *e)
     qn++;
 }
 
+/* a voice's step in samples: 1, 2 at half the rate, 4 at a quarter */
+static float step_len(const voice_t *v) { return v->qr ? 4.0f : v->hr ? 2.0f : 1.0f; }
+
 /* The envelope's start, shared by every model: nat back to 1, the gate rising from where it is. A slewing voice's
    level (the bass's, a mono lead synth's) slews from where it is on a legato retrigger, else starts at its target. */
 static void env_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int legato)
 {
-    float dv = v->hr ? 2.0f : 1.0f; /* a half-rate voice's steps are two samples long */
+    float dv = step_len(v); /* a half-rate voice's steps are two samples long, a quarter-rate one's four */
     v->pt = p;
     v->nat = 1.0f;
     v->nk = 1.0f - k_t60(p->dec / dv);
     v->sus = p->sus;
-    /* a pad's swell takes at most half its note: a short note (an arpeggio's) speaks rather than never arriving */
-    v->ka = k_att((p->model == M_PAD && e->len ? fm_minf(p->att, 0.5f * (float)e->len * INV_SR) : p->att) / dv);
+    /* a pad's (or the pad layer's) swell takes at most half its note: a short note (an arpeggio's) speaks rather than
+       never arriving */
+    v->ka = k_att(((p->model == M_PAD || p->model == M_ENS) && e->len ? fm_minf(p->att, 0.5f * (float)e->len * INV_SR)
+                                                                      : p->att) /
+                  dv);
     v->kr = k_t60(p->rel / dv);
     v->amp_t = ROLES[v->role].gain * p->level * (float)e->vel * (1.0f / 127.0f) * (v->role == V_CHORD ? keys_g : 1.0f);
     v->slew = (uint8_t)(v->role == V_BASS || (v->role == V_LEAD && p->model == M_SUB && p->p[9] > 0.0f));
     if (!legato)
         v->amp = v->amp_t;
-    v->gate = v->hr ? (e->len + 1u) >> 1 : e->len;
+    v->gate = (e->len + (uint32_t)dv - 1u) / (uint32_t)dv;
     v->held = 1;
     v->on = 1;
     v->pend = 0;
@@ -580,6 +607,21 @@ static void pad_start(voice_t *v, const song_ev_t *e)
         bq_match(v->m.pad.bq[0], p->p[3] + p->p[4] * f * SR, p->p[5], 1, 1.0f, dv);
     } else
         svf_coefs(v->m.pad.c1, p->p[3] + p->p[4] * f * SR, p->p[5]);
+}
+
+/* M_ENS: the saw from phase 0, its partner p[0] cents sharp from half a cycle on; the 2-pole's coefficient fixed for
+   the note (two one-poles at the cutoff). */
+static void ens_start(voice_t *v, const song_ev_t *e)
+{
+    const vx_patch_t *p = v->pt;
+    float dv = step_len(v), f = note_inc(e->note);
+    v->m.en.i1 = f * dv;
+    v->m.en.i2 = f * dv * fm_exp2f(p->p[0] * (1.0f / 1200.0f));
+    v->m.en.p1 = 0.0f;
+    v->m.en.p2 = 0.5f;
+    v->m.en.l2 = p->p[1];
+    v->m.en.a = k_lp1((p->p[2] + p->p[3] * f * SR) * dv);
+    v->m.en.y1 = v->m.en.y2 = 0.0f;
 }
 
 /* M_BELL: AMB-1's bell (bell_voice): a sine carrier, its modulator at a ratio, the index (velocity into it) falling
@@ -759,8 +801,8 @@ static void sub_start(voice_t *v, const song_ev_t *e, int legato)
 
 /* Whether a note renders at half the rate: the keys and pads (not on the bass), when their highest partial (the FM's
    sidebands, the index plus three; the tine; the pad's upper saw's second harmonic) is below HR_TOP; a synth on the
-   chords, when its highest cutoff (sub_top) is HR_SUB_TOP or under. Higher notes, and everything with
-   VX_OFF_HALF, stay at the full rate. */
+   chords, when its highest cutoff (sub_top) is HR_SUB_TOP or under. Higher notes, and everything with VX_OFF_HALF,
+   stay at the full rate. (The pad layer's ensemble runs at a quarter of the rate instead: voice_start, pad_seg.) */
 static int half_ok(const voice_t *v, const vx_patch_t *p, const song_ev_t *e)
 {
     float hz = note_inc(e->note) * SR, v01 = (float)e->vel * (1.0f / 127.0f), top;
@@ -782,6 +824,7 @@ static int half_ok(const voice_t *v, const vx_patch_t *p, const song_ev_t *e)
 static void voice_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int legato)
 {
     v->hr = (uint8_t)half_ok(v, p, e);
+    v->qr = (uint8_t)(p->model == M_ENS && !(fx_off & VX_OFF_HALF));
     env_start(v, p, e, legato);
     switch (p->model) {
     case M_EP: ep_start(v, e); break;
@@ -791,6 +834,7 @@ static void voice_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int
     case M_WIND: wind_start(v, e); break;
     case M_CHIP: chip_start(v, e); break;
     case M_SUB: sub_start(v, e, legato); break;
+    case M_ENS: ens_start(v, e); break;
     default: bass_start(v, e, legato); break; /* M_BASS */
     }
 }
@@ -807,8 +851,8 @@ static void pool_on(const song_ev_t *e, int role)
     int i, pick = -1, first = ROLES[role].first, count = ROLES[role].count;
     const vx_patch_t *p = role_pt[role];
     voice_t *v;
-    if (!p)
-        return; /* no instrument on this role */
+    if (!p || (first >= PD) != (p->model == M_ENS))
+        return; /* no instrument on this role; the pad layer plays M_ENS only (pad_seg), and only it */
     if (role == V_CHORD && (p->model != M_PAD || e->len < PAD_LONG))
         count = NCH_KEYS; /* (a held pad's chord change overlaps: its old chord releases under the new one's swell) */
     if (p->model == M_SUB && p->p[9] > 0.0f && role == V_LEAD) {
@@ -866,6 +910,7 @@ static void fire(const song_ev_t *e)
     case V_CHORD:
     case V_LEAD:
     case V_CANDY:
+    case V_PAD:
     case V_BASS: pool_on(e, e->voice); break;
     default:
         if (e->voice < V_N)
@@ -951,6 +996,21 @@ static float pad_sample(voice_t *v)
         return l1;
     svf_step(v->m.pad.c2, v->m.pad.s + 2, x, &b2);
     return b1 * v->m.pad.c1[3] + 0.5f * b2 * v->m.pad.c2[3] + 0.45f * l1;
+}
+
+/* M_ENS's raw sample: the saw and its partner through the two one-poles. */
+static float ens_sample(voice_t *v)
+{
+    float x = saw_blep(v->m.en.p1, v->m.en.i1) + v->m.en.l2 * saw_blep(v->m.en.p2, v->m.en.i2), a = v->m.en.a;
+    v->m.en.p1 += v->m.en.i1;
+    if (v->m.en.p1 >= 1.0f)
+        v->m.en.p1 -= 1.0f;
+    v->m.en.p2 += v->m.en.i2;
+    if (v->m.en.p2 >= 1.0f)
+        v->m.en.p2 -= 1.0f;
+    v->m.en.y1 += a * (x - v->m.en.y1); /* (the saws never fall silent while it runs: flushed per segment) */
+    v->m.en.y2 += a * (v->m.en.y1 - v->m.en.y2);
+    return v->m.en.y2;
 }
 
 /* M_PLUCK's raw sample: the line's output through the averager and the damping, back into the line; the thump. */
@@ -1146,6 +1206,29 @@ static float sub_sample(voice_t *v)
     return svf_step(v->m.sb.c, v->m.sb.s, x, &bp);
 }
 
+/* The gate's step after a voice's sample: a steal's fade (then the queued note starts), the note's end, the rise or
+   the release (off below OFF_THR). */
+static inline void gate_step(voice_t *v)
+{
+    if (v->pend) { /* fade the victim out, then start the queued note */
+        v->g -= v->g * (G_STEAL * step_len(v));
+        if (v->g < STEAL_THR)
+            voice_start(v, v->ppt, &v->pe, 0);
+        return;
+    }
+    if (v->held && v->gate && --v->gate == 0)
+        v->held = 0;
+    if (v->held) {
+        v->g += v->ka;
+        if (v->g > 1.0f)
+            v->g = 1.0f;
+    } else {
+        v->g -= v->g * v->kr;
+        if (v->g < OFF_THR)
+            v->on = 0;
+    }
+}
+
 /* One sample of a pooled voice: the model's raw sample times the envelope (a slewing voice's: its slewed level). */
 static float voice_sample(voice_t *v)
 {
@@ -1161,7 +1244,7 @@ static float voice_sample(voice_t *v)
         q = v->m.ch.q;
         break;
     case M_SUB: s = sub_sample(v); break;
-    default: s = bass_sample(v); break; /* M_BASS */
+    default: s = bass_sample(v); break; /* M_BASS (the pad layer's M_ENS renders in pad_seg) */
     }
     v->nat = fm_flush(v->nat * v->nk); /* a note held past ~50 s would reach denormals */
     lv = v->sus + (1.0f - v->sus) * v->nat;
@@ -1177,23 +1260,7 @@ static float voice_sample(voice_t *v)
     }
     if (v->pt->model == M_CHIP) /* the chip's low-pass after its crush (Sam: a little more mellow) */
         o = v->m.ch.lp = fm_flush(v->m.ch.lp + (o - v->m.ch.lp) * v->m.ch.lk);
-    if (v->pend) { /* fade the victim out, then start the queued note */
-        v->g -= v->g * (v->hr ? 2.0f * G_STEAL : G_STEAL);
-        if (v->g < STEAL_THR)
-            voice_start(v, v->ppt, &v->pe, 0);
-        return o;
-    }
-    if (v->held && v->gate && --v->gate == 0)
-        v->held = 0;
-    if (v->held) {
-        v->g += v->ka;
-        if (v->g > 1.0f)
-            v->g = 1.0f;
-    } else {
-        v->g -= v->g * v->kr;
-        if (v->g < OFF_THR)
-            v->on = 0;
-    }
+    gate_step(v);
     return o;
 }
 
@@ -1233,17 +1300,19 @@ static void hx_up(float *h, uint32_t nm, uint32_t c)
 /* a voice's role bit (its pool's) */
 static unsigned role_bit(int j)
 {
-    return j < NCH ? 1u << V_CHORD : j < NCH + NLD ? 1u << V_LEAD : j < NFM ? 1u << V_CANDY : 1u << V_BASS;
+    return j < NCH ? 1u << V_CHORD : j < NCH + NLD ? 1u << V_LEAD : j < NFM ? 1u << V_CANDY : j == VB ? 1u << V_BASS
+                                                                                                 : 1u << V_PAD;
 }
 
-/* the voices sounding: bit j of *mf at the full rate, of the return at half; *hb the half-rate ones' role bits */
+/* the voices sounding (the pad layer's aside: pad_seg): bit j of *mf at the full rate, of the return at half; *hb
+   the half-rate ones' role bits */
 static unsigned seg_mask(unsigned *mf, unsigned *hb)
 {
     unsigned h = 0u;
     int j;
     *mf = 0u;
     *hb = 0u;
-    for (j = 0; j < NV; j++)
+    for (j = 0; j < PD; j++)
         if (fv[j].on) {
             if (fv[j].hr) {
                 h |= 1u << j;
@@ -1274,23 +1343,96 @@ static void hx_zero(uint32_t to)
         (x) = y_;                                                                                              \
     } while (0)
 
-/* which of the mud high-pass's six filters run (bits 0-2: the chords', the lead's, the ear candy's at the full rate;
-   3-5 at half): those with voices sounding at their rate (mf, mh: voice bits), or states not yet at rest */
+/* which of the mud high-pass's filters run here (bits 0-3: the chords', the lead's, the ear candy's, the pad layer's
+   at the full rate; 4-6 the first three's at half; the pad layer's quarter-rate one runs in pad_seg): those with
+   voices sounding at their rate (mf, mh: voice bits), or states not yet at rest */
 static unsigned mud_on(int mud, unsigned mf, unsigned mh)
 {
-    static const int first[3] = {0, NCH, NCH + NLD}, cnt[3] = {NCH, NLD, NCD}, role[3] = {V_CHORD, V_LEAD, V_CANDY};
+    static const int first[4] = {0, NCH, NCH + NLD, PD}, cnt[4] = {NCH, NLD, NCD, NPD},
+                     role[4] = {V_CHORD, V_LEAD, V_CANDY, V_PAD};
     unsigned m = 0u;
     int r;
     if (!mud)
         return 0u;
-    for (r = 0; r < 3; r++) {
+    for (r = 0; r < 4; r++) {
         unsigned bits = ((1u << cnt[r]) - 1u) << first[r];
         if ((mf & bits) || mud_z[role[r]][0] != 0.0f || mud_z[role[r]][1] != 0.0f)
             m |= 1u << r;
-        if ((mh & bits) || mud_zh[role[r]][0] != 0.0f || mud_zh[role[r]][1] != 0.0f)
-            m |= 8u << r;
+        if (r < 3 && ((mh & bits) || mud_zh[role[r]][0] != 0.0f || mud_zh[role[r]][1] != 0.0f))
+            m |= 16u << r;
     }
     return m;
+}
+
+/* A segment's pad layer (fv[PD..NV), M_ENS only), into pd_f at the full rate: its voices side by side in a loop of
+   their own (no dispatch, the model and the envelope inline). They render at a quarter of the rate, on the samples
+   where the engine's clock is a multiple of 4, their sum through the pad layer's mud high-pass (at that rate), then
+   back to the full rate by linear interpolation (a quarter-rate sample's latency: the 2-pole and the lo-fi chain's
+   low-pass keep its images quiet); with VX_OFF_HALF they render at the full rate, the mud high-pass in render_seg.
+   Returns PAD_F for a full-rate voice, PAD_Q for the quarter-rate sum (sounding, or its interpolation not yet at
+   rest), 0 for silence. */
+#define PAD_F 1u
+#define PAD_Q 2u
+static float pd_f[CHUNK];
+static unsigned pad_seg(uint32_t pos, uint32_t n)
+{
+    voice_t *vs[NPD];
+    uint32_t i;
+    unsigned got = 0u;
+    int k, nv = 0, nq = 0, mud = !(fx_off & VX_OFF_MUD);
+    const float *qm = mud_c[V_PAD][1];
+    float z0 = mud_zh[V_PAD][0], z1 = mud_zh[V_PAD][1], a0 = pq0, a1 = pq1;
+    for (k = PD; k < NV; k++)
+        if (fv[k].on) {
+            vs[nv++] = &fv[k];
+            nq += fv[k].qr;
+            got |= fv[k].qr ? PAD_Q : PAD_F;
+        }
+    if (a0 != 0.0f || a1 != 0.0f || z0 != 0.0f || z1 != 0.0f)
+        got |= PAD_Q;
+    if (!got)
+        return 0u;
+    for (i = 0; i < n; i++) {
+        uint32_t ph = (clk + pos + i) & 3u;
+        float f = 0.0f;
+        if (ph == 0u && (got & PAD_Q)) {
+            float x = 0.0f;
+            for (k = 0; nq && k < nv; k++) {
+                voice_t *v = vs[k];
+                if (v->on && v->qr) {
+                    float o = ens_sample(v);
+                    v->nat *= v->nk; /* (flushed per segment) */
+                    x += o * v->amp * (v->sus + (1.0f - v->sus) * v->nat) * v->g;
+                    gate_step(v);
+                }
+            }
+            if (mud)
+                MUD_STEP(x, qm, z0, z1);
+            a0 = a1;
+            a1 = x;
+        }
+        if (got & PAD_F)
+            for (k = 0; k < nv; k++) {
+                voice_t *v = vs[k];
+                if (v->on && !v->qr) {
+                    float o = ens_sample(v);
+                    v->nat *= v->nk;
+                    f += o * v->amp * (v->sus + (1.0f - v->sus) * v->nat) * v->g;
+                    gate_step(v);
+                }
+            }
+        pd_f[i] = f + a0 + (a1 - a0) * ((float)ph * 0.25f);
+    }
+    pq0 = fm_flush(a0);
+    pq1 = fm_flush(a1);
+    mud_zh[V_PAD][0] = fm_flush(z0);
+    mud_zh[V_PAD][1] = fm_flush(z1);
+    for (k = 0; k < nv; k++) {
+        vs[k]->nat = fm_flush(vs[k]->nat);
+        vs[k]->m.en.y1 = fm_flush(vs[k]->m.en.y1);
+        vs[k]->m.en.y2 = fm_flush(vs[k]->m.en.y2);
+    }
+    return got;
 }
 
 /* n samples from pos of the chunk: the drums into their bus; the pitched roles summed per role, into their buses
@@ -1301,34 +1443,39 @@ static void render_seg(uint32_t pos, uint32_t n, int filt)
 {
     uint32_t i, k3 = tk, t3 = tt, m = hn;
     int j;
-    unsigned live, mf, mh;
-    float c0 = sendp[V_CHORD], c2 = sendp[V_LEAD], c3 = sendp[V_CANDY]; /* (the bass is dry: no sends) */
+    unsigned live, mf, mh, pg, pf;
+    float c0 = sendp[V_CHORD], c2 = sendp[V_LEAD], c3 = sendp[V_CANDY], c4 = sendp[V_PAD]; /* (the bass is dry) */
     float g = kg0 + kgd * (float)pos, dg = kgd; /* the keys' gain, ramping over the chunk */
-    float d0 = dsend[V_CHORD], d2 = dsend[V_LEAD], d3 = dsend[V_CANDY], as = ts, ac = tc, ad = td;
+    float d0 = dsend[V_CHORD], d2 = dsend[V_LEAD], d3 = dsend[V_CANDY], d4 = dsend[V_PAD], e4 = csend;
+    float as = ts, ac = tc, ad = td;
     int hw_on;
     int dr = drums_active(); /* (a drum starts only at a segment's start, as a voice does) */
     /* the mud high-pass: its coefficients and states in locals; run per role and rate only while it has voices there
        or its states still ring */
     int mud = !(fx_off & VX_OFF_MUD);
     unsigned mon;
-    const float *qc = mud_c[V_CHORD][0], *ql = mud_c[V_LEAD][0], *qk = mud_c[V_CANDY][0];
+    const float *qc = mud_c[V_CHORD][0], *ql = mud_c[V_LEAD][0], *qk = mud_c[V_CANDY][0], *qp = mud_c[V_PAD][0];
     const float *pc = mud_c[V_CHORD][1], *pl = mud_c[V_LEAD][1], *pk = mud_c[V_CANDY][1];
     float zc0 = mud_z[V_CHORD][0], zc1 = mud_z[V_CHORD][1], zl0 = mud_z[V_LEAD][0], zl1 = mud_z[V_LEAD][1];
-    float zk0 = mud_z[V_CANDY][0], zk1 = mud_z[V_CANDY][1];
+    float zk0 = mud_z[V_CANDY][0], zk1 = mud_z[V_CANDY][1], zp0 = mud_z[V_PAD][0], zp1 = mud_z[V_PAD][1];
     float yc0 = mud_zh[V_CHORD][0], yc1 = mud_zh[V_CHORD][1], yl0 = mud_zh[V_LEAD][0], yl1 = mud_zh[V_LEAD][1];
     float yk0 = mud_zh[V_CANDY][0], yk1 = mud_zh[V_CANDY][1];
     dr_live |= dr;
+    pg = pad_seg(pos, n);
+    pf = pg & PAD_F ? 1u << PD : 0u; /* a full-rate pad layer voice, as a voice bit for mud_on */
     mh = seg_mask(&mf, &live);
-    mon = mud_on(mud, mf, mh);
+    mon = mud_on(mud, mf | pf, mh);
     hw_on = mh || hr_tail;
     if (hw_on)
         hx_zero(m);
     for (i = pos; i < pos + n; i++) {
-        float c = 0.0f, b = 0.0f, l = 0.0f, k = 0.0f, hc = 0.0f, hl = 0.0f, hk = 0.0f;
+        float c = 0.0f, b = 0.0f, l = 0.0f, k = 0.0f, pa = 0.0f, hc = 0.0f, hl = 0.0f, hk = 0.0f;
         int odd = (int)((hpar + i) & 1u), moved = 0;
         unsigned msk = odd ? mf : mf | mh;
         bb[DRB][i] = dr ? drums_sample() : 0.0f;
-        for (j = 0; msk && j < NV; j++) { /* one call site, so voice_sample inlines; the sums stay in registers */
+        if (pg)
+            pa = pd_f[i - pos]; /* (the full-rate voices' mud high-pass below; the quarter-rate sum's had its own) */
+        for (j = 0; msk && j < PD; j++) { /* one call site, so voice_sample inlines; the sums stay in registers */
             int h = (int)(mh >> j) & 1;
             float y;
             if (!((msk >> j) & 1u) || !fv[j].on)
@@ -1354,7 +1501,7 @@ static void render_seg(uint32_t pos, uint32_t n, int filt)
         if (moved) {
             unsigned hb;
             mh = seg_mask(&mf, &hb);
-            mon = mud_on(mud, mf, mh);
+            mon = mud_on(mud, mf | pf, mh);
             live |= hb;
             if (mh && !hw_on) {
                 hw_on = 1;
@@ -1368,12 +1515,14 @@ static void render_seg(uint32_t pos, uint32_t n, int filt)
                 MUD_STEP(l, ql, zl0, zl1);
             if (mon & 4u)
                 MUD_STEP(k, qk, zk0, zk1);
+            if (mon & 8u)
+                MUD_STEP(pa, qp, zp0, zp1);
             if (!odd) {
-                if (mon & 8u)
-                    MUD_STEP(hc, pc, yc0, yc1);
                 if (mon & 16u)
-                    MUD_STEP(hl, pl, yl0, yl1);
+                    MUD_STEP(hc, pc, yc0, yc1);
                 if (mon & 32u)
+                    MUD_STEP(hl, pl, yl0, yl1);
+                if (mon & 64u)
                     MUD_STEP(hk, pk, yk0, yk1);
             }
         }
@@ -1390,13 +1539,14 @@ static void render_seg(uint32_t pos, uint32_t n, int filt)
             bb[V_BASS][i] = b;
             bb[V_LEAD][i] = l;
             bb[V_CANDY][i] = k;
+            bb[V_PAD][i] = pa;
         } else {
             g += dg;
             c *= g;
-            ch_m[i] = c + b + l + k;
-            as += c * c0 + l * c2 + k * c3;
-            ac += c;
-            ad += c * d0 + l * d2 + k * d3;
+            ch_m[i] = c + b + l + k + pa;
+            as += c * c0 + l * c2 + k * c3 + pa * c4;
+            ac += c + pa * e4;
+            ad += c * d0 + l * d2 + k * d3 + pa * d4;
             if (++k3 == FX_PAIR) {
                 t_s[t3] += as;
                 t_c[t3] += ac;
@@ -1413,6 +1563,8 @@ static void render_seg(uint32_t pos, uint32_t n, int filt)
     mud_z[V_LEAD][1] = fm_flush(zl1);
     mud_z[V_CANDY][0] = fm_flush(zk0);
     mud_z[V_CANDY][1] = fm_flush(zk1);
+    mud_z[V_PAD][0] = fm_flush(zp0);
+    mud_z[V_PAD][1] = fm_flush(zp1);
     mud_zh[V_CHORD][0] = fm_flush(yc0);
     mud_zh[V_CHORD][1] = fm_flush(yc1);
     mud_zh[V_LEAD][0] = fm_flush(yl0);
@@ -1532,7 +1684,7 @@ static unsigned live_buses(void)
 {
     unsigned m = drums_active() ? 1u << DRB : 0u;
     int r, k;
-    for (r = V_CHORD; r <= V_CANDY; r++)
+    for (r = V_CHORD; r <= V_PAD; r++)
         for (k = ROLES[r].first; k < ROLES[r].first + ROLES[r].count; k++)
             if (fv[k].on)
                 m |= 1u << r;
@@ -1580,9 +1732,11 @@ static void mix_chunk(uint32_t c, int filt, unsigned live)
         } else if (!(fx_off & VX_OFF_COMP))
             comp(d, n, &g, &dg);
         if (filt) {
-            float s0 = sendp[V_CHORD], s2 = sendp[V_LEAD], s3 = sendp[V_CANDY], cgl = kg0 + kgd * (float)o;
-            float e0 = dsend[V_CHORD], e2 = dsend[V_LEAD], e3 = dsend[V_CANDY];
+            float s0 = sendp[V_CHORD], s2 = sendp[V_LEAD], s3 = sendp[V_CANDY], s4 = sendp[V_PAD];
+            float cgl = kg0 + kgd * (float)o, cs = csend;
+            float e0 = dsend[V_CHORD], e2 = dsend[V_LEAD], e3 = dsend[V_CANDY], e4 = dsend[V_PAD];
             const float *b0 = bb[V_CHORD] + o, *b1 = bb[V_BASS] + o, *b2 = bb[V_LEAD] + o, *b3 = bb[V_CANDY] + o;
+            const float *b4 = bb[V_PAD] + o;
             int r;
             for (i = 0; !dz && i < n; i++) { /* the compressor before the drums' filters */
                 g += dg;
@@ -1602,10 +1756,10 @@ static void mix_chunk(uint32_t c, int filt, unsigned live)
                         memset(bb[r] + o, 0, n * sizeof(float));
             for (i = 0; i < n; i++) {
                 float x = b0[i] * (cgl += kgd);
-                ch_m[o + i] = x + b1[i] + b2[i] + b3[i] + d[i];
-                as += x * s0 + b2[i] * s2 + b3[i] * s3 + d[i] * SEND_DRUMS;
-                ac += x;
-                ad += x * e0 + b2[i] * e2 + b3[i] * e3;
+                ch_m[o + i] = x + b1[i] + b2[i] + b3[i] + b4[i] + d[i];
+                as += x * s0 + b2[i] * s2 + b3[i] * s3 + b4[i] * s4 + d[i] * SEND_DRUMS;
+                ac += x + b4[i] * cs;
+                ad += x * e0 + b2[i] * e2 + b3[i] * e3 + b4[i] * e4;
                 if (++k3 == FX_PAIR) {
                     t_s[t3] += as;
                     t_c[t3] += ac;
@@ -1755,7 +1909,7 @@ void vx_release_all(void)
     for (i = 0; i < NV; i++) { /* a long release (a pad's) shortened to 40 ms */
         fv[i].held = 0;
         fv[i].pend = 0;
-        fv[i].kr = fm_maxf(fv[i].kr, fv[i].hr ? 2.0f * KR_STOP : KR_STOP);
+        fv[i].kr = fm_maxf(fv[i].kr, KR_STOP * step_len(&fv[i]));
     }
     drums_release();
     qn = 0;
@@ -1803,7 +1957,7 @@ float vx_kick_env(void)
 /* a bus's index for a role (any drum voice: the drums' bus), -1 for none */
 static int bus_of(int role)
 {
-    return role >= V_CHORD && role <= V_CANDY ? role : role >= V_KICK && role < V_N ? DRB : -1;
+    return role >= V_CHORD && role <= V_PAD ? role : role >= V_KICK && role < V_N ? DRB : -1;
 }
 
 void vx_set_filter(int role, float amount)
@@ -1846,6 +2000,7 @@ void vx_fx_off(unsigned mask)
     vx_assign(V_BASS, cfg.bass);
     vx_assign(V_LEAD, cfg.lead);
     vx_assign(V_CANDY, cfg.candy);
+    vx_assign(V_PAD, cfg.pad);
 }
 
 void vx_solo(int role)
@@ -1896,8 +2051,10 @@ int vx_tiny(void)
                vx_tiny_of(&cp_g, 1) + vx_tiny_of(&dk_env, 1);
     for (r = 0; r < NBUS; r++)
         c += vx_tiny_of(&bus[r].y, 1) + vx_tiny_of(&bus[r].z, 1) + vx_tiny_of(&bus[r].hm, 1);
-    for (r = 0; r < NV; r++) /* a synth's filter envelope and states */
+    for (r = 0; r < NV; r++) /* a synth's filter envelope and states; an ensemble voice's low-pass */
         if (fv[r].on && fv[r].pt && fv[r].pt->model == M_SUB)
             c += vx_tiny_of(&fv[r].m.sb.fe, 1) + vx_tiny_of(fv[r].m.sb.s, 2);
+        else if (fv[r].on && fv[r].pt && fv[r].pt->model == M_ENS)
+            c += vx_tiny_of(&fv[r].m.en.y1, 2);
     return c;
 }

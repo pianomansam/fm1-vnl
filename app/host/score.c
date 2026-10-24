@@ -214,7 +214,7 @@ static void write_midi(const char *path)
 {
     static const char *const NAME[5] = {"Keys", "Bass", "Lead", "Ear candy", "Drums"};
     static const int PROG[4] = {4, 32, 73, 11};          /* GM: electric piano 1, acoustic bass, flute, vibraphone */
-    static const int DRUM[V_N] = {0, 0, 0, 0, 36, 38, 42, 46, 70, 37};
+    static const int DRUM[V_N] = {0, 0, 0, 0, 0, 36, 38, 42, 46, 70, 37}; /* (the pitched roles 0) */
     static char texts[MAXBARS * 2][48];
     FILE *f = fopen(path, "wb");
     mev_t *ev = malloc(sizeof *ev * (size_t)(2 * nrec + 4 * MAXBARS * 16 + 16));

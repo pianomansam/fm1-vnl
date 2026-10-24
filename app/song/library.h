@@ -13,6 +13,7 @@ enum { PK_VAMP, PK_LOOP, PK_JAZZY };
 enum { INS_RHODES, INS_WURLI, INS_FELT_PIANO, INS_NYLON, INS_PAD, INS_UPRIGHT, INS_ELEC_BASS, INS_SUB, INS_FLUTE,
        INS_MUTED_TPT, INS_SAX, INS_VIBES, INS_KALIMBA, INS_GUITAR_LICK, INS_MUSIC_BOX, INS_BELLS, INS_VOX_PAD,
        INS_CHIP_BASS, INS_ORGAN, INS_SAW_LEAD, INS_SYNTH_PLUCK, INS_DX_EP, INS_FM_BASS,
+       INS_STRINGS, INS_WARM_PAD, /* the pad layer's (V_PAD) */
        INS_NONE }; /* append new ones before INS_NONE */
 enum { KIT_DUSTY, KIT_SOFT, KIT_808, KIT_BRUSHES };
 enum { FL_LOFI, FL_BOSSA, FL_CITYPOP, FL_NEOSOUL, FL_CHILLWAVE };
@@ -24,7 +25,8 @@ enum { END_KEYS_OUTRO, END_FADE, END_RING };
 
 typedef struct { uint8_t id; uint8_t kind; uint8_t n; uint8_t bars_per_chord; th_chord_spec_t c[4]; uint8_t moods; uint8_t modes; const char *src; } lib_prog_t;
 /* modes: bit (1 << MODE_x) for each mode whose degrees give the chords the note claims; moods: MOOD_* bits. n * bars_per_chord is 2, 4 or 8. */
-typedef struct { uint8_t id; const char *name; uint8_t chords, bass, lead, candy, kit; uint8_t flavor; uint8_t moods; const char *src; } lib_set_t;
+/* pad: the pad layer's instrument (INS_STRINGS or INS_WARM_PAD) */
+typedef struct { uint8_t id; const char *name; uint8_t chords, bass, lead, candy, pad, kit; uint8_t flavor; uint8_t moods; const char *src; } lib_set_t;
 /* hit/ghost: 16 steps per lane, bit i = step i. poly3: the shaker lane is a period-3 polymeter (hit[D_SHAKER] holds it). */
 typedef struct { uint8_t id; uint8_t family; uint16_t hit[6]; uint16_t ghost[6]; uint8_t half_time; uint8_t poly3; const char *src; } lib_pattern_t;
 typedef struct { uint8_t id; const char *name; uint8_t intro_bars, entry, middle, ending; uint8_t sparse; const char *src; } lib_map_t;
@@ -38,8 +40,8 @@ extern const lib_mood_t LIB_MOODS[4];      /* sad, wistful, warm, sunny */
 
 const lib_prog_t *lib_prog_by_id(uint8_t id);        /* all four: NULL if unknown */
 const lib_set_t *lib_set_by_id(uint8_t id);
-/* 1: slow attack, held breath or a held tone (pads, winds, the organ, the saw lead); 0: struck, plucked, the triangle
-   bass, the synth pluck, the DX EP, the FM bass */
+/* 1: slow attack, held breath or a held tone (pads, winds, the organ, the saw lead, the strings); 0: struck, plucked,
+   the triangle bass, the synth pluck, the DX EP, the FM bass */
 int lib_ins_sustained(int ins);
 const lib_pattern_t *lib_pattern_by_id(uint8_t id);
 const lib_map_t *lib_map_by_id(uint8_t id);

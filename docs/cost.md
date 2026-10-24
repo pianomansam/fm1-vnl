@@ -563,3 +563,32 @@ At Task 3 no set used them (sets came in Task 4). The forced maximum then: **0.8
 **2026-10-24, the arpeggio cap and offbeat comping retired:** the forced maximum on the standard list
 (`--forced 20 7 155 138 100 22`) is **0.902** (0.896 before; noise-level, held comping a little more often). Memory
 unchanged (mem-check ok).
+
+## Pads Task 1: the pad layer (M_ENS), measured
+
+A new pitched role, V_PAD, on its own bus (the keys' section moves, the plate at 0.4, a send into the chorus at its
+patch's depth, the mud high-pass at 150 Hz), with 4 voices (a 3-note chord and a solo note) of a new model, M_ENS: a
+polyBLEP saw and a partner saw a few cents sharp and quieter, into a fixed 2-pole low-pass (two one-poles), the patch
+envelope. The first cut, per voice through the generic voice loop at half the rate, measured **0.19-0.20**: the model
+itself was about 0.05 of it, the generic loop's dispatch and envelope about 0.12, the half-band upsampler about 0.02.
+So the layer renders in a loop of its own (`pad_seg`: the voices side by side, no dispatch, the envelope inline) at a
+**quarter of the rate** (the design's cut (b)), its sum through the mud high-pass at that rate and back to the full
+rate by linear interpolation (no upsampler). Its aliasing and images, against the full-rate reference (VX_OFF_HALF;
+non-harmonic energy over 0-11 kHz, the partner off): 42 dB under the harmonics at G3, 37 dB at C5, 31 dB at C6 (the
+full rate 47 dB), before the chorus and the lo-fi chain's low-pass.
+
+`--parts` best of 7 (AMB-1 141.1 ms, idle floor 0.102). The bench's pad part: a 3-note chord and a solo note an
+octave up, held a bar and re-struck each bar (the old chord's release stolen by the new). The "layer" rows are the
+pad part over the fixed source (Rhodes chords, sub bass, dusty kit), net of the source alone:
+
+| Component | Role | Ratio (net of floor) | Over the source, dry | Over the source, full chain |
+|---|---|---|---|---|
+| Pad layer (M_ENS), strings | 4 pad voices | **0.071** | 0.071 | 0.068 |
+| Pad layer (M_ENS), warm pad | 4 pad voices | **0.070** | 0.073 | 0.069 |
+
+Within the layer's target (0.08). **The forced maximum** (no song plays the layer yet: the pads plan's Task 2 writes
+its events): `--forced 20 7 155 138 100 22` gave 0.903 / 0.850 / 0.813 / 0.786 / 0.747 / 0.735 (forced), max **0.903**
+(seed 20), against 0.902 before: unchanged. With the layer in, the heaviest roll (seed 20, Rhodes and saw lead: the
+warm pad) should land near 0.97. **Memory:** image 176296 B (was 166652), RAM 48960 B (was 46028: four voices and the
+layer's segment buffer), pool 179644 B (unchanged: the layer's voices have no Karplus-Strong line)
+(`tools/mem-check.sh`: ok).

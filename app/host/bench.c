@@ -152,7 +152,7 @@ static uint32_t heaviest(void)
    dry (vx_init leaves fx_init's chain: the plate shut, no bed, dust 0) unless a part opens the chain with
    fx_configure; every row is the best of PART_RUNS, net of the idle dry engine's render (the floor). */
 #define PART_RUNS (runs(7))
-enum { P_IDLE, P_CHORDS, P_LEAD, P_CANDY, P_BASS, P_DRUMS, P_SOURCE };
+enum { P_IDLE, P_CHORDS, P_LEAD, P_CANDY, P_BASS, P_DRUMS, P_SOURCE, P_PAD };
 
 static void ev(int voice, int note, int vel, uint32_t len)
 {
@@ -176,6 +176,12 @@ static void part_step(int kind, int bar, int step, uint32_t st)
         if (!step)
             for (i = 0; i < 4; i++) ev(V_CHORD, c[i], 90, st * 15);
         break;
+    case P_PAD: /* the pad layer: a 3-note chord and a solo note an octave up, held a bar, re-struck each bar */
+        if (!step) {
+            for (i = 0; i < 3; i++) ev(V_PAD, c[i], 90, st * 15);
+            ev(V_PAD, c[3] + 12, 90, st * 15);
+        }
+        break;
     case P_LEAD: /* 8ths, each held a dotted 8th, so two voices overlap */
         if (!(step & 1)) ev(V_LEAD, 72 + c[(step >> 1) & 3] % 12, 85, st * 3);
         break;
@@ -193,21 +199,23 @@ static void part_step(int kind, int bar, int step, uint32_t st)
         if (step & 1) ev(V_SHAKER, 0, 60, 0);
         if (step == 6 || step == 15) ev(V_RIM, 0, 70, 0);
         break;
-    case P_SOURCE: /* the fx source: a chord, a bass and the kit (a mix to run the chain on) */
+    case P_SOURCE: /* the fx source: a chord, a bass and the kit (a mix to run the chain on); the pad layer's chord
+                      and solo note too when the part sets a pad (else its events find no patch) */
         part_step(P_CHORDS, bar, step, st);
         part_step(P_BASS, bar, step, st);
         part_step(P_DRUMS, bar, step, st);
+        part_step(P_PAD, bar, step, st);
         break;
     }
 }
 
-typedef struct { int kind, chords, bass, lead, candy, kit, dust, noise, amb, chain; unsigned off; } part_t;
+typedef struct { int kind, chords, bass, lead, candy, pad, kit, dust, noise, amb, chain; unsigned off; } part_t;
 
 static part_t part_of(int kind)
 {
     part_t p;
     memset(&p, 0, sizeof p);
-    p.chords = p.bass = p.lead = p.candy = INS_NONE;
+    p.chords = p.bass = p.lead = p.candy = p.pad = INS_NONE;
     p.kit = KIT_DUSTY;
     p.kind = kind;
     return p;
@@ -226,6 +234,7 @@ static double run_part(const part_t *p)
     vx_assign(V_BASS, p->bass);
     vx_assign(V_LEAD, p->lead);
     vx_assign(V_CANDY, p->candy);
+    vx_assign(V_PAD, p->pad);
     vx_set_kit(p->kit);
     if (p->chain) fx_configure(p->dust, p->noise, p->amb, FL_LOFI);
     t0 = now_ms();
@@ -297,6 +306,7 @@ static void role_rows(const char *grp, int kind, int role, const named_t *l, int
         if (role == V_CHORD) p.chords = l[i].ins;
         else if (role == V_BASS) p.bass = l[i].ins;
         else if (role == V_LEAD) p.lead = l[i].ins;
+        else if (role == V_PAD) p.pad = l[i].ins;
         else p.candy = l[i].ins;
         row(grp, l[i].n, best_part(&p), base, amb);
     }
@@ -314,6 +324,7 @@ static void parts(double amb)
                                  {"vibes", INS_VIBES}, {"kalimba", INS_KALIMBA}, {"guitar lick", INS_GUITAR_LICK},
                                  {"saw lead", INS_SAW_LEAD}, {"synth pluck", INS_SYNTH_PLUCK}};
     static const named_t CD[] = {{"music box", INS_MUSIC_BOX}, {"bells", INS_BELLS}};
+    static const named_t PDL[] = {{"strings", INS_STRINGS}, {"warm pad", INS_WARM_PAD}};
     static const named_t KT[] = {{"dusty", KIT_DUSTY}, {"soft", KIT_SOFT}, {"808", KIT_808}, {"brushes", KIT_BRUSHES}};
     static const uint32_t sd[4] = {20, 100, 128, 183};
     part_t p = part_of(P_IDLE), q;
@@ -329,6 +340,7 @@ static void parts(double amb)
     role_rows("bass", P_BASS, V_BASS, BS, NEL(BS), base, amb);
     role_rows("lead", P_LEAD, V_LEAD, LD, NEL(LD), base, amb);
     role_rows("candy", P_CANDY, V_CANDY, CD, NEL(CD), base, amb);
+    role_rows("pad", P_PAD, V_PAD, PDL, NEL(PDL), base, amb);
     for (k = 0; k < 4; k++) {
         p = part_of(P_DRUMS);
         p.kit = KT[k].ins;
@@ -368,7 +380,21 @@ static void parts(double amb)
     row("fx", "rain (over plate)", best_part(&q), plate, amb);
     q.dust = 3;
     q.noise = 1;
-    row("fx", "full chain (3,vinyl,rain)", best_part(&q), src, amb);
+    t = best_part(&q);
+    row("fx", "full chain (3,vinyl,rain)", t, src, amb);
+    /* the pad layer's marginal cost: on the source, net of the source alone (dry, and with the full chain: its plate
+       and chorus sends) */
+    for (k = 0; k < NEL(PDL); k++) {
+        char nm[40];
+        part_t w = q;
+        w.pad = PDL[k].ins;
+        snprintf(nm, sizeof nm, "%s, full chain", PDL[k].n);
+        row("layer", nm, best_part(&w), t, amb);
+        w.chain = 0;
+        w.dust = w.noise = w.amb = 0;
+        snprintf(nm, sizeof nm, "%s, dry", PDL[k].n);
+        row("layer", nm, best_part(&w), src, amb);
+    }
     printf("(kick ducking runs inside dust_run at every level: not separable)\n");
     for (k = 0, b = 1e30; k < PART_RUNS; k++) { t = run_chain(); if (t < b) b = t; }
     row("fx", "chain alone (dust 0)", b, 0.0, amb);

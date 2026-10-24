@@ -234,6 +234,9 @@ static void test_library(void)
         CHECK(lib_set_by_id(s->id) == s, "set by id %d", s->id);
         CHECK(s->chords < INS_NONE && s->bass < INS_NONE && s->lead < INS_NONE && s->candy <= INS_NONE, "set %d insts", s->id);
         CHECK(s->kit <= KIT_BRUSHES && s->flavor <= FL_CHILLWAVE && s->moods && s->name && s->src, "set %d fields", s->id);
+        /* the pad layer's instrument: the warm synth pad under the synth sets (13, 18, 19, 20), strings elsewhere */
+        CHECK(s->pad == ((s->id == 13 || s->id == 18 || s->id == 19 || s->id == 20) ? INS_WARM_PAD : INS_STRINGS),
+              "set %d: pad instrument %d", s->id, s->pad);
     }
     CHECK(lib_set_by_id(255) == NULL, "set 255");
     for (i = 0; i < LIB_NPATTERNS; i++) {
@@ -291,8 +294,9 @@ static int novelty(const song_roll_t *a, const song_roll_t *b)
     return d;
 }
 
-/* a synth instrument (the synths Sam kept: the triangle bass, M_SUB's organ, saw lead and pluck, the FM keys and bass) */
-static int is_synth(int ins) { return ins >= INS_CHIP_BASS && ins < INS_NONE; }
+/* a synth instrument (the synths Sam kept: the triangle bass, M_SUB's organ, saw lead and pluck, the FM keys and bass;
+   not the pad layer's strings and warm pad) */
+static int is_synth(int ins) { return ins >= INS_CHIP_BASS && ins <= INS_FM_BASS; }
 /* all synth: the keys, the bass and the lead (the ear candy may be acoustic, or none) */
 static int set_all_synth(const lib_set_t *s) { return is_synth(s->chords) && is_synth(s->bass) && is_synth(s->lead); }
 static int moods_n(int m) { return (m & 1) + (m >> 1 & 1) + (m >> 2 & 1) + (m >> 3 & 1); }
@@ -1528,6 +1532,7 @@ static int vt_role_of(int ins)
         if (t->bass == ins) return V_BASS;
         if (t->lead == ins) return V_LEAD;
         if (t->candy == ins) return V_CANDY;
+        if (t->pad == ins) return V_PAD;
     }
     return V_CHORD;
 }
@@ -1988,7 +1993,11 @@ static void test_chip(void)
     vx_fx_off(VX_OFF_DELAY);
     CHECK(vx_patch(INS_CHIP_BASS)->model == M_CHIP, "the triangle bass: not M_CHIP");
     CHECK(!lib_ins_sustained(INS_CHIP_BASS), "the triangle bass: wanted percussive");
-    CHECK(INS_NONE == INS_VOX_PAD + 7, "instruments: %d after the vox pad, wanted Sam's six synths", INS_NONE - INS_VOX_PAD - 1);
+    CHECK(INS_FM_BASS == INS_VOX_PAD + 6, "instruments: %d after the vox pad, wanted Sam's six synths",
+          INS_FM_BASS - INS_VOX_PAD);
+    CHECK(INS_STRINGS == INS_FM_BASS + 1 && INS_WARM_PAD == INS_FM_BASS + 2 && INS_NONE == INS_FM_BASS + 3,
+          "instruments: %d after the six synths, wanted the pad layer's two (strings, warm pad)",
+          INS_NONE - INS_FM_BASS - 1);
     { /* the triangle at note 36 (674 samples a cycle): its plateaus' levels in one cycle from 0.5 s, clustered */
         static float lv[1024];
         float lo = 1e9f, hi = -1e9f, eps;
@@ -2074,6 +2083,75 @@ static void test_chip(void)
     vx_fx_off(0u);
 }
 
+/* The pad layer's voice (M_ENS on V_PAD): each patch held 2 s at note 60 renders no NaN or inf, swells slowly (its
+   level by 100 ms under 40% of its level at 1 s), is silent (under -90 dB) 3 s after its release with no state left
+   denormal-bound (vx_tiny), and the same events render the same samples. */
+static void test_pad_voice(void)
+{
+    static const int ins[2] = {INS_STRINGS, INS_WARM_PAD};
+    static const char *const name[2] = {"strings", "warm pad"};
+    int i, pass, k, full, bad = 0;
+    for (full = 0; full < 2; full++) /* at its quarter rate, and at the full rate (VX_OFF_HALF) */
+    for (i = 0; i < 2; i++) {
+        uint32_t h[2];
+        float a100 = 0.0f, a1s = 0.0f, tail = 0.0f;
+        CHECK(vx_patch(ins[i]) && vx_patch(ins[i])->model == M_ENS, "pad voice: %s is not M_ENS", name[i]);
+        for (pass = 0; pass < 2; pass++) {
+            h[pass] = 2166136261u;
+            vx_fx_off(full ? VX_OFF_HALF : 0u);
+            vx_init();
+            vx_assign(V_PAD, ins[i]);
+            vt_ev(V_PAD, 60, 100, 0, 88200u);
+            for (k = 0; k < 22 + 33 + 1; k++) { /* 2 s held (22 blocks), 3 s of release (33), then the tail */
+                float m = vt_block(4096, &bad);
+                uint32_t j;
+                for (j = 0; j < 4096; j++) {
+                    union { float f; uint32_t u; } b;
+                    b.f = vt_l[j];
+                    h[pass] = (h[pass] ^ b.u) * 16777619u;
+                }
+                if (k == 0) a100 = m;  /* 0-93 ms */
+                if (k == 10) a1s = m;  /* 0.93-1.02 s */
+                if (k == 55) tail = m;
+            }
+            CHECK(vx_tiny() == 0, "pad voice: %s left %d denormal-bound states", name[i], vx_tiny());
+        }
+        printf("pad voice: %s%s level %.4f by 100 ms, %.4f at 1 s, tail %.2e\n", name[i], full ? " (full rate)" : "",
+               (double)a100, (double)a1s, (double)tail);
+        CHECK(a1s > 0.01f && a100 < 0.4f * a1s, "pad voice: %s swell %.4f by 100 ms vs %.4f at 1 s", name[i],
+              (double)a100, (double)a1s);
+        CHECK(tail < 3.16e-5f && vx_active() == 0, "pad voice: %s still %.2e 3 s after its release", name[i],
+              (double)tail);
+        CHECK(h[0] == h[1], "pad voice: %s rendered different samples from the same events", name[i]);
+    }
+    vx_fx_off(0u);
+    CHECK(!bad, "pad voice: NaN or inf");
+}
+
+/* Each role on its own bus (pads, Review Focus 1): with one bus soloed (vx_solo), a note sounds only on its role's
+   bus: a pad note on V_PAD's, a kick on the drums', a chord on V_CHORD's (and the bass, the lead, the ear candy). */
+static void test_role_buses(void)
+{
+    static const int role[6] = {V_CHORD, V_BASS, V_LEAD, V_CANDY, V_PAD, V_KICK};
+    int e, s, k, bad = 0;
+    for (e = 0; e < 6; e++)
+        for (s = 0; s < 6; s++) {
+            float m = 0.0f;
+            vx_init();
+            vx_solo(role[s]);
+            vt_ev(role[e], role[e] == V_KICK ? 0 : role[e] == V_BASS ? 43 : 64, 110, 0, 22050u);
+            for (k = 0; k < 5; k++) {
+                float b = vt_block(4096, &bad);
+                if (b > m)
+                    m = b;
+            }
+            CHECK(s == e ? m > 1e-3f : m < 1e-7f, "role buses: role %d's note on bus %d soloed: peak %.2e", role[e],
+                  role[s], (double)m);
+        }
+    vx_solo(-1);
+    CHECK(!bad, "role buses: NaN or inf");
+}
+
 static void test_vx_patches(void)
 {
     int ins, s, bad = 0;
@@ -2139,7 +2217,7 @@ static void test_vx_patches(void)
         vx_configure(&r);
         c = vx_config();
         CHECK(c->chords == t->chords && c->bass == t->bass && c->lead == t->lead && c->candy == t->candy &&
-                  c->kit == t->kit && c->flavor == t->flavor,
+                  c->pad == t->pad && c->kit == t->kit && c->flavor == t->flavor,
               "set %d: configure took the wrong instruments", t->id);
         CHECK(c->dust == s % 4 && c->noise == s % 3 && c->ambience == s % 2, "set %d: configure took the wrong chain",
               t->id);
@@ -6829,6 +6907,8 @@ int main(int argc, char **argv)
     RUN(test_voices);
     RUN(test_voices_fix);
     RUN(test_vx_patches);
+    RUN(test_pad_voice);
+    RUN(test_role_buses);
     RUN(test_vx_keys);
     RUN(test_vx_plucks_basses);
     RUN(test_vx_leads);

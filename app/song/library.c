@@ -99,28 +99,29 @@ const lib_prog_t LIB_PROGS[] = {
 };
 const int LIB_NPROGS = (int)(sizeof LIB_PROGS / sizeof LIB_PROGS[0]);
 
-/* Roles are meant to sit in separate registers (curation intent). {id, name, chords, bass, lead, candy, kit, flavor, moods, src} */
+/* Roles are meant to sit in separate registers (curation intent). {id, name, chords, bass, lead, candy, pad, kit, flavor, moods, src}.
+   The pad layer: the warm synth pad under the synth sets (13, 18, 19, 20), strings under the rest. */
 const lib_set_t LIB_SETS[] = {
-    {1, "Rhodes dusty", INS_RHODES, INS_UPRIGHT, INS_FLUTE, INS_MUSIC_BOX, KIT_DUSTY, FL_LOFI, MOOD_WISTFUL | MOOD_WARM, "task brief: the classic dusty set"},
-    {2, "Bossa nylon", INS_NYLON, INS_SUB, INS_VIBES, INS_KALIMBA, KIT_BRUSHES, FL_BOSSA, MOOD_WARM | MOOD_SUNNY, "task brief: bossa set"},
-    {3, "Neo-soul Wurli", INS_WURLI, INS_ELEC_BASS, INS_SAX, INS_BELLS, KIT_SOFT, FL_NEOSOUL, MOOD_SAD | MOOD_WISTFUL, "task brief: neo-soul set"},
-    {4, "Felt and trumpet", INS_FELT_PIANO, INS_UPRIGHT, INS_MUTED_TPT, INS_NONE, KIT_DUSTY, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "task brief: felt piano with muted trumpet"},
-    {5, "Chillwave pad", INS_PAD, INS_SUB, INS_KALIMBA, INS_VOX_PAD, KIT_808, FL_CHILLWAVE, MOOD_WARM | MOOD_SUNNY, "task brief: chillwave set"},
-    {6, "City pop Rhodes", INS_RHODES, INS_ELEC_BASS, INS_GUITAR_LICK, INS_BELLS, KIT_SOFT, FL_CITYPOP, MOOD_WARM | MOOD_SUNNY, "task brief: bright Rhodes city pop set"},
-    {7, "Felt and flute", INS_FELT_PIANO, INS_SUB, INS_FLUTE, INS_MUSIC_BOX, KIT_SOFT, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "brainstorm: quiet felt piano lofi"},
-    {8, "Wurli and vibes", INS_WURLI, INS_UPRIGHT, INS_VIBES, INS_KALIMBA, KIT_DUSTY, FL_LOFI, MOOD_WARM | MOOD_SUNNY, "brainstorm: warm Wurlitzer lofi"},
-    {9, "Nylon and sax", INS_NYLON, INS_UPRIGHT, INS_SAX, INS_NONE, KIT_BRUSHES, FL_BOSSA, MOOD_WISTFUL | MOOD_WARM, "brainstorm: late-night bossa"},
-    {10, "Pad and guitar", INS_PAD, INS_ELEC_BASS, INS_GUITAR_LICK, INS_VOX_PAD, KIT_808, FL_CHILLWAVE, MOOD_SAD | MOOD_WISTFUL, "brainstorm: hazy chillwave"},
-    {11, "Rhodes neo-soul", INS_RHODES, INS_ELEC_BASS, INS_MUTED_TPT, INS_VIBES, KIT_SOFT, FL_NEOSOUL, MOOD_WARM | MOOD_SUNNY, "brainstorm: smooth neo-soul"},
+    {1, "Rhodes dusty", INS_RHODES, INS_UPRIGHT, INS_FLUTE, INS_MUSIC_BOX, INS_STRINGS, KIT_DUSTY, FL_LOFI, MOOD_WISTFUL | MOOD_WARM, "task brief: the classic dusty set"},
+    {2, "Bossa nylon", INS_NYLON, INS_SUB, INS_VIBES, INS_KALIMBA, INS_STRINGS, KIT_BRUSHES, FL_BOSSA, MOOD_WARM | MOOD_SUNNY, "task brief: bossa set"},
+    {3, "Neo-soul Wurli", INS_WURLI, INS_ELEC_BASS, INS_SAX, INS_BELLS, INS_STRINGS, KIT_SOFT, FL_NEOSOUL, MOOD_SAD | MOOD_WISTFUL, "task brief: neo-soul set"},
+    {4, "Felt and trumpet", INS_FELT_PIANO, INS_UPRIGHT, INS_MUTED_TPT, INS_NONE, INS_STRINGS, KIT_DUSTY, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "task brief: felt piano with muted trumpet"},
+    {5, "Chillwave pad", INS_PAD, INS_SUB, INS_KALIMBA, INS_VOX_PAD, INS_STRINGS, KIT_808, FL_CHILLWAVE, MOOD_WARM | MOOD_SUNNY, "task brief: chillwave set"},
+    {6, "City pop Rhodes", INS_RHODES, INS_ELEC_BASS, INS_GUITAR_LICK, INS_BELLS, INS_STRINGS, KIT_SOFT, FL_CITYPOP, MOOD_WARM | MOOD_SUNNY, "task brief: bright Rhodes city pop set"},
+    {7, "Felt and flute", INS_FELT_PIANO, INS_SUB, INS_FLUTE, INS_MUSIC_BOX, INS_STRINGS, KIT_SOFT, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "brainstorm: quiet felt piano lofi"},
+    {8, "Wurli and vibes", INS_WURLI, INS_UPRIGHT, INS_VIBES, INS_KALIMBA, INS_STRINGS, KIT_DUSTY, FL_LOFI, MOOD_WARM | MOOD_SUNNY, "brainstorm: warm Wurlitzer lofi"},
+    {9, "Nylon and sax", INS_NYLON, INS_UPRIGHT, INS_SAX, INS_NONE, INS_STRINGS, KIT_BRUSHES, FL_BOSSA, MOOD_WISTFUL | MOOD_WARM, "brainstorm: late-night bossa"},
+    {10, "Pad and guitar", INS_PAD, INS_ELEC_BASS, INS_GUITAR_LICK, INS_VOX_PAD, INS_STRINGS, KIT_808, FL_CHILLWAVE, MOOD_SAD | MOOD_WISTFUL, "brainstorm: hazy chillwave"},
+    {11, "Rhodes neo-soul", INS_RHODES, INS_ELEC_BASS, INS_MUTED_TPT, INS_VIBES, INS_STRINGS, KIT_SOFT, FL_NEOSOUL, MOOD_WARM | MOOD_SUNNY, "brainstorm: smooth neo-soul"},
     /* the synth sets (synths plan Task 4; Sam's cut, 2026-10-24: only the DX EP, the FM slap bass, the triangle bass,
        the organ, the saw lead and the synth pluck kept). 13, 18 and 20 all synth (keys, bass and lead), so every mood
        has one; the ear candy acoustic or none. Ids 12, 14-16 retired (the Juno, chip, organ and sine, Rhodes and Moog
        sets). */
-    {13, "DX keys and FM bass", INS_DX_EP, INS_FM_BASS, INS_SAW_LEAD, INS_VIBES, KIT_SOFT, FL_CITYPOP, MOOD_WARM | MOOD_SUNNY, "synths spec: 80s FM keys and bass, city pop; Sam's cut: the saw lead"},
-    {18, "Organ and saw lead", INS_ORGAN, INS_CHIP_BASS, INS_SAW_LEAD, INS_MUSIC_BOX, KIT_SOFT, FL_NEOSOUL, MOOD_SAD | MOOD_WISTFUL, "Sam's cut: an organ over the triangle bass under a saw lead"},
-    {19, "Rhodes and saw lead", INS_RHODES, INS_FM_BASS, INS_SAW_LEAD, INS_NONE, KIT_DUSTY, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "Sam's cut: a dusty Rhodes, the FM slap bass, a saw lead (was Rhodes and Moog)"},
-    {20, "DX and pluck", INS_DX_EP, INS_CHIP_BASS, INS_SYNTH_PLUCK, INS_KALIMBA, KIT_SOFT, FL_CHILLWAVE, MOOD_SAD | MOOD_WARM, "Sam's cut: DX keys, the triangle bass, a synth pluck, chillwave"},
-    {17, "Nylon and synth pluck", INS_NYLON, INS_SUB, INS_SYNTH_PLUCK, INS_KALIMBA, KIT_BRUSHES, FL_BOSSA, MOOD_WISTFUL | MOOD_SUNNY, "synths spec: a nylon guitar under a synth pluck"},
+    {13, "DX keys and FM bass", INS_DX_EP, INS_FM_BASS, INS_SAW_LEAD, INS_VIBES, INS_WARM_PAD, KIT_SOFT, FL_CITYPOP, MOOD_WARM | MOOD_SUNNY, "synths spec: 80s FM keys and bass, city pop; Sam's cut: the saw lead"},
+    {18, "Organ and saw lead", INS_ORGAN, INS_CHIP_BASS, INS_SAW_LEAD, INS_MUSIC_BOX, INS_WARM_PAD, KIT_SOFT, FL_NEOSOUL, MOOD_SAD | MOOD_WISTFUL, "Sam's cut: an organ over the triangle bass under a saw lead"},
+    {19, "Rhodes and saw lead", INS_RHODES, INS_FM_BASS, INS_SAW_LEAD, INS_NONE, INS_WARM_PAD, KIT_DUSTY, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "Sam's cut: a dusty Rhodes, the FM slap bass, a saw lead (was Rhodes and Moog)"},
+    {20, "DX and pluck", INS_DX_EP, INS_CHIP_BASS, INS_SYNTH_PLUCK, INS_KALIMBA, INS_WARM_PAD, KIT_SOFT, FL_CHILLWAVE, MOOD_SAD | MOOD_WARM, "Sam's cut: DX keys, the triangle bass, a synth pluck, chillwave"},
+    {17, "Nylon and synth pluck", INS_NYLON, INS_SUB, INS_SYNTH_PLUCK, INS_KALIMBA, INS_STRINGS, KIT_BRUSHES, FL_BOSSA, MOOD_WISTFUL | MOOD_SUNNY, "synths spec: a nylon guitar under a synth pluck"},
 };
 const int LIB_NSETS = (int)(sizeof LIB_SETS / sizeof LIB_SETS[0]);
 
@@ -185,5 +186,5 @@ const lib_map_t *lib_map_by_id(uint8_t id)
 int lib_ins_sustained(int ins)
 {
     return ins == INS_PAD || ins == INS_FLUTE || ins == INS_SAX || ins == INS_MUTED_TPT || ins == INS_VOX_PAD ||
-           ins == INS_ORGAN || ins == INS_SAW_LEAD;
+           ins == INS_ORGAN || ins == INS_SAW_LEAD || ins == INS_STRINGS || ins == INS_WARM_PAD;
 }

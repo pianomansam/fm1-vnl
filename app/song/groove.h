@@ -7,7 +7,8 @@
 #include "roll.h"
 #include "plan.h"
 
-enum { V_CHORD, V_BASS, V_LEAD, V_CANDY, V_KICK, V_SNARE, V_HAT, V_OHAT, V_SHAKER, V_RIM, V_N };
+/* V_PAD: the pad layer (strings or a warm pad), a pitched role on its own bus */
+enum { V_CHORD, V_BASS, V_LEAD, V_CANDY, V_PAD, V_KICK, V_SNARE, V_HAT, V_OHAT, V_SHAKER, V_RIM, V_N };
 enum { BS_ROOTS, BS_ROOT_FIFTH, BS_WALK, BS_PEDAL };
 
 /* delay and len in samples at 44100 Hz (delay is late only); note is MIDI (drums 0); vel 1-127. */
