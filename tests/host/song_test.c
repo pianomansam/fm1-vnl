@@ -2310,6 +2310,44 @@ static void test_pad_bus_filter(void)
     CHECK(!bad, "pad bus filter: NaN or inf");
 }
 
+/* The budget's cut (a) (pads design, calls 1): the solo note has no voice of its own while a chord lane sounds: it
+   rides that lane's ensemble voice (one more saw into its low-pass and envelope), so lane 4's voice stays off, yet the
+   note sounds (the output differs from the chord alone by more than 20% of its level). With no chord lane (sustained
+   keys: the chord part sits out) it plays on its own voice. */
+static void test_pad_solo_shares(void)
+{
+    static float with[16384], alone[16384];
+    int step, held, bad = 0, k;
+    double e = 0.0, d = 0.0;
+    for (k = 0; k < 2; k++) {
+        vx_init();
+        vx_assign(V_PAD, INS_STRINGS);
+        vt_lane(1, 60, 0, 88200u);
+        if (!k)
+            vt_lane(4, 79, 0, 88200u);
+        vt_block(4096, &bad);
+        if (!k) {
+            vx_pad_lane(4, &step, &held);
+            CHECK(step == 0, "pad solo shares: lane 4 has a voice of its own (step %d) beside a chord lane", step);
+        }
+        vt_block(4096, &bad);
+        vt_block(4096, &bad);
+        memcpy(k ? alone : with, vt_l, 4096 * sizeof(float));
+    }
+    for (k = 0; k < 4096; k++) {
+        e += (double)alone[k] * (double)alone[k];
+        d += ((double)with[k] - (double)alone[k]) * ((double)with[k] - (double)alone[k]);
+    }
+    CHECK(d > 0.04 * e && e > 0.0, "pad solo shares: the solo note adds only %.3f of the chord's energy", e > 0.0 ? d / e : 0.0);
+    vx_init();
+    vx_assign(V_PAD, INS_STRINGS);
+    vt_lane(4, 79, 0, 88200u);
+    vt_block(64, &bad);
+    vx_pad_lane(4, &step, &held);
+    CHECK(step == 4, "pad solo shares: alone, lane 4 renders at step %d, wanted its own voice at a quarter (4)", step);
+    CHECK(!bad, "pad solo shares: NaN or inf");
+}
+
 /* The pad layer's lanes (voices.h): two notes back to back on lane 1 glide (the level never under 80% of the held
    level across the change; the pitch at the target within 100 ms); a held lane's same pitch extends it; a lane never
    moves another's voice. */
@@ -7726,6 +7764,7 @@ int main(int argc, char **argv)
     RUN(test_pad_rates);
     RUN(test_pad_lanes);
     RUN(test_pad_bus_filter);
+    RUN(test_pad_solo_shares);
     RUN(test_pad_chorus);
     RUN(test_vx_keys);
     RUN(test_vx_plucks_basses);
