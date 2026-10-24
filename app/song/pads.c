@@ -37,7 +37,9 @@ static int clear_of(int n, const int keys[4], const int *lead, int nlead, int ba
 }
 
 /* the cost of moving from prev (by lane) to the notes t (ascending, m of them) on lanes ln: each lane's move, the top
-   voice's 8 a semitone (and 6 for a leap), 6 for a common tone that moved; with no prev, the top near G4 */
+   voice's 8 a semitone (and 6 for a leap), 6 for a common tone that moved, and 1000 for a common pitch on another lane
+   (it would strike again rather than ring on: never chosen, as a lane order that keeps it always exists); with no
+   prev, the top near G4 */
 static int move_cost(const int prev[3], const int *t, const int *ln, int m)
 {
     int c = 0, k, j, ptop = 0, have = 0;
@@ -58,6 +60,8 @@ static int move_cost(const int prev[3], const int *t, const int *ln, int m)
             at |= t[k] == prev[j];
         }
         if (in && !at) c += 6;
+        for (k = 0; k < m; k++)
+            if (t[k] == prev[j] && ln[k] != j) c += 1000;
     }
     return c;
 }
@@ -69,7 +73,9 @@ typedef struct { int cost, lane[3]; } pick_t;
 static void consider(pick_t *b, const int *v, const int *pen, int m, int root, int have3, int have7,
                      const int prev[3])
 {
-    static const int LN2[3][2] = {{0, 1}, {0, 2}, {1, 2}}, LN3[3] = {0, 1, 2};
+    /* the lanes each note may take (notes ascending): any order, so common pitches keep their lanes */
+    static const int LN2[6][2] = {{0, 1}, {0, 2}, {1, 2}, {1, 0}, {2, 0}, {2, 1}};
+    static const int LN3[6][3] = {{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}};
     int i, j, c = 0, g3 = 0, g7 = 0;
     for (i = 0; i < m; i++) {
         int iv = mod12(v[i] - root);
@@ -80,8 +86,8 @@ static void consider(pick_t *b, const int *v, const int *pen, int m, int root, i
         c += 20 * pen[i];
     }
     c += (have3 && !g3 ? 60 : 0) + (have7 && !g7 ? 40 : 0);   /* the guide tones first */
-    for (i = 0; i < (m == 3 ? 1 : 3); i++) {
-        const int *ln = m == 3 ? LN3 : LN2[i];
+    for (i = 0; i < 6; i++) {
+        const int *ln = m == 3 ? LN3[i] : LN2[i];
         int cc = c + move_cost(prev, v, ln, m);
         if (cc < b->cost) {
             b->cost = cc;

@@ -7230,7 +7230,7 @@ static void test_pad_chord(void)
     song_roll_t prev, r;
     uint32_t seed = 9191;
     long chords = 0, three = 0, two = 0, few = 0, missing = 0, over_sus = 0, off_change = 0, range = 0, changes = 0,
-         smooth = 0, rubs = 0, checked = 0, songs_perc = 0;
+         smooth = 0, rubs = 0, checked = 0, songs_perc = 0, common = 0, lane_moved = 0, restruck = 0;
     int k, bar, i;
     for (k = 0; k < 500; k++) {
         const lib_set_t *set;
@@ -7257,6 +7257,21 @@ static void test_pad_chord(void)
             n = pd_sounding(&pd_a, bar, pd_a.at[bar * 16], 1, 3, notes);
             if (n == 0) { missing++; top_prev = 0; continue; }
             if (bar % bpc) continue;
+            if (bar > 0 && (pd_a.layers[bar - 1] & L_KEYS)) {   /* a common pitch rings on, on its lane */
+                int l, j, was[4], now[4];
+                for (l = 1; l <= 3; l++) {
+                    if (!pd_sounding(&pd_a, bar, pd_a.at[bar * 16] - 1, l, l, was)) continue;
+                    for (j = 1; j <= 3; j++)
+                        if (pd_sounding(&pd_a, bar, pd_a.at[bar * 16], j, j, now) && now[0] == was[0]) break;
+                    if (j > 3) continue;
+                    common++;
+                    lane_moved += j != l;
+                    if (bar % 4)                         /* (a 4-bar line cuts every note: the same pitch again on
+                                                            the same lane extends it) */
+                        for (i = pd_a.first[bar]; i < (bar + 1 < pd_a.bars ? pd_a.first[bar + 1] : pd_a.ne); i++)
+                            restruck += pd_a.ev[i].voice == V_PAD && pd_a.ev[i].lane == l && pd_a.ev[i].note == was[0];
+                }
+            }
             chords++;
             three += n == 3;
             two += n == 2;
@@ -7282,6 +7297,10 @@ static void test_pad_chord(void)
     CHECK(smooth * 100 >= changes * 80, "pad chord: top voice smooth in %ld of %ld changes", smooth, changes);
     CHECK(range == 0, "pad chord: %ld notes outside 55-72", range);
     CHECK(rubs == 0 && checked > 10000, "pad chord: %ld rubs with keys, bass or lead (%ld checked)", rubs, checked);
+    printf("pad chord: %ld common pitches across chord changes, %ld on another lane, %ld struck again\n", common,
+           lane_moved, restruck);
+    CHECK(common > 5000 && lane_moved == 0 && restruck == 0, "pad chord: of %ld common pitches %ld changed lanes, %ld "
+          "struck again", common, lane_moved, restruck);
 }
 
 static const int PD_DEG[4] = {0, 1, 2, 6};             /* the solo's scale degrees: 1, 2, 3, 7 */

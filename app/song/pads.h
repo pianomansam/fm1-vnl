@@ -23,7 +23,10 @@ int pads_rub(int a, int b);
    (the same, all 0 for none). Guide tones first (3rd and 7th), then the 5th or the 9th; MIDI 55-72; common tones held,
    the rest moving to the nearest legal tone, the top voice smoothest. No note rubs a keys note (keys: 4, 0 none) or a
    lead note, or sits a minor 9th over the bass (bass_pc), nor two of its own. out may be prev. Returns the count: 3, or
-   2 where no 3 are legal (fewer only if nothing is). */
+   2 where no 3 are legal (fewer only if nothing is). A pitch common to prev and out keeps its lane (it rings on).
+   song.c passes the lead's notes of a 4-bar group's first bar only (the later bars' are not planned yet); there the
+   chord part's avoidance of the lead rests on its notes being chord tones while the lead keeps to the chord-scale
+   (the clash test enforces it). */
 int pads_chord(const song_roll_t *r, const int keys[4], const int *pcs, int np, unsigned bass_pc,
                const int *lead_notes, int nlead, const int prev[3], int out[3]);
 
