@@ -164,6 +164,25 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   voices to borrow (MIT/BSD/MPL with attribution; GPL ideas only) or learn lessons from. Also search the web for
   FM-1 firmwares released since the last survey (Sam: "new firmwares coming out all the time") and add them to ref/
   and docs/research.
+- **Lessons from Eight Bells and Shine On (2026-10-24, Sam pointed at github.com/Discodave-Glitch/eight-bells).**
+  Eight Bells (MIT) is a browser/desktop pattern generator that plays the FM-1 over USB MIDI, not a firmware. Useful:
+  its firmware list (about 40 FM-1 firmwares, plus thefirmwarehub.com as a hub to watch); melody/chord engines
+  named "pedal point", "call and response", "turnaround" (ideas for the lead and pads); "Auto song" changing the
+  pattern every 1-8 loops and sometimes returning to an earlier one (A-B-A thinking); share codes (seed, genre,
+  tempo) for Plan 4. New firmwares not yet in ref/: fm1-x0x-rmx (GPL, an X0X fork), noiz_demons (GPL, a Felucca mod),
+  Felucca_8_patterns (GPL fork), and **Shine On** (zvenson/shineon, GPL: ideas only), a 70s string machine on the FM-1:
+  top-octave-divider saws at 16', 8', 4' (and an 8' square), **fixed formant filters on the sum rather than per voice**
+  (registers CONTRABASS, CELLO, VIOLA, VIOLIN, TRUMPET, HORN), three bucket-brigade delay lines swayed by two LFOs
+  120 degrees apart (the Solina ensemble) and a phaser. Lessons for the pads and string leads: a shared formant
+  filter on the pad bus instead of a filter per voice (CPU), the three-line 120-degree ensemble for width, a
+  formant-register cello. Survey these properly with the piano spike.
+  Eight Bells' generators (index.html, MIT; read 2026-10-24): melodies are Euclidean rhythms over scale degrees,
+  chords are plain triads on a 4-chord loop (no 7ths): generic next to ours. Worth taking: (1) its "sequence" engine
+  (a 4-note motif transposed up a degree per group, `seqnc` ~line 2700) for the hybrid lead's arpeggio; (2) the
+  lament descent progression i-VII-VI-V (`lament`) as a new progression or a B section; (3) pedal point (bass holds the
+  root while the upper voices move) for the pads or a break; (4) Auto song's bank: 40% of the time return to an
+  earlier pattern (~line 5212), for A-B-A and long streams; (5) a check on our drums: lo-fi kicks [0,10], [0,7,10],
+  [0,3,10] with snare 4 and 12, swing 62.
 - **String leads: a string ensemble and a cello (Sam, 2026-10-24: "explore strings for the leads, as well as a cello
   for leads"; corrected: "Not a solo-violin strings. A string orchestra/ensemble").** Sustained leads (they would sing
   the phrase lead). The ensemble lead: the melody played by a section (several detuned voices or the pads' ensemble
