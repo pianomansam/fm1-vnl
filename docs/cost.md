@@ -773,3 +773,16 @@ Host load about 4-5, AMB-1 136.5-138.4 ms.
   struck chord's release), and the solo and the chord part never sound together, so the layer costs no more than
   before.
 - **Memory** (`tools/mem-check.sh`): image 193736 B, RAM 51216 B, pool 180216 B (ok).
+
+## Sampled instruments, Task 4: the strum engine
+
+CS_STRUM plays the guitars' strums (strum.c), up to 6 sampler voices a stroke; the chords' pool is 8 voices when its
+patch is M_SAMP (as for a pad), so a stroke never steals one still held while the last rings out.
+- **The standard list**, `--forced 20 7 155 138 100 22`: forced 0.960 / 0.881 / 0.693 / 0.848 / 0.797 / 0.708
+  (plain 0.938 / 0.875 / 0.667 / 0.814 / 0.776 / 0.671); none of them strums.
+- **Strummed seeds** (their own set, forced): 24 0.857, 27 0.875, **32 0.937** (Nylon and synth pluck, D-DU-UDU, the
+  heaviest), 52 0.777, 73 0.744, 83 0.848, 101 0.798, 140 0.809, 185 0.842. Seed 32 played held before: 0.824, so a
+  strum costs about 0.11 over held comping (the sampler voices' release tails). Under the 0.97 line.
+- The voicer (a search over movable shapes, once per new chord, cached per song): about 8 us a chord on the host.
+- **Memory** (`tools/mem-check.sh`): image 365000 B, RAM 51472 B, pool 180216 B (ok; +3984 B image, +256 B RAM: the
+  per-song shape cache).

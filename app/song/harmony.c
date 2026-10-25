@@ -5,6 +5,7 @@
 #include "rng.h"
 #include "theory.h"
 #include "library.h"
+#include "strum.h"
 
 static uint32_t mix(uint32_t a, uint32_t b, uint32_t c, uint32_t d)
 {
@@ -198,9 +199,39 @@ static void place_keys(const song_roll_t *r, int *notes)  /* a pad with or above
         if (notes[i]) notes[i] += sh;
 }
 
+/* A strummed song's guitar shape for this bar's chord: the one it had before in the song, else a new one voice-led
+   from the shape found last (strike or peek alike, so a peek ahead and the strike agree) */
+static void strum_shape(const song_roll_t *r, int bar, int pass, harmony_voicing_t *vs, int shape[6])
+{
+    int pcs[5], n = harmony_chord_at(r, bar, pass, 0, pcs), i, k, prev[6] = {0, 0, 0, 0, 0, 0};
+    uint32_t sig = 2166136261u;
+    for (i = 0; i < n; i++) sig = (sig ^ (uint32_t)(pcs[i] + 1)) * 16777619u;
+    sig |= 1u;                                           /* never 0: an empty slot */
+    for (k = 0; k < HV_SHAPES && k < vs->gn; k++)
+        if (vs->gsig[k] == sig) {
+            for (i = 0; i < 6; i++) shape[i] = vs->gtab[k][i];
+            return;
+        }
+    if (vs->gn)
+        for (i = 0; i < 6; i++) prev[i] = vs->gtab[(vs->gn - 1) % HV_SHAPES][i];
+    strum_voicing(pcs, n, prev, shape);
+    k = vs->gn % HV_SHAPES;
+    for (i = 0; i < 6; i++) vs->gtab[k][i] = (uint8_t)shape[i];
+    vs->gsig[k] = sig;
+    vs->gn++;
+}
+
 void harmony_voicing_at(const song_roll_t *r, int bar, int pass, harmony_voicing_t *vs, int out4[4])
 {
     int pcs[5], n, keep[4];
+    if (harmony_style(r) == CS_STRUM) {                  /* the guitar shape's top 4 */
+        int shape[6], i, k = 4;
+        strum_shape(r, bar, pass, vs, shape);
+        memset(out4, 0, 4 * sizeof(int));
+        for (i = 5; i >= 0 && k > 0; i--)
+            if (shape[i]) out4[--k] = shape[i];
+        return;
+    }
     n = harmony_chord_at(r, bar, pass, 0, pcs);
     memcpy(keep, vs->last, sizeof keep);
     voice_chord(r, bar, pcs, n, vs, out4);
@@ -311,7 +342,12 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
     p = prog_of(r);
     style = harmony_style(r);
     if (style == CS_HALF && half_held(r)) style = CS_HELD;
-    if (style == CS_STRUM) style = CS_HELD;   /* until the strum engine (Task 4): a strummed song plays held */
+    if (style == CS_STRUM) {                  /* the guitars' strum (strum.c): the lead's busy bars leave it be, as
+                                                 held comping (the keys' duck makes the room) */
+        int shape[6];
+        strum_shape(r, bar, pass, vs, shape);
+        return strum_step(r, b, bar, step, step_samples, shape, out, max);
+    }
     switch (style) {
     case CS_HELD:
         if (step != 0 || bar % p->bars_per_chord != 0) return 0;

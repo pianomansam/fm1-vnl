@@ -354,8 +354,10 @@ static void pads_group(song_t *s, const plan_block_t *b, int B)
         np = harmony_chord_at(&s->roll, bar, pass, 0, pcs);
         harmony_voicing_at(&s->roll, bar, pass, &vs, keys);
         if (bar % bpc == 0) {
+            int cs = harmony_style(&s->roll);
             for (i = 0; i < 4; i++) vs.last[i] = keys[i] ? keys[i] - up : 0;   /* the keys strike it */
-            if (chord_on && pads_double && harmony_style(&s->roll) == CS_HELD)
+            if (chord_on && pads_double && (cs == CS_HELD || cs == CS_STRUM))   /* a strum sustains as held does:
+                                                                                  its guitar shape's top doubled */
                 pads_double_keys(keys, s->pads.chord);
             else if (chord_on)
                 pads_chord(&s->roll, keys, pcs, np, (unsigned)pcs[0], lead, k ? 0 : nlead, s->pads.chord,

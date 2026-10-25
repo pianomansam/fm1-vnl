@@ -8,6 +8,7 @@
 #include "score.h"
 #include "groove.h"
 #include "harmony.h"
+#include "strum.h"
 #include "theory.h"
 #include "library.h"
 #include "plan.h"
@@ -22,7 +23,9 @@ typedef struct { int bar, st, voice, note, vel; float delay, len, ss; } rec_t;  
 static const char *const FLATS[12] = {"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"};
 static const char *const SHARPS[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 static const char *const MODE[MODE_N] = {"major", "Dorian", "Phrygian", "Lydian", "Mixolydian", "minor"};
-static const char *const STYLE[5] = {"held", "stabs", "offbeats", "arpeggio", "half notes"};
+static const char *const STYLE[6] = {"held", "stabs", "offbeats", "arpeggio", "half notes", "strum"};
+static const char *const STRUM[SP_N + 1] = {"strum, D-DU-UDU", "strum, chucks", "strum, bossa", "strum, ballad",
+                                            "strum, slow ballad"};
 static const char *const BASS[4] = {"roots", "root-fifth", "walking", "pedal"};
 static const char *const MOOD[4] = {"sad", "wistful", "warm", "sunny"};
 static const char *const COLOR[3] = {"7ths", "9ths", "rich"};
@@ -558,10 +561,15 @@ void score_song(const song_t *s, float now)
     fprintf(logf, "key %s %s, %d BPM, %d bars (%d:%02d), mood %s, motion %d, swing %.1f%%\n", pc_name(r->v[RF_KEY]),
             MODE[r->v[RF_MODE]], r->v[RF_TEMPO], r->v[RF_BARS], secs / 60, secs % 60, MOOD[r->v[RF_MOOD] & 3],
             r->v[RF_MOTION], (double)r->v[RF_SWING] / 10.0);
-    fprintf(logf, "map %s; progression %d (%s); set %s; color %s; comping %s; bass %s\n", m ? m->name : "?",
-            p ? p->id : 0, p ? p->src : "?", set ? set->name : "?", COLOR[r->v[RF_COLOR] % 3],
-            harmony_style(r) == CS_HALF && !harmony_half_strikes(r) ? "half notes, held" : STYLE[harmony_style(r) % 5],
-            BASS[groove_bass_style(r) & 3]);
+    {
+        int st = harmony_style(r), slow, sp = strum_pattern(r, &slow);
+        fprintf(logf, "map %s; progression %d (%s); set %s; color %s; comping %s; bass %s\n", m ? m->name : "?",
+                p ? p->id : 0, p ? p->src : "?", set ? set->name : "?", COLOR[r->v[RF_COLOR] % 3],
+                st == CS_HALF && !harmony_half_strikes(r) ? "half notes, held"
+                : st == CS_STRUM                         ? STRUM[slow ? SP_N : sp]
+                                                         : STYLE[st % 6],
+                BASS[groove_bass_style(r) & 3]);
+    }
     fprintf(logf, "blocks:");
     for (i = 0; i < plan.n; i++) {
         const plan_block_t *b = &plan.b[i];

@@ -21,6 +21,7 @@
 #include "pads.h"
 #include "samples.h"
 #include "sampler.h"
+#include "strum.h"
 
 static int fails;
 #define CHECK(c, ...)                                                                                              \
@@ -967,12 +968,13 @@ static void test_harmony(void)
                     {                          /* a pad with or above the lead sounds an octave up (lead design) */
                         int up = (harmony_pad_place(&r) == PL_BELOW ? 0 : 12) +
                                  lib_set_keys_shift(lib_set_by_id((uint8_t)r.v[RF_SET]));   /* (Sam: the Chillwave pad lower) */
-                        if (ev[i].note < 48 + up || ev[i].note > 72 + up) bad_range++;
+                        if (ev[i].note < 48 + up || ev[i].note > (harmony_style(&r) == CS_STRUM ? 76 : 72) + up)
+                            bad_range++;               /* (a guitar shape reaches E5) */
                     }
                     if (ev[i].vel < 25 || ev[i].vel > 110) bad_vel++;
                     if (ev[i].len == 0) bad_range++;
                 }
-                if (harmony_style(&r) != CS_ARP && ne > 0) {
+                if (harmony_style(&r) != CS_ARP && harmony_style(&r) != CS_STRUM && ne > 0) {   /* (test_strum) */
                     chords_seen++;
                     if (ne != 4) bad_roll++;
                     for (i = 1; i < ne; i++) {
@@ -3295,7 +3297,7 @@ static void test_comping_makes_room(void)
             for (step = 0; step < 16; step++) {
                 int n0 = harmony_step(&r, b, bar, step, bar / loop + 1, 5512.5f, &v0, 0, 5u, e0, 16);
                 int n1 = harmony_step(&r, b, bar, step, bar / loop + 1, 5512.5f, &v1, 1, 5u, e1, 16);
-                if (sust_keys || cs == CS_HELD || cs == CS_STRUM) {   /* (a strum plays held until Task 4) */
+                if (sust_keys || cs == CS_HELD || cs == CS_STRUM) {   /* (a strum, as held, ignores a busy lead) */
                     if (n0 != n1 || memcmp(e0, e1, sizeof(song_ev_t) * (size_t)n0)) bad_same++;
                 } else if (n1 && cs == CS_HALF && n1 == n0 && n1 == 4) {   /* thinned to step 0, held a bar: all but the length */
                     int j;
@@ -3757,6 +3759,7 @@ static void test_loop_voicings(void)
         seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
         roll_song(k ? &prev : 0, seed, &r);
         prev = r;
+        if (harmony_style(&r) == CS_STRUM) continue;   /* a guitar shape a chord: test_strum */
         song_start(&s, &r);
         memset(have, 0, sizeof have);
         while (s.state == SS_PLAYING) {
@@ -8462,6 +8465,189 @@ static void test_pad_double(void)
     }
 }
 
+/* The strum engine (CS_STRUM, the guitars; Task 4): per strum (a step's chord events) at most 6 notes, each string's
+   onset 5-15 ms after the last (quick) or 30-80 ms (slow: the ballad, half the time); up strokes (high to low) only on
+   the odd 8ths; chucks (pad 1: the sampler's muted note) only in the chuck pattern; every note a chord tone in E2-E5,
+   none a semitone over another, over the root or over a bass note it sounds with (a major 7th only over the root);
+   the top note moves 5 semitones or less in 80% of chord changes; with the pad A/B switch on (VNL_PADS=double) the
+   chord part doubles the guitar's notes, as over held comping; one shape a chord through the song (its notes 6 at
+   most). Rendered, the chords' pool never steals a held note
+   (8 voices for a sampled instrument), and over 500 seeds a ballad is slow in 45-55% of songs, the rest never. */
+static long st_strums, st_ups, st_moves, st_small, st_chucks, st_pad_notes, st_bad[9], st_pad0, st_bad0;
+static int st_count0; /* st_play counts the default chord part (st_pad0, st_bad0) of a song played doubled too */
+static void st_play(const song_roll_t *r, int pat, int slow, int dbl)
+{
+    static song_t s;
+    song_ev_t ev[64];
+    const lib_prog_t *pr = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
+    int loop = pr && pr->n * pr->bars_per_chord ? pr->n * pr->bars_per_chord : 4;
+    double lo = (slow ? 30.0 : 5.0) * 44.1 - 1.0, hi = (slow ? 80.0 : 15.0) * 44.1 + 1.0;
+    int prev_top = 0, prev_pcs[5] = {0}, prev_np = 0, bar_top = 0, cur = -1, pcs[5] = {0}, np = 0;
+    int gn[64], ngn = 0, pn[16], npn = 0, i, j, nsig = 0;
+    uint32_t sig[32], csig = 0;
+    uint64_t used[32];                                   /* each chord's notes through the song (bit: note - 40) */
+    song_set_pads_double(dbl);
+    song_start(&s, r);
+    while (s.state == SS_PLAYING) {
+        int bar = s.bar, step = s.step, n = song_tick(&s, ev, 64), k = 0, nb = 0, bass[8], c[64], d[64], pad[64];
+        if (bar != cur) {
+            if (bar_top) {
+                if (prev_top && (np != prev_np || memcmp(pcs, prev_pcs, sizeof pcs))) {
+                    st_moves++;
+                    st_small += abs(bar_top - prev_top) <= 5;
+                }
+                prev_top = bar_top;
+                prev_np = np;
+                memcpy(prev_pcs, pcs, sizeof pcs);
+            }
+            for (i = 0; i < npn; i++) {
+                for (j = 0; j < ngn && gn[j] != pn[i]; j++) {}
+                if (dbl) { st_pad_notes++; st_bad[8] += j == ngn; }
+                else if (st_count0) { st_pad0++; st_bad0 += j == ngn; }
+            }
+            cur = bar;
+            bar_top = ngn = npn = 0;
+            memset(pcs, 0, sizeof pcs);
+            np = harmony_chord_at(&s.roll, bar, bar / loop + 1, 0, pcs);
+            for (i = 0, csig = (uint32_t)s.roll.v[RF_KEY] + 1u; i < np; i++) csig = csig * 31u + (uint32_t)pcs[i] + 1u;
+        }
+        for (i = 0; i < n; i++) {
+            if (ev[i].voice == V_CHORD) { c[k] = ev[i].note; d[k] = (int)ev[i].delay; pad[k++] = ev[i].pad; }
+            if (ev[i].voice == V_BASS && nb < 8) bass[nb++] = ev[i].note;
+            if (ev[i].voice == V_PAD && ev[i].pad >= 1 && ev[i].pad <= 3 && npn < 16) pn[npn++] = ev[i].note;
+        }
+        if (!k) continue;
+        st_strums++;
+        st_bad[0] += k > 6;
+        for (i = 1; i < k; i++)
+            st_bad[1] += (double)(d[i] - d[i - 1]) < lo || (double)(d[i] - d[i - 1]) > hi;
+        if (k >= 2 && c[0] > c[k - 1]) {
+            st_ups++;
+            st_bad[2] += (step & 3) != 2;
+        }
+        for (i = 0; i < k; i++) {
+            int in = 0;
+            st_chucks += pad[i] == 1;
+            st_bad[3] += pad[i] == 1 && pat != SP_CHUCK;
+            for (j = 0; j < np; j++) in |= (c[i] - pcs[j] + 120) % 12 == 0;
+            st_bad[4] += !in;
+            st_bad[5] += c[i] < 40 || c[i] > 76;
+            st_bad[6] += (c[i] - pcs[0] + 120) % 12 == 1;
+            for (j = 0; j < k; j++) st_bad[6] += j != i && c[i] > c[j] && pads_rub(c[i], c[j]);
+            for (j = 0; j < nb; j++) {
+                int iv = (c[i] - bass[j] + 120) % 12;
+                st_bad[7] += iv == 1 || (iv == 11 && bass[j] % 12 != pcs[0]);
+            }
+            if (c[i] > bar_top) bar_top = c[i];
+            for (j = 0; j < nsig && sig[j] != csig; j++) {}
+            if (j == nsig && nsig < 32) { sig[nsig] = csig; used[nsig++] = 0; }
+            if (j < nsig && c[i] >= 40 && c[i] <= 76) used[j] |= (uint64_t)1 << (c[i] - 40);
+            if (ngn < 64) gn[ngn++] = c[i];
+        }
+    }
+    for (j = 0; j < nsig; j++) {                          /* one guitar shape a chord: 6 notes at most */
+        int m = 0;
+        for (i = 0; i < 37; i++) m += (int)((used[j] >> i) & 1u);
+        st_bad[0] += m > 6;
+    }
+    song_set_pads_double(0);
+}
+
+/* the first 24 bars rendered: the chords' pool's steals of a held note, and the most voices sounding at once */
+static uint32_t st_render(const song_roll_t *r, int *peak)
+{
+    static song_t s;
+    song_ev_t ev[64];
+    float frac = 0.0f;
+    vx_init();
+    song_start(&s, r);
+    vx_song(&s.roll);
+    *peak = 0;
+    while (s.state == SS_PLAYING && s.bar < 24) {
+        int n = song_tick(&s, ev, 64), i;
+        float adv = song_step_samples(&s) + frac;
+        uint32_t left = (uint32_t)adv;
+        frac = adv - (float)left;
+        for (i = 0; i < n; i++) vx_event(&ev[i]);
+        while (left) {
+            uint32_t b = left < 256u ? left : 256u;
+            memset(vt_l, 0, b * sizeof(float));
+            memset(vt_r, 0, b * sizeof(float));
+            vx_render(vt_l, vt_r, b);
+            if (vx_active() > *peak) *peak = vx_active();
+            left -= b;
+        }
+    }
+    return vx_steals(V_CHORD);
+}
+
+static void test_strum(void)
+{
+    static const int SETS[3] = {2, 9, 17};
+    long pcnt[SP_N] = {0}, ballads = 0, slow_ballads = 0, bad_slow = 0;
+    int got[SP_N + 1] = {0}, rendered[SP_N + 1] = {0}, seed, k, dbl_songs = 0;
+    for (seed = 1; seed <= 500; seed++) {
+        song_roll_t r;
+        int slow, p;
+        roll_song(NULL, (uint32_t)seed, &r);
+        p = strum_pattern(&r, &slow);
+        CHECK(p >= 0 && p < SP_N, "strum: seed %d pattern %d", seed, p);
+        if (p < 0 || p >= SP_N) continue;
+        pcnt[p]++;
+        if (p == SP_BALLAD) { ballads++; slow_ballads += slow; }
+        else bad_slow += slow;
+    }
+    printf("strum: patterns over 500 seeds ddu %ld chuck %ld bossa %ld ballad %ld (%ld slow)\n", pcnt[0], pcnt[1],
+           pcnt[2], pcnt[3], slow_ballads);
+    for (k = 0; k < SP_N; k++) CHECK(pcnt[k] >= 75 && pcnt[k] <= 175, "strum: pattern %d in %ld of 500", k, pcnt[k]);
+    CHECK(ballads && slow_ballads * 100 >= ballads * 45 && slow_ballads * 100 <= ballads * 55,
+          "strum: %ld of %ld ballads slow, wanted 45-55%%", slow_ballads, ballads);
+    CHECK(bad_slow == 0, "strum: %ld songs of another pattern slow", bad_slow);
+    memset(st_bad, 0, sizeof st_bad);
+    st_strums = st_ups = st_moves = st_small = st_chucks = st_pad_notes = st_pad0 = st_bad0 = 0;
+    for (seed = 1; seed < 4000; seed++) {          /* three songs of each pattern (the ballad quick and slow) */
+        song_roll_t r;
+        int slow, p, kind, set = SETS[seed % 3];
+        roll_song(NULL, (uint32_t)seed, &r);
+        if (roll_set(&r, RF_SET, set) != set || harmony_style(&r) != CS_STRUM) continue;
+        p = strum_pattern(&r, &slow);
+        kind = p == SP_BALLAD && slow ? SP_N : p;
+        if (got[kind] >= 3) continue;
+        got[kind]++;
+        st_count0 = set == 2 && dbl_songs < 4;
+        st_play(&r, p, slow, 0);
+        if (st_count0) { st_play(&r, p, slow, 1); dbl_songs++; }
+        if (!rendered[kind] && (kind == SP_CHUCK || kind == SP_N || kind == SP_DDU)) {
+            int peak;
+            uint32_t st = st_render(&r, &peak);
+            rendered[kind] = 1;
+            printf("strum: seed %d pattern %d%s: %u held notes stolen on the chords' pool, %d voices at most\n", seed,
+                   p, slow ? " (slow)" : "", (unsigned)st, peak);
+            CHECK(st == 0, "strum: seed %d: %u held chord notes stolen", seed, (unsigned)st);
+        }
+    }
+    for (k = 0; k <= SP_N; k++) CHECK(got[k] == 3, "strum: only %d songs of kind %d", got[k], k);
+    printf("strum: %ld strums (%ld up, %ld chuck notes); top note within 5 semitones in %ld of %ld chord changes; "
+           "pads double: %ld chord-part notes, %ld not the guitar's (default: %ld of %ld)\n", st_strums, st_ups,
+           st_chucks, st_small, st_moves, st_pad_notes, st_bad[8], st_bad0, st_pad0);
+    CHECK(st_strums > 1000 && st_ups > 100 && st_chucks > 100, "strum: %ld strums, %ld up, %ld chuck notes", st_strums,
+          st_ups, st_chucks);
+    CHECK(st_bad[0] == 0, "strum: %ld strums of more than 6 notes (or chords of more than one shape)", st_bad[0]);
+    CHECK(st_bad[1] == 0, "strum: %ld string onsets outside the spread's window", st_bad[1]);
+    CHECK(st_bad[2] == 0, "strum: %ld up strokes off the odd 8ths", st_bad[2]);
+    CHECK(st_bad[3] == 0, "strum: %ld chuck notes outside the chuck pattern", st_bad[3]);
+    CHECK(st_bad[4] == 0, "strum: %ld notes not chord tones", st_bad[4]);
+    CHECK(st_bad[5] == 0, "strum: %ld notes outside E2-E5", st_bad[5]);
+    CHECK(st_bad[6] == 0, "strum: %ld semitone rubs inside a strum (or over the root)", st_bad[6]);
+    CHECK(st_bad[7] == 0, "strum: %ld semitone rubs over the bass", st_bad[7]);
+    CHECK(st_moves > 50 && st_small * 100 >= st_moves * 80, "strum: the top moves 5 or less in %ld of %ld changes",
+          st_small, st_moves);
+    CHECK(dbl_songs == 4 && st_pad_notes > 50 && st_bad[8] == 0,
+          "strum: pads double: %ld of %ld chord-part notes not the guitar's (%d songs)", st_bad[8], st_pad_notes,
+          dbl_songs);
+    CHECK(st_bad0 > 0, "strum: the default chord part already doubles the guitar (%ld notes)", st_pad0);
+}
+
 /* The packed sample tables (samples_data.c, from tools/samples/pack.py): every bank's zones and every drum hit are
    well formed, the byte count adds up, and the whole set fits its flash share. */
 static void check_zone(const smp_zone_t *z, const char *what, int id, int k)
@@ -8724,7 +8910,8 @@ static void test_samp(void)
     printf("samp: worst pitch %.2f cents\n", (double)worst);
     CHECK(!bad, "samp: NaN or inf");
 
-    /* a steal: four held Knight notes, a fifth (velocity 1) takes the oldest. The victim's part is the difference of
+    /* a steal: eight held Knight notes (a sampled instrument has the chords' 8 voices), a ninth (velocity 1) takes
+       the oldest. The victim's part is the difference of
        two renders that differ only in its velocity (127, 63; the chorus, the delay and the glue off: no delayed
        copies, linear). In the 6-16 ms after the steal it is under a tenth of the 10 ms before (the plate's ring of
        it stays); no step over 0.05 */
@@ -8739,11 +8926,11 @@ static void test_samp(void)
             vx_init();
             vx_assign(V_CHORD, INS_KNIGHT);
             vt_ev(V_CHORD, 48, pass ? 63 : 127, 0, 400000);
-            for (j = 1; j < 4; j++)
-                vt_ev(V_CHORD, 48 + 4 * j, 100, 0, 400000);
+            for (j = 1; j < 8; j++)
+                vt_ev(V_CHORD, 48 + 3 * j, 100, 0, 400000);
             for (j = 0; j < 6; j++) {
                 if (j == 2)
-                    vt_ev(V_CHORD, 62, 1, 0, 400000);
+                    vt_ev(V_CHORD, 74, 1, 0, 400000);
                 d = vt_maxdelta(4096, 0, &pv);
                 if (j == 2 && !pass)
                     CHECK(d <= 0.05f, "samp: the steal steps %.4f", (double)d);
@@ -8901,6 +9088,7 @@ int main(int argc, char **argv)
     RUN(test_pad_either);
     RUN(test_pad_determinism);
     RUN(test_pad_double);
+    RUN(test_strum);
     RUN(test_samples_table);
     RUN(test_samp);
     RUN(test_comp_styles);
