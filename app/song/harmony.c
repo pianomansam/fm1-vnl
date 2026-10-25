@@ -177,10 +177,10 @@ int harmony_pad_place(const song_roll_t *r)
 
 static void place_keys(const song_roll_t *r, int *notes)  /* a pad with or above the lead: an octave up */
 {
-    int i;
-    if (harmony_pad_place(r) == PL_BELOW) return;
+    int i, sh = lib_set_keys_shift(lib_set_by_id((uint8_t)r->v[RF_SET]));
+    if (harmony_pad_place(r) != PL_BELOW) sh += 12;
     for (i = 0; i < 4; i++)
-        if (notes[i]) notes[i] += 12;
+        if (notes[i]) notes[i] += sh;
 }
 
 void harmony_voicing_at(const song_roll_t *r, int bar, int pass, harmony_voicing_t *vs, int out4[4])

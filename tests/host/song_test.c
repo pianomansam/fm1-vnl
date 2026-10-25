@@ -963,7 +963,8 @@ static void test_harmony(void)
                 for (i = 0; i < ne; i++) {
                     if (ev[i].voice != V_CHORD) bad_range++;
                     {                          /* a pad with or above the lead sounds an octave up (lead design) */
-                        int up = harmony_pad_place(&r) == PL_BELOW ? 0 : 12;
+                        int up = (harmony_pad_place(&r) == PL_BELOW ? 0 : 12) +
+                                 lib_set_keys_shift(lib_set_by_id((uint8_t)r.v[RF_SET]));   /* (Sam: the Chillwave pad lower) */
                         if (ev[i].note < 48 + up || ev[i].note > 72 + up) bad_range++;
                     }
                     if (ev[i].vel < 25 || ev[i].vel > 110) bad_vel++;
@@ -3332,7 +3333,7 @@ static void test_pad_places(void)
             int n = song_tick(&s, ev, 64);
             for (i = 0; i < n; i++) {
                 if (ev[i].voice == V_LEAD && pl == PL_ABOVE && ev[i].note > 72) above_high++;
-                if (ev[i].voice == V_CHORD && pl != PL_BELOW && ev[i].note < 60) shifted_low++;
+                if (ev[i].voice == V_CHORD && pl != PL_BELOW && ev[i].note < 60 + lib_set_keys_shift(set)) shifted_low++;
             }
         }
     }

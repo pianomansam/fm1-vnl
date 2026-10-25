@@ -103,7 +103,8 @@ static void check_step(const song_t *s, int bar, int step, const song_ev_t *ev, 
         CHECK(e->len > 0, "seed %u: pitched note with len 0", seed);
         switch (e->voice) {
         case V_CHORD: {                  /* a pad with or above the lead sounds an octave up (lead design) */
-            int up = harmony_pad_place(&s->roll) == PL_BELOW ? 0 : 12;
+            int up = (harmony_pad_place(&s->roll) == PL_BELOW ? 0 : 12) +
+                     lib_set_keys_shift(lib_set_by_id((uint8_t)s->roll.v[RF_SET]));   /* the Chillwave pad an octave down (Sam) */
             CHECK(e->note >= 48 + up && e->note <= 76 + up, "seed %u: chord note %d", seed, e->note);
             break;
         }

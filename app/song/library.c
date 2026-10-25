@@ -183,6 +183,13 @@ const lib_map_t *lib_map_by_id(uint8_t id)
     return NULL;
 }
 
+/* the keys' octave shift for a set: the Chillwave pad an octave lower (Sam, 2026-10-24: "only the chillwave pad needs
+   to come down to that lower octave") */
+int lib_set_keys_shift(const lib_set_t *s)
+{
+    return s && s->id == 5 ? -12 : 0;
+}
+
 /* the sets whose bass may walk: the four that had the upright (Sam, 2026-10-24: "I don't like the upright's sound";
    their bass is now the electric) */
 int lib_set_walks(const lib_set_t *s)

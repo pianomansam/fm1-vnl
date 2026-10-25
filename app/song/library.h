@@ -43,7 +43,8 @@ const lib_set_t *lib_set_by_id(uint8_t id);
 /* 1: slow attack, held breath or a held tone (pads, winds, the organ, the saw lead, the strings); 0: struck, plucked,
    the triangle bass, the synth pluck, the DX EP, the FM bass */
 int lib_ins_sustained(int ins);
-int lib_set_walks(const lib_set_t *s);               /* the bass may walk in this set */
+int lib_set_walks(const lib_set_t *s);
+int lib_set_keys_shift(const lib_set_t *s);          /* semitones the keys sit from their usual octave */               /* the bass may walk in this set */
 const lib_pattern_t *lib_pattern_by_id(uint8_t id);
 const lib_map_t *lib_map_by_id(uint8_t id);
 
