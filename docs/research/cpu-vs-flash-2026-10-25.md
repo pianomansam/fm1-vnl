@@ -23,21 +23,23 @@ So the risk with samples is running out of flash; the CPU budget barely moves.
 
 Flash: the image is 194 KB of a 400 KB budget (`tools/mem-check.sh`), so about **215 KB** is left for samples.
 
-| Pick (Sam) | Flash | CPU vs the synth it replaces |
+| Pick (Sam) | Flash | CPU (half rate unless noted) |
 |---|---|---|
-| Knight upright piano (VCSL, CC0) | 38 KB | about 0.15 at half rate vs a synth Rhodes or felt piano at about 0.27: **saves about 0.1** |
-| FreePats nylon (CC0), strum engine | 31-49 KB | about 0.17 vs about 0.21 (Karplus-Strong): about even |
-| FluidR3 solo cello (MIT) | 28 KB | about 0.05 vs a synth lead at 0.12-0.24: **saves CPU** |
+| Knight upright piano (VCSL, CC0) | 38 KB | about 0.15 (a synth Rhodes or felt piano is about 0.27); an added option, the electric pianos stay |
+| FreePats nylon (CC0), strum engine | 31-49 KB | about 0.17; **replaces** the Karplus-Strong nylon (about 0.21), Sam's explicit swap |
+| FluidR3 solo cello (MIT) | 28 KB | about 0.05 (synth leads are 0.12-0.24); an added lead option |
 | Karoryfer Emilyguitar (CC0) | 51 KB | comping about 0.13, strumming about 0.18 (half rate): new |
-| Sampled drum pool, 4 kits (CC0) | 42-64 KB | 0.13-0.23 vs synth kits at 0.11-0.13: **costs up to +0.1** |
+| Sampled drum pool, 4 kits (CC0) | 42-64 KB | 0.13-0.23 (synth kits are 0.11-0.13); added kits, the synth kits stay |
 | Kawai grand for stabs (pending Sam's listen) | 38-51 KB | about 0.15, the same as the Knight |
 | Synth string-ensemble lead (kept as synth) | 0 KB | about 0.10 at half rate |
 
 Total: about 190-230 KB without the Kawai, 230-280 KB with it, against about 215 KB free.
 
-**CPU is fine.** Today's heaviest song (about 0.97) is a synth Rhodes song. Sampled keys and leads are cheaper than the
-synths they replace, so the heaviest song should get lighter. Sampled drums are the one sample that costs more CPU;
-the savings elsewhere cover it.
+**Samples are added, not swapped in (Sam, 2026-10-25).** Unless Sam names a replacement (so far only the nylon), each
+sample is a new option and the synths stay. So samples don't lower the heaviest song: today's (about 0.97, a synth
+Rhodes song) stays in the budget. A sampled song is cheaper than that one, except possibly a song with a sampled kit
+over heavy keys (sampled drums cost up to about 0.1 more than synth drums); the bench must re-pick the heaviest roll
+once sampled sets exist.
 
 **Flash is the constraint.** We are over budget with the Kawai or the long versions of the nylon and drums.
 
@@ -53,7 +55,8 @@ Trim before swapping anything back to a synth:
    That gives about **190 KB**, with about 25 KB spare.
 2. **One piano for held chords and stabs.** A second piano is about 45 KB on its own: the first thing that doesn't
    fit unless the Kawai stab demo clearly wins.
-3. **Synth fallbacks if flash still runs out,** in this order:
+3. **Synth fallbacks if flash still runs out** (the synth already exists, so dropping the sample loses an option, not
+   the instrument), in this order:
    - **Cello back to the synth cello:** frees 28 KB and costs about 0.05-0.1 CPU in cello songs only. It's the one
      sample Sam called "good" rather than clearly better.
    - **Fewer drum kits, or hybrid kits:** synth kicks (they synthesize well) under sampled snares and hats (the snare
