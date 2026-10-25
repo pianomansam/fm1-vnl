@@ -405,6 +405,7 @@ plan's Task 5 report lists them by set).
   - Hi-hats (Sam, from the hat lineup): Big Rusty foot chick; VCSL pedal close; VCSL closed, softest layer; Gogodze
     closed pitched down 3 semitones, low-passed at 5 kHz; the VCSL small shaker in the hat role. "Other shakers could
     be good too." Each chosen hat needs its matching open hat (same kit, same processing).
+  - Shakers (Sam, from the shaker lineup): only the VCSL small shaker (high fast); the rest are out.
 
 ### Sound engine: deferred minors (Plan 3a reviews, 2026-10-23)
 
