@@ -238,10 +238,11 @@ static void test_library(void)
         CHECK(lib_set_by_id(s->id) == s, "set by id %d", s->id);
         CHECK(s->chords < INS_NONE && s->bass < INS_NONE && s->lead < INS_NONE && s->candy <= INS_NONE, "set %d insts", s->id);
         CHECK(s->kit <= KIT_BRUSHES && s->flavor <= FL_CHILLWAVE && s->moods && s->name && s->src, "set %d fields", s->id);
-        /* the pad layer's instrument: the warm synth pad under the synth sets (13, 18, 19, 20) and the DX keys under
-           the Knight (25), strings elsewhere */
-        CHECK(s->pad == ((s->id == 13 || s->id == 18 || s->id == 19 || s->id == 20 || s->id == 25) ? INS_WARM_PAD
-                                                                                                    : INS_STRINGS),
+        /* the pad layer's instrument: the warm synth pad under the synth sets (13, 18, 19, 20), the DX keys under
+           the Knight (25) and the string synth's leads (30-33: the pad's strings would double them), strings
+           elsewhere */
+        CHECK(s->pad == ((s->id == 13 || s->id == 18 || s->id == 19 || s->id == 20 || s->id == 25 ||
+                          s->lead == INS_STR_LEAD || s->lead == INS_CELLO) ? INS_WARM_PAD : INS_STRINGS),
               "set %d: pad instrument %d", s->id, s->pad);
     }
     CHECK(lib_set_by_id(255) == NULL, "set 255");
@@ -2161,9 +2162,10 @@ static void test_chip(void)
     CHECK(INS_FM_BASS == INS_VOX_PAD + 6, "instruments: %d after the vox pad, wanted Sam's six synths",
           INS_FM_BASS - INS_VOX_PAD);
     CHECK(INS_STRINGS == INS_FM_BASS + 1 && INS_WARM_PAD == INS_FM_BASS + 2 && INS_KNIGHT == INS_FM_BASS + 3 &&
-              INS_EMILY == INS_FM_BASS + 4 && INS_NONE == INS_FM_BASS + 5,
-          "instruments: %d after the six synths, wanted the pad layer's two (strings, warm pad), then the Knight and "
-          "the Emilyguitar",
+              INS_EMILY == INS_FM_BASS + 4 && INS_STR_LEAD == INS_FM_BASS + 5 && INS_CELLO == INS_FM_BASS + 6 &&
+              INS_NONE == INS_FM_BASS + 7,
+          "instruments: %d after the six synths, wanted the pad layer's two (strings, warm pad), the Knight, the "
+          "Emilyguitar, then the string synth's high lead and cello",
           INS_NONE - INS_FM_BASS - 1);
     { /* the triangle at note 36 (674 samples a cycle): its plateaus' levels in one cycle from 0.5 s, clustered */
         static float lv[1024];
@@ -3329,7 +3331,8 @@ static void test_comping_makes_room(void)
 }
 
 /* Lead design, register by the keys' attack: over percussive keys every lead note sits a 4th or more above the keys'
-   top (of every chord it sounds over), at most E6 (doubling the keys' top pitch class is fine, Sam: printed only); with
+   top (of every chord it sounds over; but the cello lead, B3-A4: test_strsyn), at most E6 (doubling the keys' top
+   pitch class is fine, Sam: printed only); with
    sustained keys (pads) each song places them below, with or above the lead about a third of the time each, the lead
    kept to C4-C5 when the pad is above. */
 static void test_register_floor(void)
@@ -3348,7 +3351,8 @@ static void test_register_floor(void)
         roll_song(k ? &prev : 0, seed, &r);
         prev = r;
         set = lib_set_by_id((uint8_t)r.v[RF_SET]);
-        if (!set || lib_ins_sustained(set->chords)) continue;
+        if (!set || lib_ins_sustained(set->chords) || set->lead == INS_CELLO)
+            continue; /* (the cello lead sits inside the keys, B3-A4: test_strsyn) */
         song_start(&s, &r);
         while (s.state == SS_PLAYING) {
             int bar = s.bar, st = s.step, n;
@@ -6561,7 +6565,7 @@ static int lv_quiet(const plan_block_t *b)
     return b->section == SEC_INTRO || b->section == SEC_OUTRO || b->section == SEC_BREAK || (b->flags & PB_FADE);
 }
 
-#define LIB_NSETS_MAX 32 /* test_lead_over_keys' arrays; it CHECKs LIB_NSETS fits */
+#define LIB_NSETS_MAX 40 /* test_lead_over_keys' arrays; it CHECKs LIB_NSETS fits */
 static int lk_cmp_f(const void *a, const void *b);
 static int lv_cmp(const void *a, const void *b)
 {
@@ -6662,7 +6666,9 @@ static void test_levels_steady(void)
                            plan_section_name(pb->section), (double)d, (double)prev);
                 }
             }
-            prev = d;
+            if (lv_full(pb)) /* (the last full-level block's, as the rule reads: an entry's build before the first
+                                full block, say snare-first's keys, snare and hats, isn't one) */
+                prev = d;
         }
         printf("levels: seed %2d set %-17s full %.1f dB, glue %.1f dB; intro %.1f dB, glue %.1f; peak %.3f\n", (int)sd[k],
                set ? set->name : "?", (double)full, (double)lv_song_gr[k], (double)lv_intro_db[k],
@@ -7095,7 +7101,8 @@ static void test_sampled_sets(void)
         kl += t->lead == INS_KNIGHT;
         ek += t->chords == INS_EMILY;
         el += t->lead == INS_EMILY;
-        CHECK(samp, "sampled sets: new set %s plays neither the Knight nor the Emilyguitar", t->name);
+        CHECK(samp || t->lead == INS_STR_LEAD || t->lead == INS_CELLO,
+              "sampled sets: new set %s plays neither the Knight, the Emilyguitar nor a string synth lead", t->name);
         CHECK(moods_n(t->moods) == 2, "sampled sets: %s has %d moods, wanted 2", t->name, moods_n(t->moods));
         CHECK(t->pad == INS_STRINGS || t->pad == INS_WARM_PAD, "sampled sets: %s's pad %d", t->name, t->pad);
         CHECK(t->lead != INS_NONE && t->chords != INS_UPRIGHT && t->bass != INS_UPRIGHT,
@@ -9254,6 +9261,152 @@ static void test_samp(void)
     }
 }
 
+/* ------------------------- Sampled instruments Task 6: the string synth (M_STR) --- */
+/* The spike's string section (2a, branch spike/instruments) as a lead, two patches. Its voicings' spectral centroids
+   (Hann, 1024 points, magnitude-weighted; the mean of the 64 windows from 0.5 s to 2.0 s of one held note), measured
+   from the spike's own st_tick (spike/instruments 8b5dc13, st_low as of 7d2615b), built alone in a scratch program
+   with base/include/fastmath.h, its output through the engine's dry chain (fx_init: dust 0's low-pass, as the demos
+   joined the engine's mix): 2c low-dark at A3 (57) and 2a at A4 (69). STR_REF_*: over the whole band (the st_tick
+   alone: 1136.6 and 2373.4 Hz); STR_BAND_*: bins 1-208 (to 8.96 kHz, the half rate's band: HR_TOP). */
+#define STR_REF_CELLO 1008.1f
+#define STR_REF_HIGH 2020.7f
+#define STR_BAND_CELLO 965.0f
+#define STR_BAND_HIGH 1875.0f
+#define STR_BAND_K 208u
+/* the spectral centroid (Hz) of vt_long[from, from + 1024) as sb_centroid's, over bins 1-kmax only */
+static float st_centroid(uint32_t from, uint32_t kmax)
+{
+    double s = 0.0, e = 0.0;
+    uint32_t k;
+    cm_spec(vt_long + from, 1024u, cm_pa, 0);
+    for (k = 1; k <= kmax; k++) {
+        double a = (double)fm_sqrtf((float)cm_pa[k]);
+        s += (double)k * a;
+        e += a;
+    }
+    return e > 0.0 ? (float)(s / e) * 44100.0f / 1024.0f : 0.0f;
+}
+/* The string synth: the patches' p[] as the spike's voicings; both sustained; a held A3 (the cello) and A4 (the high
+   lead) solo (the mix's mud high-pass, filters and effects left out) measure the spike's centroids within 15%: at the
+   full rate (VX_OFF_HALF) over the whole band, and at half the rate (as it plays) over the half rate's band; mono and
+   legato on the lead (a slurred phrase glides, on one voice); no denormal-bound state; in songs of the string sets
+   the lead glides, and the cello lead's notes all sit in B3-A4. */
+static void test_strsyn(void)
+{
+    static const int INS[2] = {INS_CELLO, INS_STR_LEAD}, NOTE[2] = {57, 69};
+    static const float REF[2][2] = {{STR_BAND_CELLO, STR_REF_CELLO}, {STR_BAND_HIGH, STR_REF_HIGH}};
+    static const float PV[2][10] = {{65.0f, 1400.0f, 450.0f, 1.4f, 1300.0f, 1.8f, 0.7f, 0.45f, 0.1f, 1.0f},
+                                    {250.0f, 3200.0f, 1100.0f, 1.6f, 2600.0f, 2.0f, 0.55f, 0.5f, 0.25f, 1.0f}};
+    static song_t s;
+    int i, j, full, bad = 0;
+    for (i = 0; i < 2; i++) {
+        const vx_patch_t *p = vx_patch(INS[i]);
+        CHECK(p && p->model == M_STR, "strsyn: ins %d isn't an M_STR patch", INS[i]);
+        if (!p || p->model != M_STR)
+            return;
+        for (j = 0; j < 10; j++)
+            CHECK(p->p[j] == PV[i][j], "strsyn: ins %d p[%d] %.3f, wanted %.3f", INS[i], j, (double)p->p[j],
+                  (double)PV[i][j]);
+        CHECK(lib_ins_sustained(INS[i]), "strsyn: ins %d not sustained", INS[i]);
+    }
+    vx_solo(V_LEAD);
+    for (full = 0; full < 2; full++)
+        for (i = 0; i < 2; i++) { /* the centroid: a held note, the mean over 0.5-2.0 s as the reference's */
+            double c = 0.0, ref = (double)REF[i][full];
+            int nw = 0;
+            uint32_t t;
+            vx_fx_off(VX_OFF_MUD | VX_OFF_DELAY | VX_OFF_CHORUS | VX_OFF_FILTERS | VX_OFF_GLUE | VX_OFF_COMP |
+                      (full ? VX_OFF_HALF : 0u));
+            vt_note(V_LEAD, INS[i], NOTE[i], 100, 92610u, 24u * 4096u, &bad); /* (held 2.1 s) */
+            for (t = 22050u; t + 1024u <= 88200u; t += 1024u, nw++)
+                c += (double)st_centroid(t, full ? 512u : STR_BAND_K);
+            c /= nw;
+            printf("strsyn: ins %d at %d, %s: centroid %.1f Hz, the spike's %.1f (%+.1f%%)\n", INS[i], NOTE[i],
+                   full ? "full rate, whole band" : "half rate, to 9 kHz", c, ref, 100.0 * (c / ref - 1.0));
+            CHECK(c >= 0.85 * ref && c <= 1.15 * ref, "strsyn: ins %d's centroid %.1f Hz (%s rate), wanted %.1f +-15%%",
+                  INS[i], c, full ? "full" : "half", ref);
+            for (j = 0; j < 8; j++) /* the release: silent, nothing denormal-bound */
+                vt_block(4096, &bad);
+            CHECK(vx_tiny() == 0, "strsyn: ins %d left %d denormal-bound states", INS[i], vx_tiny());
+            CHECK(vx_active() == 0, "strsyn: ins %d still sounds 0.87 s after its release", INS[i]);
+        }
+    vx_fx_off(0u);
+    vx_solo(-1);
+    { /* mono legato: a slurred phrase (each note from its last's end) glides, on one voice */
+        static const int PH[4] = {69, 71, 72, 74};
+        int most = 0;
+        vx_init();
+        vx_assign(V_LEAD, INS_STR_LEAD);
+        for (i = 0; i < 4; i++)
+            vt_ev(V_LEAD, PH[i], 100, (uint32_t)i * 17640u, 17640u - 200u);
+        for (j = 0; j < 20; j++) {
+            vt_block(4096, &bad);
+            if (vx_active() > most)
+                most = vx_active();
+        }
+        printf("strsyn: a slurred phrase of 4: %u glides, %d voices at most\n", vx_glides(V_LEAD), most);
+        CHECK(vx_glides(V_LEAD) == 3u, "strsyn: a slurred phrase glided %u times, wanted 3", vx_glides(V_LEAD));
+        CHECK(most == 1, "strsyn: a slurred phrase took %d voices", most);
+        CHECK(vx_tiny() == 0, "strsyn: the phrase left %d denormal-bound states", vx_tiny());
+    }
+    vx_fx_off(0u);
+    CHECK(!bad, "strsyn: NaN or inf");
+    { /* songs: every string set, 4 seeds each; the lead glides; the cello's notes in B3-A4 */
+        int sets[2] = {0, 0};
+        for (i = 0; i < LIB_NSETS; i++) {
+            const lib_set_t *t = &LIB_SETS[i];
+            uint32_t seed, gl = 0, notes = 0, out = 0;
+            int got = 0, cello = t->lead == INS_CELLO;
+            if (t->lead != INS_STR_LEAD && !cello)
+                continue;
+            sets[cello]++;
+            for (seed = 1u; got < 4 && seed < 600u; seed++) {
+                song_roll_t r;
+                song_ev_t ev[64];
+                float frac = 0.0f;
+                roll_song(NULL, seed, &r);
+                if (roll_set(&r, RF_SET, t->id) != t->id)
+                    continue;
+                got++;
+                r.v[RF_NOISE] = r.v[RF_AMBIENCE] = 0;
+                vx_init();
+                song_start(&s, &r);
+                vx_song(&s.roll);
+                while (s.state == SS_PLAYING) {
+                    int n = song_tick(&s, ev, 64), k;
+                    float adv;
+                    uint32_t left;
+                    for (k = 0; k < n; k++) {
+                        if (ev[k].voice == V_LEAD && ev[k].len) {
+                            notes++;
+                            out += cello && (ev[k].note < 59 || ev[k].note > 69);
+                        }
+                        vx_event(&ev[k]);
+                    }
+                    adv = song_step_samples(&s) + frac;
+                    left = (uint32_t)adv;
+                    frac = adv - (float)left;
+                    while (left) {
+                        uint32_t b = left < 1024u ? left : 1024u;
+                        memset(vt_l, 0, b * sizeof(float));
+                        memset(vt_r, 0, b * sizeof(float));
+                        vx_render(vt_l, vt_r, b);
+                        left -= b;
+                    }
+                }
+                gl += vx_glides(V_LEAD);
+                CHECK(vx_tiny() == 0, "strsyn: %s seed %u left %d denormal-bound states", t->name, (unsigned)seed,
+                      vx_tiny());
+            }
+            printf("strsyn: %-22s 4 songs, %u lead notes, %u glides, %u outside B3-A4\n", t->name, notes, gl, out);
+            CHECK(got == 4 && notes > 100, "strsyn: %s: %d songs, %u lead notes", t->name, got, notes);
+            CHECK(gl > 0u, "strsyn: %s's lead never glided", t->name);
+            CHECK(out == 0u, "strsyn: %s: %u cello notes outside B3-A4", t->name, out);
+        }
+        CHECK(sets[0] >= 1 && sets[1] >= 1, "strsyn: %d high string sets, %d cello sets", sets[0], sets[1]);
+    }
+}
+
 int main(int argc, char **argv)
 {
     const char *only = argc > 1 ? argv[1] : NULL;
@@ -9337,6 +9490,7 @@ int main(int argc, char **argv)
     RUN(test_strum_lead);
     RUN(test_samples_table);
     RUN(test_samp);
+    RUN(test_strsyn);
     RUN(test_comp_styles);
     if (fails) {
         printf("%d check(s) failed\n", fails);

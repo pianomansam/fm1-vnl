@@ -134,6 +134,12 @@ const lib_set_t LIB_SETS[] = {
     {27, "Emilyguitar and flute", INS_EMILY, INS_SUB, INS_FLUTE, INS_MUSIC_BOX, INS_STRINGS, KIT_DUSTY, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "sampled spec: the Emilyguitar comping under the flute"},
     {28, "Rhodes and Emilyguitar", INS_RHODES, INS_ELEC_BASS, INS_EMILY, INS_VIBES, INS_STRINGS, KIT_SOFT, FL_NEOSOUL, MOOD_WARM | MOOD_SUNNY, "sampled spec: an Emilyguitar lead over the Rhodes"},
     {29, "Knight and Emilyguitar", INS_KNIGHT, INS_ELEC_BASS, INS_EMILY, INS_NONE, INS_STRINGS, KIT_BRUSHES, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "sampled spec: an Emilyguitar lead over the Knight, brushes"},
+    /* the string synth's leads (sampled spec, Task 6): the high strings (2a) and the cello (2c low-dark, B3-A4) over
+       percussive keys, the warm synth pad under them (the pad layer's strings would double the lead) */
+    {30, "Knight and strings", INS_KNIGHT, INS_ELEC_BASS, INS_STR_LEAD, INS_MUSIC_BOX, INS_WARM_PAD, KIT_SOFT, FL_LOFI, MOOD_WISTFUL | MOOD_WARM, "sampled spec: a high string lead over the Knight (Task 5's deferred set)"},
+    {31, "Rhodes and cello", INS_RHODES, INS_FM_BASS, INS_CELLO, INS_BELLS, INS_WARM_PAD, KIT_DUSTY, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "sampled spec: the cello lead inside a dusty Rhodes, the FM slap bass under them"},
+    {32, "Knight and cello", INS_KNIGHT, INS_SUB, INS_CELLO, INS_NONE, INS_WARM_PAD, KIT_BRUSHES, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "sampled spec: the cello lead inside the Knight, brushes"},
+    {33, "DX and strings", INS_DX_EP, INS_ELEC_BASS, INS_STR_LEAD, INS_VIBES, INS_WARM_PAD, KIT_SOFT, FL_CITYPOP, MOOD_WARM | MOOD_SUNNY, "sampled spec: a high string lead over the DX keys, city pop"},
 };
 const int LIB_NSETS = (int)(sizeof LIB_SETS / sizeof LIB_SETS[0]);
 
@@ -214,5 +220,6 @@ int lib_ins_sampled_struck(int ins) { return ins == INS_KNIGHT || ins == INS_NYL
 int lib_ins_sustained(int ins)
 {
     return ins == INS_PAD || ins == INS_FLUTE || ins == INS_SAX || ins == INS_MUTED_TPT || ins == INS_VOX_PAD ||
-           ins == INS_ORGAN || ins == INS_SAW_LEAD || ins == INS_STRINGS || ins == INS_WARM_PAD;
+           ins == INS_ORGAN || ins == INS_SAW_LEAD || ins == INS_STRINGS || ins == INS_WARM_PAD ||
+           ins == INS_STR_LEAD || ins == INS_CELLO;
 }

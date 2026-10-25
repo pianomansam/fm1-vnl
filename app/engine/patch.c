@@ -56,7 +56,13 @@
      muted note (the strum's chuck: the cutoff at 2.5 times the note, gone in 60 ms, released in 30), p[4] a delayed
      vibrato's depth in cents (the winds': 5 Hz after 0.3 s; 0 for none), p[5] the decay's key tracking (octaves of
      decay time lost per octave above note 60), p[6] the cutoff's fall after the strike, to this fraction of it (0:
-     none), p[7] that fall's time constant (s). */
+     none), p[7] that fall's time constant (s).
+   M_STR (the high string lead, the cello; strsyn.c): the spike's string section, mono and legato on the lead only, at
+     half the rate: three detuned, drifting saws with a delayed vibrato into a one-pole high-pass, then a low-pass
+     (Q 0.6) and two band-pass formants mixed, then the Ensemble (Plaits', MIT).
+     p[0] the high-pass in Hz, p[1] the low-pass in Hz, p[2] and p[3] formant 1's center in Hz and Q, p[4] and p[5]
+     formant 2's, p[6], p[7] and p[8] the mix of the low-pass, formant 1 and formant 2, p[9] the Ensemble's amount
+     (0-1), p[10] the glide's time in ms (a legato note). */
 #include <stddef.h>
 #include "library.h"
 #include "patch.h"
@@ -115,6 +121,12 @@ static const vx_patch_t PATCHES[INS_NONE] = {
                     0.35f, 0.571f, 0.1f, 0.06f},
     [INS_EMILY] = {M_SAMP, {SB_EMILY, 300.0f, 0.55f, 0.0f, 0.0f, 0.5f, 0.6f, 1.0f, 12.0f}, 0.001f, 5.0f, 0.0f, 0.12f,
                    0.648f, 0.3f, 0.1f},
+    /* the string synth (M_STR) as the spike's voicings Sam passed: the high lead (2a, as heard) and the cello (2c
+       low-dark), mono and legato on the lead, gliding 60 ms; a 120 ms swell, a 0.7 s release as the spike's */
+    [INS_STR_LEAD] = {M_STR, {250.0f, 3200.0f, 1100.0f, 1.6f, 2600.0f, 2.0f, 0.55f, 0.5f, 0.25f, 1.0f, 60.0f}, 0.12f,
+                      7.0f, 1.0f, 0.7f, 3.5f, 0.0f, 0.3f},
+    [INS_CELLO] = {M_STR, {65.0f, 1400.0f, 450.0f, 1.4f, 1300.0f, 1.8f, 0.7f, 0.45f, 0.1f, 1.0f, 60.0f}, 0.12f, 7.0f,
+                   1.0f, 0.7f, 2.8f, 0.0f, 0.25f},
 };
 
 const vx_patch_t *vx_patch(int ins)

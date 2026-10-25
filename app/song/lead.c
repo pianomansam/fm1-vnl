@@ -17,6 +17,7 @@ typedef struct {                  /* what one bar's planning reads */
     int shift;                    /* the keys' octave shift (a pad with or above the lead) */
     int can_push;                 /* the next bar's chord is known (no request lands on it) */
     int pad;                      /* the keys sustain (a pad, the organ) */
+    int cello;                    /* the cello lead: B3-A4, inside the keys' range (no floor over them) */
 } ctx_t;
 
 static int is_ct(int note, const int *pcs, int np)
@@ -418,7 +419,8 @@ static void plan_phrase(lead_state_t *ls, const ctx_t *c, const plan_block_t *b,
         pnp = c->np;
         v = 52 + (dmax > dmin ? 16 * (tl[i].deg - dmin) / (dmax - dmin) : 8);   /* the arc, with the height */
         v += len <= 4 ? 28 : len <= 6 ? 14 : 0;   /* a short note sounds less of its swell */
-        if (!c->pad && note < 76) v += 76 - note + (note < 72 ? 72 - note : 0);   /* low: among percussive keys */
+        if (!c->pad && !c->cello && note < 76)           /* low: among percussive keys (the cello: its patch's level) */
+            v += 76 - note + (note < 72 ? 72 - note : 0);
         if (tl[i].role == PR_ARRIVAL) v -= 8;            /* softening into the arrival */
         else if (tl[i].role == PR_CLOSE && tl[i].t >= 96) v -= 4;
         ls->vel[t] = (uint8_t)(v > 110 ? 110 : v);
@@ -583,6 +585,11 @@ int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b,
         c.lo_x = (ntop > top ? ntop : top) + 5;
         c.hi = 88;
         c.shift = 0;
+    }
+    c.cello = set && set->lead == INS_CELLO;
+    if (c.cello) {                                       /* the cello: B3-A4 as Sam passed it, the floor lifted */
+        c.lo = c.lo_x = 59;
+        c.hi = 69;
     }
     for (i = 0; i < 16; i++) {
         int bn = groove_bass_note(r, b, bar, i, pcs, np);

@@ -15,6 +15,7 @@ enum { INS_RHODES, INS_WURLI, INS_FELT_PIANO, INS_NYLON, INS_PAD, INS_UPRIGHT, I
        INS_CHIP_BASS, INS_ORGAN, INS_SAW_LEAD, INS_SYNTH_PLUCK, INS_DX_EP, INS_FM_BASS,
        INS_STRINGS, INS_WARM_PAD, /* the pad layer's (V_PAD) */
        INS_KNIGHT, INS_EMILY,     /* sampled (M_SAMP; INS_NYLON too): the Knight upright, the Emilyguitar */
+       INS_STR_LEAD, INS_CELLO,   /* the string synth (M_STR) on the lead: the high strings, the cello */
        INS_NONE }; /* append new ones before INS_NONE */
 enum { KIT_DUSTY, KIT_SOFT, KIT_808, KIT_BRUSHES };
 enum { FL_LOFI, FL_BOSSA, FL_CITYPOP, FL_NEOSOUL, FL_CHILLWAVE };
@@ -41,7 +42,8 @@ extern const lib_mood_t LIB_MOODS[4];      /* sad, wistful, warm, sunny */
 
 const lib_prog_t *lib_prog_by_id(uint8_t id);        /* all four: NULL if unknown */
 const lib_set_t *lib_set_by_id(uint8_t id);
-/* 1: slow attack, held breath or a held tone (pads, winds, the organ, the saw lead, the strings); 0: struck, plucked,
+/* 1: slow attack, held breath or a held tone (pads, winds, the organ, the saw lead, the strings, the
+   string synth's high lead and cello); 0: struck, plucked,
    the triangle bass, the synth pluck, the DX EP, the FM bass */
 int lib_ins_sustained(int ins);
 /* 1: a sampled struck-string instrument (the Knight, the nylon, the Emilyguitar): stabs and strums suit it */

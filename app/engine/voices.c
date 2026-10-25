@@ -6,7 +6,8 @@
    keys (M_EP), plucked
    strings (M_PLUCK), pads (M_PAD), bells (M_BELL), winds (M_WIND), basses (M_BASS), a chip triangle (M_CHIP), the
    subtractive synths (M_SUB; a mono one on the lead glides from a held note, or a near one just ended: LEG_GAP), the
-   sampler (M_SAMP: sampler.c, its own envelope) and the pad layer's ensemble (M_ENS, at a quarter of the rate in a loop
+   sampler (M_SAMP: sampler.c, its own envelope), the string synth (M_STR: strsyn.c; the lead only, mono and
+   gliding as the mono synth, at half the rate) and the pad layer's ensemble (M_ENS, at a quarter of the rate in a loop
    of its own: pad_seg). A key's or a pad's note whose
    partials stay under 9 kHz, and a synth's on the chords (or the pad's solo lane) whose low-pass stays at 8 kHz or
    under, render at half the rate (half_ok), its role's half-rate voices upsampled by a half- band. The pad's solo
@@ -33,6 +34,7 @@
 #include "strum.h"
 #include "pads.h"
 #include "sampler.h"
+#include "strsyn.h"
 
 #define QN 64
 #define NCH 8 /* chord voices: a held pad uses all 8 (its release crosses the next chord's swell), the rest the first 4 */
@@ -205,6 +207,7 @@ typedef struct {
             uint8_t wave, cc, fat;  /* the wave, the control count, the envelope in its attack */
         } sb;
         smp_voice_t sp; /* M_SAMP: the sampler voice (sampler.h), its envelope its own */
+        str_voice_t st; /* M_STR: the string synth (strsyn.h), its Ensemble's line str_line's */
     } m;
     uint32_t gate, age;
     uint8_t on, held, role;
@@ -228,6 +231,7 @@ static qe_t q[QN];
 static int qn;
 static voice_t fv[NV];
 static float ks[PD][VX_KS_N] VX_POOL; /* the Karplus-Strong lines, one per voice (not the pad layer's) */
+static float str_line[NLD][STR_LINE] VX_POOL; /* the string synth's Ensemble lines, one per lead voice (4 KB) */
 static uint32_t age_ctr, rng = 0x1234567u;
 static uint32_t clk;  /* the engine's clock at the chunk's start */
 static uint32_t t_on; /* the engine's clock (samples since vx_init) at the events firing now (vx_render) */
@@ -561,6 +565,12 @@ static float solo_lvl(const voice_t *v, const vx_patch_t *p)
     return v == &fv[NV - 1] && p == solo_pt ? solo_trim : 1.0f;
 }
 
+/* a mono lead: a mono synth (M_SUB, p[9]) or the string synth (M_STR) on the lead: legato, gliding (pool_on) */
+static int mono_lead(const vx_patch_t *p, int role)
+{
+    return role == V_LEAD && ((p->model == M_SUB && p->p[9] > 0.0f) || p->model == M_STR);
+}
+
 /* a voice's step in samples: 1, 2 at half the rate, 4 at a quarter */
 static float step_len(const voice_t *v) { return v->qr ? 4.0f : v->hr ? 2.0f : 1.0f; }
 
@@ -583,7 +593,7 @@ static void env_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int l
                (v->role == V_CHORD ? keys_g : solo_lvl(v, p)) *
                (p->model == M_SAMP && v->role == V_LEAD ? SAMP_LEAD[(int)p->p[0] % SB_N] : 1.0f);
     /* (the solo lane's own voice slews, so its legato notes ramp to their velocity's level: lane_legato) */
-    v->slew = (uint8_t)(v->role == V_BASS || (v->role == V_LEAD && p->model == M_SUB && p->p[9] > 0.0f) ||
+    v->slew = (uint8_t)(v->role == V_BASS || mono_lead(p, v->role) ||
                         (v->role == V_PAD && p->model != M_ENS));
     if (p->model == M_SAMP) { /* the sampler's envelope is its own (sampler.c): the gate only steals and stops */
         v->nk = v->sus = v->ka = 1.0f;
@@ -1027,6 +1037,8 @@ static int half_ok(const voice_t *v, const vx_patch_t *p, const song_ev_t *e)
                                                                                                     lane's organ) */
     else if (p->model == M_WIND) /* the pad's solo lane only (a soft note, low-passed) */
         return v->role == V_PAD && p->p[2] * hz < HR_TOP;
+    else if (p->model == M_STR) /* the string synth (the lead only): its low-pass 3.2 kHz at most */
+        return v->role == V_LEAD;
     else if (p->model == M_ENS) /* half where its low-pass is too high for a quarter */
         return p->p[2] + p->p[3] * hz > ENS_QR_TOP;
     else if (p->model == M_SAMP) { /* the keys: half while the zone's band, retuned, stays under the half rate's
@@ -1062,6 +1074,10 @@ static void voice_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int
         v->m.sp.dv = step_len(v);
         samp_start(&v->m.sp, p, (float)e->note, (float)e->vel * (1.0f / 127.0f));
         break;
+    case M_STR:
+        noise(); /* (the drift's noise from the voices' stream: deterministic per seed) */
+        str_start(&v->m.st, p, (float)e->note, step_len(v), legato, str_line[(v - fv) - ROLES[V_LEAD].first], rng);
+        break;
     default: bass_start(v, e, legato); break; /* M_BASS */
     }
 }
@@ -1085,6 +1101,8 @@ static void pool_on(const song_ev_t *e, int role)
         p = solo_pt; /* the solo lane's own patch (any model: render_seg's, or the ensemble's pad_seg) */
     else if (!p || (first >= PD) != (p->model == M_ENS))
         return; /* no instrument on this role; the pad layer plays M_ENS only (pad_seg), and only it */
+    if (p->model == M_STR && role != V_LEAD)
+        return; /* the string synth plays the lead only (its Ensemble's lines are the lead's) */
     if (role == V_PAD && e->pad >= 1 && e->pad <= NPD) { /* a lane (voices.h): its own voice */
         v = &fv[PD + e->pad - 1];
         v->age = ++age_ctr;
@@ -1139,7 +1157,7 @@ static void pool_on(const song_ev_t *e, int role)
     if (role == V_CHORD && p->model != M_SAMP && (p->model != M_PAD || e->len < PAD_LONG))
         count = NCH_KEYS; /* (a held pad's chord change overlaps: its old chord releases under the new one's swell; a
                              sampled instrument's strum takes up to 6 strings while the last stroke rings out) */
-    if (p->model == M_SUB && p->p[9] > 0.0f && role == V_LEAD) {
+    if (mono_lead(p, role)) {
         for (i = first; i < first + count; i++)
             if (fv[i].on && fv[i].held && !fv[i].pend && fv[i].pt == p) {
                 pick = i;
@@ -1560,6 +1578,7 @@ static float voice_sample(voice_t *v)
         q = v->m.ch.q;
         break;
     case M_SUB: s = sub_sample(v); break;
+    case M_STR: s = str_sample(&v->m.st); break;
     case M_SAMP: /* its gate closed (the note's end, vx_release_all): its own release; done: off */
         if (!v->held && v->m.sp.stage < 2)
             samp_release(&v->m.sp);

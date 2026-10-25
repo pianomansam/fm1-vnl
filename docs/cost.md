@@ -803,3 +803,23 @@ numbers below; on seed 20 the Knight's keys cost about 0.06 over the felt piano'
   (AMB-1 141.0 ms). Its VNL time is steady at 136-137 ms; the ratio swings 0.966-0.990 with AMB-1's run (137.8-142.7
   ms). At Sam's ~0.97 line, as at Task 1's fix round (0.977); the hard limit is 1.0.
 - **Memory** (`tools/mem-check.sh`): image 365192 B, RAM 51536 B, pool 180216 B (ok).
+
+## Sampled instruments, Task 6: the string synth (M_STR)
+
+The spike's string section as a mono lead (strsyn.c): three polyBLEP saws, a one-pole high-pass, three TPT SVFs (the
+low-pass and two formants) and the Plaits Ensemble's three taps, at half the rate on the lead (its low-pass is 3.2
+kHz at most), into the lead's half-band upsampler. Four sets (30-33) add the high lead and the cello; adding sets
+moved the seeds' sets again: 20 Knight and flute (unchanged), 7 Rhodes and saw lead, 155 DX and strings, 138 Knight
+and sax, 100 Emilyguitar and flute, 22 City pop Rhodes.
+- **The voice** (a held note on the lead, 60 s, over the idle engine's 14.3 ms): 21.5 ms at half the rate (about
+  0.16 of the budget, the lead's upsampler included), 31.8-32.2 ms at the full rate (0.23); the high lead and the
+  cello alike. Over the spec's estimate (0.10): its Ensemble and three filters run per voice sample.
+- **The standard list**, `--forced 20 7 155 138 100 22`: forced 0.969 / 0.892 / 0.692 / 0.880 / 0.757 / 0.869 (plain
+  0.951 / 0.891 / 0.658 / 0.852 / 0.743 / 0.838), AMB-1 136.9 ms.
+- **The string sets** (their seeds' own rolls, forced): Knight and strings 69 0.721, 75 0.781; Knight and cello 5
+  0.770, 50 0.815; Rhodes and cello 8 0.722, **41 0.945** (the heaviest); DX and strings 44 0.855, 155 0.684. Under
+  the 0.97 line.
+- **The picker** (200 seeds): the heaviest is still **seed 20** (Knight and flute): 0.933 plain, 0.947 forced (AMB-1
+  144.6 ms); no string set is heavier.
+- **Memory** (`tools/mem-check.sh`): image 369928 B, RAM 52688 B, pool 184312 B (ok; the pool +4096 B: the
+  Ensemble's lines, 512 floats for each of the 2 lead voices).

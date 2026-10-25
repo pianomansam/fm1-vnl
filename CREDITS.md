@@ -1,7 +1,7 @@
 # Credits
 
 VNL-1's code, its licenses and the third-party code it adapts are listed in the README ("Credits and licenses").
-This file lists the recorded material the firmware contains.
+This file lists the recorded material the firmware contains, and the code adapted for the string synth.
 
 ## Samples
 
@@ -18,3 +18,27 @@ with thanks. `tools/samples/manifest.json` lists the exact files; `tools/samples
 | Karoryfer Samples: Gogodze Phu Vol II | kick, sidestick, snare (center), closed and open hi-hat (retro mic) | CC0 1.0 (`LICENSE`) | https://github.com/sfzinstruments/karoryfer.gogodze-phu-vol-ii |
 | Karoryfer Samples: Big Rusty Drums | kick, hi-hat foot chick and open, 22" ride | CC0 1.0 (`LICENSE`) | https://github.com/sfzinstruments/karoryfer.big-rusty-drums |
 | Karoryfer Samples: Frankensnare | 20x6 poplar snare | CC0 1.0 (`license`) | https://github.com/sfzinstruments/karoryfer.frankensnare |
+
+## Code
+
+| What | License | URL | Where |
+| --- | --- | --- | --- |
+| The Ensemble (string-machine chorus) of [Mutable Instruments Plaits](https://github.com/pichenettes/eurorack), `plaits/dsp/fx/ensemble.h`, by Emilie Gillet; adapted mono, its delays rescaled, for the string synth (via the instrument spike's port) | MIT (below; verified in the file's own header) | https://github.com/pichenettes/eurorack/blob/master/plaits/dsp/fx/ensemble.h | `app/engine/strsyn.c`, `strsyn.h` |
+
+The MIT notice for the Plaits code, which the firmware contains:
+
+    Copyright 2014 Emilie Gillet.
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+    documentation files (the "Software"), to deal in the Software without restriction, including without limitation
+    the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and
+    to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all copies or substantial portions of
+    the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
+    THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+    CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+    IN THE SOFTWARE.
