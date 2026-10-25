@@ -145,6 +145,19 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
 
 ### General
 
+- **CC0 sample libraries to mine (2026-10-25): VCSL and VSCO-2 CE (sgossner, both CC0).** Beyond the spike's piano
+  (VCSL Kawai grand; also Steinway B, Knight and Yamaha uprights) and strings (VSCO-2 CE Violin, Viola and Cello
+  Sections): sampled vibraphone, marimba, glockenspiel, several kalimbas and mbiras (could replace our FM vibes and
+  kalimba); the TX81Z FM Piano and Clavisynth (real 80s FM); organ; tenor sax and flute (sampled leads to A/B with our
+  winds); harmonica; percussion for the kit and ear candy (shakers, tambourine, cabasa, claves, conga, bongos,
+  woodblock, cajon, mark trees, finger cymbals, wine glasses); an ocean drum (a bed texture beside the rain). No
+  nylon or acoustic guitar there (FluidR3 or another permissive source for the strum).
+- **Sampled drum kits (Sam, 2026-10-25: "lo-fi has a large number of drum kits... a great range of sounds").** Today
+  4 synthesized kits, fixed per set. Idea: a shared pool of CC0 one-shots (~21 hits, ~35-45 KB) re-tuned, shortened,
+  filtered and saturated per kit, so dozens of kits come from little flash, and each song rolls a kit its set and mood
+  allow. Sources and the pool: docs/research/drum-samples-survey-2026-10-25.md (Karoryfer Gogodze Phu Vol II, Big
+  Rusty, Swirly, Frankensnare: CC0, checked; VCSL percussion: CC0). Guitar sources:
+  docs/research/guitar-samples-survey-2026-10-25.md.
 - **Bass and kick separation: back burner (Sam, 2026-10-24: "Don't pursue right now. Put it way on the back
   burner. If it's idiomatic to pair them, that's fine.").** The bass locked to the kick is the genre's idiom; the
   parked bass-rhythm spike (VNL_BASS) stays parked.
