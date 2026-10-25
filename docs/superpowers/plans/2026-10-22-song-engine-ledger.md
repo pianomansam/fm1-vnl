@@ -380,6 +380,14 @@ plan's Task 5 report lists them by set).
   Db Lydian loop: Ab3 C4 F4 Ab4 / Bb3 Db4 F4 Ab4 / Bb3 Db4 F4 G4 / Ab3 C4 Eb4 G4. Treat changes to the voicer as
   needing a fresh listen.
 
+- **Instrument spike picks (Sam, 2026-10-25, after the spike demos):**
+  - Piano: the Knight upright (VCSL, CC0) for sustained/held chords. Kawai grand for stabs: demo pending a listen
+    (1d-piano-*-stabs, spike branch 49f6efc).
+  - String-ensemble lead: synthesized (Plaits-style ensemble). The sampled strings were scratchy/grainy, and FluidR3
+    cut off awkwardly on quick notes with gaps. Open: report better string samples if found.
+  - Cello lead: FluidR3 solo cello (MIT).
+  - Strummed nylon: quick strums for every pattern except the ballad, where slow and quick both work.
+
 ### Sound engine: deferred minors (Plan 3a reviews, 2026-10-23)
 
 From the task and final reviews; none blocks merging. Revisit when the area is next touched.
