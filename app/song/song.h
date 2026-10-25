@@ -37,6 +37,7 @@ typedef struct {
     uint8_t pend[RF_N];           /* a request is waiting for this field */
     int16_t pend_val[RF_N];
     int16_t pend_bar[RF_N];       /* the bar it lands on */
+    int16_t ride_lo, ride_hi;     /* the bars [lo, hi) whose hats go to the ride (groove_ride) */
 } song_t;
 
 void song_start(song_t *s, const song_roll_t *r);           /* plan, motif, phrases; bar 0, step 0 */

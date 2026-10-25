@@ -841,3 +841,17 @@ the kit's bus (two one-poles at 3.2 kHz and a tanh drive on the warm kit only). 
 - **Cymbals at 32 kHz** (the A/B, not taken unless Sam picks it): the hats, shaker and ride re-packed at 32 kHz add
   **20000 B** of sample data (smp_bytes 160928 to 180928; image 394456 B, still ok) and about +0.01-0.03 on the kit row.
 - **Memory** (`tools/mem-check.sh`): image 374456 B (+4320 B), RAM 53376 B (+688 B), pool 184312 B (ok).
+
+## Sampled instruments, Task 8: the kit per song and the ride roll
+
+Every set but the 808 and Brushes sets names a sampled kit; a song plays it or the synth kit, about half each (stream
+192), and the sampled songs ride per stream 193 (the warm kit throughout; the others 15% throughout, 50% one block).
+Host under load (load average about 4; AMB-1 139.3-142.1 ms):
+- **The standard list** (`--forced 20 7 155 138 100 22`): seed 20 now rolls Knight and flute on the **dark sampled
+  kit** (hats): 1.185 plain, **1.203** forced (VNL 165-168 ms, Task 7's dark-kit measure on this seed: 169-170 ms);
+  7 0.917 / 0.918 (Rhodes and saw lead, Dusty); 155 0.727 / 0.755 (DX and strings, clean kit, a ride block);
+  138 0.866 / 0.894 (Knight and sax, Soft); 100 0.748 / 0.766 (Emilyguitar and flute, Dusty); 22 0.869 / 0.897
+  (City pop Rhodes, Soft).
+- **The picker** (200 seeds): the heaviest is **seed 20** (the dark kit, as above): 1.173 plain, **1.194** forced.
+- Over the 0.97 line by about 0.2 on the heaviest sampled-kit roll: Task 9's cuts (the roll was not tuned to dodge it).
+- **Memory** (`tools/mem-check.sh`): image 375448 B, RAM 53408 B, pool 184312 B (ok).

@@ -337,3 +337,15 @@ int roll_seconds(const song_roll_t *r)
 {
     return r->v[RF_TEMPO] > 0 ? r->v[RF_BARS] * 240 / r->v[RF_TEMPO] : 0;
 }
+
+int lib_song_kit(const song_roll_t *r)
+{
+    const lib_set_t *s = lib_set_by_id((uint8_t)r->v[RF_SET]);
+    rng_t g;
+    if (!s) return KIT_DUSTY;
+    if (s->skit >= KIT_N) return s->kit;
+    if (s->kit >= KIT_N) return s->skit;
+    /* hashed apart (as the set's draw is): the streams' states differ by a constant xor and xorshift is linear */
+    rng_seed(&g, mix(r->seed, 0x4B17u), 192);
+    return rng_next(&g) >> 31 ? s->skit : s->kit;
+}

@@ -271,6 +271,22 @@ static void merge_plan(song_t *s, int B)
     s->plan = m;
 }
 
+/* ---- the ride (groove_ride): the bars whose hats go to it ---- */
+
+static void ride_for(song_t *s)
+{
+    int blk, ride = groove_ride(&s->roll, &blk);
+    s->ride_lo = s->ride_hi = 0;
+    if (ride == RIDE_ALL) {
+        s->ride_hi = s->roll.v[RF_BARS];
+    } else if (ride == RIDE_SECTION) {
+        song_plan_t p;                              /* groove_ride's plan: the roll's own (after a merge, from B on) */
+        plan_build(&s->roll, &p);
+        s->ride_lo = p.b[blk].start;
+        s->ride_hi = (int16_t)(p.b[blk].start + p.b[blk].bars);
+    }
+}
+
 /* ---- requests landing at B ---- */
 
 enum { RE_PLAN = 1, RE_MELODY = 2, RE_PHRASES = 4 };
@@ -319,13 +335,14 @@ static int apply_one(song_t *s, int f, int B)
 
 static void apply_requests(song_t *s, int B)
 {
-    int f, re = 0;
+    int f, re = 0, set = s->roll.v[RF_SET], motion = s->roll.v[RF_MOTION], map = s->roll.v[RF_MAP];
     if (s->pend[RF_MOOD] && s->pend_bar[RF_MOOD] == B) re |= apply_one(s, RF_MOOD, B);
     for (f = 0; f < RF_N; f++)
         if (s->pend[f] && s->pend_bar[f] == B) re |= apply_one(s, f, B);
     if (re & RE_PLAN) merge_plan(s, B);
     if (re & RE_MELODY) melody_motif_for(&s->roll, &s->plan, s->roll.seed, &s->motif);
     if (re) melody_plan_for(&s->roll, &s->plan, &s->motif, &s->ph);
+    if (set != s->roll.v[RF_SET] || motion != s->roll.v[RF_MOTION] || map != s->roll.v[RF_MAP]) ride_for(s);
 }
 
 /* ---- the pad layer (pads design) ---- */
@@ -419,6 +436,7 @@ void song_start(song_t *s, const song_roll_t *r)
     s->glide_to = s->glide_from = s->ss = ss_of(s->roll.v[RF_TEMPO] > 0 ? s->roll.v[RF_TEMPO] : 80);
     s->glide_t0 = -64;
     s->state = s->roll.v[RF_BARS] > 0 ? SS_PLAYING : SS_ENDED;
+    ride_for(s);
 }
 
 int song_tick(song_t *s, song_ev_t *out, int max)
@@ -456,7 +474,14 @@ int song_tick(song_t *s, song_ev_t *out, int max)
             lead_plan_bar(&s->lead, &s->roll, b, bar, keys, nkeys, pcs, np, k);
             if (bar % 4 == 0) pads_group(s, b, bar);
         }
+        k = n;
         n += groove_step(&s->roll, b, bar, step, gs, pcs, np, salt, buf + n, BUF - n);
+        if (bar >= s->ride_lo && bar < s->ride_hi)  /* a ride block: the hats to the ride, open hats its accents */
+            for (i = k; i < n; i++)
+                if (buf[i].voice == V_HAT || buf[i].voice == V_OHAT) {
+                    if (buf[i].voice == V_OHAT) buf[i].vel = (uint8_t)(buf[i].vel + 14 > 110 ? 110 : buf[i].vel + 14);
+                    buf[i].voice = V_RIDE;
+                }
         n += harmony_step(&s->roll, b, bar, step, pass, gs, &s->voicing, s->lead.onsets >= 4, salt, buf + n,
                           BUF - n);
         n += melody_step(&s->roll, &s->plan, &s->ph, &s->motif, bar, step, gs, salt, buf + n, BUF - n);

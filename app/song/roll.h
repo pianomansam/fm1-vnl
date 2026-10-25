@@ -20,6 +20,10 @@ int roll_dice(song_roll_t *r, int field, uint32_t salt);  /* 1: changed to anoth
 int roll_set(song_roll_t *r, int field, int value);       /* manual pick, validated and clamped; the value applied
                                                              (the current one if refused); -1 if field is out of range */
 int roll_seconds(const song_roll_t *r);                   /* RF_BARS * 240 / RF_TEMPO */
+/* The song's drum kit (seed stream 192, hashed apart from the set's and the mood's draws): the set's synth kit or its
+   sampled kit (skit), about half each; a set with no skit (the 808 and Brushes sets) its synth kit always, a set
+   with no synth kit its skit. A pure function of the seed and the set. */
+int lib_song_kit(const song_roll_t *r);
 
 /* Test only: the progression table the roll draws from (default LIB_PROGS); NULL restores it. */
 void roll_use_progs(const lib_prog_t *progs, int n);

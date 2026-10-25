@@ -27,6 +27,8 @@ static const char *const STYLE[6] = {"held", "stabs", "offbeats", "arpeggio", "h
 static const char *const STRUM[SP_N + 1] = {"strum, D-DU-UDU", "strum, chucks", "strum, bossa", "strum, ballad",
                                             "strum, slow ballad"};
 static const char *const BASS[4] = {"roots", "root-fifth", "walking", "pedal"};
+static const char *const KIT[KIT_N] = {"Dusty", "Soft", "808", "Brushes", "sampled warm", "sampled dark",
+                                       "sampled rusty", "sampled gentle", "sampled clean"};
 static const char *const MOOD[4] = {"sad", "wistful", "warm", "sunny"};
 static const char *const COLOR[3] = {"7ths", "9ths", "rich"};
 
@@ -572,6 +574,13 @@ void score_song(const song_t *s, float now)
                 : st == CS_STRUM                         ? STRUM[slow ? SP_N : sp]
                                                          : STYLE[st % 6],
                 BASS[groove_bass_style(r) & 3]);
+    }
+    {
+        int kit = lib_song_kit(r), blk, ride = groove_ride(r, &blk);
+        fprintf(logf, "kit %s; %s", kit >= 0 && kit < KIT_N ? KIT[kit] : "?",
+                ride == RIDE_ALL ? "ride throughout\n" : ride == RIDE_SECTION ? "ride in block " : "hats\n");
+        if (ride == RIDE_SECTION) fprintf(logf, "%d (bars %d-%d)\n", blk + 1, plan.b[blk].start + 1,
+                                          plan.b[blk].start + plan.b[blk].bars);
     }
     fprintf(logf, "blocks:");
     for (i = 0; i < plan.n; i++) {

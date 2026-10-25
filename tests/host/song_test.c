@@ -2947,7 +2947,7 @@ static void test_vx_patches(void)
         CHECK(a == b, "the same events rendered different samples (%08x vs %08x)", (unsigned)a, (unsigned)b);
     }
 
-    /* vx_configure takes every role's instrument, the kit and the chain fields from the roll */
+    /* vx_configure takes every role's instrument, the song's kit (lib_song_kit) and the chain fields from the roll */
     for (s = 0; s < LIB_NSETS; s++) {
         const lib_set_t *t = &LIB_SETS[s];
         song_roll_t r;
@@ -2961,7 +2961,7 @@ static void test_vx_patches(void)
         vx_configure(&r);
         c = vx_config();
         CHECK(c->chords == t->chords && c->bass == t->bass && c->lead == t->lead && c->candy == t->candy &&
-                  c->pad == t->pad && c->kit == t->kit && c->flavor == t->flavor,
+                  c->pad == t->pad && c->kit == lib_song_kit(&r) && c->flavor == t->flavor,
               "set %d: configure took the wrong instruments", t->id);
         CHECK(c->dust == s % 4 && c->noise == s % 3 && c->ambience == s % 2, "set %d: configure took the wrong chain",
               t->id);
@@ -9658,6 +9658,170 @@ static void test_skits(void)
         }
 }
 
+/* Sampled instruments Task 8: the kit per song and the ride roll. Each set keeps its synth kit and names a sampled
+   kit (skit); a song rolls one, about half each (stream 192, hashed apart from the set and mood draws, so the share
+   holds per set as the roll draws them too); the 808 and Brushes sets keep their synth kit. Among sampled-kit songs
+   (stream 193): the warm kit rides throughout; the others ride throughout about 15%, one block about 50%. In a ride
+   block the hats go to the ride; elsewhere no ride. A seed renders the same alone and after a ride song. */
+static void test_kit_roll(void)
+{
+    int i, k, n_all = 0, n_sec = 0, n_samp_other = 0, n_warm = 0, warm_bad = 0;
+    int per_set_n[256], per_set_s[256];
+
+    /* the set table: every set's skit is a sampled kit, or none (KIT_N) on the 808 and Brushes sets */
+    for (i = 0; i < LIB_NSETS; i++) {
+        const lib_set_t *s = &LIB_SETS[i];
+        int synth_only = s->kit == KIT_808 || s->kit == KIT_BRUSHES;
+        CHECK(synth_only ? s->skit == KIT_N : lib_kit_sampled(s->skit), "set %d: skit %d", s->id, s->skit);
+    }
+
+    /* the share per set, the set pinned: 2000 seeds each */
+    for (i = 0; i < LIB_NSETS; i++) {
+        const lib_set_t *s = &LIB_SETS[i];
+        int synth_only = s->kit == KIT_808 || s->kit == KIT_BRUSHES, ns = 0;
+        uint32_t seed;
+        for (seed = 1; seed <= 2000u; seed++) {
+            song_roll_t r;
+            int kit;
+            roll_song(NULL, seed, &r);
+            r.v[RF_SET] = s->id;
+            kit = lib_song_kit(&r);
+            CHECK(kit == s->kit || kit == s->skit, "set %d seed %u: kit %d", s->id, (unsigned)seed, kit);
+            ns += lib_kit_sampled(kit);
+        }
+        printf("kit roll: set %d pinned: sampled %.1f%%\n", s->id, ns / 20.0);
+        if (synth_only)
+            CHECK(ns == 0, "set %d (808 or Brushes): %d sampled-kit songs", s->id, ns);
+        else
+            CHECK(ns >= 900 && ns <= 1100, "set %d: sampled kit in %d of 2000 songs, want 45-55%%", s->id, ns);
+    }
+
+    /* the share per set as the roll draws the set (no correlation with the set's or the mood's draw); the ride
+       roll's shares over the sampled-kit songs */
+    memset(per_set_n, 0, sizeof per_set_n);
+    memset(per_set_s, 0, sizeof per_set_s);
+    for (k = 1; k <= 30000; k++) {
+        song_roll_t r;
+        int kit, ride, blk;
+        roll_song(NULL, (uint32_t)k, &r);
+        kit = lib_song_kit(&r);
+        per_set_n[r.v[RF_SET] & 255]++;
+        per_set_s[r.v[RF_SET] & 255] += lib_kit_sampled(kit);
+        ride = groove_ride(&r, &blk);
+        if (!lib_kit_sampled(kit)) {
+            CHECK(ride == RIDE_NONE, "seed %d: a synth kit song rolled ride %d", k, ride);
+            continue;
+        }
+        if (kit == KIT_S_WARM) {
+            n_warm++;
+            warm_bad += ride != RIDE_ALL;
+            continue;
+        }
+        n_samp_other++;
+        n_all += ride == RIDE_ALL;
+        n_sec += ride == RIDE_SECTION;
+        CHECK(ride != RIDE_SECTION || blk >= 0, "seed %d: a ride section without its block", k);
+    }
+    for (i = 0; i < LIB_NSETS; i++) {
+        const lib_set_t *s = &LIB_SETS[i];
+        int n = per_set_n[s->id], ns = per_set_s[s->id];
+        if (s->kit == KIT_808 || s->kit == KIT_BRUSHES || n < 200)
+            continue;
+        printf("kit roll: set %d as rolled: sampled %.1f%% of %d\n", s->id, 100.0 * ns / n, n);
+        CHECK(ns * 100 >= 40 * n && ns * 100 <= 60 * n, "set %d as rolled: sampled kit in %d of %d songs", s->id, ns,
+              n);
+    }
+    printf("kit roll: warm %d songs (%d not riding throughout); other sampled %d: ride all %.1f%%, a section %.1f%%\n",
+           n_warm, warm_bad, n_samp_other, 100.0 * n_all / (n_samp_other ? n_samp_other : 1),
+           100.0 * n_sec / (n_samp_other ? n_samp_other : 1));
+    CHECK(n_warm > 0 && warm_bad == 0, "warm kit: %d of %d songs not riding throughout", warm_bad, n_warm);
+    CHECK(n_all * 100 >= 5 * n_samp_other && n_all * 100 <= 25 * n_samp_other, "ride all in %d of %d", n_all,
+          n_samp_other);
+    CHECK(n_sec * 100 >= 40 * n_samp_other && n_sec * 100 <= 60 * n_samp_other, "ride section in %d of %d", n_sec,
+          n_samp_other);
+
+    /* the events: a ride block has no hats, a block without it no ride; a ride block with hats plays the ride */
+    {
+        int seen[3] = {0, 0, 0};
+        for (k = 1; k <= 400; k++) {
+            song_roll_t r;
+            song_plan_t p;
+            static song_t s;
+            song_ev_t ev[64];
+            int ride, blk, kit, b, rides[25], hats_in[25];
+            roll_song(NULL, (uint32_t)k, &r);
+            kit = lib_song_kit(&r);
+            ride = groove_ride(&r, &blk);
+            if (seen[ride] >= 12)
+                continue;
+            seen[ride]++;
+            plan_build(&r, &p);
+            memset(rides, 0, sizeof rides);
+            memset(hats_in, 0, sizeof hats_in);
+            song_start(&s, &r);
+            while (s.state == SS_PLAYING) {
+                int bar = s.bar, n = song_tick(&s, ev, 64), j;
+                const plan_block_t *pb = plan_at(&p, bar);
+                int bi = pb ? (int)(pb - p.b) : -1, riding = ride == RIDE_ALL || (ride == RIDE_SECTION && bi == blk);
+                for (j = 0; j < n; j++) {
+                    if (riding)
+                        CHECK(ev[j].voice != V_HAT && ev[j].voice != V_OHAT,
+                              "seed %d (kit %d, ride %d): a hat in ride block %d, bar %d", k, kit, ride, bi, bar);
+                    else
+                        CHECK(ev[j].voice != V_RIDE, "seed %d (kit %d, ride %d): the ride in block %d, bar %d", k, kit,
+                              ride, bi, bar);
+                    if (ev[j].voice == V_RIDE && bi >= 0)
+                        rides[bi]++;
+                }
+            }
+            for (b = 0; b < p.n; b++) {
+                int riding = ride == RIDE_ALL || (ride == RIDE_SECTION && b == blk);
+                if (riding && (p.b[b].layers & L_HATS))
+                    CHECK(rides[b] > 0, "seed %d (kit %d, ride %d): block %d has hats but no ride", k, kit, ride, b);
+            }
+        }
+        CHECK(seen[RIDE_NONE] >= 12 && seen[RIDE_ALL] >= 12 && seen[RIDE_SECTION] >= 12,
+              "kit roll: songs seen none %d all %d section %d", seen[0], seen[1], seen[2]);
+    }
+
+    /* carryover: a sampled hats song the same alone and after a song riding throughout */
+    {
+        song_roll_t ra, rb;
+        uint32_t j, sa = 0, sb = 0, seed;
+        int blk;
+        float tail, d0 = 0.0f, d1 = 0.0f;
+        for (seed = 1; seed < 2000u && !(sa && sb); seed++) {
+            song_roll_t r;
+            roll_song(NULL, seed, &r);
+            if (!sa && groove_ride(&r, &blk) == RIDE_ALL) sa = seed;
+            if (!sb && lib_kit_sampled(lib_song_kit(&r)) && groove_ride(&r, &blk) == RIDE_NONE) sb = seed;
+        }
+        CHECK(sa && sb, "kit roll: no ride or hats song found (%u, %u)", (unsigned)sa, (unsigned)sb);
+        roll_song(NULL, sa, &ra);
+        roll_song(NULL, sb, &rb);
+        vx_init();
+        vx_song(&rb);
+        cv_play(&rb, CV_SECS, cv_ref_l, cv_ref_r);
+        tail = cv_song_a(&ra, INS_NONE, 1u);
+        cv_song_a(&ra, INS_NONE, 0u);
+        cv_begin(&rb);
+        cv_play(&rb, CV_SECS, cv_l, cv_r);
+        for (j = 0; j < CV_SECS * 44100u; j++) {
+            float d = fm_maxf(fm_fabsf(cv_l[j] - cv_ref_l[j]), fm_fabsf(cv_r[j] - cv_ref_r[j]));
+            if (j < 44100u)
+                d0 = fm_maxf(d0, d);
+            else if (j >= 12u * 44100u)
+                d1 = fm_maxf(d1, d);
+        }
+        printf("kit roll: seed %u (kit %d) after ride song %u (kit %d): first second %.2e (tail %.2e), from 12 s "
+               "%.2e\n", (unsigned)sb, lib_song_kit(&rb), (unsigned)sa, lib_song_kit(&ra), (double)d0, (double)tail,
+               (double)d1);
+        CHECK(d1 <= 1e-6f, "kit roll: seed %u after a ride song differs from 12 s by %.3e", (unsigned)sb, (double)d1);
+        CHECK(d0 <= 2.0f * tail + 1e-6f, "kit roll: seed %u after a ride song: first second off by %.3e",
+              (unsigned)sb, (double)d0);
+    }
+}
+
 int main(int argc, char **argv)
 {
     const char *only = argc > 1 ? argv[1] : NULL;
@@ -9745,6 +9909,7 @@ int main(int argc, char **argv)
     RUN(test_strsyn);
     RUN(test_comp_styles);
     RUN(test_skits);
+    RUN(test_kit_roll);
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;

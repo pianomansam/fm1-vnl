@@ -398,8 +398,8 @@ static void test_chain(void)
         prev = r;
     }
     clash_checks = 1;
-    for (v = 0; v < V_N; v++) /* (the ride: no song plays it until the sets name sampled kits, Task 8) */
-        CHECK(v == V_RIDE || count[v] > 0, "voice %d never played in 1000 songs", v);
+    for (v = 0; v < V_N; v++)
+        CHECK(count[v] > 0, "voice %d never played in 1000 songs", v);
     printf("chain: 1000 songs, longest %d steps; events chord %ld bass %ld lead %ld candy %ld kick %ld snare %ld hat %ld\n",
            worst_t, count[V_CHORD], count[V_BASS], count[V_LEAD], count[V_CANDY], count[V_KICK], count[V_SNARE],
            count[V_HAT]);

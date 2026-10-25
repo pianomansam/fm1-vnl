@@ -500,7 +500,7 @@ void vx_configure(const song_roll_t *r)
         vx_assign(V_LEAD, s->lead);
         vx_assign(V_CANDY, s->candy);
         vx_assign(V_PAD, s->pad);
-        vx_set_kit(s->kit);
+        vx_set_kit(lib_song_kit(r)); /* the song's: the set's synth kit or its sampled one */
         vx_assign_pad_solo(pads_solo_voice(r)); /* the song's solo voice (none: the pad's, unplayed) */
         cfg.flavor = s->flavor;
     }
@@ -528,7 +528,7 @@ int vx_reconfigures(const song_roll_t *a, const song_roll_t *b)
     for (i = 0; i < sizeof F; i++)
         if (a->v[F[i]] != b->v[F[i]])
             return 1;
-    return 0;
+    return lib_song_kit(a) != lib_song_kit(b); /* the kit (the seed's draw over the set) */
 }
 
 void vx_song(const song_roll_t *r)

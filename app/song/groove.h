@@ -30,4 +30,12 @@ int groove_bass_note(const song_roll_t *r, const plan_block_t *b, int bar, int s
 int groove_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, float step_samples,
                 const int *chord_pcs, int npcs, uint32_t salt, song_ev_t *out, int max);
 
+/* The ride (seed stream 193; sampled-kit songs only, RIDE_NONE otherwise): the warm kit rides throughout; another
+   sampled kit rides throughout about 15% of its songs, one block about 50% (a lead section, the last groove, or the
+   block the walking bass plays in; *section_block its index in plan_build's plan), stays on the hats otherwise. In
+   a ride block the hat lanes' hits go to V_RIDE (open hats as accents); kick and snare as they were.
+   *section_block is -1 unless RIDE_SECTION. */
+enum { RIDE_NONE, RIDE_ALL, RIDE_SECTION };
+int groove_ride(const song_roll_t *r, int *section_block);
+
 #endif
