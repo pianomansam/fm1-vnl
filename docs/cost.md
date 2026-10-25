@@ -720,3 +720,42 @@ chord part it replaces, +0.01.
   everywhere; this is a lower bound, since the solo plays only in its rolled sections), `VNL_RUNS=7`, one run each:
   none 0.959, strings 0.929, choir 0.973, flute 0.976, organ 0.965.
 - Memory: image 192920 B, RAM 51216 B, pool 180216 B (ok).
+
+**Task 1 fix round 2 (controller's ruling): the choir and the organ at a quarter of the rate.** On the solo lane, the
+choir (M_PAD) and the organ (M_SUB) now render in pad_seg's quarter-rate path beside the ensemble (SOLO_Q4). They use
+the matched biquads at a step of 4 and the organ's control rate at 4 steps, and share the quarter-rate mud high-pass,
+bus filters and interpolation. The ruling allowed quarter rate per voice only if two tests passed; both voices pass
+(test_pad_solo_patch):
+
+| voice | level, quarter vs half rate | folds at MIDI 84 | vs strings (32.0) |
+|---|---|---|---|
+| choir | 0.0 dB | 37.8 dB under | better |
+| organ | -0.2 dB | 37.2 dB under, against its sub's pitch | better |
+
+The flute stays at half rate.
+- **`--parts`** (best of 7, AMB-1 138.9 ms, idle floor 0.108):
+
+  | row | ratio |
+  |---|---|
+  | chord part (strings / warm pad) | 0.046 / 0.046 |
+  | solo choir | **0.043** (was 0.108) |
+  | solo organ | **0.042** (was 0.112) |
+  | solo flute | **0.138** (0.09 over the chord part) |
+  | solo strings | 0.024 |
+
+- **Seed 20 forced, `VNL_SOLO`** (`VNL_RUNS=7`, one run each; a lower bound, see above):
+
+  | solo voice | ratio |
+  |---|---|
+  | none | 0.970 |
+  | strings | 0.940 |
+  | choir | 0.944 |
+  | organ | 0.944 |
+  | flute | 0.973 |
+
+- **The standard list**, `--forced 20 7 155 138 100 22`:
+  - plain: 0.961 / 0.897 / 0.843 / 0.821 / 0.783 / 0.767;
+  - forced: **0.977** / 0.896 / 0.874 / 0.848 / 0.802 / 0.797 (AMB-1 141.8, busy host).
+- **Accepted at Sam's ~0.97 line; solos play in about a quarter of struck-keys sections; flag seed 20 + a flute solo
+  for Plan 2's device bench.**
+- Memory: image 192888 B, RAM 51216 B, pool 180216 B (ok).

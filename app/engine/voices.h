@@ -46,9 +46,9 @@ void vx_song(const song_roll_t *r);
    never moves another's voice. */
 void vx_assign(int voice, int ins);
 /* The pad layer's solo lane (lane 4) its own patch: INS_VOX_PAD (the choir), INS_FLUTE, INS_ORGAN or INS_STRINGS,
-   anything else (INS_NONE) the pad's (vx_assign's V_PAD). Lane 4 alone plays it, in its own model at that model's
-   usual rate (the ensemble at a quarter, the choir at half, the flute and the organ at full), on the pad's bus (its
-   filters, its sends), trimmed to the strings' loudness; lanes 1-3 and lane-less notes keep the pad's M_ENS patch. A
+   anything else (INS_NONE) the pad's (vx_assign's V_PAD). Lane 4 alone plays it, in its own model (the ensemble, the
+   choir and the organ at a quarter of the rate, the flute at half), on the pad's bus (its filters, its sends),
+   trimmed to the strings' loudness; lanes 1-3 and lane-less notes keep the pad's M_ENS patch. A
    held lane-4 note goes on legato to its next note of the same patch (gliding, as any lane's); a note of another patch
    (a solo voice changed) starts fresh, the old one fading out first. Kept until the next call or vx_init (none);
    vx_assign and vx_configure leave it. */

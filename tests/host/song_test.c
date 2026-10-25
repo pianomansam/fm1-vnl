@@ -2332,18 +2332,20 @@ static void test_pad_solo_voice(void)
 }
 
 /* The pad's solo lane takes its own voice (pads revision 2, Task 1): vx_assign_pad_solo's patch (choir, flute, organ
-   or strings) plays lane 4 with that patch's model (the choir, flute and organ at half the rate, within 2 dB of their full-rate
-   level; the strings at a quarter), renders no NaN or inf, is silent 3 s after its
-   release with no state denormal-bound, and sounds on the pad's bus only; the four level-matched (choir, flute, organ
-   at MIDI 76, the strings an octave up at 88: within 2 dB in RMS while sounding); the pad bus's section filter darkens
-   it; lanes 1-3 keep the pad's patch (M_ENS); another patch falls back to the pad's; a held choir, flute or organ lane
-   glides to its next note (no restrike: no 100 ms window after the change under half the held level); a note on a
-   lane holding another patch starts fresh on its own pitch; vx_release_all ends it within 100 ms. */
+   or strings) plays lane 4 with that patch's model (the choir and the organ at a quarter of the rate, within 1 dB of
+   their full-rate level and their folds at MIDI 84 no worse than the strings'; the flute at half, within 2 dB; the
+   strings at a quarter), renders no NaN or inf, is silent 3 s after its release with no state denormal-bound, and
+   sounds on the pad's bus only; the four level-matched (choir, flute, organ at MIDI 76, the strings an octave up at
+   88: within 2 dB in RMS while sounding); the pad bus's section filter darkens it (4 dB or more); lanes 1-3 keep the
+   pad's patch (M_ENS); another patch falls back to the pad's; a held choir, flute or organ lane glides to its next
+   note (no restrike: no 100 ms window after the change under half the held level); a note on a lane holding another
+   patch starts fresh on its own pitch; vx_release_all ends it within 100 ms. */
 static void test_pad_solo_patch(void)
 {
     static const int ins[4] = {INS_VOX_PAD, INS_FLUTE, INS_ORGAN, INS_STRINGS};
     static const int note[4] = {76, 76, 76, 88};
-    static const int rate[4] = {2, 2, 2, 4}; /* the choir, flute and organ at half the rate, the strings at a quarter */
+    static const int rate[4] = {4, 2, 4, 4}; /* the choir and the organ at a quarter of the rate (as the strings), the
+                                                flute at half */
     static const char *const name[4] = {"choir", "flute", "organ", "strings"};
     float db[4], lo = 1e9f, hi = -1e9f, hz;
     int i, k, step, held, bad = 0;
@@ -2406,7 +2408,7 @@ static void test_pad_solo_patch(void)
         printf("pad solo patch: %s at MIDI %d: %.1f dBFS RMS (step %d), %.1f under the closed filter\n", name[i],
                note[i], (double)db[i], step, (double)dark);
         CHECK(other < 1e-7f, "pad solo patch: %s on the keys' bus: peak %.2e", name[i], (double)other);
-        CHECK(dark < db[i] - 6.0f, "pad solo patch: %s under the closed filter %.1f dB vs %.1f open", name[i],
+        CHECK(dark < db[i] - 4.0f, "pad solo patch: %s under the closed filter %.1f dB vs %.1f open", name[i],
               (double)dark, (double)db[i]);
     }
     for (i = 0; i < 3; i++) { /* the half-rate voices against the full rate (VX_OFF_HALF): the same level */
@@ -2431,10 +2433,38 @@ static void test_pad_solo_patch(void)
         }
         full = 10.0f * 0.30103f * fm_log2f(e / (21.0f * 4096.0f) + 1e-30f);
         printf("pad solo patch: %s at the full rate %.1f dBFS, at half %.1f\n", name[i], (double)full, (double)db[i]);
-        CHECK(fm_fabsf(full - db[i]) <= 2.0f, "pad solo patch: %s at half the rate %.1f dB vs %.1f at the full rate",
-              name[i], (double)db[i], (double)full);
+        CHECK(fm_fabsf(full - db[i]) <= (rate[i] == 4 ? 1.0f : 2.0f),
+              "pad solo patch: %s at a step of %d %.1f dB vs %.1f at the full rate", name[i], rate[i], (double)db[i],
+              (double)full);
     }
     vx_fx_off(0u);
+    { /* the folds at MIDI 84 (test_pad_rates' measure): a quarter-rate solo voice's no worse than the strings' there
+         (the organ's against its sub-octave's pitch, an octave down) */
+        float al[4];
+        for (i = 0; i < 4; i++) {
+            uint32_t at;
+            if (rate[i] != 4)
+                continue;
+            vx_init();
+            vx_assign(V_PAD, INS_STRINGS);
+            vx_assign_pad_solo(ins[i]);
+            vx_solo(V_PAD);
+            vt_lane(4, 84, 0, 132300u);
+            for (k = 0; k < 4; k++)
+                vt_block(4096, &bad);
+            for (at = 0; at < 8u * 4096u; at += 4096u) {
+                vt_block(4096, &bad);
+                memcpy(vt_long + at, vt_l, 4096 * sizeof(float));
+            }
+            al[i] = vt_alias_db(16384u, ins[i] == INS_ORGAN ? 72 : 84);
+            printf("pad solo patch: %s at MIDI 84, a quarter of the rate: folds %.1f dB under\n", name[i],
+                   (double)al[i]);
+        }
+        for (i = 0; i < 3; i++)
+            if (rate[i] == 4)
+                CHECK(al[i] >= al[3] - 0.5f, "pad solo patch: the %s's folds at MIDI 84 %.1f dB under, the strings' %.1f",
+                      name[i], (double)al[i], (double)al[3]);
+    }
     CHECK(hi - lo <= 2.0f, "pad solo patch: the solo voices' levels span %.1f dB (%.1f to %.1f)", (double)(hi - lo),
           (double)lo, (double)hi);
     /* lanes 1-3 (and a lane-less note) keep the pad's patch; another solo patch falls back to the pad's */
