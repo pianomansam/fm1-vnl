@@ -28,6 +28,7 @@
 #include "library.h"
 #include "voices.h"
 #include "drums.h"
+#include "skits.h"
 #include "fx.h"
 #include "rng.h"
 #include "harmony.h"
@@ -73,9 +74,10 @@
 #define LP_OCT 6.4919f   /* ... down to 200 Hz at 1: log2(18000 / 200) */
 #define HP_BOT 30.0f     /* the high-pass's one-pole at amount 0+ ... */
 #define HP_OCT 4.3219f   /* ... up to 600 Hz at 1: log2(20); its mix fades in over the first eighth */
-/* the drums' compressor: a threshold (peak) per kit (KIT_*: 3-6 dB off a full-velocity kick and snare in every kit),
-   4:1, at most 6 dB, 0.9 dB of make-up */
-static const float CP_THR_KIT[4] = {0.095f, 0.090f, 0.084f, 0.162f};
+/* the drums' compressor: a threshold (peak) per kit (KIT_*: 3-6 dB off a full-velocity kick and snare in every kit;
+   the sampled kits' by the synth kits' rule, half the geometric mean of the two peaks), 4:1, at most 6 dB, 0.9 dB of
+   make-up */
+static const float CP_THR_KIT[KIT_N] = {0.095f, 0.090f, 0.084f, 0.162f, 0.110f, 0.087f, 0.133f, 0.115f, 0.100f};
 #define CP_SLOPE 0.75f   /* 1 - 1/4 */
 #define CP_MIN 0.5f
 #define CP_MAKEUP 1.11f
@@ -2476,7 +2478,7 @@ int vx_sounding(void)
 void vx_set_kit(int kit)
 {
     cfg.kit = (uint8_t)kit;
-    cp_thr = CP_THR_KIT[kit >= 0 && kit < 4 ? kit : 0];
+    cp_thr = CP_THR_KIT[kit >= 0 && kit < KIT_N ? kit : 0];
     drums_set_kit(kit);
 }
 
@@ -2615,7 +2617,7 @@ int vx_tiny(void)
 {
     int r, c = vx_tiny_of(&mud_z[0][0], (int)(sizeof mud_z / sizeof(float))) +
                vx_tiny_of(&mud_zh[0][0], (int)(sizeof mud_zh / sizeof(float))) + vx_tiny_of(&cp_env, 1) +
-               vx_tiny_of(&cp_g, 1) + vx_tiny_of(&dk_env, 1);
+               vx_tiny_of(&cp_g, 1) + vx_tiny_of(&dk_env, 1) + skits_tiny();
     for (r = 0; r < NBUS; r++)
         c += vx_tiny_of(&bus[r].y, 1) + vx_tiny_of(&bus[r].z, 1) + vx_tiny_of(&bus[r].hm, 1);
     c += vx_tiny_of(pq_mz, 2) + vx_tiny_of(&pq0, 1) + vx_tiny_of(&pq1, 1) + vx_tiny_of(&pb_y, 1) + vx_tiny_of(&pb_z, 1);

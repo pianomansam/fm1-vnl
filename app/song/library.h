@@ -17,7 +17,8 @@ enum { INS_RHODES, INS_WURLI, INS_FELT_PIANO, INS_NYLON, INS_PAD, INS_UPRIGHT, I
        INS_KNIGHT, INS_EMILY,     /* sampled (M_SAMP; INS_NYLON too): the Knight upright, the Emilyguitar */
        INS_STR_LEAD, INS_CELLO,   /* the string synth (M_STR) on the lead: the high strings, the cello */
        INS_NONE }; /* append new ones before INS_NONE */
-enum { KIT_DUSTY, KIT_SOFT, KIT_808, KIT_BRUSHES };
+/* the synth kits (drums.c), then the sampled kits (skits.c: one pool of hits, processed per kit at playback) */
+enum { KIT_DUSTY, KIT_SOFT, KIT_808, KIT_BRUSHES, KIT_S_WARM, KIT_S_DARK, KIT_S_RUSTY, KIT_S_GENTLE, KIT_S_CLEAN, KIT_N };
 enum { FL_LOFI, FL_BOSSA, FL_CITYPOP, FL_NEOSOUL, FL_CHILLWAVE };
 enum { D_KICK, D_SNARE, D_HAT, D_OHAT, D_SHAKER, D_RIM };
 enum { PF_BOOMBAP, PF_HALFTIME, PF_SPARSE, PF_BRUSHES, PF_BOSSA };
@@ -33,6 +34,9 @@ typedef struct { uint8_t id; const char *name; uint8_t chords, bass, lead, candy
 typedef struct { uint8_t id; uint8_t family; uint16_t hit[6]; uint16_t ghost[6]; uint8_t half_time; uint8_t poly3; const char *src; } lib_pattern_t;
 typedef struct { uint8_t id; const char *name; uint8_t intro_bars, entry, middle, ending; uint8_t sparse; const char *src; } lib_map_t;
 typedef struct { uint8_t mode_w[MODE_N]; uint8_t color_w[3]; int8_t lead_shift; uint8_t candy_pct; } lib_mood_t;
+
+/* 1 for a sampled kit (KIT_S_*), else 0 */
+int lib_kit_sampled(int kit);
 
 extern const lib_prog_t LIB_PROGS[];       extern const int LIB_NPROGS;
 extern const lib_set_t LIB_SETS[];         extern const int LIB_NSETS;

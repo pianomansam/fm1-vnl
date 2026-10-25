@@ -823,3 +823,21 @@ and sax, 100 Emilyguitar and flute, 22 City pop Rhodes.
   144.6 ms); no string set is heavier.
 - **Memory** (`tools/mem-check.sh`): image 369928 B, RAM 52688 B, pool 184312 B (ok; the pool +4096 B: the
   Ensemble's lines, 512 floats for each of the 2 lead voices).
+
+## Sampled instruments, Task 7: the sampled kits (skits.c)
+
+Five sampled kits (KIT_S_WARM, DARK, RUSTY, GENTLE, CLEAN) from the one drum pool: up to 8 one-shot voices (ADPCM
+decoded as they go, 4-point Hermite at the kit's pitch, a lane's one-pole low-pass on the darkened Gogodze hits), then
+the kit's bus (two one-poles at 3.2 kHz and a tanh drive on the warm kit only). No set names a sampled kit yet (Task
+8), so every song renders bit-identical to before (checked on seed 101) and the standard list is unchanged.
+- **The kit** (`bench --parts`, all six lanes of the boom-bap part, the ride's 8ths over the hats as an upper bound):
+  ratio 0.34-0.36 (dusty 0.249, the synth kits 0.24-0.25); without the ride (a song plays hats or the ride, not both)
+  0.29-0.31, about +0.05 over the synth kits. The warm and dark kits are the dearest (the drive; the lane low-passes).
+- **In a song** (seed 20, the heaviest roll, its set's kit swapped for a test build, three interleaved runs on a busy
+  host): Dusty 151-153 ms, warm 166, dark 169-170, rusty 163-165 ms of VNL time, so **+11 to +17 ms (about +0.08 to
+  +0.12)** over the synth kit: longer hits keep the drum bus live more of the time. On a quiet host's 0.966 that is
+  about 1.05-1.08 forced, over the 0.97 line: the heaviest roll on a sampled kit needs Task 9's cuts (options: the kit
+  at half rate, its hits are 16 kHz; linear interpolation; fewer voices).
+- **Cymbals at 32 kHz** (the A/B, not taken unless Sam picks it): the hats, shaker and ride re-packed at 32 kHz add
+  **20000 B** of sample data (smp_bytes 160928 to 180928; image 394456 B, still ok) and about +0.01-0.03 on the kit row.
+- **Memory** (`tools/mem-check.sh`): image 374456 B (+4320 B), RAM 53376 B (+688 B), pool 184312 B (ok).

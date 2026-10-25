@@ -8,6 +8,7 @@
 #include "fastmath.h"
 #include "library.h"
 #include "drums.h"
+#include "skits.h"
 
 #define SR 44100.0f
 #define INV_SR (1.0f / 44100.0f)
@@ -62,6 +63,7 @@ static const dk_t kits[4][ND] = {
    chain's 5 kHz low-pass, the open hat 5, the shaker 10, the rim 8), this sets the kit. */
 static const float KIT_LV[4] = {0.56f, 0.62f, 0.40f, 1.26f};
 static float kit_lv = 0.56f;
+static int sampled; /* the kit is a sampled one (skits.c): new hits go there */
 
 /* the kit's decays as per-sample multipliers */
 typedef struct { float dec, pdec, tdec; } dk_rt_t;
@@ -92,6 +94,11 @@ static float dec_of(float t60) { return t60 > 0.0f ? fm_expf(-T60 / (t60 * SR)) 
 void drums_set_kit(int kit)
 {
     int i;
+    sampled = lib_kit_sampled(kit);
+    if (sampled) { /* the synth lanes keep their kit (hits sounding finish on it) */
+        skits_set(kit);
+        return;
+    }
     kit = kit >= 0 && kit < 4 ? kit : 0;
     kit_p = kits[kit];
     kit_lv = KIT_LV[kit];
@@ -105,6 +112,7 @@ void drums_set_kit(int kit)
 void drums_song(uint32_t seed)
 {
     memset(ln, 0, sizeof ln);
+    skits_clear();
     rng = seed * 2654435761u ^ 0x2545F491u;
     if (!rng)
         rng = 0x2545F491u;
@@ -121,6 +129,10 @@ void drums_on(const song_ev_t *e)
     int i = (int)e->voice - V_KICK;
     lane_t *d;
     const dk_t *p;
+    if (sampled) {
+        skits_on(e);
+        return;
+    }
     if (i < 0 || i >= ND)
         return;
     d = &ln[i];
@@ -181,7 +193,7 @@ float drums_sample(void)
     for (i = 0; i < ND; i++)
         if (ln[i].on)
             x += lane_sample(i);
-    return x;
+    return x + skits_sample();
 }
 
 void drums_release(void)
@@ -190,6 +202,7 @@ void drums_release(void)
     for (i = 0; i < ND; i++)
         if (ln[i].on)
             ln[i].dec = ln[i].dec < 0.996f ? ln[i].dec : 0.996f; /* under 40 ms to the threshold */
+    skits_release();
 }
 
 int drums_active(void)
@@ -197,10 +210,10 @@ int drums_active(void)
     int i, c = 0;
     for (i = 0; i < ND; i++)
         c += ln[i].on;
-    return c;
+    return c + skits_active();
 }
 
 float drums_kick_env(void)
 {
-    return ln[0].on ? ln[0].env * ln[0].lvl : 0.0f;
+    return fm_maxf(ln[0].on ? ln[0].env * ln[0].lvl : 0.0f, skits_kick_env());
 }

@@ -62,7 +62,7 @@ void vx_set_kit(int kit);
 /* The kick's amplitude envelope, 0-1 (see drums.h): the lo-fi chain's ducking source. */
 float vx_kick_env(void);
 /* A role bus's section filter (the plan's moves, plan_moves): role V_CHORD, V_BASS, V_LEAD, V_CANDY, V_PAD, or any drum
-   voice (V_KICK..V_RIM: the drums' bus). vx_set_filter's amount runs 0 (open) to 1 (closed): a one-pole low-pass from
+   voice (V_KICK..V_RIDE: the drums' bus). vx_set_filter's amount runs 0 (open) to 1 (closed): a one-pole low-pass from
    18 kHz down to 200 Hz. vx_set_hp's runs 0 (off) to 1 (a one-pole high-pass at about 600 Hz). A change lands in
    about 50 ms (a high-pass opening, in about 3 ms); with nothing sounding, at once. */
 void vx_set_filter(int role, float amount);

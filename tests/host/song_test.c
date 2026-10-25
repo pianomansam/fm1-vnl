@@ -22,6 +22,8 @@
 #include "samples.h"
 #include "sampler.h"
 #include "strum.h"
+#include "drums.h"
+#include "skits.h"
 
 static int fails;
 #define CHECK(c, ...)                                                                                              \
@@ -9441,6 +9443,220 @@ static void test_strsyn(void)
     }
 }
 
+/* Task 7, the sampled kits (skits.h): every kit's lanes sound; the hi-hat choke; the kits' levels against each other
+   and the synth Dusty kit; extreme velocities finite and denormal-free; a kit change mid-song leaves sounding hits on
+   their kit, and every hit ends within its sample's length. */
+#define SK_SR 44100
+static float sk_buf[7 * SK_SR]; /* (the pattern: 2 bars at 80 BPM, 6 s) */
+
+/* n samples of the drums (drums.h: the synth kits and, routed by the kit, the sampled ones) into sk_buf + at */
+static void sk_run(int at, int n)
+{
+    int i;
+    for (i = 0; i < n; i++)
+        sk_buf[at + i] = drums_sample();
+}
+
+static float sk_rms(const float *x, int n)
+{
+    double s = 0.0;
+    int i;
+    for (i = 0; i < n; i++)
+        s += (double)x[i] * (double)x[i];
+    return n > 0 ? fm_sqrtf((float)(s / (double)n)) : 0.0f;
+}
+
+static float sk_db(float x) { return 6.0206f * fm_log2f(x + 1e-12f); }
+
+static void sk_hit(int voice, int vel)
+{
+    song_ev_t e;
+    memset(&e, 0, sizeof e);
+    e.voice = (uint8_t)voice;
+    e.vel = (uint8_t)vel;
+    drums_on(&e);
+}
+
+/* the fixed pattern (the bench's boom-bap: kick, snare, hats on 8ths, an open hat, shaker 16ths, rims), 2 bars at
+   80 BPM; ride 1 plays the ride on the 8ths in place of the hats */
+static float sk_pattern(int kit, int ride)
+{
+    int step, st = SK_SR * 60 / 80 / 4, at = 0;
+    drums_song(0u);
+    drums_set_kit(kit);
+    for (step = 0; step < 32; step++) {
+        int s = step & 15;
+        if (s == 0 || s == 10) sk_hit(V_KICK, 110);
+        if (s == 4 || s == 12) sk_hit(V_SNARE, 105);
+        if (!(s & 1)) sk_hit(ride ? V_RIDE : V_HAT, 80);
+        if (s == 14 && !ride) sk_hit(V_OHAT, 85);
+        if (s & 1) sk_hit(V_SHAKER, 60);
+        if (s == 6 || s == 15) sk_hit(V_RIM, 70);
+        sk_run(at, st);
+        at += st;
+    }
+    return sk_rms(sk_buf, at);
+}
+
+static void test_skits(void)
+{
+    int k, v, i, bad = 0;
+    float db[KIT_S_CLEAN + 1], dusty, lo = 1e9f, hi = -1e9f;
+
+    for (k = 0; k <= KIT_S_CLEAN; k++)
+        CHECK(lib_kit_sampled(k) == (k >= KIT_S_WARM), "kit %d: sampled %d", k, lib_kit_sampled(k));
+
+    /* every lane of every sampled kit sounds when struck: RMS over the hit's first 50 ms above -40 dBFS (the synth
+       Dusty kit's lanes printed beside them) */
+    for (k = KIT_DUSTY; k <= KIT_S_CLEAN; k++) {
+        if (k > KIT_DUSTY && k < KIT_S_WARM)
+            continue;
+        printf("skits: kit %d lanes (dBFS, 50 ms):", k);
+        for (v = V_KICK; v <= V_RIDE; v++) {
+            float r;
+            drums_song(0u);
+            drums_set_kit(k);
+            sk_hit(v, 100);
+            sk_run(0, 2205);
+            r = sk_rms(sk_buf, 2205);
+            printf(" %.1f", (double)sk_db(r));
+            CHECK(k == KIT_DUSTY || r > 0.01f, "kit %d voice %d: RMS %.4f, wanted over -40 dBFS", k, v, (double)r);
+        }
+        printf("\n");
+    }
+
+    /* the choke: an open hat, then a closed hat 100 ms later; the open hat's remainder (the pair less the closed hat
+       alone) is 40 dB under the open hat's level by 10 ms after the closed hit, where unchoked it still sounds */
+    for (k = KIT_S_WARM; k <= KIT_S_CLEAN; k++) {
+        static float pair[8820], alone[8820];
+        int t = 4410, w = 441;
+        float before, rest, open_on;
+        drums_song(0u);
+        drums_set_kit(k);
+        sk_hit(V_OHAT, 100);
+        sk_run(0, t);
+        before = sk_rms(sk_buf + t - w, w);
+        sk_run(t, w * 2);
+        open_on = sk_rms(sk_buf + t + w, w); /* (no closed hit: the open hat rings on) */
+        drums_song(0u);
+        drums_set_kit(k);
+        sk_hit(V_OHAT, 100);
+        sk_run(0, t);
+        sk_hit(V_HAT, 100);
+        sk_run(t, w * 2);
+        memcpy(pair, sk_buf, sizeof pair);
+        drums_song(0u);
+        drums_set_kit(k);
+        memset(sk_buf, 0, sizeof pair);
+        sk_hit(V_HAT, 100);
+        sk_run(t, w * 2);
+        memcpy(alone, sk_buf, sizeof alone);
+        for (i = t + w; i < t + 2 * w; i++)
+            pair[i] -= alone[i];
+        rest = sk_rms(pair + t + w, w);
+        printf("skits: kit %d choke: open hat %.1f dB, unchoked 10 ms on %.1f dB, choked %.1f dB\n", k,
+               (double)sk_db(before), (double)sk_db(open_on),
+               (double)sk_db(rest));
+        CHECK(open_on > 0.1f * before, "kit %d: the open hat should still ring unchoked (%.4f of %.4f)", k,
+              (double)open_on, (double)before);
+        CHECK(rest < 0.01f * before, "kit %d: the choked open hat at %.4f, wanted 40 dB under %.4f", k, (double)rest,
+              (double)before);
+    }
+
+    /* the levels on a fixed pattern: every sampled kit within 1.5 dB of each other and of the synth Dusty kit (the
+       ride pattern too) */
+    dusty = sk_db(sk_pattern(KIT_DUSTY, 0));
+    for (k = KIT_S_WARM; k <= KIT_S_CLEAN; k++) {
+        float rd = sk_db(sk_pattern(k, 1));
+        db[k] = sk_db(sk_pattern(k, 0));
+        lo = db[k] < lo ? db[k] : lo;
+        hi = db[k] > hi ? db[k] : hi;
+        printf("skits: kit %d pattern %.2f dB (ride %.2f), Dusty %.2f dB\n", k, (double)db[k], (double)rd,
+               (double)dusty);
+        CHECK(fm_fabsf(db[k] - dusty) <= 1.5f, "kit %d: %.2f dB against Dusty's %.2f", k, (double)db[k],
+              (double)dusty);
+        CHECK(fm_fabsf(rd - dusty) <= 1.5f, "kit %d ride: %.2f dB against Dusty's %.2f", k, (double)rd, (double)dusty);
+    }
+    CHECK(hi - lo <= 1.5f, "sampled kits span %.2f dB, wanted within 1.5", (double)(hi - lo));
+
+    /* velocity 1 and 127 through the voices: finite, no denormals */
+    for (k = KIT_S_WARM; k <= KIT_S_CLEAN; k++) {
+        int c, vel;
+        vx_init();
+        vx_set_gain(1.0f);
+        vx_set_kit(k);
+        for (vel = 1; vel <= 127; vel += 126)
+            for (c = 0; c < 12; c++) {
+                for (v = V_KICK; v <= V_RIDE; v++)
+                    if (c % 4 == 0 || v == V_HAT)
+                        vt_ev(v, 0, vel, 0, 0);
+                vx_render(vt_l, vt_r, 4096);
+                for (i = 0; i < 4096; i++)
+                    bad += vt_l[i] != vt_l[i] || fm_fabsf(vt_l[i]) > 1e30f || vt_r[i] != vt_r[i];
+                bad += vx_tiny() != 0;
+            }
+    }
+    CHECK(bad == 0, "skits: %d non-finite samples or denormal states", bad);
+
+    /* a kit change keeps sounding hits on their kit: the same output as with no change (both ways) */
+    {
+        static const int PAIRS[2][2] = {{KIT_DUSTY, KIT_S_RUSTY}, {KIT_S_RUSTY, KIT_DUSTY}};
+        static float a[8000];
+        int p, diff;
+        for (p = 0; p < 2; p++) {
+            drums_song(0u);
+            drums_set_kit(PAIRS[p][0]);
+            for (v = V_KICK; v <= V_RIDE; v++)
+                if (v != V_HAT)
+                    sk_hit(v, 110);
+            sk_run(0, 2000);
+            sk_run(2000, 6000);
+            memcpy(a, sk_buf, sizeof a);
+            drums_song(0u);
+            drums_set_kit(PAIRS[p][0]);
+            for (v = V_KICK; v <= V_RIDE; v++)
+                if (v != V_HAT)
+                    sk_hit(v, 110);
+            sk_run(0, 2000);
+            drums_set_kit(PAIRS[p][1]);
+            CHECK(drums_active() > 0, "kit %d to %d: the hits should still sound", PAIRS[p][0], PAIRS[p][1]);
+            sk_run(2000, 6000);
+            for (i = 0, diff = 0; i < 8000; i++)
+                diff += sk_buf[i] != a[i];
+            CHECK(diff == 0, "kit %d to %d: %d samples changed by the kit change", PAIRS[p][0], PAIRS[p][1], diff);
+        }
+        /* mid-song through the voices, Dusty to Rusty and back with hits sounding: finite */
+        vx_init();
+        vx_set_gain(1.0f);
+        bad = 0;
+        for (p = 0; p < 6; p++) {
+            vx_set_kit(p & 1 ? KIT_S_RUSTY : KIT_DUSTY);
+            for (v = V_KICK; v <= V_RIDE; v++)
+                vt_ev(v, 0, 100, (uint32_t)(v * 200), 0);
+            vx_render(vt_l, vt_r, 4096);
+            for (i = 0; i < 4096; i++)
+                bad += vt_l[i] != vt_l[i] || fm_fabsf(vt_l[i]) > 1e30f || vt_r[i] != vt_r[i];
+        }
+        CHECK(bad == 0 && vx_tiny() == 0, "skits: kit changes mid-song: %d non-finite, tiny %d", bad, vx_tiny());
+    }
+
+    /* no read past a table: each hit ends within its sample's length at its pitch (plus the interpolator's few and
+       the kit bus's ring) */
+    for (k = KIT_S_WARM; k <= KIT_S_CLEAN; k++)
+        for (v = V_KICK; v <= V_RIDE; v++) {
+            int n = 0;
+            drums_song(0u);
+            drums_set_kit(k);
+            sk_hit(v, 127);
+            while (drums_active() && n < 7 * SK_SR) {
+                (void)drums_sample();
+                n++;
+            }
+            CHECK(n <= skits_lane_len(k, v) + 64, "kit %d voice %d: sounded %d samples, its hit %d", k, v, n,
+                  skits_lane_len(k, v));
+        }
+}
+
 int main(int argc, char **argv)
 {
     const char *only = argc > 1 ? argv[1] : NULL;
@@ -9527,6 +9743,7 @@ int main(int argc, char **argv)
     RUN(test_samp);
     RUN(test_strsyn);
     RUN(test_comp_styles);
+    RUN(test_skits);
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;

@@ -231,13 +231,15 @@ static void part_step(int kind, int bar, int step, uint32_t st)
     case P_BASS: /* one voice, 8ths, legato */
         if (!(step & 1)) ev(V_BASS, 36 + c[(step >> 1) & 3] % 12, 95, st * 2);
         break;
-    case P_DRUMS: /* boom-bap, all six lanes */
+    case P_DRUMS: /* boom-bap, all six lanes; on a sampled kit the ride's 8ths over the hats too (an upper bound: a
+                     song rides or plays hats) */
         if (step == 0 || step == 7 || step == 10) ev(V_KICK, 0, 110, 0);
         if (step == 4 || step == 12) ev(V_SNARE, 0, 105, 0);
         if (!(step & 1)) ev(V_HAT, 0, 80, 0);
         if (step == 14) ev(V_OHAT, 0, 85, 0);
         if (step & 1) ev(V_SHAKER, 0, 60, 0);
         if (step == 6 || step == 15) ev(V_RIM, 0, 70, 0);
+        if (!(step & 1)) ev(V_RIDE, 0, 80, 0);
         break;
     case P_SOURCE: /* the fx source: a chord, a bass and the kit (a mix to run the chain on); the pad layer's chord
                       and solo note too when the part sets a pad (else its events find no patch) */
@@ -371,7 +373,9 @@ static void parts(double amb)
     static const named_t PDL[] = {{"strings", INS_STRINGS}, {"warm pad", INS_WARM_PAD}};
     static const named_t SOL[] = {{"choir", INS_VOX_PAD}, {"flute", INS_FLUTE}, {"organ", INS_ORGAN},
                                   {"strings", INS_STRINGS}};
-    static const named_t KT[] = {{"dusty", KIT_DUSTY}, {"soft", KIT_SOFT}, {"808", KIT_808}, {"brushes", KIT_BRUSHES}};
+    static const named_t KT[] = {{"dusty", KIT_DUSTY}, {"soft", KIT_SOFT}, {"808", KIT_808}, {"brushes", KIT_BRUSHES},
+                                 {"s-warm", KIT_S_WARM}, {"s-dark", KIT_S_DARK}, {"s-rusty", KIT_S_RUSTY},
+                                 {"s-gentle", KIT_S_GENTLE}, {"s-clean", KIT_S_CLEAN}};
     static const uint32_t sd[4] = {20, 100, 128, 183};
     part_t p = part_of(P_IDLE), q;
     double base = best_part(&p), src, plate, t, b = 1e30;
@@ -393,7 +397,7 @@ static void parts(double amb)
         p.solo = SOL[k].ins;
         row("solo", SOL[k].n, best_part(&p), base, amb);
     }
-    for (k = 0; k < 4; k++) {
+    for (k = 0; k < NEL(KT); k++) {
         p = part_of(P_DRUMS);
         p.kit = KT[k].ins;
         row("drums", KT[k].n, best_part(&p), base, amb);

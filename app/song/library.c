@@ -187,6 +187,8 @@ const lib_set_t *lib_set_by_id(uint8_t id)
     return NULL;
 }
 
+int lib_kit_sampled(int kit) { return kit >= KIT_S_WARM && kit <= KIT_S_CLEAN; }
+
 const lib_pattern_t *lib_pattern_by_id(uint8_t id)
 {
     int i;
