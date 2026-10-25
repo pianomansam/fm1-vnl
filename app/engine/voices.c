@@ -28,6 +28,7 @@
 #include "fx.h"
 #include "rng.h"
 #include "harmony.h"
+#include "pads.h"
 
 #define QN 64
 #define NCH 8 /* chord voices: a held pad uses all 8 (its release crosses the next chord's swell), the rest the first 4 */
@@ -459,6 +460,7 @@ void vx_configure(const song_roll_t *r)
         vx_assign(V_CANDY, s->candy);
         vx_assign(V_PAD, s->pad);
         vx_set_kit(s->kit);
+        vx_assign_pad_solo(pads_solo_voice(r)); /* the song's solo voice (none: the pad's, unplayed) */
         cfg.flavor = s->flavor;
     }
     keys_g = keys_gain(r);

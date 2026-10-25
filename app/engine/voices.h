@@ -22,7 +22,7 @@ typedef struct { uint8_t chords, bass, lead, candy, pad, kit, flavor, dust, nois
 void vx_init(void);
 /* At song start, before the first event, and again when a request changes one of these mid-song: the set's
    instruments, kit and flavor (the chords' patch sets the chorus's depth, each role's patch its delay send; the
-   song's comping sets the keys' level), the
+   song's comping sets the keys' level), the pad's solo voice (pads_solo_voice: the seed and the set), the
    roll's RF_DUST, RF_NOISE and RF_AMBIENCE into the lo-fi chain (fx.h: the bed opens; dust and bed changes ramp, the
    dust landing at once if no voice sounds), RF_TEMPO into the delay's time, and the pump from the seed. Notes already sounding keep the
    instrument they were struck with through their release. */
@@ -51,7 +51,7 @@ void vx_assign(int voice, int ins);
    trimmed to the strings' loudness; lanes 1-3 and lane-less notes keep the pad's M_ENS patch. A
    held lane-4 note goes on legato to its next note of the same patch (gliding, as any lane's); a note of another patch
    (a solo voice changed) starts fresh, the old one fading out first. Kept until the next call or vx_init (none);
-   vx_assign and vx_configure leave it. */
+   vx_assign leaves it, vx_configure sets the song's (pads_solo_voice). */
 void vx_assign_pad_solo(int ins);
 /* Tests: a role's patch given directly (a changed copy of a table patch; it must outlive its notes), its sends and
    filters as vx_assign sets them; the config is left as it was. */

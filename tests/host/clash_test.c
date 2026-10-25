@@ -109,11 +109,14 @@ static void check_step(const song_t *s, int bar, int step, const song_ev_t *ev, 
         }
         case V_BASS: CHECK(e->note >= 28 && e->note <= 47, "seed %u: bass note %d", seed, e->note); break;
         case V_LEAD: CHECK(e->note >= 60 && e->note <= 88, "seed %u: lead note %d", seed, e->note); break;
-        case V_PAD:                      /* the pad layer: lanes 1-3 the chord part, 4 the solo note */
+        case V_PAD: {                    /* the pad layer: lanes 1-3 the chord part, 4 the solo note (its voice's
+                                            range: the strings 84-96, the others 72-84) */
+            int lo = pads_solo_lo(pads_solo_voice(&s->roll));
             CHECK(e->pad >= 1 && e->pad <= 4, "seed %u: pad lane %d", seed, e->pad);
-            CHECK(e->pad == 4 ? e->note >= 72 && e->note <= 84 : e->note >= 55 && e->note <= 72,
+            CHECK(e->pad == 4 ? e->note >= lo && e->note <= lo + 12 : e->note >= 55 && e->note <= 72,
                   "seed %u: pad note %d on lane %d", seed, e->note, e->pad);
             break;
+        }
         default: CHECK(e->note >= 70 && e->note <= 98, "seed %u: candy note %d", seed, e->note); break;
         }
         if (e->voice != V_LEAD && e->voice != V_CANDY) continue;

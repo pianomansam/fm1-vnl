@@ -1,20 +1,41 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 #include <string.h>
 #include "pads.h"
+#include "library.h"
 #include "plan.h"
 #include "rng.h"
 #include "theory.h"
 
-enum { LO = 55, HI = 72, SOLO_LO = 72, SOLO_HI = 84 };
+enum { LO = 55, HI = 72 };
 
-int pads_section_in(const song_roll_t *r, int block, int section)
+int pads_solo_voice(const song_roll_t *r)
 {
-    static const uint8_t SHARE[5] = {50, 60, 30, 50, 50};   /* SEC_INTRO, GROOVE, LEAD, BREAK, OUTRO */
+    static const int VOICE[4] = {INS_VOX_PAD, INS_FLUTE, INS_ORGAN, INS_STRINGS};
+    const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
+    int ok[4], n = 0, i;
     rng_t g;
-    if (section < 0 || section > SEC_OUTRO) return 0;
-    rng_seed(&g, r->seed ^ (uint32_t)(block + 1) * 0x2C1B3C6Du, 190);
-    return rng_int(&g, 100) < SHARE[section];
+    rng_seed(&g, r->seed, 191);
+    if (rng_int(&g, 100) < 40) return INS_NONE;           /* a song with no solo note */
+    for (i = 0; i < 4; i++)                              /* the flute over a flute lead, the organ over organ keys */
+        if (!set || !((VOICE[i] == INS_FLUTE && set->lead == INS_FLUTE) ||
+                      (VOICE[i] == INS_ORGAN && set->chords == INS_ORGAN)))
+            ok[n++] = VOICE[i];
+    return ok[rng_int(&g, n)];
 }
+
+int pads_section_part(const song_roll_t *r, int block, int section, int sustained_keys)
+{
+    /* the solo note's share by SEC_INTRO, GROOVE, LEAD, BREAK, OUTRO: over struck keys (the chord part otherwise),
+       over sustained keys (nothing otherwise: the first design's shares) */
+    static const uint8_t STRUCK[5] = {35, 25, 15, 35, 30}, SUSTAINED[5] = {50, 60, 30, 50, 50};
+    int other = sustained_keys ? 0 : 1;
+    rng_t g;
+    if (section < 0 || section > SEC_OUTRO || pads_solo_voice(r) == INS_NONE) return other;
+    rng_seed(&g, r->seed ^ (uint32_t)(block + 1) * 0x2C1B3C6Du, 190);
+    return rng_int(&g, 100) < (sustained_keys ? SUSTAINED : STRUCK)[section] ? 2 : other;
+}
+
+int pads_solo_lo(int voice) { return voice == INS_STRINGS ? 84 : 72; }
 
 int pads_rub(int a, int b)
 {
@@ -166,7 +187,7 @@ int pads_double_keys(const int keys[4], int out[3])
 }
 
 int pads_solo(const song_roll_t *r, int key, int mode, const int *pcs, int np, const int keys[4], const int *bass,
-              int nbass, int chord_top, int prev)
+              int nbass, int chord_top, int lo, int prev)
 {
     static const int ORDER[4] = {0, 2, 1, 6};           /* the tonic, the 3rd, the 2nd, the 7th (scale indices) */
     uint16_t pool = th_mode_pool(mode);
@@ -175,9 +196,9 @@ int pads_solo(const song_roll_t *r, int key, int mode, const int *pcs, int np, c
     for (i = 0; i < 12 && n < 7; i++)
         if ((pool >> i) & 1) off[n++] = i;
     if (n < 7) return 0;
-    ref = prev ? prev : SOLO_LO + mod12(key);           /* no note yet: from the tonic */
+    ref = prev ? prev : lo + mod12(key - lo);           /* no note yet: from the tonic */
     for (o = 0; o < 4; o++)
-        for (i = SOLO_LO + mod12(key + off[ORDER[o]] - SOLO_LO); i <= SOLO_HI; i += 12) {
+        for (i = lo + mod12(key + off[ORDER[o]] - lo); i <= lo + 12; i += 12) {
             int k, c;
             if ((chord_top && i < chord_top + 3) || th_is_avoid(key, mode, pcs, np, i)) continue;
             for (k = 0; k < 4; k++)

@@ -331,8 +331,8 @@ static void apply_requests(song_t *s, int B)
 /* ---- the pad layer (pads design) ---- */
 
 /* The pad layer for the 4 bars from B, a 4-bar boundary (roll and plan hold until the next, and a block covers the
-   whole group): only where the keys play; the chord part at each chord change over percussive keys, voice-led from
-   the last; the solo note in each bar of a block that rolled "in". The keys' voicings are followed as they will
+   whole group): only where the keys play, the block's part (pads_section_part) alone: the chord part at each chord
+   change over percussive keys, voice-led from the last, or the solo note in each bar, in its voice's range. The keys' voicings are followed as they will
    strike. The lead's notes are known for bar B only; the chord part's notes are chord tones and the lead keeps to the
    chord-scale, so the later bars' lead never rubs them. */
 static void pads_group(song_t *s, const plan_block_t *b, int B)
@@ -341,8 +341,9 @@ static void pads_group(song_t *s, const plan_block_t *b, int B)
     const lib_prog_t *pr = lib_prog_by_id((uint8_t)s->roll.v[RF_PROG]);
     int bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1, k, i, lead[16], nlead = 0;
     int up = harmony_pad_place(&s->roll) == PL_BELOW ? 0 : 12, keys_on = (b->layers & L_KEYS) != 0;
-    int chord_on = keys_on && set && !lib_ins_sustained(set->chords);
-    int solo_on = keys_on && pads_section_in(&s->roll, (int)(b - s->plan.b), b->section);
+    int part = keys_on ? pads_section_part(&s->roll, (int)(b - s->plan.b), b->section,
+                                           !set || lib_ins_sustained(set->chords)) : 0;
+    int chord_on = part == 1, solo_on = part == 2, lo = pads_solo_lo(pads_solo_voice(&s->roll));
     harmony_voicing_t vs = s->voicing;
     for (i = 0; i < 16; i++)
         if (s->lead.on[i] > 0) lead[nlead++] = s->lead.on[i];
@@ -371,7 +372,8 @@ static void pads_group(song_t *s, const plan_block_t *b, int B)
                 for (i = 0; i < nb && bass[i] != x; i++) {}
                 if (x && i == nb) bass[nb++] = x;
             }
-            n = pads_solo(&s->roll, s->roll.v[RF_KEY], s->roll.v[RF_MODE], pcs, np, keys, bass, nb, top, s->pads.solo);
+            n = pads_solo(&s->roll, s->roll.v[RF_KEY], s->roll.v[RF_MODE], pcs, np, keys, bass, nb, top, lo,
+                          s->pads.solo);
             if (n) s->pads.solo = n;
             s->pads.note[k][3] = n;
         }
