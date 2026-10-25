@@ -448,11 +448,11 @@ static float keys_gain(const song_roll_t *r)
     if (style == CS_HALF && !harmony_half_strikes(r)) /* half notes that hold (half_held) sit as held */
         style = CS_HELD;
     if (lib_ins_sustained(ins))
-        db = style == CS_ARP ? 3.0f : 0.0f;
+        db = style == CS_ARP ? 3.0f : 2.5f;   /* held: +2.5 for the softer strikes (Sam) */
     else if (style == CS_HELD)
-        db = (two ? 4.5f : 3.75f) + (ins == INS_NYLON ? 2.0f : 0.0f);
+        db = (two ? 6.75f : 6.0f) + (ins == INS_NYLON ? 2.0f : 0.0f);   /* +2.25: the softer strikes (Sam) */
     else if (style == CS_HALF)
-        db = 0.75f;
+        db = 3.0f;
     else if (style == CS_ARP)
         db = -0.25f;
     return fm_db2lin(db);

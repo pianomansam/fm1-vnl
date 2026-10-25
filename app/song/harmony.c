@@ -300,7 +300,7 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
         if (step != 0 || bar % p->bars_per_chord != 0) return 0;
         len = (uint32_t)((float)(p->bars_per_chord * 16) * step_samples);
         len = len > 441u ? len - 441u : 1u;
-        lo = 55; hi = 75;
+        lo = 40; hi = 58;                 /* struck softly, a rounder attack (Sam); keys_gain keeps the level */
         break;
     case CS_STABS:
         if (!((harmony_stab_steps(r) >> step) & 1u)) return 0;
@@ -316,7 +316,7 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
         if (step != 0 && step != 8) return 0;
         len = (uint32_t)(8.0f * step_samples);
         len = len > 441u ? len - 441u : 1u;
-        lo = 55; hi = 75;
+        lo = 40; hi = 58;                 /* as held: struck softly */
         break;
     default:                              /* the arpeggio: one chord tone a 16th (Sam: in 8ths it reads as a melody) */
         len = (uint32_t)step_samples;
