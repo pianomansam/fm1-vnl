@@ -145,7 +145,9 @@ The changes:
    strings demo Sam chose (about the same loudness, under the chord part's level).
 4. **Half-note comping:** a new comp style for the keys: the voicing struck on beats 1 and 3 (steps 0 and 8), the
    second strike a little softer, held to the next strike; a busy lead (4+ onsets a bar) thins it to the chord
-   changes. Comp shares (my call): held 55%, half notes 25%, arpeggio 20%. It applies to all keys; on sustained keys
+   changes. Comp shares (my call): held 55%, half notes 25%, arpeggio 20% as heard (weights held 44, arpeggio 20,
+   half 36: a half-note song holds instead over sustained keys, and where the kick is exactly beats 1 and 3, by Sam's
+   rule that keys and kick share a beat only when both aren't sparse). It applies to all keys; on sustained keys
    (pad, vox pad, organ) a restrike every half bar is wrong, so there it stays held.
 
 CPU: the chord and the solo note never sound together, so the layer costs no more than before (one lane's voice
