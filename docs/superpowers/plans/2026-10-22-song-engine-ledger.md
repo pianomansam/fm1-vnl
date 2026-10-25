@@ -395,9 +395,8 @@ plan's Task 5 report lists them by set).
   - Jazz/clean electric guitar: Karoryfer Emilyguitar (CC0), "and it's not even close."
   - Drums round 1: Swirly (brushes) is out. The kits' snares are too high-pitched; Sam wants something more subtle.
     The drum demos used the upright bass by mistake; round 2 uses the electric bass.
-  - Two acoustic pianos, both general (Sam): the Knight and the Kawai can each play any acoustic-piano part (held
-    chords, stabs, arps, the upcoming broken-chord climb, even the lead), as options beside the electric pianos, which stay.
-  - Reuse over reinvent (Sam): the cello may be the string ensemble synth in a low register (demos 2c-*).
+  - One acoustic piano, the Knight (Sam, correcting): it plays any acoustic-piano part (held chords, stabs, arps, the
+    upcoming broken-chord climb, even the lead), as an option beside the electric pianos, which stay. The Kawai is out.
 
 ### Sound engine: deferred minors (Plan 3a reviews, 2026-10-23)
 
