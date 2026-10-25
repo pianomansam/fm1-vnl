@@ -145,6 +145,9 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
 
 ### General
 
+- **Bass and kick separation: back burner (Sam, 2026-10-24: "Don't pursue right now. Put it way on the back
+  burner. If it's idiomatic to pair them, that's fine.").** The bass locked to the kick is the genre's idiom; the
+  parked bass-rhythm spike (VNL_BASS) stays parked.
 - **Piano broken-chord climb (Sam, 2026-10-24: "soon, just not quite yet").** The arpeggio comping on piano-like keys
   (Rhodes, Wurli, felt, DX EP) as a rising broken chord over 2-3 octaves: root an octave below the voicing, 5th,
   10th, then the voicing and the voicing an octave up; chord tones only down low. It sometimes lands on the voicing as a
