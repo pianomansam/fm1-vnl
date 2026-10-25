@@ -30,7 +30,7 @@ Flash: the image is 194 KB of a 400 KB budget (`tools/mem-check.sh`), so about *
 | FluidR3 solo cello (MIT) | 28 KB | about 0.05 (synth leads are 0.12-0.24); an added lead option |
 | Karoryfer Emilyguitar (CC0) | 51 KB | comping about 0.13, strumming about 0.18 (half rate): new |
 | Sampled drum pool, 4 kits (CC0) | 42-64 KB | 0.13-0.23 (synth kits are 0.11-0.13); added kits, the synth kits stay |
-| Kawai grand: a second acoustic piano for any piano part (chords, stabs, arps, broken chords) | 38-51 KB | about 0.15, the same as the Knight |
+| Kawai grand: a second acoustic piano for any piano part (chords, stabs, arps, broken chords, the lead) | 38-51 KB | about 0.15, the same as the Knight |
 | Synth string-ensemble lead (kept as synth) | 0 KB | about 0.10 at half rate |
 
 Total: about 190-230 KB without the Kawai, 230-280 KB with it, against about 215 KB free.
