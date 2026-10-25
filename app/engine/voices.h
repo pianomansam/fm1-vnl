@@ -92,8 +92,8 @@ float vx_pad_lane(int lane, int *step, int *held);
 const vx_patch_t *vx_pad_lane_patch(int lane);
 /* Tests: the mono synth's legato notes to a new pitch (its glides) on V_LEAD since vx_init (0 for any other role). */
 uint32_t vx_glides(int role);
-/* Tests: the chords' pool's steals of a note still held (its length not yet over) since vx_init (0 for any other
-   role). */
+/* Tests: the chords' pool's steals of a voice still sounding (held, or in its release; a string re-struck with no
+   spare voice free counts) since vx_init (0 for any other role). */
 uint32_t vx_steals(int role);
 /* Tests: the keys' duck under the lead now, in dB (0 at rest, negative while ducked). */
 float vx_duck_db(void);
@@ -106,9 +106,11 @@ int vx_tiny(void);
    (M_SUB) on the lead plays a note that arrives while its last is still held, or within 25 ms of its
    end and a 4th or less from it, legato on that voice, gliding to it; after a longer rest or a wider leap it starts
    on its pitch. The chords' pool is
-   4 voices, 8 for a pad (its release crosses the next chord's swell) or a sampled instrument (a strum's 6 strings
-   while the last stroke rings out; a V_CHORD event's pad 1 plays a sampled patch's muted note, the strum's chuck),
-   and a pad's swell takes at most half its note;
+   4 voices, 8 for a pad (its release crosses the next chord's swell) or a sampled instrument. On a sampled patch a
+   V_CHORD event's pad is the strum's string (strum.h): bit 0 a chuck (the patch's muted note), bits 1-3 the string
+   1-6, played on its own voice (the chords' first 6); a re-strike moves the string's last note to a spare voice (the
+   last 2) that damps it over about 4 ms, so the new note starts on time and no stroke takes another string's tail.
+   A pad's swell takes at most half its note;
    the pad layer's (V_PAD) is 4 (a 3-note chord and a solo note), its swell capped alike. */
 void vx_event(const song_ev_t *e);
 /* Adds the mix into l and r (sample-accurate event starts). The chords', the lead's, the ear candy's and the pad

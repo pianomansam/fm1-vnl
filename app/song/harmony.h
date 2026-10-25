@@ -17,6 +17,9 @@ enum { CS_HELD, CS_STABS, CS_OFFBEATS, CS_ARP, CS_HALF, CS_STRUM };
    (per-song chance 25-50%); dark (intro, outro) changes nothing here: it is a sound, not a chord. Returns the count. */
 int harmony_chord_at(const song_roll_t *r, int bar, int pass, int dark, int *pcs);
 
+/* The comping's per-strike hash (velocities, roll gaps): strum.c's too. */
+uint32_t harmony_mix(uint32_t a, uint32_t b, uint32_t c, uint32_t d);
+
 int harmony_style(const song_roll_t *r);   /* CS_*, per song (seed stream 121), weighted by the set's chords instrument */
 int harmony_style_ins(int ins, int tempo, uint32_t seed);   /* the same for a chords instrument and a tempo (BPM) */
 unsigned harmony_stab_steps(const song_roll_t *r);   /* the steps stab comping strikes: 1 and a step the kick leaves free */

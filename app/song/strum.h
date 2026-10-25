@@ -24,8 +24,9 @@ int strum_pattern(const song_roll_t *r, int *slow);
 int strum_voicing(const int *pcs, int npcs, const int prev[6], int out[6]);
 
 /* V_CHORD events of one 16th step (bar and step from 0) striking shape (strum_voicing's). Writes nothing unless the
-   block has L_KEYS. Every note ends by the pattern's next stroke; a chuck's notes carry pad 1 (the sampler's muted
-   note). Returns the number of events written (at most max). */
+   block has L_KEYS. Every note ends by the pattern's next stroke. pad carries the string: bit 0 a chuck (the
+   sampler's muted note), bits 1-3 the string, 1 (low E) to 6 (the voices play each string on its own voice, a
+   re-strike damping its last note). Returns the number of events written (at most max). */
 int strum_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, float step_samples, const int shape[6],
                song_ev_t *out, int max);
 

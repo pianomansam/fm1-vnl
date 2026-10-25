@@ -5,13 +5,7 @@
 #include <string.h>
 #include "strum.h"
 #include "rng.h"
-
-static uint32_t mix(uint32_t a, uint32_t b, uint32_t c, uint32_t d)
-{
-    uint32_t h = a * 0x9E3779B1u ^ (b + 1) * 0x85EBCA6Bu ^ (c + 1) * 0xC2B2AE35u ^ (d + 1) * 0x27D4EB2Fu;
-    h ^= h >> 15; h *= 0x2C1B3C6Du; h ^= h >> 12; h *= 0x297A2D39u; h ^= h >> 15;
-    return h;
-}
+#include "harmony.h"
 
 static int clampi(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }
 static int absi(int v) { return v < 0 ? -v : v; }
@@ -34,7 +28,7 @@ static uint32_t strum_draw(const song_roll_t *r)
 {
     rng_t g;
     rng_seed(&g, r->seed, 194);
-    return mix(rng_next(&g), r->seed, 194u, 1u);
+    return harmony_mix(rng_next(&g), r->seed, 194u, 1u);
 }
 
 int strum_pattern(const song_roll_t *r, int *slow)
@@ -256,7 +250,7 @@ int strum_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, f
         float s = ((float)r->v[RF_SWING] * 0.001f - 0.5f) * 2.0f * step_samples;
         sw = s > 0.0f ? (uint32_t)(s + 0.5f) : 0u;
     }
-    t0 = sw + mix(r->seed, (uint32_t)bar, (uint32_t)step, 60u) % 133u;   /* the hand a little late: 0-3 ms */
+    t0 = sw + harmony_mix(r->seed, (uint32_t)bar, (uint32_t)step, 60u) % 133u;   /* the hand a little late: 0-3 ms */
     for (i = 0; i < 6; i++)
         if (shape[i]) { low = i; break; }
     if (low < 0) return 0;
@@ -264,15 +258,16 @@ int strum_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, f
         int s = dir > 0 ? k : 5 - k, v;
         uint32_t at, end;
         if (!shape[s] || (thumb ? s != low && (!pinch || s < lo) : s < lo)) continue;   /* the thumb: the lowest */
-        at = t0 + (uint32_t)((float)n * gap) + mix(r->seed, (uint32_t)bar, (uint32_t)step, 70u + (uint32_t)s) % 45u;
+        at = t0 + (uint32_t)((float)n * gap) +
+             harmony_mix(r->seed, (uint32_t)bar, (uint32_t)step, 70u + (uint32_t)s) % 45u;   /* about 1 ms */
         end = (uint32_t)span > 2u ? (uint32_t)span - 2u : 0u;   /* by the next stroke */
         if (at + 1u >= end) break;
-        v = vel + (int)(mix(r->seed, (uint32_t)bar, (uint32_t)step, 80u + (uint32_t)s) % 9u) - 4;
+        v = vel + (int)(harmony_mix(r->seed, (uint32_t)bar, (uint32_t)step, 80u + (uint32_t)s) % 9u) - 4;
         if (dir < 0) v -= v * n / 25;                    /* an up stroke fades as it goes (4% a string) */
         out[n].voice = V_CHORD;
         out[n].note = (uint8_t)shape[s];
         out[n].vel = (uint8_t)clampi(v + dark, 25, 110);
-        out[n].pad = (uint8_t)mute;
+        out[n].pad = (uint8_t)(mute | (s + 1) << 1);    /* bit 0 a chuck; bits 1-3 the string, 1-6 */
         out[n].delay = at;
         out[n].len = end - at;
         if (mute && out[n].len > 2646u) out[n].len = 2646u;   /* a chuck: 60 ms */

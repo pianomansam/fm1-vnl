@@ -8527,8 +8527,8 @@ static void st_play(const song_roll_t *r, int pat, int slow, int dbl)
         }
         for (i = 0; i < k; i++) {
             int in = 0;
-            st_chucks += pad[i] == 1;
-            st_bad[3] += pad[i] == 1 && pat != SP_CHUCK;
+            st_chucks += pad[i] & 1;
+            st_bad[3] += (pad[i] & 1) && pat != SP_CHUCK;
             for (j = 0; j < np; j++) in |= (c[i] - pcs[j] + 120) % 12 == 0;
             st_bad[4] += !in;
             st_bad[5] += c[i] < 40 || c[i] > 76;
@@ -8553,7 +8553,7 @@ static void st_play(const song_roll_t *r, int pat, int slow, int dbl)
     song_set_pads_double(0);
 }
 
-/* the first 24 bars rendered: the chords' pool's steals of a held note, and the most voices sounding at once */
+/* the first 24 bars rendered: the chords' pool's steals of a sounding voice, and the most voices sounding at once */
 static uint32_t st_render(const song_roll_t *r, int *peak)
 {
     static song_t s;
@@ -8581,11 +8581,45 @@ static uint32_t st_render(const song_roll_t *r, int *peak)
     return vx_steals(V_CHORD);
 }
 
+/* a string re-strike on the engine: two six-string strokes 6 ms a string apart on the nylon, the second re-striking
+   every string at once at full level: no voice stolen (each old note damped on a spare voice), no step over 0.05 */
+static void st_restrike(void)
+{
+    float pv = 0.0f, d = 0.0f;
+    int k, j;
+    vx_fx_off(VX_OFF_CHORUS | VX_OFF_DELAY);
+    fx_glue_off(1);
+    vx_init();
+    vx_assign(V_CHORD, INS_NYLON);
+    for (k = 0; k < 2; k++)
+        for (j = 0; j < 6; j++) {
+            song_ev_t e;
+            memset(&e, 0, sizeof e);
+            e.voice = V_CHORD;
+            e.note = (uint8_t)(48 + 5 * j + k);
+            e.vel = 127;
+            e.pad = (uint8_t)((j + 1) << 1);
+            e.delay = (uint32_t)k * 8000u + (uint32_t)j * 265u;
+            e.len = 7000u;
+            vx_event(&e);
+        }
+    for (k = 0; k < 6; k++) {
+        float m = vt_maxdelta(4096, 0, &pv);
+        if (m > d) d = m;
+    }
+    printf("strum: re-strike of 6 strings: %u voices stolen, the largest step %.4f\n", (unsigned)vx_steals(V_CHORD),
+           (double)d);
+    CHECK(vx_steals(V_CHORD) == 0, "strum: a re-strike stole %u voices", (unsigned)vx_steals(V_CHORD));
+    CHECK(d <= 0.05f, "strum: a re-strike steps %.4f", (double)d);
+    vx_fx_off(0u);
+    fx_glue_off(0);
+}
+
 static void test_strum(void)
 {
     static const int SETS[3] = {2, 9, 17};
-    long pcnt[SP_N] = {0}, ballads = 0, slow_ballads = 0, bad_slow = 0;
-    int got[SP_N + 1] = {0}, rendered[SP_N + 1] = {0}, seed, k, dbl_songs = 0;
+    long pcnt[SP_N] = {0}, ballads = 0, slow_ballads = 0, bad_slow = 0, st_steals = 0;
+    int got[SP_N + 1] = {0}, seed, k, dbl_songs = 0, st_peak = 0;
     for (seed = 1; seed <= 500; seed++) {
         song_roll_t r;
         int slow, p;
@@ -8603,6 +8637,7 @@ static void test_strum(void)
     CHECK(ballads && slow_ballads * 100 >= ballads * 45 && slow_ballads * 100 <= ballads * 55,
           "strum: %ld of %ld ballads slow, wanted 45-55%%", slow_ballads, ballads);
     CHECK(bad_slow == 0, "strum: %ld songs of another pattern slow", bad_slow);
+    st_restrike();
     memset(st_bad, 0, sizeof st_bad);
     st_strums = st_ups = st_moves = st_small = st_chucks = st_pad_notes = st_pad0 = st_bad0 = 0;
     for (seed = 1; seed < 4000; seed++) {          /* three songs of each pattern (the ballad quick and slow) */
@@ -8617,16 +8652,20 @@ static void test_strum(void)
         st_count0 = set == 2 && dbl_songs < 4;
         st_play(&r, p, slow, 0);
         if (st_count0) { st_play(&r, p, slow, 1); dbl_songs++; }
-        if (!rendered[kind] && (kind == SP_CHUCK || kind == SP_N || kind == SP_DDU)) {
+        {   /* every song rendered: a stroke re-strikes its strings, never steals another string's ringing voice */
             int peak;
             uint32_t st = st_render(&r, &peak);
-            rendered[kind] = 1;
-            printf("strum: seed %d pattern %d%s: %u held notes stolen on the chords' pool, %d voices at most\n", seed,
-                   p, slow ? " (slow)" : "", (unsigned)st, peak);
-            CHECK(st == 0, "strum: seed %d: %u held chord notes stolen", seed, (unsigned)st);
+            st_steals += st;
+            if (peak > st_peak) st_peak = peak;
+            if (st) printf("strum: seed %d pattern %d%s: %u sounding chord voices stolen\n", seed, p,
+                           slow ? " (slow)" : "", (unsigned)st);
         }
     }
     for (k = 0; k <= SP_N; k++) CHECK(got[k] == 3, "strum: only %d songs of kind %d", got[k], k);
+    printf("strum: 15 renders (24 bars each): %ld sounding chord voices stolen, %d voices (all roles) at most\n",
+           st_steals, st_peak);
+    CHECK(st_steals == 0, "strum: %ld sounding chord voices stolen (a stroke must re-strike its strings' voices)",
+          st_steals);
     printf("strum: %ld strums (%ld up, %ld chuck notes); top note within 5 semitones in %ld of %ld chord changes; "
            "pads double: %ld chord-part notes, %ld not the guitar's (default: %ld of %ld)\n", st_strums, st_ups,
            st_chucks, st_small, st_moves, st_pad_notes, st_bad[8], st_bad0, st_pad0);

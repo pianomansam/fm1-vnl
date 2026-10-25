@@ -786,3 +786,6 @@ patch is M_SAMP (as for a pad), so a stroke never steals one still held while th
 - The voicer (a search over movable shapes, once per new chord, cached per song): about 8 us a chord on the host.
 - **Memory** (`tools/mem-check.sh`): image 365000 B, RAM 51472 B, pool 180216 B (ok; +3984 B image, +256 B RAM: the
   per-song shape cache).
+- **Fix round 1 (one voice per string):** a stroke re-strikes its strings' voices (the chords' first 6), the old note
+  damped on one of the 2 spare voices; no stroke takes another string's tail. Seed 32 forced 0.904 (from 0.937),
+  seed 24 0.821 (from 0.857). Memory: image 364664 B, RAM 51536 B (ok).

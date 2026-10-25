@@ -14,6 +14,8 @@ static uint32_t mix(uint32_t a, uint32_t b, uint32_t c, uint32_t d)
     return h;
 }
 
+uint32_t harmony_mix(uint32_t a, uint32_t b, uint32_t c, uint32_t d) { return mix(a, b, c, d); }
+
 static int clampi(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }
 
 static const lib_prog_t *prog_of(const song_roll_t *r)

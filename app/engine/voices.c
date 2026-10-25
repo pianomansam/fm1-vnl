@@ -37,6 +37,7 @@
 #define QN 64
 #define NCH 8 /* chord voices: a held pad uses all 8 (its release crosses the next chord's swell), the rest the first 4 */
 #define NCH_KEYS 4
+#define NSTR 6 /* a strum's strings: the chords' first 6 voices, one each (the other 2 damp re-struck strings) */
 #define PAD_LONG 22050u /* a pad note this long (half a second) or longer is held: it may take the pool's other 4 */
 #define NLD 2 /* lead voices */
 #define NCD 2 /* candy voices */
@@ -211,6 +212,7 @@ typedef struct {
     uint8_t hr;   /* rendered at half the rate, on even samples (a step is two), into its role's upsampler */
     uint8_t qr;   /* the pad layer's: rendered at a quarter of the rate (a step is four; pad_seg) */
     uint8_t pend; /* a steal in progress: fade out, then start pe on ppt */
+    uint8_t damp; /* a re-struck string's last note, moved to a spare voice: fades out as a steal does, then off */
     const vx_patch_t *ppt;
     song_ev_t pe;
 } voice_t;
@@ -228,7 +230,7 @@ static uint32_t age_ctr, rng = 0x1234567u;
 static uint32_t clk;  /* the engine's clock at the chunk's start */
 static uint32_t t_on; /* the engine's clock (samples since vx_init) at the events firing now (vx_render) */
 static uint32_t n_glide; /* tests (vx_glides): the mono lead's legato notes to a new pitch */
-static uint32_t n_steal; /* tests (vx_steals): held chord notes stolen */
+static uint32_t n_steal; /* tests (vx_steals): chord voices stolen while still sounding */
 static float gain, gain_tgt, gain_step;
 static float ch_m[CHUNK], ch_s[CHUNK]; /* a chunk's music (into fx_process_pairs) and its right channel (out) */
 static float bb[NBUS][CHUNK];          /* the chunk's role buses (the drums' always; the others while filtering) */
@@ -588,6 +590,7 @@ static void env_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int l
     v->held = 1;
     v->on = 1;
     v->pend = 0;
+    v->damp = 0;
     v->note = e->note;
     v->off = t_on + e->len; /* (a stolen voice's note starts up to ~5 ms later: its end is read a little early) */
 }
@@ -1098,8 +1101,36 @@ static void pool_on(const song_ev_t *e, int role)
         }
         return;
     }
-    if (role == V_CHORD && p->model == M_SAMP && e->pad)
+    if (role == V_CHORD && p->model == M_SAMP && (e->pad & 1))
         p = &mute_pt; /* a chuck: the sampler's muted note */
+    if (role == V_CHORD && p->model == M_SAMP && e->pad >> 1 >= 1 && e->pad >> 1 <= NSTR) {
+        /* a strum's string (pad bits 1-3: string 1-6): its own voice, as on a guitar. A re-strike damps the string's
+           last note: moved to a spare voice (the pool's last two) that fades it out over about 4 ms while the new
+           note starts on time; with no spare free, the string's voice fades first (a steal: up to ~5 ms late). No
+           stroke takes another string's ringing voice. */
+        v = &fv[first + (e->pad >> 1) - 1];
+        v->age = ++age_ctr;
+        if (v->on && !v->pend)
+            for (i = first + NSTR; i < first + count; i++)
+                if (!fv[i].on) {
+                    fv[i] = *v;
+                    fv[i].held = 0;
+                    fv[i].damp = 1;
+                    v->on = 0;
+                    break;
+                }
+        if (!v->on) {
+            v->g = 0.0f;
+            v->role = (uint8_t)role;
+            voice_start(v, p, e, 0);
+        } else {
+            n_steal++;
+            v->pe = *e;
+            v->ppt = p;
+            v->pend = 1;
+        }
+        return;
+    }
     if (role == V_CHORD && p->model != M_SAMP && (p->model != M_PAD || e->len < PAD_LONG))
         count = NCH_KEYS; /* (a held pad's chord change overlaps: its old chord releases under the new one's swell; a
                              sampled instrument's strum takes up to 6 strings while the last stroke rings out) */
@@ -1146,7 +1177,7 @@ static void pool_on(const song_ev_t *e, int role)
     } else if (role == V_BASS && !v->pend && v->pt == p && p->model == M_BASS) {
         voice_start(v, p, e, 1); /* legato: phases, gate and level carry over */
     } else { /* a steal; on the bass, a re-pluck or a new patch */
-        n_steal += role == V_CHORD && v->held;
+        n_steal += role == V_CHORD; /* (a voice still sounding: held, or in its release) */
         v->pe = *e;
         v->ppt = p;
         v->pend = 1;
@@ -1484,6 +1515,12 @@ VX_INLINE float sub_sample(voice_t *v)
    the release (off below OFF_THR). */
 static inline void gate_step(voice_t *v)
 {
+    if (v->damp) { /* a damped string: out over about 4 ms */
+        v->g -= v->g * (G_STEAL * step_len(v));
+        if (v->g < STEAL_THR)
+            v->on = v->damp = 0;
+        return;
+    }
     if (v->pend) { /* fade the victim out, then start the queued note */
         v->g -= v->g * (G_STEAL * step_len(v));
         if (v->g < STEAL_THR)
