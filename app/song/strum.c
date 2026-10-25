@@ -62,7 +62,8 @@ enum {
     V_HI = 76,     /* E5: the top string's 12th fret */
     ROOT_HI = 59,  /* the root (the lowest note) at most B3 */
     SPAN = 4,      /* the fretting hand's reach: fretted notes within 4 frets (open strings free) */
-    TOP_AIM = 67   /* the top note's home, G4 */
+    TOP_AIM = 64,  /* the top note's home, E4: about the piano voicings' top (the lead sits a 4th over it) */
+    TOP_CAP = 67   /* over G4 the top costs more: the lead's floor rises with it */
 };
 
 typedef struct {
@@ -121,7 +122,7 @@ static int shape_cost(const vc_t *c, const int *s)
         if (cnt[i] > 2) cost += 6 * (cnt[i] - 2);
     if (c->third >= 0 && cnt[c->third] > 1) cost += 4;   /* a doubled 3rd */
     cost += (6 - n) * 5 + inner * 4;
-    cost += absi(top - TOP_AIM) + (top > 71 ? 3 * (top - 71) : 0);   /* over B4 it pokes up into the lead's range */
+    cost += absi(top - TOP_AIM) + (top > TOP_CAP ? 3 * (top - TOP_CAP) : 0);   /* (the lead's room) */
     if (c->prev) {
         int d = absi(top - c->ptop);
         cost += 4 * d + (d > 5 ? 40 : 0) + absi(low - c->plow);

@@ -8745,9 +8745,80 @@ static void st_restrike(void)
     fx_glue_off(0);
 }
 
+
+/* Strumming only under a sustained lead (Sam): no guitar set with a struck lead strums (500 seeds each), the guitar
+   sets with a sustained lead still do. And a strum song's lead has the register room a held song's has (Sam: strum
+   songs squeezed the lead high; seed 6 on set 2 played only A5 and B5): over the guitar sets' songs of each kind
+   (strum, against held or half notes), the strum songs' lead spans 7 semitones or more in 90% of songs (held: 96%),
+   none has fewer than 3 pitches (held: 3 at least), and their median lowest note is at most 1 over the held songs'
+   (held: 72, C5). */
+static int sl_cmp_i(const void *a, const void *b) { return *(const int *)a - *(const int *)b; }
+static void test_strum_lead(void)
+{
+    static song_t s;
+    static int lows[2][400];
+    int k, n[2] = {0, 0}, wide = 0, few = 0, under = 0, struck = 0;
+    for (k = 0; k < LIB_NSETS; k++) {
+        const lib_set_t *set = &LIB_SETS[k];
+        uint32_t seed;
+        int strums = 0;
+        if (set->chords != INS_NYLON && set->chords != INS_EMILY) continue;
+        for (seed = 1; seed <= 500; seed++) {
+            song_roll_t r;
+            int st, kind, lo = 127, hi = 0, pitches = 0;
+            uint64_t mask = 0;
+            song_ev_t ev[64];
+            roll_song(NULL, seed, &r);
+            if (roll_set(&r, RF_SET, set->id) != set->id) continue;
+            st = harmony_style(&r);
+            strums += st == CS_STRUM;
+            if (!lib_ins_sustained(set->lead)) {         /* (held songs' register: the sustained leads' only) */
+                struck += st == CS_STRUM;
+                if (st != CS_STRUM) continue;
+            }
+            kind = st == CS_STRUM;
+            if ((!kind && st != CS_HELD && st != CS_HALF) || n[kind] >= 400 || seed > 300) continue;
+            song_start(&s, &r);
+            while (s.state == SS_PLAYING) {
+                int m = song_tick(&s, ev, 64), i;
+                for (i = 0; i < m; i++)
+                    if (ev[i].voice == V_LEAD) {
+                        int x = ev[i].note;
+                        if (x < lo) lo = x;
+                        if (x > hi) hi = x;
+                        if (x >= 40 && x < 104) mask |= (uint64_t)1 << (x - 40);
+                    }
+            }
+            if (!hi) continue;
+            for (; mask; mask &= mask - 1) pitches++;
+            lows[kind][n[kind]++] = lo;
+            if (kind) {
+                under++;
+                wide += hi - lo >= 7;
+                few += pitches < 3;
+            }
+        }
+        printf("strum lead: set %d (%s, lead %s): %d strum songs in 500\n", set->id, set->name,
+               lib_ins_sustained(set->lead) ? "sustained" : "struck", strums);
+        CHECK(lib_ins_sustained(set->lead) ? strums > 50 : strums == 0, "strum lead: set %d strums in %d of 500",
+              set->id, strums);
+    }
+    CHECK(struck == 0, "strum lead: %d strum songs under a struck lead", struck);
+    qsort(lows[0], (size_t)n[0], sizeof lows[0][0], sl_cmp_i);
+    qsort(lows[1], (size_t)n[1], sizeof lows[1][0], sl_cmp_i);
+    printf("strum lead: %d strum songs (span >= 7 in %d, under 3 pitches %d), lowest note median %d; %d held or half "
+           "songs, median %d\n", under, wide, few, n[1] ? lows[1][n[1] / 2] : 0, n[0], n[0] ? lows[0][n[0] / 2] : 0);
+    CHECK(under > 50 && n[0] > 50, "strum lead: %d strum and %d held songs", under, n[0]);
+    CHECK(wide * 10 >= under * 9, "strum lead: the lead spans 7 or more in only %d of %d strum songs", wide, under);
+    CHECK(few == 0, "strum lead: %d strum songs with a lead of under 3 pitches", few);
+    CHECK(n[0] && n[1] && lows[1][n[1] / 2] <= lows[0][n[0] / 2] + 1,
+          "strum lead: the strum songs' lowest lead note's median %d, the held songs' %d", n[1] ? lows[1][n[1] / 2] : 0,
+          n[0] ? lows[0][n[0] / 2] : 0);
+}
+
 static void test_strum(void)
 {
-    static const int SETS[3] = {2, 9, 17};
+    static const int SETS[2] = {9, 27};   /* the guitar sets with a sustained lead: the only ones that strum */
     long pcnt[SP_N] = {0}, ballads = 0, slow_ballads = 0, bad_slow = 0, st_steals = 0;
     int got[SP_N + 1] = {0}, seed, k, dbl_songs = 0, st_peak = 0;
     for (seed = 1; seed <= 500; seed++) {
@@ -8772,14 +8843,14 @@ static void test_strum(void)
     st_strums = st_ups = st_moves = st_small = st_chucks = st_pad_notes = st_pad0 = st_bad0 = 0;
     for (seed = 1; seed < 4000; seed++) {          /* three songs of each pattern (the ballad quick and slow) */
         song_roll_t r;
-        int slow, p, kind, set = SETS[seed % 3];
+        int slow, p, kind, set = SETS[seed % 2];
         roll_song(NULL, (uint32_t)seed, &r);
         if (roll_set(&r, RF_SET, set) != set || harmony_style(&r) != CS_STRUM) continue;
         p = strum_pattern(&r, &slow);
         kind = p == SP_BALLAD && slow ? SP_N : p;
         if (got[kind] >= 3) continue;
         got[kind]++;
-        st_count0 = set == 2 && dbl_songs < 4;
+        st_count0 = set == 9 && dbl_songs < 4;
         st_play(&r, p, slow, 0);
         if (st_count0) { st_play(&r, p, slow, 1); dbl_songs++; }
         {   /* every song rendered: a stroke re-strikes its strings, never steals another string's ringing voice */
@@ -9263,6 +9334,7 @@ int main(int argc, char **argv)
     RUN(test_pad_determinism);
     RUN(test_pad_double);
     RUN(test_strum);
+    RUN(test_strum_lead);
     RUN(test_samples_table);
     RUN(test_samp);
     RUN(test_comp_styles);

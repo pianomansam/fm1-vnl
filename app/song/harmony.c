@@ -98,24 +98,36 @@ enum { GUITAR_SLOW_BPM = 84 };
 /* per song (Sam, after hearing them side by side): weights held 44, arpeggio 20, half notes 36, so as heard held
    about 55%, half notes 25%, arpeggio 20% (half notes hold over sustained keys and a kick on 1 and 3 alone:
    half_held); offbeats and stabs retired (Sam: the "and" 8ths liked "less and less"; stabs "just not working") */
-int harmony_style_ins(int ins, int tempo, uint32_t seed)
+static int style_draw(int ins, int tempo, int strum, uint32_t seed)
 {
     /* held, stabs, offbeats (retired: 0 everywhere), arpeggio, half notes, strum. Synth keys as always (stabs "just
        not working" there); the sampled instruments sound better, so stabs return on the Knight and the guitars, and
        the guitars strum (the same draw: zero weights never change a pick) */
     static const uint8_t SYNTH[6] = {44, 0, 0, 20, 36, 0}, KNIGHT[6] = {35, 25, 0, 15, 25, 0},
                          GUITAR[6] = {20, 20, 0, 15, 15, 30}, GUITAR_SLOW[6] = {0, 20, 0, 15, 35, 30};
-    const uint8_t *w = ins == INS_KNIGHT ? KNIGHT : (ins == INS_NYLON || ins == INS_EMILY) ?
+    const uint8_t *t = ins == INS_KNIGHT ? KNIGHT : (ins == INS_NYLON || ins == INS_EMILY) ?
                          (tempo < GUITAR_SLOW_BPM ? GUITAR_SLOW : GUITAR) : SYNTH;
+    uint8_t w[6];
     rng_t g;
+    memcpy(w, t, sizeof w);
+    if (!strum) w[CS_STRUM] = 0;
     rng_seed(&g, seed, 121);
     return rng_weighted(&g, w, 6);
+}
+
+int harmony_style_ins(int ins, int tempo, uint32_t seed) { return style_draw(ins, tempo, 1, seed); }
+
+/* the guitars strum only under a sustained lead (Sam, 2026-10-25): under a struck one their strum weight is 0, the
+   others as they are */
+int harmony_style_lead(int ins, int lead, int tempo, uint32_t seed)
+{
+    return style_draw(ins, tempo, lib_ins_sustained(lead), seed);
 }
 
 int harmony_style(const song_roll_t *r)
 {
     const lib_set_t *s = lib_set_by_id((uint8_t)r->v[RF_SET]);
-    return harmony_style_ins(s ? s->chords : INS_NONE, r->v[RF_TEMPO], r->seed);
+    return harmony_style_lead(s ? s->chords : INS_NONE, s ? s->lead : INS_NONE, r->v[RF_TEMPO], r->seed);
 }
 
 /* how far voicing b is from a, as the voicer weighs it: the lower voices' moves, the top's 8 a semitone (and 6 for a

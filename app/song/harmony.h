@@ -22,6 +22,9 @@ uint32_t harmony_mix(uint32_t a, uint32_t b, uint32_t c, uint32_t d);
 
 int harmony_style(const song_roll_t *r);   /* CS_*, per song (seed stream 121), weighted by the set's chords instrument */
 int harmony_style_ins(int ins, int tempo, uint32_t seed);   /* the same for a chords instrument and a tempo (BPM) */
+/* ... and its lead: the guitars strum only under a sustained lead (lib_ins_sustained; Sam), the strum's weight 0 under
+   a struck one, the other weights unchanged (stream 121). harmony_style is this for the song's set. */
+int harmony_style_lead(int ins, int lead, int tempo, uint32_t seed);
 unsigned harmony_stab_steps(const song_roll_t *r);   /* the steps stab comping strikes: 1 and a step the kick leaves free */
 
 int harmony_half_strikes(const song_roll_t *r);   /* 1 when the song really plays half notes (not held by sustained keys or the kick) */

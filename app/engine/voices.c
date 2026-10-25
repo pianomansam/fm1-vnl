@@ -464,6 +464,7 @@ static float keys_gain(const song_roll_t *r)
     const lib_set_t *s = lib_set_by_id((uint8_t)r->v[RF_SET]);
     const lib_prog_t *pg = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
     int style = harmony_style(r), ins = s ? s->chords : INS_NONE, two = pg && pg->bars_per_chord >= 2;
+    int gtr = ins == INS_NYLON || ins == INS_EMILY;
     float db = 0.0f;
     if (style == CS_HALF && !harmony_half_strikes(r)) /* half notes that hold (half_held) sit as held */
         style = CS_HELD;
@@ -472,11 +473,11 @@ static float keys_gain(const song_roll_t *r)
     else if (style == CS_HELD)
         db = two ? 6.75f : 6.0f;   /* +2.25: the softer strikes (Sam) */
     else if (style == CS_HALF)
-        db = 3.0f;
+        db = gtr ? 3.5f : 3.0f;   /* a guitar's half notes a little up (struck softly, they sank under a struck lead) */
     else if (style == CS_STABS)
-        db = (two ? 2.75f : 2.0f) - (ins == INS_KNIGHT ? 3.0f : 0.0f);   /* struck harder (vel 60-85), so 4 dB under
-                                                                            held; the Knight's hammer 3 dB more (its
-                                                                            sets' lead over keys) */
+        db = (two ? 2.75f : 2.0f) - (ins == INS_KNIGHT ? 3.0f : gtr ? 1.0f : 0.0f);   /* struck harder (vel 60-85),
+                                                    so 4 dB under held; the Knight's hammer 3 dB more, a guitar's
+                                                    pluck 1 (their sets' lead over keys) */
     else if (style == CS_ARP)
         db = -0.25f;
     else if (style == CS_STRUM)   /* struck harder, many strokes a bar: under the arpeggio; the ballad's three less */
