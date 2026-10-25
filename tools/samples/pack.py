@@ -6,7 +6,8 @@
 #   crossfaded; the sampler's envelope does the decay), peak-normalized.
 #   Drum hits: the listed mic files of one take summed, an optional high-pass, onset trimmed (1 ms kept), resampled,
 #   cut to length with a cosine fade over the last 40%, peak-normalized.
-#   Both: 4-bit IMA ADPCM from (0, SMP_IDX0), and a gain that brings the first 150 ms to unit RMS.
+#   Both: 4-bit IMA ADPCM from (0, idx0), idx0 the starting step index that encodes the zone best (the first 5 ms
+#   weigh most: a poor start smears a hit's attack), and a gain that brings the first 150 ms to unit RMS.
 # The output is deterministic: the same inputs give a byte-identical file.
 # Usage (with a Python that has numpy and scipy; run it with -I):
 #   pack.py list                 the files to download: "dir<TAB>url<TAB>path" (fetch.sh reads this)
@@ -29,8 +30,6 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import sf2  # noqa: E402
 
-IDX0 = 0  # samples.h's SMP_IDX0
-
 STEP = [7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 31, 34, 37, 41, 45, 50, 55, 60, 66, 73, 80, 88, 97,
         107, 118, 130, 143, 157, 173, 190, 209, 230, 253, 279, 307, 337, 371, 408, 449, 494, 544, 598, 658, 724, 796,
         876, 963, 1060, 1166, 1282, 1411, 1552, 1707, 1878, 2066, 2272, 2499, 2749, 3024, 3327, 3660, 4026, 4428,
@@ -39,7 +38,7 @@ STEP = [7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 31, 34, 37, 41,
 IDX = [-1, -1, -1, -1, 2, 4, 6, 8]
 
 
-def adpcm_encode(x, idx0=IDX0):
+def adpcm_encode(x, idx0):
     """x int16 array. IMA ADPCM from the state (0, idx0), low nibble first. Returns the bytes."""
     pred, idx = 0, idx0
     out = bytearray()
@@ -71,7 +70,7 @@ def adpcm_encode(x, idx0=IDX0):
     return bytes(out)
 
 
-def adpcm_decode(b, n, idx0=IDX0):
+def adpcm_decode(b, n, idx0):
     pred, idx = 0, idx0
     y = np.zeros(n)
     for i in range(n):
@@ -155,9 +154,15 @@ class Zone:
 
     def __init__(self, name, pcm, rate, root, ls, ll):
         self.name, self.pcm, self.rate, self.root, self.ls, self.ll = name, pcm, rate, root, ls, ll
-        self.data = adpcm_encode(pcm)
-        dec = adpcm_decode(self.data, len(pcm))
         z = pcm.astype(np.float64)
+        best = None
+        for idx0 in range(0, 89, 4):
+            b = adpcm_encode(pcm, idx0)
+            d = adpcm_decode(b, len(pcm), idx0)
+            e = np.sum((z[:80] - d[:80]) ** 2) * 4 + np.sum((z - d) ** 2)
+            if best is None or e < best[0]:
+                best = (e, idx0, b, d)
+        _, self.idx0, self.data, dec = best
         self.snr = 10 * math.log10(np.sum(z ** 2) / (np.sum((z - dec) ** 2) + 1))
         w = int(0.15 * rate)
         self.loud = float(np.sqrt(np.mean((z[:w] / 32768.0) ** 2)))
@@ -242,7 +247,7 @@ def c_bytes(name, b):
 
 
 def c_zone(z):
-    return '{%s, %du, %du, %du, %du, %d, %.6ef}' % (z.name, len(z.pcm), z.ls, z.ll, z.rate, z.root, z.gain)
+    return '{%s, %du, %du, %du, %du, %d, %d, %.6ef}' % (z.name, len(z.pcm), z.ls, z.ll, z.rate, z.root, z.idx0, z.gain)
 
 
 def pack(scratch, out):
@@ -307,15 +312,16 @@ def pack(scratch, out):
     with open(out, 'w', newline='\n') as f:
         f.write(''.join(o))
 
-    print('%-10s %5s %6s %7s %5s %6s %7s %6s' % ('bank', 'zone', 'root', 'bytes', 'len_s', 'loop', 'snr_dB', 'gain'))
+    print('%-10s %5s %6s %7s %5s %6s %7s %6s %4s' % ('bank', 'zone', 'root', 'bytes', 'len_s', 'loop', 'snr_dB', 'gain',
+                                                   'idx0'))
     for bid, _, zs in banks:
         for k, z in enumerate(zs):
-            print('%-10s %5d %6d %7d %5.2f %6d %7.1f %6.2f' % (bid, k, z.root, len(z.data), len(z.pcm) / z.rate, z.ll,
-                                                            z.snr, z.gain))
+            print('%-10s %5d %6d %7d %5.2f %6d %7.1f %6.2f %4d' % (bid, k, z.root, len(z.data), len(z.pcm) / z.rate, z.ll,
+                                                                 z.snr, z.gain, z.idx0))
         print('%-10s total %d B' % (bid, sum(len(z.data) for z in zs)))
-    print('%-13s %7s %5s %7s %6s' % ('hit', 'bytes', 'len_s', 'snr_dB', 'gain'))
+    print('%-13s %7s %5s %7s %6s %4s' % ('hit', 'bytes', 'len_s', 'snr_dB', 'gain', 'idx0'))
     for hid, z in hits:
-        print('%-13s %7d %5.2f %7.1f %6.2f' % (hid, len(z.data), len(z.pcm) / z.rate, z.snr, z.gain))
+        print('%-13s %7d %5.2f %7.1f %6.2f %4d' % (hid, len(z.data), len(z.pcm) / z.rate, z.snr, z.gain, z.idx0))
     print('hits total %d B' % sum(len(z.data) for _, z in hits))
     print('all samples %d B' % total)
     print('\n'.join(log))

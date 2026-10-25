@@ -4,7 +4,7 @@
 
    Format of every zone and hit: mono 4-bit IMA ADPCM (the standard step and index tables), two samples a byte, the
    earlier sample in the low nibble; `len` samples in (len + 1) / 2 bytes. Decoding starts from predictor 0 and step
-   index SMP_IDX0. A looped zone (loop_len > 0) is an attack then a crossfaded loop [loop_start, loop_start +
+   index `idx0` (the packer picks it per zone: a hit starts loud). A looped zone (loop_len > 0) is an attack then a crossfaded loop [loop_start, loop_start +
    loop_len): the decoder keeps its (predictor, index) as it first reaches loop_start and restores them at each wrap,
    which gives exactly the loop's samples again. `root` is the MIDI note the zone sounds when played at `rate` (the
    packer retunes each zone to a whole note; hits carry 60, played at `rate` for no shift). `gain` scales the decoded
@@ -14,10 +14,8 @@
 #define ENGINE_SAMPLES_H
 #include <stdint.h>
 
-#define SMP_IDX0 0 /* the decoder's starting step index */
-
 typedef struct { const uint8_t *data; uint32_t len, loop_start, loop_len; uint16_t rate; uint8_t root;
-                 float gain; } smp_zone_t;   /* ADPCM nibbles; loop_len 0 = one-shot */
+                 uint8_t idx0; float gain; } smp_zone_t;   /* ADPCM nibbles; loop_len 0 = one-shot; idx0 0..88 */
 typedef struct { const smp_zone_t *z; uint8_t n; } smp_bank_t;  /* zones sorted by root */
 
 /* Pitched banks: the Knight upright (VCSL), the FreePats Spanish classical nylon, the Karoryfer Emilyguitar. */

@@ -8373,6 +8373,7 @@ static void check_zone(const smp_zone_t *z, const char *what, int id, int k)
     CHECK(z->rate == 16000 || z->rate == 22050 || z->rate == 32000, "%s %d zone %d: rate %u", what, id, k,
           (unsigned)z->rate);
     CHECK(z->gain > 0.0f, "%s %d zone %d: gain %g", what, id, k, (double)z->gain);
+    CHECK(z->idx0 <= 88, "%s %d zone %d: idx0 %d", what, id, k, z->idx0);
 }
 
 static void test_samples_table(void)
