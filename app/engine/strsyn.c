@@ -14,7 +14,7 @@
 #define VIB_DELAY 0.35f
 #define VIB_FADE 0.6f
 /* each saw's drift: a new target within +-6 cents every DRIFT_STEPS steps (the spike's noise ran -1..3, so its
-   targets spanned -3..9 cents: the same 12-cent spread here, centred, without its 3 cents sharp) */
+   targets spanned -3..9 cents: the same 12-cent spread here, centered, without its 3 cents sharp) */
 #define DRIFT_CENTS 6.0f
 #define DRIFT_STEPS 64u
 #define DRIFT_K 0.0032f             /* its ease a step */

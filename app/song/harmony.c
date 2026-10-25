@@ -269,6 +269,7 @@ static void voice_chord(const song_roll_t *r, int bar, const int *pcs, int n, ha
     memcpy(vs->last, sound, 4 * sizeof(int));
 }
 
+#define LIFT_ENTRY 34 /* (velocity over the carrying blocks' 6) */
 static int emit_chord(const int *notes, int n, uint32_t gap, int lo, int hi, uint32_t len, int dark, uint32_t salt,
                       int bar, int step, song_ev_t *out, int max)
 {
@@ -278,6 +279,8 @@ static int emit_chord(const int *notes, int n, uint32_t gap, int lo, int hi, uin
         v = clampi(v + (i == 0 ? 3 : 0), lo, hi);
         if (dark == 1) v -= 6;            /* softer in the dark intro and outro (was 10: with the comping quieter, the intro sank) */
         if (dark == 2) v += 6;            /* firmer with no kick or lead: the keys carry the block */
+        if (dark == 3) v += 6 + LIFT_ENTRY; /* carrying a drum entry with no kick and no bass over struck keys that
+                                             ring out (harmony_step): up to the full band's level */
         out[cnt].voice = V_CHORD;
         out[cnt].note = (uint8_t)notes[i];
         out[cnt].vel = (uint8_t)clampi(v, 25, 110);
@@ -402,6 +405,10 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
     }
     dark = (b->flags & PB_DARK) != 0;
     dark = dark ? 1 : !(b->layers & (L_KICK | L_LEAD)) ? 2 : 0;   /* dark; carrying (no kick, no lead); or plain */
+    if (dark == 2 && (b->layers & L_SNARE) && !(b->layers & L_BASS) && style == CS_HELD && p->bars_per_chord >= 2 &&
+        !keys_sustained(r))
+        dark = 3; /* a drum entry with no kick and no bass (snare-first's keys, snare and hats) over struck keys held a
+                     chord of 2 bars or more: they ring out in its second bar, so they strike firmer (LIFT_ENTRY) */
     n = harmony_chord_at(r, bar, pass, dark, pcs);
     if (style == CS_HALF && !(step == 0 && bar % p->bars_per_chord == 0) && last_is_chord(vs, pcs, n))
         memcpy(notes, vs->last, sizeof notes);            /* the chord's other strikes keep its voicing, never revoiced */

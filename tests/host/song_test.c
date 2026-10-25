@@ -6666,9 +6666,7 @@ static void test_levels_steady(void)
                            plan_section_name(pb->section), (double)d, (double)prev);
                 }
             }
-            if (lv_full(pb)) /* (the last full-level block's, as the rule reads: an entry's build before the first
-                                full block, say snare-first's keys, snare and hats, isn't one) */
-                prev = d;
+            prev = d;
         }
         printf("levels: seed %2d set %-17s full %.1f dB, glue %.1f dB; intro %.1f dB, glue %.1f; peak %.3f\n", (int)sd[k],
                set ? set->name : "?", (double)full, (double)lv_song_gr[k], (double)lv_intro_db[k],

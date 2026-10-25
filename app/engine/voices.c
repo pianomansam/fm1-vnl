@@ -1037,8 +1037,9 @@ static int half_ok(const voice_t *v, const vx_patch_t *p, const song_ev_t *e)
                                                                                                     lane's organ) */
     else if (p->model == M_WIND) /* the pad's solo lane only (a soft note, low-passed) */
         return v->role == V_PAD && p->p[2] * hz < HR_TOP;
-    else if (p->model == M_STR) /* the string synth (the lead only): its low-pass 3.2 kHz at most */
-        return v->role == V_LEAD;
+    else if (p->model == M_STR) /* the string synth (the lead only): while its low-pass and formants stay under
+                                   the half rate's top (the patches' 3.2 and 2.6 kHz) */
+        return v->role == V_LEAD && p->p[1] <= HR_SUB_TOP && p->p[2] <= HR_SUB_TOP && p->p[4] <= HR_SUB_TOP;
     else if (p->model == M_ENS) /* half where its low-pass is too high for a quarter */
         return p->p[2] + p->p[3] * hz > ENS_QR_TOP;
     else if (p->model == M_SAMP) { /* the keys: half while the zone's band, retuned, stays under the half rate's
