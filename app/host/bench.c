@@ -7,9 +7,10 @@
    heaviest seed may not carry the heaviest chain: the picked seed (and every seed with --forced) is also timed with
    its chain forced to the heaviest real one (dust 3, vinyl, rain), printed as `forced`: the upper bound.
    Each step sets the section moves (plan_moves) as the app's step() does. VNL_FXOFF=<VX_OFF_* mask> switches effects
-   off, to measure what each costs. VNL_FX=ours puts our plate and chorus in place of Rings' (the default).
-   VNL_RUNS=<n> takes the best of n runs everywhere (default: 3 for the songs and
-   AMB-1, 7 for --parts), for a busy host.
+   off, to measure what each costs. VNL_SOLO=choir|flute|organ|strings plays the songs' solo note on that voice and
+   leaves the pad's chord part out (revision 2's solo sections). VNL_FX=ours puts our plate and chorus in place of
+   Rings' (the default). VNL_RUNS=<n> takes the best of n runs everywhere (default: 3 for the songs and AMB-1, 7 for
+   --parts), for a busy host.
    The AMB-1 engine's headers clash with ours (MODE_*), so its few entry points are declared here by hand. */
 #include <stdint.h>
 #ifdef VNL_BENCH
@@ -57,6 +58,15 @@ static double now_ms(void)
 
 /* 60 s of the song at `seed`: ticks, events to the voices at the step's start (delays honored by the voices), and
    the render in blocks. *events gets the event count. Milliseconds. */
+/* VNL_SOLO=choir|flute|organ|strings: run_vnl's solo voice (INS_NONE without) */
+static int solo_env(void)
+{
+    const char *v = getenv("VNL_SOLO");
+    if (!v) return INS_NONE;
+    return !strcmp(v, "choir") ? INS_VOX_PAD : !strcmp(v, "flute") ? INS_FLUTE : !strcmp(v, "organ") ? INS_ORGAN
+         : !strcmp(v, "strings") ? INS_STRINGS : INS_NONE;
+}
+
 static double run_vnl(uint32_t seed, int render, long *events, int force)
 {
     static song_t s;
@@ -77,6 +87,9 @@ static double run_vnl(uint32_t seed, int render, long *events, int force)
     vx_init();
     song_start(&s, &roll);
     vx_song(&s.roll);
+    if (solo_env() != INS_NONE) /* VNL_SOLO: the song's solo note on that voice, the pad's chord part left out (the
+                                   solo's sections as revision 2 plays them: either/or) */
+        vx_assign_pad_solo(solo_env());
     while (done < total) {
         int n, i;
         if (render) {
@@ -93,7 +106,8 @@ static double run_vnl(uint32_t seed, int render, long *events, int force)
         if (!n && s.state == SS_ENDED) break;
         *events += n;
         if (!render) { done += step; continue; }
-        for (i = 0; i < n; i++) vx_event(&ev[i]);
+        for (i = 0; i < n; i++)
+            if (solo_env() == INS_NONE || ev[i].voice != V_PAD || ev[i].pad == 4) vx_event(&ev[i]);
         for (left = step; left; ) {
             uint32_t b = left < BLK ? left : BLK, k;
             for (k = 0; k < b; k++) l[k] = r[k] = 0.0f;

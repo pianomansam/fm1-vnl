@@ -697,3 +697,26 @@ base, alternating binaries, `VNL_RUNS=7`, three pairs (host load 4.1-4.7): base 
   0.755 / 0.768 plain, **0.958** / 0.889 / 0.871 / 0.846 / 0.778 / 0.796 forced (AMB-1 139.8).
 - **Memory:** image 193096 B (185652 at the base: +7.4 KB, the samplers inlined twice), RAM 51216 B (+272: the
   voices' glide fields), pool 180216 B (`tools/mem-check.sh`: ok).
+
+**Task 1 fix round (controller's ruling): the solo lane's other voices at half the rate.** The flute (M_WIND) gains a
+half-rate path for the pad's solo lane: its phase increments, low-pass, breath and mute band-passes, and chiff are
+set per two-sample step; the breath is scaled by 1/sqrt(2), since half-rate noise has twice the power in band; and
+the vibrato still updates every 32 samples. The choir and the organ were already at half rate. At half rate each is
+within 0.4 dB of its full-rate level (test_pad_solo_patch). The target was a solo section costing no more than the
+chord part it replaces, +0.01.
+- **`--parts`** (best of 7, AMB-1 134.5 ms, idle floor 0.108, host load 4.1):
+
+  | row | ratio | target |
+  |---|---|---|
+  | chord part (strings) | 0.048 | - |
+  | solo choir | **0.108** | 0.058 |
+  | solo flute | **0.138** (was 0.220 at the full rate) | 0.058 |
+  | solo organ | **0.112** | 0.058 |
+  | solo strings | 0.025 | 0.058 |
+
+  The choir, the flute and the organ miss the target. They are already at half rate, so the remaining cost is their
+  models plus the half-band upsampler.
+- **Seed 20 forced, `VNL_SOLO`** (new: the song's existing solo note on that voice, with the chord part left out
+  everywhere; this is a lower bound, since the solo plays only in its rolled sections), `VNL_RUNS=7`, one run each:
+  none 0.959, strings 0.929, choir 0.973, flute 0.976, organ 0.965.
+- Memory: image 192920 B, RAM 51216 B, pool 180216 B (ok).

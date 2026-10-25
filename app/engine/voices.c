@@ -756,7 +756,7 @@ static void bell_start(voice_t *v, const song_ev_t *e)
 static void wind_start(voice_t *v, const song_ev_t *e)
 {
     const vx_patch_t *p = v->pt;
-    float f = note_inc(e->note), v01 = (float)e->vel * (1.0f / 127.0f);
+    float dv = v->hr ? 2.0f : 1.0f, f = note_inc(e->note) * dv, v01 = (float)e->vel * (1.0f / 127.0f);
     float hi = k_lp1(p->p[2] * f * SR * (0.6f + 0.4f * v01));
     v->m.wd.ph = 0.0f;
     v->m.wd.inc = v->m.wd.f0 = f;
@@ -765,13 +765,14 @@ static void wind_start(voice_t *v, const song_ev_t *e)
     v->m.wd.a0 = k_lp1(WIND_LP_LO * p->p[2] * f * SR);
     v->m.wd.a1 = hi - v->m.wd.a0;
     v->m.wd.l1 = v->m.wd.l2 = 0.0f;
-    svf_coefs(v->m.wd.bc, p->p[4], BREATH_K);
+    svf_coefs(v->m.wd.bc, p->p[4] * dv, BREATH_K);
     v->m.wd.bs[0] = v->m.wd.bs[1] = 0.0f;
-    v->m.wd.br = p->p[3];
+    /* white noise drawn at half the rate has twice the power in the breath's band: its level by 1/sqrt(2) */
+    v->m.wd.br = p->p[3] * (v->hr ? 0.70710678f : 1.0f);
     v->m.wd.ch = CHIFF;
-    v->m.wd.chk = 1.0f - k_t60(CHIFF_T60);
+    v->m.wd.chk = 1.0f - k_t60(CHIFF_T60 / dv);
     if (p->p[6] > 0.0f)
-        svf_coefs(v->m.wd.mc, p->p[6], p->p[7]);
+        svf_coefs(v->m.wd.mc, p->p[6] * dv, p->p[7]);
     else
         v->m.wd.mc[3] = 0.0f;
     v->m.wd.ms[0] = v->m.wd.ms[1] = 0.0f;
@@ -938,7 +939,9 @@ static void lane_legato(voice_t *v, const song_ev_t *e)
                 svf_coefs(v->m.pad.c1, p->p[3] + p->p[4] * f * SR, p->p[5]);
         }
     } else if (p->model == M_WIND) {
-        float hi = k_lp1(p->p[2] * f * SR * (0.6f + 0.4f * (float)e->vel * (1.0f / 127.0f)));
+        float hi;
+        f *= dv;
+        hi = k_lp1(p->p[2] * f * SR * (0.6f + 0.4f * (float)e->vel * (1.0f / 127.0f)));
         v->m.wd.ft = f;
         v->m.wd.gn = (uint32_t)n;
         v->m.wd.gk = fm_exp2f(fm_log2f(f / v->m.wd.f0) / (float)v->m.wd.gn);
@@ -972,6 +975,8 @@ static int half_ok(const voice_t *v, const vx_patch_t *p, const song_ev_t *e)
     else if (p->model == M_SUB)
         return (v->role == V_CHORD || v->role == V_PAD) && sub_top(p, hz, v01) <= HR_SUB_TOP; /* (V_PAD: the solo
                                                                                                     lane's organ) */
+    else if (p->model == M_WIND) /* the pad's solo lane only (a soft note, low-passed) */
+        return v->role == V_PAD && p->p[2] * hz < HR_TOP;
     else if (p->model == M_ENS) /* half where its low-pass is too high for a quarter */
         return p->p[2] + p->p[3] * hz > ENS_QR_TOP;
     else
@@ -1269,7 +1274,7 @@ VX_INLINE float wind_sample(voice_t *v)
         v->m.wd.f0 = v->m.wd.gn ? v->m.wd.f0 * k : v->m.wd.ft;
         v->m.wd.inc *= k;
     }
-    if (++v->m.wd.cc == WIND_CR) {
+    if (++v->m.wd.cc == (v->hr ? WIND_CR / 2 : WIND_CR)) { /* (every WIND_CR samples at either rate) */
         float r = ((float)(++v->m.wd.vt) * (WIND_CR * INV_SR) - VIB_DELAY) * (1.0f / VIB_FADE);
         v->m.wd.cc = 0;
         if (r > 0.0f) {
@@ -2423,7 +2428,7 @@ float vx_pad_lane(int lane, int *step, int *held)
     *held = v->held;
     switch (v->pt->model) { /* (the solo lane's own voice: its model's pitch) */
     case M_PAD: return v->m.pad.i1 * fm_exp2f(v->pt->p[0] * (1.0f / 1200.0f)) / step_len(v) * SR;
-    case M_WIND: return v->m.wd.f0 * SR;
+    case M_WIND: return v->m.wd.f0 / step_len(v) * SR;
     case M_SUB: return v->m.sb.f0 / step_len(v) * SR;
     default: return v->m.en.i1 / step_len(v) * SR;
     }

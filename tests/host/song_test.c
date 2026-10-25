@@ -2332,7 +2332,8 @@ static void test_pad_solo_voice(void)
 }
 
 /* The pad's solo lane takes its own voice (pads revision 2, Task 1): vx_assign_pad_solo's patch (choir, flute, organ
-   or strings) plays lane 4 with that patch's model at its usual rate, renders no NaN or inf, is silent 3 s after its
+   or strings) plays lane 4 with that patch's model (the choir, flute and organ at half the rate, within 2 dB of their full-rate
+   level; the strings at a quarter), renders no NaN or inf, is silent 3 s after its
    release with no state denormal-bound, and sounds on the pad's bus only; the four level-matched (choir, flute, organ
    at MIDI 76, the strings an octave up at 88: within 2 dB in RMS while sounding); the pad bus's section filter darkens
    it; lanes 1-3 keep the pad's patch (M_ENS); another patch falls back to the pad's; a held choir, flute or organ lane
@@ -2342,7 +2343,7 @@ static void test_pad_solo_patch(void)
 {
     static const int ins[4] = {INS_VOX_PAD, INS_FLUTE, INS_ORGAN, INS_STRINGS};
     static const int note[4] = {76, 76, 76, 88};
-    static const int rate[4] = {2, 1, 2, 4}; /* the choir and the organ at half the rate, the strings at a quarter */
+    static const int rate[4] = {2, 2, 2, 4}; /* the choir, flute and organ at half the rate, the strings at a quarter */
     static const char *const name[4] = {"choir", "flute", "organ", "strings"};
     float db[4], lo = 1e9f, hi = -1e9f, hz;
     int i, k, step, held, bad = 0;
@@ -2408,6 +2409,32 @@ static void test_pad_solo_patch(void)
         CHECK(dark < db[i] - 6.0f, "pad solo patch: %s under the closed filter %.1f dB vs %.1f open", name[i],
               (double)dark, (double)db[i]);
     }
+    for (i = 0; i < 3; i++) { /* the half-rate voices against the full rate (VX_OFF_HALF): the same level */
+        float e = 0.0f, full;
+        vx_fx_off(VX_OFF_HALF);
+        vx_init();
+        vx_assign(V_PAD, INS_STRINGS);
+        vx_assign_pad_solo(ins[i]);
+        vx_solo(V_PAD);
+        vt_lane(4, note[i], 0, 132300u);
+        for (k = 0; k < 32; k++) {
+            vt_block(4096, &bad);
+            if (k == 1) {
+                vx_pad_lane(4, &step, &held);
+                CHECK(step == 1, "pad solo patch: %s at a step of %d with VX_OFF_HALF", name[i], step);
+            }
+            if (k >= 11) {
+                uint32_t j;
+                for (j = 0; j < 4096; j++)
+                    e += vt_l[j] * vt_l[j];
+            }
+        }
+        full = 10.0f * 0.30103f * fm_log2f(e / (21.0f * 4096.0f) + 1e-30f);
+        printf("pad solo patch: %s at the full rate %.1f dBFS, at half %.1f\n", name[i], (double)full, (double)db[i]);
+        CHECK(fm_fabsf(full - db[i]) <= 2.0f, "pad solo patch: %s at half the rate %.1f dB vs %.1f at the full rate",
+              name[i], (double)db[i], (double)full);
+    }
+    vx_fx_off(0u);
     CHECK(hi - lo <= 2.0f, "pad solo patch: the solo voices' levels span %.1f dB (%.1f to %.1f)", (double)(hi - lo),
           (double)lo, (double)hi);
     /* lanes 1-3 (and a lane-less note) keep the pad's patch; another solo patch falls back to the pad's */
