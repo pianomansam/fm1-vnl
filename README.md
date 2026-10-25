@@ -83,5 +83,7 @@ The MIT notice for the Rings code, which the firmware contains:
     CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
     IN THE SOFTWARE.
 
+The samples (piano, guitars, drums) are CC0 1.0; their sources are listed in `CREDITS.md`.
+
 M-VAVE and FM-1 are trademarks of their owners. VNL-1 is not affiliated with M-VAVE, Mutable Instruments or Hügelton
 Instruments.

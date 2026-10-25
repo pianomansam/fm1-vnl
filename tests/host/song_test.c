@@ -19,6 +19,7 @@
 #include "fx.h"
 #include "phrase.h"
 #include "pads.h"
+#include "samples.h"
 
 static int fails;
 #define CHECK(c, ...)                                                                                              \
@@ -4628,8 +4629,8 @@ static void test_fx_engine(void)
 }
 
 /* ------------------------------ Task 7b: section filters, chorus, tape delay, drum compression, the pump --- */
-#define SB_N (8u * 44100u)
-static float sb_l[SB_N], sb_r[SB_N], sb_x[SB_N];
+#define SBUF_N (8u * 44100u)
+static float sb_l[SBUF_N], sb_r[SBUF_N], sb_x[SBUF_N];
 
 /* n samples of the engine into sb_l/sb_r from sample `from` */
 static void sb_render(uint32_t from, uint32_t n)
@@ -5311,7 +5312,7 @@ static void test_wet(void)
             roll.v[RF_DUST] = roll.v[RF_NOISE] = roll.v[RF_AMBIENCE] = 0;
             vx_init();
             vx_configure(&roll);
-            for (b = 0; b < (int)(SB_N / 2205u); b++) {
+            for (b = 0; b < (int)(SBUF_N / 2205u); b++) {
                 float dl[2205];
                 memset(dl, 0, sizeof dl);
                 if (b == 0)
@@ -5339,7 +5340,7 @@ static void test_wet(void)
                     printf("wet: %d BPM echo 1 at %.2f ms (want %.2f), %.1f dB\n", tempos[k], (double)((float)at / 44.1f),
                            (double)(T / 44.1f), 20.0 * (double)fm_log2f(pk) * 0.30103);
             }
-            for (i = 3 * 44100; i < (int)SB_N; i++)
+            for (i = 3 * 44100; i < (int)SBUF_N; i++)
                 late = fm_maxf(late, fm_fabsf(sb_l[i]));
             printf("wet: %d BPM: echoes within %.2f ms of the dotted 8th, after 3 s %.1f dB\n", tempos[k],
                    (double)worst, late > 0.0f ? 20.0 * (double)fm_log2f(late) * 0.30103 : -999.0);
@@ -8362,6 +8363,49 @@ static void test_pad_double(void)
     }
 }
 
+/* The packed sample tables (samples_data.c, from tools/samples/pack.py): every bank's zones and every drum hit are
+   well formed, the byte count adds up, and the whole set fits its flash share. */
+static void check_zone(const smp_zone_t *z, const char *what, int id, int k)
+{
+    CHECK(z->data != NULL && z->len > 0, "%s %d zone %d: empty", what, id, k);
+    CHECK(z->loop_start + z->loop_len <= z->len, "%s %d zone %d: loop %u+%u past %u", what, id, k,
+          (unsigned)z->loop_start, (unsigned)z->loop_len, (unsigned)z->len);
+    CHECK(z->rate == 16000 || z->rate == 22050 || z->rate == 32000, "%s %d zone %d: rate %u", what, id, k,
+          (unsigned)z->rate);
+    CHECK(z->gain > 0.0f, "%s %d zone %d: gain %g", what, id, k, (double)z->gain);
+}
+
+static void test_samples_table(void)
+{
+    uint32_t sum = 0;
+    int id, k;
+
+    for (id = 0; id < SB_N; id++) {
+        const smp_bank_t *b = smp_bank(id);
+        CHECK(b != NULL && b->n > 0, "bank %d missing", id);
+        if (!b)
+            continue;
+        for (k = 0; k < b->n; k++) {
+            check_zone(&b->z[k], "bank", id, k);
+            CHECK(k == 0 || b->z[k].root > b->z[k - 1].root, "bank %d zone %d: root %d after %d", id, k,
+                  b->z[k].root, k ? b->z[k - 1].root : 0);
+            sum += (b->z[k].len + 1) / 2;
+        }
+    }
+    for (id = 0; id < SH_N; id++) {
+        const smp_zone_t *h = smp_hit(id);
+        CHECK(h != NULL, "hit %d missing", id);
+        if (!h)
+            continue;
+        check_zone(h, "hit", id, 0);
+        sum += (h->len + 1) / 2;
+    }
+    CHECK(smp_bank(-1) == NULL && smp_bank(SB_N) == NULL, "bank out of range not NULL");
+    CHECK(smp_hit(-1) == NULL && smp_hit(SH_N) == NULL, "hit out of range not NULL");
+    CHECK(sum == smp_bytes(), "zone bytes %u, smp_bytes %u", (unsigned)sum, (unsigned)smp_bytes());
+    CHECK(smp_bytes() <= 200 * 1024, "samples %u B over 200 KB", (unsigned)smp_bytes());
+}
+
 int main(int argc, char **argv)
 {
     const char *only = argc > 1 ? argv[1] : NULL;
@@ -8440,6 +8484,7 @@ int main(int argc, char **argv)
     RUN(test_pad_either);
     RUN(test_pad_determinism);
     RUN(test_pad_double);
+    RUN(test_samples_table);
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;
