@@ -119,7 +119,7 @@ static const float PUMP_DB[VX_PUMP_N] = {1.0f, 3.0f, 6.0f};
    ornament; each patch's level (patch.c) evens its instruments out within the role, so every set mixes alike: while
    the lead plays it sits about 4-6 dB over the keys (with the keys' duck, DUCK_*), whatever the set. */
 static const role_t ROLES[V_PAD + 1] = {
-    [V_CHORD] = {0, NCH, 0.15f},
+    [V_CHORD] = {0, NCH, 0.119f},   /* 2 dB down (Sam: the comping quieter; the lead 6-8 dB over it) */
     [V_BASS] = {VB, 1, 0.0625f},
     [V_LEAD] = {NCH, NLD, 0.154f},
     [V_CANDY] = {NCH + NLD, NCD, 0.118f},

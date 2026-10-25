@@ -5021,7 +5021,7 @@ static void test_moves(void)
             br_off /= (double)((b->bars - 1) * 4);
             for (i = 0; i < 4; i++) {
                 rat[i] = db_of(on[last * 4 + i] / off[last * 4 + i]);
-                if (i && !(rat[i] > rat[i - 1]))
+                if (i && !(rat[i] > rat[i - 1] || rat[i] > -0.5f))   /* rises each beat until it is open */
                     mono = 0;
             }
             printf("moves: seed %u, break bars %d-%d: >2 kHz energy %.3g vs groove %.3g (filtered/open: break %.1f dB, "
@@ -6716,7 +6716,7 @@ static void test_lead_over_keys(void)
             mean += x;
             lo = fm_minf(lo, x);
             hi = fm_maxf(hi, x);
-            CHECK(x >= 2.0f, "lead over keys: %s seed %u's lead %.1f dB over its keys, wanted 2 at least", t->name,
+            CHECK(x >= 4.0f, "lead over keys: %s seed %u's lead %.1f dB over its keys, wanted 4 at least", t->name,
                   (unsigned)seed, (double)x);
         }
         CHECK(got == LK_PER, "lead over keys: only %d songs found for %s", got, t->name);
@@ -6728,15 +6728,15 @@ static void test_lead_over_keys(void)
         smed = got & 1 ? ss[got / 2] : 0.5f * (ss[got / 2 - 1] + ss[got / 2]);
         printf("lead over keys: %-21s mean %+.1f median %+.1f (%+.1f..%+.1f) dB\n", t->name, (double)mean,
                (double)smed, (double)lo, (double)hi);
-        CHECK(mean >= 4.0f && mean <= 6.5f, "lead over keys: %s's mean %.1f dB, wanted 4-6.5", t->name, (double)mean);
-        CHECK(smed >= 4.0f && smed <= 6.0f, "lead over keys: %s's median %.1f dB, wanted 4-6", t->name, (double)smed);
+        CHECK(mean >= 6.0f && mean <= 8.5f, "lead over keys: %s's mean %.1f dB, wanted 6-8.5 (Sam: the comping quieter)", t->name, (double)mean);
+        CHECK(smed >= 6.0f && smed <= 8.0f, "lead over keys: %s's median %.1f dB, wanted 6-8", t->name, (double)smed);
     }
     memcpy(sorted, d, (size_t)n * sizeof sorted[0]);
     qsort(sorted, (size_t)n, sizeof sorted[0], lk_cmp_f);
     med = n ? (n & 1 ? sorted[n / 2] : 0.5f * (sorted[n / 2 - 1] + sorted[n / 2])) : 0.0f;
     printf("lead over keys: median %+.1f dB over %d songs (%+.1f..%+.1f)\n", (double)med, n, (double)sorted[0],
            (double)sorted[n - 1]);
-    CHECK(med >= 4.0f && med <= 6.0f, "lead over keys: the median %.1f dB, wanted 4-6", (double)med);
+    CHECK(med >= 6.0f && med <= 8.0f, "lead over keys: the median %.1f dB, wanted 6-8", (double)med);
 }
 
 /* The pad layer's chord part sits under the keys (pads design, Mix: about 6 dB): in every set with percussive keys
