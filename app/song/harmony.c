@@ -93,7 +93,7 @@ int harmony_chord_at(const song_roll_t *r, int bar, int pass, int dark, int *pcs
    retired (Sam: the "and" 8ths liked "less and less"; stabs "just not working") */
 int harmony_style(const song_roll_t *r)
 {
-    static const uint8_t W[5] = {55, 0, 0, 20, 25};   /* held, (stabs, offbeats retired), arpeggio, half notes */
+    static const uint8_t W[5] = {44, 0, 0, 20, 36};   /* held, (stabs, offbeats retired), arpeggio, half notes */
     rng_t g;
     rng_seed(&g, r->seed, 121);
     return rng_weighted(&g, W, 5);
