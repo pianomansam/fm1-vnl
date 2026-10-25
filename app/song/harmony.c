@@ -216,7 +216,8 @@ static int emit_chord(const int *notes, int n, uint32_t gap, int lo, int hi, uin
     for (i = 0; i < n && cnt < max; i++) {
         int v = lo + (int)(mix(salt, (uint32_t)bar, (uint32_t)step, 40u + (uint32_t)i) % (uint32_t)(hi - lo + 1));
         v = clampi(v + (i == 0 ? 3 : 0), lo, hi);
-        if (dark) v -= 10;
+        if (dark == 1) v -= 6;            /* softer in the dark intro and outro (was 10: with the comping quieter, the intro sank) */
+        if (dark == 2) v += 6;            /* firmer with no kick or lead: the keys carry the block */
         out[cnt].voice = V_CHORD;
         out[cnt].note = (uint8_t)notes[i];
         out[cnt].vel = (uint8_t)clampi(v, 25, 110);
@@ -334,6 +335,7 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
         if (style == CS_ARP && (step & 1)) return 0;
     }
     dark = (b->flags & PB_DARK) != 0;
+    dark = dark ? 1 : !(b->layers & (L_KICK | L_LEAD)) ? 2 : 0;   /* dark; carrying (no kick, no lead); or plain */
     n = harmony_chord_at(r, bar, pass, dark, pcs);
     if (style == CS_HALF && !(step == 0 && bar % p->bars_per_chord == 0) && last_is_chord(vs, pcs, n))
         memcpy(notes, vs->last, sizeof notes);            /* the chord's other strikes keep its voicing, never revoiced */

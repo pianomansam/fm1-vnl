@@ -98,7 +98,7 @@ static float pump_k = 0.12f; /* the duck's gain loss at a full kick body (fx_pum
    reverb's return too, so the wet keeps its balance). Its gain rides with the duck's (the same per-sample ramp, so the
    chorus's and the delay's returns get it too), before the soft clip. Off in a dry engine (fx_init) until a song's
    fx_configure. */
-#define GL_THR (-26.0f)   /* dBFS, the music's mean square */
+#define GL_THR (-26.5f)   /* dBFS, the music's mean square (0.5 dB lower: the quieter comping, Sam) */
 #define GL_KNEE 4.0f
 #define GL_SLOPE 0.5f     /* 1 - 1/2 */
 #define GL_MU 4.5f        /* make-up, dB: the mix's level */

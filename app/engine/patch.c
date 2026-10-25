@@ -60,7 +60,8 @@
    carries as a lead without its peaks standing far out. */
 static const vx_patch_t PATCHES[INS_NONE] = {
     [INS_RHODES] = {M_EP, {1.0f, 0.4f, 1.2f, 1.2f, 0.05f, 0.5f, 0.0f, 0.0f}, 0.002f, 4.5f, 0.0f, 0.08f, 0.944f, 0.7f, 0.08f},
-    [INS_WURLI] = {M_EP, {2.0f, 0.8f, 2.0f, 1.5f, 0.0f, 0.6f, 1.0f, 0.0f}, 0.002f, 3.5f, 0.0f, 0.06f, 0.88f, 0.6f, 0.08f},
+    /* the Wurli struck softer (Sam: "still has lots of attack"): less index, strike and bark, a 6 ms attack */
+    [INS_WURLI] = {M_EP, {2.0f, 0.8f, 1.2f, 1.5f, 0.0f, 0.3f, 0.4f, 0.0f}, 0.006f, 3.5f, 0.0f, 0.06f, 0.932f, 0.6f, 0.08f},
     [INS_FELT_PIANO] = {M_EP, {1.0f, 0.2f, 0.6f, 0.8f, 0.0f, 0.4f, 0.0f, 1100.0f}, 0.004f, 5.0f, 0.0f, 0.15f, 0.716f, 0.2f, 0.06f},
     [INS_NYLON] = {M_PLUCK, {1.8f, 3000.0f, 2500.0f, 0.0f, 0.0f, 2.0f}, 0.002f, 6.0f, 0.0f, 0.08f, 1.62f, 0.15f, 0.08f},
     [INS_PAD] = {M_PAD, {5.0f, 2.0f, 0.35f, 900.0f, 1.5f, 1.2f, 0.0f, 0.0f}, 0.6f, 4.0f, 0.85f, 2.0f, 0.616f, 0.6f, 0.1f},

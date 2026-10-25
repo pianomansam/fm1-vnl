@@ -147,7 +147,7 @@ the chip chords, lead and blip, and the FM bell are gone.
 **Character:** DX keys and FM bass the bright 80s city pop; the organ over the triangle bass the churchy neo-soul,
 with a game-soundtrack bottom; DX and pluck the hazy chillwave one; Rhodes and saw lead and nylon and pluck mix a
 synth into the classic sets. The first, second and fourth are all synth in the keys, bass and lead, so every mood has
-one. Every set keeps the lead 6–8 dB over its keys while it plays (Sam, 2026-10-24: the comping quieter; was 4–6), the keys ducking 3 dB under it.
+one. Every set keeps the lead 8–10 dB over its keys while it plays (Sam, 2026-10-24, twice: the comping quieter; was 4–6), the keys ducking 3 dB under it; the keys 4 dB down in all.
 
 ### The chain, in order (`voices.c`, `fx.c`)
 
