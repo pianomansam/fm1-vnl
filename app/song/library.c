@@ -102,15 +102,15 @@ const int LIB_NPROGS = (int)(sizeof LIB_PROGS / sizeof LIB_PROGS[0]);
 /* Roles are meant to sit in separate registers (curation intent). {id, name, chords, bass, lead, candy, pad, kit, flavor, moods, src}.
    The pad layer: the warm synth pad under the synth sets (13, 18, 19, 20), strings under the rest. */
 const lib_set_t LIB_SETS[] = {
-    {1, "Rhodes dusty", INS_RHODES, INS_UPRIGHT, INS_FLUTE, INS_MUSIC_BOX, INS_STRINGS, KIT_DUSTY, FL_LOFI, MOOD_WISTFUL | MOOD_WARM, "task brief: the classic dusty set"},
+    {1, "Rhodes dusty", INS_RHODES, INS_ELEC_BASS, INS_FLUTE, INS_MUSIC_BOX, INS_STRINGS, KIT_DUSTY, FL_LOFI, MOOD_WISTFUL | MOOD_WARM, "task brief: the classic dusty set"},
     {2, "Bossa nylon", INS_NYLON, INS_SUB, INS_VIBES, INS_KALIMBA, INS_STRINGS, KIT_BRUSHES, FL_BOSSA, MOOD_WARM | MOOD_SUNNY, "task brief: bossa set"},
     {3, "Neo-soul Wurli", INS_WURLI, INS_ELEC_BASS, INS_SAX, INS_BELLS, INS_STRINGS, KIT_SOFT, FL_NEOSOUL, MOOD_SAD | MOOD_WISTFUL, "task brief: neo-soul set"},
-    {4, "Felt and trumpet", INS_FELT_PIANO, INS_UPRIGHT, INS_MUTED_TPT, INS_NONE, INS_STRINGS, KIT_DUSTY, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "task brief: felt piano with muted trumpet"},
+    {4, "Felt and trumpet", INS_FELT_PIANO, INS_ELEC_BASS, INS_MUTED_TPT, INS_NONE, INS_STRINGS, KIT_DUSTY, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "task brief: felt piano with muted trumpet"},
     {5, "Chillwave pad", INS_PAD, INS_SUB, INS_KALIMBA, INS_VOX_PAD, INS_STRINGS, KIT_808, FL_CHILLWAVE, MOOD_WARM | MOOD_SUNNY, "task brief: chillwave set"},
     {6, "City pop Rhodes", INS_RHODES, INS_ELEC_BASS, INS_GUITAR_LICK, INS_BELLS, INS_STRINGS, KIT_SOFT, FL_CITYPOP, MOOD_WARM | MOOD_SUNNY, "task brief: bright Rhodes city pop set"},
     {7, "Felt and flute", INS_FELT_PIANO, INS_SUB, INS_FLUTE, INS_MUSIC_BOX, INS_STRINGS, KIT_SOFT, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "brainstorm: quiet felt piano lofi"},
-    {8, "Wurli and vibes", INS_WURLI, INS_UPRIGHT, INS_VIBES, INS_KALIMBA, INS_STRINGS, KIT_DUSTY, FL_LOFI, MOOD_WARM | MOOD_SUNNY, "brainstorm: warm Wurlitzer lofi"},
-    {9, "Nylon and sax", INS_NYLON, INS_UPRIGHT, INS_SAX, INS_NONE, INS_STRINGS, KIT_BRUSHES, FL_BOSSA, MOOD_WISTFUL | MOOD_WARM, "brainstorm: late-night bossa"},
+    {8, "Wurli and vibes", INS_WURLI, INS_ELEC_BASS, INS_VIBES, INS_KALIMBA, INS_STRINGS, KIT_DUSTY, FL_LOFI, MOOD_WARM | MOOD_SUNNY, "brainstorm: warm Wurlitzer lofi"},
+    {9, "Nylon and sax", INS_NYLON, INS_ELEC_BASS, INS_SAX, INS_NONE, INS_STRINGS, KIT_BRUSHES, FL_BOSSA, MOOD_WISTFUL | MOOD_WARM, "brainstorm: late-night bossa"},
     {10, "Pad and guitar", INS_PAD, INS_ELEC_BASS, INS_GUITAR_LICK, INS_VOX_PAD, INS_STRINGS, KIT_808, FL_CHILLWAVE, MOOD_SAD | MOOD_WISTFUL, "brainstorm: hazy chillwave"},
     {11, "Rhodes neo-soul", INS_RHODES, INS_ELEC_BASS, INS_MUTED_TPT, INS_VIBES, INS_STRINGS, KIT_SOFT, FL_NEOSOUL, MOOD_WARM | MOOD_SUNNY, "brainstorm: smooth neo-soul"},
     /* the synth sets (synths plan Task 4; Sam's cut, 2026-10-24: only the DX EP, the FM slap bass, the triangle bass,
@@ -181,6 +181,13 @@ const lib_map_t *lib_map_by_id(uint8_t id)
     int i;
     for (i = 0; i < LIB_NMAPS; i++) if (LIB_MAPS[i].id == id) return &LIB_MAPS[i];
     return NULL;
+}
+
+/* the sets whose bass may walk: the four that had the upright (Sam, 2026-10-24: "I don't like the upright's sound";
+   their bass is now the electric) */
+int lib_set_walks(const lib_set_t *s)
+{
+    return s && (s->id == 1 || s->id == 4 || s->id == 8 || s->id == 9);
 }
 
 int lib_ins_sustained(int ins)

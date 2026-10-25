@@ -720,11 +720,11 @@ static void groove_roll(song_roll_t *r, uint32_t seed, int pattern)
     r->v[RF_SWING] = 560;
 }
 
-static int upright_set(void)
+static int upright_set(void)   /* a set whose bass may walk (the former upright sets) */
 {
     int i;
     for (i = 0; i < LIB_NSETS; i++)
-        if (LIB_SETS[i].bass == INS_UPRIGHT) return LIB_SETS[i].id;
+        if (lib_set_walks(&LIB_SETS[i])) return LIB_SETS[i].id;
     return -1;
 }
 

@@ -60,7 +60,7 @@ engine would not make: zero tolerance for semitone rubs, no substitutions, diato
 
 | Choice | Value | Kind | Status | Source |
 | --- | --- | --- | --- | --- |
-| Styles | roots on kick, root-fifth, pedal (restrike per chord), walk (upright sets only, one 8-bar window in four) | genre | **Done** (`groove.c: groove_bass_style`, R13, R14, R21) | *genre* §4.1, §8.5; LOF-1 |
+| Styles | roots on kick, root-fifth, pedal (restrike per chord), walk (the four former upright sets, now on electric bass: Sam removed the upright; one 8-bar window in four) | genre | **Done** (`groove.c: groove_bass_style`, R13, R14, R21) | *genre* §4.1, §8.5; LOF-1 |
 | **Diatonic only** | the walk's approach is a scale step, never chromatic | taste **(Sam)**: nothing out of the key. Chromatic approach is standard in jazz walking bass | **Done** (`groove.c: approach`) | 8dde786 |
 | Register | E1–B2, centered on the tonic | genre (deep, warm bottom) | **Done** (`groove.c: bass_place`) | *genre* §4.1 |
 

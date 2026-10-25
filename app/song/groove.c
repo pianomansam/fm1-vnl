@@ -57,7 +57,7 @@ int groove_bass_style(const song_roll_t *r)
     walk = rng_int(&g, 100);
     fifth = rng_int(&g, 2);
     if (((m && m->sparse) || r->v[RF_MOOD] == 0) && pedal < 50) style = BS_PEDAL;
-    else if (s && s->bass == INS_UPRIGHT && walk < 35) style = BS_WALK;
+    else if (lib_set_walks(s) && walk < 35) style = BS_WALK;
     else style = fifth ? BS_ROOT_FIFTH : BS_ROOTS;
     /* never the keys' rhythm when it is more than a note on 1 (Sam): the stabs, wherever they fall, or the half notes on 1 and 3 */
     keys = harmony_comp_steps(r);
