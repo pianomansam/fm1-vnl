@@ -58,7 +58,8 @@ Trim before swapping anything back to a synth:
 3. **Synth fallbacks if flash still runs out** (the synth already exists, so dropping the sample loses an option, not
    the instrument), in this order:
    - **Cello back to the synth cello:** frees 28 KB and costs about 0.05-0.1 CPU in cello songs only. It's the one
-     sample Sam called "good" rather than clearly better.
+     sample Sam called "good" rather than clearly better. (The synth cello exists only in the spike, so this means
+     building it instead.)
    - **Fewer drum kits, or hybrid kits:** synth kicks (they synthesize well) under sampled snares and hats (the snare
      carries a kit's character).
    - **Keep sampled:** the nylon, the Emilyguitar and the Knight, each of which Sam heard as clearly better than its
