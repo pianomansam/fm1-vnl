@@ -989,7 +989,7 @@ static void test_harmony(void)
     CHECK(bad_vel == 0, "harmony: %d velocities outside 25-110", bad_vel);
     CHECK(bad_roll == 0, "harmony: %d rolled-chord violations", bad_roll);
     CHECK(chords_seen > 0, "harmony: no chord events");
-    CHECK(styles[CS_HELD] > 0 && styles[CS_STABS] == 0 && styles[CS_OFFBEATS] == 0 && styles[CS_ARP] > 0 && styles[CS_HALF] > 0,
+    CHECK(styles[CS_HELD] > 0 && styles[CS_OFFBEATS] == 0 && styles[CS_ARP] > 0 && styles[CS_HALF] > 0,
           "harmony: styles drawn %d/%d/%d/%d/%d", styles[0], styles[1], styles[2], styles[3], styles[4]);
     {   /* (Sam, after hearing comping-styles.musicxml) mostly held: 44% held drawn (about 55% heard, once sustained keys and a kick on 1 and 3 hold), 20% arpeggio, 36% half drawn; offbeats
            and stabs retired (Sam) */
@@ -1076,6 +1076,79 @@ static void test_harmony(void)
 /* Half-note comping (pads revision 2): the voicing struck on beats 1 and 3 (steps 0 and 8), the second a little softer,
    each held to the next strike, the same voicing both times (a request mid-chord, the loop lock off, included); a busy
    lead thins it to step 0 of every bar, held a bar; sustained keys hold. */
+static void test_comp_styles(void)
+{
+    static const uint8_t OLD[5] = {44, 0, 0, 20, 36};
+    static const uint8_t W[3][6] = {{44, 0, 0, 20, 36, 0}, {35, 25, 0, 15, 25, 0}, {20, 20, 0, 15, 15, 30}};
+    static const uint8_t SLOW[6] = {0, 20, 0, 15, 35, 30};
+    static const int inss[3] = {INS_DX_EP, INS_KNIGHT, INS_EMILY};
+    long cnt[3][6] = {{0}}, gcnt[6] = {0}, scnt[6] = {0}, ecnt[6] = {0};
+    song_roll_t r;
+    int k, i, seed, n = 500, bad_old = 0, bad_gtr = 0;
+    CHECK(lib_ins_sampled_struck(INS_KNIGHT) && lib_ins_sampled_struck(INS_NYLON) &&
+          lib_ins_sampled_struck(INS_EMILY) && !lib_ins_sampled_struck(INS_DX_EP) &&
+          !lib_ins_sampled_struck(INS_PAD), "comp styles: lib_ins_sampled_struck");
+    CHECK(CS_STRUM > CS_HALF, "comp styles: CS_STRUM appended after CS_HALF");
+    for (seed = 1; seed <= n; seed++) {
+        roll_song(0, (uint32_t)seed, &r);
+        for (k = 0; k < LIB_NSETS; k++) {
+            const lib_set_t *s = &LIB_SETS[k];
+            rng_t g;
+            int want, got;
+            r.v[RF_SET] = s->id;
+            got = harmony_style(&r);
+            CHECK(got != CS_OFFBEATS, "comp styles: offbeats never (set %d)", s->id);
+            if (s->chords == INS_NYLON) {
+                CHECK(got != CS_OFFBEATS && got <= CS_STRUM, "comp styles: nylon style in range");
+                continue;
+            }
+            if (s->chords == INS_KNIGHT || s->chords == INS_EMILY) continue;
+            rng_seed(&g, (uint32_t)seed, 121);
+            want = rng_weighted(&g, OLD, 5);
+            bad_old += got != want;
+            CHECK(got != CS_STABS && got != CS_STRUM, "comp styles: synth keys never stabs or strum (set %d)", s->id);
+        }
+        for (i = 0; i < 3; i++) {
+            int st = harmony_style_ins(inss[i], 90, (uint32_t)seed);
+            cnt[i][st]++;
+            if (i == 0 && st != harmony_style_ins(INS_DX_EP, 70, (uint32_t)seed)) bad_old++;
+            if (i == 0 && (st == CS_STABS || st == CS_STRUM)) bad_old++;
+            if (i && st == CS_OFFBEATS) bad_gtr++;
+            if (i == 1 && st == CS_STRUM) bad_gtr++;
+        }
+        gcnt[harmony_style_ins(INS_NYLON, 90, (uint32_t)seed)]++;
+        scnt[harmony_style_ins(INS_NYLON, 83, (uint32_t)seed)]++;
+        ecnt[harmony_style_ins(INS_EMILY, 70, (uint32_t)seed)]++;
+    }
+    CHECK(bad_old == 0, "comp styles: %d synth-keys songs changed style", bad_old);
+    CHECK(bad_gtr == 0, "comp styles: %d offbeats or Knight strums", bad_gtr);
+    for (i = 0; i < 3; i++) {
+        int tot = 0;
+        for (k = 0; k < 6; k++) tot += W[i][k];
+        for (k = 0; k < 6; k++) {
+            long pct = cnt[i][k] * 100 / n, want = W[i][k] * 100 / tot;
+            CHECK(pct >= want - 5 && pct <= want + 5, "comp styles: ins %d style %d is %ld%%, wanted %ld%%", i, k, pct, want);
+        }
+    }
+    for (k = 0; k < 6; k++) {
+        long pct = gcnt[k] * 100 / n, want = W[2][k];
+        CHECK(pct >= want - 5 && pct <= want + 5, "comp styles: nylon style %d is %ld%%, wanted %ld%%", k, pct, want);
+        pct = scnt[k] * 100 / n; want = SLOW[k];
+        CHECK(pct >= want - 5 && pct <= want + 5, "comp styles: slow nylon style %d is %ld%%, wanted %ld%%", k, pct, want);
+        pct = ecnt[k] * 100 / n;
+        CHECK(pct >= want - 5 && pct <= want + 5, "comp styles: slow emily style %d is %ld%%, wanted %ld%%", k, pct, want);
+    }
+    CHECK(scnt[CS_HELD] == 0 && ecnt[CS_HELD] == 0, "comp styles: no held guitar below 84 BPM");
+    for (seed = 1; seed <= 200; seed++) {          /* through the roll: slow guitar songs never hold */
+        roll_song(0, (uint32_t)seed, &r);
+        for (k = 0; k < LIB_NSETS; k++) {
+            r.v[RF_SET] = LIB_SETS[k].id;
+            if (LIB_SETS[k].chords == INS_NYLON && r.v[RF_TEMPO] < 84)
+                CHECK(harmony_style(&r) != CS_HELD, "comp styles: held nylon at %d BPM", r.v[RF_TEMPO]);
+        }
+    }
+}
+
 static void test_half_comping(void)
 {
     const float SPS16 = 5512.5f;
@@ -3182,7 +3255,7 @@ static void test_comping_makes_room(void)
     uint32_t seed = 3131;
     song_roll_t prev, r;
     song_ev_t ev[64], e0[16], e1[16];
-    long strikes[5][2] = {{0}}, bars[5][2] = {{0}}, bad_same = 0, bad_subset = 0;
+    long strikes[6][2] = {{0}}, bars[6][2] = {{0}}, bad_same = 0, bad_subset = 0;
     int k, i, cs;
     for (k = 0; k < 300; k++) {
         const lib_set_t *set;
@@ -3222,7 +3295,7 @@ static void test_comping_makes_room(void)
             for (step = 0; step < 16; step++) {
                 int n0 = harmony_step(&r, b, bar, step, bar / loop + 1, 5512.5f, &v0, 0, 5u, e0, 16);
                 int n1 = harmony_step(&r, b, bar, step, bar / loop + 1, 5512.5f, &v1, 1, 5u, e1, 16);
-                if (sust_keys || cs == CS_HELD) {
+                if (sust_keys || cs == CS_HELD || cs == CS_STRUM) {   /* (a strum plays held until Task 4) */
                     if (n0 != n1 || memcmp(e0, e1, sizeof(song_ev_t) * (size_t)n0)) bad_same++;
                 } else if (n1 && cs == CS_HALF && n1 == n0 && n1 == 4) {   /* thinned to step 0, held a bar: all but the length */
                     int j;
@@ -3236,7 +3309,7 @@ static void test_comping_makes_room(void)
             }
         }
     }
-    for (cs = CS_STABS; cs <= CS_HALF; cs++) {
+    for (cs = CS_STABS; cs <= CS_STRUM; cs++) {
         double q, bz;
         if (cs != CS_ARP && cs != CS_HALF) continue;   /* stabs and offbeats retired (Sam) */
         q = bars[cs][0] ? (double)strikes[cs][0] / (double)bars[cs][0] : 0.0;
@@ -8830,6 +8903,7 @@ int main(int argc, char **argv)
     RUN(test_pad_double);
     RUN(test_samples_table);
     RUN(test_samp);
+    RUN(test_comp_styles);
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;

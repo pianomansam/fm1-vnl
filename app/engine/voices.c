@@ -453,12 +453,16 @@ static float keys_gain(const song_roll_t *r)
     float db = 0.0f;
     if (style == CS_HALF && !harmony_half_strikes(r)) /* half notes that hold (half_held) sit as held */
         style = CS_HELD;
+    if (style == CS_STRUM)                            /* plays as held until the strum engine */
+        style = CS_HELD;
     if (lib_ins_sustained(ins))
         db = style == CS_ARP ? 3.0f : 2.5f;   /* held: +2.5 for the softer strikes (Sam) */
     else if (style == CS_HELD)
         db = two ? 6.75f : 6.0f;   /* +2.25: the softer strikes (Sam) */
     else if (style == CS_HALF)
         db = 3.0f;
+    else if (style == CS_STABS)
+        db = two ? 2.75f : 2.0f;   /* struck harder (vel 60-85), so 4 dB under held; Task 5 tunes by ear */
     else if (style == CS_ARP)
         db = -0.25f;
     return fm_db2lin(db);

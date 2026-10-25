@@ -9,14 +9,16 @@
 #include "groove.h"
 
 /* (CS_HALF, appended: the voicing struck on beats 1 and 3, the second a little softer; sustained keys hold instead) */
-enum { CS_HELD, CS_STABS, CS_OFFBEATS, CS_ARP, CS_HALF };
+/* (CS_STRUM, appended: the guitars' strummed chord; plays as held until the strum engine exists) */
+enum { CS_HELD, CS_STABS, CS_OFFBEATS, CS_ARP, CS_HALF, CS_STRUM };
 
 /* Pitch classes (root first, up to 5) of the chord at `bar` (from 0). pass is 1-based: 1 = the first time through
    the loop (bar / (n * bars_per_chord) + 1). Passes >= 2 may recolor or substitute exactly one chord of the pass
    (per-song chance 25-50%); dark (intro, outro) changes nothing here: it is a sound, not a chord. Returns the count. */
 int harmony_chord_at(const song_roll_t *r, int bar, int pass, int dark, int *pcs);
 
-int harmony_style(const song_roll_t *r);   /* CS_*, per song (seed stream 121) */
+int harmony_style(const song_roll_t *r);   /* CS_*, per song (seed stream 121), weighted by the set's chords instrument */
+int harmony_style_ins(int ins, int tempo, uint32_t seed);   /* the same for a chords instrument and a tempo (BPM) */
 unsigned harmony_stab_steps(const song_roll_t *r);   /* the steps stab comping strikes: 1 and a step the kick leaves free */
 
 int harmony_half_strikes(const song_roll_t *r);   /* 1 when the song really plays half notes (not held by sustained keys or the kick) */

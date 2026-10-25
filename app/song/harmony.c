@@ -89,15 +89,30 @@ int harmony_chord_at(const song_roll_t *r, int bar, int pass, int dark, int *pcs
     return th_chord_pcs(r->v[RF_KEY], r->v[RF_MODE], c, color, pcs);
 }
 
+/* below this tempo the guitars hold less and play half notes instead (Sam: held nylon too sparse at slow tempos) */
+enum { GUITAR_SLOW_BPM = 84 };
+
 /* per song (Sam, after hearing them side by side): weights held 44, arpeggio 20, half notes 36, so as heard held
    about 55%, half notes 25%, arpeggio 20% (half notes hold over sustained keys and a kick on 1 and 3 alone:
    half_held); offbeats and stabs retired (Sam: the "and" 8ths liked "less and less"; stabs "just not working") */
+int harmony_style_ins(int ins, int tempo, uint32_t seed)
+{
+    /* held, stabs, offbeats (retired: 0 everywhere), arpeggio, half notes, strum. Synth keys as always (stabs "just
+       not working" there); the sampled instruments sound better, so stabs return on the Knight and the guitars, and
+       the guitars strum (the same draw: zero weights never change a pick) */
+    static const uint8_t SYNTH[6] = {44, 0, 0, 20, 36, 0}, KNIGHT[6] = {35, 25, 0, 15, 25, 0},
+                         GUITAR[6] = {20, 20, 0, 15, 15, 30}, GUITAR_SLOW[6] = {0, 20, 0, 15, 35, 30};
+    const uint8_t *w = ins == INS_KNIGHT ? KNIGHT : (ins == INS_NYLON || ins == INS_EMILY) ?
+                         (tempo < GUITAR_SLOW_BPM ? GUITAR_SLOW : GUITAR) : SYNTH;
+    rng_t g;
+    rng_seed(&g, seed, 121);
+    return rng_weighted(&g, w, 6);
+}
+
 int harmony_style(const song_roll_t *r)
 {
-    static const uint8_t W[5] = {44, 0, 0, 20, 36};   /* held, (stabs, offbeats retired), arpeggio, half notes */
-    rng_t g;
-    rng_seed(&g, r->seed, 121);
-    return rng_weighted(&g, W, 5);
+    const lib_set_t *s = lib_set_by_id((uint8_t)r->v[RF_SET]);
+    return harmony_style_ins(s ? s->chords : INS_NONE, r->v[RF_TEMPO], r->seed);
 }
 
 /* how far voicing b is from a, as the voicer weighs it: the lower voices' moves, the top's 8 a semitone (and 6 for a
@@ -296,6 +311,7 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
     p = prog_of(r);
     style = harmony_style(r);
     if (style == CS_HALF && half_held(r)) style = CS_HELD;
+    if (style == CS_STRUM) style = CS_HELD;   /* until the strum engine (Task 4): a strummed song plays held */
     switch (style) {
     case CS_HELD:
         if (step != 0 || bar % p->bars_per_chord != 0) return 0;

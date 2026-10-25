@@ -197,6 +197,8 @@ int lib_set_walks(const lib_set_t *s)
     return s && (s->id == 1 || s->id == 4 || s->id == 8 || s->id == 9);
 }
 
+int lib_ins_sampled_struck(int ins) { return ins == INS_KNIGHT || ins == INS_NYLON || ins == INS_EMILY; }
+
 int lib_ins_sustained(int ins)
 {
     return ins == INS_PAD || ins == INS_FLUTE || ins == INS_SAX || ins == INS_MUTED_TPT || ins == INS_VOX_PAD ||
