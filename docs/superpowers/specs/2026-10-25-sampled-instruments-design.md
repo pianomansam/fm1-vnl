@@ -58,6 +58,9 @@ pick by ear. This design brings those picks into the real engine, as new options
    Nylon songs shift, as the nylon itself is replaced.
    **Guitars' held comping only at faster tempos (Sam, 2026-10-25):** a held guitar chord is too sparse when the bar
    outlasts the string's ring, so below 84 BPM the guitars' held weight goes to half notes (held 0, half 35).
+   **Strumming only under sustained leads (Sam, 2026-10-25):** a strum competes with a struck lead (the vibes, the
+   kalimba, the synth pluck, the guitar lick, a Knight or Emilyguitar lead), so under those the guitars don't strum
+   (strum weight 0; the other styles keep their weights).
 9. **The synth kits stay:** the 808 and Brushes kits have no sampled equivalent (keep); Dusty and Soft remain as
    options until Sam retires them by ear.
 
