@@ -56,6 +56,8 @@ pick by ear. This design brings those picks into the real engine, as new options
    weights (held 44, arpeggio 20, half 36), so their songs don't change. The Knight: held 35, half 25, arpeggio 15,
    stabs 25. The guitars (nylon, Emilyguitar): held 20, half 15, arpeggio (fingerpicked) 15, stabs 20, strum 30.
    Nylon songs shift, as the nylon itself is replaced.
+   **Guitars' held comping only at faster tempos (Sam, 2026-10-25):** a held guitar chord is too sparse when the bar
+   outlasts the string's ring, so below 84 BPM the guitars' held weight goes to half notes (held 0, half 35).
 9. **The synth kits stay:** the 808 and Brushes kits have no sampled equivalent (keep); Dusty and Soft remain as
    options until Sam retires them by ear.
 
