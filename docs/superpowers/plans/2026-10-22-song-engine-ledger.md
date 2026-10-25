@@ -143,6 +143,12 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
 
 ## To revisit (Sam, after listening)
 
+- **Piano broken chords take the rolled-chord role on the acoustic piano (Sam, 2026-10-25):** the bottom-up roll
+  (10-60 ms a note) on the Knight's stabs in set 30 "is not how people usually play the acoustic piano. The strumming
+  affect. Electric pianos work with it, but not acoustic." The Knight now strikes together; when the broken-chord climb
+  is built, use it for at least the Knight under a sustained lead (set 30's situation), and consider it for the
+  electric pianos too.
+
 ### General
 
 - **CC0 sample libraries to mine (2026-10-25): VCSL and VSCO-2 CE (sgossner, both CC0).** Beyond the spike's piano
