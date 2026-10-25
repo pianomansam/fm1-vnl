@@ -875,7 +875,7 @@ static void test_harmony(void)
     song_roll_t r;
     int pi, key, mode, color, bar, i, seed, pass, step;
     int bad_pass1 = 0, reharm = 0, bad_dark = 0, bad_range = 0, bad_roll = 0, bad_vel = 0, bad_det = 0;
-    int styles[4] = {0, 0, 0, 0}, chords_seen = 0;
+    int styles[5] = {0, 0, 0, 0, 0}, chords_seen = 0;
     plan_block_t keys = {0, 8, SEC_GROOVE, L_KEYS, 0}, dark = {0, 4, SEC_INTRO, L_KEYS, PB_DARK};
     plan_block_t nokeys = {0, 8, SEC_GROOVE, L_BASS, 0};
     song_ev_t ev[16], ev2[16];
@@ -986,18 +986,18 @@ static void test_harmony(void)
     CHECK(bad_vel == 0, "harmony: %d velocities outside 25-110", bad_vel);
     CHECK(bad_roll == 0, "harmony: %d rolled-chord violations", bad_roll);
     CHECK(chords_seen > 0, "harmony: no chord events");
-    CHECK(styles[CS_HELD] > 0 && styles[CS_STABS] == 0 && styles[CS_OFFBEATS] == 0 && styles[CS_ARP] > 0,
-          "harmony: styles drawn %d/%d/%d/%d", styles[0], styles[1], styles[2], styles[3]);
-    {   /* (Sam, after hearing comping-styles.musicxml) mostly held: 80% held, 20% arpeggio; offbeats and stabs
-           retired (Sam) */
-        int w[4] = {0, 0, 0, 0}, want[4] = {80, 0, 0, 20}, k2;
+    CHECK(styles[CS_HELD] > 0 && styles[CS_STABS] == 0 && styles[CS_OFFBEATS] == 0 && styles[CS_ARP] > 0 && styles[CS_HALF] > 0,
+          "harmony: styles drawn %d/%d/%d/%d/%d", styles[0], styles[1], styles[2], styles[3], styles[4]);
+    {   /* (Sam, after hearing comping-styles.musicxml) mostly held: 55% held, 20% arpeggio, 25% half notes; offbeats
+           and stabs retired (Sam) */
+        int w[5] = {0, 0, 0, 0, 0}, want[5] = {55, 0, 0, 20, 25}, k2;
         song_roll_t q;
         roll_song(NULL, 1u, &q);
         for (k2 = 0; k2 < 10000; k2++) {
             q.seed = (uint32_t)k2 * 2654435761u + 1u;
             w[harmony_style(&q)]++;
         }
-        for (k2 = 0; k2 < 4; k2++)
+        for (k2 = 0; k2 < 5; k2++)
             CHECK(w[k2] >= want[k2] * 100 - 200 && w[k2] <= want[k2] * 100 + 200,
                   "harmony: style %d drawn %d of 10000, want %d%% (+-2)", k2, w[k2], want[k2]);
     }
@@ -1059,6 +1059,76 @@ static void test_harmony(void)
         }
     }
     CHECK(bad_det == 0, "harmony: %d determinism or L_KEYS violations", bad_det);
+}
+
+/* Half-note comping (pads revision 2): the voicing struck on beats 1 and 3 (steps 0 and 8), the second a little softer,
+   each held to the next strike, the same voicing both times (a request mid-chord, the loop lock off, included); a busy
+   lead thins it to the chord changes; sustained keys hold. */
+static void test_half_comping(void)
+{
+    const float SPS16 = 5512.5f;
+    plan_block_t keys = {0, 8, SEC_GROOVE, L_KEYS, 0};
+    song_roll_t r;
+    song_ev_t e0[16], e1[16], eb[16];
+    int seed, lock, halves = 0, sustained = 0, bpc2 = 0, bad_step = 0, bad_vel = 0, bad_len = 0, bad_same = 0;
+    int bad_busy = 0, bad_sust = 0;
+    for (lock = 1; lock >= 0; lock--) {
+        harmony_set_loop_lock(lock);
+        for (seed = 1; seed <= 400; seed++) {
+            const lib_prog_t *p;
+            const lib_set_t *set;
+            harmony_voicing_t vs, vb;
+            int bar, step, sust;
+            roll_song(NULL, (uint32_t)seed, &r);
+            if (harmony_style(&r) != CS_HALF) continue;
+            p = lib_prog_by_id((uint8_t)r.v[RF_PROG]);
+            set = lib_set_by_id((uint8_t)r.v[RF_SET]);
+            sust = harmony_comp_steps(&r) == 0;   /* held instead: sustained keys, or a kick on 1 and 3 alone */
+            memset(&vs, 0, sizeof vs);
+            memset(&vb, 0, sizeof vb);
+            if (lock) { halves++; sustained += set && lib_ins_sustained(set->chords); bpc2 += p->bars_per_chord == 2; }
+            for (bar = p->bars_per_chord > 1 ? 1 : 0; bar < 8; bar++) {   /* a request mid-chord: begins at bar 1 */
+                int n0 = harmony_step(&r, &keys, bar, 0, 1, SPS16, &vs, 0, 9u, e0, 16);
+                int n1;
+                for (step = 1; step < 16; step++) {
+                    song_ev_t ex[16];
+                    int nx = harmony_step(&r, &keys, bar, step, 1, SPS16, &vs, 0, 9u, step == 8 ? e1 : ex, 16);
+                    if (step == 8) { n1 = nx; continue; }
+                    if (nx) bad_step++;
+                }
+                if (n0 != 4 || n1 != 4) {
+                    if (!sust) bad_step++;
+                    continue;
+                }
+                if (sust) bad_sust++;
+                {
+                    int i;
+                    for (i = 0; i < 4; i++) {
+                        float want = 8.0f * SPS16 - 441.0f;
+                        if (e1[i].note != e0[i].note || e1[i].delay != e0[i].delay) bad_same++;
+                        if (e1[i].vel >= e0[i].vel) bad_vel++;
+                        if ((float)(e0[i].len + e0[i].delay) < want - 2.0f || (float)(e0[i].len + e0[i].delay) > want + 2.0f
+                            || (float)(e1[i].len + e1[i].delay) < want - 2.0f
+                            || (float)(e1[i].len + e1[i].delay) > want + 2.0f) bad_len++;
+                    }
+                }
+                for (step = 0; step < 16; step++) {              /* busy: the chord changes only, same strike */
+                    int nb = harmony_step(&r, &keys, bar, step, 1, SPS16, &vb, 1, 9u, eb, 16);
+                    if (nb && (step != 0 || bar % p->bars_per_chord != 0 || nb != 4 || (lock && memcmp(eb, e0, sizeof eb[0] * 4))))
+                        bad_busy++;
+                    if (!nb && step == 0 && bar % p->bars_per_chord == 0) bad_busy++;
+                }
+            }
+        }
+    }
+    harmony_set_loop_lock(1);
+    CHECK(halves > 20 && sustained > 0 && bpc2 > 0, "half comping: %d songs, %d over sustained keys, %d two-bar", halves, sustained, bpc2);
+    CHECK(bad_step == 0, "half comping: %d strikes off steps 0 and 8 (or missing)", bad_step);
+    CHECK(bad_sust == 0, "half comping: %d second strikes over sustained keys", bad_sust);
+    CHECK(bad_vel == 0, "half comping: %d second strikes not softer", bad_vel);
+    CHECK(bad_len == 0, "half comping: %d strikes not held to the next", bad_len);
+    CHECK(bad_same == 0, "half comping: %d notes revoiced between strikes", bad_same);
+    CHECK(bad_busy == 0, "half comping: %d busy bars not thinned to the chord changes", bad_busy);
 }
 
 /* Scale-degree index of an in-scale note (octave * 7 + position), counted from the key. */
@@ -3094,7 +3164,7 @@ static void test_comping_makes_room(void)
     uint32_t seed = 3131;
     song_roll_t prev, r;
     song_ev_t ev[64], e0[16], e1[16];
-    long strikes[4][2] = {{0}}, bars[4][2] = {{0}}, bad_same = 0, bad_subset = 0;
+    long strikes[5][2] = {{0}}, bars[5][2] = {{0}}, bad_same = 0, bad_subset = 0;
     int k, i, cs;
     for (k = 0; k < 300; k++) {
         const lib_set_t *set;
@@ -3142,9 +3212,9 @@ static void test_comping_makes_room(void)
             }
         }
     }
-    for (cs = CS_STABS; cs <= CS_ARP; cs++) {
+    for (cs = CS_STABS; cs <= CS_HALF; cs++) {
         double q, bz;
-        if (cs != CS_ARP) continue;   /* stabs and offbeats retired (Sam) */
+        if (cs != CS_ARP && cs != CS_HALF) continue;   /* stabs and offbeats retired (Sam) */
         q = bars[cs][0] ? (double)strikes[cs][0] / (double)bars[cs][0] : 0.0;
         bz = bars[cs][1] ? (double)strikes[cs][1] / (double)bars[cs][1] : 0.0;
         printf("comping %d: %.2f strikes a quiet bar (%ld), %.2f a busy one (%ld)\n", cs, q, bars[cs][0], bz,
@@ -4719,7 +4789,7 @@ static void cv_begin(const song_roll_t *roll)
 static float cv_ref_l[CV_SECS * 44100u], cv_ref_r[CV_SECS * 44100u], cv_l[CV_SECS * 44100u], cv_r[CV_SECS * 44100u];
 static void test_song_carryover(void)
 {
-    static const uint32_t A[] = {11u, 128u, 7u, 183u, 20u, 49u, 11u, 20u, 49u, 3u, 1013u, 18u};
+    static const uint32_t A[] = {24u, 128u, 7u, 183u, 20u, 49u, 24u, 20u, 49u, 3u, 1013u, 18u};
     static const uint32_t B[] = {12u, 904880372u, 4185943442u, 100u, 77u, 333u, 904880372u, 77u, 333u, 5u, 1010u, 165u};
     /* the sets these seeds drew before the synth sets (Bossa nylon, Rhodes neo-soul, Pad and guitar, Rhodes dusty,
        Neo-soul Wurli, Chillwave pad; Rhodes neo-soul, Bossa nylon, Nylon and sax, Neo-soul Wurli x3), then DX keys and FM
@@ -4887,11 +4957,13 @@ static void test_moves(void)
     {
         uint32_t seed, found = 0;
         int bk = -1;
-        for (seed = 1; seed < 3000 && !found; seed++) {
+        for (seed = 10; seed < 3000 && !found; seed++) {   /* (seeds 1-9 re-pinned past: pads revision 2 redrew their comping) */
             song_roll_t roll;
             song_plan_t q;
             int i;
             roll_song(NULL, seed, &roll);
+            if (harmony_style(&roll) != CS_HELD)         /* (a re-struck chord's attacks mask the filter's ramp per beat) */
+                continue;
             plan_build(&roll, &q);
             for (i = 1; i + 1 < q.n; i++)
                 if (q.b[i].section == SEC_BREAK && q.b[i].bars >= 2 && q.b[i + 1].section == SEC_GROOVE &&
@@ -8242,7 +8314,7 @@ static int pdbl_play(const song_roll_t *r, int *bad, int *notes)
 }
 static void test_pad_double(void)
 {
-    static const uint32_t SEED[3] = {1001u, 1004u, 1013u};
+    static const uint32_t SEED[3] = {1001u, 1006u, 1013u};
     static const int SET[3] = {1, 4, 19};
     int k;
     for (k = 0; k < 3; k++) {
@@ -8277,6 +8349,7 @@ int main(int argc, char **argv)
     RUN(test_lead_where);
     RUN(test_lead_push_legal);
     RUN(test_comping_makes_room);
+    RUN(test_half_comping);
     RUN(test_register_floor);
     RUN(test_pad_places);
     RUN(test_hybrid_follows_motion);

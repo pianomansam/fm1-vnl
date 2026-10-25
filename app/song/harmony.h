@@ -8,7 +8,8 @@
 #include "plan.h"
 #include "groove.h"
 
-enum { CS_HELD, CS_STABS, CS_OFFBEATS, CS_ARP };
+/* (CS_HALF, appended: the voicing struck on beats 1 and 3, the second a little softer; sustained keys hold instead) */
+enum { CS_HELD, CS_STABS, CS_OFFBEATS, CS_ARP, CS_HALF };
 
 /* Pitch classes (root first, up to 5) of the chord at `bar` (from 0). pass is 1-based: 1 = the first time through
    the loop (bar / (n * bars_per_chord) + 1). Passes >= 2 may recolor or substitute exactly one chord of the pass
@@ -17,6 +18,8 @@ int harmony_chord_at(const song_roll_t *r, int bar, int pass, int dark, int *pcs
 
 int harmony_style(const song_roll_t *r);   /* CS_*, per song (seed stream 121) */
 unsigned harmony_stab_steps(const song_roll_t *r);   /* the steps stab comping strikes: 1 and a step the kick leaves free */
+
+unsigned harmony_comp_steps(const song_roll_t *r);   /* the steps stabs or half-note comping strike (0 if only a note on 1) */
 
 /* Chord-part events of one 16th step (bar and step from 0). Writes nothing unless the block has L_KEYS.
    voicing_state: the previous chord's 4 notes (all 0 = none), updated here for voice leading. Chords are rolled:
@@ -37,7 +40,7 @@ int harmony_pad_place(const song_roll_t *r);
    (its loop cache may fill). Lets the lead plan a bar over the keys before they strike. */
 void harmony_voicing_at(const song_roll_t *r, int bar, int pass, harmony_voicing_t *vs, int out4[4]);
 /* One step of the keys. busy: the lead has 4+ onsets this bar, so stabs strike on 1 only, offbeats on 6 and 14, the
-   arpeggio on even steps (held comping and sustained keys unchanged); the voicing never changes. */
+   arpeggio on even steps, half notes on chord changes (held comping and sustained keys unchanged); the voicing never changes. */
 int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, int pass, float step_samples,
                  harmony_voicing_t *vs, int busy, uint32_t salt, song_ev_t *out, int max);
 

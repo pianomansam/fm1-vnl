@@ -93,10 +93,10 @@ int harmony_chord_at(const song_roll_t *r, int bar, int pass, int dark, int *pcs
    retired (Sam: the "and" 8ths liked "less and less"; stabs "just not working") */
 int harmony_style(const song_roll_t *r)
 {
-    static const uint8_t W[4] = {80, 0, 0, 20};
+    static const uint8_t W[5] = {55, 0, 0, 20, 25};   /* held, (stabs, offbeats retired), arpeggio, half notes */
     rng_t g;
     rng_seed(&g, r->seed, 121);
-    return rng_weighted(&g, W, 4);
+    return rng_weighted(&g, W, 5);
 }
 
 /* how far voicing b is from a, as the voicer weighs it: the lower voices' moves, the top's 8 a semitone (and 6 for a
@@ -250,6 +250,35 @@ unsigned harmony_stab_steps(const song_roll_t *r)
     return 1u;
 }
 
+/* Half notes hold instead over sustained keys (a pad never re-strikes), and over a kick that already plays on 1 and 3
+   alone (Sam: the keys never copy the kick's rhythm) */
+static int half_held(const song_roll_t *r)
+{
+    const lib_pattern_t *p = lib_pattern_by_id((uint8_t)r->v[RF_PATTERN]);
+    return keys_sustained(r) || (p && (p->hit[D_KICK] & 0xFFFFu) == 0x101u);
+}
+
+/* the steps the keys strike when they are more than a note on 1 (stabs, half notes), else 0: what the bass avoids */
+unsigned harmony_comp_steps(const song_roll_t *r)
+{
+    int style = harmony_style(r);
+    if (style == CS_STABS) return harmony_stab_steps(r);
+    return style == CS_HALF && !half_held(r) ? 0x101u : 0u;
+}
+
+/* is the last voicing sounded made of this chord's pitch classes (so a later strike of it can keep it) */
+static int last_is_chord(const harmony_voicing_t *vs, const int *pcs, int n)
+{
+    int i, j;
+    if (!vs->last[0] && !vs->last[3]) return 0;
+    for (i = 0; i < 4; i++) {
+        int in = 0;
+        for (j = 0; j < n; j++) in |= (vs->last[i] - pcs[j] + 120) % 12 == 0;
+        if (!in) return 0;
+    }
+    return 1;
+}
+
 int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, int pass, float step_samples,
                  harmony_voicing_t *vs, int busy, uint32_t salt, song_ev_t *out, int max)
 {
@@ -262,6 +291,7 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
     if (!(b->layers & L_KEYS) || max <= 0) return 0;
     p = prog_of(r);
     style = harmony_style(r);
+    if (style == CS_HALF && half_held(r)) style = CS_HELD;
     switch (style) {
     case CS_HELD:
         if (step != 0 || bar % p->bars_per_chord != 0) return 0;
@@ -279,19 +309,29 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
         len = (uint32_t)(2.0f * step_samples * 0.8f);
         lo = 60; hi = 85;
         break;
+    case CS_HALF:                         /* beats 1 and 3, each held to the next strike */
+        if (step != 0 && step != 8) return 0;
+        len = (uint32_t)(8.0f * step_samples);
+        len = len > 441u ? len - 441u : 1u;
+        lo = 55; hi = 75;
+        break;
     default:                              /* the arpeggio: one chord tone a 16th (Sam: in 8ths it reads as a melody) */
         len = (uint32_t)step_samples;
         lo = 50; hi = 70;
         break;
     }
     if (busy && style != CS_HELD && !keys_sustained(r)) {   /* the lead is busy: the comping makes room (Sam) */
+        if (style == CS_HALF && (step != 0 || bar % p->bars_per_chord != 0)) return 0;   /* chord changes only */
         if (style == CS_STABS && step != 0) return 0;
         if (style == CS_OFFBEATS && step != 6 && step != 14) return 0;
         if (style == CS_ARP && (step & 1)) return 0;
     }
     dark = (b->flags & PB_DARK) != 0;
     n = harmony_chord_at(r, bar, pass, dark, pcs);
-    voice_chord(r, bar, pcs, n, vs, notes);
+    if (style == CS_HALF && !(step == 0 && bar % p->bars_per_chord == 0) && last_is_chord(vs, pcs, n))
+        memcpy(notes, vs->last, sizeof notes);            /* the chord's other strikes keep its voicing, never revoiced */
+    else
+        voice_chord(r, bar, pcs, n, vs, notes);
     place_keys(r, notes);
     if (style == CS_ARP) {
         k = ARP[(bar * 16 + step) % 6];
@@ -300,5 +340,10 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
     }
     /* per-chord roll spread, 10-60 ms between notes, the same for every strike of the chord in a bar */
     gap = (uint32_t)(10 + (int)(mix(salt, (uint32_t)bar, r->seed, 50) % 51u)) * 441u / 10u;
+    if (style == CS_HALF && step == 8) {                  /* the second strike a little softer than the first (same draw) */
+        int c = emit_chord(notes, 4, gap, lo, hi, len, dark, salt, bar, 0, out, max), i;
+        for (i = 0; i < c; i++) out[i].vel = (uint8_t)clampi(out[i].vel * 9 / 10, 25, 110);
+        return c;
+    }
     return emit_chord(notes, 4, gap, lo, hi, len, dark, salt, bar, step, out, max);
 }
