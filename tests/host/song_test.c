@@ -981,6 +981,7 @@ static void test_harmony(void)
                 if (harmony_style(&r) != CS_ARP && harmony_style(&r) != CS_STRUM && ne > 0) {   /* (test_strum) */
                     chords_seen++;
                     if (ne != 4) bad_roll++;
+                    if (lib_set_by_id((uint8_t)r.v[RF_SET])->chords == INS_KNIGHT) continue;   /* struck together (test_knight_no_roll) */
                     for (i = 1; i < ne; i++) {
                         uint32_t gap = ev[i].delay - ev[i - 1].delay;
                         if (ev[i].delay <= ev[i - 1].delay || ev[i].note <= ev[i - 1].note) bad_roll++;
@@ -1153,6 +1154,41 @@ static void test_comp_styles(void)
                 CHECK(harmony_style(&r) != CS_HELD, "comp styles: held nylon at %d BPM", r.v[RF_TEMPO]);
         }
     }
+}
+
+/* Task 6b: the acoustic piano strikes a chord together (a hand's 0-8 ms), the electric pianos keep the 10-60 ms roll */
+static void test_knight_no_roll(void)
+{
+    const float SPS16 = 5512.5f;
+    plan_block_t keys = {0, 8, SEC_GROOVE, L_KEYS, 0};
+    song_roll_t r;
+    song_ev_t ev[16];
+    int seed, knight = 0, strikes = 0, bad = 0, rhodes = 0, rolled = 0;
+    for (seed = 1; seed <= 400; seed++) {
+        const lib_set_t *set;
+        harmony_voicing_t vs;
+        int bar, step, isk, isr;
+        roll_song(NULL, (uint32_t)seed, &r);
+        set = lib_set_by_id((uint8_t)r.v[RF_SET]);
+        if (!set) continue;
+        isk = set->chords == INS_KNIGHT;
+        isr = set->chords == INS_RHODES;
+        if (!isk && !isr) continue;
+        knight += isk; rhodes += isr;
+        memset(&vs, 0, sizeof vs);
+        for (bar = 0; bar < 8; bar++)
+            for (step = 0; step < 16; step++) {
+                int n = harmony_step(&r, &keys, bar, step, 1, SPS16, &vs, 0, 9u, ev, 16), i;
+                uint32_t lo = 0xffffffffu, hi = 0;
+                if (n < 2) continue;
+                for (i = 0; i < n; i++) { if (ev[i].delay < lo) lo = ev[i].delay; if (ev[i].delay > hi) hi = ev[i].delay; }
+                if (isk) { strikes++; if (hi - lo > 353u) bad++; }
+                else if (hi - lo >= 441u) rolled++;
+            }
+    }
+    CHECK(knight > 5 && strikes > 100, "knight: %d songs, %d strikes", knight, strikes);
+    CHECK(bad == 0, "knight: %d strikes spread over 8 ms", bad);
+    CHECK(rhodes > 5 && rolled > 50, "rhodes keeps the 10-60 ms roll: %d songs, %d rolled strikes", rhodes, rolled);
 }
 
 static void test_half_comping(void)
@@ -9420,6 +9456,7 @@ int main(int argc, char **argv)
     RUN(test_lead_push_legal);
     RUN(test_comping_makes_room);
     RUN(test_half_comping);
+    RUN(test_knight_no_roll);
     RUN(test_register_floor);
     RUN(test_pad_places);
     RUN(test_hybrid_follows_motion);

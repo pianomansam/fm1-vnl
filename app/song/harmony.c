@@ -419,8 +419,10 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
         one = notes[k];
         return emit_chord(&one, 1, 0, lo, hi, len, dark, salt, bar, step, out, max);
     }
-    /* per-chord roll spread, 10-60 ms between notes, the same for every strike of the chord in a bar */
+    /* per-chord roll spread, 10-60 ms between notes (the Knight: see below), the same for every strike of the chord in a bar */
     gap = (uint32_t)(10 + (int)(mix(salt, (uint32_t)bar, r->seed, 50) % 51u)) * 441u / 10u;
+    if (lib_set_by_id((uint8_t)r->v[RF_SET]) && lib_set_by_id((uint8_t)r->v[RF_SET])->chords == INS_KNIGHT)
+        gap = (mix(salt, (uint32_t)bar, r->seed, 50) % 9u) * 441u / 10u / 3u;   /* Sam: an acoustic piano strikes together, 0-8 ms in all */
     if (style == CS_HALF && step == 8) {                  /* the second strike a little softer than the first (same draw) */
         int c = emit_chord(notes, 4, gap, lo, hi, len, dark, salt, bar, 0, out, max), i;
         for (i = 0; i < c; i++) out[i].vel = (uint8_t)clampi(out[i].vel * 9 / 10, 25, 110);
