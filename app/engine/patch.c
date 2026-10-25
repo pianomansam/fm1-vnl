@@ -29,32 +29,73 @@
      p[0] the blend (0 sine, 1 triangle, 2 pulse, crossfaded between), p[1] the pulse's width, p[2] the low-pass
      cutoff at full envelope and velocity, as a multiple of the note's frequency (60% of it at velocity 0, 30% at
      envelope 0), p[3] the breath's level, p[4] its band's center in Hz, p[5] the vibrato's depth in cents, p[6] the
-     mute: a band-pass center in Hz (0 for none), p[7] its damping k (1/Q: small is narrow). */
+     mute: a band-pass center in Hz (0 for none), p[7] its damping k (1/Q: small is narrow).
+   M_CHIP (the triangle bass; voices.c chip_*): a NES-style triangle channel at full rate (the dust colors it), stepped
+     to 16 levels, pitch on the semitone, a gentle low-pass after its crush.
+     p[0] the bit crush: the voice's output (after its envelope) rounded to this many bits over its own full level
+     (2^(p[0]-1) steps from 0 to the note's level; 0 for none; 7: a few-bit DAC's grit and steppy decays); p[1] a
+     one-pole low-pass after the crush at this multiple of the note's frequency (0 for none; Sam: more mellow).
+   M_SUB (organ, saw lead, synth pluck; voices.c sub_*): frugal as a Juno-106, one oscillator and a sub-octave square
+     into a 2-pole low-pass with its own envelope; mono and glide for the lead. On the chords a patch whose highest
+     cutoff stays at 8 kHz or under renders at half the rate.
+     p[0] the wave (0 saw, 1 pulse), p[1] the pulse's width (0.05-0.5), p[2] the sub-octave square's level, p[3] the
+     low-pass's cutoff in Hz plus p[5] times the note's frequency (the key tracking), p[4] the resonance (0-1,
+     clamped: the damping from Butterworth's down by 85%), p[6] the filter envelope's depth in octaves over the cutoff
+     at full velocity (half of it at velocity 0), p[7] its attack (s), p[8] its fall to -60 dB (s), p[9] 1 for mono
+     (on the lead: a note while the last is held goes legato, gliding), p[10] the glide's time in ms (0: legato, no
+     glide).
+   M_ENS (the pad layer's strings and warm pad; voices.c ens_*, pad_seg): frugal, in the spirit of a string machine,
+     at a quarter of the rate: a polyBLEP saw and a partner saw a little sharp and quieter, into a fixed 2-pole
+     low-pass (two one-poles); the ensemble's width is the chorus's (the patch's chorus: the pad bus's send into it).
+     p[0] the partner's detune in cents (up), p[1] its level, p[2] the low-pass's cutoff in Hz plus p[3] times the
+     note's frequency. */
 #include <stddef.h>
 #include "library.h"
 #include "patch.h"
 
-/* model, {p[0..7]}, att, dec, sus, rel, level, chorus, delay. The chorus (on the chords' bus): the electric keys and
+/* model, {p[0..15]}, att, dec, sus, rel, level, chorus, delay. The chorus (on the chords' bus): the electric keys and
    the pads deep, the felt piano and the nylon a touch. The delay's send: leads and ear candy wet, keys a little,
-   basses dry. */
+   basses dry. The levels: the lead about 4-6 dB over the keys while it plays, in every set (song_test's
+   test_lead_over_keys); the guitar lick rings longer and brighter (3 s, damping 4500 Hz plus 3x the note) so a pluck
+   carries as a lead without its peaks standing far out. */
 static const vx_patch_t PATCHES[INS_NONE] = {
-    [INS_RHODES] = {M_EP, {1.0f, 0.4f, 1.2f, 1.2f, 0.05f, 0.5f, 0.0f, 0.0f}, 0.002f, 4.5f, 0.0f, 0.08f, 1.0f, 0.7f, 0.08f},
-    [INS_WURLI] = {M_EP, {2.0f, 0.8f, 2.0f, 1.5f, 0.0f, 0.6f, 1.0f, 0.0f}, 0.002f, 3.5f, 0.0f, 0.06f, 1.0f, 0.6f, 0.08f},
-    [INS_FELT_PIANO] = {M_EP, {1.0f, 0.2f, 0.6f, 0.8f, 0.0f, 0.4f, 0.0f, 1100.0f}, 0.004f, 5.0f, 0.0f, 0.15f, 0.89f, 0.2f, 0.06f},
-    [INS_NYLON] = {M_PLUCK, {1.8f, 3000.0f, 2500.0f, 0.0f, 0.0f, 2.0f}, 0.002f, 6.0f, 0.0f, 0.08f, 1.3f, 0.15f, 0.08f},
-    [INS_PAD] = {M_PAD, {5.0f, 2.0f, 0.35f, 900.0f, 1.5f, 1.2f, 0.0f, 0.0f}, 0.6f, 4.0f, 0.85f, 2.0f, 0.66f, 0.6f, 0.1f},
+    [INS_RHODES] = {M_EP, {1.0f, 0.4f, 1.2f, 1.2f, 0.05f, 0.5f, 0.0f, 0.0f}, 0.002f, 4.5f, 0.0f, 0.08f, 0.944f, 0.7f, 0.08f},
+    /* the Wurli struck softer (Sam: "still has lots of attack"): less index, strike and bark, a 6 ms attack */
+    [INS_WURLI] = {M_EP, {2.0f, 0.8f, 1.2f, 1.5f, 0.0f, 0.3f, 0.4f, 0.0f}, 0.006f, 3.5f, 0.0f, 0.06f, 0.932f, 0.6f, 0.08f},
+    [INS_FELT_PIANO] = {M_EP, {1.0f, 0.2f, 0.6f, 0.8f, 0.0f, 0.4f, 0.0f, 1100.0f}, 0.004f, 5.0f, 0.0f, 0.15f, 0.716f, 0.2f, 0.06f},
+    [INS_NYLON] = {M_PLUCK, {1.8f, 3000.0f, 2500.0f, 0.0f, 0.0f, 2.0f}, 0.002f, 6.0f, 0.0f, 0.08f, 1.62f, 0.15f, 0.08f},
+    [INS_PAD] = {M_PAD, {5.0f, 2.0f, 0.35f, 900.0f, 1.5f, 1.2f, 0.0f, 0.0f}, 0.6f, 4.0f, 0.85f, 2.0f, 0.616f, 0.6f, 0.1f},
     [INS_UPRIGHT] = {M_PLUCK, {0.9f, 700.0f, 1500.0f, 0.5f, 0.08f, 3.0f}, 0.002f, 4.0f, 0.0f, 0.05f, 3.4f, 0.0f, 0.0f},
     [INS_ELEC_BASS] = {M_BASS, {1.0f, 0.6f, 2.4f, 0.12f, 0.0f}, 0.003f, 7.0f, 0.6f, 0.04f, 1.57f, 0.0f, 0.0f},
     [INS_SUB] = {M_BASS, {1.0f, 0.0f, 0.0f, 0.1f, 0.6f}, 0.008f, 7.0f, 1.0f, 0.06f, 1.0f, 0.0f, 0.0f},
-    [INS_FLUTE] = {M_WIND, {0.25f, 0.5f, 3.0f, 0.13f, 1800.0f, 14.0f, 0.0f, 0.0f}, 0.06f, 7.0f, 0.75f, 0.12f, 1.3f, 0.0f, 0.3f},
-    [INS_MUTED_TPT] = {M_WIND, {2.0f, 0.2f, 12.0f, 0.08f, 2200.0f, 10.0f, 1400.0f, 0.35f}, 0.04f, 5.5f, 0.7f, 0.1f, 1.73f, 0.0f, 0.3f},
-    [INS_SAX] = {M_WIND, {1.6f, 0.35f, 5.0f, 0.11f, 1500.0f, 18.0f, 0.0f, 0.0f}, 0.05f, 6.2f, 0.7f, 0.1f, 1.66f, 0.0f, 0.25f},
-    [INS_VIBES] = {M_BELL, {4.0f, 0.3f, 0.9f, 0.6f, 0.35f, 5.0f, 0.3f}, 0.002f, 3.0f, 0.0f, 0.15f, 1.5f, 0.0f, 0.3f},
-    [INS_KALIMBA] = {M_BELL, {3.0f, 0.4f, 1.4f, 0.12f, 0.0f, 0.0f, 0.4f}, 0.002f, 1.4f, 0.0f, 0.06f, 1.47f, 0.0f, 0.35f},
-    [INS_GUITAR_LICK] = {M_PLUCK, {0.7f, 2200.0f, 5000.0f, 0.0f, 0.0f, 1.0f}, 0.002f, 3.0f, 0.0f, 0.05f, 1.58f, 0.0f, 0.3f},
+    [INS_FLUTE] = {M_WIND, {0.25f, 0.5f, 3.0f, 0.13f, 1800.0f, 14.0f, 0.0f, 0.0f}, 0.06f, 7.0f, 0.75f, 0.12f, 1.16f, 0.0f, 0.3f},
+    [INS_MUTED_TPT] = {M_WIND, {2.0f, 0.2f, 12.0f, 0.08f, 2200.0f, 10.0f, 1400.0f, 0.35f}, 0.04f, 5.5f, 0.7f, 0.1f, 1.575f, 0.0f, 0.3f},
+    [INS_SAX] = {M_WIND, {1.6f, 0.35f, 5.0f, 0.11f, 1500.0f, 18.0f, 0.0f, 0.0f}, 0.05f, 6.2f, 0.7f, 0.1f, 1.2f, 0.0f, 0.25f},
+    [INS_VIBES] = {M_BELL, {4.0f, 0.3f, 0.9f, 0.6f, 0.35f, 5.0f, 0.3f}, 0.002f, 3.0f, 0.0f, 0.15f, 1.414f, 0.0f, 0.3f},
+    [INS_KALIMBA] = {M_BELL, {3.0f, 0.4f, 1.4f, 0.12f, 0.0f, 0.0f, 0.4f}, 0.002f, 1.4f, 0.0f, 0.06f, 1.614f, 0.0f, 0.35f},
+    [INS_GUITAR_LICK] = {M_PLUCK, {3.0f, 4500.0f, 3500.0f, 0.0f, 0.0f, 3.0f}, 0.002f, 3.0f, 0.0f, 0.05f, 3.29f, 0.0f, 0.3f},
     [INS_MUSIC_BOX] = {M_BELL, {5.0f, 0.3f, 0.9f, 0.25f, 0.0f, 0.0f, 0.3f}, 0.002f, 1.2f, 0.0f, 0.05f, 1.1f, 0.0f, 0.4f},
     [INS_BELLS] = {M_BELL, {3.53f, 0.6f, 1.2f, 1.2f, 0.0f, 0.0f, 0.3f}, 0.003f, 3.5f, 0.0f, 0.2f, 0.87f, 0.0f, 0.35f},
     [INS_VOX_PAD] = {M_PAD, {4.0f, 2.0f, 0.35f, 0.0f, 0.0f, 0.0f, 0.6f, 1.0f}, 0.8f, 4.0f, 0.85f, 0.9f, 1.77f, 0.5f, 0.25f},
+    /* the triangle bass (a chip voice) */
+    [INS_CHIP_BASS] = {M_CHIP, {7.0f, 5.0f}, 0.003f, 7.0f, 1.0f, 0.05f, 1.3f, 0.0f, 0.0f},
+    /* the subtractive synths, warm (their cutoffs low), their levels balanced in their sets like the rest. The organ:
+       a square and its sub (16' and 8'), no envelope; the saw lead mono and gliding; the synth pluck: a pulse snapped
+       open and shut */
+    [INS_ORGAN] = {M_SUB, {1.0f, 0.5f, 0.6f, 1200.0f, 0.0f, 1.0f}, 0.005f, 6.0f, 1.0f, 0.08f, 0.248f, 0.4f, 0.08f},
+    [INS_SAW_LEAD] = {M_SUB, {0.0f, 0.5f, 0.0f, 900.0f, 0.2f, 1.5f, 1.0f, 0.02f, 0.6f, 1.0f, 90.0f},
+                      0.01f, 3.0f, 0.8f, 0.12f, 1.09f, 0.0f, 0.3f},
+    [INS_SYNTH_PLUCK] = {M_SUB, {1.0f, 0.35f, 0.0f, 200.0f, 0.25f, 0.6f, 4.5f, 0.001f, 0.3f}, 0.002f, 1.2f, 0.0f,
+                         0.1f, 1.24f, 0.0f, 0.35f},
+    /* the 80s FM keys: a 14x tine on the attack (a high ratio, a bright index falling fast) over a clean body */
+    [INS_DX_EP] = {M_EP, {1.0f, 0.3f, 1.8f, 0.9f, 0.12f, 0.4f, 0.0f, 6500.0f}, 0.002f, 2.6f, 0.0f, 0.08f, 0.944f,
+                   0.5f, 0.08f},
+    /* the slap FM bass: the index strikes high and is gone in 150 ms */
+    [INS_FM_BASS] = {M_BASS, {1.0f, 0.1f, 8.0f, 0.15f, 0.15f}, 0.002f, 4.0f, 0.6f, 0.05f, 1.3f, 0.0f, 0.0f},
+    /* the pad layer (V_PAD; levels by ear in the pads plan's Task 3): soft strings, a slow swell and a deep ensemble;
+       a warm synth pad, darker, slower and a little wetter */
+    [INS_STRINGS] = {M_ENS, {7.0f, 0.4f, 1800.0f, 1.0f}, 0.6f, 4.0f, 0.85f, 1.5f, 1.0f, 0.7f, 0.1f},
+    [INS_WARM_PAD] = {M_ENS, {5.0f, 0.5f, 900.0f, 1.5f}, 0.8f, 4.0f, 0.85f, 2.0f, 1.0f, 0.5f, 0.15f},
 };
 
 const vx_patch_t *vx_patch(int ins)

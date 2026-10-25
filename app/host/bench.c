@@ -7,9 +7,10 @@
    heaviest seed may not carry the heaviest chain: the picked seed (and every seed with --forced) is also timed with
    its chain forced to the heaviest real one (dust 3, vinyl, rain), printed as `forced`: the upper bound.
    Each step sets the section moves (plan_moves) as the app's step() does. VNL_FXOFF=<VX_OFF_* mask> switches effects
-   off, to measure what each costs. VNL_FX=ours puts our plate and chorus in place of Rings' (the default).
-   VNL_RUNS=<n> takes the best of n runs everywhere (default: 3 for the songs and
-   AMB-1, 7 for --parts), for a busy host.
+   off, to measure what each costs. VNL_SOLO=choir|flute|organ|strings plays the songs' solo note on that voice and
+   leaves the pad's chord part out (revision 2's solo sections). VNL_FX=ours puts our plate and chorus in place of
+   Rings' (the default). VNL_RUNS=<n> takes the best of n runs everywhere (default: 3 for the songs and AMB-1, 7 for
+   --parts), for a busy host.
    The AMB-1 engine's headers clash with ours (MODE_*), so its few entry points are declared here by hand. */
 #include <stdint.h>
 #ifdef VNL_BENCH
@@ -57,6 +58,15 @@ static double now_ms(void)
 
 /* 60 s of the song at `seed`: ticks, events to the voices at the step's start (delays honored by the voices), and
    the render in blocks. *events gets the event count. Milliseconds. */
+/* VNL_SOLO=choir|flute|organ|strings: run_vnl's solo voice (INS_NONE without) */
+static int solo_env(void)
+{
+    const char *v = getenv("VNL_SOLO");
+    if (!v) return INS_NONE;
+    return !strcmp(v, "choir") ? INS_VOX_PAD : !strcmp(v, "flute") ? INS_FLUTE : !strcmp(v, "organ") ? INS_ORGAN
+         : !strcmp(v, "strings") ? INS_STRINGS : INS_NONE;
+}
+
 static double run_vnl(uint32_t seed, int render, long *events, int force)
 {
     static song_t s;
@@ -77,6 +87,9 @@ static double run_vnl(uint32_t seed, int render, long *events, int force)
     vx_init();
     song_start(&s, &roll);
     vx_song(&s.roll);
+    if (solo_env() != INS_NONE) /* VNL_SOLO: the song's solo note on that voice, the pad's chord part left out (the
+                                   solo's sections as revision 2 plays them: either/or) */
+        vx_assign_pad_solo(solo_env());
     while (done < total) {
         int n, i;
         if (render) {
@@ -93,7 +106,8 @@ static double run_vnl(uint32_t seed, int render, long *events, int force)
         if (!n && s.state == SS_ENDED) break;
         *events += n;
         if (!render) { done += step; continue; }
-        for (i = 0; i < n; i++) vx_event(&ev[i]);
+        for (i = 0; i < n; i++)
+            if (solo_env() == INS_NONE || ev[i].voice != V_PAD || ev[i].pad == 4) vx_event(&ev[i]);
         for (left = step; left; ) {
             uint32_t b = left < BLK ? left : BLK, k;
             for (k = 0; k < b; k++) l[k] = r[k] = 0.0f;
@@ -152,7 +166,7 @@ static uint32_t heaviest(void)
    dry (vx_init leaves fx_init's chain: the plate shut, no bed, dust 0) unless a part opens the chain with
    fx_configure; every row is the best of PART_RUNS, net of the idle dry engine's render (the floor). */
 #define PART_RUNS (runs(7))
-enum { P_IDLE, P_CHORDS, P_LEAD, P_CANDY, P_BASS, P_DRUMS, P_SOURCE };
+enum { P_IDLE, P_CHORDS, P_LEAD, P_CANDY, P_BASS, P_DRUMS, P_SOURCE, P_PAD, P_SOLO };
 
 static void ev(int voice, int note, int vel, uint32_t len)
 {
@@ -165,6 +179,8 @@ static void ev(int voice, int note, int vel, uint32_t len)
     vx_event(&e);
 }
 
+static int solo_ins = INS_NONE; /* the part's solo patch (P_SOLO) */
+
 /* The events of one 16th step (0-15) of a bar; st is a 16th in samples. */
 static void part_step(int kind, int bar, int step, uint32_t st)
 {
@@ -175,6 +191,36 @@ static void part_step(int kind, int bar, int step, uint32_t st)
     case P_CHORDS: /* four voices: a chord held a bar, re-struck each bar */
         if (!step)
             for (i = 0; i < 4; i++) ev(V_CHORD, c[i], 90, st * 15);
+        break;
+    case P_PAD: /* the pad layer, as the song engine plays it: a 2-note chord on lanes 1-2 (the budget's cut (c)) and
+                   a solo note an octave up on lane 4, each held to the next bar's, where it glides to its new note */
+        if (!step)
+            for (i = 0; i < 4; i++) {
+                song_ev_t e;
+                if (i == 2)
+                    continue;
+                memset(&e, 0, sizeof e);
+                e.voice = V_PAD;
+                e.note = (uint8_t)(i < 3 ? c[i] : c[3] + 12);
+                e.vel = 90;
+                e.len = st * 16;
+                e.pad = (uint8_t)(i + 1);
+                vx_event(&e);
+            }
+        break;
+    case P_SOLO: /* the pad's solo note alone (it never sounds with the chord part: pads revision 2) on lane 4's own
+                    patch, held a bar and gliding to the next bar's (the choir, flute, organ at 72-84, the strings an
+                    octave up) */
+        if (!step) {
+            song_ev_t e;
+            memset(&e, 0, sizeof e);
+            e.voice = V_PAD;
+            e.note = (uint8_t)(c[3] + (solo_ins == INS_STRINGS ? 24 : 12));
+            e.vel = 58;
+            e.len = st * 16;
+            e.pad = 4;
+            vx_event(&e);
+        }
         break;
     case P_LEAD: /* 8ths, each held a dotted 8th, so two voices overlap */
         if (!(step & 1)) ev(V_LEAD, 72 + c[(step >> 1) & 3] % 12, 85, st * 3);
@@ -193,21 +239,23 @@ static void part_step(int kind, int bar, int step, uint32_t st)
         if (step & 1) ev(V_SHAKER, 0, 60, 0);
         if (step == 6 || step == 15) ev(V_RIM, 0, 70, 0);
         break;
-    case P_SOURCE: /* the fx source: a chord, a bass and the kit (a mix to run the chain on) */
+    case P_SOURCE: /* the fx source: a chord, a bass and the kit (a mix to run the chain on); the pad layer's chord
+                      and solo note too when the part sets a pad (else its events find no patch) */
         part_step(P_CHORDS, bar, step, st);
         part_step(P_BASS, bar, step, st);
         part_step(P_DRUMS, bar, step, st);
+        part_step(P_PAD, bar, step, st);
         break;
     }
 }
 
-typedef struct { int kind, chords, bass, lead, candy, kit, dust, noise, amb, chain; unsigned off; } part_t;
+typedef struct { int kind, chords, bass, lead, candy, pad, solo, kit, dust, noise, amb, chain; unsigned off; } part_t;
 
 static part_t part_of(int kind)
 {
     part_t p;
     memset(&p, 0, sizeof p);
-    p.chords = p.bass = p.lead = p.candy = INS_NONE;
+    p.chords = p.bass = p.lead = p.candy = p.pad = p.solo = INS_NONE;
     p.kit = KIT_DUSTY;
     p.kind = kind;
     return p;
@@ -226,6 +274,9 @@ static double run_part(const part_t *p)
     vx_assign(V_BASS, p->bass);
     vx_assign(V_LEAD, p->lead);
     vx_assign(V_CANDY, p->candy);
+    vx_assign(V_PAD, p->pad);
+    vx_assign_pad_solo(p->solo);
+    solo_ins = p->solo;
     vx_set_kit(p->kit);
     if (p->chain) fx_configure(p->dust, p->noise, p->amb, FL_LOFI);
     t0 = now_ms();
@@ -297,19 +348,27 @@ static void role_rows(const char *grp, int kind, int role, const named_t *l, int
         if (role == V_CHORD) p.chords = l[i].ins;
         else if (role == V_BASS) p.bass = l[i].ins;
         else if (role == V_LEAD) p.lead = l[i].ins;
+        else if (role == V_PAD) p.pad = l[i].ins;
         else p.candy = l[i].ins;
         row(grp, l[i].n, best_part(&p), base, amb);
     }
 }
 
+#define NEL(a) ((int)(sizeof(a) / sizeof((a)[0])))
 static void parts(double amb)
 {
     static const named_t CH[] = {{"rhodes", INS_RHODES}, {"wurli", INS_WURLI}, {"felt piano", INS_FELT_PIANO},
-                                 {"nylon", INS_NYLON}, {"pad", INS_PAD}, {"vox pad", INS_VOX_PAD}};
-    static const named_t BS[] = {{"upright", INS_UPRIGHT}, {"elec bass", INS_ELEC_BASS}, {"sub", INS_SUB}};
+                                 {"nylon", INS_NYLON}, {"pad", INS_PAD}, {"vox pad", INS_VOX_PAD},
+                                 {"organ", INS_ORGAN}, {"dx ep", INS_DX_EP}};
+    static const named_t BS[] = {{"upright", INS_UPRIGHT}, {"elec bass", INS_ELEC_BASS}, {"sub", INS_SUB},
+                                 {"triangle bass", INS_CHIP_BASS}, {"fm bass", INS_FM_BASS}};
     static const named_t LD[] = {{"flute", INS_FLUTE}, {"muted trumpet", INS_MUTED_TPT}, {"sax", INS_SAX},
-                                 {"vibes", INS_VIBES}, {"kalimba", INS_KALIMBA}, {"guitar lick", INS_GUITAR_LICK}};
+                                 {"vibes", INS_VIBES}, {"kalimba", INS_KALIMBA}, {"guitar lick", INS_GUITAR_LICK},
+                                 {"saw lead", INS_SAW_LEAD}, {"synth pluck", INS_SYNTH_PLUCK}};
     static const named_t CD[] = {{"music box", INS_MUSIC_BOX}, {"bells", INS_BELLS}};
+    static const named_t PDL[] = {{"strings", INS_STRINGS}, {"warm pad", INS_WARM_PAD}};
+    static const named_t SOL[] = {{"choir", INS_VOX_PAD}, {"flute", INS_FLUTE}, {"organ", INS_ORGAN},
+                                  {"strings", INS_STRINGS}};
     static const named_t KT[] = {{"dusty", KIT_DUSTY}, {"soft", KIT_SOFT}, {"808", KIT_808}, {"brushes", KIT_BRUSHES}};
     static const uint32_t sd[4] = {20, 100, 128, 183};
     part_t p = part_of(P_IDLE), q;
@@ -321,10 +380,17 @@ static void parts(double amb)
     for (k = 0; k < 4; k++)
         for (j = 0; j < PART_RUNS; j++) { t = run_vnl(sd[k], 0, &e, 0); if (t < b) b = t; }
     printf("floor: song engine ticking only (seeds 20/100/128/183, best, no render): %.1f ms = ratio %.3f\n", b, b / amb);
-    role_rows("chords", P_CHORDS, V_CHORD, CH, 6, base, amb);
-    role_rows("bass", P_BASS, V_BASS, BS, 3, base, amb);
-    role_rows("lead", P_LEAD, V_LEAD, LD, 6, base, amb);
-    role_rows("candy", P_CANDY, V_CANDY, CD, 2, base, amb);
+    role_rows("chords", P_CHORDS, V_CHORD, CH, NEL(CH), base, amb);
+    role_rows("bass", P_BASS, V_BASS, BS, NEL(BS), base, amb);
+    role_rows("lead", P_LEAD, V_LEAD, LD, NEL(LD), base, amb);
+    role_rows("candy", P_CANDY, V_CANDY, CD, NEL(CD), base, amb);
+    role_rows("pad", P_PAD, V_PAD, PDL, NEL(PDL), base, amb);
+    for (k = 0; k < NEL(SOL); k++) { /* the solo note alone on lane 4, over the strings pad */
+        p = part_of(P_SOLO);
+        p.pad = INS_STRINGS;
+        p.solo = SOL[k].ins;
+        row("solo", SOL[k].n, best_part(&p), base, amb);
+    }
     for (k = 0; k < 4; k++) {
         p = part_of(P_DRUMS);
         p.kit = KT[k].ins;
@@ -364,7 +430,21 @@ static void parts(double amb)
     row("fx", "rain (over plate)", best_part(&q), plate, amb);
     q.dust = 3;
     q.noise = 1;
-    row("fx", "full chain (3,vinyl,rain)", best_part(&q), src, amb);
+    t = best_part(&q);
+    row("fx", "full chain (3,vinyl,rain)", t, src, amb);
+    /* the pad layer's marginal cost: on the source, net of the source alone (dry, and with the full chain: its plate
+       and chorus sends) */
+    for (k = 0; k < NEL(PDL); k++) {
+        char nm[40];
+        part_t w = q;
+        w.pad = PDL[k].ins;
+        snprintf(nm, sizeof nm, "%s, full chain", PDL[k].n);
+        row("layer", nm, best_part(&w), t, amb);
+        w.chain = 0;
+        w.dust = w.noise = w.amb = 0;
+        snprintf(nm, sizeof nm, "%s, dry", PDL[k].n);
+        row("layer", nm, best_part(&w), src, amb);
+    }
     printf("(kick ducking runs inside dust_run at every level: not separable)\n");
     for (k = 0, b = 1e30; k < PART_RUNS; k++) { t = run_chain(); if (t < b) b = t; }
     row("fx", "chain alone (dust 0)", b, 0.0, amb);
@@ -380,7 +460,7 @@ int main(int argc, char **argv)
         if (!strcmp(argv[i], "--forced")) forced = 1;
         else if (!strcmp(argv[i], "--parts")) doparts = 1;
         else if (argv[i][0] == '-') heavy = 1;
-        else seeds[ns++] = (uint32_t)strtoul(argv[i], 0, 10);
+        else if (ns < 64) seeds[ns++] = (uint32_t)strtoul(argv[i], 0, 10); /* (64 at most) */
     }
     if (!doparts && (heavy || !ns)) { seeds[0] = heaviest(); ns = 1; forced = 1; printf("heaviest seed %u\n", (unsigned)seeds[0]); }
     /* AMB-1's heaviest piece: the slowest of its eight (best of 3 each) */

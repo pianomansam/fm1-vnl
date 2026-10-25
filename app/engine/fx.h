@@ -47,6 +47,8 @@ void fx_process_pairs(float *l, float *r, const float *s2, const float *c2, cons
 void fx_chorus(float depth);
 /* What the chords' dry is scaled by so the chorus's wet does not raise their level (1 with the chorus off or shut). */
 float fx_chorus_dry(void);
+/* The same for a bus whose send gives it a chorus this deep (the pad layer's: its send over the chords' depth). */
+float fx_chorus_dry_at(float depth);
 /* The song's tempo in BPM: the tape delay's time, a dotted 8th (it glides if a tail rings, else lands). */
 void fx_tempo(float bpm);
 /* Tests and the cost bench: the delay off (not run; its input ignored). Kept through fx_init. */

@@ -15,7 +15,7 @@
    pass lp[i] and hp[i] straight to vx_set_filter(i) and vx_set_hp(i). C99 has no _Static_assert: an array of size -1
    fails the build if the orders part. */
 typedef char pm_is_v_[(PM_CHORDS == V_CHORD && PM_BASS == V_BASS && PM_LEAD == V_LEAD && PM_CANDY == V_CANDY &&
-                       PM_DRUMS == V_KICK) ? 1 : -1];
+                       PM_PAD == V_PAD && PM_DRUMS == V_KICK) ? 1 : -1];
 
 #define MAXS 24                                   /* slots: RF_BARS / 4 */
 #define DRUMS (L_KICK | L_SNARE | L_HATS)
@@ -330,7 +330,7 @@ void plan_moves(const song_plan_t *p, int bar, int step, float *lp, float *hp)
     last = bar == b->start + b->bars - 1;
     nx = plan_at(p, b->start + b->bars);
     if (b->flags & PB_DARK) { /* intro and outro: the drums and bass darker than the keys */
-        lp[PM_CHORDS] = lp[PM_LEAD] = lp[PM_CANDY] = 0.4f;
+        lp[PM_CHORDS] = lp[PM_LEAD] = lp[PM_CANDY] = lp[PM_PAD] = 0.4f;
         lp[PM_BASS] = lp[PM_DRUMS] = 0.7f;
     }
     if (b->section == SEC_BREAK)
@@ -338,8 +338,8 @@ void plan_moves(const song_plan_t *p, int bar, int step, float *lp, float *hp)
     if (last && (b->flags & PB_DROP_LAST) && v < 0.6f)
         v = 0.6f;
     for (r = 0; r < PM_N; r++)
-        if (lp[r] < v)
-            lp[r] = v;
+        if (lp[r] < (r == PM_LEAD ? 0.85f * v : v))   /* the lead a little brighter (0.85): it stays over the darkened keys */
+            lp[r] = r == PM_LEAD ? 0.85f * v : v;
     if (last && (b->flags & PB_SWELL)) /* a swell opens the bar: from the block's own amount (0.5 where it is open) */
         for (r = 0; r < PM_N; r++)
             lp[r] = (b->section == SEC_BREAK ? 0.8f : lp[r] > 0.0f ? lp[r] : 0.5f) * (1.0f - prog);

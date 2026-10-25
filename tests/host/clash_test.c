@@ -11,6 +11,7 @@
 #include "groove.h"
 #include "harmony.h"
 #include "song.h"
+#include "pads.h"
 
 static int fails;
 #define CHECK(c, ...)                                                                                              \
@@ -29,7 +30,7 @@ static int fails;
 #define MAXE 40000
 
 /* one recorded event, with absolute sample times */
-typedef struct { uint32_t start, end; int tick; uint8_t voice, note; } rev_t;
+typedef struct { uint32_t start, end; int tick; uint8_t voice, note, lane; } rev_t;   /* lane: V_PAD's */
 
 typedef struct {
     int ticks, ended;
@@ -50,6 +51,7 @@ static rec_t R1, R2;
 static int clash_checks = 1;
 static long strong_checked, strong_skipped, strong_in, weak_checked, rubs[2][4];   /* rubs[strong?0:1][kind] */
 static long bass_checked, bass_rubs;                     /* bass notes against the sounding keys */
+static long pad_checked;                                 /* pad notes against the sounding keys, bass and lead */
 
 static float base_ss(int bpm) { return 44100.0f * 60.0f / ((float)bpm * 4.0f); }
 
@@ -63,7 +65,7 @@ static uint32_t fnv(uint32_t h, uint32_t x)
     return h;
 }
 
-static int pitched(int v) { return v == V_CHORD || v == V_BASS || v == V_LEAD || v == V_CANDY; }
+static int pitched(int v) { return v == V_CHORD || v == V_BASS || v == V_LEAD || v == V_CANDY || v == V_PAD; }
 
 /* R25: pc is in the chord-scale: a chord tone, or a scale note no chord tone lies a semitone from */
 static int in_chord_scale(int key, int mode, const int *pcs, int n, int note)
@@ -101,12 +103,21 @@ static void check_step(const song_t *s, int bar, int step, const song_ev_t *ev, 
         CHECK(e->len > 0, "seed %u: pitched note with len 0", seed);
         switch (e->voice) {
         case V_CHORD: {                  /* a pad with or above the lead sounds an octave up (lead design) */
-            int up = harmony_pad_place(&s->roll) == PL_BELOW ? 0 : 12;
+            int up = (harmony_pad_place(&s->roll) == PL_BELOW ? 0 : 12) +
+                     lib_set_keys_shift(lib_set_by_id((uint8_t)s->roll.v[RF_SET]));   /* the Chillwave pad an octave down (Sam) */
             CHECK(e->note >= 48 + up && e->note <= 76 + up, "seed %u: chord note %d", seed, e->note);
             break;
         }
         case V_BASS: CHECK(e->note >= 28 && e->note <= 47, "seed %u: bass note %d", seed, e->note); break;
         case V_LEAD: CHECK(e->note >= 60 && e->note <= 88, "seed %u: lead note %d", seed, e->note); break;
+        case V_PAD: {                    /* the pad layer: lanes 1-3 the chord part, 4 the solo note (its voice's
+                                            range: the strings 84-96, the others 72-84) */
+            int lo = pads_solo_lo(pads_solo_voice(&s->roll));
+            CHECK(e->pad >= 1 && e->pad <= 4, "seed %u: pad lane %d", seed, e->pad);
+            CHECK(e->pad == 4 ? e->note >= lo && e->note <= lo + 12 : e->note >= 55 && e->note <= 72,
+                  "seed %u: pad note %d on lane %d", seed, e->note, e->pad);
+            break;
+        }
         default: CHECK(e->note >= 70 && e->note <= 98, "seed %u: candy note %d", seed, e->note); break;
         }
         if (e->voice != V_LEAD && e->voice != V_CANDY) continue;
@@ -190,6 +201,28 @@ static void check_sounding(const rec_t *rec, uint32_t seed)
             }
             if (strong && ((mask >> (e->note % 12)) & 1)) strong_in++;
         }
+        /* the pad layer against what sounds with it: no note a minor 2nd (or 9th) from a keys note, nor from a lead
+           note under the chord part (the solo note ignores the lead for now), nor over the bass as the bass rule has
+           it (a major 7th only over the root) */
+        for (k = rec->first[lo]; k < rec->first[t + 1]; k++) {
+            const rev_t *e = &rec->ev[k];
+            uint32_t m;
+            if (e->voice != V_PAD) continue;
+            if (e->tick != t && !(e->start < now && e->end > now)) continue;
+            m = e->start > now ? e->start : now;
+            for (j = rec->first[lo]; j < rec->first[t + 1]; j++) {
+                const rev_t *x = &rec->ev[j];
+                int r, d;
+                if (x->end <= m || (x->start > m && x->tick != t)) continue;
+                d = ((e->note - x->note) % 12 + 12) % 12;
+                if (x->voice == V_CHORD || (x->voice == V_LEAD && e->lane != 4)) r = pads_rub(e->note, x->note);
+                else if (x->voice == V_BASS) r = d == 1 || (d == 11 && x->note % 12 != rec->root[t]);
+                else continue;
+                pad_checked++;
+                CHECK(!r, "pad rub: seed %u bar %d step %d pad %d (lane %d) against %s %d", seed, rec->bar[t], st,
+                      e->note, e->lane, x->voice == V_CHORD ? "keys" : x->voice == V_BASS ? "bass" : "lead", x->note);
+            }
+        }
         /* the bass against the keys (a walking approach that rubbed the chord's b7 went unseen while only the lead
            was checked): no keys note a minor 9th (minor 2nd) above a bass note, struck now or held into this step;
            and none a major 7th above it unless the bass is the chord's root (root and major 7th are a maj7 chord) */
@@ -262,6 +295,7 @@ static void run(song_t *s, rec_t *rec, hook_t hook, void *ctx, song_t *other)
                 r->tick = t;
                 r->voice = ev[i].voice;
                 r->note = ev[i].note;
+                r->lane = ev[i].voice == V_PAD ? ev[i].pad : 0;
             }
         }
         adv = song_step_samples(s) + frac;
@@ -350,7 +384,8 @@ static void test_chain(void)
         prev = r;
     }
     clash_checks = 1;
-    for (v = 0; v < V_N; v++) CHECK(count[v] > 0, "voice %d never played in 1000 songs", v);
+    for (v = 0; v < V_N; v++)
+        CHECK(count[v] > 0, "voice %d never played in 1000 songs", v);
     printf("chain: 1000 songs, longest %d steps; events chord %ld bass %ld lead %ld candy %ld kick %ld snare %ld hat %ld\n",
            worst_t, count[V_CHORD], count[V_BASS], count[V_LEAD], count[V_CANDY], count[V_KICK], count[V_SNARE],
            count[V_HAT]);
@@ -746,6 +781,8 @@ int main(void)
            "tones), %ld with neither\n", strong_checked, strong_in, strong_skipped);
     printf("other steps: %ld lead/candy notes checked against the sounding chord and bass\n", weak_checked);
     printf("bass: %ld notes checked against the sounding keys, %ld semitone rubs\n", bass_checked, bass_rubs);
+    printf("pads: %ld pairs checked against the sounding keys, bass and lead\n", pad_checked);
+    CHECK(pad_checked > 100000, "pads: only %ld pairs checked", pad_checked);
     CHECK(bass_rubs == 0, "%ld bass notes rub a semitone against the keys", bass_rubs);
     for (i = 0; i < 2; i++)
         printf("semitone rubs on %s steps (0 allowed): over the chord part %ld onset / %ld held; over the bass only "

@@ -145,6 +145,70 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
 
 ### General
 
+- **Piano broken-chord climb (Sam, 2026-10-24: "soon, just not quite yet").** The arpeggio comping on piano-like keys
+  (Rhodes, Wurli, felt, DX EP) as a rising broken chord over 2-3 octaves: root an octave below the voicing, 5th,
+  10th, then the voicing and the voicing an octave up; chord tones only down low. It sometimes lands on the voicing as a
+  block chord at the top, held to the bar's end: always in a 4-bar phrase's last bar, about 1 in 3 other bars,
+  deterministic per loop position. Pedal-like ringing; velocity about 50 to 70 up the climb, 75 on the top chord. Under
+  the lead in lead sections (tops at the voicing's top), an octave higher elsewhere; a busy lead thins it to 8ths with
+  no top chord. Open question for Sam: 16ths (two climbs a bar), 8ths (one climb landing near beat 4), or both per song.
+- **The pad's solo note against the lead (Sam, 2026-10-24: "leave out for right now... we can revisit later").** The
+  pads design's solo note ignores the lead; if they clash by ear, add the check (sit out a bar where the lead comes
+  within a 3rd or a semitone).
+- **Acoustic piano spike (Sam, 2026-10-24: "yes", queued after the pads plan).** A throwaway spike, the same chords
+  rendered two ways for Sam's ear: (1) a better FM patch (3 operators, a detuned string pair for beating, a fast
+  brightness fall, decay shortening with pitch; about the felt piano's cost, 0.43 for 4 voices) and (2) a waveguide
+  piano on the Karplus-Strong lines (2 detuned strings, a hammer noise burst, stiffness allpass, a soundboard filter;
+  roughly 1.5-2x the felt piano a voice). Samples are out (synthesis only; the 400 KB image).
+  First (Sam): survey the existing FM-1 firmwares (ref/: fm1-base, fm1-dub, the others) for piano, string or bowed
+  voices to borrow (MIT/BSD/MPL with attribution; GPL ideas only) or learn lessons from. Also search the web for
+  FM-1 firmwares released since the last survey (Sam: "new firmwares coming out all the time") and add them to ref/
+  and docs/research.
+- **Lessons from Eight Bells and Shine On (2026-10-24, Sam pointed at github.com/Discodave-Glitch/eight-bells).**
+  Eight Bells (MIT) is a browser/desktop pattern generator that plays the FM-1 over USB MIDI, not a firmware. Useful:
+  its firmware list (about 40 FM-1 firmwares, plus thefirmwarehub.com as a hub to watch); melody/chord engines
+  named "pedal point", "call and response", "turnaround" (ideas for the lead and pads); "Auto song" changing the
+  pattern every 1-8 loops and sometimes returning to an earlier one (A-B-A thinking); share codes (seed, genre,
+  tempo) for Plan 4. New firmwares not yet in ref/: fm1-x0x-rmx (GPL, an X0X fork), noiz_demons (GPL, a Felucca mod),
+  Felucca_8_patterns (GPL fork), and **Shine On** (zvenson/shineon, GPL: ideas only), a 70s string machine on the FM-1:
+  top-octave-divider saws at 16', 8', 4' (and an 8' square), **fixed formant filters on the sum rather than per voice**
+  (registers CONTRABASS, CELLO, VIOLA, VIOLIN, TRUMPET, HORN), three bucket-brigade delay lines swayed by two LFOs
+  120 degrees apart (the Solina ensemble) and a phaser. Lessons for the pads and string leads: a shared formant
+  filter on the pad bus instead of a filter per voice (CPU), the three-line 120-degree ensemble for width, a
+  formant-register cello. Survey these properly with the piano spike.
+  Eight Bells' generators (index.html, MIT; read 2026-10-24): melodies are Euclidean rhythms over scale degrees,
+  chords are plain triads on a 4-chord loop (no 7ths): generic next to ours. Worth taking: (1) its "sequence" engine
+  (a 4-note motif transposed up a degree per group, `seqnc` ~line 2700) for the hybrid lead's arpeggio; (2) the
+  lament descent progression i-VII-VI-V (`lament`) as a new progression or a B section; (3) pedal point (bass holds the
+  root while the upper voices move) for the pads or a break; (4) Auto song's bank: 40% of the time return to an
+  earlier pattern (~line 5212), for A-B-A and long streams; (5) a check on our drums: lo-fi kicks [0,10], [0,7,10],
+  [0,3,10] with snare 4 and 12, swing 62.
+  Its rhythm engines (the ENGINES table, ~line 1023): for lo-fi take World cycles (the TIMELINES table ~line 1101:
+  son/bossa/rumba clave, tresillo 0 3 6, habanera 0 3 4 6; bossa percussion, bass and kick rhythms), Bursts (rolls,
+  flams, ghost-note clusters: phrase-end drum fills, which we lack), Polyrhythm (3 against 4: a dotted-8th hat or
+  shaker), and sparingly Drift (ear candy on a loop a step shorter than the bar). Weighted, Markov and Offbeat are what
+  we already do; Cellular, Fractal, Number, Pi, Chaos, Sieve, L-system, Golomb, Collatz, Accelerando, Random walk and
+  Mirror don't groove: skip.
+- **String leads: a string ensemble and a cello (Sam, 2026-10-24: "explore strings for the leads, as well as a cello
+  for leads"; corrected: "Not a solo-violin strings. A string orchestra/ensemble").** Sustained leads (they would sing
+  the phrase lead). The ensemble lead: the melody played by a section (several detuned voices or the pads' ensemble
+  voice with chorus, a slower attack, octave doubling as an option), not a solo violin. The cello: a solo bowed voice
+  (a saw with bow noise, a delayed vibrato and a body filter, or a bowed waveguide). Spike both beside the piano. The cello wants a lower register
+  than the lead's (60-88 today, the floor over percussive keys): a cello lead sits around C3-A4, so it needs its own
+  register rule and room in the keys (they move up or thin out under it).
+- **Tape warble per instrument (Sam, 2026-10-24: "tape warble, on instruments it makes sense").** Pitch wow and
+  flutter on the instruments that suit it (keys, pads, the sustained leads), not on the drums or bass. Today's wow sits
+  on the whole mix in the chain (fx.c's wow line); this would make it per role, with depth by instrument.
+- **Birds in the bed (Sam, 2026-10-24: "on the noise layer, birds chirping in the background").** A synthesized
+  birdsong layer for the bed beside vinyl, tape and rain: sparse chirps, far back, seeded per song.
+- **The pad's notes against the ear candy (final review, 2026-10-24).** The pad rules check keys, bass and lead only;
+  the solo note's 7th could rub a candy tonic. Check by ear; add the candy to the pad's clear-of set if it does.
+- **Two lead parts, A-B-A (Sam, 2026-10-24).** "The lead taking that long to come in seems strange... a different
+  lead at the beginning. So two different lead parts. Never playing the same time, but like A B A." Today every map
+  brings the lead in late (average first lead bar 17-31 of about 53, by map; 30-58% in). Next after the pads.
+- **Background pads/strings layer (Sam, 2026-10-24: "would make a nice layer").** A quiet, slow-moving sustained
+  layer under the keys, out of the lead's register. Needs its own design (role/bus, which sets, voicing, cost). **Done** (2026-10-24; see "Pads: done" below).
+
 - **Lead phrase starts are square.** Over 1,000 songs: 35% of lead gestures start exactly on beat 1, 59% on a beat,
   19% on 8th offbeats, 21% on 16ths, and true pickups are impossible (phrases begin on their first bar; notes may not
   cross a chord change). Cause: melody.c `gen_figure` picks beat 1 first 60% of the time, and 8 of 14 rhythm-cell
@@ -176,6 +240,28 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   arpeggio, and the guitar strumming idea below), each with its own figure library and register.
   **Before applying it, walk Sam through all the research again (arpeggiators.md and fm1-accompaniment-code.md),
   separated into accompaniment and lead** (Sam, 2026-10-23), then design each.
+  **Walkthrough done (2026-10-24). Sam's priorities:** struck/plucked leads (the hybrid) "aren't terrible, but
+  dropping different notes is bad and should be corrected" (fix: thinning by rank, so motion always drops the same
+  notes); wind and sustained synth leads (the skeleton line) "are down right terrible right now and need the most
+  improvement" (next design: the phrase spine — Tuna-style question/answer/arrival/breath, motif memory with small
+  nudges and a literal restatement — phrased like a wind player). Then the figure library and the accompaniment
+  work (comp figures, strumming). Sam: "Get rid of the ugly, then optionally come back and improve the decent" — the sustained
+  lead first (docs/superpowers/specs/2026-10-24-sustained-lead-design.md); the hybrid's rank thinning after, optional.
+- **Done (sustained-lead plan, 2026-10-24):** the sustained lead (flute, sax, muted trumpet, saw lead) sings phrases
+  instead of the skeleton line: one motif per song, an 8-bar question and answer with a literal restatement, a held
+  question and arrival, breaths, wind phrasing, motion by rank (low motion: fewer notes held longer). See
+  docs/superpowers/specs/2026-10-24-sustained-lead-design.md and `docs/music/lofi.md`. The skeleton line's
+  `test_line_wanders` is gone (it measured the old line); `test_sustained_phrases` and `test_sustained_motion`
+  replace it.
+- **Sustained lead: judge by ear (2026-10-24).** The motif's length (1 bar played twice a step apart, or 2 bars);
+  the nudges (a step, the last interval, an inverted second half, an 8th's delay) and whether bar 3 and 7 sound
+  related enough; the breath (half a bar: too long at slow tempos?); the arrival (the root, or the 3rd over home and
+  over maj7 chords, where the root rubs: about 40% land on the 3rd); the tie-in push (the question or arrival tied
+  over from the bar before; where a rule refuses the tie it lands on 1, and then beat 1 can sound in two bars
+  running across the breath); the velocity arc (+16 with the line's height, the arrival 8 softer, short notes and low
+  notes among percussive keys louder so every song sits 4–6 dB over the keys; the muted trumpet 0.5 dB down); a
+  planned leap past a 5th sung within a 5th, and a leap answered by a step back where one is legal; phrases high
+  over percussive keys (a 4th over the keys' top leaves about an octave, so long phrases fold at the top).
 - **A cap on how busy the lead can get (Sam, 2026-10-23: "I will also want to work towards putting a limit on how
   busy it can get").** After the hybrid follows the motion lever (lead plan Task 6): a ceiling on onsets per bar or
   per phrase, whatever the motion.
@@ -192,6 +278,13 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   accompaniment: down/up strokes on a 16th grid, the strings spread a few ms apart (low to high on downstrokes, high
   to low on upstrokes), muted "chuck" strokes, accents, and patterns per song; voiced for a guitar's six strings
   rather than the keys' four voices. Would pair with the nylon and guitar plucks (Karplus–Strong, Plan 3a Task 4).
+  **Sam (2026-10-24), after the accompaniment walkthrough:** strum speed varies, slow (each string heard on its own,
+  roughly 30–80 ms apart) or quick (roughly 5–15 ms, one chunky hit); real strumming patterns with lots of strums in
+  a bar (e.g. D DU UDU on an 8th/16th grid, downstrokes on beats, upstrokes on the "ands", muted chucks, ghost
+  strokes), in contrast to today's single rolled chord. The accompaniment walkthrough's proposal (approved as
+  direction): a comp-figure library (lanes: rhythm, tone, accent, length; re-voiced per chord), variation by phrase
+  (a planned bar-4 variant, new figure at section changes), thinning by rank, pushes shared with the lead, strumming
+  as a figure family, a counter-melody voice later.
 
 ### Bass rhythm (spike VNL_BASS, kept as is by Sam to revisit)
 
@@ -225,6 +318,34 @@ Renders: `app/build/new/<seed>/` and `<seed>-nobed/`, one per set (Task 8's repo
   candy (in Rhodes neo-soul) about 4 dB over the other candy (the patch is shared with the lead role).
 - **The glue compressor** (2:1, −26 dBFS, 30 ms, 200–400 ms auto release, 4.5 dB make-up): 1–3 dB on full sections.
 - **The mud high-pass** (135 Hz, 150 on pads): thinner keys, or clearer?
+
+### Synths and the lead's level (judge by ear, synths plan and the lead-level fix, 2026-10-23)
+
+Renders: `app/build/new/<seed>/` and `<seed>-nobed/`, one per synth set, and the 11 earlier sets again (the synths
+plan's Task 5 report lists them by set).
+
+- **Sam's cut (2026-10-24, after the synth renders: "Some of these sound bad"):** kept the DX electric piano, the FM
+  slap bass, the triangle (chip) bass, the organ, the saw lead and the synth pluck; removed the Juno, the Moog bass,
+  the square and sine leads, the chip chords, lead and blip, and the FM bell (patches, the 4-pole, the chip's pulse,
+  noise, vibrato and tick, M_SUB's sine, triangle, noise and vibrato; mono glide now only on the lead). The synth
+  sets are now DX keys and FM bass, Organ and saw lead, Rhodes and saw lead, DX and pluck, Nylon and synth pluck
+  (ids 12, 14-16 retired). The bullets below on the removed patches are history.
+
+- **The new patches' character:** the Juno (a saw and sub under 600 Hz: hazy enough?), the organ (a square and its
+  sub, no envelope), the Moog bass (the 4-pole at resonance 0.35, plucked open), the saw, square and sine leads,
+  the synth pluck, the DX EP (the 14x tine over a faster body), the FM bass's slap (gone in 150 ms), the FM bell.
+- **The glide times:** Moog bass 30 ms, saw lead 90 ms, sine lead 70 ms, square lead 60 ms. Too slidey or too
+  subtle? A glide happens only from a held note.
+- **The chip grit:** a 7-bit crush over each note's own level (6 bits failed the aliasing limit at note 88). More
+  or less grit?
+- **The Juno's chorus depth:** 0.8, the deepest of the keys (Rhodes 0.7).
+- **The square lead's vibrato:** 10 cents, delayed like the winds' (a voicing choice; the sine lead has 14).
+- **The pairings:** the Moog bass in three sets (Juno, organ, Rhodes) and the FM bell in three (Juno, DX, organ).
+- **The guitar lick's retone** (the lead-level fix): a longer, brighter ring (3 s, damping 4500 Hz plus 3x the note)
+  so it carries a line; its peaks stand out more than a wind's.
+- **The lead over the keys:** 4–6 dB in every set while the lead plays (each set's mean 4.3–5.7 dB), the keys ducking
+  3 dB under a held lead note (25 ms in, 400 ms out). The duck follows the gate, so a ringing pluck releases it while
+  it still sounds.
 
 ### Lo-fi / taste
 
@@ -268,3 +389,68 @@ From the task and final reviews; none blocks merging. Revisit when the area is n
 - **Task 8:** quiet blocks allowed +1 dB over full band (brief: never louder); 044f590 alone breaks the web build (squash with a803785 before merging?); glue test margins brittle by design; glue's reduction doesn't reach the reverb return (wet rises 1–3 dB in dense passages); voices.c includes harmony.h for keys_gain (engine→song dependency); stale log paths in 2-set4 and -nobed renders.
 - **Task 8:** picker time stated inconsistently (~25 s vs 40 s); a long line in docs/cost.md; an older cost.md paragraph keeps pre-fix seed-7 numbers as history.
 - **Final:** squash 044f590 with a803785 (web build) — not done (history rewrite; Sam's call at merge); memsets in the ISR at song start (~52 KB on device) — measure on device; unused plate/our-chorus code and ~1 KB pool on device; plus the earlier deferred minors the final review triaged as "To revisit".
+
+### Synths and levels: to judge by ear (mix-synths, 2026-10-23)
+
+- Two old-set instruments moved for the lead-over-keys rule: the muted trumpet +1.0 dB, the felt piano +0.6 dB.
+- Glide: a mono synth glides from a note that ended under 25 ms earlier, within a 4th (21–58% of note changes);
+  a glide after silence re-attacks over the patch's attack and does not re-strike the filter envelope.
+- Thin level margins (a future voice change needs a rebalance): Felt and trumpet's median 5.9 of 6 dB; the lowest
+  songs +2.4/+2.5 dB; Felt and flute's mean 4.3. All rulings: docs/superpowers/plans/2026-10-23-synths-ledger.md.
+
+### Sustained lead: open items (2026-10-24)
+
+- On a key change, about half the songs revoice the percussive keys an octave away; the sustained lead's range
+  follows the keys' top, so its answer jumps 4–8 semitones. Fix in the voicer/register, not the lead.
+- About half the arrivals on prog 23's home chord are reached by more than a step.
+- Thin, deterministic margins (contour 90.6% of 90%; Nylon and sax and Rhodes neo-soul medians at 6.0 of 6): a future
+  voice or level change will need a rebalance. All rulings: docs/superpowers/plans/2026-10-24-sustained-lead-ledger.md.
+
+### Pads: done (2026-10-24)
+
+The background layer (pads design and plan, 2026-10-24; branch mix-synths): a 2-note chord part (the 3rd and the 7th)
+over percussive keys and a high solo note on its own voice, strings or a warm pad per set, 4-8 dB under the keys
+(test_pad_level). Budget: the bus's filters moved to the layer's quarter rate, then the design's cut (c), the 2-note
+chord part; cut (a) (the solo note riding a chord voice) saved nothing and was undone (Sam). Seed 20 forced about 0.97
+on the host bench, accepted by Sam (under 1.0; the device is measured in Plan 2): docs/cost.md. Host renders can A/B
+the chord part against a doubling of the keys' voicing: `PADS=double ./new-song.sh SEED`.
+
+To judge by ear:
+- The levels: the chord part 4-8 dB under the keys (set medians 4.1-7.8); the solo note's level (not tested).
+- The solo note's shares by section (groove 60%, intro/break/outro 50%, under the lead 30%).
+- Strings vs the warm pad, per set.
+- The 2-note chord part: if thin, a follow-up wins CPU elsewhere and restores 3 notes.
+- The chord part vs PADS=double (the keys' own voicing doubled), Sam's A/B.
+- The solo note's quarter-rate grit: about -31 dB of aliasing at C6; half rate for MIDI 72 and up is the fix if heard.
+- (The solo note against the lead is already in "To revisit".)
+
+### Pads revision 2: done (2026-10-24)
+
+After Sam listened (pads design, "Revision 2"; branch mix-synths): the pad layer plays **either** its chord part
+**or** its solo note in a section, never both; over struck keys the chord part is the default and the solo takes about
+25% of sections (intro and break 35%, groove 25%, under the lead 15%, outro 30%), over sustained keys the first
+design's shares. **40% of songs never play the solo** (my call); the rest roll its voice per song from the choir, the
+flute and a soft organ (MIDI 72-84) and the strings an octave up (84-96), equally likely, never the flute under a flute
+lead nor the organ over organ keys, each level-matched (within 0.5 dB at the songs' velocity 58). The chord part sits
+about 8.5 dB under the keys (set medians 7.4-10.2; its velocity 48, Sam's "3 dB down" kept against the retuned keys).
+**Half-note comping** joins the keys: struck on beats 1 and 3, the second strike at 90% velocity, held to the next,
+thinned to the chord changes under a busy lead; it holds instead over sustained keys and over a kick on exactly 1 and 3
+(Sam's kick rule). Comp shares as heard: held about 55%, half notes 25%, arpeggio 20% (weights 44 / 36 / 20).
+**Levels retuned with half notes in** (gains only, no bound widened, no seed re-picked): the keys per comping held a
+bar 3.75 dB (was 2), held two bars 4.5, half notes 0.75 (new), an arpeggio -0.25 (was 1), nylon +2 on held; half
+notes that hold sit as held (they had fallen to the 0 dB default). Lead over keys: median +4.8 dB over 96 songs, set
+means 4.2-6.4; the thin margins: Rhodes neo-soul's lowest song +2.0 (its seed 4, held two bars, unchanged from
+before), City pop Rhodes's mean 6.4 of 6.5 (one busy two-bar half-note song at +13.8: its keys strike once per two bars
+under a busy lead and the Rhodes dies away in the second bar). Budget: seed 20 forced 0.960-0.972 on the host bench
+(Sam's ~0.97 line): docs/cost.md.
+
+To judge by ear:
+- The solo voices and their level: choir, flute, organ, strings an octave up; level-matched to each other, under the
+  chord part; is any too quiet or too present?
+- The either/or shares: does the solo come often enough over struck keys (about a quarter of sections), and does the
+  chord part cutting out for it read as a change of color?
+- The 40% of songs with no solo at all.
+- Half-note comping: the second strike's softness (90% velocity), the thinning under a busy lead (two-bar chords go
+  quiet in their second bar), and the kick rule.
+- The keys' new levels per comping: held one-bar songs up 1.75 dB, arpeggios down 1.25 dB.
+- Renders (one per set with and without the bed, plus half-note songs): .superpowers/sdd/2026-10-24-pads-rev2/task-4-report.md.
