@@ -30,7 +30,7 @@ Flash: the image is 194 KB of a 400 KB budget (`tools/mem-check.sh`), so about *
 | FluidR3 solo cello (MIT) | 28 KB | about 0.05 (synth leads are 0.12-0.24); an added lead option |
 | Karoryfer Emilyguitar (CC0) | 51 KB | comping about 0.13, strumming about 0.18 (half rate): new |
 | Sampled drum pool, 4 kits (CC0) | 42-64 KB | 0.13-0.23 (synth kits are 0.11-0.13); added kits, the synth kits stay |
-| Kawai grand for stabs (pending Sam's listen) | 38-51 KB | about 0.15, the same as the Knight |
+| Kawai grand: a second acoustic piano for any piano part (chords, stabs, arps, broken chords) | 38-51 KB | about 0.15, the same as the Knight |
 | Synth string-ensemble lead (kept as synth) | 0 KB | about 0.10 at half rate |
 
 Total: about 190-230 KB without the Kawai, 230-280 KB with it, against about 215 KB free.
@@ -53,16 +53,16 @@ Trim before swapping anything back to a synth:
    - low zones at a lower sample rate.
 
    That gives about **190 KB**, with about 25 KB spare.
-2. **One piano for held chords and stabs.** A second piano is about 45 KB on its own: the first thing that doesn't
-   fit unless the Kawai stab demo clearly wins.
+2. **Two acoustic pianos, both general (Sam):** the Knight (soft upright) and the Kawai (brighter grand) can each play
+   any acoustic-piano part. The Kawai is about 38 KB at 6 zones; to make room, the cello goes to the low string synth
+   (reuse, 28 KB back), which gives about 200 KB of 215 with both pianos.
 3. **Synth fallbacks if flash still runs out** (the synth already exists, so dropping the sample loses an option, not
    the instrument), in this order:
-   - **Cello back to the synth cello:** frees 28 KB and costs about 0.05-0.1 CPU in cello songs only. It's the one
-     sample Sam called "good" rather than clearly better. (The synth cello exists only in the spike, so this means
-     building it instead.)
+   - **Cello to the string ensemble synth in a low register** (reuse; demos 2c-strings-synth-low*): frees 28 KB and
+     costs about 0.1 CPU in cello songs only. It's the one sample Sam called "good" rather than clearly better.
    - **Fewer drum kits, or hybrid kits:** synth kicks (they synthesize well) under sampled snares and hats (the snare
      carries a kit's character).
-   - **Keep sampled:** the nylon, the Emilyguitar and the Knight, each of which Sam heard as clearly better than its
+   - **Keep sampled:** the nylon, the Emilyguitar, the Knight and the Kawai, each of which Sam heard as clearly better than its
      synth.
 
 ## Open: the real flash size
