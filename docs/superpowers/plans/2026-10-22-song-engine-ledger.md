@@ -408,6 +408,10 @@ plan's Task 5 report lists them by set).
   - Shakers (Sam, from the shaker lineup): only the VCSL small shaker (high fast); the rest are out.
   - Hat pairs (Sam, after 5-drums-hat-pairs{,-poplar,-rope}): all four closed/open pairs, with choke, over all three
     approved snares, "all sound good". Sam will keep listening in future songs and flag what wears.
+  - The warm pool kit is approved (Sam, after 5-drums-pool-warm): Gogodze kick and closed hat, the Gogodze sidestick
+    as the backbeat, the Big Rusty 22" ride, all down 1 semitone, low-passed at 3.2 kHz, drive 1.2. Note the sidestick
+    works here although the cross-sticks failed the raw lineup (processing and context matter). Open: whether the ride
+    becomes a shared sound that any kit can switch to by section.
 
 ### Sound engine: deferred minors (Plan 3a reviews, 2026-10-23)
 
