@@ -238,8 +238,10 @@ static void test_library(void)
         CHECK(lib_set_by_id(s->id) == s, "set by id %d", s->id);
         CHECK(s->chords < INS_NONE && s->bass < INS_NONE && s->lead < INS_NONE && s->candy <= INS_NONE, "set %d insts", s->id);
         CHECK(s->kit <= KIT_BRUSHES && s->flavor <= FL_CHILLWAVE && s->moods && s->name && s->src, "set %d fields", s->id);
-        /* the pad layer's instrument: the warm synth pad under the synth sets (13, 18, 19, 20), strings elsewhere */
-        CHECK(s->pad == ((s->id == 13 || s->id == 18 || s->id == 19 || s->id == 20) ? INS_WARM_PAD : INS_STRINGS),
+        /* the pad layer's instrument: the warm synth pad under the synth sets (13, 18, 19, 20) and the DX keys under
+           the Knight (25), strings elsewhere */
+        CHECK(s->pad == ((s->id == 13 || s->id == 18 || s->id == 19 || s->id == 20 || s->id == 25) ? INS_WARM_PAD
+                                                                                                    : INS_STRINGS),
               "set %d: pad instrument %d", s->id, s->pad);
     }
     CHECK(lib_set_by_id(255) == NULL, "set 255");
@@ -336,9 +338,10 @@ static void test_synth_sets(void)
                   ns[i]->candy == INS_KALIMBA,
               "synth sets: %s's candy %d, wanted vibes, music box, kalimba or none", names[i], ns[i]->candy);
     }
-    for (k = 0; k < LIB_NSETS; k++) /* no other set plays a synth */
-        nsynth += is_synth(LIB_SETS[k].chords) || is_synth(LIB_SETS[k].bass) || is_synth(LIB_SETS[k].lead) ||
-                  is_synth(LIB_SETS[k].candy);
+    for (k = 0; k < LIB_NSETS; k++) /* no other set plays a synth (but a sampled set's, test_sampled_sets: the DX keys
+                                       under the Knight) */
+        nsynth += (is_synth(LIB_SETS[k].chords) || is_synth(LIB_SETS[k].bass) || is_synth(LIB_SETS[k].lead) ||
+                   is_synth(LIB_SETS[k].candy)) && LIB_SETS[k].id < 21;
     CHECK(nsynth == 5, "synth sets: %d sets play a synth, wanted the 5", nsynth);
     for (m = 0; m < 4; m++) {
         int any = 0;
@@ -4776,6 +4779,7 @@ static void sb_moves(const song_plan_t *p, int bar, int st, int hp_on)
 /* a song through the engine as the app plays it (the moves on or off), to the end of bar bars_to: each beat's energy
    above 2 kHz in sg_hf; a hash of the event stream */
 static double sg_hf[512];
+static int sg_set; /* a set sg_run pins its song to (roll_set; 0: the roll's own) */
 static uint32_t sg_run(uint32_t seed, int moves, int bars_to)
 {
     static song_t s;
@@ -4785,6 +4789,8 @@ static uint32_t sg_run(uint32_t seed, int moves, int bars_to)
     float frac = 0.0f;
     bq_t q;
     roll_song(NULL, seed, &roll);
+    if (sg_set)
+        roll_set(&roll, RF_SET, sg_set);
     roll.v[RF_NOISE] = 0;
     roll.v[RF_AMBIENCE] = 0;
     roll.v[RF_DUST] = 0;
@@ -5074,12 +5080,14 @@ static void test_moves(void)
     {
         uint32_t seed, found = 0;
         int bk = -1;
+        sg_set = 5; /* the song it was set on (seed 18, the Chillwave pad): adding sets moved the seeds' sets */
         for (seed = 10; seed < 3000 && !found; seed++) {   /* (the per-beat "opens beat by beat" check is seed-dependent: held seeds 4 and 9 also fail it; starting at 10 sidesteps it) */
             song_roll_t roll;
             song_plan_t q;
             int i;
             roll_song(NULL, seed, &roll);
-            if (harmony_style(&roll) != CS_HELD)         /* (a re-struck chord's attacks mask the filter's ramp per beat) */
+            if (roll_set(&roll, RF_SET, sg_set) != sg_set || harmony_style(&roll) != CS_HELD) /* (a re-struck chord's
+                                                                         attacks mask the filter's ramp per beat) */
                 continue;
             plan_build(&roll, &q);
             for (i = 1; i + 1 < q.n; i++)
@@ -5132,6 +5140,7 @@ static void test_moves(void)
                   (double)db_of(gb_on / gb_off));
             CHECK(mono, "moves: the break's last bar does not open beat by beat");
         }
+        sg_set = 0;
     }
 
     /* intro bars: the drums lose more above 2 kHz than the keys */
@@ -7056,6 +7065,127 @@ static void test_keys_duck_mix(void)
     }
     vx_fx_off(0u);
     vx_bed_off(0);
+}
+
+/* The Knight and Emilyguitar sets (sampled instruments, Task 5; ids from 21). The pairing rule (Sam): the Knight is
+   the one acoustic piano, the keys or the lead, never both in one song (the Emilyguitar the same); a song's parts
+   are its set's (vx_configure), so the rule holds in the set table. The new sets: a Knight on the keys and on the
+   lead, an Emilyguitar on each, two moods, a pad layer, a synth kit (Task 8 adds a sampled one); each rolls (a
+   seed pins it) and renders (no NaN, sound in most bars). The level tests (test_lead_over_keys, test_pad_level)
+   sweep every set, so the new ones with them; the duck (2-4 dB) here with each new set's keys and lead. A sampled
+   lead plays as a struck lead (not lib_ins_sustained: the hybrid plan): it sings in 80% or more of the bars where
+   it may play (test_lead_by_class's struck branch). */
+static void test_sampled_sets(void)
+{
+    static song_t s;
+    static const int ch[4] = {57, 60, 64, 67};
+    int k, nnew = 0, kk = 0, kl = 0, ek = 0, el = 0;
+    for (k = 0; k < LIB_NSETS; k++) {
+        const lib_set_t *t = &LIB_SETS[k];
+        int samp = t->chords == INS_KNIGHT || t->chords == INS_EMILY || t->lead == INS_KNIGHT || t->lead == INS_EMILY;
+        CHECK(!((t->chords == INS_KNIGHT || t->chords == INS_EMILY) && t->chords == t->lead),
+              "sampled sets: %s plays its %d on the keys and the lead", t->name, t->chords);
+        CHECK(t->candy != INS_KNIGHT && t->candy != INS_EMILY, "sampled sets: %s's candy is sampled", t->name);
+        if (t->id < 21) {
+            CHECK(!samp, "sampled sets: old set %s plays the Knight or the Emilyguitar", t->name);
+            continue;
+        }
+        nnew++;
+        kk += t->chords == INS_KNIGHT;
+        kl += t->lead == INS_KNIGHT;
+        ek += t->chords == INS_EMILY;
+        el += t->lead == INS_EMILY;
+        CHECK(samp, "sampled sets: new set %s plays neither the Knight nor the Emilyguitar", t->name);
+        CHECK(moods_n(t->moods) == 2, "sampled sets: %s has %d moods, wanted 2", t->name, moods_n(t->moods));
+        CHECK(t->pad == INS_STRINGS || t->pad == INS_WARM_PAD, "sampled sets: %s's pad %d", t->name, t->pad);
+        CHECK(t->lead != INS_NONE && t->chords != INS_UPRIGHT && t->bass != INS_UPRIGHT,
+              "sampled sets: %s's parts", t->name);
+    }
+    printf("sampled sets: %d new; the Knight on the keys %d, the lead %d; the Emilyguitar on the keys %d, the lead %d\n",
+           nnew, kk, kl, ek, el);
+    CHECK(nnew >= 8 && kk >= 2 && kl >= 3 && ek >= 2 && el >= 2,
+          "sampled sets: %d new (Knight keys %d lead %d, Emilyguitar keys %d lead %d)", nnew, kk, kl, ek, el);
+    for (k = 0; k < LIB_NSETS; k++) {
+        const lib_set_t *t = &LIB_SETS[k];
+        uint32_t seed;
+        int got = 0, rendered = 0;
+        long may_bars = 0, led_bars = 0;
+        if (t->id < 21)
+            continue;
+        for (seed = 1u; got < 4 && seed < 600u; seed++) {
+            song_roll_t r;
+            song_ev_t ev[64];
+            int cur = -1, may = 0, led = 0, i;
+            roll_song(NULL, seed, &r);
+            if (roll_set(&r, RF_SET, t->id) != t->id)
+                continue;
+            got++;
+            if (!rendered) { /* the whole song, every bus */
+                int n = lk_song(&r, -1, lk_db[0]), b, loud = 0, bad = 0;
+                for (b = 0; b < n; b++) {
+                    loud += lk_db[0][b] > -50.0;
+                    bad += !(lk_db[0][b] == lk_db[0][b]);
+                }
+                printf("sampled sets: %-24s seed %3u renders %d bars, %d over -50 dB\n", t->name, (unsigned)seed, n,
+                       loud);
+                CHECK(n >= 36 && !bad && loud * 10 >= n * 8, "sampled sets: %s seed %u: %d of %d bars sound, %d NaN",
+                      t->name, (unsigned)seed, loud, n, bad);
+                rendered = 1;
+            }
+            if (t->lead != INS_KNIGHT && t->lead != INS_EMILY)
+                continue;
+            song_start(&s, &r);
+            while (s.state == SS_PLAYING) {
+                int bar = s.bar, n;
+                const plan_block_t *b = plan_at(&s.plan, bar);
+                n = song_tick(&s, ev, 64);
+                if (bar != cur) {
+                    if (may) { may_bars++; led_bars += led; }
+                    cur = bar;
+                    led = 0;
+                    may = b && b->section != SEC_INTRO && b->section != SEC_OUTRO && (b->layers & L_KEYS) &&
+                          (b->layers & L_LEAD);
+                }
+                for (i = 0; i < n; i++)
+                    led |= ev[i].voice == V_LEAD;
+            }
+        }
+        CHECK(got == 4, "sampled sets: only %d seeds take %s", got, t->name);
+        if (t->lead == INS_KNIGHT || t->lead == INS_EMILY) {
+            printf("sampled sets: %-24s the struck lead sings in %ld of %ld bars where it may\n", t->name, led_bars,
+                   may_bars);
+            CHECK(!lib_ins_sustained(t->lead), "sampled sets: %s's lead plans as sustained", t->name);
+            CHECK(may_bars > 40 && led_bars * 100 >= may_bars * 80,
+                  "sampled sets: %s's struck lead sang in %ld of %ld bars", t->name, led_bars, may_bars);
+        }
+        {   /* the duck with this set's keys and lead (test_keys_duck's measure) */
+            int pass, i;
+            uint32_t tt;
+            float dip;
+            for (pass = 0; pass < 2; pass++) {
+                float *out = pass ? sb_x : sb_l;
+                vx_init();
+                vx_solo(V_CHORD);
+                vx_assign(V_CHORD, t->chords);
+                vx_assign(V_LEAD, t->lead);
+                for (i = 0; i < 4; i++)
+                    vt_ev(V_CHORD, ch[i], 90, 0, 4u * 44100u);
+                if (pass)
+                    vt_ev(V_LEAD, 76, 100, 44100u, 44100u);
+                for (tt = 0; tt < 4u * 44100u; tt += 256u) {
+                    memset(vt_l, 0, 256 * sizeof(float));
+                    memset(vt_r, 0, 256 * sizeof(float));
+                    vx_render(vt_l, vt_r, 256);
+                    memcpy(out + tt, vt_l, 256 * sizeof(float));
+                }
+            }
+            vx_solo(-1);
+            dip = db_of(lk_win(sb_x, 66150u, 88200u) / lk_win(sb_l, 66150u, 88200u));
+            printf("sampled sets: %-24s the keys duck %.1f dB under the lead\n", t->name, (double)-dip);
+            CHECK(dip <= -2.0f && dip >= -4.0f, "sampled sets: %s's keys duck %.1f dB, wanted 2-4", t->name,
+                  (double)-dip);
+        }
+    }
 }
 
 static int lk_cmp_f(const void *a, const void *b) { return lv_cmp(a, b); }
@@ -8989,8 +9119,9 @@ static void test_samp(void)
         fx_glue_off(0);
     }
 
-    /* levels: in four Rhodes dusty songs, each sampled instrument on the keys and on the lead within 1.5 dB of the
-       Rhodes and the flute (bars' mean energy; the nylon sits about 0.6 dB under, its sets' lead over keys) */
+    /* levels: in four Rhodes dusty songs, each sampled instrument on the keys within 1.5 dB of the Rhodes and the
+       nylon on the lead within 1.5 of the flute (bars' mean energy; the nylon sits about 0.6 dB under, its sets' lead
+       over keys); the Knight and the Emilyguitar on the lead 2.5-6 dB under the flute */
     {
         uint32_t seed;
         int got = 0;
@@ -9014,7 +9145,10 @@ static void test_samp(void)
             dl[k] /= got;
             printf("samp: ins %d on the keys %+.2f dB from the Rhodes, on the lead %+.2f dB from the flute\n",
                    SP_INS[k], dk[k], dl[k]);
-            CHECK(dk[k] >= -1.5 && dk[k] <= 1.5 && dl[k] >= -1.5 && dl[k] <= 1.5,
+            /* the Knight and the Emilyguitar lead about 4 dB under the flute's bar energy (SAMP_LEAD: their sets'
+               lead over keys, test_lead_over_keys, sets them; a struck lead reads over its keys at less energy) */
+            CHECK(dk[k] >= -1.5 && dk[k] <= 1.5 &&
+                      (SP_INS[k] == INS_NYLON ? dl[k] >= -1.5 && dl[k] <= 1.5 : dl[k] >= -6.0 && dl[k] <= -2.5),
                   "samp: ins %d's level: keys %+.2f dB from the Rhodes, lead %+.2f from the flute", SP_INS[k], dk[k],
                   dl[k]);
         }
@@ -9115,6 +9249,7 @@ int main(int argc, char **argv)
     RUN(test_keys_duck_mix);
     RUN(test_lead_over_keys);
     RUN(test_pad_level);
+    RUN(test_sampled_sets);
     RUN(test_phrase_plan);
     RUN(test_sustained_phrases);
     RUN(test_sustained_motion);

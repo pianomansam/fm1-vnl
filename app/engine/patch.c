@@ -110,9 +110,9 @@ static const vx_patch_t PATCHES[INS_NONE] = {
     [INS_WARM_PAD] = {M_ENS, {5.0f, 0.5f, 900.0f, 1.5f}, 0.8f, 4.0f, 0.85f, 2.0f, 1.0f, 0.5f, 0.15f},
     /* the sampled instruments (M_SAMP) as the spike's demos Sam passed: the Knight upright (VCSL, CC0), its tone 9x the
        note falling to 55%; the Emilyguitar (Karoryfer, CC0), a clean jazz electric, brighter, a deeper chorus. Levels
-       matched to the Rhodes on the keys */
+       matched to the Rhodes on the keys (the Knight 0.5 dB under: its sets' lead over keys) */
     [INS_KNIGHT] = {M_SAMP, {SB_KNIGHT, 300.0f, 0.55f, 0.0f, 0.0f, 0.6f, 0.55f, 1.2f, 9.0f}, 0.001f, 7.0f, 0.0f,
-                    0.35f, 0.605f, 0.1f, 0.06f},
+                    0.35f, 0.571f, 0.1f, 0.06f},
     [INS_EMILY] = {M_SAMP, {SB_EMILY, 300.0f, 0.55f, 0.0f, 0.0f, 0.5f, 0.6f, 1.0f, 12.0f}, 0.001f, 5.0f, 0.0f, 0.12f,
                    0.648f, 0.3f, 0.1f},
 };

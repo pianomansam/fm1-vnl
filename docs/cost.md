@@ -789,3 +789,17 @@ patch is M_SAMP (as for a pad), so a stroke never steals one still held while th
 - **Fix round 1 (one voice per string):** a stroke re-strikes its strings' voices (the chords' first 6), the old note
   damped on one of the 2 spare voices; no stroke takes another string's tail. Seed 32 forced 0.904 (from 0.937),
   seed 24 0.821 (from 0.857). Memory: image 364664 B, RAM 51536 B (ok).
+
+## Sampled instruments, Task 5: the Knight and Emilyguitar sets
+
+Nine sets (ids 21-29) put the Knight and the Emilyguitar on the keys and the lead. Adding sets moves every seed's set
+(the set draw is hashed apart from the mood's now, roll.c), so the standard list's seeds play other sets: 20 Knight
+and flute (held), 7 Felt and trumpet, 155 Rhodes neo-soul, 138 Nylon and sax, 100 Felt and trumpet, 22 Rhodes and
+Emilyguitar. The sampler's per-sample path is inline now (sampler.h): seed 20 forced went from 1.02-1.03 to the
+numbers below; on seed 20 the Knight's keys cost about 0.06 over the felt piano's (the same voice count).
+- **The standard list**, `--forced 20 7 155 138 100 22` (`VNL_RUNS=5`): forced 0.990 / 0.877 / 0.678 / 0.664 / 0.907 /
+  0.892 (plain 0.968 / 0.878 / 0.651 / 0.637 / 0.886 / 0.861), AMB-1 137.8 ms (a low run).
+- **The picker** (200 seeds): the heaviest is still **seed 20** (now Knight and flute): 0.939 plain, **0.966** forced
+  (AMB-1 141.0 ms). Its VNL time is steady at 136-137 ms; the ratio swings 0.966-0.990 with AMB-1's run (137.8-142.7
+  ms). At Sam's ~0.97 line, as at Task 1's fix round (0.977); the hard limit is 1.0.
+- **Memory** (`tools/mem-check.sh`): image 365192 B, RAM 51536 B, pool 180216 B (ok).

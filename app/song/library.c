@@ -122,6 +122,18 @@ const lib_set_t LIB_SETS[] = {
     {19, "Rhodes and saw lead", INS_RHODES, INS_FM_BASS, INS_SAW_LEAD, INS_NONE, INS_WARM_PAD, KIT_DUSTY, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "Sam's cut: a dusty Rhodes, the FM slap bass, a saw lead (was Rhodes and Moog)"},
     {20, "DX and pluck", INS_DX_EP, INS_CHIP_BASS, INS_SYNTH_PLUCK, INS_KALIMBA, INS_WARM_PAD, KIT_SOFT, FL_CHILLWAVE, MOOD_SAD | MOOD_WARM, "Sam's cut: DX keys, the triangle bass, a synth pluck, chillwave"},
     {17, "Nylon and synth pluck", INS_NYLON, INS_SUB, INS_SYNTH_PLUCK, INS_KALIMBA, INS_STRINGS, KIT_BRUSHES, FL_BOSSA, MOOD_WISTFUL | MOOD_SUNNY, "synths spec: a nylon guitar under a synth pluck"},
+    /* the sampled sets (sampled instruments spec, Task 5): the Knight upright and the Emilyguitar each on the keys
+       and on the lead, never both in one set (Sam: the one acoustic piano is the keys or the lead in a song; the
+       Emilyguitar the same). Synth kits until Task 8 names a sampled kit per set. */
+    {21, "Knight and flute", INS_KNIGHT, INS_ELEC_BASS, INS_FLUTE, INS_MUSIC_BOX, INS_STRINGS, KIT_DUSTY, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "sampled spec: the Knight's keys under the flute, dusty lofi"},
+    {22, "Knight and sax", INS_KNIGHT, INS_ELEC_BASS, INS_SAX, INS_VIBES, INS_STRINGS, KIT_SOFT, FL_NEOSOUL, MOOD_WISTFUL | MOOD_WARM, "sampled spec: the Knight's keys under the sax, neo-soul"},
+    {23, "Rhodes and Knight", INS_RHODES, INS_ELEC_BASS, INS_KNIGHT, INS_NONE, INS_STRINGS, KIT_DUSTY, FL_LOFI, MOOD_WARM | MOOD_SUNNY, "sampled spec: a Knight lead over the Rhodes"},
+    {24, "Wurli and Knight", INS_WURLI, INS_ELEC_BASS, INS_KNIGHT, INS_KALIMBA, INS_STRINGS, KIT_SOFT, FL_NEOSOUL, MOOD_SAD | MOOD_WISTFUL, "sampled spec: a Knight lead over the Wurli"},
+    {25, "DX and Knight", INS_DX_EP, INS_FM_BASS, INS_KNIGHT, INS_BELLS, INS_WARM_PAD, KIT_SOFT, FL_CITYPOP, MOOD_WARM | MOOD_SUNNY, "sampled spec: a Knight lead over the DX keys and the FM bass, city pop"},
+    {26, "Emilyguitar and vibes", INS_EMILY, INS_ELEC_BASS, INS_VIBES, INS_KALIMBA, INS_STRINGS, KIT_SOFT, FL_CITYPOP, MOOD_WARM | MOOD_SUNNY, "sampled spec: the Emilyguitar comping (strums, stabs) under the vibes"},
+    {27, "Emilyguitar and flute", INS_EMILY, INS_SUB, INS_FLUTE, INS_MUSIC_BOX, INS_STRINGS, KIT_DUSTY, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "sampled spec: the Emilyguitar comping under the flute"},
+    {28, "Rhodes and Emilyguitar", INS_RHODES, INS_ELEC_BASS, INS_EMILY, INS_VIBES, INS_STRINGS, KIT_SOFT, FL_NEOSOUL, MOOD_WARM | MOOD_SUNNY, "sampled spec: an Emilyguitar lead over the Rhodes"},
+    {29, "Knight and Emilyguitar", INS_KNIGHT, INS_ELEC_BASS, INS_EMILY, INS_NONE, INS_STRINGS, KIT_BRUSHES, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "sampled spec: an Emilyguitar lead over the Knight, brushes"},
 };
 const int LIB_NSETS = (int)(sizeof LIB_SETS / sizeof LIB_SETS[0]);
 

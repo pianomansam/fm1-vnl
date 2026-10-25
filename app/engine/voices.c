@@ -100,9 +100,11 @@ static const float CP_THR_KIT[4] = {0.095f, 0.090f, 0.084f, 0.162f};
 #define SUB_RES_K 0.85f  /* the low-pass's damping k at full resonance, as a fraction off Butterworth's (1.414) */
 #define HB_M 7           /* the 2x upsampler: a 27-tap half-band (Kaiser, beta 5), 7 coefficient pairs */
 #define HB_H (2 * HB_M)  /* the half-rate samples it keeps between chunks (its latency: 2 HB_M = 14 samples) */
-#define SAMP_LEAD 2.239f /* a sampled instrument (M_SAMP) on the lead, over its level on the keys (+7 dB): its patch's
-                            level matches the Rhodes on the keys, this the flute on the lead (a struck note's energy
-                            under a held one's) */
+/* a sampled instrument (M_SAMP) on the lead, over its level on the keys, per bank (Knight, nylon, Emilyguitar): its
+   patch's level matches the Rhodes on the keys; the nylon +7 dB (the flute's level on the lead), the Knight +3.85
+   and the Emilyguitar +3.5, tuned on their sets' lead over keys (test_lead_over_keys: a struck lead reads 8-10 dB
+   over the keys at about 4 dB under the flute's bar energy) */
+static const float SAMP_LEAD[SB_N] = {1.5578f, 2.239f, 1.4962f};
 
 /* big zero-initialised buffers go in the device's .pool RAM region (fm1-base's PLAT_POOL; a Mach-O host has no such
    section) */
@@ -472,7 +474,9 @@ static float keys_gain(const song_roll_t *r)
     else if (style == CS_HALF)
         db = 3.0f;
     else if (style == CS_STABS)
-        db = two ? 2.75f : 2.0f;   /* struck harder (vel 60-85), so 4 dB under held; Task 5 tunes by ear */
+        db = (two ? 2.75f : 2.0f) - (ins == INS_KNIGHT ? 3.0f : 0.0f);   /* struck harder (vel 60-85), so 4 dB under
+                                                                            held; the Knight's hammer 3 dB more (its
+                                                                            sets' lead over keys) */
     else if (style == CS_ARP)
         db = -0.25f;
     else if (style == CS_STRUM)   /* struck harder, many strokes a bar: under the arpeggio; the ballad's three less */
@@ -576,7 +580,7 @@ static void env_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int l
     v->kr = k_t60(p->rel / dv);
     v->amp_t = ROLES[v->role].gain * p->level * (float)e->vel * (1.0f / 127.0f) *
                (v->role == V_CHORD ? keys_g : solo_lvl(v, p)) *
-               (p->model == M_SAMP && v->role == V_LEAD ? SAMP_LEAD : 1.0f);
+               (p->model == M_SAMP && v->role == V_LEAD ? SAMP_LEAD[(int)p->p[0] % SB_N] : 1.0f);
     /* (the solo lane's own voice slews, so its legato notes ramp to their velocity's level: lane_legato) */
     v->slew = (uint8_t)(v->role == V_BASS || (v->role == V_LEAD && p->model == M_SUB && p->p[9] > 0.0f) ||
                         (v->role == V_PAD && p->model != M_ENS));

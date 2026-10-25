@@ -163,7 +163,9 @@ static int pick(const cands_t *c, uint32_t seed, int f)
     uint32_t tot = 0, x;
     int i;
     if (c->n == 0) return -1;
-    rng_seed(&g, seed, (uint32_t)f);
+    /* the set's stream hashed apart: rng_seed's streams differ by a constant xor, and xorshift is linear, so the set's
+       draw shares the mood's low bits (x % 4) and a mood's set count divisible by 2 or 4 left sets unreachable */
+    rng_seed(&g, f == RF_SET ? mix(seed, 0x5E7u) : seed, (uint32_t)f);
     for (i = 0; i < c->n; i++) tot += c->w[i];
     if (tot == 0) return c->v[rng_int(&g, c->n)];
     x = rng_next(&g) % tot;
