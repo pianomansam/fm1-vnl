@@ -410,8 +410,10 @@ plan's Task 5 report lists them by set).
     approved snares, "all sound good". Sam will keep listening in future songs and flag what wears.
   - The warm pool kit is approved (Sam, after 5-drums-pool-warm): Gogodze kick and closed hat, the Gogodze sidestick
     as the backbeat, the Big Rusty 22" ride, all down 1 semitone, low-passed at 3.2 kHz, drive 1.2. Note the sidestick
-    works here although the cross-sticks failed the raw lineup (processing and context matter). Open: whether the ride
-    becomes a shared sound that any kit can switch to by section.
+    works here although the cross-sticks failed the raw lineup (processing and context matter).
+  - The ride is shared (Sam: "that roll sounds good"): one ride recording any sampled kit can use, following the
+    kit's processing. Per song: about 1 in 4 rides throughout (the warm kit's home); about half of the rest switch from
+    hats to ride for one section (a B section, the last groove, or a jazzier roll); the rest stay on hats.
 
 ### Sound engine: deferred minors (Plan 3a reviews, 2026-10-23)
 
