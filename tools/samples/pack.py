@@ -7,7 +7,8 @@
 #   Drum hits: the listed mic files of one take summed, an optional high-pass, onset trimmed (1 ms kept), resampled,
 #   cut to length with a cosine fade over the last 40%, peak-normalized.
 #   Both: 4-bit IMA ADPCM from (0, idx0), idx0 the starting step index that encodes the zone best (the first 5 ms
-#   weigh most: a poor start smears a hit's attack), and a gain that brings the first 150 ms to unit RMS.
+#   weigh most: a poor start smears a hit's attack), never decoding to the clamp (the zone scaled down 3% at a time
+#   until it doesn't), and a gain that brings the first 150 ms to unit RMS.
 # The output is deterministic: the same inputs give a byte-identical file.
 # Usage (with a Python that has numpy and scipy; run it with -I):
 #   pack.py list                 the files to download: "dir<TAB>url<TAB>path" (fetch.sh reads this)
@@ -153,15 +154,19 @@ class Zone:
     """One packed zone or hit: int16 PCM, its ADPCM bytes and the table fields."""
 
     def __init__(self, name, pcm, rate, root, ls, ll):
+        while True:  # a decode that overshoots to the clamp: the zone 3% quieter until none does
+            z = pcm.astype(np.float64)
+            best = None
+            for idx0 in range(0, 89, 4):
+                b = adpcm_encode(pcm, idx0)
+                d = adpcm_decode(b, len(pcm), idx0)
+                e = np.sum((z[:80] - d[:80]) ** 2) * 4 + np.sum((z - d) ** 2)
+                if best is None or e < best[0]:
+                    best = (e, idx0, b, d)
+            if np.max(best[3]) < 32767 and np.min(best[3]) > -32768:
+                break
+            pcm = np.round(z * 0.97).astype(np.int16)
         self.name, self.pcm, self.rate, self.root, self.ls, self.ll = name, pcm, rate, root, ls, ll
-        z = pcm.astype(np.float64)
-        best = None
-        for idx0 in range(0, 89, 4):
-            b = adpcm_encode(pcm, idx0)
-            d = adpcm_decode(b, len(pcm), idx0)
-            e = np.sum((z[:80] - d[:80]) ** 2) * 4 + np.sum((z - d) ** 2)
-            if best is None or e < best[0]:
-                best = (e, idx0, b, d)
         _, self.idx0, self.data, dec = best
         self.snr = 10 * math.log10(np.sum(z ** 2) / (np.sum((z - dec) ** 2) + 1))
         w = int(0.15 * rate)

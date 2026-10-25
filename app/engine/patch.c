@@ -10,7 +10,7 @@
      p[3] the low-pass cutoff in Hz plus p[4] times the note's frequency, p[5] its damping k (1/Q), p[6] the vowel
      (0 u, 1 o, 2 a, 3 e, blended between), p[7] 1 for the formants (AMB-1's two: a vox pad) in place of the
      low-pass.
-   M_PLUCK (nylon, guitar lick, upright; voices.c pluck_*): Karplus-Strong, a noise burst into a loop of a delay line,
+   M_PLUCK (guitar lick, upright; voices.c pluck_*): Karplus-Strong, a noise burst into a loop of a delay line,
      an averager and a damping one-pole.
      p[0] the fundamental's fall to -60 dB (s), p[1] the damping one-pole's cutoff in Hz plus p[5] times the note's
      frequency, at full velocity (60% of it at velocity 0), p[2] the burst's one-pole cutoff in Hz at full velocity
@@ -48,10 +48,19 @@
      at a quarter of the rate: a polyBLEP saw and a partner saw a little sharp and quieter, into a fixed 2-pole
      low-pass (two one-poles); the ensemble's width is the chorus's (the patch's chorus: the pad bus's send into it).
      p[0] the partner's detune in cents (up), p[1] its level, p[2] the low-pass's cutoff in Hz plus p[3] times the
-     note's frequency. */
+     note's frequency.
+   M_SAMP (the Knight upright, the nylon, the Emilyguitar; sampler.c): the bank's nearest zone (samples.h) retuned,
+     through a one-pole tone, on its own envelope (att, dec, sus, rel as every model's).
+     p[0] the bank (SB_*), p[1] the tone's cutoff in Hz at full velocity plus p[8] times the note's frequency (both 0:
+     no tone; at most 7.5 kHz), p[2] velocity to tone (0-1: the cutoff at velocity 0 is 1 - p[2] of it), p[3] 1 for a
+     muted note (the strum's chuck: the cutoff at 2.5 times the note, gone in 60 ms, released in 30), p[4] a delayed
+     vibrato's depth in cents (the winds': 5 Hz after 0.3 s; 0 for none), p[5] the decay's key tracking (octaves of
+     decay time lost per octave above note 60), p[6] the cutoff's fall after the strike, to this fraction of it (0:
+     none), p[7] that fall's time constant (s). */
 #include <stddef.h>
 #include "library.h"
 #include "patch.h"
+#include "samples.h"
 
 /* model, {p[0..15]}, att, dec, sus, rel, level, chorus, delay. The chorus (on the chords' bus): the electric keys and
    the pads deep, the felt piano and the nylon a touch. The delay's send: leads and ear candy wet, keys a little,
@@ -63,7 +72,10 @@ static const vx_patch_t PATCHES[INS_NONE] = {
     /* the Wurli struck softer (Sam: "still has lots of attack"): less index, strike and bark, a 6 ms attack */
     [INS_WURLI] = {M_EP, {2.0f, 0.8f, 1.2f, 1.5f, 0.0f, 0.3f, 0.4f, 0.0f}, 0.006f, 3.5f, 0.0f, 0.06f, 0.932f, 0.6f, 0.08f},
     [INS_FELT_PIANO] = {M_EP, {1.0f, 0.2f, 0.6f, 0.8f, 0.0f, 0.4f, 0.0f, 1100.0f}, 0.004f, 5.0f, 0.0f, 0.15f, 0.716f, 0.2f, 0.06f},
-    [INS_NYLON] = {M_PLUCK, {1.8f, 3000.0f, 2500.0f, 0.0f, 0.0f, 2.0f}, 0.002f, 6.0f, 0.0f, 0.08f, 1.62f, 0.15f, 0.08f},
+    /* the sampled nylon (FreePats Spanish classical, CC0; it replaced the Karplus-Strong nylon): the spike's tone,
+       6x the note at full velocity falling to 60% */
+    [INS_NYLON] = {M_SAMP, {SB_NYLON, 300.0f, 0.55f, 0.0f, 0.0f, 0.45f, 0.6f, 0.8f, 6.0f}, 0.001f, 3.5f, 0.0f, 0.12f,
+                   0.633f, 0.15f, 0.08f},
     [INS_PAD] = {M_PAD, {5.0f, 2.0f, 0.35f, 900.0f, 1.5f, 1.2f, 0.0f, 0.0f}, 0.6f, 4.0f, 0.85f, 2.0f, 0.616f, 0.6f, 0.1f},
     [INS_UPRIGHT] = {M_PLUCK, {0.9f, 700.0f, 1500.0f, 0.5f, 0.08f, 3.0f}, 0.002f, 4.0f, 0.0f, 0.05f, 3.4f, 0.0f, 0.0f},
     [INS_ELEC_BASS] = {M_BASS, {1.0f, 0.6f, 2.4f, 0.12f, 0.0f}, 0.003f, 7.0f, 0.6f, 0.04f, 1.57f, 0.0f, 0.0f},
@@ -96,6 +108,13 @@ static const vx_patch_t PATCHES[INS_NONE] = {
        a warm synth pad, darker, slower and a little wetter */
     [INS_STRINGS] = {M_ENS, {7.0f, 0.4f, 1800.0f, 1.0f}, 0.6f, 4.0f, 0.85f, 1.5f, 1.0f, 0.7f, 0.1f},
     [INS_WARM_PAD] = {M_ENS, {5.0f, 0.5f, 900.0f, 1.5f}, 0.8f, 4.0f, 0.85f, 2.0f, 1.0f, 0.5f, 0.15f},
+    /* the sampled instruments (M_SAMP) as the spike's demos Sam passed: the Knight upright (VCSL, CC0), its tone 9x the
+       note falling to 55%; the Emilyguitar (Karoryfer, CC0), a clean jazz electric, brighter, a deeper chorus. Levels
+       matched to the Rhodes on the keys */
+    [INS_KNIGHT] = {M_SAMP, {SB_KNIGHT, 300.0f, 0.55f, 0.0f, 0.0f, 0.6f, 0.55f, 1.2f, 9.0f}, 0.001f, 7.0f, 0.0f,
+                    0.35f, 0.605f, 0.1f, 0.06f},
+    [INS_EMILY] = {M_SAMP, {SB_EMILY, 300.0f, 0.55f, 0.0f, 0.0f, 0.5f, 0.6f, 1.0f, 12.0f}, 0.001f, 5.0f, 0.0f, 0.12f,
+                   0.648f, 0.3f, 0.1f},
 };
 
 const vx_patch_t *vx_patch(int ins)

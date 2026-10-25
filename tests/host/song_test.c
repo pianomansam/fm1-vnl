@@ -20,6 +20,7 @@
 #include "phrase.h"
 #include "pads.h"
 #include "samples.h"
+#include "sampler.h"
 
 static int fails;
 #define CHECK(c, ...)                                                                                              \
@@ -1834,24 +1835,24 @@ static float vt_peak(uint32_t from, uint32_t to)
     return m;
 }
 
-/* The plucked strings (M_PLUCK: nylon, guitar lick, upright) and the basses (M_BASS: sub, electric bass). A pluck is
-   in tune by its period (within 10 cents) at 40, 55 and 70; nylon falls to -40 dB within 3 s and upright within
-   1.5 s, held; the Karplus-Strong line is sized for note 28. The sub's 2x and 3x partials are each 12 dB under the
+/* The plucked strings (M_PLUCK: guitar lick, upright; the nylon is sampled now, M_SAMP: test_samp) and the basses
+   (M_BASS: sub, electric bass). A pluck is in tune by its period (within 10 cents) at 40, 55 and 70; the upright falls
+   to -40 dB within 1.5 s, held; the Karplus-Strong line is sized for note 28. The sub's 2x and 3x partials are each 12 dB under the
    fundamental; the electric bass's attack is brighter and settles within 100 ms. */
 static void test_vx_plucks_basses(void)
 {
-    static const int PLUCKS[3] = {INS_NYLON, INS_GUITAR_LICK, INS_UPRIGHT};
+    static const int PLUCKS[2] = {INS_GUITAR_LICK, INS_UPRIGHT};
     static const int NOTES[3] = {40, 55, 70};
     int i, j, bad = 0;
 
-    CHECK(vx_patch(INS_NYLON)->model == M_PLUCK && vx_patch(INS_GUITAR_LICK)->model == M_PLUCK &&
+    CHECK(vx_patch(INS_NYLON)->model == M_SAMP && vx_patch(INS_GUITAR_LICK)->model == M_PLUCK &&
               vx_patch(INS_UPRIGHT)->model == M_PLUCK && vx_patch(INS_SUB)->model == M_BASS &&
               vx_patch(INS_ELEC_BASS)->model == M_BASS,
           "plucks and basses on the wrong models");
     CHECK(VX_KS_N <= 44100 / 41 && (float)VX_KS_N >= 44100.0f / 41.2034f + 1.0f,
           "the Karplus-Strong line is %d samples: wanted note 28's period (+1 for the interpolation) to 44100/41",
           VX_KS_N);
-    for (i = 0; i < 3; i++)
+    for (i = 0; i < 2; i++)
         for (j = 0; j < 3; j++) {
             int role = vt_role_of(PLUCKS[i]);
             float p = 44100.0f / (440.0f * fm_exp2f(((float)NOTES[j] - 69.0f) / 12.0f)), got, cents;
@@ -1862,9 +1863,9 @@ static void test_vx_plucks_basses(void)
                    (double)p, (double)cents);
             CHECK(fm_fabsf(cents) <= 10.0f, "ins %d note %d: %+.1f cents out", PLUCKS[i], NOTES[j], (double)cents);
         }
-    for (i = 0; i < 3; i += 2)
+    for (i = 1; i < 2; i++)
         for (j = 0; j < 3; j++) { /* held 5 s: the string's own decay */
-            float t = PLUCKS[i] == INS_NYLON ? 3.0f : 1.5f, pk, at;
+            float t = 1.5f, pk, at;
             uint32_t s = (uint32_t)(t * 44100.0f);
             vt_note(vt_role_of(PLUCKS[i]), PLUCKS[i], NOTES[j], 100, 5u * 44100u, VT_LONG, &bad);
             pk = vt_peak(0, 4410);
@@ -2081,8 +2082,10 @@ static void test_chip(void)
     CHECK(!lib_ins_sustained(INS_CHIP_BASS), "the triangle bass: wanted percussive");
     CHECK(INS_FM_BASS == INS_VOX_PAD + 6, "instruments: %d after the vox pad, wanted Sam's six synths",
           INS_FM_BASS - INS_VOX_PAD);
-    CHECK(INS_STRINGS == INS_FM_BASS + 1 && INS_WARM_PAD == INS_FM_BASS + 2 && INS_NONE == INS_FM_BASS + 3,
-          "instruments: %d after the six synths, wanted the pad layer's two (strings, warm pad)",
+    CHECK(INS_STRINGS == INS_FM_BASS + 1 && INS_WARM_PAD == INS_FM_BASS + 2 && INS_KNIGHT == INS_FM_BASS + 3 &&
+              INS_EMILY == INS_FM_BASS + 4 && INS_NONE == INS_FM_BASS + 5,
+          "instruments: %d after the six synths, wanted the pad layer's two (strings, warm pad), then the Knight and "
+          "the Emilyguitar",
           INS_NONE - INS_FM_BASS - 1);
     { /* the triangle at note 36 (674 samples a cycle): its plateaus' levels in one cycle from 0.5 s, clustered */
         static float lv[1024];
@@ -4797,10 +4800,36 @@ static void cv_begin(const song_roll_t *roll)
     vx_song(roll);
 }
 
+/* Song A as test_song_carryover plays it before B (its set's instruments, or keys on the chords when not INS_NONE),
+   then the app's gap (vx_release_all, 2-4 s from A's seed); with tail_secs, A's tail rendered on that long past the
+   gap, alone. Returns the tail's peak: the gap's last block's, or the loudest block of the tail past it (an echo of
+   the tape delay can arrive after a quiet block). */
+static float cv_song_a(const song_roll_t *ra, int keys, uint32_t tail_secs)
+{
+    uint32_t gap, h = ra->seed * 2654435761u, j;
+    float tail = 0.0f;
+    int bad;
+    vx_init();
+    vx_song(ra);
+    if (keys != INS_NONE)
+        vx_assign(V_CHORD, keys);
+    cv_play(ra, 30u, NULL, NULL);
+    vx_release_all(); /* the song's end, then the gap (app.c's) */
+    gap = (2000u + (h >> 16) % 2001u) * 441u / 10u;
+    for (j = 0; j < gap;) {
+        uint32_t b = gap - j < 4096 ? gap - j : 4096;
+        tail = vt_block(b, &bad);
+        j += b;
+    }
+    for (j = 0; j < tail_secs * 44100u; j += 4096u)
+        tail = fm_maxf(tail, vt_block(4096, &bad));
+    return tail;
+}
+
 /* Determinism across songs (the plan's constraint): a seed renders the same samples whether or not another song played
    before it. Song A, then the app's gap (vx_release_all, 2-4 s from A's seed), then song B through song_begin's path,
    against song B alone: from 12 s (A's tails long over) the two agree exactly; in B's first second they differ by at
-   most what A's tail still adds. The pairs' B sets cover plucks, the Wurli's bark, winds' breath and the drums, then
+   most what A's tail still adds (its peak over that second, rendered alone: cv_song_a). The pairs' B sets cover plucks, the Wurli's bark, winds' breath and the drums, then
    the synths (the FM keys and bass; M_SUB's filters, sub and glide; the triangle bass's crush and the pluck). Each
    pair's sets are pinned (roll_set), not left to the draw: adding sets redraws them (synths plan, Review Focus 4). The
    last pair is a chillwave song into the chillwave synth set (DX and pluck). (A pair can leave a residue near -91
@@ -4821,10 +4850,10 @@ static void test_song_carryover(void)
     static const int SA[] = {2, 11, 10, 1, 3, 5, 2, 3, 5, 4, 19, 5};
     static const int SB[] = {11, 2, 9, 3, 3, 3, 13, 18, 20, 7, 6, 5};
     static const float LIM[] = {1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f};
-    int p, i;
+    int p;
     for (p = 0; p < (int)(sizeof A / sizeof A[0]); p++) {
         song_roll_t ra, rb;
-        uint32_t gap, h, j;
+        uint32_t j;
         float tail = 0.0f, d0 = 0.0f, d1 = 0.0f;
         const vx_config_t *c;
         roll_song(NULL, A[p], &ra);
@@ -4840,19 +4869,10 @@ static void test_song_carryover(void)
         c = vx_config();
         printf("carryover: B %u chords %d bass %d lead %d candy %d kit %d\n", (unsigned)B[p], c->chords, c->bass,
                c->lead, c->candy, c->kit);
-        vx_init();
-        vx_song(&ra);
-        cv_play(&ra, 30u, NULL, NULL);
-        vx_release_all(); /* the song's end, then the gap (app.c's) */
-        h = ra.seed * 2654435761u;
-        gap = (2000u + (h >> 16) % 2001u) * 441u / 10u;
-        for (j = 0; j < gap;) {
-            uint32_t b = gap - j < 4096 ? gap - j : 4096;
-            tail = vt_block(b, &i);
-            j += b;
-        }
-        printf("carryover: A %u gap %.2f s, at B's start active %d sounding %d (last block peak %.2e)\n",
-               (unsigned)A[p], (double)gap / 44100.0, vx_active(), vx_sounding(), (double)tail);
+        tail = cv_song_a(&ra, INS_NONE, 1u);
+        cv_song_a(&ra, INS_NONE, 0u);
+        printf("carryover: A %u, at B's start active %d sounding %d (A's tail's peak %.2e)\n", (unsigned)A[p],
+               vx_active(), vx_sounding(), (double)tail);
         cv_begin(&rb);
         cv_play(&rb, CV_SECS, cv_l, cv_r);
         for (j = 0; j < CV_SECS * 44100u; j++) {
@@ -4867,7 +4887,7 @@ static void test_song_carryover(void)
         CHECK(d1 <= LIM[p], "seed %u after seed %u renders differently from 12 s on (max %.3e)", (unsigned)B[p],
               (unsigned)A[p], (double)d1);
         CHECK(d0 <= 2.0f * tail + LIM[p], "seed %u after seed %u: its first second differs by %.3e, more than the old "
-              "tail (%.3e at the gap's end)", (unsigned)B[p], (unsigned)A[p], (double)d0, (double)tail);
+              "tail (its peak %.3e)", (unsigned)B[p], (unsigned)A[p], (double)d0, (double)tail);
     }
 }
 
@@ -6613,6 +6633,8 @@ static void test_levels_steady(void)
 static double lk_db[2][LK_BARS];
 static uint8_t lk_on[LK_BARS];
 static int lk_skip_lane; /* a V_PAD lane (1-4) whose events lk_song drops (test_pad_level: 4, the solo note), 0 none */
+static int lk_keys = INS_NONE, lk_lead = INS_NONE; /* test_samp: the keys' and the lead's instrument in place of the
+                                                      set's (INS_NONE: the set's) */
 static int lk_song(const song_roll_t *roll, int role, double *db)
 {
     static song_t s;
@@ -6628,6 +6650,10 @@ static int lk_song(const song_roll_t *roll, int role, double *db)
     memset(lk_on, 0, sizeof lk_on);
     song_start(&s, roll);
     vx_song(&s.roll);
+    if (lk_keys != INS_NONE)
+        vx_assign(V_CHORD, lk_keys);
+    if (lk_lead != INS_NONE)
+        vx_assign(V_LEAD, lk_lead);
     while (s.state == SS_PLAYING) {
         const plan_block_t *last = &s.plan.b[s.plan.n ? s.plan.n - 1 : 0];
         int bar = s.bar, st = s.step, n, i;
@@ -8407,6 +8433,323 @@ static void test_samples_table(void)
     CHECK(smp_bytes() <= 200 * 1024, "samples %u B over 200 KB", (unsigned)smp_bytes());
 }
 
+/* ------------------------------------------------------------------------------ the sampler voice (M_SAMP) --- */
+static const int SP_INS[SB_N] = {INS_KNIGHT, INS_NYLON, INS_EMILY}; /* each bank's patch */
+#define SP_LEN (4u * 44100u)
+static float sp_a[SP_LEN], sp_b[SP_LEN];
+
+/* n samples of a standalone voice (dv 1 or 2) on patch p into x; 0 if any was NaN or inf, or the decoder read past its
+   zone's end */
+static int sp_run(smp_voice_t *v, float *x, uint32_t n)
+{
+    uint32_t i;
+    int ok = 1;
+    for (i = 0; i < n; i++) {
+        float y = samp_sample(v);
+        const smp_zone_t *z = v->d.z;
+        if (y != y || fm_fabsf(y) > 1e30f)
+            ok = 0;
+        if (z && v->d.ni > (z->loop_len ? z->loop_start + z->loop_len : z->len))
+            ok = 0;
+        x[i] = y;
+    }
+    return ok;
+}
+
+/* the pitch of x[from .. from+w) against p0 samples a period, in cents (positive: sharp): the normalized
+   autocorrelation's peak near a lag of m periods (m * p0 about 1000 samples or more), parabolically interpolated */
+static float sp_cents(const float *x, uint32_t from, uint32_t w, float p0)
+{
+    int m = (int)(1000.0f / p0) + 1, lo = (int)((float)m * p0 * 0.99f), hi = (int)((float)m * p0 * 1.01f) + 1;
+    int lag, best = lo;
+    float r[600], a, b, c, d, l;
+    if (hi - lo >= 600)
+        hi = lo + 599;
+    for (lag = lo; lag <= hi; lag++) {
+        double s = 0.0, e0 = 0.0, e1 = 0.0;
+        uint32_t i;
+        for (i = from; i < from + w; i++) {
+            s += (double)x[i] * (double)x[i + (uint32_t)lag];
+            e0 += (double)x[i] * (double)x[i];
+            e1 += (double)x[i + (uint32_t)lag] * (double)x[i + (uint32_t)lag];
+        }
+        r[lag - lo] = e0 > 0.0 && e1 > 0.0 ? (float)s * fm_rsqrtf((float)e0) * fm_rsqrtf((float)e1) : 0.0f;
+        if (r[lag - lo] > r[best - lo])
+            best = lag;
+    }
+    l = (float)best;
+    if (best > lo && best < hi) {
+        a = r[best - lo - 1];
+        b = r[best - lo];
+        c = r[best - lo + 1];
+        d = a - 2.0f * b + c;
+        l += d != 0.0f ? 0.5f * (a - c) / d : 0.0f;
+    }
+    return 1200.0f * fm_log2f((float)m * p0 / l);
+}
+
+static float sp_rms(const float *x, uint32_t n)
+{
+    double e = 0.0;
+    uint32_t i;
+    for (i = 0; i < n; i++)
+        e += (double)x[i] * (double)x[i];
+    return n ? fm_sqrtf((float)(e / n)) : 0.0f;
+}
+
+/* a role's mean level (dB) over the bars it sounds in, the song's keys or lead replaced (lk_song) */
+static float sp_lk_mean(const song_roll_t *r, int role, int keys, int lead)
+{
+    int b, n, c = 0;
+    double sum = 0.0;
+    lk_keys = keys;
+    lk_lead = lead;
+    n = lk_song(r, role, lk_db[0]);
+    lk_keys = lk_lead = INS_NONE;
+    for (b = 0; b < n; b++)
+        if (lk_db[0][b] > -60.0) {
+            sum += lk_db[0][b];
+            c++;
+        }
+    return c ? (float)(sum / c) : -200.0f;
+}
+
+/* The sampler (M_SAMP; plan Task 2, Review Focus 1-3 and 5): the data decodes (each zone and hit: a real level, never
+   at the clamp; hits one-shot); notes at the zones' centers and boundaries render within 3 cents, at the full rate and
+   at half; notes past the range play the end zones, never reading past them; a held note's loop has no click; a
+   release fades smoothly to -60 dB; a stolen voice fades in under 6 ms, no click; velocity 1 and 127 stay finite and
+   denormal-free; a seed renders the same alone and after a song on the Knight. */
+static void test_samp(void)
+{
+    static const int NOTES[7] = {40, 52, 59, 64, 71, 76, 83};
+    smp_voice_t v, w;
+    int bk, k, bad = 0;
+    float worst = 0.0f;
+
+    /* the data: decoded RMS (as -1..1) at least 0.01, no sample at the clamp, hits one-shot */
+    for (bk = 0; bk < SB_N + SH_N; bk++) {
+        const smp_bank_t *b = bk < SB_N ? smp_bank(bk) : NULL;
+        int nz = b ? b->n : 1;
+        for (k = 0; k < nz; k++) {
+            const smp_zone_t *z = b ? &b->z[k] : smp_hit(bk - SB_N);
+            smp_dec_t d;
+            double e = 0.0;
+            uint32_t i, clip = 0;
+            smp_dec_init(&d, z);
+            for (i = 0; i < z->len; i++) {
+                int y = smp_dec_next(&d);
+                e += (double)y * (double)y;
+                clip += y >= 32767 || y <= -32768;
+            }
+            e = e / z->len / (32768.0 * 32768.0);
+            CHECK(e >= 1e-4 && clip == 0, "samples: %s %d zone %d decodes to RMS %.4f, %u at the clamp",
+                  b ? "bank" : "hit", b ? bk : bk - SB_N, k, (double)fm_sqrtf((float)e), (unsigned)clip);
+            if (!b)
+                CHECK(z->loop_len == 0, "samples: hit %d loops", bk - SB_N);
+        }
+    }
+
+    for (bk = 0; bk < SB_N; bk++) {
+        const vx_patch_t *p = vx_patch(SP_INS[bk]);
+        const smp_bank_t *b = smp_bank(bk);
+        int dv;
+        CHECK(p && p->model == M_SAMP && (int)p->p[0] == bk, "samp: ins %d isn't bank %d's sampler patch", SP_INS[bk],
+              bk);
+        if (!p || p->model != M_SAMP)
+            continue;
+        /* pitch: 200 ms after the attack (from 20 ms into the loop: a plucked string's attack runs sharp, the nylon's
+           up to 16 cents on one zone), full rate and half */
+        for (dv = 1; dv <= 2; dv++)
+            for (k = 0; k < 7; k++) {
+                float sr = 44100.0f / (float)dv, hz = 440.0f * fm_exp2f(((float)NOTES[k] - 69.0f) / 12.0f), c;
+                uint32_t at;
+                v.dv = (float)dv;
+                samp_start(&v, p, (float)NOTES[k], 0.8f);
+                at = (uint32_t)((float)v.d.z->loop_start / v.step + 0.02f * sr);
+                bad |= !sp_run(&v, sp_a, at + (uint32_t)(0.25f * sr) + 2000u);
+                c = sp_cents(sp_a, at, (uint32_t)(0.2f * sr), sr / hz);
+                worst = fm_maxf(worst, fm_fabsf(c));
+                CHECK(fm_fabsf(c) <= 3.0f, "samp: bank %d note %d (dv %d) %+.2f cents off", bk, NOTES[k], dv,
+                      (double)c);
+            }
+        /* out of range: the end zones, the decoder in bounds, finite; the low note in tune */
+        {
+            float hz = 440.0f * fm_exp2f((20.0f - 69.0f) / 12.0f), c;
+            v.dv = 1.0f;
+            samp_start(&v, p, 20.0f, 0.8f);
+            CHECK(v.d.z == &b->z[0], "samp: bank %d note 20 not on its lowest zone", bk);
+            CHECK(sp_run(&v, sp_a, SP_LEN), "samp: bank %d note 20 read past its zone or went NaN", bk);
+            c = sp_cents(sp_a, (uint32_t)((float)v.d.z->loop_start / v.step) + 882u, 22050u, 44100.0f / hz);
+            CHECK(fm_fabsf(c) <= 3.0f, "samp: bank %d note 20 %+.2f cents off", bk, (double)c);
+            v.dv = 1.0f;
+            samp_start(&v, p, 110.0f, 0.8f);
+            CHECK(v.d.z == &b->z[b->n - 1], "samp: bank %d note 110 not on its highest zone", bk);
+            CHECK(sp_run(&v, sp_a, SP_LEN), "samp: bank %d note 110 read past its zone or went NaN", bk);
+        }
+        /* release: twins, one released at 0.5 s: the ratio of their 64-sample RMS falls monotonically, at most 6 dB a
+           block, under -60 dB; the released one ends (0, off) */
+        {
+            float prev = 0.0f, r = 1.0f, step = 0.0f;
+            uint32_t at = 22050u, blk, nb = (uint32_t)((p->rel + 0.2f) * 44100.0f) / 64u;
+            int mono = 1;
+            v.dv = w.dv = 1.0f;
+            samp_start(&v, p, 60.0f, 0.8f);
+            samp_start(&w, p, 60.0f, 0.8f);
+            sp_run(&v, sp_a, at);
+            sp_run(&w, sp_b, at);
+            samp_release(&v);
+            for (blk = 0; blk < nb && r > 1e-3f; blk++) {
+                float ra, rb, dbs;
+                sp_run(&v, sp_a, 64u);
+                sp_run(&w, sp_b, 64u);
+                ra = sp_rms(sp_a, 64u);
+                rb = sp_rms(sp_b, 64u);
+                r = rb > 0.0f ? ra / rb : 0.0f;
+                if (blk && r > prev * 1.0001f)
+                    mono = 0;
+                if (blk && r > 0.0f) {
+                    dbs = 20.0f * 0.30103f * fm_log2f(prev / r);
+                    step = fm_maxf(step, dbs);
+                }
+                prev = r;
+            }
+            sp_run(&v, sp_a, 44100u);
+            printf("samp: bank %d release: %u blocks to %.1f dB, steepest %.2f dB a block, %s\n", bk, (unsigned)blk,
+                   r > 0.0f ? (double)(20.0f * 0.30103f * fm_log2f(r)) : -999.0, (double)step,
+                   mono ? "monotonic" : "NOT monotonic");
+            CHECK(mono && r <= 1e-3f && step <= 6.0f, "samp: bank %d release: monotonic %d, %.4f at the end, steepest "
+                  "%.2f dB a block", bk, mono, (double)r, (double)step);
+            CHECK(!v.on && sp_a[44099] == 0.0f, "samp: bank %d released voice still on", bk);
+        }
+        /* the loop: a held note in the mix, 3 s, no step over 0.05 after the attack */
+        for (k = 0; k < 2; k++) {
+            float pv = 0.0f, d = 0.0f;
+            int j;
+            vx_init();
+            vx_assign(V_CHORD, SP_INS[bk]);
+            vt_ev(V_CHORD, k ? 71 : 52, 100, 0, 200000);
+            vt_maxdelta(4096, 4096, &pv);
+            for (j = 0; j < 32; j++)
+                d = fm_maxf(d, vt_maxdelta(4096, 0, &pv));
+            printf("samp: bank %d note %d held 3 s: max step %.4f\n", bk, k ? 71 : 52, (double)d);
+            CHECK(d <= 0.05f, "samp: bank %d note %d held: a step of %.4f (a loop click?)", bk, k ? 71 : 52, (double)d);
+        }
+        /* velocity 1 and 127 */
+        for (k = 0; k < 2; k++) {
+            int j;
+            vx_init();
+            vx_assign(V_CHORD, SP_INS[bk]);
+            for (j = 0; j < 4; j++)
+                vt_ev(V_CHORD, 36 + 14 * j, k ? 127 : 1, 0, 30000);
+            for (j = 0; j < 30; j++) {
+                vt_block(4096, &bad);
+                if (j == 5 || j == 29)
+                    CHECK(vx_tiny() == 0, "samp: bank %d velocity %d: denormal-bound state", bk, k ? 127 : 1);
+            }
+        }
+    }
+    printf("samp: worst pitch %.2f cents\n", (double)worst);
+    CHECK(!bad, "samp: NaN or inf");
+
+    /* a steal: four held Knight notes, a fifth (velocity 1) takes the oldest. The victim's part is the difference of
+       two renders that differ only in its velocity (127, 63; the chorus, the delay and the glue off: no delayed
+       copies, linear). In the 6-16 ms after the steal it is under a tenth of the 10 ms before (the plate's ring of
+       it stays); no step over 0.05 */
+    {
+        static float s1[6 * 4096], s2[6 * 4096];
+        float pre, post, late, pv = 0.0f, d;
+        int pass, j;
+        vx_fx_off(VX_OFF_CHORUS | VX_OFF_DELAY);
+        fx_glue_off(1);
+        for (pass = 0; pass < 2; pass++) {
+            float *o = pass ? s2 : s1;
+            vx_init();
+            vx_assign(V_CHORD, INS_KNIGHT);
+            vt_ev(V_CHORD, 48, pass ? 63 : 127, 0, 400000);
+            for (j = 1; j < 4; j++)
+                vt_ev(V_CHORD, 48 + 4 * j, 100, 0, 400000);
+            for (j = 0; j < 6; j++) {
+                if (j == 2)
+                    vt_ev(V_CHORD, 62, 1, 0, 400000);
+                d = vt_maxdelta(4096, 0, &pv);
+                if (j == 2 && !pass)
+                    CHECK(d <= 0.05f, "samp: the steal steps %.4f", (double)d);
+                memcpy(o + 4096 * j, vt_l, 4096 * sizeof(float));
+            }
+        }
+        for (j = 0; j < 6 * 4096; j++)
+            s1[j] -= s2[j];
+        pre = sp_rms(s1 + 8192 - 441, 441);
+        post = sp_rms(s1 + 8192 + 265, 441);
+        late = sp_rms(s1 + 8192 + 5000, 441);
+        printf("samp: steal: the victim %.2e before, %.2e 6-16 ms after (%.1f dB), %.2e 120 ms after (the plate)\n",
+               (double)pre, (double)post, (double)(20.0f * 0.30103f * fm_log2f(post / pre)), (double)late);
+        CHECK(post <= 0.1f * pre, "samp: a stolen voice still at %.1f dB 6 ms after the steal",
+              (double)(20.0f * 0.30103f * fm_log2f(post / pre)));
+        vx_fx_off(0u);
+        fx_glue_off(0);
+    }
+
+    /* levels: in four Rhodes dusty songs, each sampled instrument on the keys and on the lead within 1.5 dB of the
+       Rhodes and the flute (bars' mean energy; the nylon sits about 0.6 dB under, its sets' lead over keys) */
+    {
+        uint32_t seed;
+        int got = 0;
+        double dk[SB_N] = {0}, dl[SB_N] = {0};
+        for (seed = 1u; got < 4 && seed < 600u; seed++) {
+            song_roll_t r;
+            float ref, refl;
+            roll_song(NULL, seed, &r);
+            if (roll_set(&r, RF_SET, 1) != 1)
+                continue;
+            got++;
+            ref = sp_lk_mean(&r, V_CHORD, INS_NONE, INS_NONE);
+            refl = sp_lk_mean(&r, V_LEAD, INS_NONE, INS_NONE);
+            for (k = 0; k < SB_N; k++) {
+                dk[k] += (double)(sp_lk_mean(&r, V_CHORD, SP_INS[k], INS_NONE) - ref);
+                dl[k] += (double)(sp_lk_mean(&r, V_LEAD, INS_NONE, SP_INS[k]) - refl);
+            }
+        }
+        for (k = 0; k < SB_N; k++) {
+            dk[k] /= got;
+            dl[k] /= got;
+            printf("samp: ins %d on the keys %+.2f dB from the Rhodes, on the lead %+.2f dB from the flute\n",
+                   SP_INS[k], dk[k], dl[k]);
+            CHECK(dk[k] >= -1.5 && dk[k] <= 1.5 && dl[k] >= -1.5 && dl[k] <= 1.5,
+                  "samp: ins %d's level: keys %+.2f dB from the Rhodes, lead %+.2f from the flute", SP_INS[k], dk[k],
+                  dl[k]);
+        }
+    }
+
+    /* carryover: seed 2 (Bossa nylon) the same alone and after a song with the Knight on the keys */
+    {
+        song_roll_t ra, rb;
+        uint32_t j;
+        float tail, d0 = 0.0f, d1 = 0.0f;
+        roll_song(NULL, 24u, &ra);
+        roll_song(NULL, 2u, &rb);
+        (void)roll_set(&rb, RF_SET, 2);
+        vx_init();
+        vx_song(&rb);
+        cv_play(&rb, CV_SECS, cv_ref_l, cv_ref_r);
+        tail = cv_song_a(&ra, INS_KNIGHT, 1u);
+        cv_song_a(&ra, INS_KNIGHT, 0u);
+        cv_begin(&rb);
+        cv_play(&rb, CV_SECS, cv_l, cv_r);
+        for (j = 0; j < CV_SECS * 44100u; j++) {
+            float d = fm_maxf(fm_fabsf(cv_l[j] - cv_ref_l[j]), fm_fabsf(cv_r[j] - cv_ref_r[j]));
+            if (j < 44100u)
+                d0 = fm_maxf(d0, d);
+            else if (j >= 12u * 44100u)
+                d1 = fm_maxf(d1, d);
+        }
+        printf("samp: seed 2 after a Knight song: first second %.2e (tail %.2e), from 12 s %.2e\n", (double)d0,
+               (double)tail, (double)d1);
+        CHECK(d1 <= 1e-6f, "samp: seed 2 after a Knight song differs from 12 s by %.3e", (double)d1);
+        CHECK(d0 <= 2.0f * tail + 1e-6f, "samp: seed 2 after a Knight song: first second off by %.3e", (double)d0);
+    }
+}
+
 int main(int argc, char **argv)
 {
     const char *only = argc > 1 ? argv[1] : NULL;
@@ -8486,6 +8829,7 @@ int main(int argc, char **argv)
     RUN(test_pad_determinism);
     RUN(test_pad_double);
     RUN(test_samples_table);
+    RUN(test_samp);
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;

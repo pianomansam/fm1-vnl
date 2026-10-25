@@ -359,12 +359,14 @@ static void parts(double amb)
 {
     static const named_t CH[] = {{"rhodes", INS_RHODES}, {"wurli", INS_WURLI}, {"felt piano", INS_FELT_PIANO},
                                  {"nylon", INS_NYLON}, {"pad", INS_PAD}, {"vox pad", INS_VOX_PAD},
-                                 {"organ", INS_ORGAN}, {"dx ep", INS_DX_EP}};
+                                 {"organ", INS_ORGAN}, {"dx ep", INS_DX_EP}, {"knight", INS_KNIGHT},
+                                 {"emilyguitar", INS_EMILY}};
     static const named_t BS[] = {{"upright", INS_UPRIGHT}, {"elec bass", INS_ELEC_BASS}, {"sub", INS_SUB},
                                  {"triangle bass", INS_CHIP_BASS}, {"fm bass", INS_FM_BASS}};
     static const named_t LD[] = {{"flute", INS_FLUTE}, {"muted trumpet", INS_MUTED_TPT}, {"sax", INS_SAX},
                                  {"vibes", INS_VIBES}, {"kalimba", INS_KALIMBA}, {"guitar lick", INS_GUITAR_LICK},
-                                 {"saw lead", INS_SAW_LEAD}, {"synth pluck", INS_SYNTH_PLUCK}};
+                                 {"saw lead", INS_SAW_LEAD}, {"synth pluck", INS_SYNTH_PLUCK},
+                                 {"knight", INS_KNIGHT}};
     static const named_t CD[] = {{"music box", INS_MUSIC_BOX}, {"bells", INS_BELLS}};
     static const named_t PDL[] = {{"strings", INS_STRINGS}, {"warm pad", INS_WARM_PAD}};
     static const named_t SOL[] = {{"choir", INS_VOX_PAD}, {"flute", INS_FLUTE}, {"organ", INS_ORGAN},
