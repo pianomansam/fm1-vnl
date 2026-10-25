@@ -406,6 +406,8 @@ plan's Task 5 report lists them by set).
     closed pitched down 3 semitones, low-passed at 5 kHz; the VCSL small shaker in the hat role. "Other shakers could
     be good too." Each chosen hat needs its matching open hat (same kit, same processing).
   - Shakers (Sam, from the shaker lineup): only the VCSL small shaker (high fast); the rest are out.
+  - Hat pairs (Sam, after 5-drums-hat-pairs{,-poplar,-rope}): all four closed/open pairs, with choke, over all three
+    approved snares, "all sound good". Sam will keep listening in future songs and flag what wears.
 
 ### Sound engine: deferred minors (Plan 3a reviews, 2026-10-23)
 
