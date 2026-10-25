@@ -27,12 +27,12 @@ Flash: the image is 194 KB of a 400 KB budget (`tools/mem-check.sh`), so about *
 |---|---|---|
 | Knight upright piano (VCSL, CC0): the one acoustic piano, for any piano part (chords, stabs, arps, broken chords, the lead) | 38 KB | about 0.15 (a synth Rhodes or felt piano is about 0.27); an added option, the electric pianos stay |
 | FreePats nylon (CC0), strum engine | 31-49 KB | about 0.17; **replaces** the Karplus-Strong nylon (about 0.21), Sam's explicit swap |
-| FluidR3 solo cello (MIT) | 28 KB | about 0.05 (synth leads are 0.12-0.24); an added lead option |
+| ~~FluidR3 solo cello~~ (out: Sam took the low-dark string synth, reuse) | 0 KB | about 0.10 (the string synth) |
 | Karoryfer Emilyguitar (CC0) | 51 KB | comping about 0.13, strumming about 0.18 (half rate): new |
 | Sampled drum pool, 4 kits (CC0) | 42-64 KB | 0.13-0.23 (synth kits are 0.11-0.13); added kits, the synth kits stay |
 | Synth string-ensemble lead (kept as synth) | 0 KB | about 0.10 at half rate |
 
-Total: about 190-230 KB against about 215 KB free. (The Kawai grand is out: Sam keeps one acoustic piano, the Knight.)
+Total: about 160-200 KB (after the cello's 28 KB came back) against about 215 KB free. (The Kawai grand is out: Sam keeps one acoustic piano, the Knight.)
 
 **Samples are added, not swapped in (Sam, 2026-10-25).** Unless Sam names a replacement (so far only the nylon), each
 sample is a new option and the synths stay. So samples don't lower the heaviest song: today's (about 0.97, a synth

@@ -397,6 +397,11 @@ plan's Task 5 report lists them by set).
     The drum demos used the upright bass by mistake; round 2 uses the electric bass.
   - One acoustic piano, the Knight (Sam, correcting): it plays any acoustic-piano part (held chords, stabs, arps, the
     upcoming broken-chord climb, even the lead), as an option beside the electric pianos, which stay. The Kawai is out.
+  - Reuse over reinvent (Sam): the cello is the string ensemble synth in a low register, the "low and dark" voicing
+    (demo 2c-strings-synth-low-dark: "passing"). The FluidR3 cello is out (28 KB back).
+  - Snares (Sam, from the 4-bar lineup): VCSL rope snare with snares off; Frankensnare 20x6 poplar; Gogodze center
+    pitched down 3 semitones, low-passed at 3.5 kHz. No cross-sticks survived. The demo hi-hats are disliked: next, a
+    hi-hat lineup.
 
 ### Sound engine: deferred minors (Plan 3a reviews, 2026-10-23)
 
