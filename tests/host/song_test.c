@@ -9600,10 +9600,11 @@ static void test_skits(void)
 
     /* a kit change keeps sounding hits on their kit: the same output as with no change (both ways) */
     {
-        static const int PAIRS[2][2] = {{KIT_DUSTY, KIT_S_RUSTY}, {KIT_S_RUSTY, KIT_DUSTY}};
+        static const int PAIRS[4][2] = {{KIT_DUSTY, KIT_S_RUSTY}, {KIT_S_RUSTY, KIT_DUSTY}, /* synth, sampled */
+                                        {KIT_S_WARM, KIT_S_RUSTY}, {KIT_S_RUSTY, KIT_S_WARM}}; /* bus, none */
         static float a[8000];
         int p, diff;
-        for (p = 0; p < 2; p++) {
+        for (p = 0; p < 4; p++) {
             drums_song(0u);
             drums_set_kit(PAIRS[p][0]);
             for (v = V_KICK; v <= V_RIDE; v++)

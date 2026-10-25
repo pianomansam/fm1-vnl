@@ -36,10 +36,11 @@ static const skit_t KITS[NK] = {
     /* KIT_S_WARM: the Gogodze kick, closed hat and sidestick backbeat, the ride; down 1 st, LP 3.2 kHz, drive 1.2 */
     {{SH_GG_KICK, SH_GG_SIDE, SH_GG_HAT, -1, SH_VC_SHAKER, SH_GG_SIDE, SH_RIDE}, -1.0f, 3200.0f, 1.2f, 0.310f,
      {1.0f, 1.0f, 1.135f, 1.135f, SHK * 3.2f, 1.0f, 1.0f}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}},
-    /* KIT_S_DARK: the Gogodze kick; its snare down 3 st, LP 3.5 kHz; its hats down 3 st, LP 5 kHz */
+    /* KIT_S_DARK: the Gogodze kick; its snare down 3 st, LP 3.5 kHz; its hats down 3 st, LP 5 kHz, and the ride with
+       them (the ride follows each kit's processing: here the cymbals'; elsewhere the kit's bus, or none) */
     {{SH_GG_KICK, SH_GG_SNARE, SH_GG_HAT, SH_GG_OHAT, SH_VC_SHAKER, SH_GG_SNARE, SH_RIDE}, 0.0f, 0.0f, 0.0f, 0.275f,
-     {1.0f, 1.0f, 1.072f, 1.072f * 0.75f, SHK, 1.0f, 1.0f}, {0, -3, -3, -3, 0, -3, 0},
-     {0, 3500, 5000, 5000, 0, 3500, 0}},
+     {1.0f, 1.0f, 1.072f, 1.072f * 0.75f, SHK, 1.0f, 1.0f}, {0, -3, -3, -3, 0, -3, -3},
+     {0, 3500, 5000, 5000, 0, 3500, 5000}},
     /* KIT_S_RUSTY: the Big Rusty kick, Frankensnare 20x6 poplar, Big Rusty foot chick / open (soft) */
     {{SH_BR_KICK, SH_FS_POPLAR, SH_BR_CHICK, SH_BR_OHAT, SH_VC_SHAKER, SH_FS_POPLAR, SH_RIDE}, 0.0f, 0.0f, 0.0f, 0.284f,
      {1.0f, 1.0f, 0.822f, 0.822f * 1.28f, SHK, 1.0f, 1.0f}, {0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0}},
@@ -67,6 +68,8 @@ static sbus_t sb[NK];
 static int cur = 0;           /* the current kit, 0..NK-1 */
 static uint32_t clock_n;
 static float kick_env;
+static int n_on;              /* voices sounding */
+static unsigned ring;         /* kits whose bus still rings (a bit per kit) */
 
 static float lp_coef(float hz) { return hz > 0.0f ? 1.0f - fm_expf(-6.2831853f * hz / SR) : 1.0f; }
 
@@ -90,6 +93,8 @@ void skits_clear(void)
     }
     clock_n = 0u;
     kick_env = 0.0f;
+    n_on = 0;
+    ring = 0u;
 }
 
 /* the lane's hit in kit k: an open hat with none plays the closed hat */
@@ -138,6 +143,7 @@ void skits_on(const song_ev_t *e)
             best = i;
     }
     v = &sv[best];
+    n_on += !v->on;
     memset(v, 0, sizeof *v);
     smp_dec_init(&v->d, z);
     vel = (float)e->vel * (1.0f / 127.0f);
@@ -165,6 +171,7 @@ static inline float sv_tick(sv_t *v)
         v->h[3] = (float)smp_dec_fast(&v->d);
         if (v->d.ni >= v->d.z->len && ++v->ended > 4u) { /* played out (the interpolator's zeros too) */
             v->on = 0;
+            n_on--;
             return 0.0f;
         }
     }
@@ -180,8 +187,10 @@ static inline float sv_tick(sv_t *v)
     if (v->fade < 1.0f) {
         y *= v->fade;
         v->fade *= CHOKE_K;
-        if (v->fade < OFF_THR)
+        if (v->fade < OFF_THR) {
             v->on = 0;
+            n_on--;
+        }
     }
     if (v->lc < 1.0f)
         y = v->lp = fm_flush(v->lp + (y - v->lp) * v->lc);
@@ -194,6 +203,10 @@ float skits_sample(void)
     unsigned used = 0u;
     int i, k;
     clock_n++;
+    if (!n_on && !ring) { /* idle: nothing to run (a synth kit's song pays nothing here) */
+        kick_env = 0.0f;
+        return 0.0f;
+    }
     for (i = 0; i < NSV; i++)
         if (sv[i].on) {
             float y = sv_tick(&sv[i]);
@@ -210,11 +223,13 @@ float skits_sample(void)
         if (s->lc < 1.0f) { /* (run while it rings, so a hit's tail through it stays the same) */
             if (!(used & 1u << k) && fm_fabsf(s->l1) < 1e-7f && fm_fabsf(s->l2) < 1e-7f) {
                 s->l1 = s->l2 = 0.0f; /* rung out */
+                ring &= ~(1u << k);
                 continue;
             }
             s->l1 = fm_flush(s->l1 + (x - s->l1) * s->lc);
             s->l2 = fm_flush(s->l2 + (s->l1 - s->l2) * s->lc);
             x = s->l2;
+            ring |= 1u << k;
         } else if (!(used & 1u << k))
             continue;
         if (s->drive > 0.0f)

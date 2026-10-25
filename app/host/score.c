@@ -213,13 +213,16 @@ static void track(FILE *f, mev_t *ev, int n)
 
 static long tick_of(const rec_t *r) { return (long)(r->bar * 16 + r->st) * 120 + (long)(r->delay / r->ss * 120.0f + 0.5f); }
 
+/* the GM drum note per voice (the pitched roles 0): kick, snare, closed and open hat, maracas, side stick, ride 1 */
+static const int DRUM[] = {0, 0, 0, 0, 0, 36, 38, 42, 46, 70, 37, 51};
+typedef char drum_covers_every_voice[sizeof DRUM / sizeof DRUM[0] == V_N ? 1 : -1]; /* a new voice needs its note */
+
 static void write_midi(const char *path)
 {
     static const char *const NAME[6] = {"Keys", "Bass", "Lead", "Ear candy", "Pads", "Drums"};
     static const int VOICE[5] = {V_CHORD, V_BASS, V_LEAD, V_CANDY, V_PAD};
     static const int PROG[5] = {4, 32, 73, 11, 49};      /* GM: electric piano 1, acoustic bass, flute, vibraphone,
                                                             string ensemble 1 */
-    static const int DRUM[V_N] = {0, 0, 0, 0, 0, 36, 38, 42, 46, 70, 37}; /* (the pitched roles 0) */
     static char texts[MAXBARS * 2][48];
     FILE *f = fopen(path, "wb");
     mev_t *ev = malloc(sizeof *ev * (size_t)(2 * nrec + 4 * MAXBARS * 16 + 16));
