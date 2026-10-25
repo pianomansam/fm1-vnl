@@ -392,6 +392,9 @@ plan's Task 5 report lists them by set).
   - Stab comping comes back (Sam: "with better sounding instruments, they may work"), but not the offbeat style
     (strikes only on the "and"s), which stays retired.
   - Next demos: the sampled drum kits from the drum survey, and the jazz guitar options.
+  - Jazz/clean electric guitar: Karoryfer Emilyguitar (CC0), "and it's not even close."
+  - Drums round 1: Swirly (brushes) is out. The kits' snares are too high-pitched; Sam wants something more subtle.
+    The drum demos used the upright bass by mistake; round 2 uses the electric bass.
 
 ### Sound engine: deferred minors (Plan 3a reviews, 2026-10-23)
 
