@@ -560,7 +560,7 @@ void score_song(const song_t *s, float now)
             r->v[RF_MOTION], (double)r->v[RF_SWING] / 10.0);
     fprintf(logf, "map %s; progression %d (%s); set %s; color %s; comping %s; bass %s\n", m ? m->name : "?",
             p ? p->id : 0, p ? p->src : "?", set ? set->name : "?", COLOR[r->v[RF_COLOR] % 3],
-            harmony_style(r) == CS_HALF && harmony_comp_steps(r) != 0x101u ? "half notes, held" : STYLE[harmony_style(r) % 5],
+            harmony_style(r) == CS_HALF && !harmony_half_strikes(r) ? "half notes, held" : STYLE[harmony_style(r) % 5],
             BASS[groove_bass_style(r) & 3]);
     fprintf(logf, "blocks:");
     for (i = 0; i < plan.n; i++) {

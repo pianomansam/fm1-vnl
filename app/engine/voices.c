@@ -303,6 +303,8 @@ static const vx_patch_t *role_pt[V_PAD + 1]; /* the configured patch per pitched
    the level test (song_test's test_pad_solo_patch): each voice as loud as the strings an octave up (in RMS, the choir,
    the flute and the organ at MIDI 76, the strings at 88). */
 #define SOLO_V (NV - 1) /* the solo lane's voice: fv[SOLO_V] */
+/* the solo lane is the pad layer's last voice (C99 has no _Static_assert: size -1 fails the build) */
+typedef char solo_is_last_pad_[(PD + NPD == NV && SOLO_V == PD + NPD - 1) ? 1 : -1];
 static const vx_patch_t *solo_pt;
 static float solo_trim = 1.0f;
 /* A solo voice at a quarter of the rate (where it would be at half), in pad_seg's quarter-rate path beside the
@@ -443,7 +445,7 @@ static float keys_gain(const song_roll_t *r)
     const lib_prog_t *pg = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
     int style = harmony_style(r), ins = s ? s->chords : INS_NONE, two = pg && pg->bars_per_chord >= 2;
     float db = 0.0f;
-    if (style == CS_HALF && harmony_comp_steps(r) != 0x101u) /* half notes that hold (half_held) sit as held */
+    if (style == CS_HALF && !harmony_half_strikes(r)) /* half notes that hold (half_held) sit as held */
         style = CS_HELD;
     if (lib_ins_sustained(ins))
         db = style == CS_ARP ? 3.0f : 0.0f;

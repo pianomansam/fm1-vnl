@@ -264,8 +264,10 @@ unsigned harmony_comp_steps(const song_roll_t *r)
 {
     int style = harmony_style(r);
     if (style == CS_STABS) return harmony_stab_steps(r);
-    return style == CS_HALF && !half_held(r) ? 0x101u : 0u;
+    return harmony_half_strikes(r) ? 0x101u : 0u;
 }
+
+int harmony_half_strikes(const song_roll_t *r) { return harmony_style(r) == CS_HALF && !half_held(r); }
 
 /* is the last voicing sounded made of this chord's pitch classes (so a later strike of it can keep it) */
 static int last_is_chord(const harmony_voicing_t *vs, const int *pcs, int n)
@@ -322,7 +324,11 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
         break;
     }
     if (busy && style != CS_HELD && !keys_sustained(r)) {   /* the lead is busy: the comping makes room (Sam) */
-        if (style == CS_HALF && (step != 0 || bar % p->bars_per_chord != 0)) return 0;   /* chord changes only */
+        if (style == CS_HALF) {                 /* beat 1 of every bar only, held to the next bar's strike */
+            if (step != 0) return 0;
+            len = (uint32_t)(16.0f * step_samples);
+            len = len > 441u ? len - 441u : 1u;
+        }
         if (style == CS_STABS && step != 0) return 0;
         if (style == CS_OFFBEATS && step != 6 && step != 14) return 0;
         if (style == CS_ARP && (step & 1)) return 0;

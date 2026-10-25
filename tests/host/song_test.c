@@ -1004,7 +1004,7 @@ static void test_harmony(void)
             int play = 0;
             for (k2 = 1; k2 <= 3000; k2++) {
                 roll_song(NULL, (uint32_t)k2, &q);
-                play += harmony_comp_steps(&q) == 0x101u;
+                play += harmony_half_strikes(&q);
             }
             CHECK(play >= 3000 * 21 / 100 && play <= 3000 * 29 / 100,
                   "harmony: %d of 3000 songs play half notes, want 25%% (+-4)", play);
@@ -1072,7 +1072,7 @@ static void test_harmony(void)
 
 /* Half-note comping (pads revision 2): the voicing struck on beats 1 and 3 (steps 0 and 8), the second a little softer,
    each held to the next strike, the same voicing both times (a request mid-chord, the loop lock off, included); a busy
-   lead thins it to the chord changes; sustained keys hold. */
+   lead thins it to step 0 of every bar, held a bar; sustained keys hold. */
 static void test_half_comping(void)
 {
     const float SPS16 = 5512.5f;
@@ -1121,11 +1121,15 @@ static void test_half_comping(void)
                             || (float)(e1[i].len + e1[i].delay) > want + 2.0f) bad_len++;
                     }
                 }
-                for (step = 0; step < 16; step++) {              /* busy: the chord changes only, same strike */
-                    int nb = harmony_step(&r, &keys, bar, step, 1, SPS16, &vb, 1, 9u, eb, 16);
-                    if (nb && (step != 0 || bar % p->bars_per_chord != 0 || nb != 4 || (lock && memcmp(eb, e0, sizeof eb[0] * 4))))
-                        bad_busy++;
-                    if (!nb && step == 0 && bar % p->bars_per_chord == 0) bad_busy++;
+                for (step = 0; step < 16; step++) {              /* busy: step 0 of every bar, held a bar, same voicing */
+                    int nb = harmony_step(&r, &keys, bar, step, 1, SPS16, &vb, 1, 9u, eb, 16), i;
+                    if (nb && (step != 0 || nb != 4)) bad_busy++;
+                    if (!nb && step == 0) bad_busy++;
+                    for (i = 0; nb == 4 && i < 4; i++) {
+                        if (eb[i].len + eb[i].delay < (uint32_t)(15.0f * SPS16)) bad_busy++;
+                        if (lock && (eb[i].note != e0[i].note || eb[i].vel != e0[i].vel || eb[i].delay != e0[i].delay))
+                            bad_busy++;
+                    }
                 }
             }
         }
@@ -1137,7 +1141,7 @@ static void test_half_comping(void)
     CHECK(bad_vel == 0, "half comping: %d second strikes not softer", bad_vel);
     CHECK(bad_len == 0, "half comping: %d strikes not held to the next", bad_len);
     CHECK(bad_same == 0, "half comping: %d notes revoiced between strikes", bad_same);
-    CHECK(bad_busy == 0, "half comping: %d busy bars not thinned to the chord changes", bad_busy);
+    CHECK(bad_busy == 0, "half comping: %d busy bars not thinned to step 0 of every bar, held a bar", bad_busy);
 }
 
 /* Scale-degree index of an in-scale note (octave * 7 + position), counted from the key. */
@@ -3215,6 +3219,12 @@ static void test_comping_makes_room(void)
                 int n1 = harmony_step(&r, b, bar, step, bar / loop + 1, 5512.5f, &v1, 1, 5u, e1, 16);
                 if (sust_keys || cs == CS_HELD) {
                     if (n0 != n1 || memcmp(e0, e1, sizeof(song_ev_t) * (size_t)n0)) bad_same++;
+                } else if (n1 && cs == CS_HALF && n1 == n0 && n1 == 4) {   /* thinned to step 0, held a bar: all but the length */
+                    int j;
+                    for (j = 0; j < n1; j++) {
+                        e1[j].len = e0[j].len;
+                        if (memcmp(&e0[j], &e1[j], sizeof e0[j])) bad_subset++;
+                    }
                 } else if (n1 && (n1 != n0 || memcmp(e0, e1, sizeof(song_ev_t) * (size_t)n0))) {
                     bad_subset++;
                 }
@@ -6732,7 +6742,7 @@ static void test_lead_over_keys(void)
 /* The pad layer's chord part sits under the keys (pads design, Mix: about 6 dB): in every set with percussive keys
    (the chord part plays over those only), six songs each as test_lead_over_keys picks them, the pad bus soloed with
    its solo note left out (lane 4's events dropped) against the keys' bus, over the bars where both sound (over -60
-   dB): each set's mean and median 4-8 dB under, and no song under 2 dB or over 10. */
+   dB): each set's mean and median 7-11 dB under, and no song under 5 dB or over 13. */
 static void test_pad_level(void)
 {
     float d[LIB_NSETS_MAX * LK_PER], sorted[LIB_NSETS_MAX * LK_PER], med;
