@@ -387,6 +387,11 @@ plan's Task 5 report lists them by set).
     cut off awkwardly on quick notes with gaps. Open: report better string samples if found.
   - Cello lead: FluidR3 solo cello (MIT).
   - Strummed nylon: quick strums for every pattern except the ballad, where slow and quick both work.
+  - Sam (follow-up): the FreePats nylon "sounds much better than our synth one": it replaces the synth nylon.
+    "Definitely keep the Knight piano."
+  - Stab comping comes back (Sam: "with better sounding instruments, they may work"), but not the offbeat style
+    (strikes only on the "and"s), which stays retired.
+  - Next demos: the sampled drum kits from the drum survey, and the jazz guitar options.
 
 ### Sound engine: deferred minors (Plan 3a reviews, 2026-10-23)
 
