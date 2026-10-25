@@ -402,6 +402,9 @@ plan's Task 5 report lists them by set).
   - Snares (Sam, from the 4-bar lineup): VCSL rope snare with snares off; Frankensnare 20x6 poplar; Gogodze center
     pitched down 3 semitones, low-passed at 3.5 kHz. No cross-sticks survived. The demo hi-hats are disliked: next, a
     hi-hat lineup.
+  - Hi-hats (Sam, from the hat lineup): Big Rusty foot chick; VCSL pedal close; VCSL closed, softest layer; Gogodze
+    closed pitched down 3 semitones, low-passed at 5 kHz; the VCSL small shaker in the hat role. "Other shakers could
+    be good too." Each chosen hat needs its matching open hat (same kit, same processing).
 
 ### Sound engine: deferred minors (Plan 3a reviews, 2026-10-23)
 
