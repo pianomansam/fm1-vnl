@@ -423,3 +423,34 @@ To judge by ear:
 - The chord part vs PADS=double (the keys' own voicing doubled), Sam's A/B.
 - The solo note's quarter-rate grit: about -31 dB of aliasing at C6; half rate for MIDI 72 and up is the fix if heard.
 - (The solo note against the lead is already in "To revisit".)
+
+### Pads revision 2: done (2026-10-24)
+
+After Sam listened (pads design, "Revision 2"; branch mix-synths): the pad layer plays **either** its chord part
+**or** its solo note in a section, never both; over struck keys the chord part is the default and the solo takes about
+25% of sections (intro and break 35%, groove 25%, under the lead 15%, outro 30%), over sustained keys the first
+design's shares. **40% of songs never play the solo** (my call); the rest roll its voice per song from the choir, the
+flute and a soft organ (MIDI 72-84) and the strings an octave up (84-96), equally likely, never the flute under a flute
+lead nor the organ over organ keys, each level-matched (within 0.5 dB at the songs' velocity 58). The chord part sits
+about 8.5 dB under the keys (set medians 7.4-10.2; its velocity 48, Sam's "3 dB down" kept against the retuned keys).
+**Half-note comping** joins the keys: struck on beats 1 and 3, the second strike at 90% velocity, held to the next,
+thinned to the chord changes under a busy lead; it holds instead over sustained keys and over a kick on exactly 1 and 3
+(Sam's kick rule). Comp shares as heard: held about 55%, half notes 25%, arpeggio 20% (weights 44 / 36 / 20).
+**Levels retuned with half notes in** (gains only, no bound widened, no seed re-picked): the keys per comping held a
+bar 3.75 dB (was 2), held two bars 4.5, half notes 0.75 (new), an arpeggio -0.25 (was 1), nylon +2 on held; half
+notes that hold sit as held (they had fallen to the 0 dB default). Lead over keys: median +4.8 dB over 96 songs, set
+means 4.2-6.4; the thin margins: Rhodes neo-soul's lowest song +2.0 (its seed 4, held two bars, unchanged from
+before), City pop Rhodes's mean 6.4 of 6.5 (one busy two-bar half-note song at +13.8: its keys strike once per two bars
+under a busy lead and the Rhodes dies away in the second bar). Budget: seed 20 forced 0.960-0.972 on the host bench
+(Sam's ~0.97 line): docs/cost.md.
+
+To judge by ear:
+- The solo voices and their level: choir, flute, organ, strings an octave up; level-matched to each other, under the
+  chord part; is any too quiet or too present?
+- The either/or shares: does the solo come often enough over struck keys (about a quarter of sections), and does the
+  chord part cutting out for it read as a change of color?
+- The 40% of songs with no solo at all.
+- Half-note comping: the second strike's softness (90% velocity), the thinning under a busy lead (two-bar chords go
+  quiet in their second bar), and the kick rule.
+- The keys' new levels per comping: held one-bar songs up 1.75 dB, arpeggios down 1.25 dB.
+- Renders (one per set with and without the bed, plus half-note songs): .superpowers/sdd/2026-10-24-pads-rev2/task-4-report.md.

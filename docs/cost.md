@@ -759,3 +759,17 @@ The flute stays at half rate.
 - **Accepted at Sam's ~0.97 line; solos play in about a quarter of struck-keys sections; flag seed 20 + a flute solo
   for Plan 2's device bench.**
 - Memory: image 192888 B, RAM 51216 B, pool 180216 B (ok).
+
+## Pads revision 2, Task 4: re-measured with the retuned levels
+
+Pads revision 2 in place (either the chord part or the solo note per section, the solo optional on a rolled voice,
+half-note comping) and Task 4's level retune (gains only: the keys per comping, the chord part's velocity 45 to 48).
+Host load about 4-5, AMB-1 136.5-138.4 ms.
+- **The standard list**, `--forced 20 7 155 138 100 22`:
+  - plain: 0.942 / 0.881 / 0.664 / 0.815 / 0.790 / 0.769;
+  - forced: **0.960** / 0.878 / 0.695 / 0.848 / 0.804 / 0.797.
+- **Seed 20 forced** again, `VNL_RUNS=5`, two runs: 0.972, 0.971. Under Sam's ~0.97 line or on it, as at Task 1's fix
+  round (0.977); the hard limit is 1.0. Half-note comping adds keys strikes but no voices (the keys' 4 voices cover a
+  struck chord's release), and the solo and the chord part never sound together, so the layer costs no more than
+  before.
+- **Memory** (`tools/mem-check.sh`): image 193736 B, RAM 51216 B, pool 180216 B (ok).

@@ -89,8 +89,9 @@ int harmony_chord_at(const song_roll_t *r, int bar, int pass, int dark, int *pcs
     return th_chord_pcs(r->v[RF_KEY], r->v[RF_MODE], c, color, pcs);
 }
 
-/* per song, mostly held (Sam, after hearing the four side by side): held 80%, arpeggio 20%; offbeats and stabs
-   retired (Sam: the "and" 8ths liked "less and less"; stabs "just not working") */
+/* per song (Sam, after hearing them side by side): weights held 44, arpeggio 20, half notes 36, so as heard held
+   about 55%, half notes 25%, arpeggio 20% (half notes hold over sustained keys and a kick on 1 and 3 alone:
+   half_held); offbeats and stabs retired (Sam: the "and" 8ths liked "less and less"; stabs "just not working") */
 int harmony_style(const song_roll_t *r)
 {
     static const uint8_t W[5] = {44, 0, 0, 20, 36};   /* held, (stabs, offbeats retired), arpeggio, half notes */

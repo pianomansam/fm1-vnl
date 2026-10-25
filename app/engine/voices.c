@@ -432,21 +432,27 @@ void vx_assign(int voice, int ins)
 static uint8_t bed_off;                   /* host renders: VNL_BED=0 leaves surface noise and rain out */
 void vx_bed_off(int on) { bed_off = (uint8_t)(on != 0); }
 
-/* The keys' level for the song's comping, so the keys sit alike whatever they play (Task 8): struck or plucked keys
-   held a bar decay under the mix that stabs and offbeats restrike, held two bars further (the nylon's fast decay
-   more again), an arpeggio a little; a pad sustains, except its arpeggio (short notes that barely swell). */
+/* The keys' level for the song's comping, so the keys sit alike whatever they play (Task 8, retuned with half notes
+   in, pads revision 2): struck or plucked keys held decay under the mix, so they sit up (a two-bar chord further, the
+   nylon's fast decay more again); half notes restrike, so a little (their second strike softer, a busy lead thins
+   them to the chord changes); an arpeggio about level; half notes that hold (half_held) sit as held. A pad sustains,
+   except its arpeggio (short notes that barely swell). */
 static float keys_gain(const song_roll_t *r)
 {
     const lib_set_t *s = lib_set_by_id((uint8_t)r->v[RF_SET]);
     const lib_prog_t *pg = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
     int style = harmony_style(r), ins = s ? s->chords : INS_NONE, two = pg && pg->bars_per_chord >= 2;
     float db = 0.0f;
+    if (style == CS_HALF && harmony_comp_steps(r) != 0x101u) /* half notes that hold (half_held) sit as held */
+        style = CS_HELD;
     if (lib_ins_sustained(ins))
         db = style == CS_ARP ? 3.0f : 0.0f;
     else if (style == CS_HELD)
-        db = (two ? 4.5f : 2.0f) + (ins == INS_NYLON ? 2.0f : 0.0f);
+        db = (two ? 4.5f : 3.75f) + (ins == INS_NYLON ? 2.0f : 0.0f);
+    else if (style == CS_HALF)
+        db = 0.75f;
     else if (style == CS_ARP)
-        db = 1.0f;
+        db = -0.25f;
     return fm_db2lin(db);
 }
 

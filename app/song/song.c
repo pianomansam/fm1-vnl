@@ -396,7 +396,7 @@ static int pads_step(const song_t *s, int bar, song_ev_t *out, int max)
         for (idx = bar * 16; idx < (bar - k + j) * 16; idx++) advance(&pos, &frac, ss_at(s, idx));
         out[n].voice = V_PAD;
         out[n].note = (uint8_t)note;
-        out[n].vel = (uint8_t)((l < 3 ? 45 : 58) - (dark ? 8 : 0));   /* the chord part 3 dB down (Sam: a bit loud) */
+        out[n].vel = (uint8_t)((l < 3 ? 48 : 58) - (dark ? 8 : 0));   /* the chord part about 8.5 dB under the keys (Sam: a bit loud) */
         out[n].pad = (uint8_t)(l + 1);
         out[n].delay = 0;
         out[n].len = pos - s->pos;
