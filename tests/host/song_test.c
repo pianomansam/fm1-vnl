@@ -9134,6 +9134,56 @@ static void test_strum(void)
     CHECK(st_bad0 > 0, "strum: the default chord part already doubles the guitar (%ld notes)", st_pad0);
 }
 
+
+/* Loop seams (the spec: no loops that pulse; the final review): every looped zone of every sampled instrument, decoded
+   through its attack and three passes of its loop. The loop repeats exactly (the decoder restores its state at each
+   wrap); the step across each wrap (the loop's last sample to its first) is no larger than the loop's own largest step
+   and at most 2.5 times its RMS step (measured: 0.07-2.03); the loop's last 10 ms and its first 10 ms within 2.5 dB
+   (measured: within 1.98) */
+static int sm_x[1 << 20];
+static void test_samp_seams(void)
+{
+    int b, z, bad = 0;
+    float worst = 0.0f, wdb = 0.0f;
+    for (b = 0; b < SB_N; b++) {
+        const smp_bank_t *bk = smp_bank(b);
+        for (z = 0; bk && z < bk->n; z++) {
+            const smp_zone_t *zn = &bk->z[z];
+            uint32_t ls = zn->loop_start, L = zn->loop_len, n = ls + 3u * L, i, w = zn->rate / 100u;
+            double sq = 0.0, mx = 0.0, a = 0.0, c = 0.0, seam[2], ratio, db;
+            smp_dec_t d;
+            if (!L) continue;
+            CHECK(n <= (uint32_t)(sizeof sm_x / sizeof sm_x[0]), "seams: bank %d zone %d too long (%u)", b, z,
+                  (unsigned)n);
+            if (n > (uint32_t)(sizeof sm_x / sizeof sm_x[0])) continue;
+            smp_dec_init(&d, zn);
+            for (i = 0; i < n; i++) sm_x[i] = smp_dec_next(&d);
+            for (i = 0; i < L; i++) bad += sm_x[ls + i] != sm_x[ls + L + i] || sm_x[ls + i] != sm_x[ls + 2u * L + i];
+            for (i = ls + 1u; i < ls + L; i++) {
+                double st = (double)abs(sm_x[i] - sm_x[i - 1]);
+                sq += st * st;
+                if (st > mx) mx = st;
+            }
+            seam[0] = (double)abs(sm_x[ls + L] - sm_x[ls + L - 1u]);
+            seam[1] = (double)abs(sm_x[ls + 2u * L] - sm_x[ls + 2u * L - 1u]);
+            for (i = 0; i < w; i++) {
+                a += (double)sm_x[ls + L - 1u - i] * (double)sm_x[ls + L - 1u - i];
+                c += (double)sm_x[ls + i] * (double)sm_x[ls + i];
+            }
+            ratio = seam[0] / (sq > 0.0 ? (double)fm_sqrtf((float)(sq / (double)(L - 1u))) : 1.0);
+            db = 10.0 * 0.30103 * (double)fm_log2f((float)((a + 1.0) / (c + 1.0)));
+            if ((float)ratio > worst) worst = (float)ratio;
+            if (fm_fabsf((float)db) > wdb) wdb = fm_fabsf((float)db);
+            CHECK(seam[0] <= mx && seam[1] <= mx && ratio <= 2.5,
+                  "seams: bank %d zone %d (root %d): the wrap steps %.0f (%.2f x the RMS step; the loop's largest %.0f)",
+                  b, z, zn->root, seam[0], ratio, mx);
+            CHECK(db >= -2.5 && db <= 2.5, "seams: bank %d zone %d (root %d): the loop's end %+.2f dB from its start",
+                  b, z, zn->root, db);
+        }
+    }
+    printf("seams: the worst wrap %.2f x the RMS step, the worst level step %.2f dB\n", (double)worst, (double)wdb);
+    CHECK(bad == 0, "seams: %d loop samples not repeated exactly", bad);
+}
 /* The packed sample tables (samples_data.c, from tools/samples/pack.py): every bank's zones and every drum hit are
    well formed, the byte count adds up, and the whole set fits its flash share. */
 static void check_zone(const smp_zone_t *z, const char *what, int id, int k)
@@ -10290,6 +10340,7 @@ int main(int argc, char **argv)
     RUN(test_strum_lead);
     RUN(test_strum_same);
     RUN(test_samples_table);
+    RUN(test_samp_seams);
     RUN(test_samp);
     RUN(test_strsyn);
     RUN(test_comp_styles);
