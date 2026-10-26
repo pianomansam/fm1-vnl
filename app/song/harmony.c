@@ -362,8 +362,12 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
          (b->layers & L_SNARE) && !(b->layers & L_BASS) && !keys_sustained(r);
     if (style == CS_STRUM) {                  /* the guitars' strum (strum.c): the lead's busy bars leave it be, as
                                                  held comping (the keys' duck makes the room) */
-        int shape[6];
+        int shape[6], i, k = 4;
         strum_shape(r, bar, pass, vs, shape);
+        memset(vs->last, 0, sizeof vs->last);           /* the keys' last voicing: the shape's top 4 (as
+                                                           harmony_voicing_at's), so a set change voice-leads on */
+        for (i = 5; i >= 0 && k > 0; i--)
+            if (shape[i]) vs->last[--k] = shape[i];
         return strum_step(r, b, bar, step, step_samples, shape, out, max);
     }
     switch (style) {

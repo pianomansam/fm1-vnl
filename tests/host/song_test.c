@@ -8794,6 +8794,11 @@ static void st_restrike(void)
    or from none), and every event of the first 24 strummed songs, plain and with set changes requested (a guitar set,
    then a synth set: the strum bars' events), hash as they did before (values from ae70aef). */
 static uint32_t sf_hash(uint32_t h, int v) { return (h ^ (uint32_t)v) * 16777619u; }
+static int sf_loop(const song_roll_t *r)
+{
+    const lib_prog_t *p = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
+    return p && p->n * p->bars_per_chord ? p->n * p->bars_per_chord : 4;
+}
 static uint32_t sf_voicer(void)
 {
     uint32_t h = 2166136261u;
@@ -8828,8 +8833,8 @@ static uint32_t sf_songs(int change)
             int n, st;
             if (change && s.bar == 6 && s.step == 0) song_request(&s, RF_SET, r.v[RF_SET] == 9 ? 27 : 9);
             if (change && s.bar == 14 && s.step == 0) song_request(&s, RF_SET, 1);
-            st = harmony_style(&s.roll) == CS_STRUM;
             n = song_tick(&s, ev, 64);
+            st = harmony_style(&s.roll) == CS_STRUM;    /* (the roll this step played: a request lands in the tick) */
             for (i = 0; i < n && st; i++) {
                 h = sf_hash(h, ev[i].voice); h = sf_hash(h, ev[i].note); h = sf_hash(h, ev[i].vel);
                 h = sf_hash(h, ev[i].pad); h = sf_hash(h, (int)ev[i].delay); h = sf_hash(h, (int)ev[i].len);
@@ -8838,13 +8843,44 @@ static uint32_t sf_songs(int change)
     }
     return h;
 }
+/* A strummed song keeps the keys' last voicing in step (the final review): after each bar's strum, voicing.last is
+   the bar's guitar shape's top 4 (what harmony_voicing_at gives), so a set change to keys voice-leads from the chord
+   just strummed, not from a stale one */
+static int sf_last_bad(void)
+{
+    static song_t s;
+    song_ev_t ev[64];
+    uint32_t seed;
+    int got = 0, bad = 0;
+    for (seed = 2; got < 12; seed++) {
+        song_roll_t r;
+        roll_song(NULL, seed, &r);
+        if (harmony_style(&r) != CS_STRUM) continue;
+        got++;
+        song_start(&s, &r);
+        while (s.state == SS_PLAYING) {
+            int bar = s.bar, step = s.step, top[4];
+            const plan_block_t *b = plan_at(&s.plan, bar);
+            harmony_voicing_t vs;
+            (void)song_tick(&s, ev, 64);
+            if (step != 15 || !b || !(b->layers & L_KEYS)) continue;
+            vs = s.voicing;
+            harmony_voicing_at(&s.roll, bar, bar / sf_loop(&s.roll) + 1, &vs, top);
+            bad += memcmp(top, s.voicing.last, sizeof top) != 0;
+        }
+    }
+    return bad;
+}
+
 static void test_strum_same(void)
 {
     uint32_t v = sf_voicer(), a = sf_songs(0), b = sf_songs(1);
     printf("strum same: voicer %08x, songs %08x, with set changes %08x\n", (unsigned)v, (unsigned)a, (unsigned)b);
     CHECK(v == 0x7b61830du, "strum same: the voicer's shapes hash %08x, wanted 7b61830d", (unsigned)v);
     CHECK(a == 0x22d11accu, "strum same: the strummed songs hash %08x, wanted 22d11acc", (unsigned)a);
-    CHECK(b == 0xf1b992d1u, "strum same: with set changes %08x, wanted f1b992d1", (unsigned)b);
+    CHECK(b == 0xf88fac2au, "strum same: with set changes %08x, wanted f88fac2a", (unsigned)b);
+    v = (uint32_t)sf_last_bad();
+    CHECK(v == 0, "strum same: %u strummed bars left the keys' last voicing behind", (unsigned)v);
 }
 /* a steal of a damped string (the final review): six strings struck, the first two re-struck at once (their last
    notes damped on the 2 spare voices), then a plain chord note (no string: a stab after a set change) while they
