@@ -8846,6 +8846,41 @@ static void test_strum_same(void)
     CHECK(a == 0x22d11accu, "strum same: the strummed songs hash %08x, wanted 22d11acc", (unsigned)a);
     CHECK(b == 0xf1b992d1u, "strum same: with set changes %08x, wanted f1b992d1", (unsigned)b);
 }
+/* a steal of a damped string (the final review): six strings struck, the first two re-struck at once (their last
+   notes damped on the 2 spare voices), then a plain chord note (no string: a stab after a set change) while they
+   fade: it steals a damped spare and must start once the fade ends (it was lost: the damp's end turned the voice
+   off, the queued note with it); 7 voices sound, the note's own among them */
+static void st_damp_steal(void)
+{
+    int j, n;
+    vx_init();
+    vx_assign(V_CHORD, INS_NYLON);
+    for (j = 0; j < 8; j++) {
+        song_ev_t e;
+        memset(&e, 0, sizeof e);
+        e.voice = V_CHORD;
+        e.vel = 100;
+        e.len = 40000u;
+        if (j < 6) { e.note = (uint8_t)(48 + 5 * j); e.pad = (uint8_t)((j + 1) << 1); e.delay = (uint32_t)j * 265u; }
+        else { e.note = (uint8_t)(49 + 5 * (j - 6)); e.pad = (uint8_t)((j - 5) << 1); e.delay = 8000u + (uint32_t)j - 6u; }
+        vx_event(&e);
+    }
+    {
+        song_ev_t e;
+        memset(&e, 0, sizeof e);
+        e.voice = V_CHORD;
+        e.note = 67;
+        e.vel = 100;
+        e.len = 40000u;
+        e.delay = 8010u;
+        vx_event(&e);
+    }
+    for (j = 0; j < 4; j++) vx_render(vt_l, vt_r, 4096);
+    n = vx_active();
+    printf("strum: a damped string stolen: %d voices sound (want 7)\n", n);
+    CHECK(n == 7, "strum: a note stealing a damped string was lost (%d voices sound, want 7)", n);
+}
+
 
 /* Strumming only under a sustained lead (Sam): no guitar set with a struck lead strums (500 seeds each), the guitar
    sets with a sustained lead still do. And a strum song's lead has the register room a held song's has (Sam: strum
@@ -8940,6 +8975,7 @@ static void test_strum(void)
           "strum: %ld of %ld ballads slow, wanted 45-55%%", slow_ballads, ballads);
     CHECK(bad_slow == 0, "strum: %ld songs of another pattern slow", bad_slow);
     st_restrike();
+    st_damp_steal();
     memset(st_bad, 0, sizeof st_bad);
     st_strums = st_ups = st_moves = st_small = st_chucks = st_pad_notes = st_pad0 = st_bad0 = 0;
     for (seed = 1; seed < 4000; seed++) {          /* three songs of each pattern (the ballad quick and slow) */

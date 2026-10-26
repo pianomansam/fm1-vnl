@@ -1541,16 +1541,17 @@ VX_INLINE float sub_sample(voice_t *v)
    the release (off below OFF_THR). */
 static inline void gate_step(voice_t *v)
 {
+    if (v->pend) { /* fade the victim out, then start the queued note (first: a damped string stolen still starts
+                      it; voice_start clears the damp) */
+        v->g -= v->g * (G_STEAL * step_len(v));
+        if (v->g < STEAL_THR)
+            voice_start(v, v->ppt, &v->pe, 0);
+        return;
+    }
     if (v->damp) { /* a damped string: out over about 4 ms */
         v->g -= v->g * (G_STEAL * step_len(v));
         if (v->g < STEAL_THR)
             v->on = v->damp = 0;
-        return;
-    }
-    if (v->pend) { /* fade the victim out, then start the queued note */
-        v->g -= v->g * (G_STEAL * step_len(v));
-        if (v->g < STEAL_THR)
-            voice_start(v, v->ppt, &v->pe, 0);
         return;
     }
     if (v->held && v->gate && --v->gate == 0)
