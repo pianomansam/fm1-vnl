@@ -9498,6 +9498,27 @@ static float sk_pattern(int kit, int ride)
     return sk_rms(sk_buf, at);
 }
 
+/* x's energy per octave band (125 Hz to 8 kHz: 7 bands, the top one 5.6-8 kHz), in dB: Goertzel at every 4th DFT
+   bin of n samples */
+static void sk_bands(const float *x, int n, float *db)
+{
+    int b, k, i;
+    for (b = 0; b < 7; b++) {
+        float lo = 88.4f * (float)(1 << b), hi = b == 6 ? 8000.0f : 2.0f * lo;
+        double e = 0.0;
+        for (k = (int)(lo * (float)n / 44100.0f); k < (int)(hi * (float)n / 44100.0f); k += 4) {
+            float c = 2.0f * fm_cosf(6.2831853f * (float)k / (float)n), s1 = 0.0f, s2 = 0.0f;
+            for (i = 0; i < n; i++) {
+                float s0 = x[i] + c * s1 - s2;
+                s2 = s1;
+                s1 = s0;
+            }
+            e += (double)(s1 * s1 + s2 * s2 - c * s1 * s2);
+        }
+        db[b] = 4.3429448f * fm_logf((float)e + 1e-20f);
+    }
+}
+
 static void test_skits(void)
 {
     int k, v, i, bad = 0;
@@ -9640,6 +9661,56 @@ static void test_skits(void)
         }
         CHECK(bad == 0 && vx_tiny() == 0, "skits: kit changes mid-song: %d non-finite, tiny %d", bad, vx_tiny());
     }
+
+    /* half the rate (Task 9's cut, the default) against the full rate (skits_half(0)), per kit and lane, a hit at
+       velocity 100, the half-rate one less its 14-sample half-band latency. The level within 0.3 dB (RMS, the first
+       150 ms) and every octave band from 125 Hz to 8 kHz within 1 dB (bands within 40 dB of the hit's loudest): the
+       half-band is flat within 0.01 dB to 8 kHz, the hits hold nothing above it, and the low-passes are matched
+       (skits.c's lp_coef; their phase differs a little, so the waveforms are not compared on a filtered lane). An
+       unfiltered lane's waveform within 20 dB of the full rate's: only the interpolator's images above 8 kHz differ
+       (the full rate keeps them, about -25 dB on a hat; the half-band takes them), where a wrong pitch, step or
+       start would differ by about 0 dB. */
+    for (k = KIT_S_WARM; k <= KIT_S_CLEAN; k++)
+        for (v = V_KICK; v <= V_RIDE; v++) {
+            static float full[6615];
+            const skit_t *kt = skits_kit(k);
+            int n = 6615, lat = 14, j, raw = kt->lp_hz <= 0.0f && kt->drive <= 0.0f && !kt->llp[v - V_KICK];
+            double e = 0.0, d = 0.0;
+            float rf, rh, bf[7], bh[7], top = -1e9f, worst = 0.0f;
+            skits_half(0);
+            drums_song(0u);
+            drums_set_kit(k);
+            sk_hit(v, 100);
+            sk_run(0, n);
+            memcpy(full, sk_buf, sizeof full);
+            skits_half(1);
+            drums_song(0u);
+            drums_set_kit(k);
+            sk_hit(v, 100);
+            sk_run(0, n + lat);
+            rf = sk_rms(full, n);
+            rh = sk_rms(sk_buf + lat, n);
+            for (i = 0; i < n; i++) {
+                e += (double)full[i] * (double)full[i];
+                d += (double)(sk_buf[i + lat] - full[i]) * (double)(sk_buf[i + lat] - full[i]);
+            }
+            sk_bands(full, n, bf);
+            sk_bands(sk_buf + lat, n, bh);
+            for (j = 0; j < 7; j++)
+                top = fm_maxf(top, bf[j]);
+            for (j = 0; j < 7; j++)
+                if (bf[j] > top - 40.0f && fm_fabsf(bh[j] - bf[j]) > fm_fabsf(worst))
+                    worst = bh[j] - bf[j];
+            printf("skits: kit %d voice %d half rate: level %+.2f dB, worst band %+.2f dB, difference %.1f dB under%s\n",
+                   k, v, (double)(sk_db(rh) - sk_db(rf)), (double)worst,
+                   (double)sk_db(fm_sqrtf((float)(e / (d + 1e-30)))), raw ? "" : " (filtered)");
+            CHECK(fm_fabsf(sk_db(rh) - sk_db(rf)) <= 0.3f, "kit %d voice %d: half rate %.2f dB off the full rate", k,
+                  v, (double)(sk_db(rh) - sk_db(rf)));
+            CHECK(fm_fabsf(worst) <= 1.0f, "kit %d voice %d: half rate's band %.2f dB off the full rate", k, v,
+                  (double)worst);
+            CHECK(!raw || d * 100.0 <= e, "kit %d voice %d: half rate differs %.1f dB under the full rate, wanted 20",
+                  k, v, (double)sk_db(fm_sqrtf((float)(e / (d + 1e-30)))));
+        }
 
     /* no read past a table: each hit ends within its sample's length at its pitch (plus the interpolator's few and
        the kit bus's ring) */

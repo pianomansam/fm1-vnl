@@ -2530,6 +2530,7 @@ void vx_set_pump(int pump)
 void vx_fx_off(unsigned mask)
 {
     fx_off = mask;
+    skits_half(!(mask & VX_OFF_HALF));
     fx_wet_off((mask & VX_OFF_DELAY) != 0);
     fx_glue_off((mask & VX_OFF_GLUE) != 0);
     vx_assign(V_CHORD, cfg.chords); /* the sends and the chorus's depth again */
