@@ -27,7 +27,7 @@ void skits_render(float *out, uint32_t n); /* n (at most 256) samples of every s
 float skits_sample(void);               /* one sample of the same */
 void skits_clear(void);                 /* everything silent (a song's start) */
 void skits_half(int on);                /* 1 (the default): render at half the rate; 0 the full rate (VX_OFF_HALF,
-                                           the A/B); everything silent */
+                                           the A/B); a change silences every hit */
 void skits_release(void);               /* every hit into the choke's fade */
 int skits_active(void);                 /* hits sounding */
 float skits_kick_env(void);             /* the sampled kick's level, 0-1 (the ducking source; 0 with none) */

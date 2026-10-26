@@ -1588,7 +1588,8 @@ static float voice_sample(voice_t *v)
         s = samp_sample(&v->m.sp);
         if (!v->m.sp.on && !v->pend)
             v->on = 0;
-        if (!v->slew) { /* (its nat and sus are 1, so its level is 1: the common path's result, without its steps) */
+        if (!v->slew) { /* (exact by construction: env_start sets its nk and sus to 1, so nat stays 1 and the common
+                            path's level sus + (1 - sus) nat is exactly 1.0f; s * amp * 1 * g == s * amp * g) */
             o = s * v->amp * v->g;
             gate_step(v);
             return o;
@@ -1998,6 +1999,8 @@ static void render_seg(uint32_t pos, uint32_t n, int filt)
             pa = pd_f[i - pos]; /* (the full-rate voices' mud high-pass below; the quarter-rate sum's had its own) */
         if (ph && !odd)
             hpa = pd_h[ih++];
+        /* (exact by construction: the same voices in the same ascending order, so the same sums, as the walk over
+           all PD voices testing each bit) */
         for (mm = msk; mm; mm &= mm - 1u) { /* the voices sounding here, lowest first (one call site, so
                                                 voice_sample inlines; the sums stay in registers) */
             int h;

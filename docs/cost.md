@@ -905,6 +905,8 @@ rate, bit-identical to before. A/B: `app/build/new/ab-halfkits-{warm,dark}-{befo
 | 22 | City pop Rhodes (Soft) | 0.836 | 0.867 |
 | 189 | Rhodes neo-soul (warm sampled, ride throughout) | 0.880 | 0.890 |
 | 142 | Neo-soul Wurli (Soft) | 0.922 | **0.936** |
+| 184 | Bossa nylon (Brushes; strummed, the heaviest strum) | 0.754 | 0.784 |
+| 135 | Emilyguitar and vibes (rusty sampled; strummed) | 0.717 | 0.746 |
 
 - **The picker** (200 seeds, `VNL_RUNS=5`): the heaviest is now **seed 142** (Neo-soul Wurli and sax on the synth
   Soft kit), 0.911 plain, **0.933** forced (AMB-1 136.2 ms); the heaviest sampled-kit roll is seed 20 at 0.913.

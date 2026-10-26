@@ -9729,6 +9729,84 @@ static void test_skits(void)
         }
 }
 
+/* Task 9's block rendering: the drums render a segment at a time (drums_render, 1-256 samples), which must give
+   exactly what a sample at a time (drums_sample) gives, at half the rate (blocks starting on odd samples too) and at
+   the full rate: the same random stream of hits (every lane, velocities 1-127), releases and kit changes (the five
+   sampled kits and a synth kit, hits left sounding across a change), rendered both ways; the audio and the kick's
+   envelope (the duck's source, read at every block's end) bit for bit. Also: no sampled kit pitches a hit up (the
+   half rate keeps a 16 kHz hit's band only while its step stays under 1 at 22.05 kHz). */
+#define DB_N 400000
+static float db_a[DB_N], db_b[DB_N], db_ka[DB_N / 2], db_kb[DB_N / 2];
+
+static int db_stream(float *o, float *ko, int blocky, uint32_t seed)
+{
+    static const int KITS[6] = {KIT_S_WARM, KIT_S_DARK, KIT_S_RUSTY, KIT_S_GENTLE, KIT_S_CLEAN, KIT_DUSTY};
+    uint32_t x = seed;
+    int pos = 0, nk = 0, i;
+    drums_song(0u);
+    drums_set_kit(KITS[seed % 6u]);
+    while (pos < DB_N) {
+        int seg, r;
+        x = x * 1103515245u + 12345u;
+        r = (int)(x >> 8);
+        if (r % 13 < 8)
+            sk_hit(V_KICK + (r >> 4) % (V_RIDE - V_KICK + 1), 1 + (r >> 9) % 127);
+        if (r % 13 == 8 && (r >> 10) % 4 == 0)
+            drums_set_kit(KITS[(r >> 12) % 6]);
+        if (r % 13 == 9 && (r >> 10) % 3 == 0)
+            drums_release();
+        seg = 1 + (r >> 14) % 256;
+        if (pos + seg > DB_N)
+            seg = DB_N - pos;
+        if (blocky)
+            drums_render(o + pos, (uint32_t)seg);
+        else
+            for (i = 0; i < seg; i++)
+                o[pos + i] = drums_sample();
+        pos += seg;
+        ko[nk++] = drums_kick_env();
+    }
+    return nk;
+}
+
+static void test_drums_blocks(void)
+{
+    int h, k, l, i;
+    for (k = KIT_S_WARM; k <= KIT_S_CLEAN; k++) /* no kit pitches a hit up */
+        for (l = 0; l <= V_RIDE - V_KICK; l++) {
+            const skit_t *kt = skits_kit(k);
+            int id = kt->hit[l] < 0 && l == 3 ? kt->hit[2] : kt->hit[l];
+            const smp_zone_t *z = smp_hit(id);
+            if (!z)
+                continue;
+            CHECK(kt->semis + (float)kt->lsemis[l] <= 0.0f && z->rate <= 16000u,
+                  "kit %d lane %d: %.0f semitones at %u Hz: a half-rate step over 1", k, l,
+                  (double)(kt->semis + (float)kt->lsemis[l]), (unsigned)z->rate);
+        }
+    for (h = 1; h >= 0; h--) {
+        uint32_t seed;
+        for (seed = 1; seed <= 6u; seed++) {
+            int n, d = 0, dk = 0, live = 0;
+            skits_half(h);
+            n = db_stream(db_a, db_ka, 0, seed * 7919u);
+            db_stream(db_b, db_kb, 1, seed * 7919u);
+            for (i = 0; i < DB_N; i++) {
+                d += memcmp(&db_a[i], &db_b[i], sizeof(float)) != 0;
+                live += db_a[i] != 0.0f;
+            }
+            for (i = 0; i < n; i++)
+                dk += memcmp(&db_ka[i], &db_kb[i], sizeof(float)) != 0;
+            printf("drums blocks: half %d stream %u: %d blocks, %d of %d samples sounding; %d samples, %d kick "
+                   "envelopes differ\n", h, (unsigned)seed, n, live, DB_N, d, dk);
+            CHECK(d == 0 && dk == 0, "drums blocks: half %d stream %u: %d samples, %d kick envelopes differ", h,
+                  (unsigned)seed, d, dk);
+            CHECK(live > DB_N / 2, "drums blocks: half %d stream %u: only %d samples sounding", h, (unsigned)seed,
+                  live);
+        }
+    }
+    skits_half(1);
+}
+
 /* Sampled instruments Task 8: the kit per song and the ride roll. Each set keeps its synth kit and names a sampled
    kit (skit); a song rolls one, about half each (stream 192, hashed apart from the set and mood draws, so the share
    holds per set as the roll draws them too); the 808 and Brushes sets keep their synth kit. Among sampled-kit songs
@@ -9980,6 +10058,7 @@ int main(int argc, char **argv)
     RUN(test_strsyn);
     RUN(test_comp_styles);
     RUN(test_skits);
+    RUN(test_drums_blocks);
     RUN(test_kit_roll);
     if (fails) {
         printf("%d check(s) failed\n", fails);

@@ -111,6 +111,8 @@ void skits_set(int kit)
 
 void skits_half(int on)
 {
+    if ((on != 0) == half) /* (unchanged: hits sounding keep sounding) */
+        return;
     half = on != 0;
     skits_clear();
 }
