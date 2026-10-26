@@ -8789,6 +8789,64 @@ static void st_restrike(void)
 }
 
 
+/* The strum's output is fixed (the final review: the voicer's search pruned and its shapes kept from the pads' look-
+   ahead, to cut its time in the audio interrupt): the shapes of every chord of 3-5 notes (voice-led one from the last,
+   or from none), and every event of the first 24 strummed songs, plain and with set changes requested (a guitar set,
+   then a synth set: the strum bars' events), hash as they did before (values from ae70aef). */
+static uint32_t sf_hash(uint32_t h, int v) { return (h ^ (uint32_t)v) * 16777619u; }
+static uint32_t sf_voicer(void)
+{
+    uint32_t h = 2166136261u;
+    int root, prev[6] = {0, 0, 0, 0, 0, 0}, out[6], i;
+    unsigned m;
+    for (root = 0; root < 12; root++)
+        for (m = 0; m < 2048u; m++) {
+            int pcs[5], n = 1, b, bits = 0;
+            for (b = 0; b < 11; b++) bits += (int)(m >> b & 1u);
+            if (bits < 2 || bits > 4) continue;
+            pcs[0] = root;
+            for (b = 0; b < 11; b++)
+                if (m >> b & 1u) pcs[n++] = (root + 1 + b) % 12;
+            h = sf_hash(h, strum_voicing(pcs, n, (m & 3u) ? prev : NULL, out));
+            for (i = 0; i < 6; i++) h = sf_hash(h, prev[i] = out[i]);
+        }
+    return h;
+}
+static uint32_t sf_songs(int change)
+{
+    static song_t s;
+    song_ev_t ev[64];
+    uint32_t h = 2166136261u, seed;
+    int got = 0, i;
+    for (seed = 2; got < 24; seed++) {
+        song_roll_t r;
+        roll_song(NULL, seed, &r);
+        if (harmony_style(&r) != CS_STRUM) continue;
+        got++;
+        song_start(&s, &r);
+        while (s.state == SS_PLAYING) {
+            int n, st;
+            if (change && s.bar == 6 && s.step == 0) song_request(&s, RF_SET, r.v[RF_SET] == 9 ? 27 : 9);
+            if (change && s.bar == 14 && s.step == 0) song_request(&s, RF_SET, 1);
+            st = harmony_style(&s.roll) == CS_STRUM;
+            n = song_tick(&s, ev, 64);
+            for (i = 0; i < n && st; i++) {
+                h = sf_hash(h, ev[i].voice); h = sf_hash(h, ev[i].note); h = sf_hash(h, ev[i].vel);
+                h = sf_hash(h, ev[i].pad); h = sf_hash(h, (int)ev[i].delay); h = sf_hash(h, (int)ev[i].len);
+            }
+        }
+    }
+    return h;
+}
+static void test_strum_same(void)
+{
+    uint32_t v = sf_voicer(), a = sf_songs(0), b = sf_songs(1);
+    printf("strum same: voicer %08x, songs %08x, with set changes %08x\n", (unsigned)v, (unsigned)a, (unsigned)b);
+    CHECK(v == 0x7b61830du, "strum same: the voicer's shapes hash %08x, wanted 7b61830d", (unsigned)v);
+    CHECK(a == 0x22d11accu, "strum same: the strummed songs hash %08x, wanted 22d11acc", (unsigned)a);
+    CHECK(b == 0xf1b992d1u, "strum same: with set changes %08x, wanted f1b992d1", (unsigned)b);
+}
+
 /* Strumming only under a sustained lead (Sam): no guitar set with a struck lead strums (500 seeds each), the guitar
    sets with a sustained lead still do. And a strum song's lead has the register room a held song's has (Sam: strum
    songs squeezed the lead high; seed 6 on set 2 played only A5 and B5): over the guitar sets' songs of each kind
@@ -10053,6 +10111,7 @@ int main(int argc, char **argv)
     RUN(test_pad_double);
     RUN(test_strum);
     RUN(test_strum_lead);
+    RUN(test_strum_same);
     RUN(test_samples_table);
     RUN(test_samp);
     RUN(test_strsyn);

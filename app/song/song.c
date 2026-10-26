@@ -397,6 +397,11 @@ static void pads_group(song_t *s, const plan_block_t *b, int B)
             s->pads.note[k][3] = n;
         }
     }
+    /* a strummed song's shapes found here are the ones its bars would find (in the same order, from the same last
+       shape): kept, so the voicer never runs twice for a chord */
+    memcpy(s->voicing.gtab, vs.gtab, sizeof vs.gtab);
+    memcpy(s->voicing.gsig, vs.gsig, sizeof vs.gsig);
+    s->voicing.gn = vs.gn;
 }
 
 /* The pad layer's events on step 0 of bar: a lane's note strikes where it changes (or the group begins) and lasts

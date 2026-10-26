@@ -936,3 +936,32 @@ In songs (seed forced, with and without the role, best of 5, AMB-1 about 136 ms)
 - **The sampled kits**: warm (seed 34, ride throughout) 14.1 ms, about 0.10; dark (seed 20, hats) 17.1 ms, 0.13;
   rusty (54) 6.2 ms, gentle (79) 5.8 ms, clean (24) 5.7 ms, about 0.04-0.05. For scale, seed 142's synth Soft kit:
   17.0 ms.
+
+## Final review: the worst tick (the strum voicer)
+
+song_tick and song_start run in the audio interrupt, so their worst case is what counts. `tools/tick-bench.sh N R`
+(app/host/tick_bench.c) plays seeds 2..N, each song R times; a tick's time is its least over the R plays (the host's
+noise filtered out), then the worst over every tick, strummed songs and the rest apart. The strummed songs' worst came
+from the guitar voicer (strum_voicing, a search over movable shapes, about 8 us a chord, up to 45 on a cold cache) run
+for up to 4 new chords in one tick (the pads' 4-bar look-ahead), then again when the bars reached them. Two changes,
+the music unchanged:
+- **The voicer's search pruned** (branch and bound: each branch's least possible cost, from the terms that only grow
+  as strings are added and the top note's terms at their least; a branch that cannot beat the best so far is left).
+  The same shape for every chord: over 26400 chords and voice-leadings against the old voicer, none differs. About
+  2x faster (mean 4.2 us from 8.3).
+- **The pads' look-ahead keeps its shapes**: they are the ones the bars find later (the same order, from the same last
+  shape), so the voicer runs once a chord.
+
+`tools/tick-bench.sh 6000 5` (5895 other songs, 104 strummed; host, -O2):
+
+| | worst tick, strummed | worst tick, other | worst song_start |
+|---|---|---|---|
+| before (ae70aef) | **67-74 us** | 27-33 us | 6-9 us |
+| after | **29-30 us** | 26-34 us | 7-8 us |
+
+The event hashes (every event of the 6000 songs) are the same before and after (strummed 4f31fde7, other 4dd291be),
+as are the rendered audio of 16 strummed songs (plain and with two set changes) and the scenarios' songs.wav and MIDI;
+song_test's test_strum_same holds the voicer's shapes and 24 strummed songs' events to their values from ae70aef.
+groove_ride and plan_build (the ride's extra plan builds at a song's start) cost about 1 us each; song_start's worst,
+all of it, is under 10 us. The standard list after: forced 0.904 / 0.881 / 0.648 / 0.817 / 0.715 / 0.861 (AMB-1
+135.8 ms). Memory: image 378072 B (+736 B), RAM 56560 B (unchanged), pool 184312 B (ok).

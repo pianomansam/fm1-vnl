@@ -71,6 +71,8 @@ typedef struct {
     const int *prev;                        /* the last shape (NULL none) */
     int ptop, plow;
     int cur[6], best[6], bcost, rs;
+    int8_t cand[6][13], ncand[6];           /* each string's chord tones (frets), up the neck */
+    int16_t topmin[V_HI + 1];               /* the least the top note's terms cost with the top at or over a note */
 } vc_t;
 
 static int top_of(const int *s)
@@ -131,35 +133,74 @@ static int shape_cost(const vc_t *c, const int *s)
     return cost;
 }
 
-/* string s onward: each muted, open or fretted within the hand (fmin..fmax so far), ascending, no rub */
-static void vc_dfs(vc_t *c, int s, int last, int fmin, int fmax)
+/* shape_cost's top-note terms alone, for the top note t */
+static int top_cost(const vc_t *c, int t)
 {
-    int f, n, k, ok;
+    int cost = absi(t - TOP_AIM) + (t > TOP_CAP ? 3 * (t - TOP_CAP) : 0);
+    if (c->prev) {
+        int d = absi(t - c->ptop);
+        return cost + 4 * d + (d > 5 ? 40 : 0);
+    }
+    return cost + absi(t - TOP_AIM);
+}
+
+/* A lower bound on the cost of every shape that keeps strings 0..s-1 as they are (fmin..fmax: the frets so far):
+   each term shape_cost can only add to as strings are added (a 2nd low down, a pitch class 3 times, a doubled 3rd,
+   the muted strings so far and the inner ones among them, the low note, the stretch and the neck), and the top
+   note's terms at their least for a top at or over the last note so far. The search leaves a branch whose bound
+   reaches the best so far: none of its shapes could beat it, so the shape found is the full search's, exactly. */
+static int vc_bound(const vc_t *c, int s, int last, int fmin, int fmax)
+{
+    int i, cost = 0, low = 0, n = 0, prev = -1, first = -1, muted = 0, cnt[12];
+    memset(cnt, 0, sizeof cnt);
+    for (i = 0; i < s; i++) {
+        int x = c->cur[i];
+        if (!x) { if (first >= 0) muted++; continue; }
+        if (first < 0) first = i;
+        else cost += 4 * muted;                         /* inner: muted strings between two notes */
+        muted = 0;
+        if (!low) low = x;
+        n++;
+        cnt[x % 12]++;
+        if (prev >= 0 && x < 55 && x - c->cur[prev] < 3) cost += 15;
+        prev = i;
+    }
+    for (i = 0; i < 12; i++)
+        if (cnt[i] > 2) cost += 6 * (cnt[i] - 2);
+    if (c->third >= 0 && cnt[c->third] > 1) cost += 4;
+    cost += (s - n) * 5;                                /* a muted string so far stays muted */
+    if (c->prev) cost += absi(low - c->plow);
+    cost += c->topmin[last];
+    return cost + (fmax - fmin >= SPAN ? 6 : 0) + (fmax > 9 ? 3 * (fmax - 9) : 0);
+}
+
+/* string s onward: each muted, open or fretted within the hand (fmin..fmax so far), ascending, no rub (rub: the
+   pitch classes a semitone over a note so far) */
+static void vc_dfs(vc_t *c, int s, int last, int fmin, int fmax, int placed, unsigned rub)
+{
+    int k;
     if (s == 6) {
-        int i, cnt = 0, cost;
-        for (i = 0; i < 6; i++) cnt += c->cur[i] != 0;
-        if (cnt < 4) return;
+        int cost;
+        if (placed < 4) return;
         cost = shape_cost(c, c->cur) + (fmax - fmin >= SPAN ? 6 : 0) + (fmax > 9 ? 3 * (fmax - 9) : 0);   /* a
                                                                              stretch; high up the neck */
         if (cost < c->bcost) { c->bcost = cost; memcpy(c->best, c->cur, sizeof c->best); }
         return;
     }
+    if (placed + 6 - s < 4) return;                      /* 4 strings or more */
+    if (vc_bound(c, s, last, fmin, fmax) >= c->bcost) return;
     c->cur[s] = 0;
-    vc_dfs(c, s + 1, last, fmin, fmax);                  /* muted */
-    for (f = 0; f <= 12; f++) {
-        int lo = fmin, hi = fmax;
-        n = TUNE[s] + f;
-        if (n <= last || n > V_HI || !in_chord(c, n)) continue;
+    vc_dfs(c, s + 1, last, fmin, fmax, placed, rub);     /* muted */
+    for (k = 0; k < c->ncand[s]; k++) {
+        int f = c->cand[s][k], lo = fmin, hi = fmax, n = TUNE[s] + f;
+        if (n <= last || (rub >> (n % 12) & 1u)) continue;   /* (no note a minor 2nd, or 9th ..., over another) */
         if (f > 0) {                                     /* fretted: within the hand's reach */
             lo = f < lo ? f : lo;
             hi = f > hi ? f : hi;
             if (hi - lo > SPAN) continue;
         }
-        for (k = 0, ok = 1; k < s && ok; k++)            /* no note a minor 2nd (or 9th ...) over another */
-            ok = !c->cur[k] || (n - c->cur[k]) % 12 != 1;
-        if (!ok) continue;
         c->cur[s] = n;
-        vc_dfs(c, s + 1, n, lo, hi);
+        vc_dfs(c, s + 1, n, lo, hi, placed + 1, rub | 1u << (n + 1) % 12);
     }
     c->cur[s] = 0;
 }
@@ -184,13 +225,20 @@ int strum_voicing(const int *pcs, int npcs, const int prev[6], int out[6])
     c.ptop = have ? top_of(prev) : 0;
     c.plow = have ? low_of(prev) : 0;
     c.bcost = 1 << 30;
+    for (i = 0; i < 6; i++)
+        for (f = 0; f <= 12; f++)
+            if (TUNE[i] + f <= V_HI && in_chord(&c, TUNE[i] + f)) c.cand[i][c.ncand[i]++] = (int8_t)f;
+    for (i = V_HI; i >= 0; i--) {
+        int t = top_cost(&c, i);
+        c.topmin[i] = (int16_t)(i == V_HI || t < c.topmin[i + 1] ? t : c.topmin[i + 1]);
+    }
     for (rs = 0; rs < 3; rs++)                            /* the root on the low E, the A or the D string */
         for (f = 0; f <= 12; f++) {
             int root = TUNE[rs] + f;
             if (root < V_LO || root > ROOT_HI || (root - c.root + 120) % 12) continue;
             memset(c.cur, 0, sizeof c.cur);
             c.cur[rs] = root;
-            vc_dfs(&c, rs + 1, root, f ? f : 99, f ? f : -99);
+            vc_dfs(&c, rs + 1, root, f ? f : 99, f ? f : -99, 1, 1u << (root + 1) % 12);
         }
     if (c.bcost < (1 << 30)) {
         for (i = 0; i < 6; i++) { out[i] = c.best[i]; n += out[i] != 0; }
