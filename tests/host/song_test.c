@@ -5015,6 +5015,79 @@ static void test_song_carryover(void)
     }
 }
 
+/* Carryover after the sampled branch's new parts (the final review): a strummed song (the strings' own voices, the
+   damped spares) into a strummed song on the other guitar, and a string-lead song (M_STR, the high strings, its lead
+   sounding when A stops at 30 s) into a cello song (its lead in by 35 s): B after A renders exactly as B alone from
+   12 s to 40 s (past B's first lead notes), and its first second differs by no more than A's tail, as
+   test_song_carryover's pairs. */
+#define CL_SECS 40u
+static float cl_ref_l[CL_SECS * 44100u], cl_ref_r[CL_SECS * 44100u], cl_l[CL_SECS * 44100u], cl_r[CL_SECS * 44100u];
+static void cv_pair(const song_roll_t *ra, const song_roll_t *rb, const char *what)
+{
+    uint32_t j;
+    float tail, d0 = 0.0f, d1 = 0.0f;
+    vx_init();
+    vx_song(rb);
+    cv_play(rb, CL_SECS, cl_ref_l, cl_ref_r);
+    tail = cv_song_a(ra, INS_NONE, 1u);
+    cv_song_a(ra, INS_NONE, 0u);
+    cv_begin(rb);
+    cv_play(rb, CL_SECS, cl_l, cl_r);
+    for (j = 0; j < CL_SECS * 44100u; j++) {
+        float d = fm_maxf(fm_fabsf(cl_l[j] - cl_ref_l[j]), fm_fabsf(cl_r[j] - cl_ref_r[j]));
+        if (j < 44100u)
+            d0 = fm_maxf(d0, d);
+        else if (j >= 12u * 44100u)
+            d1 = fm_maxf(d1, d);
+    }
+    printf("carryover: %s (seed %u set %d -> seed %u set %d): first second %.2e (tail %.2e), 12-40 s %.2e\n", what,
+           (unsigned)ra->seed, ra->v[RF_SET], (unsigned)rb->seed, rb->v[RF_SET], (double)d0, (double)tail, (double)d1);
+    CHECK(d1 <= 1e-6f, "carryover: %s: from 12 s the song differs by %.3e", what, (double)d1);
+    CHECK(d0 <= 2.0f * tail + 1e-6f, "carryover: %s: its first second differs by %.3e, more than the old tail (%.3e)",
+          what, (double)d0, (double)tail);
+}
+
+/* the time (s) of a song's first note on a role (V_LEAD; V_CHORD), or 99 if none in its first 60 s */
+static float cv_first(const song_roll_t *r, int voice)
+{
+    static song_t s;
+    song_ev_t ev[64];
+    float t = 0.0f;
+    int i, n;
+    song_start(&s, r);
+    while (s.state == SS_PLAYING && t < 60.0f * 44100.0f) {
+        n = song_tick(&s, ev, 64);
+        for (i = 0; i < n; i++)
+            if (ev[i].voice == voice) return (t + (float)ev[i].delay) / 44100.0f;
+        t += song_step_samples(&s);
+    }
+    return 99.0f;
+}
+
+static void test_carryover_sampled(void)
+{
+    song_roll_t r, sa, sb, la, lb;
+    uint32_t seed;
+    int ns = 0, nl = 0;
+    for (seed = 2; seed < 3000u && (ns < 2 || nl < 2); seed++) {
+        const lib_set_t *set;
+        roll_song(NULL, seed, &r);
+        set = lib_set_by_id((uint8_t)r.v[RF_SET]);
+        if (!set) continue;
+        if (harmony_style(&r) == CS_STRUM && cv_first(&r, V_CHORD) < 4.0f) {   /* strummed, then the other guitar */
+            if (!ns) { sa = r; ns = 1; }
+            else if (ns == 1 && set->chords != lib_set_by_id((uint8_t)sa.v[RF_SET])->chords) { sb = r; ns = 2; }
+        }
+        if (!nl && set->lead == INS_STR_LEAD) {          /* the high strings sounding at A's 30 s */
+            float f = cv_first(&r, V_LEAD);
+            if (f >= 15.0f && f < 28.0f) { la = r; nl = 1; }
+        } else if (nl == 1 && set->lead == INS_CELLO && cv_first(&r, V_LEAD) < 35.0f) { lb = r; nl = 2; }
+    }
+    CHECK(ns == 2 && nl == 2, "carryover: no strummed (%d) or string-lead (%d) pair found", ns, nl);
+    if (ns == 2) cv_pair(&sa, &sb, "after a strummed song");
+    if (nl == 2) cv_pair(&la, &lb, "after a string-lead song");
+}
+
 /* A mood request that re-rolls the progression reaches the voices (the keys' level reads its bars per chord): through
    the song's own request path, the roll before and after the boundary's tick, as app.c's step compares them. */
 static void test_mood_reconfigures(void)
@@ -10183,6 +10256,7 @@ int main(int argc, char **argv)
     RUN(test_fx_chain);
     RUN(test_fx_engine);
     RUN(test_song_carryover);
+    RUN(test_carryover_sampled);
     RUN(test_mood_reconfigures);
     RUN(test_moves);
     RUN(test_dynamics);
