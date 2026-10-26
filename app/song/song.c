@@ -481,12 +481,18 @@ int song_tick(song_t *s, song_ev_t *out, int max)
         }
         k = n;
         n += groove_step(&s->roll, b, bar, step, gs, pcs, np, salt, buf + n, BUF - n);
-        if (bar >= s->ride_lo && bar < s->ride_hi)  /* a ride block: the hats to the ride, open hats its accents */
-            for (i = k; i < n; i++)
+        if (bar >= s->ride_lo && bar < s->ride_hi) {    /* a ride block: the hats to the ride on the beat (quarter
+                                                           notes at most), open hats its accents */
+            for (i = j = k; i < n; i++) {
                 if (buf[i].voice == V_HAT || buf[i].voice == V_OHAT) {
+                    if (step % 4) continue;
                     if (buf[i].voice == V_OHAT) buf[i].vel = (uint8_t)(buf[i].vel + 14 > 110 ? 110 : buf[i].vel + 14);
                     buf[i].voice = V_RIDE;
                 }
+                buf[j++] = buf[i];
+            }
+            n = j;
+        }
         n += harmony_step(&s->roll, b, bar, step, pass, gs, &s->voicing, s->lead.onsets >= 4, salt, buf + n,
                           BUF - n);
         n += melody_step(&s->roll, &s->plan, &s->ph, &s->motif, bar, step, gs, salt, buf + n, BUF - n);

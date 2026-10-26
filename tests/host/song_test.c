@@ -8952,7 +8952,7 @@ static void test_strum_same(void)
     uint32_t v = sf_voicer(), a = sf_songs(0), b = sf_songs(1);
     printf("strum same: voicer %08x, songs %08x, with set changes %08x\n", (unsigned)v, (unsigned)a, (unsigned)b);
     CHECK(v == 0x7b61830du, "strum same: the voicer's shapes hash %08x, wanted 7b61830d", (unsigned)v);
-    CHECK(a == 0x22d11accu, "strum same: the strummed songs hash %08x, wanted 22d11acc", (unsigned)a);
+    CHECK(a == 0x4fc5e7a7u, "strum same: the strummed songs hash %08x, wanted 4fc5e7a7", (unsigned)a);
     CHECK(b == 0xf88fac2au, "strum same: with set changes %08x, wanted f88fac2a", (unsigned)b);
     v = (uint32_t)sf_last_bad();
     CHECK(v == 0, "strum same: %u strummed bars left the keys' last voicing behind", (unsigned)v);
@@ -10195,7 +10195,7 @@ static void test_kit_roll(void)
             memset(hats_in, 0, sizeof hats_in);
             song_start(&s, &r);
             while (s.state == SS_PLAYING) {
-                int bar = s.bar, n = song_tick(&s, ev, 64), j;
+                int bar = s.bar, step = s.step, n = song_tick(&s, ev, 64), j;
                 const plan_block_t *pb = plan_at(&p, bar);
                 int bi = pb ? (int)(pb - p.b) : -1, riding = ride == RIDE_ALL || (ride == RIDE_SECTION && bi == blk);
                 for (j = 0; j < n; j++) {
@@ -10205,6 +10205,9 @@ static void test_kit_roll(void)
                     else
                         CHECK(ev[j].voice != V_RIDE, "seed %d (kit %d, ride %d): the ride in block %d, bar %d", k, kit,
                               ride, bi, bar);
+                    if (ev[j].voice == V_RIDE)  /* Sam: a ride plays quarter notes at most */
+                        CHECK(step % 4 == 0, "seed %d (kit %d): the ride off the beat, bar %d step %d", k, kit, bar,
+                              step);
                     if (ev[j].voice == V_RIDE && bi >= 0)
                         rides[bi]++;
                 }
