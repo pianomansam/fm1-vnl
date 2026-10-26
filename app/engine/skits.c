@@ -199,41 +199,70 @@ void skits_on(const song_ev_t *e)
         kick_env = vel;
 }
 
-static inline float sv_tick(sv_t *v)
+/* Up to n steps of voice v added into acc, until it ends: the number of steps it ticked (the one it ended on
+   included). Its state in locals for the run (acc could alias it otherwise, and every step would reload it). Per
+   step: the read position moves on by the step, decoding the hit's next samples as it passes them; 4-point Hermite
+   between the last four; the choke's fade; the lane's low-pass. */
+static uint32_t sv_run(sv_t *v, float *acc, uint32_t n)
 {
-    float f = v->fr + v->step, a, b, c, d, y;
-    while (f >= 1.0f) {
-        f -= 1.0f;
-        v->h[0] = v->h[1];
-        v->h[1] = v->h[2];
-        v->h[2] = v->h[3];
-        v->h[3] = (float)smp_dec_fast(&v->d);
-        if (v->d.ni >= v->d.z->len && ++v->ended > 4u) { /* played out (the interpolator's zeros too) */
-            v->on = 0;
-            n_on--;
-            return 0.0f;
+    smp_dec_t dec = v->d;
+    float h0 = v->h[0], h1 = v->h[1], h2 = v->h[2], h3 = v->h[3], f = v->fr, st = v->step, g = v->gain;
+    float fade = v->fade, lp = v->lp, lc = v->lc, ck = choke_k;
+    uint32_t s, len = dec.z->len;
+    unsigned ended = v->ended;
+    int on = 1;
+    for (s = 0; s < n; s++) {
+        float y;
+        f += st;
+        while (f >= 1.0f) {
+            f -= 1.0f;
+            h0 = h1;
+            h1 = h2;
+            h2 = h3;
+            h3 = (float)smp_dec_fast(&dec);
+            if (dec.ni >= len && ++ended > 4u) { /* played out (the interpolator's zeros too) */
+                on = 0;
+                break;
+            }
+        }
+        if (!on) {
+            acc[s] += 0.0f;
+            s++;
+            break;
+        }
+        {
+            float c1 = 0.5f * (h2 - h0), c2 = h0 - 2.5f * h1 + 2.0f * h2 - 0.5f * h3,
+                  c3 = 0.5f * (h3 - h0) + 1.5f * (h1 - h2);
+            y = (((c3 * f + c2) * f + c1) * f + h1) * g;
+        }
+        if (fade < 1.0f) {
+            y *= fade;
+            fade *= ck;
+            if (fade < OFF_THR)
+                on = 0;
+        }
+        if (lc < 1.0f)
+            y = lp = fm_flush(lp + (y - lp) * lc);
+        acc[s] += y;
+        if (!on) {
+            s++;
+            break;
         }
     }
+    v->d = dec;
+    v->h[0] = h0;
+    v->h[1] = h1;
+    v->h[2] = h2;
+    v->h[3] = h3;
     v->fr = f;
-    a = v->h[0];
-    b = v->h[1];
-    c = v->h[2];
-    d = v->h[3];
-    {
-        float c1 = 0.5f * (c - a), c2 = a - 2.5f * b + 2.0f * c - 0.5f * d, c3 = 0.5f * (d - a) + 1.5f * (b - c);
-        y = (((c3 * f + c2) * f + c1) * f + b) * v->gain;
+    v->fade = fade;
+    v->lp = lp;
+    v->ended = (uint8_t)ended;
+    if (!on) {
+        v->on = 0;
+        n_on--;
     }
-    if (v->fade < 1.0f) {
-        y *= v->fade;
-        v->fade *= choke_k;
-        if (v->fade < OFF_THR) {
-            v->on = 0;
-            n_on--;
-        }
-    }
-    if (v->lc < 1.0f)
-        y = v->lp = fm_flush(v->lp + (y - v->lp) * v->lc);
-    return y;
+    return s;
 }
 
 /* n steps of every sounding hit, through their kits' buses, into out (written). Each voice renders its run in one
@@ -258,8 +287,7 @@ static uint32_t render_steps(float *out, uint32_t n)
                 memset(acc, 0, n * sizeof(float));
                 any = 1;
             }
-            for (s = 0; s < n && v->on; s++)
-                acc[s] += sv_tick(v);
+            s = sv_run(v, acc, n);
             uend[k] = s > uend[k] ? s : uend[k]; /* (the steps it ticked: the bus's "used" ones) */
             if (v->lane == 0)
                 kend = s > kend ? s : kend;
