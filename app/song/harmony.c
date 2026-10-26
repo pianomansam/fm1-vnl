@@ -95,9 +95,10 @@ int harmony_chord_at(const song_roll_t *r, int bar, int pass, int dark, int *pcs
 /* below this tempo the guitars hold less and play half notes instead (Sam: held nylon too sparse at slow tempos) */
 enum { GUITAR_SLOW_BPM = 84 };
 
-/* per song (Sam, after hearing them side by side): weights held 44, arpeggio 20, half notes 36, so as heard held
-   about 55%, half notes 25%, arpeggio 20% (half notes hold over sustained keys and a kick on 1 and 3 alone:
-   half_held); offbeats and stabs retired (Sam: the "and" 8ths liked "less and less"; stabs "just not working") */
+/* per song (Sam, after hearing them side by side): the synth keys' weights held 44, arpeggio 20, half notes 36, so as
+   heard held about 55%, half notes 25%, arpeggio 20% (half notes hold over sustained keys and a kick on 1 and 3 alone:
+   half_held); offbeats retired (Sam: the "and" 8ths liked "less and less"), stabs retired on the synth keys ("just
+   not working") and back on the Knight and the guitars (below) */
 static int style_draw(int ins, int tempo, int strum, uint32_t seed)
 {
     /* held, stabs, offbeats (retired: 0 everywhere), arpeggio, half notes, strum. Synth keys as always (stabs "just
@@ -276,7 +277,8 @@ static int emit_chord(const int *notes, int n, uint32_t gap, int lo, int hi, uin
     for (i = 0; i < n && cnt < max; i++) {
         int v = lo + (int)(mix(salt, (uint32_t)bar, (uint32_t)step, 40u + (uint32_t)i) % (uint32_t)(hi - lo + 1));
         v = clampi(v + (i == 0 ? 3 : 0), lo, hi);
-        if (dark == 1) v -= 6;            /* softer in the dark intro and outro (was 10: with the comping quieter, the intro sank) */
+        if (dark == 1) v -= 6;            /* softer in the dark intro and outro (was 10: with the comping quieter,
+                                             the intro sank) */
         if (dark == 2) v += 6;            /* firmer with no kick or lead: the keys carry the block */
         out[cnt].voice = V_CHORD;
         out[cnt].note = (uint8_t)notes[i];
@@ -414,7 +416,8 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
     dark = dark ? 1 : !(b->layers & (L_KICK | L_LEAD)) ? 2 : 0;   /* dark; carrying (no kick, no lead); or plain */
     n = harmony_chord_at(r, bar, pass, dark, pcs);
     if ((style == CS_HALF || rs) && !(step == 0 && bar % p->bars_per_chord == 0) && last_is_chord(vs, pcs, n))
-        memcpy(notes, vs->last, sizeof notes);            /* the chord's other strikes keep its voicing, never revoiced */
+        memcpy(notes, vs->last, sizeof notes);            /* the chord's other strikes keep its voicing, never
+                                                             revoiced */
     else
         voice_chord(r, bar, pcs, n, vs, notes);
     place_keys(r, notes);
@@ -423,11 +426,14 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
         one = notes[k];
         return emit_chord(&one, 1, 0, lo, hi, len, dark, salt, bar, step, out, max);
     }
-    /* per-chord roll spread, 10-60 ms between notes (the Knight: see below), the same for every strike of the chord in a bar */
+    /* per-chord roll spread, 10-60 ms between notes (the Knight: see below), the same for every strike of the chord
+       in a bar */
     gap = (uint32_t)(10 + (int)(mix(salt, (uint32_t)bar, r->seed, 50) % 51u)) * 441u / 10u;
     if (lib_set_by_id((uint8_t)r->v[RF_SET]) && lib_set_by_id((uint8_t)r->v[RF_SET])->chords == INS_KNIGHT)
-        gap = (mix(salt, (uint32_t)bar, r->seed, 50) % 9u) * 441u / 10u / 3u;   /* Sam: an acoustic piano strikes together, 0-8 ms in all */
-    if (style == CS_HALF && step == 8) {                  /* the second strike a little softer than the first (same draw) */
+        gap = (mix(salt, (uint32_t)bar, r->seed, 50) % 9u) * 441u / 10u / 3u;   /* Sam: an acoustic piano strikes
+                                                                                 together, 0-8 ms in all */
+    if (style == CS_HALF && step == 8) {                  /* the second strike a little softer than the first (same
+                                                             draw) */
         int c = emit_chord(notes, 4, gap, lo, hi, len, dark, salt, bar, 0, out, max), i;
         for (i = 0; i < c; i++) out[i].vel = (uint8_t)clampi(out[i].vel * 9 / 10, 25, 110);
         return c;

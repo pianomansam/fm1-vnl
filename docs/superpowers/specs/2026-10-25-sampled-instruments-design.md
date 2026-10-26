@@ -1,6 +1,6 @@
 # Sampled instruments, strums, string leads and sampled kits: design
 
-Status: draft for Sam's review. Builds on the instrument spike (branch `spike/instruments`, through 8b5dc13; its doc
+Status: approved; implemented on branch `sampled`. Builds on the instrument spike (branch `spike/instruments`, through 8b5dc13; its doc
 `docs/research/instrument-spike-2026-10-24.md`), the budget notes (`docs/research/cpu-vs-flash-2026-10-25.md`) and
 Sam's picks in the song-engine ledger ("Approved by ear", 2026-10-25).
 

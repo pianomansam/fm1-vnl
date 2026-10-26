@@ -4,12 +4,12 @@
 
    Format of every zone and hit: mono 4-bit IMA ADPCM (the standard step and index tables), two samples a byte, the
    earlier sample in the low nibble; `len` samples in (len + 1) / 2 bytes. Decoding starts from predictor 0 and step
-   index `idx0` (the packer picks it per zone: a hit starts loud). A looped zone (loop_len > 0) is an attack then a crossfaded loop [loop_start, loop_start +
-   loop_len): the decoder keeps its (predictor, index) as it first reaches loop_start and restores them at each wrap,
-   which gives exactly the loop's samples again. `root` is the MIDI note the zone sounds when played at `rate` (the
-   packer retunes each zone to a whole note; hits carry 60, played at `rate` for no shift). `gain` scales the decoded
-   sample (as -1..1) to unit loudness: its RMS over the first 150 ms becomes 1.0, so a caller sets levels as
-   loudness. */
+   index `idx0` (the packer picks it per zone: a hit starts loud). A looped zone (loop_len > 0) is an attack then a
+   crossfaded loop [loop_start, loop_start + loop_len): the decoder keeps its (predictor, index) as it first reaches
+   loop_start and restores them at each wrap, which gives exactly the loop's samples again. `root` is the MIDI note the
+   zone sounds when played at `rate` (the packer retunes each zone to a whole note; hits carry 60, played at `rate` for
+   no shift). `gain` scales the decoded sample (as -1..1) to unit loudness: its RMS over the first 150 ms becomes 1.0,
+   so a caller sets levels as loudness. */
 #ifndef ENGINE_SAMPLES_H
 #define ENGINE_SAMPLES_H
 #include <stdint.h>

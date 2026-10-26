@@ -777,7 +777,8 @@ Host load about 4-5, AMB-1 136.5-138.4 ms.
 ## Sampled instruments, Task 4: the strum engine
 
 CS_STRUM plays the guitars' strums (strum.c), up to 6 sampler voices a stroke; the chords' pool is 8 voices when its
-patch is M_SAMP (as for a pad), so a stroke never steals one still held while the last rings out.
+patch is M_SAMP (as for a pad). (As first built, a stroke took the free voices and stole when none was; since fix
+round 1 below, each string has its own voice and a re-strike damps its last note on one of the 2 spares.)
 - **The standard list**, `--forced 20 7 155 138 100 22`: forced 0.960 / 0.881 / 0.693 / 0.848 / 0.797 / 0.708
   (plain 0.938 / 0.875 / 0.667 / 0.814 / 0.776 / 0.671); none of them strums.
 - **Strummed seeds** (their own set, forced): 24 0.857, 27 0.875, **32 0.937** (Nylon and synth pluck, D-DU-UDU, the
@@ -883,7 +884,9 @@ Measured and not taken (they did not pay, or were not needed once every ratio wa
 - Synth kit lanes in locals, the glue detector's sum in a local: no change.
 
 Cut 1, the sound: the hits are 16 kHz (nothing above 8 kHz) and every kit pitches down or not at all, so half the
-rate keeps their band; the half-band is flat within 0.01 dB to 8 kHz. The voices' steps, the choke's fall (still -60
+rate keeps their band; the half-band is flat within 0.01 dB to 8 kHz. The cut assumes 16 kHz hits: the 32 kHz
+cymbals of Task 7's A/B (not taken) would lose their top octave at half the rate, so picking them means the kits back
+at the full rate (`VX_OFF_HALF`, about +0.05) or a mixed path (the cymbal lanes at the full rate, the rest at half). The voices' steps, the choke's fall (still -60
 dB in 6 ms) and the low-passes are rescaled; the low-passes are matched to the full rate's gain at 1.4 times their
 cutoff (the impulse-invariant coefficient alone lifted the warm kit's bright hits 0.9 dB). song_test's test_skits:
 per kit and lane, the level within 0.3 dB of the full rate (measured: within 0.22), every octave band 125 Hz-8 kHz
