@@ -855,3 +855,82 @@ Host under load (load average about 4; AMB-1 139.3-142.1 ms):
 - **The picker** (200 seeds): the heaviest is **seed 20** (the dark kit, as above): 1.173 plain, **1.194** forced.
 - Over the 0.97 line by about 0.2 on the heaviest sampled-kit roll: Task 9's cuts (the roll was not tuned to dodge it).
 - **Memory** (`tools/mem-check.sh`): image 375448 B, RAM 53408 B, pool 184312 B (ok).
+
+## Sampled instruments, Task 9: the budget cuts, measured
+
+Task 8 left the heaviest roll over the line: seed 20 (Knight and flute on the dark sampled kit) at **1.20-1.23**
+forced. A profile (`sample` on a -O2 -g build) put the sampled kit at about 29% of that render: it was called once per
+sample, looping 8 voices and 5 kit buses each time, its state reloaded at every step. The cuts, in the controller's
+order, each measured alone (seed 20 forced unless named; best of 3 x 4-5 interleaved rounds against the build before
+it, so the host's drift cancels; the host was loaded, load average 2-6):
+
+| cut | what | sound | before | after | delta |
+|---|---|---|---|---|---|
+| 0 | the drums rendered a segment at a time (`drums_render`; each hit's run in one loop, then each kit's bus) | bit-exact | 169.0 ms | 146.0 ms | -0.17 |
+| 1 | the sampled kits at half the rate (22.05 kHz, a 27-tap half-band up; low-passes matched) | A/B below | 147.3 | 140.0 | -0.05 |
+| 2 | render_seg's voice loop steps through the sounding voices' bits (not all 13) | bit-exact | 140.0 | 135.8 | -0.03 |
+| 3 | an M_SAMP voice skips the shared envelope's steps (its level there is exactly 1) | bit-exact | 130.0 | 126.5 | -0.025 (seed 138: -0.04) |
+| 4 | a sampled hit's run in locals (`sv_run`: acc[] could alias the voice) | bit-exact | 129.1 (s189) | 123.4 | -0.04 (seed 20: -0.03) |
+| 5 | a kit bus's states in locals | bit-exact | 123.9 (s189) | 117.4 | -0.05 |
+
+Measured and not taken (they did not pay, or were not needed once every ratio was under the line):
+- **Half rate for M_SAMP leads** (the plan's cut): seeds 42, 200, 10, 70, 24 (Knight and Emilyguitar leads) moved
+  0 to -1.8 ms (noise): the lead's two sampler voices are a small part of any song.
+- **Fewer strum voices sounding**: not needed; the heaviest strummed seeds are 184 (Bossa nylon) 0.78 and 135
+  (Emilyguitar and vibes) 0.75 forced.
+- **Linear interpolation in place of Hermite on the Knight**: -2.5 ms on seed 20 (about -0.02); it dulls the top
+  (about -1 dB at 3 kHz, more above) and adds images, for little.
+- Synth kit lanes in locals, the glue detector's sum in a local: no change.
+
+Cut 1, the sound: the hits are 16 kHz (nothing above 8 kHz) and every kit pitches down or not at all, so half the
+rate keeps their band; the half-band is flat within 0.01 dB to 8 kHz. The voices' steps, the choke's fall (still -60
+dB in 6 ms) and the low-passes are rescaled; the low-passes are matched to the full rate's gain at 1.4 times their
+cutoff (the impulse-invariant coefficient alone lifted the warm kit's bright hits 0.9 dB). song_test's test_skits:
+per kit and lane, the level within 0.3 dB of the full rate (measured: within 0.22), every octave band 125 Hz-8 kHz
+within 1 dB (0.69), an unfiltered lane's waveform at least 20 dB under (24-69 dB; only the interpolator's images
+above 8 kHz differ). The drums are 14 samples (0.3 ms) later, as the half-rate keys. `VX_OFF_HALF` keeps the full
+rate, bit-identical to before. A/B: `app/build/new/ab-halfkits-{warm,dark}-{before,after}[-nobed]` (seeds 34 and 20).
+
+### The budget after the cuts
+
+`VNL_RUNS=7`, AMB-1 133.7 ms (a low run: the ratios read high):
+
+| seed | set (kit) | plain | forced |
+|---|---|---|---|
+| 20 | Knight and flute (dark sampled) | 0.889 | **0.913** (was 1.226) |
+| 7 | Rhodes and saw lead (Dusty) | 0.886 | 0.884 |
+| 155 | DX and strings (clean sampled) | 0.627 | 0.656 |
+| 138 | Knight and sax (Soft) | 0.793 | 0.818 |
+| 100 | Emilyguitar and flute (Dusty) | 0.701 | 0.720 |
+| 22 | City pop Rhodes (Soft) | 0.836 | 0.867 |
+| 189 | Rhodes neo-soul (warm sampled, ride throughout) | 0.880 | 0.890 |
+| 142 | Neo-soul Wurli (Soft) | 0.922 | **0.936** |
+
+- **The picker** (200 seeds, `VNL_RUNS=5`): the heaviest is now **seed 142** (Neo-soul Wurli and sax on the synth
+  Soft kit), 0.911 plain, **0.933** forced (AMB-1 136.2 ms); the heaviest sampled-kit roll is seed 20 at 0.913.
+  Every ratio is under the 0.97 line by about 0.035 at a low AMB-1 run (at a typical 138-140 ms, about 0.90-0.91).
+- **Memory** (`tools/mem-check.sh`): image 377336 B, RAM 56560 B (+3152 B: the kits' call buffers and the
+  half-band's history), pool 184312 B (ok); sample data 160928 B (unchanged).
+
+### Per component, after the cuts
+
+`bench --parts` (best of 7, AMB-1 136.3 ms, idle floor 0.102; rows net of the floor, as above):
+
+| component | ratio |
+|---|---|
+| Knight (M_SAMP), 4 chord voices, half rate | 0.285 (Rhodes 0.304, felt piano 0.294) |
+| Emilyguitar (M_SAMP), 4 chord voices | 0.276 |
+| Nylon (M_SAMP), 4 chord voices | 0.259 |
+| Knight on the lead, 2 voices, full rate | 0.225 (flute 0.242) |
+| Sampled kits, all lanes and the ride over the hats: warm / dark / rusty / gentle / clean | 0.148 / 0.152 / 0.119 / 0.121 / 0.120 |
+| Synth kits: Dusty / Soft / 808 / Brushes | 0.128 / 0.118 / 0.142 / 0.114 |
+| String synth (M_STR), a held lead note, half rate | 0.16 (Task 6; unchanged by the cuts) |
+
+In songs (seed forced, with and without the role, best of 5, AMB-1 about 136 ms):
+- **M_SAMP on the keys**: seed 20's Knight keys 36.6 ms, about 0.27 (about 4.1 voices sounding on average, so
+  about 0.065 a voice).
+- **The strum** (the chords' role, strummed): seed 184 (Bossa nylon) 39.5 ms, about 0.29; seed 135 (Emilyguitar)
+  37.9 ms, about 0.28.
+- **The sampled kits**: warm (seed 34, ride throughout) 14.1 ms, about 0.10; dark (seed 20, hats) 17.1 ms, 0.13;
+  rusty (54) 6.2 ms, gentle (79) 5.8 ms, clean (24) 5.7 ms, about 0.04-0.05. For scale, seed 142's synth Soft kit:
+  17.0 ms.
