@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The strum engine: the guitars' strummed comping (CS_STRUM). A guitar shape (up to 6 strings, low to high, E2-E5)
    struck per 16th step in one of four patterns from the instrument spike: down strokes low to high, up strokes high to
    low on the "and"s (the top 3 or 4 strings), muted chucks on every string, a bossa thumb and pinches. The strings of

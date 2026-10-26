@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The sampler voice (see sampler.h), from the instrument spike's sv_* (branch spike/instruments): IMA ADPCM decode,
    4-point Hermite, a one-pole tone whose cutoff falls after the strike, the envelope, a delayed vibrato. */
 #include <string.h>

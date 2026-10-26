@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Seeded random streams: one small xorshift32 state per concern, so a song's seed reproduces it exactly. */
 #ifndef SONG_RNG_H
 #define SONG_RNG_H

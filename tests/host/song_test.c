@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The song engine on the host: seeded random streams (and, in later tasks, the rest of app/song). */
 #include <stdio.h>
 #include <stdint.h>

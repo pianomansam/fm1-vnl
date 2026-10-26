@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: MPL-2.0
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Host cost bench: 60 s of a VNL song (placeholder voices today) against 60 s of AMB-1's engine at its heaviest piece.
 #   tools/cost-bench.sh [--forced] [SEED...]   no seeds: the heaviest roll among 200 (seeds 1-200, ranked by their
 #   render time with the chain forced to the heaviest: dust 3, vinyl, rain; best of 2), timed plain and forced: the

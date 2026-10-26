@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* What the engine played, written out for a musician (score.h). Host simulator only: on the FM-1 and in the browser
    build this file is empty. Note names use the simplest spelling (Sam: Bb, not A#). */
 #if defined(PLAT_HOST) && !defined(PLAT_WEB)

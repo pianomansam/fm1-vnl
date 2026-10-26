@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The sequencer: steps a rolled song through its plan one 16th at a time and emits every event of that step
    (drums, bass, chords, lead, candy, pads). Listener requests wait in one slot per field and land on the next 4-bar
    boundary. All state lives in song_t (no statics), so two songs can run side by side. */

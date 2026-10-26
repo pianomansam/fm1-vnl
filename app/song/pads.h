@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The pad layer (pads design, 2026-10-24, and its revision 2): a quiet background of two parts on V_PAD, one or the
    other in a section, never both. The chord part: 2 notes (the design's budget cut (c): the 3rd and the 7th first) in
    the mid range, voice-led from chord to chord, over percussive keys only. The solo note: one high note a bar, the

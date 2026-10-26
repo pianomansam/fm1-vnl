@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The seed library: curated "good guesses" (progressions, instrument sets, drum patterns, song maps, moods).
    Every entry has a stable id (never reused) and a source note, so it can be curated by ear later. */
 #ifndef SONG_LIBRARY_H

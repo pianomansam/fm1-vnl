@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MPL-2.0
+# SPDX-License-Identifier: GPL-3.0-or-later
 # One whole song for listening (./new-song.sh runs it): a song lasts at most 210 s and the gap at most 4 s.
 wav song.wav
 master 4096

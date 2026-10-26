@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The plan: a rolled song and its map's skeleton turned into blocks of bars, each with the layers that play, a
    section name and per-block flags. Blocks start on 4-bar boundaries and cover exactly RF_BARS. Motion (0-100)
    sets how many optional moves happen on top of the skeleton (hats out, 1-bar drops, lead toggles, ear candy). */

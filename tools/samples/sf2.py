@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MPL-2.0
+# SPDX-License-Identifier: GPL-3.0-or-later
 # A minimal SoundFont 2 reader for tools/samples/pack.py (from the instrument spike): a preset's zones and their
 # sample headers. Data only: nothing in the file is executed.
 import struct

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The song engine's voices and mix. Pitched roles play the instrument patches (patch.h); the bells and winds render
    with the placeholder FM until Task 5 gives them code. Drums are in drums.c. Float only. */
 #ifndef ENGINE_VOICES_H

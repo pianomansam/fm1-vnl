@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The lo-fi chain and the bed (see fx.c): dust colors the music, a reverb takes per-role sends from the voices, a
    chorus takes the chords' bus and a tape delay its own sends, and the bed (surface noise and ambience) sits beside
    them, neither dusted nor filtered. The reverb and the chorus are Rings' (rings_fx.c); on the host, fx_rings(0) puts

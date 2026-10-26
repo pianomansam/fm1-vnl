@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The melody. Development after the idea of Tuna's motif handling (stated, moved onto the next chord with the same
    shape, given a new ending, restated), reimplemented from the spec; no code from it.
 

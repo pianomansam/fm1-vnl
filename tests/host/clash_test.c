@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The sequencer on the host: 1000 chained songs checked for clashes, registers, length and determinism, and the
    boundary-quantized requests (tempo, key, mood, motion) checked where they land. */
 #include <stdio.h>

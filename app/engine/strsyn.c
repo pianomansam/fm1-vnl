@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The string synth (see strsyn.h), from the instrument spike's st_* (branch spike/instruments, its 2a and 2c demos).
    The Ensemble adapted from Mutable Instruments Plaits, fx/ensemble.h, MIT, Copyright 2014 Emilie Gillet (CREDITS.md):
    mono in and out, the delays scaled from 48 to 44.1 kHz (and to the voice's rate). */

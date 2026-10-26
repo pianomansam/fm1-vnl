@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: MPL-2.0
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Render a new random song to listen to, with its log, MIDI and MusicXML, and open it.
 #   ./new-song.sh          a fresh seed
 #   ./new-song.sh SEED     replay a song by the seed its log prints

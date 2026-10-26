@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The lead (lead design, 2026-10-22): it plays like its instrument. A percussive lead (vibes, kalimba, guitar lick)
    plays the hybrid: one shaped arpeggio per song over the keys' voicing an octave up, landing on a voice-leading
    skeleton note at each chord change (on 1, late, pushed an 8th early, or after a beat's rest). A sustained lead

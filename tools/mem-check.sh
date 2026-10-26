@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: MPL-2.0
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Memory budget: runs ./build.sh and checks its "image N B; RAM .data+.bss N B of ...; pool N B of ..." line.
 # Budget (the sound plan's Global Constraints): image <= 400 KB, RAM <= 80 KB, pool <= 300 KB. Exits 1 if over.
 set -e

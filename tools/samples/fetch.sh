@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: MPL-2.0
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Download every recording tools/samples/manifest.json names, each source into its own new directory (SCRATCH/dl_*),
 # check that each source's license file is the CC0 1.0 legal code (stops if not), unpack the FreePats 7z (bsdtar)
 # and decode the FLACs to WAV (afconvert on macOS, else flac). Nothing from a download is executed; files already

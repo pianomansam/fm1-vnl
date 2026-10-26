@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Harmony over time: the chord for each bar (reharmonized on repeat: a richer color only) and the
    chord part's events per 16th step, in one of four playing styles. Pure functions of their inputs. */
 #ifndef SONG_HARMONY_H

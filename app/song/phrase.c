@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The sustained lead's motif and 8-bar question-and-answer plan (see phrase.h). Streams 180 (the motif) and 181 (a
    pass's nudges and cadences). Everything is rebuilt from (seed, block, pass) on each call: nothing is stored. */
 #include "phrase.h"

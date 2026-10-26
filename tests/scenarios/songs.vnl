@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MPL-2.0
+# SPDX-License-Identifier: GPL-3.0-or-later
 # VNL-1 plays two whole generated songs with their 2-4 s silent gaps. Writes songs.wav (listen to it).
 #   app/build/host/vnl_host tests/scenarios/songs.vnl app/build/scenarios
 #   VNL_SCORE=app/build/scenarios/songs ... writes songs.log, songs-N.mid, songs-N.musicxml (tests/run_tests.sh does):

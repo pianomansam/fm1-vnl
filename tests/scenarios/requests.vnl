@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MPL-2.0
+# SPDX-License-Identifier: GPL-3.0-or-later
 # A knob's change waits for the next 4-bar boundary, then lands.
 wait 2000
 expect pending -1

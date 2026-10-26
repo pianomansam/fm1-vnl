@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The sampled kits (see skits.h), ported from the instrument spike's sampled drums (dr_*, spike.c): one-shot voices
    reading the pool's ADPCM hits at the kit's pitch (4-point Hermite between decoded samples), a lane's own one-pole
    low-pass, then the kit's bus (two one-pole low-passes and a tanh drive). A voice keeps the kit it started on, and

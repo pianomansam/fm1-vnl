@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The roll: every per-song choice, drawn from one seed. Each field draws from its own stream, so changing one
    choice never shifts another. Novelty against the previous song, DJ-style key flow, length rules, dice and picks. */
 #ifndef SONG_ROLL_H

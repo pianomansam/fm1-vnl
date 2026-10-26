@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The groove: the drum and bass events of one 16th step (swing, lateness, ghosts, fills, drops, bass styles).
    Also declares song_ev_t, the event every voice of the song engine uses. Pure function of its inputs. */
 #ifndef SONG_GROOVE_H

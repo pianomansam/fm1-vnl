@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The seed library tables. Plain C on purpose: curate by editing entries; never reuse an id. */
 #include <string.h>
 #include "library.h"

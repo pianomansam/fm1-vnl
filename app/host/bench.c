@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Host cost bench (tools/cost-bench.sh): how long 60 s of a VNL song takes to render, against 60 s of AMB-1's engine
    at its heaviest piece. Built only with -DVNL_BENCH, otherwise this file is empty (it sits in host/ so the
    firmware globs skip nothing; it has a main()). No audio device. Usage: bench [--heaviest | [--forced] SEED... | --parts]

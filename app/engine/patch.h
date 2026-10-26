@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The patch table: one patch per instrument (INS_*), each built on one of eleven voice models. */
 #ifndef ENGINE_PATCH_H
 #define ENGINE_PATCH_H

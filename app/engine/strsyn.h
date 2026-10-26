@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The string synth (M_STR): the instrument spike's string section (2a, branch spike/instruments: st_*) as a mono
    lead. Three polyBLEP saws a note (-9, 0 and +7 cents), each drifting up to 6 cents, with a delayed vibrato (5.4 Hz,
    9 cents, after 0.35 s, faded in over 0.6 s); a one-pole high-pass, then a low-pass and two band-pass formants (TPT

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The melody: one generated motif per song, developed head-solos-head over 4-bar lead phrases (exact restatement,
    variant, new), and the ear candy that answers it (trading fours) or sprinkles candy-only blocks.
    No clashes: every note in the bar's chord-scale and never a semitone from a chord tone or a walking bass's

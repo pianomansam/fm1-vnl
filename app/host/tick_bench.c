@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The song engine's worst tick (tools/tick-bench.sh): song_tick and song_start run in the audio interrupt, so their
    worst case matters, not their mean. Over seeds 2..N, each song played R times, each tick's time its least over the
    R plays (the host's noise filtered out), then the most over all ticks: strummed songs (CS_STRUM) and the rest

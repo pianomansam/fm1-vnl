@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The voicing search follows the idea of AMB-1's en_voice_lead (MPL-2.0): choose the assignment of chord tones to
  * voices that moves least from the previous chord; here by enumerating octave placements instead of permutations. */
 #include <stdint.h>

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The drum kits: kick, snare, closed and open hat, shaker and rim, in four synth kits (KIT_DUSTY, KIT_SOFT, KIT_808,
    KIT_BRUSHES; library.h); a sampled kit (KIT_S_*) routes its hits to skits.c (and plays the ride, V_RIDE), and
    every call below covers both. The voices mix calls drums_render() a segment at a time (drums_sample(), a sample,

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The sampler voice (M_SAMP): every sampled pitched instrument (the Knight, the nylon, the Emilyguitar) on one model.
    A note plays its bank's nearest zone (samples.h) retuned by the step: ADPCM decoded as it goes, 4-point Hermite
    between the decoded samples, a one-pole tone (velocity darkens it), its own envelope (a linear attack, a decay to

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Music theory for the song engine: modes, chords with colors, voicing and voice leading, guide tones, avoid notes. */
 #ifndef SONG_THEORY_H
 #define SONG_THEORY_H

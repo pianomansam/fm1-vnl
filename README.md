@@ -55,9 +55,13 @@ on USB, `base/bsp/tools/fm1_rescue.sh` restores stock firmware.
 
 ## Credits and licenses
 
-VNL-1 is MPL-2.0 (`LICENSE`), built on [fm1-base](https://github.com/charlesvestal/fm1-base) and
+VNL-1 is GPL-3.0-or-later (`LICENSE`), so it can reuse the many GPL FM-1 firmwares instead of reinventing them.
+It is built on [fm1-base](https://github.com/charlesvestal/fm1-base) and
 [felucca-bsp](https://github.com/hugelton/felucca-bsp), from [Felucca](https://github.com/hugelton/Felucca) by Leo
-Kuroshita (Hügelton Instruments), both MPL-2.0.
+Kuroshita (Hügelton Instruments), both MPL-2.0, which allows combining with GPL code. Files adapted from fm1-base
+and AMB-1 (`app/app.c`, `app/app.h`, `app/words.tsv`, `app/engine/fx.c`, `app/engine/voices.c`, `build.sh`,
+`tests/run_tests.sh`) keep their MPL-2.0 notice (`LICENSES/MPL-2.0.txt`). Up to the tag `mpl-final`, all of VNL-1 is
+MPL-2.0.
 
 ### Third-party material
 

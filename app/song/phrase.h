@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The sustained lead's phrase (sustained-lead design, 2026-10-24): one 1-2-bar motif per song and an 8-bar question
    and answer built from it, planned in scale degrees and 16ths only (no pitches, no chords; lead.c re-anchors them).
      bars 1-2  the motif (a 1-bar motif plays, then repeats a step higher)

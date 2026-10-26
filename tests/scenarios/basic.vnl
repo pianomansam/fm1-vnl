@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MPL-2.0
+# SPDX-License-Identifier: GPL-3.0-or-later
 # VNL-1 in the host simulator: it boots playing, the screen shows the song, the knobs are heard and read out.
 #   ./build.sh --host, then app/build/host/vnl_host tests/scenarios/basic.vnl app/build/scenarios
 wait 600

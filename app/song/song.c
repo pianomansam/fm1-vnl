@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The sequencer. One tick = one 16th: the block covering the bar (plan_at), the bar's chord, then groove, harmony
    and melody for that step, sorted by delay. The sample position of every step is tracked as an integer plus a
    float fraction, advanced by song_step_samples() after each tick, so a caller that accumulates the same way sees

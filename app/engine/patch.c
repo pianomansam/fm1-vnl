@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The patch table (see patch.h). Each model reads p[] its own way:
    M_EP (Rhodes, Wurli, felt piano; voices.c ep_*): 2-op FM with a decaying index.
      p[0] modulator ratio, p[1] index at velocity 0, p[2] index added at full velocity, p[3] the index's fall to

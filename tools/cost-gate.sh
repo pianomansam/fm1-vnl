@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: MPL-2.0
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Task 7c's measured cost gate (timing is noisy, so it is not in the unit suite): runs the --parts bench and checks
 # that the rows each move targets dropped by at least half the shortlist's lower estimate (docs/cost.md): moves 1-2,
 # the Rhodes, felt piano and Wurli rows by 0.10 and the pad and vox pad by 0.05; move 3 (the dust's fast path and the

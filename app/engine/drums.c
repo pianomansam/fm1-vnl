@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Drum kits (see drums.h). Each voice is a lane: a kick is a sine with a falling pitch and a falling level; a snare
    is band-passed noise plus an optional tone; the hats are high-passed noise; the shaker and the rim are band-passed
    noise. Per-kit parameters live in a table (times in seconds, converted once when the kit is set). A lane ends when

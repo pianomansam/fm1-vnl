@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MPL-2.0
+# SPDX-License-Identifier: GPL-3.0-or-later
 # VNL-1's sample packer: turns the recordings tools/samples/manifest.json names into app/engine/samples_data.c (the
 # format is in app/engine/samples.h). Ported from the instrument spike's pack.py and pack2.py.
 #   Pitched zones: mono, onset trimmed, pitch measured, retuned to the nearest whole MIDI note while resampled to

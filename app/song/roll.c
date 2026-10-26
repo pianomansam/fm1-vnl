@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The roll. Every field draws from rng stream = its field index, so re-rolling one choice never shifts another.
    Each field's legal values and weights come from one place (cands), shared by the song roll, the dice and picks. */
 #include <string.h>

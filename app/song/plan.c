@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The plan. Built on a grid of 4-bar slots: first the map's skeleton (intro, entry, middle event, ending), then
    Motion's optional moves (hats out, lead and candy toggles, 1-bar drops), then slots merge into blocks of 4 or 8
    bars along the 8-bar phrase grid of the middle.

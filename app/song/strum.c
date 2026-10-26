@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The strum engine (see strum.h), from the instrument spike's part_strum and its patterns (branch
    spike/instruments): a stroke per pattern hit, its strings rolled one after another. */
 #include <stdint.h>

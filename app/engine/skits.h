@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The sampled kits (KIT_S_*, library.h): every kit plays hits from the one drum pool (samples.h), processed at
    playback per kit (pitch, a low-pass and drive on the kit's bus) and per lane (the darkened Gogodze hits' own pitch
    and low-pass), with a real hi-hat choke. drums.c routes a sampled kit's hits here. Float only, no allocation,

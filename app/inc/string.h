@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The firmware's <string.h> (fm1.toml device_include; the host and the emulator use their own libc's). The JieLi
    toolchain is freestanding: the BSP's chip/libc.c defines memset, memcpy and memcmp, with unsigned lengths as
    declared here (size_t is as wide). The song engine's memmove is app.c's. */
