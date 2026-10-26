@@ -1988,15 +1988,18 @@ static void render_seg(uint32_t pos, uint32_t n, int filt)
     for (i = pos; i < pos + n; i++) {
         float c = 0.0f, b = 0.0f, l = 0.0f, k = 0.0f, pa = 0.0f, hc = 0.0f, hl = 0.0f, hk = 0.0f, hpa = 0.0f;
         int odd = (int)((hpar + i) & 1u), moved = 0;
-        unsigned msk = odd ? mf : mf | mh;
+        unsigned msk = odd ? mf : mf | mh, mm;
         if (pg & PAD_F)
             pa = pd_f[i - pos]; /* (the full-rate voices' mud high-pass below; the quarter-rate sum's had its own) */
         if (ph && !odd)
             hpa = pd_h[ih++];
-        for (j = 0; msk && j < PD; j++) { /* one call site, so voice_sample inlines; the sums stay in registers */
-            int h = (int)(mh >> j) & 1;
+        for (mm = msk; mm; mm &= mm - 1u) { /* the voices sounding here, lowest first (one call site, so
+                                                voice_sample inlines; the sums stay in registers) */
+            int h;
             float y;
-            if (!((msk >> j) & 1u) || !fv[j].on)
+            j = __builtin_ctz(mm);
+            h = (int)(mh >> j) & 1;
+            if (!fv[j].on)
                 continue;
             y = voice_sample(&fv[j]);
             moved |= fv[j].hr != h; /* a steal's new note at the other rate */
