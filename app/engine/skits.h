@@ -22,7 +22,9 @@ typedef struct {
 const skit_t *skits_kit(int kit);       /* KIT_S_*; NULL for any other */
 void skits_set(int kit);                /* the kit for the hits that follow (KIT_S_*; others ignored) */
 void skits_on(const song_ev_t *e);      /* V_KICK..V_RIDE; vel 1-127 */
-float skits_sample(void);               /* one sample of every sounding hit, through their kits' buses */
+void skits_render(float *out, uint32_t n); /* n (at most 256) samples of every sounding hit, through their kits'
+                                              buses, into out (written) */
+float skits_sample(void);               /* one sample of the same */
 void skits_clear(void);                 /* everything silent (a song's start) */
 void skits_release(void);               /* every hit into the choke's fade */
 int skits_active(void);                 /* hits sounding */

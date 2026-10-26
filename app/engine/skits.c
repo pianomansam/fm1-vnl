@@ -197,52 +197,77 @@ static inline float sv_tick(sv_t *v)
     return y;
 }
 
-float skits_sample(void)
+/* n samples of every sounding hit, through their kits' buses, into out (written). Each voice renders its run in
+   one loop (its state in registers), summed into its kit's buffer in voice order; each kit's bus then runs over it
+   in kit order: the same sums, in the same order, as a sample at a time. */
+#define SK_MAX 256 /* the longest call (voices.c's chunk) */
+void skits_render(float *out, uint32_t n)
 {
-    float acc[NK] = {0.0f}, out = 0.0f;
-    unsigned used = 0u;
+    static float acc[SK_MAX];
+    uint32_t uend[NK] = {0}, kend = 0, s, e;
     int i, k;
-    clock_n++;
+    clock_n += n;
+    memset(out, 0, n * sizeof(float));
     if (!n_on && !ring) { /* idle: nothing to run (a synth kit's song pays nothing here) */
         kick_env = 0.0f;
-        return 0.0f;
+        return;
     }
-    for (i = 0; i < NSV; i++)
-        if (sv[i].on) {
-            float y = sv_tick(&sv[i]);
-            k = sv[i].kit;
-            if (!(used & 1u << k)) {
-                used |= 1u << k;
-                acc[k] = 0.0f;
-            }
-            acc[k] += y;
-        }
     for (k = 0; k < NK; k++) {
-        sbus_t *s = &sb[k];
-        float x = used & 1u << k ? acc[k] : 0.0f;
-        if (s->lc < 1.0f) { /* (run while it rings, so a hit's tail through it stays the same) */
-            if (!(used & 1u << k) && fm_fabsf(s->l1) < 1e-7f && fm_fabsf(s->l2) < 1e-7f) {
-                s->l1 = s->l2 = 0.0f; /* rung out */
-                ring &= ~(1u << k);
+        sbus_t *b = &sb[k];
+        int any = 0;
+        for (i = 0; i < NSV; i++) {
+            sv_t *v = &sv[i];
+            if (!v->on || v->kit != k)
                 continue;
+            if (!any) {
+                memset(acc, 0, n * sizeof(float));
+                any = 1;
             }
-            s->l1 = fm_flush(s->l1 + (x - s->l1) * s->lc);
-            s->l2 = fm_flush(s->l2 + (s->l1 - s->l2) * s->lc);
-            x = s->l2;
-            ring |= 1u << k;
-        } else if (!(used & 1u << k))
-            continue;
-        if (s->drive > 0.0f)
-            x = fm_tanhf(x * s->drive) * s->idrive;
-        out += x;
+            for (s = 0; s < n && v->on; s++)
+                acc[s] += sv_tick(v);
+            uend[k] = s > uend[k] ? s : uend[k]; /* (the samples it ticked: the bus's "used" ones) */
+            if (v->lane == 0)
+                kend = s > kend ? s : kend;
+        }
+        e = uend[k];
+        if (b->lc < 1.0f) { /* (run while it rings, so a hit's tail through it stays the same) */
+            if (!e && !(ring & 1u << k))
+                continue;
+            for (s = 0; s < n; s++) {
+                float x = s < e ? acc[s] : 0.0f;
+                if (s >= e && fm_fabsf(b->l1) < 1e-7f && fm_fabsf(b->l2) < 1e-7f) {
+                    b->l1 = b->l2 = 0.0f; /* rung out */
+                    ring &= ~(1u << k);
+                    break;
+                }
+                b->l1 = fm_flush(b->l1 + (x - b->l1) * b->lc);
+                b->l2 = fm_flush(b->l2 + (b->l1 - b->l2) * b->lc);
+                x = b->l2;
+                ring |= 1u << k;
+                if (b->drive > 0.0f)
+                    x = fm_tanhf(x * b->drive) * b->idrive;
+                out[s] += x;
+            }
+        } else if (b->drive > 0.0f)
+            for (s = 0; s < e; s++)
+                out[s] += fm_tanhf(acc[s] * b->drive) * b->idrive;
+        else
+            for (s = 0; s < e; s++)
+                out[s] += acc[s];
     }
-    if (kick_env > 0.0f) {
-        int on = 0;
-        for (i = 0; i < NSV; i++)
-            on |= sv[i].on && sv[i].lane == 0;
-        kick_env = on ? fm_flush(kick_env * KICK_DEC) : 0.0f;
+    if (kick_env > 0.0f) { /* the kick's envelope while a kick sounds (after each sample's tick), else 0 */
+        for (s = 0; s < kend; s++)
+            kick_env = fm_flush(kick_env * KICK_DEC);
+        if (kend < n)
+            kick_env = 0.0f;
     }
-    return out;
+}
+
+float skits_sample(void)
+{
+    float y;
+    skits_render(&y, 1u);
+    return y;
 }
 
 void skits_release(void)

@@ -19,6 +19,8 @@ void drums_set_kit(int kit);
 void drums_on(const song_ev_t *e);
 /* One sample of every sounding drum, summed. */
 float drums_sample(void);
+/* n samples (at most 256) of the same into x (written): what a segment's render calls. */
+void drums_render(float *x, uint32_t n);
 /* Every drum into a fast fade (under 40 ms). */
 void drums_release(void);
 /* Drums still sounding. */

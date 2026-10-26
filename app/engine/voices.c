@@ -1971,6 +1971,10 @@ static void render_seg(uint32_t pos, uint32_t n, int filt)
     float yc0 = mud_zh[V_CHORD][0], yc1 = mud_zh[V_CHORD][1], yl0 = mud_zh[V_LEAD][0], yl1 = mud_zh[V_LEAD][1];
     float yk0 = mud_zh[V_CANDY][0], yk1 = mud_zh[V_CANDY][1], yp0 = mud_zh[V_PAD][0], yp1 = mud_zh[V_PAD][1];
     dr_live |= dr;
+    if (dr)
+        drums_render(bb[DRB] + pos, n);
+    else
+        memset(bb[DRB] + pos, 0, n * sizeof(float));
     pg = pad_seg(pos, n);
     pf = pg & PAD_F ? 1u << PD : 0u; /* the pad layer's full- and half-rate voices, as voice bits for mud_on */
     ph = pg & PAD_H ? 1u << PD : 0u;
@@ -1985,7 +1989,6 @@ static void render_seg(uint32_t pos, uint32_t n, int filt)
         float c = 0.0f, b = 0.0f, l = 0.0f, k = 0.0f, pa = 0.0f, hc = 0.0f, hl = 0.0f, hk = 0.0f, hpa = 0.0f;
         int odd = (int)((hpar + i) & 1u), moved = 0;
         unsigned msk = odd ? mf : mf | mh;
-        bb[DRB][i] = dr ? drums_sample() : 0.0f;
         if (pg & PAD_F)
             pa = pd_f[i - pos]; /* (the full-rate voices' mud high-pass below; the quarter-rate sum's had its own) */
         if (ph && !odd)

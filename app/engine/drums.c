@@ -186,14 +186,33 @@ static float lane_sample(int i)
     return s;
 }
 
+void drums_render(float *x, uint32_t n)
+{
+    static float sk[256];
+    uint32_t s;
+    int i, any = 0;
+    for (i = 0; i < ND; i++)
+        any |= ln[i].on;
+    if (any) /* the synth lanes a sample at a time (their noise is one stream, drawn in lane order) */
+        for (s = 0; s < n; s++) {
+            float y = 0.0f;
+            for (i = 0; i < ND; i++)
+                if (ln[i].on)
+                    y += lane_sample(i);
+            x[s] = y;
+        }
+    else
+        memset(x, 0, n * sizeof(float));
+    skits_render(sk, n);
+    for (s = 0; s < n; s++)
+        x[s] += sk[s];
+}
+
 float drums_sample(void)
 {
-    float x = 0.0f;
-    int i;
-    for (i = 0; i < ND; i++)
-        if (ln[i].on)
-            x += lane_sample(i);
-    return x + skits_sample();
+    float x;
+    drums_render(&x, 1u);
+    return x;
 }
 
 void drums_release(void)
