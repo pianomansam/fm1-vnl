@@ -1588,6 +1588,11 @@ static float voice_sample(voice_t *v)
         s = samp_sample(&v->m.sp);
         if (!v->m.sp.on && !v->pend)
             v->on = 0;
+        if (!v->slew) { /* (its nat and sus are 1, so its level is 1: the common path's result, without its steps) */
+            o = s * v->amp * v->g;
+            gate_step(v);
+            return o;
+        }
         break;
     default: s = bass_sample(v); break; /* M_BASS (the pad layer's M_ENS renders in pad_seg) */
     }
