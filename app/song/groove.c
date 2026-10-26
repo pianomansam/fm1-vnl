@@ -232,9 +232,11 @@ int groove_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, 
     rng_t g;
     float snare_base, hat_base, swing_f;
     uint32_t swing = 0;
-    int n = 0, lane, last_bar, drop, fill, style;
+    int n = 0, lane, last_bar, drop, fill, style, eighths;
 
     if (!p || !b || step < 0 || step > 15) return 0;
+    /* a sampled kit's hats and shaker in 16ths at a light swing march (Sam, set 26): there, 8ths only */
+    eighths = r->v[RF_SWING] < 550 && lib_kit_sampled(lib_song_kit(r));
     last_bar = bar == b->start + b->bars - 1;
     drop = last_bar && (b->flags & PB_DROP_LAST);
     fill = last_bar && (b->flags & PB_FILL_LAST) && !drop;
@@ -265,6 +267,7 @@ int groove_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, 
                 hit = (p->hit[lane] >> step) & 1;
                 ghost = !hit && ((p->ghost[lane] >> step) & 1);
             }
+            if (eighths && (lane == D_HAT || lane == D_SHAKER) && (step & 1)) hit = ghost = 0;
             if (fill && step >= 12 && (lane == D_SNARE || (lane == D_KICK && step == 14))) hit = ghost = 0;
             if (!hit && !ghost) continue;
 

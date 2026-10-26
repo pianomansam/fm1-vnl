@@ -143,6 +143,17 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
 
 ## To revisit (Sam, after listening)
 
+- **Bookmark: full listening pass after the GPL imports (Sam, 2026-10-26):** "I want to hear everything again once we
+  finish switching over to the stuff we're importing from gpl projects." Then re-render sets 21-33 and pick up:
+  - Set 26's guitar sound: "not sold on the sound. I can't quite pin down the issue." My guess: the Emilyguitar
+    sample loop sustains held and half-note chords like an organ; offer an A/B with a natural decay.
+  - The "vibes" (INS_VIBES, an M_BELL FM patch) sound like a plucked synth, not vibes: re-voice the bell (soft
+    mallet, motor tremolo, longer ring; no flash) or sample a vibraphone (~30 KB; ~23 KB left).
+  - Still unanswered: the C3 guitar floor; half-rate sampled kits A/B; 16 vs 32 kHz cymbals.
+  - Settled this pass: Knight stab level fine; Knight no-roll fine; ride quarter notes at most with a 1.5 s tail
+    (7773f9d, a162c90); guitars never arpeggiate; sampled hats/shaker play 8ths below 55% swing; the vibes lead uses
+    the phrase planner (the last three in commit "Set 26 fixes", tests not run at Sam's request).
+
 - **Piano broken chords take the rolled-chord role on the acoustic piano (Sam, 2026-10-25):** the bottom-up roll
   (10-60 ms a note) on the Knight's stabs in set 30 "is not how people usually play the acoustic piano. The strumming
   affect. Electric pianos work with it, but not acoustic." The Knight now strikes together; when the broken-chord climb

@@ -596,7 +596,8 @@ int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b,
         if (bn) c.bass |= 1u << (bn % 12);
     }
     nn = harmony_chord_at(r, bar + 1, (bar + 1) / loop + 1, 0, npcs);
-    if (set && lib_ins_sustained(set->lead)) {
+    if (set && (lib_ins_sustained(set->lead) || set->lead == INS_VIBES)) {   /* the vibes too (Sam: the hybrid's
+                                                                                 arpeggio on them is bad) */
         const plan_block_t *nb = bar + 1 < b->start + b->bars ? b
                                : (b + 1)->bars && (b + 1)->start == b->start + b->bars ? b + 1 : 0;
         int hp[5], nhp[5], lpcs[5], lnp;
