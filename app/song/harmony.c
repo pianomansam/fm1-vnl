@@ -5,6 +5,7 @@
 #include "rng.h"
 #include "theory.h"
 #include "library.h"
+#include "strum.h"
 
 static uint32_t mix(uint32_t a, uint32_t b, uint32_t c, uint32_t d)
 {
@@ -12,6 +13,8 @@ static uint32_t mix(uint32_t a, uint32_t b, uint32_t c, uint32_t d)
     h ^= h >> 15; h *= 0x2C1B3C6Du; h ^= h >> 12; h *= 0x297A2D39u; h ^= h >> 15;
     return h;
 }
+
+uint32_t harmony_mix(uint32_t a, uint32_t b, uint32_t c, uint32_t d) { return mix(a, b, c, d); }
 
 static int clampi(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }
 
@@ -89,15 +92,43 @@ int harmony_chord_at(const song_roll_t *r, int bar, int pass, int dark, int *pcs
     return th_chord_pcs(r->v[RF_KEY], r->v[RF_MODE], c, color, pcs);
 }
 
-/* per song (Sam, after hearing them side by side): weights held 44, arpeggio 20, half notes 36, so as heard held
-   about 55%, half notes 25%, arpeggio 20% (half notes hold over sustained keys and a kick on 1 and 3 alone:
-   half_held); offbeats and stabs retired (Sam: the "and" 8ths liked "less and less"; stabs "just not working") */
+/* below this tempo the guitars hold less and play half notes instead (Sam: held nylon too sparse at slow tempos) */
+enum { GUITAR_SLOW_BPM = 84 };
+
+/* per song (Sam, after hearing them side by side): the synth keys' weights held 44, arpeggio 20, half notes 36, so as
+   heard held about 55%, half notes 25%, arpeggio 20% (half notes hold over sustained keys and a kick on 1 and 3 alone:
+   half_held); offbeats retired (Sam: the "and" 8ths liked "less and less"), stabs retired on the synth keys ("just
+   not working") and back on the Knight and the guitars (below) */
+static int style_draw(int ins, int tempo, int strum, uint32_t seed)
+{
+    /* held, stabs, offbeats (retired: 0 everywhere), arpeggio, half notes, strum. Synth keys as always (stabs "just
+       not working" there); the sampled instruments sound better, so stabs return on the Knight and the guitars, and
+       the guitars strum (the same draw: zero weights never change a pick) */
+    static const uint8_t SYNTH[6] = {44, 0, 0, 20, 36, 0}, KNIGHT[6] = {35, 25, 0, 15, 25, 0},
+                         GUITAR[6] = {20, 20, 0, 15, 15, 30}, GUITAR_SLOW[6] = {0, 20, 0, 15, 35, 30};
+    const uint8_t *t = ins == INS_KNIGHT ? KNIGHT : (ins == INS_NYLON || ins == INS_EMILY) ?
+                         (tempo < GUITAR_SLOW_BPM ? GUITAR_SLOW : GUITAR) : SYNTH;
+    uint8_t w[6];
+    rng_t g;
+    memcpy(w, t, sizeof w);
+    if (!strum) w[CS_STRUM] = 0;
+    rng_seed(&g, seed, 121);
+    return rng_weighted(&g, w, 6);
+}
+
+int harmony_style_ins(int ins, int tempo, uint32_t seed) { return style_draw(ins, tempo, 1, seed); }
+
+/* the guitars strum only under a sustained lead (Sam, 2026-10-25): under a struck one their strum weight is 0, the
+   others as they are */
+int harmony_style_lead(int ins, int lead, int tempo, uint32_t seed)
+{
+    return style_draw(ins, tempo, lib_ins_sustained(lead), seed);
+}
+
 int harmony_style(const song_roll_t *r)
 {
-    static const uint8_t W[5] = {44, 0, 0, 20, 36};   /* held, (stabs, offbeats retired), arpeggio, half notes */
-    rng_t g;
-    rng_seed(&g, r->seed, 121);
-    return rng_weighted(&g, W, 5);
+    const lib_set_t *s = lib_set_by_id((uint8_t)r->v[RF_SET]);
+    return harmony_style_lead(s ? s->chords : INS_NONE, s ? s->lead : INS_NONE, r->v[RF_TEMPO], r->seed);
 }
 
 /* how far voicing b is from a, as the voicer weighs it: the lower voices' moves, the top's 8 a semitone (and 6 for a
@@ -183,9 +214,39 @@ static void place_keys(const song_roll_t *r, int *notes)  /* a pad with or above
         if (notes[i]) notes[i] += sh;
 }
 
+/* A strummed song's guitar shape for this bar's chord: the one it had before in the song, else a new one voice-led
+   from the shape found last (strike or peek alike, so a peek ahead and the strike agree) */
+static void strum_shape(const song_roll_t *r, int bar, int pass, harmony_voicing_t *vs, int shape[6])
+{
+    int pcs[5], n = harmony_chord_at(r, bar, pass, 0, pcs), i, k, prev[6] = {0, 0, 0, 0, 0, 0};
+    uint32_t sig = 2166136261u;
+    for (i = 0; i < n; i++) sig = (sig ^ (uint32_t)(pcs[i] + 1)) * 16777619u;
+    sig |= 1u;                                           /* never 0: an empty slot */
+    for (k = 0; k < HV_SHAPES && k < vs->gn; k++)
+        if (vs->gsig[k] == sig) {
+            for (i = 0; i < 6; i++) shape[i] = vs->gtab[k][i];
+            return;
+        }
+    if (vs->gn)
+        for (i = 0; i < 6; i++) prev[i] = vs->gtab[(vs->gn - 1) % HV_SHAPES][i];
+    strum_voicing(pcs, n, prev, shape);
+    k = vs->gn % HV_SHAPES;
+    for (i = 0; i < 6; i++) vs->gtab[k][i] = (uint8_t)shape[i];
+    vs->gsig[k] = sig;
+    vs->gn++;
+}
+
 void harmony_voicing_at(const song_roll_t *r, int bar, int pass, harmony_voicing_t *vs, int out4[4])
 {
     int pcs[5], n, keep[4];
+    if (harmony_style(r) == CS_STRUM) {                  /* the guitar shape's top 4 */
+        int shape[6], i, k = 4;
+        strum_shape(r, bar, pass, vs, shape);
+        memset(out4, 0, 4 * sizeof(int));
+        for (i = 5; i >= 0 && k > 0; i--)
+            if (shape[i]) out4[--k] = shape[i];
+        return;
+    }
     n = harmony_chord_at(r, bar, pass, 0, pcs);
     memcpy(keep, vs->last, sizeof keep);
     voice_chord(r, bar, pcs, n, vs, out4);
@@ -216,7 +277,8 @@ static int emit_chord(const int *notes, int n, uint32_t gap, int lo, int hi, uin
     for (i = 0; i < n && cnt < max; i++) {
         int v = lo + (int)(mix(salt, (uint32_t)bar, (uint32_t)step, 40u + (uint32_t)i) % (uint32_t)(hi - lo + 1));
         v = clampi(v + (i == 0 ? 3 : 0), lo, hi);
-        if (dark == 1) v -= 6;            /* softer in the dark intro and outro (was 10: with the comping quieter, the intro sank) */
+        if (dark == 1) v -= 6;            /* softer in the dark intro and outro (was 10: with the comping quieter,
+                                             the intro sank) */
         if (dark == 2) v += 6;            /* firmer with no kick or lead: the keys carry the block */
         out[cnt].voice = V_CHORD;
         out[cnt].note = (uint8_t)notes[i];
@@ -291,17 +353,33 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
     const lib_prog_t *p;
     int style, pcs[5], n, dark, lo, hi, k;
     uint32_t len, gap;
-    int notes[4], one;
+    int notes[4], one, rs;
     if (!(b->layers & L_KEYS) || max <= 0) return 0;
     p = prog_of(r);
     style = harmony_style(r);
     if (style == CS_HALF && half_held(r)) style = CS_HELD;
+    /* a drum entry with no kick and no bass (snare-first's keys, snare and hats) over struck keys held a chord of 2
+       bars or more: they would ring out in its second bar, so the held chord restrikes each bar it spans */
+    rs = style == CS_HELD && p->bars_per_chord >= 2 && !(b->flags & PB_DARK) && !(b->layers & (L_KICK | L_LEAD)) &&
+         (b->layers & L_SNARE) && !(b->layers & L_BASS) && !keys_sustained(r);
+    if (style == CS_STRUM) {                  /* the guitars' strum (strum.c): the lead's busy bars leave it be, as
+                                                 held comping (the keys' duck makes the room) */
+        int shape[6], i, k = 4;
+        strum_shape(r, bar, pass, vs, shape);
+        memset(vs->last, 0, sizeof vs->last);           /* the keys' last voicing: the shape's top 4 (as
+                                                           harmony_voicing_at's), so a set change voice-leads on */
+        for (i = 5; i >= 0 && k > 0; i--)
+            if (shape[i]) vs->last[--k] = shape[i];
+        return strum_step(r, b, bar, step, step_samples, shape, out, max);
+    }
     switch (style) {
     case CS_HELD:
-        if (step != 0 || bar % p->bars_per_chord != 0) return 0;
-        len = (uint32_t)((float)(p->bars_per_chord * 16) * step_samples);
+        if (step != 0 || (bar % p->bars_per_chord != 0 && !rs)) return 0;
+        len = (uint32_t)((float)((rs ? 1 : p->bars_per_chord) * 16) * step_samples);
         len = len > 441u ? len - 441u : 1u;
         lo = 40; hi = 58;                 /* struck softly, a rounder attack (Sam); keys_gain keeps the level */
+        if (rs && bar % p->bars_per_chord != 0)
+            hi = 54;                      /* the restrike a little softer */
         break;
     case CS_STABS:
         if (!((harmony_stab_steps(r) >> step) & 1u)) return 0;
@@ -337,8 +415,9 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
     dark = (b->flags & PB_DARK) != 0;
     dark = dark ? 1 : !(b->layers & (L_KICK | L_LEAD)) ? 2 : 0;   /* dark; carrying (no kick, no lead); or plain */
     n = harmony_chord_at(r, bar, pass, dark, pcs);
-    if (style == CS_HALF && !(step == 0 && bar % p->bars_per_chord == 0) && last_is_chord(vs, pcs, n))
-        memcpy(notes, vs->last, sizeof notes);            /* the chord's other strikes keep its voicing, never revoiced */
+    if ((style == CS_HALF || rs) && !(step == 0 && bar % p->bars_per_chord == 0) && last_is_chord(vs, pcs, n))
+        memcpy(notes, vs->last, sizeof notes);            /* the chord's other strikes keep its voicing, never
+                                                             revoiced */
     else
         voice_chord(r, bar, pcs, n, vs, notes);
     place_keys(r, notes);
@@ -347,9 +426,14 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
         one = notes[k];
         return emit_chord(&one, 1, 0, lo, hi, len, dark, salt, bar, step, out, max);
     }
-    /* per-chord roll spread, 10-60 ms between notes, the same for every strike of the chord in a bar */
+    /* per-chord roll spread, 10-60 ms between notes (the Knight: see below), the same for every strike of the chord
+       in a bar */
     gap = (uint32_t)(10 + (int)(mix(salt, (uint32_t)bar, r->seed, 50) % 51u)) * 441u / 10u;
-    if (style == CS_HALF && step == 8) {                  /* the second strike a little softer than the first (same draw) */
+    if (lib_set_by_id((uint8_t)r->v[RF_SET]) && lib_set_by_id((uint8_t)r->v[RF_SET])->chords == INS_KNIGHT)
+        gap = (mix(salt, (uint32_t)bar, r->seed, 50) % 9u) * 441u / 10u / 3u;   /* Sam: an acoustic piano strikes
+                                                                                 together, 0-8 ms in all */
+    if (style == CS_HALF && step == 8) {                  /* the second strike a little softer than the first (same
+                                                             draw) */
         int c = emit_chord(notes, 4, gap, lo, hi, len, dark, salt, bar, 0, out, max), i;
         for (i = 0; i < c; i++) out[i].vel = (uint8_t)clampi(out[i].vel * 9 / 10, 25, 110);
         return c;

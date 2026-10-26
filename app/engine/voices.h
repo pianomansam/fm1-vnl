@@ -62,7 +62,7 @@ void vx_set_kit(int kit);
 /* The kick's amplitude envelope, 0-1 (see drums.h): the lo-fi chain's ducking source. */
 float vx_kick_env(void);
 /* A role bus's section filter (the plan's moves, plan_moves): role V_CHORD, V_BASS, V_LEAD, V_CANDY, V_PAD, or any drum
-   voice (V_KICK..V_RIM: the drums' bus). vx_set_filter's amount runs 0 (open) to 1 (closed): a one-pole low-pass from
+   voice (V_KICK..V_RIDE: the drums' bus). vx_set_filter's amount runs 0 (open) to 1 (closed): a one-pole low-pass from
    18 kHz down to 200 Hz. vx_set_hp's runs 0 (off) to 1 (a one-pole high-pass at about 600 Hz). A change lands in
    about 50 ms (a high-pass opening, in about 3 ms); with nothing sounding, at once. */
 void vx_set_filter(int role, float amount);
@@ -90,8 +90,12 @@ float vx_chip_out(int role, float *raw, float *step);
 float vx_pad_lane(int lane, int *step, int *held);
 /* Tests: a pad lane's (1-4) voice's patch now, NULL for a silent lane. */
 const vx_patch_t *vx_pad_lane_patch(int lane);
-/* Tests: the mono synth's legato notes to a new pitch (its glides) on V_LEAD since vx_init (0 for any other role). */
+/* Tests: the mono lead's (M_SUB mono, M_STR) legato notes to a new pitch (its glides) on V_LEAD since vx_init (0 for
+   any other role). */
 uint32_t vx_glides(int role);
+/* Tests: the chords' pool's steals of a voice still sounding (held, or in its release; a string re-struck with no
+   spare voice free counts) since vx_init (0 for any other role). */
+uint32_t vx_steals(int role);
 /* Tests: the keys' duck under the lead now, in dB (0 at rest, negative while ducked). */
 float vx_duck_db(void);
 /* Tests: the mix's stored states (the mud high-pass, the drums' compressor, the buses' filters) that are neither 0
@@ -100,10 +104,15 @@ int vx_tiny(void);
 /* Queue an event; its delay counts from now, in samples at 44.1 kHz (the engine assumes that rate). 64 pending at
    most; when full the oldest by insertion order is dropped (not the one due first). When all voices of a pitched lane
    are busy, the victim fades out over about 4 ms first, so a stolen note starts up to ~5 ms late. A mono synth patch
-   (M_SUB) on the lead plays a note that arrives while its last is still held, or within 25 ms of its
+   (M_SUB) or the string synth (M_STR: the lead only; another role's notes on it are silent) on the lead plays a
+   note that arrives while its last is still held, or within 25 ms of its
    end and a 4th or less from it, legato on that voice, gliding to it; after a longer rest or a wider leap it starts
    on its pitch. The chords' pool is
-   4 voices, 8 for a pad (its release crosses the next chord's swell), and a pad's swell takes at most half its note;
+   4 voices, 8 for a pad (its release crosses the next chord's swell) or a sampled instrument. On a sampled patch a
+   V_CHORD event's pad is the strum's string (strum.h): bit 0 a chuck (the patch's muted note), bits 1-3 the string
+   1-6, played on its own voice (the chords' first 6); a re-strike moves the string's last note to a spare voice (the
+   last 2) that damps it over about 4 ms, so the new note starts on time and no stroke takes another string's tail.
+   A pad's swell takes at most half its note;
    the pad layer's (V_PAD) is 4 (a 3-note chord and a solo note), its swell capped alike. */
 void vx_event(const song_ev_t *e);
 /* Adds the mix into l and r (sample-accurate event starts). The chords', the lead's, the ear candy's and the pad

@@ -316,3 +316,40 @@ int groove_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, 
     }
     return n;
 }
+
+int groove_ride(const song_roll_t *r, int *section_block)
+{
+    song_plan_t p;
+    rng_t g;
+    int kit = lib_song_kit(r), x, i, j, n = 0, cand[25], last_groove = -1, walk = -1;
+    *section_block = -1;
+    if (!lib_kit_sampled(kit)) return RIDE_NONE;
+    if (kit == KIT_S_WARM) return RIDE_ALL;
+    rng_seed(&g, mix(r->seed, 193, 0, 0), 193);    /* hashed apart from the kit's draw (192) and the groove's */
+    x = rng_int(&g, 100);
+    if (x < 15) return RIDE_ALL;
+    if (x >= 65) return RIDE_NONE;
+    /* one block that has hats: a lead section (the B section), the last groove, or where the bass walks */
+    plan_build(r, &p);
+    if (groove_bass_style(r) == BS_WALK) {
+        rng_t w;
+        rng_seed(&w, r->seed, 113);                 /* bass_style_at's window */
+        walk = (int)(rng_next(&w) % 4u);
+    }
+    for (i = 0; i < p.n; i++) {
+        const plan_block_t *b = &p.b[i];
+        int walks = 0, bar;
+        if (!(b->layers & L_HATS)) continue;
+        if (b->section == SEC_GROOVE) last_groove = i;
+        for (bar = b->start; walk >= 0 && (b->layers & L_BASS) && bar < b->start + b->bars; bar++)
+            walks |= (bar / 8) % 4 == walk;
+        if (b->section == SEC_LEAD || walks) cand[n++] = i;
+    }
+    if (last_groove >= 0) {
+        for (j = 0; j < n && cand[j] != last_groove; j++) {}
+        if (j == n) cand[n++] = last_groove;
+    }
+    if (n == 0) return RIDE_NONE;
+    *section_block = cand[rng_int(&g, n)];
+    return RIDE_SECTION;
+}

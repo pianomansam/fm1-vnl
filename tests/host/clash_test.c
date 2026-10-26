@@ -109,7 +109,14 @@ static void check_step(const song_t *s, int bar, int step, const song_ev_t *ev, 
             break;
         }
         case V_BASS: CHECK(e->note >= 28 && e->note <= 47, "seed %u: bass note %d", seed, e->note); break;
-        case V_LEAD: CHECK(e->note >= 60 && e->note <= 88, "seed %u: lead note %d", seed, e->note); break;
+        case V_LEAD: {                   /* the cello lead B3-A4 (its floor over the keys lifted), the rest C4-E6 */
+            const lib_set_t *st = lib_set_by_id((uint8_t)s->roll.v[RF_SET]);
+            if (st && st->lead == INS_CELLO)
+                CHECK(e->note >= 59 && e->note <= 69, "seed %u: cello lead note %d", seed, e->note);
+            else
+                CHECK(e->note >= 60 && e->note <= 88, "seed %u: lead note %d", seed, e->note);
+            break;
+        }
         case V_PAD: {                    /* the pad layer: lanes 1-3 the chord part, 4 the solo note (its voice's
                                             range: the strings 84-96, the others 72-84) */
             int lo = pads_solo_lo(pads_solo_voice(&s->roll));
@@ -325,11 +332,16 @@ static void test_chain(void)
     song_roll_t prev, r, ro;
     uint32_t hashes[51];
     long count[V_N], gestures = 0;
-    int i, v, worst_t = 0, with_candy = 0;
+    int i, v, worst_t = 0, with_candy = 0, strs[2] = {0, 0};
     memset(count, 0, sizeof count);
     for (i = 1; i <= 1000; i++) {
         float ss;
         roll_song(i == 1 ? NULL : &prev, (uint32_t)i, &r);
+        {   /* the string synth's sets among them (the clash checks run on their songs too) */
+            const lib_set_t *st = lib_set_by_id((uint8_t)r.v[RF_SET]);
+            strs[0] += st && st->lead == INS_STR_LEAD;
+            strs[1] += st && st->lead == INS_CELLO;
+        }
         song_start(&s, &r);
         ss = base_ss(r.v[RF_TEMPO]);
         CHECK(song_step_samples(&s) == ss, "seed %d: first step samples", i);
@@ -372,6 +384,8 @@ static void test_chain(void)
     CHECK(with_candy >= 700, "candy in %d of 1000 songs, want at least 700", with_candy);
     CHECK(gestures >= 3000, "%ld candy gestures in 1000 songs, want at least 3 a song", gestures);
     printf("candy: in %d of 1000 songs, %ld gestures (%.2f a song)\n", with_candy, gestures, (double)gestures / 1000.0);
+    printf("strings: %d songs with the high string lead, %d with the cello lead\n", strs[0], strs[1]);
+    CHECK(strs[0] >= 10 && strs[1] >= 10, "strings: %d high string and %d cello songs in 1000", strs[0], strs[1]);
     /* determinism: songs 1-50 again, each with a second song ticking in between */
     clash_checks = 0;
     for (i = 1; i <= 50; i++) {

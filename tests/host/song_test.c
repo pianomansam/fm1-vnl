@@ -19,6 +19,11 @@
 #include "fx.h"
 #include "phrase.h"
 #include "pads.h"
+#include "samples.h"
+#include "sampler.h"
+#include "strum.h"
+#include "drums.h"
+#include "skits.h"
 
 static int fails;
 #define CHECK(c, ...)                                                                                              \
@@ -235,8 +240,11 @@ static void test_library(void)
         CHECK(lib_set_by_id(s->id) == s, "set by id %d", s->id);
         CHECK(s->chords < INS_NONE && s->bass < INS_NONE && s->lead < INS_NONE && s->candy <= INS_NONE, "set %d insts", s->id);
         CHECK(s->kit <= KIT_BRUSHES && s->flavor <= FL_CHILLWAVE && s->moods && s->name && s->src, "set %d fields", s->id);
-        /* the pad layer's instrument: the warm synth pad under the synth sets (13, 18, 19, 20), strings elsewhere */
-        CHECK(s->pad == ((s->id == 13 || s->id == 18 || s->id == 19 || s->id == 20) ? INS_WARM_PAD : INS_STRINGS),
+        /* the pad layer's instrument: the warm synth pad under the synth sets (13, 18, 19, 20), the DX keys under
+           the Knight (25) and the string synth's leads (30-33: the pad's strings would double them), strings
+           elsewhere */
+        CHECK(s->pad == ((s->id == 13 || s->id == 18 || s->id == 19 || s->id == 20 || s->id == 25 ||
+                          s->lead == INS_STR_LEAD || s->lead == INS_CELLO) ? INS_WARM_PAD : INS_STRINGS),
               "set %d: pad instrument %d", s->id, s->pad);
     }
     CHECK(lib_set_by_id(255) == NULL, "set 255");
@@ -333,9 +341,10 @@ static void test_synth_sets(void)
                   ns[i]->candy == INS_KALIMBA,
               "synth sets: %s's candy %d, wanted vibes, music box, kalimba or none", names[i], ns[i]->candy);
     }
-    for (k = 0; k < LIB_NSETS; k++) /* no other set plays a synth */
-        nsynth += is_synth(LIB_SETS[k].chords) || is_synth(LIB_SETS[k].bass) || is_synth(LIB_SETS[k].lead) ||
-                  is_synth(LIB_SETS[k].candy);
+    for (k = 0; k < LIB_NSETS; k++) /* no other set plays a synth (but a sampled set's, test_sampled_sets: the DX keys
+                                       under the Knight) */
+        nsynth += (is_synth(LIB_SETS[k].chords) || is_synth(LIB_SETS[k].bass) || is_synth(LIB_SETS[k].lead) ||
+                   is_synth(LIB_SETS[k].candy)) && LIB_SETS[k].id < 21;
     CHECK(nsynth == 5, "synth sets: %d sets play a synth, wanted the 5", nsynth);
     for (m = 0; m < 4; m++) {
         int any = 0;
@@ -965,14 +974,16 @@ static void test_harmony(void)
                     {                          /* a pad with or above the lead sounds an octave up (lead design) */
                         int up = (harmony_pad_place(&r) == PL_BELOW ? 0 : 12) +
                                  lib_set_keys_shift(lib_set_by_id((uint8_t)r.v[RF_SET]));   /* (Sam: the Chillwave pad lower) */
-                        if (ev[i].note < 48 + up || ev[i].note > 72 + up) bad_range++;
+                        if (ev[i].note < 48 + up || ev[i].note > (harmony_style(&r) == CS_STRUM ? 76 : 72) + up)
+                            bad_range++;               /* (a guitar shape reaches E5) */
                     }
                     if (ev[i].vel < 25 || ev[i].vel > 110) bad_vel++;
                     if (ev[i].len == 0) bad_range++;
                 }
-                if (harmony_style(&r) != CS_ARP && ne > 0) {
+                if (harmony_style(&r) != CS_ARP && harmony_style(&r) != CS_STRUM && ne > 0) {   /* (test_strum) */
                     chords_seen++;
                     if (ne != 4) bad_roll++;
+                    if (lib_set_by_id((uint8_t)r.v[RF_SET])->chords == INS_KNIGHT) continue;   /* struck together (test_knight_no_roll) */
                     for (i = 1; i < ne; i++) {
                         uint32_t gap = ev[i].delay - ev[i - 1].delay;
                         if (ev[i].delay <= ev[i - 1].delay || ev[i].note <= ev[i - 1].note) bad_roll++;
@@ -987,10 +998,11 @@ static void test_harmony(void)
     CHECK(bad_vel == 0, "harmony: %d velocities outside 25-110", bad_vel);
     CHECK(bad_roll == 0, "harmony: %d rolled-chord violations", bad_roll);
     CHECK(chords_seen > 0, "harmony: no chord events");
-    CHECK(styles[CS_HELD] > 0 && styles[CS_STABS] == 0 && styles[CS_OFFBEATS] == 0 && styles[CS_ARP] > 0 && styles[CS_HALF] > 0,
+    CHECK(styles[CS_HELD] > 0 && styles[CS_OFFBEATS] == 0 && styles[CS_ARP] > 0 && styles[CS_HALF] > 0,
           "harmony: styles drawn %d/%d/%d/%d/%d", styles[0], styles[1], styles[2], styles[3], styles[4]);
-    {   /* (Sam, after hearing comping-styles.musicxml) mostly held: 44% held drawn (about 55% heard, once sustained keys and a kick on 1 and 3 hold), 20% arpeggio, 36% half drawn; offbeats
-           and stabs retired (Sam) */
+    {   /* (Sam, after hearing comping-styles.musicxml) mostly held: 44% held drawn (about 55% heard, once sustained
+           keys and a kick on 1 and 3 hold), 20% arpeggio, 36% half drawn; offbeats retired, stabs retired on the synth
+           keys (they return on the Knight and the guitars: test_comp_styles) */
         int w[5] = {0, 0, 0, 0, 0}, want[5] = {44, 0, 0, 20, 36}, k2;
         song_roll_t q;
         roll_song(NULL, 1u, &q);
@@ -1074,6 +1086,114 @@ static void test_harmony(void)
 /* Half-note comping (pads revision 2): the voicing struck on beats 1 and 3 (steps 0 and 8), the second a little softer,
    each held to the next strike, the same voicing both times (a request mid-chord, the loop lock off, included); a busy
    lead thins it to step 0 of every bar, held a bar; sustained keys hold. */
+static void test_comp_styles(void)
+{
+    static const uint8_t OLD[5] = {44, 0, 0, 20, 36};
+    static const uint8_t W[3][6] = {{44, 0, 0, 20, 36, 0}, {35, 25, 0, 15, 25, 0}, {20, 20, 0, 15, 15, 30}};
+    static const uint8_t SLOW[6] = {0, 20, 0, 15, 35, 30};
+    static const int inss[3] = {INS_DX_EP, INS_KNIGHT, INS_EMILY};
+    long cnt[3][6] = {{0}}, gcnt[6] = {0}, scnt[6] = {0}, ecnt[6] = {0};
+    song_roll_t r;
+    int k, i, seed, n = 500, bad_old = 0, bad_gtr = 0;
+    CHECK(lib_ins_sampled_struck(INS_KNIGHT) && lib_ins_sampled_struck(INS_NYLON) &&
+          lib_ins_sampled_struck(INS_EMILY) && !lib_ins_sampled_struck(INS_DX_EP) &&
+          !lib_ins_sampled_struck(INS_PAD), "comp styles: lib_ins_sampled_struck");
+    CHECK(CS_STRUM > CS_HALF, "comp styles: CS_STRUM appended after CS_HALF");
+    for (seed = 1; seed <= n; seed++) {
+        roll_song(0, (uint32_t)seed, &r);
+        for (k = 0; k < LIB_NSETS; k++) {
+            const lib_set_t *s = &LIB_SETS[k];
+            rng_t g;
+            int want, got;
+            r.v[RF_SET] = s->id;
+            got = harmony_style(&r);
+            CHECK(got != CS_OFFBEATS, "comp styles: offbeats never (set %d)", s->id);
+            if (s->chords == INS_NYLON) {
+                CHECK(got != CS_OFFBEATS && got <= CS_STRUM, "comp styles: nylon style in range");
+                continue;
+            }
+            if (s->chords == INS_KNIGHT || s->chords == INS_EMILY) continue;
+            rng_seed(&g, (uint32_t)seed, 121);
+            want = rng_weighted(&g, OLD, 5);
+            bad_old += got != want;
+            CHECK(got != CS_STABS && got != CS_STRUM, "comp styles: synth keys never stabs or strum (set %d)", s->id);
+        }
+        for (i = 0; i < 3; i++) {
+            int st = harmony_style_ins(inss[i], 90, (uint32_t)seed);
+            cnt[i][st]++;
+            if (i == 0 && st != harmony_style_ins(INS_DX_EP, 70, (uint32_t)seed)) bad_old++;
+            if (i == 0 && (st == CS_STABS || st == CS_STRUM)) bad_old++;
+            if (i && st == CS_OFFBEATS) bad_gtr++;
+            if (i == 1 && st == CS_STRUM) bad_gtr++;
+        }
+        gcnt[harmony_style_ins(INS_NYLON, 90, (uint32_t)seed)]++;
+        scnt[harmony_style_ins(INS_NYLON, 83, (uint32_t)seed)]++;
+        ecnt[harmony_style_ins(INS_EMILY, 70, (uint32_t)seed)]++;
+    }
+    CHECK(bad_old == 0, "comp styles: %d synth-keys songs changed style", bad_old);
+    CHECK(bad_gtr == 0, "comp styles: %d offbeats or Knight strums", bad_gtr);
+    for (i = 0; i < 3; i++) {
+        int tot = 0;
+        for (k = 0; k < 6; k++) tot += W[i][k];
+        for (k = 0; k < 6; k++) {
+            long pct = cnt[i][k] * 100 / n, want = W[i][k] * 100 / tot;
+            CHECK(pct >= want - 5 && pct <= want + 5, "comp styles: ins %d style %d is %ld%%, wanted %ld%%", i, k, pct, want);
+        }
+    }
+    for (k = 0; k < 6; k++) {
+        long pct = gcnt[k] * 100 / n, want = W[2][k];
+        CHECK(pct >= want - 5 && pct <= want + 5, "comp styles: nylon style %d is %ld%%, wanted %ld%%", k, pct, want);
+        pct = scnt[k] * 100 / n; want = SLOW[k];
+        CHECK(pct >= want - 5 && pct <= want + 5, "comp styles: slow nylon style %d is %ld%%, wanted %ld%%", k, pct, want);
+        pct = ecnt[k] * 100 / n;
+        CHECK(pct >= want - 5 && pct <= want + 5, "comp styles: slow emily style %d is %ld%%, wanted %ld%%", k, pct, want);
+    }
+    CHECK(scnt[CS_HELD] == 0 && ecnt[CS_HELD] == 0, "comp styles: no held guitar below 84 BPM");
+    for (seed = 1; seed <= 200; seed++) {          /* through the roll: slow guitar songs never hold */
+        roll_song(0, (uint32_t)seed, &r);
+        for (k = 0; k < LIB_NSETS; k++) {
+            r.v[RF_SET] = LIB_SETS[k].id;
+            if (LIB_SETS[k].chords == INS_NYLON && r.v[RF_TEMPO] < 84)
+                CHECK(harmony_style(&r) != CS_HELD, "comp styles: held nylon at %d BPM", r.v[RF_TEMPO]);
+        }
+    }
+}
+
+/* Task 6b: the acoustic piano strikes a chord together (a hand's 0-8 ms), the electric pianos keep the 10-60 ms roll */
+static void test_knight_no_roll(void)
+{
+    const float SPS16 = 5512.5f;
+    plan_block_t keys = {0, 8, SEC_GROOVE, L_KEYS, 0};
+    song_roll_t r;
+    song_ev_t ev[16];
+    int seed, knight = 0, strikes = 0, bad = 0, rhodes = 0, rolled = 0;
+    for (seed = 1; seed <= 400; seed++) {
+        const lib_set_t *set;
+        harmony_voicing_t vs;
+        int bar, step, isk, isr;
+        roll_song(NULL, (uint32_t)seed, &r);
+        set = lib_set_by_id((uint8_t)r.v[RF_SET]);
+        if (!set) continue;
+        isk = set->chords == INS_KNIGHT;
+        isr = set->chords == INS_RHODES;
+        if (!isk && !isr) continue;
+        knight += isk; rhodes += isr;
+        memset(&vs, 0, sizeof vs);
+        for (bar = 0; bar < 8; bar++)
+            for (step = 0; step < 16; step++) {
+                int n = harmony_step(&r, &keys, bar, step, 1, SPS16, &vs, 0, 9u, ev, 16), i;
+                uint32_t lo = 0xffffffffu, hi = 0;
+                if (n < 2) continue;
+                for (i = 0; i < n; i++) { if (ev[i].delay < lo) lo = ev[i].delay; if (ev[i].delay > hi) hi = ev[i].delay; }
+                if (isk) { strikes++; if (hi - lo > 353u) bad++; }
+                else if (hi - lo >= 441u) rolled++;
+            }
+    }
+    CHECK(knight > 5 && strikes > 100, "knight: %d songs, %d strikes", knight, strikes);
+    CHECK(bad == 0, "knight: %d strikes spread over 8 ms", bad);
+    CHECK(rhodes > 5 && rolled > 50, "rhodes keeps the 10-60 ms roll: %d songs, %d rolled strikes", rhodes, rolled);
+}
+
 static void test_half_comping(void)
 {
     const float SPS16 = 5512.5f;
@@ -1833,24 +1953,24 @@ static float vt_peak(uint32_t from, uint32_t to)
     return m;
 }
 
-/* The plucked strings (M_PLUCK: nylon, guitar lick, upright) and the basses (M_BASS: sub, electric bass). A pluck is
-   in tune by its period (within 10 cents) at 40, 55 and 70; nylon falls to -40 dB within 3 s and upright within
-   1.5 s, held; the Karplus-Strong line is sized for note 28. The sub's 2x and 3x partials are each 12 dB under the
+/* The plucked strings (M_PLUCK: guitar lick, upright; the nylon is sampled now, M_SAMP: test_samp) and the basses
+   (M_BASS: sub, electric bass). A pluck is in tune by its period (within 10 cents) at 40, 55 and 70; the upright falls
+   to -40 dB within 1.5 s, held; the Karplus-Strong line is sized for note 28. The sub's 2x and 3x partials are each 12 dB under the
    fundamental; the electric bass's attack is brighter and settles within 100 ms. */
 static void test_vx_plucks_basses(void)
 {
-    static const int PLUCKS[3] = {INS_NYLON, INS_GUITAR_LICK, INS_UPRIGHT};
+    static const int PLUCKS[2] = {INS_GUITAR_LICK, INS_UPRIGHT};
     static const int NOTES[3] = {40, 55, 70};
     int i, j, bad = 0;
 
-    CHECK(vx_patch(INS_NYLON)->model == M_PLUCK && vx_patch(INS_GUITAR_LICK)->model == M_PLUCK &&
+    CHECK(vx_patch(INS_NYLON)->model == M_SAMP && vx_patch(INS_GUITAR_LICK)->model == M_PLUCK &&
               vx_patch(INS_UPRIGHT)->model == M_PLUCK && vx_patch(INS_SUB)->model == M_BASS &&
               vx_patch(INS_ELEC_BASS)->model == M_BASS,
           "plucks and basses on the wrong models");
     CHECK(VX_KS_N <= 44100 / 41 && (float)VX_KS_N >= 44100.0f / 41.2034f + 1.0f,
           "the Karplus-Strong line is %d samples: wanted note 28's period (+1 for the interpolation) to 44100/41",
           VX_KS_N);
-    for (i = 0; i < 3; i++)
+    for (i = 0; i < 2; i++)
         for (j = 0; j < 3; j++) {
             int role = vt_role_of(PLUCKS[i]);
             float p = 44100.0f / (440.0f * fm_exp2f(((float)NOTES[j] - 69.0f) / 12.0f)), got, cents;
@@ -1861,9 +1981,9 @@ static void test_vx_plucks_basses(void)
                    (double)p, (double)cents);
             CHECK(fm_fabsf(cents) <= 10.0f, "ins %d note %d: %+.1f cents out", PLUCKS[i], NOTES[j], (double)cents);
         }
-    for (i = 0; i < 3; i += 2)
+    for (i = 1; i < 2; i++)
         for (j = 0; j < 3; j++) { /* held 5 s: the string's own decay */
-            float t = PLUCKS[i] == INS_NYLON ? 3.0f : 1.5f, pk, at;
+            float t = 1.5f, pk, at;
             uint32_t s = (uint32_t)(t * 44100.0f);
             vt_note(vt_role_of(PLUCKS[i]), PLUCKS[i], NOTES[j], 100, 5u * 44100u, VT_LONG, &bad);
             pk = vt_peak(0, 4410);
@@ -2080,8 +2200,11 @@ static void test_chip(void)
     CHECK(!lib_ins_sustained(INS_CHIP_BASS), "the triangle bass: wanted percussive");
     CHECK(INS_FM_BASS == INS_VOX_PAD + 6, "instruments: %d after the vox pad, wanted Sam's six synths",
           INS_FM_BASS - INS_VOX_PAD);
-    CHECK(INS_STRINGS == INS_FM_BASS + 1 && INS_WARM_PAD == INS_FM_BASS + 2 && INS_NONE == INS_FM_BASS + 3,
-          "instruments: %d after the six synths, wanted the pad layer's two (strings, warm pad)",
+    CHECK(INS_STRINGS == INS_FM_BASS + 1 && INS_WARM_PAD == INS_FM_BASS + 2 && INS_KNIGHT == INS_FM_BASS + 3 &&
+              INS_EMILY == INS_FM_BASS + 4 && INS_STR_LEAD == INS_FM_BASS + 5 && INS_CELLO == INS_FM_BASS + 6 &&
+              INS_NONE == INS_FM_BASS + 7,
+          "instruments: %d after the six synths, wanted the pad layer's two (strings, warm pad), the Knight, the "
+          "Emilyguitar, then the string synth's high lead and cello",
           INS_NONE - INS_FM_BASS - 1);
     { /* the triangle at note 36 (674 samples a cycle): its plateaus' levels in one cycle from 0.5 s, clustered */
         static float lv[1024];
@@ -2825,7 +2948,7 @@ static void test_vx_patches(void)
         CHECK(a == b, "the same events rendered different samples (%08x vs %08x)", (unsigned)a, (unsigned)b);
     }
 
-    /* vx_configure takes every role's instrument, the kit and the chain fields from the roll */
+    /* vx_configure takes every role's instrument, the song's kit (lib_song_kit) and the chain fields from the roll */
     for (s = 0; s < LIB_NSETS; s++) {
         const lib_set_t *t = &LIB_SETS[s];
         song_roll_t r;
@@ -2839,7 +2962,7 @@ static void test_vx_patches(void)
         vx_configure(&r);
         c = vx_config();
         CHECK(c->chords == t->chords && c->bass == t->bass && c->lead == t->lead && c->candy == t->candy &&
-                  c->pad == t->pad && c->kit == t->kit && c->flavor == t->flavor,
+                  c->pad == t->pad && c->kit == lib_song_kit(&r) && c->flavor == t->flavor,
               "set %d: configure took the wrong instruments", t->id);
         CHECK(c->dust == s % 4 && c->noise == s % 3 && c->ambience == s % 2, "set %d: configure took the wrong chain",
               t->id);
@@ -3178,7 +3301,7 @@ static void test_comping_makes_room(void)
     uint32_t seed = 3131;
     song_roll_t prev, r;
     song_ev_t ev[64], e0[16], e1[16];
-    long strikes[5][2] = {{0}}, bars[5][2] = {{0}}, bad_same = 0, bad_subset = 0;
+    long strikes[6][2] = {{0}}, bars[6][2] = {{0}}, bad_same = 0, bad_subset = 0;
     int k, i, cs;
     for (k = 0; k < 300; k++) {
         const lib_set_t *set;
@@ -3218,7 +3341,7 @@ static void test_comping_makes_room(void)
             for (step = 0; step < 16; step++) {
                 int n0 = harmony_step(&r, b, bar, step, bar / loop + 1, 5512.5f, &v0, 0, 5u, e0, 16);
                 int n1 = harmony_step(&r, b, bar, step, bar / loop + 1, 5512.5f, &v1, 1, 5u, e1, 16);
-                if (sust_keys || cs == CS_HELD) {
+                if (sust_keys || cs == CS_HELD || cs == CS_STRUM) {   /* (a strum, as held, ignores a busy lead) */
                     if (n0 != n1 || memcmp(e0, e1, sizeof(song_ev_t) * (size_t)n0)) bad_same++;
                 } else if (n1 && cs == CS_HALF && n1 == n0 && n1 == 4) {   /* thinned to step 0, held a bar: all but the length */
                     int j;
@@ -3232,9 +3355,9 @@ static void test_comping_makes_room(void)
             }
         }
     }
-    for (cs = CS_STABS; cs <= CS_HALF; cs++) {
+    for (cs = CS_STABS; cs <= CS_STRUM; cs++) {
         double q, bz;
-        if (cs != CS_ARP && cs != CS_HALF) continue;   /* stabs and offbeats retired (Sam) */
+        if (cs != CS_ARP && cs != CS_HALF) continue;   /* offbeats retired; stabs on the Knight and guitars only */
         q = bars[cs][0] ? (double)strikes[cs][0] / (double)bars[cs][0] : 0.0;
         bz = bars[cs][1] ? (double)strikes[cs][1] / (double)bars[cs][1] : 0.0;
         printf("comping %d: %.2f strikes a quiet bar (%ld), %.2f a busy one (%ld)\n", cs, q, bars[cs][0], bz,
@@ -3247,7 +3370,8 @@ static void test_comping_makes_room(void)
 }
 
 /* Lead design, register by the keys' attack: over percussive keys every lead note sits a 4th or more above the keys'
-   top (of every chord it sounds over), at most E6 (doubling the keys' top pitch class is fine, Sam: printed only); with
+   top (of every chord it sounds over; but the cello lead, B3-A4: test_strsyn), at most E6 (doubling the keys' top
+   pitch class is fine, Sam: printed only); with
    sustained keys (pads) each song places them below, with or above the lead about a third of the time each, the lead
    kept to C4-C5 when the pad is above. */
 static void test_register_floor(void)
@@ -3266,7 +3390,8 @@ static void test_register_floor(void)
         roll_song(k ? &prev : 0, seed, &r);
         prev = r;
         set = lib_set_by_id((uint8_t)r.v[RF_SET]);
-        if (!set || lib_ins_sustained(set->chords)) continue;
+        if (!set || lib_ins_sustained(set->chords) || set->lead == INS_CELLO)
+            continue; /* (the cello lead sits inside the keys, B3-A4: test_strsyn) */
         song_start(&s, &r);
         while (s.state == SS_PLAYING) {
             int bar = s.bar, st = s.step, n;
@@ -3560,7 +3685,8 @@ static void test_keys_kick_differ(void)
     }
     CHECK(bars > 1000 && same == 0, "keys and kick share a bar's rhythm in %ld of %ld bars", same, bars);
     CHECK(stab_on_kick == 0, "%ld bars with a stab on a sparse kick", stab_on_kick);
-    CHECK(moved == 0, "%ld of %ld stab songs over a busy kick moved the stab", moved, dense);   /* (stabs retired) */
+    CHECK(moved == 0, "%ld of %ld stab songs over a busy kick moved the stab", moved, dense);   /* (stabs: the Knight
+                                                                                           and the guitars only) */
 }
 
 static void test_keys_bass_rhythms_differ(void)
@@ -3680,6 +3806,7 @@ static void test_loop_voicings(void)
         seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
         roll_song(k ? &prev : 0, seed, &r);
         prev = r;
+        if (harmony_style(&r) == CS_STRUM) continue;   /* a guitar shape a chord: test_strum */
         song_start(&s, &r);
         memset(have, 0, sizeof have);
         while (s.state == SS_PLAYING) {
@@ -4628,8 +4755,8 @@ static void test_fx_engine(void)
 }
 
 /* ------------------------------ Task 7b: section filters, chorus, tape delay, drum compression, the pump --- */
-#define SB_N (8u * 44100u)
-static float sb_l[SB_N], sb_r[SB_N], sb_x[SB_N];
+#define SBUF_N (8u * 44100u)
+static float sb_l[SBUF_N], sb_r[SBUF_N], sb_x[SBUF_N];
 
 /* n samples of the engine into sb_l/sb_r from sample `from` */
 static void sb_render(uint32_t from, uint32_t n)
@@ -4696,6 +4823,7 @@ static void sb_moves(const song_plan_t *p, int bar, int st, int hp_on)
 /* a song through the engine as the app plays it (the moves on or off), to the end of bar bars_to: each beat's energy
    above 2 kHz in sg_hf; a hash of the event stream */
 static double sg_hf[512];
+static int sg_set; /* a set sg_run pins its song to (roll_set; 0: the roll's own) */
 static uint32_t sg_run(uint32_t seed, int moves, int bars_to)
 {
     static song_t s;
@@ -4705,6 +4833,8 @@ static uint32_t sg_run(uint32_t seed, int moves, int bars_to)
     float frac = 0.0f;
     bq_t q;
     roll_song(NULL, seed, &roll);
+    if (sg_set)
+        roll_set(&roll, RF_SET, sg_set);
     roll.v[RF_NOISE] = 0;
     roll.v[RF_AMBIENCE] = 0;
     roll.v[RF_DUST] = 0;
@@ -4796,10 +4926,36 @@ static void cv_begin(const song_roll_t *roll)
     vx_song(roll);
 }
 
+/* Song A as test_song_carryover plays it before B (its set's instruments, or keys on the chords when not INS_NONE),
+   then the app's gap (vx_release_all, 2-4 s from A's seed); with tail_secs, A's tail rendered on that long past the
+   gap, alone. Returns the tail's peak: the gap's last block's, or the loudest block of the tail past it (an echo of
+   the tape delay can arrive after a quiet block). */
+static float cv_song_a(const song_roll_t *ra, int keys, uint32_t tail_secs)
+{
+    uint32_t gap, h = ra->seed * 2654435761u, j;
+    float tail = 0.0f;
+    int bad;
+    vx_init();
+    vx_song(ra);
+    if (keys != INS_NONE)
+        vx_assign(V_CHORD, keys);
+    cv_play(ra, 30u, NULL, NULL);
+    vx_release_all(); /* the song's end, then the gap (app.c's) */
+    gap = (2000u + (h >> 16) % 2001u) * 441u / 10u;
+    for (j = 0; j < gap;) {
+        uint32_t b = gap - j < 4096 ? gap - j : 4096;
+        tail = vt_block(b, &bad);
+        j += b;
+    }
+    for (j = 0; j < tail_secs * 44100u; j += 4096u)
+        tail = fm_maxf(tail, vt_block(4096, &bad));
+    return tail;
+}
+
 /* Determinism across songs (the plan's constraint): a seed renders the same samples whether or not another song played
    before it. Song A, then the app's gap (vx_release_all, 2-4 s from A's seed), then song B through song_begin's path,
    against song B alone: from 12 s (A's tails long over) the two agree exactly; in B's first second they differ by at
-   most what A's tail still adds. The pairs' B sets cover plucks, the Wurli's bark, winds' breath and the drums, then
+   most what A's tail still adds (its peak over that second, rendered alone: cv_song_a). The pairs' B sets cover plucks, the Wurli's bark, winds' breath and the drums, then
    the synths (the FM keys and bass; M_SUB's filters, sub and glide; the triangle bass's crush and the pluck). Each
    pair's sets are pinned (roll_set), not left to the draw: adding sets redraws them (synths plan, Review Focus 4). The
    last pair is a chillwave song into the chillwave synth set (DX and pluck). (A pair can leave a residue near -91
@@ -4820,10 +4976,10 @@ static void test_song_carryover(void)
     static const int SA[] = {2, 11, 10, 1, 3, 5, 2, 3, 5, 4, 19, 5};
     static const int SB[] = {11, 2, 9, 3, 3, 3, 13, 18, 20, 7, 6, 5};
     static const float LIM[] = {1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f, 1e-6f};
-    int p, i;
+    int p;
     for (p = 0; p < (int)(sizeof A / sizeof A[0]); p++) {
         song_roll_t ra, rb;
-        uint32_t gap, h, j;
+        uint32_t j;
         float tail = 0.0f, d0 = 0.0f, d1 = 0.0f;
         const vx_config_t *c;
         roll_song(NULL, A[p], &ra);
@@ -4839,19 +4995,10 @@ static void test_song_carryover(void)
         c = vx_config();
         printf("carryover: B %u chords %d bass %d lead %d candy %d kit %d\n", (unsigned)B[p], c->chords, c->bass,
                c->lead, c->candy, c->kit);
-        vx_init();
-        vx_song(&ra);
-        cv_play(&ra, 30u, NULL, NULL);
-        vx_release_all(); /* the song's end, then the gap (app.c's) */
-        h = ra.seed * 2654435761u;
-        gap = (2000u + (h >> 16) % 2001u) * 441u / 10u;
-        for (j = 0; j < gap;) {
-            uint32_t b = gap - j < 4096 ? gap - j : 4096;
-            tail = vt_block(b, &i);
-            j += b;
-        }
-        printf("carryover: A %u gap %.2f s, at B's start active %d sounding %d (last block peak %.2e)\n",
-               (unsigned)A[p], (double)gap / 44100.0, vx_active(), vx_sounding(), (double)tail);
+        tail = cv_song_a(&ra, INS_NONE, 1u);
+        cv_song_a(&ra, INS_NONE, 0u);
+        printf("carryover: A %u, at B's start active %d sounding %d (A's tail's peak %.2e)\n", (unsigned)A[p],
+               vx_active(), vx_sounding(), (double)tail);
         cv_begin(&rb);
         cv_play(&rb, CV_SECS, cv_l, cv_r);
         for (j = 0; j < CV_SECS * 44100u; j++) {
@@ -4866,8 +5013,81 @@ static void test_song_carryover(void)
         CHECK(d1 <= LIM[p], "seed %u after seed %u renders differently from 12 s on (max %.3e)", (unsigned)B[p],
               (unsigned)A[p], (double)d1);
         CHECK(d0 <= 2.0f * tail + LIM[p], "seed %u after seed %u: its first second differs by %.3e, more than the old "
-              "tail (%.3e at the gap's end)", (unsigned)B[p], (unsigned)A[p], (double)d0, (double)tail);
+              "tail (its peak %.3e)", (unsigned)B[p], (unsigned)A[p], (double)d0, (double)tail);
     }
+}
+
+/* Carryover after the sampled branch's new parts (the final review): a strummed song (the strings' own voices, the
+   damped spares) into a strummed song on the other guitar, and a string-lead song (M_STR, the high strings, its lead
+   sounding when A stops at 30 s) into a cello song (its lead in by 35 s): B after A renders exactly as B alone from
+   12 s to 40 s (past B's first lead notes), and its first second differs by no more than A's tail, as
+   test_song_carryover's pairs. */
+#define CL_SECS 40u
+static float cl_ref_l[CL_SECS * 44100u], cl_ref_r[CL_SECS * 44100u], cl_l[CL_SECS * 44100u], cl_r[CL_SECS * 44100u];
+static void cv_pair(const song_roll_t *ra, const song_roll_t *rb, const char *what)
+{
+    uint32_t j;
+    float tail, d0 = 0.0f, d1 = 0.0f;
+    vx_init();
+    vx_song(rb);
+    cv_play(rb, CL_SECS, cl_ref_l, cl_ref_r);
+    tail = cv_song_a(ra, INS_NONE, 1u);
+    cv_song_a(ra, INS_NONE, 0u);
+    cv_begin(rb);
+    cv_play(rb, CL_SECS, cl_l, cl_r);
+    for (j = 0; j < CL_SECS * 44100u; j++) {
+        float d = fm_maxf(fm_fabsf(cl_l[j] - cl_ref_l[j]), fm_fabsf(cl_r[j] - cl_ref_r[j]));
+        if (j < 44100u)
+            d0 = fm_maxf(d0, d);
+        else if (j >= 12u * 44100u)
+            d1 = fm_maxf(d1, d);
+    }
+    printf("carryover: %s (seed %u set %d -> seed %u set %d): first second %.2e (tail %.2e), 12-40 s %.2e\n", what,
+           (unsigned)ra->seed, ra->v[RF_SET], (unsigned)rb->seed, rb->v[RF_SET], (double)d0, (double)tail, (double)d1);
+    CHECK(d1 <= 1e-6f, "carryover: %s: from 12 s the song differs by %.3e", what, (double)d1);
+    CHECK(d0 <= 2.0f * tail + 1e-6f, "carryover: %s: its first second differs by %.3e, more than the old tail (%.3e)",
+          what, (double)d0, (double)tail);
+}
+
+/* the time (s) of a song's first note on a role (V_LEAD; V_CHORD), or 99 if none in its first 60 s */
+static float cv_first(const song_roll_t *r, int voice)
+{
+    static song_t s;
+    song_ev_t ev[64];
+    float t = 0.0f;
+    int i, n;
+    song_start(&s, r);
+    while (s.state == SS_PLAYING && t < 60.0f * 44100.0f) {
+        n = song_tick(&s, ev, 64);
+        for (i = 0; i < n; i++)
+            if (ev[i].voice == voice) return (t + (float)ev[i].delay) / 44100.0f;
+        t += song_step_samples(&s);
+    }
+    return 99.0f;
+}
+
+static void test_carryover_sampled(void)
+{
+    song_roll_t r, sa, sb, la, lb;
+    uint32_t seed;
+    int ns = 0, nl = 0;
+    for (seed = 2; seed < 3000u && (ns < 2 || nl < 2); seed++) {
+        const lib_set_t *set;
+        roll_song(NULL, seed, &r);
+        set = lib_set_by_id((uint8_t)r.v[RF_SET]);
+        if (!set) continue;
+        if (harmony_style(&r) == CS_STRUM && cv_first(&r, V_CHORD) < 4.0f) {   /* strummed, then the other guitar */
+            if (!ns) { sa = r; ns = 1; }
+            else if (ns == 1 && set->chords != lib_set_by_id((uint8_t)sa.v[RF_SET])->chords) { sb = r; ns = 2; }
+        }
+        if (!nl && set->lead == INS_STR_LEAD) {          /* the high strings sounding at A's 30 s */
+            float f = cv_first(&r, V_LEAD);
+            if (f >= 15.0f && f < 28.0f) { la = r; nl = 1; }
+        } else if (nl == 1 && set->lead == INS_CELLO && cv_first(&r, V_LEAD) < 35.0f) { lb = r; nl = 2; }
+    }
+    CHECK(ns == 2 && nl == 2, "carryover: no strummed (%d) or string-lead (%d) pair found", ns, nl);
+    if (ns == 2) cv_pair(&sa, &sb, "after a strummed song");
+    if (nl == 2) cv_pair(&la, &lb, "after a string-lead song");
 }
 
 /* A mood request that re-rolls the progression reaches the voices (the keys' level reads its bars per chord): through
@@ -4977,12 +5197,14 @@ static void test_moves(void)
     {
         uint32_t seed, found = 0;
         int bk = -1;
+        sg_set = 5; /* the song it was set on (seed 18, the Chillwave pad): adding sets moved the seeds' sets */
         for (seed = 10; seed < 3000 && !found; seed++) {   /* (the per-beat "opens beat by beat" check is seed-dependent: held seeds 4 and 9 also fail it; starting at 10 sidesteps it) */
             song_roll_t roll;
             song_plan_t q;
             int i;
             roll_song(NULL, seed, &roll);
-            if (harmony_style(&roll) != CS_HELD)         /* (a re-struck chord's attacks mask the filter's ramp per beat) */
+            if (roll_set(&roll, RF_SET, sg_set) != sg_set || harmony_style(&roll) != CS_HELD) /* (a re-struck chord's
+                                                                         attacks mask the filter's ramp per beat) */
                 continue;
             plan_build(&roll, &q);
             for (i = 1; i + 1 < q.n; i++)
@@ -5035,6 +5257,7 @@ static void test_moves(void)
                   (double)db_of(gb_on / gb_off));
             CHECK(mono, "moves: the break's last bar does not open beat by beat");
         }
+        sg_set = 0;
     }
 
     /* intro bars: the drums lose more above 2 kHz than the keys */
@@ -5311,7 +5534,7 @@ static void test_wet(void)
             roll.v[RF_DUST] = roll.v[RF_NOISE] = roll.v[RF_AMBIENCE] = 0;
             vx_init();
             vx_configure(&roll);
-            for (b = 0; b < (int)(SB_N / 2205u); b++) {
+            for (b = 0; b < (int)(SBUF_N / 2205u); b++) {
                 float dl[2205];
                 memset(dl, 0, sizeof dl);
                 if (b == 0)
@@ -5339,7 +5562,7 @@ static void test_wet(void)
                     printf("wet: %d BPM echo 1 at %.2f ms (want %.2f), %.1f dB\n", tempos[k], (double)((float)at / 44.1f),
                            (double)(T / 44.1f), 20.0 * (double)fm_log2f(pk) * 0.30103);
             }
-            for (i = 3 * 44100; i < (int)SB_N; i++)
+            for (i = 3 * 44100; i < (int)SBUF_N; i++)
                 late = fm_maxf(late, fm_fabsf(sb_l[i]));
             printf("wet: %d BPM: echoes within %.2f ms of the dotted 8th, after 3 s %.1f dB\n", tempos[k],
                    (double)worst, late > 0.0f ? 20.0 * (double)fm_log2f(late) * 0.30103 : -999.0);
@@ -6455,7 +6678,7 @@ static int lv_quiet(const plan_block_t *b)
     return b->section == SEC_INTRO || b->section == SEC_OUTRO || b->section == SEC_BREAK || (b->flags & PB_FADE);
 }
 
-#define LIB_NSETS_MAX 32 /* test_lead_over_keys' arrays; it CHECKs LIB_NSETS fits */
+#define LIB_NSETS_MAX 40 /* test_lead_over_keys' arrays; it CHECKs LIB_NSETS fits */
 static int lk_cmp_f(const void *a, const void *b);
 static int lv_cmp(const void *a, const void *b)
 {
@@ -6612,6 +6835,8 @@ static void test_levels_steady(void)
 static double lk_db[2][LK_BARS];
 static uint8_t lk_on[LK_BARS];
 static int lk_skip_lane; /* a V_PAD lane (1-4) whose events lk_song drops (test_pad_level: 4, the solo note), 0 none */
+static int lk_keys = INS_NONE, lk_lead = INS_NONE; /* test_samp: the keys' and the lead's instrument in place of the
+                                                      set's (INS_NONE: the set's) */
 static int lk_song(const song_roll_t *roll, int role, double *db)
 {
     static song_t s;
@@ -6627,6 +6852,10 @@ static int lk_song(const song_roll_t *roll, int role, double *db)
     memset(lk_on, 0, sizeof lk_on);
     song_start(&s, roll);
     vx_song(&s.roll);
+    if (lk_keys != INS_NONE)
+        vx_assign(V_CHORD, lk_keys);
+    if (lk_lead != INS_NONE)
+        vx_assign(V_LEAD, lk_lead);
     while (s.state == SS_PLAYING) {
         const plan_block_t *last = &s.plan.b[s.plan.n ? s.plan.n - 1 : 0];
         int bar = s.bar, st = s.step, n, i;
@@ -6953,6 +7182,128 @@ static void test_keys_duck_mix(void)
     }
     vx_fx_off(0u);
     vx_bed_off(0);
+}
+
+/* The Knight and Emilyguitar sets (sampled instruments, Task 5; ids from 21). The pairing rule (Sam): the Knight is
+   the one acoustic piano, the keys or the lead, never both in one song (the Emilyguitar the same); a song's parts
+   are its set's (vx_configure), so the rule holds in the set table. The new sets: a Knight on the keys and on the
+   lead, an Emilyguitar on each, two moods, a pad layer, a synth kit (Task 8 adds a sampled one); each rolls (a
+   seed pins it) and renders (no NaN, sound in most bars). The level tests (test_lead_over_keys, test_pad_level)
+   sweep every set, so the new ones with them; the duck (2-4 dB) here with each new set's keys and lead. A sampled
+   lead plays as a struck lead (not lib_ins_sustained: the hybrid plan): it sings in 80% or more of the bars where
+   it may play (test_lead_by_class's struck branch). */
+static void test_sampled_sets(void)
+{
+    static song_t s;
+    static const int ch[4] = {57, 60, 64, 67};
+    int k, nnew = 0, kk = 0, kl = 0, ek = 0, el = 0;
+    for (k = 0; k < LIB_NSETS; k++) {
+        const lib_set_t *t = &LIB_SETS[k];
+        int samp = t->chords == INS_KNIGHT || t->chords == INS_EMILY || t->lead == INS_KNIGHT || t->lead == INS_EMILY;
+        CHECK(!((t->chords == INS_KNIGHT || t->chords == INS_EMILY) && t->chords == t->lead),
+              "sampled sets: %s plays its %d on the keys and the lead", t->name, t->chords);
+        CHECK(t->candy != INS_KNIGHT && t->candy != INS_EMILY, "sampled sets: %s's candy is sampled", t->name);
+        if (t->id < 21) {
+            CHECK(!samp, "sampled sets: old set %s plays the Knight or the Emilyguitar", t->name);
+            continue;
+        }
+        nnew++;
+        kk += t->chords == INS_KNIGHT;
+        kl += t->lead == INS_KNIGHT;
+        ek += t->chords == INS_EMILY;
+        el += t->lead == INS_EMILY;
+        CHECK(samp || t->lead == INS_STR_LEAD || t->lead == INS_CELLO,
+              "sampled sets: new set %s plays neither the Knight, the Emilyguitar nor a string synth lead", t->name);
+        CHECK(moods_n(t->moods) == 2, "sampled sets: %s has %d moods, wanted 2", t->name, moods_n(t->moods));
+        CHECK(t->pad == INS_STRINGS || t->pad == INS_WARM_PAD, "sampled sets: %s's pad %d", t->name, t->pad);
+        CHECK(t->lead != INS_NONE && t->chords != INS_UPRIGHT && t->bass != INS_UPRIGHT,
+              "sampled sets: %s's parts", t->name);
+    }
+    printf("sampled sets: %d new; the Knight on the keys %d, the lead %d; the Emilyguitar on the keys %d, the lead %d\n",
+           nnew, kk, kl, ek, el);
+    CHECK(nnew >= 8 && kk >= 2 && kl >= 3 && ek >= 2 && el >= 2,
+          "sampled sets: %d new (Knight keys %d lead %d, Emilyguitar keys %d lead %d)", nnew, kk, kl, ek, el);
+    for (k = 0; k < LIB_NSETS; k++) {
+        const lib_set_t *t = &LIB_SETS[k];
+        uint32_t seed;
+        int got = 0, rendered = 0;
+        long may_bars = 0, led_bars = 0;
+        if (t->id < 21)
+            continue;
+        for (seed = 1u; got < 4 && seed < 600u; seed++) {
+            song_roll_t r;
+            song_ev_t ev[64];
+            int cur = -1, may = 0, led = 0, i;
+            roll_song(NULL, seed, &r);
+            if (roll_set(&r, RF_SET, t->id) != t->id)
+                continue;
+            got++;
+            if (!rendered) { /* the whole song, every bus */
+                int n = lk_song(&r, -1, lk_db[0]), b, loud = 0, bad = 0;
+                for (b = 0; b < n; b++) {
+                    loud += lk_db[0][b] > -50.0;
+                    bad += !(lk_db[0][b] == lk_db[0][b]);
+                }
+                printf("sampled sets: %-24s seed %3u renders %d bars, %d over -50 dB\n", t->name, (unsigned)seed, n,
+                       loud);
+                CHECK(n >= 36 && !bad && loud * 10 >= n * 8, "sampled sets: %s seed %u: %d of %d bars sound, %d NaN",
+                      t->name, (unsigned)seed, loud, n, bad);
+                rendered = 1;
+            }
+            if (t->lead != INS_KNIGHT && t->lead != INS_EMILY)
+                continue;
+            song_start(&s, &r);
+            while (s.state == SS_PLAYING) {
+                int bar = s.bar, n;
+                const plan_block_t *b = plan_at(&s.plan, bar);
+                n = song_tick(&s, ev, 64);
+                if (bar != cur) {
+                    if (may) { may_bars++; led_bars += led; }
+                    cur = bar;
+                    led = 0;
+                    may = b && b->section != SEC_INTRO && b->section != SEC_OUTRO && (b->layers & L_KEYS) &&
+                          (b->layers & L_LEAD);
+                }
+                for (i = 0; i < n; i++)
+                    led |= ev[i].voice == V_LEAD;
+            }
+        }
+        CHECK(got == 4, "sampled sets: only %d seeds take %s", got, t->name);
+        if (t->lead == INS_KNIGHT || t->lead == INS_EMILY) {
+            printf("sampled sets: %-24s the struck lead sings in %ld of %ld bars where it may\n", t->name, led_bars,
+                   may_bars);
+            CHECK(!lib_ins_sustained(t->lead), "sampled sets: %s's lead plans as sustained", t->name);
+            CHECK(may_bars > 40 && led_bars * 100 >= may_bars * 80,
+                  "sampled sets: %s's struck lead sang in %ld of %ld bars", t->name, led_bars, may_bars);
+        }
+        {   /* the duck with this set's keys and lead (test_keys_duck's measure) */
+            int pass, i;
+            uint32_t tt;
+            float dip;
+            for (pass = 0; pass < 2; pass++) {
+                float *out = pass ? sb_x : sb_l;
+                vx_init();
+                vx_solo(V_CHORD);
+                vx_assign(V_CHORD, t->chords);
+                vx_assign(V_LEAD, t->lead);
+                for (i = 0; i < 4; i++)
+                    vt_ev(V_CHORD, ch[i], 90, 0, 4u * 44100u);
+                if (pass)
+                    vt_ev(V_LEAD, 76, 100, 44100u, 44100u);
+                for (tt = 0; tt < 4u * 44100u; tt += 256u) {
+                    memset(vt_l, 0, 256 * sizeof(float));
+                    memset(vt_r, 0, 256 * sizeof(float));
+                    vx_render(vt_l, vt_r, 256);
+                    memcpy(out + tt, vt_l, 256 * sizeof(float));
+                }
+            }
+            vx_solo(-1);
+            dip = db_of(lk_win(sb_x, 66150u, 88200u) / lk_win(sb_l, 66150u, 88200u));
+            printf("sampled sets: %-24s the keys duck %.1f dB under the lead\n", t->name, (double)-dip);
+            CHECK(dip <= -2.0f && dip >= -4.0f, "sampled sets: %s's keys duck %.1f dB, wanted 2-4", t->name,
+                  (double)-dip);
+        }
+    }
 }
 
 static int lk_cmp_f(const void *a, const void *b) { return lv_cmp(a, b); }
@@ -8362,6 +8713,1550 @@ static void test_pad_double(void)
     }
 }
 
+/* The strum engine (CS_STRUM, the guitars; Task 4): per strum (a step's chord events) at most 6 notes, each string's
+   onset 5-15 ms after the last (quick) or 30-80 ms (slow: the ballad, half the time); up strokes (high to low) only on
+   the odd 8ths; chucks (pad 1: the sampler's muted note) only in the chuck pattern; every note a chord tone in E2-E5,
+   none a semitone over another, over the root or over a bass note it sounds with (a major 7th only over the root);
+   the top note moves 5 semitones or less in 80% of chord changes; with the pad A/B switch on (VNL_PADS=double) the
+   chord part doubles the guitar's notes, as over held comping; one shape a chord through the song (its notes 6 at
+   most). Rendered, the chords' pool never steals a held note
+   (8 voices for a sampled instrument), and over 500 seeds a ballad is slow in 45-55% of songs, the rest never. */
+static long st_strums, st_ups, st_moves, st_small, st_chucks, st_pad_notes, st_bad[9], st_pad0, st_bad0;
+static int st_count0; /* st_play counts the default chord part (st_pad0, st_bad0) of a song played doubled too */
+static void st_play(const song_roll_t *r, int pat, int slow, int dbl)
+{
+    static song_t s;
+    song_ev_t ev[64];
+    const lib_prog_t *pr = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
+    int loop = pr && pr->n * pr->bars_per_chord ? pr->n * pr->bars_per_chord : 4;
+    double lo = (slow ? 30.0 : 5.0) * 44.1 - 1.0, hi = (slow ? 80.0 : 15.0) * 44.1 + 1.0;
+    int prev_top = 0, prev_pcs[5] = {0}, prev_np = 0, bar_top = 0, cur = -1, pcs[5] = {0}, np = 0;
+    int gn[64], ngn = 0, pn[16], npn = 0, i, j, nsig = 0;
+    uint32_t sig[32], csig = 0;
+    uint64_t used[32];                                   /* each chord's notes through the song (bit: note - 40) */
+    song_set_pads_double(dbl);
+    song_start(&s, r);
+    while (s.state == SS_PLAYING) {
+        int bar = s.bar, step = s.step, n = song_tick(&s, ev, 64), k = 0, nb = 0, bass[8], c[64], d[64], pad[64];
+        if (bar != cur) {
+            if (bar_top) {
+                if (prev_top && (np != prev_np || memcmp(pcs, prev_pcs, sizeof pcs))) {
+                    st_moves++;
+                    st_small += abs(bar_top - prev_top) <= 5;
+                }
+                prev_top = bar_top;
+                prev_np = np;
+                memcpy(prev_pcs, pcs, sizeof pcs);
+            }
+            for (i = 0; i < npn; i++) {
+                for (j = 0; j < ngn && gn[j] != pn[i]; j++) {}
+                if (dbl) { st_pad_notes++; st_bad[8] += j == ngn; }
+                else if (st_count0) { st_pad0++; st_bad0 += j == ngn; }
+            }
+            cur = bar;
+            bar_top = ngn = npn = 0;
+            memset(pcs, 0, sizeof pcs);
+            np = harmony_chord_at(&s.roll, bar, bar / loop + 1, 0, pcs);
+            for (i = 0, csig = (uint32_t)s.roll.v[RF_KEY] + 1u; i < np; i++) csig = csig * 31u + (uint32_t)pcs[i] + 1u;
+        }
+        for (i = 0; i < n; i++) {
+            if (ev[i].voice == V_CHORD) { c[k] = ev[i].note; d[k] = (int)ev[i].delay; pad[k++] = ev[i].pad; }
+            if (ev[i].voice == V_BASS && nb < 8) bass[nb++] = ev[i].note;
+            if (ev[i].voice == V_PAD && ev[i].pad >= 1 && ev[i].pad <= 3 && npn < 16) pn[npn++] = ev[i].note;
+        }
+        if (!k) continue;
+        st_strums++;
+        st_bad[0] += k > 6;
+        for (i = 1; i < k; i++)
+            st_bad[1] += (double)(d[i] - d[i - 1]) < lo || (double)(d[i] - d[i - 1]) > hi;
+        if (k >= 2 && c[0] > c[k - 1]) {
+            st_ups++;
+            st_bad[2] += (step & 3) != 2;
+        }
+        for (i = 0; i < k; i++) {
+            int in = 0;
+            st_chucks += pad[i] & 1;
+            st_bad[3] += (pad[i] & 1) && pat != SP_CHUCK;
+            for (j = 0; j < np; j++) in |= (c[i] - pcs[j] + 120) % 12 == 0;
+            st_bad[4] += !in;
+            st_bad[5] += c[i] < 40 || c[i] > 76;
+            st_bad[6] += (c[i] - pcs[0] + 120) % 12 == 1;
+            for (j = 0; j < k; j++) st_bad[6] += j != i && c[i] > c[j] && pads_rub(c[i], c[j]);
+            for (j = 0; j < nb; j++) {
+                int iv = (c[i] - bass[j] + 120) % 12;
+                st_bad[7] += iv == 1 || (iv == 11 && bass[j] % 12 != pcs[0]);
+            }
+            if (c[i] > bar_top) bar_top = c[i];
+            for (j = 0; j < nsig && sig[j] != csig; j++) {}
+            if (j == nsig && nsig < 32) { sig[nsig] = csig; used[nsig++] = 0; }
+            if (j < nsig && c[i] >= 40 && c[i] <= 76) used[j] |= (uint64_t)1 << (c[i] - 40);
+            if (ngn < 64) gn[ngn++] = c[i];
+        }
+    }
+    for (j = 0; j < nsig; j++) {                          /* one guitar shape a chord: 6 notes at most */
+        int m = 0;
+        for (i = 0; i < 37; i++) m += (int)((used[j] >> i) & 1u);
+        st_bad[0] += m > 6;
+    }
+    song_set_pads_double(0);
+}
+
+/* the first 24 bars rendered: the chords' pool's steals of a sounding voice, and the most voices sounding at once */
+static uint32_t st_render(const song_roll_t *r, int *peak)
+{
+    static song_t s;
+    song_ev_t ev[64];
+    float frac = 0.0f;
+    vx_init();
+    song_start(&s, r);
+    vx_song(&s.roll);
+    *peak = 0;
+    while (s.state == SS_PLAYING && s.bar < 24) {
+        int n = song_tick(&s, ev, 64), i;
+        float adv = song_step_samples(&s) + frac;
+        uint32_t left = (uint32_t)adv;
+        frac = adv - (float)left;
+        for (i = 0; i < n; i++) vx_event(&ev[i]);
+        while (left) {
+            uint32_t b = left < 256u ? left : 256u;
+            memset(vt_l, 0, b * sizeof(float));
+            memset(vt_r, 0, b * sizeof(float));
+            vx_render(vt_l, vt_r, b);
+            if (vx_active() > *peak) *peak = vx_active();
+            left -= b;
+        }
+    }
+    return vx_steals(V_CHORD);
+}
+
+/* a string re-strike on the engine: two six-string strokes 6 ms a string apart on the nylon, the second re-striking
+   every string at once at full level: no voice stolen (each old note damped on a spare voice), no step over 0.05 */
+static void st_restrike(void)
+{
+    float pv = 0.0f, d = 0.0f;
+    int k, j;
+    vx_fx_off(VX_OFF_CHORUS | VX_OFF_DELAY);
+    fx_glue_off(1);
+    vx_init();
+    vx_assign(V_CHORD, INS_NYLON);
+    for (k = 0; k < 2; k++)
+        for (j = 0; j < 6; j++) {
+            song_ev_t e;
+            memset(&e, 0, sizeof e);
+            e.voice = V_CHORD;
+            e.note = (uint8_t)(48 + 5 * j + k);
+            e.vel = 127;
+            e.pad = (uint8_t)((j + 1) << 1);
+            e.delay = (uint32_t)k * 8000u + (uint32_t)j * 265u;
+            e.len = 7000u;
+            vx_event(&e);
+        }
+    for (k = 0; k < 6; k++) {
+        float m = vt_maxdelta(4096, 0, &pv);
+        if (m > d) d = m;
+    }
+    printf("strum: re-strike of 6 strings: %u voices stolen, the largest step %.4f\n", (unsigned)vx_steals(V_CHORD),
+           (double)d);
+    CHECK(vx_steals(V_CHORD) == 0, "strum: a re-strike stole %u voices", (unsigned)vx_steals(V_CHORD));
+    CHECK(d <= 0.05f, "strum: a re-strike steps %.4f", (double)d);
+    vx_fx_off(0u);
+    fx_glue_off(0);
+}
+
+
+/* The strum's output is fixed (the final review: the voicer's search pruned and its shapes kept from the pads' look-
+   ahead, to cut its time in the audio interrupt): the shapes of every chord of 3-5 notes (voice-led one from the last,
+   or from none), and every event of the first 24 strummed songs, plain and with set changes requested (a guitar set,
+   then a synth set: the strum bars' events), hash as they did before (values from ae70aef). */
+static uint32_t sf_hash(uint32_t h, int v) { return (h ^ (uint32_t)v) * 16777619u; }
+static int sf_loop(const song_roll_t *r)
+{
+    const lib_prog_t *p = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
+    return p && p->n * p->bars_per_chord ? p->n * p->bars_per_chord : 4;
+}
+static uint32_t sf_voicer(void)
+{
+    uint32_t h = 2166136261u;
+    int root, prev[6] = {0, 0, 0, 0, 0, 0}, out[6], i;
+    unsigned m;
+    for (root = 0; root < 12; root++)
+        for (m = 0; m < 2048u; m++) {
+            int pcs[5], n = 1, b, bits = 0;
+            for (b = 0; b < 11; b++) bits += (int)(m >> b & 1u);
+            if (bits < 2 || bits > 4) continue;
+            pcs[0] = root;
+            for (b = 0; b < 11; b++)
+                if (m >> b & 1u) pcs[n++] = (root + 1 + b) % 12;
+            h = sf_hash(h, strum_voicing(pcs, n, (m & 3u) ? prev : NULL, out));
+            for (i = 0; i < 6; i++) h = sf_hash(h, prev[i] = out[i]);
+        }
+    return h;
+}
+static uint32_t sf_songs(int change)
+{
+    static song_t s;
+    song_ev_t ev[64];
+    uint32_t h = 2166136261u, seed;
+    int got = 0, i;
+    for (seed = 2; got < 24; seed++) {
+        song_roll_t r;
+        roll_song(NULL, seed, &r);
+        if (harmony_style(&r) != CS_STRUM) continue;
+        got++;
+        song_start(&s, &r);
+        while (s.state == SS_PLAYING) {
+            int n, st;
+            if (change && s.bar == 6 && s.step == 0) song_request(&s, RF_SET, r.v[RF_SET] == 9 ? 27 : 9);
+            if (change && s.bar == 14 && s.step == 0) song_request(&s, RF_SET, 1);
+            n = song_tick(&s, ev, 64);
+            st = harmony_style(&s.roll) == CS_STRUM;    /* (the roll this step played: a request lands in the tick) */
+            for (i = 0; i < n && st; i++) {
+                h = sf_hash(h, ev[i].voice); h = sf_hash(h, ev[i].note); h = sf_hash(h, ev[i].vel);
+                h = sf_hash(h, ev[i].pad); h = sf_hash(h, (int)ev[i].delay); h = sf_hash(h, (int)ev[i].len);
+            }
+        }
+    }
+    return h;
+}
+/* A strummed song keeps the keys' last voicing in step (the final review): after each bar's strum, voicing.last is
+   the bar's guitar shape's top 4 (what harmony_voicing_at gives), so a set change to keys voice-leads from the chord
+   just strummed, not from a stale one */
+static int sf_last_bad(void)
+{
+    static song_t s;
+    song_ev_t ev[64];
+    uint32_t seed;
+    int got = 0, bad = 0;
+    for (seed = 2; got < 12; seed++) {
+        song_roll_t r;
+        roll_song(NULL, seed, &r);
+        if (harmony_style(&r) != CS_STRUM) continue;
+        got++;
+        song_start(&s, &r);
+        while (s.state == SS_PLAYING) {
+            int bar = s.bar, step = s.step, top[4];
+            const plan_block_t *b = plan_at(&s.plan, bar);
+            harmony_voicing_t vs;
+            (void)song_tick(&s, ev, 64);
+            if (step != 15 || !b || !(b->layers & L_KEYS)) continue;
+            vs = s.voicing;
+            harmony_voicing_at(&s.roll, bar, bar / sf_loop(&s.roll) + 1, &vs, top);
+            bad += memcmp(top, s.voicing.last, sizeof top) != 0;
+        }
+    }
+    return bad;
+}
+
+static void test_strum_same(void)
+{
+    uint32_t v = sf_voicer(), a = sf_songs(0), b = sf_songs(1);
+    printf("strum same: voicer %08x, songs %08x, with set changes %08x\n", (unsigned)v, (unsigned)a, (unsigned)b);
+    CHECK(v == 0x7b61830du, "strum same: the voicer's shapes hash %08x, wanted 7b61830d", (unsigned)v);
+    CHECK(a == 0x22d11accu, "strum same: the strummed songs hash %08x, wanted 22d11acc", (unsigned)a);
+    CHECK(b == 0xf88fac2au, "strum same: with set changes %08x, wanted f88fac2a", (unsigned)b);
+    v = (uint32_t)sf_last_bad();
+    CHECK(v == 0, "strum same: %u strummed bars left the keys' last voicing behind", (unsigned)v);
+}
+/* a steal of a damped string (the final review): six strings struck, the first two re-struck at once (their last
+   notes damped on the 2 spare voices), then a plain chord note (no string: a stab after a set change) while they
+   fade: it steals a damped spare and must start once the fade ends (it was lost: the damp's end turned the voice
+   off, the queued note with it); 7 voices sound, the note's own among them */
+static void st_damp_steal(void)
+{
+    int j, n;
+    vx_init();
+    vx_assign(V_CHORD, INS_NYLON);
+    for (j = 0; j < 8; j++) {
+        song_ev_t e;
+        memset(&e, 0, sizeof e);
+        e.voice = V_CHORD;
+        e.vel = 100;
+        e.len = 40000u;
+        if (j < 6) { e.note = (uint8_t)(48 + 5 * j); e.pad = (uint8_t)((j + 1) << 1); e.delay = (uint32_t)j * 265u; }
+        else { e.note = (uint8_t)(49 + 5 * (j - 6)); e.pad = (uint8_t)((j - 5) << 1); e.delay = 8000u + (uint32_t)j - 6u; }
+        vx_event(&e);
+    }
+    {
+        song_ev_t e;
+        memset(&e, 0, sizeof e);
+        e.voice = V_CHORD;
+        e.note = 67;
+        e.vel = 100;
+        e.len = 40000u;
+        e.delay = 8010u;
+        vx_event(&e);
+    }
+    for (j = 0; j < 4; j++) vx_render(vt_l, vt_r, 4096);
+    n = vx_active();
+    printf("strum: a damped string stolen: %d voices sound (want 7)\n", n);
+    CHECK(n == 7, "strum: a note stealing a damped string was lost (%d voices sound, want 7)", n);
+}
+
+
+/* Strumming only under a sustained lead (Sam): no guitar set with a struck lead strums (500 seeds each), the guitar
+   sets with a sustained lead still do. And a strum song's lead has the register room a held song's has (Sam: strum
+   songs squeezed the lead high; seed 6 on set 2 played only A5 and B5): over the guitar sets' songs of each kind
+   (strum, against held or half notes), the strum songs' lead spans 7 semitones or more in 90% of songs (held: 96%),
+   none has fewer than 3 pitches (held: 3 at least), and their median lowest note is at most 1 over the held songs'
+   (held: 72, C5). */
+static int sl_cmp_i(const void *a, const void *b) { return *(const int *)a - *(const int *)b; }
+static void test_strum_lead(void)
+{
+    static song_t s;
+    static int lows[2][400];
+    int k, n[2] = {0, 0}, wide = 0, few = 0, under = 0, struck = 0;
+    for (k = 0; k < LIB_NSETS; k++) {
+        const lib_set_t *set = &LIB_SETS[k];
+        uint32_t seed;
+        int strums = 0;
+        if (set->chords != INS_NYLON && set->chords != INS_EMILY) continue;
+        for (seed = 1; seed <= 500; seed++) {
+            song_roll_t r;
+            int st, kind, lo = 127, hi = 0, pitches = 0;
+            uint64_t mask = 0;
+            song_ev_t ev[64];
+            roll_song(NULL, seed, &r);
+            if (roll_set(&r, RF_SET, set->id) != set->id) continue;
+            st = harmony_style(&r);
+            strums += st == CS_STRUM;
+            if (!lib_ins_sustained(set->lead)) {         /* (held songs' register: the sustained leads' only) */
+                struck += st == CS_STRUM;
+                if (st != CS_STRUM) continue;
+            }
+            kind = st == CS_STRUM;
+            if ((!kind && st != CS_HELD && st != CS_HALF) || n[kind] >= 400 || seed > 300) continue;
+            song_start(&s, &r);
+            while (s.state == SS_PLAYING) {
+                int m = song_tick(&s, ev, 64), i;
+                for (i = 0; i < m; i++)
+                    if (ev[i].voice == V_LEAD) {
+                        int x = ev[i].note;
+                        if (x < lo) lo = x;
+                        if (x > hi) hi = x;
+                        if (x >= 40 && x < 104) mask |= (uint64_t)1 << (x - 40);
+                    }
+            }
+            if (!hi) continue;
+            for (; mask; mask &= mask - 1) pitches++;
+            lows[kind][n[kind]++] = lo;
+            if (kind) {
+                under++;
+                wide += hi - lo >= 7;
+                few += pitches < 3;
+            }
+        }
+        printf("strum lead: set %d (%s, lead %s): %d strum songs in 500\n", set->id, set->name,
+               lib_ins_sustained(set->lead) ? "sustained" : "struck", strums);
+        CHECK(lib_ins_sustained(set->lead) ? strums > 50 : strums == 0, "strum lead: set %d strums in %d of 500",
+              set->id, strums);
+    }
+    CHECK(struck == 0, "strum lead: %d strum songs under a struck lead", struck);
+    qsort(lows[0], (size_t)n[0], sizeof lows[0][0], sl_cmp_i);
+    qsort(lows[1], (size_t)n[1], sizeof lows[1][0], sl_cmp_i);
+    printf("strum lead: %d strum songs (span >= 7 in %d, under 3 pitches %d), lowest note median %d; %d held or half "
+           "songs, median %d\n", under, wide, few, n[1] ? lows[1][n[1] / 2] : 0, n[0], n[0] ? lows[0][n[0] / 2] : 0);
+    CHECK(under > 50 && n[0] > 50, "strum lead: %d strum and %d held songs", under, n[0]);
+    CHECK(wide * 10 >= under * 9, "strum lead: the lead spans 7 or more in only %d of %d strum songs", wide, under);
+    CHECK(few == 0, "strum lead: %d strum songs with a lead of under 3 pitches", few);
+    CHECK(n[0] && n[1] && lows[1][n[1] / 2] <= lows[0][n[0] / 2] + 1,
+          "strum lead: the strum songs' lowest lead note's median %d, the held songs' %d", n[1] ? lows[1][n[1] / 2] : 0,
+          n[0] ? lows[0][n[0] / 2] : 0);
+}
+
+static void test_strum(void)
+{
+    static const int SETS[2] = {9, 27};   /* the guitar sets with a sustained lead: the only ones that strum */
+    long pcnt[SP_N] = {0}, ballads = 0, slow_ballads = 0, bad_slow = 0, st_steals = 0;
+    int got[SP_N + 1] = {0}, seed, k, dbl_songs = 0, st_peak = 0;
+    for (seed = 1; seed <= 500; seed++) {
+        song_roll_t r;
+        int slow, p;
+        roll_song(NULL, (uint32_t)seed, &r);
+        p = strum_pattern(&r, &slow);
+        CHECK(p >= 0 && p < SP_N, "strum: seed %d pattern %d", seed, p);
+        if (p < 0 || p >= SP_N) continue;
+        pcnt[p]++;
+        if (p == SP_BALLAD) { ballads++; slow_ballads += slow; }
+        else bad_slow += slow;
+    }
+    printf("strum: patterns over 500 seeds ddu %ld chuck %ld bossa %ld ballad %ld (%ld slow)\n", pcnt[0], pcnt[1],
+           pcnt[2], pcnt[3], slow_ballads);
+    for (k = 0; k < SP_N; k++) CHECK(pcnt[k] >= 75 && pcnt[k] <= 175, "strum: pattern %d in %ld of 500", k, pcnt[k]);
+    CHECK(ballads && slow_ballads * 100 >= ballads * 45 && slow_ballads * 100 <= ballads * 55,
+          "strum: %ld of %ld ballads slow, wanted 45-55%%", slow_ballads, ballads);
+    CHECK(bad_slow == 0, "strum: %ld songs of another pattern slow", bad_slow);
+    st_restrike();
+    st_damp_steal();
+    memset(st_bad, 0, sizeof st_bad);
+    st_strums = st_ups = st_moves = st_small = st_chucks = st_pad_notes = st_pad0 = st_bad0 = 0;
+    for (seed = 1; seed < 4000; seed++) {          /* three songs of each pattern (the ballad quick and slow) */
+        song_roll_t r;
+        int slow, p, kind, set = SETS[seed % 2];
+        roll_song(NULL, (uint32_t)seed, &r);
+        if (roll_set(&r, RF_SET, set) != set || harmony_style(&r) != CS_STRUM) continue;
+        p = strum_pattern(&r, &slow);
+        kind = p == SP_BALLAD && slow ? SP_N : p;
+        if (got[kind] >= 3) continue;
+        got[kind]++;
+        st_count0 = set == 9 && dbl_songs < 4;
+        st_play(&r, p, slow, 0);
+        if (st_count0) { st_play(&r, p, slow, 1); dbl_songs++; }
+        {   /* every song rendered: a stroke re-strikes its strings, never steals another string's ringing voice */
+            int peak;
+            uint32_t st = st_render(&r, &peak);
+            st_steals += st;
+            if (peak > st_peak) st_peak = peak;
+            if (st) printf("strum: seed %d pattern %d%s: %u sounding chord voices stolen\n", seed, p,
+                           slow ? " (slow)" : "", (unsigned)st);
+        }
+    }
+    for (k = 0; k <= SP_N; k++) CHECK(got[k] == 3, "strum: only %d songs of kind %d", got[k], k);
+    printf("strum: 15 renders (24 bars each): %ld sounding chord voices stolen, %d voices (all roles) at most\n",
+           st_steals, st_peak);
+    CHECK(st_steals == 0, "strum: %ld sounding chord voices stolen (a stroke must re-strike its strings' voices)",
+          st_steals);
+    printf("strum: %ld strums (%ld up, %ld chuck notes); top note within 5 semitones in %ld of %ld chord changes; "
+           "pads double: %ld chord-part notes, %ld not the guitar's (default: %ld of %ld)\n", st_strums, st_ups,
+           st_chucks, st_small, st_moves, st_pad_notes, st_bad[8], st_bad0, st_pad0);
+    CHECK(st_strums > 1000 && st_ups > 100 && st_chucks > 100, "strum: %ld strums, %ld up, %ld chuck notes", st_strums,
+          st_ups, st_chucks);
+    CHECK(st_bad[0] == 0, "strum: %ld strums of more than 6 notes (or chords of more than one shape)", st_bad[0]);
+    CHECK(st_bad[1] == 0, "strum: %ld string onsets outside the spread's window", st_bad[1]);
+    CHECK(st_bad[2] == 0, "strum: %ld up strokes off the odd 8ths", st_bad[2]);
+    CHECK(st_bad[3] == 0, "strum: %ld chuck notes outside the chuck pattern", st_bad[3]);
+    CHECK(st_bad[4] == 0, "strum: %ld notes not chord tones", st_bad[4]);
+    CHECK(st_bad[5] == 0, "strum: %ld notes outside E2-E5", st_bad[5]);
+    CHECK(st_bad[6] == 0, "strum: %ld semitone rubs inside a strum (or over the root)", st_bad[6]);
+    CHECK(st_bad[7] == 0, "strum: %ld semitone rubs over the bass", st_bad[7]);
+    CHECK(st_moves > 50 && st_small * 100 >= st_moves * 80, "strum: the top moves 5 or less in %ld of %ld changes",
+          st_small, st_moves);
+    CHECK(dbl_songs == 4 && st_pad_notes > 50 && st_bad[8] == 0,
+          "strum: pads double: %ld of %ld chord-part notes not the guitar's (%d songs)", st_bad[8], st_pad_notes,
+          dbl_songs);
+    CHECK(st_bad0 > 0, "strum: the default chord part already doubles the guitar (%ld notes)", st_pad0);
+}
+
+
+/* Loop seams (the spec: no loops that pulse; the final review): every looped zone of every sampled instrument, decoded
+   through its attack and three passes of its loop. The loop repeats exactly (the decoder restores its state at each
+   wrap); the step across each wrap (the loop's last sample to its first) is no larger than the loop's own largest step
+   and at most 2.5 times its RMS step (measured: 0.07-2.03); the loop's last 10 ms and its first 10 ms within 2.5 dB
+   (measured: within 1.98) */
+static int sm_x[1 << 20];
+static void test_samp_seams(void)
+{
+    int b, z, bad = 0;
+    float worst = 0.0f, wdb = 0.0f;
+    for (b = 0; b < SB_N; b++) {
+        const smp_bank_t *bk = smp_bank(b);
+        for (z = 0; bk && z < bk->n; z++) {
+            const smp_zone_t *zn = &bk->z[z];
+            uint32_t ls = zn->loop_start, L = zn->loop_len, n = ls + 3u * L, i, w = zn->rate / 100u;
+            double sq = 0.0, mx = 0.0, a = 0.0, c = 0.0, seam[2], ratio, db;
+            smp_dec_t d;
+            if (!L) continue;
+            CHECK(n <= (uint32_t)(sizeof sm_x / sizeof sm_x[0]), "seams: bank %d zone %d too long (%u)", b, z,
+                  (unsigned)n);
+            if (n > (uint32_t)(sizeof sm_x / sizeof sm_x[0])) continue;
+            smp_dec_init(&d, zn);
+            for (i = 0; i < n; i++) sm_x[i] = smp_dec_next(&d);
+            for (i = 0; i < L; i++) bad += sm_x[ls + i] != sm_x[ls + L + i] || sm_x[ls + i] != sm_x[ls + 2u * L + i];
+            for (i = ls + 1u; i < ls + L; i++) {
+                double st = (double)abs(sm_x[i] - sm_x[i - 1]);
+                sq += st * st;
+                if (st > mx) mx = st;
+            }
+            seam[0] = (double)abs(sm_x[ls + L] - sm_x[ls + L - 1u]);
+            seam[1] = (double)abs(sm_x[ls + 2u * L] - sm_x[ls + 2u * L - 1u]);
+            for (i = 0; i < w; i++) {
+                a += (double)sm_x[ls + L - 1u - i] * (double)sm_x[ls + L - 1u - i];
+                c += (double)sm_x[ls + i] * (double)sm_x[ls + i];
+            }
+            ratio = seam[0] / (sq > 0.0 ? (double)fm_sqrtf((float)(sq / (double)(L - 1u))) : 1.0);
+            db = 10.0 * 0.30103 * (double)fm_log2f((float)((a + 1.0) / (c + 1.0)));
+            if ((float)ratio > worst) worst = (float)ratio;
+            if (fm_fabsf((float)db) > wdb) wdb = fm_fabsf((float)db);
+            CHECK(seam[0] <= mx && seam[1] <= mx && ratio <= 2.5,
+                  "seams: bank %d zone %d (root %d): the wrap steps %.0f (%.2f x the RMS step; the loop's largest %.0f)",
+                  b, z, zn->root, seam[0], ratio, mx);
+            CHECK(db >= -2.5 && db <= 2.5, "seams: bank %d zone %d (root %d): the loop's end %+.2f dB from its start",
+                  b, z, zn->root, db);
+        }
+    }
+    printf("seams: the worst wrap %.2f x the RMS step, the worst level step %.2f dB\n", (double)worst, (double)wdb);
+    CHECK(bad == 0, "seams: %d loop samples not repeated exactly", bad);
+}
+/* The packed sample tables (samples_data.c, from tools/samples/pack.py): every bank's zones and every drum hit are
+   well formed, the byte count adds up, and the whole set fits its flash share. */
+static void check_zone(const smp_zone_t *z, const char *what, int id, int k)
+{
+    CHECK(z->data != NULL && z->len > 0, "%s %d zone %d: empty", what, id, k);
+    CHECK(z->loop_start + z->loop_len <= z->len, "%s %d zone %d: loop %u+%u past %u", what, id, k,
+          (unsigned)z->loop_start, (unsigned)z->loop_len, (unsigned)z->len);
+    CHECK(z->rate == 16000 || z->rate == 22050 || z->rate == 32000, "%s %d zone %d: rate %u", what, id, k,
+          (unsigned)z->rate);
+    CHECK(z->gain > 0.0f, "%s %d zone %d: gain %g", what, id, k, (double)z->gain);
+    CHECK(z->idx0 <= 88, "%s %d zone %d: idx0 %d", what, id, k, z->idx0);
+}
+
+static void test_samples_table(void)
+{
+    uint32_t sum = 0;
+    int id, k;
+
+    for (id = 0; id < SB_N; id++) {
+        const smp_bank_t *b = smp_bank(id);
+        CHECK(b != NULL && b->n > 0, "bank %d missing", id);
+        if (!b)
+            continue;
+        for (k = 0; k < b->n; k++) {
+            check_zone(&b->z[k], "bank", id, k);
+            CHECK(k == 0 || b->z[k].root > b->z[k - 1].root, "bank %d zone %d: root %d after %d", id, k,
+                  b->z[k].root, k ? b->z[k - 1].root : 0);
+            sum += (b->z[k].len + 1) / 2;
+        }
+    }
+    for (id = 0; id < SH_N; id++) {
+        const smp_zone_t *h = smp_hit(id);
+        CHECK(h != NULL, "hit %d missing", id);
+        if (!h)
+            continue;
+        check_zone(h, "hit", id, 0);
+        sum += (h->len + 1) / 2;
+    }
+    CHECK(smp_bank(-1) == NULL && smp_bank(SB_N) == NULL, "bank out of range not NULL");
+    CHECK(smp_hit(-1) == NULL && smp_hit(SH_N) == NULL, "hit out of range not NULL");
+    CHECK(sum == smp_bytes(), "zone bytes %u, smp_bytes %u", (unsigned)sum, (unsigned)smp_bytes());
+    CHECK(smp_bytes() <= 200 * 1024, "samples %u B over 200 KB", (unsigned)smp_bytes());
+}
+
+/* ------------------------------------------------------------------------------ the sampler voice (M_SAMP) --- */
+static const int SP_INS[SB_N] = {INS_KNIGHT, INS_NYLON, INS_EMILY}; /* each bank's patch */
+#define SP_LEN (4u * 44100u)
+static float sp_a[SP_LEN], sp_b[SP_LEN];
+
+/* n samples of a standalone voice (dv 1 or 2) on patch p into x; 0 if any was NaN or inf, or the decoder read past its
+   zone's end */
+static int sp_run(smp_voice_t *v, float *x, uint32_t n)
+{
+    uint32_t i;
+    int ok = 1;
+    for (i = 0; i < n; i++) {
+        float y = samp_sample(v);
+        const smp_zone_t *z = v->d.z;
+        if (y != y || fm_fabsf(y) > 1e30f)
+            ok = 0;
+        if (z && v->d.ni > (z->loop_len ? z->loop_start + z->loop_len : z->len))
+            ok = 0;
+        x[i] = y;
+    }
+    return ok;
+}
+
+/* the pitch of x[from .. from+w) against p0 samples a period, in cents (positive: sharp): the normalized
+   autocorrelation's peak near a lag of m periods (m * p0 about 1000 samples or more), parabolically interpolated */
+static float sp_cents(const float *x, uint32_t from, uint32_t w, float p0)
+{
+    int m = (int)(1000.0f / p0) + 1, lo = (int)((float)m * p0 * 0.99f), hi = (int)((float)m * p0 * 1.01f) + 1;
+    int lag, best = lo;
+    float r[600], a, b, c, d, l;
+    if (hi - lo >= 600)
+        hi = lo + 599;
+    for (lag = lo; lag <= hi; lag++) {
+        double s = 0.0, e0 = 0.0, e1 = 0.0;
+        uint32_t i;
+        for (i = from; i < from + w; i++) {
+            s += (double)x[i] * (double)x[i + (uint32_t)lag];
+            e0 += (double)x[i] * (double)x[i];
+            e1 += (double)x[i + (uint32_t)lag] * (double)x[i + (uint32_t)lag];
+        }
+        r[lag - lo] = e0 > 0.0 && e1 > 0.0 ? (float)s * fm_rsqrtf((float)e0) * fm_rsqrtf((float)e1) : 0.0f;
+        if (r[lag - lo] > r[best - lo])
+            best = lag;
+    }
+    l = (float)best;
+    if (best > lo && best < hi) {
+        a = r[best - lo - 1];
+        b = r[best - lo];
+        c = r[best - lo + 1];
+        d = a - 2.0f * b + c;
+        l += d != 0.0f ? 0.5f * (a - c) / d : 0.0f;
+    }
+    return 1200.0f * fm_log2f((float)m * p0 / l);
+}
+
+static float sp_rms(const float *x, uint32_t n)
+{
+    double e = 0.0;
+    uint32_t i;
+    for (i = 0; i < n; i++)
+        e += (double)x[i] * (double)x[i];
+    return n ? fm_sqrtf((float)(e / n)) : 0.0f;
+}
+
+/* a role's mean level (dB) over the bars it sounds in, the song's keys or lead replaced (lk_song) */
+static float sp_lk_mean(const song_roll_t *r, int role, int keys, int lead)
+{
+    int b, n, c = 0;
+    double sum = 0.0;
+    lk_keys = keys;
+    lk_lead = lead;
+    n = lk_song(r, role, lk_db[0]);
+    lk_keys = lk_lead = INS_NONE;
+    for (b = 0; b < n; b++)
+        if (lk_db[0][b] > -60.0) {
+            sum += lk_db[0][b];
+            c++;
+        }
+    return c ? (float)(sum / c) : -200.0f;
+}
+
+/* The sampler (M_SAMP; plan Task 2, Review Focus 1-3 and 5): the data decodes (each zone and hit: a real level, never
+   at the clamp; hits one-shot); notes at the zones' centers and boundaries render within 3 cents, at the full rate and
+   at half; notes past the range play the end zones, never reading past them; a held note's loop has no click; a
+   release fades smoothly to -60 dB; a stolen voice fades in under 6 ms, no click; velocity 1 and 127 stay finite and
+   denormal-free; a seed renders the same alone and after a song on the Knight. */
+static void test_samp(void)
+{
+    static const int NOTES[7] = {40, 52, 59, 64, 71, 76, 83};
+    smp_voice_t v, w;
+    int bk, k, bad = 0;
+    float worst = 0.0f;
+
+    /* the data: decoded RMS (as -1..1) at least 0.01, no sample at the clamp, hits one-shot */
+    for (bk = 0; bk < SB_N + SH_N; bk++) {
+        const smp_bank_t *b = bk < SB_N ? smp_bank(bk) : NULL;
+        int nz = b ? b->n : 1;
+        for (k = 0; k < nz; k++) {
+            const smp_zone_t *z = b ? &b->z[k] : smp_hit(bk - SB_N);
+            smp_dec_t d;
+            double e = 0.0;
+            uint32_t i, clip = 0;
+            smp_dec_init(&d, z);
+            for (i = 0; i < z->len; i++) {
+                int y = smp_dec_next(&d);
+                e += (double)y * (double)y;
+                clip += y >= 32767 || y <= -32768;
+            }
+            e = e / z->len / (32768.0 * 32768.0);
+            CHECK(e >= 1e-4 && clip == 0, "samples: %s %d zone %d decodes to RMS %.4f, %u at the clamp",
+                  b ? "bank" : "hit", b ? bk : bk - SB_N, k, (double)fm_sqrtf((float)e), (unsigned)clip);
+            if (!b)
+                CHECK(z->loop_len == 0, "samples: hit %d loops", bk - SB_N);
+        }
+    }
+
+    for (bk = 0; bk < SB_N; bk++) {
+        const vx_patch_t *p = vx_patch(SP_INS[bk]);
+        const smp_bank_t *b = smp_bank(bk);
+        int dv;
+        CHECK(p && p->model == M_SAMP && (int)p->p[0] == bk, "samp: ins %d isn't bank %d's sampler patch", SP_INS[bk],
+              bk);
+        if (!p || p->model != M_SAMP)
+            continue;
+        /* pitch: 200 ms after the attack (from 20 ms into the loop: a plucked string's attack runs sharp, the nylon's
+           up to 16 cents on one zone), full rate and half */
+        for (dv = 1; dv <= 2; dv++)
+            for (k = 0; k < 7; k++) {
+                float sr = 44100.0f / (float)dv, hz = 440.0f * fm_exp2f(((float)NOTES[k] - 69.0f) / 12.0f), c;
+                uint32_t at;
+                v.dv = (float)dv;
+                samp_start(&v, p, (float)NOTES[k], 0.8f);
+                at = (uint32_t)((float)v.d.z->loop_start / v.step + 0.02f * sr);
+                bad |= !sp_run(&v, sp_a, at + (uint32_t)(0.25f * sr) + 2000u);
+                c = sp_cents(sp_a, at, (uint32_t)(0.2f * sr), sr / hz);
+                worst = fm_maxf(worst, fm_fabsf(c));
+                CHECK(fm_fabsf(c) <= 3.0f, "samp: bank %d note %d (dv %d) %+.2f cents off", bk, NOTES[k], dv,
+                      (double)c);
+            }
+        /* out of range: the end zones, the decoder in bounds, finite; the low note in tune */
+        {
+            float hz = 440.0f * fm_exp2f((20.0f - 69.0f) / 12.0f), c;
+            v.dv = 1.0f;
+            samp_start(&v, p, 20.0f, 0.8f);
+            CHECK(v.d.z == &b->z[0], "samp: bank %d note 20 not on its lowest zone", bk);
+            CHECK(sp_run(&v, sp_a, SP_LEN), "samp: bank %d note 20 read past its zone or went NaN", bk);
+            c = sp_cents(sp_a, (uint32_t)((float)v.d.z->loop_start / v.step) + 882u, 22050u, 44100.0f / hz);
+            CHECK(fm_fabsf(c) <= 3.0f, "samp: bank %d note 20 %+.2f cents off", bk, (double)c);
+            v.dv = 1.0f;
+            samp_start(&v, p, 110.0f, 0.8f);
+            CHECK(v.d.z == &b->z[b->n - 1], "samp: bank %d note 110 not on its highest zone", bk);
+            CHECK(sp_run(&v, sp_a, SP_LEN), "samp: bank %d note 110 read past its zone or went NaN", bk);
+        }
+        /* release: twins, one released at 0.5 s: the ratio of their 64-sample RMS falls monotonically, at most 6 dB a
+           block, under -60 dB; the released one ends (0, off) */
+        {
+            float prev = 0.0f, r = 1.0f, step = 0.0f;
+            uint32_t at = 22050u, blk, nb = (uint32_t)((p->rel + 0.2f) * 44100.0f) / 64u;
+            int mono = 1;
+            v.dv = w.dv = 1.0f;
+            samp_start(&v, p, 60.0f, 0.8f);
+            samp_start(&w, p, 60.0f, 0.8f);
+            sp_run(&v, sp_a, at);
+            sp_run(&w, sp_b, at);
+            samp_release(&v);
+            for (blk = 0; blk < nb && r > 1e-3f; blk++) {
+                float ra, rb, dbs;
+                sp_run(&v, sp_a, 64u);
+                sp_run(&w, sp_b, 64u);
+                ra = sp_rms(sp_a, 64u);
+                rb = sp_rms(sp_b, 64u);
+                r = rb > 0.0f ? ra / rb : 0.0f;
+                if (blk && r > prev * 1.0001f)
+                    mono = 0;
+                if (blk && r > 0.0f) {
+                    dbs = 20.0f * 0.30103f * fm_log2f(prev / r);
+                    step = fm_maxf(step, dbs);
+                }
+                prev = r;
+            }
+            sp_run(&v, sp_a, 44100u);
+            printf("samp: bank %d release: %u blocks to %.1f dB, steepest %.2f dB a block, %s\n", bk, (unsigned)blk,
+                   r > 0.0f ? (double)(20.0f * 0.30103f * fm_log2f(r)) : -999.0, (double)step,
+                   mono ? "monotonic" : "NOT monotonic");
+            CHECK(mono && r <= 1e-3f && step <= 6.0f, "samp: bank %d release: monotonic %d, %.4f at the end, steepest "
+                  "%.2f dB a block", bk, mono, (double)r, (double)step);
+            CHECK(!v.on && sp_a[44099] == 0.0f, "samp: bank %d released voice still on", bk);
+        }
+        /* the loop: a held note in the mix, 3 s, no step over 0.05 after the attack */
+        for (k = 0; k < 2; k++) {
+            float pv = 0.0f, d = 0.0f;
+            int j;
+            vx_init();
+            vx_assign(V_CHORD, SP_INS[bk]);
+            vt_ev(V_CHORD, k ? 71 : 52, 100, 0, 200000);
+            vt_maxdelta(4096, 4096, &pv);
+            for (j = 0; j < 32; j++)
+                d = fm_maxf(d, vt_maxdelta(4096, 0, &pv));
+            printf("samp: bank %d note %d held 3 s: max step %.4f\n", bk, k ? 71 : 52, (double)d);
+            CHECK(d <= 0.05f, "samp: bank %d note %d held: a step of %.4f (a loop click?)", bk, k ? 71 : 52, (double)d);
+        }
+        /* velocity 1 and 127 */
+        for (k = 0; k < 2; k++) {
+            int j;
+            vx_init();
+            vx_assign(V_CHORD, SP_INS[bk]);
+            for (j = 0; j < 4; j++)
+                vt_ev(V_CHORD, 36 + 14 * j, k ? 127 : 1, 0, 30000);
+            for (j = 0; j < 30; j++) {
+                vt_block(4096, &bad);
+                if (j == 5 || j == 29)
+                    CHECK(vx_tiny() == 0, "samp: bank %d velocity %d: denormal-bound state", bk, k ? 127 : 1);
+            }
+        }
+    }
+    printf("samp: worst pitch %.2f cents\n", (double)worst);
+    CHECK(!bad, "samp: NaN or inf");
+
+    /* a steal: eight held Knight notes (a sampled instrument has the chords' 8 voices), a ninth (velocity 1) takes
+       the oldest. The victim's part is the difference of
+       two renders that differ only in its velocity (127, 63; the chorus, the delay and the glue off: no delayed
+       copies, linear). In the 6-16 ms after the steal it is 40 dB under the 10 ms before (measured about -42; the
+       plate's ring of it stays); no step over 0.05 */
+    {
+        static float s1[6 * 4096], s2[6 * 4096];
+        float pre, post, late, pv = 0.0f, d;
+        int pass, j;
+        vx_fx_off(VX_OFF_CHORUS | VX_OFF_DELAY);
+        fx_glue_off(1);
+        for (pass = 0; pass < 2; pass++) {
+            float *o = pass ? s2 : s1;
+            vx_init();
+            vx_assign(V_CHORD, INS_KNIGHT);
+            vt_ev(V_CHORD, 48, pass ? 63 : 127, 0, 400000);
+            for (j = 1; j < 8; j++)
+                vt_ev(V_CHORD, 48 + 3 * j, 100, 0, 400000);
+            for (j = 0; j < 6; j++) {
+                if (j == 2)
+                    vt_ev(V_CHORD, 74, 1, 0, 400000);
+                d = vt_maxdelta(4096, 0, &pv);
+                if (j == 2 && !pass)
+                    CHECK(d <= 0.05f, "samp: the steal steps %.4f", (double)d);
+                memcpy(o + 4096 * j, vt_l, 4096 * sizeof(float));
+            }
+        }
+        for (j = 0; j < 6 * 4096; j++)
+            s1[j] -= s2[j];
+        pre = sp_rms(s1 + 8192 - 441, 441);
+        post = sp_rms(s1 + 8192 + 265, 441);
+        late = sp_rms(s1 + 8192 + 5000, 441);
+        printf("samp: steal: the victim %.2e before, %.2e 6-16 ms after (%.1f dB), %.2e 120 ms after (the plate)\n",
+               (double)pre, (double)post, (double)(20.0f * 0.30103f * fm_log2f(post / pre)), (double)late);
+        CHECK(post <= 0.01f * pre, "samp: a stolen voice still at %.1f dB 6 ms after the steal",
+              (double)(20.0f * 0.30103f * fm_log2f(post / pre)));
+        vx_fx_off(0u);
+        fx_glue_off(0);
+    }
+
+    /* levels: in four Rhodes dusty songs, each sampled instrument on the keys within 1.5 dB of the Rhodes and the
+       nylon on the lead within 1.5 of the flute (bars' mean energy; the nylon sits about 0.6 dB under, its sets' lead
+       over keys); the Knight and the Emilyguitar on the lead 2.5-6 dB under the flute */
+    {
+        uint32_t seed;
+        int got = 0;
+        double dk[SB_N] = {0}, dl[SB_N] = {0};
+        for (seed = 1u; got < 4 && seed < 600u; seed++) {
+            song_roll_t r;
+            float ref, refl;
+            roll_song(NULL, seed, &r);
+            if (roll_set(&r, RF_SET, 1) != 1)
+                continue;
+            got++;
+            ref = sp_lk_mean(&r, V_CHORD, INS_NONE, INS_NONE);
+            refl = sp_lk_mean(&r, V_LEAD, INS_NONE, INS_NONE);
+            for (k = 0; k < SB_N; k++) {
+                dk[k] += (double)(sp_lk_mean(&r, V_CHORD, SP_INS[k], INS_NONE) - ref);
+                dl[k] += (double)(sp_lk_mean(&r, V_LEAD, INS_NONE, SP_INS[k]) - refl);
+            }
+        }
+        for (k = 0; k < SB_N; k++) {
+            dk[k] /= got;
+            dl[k] /= got;
+            printf("samp: ins %d on the keys %+.2f dB from the Rhodes, on the lead %+.2f dB from the flute\n",
+                   SP_INS[k], dk[k], dl[k]);
+            /* the Knight and the Emilyguitar lead about 4 dB under the flute's bar energy (SAMP_LEAD: their sets'
+               lead over keys, test_lead_over_keys, sets them; a struck lead reads over its keys at less energy) */
+            CHECK(dk[k] >= -1.5 && dk[k] <= 1.5 &&
+                      (SP_INS[k] == INS_NYLON ? dl[k] >= -1.5 && dl[k] <= 1.5 : dl[k] >= -6.0 && dl[k] <= -2.5),
+                  "samp: ins %d's level: keys %+.2f dB from the Rhodes, lead %+.2f from the flute", SP_INS[k], dk[k],
+                  dl[k]);
+        }
+    }
+
+    /* carryover: seed 2 (Bossa nylon) the same alone and after a song with the Knight on the keys */
+    {
+        song_roll_t ra, rb;
+        uint32_t j;
+        float tail, d0 = 0.0f, d1 = 0.0f;
+        roll_song(NULL, 24u, &ra);
+        roll_song(NULL, 2u, &rb);
+        (void)roll_set(&rb, RF_SET, 2);
+        vx_init();
+        vx_song(&rb);
+        cv_play(&rb, CV_SECS, cv_ref_l, cv_ref_r);
+        tail = cv_song_a(&ra, INS_KNIGHT, 1u);
+        cv_song_a(&ra, INS_KNIGHT, 0u);
+        cv_begin(&rb);
+        cv_play(&rb, CV_SECS, cv_l, cv_r);
+        for (j = 0; j < CV_SECS * 44100u; j++) {
+            float d = fm_maxf(fm_fabsf(cv_l[j] - cv_ref_l[j]), fm_fabsf(cv_r[j] - cv_ref_r[j]));
+            if (j < 44100u)
+                d0 = fm_maxf(d0, d);
+            else if (j >= 12u * 44100u)
+                d1 = fm_maxf(d1, d);
+        }
+        printf("samp: seed 2 after a Knight song: first second %.2e (tail %.2e), from 12 s %.2e\n", (double)d0,
+               (double)tail, (double)d1);
+        CHECK(d1 <= 1e-6f, "samp: seed 2 after a Knight song differs from 12 s by %.3e", (double)d1);
+        CHECK(d0 <= 2.0f * tail + 1e-6f, "samp: seed 2 after a Knight song: first second off by %.3e", (double)d0);
+    }
+}
+
+/* ------------------------- Sampled instruments Task 6: the string synth (M_STR) --- */
+/* The spike's string section (2a, branch spike/instruments) as a lead, two patches. Its voicings' spectral centroids
+   (Hann, 1024 points, magnitude-weighted; the mean of the 64 windows from 0.5 s to 2.0 s of one held note), measured
+   from the spike's own st_tick (spike/instruments 8b5dc13, st_low as of 7d2615b), built alone in a scratch program
+   with base/include/fastmath.h, its output through the engine's dry chain (fx_init: dust 0's low-pass, as the demos
+   joined the engine's mix): 2c low-dark at A3 (57) and 2a at A4 (69). STR_REF_*: over the whole band (the st_tick
+   alone: 1136.6 and 2373.4 Hz); STR_BAND_*: bins 1-208 (to 8.96 kHz, the half rate's band: HR_TOP). */
+#define STR_REF_CELLO 1008.1f
+#define STR_REF_HIGH 2020.7f
+#define STR_BAND_CELLO 965.0f
+#define STR_BAND_HIGH 1875.0f
+#define STR_BAND_K 208u
+/* the spectral centroid (Hz) of vt_long[from, from + 1024) as sb_centroid's, over bins 1-kmax only */
+static float st_centroid(uint32_t from, uint32_t kmax)
+{
+    double s = 0.0, e = 0.0;
+    uint32_t k;
+    cm_spec(vt_long + from, 1024u, cm_pa, 0);
+    for (k = 1; k <= kmax; k++) {
+        double a = (double)fm_sqrtf((float)cm_pa[k]);
+        s += (double)k * a;
+        e += a;
+    }
+    return e > 0.0 ? (float)(s / e) * 44100.0f / 1024.0f : 0.0f;
+}
+/* The string synth: the patches' p[] as the spike's voicings; both sustained; a held A3 (the cello) and A4 (the high
+   lead) solo (the mix's mud high-pass, filters and effects left out) measure the spike's centroids within 15%: at the
+   full rate (VX_OFF_HALF) over the whole band, and at half the rate (as it plays) over the half rate's band; mono and
+   legato on the lead (a slurred phrase glides, on one voice); no denormal-bound state; in songs of the string sets
+   the lead glides, and the cello lead's notes all sit in B3-A4. */
+static void test_strsyn(void)
+{
+    static const int INS[2] = {INS_CELLO, INS_STR_LEAD}, NOTE[2] = {57, 69};
+    static const float REF[2][2] = {{STR_BAND_CELLO, STR_REF_CELLO}, {STR_BAND_HIGH, STR_REF_HIGH}};
+    static const float PV[2][10] = {{65.0f, 1400.0f, 450.0f, 1.4f, 1300.0f, 1.8f, 0.7f, 0.45f, 0.1f, 1.0f},
+                                    {250.0f, 3200.0f, 1100.0f, 1.6f, 2600.0f, 2.0f, 0.55f, 0.5f, 0.25f, 1.0f}};
+    static song_t s;
+    int i, j, full, bad = 0;
+    for (i = 0; i < 2; i++) {
+        const vx_patch_t *p = vx_patch(INS[i]);
+        CHECK(p && p->model == M_STR, "strsyn: ins %d isn't an M_STR patch", INS[i]);
+        if (!p || p->model != M_STR)
+            return;
+        for (j = 0; j < 10; j++)
+            CHECK(p->p[j] == PV[i][j], "strsyn: ins %d p[%d] %.3f, wanted %.3f", INS[i], j, (double)p->p[j],
+                  (double)PV[i][j]);
+        CHECK(lib_ins_sustained(INS[i]), "strsyn: ins %d not sustained", INS[i]);
+    }
+    vx_solo(V_LEAD);
+    for (full = 0; full < 2; full++)
+        for (i = 0; i < 2; i++) { /* the centroid: a held note, the mean over 0.5-2.0 s as the reference's */
+            double c = 0.0, ref = (double)REF[i][full];
+            int nw = 0;
+            uint32_t t;
+            vx_fx_off(VX_OFF_MUD | VX_OFF_DELAY | VX_OFF_CHORUS | VX_OFF_FILTERS | VX_OFF_GLUE | VX_OFF_COMP |
+                      (full ? VX_OFF_HALF : 0u));
+            vt_note(V_LEAD, INS[i], NOTE[i], 100, 92610u, 24u * 4096u, &bad); /* (held 2.1 s) */
+            for (t = 22050u; t + 1024u <= 88200u; t += 1024u, nw++)
+                c += (double)st_centroid(t, full ? 512u : STR_BAND_K);
+            c /= nw;
+            printf("strsyn: ins %d at %d, %s: centroid %.1f Hz, the spike's %.1f (%+.1f%%)\n", INS[i], NOTE[i],
+                   full ? "full rate, whole band" : "half rate, to 9 kHz", c, ref, 100.0 * (c / ref - 1.0));
+            CHECK(c >= 0.85 * ref && c <= 1.15 * ref, "strsyn: ins %d's centroid %.1f Hz (%s rate), wanted %.1f +-15%%",
+                  INS[i], c, full ? "full" : "half", ref);
+            for (j = 0; j < 8; j++) /* the release: silent, nothing denormal-bound */
+                vt_block(4096, &bad);
+            CHECK(vx_tiny() == 0, "strsyn: ins %d left %d denormal-bound states", INS[i], vx_tiny());
+            CHECK(vx_active() == 0, "strsyn: ins %d still sounds 0.87 s after its release", INS[i]);
+        }
+    vx_fx_off(0u);
+    vx_solo(-1);
+    { /* mono legato: a slurred phrase (each note from its last's end) glides, on one voice */
+        static const int PH[4] = {69, 71, 72, 74};
+        int most = 0;
+        vx_init();
+        vx_assign(V_LEAD, INS_STR_LEAD);
+        for (i = 0; i < 4; i++)
+            vt_ev(V_LEAD, PH[i], 100, (uint32_t)i * 17640u, 17640u - 200u);
+        for (j = 0; j < 20; j++) {
+            vt_block(4096, &bad);
+            if (vx_active() > most)
+                most = vx_active();
+        }
+        printf("strsyn: a slurred phrase of 4: %u glides, %d voices at most\n", vx_glides(V_LEAD), most);
+        CHECK(vx_glides(V_LEAD) == 3u, "strsyn: a slurred phrase glided %u times, wanted 3", vx_glides(V_LEAD));
+        CHECK(most == 1, "strsyn: a slurred phrase took %d voices", most);
+        CHECK(vx_tiny() == 0, "strsyn: the phrase left %d denormal-bound states", vx_tiny());
+    }
+    vx_fx_off(0u);
+    CHECK(!bad, "strsyn: NaN or inf");
+    { /* songs: every string set, 4 seeds each; the lead glides; the cello's notes in B3-A4 */
+        int sets[2] = {0, 0};
+        for (i = 0; i < LIB_NSETS; i++) {
+            const lib_set_t *t = &LIB_SETS[i];
+            uint32_t seed, gl = 0, notes = 0, out = 0;
+            int got = 0, cello = t->lead == INS_CELLO;
+            if (t->lead != INS_STR_LEAD && !cello)
+                continue;
+            sets[cello]++;
+            for (seed = 1u; got < 4 && seed < 600u; seed++) {
+                song_roll_t r;
+                song_ev_t ev[64];
+                float frac = 0.0f;
+                roll_song(NULL, seed, &r);
+                if (roll_set(&r, RF_SET, t->id) != t->id)
+                    continue;
+                got++;
+                r.v[RF_NOISE] = r.v[RF_AMBIENCE] = 0;
+                vx_init();
+                song_start(&s, &r);
+                vx_song(&s.roll);
+                while (s.state == SS_PLAYING) {
+                    int n = song_tick(&s, ev, 64), k;
+                    float adv;
+                    uint32_t left;
+                    for (k = 0; k < n; k++) {
+                        if (ev[k].voice == V_LEAD && ev[k].len) {
+                            notes++;
+                            out += cello && (ev[k].note < 59 || ev[k].note > 69);
+                        }
+                        vx_event(&ev[k]);
+                    }
+                    adv = song_step_samples(&s) + frac;
+                    left = (uint32_t)adv;
+                    frac = adv - (float)left;
+                    while (left) {
+                        uint32_t b = left < 1024u ? left : 1024u;
+                        memset(vt_l, 0, b * sizeof(float));
+                        memset(vt_r, 0, b * sizeof(float));
+                        vx_render(vt_l, vt_r, b);
+                        left -= b;
+                    }
+                }
+                gl += vx_glides(V_LEAD);
+                CHECK(vx_tiny() == 0, "strsyn: %s seed %u left %d denormal-bound states", t->name, (unsigned)seed,
+                      vx_tiny());
+            }
+            printf("strsyn: %-22s 4 songs, %u lead notes, %u glides, %u outside B3-A4\n", t->name, notes, gl, out);
+            CHECK(got == 4 && notes > 100, "strsyn: %s: %d songs, %u lead notes", t->name, got, notes);
+            CHECK(gl > 0u, "strsyn: %s's lead never glided", t->name);
+            CHECK(out == 0u, "strsyn: %s: %u cello notes outside B3-A4", t->name, out);
+        }
+        CHECK(sets[0] >= 1 && sets[1] >= 1, "strsyn: %d high string sets, %d cello sets", sets[0], sets[1]);
+    }
+}
+
+/* Task 7, the sampled kits (skits.h): every kit's lanes sound; the hi-hat choke; the kits' levels against each other
+   and the synth Dusty kit; extreme velocities finite and denormal-free; a kit change mid-song leaves sounding hits on
+   their kit, and every hit ends within its sample's length. */
+#define SK_SR 44100
+static float sk_buf[7 * SK_SR]; /* (the pattern: 2 bars at 80 BPM, 6 s) */
+
+/* n samples of the drums (drums.h: the synth kits and, routed by the kit, the sampled ones) into sk_buf + at */
+static void sk_run(int at, int n)
+{
+    int i;
+    for (i = 0; i < n; i++)
+        sk_buf[at + i] = drums_sample();
+}
+
+static float sk_rms(const float *x, int n)
+{
+    double s = 0.0;
+    int i;
+    for (i = 0; i < n; i++)
+        s += (double)x[i] * (double)x[i];
+    return n > 0 ? fm_sqrtf((float)(s / (double)n)) : 0.0f;
+}
+
+static float sk_db(float x) { return 6.0206f * fm_log2f(x + 1e-12f); }
+
+static void sk_hit(int voice, int vel)
+{
+    song_ev_t e;
+    memset(&e, 0, sizeof e);
+    e.voice = (uint8_t)voice;
+    e.vel = (uint8_t)vel;
+    drums_on(&e);
+}
+
+/* the fixed pattern (the bench's boom-bap: kick, snare, hats on 8ths, an open hat, shaker 16ths, rims), 2 bars at
+   80 BPM; ride 1 plays the ride on the 8ths in place of the hats */
+static float sk_pattern(int kit, int ride)
+{
+    int step, st = SK_SR * 60 / 80 / 4, at = 0;
+    drums_song(0u);
+    drums_set_kit(kit);
+    for (step = 0; step < 32; step++) {
+        int s = step & 15;
+        if (s == 0 || s == 10) sk_hit(V_KICK, 110);
+        if (s == 4 || s == 12) sk_hit(V_SNARE, 105);
+        if (!(s & 1)) sk_hit(ride ? V_RIDE : V_HAT, 80);
+        if (s == 14 && !ride) sk_hit(V_OHAT, 85);
+        if (s & 1) sk_hit(V_SHAKER, 60);
+        if (s == 6 || s == 15) sk_hit(V_RIM, 70);
+        sk_run(at, st);
+        at += st;
+    }
+    return sk_rms(sk_buf, at);
+}
+
+/* x's energy per octave band (125 Hz to 8 kHz: 7 bands, the top one 5.6-8 kHz), in dB: Goertzel at every 4th DFT
+   bin of n samples */
+static void sk_bands(const float *x, int n, float *db)
+{
+    int b, k, i;
+    for (b = 0; b < 7; b++) {
+        float lo = 88.4f * (float)(1 << b), hi = b == 6 ? 8000.0f : 2.0f * lo;
+        double e = 0.0;
+        for (k = (int)(lo * (float)n / 44100.0f); k < (int)(hi * (float)n / 44100.0f); k += 4) {
+            float c = 2.0f * fm_cosf(6.2831853f * (float)k / (float)n), s1 = 0.0f, s2 = 0.0f;
+            for (i = 0; i < n; i++) {
+                float s0 = x[i] + c * s1 - s2;
+                s2 = s1;
+                s1 = s0;
+            }
+            e += (double)(s1 * s1 + s2 * s2 - c * s1 * s2);
+        }
+        db[b] = 4.3429448f * fm_logf((float)e + 1e-20f);
+    }
+}
+
+static void test_skits(void)
+{
+    int k, v, i, bad = 0;
+    float db[KIT_S_CLEAN + 1], dusty, lo = 1e9f, hi = -1e9f;
+
+    for (k = 0; k <= KIT_S_CLEAN; k++)
+        CHECK(lib_kit_sampled(k) == (k >= KIT_S_WARM), "kit %d: sampled %d", k, lib_kit_sampled(k));
+
+    /* every lane of every sampled kit sounds when struck: RMS over the hit's first 50 ms above -40 dBFS (the synth
+       Dusty kit's lanes printed beside them) */
+    for (k = KIT_DUSTY; k <= KIT_S_CLEAN; k++) {
+        if (k > KIT_DUSTY && k < KIT_S_WARM)
+            continue;
+        printf("skits: kit %d lanes (dBFS, 50 ms):", k);
+        for (v = V_KICK; v <= V_RIDE; v++) {
+            float r;
+            drums_song(0u);
+            drums_set_kit(k);
+            sk_hit(v, 100);
+            sk_run(0, 2205);
+            r = sk_rms(sk_buf, 2205);
+            printf(" %.1f", (double)sk_db(r));
+            CHECK(k == KIT_DUSTY || r > 0.01f, "kit %d voice %d: RMS %.4f, wanted over -40 dBFS", k, v, (double)r);
+        }
+        printf("\n");
+    }
+
+    /* velocity 127 (Review Focus 5, the final review): every lane of every sampled kit, through its bus and drive,
+       peaks (over 0.7 s) no higher than the loudest synth kit lane at 127 (today's limit), finite and sounding */
+    {
+        float lim = 0.0f, pk[KIT_N][V_RIDE - V_KICK + 1];
+        for (k = KIT_DUSTY; k <= KIT_S_CLEAN; k++)
+            for (v = V_KICK; v <= (k >= KIT_S_WARM ? V_RIDE : V_RIM); v++) {
+                float m = 0.0f;
+                int nan = 0;
+                drums_song(0u);
+                drums_set_kit(k);
+                sk_hit(v, 127);
+                sk_run(0, 30000);
+                for (i = 0; i < 30000; i++) {
+                    nan += sk_buf[i] != sk_buf[i];
+                    m = fm_maxf(m, sk_buf[i] < 0.0f ? -sk_buf[i] : sk_buf[i]);
+                }
+                CHECK(nan == 0, "skits: kit %d voice %d at 127: %d NaN samples", k, v, nan);
+                pk[k][v - V_KICK] = m;
+                if (k < KIT_S_WARM) lim = fm_maxf(lim, m);
+            }
+        printf("skits: velocity 127 peaks (the synth kits' loudest lane %.3f):", (double)lim);
+        for (k = KIT_S_WARM; k <= KIT_S_CLEAN; k++)
+            for (v = V_KICK; v <= V_RIDE; v++) {
+                float m = pk[k][v - V_KICK];
+                printf(" %.3f", (double)m);
+                CHECK(m > 0.0f && m <= lim, "skits: kit %d voice %d peaks %.3f at velocity 127, over the synth kits' %.3f",
+                      k, v, (double)m, (double)lim);
+            }
+        printf("\n");
+    }
+
+    /* the choke: an open hat, then a closed hat 100 ms later; the open hat's remainder (the pair less the closed hat
+       alone) is 40 dB under the open hat's level by 10 ms after the closed hit, where unchoked it still sounds */
+    for (k = KIT_S_WARM; k <= KIT_S_CLEAN; k++) {
+        static float pair[8820], alone[8820];
+        int t = 4410, w = 441;
+        float before, rest, open_on;
+        drums_song(0u);
+        drums_set_kit(k);
+        sk_hit(V_OHAT, 100);
+        sk_run(0, t);
+        before = sk_rms(sk_buf + t - w, w);
+        sk_run(t, w * 2);
+        open_on = sk_rms(sk_buf + t + w, w); /* (no closed hit: the open hat rings on) */
+        drums_song(0u);
+        drums_set_kit(k);
+        sk_hit(V_OHAT, 100);
+        sk_run(0, t);
+        sk_hit(V_HAT, 100);
+        sk_run(t, w * 2);
+        memcpy(pair, sk_buf, sizeof pair);
+        drums_song(0u);
+        drums_set_kit(k);
+        memset(sk_buf, 0, sizeof pair);
+        sk_hit(V_HAT, 100);
+        sk_run(t, w * 2);
+        memcpy(alone, sk_buf, sizeof alone);
+        for (i = t + w; i < t + 2 * w; i++)
+            pair[i] -= alone[i];
+        rest = sk_rms(pair + t + w, w);
+        printf("skits: kit %d choke: open hat %.1f dB, unchoked 10 ms on %.1f dB, choked %.1f dB\n", k,
+               (double)sk_db(before), (double)sk_db(open_on),
+               (double)sk_db(rest));
+        CHECK(open_on > 0.1f * before, "kit %d: the open hat should still ring unchoked (%.4f of %.4f)", k,
+              (double)open_on, (double)before);
+        CHECK(rest < 0.01f * before, "kit %d: the choked open hat at %.4f, wanted 40 dB under %.4f", k, (double)rest,
+              (double)before);
+    }
+
+    /* the levels on a fixed pattern: every sampled kit within 1.5 dB of each other and of the synth Dusty kit (the
+       ride pattern too) */
+    dusty = sk_db(sk_pattern(KIT_DUSTY, 0));
+    for (k = KIT_S_WARM; k <= KIT_S_CLEAN; k++) {
+        float rd = sk_db(sk_pattern(k, 1));
+        db[k] = sk_db(sk_pattern(k, 0));
+        lo = db[k] < lo ? db[k] : lo;
+        hi = db[k] > hi ? db[k] : hi;
+        printf("skits: kit %d pattern %.2f dB (ride %.2f), Dusty %.2f dB\n", k, (double)db[k], (double)rd,
+               (double)dusty);
+        CHECK(fm_fabsf(db[k] - dusty) <= 1.5f, "kit %d: %.2f dB against Dusty's %.2f", k, (double)db[k],
+              (double)dusty);
+        CHECK(fm_fabsf(rd - dusty) <= 1.5f, "kit %d ride: %.2f dB against Dusty's %.2f", k, (double)rd, (double)dusty);
+    }
+    CHECK(hi - lo <= 1.5f, "sampled kits span %.2f dB, wanted within 1.5", (double)(hi - lo));
+
+    /* velocity 1 and 127 through the voices: finite, no denormals */
+    for (k = KIT_S_WARM; k <= KIT_S_CLEAN; k++) {
+        int c, vel;
+        vx_init();
+        vx_set_gain(1.0f);
+        vx_set_kit(k);
+        for (vel = 1; vel <= 127; vel += 126)
+            for (c = 0; c < 12; c++) {
+                for (v = V_KICK; v <= V_RIDE; v++)
+                    if (c % 4 == 0 || v == V_HAT)
+                        vt_ev(v, 0, vel, 0, 0);
+                vx_render(vt_l, vt_r, 4096);
+                for (i = 0; i < 4096; i++)
+                    bad += vt_l[i] != vt_l[i] || fm_fabsf(vt_l[i]) > 1e30f || vt_r[i] != vt_r[i];
+                bad += vx_tiny() != 0;
+            }
+    }
+    CHECK(bad == 0, "skits: %d non-finite samples or denormal states", bad);
+
+    /* a kit change keeps sounding hits on their kit: the same output as with no change (both ways) */
+    {
+        static const int PAIRS[4][2] = {{KIT_DUSTY, KIT_S_RUSTY}, {KIT_S_RUSTY, KIT_DUSTY}, /* synth, sampled */
+                                        {KIT_S_WARM, KIT_S_RUSTY}, {KIT_S_RUSTY, KIT_S_WARM}}; /* bus, none */
+        static float a[8000];
+        int p, diff;
+        for (p = 0; p < 4; p++) {
+            drums_song(0u);
+            drums_set_kit(PAIRS[p][0]);
+            for (v = V_KICK; v <= V_RIDE; v++)
+                if (v != V_HAT)
+                    sk_hit(v, 110);
+            sk_run(0, 2000);
+            sk_run(2000, 6000);
+            memcpy(a, sk_buf, sizeof a);
+            drums_song(0u);
+            drums_set_kit(PAIRS[p][0]);
+            for (v = V_KICK; v <= V_RIDE; v++)
+                if (v != V_HAT)
+                    sk_hit(v, 110);
+            sk_run(0, 2000);
+            drums_set_kit(PAIRS[p][1]);
+            CHECK(drums_active() > 0, "kit %d to %d: the hits should still sound", PAIRS[p][0], PAIRS[p][1]);
+            sk_run(2000, 6000);
+            for (i = 0, diff = 0; i < 8000; i++)
+                diff += sk_buf[i] != a[i];
+            CHECK(diff == 0, "kit %d to %d: %d samples changed by the kit change", PAIRS[p][0], PAIRS[p][1], diff);
+        }
+        /* mid-song through the voices, Dusty to Rusty and back with hits sounding: finite */
+        vx_init();
+        vx_set_gain(1.0f);
+        bad = 0;
+        for (p = 0; p < 6; p++) {
+            vx_set_kit(p & 1 ? KIT_S_RUSTY : KIT_DUSTY);
+            for (v = V_KICK; v <= V_RIDE; v++)
+                vt_ev(v, 0, 100, (uint32_t)(v * 200), 0);
+            vx_render(vt_l, vt_r, 4096);
+            for (i = 0; i < 4096; i++)
+                bad += vt_l[i] != vt_l[i] || fm_fabsf(vt_l[i]) > 1e30f || vt_r[i] != vt_r[i];
+        }
+        CHECK(bad == 0 && vx_tiny() == 0, "skits: kit changes mid-song: %d non-finite, tiny %d", bad, vx_tiny());
+    }
+
+    /* half the rate (Task 9's cut, the default) against the full rate (skits_half(0)), per kit and lane, a hit at
+       velocity 100, the half-rate one less its 14-sample half-band latency. The level within 0.3 dB (RMS, the first
+       150 ms) and every octave band from 125 Hz to 8 kHz within 1 dB (bands within 40 dB of the hit's loudest): the
+       half-band is flat within 0.01 dB to 8 kHz, the hits hold nothing above it, and the low-passes are matched
+       (skits.c's lp_coef; their phase differs a little, so the waveforms are not compared on a filtered lane). An
+       unfiltered lane's waveform within 20 dB of the full rate's: only the interpolator's images above 8 kHz differ
+       (the full rate keeps them, about -25 dB on a hat; the half-band takes them), where a wrong pitch, step or
+       start would differ by about 0 dB. */
+    for (k = KIT_S_WARM; k <= KIT_S_CLEAN; k++)
+        for (v = V_KICK; v <= V_RIDE; v++) {
+            static float full[6615];
+            const skit_t *kt = skits_kit(k);
+            int n = 6615, lat = 14, j, raw = kt->lp_hz <= 0.0f && kt->drive <= 0.0f && !kt->llp[v - V_KICK];
+            double e = 0.0, d = 0.0;
+            float rf, rh, bf[7], bh[7], top = -1e9f, worst = 0.0f;
+            skits_half(0);
+            drums_song(0u);
+            drums_set_kit(k);
+            sk_hit(v, 100);
+            sk_run(0, n);
+            memcpy(full, sk_buf, sizeof full);
+            skits_half(1);
+            drums_song(0u);
+            drums_set_kit(k);
+            sk_hit(v, 100);
+            sk_run(0, n + lat);
+            rf = sk_rms(full, n);
+            rh = sk_rms(sk_buf + lat, n);
+            for (i = 0; i < n; i++) {
+                e += (double)full[i] * (double)full[i];
+                d += (double)(sk_buf[i + lat] - full[i]) * (double)(sk_buf[i + lat] - full[i]);
+            }
+            sk_bands(full, n, bf);
+            sk_bands(sk_buf + lat, n, bh);
+            for (j = 0; j < 7; j++)
+                top = fm_maxf(top, bf[j]);
+            for (j = 0; j < 7; j++)
+                if (bf[j] > top - 40.0f && fm_fabsf(bh[j] - bf[j]) > fm_fabsf(worst))
+                    worst = bh[j] - bf[j];
+            printf("skits: kit %d voice %d half rate: level %+.2f dB, worst band %+.2f dB, difference %.1f dB under%s\n",
+                   k, v, (double)(sk_db(rh) - sk_db(rf)), (double)worst,
+                   (double)sk_db(fm_sqrtf((float)(e / (d + 1e-30)))), raw ? "" : " (filtered)");
+            CHECK(fm_fabsf(sk_db(rh) - sk_db(rf)) <= 0.3f, "kit %d voice %d: half rate %.2f dB off the full rate", k,
+                  v, (double)(sk_db(rh) - sk_db(rf)));
+            CHECK(fm_fabsf(worst) <= 1.0f, "kit %d voice %d: half rate's band %.2f dB off the full rate", k, v,
+                  (double)worst);
+            CHECK(!raw || d * 100.0 <= e, "kit %d voice %d: half rate differs %.1f dB under the full rate, wanted 20",
+                  k, v, (double)sk_db(fm_sqrtf((float)(e / (d + 1e-30)))));
+        }
+
+    /* no read past a table: each hit ends within its sample's length at its pitch (plus the interpolator's few and
+       the kit bus's ring) */
+    for (k = KIT_S_WARM; k <= KIT_S_CLEAN; k++)
+        for (v = V_KICK; v <= V_RIDE; v++) {
+            int n = 0;
+            drums_song(0u);
+            drums_set_kit(k);
+            sk_hit(v, 127);
+            while (drums_active() && n < 7 * SK_SR) {
+                (void)drums_sample();
+                n++;
+            }
+            CHECK(n <= skits_lane_len(k, v) + 64, "kit %d voice %d: sounded %d samples, its hit %d", k, v, n,
+                  skits_lane_len(k, v));
+        }
+}
+
+/* Task 9's block rendering: the drums render a segment at a time (drums_render, 1-256 samples), which must give
+   exactly what a sample at a time (drums_sample) gives, at half the rate (blocks starting on odd samples too) and at
+   the full rate: the same random stream of hits (every lane, velocities 1-127), releases and kit changes (the five
+   sampled kits and a synth kit, hits left sounding across a change), rendered both ways; the audio and the kick's
+   envelope (the duck's source, read at every block's end) bit for bit. Also: no sampled kit pitches a hit up (the
+   half rate keeps a 16 kHz hit's band only while its step stays under 1 at 22.05 kHz). */
+#define DB_N 400000
+static float db_a[DB_N], db_b[DB_N], db_ka[DB_N / 2], db_kb[DB_N / 2];
+
+static int db_stream(float *o, float *ko, int blocky, uint32_t seed)
+{
+    static const int KITS[6] = {KIT_S_WARM, KIT_S_DARK, KIT_S_RUSTY, KIT_S_GENTLE, KIT_S_CLEAN, KIT_DUSTY};
+    uint32_t x = seed;
+    int pos = 0, nk = 0, i;
+    drums_song(0u);
+    drums_set_kit(KITS[seed % 6u]);
+    while (pos < DB_N) {
+        int seg, r;
+        x = x * 1103515245u + 12345u;
+        r = (int)(x >> 8);
+        if (r % 13 < 8)
+            sk_hit(V_KICK + (r >> 4) % (V_RIDE - V_KICK + 1), 1 + (r >> 9) % 127);
+        if (r % 13 == 8 && (r >> 10) % 4 == 0)
+            drums_set_kit(KITS[(r >> 12) % 6]);
+        if (r % 13 == 9 && (r >> 10) % 3 == 0)
+            drums_release();
+        seg = 1 + (r >> 14) % 256;
+        if (pos + seg > DB_N)
+            seg = DB_N - pos;
+        if (blocky)
+            drums_render(o + pos, (uint32_t)seg);
+        else
+            for (i = 0; i < seg; i++)
+                o[pos + i] = drums_sample();
+        pos += seg;
+        ko[nk++] = drums_kick_env();
+    }
+    return nk;
+}
+
+static void test_drums_blocks(void)
+{
+    int h, k, l, i;
+    for (k = KIT_S_WARM; k <= KIT_S_CLEAN; k++) /* no kit pitches a hit up */
+        for (l = 0; l <= V_RIDE - V_KICK; l++) {
+            const skit_t *kt = skits_kit(k);
+            int id = kt->hit[l] < 0 && l == 3 ? kt->hit[2] : kt->hit[l];
+            const smp_zone_t *z = smp_hit(id);
+            if (!z)
+                continue;
+            CHECK(kt->semis + (float)kt->lsemis[l] <= 0.0f && z->rate <= 16000u,
+                  "kit %d lane %d: %.0f semitones at %u Hz: a half-rate step over 1", k, l,
+                  (double)(kt->semis + (float)kt->lsemis[l]), (unsigned)z->rate);
+        }
+    for (h = 1; h >= 0; h--) {
+        uint32_t seed;
+        for (seed = 1; seed <= 6u; seed++) {
+            int n, d = 0, dk = 0, live = 0;
+            skits_half(h);
+            n = db_stream(db_a, db_ka, 0, seed * 7919u);
+            db_stream(db_b, db_kb, 1, seed * 7919u);
+            for (i = 0; i < DB_N; i++) {
+                d += memcmp(&db_a[i], &db_b[i], sizeof(float)) != 0;
+                live += db_a[i] != 0.0f;
+            }
+            for (i = 0; i < n; i++)
+                dk += memcmp(&db_ka[i], &db_kb[i], sizeof(float)) != 0;
+            printf("drums blocks: half %d stream %u: %d blocks, %d of %d samples sounding; %d samples, %d kick "
+                   "envelopes differ\n", h, (unsigned)seed, n, live, DB_N, d, dk);
+            CHECK(d == 0 && dk == 0, "drums blocks: half %d stream %u: %d samples, %d kick envelopes differ", h,
+                  (unsigned)seed, d, dk);
+            CHECK(live > DB_N / 2, "drums blocks: half %d stream %u: only %d samples sounding", h, (unsigned)seed,
+                  live);
+        }
+    }
+    skits_half(1);
+}
+
+/* Sampled instruments Task 8: the kit per song and the ride roll. Each set keeps its synth kit and names a sampled
+   kit (skit); a song rolls one, about half each (stream 192, hashed apart from the set and mood draws, so the share
+   holds per set as the roll draws them too); the 808 and Brushes sets keep their synth kit. Among sampled-kit songs
+   (stream 193): the warm kit rides throughout; the others ride throughout about 15%, one block about 50%. In a ride
+   block the hats go to the ride; elsewhere no ride. A seed renders the same alone and after a ride song. */
+static void test_kit_roll(void)
+{
+    int i, k, n_all = 0, n_sec = 0, n_samp_other = 0, n_warm = 0, warm_bad = 0;
+    int per_set_n[256], per_set_s[256];
+
+    /* the set table: every set's skit is a sampled kit, or none (KIT_N) on the 808 and Brushes sets */
+    for (i = 0; i < LIB_NSETS; i++) {
+        const lib_set_t *s = &LIB_SETS[i];
+        int synth_only = s->kit == KIT_808 || s->kit == KIT_BRUSHES;
+        CHECK(synth_only ? s->skit == KIT_N : lib_kit_sampled(s->skit), "set %d: skit %d", s->id, s->skit);
+    }
+
+    /* the share per set, the set pinned: 2000 seeds each */
+    for (i = 0; i < LIB_NSETS; i++) {
+        const lib_set_t *s = &LIB_SETS[i];
+        int synth_only = s->kit == KIT_808 || s->kit == KIT_BRUSHES, ns = 0;
+        uint32_t seed;
+        for (seed = 1; seed <= 2000u; seed++) {
+            song_roll_t r;
+            int kit;
+            roll_song(NULL, seed, &r);
+            r.v[RF_SET] = s->id;
+            kit = lib_song_kit(&r);
+            CHECK(kit == s->kit || kit == s->skit, "set %d seed %u: kit %d", s->id, (unsigned)seed, kit);
+            ns += lib_kit_sampled(kit);
+        }
+        printf("kit roll: set %d pinned: sampled %.1f%%\n", s->id, ns / 20.0);
+        if (synth_only)
+            CHECK(ns == 0, "set %d (808 or Brushes): %d sampled-kit songs", s->id, ns);
+        else
+            CHECK(ns >= 900 && ns <= 1100, "set %d: sampled kit in %d of 2000 songs, want 45-55%%", s->id, ns);
+    }
+
+    /* the share per set as the roll draws the set (no correlation with the set's or the mood's draw); the ride
+       roll's shares over the sampled-kit songs */
+    memset(per_set_n, 0, sizeof per_set_n);
+    memset(per_set_s, 0, sizeof per_set_s);
+    for (k = 1; k <= 30000; k++) {
+        song_roll_t r;
+        int kit, ride, blk;
+        roll_song(NULL, (uint32_t)k, &r);
+        kit = lib_song_kit(&r);
+        per_set_n[r.v[RF_SET] & 255]++;
+        per_set_s[r.v[RF_SET] & 255] += lib_kit_sampled(kit);
+        ride = groove_ride(&r, &blk);
+        if (!lib_kit_sampled(kit)) {
+            CHECK(ride == RIDE_NONE, "seed %d: a synth kit song rolled ride %d", k, ride);
+            continue;
+        }
+        if (kit == KIT_S_WARM) {
+            n_warm++;
+            warm_bad += ride != RIDE_ALL;
+            continue;
+        }
+        n_samp_other++;
+        n_all += ride == RIDE_ALL;
+        n_sec += ride == RIDE_SECTION;
+        CHECK(ride != RIDE_SECTION || blk >= 0, "seed %d: a ride section without its block", k);
+    }
+    for (i = 0; i < LIB_NSETS; i++) {
+        const lib_set_t *s = &LIB_SETS[i];
+        int n = per_set_n[s->id], ns = per_set_s[s->id];
+        if (s->kit == KIT_808 || s->kit == KIT_BRUSHES || n < 200)
+            continue;
+        printf("kit roll: set %d as rolled: sampled %.1f%% of %d\n", s->id, 100.0 * ns / n, n);
+        CHECK(ns * 100 >= 40 * n && ns * 100 <= 60 * n, "set %d as rolled: sampled kit in %d of %d songs", s->id, ns,
+              n);
+    }
+    printf("kit roll: warm %d songs (%d not riding throughout); other sampled %d: ride all %.1f%%, a section %.1f%%\n",
+           n_warm, warm_bad, n_samp_other, 100.0 * n_all / (n_samp_other ? n_samp_other : 1),
+           100.0 * n_sec / (n_samp_other ? n_samp_other : 1));
+    CHECK(n_warm > 0 && warm_bad == 0, "warm kit: %d of %d songs not riding throughout", warm_bad, n_warm);
+    CHECK(n_all * 100 >= 5 * n_samp_other && n_all * 100 <= 25 * n_samp_other, "ride all in %d of %d", n_all,
+          n_samp_other);
+    CHECK(n_sec * 100 >= 40 * n_samp_other && n_sec * 100 <= 60 * n_samp_other, "ride section in %d of %d", n_sec,
+          n_samp_other);
+
+    /* the events: a ride block has no hats, a block without it no ride; a ride block with hats plays the ride */
+    {
+        int seen[3] = {0, 0, 0};
+        for (k = 1; k <= 400; k++) {
+            song_roll_t r;
+            song_plan_t p;
+            static song_t s;
+            song_ev_t ev[64];
+            int ride, blk, kit, b, rides[25], hats_in[25];
+            roll_song(NULL, (uint32_t)k, &r);
+            kit = lib_song_kit(&r);
+            ride = groove_ride(&r, &blk);
+            if (seen[ride] >= 12)
+                continue;
+            seen[ride]++;
+            plan_build(&r, &p);
+            memset(rides, 0, sizeof rides);
+            memset(hats_in, 0, sizeof hats_in);
+            song_start(&s, &r);
+            while (s.state == SS_PLAYING) {
+                int bar = s.bar, n = song_tick(&s, ev, 64), j;
+                const plan_block_t *pb = plan_at(&p, bar);
+                int bi = pb ? (int)(pb - p.b) : -1, riding = ride == RIDE_ALL || (ride == RIDE_SECTION && bi == blk);
+                for (j = 0; j < n; j++) {
+                    if (riding)
+                        CHECK(ev[j].voice != V_HAT && ev[j].voice != V_OHAT,
+                              "seed %d (kit %d, ride %d): a hat in ride block %d, bar %d", k, kit, ride, bi, bar);
+                    else
+                        CHECK(ev[j].voice != V_RIDE, "seed %d (kit %d, ride %d): the ride in block %d, bar %d", k, kit,
+                              ride, bi, bar);
+                    if (ev[j].voice == V_RIDE && bi >= 0)
+                        rides[bi]++;
+                }
+            }
+            for (b = 0; b < p.n; b++) {
+                int riding = ride == RIDE_ALL || (ride == RIDE_SECTION && b == blk);
+                if (riding && (p.b[b].layers & L_HATS))
+                    CHECK(rides[b] > 0, "seed %d (kit %d, ride %d): block %d has hats but no ride", k, kit, ride, b);
+            }
+        }
+        CHECK(seen[RIDE_NONE] >= 12 && seen[RIDE_ALL] >= 12 && seen[RIDE_SECTION] >= 12,
+              "kit roll: songs seen none %d all %d section %d", seen[0], seen[1], seen[2]);
+    }
+
+    /* carryover: a sampled hats song the same alone and after a song riding throughout */
+    {
+        song_roll_t ra, rb;
+        uint32_t j, sa = 0, sb = 0, seed;
+        int blk;
+        float tail, d0 = 0.0f, d1 = 0.0f;
+        for (seed = 1; seed < 2000u && !(sa && sb); seed++) {
+            song_roll_t r;
+            roll_song(NULL, seed, &r);
+            if (!sa && groove_ride(&r, &blk) == RIDE_ALL) sa = seed;
+            if (!sb && lib_kit_sampled(lib_song_kit(&r)) && groove_ride(&r, &blk) == RIDE_NONE) sb = seed;
+        }
+        CHECK(sa && sb, "kit roll: no ride or hats song found (%u, %u)", (unsigned)sa, (unsigned)sb);
+        roll_song(NULL, sa, &ra);
+        roll_song(NULL, sb, &rb);
+        vx_init();
+        vx_song(&rb);
+        cv_play(&rb, CV_SECS, cv_ref_l, cv_ref_r);
+        tail = cv_song_a(&ra, INS_NONE, 1u);
+        cv_song_a(&ra, INS_NONE, 0u);
+        cv_begin(&rb);
+        cv_play(&rb, CV_SECS, cv_l, cv_r);
+        for (j = 0; j < CV_SECS * 44100u; j++) {
+            float d = fm_maxf(fm_fabsf(cv_l[j] - cv_ref_l[j]), fm_fabsf(cv_r[j] - cv_ref_r[j]));
+            if (j < 44100u)
+                d0 = fm_maxf(d0, d);
+            else if (j >= 12u * 44100u)
+                d1 = fm_maxf(d1, d);
+        }
+        printf("kit roll: seed %u (kit %d) after ride song %u (kit %d): first second %.2e (tail %.2e), from 12 s "
+               "%.2e\n", (unsigned)sb, lib_song_kit(&rb), (unsigned)sa, lib_song_kit(&ra), (double)d0, (double)tail,
+               (double)d1);
+        CHECK(d1 <= 1e-6f, "kit roll: seed %u after a ride song differs from 12 s by %.3e", (unsigned)sb, (double)d1);
+        CHECK(d0 <= 2.0f * tail + 1e-6f, "kit roll: seed %u after a ride song: first second off by %.3e",
+              (unsigned)sb, (double)d0);
+    }
+}
+
 int main(int argc, char **argv)
 {
     const char *only = argc > 1 ? argv[1] : NULL;
@@ -8377,6 +10272,7 @@ int main(int argc, char **argv)
     RUN(test_lead_push_legal);
     RUN(test_comping_makes_room);
     RUN(test_half_comping);
+    RUN(test_knight_no_roll);
     RUN(test_register_floor);
     RUN(test_pad_places);
     RUN(test_hybrid_follows_motion);
@@ -8412,6 +10308,7 @@ int main(int argc, char **argv)
     RUN(test_fx_chain);
     RUN(test_fx_engine);
     RUN(test_song_carryover);
+    RUN(test_carryover_sampled);
     RUN(test_mood_reconfigures);
     RUN(test_moves);
     RUN(test_dynamics);
@@ -8428,6 +10325,7 @@ int main(int argc, char **argv)
     RUN(test_keys_duck_mix);
     RUN(test_lead_over_keys);
     RUN(test_pad_level);
+    RUN(test_sampled_sets);
     RUN(test_phrase_plan);
     RUN(test_sustained_phrases);
     RUN(test_sustained_motion);
@@ -8440,6 +10338,17 @@ int main(int argc, char **argv)
     RUN(test_pad_either);
     RUN(test_pad_determinism);
     RUN(test_pad_double);
+    RUN(test_strum);
+    RUN(test_strum_lead);
+    RUN(test_strum_same);
+    RUN(test_samples_table);
+    RUN(test_samp_seams);
+    RUN(test_samp);
+    RUN(test_strsyn);
+    RUN(test_comp_styles);
+    RUN(test_skits);
+    RUN(test_drums_blocks);
+    RUN(test_kit_roll);
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;

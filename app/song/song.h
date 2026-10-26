@@ -37,6 +37,7 @@ typedef struct {
     uint8_t pend[RF_N];           /* a request is waiting for this field */
     int16_t pend_val[RF_N];
     int16_t pend_bar[RF_N];       /* the bar it lands on */
+    int16_t ride_lo, ride_hi;     /* the bars [lo, hi) whose hats go to the ride (groove_ride) */
 } song_t;
 
 void song_start(song_t *s, const song_roll_t *r);           /* plan, motif, phrases; bar 0, step 0 */
@@ -51,7 +52,8 @@ int song_pending(const song_t *s, int *field, int *bars_left);  /* the earliest 
 void song_set_bass_spike(int mode);
 
 /* Host renders (VNL_PADS=double, an A/B against the design's chord part): 1 makes the pad layer's chord part double the
-   keys' voicing (the same pitches, on their strikes) over held comping, instead of its own voice-led notes; 0 off */
+   keys' voicing (the same pitches, on their strikes) over held or strummed comping (a strum: its guitar shape's top
+   notes), instead of its own voice-led notes; 0 off */
 void song_set_pads_double(int on);
 
 #endif

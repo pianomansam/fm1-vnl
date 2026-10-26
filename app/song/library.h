@@ -14,8 +14,11 @@ enum { INS_RHODES, INS_WURLI, INS_FELT_PIANO, INS_NYLON, INS_PAD, INS_UPRIGHT, I
        INS_MUTED_TPT, INS_SAX, INS_VIBES, INS_KALIMBA, INS_GUITAR_LICK, INS_MUSIC_BOX, INS_BELLS, INS_VOX_PAD,
        INS_CHIP_BASS, INS_ORGAN, INS_SAW_LEAD, INS_SYNTH_PLUCK, INS_DX_EP, INS_FM_BASS,
        INS_STRINGS, INS_WARM_PAD, /* the pad layer's (V_PAD) */
+       INS_KNIGHT, INS_EMILY,     /* sampled (M_SAMP; INS_NYLON too): the Knight upright, the Emilyguitar */
+       INS_STR_LEAD, INS_CELLO,   /* the string synth (M_STR) on the lead: the high strings, the cello */
        INS_NONE }; /* append new ones before INS_NONE */
-enum { KIT_DUSTY, KIT_SOFT, KIT_808, KIT_BRUSHES };
+/* the synth kits (drums.c), then the sampled kits (skits.c: one pool of hits, processed per kit at playback) */
+enum { KIT_DUSTY, KIT_SOFT, KIT_808, KIT_BRUSHES, KIT_S_WARM, KIT_S_DARK, KIT_S_RUSTY, KIT_S_GENTLE, KIT_S_CLEAN, KIT_N };
 enum { FL_LOFI, FL_BOSSA, FL_CITYPOP, FL_NEOSOUL, FL_CHILLWAVE };
 enum { D_KICK, D_SNARE, D_HAT, D_OHAT, D_SHAKER, D_RIM };
 enum { PF_BOOMBAP, PF_HALFTIME, PF_SPARSE, PF_BRUSHES, PF_BOSSA };
@@ -26,11 +29,15 @@ enum { END_KEYS_OUTRO, END_FADE, END_RING };
 typedef struct { uint8_t id; uint8_t kind; uint8_t n; uint8_t bars_per_chord; th_chord_spec_t c[4]; uint8_t moods; uint8_t modes; const char *src; } lib_prog_t;
 /* modes: bit (1 << MODE_x) for each mode whose degrees give the chords the note claims; moods: MOOD_* bits. n * bars_per_chord is 2, 4 or 8. */
 /* pad: the pad layer's instrument (INS_STRINGS or INS_WARM_PAD) */
-typedef struct { uint8_t id; const char *name; uint8_t chords, bass, lead, candy, pad, kit; uint8_t flavor; uint8_t moods; const char *src; } lib_set_t;
+/* kit: the synth kit (KIT_N: none, the skit only); skit: the sampled kit (KIT_N: none, the synth kit always) */
+typedef struct { uint8_t id; const char *name; uint8_t chords, bass, lead, candy, pad, kit, skit; uint8_t flavor; uint8_t moods; const char *src; } lib_set_t;
 /* hit/ghost: 16 steps per lane, bit i = step i. poly3: the shaker lane is a period-3 polymeter (hit[D_SHAKER] holds it). */
 typedef struct { uint8_t id; uint8_t family; uint16_t hit[6]; uint16_t ghost[6]; uint8_t half_time; uint8_t poly3; const char *src; } lib_pattern_t;
 typedef struct { uint8_t id; const char *name; uint8_t intro_bars, entry, middle, ending; uint8_t sparse; const char *src; } lib_map_t;
 typedef struct { uint8_t mode_w[MODE_N]; uint8_t color_w[3]; int8_t lead_shift; uint8_t candy_pct; } lib_mood_t;
+
+/* 1 for a sampled kit (KIT_S_*), else 0 */
+int lib_kit_sampled(int kit);
 
 extern const lib_prog_t LIB_PROGS[];       extern const int LIB_NPROGS;
 extern const lib_set_t LIB_SETS[];         extern const int LIB_NSETS;
@@ -40,9 +47,12 @@ extern const lib_mood_t LIB_MOODS[4];      /* sad, wistful, warm, sunny */
 
 const lib_prog_t *lib_prog_by_id(uint8_t id);        /* all four: NULL if unknown */
 const lib_set_t *lib_set_by_id(uint8_t id);
-/* 1: slow attack, held breath or a held tone (pads, winds, the organ, the saw lead, the strings); 0: struck, plucked,
+/* 1: slow attack, held breath or a held tone (pads, winds, the organ, the saw lead, the strings, the
+   string synth's high lead and cello); 0: struck, plucked,
    the triangle bass, the synth pluck, the DX EP, the FM bass */
 int lib_ins_sustained(int ins);
+/* 1: a sampled struck-string instrument (the Knight, the nylon, the Emilyguitar): stabs and strums suit it */
+int lib_ins_sampled_struck(int ins);
 int lib_set_walks(const lib_set_t *s);
 int lib_set_keys_shift(const lib_set_t *s);          /* semitones the keys sit from their usual octave */               /* the bass may walk in this set */
 const lib_pattern_t *lib_pattern_by_id(uint8_t id);

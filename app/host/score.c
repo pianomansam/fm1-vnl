@@ -8,6 +8,7 @@
 #include "score.h"
 #include "groove.h"
 #include "harmony.h"
+#include "strum.h"
 #include "theory.h"
 #include "library.h"
 #include "plan.h"
@@ -22,8 +23,12 @@ typedef struct { int bar, st, voice, note, vel; float delay, len, ss; } rec_t;  
 static const char *const FLATS[12] = {"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"};
 static const char *const SHARPS[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 static const char *const MODE[MODE_N] = {"major", "Dorian", "Phrygian", "Lydian", "Mixolydian", "minor"};
-static const char *const STYLE[5] = {"held", "stabs", "offbeats", "arpeggio", "half notes"};
+static const char *const STYLE[6] = {"held", "stabs", "offbeats", "arpeggio", "half notes", "strum"};
+static const char *const STRUM[SP_N + 1] = {"strum, D-DU-UDU", "strum, chucks", "strum, bossa", "strum, ballad",
+                                            "strum, slow ballad"};
 static const char *const BASS[4] = {"roots", "root-fifth", "walking", "pedal"};
+static const char *const KIT[KIT_N] = {"Dusty", "Soft", "808", "Brushes", "sampled warm", "sampled dark",
+                                       "sampled rusty", "sampled gentle", "sampled clean"};
 static const char *const MOOD[4] = {"sad", "wistful", "warm", "sunny"};
 static const char *const COLOR[3] = {"7ths", "9ths", "rich"};
 
@@ -210,13 +215,16 @@ static void track(FILE *f, mev_t *ev, int n)
 
 static long tick_of(const rec_t *r) { return (long)(r->bar * 16 + r->st) * 120 + (long)(r->delay / r->ss * 120.0f + 0.5f); }
 
+/* the GM drum note per voice (the pitched roles 0): kick, snare, closed and open hat, maracas, side stick, ride 1 */
+static const int DRUM[] = {0, 0, 0, 0, 0, 36, 38, 42, 46, 70, 37, 51};
+typedef char drum_covers_every_voice[sizeof DRUM / sizeof DRUM[0] == V_N ? 1 : -1]; /* a new voice needs its note */
+
 static void write_midi(const char *path)
 {
     static const char *const NAME[6] = {"Keys", "Bass", "Lead", "Ear candy", "Pads", "Drums"};
     static const int VOICE[5] = {V_CHORD, V_BASS, V_LEAD, V_CANDY, V_PAD};
     static const int PROG[5] = {4, 32, 73, 11, 49};      /* GM: electric piano 1, acoustic bass, flute, vibraphone,
                                                             string ensemble 1 */
-    static const int DRUM[V_N] = {0, 0, 0, 0, 0, 36, 38, 42, 46, 70, 37}; /* (the pitched roles 0) */
     static char texts[MAXBARS * 2][48];
     FILE *f = fopen(path, "wb");
     mev_t *ev = malloc(sizeof *ev * (size_t)(2 * nrec + 4 * MAXBARS * 16 + 16));
@@ -558,10 +566,22 @@ void score_song(const song_t *s, float now)
     fprintf(logf, "key %s %s, %d BPM, %d bars (%d:%02d), mood %s, motion %d, swing %.1f%%\n", pc_name(r->v[RF_KEY]),
             MODE[r->v[RF_MODE]], r->v[RF_TEMPO], r->v[RF_BARS], secs / 60, secs % 60, MOOD[r->v[RF_MOOD] & 3],
             r->v[RF_MOTION], (double)r->v[RF_SWING] / 10.0);
-    fprintf(logf, "map %s; progression %d (%s); set %s; color %s; comping %s; bass %s\n", m ? m->name : "?",
-            p ? p->id : 0, p ? p->src : "?", set ? set->name : "?", COLOR[r->v[RF_COLOR] % 3],
-            harmony_style(r) == CS_HALF && !harmony_half_strikes(r) ? "half notes, held" : STYLE[harmony_style(r) % 5],
-            BASS[groove_bass_style(r) & 3]);
+    {
+        int st = harmony_style(r), slow, sp = strum_pattern(r, &slow);
+        fprintf(logf, "map %s; progression %d (%s); set %s; color %s; comping %s; bass %s\n", m ? m->name : "?",
+                p ? p->id : 0, p ? p->src : "?", set ? set->name : "?", COLOR[r->v[RF_COLOR] % 3],
+                st == CS_HALF && !harmony_half_strikes(r) ? "half notes, held"
+                : st == CS_STRUM                         ? STRUM[slow ? SP_N : sp]
+                                                         : STYLE[st % 6],
+                BASS[groove_bass_style(r) & 3]);
+    }
+    {
+        int kit = lib_song_kit(r), blk, ride = groove_ride(r, &blk);
+        fprintf(logf, "kit %s; %s", kit >= 0 && kit < KIT_N ? KIT[kit] : "?",
+                ride == RIDE_ALL ? "ride throughout\n" : ride == RIDE_SECTION ? "ride in block " : "hats\n");
+        if (ride == RIDE_SECTION) fprintf(logf, "%d (bars %d-%d)\n", blk + 1, plan.b[blk].start + 1,
+                                          plan.b[blk].start + plan.b[blk].bars);
+    }
     fprintf(logf, "blocks:");
     for (i = 0; i < plan.n; i++) {
         const plan_block_t *b = &plan.b[i];

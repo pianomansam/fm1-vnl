@@ -64,6 +64,7 @@ Kuroshita (Hügelton Instruments), both MPL-2.0.
 | What | Licence | Where |
 | --- | --- | --- |
 | The lo-fi chain's reverb and chorus, adapted from [Mutable Instruments Rings](https://github.com/pichenettes/eurorack) (`rings/dsp/fx/reverb.h`, `chorus.h`, `fx_engine.h`) by Emilie Gillet | MIT (below) | `app/engine/rings_fx.c`, `rings_fx.h` |
+| The string synth's Ensemble, adapted from [Mutable Instruments Plaits](https://github.com/pichenettes/eurorack) (`plaits/dsp/fx/ensemble.h`) by Emilie Gillet | MIT (`CREDITS.md`) | `app/engine/strsyn.c`, `strsyn.h` |
 
 The MIT notice for the Rings code, which the firmware contains:
 
@@ -82,6 +83,8 @@ The MIT notice for the Rings code, which the firmware contains:
     AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
     CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
     IN THE SOFTWARE.
+
+The samples (piano, guitars, drums) are CC0 1.0; their sources are listed in `CREDITS.md`.
 
 M-VAVE and FM-1 are trademarks of their owners. VNL-1 is not affiliated with M-VAVE, Mutable Instruments or Hügelton
 Instruments.

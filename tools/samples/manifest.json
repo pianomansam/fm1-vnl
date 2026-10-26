@@ -1,0 +1,105 @@
+{
+  "comment": "VNL-1 sample set: sources, the files fetch.sh downloads and what pack.py makes of them. Picks, layers, mics and weights from the instrument spike (docs/research/instrument-spike-2026-10-24.md on spike/instruments, rounds 1-5). Lengths and seconds are in s, hp in Hz.",
+  "license_sha256": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499",
+  "sources": {
+    "vcsl": {
+      "name": "Versilian Community Sample Library (VCSL)",
+      "url": "https://github.com/sgossner/VCSL",
+      "raw": "https://raw.githubusercontent.com/sgossner/VCSL/master/",
+      "license": "LICENSE"
+    },
+    "gogodze": {
+      "name": "Karoryfer Gogodze Phu Vol II",
+      "url": "https://github.com/sfzinstruments/karoryfer.gogodze-phu-vol-ii",
+      "raw": "https://raw.githubusercontent.com/sfzinstruments/karoryfer.gogodze-phu-vol-ii/master/",
+      "license": "LICENSE"
+    },
+    "rusty": {
+      "name": "Karoryfer Big Rusty Drums",
+      "url": "https://github.com/sfzinstruments/karoryfer.big-rusty-drums",
+      "raw": "https://raw.githubusercontent.com/sfzinstruments/karoryfer.big-rusty-drums/main/",
+      "license": "LICENSE"
+    },
+    "franken": {
+      "name": "Karoryfer Frankensnare",
+      "url": "https://github.com/sfzinstruments/karoryfer.frankensnare",
+      "raw": "https://raw.githubusercontent.com/sfzinstruments/karoryfer.frankensnare/main/",
+      "license": "license"
+    },
+    "emily": {
+      "name": "Karoryfer Emilyguitar",
+      "url": "https://github.com/sfzinstruments/karoryfer.emilyguitar",
+      "raw": "https://raw.githubusercontent.com/sfzinstruments/karoryfer.emilyguitar/master/",
+      "license": "LICENSE"
+    },
+    "freepats_nylon": {
+      "name": "FreePats Spanish Classical Guitar 2019-06-18 (SF2)",
+      "url": "https://freepats.zenvoid.org/Guitar/acoustic-guitar.html",
+      "archive": "https://freepats.zenvoid.org/Guitar/SpanishClassicalGuitar/SpanishClassicalGuitar-SF2-20190618.7z",
+      "license": "SpanishClassicalGuitar-SF2-20190618/cc0.txt"
+    }
+  },
+  "banks": [
+    {
+      "id": "SB_KNIGHT", "src": "vcsl", "attack": 0.7, "loop": 0.1,
+      "comment": "Upright Piano, Knight, vl2 (as heard in the spike), every 10 semitones C#2-D#6. File names sit an octave under MIDI's (C#1 is MIDI 37).",
+      "zones": [
+        {"file": "Chordophones/Zithers/Upright Piano, Knight/Sustains/Player_vl2_rr1_C#1.wav", "hint": 37},
+        {"file": "Chordophones/Zithers/Upright Piano, Knight/Sustains/Player_vl2_rr1_B1.wav", "hint": 47},
+        {"file": "Chordophones/Zithers/Upright Piano, Knight/Sustains/Player_vl2_rr1_A2.wav", "hint": 57},
+        {"file": "Chordophones/Zithers/Upright Piano, Knight/Sustains/Player_vl2_rr1_G3.wav", "hint": 67},
+        {"file": "Chordophones/Zithers/Upright Piano, Knight/Sustains/Player_vl2_rr1_F4.wav", "hint": 77},
+        {"file": "Chordophones/Zithers/Upright Piano, Knight/Sustains/Player_vl2_rr1_D#5.wav", "hint": 87}
+      ]
+    },
+    {
+      "id": "SB_NYLON", "src": "freepats_nylon", "attack": 0.5, "loop": 0.08,
+      "comment": "Chromatic one-shots in the SF2's preset 0:0; the spike's roots E2 A2 D3 G3 B3 E4 A4.",
+      "sf2": "SpanishClassicalGuitar-SF2-20190618/SpanishClassicalGuitar-20190618.sf2",
+      "preset": [0, 0],
+      "roots": [40, 45, 50, 55, 59, 64, 69]
+    },
+    {
+      "id": "SB_EMILY", "src": "emily", "attack": 0.7, "loop": 0.1,
+      "comment": "mf layer, rr1. The file names are standard pitch (e2 is MIDI 40; measured: no energy an octave below).",
+      "zones": [
+        {"file": "notes/e2_mf_rr1.wav", "hint": 40},
+        {"file": "notes/a2_mf_rr1.wav", "hint": 45},
+        {"file": "notes/eb3_mf_rr1.wav", "hint": 51},
+        {"file": "notes/a3_mf_rr1.wav", "hint": 57},
+        {"file": "notes/eb4_mf_rr1.wav", "hint": 63},
+        {"file": "notes/a4_mf_rr1.wav", "hint": 69},
+        {"file": "notes/eb5_mf_rr1.wav", "hint": 75},
+        {"file": "notes/a5_mf_rr1.wav", "hint": 81}
+      ]
+    }
+  ],
+  "hits": [
+    {"id": "SH_GG_KICK", "src": "gogodze", "len": 0.45, "files": [["Samples/retro_mic/ks_vl4_rr1.wav", 1.0]]},
+    {"id": "SH_BR_KICK", "src": "rusty", "len": 0.45,
+     "files": [["Samples/kick_24/kick/kick/k_vl8_rr1.flac", 1.0], ["Samples/kick_24/kick/oh/k_vl8_rr1.flac", 0.6]]},
+    {"id": "SH_GG_SIDE", "src": "gogodze", "len": 0.25, "files": [["Samples/retro_mic/ss_vl2_rr1.wav", 1.0]]},
+    {"id": "SH_GG_SNARE", "src": "gogodze", "len": 0.40, "files": [["Samples/retro_mic/sc_vl4_rr1.wav", 1.0]]},
+    {"id": "SH_FS_POPLAR", "src": "franken", "len": 0.40,
+     "files": [["Samples/20_basic/top/sn_vl3_rr1.flac", 1.0], ["Samples/20_basic/btm/sn_vl3_rr1.flac", 0.3],
+               ["Samples/20_basic/oh/sn_vl3_rr1.flac", 0.6]]},
+    {"id": "SH_VC_ROPE", "src": "vcsl", "len": 0.40,
+     "files": [["Membranophones/Struck Membranophones/Snare Drum, Rope Tension/Low/RopeSnare_low_ns_Main_vl2_rr1.wav", 1.0]]},
+    {"id": "SH_GG_HAT", "src": "gogodze", "len": 0.15, "files": [["Samples/retro_mic/hc_vl3_rr1.wav", 1.0]]},
+    {"id": "SH_GG_OHAT", "src": "gogodze", "len": 0.40, "files": [["Samples/retro_mic/ho_vl2_rr1.wav", 1.0]]},
+    {"id": "SH_BR_CHICK", "src": "rusty", "len": 0.15,
+     "files": [["Samples/hihat_14/chik/cl/ht_chik_vl2_rr1.flac", 1.0], ["Samples/hihat_14/chik/oh/ht_chik_vl2_rr1.flac", 0.5]]},
+    {"id": "SH_BR_OHAT", "src": "rusty", "len": 0.40,
+     "files": [["Samples/hihat_14/open/cl/ht_open_vl2_rr1.flac", 1.0], ["Samples/hihat_14/open/oh/ht_open_vl2_rr1.flac", 0.5]]},
+    {"id": "SH_VC_PEDAL", "src": "vcsl", "len": 0.15,
+     "files": [["Idiophones/Struck Idiophones/Hi-Hat Cymbal/HiHat_Close_rr1_Mid.wav", 1.0]]},
+    {"id": "SH_VC_HAT", "src": "vcsl", "len": 0.15,
+     "files": [["Idiophones/Struck Idiophones/Hi-Hat Cymbal/HiHat_HitC_v1_rr1_Mid.wav", 1.0]]},
+    {"id": "SH_VC_OHAT", "src": "vcsl", "len": 0.40,
+     "files": [["Idiophones/Struck Idiophones/Hi-Hat Cymbal/HiHat_HitO_rr1_Mid.wav", 1.0]]},
+    {"id": "SH_VC_SHAKER", "src": "vcsl", "len": 0.20, "hp": 400,
+     "files": [["Idiophones/Struck Idiophones/Shaker, Small/Mid_ShakerHighFaster_Down_rr1.wav", 1.0]]},
+    {"id": "SH_RIDE", "src": "rusty", "len": 0.50,
+     "files": [["Samples/ride_22/rd/cl/rd_vl5_rr1.flac", 1.0], ["Samples/ride_22/rd/oh/rd_vl5_rr1.flac", 0.7]]}
+  ]
+}

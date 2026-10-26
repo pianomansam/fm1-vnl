@@ -163,7 +163,9 @@ static int pick(const cands_t *c, uint32_t seed, int f)
     uint32_t tot = 0, x;
     int i;
     if (c->n == 0) return -1;
-    rng_seed(&g, seed, (uint32_t)f);
+    /* the set's stream hashed apart: rng_seed's streams differ by a constant xor, and xorshift is linear, so the set's
+       draw shares the mood's low bits (x % 4) and a mood's set count divisible by 2 or 4 left sets unreachable */
+    rng_seed(&g, f == RF_SET ? mix(seed, 0x5E7u) : seed, (uint32_t)f);
     for (i = 0; i < c->n; i++) tot += c->w[i];
     if (tot == 0) return c->v[rng_int(&g, c->n)];
     x = rng_next(&g) % tot;
@@ -334,4 +336,16 @@ int roll_set(song_roll_t *r, int field, int value)
 int roll_seconds(const song_roll_t *r)
 {
     return r->v[RF_TEMPO] > 0 ? r->v[RF_BARS] * 240 / r->v[RF_TEMPO] : 0;
+}
+
+int lib_song_kit(const song_roll_t *r)
+{
+    const lib_set_t *s = lib_set_by_id((uint8_t)r->v[RF_SET]);
+    rng_t g;
+    if (!s) return KIT_DUSTY;
+    if (s->skit >= KIT_N) return s->kit;
+    if (s->kit >= KIT_N) return s->skit;
+    /* hashed apart (as the set's draw is): the streams' states differ by a constant xor and xorshift is linear */
+    rng_seed(&g, mix(r->seed, 0x4B17u), 192);
+    return rng_next(&g) >> 31 ? s->skit : s->kit;
 }
