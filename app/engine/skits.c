@@ -296,21 +296,27 @@ static uint32_t render_steps(float *out, uint32_t n)
         if (b->lc < 1.0f) { /* (run while it rings, so a hit's tail through it stays the same) */
             if (!e && !(ring & 1u << k))
                 continue;
+            float l1 = b->l1, l2 = b->l2, lc = b->lc, dr = b->drive, idr = b->idrive; /* (in locals: out could
+                                                                                     alias the bus) */
             for (s = 0; s < n; s++) {
                 float x = s < e ? acc[s] : 0.0f;
-                if (s >= e && fm_fabsf(b->l1) < 1e-7f && fm_fabsf(b->l2) < 1e-7f) {
-                    b->l1 = b->l2 = 0.0f; /* rung out */
-                    ring &= ~(1u << k);
+                if (s >= e && fm_fabsf(l1) < 1e-7f && fm_fabsf(l2) < 1e-7f) {
+                    l1 = l2 = 0.0f; /* rung out */
                     break;
                 }
-                b->l1 = fm_flush(b->l1 + (x - b->l1) * b->lc);
-                b->l2 = fm_flush(b->l2 + (b->l1 - b->l2) * b->lc);
-                x = b->l2;
-                ring |= 1u << k;
-                if (b->drive > 0.0f)
-                    x = fm_tanhf(x * b->drive) * b->idrive;
+                l1 = fm_flush(l1 + (x - l1) * lc);
+                l2 = fm_flush(l2 + (l1 - l2) * lc);
+                x = l2;
+                if (dr > 0.0f)
+                    x = fm_tanhf(x * dr) * idr;
                 out[s] += x;
             }
+            b->l1 = l1;
+            b->l2 = l2;
+            if (s < n) /* (rung out) */
+                ring &= ~(1u << k);
+            else
+                ring |= 1u << k;
         } else if (b->drive > 0.0f)
             for (s = 0; s < e; s++)
                 out[s] += fm_tanhf(acc[s] * b->drive) * b->idrive;
