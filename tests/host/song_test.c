@@ -9326,8 +9326,8 @@ static void test_samp(void)
     /* a steal: eight held Knight notes (a sampled instrument has the chords' 8 voices), a ninth (velocity 1) takes
        the oldest. The victim's part is the difference of
        two renders that differ only in its velocity (127, 63; the chorus, the delay and the glue off: no delayed
-       copies, linear). In the 6-16 ms after the steal it is under a tenth of the 10 ms before (the plate's ring of
-       it stays); no step over 0.05 */
+       copies, linear). In the 6-16 ms after the steal it is 40 dB under the 10 ms before (measured about -42; the
+       plate's ring of it stays); no step over 0.05 */
     {
         static float s1[6 * 4096], s2[6 * 4096];
         float pre, post, late, pv = 0.0f, d;
@@ -9357,7 +9357,7 @@ static void test_samp(void)
         late = sp_rms(s1 + 8192 + 5000, 441);
         printf("samp: steal: the victim %.2e before, %.2e 6-16 ms after (%.1f dB), %.2e 120 ms after (the plate)\n",
                (double)pre, (double)post, (double)(20.0f * 0.30103f * fm_log2f(post / pre)), (double)late);
-        CHECK(post <= 0.1f * pre, "samp: a stolen voice still at %.1f dB 6 ms after the steal",
+        CHECK(post <= 0.01f * pre, "samp: a stolen voice still at %.1f dB 6 ms after the steal",
               (double)(20.0f * 0.30103f * fm_log2f(post / pre)));
         vx_fx_off(0u);
         fx_glue_off(0);
@@ -9673,6 +9673,37 @@ static void test_skits(void)
             printf(" %.1f", (double)sk_db(r));
             CHECK(k == KIT_DUSTY || r > 0.01f, "kit %d voice %d: RMS %.4f, wanted over -40 dBFS", k, v, (double)r);
         }
+        printf("\n");
+    }
+
+    /* velocity 127 (Review Focus 5, the final review): every lane of every sampled kit, through its bus and drive,
+       peaks (over 0.7 s) no higher than the loudest synth kit lane at 127 (today's limit), finite and sounding */
+    {
+        float lim = 0.0f, pk[KIT_N][V_RIDE - V_KICK + 1];
+        for (k = KIT_DUSTY; k <= KIT_S_CLEAN; k++)
+            for (v = V_KICK; v <= (k >= KIT_S_WARM ? V_RIDE : V_RIM); v++) {
+                float m = 0.0f;
+                int nan = 0;
+                drums_song(0u);
+                drums_set_kit(k);
+                sk_hit(v, 127);
+                sk_run(0, 30000);
+                for (i = 0; i < 30000; i++) {
+                    nan += sk_buf[i] != sk_buf[i];
+                    m = fm_maxf(m, sk_buf[i] < 0.0f ? -sk_buf[i] : sk_buf[i]);
+                }
+                CHECK(nan == 0, "skits: kit %d voice %d at 127: %d NaN samples", k, v, nan);
+                pk[k][v - V_KICK] = m;
+                if (k < KIT_S_WARM) lim = fm_maxf(lim, m);
+            }
+        printf("skits: velocity 127 peaks (the synth kits' loudest lane %.3f):", (double)lim);
+        for (k = KIT_S_WARM; k <= KIT_S_CLEAN; k++)
+            for (v = V_KICK; v <= V_RIDE; v++) {
+                float m = pk[k][v - V_KICK];
+                printf(" %.3f", (double)m);
+                CHECK(m > 0.0f && m <= lim, "skits: kit %d voice %d peaks %.3f at velocity 127, over the synth kits' %.3f",
+                      k, v, (double)m, (double)lim);
+            }
         printf("\n");
     }
 
