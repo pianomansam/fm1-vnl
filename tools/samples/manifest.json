@@ -99,7 +99,7 @@
      "files": [["Idiophones/Struck Idiophones/Hi-Hat Cymbal/HiHat_HitO_rr1_Mid.wav", 1.0]]},
     {"id": "SH_VC_SHAKER", "src": "vcsl", "len": 0.20, "hp": 400,
      "files": [["Idiophones/Struck Idiophones/Shaker, Small/Mid_ShakerHighFaster_Down_rr1.wav", 1.0]]},
-    {"id": "SH_RIDE", "src": "rusty", "len": 0.50,
+    {"id": "SH_RIDE", "src": "rusty", "len": 1.50,
      "files": [["Samples/ride_22/rd/cl/rd_vl5_rr1.flac", 1.0], ["Samples/ride_22/rd/oh/rd_vl5_rr1.flac", 0.7]]}
   ]
 }
