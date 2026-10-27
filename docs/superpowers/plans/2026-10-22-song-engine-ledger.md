@@ -185,6 +185,12 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   deterministic per loop position. Pedal-like ringing; velocity about 50 to 70 up the climb, 75 on the top chord. Under
   the lead in lead sections (tops at the voicing's top), an octave higher elsewhere; a busy lead thins it to 8ths with
   no top chord. Open question for Sam: 16ths (two climbs a bar), 8ths (one climb landing near beat 4), or both per song.
+  Sam's shapes (2026-10-27): "it plays the chord for three octaves. example: 1 5, (next octave) 1 5, (3rd octave)
+  chord. another example: 1 5, (next octave) 1 3, (2nd/3rd octave) 5/1/3 chord. or first example over just two
+  octaves". For its timing and touch, reuse LOF-1's `comp_strike` (`ref/fm1-HYP1/lof1/firmware/src/dsp/amb.c` 1286:
+  4-49 ms spread, 0-4 ms jitter, top note +8%, the rest -5%); Tuna's `pad_voice` (`ref/tuna/firmware/src/tuna_gen.c`
+  1067, hold common tones, restrike only new ones) for the EPs. Still open: the rhythm, and the low root vs the
+  rootless rule and the bass. Parked again 2026-10-27 ("save the piano climb for later").
 - **The pad's solo note against the lead (Sam, 2026-10-24: "leave out for right now... we can revisit later").** The
   pads design's solo note ignores the lead; if they clash by ear, add the check (sit out a bar where the lead comes
   within a 3rd or a semitone).
