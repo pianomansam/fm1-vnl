@@ -274,10 +274,14 @@ static void voice_chord(const song_roll_t *r, int bar, const int *pcs, int n, ha
 static int emit_chord(const int *notes, int n, uint32_t gap, int lo, int hi, uint32_t len, int dark, uint32_t salt,
                       int bar, int step, song_ev_t *out, int max)
 {
-    int i, cnt = 0;
+    /* LOF-1's comp_strike (ref/fm1-HYP1/lof1, amb.c, GPL-3.0): 0-4 ms jitter a note, the top note 8% louder and the
+       rest 5% softer */
+    int i, cnt = 0, top = 0;
+    for (i = 1; i < n; i++)
+        if (notes[i] > notes[top]) top = i;
     for (i = 0; i < n && cnt < max; i++) {
         int v = lo + (int)(mix(salt, (uint32_t)bar, (uint32_t)step, 40u + (uint32_t)i) % (uint32_t)(hi - lo + 1));
-        v = clampi(v + (i == 0 ? 3 : 0), lo, hi);
+        if (n > 1) v = v * (i == top ? 108 : 95) / 100;
         if (dark == 1) v -= 6;            /* softer in the dark intro and outro (was 10: with the comping quieter,
                                              the intro sank) */
         if (dark == 2) v += 6;            /* firmer with no kick or lead: the keys carry the block */
@@ -285,7 +289,7 @@ static int emit_chord(const int *notes, int n, uint32_t gap, int lo, int hi, uin
         out[cnt].note = (uint8_t)notes[i];
         out[cnt].vel = (uint8_t)clampi(v, 25, 110);
         out[cnt].pad = 0;
-        out[cnt].delay = gap * (uint32_t)i;
+        out[cnt].delay = gap * (uint32_t)i + mix(salt, (uint32_t)bar, (uint32_t)step, 60u + (uint32_t)i) % 177u;
         out[cnt].len = len > out[cnt].delay ? len - out[cnt].delay : 1u;   /* all notes end together */
         cnt++;
     }
@@ -437,6 +441,36 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
                                                              draw) */
         int c = emit_chord(notes, 4, gap, lo, hi, len, dark, salt, bar, 0, out, max), i;
         for (i = 0; i < c; i++) out[i].vel = (uint8_t)clampi(out[i].vel * 9 / 10, 25, 110);
+        return c;
+    }
+    if (style == CS_HELD) {   /* Tuna's pad_voice (ref/tuna, tuna_gen.c, GPL-3.0): a tone the next chord shares rings
+                                 on, struck once (not the guitars: a string is plucked again) */
+        const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
+        int nb = bar + (rs ? 1 : p->bars_per_chord), keep[4], nk[4], m = 0, c, i, j;
+        uint32_t span = len + 441u;
+        for (i = 0; i < 4; i++) {                         /* this strike leaves the tones tied from the last */
+            for (j = 0; j < 4 && vs->tied[j] != notes[i]; j++)
+                ;
+            if (j == 4) keep[m++] = notes[i];
+        }
+        memset(vs->tied, 0, sizeof vs->tied);
+        c = emit_chord(keep, m, gap, lo, hi, len, dark, salt, bar, step, out, max);
+        /* the next strike's voicing, peeked: within this block, and never across a 4-bar line (a request lands
+           there) */
+        if (set && set->chords != INS_NYLON && set->chords != INS_EMILY && nb < b->start + b->bars && nb % 4 != 0 &&
+            nb % p->bars_per_chord == 0) {
+            harmony_voicing_t pk = *vs;
+            int np2 = harmony_chord_at(r, nb, nb / (p->n * p->bars_per_chord) + 1, dark, pcs);
+            voice_chord(r, nb, pcs, np2, &pk, nk);
+            place_keys(r, nk);
+            for (i = 0, m = 0; i < c; i++)
+                for (j = 0; j < 4; j++)
+                    if (out[i].note == nk[j]) {
+                        out[i].len += span;
+                        vs->tied[m++] = nk[j];
+                        break;
+                    }
+        }
         return c;
     }
     return emit_chord(notes, 4, gap, lo, hi, len, dark, salt, bar, step, out, max);
