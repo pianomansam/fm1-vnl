@@ -162,6 +162,11 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
     0,7,10; k6 0,6 | 0,3,10; research in docs/research/hiphop-kicks-2026-10-28.md). A "drummer layer" for acoustic
     songs ("that will help a bit"; Sam may want it always on): 8th hats with a strong-weak accent, two-bar variation,
     wider dynamics, kick feel, tom fills and a crash.
+  - **Synth ride section (2026-10-28):** no ride substitute worked (LO-FI ride short, its open/closed hat, poketrack
+    808/CR-78 cymbals, 909 ride); percussion layers (808 congas, CR-78 bongos martillo/sparse, LO-FI congas) "none
+    work"; the synth kits' shakers "all sound like closed hats". Untried: the clap layer, or no ride (hats carry).
+  - **Workbench (2026-10-28):** Sam wants a local web UI to test the songs and pairings: change ANY decision or roll
+    the dice on one aspect, and give feedback; desktop only, not the FM-1. Being designed (brainstorm).
   - The 16th arpeggio comping is off on every instrument (guitars cf0dca0, keys 3025034): "We may bring it back
     later, but not right now" (Sam, 2026-10-28). The piano climb may take its place.
   - Settled this pass: Knight stab level fine; Knight no-roll fine; ride quarter notes at most with a 1.5 s tail
