@@ -156,6 +156,12 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
     out; "None of our 3 kits should remain"); the synth side liked: poketrack 808, CR-78, 909 and Optimist BOOMBAP,
     LO-FI, vintage (not X0X 808); the acoustic kits will be shaken up (original, unmixed kits; pick pending). Next
     question: should the drum patterns split by family too.
+  - **Drums, 2026-10-28 later:** the synth side is now poketrack 808, poketrack CR-78 and Optimist LO-FI ("get rid
+    of the 909, boombap, and vintage"); Optimist LO-FI's ride needs a substitute (p13 k5 at 0:22). Kicks: two-bar
+    kick phrases; k2-k6 "could all work. we don't always have to do k5-k6" (k2 0,10; k3 0,7,10; k4 0,6,8; k5 0,10 |
+    0,7,10; k6 0,6 | 0,3,10; research in docs/research/hiphop-kicks-2026-10-28.md). A "drummer layer" for acoustic
+    songs ("that will help a bit"; Sam may want it always on): 8th hats with a strong-weak accent, two-bar variation,
+    wider dynamics, kick feel, tom fills and a crash.
   - The 16th arpeggio comping is off on every instrument (guitars cf0dca0, keys 3025034): "We may bring it back
     later, but not right now" (Sam, 2026-10-28). The piano climb may take its place.
   - Settled this pass: Knight stab level fine; Knight no-roll fine; ride quarter notes at most with a 1.5 s tail
