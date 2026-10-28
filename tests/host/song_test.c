@@ -8978,16 +8978,26 @@ static void test_wb_set(void)
     cs = *lib_set_by_id(21);
     cs.id = LIB_SET_WB;
     cs.lead = INS_SAX;
-    lib_set_wb(&cs);
+    lib_set_wb(&cs, 21);
     r.v[RF_SET] = LIB_SET_WB;
     CHECK(lib_set_by_id(LIB_SET_WB) && lib_set_by_id(LIB_SET_WB)->lead == INS_SAX, "wb set: the custom set is not served");
+    vx_song(&r);
+    CHECK(vx_config()->lead == INS_SAX, "wb set: the lead voice is instrument %d, wanted the sax", vx_config()->lead);
     song_start(&s, &r);
     while (s.state == SS_PLAYING) {
         int i, n = song_tick(&s, ev, 64);
         for (i = 0; i < n; i++) lead += ev[i].voice == V_LEAD;
     }
     CHECK(lead > 0, "wb set: the song played no lead events");
-    lib_set_wb(NULL);
+    /* a copy of a walking set (1) or the keys-shift set (5) keeps that set's rules through its base id */
+    cs = *lib_set_by_id(1); cs.id = LIB_SET_WB; lib_set_wb(&cs, 1);
+    CHECK(lib_set_walks(&cs) && lib_set_walks(lib_set_by_id(LIB_SET_WB)), "wb set: a copy of set 1 does not walk");
+    cs = *lib_set_by_id(5); cs.id = LIB_SET_WB; lib_set_wb(&cs, 5);
+    CHECK(lib_set_keys_shift(&cs) == lib_set_keys_shift(lib_set_by_id(5)) && lib_set_keys_shift(&cs) != 0,
+          "wb set: a copy of set 5 loses the keys shift");
+    cs = *lib_set_by_id(21); cs.id = LIB_SET_WB; lib_set_wb(&cs, 21);
+    CHECK(!lib_set_walks(&cs) && lib_set_keys_shift(&cs) == 0, "wb set: a copy of set 21 gained a rule");
+    lib_set_wb(NULL, 0);
     CHECK(lib_set_by_id(LIB_SET_WB) == NULL, "wb set: the custom set stays after being cleared");
 }
 static int wb_kick_bad(int two_bar)
@@ -9001,6 +9011,7 @@ static int wb_kick_bad(int two_bar)
     roll_song(NULL, 5, &r);
     cp = *lib_pattern_by_id((uint8_t)r.v[RF_PATTERN]);
     cp.id = LIB_PATTERN_WB;
+    memcpy(cp.hit_b, cp.hit, sizeof cp.hit_b); memcpy(cp.ghost_b, cp.ghost, sizeof cp.ghost_b);
     cp.hit[D_KICK] = 0x0401u; cp.ghost[D_KICK] = 0;
     cp.two_bar = (uint8_t)two_bar;
     cp.hit_b[D_KICK] = 0x0481u; cp.ghost_b[D_KICK] = 0;
@@ -9033,7 +9044,7 @@ static void test_wb_two_bar(void)
 static void test_wb_off(void)
 {
     uint32_t a, b;
-    lib_set_wb(NULL); lib_pattern_wb(NULL);
+    lib_set_wb(NULL, 0); lib_pattern_wb(NULL);
     a = sf_songs(0); b = sf_songs(1);
     CHECK(a == 0xa1a8e201u, "wb off: the strummed songs hash %08x, wanted a1a8e201", (unsigned)a);
     CHECK(b == 0x3910eb79u, "wb off: with set changes %08x, wanted 3910eb79", (unsigned)b);

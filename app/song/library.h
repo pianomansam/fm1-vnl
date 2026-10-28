@@ -33,7 +33,7 @@ typedef struct { uint8_t id; uint8_t kind; uint8_t n; uint8_t bars_per_chord; th
 typedef struct { uint8_t id; const char *name; uint8_t chords, bass, lead, candy, pad, kit, skit; uint8_t flavor; uint8_t moods; const char *src; } lib_set_t;
 /* hit/ghost: 16 steps per lane, bit i = step i. poly3: the shaker lane is a period-3 polymeter (hit[D_SHAKER] holds it). */
 typedef struct { uint8_t id; uint8_t family; uint16_t hit[6]; uint16_t ghost[6]; uint8_t half_time; uint8_t poly3; const char *src;
-                      uint8_t two_bar; uint16_t hit_b[6]; uint16_t ghost_b[6]; } lib_pattern_t;
+                     uint8_t two_bar; uint16_t hit_b[6]; uint16_t ghost_b[6]; } lib_pattern_t;
 typedef struct { uint8_t id; const char *name; uint8_t intro_bars, entry, middle, ending; uint8_t sparse; const char *src; } lib_map_t;
 typedef struct { uint8_t mode_w[MODE_N]; uint8_t color_w[3]; int8_t lead_shift; uint8_t candy_pct; } lib_mood_t;
 
@@ -49,7 +49,7 @@ extern const lib_mood_t LIB_MOODS[4];      /* sad, wistful, warm, sunny */
 const lib_prog_t *lib_prog_by_id(uint8_t id);        /* all four: NULL if unknown */
 /* the workbench's custom set and pattern (default off: NULL); lib_*_by_id(LIB_*_WB) return them */
 enum { LIB_SET_WB = 255, LIB_PATTERN_WB = 255 };
-void lib_set_wb(const lib_set_t *s);
+void lib_set_wb(const lib_set_t *s, uint8_t base_id);   /* base_id: the set whose id-keyed rules (walking bass, keys shift) it keeps */
 void lib_pattern_wb(const lib_pattern_t *p);
 /* a lane's hit and ghost masks in `bar`: bar B's on odd bars of a two-bar pattern, else bar A's */
 unsigned lib_lane_hits(const lib_pattern_t *p, int lane, int bar);

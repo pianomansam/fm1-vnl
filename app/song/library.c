@@ -184,8 +184,10 @@ const lib_prog_t *lib_prog_by_id(uint8_t id)
 }
 
 static const lib_set_t *wb_set;
+static uint8_t wb_base;
 static const lib_pattern_t *wb_pattern;
-void lib_set_wb(const lib_set_t *s) { wb_set = s; }
+void lib_set_wb(const lib_set_t *s, uint8_t base_id) { wb_set = s; wb_base = base_id; }
+static int set_key(const lib_set_t *s) { return s == wb_set ? wb_base : s->id; }
 void lib_pattern_wb(const lib_pattern_t *p) { wb_pattern = p; }
 
 unsigned lib_lane_hits(const lib_pattern_t *p, int lane, int bar)
@@ -227,14 +229,14 @@ const lib_map_t *lib_map_by_id(uint8_t id)
    to come down to that lower octave") */
 int lib_set_keys_shift(const lib_set_t *s)
 {
-    return s && s->id == 5 ? -12 : 0;
+    return s && set_key(s) == 5 ? -12 : 0;
 }
 
 /* the sets whose bass may walk: the four that had the upright (Sam, 2026-10-24: "I don't like the upright's sound";
    their bass is now the electric) */
 int lib_set_walks(const lib_set_t *s)
 {
-    return s && (s->id == 1 || s->id == 4 || s->id == 8 || s->id == 9);
+    return s && (set_key(s) == 1 || set_key(s) == 4 || set_key(s) == 8 || set_key(s) == 9);
 }
 
 int lib_ins_sampled_struck(int ins) { return ins == INS_KNIGHT || ins == INS_NYLON || ins == INS_EMILY; }
