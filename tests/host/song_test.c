@@ -10416,6 +10416,94 @@ static int db_stream(float *o, float *ko, int blocky, uint32_t seed)
     return nk;
 }
 
+/* The workbench's drum-source hook (default off): a stub that counts the song's drum hits and plays an impulse for
+   each reaches every one, the mix (the real bus and chain) sounds at those steps and is silent with a silent stub, and
+   clearing the hook brings the pinned hashes and the built-in kits back */
+static int dh_on, dh_pend, dh_rel, dh_amp;
+static void dh_hit(const song_ev_t *e) { (void)e; dh_on++; dh_pend++; }
+static void dh_render(float *x, uint32_t n)
+{
+    memset(x, 0, n * sizeof(float));
+    if (n && dh_pend && dh_amp) x[0] = (float)dh_pend;
+    dh_pend = 0;
+}
+static int dh_active(void) { return dh_pend; }
+static float dh_kick(void) { return 0.0f; }
+static void dh_release(void) { dh_rel++; }
+static void test_drums_hook(void)
+{
+    static const drums_hook_t hk = {dh_hit, dh_render, dh_active, dh_kick, dh_release};
+    static song_t s;
+    song_roll_t r;
+    song_ev_t ev[64];
+    int pass, i, quiet_bad = 0;
+    uint32_t a, b;
+    roll_song(NULL, 3u, &r);
+    for (pass = 0; pass < 2; pass++) {
+        int want = 0, steps = 0, loud = 0;
+        float frac = 0.0f;
+        dh_on = dh_pend = dh_rel = 0;
+        dh_amp = pass == 0;
+        drums_hook(&hk);
+        vx_init();
+        vx_bed_off(1);
+        song_start(&s, &r);
+        while (s.state == SS_PLAYING && s.bar < 6) {
+            int n = song_tick(&s, ev, 64), d = 0;
+            float adv = song_step_samples(&s) + frac, pk = 0.0f;
+            uint32_t left = (uint32_t)adv;
+            frac = adv - (float)left;
+            for (i = 0; i < n; i++)
+                if (ev[i].voice >= V_KICK && ev[i].voice <= V_RIDE) {
+                    vx_event(&ev[i]);
+                    d++;
+                }
+            want += d;
+            while (left) {
+                uint32_t k = left < 256u ? left : 256u, j;
+                memset(vt_l, 0, k * sizeof(float));
+                memset(vt_r, 0, k * sizeof(float));
+                vx_render(vt_l, vt_r, k);
+                for (j = 0; j < k; j++) {
+                    float m = fm_fabsf(vt_l[j]);
+                    if (m > pk) pk = m;
+                }
+                left -= k;
+            }
+            if (d) {
+                steps++;
+                loud += pk > 1e-4f;
+            }
+        }
+        if (pass == 0)
+            CHECK(want > 8 && dh_on == want, "drums hook: %d drum events, %d reached the hook", want, dh_on);
+        if (pass == 0)
+            CHECK(loud == steps, "drums hook: the mix sounds at %d of %d drum steps", loud, steps);
+        else
+            quiet_bad = loud;
+        drums_hook(NULL);
+    }
+    CHECK(quiet_bad == 0, "drums hook: a silent source still sounds at %d steps", quiet_bad);
+    drums_hook(NULL);
+    a = sf_songs(0); b = sf_songs(1);
+    CHECK(a == 0xa1a8e201u, "drums hook off: the strummed songs hash %08x, wanted a1a8e201", (unsigned)a);
+    CHECK(b == 0x3910eb79u, "drums hook off: with set changes %08x, wanted 3910eb79", (unsigned)b);
+    dh_on = 0;
+    vx_init();
+    {
+        song_ev_t e;
+        float x[64];
+        memset(&e, 0, sizeof e);
+        e.voice = V_KICK;
+        e.vel = 100;
+        drums_on(&e);
+        drums_render(x, 64);
+        CHECK(dh_on == 0 && drums_active(), "drums hook off: the built-in kit did not take the hit");
+    }
+    vx_bed_off(0);
+    vx_init();
+}
+
 static void test_drums_blocks(void)
 {
     int h, k, l, i;
@@ -10722,6 +10810,7 @@ int main(int argc, char **argv)
     RUN(test_comp_styles);
     RUN(test_skits);
     RUN(test_drums_blocks);
+    RUN(test_drums_hook);
     RUN(test_kit_roll);
     if (fails) {
         printf("%d check(s) failed\n", fails);

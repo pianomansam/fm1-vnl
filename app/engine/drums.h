@@ -30,4 +30,16 @@ int drums_active(void);
    kick has ended): the ducking source for the lo-fi chain. A read of one float; call any time. */
 float drums_kick_env(void);
 
+/* An outside drum source (the workbench's kits; default off): while set, drums_on/render/active/kick_env/release
+   call it, so its drums go through the song's own bus, compressor, filters and ducking. NULL: the built-in kits.
+   (drums_sample, for tests, and drums_set_kit/song/init stay the built-in's.) */
+typedef struct {
+    void (*on)(const song_ev_t *e);       /* a drum event (voice V_KICK..V_RIDE) */
+    void (*render)(float *x, uint32_t n); /* writes n samples into x, as drums_render */
+    int (*active)(void);
+    float (*kick_env)(void);
+    void (*release)(void);
+} drums_hook_t;
+void drums_hook(const drums_hook_t *h);
+
 #endif

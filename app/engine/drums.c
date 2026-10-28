@@ -124,8 +124,16 @@ void drums_init(void)
     drums_set_kit(KIT_DUSTY);
 }
 
+static const drums_hook_t *hook;
+
+void drums_hook(const drums_hook_t *h) { hook = h; }
+
 void drums_on(const song_ev_t *e)
 {
+    if (hook) {
+        hook->on(e);
+        return;
+    }
     int i = (int)e->voice - V_KICK;
     lane_t *d;
     const dk_t *p;
@@ -188,6 +196,10 @@ static float lane_sample(int i)
 
 void drums_render(float *x, uint32_t n)
 {
+    if (hook) {
+        hook->render(x, n);
+        return;
+    }
     static float sk[256];
     uint32_t s;
     int i, any = 0;
@@ -217,6 +229,10 @@ float drums_sample(void)
 
 void drums_release(void)
 {
+    if (hook) {
+        hook->release();
+        return;
+    }
     int i;
     for (i = 0; i < ND; i++)
         if (ln[i].on)
@@ -226,6 +242,8 @@ void drums_release(void)
 
 int drums_active(void)
 {
+    if (hook)
+        return hook->active();
     int i, c = 0;
     for (i = 0; i < ND; i++)
         c += ln[i].on;
@@ -234,5 +252,7 @@ int drums_active(void)
 
 float drums_kick_env(void)
 {
+    if (hook)
+        return hook->kick_env();
     return fm_maxf(ln[0].on ? ln[0].env * ln[0].lvl : 0.0f, skits_kick_env());
 }
