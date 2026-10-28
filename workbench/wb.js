@@ -57,6 +57,12 @@ export async function probe(bytes) {
   return probeEx.wb_lead_oct_probe();
 }
 
+// the AudioContext running (a click's: an audition while stopped)
+export async function resume() {
+  await start();
+  await ctx.resume();
+}
+
 export async function play(on) {
   await start();
   if (on) await ctx.resume();

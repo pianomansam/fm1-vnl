@@ -102,6 +102,25 @@ class T(unittest.TestCase):
                 c.close()
         self.assertEqual(sorted(p.name for p in server.DATA.rglob("*") if p.is_file()), before)
 
+    def get(self, path):
+        c = http.client.HTTPConnection("127.0.0.1", self.srv.server_address[1])
+        c.request("GET", path)
+        r = c.getresponse()
+        out = r.status, r.read()
+        c.close()
+        return out
+
+    def test_saved_listed_and_served(self):
+        self.assertEqual(self.post("/pattern", {"name": "listed-1", "grid": {"base": 3}})[0], 200)
+        (server.DATA / "patterns" / "Not A Name.json").write_text("{}")
+        status, body = self.get("/list/patterns")
+        self.assertEqual(status, 200)
+        self.assertIn("listed-1", json.loads(body)["names"])
+        self.assertNotIn("Not A Name", json.loads(body)["names"])
+        status, body = self.get("/patterns/listed-1.json")
+        self.assertEqual((status, json.loads(body)["grid"]), (200, {"base": 3}))
+        self.assertEqual(json.loads(self.get("/list/kits")[1])["names"], sorted(json.loads(self.get("/list/kits")[1])["names"]))
+
 
 if __name__ == "__main__":
     unittest.main()

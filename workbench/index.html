@@ -50,6 +50,29 @@
   #fb.unsaved { color: var(--accent); font-weight: 600; }
   .row button.fb { opacity: 0.55; }
   .row button.fb:hover { opacity: 1; }
+  /* the drum screen (wider: both bars in view) */
+  main:has(#drums:not([hidden])) { max-width: 1200px; }
+  .dtop { display: flex; gap: 12px; align-items: center; margin-top: 20px; }
+  .dtop h2 { margin: 0; }
+  .dhead { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; margin-top: 10px; }
+  .dhead label { color: var(--muted); margin-left: 6px; }
+  .dhead select { width: auto; max-width: 15em; }
+  .dhead button, .dgrid button { padding: 4px 8px; line-height: 1; }
+  .dscroll { overflow-x: auto; margin-top: 12px; }
+  .dgrid { border-collapse: collapse; }
+  .dgrid th { font-size: 12px; font-weight: 600; color: var(--muted); text-align: left; padding: 2px 6px; white-space: nowrap; }
+  .dgrid th.now { color: var(--accent); }
+  .dgrid td { padding: 3px 4px; white-space: nowrap; }
+  .dgrid td label { color: var(--muted); }
+  .dgrid select { width: 12em; }
+  .dgrid .lvl { width: 4.5em; padding: 4px 6px; }
+  .dgrid .dbtns { display: flex; gap: 4px; }
+  .dgrid .steps { display: flex; gap: 2px; padding-right: 10px; }
+  .dgrid button.step { width: 20px; height: 26px; padding: 0; font-size: 14px; border-color: var(--line); }
+  .dgrid button.step.beat { border-color: var(--muted); }
+  .dgrid button.step[data-state="hit"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .dgrid button.step[data-state="ghost"] { background: var(--moved); }
+  .dnote, .dkey { color: var(--muted); font-size: 13px; }
 </style>
 </head>
 <body>
@@ -71,14 +94,16 @@
   </div>
   <p id="msg" role="status" aria-live="polite"></p>
   <div id="desk"></div>
+  <div id="drums" hidden></div>
 </main>
 <script type="module">
   import * as wb from "./wb.js";
   import { ROWS, GROUPS, optionsFor, inactive } from "./rows.js";
   import { Desk } from "./desk.js";
+  import { DrumScreen } from "./drums.js";
   const $ = (id) => document.getElementById(id);
   const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
-  let playing = false, desk = null, lib = null, pos = { seconds: 0, bar: 0 }, sentChanges = 0;
+  let playing = false, desk = null, lib = null, pos = { seconds: 0, bar: 0 }, sentChanges = 0, drums = null;
 
   // one change at a time: clicks queue behind the one in flight
   let queue = Promise.resolve();
@@ -143,8 +168,7 @@
         const sec = document.createElement("section"), h = document.createElement("h2"), box = document.createElement("div");
         h.textContent = g;
         if (g === "Drums") {
-          const edit = Object.assign(document.createElement("button"), { textContent: "Edit kit & pattern", disabled: true,
-                                                                         title: "The drum screen comes next" });
+          const edit = Object.assign(document.createElement("button"), { textContent: "Edit kit & pattern", onclick: () => screen(true) });
           h.append(edit);
         }
         box.className = "rows";
@@ -153,6 +177,7 @@
         $("desk").append(sec);
       }
     }
+    drums?.render(pos);
     const showRetired = $("retired").checked;
     for (const r of ROWS) {
       const el = els.get(r.id), cur = desk.values[r.id], locked = desk.locks.has(r.id);
@@ -208,7 +233,18 @@
   setInterval(retry, 10000);
   addEventListener("online", retry);
 
+  // the drum screen in place of the desk (the transport and the song stay)
+  function screen(on) {
+    if (on && !drums)
+      drums = new DrumScreen($("drums"), { desk, call: wb.call, run, retired: () => $("retired").checked,
+                                           audio: wb.resume, say: (m) => { $("msg").textContent = m; }, back: () => screen(false) });
+    $("drums").hidden = !on;
+    $("desk").hidden = on;
+    render();
+  }
+
   function show(p) {
+    if (drums && ((p.bar - 1) & 1) !== ((pos.bar - 1) & 1)) drums.render(p);   // the bar sounding (1 or 2)
     pos = { seconds: p.seconds, bar: p.bar };
     $("pos").textContent = `bar ${p.bar || "–"} / ${p.bars}  ·  ${fmt(p.seconds)}`;
     $("progress").style.width = `${p.bars ? (100 * Math.max(p.bar - 1, 0)) / p.bars : 0}%`;

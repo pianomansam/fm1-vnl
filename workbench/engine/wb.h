@@ -40,7 +40,13 @@ void wb_kit_preset(int id);             /* WB_KIT_*: a kit as shipped on every l
 int wb_lane_src(int lane, int kind, int a, int b);   /* lane (V_KICK's order) plays a source (WB_SRC_*); 0: refused */
 void wb_lane_db(int lane, float db);    /* lane's level */
 void wb_audition(int lane, int vel);    /* lane's staged sound now, outside the song, through the drums' chain */
-void wb_kick_phrase(int a, int b);      /* a two-bar kick (step masks, bars A and B) over the staged pattern; 0, 0: off */
+void wb_kick_phrase(int a, int b);      /* a two-bar kick (step masks, bars A and B) on the staged pattern's kick lane;
+                                           0, 0: the pattern's own */
+/* The drum screen's grid: the custom two-bar pattern (LIB_PATTERN_WB), the song's library pattern copied into it on
+   the first edit. lane: D_KICK..D_RIM; bar01: 0 (A) or 1 (B); state: 0 empty, 1 hit, 2 ghost */
+void wb_pat_step(int lane, int bar01, int step, int state);
+int wb_pat_get(int lane, int bar01, int step);  /* the staged pattern's step (-1: out of range) */
+void wb_pat_load(int pattern_id);       /* a library pattern into the custom one, for the grid */
 int wb_roll_legal(int field, int value);    /* 1 if wb_roll_set would take it */
 void wb_stage_mark(void);               /* save the staged state ... */
 void wb_stage_undo(void);               /* ... and put it back */
@@ -58,8 +64,8 @@ int wb_catchups(void);                  /* wb_apply's landings since wb_init (te
 int wb_live_get(int field);             /* the song playing: a roll field (RF_N: the seed) */
 const char *wb_live_state(void);         /* JSON: wb_state's fields for the song being heard (not the staged one) */
 int wb_pending(void);                    /* 1: a commit is waiting for its bar line */
-const char *wb_state(void);             /* JSON: the staged seed, roll, roles, overrides, kit, pattern, kick phrase,
-                                           drums ({preset, lanes: [kind, a, b, dB] each}) */
+const char *wb_state(void);             /* JSON: the staged seed, roll, roles, overrides, kit, pattern, kick lane,
+                                           drums ({preset, lanes: [kind, a, b, dB] each, kit_lanes, grid}) */
 const char *wb_library(void);           /* JSON: the library's maps and progressions */
 const char *wb_consts(void);            /* JSON: the RF_*, WB_OV_*, V_*, WB_SRC_* and WB_KIT_* indices and LIB_SET_WB,
                                            for the page */

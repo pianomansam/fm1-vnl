@@ -48,7 +48,15 @@ AudioWorklet. Local only; not the FM-1, so it may exceed the device's budgets.
   page (Host, Origin and a JSON content type are checked).
 - `server.py` also takes `POST /feedback`, `/kit` and `/pattern` (names `[a-z0-9-]{1,40}`, bodies up to 1 MB), writing
   only under `workbench/`; its tests: `python3 workbench/tools/test_server.py`.
-- `server.py` serves the build first, then `workbench/` (kits, patterns, samples, options.json).
+- `server.py` serves the build first, then `workbench/` (kits, patterns, samples, options.json); `GET /list/kits` and
+  `/list/patterns` give the saved names.
+- The drum screen (`drums.js`; "Edit kit & pattern"): the kit, pattern and kick-phrase rows; per lane a sound from any
+  approved kit (retired ones behind "show retired"), its 🎲 (a sound that kit ships on this lane, of the song's family),
+  ▶ (the sound alone) and a level; the two-bar grid (`wb_pat_step`: a click cycles empty → hit → ghost; the song
+  switches to the custom pattern and hears it from the next bar; a poly3 shaker, once edited, becomes a two-bar loop).
+  A drawn grid is a hand edit of the pattern row (it survives a new seed; a locked pattern refuses it) and is in the
+  snapshot (`drums.grid`). "Save as new kit / pattern" writes `workbench/kits|patterns/<name>.json` (the lanes or the
+  grid, with their sounds named and the grid drawn: `x` hit, `o` ghost); "Load" plays one back.
 
 The smoke test is the evidence that the engine renders and lands changes; whether it sounds right needs a listen in
 Chrome or Safari.

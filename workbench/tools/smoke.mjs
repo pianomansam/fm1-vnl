@@ -928,6 +928,207 @@ console.log("drums: sampled kits, the first lane edit");
   }
 }
 
+// ---- the drum screen (drums.js): the grid, kick phrases, lane sounds, saving and loading ----
+console.log("drum screen: the grid");
+{
+  const { SRC, DRUMS } = C;
+  const { sounds, soundOptions, pickSound, cellOf, cycle, patternFile, kitFile, save, listSaved, getSaved, laneSources } = await import("../drums.js");
+  const grid = (ex) => JSON.parse(cstr(ex, ex.wb_state())).drums.grid;
+  const KICK = 0, STEP = 6;
+  // seed 77 from bar 1 on the 808 kit (the lanes' meters), played to the middle of bar 5; edit: staged there
+  const run = async (edit) => {
+    const ex = await load(), call = caller(ex);
+    ex.wb_seed(77);
+    ex.wb_kit_preset(DRUMS.PT808);
+    ex.wb_apply();
+    ex.wb_play(1);
+    const desk = new Desk(call, C, OPTS, await call("wb_library"));
+    await desk.read(true);
+    until(ex, () => ex.wb_bar() === 5, 60 * SR);
+    render(ex, Math.round(barLen(ex.wb_roll_get(C.RF.TEMPO)) / 2));
+    if (edit) await desk.step(KICK, 1, STEP, 1);   // bar 6 is bar B (song bars 0-based: 5 is odd)
+    else ex.wb_apply();                              // the same landing, nothing changed
+    // the kick lane's samples (its meter and hash, before the drum bus): the rest of bar 5, then bar 6 up to the
+    // edited step (a quantum late at most: half a step short of it) and through it
+    const step = barLen(ex.wb_roll_get(C.RF.TEMPO)) / 16, bars = {};
+    const lane = () => ({ ms: ex.wb_drum_meter(KICK), hash: ex.wb_drum_hash(KICK) });
+    ex.wb_drum_meter_reset();
+    until(ex, () => ex.wb_bar() === 6, 60 * SR);
+    bars[5] = lane();
+    ex.wb_drum_meter_reset();
+    render(ex, Math.round((STEP - 0.5) * step));
+    bars.before = lane();
+    render(ex, Math.round(step));
+    bars.at = lane();
+    return { ex, desk, bars };
+  };
+  const ref = await run(false), ed = await run(true);
+  check(ref.bars[5].ms > 1e-6, `seed 77's kick plays in bar 5 (${(10 * Math.log10(ref.bars[5].ms)).toFixed(1)} dB)`);
+  check(ed.ex.wb_pat_get(KICK, 1, STEP) === 1 && ed.ex.wb_pat_get(KICK, 0, STEP) === 0 && grid(ed.ex).edited === 1,
+        "the edit is in the custom pattern's bar B only (wb_pat_get)");
+  check(ed.bars[5].hash === ref.bars[5].hash, "edited in bar 5: bar 5's kick lane is untouched");
+  check(ed.bars.before.hash === ref.bars.before.hash, `bar 6 up to step ${STEP + 1}: the kick lane is the same`);
+  check(ed.bars.at.hash !== ref.bars.at.hash && ed.bars.at.ms > ref.bars.at.ms,
+        `... and at step ${STEP + 1} it has the new hit (${(10 * Math.log10(ed.bars.at.ms)).toFixed(1)} dB against ${(10 * Math.log10(ref.bars.at.ms + 1e-30)).toFixed(1)})`);
+
+  // states: a click cycles empty -> hit -> ghost -> empty; undo and the snapshot carry the grid
+  {
+    const ex = await load(), call = caller(ex);
+    ex.wb_seed(21);
+    ex.wb_apply();
+    const desk = new Desk(call, C, OPTS, await call("wb_library"));
+    await desk.read(true);
+    const NAME = ["empty", "hit", "ghost"], first = ex.wb_pat_get(1, 0, 3), seen = [first];
+    for (let i = 0; i < 3; i++) {
+      await desk.step(1, 0, 3, cycle(seen.at(-1)));
+      seen.push(cellOf(desk.drums.grid.lanes[1], 0, 3));
+    }
+    check(seen.slice(1).join() === [1, 2, 3].map((k) => (first + k) % 3).join() && ex.wb_pat_get(1, 0, 3) === first,
+          `snare bar 1 step 4 clicked three times: ${seen.map((x) => NAME[x]).join(" -> ")}`);
+    await desk.step(2, 1, 5, 2);
+    const g = JSON.stringify(grid(ex));
+    ex.wb_stage_mark();
+    ex.wb_pat_step(2, 1, 5, 0);
+    ex.wb_stage_undo();
+    check(JSON.stringify(grid(ex)) === g, "wb_stage_undo puts the grid back");
+    const snap = await desk.snapshot();
+    check(snap.version === 1 && JSON.stringify(snap.drums.grid) === g && snap.rows.pattern === desk.values.pattern,
+          "the snapshot holds the grid (drums.grid; version 1)");
+    const ex2 = await load(), call2 = caller(ex2);
+    const d2 = new Desk(call2, C, OPTS, await call2("wb_library"));
+    const miss = await d2.restore(JSON.parse(JSON.stringify(snap)));
+    check(!miss.length && JSON.stringify(grid(ex2)) === g, `restored, the grid is the same (mismatch: ${miss.join(", ") || "none"})`);
+    const { replay, wav } = await import("./replay.mjs");
+    ex.wb_play(1);
+    const live = render(ex, 20 * SR), rp = await replay(JSON.parse(JSON.stringify(snap)), 20);
+    check(Buffer.compare(wav(rp), wav(live)) === 0, "its replay plays the page's samples");
+    desk.lock("pattern", true);
+    const res = await desk.step(0, 0, 1, 1);
+    check(!res.ok && /locked/.test(res.message) && JSON.stringify(grid(ex)) === g, `a locked pattern refuses the grid: "${res.message}"`);
+    desk.lock("pattern", false);
+    const seed = desk.values.seed;
+    await desk.dice("seed");
+    check(desk.values.seed !== seed && JSON.stringify(grid(ex)) === g, "a new seed keeps the drawn grid (a hand edit)");
+  }
+
+  // kick phrases write the kick lane's bars A and B, over the grid's other edits
+  {
+    const ex = await load(), call = caller(ex);
+    ex.wb_seed(21);
+    ex.wb_apply();
+    const desk = new Desk(call, C, OPTS, await call("wb_library"));
+    await desk.read(true);
+    await desk.step(1, 0, 2, 1);
+    await desk.set("kick", "k5");
+    const steps = (b) => [...Array(16).keys()].filter((s) => ex.wb_pat_get(0, b, s) === 1).join(",");
+    check(steps(0) === "0,10" && steps(1) === "0,7,10" && desk.values.kick === "k5" && ex.wb_pat_get(1, 0, 2) === 1,
+          `k5: kick lane A = [${steps(0)}], B = [${steps(1)}]; the snare edit stays`);
+    await desk.step(0, 0, 4, 2);
+    check(desk.values.kick === "grid", "a kick drawn in the grid: the kick row reads \"Drawn in the grid\"");
+    await desk.set("kick", "");
+    const base = OPTS.patterns.find((p) => p.id === desk.values.pattern);
+    check(desk.values.kick === "" && ex.wb_pat_get(1, 0, 2) === 1, `the pattern's own kick (${base.name}) back, the snare edit kept`);
+    await desk.set("pattern", desk.values.pattern === 1 ? 2 : 1);
+    check(!grid(ex).edited && ex.wb_pat_get(1, 0, 2) === cellOf(grid(ex).lanes[1], 0, 2), "choosing a pattern replaces the grid");
+  }
+
+  // a poly3 shaker (pattern 5) shows its first two bars; editing it makes a two-bar loop
+  {
+    const ex = await load();
+    ex.wb_seed(21);
+    ex.wb_roll_set(C.RF.PATTERN, 5);
+    const sh = (b) => [...Array(16).keys()].filter((s) => ex.wb_pat_get(4, b, s)).join(",");
+    check(sh(0) === "0,3,6,9,12,15" && sh(1) === "2,5,8,11,14", `pattern 5's poly3 shaker: bar A ${sh(0)}, bar B ${sh(1)}`);
+    ex.wb_pat_step(4, 0, 1, 1);
+    check(sh(0) === "0,1,3,6,9,12,15" && sh(1) === "2,5,8,11,14", "edited: the same two bars plus the new step");
+  }
+
+  console.log("drum screen: lane sounds");
+  const ALL = sounds(C, OPTS);
+  const offered = soundOptions(ALL, "", false), retired = soundOptions(ALL, "", true);
+  const REMOVED = /upright|x0x|909|boombap|vintage|dusty|soft|our 808|warm|dark|gentle|clean|mixed/i;
+  check(offered.length > 40 && offered.every((s) => s.status === "approved") && !offered.some((s) => REMOVED.test(`${s.name} ${s.kitName}`)),
+        `the lane pickers offer ${offered.length} approved sounds, none removed`);
+  const kits = new Set(offered.map((s) => s.kitName));
+  check(["poketrack 808", "poketrack CR-78", "Optimist LO-FI", "Gogodze", "Big Rusty (sticks)", "Big Rusty (brushes)", "Brushes"].every((k) => kits.has(k)),
+        `from every approved kit (${[...kits].join(", ")})`);
+  check(retired.length > offered.length && retired.filter((s) => s.status === "retired").every((s) => /Dusty|Soft|Our 808/.test(s.name)),
+        `"show retired" adds the retired synth kits' (${retired.length - offered.length})`);
+  const cow = ALL.find((s) => s.kind === SRC.OPT && s.b === 12);
+  check(cow?.name === "LO-FI cowbell", `Optimist LO-FI's lane 12 is "${cow?.name}"`);
+  const ok = await load();
+  check(ALL.every((s) => s.kind === SRC.SAMPLE || ok.wb_lane_src(0, s.kind, s.a, s.b) === 1), "every synth sound is a source the engine takes");
+  const rnd = lcg(7), picks = new Set([...Array(40)].map(() => pickSound(ALL, 0, null, "synth", rnd)?.kitName));
+  check([...picks].every((k) => ["poketrack 808", "poketrack CR-78", "Optimist LO-FI"].includes(k)) && picks.size === 3,
+        `a synth song's kick 🎲 picks the synth kits' kicks (${[...picks].join(", ")})`);
+  {
+    const ex = await load(), call = caller(ex);
+    ex.wb_seed(21);
+    ex.wb_kit_set(3);
+    ex.wb_apply();
+    const desk = new Desk(call, C, OPTS, await call("wb_library"));
+    await desk.read(true);
+    const src = laneSources(desk.drums, C);
+    check(src.every((l, i) => (i < 6 ? l[0] === SRC.BUILTIN && l[1] === 3 && l[2] === i : l[0] === SRC.NONE)),
+          "with no lanes set, the screen shows the kit's own (Brushes')");
+    await desk.level(2, -9);
+    const d = desk.drums;
+    check(d.lanes[2][3] === -9 && d.lanes[0][0] === SRC.BUILTIN && d.lanes[0][1] === 3, "a level on the kit's own lanes copies them first (heard): hats at -9 dB");
+  }
+
+  console.log("drum screen: save and load (server.py)");
+  {
+    const { spawn } = await import("node:child_process");
+    const { mkdtempSync, rmSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const dir = mkdtempSync(`${tmpdir()}/wb-saved-`);
+    const py = `import importlib.util, sys, pathlib
+from functools import partial
+from http.server import ThreadingHTTPServer
+spec = importlib.util.spec_from_file_location("s", sys.argv[1]); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+m.DATA = pathlib.Path(sys.argv[2]); m.Handler.log_message = lambda *a: None
+srv = ThreadingHTTPServer(("127.0.0.1", 0), partial(m.Handler, directory=sys.argv[2]))
+print(srv.server_address[1], flush=True); srv.serve_forever()`;
+    const srv = spawn("python3", ["-I", "-c", py, new URL("../server.py", import.meta.url).pathname, dir]);
+    const port = await new Promise((ok, fail) => { srv.stdout.once("data", (b) => ok(+String(b).trim())); srv.once("error", fail); });
+    const f = (p, o) => fetch(`http://127.0.0.1:${port}${p}`, o);
+    try {
+      const ex = await load(), call = caller(ex);
+      ex.wb_seed(21);
+      ex.wb_apply();
+      const desk = new Desk(call, C, OPTS, await call("wb_library"));
+      await desk.read(true);
+      await desk.set("kit", DRUMS.PRESET + DRUMS.PTCR78);
+      await desk.lane(1, SRC.OPT, 0, 1);
+      await desk.level(0, -3);
+      await desk.set("kick", "k6");
+      for (const [l, b, s, v] of [[1, 1, 14, 2], [2, 0, 1, 1], [5, 1, 7, 1], [4, 0, 0, 1]]) await desk.step(l, b, s, v);
+      const g = desk.drums.grid, lanes = desk.drums.lanes;
+      const pr = await save("pattern", patternFile("smoke-pattern", g, OPTS), f);
+      const kr = await save("kit", kitFile("smoke-kit", lanes, ALL, "poketrack CR-78"), f);
+      const names = [await listSaved("pattern", f), await listSaved("kit", f)];
+      check(pr.ok && kr.ok && names[0].includes("smoke-pattern") && names[1].includes("smoke-kit"), `saved and listed (${names.flat().join(", ")})`);
+      const pf = await getSaved("pattern", "smoke-pattern", f), kf = await getSaved("kit", "smoke-kit", f);
+      check(pf.drawn.Snare.includes("o") && kf.sounds.Snare === "LO-FI snare" && kf.sounds.Kick === "CR-78 kick",
+            `the files name what they hold (snare: ${pf.drawn.Snare}; ${kf.sounds.Kick}, ${kf.sounds.Snare})`);
+      const ex2 = await load(), call2 = caller(ex2);
+      ex2.wb_seed(5);
+      ex2.wb_apply();
+      const d2 = new Desk(call2, C, OPTS, await call2("wb_library"));
+      await d2.read(true);
+      const r1 = await d2.loadPattern(pf), r2 = await d2.loadKit(kf);
+      check(r1.ok && JSON.stringify(d2.drums.grid.lanes) === JSON.stringify(g.lanes) && d2.values.kick === "k6",
+            "loaded on another song, the pattern reproduces the grid");
+      check(r2.ok && JSON.stringify(d2.drums.lanes) === JSON.stringify(lanes), "... and the kit its lanes and levels");
+      const bad = await save("pattern", { name: "../x" }, f);
+      check(!bad.ok && /name/.test(bad.error), `a bad name is refused: "${bad.error}"`);
+    } finally {
+      srv.kill();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+}
+
 console.log("options.json: statuses");
 check(!OPTS.instruments.some((i) => i.status === "candidate") &&
       ["Chillwave pad", "Vox pad"].every((n) => OPTS.instruments.find((i) => i.name === n).status === "approved"),

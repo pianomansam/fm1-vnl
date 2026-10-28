@@ -4,6 +4,7 @@
 // says why), then committed with wb_apply: nothing staged is heard before that, so a bar line inside a change never
 // lands half of it. A seed or map change regenerates the song, so every locked or hand-set row is staged again first. call(fn, ...args) reaches wb.wasm's exports, a Promise (wb.js in the page; smoke.mjs in Node).
 import { ROWS, row, conflicts, pickFor, familyOf, fromEngine, kickMasks } from "./rows.js";
+import { cellOf } from "./drums.js";
 
 const SEED_TRIES = 20;   // a new seed whose song can't keep the locks is tried again (re-roll all, the seed's dice)
 
@@ -28,8 +29,9 @@ export class Desk {
 
   // the engine's staged state into values; the family is the page's (derive: from the keys and lead, as a new song's)
   async read(derive = false) {
-    const fam = this.values.family;
-    this.values = fromEngine(await this.call("wb_state"), this.C, this.opts);
+    const fam = this.values.family, s = await this.call("wb_state");
+    this.drums = s.drums;      // the lanes, the kit's own lanes and the grid (the drum screen's)
+    this.values = fromEngine(s, this.C, this.opts);
     this.values.family = fam && !derive ? fam : familyOf(this.values, this.opts);
     const ids = (xs, f) => Promise.all(xs.map((x) => this.call("wb_roll_legal", f, x)))
       .then((ok) => xs.filter((x, i) => ok[i]));
@@ -47,10 +49,10 @@ export class Desk {
     if (r.kind === "role") return c("wb_role_set", V[r.role], v);
     if (r.kind === "ov" || r.kind === "reroll") return c("wb_ov_set", OV[r.key], v);
     if (id === "kit") return (await this.samples?.kit(v)) === false ? undefined : c("wb_kit_set", v);
-    if (id === "kick") return c("wb_kick_phrase", ...kickMasks(v, this.opts));
+    if (id === "kick") return v === "grid" ? undefined : c("wb_kick_phrase", ...kickMasks(v, this.opts));   // (the grid's own)
     if (id === "pattern") {
       await c("wb_roll_set", RF.PATTERN, v);
-      if (this.values.kick) await c("wb_kick_phrase", ...kickMasks(this.values.kick, this.opts));
+      if (this.values.kick && this.values.kick !== "grid") await c("wb_kick_phrase", ...kickMasks(this.values.kick, this.opts));
     }
     if (id === "family") this.values.family = v;
   }
@@ -104,7 +106,7 @@ export class Desk {
     const c = r.regenerates || r.kind === "roll" ? { forced: [], stuck: [], blocked: null }
                                                   : conflicts(r, value, this.state, this.opts, this.rnd, this.lib);
     if (c.blocked) return this.done(false, `Blocked: ${c.blocked.label} is locked (${c.blocked.why}).`);
-    const before = { ...this.values };
+    const before = { ...this.values }, grid = this.drums?.grid;
     const keep = (x) => (release ? this.locks.has(x) : this.kept(x));
     const kept = new Map([...ROWS].filter((x) => keep(x.id) && x.id !== id).map((x) => [x.id, before[x.id]]));
     const forced = new Set(c.forced.map((f) => f.row));
@@ -117,6 +119,10 @@ export class Desk {
       for (const x of ROWS)
         if ((x.kind === "role" || x.kind === "drum") && kept.has(x.id) && !forced.has(x.id) && String(this.values[x.id]) !== String(kept.get(x.id)))
           await this.stage(x.id, kept.get(x.id));
+    }
+    if (grid?.edited && kept.has("pattern") && id !== "pattern" && id !== "kick") {   // the grid goes with a kept pattern
+      await this.read();
+      if (JSON.stringify(this.drums.grid) !== JSON.stringify(grid)) await this.stageGrid(grid);
     }
     await this.read(r.kind === "seed" && !kept.has("family"));
     const changed = ROWS.filter((x) => x.id !== id && String(this.values[x.id]) !== String(before[x.id]));
@@ -197,7 +203,8 @@ export class Desk {
   // Everything a replay needs (version 1; later tasks add to it): the rows of the song being HEARD (the engine's live
   // state: a change still waiting for its bar line isn't in it), those of the waiting commit (pending, or null), the
   // locks and hand edits, the seed. "drums" is the drum state the rows don't hold (the kit, pattern and kick are rows
-  // already): the heard song's drum lanes, { preset, lanes: [[kind, a, b, dB], ...] } (wb_state's).
+  // already): the heard song's drum lanes and grid, { preset, lanes: [[kind, a, b, dB], ...], kit_lanes, grid: { base,
+  // edited, lanes } } (wb_state's; restore stages the grid if it was edited).
   async snapshot() {
     const pending = (await this.call("wb_pending")) ? { ...this.values } : null;
     let rows = { ...this.values }, heard = await this.call(pending ? "wb_live_state" : "wb_state");
@@ -231,6 +238,7 @@ export class Desk {
   // kit row's sources)
   async stageDrums(d) {
     const lanes = d?.lanes || [], out = [];
+    if (d?.grid?.edited) await this.stageGrid(d.grid);
     if (!lanes.some((l) => l[0] !== this.C.SRC.NONE)) return out;
     for (const a of new Set(lanes.filter((l) => l[0] === this.C.SRC.SAMPLE).map((l) => l[1])))
       if (!this.samples || !(await this.samples.load(a))) {
@@ -254,7 +262,66 @@ export class Desk {
       return this.done(false, `${k?.name ?? "This kit"} can't be edited lane by lane (its hits are mixed copies, not sources): choose a shipped kit first.`);
     }
     await this.call("wb_apply");
+    await this.read();
+    const at = this.position();
+    this.changes.push({ seconds: at.seconds, bar: at.bar, row: "drums", lane: i, source: [kind, a, b] });
     return this.done(true, "");
+  }
+
+  // A grid (wb_state's drums.grid: its library base and each lane's masks) as the custom pattern: the base loaded,
+  // then the steps that differ (sent together: they run between the same two quanta). Staged only.
+  async stageGrid(g) {
+    await this.call("wb_pat_load", g.base);
+    const have = (await this.call("wb_state")).drums.grid.lanes, jobs = [];
+    for (const [lane, m] of g.lanes.entries())
+      for (let bar = 0; bar < 2; bar++)
+        for (let step = 0; step < 16; step++) {
+          const want = cellOf(m, bar, step);
+          if (want !== cellOf(have[lane], bar, step)) jobs.push(this.call("wb_pat_step", lane, bar, step, want));
+        }
+    await Promise.all(jobs);
+  }
+
+  // A drum screen edit: staged, checked against the locks (a locked row it would move undoes it whole), committed
+  // (it lands at the next bar line) and logged. { ok, message }
+  async drumEdit(what, stage, detail = {}) {
+    const before = { ...this.values };
+    await this.call("wb_stage_mark");
+    const res = await stage();
+    await this.read();
+    const moved = ROWS.filter((x) => this.locks.has(x.id) && String(this.values[x.id]) !== String(before[x.id]));
+    if (moved.length) {
+      await this.call("wb_stage_undo");
+      await this.read();
+      return this.done(false, `Blocked: ${moved.map((x) => x.label).join(", ")} ${moved.length > 1 ? "are" : "is"} locked and this edit would move ${moved.length > 1 ? "them" : "it"}.`);
+    }
+    if (what === "grid") this.hand.add("pattern");   // a drawn pattern is a hand edit: it survives a new seed
+    await this.call("wb_apply");
+    const at = this.position();
+    this.changes.push({ seconds: at.seconds, bar: at.bar, row: what, ...detail });
+    this.moved = new Set();
+    return this.done(true, Array.isArray(res) && res.length ? `Not restored: ${res.join(", ")}.` : "");
+  }
+
+  // The grid: lane (the pattern's: kick, snare, hat, open hat, shaker, rim), bar 0 or 1, step 0-15 to state (0 empty,
+  // 1 hit, 2 ghost)
+  step(lane, bar, step, state) {
+    if (this.locks.has("pattern")) return this.done(false, "Pattern is locked: unlock it to edit the grid.");
+    return this.drumEdit("grid", () => this.call("wb_pat_step", lane, bar, step, state), { lane, bar, step, state });
+  }
+
+  // a saved pattern's grid (workbench/patterns/*.json) or kit's lanes (workbench/kits/*.json)
+  loadPattern(p) {
+    if (this.locks.has("pattern")) return this.done(false, "Pattern is locked: unlock it to load one.");
+    return this.drumEdit("grid", () => this.stageGrid(p.grid), { loaded: p.name });
+  }
+  loadKit(k) {
+    return this.drumEdit("drums", () => this.stageDrums({ lanes: k.lanes }), { loaded: k.name });
+  }
+
+  // lane's level in dB (a song with no lane sources gets its kit's on every lane first)
+  level(i, db) {
+    return this.drumEdit("drums", () => this.call("wb_lane_db", i, db), { lane: i, db });
   }
 
   lock(id, on) {

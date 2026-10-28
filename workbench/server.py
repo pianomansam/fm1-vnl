@@ -3,7 +3,8 @@
 """The workbench's local server: python3 workbench/server.py [port] (default 8732), on 127.0.0.1 only.
 Serves the build (app/build/workbench/: the page and wb.wasm) and, behind it, workbench/ (kits, patterns, samples,
 options.json). It writes only under workbench/: POST /feedback appends a line to feedback.jsonl, POST /kit and
-POST /pattern ({"name": ..., ...}) write kits/<name>.json and patterns/<name>.json."""
+POST /pattern ({"name": ..., ...}) write kits/<name>.json and patterns/<name>.json. GET /list/kits and /list/patterns
+give the saved names ({"names": [...]}), each served at /kits/<name>.json and /patterns/<name>.json."""
 import json
 import os
 import re
@@ -15,7 +16,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 DATA = REPO / "workbench"          # where it writes (the tests point it elsewhere)
-ROOTS = (REPO / "app" / "build" / "workbench", DATA)
+BUILD = REPO / "app" / "build" / "workbench"      # the page and wb.wasm (served first, then DATA)
 MAX_BODY = 1 << 20                 # a request body over 1 MB is refused
 NAME = re.compile(r"[a-z0-9-]{1,40}")
 WRITE = threading.Lock()
@@ -28,12 +29,12 @@ class Handler(SimpleHTTPRequestHandler):
 
     def translate_path(self, path):
         """the first root that has the file (the build's page over workbench/'s sources)"""
-        rel = Path(super().translate_path(path)).relative_to(ROOTS[0])   # (it drops any "..")
-        for root in ROOTS:
+        rel = Path(super().translate_path(path)).relative_to(self.directory)   # (it drops any "..")
+        for root in (Path(self.directory).resolve(), DATA.resolve()):
             p = (root / rel).resolve()
             if p.is_relative_to(root) and p.exists():
                 return str(p)
-        return str(ROOTS[0] / rel)
+        return str(Path(self.directory) / rel)
 
     def reply(self, code, body):
         data = json.dumps(body).encode()
@@ -42,6 +43,14 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
+
+    def do_GET(self):
+        route = self.path.split("?")[0]
+        if route in ("/list/kits", "/list/patterns"):
+            folder = DATA / route[len("/list/"):]
+            names = sorted(p.stem for p in folder.glob("*.json") if NAME.fullmatch(p.stem)) if folder.is_dir() else []
+            return self.reply(200, {"names": names})
+        return super().do_GET()
 
     def do_POST(self):
         route = self.path.split("?")[0]
@@ -107,9 +116,9 @@ class Handler(SimpleHTTPRequestHandler):
 
 def main():
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8732
-    if not (ROOTS[0] / "wb.wasm").exists():
+    if not (BUILD / "wb.wasm").exists():
         sys.exit("server: no build; run sh workbench/build.sh first")
-    srv = ThreadingHTTPServer(("127.0.0.1", port), partial(Handler, directory=str(ROOTS[0])))
+    srv = ThreadingHTTPServer(("127.0.0.1", port), partial(Handler, directory=str(BUILD)))
     print(f"workbench  http://localhost:{port}/")
     try:
         srv.serve_forever()

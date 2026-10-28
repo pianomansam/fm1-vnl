@@ -13,6 +13,7 @@
 #include "override.h"
 #include "voices.h"
 #include "harmony.h"
+#include "poketrack/trommelsynthesizer.h"
 
 #define EXPORT __attribute__((used, visibility("default")))
 #define SR 44100u
@@ -24,10 +25,10 @@ typedef struct {
     song_roll_t roll;
     song_ov_t ov;
     lib_set_t set;
-    lib_pattern_t pat;                  /* a kick phrase over a library pattern (id 0: none) */
+    lib_pattern_t pat;                  /* a library pattern copied as two bars, then edited (id 0: none) */
     uint8_t base;                       /* the library set the custom one was copied from (its id-keyed rules) */
     uint8_t pat_base;                   /* the library pattern the custom one was copied from */
-    int kick_a, kick_b;                 /* the kick phrase's step masks (0, 0: the pattern's own kick) */
+    uint8_t grid;                       /* the custom pattern has the grid's edits (not just a kick phrase) */
     wb_drums_t drums;                   /* the drum lanes (wb_drums.h): heard only with the custom set (drums_of) */
 } stage_t;
 /* st: the page's (staged); com: wb_apply's (committed: the only one a landing reads, so staging is never heard
@@ -383,11 +384,15 @@ EXPORT int wb_lane_src(int lane, int kind, int a, int b)
     return 1;
 }
 
-/* lane's level in dB (-40..+12; not a number: unchanged) */
+/* lane's level in dB (-40..+12; not a number: unchanged); on a song with no lane sources the kit's are copied first
+   (as wb_lane_src's), so the level is heard */
 EXPORT void wb_lane_db(int lane, float db)
 {
+    wb_drums_t d = drums_of(&st) ? st.drums : (wb_drums_t){.preset = -1};
     if (lane < 0 || lane >= WB_LANES || db != db || !custom_set())
         return;
+    if (!wb_drums_any(&d) && kit_lanes(&d))
+        st.drums = d;
     st.drums.lane[lane].gain_db = db < -40.0f ? -40.0f : db > 12.0f ? 12.0f : db;
 }
 
@@ -408,33 +413,122 @@ EXPORT void wb_audition(int lane, int vel)
         wb_drums_audition_kit(wb_kit_get(), lane, vel);
 }
 
-/* A two-bar kick phrase (step masks for bars A and B) over the staged pattern: the custom pattern copies the library
-   one (both bars alike) with its kick lane replaced and unghosted; 0, 0 returns to the library pattern itself */
-EXPORT void wb_kick_phrase(int a, int b)
+/* the staged custom pattern, the song's library pattern copied into it (bar B as bar A) on the first edit
+   (RF_PATTERN switches to LIB_PATTERN_WB); NULL if the song's pattern is unknown */
+static lib_pattern_t *custom_pat(void)
 {
     const lib_pattern_t *p;
     int i;
-    if (st.roll.v[RF_PATTERN] != LIB_PATTERN_WB)
-        st.pat_base = (uint8_t)st.roll.v[RF_PATTERN];
-    if (!a && !b) {
-        st.roll.v[RF_PATTERN] = st.pat_base;
-        return;
-    }
-    if (!(p = lib_pattern_by_id(st.pat_base)))
-        return;
+    if (st.roll.v[RF_PATTERN] == LIB_PATTERN_WB)
+        return &st.pat;
+    if (!(p = lib_pattern_by_id((uint8_t)st.roll.v[RF_PATTERN])))
+        return NULL;
     st.pat = *p;
     st.pat.id = LIB_PATTERN_WB;
     st.pat.two_bar = 1;
     for (i = 0; i < 6; i++) {
-        st.pat.hit_b[i] = p->hit[i];
-        st.pat.ghost_b[i] = p->ghost[i];
+        st.pat.hit_b[i] = (uint16_t)lib_lane_hits(p, i, 1);
+        st.pat.ghost_b[i] = (uint16_t)lib_lane_ghosts(p, i, 1);
     }
-    st.pat.hit[D_KICK] = (uint16_t)a;
-    st.pat.hit_b[D_KICK] = (uint16_t)b;
-    st.pat.ghost[D_KICK] = st.pat.ghost_b[D_KICK] = 0;
-    st.kick_a = a;
-    st.kick_b = b;
+    st.pat_base = p->id;
+    st.grid = 0;
     st.roll.v[RF_PATTERN] = LIB_PATTERN_WB;
+    return &st.pat;
+}
+
+/* the staged pattern the song plays (the custom one, or its library pattern) */
+static const lib_pattern_t *staged_pat(void)
+{
+    return st.roll.v[RF_PATTERN] == LIB_PATTERN_WB ? &st.pat : lib_pattern_by_id((uint8_t)st.roll.v[RF_PATTERN]);
+}
+
+/* a step of p's lane in bar 0 (A) or 1 (B): 0 empty, 1 hit, 2 ghost (groove.c's reading: a hit over a ghost; a poly3
+   shaker's three-step cycle as it falls in the song's first two bars) */
+static int cell(const lib_pattern_t *p, int lane, int bar01, int step)
+{
+    if (p->poly3 && lane == D_SHAKER)
+        return (bar01 * 16 + step) % 3 == 0;
+    if ((lib_lane_hits(p, lane, bar01) >> step) & 1)
+        return 1;
+    return (lib_lane_ghosts(p, lane, bar01) >> step) & 1 ? 2 : 0;
+}
+
+/* a lane's masks in the custom pattern; a poly3 shaker becomes its first two bars' steps (a two-bar loop) */
+static void set_lane(lib_pattern_t *p, int lane, unsigned ha, unsigned ga, unsigned hb, unsigned gb)
+{
+    p->hit[lane] = (uint16_t)ha;
+    p->ghost[lane] = (uint16_t)ga;
+    p->hit_b[lane] = (uint16_t)hb;
+    p->ghost_b[lane] = (uint16_t)gb;
+    if (lane == D_SHAKER)
+        p->poly3 = 0;
+}
+
+static void lane_masks(const lib_pattern_t *p, int lane, unsigned m[4])
+{
+    int b, i, c;
+    m[0] = m[1] = m[2] = m[3] = 0;
+    for (b = 0; b < 2; b++)
+        for (i = 0; i < 16; i++)
+            if ((c = cell(p, lane, b, i)))
+                m[b * 2 + (c == 2)] |= 1u << i;
+}
+
+/* A two-bar kick phrase (step masks for bars A and B) on the staged pattern's kick lane, unghosted; 0, 0: the library
+   pattern's own kick (and the library pattern itself if the grid hasn't edited the custom one) */
+EXPORT void wb_kick_phrase(int a, int b)
+{
+    lib_pattern_t *p;
+    unsigned m[4];
+    if (!a && !b) {
+        const lib_pattern_t *base = lib_pattern_by_id(st.pat_base);
+        if (st.roll.v[RF_PATTERN] != LIB_PATTERN_WB || !base)
+            return;
+        if (!st.grid) {
+            st.roll.v[RF_PATTERN] = st.pat_base;
+            return;
+        }
+        lane_masks(base, D_KICK, m);
+        set_lane(&st.pat, D_KICK, m[0], m[1], m[2], m[3]);
+        return;
+    }
+    if ((p = custom_pat()))
+        set_lane(p, D_KICK, (unsigned)a & 0xFFFFu, 0, (unsigned)b & 0xFFFFu, 0);
+}
+
+/* The grid: lane (D_KICK..D_RIM), bar 0 (A) or 1 (B), step 0-15 to state (0 empty, 1 hit, 2 ghost) in the custom
+   pattern (the song switches to it on the first edit); staged, so it lands at the next bar line after wb_apply */
+EXPORT void wb_pat_step(int lane, int bar01, int step, int state)
+{
+    lib_pattern_t *p;
+    unsigned m[4], bit = 1u << (step & 15);
+    if (lane < 0 || lane > D_RIM || bar01 < 0 || bar01 > 1 || step < 0 || step > 15 || state < 0 || state > 2 ||
+        !(p = custom_pat()))
+        return;
+    lane_masks(p, lane, m);
+    m[bar01 * 2] = state == 1 ? m[bar01 * 2] | bit : m[bar01 * 2] & ~bit;
+    m[bar01 * 2 + 1] = state == 2 ? m[bar01 * 2 + 1] | bit : m[bar01 * 2 + 1] & ~bit;
+    set_lane(p, lane, m[0], m[1], m[2], m[3]);
+    st.grid = 1;
+}
+
+/* a step of the staged pattern (wb_pat_step's states; -1 out of range) */
+EXPORT int wb_pat_get(int lane, int bar01, int step)
+{
+    const lib_pattern_t *p = staged_pat();
+    if (!p || lane < 0 || lane > D_RIM || bar01 < 0 || bar01 > 1 || step < 0 || step > 15)
+        return -1;
+    return cell(p, lane, bar01, step);
+}
+
+/* a library pattern into the custom one, the grid's to edit (a saved pattern's base) */
+EXPORT void wb_pat_load(int id)
+{
+    if (id < 0 || id >= LIB_PATTERN_WB || !lib_pattern_by_id((uint8_t)id))
+        return;
+    st.roll.v[RF_PATTERN] = id;
+    custom_pat();
+    st.grid = 1;
 }
 
 /* 1 if roll_set would take value for field as staged (the dropdowns offer only these) */
@@ -584,14 +678,22 @@ static const char *out_done(out_t *o)
     return o->n < o->cap ? o->b : "{\"error\":\"truncated\"}";
 }
 
-/* JSON: the staged state the page shows (the roll, the roles, the overrides, the kit, the library pattern under a
-   kick phrase and the phrase's masks), and the library's maps and progressions with their notes */
+/* JSON: the staged state the page shows (the roll, the roles, the overrides, the kit, the library pattern under the
+   custom one, the kick lane where it isn't the pattern's own: [A, B hits, 1] or with ghosts [.., 2]), the drum lanes,
+   the staged kit's own (kit_lanes: what a first lane edit copies; null for a mixed sampled kit) and the grid (the staged pattern's lanes: [A hits, A ghosts, B hits, B ghosts] each; edited: the grid's edits) */
 EXPORT const char *wb_state(void)
 {
-    static char buf[1024];
+    static char buf[2048];
     out_t o = {buf, sizeof buf, 0};
     int i, custom = st.roll.v[RF_PATTERN] == LIB_PATTERN_WB;
     const wb_drums_t *d = drums_of(&st);
+    const lib_pattern_t *p = staged_pat(), *base = lib_pattern_by_id(custom ? st.pat_base : (uint8_t)st.roll.v[RF_PATTERN]);
+    unsigned m[4] = {0}, k[4] = {0};
+    wb_drums_t kl = {.preset = -1};
+    if (p && base) {
+        lane_masks(p, D_KICK, m);
+        lane_masks(base, D_KICK, k);
+    }
     put(&o, "{\"seed\":%u,\"roll\":[", (unsigned)st.roll.seed);
     for (i = 0; i < RF_N; i++)
         put(&o, "%s%d", i ? "," : "", st.roll.v[i]);
@@ -601,14 +703,30 @@ EXPORT const char *wb_state(void)
     put(&o, "],\"ov\":[");
     for (i = 0; i < WB_OV_N; i++)
         put(&o, "%s%d", i ? "," : "", wb_ov_get(i));
-    put(&o, "],\"kit\":%d,\"pattern\":%d,\"kick\":[%d,%d]", wb_kit_get(),
-        custom ? st.pat_base : st.roll.v[RF_PATTERN], custom ? st.kick_a : 0, custom ? st.kick_b : 0);
+    put(&o, "],\"kit\":%d,\"pattern\":%d,", wb_kit_get(), custom ? st.pat_base : st.roll.v[RF_PATTERN]);
+    if (!memcmp(m, k, sizeof m))
+        put(&o, "\"kick\":[0,0,0]");
+    else
+        put(&o, "\"kick\":[%u,%u,%d]", m[0], m[2], m[1] || m[3] ? 2 : 1);
     put(&o, ",\"drums\":{\"preset\":%d,\"lanes\":[", d ? d->preset : -1);
     for (i = 0; i < WB_LANES; i++) {
         const wb_src_t *s = d ? &d->lane[i] : NULL;
         put(&o, "%s[%d,%d,%d,%g]", i ? "," : "", s ? s->kind : 0, s ? s->a : 0, s ? s->b : 0, s ? (double)s->gain_db : 0.0);
     }
-    put(&o, "]}}");
+    put(&o, "],\"kit_lanes\":");
+    if (kit_lanes(&kl)) {
+        for (i = 0; i < WB_LANES; i++)
+            put(&o, "%s[%d,%d,%d]", i ? "," : "[", kl.lane[i].kind, kl.lane[i].a, kl.lane[i].b);
+        put(&o, "]");
+    } else {
+        put(&o, "null");
+    }
+    put(&o, ",\"grid\":{\"base\":%d,\"edited\":%d,\"lanes\":[", base ? base->id : 0, custom && st.grid);
+    for (i = 0; p && i <= D_RIM; i++) {
+        lane_masks(p, i, m);
+        put(&o, "%s[%u,%u,%u,%u]", i ? "," : "", m[0], m[1], m[2], m[3]);
+    }
+    put(&o, "]}}}");
     return out_done(&o);
 }
 
@@ -665,11 +783,17 @@ EXPORT const char *wb_consts(void)
         {"BUILTIN", WB_SRC_BUILTIN}}, KIT[] = {
         {"PRESET", WB_KIT_PRESET}, {"PT808", WB_KIT_PT808}, {"PTCR78", WB_KIT_PTCR78}, {"OPTLOFI", WB_KIT_OPTLOFI},
         {"GOGODZE", WB_KIT_GOGODZE}, {"RUSTY", WB_KIT_RUSTY}, {"BRUSHES", WB_KIT_BRUSHES},
-        {"PRESETS", WB_KIT_PRESETS}, {"LANES", WB_LANES}, {"VL", WB_SMP_VL}, {"RR", WB_SMP_RR}};
+        {"PRESETS", WB_KIT_PRESETS}, {"LANES", WB_LANES}, {"VL", WB_SMP_VL}, {"RR", WB_SMP_RR}}, PT[] = {
+        {"M808", M_808}, {"MCR78", M_CR78}, {"BD", V_BD}, {"SD", V_SD}, {"RS", V_RS}, {"CP", V_CP}, {"LT", V_LT},
+        {"MT", V_MT}, {"HT", V_HT}, {"CH", V_CH}, {"OH", V_OH}, {"CY", V_CY}, {"CB", V_CB}, {"TB", V_TB},
+        {"LC", V_LC}, {"MC", V_MC}, {"HC", V_HC}, {"MA", V_MA}, {"CL", V_CL}}, SMP[] = {
+        {"KICK", WB_P_KICK}, {"SNARE", WB_P_SNARE}, {"RIM", WB_P_RIM}, {"HAT", WB_P_HAT}, {"OHAT", WB_P_OHAT},
+        {"RIDE", WB_P_RIDE}};
     static const struct { const char *key; const kv_t *t; unsigned n; } T[] = {
         {"RF", RF, sizeof RF / sizeof RF[0]}, {"OV", OV, sizeof OV / sizeof OV[0]}, {"V", V, sizeof V / sizeof V[0]},
-        {"SRC", SRC, sizeof SRC / sizeof SRC[0]}, {"DRUMS", KIT, sizeof KIT / sizeof KIT[0]}};
-    static char buf[2048];
+        {"SRC", SRC, sizeof SRC / sizeof SRC[0]}, {"DRUMS", KIT, sizeof KIT / sizeof KIT[0]},
+        {"PT", PT, sizeof PT / sizeof PT[0]}, {"SMP", SMP, sizeof SMP / sizeof SMP[0]}};
+    static char buf[4096];
     static const char *done;
     out_t o = {buf, sizeof buf, 0};
     unsigned i, j;

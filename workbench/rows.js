@@ -92,7 +92,8 @@ function allOptions(r, state, opts, lib) {
                                                 unavailable: !!state.unavailable?.has(k.id) }));
     case "patterns": return opts.patterns.map((p) => ({ value: p.id, name: p.name, status: p.status }));
     case "kickPhrases": return [{ value: "", name: "The pattern's own" },
-                                ...opts.kickPhrases.map((k) => ({ value: k.id, name: k.id }))];
+                                ...opts.kickPhrases.map((k) => ({ value: k.id, name: k.id })),
+                                ...(v.kick === "grid" ? [{ value: "grid", name: "Drawn in the grid", rolled: true }] : [])];
     case "dust": return list(["None", "Light", "Medium", "Heavy"]);
     case "noise": return list(["None", "Vinyl", "Tape"]);
     case "ambience": return list(["None", "Rain"]);
@@ -198,8 +199,9 @@ export function fromEngine(s, C, opts) {
   }
   v.kit = s.kit;
   v.pattern = s.pattern;
-  const [a, b] = s.kick;
-  v.kick = a || b ? opts.kickPhrases.find((k) => mask(k.a) === a && mask(k.b) === b)?.id ?? `${a}/${b}` : "";
+  // the kick lane: the pattern's own (""), a kick phrase, or drawn in the grid ("grid": no phrase, or ghosts)
+  const [a, b, k] = s.kick;
+  v.kick = !k ? "" : (k === 1 && opts.kickPhrases.find((p) => mask(p.a) === a && mask(p.b) === b)?.id) || "grid";
   return v;
 }
 
