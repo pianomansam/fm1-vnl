@@ -189,10 +189,11 @@
     if (!desk || (!rating && !note)) return;
     $("note").value = "";
     sync({ saved: false, queued: wb.queued() + 1 });
-    const changes = desk.changes.slice(sentChanges);   // the ones since the last entry; the position is the click's
-    sentChanges = desk.changes.length;
-    sync(await wb.sendFeedback({ time: new Date().toISOString(), snapshot: await desk.snapshot(),
-      position: { seconds: pos.seconds, bar: pos.bar }, about, rating, note, changes }));
+    const upto = desk.changes.length;   // the changes since the last entry; the position is the click's
+    const entry = { time: new Date().toISOString(), snapshot: await desk.snapshot(),
+      position: { seconds: pos.seconds, bar: pos.bar }, about, rating, note, changes: desk.changes.slice(sentChanges, upto) };
+    sentChanges = upto;
+    sync(await wb.sendFeedback(entry));
   }
   $("up").onclick = () => feedback("song", "up");
   $("down").onclick = () => feedback("song", "down");

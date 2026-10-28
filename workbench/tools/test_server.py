@@ -86,6 +86,22 @@ class T(unittest.TestCase):
         c.close()
         self.assertEqual(self.post("/other", {})[0], 404)
 
+    def test_bad_content_length(self):
+        before = sorted(p.name for p in server.DATA.rglob("*") if p.is_file())
+        for path in ("/feedback", "/kit"):
+            for length, want in (("-1", 400), ("abc", 400), (None, 411)):
+                c = http.client.HTTPConnection("127.0.0.1", self.srv.server_address[1])
+                c.putrequest("POST", path)
+                c.putheader("Content-Type", "application/json")
+                if length is not None:
+                    c.putheader("Content-Length", length)
+                c.endheaders()
+                r = c.getresponse()
+                self.assertEqual(r.status, want, (path, length))
+                r.read()
+                c.close()
+        self.assertEqual(sorted(p.name for p in server.DATA.rglob("*") if p.is_file()), before)
+
 
 if __name__ == "__main__":
     unittest.main()
