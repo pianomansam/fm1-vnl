@@ -24,7 +24,6 @@ with thanks. `tools/samples/manifest.json` lists the exact files; `tools/samples
 | What | License | URL | Where |
 | --- | --- | --- | --- |
 | The Ensemble (string-machine chorus) of [Mutable Instruments Plaits](https://github.com/pichenettes/eurorack), `plaits/dsp/fx/ensemble.h`, by Emilie Gillet; adapted mono, its delays rescaled, for the string synth (via the instrument spike's port) | MIT (below; verified in the file's own header) | https://github.com/pichenettes/eurorack/blob/master/plaits/dsp/fx/ensemble.h | `app/engine/strsyn.c`, `strsyn.h` |
-| The chord strike of LOF-1 (`lof1/firmware/src/dsp/amb.c`, `comp_strike`): per-note jitter, the top note louder, the rest softer | GPL-3.0-only | https://github.com/rustypawz/fm1-HYP1 | `app/song/harmony.c` (`emit_chord`) |
 
 The MIT notice for the Plaits code, which the firmware contains:
 

@@ -274,14 +274,10 @@ static void voice_chord(const song_roll_t *r, int bar, const int *pcs, int n, ha
 static int emit_chord(const int *notes, int n, uint32_t gap, int lo, int hi, uint32_t len, int dark, uint32_t salt,
                       int bar, int step, song_ev_t *out, int max)
 {
-    /* LOF-1's comp_strike (ref/fm1-HYP1/lof1, amb.c, GPL-3.0): 0-4 ms jitter a note, the top note louder (LOF-1's
-       8%; 15% here, so it leads) and the rest 5% softer */
-    int i, cnt = 0, top = 0;
-    for (i = 1; i < n; i++)
-        if (notes[i] > notes[top]) top = i;
+    int i, cnt = 0;
     for (i = 0; i < n && cnt < max; i++) {
         int v = lo + (int)(mix(salt, (uint32_t)bar, (uint32_t)step, 40u + (uint32_t)i) % (uint32_t)(hi - lo + 1));
-        if (n > 1) v = v * (i == top ? 115 : 95) / 100;
+        v = clampi(v + (i == 0 ? 3 : 0), lo, hi);
         if (dark == 1) v -= 6;            /* softer in the dark intro and outro (was 10: with the comping quieter,
                                              the intro sank) */
         if (dark == 2) v += 6;            /* firmer with no kick or lead: the keys carry the block */
@@ -289,7 +285,7 @@ static int emit_chord(const int *notes, int n, uint32_t gap, int lo, int hi, uin
         out[cnt].note = (uint8_t)notes[i];
         out[cnt].vel = (uint8_t)clampi(v, 25, 110);
         out[cnt].pad = 0;
-        out[cnt].delay = gap * (uint32_t)i + mix(salt, (uint32_t)bar, (uint32_t)step, 60u + (uint32_t)i) % 177u;
+        out[cnt].delay = gap * (uint32_t)i;
         out[cnt].len = len > out[cnt].delay ? len - out[cnt].delay : 1u;   /* all notes end together */
         cnt++;
     }
