@@ -1,5 +1,5 @@
 {
-  "_note": "The workbench's options: hand-maintained from the ledgers (docs/superpowers/plans/*-ledger.md) and the workbench plan's Global Constraints. ids are app/song/library.h's (sym names the enum; smoke.mjs checks them). status: approved (offered, the dice pick it), candidate (offered, marked; the dice skip it), retired (behind 'show retired'). Families: electric goes with either; bass, pad, ear candy and the kit follow the song's family.",
+  "_note": "The workbench's options: hand-maintained from the ledgers (docs/superpowers/plans/*-ledger.md) and the workbench plan's Global Constraints. ids are app/song/library.h's (sym names the enum; smoke.mjs checks them). status: approved (offered, the dice pick it), candidate (offered, marked; the dice skip it; none among the instruments: Sam tuned them all), retired (behind 'show retired'). ride: the kit plays the ride section (the sampled kits). Families: electric goes with either; bass, pad, ear candy and the kit follow the song's family.",
   "families": {
     "acoustic": { "name": "Acoustic" },
     "synth": { "name": "Synth" },
@@ -11,7 +11,7 @@
     { "id": 1, "sym": "INS_WURLI", "name": "Wurli", "roles": ["keys"], "family": "electric", "status": "approved" },
     { "id": 2, "sym": "INS_FELT_PIANO", "name": "Felt piano", "roles": ["keys"], "family": "acoustic", "status": "approved" },
     { "id": 3, "sym": "INS_NYLON", "name": "Nylon guitar", "roles": ["keys"], "family": "acoustic", "status": "approved" },
-    { "id": 4, "sym": "INS_PAD", "name": "Chillwave pad", "roles": ["keys"], "family": "synth", "status": "candidate" },
+    { "id": 4, "sym": "INS_PAD", "name": "Chillwave pad", "roles": ["keys"], "family": "synth", "status": "approved" },
     { "id": 5, "sym": "INS_UPRIGHT", "name": "Upright bass", "roles": ["bass"], "family": "acoustic", "status": "retired" },
     { "id": 6, "sym": "INS_ELEC_BASS", "name": "Electric bass", "roles": ["bass"], "family": "electric", "status": "approved" },
     { "id": 7, "sym": "INS_SUB", "name": "Sub bass", "roles": ["bass"], "family": "synth", "status": "approved" },
@@ -23,7 +23,7 @@
     { "id": 13, "sym": "INS_GUITAR_LICK", "name": "Guitar lick", "roles": ["lead"], "family": "electric", "status": "approved" },
     { "id": 14, "sym": "INS_MUSIC_BOX", "name": "Music box", "roles": ["candy"], "family": "acoustic", "status": "approved" },
     { "id": 15, "sym": "INS_BELLS", "name": "Bells", "roles": ["candy"], "family": "synth", "status": "approved" },
-    { "id": 16, "sym": "INS_VOX_PAD", "name": "Vox pad", "roles": ["candy"], "family": "synth", "status": "candidate" },
+    { "id": 16, "sym": "INS_VOX_PAD", "name": "Vox pad", "roles": ["candy"], "family": "synth", "status": "approved" },
     { "id": 17, "sym": "INS_CHIP_BASS", "name": "Triangle (chip) bass", "roles": ["bass"], "family": "synth", "status": "approved" },
     { "id": 18, "sym": "INS_ORGAN", "name": "Organ", "roles": ["keys"], "family": "synth", "status": "approved" },
     { "id": 19, "sym": "INS_SAW_LEAD", "name": "Saw lead", "roles": ["lead"], "family": "synth", "status": "approved" },
@@ -43,11 +43,11 @@
     { "id": 1, "sym": "KIT_SOFT", "name": "Soft (synth)", "family": "synth", "status": "retired" },
     { "id": 2, "sym": "KIT_808", "name": "Our 808 (synth)", "family": "synth", "status": "retired" },
     { "id": 3, "sym": "KIT_BRUSHES", "name": "Brushes", "family": "acoustic", "status": "approved" },
-    { "id": 4, "sym": "KIT_S_WARM", "name": "Warm (mixed samples)", "family": "acoustic", "status": "retired" },
-    { "id": 5, "sym": "KIT_S_DARK", "name": "Dark (mixed samples)", "family": "acoustic", "status": "retired" },
-    { "id": 6, "sym": "KIT_S_RUSTY", "name": "Rusty (mixed samples)", "family": "acoustic", "status": "retired" },
-    { "id": 7, "sym": "KIT_S_GENTLE", "name": "Gentle (mixed samples)", "family": "acoustic", "status": "retired" },
-    { "id": 8, "sym": "KIT_S_CLEAN", "name": "Clean (mixed samples)", "family": "acoustic", "status": "retired" }
+    { "id": 4, "sym": "KIT_S_WARM", "name": "Warm (mixed samples)", "family": "acoustic", "status": "retired", "ride": true },
+    { "id": 5, "sym": "KIT_S_DARK", "name": "Dark (mixed samples)", "family": "acoustic", "status": "retired", "ride": true },
+    { "id": 6, "sym": "KIT_S_RUSTY", "name": "Rusty (mixed samples)", "family": "acoustic", "status": "retired", "ride": true },
+    { "id": 7, "sym": "KIT_S_GENTLE", "name": "Gentle (mixed samples)", "family": "acoustic", "status": "retired", "ride": true },
+    { "id": 8, "sym": "KIT_S_CLEAN", "name": "Clean (mixed samples)", "family": "acoustic", "status": "retired", "ride": true }
   ],
   "comping": [
     { "id": 0, "sym": "CS_HELD", "name": "Held", "status": "approved" },

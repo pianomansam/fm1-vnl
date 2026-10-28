@@ -18,8 +18,7 @@ float *wb_out_l(void);
 float *wb_out_r(void);
 void wb_render(uint32_t n);             /* n (<= 1024) frames into the outputs; silence when stopped (after a 40 ms
                                            fade) */
-void wb_seed(uint32_t seed);            /* roll a song; it restarts at bar 1 at the next render, staged changes made
-                                           before then included */
+void wb_seed(uint32_t seed);            /* roll a song (staged): wb_apply lands it from bar 1 */
 void wb_play(int on);                   /* on: from the start of the bar it stopped in; off: out in 40 ms */
 
 /* Staged (the page's view): the values the next landing applies */
@@ -32,21 +31,25 @@ void wb_role_set(int role, int ins);
 int wb_role_get(int role);              /* -1 for another role */
 void wb_ov_set(int key, int value);
 int wb_ov_get(int key);
-int wb_ov_applied(int key);             /* the register as the engine applies it (KEYS_OCT staged; LEAD_OCT as of the
-                                           last landing); other keys as wb_ov_get */
+int wb_keys_oct_applied(void);          /* the keys' register as the engine applies it to the staged state */
 int wb_kit_get(void);                   /* KIT_*: the staged song's kit */
 void wb_kit_set(int kit);               /* in the custom set (as wb_role_set), played always */
 void wb_kick_phrase(int a, int b);      /* a two-bar kick (step masks, bars A and B) over the staged pattern; 0, 0: off */
 int wb_roll_legal(int field, int value);    /* 1 if wb_roll_set would take it */
 void wb_stage_mark(void);               /* save the staged state ... */
 void wb_stage_undo(void);               /* ... and put it back */
-void wb_apply(void);                    /* land the staged state at the next bar line (calls before it coalesce) */
+void *wb_stage_ptr(void);               /* the staged state's bytes (a probe instance takes a copy) */
+int wb_stage_size(void);
+int wb_lead_oct_probe(void);            /* the lead's register as the engine applies it to the staged state (runs
+                                           scratch songs: a probe instance only, never the one playing) */
+void wb_apply(void);                    /* commit the staged state: it lands at the next bar line (a new seed or map from
+                                           bar 1; stopped, at play); staging after it isn't heard until the next */
 
 int wb_bar(void);                       /* the bar sounding, from 1 (0 before the first step) */
 int wb_bars(void);
 float wb_seconds(void);                 /* the song's time at the sample last rendered */
 int wb_catchups(void);                  /* wb_apply's landings since wb_init (tests) */
-int wb_landings(void);                  /* every landing (play's and wb_apply's): the page reads back after one */
+int wb_live_get(int field);             /* the song playing: a roll field (RF_N: the seed) */
 const char *wb_state(void);             /* JSON: the staged seed, roll, roles, overrides, kit, pattern, kick phrase */
 const char *wb_library(void);           /* JSON: the library's maps and progressions */
 const char *wb_consts(void);            /* JSON: the RF_*, WB_OV_* and V_* indices and LIB_SET_WB, for the page */

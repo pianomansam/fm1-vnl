@@ -37,6 +37,26 @@ export function call(fn, ...args) {
 
 export function onPosition(f) { listeners.add(f); }
 
+// A second wb.wasm on the main thread, never played: it runs the checks that need scratch songs (the lead register a
+// staged state gets), so the audio thread never does. bytes: the playing instance's wb_stage_bytes.
+let probeEx = null;
+export async function probe(bytes) {
+  if (!probeEx) {
+    let mem;
+    const wasi = { fd_write: (fd, iov, n, out) => { new DataView(mem.buffer).setUint32(out, 0, true); return 0; } };
+    const stub = new Proxy(wasi, { get: (t, k) => (k in t ? t[k] : () => 0) });
+    const env = new Proxy({}, { get: () => () => 0 });
+    const { instance } = await WebAssembly.instantiate(await (await fetch("wb.wasm")).arrayBuffer(),
+                                                       { wasi_snapshot_preview1: stub, env });
+    probeEx = instance.exports;
+    mem = probeEx.memory;
+    if (probeEx._initialize) probeEx._initialize();
+    probeEx.wb_init();
+  }
+  new Uint8Array(probeEx.memory.buffer, probeEx.wb_stage_ptr(), probeEx.wb_stage_size()).set(bytes);
+  return probeEx.wb_lead_oct_probe();
+}
+
 export async function play(on) {
   await start();
   if (on) await ctx.resume();

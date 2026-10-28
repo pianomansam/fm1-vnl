@@ -27,7 +27,13 @@ class Workbench extends AudioWorkletProcessor {
       this.ex.wb_init();
       this.port.postMessage({ type: "ready", consts: JSON.parse(this.cstr(this.ex.wb_consts())) });
     } else if (m.type === "call" && this.ex) {   // { fn: "wb_...", args, id }: the result goes back with the id
-      const f = /^wb_/.test(m.fn) ? this.ex[m.fn] : null;
+      const ex = this.ex;
+      if (m.fn === "wb_stage_bytes") {         // the staged state's bytes, for wb.js's probe instance
+        const value = new Uint8Array(ex.memory.buffer, ex.wb_stage_ptr(), ex.wb_stage_size()).slice();
+        this.port.postMessage({ type: "result", id: m.id, value });
+        return;
+      }
+      const f = /^wb_/.test(m.fn) ? ex[m.fn] : null;
       let value = f ? f(...(m.args || [])) : undefined;
       if (STRINGS.has(m.fn)) value = JSON.parse(this.cstr(value));
       this.port.postMessage({ type: "result", id: m.id, value, error: f ? undefined : `no export ${m.fn}` });
@@ -49,8 +55,7 @@ class Workbench extends AudioWorkletProcessor {
     if (out[1]) out[1].set(new Float32Array(ex.memory.buffer, ex.wb_out_r(), n));
     if (currentTime - this.lastPos >= 0.1) {
       this.lastPos = currentTime;
-      this.port.postMessage({ type: "pos", bar: ex.wb_bar(), bars: ex.wb_bars(), seconds: ex.wb_seconds(),
-                              landings: ex.wb_landings() });
+      this.port.postMessage({ type: "pos", bar: ex.wb_bar(), bars: ex.wb_bars(), seconds: ex.wb_seconds() });
     }
     return true;
   }

@@ -38,6 +38,7 @@
   .row button { padding: 4px 8px; line-height: 1; }
   .row button.lock[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); }
   .row.locked select, .row.locked input { opacity: 0.7; }
+  .row.inactive label, .row.inactive select { opacity: 0.45; }
   .row input { width: 100%; box-sizing: border-box; padding: 5px 8px; }
   @media (max-width: 520px) {
     .rows { grid-template-columns: 1fr; }
@@ -60,11 +61,11 @@
 </main>
 <script type="module">
   import * as wb from "./wb.js";
-  import { ROWS, GROUPS, optionsFor } from "./rows.js";
+  import { ROWS, GROUPS, optionsFor, inactive } from "./rows.js";
   import { Desk } from "./desk.js";
   const $ = (id) => document.getElementById(id);
   const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
-  let playing = false, desk = null, lib = null, landings = 0;
+  let playing = false, desk = null, lib = null;
 
   // one change at a time: clicks queue behind the one in flight
   let queue = Promise.resolve();
@@ -75,8 +76,9 @@
     await wb.start();
     const opts = await (await fetch("options.json")).json();
     lib = await wb.call("wb_library");
-    desk = new Desk(wb.call, wb.C, opts, lib);
+    desk = new Desk(wb.call, wb.C, opts, lib, { probe: wb.probe });
     await wb.call("wb_seed", 21);
+    await wb.call("wb_apply");
     await desk.read(true);
     wb.onPosition(show);
     render();
@@ -138,7 +140,10 @@
       el.classList.toggle("moved", desk.moved.has(r.id));
       el.classList.toggle("locked", locked);
       el.lock.setAttribute("aria-pressed", String(locked));
-      el.dice.disabled = el.input.disabled = locked;
+      const why = inactive(r, desk.state, desk.opts);
+      el.dice.disabled = el.input.disabled = locked || !!why;
+      el.classList.toggle("inactive", !!why);
+      el.title = why || "";
       if (r.kind === "seed") { el.input.value = cur; continue; }
       el.options = optionsFor(r, desk.state, desk.opts, { showRetired, lib });
       el.input.replaceChildren(...el.options.map((o) => {
@@ -160,10 +165,6 @@
   function show(p) {
     $("pos").textContent = `bar ${p.bar || "–"} / ${p.bars}  ·  ${fmt(p.seconds)}`;
     $("progress").style.width = `${p.bars ? (100 * Math.max(p.bar - 1, 0)) / p.bars : 0}%`;
-    if (p.landings !== landings) {   // a change landed: the lead register as the engine applied it
-      landings = p.landings;
-      run(async () => ((await desk.landed()) ? { message: desk.message } : null));
-    }
   }
 
   const booting = boot().catch((e) => { $("msg").textContent = `The engine didn't load: ${e}`; });

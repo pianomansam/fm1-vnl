@@ -84,6 +84,7 @@ console.log("consts");
 {
   const ex = await load();
   ex.wb_seed(21);
+  ex.wb_apply();
   const t = ex.wb_roll_get(RF.TEMPO), bars = ex.wb_roll_get(RF.BARS);
   check(RF.N === Object.keys(RF).length - 1 && OV.N === Object.keys(OV).length - 1, "the RF and OV tables are whole");
   check(t >= 70 && t <= 90 && bars >= 36 && bars <= 76 && bars % 4 === 0, `RF.TEMPO ${t} and RF.BARS ${bars} in range`);
@@ -94,6 +95,7 @@ console.log("seed 21, 20 s");
 const ref = await (async () => {
   const ex = await load();
   ex.wb_seed(21);
+  ex.wb_apply();
   ex.wb_play(1);
   return render(ex, 20 * SR);
 })();
@@ -102,6 +104,7 @@ const ref = await (async () => {
   check(level > -45, `RMS ${level.toFixed(1)} dBFS > -45`);
   const ex = await load();
   ex.wb_seed(21);
+  ex.wb_apply();
   ex.wb_play(1);
   const again = render(ex, 20 * SR);
   let same = true;
@@ -113,6 +116,7 @@ console.log("stopped");
 {
   const ex = await load();
   ex.wb_seed(21);
+  ex.wb_apply();
   check(longestZeros(render(ex, SR)) === SR, "silence before play");
   ex.wb_play(1);
   render(ex, 3 * SR);
@@ -125,6 +129,7 @@ console.log("tempo 85 staged in bar 3");
 {
   const ex = await load();
   ex.wb_seed(21);
+  ex.wb_apply();
   ex.wb_play(1);
   const bpm = ex.wb_roll_get(RF.TEMPO) === 85 ? 75 : 85;
   until(ex, () => ex.wb_bar() === 3, 60 * SR);
@@ -142,8 +147,9 @@ console.log("Review Focus 1: a change staged in the last bar");
 {
   const ex = await load();
   ex.wb_seed(21);
-  ex.wb_play(1);
   ex.wb_roll_set(RF.BARS, 36);    // the shortest song, to reach its end sooner (play lands it)
+  ex.wb_apply();
+  ex.wb_play(1);
   const bars = ex.wb_bars();
   until(ex, () => ex.wb_bar() === bars, 300 * SR);
   check(ex.wb_bar() === bars, `reached the last bar (${bars})`);
@@ -164,6 +170,7 @@ console.log("Review Focus 2: 50 stagings within one bar");
 {
   const ex = await load();
   ex.wb_seed(21);
+  ex.wb_apply();
   ex.wb_play(1);
   until(ex, () => ex.wb_bar() === 3, 60 * SR);
   let last = -1;
@@ -188,6 +195,7 @@ console.log("a new map, and the song's end");
 {
   const ex = await load();
   ex.wb_seed(21);
+  ex.wb_apply();
   ex.wb_play(1);
   until(ex, () => ex.wb_bar() === 5, 60 * SR);
   check(ex.wb_roll_dice(RF.MAP) >= 0, "the map re-rolled");
@@ -204,6 +212,7 @@ console.log("custom set");
 {
   const ex = await load();
   ex.wb_seed(21);
+  ex.wb_apply();
   const before = [V.CHORD, V.BASS, V.LEAD, V.CANDY, V.PAD].map((r) => ex.wb_role_get(r));
   const other = before[1] === before[0] ? before[2] : before[0];
   ex.wb_role_set(V.BASS, other);
@@ -227,10 +236,20 @@ const enumOf = (first) => {   // the enum whose first name is `first`: its names
 };
 const lcg = (s) => () => ((s = (s * 1103515245 + 12345) >>> 0) / 4294967296);
 const STR = new Set(["wb_consts", "wb_state", "wb_library"]);
+// the page's call (the worklet's): JSON exports parsed, wb_stage_bytes a copy of the staged state
 const caller = (ex) => async (fn, ...a) => {
+  if (fn === "wb_stage_bytes") return new Uint8Array(ex.memory.buffer, ex.wb_stage_ptr(), ex.wb_stage_size()).slice();
   if (!ex[fn]) throw new Error(`no export ${fn}`);
   const v = ex[fn](...a);
   return STR.has(fn) ? JSON.parse(cstr(ex, v)) : v;
+};
+// wb.js's probe: a second instance, never played
+const prober = async () => {
+  const pex = await load();
+  return async (bytes) => {
+    new Uint8Array(pex.memory.buffer, pex.wb_stage_ptr(), pex.wb_stage_size()).set(bytes);
+    return pex.wb_lead_oct_probe();
+  };
 };
 const ins = (name) => OPTS.instruments.find((i) => i.name === name).id;
 const famOf = (id) => OPTS.instruments.find((i) => i.id === id)?.family ?? OPTS.kits.find((k) => k.id === id)?.family;
@@ -317,9 +336,10 @@ console.log("desk: rows over the engine");
   const call = caller(ex);
   const lib = await call("wb_library");
   ex.wb_seed(21);
+  ex.wb_apply();
   ex.wb_play(1);
   render(ex, Q);
-  const desk = new Desk(call, C, OPTS, lib, lcg(11));
+  const desk = new Desk(call, C, OPTS, lib, { rnd: lcg(11), probe: await prober() });
   await desk.read();
   check(ROWS.every((r) => desk.values[r.id] !== undefined), "every row has a value");
   check(desk.legal.prog.includes(desk.values.prog) && desk.legal.prog.length < lib.progs.length,
@@ -370,8 +390,9 @@ console.log("desk: locks and hand edits survive a regenerate");
 {
   const ex = await load();
   const call = caller(ex);
-  const desk = new Desk(call, C, OPTS, await call("wb_library"), lcg(23));
+  const desk = new Desk(call, C, OPTS, await call("wb_library"), { rnd: lcg(23), probe: await prober() });
   ex.wb_seed(21);
+  ex.wb_apply();
   ex.wb_play(1);
   render(ex, Q);
   await desk.read();
@@ -409,8 +430,9 @@ console.log("desk: dice and registers");
 {
   const ex = await load();
   const call = caller(ex);
-  const desk = new Desk(call, C, OPTS, await call("wb_library"), lcg(5));
+  const desk = new Desk(call, C, OPTS, await call("wb_library"), { rnd: lcg(5), probe: await prober() });
   ex.wb_seed(5);
+  ex.wb_apply();
   ex.wb_play(1);
   render(ex, Q);
   await desk.read();
@@ -420,14 +442,76 @@ console.log("desk: dice and registers");
   const t = desk.values.tempo, r = await desk.dice("tempo");
   check(r.ok && desk.values.tempo !== t && ex.wb_roll_get(C.RF.TEMPO) === desk.values.tempo, `the tempo's dice is the engine's (${t} -> ${desk.values.tempo})`);
   const k = await desk.set("keysOct", 1);   // seed 5: the DX keys can't go up under its lead (harmony_keys_oct)
-  check(k.ok && desk.values.keysOct === ex.wb_ov_applied(C.OV.KEYS_OCT) && ex.wb_ov_get(C.OV.KEYS_OCT) === desk.values.keysOct,
+  check(k.ok && desk.values.keysOct === ex.wb_keys_oct_applied() && ex.wb_ov_get(C.OV.KEYS_OCT) === desk.values.keysOct,
         `the keys register shows what the engine applies (asked +1, plays ${desk.values.keysOct}${k.message ? `: "${k.message}"` : ""})`);
-  await desk.set("leadOct", -1);
-  const n = ex.wb_landings();
-  until(ex, () => ex.wb_landings() > n, 60 * SR);
-  const moved = await desk.landed();
-  check(desk.values.leadOct === ex.wb_ov_applied(C.OV.LEAD_OCT) && (moved ? desk.values.leadOct === 0 : desk.values.leadOct === -1),
-        `the lead register shows what landed (asked -1, plays ${desk.values.leadOct})`);
+  const probe = await prober(), stagedLead = async () => probe(await call("wb_stage_bytes"));
+  const l = await desk.set("leadOct", -1);   // seed 5: the lead can't go down (lead.c keeps it)
+  check(l.ok && desk.values.leadOct === 0 && ex.wb_ov_get(C.OV.LEAD_OCT) === 0 && /Lead register/.test(l.message),
+        `the lead register shows what the engine applies (asked -1, plays ${desk.values.leadOct}: "${l.message}")`);
+  ex.wb_ov_set(C.OV.LEAD_OCT, -1);
+  const refused = await stagedLead();
+  ex.wb_seed(21);
+  ex.wb_ov_set(C.OV.LEAD_OCT, 1);
+  const applied = await stagedLead();
+  check(refused === 0 && applied === 1, `the probe instance: seed 5 down refused (${refused}), seed 21 up applied (${applied})`);
+}
+
+console.log("desk: a quantum rendered before every call (the worklet's interleaving)");
+{
+  const ex = await load();
+  const call = caller(ex);
+  let watch = null, bad = 0, quanta = 0;
+  const heard = new Set();             // every seed that played a quantum
+  const step = lcg(99);
+  const callR = async (fn, ...a) => {   // 1-16 quanta before each call: a bar line can fall anywhere inside a change
+    const k = 1 + Math.floor(step() * 16);
+    render(ex, k * Q);
+    quanta += k;
+    if (watch) {
+      heard.add(ex.wb_live_get(C.RF.N));
+      if (ex.wb_live_get(C.RF.TEMPO) !== watch.tempo) bad++;
+    }
+    return call(fn, ...a);
+  };
+  ex.wb_seed(21);
+  ex.wb_apply();
+  ex.wb_play(1);
+  render(ex, Q);
+  const desk = new Desk(callR, C, OPTS, await call("wb_library"), { rnd: lcg(31), probe: await prober() });
+  await desk.read();
+  const tempo = desk.values.tempo === 88 ? 71 : 88;
+  await desk.set("tempo", tempo);
+  desk.lock("tempo", true);
+  await desk.set("lead", ins("Flute"));
+  desk.lock("lead", true);
+  until(ex, () => ex.wb_live_get(C.RF.TEMPO) === tempo, 60 * SR);
+  desk.lock("prog", true);
+  watch = { tempo };
+  const blocked = [], landed = [];
+  for (let s = 100; s < 160 && (blocked.length < 3 || landed.length < 3); s++)   // back to back: an earlier seed's
+    ((await desk.set("seed", s)).ok ? landed : blocked).push(s);                  // landing falls inside the next one
+  until(ex, () => ex.wb_live_get(C.RF.N) === landed.at(-1), 60 * SR);
+  const leaked = blocked.filter((s) => heard.has(s));
+  check(blocked.length >= 3 && landed.length >= 3 && !leaked.length && !bad && ex.wb_live_get(C.RF.TEMPO) === tempo,
+        `blocked seeds never play, every landed state has the locks (${blocked.length} blocked, ${landed.length} landed, ` +
+        `${quanta} quanta, ${heard.size} seeds heard; ${leaked.length} blocked heard, ${bad} quanta without the locked tempo)`);
+  desk.lock("prog", false);
+  bad = 0;
+  const r = await desk.rerollAll();
+  until(ex, () => ex.wb_live_get(C.RF.N) === desk.values.seed, 60 * SR);
+  render(ex, 2 * Math.ceil(barLen(70)));
+  watch = null;
+  check(r.ok && !bad && ex.wb_live_get(C.RF.TEMPO) === tempo, `re-roll all with bar lines inside it: every landed state keeps the locked tempo (${bad} bad)`);
+}
+
+console.log("options.json: statuses");
+check(!OPTS.instruments.some((i) => i.status === "candidate") &&
+      ["Chillwave pad", "Vox pad"].every((n) => OPTS.instruments.find((i) => i.name === n).status === "approved"),
+      "no candidates among the instruments (the chillwave and vox pads approved)");
+{
+  const { inactive } = await import("../rows.js");
+  const st = (kit) => ({ values: { kit } });
+  check(inactive(row("ride"), st(3), OPTS) && !inactive(row("ride"), st(4), OPTS), "the ride row is inactive on a kit with no ride (Brushes), not on a sampled kit");
 }
 
 console.log(failed ? `smoke: ${failed} FAILED` : "smoke: all passed");

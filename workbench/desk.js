@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The decision desk: the rows' state (values, locks, hand edits, what moved) and how a change reaches the engine.
 // Every change is staged (wb_stage_mark first), checked against the locks (a locked row that moved undoes it whole and
-// says why), then landed with wb_apply. A seed or map change regenerates the song, so every locked or hand-set row is
-// staged again before it lands. call(fn, ...args) reaches wb.wasm's exports, a Promise (wb.js in the page; smoke.mjs in Node).
+// says why), then committed with wb_apply: nothing staged is heard before that, so a bar line inside a change never
+// lands half of it. A seed or map change regenerates the song, so every locked or hand-set row is staged again first. call(fn, ...args) reaches wb.wasm's exports, a Promise (wb.js in the page; smoke.mjs in Node).
 import { ROWS, row, conflicts, pickFor, familyOf, fromEngine, kickMasks } from "./rows.js";
 
 const SEED_TRIES = 20;   // a new seed whose song can't keep the locks is tried again (re-roll all, the seed's dice)
 
 export class Desk {
-  constructor(call, C, opts, lib, rnd = Math.random) {
-    Object.assign(this, { call, C, opts, lib, rnd });
+  // probe(bytes): the lead register the engine applies to a staged state (wb_stage_bytes), from a second wb.wasm
+  // instance off the audio thread (wb.js's probe); without one the lead register isn't read back
+  constructor(call, C, opts, lib, { rnd = Math.random, probe = null } = {}) {
+    Object.assign(this, { call, C, opts, lib, rnd, probe });
     this.values = {};
     this.locks = new Set();
     this.hand = new Set();     // rows set from their dropdown (they survive a regenerate, as locks do)
@@ -50,26 +52,24 @@ export class Desk {
     if (id === "family") this.values.family = v;
   }
 
-  // The engine's keys register as it applies it (0 where the instrument can't move): staged and shown instead
+  // The registers as the engine applies them (0 where the instrument can't move): staged and shown instead
   async readBack() {
-    const OV = this.C.OV, k = await this.call("wb_ov_applied", OV.KEYS_OCT);
+    const OV = this.C.OV, said = [];
+    const k = await this.call("wb_keys_oct_applied");
     if (k !== this.values.keysOct) {
       await this.call("wb_ov_set", OV.KEYS_OCT, k);
-      this.message = `Keys register: the engine kept it ${k ? (k > 0 ? "up" : "down") + " an octave" : "where it was"} (the instrument's range).`;
+      said.push(`Keys register: the engine kept it ${k ? (k > 0 ? "up" : "down") + " an octave" : "where it was"} (the instrument's range).`);
       this.values.keysOct = k;
     }
-  }
-
-  // After a landing: the lead register as the engine applied it (lead.c keeps it where the lead can't move)
-  async landed() {
-    const OV = this.C.OV, l = await this.call("wb_ov_applied", OV.LEAD_OCT);
-    if (this.values.leadOct && l !== this.values.leadOct) {
-      await this.call("wb_ov_set", OV.LEAD_OCT, l);
-      this.values.leadOct = l;
-      this.message = "Lead register: the engine kept it where it was (the instrument can't move there).";
-      return true;
+    if (this.probe && this.values.leadOct) {
+      const l = await this.probe(await this.call("wb_stage_bytes"));
+      if (l !== this.values.leadOct) {
+        await this.call("wb_ov_set", OV.LEAD_OCT, l);
+        said.push("Lead register: the engine kept it where it was (the lead can't move there).");
+        this.values.leadOct = l;
+      }
     }
-    return false;
+    this.message = said.join(" ");
   }
 
   // Stage every kept (locked or hand-set) row again, after a regenerate wiped the custom set, pattern and roll; a new
@@ -90,14 +90,16 @@ export class Desk {
   }
 
   // Set row id to value (dice: a roll, not a hand edit). { ok, message, moved }
-  async set(id, value, { dice = false } = {}) {
+  // release: only the locks are kept through a regenerate (re-roll all lets hand edits go once its seed lands)
+  async set(id, value, { dice = false, release = false } = {}) {
     const r = row(id);
     if (this.locks.has(id)) return this.done(false, `${r.label} is locked.`);
     const c = r.regenerates || r.kind === "roll" ? { forced: [], stuck: [], blocked: null }
                                                   : conflicts(r, value, this.state, this.opts, this.rnd, this.lib);
     if (c.blocked) return this.done(false, `Blocked: ${c.blocked.label} is locked (${c.blocked.why}).`);
     const before = { ...this.values };
-    const kept = new Map([...ROWS].filter((x) => this.kept(x.id) && x.id !== id).map((x) => [x.id, before[x.id]]));
+    const keep = (x) => (release ? this.locks.has(x) : this.kept(x));
+    const kept = new Map([...ROWS].filter((x) => keep(x.id) && x.id !== id).map((x) => [x.id, before[x.id]]));
     const forced = new Set(c.forced.map((f) => f.row));
     await this.call("wb_stage_mark");
     await this.stage(id, value);
@@ -119,6 +121,7 @@ export class Desk {
       const names = lockedMoved.map((x) => x.label).join(", ");
       return this.done(false, `Blocked: ${names} ${lockedMoved.length > 1 ? "are" : "is"} locked and ${r.label} would move ${lockedMoved.length > 1 ? "them" : "it"}.`);
     }
+    if (release) for (const h of [...this.hand]) if (!this.locks.has(h)) this.hand.delete(h);
     if (dice) this.hand.delete(id); else this.hand.add(id);
     const lost = r.regenerates ? [...kept.keys()].filter((k) => this.hand.has(k) && String(this.values[k]) !== String(kept.get(k))) : [];
     lost.forEach((k) => this.hand.delete(k));
@@ -142,13 +145,13 @@ export class Desk {
   }
 
   // 🎲: the engine's own dice for a roll field, a new seed (tried until the locks fit), a new salt, or pickFor
-  async dice(id) {
+  async dice(id, { release = false } = {}) {
     const r = row(id);
     if (this.locks.has(id)) return this.done(false, `${r.label} is locked.`);
     if (r.kind === "seed") {
       let res;
       for (let i = 0; i < SEED_TRIES; i++) {
-        res = await this.set("seed", 1 + Math.floor(this.rnd() * 999999), { dice: true });
+        res = await this.set("seed", 1 + Math.floor(this.rnd() * 999999), { dice: true, release });
         if (res.ok) return res;
       }
       return res;
@@ -169,8 +172,8 @@ export class Desk {
 
   // Re-roll everything unlocked: a new seed (hand edits let go) when the seed isn't locked, else each row's dice
   async rerollAll() {
+    if (!this.locks.has("seed")) return this.dice("seed", { release: true });
     for (const id of [...this.hand]) if (!this.locks.has(id)) this.hand.delete(id);
-    if (!this.locks.has("seed")) return this.dice("seed");
     const notes = [];
     for (const r of ROWS) {
       if (this.locks.has(r.id) || r.kind === "seed") continue;

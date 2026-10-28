@@ -201,6 +201,15 @@ export function fromEngine(s, C, opts) {
   return v;
 }
 
+// why a row can't be heard now (greyed, with this as its tooltip), or null
+export function inactive(r, state, opts) {
+  if (r.id === "ride") {
+    const kit = opts.kits.find((k) => k.id === state.values.kit);
+    if (!kit?.ride) return `${kit ? kit.name : "This kit"} has no ride: the ride section plays on the sampled kits only.`;
+  }
+  return null;
+}
+
 // a kick phrase's step masks (bars A and B); [0, 0] for the pattern's own
 export function kickMasks(id, opts) {
   const k = opts.kickPhrases.find((x) => x.id === id);

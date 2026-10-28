@@ -3,6 +3,7 @@
    moves, the last block's fade, the step's events to the voices at its start sample), without the app's mailbox,
    requests or gaps between songs: one song, looped after a 2 s gap at its end. Exports for the worklet follow
    base/web/emu/emu_web.c's pattern. */
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include "wb.h"
@@ -17,20 +18,21 @@
 #define GAP (2u * SR)                   /* the silence between the song's end and its loop */
 
 static song_t song;
-static song_roll_t live, staged;        /* the roll playing; the one the next landing applies */
-static song_ov_t ov_staged;
-static lib_set_t set_live, set_staged;  /* the custom set (LIB_SET_WB): playing; staged */
-static uint8_t base_live, base_staged;  /* the library set each was copied from (its id-keyed rules) */
-static lib_pattern_t pat_live, pat_staged;  /* the custom pattern (LIB_PATTERN_WB: a kick phrase over a library one) */
-static uint8_t pat_base;                /* the library pattern the staged custom one was copied from */
-static int kick_a, kick_b;              /* the staged kick phrase's step masks (0, 0: the pattern's own kick) */
-static struct {                         /* wb_stage_mark's copy, for wb_stage_undo */
-    song_roll_t roll; song_ov_t ov; lib_set_t set; lib_pattern_t pat; uint8_t base, pat_base; int kick_a, kick_b;
-} mark;
-static song_t scratch[2];
-static int lead_oct_applied;            /* the live lead_oct as the engine applied it (0: refused everywhere) */
-static int landings;
-static uint8_t playing, apply_pend, start_pend, restart_pend, in_gap;
+/* Everything the page decides: the roll, the overrides, the custom set (LIB_SET_WB) and pattern (LIB_PATTERN_WB) */
+typedef struct {
+    song_roll_t roll;
+    song_ov_t ov;
+    lib_set_t set;
+    lib_pattern_t pat;                  /* a kick phrase over a library pattern (id 0: none) */
+    uint8_t base;                       /* the library set the custom one was copied from (its id-keyed rules) */
+    uint8_t pat_base;                   /* the library pattern the custom one was copied from */
+    int kick_a, kick_b;                 /* the kick phrase's step masks (0, 0: the pattern's own kick) */
+} stage_t;
+/* st: the page's (staged); com: wb_apply's (committed: the only one a landing reads, so staging is never heard
+   half-done); live: playing (the hooks point into it); mark: wb_stage_mark's copy */
+static stage_t st, com, live, mark;
+static song_t scratch[2];               /* wb_lead_oct_probe's (a probe instance's, never the one playing) */
+static uint8_t playing, apply_pend, start_pend, in_gap;
 static int cur_bar = -1;                /* the bar of the step last ticked (-1: none yet) */
 static int resume_bar;                  /* where play starts */
 static uint32_t next_at;                /* frames to the next step (or to the gap's end) */
@@ -50,55 +52,25 @@ static uint32_t advance(void)
     return ip;
 }
 
-/* a step's lead notes, hashed (0: none) */
-static uint32_t lead_notes(song_t *s)
+/* the library hooks into a stage's custom set and pattern */
+static void hooks(const stage_t *s)
 {
-    uint32_t h = 0;
-    int n = song_tick(s, evs, 64), i;
-    for (i = 0; i < n; i++)
-        if (evs[i].voice == V_LEAD && evs[i].vel)
-            h = (h ^ evs[i].note) * 16777619u + 1u;
-    return h;
+    lib_set_wb(&s->set, s->base);
+    lib_pattern_wb(s->pat.id ? &s->pat : NULL);
 }
 
-/* The staged lead_oct if it moves any lead note (lead.c keeps the register where the instrument can't move), else 0:
-   the staged song with and without it, run side by side to the first difference (scratch runs: song.c's per-bar
-   state is rebuilt by the catch-up that follows in land) */
-static int lead_oct_moves(void)
-{
-    song_ov_t flat = ov_staged;
-    int moved = 0;
-    if (!ov_staged.lead_oct)
-        return 0;
-    flat.lead_oct = 0;
-    song_start(&scratch[0], &staged);
-    song_start(&scratch[1], &staged);
-    while (!moved && scratch[0].state == SS_PLAYING && scratch[1].state == SS_PLAYING) {
-        uint32_t h = lead_notes(&scratch[0]);
-        song_override(&flat);
-        moved = h != lead_notes(&scratch[1]);
-        song_override(&ov_staged);
-    }
-    return moved ? ov_staged.lead_oct : 0;
-}
-
-/* The staged state becomes the song's: it starts again and ticks silently (events dropped) up to bar target (from 0;
-   past the end, bar 0), the old notes released, the voices configured for it. fresh: a new start (play, a seed): the
-   engine cleared if nothing sounds, the chain restarted from the seed (vx_song). */
+/* The committed state becomes the song's: it starts again and ticks silently (events dropped) up to bar target (from
+   0; past the end, bar 0), the old notes released, the voices configured for it. A new seed or map redraws
+   everything: from bar 1. fresh: a new start (play, a seed): the engine cleared if nothing sounds, the chain
+   restarted from the seed (vx_song). */
 static void land(int target, int fresh)
 {
-    set_live = set_staged;
-    base_live = base_staged;
-    lib_set_wb(&set_live, base_live);
-    pat_live = pat_staged;
-    lib_pattern_wb(pat_live.id ? &pat_live : NULL);
-    song_override(&ov_staged);
-    lead_oct_applied = lead_oct_moves();
-    landings++;
-    if (staged.v[RF_MAP] != live.v[RF_MAP])
-        target = 0;                     /* a new map redraws everything: from bar 1 */
-    live = staged;
-    song_start(&song, &live);
+    if (com.roll.seed != live.roll.seed || com.roll.v[RF_MAP] != live.roll.v[RF_MAP])
+        target = 0;
+    live = com;
+    hooks(&live);
+    song_override(&live.ov);
+    song_start(&song, &live.roll);
     if (target >= song.roll.v[RF_BARS])
         target = 0;
     pos = 0;
@@ -150,7 +122,7 @@ static void due(void)
 {
     if (apply_pend && (song.step == 0 || song.state == SS_ENDED)) {
         catchups++;
-        land(song.bar, 0);
+        land(song.bar, com.roll.seed != live.roll.seed);
     } else if (song.state == SS_ENDED) {
         if (in_gap) {
             land(0, 1);
@@ -166,24 +138,16 @@ static void due(void)
 
 EXPORT void wb_init(void)
 {
+    memset(&st, 0, sizeof st);
     song_override(NULL);
-    ov_staged = *song_ov();
-    memset(&set_staged, 0, sizeof set_staged);
-    set_live = set_staged;
-    base_live = base_staged = 0;
-    lib_set_wb(&set_live, 0);
-    memset(&pat_staged, 0, sizeof pat_staged);
-    pat_live = pat_staged;
-    pat_base = 0;
-    kick_a = kick_b = 0;
-    lib_pattern_wb(NULL);
-    lead_oct_applied = landings = 0;
+    st.ov = *song_ov();
+    roll_song(0, 1, &st.roll);
+    com = live = mark = st;
+    hooks(&live);
     vx_init();
-    playing = apply_pend = start_pend = restart_pend = in_gap = 0;
+    playing = apply_pend = start_pend = in_gap = 0;
     catchups = 0;
     dice_salt = 0;
-    roll_song(0, 1, &staged);
-    live = staged;
     cur_bar = -1;
     resume_bar = 0;
     pos = 0;
@@ -199,14 +163,6 @@ EXPORT void wb_render(uint32_t n)
         n = WB_MAX_FRAMES;
     memset(out_l, 0, n * sizeof out_l[0]);
     memset(out_r, 0, n * sizeof out_r[0]);
-    if (restart_pend) {
-        restart_pend = 0;
-        resume_bar = 0;
-        cur_bar = -1;
-        pos = 0;
-        if (playing)
-            start_pend = 1;
-    }
     if (start_pend) {
         start_pend = 0;
         land(resume_bar, 1);
@@ -229,8 +185,7 @@ EXPORT void wb_render(uint32_t n)
 
 EXPORT void wb_seed(uint32_t seed)
 {
-    roll_song(0, seed, &staged);
-    restart_pend = 1;
+    roll_song(0, seed, &st.roll);
 }
 
 EXPORT void wb_play(int on)
@@ -247,25 +202,19 @@ EXPORT void wb_play(int on)
 /* the roll's checks (a set suits the mood) see the staged custom set and pattern while the page stages */
 static void stage_set(int on)
 {
-    if (on) {
-        lib_set_wb(&set_staged, base_staged);
-        lib_pattern_wb(pat_staged.id ? &pat_staged : NULL);
-    } else {
-        lib_set_wb(&set_live, base_live);
-        lib_pattern_wb(pat_live.id ? &pat_live : NULL);
-    }
+    hooks(on ? &st : &live);
 }
 
 EXPORT int wb_roll_get(int field)
 {
-    return field >= 0 && field < RF_N ? staged.v[field] : -1;
+    return field >= 0 && field < RF_N ? st.roll.v[field] : -1;
 }
 
 EXPORT int wb_roll_set(int field, int value)
 {
     int v;
     stage_set(1);
-    v = roll_set(&staged, field, value);
+    v = roll_set(&st.roll, field, value);
     stage_set(0);
     return v;
 }
@@ -274,9 +223,9 @@ EXPORT int wb_roll_dice(int field)
 {
     int ok;
     stage_set(1);
-    ok = roll_dice(&staged, field, ++dice_salt);
+    ok = roll_dice(&st.roll, field, ++dice_salt);
     stage_set(0);
-    return ok ? staged.v[field] : -1;
+    return ok ? st.roll.v[field] : -1;
 }
 
 static uint8_t *role_ins(lib_set_t *s, int role)
@@ -295,28 +244,28 @@ static uint8_t *role_ins(lib_set_t *s, int role)
    song's set is unknown */
 static lib_set_t *custom_set(void)
 {
-    if (staged.v[RF_SET] != LIB_SET_WB) {
-        const lib_set_t *s = lib_set_by_id((uint8_t)staged.v[RF_SET]);
+    if (st.roll.v[RF_SET] != LIB_SET_WB) {
+        const lib_set_t *s = lib_set_by_id((uint8_t)st.roll.v[RF_SET]);
         if (!s)
             return NULL;
-        set_staged = *s;
-        set_staged.id = LIB_SET_WB;
-        base_staged = s->id;
-        staged.v[RF_SET] = LIB_SET_WB;
+        st.set = *s;
+        st.set.id = LIB_SET_WB;
+        st.base = s->id;
+        st.roll.v[RF_SET] = LIB_SET_WB;
     }
-    return &set_staged;
+    return &st.set;
 }
 
 EXPORT void wb_role_set(int role, int ins)
 {
-    if (!role_ins(&set_staged, role) || ins < 0 || ins > 255 || !custom_set())
+    if (!role_ins(&st.set, role) || ins < 0 || ins > 255 || !custom_set())
         return;
-    *role_ins(&set_staged, role) = (uint8_t)ins;
+    *role_ins(&st.set, role) = (uint8_t)ins;
 }
 
 EXPORT int wb_role_get(int role)
 {
-    const lib_set_t *p = staged.v[RF_SET] == LIB_SET_WB ? &set_staged : lib_set_by_id((uint8_t)staged.v[RF_SET]);
+    const lib_set_t *p = st.roll.v[RF_SET] == LIB_SET_WB ? &st.set : lib_set_by_id((uint8_t)st.roll.v[RF_SET]);
     lib_set_t s;
     uint8_t *ins;
     if (!p)
@@ -331,7 +280,7 @@ EXPORT int wb_kit_get(void)
 {
     int k;
     stage_set(1);
-    k = lib_song_kit(&staged);
+    k = lib_song_kit(&st.roll);
     stage_set(0);
     return k;
 }
@@ -352,33 +301,33 @@ EXPORT void wb_kick_phrase(int a, int b)
 {
     const lib_pattern_t *p;
     int i;
-    if (staged.v[RF_PATTERN] != LIB_PATTERN_WB)
-        pat_base = (uint8_t)staged.v[RF_PATTERN];
+    if (st.roll.v[RF_PATTERN] != LIB_PATTERN_WB)
+        st.pat_base = (uint8_t)st.roll.v[RF_PATTERN];
     if (!a && !b) {
-        staged.v[RF_PATTERN] = pat_base;
+        st.roll.v[RF_PATTERN] = st.pat_base;
         return;
     }
-    if (!(p = lib_pattern_by_id(pat_base)))
+    if (!(p = lib_pattern_by_id(st.pat_base)))
         return;
-    pat_staged = *p;
-    pat_staged.id = LIB_PATTERN_WB;
-    pat_staged.two_bar = 1;
+    st.pat = *p;
+    st.pat.id = LIB_PATTERN_WB;
+    st.pat.two_bar = 1;
     for (i = 0; i < 6; i++) {
-        pat_staged.hit_b[i] = p->hit[i];
-        pat_staged.ghost_b[i] = p->ghost[i];
+        st.pat.hit_b[i] = p->hit[i];
+        st.pat.ghost_b[i] = p->ghost[i];
     }
-    pat_staged.hit[D_KICK] = (uint16_t)a;
-    pat_staged.hit_b[D_KICK] = (uint16_t)b;
-    pat_staged.ghost[D_KICK] = pat_staged.ghost_b[D_KICK] = 0;
-    kick_a = a;
-    kick_b = b;
-    staged.v[RF_PATTERN] = LIB_PATTERN_WB;
+    st.pat.hit[D_KICK] = (uint16_t)a;
+    st.pat.hit_b[D_KICK] = (uint16_t)b;
+    st.pat.ghost[D_KICK] = st.pat.ghost_b[D_KICK] = 0;
+    st.kick_a = a;
+    st.kick_b = b;
+    st.roll.v[RF_PATTERN] = LIB_PATTERN_WB;
 }
 
 /* 1 if roll_set would take value for field as staged (the dropdowns offer only these) */
 EXPORT int wb_roll_legal(int field, int value)
 {
-    song_roll_t t = staged;
+    song_roll_t t = st.roll;
     int v;
     stage_set(1);
     v = roll_set(&t, field, value);
@@ -387,33 +336,53 @@ EXPORT int wb_roll_legal(int field, int value)
 }
 
 /* the staged state saved, and put back (a change that would move a locked row is undone whole) */
-EXPORT void wb_stage_mark(void)
+EXPORT void wb_stage_mark(void) { mark = st; }
+EXPORT void wb_stage_undo(void) { st = mark; }
+
+/* the staged state's bytes, for a probe instance (wb_lead_oct_probe): the page copies them across (the same build,
+   so the library pointers inside hold) */
+EXPORT void *wb_stage_ptr(void) { return &st; }
+EXPORT int wb_stage_size(void) { return (int)sizeof st; }
+
+/* a step's lead notes, hashed (0: none) */
+static uint32_t lead_notes(song_t *s)
 {
-    mark.roll = staged;
-    mark.ov = ov_staged;
-    mark.set = set_staged;
-    mark.pat = pat_staged;
-    mark.base = base_staged;
-    mark.pat_base = pat_base;
-    mark.kick_a = kick_a;
-    mark.kick_b = kick_b;
+    uint32_t h = 0;
+    int n = song_tick(s, evs, 64), i;
+    for (i = 0; i < n; i++)
+        if (evs[i].voice == V_LEAD && evs[i].vel)
+            h = (h ^ evs[i].note) * 16777619u + 1u;
+    return h;
 }
 
-EXPORT void wb_stage_undo(void)
+/* The staged lead_oct as the engine applies it: itself if it moves any lead note (lead.c keeps the register where the
+   instrument can't move), else 0. The staged song with and without it, run side by side to the first difference.
+   Scratch runs share song.c's per-bar state with the song playing: call it on a probe instance only. */
+EXPORT int wb_lead_oct_probe(void)
 {
-    staged = mark.roll;
-    ov_staged = mark.ov;
-    set_staged = mark.set;
-    pat_staged = mark.pat;
-    base_staged = mark.base;
-    pat_base = mark.pat_base;
-    kick_a = mark.kick_a;
-    kick_b = mark.kick_b;
+    song_ov_t flat = st.ov;
+    int moved = 0;
+    if (!st.ov.lead_oct)
+        return 0;
+    flat.lead_oct = 0;
+    stage_set(1);
+    song_override(&st.ov);
+    song_start(&scratch[0], &st.roll);
+    song_start(&scratch[1], &st.roll);
+    while (!moved && scratch[0].state == SS_PLAYING && scratch[1].state == SS_PLAYING) {
+        uint32_t h = lead_notes(&scratch[0]);
+        song_override(&flat);
+        moved = h != lead_notes(&scratch[1]);
+        song_override(&st.ov);
+    }
+    song_override(&live.ov);
+    stage_set(0);
+    return moved ? st.ov.lead_oct : 0;
 }
 
 EXPORT void wb_ov_set(int key, int value)
 {
-    song_ov_t *o = &ov_staged;
+    song_ov_t *o = &st.ov;
     switch (key) {
     case WB_OV_COMP: o->comp = (int8_t)value; break;
     case WB_OV_LEAD_STYLE: o->lead_style = (int8_t)value; break;
@@ -429,7 +398,7 @@ EXPORT void wb_ov_set(int key, int value)
 
 EXPORT int wb_ov_get(int key)
 {
-    const song_ov_t *o = &ov_staged;
+    const song_ov_t *o = &st.ov;
     switch (key) {
     case WB_OV_COMP: return o->comp;
     case WB_OV_LEAD_STYLE: return o->lead_style;
@@ -443,78 +412,114 @@ EXPORT int wb_ov_get(int key)
     }
 }
 
-/* The register the engine applies, -1, 0 or +1: KEYS_OCT for the staged state (harmony_keys_oct: 0 where the
-   instrument's range can't hold the move); LEAD_OCT for the song playing, as of its last landing (lead.c keeps the
-   lead's register where under an octave would remain: 0 if no note moved). Else wb_ov_get's. */
-EXPORT int wb_ov_applied(int key)
+/* The keys' register as the engine applies it to the staged state, -1, 0 or +1 (harmony_keys_oct: 0 where the
+   instrument's range can't hold the move) */
+EXPORT int wb_keys_oct_applied(void)
 {
-    song_ov_t live_ov = *song_ov();
     int d;
-    if (key == WB_OV_LEAD_OCT)
-        return lead_oct_applied;
-    if (key != WB_OV_KEYS_OCT)
-        return wb_ov_get(key);
     stage_set(1);
-    song_override(&ov_staged);
-    d = harmony_keys_oct(&staged) / 12;
-    song_override(&live_ov);
+    song_override(&st.ov);
+    d = harmony_keys_oct(&st.roll) / 12;
+    song_override(&live.ov);
     stage_set(0);
     return d;
 }
 
 EXPORT void wb_apply(void)
 {
+    com = st;
     if (playing)
-        apply_pend = 1;                 /* stopped: play lands the staged state */
+        apply_pend = 1;                 /* stopped: play lands it */
 }
 
 EXPORT int wb_bar(void) { return cur_bar + 1; }
-EXPORT int wb_bars(void) { return cur_bar >= 0 ? live.v[RF_BARS] : staged.v[RF_BARS]; }
+EXPORT int wb_bars(void) { return cur_bar >= 0 ? live.roll.v[RF_BARS] : com.roll.v[RF_BARS]; }
 EXPORT float wb_seconds(void) { return (float)pos / (float)SR; }
 EXPORT int wb_catchups(void) { return catchups; }
-EXPORT int wb_landings(void) { return landings; }
+/* the song playing (as last landed): a roll field, or the seed for RF_N */
+EXPORT int wb_live_get(int field)
+{
+    return field == RF_N ? (int)live.roll.seed : field >= 0 && field < RF_N ? live.roll.v[field] : -1;
+}
+
+/* JSON writers: append, stopping at the buffer's end (out_ok: nothing was cut) */
+typedef struct { char *b; unsigned cap, n; } out_t;
+
+static void put(out_t *o, const char *fmt, ...)
+{
+    va_list ap;
+    int k;
+    if (o->n >= o->cap)
+        return;
+    va_start(ap, fmt);
+    k = vsnprintf(o->b + o->n, o->cap - o->n, fmt, ap);
+    va_end(ap);
+    o->n = k < 0 || (unsigned)k >= o->cap - o->n ? o->cap : o->n + (unsigned)k;
+}
+
+static void put_str(out_t *o, const char *s)
+{
+    put(o, "\"");
+    for (; *s; s++)
+        put(o, *s == '"' || *s == '\\' ? "\\%c" : "%c", *s);
+    put(o, "\"");
+}
+
+/* the buffer, or an error object if it was cut */
+static const char *out_done(out_t *o)
+{
+    return o->n < o->cap ? o->b : "{\"error\":\"truncated\"}";
+}
 
 /* JSON: the staged state the page shows (the roll, the roles, the overrides, the kit, the library pattern under a
    kick phrase and the phrase's masks), and the library's maps and progressions with their notes */
 EXPORT const char *wb_state(void)
 {
     static char buf[512];
-    int n, i, custom = staged.v[RF_PATTERN] == LIB_PATTERN_WB;
-    n = snprintf(buf, sizeof buf, "{\"seed\":%u,\"roll\":[", (unsigned)staged.seed);
+    out_t o = {buf, sizeof buf, 0};
+    int i, custom = st.roll.v[RF_PATTERN] == LIB_PATTERN_WB;
+    put(&o, "{\"seed\":%u,\"roll\":[", (unsigned)st.roll.seed);
     for (i = 0; i < RF_N; i++)
-        n += snprintf(buf + n, sizeof buf - (unsigned)n, "%s%d", i ? "," : "", staged.v[i]);
-    n += snprintf(buf + n, sizeof buf - (unsigned)n, "],\"roles\":[");
+        put(&o, "%s%d", i ? "," : "", st.roll.v[i]);
+    put(&o, "],\"roles\":[");
     for (i = V_CHORD; i <= V_PAD; i++)
-        n += snprintf(buf + n, sizeof buf - (unsigned)n, "%s%d", i ? "," : "", wb_role_get(i));
-    n += snprintf(buf + n, sizeof buf - (unsigned)n, "],\"ov\":[");
+        put(&o, "%s%d", i ? "," : "", wb_role_get(i));
+    put(&o, "],\"ov\":[");
     for (i = 0; i < WB_OV_N; i++)
-        n += snprintf(buf + n, sizeof buf - (unsigned)n, "%s%d", i ? "," : "", wb_ov_get(i));
-    snprintf(buf + n, sizeof buf - (unsigned)n, "],\"kit\":%d,\"pattern\":%d,\"kick\":[%d,%d]}", wb_kit_get(),
-             custom ? pat_base : staged.v[RF_PATTERN], custom ? kick_a : 0, custom ? kick_b : 0);
-    return buf;
+        put(&o, "%s%d", i ? "," : "", wb_ov_get(i));
+    put(&o, "],\"kit\":%d,\"pattern\":%d,\"kick\":[%d,%d]}", wb_kit_get(),
+        custom ? st.pat_base : st.roll.v[RF_PATTERN], custom ? st.kick_a : 0, custom ? st.kick_b : 0);
+    return out_done(&o);
 }
 
 EXPORT const char *wb_library(void)
 {
     static char buf[8192];
-    int n, i;
-    if (buf[0])
-        return buf;
-    n = snprintf(buf, sizeof buf, "{\"maps\":[");
-    for (i = 0; i < LIB_NMAPS; i++)
-        n += snprintf(buf + n, sizeof buf - (unsigned)n, "%s{\"id\":%d,\"name\":\"%s\"}", i ? "," : "",
-                      LIB_MAPS[i].id, LIB_MAPS[i].name);
-    n += snprintf(buf + n, sizeof buf - (unsigned)n, "],\"progs\":[");
-    for (i = 0; i < LIB_NPROGS; i++)
-        n += snprintf(buf + n, sizeof buf - (unsigned)n, "%s{\"id\":%d,\"src\":\"%s\"}", i ? "," : "",
-                      LIB_PROGS[i].id, LIB_PROGS[i].src);
-    snprintf(buf + n, sizeof buf - (unsigned)n, "]}");
-    return buf;
+    static const char *done;
+    out_t o = {buf, sizeof buf, 0};
+    int i;
+    if (done)
+        return done;
+    put(&o, "{\"maps\":[");
+    for (i = 0; i < LIB_NMAPS; i++) {
+        put(&o, "%s{\"id\":%d,\"name\":", i ? "," : "", LIB_MAPS[i].id);
+        put_str(&o, LIB_MAPS[i].name);
+        put(&o, "}");
+    }
+    put(&o, "],\"progs\":[");
+    for (i = 0; i < LIB_NPROGS; i++) {
+        put(&o, "%s{\"id\":%d,\"src\":", i ? "," : "", LIB_PROGS[i].id);
+        put_str(&o, LIB_PROGS[i].src);
+        put(&o, "}");
+    }
+    put(&o, "]}");
+    return done = out_done(&o);
 }
 
 EXPORT const char *wb_consts(void)
 {
-    static const struct { const char *name; int v; } RF[] = {
+    typedef struct { const char *name; int v; } kv_t;
+    static const kv_t RF[] = {
         {"KEY", RF_KEY}, {"TEMPO", RF_TEMPO}, {"MOTION", RF_MOTION}, {"MOOD", RF_MOOD}, {"MODE", RF_MODE},
         {"MAP", RF_MAP}, {"PROG", RF_PROG}, {"COLOR", RF_COLOR}, {"SET", RF_SET}, {"PATTERN", RF_PATTERN},
         {"SWING", RF_SWING}, {"DUST", RF_DUST}, {"NOISE", RF_NOISE}, {"AMBIENCE", RF_AMBIENCE}, {"BARS", RF_BARS},
@@ -523,21 +528,21 @@ EXPORT const char *wb_consts(void)
         {"KEYS_OCT", WB_OV_KEYS_OCT}, {"LEAD_OCT", WB_OV_LEAD_OCT}, {"VOICING_SALT", WB_OV_VOICING_SALT},
         {"PHRASE_SALT", WB_OV_PHRASE_SALT}, {"N", WB_OV_N}}, V[] = {
         {"CHORD", V_CHORD}, {"BASS", V_BASS}, {"LEAD", V_LEAD}, {"CANDY", V_CANDY}, {"PAD", V_PAD}};
+    static const struct { const char *key; const kv_t *t; unsigned n; } T[] = {
+        {"RF", RF, sizeof RF / sizeof RF[0]}, {"OV", OV, sizeof OV / sizeof OV[0]}, {"V", V, sizeof V / sizeof V[0]}};
     static char buf[1024];
-    int n = 0;
-    unsigned i;
-#define TABLE(T, key)                                                                    \
-    n += snprintf(buf + n, sizeof buf - (unsigned)n, "\"%s\":{", key);                   \
-    for (i = 0; i < sizeof T / sizeof T[0]; i++)                                         \
-        n += snprintf(buf + n, sizeof buf - (unsigned)n, "%s\"%s\":%d", i ? "," : "", T[i].name, T[i].v); \
-    n += snprintf(buf + n, sizeof buf - (unsigned)n, "},");
-    if (!buf[0]) {
-        n += snprintf(buf, sizeof buf, "{");
-        TABLE(RF, "RF")
-        TABLE(OV, "OV")
-        TABLE(V, "V")
-        snprintf(buf + n, sizeof buf - (unsigned)n, "\"LIB_SET_WB\":%d}", LIB_SET_WB);
+    static const char *done;
+    out_t o = {buf, sizeof buf, 0};
+    unsigned i, j;
+    if (done)
+        return done;
+    put(&o, "{");
+    for (j = 0; j < sizeof T / sizeof T[0]; j++) {
+        put(&o, "\"%s\":{", T[j].key);
+        for (i = 0; i < T[j].n; i++)
+            put(&o, "%s\"%s\":%d", i ? "," : "", T[j].t[i].name, T[j].t[i].v);
+        put(&o, "},");
     }
-#undef TABLE
-    return buf;
+    put(&o, "\"LIB_SET_WB\":%d}", LIB_SET_WB);
+    return done = out_done(&o);
 }
