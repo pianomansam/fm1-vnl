@@ -150,6 +150,12 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   - The "vibes" (INS_VIBES, an M_BELL FM patch) sound like a plucked synth, not vibes: re-voice the bell (soft
     mallet, motor tremolo, longer ring; no flash) or sample a vibraphone (~30 KB; ~23 KB left).
   - Still unanswered: the C3 guitar floor; half-rate sampled kits A/B; 16 vs 32 kHz cymbals.
+  - **Families (Sam, 2026-10-28):** acoustic vs synth/digital, electric (Rhodes, Wurli, electric bass, vibes,
+    guitar lick) goes with either ("sure, we can try that"). A song's supporting roles (bass, pad, ear candy) and its
+    drums swap automatically to match its family: "YES". Drums reset: none of our synth kits stay (808, Dusty, Soft
+    out; "None of our 3 kits should remain"); the synth side liked: poketrack 808, CR-78, 909 and Optimist BOOMBAP,
+    LO-FI, vintage (not X0X 808); the acoustic kits will be shaken up (original, unmixed kits; pick pending). Next
+    question: should the drum patterns split by family too.
   - The 16th arpeggio comping is off on every instrument (guitars cf0dca0, keys 3025034): "We may bring it back
     later, but not right now" (Sam, 2026-10-28). The piano climb may take its place.
   - Settled this pass: Knight stab level fine; Knight no-roll fine; ride quarter notes at most with a 1.5 s tail
