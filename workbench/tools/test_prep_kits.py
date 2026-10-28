@@ -88,6 +88,17 @@ class T(unittest.TestCase):
         with self.assertRaisesRegex(FileNotFoundError, "km.wav"):
             prep.build(KIT, broken, self.out / "x")
 
+    def test_paths_stay_inside(self):
+        bad = Path(self.tmp.name) / "bad"
+        shutil.copytree(ROOT, bad)
+        sfz = bad / "Programs" / "kit.sfz"
+        sfz.write_text(sfz.read_text().replace("../Samples/km.wav", "../../../outside.wav"))
+        with self.assertRaisesRegex(ValueError, "outside"):
+            prep.build(KIT, bad, self.out / "y")
+        sfz.write_text(sfz.read_text().replace('"mappings/snare.sfz"', '"../../escape.sfz"'))
+        with self.assertRaisesRegex(ValueError, "outside"):
+            prep.needed(KIT, bad)
+
 
 if __name__ == "__main__":
     unittest.main()

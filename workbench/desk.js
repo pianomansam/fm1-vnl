@@ -215,26 +215,33 @@ export class Desk {
     await this.call("wb_stage_mark");
     await this.stage("seed", snap.rows.seed);
     for (const r of ROWS) if (r.kind !== "seed" && r.kind !== "family") await this.stage(r.id, snap.rows[r.id]);
-    await this.stageDrums(snap.drums);
+    const missing = await this.stageDrums(snap.drums);
     await this.call("wb_apply");
     this.values = { ...snap.rows };
     this.locks = new Set(snap.locks);
     this.hand = new Set(snap.hand);
     this.moved = new Set();
     await this.read();
-    return ROWS.filter((r) => String(this.values[r.id]) !== String(snap.rows[r.id])).map((r) => r.id);
+    return [...ROWS.filter((r) => String(this.values[r.id]) !== String(snap.rows[r.id])).map((r) => r.id), ...missing];
   }
 
   // A snapshot's drum lanes over the kit row's (a preset's, or the song's own kit's): the lanes with a source first (the
-  // first one set on a song with none fills the others from its kit), then the silent ones; each lane's level
+  // first one set on a song with none fills the others from its kit), then the silent ones; each lane's level. Returns
+  // what couldn't be restored: ["drums (<kit>: samples missing)"] for a sample set that didn't load (its lanes keep the
+  // kit row's sources)
   async stageDrums(d) {
-    const lanes = d?.lanes || [];
-    if (!lanes.some((l) => l[0] !== this.C.SRC.NONE)) return;
-    for (const [kind, a] of lanes) if (kind === this.C.SRC.SAMPLE) await this.samples?.load(a);
+    const lanes = d?.lanes || [], out = [];
+    if (!lanes.some((l) => l[0] !== this.C.SRC.NONE)) return out;
+    for (const a of new Set(lanes.filter((l) => l[0] === this.C.SRC.SAMPLE).map((l) => l[1])))
+      if (!this.samples || !(await this.samples.load(a))) {
+        const k = this.opts.kits.find((x) => x.set === a);
+        out.push(`drums (${k?.name ?? `sample set ${a}`}: samples missing)`);
+      }
     for (const silent of [false, true])
       for (const [i, [kind, a, b]] of lanes.entries())
         if ((kind === this.C.SRC.NONE) === silent) await this.call("wb_lane_src", i, kind, a, b);
     for (const [i, l] of lanes.entries()) await this.call("wb_lane_db", i, l[3]);
+    return out;
   }
 
   // Lane i plays a source (WB_SRC_*), staged and committed (the drum screen's). The first on a song with none copies

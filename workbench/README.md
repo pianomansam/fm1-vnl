@@ -27,7 +27,15 @@ AudioWorklet. Local only; not the FM-1, so it may exceed the device's budgets.
 - The drums: a kit row value from 16 is a preset over the drum lanes (`engine/wb_drums.c`): the poketrack and Optimist
   synth kits, and the shipped sampled kits (Gogodze; Big Rusty, sticks and brushes), whose files `tools/prep_kits.py`
   makes into `samples/` (git-ignored; see `samples/README.md`). `wb.js`'s `Samples` marks a kit with files missing
-  unavailable (shown, not choosable) and loads a kit's files into wb.wasm the first time it is chosen.
+  unavailable (shown, not choosable) and loads every available kit's files into wb.wasm at boot, before Play (a kit
+  whose load hadn't finished loads when chosen).
+- Costs (the workbench's own; `docs/cost.md` is the firmware's): a song's drums, any kit, take under 1% of real time
+  (Node, 128-frame quanta: Brushes 0.26%, Big Rusty with the ride throughout 0.25%, every lane the poketrack 808 with
+  an audition every quantum 0.87%; worst quantum about 0.5 ms, JIT and GC included, against the 2.9 ms quantum). A
+  sampled kit's files take wasm memory once loaded (Gogodze 28 MB, Big Rusty 47 MB, its brushes 33 MB). Loading one
+  runs on the audio thread between quanta: one `wb_sample_alloc` for the set (the heap grows once), then 256 KB
+  `wb_write` copies; Big Rusty (sticks) loaded while playing took 270 calls, the worst 0.17 ms (the allocation 0.15
+  ms), each followed by a 0.03 ms quantum (`smoke.mjs` measures and checks it).
 - `options.json`: the hand-maintained option lists (instruments, kits, comping, patterns, kick phrases, families),
   each approved, candidate or retired, seeded from the ledgers.
 - Feedback: 👍/👎 and a note, on the song or a row, save a line to `workbench/feedback.jsonl`: a versioned snapshot

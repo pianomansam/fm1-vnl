@@ -759,13 +759,60 @@ console.log("drums: sampled kits, the first lane edit");
     await desk.read(true);
     desk.values.family = "acoustic";
     const o = optionsFor(row("kit"), desk.state, OPTS).find((x) => x.value === gg);
-    const picks = [...Array(60)].map(() => pickFor(row("kit"), desk.state, OPTS, lcg(desk.changes.length + Math.random() * 1e9)));
+    const rnd = lcg(11), picks = [...Array(60)].map(() => pickFor(row("kit"), desk.state, OPTS, rnd));
     check(o && o.unavailable && !picks.includes(gg), "the picker shows it unavailable and the dice never pick it");
     const before = desk.values.kit, res = await desk.set("kit", gg);
     check(!res.ok && /unavailable/.test(res.message) && desk.values.kit === before, `choosing it is refused: "${res.message}"`);
     ex.wb_kit_preset(DRUMS.GOGODZE);
     check(lanesOf(ex).lanes.every((l) => l[0] === SRC.NONE) && JSON.parse(cstr(ex, ex.wb_state())).kit !== gg,
           "the engine stages nothing for a sampled kit that isn't loaded");
+  }
+
+  // a set that passes the boot's check but loses a file before its first use: unavailable then, refused, no lanes
+  if (existsSync(here("samples/kits.json"))) {
+    const idx = JSON.parse(readFileSync(here("samples/kits.json"), "utf8"));
+    const gone = new Set(), ex = await load(), call = caller(ex), smp = new Samples(call, C, disk(gone));
+    await smp.check(OPTS);
+    const rusty = DRUMS.PRESET + DRUMS.RUSTY, was = smp.unavailable.has(rusty);
+    gone.add(`samples/${idx.kits[1].pieces[5].layers[2].files[1]}`);   // (after the check: removed since boot)
+    ex.wb_seed(21);
+    ex.wb_apply();
+    const desk = new Desk(call, C, OPTS, await call("wb_library"), { samples: smp });
+    await desk.read(true);
+    const before = desk.values.kit, res = await desk.set("kit", rusty);
+    check(!was && smp.unavailable.has(rusty) && !res.ok && /unavailable/.test(res.message) && desk.values.kit === before &&
+          lanesOf(ex).lanes.every((l) => l[0] === SRC.NONE) && !ex.wb_lane_src(6, SRC.SAMPLE, 1, 5),
+          `a file gone after the check: the first use fails, the kit turns unavailable, the choice is refused, no lane plays it ("${res.message}")`);
+    const desk2 = new Desk(call, C, OPTS, await call("wb_library"), { samples: smp });
+    const miss = await desk2.stageDrums({ lanes: [[SRC.SAMPLE, 1, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]] });
+    check(miss.length === 1 && /Big Rusty \(sticks\): samples missing/.test(miss[0]), `a snapshot's lanes on that set name the cause (${miss[0]})`);
+  }
+
+  // a set loaded while the song plays: the audio thread's work between quanta (each call the worklet runs, and the
+  // quantum after it); logged (workbench/README.md), checked against the 2.9 ms quantum
+  if (existsSync(here("samples/kits.json"))) {
+    const ex = await load();
+    ex.wb_seed(21);
+    ex.wb_apply();
+    ex.wb_play(1);
+    render(ex, 10 * SR);
+    const base = caller(ex), times = { alloc: 0, write: 0, render: 0, calls: 0 };
+    const timed = async (fn, ...a) => {
+      const t0 = performance.now(), v = await base(fn, ...a), t1 = performance.now();
+      ex.wb_render(Q);
+      const t2 = performance.now(), k = fn === "wb_sample_alloc" ? "alloc" : fn === "wb_write" ? "write" : null;
+      if (k) times[k] = Math.max(times[k], t1 - t0);
+      times.render = Math.max(times.render, t2 - t1);
+      times.calls++;
+      return v;
+    };
+    const smp = new Samples(timed, C, disk());
+    await smp.check(OPTS);
+    const t0 = performance.now(), ok = await smp.load(1), all = performance.now() - t0;
+    const worst = Math.max(times.alloc, times.write) + times.render;
+    console.log(`  (Big Rusty (sticks) loaded while playing: ${times.calls} calls, ${all.toFixed(0)} ms in all; worst alloc ${(times.alloc * 1000).toFixed(0)} us, ` +
+                `worst write ${(times.write * 1000).toFixed(0)} us, worst quantum after one ${(times.render * 1000).toFixed(0)} us)`);
+    check(ok && worst < 2.9, `a set loaded while playing: no call plus its quantum over the 2.9 ms quantum (worst ${worst.toFixed(2)} ms)`);
   }
 
   const missing = await new Samples(caller(await load()), C, disk()).check(OPTS);

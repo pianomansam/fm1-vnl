@@ -91,6 +91,7 @@
     lib = await wb.call("wb_library");
     const samples = new wb.Samples(wb.call, wb.C);
     await samples.check(opts);
+    samples.preload().catch((e) => { $("msg").textContent = String(e); });   // before Play, so a load mid-song is rare
     desk = new Desk(wb.call, wb.C, opts, lib, { probe: wb.probe, position: () => pos, samples });
     await wb.call("wb_seed", 21);
     await wb.call("wb_apply");

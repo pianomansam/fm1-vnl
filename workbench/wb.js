@@ -106,6 +106,7 @@ export function sendFeedback(entry, opts = {}) {
 // use. call: wb.wasm's exports; C: wb_consts(); files: { exists(path), get(path): an ArrayBuffer or null }, paths
 // under workbench/.
 export class Samples {
+  static CHUNK = 1 << 16;   // floats per wb_write (256 KB)
   constructor(call, C, files = { exists: async (p) => (await fetch(p, { method: "HEAD" })).ok,
                               get: async (p) => { const r = await fetch(p); return r.ok ? r.arrayBuffer() : null; } }) {
     Object.assign(this, { call, C, files, kits: [], unavailable: new Set(), loaded: new Map() });
@@ -138,32 +139,41 @@ export class Samples {
     return this.loaded.get(set);
   }
 
+  // Every file first (the page's side; one missing: nothing reaches the engine), then the set's memory in one
+  // wb_sample_alloc (the heap grows once) and its data in CHUNK-float writes: each runs on the audio thread between
+  // quanta, so none is long (workbench/README.md has their cost)
   async #load(set) {
-    const e = this.kits.find((x) => x.id === set), { RR, VL } = this.C.DRUMS, ptrs = new Map(), c = this.call;
+    const e = this.kits.find((x) => x.id === set), { RR, VL } = this.C.DRUMS, c = this.call;
     if (!e) return false;
-    const put = async (name) => {
-      if (!ptrs.has(name)) {
-        const b = await this.files.get(`samples/${name}`);
-        if (!b) throw new Error(name);
-        const x = new Float32Array(b), ptr = await c("wb_sample_alloc", b.byteLength);
-        await c("wb_write", ptr, x);
-        ptrs.set(name, [ptr, x.length]);
-      }
-      return ptrs.get(name);
-    };
-    try {
-      for (const p of e.pieces) {
-        const src = p.same !== undefined ? e.pieces.find((q) => q.id === p.same) : p;
-        for (const [vl, l] of src.layers.entries())
-          for (const [rr, f] of l.files.entries()) await c("wb_sample_set", set, p.id, vl * RR + rr, ...(await put(f)));
-        const hi = [...Array(VL)].map((_, i) => src.layers[i]?.hi ?? 0);
-        await c("wb_sample_piece", set, p.id, src.curve, p.vel, ...hi);
-      }
-      return true;
-    } catch {
+    const src = (p) => (p.same !== undefined ? e.pieces.find((q) => q.id === p.same) : p);
+    const names = [...new Set(e.pieces.flatMap((p) => src(p).layers.flatMap((l) => l.files)))];
+    const data = await Promise.all(names.map((n) => this.files.get(`samples/${n}`).catch(() => null)));
+    if (data.includes(null)) {
       this.unavailable.add(e.kit);
       this.loaded.delete(set);
       return false;
     }
+    const total = data.reduce((s, b) => s + b.byteLength, 0), base = await c("wb_sample_alloc", total);
+    if (!base) throw new Error(`wb_sample_alloc: no memory for ${e.title} (${total} B)`);
+    const at = new Map();
+    let off = base;
+    for (const [i, b] of data.entries()) {
+      const x = new Float32Array(b);
+      for (let k = 0; k < x.length; k += Samples.CHUNK) await c("wb_write", off + 4 * k, x.slice(k, k + Samples.CHUNK));
+      at.set(names[i], [off, x.length]);
+      off += b.byteLength;
+    }
+    for (const p of e.pieces) {
+      for (const [vl, l] of src(p).layers.entries())
+        for (const [rr, f] of l.files.entries()) await c("wb_sample_set", set, p.id, vl * RR + rr, ...at.get(f));
+      const hi = [...Array(VL)].map((_, i) => src(p).layers[i]?.hi ?? 0);
+      await c("wb_sample_piece", set, p.id, src(p).curve, p.vel, ...hi);
+    }
+    return true;
+  }
+
+  // every available set, one after another (the page's boot, before Play: a load while playing is the exception)
+  async preload() {
+    for (const e of this.kits) if (!this.unavailable.has(e.kit)) await this.load(e.id);
   }
 }

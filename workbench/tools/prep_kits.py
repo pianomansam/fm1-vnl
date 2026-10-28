@@ -56,7 +56,15 @@ KITS = [
 
 
 # ---- SFZ (the drum spike's reader): regions as their effective opcodes, and the <control> defaults ----
-def load(program, swap):
+def inside(top, path):
+    """path, if it resolves under top (a program's includes and samples stay in the fetched source); else ValueError"""
+    top, real = os.path.realpath(top), os.path.realpath(path)
+    if os.path.commonpath([top, real]) != top:
+        raise ValueError(f"{path} is outside {top}")
+    return path
+
+
+def load(program, swap, top):
     root = os.path.dirname(os.path.abspath(program))
     defs = {}
 
@@ -74,7 +82,7 @@ def load(program, swap):
             if m:
                 inc = swap.get(m.group(1), m.group(1))
                 if inc:
-                    out += read(os.path.normpath(os.path.join(root, inc)))
+                    out += read(inside(top, os.path.normpath(os.path.join(root, inc))))
                 continue
             for k in sorted(defs, key=len, reverse=True):
                 line = line.replace(k, defs[k])
@@ -192,13 +200,13 @@ def write_f32(path, x):
 
 # ---- a kit ----
 def program(kit, root):
-    regs, ctl = load(os.path.join(root, kit["program"]), kit.get("swap", {}))
+    regs, ctl = load(inside(root, os.path.join(root, kit["program"])), kit.get("swap", {}), root)
     ctl.update(kit.get("cc", {}))
     return regs, ctl
 
 
 def sample_path(kit, root, r):
-    return os.path.normpath(os.path.join(root, os.path.dirname(kit["program"]), r["sample"].replace("\\", "/")))
+    return inside(root, os.path.normpath(os.path.join(root, os.path.dirname(kit["program"]), r["sample"].replace("\\", "/"))))
 
 
 def layers(regs, ctl, piece):
@@ -317,6 +325,9 @@ def fetch(repo, dest):
         git(dest, "sparse-checkout", "set", "--no-cone", "/LICENSE", "/Programs/")
         git(dest, "fetch", "-q", "--depth", "1", "--filter=blob:none", "origin", sha)
         git(dest, "checkout", "-q", sha)
+    head = subprocess.run(["git", "-C", dest, "rev-parse", "HEAD"], check=True, capture_output=True, text=True).stdout.strip()
+    if head != sha:
+        raise SystemExit(f"{dest} is at {head}, not the pinned {sha}: remove it (or use another FETCH_DIR)")
 
 
 def main(fetch_dir, out_dir):
