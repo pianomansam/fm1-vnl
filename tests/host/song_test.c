@@ -24,6 +24,7 @@
 #include "strum.h"
 #include "drums.h"
 #include "skits.h"
+#include "override.h"
 
 static int fails;
 #define CHECK(c, ...)                                                                                              \
@@ -9049,6 +9050,222 @@ static void test_wb_off(void)
     CHECK(a == 0xa1a8e201u, "wb off: the strummed songs hash %08x, wanted a1a8e201", (unsigned)a);
     CHECK(b == 0x3910eb79u, "wb off: with set changes %08x, wanted 3910eb79", (unsigned)b);
 }
+/* the workbench's per-song overrides (default off): each forces one choice, or re-rolls one part, and nothing else */
+typedef struct { uint32_t keys, drums, bass, lead; int nlead, nride, lead_free, kn, kmax; uint8_t kn_at[4096]; } ov_rec_t;
+static ov_rec_t OVA, OVB;
+static uint32_t ov_ev(uint32_t h, int t, const song_ev_t *e)
+{
+    h = sf_hash(h, t); h = sf_hash(h, e->voice); h = sf_hash(h, e->note); h = sf_hash(h, e->vel);
+    return sf_hash(sf_hash(h, (int)e->delay), (int)e->len);
+}
+/* one song played to its end under ov (NULL: none); the keys' notes kept in order (the first 4096) */
+static void ov_run(const song_roll_t *r, const song_ov_t *ov, ov_rec_t *o)
+{
+    static song_t s;
+    song_ev_t ev[64];
+    memset(o, 0, sizeof *o);
+    o->keys = o->drums = o->bass = o->lead = 2166136261u;
+    song_override(ov);
+    song_start(&s, r);
+    while (s.state == SS_PLAYING) {
+        int t = s.bar * 16 + s.step, n = song_tick(&s, ev, 64), i;
+        for (i = 0; i < n; i++) {
+            const song_ev_t *e = &ev[i];
+            if (e->voice == V_CHORD) {
+                o->keys = ov_ev(o->keys, t, e);
+                if (o->kn < 4096) o->kn_at[o->kn++] = e->note;
+                if (e->note > o->kmax) o->kmax = e->note;
+            } else if (e->voice == V_BASS) o->bass = ov_ev(o->bass, t, e);
+            else if (e->voice == V_LEAD) {
+                o->lead = ov_ev(o->lead, t, e);
+                o->nlead++;
+                o->lead_free += e->vel != 106 && e->vel != 110;   /* the phrase planner's sung velocities */
+            } else if (e->voice >= V_KICK) {
+                o->drums = ov_ev(o->drums, t, e);
+                o->nride += e->voice == V_RIDE;
+            }
+        }
+    }
+    song_override(NULL);
+}
+static song_ov_t ov_none(void)
+{
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u};
+    return o;
+}
+static void test_ov_comp(void)
+{
+    song_roll_t r;
+    song_ov_t o = ov_none();
+    uint32_t seed;
+    for (seed = 1; seed < 500; seed++) {
+        roll_song(NULL, seed, &r);
+        if (harmony_style(&r) == CS_HELD) break;
+    }
+    CHECK(seed < 500, "ov comp: no held song in 500 seeds");
+    o.comp = CS_HALF;
+    song_override(&o);
+    CHECK(harmony_style(&r) == CS_HALF, "ov comp: seed %u comps %d, forced half notes", (unsigned)seed,
+          harmony_style(&r));
+    song_override(NULL);
+    CHECK(harmony_style(&r) == CS_HELD, "ov comp: seed %u stays forced after clearing", (unsigned)seed);
+    /* pad place: forced on sustained keys; percussive keys stay below the lead */
+    o = ov_none();
+    o.pad_place = PL_ABOVE;
+    for (seed = 1; seed < 500; seed++) {
+        const lib_set_t *st;
+        roll_song(NULL, seed, &r);
+        st = lib_set_by_id((uint8_t)r.v[RF_SET]);
+        song_override(&o);
+        CHECK(harmony_pad_place(&r) == (st && lib_ins_sustained(st->chords) ? PL_ABOVE : PL_BELOW),
+              "ov comp: seed %u's pad place %d with above forced", (unsigned)seed, harmony_pad_place(&r));
+        song_override(NULL);
+    }
+}
+static void test_ov_lead_style(void)
+{
+    song_roll_t r;
+    song_ov_t o = ov_none();
+    uint32_t seed;
+    for (seed = 1; seed < 500; seed++) {
+        const lib_set_t *st;
+        roll_song(NULL, seed, &r);
+        st = lib_set_by_id((uint8_t)r.v[RF_SET]);
+        if (!st || st->lead != INS_FLUTE) continue;
+        ov_run(&r, NULL, &OVA);
+        if (OVA.nlead > 0 && OVA.lead_free > 0) break;
+    }
+    CHECK(seed < 500, "ov lead style: no flute song with a sung lead in 500 seeds");
+    o.lead_style = 1;
+    ov_run(&r, &o, &OVB);
+    CHECK(OVB.nlead > 0 && OVB.lead_free == 0, "ov lead style: seed %u's flute under the hybrid: %d notes, %d sung",
+          (unsigned)seed, OVB.nlead, OVB.lead_free);
+}
+static void test_ov_ride(void)
+{
+    song_roll_t r;
+    song_ov_t o = ov_none();
+    uint32_t seed;
+    int blk;
+    for (seed = 1; seed < 2000; seed++) {
+        roll_song(NULL, seed, &r);
+        if (lib_song_kit(&r) == KIT_S_WARM) break;
+    }
+    CHECK(seed < 2000, "ov ride: no Warm-kit song in 2000 seeds");
+    ov_run(&r, NULL, &OVA);
+    CHECK(OVA.nride > 0, "ov ride: seed %u's Warm kit never rides", (unsigned)seed);
+    o.ride = RIDE_NONE;
+    song_override(&o);
+    CHECK(groove_ride(&r, &blk) == RIDE_NONE, "ov ride: seed %u still rides when forced off", (unsigned)seed);
+    ov_run(&r, &o, &OVB);
+    CHECK(OVB.nride == 0, "ov ride: seed %u: %d ride events with the ride forced off", (unsigned)seed, OVB.nride);
+    CHECK(OVA.lead == OVB.lead && OVA.keys == OVB.keys, "ov ride: seed %u: the ride changed the keys or the lead",
+          (unsigned)seed);
+}
+/* every salted song passes the clash test's rule checks: clash_test.c plays them (test_ov_salts) */
+static void test_ov_voicing_salt(void)
+{
+    song_roll_t r;
+    song_ov_t o = ov_none();
+    int i, diff = 0, same_rest = 0;
+    o.voicing_salt = 1;
+    for (i = 1; i <= 40; i++) {
+        roll_song(NULL, (uint32_t)i, &r);
+        ov_run(&r, NULL, &OVA);
+        ov_run(&r, &o, &OVB);
+        diff += OVA.keys != OVB.keys;
+        same_rest += OVA.drums == OVB.drums && OVA.bass == OVB.bass;
+    }
+    printf("ov voicing salt: the voicings changed in %d of 40 songs\n", diff);
+    CHECK(diff >= 30, "ov voicing salt: the voicings changed in %d of 40 songs, want 30", diff);
+    CHECK(same_rest == 40, "ov voicing salt: the drums or bass changed in %d of 40 songs", 40 - same_rest);
+}
+/* (the comping held in both: stabs and half notes make room in the lead's busy bars, so a new lead moves them) */
+static void test_ov_phrase_salt(void)
+{
+    song_roll_t r;
+    song_ov_t o = ov_none();
+    int i, diff = 0, same = 0;
+    o.comp = CS_HELD;
+    for (i = 1; i <= 40; i++) {
+        roll_song(NULL, (uint32_t)i, &r);
+        o.phrase_salt = 0;
+        ov_run(&r, &o, &OVA);
+        o.phrase_salt = 1;
+        ov_run(&r, &o, &OVB);
+        diff += OVA.lead != OVB.lead;
+        same += OVA.keys == OVB.keys && OVA.drums == OVB.drums;
+    }
+    printf("ov phrase salt: the lead changed in %d of 40 songs, keys and drums the same in %d\n", diff, same);
+    CHECK(diff >= 30, "ov phrase salt: the lead changed in %d of 40 songs, want 30", diff);
+    CHECK(same == 40, "ov phrase salt: the keys or drums changed in %d of 40 songs", 40 - same);
+}
+/* keys_oct +1: a Rhodes song's keys every one 12 up (comping held, so the lead's busy bars can't move a strike);
+   a nylon strum's shapes (E2-E5) have no octave left under its B5: unchanged */
+static void test_ov_oct(void)
+{
+    song_roll_t r;
+    song_ov_t o = ov_none();
+    uint32_t seed;
+    int i, k, bad = 0, lo, hi;
+    for (k = 0; k < 2; k++) {
+        int want = k ? INS_NYLON : INS_RHODES;
+        for (seed = 1; seed < 2000; seed++) {
+            const lib_set_t *st;
+            roll_song(NULL, seed, &r);
+            st = lib_set_by_id((uint8_t)r.v[RF_SET]);
+            if (st && st->chords == want && (k == 0 || harmony_style(&r) == CS_STRUM)) break;
+        }
+        CHECK(seed < 2000, "ov oct: no song for instrument %d in 2000 seeds", want);
+        o = ov_none();
+        o.comp = k ? -1 : CS_HELD;
+        ov_run(&r, &o, &OVA);
+        o.keys_oct = 1;
+        ov_run(&r, &o, &OVB);
+        song_ov_range(want, &lo, &hi);
+        CHECK(OVA.kn > 0 && OVA.kn == OVB.kn, "ov oct: seed %u: %d keys notes, %d raised", (unsigned)seed, OVA.kn,
+              OVB.kn);
+        for (i = 0; i < OVA.kn && i < OVB.kn; i++)
+            bad += OVB.kn_at[i] != OVA.kn_at[i] + (k ? 0 : 12);
+        CHECK(OVB.kmax <= hi, "ov oct: seed %u: a keys note %d past the instrument's %d", (unsigned)seed, OVB.kmax, hi);
+    }
+    CHECK(bad == 0, "ov oct: %d keys notes not where keys_oct puts them", bad);
+    /* lead_oct +1 on flute songs: never past the flute's range */
+    for (seed = 1, k = 0; seed < 500 && k < 4; seed++) {
+        const lib_set_t *st;
+        int top = 0;
+        static song_t s;
+        song_ev_t ev[64];
+        roll_song(NULL, seed, &r);
+        st = lib_set_by_id((uint8_t)r.v[RF_SET]);
+        if (!st || st->lead != INS_FLUTE) continue;
+        k++;
+        o = ov_none();
+        o.lead_oct = 1;
+        song_override(&o);
+        song_start(&s, &r);
+        while (s.state == SS_PLAYING) {
+            int n = song_tick(&s, ev, 64);
+            for (i = 0; i < n; i++)
+                if (ev[i].voice == V_LEAD && ev[i].note > top) top = ev[i].note;
+        }
+        song_override(NULL);
+        song_ov_range(INS_FLUTE, &lo, &hi);
+        CHECK(top <= hi, "ov oct: seed %u's flute up an octave reaches %d, past %d", (unsigned)seed, top, hi);
+    }
+}
+static void test_ov_off(void)
+{
+    const song_ov_t *o;
+    uint32_t a, b;
+    song_override(NULL);
+    o = song_ov();
+    CHECK(o && o->comp == -1 && o->lead_style == -1 && o->pad_place == -1 && o->ride == -1 && !o->keys_oct &&
+          !o->lead_oct && !o->voicing_salt && !o->phrase_salt, "ov off: the default override forces something");
+    a = sf_songs(0); b = sf_songs(1);
+    CHECK(a == 0xa1a8e201u, "ov off: the strummed songs hash %08x, wanted a1a8e201", (unsigned)a);
+    CHECK(b == 0x3910eb79u, "ov off: with set changes %08x, wanted 3910eb79", (unsigned)b);
+}
 /* a steal of a damped string (the final review): six strings struck, the first two re-struck at once (their last
    notes damped on the 2 spare voices), then a plain chord note (no string: a stab after a set change) while they
    fade: it steals a damped spare and must start once the fade ends (it was lost: the damp's end turned the voice
@@ -10441,6 +10658,13 @@ int main(int argc, char **argv)
     RUN(test_wb_set);
     RUN(test_wb_two_bar);
     RUN(test_wb_off);
+    RUN(test_ov_comp);
+    RUN(test_ov_lead_style);
+    RUN(test_ov_ride);
+    RUN(test_ov_voicing_salt);
+    RUN(test_ov_phrase_salt);
+    RUN(test_ov_oct);
+    RUN(test_ov_off);
     RUN(test_samples_table);
     RUN(test_samp_seams);
     RUN(test_samp);

@@ -12,6 +12,7 @@
 #include "harmony.h"
 #include "song.h"
 #include "pads.h"
+#include "override.h"
 
 static int fails;
 #define CHECK(c, ...)                                                                                              \
@@ -405,6 +406,29 @@ static void test_chain(void)
            count[V_HAT]);
 }
 
+/* ---- the workbench's re-rolls ---- */
+
+/* songs 1-40 with the voicings re-rolled, then the lead's phrase: every rule above still holds */
+static void test_ov_salts(void)
+{
+    static song_t s;
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u};
+    song_roll_t r;
+    int i, k;
+    for (k = 0; k < 2; k++) {
+        o.voicing_salt = k == 0;
+        o.phrase_salt = k == 1;
+        song_override(&o);
+        for (i = 1; i <= 40; i++) {
+            roll_song(NULL, (uint32_t)i, &r);
+            song_start(&s, &r);
+            run(&s, &R1, NULL, NULL, NULL);
+            CHECK(R1.ended, "ov salts: seed %d never ended", i);
+        }
+    }
+    song_override(NULL);
+}
+
 /* ---- requests ---- */
 
 typedef struct { int bar, step, field, value, fired, ok; } req_t;
@@ -791,6 +815,7 @@ int main(void)
     test_request_determinism();
     test_mood_motion();
     test_pending();
+    test_ov_salts();
     printf("strong steps: %ld lead/candy notes checked against the sounding chord and bass (%ld of them sounding "
            "tones), %ld with neither\n", strong_checked, strong_in, strong_skipped);
     printf("other steps: %ld lead/candy notes checked against the sounding chord and bass\n", weak_checked);

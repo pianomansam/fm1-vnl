@@ -5,6 +5,7 @@
 #include "rng.h"
 #include "theory.h"
 #include "harmony.h"
+#include "override.h"
 
 enum { BASS_LO = 28, BASS_HI = 47 };
 
@@ -324,14 +325,14 @@ int groove_ride(const song_roll_t *r, int *section_block)
 {
     song_plan_t p;
     rng_t g;
-    int kit = lib_song_kit(r), x, i, j, n = 0, cand[25], last_groove = -1, walk = -1;
+    int kit = lib_song_kit(r), x, i, j, n = 0, cand[25], last_groove = -1, walk = -1, ride;
     *section_block = -1;
     if (!lib_kit_sampled(kit)) return RIDE_NONE;
-    if (kit == KIT_S_WARM) return RIDE_ALL;
     rng_seed(&g, mix(r->seed, 193, 0, 0), 193);    /* hashed apart from the kit's draw (192) and the groove's */
     x = rng_int(&g, 100);
-    if (x < 15) return RIDE_ALL;
-    if (x >= 65) return RIDE_NONE;
+    ride = song_ov()->ride >= 0 ? song_ov()->ride : kit == KIT_S_WARM || x < 15 ? RIDE_ALL : x >= 65 ? RIDE_NONE
+                                                                                                 : RIDE_SECTION;
+    if (ride != RIDE_SECTION) return ride;
     /* one block that has hats: a lead section (the B section), the last groove, or where the bass walks */
     plan_build(r, &p);
     if (groove_bass_style(r) == BS_WALK) {

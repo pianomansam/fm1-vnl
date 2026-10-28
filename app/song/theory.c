@@ -198,6 +198,18 @@ static void why_keep(const th_cand_t *k)                 /* the three lowest tot
     if (why->nbest < 3) why->nbest++;
 }
 
+/* the first chord's reference spread: its top and bottom notes (th_voice_spread moves it for one call) */
+static int ref_top = 65, ref_bot = 55;
+
+void th_voice_spread(const int *pcs, int n, int *out4, int hi, int rootless, int top, int bottom)
+{
+    ref_top = top;
+    ref_bot = bottom;
+    th_voice_range(pcs, n, NULL, out4, hi, rootless);
+    ref_top = 65;
+    ref_bot = 55;
+}
+
 void th_voice_range(const int *pcs, int n, const int *prev, int *out4, int hi, int rootless)
 {
     int ref[4], best = 1 << 30, i, drop, v, next = 0, role[5], dom;
@@ -286,7 +298,8 @@ void th_voice_range(const int *pcs, int n, const int *prev, int *out4, int hi, i
                        }
                    }
                } else {                                    /* the first chord: near a reference spread */
-                   c_move = (o[3] > 65 ? o[3] - 65 : 65 - o[3]) + (o[0] > 55 ? o[0] - 55 : 55 - o[0]);
+                   c_move = (o[3] > ref_top ? o[3] - ref_top : ref_top - o[3]) +
+                            (o[0] > ref_bot ? o[0] - ref_bot : ref_bot - o[0]);
                }
                if (o[3] < 60) c_range += 60 - o[3];         /* keep the top line up, not muddy */
                for (v = 0; v < 4; v++) {                   /* E3-A4 preferred; C3-C5 when a rub needs room */

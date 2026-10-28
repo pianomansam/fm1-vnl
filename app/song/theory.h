@@ -21,6 +21,8 @@ int th_chord_pcs(int key, int mode, th_chord_spec_t c, int color, int *pcs);
 void th_voice(const int *pcs, int n, const int *prev, int *out4);
 /* th_voice with the top note at most `hi` (the dark intro and outro: 64); rootless 0 keeps the root (no bass) */
 void th_voice_range(const int *pcs, int n, const int *prev, int *out4, int hi, int rootless);
+/* th_voice_range for a first chord (no prev) near another reference spread than F4 over G3 (top 65, bottom 55) */
+void th_voice_spread(const int *pcs, int n, int *out4, int hi, int rootless, int top, int bottom);
 /* exploring voicing families (off by default; the host simulator turns it on with VNL_DROP2=1): drop-2 voicings */
 void th_set_drop2(int on);
 

@@ -6,6 +6,7 @@
 #include "theory.h"
 #include "library.h"
 #include "strum.h"
+#include "override.h"
 
 static uint32_t mix(uint32_t a, uint32_t b, uint32_t c, uint32_t d)
 {
@@ -130,6 +131,7 @@ int harmony_style_lead(int ins, int lead, int tempo, uint32_t seed)
 int harmony_style(const song_roll_t *r)
 {
     const lib_set_t *s = lib_set_by_id((uint8_t)r->v[RF_SET]);
+    if (song_ov()->comp >= 0) return song_ov()->comp;   /* the workbench's */
     return harmony_style_lead(s ? s->chords : INS_NONE, s ? s->lead : INS_NONE, r->v[RF_TEMPO], r->seed);
 }
 
@@ -154,8 +156,9 @@ static int vl_cost(const int *a, const int *b)
 
 /* The loop's voicings as a cycle: voice the loop pass after pass (each chord from the one before, the first from the
    last, so the wrap is voiced too) until it repeats, and keep the pass that voice-leads most smoothly all the way
-   around. Rootless throughout (Sam: keys-only sections too). */
-static void loop_voicings(const song_roll_t *r, harmony_voicing_t *vs)
+   around. Rootless throughout (Sam: keys-only sections too). top, bottom: the first chord's reference spread (0: as
+   rolled). Returns 1 when out differs from cmp (NULL: 0). */
+static int loop_cycle(const song_roll_t *r, int top, int bottom, int out[4][4], int cmp[4][4])
 {
     enum { PASSES = 8 };
     const lib_prog_t *p = prog_of(r);
@@ -165,7 +168,10 @@ static void loop_voicings(const song_roll_t *r, harmony_voicing_t *vs)
         np[i] = harmony_chord_at(r, i * p->bars_per_chord, 1, 0, pcs[i]);
     for (k = 0; k < PASSES; k++)
         for (i = 0; i < nch; i++) {
-            th_voice_range(pcs[i], np[i], prev, v[k][i], 72, 1);
+            if (!prev && top)
+                th_voice_spread(pcs[i], np[i], v[k][i], 72, 1, top, bottom);
+            else
+                th_voice_range(pcs[i], np[i], prev, v[k][i], 72, 1);
             prev = v[k][i];
         }
     for (k = 1; k < PASSES; k++) {                       /* (pass 0 began from nothing) */
@@ -174,8 +180,27 @@ static void loop_voicings(const song_roll_t *r, harmony_voicing_t *vs)
             c += vl_cost(v[k][(i + nch - 1) % nch], v[k][i]);
         if (c < best) { best = c; pick = k; }
     }
-    for (i = 0; i < nch; i++)
-        memcpy(vs->loop[i], v[pick][i], sizeof vs->loop[i]);
+    memcpy(out, v[pick], sizeof(int) * 4 * (size_t)nch);
+    return cmp && memcmp(cmp, v[pick], sizeof(int) * 4 * (size_t)nch) != 0;
+}
+
+/* The workbench's voicing re-roll (voicing_salt): the start shape near another reference spread (top D4-Bb4, bottom
+   C3-Bb3; F4 and G3 as rolled), the first of up to 8 the salt draws whose cycle differs from the rolled one (none:
+   as rolled). Every voicing rule holds: only the first chord's pull toward the spread moves. */
+static void loop_voicings(const song_roll_t *r, harmony_voicing_t *vs)
+{
+    const lib_prog_t *p = prog_of(r);
+    int rolled[4][4], v[4][4], t, nch = p->n < 4 ? p->n : 4;
+    uint32_t salt = song_ov()->voicing_salt;
+    loop_cycle(r, 0, 0, rolled, NULL);
+    memcpy(vs->loop, rolled, sizeof(int) * 4 * (size_t)nch);
+    for (t = 0; salt && t < 8; t++) {
+        uint32_t h = mix(salt, r->seed, 194, (uint32_t)t);
+        if (loop_cycle(r, 62 + (int)(h % 9u), 48 + (int)(h / 9u % 11u), v, rolled)) {
+            memcpy(vs->loop, v, sizeof(int) * 4 * (size_t)nch);
+            break;
+        }
+    }
     vs->nloop = nch;
 }
 
@@ -190,7 +215,9 @@ static uint32_t harmony_sig(const song_roll_t *r)
     uint32_t h = 2166136261u;
     int f[5] = {RF_KEY, RF_MODE, RF_PROG, RF_COLOR, 0}, i;
     for (i = 0; i < 4; i++) h = (h ^ (uint32_t)(r->v[f[i]] + 1)) * 16777619u;
-    return (h ^ r->seed) * 16777619u | 1u;               /* never 0: 0 means not yet worked out */
+    h = (h ^ r->seed) * 16777619u;
+    if (song_ov()->voicing_salt) h = (h ^ song_ov()->voicing_salt) * 16777619u;
+    return h | 1u;               /* never 0: 0 means not yet worked out */
 }
 
 /* The bar's voicing: the loop's for its chord, or (a chord recolored on this pass) voiced from the last one.
@@ -204,8 +231,29 @@ int harmony_pad_place(const song_roll_t *r)
 {
     rng_t g;
     if (!keys_sustained(r)) return PL_BELOW;
+    if (song_ov()->pad_place >= 0) return song_ov()->pad_place;
     rng_seed(&g, r->seed, 160);
     return rng_int(&g, 3);
+}
+
+/* the workbench's keys_oct: the keys an octave up or down where the instrument's range holds the whole register
+   the voicer (C3-E5) or the strum (E2-E5) can reach, else where they were; one shift for the song */
+int harmony_keys_oct(const song_roll_t *r)
+{
+    const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
+    int d = 12 * song_ov()->keys_oct, lo, hi, sh, strum;
+    if (!d || !set) return 0;
+    strum = harmony_style(r) == CS_STRUM;
+    sh = strum ? 0 : lib_set_keys_shift(set) + (harmony_pad_place(r) != PL_BELOW ? 12 : 0);
+    song_ov_range(set->chords, &lo, &hi);
+    return (strum ? 40 : 48) + sh + d >= lo && 76 + sh + d <= hi ? d : 0;
+}
+
+static void keys_oct(const song_roll_t *r, int *notes, int n)
+{
+    int i, d = harmony_keys_oct(r);
+    for (i = 0; i < n && d; i++)
+        if (notes[i]) notes[i] += d;
 }
 
 static void place_keys(const song_roll_t *r, int *notes)  /* a pad with or above the lead: an octave up */
@@ -214,6 +262,7 @@ static void place_keys(const song_roll_t *r, int *notes)  /* a pad with or above
     if (harmony_pad_place(r) != PL_BELOW) sh += 12;
     for (i = 0; i < 4; i++)
         if (notes[i]) notes[i] += sh;
+    keys_oct(r, notes, 4);
 }
 
 /* A strummed song's guitar shape for this bar's chord: the one it had before in the song, else a new one voice-led
@@ -244,6 +293,7 @@ void harmony_voicing_at(const song_roll_t *r, int bar, int pass, harmony_voicing
     if (harmony_style(r) == CS_STRUM) {                  /* the guitar shape's top 4 */
         int shape[6], i, k = 4;
         strum_shape(r, bar, pass, vs, shape);
+        keys_oct(r, shape, 6);
         memset(out4, 0, 4 * sizeof(int));
         for (i = 5; i >= 0 && k > 0; i--)
             if (shape[i]) out4[--k] = shape[i];
@@ -372,6 +422,7 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
                                                            harmony_voicing_at's), so a set change voice-leads on */
         for (i = 5; i >= 0 && k > 0; i--)
             if (shape[i]) vs->last[--k] = shape[i];
+        keys_oct(r, shape, 6);
         return strum_step(r, b, bar, step, step_samples, shape, out, max);
     }
     switch (style) {

@@ -26,6 +26,7 @@
 #include <string.h>
 #include "song.h"
 #include "harmony.h"
+#include "override.h"
 #include "library.h"
 #include "theory.h"
 #include "rng.h"
@@ -340,7 +341,7 @@ static void apply_requests(song_t *s, int B)
     for (f = 0; f < RF_N; f++)
         if (s->pend[f] && s->pend_bar[f] == B) re |= apply_one(s, f, B);
     if (re & RE_PLAN) merge_plan(s, B);
-    if (re & RE_MELODY) melody_motif_for(&s->roll, &s->plan, s->roll.seed, &s->motif);
+    if (re & RE_MELODY) melody_motif_for(&s->roll, &s->plan, song_ov_phrase_seed(s->roll.seed), &s->motif);
     if (re) melody_plan_for(&s->roll, &s->plan, &s->motif, &s->ph);
     if (set != s->roll.v[RF_SET] || motion != s->roll.v[RF_MOTION] || map != s->roll.v[RF_MAP]) ride_for(s);
 }
@@ -372,7 +373,8 @@ static void pads_group(song_t *s, const plan_block_t *b, int B)
         harmony_voicing_at(&s->roll, bar, pass, &vs, keys);
         if (bar % bpc == 0) {
             int cs = harmony_style(&s->roll);
-            for (i = 0; i < 4; i++) vs.last[i] = keys[i] ? keys[i] - up : 0;   /* the keys strike it */
+            for (i = 0; i < 4; i++)                      /* the keys strike it */
+                vs.last[i] = keys[i] ? keys[i] - up - harmony_keys_oct(&s->roll) : 0;
             if (chord_on && pads_double && (cs == CS_HELD || cs == CS_STRUM))   /* a strum sustains as held does:
                                                                                   its guitar shape's top doubled */
                 pads_double_keys(keys, s->pads.chord);
@@ -436,7 +438,7 @@ void song_start(song_t *s, const song_roll_t *r)
     memset(s, 0, sizeof *s);
     s->roll = *r;
     plan_build(&s->roll, &s->plan);
-    melody_motif_for(&s->roll, &s->plan, s->roll.seed, &s->motif);
+    melody_motif_for(&s->roll, &s->plan, song_ov_phrase_seed(s->roll.seed), &s->motif);
     melody_plan_for(&s->roll, &s->plan, &s->motif, &s->ph);
     s->glide_to = s->glide_from = s->ss = ss_of(s->roll.v[RF_TEMPO] > 0 ? s->roll.v[RF_TEMPO] : 80);
     s->glide_t0 = -64;
@@ -495,7 +497,8 @@ int song_tick(song_t *s, song_ev_t *out, int max)
         }
         n += harmony_step(&s->roll, b, bar, step, pass, gs, &s->voicing, s->lead.onsets >= 4, salt, buf + n,
                           BUF - n);
-        n += melody_step(&s->roll, &s->plan, &s->ph, &s->motif, bar, step, gs, salt, buf + n, BUF - n);
+        n += melody_step(&s->roll, &s->plan, &s->ph, &s->motif, bar, step, gs, song_ov_phrase_seed(salt), buf + n,
+                         BUF - n);
         if (lead_plays(b)) {                        /* the lead's blocks: no melody lead; candy only where it rests */
             for (i = k = 0; i < n; i++)
                 if (buf[i].voice != V_LEAD && !(buf[i].voice == V_CANDY && s->lead.active)) buf[k++] = buf[i];

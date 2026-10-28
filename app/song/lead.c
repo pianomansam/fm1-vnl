@@ -6,6 +6,7 @@
 #include "theory.h"
 #include "rng.h"
 #include "phrase.h"
+#include "override.h"
 
 typedef struct {                  /* what one bar's planning reads */
     const song_roll_t *r;
@@ -330,7 +331,7 @@ static void plan_phrase(lead_state_t *ls, const ctx_t *c, const plan_block_t *b,
     int ctrun = ls->ctrun, pnp = lnp;
     const int *pct = lpcs;
     phrase_at(b, bar, &run, &pass, &bip, &pbars, &last);
-    n = timeline(c->r->seed, run, pass, pbars, last, c->r->v[RF_MOTION], tl);
+    n = timeline(song_ov_phrase_seed(c->r->seed), run, pass, pbars, last, c->r->v[RF_MOTION], tl);
     scale_of(c->r, sc);
     if (bip == 0 || !ls->akey) {                         /* a new phrase (or none placed): its anchor, no line yet */
         ls->anchor = phrase_anchor(c, tl, n, key, sc);
@@ -455,7 +456,7 @@ static void choose(lead_state_t *ls, const song_roll_t *r)   /* one pattern, rhy
     unsigned snare = dp ? lib_lane_hits(dp, D_SNARE, 0) : 0x1010u;
     int i, j, best = 1 << 30, tie;
     rng_t g;
-    rng_seed(&g, r->seed, 142);
+    rng_seed(&g, song_ov_phrase_seed(r->seed), 142);
     ls->pat = rng_int(&g, 6);
     ls->rev = rng_int(&g, 3) == 0;
     ls->swap = rng_int(&g, 2) ? rng_int(&g, 5) : -1;    /* two neighboring notes swapped, or none */
@@ -526,7 +527,7 @@ static void plan_hybrid(lead_state_t *ls, const ctx_t *c, int bar, int bpc, cons
     ls->tied = 0;
     plan_arp(ls, c, bar);
     if (bar % bpc == 0) {
-        int how = lead_landing(c->r->seed, bar);
+        int how = lead_landing(song_ov_phrase_seed(c->r->seed), bar);
         if (how == 4 && !pushed) how = 0;                /* the push was refused: land on 1 instead */
         if (how == 4) {
             land(ls, 0, 0, 2);                           /* it already sounds from the last bar: let it ring */
@@ -538,7 +539,8 @@ static void plan_hybrid(lead_state_t *ls, const ctx_t *c, int bar, int bpc, cons
             land(ls, AT[how], note, LEN[how]);
         }
     }
-    if ((bar + 1) % bpc == 0 && nn > 0 && c->can_push && lead_landing(c->r->seed, bar + 1) == 4) {
+    if ((bar + 1) % bpc == 0 && nn > 0 && c->can_push &&
+        lead_landing(song_ov_phrase_seed(c->r->seed), bar + 1) == 4) {
         int nxt = skel_from(c, npcs, nn, ls->last, c->lo_x);
         if (push_ok(c, nxt)) {
             ls->last = nxt;
@@ -595,13 +597,26 @@ int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b,
         c.lo = c.lo_x = 59;
         c.hi = 69;
     }
+    if (song_ov()->lead_oct && set) {                    /* the workbench's lead_oct: the range an octave up or down,
+                                                           in the instrument's range, the floor over percussive keys
+                                                           kept; left as it was where under an octave would remain */
+        int d = 12 * song_ov()->lead_oct, lo, hi, nlo = c.lo + d, nlx = c.lo_x + d, nhi = c.hi + d;
+        song_ov_range(set->lead, &lo, &hi);
+        if (!c.pad && !c.cello && d < 0) { nlo = c.lo; nlx = c.lo_x; }
+        if (nlo < lo) nlo = lo;
+        if (nlx < lo) nlx = lo;
+        if (nhi > hi) nhi = hi;
+        if (nhi - nlo >= 12) { c.lo = nlo; c.lo_x = nlx; c.hi = nhi; }
+    }
     for (i = 0; i < 16; i++) {
         int bn = groove_bass_note(r, b, bar, i, pcs, np);
         if (bn) c.bass |= 1u << (bn % 12);
     }
     nn = harmony_chord_at(r, bar + 1, (bar + 1) / loop + 1, 0, npcs);
-    if (set && (lib_ins_sustained(set->lead) || set->lead == INS_VIBES)) {   /* the vibes too (Sam: the hybrid's
-                                                                                 arpeggio on them is bad) */
+    if (song_ov()->lead_style >= 0 ? song_ov()->lead_style == 0
+                                   : set && (lib_ins_sustained(set->lead) || set->lead == INS_VIBES)) {
+                                                       /* the vibes too (Sam: the hybrid's arpeggio on them is bad);
+                                                          the workbench may force either */
         const plan_block_t *nb = bar + 1 < b->start + b->bars ? b
                                : (b + 1)->bars && (b + 1)->start == b->start + b->bars ? b + 1 : 0;
         int hp[5], nhp[5], lpcs[5], lnp;

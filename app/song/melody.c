@@ -19,6 +19,7 @@
 #include "theory.h"
 #include "library.h"
 #include "harmony.h"
+#include "override.h"
 
 #define MAXN 24                                    /* notes in one realized phrase */
 #define MAXP 32                                    /* lead phrases per song */
@@ -416,7 +417,7 @@ void melody_motif_for(const song_roll_t *r, const song_plan_t *p, uint32_t salt,
 void melody_plan(const song_roll_t *r, const song_plan_t *p, melody_phrases_t *ph)
 {
     motif_t m;
-    melody_motif(r, r->seed, &m);
+    melody_motif(r, song_ov_phrase_seed(r->seed), &m);
     melody_plan_for(r, p, &m, ph);
 }
 
@@ -429,7 +430,7 @@ void melody_plan_for(const song_roll_t *r, const song_plan_t *p, const motif_t *
     memset(ph, PH_NEW, sizeof *ph);
     np = lead_starts(p, starts);
     if (np == 0) return;
-    rng_seed(&g, r->seed, 131);
+    rng_seed(&g, song_ov_phrase_seed(r->seed), 131);
     for (i = 0; i < np; i++) ok[i] = motif_fits(&c, m, starts[i]);
     ph->kind[0] = PH_STATE;
     ph->kind[np - 1] = PH_STATE;

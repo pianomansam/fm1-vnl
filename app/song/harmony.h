@@ -52,6 +52,8 @@ void harmony_set_loop_lock(int on);
    the lead kept to C4-C5). The lead design's register rule. */
 enum { PL_BELOW, PL_WITH, PL_ABOVE };
 int harmony_pad_place(const song_roll_t *r);
+/* semitones the workbench's keys_oct moves the keys (override.h; 0 when unset or out of the instrument's range) */
+int harmony_keys_oct(const song_roll_t *r);
 /* The voicing this bar's chord sounds with (what harmony_step strikes), without striking it: vs->last is unchanged
    (its loop cache may fill). Lets the lead plan a bar over the keys before they strike. A strummed song: the top 4
    notes of its guitar shape, ascending (0 first where the shape has fewer; its shape cache may fill). */
