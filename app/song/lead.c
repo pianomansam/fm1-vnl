@@ -17,6 +17,7 @@ typedef struct {                  /* what one bar's planning reads */
     int shift;                    /* the keys' octave shift (a pad with or above the lead) */
     int can_push;                 /* the next bar's chord is known (no request lands on it) */
     int pad;                      /* the keys sustain (a pad, the organ) */
+    int vibes;                    /* the vibes lead: struck, so the planner's swell velocities are lifted */
     int cello;                    /* the cello lead: B3-A4, inside the keys' range (no floor over them) */
 } ctx_t;
 
@@ -421,6 +422,7 @@ static void plan_phrase(lead_state_t *ls, const ctx_t *c, const plan_block_t *b,
         v += len <= 4 ? 28 : len <= 6 ? 14 : 0;   /* a short note sounds less of its swell */
         if (!c->pad && !c->cello && note < 76)           /* low: among percussive keys (the cello: its patch's level) */
             v += 76 - note + (note < 72 ? 72 - note : 0);
+        if (c->vibes) v += 60;                           /* struck: the planner's swell levels sit 4-5 dB under the keys */
         if (tl[i].role == PR_ARRIVAL) v -= 8;            /* softening into the arrival */
         else if (tl[i].role == PR_CLOSE && tl[i].t >= 96) v -= 4;
         ls->vel[t] = (uint8_t)(v > 110 ? 110 : v);
@@ -587,6 +589,7 @@ int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b,
         c.shift = 0;
     }
     c.cello = set && set->lead == INS_CELLO;
+    c.vibes = set && set->lead == INS_VIBES;
     if (c.cello) {                                       /* the cello: B3-A4 as Sam passed it, the floor lifted */
         c.lo = c.lo_x = 59;
         c.hi = 69;

@@ -968,3 +968,9 @@ song_test's test_strum_same holds the voicer's shapes and 24 strummed songs' eve
 groove_ride and plan_build (the ride's extra plan builds at a song's start) cost about 1 us each; song_start's worst,
 all of it, is under 10 us. The standard list after: forced 0.904 / 0.881 / 0.648 / 0.817 / 0.715 / 0.861 (AMB-1
 135.8 ms). Memory: image 378072 B (+736 B), RAM 56560 B (unchanged), pool 184312 B (ok).
+
+### Green baseline (2026-10-28, after cf0dca0, a162c90, 3025034 and the 1.5 s ride)
+
+`--forced 142 16`: 0.913 / 0.915 (AMB-1 142.9 ms); the standard list (`--forced 20 7 155 138 100 22`) 0.933 / 0.851 /
+0.823 / 0.820 / 0.660 / 0.833 (AMB-1 145.5 ms). Memory: image 386344 B (budget 409600; +8272 B since the strum
+work, the ride sample and the other imports), RAM 56560 B (unchanged), pool 184312 B (ok).
