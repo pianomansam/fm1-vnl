@@ -104,8 +104,9 @@ static int style_draw(int ins, int tempo, int strum, uint32_t seed)
     /* held, stabs, offbeats (retired: 0 everywhere), arpeggio, half notes, strum. Synth keys as always (stabs "just
        not working" there); the sampled instruments sound better, so stabs return on the Knight and the guitars, and
        the guitars strum (the same draw: zero weights never change a pick); no arpeggio on the guitars (Sam: a 16th
-       arpeggio on a guitar is "bad") */
-    static const uint8_t SYNTH[6] = {44, 0, 0, 20, 36, 0}, KNIGHT[6] = {35, 25, 0, 15, 25, 0},
+       arpeggio on a guitar is "bad"), and none on any keys for now (Sam, 2026-10-28: set 23's Rhodes arpeggio "sounds
+       very synthetic"; it may come back later). Was SYNTH arpeggio 20, KNIGHT 15. */
+    static const uint8_t SYNTH[6] = {44, 0, 0, 0, 36, 0}, KNIGHT[6] = {35, 25, 0, 0, 25, 0},
                          GUITAR[6] = {20, 20, 0, 0, 15, 30}, GUITAR_SLOW[6] = {0, 20, 0, 0, 35, 30};
     const uint8_t *t = ins == INS_KNIGHT ? KNIGHT : (ins == INS_NYLON || ins == INS_EMILY) ?
                          (tempo < GUITAR_SLOW_BPM ? GUITAR_SLOW : GUITAR) : SYNTH;
