@@ -62,3 +62,33 @@ export async function play(on) {
   if (on) await ctx.resume();
   return call("wb_play", on ? 1 : 0);
 }
+
+// Feedback: each entry is queued in localStorage and sent to the server (POST /feedback), oldest first; what the
+// server doesn't take stays queued and goes again on the next flush. { saved, queued }: saved when nothing is waiting.
+const QKEY = "wb-feedback-queue";
+let memQueue = [];   // the queue when localStorage can't be used
+const readQ = (s) => { try { return JSON.parse(s.getItem(QKEY) || "[]"); } catch { return memQueue; } };
+const writeQ = (s, q) => { memQueue = q; try { s.setItem(QKEY, JSON.stringify(q)); } catch { /* memQueue holds it */ } };
+
+export function queued(storage = globalThis.localStorage) { return readQ(storage).length; }
+
+let flushing = Promise.resolve();   // one flush at a time, so an entry is never sent twice at once
+export function flushFeedback(opts = {}) { return (flushing = flushing.then(() => flushOnce(opts))); }
+
+async function flushOnce({ fetch: f = globalThis.fetch, storage = globalThis.localStorage } = {}) {
+  for (let q = readQ(storage); q.length; q = readQ(storage)) {
+    try {
+      const r = await f("/feedback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(q[0]) });
+      if (!r.ok) break;
+    } catch { break; }
+    writeQ(storage, readQ(storage).slice(1));
+  }
+  const n = readQ(storage).length;
+  return { saved: n === 0, queued: n };
+}
+
+export function sendFeedback(entry, opts = {}) {
+  const storage = opts.storage ?? globalThis.localStorage;
+  writeQ(storage, [...readQ(storage), entry]);
+  return flushFeedback(opts);
+}

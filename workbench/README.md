@@ -26,6 +26,12 @@ AudioWorklet. Local only; not the FM-1, so it may exceed the device's budgets.
   thread (`wb.js`'s probe), never on the audio thread.
 - `options.json`: the hand-maintained option lists (instruments, kits, comping, patterns, kick phrases, families),
   each approved, candidate or retired, seeded from the ledgers.
+- Feedback: 👍/👎 and a note, on the song or a row, save a line to `workbench/feedback.jsonl`: a versioned snapshot
+  (every row, the locks, the seed; `desk.snapshot()` / `desk.restore()`), where the song was, and the log of every applied
+  change. Entries queue in localStorage while the server is down (the page says "not saved yet") and are resent.
+  `node workbench/tools/replay.mjs <line number | snapshot.json> out.wav [seconds]` renders one through wb.wasm.
+- `server.py` also takes `POST /feedback`, `/kit` and `/pattern` (names `[a-z0-9-]{1,40}`, bodies up to 1 MB), writing
+  only under `workbench/`; its tests: `python3 workbench/tools/test_server.py`.
 - `server.py` serves the build first, then `workbench/` (kits, patterns, samples, options.json).
 
 The smoke test is the evidence that the engine renders and lands changes; whether it sounds right needs a listen in

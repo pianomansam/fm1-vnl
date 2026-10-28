@@ -10,8 +10,10 @@ const SEED_TRIES = 20;   // a new seed whose song can't keep the locks is tried 
 export class Desk {
   // probe(bytes): the lead register the engine applies to a staged state (wb_stage_bytes), from a second wb.wasm
   // instance off the audio thread (wb.js's probe); without one the lead register isn't read back
-  constructor(call, C, opts, lib, { rnd = Math.random, probe = null } = {}) {
-    Object.assign(this, { call, C, opts, lib, rnd, probe });
+  // position(): { seconds, bar } of the song playing, for the change log (none: 0, 0)
+  constructor(call, C, opts, lib, { rnd = Math.random, probe = null, position = () => ({ seconds: 0, bar: 0 }) } = {}) {
+    Object.assign(this, { call, C, opts, lib, rnd, probe, position });
+    this.changes = [];         // every applied change: { seconds, bar, row, from, to }
     this.values = {};
     this.locks = new Set();
     this.hand = new Set();     // rows set from their dropdown (they survive a regenerate, as locks do)
@@ -130,6 +132,9 @@ export class Desk {
     this.message = "";
     await this.readBack();
     await this.call("wb_apply");
+    const at = this.position();
+    for (const x of [r, ...changed.filter((x) => x.id !== id)])
+      this.changes.push({ seconds: at.seconds, bar: at.bar, row: x.id, from: before[x.id], to: this.values[x.id] });
     const notes = [
       ...c.stuck.map((s) => `${row(s.row).label} stays: no approved ${value} option yet.`),
       ...lost.map((k) => `${row(k).label} couldn't be kept in the new song.`),
@@ -182,6 +187,29 @@ export class Desk {
     }
     this.moved = new Set();
     return this.done(true, notes.join(" "));
+  }
+
+  // Everything a replay needs (version 1; later tasks add to it): every row's value, the locks and hand edits, the
+  // seed. "drums" is the home of any drum state the rows don't hold (the kit, pattern and kick are rows already).
+  snapshot() {
+    return { version: 1, rows: { ...this.values }, locks: [...this.locks], hand: [...this.hand], seed: this.values.seed,
+             drums: {} };
+  }
+
+  // Put a snapshot's state on the engine (staged, then committed) as the page's own stagings would; the rows that
+  // came out different (the engine kept another value) are returned.
+  async restore(snap) {
+    if (snap.version !== 1) throw new Error(`snapshot version ${snap.version}: this page reads version 1`);
+    await this.call("wb_stage_mark");
+    await this.stage("seed", snap.rows.seed);
+    for (const r of ROWS) if (r.kind !== "seed" && r.kind !== "family") await this.stage(r.id, snap.rows[r.id]);
+    await this.call("wb_apply");
+    this.values = { ...snap.rows };
+    this.locks = new Set(snap.locks);
+    this.hand = new Set(snap.hand);
+    this.moved = new Set();
+    await this.read();
+    return ROWS.filter((r) => String(this.values[r.id]) !== String(snap.rows[r.id])).map((r) => r.id);
   }
 
   lock(id, on) {

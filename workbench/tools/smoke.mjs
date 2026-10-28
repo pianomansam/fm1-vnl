@@ -504,6 +504,60 @@ console.log("desk: a quantum rendered before every call (the worklet's interleav
   check(r.ok && !bad && ex.wb_live_get(C.RF.TEMPO) === tempo, `re-roll all with bar lines inside it: every landed state keeps the locked tempo (${bad} bad)`);
 }
 
+console.log("feedback: snapshots, replay, the queue");
+{
+  const { replay, wav } = await import("./replay.mjs");
+  const { sendFeedback, flushFeedback, queued } = await import("../wb.js");
+  const ex = await load();
+  const call = caller(ex);
+  ex.wb_seed(21);
+  ex.wb_apply();
+  let at = { seconds: 0, bar: 0 };
+  const desk = new Desk(call, C, OPTS, await call("wb_library"), { rnd: lcg(41), probe: await prober(), position: () => at });
+  await desk.read(true);
+  await desk.set("seed", 77);
+  at = { seconds: 12.5, bar: 6 };
+  await desk.set("tempo", desk.values.tempo === 75 ? 80 : 75);
+  await desk.set("keys", ins("Wurli"));
+  await desk.dice("leadStyle");
+  desk.lock("tempo", true);
+  const snap = desk.snapshot();
+  const ch = desk.changes;
+  check(snap.version === 1 && snap.seed === 77 && snap.locks.includes("tempo") && ROWS.every((r) => snap.rows[r.id] !== undefined),
+        "the snapshot holds every row, the locks and the seed, with a version");
+  check(ch.length >= 3 && ch.every((c) => "seconds" in c && "bar" in c && c.row && "from" in c && "to" in c) &&
+        ch.some((c) => c.row === "tempo" && c.seconds === 12.5 && c.bar === 6 && c.to === snap.rows.tempo),
+        `the change log has each applied change (${ch.length}: ${ch.map((c) => c.row).join(", ")})`);
+  ex.wb_play(1);
+  const live = render(ex, 8 * SR);   // the page's song from bar 1, the snapshot's state
+  const a = await replay(JSON.parse(JSON.stringify(snap)), 8), b = await replay(snap, 8);
+  const same = (x, y) => Buffer.compare(wav(x), wav(y)) === 0;
+  check(!a.mismatch.length && same(a, b), `a snapshot replayed twice gives identical WAV bytes (${wav(a).length} B; mismatch: ${a.mismatch.join(",") || "none"})`);
+  check(same(a, live), "... and they are the samples the page's engine plays from bar 1");
+  check(db(a) > -45, `the replay is not silent (${db(a).toFixed(1)} dBFS)`);
+
+  // Review Focus 5: the server down, the entry stays queued, the page can say so, and it goes when the server returns
+  const store = new Map(), storage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v) };
+  let up = false, posted = [];
+  const fake = async (url, o) => {
+    if (!up) throw new TypeError("fetch failed");
+    posted.push(JSON.parse(o.body));
+    return { ok: true };
+  };
+  const entry = (n) => ({ time: "t", snapshot: snap, position: at, about: "song", rating: "up", note: `n${n}`, changes: ch });
+  const r1 = await sendFeedback(entry(1), { fetch: fake, storage });
+  const r2 = await sendFeedback(entry(2), { fetch: fake, storage });
+  check(!r1.saved && !r2.saved && r2.queued === 2 && queued(storage) === 2 && JSON.parse(store.get("wb-feedback-queue"))[0].note === "n1",
+        "server down: both entries stay queued in localStorage and the result says not saved");
+  const still = await flushFeedback({ fetch: fake, storage });
+  up = true;
+  const back = await Promise.all([flushFeedback({ fetch: fake, storage }), flushFeedback({ fetch: fake, storage })]);
+  check(!still.saved && back[1].saved && queued(storage) === 0 && posted.map((p) => p.note).join() === "n1,n2",
+        "server back: queued entries are resent once each, in order, and the queue empties");
+  const bad = await sendFeedback(entry(3), { fetch: async () => ({ ok: false }), storage });
+  check(!bad.saved && queued(storage) === 1, "a refusing server (not ok) keeps the entry queued too");
+}
+
 console.log("options.json: statuses");
 check(!OPTS.instruments.some((i) => i.status === "candidate") &&
       ["Chillwave pad", "Vox pad"].every((n) => OPTS.instruments.find((i) => i.name === n).status === "approved"),
