@@ -521,14 +521,16 @@ EXPORT int wb_pat_get(int lane, int bar01, int step)
     return cell(p, lane, bar01, step);
 }
 
-/* a library pattern into the custom one, the grid's to edit (a saved pattern's base) */
-EXPORT void wb_pat_load(int id)
+/* a library pattern into the custom one, the grid's to edit (a saved pattern's base): 1, or 0 if roll_set wouldn't
+   take it for the staged song (nothing staged) */
+EXPORT int wb_pat_load(int id)
 {
-    if (id < 0 || id >= LIB_PATTERN_WB || !lib_pattern_by_id((uint8_t)id))
-        return;
+    if (id < 0 || id >= LIB_PATTERN_WB || !wb_roll_legal(RF_PATTERN, id))
+        return 0;
     st.roll.v[RF_PATTERN] = id;
     custom_pat();
     st.grid = 1;
+    return 1;
 }
 
 /* 1 if roll_set would take value for field as staged (the dropdowns offer only these) */
@@ -678,16 +680,18 @@ static const char *out_done(out_t *o)
     return o->n < o->cap ? o->b : "{\"error\":\"truncated\"}";
 }
 
-/* JSON: the staged state the page shows (the roll, the roles, the overrides, the kit, the library pattern under the
-   custom one, the kick lane where it isn't the pattern's own: [A, B hits, 1] or with ghosts [.., 2]), the drum lanes,
-   the staged kit's own (kit_lanes: what a first lane edit copies; null for a mixed sampled kit) and the grid (the staged pattern's lanes: [A hits, A ghosts, B hits, B ghosts] each; edited: the grid's edits) */
+/* JSON: the staged state the page shows: the roll, the roles, the overrides, the kit, the library pattern under the
+   custom one, the kick lane where it isn't the pattern's own ([A, B hits, 1], or with ghosts [.., 2]), the drum
+   lanes, the staged kit's own (kit_lanes: what a first lane edit copies; null for a mixed sampled kit) and the grid
+   (the staged pattern's lanes, [A hits, A ghosts, B hits, B ghosts] each; edited: it has the grid's edits) */
 EXPORT const char *wb_state(void)
 {
     static char buf[2048];
     out_t o = {buf, sizeof buf, 0};
     int i, custom = st.roll.v[RF_PATTERN] == LIB_PATTERN_WB;
     const wb_drums_t *d = drums_of(&st);
-    const lib_pattern_t *p = staged_pat(), *base = lib_pattern_by_id(custom ? st.pat_base : (uint8_t)st.roll.v[RF_PATTERN]);
+    const lib_pattern_t *p = staged_pat();
+    const lib_pattern_t *base = lib_pattern_by_id(custom ? st.pat_base : (uint8_t)st.roll.v[RF_PATTERN]);
     unsigned m[4] = {0}, k[4] = {0};
     wb_drums_t kl = {.preset = -1};
     if (p && base) {

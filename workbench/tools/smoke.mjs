@@ -1042,6 +1042,26 @@ console.log("drum screen: the grid");
     ex.wb_pat_step(4, 0, 1, 1);
     check(sh(0) === "0,1,3,6,9,12,15" && sh(1) === "2,5,8,11,14", "edited: the same two bars plus the new step");
   }
+  // another lane's edit on pattern 5 leaves the poly3 shaker as it was: its samples from bar 3 (where a two-bar loop
+  // would differ) the same as without the edit
+  {
+    const shaker = async (edit) => {
+      const ex = await load();
+      ex.wb_seed(77);
+      ex.wb_roll_set(C.RF.PATTERN, 5);
+      ex.wb_kit_preset(DRUMS.PT808);
+      if (edit) ex.wb_pat_step(2, 0, 1, 1);   // a hat
+      ex.wb_apply();
+      ex.wb_play(1);
+      until(ex, () => ex.wb_bar() === 3, 120 * SR);
+      ex.wb_drum_meter_reset();
+      until(ex, () => ex.wb_bar() === 12, 120 * SR);
+      return { ms: ex.wb_drum_meter(4), hash: ex.wb_drum_hash(4), hat: ex.wb_drum_hash(2), custom: ex.wb_roll_get(C.RF.PATTERN) };
+    };
+    const a = await shaker(false), b = await shaker(true);
+    check(b.custom === 255 && a.ms > 1e-7 && a.hash === b.hash && a.hat !== b.hat,
+          `pattern 5 with a hat edit: the hat lane changes, the poly3 shaker's bars 3-11 don't (${(10 * Math.log10(a.ms)).toFixed(1)} dB)`);
+  }
 
   console.log("drum screen: lane sounds");
   const ALL = sounds(C, OPTS);
@@ -1074,6 +1094,32 @@ console.log("drum screen: the grid");
     await desk.level(2, -9);
     const d = desk.drums;
     check(d.lanes[2][3] === -9 && d.lanes[0][0] === SRC.BUILTIN && d.lanes[0][1] === 3, "a level on the kit's own lanes copies them first (heard): hats at -9 dB");
+  }
+  // edited lanes go with a kept kit through a new seed (staging the kit again would reset them to the kit as shipped)
+  {
+    const ex = await load(), call = caller(ex);
+    ex.wb_seed(21);
+    ex.wb_apply();
+    const desk = new Desk(call, C, OPTS, await call("wb_library"), { rnd: lcg(9) });
+    await desk.read(true);
+    await desk.set("kit", DRUMS.PRESET + DRUMS.PT808);
+    await desk.lane(1, SRC.OPT, 0, 1);
+    await desk.level(1, -5);
+    desk.lock("kit", true);
+    const lanes = JSON.stringify(desk.drums.lanes), seed = desk.values.seed;
+    const r = await desk.dice("seed");
+    ex.wb_play(1);
+    until(ex, () => ex.wb_live_get(C.RF.N) === desk.values.seed, 10 * SR);
+    check(r.ok && desk.values.seed !== seed && JSON.stringify(desk.drums.lanes) === lanes &&
+          JSON.stringify(JSON.parse(cstr(ex, ex.wb_live_state())).drums.lanes) === lanes,
+          `kit locked, a new seed (${desk.values.seed}) keeps the LO-FI snare at -5 dB on the 808, staged and heard`);
+    desk.lock("kit", false);
+    const r2 = await desk.dice("seed");
+    check(r2.ok && JSON.stringify(desk.drums.lanes) === lanes, "unlocked, the lane edits are hand edits: kept too");
+    await desk.rerollAll();
+    check(JSON.stringify(desk.drums.lanes) !== lanes, "re-roll all lets them go");
+    const now = cstr(ex, ex.wb_state()), ref = await desk.lane(1, 99, 0, 0);
+    check(!ref.ok && ref.message && cstr(ex, ex.wb_state()) === now, `a lane the engine refuses changes nothing: "${ref.message}"`);
   }
 
   console.log("drum screen: save and load (server.py)");
@@ -1120,6 +1166,9 @@ print(srv.server_address[1], flush=True); srv.serve_forever()`;
       check(r1.ok && JSON.stringify(d2.drums.grid.lanes) === JSON.stringify(g.lanes) && d2.values.kick === "k6",
             "loaded on another song, the pattern reproduces the grid");
       check(r2.ok && JSON.stringify(d2.drums.lanes) === JSON.stringify(lanes), "... and the kit its lanes and levels");
+      const nope = await d2.loadPattern({ name: "no-base", grid: { ...pf.grid, base: 99 } });
+      check(!nope.ok && /can't load/.test(nope.message) && JSON.stringify(d2.drums.grid.lanes) === JSON.stringify(g.lanes),
+            `a pattern over a base the song can't take is refused, nothing staged: "${nope.message}"`);
       const bad = await save("pattern", { name: "../x" }, f);
       check(!bad.ok && /name/.test(bad.error), `a bad name is refused: "${bad.error}"`);
     } finally {

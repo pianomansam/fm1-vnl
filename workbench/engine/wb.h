@@ -46,7 +46,7 @@ void wb_kick_phrase(int a, int b);      /* a two-bar kick (step masks, bars A an
    the first edit. lane: D_KICK..D_RIM; bar01: 0 (A) or 1 (B); state: 0 empty, 1 hit, 2 ghost */
 void wb_pat_step(int lane, int bar01, int step, int state);
 int wb_pat_get(int lane, int bar01, int step);  /* the staged pattern's step (-1: out of range) */
-void wb_pat_load(int pattern_id);       /* a library pattern into the custom one, for the grid */
+int wb_pat_load(int pattern_id);        /* a library pattern into the custom one, for the grid; 0: not legal here */
 int wb_roll_legal(int field, int value);    /* 1 if wb_roll_set would take it */
 void wb_stage_mark(void);               /* save the staged state ... */
 void wb_stage_undo(void);               /* ... and put it back */

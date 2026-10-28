@@ -106,7 +106,7 @@ export class Desk {
     const c = r.regenerates || r.kind === "roll" ? { forced: [], stuck: [], blocked: null }
                                                   : conflicts(r, value, this.state, this.opts, this.rnd, this.lib);
     if (c.blocked) return this.done(false, `Blocked: ${c.blocked.label} is locked (${c.blocked.why}).`);
-    const before = { ...this.values }, grid = this.drums?.grid;
+    const before = { ...this.values }, grid = this.drums?.grid, lanes = this.drums?.lanes;
     const keep = (x) => (release ? this.locks.has(x) : this.kept(x));
     const kept = new Map([...ROWS].filter((x) => keep(x.id) && x.id !== id).map((x) => [x.id, before[x.id]]));
     const forced = new Set(c.forced.map((f) => f.row));
@@ -123,6 +123,11 @@ export class Desk {
     if (grid?.edited && kept.has("pattern") && id !== "pattern" && id !== "kick") {   // the grid goes with a kept pattern
       await this.read();
       if (JSON.stringify(this.drums.grid) !== JSON.stringify(grid)) await this.stageGrid(grid);
+    }
+    // the edited lanes (sounds, levels) go with a kept kit: staging the kit again resets them to the kit as shipped
+    if (lanes?.some((l) => l[0] !== this.C.SRC.NONE) && kept.has("kit") && id !== "kit" && !forced.has("kit")) {
+      await this.read();
+      if (JSON.stringify(this.drums.lanes) !== JSON.stringify(lanes)) await this.stageDrums({ lanes });
     }
     await this.read(r.kind === "seed" && !kept.has("family"));
     const changed = ROWS.filter((x) => x.id !== id && String(this.values[x.id]) !== String(before[x.id]));
@@ -238,7 +243,7 @@ export class Desk {
   // kit row's sources)
   async stageDrums(d) {
     const lanes = d?.lanes || [], out = [];
-    if (d?.grid?.edited) await this.stageGrid(d.grid);
+    if (d?.grid?.edited && !(await this.stageGrid(d.grid))) out.push("the drawn pattern (its base pattern isn't legal here)");
     if (!lanes.some((l) => l[0] !== this.C.SRC.NONE)) return out;
     for (const a of new Set(lanes.filter((l) => l[0] === this.C.SRC.SAMPLE).map((l) => l[1])))
       if (!this.samples || !(await this.samples.load(a))) {
@@ -257,21 +262,19 @@ export class Desk {
   async lane(i, kind, a, b) {
     if (kind === this.C.SRC.SAMPLE && this.samples && !(await this.samples.load(a)))
       return this.done(false, "Those samples are missing (see workbench/samples/README.md).");
-    if (!(await this.call("wb_lane_src", i, kind, a, b))) {
-      const k = this.opts.kits.find((x) => x.id === this.values.kit);
-      return this.done(false, `${k?.name ?? "This kit"} can't be edited lane by lane (its hits are mixed copies, not sources): choose a shipped kit first.`);
-    }
-    await this.call("wb_apply");
-    await this.read();
-    const at = this.position();
-    this.changes.push({ seconds: at.seconds, bar: at.bar, row: "drums", lane: i, source: [kind, a, b] });
-    return this.done(true, "");
+    const k = this.opts.kits.find((x) => x.id === this.values.kit);
+    const refused = this.drums && !this.drums.kit_lanes
+      ? `${k?.name ?? "This kit"} can't be edited lane by lane (its hits are mixed copies, not sources): choose a shipped kit first.`
+      : "That sound isn't one the engine has.";
+    return this.drumEdit("drums", async () => ((await this.call("wb_lane_src", i, kind, a, b)) ? null : { refused }),
+                         { lane: i, source: [kind, a, b] });
   }
 
   // A grid (wb_state's drums.grid: its library base and each lane's masks) as the custom pattern: the base loaded,
-  // then the steps that differ (sent together: they run between the same two quanta). Staged only.
+  // then the steps that differ (sent together: they run between the same two quanta). Staged only; false (nothing
+  // staged) if the base pattern isn't legal for the staged song.
   async stageGrid(g) {
-    await this.call("wb_pat_load", g.base);
+    if (!(await this.call("wb_pat_load", g.base))) return false;
     const have = (await this.call("wb_state")).drums.grid.lanes, jobs = [];
     for (const [lane, m] of g.lanes.entries())
       for (let bar = 0; bar < 2; bar++)
@@ -280,14 +283,21 @@ export class Desk {
           if (want !== cellOf(have[lane], bar, step)) jobs.push(this.call("wb_pat_step", lane, bar, step, want));
         }
     await Promise.all(jobs);
+    return true;
   }
 
   // A drum screen edit: staged, checked against the locks (a locked row it would move undoes it whole), committed
-  // (it lands at the next bar line) and logged. { ok, message }
+  // (it lands at the next bar line) and logged. stage() may refuse ({ refused: why }: undone) or return what it
+  // couldn't restore (a list). { ok, message }
   async drumEdit(what, stage, detail = {}) {
     const before = { ...this.values };
     await this.call("wb_stage_mark");
     const res = await stage();
+    if (res?.refused) {
+      await this.call("wb_stage_undo");
+      await this.read();
+      return this.done(false, res.refused);
+    }
     await this.read();
     const moved = ROWS.filter((x) => this.locks.has(x.id) && String(this.values[x.id]) !== String(before[x.id]));
     if (moved.length) {
@@ -295,7 +305,7 @@ export class Desk {
       await this.read();
       return this.done(false, `Blocked: ${moved.map((x) => x.label).join(", ")} ${moved.length > 1 ? "are" : "is"} locked and this edit would move ${moved.length > 1 ? "them" : "it"}.`);
     }
-    if (what === "grid") this.hand.add("pattern");   // a drawn pattern is a hand edit: it survives a new seed
+    this.hand.add(what === "grid" ? "pattern" : "kit");   // a hand edit of the pattern or kit: it survives a new seed
     await this.call("wb_apply");
     const at = this.position();
     this.changes.push({ seconds: at.seconds, bar: at.bar, row: what, ...detail });
@@ -313,7 +323,9 @@ export class Desk {
   // a saved pattern's grid (workbench/patterns/*.json) or kit's lanes (workbench/kits/*.json)
   loadPattern(p) {
     if (this.locks.has("pattern")) return this.done(false, "Pattern is locked: unlock it to load one.");
-    return this.drumEdit("grid", () => this.stageGrid(p.grid), { loaded: p.name });
+    const from = this.opts.patterns.find((x) => x.id === p.grid?.base)?.name ?? `pattern ${p.grid?.base}`;
+    return this.drumEdit("grid", async () => ((await this.stageGrid(p.grid)) ? null
+      : { refused: `${p.name ?? "That pattern"} can't load: it's drawn over ${from}, which this song can't take.` }), { loaded: p.name });
   }
   loadKit(k) {
     return this.drumEdit("drums", () => this.stageDrums({ lanes: k.lanes }), { loaded: k.name });
