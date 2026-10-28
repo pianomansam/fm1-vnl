@@ -307,7 +307,7 @@ unsigned harmony_stab_steps(const song_roll_t *r)
 {
     static const uint8_t SECOND[4] = {6, 10, 4, 12};
     const lib_pattern_t *p = lib_pattern_by_id((uint8_t)r->v[RF_PATTERN]);
-    unsigned kick = p ? p->hit[D_KICK] : 0u;
+    unsigned kick = p ? lib_lane_hits(p, D_KICK, 0) : 0u;
     int i, hits = 0;
     for (i = 0; i < 16; i++) hits += (kick >> i) & 1u;
     if (hits > 3) return 0x41u;
@@ -321,7 +321,7 @@ unsigned harmony_stab_steps(const song_roll_t *r)
 static int half_held(const song_roll_t *r)
 {
     const lib_pattern_t *p = lib_pattern_by_id((uint8_t)r->v[RF_PATTERN]);
-    return keys_sustained(r) || (p && (p->hit[D_KICK] & 0xFFFFu) == 0x101u);
+    return keys_sustained(r) || (p && (lib_lane_hits(p, D_KICK, 0) & 0xFFFFu) == 0x101u);
 }
 
 /* the steps the keys strike when they are more than a note on 1 (stabs, half notes), else 0: what the bass avoids */

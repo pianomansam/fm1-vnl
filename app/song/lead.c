@@ -452,7 +452,7 @@ static const int8_t PAT[6][6] = {{0, 1, 2, 3, -1}, {3, 2, 1, 0, -1}, {0, 1, 2, 3
 static void choose(lead_state_t *ls, const song_roll_t *r)   /* one pattern, rhythm, direction and swap per song */
 {
     const lib_pattern_t *dp = lib_pattern_by_id((uint8_t)r->v[RF_PATTERN]);
-    unsigned snare = dp ? (unsigned)dp->hit[D_SNARE] : 0x1010u;
+    unsigned snare = dp ? lib_lane_hits(dp, D_SNARE, 0) : 0x1010u;
     int i, j, best = 1 << 30, tie;
     rng_t g;
     rng_seed(&g, r->seed, 142);

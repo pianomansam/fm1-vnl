@@ -148,14 +148,14 @@ const int LIB_NSETS = (int)(sizeof LIB_SETS / sizeof LIB_SETS[0]);
 
 /* Lanes: kick, snare, hat, open hat, shaker, rim. 16 steps, bit i = step i. */
 const lib_pattern_t LIB_PATTERNS[] = {
-    {1, PF_BOOMBAP, {0x4441, 0x1010, 0x5555, 0x0000, 0x0000, 0x0000}, {0x0004, 0x4008, 0xAAAA, 0x0000, 0x0000, 0x0000}, 0, 0, "lofi-midi-arrangements.md 3.4, Us3 Cantaloop grid"},
-    {2, PF_BOOMBAP, {0x8581, 0x1010, 0x5555, 0x8000, 0x0000, 0x0000}, {0x0000, 0x0080, 0xAAAA, 0x0000, 0x0000, 0x0000}, 0, 0, "lofi-midi-arrangements.md 3.4, Fugees Fu-Gee-La grid"},
-    {3, PF_BOOMBAP, {0x0409, 0x1010, 0x5555, 0x8000, 0x5555, 0x0000}, {0x0020, 0x0808, 0x0000, 0x0000, 0xAAAA, 0x0000}, 0, 0, "lofi-midi-arrangements.md 3.4, Tupac Changes grid; lofi-hip-hop.md 6 Magenta"},
-    {4, PF_HALFTIME, {0x0041, 0x0100, 0x5555, 0x0000, 0x0000, 0x0000}, {0x0400, 0x1000, 0xAAAA, 0x0000, 0x0000, 0x0000}, 1, 0, "lofi-midi-arrangements.md 3.4, Online Sequencer half-time snare + recurring kick"},
-    {5, PF_HALFTIME, {0x1011, 0x0100, 0x1111, 0x8000, 0x9249, 0x0000}, {0x0400, 0x0000, 0x4444, 0x0000, 0x0000, 0x0000}, 1, 1, "lofi-midi-arrangements.md 3.4, OS recurring kick; poly3 shaker from lofi-hip-hop.md 3"},
-    {6, PF_SPARSE, {0x0041, 0x0100, 0x1111, 0x0000, 0x0000, 0x1000}, {0x0000, 0x0000, 0x4444, 0x0000, 0x0000, 0x0000}, 1, 0, "lofi-midi-arrangements.md 3.4, quarter hats with half-time snare"},
-    {7, PF_BRUSHES, {0x0101, 0x1010, 0x5555, 0x0000, 0x0000, 0x0000}, {0x0400, 0x0104, 0xAAAA, 0x0000, 0x0000, 0x0000}, 0, 0, "lofi-hip-hop.md 3 swung brush/ride lane; rim on snare lane"},
-    {8, PF_BOSSA, {0x0909, 0x1000, 0x5555, 0x0000, 0x0000, 0x1449}, {0x0000, 0x0010, 0xAAAA, 0x0000, 0x0000, 0x0000}, 0, 0, "lofi-hip-hop.md 3 bossa feel; 3-2 clave on the rim lane"},
+    {1, PF_BOOMBAP, {0x4441, 0x1010, 0x5555, 0x0000, 0x0000, 0x0000}, {0x0004, 0x4008, 0xAAAA, 0x0000, 0x0000, 0x0000}, 0, 0, "lofi-midi-arrangements.md 3.4, Us3 Cantaloop grid", 0, {0}, {0}},
+    {2, PF_BOOMBAP, {0x8581, 0x1010, 0x5555, 0x8000, 0x0000, 0x0000}, {0x0000, 0x0080, 0xAAAA, 0x0000, 0x0000, 0x0000}, 0, 0, "lofi-midi-arrangements.md 3.4, Fugees Fu-Gee-La grid", 0, {0}, {0}},
+    {3, PF_BOOMBAP, {0x0409, 0x1010, 0x5555, 0x8000, 0x5555, 0x0000}, {0x0020, 0x0808, 0x0000, 0x0000, 0xAAAA, 0x0000}, 0, 0, "lofi-midi-arrangements.md 3.4, Tupac Changes grid; lofi-hip-hop.md 6 Magenta", 0, {0}, {0}},
+    {4, PF_HALFTIME, {0x0041, 0x0100, 0x5555, 0x0000, 0x0000, 0x0000}, {0x0400, 0x1000, 0xAAAA, 0x0000, 0x0000, 0x0000}, 1, 0, "lofi-midi-arrangements.md 3.4, Online Sequencer half-time snare + recurring kick", 0, {0}, {0}},
+    {5, PF_HALFTIME, {0x1011, 0x0100, 0x1111, 0x8000, 0x9249, 0x0000}, {0x0400, 0x0000, 0x4444, 0x0000, 0x0000, 0x0000}, 1, 1, "lofi-midi-arrangements.md 3.4, OS recurring kick; poly3 shaker from lofi-hip-hop.md 3", 0, {0}, {0}},
+    {6, PF_SPARSE, {0x0041, 0x0100, 0x1111, 0x0000, 0x0000, 0x1000}, {0x0000, 0x0000, 0x4444, 0x0000, 0x0000, 0x0000}, 1, 0, "lofi-midi-arrangements.md 3.4, quarter hats with half-time snare", 0, {0}, {0}},
+    {7, PF_BRUSHES, {0x0101, 0x1010, 0x5555, 0x0000, 0x0000, 0x0000}, {0x0400, 0x0104, 0xAAAA, 0x0000, 0x0000, 0x0000}, 0, 0, "lofi-hip-hop.md 3 swung brush/ride lane; rim on snare lane", 0, {0}, {0}},
+    {8, PF_BOSSA, {0x0909, 0x1000, 0x5555, 0x0000, 0x0000, 0x1449}, {0x0000, 0x0010, 0xAAAA, 0x0000, 0x0000, 0x0000}, 0, 0, "lofi-hip-hop.md 3 bossa feel; 3-2 clave on the rim lane", 0, {0}, {0}},
 };
 const int LIB_NPATTERNS = (int)(sizeof LIB_PATTERNS / sizeof LIB_PATTERNS[0]);
 
@@ -183,9 +183,25 @@ const lib_prog_t *lib_prog_by_id(uint8_t id)
     return NULL;
 }
 
+static const lib_set_t *wb_set;
+static const lib_pattern_t *wb_pattern;
+void lib_set_wb(const lib_set_t *s) { wb_set = s; }
+void lib_pattern_wb(const lib_pattern_t *p) { wb_pattern = p; }
+
+unsigned lib_lane_hits(const lib_pattern_t *p, int lane, int bar)
+{
+    return p->two_bar && (bar & 1) ? p->hit_b[lane] : p->hit[lane];
+}
+
+unsigned lib_lane_ghosts(const lib_pattern_t *p, int lane, int bar)
+{
+    return p->two_bar && (bar & 1) ? p->ghost_b[lane] : p->ghost[lane];
+}
+
 const lib_set_t *lib_set_by_id(uint8_t id)
 {
     int i;
+    if (id == LIB_SET_WB) return wb_set;
     for (i = 0; i < LIB_NSETS; i++) if (LIB_SETS[i].id == id) return &LIB_SETS[i];
     return NULL;
 }
@@ -195,6 +211,7 @@ int lib_kit_sampled(int kit) { return kit >= KIT_S_WARM && kit <= KIT_S_CLEAN; }
 const lib_pattern_t *lib_pattern_by_id(uint8_t id)
 {
     int i;
+    if (id == LIB_PATTERN_WB) return wb_pattern;
     for (i = 0; i < LIB_NPATTERNS; i++) if (LIB_PATTERNS[i].id == id) return &LIB_PATTERNS[i];
     return NULL;
 }

@@ -29,7 +29,7 @@ static int clampi(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v;
 /* the onsets a bass style plays in a bar over pattern p, fills and ghosts aside */
 static unsigned bass_rhythm(int style, const lib_pattern_t *p)
 {
-    unsigned kick = p ? p->hit[D_KICK] : 1u;
+    unsigned kick = p ? lib_lane_hits(p, D_KICK, 0) : 1u;
     switch (style) {
     case BS_PEDAL: return 1u;
     case BS_WALK: return 0x1111u;
@@ -160,14 +160,14 @@ static int bass_note(const song_roll_t *r, int style, const lib_pattern_t *p, in
         }
     }
     case BS_ROOT_FIFTH:
-        if (step != 0 && !((p->hit[D_KICK] >> step) & 1)) return 0;
+        if (step != 0 && !((lib_lane_hits(p, D_KICK, bar) >> step) & 1)) return 0;
         if (step == 8 || step == 10) {
             int f = root + fifth > BASS_HI ? root + fifth - 12 : root + fifth;
             return rubs_chord(f, pcs, npcs) ? root : f;
         }
         return root;
     default:                              /* BS_ROOTS: the root on kick hits */
-        return (p->hit[D_KICK] >> step) & 1 ? root : 0;
+        return (lib_lane_hits(p, D_KICK, bar) >> step) & 1 ? root : 0;
     }
 }
 
@@ -264,8 +264,8 @@ int groove_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, 
                 hit = (bar * 16 + step) % 3 == 0;
                 ghost = 0;
             } else {
-                hit = (p->hit[lane] >> step) & 1;
-                ghost = !hit && ((p->ghost[lane] >> step) & 1);
+                hit = (lib_lane_hits(p, lane, bar) >> step) & 1;
+                ghost = !hit && ((lib_lane_ghosts(p, lane, bar) >> step) & 1);
             }
             if (eighths && (lane == D_HAT || lane == D_SHAKER) && (step & 1)) hit = ghost = 0;
             if (fill && step >= 12 && (lane == D_SNARE || (lane == D_KICK && step == 14))) hit = ghost = 0;

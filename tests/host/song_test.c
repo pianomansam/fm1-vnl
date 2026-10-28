@@ -8966,6 +8966,78 @@ static void test_strum_same(void)
     v = (uint32_t)sf_last_bad();
     CHECK(v == 0, "strum same: %u strummed bars left the keys' last voicing behind", (unsigned)v);
 }
+/* the workbench hooks (default off): a custom set swaps instruments, a two-bar pattern plays bar B on odd bars */
+static void test_wb_set(void)
+{
+    static song_t s;
+    static lib_set_t cs;
+    song_ev_t ev[64];
+    song_roll_t r;
+    int lead = 0;
+    roll_song(NULL, 5, &r);
+    cs = *lib_set_by_id(21);
+    cs.id = LIB_SET_WB;
+    cs.lead = INS_SAX;
+    lib_set_wb(&cs);
+    r.v[RF_SET] = LIB_SET_WB;
+    CHECK(lib_set_by_id(LIB_SET_WB) && lib_set_by_id(LIB_SET_WB)->lead == INS_SAX, "wb set: the custom set is not served");
+    song_start(&s, &r);
+    while (s.state == SS_PLAYING) {
+        int i, n = song_tick(&s, ev, 64);
+        for (i = 0; i < n; i++) lead += ev[i].voice == V_LEAD;
+    }
+    CHECK(lead > 0, "wb set: the song played no lead events");
+    lib_set_wb(NULL);
+    CHECK(lib_set_by_id(LIB_SET_WB) == NULL, "wb set: the custom set stays after being cleared");
+}
+static int wb_kick_bad(int two_bar)
+{
+    static song_t s;
+    static lib_pattern_t cp;
+    song_ev_t ev[64];
+    song_roll_t r;
+    int bad = 0, seen = 0;
+    unsigned kicks[512] = {0};
+    roll_song(NULL, 5, &r);
+    cp = *lib_pattern_by_id((uint8_t)r.v[RF_PATTERN]);
+    cp.id = LIB_PATTERN_WB;
+    cp.hit[D_KICK] = 0x0401u; cp.ghost[D_KICK] = 0;
+    cp.two_bar = (uint8_t)two_bar;
+    cp.hit_b[D_KICK] = 0x0481u; cp.ghost_b[D_KICK] = 0;
+    lib_pattern_wb(&cp);
+    r.v[RF_PATTERN] = LIB_PATTERN_WB;
+    song_start(&s, &r);
+    while (s.state == SS_PLAYING) {
+        int i, n, bar = s.bar, step = s.step;
+        n = song_tick(&s, ev, 64);
+        for (i = 0; i < n; i++)
+            if (ev[i].voice == V_KICK && bar < 512) kicks[bar] |= 1u << step;
+    }
+    for (int bar = 0; bar < r.v[RF_BARS] && bar < 512; bar++) {
+        const plan_block_t *b = plan_at(&s.plan, bar);
+        int last = b && bar == b->start + b->bars - 1;
+        if (!b || !(b->layers & L_KICK) || (last && (b->flags & (PB_DROP_LAST | PB_FILL_LAST)))) continue;
+        seen++;
+        bad += kicks[bar] != ((two_bar && (bar & 1)) ? 0x0481u : 0x0401u);
+    }
+    lib_pattern_wb(NULL);
+    return seen > 4 ? bad : 1000;
+}
+static void test_wb_two_bar(void)
+{
+    int a = wb_kick_bad(1), b = wb_kick_bad(0);
+    CHECK(a == 0, "wb two bar: %d bars missed the A/B kick steps", a);
+    CHECK(b == 0, "wb two bar: %d bars missed bar A's kick steps with two_bar off", b);
+    CHECK(lib_pattern_by_id(LIB_PATTERN_WB) == NULL, "wb two bar: the custom pattern stays after being cleared");
+}
+static void test_wb_off(void)
+{
+    uint32_t a, b;
+    lib_set_wb(NULL); lib_pattern_wb(NULL);
+    a = sf_songs(0); b = sf_songs(1);
+    CHECK(a == 0xa1a8e201u, "wb off: the strummed songs hash %08x, wanted a1a8e201", (unsigned)a);
+    CHECK(b == 0x3910eb79u, "wb off: with set changes %08x, wanted 3910eb79", (unsigned)b);
+}
 /* a steal of a damped string (the final review): six strings struck, the first two re-struck at once (their last
    notes damped on the 2 spare voices), then a plain chord note (no string: a stab after a set change) while they
    fade: it steals a damped spare and must start once the fade ends (it was lost: the damp's end turned the voice
@@ -10355,6 +10427,9 @@ int main(int argc, char **argv)
     RUN(test_strum);
     RUN(test_strum_lead);
     RUN(test_strum_same);
+    RUN(test_wb_set);
+    RUN(test_wb_two_bar);
+    RUN(test_wb_off);
     RUN(test_samples_table);
     RUN(test_samp_seams);
     RUN(test_samp);
