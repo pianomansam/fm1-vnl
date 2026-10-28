@@ -301,6 +301,9 @@ static void mud_coefs(float *c, float hz, float sr)
     c[2] = (1.0f - al) * a0;
 }
 static float cg = 1.0f;     /* the chords' dry scale, toward fx_chorus_dry() */
+/* The vibes as the lead plan phrases (cf0dca0), fewer notes a bar than the hybrid's arpeggio: up 1.5 dB to keep the
+   lead over the keys */
+#define VIBES_LEAD_G 1.19f
 static float keys_g = 1.0f; /* the song's keys level for its comping (keys_gain) */
 /* The keys' duck under the lead (Sam: "the lead leads"): while a lead note's gate is open the chords' bus dips
    DUCK_DB, a follower at the chunk rate (a one-pole toward 1 with a note held, else 0: about 25 ms in, 400 ms out,
@@ -471,15 +474,17 @@ static float keys_gain(const song_roll_t *r)
     const lib_prog_t *pg = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
     int style = harmony_style(r), ins = s ? s->chords : INS_NONE, two = pg && pg->bars_per_chord >= 2;
     int gtr = ins == INS_NYLON || ins == INS_EMILY;
-    float db = 0.0f;
+    /* held and half notes with no arpeggio in the draw (3025034, cf0dca0) carry more energy: the Rhodes, Wurli and
+       guitars 0.75 dB down, the DX as it was, the Knight 0.75 dB up (its pad sat too close) */
+    float db = 0.0f, cut = ins == INS_KNIGHT ? 0.75f : ins == INS_DX_EP ? 0.0f : -0.75f;
     if (style == CS_HALF && !harmony_half_strikes(r)) /* half notes that hold (half_held) sit as held */
         style = CS_HELD;
     if (lib_ins_sustained(ins))
         db = style == CS_ARP ? 3.0f : 2.5f;   /* held: +2.5 for the softer strikes (Sam) */
     else if (style == CS_HELD)
-        db = two ? 6.75f : 6.0f;   /* +2.25: the softer strikes (Sam) */
+        db = (two ? 6.75f : 6.0f) + cut;   /* +2.25: the softer strikes (Sam) */
     else if (style == CS_HALF)
-        db = gtr ? 3.5f : 3.0f;   /* a guitar's half notes a little up (struck softly, they sank under a struck lead) */
+        db = (gtr ? 3.5f : 3.0f) + cut;   /* a guitar's half notes a little up (struck softly, they sank under a struck lead) */
     else if (style == CS_STABS)
         db = (two ? 2.75f : 2.0f) - (ins == INS_KNIGHT ? 3.0f : gtr ? 1.0f : 0.0f);   /* struck harder (vel 60-85),
                                                     so 4 dB under held; the Knight's hammer 3 dB more, a guitar's
@@ -487,7 +492,7 @@ static float keys_gain(const song_roll_t *r)
     else if (style == CS_ARP)
         db = -0.25f;
     else if (style == CS_STRUM)   /* struck harder, many strokes a bar: under the arpeggio; the ballad's three less */
-        db = strum_pattern(r, NULL) == SP_BALLAD ? -1.5f : -3.0f;
+        db = strum_pattern(r, NULL) == SP_BALLAD ? -3.0f : -4.5f;
     return fm_db2lin(db);
 }
 
@@ -593,7 +598,8 @@ static void env_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int l
     v->kr = k_t60(p->rel / dv);
     v->amp_t = ROLES[v->role].gain * p->level * (float)e->vel * (1.0f / 127.0f) *
                (v->role == V_CHORD ? keys_g : solo_lvl(v, p)) *
-               (p->model == M_SAMP && v->role == V_LEAD ? SAMP_LEAD[(int)p->p[0] % SB_N] : 1.0f);
+               (p->model == M_SAMP && v->role == V_LEAD ? SAMP_LEAD[(int)p->p[0] % SB_N] : 1.0f) *
+               (v->role == V_LEAD && cfg.lead == INS_VIBES ? VIBES_LEAD_G : 1.0f);
     /* (the solo lane's own voice slews, so its legato notes ramp to their velocity's level: lane_legato) */
     v->slew = (uint8_t)(v->role == V_BASS || mono_lead(p, v->role) ||
                         (v->role == V_PAD && p->model != M_ENS));

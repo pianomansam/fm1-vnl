@@ -1090,13 +1090,15 @@ static void test_harmony(void)
    lead thins it to step 0 of every bar, held a bar; sustained keys hold. */
 static void test_comp_styles(void)
 {
-    static const uint8_t OLD[5] = {44, 0, 0, 0, 36};   /* arpeggio 0 since 3025034 (Sam: it sounds very synthetic) */
-    static const uint8_t W[3][6] = {{44, 0, 0, 0, 36, 0}, {35, 25, 0, 0, 25, 0}, {20, 20, 0, 0, 15, 30}};   /* no arpeggio: guitars cf0dca0, keys 3025034 (Sam) */
+    /* arpeggio 0 since 3025034 (Sam: it sounds very synthetic) */
+    static const uint8_t OLD[5] = {44, 0, 0, 0, 36};
+    /* no arpeggio: guitars cf0dca0, keys 3025034 (Sam) */
+    static const uint8_t W[3][6] = {{44, 0, 0, 0, 36, 0}, {35, 25, 0, 0, 25, 0}, {20, 20, 0, 0, 15, 30}};
     static const uint8_t SLOW[6] = {0, 20, 0, 0, 35, 30};
     static const int inss[3] = {INS_DX_EP, INS_KNIGHT, INS_EMILY};
     long cnt[3][6] = {{0}}, gcnt[6] = {0}, scnt[6] = {0}, ecnt[6] = {0};
     song_roll_t r;
-    int k, i, seed, n = 500, bad_old = 0, bad_gtr = 0;
+    int k, i, seed, n = 500, bad_old = 0, bad_gtr = 0, gsum = 0, ssum = 0;
     CHECK(lib_ins_sampled_struck(INS_KNIGHT) && lib_ins_sampled_struck(INS_NYLON) &&
           lib_ins_sampled_struck(INS_EMILY) && !lib_ins_sampled_struck(INS_DX_EP) &&
           !lib_ins_sampled_struck(INS_PAD), "comp styles: lib_ins_sampled_struck");
@@ -1142,10 +1144,11 @@ static void test_comp_styles(void)
             CHECK(pct >= want - 5 && pct <= want + 5, "comp styles: ins %d style %d is %ld%%, wanted %ld%%", i, k, pct, want);
         }
     }
+    for (k = 0; k < 6; k++) gsum += W[2][k], ssum += SLOW[k];   /* the weights no longer sum to 100 */
     for (k = 0; k < 6; k++) {
-        long pct = gcnt[k] * 100 / n, want = W[2][k] * 100 / 85;   /* weights sum to 85 now, not 100 */
+        long pct = gcnt[k] * 100 / n, want = W[2][k] * 100 / gsum;
         CHECK(pct >= want - 5 && pct <= want + 5, "comp styles: nylon style %d is %ld%%, wanted %ld%%", k, pct, want);
-        pct = scnt[k] * 100 / n; want = SLOW[k] * 100 / 85;
+        pct = scnt[k] * 100 / n; want = SLOW[k] * 100 / ssum;
         CHECK(pct >= want - 5 && pct <= want + 5, "comp styles: slow nylon style %d is %ld%%, wanted %ld%%", k, pct, want);
         pct = ecnt[k] * 100 / n;
         CHECK(pct >= want - 5 && pct <= want + 5, "comp styles: slow emily style %d is %ld%%, wanted %ld%%", k, pct, want);
@@ -3491,7 +3494,8 @@ static void test_hybrid_follows_motion(void)
         prev = r;
         set = lib_set_by_id((uint8_t)r.v[RF_SET]);
         m = r.v[RF_MOTION];
-        if (!set || lib_ins_sustained(set->lead) || set->lead == INS_VIBES || (m > 35 && m < 65)) continue;   /* (cf0dca0, Sam: the vibes plan phrases like the sustained leads, not the hybrid) */
+        /* (cf0dca0, Sam: the vibes plan phrases like the sustained leads, not the hybrid) */
+        if (!set || lib_ins_sustained(set->lead) || set->lead == INS_VIBES || (m > 35 && m < 65)) continue;
         hi = m >= 65;
         pr = lib_prog_by_id((uint8_t)r.v[RF_PROG]);
         bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1;
@@ -6948,7 +6952,7 @@ static void test_lead_over_keys(void)
             mean += x;
             lo = fm_minf(lo, x);
             hi = fm_maxf(hi, x);
-            CHECK(x >= 5.0f, "lead over keys: %s seed %u's lead %.1f dB over its keys, wanted 5 at least", t->name,
+            CHECK(x >= 6.0f, "lead over keys: %s seed %u's lead %.1f dB over its keys, wanted 6 at least", t->name,
                   (unsigned)seed, (double)x);
         }
         CHECK(got == LK_PER, "lead over keys: only %d songs found for %s", got, t->name);
@@ -6960,12 +6964,8 @@ static void test_lead_over_keys(void)
         smed = got & 1 ? ss[got / 2] : 0.5f * (ss[got / 2 - 1] + ss[got / 2]);
         printf("lead over keys: %-21s mean %+.1f median %+.1f (%+.1f..%+.1f) dB\n", t->name, (double)mean,
                (double)smed, (double)lo, (double)hi);
-        /* floors lowered 1 dB, 0.5 dB on the median (were 6 a song, 8 mean, 8 median): the keys' comping without the
-           16th arpeggio (guitars cf0dca0, keys 3025034, Sam) strikes held chords and strums that carry more energy,
-           and the vibes' phrase planner (cf0dca0) plays fewer notes a bar than the hybrid did (its velocities are
-           lifted in lead.c so it is not 4-5 dB quieter) */
-        CHECK(mean >= 7.0f && mean <= 10.5f, "lead over keys: %s's mean %.1f dB, wanted 7-10.5 (Sam: the comping quieter)", t->name, (double)mean);
-        CHECK(smed >= 7.5f && smed <= 10.0f, "lead over keys: %s's median %.1f dB, wanted 7.5-10", t->name, (double)smed);
+        CHECK(mean >= 8.0f && mean <= 10.5f, "lead over keys: %s's mean %.1f dB, wanted 8-10.5 (Sam: the comping quieter)", t->name, (double)mean);
+        CHECK(smed >= 8.0f && smed <= 10.0f, "lead over keys: %s's median %.1f dB, wanted 8-10", t->name, (double)smed);
     }
     memcpy(sorted, d, (size_t)n * sizeof sorted[0]);
     qsort(sorted, (size_t)n, sizeof sorted[0], lk_cmp_f);
@@ -7028,9 +7028,8 @@ static void test_pad_level(void)
         smed = got & 1 ? ss[got / 2] : 0.5f * (ss[got / 2 - 1] + ss[got / 2]);
         printf("pad level: %-21s chord part under the keys: mean %.1f median %.1f (%.1f..%.1f) dB\n", t->name,
                (double)mean, (double)smed, (double)lo, (double)hi);
-        /* 6.5-11.5 (was 7-11): the keys' comping with no 16th arpeggio (3025034, Sam) moved a few sets by under 0.5 dB */
-        CHECK(mean >= 6.5f && mean <= 11.5f, "pad level: %s's mean %.1f dB under, wanted 6.5-11.5", t->name, (double)mean);
-        CHECK(smed >= 6.5f && smed <= 11.5f, "pad level: %s's median %.1f dB under, wanted 6.5-11.5", t->name, (double)smed);
+        CHECK(mean >= 7.0f && mean <= 11.0f, "pad level: %s's mean %.1f dB under, wanted 7-11", t->name, (double)mean);
+        CHECK(smed >= 7.0f && smed <= 11.0f, "pad level: %s's median %.1f dB under, wanted 7-11", t->name, (double)smed);
     }
     CHECK(sets >= 10, "pad level: only %d sets with percussive keys", sets);
     memcpy(sorted, d, (size_t)n * sizeof sorted[0]);
@@ -8699,7 +8698,8 @@ static int pdbl_play(const song_roll_t *r, int *bad, int *notes)
 }
 static void test_pad_double(void)
 {
-    static const uint32_t SEED[3] = {1003u, 1007u, 1008u};   /* 1003 for 1001: no 16th arpeggio since 3025034 moved the style draws */
+    /* 1003 for 1001: no 16th arpeggio since 3025034 moved the style draws */
+    static const uint32_t SEED[3] = {1003u, 1007u, 1008u};
     static const int SET[3] = {1, 4, 19};
     int k;
     for (k = 0; k < 3; k++) {
@@ -9067,7 +9067,9 @@ static void test_strum_lead(void)
     CHECK(under > 50 && n[0] > 50, "strum lead: %d strum and %d held songs", under, n[0]);
     CHECK(wide * 10 >= under * 9, "strum lead: the lead spans 7 or more in only %d of %d strum songs", wide, under);
     CHECK(few == 0, "strum lead: %d strum songs with a lead of under 3 pitches", few);
-    CHECK(n[0] && n[1] && lows[1][n[1] / 2] <= lows[0][n[0] / 2] + 2,   /* +2 (was +1): no guitar or keys arpeggio (cf0dca0, 3025034) moved the held songs' sample */
+    /* +2 (was +1): the strum songs' median is 73 at a162c90 and now; the held and half songs' went 72 to 71 (a sample of
+       about 110) when the guitar and keys arpeggio draws (cf0dca0, 3025034) moved into held and half */
+    CHECK(n[0] && n[1] && lows[1][n[1] / 2] <= lows[0][n[0] / 2] + 2,
           "strum lead: the strum songs' lowest lead note's median %d, the held songs' %d", n[1] ? lows[1][n[1] / 2] : 0,
           n[0] ? lows[0][n[0] / 2] : 0);
 }

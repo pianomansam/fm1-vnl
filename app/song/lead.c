@@ -422,7 +422,8 @@ static void plan_phrase(lead_state_t *ls, const ctx_t *c, const plan_block_t *b,
         v += len <= 4 ? 28 : len <= 6 ? 14 : 0;   /* a short note sounds less of its swell */
         if (!c->pad && !c->cello && note < 76)           /* low: among percussive keys (the cello: its patch's level) */
             v += 76 - note + (note < 72 ? 72 - note : 0);
-        if (c->vibes) v += 60;                           /* struck: the planner's swell levels sit 4-5 dB under the keys */
+        if (c->vibes) v = 94 + (v - 52) / 3;             /* struck, not swelled: the hybrid played them at 106-110; the
+                                                            arc is kept in 94-110 (set 8, 26 listening: Sam to hear) */
         if (tl[i].role == PR_ARRIVAL) v -= 8;            /* softening into the arrival */
         else if (tl[i].role == PR_CLOSE && tl[i].t >= 96) v -= 4;
         ls->vel[t] = (uint8_t)(v > 110 ? 110 : v);
