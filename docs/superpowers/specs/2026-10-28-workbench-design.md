@@ -25,6 +25,10 @@ works, and Claude can read that feedback and rebuild the exact song he heard.
   - **Song:** seed, key/mode, tempo, swing, mood, motion, arrangement map, progression, color.
   - **Instruments:** family (acoustic, synth; electric goes with either), keys, comping style, lead, bass, pad,
     ear candy.
+  - **Voicing and phrase (re-rolls, Sam: "rerolls is good"):** 🎲 the lead's phrase (same instrument, a new motif,
+    rhythm and contour), with dropdowns for the lead's style (phrase or hybrid) and register; 🎲 the keys' voicings
+    for the whole song (still rootless, voice-led, no semitone rubs), with dropdowns for chord color, the voicings'
+    register and the pad's place against the lead. No hand-editing of single chords or notes.
   - **Drums:** kit, pattern, kick phrase, ride section. A button opens the drum screen.
   - **Texture:** the bed (dust, vinyl, rain).
 - **Changes land at the next bar** without restarting the song (Claude's call; Sam agreed the plan "sounds good").
