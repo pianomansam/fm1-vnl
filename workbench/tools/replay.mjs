@@ -9,7 +9,7 @@ import { Desk } from "../desk.js";
 
 const SR = 44100, Q = 128;
 const here = (p) => new URL(p, import.meta.url);
-const JSON_EXPORTS = new Set(["wb_consts", "wb_state", "wb_library"]);
+const JSON_EXPORTS = new Set(["wb_consts", "wb_state", "wb_live_state", "wb_library"]);
 
 async function load() {
   let mem;

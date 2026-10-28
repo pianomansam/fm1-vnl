@@ -30,6 +30,10 @@ AudioWorklet. Local only; not the FM-1, so it may exceed the device's budgets.
   (every row, the locks, the seed; `desk.snapshot()` / `desk.restore()`), where the song was, and the log of every applied
   change. Entries queue in localStorage while the server is down (the page says "not saved yet") and are resent.
   `node workbench/tools/replay.mjs <line number | snapshot.json> out.wav [seconds]` renders one through wb.wasm.
+  The snapshot is the song being heard (a change still waiting for its bar line is under `pending`); `changes` are those
+  since the previous entry, stamped with the position at the click; entries carry an id the server won't write twice;
+  ones the server refuses (4xx) are kept in the browser's `wb-feedback-dead`. The server takes POSTs only from its own
+  page (Host, Origin and a JSON content type are checked).
 - `server.py` also takes `POST /feedback`, `/kit` and `/pattern` (names `[a-z0-9-]{1,40}`, bodies up to 1 MB), writing
   only under `workbench/`; its tests: `python3 workbench/tools/test_server.py`.
 - `server.py` serves the build first, then `workbench/` (kits, patterns, samples, options.json).

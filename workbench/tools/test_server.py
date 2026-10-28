@@ -32,9 +32,9 @@ class T(unittest.TestCase):
         cls.srv.server_close()
         cls.tmp.cleanup()
 
-    def post(self, path, body, raw=None):
+    def post(self, path, body, raw=None, headers=None):
         c = http.client.HTTPConnection("127.0.0.1", self.srv.server_address[1])
-        c.request("POST", path, raw if raw is not None else json.dumps(body), {"Content-Type": "application/json"})
+        c.request("POST", path, raw if raw is not None else json.dumps(body), {"Content-Type": "application/json", **(headers or {})})
         r = c.getresponse()
         out = r.status, json.loads(r.read())
         c.close()
@@ -56,11 +56,28 @@ class T(unittest.TestCase):
         self.assertEqual(self.post("/kit", {}, )[0], 400)
         self.assertEqual([p.name for p in (server.DATA / "kits").iterdir()], ["my-kit-2.json"])
 
+    def test_same_id_written_once(self):
+        for _ in range(2):
+            self.assertEqual(self.post("/feedback", {"id": "x-1", "note": "once"})[0], 200)
+        lines = (server.DATA / "feedback.jsonl").read_text(encoding="utf-8").splitlines()
+        self.assertEqual(sum('"x-1"' in x for x in lines), 1)
+
+    def test_only_this_page(self):
+        port = self.srv.server_address[1]
+        self.assertEqual(self.post("/feedback", None, raw="{}", headers={"Content-Type": "text/plain"})[0], 415)
+        self.assertEqual(self.post("/feedback", {}, headers={"Origin": "https://evil.example"})[0], 403)
+        self.assertEqual(self.post("/feedback", {}, headers={"Origin": "null"})[0], 403)
+        self.assertEqual(self.post("/feedback", {}, headers={"Host": "evil.example:%d" % port})[0], 403)
+        self.assertEqual(self.post("/feedback", {}, headers={"Host": "127.0.0.1:1"})[0], 403)
+        self.assertEqual(self.post("/feedback", {}, headers={"Origin": f"http://localhost:{port}", "Host": f"localhost:{port}"})[0], 200)
+        self.assertEqual(self.post("/kit", {"name": "k"}, headers={"Origin": "http://evil.example"})[0], 403)
+
     def test_bad_requests(self):
         self.assertEqual(self.post("/feedback", None, raw="nope")[0], 400)
         self.assertEqual(self.post("/feedback", None, raw="[1]")[0], 400)
         c = http.client.HTTPConnection("127.0.0.1", self.srv.server_address[1])   # the claim alone is refused
         c.putrequest("POST", "/feedback")
+        c.putheader("Content-Type", "application/json")
         c.putheader("Content-Length", str(server.MAX_BODY + 1))
         c.endheaders()
         r = c.getresponse()

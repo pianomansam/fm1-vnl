@@ -189,11 +189,18 @@ export class Desk {
     return this.done(true, notes.join(" "));
   }
 
-  // Everything a replay needs (version 1; later tasks add to it): every row's value, the locks and hand edits, the
-  // seed. "drums" is the home of any drum state the rows don't hold (the kit, pattern and kick are rows already).
-  snapshot() {
-    return { version: 1, rows: { ...this.values }, locks: [...this.locks], hand: [...this.hand], seed: this.values.seed,
-             drums: {} };
+  // Everything a replay needs (version 1; later tasks add to it): the rows of the song being HEARD (the engine's live
+  // state: a change still waiting for its bar line isn't in it), those of the waiting commit (pending, or null), the
+  // locks and hand edits, the seed. "drums" is the home of any drum state the rows don't hold (the kit, pattern and
+  // kick are rows already; Tasks 8-10 fill it).
+  async snapshot() {
+    const pending = (await this.call("wb_pending")) ? { ...this.values } : null;
+    let rows = { ...this.values };
+    if (pending) {
+      rows = fromEngine(await this.call("wb_live_state"), this.C, this.opts);
+      rows.family = familyOf(rows, this.opts);
+    }
+    return { version: 1, rows, pending, locks: [...this.locks], hand: [...this.hand], seed: rows.seed, drums: {} };
   }
 
   // Put a snapshot's state on the engine (staged, then committed) as the page's own stagings would; the rows that

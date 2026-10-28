@@ -5,6 +5,7 @@ Serves the build (app/build/workbench/: the page and wb.wasm) and, behind it, wo
 options.json). It writes only under workbench/: POST /feedback appends a line to feedback.jsonl, POST /kit and
 POST /pattern ({"name": ..., ...}) write kits/<name>.json and patterns/<name>.json."""
 import json
+import os
 import re
 import sys
 import threading
@@ -18,6 +19,7 @@ ROOTS = (REPO / "app" / "build" / "workbench", DATA)
 MAX_BODY = 1 << 20                 # a request body over 1 MB is refused
 NAME = re.compile(r"[a-z0-9-]{1,40}")
 WRITE = threading.Lock()
+SEEN = {}                          # feedback.jsonl's entry ids (read once), so a resent entry isn't written twice
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -45,10 +47,23 @@ class Handler(SimpleHTTPRequestHandler):
         route = self.path.split("?")[0]
         if route not in ("/feedback", "/kit", "/pattern"):
             return self.reply(404, {"ok": False, "error": "no such route"})
-        try:
-            size = int(self.headers.get("Content-Length", ""))
-        except ValueError:
+        # only this page: a web page elsewhere can POST here too (a simple request, or DNS rebinding), so the Host, the
+        # Origin (if sent) and a JSON content type (which a cross-site form can't send) must all be ours
+        port = self.server.server_address[1]
+        hosts = (f"127.0.0.1:{port}", f"localhost:{port}")
+        origin = self.headers.get("Origin")
+        if self.headers.get("Host") not in hosts or (origin is not None and origin not in [f"http://{h}" for h in hosts]):
+            return self.reply(403, {"ok": False, "error": "not this page"})
+        if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+            return self.reply(415, {"ok": False, "error": "Content-Type must be application/json"})
+        if self.headers.get("Content-Length") is None:
             return self.reply(411, {"ok": False, "error": "Content-Length required"})
+        try:
+            size = int(self.headers["Content-Length"])
+        except ValueError:
+            size = -1
+        if size < 0:
+            return self.reply(400, {"ok": False, "error": "bad Content-Length"})
         if size > MAX_BODY:
             return self.reply(413, {"ok": False, "error": "body over 1 MB"})
         try:
@@ -58,8 +73,21 @@ class Handler(SimpleHTTPRequestHandler):
         if not isinstance(body, dict):
             return self.reply(400, {"ok": False, "error": "expected a JSON object"})
         if route == "/feedback":
-            with WRITE, open(DATA / "feedback.jsonl", "a", encoding="utf-8") as f:
-                f.write(json.dumps(body, separators=(",", ":")) + "\n")
+            path = DATA / "feedback.jsonl"
+            with WRITE:
+                if path not in SEEN:
+                    SEEN[path] = set()
+                    if path.exists():
+                        for line in path.read_text(encoding="utf-8").splitlines():
+                            try:
+                                SEEN[path].add(json.loads(line).get("id"))
+                            except ValueError:
+                                pass
+                eid = body.get("id")
+                if eid is None or eid not in SEEN[path]:
+                    with open(path, "a", encoding="utf-8") as f:
+                        f.write(json.dumps(body, separators=(",", ":")) + "\n")
+                    SEEN[path].add(eid)
             return self.reply(200, {"ok": True})
         name = body.get("name")
         if not isinstance(name, str) or not NAME.fullmatch(name):
@@ -67,7 +95,9 @@ class Handler(SimpleHTTPRequestHandler):
         folder = DATA / (route[1:] + "s")
         with WRITE:
             folder.mkdir(exist_ok=True)
-            (folder / f"{name}.json").write_text(json.dumps(body, indent=1) + "\n", encoding="utf-8")
+            tmp = folder / f".{name}.tmp"
+            tmp.write_text(json.dumps(body, indent=1) + "\n", encoding="utf-8")
+            os.replace(tmp, folder / f"{name}.json")
         self.reply(200, {"ok": True})
 
     def end_headers(self):

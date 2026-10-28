@@ -78,7 +78,7 @@
   import { Desk } from "./desk.js";
   const $ = (id) => document.getElementById(id);
   const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
-  let playing = false, desk = null, lib = null, pos = { seconds: 0, bar: 0 };
+  let playing = false, desk = null, lib = null, pos = { seconds: 0, bar: 0 }, sentChanges = 0;
 
   // one change at a time: clicks queue behind the one in flight
   let queue = Promise.resolve();
@@ -180,16 +180,19 @@
 
   // feedback: the snapshot, where the song was, the change log and the note; queued and sent (wb.js)
   function sync(s) {
-    $("fb").textContent = s.saved ? "Saved." : `Not saved yet: the server isn't answering (${s.queued} waiting, retrying).`;
-    $("fb").classList.toggle("unsaved", !s.saved);
+    const dead = s.dead ? ` ${s.dead} refused by the server (kept in this browser, not saved).` : "";
+    $("fb").textContent = (s.saved ? "Saved." : `Not saved yet: the server isn't answering (${s.queued} waiting, retrying).`) + dead;
+    $("fb").classList.toggle("unsaved", !s.saved || !!s.dead);
   }
   async function feedback(about, rating) {
     const note = $("note").value.trim();
     if (!desk || (!rating && !note)) return;
     $("note").value = "";
     sync({ saved: false, queued: wb.queued() + 1 });
-    sync(await wb.sendFeedback({ time: new Date().toISOString(), snapshot: desk.snapshot(),
-      position: { seconds: pos.seconds, bar: pos.bar }, about, rating, note, changes: desk.changes.slice() }));
+    const changes = desk.changes.slice(sentChanges);   // the ones since the last entry; the position is the click's
+    sentChanges = desk.changes.length;
+    sync(await wb.sendFeedback({ time: new Date().toISOString(), snapshot: await desk.snapshot(),
+      position: { seconds: pos.seconds, bar: pos.bar }, about, rating, note, changes }));
   }
   $("up").onclick = () => feedback("song", "up");
   $("down").onclick = () => feedback("song", "down");

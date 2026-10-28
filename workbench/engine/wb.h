@@ -50,6 +50,8 @@ int wb_bars(void);
 float wb_seconds(void);                 /* the song's time at the sample last rendered */
 int wb_catchups(void);                  /* wb_apply's landings since wb_init (tests) */
 int wb_live_get(int field);             /* the song playing: a roll field (RF_N: the seed) */
+const char *wb_live_state(void);         /* JSON: wb_state's fields for the song being heard (not the staged one) */
+int wb_pending(void);                    /* 1: a commit is waiting for its bar line */
 const char *wb_state(void);             /* JSON: the staged seed, roll, roles, overrides, kit, pattern, kick phrase */
 const char *wb_library(void);           /* JSON: the library's maps and progressions */
 const char *wb_consts(void);            /* JSON: the RF_*, WB_OV_* and V_* indices and LIB_SET_WB, for the page */

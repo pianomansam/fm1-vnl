@@ -235,7 +235,7 @@ const enumOf = (first) => {   // the enum whose first name is `first`: its names
   return body.replace(/\/\*[\s\S]*?\*\//g, "").replace(/enum \{/, "").split(",").map((x) => x.trim()).filter(Boolean);
 };
 const lcg = (s) => () => ((s = (s * 1103515245 + 12345) >>> 0) / 4294967296);
-const STR = new Set(["wb_consts", "wb_state", "wb_library"]);
+const STR = new Set(["wb_consts", "wb_state", "wb_live_state", "wb_library"]);
 // the page's call (the worklet's): JSON exports parsed, wb_stage_bytes a copy of the staged state
 const caller = (ex) => async (fn, ...a) => {
   if (fn === "wb_stage_bytes") return new Uint8Array(ex.memory.buffer, ex.wb_stage_ptr(), ex.wb_stage_size()).slice();
@@ -521,7 +521,7 @@ console.log("feedback: snapshots, replay, the queue");
   await desk.set("keys", ins("Wurli"));
   await desk.dice("leadStyle");
   desk.lock("tempo", true);
-  const snap = desk.snapshot();
+  const snap = await desk.snapshot();
   const ch = desk.changes;
   check(snap.version === 1 && snap.seed === 77 && snap.locks.includes("tempo") && ROWS.every((r) => snap.rows[r.id] !== undefined),
         "the snapshot holds every row, the locks and the seed, with a version");
@@ -535,6 +535,27 @@ console.log("feedback: snapshots, replay, the queue");
   check(!a.mismatch.length && same(a, b), `a snapshot replayed twice gives identical WAV bytes (${wav(a).length} B; mismatch: ${a.mismatch.join(",") || "none"})`);
   check(same(a, live), "... and they are the samples the page's engine plays from bar 1");
   check(db(a) > -45, `the replay is not silent (${db(a).toFixed(1)} dBFS)`);
+
+  // Review: a click just after a change snapshots what is heard, not the change still waiting for its bar line
+  {
+    const ex2 = await load(), call2 = caller(ex2);
+    ex2.wb_seed(21);
+    ex2.wb_apply();
+    ex2.wb_play(1);
+    render(ex2, 3 * Q);
+    const d2 = new Desk(call2, C, OPTS, await call2("wb_library"), { rnd: lcg(5), probe: await prober() });
+    await d2.read(true);
+    const before = await d2.snapshot(), t = d2.values.tempo, nt = t === 80 ? 75 : 80;
+    await d2.set("tempo", nt);
+    const mid = await d2.snapshot();
+    check(before.pending === null && mid.pending?.tempo === nt && mid.rows.tempo === t && mid.rows.family === d2.values.family,
+          `a snapshot before the bar line holds the heard state (tempo ${mid.rows.tempo}) and the waiting one (${mid.pending?.tempo})`);
+    until(ex2, () => ex2.wb_live_get(C.RF.TEMPO) === nt, 60 * SR);
+    const after = await d2.snapshot();
+    check(after.pending === null && after.rows.tempo === nt, "after the bar line the snapshot is the new state, nothing pending");
+    const pre = await replay(before, 4), midr = await replay(mid, 4), post = await replay(after, 4);
+    check(same(pre, midr) && !same(midr, post), "the snapshot taken before the bar line replays the pre-change song");
+  }
 
   // Review Focus 5: the server down, the entry stays queued, the page can say so, and it goes when the server returns
   const store = new Map(), storage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v) };
@@ -555,7 +576,12 @@ console.log("feedback: snapshots, replay, the queue");
   check(!still.saved && back[1].saved && queued(storage) === 0 && posted.map((p) => p.note).join() === "n1,n2",
         "server back: queued entries are resent once each, in order, and the queue empties");
   const bad = await sendFeedback(entry(3), { fetch: async () => ({ ok: false }), storage });
-  check(!bad.saved && queued(storage) === 1, "a refusing server (not ok) keeps the entry queued too");
+  check(!bad.saved && queued(storage) === 1, "a failing server (5xx) keeps the entry queued too");
+  const posts = [];
+  const four = await sendFeedback(entry(4), { fetch: async (u, o) => { const b = JSON.parse(o.body); posts.push(b); return b.note === "n3" ? { ok: false, status: 400 } : { ok: true }; }, storage });
+  check(four.saved && four.dead === 1 && queued(storage) === 0 && posts.map((p) => p.note).join() === "n3,n4",
+        "an entry the server refuses (4xx) goes to the dead letters and doesn't block the one behind it");
+  check(posts.every((p) => typeof p.id === "string" && p.id) && new Set(posts.map((p) => p.id)).size === 2, "every entry carries its own id");
 }
 
 console.log("options.json: statuses");

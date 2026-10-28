@@ -492,6 +492,19 @@ EXPORT const char *wb_state(void)
     return out_done(&o);
 }
 
+/* wb_state's JSON for the song being heard (live once it has landed, else the committed one) */
+EXPORT const char *wb_live_state(void)
+{
+    stage_t save = st;
+    const char *s;
+    st = cur_bar >= 0 ? live : com;
+    s = wb_state();
+    st = save;
+    return s;
+}
+
+EXPORT int wb_pending(void) { return apply_pend; }   /* a commit is waiting for its bar line */
+
 EXPORT const char *wb_library(void)
 {
     static char buf[8192];

@@ -63,32 +63,39 @@ export async function play(on) {
   return call("wb_play", on ? 1 : 0);
 }
 
-// Feedback: each entry is queued in localStorage and sent to the server (POST /feedback), oldest first; what the
-// server doesn't take stays queued and goes again on the next flush. { saved, queued }: saved when nothing is waiting.
-const QKEY = "wb-feedback-queue";
-let memQueue = [];   // the queue when localStorage can't be used
-const readQ = (s) => { try { return JSON.parse(s.getItem(QKEY) || "[]"); } catch { return memQueue; } };
-const writeQ = (s, q) => { memQueue = q; try { s.setItem(QKEY, JSON.stringify(q)); } catch { /* memQueue holds it */ } };
+// Feedback: each entry is queued in localStorage and sent to the server (POST /feedback), oldest first; what the server
+// can't take stays queued and goes again on the next flush. An entry the server refuses (a 4xx: it will never take it)
+// moves to a dead-letter key so it doesn't block the ones behind it. Each has an id: the server skips one it has
+// already written (a lost response). { saved, queued, dead }: saved when nothing is waiting; dead: entries refused.
+const QKEY = "wb-feedback-queue", DKEY = "wb-feedback-dead";
+const mem = { [QKEY]: [], [DKEY]: [] };   // the lists when localStorage can't be used
+const readL = (s, k) => { try { return JSON.parse(s.getItem(k) || "[]"); } catch { return mem[k]; } };
+const writeL = (s, k, q) => { mem[k] = q; try { s.setItem(k, JSON.stringify(q)); } catch { /* mem holds it */ } };
+let counter = 0;
 
-export function queued(storage = globalThis.localStorage) { return readQ(storage).length; }
+export function queued(storage = globalThis.localStorage) { return readL(storage, QKEY).length; }
 
 let flushing = Promise.resolve();   // one flush at a time, so an entry is never sent twice at once
 export function flushFeedback(opts = {}) { return (flushing = flushing.then(() => flushOnce(opts))); }
 
 async function flushOnce({ fetch: f = globalThis.fetch, storage = globalThis.localStorage } = {}) {
-  for (let q = readQ(storage); q.length; q = readQ(storage)) {
+  for (let q = readL(storage, QKEY); q.length; q = readL(storage, QKEY)) {
+    let status;
     try {
       const r = await f("/feedback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(q[0]) });
-      if (!r.ok) break;
+      status = r.ok ? 200 : r.status;
     } catch { break; }
-    writeQ(storage, readQ(storage).slice(1));
+    if (status !== 200 && !(status >= 400 && status < 500)) break;   // down or failing: try again later
+    if (status !== 200) writeL(storage, DKEY, [...readL(storage, DKEY), q[0]]);
+    writeL(storage, QKEY, readL(storage, QKEY).slice(1));
   }
-  const n = readQ(storage).length;
-  return { saved: n === 0, queued: n };
+  const n = readL(storage, QKEY).length;
+  return { saved: n === 0, queued: n, dead: readL(storage, DKEY).length };
 }
 
 export function sendFeedback(entry, opts = {}) {
   const storage = opts.storage ?? globalThis.localStorage;
-  writeQ(storage, [...readQ(storage), entry]);
+  const id = entry.id ?? `${entry.time}-${++counter}-${Math.random().toString(36).slice(2, 8)}`;
+  writeL(storage, QKEY, [...readL(storage, QKEY), { ...entry, id }]);
   return flushFeedback(opts);
 }
