@@ -245,6 +245,9 @@ int harmony_keys_oct(const song_roll_t *r)
     if (!d || !set) return 0;
     strum = harmony_style(r) == CS_STRUM;
     sh = strum ? 0 : lib_set_keys_shift(set) + (harmony_pad_place(r) != PL_BELOW ? 12 : 0);
+    song_ov_range(set->lead, &lo, &hi);
+    if (d > 0 && !keys_sustained(r) && hi < 94) return 0;   /* the lead sits a 4th over percussive keys: raised, they
+                                                               need a lead whose ceiling can rise with them (lead.c) */
     song_ov_range(set->chords, &lo, &hi);
     return (strum ? 40 : 48) + sh + d >= lo && 76 + sh + d <= hi ? d : 0;
 }

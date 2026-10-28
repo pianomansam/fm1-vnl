@@ -9051,7 +9051,11 @@ static void test_wb_off(void)
     CHECK(b == 0x3910eb79u, "wb off: with set changes %08x, wanted 3910eb79", (unsigned)b);
 }
 /* the workbench's per-song overrides (default off): each forces one choice, or re-rolls one part, and nothing else */
-typedef struct { uint32_t keys, drums, bass, lead; int nlead, nride, lead_free, kn, kmax; uint8_t kn_at[4096]; } ov_rec_t;
+typedef struct {
+    uint32_t keys, drums, bass, lead;
+    int nlead, nride, lead_free, kn, kmax, lmin, lmax, hybrid;   /* hybrid: the lead chose an arpeggio (plan_hybrid) */
+    uint8_t kn_at[4096];
+} ov_rec_t;
 static ov_rec_t OVA, OVB;
 static uint32_t ov_ev(uint32_t h, int t, const song_ev_t *e)
 {
@@ -9065,6 +9069,7 @@ static void ov_run(const song_roll_t *r, const song_ov_t *ov, ov_rec_t *o)
     song_ev_t ev[64];
     memset(o, 0, sizeof *o);
     o->keys = o->drums = o->bass = o->lead = 2166136261u;
+    o->lmin = 128;
     song_override(ov);
     song_start(&s, r);
     while (s.state == SS_PLAYING) {
@@ -9079,6 +9084,8 @@ static void ov_run(const song_roll_t *r, const song_ov_t *ov, ov_rec_t *o)
             else if (e->voice == V_LEAD) {
                 o->lead = ov_ev(o->lead, t, e);
                 o->nlead++;
+                if (e->note < o->lmin) o->lmin = e->note;
+                if (e->note > o->lmax) o->lmax = e->note;
                 o->lead_free += e->vel != 106 && e->vel != 110;   /* the phrase planner's sung velocities */
             } else if (e->voice >= V_KICK) {
                 o->drums = ov_ev(o->drums, t, e);
@@ -9086,6 +9093,7 @@ static void ov_run(const song_roll_t *r, const song_ov_t *ov, ov_rec_t *o)
             }
         }
     }
+    o->hybrid = s.lead.chosen;
     song_override(NULL);
 }
 static song_ov_t ov_none(void)
@@ -9136,8 +9144,10 @@ static void test_ov_lead_style(void)
         if (OVA.nlead > 0 && OVA.lead_free > 0) break;
     }
     CHECK(seed < 500, "ov lead style: no flute song with a sung lead in 500 seeds");
+    CHECK(!OVA.hybrid, "ov lead style: seed %u's flute chose an arpeggio unforced", (unsigned)seed);
     o.lead_style = 1;
     ov_run(&r, &o, &OVB);
+    CHECK(OVB.hybrid, "ov lead style: seed %u's flute never planned the hybrid's arpeggio", (unsigned)seed);
     CHECK(OVB.nlead > 0 && OVB.lead_free == 0, "ov lead style: seed %u's flute under the hybrid: %d notes, %d sung",
           (unsigned)seed, OVB.nlead, OVB.lead_free);
 }
@@ -9200,36 +9210,76 @@ static void test_ov_phrase_salt(void)
     CHECK(diff >= 30, "ov phrase salt: the lead changed in %d of 40 songs, want 30", diff);
     CHECK(same == 40, "ov phrase salt: the keys or drums changed in %d of 40 songs", 40 - same);
 }
-/* keys_oct +1: a Rhodes song's keys every one 12 up (comping held, so the lead's busy bars can't move a strike);
-   a nylon strum's shapes (E2-E5) have no octave left under its B5: unchanged */
+/* keys_oct +1 and -1: a Rhodes song's keys every one 12 up, then down (comping held, so the lead's busy bars can't
+   move a strike); a nylon strum's shapes (E2-E5) have no octave left under its B5: unchanged */
 static void test_ov_oct(void)
 {
     song_roll_t r;
     song_ov_t o = ov_none();
     uint32_t seed;
     int i, k, bad = 0, lo, hi;
-    for (k = 0; k < 2; k++) {
-        int want = k ? INS_NYLON : INS_RHODES;
+    for (k = 0; k < 3; k++) {
+        int want = k == 2 ? INS_NYLON : INS_RHODES, d = k == 2 ? 0 : k ? -12 : 12;
         for (seed = 1; seed < 2000; seed++) {
             const lib_set_t *st;
             roll_song(NULL, seed, &r);
             st = lib_set_by_id((uint8_t)r.v[RF_SET]);
-            if (st && st->chords == want && (k == 0 || harmony_style(&r) == CS_STRUM)) break;
+            if (!st || st->chords != want || (k == 2 && harmony_style(&r) != CS_STRUM)) continue;
+            o = ov_none();
+            o.comp = k == 2 ? -1 : CS_HELD;
+            o.keys_oct = k == 1 ? -1 : 1;
+            song_override(&o);
+            i = harmony_keys_oct(&r);
+            song_override(NULL);
+            if (i == d) break;
         }
         CHECK(seed < 2000, "ov oct: no song for instrument %d in 2000 seeds", want);
         o = ov_none();
-        o.comp = k ? -1 : CS_HELD;
+        o.comp = k == 2 ? -1 : CS_HELD;
         ov_run(&r, &o, &OVA);
-        o.keys_oct = 1;
+        o.keys_oct = k == 1 ? -1 : 1;
         ov_run(&r, &o, &OVB);
         song_ov_range(want, &lo, &hi);
         CHECK(OVA.kn > 0 && OVA.kn == OVB.kn, "ov oct: seed %u: %d keys notes, %d raised", (unsigned)seed, OVA.kn,
               OVB.kn);
         for (i = 0; i < OVA.kn && i < OVB.kn; i++)
-            bad += OVB.kn_at[i] != OVA.kn_at[i] + (k ? 0 : 12);
+            bad += OVB.kn_at[i] != OVA.kn_at[i] + d;
         CHECK(OVB.kmax <= hi, "ov oct: seed %u: a keys note %d past the instrument's %d", (unsigned)seed, OVB.kmax, hi);
     }
     CHECK(bad == 0, "ov oct: %d keys notes not where keys_oct puts them", bad);
+    /* the lead keeps its room: wherever keys_oct moves the keys, at least 80% of its notes; wherever lead_oct moves
+       it, inside its instrument's range or the rolled song's (an octave left under the instrument's ceiling, else
+       the rolled range stays); over percussive keys an octave down keeps the floor: never higher */
+    for (seed = 1; seed <= 40; seed++) {
+        const lib_set_t *st;
+        int j, moved = 0;
+        roll_song(NULL, seed, &r);
+        st = lib_set_by_id((uint8_t)r.v[RF_SET]);
+        if (!st) continue;
+        ov_run(&r, NULL, &OVA);
+        song_ov_range(st->lead, &lo, &hi);
+        for (j = 0; j < 4; j++) {
+            o = ov_none();
+            if (j < 2) o.keys_oct = j ? -1 : 1;
+            else o.lead_oct = j == 3 ? -1 : 1;
+            song_override(&o);
+            moved = j < 2 ? harmony_keys_oct(&r) != 0 : 1;
+            song_override(NULL);
+            if (!moved) continue;
+            ov_run(&r, &o, &OVB);
+            if (j < 2)
+                CHECK(OVB.nlead * 5 >= OVA.nlead * 4, "ov oct: seed %u keys %+d: the lead %d notes, %d unmoved",
+                      (unsigned)seed, o.keys_oct, OVB.nlead, OVA.nlead);
+            else
+                CHECK(!OVB.nlead || (OVB.lmin >= (lo < OVA.lmin ? lo : OVA.lmin) &&
+                                     OVB.lmax <= (hi > OVA.lmax ? hi : OVA.lmax)),
+                      "ov oct: seed %u lead %+d: %d-%d past %d-%d (rolled %d-%d)", (unsigned)seed, o.lead_oct, OVB.lmin,
+                      OVB.lmax, lo, hi, OVA.lmin, OVA.lmax);
+            if (j == 3 && !lib_ins_sustained(st->chords) && st->lead != INS_CELLO)
+                CHECK(OVB.lmax <= OVA.lmax, "ov oct: seed %u lead -1 over percussive keys rose to %d (was %d)",
+                      (unsigned)seed, OVB.lmax, OVA.lmax);
+        }
+    }
     /* lead_oct +1 on flute songs: never past the flute's range */
     for (seed = 1, k = 0; seed < 500 && k < 4; seed++) {
         const lib_set_t *st;

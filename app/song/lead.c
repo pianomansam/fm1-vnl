@@ -590,6 +590,13 @@ int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b,
         c.lo_x = (ntop > top ? ntop : top) + 5;
         c.hi = 88;
         c.shift = 0;
+        if (harmony_keys_oct(r) > 0 && set) {           /* the workbench's keys raised: the ceiling with them, in
+                                                           the lead instrument's range, so the floor over them keeps
+                                                           the lead its room */
+            int lo, hi;
+            song_ov_range(set->lead, &lo, &hi);
+            c.hi = 88 + harmony_keys_oct(r) < hi ? 88 + harmony_keys_oct(r) : hi > 88 ? hi : 88;
+        }
     }
     c.cello = set && set->lead == INS_CELLO;
     c.vibes = set && set->lead == INS_VIBES;

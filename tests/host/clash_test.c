@@ -105,14 +105,22 @@ static void check_step(const song_t *s, int bar, int step, const song_ev_t *ev, 
         switch (e->voice) {
         case V_CHORD: {                  /* a pad with or above the lead sounds an octave up (lead design) */
             int up = (harmony_pad_place(&s->roll) == PL_BELOW ? 0 : 12) +
-                     lib_set_keys_shift(lib_set_by_id((uint8_t)s->roll.v[RF_SET]));   /* the Chillwave pad an octave down (Sam) */
+                     lib_set_keys_shift(lib_set_by_id((uint8_t)s->roll.v[RF_SET])) +   /* the Chillwave pad an octave down (Sam) */
+                     harmony_keys_oct(&s->roll);                                       /* the workbench's register */
             CHECK(e->note >= 48 + up && e->note <= 76 + up, "seed %u: chord note %d", seed, e->note);
             break;
         }
         case V_BASS: CHECK(e->note >= 28 && e->note <= 47, "seed %u: bass note %d", seed, e->note); break;
         case V_LEAD: {                   /* the cello lead B3-A4 (its floor over the keys lifted), the rest C4-E6 */
             const lib_set_t *st = lib_set_by_id((uint8_t)s->roll.v[RF_SET]);
-            if (st && st->lead == INS_CELLO)
+            if (st && (song_ov()->lead_oct || harmony_keys_oct(&s->roll))) {   /* the workbench's registers: the
+                                                                                  lead instrument's range */
+                int lo, hi;
+                song_ov_range(st->lead, &lo, &hi);
+                CHECK(e->note >= (lo < 59 ? lo : 59) && e->note <= (hi > 88 ? hi : 88),   /* (or the rolled range,
+                                                                                            where it stays) */
+                      "seed %u: lead note %d (registers moved)", seed, e->note);
+            } else if (st && st->lead == INS_CELLO)
                 CHECK(e->note >= 59 && e->note <= 69, "seed %u: cello lead note %d", seed, e->note);
             else
                 CHECK(e->note >= 60 && e->note <= 88, "seed %u: lead note %d", seed, e->note);
@@ -408,16 +416,20 @@ static void test_chain(void)
 
 /* ---- the workbench's re-rolls ---- */
 
-/* songs 1-40 with the voicings re-rolled, then the lead's phrase: every rule above still holds */
+/* songs 1-40 with the voicings re-rolled, then the lead's phrase, then the keys and the lead an octave up and down:
+   every rule above still holds (the registers' ranges moved with them) */
 static void test_ov_salts(void)
 {
     static song_t s;
+    static const int8_t KO[6] = {0, 0, 1, -1, 0, 0}, LO[6] = {0, 0, 0, 0, 1, -1};
     song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u};
     song_roll_t r;
     int i, k;
-    for (k = 0; k < 2; k++) {
+    for (k = 0; k < 6; k++) {
         o.voicing_salt = k == 0;
         o.phrase_salt = k == 1;
+        o.keys_oct = KO[k];
+        o.lead_oct = LO[k];
         song_override(&o);
         for (i = 1; i <= 40; i++) {
             roll_song(NULL, (uint32_t)i, &r);
