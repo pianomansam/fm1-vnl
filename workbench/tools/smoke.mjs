@@ -784,7 +784,7 @@ console.log("drums: sampled kits, the first lane edit");
           lanesOf(ex).lanes.every((l) => l[0] === SRC.NONE) && !ex.wb_lane_src(6, SRC.SAMPLE, 1, 5),
           `a file gone after the check: the first use fails, the kit turns unavailable, the choice is refused, no lane plays it ("${res.message}")`);
     const desk2 = new Desk(call, C, OPTS, await call("wb_library"), { samples: smp });
-    const miss = await desk2.stageDrums({ lanes: [[SRC.SAMPLE, 1, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]] });
+    const { missing: miss } = await desk2.stageDrums({ lanes: [[SRC.SAMPLE, 1, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]] });
     check(miss.length === 1 && /Big Rusty \(sticks\): samples missing/.test(miss[0]), `a snapshot's lanes on that set name the cause (${miss[0]})`);
   }
 
@@ -1175,6 +1175,90 @@ print(srv.server_address[1], flush=True); srv.serve_forever()`;
       srv.kill();
       rmSync(dir, { recursive: true, force: true });
     }
+  }
+}
+
+console.log("whole-branch review fixes");
+{
+  const { SRC, DRUMS, PT } = C, retired = (id) => OPTS.kits.find((k) => k.id === id)?.status === "retired";
+  const fresh = async (seed, rnd = lcg(5)) => {
+    const ex = await load(), call = caller(ex);
+    ex.wb_seed(seed);
+    ex.wb_apply();
+    const desk = new Desk(call, C, OPTS, await call("wb_library"), { rnd });
+    await desk.read(true);
+    return { ex, desk };
+  };
+  const LANES808 = ["BD", "SD", "CH", "OH", "MA", "RS", "CH"].map((v) => [SRC.PT, PT.M808, PT[v], 0]);
+
+  // 1: a kit's lanes on a song whose kit is a retired mixed sampled kit (Clean, seed 16): refused, nothing staged
+  {
+    const { ex, desk } = await fresh(16);
+    const before = cstr(ex, ex.wb_state()), was = desk.values.kit;
+    const r = await desk.loadKit({ name: "x", lanes: LANES808 });
+    check(was === 8 && !r.ok && /Clean/.test(r.message) && cstr(ex, ex.wb_state()) === before && !ex.wb_pending() && !desk.hand.has("kit"),
+          `load kit on the Clean (mixed) kit: refused, nothing staged or pinned ("${r.message}")`);
+    const r2 = await desk.loadKit({ name: "y", from: "poketrack 808", lanes: LANES808 });
+    check(r2.ok && desk.values.kit === DRUMS.PRESET + DRUMS.PT808 && JSON.stringify(desk.drums.lanes) === JSON.stringify(LANES808),
+          `a kit file saved from the 808: the kit row shows poketrack 808 after loading (${desk.values.kit})`);
+    const { desk: d3 } = await fresh(16);
+    d3.lock("kit", true);
+    const r3 = await d3.loadKit({ name: "y", from: "poketrack 808", lanes: LANES808 });
+    check(!r3.ok && /Kit is locked/.test(r3.message) && d3.values.kit === 8, `... with the kit locked: blocked ("${r3.message}")`);
+  }
+  // 1: a kept drawn grid the engine won't take back (every base is legal today: wb_pat_load refused here) is reported
+  {
+    const { ex } = await fresh(21), call = caller(ex);
+    let refuse = false;
+    const desk = new Desk((fn, ...a) => (refuse && fn === "wb_pat_load" ? Promise.resolve(0) : call(fn, ...a)), C, OPTS, await call("wb_library"));
+    await desk.read(true);
+    await desk.step(0, 1, 3, 1);
+    refuse = true;
+    const r = await desk.set("seed", 300);
+    check(r.ok && /drawn pattern couldn't be kept/.test(r.message), `a kept drawn grid that can't be staged again is reported ("${r.message}")`);
+  }
+  // 2: a regenerate never lands on a retired kit unless the kit row is kept
+  {
+    const { desk } = await fresh(21);
+    const bad = [], forced = [];
+    for (let s = 1; s <= 200; s++) {
+      const r = await desk.set("seed", s, { dice: true });
+      if (retired(desk.values.kit)) bad.push(`${s}:${desk.values.kit}`);
+      if (r.moved.includes("kit")) forced.push(s);
+    }
+    check(!bad.length && forced.length > 100, `seeds 1-200: no landed kit is retired (${bad.join(" ") || "none"}); ${forced.length} replaced, highlighted`);
+    const a = (await desk.set("seed", 16, { dice: true }), desk.values.kit);
+    await desk.set("seed", 17, { dice: true });
+    const b = (await desk.set("seed", 16, { dice: true }), desk.values.kit);
+    check(a === b && OPTS.kits.find((k) => k.id === a).family === desk.values.family, `the replacement is the seed's own (16: ${a}, both times), of the family`);
+    await desk.set("kit", 6);
+    await desk.set("seed", 40);
+    check(desk.values.kit === 6, "a hand-set retired kit (show retired) stays through a new seed");
+    desk.lock("kit", true);
+    await desk.dice("seed", { release: true });
+    check(desk.values.kit === 6, "a locked one stays through re-roll all");
+    const { desk: d2 } = await fresh(16);
+    await d2.set("map", (d2.values.map + 1) % (await d2.call("wb_library")).maps.length);
+    check(!retired(d2.values.kit), `a new map regenerates onto an approved kit too (${d2.values.kit})`);
+  }
+  // 4: a call that throws in the worklet still answers, with the error
+  {
+    let Proc = null;
+    const posted = [];
+    globalThis.AudioWorkletProcessor = class { constructor() { this.port = { postMessage: (m) => posted.push(m) }; } };
+    globalThis.registerProcessor = (n, cls) => { Proc = cls; };
+    await import("../wb-worklet.js");
+    const w = new Proc();
+    w.ex = { wb_boom: () => { throw new RangeError("out of bounds"); } };
+    await w.onMessage({ type: "call", fn: "wb_boom", args: [], id: 7 }).catch(() => {});
+    check(posted.some((m) => m.type === "result" && m.id === 7 && /out of bounds/.test(m.error)), "a call that throws in the worklet answers with its error");
+  }
+  // 5: the ride lane follows the desk's ride row (no ride on a non-sampled kit)
+  {
+    const { laneInactive } = await import("../drums.js");
+    const st = (kit) => ({ values: { kit } });
+    check(laneInactive(6, st(16), OPTS) && laneInactive(6, st(3), OPTS) && !laneInactive(6, st(19), OPTS) && !laneInactive(1, st(16), OPTS),
+          "the ride lane is inactive on the 808 and Brushes, not on Gogodze; the other lanes always active");
   }
 }
 

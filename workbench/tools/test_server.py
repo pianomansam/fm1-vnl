@@ -102,6 +102,26 @@ class T(unittest.TestCase):
                 c.close()
         self.assertEqual(sorted(p.name for p in server.DATA.rglob("*") if p.is_file()), before)
 
+    def test_saved_name_not_overwritten_unasked(self):
+        self.assertEqual(self.post("/kit", {"name": "twice", "lanes": [1]})[0], 200)
+        status, body = self.post("/kit", {"name": "twice", "lanes": [2]})
+        self.assertEqual((status, body.get("exists")), (409, True))
+        self.assertEqual(json.loads((server.DATA / "kits" / "twice.json").read_text())["lanes"], [1])
+        self.assertEqual(self.post("/kit", {"name": "twice", "lanes": [3], "overwrite": True})[0], 200)
+        saved = json.loads((server.DATA / "kits" / "twice.json").read_text())
+        self.assertEqual((saved["lanes"], "overwrite" in saved), ([3], False))
+
+    def test_get_only_this_page(self):
+        port = self.srv.server_address[1]
+        for host, want in (("evil.example:%d" % port, 403), ("127.0.0.1:1", 403), (f"localhost:{port}", 200), (f"127.0.0.1:{port}", 200)):
+            for method in ("GET", "HEAD"):
+                c = http.client.HTTPConnection("127.0.0.1", port)
+                c.request(method, "/list/kits" if method == "GET" else "/", headers={"Host": host})
+                r = c.getresponse()
+                r.read()
+                c.close()
+                self.assertEqual(r.status, want, (method, host))
+
     def get(self, path):
         c = http.client.HTTPConnection("127.0.0.1", self.srv.server_address[1])
         c.request("GET", path)

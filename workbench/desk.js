@@ -4,9 +4,12 @@
 // says why), then committed with wb_apply: nothing staged is heard before that, so a bar line inside a change never
 // lands half of it. A seed or map change regenerates the song, so every locked or hand-set row is staged again first. call(fn, ...args) reaches wb.wasm's exports, a Promise (wb.js in the page; smoke.mjs in Node).
 import { ROWS, row, conflicts, pickFor, familyOf, fromEngine, kickMasks } from "./rows.js";
-import { cellOf } from "./drums.js";
+import { cellOf, LANES } from "./drums.js";
 
 const SEED_TRIES = 20;   // a new seed whose song can't keep the locks is tried again (re-roll all, the seed's dice)
+
+// a die from a seed (the same song lands on the same kit every time)
+const seeded = (seed) => { let x = (seed >>> 0) || 1; return () => ((x = (Math.imul(x, 1103515245) + 12345) >>> 0) / 4294967296); };
 
 export class Desk {
   // probe(bytes): the lead register the engine applies to a staged state (wb_stage_bytes), from a second wb.wasm
@@ -48,7 +51,7 @@ export class Desk {
     if (r.kind === "roll") return c("wb_roll_set", RF[r.field], v);
     if (r.kind === "role") return c("wb_role_set", V[r.role], v);
     if (r.kind === "ov" || r.kind === "reroll") return c("wb_ov_set", OV[r.key], v);
-    if (id === "kit") return (await this.samples?.kit(v)) === false ? undefined : c("wb_kit_set", v);
+    if (id === "kit") return (await this.samples?.kit(v)) === false ? false : c("wb_kit_set", v);   // false: unavailable
     if (id === "kick") return v === "grid" ? undefined : c("wb_kick_phrase", ...kickMasks(v, this.opts));   // (the grid's own)
     if (id === "pattern") {
       await c("wb_roll_set", RF.PATTERN, v);
@@ -106,7 +109,7 @@ export class Desk {
     const c = r.regenerates || r.kind === "roll" ? { forced: [], stuck: [], blocked: null }
                                                   : conflicts(r, value, this.state, this.opts, this.rnd, this.lib);
     if (c.blocked) return this.done(false, `Blocked: ${c.blocked.label} is locked (${c.blocked.why}).`);
-    const before = { ...this.values }, grid = this.drums?.grid, lanes = this.drums?.lanes;
+    const before = { ...this.values }, grid = this.drums?.grid, lanes = this.drums?.lanes, dropped = [];
     const keep = (x) => (release ? this.locks.has(x) : this.kept(x));
     const kept = new Map([...ROWS].filter((x) => keep(x.id) && x.id !== id).map((x) => [x.id, before[x.id]]));
     const forced = new Set(c.forced.map((f) => f.row));
@@ -122,14 +125,20 @@ export class Desk {
     }
     if (grid?.edited && kept.has("pattern") && id !== "pattern" && id !== "kick") {   // the grid goes with a kept pattern
       await this.read();
-      if (JSON.stringify(this.drums.grid) !== JSON.stringify(grid)) await this.stageGrid(grid);
+      if (JSON.stringify(this.drums.grid) !== JSON.stringify(grid) && !(await this.stageGrid(grid)))
+        dropped.push("The drawn pattern couldn't be kept: its base pattern isn't legal in this song.");
     }
     // the edited lanes (sounds, levels) go with a kept kit: staging the kit again resets them to the kit as shipped
     if (lanes?.some((l) => l[0] !== this.C.SRC.NONE) && kept.has("kit") && id !== "kit" && !forced.has("kit")) {
       await this.read();
-      if (JSON.stringify(this.drums.lanes) !== JSON.stringify(lanes)) await this.stageDrums({ lanes });
+      if (JSON.stringify(this.drums.lanes) !== JSON.stringify(lanes)) {
+        const d = await this.stageDrums({ lanes });
+        if (d.refused) dropped.push(`The edited drum lanes couldn't be kept: ${d.refused}`);
+        else if (d.missing.length) dropped.push(`Not kept: ${d.missing.join(", ")}.`);
+      }
     }
     await this.read(r.kind === "seed" && !kept.has("family"));
+    const replaced = id !== "kit" && !kept.has("kit") && (r.regenerates || this.values.kit !== before.kit) ? await this.approvedKit() : null;
     const changed = ROWS.filter((x) => x.id !== id && String(this.values[x.id]) !== String(before[x.id]));
     const lockedMoved = changed.filter((x) => this.locks.has(x.id) && !forced.has(x.id));
     if (lockedMoved.length) {
@@ -143,7 +152,7 @@ export class Desk {
     if (dice) this.hand.delete(id); else this.hand.add(id);
     const lost = r.regenerates ? [...kept.keys()].filter((k) => this.hand.has(k) && String(this.values[k]) !== String(kept.get(k))) : [];
     lost.forEach((k) => this.hand.delete(k));
-    this.moved = new Set(r.regenerates ? [] : changed.map((x) => x.id));
+    this.moved = new Set(r.regenerates ? (replaced ? ["kit"] : []) : changed.map((x) => x.id));
     for (const x of changed) if (!r.regenerates) this.hand.delete(x.id);
     this.message = "";
     await this.readBack();
@@ -154,6 +163,8 @@ export class Desk {
     const notes = [
       ...c.stuck.map((s) => `${row(s.row).label} stays: no approved ${value} option yet.`),
       ...lost.map((k) => `${row(k).label} couldn't be kept in the new song.`),
+      ...dropped,
+      ...(replaced ? [replaced] : []),
     ];
     if (this.message) notes.push(this.message);
     return this.done(true, notes.join(" "));
@@ -163,6 +174,21 @@ export class Desk {
     this.message = message;
     if (!ok) this.moved = new Set();
     return { ok, message, moved: [...this.moved] };
+  }
+
+  // A song that landed on a retired kit (most seeds roll one) gets an approved kit of its family instead, the seed's
+  // own pick. Staged only; the note saying so, or null when the kit is approved (or nothing fits).
+  async approvedKit() {
+    const was = this.opts.kits.find((k) => k.id === this.values.kit);
+    if (was?.status !== "retired") return null;
+    const no = new Set(this.samples?.unavailable);   // and a kit the engine didn't take (a sampled one not loaded)
+    for (;;) {
+      const v = pickFor(row("kit"), { ...this.state, unavailable: no }, this.opts, seeded(this.values.seed), this.lib);
+      if (v === null) return null;
+      if ((await this.stage("kit", v)) !== false && (await this.read()).kit === v)
+        return `Kit: ${was.name} is retired; the song plays ${this.opts.kits.find((k) => k.id === v)?.name} instead.`;
+      no.add(v);
+    }
   }
 
   // 🎲: the engine's own dice for a roll field, a new seed (tried until the locks fit), a new salt, or pickFor
@@ -227,7 +253,7 @@ export class Desk {
     await this.call("wb_stage_mark");
     await this.stage("seed", snap.rows.seed);
     for (const r of ROWS) if (r.kind !== "seed" && r.kind !== "family") await this.stage(r.id, snap.rows[r.id]);
-    const missing = await this.stageDrums(snap.drums);
+    const d = await this.stageDrums(snap.drums), missing = d.refused ? [...d.missing, "drums (the kit row's kit can't take lanes)"] : d.missing;
     await this.call("wb_apply");
     this.values = { ...snap.rows };
     this.locks = new Set(snap.locks);
@@ -238,23 +264,31 @@ export class Desk {
   }
 
   // A snapshot's drum lanes over the kit row's (a preset's, or the song's own kit's): the lanes with a source first (the
-  // first one set on a song with none fills the others from its kit), then the silent ones; each lane's level. Returns
-  // what couldn't be restored: ["drums (<kit>: samples missing)"] for a sample set that didn't load (its lanes keep the
-  // kit row's sources)
+  // first one set on a song with none fills the others from its kit), then the silent ones; each lane's level.
+  // { missing, refused }: missing, what couldn't be restored (["drums (<kit>: samples missing)"] for a sample set that
+  // didn't load: its lanes keep the kit row's sources); refused, why the engine refused a lane (a retired mixed sampled
+  // kit's hits aren't lane sources), or null: the caller undoes it (no level is staged)
   async stageDrums(d) {
-    const lanes = d?.lanes || [], out = [];
-    if (d?.grid?.edited && !(await this.stageGrid(d.grid))) out.push("the drawn pattern (its base pattern isn't legal here)");
-    if (!lanes.some((l) => l[0] !== this.C.SRC.NONE)) return out;
+    const lanes = d?.lanes || [], missing = [];
+    if (d?.grid?.edited && !(await this.stageGrid(d.grid))) missing.push("the drawn pattern (its base pattern isn't legal here)");
+    if (!lanes.some((l) => l[0] !== this.C.SRC.NONE)) return { missing, refused: null };
     for (const a of new Set(lanes.filter((l) => l[0] === this.C.SRC.SAMPLE).map((l) => l[1])))
       if (!this.samples || !(await this.samples.load(a))) {
         const k = this.opts.kits.find((x) => x.set === a);
-        out.push(`drums (${k?.name ?? `sample set ${a}`}: samples missing)`);
+        missing.push(`drums (${k?.name ?? `sample set ${a}`}: samples missing)`);
       }
+    const no = [];
     for (const silent of [false, true])
       for (const [i, [kind, a, b]] of lanes.entries())
-        if ((kind === this.C.SRC.NONE) === silent) await this.call("wb_lane_src", i, kind, a, b);
+        if ((kind === this.C.SRC.NONE) === silent && !(await this.call("wb_lane_src", i, kind, a, b))) no.push(i);
+    if (no.length) {
+      const k = this.opts.kits.find((x) => x.id === this.values.kit);
+      return { missing, refused: (await this.call("wb_state")).drums.kit_lanes
+        ? `the engine has no such sound for ${no.map((i) => LANES[i].toLowerCase()).join(", ")}.`
+        : `${k?.name ?? "This kit"} can't take lanes (its hits are mixed copies, not sources): choose a shipped kit first.` };
+    }
     for (const [i, l] of lanes.entries()) await this.call("wb_lane_db", i, l[3]);
-    return out;
+    return { missing, refused: null };
   }
 
   // Lane i plays a source (WB_SRC_*), staged and committed (the drum screen's). The first on a song with none copies
@@ -327,8 +361,17 @@ export class Desk {
     return this.drumEdit("grid", async () => ((await this.stageGrid(p.grid)) ? null
       : { refused: `${p.name ?? "That pattern"} can't load: it's drawn over ${from}, which this song can't take.` }), { loaded: p.name });
   }
+  // a kit file names the kit it was saved from: that kit goes on the kit row first (so the family logic sees it)
   loadKit(k) {
-    return this.drumEdit("drums", () => this.stageDrums({ lanes: k.lanes }), { loaded: k.name });
+    const from = this.opts.kits.find((x) => x.name === k.from);
+    return this.drumEdit("drums", async () => {
+      if (from && from.id !== this.values.kit) {
+        if ((await this.stage("kit", from.id)) === false) return { refused: `${from.name} is unavailable: its sample files are missing.` };
+        await this.read();
+      }
+      const d = await this.stageDrums({ lanes: k.lanes });
+      return d.refused ? { refused: `${k.name ?? "That kit"} can't load: ${d.refused}` } : d.missing;
+    }, { loaded: k.name });
   }
 
   // lane's level in dB (a song with no lane sources gets its kit's on every lane first)

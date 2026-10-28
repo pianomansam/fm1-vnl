@@ -3,7 +3,9 @@
 """The workbench's local server: python3 workbench/server.py [port] (default 8732), on 127.0.0.1 only.
 Serves the build (app/build/workbench/: the page and wb.wasm) and, behind it, workbench/ (kits, patterns, samples,
 options.json). It writes only under workbench/: POST /feedback appends a line to feedback.jsonl, POST /kit and
-POST /pattern ({"name": ..., ...}) write kits/<name>.json and patterns/<name>.json. GET /list/kits and /list/patterns
+POST /pattern ({"name": ..., ...}) write kits/<name>.json and patterns/<name>.json (a name already saved: 409, unless
+the body has "overwrite": true, which isn't written). Only this page's requests are answered (the Host is
+127.0.0.1 or localhost with the port; a POST's Origin too). GET /list/kits and /list/patterns
 give the saved names ({"names": [...]}), each served at /kits/<name>.json and /patterns/<name>.json."""
 import json
 import os
@@ -44,7 +46,19 @@ class Handler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def ours(self):
+        """the Host is this server's (a page elsewhere reaching us by DNS rebinding sends its own name)"""
+        port = self.server.server_address[1]
+        return self.headers.get("Host") in (f"127.0.0.1:{port}", f"localhost:{port}")
+
+    def do_HEAD(self):
+        if not self.ours():
+            return self.reply(403, {"ok": False, "error": "not this page"})
+        return super().do_HEAD()
+
     def do_GET(self):
+        if not self.ours():
+            return self.reply(403, {"ok": False, "error": "not this page"})
         route = self.path.split("?")[0]
         if route in ("/list/kits", "/list/patterns"):
             folder = DATA / route[len("/list/"):]
@@ -61,7 +75,7 @@ class Handler(SimpleHTTPRequestHandler):
         port = self.server.server_address[1]
         hosts = (f"127.0.0.1:{port}", f"localhost:{port}")
         origin = self.headers.get("Origin")
-        if self.headers.get("Host") not in hosts or (origin is not None and origin not in [f"http://{h}" for h in hosts]):
+        if not self.ours() or (origin is not None and origin not in [f"http://{h}" for h in hosts]):
             return self.reply(403, {"ok": False, "error": "not this page"})
         if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
             return self.reply(415, {"ok": False, "error": "Content-Type must be application/json"})
@@ -102,7 +116,10 @@ class Handler(SimpleHTTPRequestHandler):
         if not isinstance(name, str) or not NAME.fullmatch(name):
             return self.reply(400, {"ok": False, "error": "name must be [a-z0-9-]{1,40}"})
         folder = DATA / (route[1:] + "s")
+        overwrite = body.pop("overwrite", False) is True
         with WRITE:
+            if (folder / f"{name}.json").exists() and not overwrite:
+                return self.reply(409, {"ok": False, "error": f"{name} is already saved", "exists": True})
             folder.mkdir(exist_ok=True)
             tmp = folder / f".{name}.tmp"
             tmp.write_text(json.dumps(body, indent=1) + "\n", encoding="utf-8")

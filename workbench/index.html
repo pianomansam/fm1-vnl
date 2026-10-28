@@ -119,8 +119,10 @@
     samples.preload().catch((e) => { $("msg").textContent = String(e); });   // before Play, so a load mid-song is rare
     desk = new Desk(wb.call, wb.C, opts, lib, { probe: wb.probe, position: () => pos, samples });
     await wb.call("wb_seed", 21);
-    await wb.call("wb_apply");
     await desk.read(true);
+    const replaced = await desk.approvedKit();   // the boot song lands on an approved kit too, highlighted
+    await wb.call("wb_apply");
+    if (replaced) { desk.moved = new Set(["kit"]); $("msg").textContent = replaced; }
     wb.onPosition(show);
     render();
     sync(await wb.flushFeedback());
@@ -151,7 +153,7 @@
     dice.onclick = () => run(() => desk.dice(r.id));
     const lock = Object.assign(document.createElement("button"), { textContent: "🔒", className: "lock",
                                                                   title: `Keep ${r.label.toLowerCase()} when re-rolling` });
-    lock.onclick = () => { desk.lock(r.id, !desk.locks.has(r.id)); render(); };
+    lock.onclick = () => run(() => desk.lock(r.id, !desk.locks.has(r.id)));   // after the change in flight
     const fb = (rating, title) => Object.assign(document.createElement("button"), { textContent: rating === "up" ? "👍" : "👎",
       className: "fb", title: `${title} (with the note above)`, onclick: () => feedback(r.id, rating) });
     el.append(lab, input, dice, lock, fb("up", `${r.label} is good`), fb("down", `${r.label} is not good`));
@@ -209,7 +211,8 @@
   $("all").onclick = () => run(() => desk.rerollAll());
   $("retired").onchange = render;
 
-  // feedback: the snapshot, where the song was, the change log and the note; queued and sent (wb.js)
+  // feedback: the snapshot, where the song was, the change log and the note; queued and sent (wb.js). The snapshot is
+  // taken in the queue, so a change in flight is never half in it
   function sync(s) {
     const dead = s.dead ? ` ${s.dead} refused by the server (kept in this browser, not saved).` : "";
     $("fb").textContent = (s.saved ? "Saved." : `Not saved yet: the server isn't answering (${s.queued} waiting, retrying).`) + dead;
@@ -220,11 +223,14 @@
     if (!desk || (!rating && !note)) return;
     $("note").value = "";
     sync({ saved: false, queued: wb.queued() + 1 });
-    const upto = desk.changes.length;   // the changes since the last entry; the position is the click's
-    const entry = { time: new Date().toISOString(), snapshot: await desk.snapshot(),
-      position: { seconds: pos.seconds, bar: pos.bar }, about, rating, note, changes: desk.changes.slice(sentChanges, upto) };
-    sentChanges = upto;
-    sync(await wb.sendFeedback(entry));
+    const time = new Date().toISOString(), position = { seconds: pos.seconds, bar: pos.bar };   // the click's
+    let entry = null;
+    await run(async () => {
+      const upto = desk.changes.length;   // the changes since the last entry
+      entry = { time, snapshot: await desk.snapshot(), position, about, rating, note, changes: desk.changes.slice(sentChanges, upto) };
+      sentChanges = upto;
+    });
+    if (entry) sync(await wb.sendFeedback(entry));
   }
   $("up").onclick = () => feedback("song", "up");
   $("down").onclick = () => feedback("song", "down");

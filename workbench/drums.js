@@ -3,7 +3,7 @@
 // empty → hit → ghost); the kit, pattern and kick-phrase rows; saving kits and patterns (POST /kit, /pattern) and
 // loading them back. The catalog, the grid's cells and the files' shapes are pure (smoke.mjs tests them); DrumScreen
 // draws the page's. Every edit goes through the desk (desk.js): staged, then landed at the next bar line.
-import { row, optionsFor } from "./rows.js";
+import { row, optionsFor, inactive } from "./rows.js";
 
 // the lanes (wb_drums.h: V_KICK's order); the pattern's are the first six (library.h's D_*)
 export const LANES = ["Kick", "Snare", "Closed hat", "Open hat", "Shaker", "Rim", "Ride"];
@@ -73,6 +73,9 @@ export function pickSound(all, lane, cur, family, rnd = Math.random) {
   return xs.length ? xs[Math.floor(rnd() * xs.length) % xs.length] : null;
 }
 
+// why lane i can't be heard now (the desk's ride row's: the ride plays on the sampled kits only), or null
+export const laneInactive = (i, state, opts) => (i === RIDE ? inactive(row("ride"), state, opts) : null);
+
 // the lanes as they play: the lane sources, or the staged kit's own when none is set (null: a mixed sampled kit)
 export function laneSources(drums, C) {
   if (drums.lanes.some((l) => l[0] !== C.SRC.NONE)) return drums.lanes;
@@ -95,11 +98,13 @@ export function kitFile(name, lanes, all, kitName) {
            sounds: Object.fromEntries(lanes.map((l, i) => [LANES[i], all.find((s) => s.key === soundKey(l[0], l[1], l[2]))?.name ?? "none"])) };
 }
 
-// The server's side: kind "kit" or "pattern". f: fetch (the page's; a test's)
-export async function save(kind, body, f = globalThis.fetch) {
-  const r = await f(`/${kind}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+// The server's side: kind "kit" or "pattern". f: fetch (the page's; a test's). A name already saved is refused
+// ({ exists: true }) unless overwrite
+export async function save(kind, body, f = globalThis.fetch, { overwrite = false } = {}) {
+  const r = await f(`/${kind}`, { method: "POST", headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify(overwrite ? { ...body, overwrite: true } : body) });
   const j = await r.json().catch(() => ({}));
-  return { ok: r.ok, error: j.error };
+  return { ok: r.ok, error: j.error, exists: r.status === 409 };
 }
 export async function listSaved(kind, f = globalThis.fetch) {
   const r = await f(`/list/${kind}s`);
@@ -228,8 +233,9 @@ export class DrumScreen {
         groups.get(o.kitName ?? "").append(opt);
       }
       L.sel.replaceChildren(...(key ? [] : [new Option(src ? "none" : "the mixed kit's own", "", false, true)]), ...groups.values());
-      L.sel.disabled = L.dice.disabled = L.lvl.disabled = !src;
-      L.sel.title = src ? "" : "A mixed sampled kit (retired) can't be edited lane by lane: choose a shipped kit first.";
+      const why = laneInactive(i, desk.state, desk.opts);
+      L.sel.disabled = L.dice.disabled = L.lvl.disabled = !src || !!why;
+      L.sel.title = src ? why ?? "" : "A mixed sampled kit (retired) can't be edited lane by lane: choose a shipped kit first.";
       if (document.activeElement !== L.lvl) L.lvl.value = String(src ? cur[3] ?? 0 : 0);
       for (const [n, btn] of L.cells.entries()) {
         const b = n >> 4, s = n & 15, st = cellOf(d.grid.lanes[i], b, s);
@@ -255,7 +261,9 @@ export class DrumScreen {
     } else {
       body = patternFile(name, desk.drums.grid, desk.opts);
     }
-    const r = await save(kind, body).catch((e) => ({ ok: false, error: String(e) }));
+    const exists = (await listSaved(kind).catch(() => [])).includes(name);   // (the server refuses it unasked: a 409)
+    if (exists && !confirm(`workbench/${kind}s/${name}.json is already saved. Replace it?`)) return this.say(`Not saved: ${name} is kept as it was.`);
+    const r = await save(kind, body, undefined, { overwrite: exists }).catch((e) => ({ ok: false, error: String(e) }));
     this.say(r.ok ? `Saved workbench/${kind}s/${name}.json.` : `Not saved: ${r.error ?? "the server isn't answering"}.`);
     this.refreshSaved();
   }

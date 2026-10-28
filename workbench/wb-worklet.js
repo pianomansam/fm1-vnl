@@ -13,7 +13,16 @@ class Workbench extends AudioWorkletProcessor {
     this.port.onmessage = (e) => this.onMessage(e.data);
   }
 
+  // a call that throws (a trap, a bad argument) still answers, with the error: the page's queue never waits forever
   async onMessage(m) {
+    try {
+      await this.handle(m);
+    } catch (e) {
+      this.port.postMessage(m.type === "call" ? { type: "result", id: m.id, error: String(e) } : { type: "failed", error: String(e) });
+    }
+  }
+
+  async handle(m) {
     if (m.type === "load") {
       const wasi = {
         fd_write: (fd, iov, n, out) => { new DataView(this.ex.memory.buffer).setUint32(out, 0, true); return 0; },
@@ -26,7 +35,8 @@ class Workbench extends AudioWorkletProcessor {
       if (this.ex._initialize) this.ex._initialize();
       this.ex.wb_init();
       this.port.postMessage({ type: "ready", consts: JSON.parse(this.cstr(this.ex.wb_consts())) });
-    } else if (m.type === "call" && this.ex) {   // { fn: "wb_...", args, id }: the result goes back with the id
+    } else if (m.type === "call") {   // { fn: "wb_...", args, id }: the result goes back with the id
+      if (!this.ex) throw new Error("the engine isn't loaded yet");
       const ex = this.ex;
       if (m.fn === "wb_stage_bytes") {         // the staged state's bytes, for wb.js's probe instance
         const value = new Uint8Array(ex.memory.buffer, ex.wb_stage_ptr(), ex.wb_stage_size()).slice();

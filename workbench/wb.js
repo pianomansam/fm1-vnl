@@ -14,10 +14,11 @@ export async function start() {
   node = new AudioWorkletNode(ctx, "workbench", { outputChannelCount: [2] });
   node.connect(ctx.destination);
   const wasm = await (await fetch("wb.wasm")).arrayBuffer();
-  await new Promise((ready) => {
+  await new Promise((ready, fail) => {
     node.port.onmessage = (e) => {
       const m = e.data;
       if (m.type === "ready") { C = m.consts; ready(); }
+      else if (m.type === "failed") fail(new Error(m.error));
       else if (m.type === "result") { waiting.get(m.id)?.(m); waiting.delete(m.id); }
       else if (m.type === "pos") listeners.forEach((f) => f(m));
     };
