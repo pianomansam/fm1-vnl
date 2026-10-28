@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The main page's decision rows (layout A): what each row is, the options its dropdown offers, its dice, and what a
 // new value forces elsewhere. Pure: no DOM, no engine (desk.js drives the engine; smoke.mjs tests this directly).
-//   opts: options.json; state: { values: {row id: value}, locks: Set of row ids, legal: {prog, mode} (optional) };
+//   opts: options.json; state: { values: {row id: value}, locks: Set of row ids, legal: {prog, mode} (optional),
+//   unavailable: Set of kit ids whose samples are missing (optional: offered marked, never chosen) };
 //   lib: wb_library()'s maps and progressions.
 
 const SONG = "Song", INS = "Instruments", VP = "Voicing and phrase", DRUMS = "Drums", TEX = "Texture";
@@ -87,7 +88,8 @@ function allOptions(r, state, opts, lib) {
                               { value: 1, name: "Up an octave" }];
     case "padPlaces": return [ROLLED, ...list(["Below the lead", "With the lead", "Above the lead"])];
     case "rides": return [ROLLED, ...list(["None", "Throughout", "One section"])];
-    case "kits": return opts.kits.map((k) => ({ value: k.id, name: k.name, status: k.status, family: k.family }));
+    case "kits": return opts.kits.map((k) => ({ value: k.id, name: k.name, status: k.status, family: k.family,
+                                                unavailable: !!state.unavailable?.has(k.id) }));
     case "patterns": return opts.patterns.map((p) => ({ value: p.id, name: p.name, status: p.status }));
     case "kickPhrases": return [{ value: "", name: "The pattern's own" },
                                 ...opts.kickPhrases.map((k) => ({ value: k.id, name: k.id }))];
@@ -126,10 +128,10 @@ export function familyOf(values, opts) {
 // an option fits a family: its own, electric, or none ("any")
 const fits = (o, family) => !o.family || o.family === family || o.family === "electric" || o.family === "any";
 
-// approved options of a row that fit the family, other than the current value
+// approved options of a row that fit the family, other than the current value (and a kit whose samples are missing)
 function approvedFits(r, state, opts, family, lib) {
   return allOptions(r, state, opts, lib)
-    .filter((o) => (o.status ?? "approved") === "approved" && !o.rolled && !same(o.value, state.values[r.id]))
+    .filter((o) => (o.status ?? "approved") === "approved" && !o.rolled && !o.unavailable && !same(o.value, state.values[r.id]))
     .filter((o) => r.kind === "family" || fits(o, family));
 }
 

@@ -3,9 +3,10 @@
 //   node workbench/tools/replay.mjs <feedback.jsonl line number | snapshot.json> out.wav [seconds]
 // A line number is 1-based; the snapshot is the entry's, or a file holding one (an entry's "snapshot" is used if present).
 // Without seconds: the whole song (up to 10 minutes).
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { Desk } from "../desk.js";
+import { Samples } from "../wb.js";
 
 const SR = 44100, Q = 128;
 const here = (p) => new URL(p, import.meta.url);
@@ -37,6 +38,7 @@ export async function replay(snap, seconds) {
   const ex = await load();
   const call = async (fn, ...a) => {
     if (fn === "wb_stage_bytes") return new Uint8Array(ex.memory.buffer, ex.wb_stage_ptr(), ex.wb_stage_size()).slice();
+    if (fn === "wb_write") return void new Float32Array(ex.memory.buffer, a[0], a[1].length).set(a[1]);
     const v = ex[fn](...a);
     return JSON_EXPORTS.has(fn) ? JSON.parse(cstr(ex, v)) : v;
   };
@@ -44,7 +46,17 @@ export async function replay(snap, seconds) {
   const opts = JSON.parse(readFileSync(here("../options.json"), "utf8"));
   ex.wb_seed(snap.seed);
   ex.wb_apply();
-  const mismatch = await new Desk(call, C, opts, lib).restore(snap);
+  const files = {   // the sampled kits' files, as the page fetches them from workbench/
+    exists: async (p) => existsSync(here(`../${p}`)),
+    get: async (p) => {
+      if (!existsSync(here(`../${p}`))) return null;
+      const b = readFileSync(here(`../${p}`));
+      return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength);
+    },
+  };
+  const samples = new Samples(call, C, files);
+  await samples.check(opts);
+  const mismatch = await new Desk(call, C, opts, lib, { samples }).restore(snap);
   const bars = ex.wb_bars(), bpm = ex.wb_roll_get(C.RF.TEMPO);
   const n = Math.round((seconds ?? Math.min(bars * 4 * 60 / bpm, 600)) * SR);
   const l = new Float32Array(n), r = new Float32Array(n);

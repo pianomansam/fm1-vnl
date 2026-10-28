@@ -99,3 +99,71 @@ export function sendFeedback(entry, opts = {}) {
   writeL(storage, QKEY, [...readL(storage, QKEY), { ...entry, id }]);
   return flushFeedback(opts);
 }
+
+// The shipped sampled kits (samples/kits.json and its float32 files, made by tools/prep_kits.py; git-ignored). A kit
+// whose files aren't all there is unavailable: the picker shows it so and can't choose it. A set's files go into
+// wb.wasm (wb_sample_alloc, then wb_write: the page's data at that pointer, the worklet's own call) on the kit's first
+// use. call: wb.wasm's exports; C: wb_consts(); files: { exists(path), get(path): an ArrayBuffer or null }, paths
+// under workbench/.
+export class Samples {
+  constructor(call, C, files = { exists: async (p) => (await fetch(p, { method: "HEAD" })).ok,
+                              get: async (p) => { const r = await fetch(p); return r.ok ? r.arrayBuffer() : null; } }) {
+    Object.assign(this, { call, C, files, kits: [], unavailable: new Set(), loaded: new Map() });
+  }
+
+  // which of opts' sampled kits (a "set") can be chosen
+  async check(opts) {
+    let idx = null;
+    try { idx = JSON.parse(new TextDecoder().decode(await this.files.get("samples/kits.json"))); } catch { /* none */ }
+    this.kits = idx?.kits || [];
+    for (const k of opts.kits.filter((k) => k.set !== undefined)) {
+      const e = this.kits.find((x) => x.id === k.set && x.kit === k.id);
+      const names = e ? e.pieces.flatMap((p) => (p.layers || []).flatMap((l) => l.files)) : [];
+      const there = await Promise.all(names.map((f) => this.files.exists(`samples/${f}`)));
+      if (!e || !names.length || there.includes(false)) this.unavailable.add(k.id);
+    }
+    return this.unavailable;
+  }
+
+  // the kit row's value can play: not a sampled kit, or one whose set is loaded (loaded now if it wasn't)
+  async kit(value) {
+    const e = this.kits.find((x) => x.kit === value);
+    if (!e) return !this.unavailable.has(value);
+    return !this.unavailable.has(value) && this.load(e.id);
+  }
+
+  // set's files into wb.wasm (once); false (and the kit unavailable) if one is missing
+  load(set) {
+    if (!this.loaded.has(set)) this.loaded.set(set, this.#load(set));
+    return this.loaded.get(set);
+  }
+
+  async #load(set) {
+    const e = this.kits.find((x) => x.id === set), { RR, VL } = this.C.DRUMS, ptrs = new Map(), c = this.call;
+    if (!e) return false;
+    const put = async (name) => {
+      if (!ptrs.has(name)) {
+        const b = await this.files.get(`samples/${name}`);
+        if (!b) throw new Error(name);
+        const x = new Float32Array(b), ptr = await c("wb_sample_alloc", b.byteLength);
+        await c("wb_write", ptr, x);
+        ptrs.set(name, [ptr, x.length]);
+      }
+      return ptrs.get(name);
+    };
+    try {
+      for (const p of e.pieces) {
+        const src = p.same !== undefined ? e.pieces.find((q) => q.id === p.same) : p;
+        for (const [vl, l] of src.layers.entries())
+          for (const [rr, f] of l.files.entries()) await c("wb_sample_set", set, p.id, vl * RR + rr, ...(await put(f)));
+        const hi = [...Array(VL)].map((_, i) => src.layers[i]?.hi ?? 0);
+        await c("wb_sample_piece", set, p.id, src.curve, p.vel, ...hi);
+      }
+      return true;
+    } catch {
+      this.unavailable.add(e.kit);
+      this.loaded.delete(set);
+      return false;
+    }
+  }
+}

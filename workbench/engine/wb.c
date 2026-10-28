@@ -99,6 +99,7 @@ static void land(int target, int fresh)
         vx_release_all();
         vx_configure(&song.roll);       /* the bed reopens */
     }
+    wb_drums_kit(lib_song_kit(&song.roll));
     vx_set_gain(1.0f);
     cur_bar = target - 1;
     next_at = 0;
@@ -321,57 +322,90 @@ EXPORT void wb_kit_set(int kit)
     st.drums.preset = -1;
 }
 
-/* A synth kit as shipped (WB_KIT_*: wb_drums_preset) on every lane, over the Brushes kit in the custom set (a synth
-   kit's song: no ride section, its compressor) */
+/* A kit as shipped (WB_KIT_*: wb_drums_preset) on every lane; nothing staged if it can't play (a sampled kit not
+   loaded). The custom set's kit under it: Brushes for a synth machine's (a synth kit's song: no ride section, its
+   compressor), the mixed Rusty for a sampled one's (a sampled kit's song: the ride section, the hats' eighths) */
 EXPORT void wb_kit_preset(int id)
 {
     lib_set_t *s;
-    if (id < 0 || id >= WB_KIT_PRESETS || !(s = custom_set()))
+    wb_drums_t d;
+    if (!wb_drums_preset(&d, id) || !(s = custom_set()))
         return;
-    s->kit = KIT_BRUSHES;
-    s->skit = KIT_N;
-    wb_drums_preset(&st.drums, id);
+    s->kit = WB_KIT_SAMPLED(id) ? KIT_N : KIT_BRUSHES;
+    s->skit = WB_KIT_SAMPLED(id) ? KIT_S_RUSTY : KIT_N;
+    st.drums = d;
 }
 
-/* Lane (0..WB_LANES - 1: V_KICK's order) plays a source (WB_SRC_*; wb_drums_src_ok's), its level kept. The first
-   lane set on a song with none copies the song's Brushes kit onto the others (BUILTIN; a sampled kit's: Task 9), so
-   they keep playing; the preset stays named (the kit row), the lane its own. */
-EXPORT void wb_lane_src(int lane, int kind, int a, int b)
+/* the staged kit's lanes into d (levels kept): a preset's, or a synth kit's (BUILTIN); 0 for a mixed sampled kit
+   (retired: its hits are processed copies of pieces, none of them a lane source) */
+static int kit_lanes(wb_drums_t *d)
+{
+    wb_drums_t k;
+    int kit = wb_kit_get(), i;
+    if (kit >= WB_KIT_PRESET) {
+        if (!wb_drums_preset(&k, kit - WB_KIT_PRESET))
+            return 0;
+    } else if (kit >= 0 && kit <= KIT_BRUSHES) {
+        memset(&k, 0, sizeof k);
+        for (i = 0; i <= V_RIM - V_KICK; i++)
+            k.lane[i] = (wb_src_t){WB_SRC_BUILTIN, (uint8_t)kit, (uint8_t)i, 0.0f};
+    } else {
+        return 0;
+    }
+    for (i = 0; i < WB_LANES; i++) {
+        k.lane[i].gain_db = d->lane[i].gain_db;
+        d->lane[i] = k.lane[i];
+    }
+    return 1;
+}
+
+/* Lane (0..WB_LANES - 1: V_KICK's order) plays a source (WB_SRC_*; wb_drums_src_ok's), its level kept: 1, or 0 if
+   refused. The first lane set on a song with none copies the song's kit onto the others (kit_lanes), so they keep
+   playing; a mixed sampled kit's song refuses it (choose a shipped kit first). The preset stays named (the kit row),
+   the lane its own. */
+EXPORT int wb_lane_src(int lane, int kind, int a, int b)
 {
     wb_src_t *s;
-    int k, i;
-    if (lane < 0 || lane >= WB_LANES || !wb_drums_src_ok(kind, a, b) || !custom_set())
-        return;
-    if (kind != WB_SRC_NONE && !wb_drums_any(&st.drums) && (k = wb_kit_get()) == KIT_BRUSHES)
-        for (i = 0; i <= V_RIM - V_KICK; i++)
-            st.drums.lane[i] = (wb_src_t){WB_SRC_BUILTIN, (uint8_t)k, (uint8_t)i, st.drums.lane[i].gain_db};
+    if (lane < 0 || lane >= WB_LANES || !wb_drums_src_ok(kind, a, b))
+        return 0;
+    if (kind != WB_SRC_NONE && !wb_drums_any(drums_of(&st))) {
+        wb_drums_t d = drums_of(&st) ? st.drums : (wb_drums_t){.preset = -1};
+        if (!kit_lanes(&d) || !custom_set())
+            return 0;
+        st.drums = d;
+    } else if (!custom_set()) {
+        return 0;
+    }
     s = &st.drums.lane[lane];
     s->kind = (uint8_t)kind;
     s->a = (uint8_t)a;
     s->b = (uint8_t)b;
+    return 1;
 }
 
-/* lane's level in dB (-40..+12) */
+/* lane's level in dB (-40..+12; not a number: unchanged) */
 EXPORT void wb_lane_db(int lane, float db)
 {
-    if (lane < 0 || lane >= WB_LANES || !custom_set())
+    if (lane < 0 || lane >= WB_LANES || db != db || !custom_set())
         return;
     st.drums.lane[lane].gain_db = db < -40.0f ? -40.0f : db > 12.0f ? 12.0f : db;
 }
 
-/* lane's sound now (vel 1-127) as staged, outside the song, through the drums' chain (stopped too): the song's own
-   kit's when no lane has a source */
+/* lane's sound now (vel 1-127) as staged, outside the song, through the drums' chain (stopped too): the staged kit's
+   when no lane has a source */
 EXPORT void wb_audition(int lane, int vel)
 {
     const wb_drums_t *d = drums_of(&st);
-    wb_src_t none = {WB_SRC_NONE, 0, 0, 0.0f};
+    wb_drums_t k = {.preset = -1};
     if (lane < 0 || lane >= WB_LANES)
         return;
     vel = vel < 1 ? 1 : vel > 127 ? 127 : vel;
-    if (!wb_drums_any(d))
-        wb_drums_audition(&none, lane, vel);
-    else if (d->lane[lane].kind != WB_SRC_NONE)
+    if (wb_drums_any(d))
         wb_drums_audition(&d->lane[lane], lane, vel);
+    else if (kit_lanes(&k))
+        wb_drums_audition(&k.lane[lane], lane, vel);
+    else
+        wb_drums_audition_kit(wb_kit_get(), lane, vel);
 }
 
 /* A two-bar kick phrase (step masks for bars A and B) over the staged pattern: the custom pattern copies the library
@@ -630,7 +664,8 @@ EXPORT const char *wb_consts(void)
         {"NONE", WB_SRC_NONE}, {"PT", WB_SRC_PT}, {"OPT", WB_SRC_OPT}, {"SAMPLE", WB_SRC_SAMPLE},
         {"BUILTIN", WB_SRC_BUILTIN}}, KIT[] = {
         {"PRESET", WB_KIT_PRESET}, {"PT808", WB_KIT_PT808}, {"PTCR78", WB_KIT_PTCR78}, {"OPTLOFI", WB_KIT_OPTLOFI},
-        {"PRESETS", WB_KIT_PRESETS}, {"LANES", WB_LANES}};
+        {"GOGODZE", WB_KIT_GOGODZE}, {"RUSTY", WB_KIT_RUSTY}, {"BRUSHES", WB_KIT_BRUSHES},
+        {"PRESETS", WB_KIT_PRESETS}, {"LANES", WB_LANES}, {"VL", WB_SMP_VL}, {"RR", WB_SMP_RR}};
     static const struct { const char *key; const kv_t *t; unsigned n; } T[] = {
         {"RF", RF, sizeof RF / sizeof RF[0]}, {"OV", OV, sizeof OV / sizeof OV[0]}, {"V", V, sizeof V / sizeof V[0]},
         {"SRC", SRC, sizeof SRC / sizeof SRC[0]}, {"DRUMS", KIT, sizeof KIT / sizeof KIT[0]}};

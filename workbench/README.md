@@ -24,6 +24,10 @@ AudioWorklet. Local only; not the FM-1, so it may exceed the device's budgets.
   it). `desk.js` drives the engine with them: every change is staged, checked against the locks (undone whole if a
   locked row would move) and landed; a seed or map change stages every locked or hand-set row again. The lead register's read-back runs scratch songs in a second wb.wasm on the main
   thread (`wb.js`'s probe), never on the audio thread.
+- The drums: a kit row value from 16 is a preset over the drum lanes (`engine/wb_drums.c`): the poketrack and Optimist
+  synth kits, and the shipped sampled kits (Gogodze; Big Rusty, sticks and brushes), whose files `tools/prep_kits.py`
+  makes into `samples/` (git-ignored; see `samples/README.md`). `wb.js`'s `Samples` marks a kit with files missing
+  unavailable (shown, not choosable) and loads a kit's files into wb.wasm the first time it is chosen.
 - `options.json`: the hand-maintained option lists (instruments, kits, comping, patterns, kick phrases, families),
   each approved, candidate or retired, seeded from the ledgers.
 - Feedback: 👍/👎 and a note, on the song or a row, save a line to `workbench/feedback.jsonl`: a versioned snapshot

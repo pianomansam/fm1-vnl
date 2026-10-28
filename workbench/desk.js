@@ -11,8 +11,9 @@ export class Desk {
   // probe(bytes): the lead register the engine applies to a staged state (wb_stage_bytes), from a second wb.wasm
   // instance off the audio thread (wb.js's probe); without one the lead register isn't read back
   // position(): { seconds, bar } of the song playing, for the change log (none: 0, 0)
-  constructor(call, C, opts, lib, { rnd = Math.random, probe = null, position = () => ({ seconds: 0, bar: 0 }) } = {}) {
-    Object.assign(this, { call, C, opts, lib, rnd, probe, position });
+  // samples: wb.js's Samples (the sampled kits: which are unavailable, and their files loaded on first use), or none
+  constructor(call, C, opts, lib, { rnd = Math.random, probe = null, position = () => ({ seconds: 0, bar: 0 }), samples = null } = {}) {
+    Object.assign(this, { call, C, opts, lib, rnd, probe, position, samples });
     this.changes = [];         // every applied change: { seconds, bar, row, from, to }
     this.values = {};
     this.locks = new Set();
@@ -22,7 +23,7 @@ export class Desk {
     this.message = "";
   }
 
-  get state() { return { values: this.values, locks: this.locks, legal: this.legal }; }
+  get state() { return { values: this.values, locks: this.locks, legal: this.legal, unavailable: this.samples?.unavailable }; }
   kept(id) { return this.locks.has(id) || this.hand.has(id); }
 
   // the engine's staged state into values; the family is the page's (derive: from the keys and lead, as a new song's)
@@ -45,7 +46,7 @@ export class Desk {
     if (r.kind === "roll") return c("wb_roll_set", RF[r.field], v);
     if (r.kind === "role") return c("wb_role_set", V[r.role], v);
     if (r.kind === "ov" || r.kind === "reroll") return c("wb_ov_set", OV[r.key], v);
-    if (id === "kit") return c("wb_kit_set", v);
+    if (id === "kit") return (await this.samples?.kit(v)) === false ? undefined : c("wb_kit_set", v);
     if (id === "kick") return c("wb_kick_phrase", ...kickMasks(v, this.opts));
     if (id === "pattern") {
       await c("wb_roll_set", RF.PATTERN, v);
@@ -96,6 +97,10 @@ export class Desk {
   async set(id, value, { dice = false, release = false } = {}) {
     const r = row(id);
     if (this.locks.has(id)) return this.done(false, `${r.label} is locked.`);
+    if (id === "kit" && this.samples && !(await this.samples.kit(value))) {
+      const k = this.opts.kits.find((x) => x.id === value);
+      return this.done(false, `${k?.name ?? "That kit"} is unavailable: its sample files are missing (see workbench/samples/README.md).`);
+    }
     const c = r.regenerates || r.kind === "roll" ? { forced: [], stuck: [], blocked: null }
                                                   : conflicts(r, value, this.state, this.opts, this.rnd, this.lib);
     if (c.blocked) return this.done(false, `Blocked: ${c.blocked.label} is locked (${c.blocked.why}).`);
@@ -225,10 +230,24 @@ export class Desk {
   async stageDrums(d) {
     const lanes = d?.lanes || [];
     if (!lanes.some((l) => l[0] !== this.C.SRC.NONE)) return;
+    for (const [kind, a] of lanes) if (kind === this.C.SRC.SAMPLE) await this.samples?.load(a);
     for (const silent of [false, true])
       for (const [i, [kind, a, b]] of lanes.entries())
         if ((kind === this.C.SRC.NONE) === silent) await this.call("wb_lane_src", i, kind, a, b);
     for (const [i, l] of lanes.entries()) await this.call("wb_lane_db", i, l[3]);
+  }
+
+  // Lane i plays a source (WB_SRC_*), staged and committed (the drum screen's). The first on a song with none copies
+  // its kit to the others; a retired mixed sampled kit refuses: its hits aren't lane sources. { ok, message }
+  async lane(i, kind, a, b) {
+    if (kind === this.C.SRC.SAMPLE && this.samples && !(await this.samples.load(a)))
+      return this.done(false, "Those samples are missing (see workbench/samples/README.md).");
+    if (!(await this.call("wb_lane_src", i, kind, a, b))) {
+      const k = this.opts.kits.find((x) => x.id === this.values.kit);
+      return this.done(false, `${k?.name ?? "This kit"} can't be edited lane by lane (its hits are mixed copies, not sources): choose a shipped kit first.`);
+    }
+    await this.call("wb_apply");
+    return this.done(true, "");
   }
 
   lock(id, on) {

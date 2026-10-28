@@ -33,6 +33,15 @@ licenses and the files taken are in `workbench/engine/LICENSES.md`:
 | poketrack's trommelsynthesizer (synthesized TR-808 and CR-78 voices), by David Konsumer, at 2c5d4a6 | zlib (`workbench/engine/poketrack/LICENSE`) | https://github.com/konsumer/poketrack | `workbench/engine/poketrack/` |
 | Optimist's synth drum engine (`drum_synth.c`) and its LO-FI kit, by Leo Kuroshita (@kurogedelic), Hügelton Instruments, and the Optimist contributors, at 915fd8a | GPL-3.0-only (`workbench/engine/optimist/LICENSE`) | https://github.com/w0ts/optimist | `workbench/engine/optimist/` |
 
+Its sampled kits play recordings dedicated to the public domain under CC0 1.0, fetched and mixed by
+`workbench/tools/prep_kits.py` (which checks each `LICENSE`) into `workbench/samples/` (git-ignored; never in the
+firmware). No attribution is required; it is given with thanks:
+
+| Source | Used for | License | URL |
+| --- | --- | --- | --- |
+| Karoryfer Samples: Gogodze Phu Vol II, at 69a0274 | the Gogodze kit (`Programs/Kit.sfz` as shipped: kick, snare, sidestick, closed and open hi-hat, every mic at its default mix) | CC0 1.0 (`LICENSE`) | https://github.com/sfzinstruments/karoryfer.gogodze-phu-vol-ii |
+| Karoryfer Samples: Big Rusty Drums, at f07ce00 | the Big Rusty kits (`Programs/02-basic.sfz` as shipped, and with its brush maps: kick, snare, sidestick, hi-hat, 22" ride) | CC0 1.0 (`LICENSE`) | https://github.com/sfzinstruments/karoryfer.big-rusty-drums |
+
 The MIT notice for the Plaits code, which the firmware contains:
 
     Copyright 2014 Emilie Gillet.

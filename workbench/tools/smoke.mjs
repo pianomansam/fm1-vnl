@@ -240,6 +240,7 @@ const STR = new Set(["wb_consts", "wb_state", "wb_live_state", "wb_library"]);
 // the page's call (the worklet's): JSON exports parsed, wb_stage_bytes a copy of the staged state
 const caller = (ex) => async (fn, ...a) => {
   if (fn === "wb_stage_bytes") return new Uint8Array(ex.memory.buffer, ex.wb_stage_ptr(), ex.wb_stage_size()).slice();
+  if (fn === "wb_write") return void new Float32Array(ex.memory.buffer, a[0], a[1].length).set(a[1]);
   if (!ex[fn]) throw new Error(`no export ${fn}`);
   const v = ex[fn](...a);
   return STR.has(fn) ? JSON.parse(cstr(ex, v)) : v;
@@ -253,7 +254,7 @@ const prober = async () => {
   };
 };
 const ins = (name) => OPTS.instruments.find((i) => i.name === name).id;
-const famOf = (id) => OPTS.instruments.find((i) => i.id === id)?.family ?? OPTS.kits.find((k) => k.id === id)?.family;
+const famOf = (id, row) => (row === "kit" ? OPTS.kits : OPTS.instruments).find((x) => x.id === id)?.family;
 
 console.log("options.json");
 {
@@ -264,8 +265,12 @@ console.log("options.json");
   check(engine.every((k) => KIT[k.id] === k.sym) && engine.length === KIT.length - 1 &&
         presets.every((k) => PRE[k.id - C.DRUMS.PRESET] === k.sym) && presets.length === PRE.length - 1,
         "every kit's id is its enum's (library.h's KIT_*, wb_drums.h's presets past WB_KIT_PRESET)");
-  check(presets.length === 3 && presets.every((k) => k.family === "synth" && k.status === "approved" && !k.ride),
+  const synth = presets.filter((k) => k.set === undefined), sampled = presets.filter((k) => k.set !== undefined);
+  check(synth.length === 3 && synth.every((k) => k.family === "synth" && k.status === "approved" && !k.ride),
         "the three synth presets are approved synth kits with no ride");
+  check(sampled.length === 3 && sampled.every((k, i) => k.family === "acoustic" && k.status === "approved" && k.ride &&
+                                                        k.set === i && k.id === C.DRUMS.PRESET + C.DRUMS.GOGODZE + i),
+        "the three shipped sampled kits are approved acoustic kits with a ride, their sets in order");
   const retired = (xs, names) => names.every((n) => xs.find((x) => x.name.startsWith(n))?.status === "retired");
   check(retired(OPTS.instruments, ["Upright bass"]) && retired(OPTS.comping, ["Arpeggio", "Offbeats"]) &&
         retired(OPTS.kits, ["Dusty", "Soft", "Our 808", "Warm", "Dark", "Rusty", "Gentle", "Clean"]),
@@ -301,7 +306,7 @@ console.log("rows: retired options, dice, families");
       for (let i = 0; i < 40; i++) {
         const v = pickFor(row(id), s, OPTS, rnd);
         if (v === null) continue;
-        const f = ["keys", "lead", "bass", "pad", "candy", "kit"].includes(id) ? famOf(v) : null;
+        const f = ["keys", "lead", "bass", "pad", "candy", "kit"].includes(id) ? famOf(v, id) : null;
         if (String(v) === String(s.values[id]) || (f && f !== fam && f !== "electric" && f !== "any")) bad.push(`${fam} ${id}=${v}`);
         const o = optionsFor(row(id), s, OPTS).find((x) => String(x.value) === String(v));
         if (id !== "family" && (o?.status ?? "approved") !== "approved") bad.push(`${fam} ${id}=${v} not approved`);
@@ -610,7 +615,7 @@ console.log("drums: synth presets and lanes");
   const only = (ex, keep) => { for (let i = 0; i < L; i++) if (!keep.includes(i)) ex.wb_lane_src(i, SRC.NONE, 0, 0); };
   const NAMES = ["poketrack 808", "poketrack CR-78", "Optimist LO-FI"];
 
-  for (let p = 0; p < DRUMS.PRESETS; p++) {
+  for (let p = 0; p < DRUMS.GOGODZE; p++) {
     const r = await song(21, (ex) => ex.wb_kit_set(DRUMS.PRESET + p), 60);   // (seed 21's drums come in at bar 8)
     const d = lanesOf(r.ex);
     check(d.preset === p && JSON.parse(cstr(r.ex, r.ex.wb_state())).kit === DRUMS.PRESET + p && d.lanes.every((l) => l[0] !== SRC.NONE),
@@ -623,17 +628,19 @@ console.log("drums: synth presets and lanes");
   const cr = await load();
   cr.wb_kit_preset(DRUMS.PTCR78);
   const crSnare = lanesOf(cr).lanes[1];
-  const a = await song(21, (ex) => ex.wb_kit_preset(DRUMS.PT808), 60);
-  const b = await song(21, (ex) => { ex.wb_kit_preset(DRUMS.PT808); ex.wb_lane_src(1, crSnare[0], crSnare[1], crSnare[2]); }, 60);
-  const same = a.lane.map((l, i) => l.hash === b.lane[i].hash);
-  check(!same[1] && same.every((s, i) => s || i === 1) && b.lane[1].ms > 1e-6 && lanesOf(b.ex).preset === DRUMS.PT808,
-        `808 kit + the CR-78's snare: only the snare lane's samples change (same: ${same.map((s, i) => (s ? i : "-")).join("")}), the kit row stays the 808`);
+  for (const seed of SEEDS) {
+    const a = await song(seed, (ex) => ex.wb_kit_preset(DRUMS.PT808), 60);
+    const b = await song(seed, (ex) => { ex.wb_kit_preset(DRUMS.PT808); ex.wb_lane_src(1, crSnare[0], crSnare[1], crSnare[2]); }, 60);
+    const same = a.lane.map((l, i) => l.hash === b.lane[i].hash), heard = a.lane.filter((l) => l.ms > 1e-6).length;
+    check(!same[1] && same.every((s, i) => s || i === 1) && b.lane[1].ms > 1e-6 && heard >= 3 && lanesOf(b.ex).preset === DRUMS.PT808,
+          `seed ${seed}: 808 kit + the CR-78's snare: only the snare lane's samples change (same: ${same.map((s, i) => (s ? i : "-")).join("")}; ${heard} lanes heard), the kit row stays the 808`);
+  }
 
   // levels: each preset's kick and snare against the Brushes kit's (its own lanes through the hook) on the same songs
   for (const seed of SEEDS) {
     const br = await song(seed, (ex) => { ex.wb_kit_set(3); ex.wb_lane_src(0, SRC.BUILTIN, 3, 0); only(ex, [0, 1]); }, 60);
     const got = [];
-    for (let p = 0; p < DRUMS.PRESETS; p++) {
+    for (let p = 0; p < DRUMS.GOGODZE; p++) {
       const r = await song(seed, (ex) => { ex.wb_kit_preset(p); only(ex, [0, 1]); }, 60);
       got.push(toDb(r.all) - toDb(br.all));
     }
@@ -657,14 +664,20 @@ console.log("drums: synth presets and lanes");
     ex2.wb_seed(21);
     ex2.wb_apply();
     ex2.wb_audition(0, 110);           // no lanes: the song's own kit's kick
-    check(db(render(ex2, SR / 2)) > -50, "with no lanes, the audition plays the song's own kit's lane");
-    ex2.wb_play(1);
-    render(ex2, SR);
+    check(db(render(ex2, SR / 2)) > -50, "with no lanes, the audition plays the staged kit's lane");
+    const ref = await load();             // the same song, played without the second audition
+    ref.wb_seed(21);
+    ref.wb_apply();
+    ref.wb_audition(0, 110);
+    render(ref, SR / 2);
+    for (const x of [ex2, ref]) { x.wb_play(1); render(x, SR); }
     const t0 = ex2.wb_seconds(), b0 = ex2.wb_bar();
     ex2.wb_kit_preset(DRUMS.PT808);
     ex2.wb_audition(0, 127);
-    render(ex2, SR);
-    check(Math.abs(ex2.wb_seconds() - t0 - 1) < 1e-3 && ex2.wb_bar() >= b0, "playing: an audition doesn't advance the song");
+    const withA = render(ex2, SR), without = render(ref, SR);
+    const diff = { l: withA.l.map((x, i) => x - without.l[i]), r: withA.r.map((x, i) => x - without.r[i]) };
+    check(Math.abs(ex2.wb_seconds() - t0 - 1) < 1e-3 && ex2.wb_bar() >= b0 && db(diff) > -50,
+          `playing: an audition is heard over the song (${db(diff).toFixed(1)} dBFS against it) and doesn't advance it`);
   }
 
   // the lanes are staged with everything else: undo, snapshot and replay
@@ -694,6 +707,177 @@ console.log("drums: synth presets and lanes");
     check(!rp.mismatch.length && Buffer.compare(wav(rp), wav(live)) === 0, "its replay plays the page's samples");
     ex.wb_seed(5);
     check(lanesOf(ex).preset === -1 && lanesOf(ex).lanes.every((l) => l[0] === SRC.NONE), "a new seed's song drops them (they go with the custom set)");
+  }
+}
+
+// ---- the shipped sampled kits (samples/kits.json, prep_kits.py's; git-ignored) and the lanes' first edit ----
+console.log("drums: sampled kits, the first lane edit");
+{
+  const { SRC, DRUMS } = C, L = DRUMS.LANES, SEEDS = [21, 77];
+  const { Samples } = await import("../wb.js");
+  const { existsSync } = await import("node:fs");
+  const here = (p) => new URL(`../${p}`, import.meta.url);
+  // workbench/'s files as the page fetches them; missing: names that look absent
+  const disk = (missing = new Set()) => ({
+    exists: async (p) => !missing.has(p) && existsSync(here(p)),
+    get: async (p) => {
+      if (missing.has(p) || !existsSync(here(p))) return null;
+      const b = readFileSync(here(p));
+      return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength);
+    },
+  });
+  const lanesOf = (ex) => JSON.parse(cstr(ex, ex.wb_state())).drums;
+  const toDb = (ms) => 10 * Math.log10(ms + 1e-30);
+  const sampledKits = OPTS.kits.filter((k) => k.set !== undefined);
+  async function song(seed, stage, secs, sets = []) {
+    const ex = await load(), smp = new Samples(caller(ex), C, disk());
+    await smp.check(OPTS);
+    for (const set of sets) await smp.load(set);
+    ex.wb_seed(seed);
+    stage(ex);
+    ex.wb_apply();
+    ex.wb_play(1);
+    ex.wb_drum_meter_reset();
+    const out = render(ex, secs * SR);
+    const lane = [...Array(L)].map((_, i) => ({ ms: ex.wb_drum_meter(i), hash: ex.wb_drum_hash(i) }));
+    return { ex, out, lane, all: ex.wb_drum_meter(L), smp };
+  }
+  const only = (ex, keep) => { for (let i = 0; i < L; i++) if (!keep.includes(i)) ex.wb_lane_src(i, SRC.NONE, 0, 0); };
+
+  // a missing file (Review Focus 4): the kit is unavailable, offered marked, never picked, refused by the desk; the
+  // engine stages nothing for a kit it hasn't loaded (no silent lanes)
+  {
+    const idx = existsSync(here("samples/kits.json")) ? JSON.parse(readFileSync(here("samples/kits.json"), "utf8")) : null;
+    const gone = idx ? `samples/${idx.kits[0].pieces[1].layers[0].files[0]}` : "samples/kits.json";
+    const ex = await load(), call = caller(ex), smp = new Samples(call, C, disk(new Set([gone])));
+    await smp.check(OPTS);
+    const gg = DRUMS.PRESET + DRUMS.GOGODZE;
+    check(smp.unavailable.has(gg), `with ${gone} missing, Gogodze is unavailable`);
+    ex.wb_seed(21);
+    ex.wb_apply();
+    const desk = new Desk(call, C, OPTS, await call("wb_library"), { rnd: lcg(5), samples: smp });
+    await desk.read(true);
+    desk.values.family = "acoustic";
+    const o = optionsFor(row("kit"), desk.state, OPTS).find((x) => x.value === gg);
+    const picks = [...Array(60)].map(() => pickFor(row("kit"), desk.state, OPTS, lcg(desk.changes.length + Math.random() * 1e9)));
+    check(o && o.unavailable && !picks.includes(gg), "the picker shows it unavailable and the dice never pick it");
+    const before = desk.values.kit, res = await desk.set("kit", gg);
+    check(!res.ok && /unavailable/.test(res.message) && desk.values.kit === before, `choosing it is refused: "${res.message}"`);
+    ex.wb_kit_preset(DRUMS.GOGODZE);
+    check(lanesOf(ex).lanes.every((l) => l[0] === SRC.NONE) && JSON.parse(cstr(ex, ex.wb_state())).kit !== gg,
+          "the engine stages nothing for a sampled kit that isn't loaded");
+  }
+
+  const missing = await new Samples(caller(await load()), C, disk()).check(OPTS);
+  if (missing.size) {
+    console.log("  SKIP the sampled kits' sound: their files aren't in workbench/samples (python3 -I workbench/tools/prep_kits.py FETCH_DIR workbench/samples)");
+  } else {
+    const idx = JSON.parse(readFileSync(here("samples/kits.json"), "utf8"));
+    const br = {};   // Brushes' kick and snare on each seed (its own lanes through the hook)
+    for (const seed of SEEDS)
+      for (const lane of [0, 1])
+        br[`${seed}/${lane}`] = (await song(seed, (ex) => { ex.wb_kit_set(3); ex.wb_lane_src(lane, SRC.BUILTIN, 3, lane); only(ex, [lane]); }, 60)).all;
+    for (const k of sampledKits) {
+      const e = idx.kits.find((x) => x.id === k.set), p = k.id - DRUMS.PRESET;
+      const r = await song(21, (ex) => ex.wb_kit_set(k.id), 60, [k.set]);
+      const d = lanesOf(r.ex), live = JSON.parse(cstr(r.ex, r.ex.wb_live_state()));
+      check(!r.smp.unavailable.has(k.id) && d.preset === p && live.kit === k.id &&
+            d.lanes.every((l, i) => (e.lanes[i] === null ? l[0] === SRC.NONE : l[0] === SRC.SAMPLE && l[1] === k.set && l[2] === e.lanes[i])),
+            `${k.name}: staged as the kit row's value, its lanes kits.json's (${e.lanes.map((x) => x ?? "-").join(" ")})`);
+      check(r.lane[0].ms > 1e-6 && r.lane[1].ms > 1e-6 && db(r.out) > -45,
+            `${k.name}: a song with non-silent kick and snare lanes (${toDb(r.lane[0].ms).toFixed(1)}, ${toDb(r.lane[1].ms).toFixed(1)} dB; mix ${db(r.out).toFixed(1)} dBFS)`);
+      const got = [];
+      for (const seed of SEEDS)
+        for (const lane of [0, 1]) {
+          const s = await song(seed, (ex) => { ex.wb_kit_preset(p); only(ex, [lane]); }, 60, [k.set]);
+          got.push(toDb(s.all) - toDb(br[`${seed}/${lane}`]));
+        }
+      check(got.every((g) => Math.abs(g) <= 2),
+            `${k.name}: kick and snare each within 2 dB of Brushes' on seeds ${SEEDS.join(", ")} (${got.map((g) => `${g >= 0 ? "+" : ""}${g.toFixed(2)}`).join(", ")} dB)`);
+    }
+    // the ride section plays on them: a song where it does, and the ride lane heard
+    {
+      const rusty = DRUMS.PRESET + DRUMS.RUSTY;
+      const r = await song(21, (ex) => { ex.wb_kit_set(rusty); ex.wb_ov_set(C.OV.RIDE, 1); }, 90, [1]);
+      check(r.lane[6].ms > 1e-6, `Big Rusty: the ride section throughout plays its ride (${toDb(r.lane[6].ms).toFixed(1)} dB)`);
+    }
+    // a lane's override on a sampled kit: only that lane changes
+    {
+      const a = await song(21, (ex) => ex.wb_kit_preset(DRUMS.GOGODZE), 60, [0, 2]);
+      const b = await song(21, (ex) => { ex.wb_kit_preset(DRUMS.GOGODZE); ex.wb_lane_src(1, SRC.SAMPLE, 2, 1); }, 60, [0, 2]);
+      const same = a.lane.map((l, i) => l.hash === b.lane[i].hash);
+      check(!same[1] && same.every((s, i) => s || i === 1) && b.lane[1].ms > 1e-6,
+            `Gogodze + the brush snare: only the snare lane changes (same: ${same.map((s, i) => (s ? i : "-")).join("")})`);
+    }
+    // a snapshot with sampled lanes replays (the replay loads the sets it names)
+    {
+      const r = await song(21, (ex) => { ex.wb_kit_preset(DRUMS.BRUSHES); ex.wb_lane_db(0, -3); }, 1, [2]);
+      const desk = new Desk(caller(r.ex), C, OPTS, JSON.parse(cstr(r.ex, r.ex.wb_library())), { samples: r.smp });
+      await desk.read(true);
+      const snap = await desk.snapshot();
+      const { replay } = await import("./replay.mjs");
+      const rp = await replay(JSON.parse(JSON.stringify(snap)), 20);
+      const s2 = await song(21, (x) => { x.wb_kit_preset(DRUMS.BRUSHES); x.wb_lane_db(0, -3); }, 20, [2]);
+      check(!rp.mismatch.length && rp.l.every((x, i) => x === s2.out.l[i]), "a snapshot of Big Rusty (brushes) replays sample for sample");
+    }
+  }
+
+  // the first lane edit copies the song's kit onto every lane: a synth kit's as BUILTIN; a retired mixed sampled kit's
+  // is refused (its hits are processed copies, not sources), with a message
+  for (const [kit, name] of [[0, "Dusty"], [1, "Soft"]]) {
+    const r = await song(21, (ex) => { ex.wb_kit_set(kit); ex.wb_lane_src(1, SRC.BUILTIN, 3, 1); }, 30);
+    const d = lanesOf(r.ex).lanes;
+    check(d.every((l, i) => (i === 1 ? l[0] === SRC.BUILTIN && l[1] === 3 : i <= 5 ? l[0] === SRC.BUILTIN && l[1] === kit && l[2] === i : l[0] === SRC.NONE)) &&
+          r.all > 1e-6, `a ${name} song: the first lane edit (the Brushes snare) keeps ${name} on the kick, hats, shaker and rim; the drums play`);
+  }
+  {
+    const ex = await load(), call = caller(ex);
+    ex.wb_seed(21);
+    ex.wb_kit_set(4);                    // KIT_S_WARM
+    ex.wb_apply();
+    const desk = new Desk(call, C, OPTS, await call("wb_library"));
+    await desk.read(true);
+    const res = await desk.lane(1, SRC.BUILTIN, 3, 1);
+    check(!res.ok && /lane by lane/.test(res.message) && lanesOf(ex).lanes.every((l) => l[0] === SRC.NONE) &&
+          JSON.parse(cstr(ex, ex.wb_state())).kit === 4, `a Warm (mixed samples) song: the first lane edit is refused: "${res.message}"`);
+    ex.wb_lane_db(2, -6);
+    ex.wb_lane_db(2, NaN);
+    check(lanesOf(ex).lanes[2][3] === -6, "a lane's level ignores NaN");
+  }
+  // the no-lanes audition plays the staged kit (not the one playing): Dusty and Soft staged on the same song differ
+  {
+    const aud = async (kit) => {
+      const ex = await load();
+      ex.wb_seed(21);
+      ex.wb_apply();
+      ex.wb_kit_set(kit);
+      ex.wb_audition(1, 110);
+      return render(ex, SR / 2);
+    };
+    const a = await aud(0), b = await aud(1), c = await aud(0);
+    check(db(a) > -50 && db(b) > -50 && a.l.some((x, i) => x !== b.l[i]) && a.l.every((x, i) => x === c.l[i]),
+          "with no lanes, the audition plays the staged kit's lane (Dusty's snare and Soft's differ)");
+  }
+  // a BUILTIN hit on another kit leaves drums.c on the song's: a Dusty song after a Brushes kick audition (a sine: the
+  // noise stream stays the song's) plays on as without it, to the compressor's last trace
+  {
+    const run = async (kit) => {
+      const ex = await load();
+      ex.wb_seed(21);
+      ex.wb_kit_set(0);
+      ex.wb_apply();
+      ex.wb_play(1);
+      render(ex, 25 * SR);
+      if (kit >= 0) {
+        ex.wb_lane_src(0, SRC.BUILTIN, kit, 0);   // staged only
+        ex.wb_audition(0, 127);
+      }
+      render(ex, 5 * SR);
+      return render(ex, 20 * SR);
+    };
+    const ref = await run(-1), a = await run(3);
+    const diff = { l: a.l.map((x, i) => x - ref.l[i]), r: a.r.map((x, i) => x - ref.r[i]) };
+    check(db(diff) - db(ref) < -60, `after a Brushes kick audition, a Dusty song's drums are Dusty's again (the next 20 s: ${(db(diff) - db(ref)).toFixed(1)} dB against it; stuck on Brushes: about -5)`);
   }
 }
 

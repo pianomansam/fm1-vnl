@@ -89,7 +89,9 @@
     await wb.start();
     const opts = await (await fetch("options.json")).json();
     lib = await wb.call("wb_library");
-    desk = new Desk(wb.call, wb.C, opts, lib, { probe: wb.probe, position: () => pos });
+    const samples = new wb.Samples(wb.call, wb.C);
+    await samples.check(opts);
+    desk = new Desk(wb.call, wb.C, opts, lib, { probe: wb.probe, position: () => pos, samples });
     await wb.call("wb_seed", 21);
     await wb.call("wb_apply");
     await desk.read(true);
@@ -163,8 +165,11 @@
       if (r.kind === "seed") { el.input.value = cur; continue; }
       el.options = optionsFor(r, desk.state, desk.opts, { showRetired, lib });
       el.input.replaceChildren(...el.options.map((o) => {
-        const tag = o.status === "retired" ? " (retired)" : o.status === "candidate" ? " (candidate)" : "";
-        return new Option(o.name + tag, String(o.value), false, String(o.value) === String(cur));
+        const tag = (o.status === "retired" ? " (retired)" : o.status === "candidate" ? " (candidate)" : "") +
+                    (o.unavailable ? " (unavailable: samples missing)" : "");
+        const opt = new Option(o.name + tag, String(o.value), false, String(o.value) === String(cur));
+        opt.disabled = !!o.unavailable;
+        return opt;
       }));
     }
   }

@@ -36,8 +36,8 @@ int wb_kit_get(void);                   /* KIT_*: the staged song's kit (WB_KIT_
 void wb_kit_set(int kit);               /* in the custom set (as wb_role_set), played always; the lanes cleared (a
                                            preset's value: wb_kit_preset) */
 /* The drum lanes (wb_drums.h), staged with the custom set like the kit */
-void wb_kit_preset(int id);             /* WB_KIT_*: a synth kit as shipped on every lane */
-void wb_lane_src(int lane, int kind, int a, int b);  /* lane (V_KICK's order) plays a source (WB_SRC_*) */
+void wb_kit_preset(int id);             /* WB_KIT_*: a kit as shipped on every lane (a sampled one once loaded) */
+int wb_lane_src(int lane, int kind, int a, int b);   /* lane (V_KICK's order) plays a source (WB_SRC_*); 0: refused */
 void wb_lane_db(int lane, float db);    /* lane's level */
 void wb_audition(int lane, int vel);    /* lane's staged sound now, outside the song, through the drums' chain */
 void wb_kick_phrase(int a, int b);      /* a two-bar kick (step masks, bars A and B) over the staged pattern; 0, 0: off */

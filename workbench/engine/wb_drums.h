@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The workbench's drums: seven lanes (kick, snare, closed hat, open hat, shaker, rim, ride: V_KICK..V_RIDE's order),
    each playing a sound from a source: poketrack's synthesized 808 and CR-78 (poketrack/, zlib), Optimist's synth kits
-   (optimist/, GPL-3.0-only: LO-FI), the engine's built-in kit (Brushes), or (Task 9) samples. Installed with
+   (optimist/, GPL-3.0-only: LO-FI), the engine's built-in synth kits (Brushes; Dusty, Soft and our 808 when a song
+   has one), or the shipped sampled kits (Karoryfer's Gogodze and Big Rusty, CC0: workbench/samples, loaded by the page
+   with wb_sample_set). Installed with
    drums_hook while any lane has a source, so the lanes go through the song's own drum bus, compressor, filters and
    ducking; with none, the song's own kit plays as before. Float out, no allocation after wb_drums_init. */
 #ifndef WB_DRUMS_H
@@ -15,14 +17,21 @@ enum {
     WB_SRC_PT,      /* a: the poketrack machine (M_808, M_CR78), b: its voice (V_BD, V_SD, ...: trommelsynthesizer.h) */
     WB_SRC_OPT,     /* a: the Optimist kit (WB_OPT_*), b: its lane (0 kick, 1 snare, 3 hat, 4 open hat, 9 shaker, 11 rim:
                        drum_synth.c DS_LANES) */
-    WB_SRC_SAMPLE,  /* a: the sample set, b: the piece (Task 9; silent until then) */
-    WB_SRC_BUILTIN, /* a: KIT_BRUSHES, b: the built-in kit's lane (0 kick .. 5 rim) */
+    WB_SRC_SAMPLE,  /* a: the sample set (WB_SMP_*), b: its piece (WB_P_*); only once the page has loaded it */
+    WB_SRC_BUILTIN, /* a: a synth kit (KIT_DUSTY..KIT_BRUSHES), b: its lane (0 kick .. 5 rim) */
     WB_SRC_N
 };
 enum { WB_OPT_LOFI, WB_OPT_N };                 /* optimist/felucca_drumkits.h's kits */
-/* the shipped kits (wb_drums_preset); the kit row's value for one is WB_KIT_PRESET + its id, past the engine's KIT_* */
-enum { WB_KIT_PT808, WB_KIT_PTCR78, WB_KIT_OPTLOFI, WB_KIT_PRESETS };
+/* the sample sets (samples/kits.json's ids) and their pieces: a layer per velocity range, two round robins */
+enum { WB_SMP_GOGODZE, WB_SMP_RUSTY, WB_SMP_BRUSHES, WB_SMP_N };
+enum { WB_P_KICK, WB_P_SNARE, WB_P_RIM, WB_P_HAT, WB_P_OHAT, WB_P_RIDE, WB_P_N };
+#define WB_SMP_VL 4
+#define WB_SMP_RR 2
+/* the shipped kits (wb_drums_preset); the kit row's value for one is WB_KIT_PRESET + its id, past the engine's KIT_*:
+   the synth machines' kits, then the sampled kits (a sample set each, in WB_SMP_* order) */
+enum { WB_KIT_PT808, WB_KIT_PTCR78, WB_KIT_OPTLOFI, WB_KIT_GOGODZE, WB_KIT_RUSTY, WB_KIT_BRUSHES, WB_KIT_PRESETS };
 #define WB_KIT_PRESET 16
+#define WB_KIT_SAMPLED(id) ((id) >= WB_KIT_GOGODZE && (id) < WB_KIT_PRESETS)
 
 typedef struct { uint8_t kind; uint8_t a, b; float gain_db; } wb_src_t;
 /* a song's drums (in the workbench's stage): the lanes, and the preset they came from (-1: none) */
@@ -37,11 +46,12 @@ void wb_drums_set(const wb_drums_t *d);
 void wb_drums_song(uint32_t seed);              /* a song's start: the sources' noise reseeded from its seed */
 int wb_drums_any(const wb_drums_t *d);          /* 1 if a lane has a source */
 int wb_drums_src_ok(int kind, int a, int b);    /* 1 if the source exists (a sound the machine or kit has) */
-/* d as preset id ships: every lane from its own machine or kit, the ride on its closed hat (none has a ride the
-   song can use), levels 0 dB; 0 if id isn't one */
+/* d as preset id ships: every lane from its own machine or kit (a synth kit's ride on its closed hat; a sampled
+   kit's as samples/kits.json says), levels 0 dB; 0 if id isn't one or a sampled kit's pieces aren't loaded */
 int wb_drums_preset(wb_drums_t *d, int id);
-/* src's sound on lane now (vel 1-127), outside the song, through the same chain; NONE: the song's own kit's lane
-   when no lane has a source */
+void wb_drums_kit(int kit);                     /* the song's kit (KIT_*), as vx_set_kit has just set it */
+/* src's sound on lane now (vel 1-127), outside the song, through the same chain (NONE: nothing) */
 void wb_drums_audition(const wb_src_t *src, int lane, int vel);
+void wb_drums_audition_kit(int kit, int lane, int vel);    /* an engine kit's (KIT_*) lane, the same way */
 
 #endif

@@ -1,5 +1,5 @@
 {
-  "_note": "The workbench's options: hand-maintained from the ledgers (docs/superpowers/plans/*-ledger.md) and the workbench plan's Global Constraints. ids are app/song/library.h's (sym names the enum; smoke.mjs checks them); a kit from 16 is a workbench preset (wb_drums.h's WB_KIT_*, 16 + its index). status: approved (offered, the dice pick it), candidate (offered, marked; the dice skip it; none among the instruments: Sam tuned them all), retired (behind 'show retired'). ride: the kit plays the ride section (the sampled kits). Families: electric goes with either; bass, pad, ear candy and the kit follow the song's family.",
+  "_note": "The workbench's options: hand-maintained from the ledgers (docs/superpowers/plans/*-ledger.md) and the workbench plan's Global Constraints. ids are app/song/library.h's (sym names the enum; smoke.mjs checks them); a kit from 16 is a workbench preset (wb_drums.h's WB_KIT_*, 16 + its index). status: approved (offered, the dice pick it), candidate (offered, marked; the dice skip it; none among the instruments: Sam tuned them all), retired (behind 'show retired'). ride: the kit plays the ride section (the sampled kits). set: a shipped sampled kit's sample set (samples/kits.json, git-ignored: unavailable until tools/prep_kits.py has made it). Families: electric goes with either; bass, pad, ear candy and the kit follow the song's family.",
   "families": {
     "acoustic": { "name": "Acoustic" },
     "synth": { "name": "Synth" },
@@ -50,7 +50,10 @@
     { "id": 8, "sym": "KIT_S_CLEAN", "name": "Clean (mixed samples)", "family": "acoustic", "status": "retired", "ride": true },
     { "id": 16, "sym": "WB_KIT_PT808", "name": "poketrack 808", "family": "synth", "status": "approved" },
     { "id": 17, "sym": "WB_KIT_PTCR78", "name": "poketrack CR-78", "family": "synth", "status": "approved" },
-    { "id": 18, "sym": "WB_KIT_OPTLOFI", "name": "Optimist LO-FI", "family": "synth", "status": "approved" }
+    { "id": 18, "sym": "WB_KIT_OPTLOFI", "name": "Optimist LO-FI", "family": "synth", "status": "approved" },
+    { "id": 19, "sym": "WB_KIT_GOGODZE", "name": "Gogodze", "family": "acoustic", "status": "approved", "ride": true, "set": 0 },
+    { "id": 20, "sym": "WB_KIT_RUSTY", "name": "Big Rusty (sticks)", "family": "acoustic", "status": "approved", "ride": true, "set": 1 },
+    { "id": 21, "sym": "WB_KIT_BRUSHES", "name": "Big Rusty (brushes)", "family": "acoustic", "status": "approved", "ride": true, "set": 2 }
   ],
   "comping": [
     { "id": 0, "sym": "CS_HELD", "name": "Held", "status": "approved" },

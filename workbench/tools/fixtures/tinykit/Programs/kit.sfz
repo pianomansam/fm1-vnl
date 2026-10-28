@@ -1,0 +1,29 @@
+// A tiny kit for prep_kits.py's test: two mics on a two-layer, two-round-robin kick; six hat layers; an open hat by
+// cc4; a snare from an included map (swapped for its brush map in the brush kit).
+<control>
+#define $KICK 36
+set_cc100=127
+set_cc101=64
+<global>
+seq_length=2
+<master>
+amplitude_cc100=100
+<region> key=$KICK lovel=1 hivel=63 seq_position=1 sample=../Samples/k1.wav
+<region> key=$KICK lovel=1 hivel=63 seq_position=2 sample=../Samples/k2.wav
+<region> key=$KICK lovel=64 hivel=127 seq_position=1 sample=../Samples/k3.wav
+<region> key=$KICK lovel=64 hivel=127 seq_position=2 sample=../Samples/k4.wav
+<master>
+amplitude_cc101=100
+<region> key=$KICK lovel=64 hivel=127 seq_position=1 sample=../Samples/km.wav
+<master>
+<group> seq_length=1 amp_velcurve_127=1
+<region> key=42 lovel=1 hivel=20 sample=../Samples/h1.wav
+<region> key=42 lovel=21 hivel=40 sample=../Samples/h2.wav
+<region> key=42 lovel=41 hivel=60 sample=../Samples/h3.wav
+<region> key=42 lovel=61 hivel=80 sample=../Samples/h4.wav
+<region> key=42 lovel=81 hivel=100 sample=../Samples/h5.wav
+<region> key=42 lovel=101 hivel=127 sample=../Samples/h6.wav
+<group> seq_length=1
+<region> key=46 locc4=100 sample=../Samples/ho.wav
+<region> key=46 hicc4=99 sample=../Samples/hc.wav
+#include "mappings/snare.sfz"

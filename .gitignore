@@ -5,3 +5,4 @@ __pycache__/
 *.o
 .venv/
 .superpowers/
+workbench/samples/*.f32
