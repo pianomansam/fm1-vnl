@@ -150,6 +150,8 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   - The "vibes" (INS_VIBES, an M_BELL FM patch) sound like a plucked synth, not vibes: re-voice the bell (soft
     mallet, motor tremolo, longer ring; no flash) or sample a vibraphone (~30 KB; ~23 KB left).
   - Still unanswered: the C3 guitar floor; half-rate sampled kits A/B; 16 vs 32 kHz cymbals.
+  - The 16th arpeggio comping is off on every instrument (guitars cf0dca0, keys 3025034): "We may bring it back
+    later, but not right now" (Sam, 2026-10-28). The piano climb may take its place.
   - Settled this pass: Knight stab level fine; Knight no-roll fine; ride quarter notes at most with a 1.5 s tail
     (7773f9d, a162c90); guitars never arpeggiate; sampled hats/shaker play 8ths below 55% swing; the vibes lead uses
     the phrase planner (the last three in commit "Set 26 fixes", tests not run at Sam's request).
