@@ -25,7 +25,8 @@ export async function start() {
   });
 }
 
-// an export's result (a Promise); calls sent together run between the same two quanta
+// an export's result (a Promise; wb_consts, wb_state and wb_library come back parsed); calls sent together run between
+// the same two quanta
 export function call(fn, ...args) {
   const id = nextId++;
   return new Promise((ok, fail) => {

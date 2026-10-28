@@ -3,6 +3,8 @@
 // to its wb_* exports arrive between quanta (so a group of stagings sent together lands as one), and the song's
 // position goes back about ten times a second. Instantiated as base/web/emu/worklet.js does, without the device.
 
+const STRINGS = new Set(["wb_consts", "wb_state", "wb_library"]);   // exports that return JSON (parsed here)
+
 class Workbench extends AudioWorkletProcessor {
   constructor() {
     super();
@@ -26,7 +28,8 @@ class Workbench extends AudioWorkletProcessor {
       this.port.postMessage({ type: "ready", consts: JSON.parse(this.cstr(this.ex.wb_consts())) });
     } else if (m.type === "call" && this.ex) {   // { fn: "wb_...", args, id }: the result goes back with the id
       const f = /^wb_/.test(m.fn) ? this.ex[m.fn] : null;
-      const value = f ? f(...(m.args || [])) : undefined;
+      let value = f ? f(...(m.args || [])) : undefined;
+      if (STRINGS.has(m.fn)) value = JSON.parse(this.cstr(value));
       this.port.postMessage({ type: "result", id: m.id, value, error: f ? undefined : `no export ${m.fn}` });
     }
   }
@@ -46,7 +49,8 @@ class Workbench extends AudioWorkletProcessor {
     if (out[1]) out[1].set(new Float32Array(ex.memory.buffer, ex.wb_out_r(), n));
     if (currentTime - this.lastPos >= 0.1) {
       this.lastPos = currentTime;
-      this.port.postMessage({ type: "pos", bar: ex.wb_bar(), bars: ex.wb_bars(), seconds: ex.wb_seconds() });
+      this.port.postMessage({ type: "pos", bar: ex.wb_bar(), bars: ex.wb_bars(), seconds: ex.wb_seconds(),
+                              landings: ex.wb_landings() });
     }
     return true;
   }

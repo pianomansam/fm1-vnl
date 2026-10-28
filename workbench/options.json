@@ -1,0 +1,77 @@
+{
+  "_note": "The workbench's options: hand-maintained from the ledgers (docs/superpowers/plans/*-ledger.md) and the workbench plan's Global Constraints. ids are app/song/library.h's (sym names the enum; smoke.mjs checks them). status: approved (offered, the dice pick it), candidate (offered, marked; the dice skip it), retired (behind 'show retired'). Families: electric goes with either; bass, pad, ear candy and the kit follow the song's family.",
+  "families": {
+    "acoustic": { "name": "Acoustic" },
+    "synth": { "name": "Synth" },
+    "electric": { "name": "Electric", "with": ["acoustic", "synth"] },
+    "follow": ["bass", "pad", "candy", "kit"]
+  },
+  "instruments": [
+    { "id": 0, "sym": "INS_RHODES", "name": "Rhodes", "roles": ["keys"], "family": "electric", "status": "approved" },
+    { "id": 1, "sym": "INS_WURLI", "name": "Wurli", "roles": ["keys"], "family": "electric", "status": "approved" },
+    { "id": 2, "sym": "INS_FELT_PIANO", "name": "Felt piano", "roles": ["keys"], "family": "acoustic", "status": "approved" },
+    { "id": 3, "sym": "INS_NYLON", "name": "Nylon guitar", "roles": ["keys"], "family": "acoustic", "status": "approved" },
+    { "id": 4, "sym": "INS_PAD", "name": "Chillwave pad", "roles": ["keys"], "family": "synth", "status": "candidate" },
+    { "id": 5, "sym": "INS_UPRIGHT", "name": "Upright bass", "roles": ["bass"], "family": "acoustic", "status": "retired" },
+    { "id": 6, "sym": "INS_ELEC_BASS", "name": "Electric bass", "roles": ["bass"], "family": "electric", "status": "approved" },
+    { "id": 7, "sym": "INS_SUB", "name": "Sub bass", "roles": ["bass"], "family": "synth", "status": "approved" },
+    { "id": 8, "sym": "INS_FLUTE", "name": "Flute", "roles": ["lead"], "family": "acoustic", "status": "approved" },
+    { "id": 9, "sym": "INS_MUTED_TPT", "name": "Muted trumpet", "roles": ["lead"], "family": "acoustic", "status": "approved" },
+    { "id": 10, "sym": "INS_SAX", "name": "Sax", "roles": ["lead"], "family": "acoustic", "status": "approved" },
+    { "id": 11, "sym": "INS_VIBES", "name": "Vibes", "roles": ["lead", "candy"], "family": "electric", "status": "approved" },
+    { "id": 12, "sym": "INS_KALIMBA", "name": "Kalimba", "roles": ["lead", "candy"], "family": "acoustic", "status": "approved" },
+    { "id": 13, "sym": "INS_GUITAR_LICK", "name": "Guitar lick", "roles": ["lead"], "family": "electric", "status": "approved" },
+    { "id": 14, "sym": "INS_MUSIC_BOX", "name": "Music box", "roles": ["candy"], "family": "acoustic", "status": "approved" },
+    { "id": 15, "sym": "INS_BELLS", "name": "Bells", "roles": ["candy"], "family": "synth", "status": "approved" },
+    { "id": 16, "sym": "INS_VOX_PAD", "name": "Vox pad", "roles": ["candy"], "family": "synth", "status": "candidate" },
+    { "id": 17, "sym": "INS_CHIP_BASS", "name": "Triangle (chip) bass", "roles": ["bass"], "family": "synth", "status": "approved" },
+    { "id": 18, "sym": "INS_ORGAN", "name": "Organ", "roles": ["keys"], "family": "synth", "status": "approved" },
+    { "id": 19, "sym": "INS_SAW_LEAD", "name": "Saw lead", "roles": ["lead"], "family": "synth", "status": "approved" },
+    { "id": 20, "sym": "INS_SYNTH_PLUCK", "name": "Synth pluck", "roles": ["lead"], "family": "synth", "status": "approved" },
+    { "id": 21, "sym": "INS_DX_EP", "name": "DX electric piano", "roles": ["keys"], "family": "synth", "status": "approved" },
+    { "id": 22, "sym": "INS_FM_BASS", "name": "FM bass", "roles": ["bass"], "family": "synth", "status": "approved" },
+    { "id": 23, "sym": "INS_STRINGS", "name": "Strings", "roles": ["pad"], "family": "acoustic", "status": "approved" },
+    { "id": 24, "sym": "INS_WARM_PAD", "name": "Warm pad", "roles": ["pad"], "family": "synth", "status": "approved" },
+    { "id": 25, "sym": "INS_KNIGHT", "name": "Knight piano", "roles": ["keys", "lead"], "family": "acoustic", "status": "approved" },
+    { "id": 26, "sym": "INS_EMILY", "name": "Emilyguitar", "roles": ["keys", "lead"], "family": "acoustic", "status": "approved" },
+    { "id": 27, "sym": "INS_STR_LEAD", "name": "String lead", "roles": ["lead"], "family": "synth", "status": "approved" },
+    { "id": 28, "sym": "INS_CELLO", "name": "Cello", "roles": ["lead"], "family": "acoustic", "status": "approved" },
+    { "id": 29, "sym": "INS_NONE", "name": "None", "roles": ["candy"], "family": "any", "status": "approved" }
+  ],
+  "kits": [
+    { "id": 0, "sym": "KIT_DUSTY", "name": "Dusty (synth)", "family": "synth", "status": "retired" },
+    { "id": 1, "sym": "KIT_SOFT", "name": "Soft (synth)", "family": "synth", "status": "retired" },
+    { "id": 2, "sym": "KIT_808", "name": "Our 808 (synth)", "family": "synth", "status": "retired" },
+    { "id": 3, "sym": "KIT_BRUSHES", "name": "Brushes", "family": "acoustic", "status": "approved" },
+    { "id": 4, "sym": "KIT_S_WARM", "name": "Warm (mixed samples)", "family": "acoustic", "status": "retired" },
+    { "id": 5, "sym": "KIT_S_DARK", "name": "Dark (mixed samples)", "family": "acoustic", "status": "retired" },
+    { "id": 6, "sym": "KIT_S_RUSTY", "name": "Rusty (mixed samples)", "family": "acoustic", "status": "retired" },
+    { "id": 7, "sym": "KIT_S_GENTLE", "name": "Gentle (mixed samples)", "family": "acoustic", "status": "retired" },
+    { "id": 8, "sym": "KIT_S_CLEAN", "name": "Clean (mixed samples)", "family": "acoustic", "status": "retired" }
+  ],
+  "comping": [
+    { "id": 0, "sym": "CS_HELD", "name": "Held", "status": "approved" },
+    { "id": 1, "sym": "CS_STABS", "name": "Stabs", "status": "approved", "keys": [25, 3, 26] },
+    { "id": 2, "sym": "CS_OFFBEATS", "name": "Offbeats", "status": "retired" },
+    { "id": 3, "sym": "CS_ARP", "name": "Arpeggio", "status": "retired" },
+    { "id": 4, "sym": "CS_HALF", "name": "Half notes", "status": "approved" },
+    { "id": 5, "sym": "CS_STRUM", "name": "Strum", "status": "approved", "keys": [3, 26] }
+  ],
+  "patterns": [
+    { "id": 1, "name": "Boom bap 1 (Cantaloop)", "status": "approved" },
+    { "id": 2, "name": "Boom bap 2 (Fu-Gee-La)", "status": "approved" },
+    { "id": 3, "name": "Boom bap 3 (Changes)", "status": "approved" },
+    { "id": 4, "name": "Half-time 1", "status": "approved" },
+    { "id": 5, "name": "Half-time 2 (shaker)", "status": "approved" },
+    { "id": 6, "name": "Sparse", "status": "approved" },
+    { "id": 7, "name": "Brushes", "status": "approved" },
+    { "id": 8, "name": "Bossa", "status": "approved" }
+  ],
+  "kickPhrases": [
+    { "id": "k2", "a": [0, 10], "b": [0, 10] },
+    { "id": "k3", "a": [0, 7, 10], "b": [0, 7, 10] },
+    { "id": "k4", "a": [0, 6, 8], "b": [0, 6, 8] },
+    { "id": "k5", "a": [0, 10], "b": [0, 7, 10] },
+    { "id": "k6", "a": [0, 6], "b": [0, 3, 10] }
+  ]
+}

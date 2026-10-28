@@ -7,21 +7,42 @@
 <title>VNL-1 Workbench</title>
 <link rel="icon" href="data:,">
 <style>
-  :root { --bg: #f6f4ef; --fg: #1f1d1a; --muted: #6b665d; --line: #d8d3c8; --accent: #b0562b; }
+  :root { --bg: #f6f4ef; --fg: #1f1d1a; --muted: #6b665d; --line: #d8d3c8; --accent: #b0562b; --moved: #f3dcc8;
+          --panel: #fbfaf7; }
   @media (prefers-color-scheme: dark) {
-    :root { --bg: #1b1a18; --fg: #ece8df; --muted: #a39d91; --line: #3a3732; --accent: #e08a5c; }
+    :root { --bg: #1b1a18; --fg: #ece8df; --muted: #a39d91; --line: #3a3732; --accent: #e08a5c; --moved: #4a3022;
+            --panel: #22211e; }
   }
   body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.4 system-ui, sans-serif; }
-  main { max-width: 760px; margin: 0 auto; padding: 24px 16px; }
+  main { max-width: 980px; margin: 0 auto; padding: 24px 16px; }
   h1 { font-size: 18px; margin: 0 0 16px; }
   .transport { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
-  button, input { font: inherit; color: inherit; background: transparent; border: 1px solid var(--line);
-                  border-radius: 6px; padding: 6px 12px; }
+  button, input, select { font: inherit; color: inherit; background: transparent; border: 1px solid var(--line);
+                          border-radius: 6px; padding: 6px 12px; }
+  select { background: var(--panel); min-width: 0; width: 100%; padding: 5px 8px; }
   button.primary { background: var(--accent); border-color: var(--accent); color: #fff; min-width: 72px; }
-  input { width: 9ch; }
+  button:disabled { opacity: 0.45; }
   #pos { color: var(--muted); font-variant-numeric: tabular-nums; }
   .bar { height: 6px; background: var(--line); border-radius: 3px; margin-top: 12px; overflow: hidden; }
   .bar div { height: 100%; width: 0; background: var(--accent); }
+  .switch { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); }
+  #msg { min-height: 1.4em; margin: 12px 0 0; color: var(--accent); }
+  section { margin-top: 20px; }
+  h2 { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px;
+       display: flex; gap: 12px; align-items: center; }
+  .rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 4px 24px; }
+  .row { display: grid; grid-template-columns: 9.5em 1fr auto auto; gap: 6px; align-items: center; padding: 2px 4px;
+         border-radius: 6px; transition: background 0.6s; }
+  .row.moved { background: var(--moved); }
+  .row label { color: var(--muted); }
+  .row button { padding: 4px 8px; line-height: 1; }
+  .row button.lock[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); }
+  .row.locked select, .row.locked input { opacity: 0.7; }
+  .row input { width: 100%; box-sizing: border-box; padding: 5px 8px; }
+  @media (max-width: 520px) {
+    .rows { grid-template-columns: 1fr; }
+    .row { grid-template-columns: 7em 1fr auto auto; }
+  }
 </style>
 </head>
 <body>
@@ -29,43 +50,123 @@
   <h1>VNL-1 Workbench</h1>
   <div class="transport">
     <button id="play" class="primary">Play</button>
-    <label>Seed <input id="seed" type="number" min="1" value="21"></label>
-    <button id="reseed">New seed</button>
+    <button id="all">🎲 Re-roll all unlocked</button>
     <span id="pos">bar – / –  ·  0:00</span>
+    <label class="switch"><input id="retired" type="checkbox"> Show retired</label>
   </div>
   <div class="bar"><div id="progress"></div></div>
+  <p id="msg" role="status" aria-live="polite"></p>
+  <div id="desk"></div>
 </main>
 <script type="module">
   import * as wb from "./wb.js";
+  import { ROWS, GROUPS, optionsFor } from "./rows.js";
+  import { Desk } from "./desk.js";
   const $ = (id) => document.getElementById(id);
-  let playing = false;
   const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+  let playing = false, desk = null, lib = null, landings = 0;
 
-  let booted = null;
-  const boot = () => (booted ??= wb.start().then(() => {
+  // one change at a time: clicks queue behind the one in flight
+  let queue = Promise.resolve();
+  const run = (f) => (queue = queue.then(f).then((res) => { if (res) $("msg").textContent = res.message || ""; render(); })
+                                 .catch((e) => { $("msg").textContent = String(e); }));
+
+  async function boot() {
+    await wb.start();
+    const opts = await (await fetch("options.json")).json();
+    lib = await wb.call("wb_library");
+    desk = new Desk(wb.call, wb.C, opts, lib);
+    await wb.call("wb_seed", 21);
+    await desk.read(true);
     wb.onPosition(show);
-    return wb.call("wb_seed", (+$("seed").value || 1) >>> 0);
-  }));
+    render();
+  }
 
-  async function seed(n) {             // a new song: restarts at bar 1
-    $("seed").value = n;
-    await boot();
-    await wb.call("wb_seed", n >>> 0);
+  function rowEl(r) {
+    const el = document.createElement("div");
+    el.className = "row";
+    el.dataset.row = r.id;
+    const lab = document.createElement("label");
+    lab.textContent = r.label;
+    lab.htmlFor = `in-${r.id}`;
+    let input;
+    if (r.kind === "seed") {
+      input = document.createElement("input");
+      input.type = "number";
+      input.min = 1;
+      input.onchange = () => run(() => desk.set("seed", +input.value || 1));
+    } else {
+      input = document.createElement("select");
+      input.onchange = () => {
+        const o = el.options.find((x) => String(x.value) === input.value);
+        run(() => desk.set(r.id, o ? o.value : input.value));
+      };
+    }
+    input.id = `in-${r.id}`;
+    const dice = Object.assign(document.createElement("button"), { textContent: "🎲", title: `Re-roll ${r.label.toLowerCase()}` });
+    dice.onclick = () => run(() => desk.dice(r.id));
+    const lock = Object.assign(document.createElement("button"), { textContent: "🔒", className: "lock",
+                                                                  title: `Keep ${r.label.toLowerCase()} when re-rolling` });
+    lock.onclick = () => { desk.lock(r.id, !desk.locks.has(r.id)); render(); };
+    el.append(lab, input, dice, lock);
+    Object.assign(el, { input, dice, lock });
+    return el;
+  }
+
+  // the decision list: built once, refreshed after every change
+  const els = new Map();
+  function render() {
+    if (!desk) return;
+    if (!els.size) {
+      for (const g of GROUPS) {
+        const sec = document.createElement("section"), h = document.createElement("h2"), box = document.createElement("div");
+        h.textContent = g;
+        if (g === "Drums") {
+          const edit = Object.assign(document.createElement("button"), { textContent: "Edit kit & pattern", disabled: true,
+                                                                         title: "The drum screen comes next" });
+          h.append(edit);
+        }
+        box.className = "rows";
+        for (const r of ROWS.filter((x) => x.group === g)) { const el = rowEl(r); els.set(r.id, el); box.append(el); }
+        sec.append(h, box);
+        $("desk").append(sec);
+      }
+    }
+    const showRetired = $("retired").checked;
+    for (const r of ROWS) {
+      const el = els.get(r.id), cur = desk.values[r.id], locked = desk.locks.has(r.id);
+      el.classList.toggle("moved", desk.moved.has(r.id));
+      el.classList.toggle("locked", locked);
+      el.lock.setAttribute("aria-pressed", String(locked));
+      el.dice.disabled = el.input.disabled = locked;
+      if (r.kind === "seed") { el.input.value = cur; continue; }
+      el.options = optionsFor(r, desk.state, desk.opts, { showRetired, lib });
+      el.input.replaceChildren(...el.options.map((o) => {
+        const tag = o.status === "retired" ? " (retired)" : o.status === "candidate" ? " (candidate)" : "";
+        return new Option(o.name + tag, String(o.value), false, String(o.value) === String(cur));
+      }));
+    }
   }
 
   $("play").onclick = async () => {
-    await boot();
+    await (desk ? null : booting);
     playing = !playing;
     $("play").textContent = playing ? "Stop" : "Play";
     await wb.play(playing);
   };
-  $("seed").onchange = () => seed(+$("seed").value || 1);
-  $("reseed").onclick = () => seed(1 + Math.floor(Math.random() * 1e6));
+  $("all").onclick = () => run(() => desk.rerollAll());
+  $("retired").onchange = render;
 
   function show(p) {
     $("pos").textContent = `bar ${p.bar || "–"} / ${p.bars}  ·  ${fmt(p.seconds)}`;
     $("progress").style.width = `${p.bars ? (100 * Math.max(p.bar - 1, 0)) / p.bars : 0}%`;
+    if (p.landings !== landings) {   // a change landed: the lead register as the engine applied it
+      landings = p.landings;
+      run(async () => ((await desk.landed()) ? { message: desk.message } : null));
+    }
   }
+
+  const booting = boot().catch((e) => { $("msg").textContent = `The engine didn't load: ${e}`; });
 </script>
 </body>
 </html>
