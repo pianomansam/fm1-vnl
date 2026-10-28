@@ -229,7 +229,8 @@ console.log("custom set");
 const { ROWS, row, optionsFor, pickFor, conflicts, familyOf } = await import("../rows.js");
 const { Desk } = await import("../desk.js");
 const OPTS = JSON.parse(readFileSync(new URL("../options.json", import.meta.url), "utf8"));
-const HDR = readFileSync(new URL("../../app/song/library.h", import.meta.url), "utf8");
+const HDR = readFileSync(new URL("../../app/song/library.h", import.meta.url), "utf8") +
+            readFileSync(new URL("../engine/wb_drums.h", import.meta.url), "utf8");
 const enumOf = (first) => {   // the enum whose first name is `first`: its names in order
   const body = HDR.slice(HDR.indexOf(`enum { ${first}`)).split("}")[0];
   return body.replace(/\/\*[\s\S]*?\*\//g, "").replace(/enum \{/, "").split(",").map((x) => x.trim()).filter(Boolean);
@@ -256,10 +257,15 @@ const famOf = (id) => OPTS.instruments.find((i) => i.id === id)?.family ?? OPTS.
 
 console.log("options.json");
 {
-  const INS = enumOf("INS_RHODES"), KIT = enumOf("KIT_DUSTY");
+  const INS = enumOf("INS_RHODES"), KIT = enumOf("KIT_DUSTY"), PRE = enumOf("WB_KIT_PT808");
   check(OPTS.instruments.every((i) => INS[i.id] === i.sym) && OPTS.instruments.length === INS.length,
         "every instrument's id is its library.h enum's");
-  check(OPTS.kits.every((k) => KIT[k.id] === k.sym) && OPTS.kits.length === KIT.length - 1, "every kit's id is its enum's");
+  const presets = OPTS.kits.filter((k) => k.id >= C.DRUMS.PRESET), engine = OPTS.kits.filter((k) => k.id < C.DRUMS.PRESET);
+  check(engine.every((k) => KIT[k.id] === k.sym) && engine.length === KIT.length - 1 &&
+        presets.every((k) => PRE[k.id - C.DRUMS.PRESET] === k.sym) && presets.length === PRE.length - 1,
+        "every kit's id is its enum's (library.h's KIT_*, wb_drums.h's presets past WB_KIT_PRESET)");
+  check(presets.length === 3 && presets.every((k) => k.family === "synth" && k.status === "approved" && !k.ride),
+        "the three synth presets are approved synth kits with no ride");
   const retired = (xs, names) => names.every((n) => xs.find((x) => x.name.startsWith(n))?.status === "retired");
   check(retired(OPTS.instruments, ["Upright bass"]) && retired(OPTS.comping, ["Arpeggio", "Offbeats"]) &&
         retired(OPTS.kits, ["Dusty", "Soft", "Our 808", "Warm", "Dark", "Rusty", "Gentle", "Clean"]),
@@ -307,10 +313,9 @@ console.log("rows: retired options, dice, families");
   const to = Object.fromEntries(c.forced.map((f) => [f.row, f.to]));
   check(["bass", "pad", "candy"].every((id) => famOf(to[id]) === "synth") && !c.blocked,
         `family -> synth re-derives bass, pad and ear candy to synth (${["bass", "pad", "candy"].map((id) => `${id} ${to[id]}`).join(", ")})`);
-  check(c.stuck.some((s) => s.row === "kit"), "the kit stays, reported: no approved synth kit yet (Tasks 8-9 add them)");
-  const withKit = { ...OPTS, kits: [...OPTS.kits, { id: 99, name: "test synth kit", family: "synth", status: "approved" }] };
-  const ck = conflicts(row("family"), "synth", acoustic(), withKit, lcg(3));
-  check(ck.forced.some((f) => f.row === "kit" && f.to === 99), "with an approved synth kit, the kit is forced to it");
+  const synthKits = OPTS.kits.filter((k) => k.family === "synth" && k.status === "approved").map((k) => k.id);
+  check(c.forced.some((f) => f.row === "kit" && synthKits.includes(f.to)) && !c.stuck.length,
+        `family -> synth forces the kit to an approved synth kit (${c.forced.find((f) => f.row === "kit")?.to})`);
 
   const locked = acoustic();
   locked.locks = new Set(["bass"]);
@@ -582,6 +587,114 @@ console.log("feedback: snapshots, replay, the queue");
   check(four.saved && four.dead === 1 && queued(storage) === 0 && posts.map((p) => p.note).join() === "n3,n4",
         "an entry the server refuses (4xx) goes to the dead letters and doesn't block the one behind it");
   check(posts.every((p) => typeof p.id === "string" && p.id) && new Set(posts.map((p) => p.id)).size === 2, "every entry carries its own id");
+}
+
+// ---- the drum lanes (wb_drums.c): the synth presets, a lane's override, levels, auditions ----
+console.log("drums: synth presets and lanes");
+{
+  const { SRC, DRUMS } = C, L = DRUMS.LANES, SEEDS = [21, 77];
+  const lanesOf = (ex) => JSON.parse(cstr(ex, ex.wb_state())).drums;
+  const toDb = (ms) => 10 * Math.log10(ms + 1e-30);
+  // seed's song from bar 1 with stage() applied, secs rendered; each lane's mean square and hash, the drums' whole, the mix
+  async function song(seed, stage, secs) {
+    const ex = await load();
+    ex.wb_seed(seed);
+    stage(ex);
+    ex.wb_apply();
+    ex.wb_play(1);
+    ex.wb_drum_meter_reset();
+    const out = render(ex, secs * SR);
+    const lane = [...Array(L)].map((_, i) => ({ ms: ex.wb_drum_meter(i), hash: ex.wb_drum_hash(i) }));
+    return { ex, out, lane, all: ex.wb_drum_meter(L) };
+  }
+  const only = (ex, keep) => { for (let i = 0; i < L; i++) if (!keep.includes(i)) ex.wb_lane_src(i, SRC.NONE, 0, 0); };
+  const NAMES = ["poketrack 808", "poketrack CR-78", "Optimist LO-FI"];
+
+  for (let p = 0; p < DRUMS.PRESETS; p++) {
+    const r = await song(21, (ex) => ex.wb_kit_set(DRUMS.PRESET + p), 60);   // (seed 21's drums come in at bar 8)
+    const d = lanesOf(r.ex);
+    check(d.preset === p && JSON.parse(cstr(r.ex, r.ex.wb_state())).kit === DRUMS.PRESET + p && d.lanes.every((l) => l[0] !== SRC.NONE),
+          `${NAMES[p]}: staged as the kit row's value, every lane from the kit`);
+    check(r.lane[0].ms > 1e-6 && r.lane[1].ms > 1e-6 && db(r.out) > -45,
+          `${NAMES[p]}: a song with non-silent kick and snare lanes (${toDb(r.lane[0].ms).toFixed(1)}, ${toDb(r.lane[1].ms).toFixed(1)} dB; mix ${db(r.out).toFixed(1)} dBFS)`);
+  }
+
+  // the CR-78's snare in the 808 kit: only the snare lane's samples change
+  const cr = await load();
+  cr.wb_kit_preset(DRUMS.PTCR78);
+  const crSnare = lanesOf(cr).lanes[1];
+  const a = await song(21, (ex) => ex.wb_kit_preset(DRUMS.PT808), 60);
+  const b = await song(21, (ex) => { ex.wb_kit_preset(DRUMS.PT808); ex.wb_lane_src(1, crSnare[0], crSnare[1], crSnare[2]); }, 60);
+  const same = a.lane.map((l, i) => l.hash === b.lane[i].hash);
+  check(!same[1] && same.every((s, i) => s || i === 1) && b.lane[1].ms > 1e-6 && lanesOf(b.ex).preset === DRUMS.PT808,
+        `808 kit + the CR-78's snare: only the snare lane's samples change (same: ${same.map((s, i) => (s ? i : "-")).join("")}), the kit row stays the 808`);
+
+  // levels: each preset's kick and snare against the Brushes kit's (its own lanes through the hook) on the same songs
+  for (const seed of SEEDS) {
+    const br = await song(seed, (ex) => { ex.wb_kit_set(3); ex.wb_lane_src(0, SRC.BUILTIN, 3, 0); only(ex, [0, 1]); }, 60);
+    const got = [];
+    for (let p = 0; p < DRUMS.PRESETS; p++) {
+      const r = await song(seed, (ex) => { ex.wb_kit_preset(p); only(ex, [0, 1]); }, 60);
+      got.push(toDb(r.all) - toDb(br.all));
+    }
+    check(br.all > 1e-6 && got.every((g) => Math.abs(g) <= 2),
+          `seed ${seed}: each preset's kick + snare within 2 dB of Brushes' (${got.map((g, p) => `${NAMES[p]} ${g >= 0 ? "+" : ""}${g.toFixed(2)}`).join(", ")} dB)`);
+  }
+
+  // an audition: heard at once, stopped or playing, and the song doesn't move
+  {
+    const ex = await load();
+    ex.wb_seed(21);
+    ex.wb_apply();
+    ex.wb_kit_preset(DRUMS.OPTLOFI);   // staged only: the audition plays the staged lane
+    ex.wb_audition(1, 110);
+    const s = render(ex, SR / 2);
+    check(db(s) > -50 && ex.wb_seconds() === 0 && ex.wb_bar() === 0,
+          `stopped: a LO-FI snare audition is heard (${db(s).toFixed(1)} dBFS) and the song stays at its start`);
+    const tail = render(ex, 3 * SR);
+    check(longestZeros({ l: tail.l.subarray(2 * SR), r: tail.r.subarray(2 * SR) }) === SR, "... and ends in silence");
+    const ex2 = await load();
+    ex2.wb_seed(21);
+    ex2.wb_apply();
+    ex2.wb_audition(0, 110);           // no lanes: the song's own kit's kick
+    check(db(render(ex2, SR / 2)) > -50, "with no lanes, the audition plays the song's own kit's lane");
+    ex2.wb_play(1);
+    render(ex2, SR);
+    const t0 = ex2.wb_seconds(), b0 = ex2.wb_bar();
+    ex2.wb_kit_preset(DRUMS.PT808);
+    ex2.wb_audition(0, 127);
+    render(ex2, SR);
+    check(Math.abs(ex2.wb_seconds() - t0 - 1) < 1e-3 && ex2.wb_bar() >= b0, "playing: an audition doesn't advance the song");
+  }
+
+  // the lanes are staged with everything else: undo, snapshot and replay
+  {
+    const ex = await load(), call = caller(ex);
+    ex.wb_seed(21);
+    ex.wb_apply();
+    const desk = new Desk(call, C, OPTS, await call("wb_library"), { rnd: lcg(3) });
+    await desk.read(true);
+    await desk.set("kit", DRUMS.PRESET + DRUMS.PT808);
+    ex.wb_stage_mark();
+    ex.wb_lane_src(1, crSnare[0], crSnare[1], crSnare[2]);
+    ex.wb_lane_db(4, -6);
+    const edited = lanesOf(ex);
+    ex.wb_stage_undo();
+    check(lanesOf(ex).lanes[1][1] !== crSnare[1] && lanesOf(ex).lanes[4][3] === 0, "wb_stage_undo puts the lanes back");
+    ex.wb_lane_src(1, crSnare[0], crSnare[1], crSnare[2]);
+    ex.wb_lane_db(4, -6);
+    ex.wb_apply();
+    const snap = await desk.snapshot();
+    check(snap.version === 1 && JSON.stringify(snap.drums) === JSON.stringify(edited) && snap.rows.kit === DRUMS.PRESET + DRUMS.PT808,
+          "the snapshot holds the kit row's preset and the lanes (the CR-78 snare, the shaker at -6 dB)");
+    ex.wb_play(1);
+    const live = render(ex, 30 * SR);
+    const { replay, wav } = await import("./replay.mjs");
+    const rp = await replay(JSON.parse(JSON.stringify(snap)), 30);
+    check(!rp.mismatch.length && Buffer.compare(wav(rp), wav(live)) === 0, "its replay plays the page's samples");
+    ex.wb_seed(5);
+    check(lanesOf(ex).preset === -1 && lanesOf(ex).lanes.every((l) => l[0] === SRC.NONE), "a new seed's song drops them (they go with the custom set)");
+  }
 }
 
 console.log("options.json: statuses");

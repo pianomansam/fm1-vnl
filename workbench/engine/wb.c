@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "wb.h"
+#include "wb_drums.h"
 #include "song.h"
 #include "library.h"
 #include "override.h"
@@ -27,6 +28,7 @@ typedef struct {
     uint8_t base;                       /* the library set the custom one was copied from (its id-keyed rules) */
     uint8_t pat_base;                   /* the library pattern the custom one was copied from */
     int kick_a, kick_b;                 /* the kick phrase's step masks (0, 0: the pattern's own kick) */
+    wb_drums_t drums;                   /* the drum lanes (wb_drums.h): heard only with the custom set (drums_of) */
 } stage_t;
 /* st: the page's (staged); com: wb_apply's (committed: the only one a landing reads, so staging is never heard
    half-done); live: playing (the hooks point into it); mark: wb_stage_mark's copy */
@@ -52,6 +54,12 @@ static uint32_t advance(void)
     return ip;
 }
 
+/* a stage's drum lanes: they go with its custom set (a new seed's set drops them) */
+static const wb_drums_t *drums_of(const stage_t *s)
+{
+    return s->roll.v[RF_SET] == LIB_SET_WB ? &s->drums : NULL;
+}
+
 /* the library hooks into a stage's custom set and pattern */
 static void hooks(const stage_t *s)
 {
@@ -69,6 +77,7 @@ static void land(int target, int fresh)
         target = 0;
     live = com;
     hooks(&live);
+    wb_drums_set(drums_of(&live));
     song_override(&live.ov);
     song_start(&song, &live.roll);
     if (target >= song.roll.v[RF_BARS])
@@ -85,6 +94,7 @@ static void land(int target, int fresh)
         else
             vx_init();
         vx_song(&song.roll);
+        wb_drums_song(song.roll.seed);
     } else {
         vx_release_all();
         vx_configure(&song.roll);       /* the bed reopens */
@@ -139,12 +149,14 @@ static void due(void)
 EXPORT void wb_init(void)
 {
     memset(&st, 0, sizeof st);
+    st.drums.preset = -1;
     song_override(NULL);
     st.ov = *song_ov();
     roll_song(0, 1, &st.roll);
     com = live = mark = st;
     hooks(&live);
     vx_init();
+    wb_drums_init();
     playing = apply_pend = start_pend = in_gap = 0;
     catchups = 0;
     dice_salt = 0;
@@ -252,6 +264,8 @@ static lib_set_t *custom_set(void)
         st.set.id = LIB_SET_WB;
         st.base = s->id;
         st.roll.v[RF_SET] = LIB_SET_WB;
+        memset(&st.drums, 0, sizeof st.drums);  /* (any left from an earlier custom set) */
+        st.drums.preset = -1;
     }
     return &st.set;
 }
@@ -275,24 +289,89 @@ EXPORT int wb_role_get(int role)
     return ins ? *ins : -1;
 }
 
-/* the song's drum kit (KIT_*), as lib_song_kit draws it from the staged set */
+/* the song's drum kit (KIT_*), as lib_song_kit draws it from the staged set; a preset's kit row value
+   (WB_KIT_PRESET + its id) while one is staged */
 EXPORT int wb_kit_get(void)
 {
     int k;
+    if (drums_of(&st) && st.drums.preset >= 0)
+        return WB_KIT_PRESET + st.drums.preset;
     stage_set(1);
     k = lib_song_kit(&st.roll);
     stage_set(0);
     return k;
 }
 
-/* the kit in the custom set, so lib_song_kit plays it always: a synth kit with no sampled one, or the reverse */
+EXPORT void wb_kit_preset(int id);
+
+/* the kit in the custom set, so lib_song_kit plays it always: a synth kit with no sampled one, or the reverse (the drum
+   lanes cleared: the kit plays itself); a preset's kit row value stages the preset */
 EXPORT void wb_kit_set(int kit)
 {
     lib_set_t *s;
+    if (kit >= WB_KIT_PRESET && kit < WB_KIT_PRESET + WB_KIT_PRESETS) {
+        wb_kit_preset(kit - WB_KIT_PRESET);
+        return;
+    }
     if (kit < 0 || kit >= KIT_N || !(s = custom_set()))
         return;
     s->kit = lib_kit_sampled(kit) ? KIT_N : (uint8_t)kit;
     s->skit = lib_kit_sampled(kit) ? (uint8_t)kit : KIT_N;
+    memset(&st.drums, 0, sizeof st.drums);
+    st.drums.preset = -1;
+}
+
+/* A synth kit as shipped (WB_KIT_*: wb_drums_preset) on every lane, over the Brushes kit in the custom set (a synth
+   kit's song: no ride section, its compressor) */
+EXPORT void wb_kit_preset(int id)
+{
+    lib_set_t *s;
+    if (id < 0 || id >= WB_KIT_PRESETS || !(s = custom_set()))
+        return;
+    s->kit = KIT_BRUSHES;
+    s->skit = KIT_N;
+    wb_drums_preset(&st.drums, id);
+}
+
+/* Lane (0..WB_LANES - 1: V_KICK's order) plays a source (WB_SRC_*; wb_drums_src_ok's), its level kept. The first
+   lane set on a song with none copies the song's Brushes kit onto the others (BUILTIN; a sampled kit's: Task 9), so
+   they keep playing; the preset stays named (the kit row), the lane its own. */
+EXPORT void wb_lane_src(int lane, int kind, int a, int b)
+{
+    wb_src_t *s;
+    int k, i;
+    if (lane < 0 || lane >= WB_LANES || !wb_drums_src_ok(kind, a, b) || !custom_set())
+        return;
+    if (kind != WB_SRC_NONE && !wb_drums_any(&st.drums) && (k = wb_kit_get()) == KIT_BRUSHES)
+        for (i = 0; i <= V_RIM - V_KICK; i++)
+            st.drums.lane[i] = (wb_src_t){WB_SRC_BUILTIN, (uint8_t)k, (uint8_t)i, st.drums.lane[i].gain_db};
+    s = &st.drums.lane[lane];
+    s->kind = (uint8_t)kind;
+    s->a = (uint8_t)a;
+    s->b = (uint8_t)b;
+}
+
+/* lane's level in dB (-40..+12) */
+EXPORT void wb_lane_db(int lane, float db)
+{
+    if (lane < 0 || lane >= WB_LANES || !custom_set())
+        return;
+    st.drums.lane[lane].gain_db = db < -40.0f ? -40.0f : db > 12.0f ? 12.0f : db;
+}
+
+/* lane's sound now (vel 1-127) as staged, outside the song, through the drums' chain (stopped too): the song's own
+   kit's when no lane has a source */
+EXPORT void wb_audition(int lane, int vel)
+{
+    const wb_drums_t *d = drums_of(&st);
+    wb_src_t none = {WB_SRC_NONE, 0, 0, 0.0f};
+    if (lane < 0 || lane >= WB_LANES)
+        return;
+    vel = vel < 1 ? 1 : vel > 127 ? 127 : vel;
+    if (!wb_drums_any(d))
+        wb_drums_audition(&none, lane, vel);
+    else if (d->lane[lane].kind != WB_SRC_NONE)
+        wb_drums_audition(&d->lane[lane], lane, vel);
 }
 
 /* A two-bar kick phrase (step masks for bars A and B) over the staged pattern: the custom pattern copies the library
@@ -475,9 +554,10 @@ static const char *out_done(out_t *o)
    kick phrase and the phrase's masks), and the library's maps and progressions with their notes */
 EXPORT const char *wb_state(void)
 {
-    static char buf[512];
+    static char buf[1024];
     out_t o = {buf, sizeof buf, 0};
     int i, custom = st.roll.v[RF_PATTERN] == LIB_PATTERN_WB;
+    const wb_drums_t *d = drums_of(&st);
     put(&o, "{\"seed\":%u,\"roll\":[", (unsigned)st.roll.seed);
     for (i = 0; i < RF_N; i++)
         put(&o, "%s%d", i ? "," : "", st.roll.v[i]);
@@ -487,8 +567,14 @@ EXPORT const char *wb_state(void)
     put(&o, "],\"ov\":[");
     for (i = 0; i < WB_OV_N; i++)
         put(&o, "%s%d", i ? "," : "", wb_ov_get(i));
-    put(&o, "],\"kit\":%d,\"pattern\":%d,\"kick\":[%d,%d]}", wb_kit_get(),
+    put(&o, "],\"kit\":%d,\"pattern\":%d,\"kick\":[%d,%d]", wb_kit_get(),
         custom ? st.pat_base : st.roll.v[RF_PATTERN], custom ? st.kick_a : 0, custom ? st.kick_b : 0);
+    put(&o, ",\"drums\":{\"preset\":%d,\"lanes\":[", d ? d->preset : -1);
+    for (i = 0; i < WB_LANES; i++) {
+        const wb_src_t *s = d ? &d->lane[i] : NULL;
+        put(&o, "%s[%d,%d,%d,%g]", i ? "," : "", s ? s->kind : 0, s ? s->a : 0, s ? s->b : 0, s ? (double)s->gain_db : 0.0);
+    }
+    put(&o, "]}}");
     return out_done(&o);
 }
 
@@ -540,10 +626,15 @@ EXPORT const char *wb_consts(void)
         {"COMP", WB_OV_COMP}, {"LEAD_STYLE", WB_OV_LEAD_STYLE}, {"PAD_PLACE", WB_OV_PAD_PLACE}, {"RIDE", WB_OV_RIDE},
         {"KEYS_OCT", WB_OV_KEYS_OCT}, {"LEAD_OCT", WB_OV_LEAD_OCT}, {"VOICING_SALT", WB_OV_VOICING_SALT},
         {"PHRASE_SALT", WB_OV_PHRASE_SALT}, {"N", WB_OV_N}}, V[] = {
-        {"CHORD", V_CHORD}, {"BASS", V_BASS}, {"LEAD", V_LEAD}, {"CANDY", V_CANDY}, {"PAD", V_PAD}};
+        {"CHORD", V_CHORD}, {"BASS", V_BASS}, {"LEAD", V_LEAD}, {"CANDY", V_CANDY}, {"PAD", V_PAD}}, SRC[] = {
+        {"NONE", WB_SRC_NONE}, {"PT", WB_SRC_PT}, {"OPT", WB_SRC_OPT}, {"SAMPLE", WB_SRC_SAMPLE},
+        {"BUILTIN", WB_SRC_BUILTIN}}, KIT[] = {
+        {"PRESET", WB_KIT_PRESET}, {"PT808", WB_KIT_PT808}, {"PTCR78", WB_KIT_PTCR78}, {"OPTLOFI", WB_KIT_OPTLOFI},
+        {"PRESETS", WB_KIT_PRESETS}, {"LANES", WB_LANES}};
     static const struct { const char *key; const kv_t *t; unsigned n; } T[] = {
-        {"RF", RF, sizeof RF / sizeof RF[0]}, {"OV", OV, sizeof OV / sizeof OV[0]}, {"V", V, sizeof V / sizeof V[0]}};
-    static char buf[1024];
+        {"RF", RF, sizeof RF / sizeof RF[0]}, {"OV", OV, sizeof OV / sizeof OV[0]}, {"V", V, sizeof V / sizeof V[0]},
+        {"SRC", SRC, sizeof SRC / sizeof SRC[0]}, {"DRUMS", KIT, sizeof KIT / sizeof KIT[0]}};
+    static char buf[2048];
     static const char *done;
     out_t o = {buf, sizeof buf, 0};
     unsigned i, j;

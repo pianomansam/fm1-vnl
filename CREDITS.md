@@ -25,6 +25,14 @@ with thanks. `tools/samples/manifest.json` lists the exact files; `tools/samples
 | --- | --- | --- | --- |
 | The Ensemble (string-machine chorus) of [Mutable Instruments Plaits](https://github.com/pichenettes/eurorack), `plaits/dsp/fx/ensemble.h`, by Emilie Gillet; adapted mono, its delays rescaled, for the string synth (via the instrument spike's port) | MIT (below; verified in the file's own header) | https://github.com/pichenettes/eurorack/blob/master/plaits/dsp/fx/ensemble.h | `app/engine/strsyn.c`, `strsyn.h` |
 
+The workbench (`workbench/`, a local tool, not in the firmware) builds with two drum engines, credited here; their
+licenses and the files taken are in `workbench/engine/LICENSES.md`:
+
+| What | License | URL | Where |
+| --- | --- | --- | --- |
+| poketrack's trommelsynthesizer (synthesized TR-808 and CR-78 voices), by David Konsumer, at 2c5d4a6 | zlib (`workbench/engine/poketrack/LICENSE`) | https://github.com/konsumer/poketrack | `workbench/engine/poketrack/` |
+| Optimist's synth drum engine (`drum_synth.c`) and its LO-FI kit, by Leo Kuroshita (@kurogedelic), Hügelton Instruments, and the Optimist contributors, at 915fd8a | GPL-3.0-only (`workbench/engine/optimist/LICENSE`) | https://github.com/w0ts/optimist | `workbench/engine/optimist/` |
+
 The MIT notice for the Plaits code, which the firmware contains:
 
     Copyright 2014 Emilie Gillet.

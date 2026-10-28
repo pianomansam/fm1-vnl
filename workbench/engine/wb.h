@@ -32,8 +32,14 @@ int wb_role_get(int role);              /* -1 for another role */
 void wb_ov_set(int key, int value);
 int wb_ov_get(int key);
 int wb_keys_oct_applied(void);          /* the keys' register as the engine applies it to the staged state */
-int wb_kit_get(void);                   /* KIT_*: the staged song's kit */
-void wb_kit_set(int kit);               /* in the custom set (as wb_role_set), played always */
+int wb_kit_get(void);                   /* KIT_*: the staged song's kit (WB_KIT_PRESET + id: a preset) */
+void wb_kit_set(int kit);               /* in the custom set (as wb_role_set), played always; the lanes cleared (a
+                                           preset's value: wb_kit_preset) */
+/* The drum lanes (wb_drums.h), staged with the custom set like the kit */
+void wb_kit_preset(int id);             /* WB_KIT_*: a synth kit as shipped on every lane */
+void wb_lane_src(int lane, int kind, int a, int b);  /* lane (V_KICK's order) plays a source (WB_SRC_*) */
+void wb_lane_db(int lane, float db);    /* lane's level */
+void wb_audition(int lane, int vel);    /* lane's staged sound now, outside the song, through the drums' chain */
 void wb_kick_phrase(int a, int b);      /* a two-bar kick (step masks, bars A and B) over the staged pattern; 0, 0: off */
 int wb_roll_legal(int field, int value);    /* 1 if wb_roll_set would take it */
 void wb_stage_mark(void);               /* save the staged state ... */
@@ -52,8 +58,10 @@ int wb_catchups(void);                  /* wb_apply's landings since wb_init (te
 int wb_live_get(int field);             /* the song playing: a roll field (RF_N: the seed) */
 const char *wb_live_state(void);         /* JSON: wb_state's fields for the song being heard (not the staged one) */
 int wb_pending(void);                    /* 1: a commit is waiting for its bar line */
-const char *wb_state(void);             /* JSON: the staged seed, roll, roles, overrides, kit, pattern, kick phrase */
+const char *wb_state(void);             /* JSON: the staged seed, roll, roles, overrides, kit, pattern, kick phrase,
+                                           drums ({preset, lanes: [kind, a, b, dB] each}) */
 const char *wb_library(void);           /* JSON: the library's maps and progressions */
-const char *wb_consts(void);            /* JSON: the RF_*, WB_OV_* and V_* indices and LIB_SET_WB, for the page */
+const char *wb_consts(void);            /* JSON: the RF_*, WB_OV_*, V_*, WB_SRC_* and WB_KIT_* indices and LIB_SET_WB,
+                                           for the page */
 
 #endif

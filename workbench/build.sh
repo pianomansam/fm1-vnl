@@ -9,6 +9,7 @@ mkdir -p "$out"
 emcc -O2 -ffp-contract=off -std=gnu99 -Wall -Wextra -Wno-unused-parameter -Werror \
     -Iapp/song -Iapp/engine -Ibase/include -Iworkbench/engine \
     --no-entry -sSTANDALONE_WASM -sALLOW_MEMORY_GROWTH \
-    -o "$out/wb.wasm" app/song/*.c app/engine/*.c workbench/engine/*.c
+    -o "$out/wb.wasm" app/song/*.c app/engine/*.c workbench/engine/*.c \
+    workbench/engine/poketrack/trommelsynthesizer.c workbench/engine/poketrack/samples_stub.c
 cp workbench/index.html workbench/wb.js workbench/wb-worklet.js workbench/rows.js workbench/desk.js "$out/"
 echo "workbench  $out  ($(wc -c < "$out/wb.wasm" | tr -d ' ') B wasm)"

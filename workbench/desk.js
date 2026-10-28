@@ -191,16 +191,16 @@ export class Desk {
 
   // Everything a replay needs (version 1; later tasks add to it): the rows of the song being HEARD (the engine's live
   // state: a change still waiting for its bar line isn't in it), those of the waiting commit (pending, or null), the
-  // locks and hand edits, the seed. "drums" is the home of any drum state the rows don't hold (the kit, pattern and
-  // kick are rows already; Tasks 8-10 fill it).
+  // locks and hand edits, the seed. "drums" is the drum state the rows don't hold (the kit, pattern and kick are rows
+  // already): the heard song's drum lanes, { preset, lanes: [[kind, a, b, dB], ...] } (wb_state's).
   async snapshot() {
     const pending = (await this.call("wb_pending")) ? { ...this.values } : null;
-    let rows = { ...this.values };
+    let rows = { ...this.values }, heard = await this.call(pending ? "wb_live_state" : "wb_state");
     if (pending) {
-      rows = fromEngine(await this.call("wb_live_state"), this.C, this.opts);
+      rows = fromEngine(heard, this.C, this.opts);
       rows.family = familyOf(rows, this.opts);
     }
-    return { version: 1, rows, pending, locks: [...this.locks], hand: [...this.hand], seed: rows.seed, drums: {} };
+    return { version: 1, rows, pending, locks: [...this.locks], hand: [...this.hand], seed: rows.seed, drums: heard.drums };
   }
 
   // Put a snapshot's state on the engine (staged, then committed) as the page's own stagings would; the rows that
@@ -210,6 +210,7 @@ export class Desk {
     await this.call("wb_stage_mark");
     await this.stage("seed", snap.rows.seed);
     for (const r of ROWS) if (r.kind !== "seed" && r.kind !== "family") await this.stage(r.id, snap.rows[r.id]);
+    await this.stageDrums(snap.drums);
     await this.call("wb_apply");
     this.values = { ...snap.rows };
     this.locks = new Set(snap.locks);
@@ -217,6 +218,17 @@ export class Desk {
     this.moved = new Set();
     await this.read();
     return ROWS.filter((r) => String(this.values[r.id]) !== String(snap.rows[r.id])).map((r) => r.id);
+  }
+
+  // A snapshot's drum lanes over the kit row's (a preset's, or the song's own kit's): the lanes with a source first (the
+  // first one set on a song with none fills the others from its kit), then the silent ones; each lane's level
+  async stageDrums(d) {
+    const lanes = d?.lanes || [];
+    if (!lanes.some((l) => l[0] !== this.C.SRC.NONE)) return;
+    for (const silent of [false, true])
+      for (const [i, [kind, a, b]] of lanes.entries())
+        if ((kind === this.C.SRC.NONE) === silent) await this.call("wb_lane_src", i, kind, a, b);
+    for (const [i, l] of lanes.entries()) await this.call("wb_lane_db", i, l[3]);
   }
 
   lock(id, on) {
