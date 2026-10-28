@@ -43,7 +43,6 @@ unsigned harmony_comp_steps(const song_roll_t *r);   /* the steps stabs or half-
 enum { HV_SHAPES = 16 };
 typedef struct {
     int last[4]; int loop[4][4]; int nloop; uint32_t sig;
-    int tied[4];                  /* held notes ringing on into the next chord: its strike leaves them be */
     uint8_t gtab[HV_SHAPES][6]; uint32_t gsig[HV_SHAPES]; int gn;
 } harmony_voicing_t;
 /* the loop lock above, on by default; off, each chord is voiced from the last sounded (VNL_LOOPLOCK=0 in renders) */
