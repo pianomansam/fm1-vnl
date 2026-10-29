@@ -666,6 +666,11 @@ typedef struct __attribute__((packed)) { uint16_t bar; uint8_t step, role, note,
 static wb_ev_t events[WB_EV_MAX];
 static int nevents;
 
+/* wb_chords' records: where the chord changes (the root, a pitch class), from the same run */
+typedef struct __attribute__((packed)) { uint16_t bar; uint8_t step, root; } wb_chord_t;
+static wb_chord_t chords[1024];
+static int nchords;
+
 /* The committed song run silently from bar 1 (as a landing starts it), every event recorded: the count, or -1 if
    there were more than max (or WB_EV_MAX; max 0: WB_EV_MAX) and the rest were dropped. A drum's role is its voice
    (V_KICK..V_RIDE) and its note the lane (voice - V_KICK); len_steps the length in 16ths, rounded. Runs a scratch
@@ -676,13 +681,29 @@ EXPORT int wb_events(uint32_t max)
     int over = 0;
     if (!max || max > WB_EV_MAX)
         max = WB_EV_MAX;
-    nevents = 0;
+    nevents = nchords = 0;
     hooks(&com);
     song_override(&com.ov);
     song_start(s, &com.roll);
     while (!over && s->state == SS_PLAYING) {
-        int bar = s->bar, step = s->step, n = song_tick(s, evs, 64), i;
-        float ss = song_step_samples(s);
+        int bar = s->bar, step = s->step, n, i;
+        float ss;
+        if (!step) {   /* a bar: its chord, kept if it differs from the last (the pitch classes, root first) */
+            const plan_block_t *b = plan_at(&s->plan, bar);
+            const lib_prog_t *p = lib_prog_by_id((uint8_t)s->roll.v[RF_PROG]);
+            int loop = p && p->n * p->bars_per_chord ? p->n * p->bars_per_chord : 4, pcs[5], np;
+            static int last[5], nlast;
+            np = harmony_chord_at(&s->roll, bar, bar / loop + 1, b && (b->flags & PB_DARK), pcs);
+            if (np > 0 && nchords < 1024 && (!nchords || np != nlast || memcmp(pcs, last, np * sizeof *pcs))) {
+                chords[nchords].bar = (uint16_t)bar;
+                chords[nchords].step = 0;
+                chords[nchords++].root = (uint8_t)pcs[0];
+                memcpy(last, pcs, np * sizeof *pcs);
+                nlast = np;
+            }
+        }
+        n = song_tick(s, evs, 64);
+        ss = song_step_samples(s);
         for (i = 0; i < n; i++) {
             wb_ev_t *r = &events[nevents];
             if ((uint32_t)nevents >= max) {
@@ -705,6 +726,9 @@ EXPORT int wb_events(uint32_t max)
 
 EXPORT uint32_t wb_events_ptr(void) { return (uint32_t)(uintptr_t)events; }
 EXPORT int wb_events_count(void) { return nevents; }
+/* the chord changes of the last wb_events run: 4-byte records { u16 bar; u8 step; u8 root pitch class } */
+EXPORT uint32_t wb_chords_ptr(void) { return (uint32_t)(uintptr_t)chords; }
+EXPORT int wb_chords_count(void) { return nchords; }
 
 EXPORT void wb_ov_set(int key, int value)
 {

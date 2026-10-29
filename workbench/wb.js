@@ -64,12 +64,12 @@ export async function probe(bytes) {
   return ex.wb_lead_oct_probe();
 }
 
-// The committed song's events, every one from bar 1 (wb_events); bytes: the playing instance's wb_commit_bytes
+// The committed song's events (every one from bar 1) and chord changes ({ events, chords }); bytes: the playing instance's wb_commit_bytes
 export async function events(bytes) {
   const ex = await probeInstance();
   new Uint8Array(ex.memory.buffer, ex.wb_commit_ptr(), ex.wb_stage_size()).set(bytes);
   ex.wb_events(0);
-  return readEvents(ex);
+  return { events: readEvents(ex), chords: readChords(ex) };
 }
 
 // wb_events' records out of an instance's memory: [{ bar (from 0), step, role (C.V; a drum's V_KICK..V_RIDE), note (a
@@ -79,6 +79,13 @@ export function readEvents(ex) {
   for (let i = 0, o = 0; i < n; i++, o += 8)
     out[i] = { bar: dv.getUint16(o, true), step: dv.getUint8(o + 2), role: dv.getUint8(o + 3), note: dv.getUint8(o + 4),
                vel: dv.getUint8(o + 5), len: dv.getUint16(o + 6, true) };
+  return out;
+}
+
+// wb_chords' records (the last wb_events run's chord changes): [{ bar (from 0), step, root (pitch class) }]
+export function readChords(ex) {
+  const n = ex.wb_chords_count(), dv = new DataView(ex.memory.buffer, ex.wb_chords_ptr(), 4 * n), out = new Array(n);
+  for (let i = 0; i < n; i++) out[i] = { bar: dv.getUint16(4 * i, true), step: dv.getUint8(4 * i + 2), root: dv.getUint8(4 * i + 3) };
   return out;
 }
 

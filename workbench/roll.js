@@ -6,10 +6,11 @@ export const LANES = ["keys", "bass", "lead", "pad", "drums"];
 export const BAR_PX = 40, LANE_PX = { drums: 90 }, LANE_DEFAULT_PX = 56;
 
 // events (wb.js readEvents), sections (wb_sections), bars; V: the engine's role numbers (C.V: CHORD, BASS, LEAD, PAD,
-// KICK..RIDE). -> { bars, sections: [x of each section's start, in bars], lanes: [{ role: part name, notes: [{ x, w, y,
+// KICK..RIDE); chords (wb.js readChords). -> { bars, sections: [x of each section's start, in bars], chords: [x of
+// each chord change], lanes: [{ role: part name, notes: [{ x, w, y,
 // h, shade }] }] }. x, w in bars (from 0); y, h as fractions of the lane, 0 at the top (a pitched lane spans its own
 // lowest to highest note; a drum lane is one row of the grid); shade 0..1 by velocity. An empty lane has no notes.
-export function layout(events, sections, bars, V) {
+export function layout(events, sections, bars, V, chords = []) {
   const part = (r) => (r === V.CHORD ? "keys" : r === V.BASS ? "bass" : r === V.LEAD ? "lead" : r === V.PAD ? "pad" : r >= V.KICK && r <= V.RIDE ? "drums" : null);
   const by = Object.fromEntries(LANES.map((p) => [p, []]));
   for (const e of events) { const p = part(e.role); if (p) by[p].push(e); }
@@ -17,6 +18,7 @@ export function layout(events, sections, bars, V) {
   return {
     bars,
     sections: sections.map((s) => s.start),
+    chords: chords.map((c) => c.bar + c.step / 16),
     lanes: LANES.map((role) => {
       const evs = by[role];
       let lo = 127, hi = 0;
@@ -54,6 +56,12 @@ export function draw(canvas, lay, playhead, listen) {
   g.beginPath();
   for (const s of lay.sections) { g.moveTo(s * BAR_PX + 0.5, 0); g.lineTo(s * BAR_PX + 0.5, H); }
   g.stroke();
+  g.strokeStyle = accent;   // a chord change: dotted
+  g.setLineDash([2, 3]);
+  g.beginPath();
+  for (const c of lay.chords) { g.moveTo(c * BAR_PX + 0.5, 0); g.lineTo(c * BAR_PX + 0.5, H); }
+  g.stroke();
+  g.setLineDash([]);
   let top = 0;
   for (const l of lanes) {
     const h = px(l), off = listen.solo ? listen.solo !== l.role : listen.mute.has(l.role);   // heard or greyed

@@ -256,9 +256,10 @@
   }
   // the piano roll: the song as it plays. The committed song, unless a change is waiting for its bar line while the song
   // plays: then the song before it stays, and the roll redraws when it lands (each bar line is checked)
-  let rollKey = "", rollLay = null, rollBusy = false;
+  let rollKey = "", rollLay = null, rollBusy = false, rollAgain = false;
   async function roll() {
-    if (rollBusy || !desk) return;
+    if (!desk) return;
+    if (rollBusy) { rollAgain = true; return; }   // a check that came in mid-way runs once more after it
     rollBusy = true;
     try {
       const waiting = playing && (await wb.call("wb_pending"));
@@ -266,12 +267,15 @@
         const bytes = await wb.call("wb_commit_bytes"), key = bytes.join(",");
         if (key !== rollKey) {
           rollKey = key;
-          const evs = await wb.events(bytes);
-          rollLay = layout(evs, await wb.call("wb_sections", 0), evs.reduce((m, e) => Math.max(m, e.bar + 1), 0), wb.C.V);
+          const { events, chords } = await wb.events(bytes), sc = await wb.call("wb_sections", 0);
+          rollLay = layout(events, sc, sc.reduce((m, x) => Math.max(m, x.start + x.bars), 0), wb.C.V, chords);
         }
       }
       paintRoll();
-    } finally { rollBusy = false; }
+    } finally {
+      rollBusy = false;
+      if (rollAgain) { rollAgain = false; roll().catch((e) => { $("msg").textContent = String(e); }); }
+    }
   }
   function paintRoll() {
     if (!rollLay) return;
