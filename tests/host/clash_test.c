@@ -53,7 +53,8 @@ static rec_t R1, R2;
 static int clash_checks = 1;
 static long strong_checked, strong_skipped, strong_in, weak_checked, rubs[2][4];   /* rubs[strong?0:1][kind] */
 static long bass_checked, bass_rubs;                     /* bass notes against the sounding keys */
-static long pad_checked;                                 /* pad notes against the sounding keys, bass and lead */
+static long pad_checked;
+static long strong_exempt;                              /* lead notes a style plays late off a strong step */                                 /* pad notes against the sounding keys, bass and lead */
 
 static float base_ss(int bpm) { return 44100.0f * 60.0f / ((float)bpm * 4.0f); }
 
@@ -140,8 +141,11 @@ static void check_step(const song_t *s, int bar, int step, const song_ev_t *ev, 
               seed, bar, step, e->note);
         CHECK(!th_is_avoid(key, mode, pcs, np, e->note), "seed %u bar %d step %d: avoid note %d", seed, bar, step,
               e->note);
-        if ((step == 0 || step == 8) && !e->delay) {   /* on the beat (a style's triplet note a third or two of a 16th
-                                                          after it is off it, as the style plans it) */
+        if ((step == 0 || step == 8) && e->voice == V_LEAD && leads_style(&s->roll) >= 0 &&
+            (float)e->delay + 2.0f >= song_step_samples(s) / 3.0f) {
+            strong_exempt++;                     /* a style's triplet note, a third or two of a 16th after the beat:
+                                                    off it, as the style plans it */
+        } else if (step == 0 || step == 8) {
             int ct = 0;
             for (j = 0; j < np; j++) ct |= pcs[j] % 12 == e->note % 12;
             CHECK(ct, "seed %u bar %d step %d: note %d not a chord tone", seed, bar, step, e->note);
@@ -873,8 +877,77 @@ static void style_rules(int style, const char *name)
            rubs[0][0] + rubs[0][1] + rubs[0][2] + rubs[0][3] + rubs[1][0] + rubs[1][1] + rubs[1][2] + rubs[1][3] - rub0);
 }
 
-static void test_impressionism_rules(void) { style_rules(LS_IMPRESSIONISM, "Impressionism"); }
-static void test_romanticism_rules(void) { style_rules(LS_ROMANTICISM, "Romanticism"); }
+/* Review Focus 1, chords with few legal notes, through every check above: the style forced on each lead instrument it
+   is rolled for, in songs forced to Lydian (its maj7 chords; the first 300 of song_test's songs) and in walking-bass
+   songs with 9ths (their m9 chords; of its 3000), as song_test's ls_hard plays them */
+static void style_hard(int style, const char *name, const int *ins, int nins)
+{
+    static song_t s;
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, 0, -1, -1, -1};
+    long before = fails;
+    int k;
+    o.lead_style = (int8_t)(2 + style);
+    song_override(&o);
+    for (k = 0; k < nins; k++) {
+        long songs[2] = {0, 0}, hard[2] = {0, 0};
+        uint32_t j;
+        for (j = 1; j <= 3000; j++) {
+            song_roll_t r;
+            lib_set_t cs;
+            const lib_set_t *st;
+            int pass;
+            roll_song(NULL, j * 2654435761u + 17u, &r);
+            st = lib_set_by_id((uint8_t)r.v[RF_SET]);
+            if (!st || st->chords == ins[k]) continue;
+            cs = *st;
+            cs.lead = (uint8_t)ins[k];
+            cs.id = LIB_SET_WB;
+            lib_set_wb(&cs, st->id);
+            r.v[RF_SET] = LIB_SET_WB;
+            for (pass = 0; pass < 2; pass++) {
+                int e;
+                if (pass == 0 && (roll_set(&r, RF_MODE, MODE_LYDIAN) != MODE_LYDIAN || j > 300)) continue;
+                if (pass == 1) {
+                    if (groove_bass_style(&r) != BS_WALK) continue;
+                    roll_set(&r, RF_COLOR, COLOR_9);
+                }
+                song_start(&s, &r);
+                run(&s, &R1, NULL, NULL, NULL);
+                songs[pass]++;
+                for (e = 0; e < R1.ne; e++) {   /* lead notes struck over a maj7 (Lydian) or m9 (the walk) chord */
+                    const lib_prog_t *pr = lib_prog_by_id((uint8_t)r.v[RF_PROG]);
+                    int loop = pr && pr->n * pr->bars_per_chord ? pr->n * pr->bars_per_chord : 4, pcs[5], np, m;
+                    int bar = R1.bar[R1.ev[e].tick], iv = 0;
+                    if (R1.ev[e].voice != V_LEAD) continue;
+                    np = harmony_chord_at(&r, bar, bar / loop + 1, 0, pcs);
+                    for (m = 1; m < np; m++) iv |= 1 << (pcs[m] - pcs[0] + 12) % 12;
+                    hard[pass] += pass == 0 ? (iv >> 11) & 1 : ((iv >> 3) & 1) && ((iv >> 2) & 1);
+                }
+            }
+        }
+        lib_set_wb(NULL, 0);
+        printf("%s on hard chords, %s: %ld Lydian songs (%ld lead notes over maj7 chords), %ld walking-bass songs with "
+               "9ths (%ld over m9 chords)\n", name, ins[k] == INS_FLUTE ? "flute" : ins[k] == INS_VIBES ? "vibes" :
+               "felt piano", songs[0], hard[0], songs[1], hard[1]);
+        CHECK(songs[0] > 150 && hard[0] > 3000 && songs[1] > 50 && hard[1] > 300,
+              "%s on hard chords: %ld and %ld songs, %ld and %ld notes", name, songs[0], songs[1], hard[0], hard[1]);
+    }
+    song_override(NULL);
+    printf("%s on hard chords: %ld checks failed\n", name, (long)fails - before);
+}
+
+static void test_impressionism_rules(void)
+{
+    static const int INS2[2] = {INS_FLUTE, INS_VIBES};
+    style_rules(LS_IMPRESSIONISM, "Impressionism");
+    style_hard(LS_IMPRESSIONISM, "Impressionism", INS2, 2);
+}
+static void test_romanticism_rules(void)
+{
+    static const int INS1[1] = {INS_FLUTE};
+    style_rules(LS_ROMANTICISM, "Romanticism");
+    style_hard(LS_ROMANTICISM, "Romanticism", INS1, 1);
+}
 
 int main(void)
 {
@@ -895,6 +968,8 @@ int main(void)
     printf("other steps: %ld lead/candy notes checked against the sounding chord and bass\n", weak_checked);
     printf("bass: %ld notes checked against the sounding keys, %ld semitone rubs\n", bass_checked, bass_rubs);
     printf("pads: %ld pairs checked against the sounding keys, bass and lead\n", pad_checked);
+    printf("strong steps: %ld lead notes a style plays a third of a 16th or more late, off the beat (exempt from the "
+           "chord-tone check, not the rest)\n", strong_exempt);
     CHECK(pad_checked > 100000, "pads: only %ld pairs checked", pad_checked);
     CHECK(bass_rubs == 0, "%ld bass notes rub a semitone against the keys", bass_rubs);
     for (i = 0; i < 2; i++)

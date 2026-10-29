@@ -4,6 +4,7 @@
    R plays (the host's noise filtered out), then the most over all ticks: strummed songs (CS_STRUM) and the rest
    apart. Also the worst song_start, plan_build and groove_ride (the ride's extra plan builds at a song's start), and
    a hash of every event (strummed and other songs apart), the same before and after a change that keeps the music.
+   A third argument forces a lead_style (override.h: 2 + LS_*, a lead style) on every song.
    Built only with -DVNL_BENCH, otherwise this file is empty (as bench.c: the firmware globs take host/). */
 #ifdef VNL_BENCH
 #define _POSIX_C_SOURCE 199309L
@@ -15,6 +16,7 @@
 #include "harmony.h"
 #include "groove.h"
 #include "plan.h"
+#include "override.h"
 
 static double now_us(void)
 {
@@ -34,6 +36,11 @@ int main(int argc, char **argv)
     uint32_t h[2] = {2166136261u, 2166136261u};
     int reps = argc > 2 ? atoi(argv[2]) : 5, songs[2] = {0, 0}, i;
     double mx[2] = {0, 0}, smx[2] = {0, 0}, pb = 0, gr = 0;
+    song_ov_t o = *song_ov();
+    if (argc > 3) {
+        o.lead_style = (int8_t)atoi(argv[3]);
+        song_override(&o);
+    }
     for (seed = 2; seed <= hi; seed++) {
         song_roll_t r;
         int st, rep, nt = 0, blk;

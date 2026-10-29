@@ -1034,4 +1034,10 @@ older engines now use the same copies). Image by `./build.sh`, measured style by
 then). Projection: Task 6's removals free about 16 KB (lead.c's older engines ~6.8 KB, melody.c ~6.5 KB, phrase.c
 ~2.7 KB, the lead-arp tables); eight styles at ~4 KB each need ~32 KB, so with today's headroom the plan ends **about
 11 KB short after Task 6**: Task 8 brings trims to Sam. RAM 55488 B, pool 180216 B (unchanged). CPU: a style plans
-once a bar, as the phrase planner did; not measured separately.
+once a bar, as the phrase planner did.
+
+CPU (fix round 1): `tools/tick-bench.sh 3000 5 [STYLE]` (a third argument now forces a lead_style), three runs
+each, interleaved: worst tick over the 2933 other songs, no style forced **27-28 us**, Impressionism forced (2)
+**27-33 us**, Romanticism forced (3) **27-31 us**; strummed songs 22-27 us in all three; worst song_start 7-8 us in
+all three. The styles' worst ticks sit within the host's noise of the older engines' (the bar's plan runs on step 0
+either way); the unforced events hash is unchanged (7dbc0885, 936e9bb7).

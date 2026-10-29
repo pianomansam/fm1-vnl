@@ -103,9 +103,10 @@ void romanticism_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t
     {   /* the spine: the answer's head as its pickup chose it, else near its planned step */
         int tgt = leads_si_note(key, sc, asi + SPINE[p.line][half][role] + (role == 0 ? p.lift : 0));
         spine = 0;
-        if (role == 0 && half && ls->head && !from && leads_ok(c, ls->head, 0)) spine = ls->head;
+        if (role == 0 && half && ls->st.ro.head && !from && leads_ok(c, ls->st.ro.head, 0)) spine = ls->st.ro.head;
         if (!spine && prev && role > 0 && role < 3) {     /* mid-phrase: the line steps on over the bar line */
-            int dir = ls->step_dir ? ls->step_dir : 1, tries[4], j;   /* the move the last bar's cell planned */
+            int dir = ls->st.ro.step_dir ? ls->st.ro.step_dir : 1, tries[4], j;   /* the move the last bar's cell
+                                                                                    planned */
             tries[0] = leads_coll_step(lg, prev, dir); tries[1] = leads_coll_step(lg, prev, 2 * dir);
             tries[2] = leads_coll_step(lg, prev, -dir); tries[3] = leads_coll_step(lg, prev, -2 * dir);
             for (j = 0; j < 4 && !spine; j++) {
@@ -121,7 +122,7 @@ void romanticism_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t
             spine = leads_coll_step(lg, prev, -1) >= c->lo ? leads_coll_step(lg, prev, -1)
                                                            : leads_coll_step(lg, prev, 1);
     }
-    ls->head = 0;
+    ls->st.ro.head = 0;
     if (!spine || spine > c->hi) { ls->last = prev; return; }
     if (role == 3) {   /* the cadence: an appoggiatura a step over the resting chord tone, or the rest alone; held,
                           then a breath (and before the answer, its pickup) */
@@ -142,7 +143,7 @@ void romanticism_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t
                 if (!q) q = leads_coll_step(lg, h, -1);
                 if (q && leads_ok(c, q, 0) && q != spine && (nlg >> (h % 12)) & 1u) {
                     leads_put(ls, c, 42, q, 16, 58);
-                    ls->head = h;
+                    ls->st.ro.head = h;
                     prev = q;
                 }
             }
@@ -210,7 +211,7 @@ void romanticism_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t
             nt[i] = note;
             vel[i] = 64 + 4 * role + (note - anchor) / 2;
         }
-        ls->step_dir = nm > 0 ? mv[nm - 1] : way;            /* the step over the bar line */
+        ls->st.ro.step_dir = nm > 0 ? mv[nm - 1] : way;      /* the step over the bar line */
     }
     for (i = 0; i < k; i++) {
         int end = i + 1 < k ? (t3[i + 1] + 2) / 3 : 16;

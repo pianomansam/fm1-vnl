@@ -32,8 +32,13 @@ typedef struct {
     int pat, rhy, rev, swap;
     uint8_t dl[16];               /* a style's onset late by thirds of a 16th (a triplet: 0-2) */
     int tie_end;                  /* a style's note tied in from the last bar ends at this 16th */
-    int step_dir;                 /* Romanticism: the step its last bar planned over the bar line (+1, -1) */
-    int head;                     /* Romanticism: the answer's first note, chosen by the pickup before it (0: none) */
+    union {                       /* one style's own state across bars (a song plays one style; zeroed with the
+                                     song) */
+        struct {
+            int step_dir;         /* the step its last bar planned over the bar line (+1, -1) */
+            int head;             /* the answer's first note, chosen by the pickup before it (0: none) */
+        } ro;                     /* Romanticism */
+    } st;
 } lead_state_t;
 
 /* 1 where the lead plays: blocks with L_LEAD and L_KEYS, not intro or outro */

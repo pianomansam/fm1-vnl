@@ -9704,7 +9704,9 @@ typedef struct { int style, ins; long songs, notes, sbars, span, heads, hr, hc, 
 static const ls_spike_t LS_SPIKE[] = {
     {LS_IMPRESSIONISM, INS_FLUTE, 300, 14434, 5726, 3922, 1190, 351, 753, 3861, 622, 1263},
     {LS_IMPRESSIONISM, INS_VIBES, 300, 14501, 5732, 3916, 1191, 354, 754, 3868, 631, 1277},
+    {LS_IMPRESSIONISM, INS_FELT_PIANO, 278, 13471, 5302, 3608, 1104, 329, 707, 3582, 583, 1182},
     {LS_ROMANTICISM, INS_FLUTE, 300, 16860, 6128, 4602, 1232, 641, 317, 4296, 1487, 790},
+    {LS_ROMANTICISM, INS_FELT_PIANO, 278, 15661, 5668, 4253, 1139, 611, 289, 3973, 1410, 737},
 };
 
 static const ls_spike_t *ls_spike(int style, int ins)
@@ -9973,27 +9975,28 @@ static void test_style_fallback(void)
     }
 }
 
+/* (the instruments the style is rolled for, and the felt piano, an A/B song's lead: the Knight isn't rolled for either) */
 static void test_impressionism_motif(void)
 {
-    static const int INS2[2] = {INS_FLUTE, INS_VIBES};
-    ls_motif(LS_IMPRESSIONISM, INS2, 2);
+    static const int INS3[3] = {INS_FLUTE, INS_VIBES, INS_FELT_PIANO};
+    ls_motif(LS_IMPRESSIONISM, INS3, 3);
 }
 static void test_romanticism_motif(void)
 {
-    static const int INS1[1] = {INS_FLUTE};
-    ls_motif(LS_ROMANTICISM, INS1, 1);
+    static const int INS2[2] = {INS_FLUTE, INS_FELT_PIANO};
+    ls_motif(LS_ROMANTICISM, INS2, 2);
 }
 static void test_impressionism_shape(void)
 {
-    static const int INS2[2] = {INS_FLUTE, INS_VIBES}, MED[5] = {79, 77, 76, 80, 80};
+    static const int INS3[3] = {INS_FLUTE, INS_VIBES, INS_FELT_PIANO}, MED[5] = {79, 77, 76, 80, 80};
     static const double NB[5] = {2.35, 2.46, 3.06, 2.58, 2.35};
-    ls_shape(LS_IMPRESSIONISM, INS2, 2, NB, MED);
+    ls_shape(LS_IMPRESSIONISM, INS3, 3, NB, MED);
 }
 static void test_romanticism_shape(void)
 {
-    static const int INS1[1] = {INS_FLUTE}, MED[5] = {82, 80, 78, 78, 78};
+    static const int INS2[2] = {INS_FLUTE, INS_FELT_PIANO}, MED[5] = {82, 80, 78, 78, 78};
     static const double NB[5] = {3.05, 2.50, 2.35, 3.25, 3.15};
-    ls_shape(LS_ROMANTICISM, INS1, 1, NB, MED);
+    ls_shape(LS_ROMANTICISM, INS2, 2, NB, MED);
 }
 /* the spike's on the same songs: Lydian (the first 300) notes on maj7 bars, silent maj7 bars, the songs' notes, their
    lead bars, the maj7 bars; m9 over the walk (3000) notes on m9 bars, silent ones */
