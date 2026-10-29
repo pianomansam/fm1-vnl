@@ -322,6 +322,9 @@ static float cp_env, cp_g = CP_MAKEUP; /* the compressor's level and gain (make-
 static float cp_thr = 0.095f;          /* the kit's threshold */
 static unsigned fx_off;     /* VX_OFF_*: kept through vx_init */
 static int solo_bus = -1;   /* vx_solo: the one bus mixed, -1 for all (kept through vx_init) */
+/* vx_mute: a bit per bus out of the mix (kept through vx_init), and the mask at the last chunk's end (a chunk ramps a
+   bus between the two: out or back in over its samples) */
+static unsigned mute_mask, mute_was;
 static uint32_t gain_n;
 static vx_config_t cfg;
 static const vx_patch_t *role_pt[V_PAD + 1]; /* the configured patch per pitched role, NULL for none */
@@ -386,6 +389,7 @@ static void voices_clear(uint32_t seed)
     pq_used = 0;
     hpar = 0u;
     hr_tail = 0u;
+    mute_was = mute_mask; /* (nothing sounds: no ramp) */
     cp_env = 0.0f;
     cp_g = CP_MAKEUP;
     dk_env = 0.0f;
@@ -2260,6 +2264,27 @@ static void comp(float *x, uint32_t n, float *g0, float *dg)
     cp_g = t;
 }
 
+/* vx_mute over one block (n samples at o in a chunk of c): a muted bus zeroed, one going out or coming back ramped
+   linearly over the chunk (the pad's quarter-rate sum with its bus) */
+static void mute_block(uint32_t c, uint32_t o, uint32_t n)
+{
+    int r;
+    uint32_t i;
+    for (r = 0; r < NBUS; r++) {
+        float g0 = (mute_was >> r) & 1u ? 0.0f : 1.0f, g1 = (mute_mask >> r) & 1u ? 0.0f : 1.0f, dg = (g1 - g0) / (float)c;
+        float *x[2] = {bb[r] + o, r == V_PAD && pq_used ? pq_buf + o : NULL};
+        int k;
+        if (g0 == 1.0f && g1 == 1.0f)
+            continue;
+        for (k = 0; k < 2 && x[k]; k++)
+            if (g0 == g1)
+                memset(x[k], 0, n * sizeof(float));
+            else
+                for (i = 0; i < n; i++)
+                    x[k][i] *= g0 + dg * (float)(o + i + 1u);
+    }
+}
+
 /* the chunk's mix (c samples): per block, the drums compressed, the buses filtered (filt) and summed, into the music
    and the wet inputs' pairs; the song gain on everything */
 static const float pq_zero[CHUNK];
@@ -2305,6 +2330,8 @@ static void mix_chunk(uint32_t c, int filt, unsigned live)
                 for (r = 0; r < NBUS; r++)
                     if (r != solo_bus)
                         memset(bb[r] + o, 0, n * sizeof(float));
+            if (mute_mask | mute_was)
+                mute_block(c, o, n);
             for (i = 0; i < n; i++) {
                 float x = b0[i] * (cgl += kgd);
                 float p4 = b4[i] + q4[i];
@@ -2363,8 +2390,8 @@ static void mix_chunk(uint32_t c, int filt, unsigned live)
 static int filtering(void)
 {
     int r;
-    if (solo_bus >= 0)
-        return 1; /* (vx_solo: the buses kept apart, the others zeroed in the mix) */
+    if (solo_bus >= 0 || mute_mask || mute_was)
+        return 1; /* (vx_solo, vx_mute: the buses kept apart, the others zeroed in the mix) */
     if (fx_off & VX_OFF_FILTERS)
         return 0;
     for (r = 0; r < NBUS; r++)
@@ -2455,6 +2482,7 @@ void vx_render(float *l, float *r, uint32_t n)
         if (filt)
             live |= live_buses(); /* (a voice that started in the chunk) */
         mix_chunk(c, filt, live);
+        mute_was = mute_mask;
         fx_process_pairs(ch_m, ch_s, t_s, t_c, t_d, c, drums_kick_env());
         for (k = 0; k < c; k++) {
             l[done + k] += ch_m[k];
@@ -2570,6 +2598,32 @@ void vx_fx_off(unsigned mask)
 void vx_solo(int role)
 {
     solo_bus = role < 0 ? -1 : bus_of(role);
+}
+
+void vx_mute(unsigned mask)
+{
+    unsigned back = mute_was & ~mask; /* buses silent now, back in the mix */
+    int j;
+    for (j = 0; j < NV; j++) /* their notes struck while muted end here, unheard: only new ones play */
+        if (fv[j].on && (back & role_bit(j))) {
+            fv[j].on = fv[j].held = fv[j].pend = 0;
+            fv[j].g = 0.0f;
+        }
+    for (j = 0; j < NBUS; j++) /* and what they left in its filters and upsampler (it is silent: nothing jumps) */
+        if (back & (1u << j)) {
+            bus[j].y = bus[j].z = 0.0f;
+            if (j <= V_PAD) {
+                memset(mud_z[j], 0, sizeof mud_z[j]);
+                memset(mud_zh[j], 0, sizeof mud_zh[j]);
+                memset(hx[j], 0, sizeof hx[j]);
+                hr_tail &= ~(1u << j);
+            }
+            if (j == V_PAD)
+                pq0 = pq1 = pq_mz[0] = pq_mz[1] = pb_y = pb_z = 0.0f;
+        }
+    if (back & (1u << DRB))
+        drums_release();
+    mute_mask = mask & ((1u << NBUS) - 1u) & ~(1u << V_CANDY);
 }
 
 float vx_chip_out(int role, float *raw, float *step)

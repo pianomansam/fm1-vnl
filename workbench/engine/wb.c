@@ -43,6 +43,10 @@ static float frac;                      /* and its fraction, as app.c advances r
 static uint32_t pos;                    /* the song's time, in samples, at the next frame rendered */
 static uint32_t dice_salt;
 static int catchups;
+static int jump = -1;                   /* wb_jump's bar, for the next landing (-1: none) */
+static unsigned mute;                   /* wb_mute's mask */
+static int solo = -1;                   /* wb_solo's role */
+static uint32_t heard_h, heard_n;       /* the events tick() played since the last landing, hashed (wb_heard_hash) */
 static float out_l[WB_MAX_FRAMES], out_r[WB_MAX_FRAMES];
 static song_ev_t evs[64];
 
@@ -74,8 +78,11 @@ static void hooks(const stage_t *s)
    restarted from the seed (vx_song). */
 static void land(int target, int fresh)
 {
-    if (com.roll.seed != live.roll.seed || com.roll.v[RF_MAP] != live.roll.v[RF_MAP])
+    if (jump >= 0)
+        target = jump;                  /* (a jump: the page's bar, in the committed song) */
+    else if (com.roll.seed != live.roll.seed || com.roll.v[RF_MAP] != live.roll.v[RF_MAP])
         target = 0;
+    jump = -1;
     live = com;
     hooks(&live);
     wb_drums_set(drums_of(&live));
@@ -105,6 +112,23 @@ static void land(int target, int fresh)
     cur_bar = target - 1;
     next_at = 0;
     apply_pend = in_gap = 0;
+    heard_h = 2166136261u;
+    heard_n = 0;
+}
+
+/* an event's (bar, step, role, note) into an FNV-1a hash (wb_heard_hash; the page's events hash alike) */
+static uint32_t ev_hash(uint32_t h, int bar, int step, int role, int note)
+{
+    h = (h ^ (uint32_t)bar) * 16777619u;
+    h = (h ^ (uint32_t)step) * 16777619u;
+    h = (h ^ (uint32_t)role) * 16777619u;
+    return (h ^ (uint32_t)note) * 16777619u;
+}
+
+/* an event's role and note as wb_events records them: a drum's note is its lane */
+static int ev_note(const song_ev_t *e)
+{
+    return e->voice >= V_KICK ? e->voice - V_KICK : e->note;
 }
 
 /* one 16th (app.c's step) */
@@ -124,8 +148,11 @@ static void tick(void)
     }
     n = song_tick(&song, evs, 64);
     vx_set_pad_level(song_pad_level(&song));   /* the pad layer's fade over a section line */
-    for (i = 0; i < n; i++)
+    for (i = 0; i < n; i++) {
         vx_event(&evs[i]);
+        heard_h = ev_hash(heard_h, bar, st, evs[i].voice, ev_note(&evs[i]));
+    }
+    heard_n += (uint32_t)n;
     cur_bar = bar;
     next_at = advance();
 }
@@ -161,6 +188,9 @@ EXPORT void wb_init(void)
     vx_init();
     wb_drums_init();
     playing = apply_pend = start_pend = in_gap = 0;
+    jump = solo = -1;
+    mute = 0;
+    vx_mute(0);
     catchups = 0;
     dice_salt = 0;
     cur_bar = -1;
@@ -209,10 +239,48 @@ EXPORT void wb_play(int on)
         playing = start_pend = 1;
     } else if (!on && playing) {
         playing = start_pend = apply_pend = 0;
-        resume_bar = cur_bar > 0 ? cur_bar : 0;   /* the start of the bar sounding */
+        resume_bar = jump >= 0 ? jump : cur_bar > 0 ? cur_bar : 0;   /* the start of the bar sounding (or a jump's) */
         vx_stop();
     }
 }
+
+/* A jump to bar (from 0: wb_sections' start) of the committed song: playing, the next landing goes there at the next
+   bar line, with any commit waiting for it (one catch-up); stopped, play starts there */
+EXPORT void wb_jump(int bar)
+{
+    jump = bar < 0 ? 0 : bar;
+    if (playing)
+        apply_pend = 1;
+    else
+        resume_bar = jump;
+}
+
+/* the role buses wb_mute and wb_solo cover: vx_mute's bits (the drums' on V_KICK) */
+#define WB_BUSES (1u << V_CHORD | 1u << V_BASS | 1u << V_LEAD | 1u << V_PAD | 1u << V_KICK)
+
+/* listening only, heard at once (no landing), kept across landings: a solo mutes every other bus (the mutes set
+   aside while it lasts) */
+static void listen(void)
+{
+    int bit = solo >= V_KICK ? V_KICK : solo;
+    vx_mute(solo >= 0 ? WB_BUSES & ~(1u << bit) : mute & WB_BUSES);
+}
+
+EXPORT void wb_mute(unsigned mask)
+{
+    mute = mask;
+    listen();
+}
+
+/* role (V_CHORD, V_BASS, V_LEAD, V_PAD, or a drum voice for the drums) alone; -1 none */
+EXPORT void wb_solo(int role)
+{
+    solo = role >= 0 && role < V_N && (WB_BUSES >> (role >= V_KICK ? V_KICK : role)) & 1u ? role : -1;
+    listen();
+}
+
+EXPORT uint32_t wb_heard_hash(void) { return heard_h; }
+EXPORT int wb_heard_count(void) { return (int)heard_n; }
 
 /* the roll's checks (a set suits the mood) see the staged custom set and pattern while the page stages */
 static void stage_set(int on)
@@ -553,6 +621,8 @@ EXPORT void wb_stage_undo(void) { st = mark; }
    so the library pointers inside hold) */
 EXPORT void *wb_stage_ptr(void) { return &st; }
 EXPORT int wb_stage_size(void) { return (int)sizeof st; }
+/* the committed state's, likewise (wb_events) */
+EXPORT void *wb_commit_ptr(void) { return &com; }
 
 /* a step's lead notes, hashed (0: none) */
 static uint32_t lead_notes(song_t *s)
@@ -589,6 +659,52 @@ EXPORT int wb_lead_oct_probe(void)
     stage_set(0);
     return moved ? st.ov.lead_oct : 0;
 }
+
+/* wb_events' records: every event of the committed song (8 bytes each, little-endian) */
+typedef struct __attribute__((packed)) { uint16_t bar; uint8_t step, role, note, vel; uint16_t len_steps; } wb_ev_t;
+#define WB_EV_MAX 32768
+static wb_ev_t events[WB_EV_MAX];
+static int nevents;
+
+/* The committed song run silently from bar 1 (as a landing starts it), every event recorded: the count, or -1 if
+   there were more than max (or WB_EV_MAX; max 0: WB_EV_MAX) and the rest were dropped. A drum's role is its voice
+   (V_KICK..V_RIDE) and its note the lane (voice - V_KICK); len_steps the length in 16ths, rounded. Runs a scratch
+   song: a probe instance only, as wb_lead_oct_probe. */
+EXPORT int wb_events(uint32_t max)
+{
+    song_t *s = &scratch[0];
+    int over = 0;
+    if (!max || max > WB_EV_MAX)
+        max = WB_EV_MAX;
+    nevents = 0;
+    hooks(&com);
+    song_override(&com.ov);
+    song_start(s, &com.roll);
+    while (!over && s->state == SS_PLAYING) {
+        int bar = s->bar, step = s->step, n = song_tick(s, evs, 64), i;
+        float ss = song_step_samples(s);
+        for (i = 0; i < n; i++) {
+            wb_ev_t *r = &events[nevents];
+            if ((uint32_t)nevents >= max) {
+                over = 1;
+                break;
+            }
+            r->bar = (uint16_t)bar;
+            r->step = (uint8_t)step;
+            r->role = evs[i].voice;
+            r->note = (uint8_t)ev_note(&evs[i]);
+            r->vel = evs[i].vel;
+            r->len_steps = (uint16_t)((float)evs[i].len / ss + 0.5f);
+            nevents++;
+        }
+    }
+    song_override(&live.ov);
+    hooks(&live);
+    return over ? -1 : nevents;
+}
+
+EXPORT uint32_t wb_events_ptr(void) { return (uint32_t)(uintptr_t)events; }
+EXPORT int wb_events_count(void) { return nevents; }
 
 EXPORT void wb_ov_set(int key, int value)
 {
@@ -756,6 +872,26 @@ EXPORT const char *wb_live_state(void)
 
 EXPORT int wb_pending(void) { return apply_pend; }   /* a commit is waiting for its bar line */
 
+/* JSON: the committed song's sections (its plan's blocks): [{"start": bar from 0, "bars", "name"}] */
+EXPORT const char *wb_sections(void)
+{
+    static char buf[1536];
+    static song_plan_t p;
+    out_t o = {buf, sizeof buf, 0};
+    int i;
+    hooks(&com);
+    plan_build(&com.roll, &p);
+    hooks(&live);
+    put(&o, "[");
+    for (i = 0; i < p.n; i++) {
+        put(&o, "%s{\"start\":%d,\"bars\":%d,\"name\":", i ? "," : "", p.b[i].start, p.b[i].bars);
+        put_str(&o, plan_section_name(p.b[i].section));
+        put(&o, "}");
+    }
+    put(&o, "]");
+    return out_done(&o);
+}
+
 EXPORT const char *wb_library(void)
 {
     static char buf[8192];
@@ -792,7 +928,8 @@ EXPORT const char *wb_consts(void)
         {"KEYS_OCT", WB_OV_KEYS_OCT}, {"LEAD_OCT", WB_OV_LEAD_OCT}, {"VOICING_SALT", WB_OV_VOICING_SALT},
         {"PHRASE_SALT", WB_OV_PHRASE_SALT}, {"BASS_SALT", WB_OV_BASS_SALT}, {"PAD_SALT", WB_OV_PAD_SALT},
         {"DRUMS_SALT", WB_OV_DRUMS_SALT}, {"PAD_ON", WB_OV_PAD_ON}, {"N", WB_OV_N}}, V[] = {
-        {"CHORD", V_CHORD}, {"BASS", V_BASS}, {"LEAD", V_LEAD}, {"PAD", V_PAD}}, SRC[] = {
+        {"CHORD", V_CHORD}, {"BASS", V_BASS}, {"LEAD", V_LEAD}, {"PAD", V_PAD}, {"KICK", V_KICK}, {"SNARE", V_SNARE},
+        {"HAT", V_HAT}, {"OHAT", V_OHAT}, {"SHAKER", V_SHAKER}, {"RIM", V_RIM}, {"RIDE", V_RIDE}}, SRC[] = {
         {"NONE", WB_SRC_NONE}, {"PT", WB_SRC_PT}, {"OPT", WB_SRC_OPT}, {"SAMPLE", WB_SRC_SAMPLE},
         {"BUILTIN", WB_SRC_BUILTIN}}, KIT[] = {
         {"PRESET", WB_KIT_PRESET}, {"PT808", WB_KIT_PT808}, {"PTCR78", WB_KIT_PTCR78}, {"OPTLOFI", WB_KIT_OPTLOFI},

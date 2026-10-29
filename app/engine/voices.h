@@ -81,6 +81,11 @@ float vx_comp_db(void);
    voice for the drums' bus; -1, the default, for all). Every voice still plays, so the keys' duck still follows the
    lead. Kept through vx_init. */
 void vx_solo(int role);
+/* The workbench's mute (default off: 0, the mix unchanged): a bit per role bus out of the mix (bit V_CHORD, V_BASS,
+   V_LEAD or V_PAD; bit V_KICK for the drums' bus). Listening only: every voice still plays (the keys' duck still
+   follows a muted lead). A bus going out ramps to silence over the next chunk; coming back, the notes struck while it
+   was muted end first (the drums released), so only notes struck after are heard. Kept through vx_init. */
+void vx_mute(unsigned mask);
 /* Tests: a sounding chip voice's (M_CHIP) last output sample on role, as the voice returns it to the mix (after its
    envelope and its bit crush); *raw the same sample before the crush, *step the crush's step (the voice's level over
    2^(bits-1)). All 0 for none or no crush. */

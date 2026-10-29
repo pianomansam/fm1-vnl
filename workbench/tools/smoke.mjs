@@ -225,6 +225,196 @@ console.log("custom set");
 }
 
 
+// ---- sections, jumps, mute and solo, the committed song's events (Task 2) ----
+const sections = (ex) => JSON.parse(cstr(ex, ex.wb_sections()));
+const BUSES = [V.CHORD, V.BASS, V.LEAD, V.PAD, V.KICK].reduce((m, r) => m | (1 << r), 0);
+const fresh = async (seed = 21) => {
+  const ex = await load();
+  ex.wb_seed(seed);
+  ex.wb_apply();
+  return ex;
+};
+// the hash wb_heard_hash keeps, over records { bar, step, role, note }
+const evHash = (evs) => evs.reduce((h, e) => [e.bar, e.step, e.role, e.note].reduce((h, x) => Math.imul(h ^ x, 16777619) >>> 0, h), 2166136261);
+// one quantum's level in dB (-300: silent)
+const qdb = (o) => db(o) < -290 ? -300 : db(o);
+
+console.log("sections");
+{
+  const ex = await fresh(), secs = sections(ex), bars = ex.wb_roll_get(RF.BARS);
+  const names = new Set(["intro", "groove", "lead", "break", "outro"]);
+  let at = 0, ok = true;
+  for (const x of secs) {
+    ok = ok && x.start === at && x.bars > 0 && x.start % 4 === 0 && names.has(x.name);
+    at += x.bars;
+  }
+  check(secs.length >= 3 && ok && at === bars,
+        `the plan's blocks, back to back from bar 0, sum to the song's ${bars} bars (${secs.map((x) => `${x.name} ${x.bars}`).join(", ")})`);
+  const before = cstr(ex, ex.wb_sections());
+  for (let i = 0; i < 20 && ex.wb_roll_get(RF.BARS) === bars; i++) ex.wb_roll_dice(RF.BARS);
+  check(ex.wb_roll_get(RF.BARS) !== bars && cstr(ex, ex.wb_sections()) === before, "a staged length leaves them (the committed song's)");
+  ex.wb_apply();
+  const after = sections(ex);
+  check(after.reduce((n, x) => n + x.bars, 0) === ex.wb_roll_get(RF.BARS), `committed, they follow it (${ex.wb_roll_get(RF.BARS)} bars)`);
+}
+
+console.log("a jump to section 3 while playing");
+{
+  const ex = await fresh(), s3 = sections(ex)[2], bpm = ex.wb_roll_get(RF.TEMPO);
+  ex.wb_play(1);
+  until(ex, () => ex.wb_bar() === 2, 60 * SR);
+  render(ex, SR / 4);
+  ex.wb_jump(s3.start);
+  render(ex, Q);
+  check(ex.wb_bar() === 2 && ex.wb_catchups() === 0 && ex.wb_pending() === 1, "staged: bar 2 plays on");
+  const waited = until(ex, () => ex.wb_bar() !== 2, 60 * SR);
+  check(ex.wb_bar() === s3.start + 1 && ex.wb_catchups() === 1 && waited <= barLen(bpm),
+        `at the next bar line it lands at the section's first bar (bar ${ex.wb_bar()}, wanted ${s3.start + 1}, after ${waited} frames)`);
+  const out = render(ex, 2 * SR);
+  check(longestZeros(out) <= Q && db(out) > -45, "with no gap, and it sounds");
+}
+
+console.log("Review Focus 1: a staged tempo change and a jump in the same bar");
+for (const order of ["apply, jump", "jump, apply"]) {
+  const ex = await fresh(), s3 = sections(ex)[2];
+  const bpm = ex.wb_roll_get(RF.TEMPO) === 85 ? 75 : 85;
+  ex.wb_play(1);
+  until(ex, () => ex.wb_bar() === 3, 60 * SR);
+  render(ex, SR / 4);
+  ex.wb_roll_set(RF.TEMPO, bpm);
+  if (order === "apply, jump") { ex.wb_apply(); ex.wb_jump(s3.start); } else { ex.wb_jump(s3.start); ex.wb_apply(); }
+  render(ex, Q);
+  until(ex, () => ex.wb_bar() !== 3, 60 * SR);
+  check(ex.wb_bar() === s3.start + 1 && ex.wb_catchups() === 1 && ex.wb_live_get(RF.TEMPO) === bpm,
+        `${order}: one landing (${ex.wb_catchups()}), at bar ${ex.wb_bar()} (wanted ${s3.start + 1}), at ${ex.wb_live_get(RF.TEMPO)} BPM`);
+  const len = measureBar(ex, s3.start + 2);
+  render(ex, 4 * SR);
+  check(Math.abs(len - barLen(bpm)) <= Q && ex.wb_catchups() === 1 && ex.wb_bar() > s3.start + 2,
+        `${order}: the next bar lasts ${len} frames (${bpm} BPM), no second catch-up, the song goes on`);
+}
+
+console.log("a jump while stopped");
+{
+  const ex = await fresh(), secs = sections(ex);
+  ex.wb_jump(secs[2].start);
+  render(ex, Q);
+  check(ex.wb_catchups() === 0 && longestZeros(render(ex, SR / 2)) === SR / 2, "nothing plays");
+  ex.wb_play(1);
+  render(ex, Q);
+  check(ex.wb_bar() === secs[2].start + 1, `play starts at section 3's first bar (bar ${ex.wb_bar()})`);
+  render(ex, 2 * SR);
+  ex.wb_play(0);
+  render(ex, SR / 10);
+  ex.wb_jump(secs[1].start);
+  ex.wb_play(1);
+  render(ex, Q);
+  check(ex.wb_bar() === secs[1].start + 1, `stopped mid-song, a jump to section 2: play starts there (bar ${ex.wb_bar()})`);
+  ex.wb_play(0);
+  ex.wb_seed(22);
+  ex.wb_apply();
+  ex.wb_jump(sections(ex)[1].start);
+  ex.wb_play(1);
+  render(ex, Q);
+  check(ex.wb_live_get(RF.N) === 22 && ex.wb_bar() === sections(ex)[1].start + 1, "a new seed committed, then a jump: its song, at its section 2");
+}
+
+// a lead-only render (wb_solo) of seed 21 from bar 1, the bed off, to a quantum where the lead sounds
+const leadOnly = async () => {
+  const ex = await load();
+  ex.wb_seed(21);
+  for (const f of [RF.DUST, RF.NOISE, RF.AMBIENCE]) ex.wb_roll_set(f, 0);
+  ex.wb_apply();
+  ex.wb_solo(V.LEAD);
+  ex.wb_play(1);
+  return ex;
+};
+const loudAt = await (async () => {
+  const ex = await leadOnly();
+  let n = 0;
+  for (; n < 120 * SR; n += Q) if (qdb(render(ex, Q)) > -30 && n > 4 * SR) break;
+  return n + Q;   // frames rendered up to the loud quantum's end
+})();
+
+console.log("mute and solo: listening only");
+{
+  const quiet = await leadOnly(), ref = await leadOnly();
+  const a = render(quiet, loudAt), b = render(ref, loudAt);
+  check(a.l.every((x, i) => x === b.l[i]), `the same up to a lead note (${(loudAt / SR).toFixed(2)} s)`);
+  quiet.wb_solo(-1);
+  quiet.wb_mute(BUSES);   // every bus: the lead goes out
+  const q1 = render(quiet, Q), r1 = render(ref, Q), q2 = render(quiet, Q), r2 = render(ref, Q);
+  check(qdb(r1) > -40 && qdb(r2) > -40 && qdb(q2) < qdb(r2) - 20,
+        `muted mid-note: the next quantum ${qdb(q1).toFixed(1)} dB (ramping), then ${qdb(q2).toFixed(1)} dB against ${qdb(r2).toFixed(1)} (only the wet tails)`);
+  quiet.wb_mute(0);
+  quiet.wb_solo(V.LEAD);  // back two quanta later, the same note still sounding in the reference
+  const q3 = render(quiet, Q), r3 = render(ref, Q);
+  check(qdb(r3) > -40 && qdb(q3) < qdb(r3) - 20, `Review Focus 2: unmuted, the old note isn't heard (${qdb(q3).toFixed(1)} dB against ${qdb(r3).toFixed(1)})`);
+  const q4 = render(quiet, 8 * SR), r4 = render(ref, 8 * SR);
+  check(Math.abs(db(q4) - db(r4)) < 3, `the notes struck after play (${db(q4).toFixed(1)} dB, the reference ${db(r4).toFixed(1)})`);
+}
+{
+  const solo = await fresh(), mute = await fresh();
+  solo.wb_solo(V.CHORD);
+  mute.wb_mute(BUSES & ~(1 << V.CHORD));
+  solo.wb_play(1);
+  mute.wb_play(1);
+  const a = render(solo, 6 * SR), b = render(mute, 6 * SR);
+  check(a.l.every((x, i) => x === b.l[i] && a.r[i] === b.r[i]) && db(a) > -60, `solo keys = mute every other bus (${db(a).toFixed(1)} dB)`);
+  const hats = await fresh(), drums = await fresh();
+  hats.wb_solo(V.HAT);
+  drums.wb_mute(BUSES & ~(1 << V.KICK));
+  hats.wb_play(1);
+  drums.wb_play(1);
+  const c = render(hats, 4 * SR), d = render(drums, 4 * SR);
+  check(c.l.every((x, i) => x === d.l[i]) && db(c) > -60, "a drum voice's solo is the drums' bus");
+}
+{
+  const ex = await load();   // every bus muted, the bed off: silence, across a landing and a jump too
+  ex.wb_seed(21);
+  for (const f of [RF.DUST, RF.NOISE, RF.AMBIENCE]) ex.wb_roll_set(f, 0);
+  ex.wb_apply();
+  ex.wb_mute(BUSES);
+  ex.wb_play(1);
+  let out = render(ex, 4 * SR), silent = longestZeros(out) === out.l.length;
+  ex.wb_ov_set(OV.VOICING_SALT, 9);
+  ex.wb_apply();
+  ex.wb_jump(sections(ex)[1].start);
+  out = render(ex, 4 * SR);
+  check(silent && longestZeros(out) === out.l.length && ex.wb_catchups() === 1 && ex.wb_bar() > sections(ex)[1].start,
+        "every bus muted (the bed off): silence from play, and on after a landing (mutes persist)");
+  ex.wb_mute(0);
+  check(db(render(ex, 4 * SR)) > -45, "unmuted, it sounds");
+}
+
+console.log("the committed song's events (wb_events, on a probe instance)");
+{
+  const { readEvents } = await import("../wb.js");
+  const play = await load();
+  play.wb_seed(21);
+  play.wb_roll_set(RF.TEMPO, 90);
+  play.wb_roll_set(RF.BARS, 36);   // (after the tempo: it sets the length)
+  play.wb_ov_set(OV.BASS_SALT, 5);
+  play.wb_apply();
+  const bars = play.wb_roll_get(RF.BARS);
+  play.wb_roll_set(RF.KEY, (play.wb_roll_get(RF.KEY) + 1) % 12);   // staged, not committed: not in the events
+  const pex = await load();
+  new Uint8Array(pex.memory.buffer, pex.wb_commit_ptr(), pex.wb_stage_size())
+    .set(new Uint8Array(play.memory.buffer, play.wb_commit_ptr(), play.wb_stage_size()));
+  const t0 = performance.now(), n = pex.wb_events(0), ms = performance.now() - t0, evs = readEvents(pex);
+  check(n > 500 && evs.length === n && evs.every((e) => e.bar < bars && e.step < 16) && evs.at(-1).bar === bars - 1,
+        `${n} events over ${bars} bars (${ms.toFixed(0)} ms)`);
+  check(evs.filter((e) => e.role >= V.KICK).every((e) => e.note === e.role - V.KICK && e.role <= V.RIDE) &&
+        evs.some((e) => e.role === V.KICK) && evs.some((e) => e.role === V.LEAD) && evs.some((e) => e.role === V.CHORD && e.len > 0),
+        "drums as V_KICK..V_RIDE with the lane as note; the lead's and the keys' notes, with lengths");
+  play.wb_mute(1 << V.LEAD);   // listening only: the events stay the same
+  play.wb_play(1);
+  until(play, () => play.wb_bar() === bars, 300 * SR);
+  render(play, barLen(90) + SR / 2);   // its last bar, into the gap
+  check(play.wb_heard_count() === n && (play.wb_heard_hash() >>> 0) === evHash(evs),
+        `round trip: the song as played (lead muted) ticked ${play.wb_heard_count()} events, (bar, step, role, note) the same as wb_events'`);
+  check(pex.wb_events(10) === -1 && pex.wb_events_count() === 10, "more than max: -1, max kept");
+}
+
 // ---- the decision rows (rows.js, options.json) and the desk (desk.js) over the engine ----
 const { ROWS, row, optionsFor, pickFor, conflicts, familyOf, fromEngine } = await import("../rows.js");
 const { Desk } = await import("../desk.js");

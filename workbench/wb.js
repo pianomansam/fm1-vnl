@@ -39,9 +39,9 @@ export function call(fn, ...args) {
 export function onPosition(f) { listeners.add(f); }
 
 // A second wb.wasm on the main thread, never played: it runs the checks that need scratch songs (the lead register a
-// staged state gets), so the audio thread never does. bytes: the playing instance's wb_stage_bytes.
+// staged state gets, the committed song's events), so the audio thread never does.
 let probeEx = null;
-export async function probe(bytes) {
+async function probeInstance() {
   if (!probeEx) {
     let mem;
     const wasi = { fd_write: (fd, iov, n, out) => { new DataView(mem.buffer).setUint32(out, 0, true); return 0; } };
@@ -54,8 +54,32 @@ export async function probe(bytes) {
     if (probeEx._initialize) probeEx._initialize();
     probeEx.wb_init();
   }
-  new Uint8Array(probeEx.memory.buffer, probeEx.wb_stage_ptr(), probeEx.wb_stage_size()).set(bytes);
-  return probeEx.wb_lead_oct_probe();
+  return probeEx;
+}
+
+// the lead register the engine applies to a staged state; bytes: the playing instance's wb_stage_bytes
+export async function probe(bytes) {
+  const ex = await probeInstance();
+  new Uint8Array(ex.memory.buffer, ex.wb_stage_ptr(), ex.wb_stage_size()).set(bytes);
+  return ex.wb_lead_oct_probe();
+}
+
+// The committed song's events, every one from bar 1 (wb_events); bytes: the playing instance's wb_commit_bytes
+export async function events(bytes) {
+  const ex = await probeInstance();
+  new Uint8Array(ex.memory.buffer, ex.wb_commit_ptr(), ex.wb_stage_size()).set(bytes);
+  ex.wb_events(0);
+  return readEvents(ex);
+}
+
+// wb_events' records out of an instance's memory: [{ bar (from 0), step, role (C.V; a drum's V_KICK..V_RIDE), note (a
+// drum's lane), vel, len (16ths) }] in the song's order
+export function readEvents(ex) {
+  const n = ex.wb_events_count(), dv = new DataView(ex.memory.buffer, ex.wb_events_ptr(), 8 * n), out = new Array(n);
+  for (let i = 0, o = 0; i < n; i++, o += 8)
+    out[i] = { bar: dv.getUint16(o, true), step: dv.getUint8(o + 2), role: dv.getUint8(o + 3), note: dv.getUint8(o + 4),
+               vel: dv.getUint8(o + 5), len: dv.getUint16(o + 6, true) };
+  return out;
 }
 
 // the AudioContext running (a click's: an audition while stopped)

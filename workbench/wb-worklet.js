@@ -3,7 +3,7 @@
 // to its wb_* exports arrive between quanta (so a group of stagings sent together lands as one), and the song's
 // position goes back about ten times a second. Instantiated as base/web/emu/worklet.js does, without the device.
 
-const STRINGS = new Set(["wb_consts", "wb_state", "wb_live_state", "wb_library"]);   // exports that return JSON (parsed here)
+const STRINGS = new Set(["wb_consts", "wb_state", "wb_live_state", "wb_library", "wb_sections"]);   // exports that return JSON (parsed here)
 
 class Workbench extends AudioWorkletProcessor {
   constructor() {
@@ -38,8 +38,9 @@ class Workbench extends AudioWorkletProcessor {
     } else if (m.type === "call") {   // { fn: "wb_...", args, id }: the result goes back with the id
       if (!this.ex) throw new Error("the engine isn't loaded yet");
       const ex = this.ex;
-      if (m.fn === "wb_stage_bytes") {         // the staged state's bytes, for wb.js's probe instance
-        const value = new Uint8Array(ex.memory.buffer, ex.wb_stage_ptr(), ex.wb_stage_size()).slice();
+      if (m.fn === "wb_stage_bytes" || m.fn === "wb_commit_bytes") {   // the staged (committed) state's bytes, for
+        const p = m.fn === "wb_stage_bytes" ? ex.wb_stage_ptr() : ex.wb_commit_ptr();   // wb.js's probe instance
+        const value = new Uint8Array(ex.memory.buffer, p, ex.wb_stage_size()).slice();
         this.port.postMessage({ type: "result", id: m.id, value });
         return;
       }

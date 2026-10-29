@@ -56,6 +56,26 @@ int wb_lead_oct_probe(void);            /* the lead's register as the engine app
                                            scratch songs: a probe instance only, never the one playing) */
 void wb_apply(void);                    /* commit the staged state: it lands at the next bar line (a new seed or map from
                                            bar 1; stopped, at play); staging after it isn't heard until the next */
+void wb_jump(int bar);                  /* the next landing goes to bar (from 0: wb_sections' start) of the committed
+                                           song, with any commit waiting (one landing, at the next bar line); stopped:
+                                           where play starts */
+const char *wb_sections(void);          /* JSON: the committed song's plan [{"start": bar from 0, "bars", "name"}] */
+
+/* Listening only (heard at once, kept across landings; the song unchanged): vx_mute's buses */
+void wb_mute(unsigned mask);            /* a bit per bus: V_CHORD, V_BASS, V_LEAD, V_PAD, V_KICK (the drums) */
+void wb_solo(int role);                 /* that bus alone (a drum voice: the drums), the mutes aside; -1 none */
+uint32_t wb_heard_hash(void);           /* the events played since the last landing, (bar, step, role, note) hashed
+                                           (FNV-1a over each as 32-bit values; a drum's note its lane): tests */
+int wb_heard_count(void);
+
+/* The committed song's events (a probe instance only: it runs a scratch song). The page copies the playing instance's
+   committed state (wb_commit_ptr, wb_stage_size bytes) into the probe's first. Records of 8 bytes, little-endian:
+   {u16 bar (from 0); u8 step; u8 role (V_*; a drum's V_KICK..V_RIDE); u8 note (a drum's: its lane, role - V_KICK);
+   u8 vel; u16 len_steps (16ths, rounded)} */
+void *wb_commit_ptr(void);
+int wb_events(uint32_t max);            /* the count, or -1 if more than max (0: the buffer's 32768) */
+uint32_t wb_events_ptr(void);
+int wb_events_count(void);
 
 int wb_bar(void);                       /* the bar sounding, from 1 (0 before the first step) */
 int wb_bars(void);

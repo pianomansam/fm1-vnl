@@ -9079,6 +9079,101 @@ static void test_wb_off(void)
     CHECK(a == 0x2341dc17u, "wb off: the strummed songs hash %08x, wanted 2341dc17", (unsigned)a);
     CHECK(b == 0xdd40694fu, "wb off: with set changes %08x, wanted dd40694f", (unsigned)b);
 }
+/* The workbench's mute (vx_mute, default off). mt_song: a song's first 20 s as the app plays it, its samples hashed
+   (mute: vx_mute(0) called first, as the workbench's wb_init does) */
+static uint32_t mt_song(int mute)
+{
+    static song_t s;
+    song_ev_t ev[64];
+    song_roll_t r;
+    uint32_t h = 2166136261u, left, k;
+    float frac = 0.0f;
+    roll_song(NULL, 21, &r);
+    vx_init();
+    if (mute)
+        vx_mute(0);
+    song_start(&s, &r);
+    vx_song(&s.roll);
+    while (s.state == SS_PLAYING && s.bar < 8) {
+        int n = song_tick(&s, ev, 64), i;
+        float adv = song_step_samples(&s) + frac;
+        vx_set_pad_level(song_pad_level(&s));
+        for (i = 0; i < n; i++)
+            vx_event(&ev[i]);
+        left = (uint32_t)adv;
+        frac = adv - (float)left;
+        while (left) {
+            uint32_t b = left < 1024u ? left : 1024u;
+            memset(vt_l, 0, b * sizeof(float));
+            memset(vt_r, 0, b * sizeof(float));
+            vx_render(vt_l, vt_r, b);
+            for (k = 0; k < b; k++) {
+                union { float f; uint32_t u; } x, y;
+                x.f = vt_l[k];
+                y.f = vt_r[k];
+                h = ((h ^ x.u) * 16777619u ^ y.u) * 16777619u;
+            }
+            left -= b;
+        }
+    }
+    return h;
+}
+static void test_vx_mute_off(void)
+{
+    uint32_t a = mt_song(0), b = mt_song(1);
+    CHECK(a == b, "vx mute off: vx_mute(0) changed the samples (%08x, wanted %08x)", (unsigned)b, (unsigned)a);
+    vx_mute(0);
+    a = sf_songs(0); b = sf_songs(1);
+    CHECK(a == 0x2341dc17u, "vx mute off: the strummed songs hash %08x, wanted 2341dc17", (unsigned)a);
+    CHECK(b == 0xdd40694fu, "vx mute off: with set changes %08x, wanted dd40694f", (unsigned)b);
+}
+/* Review Focus 2 (Task 2): a bus muted mid-note is silent after the chunk it goes out in (and a quantum for the
+   chain's own filters), its voice still playing (the duck follows it); unmuted, the notes struck while muted end at
+   once (the drums' within their 40 ms release) and only a note struck after sounds. The lead's bus heard alone
+   (vx_solo), its delay off; the drums alike. */
+static void test_vx_mute(void)
+{
+    static const int role[2] = {V_LEAD, V_KICK};
+    int i, k, bad = 0;
+    vx_fx_off(VX_OFF_DELAY);
+    for (i = 0; i < 2; i++) {
+        float before, ramp, muted = 0.0f, back = 0.0f, fresh = 0.0f;
+        int note = role[i] == V_KICK ? 0 : 72, playing;
+        uint32_t len = role[i] == V_KICK ? 0u : 4u * 44100u;
+        vx_init();
+        vx_solo(role[i]);
+        vt_ev(role[i], note, 110, 0, len);
+        before = vt_block(512, &bad);
+        vx_mute(1u << role[i]);
+        ramp = vt_block(256, &bad);              /* (the chunk it goes out in) */
+        (void)vt_block(128, &bad);
+        for (k = 0; k < 4; k++)
+            muted = fm_maxf(muted, vt_block(4096, &bad));
+        playing = vx_active();
+        vt_ev(role[i], note + (role[i] == V_KICK ? 0 : 3), 110, 0, len);   /* struck while muted */
+        for (k = 0; k < 2; k++)
+            muted = fm_maxf(muted, vt_block(4096, &bad));
+        vx_mute(0);
+        if (role[i] == V_KICK)
+            (void)vt_block(2048, &bad);          /* (its release) */
+        for (k = 0; k < 2; k++)
+            back = fm_maxf(back, vt_block(4096, &bad));
+        CHECK(vx_active() == 0, "vx mute: role %d unmuted, %d old notes still sound", role[i], vx_active());
+        vt_ev(role[i], note, 110, 0, len);
+        fresh = vt_block(4096, &bad);
+        printf("vx mute: role %d %.3f, the ramp %.3f, muted %.2e, back %.2e, a new note %.3f\n", role[i],
+               (double)before, (double)ramp, (double)muted, (double)back, (double)fresh);
+        CHECK(before > 1e-2f && muted < 1e-7f, "vx mute: role %d's note at %.3f, muted %.2e", role[i], (double)before,
+              (double)muted);
+        CHECK(role[i] == V_KICK || playing, "vx mute: the muted lead's voice stopped playing");
+        CHECK(back < 1e-7f, "vx mute: role %d unmuted plays an old note (%.2e)",
+              role[i], (double)back);
+        CHECK(fresh > 1e-2f, "vx mute: role %d unmuted, a new note %.3f", role[i], (double)fresh);
+    }
+    vx_solo(-1);
+    vx_fx_off(0u);
+    CHECK(!bad, "vx mute: NaN or inf");
+}
 /* the workbench's per-song overrides (default off): each forces one choice, or re-rolls one part, and nothing else */
 typedef struct {
     uint32_t keys, drums, bass, lead, candy, pad;
@@ -11036,6 +11131,8 @@ int main(int argc, char **argv)
     RUN(test_wb_set);
     RUN(test_wb_two_bar);
     RUN(test_wb_off);
+    RUN(test_vx_mute_off);
+    RUN(test_vx_mute);
     RUN(test_ov_comp);
     RUN(test_ov_lead_style);
     RUN(test_ov_ride);
