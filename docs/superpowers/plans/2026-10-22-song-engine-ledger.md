@@ -341,7 +341,9 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
     Not kept: Neoclassical. Cool Jazz "fair". Post-Bop v2 not yet heard.
   - **Sam questions the lead's floor over percussive keys** ("why does it matter what the nylon keys are doing?"):
     lead.c sets the floor a 4th over the keys' top note (`c.lo = top + 5`), so high voicings squeeze the lead and
-    force leaps. Revisit with the lead styles' build.
+    force leaps. **Decided (Sam, 2026-10-29): duck the keys instead** — when the lead needs room, the keys voice lower
+    (the voice-leading rules still pick the smoothest path, in a lower window); the fixed floor goes. Part of the lead
+    styles' build.
 
 - **Done (Sam, 2026-10-29, after the lead-candidates spike, app/build/new/lead-candidates/):** "i only liked the felt
   piano and vibraphones." The vibes are the VCSL vibraphone (soft mallets, v2, 5 zones C4-E6, 18.4 KB of flash), on the
