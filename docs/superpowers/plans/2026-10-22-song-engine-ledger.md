@@ -307,6 +307,13 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
     flute) the best. Song 5's 4th bar of each 4 too busy; song 1 handled it much better. Songs 2-4 "just had issues"
     (Db Lydian flute, B Dorian vibes, Ab Mixolydian felt). Spike notes: leaps where few notes are legal (songs 3, 5),
     density ~3.5 notes/bar, strong-beat leaning notes.
+  - **Romanticism** (branch `worktree-agent-aeec8cac90861a25b`, 4100d01): "sounds much better than neoclassical. It doesn't have
+    any major flaws."
+  - **All styles so far (Sam, 2026-10-29): too much variance after the initial line** — "It sounds like it's
+    wandering... not connected enough to the original motif." Every lead style should restate the opening motif more
+    literally and vary it less (one small change at a time, the motif recognizable each time), so the line develops
+    the motif instead of drifting away from it. Applies to Impressionism, Romanticism, Neoclassical and '60s Jazz, and to the spikes still
+    running.
 
 - **Done (Sam, 2026-10-29, after the lead-candidates spike, app/build/new/lead-candidates/):** "i only liked the felt
   piano and vibraphones." The vibes are the VCSL vibraphone (soft mallets, v2, 5 zones C4-E6, 18.4 KB of flash), on the
