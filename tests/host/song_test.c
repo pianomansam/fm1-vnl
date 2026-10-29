@@ -9052,7 +9052,7 @@ static void test_wb_off(void)
 }
 /* the workbench's per-song overrides (default off): each forces one choice, or re-rolls one part, and nothing else */
 typedef struct {
-    uint32_t keys, drums, bass, lead;
+    uint32_t keys, drums, bass, lead, candy, pad;
     int nlead, nride, lead_free, kn, kmax, lmin, lmax, hybrid;   /* hybrid: the lead chose an arpeggio (plan_hybrid) */
     uint8_t kn_at[4096];
 } ov_rec_t;
@@ -9068,7 +9068,7 @@ static void ov_run(const song_roll_t *r, const song_ov_t *ov, ov_rec_t *o)
     static song_t s;
     song_ev_t ev[64];
     memset(o, 0, sizeof *o);
-    o->keys = o->drums = o->bass = o->lead = 2166136261u;
+    o->keys = o->drums = o->bass = o->lead = o->candy = o->pad = 2166136261u;
     o->lmin = 128;
     song_override(ov);
     song_start(&s, r);
@@ -9081,6 +9081,8 @@ static void ov_run(const song_roll_t *r, const song_ov_t *ov, ov_rec_t *o)
                 if (o->kn < 4096) o->kn_at[o->kn++] = e->note;
                 if (e->note > o->kmax) o->kmax = e->note;
             } else if (e->voice == V_BASS) o->bass = ov_ev(o->bass, t, e);
+            else if (e->voice == V_CANDY) o->candy = ov_ev(o->candy, t, e);
+            else if (e->voice == V_PAD) o->pad = ov_ev(o->pad, t, e);
             else if (e->voice == V_LEAD) {
                 o->lead = ov_ev(o->lead, t, e);
                 o->nlead++;
@@ -9094,11 +9096,12 @@ static void ov_run(const song_roll_t *r, const song_ov_t *ov, ov_rec_t *o)
         }
     }
     o->hybrid = s.lead.chosen;
+    o->pad = sf_hash(o->pad, pads_solo_voice(r));   /* the solo note's instrument: its events alone don't show it */
     song_override(NULL);
 }
 static song_ov_t ov_none(void)
 {
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u};
     return o;
 }
 static void test_ov_comp(void)
@@ -9209,6 +9212,50 @@ static void test_ov_phrase_salt(void)
     printf("ov phrase salt: the lead changed in %d of 40 songs, keys and drums the same in %d\n", diff, same);
     CHECK(diff >= 30, "ov phrase salt: the lead changed in %d of 40 songs, want 30", diff);
     CHECK(same == 40, "ov phrase salt: the keys or drums changed in %d of 40 songs", 40 - same);
+}
+/* The part salts (bass, pad, drums), each set to 1 alone over songs 1-40: that part's events change in 30 or
+   more; the drums never move but under their own salt; every other part stays the same unless it reacts to the
+   re-rolled part (REACTS): the bass salt may move the lead (it keeps clear of the bass's pitch classes) and so the keys
+   (their comping makes room in the lead's busy bars); the melody's beat-4 notes and the pad's solo note keep clear of
+   the bass too, though none moves in songs 1-40. The pad and drums salts move nothing else. The ride keeps to
+   the rolled bass's walk (groove_ride), so the drums stay put under the bass salt. */
+static void test_ov_part_salts(void)
+{
+    enum { P_KEYS, P_BASS, P_LEAD, P_CANDY, P_PAD, P_DRUMS, P_N };
+    static const char *NAME[P_N] = {"keys", "bass", "lead", "candy", "pad", "drums"};
+    static const int PART[3] = {P_BASS, P_PAD, P_DRUMS};
+    static const unsigned REACTS[3] = {1u << P_LEAD | 1u << P_KEYS, 0u, 0u};
+    song_roll_t r;
+    int k, i, j;
+    for (k = 0; k < 3; k++) {
+        song_ov_t o = ov_none();
+        int moved[P_N] = {0};
+        o.bass_salt = PART[k] == P_BASS;
+        o.pad_salt = PART[k] == P_PAD;
+        o.drums_salt = PART[k] == P_DRUMS;
+        for (i = 1; i <= 40; i++) {
+            roll_song(NULL, (uint32_t)i, &r);
+            ov_run(&r, NULL, &OVA);
+            ov_run(&r, &o, &OVB);
+            moved[P_KEYS] += OVA.keys != OVB.keys;
+            moved[P_BASS] += OVA.bass != OVB.bass;
+            moved[P_LEAD] += OVA.lead != OVB.lead;
+            moved[P_CANDY] += OVA.candy != OVB.candy;
+            moved[P_PAD] += OVA.pad != OVB.pad;
+            moved[P_DRUMS] += OVA.drums != OVB.drums;
+        }
+        printf("ov part salts: %s salt: keys %d, bass %d, lead %d, candy %d, pad %d, drums %d of 40 songs moved\n",
+               NAME[PART[k]], moved[P_KEYS], moved[P_BASS], moved[P_LEAD], moved[P_CANDY], moved[P_PAD],
+               moved[P_DRUMS]);
+        CHECK(moved[PART[k]] >= 30, "ov part salts: the %s salt moved the %s in %d of 40 songs, want 30",
+              NAME[PART[k]], NAME[PART[k]], moved[PART[k]]);
+        for (j = 0; j < P_N; j++)
+            if (j != PART[k] && !((REACTS[k] >> j) & 1u))
+                CHECK(moved[j] == 0, "ov part salts: the %s salt moved the %s in %d of 40 songs", NAME[PART[k]],
+                      NAME[j], moved[j]);
+    }
+    song_override(NULL);
+    CHECK(sf_songs(0) == 0xa1a8e201u && sf_songs(1) == 0x3910eb79u, "ov part salts: the pinned hashes moved");
 }
 /* keys_oct +1 and -1: a Rhodes song's keys every one 12 up, then down (comping held, so the lead's busy bars can't
    move a strike); a nylon strum's shapes (E2-E5) have no octave left under its B5: unchanged */
@@ -10801,6 +10848,7 @@ int main(int argc, char **argv)
     RUN(test_ov_ride);
     RUN(test_ov_voicing_salt);
     RUN(test_ov_phrase_salt);
+    RUN(test_ov_part_salts);
     RUN(test_ov_oct);
     RUN(test_ov_off);
     RUN(test_samples_table);

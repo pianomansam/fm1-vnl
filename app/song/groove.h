@@ -16,7 +16,8 @@ enum { BS_ROOTS, BS_ROOT_FIFTH, BS_WALK, BS_PEDAL };
    the lead's push flag; on V_PAD, the note's lane (1-4, 0 for none: voices.h). */
 typedef struct { uint8_t voice, note, vel; uint8_t pad; uint32_t delay; uint32_t len; } song_ev_t;
 
-/* Per-song bass style from the set's bass instrument, the map and the mood (seed streams 110+). */
+/* Per-song bass style from the set's bass instrument, the map and the mood (seed streams 110+; the workbench's
+   bass_salt re-rolls it). */
 int groove_bass_style(const song_roll_t *r);
 
 /* The bass note (MIDI, 0 = none) struck at this step of `bar` over chord_pcs (root first), by the same rule

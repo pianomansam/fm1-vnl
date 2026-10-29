@@ -5,6 +5,7 @@
 #include "plan.h"
 #include "rng.h"
 #include "theory.h"
+#include "override.h"
 
 enum { LO = 55, HI = 72 };
 
@@ -14,7 +15,7 @@ int pads_solo_voice(const song_roll_t *r)
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
     int ok[4], n = 0, i;
     rng_t g;
-    rng_seed(&g, r->seed, 191);
+    rng_seed(&g, song_ov_salted(r->seed, song_ov()->pad_salt), 191);
     if (rng_int(&g, 100) < 40) return INS_NONE;           /* a song with no solo note */
     for (i = 0; i < 4; i++)                              /* the flute over a flute lead, the organ over organ keys */
         if (!set || !((VOICE[i] == INS_FLUTE && set->lead == INS_FLUTE) ||
@@ -31,7 +32,7 @@ int pads_section_part(const song_roll_t *r, int block, int section, int sustaine
     int other = sustained_keys ? 0 : 1;
     rng_t g;
     if (section < 0 || section > SEC_OUTRO || pads_solo_voice(r) == INS_NONE) return other;
-    rng_seed(&g, r->seed ^ (uint32_t)(block + 1) * 0x2C1B3C6Du, 190);
+    rng_seed(&g, song_ov_salted(r->seed, song_ov()->pad_salt) ^ (uint32_t)(block + 1) * 0x2C1B3C6Du, 190);
     return rng_int(&g, 100) < (sustained_keys ? SUSTAINED : STRUCK)[section] ? 2 : other;
 }
 

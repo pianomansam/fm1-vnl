@@ -27,6 +27,9 @@ static uint32_t to_samples(float ms)
 
 static int clampi(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }
 
+/* the bass's draws' seed: the song's, or the workbench's bass re-roll (bass_salt) */
+static uint32_t bass_seed(uint32_t seed) { return song_ov_salted(seed, song_ov()->bass_salt); }
+
 /* the onsets a bass style plays in a bar over pattern p, fills and ghosts aside */
 static unsigned bass_rhythm(int style, const lib_pattern_t *p)
 {
@@ -39,7 +42,8 @@ static unsigned bass_rhythm(int style, const lib_pattern_t *p)
     }
 }
 
-int groove_bass_style(const song_roll_t *r)
+/* the bass style drawn from seed (stream 112) */
+static int bass_style_of(const song_roll_t *r, uint32_t seed)
 {
     static const uint8_t ALT[4][4] = {{BS_ROOT_FIFTH, BS_PEDAL, BS_WALK, BS_ROOTS},          /* the next to try */
                                       {BS_ROOTS, BS_PEDAL, BS_WALK, BS_ROOT_FIFTH},
@@ -53,7 +57,7 @@ int groove_bass_style(const song_roll_t *r)
     const lib_map_t *m = lib_map_by_id((uint8_t)r->v[RF_MAP]);
     int pedal, walk, fifth;
 
-    rng_seed(&g, r->seed, 112);
+    rng_seed(&g, seed, 112);
     pedal = rng_int(&g, 100);
     walk = rng_int(&g, 100);
     fifth = rng_int(&g, 2);
@@ -65,6 +69,8 @@ int groove_bass_style(const song_roll_t *r)
     for (i = 0, first = style; keys && i < 4 && bass_rhythm(style, p) == keys; i++) style = ALT[first][i];
     return style;
 }
+
+int groove_bass_style(const song_roll_t *r) { return bass_style_of(r, bass_seed(r->seed)); }
 
 /* Where the bass plays pitch class pc: in a 12-semitone window centered on the song's tonic (A1-Ab2 for the tonic),
    so roots a step apart in the key sound a step apart, not nearly an octave (a fold by pitch class alone put Eb and E
@@ -197,7 +203,7 @@ static int bass_style_at(const song_roll_t *r, int bar)
     int style = groove_bass_style(r);
     if (style == BS_WALK) {
         rng_t g;
-        rng_seed(&g, r->seed, 113);
+        rng_seed(&g, bass_seed(r->seed), 113);
         if ((bar / 8) % 4 != (int)(rng_next(&g) % 4u)) style = BS_ROOT_FIFTH;
     }
     return style;
@@ -232,7 +238,7 @@ int groove_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, 
     const lib_pattern_t *p = lib_pattern_by_id((uint8_t)r->v[RF_PATTERN]);
     rng_t g;
     float snare_base, hat_base, swing_f;
-    uint32_t swing = 0;
+    uint32_t swing = 0, dsalt = song_ov_salted(salt, song_ov()->drums_salt);
     int n = 0, lane, last_bar, drop, fill, style, eighths;
 
     if (!p || !b || step < 0 || step > 15) return 0;
@@ -257,8 +263,8 @@ int groove_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, 
         for (lane = 0; lane < 6; lane++) {
             int hit, ghost, vel;
             uint32_t late = 0;
-            float jit = frand(mix(salt, bar, step, lane));
-            float jit2 = frand(mix(salt, bar, step, lane + 8));
+            float jit = frand(mix(dsalt, bar, step, lane));
+            float jit2 = frand(mix(dsalt, bar, step, lane + 8));
 
             if (!(b->layers & lane_layer[lane])) continue;
             if (p->poly3 && lane == D_SHAKER) {
@@ -290,7 +296,7 @@ int groove_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, 
         }
 
     if (fill && step >= 12 && (b->layers & (L_SNARE | L_KICK))) {
-        float jit2 = frand(mix(salt, bar, step, 20));
+        float jit2 = frand(mix(dsalt, bar, step, 20));
         uint32_t late = to_samples(snare_base + (jit2 * 6.0f - 3.0f));
         if (b->layers & L_SNARE)
             n = push(out, n, max, V_SNARE, 0, 60 + (step - 12) * 10, swing + late, 0);
@@ -305,7 +311,7 @@ int groove_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, 
         note = bass_note(r, style, p, bar, step, chord_pcs, npcs, bpc, nr);
         if (note) {
             uint32_t len;
-            int vel = 78 + (int)(frand(mix(salt, bar, step, 30)) * 12.0f);
+            int vel = 78 + (int)(frand(mix(bass_seed(salt), bar, step, 30)) * 12.0f);
             if (style == BS_PEDAL)
                 len = (uint32_t)((float)(16 * bpc) * step_samples);
             else if (style == BS_WALK)
@@ -335,7 +341,7 @@ int groove_ride(const song_roll_t *r, int *section_block)
     if (ride != RIDE_SECTION) return ride;
     /* one block that has hats: a lead section (the B section), the last groove, or where the bass walks */
     plan_build(r, &p);
-    if (groove_bass_style(r) == BS_WALK) {
+    if (bass_style_of(r, r->seed) == BS_WALK) {   /* the rolled bass: its re-roll (bass_salt) leaves the drums be */
         rng_t w;
         rng_seed(&w, r->seed, 113);                 /* bass_style_at's window */
         walk = (int)(rng_next(&w) % 4u);

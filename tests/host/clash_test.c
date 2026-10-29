@@ -416,18 +416,22 @@ static void test_chain(void)
 
 /* ---- the workbench's re-rolls ---- */
 
-/* songs 1-40 with the voicings re-rolled, then the lead's phrase, then the keys and the lead an octave up and down:
-   every rule above still holds (the registers' ranges moved with them) */
+/* songs 1-40 with the voicings re-rolled, then the lead's phrase, then the keys and the lead an octave up and down,
+   then each part salt (bass, pad, drums): every rule above still holds (the registers' ranges moved with
+   them) */
 static void test_ov_salts(void)
 {
     static song_t s;
-    static const int8_t KO[6] = {0, 0, 1, -1, 0, 0}, LO[6] = {0, 0, 0, 0, 1, -1};
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u};
+    static const int8_t KO[9] = {0, 0, 1, -1, 0, 0, 0, 0, 0}, LO[9] = {0, 0, 0, 0, 1, -1, 0, 0, 0};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u};
     song_roll_t r;
     int i, k;
-    for (k = 0; k < 6; k++) {
+    for (k = 0; k < 9; k++) {
         o.voicing_salt = k == 0;
         o.phrase_salt = k == 1;
+        o.bass_salt = k == 6;                       /* the part salts (bass, pad, drums) */
+        o.pad_salt = k == 7;
+        o.drums_salt = k == 8;
         o.keys_oct = KO[k];
         o.lead_oct = LO[k];
         song_override(&o);

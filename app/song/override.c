@@ -2,21 +2,23 @@
 #include "override.h"
 #include "library.h"
 
-static const song_ov_t NONE = {-1, -1, -1, -1, 0, 0, 0u, 0u};
-static song_ov_t cur = {-1, -1, -1, -1, 0, 0, 0u, 0u};
+static const song_ov_t NONE = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u};
+static song_ov_t cur = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u};
 
 void song_override(const song_ov_t *ov) { cur = ov ? *ov : NONE; }
 
 const song_ov_t *song_ov(void) { return &cur; }
 
-uint32_t song_ov_phrase_seed(uint32_t seed)
+uint32_t song_ov_salted(uint32_t seed, uint32_t salt)
 {
     uint32_t h;
-    if (!cur.phrase_salt) return seed;
-    h = seed ^ cur.phrase_salt * 0x9E3779B1u;
+    if (!salt) return seed;
+    h = seed ^ salt * 0x9E3779B1u;
     h ^= h >> 16; h *= 0x85EBCA6Bu; h ^= h >> 13; h *= 0xC2B2AE35u; h ^= h >> 16;
     return h;
 }
+
+uint32_t song_ov_phrase_seed(uint32_t seed) { return song_ov_salted(seed, cur.phrase_salt); }
 
 /* roughly each instrument's real compass (the samples' and synths' useful range); synths otherwise C1-C8 */
 void song_ov_range(int ins, int *lo, int *hi)

@@ -14,11 +14,16 @@ typedef struct {
     int8_t lead_oct;    /* -1, 0, +1: the lead's register, clamped likewise */
     uint32_t voicing_salt;  /* 0: as rolled; else a different, still rule-abiding voicing path */
     uint32_t phrase_salt;   /* 0: as rolled; else a new motif, rhythm and contour for the lead and melody */
+    uint32_t bass_salt;     /* 0: as rolled; else the bass's style, walking window and velocities drawn anew */
+    uint32_t pad_salt;      /* 0: as rolled; else the pad's solo voice and its sections' parts drawn anew */
+    uint32_t drums_salt;    /* 0: as rolled; else new per-hit velocity and lateness jitter for the drums */
 } song_ov_t;
 
 void song_override(const song_ov_t *ov);   /* NULL: none (default); the struct is copied */
 const song_ov_t *song_ov(void);            /* never NULL: a static all-rolled struct when none */
 
+/* seed itself when salt is 0, else a hash of the two: a part's re-rolled seed */
+uint32_t song_ov_salted(uint32_t seed, uint32_t salt);
 /* The lead's and melody's seed: seed itself unless phrase_salt is set */
 uint32_t song_ov_phrase_seed(uint32_t seed);
 /* An instrument's playable range (MIDI), for the register overrides */
