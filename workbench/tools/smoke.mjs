@@ -415,6 +415,50 @@ console.log("the committed song's events (wb_events, on a probe instance)");
   check(pex.wb_events(10) === -1 && pex.wb_events_count() === 10, "more than max: -1, max kept");
 }
 
+console.log("the piano roll (roll.js: layout on the committed song's events; draw on a stub canvas)");
+{
+  const { readEvents } = await import("../wb.js");
+  const { layout, draw, BAR_PX } = await import("../roll.js");
+  const play = await load();
+  play.wb_seed(21);
+  play.wb_roll_set(RF.BARS, 76);
+  play.wb_apply();
+  const bars = play.wb_roll_get(RF.BARS);
+  const pex = await load();
+  new Uint8Array(pex.memory.buffer, pex.wb_commit_ptr(), pex.wb_stage_size())
+    .set(new Uint8Array(play.memory.buffer, play.wb_commit_ptr(), play.wb_stage_size()));
+  pex.wb_events(0);
+  const evs = readEvents(pex);
+  const secs = JSON.parse(cstr(play, play.wb_sections(0)));
+  const t0 = performance.now(), lay = layout(evs, secs, bars, V), tl = performance.now() - t0;
+  const lane = (r) => lay.lanes.find((l) => l.role === r);
+  const total = lay.lanes.reduce((n, l) => n + l.notes.length, 0);
+  check(lay.lanes.map((l) => l.role).join() === "keys,bass,lead,pad,drums" && total === evs.length,
+        `${bars} bars, ${evs.length} events: one rectangle each, in the five lanes (keys, bass, lead, pad, drums)`);
+  const part = (e) => (e.role >= V.KICK ? "drums" : { [V.CHORD]: "keys", [V.BASS]: "bass", [V.LEAD]: "lead", [V.PAD]: "pad" }[e.role]);
+  const at = (r) => evs.filter((e) => part(e) === r);
+  check(["keys", "bass", "lead", "pad", "drums"].every((r) => at(r).every((e, i) => {
+    const n = lane(r).notes[i];
+    return n.x === e.bar + e.step / 16 && n.w === Math.max(e.len, 1) / 16 && n.shade === e.vel / 127 && n.y >= 0 && n.y < 1;
+  })), "each rectangle sits at its event's bar and step, its length as width, velocity as shade, inside its lane");
+  const k = at("drums").filter((e) => e.role === V.KICK)[0], rows = V.RIDE - V.KICK + 1;
+  check(lane("drums").notes.every((n, i) => Math.abs(n.y - at("drums")[i].note / rows) < 1e-9) && k && lane("drums").notes[at("drums").indexOf(k)].y === 0,
+        "drums map to their lane's row (the kick on the first)");
+  check(lay.sections.join() === secs.map((s) => s.start).join() && secs.length > 1, `section starts as lines (${lay.sections.length})`);
+  const empty = layout(evs.filter((e) => e.role !== V.PAD), secs, bars, V);
+  check(empty.lanes.find((l) => l.role === "pad").notes.length === 0, "a song with no pad: an empty pad lane");
+  // a stub 2d context: counts the paint calls
+  let calls = 0;
+  const ctx = new Proxy({}, { get: (t, k) => (k === "measureText" ? () => ({ width: 0 }) : typeof k === "string" && /^[a-z]/.test(k) && !(k in t) ? () => { calls++; } : t[k]),
+                              set: (t, k, v) => { t[k] = v; return true; } });
+  const canvas = { width: 0, height: 0, getContext: () => ctx };
+  globalThis.getComputedStyle = () => ({ getPropertyValue: () => "#b0562b" });
+  const t1 = performance.now(), x = draw(canvas, lay, 12, { mute: new Set(["lead"]), solo: null }), td = performance.now() - t1;
+  check(x === 11 * BAR_PX && canvas.width === bars * BAR_PX && calls > total && draw(canvas, lay, 0, { mute: new Set(), solo: "bass" }) === null,
+        `draw: the playhead at bar 12 is x=${x}, ${calls} paint calls; stopped: no playhead; solo greys the others`);
+  check(tl + td < 200, `layout ${tl.toFixed(1)} ms + draw ${td.toFixed(1)} ms on ${bars} bars, all parts: under 200 ms`);
+}
+
 // ---- the decision rows (rows.js, options.json) and the desk (desk.js) over the engine ----
 const { ROWS, row, optionsFor, pickFor, conflicts, familyOf, fromEngine } = await import("../rows.js");
 const { Desk } = await import("../desk.js");
