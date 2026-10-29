@@ -143,6 +143,10 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
 
 ## To revisit (Sam, after listening)
 
+- **Piano-roll editing paused (Sam, 2026-10-29: "Pause piano roll editing until later").** Plan
+  docs/superpowers/plans/2026-10-29-patterns-and-edits.md Tasks 5-6 (edit glue, then editing with a "why" per edit)
+  not started; Tasks 1-4 (doubling switch, pattern export, import, candidates) done.
+
 - **Vibes as a comping (keys) instrument (Sam, 2026-10-29).** Today the sampled vibes are a lead only. Add them to the
   keys: which comping styles suit mallets (held chords ringing, half notes; maybe broken chords), voicing range against
   the 5 sampled zones (C4-E6), level against the lead, and which sets/families take them (electric: goes with either).
