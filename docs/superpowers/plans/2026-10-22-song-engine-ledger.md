@@ -522,7 +522,7 @@ From the task and final reviews; none blocks merging. Revisit when the area is n
 - Thin level margin (leads change, 2026-10-29): Emilyguitar and flute's lead-over-keys median sits exactly on the 8.0 dB
   floor after the flute's −0.3 dB trim for set 9. A later level change failing that test is this, not a regression.
 - To check by ear: the vibraphone loops a 60 ms segment under its 10 s decay (long notes may sound static); the vibes
-  now lead about 29% of songs (9 of 29 sets: vary, not avoid — sets 6, 10, 30, 33 could take another lead).
+  led about 29% of songs (9 of 29 sets); rebalanced 2026-10-29 (Sam): set 10 now leads with the synth pluck, set 30 the flute, set 33 the saw lead, so the vibes lead 5 of 29 sets (2, 4, 6, 8, 26) instead of 9.
 
 ### Sustained lead: open items (2026-10-24)
 

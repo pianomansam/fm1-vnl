@@ -114,7 +114,7 @@ const lib_set_t LIB_SETS[] = {
     {7, "Felt and flute", INS_FELT_PIANO, INS_SUB, INS_FLUTE, INS_MUSIC_BOX, INS_STRINGS, KIT_SOFT, KIT_S_GENTLE, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "brainstorm: quiet felt piano lofi"},
     {8, "Wurli and vibes", INS_WURLI, INS_ELEC_BASS, INS_VIBES, INS_KALIMBA, INS_STRINGS, KIT_DUSTY, KIT_S_GENTLE, FL_LOFI, MOOD_WARM | MOOD_SUNNY, "brainstorm: warm Wurlitzer lofi"},
     {9, "Nylon and flute", INS_NYLON, INS_ELEC_BASS, INS_FLUTE, INS_NONE, INS_STRINGS, KIT_BRUSHES, KIT_N, FL_BOSSA, MOOD_WISTFUL | MOOD_WARM, "brainstorm: late-night bossa; the flute leads (was the sax: Sam, 2026-10-29; a sustained lead, so the nylon still strums)"},
-    {10, "Pad and vibes", INS_PAD, INS_ELEC_BASS, INS_VIBES, INS_VOX_PAD, INS_STRINGS, KIT_808, KIT_N, FL_CHILLWAVE, MOOD_SAD | MOOD_WISTFUL, "brainstorm: hazy chillwave; the vibes lead (was the guitar lick: Sam, 2026-10-29)"},
+    {10, "Pad and pluck", INS_PAD, INS_ELEC_BASS, INS_SYNTH_PLUCK, INS_VOX_PAD, INS_STRINGS, KIT_808, KIT_N, FL_CHILLWAVE, MOOD_SAD | MOOD_WISTFUL, "brainstorm: hazy chillwave; the vibes lead (was the guitar lick: Sam, 2026-10-29); the synth pluck leads (vibes rebalance: Sam, 2026-10-29)"},
     {11, "Rhodes neo-soul", INS_RHODES, INS_ELEC_BASS, INS_FELT_PIANO, INS_VIBES, INS_STRINGS, KIT_SOFT, KIT_S_WARM, FL_NEOSOUL, MOOD_WARM | MOOD_SUNNY, "brainstorm: smooth neo-soul; the felt piano leads (was the muted trumpet: Sam, 2026-10-29)"},
     /* the synth sets (synths plan Task 4; Sam's cut, 2026-10-24: only the DX EP, the FM slap bass, the triangle bass,
        the organ, the saw lead and the synth pluck kept). 13, 18 and 20 all synth (keys, bass and lead), so every mood
@@ -139,10 +139,10 @@ const lib_set_t LIB_SETS[] = {
     {29, "Knight and Emilyguitar", INS_KNIGHT, INS_ELEC_BASS, INS_EMILY, INS_NONE, INS_STRINGS, KIT_BRUSHES, KIT_N, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "sampled spec: an Emilyguitar lead over the Knight, brushes"},
     /* the string synth's leads' sets (sampled spec, Task 6), the warm synth pad under them (the pad layer's strings
        would have doubled the lead); the string lead and cello went (Sam, 2026-10-29): the vibes, felt or flute lead */
-    {30, "Knight and vibes", INS_KNIGHT, INS_ELEC_BASS, INS_VIBES, INS_MUSIC_BOX, INS_WARM_PAD, KIT_SOFT, KIT_S_GENTLE, FL_LOFI, MOOD_WISTFUL | MOOD_WARM, "sampled spec: a high string lead over the Knight (Task 5's deferred set); the vibes lead (Sam, 2026-10-29)"},
+    {30, "Knight and flute, warm pad", INS_KNIGHT, INS_ELEC_BASS, INS_FLUTE, INS_MUSIC_BOX, INS_WARM_PAD, KIT_SOFT, KIT_S_GENTLE, FL_LOFI, MOOD_WISTFUL | MOOD_WARM, "sampled spec: a high string lead over the Knight (Task 5's deferred set); the vibes lead (Sam, 2026-10-29); the flute leads (vibes rebalance: Sam, 2026-10-29)"},
     {31, "Rhodes and felt", INS_RHODES, INS_FM_BASS, INS_FELT_PIANO, INS_BELLS, INS_WARM_PAD, KIT_DUSTY, KIT_S_DARK, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "sampled spec: the cello lead inside a dusty Rhodes, the FM slap bass under them; the felt piano leads (Sam, 2026-10-29)"},
     {32, "Knight, flute and brushes", INS_KNIGHT, INS_SUB, INS_FLUTE, INS_NONE, INS_WARM_PAD, KIT_BRUSHES, KIT_N, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "sampled spec: the cello lead inside the Knight, brushes; the flute leads (Sam, 2026-10-29)"},
-    {33, "DX and vibes", INS_DX_EP, INS_ELEC_BASS, INS_VIBES, INS_VIBES, INS_WARM_PAD, KIT_SOFT, KIT_S_CLEAN, FL_CITYPOP, MOOD_WARM | MOOD_SUNNY, "sampled spec: a high string lead over the DX keys, city pop; the vibes lead (Sam, 2026-10-29)"},
+    {33, "DX and saw lead", INS_DX_EP, INS_ELEC_BASS, INS_SAW_LEAD, INS_VIBES, INS_WARM_PAD, KIT_SOFT, KIT_S_CLEAN, FL_CITYPOP, MOOD_WARM | MOOD_SUNNY, "sampled spec: a high string lead over the DX keys, city pop; the vibes lead (Sam, 2026-10-29); the saw lead leads (vibes rebalance: Sam, 2026-10-29)"},
 };
 const int LIB_NSETS = (int)(sizeof LIB_SETS / sizeof LIB_SETS[0]);
 
@@ -227,6 +227,13 @@ const lib_map_t *lib_map_by_id(uint8_t id)
 
 /* the keys' octave shift for a set: the Chillwave pad an octave lower (Sam, 2026-10-24: "only the chillwave pad needs
    to come down to that lower octave") */
+/* dB added to the set's lead level: set 10's synth pluck, +1.2 (its lead over keys sat 0.5 dB under the 8 dB floor;
+   vibes rebalance: Sam, 2026-10-29); a workbench copy keeps it by its base id */
+float lib_set_lead_db(const lib_set_t *s)
+{
+    return s && set_key(s) == 10 ? 1.2f : 0.0f;
+}
+
 int lib_set_keys_shift(const lib_set_t *s)
 {
     return s && set_key(s) == 5 ? -12 : 0;

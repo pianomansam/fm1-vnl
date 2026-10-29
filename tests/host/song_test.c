@@ -316,19 +316,20 @@ static int moods_n(int m) { return (m & 1) + (m >> 1 & 1) + (m >> 2 & 1) + (m >>
    any synth instrument in 25% or more. */
 static void test_synth_sets(void)
 {
-    static const char *names[5] = {"DX keys and FM bass", "Organ and saw lead", "Rhodes and saw lead", "DX and pluck",
-                                   "Nylon and synth pluck"};
-    static const int want[5][3] = {{INS_DX_EP, INS_FM_BASS, INS_SAW_LEAD},
+    static const char *names[6] = {"DX keys and FM bass", "Organ and saw lead", "Rhodes and saw lead", "DX and pluck",
+                                   "Nylon and synth pluck", "Pad and pluck"};
+    static const int want[6][3] = {{INS_DX_EP, INS_FM_BASS, INS_SAW_LEAD},
                                    {INS_ORGAN, INS_CHIP_BASS, INS_SAW_LEAD},
                                    {INS_RHODES, INS_FM_BASS, INS_SAW_LEAD},
                                    {INS_DX_EP, INS_CHIP_BASS, INS_SYNTH_PLUCK},
-                                   {INS_NYLON, INS_SUB, INS_SYNTH_PLUCK}};
-    const lib_set_t *ns[5];
-    long got[5] = {0, 0, 0, 0, 0}, synth = 0;
+                                   {INS_NYLON, INS_SUB, INS_SYNTH_PLUCK},
+                                   {INS_PAD, INS_ELEC_BASS, INS_SYNTH_PLUCK}}; /* set 10 (vibes rebalance: Sam, 2026-10-29) */
+    const lib_set_t *ns[6];
+    long got[6] = {0, 0, 0, 0, 0, 0}, synth = 0;
     uint32_t seed = 4242u;
     song_roll_t prev, r;
     int i, k, m, nsynth = 0;
-    for (i = 0; i < 5; i++) {
+    for (i = 0; i < 6; i++) {
         ns[i] = NULL;
         for (k = 0; k < LIB_NSETS; k++)
             if (strcmp(LIB_SETS[k].name, names[i]) == 0) ns[i] = &LIB_SETS[k];
@@ -339,14 +340,14 @@ static void test_synth_sets(void)
               "synth sets: %s plays %d %d %d, wanted %d %d %d", names[i], ns[i]->chords, ns[i]->bass, ns[i]->lead,
               want[i][0], want[i][1], want[i][2]);
         CHECK(ns[i]->candy == INS_NONE || ns[i]->candy == INS_VIBES || ns[i]->candy == INS_MUSIC_BOX ||
-                  ns[i]->candy == INS_KALIMBA,
+                  ns[i]->candy == INS_KALIMBA || ns[i]->candy == INS_VOX_PAD,
               "synth sets: %s's candy %d, wanted vibes, music box, kalimba or none", names[i], ns[i]->candy);
     }
     for (k = 0; k < LIB_NSETS; k++) /* no other set plays a synth (but a sampled set's, test_sampled_sets: the DX keys
                                        under the Knight) */
         nsynth += (is_synth(LIB_SETS[k].chords) || is_synth(LIB_SETS[k].bass) || is_synth(LIB_SETS[k].lead) ||
                    is_synth(LIB_SETS[k].candy)) && LIB_SETS[k].id < 21;
-    CHECK(nsynth == 5, "synth sets: %d sets play a synth, wanted the 5", nsynth);
+    CHECK(nsynth == 6, "synth sets: %d sets play a synth, wanted the 6", nsynth);
     for (m = 0; m < 4; m++) {
         int any = 0;
         for (k = 0; k < LIB_NSETS; k++) any |= (LIB_SETS[k].moods & (1 << m)) && set_all_synth(&LIB_SETS[k]);
@@ -360,9 +361,9 @@ static void test_synth_sets(void)
         s = lib_set_by_id((uint8_t)r.v[RF_SET]);
         if (!s) continue;
         synth += is_synth(s->chords) || is_synth(s->bass) || is_synth(s->lead) || is_synth(s->candy);
-        for (i = 0; i < 5; i++) got[i] += s == ns[i];
+        for (i = 0; i < 6; i++) got[i] += s == ns[i];
     }
-    for (i = 0; i < 5; i++) {
+    for (i = 0; i < 6; i++) {
         printf("synth sets: %-21s %.1f%% of 3000 songs\n", names[i], (double)got[i] / 30.0);
         CHECK(got[i] >= 90, "synth sets: %s in %ld of 3000 songs, wanted 3%%+", names[i], got[i]);
     }

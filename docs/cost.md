@@ -1005,3 +1005,6 @@ string synth (strsyn.c, its Plaits Ensemble and the lead's two 512-float lines i
   changed lead, so the rows read the same within the loaded host's noise (seed 155 forced 0.85 / 0.78 HEAD, 0.83 /
   0.74 now; seed 22 forced 0.74 / 0.81 HEAD, 0.84 / 0.77 now). A vibes song now costs less than before (the sampler
   under the bell), a felt-lead song about what a struck sampled lead does.
+
+### Vibes rebalance (2026-10-29)
+Set 10 (Pad and pluck) leads with the synth pluck at +1.2 dB (lib_set_lead_db, keyed by set id, base id in the workbench): its lead over keys sat 7.4 dB median, under the 8 dB floor; now 8.6. A per-song float multiply: no measurable CPU or memory change.

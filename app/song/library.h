@@ -66,6 +66,7 @@ int lib_lead_approved(int ins);
 /* 1: a sampled struck-string instrument (the Knight, the nylon, the Emilyguitar): stabs and strums suit it */
 int lib_ins_sampled_struck(int ins);
 int lib_set_walks(const lib_set_t *s);
+float lib_set_lead_db(const lib_set_t *s);              /* dB added to the set's lead level (set 10's pluck) */
 int lib_set_keys_shift(const lib_set_t *s);          /* semitones the keys sit from their usual octave */               /* the bass may walk in this set */
 const lib_pattern_t *lib_pattern_by_id(uint8_t id);
 const lib_map_t *lib_map_by_id(uint8_t id);
