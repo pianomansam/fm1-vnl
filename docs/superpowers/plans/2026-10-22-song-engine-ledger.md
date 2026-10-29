@@ -317,6 +317,9 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   - **the '60s jazz pianist** (branch `worktree-agent-a4802cdbc40dd46b4`, 3b387cd): strong. **Sam's shortlist so far: Impressionism,
     Romanticism and the '60s jazz pianist "are really strong."** Don't rework their motifs (Sam); the stay-on-the-motif rule applies to
     the spikes still to come.
+  - **Names (Sam):** each kept style takes a genre name, and every trace of the source person is then scrubbed from
+    the repo (lead-style work only): Impressionism, Romantic, '60s Jazz, Cool Jazz, Modal Jazz, Post-Bop, Bossa Nova,
+    Jazz-Hop, Film Score, Ambient — for whichever of these are kept.
 
 - **Done (Sam, 2026-10-29, after the lead-candidates spike, app/build/new/lead-candidates/):** "i only liked the felt
   piano and vibraphones." The vibes are the VCSL vibraphone (soft mallets, v2, 5 zones C4-E6, 18.4 KB of flash), on the
