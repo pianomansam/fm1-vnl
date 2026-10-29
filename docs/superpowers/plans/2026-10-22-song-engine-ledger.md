@@ -335,6 +335,13 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   - **Post-Bop** (branch `worktree-agent-a31d3b76047665641`, 310524a): the 4ths are "really interesting, but it can't
     always be just fourths." Idea (Sam): the first bar of each pair in 4ths, the second resolving better (by step, onto
     a chord tone). Reworked as a second pass.
+  - **Film Score, Bossa Nova, Ambient** (branches `worktree-agent-a58dfa512ae37f56c` 266e2af,
+    `worktree-agent-a8d4733e8156e2a1b` 071ffee, `worktree-agent-aedeac7d79de88df6` 867b1db): all "sound good."
+    Shortlist: Impressionism, Romanticism, '60s Jazz, Modal Jazz, Jazz-Hop, Film Score, Bossa Nova, Ambient.
+    Not kept: Neoclassical. Cool Jazz "fair". Post-Bop v2 not yet heard.
+  - **Sam questions the lead's floor over percussive keys** ("why does it matter what the nylon keys are doing?"):
+    lead.c sets the floor a 4th over the keys' top note (`c.lo = top + 5`), so high voicings squeeze the lead and
+    force leaps. Revisit with the lead styles' build.
 
 - **Done (Sam, 2026-10-29, after the lead-candidates spike, app/build/new/lead-candidates/):** "i only liked the felt
   piano and vibraphones." The vibes are the VCSL vibraphone (soft mallets, v2, 5 zones C4-E6, 18.4 KB of flash), on the
