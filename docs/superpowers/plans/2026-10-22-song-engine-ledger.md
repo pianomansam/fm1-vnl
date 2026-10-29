@@ -325,6 +325,11 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
     Impressionism, Romanticism, '60s Jazz, Modal Jazz. Note: its song 5 stayed within a 3rd because the spike centers a
     narrow "middle register" just above the floor (a 4th over the keys' top), not because of the pad; widen the window
     when it's built for real.
+  - **Jazz-Hop** (branch `worktree-agent-acdb178f7a5283930`, 15fbca9): "sounds really nice in this lofi genre. Loops
+    are actually good. And that's behind my request to have less variance." Shortlisted.
+  - **Post-Bop** (branch `worktree-agent-a31d3b76047665641`, 310524a): the 4ths are "really interesting, but it can't
+    always be just fourths." Idea (Sam): the first bar of each pair in 4ths, the second resolving better (by step, onto
+    a chord tone). Reworked as a second pass.
 
 - **Done (Sam, 2026-10-29, after the lead-candidates spike, app/build/new/lead-candidates/):** "i only liked the felt
   piano and vibraphones." The vibes are the VCSL vibraphone (soft mallets, v2, 5 zones C4-E6, 18.4 KB of flash), on the
