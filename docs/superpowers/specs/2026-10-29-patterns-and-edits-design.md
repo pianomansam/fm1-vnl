@@ -30,7 +30,7 @@ the conventions):
 | melody-cells | melody.c CELLS (7) | one beat of rhythm |
 
 **Import:** `tools/patterns/import.sh` reads every file in `patterns/` (MusicXML from MuseScore, or MIDI from a DAW;
-when both exist for a pattern, the newer one), validates it against the engine's rules, and regenerates the engine's
+Sam may edit or add either one: the importer detects which file changed since it was last written, imports from it, and rewrites the other to match; both changed and disagreeing is an error), validates it against the engine's rules, and regenerates the engine's
 tables from it (a generated C file per family, replacing the hand-written table). Errors name the file and the rule,
 and change nothing. Rules checked include: a drum pattern has a kick and a snare; a progression uses allowed chords
 only (no substitutions, dominants at the 9th or above); strum up-strokes on "and" steps; quantized to 16ths.

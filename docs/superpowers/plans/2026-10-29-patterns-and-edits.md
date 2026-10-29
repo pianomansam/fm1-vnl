@@ -104,7 +104,11 @@ validates only); each generated table keeps its current C name and type, plus a 
   **Review Focus 1:** MuseScore-style variants (divisions 480, a tie across beats, an extra empty staff, rests-only
   bar) import the same; **Review Focus 2:** each rule (drum without snare; progression with a substitution or a
   dominant below the 9th; off-grid note; strum up-stroke off an "and"; a chord-tone index > 4) is refused with
-  file + bar + rule and leaves `patterns_gen.c` untouched; when both `.mid` and `.musicxml` exist, the newer wins.
+  file + bar + rule and leaves `patterns_gen.c` untouched. **Either file may be edited (Sam):** `patterns/.manifest.json`
+  holds each file's SHA-256 as last written; a pattern with only its `.mid` changed (or added) imports from the
+  `.mid`, only its `.musicxml` from that; both changed and they disagree → refused naming both files; a new pattern
+  may arrive as either file alone. After a successful import the other file is rewritten from the imported pattern
+  and the manifest updated, so both stay in step (test each case).
 - [ ] **Step 2:** FAIL. **Step 3:** Implement; a new file (no id yet) gets the next free id and status candidate; the
   importer prints which existing approved entries changed and, if any did, that the pinned hashes will move (re-pin
   with a comment naming the edit).
