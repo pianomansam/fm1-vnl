@@ -759,8 +759,15 @@ EXPORT int wb_keys_oct_applied(void)
     return d;
 }
 
+/* a seed or map change is a new song: a jump staged before it (a bar of the old song's sections) is dropped, so
+   the song starts at bar 1 (in this call: no bar line can land between the two) */
 EXPORT void wb_apply(void)
 {
+    if (st.roll.seed != com.roll.seed || st.roll.v[RF_MAP] != com.roll.v[RF_MAP]) {
+        if (jump >= 0 && !playing)
+            resume_bar = 0;
+        jump = -1;
+    }
     com = st;
     if (playing)
         apply_pend = 1;                 /* stopped: play lands it */
@@ -872,15 +879,17 @@ EXPORT const char *wb_live_state(void)
 
 EXPORT int wb_pending(void) { return apply_pend; }   /* a commit is waiting for its bar line */
 
-/* JSON: the committed song's sections (its plan's blocks): [{"start": bar from 0, "bars", "name"}] */
-EXPORT const char *wb_sections(void)
+/* JSON: the committed song's sections (its plan's blocks): [{"start": bar from 0, "bars", "name"}]; heard: the song
+   playing (as last landed) instead, once it has landed */
+EXPORT const char *wb_sections(int heard)
 {
+    const stage_t *src = heard && cur_bar >= 0 ? &live : &com;
     static char buf[1536];
     static song_plan_t p;
     out_t o = {buf, sizeof buf, 0};
     int i;
-    hooks(&com);
-    plan_build(&com.roll, &p);
+    hooks(src);
+    plan_build(&src->roll, &p);
     hooks(&live);
     put(&o, "[");
     for (i = 0; i < p.n; i++) {

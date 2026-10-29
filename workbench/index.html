@@ -110,11 +110,11 @@
 <script type="module">
   import * as wb from "./wb.js";
   import { ROWS, GROUPS, optionsFor, inactive } from "./rows.js";
-  import { Desk, PARTS, sectionAt } from "./desk.js";
+  import { Desk, PARTS, sectionAt, positionOf } from "./desk.js";
   import { DrumScreen } from "./drums.js";
   const $ = (id) => document.getElementById(id);
   const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
-  let playing = false, desk = null, lib = null, pos = { seconds: 0, bar: 0 }, sentChanges = 0, drums = null, secs = [];
+  let playing = false, desk = null, lib = null, pos = { seconds: 0, bar: 0 }, sentChanges = 0, drums = null, secs = [], heard = [];   // secs: the committed song's sections; heard: the playing song's
 
   // one change at a time: clicks queue behind the one in flight
   let queue = Promise.resolve();
@@ -202,7 +202,7 @@
       }
     }
     drums?.render(pos);
-    strip();
+    strip().catch((e) => { $("msg").textContent = String(e); });
     const showRetired = $("retired").checked;
     for (const r of ROWS) {
       const el = els.get(r.id), cur = desk.values[r.id], locked = desk.locks.has(r.id);
@@ -233,8 +233,9 @@
   // next bar line when playing; stopped, it sets where Play starts)
   let stripKey = "";
   async function strip() {
-    const next = await wb.call("wb_sections");
+    const next = await wb.call("wb_sections", 0);
     secs = next;
+    heard = await wb.call("wb_sections", 1);
     const key = JSON.stringify(next);
     if (key !== stripKey) {
       stripKey = key;
@@ -250,8 +251,8 @@
   }
   // the playhead (the bar sounding) and the highlighted section
   function mark() {
-    const el = $("strip"), total = secs.reduce((n, x) => n + x.bars, 0), cur = sectionAt(secs, pos.bar);
-    secs.forEach((x, i) => el.children[i]?.classList.toggle("now", x === cur));
+    const el = $("strip"), total = secs.reduce((n, x) => n + x.bars, 0), cur = sectionAt(heard, pos.bar);
+    secs.forEach((x, i) => el.children[i]?.classList.toggle("now", !!cur && x.start === cur.start && x.bars === cur.bars));
     const head = el.lastElementChild;
     if (head && total) {
       const at = Math.max(pos.bar - 1, 0), i = secs.findIndex((x) => at >= x.start && at < x.start + x.bars);
@@ -282,7 +283,7 @@
     if (!desk || (!rating && !note)) return;
     $("note").value = "";
     sync({ saved: false, queued: wb.queued() + 1 });
-    const time = new Date().toISOString(), position = { seconds: pos.seconds, bar: pos.bar, section: sectionAt(secs, pos.bar)?.name ?? null };   // the click's
+    const time = new Date().toISOString(), position = positionOf(pos, heard);   // the click's
     let entry = null;
     await run(async () => {
       const upto = desk.changes.length;   // the changes since the last entry
@@ -309,6 +310,7 @@
   }
 
   function show(p) {
+    if (p.bar !== pos.bar && desk) wb.call("wb_sections", 1).then((s) => { heard = s; mark(); }, () => {});   // a bar line: a landing may have changed the song heard
     if (drums && ((p.bar - 1) & 1) !== ((pos.bar - 1) & 1)) drums.render(p);   // the bar sounding (1 or 2)
     pos = { seconds: p.seconds, bar: p.bar };
     $("pos").textContent = `bar ${p.bar || "–"} / ${p.bars}  ·  ${fmt(p.seconds)}`;

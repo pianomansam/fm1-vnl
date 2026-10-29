@@ -12,6 +12,10 @@ export const PARTS = { keys: "CHORD", bass: "BASS", lead: "LEAD", pad: "PAD", dr
 // the section (wb_sections' { start, bars, name }) holding bar (from 1: wb_bar's), or null
 export const sectionAt = (secs, bar) => secs?.find((x) => bar > x.start && bar <= x.start + x.bars) ?? null;
 
+// where the song heard is: { seconds, bar, section } (the section's name in the song playing, or null). live: the playing
+// song's sections (wb_live_sections), not the committed ones (a change may be waiting)
+export const positionOf = (pos, live) => ({ seconds: pos.seconds, bar: pos.bar, section: sectionAt(live, pos.bar)?.name ?? null });
+
 const SEED_TRIES = 20;   // a new seed whose song can't keep the locks is tried again (re-roll all, the seed's dice)
 
 // a die from a seed (the same song lands on the same kit every time)
@@ -30,7 +34,6 @@ export class Desk {
     this.hand = new Set();     // rows set from their dropdown (they survive a regenerate, as locks do)
     this.moved = new Set();    // rows the last change forced (highlighted)
     this.listen = { mute: new Set(), solo: null };   // parts muted, the part soloed: listening only, kept across regenerates
-    this.jumped = false;       // a section jump was staged (a new song drops it: it starts at bar 1)
     this.legal = {};
     this.message = "";
   }
@@ -165,7 +168,6 @@ export class Desk {
     this.message = "";
     await this.readBack();
     await this.call("wb_apply");
-    await this.dropJump(r.regenerates);
     const at = this.position();
     for (const x of [r, ...changed.filter((x) => x.id !== id)])
       this.changes.push({ seconds: at.seconds, bar: at.bar, row: x.id, from: before[x.id], to: this.values[x.id] });
@@ -179,12 +181,6 @@ export class Desk {
     return this.done(true, notes.join(" "));
   }
 
-  // a new song (seed, map) starts at bar 1: a staged jump (a bar of the old song's sections) is dropped
-  async dropJump(newSong) {
-    if (newSong && this.jumped) await this.call("wb_jump", 0);
-    if (newSong) this.jumped = false;
-  }
-
   // the committed song's sections: [{ start (bar from 0), bars, name }]
   sections() { return this.call("wb_sections"); }
 
@@ -192,7 +188,6 @@ export class Desk {
   // Play starts there
   async jumpTo(start, name = "that section") {
     await this.call("wb_jump", start);
-    this.jumped = true;
     this.moved = new Set();
     return this.done(true, `Jumping to ${name} (bar ${start + 1}) at the next bar line.`);
   }
@@ -304,7 +299,6 @@ export class Desk {
     for (const r of ROWS) if (r.kind !== "seed" && r.kind !== "family") await this.stage(r.id, snap.rows[r.id]);
     const d = await this.stageDrums(snap.drums), missing = d.refused ? [...d.missing, "drums (the kit row's kit can't take lanes)"] : d.missing;
     await this.call("wb_apply");
-    await this.dropJump(true);
     this.listen = { mute: new Set(snap.listen?.mute), solo: snap.listen?.solo ?? null };   // an older snapshot: none
     await this.hear();
     this.values = { ...snap.rows };

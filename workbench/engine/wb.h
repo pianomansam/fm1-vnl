@@ -59,7 +59,7 @@ void wb_apply(void);                    /* commit the staged state: it lands at 
 void wb_jump(int bar);                  /* the next landing goes to bar (from 0: wb_sections' start) of the committed
                                            song, with any commit waiting (one landing, at the next bar line); stopped:
                                            where play starts */
-const char *wb_sections(void);          /* JSON: the committed song's plan [{"start": bar from 0, "bars", "name"}] */
+const char *wb_sections(int heard);     /* JSON: the committed song's plan (heard: the song playing) [{"start": bar from 0, "bars", "name"}] */
 
 /* Listening only (heard at once, kept across landings; the song unchanged): vx_mute's buses */
 void wb_mute(unsigned mask);            /* a bit per bus: V_CHORD, V_BASS, V_LEAD, V_PAD, V_KICK (the drums) */

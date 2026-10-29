@@ -1498,7 +1498,7 @@ console.log("Task 1b: no ear candy; the pad on/off row");
 
 console.log("the section strip, mute/solo and listening state (Task 3)");
 {
-  const { sectionAt, PARTS } = await import("../desk.js");
+  const { sectionAt, PARTS, positionOf } = await import("../desk.js");
   const ex = await fresh(), call = caller(ex);
   const desk = new Desk(call, C, OPTS, await call("wb_library"), { rnd: lcg(13), probe: await prober() });
   await desk.read(true);
@@ -1515,6 +1515,41 @@ console.log("the section strip, mute/solo and listening state (Task 3)");
   const waited = until(ex, () => ex.wb_bar() !== 2, 60 * SR);
   check(ex.wb_bar() === secs[2].start + 1 && waited <= barLen(bpm) + Q, `it lands at the section's first bar (bar ${ex.wb_bar()}, wanted ${secs[2].start + 1})`);
 
+  {   // positionOf: the section of the song playing, not the committed one's (a change waiting)
+    const p = positionOf({ seconds: 3.5, bar: secs[1].start + 2 }, secs);
+    check(p.seconds === 3.5 && p.bar === secs[1].start + 2 && p.section === secs[1].name && positionOf({ seconds: 0, bar: 0 }, secs).section === null &&
+          positionOf({ seconds: 0, bar: 1 }, []).section === null, "positionOf: { seconds, bar, section name or null }");
+    const x = await fresh(), pend = sections(x);
+    x.wb_play(1);
+    until(x, () => x.wb_bar() === 2, 60 * SR);
+    for (let i = 0; i < 20 && x.wb_roll_get(RF.BARS) === 56; i++) x.wb_roll_dice(RF.BARS);
+    x.wb_apply();
+    const heardNow = JSON.parse(cstr(x, x.wb_sections(1))), comNow = sections(x);
+    check(JSON.stringify(heardNow) === JSON.stringify(pend) && JSON.stringify(comNow) !== JSON.stringify(pend),
+          "wb_sections(1) is the song playing while a change waits (wb_sections(0): the committed one)");
+  }
+  {   // the drop is the engine's, in wb_apply itself
+    const RF_SEED = Object.keys(RF).length;   // wb_live_get(RF_N): the seed: no bar line can land between a jump and the new song
+    for (const playing of [true, false]) {
+      const x = await fresh();
+      const s = sections(x);
+      if (playing) { x.wb_play(1); until(x, () => x.wb_bar() === 2, 60 * SR); }
+      x.wb_jump(s[2].start);
+      x.wb_seed(777);
+      x.wb_apply();
+      if (playing) until(x, () => x.wb_bar() !== 2, 60 * SR); else { x.wb_play(1); render(x, Q); }
+      check(x.wb_bar() === 1 && x.wb_catchups() === (playing ? 1 : 0) && x.wb_live_get(RF.N) === 777,
+            `${playing ? "playing" : "stopped"}: a jump, then a new seed through wb_apply alone: one landing, at bar ${x.wb_bar()} (wanted 1) of the new song`);
+    }
+    const x = await fresh(), s = sections(x);
+    x.wb_play(1);
+    until(x, () => x.wb_bar() === 2, 60 * SR);
+    x.wb_jump(s[2].start);
+    x.wb_roll_set(RF.TEMPO, x.wb_roll_get(RF.TEMPO) === 85 ? 75 : 85);
+    x.wb_apply();
+    until(x, () => x.wb_bar() !== 2, 60 * SR);
+    check(x.wb_bar() === s[2].start + 1, "a change that is not a new song keeps the jump");
+  }
   // Ruling: a seed or map change staged after a jump drops the jump (the new song starts at bar 1)
   for (const [what, row_, val] of [["seed", "seed", 4321], ["map", "map", null]]) {
     const e = await fresh(), cl = caller(e);
