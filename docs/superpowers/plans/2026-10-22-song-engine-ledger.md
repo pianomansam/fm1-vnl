@@ -314,6 +314,9 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
     literally and vary it less (one small change at a time, the motif recognizable each time), so the line develops
     the motif instead of drifting away from it. Applies to Impressionism, Romanticism, Neoclassical and '60s Jazz, and to the spikes still
     running.
+  - **the '60s jazz pianist** (branch `worktree-agent-a4802cdbc40dd46b4`, 3b387cd): strong. **Sam's shortlist so far: Impressionism,
+    Romanticism and the '60s jazz pianist "are really strong."** Don't rework their motifs (Sam); the stay-on-the-motif rule applies to
+    the spikes still to come.
 
 - **Done (Sam, 2026-10-29, after the lead-candidates spike, app/build/new/lead-candidates/):** "i only liked the felt
   piano and vibraphones." The vibes are the VCSL vibraphone (soft mallets, v2, 5 zones C4-E6, 18.4 KB of flash), on the
