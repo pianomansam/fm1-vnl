@@ -1,9 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The workbench's smoke test: wb.wasm loaded directly (as the worklet does), no browser.
 //   sh workbench/build.sh && node workbench/tools/smoke.mjs
+//   (WB_WASM, WB_OPTIONS, WB_GEN: another build, its options.json and patterns_gen.c: candidates_smoke.sh's, with a
+//   candidate in every family)
 import { readFileSync } from "node:fs";
 
-const WASM = readFileSync(new URL("../../app/build/workbench/wb.wasm", import.meta.url));
+const env = (k, rel) => (process.env[k] ? process.env[k] : new URL(rel, import.meta.url));
+const WASM = readFileSync(env("WB_WASM", "../../app/build/workbench/wb.wasm"));
+// the generated tables' statuses (patterns_gen.c's *_STATUS: 1 approved, 0 candidate, 2 retired), by array name
+const GEN_STATUS = Object.fromEntries([...readFileSync(env("WB_GEN", "../../app/song/patterns_gen.c"), "utf8")
+  .matchAll(/const uint8_t (\w+)_STATUS\[[^\]]*\] = \{([^}]*)\}/g)]
+  .map((m) => [m[1], m[2].split(",").map((x) => ["candidate", "approved", "retired"][+x])]));
 const SR = 44100, Q = 128;
 let failed = 0;
 const check = (ok, what) => {
@@ -480,7 +487,7 @@ console.log("the piano roll (roll.js: layout on the committed song's events; dra
 // ---- the decision rows (rows.js, options.json) and the desk (desk.js) over the engine ----
 const { ROWS, row, optionsFor, pickFor, conflicts, familyOf, fromEngine } = await import("../rows.js");
 const { Desk } = await import("../desk.js");
-const OPTS = JSON.parse(readFileSync(new URL("../options.json", import.meta.url), "utf8"));
+const OPTS = JSON.parse(readFileSync(env("WB_OPTIONS", "../options.json"), "utf8"));
 const HDR = readFileSync(new URL("../../app/song/library.h", import.meta.url), "utf8") +
             readFileSync(new URL("../engine/wb_drums.h", import.meta.url), "utf8");
 const enumOf = (first) => {   // the enum whose first name is `first`: its names in order
@@ -2159,16 +2166,19 @@ console.log("candidates: the strum and arpeggio rows, Approve (patterns and edit
   const { readEvents } = await import("../wb.js");
   const { approval, inactive } = await import("../rows.js");
   const ex = await load(), call = caller(ex), lib = await call("wb_library");
-  check(lib.progs.length === 44 && lib.progs.every((p) => p.status === "approved"), "wb_library's progressions carry their status (all approved)");
-  const rows = [["strumPat", "STRUM_PAT", "strumPats", 4], ["arpRhythm", "ARP_RHY", "arpRhythms", 6], ["arpPattern", "ARP_PAT", "arpPatterns", 6]];
+  check(lib.progs.length === GEN_STATUS.LIB_PROGS.length && lib.progs.every((p, i) => p.status === GEN_STATUS.LIB_PROGS[i]),
+        `wb_library's progressions carry their status (patterns_gen.c's: ${lib.progs.filter((p) => p.status !== "approved").length} not approved)`);
+  const rows = [["strumPat", "STRUM_PAT", "strumPats", "STRUM_PAT"], ["arpRhythm", "ARP_RHY", "arpRhythms", "LEAD_RHY"],
+                ["arpPattern", "ARP_PAT", "arpPatterns", "LEAD_PAT"]];
   ex.wb_seed(21);
   ex.wb_apply();
   const desk = new Desk(call, C, OPTS, lib, { rnd: lcg(4) });
   await desk.read(true);
-  for (const [id, key, src, n] of rows) {
-    const r = row(id), os = optionsFor(r, desk.state, OPTS, { lib });
+  for (const [id, key, src, table] of rows) {
+    const r = row(id), os = optionsFor(r, desk.state, OPTS, { lib, showRetired: true }), n = OPTS[src].length;
     check(r?.kind === "ov" && r.key === key && C.OV[key] !== undefined && os.length === n + 1 && os[0].rolled &&
-          os.slice(1).every((o, i) => o.value === i && o.status === "approved" && o.name === OPTS[src][i].name) &&
+          n === GEN_STATUS[table].length &&
+          os.slice(1).every((o, i) => o.value === i && o.status === GEN_STATUS[table][i] && o.name === OPTS[src][i].name) &&
           desk.values[id] === -1 && ex.wb_ov_get(C.OV[key]) === -1,
           `a ${r?.label} row (ov ${key}): as rolled, then options.json's ${src} by table index (${os.length - 1}); a new song's is as rolled`);
   }
@@ -2186,16 +2196,15 @@ console.log("candidates: the strum and arpeggio rows, Approve (patterns and edit
     return { comp: play.wb_comp_applied(), ev: JSON.stringify(readEvents(pex).filter((e) => e.role === role).map((e) => [e.bar, e.step, e.note, e.vel])) };
   };
   const nylon = ins("Nylon guitar"), strum = 21, gtr = [[OV.COMP, 5]];   // the nylon strums (comping: Strum)
-  const base = await partOf(strum, V.CHORD, gtr, nylon), forced = [];
-  for (let i = 0; i < 4; i++) forced.push((await partOf(strum, V.CHORD, [...gtr, [OV.STRUM_PAT, i]], nylon)).ev);
-  check(base.comp === 5 && forced.filter((e) => e !== base.ev).length === 3 && new Set(forced).size === 4,
-        "a strummed song plays each forced strum pattern: the rolled one as rolled, the other three each its own");
-  const lead = await partOf(21, V.LEAD, [[OV.LEAD_STYLE, 1]]), arps = [];
-  for (let i = 0; i < 6; i++) arps.push((await partOf(21, V.LEAD, [[OV.LEAD_STYLE, 1], [OV.ARP_PAT, i]])).ev);
-  const rhys = [];
-  for (let i = 0; i < 6; i++) rhys.push((await partOf(21, V.LEAD, [[OV.LEAD_STYLE, 1], [OV.ARP_RHY, i]])).ev);
-  check(arps.filter((e) => e !== lead.ev).length === 5 && rhys.filter((e) => e !== lead.ev).length === 5,
-        "the hybrid lead plays each forced arpeggio pattern and rhythm (five of six differ from the rolled one)");
+  const base = await partOf(strum, V.CHORD, gtr, nylon), forced = [], ns = OPTS.strumPats.length;
+  for (let i = 0; i < ns; i++) forced.push((await partOf(strum, V.CHORD, [...gtr, [OV.STRUM_PAT, i]], nylon)).ev);
+  check(base.comp === 5 && forced.filter((e) => e !== base.ev).length === ns - 1 && new Set(forced).size === ns,
+        `a strummed song plays each of the ${ns} forced strum patterns: the rolled one as rolled, the others each its own`);
+  const lead = await partOf(21, V.LEAD, [[OV.LEAD_STYLE, 1]]), arps = [], rhys = [];
+  for (let i = 0; i < OPTS.arpPatterns.length; i++) arps.push((await partOf(21, V.LEAD, [[OV.LEAD_STYLE, 1], [OV.ARP_PAT, i]])).ev);
+  for (let i = 0; i < OPTS.arpRhythms.length; i++) rhys.push((await partOf(21, V.LEAD, [[OV.LEAD_STYLE, 1], [OV.ARP_RHY, i]])).ev);
+  check(arps.filter((e) => e !== lead.ev).length === arps.length - 1 && rhys.filter((e) => e !== lead.ev).length === rhys.length - 1,
+        "the hybrid lead plays each forced arpeggio pattern and rhythm (all but the rolled one differ from it)");
   const d2 = new Desk(call, C, OPTS, lib, { rnd: lcg(4) });
   await d2.set("seed", strum);
   await d2.set("keys", nylon);
@@ -2207,35 +2216,46 @@ console.log("candidates: the strum and arpeggio rows, Approve (patterns and edit
   await d2.set("comp", -1);
   await d2.set("keys", ins("Rhodes"));
   check(d2.strums === false && inactive(row("strumPat"), d2.state, OPTS), "on a song whose keys don't strum, the strum row is inactive");
+  await d2.set("leadStyle", 0);
+  const sung = d2.hybrid === false && ["arpRhythm", "arpPattern"].every((id) => inactive(row(id), d2.state, OPTS));
+  await d2.set("leadStyle", 1);
+  check(sung && d2.hybrid === true && ex.wb_lead_hybrid() === 1 && ["arpRhythm", "arpPattern"].every((id) => !inactive(row(id), d2.state, OPTS)),
+        "the arpeggio rows are inactive while the lead sings phrases, active when it plays the hybrid");
   const s13 = JSON.parse(cstr(ex, ex.wb_state()));
   check(["strumPat", "arpRhythm", "arpPattern"].every((id) => fromEngine({ ...s13, ov: s13.ov.slice(0, 13) }, C, OPTS)[id] === -1),
         "an older engine's 13-entry ov list reads them as rolled");
 
   // a candidate: offered (marked), never the dice's pick; approval names it for POST /approve
-  const cand = { ...OPTS, strumPats: [...OPTS.strumPats, { id: "6", index: 4, name: "sam-strum", status: "candidate" }],
-                 patterns: [...OPTS.patterns, { id: 9, name: "sam-groove", status: "candidate" }],
-                 kickPhrases: [...OPTS.kickPhrases, { id: "k7", a: [0], b: [0], status: "candidate" }] };
-  const clib = { ...lib, progs: [...lib.progs, { id: 45, src: "imported from patterns/progressions/sam-vamp", status: "candidate" }] };
+  // (a new entry past whatever options.json and the library hold, candidates already imported among them)
+  const SN = OPTS.strumPats.length, PID = Math.max(...OPTS.patterns.map((p) => p.id)) + 1;
+  const GID = Math.max(...lib.progs.map((p) => p.id)) + 1, KID = "k-new";
+  const cand = { ...OPTS, strumPats: [...OPTS.strumPats, { id: "s-new", index: SN, name: "sam-strum", status: "candidate" }],
+                 patterns: [...OPTS.patterns, { id: PID, name: "sam-groove", status: "candidate" }],
+                 kickPhrases: [...OPTS.kickPhrases, { id: KID, a: [0], b: [0], status: "candidate" }] };
+  const clib = { ...lib, progs: [...lib.progs, { id: GID, src: "imported from patterns/progressions/sam-vamp", status: "candidate" }] };
   const st = (values) => ({ values: { ...desk.values, ...values }, locks: new Set() });
   check(optionsFor(row("strumPat"), st({}), cand).at(-1).status === "candidate" &&
         optionsFor(row("prog"), st({}), cand, { lib: clib }).at(-1).status === "candidate", "a candidate is offered, marked");
-  const picks = new Set(Array.from({ length: 200 }, (_, i) => pickFor(row("strumPat"), st({ strumPat: i % 4 }), cand, lcg(i))));
-  check(!picks.has(4) && !picks.has(-1), `the dice never pick the candidate (picked ${[...picks].sort().join(", ")})`);
+  const okStrum = OPTS.strumPats.filter((p) => p.status === "approved").map((p) => p.index);
+  const picks = new Set(Array.from({ length: 200 }, (_, i) => pickFor(row("strumPat"), st({ strumPat: okStrum[i % okStrum.length] }), cand, lcg(i))));
+  check([...picks].every((v) => okStrum.includes(v)), `the dice pick approved strum patterns only (picked ${[...picks].sort().join(", ")})`);
   const ap = (id, v) => approval(row(id), st({ [id]: v }), cand, clib);
-  check(JSON.stringify([ap("strumPat", 4), ap("pattern", 9), ap("prog", 45), ap("kick", "k7")]) === JSON.stringify([
-          { family: "strum", id: "6", name: "sam-strum" }, { family: "drums", id: "9", name: "sam-groove" },
-          { family: "progressions", id: "45", name: "#45 sam-vamp" }, { family: "kick-phrases", id: "k7", name: "k7" }]) &&
-        [ap("strumPat", 0), ap("strumPat", -1), ap("pattern", 1), ap("prog", 1), ap("kick", ""), ap("mood", 1)].every((x) => x === null),
+  const first = (xs) => xs.find((x) => x.status === "approved");
+  check(JSON.stringify([ap("strumPat", SN), ap("pattern", PID), ap("prog", GID), ap("kick", KID)]) === JSON.stringify([
+          { family: "strum", id: "s-new", name: "sam-strum" }, { family: "drums", id: String(PID), name: "sam-groove" },
+          { family: "progressions", id: String(GID), name: `#${GID} sam-vamp` }, { family: "kick-phrases", id: KID, name: KID }]) &&
+        [ap("strumPat", okStrum[0]), ap("strumPat", -1), ap("pattern", first(OPTS.patterns).id), ap("prog", first(lib.progs).id),
+         ap("kick", ""), ap("mood", 1)].every((x) => x === null),
         "approval names a candidate (strum, drum pattern, progression, kick phrase), nothing else");
   const sent = [];
   const fake = (ok) => async (url, init) => { sent.push([url, init.method, init.headers["Content-Type"], init.body]);
     return { ok, status: ok ? 200 : 400, json: async () => (ok ? { ok: true } : { ok: false, error: "no such strum pattern" }) }; };
-  const res = await desk.approve(ap("strumPat", 4), fake(true));
-  check(res.ok && desk.approved.has("strum/6") && /import\.sh/.test(res.message) &&
-        JSON.stringify(sent[0]) === JSON.stringify(["/approve", "POST", "application/json", '{"family":"strum","id":"6"}']),
+  const res = await desk.approve(ap("strumPat", SN), fake(true));
+  check(res.ok && desk.approved.has("strum/s-new") && /import\.sh/.test(res.message) &&
+        JSON.stringify(sent[0]) === JSON.stringify(["/approve", "POST", "application/json", '{"family":"strum","id":"s-new"}']),
         "Approve posts { family, id } as JSON to /approve, and says to run tools/patterns/import.sh");
-  const bad = await desk.approve(ap("pattern", 9), fake(false));
-  check(!bad.ok && !desk.approved.has("drums/9") && /no such strum pattern/.test(bad.message), "a refused approval says why");
+  const bad = await desk.approve(ap("pattern", PID), fake(false));
+  check(!bad.ok && !desk.approved.has(`drums/${PID}`) && /no such strum pattern/.test(bad.message), "a refused approval says why");
 }
 
 console.log("options.json: statuses");

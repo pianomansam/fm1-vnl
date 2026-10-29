@@ -45,6 +45,9 @@ int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b,
 /* How the hybrid lands on bar's skeleton note: 0 on 1 for an 8th, 1 on 1 for a quarter, 2 an 8th late, 3 a 16th
    late, 4 pushed an 8th early from the bar before, 5 a beat's rest then on 2 (a pure function of seed and bar). */
 int lead_landing(uint32_t seed, int bar);
+/* 1 if the song's lead plays the hybrid (the arpeggio and landings), 0 if it sings phrases: the lead_style override,
+   else by its instrument (a sustained lead or the vibes sing). */
+int lead_hybrid(const song_roll_t *r);
 /* The hybrid's arpeggio for the song: a LEAD_PAT and a LEAD_RHY index (patterns_gen.h), drawn over the approved
    entries (the arp_pat and arp_rhy overrides force one, a candidate too). A pure function of the roll and the
    overrides. */

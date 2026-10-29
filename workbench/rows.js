@@ -3,7 +3,7 @@
 // new value forces elsewhere. Pure: no DOM, no engine (desk.js drives the engine; smoke.mjs tests this directly).
 //   opts: options.json; state: { values: {row id: value}, locks: Set of row ids, legal: {prog, mode} (optional),
 //   unavailable: Set of kit ids whose samples are missing (optional: offered marked, never chosen), strums: the keys
-//   strum in the staged song (optional) };
+//   strum in the staged song, hybrid: its lead plays the arpeggio (both optional) };
 //   lib: wb_library()'s maps and progressions.
 
 const SONG = "Song", INS = "Instruments", VP = "Voicing and phrase", DRUMS = "Drums", TEX = "Texture";
@@ -243,6 +243,8 @@ export function approval(r, state, opts, lib) {
 export function inactive(r, state, opts) {
   if (r.id === "strumPat" && state.strums === false)
     return "The keys don't strum in this song: a strum pattern plays with strummed comping (the guitars).";
+  if ((r.id === "arpRhythm" || r.id === "arpPattern") && state.hybrid === false)
+    return "The lead sings phrases in this song: the arpeggio plays when the lead style is Hybrid (or a percussive lead).";
   if (r.id === "ride") {
     const kit = opts.kits.find((k) => k.id === state.values.kit);
     if (!kit?.ride) return `${kit ? kit.name : "This kit"} has no ride: the ride section plays on the sampled kits only.`;

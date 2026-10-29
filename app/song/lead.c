@@ -455,6 +455,7 @@ static void draw_arp(const song_roll_t *r, int *pat, int *rhy, int *rev, int *sw
     k = rng_int(&g, n ? n : 1);                          /* the k-th approved pattern (today's six: as before) */
     for (*pat = 0, i = 0; i < LEAD_NPAT; i++)
         if (LEAD_PAT_STATUS[i] == 1 && k-- == 0) { *pat = i; break; }
+    /* (import.py refuses a status.json that leaves a drawn table no approved entry, so n is never 0) */
     *rev = rng_int(&g, 3) == 0;
     *swap = rng_int(&g, 2) ? rng_int(&g, 5) : -1;       /* two neighboring notes swapped, or none */
     tie = rng_int(&g, 1000);
@@ -467,6 +468,13 @@ static void draw_arp(const song_roll_t *r, int *pat, int *rhy, int *rev, int *sw
     }
     if (ov->arp_pat >= 0 && ov->arp_pat < LEAD_NPAT) *pat = ov->arp_pat;   /* the workbench's pick (a candidate too) */
     if (ov->arp_rhy >= 0 && ov->arp_rhy < LEAD_NRHY) *rhy = ov->arp_rhy;
+}
+
+int lead_hybrid(const song_roll_t *r)
+{
+    const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
+    return song_ov()->lead_style >= 0 ? song_ov()->lead_style != 0
+                                      : !(set && (lib_ins_sustained(set->lead) || set->lead == INS_VIBES));
 }
 
 void lead_arp_pick(const song_roll_t *r, int *pat, int *rhy)
@@ -624,8 +632,7 @@ int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b,
         if (bn) c.bass |= 1u << (bn % 12);
     }
     nn = harmony_chord_at(r, bar + 1, (bar + 1) / loop + 1, 0, npcs);
-    if (song_ov()->lead_style >= 0 ? song_ov()->lead_style == 0
-                                   : set && (lib_ins_sustained(set->lead) || set->lead == INS_VIBES)) {
+    if (!lead_hybrid(r)) {
                                                        /* the vibes too (Sam: the hybrid's arpeggio on them is bad);
                                                           the workbench may force either */
         const plan_block_t *nb = bar + 1 < b->start + b->bars ? b

@@ -41,8 +41,10 @@ AudioWorklet. Local only; not the FM-1, so it may exceed the device's budgets.
   `patterns/`), each approved, candidate or retired, seeded from the ledgers.
 - Candidates (`patterns/README.md`): a new pattern imported from `patterns/` is offered, marked "(candidate)", in its
   row (Pattern, Progression, Kick phrase, Strum pattern, Lead arpeggio rhythm or pattern) and plays when picked; the
-  roll and the dice never draw it. Beside it, **Approve** posts it to `/approve`, which writes
-  `patterns/status.json`; `tools/patterns/import.sh` then makes the firmware draw it and rebuilds the workbench.
+  roll and the dice never draw it. Under it, **Approve** posts it to `/approve`, which writes
+  `patterns/status.json`; `tools/patterns/import.sh` then makes the firmware draw it and rebuilds the workbench. A mode
+  only a candidate progression suits can be picked too (its candidate comes with it). The strum row is greyed when the
+  keys don't strum, the arpeggio rows when the lead sings phrases.
 - Feedback: 👍/👎 and a note, on the song or a row, save a line to `workbench/feedback.jsonl`: a versioned snapshot
   (every row, the locks, the seed; `desk.snapshot()` / `desk.restore()`), where the song was, and the log of every applied
   change. Entries queue in localStorage while the server is down (the page says "not saved yet") and are resent.
@@ -52,7 +54,7 @@ AudioWorklet. Local only; not the FM-1, so it may exceed the device's budgets.
   ones the server refuses (4xx) are kept in the browser's `wb-feedback-dead`. The server takes POSTs only from its own
   page (Host, Origin and a JSON content type are checked).
 - `server.py` also takes `POST /feedback`, `/kit` and `/pattern` (names `[a-z0-9-]{1,40}`, bodies up to 1 MB), writing
-  only under `workbench/`, and `POST /approve` (`{"family", "id"}`, an entry of `patterns/model.json`), writing
+  only under `workbench/`, and `POST /approve` (`{"family", "id"}`, a candidate of `patterns/model.json`; anything else is refused), writing
   `patterns/status.json` only; its tests: `python3 workbench/tools/test_server.py`.
 - `server.py` serves the build first, then `workbench/` (kits, patterns, samples, options.json); `GET /list/kits` and
   `/list/patterns` give the saved names.

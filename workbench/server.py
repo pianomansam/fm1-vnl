@@ -4,8 +4,8 @@
 Serves the build (app/build/workbench/: the page and wb.wasm) and, behind it, workbench/ (kits, patterns, samples,
 options.json). It writes only under workbench/: POST /feedback appends a line to feedback.jsonl, POST /kit and
 POST /pattern ({"name": ..., ...}) write kits/<name>.json and patterns/<name>.json (a name already saved: 409, unless
-the body has "overwrite": true, which isn't written). POST /approve ({"family": ..., "id": ...}, an entry of
-patterns/model.json) marks a pattern candidate approved in patterns/status.json, the one file it writes outside
+the body has "overwrite": true, which isn't written). POST /approve ({"family": ..., "id": ...}, a candidate
+of patterns/model.json; anything else is refused) marks it approved in patterns/status.json, the one file it writes outside
 workbench/; tools/patterns/import.sh then makes it one the roll draws. Only this page's requests are answered (the Host is
 127.0.0.1 or localhost with the port; a POST's Origin too). GET /list/kits and /list/patterns
 give the saved names ({"names": [...]}), each served at /kits/<name>.json and /patterns/<name>.json."""
@@ -144,6 +144,9 @@ class Handler(SimpleHTTPRequestHandler):
             return self.reply(400, {"ok": False, "error": "family must be one of patterns/model.json's"})
         if not isinstance(eid, str) or eid not in model[fam]:
             return self.reply(400, {"ok": False, "error": f"no such {fam} pattern"})
+        was = model[fam][eid].get("status") if isinstance(model[fam][eid], dict) else None
+        if was != "candidate":                       # only a candidate is Sam's to approve here
+            return self.reply(409, {"ok": False, "error": f"{fam} {eid} is not a candidate ({was})"})
         path = PATTERNS / "status.json"
         with WRITE:
             try:

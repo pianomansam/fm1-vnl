@@ -28,6 +28,9 @@ class T(unittest.TestCase):
             {"_note": "x", "drums": {"1": {"status": "approved"}, "9": {"status": "candidate"}},
              "strum": {"6": {"status": "candidate"}}, "lead-arp": {"pattern-7": {"status": "candidate"}}}))
         server.Handler.log_message = lambda *a: None
+        model = json.loads((server.PATTERNS / "model.json").read_text())
+        model["strum"]["7"] = {"status": "retired"}
+        (server.PATTERNS / "model.json").write_text(json.dumps(model))
         cls.srv = ThreadingHTTPServer(("127.0.0.1", 0), partial(server.Handler, directory=cls.tmp.name))
         threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
 
@@ -165,6 +168,8 @@ class T(unittest.TestCase):
 
     def test_approve_takes_only_the_models_entries(self):
         (server.PATTERNS / "status.json").write_text('{"strum": {"6": "retired"}}')
+        for bad, code in (({"family": "drums", "id": "1"}, 409), ({"family": "strum", "id": "7"}, 409)):
+            self.assertEqual(self.post("/approve", bad)[0], code, bad)    # approved, or retired: not a candidate
         for bad in ({"family": "drums", "id": "8"}, {"family": "drums", "id": "../model"}, {"family": "_note", "id": "x"},
                     {"family": "nope", "id": "1"}, {"family": "../../etc", "id": "1"}, {"family": "drums"},
                     {"id": "9"}, {"family": "drums", "id": True}, {"family": ["drums"], "id": "9"}, {}):

@@ -35,6 +35,7 @@ for f in tests/scenarios/*.vnl; do      # the app in the host simulator; outputs
 done
 if command -v emcc >/dev/null 2>&1; then
     run emu sh build.sh --web
+    run smoke-candidates sh workbench/tools/candidates_smoke.sh   # the workbench with a candidate in every family
 else
     echo "  skip emu (no emcc)"
 fi

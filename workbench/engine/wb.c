@@ -12,6 +12,7 @@
 #include "library.h"
 #include "override.h"
 #include "patterns_gen.h"
+#include "lead.h"
 #include "voices.h"
 #include "harmony.h"
 #include "poketrack/trommelsynthesizer.h"
@@ -806,6 +807,19 @@ EXPORT int wb_comp_applied(void)
     song_override(&live.ov);
     stage_set(0);
     return cs;
+}
+
+/* 1 if the staged song's lead plays the hybrid (the arpeggio the arp_rhy and arp_pat overrides force), 0 if it sings
+   phrases (lead_hybrid: the lead style override, else its instrument) */
+EXPORT int wb_lead_hybrid(void)
+{
+    int h;
+    stage_set(1);
+    song_override(&st.ov);
+    h = lead_hybrid(&st.roll);
+    song_override(&live.ov);
+    stage_set(0);
+    return h;
 }
 
 /* a seed or map change is a new song: a jump staged before it (a bar of the old song's sections) is dropped, so

@@ -4,8 +4,8 @@
 # app/build/tests/candidates:
 #   real       the generated tables as committed: no candidate drawn; the songs' hash
 #   candidate  one candidate added to every drawn family (tools/patterns/variant.py): none drawn over 1000 seeds, each
-#              forced and heard, every event of 100 chained songs as with the real tables, and the pinned hashes
-#              (song_test's strum_same: b852d9cb / a662a137, the voicer 0x7b61830d) unchanged
+#              forced and heard, every event of 100 chained songs as with the real tables, the pinned hashes
+#              (song_test's strum_same) unchanged, and song_test's library checks holding
 #   approved   the same entries approved: each drawn (approving moves the rolls, as the importer says)
 #   sh tests/candidates.sh
 set -eu
@@ -41,3 +41,4 @@ echo "candidates: the songs are the same with the candidates ($cand); approved, 
 $CC $FLAGS -I"$OUT/candidate/song" -Iapp/engine -Ibase/include -o "$OUT/candidate/song_test" tests/host/song_test.c \
     "$OUT/candidate/song"/*.c app/engine/*.c
 "$OUT/candidate/song_test" strum_same
+"$OUT/candidate/song_test" library       # the library's checks hold with candidates in it

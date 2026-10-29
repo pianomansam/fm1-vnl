@@ -25,6 +25,7 @@
 #include "drums.h"
 #include "skits.h"
 #include "override.h"
+#include "patterns_gen.h"
 
 static int fails;
 #define CHECK(c, ...)                                                                                              \
@@ -169,7 +170,7 @@ static void test_library(void)
         CHECK(lib_prog_by_id(p->id) == p, "prog by id %d", p->id);
         CHECK(p->n >= 2 && p->n <= 4, "prog %d n=%d", p->id, p->n);
         CHECK(p->kind <= PK_JAZZY && p->moods != 0 && p->src && p->src[0] && p->bars_per_chord >= 1, "prog %d fields", p->id);
-        if (p->kind <= PK_JAZZY) kc[p->kind]++;
+        if (p->kind <= PK_JAZZY && LIB_PROGS_STATUS[i] == 1) kc[p->kind]++;   /* the drawn ones: approved */
     }
     for (i = 0; i < LIB_NPROGS; i++) {
         int cyc = LIB_PROGS[i].n * LIB_PROGS[i].bars_per_chord;
@@ -229,9 +230,9 @@ static void test_library(void)
     }
     CHECK(lib_prog_by_id(255) == NULL, "prog 255");
     {
-        int pct[3] = {40, 45, 15};
+        int pct[3] = {40, 45, 15}, n = kc[0] + kc[1] + kc[2];
         for (i = 0; i < 3; i++) {
-            int got = kc[i] * 100 / LIB_NPROGS;
+            int got = kc[i] * 100 / n;
             CHECK(got >= pct[i] - 10 && got <= pct[i] + 10, "kind %d is %d%%", i, got);
         }
     }
@@ -9861,22 +9862,26 @@ static void test_strum_lead(void)
 static void test_strum(void)
 {
     static const int SETS[2] = {9, 27};   /* the guitar sets with a sustained lead: the only ones that strum */
-    long pcnt[SP_N] = {0}, ballads = 0, slow_ballads = 0, bad_slow = 0, st_steals = 0;
-    int got[SP_N + 1] = {0}, seed, k, dbl_songs = 0, st_peak = 0;
+    /* (over the approved patterns, patterns_gen.h's: today's four, or more once Sam approves one) */
+    long pcnt[STRUM_NPAT] = {0}, ballads = 0, slow_ballads = 0, bad_slow = 0, st_steals = 0, napp = 0;
+    int got[STRUM_NPAT + 1] = {0}, seed, k, dbl_songs = 0, st_peak = 0;
+    for (k = 0; k < STRUM_NPAT; k++) napp += STRUM_PAT_STATUS[k] == 1;
     for (seed = 1; seed <= 500; seed++) {
         song_roll_t r;
         int slow, p;
         roll_song(NULL, (uint32_t)seed, &r);
         p = strum_pattern(&r, &slow);
-        CHECK(p >= 0 && p < SP_N, "strum: seed %d pattern %d", seed, p);
-        if (p < 0 || p >= SP_N) continue;
+        CHECK(p >= 0 && p < STRUM_NPAT && STRUM_PAT_STATUS[p] == 1, "strum: seed %d pattern %d", seed, p);
+        if (p < 0 || p >= STRUM_NPAT) continue;
         pcnt[p]++;
         if (p == SP_BALLAD) { ballads++; slow_ballads += slow; }
         else bad_slow += slow;
     }
     printf("strum: patterns over 500 seeds ddu %ld chuck %ld bossa %ld ballad %ld (%ld slow)\n", pcnt[0], pcnt[1],
            pcnt[2], pcnt[3], slow_ballads);
-    for (k = 0; k < SP_N; k++) CHECK(pcnt[k] >= 75 && pcnt[k] <= 175, "strum: pattern %d in %ld of 500", k, pcnt[k]);
+    for (k = 0; k < STRUM_NPAT; k++)   /* equal weights: 500 / napp each, within 40% (today 125: 75-175) */
+        CHECK(STRUM_PAT_STATUS[k] != 1 || (pcnt[k] * napp >= 300 && pcnt[k] * napp <= 700), "strum: pattern %d in %ld of 500",
+              k, pcnt[k]);
     CHECK(ballads && slow_ballads * 100 >= ballads * 45 && slow_ballads * 100 <= ballads * 55,
           "strum: %ld of %ld ballads slow, wanted 45-55%%", slow_ballads, ballads);
     CHECK(bad_slow == 0, "strum: %ld songs of another pattern slow", bad_slow);
@@ -9890,7 +9895,7 @@ static void test_strum(void)
         roll_song(NULL, (uint32_t)seed, &r);
         if (roll_set(&r, RF_SET, set) != set || harmony_style(&r) != CS_STRUM) continue;
         p = strum_pattern(&r, &slow);
-        kind = p == SP_BALLAD && slow ? SP_N : p;
+        kind = p == SP_BALLAD && slow ? STRUM_NPAT : p;
         if (got[kind] >= 3) continue;
         got[kind]++;
         st_count0 = set == 9 && dbl_songs < 4;
@@ -9907,7 +9912,8 @@ static void test_strum(void)
                            slow ? " (slow)" : "", (unsigned)st);
         }
     }
-    for (k = 0; k <= SP_N; k++) CHECK(got[k] == 3, "strum: only %d songs of kind %d", got[k], k);
+    for (k = 0; k <= STRUM_NPAT; k++)
+        CHECK((k < STRUM_NPAT && STRUM_PAT_STATUS[k] != 1) || got[k] == 3, "strum: only %d songs of kind %d", got[k], k);
     printf("strum: 15 renders (24 bars each): %ld sounding chord voices stolen, %d voices (all roles) at most\n",
            st_steals, st_peak);
     CHECK(st_steals == 0, "strum: %ld sounding chord voices stolen (a stroke must re-strike its strings' voices)",

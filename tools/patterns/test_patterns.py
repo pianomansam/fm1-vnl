@@ -19,7 +19,8 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 sys.path.insert(0, str(HERE))
 import midi  # noqa: E402
-from test_import import Import, imp  # noqa: E402,F401  (run with these)
+from test_import import Import, ImportWithCandidates, imp  # noqa: E402,F401  (run with these)
+from test_pins import Pins  # noqa: E402,F401
 
 FAMILIES = {"drums": 8, "kick-phrases": 5, "progressions": 44, "comp-rhythms": 3, "strum": 5, "lead-arp": 18,
             "melody-cells": 7}

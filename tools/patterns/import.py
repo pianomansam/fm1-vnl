@@ -33,7 +33,7 @@ FAMS = ["drums", "kick-phrases", "progressions", "comp-rhythms", "strum", "lead-
 LANE_FAMS = {"drums", "kick-phrases", "strum"}
 EXTS = (".mid", ".musicxml")
 DERIVED = ("status", "file", "symbols", "symbols_mode", "onsets")
-HASHES = "the pinned hashes (b852d9cb / a662a137, the voicer 0x7b61830d)"
+HASHES = "the pinned song hashes (tests/host/song_test.c's strum_same)"
 STATUS = {"approved": 1, "candidate": 0, "retired": 2}     # the generated *_STATUS values (the engine draws 1 only)
 # what a pattern sounds like, to tell a renamed or saved-as copy of an entry
 SOUND_KEYS = {"drums": ("hit", "ghost", "hit_b", "ghost_b", "poly3", "two_bar"), "kick-phrases": ("a", "b"),
@@ -575,6 +575,22 @@ def set_status(pat, model, notes, refuse):
                 e["status"] = st
 
 
+def drawn_left(model):
+    """-> refusals: a table the roll draws left with no approved entry (or a mood with no approved progression)"""
+    def none(es):
+        return es and not any(e["status"] == "approved" for e in es)
+    out = []
+    for fam, kind, what in (("drums", None, "drum pattern"), ("strum", "pattern", "strum pattern"),
+                            ("lead-arp", "rhythm", "arpeggio rhythm"), ("lead-arp", "pattern", "arpeggio pattern"),
+                            ("melody-cells", None, "melody cell")):
+        if none([e for e in model[fam].values() if kind is None or e.get("kind") == kind]):
+            out.append(f"no approved {what} would be left: keep at least one approved")
+    for mood in validate.MOODS:
+        if none([e for e in model["progressions"].values() if mood in e["moods"]]):
+            out.append(f"no approved {mood[5:].lower()} progression would be left: keep at least one approved")
+    return out
+
+
 # -------------------------------------------------------------------------------------------------------- import
 def atomic_write(path, data):
     path = Path(path)
@@ -659,6 +675,8 @@ def run(pat, gen, options, check=False):
         new[fam][key] = e
         imported[stem] = (fam, key, set(changed))
     set_status(pat, new, notes, refuse)
+    for rule in drawn_left(new):
+        refuse(["status.json"], None, rule)
     def files_of(e):                                 # a refusal names the files the entry was read from
         got = imported.get(e["file"])
         return [e["file"] + x for x in sorted(got[2])] if got else [e["file"] + ".mid"]
@@ -685,7 +703,7 @@ def run(pat, gen, options, check=False):
             e["file"] = new[fam][k]["file"]
             if content(e) != content(new[fam][k]):
                 raise SystemExit(f"import: internal: {fam} {k} does not round-trip through the tables")
-    changes, moves = [], False
+    changes, moves = [], []                          # moves: why the pins move ("approved drums 9")
     for fam in FAMS:
         for k, e in out_model[fam].items():
             old = model[fam].get(k)
@@ -693,18 +711,24 @@ def run(pat, gen, options, check=False):
             if old is None:                              # a candidate: never drawn, never moves the pins
                 changes.append(f"import: new {fam} {k} ({e['file']}), " +
                                ("a candidate" if e["status"] == "candidate" else e["status"]))
-                moves |= drawn and e["status"] == "approved"
+                if drawn and e["status"] == "approved":
+                    moves.append(f"new approved {fam} {k}")
                 continue
             if content(old) != content(e):
                 changes.append(f"import: {old['status']} {fam} {k} changed ({e['file']})")
-                moves |= drawn and old["status"] == "approved"
+                if drawn and old["status"] == "approved":
+                    moves.append(f"changed approved {fam} {k}")
             if old["status"] != e["status"]:            # status.json: approving or retiring moves the rolls
                 changes.append(f"import: {fam} {k} ({e['file']}) {old['status']} -> {e['status']}")
-                moves |= drawn and "approved" in (old["status"], e["status"])
+                if drawn and "approved" in (old["status"], e["status"]):
+                    moves.append(f"{e['status']} {fam} {k}" if e["status"] == "approved" else
+                                 f"{e['status']} (was approved) {fam} {k}")
     for line in changes:
         print(line)
     if moves:
-        print(f"import: {HASHES} will move: re-pin them in tests/host/song_test.c with a comment naming the edit")
+        print(f"import: {HASHES} will move: tools/patterns/import.sh runs the suite and says so; "
+              "import.sh --repin re-pins them")
+        print("import: pins move: " + "; ".join(moves))  # (import.sh reads this line)
     if check:
         print(f"import: check: ok ({len(imported)} pattern(s) to import, {len(changes)} change(s)); nothing written")
         return 0

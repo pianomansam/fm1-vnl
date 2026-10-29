@@ -60,14 +60,15 @@ static int set_ok(int id, int mood)
     return s && (s->moods & (1 << mood));
 }
 
-/* the mode has a progression the roll can draw (an approved one) */
-static int mode_has_prog(int mood, int mode)
+/* the mode has a progression the roll can draw (an approved one); any: or a candidate (a manual pick of the mode) */
+static int mode_has(int mood, int mode, int any)
 {
     int i, n;
     const lib_prog_t *p = progs(&n);
-    for (i = 0; i < n; i++) if (prog_drawn(&p[i], mood, mode)) return 1;
+    for (i = 0; i < n; i++) if (any ? prog_ok(&p[i], mood, mode) : prog_drawn(&p[i], mood, mode)) return 1;
     return 0;
 }
+static int mode_has_prog(int mood, int mode) { return mode_has(mood, mode, 0); }
 
 static int major_family(int mode) { return mode == MODE_IONIAN || mode == MODE_LYDIAN || mode == MODE_MIXOLYDIAN; }
 
@@ -226,12 +227,20 @@ static void clamp_bars(song_roll_t *r)
     r->v[RF_BARS] = (int16_t)clamp(b, bars_lo(r->v[RF_TEMPO]), bars_hi(r->v[RF_TEMPO]));
 }
 
-/* After a mood or mode change: keep mode, progression and set legal, re-picking only what became illegal. */
-static void fix_deps(song_roll_t *r, uint32_t seed)
+/* After a mood or mode change: keep mode, progression and set legal, re-picking only what became illegal (from the
+   approved entries). picked: the mode was picked by hand (roll_set), where a mode only a candidate progression suits
+   stands, with that candidate if the current progression doesn't suit it (the workbench's way to hear one; a mood
+   change, the firmware's, keeps to the approved). */
+static void fix_deps(song_roll_t *r, uint32_t seed, int picked)
 {
-    if (!mode_has_prog(r->v[RF_MOOD], r->v[RF_MODE])) draw(r, RF_MODE, seed, KEEP_ALL, 0);
-    if (!prog_ok(prog_find(r->v[RF_PROG]), r->v[RF_MOOD], r->v[RF_MODE])) draw(r, RF_PROG, seed, KEEP_ALL, 0);
-    if (!set_ok(r->v[RF_SET], r->v[RF_MOOD])) draw(r, RF_SET, seed, KEEP_ALL, 0);
+    int mood = r->v[RF_MOOD], i, n;
+    const lib_prog_t *p = progs(&n);
+    if (!mode_has(mood, r->v[RF_MODE], picked) && !prog_ok(prog_find(r->v[RF_PROG]), mood, r->v[RF_MODE]))
+        draw(r, RF_MODE, seed, KEEP_ALL, 0);
+    if (!prog_ok(prog_find(r->v[RF_PROG]), mood, r->v[RF_MODE]) && !draw(r, RF_PROG, seed, KEEP_ALL, 0) && picked)
+        for (i = 0; i < n; i++)
+            if (prog_ok(&p[i], mood, r->v[RF_MODE])) { r->v[RF_PROG] = p[i].id; break; }
+    if (!set_ok(r->v[RF_SET], mood)) draw(r, RF_SET, seed, KEEP_ALL, 0);
 }
 
 static int novelty(const song_roll_t *a, const song_roll_t *b)
@@ -315,7 +324,7 @@ int roll_dice(song_roll_t *r, int field, uint32_t salt)
     if (v < 0) return 0;
     r->v[field] = (int16_t)v;
     if (field == RF_TEMPO) clamp_bars(r);
-    if (field == RF_MOOD || field == RF_MODE) fix_deps(r, s);
+    if (field == RF_MOOD || field == RF_MODE) fix_deps(r, s, 0);
     return 1;
 }
 
@@ -332,7 +341,7 @@ int roll_set(song_roll_t *r, int field, int value)
     }
     value = clamp(value, lo[field], hi[field]);
     switch (field) {
-    case RF_MODE: if (!mode_has_prog(r->v[RF_MOOD], value)) return r->v[field]; break;
+    case RF_MODE: if (!mode_has(r->v[RF_MOOD], value, 1)) return r->v[field]; break;   /* a candidate's mode too */
     case RF_MAP: if (!lib_map_by_id((uint8_t)value)) return r->v[field]; break;
     case RF_PROG: if (!prog_ok(prog_find(value), r->v[RF_MOOD], r->v[RF_MODE])) return r->v[field]; break;
     case RF_SET: if (!set_ok(value, r->v[RF_MOOD])) return r->v[field]; break;
@@ -342,7 +351,7 @@ int roll_set(song_roll_t *r, int field, int value)
     r->v[field] = (int16_t)value;
     s = mix(mix(r->seed, 0x5E7u), (uint32_t)(field << 8 | value));
     if (field == RF_TEMPO) clamp_bars(r);
-    if (field == RF_MOOD || field == RF_MODE) fix_deps(r, s);
+    if (field == RF_MOOD || field == RF_MODE) fix_deps(r, s, field == RF_MODE);
     return value;
 }
 

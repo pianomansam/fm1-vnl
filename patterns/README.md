@@ -78,9 +78,14 @@ byte.
   backslash and no `??` (it becomes a C string).
 - **The hashes:** the importer lists every entry that changed or was added, and every status `status.json` changed;
   when an approved firmware entry changed, or an entry was approved or retired, the engine suite's pinned song hashes
-  will move (a candidate never moves them; `tests/candidates.sh` checks it): re-pin them in
-  `tests/host/song_test.c` with a comment naming the edit. Kick phrases are the workbench's
-  (`workbench/options.json`), so they never move them.
+  move (a candidate never moves them; `tests/candidates.sh` checks it). `import.sh` says why before and after the
+  suite ("approved drums 9"); if only the pin checks failed it exits 3 with their new values, and any other failure
+  is a real one (exit 1). After listening, `tools/patterns/import.sh --repin` rewrites the pins in
+  `tests/host/song_test.c` with a comment naming the approval(s) and reruns the suite; nothing is re-pinned without
+  it. Kick phrases are the workbench's (`workbench/options.json`), so they never move them.
+- **Keep one approved:** a `status.json` that would leave a drawn table (the drum patterns, strum patterns, arpeggio
+  rhythms or patterns, melody cells) with no approved entry, or a mood with no approved progression, is refused.
+- **No emcc:** `import.sh` warns loudly when it can't rebuild the workbench (its engine keeps the old tables).
 - **`workbench/options.json`:** the importer regenerates its `patterns` (the drum patterns; an existing one keeps its
   name, a new one is named by its file), `kickPhrases`, `strumPats`, `arpRhythms` and `arpPatterns` blocks with
   their statuses; the rest of the file is kept byte for byte.

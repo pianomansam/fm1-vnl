@@ -42,6 +42,12 @@ static int pattern_index(int id)
     return p ? (int)(p - LIB_PATTERNS) : -1;
 }
 
+static int prog_ok_here(const song_roll_t *r)
+{
+    const lib_prog_t *p = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
+    return p && (p->moods >> r->v[RF_MOOD] & 1) && (p->modes >> r->v[RF_MODE] & 1);
+}
+
 static uint32_t hash(uint32_t h, uint32_t v) { return (h ^ v) * 16777619u; }
 
 /* every event of one song (voice mask: the voices hashed) */
@@ -97,6 +103,9 @@ static void draw_all(drawn_t *d)
             if (roll_dice(&t, RF_PATTERN, k)) d->pattern[pattern_index(t.v[RF_PATTERN])]++;
             t = r;
             if (roll_dice(&t, RF_MOOD, k)) d->prog[prog_index(t.v[RF_PROG])]++;   /* a re-picked progression */
+            t = r;                              /* a mood request (the firmware's): the mode and progression kept legal */
+            roll_set(&t, RF_MOOD, (int)((r.v[RF_MOOD] + k) % 4));
+            d->prog[prog_index(t.v[RF_PROG])]++;
         }
         d->strum[strum_pattern(&r, &slow)]++;
         lead_arp_pick(&r, &pat, &rhy);
@@ -164,9 +173,12 @@ static void test_forced(void)
         while (!(p->modes >> mode & 1)) mode++;
         roll_song(NULL, 5, &r);
         roll_set(&r, RF_MOOD, mood);
-        roll_set(&r, RF_MODE, mode);
+        CHECK(roll_set(&r, RF_MODE, mode) == mode, "prog %d's mode %d can be picked", p->id, mode);
+        CHECK(prog_ok_here(&r), "prog %d: the song's progression suits the picked mode", p->id);
         t = r;
         CHECK(roll_set(&t, RF_PROG, p->id) == p->id, "prog %d can be picked", p->id);
+        r = t;                                  /* (raw: the same song on another progression) */
+        r.v[RF_PROG] = LIB_PROGS[1].id;
         CHECK(song_hash(&t, ~0u) != song_hash(&r, ~0u), "prog %d plays", p->id);
         forced++;
     }

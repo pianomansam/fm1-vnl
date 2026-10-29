@@ -75,10 +75,11 @@ export class Desk {
     this.dead = {};            // parts whose 🎲 found no other roll in the song as it stands: why (cleared by any change)
     this.approved = new Set(); // candidates approved this session ("family/id"): approved once import.sh has run
     this.strums = undefined;   // the staged song's keys strum (the strum pattern row is heard only then)
+    this.hybrid = undefined;   // the staged song's lead plays the arpeggio (the arpeggio rows are heard only then)
   }
 
   get state() { return { values: this.values, locks: this.locks, legal: this.legal, unavailable: this.samples?.unavailable,
-                         strums: this.strums }; }
+                         strums: this.strums, hybrid: this.hybrid }; }
   kept(id) { return this.locks.has(id) || this.hand.has(id); }
 
   // the engine's staged state into values; the family is the page's (derive: from the keys and lead, as a new song's)
@@ -94,6 +95,7 @@ export class Desk {
       mode: await ids([0, 1, 2, 3, 4, 5], this.C.RF.MODE),
     };
     this.strums = (await this.call("wb_comp_applied")) === CS_STRUM;
+    this.hybrid = (await this.call("wb_lead_hybrid")) === 1;
     return this.values;
   }
 
