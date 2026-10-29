@@ -23,7 +23,11 @@ enum { LS_IMPRESSIONISM, LS_ROMANTICISM, LS_JAZZ60S, LS_MODAL, LS_JAZZHOP, LS_FI
      head a bar, rising, falling or an arch) is the style's own way of developing it, not part of the motif.
    - '60s Jazz: its statement, 2-4 8ths off the beat into a target over the bar line, undisplaced; its steps count in
      the chord's legal notes (the mode's, less those that rub: LM_MODE). Restatements displace it and sequence it.
-   - Modal Jazz: its phrase heads' 1-3 notes stepping into the held tone (in the mode's scale), every head exact. */
+   - Modal Jazz: its phrase heads' 1-3 notes stepping into the held tone (in the mode's scale), every head exact.
+   - Jazz-Hop: its hook, 2-4 quick notes into a held tone in one bar (in the mode's pentatonic: LM_PENT), restated
+     every 2 bars, the turnaround's one change aside.
+   - Film Score: its phrase heads' 3-5 notes on the 8th grid into the long note (in the mode's pentatonic), each head
+     restating its rhythm and up/down shape; the question sequences it a step up, the answer falls home. */
 enum { LM_MODE, LM_PENT, LM_PENT_COLOR };   /* the mode's 7 notes; its pentatonic; the pentatonic and the mode's
                                                color note */
 typedef struct { uint8_t n; uint8_t at[8], len[8]; int8_t step[8]; uint8_t contour, scale; } lead_motif_t;
@@ -88,6 +92,9 @@ int leads_si_note(int key, const int *sc, int si);
    Mixolydian b7, Aeolian b6), -1 for Ionian */
 unsigned leads_scale_mask(const song_roll_t *r);
 int leads_color_pc(const song_roll_t *r);
+/* the mode's pentatonic as pitch-class bits (Ionian, Lydian, Mixolydian: 1 2 3 5 6; Dorian, Phrygian, Aeolian:
+   1 b3 4 5 b7), with its color note where color is set (and the mode has one) */
+unsigned leads_pent_mask(const song_roll_t *r, int color);
 int leads_note_si(int key, const int *sc, int note);   /* the scale note at or under note */
 /* k members of mask (pitch-class bits) from note, up (k > 0) or down */
 int leads_coll_step(unsigned mask, int note, int k);
@@ -108,5 +115,9 @@ void jazz60s_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b,
 void jazz60s_motif(const song_roll_t *r, lead_motif_t *m);
 void modal_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b, int bar, const leads_next_t *nx);
 void modal_motif(const song_roll_t *r, lead_motif_t *m);
+void jazzhop_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b, int bar, const leads_next_t *nx);
+void jazzhop_motif(const song_roll_t *r, lead_motif_t *m);
+void filmscore_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b, int bar, const leads_next_t *nx);
+void filmscore_motif(const song_roll_t *r, lead_motif_t *m);
 
 #endif

@@ -961,6 +961,18 @@ static void test_modal_rules(void)
     style_rules(LS_MODAL, "Modal Jazz", 25);       /* (28.8, the felt piano an octave up) */
     style_hard(LS_MODAL, "Modal Jazz", INS1, 1, 170);   /* (189 m9 notes, the spike's 190) */
 }
+static void test_jazzhop_rules(void)
+{
+    static const int INS3[3] = {INS_FLUTE, INS_FELT_PIANO, INS_VIBES};
+    style_rules(LS_JAZZHOP, "Jazz-Hop", 35);         /* (39.4, the vibes an octave down) */
+    style_hard(LS_JAZZHOP, "Jazz-Hop", INS3, 3, 150);   /* (166 m9 notes, the felt piano) */
+}
+static void test_filmscore_rules(void)
+{
+    static const int INS3[3] = {INS_FLUTE, INS_FELT_PIANO, INS_KNIGHT};
+    style_rules(LS_FILMSCORE, "Film Score", 40);     /* (43.0, the Knight an octave down) */
+    style_hard(LS_FILMSCORE, "Film Score", INS3, 3, 180);   /* (203 m9 notes, the felt piano) */
+}
 
 int main(void)
 {
@@ -978,6 +990,8 @@ int main(void)
     test_romanticism_rules();
     test_jazz60s_rules();
     test_modal_rules();
+    test_jazzhop_rules();
+    test_filmscore_rules();
     printf("strong steps: %ld lead/candy notes checked against the sounding chord and bass (%ld of them sounding "
            "tones), %ld with neither\n", strong_checked, strong_in, strong_skipped);
     printf("other steps: %ld lead/candy notes checked against the sounding chord and bass\n", weak_checked);

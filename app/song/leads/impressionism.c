@@ -17,10 +17,6 @@
 enum { SH_TURN, SH_RISE, SH_FALL, SH_CURL, SH_N };
 static const int8_t SHAPE[SH_N][6] = {
     {-1, 0, +1, 0, +1, -1}, {-6, -5, -4, -3, -2, -1}, {+6, +5, +4, +3, +2, +1}, {-3, -2, -1, +1, +2, +1}};
-/* the mode's pentatonic, as scale indexes (Ionian, Lydian, Mixolydian: 1 2 3 5 6; Dorian, Phrygian, Aeolian:
-   1 b3 4 5 b7); its color note: leads_color_pc */
-static const int8_t PENT[MODE_N][5] = {{0, 1, 2, 4, 5}, {0, 2, 3, 4, 6}, {0, 2, 3, 4, 6},
-                                      {0, 1, 2, 4, 5}, {0, 1, 2, 4, 5}, {0, 2, 3, 4, 6}};
 
 typedef struct { int shape, trip, n, land, modal; } im_song_t;
 typedef struct { int var, float_kind, tie, late, shift; } im_pass_t;
@@ -55,13 +51,7 @@ static void im_pass(uint32_t seed, int run, int pass, int half, im_pass_t *p)
 
 static unsigned im_mask(const song_roll_t *r, int which)   /* 0 the scale, 1 its pentatonic (+ color: 2) */
 {
-    int sc[7], i, key = r->v[RF_KEY], mode = r->v[RF_MODE], col = leads_color_pc(r);
-    unsigned m = 0;
-    if (which == 0) return leads_scale_mask(r);
-    leads_scale(r, sc);
-    for (i = 0; i < 5; i++) m |= 1u << ((key + sc[PENT[mode][i]]) % 12);
-    if (which == 2 && col >= 0) m |= 1u << col;
-    return m;
+    return which == 0 ? leads_scale_mask(r) : leads_pent_mask(r, which == 2);
 }
 
 /* the long note: legal (over the next chord too when tied, x), a chord tone on a strong beat; near target, the

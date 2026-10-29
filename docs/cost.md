@@ -1062,3 +1062,25 @@ CPU: `tools/tick-bench.sh 3000 5 [STYLE]`, three runs each, interleaved: worst t
 forced **27-28 us**, '60s Jazz forced (4) **28 us**, Modal Jazz forced (5) **27-28 us**; strummed songs 23-28 us in
 all three; worst song_start 6-8 us. Within the host's noise of the older engines'; the unforced events hash is
 unchanged (7dbc0885, 936e9bb7).
+
+### Lead styles, Task 4: Jazz-Hop and Film Score (2026-10-29)
+
+Two style files (app/song/leads/jazzhop.c, filmscore.c); the mode's pentatonic mask moved into leads.c's shared
+helpers (Impressionism uses the same copy). Image by `./build.sh`, measured style by style:
+
+| build | image | delta |
+|---|---|---|
+| Task 3 (a2b3fa3) | 419424 B | |
+| shared helper (no new style registered) | 419488 B | +64 |
+| + Jazz-Hop | 422432 B | +2944 |
+| + Film Score | 425808 B | +3376 |
+
+**Over budget (409600) by 16208 B until Task 8** (the Task 2 ruling). Six styles now average ~3.4 KB; the Task 2
+projection (~11 KB short after Task 6 for all eight) holds. RAM .data+.bss 55632 B (unchanged: neither style keeps
+state across bars beyond lead_state_t's shared tie), pool 180216 B (unchanged).
+
+CPU: `tools/tick-bench.sh 3000 5 [STYLE]`, three runs each, interleaved: worst tick over the 2933 other songs, no style
+forced **27-28 us**, Jazz-Hop forced (6) **27-30 us**, Film Score forced (7) **30-32 us**; strummed songs 21-31 us in
+all three; worst song_start 6-11 us. Film Score sits a little over the rest (each of its notes is fitted by its own
+scan of the bar's range), within Impressionism's 27-33 us; the unforced events hash is unchanged (7dbc0885,
+936e9bb7).

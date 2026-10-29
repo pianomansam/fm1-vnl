@@ -9722,6 +9722,15 @@ static const ls_spike_t LS_SPIKE[] = {
     {LS_JAZZ60S, INS_KNIGHT, 238, 8460, 4357, 3063, 714, 201, 266, 2812, 371, 727, 0, 0, 80, 82},
     {LS_MODAL, INS_FLUTE, 300, 10441, 3821, 3418, 1232, 1134, 1007, 3204, 1738, 1518, 97, 97, 0, 0},
     {LS_MODAL, INS_FELT_PIANO, 278, 9651, 3523, 3166, 1139, 1051, 934, 2956, 1610, 1412, 97, 94, 0, 79},
+    /* (lead-styles Task 4; the port's measured ratios where under the defaults: Jazz-Hop flute rhythm 0.998, contour
+       0.989; felt rhythm 0.999, contour 0.997; vibes rhythm 0.998, contour 0.988; Film Score contour: flute 0.976,
+       felt 0.976, Knight 0.971) */
+    {LS_JAZZHOP, INS_FLUTE, 300, 13529, 3773, 2513, 1232, 1232, 1216, 3252, 2069, 1995, 99, 98, 0, 0},
+    {LS_JAZZHOP, INS_FELT_PIANO, 278, 12491, 3481, 2301, 1139, 1139, 1123, 3001, 1903, 1831, 99, 99, 0, 0},
+    {LS_JAZZHOP, INS_VIBES, 300, 13528, 3773, 2513, 1232, 1232, 1216, 3252, 2069, 1993, 99, 98, 0, 0},
+    {LS_FILMSCORE, INS_FLUTE, 300, 14446, 4312, 4102, 1232, 634, 1160, 3732, 1598, 1793, 0, 97, 0, 0},
+    {LS_FILMSCORE, INS_FELT_PIANO, 278, 13372, 3997, 3795, 1139, 587, 1076, 3456, 1480, 1653, 0, 97, 0, 0},
+    {LS_FILMSCORE, INS_KNIGHT, 238, 11634, 3442, 3268, 984, 503, 939, 2983, 1264, 1439, 0, 97, 0, 0},
 };
 
 static const ls_spike_t *ls_spike(int style, int ins)
@@ -9735,7 +9744,8 @@ static const ls_spike_t *ls_spike(int style, int ins)
 static const char *ls_name(int style)
 {
     return style == LS_IMPRESSIONISM ? "Impressionism" : style == LS_ROMANTICISM ? "Romanticism"
-         : style == LS_JAZZ60S ? "'60s Jazz" : "Modal Jazz";
+         : style == LS_JAZZ60S ? "'60s Jazz" : style == LS_MODAL ? "Modal Jazz" : style == LS_JAZZHOP ? "Jazz-Hop"
+         : "Film Score";
 }
 static const char *ls_ins(int ins)
 {
@@ -9746,8 +9756,14 @@ static const char *ls_ins(int ins)
    the spike's averaged 71) drops more of its statements' low approach notes, and Modal Jazz's felt piano (center 82)
    loses its lowest notes. Its code is the spike's (with the spike's floor and no keys' window, the port measures the
    same as the spike on all 300 songs, every instrument). Held: the rows' own floors (LS_SPIKE), and the hard chords
-   no costlier than in the spike for the songs' own density (lead-styles Task 3). */
-static int ls_banded(int style) { return style == LS_JAZZ60S || style == LS_MODAL; }
+   no costlier than in the spike for the songs' own density (lead-styles Task 3). Jazz-Hop and Film Score likewise
+   (lead-styles Task 4): their anchors and fitted pitch levels move with the floor, so a few heads lose a planned rise
+   or fall; Film Score's flute leaves a few more hard bars silent (Lydian 3, m9 2: fewer for its songs' own silent
+   share), and Jazz-Hop's flute plays 21 fewer notes on Lydian maj7 bars (0.9985 of the spike's for its density). */
+static int ls_banded(int style)
+{
+    return style == LS_JAZZ60S || style == LS_MODAL || style == LS_JAZZHOP || style == LS_FILMSCORE;
+}
 
 /* The motif restated: Impressionism's phrase heads (its arabesque) restate the song's first head's rhythm and
    contour; Romanticism's bars (its cell, every bar but the cadence's) restate its first bar's; each at least as often
@@ -9779,8 +9795,8 @@ static void ls_motif(int style, const int *ins, int nins)
     }
     {   /* the motif's form against the first phrase head sung: every onset of it one of the motif's (aligned on the
            arabesque's landing, its last; on the cell's first; on the statement's target, its last, the head's bar and
-           the next sounding it), a note the legal notes or the range drop left out; Modal Jazz's head exact: its
-           first notes the motif's onsets, from its first */
+           the next sounding it; on the hook's held tone or the long note, its last), a note the legal notes or the
+           range drop left out; Modal Jazz's head exact: its first notes the motif's onsets, from its first */
         uint32_t k;
         long songs = 0, same = 0;
         for (k = 1; k <= 300; k++) {
@@ -9792,7 +9808,8 @@ static void ls_motif(int style, const int *ins, int nins)
             o.lead_style = (int8_t)(2 + style);
             song_override(&o);
             CHECK(leads_motif(&r, &m) && m.n >= 2 &&
-                  (style != LS_IMPRESSIONISM ? m.scale == LM_MODE : m.scale == LM_PENT || m.scale == LM_PENT_COLOR),
+                  (style == LS_IMPRESSIONISM ? m.scale == LM_PENT || m.scale == LM_PENT_COLOR
+                   : style == LS_JAZZHOP || style == LS_FILMSCORE ? m.scale == LM_PENT : m.scale == LM_MODE),
                   "%s motif: seed %u has none (or another scale)", ls_name(style), (unsigned)k);
             song_override(NULL);
             ls_play(&r, style, 0);
@@ -9831,7 +9848,9 @@ static void ls_motif(int style, const int *ins, int nins)
    where the spike's was (each median within 3 semitones: the centers are the five songs' median together).
    Romanticism's span: the band's floor (its center less 6, where the spike's moved with the keys' top bar to bar)
    narrows it to 0.82 of the spike's on the flute (lead-styles Task 2 report, a concern for Sam's ear): held at 0.75 or
-   more, not 0.85 (its LS_SPIKE row). */
+   more, not 0.85 (its LS_SPIKE row). Jazz-Hop's A/B song 1 sits 5 lower (median 72, the spike's 77; lead-styles
+   Task 4 report, for Sam's ear): its floor 70 where the spike's was over the Knight keys' top, so its anchor (the key
+   note nearest the floor's 3 over, tied between G4 and G5) falls to G4 and the hook folds onto the floor. */
 static void ls_shape(int style, const int *ins, int nins, const double *ab_nbar, const int *ab_med)
 {
     static const int AB[5][3] = {{101, 21, INS_FLUTE}, {1010, 9, INS_FLUTE}, {303, 4, INS_VIBES},
@@ -9879,7 +9898,7 @@ static void ls_shape(int style, const int *ins, int nins, const double *ab_nbar,
         printf("%s A/B song %d: %.2f notes a bar (spike %.2f), %d-%d, median %d (spike %d)\n", ls_name(style), k + 1,
                n ? (double)lsn_n / n : 0.0, ab_nbar[k], lo, hi, lsn_n ? med[lsn_n / 2] : 0, ab_med[k]);
         CHECK(n && (double)lsn_n / n >= ab_nbar[k] * 0.85 && (double)lsn_n / n <= ab_nbar[k] * 1.15 &&
-              med[lsn_n / 2] - ab_med[k] <= 3 && ab_med[k] - med[lsn_n / 2] <= 3,
+              med[lsn_n / 2] - ab_med[k] <= 3 && ab_med[k] - med[lsn_n / 2] <= (style == LS_JAZZHOP && k == 0 ? 5 : 3),
               "%s A/B song %d: %.2f notes a bar, median %d (spike %.2f, %d)", ls_name(style), k + 1,
               n ? (double)lsn_n / n : 0.0, med[lsn_n / 2], ab_nbar[k], ab_med[k]);
     }
@@ -9891,7 +9910,7 @@ static void ls_shape(int style, const int *ins, int nins, const double *ab_nbar,
    the hard chords cost no more than they did), (m9 over the walk) as many notes on them. Rubs: clash_test, on every
    song. A style the band costs (ls_banded: its spike's 6 numbers, the last the songs' silent bars) is held to the
    songs' own density: its hard bars left silent no more often for its songs' silent share than the spike's, its notes
-   on them (Lydian: '60s Jazz 0.98 of the spike's or more) as many for its songs' notes a bar. */
+   on them (Lydian: '60s Jazz 0.98 of the spike's or more, Jazz-Hop 0.998) as many for its songs' notes a bar. */
 static void ls_hard(int style, const long *sp_ly, const long *sp_mw)
 {
     ls_acc_t ly, mw;
@@ -9928,7 +9947,9 @@ static void ls_hard(int style, const long *sp_ly, const long *sp_mw)
         double smn = (double)sp_mw[0] / sp_mw[4] / ((double)sp_mw[2] / sp_mw[3]);
         printf("%s on hard chords, for the songs' own density: Lydian silent %.3f (spike %.3f); m9 silent %.3f "
                "(spike %.3f), notes %.3f (spike %.3f)\n", ls_name(style), lys, sls, ms, sms, mn, smn);
-        CHECK(ly.hard > 2000 && lys <= sls && cost >= sp_cost * (style == LS_JAZZ60S ? 0.98 : 1.0),   /* (0.984) */
+        CHECK(ly.hard > 2000 && lys <= sls &&
+              cost >= sp_cost * (style == LS_JAZZ60S ? 0.98 : style == LS_JAZZHOP ? 0.998 : 1.0),   /* (0.984,
+                                                                                                         0.9985) */
               "%s on Lydian maj7 chords: silent %.3f, notes %.3f (spike %.3f, %.3f)", ls_name(style), lys, cost, sls,
               sp_cost);
         CHECK(mw.hard > 300 && ms <= sms && mn >= smn, "%s on m9 chords over the walk: silent %.3f, notes %.3f (spike "
@@ -10106,6 +10127,41 @@ static void test_modal_hard(void)
 {
     static const long LY[6] = {4522, 896, 7968, 4588, 2481, 1731}, MW[6] = {190, 225, 3386, 2004, 336, 712};
     ls_hard(LS_MODAL, LY, MW);
+}
+
+/* Jazz-Hop and Film Score (lead-styles Task 4): each on the lead instruments it is rolled for (Jazz-Hop: the flute,
+   felt piano, vibes; Film Score: the flute, felt piano, Knight) */
+static void test_jazzhop_motif(void)
+{
+    static const int INS3[3] = {INS_FLUTE, INS_FELT_PIANO, INS_VIBES};
+    ls_motif(LS_JAZZHOP, INS3, 3);
+}
+static void test_filmscore_motif(void)
+{
+    static const int INS3[3] = {INS_FLUTE, INS_FELT_PIANO, INS_KNIGHT};
+    ls_motif(LS_FILMSCORE, INS3, 3);
+}
+static void test_jazzhop_shape(void)
+{
+    static const int INS3[3] = {INS_FLUTE, INS_FELT_PIANO, INS_VIBES}, MED[5] = {77, 75, 76, 80, 76};
+    static const double NB[5] = {3.10, 2.43, 4.00, 3.94, 4.00};
+    ls_shape(LS_JAZZHOP, INS3, 3, NB, MED);
+}
+static void test_filmscore_shape(void)
+{
+    static const int INS3[3] = {INS_FLUTE, INS_FELT_PIANO, INS_KNIGHT}, MED[5] = {79, 75, 76, 80, 81};
+    static const double NB[5] = {3.46, 3.25, 3.54, 3.43, 3.06};
+    ls_shape(LS_FILMSCORE, INS3, 3, NB, MED);
+}
+static void test_jazzhop_hard(void)
+{
+    static const long LY[6] = {5628, 919, 9934, 4588, 2481, 1766}, MW[6] = {353, 204, 4495, 2004, 336, 727};
+    ls_hard(LS_JAZZHOP, LY, MW);
+}
+static void test_filmscore_hard(void)
+{
+    static const long LY[6] = {6265, 698, 11041, 4588, 2481, 1336}, MW[6] = {420, 155, 4701, 2004, 336, 593};
+    ls_hard(LS_FILMSCORE, LY, MW);
 }
 static void test_ov_ride(void)
 {
@@ -11926,6 +11982,12 @@ int main(int argc, char **argv)
     RUN(test_modal_shape);
     RUN(test_jazz60s_hard);
     RUN(test_modal_hard);
+    RUN(test_jazzhop_motif);
+    RUN(test_filmscore_motif);
+    RUN(test_jazzhop_shape);
+    RUN(test_filmscore_shape);
+    RUN(test_jazzhop_hard);
+    RUN(test_filmscore_hard);
     RUN(test_ov_ride);
     RUN(test_ov_voicing_salt);
     RUN(test_ov_phrase_salt);
