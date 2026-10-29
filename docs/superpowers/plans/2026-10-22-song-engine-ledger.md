@@ -318,11 +318,11 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
     Romanticism and the '60s jazz pianist "are really strong."** Don't rework their motifs (Sam); the stay-on-the-motif rule applies to
     the spikes still to come.
   - **Names (Sam):** each kept style takes a genre name, and every trace of the source person is then scrubbed from
-    the repo (lead-style work only): Impressionism, Romantic, '60s Jazz, Cool Jazz, Modal Jazz, Post-Bop, Bossa Nova,
+    the repo (lead-style work only): Impressionism, Romanticism, '60s Jazz, Cool Jazz, Modal Jazz, Post-Bop, Bossa Nova,
     Jazz-Hop, Film Score, Ambient — for whichever of these are kept.
   - **Cool Jazz** (branch `worktree-agent-a62c91983b0fa60c5`, f359ad9): "fair. Not the best."
   - **Modal Jazz** (branch `worktree-agent-a8cba358d5d753da1`, 12843da): "sounds really good." Shortlist now:
-    Impressionism, Romantic, '60s Jazz, Modal Jazz. Note: its song 5 stayed within a 3rd because the spike centers a
+    Impressionism, Romanticism, '60s Jazz, Modal Jazz. Note: its song 5 stayed within a 3rd because the spike centers a
     narrow "middle register" just above the floor (a 4th over the keys' top), not because of the pad; widen the window
     when it's built for real.
 
