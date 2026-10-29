@@ -1,6 +1,6 @@
 # VNL-1: the lead styles, built into the engine
 
-Status: draft for Sam's review (2026-10-29). Sam's decisions are in the song-engine ledger
+Status: approved by Sam (2026-10-29: "sounds good"; builder-check answers folded in). Sam's decisions are in the song-engine ledger
 (docs/superpowers/plans/2026-10-22-song-engine-ledger.md, "Leads").
 
 ## Intent
@@ -49,7 +49,9 @@ he no longer wants, and flash.
    - 13, 18, 19, 33: saw lead;
    - 28, 29: Emilyguitar.
 
-   No style may put the same instrument on keys and lead.
+   No style may put the same instrument on keys and lead. **Sam (2026-10-29): the synth/acoustic divide applies to
+   drums only.** Instruments (keys, bass, pad, lead) may mix freely across families; a song's family now chooses only
+   its drum kit (the workbench's family row swaps the kit, not the other roles).
 7. **Which style a song plays** is rolled per song, weighted by its lead instrument (the table's best fits) and the
    set's flavor (e.g. Bossa Nova mostly with bossa sets, Jazz-Hop common everywhere). The workbench's lead-style row
    lists the eight, and the lead part's re-roll stays.
@@ -61,7 +63,11 @@ he no longer wants, and flash.
      unpushed `workbench` branch's history.
    - Research docs are rewritten under genre names, describing traits without the person or their pieces.
    - The spike branches and worktrees are deleted.
-   - Scope (Sam): lead-style names only. Older research and drum pattern source notes stay.
+   - Scope (Sam): lead-style names only — the eight kept and the ones not kept (Neoclassical, Cool Jazz, Post-Bop; their
+     research is rewritten or removed, Post-Bop's v3 rules stay in the ledger under its genre name). Sam's quotes in
+     the ledger are reworded with genre names. Older research and drum pattern source notes stay.
+   - **Depth (Sam): rewrite history fully** — every unpushed commit's files and messages (git filter-repo), so no
+     lead-style source name exists anywhere in the branch's history. Nothing pushed changes.
 
 ## Non-goals
 
@@ -107,8 +113,9 @@ he no longer wants, and flash.
   - felt piano: '60s Jazz, Jazz-Hop, Ambient, Film Score;
   - vibes: Impressionism, Jazz-Hop, Bossa Nova, Ambient, '60s Jazz;
   - Knight: Film Score, '60s Jazz, Ambient.
-- **Lost sets' new leads:** synth sets get vibes (electric), acoustic sets flute or felt. The vibes share is kept near
-  its rebalanced level (5-7 sets).
+- **Lost sets' new leads** (families no longer constrain leads): 5 Chillwave pad → felt; 10 Pad and pluck → flute;
+  13 DX and FM bass → vibes; 17 Nylon → flute; 18 Organ → felt; 19 Rhodes → felt; 20 DX → felt; 28 Rhodes → Knight;
+  29 Knight keys → flute; 33 DX → vibes. Leads then: flute 10 sets, felt 8, vibes 7, Knight 4.
 - **Keys' room:**
   - the lead claims a band of about an octave around its motif's center;
   - the keys voice below the band's floor when they would reach into it, within their instrument's range;
@@ -125,7 +132,6 @@ he no longer wants, and flash.
   or not, so voicings stay one per chord (cached as today). It applies to percussive keys only; sustained keys (pad,
   organ) keep their placement path. The pad layer's chord part follows the keys' voicings, so it moves with them.
 - **Candy fields:** the ear candy part is gone, so a set's candy field doesn't constrain its lead.
-- **Families of the lost sets:** Rhodes and Wurli are electric (either); nylon is acoustic.
 - **Style roll:** weight = instrument fit × flavor weight. Instrument fit: 1 for the instrument's styles above, 0
   otherwise. Flavor weights (×): lofi — Jazz-Hop 3, the rest 1; neo-soul — '60s Jazz 2, Modal Jazz 2, Jazz-Hop 2;
   city pop — Film Score 2, Jazz-Hop 2; chillwave — Ambient 3, Impressionism 2; bossa — Bossa Nova 4, others 1 (Bossa

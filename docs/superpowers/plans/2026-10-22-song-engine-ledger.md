@@ -141,6 +141,9 @@ Final: fix wave dispatched (groove.h comment; ./build.sh on head; re-render song
 Final: fix wave cd9f186 (comment-only, verified by controller reading groove.h:16-28 — review-package script denied by the auto-mode classifier); suite green; firmware rebuilt on head: image 112596 B, RAM 31160/98304, pool 69384/344064, no soft doubles; songs.wav re-rendered 15:20.
 Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of Opus 5.5; history rewrite denied by the auto-mode classifier; left for Sam.
 
+**Families (Sam, 2026-10-29): the synth/acoustic divide applies to drums only.** Keys, bass, pad and lead may mix
+across families; a song's family chooses its drum kit only. (Replaces "supporting roles swap automatically".)
+
 ## To revisit (Sam, after listening)
 
 - **Hybrid lead styles (Sam, 2026-10-29).** One lead style makes the motif, then a different style takes it over and
