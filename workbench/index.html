@@ -97,6 +97,7 @@
     <button id="play" class="primary">Play</button>
     <button id="all">🎲 Re-roll all unlocked</button>
     <span id="pos">bar – / –  ·  0:00</span>
+    <label class="switch" title="Repeat the section playing instead of moving on"><input id="loop" type="checkbox"> 🔁 Loop section</label>
     <label class="switch"><input id="retired" type="checkbox"> Show retired</label>
   </div>
   <div class="bar"><div id="progress"></div></div>
@@ -117,7 +118,7 @@
 <script type="module">
   import * as wb from "./wb.js";
   import { ROWS, GROUPS, optionsFor, inactive } from "./rows.js";
-  import { Desk, PARTS, PART_ROW, sectionAt, positionOf } from "./desk.js";
+  import { Desk, PARTS, PART_ROW, sectionAt, positionOf, loopAt } from "./desk.js";
   import { layout, draw } from "./roll.js";
   import { DrumScreen } from "./drums.js";
   const $ = (id) => document.getElementById(id);
@@ -386,7 +387,13 @@
   }
 
   function show(p) {
-    if (p.bar !== pos.bar && desk) wb.call("wb_sections", 1).then((s) => { heard = s; mark(); roll().catch(() => {}); }, () => {});   // a bar line: a landing may have changed the song heard
+    if (p.bar !== pos.bar && desk) wb.call("wb_sections", 1).then((s) => {   // a bar line: a landing may have changed the song heard
+      heard = s; mark(); roll().catch(() => {});
+      // looping: the section's last bar has begun → back to its start at the next bar line (a click on another section
+      // during this bar still wins: the later jump replaces this one)
+      const back = playing && $("loop").checked ? loopAt(heard, p.bar) : null;
+      if (back !== null) wb.call("wb_jump", back).catch(() => {});
+    }, () => {});
     if (drums && ((p.bar - 1) & 1) !== ((pos.bar - 1) & 1)) drums.render(p);   // the bar sounding (1 or 2)
     pos = { seconds: p.seconds, bar: p.bar };
     $("pos").textContent = `bar ${p.bar || "–"} / ${p.bars}  ·  ${fmt(p.seconds)}`;

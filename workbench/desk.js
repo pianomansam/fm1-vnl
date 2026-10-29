@@ -37,6 +37,10 @@ export const reaction = (p, by, moved) => { const w = WHY[p]?.(moved, by); retur
 // the section (wb_sections' { start, bars, name }) holding bar (from 1: wb_bar's), or null
 export const sectionAt = (secs, bar) => secs?.find((x) => bar > x.start && bar <= x.start + x.bars) ?? null;
 
+// looping a section: the bar (from 1) its last bar starts → the section's start to jump back to (landing at the next bar
+// line, as the section ends), else null
+export const loopAt = (secs, bar) => { const s = sectionAt(secs, bar); return s && bar === s.start + s.bars ? s.start : null; };
+
 // where the song heard is: { seconds, bar, section } (the section's name in the song playing, or null). live: the playing
 // song's sections (wb_live_sections), not the committed ones (a change may be waiting)
 export const positionOf = (pos, live) => ({ seconds: pos.seconds, bar: pos.bar, section: sectionAt(live, pos.bar)?.name ?? null });

@@ -1561,11 +1561,27 @@ console.log("Task 1b: no ear candy; the pad on/off row");
 
 console.log("the section strip, mute/solo and listening state (Task 3)");
 {
-  const { sectionAt, PARTS, positionOf } = await import("../desk.js");
+  const { sectionAt, PARTS, positionOf, loopAt } = await import("../desk.js");
   const ex = await fresh(), call = caller(ex);
   const desk = new Desk(call, C, OPTS, await call("wb_library"), { rnd: lcg(13), probe: await prober() });
   await desk.read(true);
   const secs = await desk.sections();
+  // looping a section: only its last bar answers, with its start; played through, it comes back to its first bar
+  {
+    const s = secs[1], last = s.start + s.bars;
+    check(loopAt(secs, last) === s.start && loopAt(secs, last - 1) === (s.bars === 1 ? s.start : null) && loopAt(secs, 0) === null,
+          "loopAt: a section's last bar → its start, other bars → null");
+    const lx = await fresh();
+    lx.wb_jump(s.start); lx.wb_play(1);
+    let back = 0;
+    for (let pass = 0; pass < 2; pass++) {
+      until(lx, () => lx.wb_bar() === last, 120 * SR);
+      lx.wb_jump(loopAt(secs, lx.wb_bar()));
+      until(lx, () => lx.wb_bar() !== last, 60 * SR);
+      if (lx.wb_bar() === s.start + 1) back++;
+    }
+    check(back === 2, `a looped section comes back to its first bar each time (${back} of 2)`);
+  }
   check(secs.length >= 3 && sectionAt(secs, 1) === secs[0] && sectionAt(secs, secs[2].start + 1) === secs[2] &&
         sectionAt(secs, secs.at(-1).start + secs.at(-1).bars) === secs.at(-1) && sectionAt(secs, 0) === null && sectionAt(null, 3) === null,
         "sectionAt: a 1-based bar's section (the first and last bars of each, none outside)");
