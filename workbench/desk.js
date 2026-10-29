@@ -5,9 +5,22 @@
 // lands half of it. A seed or map change regenerates the song, so every locked or hand-set row is staged again first. call(fn, ...args) reaches wb.wasm's exports, a Promise (wb.js in the page; smoke.mjs in Node).
 import { ROWS, row, conflicts, pickFor, familyOf, fromEngine, kickMasks, rolled } from "./rows.js";
 import { cellOf, LANES } from "./drums.js";
+import { byPart } from "./roll.js";
 
 // the parts a listener can mute or solo (the page's names) and the engine's role for each (the drums' bus on V_KICK)
 export const PARTS = { keys: "CHORD", bass: "BASS", lead: "LEAD", pad: "PAD", drums: "KICK" };
+
+// each part's salt row (rows.js's part: its 🎲 sets it), and its name in messages
+export const PART_ROW = Object.fromEntries(ROWS.filter((r) => r.part).map((r) => [r.part, r.id]));
+const NAME = { keys: "Keys", bass: "Bass", lead: "Lead", pad: "Pad", drums: "Drums" };
+
+// What part p's events moving says, after a re-roll of part by (moved: every part that moved): "<part> moved", and
+// why where the engine's rules say (a part re-roll moves only its own streams; these are its known reactions)
+const WHY = {
+  keys: (moved) => (moved.includes("lead") ? "they make room for the lead" : ""),
+  lead: (moved, by) => (by === "bass" ? "it keeps clear of the bass" : ""),
+};
+export const reaction = (p, by, moved) => { const w = WHY[p]?.(moved, by); return `${NAME[p]} moved${w ? `: ${w}` : ""}.`; };
 
 // the section (wb_sections' { start, bars, name }) holding bar (from 1: wb_bar's), or null
 export const sectionAt = (secs, bar) => secs?.find((x) => bar > x.start && bar <= x.start + x.bars) ?? null;
@@ -26,8 +39,11 @@ export class Desk {
   // instance off the audio thread (wb.js's probe); without one the lead register isn't read back
   // position(): { seconds, bar } of the song playing, for the change log (none: 0, 0)
   // samples: wb.js's Samples (the sampled kits: which are unavailable, and their files loaded on first use), or none
-  constructor(call, C, opts, lib, { rnd = Math.random, probe = null, position = () => ({ seconds: 0, bar: 0 }), samples = null } = {}) {
-    Object.assign(this, { call, C, opts, lib, rnd, probe, position, samples });
+  // events(bytes): the committed song's { events } (wb.js's events, on the probe instance), for the parts' reactions and
+  // whether the song has a pad; without it neither is known
+  constructor(call, C, opts, lib, { rnd = Math.random, probe = null, position = () => ({ seconds: 0, bar: 0 }), samples = null,
+                                    events = null } = {}) {
+    Object.assign(this, { call, C, opts, lib, rnd, probe, position, samples, events });
     this.changes = [];         // every applied change: { seconds, bar, row, from, to }
     this.values = {};
     this.locks = new Set();
@@ -36,6 +52,10 @@ export class Desk {
     this.listen = { mute: new Set(), solo: null };   // parts muted, the part soloed: listening only, kept across regenerates
     this.legal = {};
     this.message = "";
+    this.rolls = {};           // each part's rolls: { history: [{ salt } (the drums': { salt, kick })], at }
+    this.partEv = null;        // the committed song's events by part (refresh())
+    this.padless = false;      // the committed song has no pad (its pad 🎲 and ◀ ▶ wait for one)
+    this.reactions = [];       // what else the last part roll moved ("Lead moved: ...")
   }
 
   get state() { return { values: this.values, locks: this.locks, legal: this.legal, unavailable: this.samples?.unavailable }; }
@@ -92,12 +112,12 @@ export class Desk {
   }
 
   // Stage every kept (locked or hand-set) row again, after a regenerate wiped the custom set, pattern and roll; a new
-  // seed also returns the other overrides to the engine's. Then the family's followers, unless kept.
+  // seed also returns the other overrides to the engine's (a new map, the parts' salts). Then the family's followers, unless kept.
   async reapply(except, kept, fresh) {
     for (const r of ROWS) {
       if (r.id === except || r.kind === "seed" || r.kind === "family") continue;
       if (kept.has(r.id)) await this.stage(r.id, kept.get(r.id));
-      else if (fresh && (r.kind === "ov" || r.kind === "reroll")) await this.stage(r.id, rolled(r));
+      else if ((fresh || r.part) && (r.kind === "ov" || r.kind === "reroll")) await this.stage(r.id, rolled(r));
     }
     if (kept.has("family")) {
       const fam = kept.get("family");
@@ -110,9 +130,11 @@ export class Desk {
 
   // Set row id to value (dice: a roll, not a hand edit). { ok, message, moved }
   // release: only the locks are kept through a regenerate (re-roll all lets hand edits go once its seed lands)
-  async set(id, value, { dice = false, release = false } = {}) {
+  // step: a part's salt set from its history (not a new roll); also: [[row, value]] staged with it (the drums' kick)
+  async set(id, value, { dice = false, release = false, step = false, also = [] } = {}) {
     const r = row(id);
     if (this.locks.has(id)) return this.done(false, `${r.label} is locked.`);
+    for (const p of Object.keys(PARTS)) this.rollOf(p);   // each part's history starts at the roll before this change
     if (id === "kit" && this.samples && !(await this.samples.kit(value))) {
       const k = this.opts.kits.find((x) => x.id === value);
       return this.done(false, `${k?.name ?? "That kit"} is unavailable: its sample files are missing (see workbench/samples/README.md).`);
@@ -121,11 +143,13 @@ export class Desk {
                                                   : conflicts(r, value, this.state, this.opts, this.rnd, this.lib);
     if (c.blocked) return this.done(false, `Blocked: ${c.blocked.label} is locked (${c.blocked.why}).`);
     const before = { ...this.values }, grid = this.drums?.grid, lanes = this.drums?.lanes, dropped = [];
-    const keep = (x) => (release ? this.locks.has(x) : this.kept(x));
+    // a part's salt is kept only when locked (a salt means something else in a new song)
+    const keep = (x) => (release || row(x).part ? this.locks.has(x) : this.kept(x));
     const kept = new Map([...ROWS].filter((x) => keep(x.id) && x.id !== id).map((x) => [x.id, before[x.id]]));
-    const forced = new Set(c.forced.map((f) => f.row));
+    const forced = new Set([...c.forced.map((f) => f.row), ...also.map(([x]) => x)]);
     await this.call("wb_stage_mark");
     await this.stage(id, value);
+    for (const [x, v] of also) await this.stage(x, v);
     for (const f of c.forced) await this.stage(f.row, f.to);
     if (r.regenerates) await this.reapply(id, kept, r.kind === "seed");
     else {   // a roll field can redraw the set (a mood change) or the pattern: the kept roles and drums go back
@@ -168,6 +192,14 @@ export class Desk {
     this.message = "";
     await this.readBack();
     await this.call("wb_apply");
+    if (r.regenerates)   // a new song: the unlocked parts start over, as rolled
+      for (const p of Object.keys(PARTS)) if (!this.locks.has(PART_ROW[p])) delete this.rolls[p];
+    if (r.part && !step) {   // a new roll goes on the end of its history
+      const h = this.rollOf(r.part);
+      h.history.push(this.entry(r.part));
+      h.at = h.history.length - 1;
+    }
+    await this.refresh();
     const at = this.position();
     for (const x of [r, ...changed.filter((x) => x.id !== id)])
       this.changes.push({ seconds: at.seconds, bar: at.bar, row: x.id, from: before[x.id], to: this.values[x.id] });
@@ -242,6 +274,7 @@ export class Desk {
       }
       return res;
     }
+    if (r.part) return this.reroll(r.part);
     if (r.kind === "reroll") return this.set(id, 1 + Math.floor(this.rnd() * 0x7ffffffe), { dice: true });
     if (r.kind === "roll") {
       const { RF } = this.C, before = this.values[id];
@@ -254,6 +287,75 @@ export class Desk {
     const v = pickFor(r, this.state, this.opts, this.rnd, this.lib);
     if (v === null) return this.done(false, `${r.label}: no other approved option${r.kind === "role" || id === "kit" ? ` for a ${this.values.family} song` : ""}.`);
     return this.set(id, v, { dice: true });
+  }
+
+  // ---- the parts (keys, bass, lead, pad, drums): a 🎲 each (a new salt for that part's own streams), its history of
+  // rolls (◀ ▶), a lock (its salt row's), and what else moved ----
+
+  // { part: { salt, history, at, locked } }
+  get parts() {
+    return Object.fromEntries(Object.keys(PARTS).map((p) => {
+      const h = this.rollOf(p);
+      return [p, { salt: this.values[PART_ROW[p]] ?? 0, history: h.history.map((e) => ({ ...e })), at: h.at, locked: this.locks.has(PART_ROW[p]) }];
+    }));
+  }
+  // the part's roll as it stands (a history entry); its history (a new one: this roll alone)
+  entry(p) { return p === "drums" ? { salt: this.values.drumsVar ?? 0, kick: this.values.kick ?? "" } : { salt: this.values[PART_ROW[p]] ?? 0 }; }
+  rollOf(p) { return (this.rolls[p] ??= { history: [this.entry(p)], at: 0 }); }
+
+  // why part p can't take a new roll or step (null: it can)
+  cantRoll(p) {
+    if (this.locks.has(PART_ROW[p])) return `${NAME[p]} is locked.`;
+    if (p === "pad" && this.padless) return "No pad in this song: its rolls are kept for when it has one (Pad on/off).";
+    if (p === "drums" && this.drums?.grid?.edited) return "Drums: the pattern grid holds hand edits; reset the drawn pattern to re-roll.";
+    return null;
+  }
+
+  // the committed song's events by part (null without events()); kept as partEv, with padless
+  async refresh() {
+    if (!this.events) return null;
+    this.partEv = byPart((await this.events(await this.call("wb_commit_bytes"))).events, this.C.V);
+    this.padless = !this.partEv.pad.length;
+    return this.partEv;
+  }
+
+  // f() changes part's salt: its result, the message saying which other parts' events moved (the committed song before
+  // and after) and whether the part's own did
+  async reacting(part, f) {
+    const before = this.events ? await this.refresh() : null;
+    const res = await f();
+    if (!res.ok || !before) return res;
+    const after = this.partEv, same = (p) => JSON.stringify(before[p]) === JSON.stringify(after[p]);
+    const moved = Object.keys(PARTS).filter((p) => p !== part && !same(p));
+    this.reactions = moved.map((p) => reaction(p, part, moved));
+    const notes = [res.message, ...(same(part) ? [`${NAME[part]}: this roll plays the same notes in this song.`] : []), ...this.reactions];
+    return this.done(true, notes.filter(Boolean).join(" "));
+  }
+
+  // 🎲 for a part: a new nonzero salt (the drums: a kick phrase from options.json's too, unless the kick is locked);
+  // it lands at the next bar line and goes on the end of the part's history
+  async reroll(p) {
+    const why = this.cantRoll(p);
+    if (why) return this.done(false, why);
+    const also = [];
+    if (p === "drums" && !this.locks.has("kick")) {
+      const ks = this.opts.kickPhrases.filter((k) => (k.status ?? "approved") === "approved" && k.id !== this.values.kick);
+      if (ks.length) also.push(["kick", ks[Math.floor(this.rnd() * ks.length) % ks.length].id]);
+    }
+    return this.reacting(p, () => this.set(PART_ROW[p], 1 + Math.floor(this.rnd() * 0x7ffffffe), { dice: true, also }));
+  }
+
+  // ◀ (d -1) or ▶ (d 1) through part p's history: that roll exactly (the drums' kick too). Past either end: nothing
+  async stepPart(p, d) {
+    const h = this.rollOf(p), to = h.at + d;
+    if (to < 0 || to >= h.history.length) return this.done(false, `${NAME[p]}: no ${d < 0 ? "earlier" : "later"} roll.`);
+    const why = this.cantRoll(p);
+    if (why) return this.done(false, why);
+    const e = h.history[to];
+    const also = p === "drums" && e.kick !== this.values.kick && !this.locks.has("kick") ? [["kick", e.kick]] : [];
+    const res = await this.reacting(p, () => this.set(PART_ROW[p], e.salt, { dice: true, step: true, also }));
+    if (res.ok) h.at = to;
+    return res;
   }
 
   // Re-roll everything unlocked: a new seed (hand edits let go) when the seed isn't locked, else each row's dice
@@ -275,7 +377,8 @@ export class Desk {
   // locks and hand edits, the seed. "drums" is the drum state the rows don't hold (the kit, pattern and kick are rows
   // already): the heard song's drum lanes and grid, { preset, lanes: [[kind, a, b, dB], ...], kit_lanes, grid: { base,
   // edited, lanes } } (wb_state's; restore stages the grid if it was edited). "listen": { mute: [parts], solo: part|null }
-  // (absent in older snapshots: none).
+  // (absent in older snapshots: none). "parts": { part: { salt, history, at, locked } } (the desk's: a roll still waiting
+  // for its bar line is in it; the salts heard are the rows'; absent in older snapshots: every part as rolled).
   async snapshot() {
     const pending = (await this.call("wb_pending")) ? { ...this.values } : null;
     let rows = { ...this.values }, heard = await this.call(pending ? "wb_live_state" : "wb_state");
@@ -284,7 +387,7 @@ export class Desk {
       rows.family = familyOf(rows, this.opts);
     }
     return { version: 1, rows, pending, locks: [...this.locks], hand: [...this.hand], seed: rows.seed, drums: heard.drums,
-             listen: { mute: [...this.listen.mute], solo: this.listen.solo } };
+             listen: { mute: [...this.listen.mute], solo: this.listen.solo }, parts: this.parts };
   }
 
   // Put a snapshot's state on the engine (staged, then committed) as the page's own stagings would; the rows that
@@ -306,6 +409,17 @@ export class Desk {
     this.hand = new Set(snap.hand);
     this.moved = new Set();
     await this.read();
+    this.rolls = {};   // each part's history, at the roll the rows hold (a snapshot without parts: a history of that roll)
+    for (const [p, x] of Object.entries(snap.parts ?? {})) {
+      if (!(p in PARTS) || !x.history?.length) continue;
+      if (x.locked) this.locks.add(PART_ROW[p]);
+      const cur = JSON.stringify(this.entry(p)), history = x.history.map((e) => ({ ...e }));
+      let at = history.findIndex((e, i) => i === x.at && JSON.stringify(e) === cur);
+      if (at < 0) at = history.findIndex((e) => JSON.stringify(e) === cur);
+      if (at < 0) at = history.push(this.entry(p)) - 1;
+      this.rolls[p] = { history, at };
+    }
+    await this.refresh();
     return [...ROWS.filter((r) => String(this.values[r.id]) !== String(snap.rows[r.id])).map((r) => r.id), ...missing];
   }
 

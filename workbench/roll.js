@@ -5,15 +5,24 @@
 export const LANES = ["keys", "bass", "lead", "pad", "drums"];
 export const BAR_PX = 40, LANE_PX = { drums: 90 }, LANE_DEFAULT_PX = 56;
 
+// an event's role (C.V) -> its part (a lane), or null
+export const partOf = (r, V) => (r === V.CHORD ? "keys" : r === V.BASS ? "bass" : r === V.LEAD ? "lead" : r === V.PAD ? "pad"
+                                 : r >= V.KICK && r <= V.RIDE ? "drums" : null);
+
+// events (wb.js readEvents) by part: { keys: [...], ..., drums: [...] }
+export function byPart(events, V) {
+  const by = Object.fromEntries(LANES.map((p) => [p, []]));
+  for (const e of events) { const p = partOf(e.role, V); if (p) by[p].push(e); }
+  return by;
+}
+
 // events (wb.js readEvents), sections (wb_sections), bars; V: the engine's role numbers (C.V: CHORD, BASS, LEAD, PAD,
 // KICK..RIDE); chords (wb.js readChords). -> { bars, sections: [x of each section's start, in bars], chords: [x of
 // each chord change], lanes: [{ role: part name, notes: [{ x, w, y,
 // h, shade }] }] }. x, w in bars (from 0); y, h as fractions of the lane, 0 at the top (a pitched lane spans its own
 // lowest to highest note; a drum lane is one row of the grid); shade 0..1 by velocity. An empty lane has no notes.
 export function layout(events, sections, bars, V, chords = []) {
-  const part = (r) => (r === V.CHORD ? "keys" : r === V.BASS ? "bass" : r === V.LEAD ? "lead" : r === V.PAD ? "pad" : r >= V.KICK && r <= V.RIDE ? "drums" : null);
-  const by = Object.fromEntries(LANES.map((p) => [p, []]));
-  for (const e of events) { const p = part(e.role); if (p) by[p].push(e); }
+  const by = byPart(events, V);
   const rows = V.RIDE - V.KICK + 1;
   return {
     bars,

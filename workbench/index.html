@@ -56,6 +56,9 @@
     .row { grid-template-columns: 7em 1fr auto auto auto auto; }
     .row.part { grid-template-columns: 7em 1fr auto auto auto auto auto auto; }
   }
+  /* the parts: a 🎲 each, ◀ ▶ through its rolls, a lock, feedback on the roll heard */
+  #parts .row { grid-template-columns: 4.5em 1fr auto auto auto auto auto auto; }
+  #parts .roll { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .feedback { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
   .feedback input { flex: 1 1 16em; min-width: 0; }
   #fb { color: var(--muted); }
@@ -107,13 +110,14 @@
     <span id="fb" role="status" aria-live="polite"></span>
   </div>
   <p id="msg" role="status" aria-live="polite"></p>
+  <section id="parts"><h2>Parts</h2><div class="rows"></div></section>
   <div id="desk"></div>
   <div id="drums" hidden></div>
 </main>
 <script type="module">
   import * as wb from "./wb.js";
   import { ROWS, GROUPS, optionsFor, inactive } from "./rows.js";
-  import { Desk, PARTS, sectionAt, positionOf } from "./desk.js";
+  import { Desk, PARTS, PART_ROW, sectionAt, positionOf } from "./desk.js";
   import { layout, draw } from "./roll.js";
   import { DrumScreen } from "./drums.js";
   const $ = (id) => document.getElementById(id);
@@ -132,11 +136,12 @@
     const samples = new wb.Samples(wb.call, wb.C);
     await samples.check(opts);
     samples.preload().catch((e) => { $("msg").textContent = String(e); });   // before Play, so a load mid-song is rare
-    desk = new Desk(wb.call, wb.C, opts, lib, { probe: wb.probe, position: () => pos, samples });
+    desk = new Desk(wb.call, wb.C, opts, lib, { probe: wb.probe, position: () => pos, samples, events: wb.events });
     await wb.call("wb_seed", 21);
     await desk.read(true);
     const replaced = await desk.approvedKit();   // the boot song lands on an approved kit too, highlighted
     await wb.call("wb_apply");
+    await desk.refresh();
     if (replaced) { desk.moved = new Set(["kit"]); $("msg").textContent = replaced; }
     wb.onPosition(show);
     render();
@@ -200,16 +205,19 @@
           h.append(edit);
         }
         box.className = "rows";
-        for (const r of ROWS.filter((x) => x.group === g)) { const el = rowEl(r); els.set(r.id, el); box.append(el); }
+        for (const r of ROWS.filter((x) => x.group === g && !x.hidden)) { const el = rowEl(r); els.set(r.id, el); box.append(el); }
         sec.append(h, box);
         $("desk").append(sec);
       }
+      $("parts").querySelector(".rows").append(...Object.keys(PARTS).map(partEl));
     }
+    renderParts();
     drums?.render(pos);
     strip().catch((e) => { $("msg").textContent = String(e); });
     const showRetired = $("retired").checked;
     for (const r of ROWS) {
       const el = els.get(r.id), cur = desk.values[r.id], locked = desk.locks.has(r.id);
+      if (!el) continue;   // a part's own salt (the parts panel's)
       el.classList.toggle("moved", desk.moved.has(r.id));
       el.classList.toggle("locked", locked);
       el.lock.setAttribute("aria-pressed", String(locked));
@@ -230,6 +238,39 @@
         opt.disabled = !!o.unavailable;
         return opt;
       }));
+    }
+  }
+
+  // a part's controls: its roll (n of the history), ◀ 🎲 ▶, its lock (its salt row's), 👍 / 👎 on the roll heard
+  const partEls = new Map();
+  function partEl(p) {
+    const el = document.createElement("div"), name = p[0].toUpperCase() + p.slice(1);
+    el.className = "row";
+    const lab = Object.assign(document.createElement("label"), { textContent: name });
+    const roll = Object.assign(document.createElement("span"), { className: "roll" });
+    const btn = (textContent, title, onclick, className = "") => Object.assign(document.createElement("button"), { textContent, title, onclick, className });
+    const back = btn("◀", `${name}: the roll before`, () => run(() => desk.stepPart(p, -1)));
+    const dice = btn("🎲", `${name}: new notes (this part only; it lands at the next bar)`, () => run(() => desk.reroll(p)));
+    const fwd = btn("▶", `${name}: the roll after`, () => run(() => desk.stepPart(p, 1)));
+    const lock = btn("🔒", `Keep ${p}'s roll when re-rolling and on a new song`, () => run(() => desk.lock(PART_ROW[p], !desk.locks.has(PART_ROW[p]))), "lock");
+    const fb = (rating) => btn(rating === "up" ? "👍" : "👎", `${name}'s roll is ${rating === "up" ? "" : "not "}good (with the note above)`,
+                               () => feedback(`part:${p}`, rating), "fb");
+    el.append(lab, roll, back, dice, fwd, lock, fb("up"), fb("down"));
+    partEls.set(p, Object.assign(el, { roll, back, dice, fwd, lock }));
+    return el;
+  }
+  function renderParts() {
+    const parts = desk.parts;
+    for (const [p, x] of Object.entries(parts)) {
+      const el = partEls.get(p), why = desk.cantRoll(p), n = x.history.length;
+      el.roll.textContent = p === "pad" && desk.padless ? "no pad in this song"
+        : `${x.salt ? "roll" : "as rolled"}${n > 1 ? ` · ${x.at + 1} of ${n}` : ""}`;
+      el.lock.setAttribute("aria-pressed", String(x.locked));
+      el.classList.toggle("locked", x.locked);
+      el.title = why || "";
+      el.dice.disabled = !!why;
+      el.back.disabled = !!why || x.at === 0;
+      el.fwd.disabled = !!why || x.at === n - 1;
     }
   }
 

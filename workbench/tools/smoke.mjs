@@ -492,6 +492,7 @@ const STR = new Set(["wb_consts", "wb_state", "wb_live_state", "wb_library", "wb
 // the page's call (the worklet's): JSON exports parsed, wb_stage_bytes a copy of the staged state
 const caller = (ex) => async (fn, ...a) => {
   if (fn === "wb_stage_bytes") return new Uint8Array(ex.memory.buffer, ex.wb_stage_ptr(), ex.wb_stage_size()).slice();
+  if (fn === "wb_commit_bytes") return new Uint8Array(ex.memory.buffer, ex.wb_commit_ptr(), ex.wb_stage_size()).slice();
   if (fn === "wb_write") return void new Float32Array(ex.memory.buffer, a[0], a[1].length).set(a[1]);
   if (!ex[fn]) throw new Error(`no export ${fn}`);
   const v = ex[fn](...a);
@@ -1688,6 +1689,236 @@ console.log("the section strip, mute/solo and listening state (Task 3)");
   await d3.read(true);
   await d3.restore(old);
   check(d3.listen.mute.size === 0 && d3.listen.solo === null, "an old snapshot with an 8-entry override list restores with no mute or solo");
+}
+
+// ---- the parts: re-rolls, history, locks, reactions, feedback per part (Task 5) ----
+console.log("parts: re-rolls, history, locks, reactions (Task 5)");
+{
+  const { PARTS, PART_ROW } = await import("../desk.js");
+  const { readEvents } = await import("../wb.js");
+  const { layout } = await import("../roll.js");
+  const { cellOf } = await import("../drums.js");
+  const { replay, wav } = await import("./replay.mjs");
+  // wb.js's events: the committed song's, on a probe instance
+  const eventer = async () => {
+    const pex = await load();
+    return async (bytes) => {
+      new Uint8Array(pex.memory.buffer, pex.wb_commit_ptr(), pex.wb_stage_size()).set(bytes);
+      pex.wb_events(0);
+      return { events: readEvents(pex) };
+    };
+  };
+  const deskOn = async (seed, rnd = lcg(29)) => {
+    const ex = await fresh(seed), call = caller(ex);
+    const desk = new Desk(call, C, OPTS, await call("wb_library"), { rnd, probe: await prober(), events: await eventer() });
+    await desk.read(true);
+    await desk.refresh();
+    return { ex, call, desk };
+  };
+  const evs = (desk) => JSON.stringify(desk.partEv);
+  const names = Object.keys(PARTS);
+  check(JSON.stringify(names) === JSON.stringify(["keys", "bass", "lead", "pad", "drums"]) && !names.includes("candy") &&
+        names.every((p) => row(PART_ROW[p]).kind === "reroll"), "five parts (no ear candy), each re-rolled by its salt row");
+
+  // each part's 🎲: its own events change, it lands at the next bar line, and the page lists whatever else moved
+  {
+    const { ex, desk } = await deskOn(2);   // seed 2 has a pad, and keys the voicing salt moves (seed 21's don't)
+    ex.wb_play(1);
+    until(ex, () => ex.wb_bar() === 2, 60 * SR);
+    const bpm = ex.wb_roll_get(RF.TEMPO), out = [];
+    for (const p of names) {
+      const before = { ...desk.partEv }, was = ex.wb_catchups(), salt = desk.values[PART_ROW[p]], bar = ex.wb_bar();
+      const res = await desk.reroll(p);
+      const own = JSON.stringify(before[p]) !== JSON.stringify(desk.partEv[p]);
+      const moved = names.filter((q) => q !== p && JSON.stringify(before[q]) !== JSON.stringify(desk.partEv[q]));
+      const said = moved.every((q) => res.message.toLowerCase().includes(`${q} moved`)) &&
+                   names.filter((q) => !moved.includes(q)).every((q) => !res.message.toLowerCase().includes(`${q} moved`));
+      const waited = until(ex, () => ex.wb_catchups() > was, 60 * SR);
+      const live = JSON.parse(cstr(ex, ex.wb_live_state())).ov[OV[row(PART_ROW[p]).key]];
+      const ok = res.ok && own && said && desk.values[PART_ROW[p]] !== salt && desk.values[PART_ROW[p]] > 0 &&
+                 live === desk.values[PART_ROW[p]] && waited <= barLen(bpm) + Q && ex.wb_bar() === bar + 1;
+      out.push(`${p}${ok ? "" : " BAD"}${moved.length ? ` (${moved.join("+")} moved)` : ""}`);
+    }
+    check(out.every((x) => !x.includes("BAD")), `each part's 🎲 changes its events, lands at the next bar, lists what else moved: ${out.join(", ")}`);
+    check(OPTS.kickPhrases.some((k) => k.id === desk.values.kick), `the drums' 🎲 drew an approved kick phrase (${desk.values.kick}) and a variation (${desk.values.drumsVar})`);
+
+    // ◀ returns the previous roll exactly (every part's events), ▶ the next
+    const res = [];
+    for (const p of ["bass", "drums"]) {
+      const a = evs(desk), ka = desk.values.kick;
+      await desk.reroll(p);
+      const b = evs(desk);
+      const back = await desk.stepPart(p, -1), atA = evs(desk) === a && desk.values.kick === ka;
+      const fwd = await desk.stepPart(p, 1), atB = evs(desk) === b;
+      res.push(`${p} ${back.ok && fwd.ok && a !== b && atA && atB ? "ok" : "BAD"}`);
+    }
+    check(res.every((x) => x.endsWith("ok")), `◀ returns the previous roll exactly (all events, the drums' kick too), ▶ the next (${res.join(", ")})`);
+
+    // Review Focus 4: ◀ at the first roll and ▶ at the last change nothing
+    const h = desk.parts.bass;
+    const last = await desk.stepPart("bass", 1);
+    while (desk.parts.bass.at > 0) await desk.stepPart("bass", -1);
+    const st1 = cstr(ex, ex.wb_state()), e1 = evs(desk);
+    const first = await desk.stepPart("bass", -1);
+    render(ex, Math.ceil(barLen(bpm) / Q) * Q + Q);
+    check(h.at === h.history.length - 1 && !last.ok && desk.parts.bass.at === 0 && !first.ok &&
+          cstr(ex, ex.wb_state()) === st1 && evs(desk) === e1 && desk.values.bassLine === h.history[0].salt,
+          `Review Focus 4: ▶ at the last roll and ◀ at the first change nothing ("${last.message}" / "${first.message}")`);
+  }
+
+  // the page's buttons: ◀ ▶ disabled at the ends (cantRoll and the history say so)
+  {
+    const { desk } = await deskOn(21);
+    const p0 = desk.parts.lead;
+    await desk.reroll("lead");
+    const p1 = desk.parts.lead;
+    check(p0.history.length === 1 && p0.at === 0 && p1.history.length === 2 && p1.at === 1 && p1.salt === p1.history[1].salt,
+          "a part's history: one roll as rolled, then each 🎲 on the end (at the newest)");
+  }
+
+  // lifetimes: a new seed or map resets unlocked parts (salts and histories), locked ones keep theirs; re-roll all
+  // re-rolls the unlocked parts; a family change and the pad on/off keep the salts
+  {
+    const { ex, desk } = await deskOn(21);
+    await desk.reroll("bass");
+    await desk.reroll("lead");
+    await desk.reroll("lead");
+    desk.lock(PART_ROW.lead, true);
+    const lead = desk.parts.lead;
+    await desk.set("seed", 4242);
+    const p = desk.parts;
+    check(p.bass.salt === 0 && p.bass.history.length === 1 && ex.wb_ov_get(OV.BASS_SALT) === 0 &&
+          p.lead.salt === lead.salt && p.lead.history.length === 3 && ex.wb_ov_get(OV.PHRASE_SALT) === lead.salt && p.lead.locked,
+          `a new seed resets the unlocked parts (bass salt ${p.bass.salt}) and keeps the locked lead (${p.lead.salt}, ${p.lead.history.length} rolls)`);
+    await desk.reroll("bass");
+    await desk.reroll("keys");
+    const map = desk.values.map, other = optionsFor(row("map"), desk.state, OPTS, { lib: desk.lib }).find((o) => o.value !== map).value;
+    await desk.set("map", other);
+    check(desk.parts.bass.salt === 0 && desk.parts.keys.salt === 0 && desk.parts.keys.history.length === 1 &&
+          ex.wb_ov_get(OV.VOICING_SALT) === 0 && desk.parts.lead.salt === lead.salt,
+          "a new map resets them too (the keys' voicings and the bass back to as rolled), the locked lead kept");
+    await desk.reroll("bass");
+    const bass = desk.values.bassLine, fam = desk.values.family === "acoustic" ? "synth" : "acoustic";
+    const f = await desk.set("family", fam);
+    check(f.ok && desk.values.bassLine === bass && ex.wb_ov_get(OV.BASS_SALT) === bass, `a family change keeps the salts (${f.ok ? "ok" : f.message})`);
+    desk.lock("seed", true);
+    const before = desk.parts;
+    const all = await desk.rerollAll();
+    // (a map its dice drew starts the unlocked parts' histories over first)
+    const after = desk.parts, rolledP = names.filter((q) => after[q].salt !== before[q].salt && after[q].salt &&
+                                                     after[q].history.at(-1).salt === after[q].salt && after[q].at === after[q].history.length - 1);
+    const want = names.filter((q) => q !== "lead" && !(q === "pad" && desk.padless));
+    check(all.ok && want.every((q) => rolledP.includes(q)) && after.lead.salt === lead.salt,
+          `re-roll all (seed locked) re-rolls the unlocked parts (${rolledP.join(", ")}), not the locked lead`);
+  }
+
+  // the pad: absent from a song, its 🎲 and ◀ ▶ wait; its salt and history are kept, the same roll plays when it's back
+  {
+    const { ex, desk } = await deskOn(21);
+    await desk.reroll("pad");
+    await desk.reroll("bass");
+    const pad = desk.parts.pad, padEv = JSON.stringify(desk.partEv.pad), bass = desk.values.bassLine;
+    await desk.set("padOn", 0);
+    const r = await desk.reroll("pad"), b = await desk.stepPart("pad", -1);
+    check(desk.padless && !r.ok && /no pad/i.test(r.message) && !b.ok && desk.parts.pad.salt === pad.salt &&
+          ex.wb_ov_get(OV.PAD_SALT) === pad.salt && desk.values.bassLine === bass,
+          `no pad in the song: its 🎲 and ◀ are refused ("${r.message}"), its salt kept, the pad on/off resets no salt`);
+    await desk.set("padOn", 1);
+    check(!desk.padless && JSON.stringify(desk.parts.pad) === JSON.stringify(pad) && JSON.stringify(desk.partEv.pad) === padEv,
+          "the pad back on plays the same roll (salt, history and events)");
+    const { desk: d6 } = await deskOn(6);
+    check(d6.padless && !(await d6.reroll("pad")).ok && d6.cantRoll("pad"), "a song rolled without a pad (seed 6): the pad's 🎲 waits");
+  }
+
+  // the drums' 🎲 is refused while the grid holds hand edits (◀ ▶ too); the kick phrase row keeps its own 🎲
+  {
+    const { ex, desk } = await deskOn(21);
+    await desk.reroll("drums");
+    const g = desk.drums.grid, cell = cellOf(g.lanes[1], 0, 3);
+    await desk.step(1, 0, 3, cell ? 0 : 1);
+    const st = cstr(ex, ex.wb_state());
+    const r = await desk.reroll("drums"), b = await desk.stepPart("drums", -1);
+    check(desk.drums.grid.edited && !r.ok && /drawn pattern/.test(r.message) && !b.ok && cstr(ex, ex.wb_state()) === st,
+          `with hand edits in the grid the drums' 🎲 and ◀ are refused, nothing staged ("${r.message}")`);
+    const k = await desk.dice("kick");
+    check(k.ok || /kick/i.test(k.message), `the kick phrase row's own 🎲 still works (${k.ok ? desk.values.kick : k.message})`);
+  }
+
+  // a keys-room reaction: seed 40's bass salt 1 moves the lead, and the keys make room for it
+  {
+    const { desk } = await deskOn(40);
+    const r = await desk.reacting("bass", () => desk.set("bassLine", 1, { dice: true }));
+    check(r.ok && /Lead moved: it keeps clear of the bass/.test(r.message) && /Keys moved: they make room for the lead/.test(r.message),
+          `a bass roll that moves the lead and the keys says so ("${r.message}")`);
+  }
+
+  // Review Focus 5: a muted part re-rolls (its roll greyed, new notes in it); unmuting plays the new roll
+  {
+    const { ex, desk } = await deskOn(21);
+    await desk.mute("bass", true);
+    const bassIn = desk.partEv.bass[0].bar + 1;   // re-rolled in the bass's first bar (1-based), so it lands where it plays
+    ex.wb_play(1);
+    until(ex, () => ex.wb_bar() === bassIn, 120 * SR);
+    const committed = async () => (await desk.events(await desk.call("wb_commit_bytes"))).events;
+    const old = desk.partEv.bass, all0 = await committed(), was = ex.wb_catchups();
+    // (a roll whose notes differ in the bars heard next: the hash below can't see a velocity alone)
+    const win = (evs) => evHash(evs.filter((e) => e.bar >= bassIn && e.bar < bassIn + 3));
+    let r;
+    for (let i = 0; i < 8 && (!r || win(await committed()) === win(all0)); i++) r = await desk.reroll("bass");
+    const lay = layout([].concat(...Object.values(desk.partEv)), [], 40, V);
+    check(r.ok && JSON.stringify(desk.partEv.bass) !== JSON.stringify(old) && desk.listen.mute.has("bass") &&
+          lay.lanes.find((l) => l.role === "bass").notes.length === desk.partEv.bass.length,
+          "a muted part re-rolls: new events, still muted (the roll draws them greyed)");
+    until(ex, () => ex.wb_catchups() > was, 60 * SR);
+    const landed = ex.wb_bar() - 1;   // from 0
+    await desk.mute("bass", false);
+    await desk.solo("bass");
+    const heard = render(ex, 3 * Math.ceil(barLen(ex.wb_roll_get(RF.TEMPO))));   // three bars of it
+    const n = ex.wb_heard_count(), from = (e) => e.bar >= landed;
+    const want = evHash((await committed()).filter(from).slice(0, n)), oldHash = evHash(all0.filter(from).slice(0, n));
+    check((ex.wb_heard_hash() >>> 0) === want && want !== oldHash && db(heard) > -60,
+          `unmuted, the new roll plays (${n} events since the landing match the new roll's, not the old; bass alone ${db(heard).toFixed(1)} dB)`);
+    await desk.solo(null);
+  }
+
+  // feedback on a part: the snapshot carries the parts; it replays to the audio heard; old snapshots restore as rolled
+  {
+    const { ex, desk } = await deskOn(21);
+    await desk.reroll("bass");
+    await desk.reroll("drums");
+    await desk.reroll("lead");
+    desk.lock(PART_ROW.lead, true);
+    const snap = await desk.snapshot();
+    const entry = { time: "t", snapshot: snap, position: { seconds: 0, bar: 0, section: null }, about: "part:bass", rating: "down", note: "too busy", changes: [] };
+    check(entry.about === "part:bass" && snap.parts.bass.salt === snap.rows.bassLine && snap.parts.bass.history.length === 2 &&
+          snap.parts.drums.history[1].kick === snap.rows.kick && snap.parts.lead.locked,
+          "a part's feedback entry: about part:<name>, the snapshot holding every part's salt, history and lock");
+    ex.wb_play(1);
+    const live = render(ex, 8 * SR);
+    const a = await replay(JSON.parse(JSON.stringify(entry.snapshot)), 8);
+    check(!a.mismatch.length && Buffer.compare(wav(a), wav(live)) === 0, `it replays to the samples heard (mismatch: ${a.mismatch.join(",") || "none"})`);
+    const { ex: e2, desk: d2 } = await deskOn(5);
+    await d2.restore(JSON.parse(JSON.stringify(snap)));
+    check(JSON.stringify(d2.parts) === JSON.stringify(snap.parts) && e2.wb_ov_get(OV.BASS_SALT) === snap.rows.bassLine &&
+          e2.wb_ov_get(OV.DRUMS_SALT) === snap.rows.drumsVar && d2.locks.has(PART_ROW.lead),
+          "restore puts back every part's salt, history (at the roll heard) and lock");
+    // a version-1 snapshot from before the parts: no parts, no listen, no part salt rows, an 8-entry override list
+    const old = JSON.parse(JSON.stringify(snap));
+    delete old.parts;
+    delete old.listen;
+    const s8 = JSON.parse(cstr(e2, e2.wb_state()));
+    s8.ov = s8.ov.slice(0, 8);
+    s8.ov[OV.PHRASE_SALT] = 0;
+    s8.ov[OV.VOICING_SALT] = 0;
+    old.rows = { ...fromEngine(s8, C, OPTS), family: old.rows.family };
+    for (const id of ["bassLine", "padNotes", "drumsVar"]) delete old.rows[id];
+    old.locks = [];
+    const miss = await d2.restore(old);
+    const p = d2.parts;
+    check(!miss.length && names.every((q) => p[q].salt === 0 && p[q].history.length === 1 && !p[q].locked) &&
+          [OV.BASS_SALT, OV.PAD_SALT, OV.DRUMS_SALT, OV.PHRASE_SALT, OV.VOICING_SALT].every((k) => e2.wb_ov_get(k) === 0),
+          `an old snapshot (no parts or listen, an 8-entry override list) restores every part as rolled (mismatch: ${miss.join(", ") || "none"})`);
+  }
 }
 
 console.log("options.json: statuses");

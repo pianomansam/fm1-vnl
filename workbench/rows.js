@@ -8,7 +8,8 @@
 const SONG = "Song", INS = "Instruments", VP = "Voicing and phrase", DRUMS = "Drums", TEX = "Texture";
 
 // kind: seed | roll (a roll field) | family (the page's own) | role (an instrument in the custom set) | ov (an override)
-// | reroll (an override's salt) | drum (kit, pattern, kick phrase). field: RF_*; role: V_*; key: WB_OV_*.
+// | reroll (an override's salt) | drum (kit, pattern, kick phrase). field: RF_*; role: V_*; key: WB_OV_*. part: the
+// part a salt re-rolls (desk.js's parts; hidden: no row of its own, the parts panel shows it).
 export const ROWS = [
   { id: "seed", group: SONG, label: "Seed", kind: "seed", regenerates: true },
   { id: "key", group: SONG, label: "Key", kind: "roll", field: "KEY", source: "keys" },
@@ -27,12 +28,15 @@ export const ROWS = [
   { id: "bass", group: INS, label: "Bass", kind: "role", role: "BASS", source: "instruments" },
   { id: "pad", group: INS, label: "Pad", kind: "role", role: "PAD", source: "instruments" },
   { id: "padOn", group: INS, label: "Pad on/off", kind: "ov", key: "PAD_ON", source: "padOn" },
-  { id: "phrase", group: VP, label: "Lead phrase", kind: "reroll", key: "PHRASE_SALT" },
+  { id: "phrase", group: VP, label: "Lead phrase", kind: "reroll", key: "PHRASE_SALT", part: "lead" },
   { id: "leadStyle", group: VP, label: "Lead style", kind: "ov", key: "LEAD_STYLE", source: "leadStyles" },
   { id: "leadOct", group: VP, label: "Lead register", kind: "ov", key: "LEAD_OCT", source: "registers" },
-  { id: "voicings", group: VP, label: "Keys voicings", kind: "reroll", key: "VOICING_SALT" },
+  { id: "voicings", group: VP, label: "Keys voicings", kind: "reroll", key: "VOICING_SALT", part: "keys" },
   { id: "keysOct", group: VP, label: "Keys register", kind: "ov", key: "KEYS_OCT", source: "registers" },
   { id: "padPlace", group: VP, label: "Pad place", kind: "ov", key: "PAD_PLACE", source: "padPlaces" },
+  { id: "bassLine", group: VP, label: "Bass line", kind: "reroll", key: "BASS_SALT", part: "bass", hidden: true },
+  { id: "padNotes", group: VP, label: "Pad notes", kind: "reroll", key: "PAD_SALT", part: "pad", hidden: true },
+  { id: "drumsVar", group: VP, label: "Drum variation", kind: "reroll", key: "DRUMS_SALT", part: "drums", hidden: true },
   { id: "kit", group: DRUMS, label: "Kit", kind: "drum", key: "kit", source: "kits" },
   { id: "pattern", group: DRUMS, label: "Pattern", kind: "drum", key: "pattern", source: "patterns" },
   { id: "kick", group: DRUMS, label: "Kick phrase", kind: "drum", key: "kick", source: "kickPhrases" },
