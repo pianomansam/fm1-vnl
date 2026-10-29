@@ -143,6 +143,11 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
 
 ## To revisit (Sam, after listening)
 
+- **Vibes as a comping (keys) instrument (Sam, 2026-10-29).** Today the sampled vibes are a lead only. Add them to the
+  keys: which comping styles suit mallets (held chords ringing, half notes; maybe broken chords), voicing range against
+  the 5 sampled zones (C4-E6), level against the lead, and which sets/families take them (electric: goes with either).
+  Never vibes on keys and lead in the same song.
+
 - **The melody path never sounds (found 2026-10-29).** Since the ear candy went, the struck melody (melody.c: motif,
   rhythm cells) is dropped in every block the lead plays and turned up in no song over 400 seeds, yet it's still
   built per song (CPU for nothing) and exported as the melody-cells pattern family. Audible or cut: cut the whole
