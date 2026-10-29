@@ -348,6 +348,11 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
     ("these new ones are light years ahead"). The shortlisted styles replace them. Goes with them: the lead-arp
     pattern family (rhythms, chord-tone orders, landings) and its workbench rows, and whatever of the melody path only
     they use. Part of the lead styles' build.
+  - **Decided (Sam, 2026-10-29): remove the kalimba, Emilyguitar, saw lead and synth pluck as leads** ("none of these
+    sound good"). Leaves flute, felt piano, sampled vibes, Knight. 10 sets lose their lead (5 kalimba; 10, 17, 20
+    pluck; 13, 18, 19, 33 saw; 28, 29 Emilyguitar), and the synth family has no lead of its own left. Emilyguitar as
+    keys stays. **Wanted (Sam): a warm chorus guitar, a real legato string section, a better Hammond B3 organ** —
+    "might need to be samples" (flash: ~7.4 KB left).
 
 - **Done (Sam, 2026-10-29, after the lead-candidates spike, app/build/new/lead-candidates/):** "i only liked the felt
   piano and vibraphones." The vibes are the VCSL vibraphone (soft mallets, v2, 5 zones C4-E6, 18.4 KB of flash), on the
