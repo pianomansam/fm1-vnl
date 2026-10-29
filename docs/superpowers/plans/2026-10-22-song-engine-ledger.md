@@ -320,6 +320,11 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   - **Names (Sam):** each kept style takes a genre name, and every trace of the source person is then scrubbed from
     the repo (lead-style work only): Impressionism, Romantic, '60s Jazz, Cool Jazz, Modal Jazz, Post-Bop, Bossa Nova,
     Jazz-Hop, Film Score, Ambient — for whichever of these are kept.
+  - **Cool Jazz** (branch `worktree-agent-a62c91983b0fa60c5`, f359ad9): "fair. Not the best."
+  - **Modal Jazz** (branch `worktree-agent-a8cba358d5d753da1`, 12843da): "sounds really good." Shortlist now:
+    Impressionism, Romantic, '60s Jazz, Modal Jazz. Note: its song 5 stayed within a 3rd because the spike centers a
+    narrow "middle register" just above the floor (a 4th over the keys' top), not because of the pad; widen the window
+    when it's built for real.
 
 - **Done (Sam, 2026-10-29, after the lead-candidates spike, app/build/new/lead-candidates/):** "i only liked the felt
   piano and vibraphones." The vibes are the VCSL vibraphone (soft mallets, v2, 5 zones C4-E6, 18.4 KB of flash), on the
