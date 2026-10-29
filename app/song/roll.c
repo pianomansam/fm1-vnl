@@ -5,6 +5,7 @@
 #include "rng.h"
 #include "roll.h"
 #include "override.h"
+#include "patterns_gen.h"
 
 #define NC 128          /* largest candidate list: swing, 101 values */
 #define NOVELTY_MIN 5
@@ -45,17 +46,26 @@ static int prog_ok(const lib_prog_t *p, int mood, int mode)
     return p && (p->moods & (1 << mood)) && (p->modes & (1 << mode));
 }
 
+/* The roll draws approved entries only (patterns_gen.h's *_STATUS 1): a candidate plays only when picked (roll_set,
+   the workbench). Over today's tables, every entry approved and in table order, the draws are as before. A test's
+   table (roll_use_progs) is all approved. */
+static int prog_drawn(const lib_prog_t *p, int mood, int mode)
+{
+    return prog_ok(p, mood, mode) && (g_progs || LIB_PROGS_STATUS[p - LIB_PROGS] == 1);
+}
+
 static int set_ok(int id, int mood)
 {
     const lib_set_t *s = lib_set_by_id((uint8_t)id);
     return s && (s->moods & (1 << mood));
 }
 
+/* the mode has a progression the roll can draw (an approved one) */
 static int mode_has_prog(int mood, int mode)
 {
     int i, n;
     const lib_prog_t *p = progs(&n);
-    for (i = 0; i < n; i++) if (prog_ok(&p[i], mood, mode)) return 1;
+    for (i = 0; i < n; i++) if (prog_drawn(&p[i], mood, mode)) return 1;
     return 0;
 }
 
@@ -118,14 +128,16 @@ static void cands(const song_roll_t *r, int f, cands_t *c)
     case RF_PROG: {
         int cnt[3] = {0, 0, 0};
         p = progs(&n);
-        for (i = 0; i < n; i++) if (prog_ok(&p[i], mood, mode) && p[i].kind <= PK_JAZZY) cnt[p[i].kind]++;
+        for (i = 0; i < n; i++) if (prog_drawn(&p[i], mood, mode) && p[i].kind <= PK_JAZZY) cnt[p[i].kind]++;
         for (i = 0; i < n; i++)   /* kind weights 40/45/15, spread evenly over the legal entries of each kind */
-            if (prog_ok(&p[i], mood, mode) && p[i].kind <= PK_JAZZY) add(c, p[i].id, kind_w[p[i].kind] * 840u / (uint32_t)cnt[p[i].kind]);
+            if (prog_drawn(&p[i], mood, mode) && p[i].kind <= PK_JAZZY) add(c, p[i].id, kind_w[p[i].kind] * 840u / (uint32_t)cnt[p[i].kind]);
         break;
     }
     case RF_COLOR: for (i = 0; i < 3; i++) add(c, i, LIB_MOODS[mood].color_w[i]); break;
     case RF_SET: for (i = 0; i < LIB_NSETS; i++) if (LIB_SETS[i].moods & (1 << mood)) add(c, LIB_SETS[i].id, 1); break;
-    case RF_PATTERN: for (i = 0; i < LIB_NPATTERNS; i++) add(c, LIB_PATTERNS[i].id, 1); break;
+    case RF_PATTERN:
+        for (i = 0; i < LIB_NPATTERNS; i++) if (LIB_PATTERNS_STATUS[i] == 1) add(c, LIB_PATTERNS[i].id, 1);
+        break;
     case RF_SWING: for (i = 520; i <= 620; i++) add(c, i, tri(i, 520, 525, 620)); break;   /* mean 555, median ~551 */
     case RF_DUST: for (i = 0; i <= 3; i++) add(c, i, 1); break;
     case RF_NOISE: for (i = 0; i <= 2; i++) add(c, i, 1); break;

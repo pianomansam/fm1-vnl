@@ -9,7 +9,8 @@
 
 /* wb_ov_set's keys: song_ov_t's fields (override.h), in its order */
 enum { WB_OV_COMP, WB_OV_LEAD_STYLE, WB_OV_PAD_PLACE, WB_OV_RIDE, WB_OV_KEYS_OCT, WB_OV_LEAD_OCT, WB_OV_VOICING_SALT,
-       WB_OV_PHRASE_SALT, WB_OV_BASS_SALT, WB_OV_PAD_SALT, WB_OV_DRUMS_SALT, WB_OV_PAD_ON, WB_OV_LEAD_DOUBLE, WB_OV_N };
+       WB_OV_PHRASE_SALT, WB_OV_BASS_SALT, WB_OV_PAD_SALT, WB_OV_DRUMS_SALT, WB_OV_PAD_ON, WB_OV_LEAD_DOUBLE,
+       WB_OV_STRUM_PAT, WB_OV_ARP_RHY, WB_OV_ARP_PAT, WB_OV_N };
 
 #define WB_MAX_FRAMES 1024u
 
@@ -87,7 +88,8 @@ const char *wb_live_state(void);         /* JSON: wb_state's fields for the song
 int wb_pending(void);                    /* 1: a commit is waiting for its bar line */
 const char *wb_state(void);             /* JSON: the staged seed, roll, roles, overrides, kit, pattern, kick lane,
                                            drums ({preset, lanes: [kind, a, b, dB] each, kit_lanes, grid}) */
-const char *wb_library(void);           /* JSON: the library's maps and progressions */
+const char *wb_library(void);           /* JSON: the library's maps and progressions (each with its status:
+                                           approved, candidate or retired, patterns_gen.h's) */
 const char *wb_consts(void);            /* JSON: the RF_*, WB_OV_*, V_*, WB_SRC_* and WB_KIT_* indices and LIB_SET_WB,
                                            for the page */
 

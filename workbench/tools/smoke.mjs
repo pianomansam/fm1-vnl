@@ -2154,6 +2154,90 @@ console.log("the lead-doubling switch (patterns and edits, Task 1)");
   check(desk.values.leadDouble === 0 && ex.wb_ov_get(OV.LEAD_DOUBLE) === 0, "and back off");
 }
 
+console.log("candidates: the strum and arpeggio rows, Approve (patterns and edits, Task 4)");
+{
+  const { readEvents } = await import("../wb.js");
+  const { approval, inactive } = await import("../rows.js");
+  const ex = await load(), call = caller(ex), lib = await call("wb_library");
+  check(lib.progs.length === 44 && lib.progs.every((p) => p.status === "approved"), "wb_library's progressions carry their status (all approved)");
+  const rows = [["strumPat", "STRUM_PAT", "strumPats", 4], ["arpRhythm", "ARP_RHY", "arpRhythms", 6], ["arpPattern", "ARP_PAT", "arpPatterns", 6]];
+  ex.wb_seed(21);
+  ex.wb_apply();
+  const desk = new Desk(call, C, OPTS, lib, { rnd: lcg(4) });
+  await desk.read(true);
+  for (const [id, key, src, n] of rows) {
+    const r = row(id), os = optionsFor(r, desk.state, OPTS, { lib });
+    check(r?.kind === "ov" && r.key === key && C.OV[key] !== undefined && os.length === n + 1 && os[0].rolled &&
+          os.slice(1).every((o, i) => o.value === i && o.status === "approved" && o.name === OPTS[src][i].name) &&
+          desk.values[id] === -1 && ex.wb_ov_get(C.OV[key]) === -1,
+          `a ${r?.label} row (ov ${key}): as rolled, then options.json's ${src} by table index (${os.length - 1}); a new song's is as rolled`);
+  }
+  // what a part plays with an override set (a probe instance's wb_events of the committed song)
+  const partOf = async (seed, role, ov, keys = null) => {
+    const play = await load();
+    play.wb_seed(seed);
+    if (keys !== null) play.wb_role_set(V.CHORD, keys);
+    for (const [k, v] of ov) play.wb_ov_set(k, v);
+    play.wb_apply();
+    const pex = await load();
+    new Uint8Array(pex.memory.buffer, pex.wb_commit_ptr(), pex.wb_stage_size())
+      .set(new Uint8Array(play.memory.buffer, play.wb_commit_ptr(), play.wb_stage_size()));
+    pex.wb_events(0);
+    return { comp: play.wb_comp_applied(), ev: JSON.stringify(readEvents(pex).filter((e) => e.role === role).map((e) => [e.bar, e.step, e.note, e.vel])) };
+  };
+  const nylon = ins("Nylon guitar"), strum = 21, gtr = [[OV.COMP, 5]];   // the nylon strums (comping: Strum)
+  const base = await partOf(strum, V.CHORD, gtr, nylon), forced = [];
+  for (let i = 0; i < 4; i++) forced.push((await partOf(strum, V.CHORD, [...gtr, [OV.STRUM_PAT, i]], nylon)).ev);
+  check(base.comp === 5 && forced.filter((e) => e !== base.ev).length === 3 && new Set(forced).size === 4,
+        "a strummed song plays each forced strum pattern: the rolled one as rolled, the other three each its own");
+  const lead = await partOf(21, V.LEAD, [[OV.LEAD_STYLE, 1]]), arps = [];
+  for (let i = 0; i < 6; i++) arps.push((await partOf(21, V.LEAD, [[OV.LEAD_STYLE, 1], [OV.ARP_PAT, i]])).ev);
+  const rhys = [];
+  for (let i = 0; i < 6; i++) rhys.push((await partOf(21, V.LEAD, [[OV.LEAD_STYLE, 1], [OV.ARP_RHY, i]])).ev);
+  check(arps.filter((e) => e !== lead.ev).length === 5 && rhys.filter((e) => e !== lead.ev).length === 5,
+        "the hybrid lead plays each forced arpeggio pattern and rhythm (five of six differ from the rolled one)");
+  const d2 = new Desk(call, C, OPTS, lib, { rnd: lcg(4) });
+  await d2.set("seed", strum);
+  await d2.set("keys", nylon);
+  await d2.set("comp", 5);
+  const other = forced[0] === base.ev ? 1 : 0;
+  const t = await d2.set("strumPat", other);
+  check(t.ok !== false && d2.values.strumPat === other && ex.wb_ov_get(OV.STRUM_PAT) === other && d2.strums === true &&
+        !inactive(row("strumPat"), d2.state, OPTS), "the strum row forces the engine's pattern on a strummed song");
+  await d2.set("comp", -1);
+  await d2.set("keys", ins("Rhodes"));
+  check(d2.strums === false && inactive(row("strumPat"), d2.state, OPTS), "on a song whose keys don't strum, the strum row is inactive");
+  const s13 = JSON.parse(cstr(ex, ex.wb_state()));
+  check(["strumPat", "arpRhythm", "arpPattern"].every((id) => fromEngine({ ...s13, ov: s13.ov.slice(0, 13) }, C, OPTS)[id] === -1),
+        "an older engine's 13-entry ov list reads them as rolled");
+
+  // a candidate: offered (marked), never the dice's pick; approval names it for POST /approve
+  const cand = { ...OPTS, strumPats: [...OPTS.strumPats, { id: "6", index: 4, name: "sam-strum", status: "candidate" }],
+                 patterns: [...OPTS.patterns, { id: 9, name: "sam-groove", status: "candidate" }],
+                 kickPhrases: [...OPTS.kickPhrases, { id: "k7", a: [0], b: [0], status: "candidate" }] };
+  const clib = { ...lib, progs: [...lib.progs, { id: 45, src: "imported from patterns/progressions/sam-vamp", status: "candidate" }] };
+  const st = (values) => ({ values: { ...desk.values, ...values }, locks: new Set() });
+  check(optionsFor(row("strumPat"), st({}), cand).at(-1).status === "candidate" &&
+        optionsFor(row("prog"), st({}), cand, { lib: clib }).at(-1).status === "candidate", "a candidate is offered, marked");
+  const picks = new Set(Array.from({ length: 200 }, (_, i) => pickFor(row("strumPat"), st({ strumPat: i % 4 }), cand, lcg(i))));
+  check(!picks.has(4) && !picks.has(-1), `the dice never pick the candidate (picked ${[...picks].sort().join(", ")})`);
+  const ap = (id, v) => approval(row(id), st({ [id]: v }), cand, clib);
+  check(JSON.stringify([ap("strumPat", 4), ap("pattern", 9), ap("prog", 45), ap("kick", "k7")]) === JSON.stringify([
+          { family: "strum", id: "6", name: "sam-strum" }, { family: "drums", id: "9", name: "sam-groove" },
+          { family: "progressions", id: "45", name: "#45 sam-vamp" }, { family: "kick-phrases", id: "k7", name: "k7" }]) &&
+        [ap("strumPat", 0), ap("strumPat", -1), ap("pattern", 1), ap("prog", 1), ap("kick", ""), ap("mood", 1)].every((x) => x === null),
+        "approval names a candidate (strum, drum pattern, progression, kick phrase), nothing else");
+  const sent = [];
+  const fake = (ok) => async (url, init) => { sent.push([url, init.method, init.headers["Content-Type"], init.body]);
+    return { ok, status: ok ? 200 : 400, json: async () => (ok ? { ok: true } : { ok: false, error: "no such strum pattern" }) }; };
+  const res = await desk.approve(ap("strumPat", 4), fake(true));
+  check(res.ok && desk.approved.has("strum/6") && /import\.sh/.test(res.message) &&
+        JSON.stringify(sent[0]) === JSON.stringify(["/approve", "POST", "application/json", '{"family":"strum","id":"6"}']),
+        "Approve posts { family, id } as JSON to /approve, and says to run tools/patterns/import.sh");
+  const bad = await desk.approve(ap("pattern", 9), fake(false));
+  check(!bad.ok && !desk.approved.has("drums/9") && /no such strum pattern/.test(bad.message), "a refused approval says why");
+}
+
 console.log("options.json: statuses");
 check(!OPTS.instruments.some((i) => i.status === "candidate") &&
       ["Chillwave pad", "Vox pad"].every((n) => OPTS.instruments.find((i) => i.name === n).status === "approved"),

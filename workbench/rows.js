@@ -2,7 +2,8 @@
 // The main page's decision rows (layout A): what each row is, the options its dropdown offers, its dice, and what a
 // new value forces elsewhere. Pure: no DOM, no engine (desk.js drives the engine; smoke.mjs tests this directly).
 //   opts: options.json; state: { values: {row id: value}, locks: Set of row ids, legal: {prog, mode} (optional),
-//   unavailable: Set of kit ids whose samples are missing (optional: offered marked, never chosen) };
+//   unavailable: Set of kit ids whose samples are missing (optional: offered marked, never chosen), strums: the keys
+//   strum in the staged song (optional) };
 //   lib: wb_library()'s maps and progressions.
 
 const SONG = "Song", INS = "Instruments", VP = "Voicing and phrase", DRUMS = "Drums", TEX = "Texture";
@@ -31,10 +32,13 @@ export const ROWS = [
   { id: "phrase", group: VP, label: "Lead phrase", kind: "reroll", key: "PHRASE_SALT", part: "lead" },
   { id: "leadStyle", group: VP, label: "Lead style", kind: "ov", key: "LEAD_STYLE", source: "leadStyles" },
   { id: "leadOct", group: VP, label: "Lead register", kind: "ov", key: "LEAD_OCT", source: "registers" },
+  { id: "arpRhythm", group: VP, label: "Lead arpeggio rhythm", kind: "ov", key: "ARP_RHY", source: "arpRhythms" },
+  { id: "arpPattern", group: VP, label: "Lead arpeggio pattern", kind: "ov", key: "ARP_PAT", source: "arpPatterns" },
   { id: "leadDouble", group: VP, label: "Lead may double other voices", kind: "ov", key: "LEAD_DOUBLE",
     source: "onOff" },
   { id: "voicings", group: VP, label: "Keys voicings", kind: "reroll", key: "VOICING_SALT", part: "keys" },
   { id: "keysOct", group: VP, label: "Keys register", kind: "ov", key: "KEYS_OCT", source: "registers" },
+  { id: "strumPat", group: VP, label: "Strum pattern", kind: "ov", key: "STRUM_PAT", source: "strumPats" },
   { id: "padPlace", group: VP, label: "Pad place", kind: "ov", key: "PAD_PLACE", source: "padPlaces" },
   { id: "bassLine", group: VP, label: "Bass line", kind: "reroll", key: "BASS_SALT", part: "bass", hidden: true },
   { id: "padNotes", group: VP, label: "Pad notes", kind: "reroll", key: "PAD_SALT", part: "pad", hidden: true },
@@ -65,8 +69,10 @@ const ROLE = { CHORD: "keys", LEAD: "lead", BASS: "bass", PAD: "pad" };
 // INS_KNIGHT, INS_EMILY, INS_FELT_PIANO: one per song, keys or lead (Sam; the felt never leads over itself, 2026-10-29)
 const ONE_PART = new Set([25, 26, 2]);
 
-// a progression's note without its source ("lofi-hip-hop.md 2, ii9-V13 vamp" -> "ii9-V13 vamp")
-const progName = (src) => src.replace(/^[^:,]*[:,]\s*(\d+,\s*)?/, "").replace(/;.*$/, "");
+// a progression's note without its source ("lofi-hip-hop.md 2, ii9-V13 vamp" -> "ii9-V13 vamp"); an imported one's file
+// ("imported from patterns/progressions/sam-vamp" -> "sam-vamp")
+const progName = (src) => src.startsWith("imported from ") ? src.replace(/^.*\//, "")
+  : src.replace(/^[^:,]*[:,]\s*(\d+,\s*)?/, "").replace(/;.*$/, "");
 
 // Every option a row can take: { value, name, status, family }. Not yet filtered for retired ones or legality.
 function allOptions(r, state, opts, lib) {
@@ -81,7 +87,7 @@ function allOptions(r, state, opts, lib) {
     case "maps": return (lib?.maps || []).map((m) => ({ value: m.id, name: m.name }));
     case "progs":
       return (lib?.progs || []).filter((p) => !state.legal?.prog || state.legal.prog.includes(p.id))
-        .map((p) => ({ value: p.id, name: `#${p.id} ${progName(p.src)}` }));
+        .map((p) => ({ value: p.id, name: `#${p.id} ${progName(p.src)}`, status: p.status, key: String(p.id) }));
     case "colors": return list(["7ths", "9ths", "Rich (9/11/13)"]);
     case "families": return ["acoustic", "synth"].map((f) => ({ value: f, name: opts.families[f].name }));
     case "instruments":
@@ -99,9 +105,12 @@ function allOptions(r, state, opts, lib) {
     case "rides": return [ROLLED, ...list(["None", "Throughout", "One section"])];
     case "kits": return opts.kits.map((k) => ({ value: k.id, name: k.name, status: k.status, family: k.family,
                                                 unavailable: !!state.unavailable?.has(k.id) }));
-    case "patterns": return opts.patterns.map((p) => ({ value: p.id, name: p.name, status: p.status }));
+    case "patterns": return opts.patterns.map((p) => ({ value: p.id, name: p.name, status: p.status, key: String(p.id) }));
+    case "strumPats": case "arpRhythms": case "arpPatterns":   // a table index (the override forces it)
+      return [ROLLED, ...(opts[r.source] || []).map((p) => ({ value: p.index, name: p.name, status: p.status, key: p.id }))];
     case "kickPhrases": return [{ value: "", name: "The pattern's own" },
-                                ...opts.kickPhrases.map((k) => ({ value: k.id, name: k.id })),
+                                ...opts.kickPhrases.map((k) => ({ value: k.id, name: k.id, status: k.status ?? "approved",
+                                                                  key: k.id })),
                                 ...(v.kick === "grid" ? [{ value: "grid", name: "Drawn in the grid", rolled: true }] : [])];
     case "dust": return list(["None", "Light", "Medium", "Heavy"]);
     case "noise": return list(["None", "Vinyl", "Tape"]);
@@ -218,8 +227,22 @@ export function fromEngine(s, C, opts) {
   return v;
 }
 
+// the pattern family (patterns/model.json's) each row's options come from: a candidate there can be approved
+const FAMILY = { patterns: "drums", progs: "progressions", strumPats: "strum", arpRhythms: "lead-arp",
+                 arpPatterns: "lead-arp", kickPhrases: "kick-phrases" };
+
+// The row's current value when it is a candidate pattern: { family, id, name } for POST /approve (patterns/status.json),
+// else null
+export function approval(r, state, opts, lib) {
+  if (!FAMILY[r.source]) return null;
+  const o = allOptions(r, state, opts, lib).find((x) => same(x.value, state.values[r.id]));
+  return o?.status === "candidate" ? { family: FAMILY[r.source], id: o.key, name: o.name } : null;
+}
+
 // why a row can't be heard now (greyed, with this as its tooltip), or null
 export function inactive(r, state, opts) {
+  if (r.id === "strumPat" && state.strums === false)
+    return "The keys don't strum in this song: a strum pattern plays with strummed comping (the guitars).";
   if (r.id === "ride") {
     const kit = opts.kits.find((k) => k.id === state.values.kit);
     if (!kit?.ride) return `${kit ? kit.name : "This kit"} has no ride: the ride section plays on the sampled kits only.`;

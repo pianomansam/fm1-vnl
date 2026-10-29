@@ -12,7 +12,9 @@ enum { RF_KEY, RF_TEMPO, RF_MOTION, RF_MOOD, RF_MODE, RF_MAP, RF_PROG, RF_COLOR,
 /* v[RF_KEY] 0-11; RF_TEMPO BPM 70-90; RF_MOTION 0-100; RF_MOOD 0-3 (LIB_MOODS index); RF_MODE MODE_*;
    RF_MAP/PROG/SET/PATTERN library ids; RF_COLOR COLOR_*; RF_SWING per-mille 520-620; RF_DUST 0-3;
    RF_NOISE 0 none / 1 vinyl / 2 tape; RF_AMBIENCE 0 none / 1 rain; RF_BARS 36-76, a multiple of 4, with
-   RF_BARS * 240 / RF_TEMPO within 120-210 s. A progression is legal only if it suits both the mood and the mode. */
+   RF_BARS * 240 / RF_TEMPO within 120-210 s. A progression is legal only if it suits both the mood and the mode.
+   Progressions and drum patterns are drawn (roll_song, roll_dice, the novelty passes) from the approved entries only
+   (patterns_gen.h's *_STATUS 1); roll_set takes a candidate too (the workbench's way to hear one). */
 typedef struct { uint32_t seed; int16_t v[RF_N]; } song_roll_t;
 
 void roll_song(const song_roll_t *prev, uint32_t seed, song_roll_t *out);   /* prev NULL for the first song */

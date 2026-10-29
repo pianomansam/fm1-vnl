@@ -26,8 +26,12 @@ byte.
   `miscellaneous-field name="vnl1"`), and its title says what it is. A DAW or MuseScore may drop it on save; the
   file's name (`model.json`'s `file`) still identifies the entry, and `model.json` holds its other fields.
 - **`model.json`:** every field of every entry (the source notes, moods, modes, weights, `status`), keyed by id, in
-  table order. `status` is `"approved"` (the engine draws it) or `"candidate"` (a new pattern, the
-  workbench only until Sam approves it).
+  table order. `status` is `"approved"` (the engine draws it), `"candidate"` (a new pattern: the workbench only,
+  where it plays when picked, until Sam approves it) or `"retired"` (never drawn).
+- **`status.json`:** Sam's statuses, `{family: {id: "approved" | "candidate" | "retired"}}` (ids as in
+  `model.json`). The workbench's **Approve** button (beside a candidate picked in its row) writes it; it may be
+  edited by hand (a melody cell has no workbench row). The importer applies it; the comp rhythms, the landings and
+  the ballad's fill are fixed (always approved).
 - **`.manifest.json`:** the SHA-256 of each `.mid` and `.musicxml` as last written, so the importer can tell which
   file of a pattern Sam edited (either may be edited alone).
 - **Names are stable, and export never deletes:** an entry's file name is fixed when it is first exported and kept
@@ -45,9 +49,10 @@ byte.
   written for it). It keeps its file name, takes the next free id and is a **candidate** (the workbench only, until
   approved). A new lead-arp file's name starts with `rhythm-` or `pattern-`. The comp rhythms (held, half, stabs)
   and the six landings are fixed: edit them, never add one. A strum pattern added past the fourth skips id 5 (the
-  ballad's fill). **For now** a new drum pattern, progression or melody cell is refused ("new ... patterns can be
-  imported once candidates are workbench-only (next step)"): the firmware still draws every entry of those tables;
-  edits to their existing entries import. The importer notes a new file that sounds the same as an existing entry
+  ballad's fill). The engine's roll draws approved entries only (`patterns_gen.h`'s `*_STATUS`), so a candidate
+  changes no song until approved: the workbench plays it when picked (the pattern and progression rows, and the
+  strum pattern and lead arpeggio rows). Approve it there (`status.json`), then run `tools/patterns/import.sh`: the
+  firmware draws it, and the workbench (rebuilt by `import.sh`) rolls it too. The importer notes a new file that sounds the same as an existing entry
   (a renamed or saved-as copy: it would import as a new candidate) and an entry whose files are missing (it stays).
 - **What is read from the notes:** onsets (on the 16th grid: any other onset is refused), lengths (rounded to 16ths),
   pitches or lanes, and ghosts (a drum note at velocity 60 or less, or a MusicXML notehead in parentheses). Durations
@@ -71,9 +76,14 @@ byte.
   step; an arpeggio pattern's notes are chord tones 1-4 of the reference Cmaj7 (a chord-tone index over 4 is
   refused); the landings' weights add up to 100; a melody cell stays in its beat; `src` is printable ASCII with no
   backslash and no `??` (it becomes a C string).
-- **The hashes:** the importer lists every entry that changed or was added; when an approved firmware entry changed,
-  the engine suite's pinned song hashes will move (a candidate never moves them): re-pin them in `tests/host/song_test.c` with a
-  comment naming the edit. Kick phrases are the workbench's (`workbench/options.json`), so they never move them.
+- **The hashes:** the importer lists every entry that changed or was added, and every status `status.json` changed;
+  when an approved firmware entry changed, or an entry was approved or retired, the engine suite's pinned song hashes
+  will move (a candidate never moves them; `tests/candidates.sh` checks it): re-pin them in
+  `tests/host/song_test.c` with a comment naming the edit. Kick phrases are the workbench's
+  (`workbench/options.json`), so they never move them.
+- **`workbench/options.json`:** the importer regenerates its `patterns` (the drum patterns; an existing one keeps its
+  name, a new one is named by its file), `kickPhrases`, `strumPats`, `arpRhythms` and `arpPatterns` blocks with
+  their statuses; the rest of the file is kept byte for byte.
 
 ## drums
 

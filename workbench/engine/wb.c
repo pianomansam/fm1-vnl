@@ -11,6 +11,7 @@
 #include "song.h"
 #include "library.h"
 #include "override.h"
+#include "patterns_gen.h"
 #include "voices.h"
 #include "harmony.h"
 #include "poketrack/trommelsynthesizer.h"
@@ -751,6 +752,9 @@ EXPORT void wb_ov_set(int key, int value)
     case WB_OV_DRUMS_SALT: o->drums_salt = (uint32_t)value; break;
     case WB_OV_PAD_ON: o->pad_on = (int8_t)value; break;
     case WB_OV_LEAD_DOUBLE: o->lead_double = (int8_t)value; break;
+    case WB_OV_STRUM_PAT: o->strum_pat = (int8_t)value; break;
+    case WB_OV_ARP_RHY: o->arp_rhy = (int8_t)value; break;
+    case WB_OV_ARP_PAT: o->arp_pat = (int8_t)value; break;
     default: break;
     }
 }
@@ -772,6 +776,9 @@ EXPORT int wb_ov_get(int key)
     case WB_OV_DRUMS_SALT: return (int)o->drums_salt;
     case WB_OV_PAD_ON: return o->pad_on;
     case WB_OV_LEAD_DOUBLE: return o->lead_double;
+    case WB_OV_STRUM_PAT: return o->strum_pat;
+    case WB_OV_ARP_RHY: return o->arp_rhy;
+    case WB_OV_ARP_PAT: return o->arp_pat;
     default: return 0;
     }
 }
@@ -945,7 +952,7 @@ EXPORT const char *wb_sections(int heard)
 
 EXPORT const char *wb_library(void)
 {
-    static char buf[8192];
+    static char buf[16384];             /* about 100 B a progression: room for the imported ones */
     static const char *done;
     out_t o = {buf, sizeof buf, 0};
     int i;
@@ -959,7 +966,8 @@ EXPORT const char *wb_library(void)
     }
     put(&o, "],\"progs\":[");
     for (i = 0; i < LIB_NPROGS; i++) {
-        put(&o, "%s{\"id\":%d,\"src\":", i ? "," : "", LIB_PROGS[i].id);
+        put(&o, "%s{\"id\":%d,\"status\":\"%s\",\"src\":", i ? "," : "", LIB_PROGS[i].id,
+            LIB_PROGS_STATUS[i] == 1 ? "approved" : LIB_PROGS_STATUS[i] == 2 ? "retired" : "candidate");
         put_str(&o, LIB_PROGS[i].src);
         put(&o, "}");
     }
@@ -979,6 +987,7 @@ EXPORT const char *wb_consts(void)
         {"KEYS_OCT", WB_OV_KEYS_OCT}, {"LEAD_OCT", WB_OV_LEAD_OCT}, {"VOICING_SALT", WB_OV_VOICING_SALT},
         {"PHRASE_SALT", WB_OV_PHRASE_SALT}, {"BASS_SALT", WB_OV_BASS_SALT}, {"PAD_SALT", WB_OV_PAD_SALT},
         {"DRUMS_SALT", WB_OV_DRUMS_SALT}, {"PAD_ON", WB_OV_PAD_ON}, {"LEAD_DOUBLE", WB_OV_LEAD_DOUBLE},
+        {"STRUM_PAT", WB_OV_STRUM_PAT}, {"ARP_RHY", WB_OV_ARP_RHY}, {"ARP_PAT", WB_OV_ARP_PAT},
         {"N", WB_OV_N}}, V[] = {
         {"CHORD", V_CHORD}, {"BASS", V_BASS}, {"LEAD", V_LEAD}, {"PAD", V_PAD}, {"KICK", V_KICK}, {"SNARE", V_SNARE},
         {"HAT", V_HAT}, {"OHAT", V_OHAT}, {"SHAKER", V_SHAKER}, {"RIM", V_RIM}, {"RIDE", V_RIDE}}, SRC[] = {

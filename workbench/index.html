@@ -63,6 +63,7 @@
   .feedback input { flex: 1 1 16em; min-width: 0; }
   #fb { color: var(--muted); }
   #fb.unsaved { color: var(--accent); font-weight: 600; }
+  .row button.approve { grid-column: 2 / -1; grid-row: 2; justify-self: start; font-size: 12px; font-weight: 600; }  /* under its dropdown */
   .row button.fb { opacity: 0.55; }
   .row button.fb:hover { opacity: 1; }
   /* the drum screen (wider: both bars in view) */
@@ -117,7 +118,7 @@
 </main>
 <script type="module">
   import * as wb from "./wb.js";
-  import { ROWS, GROUPS, optionsFor, inactive } from "./rows.js";
+  import { ROWS, GROUPS, optionsFor, inactive, approval } from "./rows.js";
   import { Desk, PARTS, PART_ROW, sectionAt, positionOf, loopAt } from "./desk.js";
   import { layout, draw } from "./roll.js";
   import { DrumScreen } from "./drums.js";
@@ -177,7 +178,10 @@
     lock.onclick = () => run(() => desk.lock(r.id, !desk.locks.has(r.id)));   // after the change in flight
     const fb = (rating, title) => Object.assign(document.createElement("button"), { textContent: rating === "up" ? "👍" : "👎",
       className: "fb", title: `${title} (with the note above)`, onclick: () => feedback(r.id, rating) });
-    el.append(lab, input, dice, lock, fb("up", `${r.label} is good`), fb("down", `${r.label} is not good`));
+    // a candidate pattern picked in the row: approve it (patterns/status.json; import.sh makes the roll draw it)
+    const approve = Object.assign(document.createElement("button"), { textContent: "Approve", className: "approve", hidden: true });
+    approve.onclick = () => { const t = approval(r, desk.state, desk.opts, lib); if (t) run(() => desk.approve(t)); };
+    el.append(lab, input, dice, lock, approve, fb("up", `${r.label} is good`), fb("down", `${r.label} is not good`));
     // mute and solo (listening only) beside a part's row: the keys, bass, lead, pad and drums (the kit row)
     const part = Object.keys(PARTS).find((p) => PARTS[p] === r.role || (p === "drums" && r.id === "kit"));
     const hear = {};
@@ -189,7 +193,7 @@
           onclick: () => run(() => k === "mute" ? desk.mute(part, !desk.listen.mute.has(part))
                                                 : desk.solo(desk.listen.solo === part ? null : part)) }));
     }
-    Object.assign(el, { input, dice, lock, partKey: part, hear });
+    Object.assign(el, { input, dice, lock, approve, partKey: part, hear });
     return el;
   }
 
@@ -231,6 +235,12 @@
       el.classList.toggle("inactive", !!why);
       el.title = why || "";
       if (r.kind === "seed") { el.input.value = cur; continue; }
+      const cand = approval(r, desk.state, desk.opts, lib), done = cand && desk.approved.has(`${cand.family}/${cand.id}`);
+      el.approve.hidden = !cand;
+      el.approve.disabled = !!done;
+      el.approve.textContent = done ? "Approved: run import.sh" : "Approve";
+      el.approve.title = !cand ? "" : done ? "Approved in patterns/status.json: run tools/patterns/import.sh so the firmware draws it"
+        : `${cand.name} is a candidate: the roll never draws it. Approve it (patterns/status.json; then run tools/patterns/import.sh)`;
       el.options = optionsFor(r, desk.state, desk.opts, { showRetired, lib });
       el.input.replaceChildren(...el.options.map((o) => {
         const tag = (o.status === "retired" ? " (retired)" : o.status === "candidate" ? " (candidate)" : "") +

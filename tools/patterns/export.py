@@ -61,7 +61,8 @@ def hx(v, width=4):
 
 
 def status(v):
-    return "approved" if v else "candidate"
+    """a generated *_STATUS value: 1 approved (the engine draws it), 0 candidate, 2 retired"""
+    return {1: "approved", 2: "retired"}.get(v, "candidate")
 
 
 def strum_id(index):

@@ -395,17 +395,90 @@ class Import(unittest.TestCase):
         self.assertIn("LEAD_RHY_STATUS[LEAD_NRHY] = {1, 1, 1, 1, 1, 1, 0};", (self.gen / "patterns_gen.c").read_text())
         self.assert_in_step("lead-arp", "rhythm-7", model, man)
 
-    def test_new_patterns_in_drawn_families_wait_for_the_next_step(self):
-        """until candidates are workbench-only, a new drum pattern, progression or melody cell would play in songs"""
-        for fam, k, name in (("drums", "7", "drums/sam-groove"), ("progressions", "17", "progressions/sam-vamp"),
-                             ("melody-cells", "3", "melody-cells/sam-cell")):
+    def test_new_patterns_in_drawn_families_import_as_candidates(self):
+        """the roll draws approved entries only, so a new drum pattern, progression or melody cell waits for Sam"""
+        for fam, k, name, table in (("drums", "7", "drums/sam-groove", "LIB_PATTERNS_STATUS[] = {1, 1, 1, 1, 1, 1, 1, 1, 0}"),
+                                    ("progressions", "17", "progressions/sam-vamp", "1, 1, 1, 0};"),
+                                    ("melody-cells", "3", "melody-cells/sam-cell",
+                                     "MELODY_CELLS_STATUS[MELODY_NCELLS] = {1, 1, 1, 1, 1, 1, 1, 0}")):
             with self.subTest(fam=fam):
                 self.tearDown()
                 self.setUp()
-                e = {**self.model[fam][k], "file": name}
-                path = self.write(fam, k, e, ".mid")
-                self.refused(path, None, f"new {fam} patterns can be imported once candidates are workbench-only "
-                                         "(next step)")
+                self.write(fam, k, {**self.model[fam][k], "file": name}, ".mid")
+                so, model, _ = self.imported()
+                new = next(e for e in model[fam].values() if e["file"] == name)
+                self.assertEqual(new["status"], "candidate")
+                self.assertIn(f"({name}), a candidate", so)
+                self.assertNotIn("will move", so)
+                self.assertIn(table, (self.gen / "patterns_gen.c").read_text())
+
+    # ------------------------------------------------------------------------------------ status.json (Approve)
+    def approve(self, want):
+        (self.pat / "status.json").write_text(json.dumps(want))
+
+    def test_approving_a_candidate_makes_it_one_the_roll_draws(self):
+        self.write("drums", "7", {**self.model["drums"]["7"], "file": "drums/sam-groove"}, ".mid")
+        so, model, _ = self.imported()
+        self.assertEqual(model["drums"]["9"]["status"], "candidate")
+        opts = json.loads(self.opts.read_text())
+        self.assertEqual(opts["patterns"][-1], {"id": 9, "name": "sam-groove", "status": "candidate"})
+        self.assertEqual(opts["patterns"][0]["name"], "Boom bap 1 (Cantaloop)")              # the names kept
+        self.approve({"drums": {"9": "approved"}})
+        so, model, _ = self.imported()
+        self.assertEqual(model["drums"]["9"]["status"], "approved")
+        self.assertIn("import: drums 9 (drums/sam-groove) candidate -> approved", so)
+        self.assertIn("will move", so)                                       # approving moves the rolls
+        self.assertIn("LIB_PATTERNS_STATUS[] = {1, 1, 1, 1, 1, 1, 1, 1, 1}", (self.gen / "patterns_gen.c").read_text())
+        self.assertEqual(json.loads(self.opts.read_text())["patterns"][-1]["status"], "approved")
+        code, so = self.run_import()                                         # and again: nothing left to do
+        self.assertNotIn("->", so)
+
+    def test_a_strum_and_arpeggio_candidate_are_offered_to_the_override_rows(self):
+        e = {**self.model["strum"]["1"], "file": "strum/sam-strum", "steps": "D...d.u.D...d.u."}
+        self.write("strum", "1", e, ".mid")
+        self.write("lead-arp", "pattern-1", {**self.model["lead-arp"]["pattern-1"], "file": "lead-arp/pattern-sam",
+                                             "tones": [0, 3, 1, 2]}, ".mid")
+        self.imported()
+        opts = json.loads(self.opts.read_text())
+        self.assertEqual(opts["strumPats"][-1], {"id": "6", "index": 4, "name": "sam-strum", "status": "candidate"})
+        self.assertEqual(opts["arpPatterns"][-1], {"id": "pattern-7", "index": 6, "name": "pattern-sam",
+                                                   "status": "candidate"})
+        self.assertEqual(len(opts["arpRhythms"]), 6)
+        self.approve({"strum": {"6": "approved"}, "lead-arp": {"pattern-7": "retired"}})
+        so, model, _ = self.imported()
+        c = (self.gen / "patterns_gen.c").read_text()
+        self.assertIn("STRUM_PAT_STATUS[STRUM_NPAT] = {1, 1, 1, 1, 1};", c)
+        self.assertIn("LEAD_PAT_STATUS[LEAD_NPAT] = {1, 1, 1, 1, 1, 1, 2};", c)     # retired: never drawn
+        self.assertEqual((model["strum"]["6"]["status"], model["lead-arp"]["pattern-7"]["status"]),
+                         ("approved", "retired"))
+        self.assertEqual(json.loads(self.opts.read_text())["arpPatterns"][-1]["status"], "retired")
+
+    def test_retiring_an_approved_entry_moves_the_pins(self):
+        self.approve({"progressions": {"44": "retired"}})
+        so, model, _ = self.imported()
+        self.assertEqual(model["progressions"]["44"]["status"], "retired")
+        self.assertIn("progressions 44", so)
+        self.assertIn("approved -> retired", so)
+        self.assertIn("will move", so)
+        self.assertIn("1, 1, 2};", (self.gen / "patterns_gen.c").read_text())
+
+    def test_status_json_is_checked(self):
+        self.approve({"drums": {"99": "approved", "1": "approved"}, "nope": {"1": "approved"},
+                      "comp-rhythms": {"1": "retired"}, "strum": {"5": "candidate"}})
+        so, model, _ = self.imported()
+        for note in ("no drums 99; ignored", "no family 'nope'; ignored", "comp-rhythms 1 is fixed (always approved)",
+                     "strum 5 is fixed (always approved)"):
+            self.assertIn("import: note: patterns/status.json: " + note, so)
+        self.assertEqual(model, json.loads((ROOT / "patterns/model.json").read_text()))
+        for bad, words in (({"drums": {"1": "yes"}}, "drums 1: status 'yes' is none of approved, candidate, retired"),
+                           ("[1]", "not a JSON object of families"), ("{", "unreadable")):
+            before = self.snapshot()
+            (self.pat / "status.json").write_text(bad if isinstance(bad, str) else json.dumps(bad))
+            code, so = self.run_import()
+            self.assertEqual(code, 1, so)
+            self.assertIn("refused: patterns/status.json: " + words, so)
+            self.assertIn("nothing written", so)
+            self.assertEqual(self.snapshot(), before)
 
     def test_a_title_edit_changes_a_progressions_modes(self):
         e = self.model["progressions"]["17"]

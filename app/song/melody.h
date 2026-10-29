@@ -14,6 +14,7 @@
 #include "roll.h"
 #include "plan.h"
 #include "groove.h"
+#include "rng.h"
 
 enum { PH_STATE, PH_VARIANT, PH_NEW };
 
@@ -33,6 +34,10 @@ typedef struct { uint8_t kind[32]; } melody_phrases_t;
 void melody_plan(const song_roll_t *r, const song_plan_t *p, melody_phrases_t *ph);
 /* The same with the motif given (melody_plan builds melody_motif(r, r->seed)), so a caller holding it builds it once. */
 void melody_plan_for(const song_roll_t *r, const song_plan_t *p, const motif_t *m, melody_phrases_t *ph);
+
+/* One beat's rhythm cell for a figure, a MELODY_CELLS index (patterns_gen.h): drawn from g over the approved cells by
+   weight (one rng step). */
+int melody_cell_pick(rng_t *g);
 
 /* Lead (V_LEAD, 64-84 shifted by the mood's lead_shift) events of one 16th step (bar from 0, step 0-15). Callable
    for any (bar, step) in any order. Returns the number written (at most max). */

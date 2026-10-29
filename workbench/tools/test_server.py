@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""server.py's writes: feedback lines, kits, patterns (into a temp folder, never workbench/).
+"""server.py's writes: feedback lines, kits, patterns, approvals (into temp folders, never workbench/ or patterns/).
    python3 workbench/tools/test_server.py"""
 import http.client
 import importlib.util
@@ -22,6 +22,11 @@ class T(unittest.TestCase):
     def setUpClass(cls):
         cls.tmp = tempfile.TemporaryDirectory()
         server.DATA = Path(cls.tmp.name)
+        server.PATTERNS = Path(cls.tmp.name) / "pat"
+        server.PATTERNS.mkdir()
+        (server.PATTERNS / "model.json").write_text(json.dumps(
+            {"_note": "x", "drums": {"1": {"status": "approved"}, "9": {"status": "candidate"}},
+             "strum": {"6": {"status": "candidate"}}, "lead-arp": {"pattern-7": {"status": "candidate"}}}))
         server.Handler.log_message = lambda *a: None
         cls.srv = ThreadingHTTPServer(("127.0.0.1", 0), partial(server.Handler, directory=cls.tmp.name))
         threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
@@ -140,6 +145,48 @@ class T(unittest.TestCase):
         status, body = self.get("/patterns/listed-1.json")
         self.assertEqual((status, json.loads(body)["grid"]), (200, {"base": 3}))
         self.assertEqual(json.loads(self.get("/list/kits")[1])["names"], sorted(json.loads(self.get("/list/kits")[1])["names"]))
+
+
+    # ---- POST /approve: patterns/status.json
+    def status_json(self):
+        p = server.PATTERNS / "status.json"
+        return json.loads(p.read_text()) if p.exists() else None
+
+    def test_approve_writes_status_json(self):
+        (server.PATTERNS / "status.json").unlink(missing_ok=True)
+        status, body = self.post("/approve", {"family": "drums", "id": "9"})
+        self.assertEqual((status, body["ok"], body["status"]), (200, True, "approved"))
+        self.assertIn("tools/patterns/import.sh", body["then"])
+        self.assertEqual(self.status_json(), {"drums": {"9": "approved"}})
+        self.assertEqual(self.post("/approve", {"family": "lead-arp", "id": "pattern-7"})[0], 200)
+        self.assertEqual(self.post("/approve", {"family": "drums", "id": 9})[0], 200)     # a number id, as the rows'
+        self.assertEqual(self.status_json(), {"drums": {"9": "approved"}, "lead-arp": {"pattern-7": "approved"}})
+        self.assertEqual(sorted(p.name for p in server.PATTERNS.iterdir()), ["model.json", "status.json"])
+
+    def test_approve_takes_only_the_models_entries(self):
+        (server.PATTERNS / "status.json").write_text('{"strum": {"6": "retired"}}')
+        for bad in ({"family": "drums", "id": "8"}, {"family": "drums", "id": "../model"}, {"family": "_note", "id": "x"},
+                    {"family": "nope", "id": "1"}, {"family": "../../etc", "id": "1"}, {"family": "drums"},
+                    {"id": "9"}, {"family": "drums", "id": True}, {"family": ["drums"], "id": "9"}, {}):
+            self.assertEqual(self.post("/approve", bad)[0], 400, bad)
+        self.assertEqual(self.status_json(), {"strum": {"6": "retired"}})
+        (server.PATTERNS / "status.json").write_text("{not json")
+        self.assertEqual(self.post("/approve", {"family": "drums", "id": "9"})[0], 500)
+        self.assertEqual((server.PATTERNS / "status.json").read_text(), "{not json")      # left for Sam to fix
+        (server.PATTERNS / "status.json").unlink()
+
+    def test_approve_only_this_page(self):
+        port = self.srv.server_address[1]
+        (server.PATTERNS / "status.json").unlink(missing_ok=True)
+        ok = {"family": "strum", "id": "6"}
+        self.assertEqual(self.post("/approve", None, raw=json.dumps(ok), headers={"Content-Type": "text/plain"})[0], 415)
+        self.assertEqual(self.post("/approve", ok, headers={"Origin": "https://evil.example"})[0], 403)
+        self.assertEqual(self.post("/approve", ok, headers={"Host": "evil.example:%d" % port})[0], 403)
+        self.assertEqual(self.post("/approve", None, raw="[1]")[0], 400)
+        self.assertIsNone(self.status_json())
+        self.assertEqual(self.post("/approve", ok, headers={"Origin": f"http://127.0.0.1:{port}"})[0], 200)
+        self.assertEqual(self.status_json(), {"strum": {"6": "approved"}})
+        (server.PATTERNS / "status.json").unlink()
 
 
 if __name__ == "__main__":

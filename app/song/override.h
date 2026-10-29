@@ -21,6 +21,11 @@ typedef struct {
     int8_t pad_on;          /* -1 rolled (song_pad_on), 0 no pad layer in the song, 1 a pad layer */
     int8_t lead_double;     /* 0: the rules that steer the lead off a pitch (or its octave) the keys, bass or pad
                                sound with it hold; 1: they're off (rubs, avoid notes and range still hold) */
+    /* forced pattern table entries (patterns_gen.h), approved or candidate: the workbench's way to hear a candidate,
+       which the roll never draws. -1 rolled (the roll draws over the approved entries only) */
+    int8_t strum_pat;       /* a STRUM_PAT index (the strummed keys) */
+    int8_t arp_rhy;         /* a LEAD_RHY index (the hybrid lead's arpeggio rhythm) */
+    int8_t arp_pat;         /* a LEAD_PAT index (its arpeggio pattern) */
 } song_ov_t;
 
 void song_override(const song_ov_t *ov);   /* NULL: none (default); the struct is copied */

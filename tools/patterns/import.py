@@ -7,8 +7,9 @@
    unchanged (model.json has it). One changed (or a new pattern's only file) is imported from that file; both changed
    must agree, else the import is refused naming both. After an import the pattern's other file is rewritten from the
    imported entry and both hashes go in the manifest. A file name not in model.json is a new pattern: the next free
-   id, status candidate. Every entry is checked against the engine's rules (validate.py); any refusal names the file,
-   the bar and the rule, and nothing is written.
+   id, status candidate. patterns/status.json ({family: {id: "approved" | "candidate" | "retired"}}, the workbench's
+   Approve button writes it) sets an entry's status; the engine draws approved entries only. Every entry is checked
+   against the engine's rules (validate.py); any refusal names the file, the bar and the rule, and nothing is written.
 
    python3 -I tools/patterns/import.py [--check] [--patterns DIR] [--gen DIR] [--options FILE]
      --check: read and validate only, write nothing (exit 1 on a refusal)"""
@@ -33,8 +34,7 @@ LANE_FAMS = {"drums", "kick-phrases", "strum"}
 EXTS = (".mid", ".musicxml")
 DERIVED = ("status", "file", "symbols", "symbols_mode", "onsets")
 HASHES = "the pinned hashes (b852d9cb / a662a137, the voicer 0x7b61830d)"
-# the families whose tables the firmware's roll draws over every entry of (until candidates are workbench-only)
-DRAWN = ("drums", "progressions", "melody-cells")
+STATUS = {"approved": 1, "candidate": 0, "retired": 2}     # the generated *_STATUS values (the engine draws 1 only)
 # what a pattern sounds like, to tell a renamed or saved-as copy of an entry
 SOUND_KEYS = {"drums": ("hit", "ghost", "hit_b", "ghost_b", "poly3", "two_bar"), "kick-phrases": ("a", "b"),
               "progressions": ("n", "bars_per_chord", "chords"), "comp-rhythms": ("strikes", "second", "first"),
@@ -294,7 +294,7 @@ def spec_for(root, suffix, mode, hints, bar):
 # ------------------------------------------------------------------------------------------- the model's tables
 def rows_from_model(model):
     """model.json -> (the tables, in dump.c's JSON shape, kickPhrases)"""
-    st = lambda e: int(e["status"] == "approved")  # noqa: E731
+    st = lambda e: STATUS[e["status"]]  # noqa: E731
     t = {"patterns": [], "progs": []}
     for e in model["drums"].values():
         t["patterns"].append({"id": e["id"], "family": validate.PF.index(e["family"]),
@@ -357,8 +357,9 @@ def gen_c(t):
             "   patterns/README.md), then run tools/patterns/import.sh. Never edit this file. */\n")
     H = [head, "#ifndef SONG_PATTERNS_GEN_H", "#define SONG_PATTERNS_GEN_H", "#include <stdint.h>",
          '#include "library.h"', "",
-         "/* Each *_STATUS runs parallel to its table: 1 approved (the engine draws it), 0 candidate (the workbench",
-         "   only). The comp rhythms and the landings are fixed entries, always approved. */",
+         "/* Each *_STATUS runs parallel to its table: 1 approved (the roll draws it), 0 candidate (the workbench",
+         "   only, until Sam approves it: patterns/status.json), 2 retired (never drawn). The comp rhythms, the landings",
+         "   and the ballad's fill are fixed entries, always approved. */",
          "",
          "/* drums (LIB_PATTERNS) and progressions (LIB_PROGS): the types and the tables in library.h */",
          "extern const uint8_t LIB_PATTERNS_STATUS[];",
@@ -463,17 +464,36 @@ def gen_c(t):
     return "\n".join(C), "\n".join(H)
 
 
-def options_text(text, kicks):
-    """workbench/options.json with its kickPhrases block regenerated (the rest of the file byte for byte)"""
-    lines = []
-    for k in kicks:
-        st = f', "status": "{k["status"]}"' if "status" in k else ""
-        lines.append(f'    {{ "id": "{k["id"]}", "a": {json.dumps(k["a"])}, "b": {json.dumps(k["b"])}{st} }}')
-    new, n = re.subn(r'("kickPhrases": \[\n)(.*?)(\n  \])', lambda m: m.group(1) + ",\n".join(lines) + m.group(3),
-                     text, count=1, flags=re.S)
-    if n != 1:
-        raise SystemExit("import: workbench/options.json has no kickPhrases block")
-    return new
+def option_blocks(model, text):
+    """workbench/options.json's generated blocks: the kick phrases, the drum patterns (named as before; a new one by its
+       file), and the strum and arpeggio patterns the workbench's override rows force ({id: the model's, index: the
+       table's})"""
+    old = {p["id"]: p["name"] for p in json.loads(text).get("patterns", [])}
+    st = lambda e: f', "status": "{e["status"]}"'  # noqa: E731
+    name = lambda e: json.dumps(e["file"].split("/", 1)[1])  # noqa: E731
+    kicks = [f'    {{ "id": "{e["id"]}", "a": {json.dumps(e["a"])}, "b": {json.dumps(e["b"])}'
+             f'{st(e) if e["status"] != "approved" else ""} }}' for e in model["kick-phrases"].values()]
+    drums = [f'    {{ "id": {e["id"]}, "name": {json.dumps(old[e["id"]]) if e["id"] in old else name(e)}{st(e)} }}'
+             for e in model["drums"].values()]
+
+    def indexed(fam, kind):
+        es = sorted((x for x in model[fam].items() if x[1]["kind"] == kind), key=lambda x: x[1]["index"])
+        return [f'    {{ "id": "{k}", "index": {e["index"]}, "name": {name(e)}{st(e)} }}' for k, e in es]
+    return {"patterns": drums, "kickPhrases": kicks, "strumPats": indexed("strum", "pattern"),
+            "arpRhythms": indexed("lead-arp", "rhythm"), "arpPatterns": indexed("lead-arp", "pattern")}
+
+
+def options_text(text, blocks):
+    """workbench/options.json with its generated blocks regenerated, a missing one added at the end (the rest of the
+       file byte for byte)"""
+    for key, lines in blocks.items():
+        new, n = re.subn(r'("%s": \[\n)(.*?)(\n  \])' % key, lambda m: m.group(1) + ",\n".join(lines) + m.group(3),
+                         text, count=1, flags=re.S)
+        if n != 1:
+            end = text.rstrip().rfind("}")
+            new = text[:end].rstrip() + f',\n  "{key}": [\n' + ",\n".join(lines) + "\n  ]\n" + text[end:]
+        text = new
+    return text
 
 
 # ------------------------------------------------------------------------------------------------- new entries
@@ -517,6 +537,42 @@ def with_meta(fam, base, meta):
         if fam == "progressions" and isinstance(meta.get("chords"), list):
             base["chords"] = meta["chords"] + [c for c in base.get("chords") or [] if c not in meta["chords"]]
     return base
+
+
+# -------------------------------------------------------------------------------------------------- status.json
+def fixed(fam, e):
+    """the comp rhythms, the landings and the ballad's fill: fixed entries, always approved"""
+    return fam == "comp-rhythms" or e.get("kind") in ("landing", "fill")
+
+
+def set_status(pat, model, notes, refuse):
+    """patterns/status.json ({family: {id: status}}, the workbench's Approve) onto the model's entries"""
+    path = pat / "status.json"
+    if not path.exists() and not path.is_symlink():
+        return
+    if path.is_symlink() or not path.is_file():
+        return refuse(["status.json"], None, "not a plain file")
+    try:
+        want = json.loads(path.read_text(encoding="utf-8"))
+    except (ValueError, UnicodeDecodeError) as err:
+        return refuse(["status.json"], None, f"unreadable ({err})")
+    if not isinstance(want, dict):
+        return refuse(["status.json"], None, "not a JSON object of families")
+    for fam, ids in want.items():
+        if fam not in FAMS or not isinstance(ids, dict):
+            notes.append(("status.json", None, f"no family {fam!r}; ignored"))
+            continue
+        for k, st in ids.items():
+            e = model[fam].get(k)
+            if e is None:
+                notes.append(("status.json", None, f"no {fam} {k}; ignored"))
+            elif st not in STATUS:
+                refuse(["status.json"], None, f"{fam} {k}: status {st!r} is none of {', '.join(STATUS)}")
+            elif fixed(fam, e):
+                if st != "approved":
+                    notes.append(("status.json", None, f"{fam} {k} is fixed (always approved); ignored"))
+            else:
+                e["status"] = st
 
 
 # -------------------------------------------------------------------------------------------------------- import
@@ -599,13 +655,10 @@ def run(pat, gen, options, check=False):
             for k, o in same:
                 notes.append((stem + next(iter(changed)), None, f"the same as {fam} {k} ({o['file']}): a renamed or "
                               "saved-as copy? It imports as a new candidate"))
-            if fam in DRAWN:
-                refuse([stem + x for x in sorted(changed)], None, f"new {fam} patterns can be imported once "
-                       "candidates are workbench-only (next step)")
-                continue
         e["status"], e["file"] = status, stem
         new[fam][key] = e
         imported[stem] = (fam, key, set(changed))
+    set_status(pat, new, notes, refuse)
     def files_of(e):                                 # a refusal names the files the entry was read from
         got = imported.get(e["file"])
         return [e["file"] + x for x in sorted(got[2])] if got else [e["file"] + ".mid"]
@@ -625,6 +678,7 @@ def run(pat, gen, options, check=False):
         return 1
     tables, kicks = rows_from_model(new)
     c_text, h_text = gen_c(tables)
+    o_text = options_text(options.read_text(), option_blocks(new, options.read_text()))
     out_model = export.build_model(tables, kicks)
     for fam in FAMS:
         for k, e in out_model[fam].items():
@@ -635,11 +689,18 @@ def run(pat, gen, options, check=False):
     for fam in FAMS:
         for k, e in out_model[fam].items():
             old = model[fam].get(k)
+            drawn = fam != "kick-phrases"                # (the kick phrases are the workbench's)
             if old is None:                              # a candidate: never drawn, never moves the pins
-                changes.append(f"import: new {fam} {k} ({e['file']}), a candidate")
-            elif content(old) != content(e):
+                changes.append(f"import: new {fam} {k} ({e['file']}), " +
+                               ("a candidate" if e["status"] == "candidate" else e["status"]))
+                moves |= drawn and e["status"] == "approved"
+                continue
+            if content(old) != content(e):
                 changes.append(f"import: {old['status']} {fam} {k} changed ({e['file']})")
-                moves |= fam != "kick-phrases" and old["status"] == "approved"
+                moves |= drawn and old["status"] == "approved"
+            if old["status"] != e["status"]:            # status.json: approving or retiring moves the rolls
+                changes.append(f"import: {fam} {k} ({e['file']}) {old['status']} -> {e['status']}")
+                moves |= drawn and "approved" in (old["status"], e["status"])
     for line in changes:
         print(line)
     if moves:
@@ -648,7 +709,7 @@ def run(pat, gen, options, check=False):
         print(f"import: check: ok ({len(imported)} pattern(s) to import, {len(changes)} change(s)); nothing written")
         return 0
     for path, text in ((gen / "patterns_gen.c", c_text), (gen / "patterns_gen.h", h_text),
-                       (options, options_text(options.read_text(), kicks))):
+                       (options, o_text)):
         if not path.exists() or path.read_text() != text:
             atomic_write(path, text)
     for stem, (fam, k, changed) in imported.items():

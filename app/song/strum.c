@@ -7,6 +7,7 @@
 #include "rng.h"
 #include "harmony.h"
 #include "patterns_gen.h"
+#include "override.h"
 
 static int clampi(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }
 static int absi(int v) { return v < 0 ? -v : v; }
@@ -29,9 +30,14 @@ static uint32_t strum_draw(const song_roll_t *r)
 
 int strum_pattern(const song_roll_t *r, int *slow)
 {
-    uint32_t h = strum_draw(r);
-    int p = (int)(h % SP_N);
-    if (slow) *slow = p == SP_BALLAD && ((h / SP_N) & 1u);
+    uint32_t h = strum_draw(r), n = 0, k;
+    int i, p = 0, f = song_ov()->strum_pat;
+    for (i = 0; i < STRUM_NPAT; i++) n += STRUM_PAT_STATUS[i] == 1;
+    k = n ? h % n : 0;            /* the k-th approved pattern: over today's four, h % SP_N as before */
+    for (i = 0; i < STRUM_NPAT; i++)
+        if (STRUM_PAT_STATUS[i] == 1 && k-- == 0) { p = i; break; }
+    if (f >= 0 && f < STRUM_NPAT) p = f;
+    if (slow) *slow = p == SP_BALLAD && ((h / (n ? n : 1u)) & 1u);
     return p;
 }
 

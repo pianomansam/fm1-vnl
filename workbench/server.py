@@ -4,7 +4,9 @@
 Serves the build (app/build/workbench/: the page and wb.wasm) and, behind it, workbench/ (kits, patterns, samples,
 options.json). It writes only under workbench/: POST /feedback appends a line to feedback.jsonl, POST /kit and
 POST /pattern ({"name": ..., ...}) write kits/<name>.json and patterns/<name>.json (a name already saved: 409, unless
-the body has "overwrite": true, which isn't written). Only this page's requests are answered (the Host is
+the body has "overwrite": true, which isn't written). POST /approve ({"family": ..., "id": ...}, an entry of
+patterns/model.json) marks a pattern candidate approved in patterns/status.json, the one file it writes outside
+workbench/; tools/patterns/import.sh then makes it one the roll draws. Only this page's requests are answered (the Host is
 127.0.0.1 or localhost with the port; a POST's Origin too). GET /list/kits and /list/patterns
 give the saved names ({"names": [...]}), each served at /kits/<name>.json and /patterns/<name>.json."""
 import json
@@ -18,6 +20,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 DATA = REPO / "workbench"          # where it writes (the tests point it elsewhere)
+PATTERNS = REPO / "patterns"       # model.json (read) and status.json (written by /approve); the tests point it elsewhere
 BUILD = REPO / "app" / "build" / "workbench"      # the page and wb.wasm (served first, then DATA)
 MAX_BODY = 1 << 20                 # a request body over 1 MB is refused
 NAME = re.compile(r"[a-z0-9-]{1,40}")
@@ -68,7 +71,7 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         route = self.path.split("?")[0]
-        if route not in ("/feedback", "/kit", "/pattern"):
+        if route not in ("/feedback", "/kit", "/pattern", "/approve"):
             return self.reply(404, {"ok": False, "error": "no such route"})
         # only this page: a web page elsewhere can POST here too (a simple request, or DNS rebinding), so the Host, the
         # Origin (if sent) and a JSON content type (which a cross-site form can't send) must all be ours
@@ -95,6 +98,8 @@ class Handler(SimpleHTTPRequestHandler):
             return self.reply(400, {"ok": False, "error": "not JSON"})
         if not isinstance(body, dict):
             return self.reply(400, {"ok": False, "error": "expected a JSON object"})
+        if route == "/approve":
+            return self.approve(body)
         if route == "/feedback":
             path = DATA / "feedback.jsonl"
             with WRITE:
@@ -125,6 +130,35 @@ class Handler(SimpleHTTPRequestHandler):
             tmp.write_text(json.dumps(body, indent=1) + "\n", encoding="utf-8")
             os.replace(tmp, folder / f"{name}.json")
         self.reply(200, {"ok": True})
+
+    def approve(self, body):
+        """an entry of patterns/model.json (its family and id, never a path) approved in patterns/status.json"""
+        fam, eid = body.get("family"), body.get("id")
+        if isinstance(eid, int) and not isinstance(eid, bool):
+            eid = str(eid)
+        try:
+            model = json.loads((PATTERNS / "model.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return self.reply(500, {"ok": False, "error": "patterns/model.json is missing or unreadable"})
+        if not isinstance(fam, str) or fam.startswith("_") or not isinstance(model.get(fam), dict):
+            return self.reply(400, {"ok": False, "error": "family must be one of patterns/model.json's"})
+        if not isinstance(eid, str) or eid not in model[fam]:
+            return self.reply(400, {"ok": False, "error": f"no such {fam} pattern"})
+        path = PATTERNS / "status.json"
+        with WRITE:
+            try:
+                status = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+            except ValueError:
+                status = None
+            if not isinstance(status, dict) or not isinstance(status.get(fam, {}), dict):
+                return self.reply(500, {"ok": False, "error": "patterns/status.json is not {family: {id: status}}: "
+                                                              "fix or remove it"})
+            status.setdefault(fam, {})[eid] = "approved"
+            tmp = PATTERNS / ".status.json.tmp"
+            tmp.write_text(json.dumps(status, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            os.replace(tmp, path)
+        self.reply(200, {"ok": True, "family": fam, "id": eid, "status": "approved",
+                         "then": "run tools/patterns/import.sh so the firmware (and, rebuilt, the workbench) draws it"})
 
     def end_headers(self):
         self.send_header("Cache-Control", "no-store")   # a rebuild shows on reload

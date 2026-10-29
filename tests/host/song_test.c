@@ -6928,7 +6928,7 @@ static void test_lead_over_keys(void)
    dB): each set's mean and median 7-11 dB under, and no song under 5 dB or over 13. */
 static void test_pad_level(void)
 {
-    static const song_ov_t pads = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, 0};   /* every song with a pad */
+    static const song_ov_t pads = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, 0, -1, -1, -1};   /* every song with a pad */
     float d[LIB_NSETS_MAX * LK_PER], sorted[LIB_NSETS_MAX * LK_PER], med;
     int k, n = 0, sets = 0;
     song_override(&pads);
@@ -7952,7 +7952,7 @@ static pd_rec_t pd_a, pd_b;
    so they keep their samples; NULL (0) restores the roll's */
 static void pd_all_pads(int on)
 {
-    static const song_ov_t all = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, 0};
+    static const song_ov_t all = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, 0, -1, -1, -1};
     song_override(on ? &all : NULL);
 }
 static int pd_part(const song_t *s, int blk, int sus)
@@ -9244,7 +9244,7 @@ static void ov_run(const song_roll_t *r, const song_ov_t *ov, ov_rec_t *o)
 }
 static song_ov_t ov_none(void)
 {
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, 0};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, 0, -1, -1, -1};
     return o;
 }
 static void test_ov_comp(void)

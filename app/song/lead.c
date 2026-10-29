@@ -441,25 +441,43 @@ static void plan_phrase(lead_state_t *ls, const ctx_t *c, const plan_block_t *b,
     ls->ctrun = ctrun;
 }
 
-/* the hybrid's arpeggio rhythms (LEAD_RHY) and patterns (LEAD_PAT): patterns_gen.c, from patterns/lead-arp; the
-   song's rhythm is the one that lands least on the snare (Sam), not forced */
-static void choose(lead_state_t *ls, const song_roll_t *r)   /* one pattern, rhythm, direction and swap per song */
+/* the hybrid's arpeggio rhythms (LEAD_RHY) and patterns (LEAD_PAT): patterns_gen.c, from patterns/lead-arp; drawn
+   over the approved entries only. The song's rhythm is the one that lands least on the snare (Sam), not forced */
+static void draw_arp(const song_roll_t *r, int *pat, int *rhy, int *rev, int *swap)
 {
     const lib_pattern_t *dp = lib_pattern_by_id((uint8_t)r->v[RF_PATTERN]);
     unsigned snare = dp ? lib_lane_hits(dp, D_SNARE, 0) : 0x1010u;
-    int i, j, best = 1 << 30, tie;
+    int i, j, k, n = 0, best = 1 << 30, tie;
+    const song_ov_t *ov = song_ov();
     rng_t g;
     rng_seed(&g, song_ov_phrase_seed(r->seed), 142);
-    ls->pat = rng_int(&g, 6);
-    ls->rev = rng_int(&g, 3) == 0;
-    ls->swap = rng_int(&g, 2) ? rng_int(&g, 5) : -1;    /* two neighboring notes swapped, or none */
+    for (i = 0; i < LEAD_NPAT; i++) n += LEAD_PAT_STATUS[i] == 1;
+    k = rng_int(&g, n ? n : 1);                          /* the k-th approved pattern (today's six: as before) */
+    for (*pat = 0, i = 0; i < LEAD_NPAT; i++)
+        if (LEAD_PAT_STATUS[i] == 1 && k-- == 0) { *pat = i; break; }
+    *rev = rng_int(&g, 3) == 0;
+    *swap = rng_int(&g, 2) ? rng_int(&g, 5) : -1;       /* two neighboring notes swapped, or none */
     tie = rng_int(&g, 1000);
-    for (i = 0; i < 6; i++) {                            /* share of notes on a snare hit, in per mille */
+    for (*rhy = 0, i = 0; i < LEAD_NRHY; i++) {          /* share of notes on a snare hit, in per mille */
         int on = 0, all = 0, cost;
+        if (LEAD_RHY_STATUS[i] != 1) continue;           /* approved rhythms only */
         for (j = 0; LEAD_RHY[i][j][0] >= 0; j++) { all++; on += (snare >> LEAD_RHY[i][j][0]) & 1; }
         cost = on * 1000 / all * 4 + (tie + i * 377) % 1000;
-        if (cost < best) { best = cost; ls->rhy = i; }
+        if (cost < best) { best = cost; *rhy = i; }
     }
+    if (ov->arp_pat >= 0 && ov->arp_pat < LEAD_NPAT) *pat = ov->arp_pat;   /* the workbench's pick (a candidate too) */
+    if (ov->arp_rhy >= 0 && ov->arp_rhy < LEAD_NRHY) *rhy = ov->arp_rhy;
+}
+
+void lead_arp_pick(const song_roll_t *r, int *pat, int *rhy)
+{
+    int rev, swap;
+    draw_arp(r, pat, rhy, &rev, &swap);
+}
+
+static void choose(lead_state_t *ls, const song_roll_t *r)   /* one pattern, rhythm, direction and swap per song */
+{
+    draw_arp(r, &ls->pat, &ls->rhy, &ls->rev, &ls->swap);
     ls->chosen = 1;
 }
 

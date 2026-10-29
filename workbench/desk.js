@@ -73,9 +73,12 @@ export class Desk {
     this.padless = false;      // the committed song has no pad (its pad 🎲 and ◀ ▶ wait for one)
     this.reactions = [];       // what else the last part roll moved ("Lead moved: ...")
     this.dead = {};            // parts whose 🎲 found no other roll in the song as it stands: why (cleared by any change)
+    this.approved = new Set(); // candidates approved this session ("family/id"): approved once import.sh has run
+    this.strums = undefined;   // the staged song's keys strum (the strum pattern row is heard only then)
   }
 
-  get state() { return { values: this.values, locks: this.locks, legal: this.legal, unavailable: this.samples?.unavailable }; }
+  get state() { return { values: this.values, locks: this.locks, legal: this.legal, unavailable: this.samples?.unavailable,
+                         strums: this.strums }; }
   kept(id) { return this.locks.has(id) || this.hand.has(id); }
 
   // the engine's staged state into values; the family is the page's (derive: from the keys and lead, as a new song's)
@@ -90,7 +93,21 @@ export class Desk {
       prog: await ids(this.lib.progs.map((p) => p.id), this.C.RF.PROG),
       mode: await ids([0, 1, 2, 3, 4, 5], this.C.RF.MODE),
     };
+    this.strums = (await this.call("wb_comp_applied")) === CS_STRUM;
     return this.values;
+  }
+
+  // POST /approve (f: fetch, the page's; a test's): the candidate t (rows.js's approval: { family, id, name }) approved
+  // in patterns/status.json. The roll draws it once tools/patterns/import.sh has run (and the workbench is rebuilt);
+  // until then it plays here as before, when picked.
+  async approve(t, f = globalThis.fetch) {
+    const r = await f("/approve", { method: "POST", headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ family: t.family, id: t.id }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.ok) return this.done(false, `${t.name} wasn't approved: ${j.error || `the server said ${r.status}`}.`);
+    this.approved.add(`${t.family}/${t.id}`);
+    return this.done(true, `${t.name} approved (patterns/status.json). Run tools/patterns/import.sh so the firmware ` +
+                           "draws it; sh workbench/build.sh (import.sh runs it) lets the workbench roll it too.");
   }
 
   async stage(id, v) {

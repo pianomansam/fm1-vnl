@@ -7,8 +7,9 @@
 #include <stdint.h>
 #include "library.h"
 
-/* Each *_STATUS runs parallel to its table: 1 approved (the engine draws it), 0 candidate (the workbench
-   only). The comp rhythms and the landings are fixed entries, always approved. */
+/* Each *_STATUS runs parallel to its table: 1 approved (the roll draws it), 0 candidate (the workbench
+   only, until Sam approves it: patterns/status.json), 2 retired (never drawn). The comp rhythms, the landings
+   and the ballad's fill are fixed entries, always approved. */
 
 /* drums (LIB_PATTERNS) and progressions (LIB_PROGS): the types and the tables in library.h */
 extern const uint8_t LIB_PATTERNS_STATUS[];

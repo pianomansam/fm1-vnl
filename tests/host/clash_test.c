@@ -420,7 +420,7 @@ static void test_ov_salts(void)
 {
     static song_t s;
     static const int8_t KO[10] = {0, 0, 1, -1, 0, 0, 0, 0, 0, 0}, LO[10] = {0, 0, 0, 0, 1, -1, 0, 0, 0, 0};
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, 0};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, 0, -1, -1, -1};
     song_roll_t r;
     int i, k;
     for (k = 0; k < 10; k++) {

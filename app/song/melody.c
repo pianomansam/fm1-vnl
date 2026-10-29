@@ -205,6 +205,17 @@ static int next_pitch(const ctx_t *c, rng_t *g, const region_t *R, int t, int pr
 
 static int figure_bars(rng_t *g) { return rng_int(g, 20) < 13 ? 2 : 1; }   /* 2 bars about two times in three */
 
+/* A beat's rhythm cell (a MELODY_CELLS index): weighted over the approved cells only (a candidate's weight 0, so the
+   draw takes the same rng step as over today's cells) */
+int melody_cell_pick(rng_t *g)
+{
+    uint8_t w[MELODY_NCELLS];
+    int i;
+    for (i = 0; i < MELODY_NCELLS; i++) w[i] = MELODY_CELLS_STATUS[i] == 1 ? MELODY_CELL_W[i] : 0;
+    i = rng_weighted(g, w, MELODY_NCELLS);
+    return i < 0 ? 0 : i;
+}
+
 /* A fresh figure of mb bars: rhythm from cells (about a third of beats played), first note a guide tone of the
    chord under it, then stepwise and pentatonic-leaning. Notes with no legal pitch are left out. */
 static int gen_figure(const ctx_t *c, rng_t *g, const region_t *R, int mb, int lo, int hi, nt_t *out)
@@ -225,7 +236,7 @@ static int gen_figure(const ctx_t *c, rng_t *g, const region_t *R, int mb, int l
             for (b = 0; b < beats; b++) {
                 int cell;
                 if (!used[b]) continue;
-                cell = MELODY_CELLS[rng_weighted(g, MELODY_CELL_W, MELODY_NCELLS)];
+                cell = MELODY_CELLS[melody_cell_pick(g)];
                 for (s = 0; s < 4; s++)
                     if ((cell >> s) & 1) at[na++] = b * 4 + s;
             }

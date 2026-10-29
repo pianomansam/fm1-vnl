@@ -571,7 +571,7 @@ void score_song(const song_t *s, float now)
         fprintf(logf, "map %s; progression %d (%s); set %s; color %s; comping %s; bass %s\n", m ? m->name : "?",
                 p ? p->id : 0, p ? p->src : "?", set ? set->name : "?", COLOR[r->v[RF_COLOR] % 3],
                 st == CS_HALF && !harmony_half_strikes(r) ? "half notes, held"
-                : st == CS_STRUM                         ? STRUM[slow ? SP_N : sp]
+                : st == CS_STRUM                         ? (slow ? STRUM[SP_N] : sp < SP_N ? STRUM[sp] : "strum, an imported pattern")
                                                          : STYLE[st % 6],
                 BASS[groove_bass_style(r) & 3]);
     }
