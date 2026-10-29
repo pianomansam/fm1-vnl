@@ -6,6 +6,12 @@
 import { ROWS, row, conflicts, pickFor, familyOf, fromEngine, kickMasks, rolled } from "./rows.js";
 import { cellOf, LANES } from "./drums.js";
 
+// the parts a listener can mute or solo (the page's names) and the engine's role for each (the drums' bus on V_KICK)
+export const PARTS = { keys: "CHORD", bass: "BASS", lead: "LEAD", pad: "PAD", drums: "KICK" };
+
+// the section (wb_sections' { start, bars, name }) holding bar (from 1: wb_bar's), or null
+export const sectionAt = (secs, bar) => secs?.find((x) => bar > x.start && bar <= x.start + x.bars) ?? null;
+
 const SEED_TRIES = 20;   // a new seed whose song can't keep the locks is tried again (re-roll all, the seed's dice)
 
 // a die from a seed (the same song lands on the same kit every time)
@@ -23,6 +29,8 @@ export class Desk {
     this.locks = new Set();
     this.hand = new Set();     // rows set from their dropdown (they survive a regenerate, as locks do)
     this.moved = new Set();    // rows the last change forced (highlighted)
+    this.listen = { mute: new Set(), solo: null };   // parts muted, the part soloed: listening only, kept across regenerates
+    this.jumped = false;       // a section jump was staged (a new song drops it: it starts at bar 1)
     this.legal = {};
     this.message = "";
   }
@@ -157,6 +165,7 @@ export class Desk {
     this.message = "";
     await this.readBack();
     await this.call("wb_apply");
+    await this.dropJump(r.regenerates);
     const at = this.position();
     for (const x of [r, ...changed.filter((x) => x.id !== id)])
       this.changes.push({ seconds: at.seconds, bar: at.bar, row: x.id, from: before[x.id], to: this.values[x.id] });
@@ -168,6 +177,41 @@ export class Desk {
     ];
     if (this.message) notes.push(this.message);
     return this.done(true, notes.join(" "));
+  }
+
+  // a new song (seed, map) starts at bar 1: a staged jump (a bar of the old song's sections) is dropped
+  async dropJump(newSong) {
+    if (newSong && this.jumped) await this.call("wb_jump", 0);
+    if (newSong) this.jumped = false;
+  }
+
+  // the committed song's sections: [{ start (bar from 0), bars, name }]
+  sections() { return this.call("wb_sections"); }
+
+  // Play from a section's first bar (start, from 0): playing, at the next bar line (with any change waiting); stopped,
+  // Play starts there
+  async jumpTo(start, name = "that section") {
+    await this.call("wb_jump", start);
+    this.jumped = true;
+    this.moved = new Set();
+    return this.done(true, `Jumping to ${name} (bar ${start + 1}) at the next bar line.`);
+  }
+
+  // mute and solo, heard at once (listening only: the song is unchanged)
+  async hear() {
+    const { V } = this.C, { mute, solo } = this.listen;
+    await this.call("wb_mute", [...mute].reduce((m, p) => m | (1 << V[PARTS[p]]), 0));
+    await this.call("wb_solo", solo ? V[PARTS[solo]] : -1);
+  }
+  async mute(part, on) {
+    if (on) this.listen.mute.add(part); else this.listen.mute.delete(part);
+    await this.hear();
+    return this.done(true, "");
+  }
+  async solo(part) {
+    this.listen.solo = part;
+    await this.hear();
+    return this.done(true, "");
   }
 
   done(ok, message) {
@@ -235,7 +279,8 @@ export class Desk {
   // state: a change still waiting for its bar line isn't in it), those of the waiting commit (pending, or null), the
   // locks and hand edits, the seed. "drums" is the drum state the rows don't hold (the kit, pattern and kick are rows
   // already): the heard song's drum lanes and grid, { preset, lanes: [[kind, a, b, dB], ...], kit_lanes, grid: { base,
-  // edited, lanes } } (wb_state's; restore stages the grid if it was edited).
+  // edited, lanes } } (wb_state's; restore stages the grid if it was edited). "listen": { mute: [parts], solo: part|null }
+  // (absent in older snapshots: none).
   async snapshot() {
     const pending = (await this.call("wb_pending")) ? { ...this.values } : null;
     let rows = { ...this.values }, heard = await this.call(pending ? "wb_live_state" : "wb_state");
@@ -243,7 +288,8 @@ export class Desk {
       rows = fromEngine(heard, this.C, this.opts);
       rows.family = familyOf(rows, this.opts);
     }
-    return { version: 1, rows, pending, locks: [...this.locks], hand: [...this.hand], seed: rows.seed, drums: heard.drums };
+    return { version: 1, rows, pending, locks: [...this.locks], hand: [...this.hand], seed: rows.seed, drums: heard.drums,
+             listen: { mute: [...this.listen.mute], solo: this.listen.solo } };
   }
 
   // Put a snapshot's state on the engine (staged, then committed) as the page's own stagings would; the rows that
@@ -258,6 +304,9 @@ export class Desk {
     for (const r of ROWS) if (r.kind !== "seed" && r.kind !== "family") await this.stage(r.id, snap.rows[r.id]);
     const d = await this.stageDrums(snap.drums), missing = d.refused ? [...d.missing, "drums (the kit row's kit can't take lanes)"] : d.missing;
     await this.call("wb_apply");
+    await this.dropJump(true);
+    this.listen = { mute: new Set(snap.listen?.mute), solo: snap.listen?.solo ?? null };   // an older snapshot: none
+    await this.hear();
     this.values = { ...snap.rows };
     this.locks = new Set(snap.locks);
     this.hand = new Set(snap.hand);

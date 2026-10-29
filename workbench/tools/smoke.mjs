@@ -426,7 +426,7 @@ const enumOf = (first) => {   // the enum whose first name is `first`: its names
   return body.replace(/\/\*[\s\S]*?\*\//g, "").replace(/enum \{/, "").split(",").map((x) => x.trim()).filter(Boolean);
 };
 const lcg = (s) => () => ((s = (s * 1103515245 + 12345) >>> 0) / 4294967296);
-const STR = new Set(["wb_consts", "wb_state", "wb_live_state", "wb_library"]);
+const STR = new Set(["wb_consts", "wb_state", "wb_live_state", "wb_library", "wb_sections"]);
 // the page's call (the worklet's): JSON exports parsed, wb_stage_bytes a copy of the staged state
 const caller = (ex) => async (fn, ...a) => {
   if (fn === "wb_stage_bytes") return new Uint8Array(ex.memory.buffer, ex.wb_stage_ptr(), ex.wb_stage_size()).slice();
@@ -1494,6 +1494,103 @@ console.log("Task 1b: no ear candy; the pad on/off row");
   s8.ov = s8.ov.slice(0, 8);
   check(fromEngine(s8, C, OPTS).padOn === -1 && fromEngine({ ...s8, ov: s8.ov.concat([0, 0, 0]) }, C, OPTS).padOn === -1,
         "an 8- or 11-entry ov list reads the pad as rolled");
+}
+
+console.log("the section strip, mute/solo and listening state (Task 3)");
+{
+  const { sectionAt, PARTS } = await import("../desk.js");
+  const ex = await fresh(), call = caller(ex);
+  const desk = new Desk(call, C, OPTS, await call("wb_library"), { rnd: lcg(13), probe: await prober() });
+  await desk.read(true);
+  const secs = await desk.sections();
+  check(secs.length >= 3 && sectionAt(secs, 1) === secs[0] && sectionAt(secs, secs[2].start + 1) === secs[2] &&
+        sectionAt(secs, secs.at(-1).start + secs.at(-1).bars) === secs.at(-1) && sectionAt(secs, 0) === null && sectionAt(null, 3) === null,
+        "sectionAt: a 1-based bar's section (the first and last bars of each, none outside)");
+  // clicking a section stages a jump that lands at its first bar
+  const bpm = ex.wb_roll_get(RF.TEMPO);
+  ex.wb_play(1);
+  until(ex, () => ex.wb_bar() === 2, 60 * SR);
+  const res = await desk.jumpTo(secs[2].start, secs[2].name);
+  check(res.ok && ex.wb_bar() === 2 && ex.wb_pending() === 1, "a section click stages the jump: the bar sounding plays on");
+  const waited = until(ex, () => ex.wb_bar() !== 2, 60 * SR);
+  check(ex.wb_bar() === secs[2].start + 1 && waited <= barLen(bpm) + Q, `it lands at the section's first bar (bar ${ex.wb_bar()}, wanted ${secs[2].start + 1})`);
+
+  // Ruling: a seed or map change staged after a jump drops the jump (the new song starts at bar 1)
+  for (const [what, row_, val] of [["seed", "seed", 4321], ["map", "map", null]]) {
+    const e = await fresh(), cl = caller(e);
+    const d = new Desk(cl, C, OPTS, await cl("wb_library"), { rnd: lcg(17), probe: await prober() });
+    await d.read(true);
+    const s = await d.sections();
+    e.wb_play(1);
+    until(e, () => e.wb_bar() === 2, 60 * SR);
+    await d.jumpTo(s[2].start, s[2].name);
+    const v = val ?? (d.values.map + 1) % (await cl("wb_library")).maps.length;
+    const r = await d.set(row_, v);
+    until(e, () => e.wb_bar() !== 2, 60 * SR);
+    check(r.ok && e.wb_bar() === 1 && e.wb_catchups() === 1,
+          `a ${what} change staged after a jump drops it: the new song lands at bar ${e.wb_bar()} (wanted 1), one catch-up (${e.wb_catchups()})`);
+  }
+  {   // stopped: Play starts at bar 1 of the new song, not at the old song's section
+    const e = await fresh(), cl = caller(e);
+    const d = new Desk(cl, C, OPTS, await cl("wb_library"), { rnd: lcg(17), probe: await prober() });
+    await d.read(true);
+    await d.jumpTo((await d.sections())[2].start);
+    await d.set("seed", 999);
+    e.wb_play(1);
+    render(e, Q);
+    check(e.wb_bar() === 1, `stopped: a jump then a new seed, Play starts at bar ${e.wb_bar()} (wanted 1)`);
+  }
+
+  // mute and solo: the page's state survives a new seed, the engine keeps it, snapshots carry it
+  const e = await fresh(), cl = caller(e);
+  const d = new Desk(cl, C, OPTS, await cl("wb_library"), { rnd: lcg(19), probe: await prober() });
+  await d.read(true);
+  for (const f of [RF.DUST, RF.NOISE, RF.AMBIENCE]) e.wb_roll_set(f, 0);
+  e.wb_apply();
+  for (const p of Object.keys(PARTS)) await d.mute(p, true);   // all five, the pad too (a song may have none)
+  await d.mute("pad", false);
+  await d.solo("keys");
+  await d.set("seed", 31);
+  check(d.listen.mute.size === 4 && !d.listen.mute.has("pad") && d.listen.solo === "keys", "mute/solo state survives a new seed (the page's)");
+  e.wb_play(1);
+  const solo = render(e, 6 * SR);
+  check(db(solo) > -60, `the solo is still heard in the new song (${db(solo).toFixed(1)} dB)`);
+  const snap = await d.snapshot();
+  check(snap.version === 1 && snap.listen.solo === "keys" && [...snap.listen.mute].sort().join() === "bass,drums,keys,lead",
+        "the snapshot holds listen { mute, solo }");
+  await d.solo(null);
+  for (const p of Object.keys(PARTS)) await d.mute(p, false);
+  const e2 = await load(), c2 = caller(e2);
+  const d2 = new Desk(c2, C, OPTS, await c2("wb_library"), { rnd: lcg(19), probe: await prober() });
+  await d2.read(true);
+  await d2.restore(JSON.parse(JSON.stringify(snap)));
+  e2.wb_play(1);
+  const heard = render(e2, 6 * SR);
+  check(d2.listen.solo === "keys" && d2.listen.mute.size === 4 && db(heard) > -60,
+        `a replayed snapshot restores mute and solo (solo ${d2.listen.solo}, ${d2.listen.mute.size} muted, ${db(heard).toFixed(1)} dB)`);
+  // the soloed keys alone are quieter than the whole song
+  const whole = await fresh(31);
+  whole.wb_play(1);
+  check(db(heard) < db(render(whole, 6 * SR)) - 1, "and it is the keys alone, not the whole song");
+
+  // a version-1 snapshot from before this task (no listen) restores with no mute or solo, over a muted desk
+  const old = JSON.parse(JSON.stringify(snap));
+  delete old.listen;
+  old.rows = { ...old.rows };
+  await d2.mute("lead", true);
+  await d2.restore(old);
+  e2.wb_play(0);
+  e2.wb_play(1);
+  const open = render(e2, 6 * SR);
+  check(d2.listen.mute.size === 0 && d2.listen.solo === null && db(open) > db(heard) + 1,
+        `an old snapshot (no listen) restores with no mute or solo (${db(open).toFixed(1)} dB against ${db(heard).toFixed(1)})`);
+  const s8 = JSON.parse(cstr(e2, e2.wb_state()));
+  s8.ov = s8.ov.slice(0, 8);
+  old.rows = fromEngine(s8, C, OPTS);
+  const d3 = new Desk(c2, C, OPTS, await c2("wb_library"), { rnd: lcg(19), probe: await prober() });
+  await d3.read(true);
+  await d3.restore(old);
+  check(d3.listen.mute.size === 0 && d3.listen.solo === null, "an old snapshot with an 8-entry override list restores with no mute or solo");
 }
 
 console.log("options.json: statuses");
