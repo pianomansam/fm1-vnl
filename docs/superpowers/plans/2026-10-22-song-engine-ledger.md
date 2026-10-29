@@ -362,6 +362,10 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
     pluck; 13, 18, 19, 33 saw; 28, 29 Emilyguitar), and the synth family has no lead of its own left. Emilyguitar as
     keys stays. **Wanted (Sam): a warm chorus guitar, a real legato string section, a better Hammond B3 organ** —
     "might need to be samples" (flash: ~7.4 KB left).
+    **Delayed (Sam, 2026-10-29): the B3 and the legato strings spikes.** The strings spike was stopped mid-way (its
+    worktree `agent-a0cfe80a339f7f02b`, branch `worktree-agent-a0cfe80a339f7f02b`, holds partial work, including the
+    flash-trim survey if it got that far); the B3 part of the guitar spike was dropped. The warm chorus guitar
+    (Emilyguitar + chorus + warmth) continues.
 
 - **Done (Sam, 2026-10-29, after the lead-candidates spike, app/build/new/lead-candidates/):** "i only liked the felt
   piano and vibraphones." The vibes are the VCSL vibraphone (soft mallets, v2, 5 zones C4-E6, 18.4 KB of flash), on the
