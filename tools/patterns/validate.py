@@ -14,7 +14,8 @@ SCALE = [[0, 2, 4, 5, 7, 9, 11], [0, 2, 3, 5, 7, 9, 10], [0, 1, 3, 5, 7, 8, 10],
          [0, 2, 4, 5, 7, 9, 10], [0, 2, 3, 5, 7, 8, 10]]
 UP_STEPS = {2, 6, 10, 14}                       # the "and"s, where an up stroke may go
 STROKES = "TBDdXUuP"
-SRC_RE = re.compile(r"[ -~]{0,200}")            # printable ASCII: it becomes a C string literal
+SRC_RE = re.compile(r"[ -~]{0,200}")            # printable ASCII: it becomes a C string literal (and
+#                                                 no backslash or "??", whatever c_str escapes)
 
 
 def _stack(mode, d, k):
@@ -88,8 +89,9 @@ def check(fam, e):
 
     def bad(bar, rule):
         out.append((bar, rule))
-    if not SRC_RE.fullmatch(str(e.get("src", ""))) or not isinstance(e.get("src", ""), str):
-        bad(None, "src: printable ASCII only, at most 200 characters")
+    src = e.get("src", "")
+    if not isinstance(src, str) or not SRC_RE.fullmatch(src) or "\\" in src or "??" in src:
+        bad(None, "src: printable ASCII only, at most 200 characters, no backslash and no \"??\"")
     if fam == "drums":
         if not _int(e.get("id"), 1, 254):
             bad(None, "a drum pattern's id is 1-254")

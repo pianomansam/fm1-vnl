@@ -51,6 +51,11 @@ LANDING_SLUG = ["on-1-eighth", "on-1-quarter", "eighth-late", "sixteenth-late", 
 SP_N = 4                                        # strum.h's approved patterns; the ballad's fill holds id SP_N + 1
 
 
+# metadata keys that differ from the entry's: "family" in the metadata is the pattern family (the folder)
+META_KEY = {"family": "pattern_family"}
+META_KEY_OF = {v: k for k, v in META_KEY.items()}
+
+
 def hx(v, width=4):
     return f"0x{v:0{width}X}"
 
@@ -262,8 +267,8 @@ def sha(path):
 def write_file(out, fam, k, e, ext):
     """writes one of the entry's files (ext: .mid or .musicxml), whatever is there"""
     title, bars, tracks, parts, chords, texts = render(fam, k, e)
-    meta = json.dumps({"family": fam, "id": k, **{x: y for x, y in e.items() if x not in ("file", "id")}},
-                      separators=(",", ":"))
+    meta = json.dumps({"family": fam, "id": k, **{META_KEY.get(x, x): y for x, y in e.items()
+                                                   if x not in ("file", "id")}}, separators=(",", ":"))
     path = Path(str(out / e["file"]) + ext)
     path.parent.mkdir(parents=True, exist_ok=True)
     if ext == ".mid":

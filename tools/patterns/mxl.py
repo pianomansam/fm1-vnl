@@ -207,19 +207,38 @@ class OffGrid(ValueError):
         self.bar = bar
 
 
+def _refuse_entities(data):
+    """an expat pass over the raw bytes, in whatever encoding they declare: an entity declaration, or a DOCTYPE with
+       an internal subset, is refused there (no billion laughs, no external entities); expat never loads the
+       DOCTYPE's external DTD"""
+    from xml.parsers import expat
+
+    def doctype(name, sysid, pubid, internal):
+        if internal:
+            raise ValueError("a DOCTYPE with an internal subset (entity declarations) is not allowed")
+
+    def entity(*_):
+        raise ValueError("entity declarations are not allowed")
+    p = expat.ParserCreate()
+    p.SetParamEntityParsing(expat.XML_PARAM_ENTITY_PARSING_NEVER)
+    p.StartDoctypeDeclHandler = doctype
+    p.EntityDeclHandler = entity
+    p.UnparsedEntityDeclHandler = entity
+    p.Parse(data, True)
+
+
 def _parse(path):
-    """ElementTree over untrusted bytes: no entity declarations (no billion laughs, no external entities); the
-       DOCTYPE's external DTD is never fetched (expat does not load it)"""
+    """ElementTree over untrusted bytes, once the expat pass has refused any entity declaration"""
     import xml.etree.ElementTree as ET
+    from xml.parsers import expat
     with open(path, "rb") as f:
         data = f.read(MAX_BYTES + 1)
     if len(data) > MAX_BYTES:
         raise ValueError(f"{path}: larger than {MAX_BYTES} bytes")
-    if b"<!ENTITY" in data or b"<!ATTLIST" in data:
-        raise ValueError(f"{path}: entity or attribute declarations are not allowed")
     try:
+        _refuse_entities(data)
         return ET.fromstring(data)
-    except ET.ParseError as e:
+    except (ET.ParseError, expat.ExpatError) as e:
         raise ValueError(f"{path}: not well-formed XML ({e})") from None
 
 

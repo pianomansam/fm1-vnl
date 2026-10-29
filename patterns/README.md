@@ -45,29 +45,34 @@ byte.
   written for it). It keeps its file name, takes the next free id and is a **candidate** (the workbench only, until
   approved). A new lead-arp file's name starts with `rhythm-` or `pattern-`. The comp rhythms (held, half, stabs)
   and the six landings are fixed: edit them, never add one. A strum pattern added past the fourth skips id 5 (the
-  ballad's fill).
+  ballad's fill). **For now** a new drum pattern, progression or melody cell is refused ("new ... patterns can be
+  imported once candidates are workbench-only (next step)"): the firmware still draws every entry of those tables;
+  edits to their existing entries import. The importer notes a new file that sounds the same as an existing entry
+  (a renamed or saved-as copy: it would import as a new candidate) and an entry whose files are missing (it stays).
 - **What is read from the notes:** onsets (on the 16th grid: any other onset is refused), lengths (rounded to 16ths),
   pitches or lanes, and ghosts (a drum note at velocity 60 or less, or a MusicXML notehead in parentheses). Durations
   count in each file's own divisions or PPQ (MuseScore rewrites them); tied notes are one note; rests, empty staves
   and trailing rests-only bars are ignored. **MIDI:** a drum-lane family reads channel 10 (else every channel), a
   pitched family channel 1 (else every channel but 10), so MuseScore's chord-symbol playback (its own channel) and
   other parts don't count. Chord symbols (`<harmony>`, MIDI text) are labels: the notes are the chord.
-- **What is read from the metadata:** the fields notes can't hold (`src`, a drum pattern's `family` and
-  `half_time`, the comp rhythms' `vel_range`, `second_vel_pct`, `busy_over` and `busy_steps`, weights), when the
+- **What is read from the metadata:** the fields notes can't hold (`src`, a drum pattern's `family`, written
+  `pattern_family` in the metadata since its `family` is the folder's, and `half_time`, the comp rhythms' `vel_range`, `second_vel_pct`, `busy_over` and `busy_steps`, weights), when the
   file still has its `vnl1` metadata; else `model.json`'s. A progression's `kind`, `moods` and `modes` come from its
   title when it parses (`Progression N: ... (loop; warm, sunny; Dorian, Aeolian)`; MuseScore keeps the title, a
   DAW's MIDI may not). Each chord keeps the metadata's or `model.json`'s `{degree, alter, quality}` when it still
   sounds the same (a mode's own chord and a forced quality look alike), else it is read in the first mode listed.
+  The comp rhythms' velocities in a file are placeholders: if they differ, the importer notes that they are ignored.
 - **The rules** (a refusal names the file, the bar and the rule, and nothing is written): a drum pattern has a kick
   and a snare in every bar and plays only the six lanes; a progression's chords are maj7, 7, m7 or m7b5 over the
-  lowest note (9ths, 11ths and 13ths may be written; the engine colors every chord itself), each the same whole
-  number of bars, 1-4 chords in a 2, 4 or 8-bar cycle; no substitutions (a vamp's or loop's chords lie in each of its
-  modes; no dominant on bII or bVI or a half step above the next chord) and no dominant below the 9th (no b9, #9 or
-  b13: a dominant's color is its natural 9th or 13th); no Phrygian; strum up strokes only on the "and"s, one stroke a
+  lowest note (written extensions are ignored, with a note: the engine colors every chord itself, a dominant always
+  with its 9th or 13th), each the same whole number of bars, 1-4 chords in a 2, 4 or 8-bar cycle; no substitutions
+  (a vamp's or loop's chords lie in each of its modes; no dominant on bII or bVI or a half step above the next
+  chord); no dominant the engine would leave bare (no 9th or 13th fits); no Phrygian; strum up strokes only on the "and"s, one stroke a
   step; an arpeggio pattern's notes are chord tones 1-4 of the reference Cmaj7 (a chord-tone index over 4 is
-  refused); the landings' weights add up to 100; a melody cell stays in its beat.
-- **The hashes:** the importer lists every entry that changed or was added; when an approved firmware entry changed
-  (or one was added), the engine suite's pinned song hashes will move: re-pin them in `tests/host/song_test.c` with a
+  refused); the landings' weights add up to 100; a melody cell stays in its beat; `src` is printable ASCII with no
+  backslash and no `??` (it becomes a C string).
+- **The hashes:** the importer lists every entry that changed or was added; when an approved firmware entry changed,
+  the engine suite's pinned song hashes will move (a candidate never moves them): re-pin them in `tests/host/song_test.c` with a
   comment naming the edit. Kick phrases are the workbench's (`workbench/options.json`), so they never move them.
 
 ## drums
@@ -79,7 +84,7 @@ two-bar pattern, else bar A again. Pattern 5's shaker is a period-3 polymeter (`
 from the song's first step), written out over the two bars, with `poly3` in the metadata. Bar 1's shaker is the
 table's shaker mask (`hit[D_SHAKER]`, 0x9249: steps 0, 3, 6, 9, 12, 15); bar 2's shaker differs only because the
 polymeter runs on, so it doesn't make the pattern two-bar (`two_bar` stays 0; the other lanes decide that).
-`family`, `half_time` and `src` are metadata.
+`family` (as `pattern_family`), `half_time` and `src` are metadata.
 
 ## kick-phrases
 

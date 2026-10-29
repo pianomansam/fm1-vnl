@@ -4,7 +4,7 @@
   <work><work-title>Drums 6: sparse</work-title></work>
   <identification>
     <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
-    <miscellaneous><miscellaneous-field name="vnl1">{"family":"PF_SPARSE","id":"6","status":"approved","hit":["0x0041","0x0100","0x1111","0x0000","0x0000","0x1000"],"ghost":["0x0000","0x0000","0x4444","0x0000","0x0000","0x0000"],"half_time":1,"poly3":0,"src":"lofi-midi-arrangements.md 3.4, quarter hats with half-time snare","two_bar":0,"hit_b":["0x0000","0x0000","0x0000","0x0000","0x0000","0x0000"],"ghost_b":["0x0000","0x0000","0x0000","0x0000","0x0000","0x0000"]}</miscellaneous-field></miscellaneous>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"drums","id":"6","status":"approved","pattern_family":"PF_SPARSE","hit":["0x0041","0x0100","0x1111","0x0000","0x0000","0x1000"],"ghost":["0x0000","0x0000","0x4444","0x0000","0x0000","0x0000"],"half_time":1,"poly3":0,"src":"lofi-midi-arrangements.md 3.4, quarter hats with half-time snare","two_bar":0,"hit_b":["0x0000","0x0000","0x0000","0x0000","0x0000","0x0000"],"ghost_b":["0x0000","0x0000","0x0000","0x0000","0x0000","0x0000"]}</miscellaneous-field></miscellaneous>
   </identification>
   <part-list>
     <score-part id="P1">

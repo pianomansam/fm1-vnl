@@ -4,7 +4,7 @@
   <work><work-title>Drums 5: half time (poly3 shaker)</work-title></work>
   <identification>
     <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
-    <miscellaneous><miscellaneous-field name="vnl1">{"family":"PF_HALFTIME","id":"5","status":"approved","hit":["0x1011","0x0100","0x1111","0x8000","0x9249","0x0000"],"ghost":["0x0400","0x0000","0x4444","0x0000","0x0000","0x0000"],"half_time":1,"poly3":1,"src":"lofi-midi-arrangements.md 3.4, OS recurring kick; poly3 shaker from lofi-hip-hop.md 3","two_bar":0,"hit_b":["0x0000","0x0000","0x0000","0x0000","0x0000","0x0000"],"ghost_b":["0x0000","0x0000","0x0000","0x0000","0x0000","0x0000"]}</miscellaneous-field></miscellaneous>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"drums","id":"5","status":"approved","pattern_family":"PF_HALFTIME","hit":["0x1011","0x0100","0x1111","0x8000","0x9249","0x0000"],"ghost":["0x0400","0x0000","0x4444","0x0000","0x0000","0x0000"],"half_time":1,"poly3":1,"src":"lofi-midi-arrangements.md 3.4, OS recurring kick; poly3 shaker from lofi-hip-hop.md 3","two_bar":0,"hit_b":["0x0000","0x0000","0x0000","0x0000","0x0000","0x0000"],"ghost_b":["0x0000","0x0000","0x0000","0x0000","0x0000","0x0000"]}</miscellaneous-field></miscellaneous>
   </identification>
   <part-list>
     <score-part id="P1">

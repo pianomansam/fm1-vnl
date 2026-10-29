@@ -6,6 +6,7 @@
    python3 -I tools/patterns/test_import.py   (test_patterns.py runs these too)"""
 import copy
 import importlib
+import re
 import json
 import shutil
 import subprocess
@@ -208,7 +209,8 @@ class Import(unittest.TestCase):
         code, so = self.run_import()
         self.assertEqual(code, 1, so)
         rel = "patterns/" + path.relative_to(self.pat).as_posix()
-        self.assertRegex(so, rf"refused: {rel}: bar {bar}: [^\n]*{words}", so)
+        where = f"bar {bar}: " if bar else ""
+        self.assertRegex(so, rf"refused: {re.escape(rel)}: {where}[^\n]*{re.escape(words)}", so)
         self.assertIn("nothing written", so)
         self.assertEqual(self.snapshot(), before)          # patterns_gen.c and the rest untouched
 
@@ -231,13 +233,27 @@ class Import(unittest.TestCase):
         e = entry(self.model, "progressions", "7", chords=chords)
         self.refused(self.write("progressions", "7", e, ".mid"), 2, "only a jazzy progression borrows")
 
-    def test_a_dominant_below_the_9th_is_refused(self):
+    def test_written_extensions_are_ignored_with_a_note(self):
+        """Sam's rule is the engine's (dominants sound a 9th or 13th): written colors, a b9 too, are left to it"""
         e = self.model["progressions"]["1"]                                  # Dm7 G7, two bars each
         title, _, tracks, _, _, texts = export.render("progressions", "1", e)
         tracks[0]["notes"].append((32 * 120, 32 * 120, 68, 60))             # G7 with an Ab: a b9
         path = self.pat / (e["file"] + ".mid")
         midi.write(str(path), tracks, title=title, meta=None, texts=texts)
-        self.refused(path, 3, "dominant below the 9th")
+        so, model, _ = self.imported()
+        self.assertIn("note: patterns/progressions/1-vamp-dm7-g7.mid: bar 3: written extensions are ignored", so)
+        self.assertEqual(model["progressions"]["1"]["chords"], e["chords"])
+        self.assertNotIn("changed", so)
+
+    def test_src_cannot_inject_c(self):
+        for src, word in (('x ??/" ; int pwn; //', "??"), ("a \\ b", "backslash")):
+            with self.subTest(src=src):
+                self.tearDown()
+                self.setUp()
+                e = {**self.model["progressions"]["2"], "src": src}
+                path = self.write("progressions", "2", e, ".musicxml")
+                self.refused(path, None, word)
+        self.assertEqual(imp.c_str('a??/"b\\'), '"a\\?\\?/\\"b\\\\"')
 
     def test_an_off_grid_note_is_refused(self):
         e = self.model["drums"]["2"]
@@ -269,7 +285,7 @@ class Import(unittest.TestCase):
         tracks[0]["notes"][-1] = (6 * 120, 240, 72, 80)                     # C5: the 5th tone up
         path = self.pat / (e["file"] + ".mid")
         midi.write(str(path), tracks, title=title)
-        self.refused(path, 1, r"chord-tone index 5 > 4")
+        self.refused(path, 1, "chord-tone index 5 > 4")
 
     def test_untrusted_files_are_refused_not_crashed_on(self):
         e = self.model["drums"]["3"]
@@ -353,34 +369,103 @@ class Import(unittest.TestCase):
         self.assert_in_step("strum", "2", model, man)
 
     def test_a_new_pattern_as_a_mid_alone_is_a_candidate(self):
-        e = {**self.model["drums"]["7"], "file": "drums/sam-groove", "src": "x"}
-        hit = list(e["hit"])
-        hit[0] = "0x0111"
-        title, _, tracks, _, _, _ = export.render("drums", "7", {**e, "hit": hit})
-        midi.write(str(self.pat / "drums/sam-groove.mid"), tracks, title="My groove")    # no metadata
+        e = {**self.model["strum"]["1"], "file": "strum/sam-strum"}
+        title, _, tracks, _, _, _ = export.render("strum", "1", {**e, "steps": "D...d.u.D...d.u."})
+        midi.write(str(self.pat / "strum/sam-strum.mid"), tracks, title="My strum")       # no metadata
         so, model, man = self.imported()
-        new = model["drums"]["9"]
-        self.assertEqual((new["status"], new["file"], new["hit"][0], new["src"]),
-                         ("candidate", "drums/sam-groove", "0x0111", "imported from patterns/drums/sam-groove"))
-        self.assertTrue((self.pat / "drums/sam-groove.musicxml").is_file())
-        self.assertIn("new drums 9 (drums/sam-groove), a candidate", so)
+        new = model["strum"]["6"]                                            # past the fill's id 5
+        self.assertEqual((new["status"], new["file"], new["index"], new["steps"]),
+                         ("candidate", "strum/sam-strum", 4, "D...d.u.D...d.u."))
+        self.assertTrue((self.pat / "strum/sam-strum.musicxml").is_file())
+        self.assertIn("new strum 6 (strum/sam-strum), a candidate", so)
+        self.assertNotIn("will move", so)                                    # a candidate never moves the pins
         c = (self.gen / "patterns_gen.c").read_text()
-        self.assertIn("{9, PF_BOOMBAP, {0x0111,", c)
-        self.assertIn("LIB_PATTERNS_STATUS[] = {1, 1, 1, 1, 1, 1, 1, 1, 0};", c)
-        self.assert_in_step("drums", "9", model, man)
+        self.assertIn('    "D...d.u.D...d.u.",\n};', c)
+        self.assertIn("STRUM_PAT_STATUS[STRUM_NPAT] = {1, 1, 1, 1, 0};", c)
+        self.assert_in_step("strum", "6", model, man)
 
-    def test_a_new_pattern_as_a_musicxml_alone_takes_its_modes_from_the_title(self):
-        e = entry(self.model, "progressions", "17", file="progressions/sam-vamp")
-        path = self.write("progressions", "17", e, ".musicxml")
+    def test_a_new_pattern_as_a_musicxml_alone_is_a_candidate(self):
+        e = {**self.model["lead-arp"]["rhythm-1"], "file": "lead-arp/rhythm-sam", "notes": [[0, 4], [4, 4], [8, 8]]}
+        path = self.write("lead-arp", "rhythm-1", e, ".musicxml")
         xml_variant(path, path, drop_meta=True)
-        text = path.read_text().replace("(vamp; wistful, warm, sunny; Dorian)", "(loop; warm; Dorian, Aeolian)")
-        path.write_text(text)
         so, model, man = self.imported()
-        new = model["progressions"]["45"]
-        self.assertEqual((new["status"], new["kind"], new["moods"], new["modes"], new["symbols"]),
-                         ("candidate", "PK_LOOP", ["MOOD_WARM"], ["MODE_DORIAN", "MODE_AEOLIAN"], ["Cm7", "F7"]))
-        self.assertTrue((self.pat / "progressions/sam-vamp.mid").is_file())
-        self.assert_in_step("progressions", "45", model, man)
+        new = model["lead-arp"]["rhythm-7"]
+        self.assertEqual((new["status"], new["index"], new["notes"]), ("candidate", 6, [[0, 4], [4, 4], [8, 8]]))
+        self.assertTrue((self.pat / "lead-arp/rhythm-sam.mid").is_file())
+        self.assertIn("LEAD_RHY_STATUS[LEAD_NRHY] = {1, 1, 1, 1, 1, 1, 0};", (self.gen / "patterns_gen.c").read_text())
+        self.assert_in_step("lead-arp", "rhythm-7", model, man)
+
+    def test_new_patterns_in_drawn_families_wait_for_the_next_step(self):
+        """until candidates are workbench-only, a new drum pattern, progression or melody cell would play in songs"""
+        for fam, k, name in (("drums", "7", "drums/sam-groove"), ("progressions", "17", "progressions/sam-vamp"),
+                             ("melody-cells", "3", "melody-cells/sam-cell")):
+            with self.subTest(fam=fam):
+                self.tearDown()
+                self.setUp()
+                e = {**self.model[fam][k], "file": name}
+                path = self.write(fam, k, e, ".mid")
+                self.refused(path, None, f"new {fam} patterns can be imported once candidates are workbench-only "
+                                         "(next step)")
+
+    def test_a_title_edit_changes_a_progressions_modes(self):
+        e = self.model["progressions"]["17"]
+        path = self.pat / (e["file"] + ".musicxml")
+        xml_variant(path, path, drop_meta=True)
+        path.write_text(path.read_text().replace("(vamp; wistful, warm, sunny; Dorian)", "(loop; warm; Dorian)"))
+        so, model, man = self.imported()
+        got = model["progressions"]["17"]
+        self.assertEqual((got["status"], got["kind"], got["moods"], got["modes"]),
+                         ("approved", "PK_LOOP", ["MOOD_WARM"], ["MODE_DORIAN"]))
+        self.assertIn("approved progressions 17 changed", so)
+        self.assertIn("will move", so)
+        self.assert_in_step("progressions", "17", model, man)
+
+    def test_drum_metadata_keeps_its_pattern_family(self):
+        e = self.model["drums"]["1"]
+        self.write("drums", "1", {**e, "family": "PF_SPARSE", "half_time": 1}, ".musicxml")
+        meta = json.loads(ET.parse(self.pat / (e["file"] + ".musicxml")).getroot().find(
+            ".//miscellaneous-field[@name='vnl1']").text)
+        self.assertEqual((meta["family"], meta["pattern_family"]), ("drums", "PF_SPARSE"))
+        so, model, _ = self.imported()
+        self.assertEqual((model["drums"]["1"]["family"], model["drums"]["1"]["half_time"]), ("PF_SPARSE", 1))
+
+    def test_a_copy_and_missing_files_are_noted(self):
+        shutil.copy(self.pat / "strum/1-d-du-udu.mid", self.pat / "strum/1-d-du-udu copy.mid")
+        for x in imp.EXTS:
+            (self.pat / ("drums/2-boombap" + x)).unlink()
+        so, model, _ = self.imported()
+        self.assertIn("note: patterns/strum/1-d-du-udu copy.mid: the same as strum 1 (strum/1-d-du-udu): a renamed "
+                      "or saved-as copy? It imports as a new candidate", so)
+        self.assertIn("note: patterns/drums/2-boombap: its files are missing; the entry stays", so)
+        self.assertEqual(model["drums"]["2"], self.model["drums"]["2"])
+
+    def test_comp_velocities_in_a_file_are_noted_as_ignored(self):
+        e = self.model["comp-rhythms"]["1"]
+        title, _, tracks, _, _, _ = export.render("comp-rhythms", "1", e)
+        tracks[0]["notes"] = [(t, n, p, 100) for t, n, p, _ in tracks[0]["notes"]]
+        path = self.pat / (e["file"] + ".mid")
+        midi.write(str(path), tracks, title=title)
+        so, model, _ = self.imported()
+        self.assertIn("note: patterns/comp-rhythms/1-held.mid: velocities are ignored", so)
+        self.assertEqual(model["comp-rhythms"]["1"], e)
+
+    def test_crafted_numbers_are_unreadable(self):
+        e = self.model["lead-arp"]["pattern-2"]
+        xml = self.pat / (e["file"] + ".musicxml")
+        xml.write_text(xml.read_text().replace("<octave>4</octave>", "<alter>inf</alter><octave>4</octave>", 1))
+        code, so = self.run_import()
+        self.assertEqual(code, 1)
+        self.assertIn(f"patterns/{e['file']}.musicxml: unreadable", so)
+
+    def test_a_utf16_entity_declaration_is_refused(self):
+        e = self.model["drums"]["3"]
+        xml = self.pat / (e["file"] + ".musicxml")
+        doc = ('<?xml version="1.0" encoding="UTF-16"?><!DOCTYPE score-partwise [<!ENTITY a "aaaa">]>'
+               '<score-partwise version="4.0"><work><work-title>&a;</work-title></work></score-partwise>')
+        xml.write_bytes(doc.encode("utf-16"))
+        code, so = self.run_import()
+        self.assertEqual(code, 1)
+        self.assertRegex(so, r"patterns/drums/3-boombap.musicxml: unreadable \([^)]*entit")
 
     def test_a_kick_phrase_edit_regenerates_options_json(self):
         e = self.model["kick-phrases"]["k3"]

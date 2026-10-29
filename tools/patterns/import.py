@@ -33,6 +33,14 @@ LANE_FAMS = {"drums", "kick-phrases", "strum"}
 EXTS = (".mid", ".musicxml")
 DERIVED = ("status", "file", "symbols", "symbols_mode", "onsets")
 HASHES = "the pinned hashes (b852d9cb / a662a137, the voicer 0x7b61830d)"
+# the families whose tables the firmware's roll draws over every entry of (until candidates are workbench-only)
+DRAWN = ("drums", "progressions", "melody-cells")
+# what a pattern sounds like, to tell a renamed or saved-as copy of an entry
+SOUND_KEYS = {"drums": ("hit", "ghost", "hit_b", "ghost_b", "poly3", "two_bar"), "kick-phrases": ("a", "b"),
+              "progressions": ("n", "bars_per_chord", "chords"), "comp-rhythms": ("strikes", "second", "first"),
+              "strum": ("kind", "steps"), "lead-arp": ("kind", "notes", "tones", "at", "len"),
+              "melody-cells": ("mask",)}
+NOTICES = []                                    # (bar, note) from the file being decoded
 
 DRUM_LANE = {ln[2]: i for i, ln in enumerate(export.DRUM_LANES)}
 STROKE_OF = {ln[2]: ln[0] for ln in export.STROKES}
@@ -43,7 +51,7 @@ REF_TONES = [60, 64, 67, 71, 72, 76, 79, 83]    # the reference Cmaj7's chord to
 SHAPES = [("maj7", {0, 4, 7, 11}), ("7", {0, 4, 7, 10}), ("m7", {0, 3, 7, 10}), ("m7b5", {0, 3, 6, 10})]
 EXTENSIONS = {1, 2, 3, 5, 6, 8, 9}              # 9ths, 11ths, 13ths over a 7th chord
 TITLE_RE = re.compile(r"^Progression [^:]*: .*\((vamp|loop|jazzy); ([a-z, ]+); ([A-Za-z, ]+)\)\s*$")
-META_FIELDS = {"drums": ("family", "half_time", "src"), "kick-phrases": (), "progressions": ("kind", "moods", "modes",
+META_FIELDS = {"drums": ("pattern_family", "half_time", "src"), "kick-phrases": (), "progressions": ("kind", "moods", "modes",
                "src"), "comp-rhythms": ("vel_range", "second_vel_pct", "busy_over", "busy_steps"), "strum": (),
                "lead-arp": ("weight",), "melody-cells": ("weight",)}
 
@@ -91,6 +99,8 @@ def score_of(path, fam):
         meta = json.loads(meta) if meta and len(meta) < 65536 else None
     except ValueError:
         meta = None
+    if isinstance(meta, dict) and fam == "drums" and meta.get("family") in validate.PF:
+        meta = {**meta, "family": fam, "pattern_family": meta["family"]}    # metadata written before pattern_family
     if not isinstance(meta, dict) or meta.get("family") != fam:
         meta = None
     notes.sort(key=lambda n: (n["start"], n["pitch"]))
@@ -160,6 +170,15 @@ def decode(fam, key, score, base):
     elif fam == "progressions":
         decode_prog(e, score, notes)
     elif fam == "comp-rhythms":
+        try:                                            # the file's velocities are placeholders (vel_range's middle)
+            mid = sum(e["vel_range"]) // 2
+            later = mid * e.get("second_vel_pct", 100) // 100 if e.get("name") == "half" else mid
+            first = min((x["start"] for x in notes), default=0)
+            if any(x["vel"] is not None and x["vel"] != (mid if x["start"] == first else later) for x in notes):
+                NOTICES.append((None, "velocities are ignored: the comp rhythms' vel_range and second_vel_pct are "
+                                      "metadata (model.json)"))
+        except (TypeError, KeyError, ValueError):
+            pass
         if e.get("name") in ("held", "half"):
             only_bars(notes, 1, f"{e['name']} comping")
             by = {}
@@ -243,9 +262,8 @@ def chord_of(notes, bar):
     for suffix, shape in SHAPES:
         rest = ivs - shape
         if shape <= ivs and rest <= EXTENSIONS:
-            if suffix == "7" and rest & {1, 3, 8}:
-                raise Refused(bar, "a dominant below the 9th (a b9, #9 or b13): a dominant's color is its natural 9th "
-                                   "or 13th")
+            if rest:
+                NOTICES.append((bar, "written extensions are ignored (the engine colors every chord itself)"))
             return lo % 12, suffix
     raise Refused(bar, "not an allowed chord: a maj7, 7, m7 or m7b5 over its lowest note (no triads, no sus)")
 
@@ -318,7 +336,9 @@ def rows_from_model(model):
 
 # ------------------------------------------------------------------------------------------------ the C tables
 def c_str(s):
-    return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+    """a C string literal: backslash, quote and every '?' escaped (no trigraph such as ??/ can form, whatever the
+       compiler's -std)"""
+    return '"' + s.replace("\\", "\\\\").replace('"', '\\"').replace("?", "\\?") + '"'
 
 
 def c_list(xs, fmt="{}"):
@@ -493,7 +513,7 @@ def defaults(fam, stem, model, meta):
 
 def with_meta(fam, base, meta):
     if meta:
-        base = {**base, **{k: meta[k] for k in META_FIELDS[fam] if k in meta}}
+        base = {**base, **{export.META_KEY_OF.get(k, k): meta[k] for k in META_FIELDS[fam] if k in meta}}
         if fam == "progressions" and isinstance(meta.get("chords"), list):
             base["chords"] = meta["chords"] + [c for c in base.get("chords") or [] if c not in meta["chords"]]
     return base
@@ -526,7 +546,15 @@ def run(pat, gen, options, check=False):
             stems.setdefault(f"{fam}/{p.stem}", {})[p.suffix] = p
     by_stem = {e["file"]: (fam, k) for fam in FAMS for k, e in model[fam].items()}
     new = copy.deepcopy(model)
-    errors, imported = [], {}
+    errors, imported, notes = [], {}, []
+    NOTICES.clear()
+    present = {st + x for st, fs in stems.items() for x in fs}
+    for fam in FAMS:
+        for k, e in model[fam].items():
+            gone = [x for x in EXTS if e["file"] + x not in present]
+            if gone:
+                what = "its files are" if len(gone) == 2 else f"its {gone[0]} is"
+                notes.append((e["file"], None, f"{what} missing; the entry stays (export.sh writes them again)"))
 
     def refuse(rels, bar, rule):
         errors.append((rels, bar, rule))
@@ -551,8 +579,11 @@ def run(pat, gen, options, check=False):
                 decoded[x] = (key, decode(fam, key, score, base), base["status"])
             except Refused as r:
                 refuse([rel], r.bar, r.rule)
-            except (ValueError, KeyError, IndexError, TypeError) as err:
+            except (ValueError, KeyError, IndexError, TypeError, ArithmeticError) as err:
                 refuse([rel], None, f"unreadable ({err})")
+            finally:
+                notes += [(rel, bar, msg) for bar, msg in NOTICES]
+                NOTICES.clear()
         if len(decoded) != len(changed):
             continue
         (key, e, status), *rest = decoded.values()
@@ -562,6 +593,16 @@ def run(pat, gen, options, check=False):
             refuse([stem + ".mid", stem + ".musicxml"], None,
                    f"both files changed and they disagree ({', '.join(diff)}): keep the one you mean, revert the other")
             continue
+        if stem not in by_stem:
+            sound = {x: e.get(x) for x in SOUND_KEYS[fam]}
+            same = [(k, o) for k, o in model[fam].items() if {x: o.get(x) for x in SOUND_KEYS[fam]} == sound]
+            for k, o in same:
+                notes.append((stem + next(iter(changed)), None, f"the same as {fam} {k} ({o['file']}): a renamed or "
+                              "saved-as copy? It imports as a new candidate"))
+            if fam in DRAWN:
+                refuse([stem + x for x in sorted(changed)], None, f"new {fam} patterns can be imported once "
+                       "candidates are workbench-only (next step)")
+                continue
         e["status"], e["file"] = status, stem
         new[fam][key] = e
         imported[stem] = (fam, key, set(changed))
@@ -574,6 +615,8 @@ def run(pat, gen, options, check=False):
                 refuse(files_of(e), bar, rule)
         for k, bar, rule in validate.check_family(fam, new[fam]):
             refuse(files_of(new[fam][k]) if k else [fam + "/"], bar, rule)
+    for rel, bar, msg in notes:
+        print(f"import: note: patterns/{rel}: " + (f"bar {bar}: " if bar else "") + msg)
     if errors:
         for rels, bar, rule in errors:
             print(f"import: refused: {' and '.join('patterns/' + r for r in rels)}: " +
@@ -592,9 +635,8 @@ def run(pat, gen, options, check=False):
     for fam in FAMS:
         for k, e in out_model[fam].items():
             old = model[fam].get(k)
-            if old is None:
+            if old is None:                              # a candidate: never drawn, never moves the pins
                 changes.append(f"import: new {fam} {k} ({e['file']}), a candidate")
-                moves |= fam != "kick-phrases"
             elif content(old) != content(e):
                 changes.append(f"import: {old['status']} {fam} {k} changed ({e['file']})")
                 moves |= fam != "kick-phrases" and old["status"] == "approved"
