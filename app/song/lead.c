@@ -7,6 +7,7 @@
 #include "rng.h"
 #include "phrase.h"
 #include "override.h"
+#include "patterns_gen.h"
 
 typedef struct {                  /* what one bar's planning reads */
     const song_roll_t *r;
@@ -440,17 +441,8 @@ static void plan_phrase(lead_state_t *ls, const ctx_t *c, const plan_block_t *b,
     ls->ctrun = ctrun;
 }
 
-/* the hybrid's arpeggio rhythms; the song's is the one that lands least on the snare (Sam), not forced */
-static const int8_t RHY[6][9][2] = {
-    {{0, 2}, {2, 2}, {4, 2}, {6, 2}, {8, 2}, {10, 2}, {12, 2}, {14, 2}, {-1, 0}},   /* 8ths */
-    {{0, 3}, {3, 1}, {4, 3}, {7, 1}, {8, 3}, {11, 1}, {12, 4}, {-1, 0}},             /* dotted */
-    {{0, 2}, {2, 2}, {6, 2}, {8, 2}, {10, 2}, {14, 2}, {-1, 0}},                     /* gaps */
-    {{0, 4}, {4, 2}, {6, 2}, {8, 4}, {12, 1}, {13, 1}, {14, 2}, {-1, 0}},            /* long-short */
-    {{0, 3}, {3, 3}, {6, 2}, {8, 3}, {11, 3}, {14, 2}, {-1, 0}},                     /* 3+3+2 */
-    {{2, 2}, {4, 2}, {6, 3}, {10, 2}, {12, 2}, {14, 2}, {-1, 0}}};                   /* off the one */
-static const int8_t PAT[6][6] = {{0, 1, 2, 3, -1}, {3, 2, 1, 0, -1}, {0, 1, 2, 3, 2, 1}, {0, 2, 1, 3, -1},
-                                 {0, 3, 1, 3, -1}, {3, 0, 2, 1, -1}};
-
+/* the hybrid's arpeggio rhythms (LEAD_RHY) and patterns (LEAD_PAT): patterns_gen.c, from patterns/lead-arp; the
+   song's rhythm is the one that lands least on the snare (Sam), not forced */
 static void choose(lead_state_t *ls, const song_roll_t *r)   /* one pattern, rhythm, direction and swap per song */
 {
     const lib_pattern_t *dp = lib_pattern_by_id((uint8_t)r->v[RF_PATTERN]);
@@ -464,7 +456,7 @@ static void choose(lead_state_t *ls, const song_roll_t *r)   /* one pattern, rhy
     tie = rng_int(&g, 1000);
     for (i = 0; i < 6; i++) {                            /* share of notes on a snare hit, in per mille */
         int on = 0, all = 0, cost;
-        for (j = 0; RHY[i][j][0] >= 0; j++) { all++; on += (snare >> RHY[i][j][0]) & 1; }
+        for (j = 0; LEAD_RHY[i][j][0] >= 0; j++) { all++; on += (snare >> LEAD_RHY[i][j][0]) & 1; }
         cost = on * 1000 / all * 4 + (tie + i * 377) % 1000;
         if (cost < best) { best = cost; ls->rhy = i; }
     }
@@ -483,17 +475,17 @@ static void plan_arp(lead_state_t *ls, const ctx_t *c, int bar)
     int i, k, plen, n = 0, keep = 2 + c->r->v[RF_MOTION] / 33;
     unsigned kept = 0;
     if (!ls->chosen) choose(ls, c->r);
-    for (plen = 0; plen < 6 && PAT[ls->pat][plen] >= 0; plen++)
+    for (plen = 0; plen < 6 && LEAD_PAT[ls->pat][plen] >= 0; plen++)
         ;
     if (keep > 4) keep = 4;
     for (k = 0; k < 4 && n < keep; k++)                  /* the kept slots, by rank */
-        for (i = 0; RHY[ls->rhy][i][0] >= 0 && n < keep; i++)
-            if (arp_rank(RHY[ls->rhy][i][0]) == k) { kept |= 1u << i; n++; }
-    for (i = 0; RHY[ls->rhy][i][0] >= 0; i++) {
-        int at = RHY[ls->rhy][i][0], pos = (bar * 8 + i) % plen, idx, v;
+        for (i = 0; LEAD_RHY[ls->rhy][i][0] >= 0 && n < keep; i++)
+            if (arp_rank(LEAD_RHY[ls->rhy][i][0]) == k) { kept |= 1u << i; n++; }
+    for (i = 0; LEAD_RHY[ls->rhy][i][0] >= 0; i++) {
+        int at = LEAD_RHY[ls->rhy][i][0], pos = (bar * 8 + i) % plen, idx, v;
         if (ls->swap >= 0 && ls->swap % (plen - 1) == pos) pos++;
         else if (ls->swap >= 0 && ls->swap % (plen - 1) + 1 == pos) pos--;
-        idx = PAT[ls->pat][pos];
+        idx = LEAD_PAT[ls->pat][pos];
         if ((bar & 1) && ls->rev) idx = 3 - idx;         /* the direction turned every other bar */
         if (bar % 4 == 3 && (i == 2 || i == 5)) continue;   /* the phrase's last bar drops two notes */
         if (!(kept >> i & 1)) continue;                  /* motion thins it, by rank */
@@ -501,7 +493,7 @@ static void plan_arp(lead_state_t *ls, const ctx_t *c, int bar)
         for (k = 1; k < 4 && v && !legal(c->r, v, c->pcs, c->np, c->bass); k++)
             v = c->keys[(idx + k) & 3];                  /* a tone that would rub gives way to the next */
         if (v && legal(c->r, v, c->pcs, c->np, c->bass)) {
-            int len = RHY[ls->rhy][i][1];
+            int len = LEAD_RHY[ls->rhy][i][1];
             int note = place(v % 12, at + len > 16 ? c->lo_x : c->lo, c->hi, v + 12 - c->shift);
             put(ls, at, note, len);
         }
@@ -510,15 +502,14 @@ static void plan_arp(lead_state_t *ls, const ctx_t *c, int bar)
 
 /* how a chord change lands on the skeleton note: on 1 for an 8th, on 1 for a quarter, an 8th late, a 16th late,
    pushed an 8th early, or a beat's rest then on 2 (Sam: not always a quarter on 1, but mostly on 1: 55% on 1,
-   25% late, 20% pushed) */
+   25% late, 20% pushed): the weights LEAD_LANDING_W, at and length LEAD_LANDING_AT and _LEN (patterns_gen.c) */
 int lead_landing(uint32_t seed, int bar)
 {
-    static const uint8_t W[6] = {25, 30, 10, 5, 20, 10};
     uint32_t h = seed * 0x9E3779B1u ^ (uint32_t)(bar + 1) * 0x85EBCA6Bu;
     int x, i;
     h ^= h >> 15; h *= 0x2C1B3C6Du; h ^= h >> 13;
     x = (int)(h % 100u);
-    for (i = 0; i < 5 && x >= W[i]; i++) x -= W[i];
+    for (i = 0; i < 5 && x >= LEAD_LANDING_W[i]; i++) x -= LEAD_LANDING_W[i];
     return i;
 }
 
@@ -533,11 +524,10 @@ static void plan_hybrid(lead_state_t *ls, const ctx_t *c, int bar, int bpc, cons
         if (how == 4) {
             land(ls, 0, 0, 2);                           /* it already sounds from the last bar: let it ring */
         } else {
-            static const int8_t AT[6] = {0, 0, 2, 3, 2, 4}, LEN[6] = {2, 4, 4, 3, 4, 4};
             int note = skel(c, c->pcs, c->np, ls->last ? ls->last : 74);
             ls->last = note;
-            if (AT[how]) land(ls, 0, 0, AT[how]);        /* beat 1 rests until the landing */
-            land(ls, AT[how], note, LEN[how]);
+            if (LEAD_LANDING_AT[how]) land(ls, 0, 0, LEAD_LANDING_AT[how]);   /* beat 1 rests until the landing */
+            land(ls, LEAD_LANDING_AT[how], note, LEAD_LANDING_LEN[how]);
         }
     }
     if ((bar + 1) % bpc == 0 && nn > 0 && c->can_push &&

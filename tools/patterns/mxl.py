@@ -192,3 +192,148 @@ def write(path, parts, chords=None, title="", meta=None, tempo_bpm=85, bars=1):
     L.append("</score-partwise>")
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(L) + "\n")
+
+
+# ------------------------------------------------------------------------------------------------------- reading
+MAX_BYTES = 4 << 20                      # MuseScore's verbose files run to tens of KB; past 4 MB is refused
+NAMES = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
+
+
+class OffGrid(ValueError):
+    """a note off the 16th grid: .bar is 1-based"""
+
+    def __init__(self, bar, what):
+        super().__init__(what)
+        self.bar = bar
+
+
+def _parse(path):
+    """ElementTree over untrusted bytes: no entity declarations (no billion laughs, no external entities); the
+       DOCTYPE's external DTD is never fetched (expat does not load it)"""
+    import xml.etree.ElementTree as ET
+    with open(path, "rb") as f:
+        data = f.read(MAX_BYTES + 1)
+    if len(data) > MAX_BYTES:
+        raise ValueError(f"{path}: larger than {MAX_BYTES} bytes")
+    if b"<!ENTITY" in data or b"<!ATTLIST" in data:
+        raise ValueError(f"{path}: entity or attribute declarations are not allowed")
+    try:
+        return ET.fromstring(data)
+    except ET.ParseError as e:
+        raise ValueError(f"{path}: not well-formed XML ({e})") from None
+
+
+def _text(el, path, default=None):
+    x = el.find(path)
+    return x.text.strip() if x is not None and x.text else default
+
+
+def read(path, lanes=None):
+    """-> {"title", "meta" (str or None), "bars", "harmony": [(step, root_step, root_alter, kind)],
+          "notes": [{"start", "len", "pitch", "vel" (None: no dynamics), "ghost", "part"}]}
+       Steps are 16ths from the first bar. Durations count in each part's own divisions (MuseScore rewrites them),
+       ties join pieces into one note, chords, backup and forward move the voice time, grace and cue notes and rests
+       are skipped. An unpitched note's pitch is its instrument's MIDI unpitched number (lanes: {(display step,
+       octave): midi}, when it names none). A note onset off the 16th grid raises OffGrid."""
+    from fractions import Fraction
+    root = _parse(path)
+    if root.tag != "score-partwise":
+        raise ValueError(f"{path}: not a score-partwise MusicXML file")
+    title = _text(root, "work/work-title") or _text(root, "movement-title") or ""
+    meta = None
+    for f in root.iter("miscellaneous-field"):
+        if f.get("name") == "vnl1":
+            meta = (f.text or "").strip()
+    unpitched = {}
+    for mi in root.iter("midi-instrument"):
+        u = _text(mi, "midi-unpitched")
+        if u is not None and u.isdigit():
+            unpitched[mi.get("id")] = int(u) - 1
+    notes, harmony, bars = [], [], 0
+    for pn, part in enumerate(root.findall("part")):
+        div, bar_q, measure_q = None, Fraction(0), Fraction(4)
+        open_ties = {}
+        for mn, m in enumerate(part.findall("measure")):
+            pos, top = Fraction(0), Fraction(0)
+            last_start = Fraction(0)
+            for el in m:
+                if el.tag == "attributes":
+                    d = _text(el, "divisions")
+                    if d is not None:
+                        div = int(d)
+                        if div <= 0:
+                            raise ValueError(f"{path}: divisions {div}")
+                    beats, bt = _text(el, "time/beats"), _text(el, "time/beat-type")
+                    if beats is not None:
+                        if (beats, bt) != ("4", "4"):
+                            raise ValueError(f"{path}: bar {mn + 1}: not 4/4 ({beats}/{bt})")
+                elif el.tag in ("backup", "forward"):
+                    d = Fraction(int(_text(el, "duration", "0")), div or 1)
+                    pos += -d if el.tag == "backup" else d
+                    if pos < 0:
+                        raise ValueError(f"{path}: bar {mn + 1}: a backup before the bar's start")
+                    top = max(top, pos)
+                elif el.tag == "harmony" and pn == 0:
+                    off = Fraction(int(_text(el, "offset", "0")), div or 1)
+                    q = bar_q + pos + off
+                    harmony.append((int(q * 4), _text(el, "root/root-step"),
+                                    int(float(_text(el, "root/root-alter", "0"))), _text(el, "kind")))
+                elif el.tag == "note":
+                    if el.find("grace") is not None:
+                        continue
+                    if div is None:
+                        raise ValueError(f"{path}: a note before any divisions")
+                    dur = Fraction(int(_text(el, "duration", "0")), div)
+                    if el.find("chord") is not None:
+                        start = last_start
+                    else:
+                        start = pos
+                        pos += dur
+                        top = max(top, pos)
+                        last_start = start
+                    if el.find("rest") is not None or el.find("cue") is not None:
+                        continue
+                    abs_q = bar_q + start
+                    if el.find("unpitched") is not None:
+                        inst = el.find("instrument")
+                        pitch = unpitched.get(inst.get("id")) if inst is not None else None
+                        if pitch is None and lanes:
+                            pitch = lanes.get((_text(el, "unpitched/display-step"),
+                                               int(_text(el, "unpitched/display-octave", "0"))))
+                        if pitch is None:
+                            raise ValueError(f"{path}: bar {mn + 1}: an unpitched note with no instrument")
+                    elif el.find("pitch") is not None:
+                        step = _text(el, "pitch/step")
+                        if step not in NAMES:
+                            raise ValueError(f"{path}: bar {mn + 1}: pitch step {step!r}")
+                        pitch = (12 * (int(_text(el, "pitch/octave", "4")) + 1) + NAMES[step] +
+                                 round(float(_text(el, "pitch/alter", "0"))))
+                    else:
+                        continue
+                    ties = {t.get("type") for t in el.findall("tie")} | {t.get("type") for t in el.iter("tied")}
+                    key = (pn, pitch)
+                    if "stop" in ties and key in open_ties and open_ties[key]["end_q"] == abs_q:
+                        n = open_ties.pop(key)
+                        n["end_q"] = abs_q + dur
+                        if "start" in ties:
+                            open_ties[key] = n
+                        continue
+                    if (abs_q * 4).denominator != 1:
+                        raise OffGrid(int(abs_q // 4) + 1, f"a note off the 16th grid (beat {float(start + 1):g})")
+                    dyn = el.get("dynamics")
+                    head = el.find("notehead")
+                    n = {"start_q": abs_q, "end_q": abs_q + dur, "pitch": pitch,
+                         "vel": round(float(dyn) * 90 / 100) if dyn else None,
+                         "ghost": head is not None and head.get("parentheses") == "yes", "part": pn}
+                    notes.append(n)
+                    if "start" in ties:
+                        open_ties[key] = n
+            bar_q += max(measure_q, top)
+            bars = max(bars, mn + 1)
+    out = []
+    for n in notes:
+        length = max(1, round((n["end_q"] - n["start_q"]) * 4))
+        out.append({"start": int(n["start_q"] * 4), "len": length, "pitch": n["pitch"], "vel": n["vel"],
+                    "ghost": n["ghost"], "part": n["part"]})
+    out.sort(key=lambda n: (n["start"], n["pitch"]))
+    return {"title": title, "meta": meta, "bars": bars, "harmony": harmony, "notes": out}

@@ -1,103 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* The seed library tables. Plain C on purpose: curate by editing entries; never reuse an id. */
+/* The seed library tables. Plain C on purpose: curate by editing entries; never reuse an id. The progressions and
+   drum patterns are generated (patterns_gen.c, from patterns/). */
 #include <string.h>
 #include "library.h"
-
-/* Degrees are 0-based in the song's mode; {degree, alter, quality}. A progression lists only the modes where its
-   degrees give the chords named in src (Task 4 filters by mode). R25: a vamp's or loop's chords lie in each mode it
-   lists at every color (Q_DIATONIC where the mode's own chord is the one named, so its color tones fit too); only
-   jazzy progressions borrow. */
-const lib_prog_t LIB_PROGS[] = {
-    {1, PK_VAMP, 2, 2, {{1, 0, Q_MIN7}, {4, 0, Q_DOM7}, {0, 0, 0}, {0, 0, 0}}, MOOD_WISTFUL | MOOD_WARM | MOOD_SUNNY,
-     (1 << MODE_IONIAN), "lofi-hip-hop.md 2, ii9-V13 vamp"},
-    {2, PK_VAMP, 2, 2, {{3, 0, Q_MAJ7}, {2, 0, Q_DIATONIC}, {0, 0, 0}, {0, 0, 0}}, MOOD_WARM | MOOD_SUNNY,
-     (1 << MODE_IONIAN), "lofi-hip-hop.md 2, IVmaj7-iii7 vamp"},
-    {3, PK_VAMP, 2, 2, {{0, 0, Q_MIN7}, {3, 0, Q_MIN7}, {0, 0, 0}, {0, 0, 0}}, MOOD_SAD | MOOD_WISTFUL,
-     (1 << MODE_AEOLIAN), "lofi-hip-hop.md 2, i9-iv9 vamp"},
-    {4, PK_VAMP, 2, 2, {{0, 0, Q_MAJ7}, {3, 0, Q_MAJ7}, {0, 0, 0}, {0, 0, 0}}, MOOD_WARM | MOOD_SUNNY,
-     (1 << MODE_IONIAN), "lofi-hip-hop.md 2, Imaj7-IVmaj7 vamp"},
-    {5, PK_VAMP, 2, 2, {{5, 0, Q_DIATONIC}, {1, 0, Q_MIN7}, {0, 0, 0}, {0, 0, 0}}, MOOD_SAD | MOOD_WISTFUL,
-     (1 << MODE_IONIAN) | (1 << MODE_MIXOLYDIAN), "brainstorm: vi7-ii7 minor vamp"},
-    {6, PK_VAMP, 2, 2, {{0, 0, Q_MIN7}, {6, 0, Q_DOM7}, {0, 0, 0}, {0, 0, 0}}, MOOD_SAD | MOOD_WISTFUL | MOOD_WARM,
-     (1 << MODE_AEOLIAN), "brainstorm: i7-bVII7 modal vamp (Cm7 Bb7 in C)"},
-    {7, PK_LOOP, 4, 1, {{3, 0, Q_MAJ7}, {2, 0, Q_DIATONIC}, {1, 0, Q_MIN7}, {0, 0, Q_MAJ7}}, MOOD_WISTFUL | MOOD_WARM,
-     (1 << MODE_IONIAN), "lofi-hip-hop.md 2, IVmaj7-iii7-ii7-Imaj7 descending loop"},
-    {8, PK_LOOP, 4, 1, {{1, 0, Q_MIN7}, {4, 0, Q_DOM7}, {0, 0, Q_MAJ7}, {5, 0, Q_MIN7}}, MOOD_WISTFUL | MOOD_WARM | MOOD_SUNNY,
-     (1 << MODE_IONIAN), "lofi-hip-hop.md 2, ii9-V13-Imaj9-vi7 loop"},
-    {9, PK_LOOP, 4, 1, {{3, 0, Q_MAJ7}, {4, 0, Q_DOM7}, {2, 0, Q_DIATONIC}, {5, 0, Q_MIN7}}, MOOD_SAD | MOOD_WISTFUL | MOOD_SUNNY,
-     (1 << MODE_IONIAN), "lofi-hip-hop.md 2, IVmaj7-V7-iii7-vi7 royal road"},
-    {10, PK_LOOP, 4, 1, {{5, 0, Q_MIN7}, {1, 0, Q_MIN7}, {4, 0, Q_DOM7}, {0, 0, Q_MAJ7}}, MOOD_SAD | MOOD_WISTFUL | MOOD_WARM,
-     (1 << MODE_IONIAN), "lofi-hip-hop.md 2, vi9-ii9-V13-Imaj9 loop"},
-    {11, PK_LOOP, 4, 1, {{0, 0, Q_MAJ7}, {5, 0, Q_MIN7}, {1, 0, Q_MIN7}, {4, 0, Q_DOM7}}, MOOD_WARM | MOOD_SUNNY,
-     (1 << MODE_IONIAN), "lofi-hip-hop.md 2, Imaj9-vi9-ii9-V13 turnaround loop"},
-    {12, PK_JAZZY, 4, 1, {{1, 0, Q_MIN7}, {4, 0, Q_DOM7}, {0, 0, Q_MAJ7}, {5, 0, Q_DOM7}}, MOOD_WARM | MOOD_SUNNY,
-     (1 << MODE_IONIAN), "lofi-hip-hop.md 2, bossa ii7-V7-Imaj7-VI7 (bossa flavor); R25: borrows, so jazzy"},
-    {13, PK_JAZZY, 4, 1, {{3, 0, Q_MAJ7}, {2, 0, Q_DOM7}, {5, 0, Q_MIN7}, {0, 0, Q_DOM7}}, MOOD_WISTFUL | MOOD_SUNNY,
-     (1 << MODE_IONIAN), "brainstorm: city pop IVmaj7-III7-vi7-I7 (city pop flavor); R25: borrows, so jazzy"},
-    {14, PK_JAZZY, 4, 1, {{3, 0, Q_MAJ7}, {3, 0, Q_MIN7}, {2, 0, Q_MIN7}, {5, 0, Q_DOM7}}, MOOD_SAD | MOOD_WISTFUL,
-     (1 << MODE_IONIAN) | (1 << MODE_MIXOLYDIAN), "lofi-hip-hop.md 2, IVmaj7-iv7-iii7-VI7 borrowed iv"},
-    {15, PK_JAZZY, 4, 1, {{1, 0, Q_MIN7}, {4, 0, Q_DOM7}, {0, 0, Q_MAJ7}, {5, 0, Q_DOM7}}, MOOD_WARM | MOOD_SUNNY,
-     (1 << MODE_IONIAN), "lofi-hip-hop.md 2, ii9-V13-Imaj9-VI7 turnaround (was a ii-bII7-I tritone sub: none, Sam)"},
-    {16, PK_JAZZY, 4, 1, {{0, 0, Q_MAJ7}, {0, 0, Q_DOM7}, {3, 0, Q_MAJ7}, {3, 0, Q_MIN7}}, MOOD_WISTFUL | MOOD_WARM,
-     (1 << MODE_IONIAN) | (1 << MODE_MIXOLYDIAN), "lofi-hip-hop.md 2, Imaj7-I7-IVmaj7-iv7"},
-    {17, PK_VAMP, 2, 2, {{0, 0, Q_MIN7}, {3, 0, Q_DOM7}, {0, 0, 0}, {0, 0, 0}}, MOOD_WISTFUL | MOOD_WARM | MOOD_SUNNY,
-     (1 << MODE_DORIAN), "brainstorm: Dorian i7-IV7 vamp (Cm7 F7 in C)"},
-    {18, PK_JAZZY, 4, 1, {{0, 0, Q_MIN7}, {6, 0, Q_DOM7}, {5, 0, Q_MAJ7}, {4, 0, Q_DOM7}}, MOOD_SAD | MOOD_WISTFUL,
-     (1 << MODE_AEOLIAN), "brainstorm: Aeolian i7-bVII7-bVImaj7-V7 (Cm7 Bb7 Abmaj7 G7); R25: borrows, so jazzy"},
-    {19, PK_JAZZY, 4, 1, {{0, 0, Q_MIN7}, {6, 0, Q_DOM7}, {5, -1, Q_MAJ7}, {4, 0, Q_DOM7}}, MOOD_SAD | MOOD_WISTFUL,
-     (1 << MODE_DORIAN), "brainstorm: Dorian-key i7-bVII7-bVImaj7-V7 (borrowed bVI, Abmaj7); R25: borrows, so jazzy"},
-    {20, PK_LOOP, 4, 1, {{0, 0, Q_MIN7}, {3, 0, Q_MIN7}, {6, 0, Q_DOM7}, {2, 0, Q_MAJ7}}, MOOD_SAD | MOOD_WISTFUL,
-     (1 << MODE_AEOLIAN), "brainstorm: i7-iv7-bVII7-bIIImaj7 (Cm7 Fm7 Bb7 Ebmaj7)"},
-    {21, PK_JAZZY, 2, 2, {{3, 0, Q_DOM7}, {6, 0, Q_DOM7}, {0, 0, 0}, {0, 0, 0}}, MOOD_WARM | MOOD_SUNNY,
-     (1 << MODE_DORIAN), "brainstorm: Dorian IV7-bVII7 funk vamp (F7 Bb7 in C); R25: borrows, so jazzy"},
-    {22, PK_JAZZY, 4, 1, {{0, 0, Q_MIN7}, {3, 0, Q_MIN7}, {5, 0, Q_MAJ7}, {4, 0, Q_DOM7}}, MOOD_SAD | MOOD_WISTFUL,
-     (1 << MODE_AEOLIAN), "brainstorm R8: im9-iv9-bVImaj7-V7, major V forced (Cm7 Fm7 Abmaj7 G7)"},
-    {23, PK_JAZZY, 4, 1, {{0, 0, Q_MIN7}, {3, 0, Q_MIN7}, {4, 0, Q_DOM7}, {0, 0, Q_MIN7}}, MOOD_SAD | MOOD_WISTFUL,
-     (1 << MODE_AEOLIAN), "brainstorm R8: im9-ivm9-V7-im9, major V forced (Cm7 Fm7 G7 Cm7; was bVI7, a tritone sub: none, Sam)"},
-    {24, PK_JAZZY, 2, 2, {{0, 0, Q_MIN7}, {1, -1, Q_MAJ7}, {0, 0, 0}, {0, 0, 0}}, MOOD_SAD | MOOD_WISTFUL | MOOD_WARM,
-     (1 << MODE_DORIAN) | (1 << MODE_AEOLIAN), "brainstorm R8: im9-bIImaj7 Neapolitan color (Cm7 Dbmaj7)"},
-    {25, PK_LOOP, 4, 1, {{0, 0, Q_MIN7}, {3, 0, Q_DOM7}, {6, 0, Q_MAJ7}, {2, 0, Q_MAJ7}}, MOOD_WARM | MOOD_SUNNY,
-     (1 << MODE_DORIAN), "brainstorm R8: bright Dorian i7-IV7-bVIImaj7-bIIImaj7 loop (Cm7 F7 Bbmaj7 Ebmaj7)"},
-    {26, PK_LOOP, 4, 1, {{0, 0, Q_MIN7}, {1, 0, Q_DIATONIC}, {2, 0, Q_MAJ7}, {3, 0, Q_DOM7}}, MOOD_WISTFUL | MOOD_WARM | MOOD_SUNNY,
-     (1 << MODE_DORIAN), "brainstorm R8: rising Dorian i7-ii7-bIIImaj7-IV7 loop (Cm7 Dm7 Ebmaj7 F7)"},
-    {27, PK_VAMP, 2, 2, {{0, 0, Q_DIATONIC}, {1, 0, Q_DIATONIC}, {0, 0, 0}, {0, 0, 0}}, MOOD_WISTFUL | MOOD_WARM | MOOD_SUNNY,
-     (1 << MODE_LYDIAN), "R25: Lydian Imaj7-II7 vamp (Cmaj7 D7)"},
-    {28, PK_VAMP, 2, 2, {{0, 0, Q_DIATONIC}, {4, 0, Q_DIATONIC}, {0, 0, 0}, {0, 0, 0}}, MOOD_WARM | MOOD_SUNNY,
-     (1 << MODE_LYDIAN), "R25: Lydian Imaj7-Vmaj7 vamp (Cmaj7 Gmaj7)"},
-    {29, PK_VAMP, 2, 2, {{0, 0, Q_DIATONIC}, {6, 0, Q_DIATONIC}, {0, 0, 0}, {0, 0, 0}}, MOOD_WISTFUL | MOOD_WARM | MOOD_SUNNY,
-     (1 << MODE_MIXOLYDIAN), "R25: Mixolydian I7-bVIImaj7 vamp (C7 Bbmaj7)"},
-    {30, PK_VAMP, 2, 2, {{0, 0, Q_DIATONIC}, {3, 0, Q_DIATONIC}, {0, 0, 0}, {0, 0, 0}}, MOOD_WARM | MOOD_SUNNY,
-     (1 << MODE_MIXOLYDIAN), "R25: Mixolydian I7-IVmaj7 vamp (C7 Fmaj7)"},
-    {31, PK_VAMP, 2, 2, {{4, 0, Q_DIATONIC}, {0, 0, Q_DIATONIC}, {0, 0, 0}, {0, 0, 0}}, MOOD_SAD | MOOD_WISTFUL,
-     (1 << MODE_DORIAN) | (1 << MODE_MIXOLYDIAN), "R25: v7-i vamp (Dorian Gm7 Cm7; Mixolydian Gm7 C7)"},
-    {32, PK_VAMP, 2, 2, {{0, 0, Q_DIATONIC}, {1, 0, Q_DIATONIC}, {0, 0, 0}, {0, 0, 0}}, MOOD_SAD | MOOD_WISTFUL | MOOD_SUNNY,
-     (1 << MODE_DORIAN), "R25: Dorian i7-ii7 vamp (Cm7 Dm7)"},
-    {33, PK_VAMP, 2, 2, {{0, 0, Q_DIATONIC}, {2, 0, Q_DIATONIC}, {0, 0, 0}, {0, 0, 0}}, MOOD_SAD | MOOD_WISTFUL | MOOD_WARM,
-     (1 << MODE_DORIAN) | (1 << MODE_AEOLIAN), "R25: i7-bIIImaj7 vamp (Cm7 Ebmaj7)"},
-    {34, PK_VAMP, 2, 2, {{5, 0, Q_DIATONIC}, {4, 0, Q_DIATONIC}, {0, 0, 0}, {0, 0, 0}}, MOOD_SAD | MOOD_WISTFUL,
-     (1 << MODE_MIXOLYDIAN), "R25: Mixolydian vi7-v7 vamp (Am7 Gm7)"},
-    {35, PK_LOOP, 4, 1, {{0, 0, Q_DIATONIC}, {1, 0, Q_DIATONIC}, {6, 0, Q_DIATONIC}, {2, 0, Q_DIATONIC}}, MOOD_WARM | MOOD_SUNNY,
-     (1 << MODE_LYDIAN), "R25: Lydian Imaj7-II7-vii7-iii7 loop (Cmaj7 D7 Bm7 Em7)"},
-    {36, PK_LOOP, 4, 1, {{0, 0, Q_DIATONIC}, {5, 0, Q_DIATONIC}, {1, 0, Q_DIATONIC}, {4, 0, Q_DIATONIC}}, MOOD_WISTFUL | MOOD_WARM | MOOD_SUNNY,
-     (1 << MODE_LYDIAN), "R25: Lydian Imaj7-vi7-II7-Vmaj7 loop (Cmaj7 Am7 D7 Gmaj7)"},
-    {37, PK_LOOP, 4, 1, {{0, 0, Q_DIATONIC}, {4, 0, Q_DIATONIC}, {6, 0, Q_DIATONIC}, {3, 0, Q_DIATONIC}}, MOOD_WARM | MOOD_SUNNY,
-     (1 << MODE_MIXOLYDIAN), "R25: Mixolydian I7-v7-bVIImaj7-IVmaj7 loop (C7 Gm7 Bbmaj7 Fmaj7)"},
-    {38, PK_LOOP, 4, 1, {{5, 0, Q_DIATONIC}, {4, 0, Q_DIATONIC}, {3, 0, Q_DIATONIC}, {0, 0, Q_DIATONIC}}, MOOD_SAD | MOOD_WISTFUL,
-     (1 << MODE_MIXOLYDIAN), "R25: Mixolydian vi7-v7-IVmaj7-I7 loop (Am7 Gm7 Fmaj7 C7)"},
-    {39, PK_LOOP, 4, 1, {{1, 0, Q_DIATONIC}, {4, 0, Q_DIATONIC}, {0, 0, Q_DIATONIC}, {3, 0, Q_DIATONIC}}, MOOD_WISTFUL | MOOD_WARM | MOOD_SUNNY,
-     (1 << MODE_MIXOLYDIAN), "R25: Mixolydian ii7-v7-I7-IVmaj7 loop (Dm7 Gm7 C7 Fmaj7)"},
-    {40, PK_LOOP, 4, 1, {{0, 0, Q_DIATONIC}, {4, 0, Q_DIATONIC}, {6, 0, Q_DIATONIC}, {3, 0, Q_DIATONIC}}, MOOD_SAD | MOOD_WISTFUL,
-     (1 << MODE_DORIAN), "R25: Dorian i7-v7-bVIImaj7-IV7 loop (Cm7 Gm7 Bbmaj7 F7)"},
-    {41, PK_LOOP, 4, 1, {{0, 0, Q_DIATONIC}, {4, 0, Q_DIATONIC}, {2, 0, Q_DIATONIC}, {6, 0, Q_DIATONIC}}, MOOD_SAD | MOOD_WISTFUL | MOOD_WARM,
-     (1 << MODE_DORIAN) | (1 << MODE_AEOLIAN), "R25: i7-v7-bIIImaj7-bVII loop (Dorian Cm7 Gm7 Ebmaj7 Bbmaj7; Aeolian ... Bb7)"},
-    {42, PK_LOOP, 4, 1, {{5, 0, Q_DIATONIC}, {6, 0, Q_DIATONIC}, {0, 0, Q_DIATONIC}, {2, 0, Q_DIATONIC}}, MOOD_WISTFUL | MOOD_WARM,
-     (1 << MODE_AEOLIAN), "R25: Aeolian bVImaj7-bVII7-i7-bIIImaj7 loop (Abmaj7 Bb7 Cm7 Ebmaj7)"},
-    {43, PK_LOOP, 4, 1, {{0, 0, Q_DIATONIC}, {2, 0, Q_DIATONIC}, {3, 0, Q_DIATONIC}, {4, 0, Q_DIATONIC}}, MOOD_WARM | MOOD_SUNNY,
-     (1 << MODE_IONIAN), "R25: Ionian Imaj7-iii7-IVmaj7-V7 loop (Cmaj7 Em7 Fmaj7 G7)"},
-    {44, PK_LOOP, 4, 1, {{0, 0, Q_DIATONIC}, {3, 0, Q_DIATONIC}, {2, 0, Q_DIATONIC}, {1, 0, Q_DIATONIC}}, MOOD_SAD | MOOD_WISTFUL,
-     (1 << MODE_DORIAN), "R25: Dorian i7-IV7-bIIImaj7-ii7 loop (Cm7 F7 Ebmaj7 Dm7)"},
-};
-const int LIB_NPROGS = (int)(sizeof LIB_PROGS / sizeof LIB_PROGS[0]);
 
 /* Roles are meant to sit in separate registers (curation intent). {id, name, chords, bass, lead, candy, pad, kit, skit, flavor, moods, src}.
    The pad layer: the warm synth pad under the synth sets (13, 18, 19, 20), strings under the rest.
@@ -145,19 +50,6 @@ const lib_set_t LIB_SETS[] = {
     {33, "DX and saw lead", INS_DX_EP, INS_ELEC_BASS, INS_SAW_LEAD, INS_VIBES, INS_WARM_PAD, KIT_SOFT, KIT_S_CLEAN, FL_CITYPOP, MOOD_WARM | MOOD_SUNNY, "sampled spec: a high string lead over the DX keys, city pop; the vibes lead (Sam, 2026-10-29); the saw lead leads (vibes rebalance: Sam, 2026-10-29)"},
 };
 const int LIB_NSETS = (int)(sizeof LIB_SETS / sizeof LIB_SETS[0]);
-
-/* Lanes: kick, snare, hat, open hat, shaker, rim. 16 steps, bit i = step i. */
-const lib_pattern_t LIB_PATTERNS[] = {
-    {1, PF_BOOMBAP, {0x4441, 0x1010, 0x5555, 0x0000, 0x0000, 0x0000}, {0x0004, 0x4008, 0xAAAA, 0x0000, 0x0000, 0x0000}, 0, 0, "lofi-midi-arrangements.md 3.4, Us3 Cantaloop grid", 0, {0}, {0}},
-    {2, PF_BOOMBAP, {0x8581, 0x1010, 0x5555, 0x8000, 0x0000, 0x0000}, {0x0000, 0x0080, 0xAAAA, 0x0000, 0x0000, 0x0000}, 0, 0, "lofi-midi-arrangements.md 3.4, Fugees Fu-Gee-La grid", 0, {0}, {0}},
-    {3, PF_BOOMBAP, {0x0409, 0x1010, 0x5555, 0x8000, 0x5555, 0x0000}, {0x0020, 0x0808, 0x0000, 0x0000, 0xAAAA, 0x0000}, 0, 0, "lofi-midi-arrangements.md 3.4, Tupac Changes grid; lofi-hip-hop.md 6 Magenta", 0, {0}, {0}},
-    {4, PF_HALFTIME, {0x0041, 0x0100, 0x5555, 0x0000, 0x0000, 0x0000}, {0x0400, 0x1000, 0xAAAA, 0x0000, 0x0000, 0x0000}, 1, 0, "lofi-midi-arrangements.md 3.4, Online Sequencer half-time snare + recurring kick", 0, {0}, {0}},
-    {5, PF_HALFTIME, {0x1011, 0x0100, 0x1111, 0x8000, 0x9249, 0x0000}, {0x0400, 0x0000, 0x4444, 0x0000, 0x0000, 0x0000}, 1, 1, "lofi-midi-arrangements.md 3.4, OS recurring kick; poly3 shaker from lofi-hip-hop.md 3", 0, {0}, {0}},
-    {6, PF_SPARSE, {0x0041, 0x0100, 0x1111, 0x0000, 0x0000, 0x1000}, {0x0000, 0x0000, 0x4444, 0x0000, 0x0000, 0x0000}, 1, 0, "lofi-midi-arrangements.md 3.4, quarter hats with half-time snare", 0, {0}, {0}},
-    {7, PF_BRUSHES, {0x0101, 0x1010, 0x5555, 0x0000, 0x0000, 0x0000}, {0x0400, 0x0104, 0xAAAA, 0x0000, 0x0000, 0x0000}, 0, 0, "lofi-hip-hop.md 3 swung brush/ride lane; rim on snare lane", 0, {0}, {0}},
-    {8, PF_BOSSA, {0x0909, 0x1000, 0x5555, 0x0000, 0x0000, 0x1449}, {0x0000, 0x0010, 0xAAAA, 0x0000, 0x0000, 0x0000}, 0, 0, "lofi-hip-hop.md 3 bossa feel; 3-2 clave on the rim lane", 0, {0}, {0}},
-};
-const int LIB_NPATTERNS = (int)(sizeof LIB_PATTERNS / sizeof LIB_PATTERNS[0]);
 
 const lib_map_t LIB_MAPS[] = {
     {1, "Classic", 4, EN_TOGETHER, MID_BREAK, END_KEYS_OUTRO, 0, "spec: the five maps; lofi-audio-arrangements.md 4/7"},

@@ -1,0 +1,642 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Imports patterns/ (the .mid and .musicxml files Sam edits or adds) into the engine's tables: app/song/patterns_gen.c
+   and .h (generated; never edit them), workbench/options.json's kickPhrases, patterns/model.json and .manifest.json.
+
+   Which file to read: .manifest.json holds each file's SHA-256 as last written. A pattern whose files both match is
+   unchanged (model.json has it). One changed (or a new pattern's only file) is imported from that file; both changed
+   must agree, else the import is refused naming both. After an import the pattern's other file is rewritten from the
+   imported entry and both hashes go in the manifest. A file name not in model.json is a new pattern: the next free
+   id, status candidate. Every entry is checked against the engine's rules (validate.py); any refusal names the file,
+   the bar and the rule, and nothing is written.
+
+   python3 -I tools/patterns/import.py [--check] [--patterns DIR] [--gen DIR] [--options FILE]
+     --check: read and validate only, write nothing (exit 1 on a refusal)"""
+import copy
+import hashlib
+import json
+import os
+import re
+import sys
+import tempfile
+from pathlib import Path
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import export  # noqa: E402
+import midi  # noqa: E402
+import mxl  # noqa: E402
+import validate  # noqa: E402
+
+ROOT = Path(__file__).resolve().parent.parent.parent
+FAMS = ["drums", "kick-phrases", "progressions", "comp-rhythms", "strum", "lead-arp", "melody-cells"]
+LANE_FAMS = {"drums", "kick-phrases", "strum"}
+EXTS = (".mid", ".musicxml")
+DERIVED = ("status", "file", "symbols", "symbols_mode", "onsets")
+HASHES = "the pinned hashes (b852d9cb / a662a137, the voicer 0x7b61830d)"
+
+DRUM_LANE = {ln[2]: i for i, ln in enumerate(export.DRUM_LANES)}
+STROKE_OF = {ln[2]: ln[0] for ln in export.STROKES}
+XML_LANES = {"drums": {(ln[3], ln[4]): ln[2] for ln in export.DRUM_LANES},
+             "kick-phrases": {(ln[3], ln[4]): ln[2] for ln in export.DRUM_LANES},
+             "strum": {(ln[3], ln[4]): ln[2] for ln in export.STROKES}}
+REF_TONES = [60, 64, 67, 71, 72, 76, 79, 83]    # the reference Cmaj7's chord tones up two octaves: index = tone - 1
+SHAPES = [("maj7", {0, 4, 7, 11}), ("7", {0, 4, 7, 10}), ("m7", {0, 3, 7, 10}), ("m7b5", {0, 3, 6, 10})]
+EXTENSIONS = {1, 2, 3, 5, 6, 8, 9}              # 9ths, 11ths, 13ths over a 7th chord
+TITLE_RE = re.compile(r"^Progression [^:]*: .*\((vamp|loop|jazzy); ([a-z, ]+); ([A-Za-z, ]+)\)\s*$")
+META_FIELDS = {"drums": ("family", "half_time", "src"), "kick-phrases": (), "progressions": ("kind", "moods", "modes",
+               "src"), "comp-rhythms": ("vel_range", "second_vel_pct", "busy_over", "busy_steps"), "strum": (),
+               "lead-arp": ("weight",), "melody-cells": ("weight",)}
+
+
+class Refused(Exception):
+    def __init__(self, bar, rule):
+        super().__init__(rule)
+        self.bar, self.rule = bar, rule
+
+
+def sha(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def content(e):
+    return {k: v for k, v in e.items() if k not in DERIVED}
+
+
+# ------------------------------------------------------------------------------------------------- reading a file
+def score_of(path, fam):
+    """-> {"title", "meta" (dict or None), "notes": [{start, len, pitch, vel, ghost}]}, in 16th steps"""
+    if path.suffix == ".mid":
+        m = midi.read(str(path))
+        ppq = m["ppq"]
+        lane = fam in LANE_FAMS
+        want = [n for n in m["notes"] if (n["channel"] == 9) == lane and (lane or n["channel"] == 0)]
+        if not want:      # a DAW may move the part: drums off channel 10, a pitched part off channel 1
+            want = [n for n in m["notes"] if lane or n["channel"] != 9]
+        if m["time_sig"] not in (None, (4, 4)):
+            raise Refused(1, f"4/4 only (the file is {m['time_sig'][0]}/{m['time_sig'][1]})")
+        notes = []
+        for n in want:
+            if n["tick"] * 4 % ppq:
+                raise Refused(n["tick"] * 4 // ppq // 16 + 1, "a note off the 16th grid (quantize to 16ths)")
+            notes.append({"start": n["tick"] * 4 // ppq, "len": max(1, round(n["len"] * 4 / ppq)), "pitch": n["note"],
+                          "vel": n["vel"], "ghost": False})
+        title, meta = m["title"], m["meta"]
+    else:
+        try:
+            x = mxl.read(str(path), XML_LANES.get(fam))
+        except mxl.OffGrid as e:
+            raise Refused(e.bar, str(e) + " (quantize to 16ths)") from None
+        notes, title, meta = x["notes"], x["title"], x["meta"]
+    try:
+        meta = json.loads(meta) if meta and len(meta) < 65536 else None
+    except ValueError:
+        meta = None
+    if not isinstance(meta, dict) or meta.get("family") != fam:
+        meta = None
+    notes.sort(key=lambda n: (n["start"], n["pitch"]))
+    return {"title": title, "meta": meta, "notes": notes}
+
+
+def bar_of(step):
+    return step // 16 + 1
+
+
+def only_bars(notes, n, what):
+    for x in notes:
+        if x["start"] >= 16 * n:
+            raise Refused(bar_of(x["start"]), f"{what} is {n} bar{'s' if n > 1 else ''} long: nothing after bar {n}")
+
+
+def one_per_onset(notes, what):
+    seen = {}
+    for x in notes:
+        if x["start"] in seen:
+            raise Refused(bar_of(x["start"]), f"{what}: one note at a time (two at step {x['start'] % 16})")
+        seen[x["start"]] = x
+    return list(seen.values())
+
+
+# ------------------------------------------------------------------------------------------------------ decoding
+def decode(fam, key, score, base):
+    """the file's notes over base's other fields -> a model entry (without file, status or derived fields)"""
+    e = {k: v for k, v in base.items() if k not in DERIVED}
+    notes = score["notes"]
+    if fam == "drums":
+        hit, ghost = [[0] * 6, [0] * 6], [[0] * 6, [0] * 6]
+        only_bars(notes, 2, "a drum pattern")
+        for x in notes:
+            if x["pitch"] not in DRUM_LANE:
+                raise Refused(bar_of(x["start"]), f"note {x['pitch']} is not a drum lane (kick 36, snare 38, closed "
+                                                  "hat 42, open hat 46, shaker 70, rim 37)")
+            g = x["ghost"] or (x["vel"] is not None and x["vel"] <= 60)
+            (ghost if g else hit)[x["start"] // 16][DRUM_LANE[x["pitch"]]] |= 1 << x["start"] % 16
+        for b in range(2):
+            ghost[b] = [g & ~h for g, h in zip(ghost[b], hit[b])]
+        shaker = {b * 16 + s for b in range(2) for s in range(16) if hit[b][4] >> s & 1}
+        poly3 = int(shaker == {s for s in range(32) if s % 3 == 0} and not (ghost[0][4] | ghost[1][4]))
+        if poly3:
+            hit[1][4] = hit[0][4]                       # the polymeter runs on: bar 2's shaker is bar 1's
+        two = int(hit[0] != hit[1] or ghost[0] != ghost[1])
+        hx = [export.hx(v) for v in (0,) * 6]
+        e.update({"hit": [export.hx(v) for v in hit[0]], "ghost": [export.hx(v) for v in ghost[0]], "poly3": poly3,
+                  "two_bar": two, "hit_b": [export.hx(v) for v in hit[1]] if two else hx,
+                  "ghost_b": [export.hx(v) for v in ghost[1]] if two else hx})
+    elif fam == "kick-phrases":
+        only_bars(notes, 2, "a kick phrase")
+        for x in notes:
+            if x["pitch"] != 36:
+                raise Refused(bar_of(x["start"]), f"a kick phrase is the kick (36) only, not note {x['pitch']}")
+        e["a"] = sorted({x["start"] for x in notes if x["start"] < 16})
+        e["b"] = sorted({x["start"] - 16 for x in notes if x["start"] >= 16})
+    elif fam == "strum":
+        only_bars(notes, 2, "a strum pattern")
+        steps = ["."] * (32 if any(x["start"] >= 16 for x in notes) else 16)
+        for x in one_per_onset(notes, "a strum pattern"):
+            if x["pitch"] not in STROKE_OF:
+                raise Refused(bar_of(x["start"]), f"note {x['pitch']} is not a stroke lane (T 64, B 65, D 67, d 69, "
+                                                  "X 71, U 72, u 74, P 76)")
+            steps[x["start"]] = STROKE_OF[x["pitch"]]
+        e["steps"] = "".join(steps)
+    elif fam == "progressions":
+        decode_prog(e, score, notes)
+    elif fam == "comp-rhythms":
+        if e.get("name") in ("held", "half"):
+            only_bars(notes, 1, f"{e['name']} comping")
+            by = {}
+            for x in notes:
+                by[x["start"]] = max(by.get(x["start"], 0), x["len"])
+            e["strikes"] = [{"step": s, "len": n} for s, n in sorted(by.items())]
+        else:
+            bars = sorted({x["start"] // 16 for x in notes})
+            if bars != list(range(len(bars))):
+                raise Refused(len(bars) + 1, "the stabs are one bar per second-stab candidate, with no empty bar")
+            firsts, second = set(), []
+            for b in bars:
+                ons = sorted({x["start"] % 16 for x in notes if x["start"] // 16 == b})
+                if len(ons) != 2:
+                    raise Refused(b + 1, "each bar of the stabs is the first stab and one second-stab candidate")
+                firsts.add(ons[0])
+                second.append(ons[1])
+            if len(firsts) != 1:
+                raise Refused(1, "the first stab is on the same step in every bar")
+            e["first"] = firsts.pop()
+            e["second"] = second
+            e["len"] = next(x["len"] for x in notes if x["start"] == e["first"])
+    elif fam == "lead-arp":
+        only_bars(notes, 1, "a lead-arp pattern")
+        ns = one_per_onset(notes, "a lead-arp line")
+        if e.get("kind") == "rhythm":
+            e["notes"] = [[x["start"], x["len"]] for x in ns]
+        elif e.get("kind") == "pattern":
+            tones = []
+            for x in ns:
+                if x["pitch"] not in REF_TONES:
+                    raise Refused(1, f"note {x['pitch']} is not a chord tone of the reference Cmaj7 (C4 E4 G4 B4)")
+                tones.append(REF_TONES.index(x["pitch"]))
+            e["tones"] = tones
+        elif e.get("kind") == "landing":
+            if len(ns) != 1:
+                raise Refused(1, "a landing is one note")
+            e["at"], e["len"] = ns[0]["start"], ns[0]["len"]
+    elif fam == "melody-cells":
+        on = sorted({x["start"] for x in notes})
+        e["onsets"] = on
+        e["mask"] = export.hx(sum(1 << s for s in on if s < 16), 1)
+    return e
+
+
+def decode_prog(e, score, notes):
+    m = TITLE_RE.match(score["title"] or "")
+    if m:                                               # the title is what Sam sees and edits: it wins
+        e["kind"] = "PK_" + m.group(1).upper()
+        e["moods"] = ["MOOD_" + x.strip().upper() for x in m.group(2).split(",") if x.strip()]
+        e["modes"] = ["MODE_" + x.strip().upper() for x in m.group(3).split(",") if x.strip()]
+    modes = [x for x in e.get("modes") or [] if x in validate.MODES]
+    if not modes:
+        raise Refused(1, "no mode: name the modes in the title, as \"Progression N: ... (loop; warm; Dorian)\"")
+    mode = validate.MODES.index(modes[0])
+    by = {}
+    for x in notes:
+        by.setdefault(x["start"], []).append(x)
+    if not by:
+        raise Refused(1, "a progression has chords")
+    starts = sorted(by)
+    if starts[0] != 0:
+        raise Refused(bar_of(starts[0]), "a progression starts on bar 1")
+    lens = [max(x["len"] for x in by[s]) for s in starts]
+    for i, s in enumerate(starts):
+        if lens[i] != lens[0] or lens[i] % 16 or (i + 1 < len(starts) and starts[i + 1] != s + lens[i]):
+            raise Refused(bar_of(s), "every chord lasts the same whole number of bars, one after another")
+    hints = [c for c in (e.get("chords") or []) if isinstance(c, dict)]
+    chords = []
+    for i, s in enumerate(starts):
+        root, suffix = chord_of(by[s], bar_of(s))
+        chords.append(spec_for(root, suffix, mode, hints[i:i + 1] + hints, bar_of(s)))
+    e["n"], e["bars_per_chord"], e["chords"] = len(starts), lens[0] // 16, chords
+
+
+def chord_of(notes, bar):
+    """(root pitch class, symbol suffix): the lowest note is the root; 9ths, 11ths and 13ths over the 7th chord are
+       left to the engine (it colors every chord itself)"""
+    lo = min(x["pitch"] for x in notes)
+    ivs = {(x["pitch"] - lo) % 12 for x in notes}
+    for suffix, shape in SHAPES:
+        rest = ivs - shape
+        if shape <= ivs and rest <= EXTENSIONS:
+            if suffix == "7" and rest & {1, 3, 8}:
+                raise Refused(bar, "a dominant below the 9th (a b9, #9 or b13): a dominant's color is its natural 9th "
+                                   "or 13th")
+            return lo % 12, suffix
+    raise Refused(bar, "not an allowed chord: a maj7, 7, m7 or m7b5 over its lowest note (no triads, no sus)")
+
+
+def spec_for(root, suffix, mode, hints, bar):
+    """the {degree, alter, quality} that sounds root+suffix in the mode: a hint that does (the metadata's, model.json's)
+       first, since a mode's own chord and a forced quality look alike; else the mode's own chord on that root, else
+       a forced quality on the nearest degree (flat before sharp)"""
+    for h in hints:
+        try:
+            if export.chord_symbol(h, mode) == (root, suffix):
+                return {"degree": h["degree"], "alter": h["alter"], "quality": h["quality"]}
+        except (KeyError, IndexError, TypeError, ValueError):
+            pass
+    sc = validate.SCALE[mode]
+    for alter in (0, -1, 1):
+        if (root - alter) % 12 in sc:
+            d = sc.index((root - alter) % 12)
+            spec = {"degree": d, "alter": alter, "quality": "Q_DIATONIC"}
+            if alter == 0 and export.chord_symbol(spec, mode) == (root, suffix):
+                return spec
+            q = {"maj7": "Q_MAJ7", "7": "Q_DOM7", "m7": "Q_MIN7"}.get(suffix)
+            if q:
+                return {"degree": d, "alter": alter, "quality": q}
+    raise Refused(bar, f"a m7b5 only where the mode has it as its own chord ({validate.MODES[mode][5:].capitalize()})")
+
+
+# ------------------------------------------------------------------------------------------- the model's tables
+def rows_from_model(model):
+    """model.json -> (the tables, in dump.c's JSON shape, kickPhrases)"""
+    st = lambda e: int(e["status"] == "approved")  # noqa: E731
+    t = {"patterns": [], "progs": []}
+    for e in model["drums"].values():
+        t["patterns"].append({"id": e["id"], "family": validate.PF.index(e["family"]),
+                              **{k: [int(x, 16) for x in e[k]] for k in ("hit", "ghost", "hit_b", "ghost_b")},
+                              "half_time": e["half_time"], "poly3": e["poly3"], "src": e["src"],
+                              "two_bar": e["two_bar"], "status": st(e)})
+    for e in model["progressions"].values():
+        c = [[x["degree"], x["alter"], validate.Q.index(x["quality"])] for x in e["chords"]]
+        t["progs"].append({"id": e["id"], "kind": validate.PK.index(e["kind"]), "n": e["n"],
+                           "bars_per_chord": e["bars_per_chord"], "c": c + [[0, 0, 0]] * (4 - len(c)),
+                           "moods": sum(1 << validate.MOODS.index(x) for x in e["moods"]),
+                           "modes": sum(1 << validate.MODES.index(x) for x in e["modes"]), "src": e["src"],
+                           "status": st(e)})
+    comp = {e["name"]: e for e in model["comp-rhythms"].values()}
+    t["comp"] = {n: {"vel": comp[n]["vel_range"], "steps": [s["step"] for s in comp[n]["strikes"]],
+                     "lens": [s["len"] for s in comp[n]["strikes"]],
+                     "later_vel_pct": comp[n].get("second_vel_pct", 100)} for n in ("held", "half")}
+    s = comp["stabs"]
+    t["comp"]["stabs"] = {"vel": s["vel_range"], "first": s["first"], "second": s["second"], "len": s["len"],
+                          "busy_over": s["busy_over"], "busy_steps": s["busy_steps"]}
+
+    def by_index(fam, kind=None):
+        es = [e for e in model[fam].values() if kind is None or e.get("kind") == kind]
+        return sorted(es, key=lambda e: e["index"])
+    pats = by_index("strum", "pattern")
+    t["strum"], t["strum_status"] = [e["steps"] for e in pats], [st(e) for e in pats]
+    t["strum_ballad_fill"] = by_index("strum", "fill")[0]["steps"]
+    rh, pa, la = (by_index("lead-arp", k) for k in ("rhythm", "pattern", "landing"))
+    t["arp_rhythms"], t["arp_rhythms_status"] = [e["notes"] for e in rh], [st(e) for e in rh]
+    t["arp_patterns"], t["arp_patterns_status"] = [e["tones"] for e in pa], [st(e) for e in pa]
+    t["landings"] = {"at": [e["at"] for e in la], "len": [e["len"] for e in la], "w": [e["weight"] for e in la]}
+    mc = by_index("melody-cells")
+    t["melody_cells"] = [[int(e["mask"], 16), e["weight"]] for e in mc]
+    t["melody_cells_status"] = [st(e) for e in mc]
+    kicks = [{"id": e["id"], "a": e["a"], "b": e["b"], **({} if e["status"] == "approved" else {"status": e["status"]})}
+             for e in model["kick-phrases"].values()]
+    return t, kicks
+
+
+# ------------------------------------------------------------------------------------------------ the C tables
+def c_str(s):
+    return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def c_list(xs, fmt="{}"):
+    return "{" + ", ".join(fmt.format(x) for x in xs) + "}"
+
+
+def bits(v, names, shift):
+    on = [n for i, n in enumerate(names) if v >> i & 1]
+    return " | ".join(f"(1 << {n})" if shift else n for n in on) or "0"
+
+
+def gen_c(t):
+    """-> (patterns_gen.c, patterns_gen.h)"""
+    head = ("/* SPDX-License-Identifier: GPL-3.0-or-later */\n"
+            "/* generated by tools/patterns/import.py; edit patterns/ (the .mid or .musicxml files:\n"
+            "   patterns/README.md), then run tools/patterns/import.sh. Never edit this file. */\n")
+    H = [head, "#ifndef SONG_PATTERNS_GEN_H", "#define SONG_PATTERNS_GEN_H", "#include <stdint.h>",
+         '#include "library.h"', "",
+         "/* Each *_STATUS runs parallel to its table: 1 approved (the engine draws it), 0 candidate (the workbench",
+         "   only). The comp rhythms and the landings are fixed entries, always approved. */",
+         "",
+         "/* drums (LIB_PATTERNS) and progressions (LIB_PROGS): the types and the tables in library.h */",
+         "extern const uint8_t LIB_PATTERNS_STATUS[];",
+         "extern const uint8_t LIB_PROGS_STATUS[];",
+         "",
+         "/* the keys' held and half-note comping (harmony.c): strikes in a bar, `later_vel_pct` the later strikes'",
+         "   velocity in percent of the first's; len is in 16ths (held: written a bar; the engine holds the chord) */",
+         "typedef struct {",
+         "    uint8_t vel_lo, vel_hi;",
+         "    uint8_t n;                          /* strikes */",
+         "    uint8_t step[2], len[2];",
+         "    uint8_t later_vel_pct;",
+         "} patterns_comp_t;",
+         "/* the stabs: one on `first`, the second on the first of `second` the kick leaves free; over a kick of more",
+         "   than `busy_over` hits a bar, `busy_steps` (a mask). len: the written length (the engine strikes 60% of a",
+         "   quarter) */",
+         "typedef struct {",
+         "    uint8_t vel_lo, vel_hi;",
+         "    uint8_t first;",
+         "    uint8_t n;                          /* second-stab candidates, tried in order */",
+         "    uint8_t second[4];",
+         "    uint8_t len;",
+         "    uint8_t busy_over;",
+         "    uint16_t busy_steps;",
+         "} patterns_stabs_t;",
+         "extern const patterns_comp_t COMP_HELD, COMP_HALF;",
+         "extern const patterns_stabs_t COMP_STABS;",
+         "",
+         "/* strum.c's patterns (16 steps; 32 for a two-bar one) and the ballad's fill-bar variant */",
+         f"#define STRUM_NPAT {len(t['strum'])}",
+         "extern const char *const STRUM_PAT[STRUM_NPAT];",
+         "extern const uint8_t STRUM_PAT_STATUS[STRUM_NPAT];",
+         "extern const char STRUM_BALLAD_FILL[];",
+         "",
+         "/* lead.c's arpeggio rhythms ({at, len}, ended by {-1, 0}), arpeggio patterns (chord tones 0-3, ended by -1)",
+         "   and the six landings (at, len, weight in percent) */",
+         f"#define LEAD_NRHY {len(t['arp_rhythms'])}",
+         "extern const int8_t LEAD_RHY[LEAD_NRHY][9][2];",
+         "extern const uint8_t LEAD_RHY_STATUS[LEAD_NRHY];",
+         f"#define LEAD_NPAT {len(t['arp_patterns'])}",
+         "extern const int8_t LEAD_PAT[LEAD_NPAT][6];",
+         "extern const uint8_t LEAD_PAT_STATUS[LEAD_NPAT];",
+         "extern const int8_t LEAD_LANDING_AT[6], LEAD_LANDING_LEN[6];",
+         "extern const uint8_t LEAD_LANDING_W[6];",
+         "",
+         "/* melody.c's one-beat rhythm cells (bit i: an onset on 16th i of the beat) and their weights */",
+         f"#define MELODY_NCELLS {len(t['melody_cells'])}",
+         "extern const uint8_t MELODY_CELLS[MELODY_NCELLS];",
+         "extern const uint8_t MELODY_CELL_W[MELODY_NCELLS];",
+         "extern const uint8_t MELODY_CELLS_STATUS[MELODY_NCELLS];",
+         "",
+         "#endif", ""]
+    C = [head, '#include "patterns_gen.h"', "",
+         "/* Degrees are 0-based in the song's mode; {degree, alter, quality}. A progression lists only the modes",
+         "   where its degrees give the chords named in src. R25: a vamp's or loop's chords lie in each mode it lists",
+         "   at every color (Q_DIATONIC where the mode's own chord is the one named, so its color tones fit too); only",
+         "   jazzy progressions borrow. */",
+         "const lib_prog_t LIB_PROGS[] = {"]
+    for p in t["progs"]:
+        cs = ", ".join("{%d, %d, %s}" % (d, a, validate.Q[q] if (d, a, q) != (0, 0, 0) or i < p["n"] else "0")
+                       for i, (d, a, q) in enumerate(p["c"]))
+        C.append(f"    {{{p['id']}, {validate.PK[p['kind']]}, {p['n']}, {p['bars_per_chord']}, {{{cs}}}, "
+                 f"{bits(p['moods'], validate.MOODS, False)}, {bits(p['modes'], validate.MODES, True)}, "
+                 f"{c_str(p['src'])}}},")
+    C += ["};", "const int LIB_NPROGS = (int)(sizeof LIB_PROGS / sizeof LIB_PROGS[0]);",
+          "const uint8_t LIB_PROGS_STATUS[] = " + c_list(p["status"] for p in t["progs"]) + ";", "",
+          "/* Lanes: kick, snare, hat, open hat, shaker, rim. 16 steps, bit i = step i. */",
+          "const lib_pattern_t LIB_PATTERNS[] = {"]
+    for p in t["patterns"]:
+        m = {k: c_list(p[k], "0x{:04X}") for k in ("hit", "ghost", "hit_b", "ghost_b")}
+        C.append(f"    {{{p['id']}, {validate.PF[p['family']]}, {m['hit']}, {m['ghost']}, {p['half_time']}, "
+                 f"{p['poly3']}, {c_str(p['src'])}, {p['two_bar']}, {m['hit_b']}, {m['ghost_b']}}},")
+    C += ["};", "const int LIB_NPATTERNS = (int)(sizeof LIB_PATTERNS / sizeof LIB_PATTERNS[0]);",
+          "const uint8_t LIB_PATTERNS_STATUS[] = " + c_list(p["status"] for p in t["patterns"]) + ";", ""]
+    for name, key in (("COMP_HELD", "held"), ("COMP_HALF", "half")):
+        x = t["comp"][key]
+        pad = lambda v: list(v) + [0] * (2 - len(v))  # noqa: E731
+        C.append(f"const patterns_comp_t {name} = {{{x['vel'][0]}, {x['vel'][1]}, {len(x['steps'])}, "
+                 f"{c_list(pad(x['steps']))}, {c_list(pad(x['lens']))}, {x['later_vel_pct']}}};")
+    s = t["comp"]["stabs"]
+    C.append(f"const patterns_stabs_t COMP_STABS = {{{s['vel'][0]}, {s['vel'][1]}, {s['first']}, {len(s['second'])}, "
+             f"{c_list(list(s['second']) + [0] * (4 - len(s['second'])))}, {s['len']}, {s['busy_over']}, "
+             f"0x{sum(1 << x for x in s['busy_steps']):04X}}};")
+    C += ["", "const char *const STRUM_PAT[STRUM_NPAT] = {"] + [f"    {c_str(x)}," for x in t["strum"]] + [
+        "};", "const uint8_t STRUM_PAT_STATUS[STRUM_NPAT] = " + c_list(t["strum_status"]) + ";",
+        f"const char STRUM_BALLAD_FILL[] = {c_str(t['strum_ballad_fill'])};", "",
+        "const int8_t LEAD_RHY[LEAD_NRHY][9][2] = {"]
+    for r in t["arp_rhythms"]:
+        C.append("    {" + ", ".join(c_list(x) for x in list(r) + [[-1, 0]]) + "},")
+    C += ["};", "const uint8_t LEAD_RHY_STATUS[LEAD_NRHY] = " + c_list(t["arp_rhythms_status"]) + ";",
+          "const int8_t LEAD_PAT[LEAD_NPAT][6] = {"]
+    for p in t["arp_patterns"]:
+        C.append("    " + c_list(list(p) + ([-1] if len(p) < 6 else [])) + ",")
+    la = t["landings"]
+    C += ["};", "const uint8_t LEAD_PAT_STATUS[LEAD_NPAT] = " + c_list(t["arp_patterns_status"]) + ";",
+          "const int8_t LEAD_LANDING_AT[6] = " + c_list(la["at"]) + ";",
+          "const int8_t LEAD_LANDING_LEN[6] = " + c_list(la["len"]) + ";",
+          "const uint8_t LEAD_LANDING_W[6] = " + c_list(la["w"]) + ";", "",
+          "const uint8_t MELODY_CELLS[MELODY_NCELLS] = " + c_list((c[0] for c in t["melody_cells"]), "0x{:X}") + ";",
+          "const uint8_t MELODY_CELL_W[MELODY_NCELLS] = " + c_list(c[1] for c in t["melody_cells"]) + ";",
+          "const uint8_t MELODY_CELLS_STATUS[MELODY_NCELLS] = " + c_list(t["melody_cells_status"]) + ";", ""]
+    return "\n".join(C), "\n".join(H)
+
+
+def options_text(text, kicks):
+    """workbench/options.json with its kickPhrases block regenerated (the rest of the file byte for byte)"""
+    lines = []
+    for k in kicks:
+        st = f', "status": "{k["status"]}"' if "status" in k else ""
+        lines.append(f'    {{ "id": "{k["id"]}", "a": {json.dumps(k["a"])}, "b": {json.dumps(k["b"])}{st} }}')
+    new, n = re.subn(r'("kickPhrases": \[\n)(.*?)(\n  \])', lambda m: m.group(1) + ",\n".join(lines) + m.group(3),
+                     text, count=1, flags=re.S)
+    if n != 1:
+        raise SystemExit("import: workbench/options.json has no kickPhrases block")
+    return new
+
+
+# ------------------------------------------------------------------------------------------------- new entries
+def defaults(fam, stem, model, meta):
+    """a new pattern's entry before its notes: its key, the next free id (status candidate), and placeholder fields
+       the metadata or the title may fill"""
+    es = model[fam]
+    src = f"imported from patterns/{stem}"
+    if fam in ("drums", "progressions"):
+        nid = max((e["id"] for e in es.values()), default=0) + 1
+        if fam == "drums":
+            slug = stem.split("/", 1)[1].lower()
+            fam_name = next((validate.PF[i] for i, s in enumerate(export.PF_SLUG) if s in slug), "PF_BOOMBAP")
+            return str(nid), {"id": nid, "family": fam_name, "half_time": 0, "src": src}
+        return str(nid), {"id": nid, "kind": "PK_JAZZY", "moods": [], "modes": [], "src": src}
+    if fam == "kick-phrases":
+        n = max((int(k[1:]) for k in es if k[1:].isdigit()), default=1) + 1
+        return f"k{n}", {"id": f"k{n}"}
+    if fam == "comp-rhythms":
+        raise Refused(None, "comp-rhythms are fixed (held, half and stabs): edit those files instead of adding one")
+    if fam == "strum":
+        n = sum(1 for e in es.values() if e["kind"] == "pattern")
+        return str(export.strum_id(n)), {"index": n, "kind": "pattern"}
+    if fam == "lead-arp":
+        m = re.match(r"(rhythm|pattern|landing)-", stem.split("/", 1)[1])
+        kind = meta.get("kind") if meta and meta.get("kind") in ("rhythm", "pattern", "landing") else \
+            m.group(1) if m else None
+        if kind is None:
+            raise Refused(None, "a new lead-arp file names its kind: start its name with rhythm-, pattern- or landing-")
+        if kind == "landing":
+            raise Refused(None, "the landings are fixed (six): edit those files instead of adding one")
+        n = sum(1 for e in es.values() if e["kind"] == kind)
+        return f"{kind}-{n + 1}", {"kind": kind, "index": n}
+    n = len(es)
+    return str(n + 1), {"index": n, "weight": 1}
+
+
+def with_meta(fam, base, meta):
+    if meta:
+        base = {**base, **{k: meta[k] for k in META_FIELDS[fam] if k in meta}}
+        if fam == "progressions" and isinstance(meta.get("chords"), list):
+            base["chords"] = meta["chords"] + [c for c in base.get("chords") or [] if c not in meta["chords"]]
+    return base
+
+
+# -------------------------------------------------------------------------------------------------------- import
+def atomic_write(path, data):
+    path = Path(path)
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix="." + path.name + ".")
+    with os.fdopen(fd, "wb") as f:
+        f.write(data if isinstance(data, bytes) else data.encode())
+    os.replace(tmp, path)
+
+
+def run(pat, gen, options, check=False):
+    """-> exit code; prints what it did or why it refused"""
+    model = json.loads((pat / "model.json").read_text())
+    manifest = json.loads((pat / ".manifest.json").read_text()) if (pat / ".manifest.json").exists() else {}
+    stems = {}
+    for fam in FAMS:
+        d = pat / fam
+        if not d.is_dir():
+            continue
+        for p in sorted(d.iterdir()):
+            if p.suffix not in EXTS:
+                continue
+            if p.is_symlink() or not p.is_file():
+                print(f"import: refused: {p.relative_to(pat)}: not a plain file")
+                return 1
+            stems.setdefault(f"{fam}/{p.stem}", {})[p.suffix] = p
+    by_stem = {e["file"]: (fam, k) for fam in FAMS for k, e in model[fam].items()}
+    new = copy.deepcopy(model)
+    errors, imported = [], {}
+
+    def refuse(rels, bar, rule):
+        errors.append((rels, bar, rule))
+    for stem, files in stems.items():
+        fam = stem.split("/")[0]
+        changed = {x: p for x, p in files.items() if manifest.get(stem + x) != sha(p)}
+        if not changed:
+            continue
+        decoded = {}
+        for x, p in changed.items():
+            rel = f"{stem}{x}"
+            try:
+                score = score_of(p, fam)
+                if stem in by_stem:
+                    key = by_stem[stem][1]
+                    base = with_meta(fam, model[fam][key], score["meta"])
+                    base["status"] = model[fam][key]["status"]
+                else:
+                    key, base = defaults(fam, stem, new, score["meta"])
+                    base = with_meta(fam, base, score["meta"])
+                    base["status"] = "candidate"
+                decoded[x] = (key, decode(fam, key, score, base), base["status"])
+            except Refused as r:
+                refuse([rel], r.bar, r.rule)
+            except (ValueError, KeyError, IndexError, TypeError) as err:
+                refuse([rel], None, f"unreadable ({err})")
+        if len(decoded) != len(changed):
+            continue
+        (key, e, status), *rest = decoded.values()
+        if rest and content(rest[0][1]) != content(e):
+            diff = sorted(k for k in set(content(e)) | set(content(rest[0][1]))
+                          if content(e).get(k) != content(rest[0][1]).get(k))
+            refuse([stem + ".mid", stem + ".musicxml"], None,
+                   f"both files changed and they disagree ({', '.join(diff)}): keep the one you mean, revert the other")
+            continue
+        e["status"], e["file"] = status, stem
+        new[fam][key] = e
+        imported[stem] = (fam, key, set(changed))
+    def files_of(e):                                 # a refusal names the files the entry was read from
+        got = imported.get(e["file"])
+        return [e["file"] + x for x in sorted(got[2])] if got else [e["file"] + ".mid"]
+    for fam in FAMS:
+        for k, e in new[fam].items():
+            for bar, rule in validate.check(fam, e):
+                refuse(files_of(e), bar, rule)
+        for k, bar, rule in validate.check_family(fam, new[fam]):
+            refuse(files_of(new[fam][k]) if k else [fam + "/"], bar, rule)
+    if errors:
+        for rels, bar, rule in errors:
+            print(f"import: refused: {' and '.join('patterns/' + r for r in rels)}: " +
+                  (f"bar {bar}: " if bar else "") + rule)
+        print("import: nothing written")
+        return 1
+    tables, kicks = rows_from_model(new)
+    c_text, h_text = gen_c(tables)
+    out_model = export.build_model(tables, kicks)
+    for fam in FAMS:
+        for k, e in out_model[fam].items():
+            e["file"] = new[fam][k]["file"]
+            if content(e) != content(new[fam][k]):
+                raise SystemExit(f"import: internal: {fam} {k} does not round-trip through the tables")
+    changes, moves = [], False
+    for fam in FAMS:
+        for k, e in out_model[fam].items():
+            old = model[fam].get(k)
+            if old is None:
+                changes.append(f"import: new {fam} {k} ({e['file']}), a candidate")
+                moves |= fam != "kick-phrases"
+            elif content(old) != content(e):
+                changes.append(f"import: {old['status']} {fam} {k} changed ({e['file']})")
+                moves |= fam != "kick-phrases" and old["status"] == "approved"
+    for line in changes:
+        print(line)
+    if moves:
+        print(f"import: {HASHES} will move: re-pin them in tests/host/song_test.c with a comment naming the edit")
+    if check:
+        print(f"import: check: ok ({len(imported)} pattern(s) to import, {len(changes)} change(s)); nothing written")
+        return 0
+    for path, text in ((gen / "patterns_gen.c", c_text), (gen / "patterns_gen.h", h_text),
+                       (options, options_text(options.read_text(), kicks))):
+        if not path.exists() or path.read_text() != text:
+            atomic_write(path, text)
+    for stem, (fam, k, changed) in imported.items():
+        e = out_model[fam][k]
+        for x in EXTS:
+            if x not in changed:                         # the other file, rewritten from the imported entry
+                export.write_file(pat, fam, k, e, x)
+                print(f"import: wrote patterns/{stem}{x} from patterns/{stem}{next(iter(changed))}")
+            manifest[stem + x] = sha(pat / (stem + x))
+    for path, text in ((pat / "model.json", json.dumps(out_model, indent=2) + "\n"),
+                       (pat / ".manifest.json", json.dumps(dict(sorted(manifest.items())), indent=2) + "\n")):
+        if not path.exists() or path.read_text() != text:
+            atomic_write(path, text)
+    print(f"import: {len(imported)} pattern(s) imported; tables in {gen}")
+    return 0
+
+
+def main(argv):
+    args, check = argv[1:], False
+    opts = {"--patterns": ROOT / "patterns", "--gen": ROOT / "app/song", "--options": ROOT / "workbench/options.json"}
+    while args:
+        a = args.pop(0)
+        if a == "--check":
+            check = True
+        elif a in opts and args:
+            opts[a] = Path(args.pop(0)).resolve()
+        else:
+            raise SystemExit(__doc__)
+    return run(opts["--patterns"], opts["--gen"], opts["--options"], check)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 """The pattern export: every table entry gets a .mid and a .musicxml, the MIDI reads back to the model's hits, the
-   MusicXML is MuseScore-shaped, the committed patterns/ matches a fresh export, the README covers every family.
+   MusicXML is MuseScore-shaped, the committed patterns/ matches a fresh export, the README covers every family. The
+   import's tests (test_import.py) run here too.
    python3 -I tools/patterns/test_patterns.py"""
 import hashlib
 import json
@@ -18,6 +19,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 sys.path.insert(0, str(HERE))
 import midi  # noqa: E402
+from test_import import Import, imp  # noqa: E402,F401  (run with these)
 
 FAMILIES = {"drums": 8, "kick-phrases": 5, "progressions": 44, "comp-rhythms": 3, "strum": 5, "lead-arp": 18,
             "melody-cells": 7}
@@ -110,6 +112,8 @@ class T(unittest.TestCase):
     def setUpClass(cls):
         cls.tmp = tempfile.TemporaryDirectory()
         cls.out = Path(cls.tmp.name) / "patterns"
+        cls.out.mkdir()
+        shutil.copy(ROOT / "patterns/model.json", cls.out / "model.json")     # the entries' file names, as committed
         r = subprocess.run(["sh", str(HERE / "export.sh"), str(cls.out)], capture_output=True, text=True)
         if r.returncode:
             raise RuntimeError("export.sh failed:\n" + r.stdout + r.stderr)
@@ -126,12 +130,12 @@ class T(unittest.TestCase):
 
     def test_counts_and_status(self):
         for fam, n in FAMILIES.items():
-            self.assertEqual(len(self.model[fam]), n, fam)
+            self.assertGreaterEqual(sum(e["status"] == "approved" for e in self.model[fam].values()), n, fam)
         for fam, k, e in self.entries():
-            self.assertEqual(e["status"], "approved", (fam, k))
+            self.assertIn(e["status"], ("approved", "candidate"), (fam, k))
 
     def test_model_matches_sources(self):
-        lib = (ROOT / "app/song/library.c").read_text()
+        lib = (ROOT / "app/song/patterns_gen.c").read_text()
         d = self.model["drums"]
         self.assertEqual(d["1"]["hit"][0], "0x4441")
         self.assertEqual((d["5"]["poly3"], d["5"]["hit"][4]), (1, "0x9249"))
@@ -152,13 +156,15 @@ class T(unittest.TestCase):
                          ["0x1", "0x4", "0x5", "0x9", "0x8", "0x6", "0xD"])
 
     def test_every_entry_has_both_files(self):
+        n = 0
         for fam, k, e in self.entries():
-            stem = e["file"]
-            self.assertTrue(stem.startswith(fam + "/" + k + "-"), stem)
+            stem = e["file"]                                     # a new pattern keeps the name Sam gave its file
+            self.assertTrue(stem.startswith(fam + "/" + (k + "-" if e["status"] == "approved" else "")), stem)
             for ext in (".mid", ".musicxml"):
                 self.assertTrue((self.out / (stem + ext)).is_file(), stem + ext)
+                n += 1
         files = {p.relative_to(self.out).as_posix() for p in self.out.rglob("*") if p.suffix in (".mid", ".musicxml")}
-        self.assertEqual(len(files), 2 * sum(FAMILIES.values()))
+        self.assertEqual(len(files), n)
 
     def test_midi_reads_back_to_the_hits(self):
         for fam, k, e in self.entries():
@@ -215,7 +221,7 @@ class T(unittest.TestCase):
 
     def test_manifest(self):
         man = json.loads((self.out / ".manifest.json").read_text())
-        self.assertEqual(len(man), 2 * sum(FAMILIES.values()))
+        self.assertEqual(len(man), 2 * sum(len(self.model[f]) for f in FAMILIES))
         for rel, sha in man.items():
             self.assertEqual(hashlib.sha256((self.out / rel).read_bytes()).hexdigest(), sha, rel)
 
@@ -236,7 +242,13 @@ class T(unittest.TestCase):
         return d
 
     def test_committed_file_set_equals_a_fresh_export(self):
-        self.assertEqual(self.pattern_files(ROOT / "patterns"), self.pattern_files(self.out))
+        """every entry's files are committed; any other file is a new one Sam has not imported yet (no manifest
+           entry)"""
+        committed = self.pattern_files(ROOT / "patterns")
+        fresh = self.pattern_files(self.out)
+        self.assertEqual(fresh - committed, set())
+        man = json.loads((ROOT / "patterns/.manifest.json").read_text())
+        self.assertEqual({f for f in committed - fresh if f in man}, set())
 
     def test_a_content_change_keeps_the_file_names(self):
         d = self.copy("changed")
@@ -271,12 +283,18 @@ class T(unittest.TestCase):
         self.assertNotEqual((d / "drums/1-boombap.mid").read_bytes(), (self.out / "drums/1-boombap.mid").read_bytes())
 
     def test_committed_patterns_match_a_fresh_export(self):
+        """model.json byte for byte; each pattern file byte for byte, or (a file Sam edited and imported, kept as he
+           saved it) reading back to its entry"""
         committed = ROOT / "patterns"
-        for p in self.out.rglob("*"):
-            if p.is_file():
-                rel = p.relative_to(self.out)
-                self.assertTrue((committed / rel).is_file(), rel)
-                self.assertEqual((committed / rel).read_bytes(), p.read_bytes(), rel)
+        self.assertEqual((committed / "model.json").read_bytes(), (self.out / "model.json").read_bytes())
+        for fam, k, e in self.entries():
+            for ext in (".mid", ".musicxml"):
+                rel = e["file"] + ext
+                if (committed / rel).read_bytes() == (self.out / rel).read_bytes():
+                    continue
+                sc = imp.score_of(committed / rel, fam)
+                got = imp.decode(fam, k, sc, imp.with_meta(fam, e, sc["meta"]))
+                self.assertEqual(imp.content(got), imp.content(e), rel)
 
     def test_readme_lists_each_family(self):
         text = (ROOT / "patterns/README.md").read_text()

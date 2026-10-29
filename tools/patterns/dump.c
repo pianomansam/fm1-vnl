@@ -1,21 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* Prints the engine's pattern tables as JSON on stdout, for tools/patterns/export.py (built by export.sh).
-   The tables private to strum.c, lead.c and melody.c are reached by compiling this file once per source with
-   -DDUMP_PART=<n>, each part including that source (so their static names never meet); the stabs' second-stab
-   candidates, a constant inside harmony_stab_steps, are probed through the function itself. The landing tables (AT,
-   LEN, W), local to functions in lead.c, are out of reach here: export.py reads them from the source. */
+/* Prints the engine's pattern tables (app/song/patterns_gen.c, generated from patterns/ by import.py) as JSON on
+   stdout, for tools/patterns/export.py (built by export.sh). */
 #include <stdio.h>
-#include <string.h>
+#include "patterns_gen.h"
 
-#define PART_MAIN 0
-#define PART_STRUM 1
-#define PART_LEAD 2
-#define PART_MELODY 3
-#ifndef DUMP_PART
-#define DUMP_PART PART_MAIN
-#endif
-
-#if DUMP_PART == PART_STRUM || DUMP_PART == PART_MAIN
 static void str(const char *s)
 {
     putchar('"');
@@ -25,60 +13,21 @@ static void str(const char *s)
     }
     putchar('"');
 }
-#endif
 
-#if DUMP_PART == PART_STRUM
-#include "strum.c"
-void dump_strum(void)
+static void ints(const char *key, const int *v, int n, const char *end)
 {
     int i;
-    printf("\"strum\": [");
-    for (i = 0; i < SP_N; i++) {
-        printf(i ? ", " : "");
-        str(PAT[i]);
-    }
-    printf("],\n\"strum_ballad_fill\": ");
-    str(BALLAD_FILL);
-    printf(",\n");
+    printf("\"%s\": [", key);
+    for (i = 0; i < n; i++) printf("%s%d", i ? ", " : "", v[i]);
+    printf("]%s", end);
 }
 
-#elif DUMP_PART == PART_LEAD
-#include "lead.c"
-void dump_lead(void)
+static void bytes(const char *key, const uint8_t *v, int n, const char *end)
 {
-    int i, j;
-    printf("\"arp_rhythms\": [");
-    for (i = 0; i < 6; i++) {
-        printf(i ? ", [" : "[");
-        for (j = 0; j < 9 && RHY[i][j][0] >= 0; j++) printf("%s[%d, %d]", j ? ", " : "", RHY[i][j][0], RHY[i][j][1]);
-        printf("]");
-    }
-    printf("],\n\"arp_patterns\": [");
-    for (i = 0; i < 6; i++) {
-        printf(i ? ", [" : "[");
-        for (j = 0; j < 6 && PAT[i][j] >= 0; j++) printf("%s%d", j ? ", " : "", PAT[i][j]);
-        printf("]");
-    }
-    printf("],\n");
+    int x[64], i;
+    for (i = 0; i < n && i < 64; i++) x[i] = v[i];
+    ints(key, x, i, end);
 }
-
-#elif DUMP_PART == PART_MELODY
-#include "melody.c"
-void dump_melody(void)
-{
-    int i;
-    printf("\"melody_cells\": [");
-    for (i = 0; i < (int)sizeof CELLS; i++) printf("%s[%d, %d]", i ? ", " : "", CELLS[i], CELL_W[i]);
-    printf("],\n");
-}
-
-#else
-#include "library.h"
-#include "harmony.h"
-#include "roll.h"
-void dump_strum(void);
-void dump_lead(void);
-void dump_melody(void);
 
 static void masks(const uint16_t *m)
 {
@@ -88,55 +37,20 @@ static void masks(const uint16_t *m)
     printf("]");
 }
 
-/* the stab steps over a kick of these hits, through the engine's own rule */
-static unsigned stabs_over(unsigned kick)
+static void comp(const char *name, const patterns_comp_t *c)
 {
-    static lib_pattern_t p;
-    song_roll_t r;
-    memset(&p, 0, sizeof p);
-    memset(&r, 0, sizeof r);
-    p.hit[D_KICK] = (uint16_t)kick;
-    lib_pattern_wb(&p);
-    r.v[RF_PATTERN] = LIB_PATTERN_WB;
-    return harmony_stab_steps(&r);
-}
-
-static void dump_stabs(void)
-{
-    unsigned kick = 0, cands = 0, s, first = 0, busy;
-    int n = 0, over, i;
-    printf("\"stabs\": {\"first\": 0, \"second\": [");
-    /* the candidates in order: each one found is then blocked by the kick, which reveals the next */
-    while ((s = stabs_over(kick) & ~1u) != 0 && n < 16) {
-        for (i = 0; !((s >> i) & 1u); i++)
-            ;
-        if ((kick >> i) & 1u) break;                     /* the kick got busy: the busy rule answers, below */
-        if (!n) first = 1u << i;
-        printf("%s%d", n++ ? ", " : "", i);
-        kick |= 1u << i;
-    }
-    cands = kick;
-    /* the busy rule: over a kick of more than `over` hits the stabs keep fixed steps; a kick on the first candidate
-       plus hits off every candidate tells it apart from the sparse rule (which would move the second stab) */
-    s = first;
-    kick = s;
-    busy = stabs_over(kick);
-    for (over = 1, i = 1; i < 16 && busy == stabs_over(s); i++)
-        if (!((cands | 1u) >> i & 1u)) {
-            kick |= 1u << i;
-            over++;
-            busy = stabs_over(kick);
-        }
-    over--;
-    printf("], \"busy_over\": %d, \"busy_steps\": [", over);
-    for (i = 0, n = 0; i < 16; i++)
-        if ((busy >> i) & 1u) printf("%s%d", n++ ? ", " : "", i);
-    printf("]},\n");
+    int i;
+    printf("\"%s\": {\"vel\": [%d, %d], \"steps\": [", name, c->vel_lo, c->vel_hi);
+    for (i = 0; i < c->n; i++) printf("%s%d", i ? ", " : "", c->step[i]);
+    printf("], \"lens\": [");
+    for (i = 0; i < c->n; i++) printf("%s%d", i ? ", " : "", c->len[i]);
+    printf("], \"later_vel_pct\": %d}, ", c->later_vel_pct);
 }
 
 int main(void)
 {
-    int i, j;
+    int i, j, x[16];
+    const patterns_stabs_t *s = &COMP_STABS;
     printf("{\n\"patterns\": [\n");
     for (i = 0; i < LIB_NPATTERNS; i++) {
         const lib_pattern_t *p = &LIB_PATTERNS[i];
@@ -150,7 +64,7 @@ int main(void)
         masks(p->hit_b);
         printf(", \"ghost_b\": ");
         masks(p->ghost_b);
-        printf("}%s\n", i + 1 < LIB_NPATTERNS ? "," : "");
+        printf(", \"status\": %d}%s\n", LIB_PATTERNS_STATUS[i], i + 1 < LIB_NPATTERNS ? "," : "");
     }
     printf("],\n\"progs\": [\n");
     for (i = 0; i < LIB_NPROGS; i++) {
@@ -161,14 +75,52 @@ int main(void)
             printf("%s[%d, %d, %d]", j ? ", " : "", p->c[j].degree, p->c[j].alter, p->c[j].quality);
         printf("], \"moods\": %d, \"modes\": %d, \"src\": ", p->moods, p->modes);
         str(p->src);
-        printf("}%s\n", i + 1 < LIB_NPROGS ? "," : "");
+        printf(", \"status\": %d}%s\n", LIB_PROGS_STATUS[i], i + 1 < LIB_NPROGS ? "," : "");
+    }
+    printf("],\n\"comp\": {");
+    comp("held", &COMP_HELD);
+    comp("half", &COMP_HALF);
+    printf("\"stabs\": {\"vel\": [%d, %d], \"first\": %d, ", s->vel_lo, s->vel_hi, s->first);
+    bytes("second", s->second, s->n, ", ");
+    printf("\"len\": %d, \"busy_over\": %d, ", s->len, s->busy_over);
+    for (i = 0, j = 0; i < 16; i++)
+        if (s->busy_steps >> i & 1u) x[j++] = i;
+    ints("busy_steps", x, j, "}},\n");
+    printf("\"strum\": [");
+    for (i = 0; i < STRUM_NPAT; i++) {
+        printf(i ? ", " : "");
+        str(STRUM_PAT[i]);
     }
     printf("],\n");
-    dump_stabs();
-    dump_strum();
-    dump_lead();
-    dump_melody();
-    printf("\"end\": true\n}\n");
+    bytes("strum_status", STRUM_PAT_STATUS, STRUM_NPAT, ",\n");
+    printf("\"strum_ballad_fill\": ");
+    str(STRUM_BALLAD_FILL);
+    printf(",\n\"arp_rhythms\": [");
+    for (i = 0; i < LEAD_NRHY; i++) {
+        printf(i ? ", [" : "[");
+        for (j = 0; j < 9 && LEAD_RHY[i][j][0] >= 0; j++)
+            printf("%s[%d, %d]", j ? ", " : "", LEAD_RHY[i][j][0], LEAD_RHY[i][j][1]);
+        printf("]");
+    }
+    printf("],\n");
+    bytes("arp_rhythms_status", LEAD_RHY_STATUS, LEAD_NRHY, ",\n");
+    printf("\"arp_patterns\": [");
+    for (i = 0; i < LEAD_NPAT; i++) {
+        printf(i ? ", [" : "[");
+        for (j = 0; j < 6 && LEAD_PAT[i][j] >= 0; j++) printf("%s%d", j ? ", " : "", LEAD_PAT[i][j]);
+        printf("]");
+    }
+    printf("],\n");
+    bytes("arp_patterns_status", LEAD_PAT_STATUS, LEAD_NPAT, ",\n");
+    printf("\"landings\": {");
+    for (i = 0; i < 6; i++) x[i] = LEAD_LANDING_AT[i];
+    ints("at", x, 6, ", ");
+    for (i = 0; i < 6; i++) x[i] = LEAD_LANDING_LEN[i];
+    ints("len", x, 6, ", ");
+    bytes("w", LEAD_LANDING_W, 6, "},\n");
+    printf("\"melody_cells\": [");
+    for (i = 0; i < MELODY_NCELLS; i++) printf("%s[%d, %d]", i ? ", " : "", MELODY_CELLS[i], MELODY_CELL_W[i]);
+    printf("],\n");
+    bytes("melody_cells_status", MELODY_CELLS_STATUS, MELODY_NCELLS, "\n}\n");
     return 0;
 }
-#endif

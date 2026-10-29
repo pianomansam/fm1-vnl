@@ -20,6 +20,7 @@
 #include "library.h"
 #include "harmony.h"
 #include "override.h"
+#include "patterns_gen.h"
 
 #define MAXN 24                                    /* notes in one realized phrase */
 #define MAXP 32                                    /* lead phrases per song */
@@ -188,9 +189,7 @@ static int fit_len(const region_t *R, int t, int want, int end)
 
 /* ---- figures ---- */
 
-/* one-beat rhythm cells: bit i = an onset on 16th i of the beat */
-static const uint8_t CELLS[] = {0x1, 0x4, 0x5, 0x9, 0x8, 0x6, 0xD};
-static const uint8_t CELL_W[] = {3, 3, 3, 1, 2, 1, 1};
+/* one-beat rhythm cells (MELODY_CELLS, MELODY_CELL_W: patterns_gen.c, from patterns/melody-cells) */
 static const int8_t MOVES[] = {-3, -2, -1, 0, 1, 2, 3};
 static const uint8_t MOVE_W[] = {1, 3, 4, 1, 4, 3, 1};
 
@@ -226,7 +225,7 @@ static int gen_figure(const ctx_t *c, rng_t *g, const region_t *R, int mb, int l
             for (b = 0; b < beats; b++) {
                 int cell;
                 if (!used[b]) continue;
-                cell = CELLS[rng_weighted(g, CELL_W, (int)sizeof CELLS)];
+                cell = MELODY_CELLS[rng_weighted(g, MELODY_CELL_W, MELODY_NCELLS)];
                 for (s = 0; s < 4; s++)
                     if ((cell >> s) & 1) at[na++] = b * 4 + s;
             }

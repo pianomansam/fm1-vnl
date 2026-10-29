@@ -6,6 +6,7 @@
 #include "strum.h"
 #include "rng.h"
 #include "harmony.h"
+#include "patterns_gen.h"
 
 static int clampi(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }
 static int absi(int v) { return v < 0 ? -v : v; }
@@ -14,13 +15,8 @@ static int absi(int v) { return v < 0 ? -v : v; }
 /* 16 steps (the bossa 32: two bars). D an accented down stroke (every string), d a down stroke, U an up stroke (the
    top 4 strings), u a softer up (the top 3), X a chuck (muted, every string), T the thumb (the lowest string alone),
    P a pinch (the top 4, nearly together), B the thumb and a pinch, '.' a rest. Up strokes only on the "and"s (the odd
-   8ths): the spike's chuck pattern had two 16th-note ups, moved to the "and"s. */
-static const char *const PAT[SP_N] = {
-    "D...d.u...U.d.u.",                 /* D-DU-UDU */
-    "D.u.X.U.d.u.X.U.",                 /* down-up 8ths, chucks on 2 and 4 */
-    "B..P..P.T.P..P..T.P..P..T.P..P..", /* the thumb on 1 and 3, pinches between */
-    "D.......d.....u.",                 /* the ballad: three strokes a bar */
-};
+   8ths): the spike's chuck pattern had two 16th-note ups, moved to the "and"s. The patterns are
+   STRUM_PAT (patterns_gen.c, from patterns/strum). */
 
 /* the song's draw on stream 194, hashed: the streams' states differ by a constant XOR, and the comping style's draw
    (stream 121, mod 100) shares this one's low bits, so a bare draw mod 4 would tie the pattern to the style */
@@ -47,8 +43,7 @@ static float strum_gap_ms(const song_roll_t *r, int slow)
 }
 
 /* the ballad in a drum fill's bar (its kick on 1, 3 and the and of 4 would be the ballad's own rhythm, Sam: the keys
-   never copy the kick's): the up stroke on the and of 2, out of the fill's way */
-static const char BALLAD_FILL[] = "D.....u.d.......";
+   never copy the kick's): the up stroke on the and of 2, out of the fill's way (STRUM_BALLAD_FILL) */
 
 static char hit_at(const char *p, int bar, int step)
 {
@@ -275,7 +270,7 @@ int strum_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, f
     if (!(b->layers & L_KEYS) || max <= 0) return 0;
     pat = strum_pattern(r, &slow);
     fill = bar == b->start + b->bars - 1 && (b->flags & PB_FILL_LAST) && !(b->flags & PB_DROP_LAST);
-    ps = fill && pat == SP_BALLAD ? BALLAD_FILL : PAT[pat];
+    ps = fill && pat == SP_BALLAD ? STRUM_BALLAD_FILL : STRUM_PAT[pat];
     c = hit_at(ps, bar, step);
     if (c == '.') return 0;
     for (next = step + 1; next < 16 && hit_at(ps, bar, next) == '.'; next++) {}   /* the next stroke (a bar's step 0

@@ -7,6 +7,7 @@
 #include "library.h"
 #include "strum.h"
 #include "override.h"
+#include "patterns_gen.h"
 
 static uint32_t mix(uint32_t a, uint32_t b, uint32_t c, uint32_t d)
 {
@@ -355,18 +356,27 @@ static int keys_sustained(const song_roll_t *r)
 /* Sam: the stabs answer a sparse kick, never double it ("they can be on the same beat, but only if both aren't a
    sparse pattern"; stabs always are): over a kick of 3 hits a bar or fewer, the second stab goes on the and of 2, or,
    where the kick plays there, on the and of 3, beat 2 or beat 4, the first the kick leaves free; over a busier kick
-   it stays on the and of 2 */
+   it stays on the and of 2 (COMP_STABS: patterns_gen.c, from patterns/comp-rhythms) */
 unsigned harmony_stab_steps(const song_roll_t *r)
 {
-    static const uint8_t SECOND[4] = {6, 10, 4, 12};
+    const patterns_stabs_t *s = &COMP_STABS;
     const lib_pattern_t *p = lib_pattern_by_id((uint8_t)r->v[RF_PATTERN]);
     unsigned kick = p ? lib_lane_hits(p, D_KICK, 0) : 0u;
     int i, hits = 0;
     for (i = 0; i < 16; i++) hits += (kick >> i) & 1u;
-    if (hits > 3) return 0x41u;
-    for (i = 0; i < 4; i++)
-        if (!((kick >> SECOND[i]) & 1u)) return 1u | 1u << SECOND[i];
-    return 1u;
+    if (hits > s->busy_over) return s->busy_steps;
+    for (i = 0; i < s->n; i++)
+        if (!((kick >> s->second[i]) & 1u)) return 1u << s->first | 1u << s->second[i];
+    return 1u << s->first;
+}
+
+/* the steps a held or half-note comping strikes (COMP_HELD, COMP_HALF) */
+static unsigned comp_mask(const patterns_comp_t *c)
+{
+    unsigned m = 0;
+    int i;
+    for (i = 0; i < c->n; i++) m |= 1u << c->step[i];
+    return m;
 }
 
 /* Half notes hold instead over sustained keys (a pad never re-strikes), and over a kick that already plays on 1 and 3
@@ -374,7 +384,7 @@ unsigned harmony_stab_steps(const song_roll_t *r)
 static int half_held(const song_roll_t *r)
 {
     const lib_pattern_t *p = lib_pattern_by_id((uint8_t)r->v[RF_PATTERN]);
-    return keys_sustained(r) || (p && (lib_lane_hits(p, D_KICK, 0) & 0xFFFFu) == 0x101u);
+    return keys_sustained(r) || (p && (lib_lane_hits(p, D_KICK, 0) & 0xFFFFu) == comp_mask(&COMP_HALF));
 }
 
 /* the steps the keys strike when they are more than a note on 1 (stabs, half notes), else 0: what the bass avoids */
@@ -382,7 +392,7 @@ unsigned harmony_comp_steps(const song_roll_t *r)
 {
     int style = harmony_style(r);
     if (style == CS_STABS) return harmony_stab_steps(r);
-    return harmony_half_strikes(r) ? 0x101u : 0u;
+    return harmony_half_strikes(r) ? comp_mask(&COMP_HALF) : 0u;
 }
 
 int harmony_half_strikes(const song_roll_t *r) { return harmony_style(r) == CS_HALF && !half_held(r); }
@@ -430,17 +440,18 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
     }
     switch (style) {
     case CS_HELD:
-        if (step != 0 || (bar % p->bars_per_chord != 0 && !rs)) return 0;
+        if (step != COMP_HELD.step[0] || (bar % p->bars_per_chord != 0 && !rs)) return 0;
         len = (uint32_t)((float)((rs ? 1 : p->bars_per_chord) * 16) * step_samples);
         len = len > 441u ? len - 441u : 1u;
-        lo = 40; hi = 58;                 /* struck softly, a rounder attack (Sam); keys_gain keeps the level */
+        lo = COMP_HELD.vel_lo; hi = COMP_HELD.vel_hi;   /* struck softly, a rounder attack (Sam); keys_gain keeps
+                                                           the level */
         if (rs && bar % p->bars_per_chord != 0)
             hi = 54;                      /* the restrike a little softer */
         break;
     case CS_STABS:
         if (!((harmony_stab_steps(r) >> step) & 1u)) return 0;
         len = (uint32_t)(4.0f * step_samples * 0.6f);
-        lo = 60; hi = 85;
+        lo = COMP_STABS.vel_lo; hi = COMP_STABS.vel_hi;
         break;
     case CS_OFFBEATS:
         if (step != 2 && step != 6 && step != 10 && step != 14) return 0;
@@ -448,10 +459,12 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
         lo = 60; hi = 85;
         break;
     case CS_HALF:                         /* beats 1 and 3, each held to the next strike */
-        if (step != 0 && step != 8) return 0;
-        len = (uint32_t)(8.0f * step_samples);
+        for (k = 0; k < COMP_HALF.n && COMP_HALF.step[k] != step; k++)
+            ;
+        if (k == COMP_HALF.n) return 0;
+        len = (uint32_t)((float)COMP_HALF.len[k] * step_samples);
         len = len > 441u ? len - 441u : 1u;
-        lo = 40; hi = 58;                 /* as held: struck softly */
+        lo = COMP_HALF.vel_lo; hi = COMP_HALF.vel_hi;   /* as held: struck softly */
         break;
     default:                              /* the arpeggio: one chord tone a 16th (Sam: in 8ths it reads as a melody) */
         len = (uint32_t)step_samples;
@@ -488,10 +501,10 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
     if (lib_set_by_id((uint8_t)r->v[RF_SET]) && lib_set_by_id((uint8_t)r->v[RF_SET])->chords == INS_KNIGHT)
         gap = (mix(salt, (uint32_t)bar, r->seed, 50) % 9u) * 441u / 10u / 3u;   /* Sam: an acoustic piano strikes
                                                                                  together, 0-8 ms in all */
-    if (style == CS_HALF && step == 8) {                  /* the second strike a little softer than the first (same
+    if (style == CS_HALF && step != COMP_HALF.step[0]) {  /* the later strikes a little softer than the first (same
                                                              draw) */
         int c = emit_chord(notes, 4, gap, lo, hi, len, dark, salt, bar, 0, out, max), i;
-        for (i = 0; i < c; i++) out[i].vel = (uint8_t)clampi(out[i].vel * 9 / 10, 25, 110);
+        for (i = 0; i < c; i++) out[i].vel = (uint8_t)clampi(out[i].vel * COMP_HALF.later_vel_pct / 100, 25, 110);
         return c;
     }
     return emit_chord(notes, 4, gap, lo, hi, len, dark, salt, bar, step, out, max);
