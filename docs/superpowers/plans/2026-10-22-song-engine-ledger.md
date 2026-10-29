@@ -374,6 +374,9 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
     plays ~9% fewer notes). Fix: the floor = the LOWER of the band's floor and the old floor (a 4th over the keys'
     top), so the lead dips where the keys sit low and the keys still duck where they'd crowd it; then restore the
     strict test gates and re-render the built styles.
+    **Jazz-Hop song 1 (A/B, G Aeolian):** the built style plays its hook ~5 semitones lower than the spike (home note
+    ties between G4 and G5 at the band; the tie goes low) and loses its turnaround lift. Fix if Sam hears it: break the
+    tie toward the higher note. A per-song test allowance pins it until then.
   - **Decided (Sam, 2026-10-29): remove the two old lead engines** — the phrase planner and the hybrid arpeggio
     ("these new ones are light years ahead"). The shortlisted styles replace them. Goes with them: the lead-arp
     pattern family (rhythms, chord-tone orders, landings) and its workbench rows, and whatever of the melody path only
