@@ -143,6 +143,12 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
 
 ## To revisit (Sam, after listening)
 
+- **Hybrid lead styles (Sam, 2026-10-29).** One lead style makes the motif, then a different style takes it over and
+  develops it: after 1 bar, after 3 bars, or for the second 4 bars of an 8-bar phrase. Needs the styles to share a
+  motif format (rhythm + contour + scale steps) so the second style can restate and vary the first's motif. Builds on
+  the shortlisted styles (Impressionism, Romanticism, '60s Jazz, Modal Jazz, Jazz-Hop, Film Score, Bossa Nova,
+  Ambient).
+
 - **Piano-roll editing paused (Sam, 2026-10-29: "Pause piano roll editing until later").** Plan
   docs/superpowers/plans/2026-10-29-patterns-and-edits.md Tasks 5-6 (edit glue, then editing with a "why" per edit)
   not started; Tasks 1-4 (doubling switch, pattern export, import, candidates) done.
