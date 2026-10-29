@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="4.0">
+  <work><work-title>Progression 30: C7 Fmaj7 (vamp; warm, sunny; Mixolydian)</work-title></work>
+  <identification>
+    <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"progressions","id":"30","status":"approved","kind":"PK_VAMP","n":2,"bars_per_chord":2,"chords":[{"degree":0,"alter":0,"quality":"Q_DIATONIC"},{"degree":3,"alter":0,"quality":"Q_DIATONIC"}],"moods":["MOOD_WARM","MOOD_SUNNY"],"modes":["MODE_MIXOLYDIAN"],"src":"R25: Mixolydian I7-IVmaj7 vamp (C7 Fmaj7)","symbols":["C7","Fmaj7"],"symbols_mode":"MODE_MIXOLYDIAN"}</miscellaneous-field></miscellaneous>
+  </identification>
+  <part-list>
+    <score-part id="P1">
+      <part-name>Chords</part-name>
+      <score-instrument id="P1-I1"><instrument-name>Chords</instrument-name></score-instrument>
+      <midi-instrument id="P1-I1"><midi-channel>1</midi-channel><midi-program>5</midi-program></midi-instrument>
+    </score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes><divisions>4</divisions><key><fifths>0</fifths></key><time><beats>4</beats><beat-type>4</beat-type></time><clef><sign>G</sign><line>2</line></clef></attributes>
+      <direction placement="above"><direction-type><metronome><beat-unit>quarter</beat-unit><per-minute>85</per-minute></metronome></direction-type><sound tempo="85"/></direction>
+      <harmony><root><root-step>C</root-step></root><kind text="7">dominant</kind></harmony>
+      <note dynamics="66.67"><pitch><step>C</step><octave>4</octave></pitch><duration>16</duration><tie type="start"/><voice>1</voice><type>whole</type><notations><tied type="start"/></notations></note>
+      <note dynamics="66.67"><chord/><pitch><step>E</step><octave>4</octave></pitch><duration>16</duration><tie type="start"/><voice>1</voice><type>whole</type><notations><tied type="start"/></notations></note>
+      <note dynamics="66.67"><chord/><pitch><step>G</step><octave>4</octave></pitch><duration>16</duration><tie type="start"/><voice>1</voice><type>whole</type><notations><tied type="start"/></notations></note>
+      <note dynamics="66.67"><chord/><pitch><step>B</step><alter>-1</alter><octave>4</octave></pitch><duration>16</duration><tie type="start"/><voice>1</voice><type>whole</type><accidental>flat</accidental><notations><tied type="start"/></notations></note>
+    </measure>
+    <measure number="2">
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>16</duration><tie type="stop"/><voice>1</voice><type>whole</type><notations><tied type="stop"/></notations></note>
+      <note><chord/><pitch><step>E</step><octave>4</octave></pitch><duration>16</duration><tie type="stop"/><voice>1</voice><type>whole</type><notations><tied type="stop"/></notations></note>
+      <note><chord/><pitch><step>G</step><octave>4</octave></pitch><duration>16</duration><tie type="stop"/><voice>1</voice><type>whole</type><notations><tied type="stop"/></notations></note>
+      <note><chord/><pitch><step>B</step><alter>-1</alter><octave>4</octave></pitch><duration>16</duration><tie type="stop"/><voice>1</voice><type>whole</type><notations><tied type="stop"/></notations></note>
+    </measure>
+    <measure number="3">
+      <harmony><root><root-step>F</root-step></root><kind text="maj7">major-seventh</kind></harmony>
+      <note dynamics="66.67"><pitch><step>F</step><octave>3</octave></pitch><duration>16</duration><tie type="start"/><voice>1</voice><type>whole</type><notations><tied type="start"/></notations></note>
+      <note dynamics="66.67"><chord/><pitch><step>A</step><octave>3</octave></pitch><duration>16</duration><tie type="start"/><voice>1</voice><type>whole</type><notations><tied type="start"/></notations></note>
+      <note dynamics="66.67"><chord/><pitch><step>C</step><octave>4</octave></pitch><duration>16</duration><tie type="start"/><voice>1</voice><type>whole</type><notations><tied type="start"/></notations></note>
+      <note dynamics="66.67"><chord/><pitch><step>E</step><octave>4</octave></pitch><duration>16</duration><tie type="start"/><voice>1</voice><type>whole</type><notations><tied type="start"/></notations></note>
+    </measure>
+    <measure number="4">
+      <note><pitch><step>F</step><octave>3</octave></pitch><duration>16</duration><tie type="stop"/><voice>1</voice><type>whole</type><notations><tied type="stop"/></notations></note>
+      <note><chord/><pitch><step>A</step><octave>3</octave></pitch><duration>16</duration><tie type="stop"/><voice>1</voice><type>whole</type><notations><tied type="stop"/></notations></note>
+      <note><chord/><pitch><step>C</step><octave>4</octave></pitch><duration>16</duration><tie type="stop"/><voice>1</voice><type>whole</type><notations><tied type="stop"/></notations></note>
+      <note><chord/><pitch><step>E</step><octave>4</octave></pitch><duration>16</duration><tie type="stop"/><voice>1</voice><type>whole</type><notations><tied type="stop"/></notations></note>
+    </measure>
+  </part>
+</score-partwise>

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="4.0">
+  <work><work-title>Kick phrase k4</work-title></work>
+  <identification>
+    <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"kick-phrases","id":"k4","a":[0,6,8],"b":[0,6,8],"status":"approved"}</miscellaneous-field></miscellaneous>
+  </identification>
+  <part-list>
+    <score-part id="P1">
+      <part-name>Kick</part-name>
+      <score-instrument id="P1-I37"><instrument-name>Kick</instrument-name></score-instrument>
+      <midi-instrument id="P1-I37"><midi-channel>10</midi-channel><midi-unpitched>37</midi-unpitched></midi-instrument>
+    </score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes><divisions>4</divisions><key><fifths>0</fifths></key><time><beats>4</beats><beat-type>4</beat-type></time><clef><sign>percussion</sign><line>2</line></clef></attributes>
+      <direction placement="above"><direction-type><metronome><beat-unit>quarter</beat-unit><per-minute>85</per-minute></metronome></direction-type><sound tempo="85"/></direction>
+      <note dynamics="100.00"><unpitched><display-step>F</display-step><display-octave>4</display-octave></unpitched><duration>4</duration><instrument id="P1-I37"/><voice>1</voice><type>quarter</type></note>
+      <note><rest/><duration>2</duration><voice>1</voice><type>eighth</type></note>
+      <note dynamics="100.00"><unpitched><display-step>F</display-step><display-octave>4</display-octave></unpitched><duration>2</duration><instrument id="P1-I37"/><voice>1</voice><type>eighth</type></note>
+      <note dynamics="100.00"><unpitched><display-step>F</display-step><display-octave>4</display-octave></unpitched><duration>4</duration><instrument id="P1-I37"/><voice>1</voice><type>quarter</type></note>
+      <note><rest/><duration>4</duration><voice>1</voice><type>quarter</type></note>
+    </measure>
+    <measure number="2">
+      <note dynamics="100.00"><unpitched><display-step>F</display-step><display-octave>4</display-octave></unpitched><duration>4</duration><instrument id="P1-I37"/><voice>1</voice><type>quarter</type></note>
+      <note><rest/><duration>2</duration><voice>1</voice><type>eighth</type></note>
+      <note dynamics="100.00"><unpitched><display-step>F</display-step><display-octave>4</display-octave></unpitched><duration>2</duration><instrument id="P1-I37"/><voice>1</voice><type>eighth</type></note>
+      <note dynamics="100.00"><unpitched><display-step>F</display-step><display-octave>4</display-octave></unpitched><duration>4</duration><instrument id="P1-I37"/><voice>1</voice><type>quarter</type></note>
+      <note><rest/><duration>4</duration><voice>1</voice><type>quarter</type></note>
+    </measure>
+  </part>
+</score-partwise>

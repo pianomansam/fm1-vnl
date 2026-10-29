@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="4.0">
+  <work><work-title>Progression 19: Cm7 Bb7 Abmaj7 G7 (jazzy; sad, wistful; Dorian)</work-title></work>
+  <identification>
+    <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"progressions","id":"19","status":"approved","kind":"PK_JAZZY","n":4,"bars_per_chord":1,"chords":[{"degree":0,"alter":0,"quality":"Q_MIN7"},{"degree":6,"alter":0,"quality":"Q_DOM7"},{"degree":5,"alter":-1,"quality":"Q_MAJ7"},{"degree":4,"alter":0,"quality":"Q_DOM7"}],"moods":["MOOD_SAD","MOOD_WISTFUL"],"modes":["MODE_DORIAN"],"src":"brainstorm: Dorian-key i7-bVII7-bVImaj7-V7 (borrowed bVI, Abmaj7); R25: borrows, so jazzy","symbols":["Cm7","Bb7","Abmaj7","G7"],"symbols_mode":"MODE_DORIAN"}</miscellaneous-field></miscellaneous>
+  </identification>
+  <part-list>
+    <score-part id="P1">
+      <part-name>Chords</part-name>
+      <score-instrument id="P1-I1"><instrument-name>Chords</instrument-name></score-instrument>
+      <midi-instrument id="P1-I1"><midi-channel>1</midi-channel><midi-program>5</midi-program></midi-instrument>
+    </score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes><divisions>4</divisions><key><fifths>0</fifths></key><time><beats>4</beats><beat-type>4</beat-type></time><clef><sign>G</sign><line>2</line></clef></attributes>
+      <direction placement="above"><direction-type><metronome><beat-unit>quarter</beat-unit><per-minute>85</per-minute></metronome></direction-type><sound tempo="85"/></direction>
+      <harmony><root><root-step>C</root-step></root><kind text="m7">minor-seventh</kind></harmony>
+      <note dynamics="66.67"><pitch><step>C</step><octave>4</octave></pitch><duration>16</duration><voice>1</voice><type>whole</type></note>
+      <note dynamics="66.67"><chord/><pitch><step>E</step><alter>-1</alter><octave>4</octave></pitch><duration>16</duration><voice>1</voice><type>whole</type><accidental>flat</accidental></note>
+      <note dynamics="66.67"><chord/><pitch><step>G</step><octave>4</octave></pitch><duration>16</duration><voice>1</voice><type>whole</type></note>
+      <note dynamics="66.67"><chord/><pitch><step>B</step><alter>-1</alter><octave>4</octave></pitch><duration>16</duration><voice>1</voice><type>whole</type><accidental>flat</accidental></note>
+    </measure>
+    <measure number="2">
+      <harmony><root><root-step>B</root-step><root-alter>-1</root-alter></root><kind text="7">dominant</kind></harmony>
+      <note dynamics="66.67"><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>16</duration><voice>1</voice><type>whole</type><accidental>flat</accidental></note>
+      <note dynamics="66.67"><chord/><pitch><step>D</step><octave>4</octave></pitch><duration>16</duration><voice>1</voice><type>whole</type></note>
+      <note dynamics="66.67"><chord/><pitch><step>F</step><octave>4</octave></pitch><duration>16</duration><voice>1</voice><type>whole</type></note>
+      <note dynamics="66.67"><chord/><pitch><step>A</step><alter>-1</alter><octave>4</octave></pitch><duration>16</duration><voice>1</voice><type>whole</type><accidental>flat</accidental></note>
+    </measure>
+    <measure number="3">
+      <harmony><root><root-step>A</root-step><root-alter>-1</root-alter></root><kind text="maj7">major-seventh</kind></harmony>
+      <note dynamics="66.67"><pitch><step>A</step><alter>-1</alter><octave>3</octave></pitch><duration>16</duration><voice>1</voice><type>whole</type><accidental>flat</accidental></note>
+      <note dynamics="66.67"><chord/><pitch><step>C</step><octave>4</octave></pitch><duration>16</duration><voice>1</voice><type>whole</type></note>
+      <note dynamics="66.67"><chord/><pitch><step>E</step><alter>-1</alter><octave>4</octave></pitch><duration>16</duration><voice>1</voice><type>whole</type><accidental>flat</accidental></note>
+      <note dynamics="66.67"><chord/><pitch><step>G</step><octave>4</octave></pitch><duration>16</duration><voice>1</voice><type>whole</type></note>
+    </measure>
+    <measure number="4">
+      <harmony><root><root-step>G</root-step></root><kind text="7">dominant</kind></harmony>
+      <note dynamics="66.67"><pitch><step>G</step><octave>3</octave></pitch><duration>16</duration><voice>1</voice><type>whole</type></note>
+      <note dynamics="66.67"><chord/><pitch><step>B</step><octave>3</octave></pitch><duration>16</duration><voice>1</voice><type>whole</type></note>
+      <note dynamics="66.67"><chord/><pitch><step>D</step><octave>4</octave></pitch><duration>16</duration><voice>1</voice><type>whole</type></note>
+      <note dynamics="66.67"><chord/><pitch><step>F</step><octave>4</octave></pitch><duration>16</duration><voice>1</voice><type>whole</type></note>
+    </measure>
+  </part>
+</score-partwise>
