@@ -8,6 +8,7 @@
 #include "phrase.h"
 #include "override.h"
 #include "patterns_gen.h"
+#include "leads/leads.h"
 
 typedef struct {                  /* what one bar's planning reads */
     const song_roll_t *r;
@@ -473,8 +474,8 @@ static void draw_arp(const song_roll_t *r, int *pat, int *rhy, int *rev, int *sw
 int lead_hybrid(const song_roll_t *r)
 {
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
-    return song_ov()->lead_style >= 0 ? song_ov()->lead_style != 0
-                                      : !(set && (lib_ins_sustained(set->lead) || set->lead == INS_VIBES));
+    int ls = song_ov()->lead_style;
+    return ls == 0 || ls == 1 ? ls != 0 : !(set && (lib_ins_sustained(set->lead) || set->lead == INS_VIBES));
 }
 
 void lead_arp_pick(const song_roll_t *r, int *pat, int *rhy)
@@ -574,21 +575,15 @@ static void plan_hybrid(lead_state_t *ls, const ctx_t *c, int bar, int bpc, cons
 }
 
 
-int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b, int bar, const int keys[4],
-                  const int nkeys[4], const int *pcs, int np, int can_push)
+/* the older engines' bar: the phrase planner or the hybrid (until the styles take every song) */
+static void plan_older(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b, int bar, const int keys[4],
+                       const int nkeys[4], const int *pcs, int np, int can_push)
 {
     const lib_prog_t *pr = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
     int bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1, loop = pr && pr->n ? pr->n * bpc : 4;
-    int i, n = 0, npcs[5], nn;
+    int i, npcs[5], nn;
     ctx_t c;
-    for (i = 0; i < 16; i++) ls->on[i] = 0;
-    ls->acc = 0;
-    ls->ring = 0;
-    for (i = 0; i < 16; i++) ls->vel[i] = 0;
-    ls->active = ls->tied;
-    ls->onsets = 0;
-    if (!lead_plays(b) || np <= 0) { ls->tied = 0; return 0; }
     c.r = r; c.keys = keys; c.pcs = pcs; c.np = np; c.bass = 0; c.can_push = can_push;
     if (set && lib_ins_sustained(set->chords)) {         /* a pad: the octave doesn't matter (Sam), its place does */
         int pl = harmony_pad_place(r);
@@ -596,7 +591,9 @@ int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b,
         c.lo = c.lo_x = 60;
         c.hi = pl == PL_ABOVE ? 72 : 83;
         c.shift = pl == PL_BELOW ? 0 : 12;
-    } else {                                             /* percussive keys: a 4th or more over their top */
+    } else {                                             /* percussive keys: a 4th or more over their top (the older
+                                                            engines keep their floor; the keys' window lowers the keys
+                                                            under the lead's band, and the floor with them) */
         int top = 0, ntop = 0;
         for (i = 0; i < 4; i++) {
             if (keys[i] > top) top = keys[i];
@@ -655,6 +652,21 @@ int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b,
         ls->akey = 0;                                    /* a later sustained lead places its own anchor */
         plan_hybrid(ls, &c, bar, bpc, npcs, nn);
     }
+}
+
+int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b, int bar, const int keys[4],
+                  const int nkeys[4], const int *pcs, int np, int can_push)
+{
+    int i, n = 0;
+    for (i = 0; i < 16; i++) ls->on[i] = 0;
+    ls->acc = 0;
+    ls->ring = 0;
+    for (i = 0; i < 16; i++) ls->vel[i] = 0;
+    ls->active = ls->tied;
+    ls->onsets = 0;
+    if (!lead_plays(b) || np <= 0) { ls->tied = 0; return 0; }
+    if (!leads_plan_bar(ls, r, b, bar, keys, nkeys, pcs, np, can_push))   /* the song's style, else an older engine */
+        plan_older(ls, r, b, bar, keys, nkeys, pcs, np, can_push);
     for (i = 0; i < 16; i++) n += ls->on[i] > 0;
     ls->active |= n > 0;
     ls->onsets = n;

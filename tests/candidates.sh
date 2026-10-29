@@ -16,7 +16,7 @@ FLAGS="-O2 -std=c99 -ffp-contract=off -Wall -Wextra -Wdouble-promotion -Werror"
 rm -rf "$OUT"
 mkdir -p "$OUT/real"
 build() {      # $1: the build's folder, its song sources (app/song with its tables replaced, or app/song itself)
-    $CC $FLAGS -I"$2" -Iapp/engine -Ibase/include -o "$1/candidates_test" tests/host/candidates_test.c "$2"/*.c app/engine/*.c
+    $CC $FLAGS -I"$2" -Iapp/engine -Ibase/include -o "$1/candidates_test" tests/host/candidates_test.c "$2"/*.c "$2"/leads/*.c app/engine/*.c
 }
 ct() {         # $1: the build, $2: never or drawn; its output kept in the build's out.txt
     if "$OUT/$1/candidates_test" "$2" > "$OUT/$1/out.txt"; then sed "s/^/$1: /" "$OUT/$1/out.txt"
@@ -27,6 +27,7 @@ ct real never
 for v in candidate approved; do
     mkdir -p "$OUT/$v/song"
     cp app/song/*.c app/song/*.h "$OUT/$v/song/"      # the sources beside their tables (a quoted include looks there first)
+    cp -R app/song/leads "$OUT/$v/song/"
     python3 -I tools/patterns/variant.py "$v" "$OUT/$v/song"
     build "$OUT/$v" "$OUT/$v/song"
 done
@@ -39,6 +40,6 @@ appr=$(grep '^songs ' "$OUT/approved/out.txt")
 [ "$real" != "$appr" ] || { echo "FAIL: approving the new entries left every song as it was ($appr)"; exit 1; }
 echo "candidates: the songs are the same with the candidates ($cand); approved, they move ($appr)"
 $CC $FLAGS -I"$OUT/candidate/song" -Iapp/engine -Ibase/include -o "$OUT/candidate/song_test" tests/host/song_test.c \
-    "$OUT/candidate/song"/*.c app/engine/*.c
+    "$OUT/candidate/song"/*.c "$OUT/candidate/song"/leads/*.c app/engine/*.c
 "$OUT/candidate/song_test" strum_same
 "$OUT/candidate/song_test" library       # the library's checks hold with candidates in it

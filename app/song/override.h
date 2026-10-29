@@ -7,7 +7,8 @@
 
 typedef struct {
     int8_t comp;        /* -1 rolled, else CS_* */
-    int8_t lead_style;  /* -1 rolled, 0 phrase planner, 1 hybrid */
+    int8_t lead_style;  /* -1 rolled, 0 phrase planner, 1 hybrid, 2 + LS_* a lead style (leads/leads.h; one with
+                           no planner yet plays as rolled) */
     int8_t pad_place;   /* -1 rolled, else PL_* (sustained keys only: percussive keys are always below) */
     int8_t ride;        /* -1 rolled, else RIDE_NONE / RIDE_ALL / RIDE_SECTION (sampled kits only) */
     int8_t keys_oct;    /* -1, 0, +1: the keys' register, clamped to the instrument's range */

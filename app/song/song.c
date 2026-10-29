@@ -31,6 +31,7 @@
 #include "theory.h"
 #include "rng.h"
 #include "pads.h"
+#include "leads/leads.h"
 
 static int loop_bars(const song_roll_t *r);
 
@@ -460,6 +461,11 @@ void song_start(song_t *s, const song_roll_t *r)
     s->glide_t0 = -64;
     s->state = s->roll.v[RF_BARS] > 0 ? SS_PLAYING : SS_ENDED;
     ride_for(s);
+    {   /* the keys make room for the lead: their window under its band, set once for the song */
+        int lo, hi;
+        leads_band(&s->roll, &lo, &hi);
+        s->keys_win = lo - 1;
+    }
 }
 
 int song_tick(song_t *s, song_ev_t *out, int max)
@@ -470,6 +476,7 @@ int song_tick(song_t *s, song_ev_t *out, int max)
     uint32_t salt;
     float gs;
     if (!s || s->state != SS_PLAYING) return 0;
+    harmony_keys_window(0, s->keys_win);           /* this song's, while it ticks (cleared below) */
     bar = s->bar;
     step = s->step;
     idx = bar * 16 + step;
@@ -566,6 +573,7 @@ int song_tick(song_t *s, song_ev_t *out, int max)
         s->step = 0;
         if (++s->bar >= s->roll.v[RF_BARS]) s->state = SS_ENDED;
     }
+    harmony_keys_window(0, 0);
     return n;
 }
 

@@ -210,7 +210,7 @@ void th_voice_spread(const int *pcs, int n, int *out4, int hi, int rootless, int
     ref_bot = 55;
 }
 
-void th_voice_range(const int *pcs, int n, const int *prev, int *out4, int hi, int rootless)
+int th_voice_range(const int *pcs, int n, const int *prev, int *out4, int hi, int rootless)
 {
     int ref[4], best = 1 << 30, i, drop, v, next = 0, role[5], dom;
     if (prev) {
@@ -331,12 +331,13 @@ void th_voice_range(const int *pcs, int n, const int *prev, int *out4, int hi, i
     }
     if (best == 1 << 30 && drop2) {                      /* no drop-2 shape fits this chord: the usual voicing */
         drop2 = 0;
-        th_voice_range(pcs, n, prev, out4, hi, rootless);
+        best = th_voice_range(pcs, n, prev, out4, hi, rootless) ? 0 : best;
         drop2 = 1;
     }
     for (i = 0; i < swaps; i++)                          /* an alternative being heard (host only) */
         if (!memcmp(out4, swap_from[i], sizeof swap_from[i]))
             memcpy(out4, swap_to[i], sizeof swap_to[i]);
+    return best != 1 << 30;
 }
 
 void th_voice(const int *pcs, int n, const int *prev, int *out4) { th_voice_range(pcs, n, prev, out4, 72, 1); }

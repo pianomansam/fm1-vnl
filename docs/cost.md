@@ -1008,3 +1008,12 @@ string synth (strsyn.c, its Plaits Ensemble and the lead's two 512-float lines i
 
 ### Vibes rebalance (2026-10-29)
 Set 10 (Pad and pluck) leads with the synth pluck at +1.2 dB (lib_set_lead_db, keyed by set id, base id in the workbench): its lead over keys sat 7.4 dB median, under the 8 dB floor; now 8.6. A per-song float multiply: no measurable CPU or memory change.
+
+### Lead styles, Task 1: the lead framework and the keys' room (2026-10-29)
+
+New: app/song/leads/ (the motif form, the register centers, the dispatch: no style registered yet), and the keys'
+window in harmony.c (the voicer's ceiling worked out per voicing call, with the loop's voicings, and once at
+song_start for the lead's band). `tools/tick-bench.sh 3000 5`, this task and HEAD (358f7c5) interleaved, three runs
+each: worst tick, other songs **27-29 us** (HEAD 27-28), strummed **23-29 us** (HEAD 22-24; strummed songs never take
+the window, their events hash the same, 936e9bb7: host noise); worst song_start 8 us (unchanged). Memory
+(`tools/mem-check.sh`): image **404544 B** (budget 409600), RAM 55456 B, pool 180216 B.

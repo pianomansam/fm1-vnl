@@ -35,9 +35,10 @@ typedef struct {
 /* 1 where the lead plays: blocks with L_LEAD and L_KEYS, not intro or outro */
 int lead_plays(const plan_block_t *b);
 /* Plans one bar (call at step 0). keys, nkeys: this bar's and the next bar's sounding keys voicings (4 notes, 0
-   none); pcs: this bar's chord, root first. Over percussive keys every note sits a 4th or more above the keys' top
-   (of both chords for a note that sounds on into the next), at most E6, or drops; with a pad the lead keeps to
-   C4-B5, C4-C5 when the pad sits above. can_push 0: a request lands on the next bar, so nothing is pushed into it.
+   none); pcs: this bar's chord, root first. A lead style (leads_plan_bar) plans the bar where the song has one, from
+   its band up (leads_range_bar: the keys voiced under it, else a 4th over their top); else the older engines below:
+   over percussive keys every note a 4th or more above the keys' top (of both chords for a note that sounds on into
+   the next), at most E6, or drops. With a pad the lead keeps to C4-B5, C4-C5 when the pad sits above. can_push 0: a request lands on the next bar, so nothing is pushed into it.
    b must be the plan's own block (the sustained lead reads its neighbors for the phrase's position). Returns the
    number of lead onsets that start in the bar (0 where the lead doesn't play). */
 int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b, int bar, const int keys[4],
@@ -45,8 +46,8 @@ int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b,
 /* How the hybrid lands on bar's skeleton note: 0 on 1 for an 8th, 1 on 1 for a quarter, 2 an 8th late, 3 a 16th
    late, 4 pushed an 8th early from the bar before, 5 a beat's rest then on 2 (a pure function of seed and bar). */
 int lead_landing(uint32_t seed, int bar);
-/* 1 if the song's lead plays the hybrid (the arpeggio and landings), 0 if it sings phrases: the lead_style override,
-   else by its instrument (a sustained lead or the vibes sing). */
+/* 1 if the song's lead plays the hybrid (the arpeggio and landings), 0 if it sings phrases: the lead_style override
+   (0 or 1), else by its instrument (a sustained lead or the vibes sing). */
 int lead_hybrid(const song_roll_t *r);
 /* The hybrid's arpeggio for the song: a LEAD_PAT and a LEAD_RHY index (patterns_gen.h), drawn over the approved
    entries (the arp_pat and arp_rhy overrides force one, a candidate too). A pure function of the roll and the

@@ -16,5 +16,5 @@ OUT=app/build/bench
 mkdir -p "$OUT"
 ${CC:-cc} -O2 -std=gnu99 -ffp-contract=off -Wall -Wextra -DVNL_BENCH -DEN_HOST \
     -Iapp/song -Iapp/engine -Ibase/include -Iref/fm1-amb/app/dsp \
-    -o "$OUT/bench" app/host/bench.c app/song/*.c app/engine/*.c ref/fm1-amb/app/dsp/amb.c
+    -o "$OUT/bench" app/host/bench.c app/song/*.c app/song/leads/*.c app/engine/*.c ref/fm1-amb/app/dsp/amb.c
 exec "$OUT/bench" "$@"

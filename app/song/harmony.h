@@ -52,6 +52,13 @@ void harmony_set_loop_lock(int on);
    the lead kept to C4-C5). The lead design's register rule. */
 enum { PL_BELOW, PL_WITH, PL_ABOVE };
 int harmony_pad_place(const song_roll_t *r);
+/* The keys' window (lead-styles design): percussive keys (not a strum's guitar shape; sustained keys keep their
+   place) voice with their top note at most hi and their bottom at least lo (0: no bound; hi 0: no window), by the same
+   voice-leading rules, one voicing per chord. Where no voicing fits (the top under C4, the bottom out of the
+   instrument's range or under lo, a chord with no voicing there), the window is ignored and the lead's band moves up
+   instead (leads_band_bar). Global: song_tick sets its song's (from the lead's band, worked out at song_start) and
+   clears it before returning. */
+void harmony_keys_window(int lo, int hi);
 /* semitones the workbench's keys_oct moves the keys (override.h; 0 when unset or out of the instrument's range) */
 int harmony_keys_oct(const song_roll_t *r);
 /* The voicing this bar's chord sounds with (what harmony_step strikes), without striking it: vs->last is unchanged

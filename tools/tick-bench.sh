@@ -8,5 +8,5 @@ cd "$(dirname "$0")/.."
 OUT=app/build/bench
 mkdir -p "$OUT"
 ${CC:-cc} -O2 -std=c99 -ffp-contract=off -Wall -Wextra -Werror -DVNL_BENCH -Iapp/song -Iapp/engine -Ibase/include \
-    -o "$OUT/tick_bench" app/host/tick_bench.c app/song/*.c app/engine/*.c
+    -o "$OUT/tick_bench" app/host/tick_bench.c app/song/*.c app/song/leads/*.c app/engine/*.c
 exec "$OUT/tick_bench" "$@"

@@ -23,9 +23,9 @@ run() {
     fi
 }
 run song sh -c "$CC -O2 -std=c99 -ffp-contract=off -Wall -Wextra -Wdouble-promotion -Werror -Iapp/song -Iapp/engine -Ibase/include \
-    -o $OUT/song_test tests/host/song_test.c app/song/*.c app/engine/*.c && $OUT/song_test"
+    -o $OUT/song_test tests/host/song_test.c app/song/*.c app/song/leads/*.c app/engine/*.c && $OUT/song_test"
 run clash sh -c "$CC -O2 -std=c99 -ffp-contract=off -Wall -Wextra -Wdouble-promotion -Werror -Iapp/song -Iapp/engine -Ibase/include \
-    -o $OUT/clash_test tests/host/clash_test.c app/song/*.c && $OUT/clash_test"
+    -o $OUT/clash_test tests/host/clash_test.c app/song/*.c app/song/leads/*.c && $OUT/clash_test"
 run candidates sh tests/candidates.sh       # candidates are workbench-only until approved (patterns_gen.h)
 run host-build sh build.sh --host
 mkdir -p $B/scenarios

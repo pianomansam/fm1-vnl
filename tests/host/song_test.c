@@ -26,6 +26,7 @@
 #include "skits.h"
 #include "override.h"
 #include "patterns_gen.h"
+#include "leads/leads.h"
 
 static int fails;
 #define CHECK(c, ...)                                                                                              \
@@ -9298,6 +9299,267 @@ static void test_ov_lead_style(void)
     CHECK(OVB.nlead > 0 && OVB.lead_free == 0, "ov lead style: seed %u's flute under the hybrid: %d notes, %d sung",
           (unsigned)seed, OVB.nlead, OVB.lead_free);
 }
+
+/* the keys' top note of each bar (V_CHORD), the union of the notes each of the loop's chords sounded (by its place in
+   the loop and its pitch classes; not a chord recolored on a pass, voiced on its own), and the
+   lead's notes with their bars; kw_* over one song played through song_tick */
+enum { KW_CH = 24 };
+static int kw_top[256], kw_ln[4096], kw_lbar[4096], kw_nl, kw_nch, kw_bars;
+static uint32_t kw_sig[KW_CH], kw_set[KW_CH][4];
+static int kw_keys[256][8], kw_nk[256];
+
+static void kw_play(const song_roll_t *r, const song_ov_t *o)
+{
+    static song_t s;
+    song_ev_t ev[64];
+    int i, j;
+    song_override(o);
+    memset(kw_top, 0, sizeof kw_top);
+    memset(kw_nk, 0, sizeof kw_nk);
+    kw_nl = kw_nch = 0;
+    song_start(&s, r);
+    kw_bars = s.plan.bars;                           /* (at most 255) */
+    while (s.state == SS_PLAYING) {
+        int bar = s.bar, n = song_tick(&s, ev, 64);
+        const lib_prog_t *pr = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
+        int loop = pr && pr->n * pr->bars_per_chord ? pr->n * pr->bars_per_chord : 4, pcs[5], np, base[5];
+        uint32_t sig = 2166136261u;
+        if (bar >= 256) continue;
+        np = harmony_chord_at(r, bar, bar / loop + 1, 0, pcs);
+        sig = (sig ^ (uint32_t)(bar % loop / (pr && pr->bars_per_chord ? pr->bars_per_chord : 1))) * 16777619u;
+        for (i = 0; i < np; i++) sig = (sig ^ (uint32_t)(pcs[i] + 1)) * 16777619u;   /* its place in the loop, and
+                                                                                          its pitch classes */
+        if (harmony_chord_at(r, bar % loop, 1, 0, base) != np || memcmp(base, pcs, sizeof(int) * (size_t)np))
+            sig = 0;                                     /* recolored on this pass: voiced on its own */
+        for (i = 0; i < n; i++) {
+            int nt = ev[i].note;
+            if (ev[i].voice == V_CHORD) {
+                if (nt > kw_top[bar]) kw_top[bar] = nt;
+                for (j = 0; j < kw_nk[bar] && kw_keys[bar][j] != nt; j++)
+                    ;
+                if (j == kw_nk[bar] && j < 8) kw_keys[bar][kw_nk[bar]++] = nt;
+                if (!sig) continue;
+                for (j = 0; j < kw_nch && kw_sig[j] != sig; j++)
+                    ;
+                if (j == kw_nch && j < KW_CH) { kw_sig[j] = sig; memset(kw_set[j], 0, sizeof kw_set[j]); kw_nch++; }
+                if (j < KW_CH) kw_set[j][nt >> 5] |= 1u << (nt & 31);
+            }
+            if (ev[i].voice == V_LEAD && kw_nl < 4096) {
+                kw_ln[kw_nl] = nt;
+                kw_lbar[kw_nl++] = bar;
+            }
+        }
+    }
+    song_override(NULL);
+}
+
+static int kw_popcount(const uint32_t *w)
+{
+    int i, c = 0;
+    for (i = 0; i < 128; i++) c += (w[i >> 5] >> (i & 31)) & 1u;
+    return c;
+}
+
+/* Lead styles, the keys' room: over percussive keys (a guitar's strummed shape keeps its place) the song's keys'
+   window (the lead's band floor, less a semitone) holds in every bar: the keys' top at most its top, one voicing per
+   chord all song (each chord's pitch classes sound in at most its 4 notes), and no lead note a semitone from a keys
+   note of its bar. The window binds (the keys' voicing without it would reach into the band) in a few bars as the
+   centers stand; a tighter window (its top D4-A4) binds in many, and holds the same way. */
+static void test_keys_window(void)
+{
+    static song_t s0;
+    uint32_t seed = 7171;
+    song_roll_t prev, r;
+    long songs = 0, bars = 0, lead_bars = 0, over = 0, revoiced = 0, rubs = 0, binds = 0, lnotes = 0;
+    long tight = 0, tight_over = 0, tight_revoiced = 0, tight_binds = 0;
+    int k, i, j;
+    for (k = 0; k < 300; k++) {
+        const lib_set_t *set;
+        const lib_prog_t *pr;
+        int lo, hi, loop, bar;
+        harmony_voicing_t v;
+        seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+        roll_song(k ? &prev : 0, seed, &r);
+        prev = r;
+        set = lib_set_by_id((uint8_t)r.v[RF_SET]);
+        if (!set || lib_ins_sustained(set->chords) || harmony_style(&r) == CS_STRUM) continue;
+        songs++;
+        leads_band(&r, &lo, &hi);
+        kw_play(&r, NULL);
+        pr = lib_prog_by_id((uint8_t)r.v[RF_PROG]);
+        loop = pr && pr->n * pr->bars_per_chord ? pr->n * pr->bars_per_chord : 4;
+        memset(&v, 0, sizeof v);
+        harmony_keys_window(0, 0);
+        song_start(&s0, &r);                             /* (its plan) */
+        for (bar = 0; bar < kw_bars; bar++) {
+            int un[4], top = 0;
+            const plan_block_t *b;
+            if (!kw_top[bar]) continue;
+            bars++;
+            b = plan_at(&s0.plan, bar);
+            lead_bars += b && lead_plays(b);
+            over += kw_top[bar] > lo - 1;
+            harmony_voicing_at(&r, bar, bar / loop + 1, &v, un);   /* the voicing with no window */
+            for (i = 0; i < 4; i++) if (un[i] > top) top = un[i];
+            binds += top > lo - 1;
+        }
+        for (j = 0; j < kw_nch; j++) revoiced += kw_popcount(kw_set[j]) > 4;
+        {   /* a tighter window, D4-A4 for the top (as a lower lead's band would set): the voicer under it */
+            int w = 62 + k % 8, first[16][4], have[16] = {0};
+            harmony_voicing_t vw;
+            memset(&vw, 0, sizeof vw);
+            harmony_keys_window(0, w);
+            for (bar = 0; bar < r.v[RF_BARS]; bar++) {
+                int o4[4], base[5], pcs[5], np = harmony_chord_at(&r, bar, bar / loop + 1, 0, pcs), place;
+                harmony_voicing_at(&r, bar, bar / loop + 1, &vw, o4);
+                tight++;
+                tight_over += o4[3] > w;
+                place = bar % loop / (pr && pr->bars_per_chord ? pr->bars_per_chord : 1);
+                if (place >= 16 || harmony_chord_at(&r, bar % loop, 1, 0, base) != np ||
+                    memcmp(base, pcs, sizeof(int) * (size_t)np))
+                    continue;                            /* recolored: voiced on its own */
+                if (!have[place]) { memcpy(first[place], o4, sizeof o4); have[place] = 1; }
+                tight_revoiced += memcmp(first[place], o4, sizeof o4) != 0;
+            }
+            harmony_keys_window(0, 0);
+            memset(&vw, 0, sizeof vw);
+            for (bar = 0; bar < r.v[RF_BARS]; bar++) {
+                int o4[4];
+                harmony_voicing_at(&r, bar, bar / loop + 1, &vw, o4);
+                tight_binds += o4[3] > w;
+            }
+        }
+        for (i = 0; i < kw_nl; i++) {
+            int b0 = kw_lbar[i];
+            lnotes++;
+            for (j = 0; j < kw_nk[b0]; j++) {
+                int d = (kw_ln[i] - kw_keys[b0][j] + 120) % 12;
+                rubs += d == 1 || d == 11;
+            }
+        }
+    }
+    printf("keys window: %ld songs, %ld keys bars (%ld with the lead), the window binds in %ld; %ld over it, %ld chords "
+           "revoiced, %ld lead notes, %ld rubs\n", songs, bars, lead_bars, binds, over, revoiced, lnotes, rubs);
+    CHECK(songs > 100 && lead_bars > 2000, "keys window: only %ld songs, %ld lead bars", songs, lead_bars);
+    printf("keys window: a D4-A4 window: binds in %ld of %ld bars; %ld over it, %ld loop chords revoiced\n",
+           tight_binds, tight, tight_over, tight_revoiced);
+    CHECK(binds > 0, "keys window: never binds in %ld bars", bars);
+    CHECK(tight_binds > tight / 5, "keys window: a D4-A4 window binds in only %ld of %ld bars", tight_binds, tight);
+    CHECK(tight_over == 0, "keys window: %ld bars with the keys' top over a D4-A4 window", tight_over);
+    CHECK(tight_revoiced == 0, "keys window: %ld loop chords revoiced under a D4-A4 window", tight_revoiced);
+    CHECK(over == 0, "keys window: %ld bars with the keys' top over the window", over);
+    CHECK(revoiced == 0, "keys window: %ld chords sounded in more than one voicing", revoiced);
+    CHECK(rubs == 0 && lnotes > 5000, "keys window: %ld lead notes a semitone from the keys (%ld)", rubs, lnotes);
+}
+
+/* A window the keys can't voice in (under C4 for their top, or under their range) is ignored: the voicings are the
+   ones with no window, and the lead's range moves up instead, to a 4th over the keys' top where they reach into its
+   band (its ceiling E6 as before).
+   In songs: the flute an octave down (lead_oct -1, its band C4-C5, so the window under C4) never sings under the
+   keys' top, a 4th over it where the keys reach into its band. */
+static void test_keys_window_fallback(void)
+{
+    uint32_t seed = 8181;
+    song_roll_t prev, r;
+    song_ov_t o = ov_none();
+    long differ = 0, voiced = 0, songs = 0, notes = 0, under = 0, moved = 0;
+    int k, i, bar, lo, lx, hi, keys[4] = {50, 57, 62, 70}, nkeys[4] = {0, 0, 0, 0}, blo, bhi;
+    for (k = 0; k < 300; k++) {
+        const lib_set_t *set;
+        const lib_prog_t *pr;
+        int loop;
+        harmony_voicing_t va, vb;
+        seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+        roll_song(k ? &prev : 0, seed, &r);
+        prev = r;
+        set = lib_set_by_id((uint8_t)r.v[RF_SET]);
+        if (!set || lib_ins_sustained(set->chords) || harmony_style(&r) == CS_STRUM) continue;
+        pr = lib_prog_by_id((uint8_t)r.v[RF_PROG]);
+        loop = pr && pr->n * pr->bars_per_chord ? pr->n * pr->bars_per_chord : 4;
+        memset(&va, 0, sizeof va);
+        memset(&vb, 0, sizeof vb);
+        for (bar = 0; bar < r.v[RF_BARS]; bar++) {
+            int a[4], b[4];
+            harmony_keys_window(0, 0);
+            harmony_voicing_at(&r, bar, bar / loop + 1, &va, a);
+            harmony_keys_window(0, 40 + k % 19);         /* E2..A#3: under C4 */
+            harmony_voicing_at(&r, bar, bar / loop + 1, &vb, b);
+            harmony_keys_window(0, 0);
+            voiced++;
+            differ += memcmp(a, b, sizeof a) != 0;
+        }
+        if (set->lead != INS_FLUTE) continue;
+        o.lead_oct = -1;
+        kw_play(&r, &o);
+        songs++;
+        song_override(&o);
+        leads_band(&r, &blo, &bhi);
+        song_override(NULL);
+        for (i = 0; i < kw_nl; i++) {
+            int t = kw_top[kw_lbar[i]];
+            notes++;
+            under += t && kw_ln[i] <= t;
+            moved += t >= blo && kw_ln[i] >= t + 5;
+        }
+    }
+    printf("keys window fallback: %ld of %ld voicings changed by a window under C4; flute an octave down: %ld songs, "
+           "%ld notes, %ld under the keys' top, %ld a 4th over keys in its band\n", differ, voiced, songs, notes, under,
+           moved);
+    CHECK(voiced > 10000 && differ == 0, "keys window fallback: %ld of %ld voicings changed", differ, voiced);
+    CHECK(songs > 10 && notes > 500 && under == 0, "keys window fallback: %ld of %ld notes under the keys (%ld songs)",
+          under, notes, songs);
+    CHECK(moved > 100, "keys window fallback: the band moved up for only %ld notes", moved);
+    /* the bar's band: the song's where the keys sit under it, a 4th over their top where they reach in */
+    o = ov_none();
+    for (seed = 1; seed < 500; seed++) {
+        const lib_set_t *set;
+        roll_song(NULL, seed, &r);
+        set = lib_set_by_id((uint8_t)r.v[RF_SET]);
+        if (set && set->lead == INS_FLUTE) break;
+    }
+    leads_band(&r, &blo, &bhi);
+    keys[3] = blo - 1;
+    leads_range_bar(&r, keys, nkeys, &lo, &lx, &hi);
+    CHECK(lo == blo && hi == 88 && lx == blo, "keys window fallback: keys under the band: %d-%d (x %d), wanted %d-88",
+          lo, hi, lx, blo);
+    keys[3] = blo + 2;
+    leads_range_bar(&r, keys, nkeys, &lo, &lx, &hi);
+    CHECK(lo == blo + 7 && hi == 88, "keys window fallback: keys in the band at %d: %d-%d", keys[3], lo, hi);
+    nkeys[3] = blo + 4;
+    keys[3] = blo - 3;
+    leads_range_bar(&r, keys, nkeys, &lo, &lx, &hi);
+    CHECK(lo == blo && lx == blo + 9, "keys window fallback: the next keys in the band: floor %d, ringing over %d", lo,
+          lx);
+}
+
+/* Lead styles: one motif form for every style. A motif's notes come back from lead_motif_t as they went in, on any
+   first scale index (its steps kept); its contour marks each rise; notes the form can't hold are refused. */
+static void test_lead_motif_format(void)
+{
+    static const int at[6] = {0, 4, 6, 8, 16, 30}, len[6] = {4, 2, 2, 8, 6, 2}, si[6] = {10, 11, 12, 10, 9, 14};
+    int a2[8], l2[8], s2[8], n, i, ok = 1;
+    lead_motif_t m;
+    CHECK(lead_motif_from(&m, 6, at, len, si), "motif format: a 6-note motif refused");
+    CHECK(m.n == 6 && m.step[0] == 0 && m.step[2] == 2 && m.step[4] == -1 && m.step[5] == 4,
+          "motif format: steps %d %d %d %d", m.step[0], m.step[2], m.step[4], m.step[5]);
+    CHECK(m.contour == (1u << 0 | 1u << 1 | 1u << 4), "motif format: contour %02x, wanted 13", m.contour);
+    n = lead_motif_to(&m, 10, a2, l2, s2);
+    for (i = 0; i < 6; i++) ok &= a2[i] == at[i] && l2[i] == len[i] && s2[i] == si[i];
+    CHECK(n == 6 && ok, "motif format: the notes didn't round-trip");
+    n = lead_motif_to(&m, 3, a2, l2, s2);
+    for (i = 0, ok = 1; i < 6; i++) ok &= a2[i] == at[i] && s2[i] == si[i] - 7;
+    CHECK(n == 6 && ok, "motif format: moved to another first note, the steps changed");
+    {
+        static const int bad_at[3] = {0, 4, 4}, one[3] = {2, 2, 2}, zero[3] = {2, 0, 2}, s3[3] = {0, 1, 2};
+        static const int far[3] = {0, 200, 300}, many[9] = {0, 1, 2, 3, 4, 5, 6, 7, 8};
+        lead_motif_t keep = m;
+        CHECK(!lead_motif_from(&m, 3, bad_at, one, s3), "motif format: onsets out of order taken");
+        CHECK(!lead_motif_from(&m, 3, s3, zero, s3), "motif format: a 0-length note taken");
+        CHECK(!lead_motif_from(&m, 3, far, one, s3), "motif format: an onset past 255 16ths taken");
+        CHECK(!lead_motif_from(&m, 9, many, many, many), "motif format: 9 notes taken");
+        CHECK(!memcmp(&m, &keep, sizeof m), "motif format: a refused motif changed m");
+    }
+}
 static void test_ov_ride(void)
 {
     song_roll_t r;
@@ -11101,6 +11363,9 @@ int main(int argc, char **argv)
     RUN(test_vx_mute);
     RUN(test_ov_comp);
     RUN(test_ov_lead_style);
+    RUN(test_keys_window);
+    RUN(test_keys_window_fallback);
+    RUN(test_lead_motif_format);
     RUN(test_ov_ride);
     RUN(test_ov_voicing_salt);
     RUN(test_ov_phrase_salt);
