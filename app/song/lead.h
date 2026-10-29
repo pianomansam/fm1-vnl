@@ -30,6 +30,10 @@ typedef struct {
     int onsets;                   /* lead onsets that start in the planned bar */
     int chosen;                   /* the song's arpeggio pattern is chosen */
     int pat, rhy, rev, swap;
+    uint8_t dl[16];               /* a style's onset late by thirds of a 16th (a triplet: 0-2) */
+    int tie_end;                  /* a style's note tied in from the last bar ends at this 16th */
+    int step_dir;                 /* Romanticism: the step its last bar planned over the bar line (+1, -1) */
+    int head;                     /* Romanticism: the answer's first note, chosen by the pickup before it (0: none) */
 } lead_state_t;
 
 /* 1 where the lead plays: blocks with L_LEAD and L_KEYS, not intro or outro */

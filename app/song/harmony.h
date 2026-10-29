@@ -56,8 +56,8 @@ int harmony_pad_place(const song_roll_t *r);
    place) voice with their top note at most hi and their bottom at least lo (0: no bound; hi 0: no window), by the same
    voice-leading rules, one voicing per chord. Where no voicing fits (the top under C4, the bottom out of the
    instrument's range or under lo, a chord with no voicing there), the window is ignored and the lead's band moves up
-   instead (leads_band_bar). Global: song_tick sets its song's (from the lead's band, worked out at song_start) and
-   clears it before returning. */
+   instead (leads_range_bar). Global: song_tick sets its song's (from the lead's band, worked out at song_start and
+   again where the set or the workbench's lead register or style moves it) and clears it before returning. */
 void harmony_keys_window(int lo, int hi);
 /* semitones the workbench's keys_oct moves the keys (override.h; 0 when unset or out of the instrument's range) */
 int harmony_keys_oct(const song_roll_t *r);

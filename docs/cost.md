@@ -1017,3 +1017,21 @@ song_start for the lead's band). `tools/tick-bench.sh 3000 5`, this task and HEA
 each: worst tick, other songs **27-29 us** (HEAD 27-28), strummed **23-29 us** (HEAD 22-24; strummed songs never take
 the window, their events hash the same, 936e9bb7: host noise); worst song_start 8 us (unchanged). Memory
 (`tools/mem-check.sh`): image **404544 B** (budget 409600), RAM 55456 B, pool 180216 B.
+
+### Lead styles, Task 2: Impressionism and Romanticism (2026-10-29)
+
+Two style files (app/song/leads/impressionism.c, romanticism.c) and the helpers they share in leads.c (lead.c's
+older engines now use the same copies). Image by `./build.sh`, measured style by style:
+
+| build | image | delta |
+|---|---|---|
+| Task 1 (54e2723) | 404544 B | |
+| shared helpers, context builder, triplet delay, window recompute (no style) | 405232 B | +688 |
+| + Impressionism | 409456 B | +4224 (impressionism_plan 2952 B) |
+| + Romanticism | 413376 B | +3920 (romanticism_plan 2704 B) |
+
+**Over budget (409600) by 3776 B until Task 8** (ruling: accepted on the unpushed branch; no device install before
+then). Projection: Task 6's removals free about 16 KB (lead.c's older engines ~6.8 KB, melody.c ~6.5 KB, phrase.c
+~2.7 KB, the lead-arp tables); eight styles at ~4 KB each need ~32 KB, so with today's headroom the plan ends **about
+11 KB short after Task 6**: Task 8 brings trims to Sam. RAM 55488 B, pool 180216 B (unchanged). CPU: a style plans
+once a bar, as the phrase planner did; not measured separately.

@@ -289,6 +289,19 @@ static void ride_for(song_t *s)
     }
 }
 
+/* ---- the keys make room for the lead: their window under its band ---- */
+
+/* once per set: worked out at the start, and again where a set request or the workbench's lead register or style
+   moves the band (the voicings, cached by their window, follow) */
+static void keys_win_for(song_t *s)
+{
+    int lo, hi;
+    leads_band(&s->roll, &lo, &hi);
+    s->keys_win = lo - 1;
+    s->win_oct = song_ov()->lead_oct;
+    s->win_style = song_ov()->lead_style;
+}
+
 /* ---- requests landing at B ---- */
 
 enum { RE_PLAN = 1, RE_MELODY = 2, RE_PHRASES = 4 };
@@ -345,6 +358,10 @@ static void apply_requests(song_t *s, int B)
     if (re & RE_MELODY) melody_motif_for(&s->roll, &s->plan, song_ov_phrase_seed(s->roll.seed), &s->motif);
     if (re) melody_plan_for(&s->roll, &s->plan, &s->motif, &s->ph);
     if (set != s->roll.v[RF_SET] || motion != s->roll.v[RF_MOTION] || map != s->roll.v[RF_MAP]) ride_for(s);
+    if (set != s->roll.v[RF_SET]) {                  /* another lead instrument: its band */
+        keys_win_for(s);
+        harmony_keys_window(0, s->keys_win);
+    }
 }
 
 /* ---- the pad layer (pads design) ---- */
@@ -461,11 +478,7 @@ void song_start(song_t *s, const song_roll_t *r)
     s->glide_t0 = -64;
     s->state = s->roll.v[RF_BARS] > 0 ? SS_PLAYING : SS_ENDED;
     ride_for(s);
-    {   /* the keys make room for the lead: their window under its band, set once for the song */
-        int lo, hi;
-        leads_band(&s->roll, &lo, &hi);
-        s->keys_win = lo - 1;
-    }
+    keys_win_for(s);
 }
 
 int song_tick(song_t *s, song_ev_t *out, int max)
@@ -476,6 +489,8 @@ int song_tick(song_t *s, song_ev_t *out, int max)
     uint32_t salt;
     float gs;
     if (!s || s->state != SS_PLAYING) return 0;
+    if (song_ov()->lead_oct != s->win_oct || song_ov()->lead_style != s->win_style)
+        keys_win_for(s);                            /* the workbench moved the lead's band */
     harmony_keys_window(0, s->keys_win);           /* this song's, while it ticks (cleared below) */
     bar = s->bar;
     step = s->step;

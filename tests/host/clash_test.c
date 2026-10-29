@@ -13,6 +13,7 @@
 #include "song.h"
 #include "pads.h"
 #include "override.h"
+#include "leads/leads.h"
 
 static int fails;
 #define CHECK(c, ...)                                                                                              \
@@ -139,7 +140,8 @@ static void check_step(const song_t *s, int bar, int step, const song_ev_t *ev, 
               seed, bar, step, e->note);
         CHECK(!th_is_avoid(key, mode, pcs, np, e->note), "seed %u bar %d step %d: avoid note %d", seed, bar, step,
               e->note);
-        if (step == 0 || step == 8) {
+        if ((step == 0 || step == 8) && !e->delay) {   /* on the beat (a style's triplet note a third or two of a 16th
+                                                          after it is off it, as the style plans it) */
             int ct = 0;
             for (j = 0; j < np; j++) ct |= pcs[j] % 12 == e->note % 12;
             CHECK(ct, "seed %u bar %d step %d: note %d not a chord tone", seed, bar, step, e->note);
@@ -818,6 +820,62 @@ static void test_pending(void)
     CHECK(song_pending(&s, &f, &left) == 1 && f == RF_TEMPO, "bad fields must be ignored");
 }
 
+/* ---- the lead styles ---- */
+
+/* A lead style forced (lead_style 2 + LS_*) on each lead instrument (the flute, felt piano, vibes and Knight in the
+   rolled set's place; a set whose keys are that instrument skipped), over 300 songs each: every rule above holds
+   (no semitone rubs against the keys, bass or pad, chord tones on strong beats, nothing out of the chord-scale or an
+   avoid note, velocities 25-110), its lead_oct an octave up and down too (40 songs each). Also an instrument a style
+   isn't rolled for (Review Focus 4): forced, it still plays, legal. */
+static long style_notes;
+static void style_rules(int style, const char *name)
+{
+    static song_t s;
+    static const int INS[4] = {INS_FLUTE, INS_FELT_PIANO, INS_VIBES, INS_KNIGHT};
+    static const char *NM[4] = {"flute", "felt piano", "vibes", "Knight"};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, 0, -1, -1, -1};
+    long before = fails, rub0 = rubs[0][0] + rubs[0][1] + rubs[0][2] + rubs[0][3] + rubs[1][0] + rubs[1][1] +
+                                rubs[1][2] + rubs[1][3];
+    int k, i, oct;
+    o.lead_style = (int8_t)(2 + style);
+    for (k = 0; k < 4; k++)
+        for (oct = 0; oct < 3; oct++) {
+            long songs = 0, notes = 0;
+            o.lead_oct = (int8_t)(oct == 0 ? 0 : oct == 1 ? 1 : -1);
+            song_override(&o);
+            for (i = 1; i <= (oct ? 40 : 300); i++) {
+                song_roll_t r;
+                lib_set_t cs;
+                const lib_set_t *st;
+                int e;
+                roll_song(NULL, (uint32_t)(i * 7919 + style * 131 + k), &r);
+                st = lib_set_by_id((uint8_t)r.v[RF_SET]);
+                if (!st || st->chords == INS[k]) continue;
+                cs = *st;
+                cs.lead = (uint8_t)INS[k];
+                cs.id = LIB_SET_WB;
+                lib_set_wb(&cs, st->id);
+                r.v[RF_SET] = LIB_SET_WB;
+                song_start(&s, &r);
+                run(&s, &R1, NULL, NULL, NULL);
+                CHECK(R1.ended, "%s on the %s: seed %d never ended", name, NM[k], i);
+                for (e = 0; e < R1.ne; e++) notes += R1.ev[e].voice == V_LEAD;
+                songs++;
+            }
+            lib_set_wb(NULL, 0);
+            song_override(NULL);
+            if (!oct) printf("%s on the %s: %ld songs, %ld lead notes\n", name, NM[k], songs, notes);
+            CHECK(songs > (oct ? 20 : 200) && notes > songs * 20, "%s on the %s (lead_oct %d): %ld songs, %ld notes",
+                  name, NM[k], o.lead_oct, songs, notes);
+            style_notes += notes;
+        }
+    printf("%s: %ld checks failed, %ld rubs\n", name, (long)fails - before,
+           rubs[0][0] + rubs[0][1] + rubs[0][2] + rubs[0][3] + rubs[1][0] + rubs[1][1] + rubs[1][2] + rubs[1][3] - rub0);
+}
+
+static void test_impressionism_rules(void) { style_rules(LS_IMPRESSIONISM, "Impressionism"); }
+static void test_romanticism_rules(void) { style_rules(LS_ROMANTICISM, "Romanticism"); }
+
 int main(void)
 {
     int i;
@@ -830,6 +888,8 @@ int main(void)
     test_mood_motion();
     test_pending();
     test_ov_salts();
+    test_impressionism_rules();
+    test_romanticism_rules();
     printf("strong steps: %ld lead/candy notes checked against the sounding chord and bass (%ld of them sounding "
            "tones), %ld with neither\n", strong_checked, strong_in, strong_skipped);
     printf("other steps: %ld lead/candy notes checked against the sounding chord and bass\n", weak_checked);

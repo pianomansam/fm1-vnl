@@ -9560,6 +9560,453 @@ static void test_lead_motif_format(void)
         CHECK(!memcmp(&m, &keep, sizeof m), "motif format: a refused motif changed m");
     }
 }
+
+/* ---- the lead styles: Impressionism and Romanticism (lead-styles Task 2) ----
+   Each ported from its spike unchanged but for the shared register (its center per lead instrument, its band over the
+   keys). The spike's numbers below are its own code's, measured on the same 300 songs (seeds k * 2654435761 + 17,
+   k 1-300; the lead instrument in the rolled set's place) by the same measures, from its branch (lead-styles Task 2
+   report); the five A/B songs' from its renders' INDEX.md. */
+
+typedef struct { int bar, t3, note; } lsn_t;                 /* a lead onset: its bar, thirds of a 16th in it, note */
+static lsn_t LSN[8192];
+static int lsn_n, ls_plays[256], ls_run[256], ls_top[256];
+static lib_set_t ls_set;
+static int ls_cmp(const void *a, const void *b) { return *(const int *)a - *(const int *)b; }
+
+/* the k-th of the 300 songs (or seed itself, k 0) with ins in its set's lead's place: 0 where the keys are ins */
+static int ls_roll(uint32_t seed, int ins, song_roll_t *r)
+{
+    const lib_set_t *st;
+    roll_song(NULL, seed, r);
+    st = lib_set_by_id((uint8_t)r->v[RF_SET]);
+    if (!st || st->chords == ins) return 0;
+    ls_set = *st;
+    ls_set.lead = (uint8_t)ins;
+    ls_set.id = LIB_SET_WB;
+    lib_set_wb(&ls_set, st->id);
+    r->v[RF_SET] = LIB_SET_WB;
+    return 1;
+}
+
+/* one song played with lead_style 2 + style (lead_oct oct): its lead onsets, its lead bars and their runs' first bars,
+   the keys' top note each bar */
+static void ls_play(const song_roll_t *r, int style, int oct)
+{
+    static song_t s;
+    song_ev_t ev[64];
+    song_ov_t o = ov_none();
+    int bar, i;
+    o.lead_style = (int8_t)(2 + style);
+    o.lead_oct = (int8_t)oct;
+    song_override(&o);
+    song_start(&s, r);
+    lsn_n = 0;
+    memset(ls_top, 0, sizeof ls_top);
+    for (bar = 0; bar < 256; bar++) {
+        const plan_block_t *b = bar < s.plan.bars ? plan_at(&s.plan, bar) : 0;
+        ls_plays[bar] = b && lead_plays(b);
+        ls_run[bar] = ls_plays[bar] ? (bar && ls_plays[bar - 1] ? ls_run[bar - 1] : bar) : -1;
+    }
+    while (s.state == SS_PLAYING) {
+        int b0 = s.bar, st = s.step, n = song_tick(&s, ev, 64);
+        float ss = song_step_samples(&s);
+        for (i = 0; i < n; i++) {
+            if (ev[i].voice == V_CHORD && b0 < 256 && ev[i].note > ls_top[b0]) ls_top[b0] = ev[i].note;
+            if (ev[i].voice != V_LEAD || lsn_n >= 8192) continue;
+            LSN[lsn_n].bar = b0;
+            LSN[lsn_n].t3 = st * 3 + (int)((float)ev[i].delay * 3.0f / ss + 0.5f);
+            LSN[lsn_n++].note = ev[i].note;
+        }
+    }
+    song_override(NULL);
+}
+
+typedef struct {
+    long songs, notes, sbars, lbars, silent, span;
+    long heads, hr, hc, cells, cr, cc;                       /* phrase heads, and bars but the cadence: restating */
+    long hard, hard_notes, hard_silent;                      /* bars over the hard chords (ls_measure's kind) */
+} ls_acc_t;
+
+/* The last played song into a: its notes, its bars with an onset, its lead bars (and those with none), its span; its
+   phrase heads (the first bar of each 4 in a run) and its bars but the cadence (the 4th), each against the song's first
+   with 2 notes or more: the same onsets (rhythm), the same rises and falls (contour); and, kind 1 or 2, its bars over
+   a maj7 chord (1) or a minor chord with its 9th (2). */
+static void ls_measure(const song_roll_t *r, ls_acc_t *a, int kind)
+{
+    int first[256], cnt[256], i, bar, lo = 128, hi = 0, ref[2] = {-1, -1};
+    a->songs++;
+    if (!lsn_n) return;
+    memset(cnt, 0, sizeof cnt);
+    for (i = lsn_n - 1; i >= 0; i--) first[LSN[i].bar] = i;
+    for (i = 0; i < lsn_n; i++) {
+        cnt[LSN[i].bar]++;
+        if (LSN[i].note < lo) lo = LSN[i].note;
+        if (LSN[i].note > hi) hi = LSN[i].note;
+    }
+    a->notes += lsn_n;
+    a->span += hi - lo;
+    for (bar = 0; bar < 256; bar++) {
+        int k, nb = cnt[bar], bip;
+        if (!ls_plays[bar]) continue;
+        a->lbars++;
+        a->sbars += nb > 0;
+        a->silent += nb == 0;
+        if (kind) {
+            const lib_prog_t *pr = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
+            int loop = pr && pr->n * pr->bars_per_chord ? pr->n * pr->bars_per_chord : 4, pcs[5], np, j, iv = 0;
+            np = harmony_chord_at(r, bar, bar / loop + 1, 0, pcs);
+            for (j = 1; j < np; j++) iv |= 1 << (pcs[j] - pcs[0] + 12) % 12;
+            if (kind == 1 ? (iv >> 11) & 1 : ((iv >> 3) & 1) && ((iv >> 2) & 1)) {
+                a->hard++;
+                a->hard_notes += nb;
+                a->hard_silent += nb == 0;
+            }
+        }
+        if (!nb) continue;
+        bip = (bar - ls_run[bar]) % 8;
+        for (k = 0; k < 2; k++) {
+            int x, y, m, same_r, same_c;
+            if (k == 0 ? bip % 4 != 0 : bip % 4 == 3) continue;
+            if (ref[k] < 0) {
+                if (nb >= 2) ref[k] = bar;
+                continue;
+            }
+            x = first[ref[k]];
+            y = first[bar];
+            same_r = same_c = cnt[ref[k]] == nb;
+            for (m = 0; m < nb && same_r; m++) same_r = LSN[x + m].t3 == LSN[y + m].t3;
+            for (m = 1; m < nb && same_c; m++) {
+                int da = LSN[x + m].note - LSN[x + m - 1].note, db = LSN[y + m].note - LSN[y + m - 1].note;
+                same_c = (da > 0) - (da < 0) == (db > 0) - (db < 0);
+            }
+            if (k == 0) { a->heads++; a->hr += same_r; a->hc += same_c; }
+            else { a->cells++; a->cr += same_r; a->cc += same_c; }
+        }
+    }
+}
+
+/* the 300 songs with style on ins */
+static void ls_songs(int style, int ins, ls_acc_t *a)
+{
+    uint32_t k;
+    memset(a, 0, sizeof *a);
+    for (k = 1; k <= 300; k++) {
+        song_roll_t r;
+        if (!ls_roll(k * 2654435761u + 17u, ins, &r)) continue;
+        ls_play(&r, style, 0);
+        ls_measure(&r, a, 0);
+    }
+    lib_set_wb(NULL, 0);
+}
+
+/* the spike's measures on the same songs (its branch, the same code as ls_measure) */
+typedef struct { int style, ins; long songs, notes, sbars, span, heads, hr, hc, cells, cr, cc; } ls_spike_t;
+static const ls_spike_t LS_SPIKE[] = {
+    {LS_IMPRESSIONISM, INS_FLUTE, 300, 14434, 5726, 3922, 1190, 351, 753, 3861, 622, 1263},
+    {LS_IMPRESSIONISM, INS_VIBES, 300, 14501, 5732, 3916, 1191, 354, 754, 3868, 631, 1277},
+    {LS_ROMANTICISM, INS_FLUTE, 300, 16860, 6128, 4602, 1232, 641, 317, 4296, 1487, 790},
+};
+
+static const ls_spike_t *ls_spike(int style, int ins)
+{
+    int i;
+    for (i = 0; i < (int)(sizeof LS_SPIKE / sizeof LS_SPIKE[0]); i++)
+        if (LS_SPIKE[i].style == style && LS_SPIKE[i].ins == ins) return &LS_SPIKE[i];
+    return 0;
+}
+
+static const char *ls_name(int style) { return style == LS_IMPRESSIONISM ? "Impressionism" : "Romanticism"; }
+static const char *ls_ins(int ins) { return ins == INS_FLUTE ? "flute" : ins == INS_VIBES ? "vibes" : "felt piano"; }
+
+/* The motif restated: Impressionism's phrase heads (its arabesque) restate the song's first head's rhythm and
+   contour; Romanticism's bars (its cell, every bar but the cadence's) restate its first bar's; each at least as often
+   as the spike's did on the same songs, on each lead instrument the style is rolled for. The song's motif in the shared
+   form (lead_motif_t) is the one its heads sound: the first phrase head's onsets, from the first, are the motif's
+   (where its first note sounds: a note the legal notes or the range drop shifts the rest). */
+static void ls_motif(int style, const int *ins, int nins)
+{
+    int i;
+    for (i = 0; i < nins; i++) {
+        const ls_spike_t *sp = ls_spike(style, ins[i]);
+        ls_acc_t a;
+        long n, rr, cc, sn, sr, sc;
+        ls_songs(style, ins[i], &a);
+        n = style == LS_IMPRESSIONISM ? a.heads : a.cells;
+        rr = style == LS_IMPRESSIONISM ? a.hr : a.cr;
+        cc = style == LS_IMPRESSIONISM ? a.hc : a.cc;
+        sn = style == LS_IMPRESSIONISM ? sp->heads : sp->cells;
+        sr = style == LS_IMPRESSIONISM ? sp->hr : sp->cr;
+        sc = style == LS_IMPRESSIONISM ? sp->hc : sp->cc;
+        printf("%s motif on the %s: %ld %s, rhythm restated %.3f (spike %.3f), contour %.3f (spike %.3f)\n",
+               ls_name(style), ls_ins(ins[i]), n, style == LS_IMPRESSIONISM ? "phrase heads" : "bars", (double)rr / n,
+               (double)sr / sn, (double)cc / n, (double)sc / sn);
+        CHECK(n > sn * 9 / 10 && rr * sn >= sr * n && cc * sn >= sc * n,
+              "%s motif on the %s: rhythm %ld/%ld, contour %ld/%ld (spike %ld/%ld, %ld/%ld)", ls_name(style),
+              ls_ins(ins[i]), rr, n, cc, n, sr, sn, sc, sn);
+    }
+    {   /* the motif's form against the first phrase head sung: every onset of it one of the motif's (aligned on the
+           arabesque's landing, its last; on the cell's first), a note the legal notes or the range drop left out */
+        uint32_t k;
+        long songs = 0, same = 0;
+        for (k = 1; k <= 300; k++) {
+            song_roll_t r;
+            lead_motif_t m;
+            int bar, j, x, ok = 1, f = -1, q = 0;
+            song_ov_t o = ov_none();
+            if (!ls_roll(k * 2654435761u + 17u, ins[0], &r)) continue;
+            o.lead_style = (int8_t)(2 + style);
+            song_override(&o);
+            CHECK(leads_motif(&r, &m) && m.n >= 2 &&
+                  (style == LS_ROMANTICISM ? m.scale == LM_MODE : m.scale == LM_PENT || m.scale == LM_PENT_COLOR),
+                  "%s motif: seed %u has none (or another scale)", ls_name(style), (unsigned)k);
+            song_override(NULL);
+            ls_play(&r, style, 0);
+            for (bar = 0; bar < 256 && f < 0; bar++)
+                if (ls_plays[bar] && (bar - ls_run[bar]) % 8 == 0)
+                    for (x = 0; x < lsn_n; x++)
+                        if (LSN[x].bar == bar) { if (f < 0) f = x; q++; }
+            if (f < 0) continue;
+            songs++;
+            for (x = f; x < f + q && ok; x++) {
+                int at = style == LS_ROMANTICISM ? LSN[x].t3 / 3 - LSN[f].t3 / 3
+                                                 : LSN[x].t3 / 3 - LSN[f + q - 1].t3 / 3 + m.at[m.n - 1];
+                for (j = 0, ok = 0; j < m.n; j++) ok |= m.at[j] == at;
+            }
+            same += ok;
+        }
+        lib_set_wb(NULL, 0);
+        printf("%s motif form: %ld of %ld songs' first phrase head sounds the motif's onsets\n", ls_name(style), same,
+               songs);
+        CHECK(songs > 200 && same * 10 >= songs * 9, "%s motif form: %ld of %ld songs' first head sounds it",
+              ls_name(style), same, songs);
+    }
+}
+
+/* Density and range: notes per bar that sounds and each song's span (lowest to highest), on the 300 songs within 15%
+   of the spike's; and the five A/B songs' notes per bar within 15% of the spike's renders (INDEX.md), their register
+   where the spike's was (each median within 3 semitones: the centers are the five songs' median together).
+   Romanticism's span: the band's floor (its center less 6, where the spike's moved with the keys' top bar to bar)
+   narrows it to 0.82 of the spike's on the flute (lead-styles Task 2 report, a concern for Sam's ear): held at 0.75 or
+   more, not 0.85. */
+static void ls_shape(int style, const int *ins, int nins, const double *ab_nbar, const int *ab_med)
+{
+    static const int AB[5][3] = {{101, 21, INS_FLUTE}, {1010, 9, INS_FLUTE}, {303, 4, INS_VIBES},
+                                 {1111, 11, INS_FELT_PIANO}, {404, 7, INS_FLUTE}};
+    int i, k;
+    for (i = 0; i < nins; i++) {
+        const ls_spike_t *sp = ls_spike(style, ins[i]);
+        ls_acc_t a;
+        double nb, snb, span, sspan, lo = style == LS_ROMANTICISM ? 0.75 : 0.85;
+        ls_songs(style, ins[i], &a);
+        nb = (double)a.notes / (double)a.sbars;
+        snb = (double)sp->notes / (double)sp->sbars;
+        span = (double)a.span / (double)a.songs;
+        sspan = (double)sp->span / (double)sp->songs;
+        printf("%s shape on the %s: %.2f notes a bar (spike %.2f), span %.1f (spike %.1f)\n", ls_name(style),
+               ls_ins(ins[i]), nb, snb, span, sspan);
+        CHECK(nb >= snb * 0.85 && nb <= snb * 1.15, "%s shape on the %s: %.2f notes a bar, spike %.2f", ls_name(style),
+              ls_ins(ins[i]), nb, snb);
+        CHECK(span >= sspan * lo && span <= sspan * 1.15, "%s shape on the %s: span %.1f, spike %.1f", ls_name(style),
+              ls_ins(ins[i]), span, sspan);
+    }
+    for (k = 0; k < 5; k++) {
+        song_roll_t r;
+        const lib_set_t *st;
+        int bars[256], n = 0, j, med[1024], lo = 128, hi = 0;
+        roll_song(NULL, (uint32_t)AB[k][0], &r);
+        roll_set(&r, RF_SET, AB[k][1]);              /* (as the workbench rendered them: the set it takes) */
+        st = lib_set_by_id((uint8_t)r.v[RF_SET]);
+        ls_set = *st;
+        ls_set.lead = (uint8_t)AB[k][2];
+        ls_set.id = LIB_SET_WB;
+        lib_set_wb(&ls_set, st->id);
+        r.v[RF_SET] = LIB_SET_WB;
+        ls_play(&r, style, 0);
+        lib_set_wb(NULL, 0);
+        memset(bars, 0, sizeof bars);
+        for (j = 0; j < lsn_n && j < 1024; j++) {
+            n += !bars[LSN[j].bar];
+            bars[LSN[j].bar] = 1;
+            med[j] = LSN[j].note;
+            if (med[j] < lo) lo = med[j];
+            if (med[j] > hi) hi = med[j];
+        }
+        qsort(med, (size_t)(lsn_n < 1024 ? lsn_n : 1024), sizeof med[0], ls_cmp);
+        printf("%s A/B song %d: %.2f notes a bar (spike %.2f), %d-%d, median %d (spike %d)\n", ls_name(style), k + 1,
+               n ? (double)lsn_n / n : 0.0, ab_nbar[k], lo, hi, lsn_n ? med[lsn_n / 2] : 0, ab_med[k]);
+        CHECK(n && (double)lsn_n / n >= ab_nbar[k] * 0.85 && (double)lsn_n / n <= ab_nbar[k] * 1.15 &&
+              med[lsn_n / 2] - ab_med[k] <= 3 && ab_med[k] - med[lsn_n / 2] <= 3,
+              "%s A/B song %d: %.2f notes a bar, median %d (spike %.2f, %d)", ls_name(style), k + 1,
+              n ? (double)lsn_n / n : 0.0, med[lsn_n / 2], ab_nbar[k], ab_med[k]);
+    }
+}
+
+/* Review Focus 1, chords with few legal notes: the flute in songs forced to Lydian (its maj7 chords) and in walking-
+   bass songs with 9ths (their m9 chords) drops no more than the spike did on the same songs: no more bars left silent,
+   and (Lydian) as many notes on those chords for the song's notes a bar (the band moves every bar's density a little;
+   the hard chords cost no more than they did), (m9 over the walk) as many notes on them. Rubs: clash_test, on every
+   song. */
+static void ls_hard(int style, const long sp_ly[5], const long sp_mw[2])
+{
+    ls_acc_t ly, mw;
+    uint32_t k;
+    double cost, sp_cost;
+    memset(&ly, 0, sizeof ly);
+    memset(&mw, 0, sizeof mw);
+    for (k = 1; k <= 3000; k++) {
+        song_roll_t r;
+        if (!ls_roll(k * 2654435761u + 17u, INS_FLUTE, &r)) continue;
+        if (roll_set(&r, RF_MODE, MODE_LYDIAN) == MODE_LYDIAN && k <= 300) {
+            ls_play(&r, style, 0);
+            ls_measure(&r, &ly, 1);
+        }
+        if (groove_bass_style(&r) == BS_WALK) {      /* (its mode Lydian where it took it, as the spike's were) */
+            roll_set(&r, RF_COLOR, COLOR_9);
+            ls_play(&r, style, 0);
+            ls_measure(&r, &mw, 2);
+        }
+    }
+    lib_set_wb(NULL, 0);
+    cost = ly.hard && ly.notes ? (double)ly.hard_notes / (double)ly.hard / ((double)ly.notes / (double)ly.lbars) : 0.0;
+    sp_cost = (double)sp_ly[0] / (double)sp_ly[4] / ((double)sp_ly[2] / (double)sp_ly[3]);
+    printf("%s on hard chords: Lydian %ld maj7 bars, %ld notes, %ld silent (spike %ld, %ld), their notes a bar %.3f of "
+           "the songs' (spike %.3f); m9 over the walk %ld bars, %ld notes, %ld silent (spike %ld, %ld)\n",
+           ls_name(style), ly.hard, ly.hard_notes, ly.hard_silent, sp_ly[0], sp_ly[1], cost, sp_cost, mw.hard,
+           mw.hard_notes, mw.hard_silent, sp_mw[0], sp_mw[1]);
+    CHECK(ly.hard > 2000 && ly.hard_silent <= sp_ly[1] && cost >= sp_cost,
+          "%s on Lydian maj7 chords: %ld notes, %ld silent bars, %.3f (spike %ld, %ld, %.3f)", ls_name(style),
+          ly.hard_notes, ly.hard_silent, cost, sp_ly[0], sp_ly[1], sp_cost);
+    CHECK(mw.hard > 300 && mw.hard_silent <= sp_mw[1] && mw.hard_notes >= sp_mw[0],
+          "%s on m9 chords over the walk: %ld notes, %ld silent bars (spike %ld, %ld)", ls_name(style), mw.hard_notes,
+          mw.hard_silent, sp_mw[0], sp_mw[1]);
+}
+
+/* The style's own floor where the keys reach into its band (the keys' window can't hold them: under C4), with
+   Impressionism forced on the vibes, lead_oct -1 (its band 58-70, the window under it ignored): no lead note at or
+   under the keys' top of its bar, and a 4th over it where the keys reach into the band (the band moved up). The keys'
+   window follows the band: a song started without the octave and played with it voices as one started with it. */
+static void test_style_fallback(void)
+{
+    long songs = 0, notes = 0, under = 0, moved = 0, inband = 0, differ = 0;
+    uint32_t k;
+    int j;
+    for (k = 1; k <= 300; k++) {
+        song_roll_t r;
+        song_ov_t o = ov_none();
+        int blo, bhi;
+        if (!ls_roll(k * 2654435761u + 17u, INS_VIBES, &r)) continue;
+        if (lib_ins_sustained(ls_set.chords) || harmony_style(&r) == CS_STRUM) continue;
+        o.lead_style = 2 + LS_IMPRESSIONISM;
+        o.lead_oct = -1;
+        song_override(&o);
+        leads_band(&r, &blo, &bhi);
+        song_override(NULL);
+        ls_play(&r, LS_IMPRESSIONISM, -1);
+        songs++;
+        for (j = 0; j < lsn_n; j++) {
+            int t = ls_top[LSN[j].bar];
+            notes++;
+            under += t && LSN[j].note <= t;
+            if (t >= blo) {
+                inband++;
+                moved += LSN[j].note >= t + 5;
+            }
+        }
+    }
+    lib_set_wb(NULL, 0);
+    printf("style fallback: Impressionism an octave down, %ld songs, %ld notes, %ld under the keys' top, %ld over keys "
+           "in its band (%ld a 4th over them)\n", songs, notes, under, inband, moved);
+    CHECK(songs > 100 && notes > 3000 && under == 0, "style fallback: %ld of %ld notes under the keys' top", under,
+          notes);
+    CHECK(inband > 300 && moved == inband, "style fallback: %ld of %ld notes over keys in the band a 4th over them",
+          moved, inband);
+    for (k = 1; k <= 40; k++) {                      /* the window follows the workbench's octave */
+        static song_t a, b;
+        song_ev_t ea[64], eb[64];
+        song_roll_t r;
+        song_ov_t o = ov_none(), lo = ov_none();
+        if (!ls_roll(k * 2654435761u + 17u, INS_FLUTE, &r)) continue;
+        o.lead_style = 2 + LS_IMPRESSIONISM;
+        lo = o;
+        lo.lead_oct = -1;
+        song_override(&o);
+        song_start(&a, &r);                          /* started without it */
+        song_override(&lo);
+        song_start(&b, &r);
+        while (a.state == SS_PLAYING && b.state == SS_PLAYING) {
+            int na = song_tick(&a, ea, 64), nb = song_tick(&b, eb, 64), m;
+            if (na != nb) { differ++; break; }
+            for (m = 0; m < na; m++)
+                if (ea[m].voice == V_CHORD && (ea[m].note != eb[m].note || ea[m].voice != eb[m].voice)) differ++;
+        }
+        song_override(NULL);
+    }
+    lib_set_wb(NULL, 0);
+    CHECK(differ == 0, "style fallback: %ld keys notes differ, started before the octave moved", differ);
+    {   /* and a set request: the new set's lead, its band */
+        static song_t a;
+        song_ev_t ev[64];
+        song_roll_t r;
+        song_ov_t o = ov_none();
+        int moved_win = 0, tried = 0, blo, bhi, lo0, set;
+        o.lead_style = 2 + LS_ROMANTICISM;
+        song_override(&o);
+        for (k = 1; k <= 200 && !moved_win; k++) {
+            roll_song(NULL, k, &r);
+            song_start(&a, &r);
+            leads_band(&r, &lo0, &bhi);
+            for (set = 0; set < LIB_NSETS; set++)            /* a set whose lead's band differs */
+                if (LIB_SETS[set].lead != lib_set_by_id((uint8_t)r.v[RF_SET])->lead) break;
+            if (set == LIB_NSETS) continue;
+            song_request(&a, RF_SET, LIB_SETS[set].id);
+            while (a.state == SS_PLAYING && a.bar < 8) song_tick(&a, ev, 64);
+            leads_band(&a.roll, &blo, &bhi);
+            if (a.roll.v[RF_SET] != LIB_SETS[set].id || blo == lo0) continue;   /* (refused in the song's mood; or
+                                                                                   the same band) */
+            tried++;
+            moved_win = a.keys_win == blo - 1;
+            CHECK(moved_win, "style fallback: seed %u's set request kept the keys' window %d (band from %d)",
+                  (unsigned)k, a.keys_win, blo);
+        }
+        song_override(NULL);
+        CHECK(tried > 0, "style fallback: no set request landed");
+    }
+}
+
+static void test_impressionism_motif(void)
+{
+    static const int INS2[2] = {INS_FLUTE, INS_VIBES};
+    ls_motif(LS_IMPRESSIONISM, INS2, 2);
+}
+static void test_romanticism_motif(void)
+{
+    static const int INS1[1] = {INS_FLUTE};
+    ls_motif(LS_ROMANTICISM, INS1, 1);
+}
+static void test_impressionism_shape(void)
+{
+    static const int INS2[2] = {INS_FLUTE, INS_VIBES}, MED[5] = {79, 77, 76, 80, 80};
+    static const double NB[5] = {2.35, 2.46, 3.06, 2.58, 2.35};
+    ls_shape(LS_IMPRESSIONISM, INS2, 2, NB, MED);
+}
+static void test_romanticism_shape(void)
+{
+    static const int INS1[1] = {INS_FLUTE}, MED[5] = {82, 80, 78, 78, 78};
+    static const double NB[5] = {3.05, 2.50, 2.35, 3.25, 3.15};
+    ls_shape(LS_ROMANTICISM, INS1, 1, NB, MED);
+}
+/* the spike's on the same songs: Lydian (the first 300) notes on maj7 bars, silent maj7 bars, the songs' notes, their
+   lead bars, the maj7 bars; m9 over the walk (3000) notes on m9 bars, silent ones */
+static void test_impressionism_hard(void)
+{
+    static const long LY[5] = {6069, 116, 11917, 4588, 2481}, MW[2] = {536, 52};
+    ls_hard(LS_IMPRESSIONISM, LY, MW);
+}
+static void test_romanticism_hard(void)
+{
+    static const long LY[5] = {6601, 0, 12896, 4588, 2481}, MW[2] = {791, 0};
+    ls_hard(LS_ROMANTICISM, LY, MW);
+}
 static void test_ov_ride(void)
 {
     song_roll_t r;
@@ -11366,6 +11813,13 @@ int main(int argc, char **argv)
     RUN(test_keys_window);
     RUN(test_keys_window_fallback);
     RUN(test_lead_motif_format);
+    RUN(test_style_fallback);
+    RUN(test_impressionism_motif);
+    RUN(test_romanticism_motif);
+    RUN(test_impressionism_shape);
+    RUN(test_romanticism_shape);
+    RUN(test_impressionism_hard);
+    RUN(test_romanticism_hard);
     RUN(test_ov_ride);
     RUN(test_ov_voicing_salt);
     RUN(test_ov_phrase_salt);

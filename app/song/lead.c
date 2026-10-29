@@ -23,28 +23,6 @@ typedef struct {                  /* what one bar's planning reads */
     int vibes;                    /* the vibes lead: struck, so the planner's swell velocities are lifted */
 } ctx_t;
 
-static int is_ct(int note, const int *pcs, int np)
-{
-    int j;
-    for (j = 0; j < np; j++)
-        if ((note - pcs[j] + 120) % 12 == 0) return 1;
-    return 0;
-}
-
-/* a chord tone or a scale note, never a semitone from a chord tone or a note the bass strikes (R25: the maj7 over
-   the root rubs), and not an avoid note */
-static int legal(const song_roll_t *r, int note, const int *pcs, int np, unsigned bass)
-{
-    int j, pc = note % 12;
-    if (th_is_avoid(r->v[RF_KEY], r->v[RF_MODE], pcs, np, note)) return 0;
-    if (bass & (1u << ((pc + 1) % 12) | 1u << ((pc + 11) % 12))) return 0;
-    for (j = 0; j < np; j++) {
-        int d = (note - pcs[j] + 120) % 12;
-        if (d == 1 || d == 11) return 0;
-    }
-    return is_ct(note, pcs, np) || th_in_scale(r->v[RF_KEY], r->v[RF_MODE], note);
-}
-
 /* the skeleton's range: E4-A5 as the spike sang it, raised to the floor, a pad placed above keeping it to C4-C5 */
 static void skel_range(const ctx_t *c, int floor, int *lo, int *hi)
 {
@@ -62,7 +40,7 @@ static int skel_near(const ctx_t *c, const int *pcs, int np, int from, int prev,
         if (pass == 1) { lo = floor > 60 ? floor : 60; hi = c->hi; }
         for (note = lo; note <= hi; note++)
             for (j = 0; j < np; j++)
-                if ((note - pcs[j] + 120) % 12 == 0 && legal(c->r, note, pcs, np, c->bass) &&
+                if ((note - pcs[j] + 120) % 12 == 0 && leads_legal(c->r, note, pcs, np, c->bass) &&
                     (pass == 2 || !prev || (note > prev ? note - prev : prev - note) <= 7)) {
                 int iv = (pcs[j] - pcs[0] + 12) % 12, cost = (note > from ? note - from : from - note) * 4;
                 if (iv == 0) cost += 6;
@@ -83,16 +61,6 @@ static int skel_from(const ctx_t *c, const int *pcs, int np, int from, int floor
 
 static int skel(const ctx_t *c, const int *pcs, int np, int from) { return skel_from(c, pcs, np, from, c->lo); }
 
-static int place(int pc, int lo, int hi, int near)          /* pc's octave in [lo, hi] nearest `near`; 0 if none */
-{
-    int best = 0, note;
-    for (note = lo; note <= hi; note++)
-        if (note % 12 == pc &&
-            (!best || (note > near ? note - near : near - note) < (best > near ? best - near : near - best)))
-            best = note;
-    return best;
-}
-
 static void put(lead_state_t *ls, int at, int note, int len)
 {
     if (at < 0 || at > 15 || note <= 0) return;
@@ -109,7 +77,7 @@ static void land(lead_state_t *ls, int at, int note, int len)   /* the skeleton 
 }
 
 /* a push: the next chord's note an 8th early, only when it is also legal over this chord */
-static int push_ok(const ctx_t *c, int note) { return note > 0 && legal(c->r, note, c->pcs, c->np, c->bass); }
+static int push_ok(const ctx_t *c, int note) { return note > 0 && leads_legal(c->r, note, c->pcs, c->np, c->bass); }
 
 int lead_plays(const plan_block_t *b)
 {
@@ -118,27 +86,6 @@ int lead_plays(const plan_block_t *b)
 
 /* ---- the sustained lead: the phrase (sustained-lead design) ----
    phrase.c plans an 8-bar question and answer in scale degrees from an anchor; this sings it over the chords. */
-
-/* Where bar sits in its phrase (the design's call 1): a run of contiguous lead blocks (so a request that splits a
-   block, or a 4-bar lead block after another, resumes the phrase rather than restarting it); 8-bar phrases from the
-   run's start, a 4-bar remainder half a phrase (the answer when no lead block follows in the song). b is the plan's
-   own block: its neighbors are read from the plan (blocks are contiguous from bar 0, and the plan's unused blocks
-   are zero). */
-static void phrase_at(const plan_block_t *b, int bar, int *run, int *pass, int *bip, int *pbars, int *last)
-{
-    const plan_block_t *f = b, *e = b, *x;
-    int end;
-    while (f->start > 0 && lead_plays(f - 1)) f--;
-    while ((e + 1)->bars && (e + 1)->start == e->start + e->bars && lead_plays(e + 1)) e++;
-    end = e->start + e->bars;
-    *last = 1;
-    for (x = e + 1; x->bars && x->start == (x - 1)->start + (x - 1)->bars; x++)
-        if (lead_plays(x)) *last = 0;
-    *run = f->start;
-    *pass = (bar - f->start) / 8;
-    *bip = (bar - f->start) % 8;
-    *pbars = end - (f->start + *pass * 8) >= 8 ? 8 : 4;
-}
 
 typedef struct { int t, len, deg, role, orn; } tl_t;   /* a planned note on the phrase's timeline (16ths) */
 #define TLMAX 48
@@ -168,30 +115,6 @@ static int timeline(uint32_t seed, int run, int pass, int pbars, int last, int m
     return n;
 }
 
-/* the roll's scale, 7 pitch classes over the key, and scale index <-> MIDI note (index 0: the key's lowest octave) */
-static void scale_of(const song_roll_t *r, int *sc)
-{
-    unsigned pool = th_mode_pool(r->v[RF_MODE]);
-    int i, k = 0;
-    for (i = 0; i < 12 && k < 7; i++)
-        if ((pool >> i) & 1u) sc[k++] = i;
-    for (; k < 7; k++) sc[k] = sc[k - 1] + 1;
-}
-
-static int si_note(int key, const int *sc, int si)
-{
-    int o = si >= 0 ? si / 7 : -((6 - si) / 7);
-    return key + 12 * o + sc[si - 7 * o];
-}
-
-static int note_si(int key, const int *sc, int note)   /* the scale note at or under note */
-{
-    int d = note - key, o = d >= 0 ? d / 12 : -((11 - d) / 12), j = 6;
-    d -= 12 * o;
-    while (j > 0 && sc[j] > d) j--;
-    return 7 * o + j;
-}
-
 /* The phrase's anchor (degree 0): a chord tone of its first chord, in the scale, placed so the phrase's span sits
    around the lead's register center (C5, kept 6 semitones inside the range). */
 static int phrase_anchor(const ctx_t *c, const tl_t *tl, int n, int key, const int *sc)
@@ -206,12 +129,12 @@ static int phrase_anchor(const ctx_t *c, const tl_t *tl, int n, int key, const i
     if (c->lo + 6 > c->hi - 6) center = (c->lo + c->hi) / 2;
     mid = (dmin + dmax) * 6 / 7;                         /* semitones from the anchor to the span's middle */
     for (note = 48; note <= 96; note++)
-        if (is_ct(note, c->pcs, c->np) && th_in_scale(key, c->r->v[RF_MODE], note) &&
-            legal(c->r, note, c->pcs, c->np, c->bass)) {
+        if (leads_is_ct(note, c->pcs, c->np) && th_in_scale(key, c->r->v[RF_MODE], note) &&
+            leads_legal(c->r, note, c->pcs, c->np, c->bass)) {
             int cost = note + mid > center ? note + mid - center : center - note - mid;
             if (cost < bc) { bc = cost; best = note; }
         }
-    return note_si(key, sc, best);
+    return leads_note_si(key, sc, best);
 }
 
 enum { K_ANY, K_CT, K_Q, K_OPEN, K_ARR, K_THIRD };      /* what a note must be: legal; a chord tone; the 3rd or
@@ -246,7 +169,7 @@ static int step_back(const ctx_t *c, const aim_t *a, int note, int dir)
     unsigned bass = a->nx ? a->nx->bass : c->bass;
     for (d = 1; d <= 2; d++) {
         int m = note - dir * d;
-        if (m >= c->lo && m <= c->hi && legal(c->r, m, pcs, np, bass) && (a->next < 2 || is_ct(m, pcs, np)))
+        if (m >= c->lo && m <= c->hi && leads_legal(c->r, m, pcs, np, bass) && (a->next < 2 || leads_is_ct(m, pcs, np)))
             return 1;
     }
     return 0;
@@ -259,10 +182,10 @@ static int pick(const ctx_t *c, const aim_t *a, int dir, int kind, const int *kp
 {
     int note, best = 0, bc = 1 << 30, lo = x ? (c->lo_x > c->lo ? c->lo_x : c->lo) : c->lo;
     for (note = lo; note <= c->hi; note++) {
-        int iv = (note - kp[0] + 120) % 12, ct = is_ct(note, kp, kn), cost, d;
-        if (!legal(c->r, note, c->pcs, c->np, c->bass)) continue;
-        if (x && !legal(c->r, note, x->pcs, x->np, x->bass)) continue;
-        if (a->strong && !is_ct(note, c->pcs, c->np)) continue;
+        int iv = (note - kp[0] + 120) % 12, ct = leads_is_ct(note, kp, kn), cost, d;
+        if (!leads_legal(c->r, note, c->pcs, c->np, c->bass)) continue;
+        if (x && !leads_legal(c->r, note, x->pcs, x->np, x->bass)) continue;
+        if (a->strong && !leads_is_ct(note, c->pcs, c->np)) continue;
         if (kind != K_ANY && kind != K_Q && !ct) continue;
         if (kind == K_Q && !((ct && (iv == 3 || iv == 4 || (iv >= 6 && iv <= 8))) || iv == 7)) continue;
         if (kind == K_OPEN && iv == 0) continue;
@@ -283,7 +206,7 @@ static int pick(const ctx_t *c, const aim_t *a, int dir, int kind, const int *kp
                 cost += 30;                              /* a leap the next note can't answer by a step */
             if (a->leap && (m > 0) - (m < 0) == -a->leap && m <= 2 && m >= -2)
                 cost -= 12;                              /* a leap answered by a step back */
-            if (is_ct(note, c->pcs, c->np)) {            /* never an arpeggio: three quick chord tones by skips */
+            if (leads_is_ct(note, c->pcs, c->np)) {            /* never an arpeggio: three quick chord tones by skips */
                 int run = a->fast && (m >= 3 || m <= -3) ? a->ctrun + 1 : 1;
                 if (run >= 3) cost += 200;
                 else if (run == 2 && a->next == 2 && a->nfast) cost += 30;   /* the next is a chord tone too */
@@ -312,7 +235,7 @@ static int sing(const ctx_t *c, const aim_t *a, int dir, int role, int home, con
     }
     if (role == PR_ARRIVAL) {
         note = pick(c, a, dir, K_ARR, kp, kn, home, x);
-        if (!note && !legal(c->r, kp[0], kp, kn, x ? x->bass : c->bass))
+        if (!note && !leads_legal(c->r, kp[0], kp, kn, x ? x->bass : c->bass))
             note = pick(c, a, dir, K_THIRD, kp, kn, home, x);   /* the root rubs (a maj7): the 3rd */
     }
     if (x && (role == PR_QUESTION || role == PR_ARRIVAL)) return note;
@@ -333,9 +256,9 @@ static void plan_phrase(lead_state_t *ls, const ctx_t *c, const plan_block_t *b,
     int dmin = 99, dmax = -99, tied = ls->tied, lt = -1, leap = ls->leap;
     int ctrun = ls->ctrun, pnp = lnp;
     const int *pct = lpcs;
-    phrase_at(b, bar, &run, &pass, &bip, &pbars, &last);
+    leads_phrase_at(b, bar, &run, &pass, &bip, &pbars, &last);
     n = timeline(song_ov_phrase_seed(c->r->seed), run, pass, pbars, last, c->r->v[RF_MOTION], tl);
-    scale_of(c->r, sc);
+    leads_scale(c->r, sc);
     if (bip == 0 || !ls->akey) {                         /* a new phrase (or none placed): its anchor, no line yet */
         ls->anchor = phrase_anchor(c, tl, n, key, sc);
         prev = 0;
@@ -365,9 +288,9 @@ static void plan_phrase(lead_state_t *ls, const ctx_t *c, const plan_block_t *b,
         if (i && tl[i].t - (tl[i - 1].t + tl[i - 1].len) >= 8) { has = 0; prev = 0; leap = 0; }   /* after a breath */
         dir = has ? (tl[i].deg > pdeg) - (tl[i].deg < pdeg) : 0;
         x = end > 16 && c->can_push && nx->np > 0 ? nx : 0;
-        a.target = si_note(key, sc, ls->anchor + tl[i].deg);
+        a.target = leads_si_note(key, sc, ls->anchor + tl[i].deg);
         a.prev = prev;
-        a.want = prev + a.target - si_note(key, sc, ls->anchor + pdeg);
+        a.want = prev + a.target - leads_si_note(key, sc, ls->anchor + pdeg);
         if (leap && prev && i && tl[i].t - (tl[i - 1].t + tl[i - 1].len) <= 2) {
             dir = -leap;                                 /* a leap sung is answered by a step back */
             a.target = a.want = prev - leap * 2;
@@ -379,7 +302,7 @@ static void plan_phrase(lead_state_t *ls, const ctx_t *c, const plan_block_t *b,
         a.pass = tl[i].role == PR_CLOSE;
         a.conn = i && tl[i].t - (tl[i - 1].t + tl[i - 1].len) <= 2;
         a.leap = a.conn ? leap : 0;
-        a.ctrun = prev && is_ct(prev, pct, pnp) ? ctrun : 0;
+        a.ctrun = prev && leads_is_ct(prev, pct, pnp) ? ctrun : 0;
         a.nfast = i + 1 < n && tl[i + 1].t - tl[i].t <= 2;
         if (i + 1 < n && tl[i + 1].t - P < 32 && tl[i + 1].t - (tl[i].t + tl[i].len) <= 2 &&
             (tl[i + 1].t - P < 16 || nx->np > 0)) {
@@ -393,7 +316,7 @@ static void plan_phrase(lead_state_t *ls, const ctx_t *c, const plan_block_t *b,
             int t2 = tl[i + 1].t - P, tx, side = tl[i].deg > tl[i + 1].deg ? 1 : -1, h2 = home;
             const nxt_t *x2 = t2 < 16 && t2 + tl[i + 1].len > 16 && c->can_push && nx->np > 0 ? nx : 0;
             if (t2 >= 16) { c2.pcs = nx->pcs; c2.np = nx->np; c2.bass = nx->bass; h2 = nx->home; }
-            a2.target = si_note(key, sc, ls->anchor + tl[i + 1].deg);
+            a2.target = leads_si_note(key, sc, ls->anchor + tl[i + 1].deg);
             a2.prev = 0;
             a2.strong = t2 % 8 == 0;
             a2.next = a2.fast = a2.pass = 0;
@@ -418,8 +341,8 @@ static void plan_phrase(lead_state_t *ls, const ctx_t *c, const plan_block_t *b,
         put(ls, t, note, len);
         lt = t;
         leap = prev && (note - prev >= 5 || prev - note >= 5) ? (note > prev ? 1 : -1) : 0;
-        ctrun = !is_ct(note, c->pcs, c->np) ? 0
-              : a.fast && prev && is_ct(prev, pct, pnp) && (note - prev >= 3 || prev - note >= 3) ? ctrun + 1 : 1;
+        ctrun = !leads_is_ct(note, c->pcs, c->np) ? 0
+              : a.fast && prev && leads_is_ct(prev, pct, pnp) && (note - prev >= 3 || prev - note >= 3) ? ctrun + 1 : 1;
         pct = c->pcs;
         pnp = c->np;
         v = 52 + (dmax > dmin ? 16 * (tl[i].deg - dmin) / (dmax - dmin) : 8);   /* the arc, with the height */
@@ -517,11 +440,11 @@ static void plan_arp(lead_state_t *ls, const ctx_t *c, int bar)
         if (bar % 4 == 3 && (i == 2 || i == 5)) continue;   /* the phrase's last bar drops two notes */
         if (!(kept >> i & 1)) continue;                  /* motion thins it, by rank */
         v = c->keys[idx];
-        for (k = 1; k < 4 && v && !legal(c->r, v, c->pcs, c->np, c->bass); k++)
+        for (k = 1; k < 4 && v && !leads_legal(c->r, v, c->pcs, c->np, c->bass); k++)
             v = c->keys[(idx + k) & 3];                  /* a tone that would rub gives way to the next */
-        if (v && legal(c->r, v, c->pcs, c->np, c->bass)) {
+        if (v && leads_legal(c->r, v, c->pcs, c->np, c->bass)) {
             int len = LEAD_RHY[ls->rhy][i][1];
-            int note = place(v % 12, at + len > 16 ? c->lo_x : c->lo, c->hi, v + 12 - c->shift);
+            int note = leads_place(v % 12, at + len > 16 ? c->lo_x : c->lo, c->hi, v + 12 - c->shift);
             put(ls, at, note, len);
         }
     }
@@ -662,6 +585,7 @@ int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b,
     ls->acc = 0;
     ls->ring = 0;
     for (i = 0; i < 16; i++) ls->vel[i] = 0;
+    for (i = 0; i < 16; i++) ls->dl[i] = 0;
     ls->active = ls->tied;
     ls->onsets = 0;
     if (!lead_plays(b) || np <= 0) { ls->tied = 0; return 0; }
@@ -677,13 +601,13 @@ int lead_step(const lead_state_t *ls, int step, float step_samples, song_ev_t *o
 {
     float len;
     if (step < 0 || step > 15 || ls->on[step] <= 0 || max <= 0) return 0;
-    len = (float)ls->len[step] * step_samples - 200.0f;
+    len = (float)ls->len[step] * step_samples - (float)ls->dl[step] * step_samples / 3.0f - 200.0f;
     out->voice = V_LEAD;
     out->note = (uint8_t)ls->on[step];
     /* the hybrid: landings 110, the arpeggio 106 (sparser since the arpeggio's cap, so each note carries more) */
     out->vel = ls->vel[step] ? ls->vel[step] : (uint8_t)((ls->acc >> step) & 1 ? 110 : 106);
     out->pad = (uint8_t)((ls->ring >> step) & 1);      /* 1: a push, ringing past the bar (and the 4-bar line) */
-    out->delay = 0;
+    out->delay = (uint32_t)((float)ls->dl[step] * step_samples / 3.0f);   /* a style's triplet: late by thirds */
     out->len = len > 1.0f ? (uint32_t)len : 1u;
     return 1;
 }
