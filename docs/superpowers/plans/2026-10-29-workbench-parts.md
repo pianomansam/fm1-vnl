@@ -75,6 +75,38 @@ docs/superpowers/specs/2026-10-28-workbench-design.md)
 - [ ] **Step 4:** Full suite green.
 - [ ] **Step 5:** Commit: `Engine: part salts for the workbench (bass, pad, candy, drums; default off)`.
 
+### Task 1b: Engine — no ear candy; an optional pad, by song and by section
+
+Added 2026-10-29 from Sam: "Remove the ear candy part completely. It doesn't make sense"; "Make it possible for the
+pad part to not be in a song. And update the seeds to not always have it" (about two of three songs: "this looks
+good"); "add the ability for the pad part to drop out of certain song sections" (rule approved: "yes").
+
+**Files:**
+- Modify: `app/song/melody.c`, `app/song/song.c`, `app/song/plan.c`, `app/song/library.c/.h` (the candy fields stay
+  in the structs but are unused, or are removed with every reference — implementer's choice, say which),
+  `app/song/pads.c`, `app/song/roll.c` (a pad stream), `app/engine/voices.c` (no candy voice assigned),
+  `workbench/options.json`, `workbench/rows.js`, `workbench/desk.js`, `workbench/index.html` (no candy row/part)
+- Test: `tests/host/song_test.c`, `workbench/tools/smoke.mjs`
+
+**Interfaces:**
+- No song produces V_CANDY events (V_CANDY stays in the enum; nothing emits it).
+- `int song_pad_on(const song_roll_t *r)` — the song has a pad: about 2 of 3 songs (its own seed stream, so no other
+  draw shifts); a workbench override `pad_on` (-1 rolled, 0 off, 1 on) in song_ov_t and WB_OV_PAD_ON.
+- `int song_pad_in(const song_roll_t *r, const song_plan_t *p, int block)` — the pad plays in this section: about 2
+  of 3 sections in a pad song; likelier out in intros and breaks, likelier in for lead sections and main grooves;
+  never out for more than 2 sections in a row; the pad fades in/out over the section line (no hard cut).
+- Every pinned hash and level test that moves is re-pinned with a comment naming this task and Sam's words; level
+  tests' targets stay (the mix without candy/pad must still meet them, or the mix is fixed in code).
+
+- [ ] **Step 1: Failing tests:** over 300 seeds no V_CANDY event; pad songs between 60% and 73%; in pad songs,
+  sections with the pad between 55% and 78%, never 3 pad-less sections in a row, intro/break pad-less rate higher
+  than lead/groove's; pad notes fade (no V_PAD note starts at full level on a section's first bar after a pad-less
+  section… or the pad bus gain ramps — implementer picks the mechanism and tests it); pad_on override 0/1 works.
+- [ ] **Step 2:** FAIL. **Step 3:** Implement; workbench: candy row and part gone, a "Pad" on/off row (dice and lock
+  like others).
+- [ ] **Step 4:** Engine suite, smoke, server tests green. **Step 5:** Commit:
+  `Engine: no ear candy; the pad in about two of three songs and sections (Sam)`.
+
 ### Task 2: Glue — sections, jump, mute/solo, events
 
 **Files:**
