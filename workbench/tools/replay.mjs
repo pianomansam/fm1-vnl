@@ -33,7 +33,8 @@ const cstr = (ex, p) => {
   return s;
 };
 
-// The snapshot's song as { l, r } Float32 frames (seconds: the song's length if omitted); { l, r, mismatch }
+// The snapshot's song as { l, r } Float32 frames (seconds: the song's length if omitted); { l, r, mismatch, listen }:
+// listen, the parts muted or soloed as heard ("muted: bass, lead; solo: keys"; "" for every part)
 export async function replay(snap, seconds) {
   const ex = await load();
   const call = async (fn, ...a) => {
@@ -67,7 +68,9 @@ export async function replay(snap, seconds) {
     l.set(new Float32Array(ex.memory.buffer, ex.wb_out_l(), k), at);
     r.set(new Float32Array(ex.memory.buffer, ex.wb_out_r(), k), at);
   }
-  return { l, r, mismatch };
+  const { mute = [], solo = null } = snap.listen ?? {};
+  const listen = [mute.length ? `muted: ${mute.join(", ")}` : "", solo ? `solo: ${solo}` : ""].filter(Boolean).join("; ");
+  return { l, r, mismatch, listen };
 }
 
 // 16-bit stereo WAV bytes
@@ -97,6 +100,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   if (!arg || !out) { console.error("usage: replay.mjs <feedback line number | snapshot.json> out.wav [seconds]"); process.exit(2); }
   const res = await replay(snapshotFrom(arg), secs ? +secs : undefined);
   if (res.mismatch.length) console.error(`replay: the engine kept other values for: ${res.mismatch.join(", ")}`);
+  if (res.listen) console.error(`replay: rendered as heard, ${res.listen} (the snapshot's mute/solo)`);
   writeFileSync(out, wav(res));
   console.log(`replay: ${out} (${(res.l.length / SR).toFixed(1)} s)`);
 }

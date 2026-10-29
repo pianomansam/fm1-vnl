@@ -20,6 +20,10 @@ const WHY = {
   keys: (moved, by) => (moved.includes("lead") || by === "lead" ? "they make room for the lead" : ""),
   lead: (moved, by) => (by === "bass" ? "it keeps clear of the bass" : ""),
 };
+// what a part's events sound as: each (bar, step, role, note, length), sorted. Velocity and the order within a step
+// don't count (a salt that moves only those isn't heard as a new roll)
+export const notesOf = (evs) => evs.map((e) => `${e.bar}.${e.step}.${e.role}.${e.note}.${e.len}`).sort().join(" ");
+
 // a part whose 🎲 found no other roll (no salt of ROLL_TRIES changed its notes): why, by part
 const ROLL_TRIES = 8, CS_STRUM = 5;
 const DEAD = {
@@ -143,6 +147,7 @@ export class Desk {
   async set(id, value, { dice = false, release = false, step = false, also = [] } = {}) {
     const r = row(id);
     if (this.locks.has(id)) return this.done(false, `${r.label} is locked.`);
+    if (id === "kick" && this.locks.has(PART_ROW.drums)) return this.done(false, "Kick phrase: the drums part is locked (its roll holds the kick).");
     for (const p of Object.keys(PARTS)) this.rollOf(p);   // each part's history starts at the roll before this change
     const prevEv = this.partEv;
     if (id === "kit" && this.samples && !(await this.samples.kit(value))) {
@@ -154,7 +159,8 @@ export class Desk {
     if (c.blocked) return this.done(false, `Blocked: ${c.blocked.label} is locked (${c.blocked.why}).`);
     const before = { ...this.values }, grid = this.drums?.grid, lanes = this.drums?.lanes, dropped = [];
     // a part's salt is kept only when locked (a salt means something else in a new song)
-    const keep = (x) => (release || row(x).part ? this.locks.has(x) : this.kept(x));
+    // (and a locked drums part keeps its kick phrase: the roll is its salt and kick)
+    const keep = (x) => (x === "kick" && this.locks.has(PART_ROW.drums)) || (release || row(x).part ? this.locks.has(x) : this.kept(x));
     const kept = new Map([...ROWS].filter((x) => keep(x.id) && x.id !== id).map((x) => [x.id, before[x.id]]));
     const forced = new Set([...c.forced.map((f) => f.row), ...also.map(([x]) => x)]);
     await this.call("wb_stage_mark");
@@ -206,10 +212,12 @@ export class Desk {
       for (const p of Object.keys(PARTS)) if (!this.locks.has(PART_ROW[p])) delete this.rolls[p];
     this.dead = {};
     await this.refresh();
-    // a new roll goes on the end of its history, if it changed the part's notes (unknown without events: it goes on)
-    if (r.part && !step && !(prevEv && this.partEv && JSON.stringify(prevEv[r.part]) === JSON.stringify(this.partEv[r.part]))) {
-      const h = this.rollOf(r.part);
-      h.history.push(this.entry(r.part));
+    // a new roll goes on the end of its history, if it changed the part's notes (unknown without events: it goes on);
+    // the kick row changed on its own is a drums roll too
+    const rolled_ = r.part ?? (id === "kick" ? "drums" : null);
+    if (rolled_ && !step && !(prevEv && this.partEv && notesOf(prevEv[rolled_]) === notesOf(this.partEv[rolled_]))) {
+      const h = this.rollOf(rolled_);
+      h.history.push(this.entry(rolled_));
       h.at = h.history.length - 1;
     }
     const at = this.position();
@@ -353,7 +361,7 @@ export class Desk {
     const before = this.events ? await this.refresh() : null;
     const res = await f();
     if (!res.ok || !before) return res;
-    const after = this.partEv, same = (p) => JSON.stringify(before[p]) === JSON.stringify(after[p]);
+    const after = this.partEv, same = (p) => notesOf(before[p]) === notesOf(after[p]);
     const moved = Object.keys(PARTS).filter((p) => p !== part && !same(p));
     this.reactions = moved.map((p) => reaction(p, part, moved));
     const notes = [res.message, ...(same(part) ? [`${NAME[part]}: this roll plays the same notes in this song.`] : []), ...this.reactions];
@@ -374,8 +382,8 @@ export class Desk {
     }
     let v = salt();
     if (this.events) {
-      const was = JSON.stringify((await this.refresh())[p]);
-      for (let i = 0; JSON.stringify((await this.trial([[PART_ROW[p], v], ...also]))[p]) === was; i++) {
+      const was = notesOf((await this.refresh())[p]);
+      for (let i = 0; notesOf((await this.trial([[PART_ROW[p], v], ...also]))[p]) === was; i++) {
         if (i + 1 >= ROLL_TRIES) return this.done(false, (this.dead[p] = await this.deadWhy(p)));
         v = salt();
       }
@@ -407,7 +415,7 @@ export class Desk {
     const notes = [];
     let drums = false;   // the drums' roll drew a kick phrase: the kick row's dice doesn't draw another over it
     for (const r of ROWS) {
-      if (this.locks.has(r.id) || r.kind === "seed" || (r.id === "kick" && drums)) continue;
+      if (this.locks.has(r.id) || r.kind === "seed" || (r.id === "kick" && (drums || this.locks.has(PART_ROW.drums)))) continue;
       const res = await this.dice(r.id);
       if (r.part === "drums") drums = res.ok;
       if (!res.ok && (res.message.startsWith("Blocked") || r.part)) notes.push(res.message);   // (a part: why it didn't roll)

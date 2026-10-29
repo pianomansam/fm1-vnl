@@ -1694,7 +1694,7 @@ console.log("the section strip, mute/solo and listening state (Task 3)");
 // ---- the parts: re-rolls, history, locks, reactions, feedback per part (Task 5) ----
 console.log("parts: re-rolls, history, locks, reactions (Task 5)");
 {
-  const { PARTS, PART_ROW } = await import("../desk.js");
+  const { PARTS, PART_ROW, notesOf } = await import("../desk.js");
   const { readEvents } = await import("../wb.js");
   const { layout } = await import("../roll.js");
   const { cellOf } = await import("../drums.js");
@@ -1722,15 +1722,17 @@ console.log("parts: re-rolls, history, locks, reactions (Task 5)");
 
   // each part's 🎲: its own events change, it lands at the next bar line, and the page lists whatever else moved
   {
-    const { ex, desk } = await deskOn(2);   // seed 2 has a pad, and keys the voicing salt moves (seed 21's don't)
+    // seed 3: a pad, keys the voicing salt moves (seed 21's don't) and a bass line its salt moves (seed 2's only
+    // takes new velocities)
+    const { ex, desk } = await deskOn(3);
     ex.wb_play(1);
     until(ex, () => ex.wb_bar() === 2, 60 * SR);
     const bpm = ex.wb_roll_get(RF.TEMPO), out = [];
     for (const p of names) {
       const before = { ...desk.partEv }, was = ex.wb_catchups(), salt = desk.values[PART_ROW[p]], bar = ex.wb_bar();
       const res = await desk.reroll(p);
-      const own = JSON.stringify(before[p]) !== JSON.stringify(desk.partEv[p]);
-      const moved = names.filter((q) => q !== p && JSON.stringify(before[q]) !== JSON.stringify(desk.partEv[q]));
+      const own = notesOf(before[p]) !== notesOf(desk.partEv[p]);   // (heard: velocity alone doesn't count)
+      const moved = names.filter((q) => q !== p && notesOf(before[q]) !== notesOf(desk.partEv[q]));
       const said = moved.every((q) => res.message.toLowerCase().includes(`${q} moved`)) &&
                    names.filter((q) => !moved.includes(q)).every((q) => !res.message.toLowerCase().includes(`${q} moved`));
       const waited = until(ex, () => ex.wb_catchups() > was, 60 * SR);
@@ -1898,6 +1900,81 @@ console.log("parts: re-rolls, history, locks, reactions (Task 5)");
           `a lead roll that moves the keys: "${said[0] ?? "(none moved them)"}"`);
   }
 
+  // Final review 1: a roll whose only difference is velocity (or order within a step) sounds the same: not a new roll.
+  // A bass salt that moves only the bass's velocities is never committed; the drums with their kick locked (the drums
+  // salt is velocity and lateness jitter only) are refused, saying why
+  {
+    const e = (bar, step, role, note, vel, len) => ({ bar, step, role, note, vel, len });
+    check(notesOf([e(0, 0, 1, 40, 80, 4), e(0, 0, 2, 60, 90, 2)]) === notesOf([e(0, 0, 2, 60, 70, 2), e(0, 0, 1, 40, 99, 4)]) &&
+          notesOf([e(0, 0, 1, 40, 80, 4)]) !== notesOf([e(0, 0, 1, 41, 80, 4)]) && notesOf([e(0, 0, 1, 40, 80, 4)]) !== notesOf([e(0, 0, 1, 40, 80, 3)]),
+          "notesOf: velocity and the order within a step don't count; a note or a length does");
+    // seed 21's bass salts: one that moves only velocities, one that moves notes (found on a probe)
+    const probe = await load(), { readEvents: rd } = await import("../wb.js");
+    const bassOf = (salt) => {
+      probe.wb_seed(21);
+      probe.wb_ov_set(OV.BASS_SALT, salt);
+      probe.wb_apply();
+      probe.wb_events(0);
+      return rd(probe).filter((x) => x.role === V.BASS);
+    };
+    const b0 = bassOf(0);
+    let velOnly = 0, moves = 0;
+    for (let sl = 1; sl < 200 && !(velOnly && moves); sl++) {
+      const b = bassOf(sl);
+      if (notesOf(b) === notesOf(b0)) { if (!velOnly && JSON.stringify(b) !== JSON.stringify(b0)) velOnly = sl; }
+      else moves ||= sl;
+    }
+    const at = (...salts) => { const xs = salts.map((x) => (x - 0.5) / 0x7ffffffe); let i = 0; return () => xs[Math.min(i++, xs.length - 1)]; };
+    const { desk: dv } = await deskOn(21, at(velOnly));
+    const rv = await dv.reroll("bass");
+    check(velOnly && !rv.ok && /no other bass line/.test(rv.message) && dv.values.bassLine === 0 && dv.parts.bass.history.length === 1,
+          `a bass salt that moves only velocities (${velOnly}) isn't a new roll: refused ("${rv.message}"), nothing on the history`);
+    const { desk: dm } = await deskOn(21, at(velOnly, moves));
+    const rm = await dm.reroll("bass");
+    check(moves && rm.ok && dm.values.bassLine === moves && dm.parts.bass.history.length === 2,
+          `... the 🎲 skips it and commits the next salt that moves notes (${dm.values.bassLine}, wanted ${moves})`);
+    const { desk: dd } = await deskOn(21);
+    dd.lock("kick", true);
+    const rd2 = await dd.reroll("drums");
+    check(!rd2.ok && /no other variation fits this pattern/.test(rd2.message) && dd.values.drumsVar === 0 && dd.parts.drums.history.length === 1,
+          `seed 21's drums with the kick locked (jitter only): refused ("${rd2.message}")`);
+  }
+
+  // Final review 2: a locked drums part keeps its kick phrase through a new seed and re-roll all; the kick row
+  // can't move under it
+  {
+    const { ex, desk } = await deskOn(21);
+    await desk.reroll("drums");
+    const kick = desk.values.kick, salt = desk.values.drumsVar;
+    desk.lock(PART_ROW.drums, true);
+    await desk.set("seed", 4343);
+    const d1 = desk.parts.drums;
+    check(desk.values.kick === kick && desk.values.drumsVar === salt && d1.history[d1.at].kick === kick && JSON.parse(cstr(ex, ex.wb_state())).kick[2] === 1,
+          `a locked drums part keeps its kick (${kick}) and salt through a new seed`);
+    await desk.rerollAll();
+    const d2 = desk.parts.drums;
+    check(desk.values.kick === kick && desk.values.drumsVar === salt && d2.history[d2.at].kick === kick, "... and through re-roll all");
+    desk.lock("seed", true);
+    await desk.rerollAll();
+    const k = await desk.set("kick", kick === "k2" ? "k3" : "k2");
+    check(desk.values.kick === kick && !k.ok && /drums part is locked/.test(k.message),
+          `... and re-roll all with the seed locked; the kick row can't move it ("${k.message}")`);
+  }
+
+  // Final review 5: the kick row changed on its own (by hand or its 🎲) goes on the drums' history: "n of m" is what plays
+  {
+    const { desk } = await deskOn(21);
+    await desk.set("kick", "k3");
+    const h1 = desk.parts.drums;
+    await desk.dice("kick");
+    const h2 = desk.parts.drums;
+    check(h1.history.length === 2 && h1.history[h1.at].kick === "k3" && h2.history.length === 3 && h2.at === 2 &&
+          h2.history[h2.at].kick === desk.values.kick && desk.values.kick !== "k3",
+          `the kick row's own changes go on the drums' history (${h2.history.map((x) => x.kick || "own").join(", ")})`);
+    const back = await desk.stepPart("drums", -1);
+    check(back.ok && desk.values.kick === "k3", "and ◀ steps back to the hand-picked kick");
+  }
+
   // a keys-room reaction: seed 40's bass salt 1 moves the lead, and the keys make room for it
   {
     const { desk } = await deskOn(40);
@@ -1950,6 +2027,11 @@ console.log("parts: re-rolls, history, locks, reactions (Task 5)");
     ex.wb_play(1);
     const live = render(ex, 8 * SR);
     const a = await replay(JSON.parse(JSON.stringify(entry.snapshot)), 8);
+    {   // Final review 6: replay says when it renders with parts muted or soloed
+      const quiet = { ...JSON.parse(JSON.stringify(entry.snapshot)), listen: { mute: ["bass"], solo: null } };
+      const q = await replay(quiet, 1), heardAll = await replay({ ...quiet, listen: undefined }, 1);
+      check(q.listen === "muted: bass" && heardAll.listen === "", `replay names the parts muted or soloed ("${q.listen}")`);
+    }
     check(!a.mismatch.length && Buffer.compare(wav(a), wav(live)) === 0, `it replays to the samples heard (mismatch: ${a.mismatch.join(",") || "none"})`);
     const { ex: e2, desk: d2 } = await deskOn(5);
     await d2.restore(JSON.parse(JSON.stringify(snap)));
