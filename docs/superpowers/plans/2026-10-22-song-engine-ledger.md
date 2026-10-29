@@ -369,6 +369,11 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
     force leaps. **Decided (Sam, 2026-10-29): duck the keys instead** — when the lead needs room, the keys voice lower
     (the voice-leading rules still pick the smoothest path, in a lower window); the fixed floor goes. Part of the lead
     styles' build.
+    **Follow-up (Sam, 2026-10-29: add to the ledger):** the lead styles build's fixed band (floor = style center − 6)
+    raised the floor where the keys sat low, costing Romanticism and '60s Jazz their low approach notes ('60s Jazz
+    plays ~9% fewer notes). Fix: the floor = the LOWER of the band's floor and the old floor (a 4th over the keys'
+    top), so the lead dips where the keys sit low and the keys still duck where they'd crowd it; then restore the
+    strict test gates and re-render the built styles.
   - **Decided (Sam, 2026-10-29): remove the two old lead engines** — the phrase planner and the hybrid arpeggio
     ("these new ones are light years ahead"). The shortlisted styles replace them. Goes with them: the lead-arp
     pattern family (rhythms, chord-tone orders, landings) and its workbench rows, and whatever of the melody path only
