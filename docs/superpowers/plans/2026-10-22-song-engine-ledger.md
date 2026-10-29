@@ -384,6 +384,12 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
     app/build/new/instruments-guitar-organ-2026-10-29/). A real jazz/clean electric sample is the remaining path
     (Karoryfer Shinyguitar archtop, CC0, from docs/research/real-leads-2026-10-29.md), but flash is already over
     budget with the new lead styles merged (413776 of 409600 B before any guitar).
+    **All guitar lead candidates rejected (Sam, 2026-10-29: "these do not work"):** Shinyguitar archtop (pickup and
+    mic, written and an octave down, with and without a 30 ms attack trim) and the FluidR3 jazz guitar
+    (app/build/new/instruments-shinyguitar-2026-10-29/, guitar-candidates-2026-10-29/; branches
+    `worktree-agent-adb211453a61fddd9` 929c2a5, `worktree-agent-afe3be65f311152c4` 2280a67). The guitar lead is
+    parked. Untried: Sam recording a guitar himself (he offered to record from his own instruments), the SampleScience
+    clean guitar (public-domain samples), the Polyphone jazz guitar SF2 (needs a sign-in).
 
 - **Done (Sam, 2026-10-29, after the lead-candidates spike, app/build/new/lead-candidates/):** "i only liked the felt
   piano and vibraphones." The vibes are the VCSL vibraphone (soft mallets, v2, 5 zones C4-E6, 18.4 KB of flash), on the
