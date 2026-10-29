@@ -283,6 +283,17 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
 
 ### Leads (Sam: not happy with the current leads; start here when we revisit them)
 
+- **The Impressionism lead (Sam, 2026-10-29: "This impressionism lead sounds fantastic").** A new lead style: 4-bar phrases (arabesque,
+  float, varied arabesque, falling sigh), 3-5-note pentatonic/modal arabesques in 16ths or 8th triplets, landings
+  behind the beat on color tones (9th/13th over major, 11th over minor) often tied over the bar, rests after each
+  phrase, whole-tone only as the one legal 4-note fragment over dominants. Research: docs/research/lead-impressionism-2026-10-29.md;
+  spike (lead_style 2, `plan_impressionism` in lead.c): worktree branch `worktree-agent-aaf267bc7c3b70bee` (93c14e3,
+  f5bca57); renders: app/build/new/lead-impressionism-2026-10-29/. **Next: bring it into the engine properly** (tests, the
+  workbench's lead-style row, which songs roll it). Open from the spike: phrase heads may sound loopy (one variation
+  per restatement); beat 1 rarely struck (vary, not avoid); the felt piano plays it soft and its ties decay (suits
+  flute and vibes best); triplets don't take the swing; the lead's floor over percussive keys (~C5) blocks the low
+  a piece register; unplaceable notes are dropped.
+
 - **Done (Sam, 2026-10-29, after the lead-candidates spike, app/build/new/lead-candidates/):** "i only liked the felt
   piano and vibraphones." The vibes are the VCSL vibraphone (soft mallets, v2, 5 zones C4-E6, 18.4 KB of flash), on the
   phrase planner as before (its level matched: its sets' lead over keys 8.5-9.8 dB, as the other leads'); the felt
