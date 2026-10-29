@@ -379,6 +379,11 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
     worktree `agent-a0cfe80a339f7f02b`, branch `worktree-agent-a0cfe80a339f7f02b`, holds partial work, including the
     flash-trim survey if it got that far); the B3 part of the guitar spike was dropped. The warm chorus guitar
     (Emilyguitar + chorus + warmth) continues.
+    **Chorus guitar from the Emilyguitar: rejected (Sam, 2026-10-29):** "too thin. It doesn't sound like a chorus jazz
+    guitar. It sounds like sitar." (spike branch `worktree-agent-a18fa86763a20027d` 194da1c; renders in
+    app/build/new/instruments-guitar-organ-2026-10-29/). A real jazz/clean electric sample is the remaining path
+    (Karoryfer Shinyguitar archtop, CC0, from docs/research/real-leads-2026-10-29.md), but flash is already over
+    budget with the new lead styles merged (413776 of 409600 B before any guitar).
 
 - **Done (Sam, 2026-10-29, after the lead-candidates spike, app/build/new/lead-candidates/):** "i only liked the felt
   piano and vibraphones." The vibes are the VCSL vibraphone (soft mallets, v2, 5 zones C4-E6, 18.4 KB of flash), on the
