@@ -19,6 +19,8 @@ typedef struct {
                                it (song_pad_in) drawn anew */
     uint32_t drums_salt;    /* 0: as rolled; else new per-hit velocity and lateness jitter for the drums */
     int8_t pad_on;          /* -1 rolled (song_pad_on), 0 no pad layer in the song, 1 a pad layer */
+    int8_t lead_double;     /* 0: the rules that steer the lead off a pitch (or its octave) the keys, bass or pad
+                               sound with it hold; 1: they're off (rubs, avoid notes and range still hold) */
 } song_ov_t;
 
 void song_override(const song_ov_t *ov);   /* NULL: none (default); the struct is copied */

@@ -65,7 +65,9 @@ static int skel_near(const ctx_t *c, const int *pcs, int np, int from, int prev,
                 int iv = (pcs[j] - pcs[0] + 12) % 12, cost = (note > from ? note - from : from - note) * 4;
                 if (iv == 0) cost += 6;
                 if (iv == 7) cost += 3;
-                if (c->keys[3] && note == c->keys[3] + 12) cost += 4;
+                if (c->keys[3] && note == c->keys[3] + 12 && !song_ov()->lead_double)
+                    cost += 4;                           /* the keys' top an octave up: doubled (the workbench may
+                                                            let it, lead_double) */
                 if (cost < bc) { bc = cost; best = note; }
             }
     }

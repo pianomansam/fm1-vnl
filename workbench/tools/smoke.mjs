@@ -2091,6 +2091,69 @@ console.log("parts: re-rolls, history, locks, reactions (Task 5)");
   }
 }
 
+console.log("the lead-doubling switch (patterns and edits, Task 1)");
+{
+  const { readEvents } = await import("../wb.js");
+  const ex = await load(), call = caller(ex);
+  ex.wb_seed(21);
+  ex.wb_apply();
+  const desk = new Desk(call, C, OPTS, await call("wb_library"), { rnd: lcg(9) });
+  await desk.read(true);
+  const r = row("leadDouble"), names = optionsFor(r, desk.state, OPTS).map((o) => o.name);
+  check(r && r.kind === "ov" && r.key === "LEAD_DOUBLE" && r.label === "Lead may double other voices" &&
+        JSON.stringify(names) === JSON.stringify(["Off", "On"]) && desk.values.leadDouble === 0 && ex.wb_ov_get(OV.LEAD_DOUBLE) === 0,
+        `a "Lead may double other voices" row: off, on (${names.join(", ")}); a new song's is off`);
+  // the lead's notes of a seed's committed song, with the switch off or on (a probe instance's wb_events)
+  const leadOf = async (seed, on) => {
+    const play = await load();
+    play.wb_seed(seed);
+    play.wb_ov_set(OV.LEAD_DOUBLE, on);
+    play.wb_apply();
+    const pex = await load();
+    new Uint8Array(pex.memory.buffer, pex.wb_commit_ptr(), pex.wb_stage_size())
+      .set(new Uint8Array(play.memory.buffer, play.wb_commit_ptr(), play.wb_stage_size()));
+    pex.wb_events(0);
+    return JSON.stringify(readEvents(pex).filter((e) => e.role === V.LEAD).map((e) => [e.bar, e.step, e.note]));
+  };
+  let moved = 0;
+  for (let seed = 1; seed <= 60 && !moved; seed++) if ((await leadOf(seed, 0)) !== (await leadOf(seed, 1))) moved = seed;
+  check(moved > 0, `on, it moves some song's lead (seed ${moved})`);
+  // it toggles, landing at the next bar line
+  const pl = await load();
+  pl.wb_seed(21);
+  pl.wb_apply();
+  pl.wb_play(1);
+  until(pl, () => pl.wb_bar() === 3, 60 * SR);
+  const n0 = pl.wb_catchups();
+  pl.wb_ov_set(OV.LEAD_DOUBLE, 1);
+  pl.wb_apply();
+  render(pl, Q);
+  const waiting = pl.wb_bar() === 3 && pl.wb_catchups() === n0 && JSON.parse(cstr(pl, pl.wb_live_state())).ov[OV.LEAD_DOUBLE] === 0;
+  until(pl, () => pl.wb_bar() === 4, 60 * SR);
+  render(pl, Q);
+  check(waiting && pl.wb_catchups() === n0 + 1 && JSON.parse(cstr(pl, pl.wb_live_state())).ov[OV.LEAD_DOUBLE] === 1,
+        "set on in bar 3, it lands at bar 4's line (one catch-up)");
+  const t = await desk.set("leadDouble", 1);
+  check(t.ok !== false && desk.values.leadDouble === 1 && ex.wb_ov_get(OV.LEAD_DOUBLE) === 1, "the row turns it on");
+  // it rides in snapshots; an older one (no such row) restores it off
+  const snap = await desk.snapshot();
+  const e2 = await load(), d2 = new Desk(caller(e2), C, OPTS, await caller(e2)("wb_library"));
+  const miss = await d2.restore(snap);
+  check(snap.rows.leadDouble === 1 && !miss.length && d2.values.leadDouble === 1 && e2.wb_ov_get(OV.LEAD_DOUBLE) === 1,
+        `a snapshot keeps it on (mismatch: ${miss.join(", ") || "none"})`);
+  const old = JSON.parse(JSON.stringify(snap));
+  delete old.rows.leadDouble;
+  old.locks = [];
+  const e3 = await load(), d3 = new Desk(caller(e3), C, OPTS, await caller(e3)("wb_library"));
+  const miss3 = await d3.restore(old);
+  check(!miss3.length && d3.values.leadDouble === 0 && e3.wb_ov_get(OV.LEAD_DOUBLE) === 0,
+        `an older snapshot (no such row) restores it off (mismatch: ${miss3.join(", ") || "none"})`);
+  const s12 = JSON.parse(cstr(ex, ex.wb_state()));
+  check(fromEngine({ ...s12, ov: s12.ov.slice(0, 12) }, C, OPTS).leadDouble === 0, "a 12-entry ov list reads it off");
+  await desk.set("leadDouble", 0);
+  check(desk.values.leadDouble === 0 && ex.wb_ov_get(OV.LEAD_DOUBLE) === 0, "and back off");
+}
+
 console.log("options.json: statuses");
 check(!OPTS.instruments.some((i) => i.status === "candidate") &&
       ["Chillwave pad", "Vox pad"].every((n) => OPTS.instruments.find((i) => i.name === n).status === "approved"),

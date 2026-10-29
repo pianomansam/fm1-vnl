@@ -750,6 +750,7 @@ EXPORT void wb_ov_set(int key, int value)
     case WB_OV_PAD_SALT: o->pad_salt = (uint32_t)value; break;
     case WB_OV_DRUMS_SALT: o->drums_salt = (uint32_t)value; break;
     case WB_OV_PAD_ON: o->pad_on = (int8_t)value; break;
+    case WB_OV_LEAD_DOUBLE: o->lead_double = (int8_t)value; break;
     default: break;
     }
 }
@@ -770,6 +771,7 @@ EXPORT int wb_ov_get(int key)
     case WB_OV_PAD_SALT: return (int)o->pad_salt;
     case WB_OV_DRUMS_SALT: return (int)o->drums_salt;
     case WB_OV_PAD_ON: return o->pad_on;
+    case WB_OV_LEAD_DOUBLE: return o->lead_double;
     default: return 0;
     }
 }
@@ -976,7 +978,8 @@ EXPORT const char *wb_consts(void)
         {"COMP", WB_OV_COMP}, {"LEAD_STYLE", WB_OV_LEAD_STYLE}, {"PAD_PLACE", WB_OV_PAD_PLACE}, {"RIDE", WB_OV_RIDE},
         {"KEYS_OCT", WB_OV_KEYS_OCT}, {"LEAD_OCT", WB_OV_LEAD_OCT}, {"VOICING_SALT", WB_OV_VOICING_SALT},
         {"PHRASE_SALT", WB_OV_PHRASE_SALT}, {"BASS_SALT", WB_OV_BASS_SALT}, {"PAD_SALT", WB_OV_PAD_SALT},
-        {"DRUMS_SALT", WB_OV_DRUMS_SALT}, {"PAD_ON", WB_OV_PAD_ON}, {"N", WB_OV_N}}, V[] = {
+        {"DRUMS_SALT", WB_OV_DRUMS_SALT}, {"PAD_ON", WB_OV_PAD_ON}, {"LEAD_DOUBLE", WB_OV_LEAD_DOUBLE},
+        {"N", WB_OV_N}}, V[] = {
         {"CHORD", V_CHORD}, {"BASS", V_BASS}, {"LEAD", V_LEAD}, {"PAD", V_PAD}, {"KICK", V_KICK}, {"SNARE", V_SNARE},
         {"HAT", V_HAT}, {"OHAT", V_OHAT}, {"SHAKER", V_SHAKER}, {"RIM", V_RIM}, {"RIDE", V_RIDE}}, SRC[] = {
         {"NONE", WB_SRC_NONE}, {"PT", WB_SRC_PT}, {"OPT", WB_SRC_OPT}, {"SAMPLE", WB_SRC_SAMPLE},

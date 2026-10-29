@@ -414,25 +414,26 @@ static void test_chain(void)
 /* ---- the workbench's re-rolls ---- */
 
 /* songs 1-40 with the voicings re-rolled, then the lead's phrase, then the keys and the lead an octave up and down,
-   then each part salt (bass, pad, drums): every rule above still holds (the registers' ranges moved with
-   them) */
+   then each part salt (bass, pad, drums), then the lead let double the other voices (lead_double): every rule above
+   still holds (the registers' ranges moved with them; rubs, avoid notes and range with the doubling rules off) */
 static void test_ov_salts(void)
 {
     static song_t s;
-    static const int8_t KO[9] = {0, 0, 1, -1, 0, 0, 0, 0, 0}, LO[9] = {0, 0, 0, 0, 1, -1, 0, 0, 0};
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1};
+    static const int8_t KO[10] = {0, 0, 1, -1, 0, 0, 0, 0, 0, 0}, LO[10] = {0, 0, 0, 0, 1, -1, 0, 0, 0, 0};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, 0};
     song_roll_t r;
     int i, k;
-    for (k = 0; k < 9; k++) {
+    for (k = 0; k < 10; k++) {
         o.voicing_salt = k == 0;
         o.phrase_salt = k == 1;
         o.bass_salt = k == 6;                       /* the part salts (bass, pad, drums) */
         o.pad_salt = k == 7;
         o.drums_salt = k == 8;
+        o.lead_double = k == 9;
         o.keys_oct = KO[k];
         o.lead_oct = LO[k];
         song_override(&o);
-        for (i = 1; i <= 40; i++) {
+        for (i = 1; i <= (k == 9 ? 300 : 40); i++) {   /* the doubling switch: the 300 songs song_test moves */
             roll_song(NULL, (uint32_t)i, &r);
             song_start(&s, &r);
             run(&s, &R1, NULL, NULL, NULL);

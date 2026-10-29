@@ -6927,7 +6927,7 @@ static void test_lead_over_keys(void)
    dB): each set's mean and median 7-11 dB under, and no song under 5 dB or over 13. */
 static void test_pad_level(void)
 {
-    static const song_ov_t pads = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1};   /* every song with a pad */
+    static const song_ov_t pads = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, 0};   /* every song with a pad */
     float d[LIB_NSETS_MAX * LK_PER], sorted[LIB_NSETS_MAX * LK_PER], med;
     int k, n = 0, sets = 0;
     song_override(&pads);
@@ -7951,7 +7951,7 @@ static pd_rec_t pd_a, pd_b;
    so they keep their samples; NULL (0) restores the roll's */
 static void pd_all_pads(int on)
 {
-    static const song_ov_t all = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1};
+    static const song_ov_t all = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, 0};
     song_override(on ? &all : NULL);
 }
 static int pd_part(const song_t *s, int blk, int sus)
@@ -9243,7 +9243,7 @@ static void ov_run(const song_roll_t *r, const song_ov_t *ov, ov_rec_t *o)
 }
 static song_ov_t ov_none(void)
 {
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, 0};
     return o;
 }
 static void test_ov_comp(void)
@@ -9666,6 +9666,88 @@ static void test_ov_off(void)
     a = sf_songs(0); b = sf_songs(1);
     CHECK(a == 0xb852d9cbu, "ov off: the strummed songs hash %08x, wanted b852d9cb", (unsigned)a);
     CHECK(b == 0xa662a137u, "ov off: with set changes %08x, wanted a662a137", (unsigned)b);
+}
+/* the lead-doubling switch: a lead onset that doubles (the same pitch, or an octave of it) a keys, bass or pad note
+   sounding at its step; dbl[t] 1 where the lead's onset at step t does, 2 where it doesn't (0: no onset) */
+#define LD_STEPS 8192
+static uint8_t LD0[LD_STEPS], LD1[LD_STEPS];
+static int ld_run(const song_roll_t *r, int on, uint8_t *dbl, uint32_t *lead_hash)
+{
+    static song_t s;
+    song_ev_t ev[64];
+    song_ov_t o = ov_none();
+    int note[64], end[64], na = 0, doubled = 0;
+    uint32_t h = 2166136261u;
+    memset(dbl, 0, LD_STEPS);
+    o.lead_double = (int8_t)on;
+    song_override(&o);
+    song_start(&s, r);
+    while (s.state == SS_PLAYING) {
+        int t = s.bar * 16 + s.step, n, i, k;
+        float gs = song_step_samples(&s);
+        n = song_tick(&s, ev, 64);
+        for (k = 0; k < na; k++)                         /* the notes that stopped sounding before this step */
+            if (end[k] <= t) { note[k] = note[--na]; end[k] = end[na]; k--; }
+        for (i = 0; i < n; i++)
+            if ((ev[i].voice == V_CHORD || ev[i].voice == V_BASS || ev[i].voice == V_PAD) && na < 64) {
+                note[na] = ev[i].note;
+                end[na++] = t + (int)(((float)ev[i].delay + (float)ev[i].len) / gs + 0.5f);
+            }
+        for (i = 0; i < n; i++)
+            if (ev[i].voice == V_LEAD && t < LD_STEPS) {
+                int d = 0;
+                for (k = 0; k < na; k++) d |= (ev[i].note - note[k]) % 12 == 0;
+                dbl[t] = (uint8_t)(d ? 1 : 2);
+                doubled += d;
+                h = ov_ev(h, t, &ev[i]);
+            }
+    }
+    song_override(NULL);
+    *lead_hash = h;
+    return doubled;
+}
+static void test_lead_double_off(void)
+{
+    uint32_t a, b, h0;
+    song_roll_t r;
+    song_ov_t o = ov_none();
+    int seed;
+    song_override(NULL);
+    CHECK(song_ov()->lead_double == 0, "lead double off: the default override lets the lead double");
+    song_override(&o);                                   /* set explicitly off: as no override */
+    a = sf_songs(0); b = sf_songs(1);
+    song_override(NULL);
+    CHECK(a == 0xb852d9cbu && b == 0xa662a137u, "lead double off: the pinned hashes moved (%08x, %08x)", (unsigned)a,
+          (unsigned)b);
+    for (seed = 1; seed <= 40; seed++) {                 /* every song's lead as with no override */
+        roll_song(NULL, (uint32_t)seed, &r);
+        ov_run(&r, NULL, &OVA);
+        ld_run(&r, 0, LD0, &h0);
+        CHECK(OVA.lead == h0, "lead double off: seed %d's lead moved with the switch set off", seed);
+    }
+}
+/* lead_double = 1: over 300 songs some lead note doubles a keys, bass or pad note sounding with it where it didn't
+   with the rules on, and more lead notes double in all */
+static void test_lead_double_on(void)
+{
+    song_roll_t r;
+    int seed, t, d0 = 0, d1 = 0, fresh = 0, gone = 0, moved = 0, n0 = 0;
+    uint32_t h0, h1;
+    for (seed = 1; seed <= 300; seed++) {
+        roll_song(NULL, (uint32_t)seed, &r);
+        d0 += ld_run(&r, 0, LD0, &h0);
+        d1 += ld_run(&r, 1, LD1, &h1);
+        moved += h0 != h1;
+        for (t = 0; t < LD_STEPS; t++) {
+            n0 += LD0[t] != 0;
+            fresh += LD1[t] == 1 && LD0[t] != 1;
+            gone += LD0[t] == 1 && LD1[t] != 1;
+        }
+    }
+    printf("lead double: 300 songs, %d lead notes; doubling %d with the rules, %d without; %d songs' leads moved, "
+           "%d steps newly doubled, %d no longer\n", n0, d0, d1, moved, fresh, gone);
+    CHECK(fresh > 0, "lead double on: no lead note doubles where it didn't with the rules on");
+    CHECK(d1 > d0, "lead double on: %d doubled lead notes, not more than the rules' %d", d1, d0);
 }
 /* a steal of a damped string (the final review): six strings struck, the first two re-struck at once (their last
    notes damped on the 2 spare voices), then a plain chord note (no string: a stab after a set change) while they
@@ -11020,6 +11102,8 @@ int main(int argc, char **argv)
     RUN(test_task1b_pad_level);
     RUN(test_ov_oct);
     RUN(test_ov_off);
+    RUN(test_lead_double_off);
+    RUN(test_lead_double_on);
     RUN(test_samples_table);
     RUN(test_samp_seams);
     RUN(test_samp);
