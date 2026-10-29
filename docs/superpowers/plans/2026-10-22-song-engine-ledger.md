@@ -301,6 +301,12 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   per restatement); beat 1 rarely struck (vary, not avoid); the felt piano plays it soft and its ties decay (suits
   flute and vibes best); triplets don't take the swing; the lead's floor over percussive keys (~C5) blocks the low
   a piece register; unplaceable notes are dropped.
+- **Lead-style spikes, Sam's verdicts** (same five songs; queue in .superpowers/sdd/lead-styles-2026-10-29/queue.md;
+  research in docs/research/lead-<slug>-2026-10-29.md):
+  - **Neoclassical** (lead_style 3, branch `worktree-agent-a36c80b9ab11ec46a`): songs 1 (G Aeolian, flute) and 5 (A Ionian,
+    flute) the best. Song 5's 4th bar of each 4 too busy; song 1 handled it much better. Songs 2-4 "just had issues"
+    (Db Lydian flute, B Dorian vibes, Ab Mixolydian felt). Spike notes: leaps where few notes are legal (songs 3, 5),
+    density ~3.5 notes/bar, strong-beat leaning notes.
 
 - **Done (Sam, 2026-10-29, after the lead-candidates spike, app/build/new/lead-candidates/):** "i only liked the felt
   piano and vibraphones." The vibes are the VCSL vibraphone (soft mallets, v2, 5 zones C4-E6, 18.4 KB of flash), on the
