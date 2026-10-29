@@ -993,7 +993,7 @@ The vibes are the VCSL vibraphone (M_SAMP, 5 zones C4-E6, 16 kHz IMA ADPCM, 0.46
 the felt piano leads some sets (its keys patch, on the lead); the muted trumpet, sax and guitar lick patches and the
 string synth (strsyn.c, its Plaits Ensemble and the lead's two 512-float lines in the pool) are gone.
 
-- **Memory** (`tools/mem-check.sh`): image **386908 B before, 402060 B after** (+15152: the vibraphone's 18416 B
+- **Memory** (`tools/mem-check.sh`): image **386908 B before, 402108 B after** (+15200: the vibraphone's 18416 B
   less about 3.3 KB of the string synth's code and the three patches; budget 409600, about 7.4 KB left), RAM 56592 ->
   55440 B, pool 184312 -> 180216 B (the string synth's lines).
 - **CPU, per component** (`bench --parts`, the lead row: 2 voices of 8ths, held a dotted 8th; best of 3, two runs,

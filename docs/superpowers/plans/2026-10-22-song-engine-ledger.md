@@ -519,6 +519,10 @@ From the task and final reviews; none blocks merging. Revisit when the area is n
   a glide after silence re-attacks over the patch's attack and does not re-strike the filter envelope.
 - Thin level margins (a future voice change needs a rebalance): Felt and trumpet's median 5.9 of 6 dB; the lowest
   songs +2.4/+2.5 dB; Felt and flute's mean 4.3. All rulings: docs/superpowers/plans/2026-10-23-synths-ledger.md.
+- Thin level margin (leads change, 2026-10-29): Emilyguitar and flute's lead-over-keys median sits exactly on the 8.0 dB
+  floor after the flute's −0.3 dB trim for set 9. A later level change failing that test is this, not a regression.
+- To check by ear: the vibraphone loops a 60 ms segment under its 10 s decay (long notes may sound static); the vibes
+  now lead about 29% of songs (9 of 29 sets: vary, not avoid — sets 6, 10, 30, 33 could take another lead).
 
 ### Sustained lead: open items (2026-10-24)
 
