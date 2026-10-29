@@ -783,6 +783,18 @@ EXPORT int wb_keys_oct_applied(void)
     return d;
 }
 
+/* The keys' comping style (CS_*) as the engine applies it to the staged state: the override's, else the song's roll */
+EXPORT int wb_comp_applied(void)
+{
+    int cs;
+    stage_set(1);
+    song_override(&st.ov);
+    cs = harmony_style(&st.roll);
+    song_override(&live.ov);
+    stage_set(0);
+    return cs;
+}
+
 /* a seed or map change is a new song: a jump staged before it (a bar of the old song's sections) is dropped, so
    the song starts at bar 1 (in this call: no bar line can land between the two) */
 EXPORT void wb_apply(void)

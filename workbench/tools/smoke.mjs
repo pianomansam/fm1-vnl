@@ -1807,8 +1807,9 @@ console.log("parts: re-rolls, history, locks, reactions (Task 5)");
     // (a map its dice drew starts the unlocked parts' histories over first)
     const after = desk.parts, rolledP = names.filter((q) => after[q].salt !== before[q].salt && after[q].salt &&
                                                      after[q].history.at(-1).salt === after[q].salt && after[q].at === after[q].history.length - 1);
-    const want = names.filter((q) => q !== "lead" && !(q === "pad" && desk.padless));
-    check(all.ok && want.every((q) => rolledP.includes(q)) && after.lead.salt === lead.salt,
+    // (a part with one roll in the song, or no pad: re-roll all names it)
+    const want = names.filter((q) => q !== "lead" && !all.message.includes(`${q[0].toUpperCase()}${q.slice(1)}: `) && !(q === "pad" && /No pad/.test(all.message)));
+    check(all.ok && want.length >= 2 && want.every((q) => rolledP.includes(q)) && after.lead.salt === lead.salt,
           `re-roll all (seed locked) re-rolls the unlocked parts (${rolledP.join(", ")}), not the locked lead`);
   }
 
@@ -1840,8 +1841,61 @@ console.log("parts: re-rolls, history, locks, reactions (Task 5)");
     const r = await desk.reroll("drums"), b = await desk.stepPart("drums", -1);
     check(desk.drums.grid.edited && !r.ok && /drawn pattern/.test(r.message) && !b.ok && cstr(ex, ex.wb_state()) === st,
           `with hand edits in the grid the drums' 🎲 and ◀ are refused, nothing staged ("${r.message}")`);
-    const k = await desk.dice("kick");
-    check(k.ok || /kick/i.test(k.message), `the kick phrase row's own 🎲 still works (${k.ok ? desk.values.kick : k.message})`);
+    const was = desk.values.kick, k = await desk.dice("kick");
+    check(k.ok && desk.values.kick !== was && OPTS.kickPhrases.some((x) => x.id === desk.values.kick),
+          `the kick phrase row's own 🎲 still works (${was} -> ${desk.values.kick}${k.ok ? "" : `: ${k.message}`})`);
+  }
+
+  // a part whose 🎲 finds no other roll: seed 21's keys have one voicing path (the salt reaches the first chord's
+  // spread only, and the loop converges); the strummed guitar never reads the salt. Refused, saying why; nothing staged,
+  // nothing on the history; ◀ ▶ unaffected. Seed 2's keys roll (the each-part check above).
+  {
+    const { ex, desk } = await deskOn(21);
+    const st = cstr(ex, ex.wb_state()), r = await desk.reroll("keys");
+    check(!r.ok && /only one voicing fits this progression/.test(r.message) && desk.parts.keys.history.length === 1 &&
+          desk.values.voicings === 0 && cstr(ex, ex.wb_state()) === st && desk.cantRoll("keys") === r.message && !desk.cantRoll("keys", true),
+          `seed 21's keys 🎲: refused ("${r.message}"), history unchanged, nothing staged; the 🎲 waits`);
+    const h = await desk.set("voicings", 999);
+    check(h.ok && desk.parts.keys.history.length === 1, "a salt set by hand that changes no note doesn't go on the history");
+    await desk.set("keys", ins("Nylon guitar"));
+    await desk.set("comp", 5);
+    const g = await desk.reroll("keys");
+    check(ex.wb_comp_applied() === 5 && !g.ok && /strummed guitar keeps its shapes/.test(g.message),
+          `the strummed guitar's keys 🎲: refused ("${g.message}")`);
+    const b = await desk.reroll("bass");
+    check(b.ok && desk.parts.bass.history.length === 2 && desk.cantRoll("keys") === null,
+          "any change lets the keys' 🎲 try again");
+  }
+
+  // the drums' 🎲 over a kick phrase set by hand says so
+  {
+    const { desk } = await deskOn(21);
+    await desk.set("kick", "k3");
+    const r = await desk.reroll("drums");
+    check(r.ok && desk.values.kick !== "k3" && r.message.includes(`Kick phrase: ${desk.values.kick} (was your k3).`),
+          `the drums' 🎲 replacing a hand-set kick phrase says so ("${r.message}")`);
+  }
+
+  // re-roll all (seed locked): the drums' history entry is the kick that plays (the kick row isn't rolled over it)
+  {
+    const { desk } = await deskOn(21, lcg(31));
+    desk.lock("seed", true);
+    await desk.rerollAll();
+    const d = desk.parts.drums;
+    check(d.history[d.at].kick === desk.values.kick && d.history[d.at].salt === desk.values.drumsVar,
+          `re-roll all: the drums' newest roll is what plays (kick ${desk.values.kick})`);
+  }
+
+  // a lead roll that moves the keys gives the keys-room reason
+  {
+    const { desk } = await deskOn(2, lcg(37));
+    const said = [];
+    for (let i = 0; i < 8 && !said.length; i++) {
+      const r = await desk.reroll("lead");
+      if (/Keys moved/.test(r.message)) said.push(r.message);
+    }
+    check(said.length && said.every((m) => /Keys moved: they make room for the lead/.test(m)),
+          `a lead roll that moves the keys: "${said[0] ?? "(none moved them)"}"`);
   }
 
   // a keys-room reaction: seed 40's bass salt 1 moves the lead, and the keys make room for it

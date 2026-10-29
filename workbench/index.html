@@ -269,8 +269,9 @@
       el.classList.toggle("locked", x.locked);
       el.title = why || "";
       el.dice.disabled = !!why;
-      el.back.disabled = !!why || x.at === 0;
-      el.fwd.disabled = !!why || x.at === n - 1;
+      const stuck = desk.cantRoll(p, true);   // ◀ ▶ still step through a part whose 🎲 found no other roll
+      el.back.disabled = !!stuck || x.at === 0;
+      el.fwd.disabled = !!stuck || x.at === n - 1;
     }
   }
 
