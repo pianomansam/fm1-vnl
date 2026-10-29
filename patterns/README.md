@@ -27,6 +27,10 @@ and runs `tools/patterns/export.py`).
   table order. All exported entries are `"approved"`.
 - **`.manifest.json`:** the SHA-256 of each `.mid` and `.musicxml` as last written, so the importer can tell which
   file of a pattern Sam edited (either may be edited alone).
+- **Names are stable, and export never deletes:** an entry's file name is fixed when it is first exported and kept
+  in `model.json` (`file`); a later change to its notes never renames it. Export never deletes a file, and never
+  overwrites one whose SHA-256 differs from `.manifest.json` (an edited file): it skips it and says so. Importing is
+  the path for edits.
 
 ## drums
 
@@ -34,8 +38,10 @@ and runs `tools/patterns/export.py`).
 shaker 70, rim 37 (the drum staff: kick F4, rim B4 x, snare C5, shaker E5 triangle, closed hat G5 x, open hat A5
 circle-x). Velocity > 60 is a hit (written 90), ≤ 60 a ghost (written 40, head in parentheses). Bar 2 is bar B of a
 two-bar pattern, else bar A again. Pattern 5's shaker is a period-3 polymeter (`poly3`: a hit every 3rd 16th, counted
-from the song's first step); it is written out over the two bars, and `poly3` stays in the metadata (its 16-step
-mask in the table is a placeholder). `family`, `half_time` and `src` are metadata.
+from the song's first step), written out over the two bars, with `poly3` in the metadata. Bar 1's shaker is the
+table's shaker mask (`hit[D_SHAKER]`, 0x9249: steps 0, 3, 6, 9, 12, 15); bar 2's shaker differs only because the
+polymeter runs on, so it doesn't make the pattern two-bar (`two_bar` stays 0; the other lanes decide that).
+`family`, `half_time` and `src` are metadata.
 
 ## kick-phrases
 

@@ -6,6 +6,7 @@
 import hashlib
 import json
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -217,6 +218,57 @@ class T(unittest.TestCase):
         self.assertEqual(len(man), 2 * sum(FAMILIES.values()))
         for rel, sha in man.items():
             self.assertEqual(hashlib.sha256((self.out / rel).read_bytes()).hexdigest(), sha, rel)
+
+    def pattern_files(self, d):
+        return {p.relative_to(d).as_posix() for p in d.rglob("*") if p.suffix in (".mid", ".musicxml")}
+
+    def reexport(self, tables, out):
+        tj = Path(self.tmp.name) / "tables.json"
+        tj.write_text(json.dumps(tables))
+        r = subprocess.run([sys.executable, "-I", str(HERE / "export.py"), str(tj), str(out)], capture_output=True,
+                           text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return r.stdout
+
+    def copy(self, name):
+        d = Path(self.tmp.name) / name
+        shutil.copytree(self.out, d)
+        return d
+
+    def test_committed_file_set_equals_a_fresh_export(self):
+        self.assertEqual(self.pattern_files(ROOT / "patterns"), self.pattern_files(self.out))
+
+    def test_a_content_change_keeps_the_file_names(self):
+        d = self.copy("changed")
+        before = self.pattern_files(d)
+        tables = json.loads((ROOT / "app/build/patterns/tables.json").read_text())
+        tables["progs"][0]["c"][0] = [3, 0, 3]                  # prog 1: Dm7 -> Fmaj7, its slug says dm7
+        tables["arp_patterns"][0] = [3, 2, 1, 0]
+        tables["melody_cells"][0][0] = 3
+        old = (d / "progressions/1-vamp-dm7-g7.mid").read_bytes()
+        self.reexport(tables, d)
+        self.assertEqual(self.pattern_files(d), before)
+        m = json.loads((d / "model.json").read_text())
+        self.assertEqual(m["progressions"]["1"]["file"], "progressions/1-vamp-dm7-g7")
+        self.assertEqual(m["progressions"]["1"]["symbols"], ["Fmaj7", "G7"])
+        self.assertNotEqual((d / "progressions/1-vamp-dm7-g7.mid").read_bytes(), old)
+        man = json.loads((d / ".manifest.json").read_text())
+        self.assertEqual(man["progressions/1-vamp-dm7-g7.mid"],
+                         hashlib.sha256((d / "progressions/1-vamp-dm7-g7.mid").read_bytes()).hexdigest())
+
+    def test_an_edited_file_is_left_untouched(self):
+        d = self.copy("edited")
+        rel = "drums/1-boombap.musicxml"
+        edited = (d / rel).read_bytes().replace(b"<work-title>", b"<work-title>Sam's ")
+        (d / rel).write_bytes(edited)
+        before_sha = json.loads((d / ".manifest.json").read_text())[rel]
+        tables = json.loads((ROOT / "app/build/patterns/tables.json").read_text())
+        tables["patterns"][0]["hit"][0] = 0x0101                # the table changed too: still not overwritten
+        out = self.reexport(tables, d)
+        self.assertEqual((d / rel).read_bytes(), edited)
+        self.assertIn("skipped " + rel, out)
+        self.assertEqual(json.loads((d / ".manifest.json").read_text())[rel], before_sha)
+        self.assertNotEqual((d / "drums/1-boombap.mid").read_bytes(), (self.out / "drums/1-boombap.mid").read_bytes())
 
     def test_committed_patterns_match_a_fresh_export(self):
         committed = ROOT / "patterns"

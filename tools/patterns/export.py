@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Writes every pattern table as a .mid and a .musicxml (patterns/<family>/<id>-<slug>), the model (model.json: every
    field of every entry, keyed by id in table order, each with a status) and .manifest.json (each pattern file's
-   SHA-256 as written). The conventions are patterns/README.md's.
+   SHA-256 as written). The conventions are patterns/README.md's. It never deletes a file, and never renames one:
+   an entry keeps the file name model.json gives it. A file whose SHA-256 differs from the manifest's (Sam edited it)
+   is left untouched and named in the output.
    python3 -I tools/patterns/export.py TABLES_JSON OUT   (export.sh builds dump and runs this)"""
 import hashlib
 import json
@@ -246,15 +248,34 @@ def render(fam, k, e):
     raise ValueError(fam)
 
 
-def write_entry(out, fam, k, e):
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def write_entry(out, fam, k, e, manifest):
+    """writes the entry's two files, except one Sam edited (its SHA-256 differs from the manifest's, or it has none):
+       that one is left as it is (importing is the path for edits). -> (paths written, paths skipped)"""
     title, bars, tracks, parts, chords, texts = render(fam, k, e)
     meta = json.dumps({"family": fam, "id": k, **{x: y for x, y in e.items() if x not in ("file", "id")}},
                       separators=(",", ":"))
     stem = out / e["file"]
     stem.parent.mkdir(parents=True, exist_ok=True)
-    midi.write(str(stem) + ".mid", tracks, ppq=480, title=title, meta=meta, tempo_bpm=TEMPO, texts=texts)
-    mxl.write(str(stem) + ".musicxml", parts, chords=chords, title=title, meta=meta, tempo_bpm=TEMPO, bars=bars)
-    return [e["file"] + ".mid", e["file"] + ".musicxml"]
+    written, skipped = [], []
+    for ext in (".mid", ".musicxml"):
+        rel, path = e["file"] + ext, Path(str(stem) + ext)
+        if path.exists() and manifest.get(rel) != sha(path):
+            skipped.append(rel)
+            continue
+        if ext == ".mid":
+            midi.write(str(path), tracks, ppq=480, title=title, meta=meta, tempo_bpm=TEMPO, texts=texts)
+        else:
+            mxl.write(str(path), parts, chords=chords, title=title, meta=meta, tempo_bpm=TEMPO, bars=bars)
+        written.append(rel)
+    return written, skipped
+
+
+def load(path):
+    return json.loads(path.read_text()) if path.exists() else {}
 
 
 def main(argv):
@@ -265,16 +286,24 @@ def main(argv):
     model = build_model(tables, options, (ROOT / "app/song/lead.c").read_text())
     out = Path(argv[2])
     out.mkdir(parents=True, exist_ok=True)
-    written = []
+    old_model, manifest = load(out / "model.json"), load(out / ".manifest.json")
+    written, skipped = [], []
     for fam, entries in model.items():
         if fam.startswith("_"):
             continue
         for k, e in entries.items():
-            written += write_entry(out, fam, k, e)
+            prev = old_model.get(fam, {}).get(k)
+            if prev and prev.get("file"):
+                e["file"] = prev["file"]                 # a file's name is fixed when first exported, never renamed
+            w, sk = write_entry(out, fam, k, e, manifest)
+            written += w
+            skipped += sk
     (out / "model.json").write_text(json.dumps(model, indent=2) + "\n")
-    manifest = {rel: hashlib.sha256((out / rel).read_bytes()).hexdigest() for rel in sorted(written)}
-    (out / ".manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    manifest.update({rel: sha(out / rel) for rel in written})
+    (out / ".manifest.json").write_text(json.dumps(dict(sorted(manifest.items())), indent=2) + "\n")
     print(f"export: {len(written)} files in {out}")
+    for rel in skipped:
+        print(f"export: skipped {rel}: edited since it was written (import it with tools/patterns/import.sh)")
 
 
 if __name__ == "__main__":
