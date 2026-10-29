@@ -1041,3 +1041,24 @@ each, interleaved: worst tick over the 2933 other songs, no style forced **27-28
 **27-33 us**, Romanticism forced (3) **27-31 us**; strummed songs 22-27 us in all three; worst song_start 7-8 us in
 all three. The styles' worst ticks sit within the host's noise of the older engines' (the bar's plan runs on step 0
 either way); the unforced events hash is unchanged (7dbc0885, 936e9bb7).
+
+### Lead styles, Task 3: '60s Jazz and Modal Jazz (2026-10-29)
+
+Two style files (app/song/leads/jazz60s.c, modal.c); the scale mask and the mode's color note moved into leads.c's
+shared helpers (Impressionism uses the same copies). Image by `./build.sh`, measured style by style:
+
+| build | image | delta |
+|---|---|---|
+| Task 2 (768211a) | 413376 B | |
+| shared helpers (no new style registered) | 413536 B | +160 |
+| + '60s Jazz | 416448 B | +2912 |
+| + Modal Jazz | 419424 B | +2976 |
+
+**Over budget (409600) by 9824 B until Task 8** (the Task 2 ruling). Four styles now average ~3.5 KB; the Task 2
+projection (~11 KB short after Task 6 for all eight) holds, a little better. RAM .data+.bss 55632 B (+144: the two
+styles' state across bars in lead_state_t's union), pool 180216 B (unchanged).
+
+CPU: `tools/tick-bench.sh 3000 5 [STYLE]`, three runs each, interleaved: worst tick over the 2933 other songs, no style
+forced **27-28 us**, '60s Jazz forced (4) **28 us**, Modal Jazz forced (5) **27-28 us**; strummed songs 23-28 us in
+all three; worst song_start 6-8 us. Within the host's noise of the older engines'; the unforced events hash is
+unchanged (7dbc0885, 936e9bb7).

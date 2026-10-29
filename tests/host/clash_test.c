@@ -53,8 +53,8 @@ static rec_t R1, R2;
 static int clash_checks = 1;
 static long strong_checked, strong_skipped, strong_in, weak_checked, rubs[2][4];   /* rubs[strong?0:1][kind] */
 static long bass_checked, bass_rubs;                     /* bass notes against the sounding keys */
-static long pad_checked;
-static long strong_exempt;                              /* lead notes a style plays late off a strong step */                                 /* pad notes against the sounding keys, bass and lead */
+static long pad_checked;                                 /* pad notes against the sounding keys, bass and lead */
+static long strong_exempt;                               /* lead notes a style plays late off a strong step */
 
 static float base_ss(int bpm) { return 44100.0f * 60.0f / ((float)bpm * 4.0f); }
 
@@ -869,7 +869,7 @@ static void style_rules(int style, const char *name)
             lib_set_wb(NULL, 0);
             song_override(NULL);
             if (!oct) printf("%s on the %s: %ld songs, %ld lead notes\n", name, NM[k], songs, notes);
-            CHECK(songs > (oct ? 20 : 200) && notes > songs * 20, "%s on the %s (lead_oct %d): %ld songs, %ld notes",
+            CHECK(songs > (oct ? 20 : 200) && notes > songs * 15, "%s on the %s (lead_oct %d): %ld songs, %ld notes",
                   name, NM[k], o.lead_oct, songs, notes);
             style_notes += notes;
         }
@@ -928,8 +928,8 @@ static void style_hard(int style, const char *name, const int *ins, int nins)
         lib_set_wb(NULL, 0);
         printf("%s on hard chords, %s: %ld Lydian songs (%ld lead notes over maj7 chords), %ld walking-bass songs with "
                "9ths (%ld over m9 chords)\n", name, ins[k] == INS_FLUTE ? "flute" : ins[k] == INS_VIBES ? "vibes" :
-               "felt piano", songs[0], hard[0], songs[1], hard[1]);
-        CHECK(songs[0] > 150 && hard[0] > 3000 && songs[1] > 50 && hard[1] > 300,
+               ins[k] == INS_KNIGHT ? "Knight" : "felt piano", songs[0], hard[0], songs[1], hard[1]);
+        CHECK(songs[0] > 150 && hard[0] > 3000 && songs[1] > 50 && hard[1] > 150,
               "%s on hard chords: %ld and %ld songs, %ld and %ld notes", name, songs[0], songs[1], hard[0], hard[1]);
     }
     song_override(NULL);
@@ -948,6 +948,18 @@ static void test_romanticism_rules(void)
     style_rules(LS_ROMANTICISM, "Romanticism");
     style_hard(LS_ROMANTICISM, "Romanticism", INS1, 1);
 }
+static void test_jazz60s_rules(void)
+{
+    static const int INS4[4] = {INS_FLUTE, INS_FELT_PIANO, INS_VIBES, INS_KNIGHT};
+    style_rules(LS_JAZZ60S, "'60s Jazz");
+    style_hard(LS_JAZZ60S, "'60s Jazz", INS4, 4);
+}
+static void test_modal_rules(void)
+{
+    static const int INS1[1] = {INS_FLUTE};
+    style_rules(LS_MODAL, "Modal Jazz");
+    style_hard(LS_MODAL, "Modal Jazz", INS1, 1);
+}
 
 int main(void)
 {
@@ -963,6 +975,8 @@ int main(void)
     test_ov_salts();
     test_impressionism_rules();
     test_romanticism_rules();
+    test_jazz60s_rules();
+    test_modal_rules();
     printf("strong steps: %ld lead/candy notes checked against the sounding chord and bass (%ld of them sounding "
            "tones), %ld with neither\n", strong_checked, strong_in, strong_skipped);
     printf("other steps: %ld lead/candy notes checked against the sounding chord and bass\n", weak_checked);

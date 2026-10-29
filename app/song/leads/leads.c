@@ -182,6 +182,25 @@ void leads_scale(const song_roll_t *r, int *sc)
     for (; k < 7; k++) sc[k] = sc[k - 1] + 1;
 }
 
+unsigned leads_scale_mask(const song_roll_t *r)
+{
+    int sc[7], i;
+    unsigned m = 0;
+    leads_scale(r, sc);
+    for (i = 0; i < 7; i++) m |= 1u << ((r->v[RF_KEY] + sc[i]) % 12);
+    return m;
+}
+
+int leads_color_pc(const song_roll_t *r)
+{
+    static const int8_t COLOR[MODE_N] = {-1, 5, 1, 3, 6, 5};   /* scale indexes: Ionian none, Dorian 6, Phrygian b2,
+                                                                  Lydian #4, Mixolydian b7, Aeolian b6 */
+    int sc[7], c = r->v[RF_MODE] >= 0 && r->v[RF_MODE] < MODE_N ? COLOR[r->v[RF_MODE]] : -1;
+    if (c < 0) return -1;
+    leads_scale(r, sc);
+    return (r->v[RF_KEY] + sc[c]) % 12;
+}
+
 int leads_si_note(int key, const int *sc, int si)
 {
     int o = si >= 0 ? si / 7 : -((6 - si) / 7);
@@ -230,8 +249,8 @@ void leads_put(lead_state_t *ls, const leads_ctx_t *c, int p, int note, int end,
 typedef void leads_plan_fn(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b, int bar,
                            const leads_next_t *nx);
 typedef void leads_motif_fn(const song_roll_t *r, lead_motif_t *m);
-static leads_plan_fn *const PLAN[LS_N] = {impressionism_plan, romanticism_plan};
-static leads_motif_fn *const MOTIF[LS_N] = {impressionism_motif, romanticism_motif};
+static leads_plan_fn *const PLAN[LS_N] = {impressionism_plan, romanticism_plan, jazz60s_plan, modal_plan};
+static leads_motif_fn *const MOTIF[LS_N] = {impressionism_motif, romanticism_motif, jazz60s_motif, modal_motif};
 
 int leads_motif(const song_roll_t *r, lead_motif_t *m)
 {

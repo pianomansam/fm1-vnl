@@ -20,7 +20,10 @@ enum { LS_IMPRESSIONISM, LS_ROMANTICISM, LS_JAZZ60S, LS_MODAL, LS_JAZZHOP, LS_FI
      mode's pentatonic (with the mode's color note in its modal songs).
    - Romanticism: its rhythm cell, one bar's onsets with the walk's steps through them (in the mode's scale), which
      every bar of the phrase restates a step or two higher or lower. The spine the cell is sequenced along (a bar
-     head a bar, rising, falling or an arch) is the style's own way of developing it, not part of the motif. */
+     head a bar, rising, falling or an arch) is the style's own way of developing it, not part of the motif.
+   - '60s Jazz: its statement, 2-4 8ths off the beat into a target over the bar line, undisplaced; its steps count in
+     the chord's legal notes (the mode's, less those that rub: LM_MODE). Restatements displace it and sequence it.
+   - Modal Jazz: its phrase heads' 1-3 notes stepping into the held tone (in the mode's scale), every head exact. */
 enum { LM_MODE, LM_PENT, LM_PENT_COLOR };   /* the mode's 7 notes; its pentatonic; the pentatonic and the mode's
                                                color note */
 typedef struct { uint8_t n; uint8_t at[8], len[8]; int8_t step[8]; uint8_t contour, scale; } lead_motif_t;
@@ -81,6 +84,10 @@ void leads_phrase_at(const plan_block_t *b, int bar, int *run, int *pass, int *b
 /* the roll's scale, 7 pitch classes over the key; scale index <-> MIDI note (index 0: the key's lowest octave) */
 void leads_scale(const song_roll_t *r, int *sc);
 int leads_si_note(int key, const int *sc, int si);
+/* the roll's scale as pitch-class bits; its mode's color note's pitch class (Dorian 6, Phrygian b2, Lydian #4,
+   Mixolydian b7, Aeolian b6), -1 for Ionian */
+unsigned leads_scale_mask(const song_roll_t *r);
+int leads_color_pc(const song_roll_t *r);
 int leads_note_si(int key, const int *sc, int note);   /* the scale note at or under note */
 /* k members of mask (pitch-class bits) from note, up (k > 0) or down */
 int leads_coll_step(unsigned mask, int note, int k);
@@ -97,5 +104,9 @@ void impressionism_motif(const song_roll_t *r, lead_motif_t *m);
 void romanticism_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b, int bar,
                       const leads_next_t *nx);
 void romanticism_motif(const song_roll_t *r, lead_motif_t *m);
+void jazz60s_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b, int bar, const leads_next_t *nx);
+void jazz60s_motif(const song_roll_t *r, lead_motif_t *m);
+void modal_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b, int bar, const leads_next_t *nx);
+void modal_motif(const song_roll_t *r, lead_motif_t *m);
 
 #endif

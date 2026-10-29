@@ -38,6 +38,15 @@ typedef struct {
             int step_dir;         /* the step its last bar planned over the bar line (+1, -1) */
             int head;             /* the answer's first note, chosen by the pickup before it (0: none) */
         } ro;                     /* Romanticism */
+        struct {
+            int cn, bar;          /* notes a statement carries over the bar line into bar */
+            int tgt;              /* the last statement's target (its guide-tone line) */
+            int p[8], note[8], end[8], vel[8];   /* the carried notes: onset (thirds of a 16th), note, end (16ths),
+                                                    velocity */
+        } jz;                     /* '60s Jazz */
+        struct {
+            int note, vel;        /* the held tone tied into this bar, for its fall-off */
+        } mo;                     /* Modal Jazz */
     } st;
 } lead_state_t;
 
