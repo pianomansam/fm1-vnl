@@ -6,8 +6,7 @@
    keys (M_EP), plucked
    strings (M_PLUCK), pads (M_PAD), bells (M_BELL), winds (M_WIND), basses (M_BASS), a chip triangle (M_CHIP), the
    subtractive synths (M_SUB; a mono one on the lead glides from a held note, or a near one just ended: LEG_GAP), the
-   sampler (M_SAMP: sampler.c, its own envelope), the string synth (M_STR: strsyn.c; the lead only, mono and
-   gliding as the mono synth, at half the rate) and the pad layer's ensemble (M_ENS, at a quarter of the rate in a loop
+   sampler (M_SAMP: sampler.c, its own envelope) and the pad layer's ensemble (M_ENS, at a quarter of the rate in a loop
    of its own: pad_seg). A key's or a pad's note whose
    partials stay under 9 kHz, and a synth's on the chords (or the pad's solo lane) whose low-pass stays at 8 kHz or
    under, render at half the rate (half_ok), its role's half-rate voices upsampled by a half- band. The pad's solo
@@ -35,7 +34,6 @@
 #include "strum.h"
 #include "pads.h"
 #include "sampler.h"
-#include "strsyn.h"
 
 #define QN 64
 #define NCH 8 /* chord voices: a held pad uses all 8 (its release crosses the next chord's swell), the rest the first 4 */
@@ -104,11 +102,12 @@ static const float CP_THR_KIT[KIT_N] = {0.095f, 0.090f, 0.084f, 0.162f, 0.110f, 
 #define SUB_RES_K 0.85f  /* the low-pass's damping k at full resonance, as a fraction off Butterworth's (1.414) */
 #define HB_M 7           /* the 2x upsampler: a 27-tap half-band (Kaiser, beta 5), 7 coefficient pairs */
 #define HB_H (2 * HB_M)  /* the half-rate samples it keeps between chunks (its latency: 2 HB_M = 14 samples) */
-/* a sampled instrument (M_SAMP) on the lead, over its level on the keys, per bank (Knight, nylon, Emilyguitar): its
-   patch's level matches the Rhodes on the keys; the nylon +7 dB (the flute's level on the lead), the Knight +3.85
-   and the Emilyguitar +3.5, tuned on their sets' lead over keys (test_lead_over_keys: a struck lead reads 8-10 dB
-   over the keys at about 4 dB under the flute's bar energy) */
-static const float SAMP_LEAD[SB_N] = {1.5578f, 2.239f, 1.4962f};
+/* a sampled instrument (M_SAMP) on the lead, over its level on the keys, per bank (Knight, nylon, Emilyguitar,
+   vibraphone): its patch's level matches the Rhodes on the keys; the nylon +7 dB (the flute's level on the lead), the
+   Knight +3.85 and the Emilyguitar +3.5, tuned on their sets' lead over keys (test_lead_over_keys: a struck lead reads
+   8-10 dB over the keys at about 4 dB under the flute's bar energy); the vibes play the lead only, at their patch's
+   level */
+static const float SAMP_LEAD[SB_N] = {1.5578f, 2.239f, 1.4962f, 1.0f};
 
 /* big zero-initialised buffers go in the device's .pool RAM region (fm1-base's PLAT_POOL; a Mach-O host has no such
    section) */
@@ -209,7 +208,6 @@ typedef struct {
             uint8_t wave, cc, fat;  /* the wave, the control count, the envelope in its attack */
         } sb;
         smp_voice_t sp; /* M_SAMP: the sampler voice (sampler.h), its envelope its own */
-        str_voice_t st; /* M_STR: the string synth (strsyn.h), its Ensemble's line str_line's */
     } m;
     uint32_t gate, age;
     uint8_t on, held, role;
@@ -233,7 +231,6 @@ static qe_t q[QN];
 static int qn;
 static voice_t fv[NV];
 static float ks[PD][VX_KS_N] VX_POOL; /* the Karplus-Strong lines, one per voice (not the pad layer's) */
-static float str_line[NLD][STR_LINE] VX_POOL; /* the string synth's Ensemble lines, one per lead voice (4 KB) */
 static uint32_t age_ctr, rng = 0x1234567u;
 static uint32_t clk;  /* the engine's clock at the chunk's start */
 static uint32_t t_on; /* the engine's clock (samples since vx_init) at the events firing now (vx_render) */
@@ -302,9 +299,9 @@ static void mud_coefs(float *c, float hz, float sr)
     c[2] = (1.0f - al) * a0;
 }
 static float cg = 1.0f;     /* the chords' dry scale, toward fx_chorus_dry() */
-/* The vibes as the lead plan phrases (cf0dca0), fewer notes a bar than the hybrid's arpeggio: up 1.5 dB to keep the
-   lead over the keys */
-#define VIBES_LEAD_G 1.19f
+/* The felt piano on the lead (Sam, 2026-10-29): its patch's level is the keys'; on the lead it sat 2-3 dB under the
+   other leads (the lead spike), so it comes up to them */
+#define FELT_LEAD_G 1.45f
 static float keys_g = 1.0f; /* the song's keys level for its comping (keys_gain) */
 /* The keys' duck under the lead (Sam: "the lead leads"): while a lead note's gate is open the chords' bus dips
    DUCK_DB, a follower at the chunk rate (a one-pole toward 1 with a note held, else 0: about 25 ms in, 400 ms out,
@@ -342,7 +339,7 @@ static float solo_trim = 1.0f;
    the strings' there: song_test's test_pad_solo_patch); the flute stays at half. */
 static const uint8_t SOLO_Q4[INS_NONE] = {[INS_VOX_PAD] = 1, [INS_ORGAN] = 1};
 static uint8_t solo_q4;
-static const float SOLO_TRIM[INS_NONE] = {[INS_VOX_PAD] = 1.334f, [INS_FLUTE] = 0.804f, [INS_ORGAN] = 1.288f,
+static const float SOLO_TRIM[INS_NONE] = {[INS_VOX_PAD] = 1.334f, [INS_FLUTE] = 0.83271f, [INS_ORGAN] = 1.288f,
                                          [INS_STRINGS] = 1.0f};
 
 static float noise(void)
@@ -581,10 +578,10 @@ static float solo_lvl(const voice_t *v, const vx_patch_t *p)
     return v == &fv[NV - 1] && p == solo_pt ? solo_trim : 1.0f;
 }
 
-/* a mono lead: a mono synth (M_SUB, p[9]) or the string synth (M_STR) on the lead: legato, gliding (pool_on) */
+/* a mono lead: a mono synth (M_SUB, p[9]) on the lead: legato, gliding (pool_on) */
 static int mono_lead(const vx_patch_t *p, int role)
 {
-    return role == V_LEAD && ((p->model == M_SUB && p->p[9] > 0.0f) || p->model == M_STR);
+    return role == V_LEAD && p->model == M_SUB && p->p[9] > 0.0f;
 }
 
 /* a voice's step in samples: 1, 2 at half the rate, 4 at a quarter */
@@ -608,7 +605,7 @@ static void env_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int l
     v->amp_t = ROLES[v->role].gain * p->level * (float)e->vel * (1.0f / 127.0f) *
                (v->role == V_CHORD ? keys_g : solo_lvl(v, p)) *
                (p->model == M_SAMP && v->role == V_LEAD ? SAMP_LEAD[(int)p->p[0] % SB_N] : 1.0f) *
-               (v->role == V_LEAD && cfg.lead == INS_VIBES ? VIBES_LEAD_G : 1.0f);
+               (v->role == V_LEAD && cfg.lead == INS_FELT_PIANO ? FELT_LEAD_G : 1.0f);
     /* (the solo lane's own voice slews, so its legato notes ramp to their velocity's level: lane_legato) */
     v->slew = (uint8_t)(v->role == V_BASS || mono_lead(p, v->role) ||
                         (v->role == V_PAD && p->model != M_ENS));
@@ -1054,9 +1051,6 @@ static int half_ok(const voice_t *v, const vx_patch_t *p, const song_ev_t *e)
                                                                                                     lane's organ) */
     else if (p->model == M_WIND) /* the pad's solo lane only (a soft note, low-passed) */
         return v->role == V_PAD && p->p[2] * hz < HR_TOP;
-    else if (p->model == M_STR) /* the string synth (the lead only): while its low-pass and formants stay under
-                                   the half rate's top (the patches' 3.2 and 2.6 kHz) */
-        return v->role == V_LEAD && p->p[1] <= HR_SUB_TOP && p->p[2] <= HR_SUB_TOP && p->p[4] <= HR_SUB_TOP;
     else if (p->model == M_ENS) /* half where its low-pass is too high for a quarter */
         return p->p[2] + p->p[3] * hz > ENS_QR_TOP;
     else if (p->model == M_SAMP) { /* the keys: half while the zone's band, retuned, stays under the half rate's
@@ -1092,10 +1086,6 @@ static void voice_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int
         v->m.sp.dv = step_len(v);
         samp_start(&v->m.sp, p, (float)e->note, (float)e->vel * (1.0f / 127.0f));
         break;
-    case M_STR:
-        noise(); /* (the drift's noise from the voices' stream: deterministic per seed) */
-        str_start(&v->m.st, p, (float)e->note, step_len(v), legato, str_line[(v - fv) - ROLES[V_LEAD].first], rng);
-        break;
     default: bass_start(v, e, legato); break; /* M_BASS */
     }
 }
@@ -1119,8 +1109,6 @@ static void pool_on(const song_ev_t *e, int role)
         p = solo_pt; /* the solo lane's own patch (any model: render_seg's, or the ensemble's pad_seg) */
     else if (!p || (first >= PD) != (p->model == M_ENS))
         return; /* no instrument on this role; the pad layer plays M_ENS only (pad_seg), and only it */
-    if (p->model == M_STR && role != V_LEAD)
-        return; /* the string synth plays the lead only (its Ensemble's lines are the lead's) */
     if (role == V_PAD && e->pad >= 1 && e->pad <= NPD) { /* a lane (voices.h): its own voice */
         v = &fv[PD + e->pad - 1];
         v->age = ++age_ctr;
@@ -1597,7 +1585,6 @@ static float voice_sample(voice_t *v)
         q = v->m.ch.q;
         break;
     case M_SUB: s = sub_sample(v); break;
-    case M_STR: s = str_sample(&v->m.st); break;
     case M_SAMP: /* its gate closed (the note's end, vx_release_all): its own release; done: off */
         if (!v->held && v->m.sp.stage < 2)
             samp_release(&v->m.sp);

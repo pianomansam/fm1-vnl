@@ -111,7 +111,7 @@ static void check_step(const song_t *s, int bar, int step, const song_ev_t *ev, 
             break;
         }
         case V_BASS: CHECK(e->note >= 28 && e->note <= 47, "seed %u: bass note %d", seed, e->note); break;
-        case V_LEAD: {                   /* the cello lead B3-A4 (its floor over the keys lifted), the rest C4-E6 */
+        case V_LEAD: {                   /* C4-E6 */
             const lib_set_t *st = lib_set_by_id((uint8_t)s->roll.v[RF_SET]);
             if (st && (song_ov()->lead_oct || harmony_keys_oct(&s->roll))) {   /* the workbench's registers: the
                                                                                   lead instrument's range */
@@ -120,9 +120,7 @@ static void check_step(const song_t *s, int bar, int step, const song_ev_t *ev, 
                 CHECK(e->note >= (lo < 59 ? lo : 59) && e->note <= (hi > 88 ? hi : 88),   /* (or the rolled range,
                                                                                             where it stays) */
                       "seed %u: lead note %d (registers moved)", seed, e->note);
-            } else if (st && st->lead == INS_CELLO)
-                CHECK(e->note >= 59 && e->note <= 69, "seed %u: cello lead note %d", seed, e->note);
-            else
+            } else
                 CHECK(e->note >= 60 && e->note <= 88, "seed %u: lead note %d", seed, e->note);
             break;
         }
@@ -346,10 +344,10 @@ static void test_chain(void)
     for (i = 1; i <= 1000; i++) {
         float ss;
         roll_song(i == 1 ? NULL : &prev, (uint32_t)i, &r);
-        {   /* the string synth's sets among them (the clash checks run on their songs too) */
+        {   /* the felt and vibes leads among them (Sam, 2026-10-29; the clash checks run on their songs too) */
             const lib_set_t *st = lib_set_by_id((uint8_t)r.v[RF_SET]);
-            strs[0] += st && st->lead == INS_STR_LEAD;
-            strs[1] += st && st->lead == INS_CELLO;
+            strs[0] += st && st->lead == INS_FELT_PIANO;
+            strs[1] += st && st->lead == INS_VIBES;
         }
         song_start(&s, &r);
         ss = base_ss(r.v[RF_TEMPO]);
@@ -392,8 +390,8 @@ static void test_chain(void)
     /* R19 retired by Task 1b (Sam, 2026-10-29: "Remove the ear candy part completely"): no song has any */
     CHECK(with_candy == 0 && gestures == 0, "candy in %d of 1000 songs (%ld gestures), want none", with_candy, gestures);
     printf("candy: in %d of 1000 songs, %ld gestures (%.2f a song)\n", with_candy, gestures, (double)gestures / 1000.0);
-    printf("strings: %d songs with the high string lead, %d with the cello lead\n", strs[0], strs[1]);
-    CHECK(strs[0] >= 10 && strs[1] >= 10, "strings: %d high string and %d cello songs in 1000", strs[0], strs[1]);
+    printf("leads: %d songs with the felt piano lead, %d with the vibes\n", strs[0], strs[1]);
+    CHECK(strs[0] >= 10 && strs[1] >= 10, "leads: %d felt and %d vibes songs in 1000", strs[0], strs[1]);
     /* determinism: songs 1-50 again, each with a second song ticking in between */
     clash_checks = 0;
     for (i = 1; i <= 50; i++) {

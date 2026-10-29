@@ -15,7 +15,8 @@ enum { INS_RHODES, INS_WURLI, INS_FELT_PIANO, INS_NYLON, INS_PAD, INS_UPRIGHT, I
        INS_CHIP_BASS, INS_ORGAN, INS_SAW_LEAD, INS_SYNTH_PLUCK, INS_DX_EP, INS_FM_BASS,
        INS_STRINGS, INS_WARM_PAD, /* the pad layer's (V_PAD) */
        INS_KNIGHT, INS_EMILY,     /* sampled (M_SAMP; INS_NYLON too): the Knight upright, the Emilyguitar */
-       INS_STR_LEAD, INS_CELLO,   /* the string synth (M_STR) on the lead: the high strings, the cello */
+       INS_STR_LEAD, INS_CELLO,   /* removed (the string synth's leads), as are the muted trumpet, sax and guitar lick
+                                     (Sam, 2026-10-29): no patch, no set; ids never reused (lib_lead_approved) */
        INS_NONE }; /* append new ones before INS_NONE */
 /* the synth kits (drums.c), then the sampled kits (skits.c: one pool of hits, processed per kit at playback) */
 enum { KIT_DUSTY, KIT_SOFT, KIT_808, KIT_BRUSHES, KIT_S_WARM, KIT_S_DARK, KIT_S_RUSTY, KIT_S_GENTLE, KIT_S_CLEAN, KIT_N };
@@ -56,10 +57,12 @@ void lib_pattern_wb(const lib_pattern_t *p);
 unsigned lib_lane_hits(const lib_pattern_t *p, int lane, int bar);
 unsigned lib_lane_ghosts(const lib_pattern_t *p, int lane, int bar);
 const lib_set_t *lib_set_by_id(uint8_t id);
-/* 1: slow attack, held breath or a held tone (pads, winds, the organ, the saw lead, the strings, the
-   string synth's high lead and cello); 0: struck, plucked,
+/* 1: slow attack, held breath or a held tone (pads, the flute, the organ, the saw lead, the strings); 0: struck,
+   plucked,
    the triangle bass, the synth pluck, the DX EP, the FM bass */
 int lib_ins_sustained(int ins);
+/* a removed lead (the muted trumpet, sax, guitar lick, string lead, cello): an approved lead of its family; else ins */
+int lib_lead_approved(int ins);
 /* 1: a sampled struck-string instrument (the Knight, the nylon, the Emilyguitar): stabs and strums suit it */
 int lib_ins_sampled_struck(int ins);
 int lib_set_walks(const lib_set_t *s);

@@ -72,6 +72,17 @@
         {"file": "notes/eb5_mf_rr1.wav", "hint": 75},
         {"file": "notes/a5_mf_rr1.wav", "hint": 81}
       ]
+    },
+    {
+      "id": "SB_VIBES", "src": "vcsl", "attack": 0.4, "loop": 0.06,
+      "comment": "Vibraphone, soft mallets, v2 (the lead spike's main layer; the planner's vibes velocities are 94-110), motor off, every 7 semitones C4-E6. File names sit an octave under MIDI's (C3 is MIDI 60, measured). The sampler's envelope does the decay.",
+      "zones": [
+        {"file": "Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_C3_v2_rr1_Main.wav", "hint": 60},
+        {"file": "Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_G3_v2_rr1_Main.wav", "hint": 67},
+        {"file": "Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_D4_v2_rr1_Main.wav", "hint": 74},
+        {"file": "Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_A4_v2_rr1_Main.wav", "hint": 81},
+        {"file": "Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_E5_v2_rr1_Main.wav", "hint": 88}
+      ]
     }
   ],
   "hits": [

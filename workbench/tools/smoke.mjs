@@ -525,6 +525,10 @@ console.log("options.json");
                                                         k.set === i && k.id === C.DRUMS.PRESET + C.DRUMS.GOGODZE + i),
         "the three shipped sampled kits are approved acoustic kits with a ride, their sets in order");
   const retired = (xs, names) => names.every((n) => xs.find((x) => x.name.startsWith(n))?.status === "retired");
+  check(retired(OPTS.instruments, ["Muted trumpet", "Sax", "Guitar lick", "String lead", "Cello"]) &&
+        ["Felt piano", "Vibes"].every((n) => OPTS.instruments.find((i) => i.name.startsWith(n))?.roles.includes("lead") &&
+                                             OPTS.instruments.find((i) => i.name.startsWith(n)).status === "approved"),
+        "leads (Sam, 2026-10-29): the felt piano and the vibes offered, the trumpet, sax, guitar lick, string lead and cello retired");
   check(retired(OPTS.instruments, ["Upright bass"]) && retired(OPTS.comping, ["Arpeggio", "Offbeats"]) &&
         retired(OPTS.kits, ["Dusty", "Soft", "Our 808", "Warm", "Dark", "Rusty", "Gentle", "Clean"]),
         "the removed sounds are retired (upright, our synth kits, the mixed sampled kits, arpeggio, offbeats)");
@@ -591,6 +595,10 @@ console.log("rows: retired options, dice, families");
         "strum is offered on the guitars only");
   const kl = conflicts(row("lead"), ins("Knight piano"), acoustic(), OPTS, lcg(5));
   check(kl.forced.some((f) => f.row === "keys" && f.to !== ins("Knight piano")), "the Knight on the lead moves the keys off it");
+  const st3 = acoustic();
+  st3.values.keys = ins("Felt piano");
+  const fl = conflicts(row("lead"), ins("Felt piano"), st3, OPTS, lcg(5));
+  check(fl.forced.some((f) => f.row === "keys" && f.to !== ins("Felt piano")), "the felt piano on the lead moves the keys off it (never felt over felt)");
 }
 
 console.log("desk: rows over the engine");
@@ -662,7 +670,7 @@ console.log("desk: locks and hand edits survive a regenerate");
   const tempo = desk.values.tempo === 85 ? 74 : 85;
   await desk.set("tempo", tempo);
   await desk.set("keys", ins("Wurli"));
-  await desk.set("lead", ins("Sax"));
+  await desk.set("lead", ins("Felt piano"));
   desk.lock("lead", true);
   await desk.set("kick", "k5");
   await desk.set("kit", 3);
@@ -670,13 +678,13 @@ console.log("desk: locks and hand edits survive a regenerate");
   await desk.set("comp", 4);
   await desk.set("phrase", 777);
   desk.lock("phrase", true);
-  const keep = { tempo, keys: ins("Wurli"), lead: ins("Sax"), kick: "k5", kit: 3, comp: 4, phrase: 777 };
+  const keep = { tempo, keys: ins("Wurli"), lead: ins("Felt piano"), kick: "k5", kit: 3, comp: 4, phrase: 777 };
   const kept = () => Object.entries(keep).filter(([k, v]) => String(desk.values[k]) !== String(v)).map(([k]) => k);
   const seed = desk.values.seed;
   const r1 = await desk.dice("seed");
   check(r1.ok && desk.values.seed !== seed && !kept().length, `a new seed (${desk.values.seed}) keeps them (lost: ${kept().join(", ") || "none"})`);
   const st = await call("wb_state");
-  check(st.roll[C.RF.TEMPO] === tempo && st.roles[C.V.LEAD] === ins("Sax") && st.kit === 3 && st.kick[1] === 0x481 &&
+  check(st.roll[C.RF.TEMPO] === tempo && st.roles[C.V.LEAD] === ins("Felt piano") && st.kit === 3 && st.kick[1] === 0x481 &&
         st.ov[C.OV.COMP] === 4 && st.ov[C.OV.PHRASE_SALT] === 777, "and the engine has them staged");
   const map = desk.values.map, other = optionsFor(row("map"), desk.state, OPTS, { lib: await call("wb_library") })
     .find((o) => o.value !== map).value;
@@ -685,7 +693,7 @@ console.log("desk: locks and hand edits survive a regenerate");
   until(ex, () => ex.wb_bar() === 2, 60 * SR);
   check(ex.wb_roll_get(C.RF.MAP) === other && db(render(ex, 3 * SR)) > -45, "the new song plays from bar 1 with them");
   const r3 = await desk.rerollAll();
-  check(r3.ok && desk.values.lead === ins("Sax") && desk.values.kit === 3 && desk.values.phrase === 777,
+  check(r3.ok && desk.values.lead === ins("Felt piano") && desk.values.kit === 3 && desk.values.phrase === 777,
         "re-roll all unlocked keeps the locked rows");
 }
 
@@ -1553,6 +1561,16 @@ console.log("Task 1b: no ear candy; the pad on/off row");
   const miss = await d2.restore(old);
   check(!miss.length && d2.values.padOn === -1 && e2.wb_ov_get(OV.PAD_ON) === -1,
         `an older snapshot (no pad row, an ear candy row) restores with the pad as rolled (mismatch: ${miss.join(", ") || "none"})`);
+  // a snapshot naming a retired lead (the sax): it restores, the song on the approved lead the engine stands in (the
+  // flute), said in the message, not a mismatch
+  const sx = await desk.snapshot();
+  sx.rows.lead = ins("Sax");
+  sx.locks = [];
+  const e3 = await load(), d3 = new Desk(caller(e3), C, OPTS, await caller(e3)("wb_library"));
+  const miss3 = await d3.restore(sx);
+  check(!miss3.length && d3.values.lead === ins("Flute") && JSON.parse(cstr(e3, e3.wb_state())).roles[C.V.LEAD] === ins("Flute") &&
+        /Sax is retired/.test(d3.message),
+        `a snapshot with the retired sax restores on the flute (mismatch: ${miss3.join(", ") || "none"}; "${d3.message}")`);
   const s8 = JSON.parse(cstr(ex, ex.wb_state()));
   s8.ov = s8.ov.slice(0, 8);
   check(fromEngine(s8, C, OPTS).padOn === -1 && fromEngine({ ...s8, ov: s8.ov.concat([0, 0, 0]) }, C, OPTS).padOn === -1,

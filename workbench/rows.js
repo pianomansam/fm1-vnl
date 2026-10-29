@@ -60,7 +60,8 @@ const ROLLED = { value: -1, name: "As rolled", rolled: true };   // the engine's
 
 // the role a row fills in options.json's instruments
 const ROLE = { CHORD: "keys", LEAD: "lead", BASS: "bass", PAD: "pad" };
-const SAMPLED_ONE = new Set([25, 26]);  // INS_KNIGHT, INS_EMILY: one per song, keys or lead (Sam)
+// INS_KNIGHT, INS_EMILY, INS_FELT_PIANO: one per song, keys or lead (Sam; the felt never leads over itself, 2026-10-29)
+const ONE_PART = new Set([25, 26, 2]);
 
 // a progression's note without its source ("lofi-hip-hop.md 2, ii9-V13 vamp" -> "ii9-V13 vamp")
 const progName = (src) => src.replace(/^[^:,]*[:,]\s*(\d+,\s*)?/, "").replace(/;.*$/, "");
@@ -180,12 +181,12 @@ export function conflicts(r, value, state, opts, rnd = Math.random, lib) {
     const comp = opts.comping.find((c) => c.id === v.comp);
     if (comp?.keys && !comp.keys.includes(value))
       force("comp", -1, `${comp.name} comping doesn't suit the new keys`);
-    if (SAMPLED_ONE.has(value) && v.lead === value) {
+    if (ONE_PART.has(value) && v.lead === value) {
       const next = { ...state, values: { ...v, keys: value } };
       force("lead", pickFor(row("lead"), next, opts, rnd, lib), `the ${optOf("lead", value).name} plays keys or lead, not both`);
     }
   } else if (r.id === "lead") {
-    if (SAMPLED_ONE.has(value) && v.keys === value) {
+    if (ONE_PART.has(value) && v.keys === value) {
       const next = { ...state, values: { ...v, lead: value } };
       force("keys", pickFor(row("keys"), next, opts, rnd, lib), `the ${optOf("keys", value).name} plays keys or lead, not both`);
     }

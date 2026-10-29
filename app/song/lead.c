@@ -19,7 +19,6 @@ typedef struct {                  /* what one bar's planning reads */
     int can_push;                 /* the next bar's chord is known (no request lands on it) */
     int pad;                      /* the keys sustain (a pad, the organ) */
     int vibes;                    /* the vibes lead: struck, so the planner's swell velocities are lifted */
-    int cello;                    /* the cello lead: B3-A4, inside the keys' range (no floor over them) */
 } ctx_t;
 
 static int is_ct(int note, const int *pcs, int np)
@@ -421,7 +420,7 @@ static void plan_phrase(lead_state_t *ls, const ctx_t *c, const plan_block_t *b,
         pnp = c->np;
         v = 52 + (dmax > dmin ? 16 * (tl[i].deg - dmin) / (dmax - dmin) : 8);   /* the arc, with the height */
         v += len <= 4 ? 28 : len <= 6 ? 14 : 0;   /* a short note sounds less of its swell */
-        if (!c->pad && !c->cello && note < 76)           /* low: among percussive keys (the cello: its patch's level) */
+        if (!c->pad && note < 76)                        /* low: among percussive keys */
             v += 76 - note + (note < 72 ? 72 - note : 0);
         if (c->vibes) v = 94 + (v - 52) / 3;             /* struck, not swelled: the hybrid played them at 106-110; the
                                                             arc is kept in 94-110 (set 8, 26 listening: Sam to hear) */
@@ -598,18 +597,13 @@ int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b,
             c.hi = 88 + harmony_keys_oct(r) < hi ? 88 + harmony_keys_oct(r) : hi > 88 ? hi : 88;
         }
     }
-    c.cello = set && set->lead == INS_CELLO;
     c.vibes = set && set->lead == INS_VIBES;
-    if (c.cello) {                                       /* the cello: B3-A4 as Sam passed it, the floor lifted */
-        c.lo = c.lo_x = 59;
-        c.hi = 69;
-    }
     if (song_ov()->lead_oct && set) {                    /* the workbench's lead_oct: the range an octave up or down,
                                                            in the instrument's range, the floor over percussive keys
                                                            kept; left as it was where under an octave would remain */
         int d = 12 * song_ov()->lead_oct, lo, hi, nlo = c.lo + d, nlx = c.lo_x + d, nhi = c.hi + d;
         song_ov_range(set->lead, &lo, &hi);
-        if (!c.pad && !c.cello && d < 0) { nlo = c.lo; nlx = c.lo_x; }
+        if (!c.pad && d < 0) { nlo = c.lo; nlx = c.lo_x; }
         if (nlo < lo) nlo = lo;
         if (nlx < lo) nlx = lo;
         if (nhi > hi) nhi = hi;

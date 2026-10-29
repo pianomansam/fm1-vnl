@@ -68,7 +68,6 @@ MPL-2.0.
 | What | Licence | Where |
 | --- | --- | --- |
 | The lo-fi chain's reverb and chorus, adapted from [Mutable Instruments Rings](https://github.com/pichenettes/eurorack) (`rings/dsp/fx/reverb.h`, `chorus.h`, `fx_engine.h`) by Emilie Gillet | MIT (below) | `app/engine/rings_fx.c`, `rings_fx.h` |
-| The string synth's Ensemble, adapted from [Mutable Instruments Plaits](https://github.com/pichenettes/eurorack) (`plaits/dsp/fx/ensemble.h`) by Emilie Gillet | MIT (`CREDITS.md`) | `app/engine/strsyn.c`, `strsyn.h` |
 
 The MIT notice for the Rings code, which the firmware contains:
 

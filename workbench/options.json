@@ -1,5 +1,5 @@
 {
-  "_note": "The workbench's options: hand-maintained from the ledgers (docs/superpowers/plans/*-ledger.md) and the workbench plan's Global Constraints. ids are app/song/library.h's (sym names the enum; smoke.mjs checks them); a kit from 16 is a workbench preset (wb_drums.h's WB_KIT_*, 16 + its index). status: approved (offered, the dice pick it), candidate (offered, marked; the dice skip it; none among the instruments: Sam tuned them all), retired (behind 'show retired'). ride: the kit plays the ride section (the sampled kits). set: a shipped sampled kit's sample set (samples/kits.json, git-ignored: unavailable until tools/prep_kits.py has made it). Families: electric goes with either; bass, pad and the kit follow the song's family. No ear candy (Sam, 2026-10-29): the instruments that only played it (the music box, the bells, the vox pad, none) have no role.",
+  "_note": "The workbench's options: hand-maintained from the ledgers (docs/superpowers/plans/*-ledger.md) and the workbench plan's Global Constraints. ids are app/song/library.h's (sym names the enum; smoke.mjs checks them); a kit from 16 is a workbench preset (wb_drums.h's WB_KIT_*, 16 + its index). status: approved (offered, the dice pick it), candidate (offered, marked; the dice skip it; none among the instruments: Sam tuned them all), retired (behind 'show retired'). ride: the kit plays the ride section (the sampled kits). set: a shipped sampled kit's sample set (samples/kits.json, git-ignored: unavailable until tools/prep_kits.py has made it). Families: electric goes with either; bass, pad and the kit follow the song's family. No ear candy (Sam, 2026-10-29): the instruments that only played it (the music box, the bells, the vox pad, none) have no role. Leads (Sam, 2026-10-29): the felt piano leads too (never over felt keys), the vibes are the sampled vibraphone; the muted trumpet, sax, guitar lick, string lead and cello are retired (the engine plays an approved lead of their family in their place: library.c's lib_lead_approved).",
   "families": {
     "acoustic": { "name": "Acoustic" },
     "synth": { "name": "Synth" },
@@ -9,18 +9,18 @@
   "instruments": [
     { "id": 0, "sym": "INS_RHODES", "name": "Rhodes", "roles": ["keys"], "family": "electric", "status": "approved" },
     { "id": 1, "sym": "INS_WURLI", "name": "Wurli", "roles": ["keys"], "family": "electric", "status": "approved" },
-    { "id": 2, "sym": "INS_FELT_PIANO", "name": "Felt piano", "roles": ["keys"], "family": "acoustic", "status": "approved" },
+    { "id": 2, "sym": "INS_FELT_PIANO", "name": "Felt piano", "roles": ["keys", "lead"], "family": "acoustic", "status": "approved" },
     { "id": 3, "sym": "INS_NYLON", "name": "Nylon guitar", "roles": ["keys"], "family": "acoustic", "status": "approved" },
     { "id": 4, "sym": "INS_PAD", "name": "Chillwave pad", "roles": ["keys"], "family": "synth", "status": "approved" },
     { "id": 5, "sym": "INS_UPRIGHT", "name": "Upright bass", "roles": ["bass"], "family": "acoustic", "status": "retired" },
     { "id": 6, "sym": "INS_ELEC_BASS", "name": "Electric bass", "roles": ["bass"], "family": "electric", "status": "approved" },
     { "id": 7, "sym": "INS_SUB", "name": "Sub bass", "roles": ["bass"], "family": "synth", "status": "approved" },
     { "id": 8, "sym": "INS_FLUTE", "name": "Flute", "roles": ["lead"], "family": "acoustic", "status": "approved" },
-    { "id": 9, "sym": "INS_MUTED_TPT", "name": "Muted trumpet", "roles": ["lead"], "family": "acoustic", "status": "approved" },
-    { "id": 10, "sym": "INS_SAX", "name": "Sax", "roles": ["lead"], "family": "acoustic", "status": "approved" },
-    { "id": 11, "sym": "INS_VIBES", "name": "Vibes", "roles": ["lead"], "family": "electric", "status": "approved" },
+    { "id": 9, "sym": "INS_MUTED_TPT", "name": "Muted trumpet", "roles": ["lead"], "family": "acoustic", "status": "retired" },
+    { "id": 10, "sym": "INS_SAX", "name": "Sax", "roles": ["lead"], "family": "acoustic", "status": "retired" },
+    { "id": 11, "sym": "INS_VIBES", "name": "Vibes (sampled vibraphone)", "roles": ["lead"], "family": "electric", "status": "approved" },
     { "id": 12, "sym": "INS_KALIMBA", "name": "Kalimba", "roles": ["lead"], "family": "acoustic", "status": "approved" },
-    { "id": 13, "sym": "INS_GUITAR_LICK", "name": "Guitar lick", "roles": ["lead"], "family": "electric", "status": "approved" },
+    { "id": 13, "sym": "INS_GUITAR_LICK", "name": "Guitar lick", "roles": ["lead"], "family": "electric", "status": "retired" },
     { "id": 14, "sym": "INS_MUSIC_BOX", "name": "Music box", "roles": [], "family": "acoustic", "status": "approved" },
     { "id": 15, "sym": "INS_BELLS", "name": "Bells", "roles": [], "family": "synth", "status": "approved" },
     { "id": 16, "sym": "INS_VOX_PAD", "name": "Vox pad", "roles": [], "family": "synth", "status": "approved" },
@@ -34,8 +34,8 @@
     { "id": 24, "sym": "INS_WARM_PAD", "name": "Warm pad", "roles": ["pad"], "family": "synth", "status": "approved" },
     { "id": 25, "sym": "INS_KNIGHT", "name": "Knight piano", "roles": ["keys", "lead"], "family": "acoustic", "status": "approved" },
     { "id": 26, "sym": "INS_EMILY", "name": "Emilyguitar", "roles": ["keys", "lead"], "family": "acoustic", "status": "approved" },
-    { "id": 27, "sym": "INS_STR_LEAD", "name": "String lead", "roles": ["lead"], "family": "synth", "status": "approved" },
-    { "id": 28, "sym": "INS_CELLO", "name": "Cello", "roles": ["lead"], "family": "acoustic", "status": "approved" },
+    { "id": 27, "sym": "INS_STR_LEAD", "name": "String lead", "roles": ["lead"], "family": "synth", "status": "retired" },
+    { "id": 28, "sym": "INS_CELLO", "name": "Cello", "roles": ["lead"], "family": "acoustic", "status": "retired" },
     { "id": 29, "sym": "INS_NONE", "name": "None", "roles": [], "family": "any", "status": "approved" }
   ],
   "kits": [

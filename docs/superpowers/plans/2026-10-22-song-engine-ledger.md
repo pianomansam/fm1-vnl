@@ -148,7 +148,8 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   - Set 26's guitar sound: "not sold on the sound. I can't quite pin down the issue." My guess: the Emilyguitar
     sample loop sustains held and half-note chords like an organ; offer an A/B with a natural decay.
   - The "vibes" (INS_VIBES, an M_BELL FM patch) sound like a plucked synth, not vibes: re-voice the bell (soft
-    mallet, motor tremolo, longer ring; no flash) or sample a vibraphone (~30 KB; ~23 KB left).
+    mallet, motor tremolo, longer ring; no flash) or sample a vibraphone (~30 KB; ~23 KB left). **Done (2026-10-29):**
+    the VCSL vibraphone, sampled (see Leads below).
   - Still unanswered: the C3 guitar floor; half-rate sampled kits A/B; 16 vs 32 kHz cymbals.
   - **Families (Sam, 2026-10-28):** acoustic vs synth/digital, electric (Rhodes, Wurli, electric bass, vibes,
     guitar lick) goes with either ("sure, we can try that"). A song's supporting roles (bass, pad, ear candy) and its
@@ -281,6 +282,34 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
   all parts. Hear both before reversing R16.
 
 ### Leads (Sam: not happy with the current leads; start here when we revisit them)
+
+- **Done (Sam, 2026-10-29, after the lead-candidates spike, app/build/new/lead-candidates/):** "i only liked the felt
+  piano and vibraphones." The vibes are the VCSL vibraphone (soft mallets, v2, 5 zones C4-E6, 18.4 KB of flash), on the
+  phrase planner as before (its level matched: its sets' lead over keys 8.5-9.8 dB, as the other leads'); the felt
+  piano is a lead (the struck hybrid, as the spike played it; +3.2 dB on the lead over its keys level), never over
+  felt keys. The muted trumpet, sax, guitar lick, string lead and cello are out of
+  every set (their patches and the string synth gone; ids kept, the workbench lists them retired and plays an approved
+  lead of their family for an old snapshot naming one). Sets: 3 Neo-soul Wurli, 11 Rhodes neo-soul, 22 Knight and felt,
+  31 Rhodes and felt: the felt; 4 Felt and vibes, 6 City pop Rhodes, 10 Pad and vibes, 30 Knight and vibes,
+  33 DX and vibes: the vibes; 9 Nylon and flute, 32 Knight, flute and brushes: the flute (set 9 needs a sustained
+  lead to keep its strum). The flute came down 0.3 dB (its pad solo trim up as much): over set 9's strummed nylon it
+  read 10.2 dB over the keys, past the 8-10 the mix holds; Emilyguitar and flute now reads 8.0, at the floor. The pads of
+  sets 30-33 stay the warm pad (chosen so the string leads weren't doubled; the strings could come back). To hear:
+  those sets.
+- **Lead candidates that "might work eventually, but would need lots of tweaks" (Sam, 2026-10-29).** From the spike
+  (app/build/new/lead-candidates/INDEX.md; docs/research/real-leads-2026-10-29.md):
+  - The comp instruments as leads: **Rhodes, Wurli, DX, nylon, organ** (the felt is in). Caveats: level (organ 3-5 dB
+    and DX 2-3 dB under the old leads in the mix, nylon 2-3 dB over); style (each played the struck hybrid, the organ
+    phrases: in set22 and set31, where the old lead sang phrases, the struck ones played a different line); a comp
+    instrument never leads over itself (no Rhodes lead over Rhodes keys).
+  - The sampled real instruments: **trumpet harmon (VSCO-2-CE), Weresax alto, Shinyguitar archtop, violin section
+    (VSCO-2-CE susVib), both cellos (Karoryfer bigcat, FluidR3)**. Caveats: the spike rendered them outside the engine
+    (a generic reverb and filters in place of the lead bus's plate, delay, section filters, wow, saturation, dust and
+    the mono lead's glides), so they sounded cleaner and closer than an engine lead would; struck vs phrase line (each
+    heard on a struck line in set6, a phrase line in set22 and set31); one round robin, no release or key noise; the
+    sustained ones need loops cut (vibrato baked in the violin); register: set22's line runs C5-C6, above the alto
+    sax's top sample (G5, +5 semitones), the trumpet's (A5, +3) and very high for a cello; and the flash (about 7 KB of
+    room is left after the vibraphone).
 
 - **The slow arpeggio as a lead.** One chord tone per 8th, up then down, sounded *melodic* rather than like
   accompaniment when it was a comping style (it's now in 16ths for comping). Use that 8th-note arpeggio, drawn from

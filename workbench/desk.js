@@ -476,7 +476,12 @@ export class Desk {
       this.rolls[p] = { history, at };
     }
     await this.refresh();
-    return [...ROWS.filter((r) => String(this.values[r.id]) !== String(snap.rows[r.id])).map((r) => r.id), ...missing];
+    // a retired lead (the muted trumpet, sax, guitar lick, string lead, cello: Sam, 2026-10-29) lands as the approved
+    // lead the engine stands in for it (library.c's lib_lead_approved): said, not a mismatch
+    const was = this.opts.instruments.find((i) => i.id === snap.rows.lead);
+    const swapped = was?.status === "retired" && was.roles.includes("lead") && this.values.lead !== snap.rows.lead;
+    this.message = swapped ? `Lead: ${was.name} is retired; the song plays ${this.opts.instruments.find((i) => i.id === this.values.lead)?.name} instead.` : "";
+    return [...ROWS.filter((r) => !(swapped && r.id === "lead") && String(this.values[r.id]) !== String(snap.rows[r.id])).map((r) => r.id), ...missing];
   }
 
   // A snapshot's drum lanes over the kit row's (a preset's, or the song's own kit's): the lanes with a source first (the

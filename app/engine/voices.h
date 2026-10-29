@@ -95,7 +95,7 @@ float vx_chip_out(int role, float *raw, float *step);
 float vx_pad_lane(int lane, int *step, int *held);
 /* Tests: a pad lane's (1-4) voice's patch now, NULL for a silent lane. */
 const vx_patch_t *vx_pad_lane_patch(int lane);
-/* Tests: the mono lead's (M_SUB mono, M_STR) legato notes to a new pitch (its glides) on V_LEAD since vx_init (0 for
+/* Tests: the mono lead's (M_SUB mono) legato notes to a new pitch (its glides) on V_LEAD since vx_init (0 for
    any other role). */
 uint32_t vx_glides(int role);
 /* Tests: the chords' pool's steals of a voice still sounding (held, or in its release; a string re-struck with no
@@ -109,8 +109,7 @@ int vx_tiny(void);
 /* Queue an event; its delay counts from now, in samples at 44.1 kHz (the engine assumes that rate). 64 pending at
    most; when full the oldest by insertion order is dropped (not the one due first). When all voices of a pitched lane
    are busy, the victim fades out over about 4 ms first, so a stolen note starts up to ~5 ms late. A mono synth patch
-   (M_SUB) or the string synth (M_STR: the lead only; another role's notes on it are silent) on the lead plays a
-   note that arrives while its last is still held, or within 25 ms of its
+   (M_SUB) on the lead plays a note that arrives while its last is still held, or within 25 ms of its
    end and a 4th or less from it, legato on that voice, gliding to it; after a longer rest or a wider leap it starts
    on its pitch. The chords' pool is
    4 voices, 8 for a pad (its release crosses the next chord's swell) or a sampled instrument. On a sampled patch a

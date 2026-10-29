@@ -986,3 +986,22 @@ target). `--forced 20 7 155 138 100 22`, HEAD (f67842d) and this task interleave
 of the same binary, so the comparison is noise: HEAD 1.13 / 0.92 / 0.82 / 0.81 / 0.64 / 0.89 and 1.12 / 1.01 /
 1.15 / 0.85 / 0.68 / 0.92; Task 1b 0.95 / 0.83 / 0.82 / 1.31 / 0.68 / 0.87 and 1.08 / 1.03 / 0.88 / 0.85 / 0.64 /
 1.00. Re-measure on a quiet host before reading anything into these.
+
+### Leads: the sampled vibraphone and the felt piano in; five synth leads out (2026-10-29)
+
+The vibes are the VCSL vibraphone (M_SAMP, 5 zones C4-E6, 16 kHz IMA ADPCM, 0.46 s each: 18416 B of sample data);
+the felt piano leads some sets (its keys patch, on the lead); the muted trumpet, sax and guitar lick patches and the
+string synth (strsyn.c, its Plaits Ensemble and the lead's two 512-float lines in the pool) are gone.
+
+- **Memory** (`tools/mem-check.sh`): image **386908 B before, 402060 B after** (+15152: the vibraphone's 18416 B
+  less about 3.3 KB of the string synth's code and the three patches; budget 409600, about 7.4 KB left), RAM 56592 ->
+  55440 B, pool 184312 -> 180216 B (the string synth's lines).
+- **CPU, per component** (`bench --parts`, the lead row: 2 voices of 8ths, held a dotted 8th; best of 3, two runs,
+  HEAD 44827cd's bench beside this one, a loaded host, load about 7): the vibes **0.20** (were 0.27-0.30 as the FM
+  bell: the sampler is cheaper), the felt piano on the lead **0.17-0.18** (new row); the removed rows were the muted
+  trumpet 0.25-0.27, the sax 0.22-0.23, the guitar lick 0.12-0.13 and the string synth 0.16 (Task 6). The other
+  leads read as before (flute 0.23, kalimba 0.18-0.21, saw lead 0.12, synth pluck 0.22, Knight 0.21-0.22).
+- **CPU, songs** (`--forced 20 7 155 138 100 22`, interleaved with HEAD, twice): none of the standard list's sets
+  changed lead, so the rows read the same within the loaded host's noise (seed 155 forced 0.85 / 0.78 HEAD, 0.83 /
+  0.74 now; seed 22 forced 0.74 / 0.81 HEAD, 0.84 / 0.77 now). A vibes song now costs less than before (the sampler
+  under the bell), a felt-lead song about what a struck sampled lead does.

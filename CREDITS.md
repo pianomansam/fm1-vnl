@@ -1,7 +1,7 @@
 # Credits
 
 VNL-1's code, its licenses and the third-party code it adapts are listed in the README ("Credits and licenses").
-This file lists the recorded material the firmware contains, and the code adapted for the string synth.
+This file lists the recorded material the firmware contains.
 
 ## Samples
 
@@ -12,7 +12,7 @@ with thanks. `tools/samples/manifest.json` lists the exact files; `tools/samples
 
 | Source | Used for | License | URL |
 | --- | --- | --- | --- |
-| Versilian Community Sample Library (VCSL), Versilian Studios; the Knight upright sampled by Simon Dalzell (Ivy Audio) | Knight upright piano (`Upright Piano, Knight`, `vl2`); rope-tension snare (low, snares off); hi-hat pedal close, closed (softest) and open; small shaker (high, fast) | CC0 1.0 (`LICENSE`) | https://github.com/sgossner/VCSL |
+| Versilian Community Sample Library (VCSL), Versilian Studios; the Knight upright sampled by Simon Dalzell (Ivy Audio) | Knight upright piano (`Upright Piano, Knight`, `vl2`); vibraphone (`Vibraphone`, soft mallets, `v2`: the vibes lead); rope-tension snare (low, snares off); hi-hat pedal close, closed (softest) and open; small shaker (high, fast) | CC0 1.0 (`LICENSE`) | https://github.com/sgossner/VCSL |
 | FreePats Spanish Classical Guitar 2019-06-18 (SF2), by roberto@zenvoid.org | nylon guitar | CC0 1.0 (`cc0.txt`, `readme.txt`) | https://freepats.zenvoid.org/Guitar/acoustic-guitar.html |
 | Karoryfer Samples (D. Smolken, Brian Wood): Emilyguitar | electric guitar (`mf`) | CC0 1.0 (`LICENSE`) | https://github.com/sfzinstruments/karoryfer.emilyguitar |
 | Karoryfer Samples: Gogodze Phu Vol II | kick, sidestick, snare (center), closed and open hi-hat (retro mic) | CC0 1.0 (`LICENSE`) | https://github.com/sfzinstruments/karoryfer.gogodze-phu-vol-ii |
@@ -21,9 +21,8 @@ with thanks. `tools/samples/manifest.json` lists the exact files; `tools/samples
 
 ## Code
 
-| What | License | URL | Where |
-| --- | --- | --- | --- |
-| The Ensemble (string-machine chorus) of [Mutable Instruments Plaits](https://github.com/pichenettes/eurorack), `plaits/dsp/fx/ensemble.h`, by Emilie Gillet; adapted mono, its delays rescaled, for the string synth (via the instrument spike's port) | MIT (below; verified in the file's own header) | https://github.com/pichenettes/eurorack/blob/master/plaits/dsp/fx/ensemble.h | `app/engine/strsyn.c`, `strsyn.h` |
+The firmware adapts no third-party code beyond what the README lists (the string synth and its Plaits Ensemble
+went with the string and cello leads, 2026-10-29).
 
 The workbench (`workbench/`, a local tool, not in the firmware) builds with two drum engines, credited here; their
 licenses and the files taken are in `workbench/engine/LICENSES.md`:
@@ -41,21 +40,3 @@ firmware). No attribution is required; it is given with thanks:
 | --- | --- | --- | --- |
 | Karoryfer Samples: Gogodze Phu Vol II, at 69a0274 | the Gogodze kit (`Programs/Kit.sfz` as shipped: kick, snare, sidestick, closed and open hi-hat, every mic at its default mix) | CC0 1.0 (`LICENSE`) | https://github.com/sfzinstruments/karoryfer.gogodze-phu-vol-ii |
 | Karoryfer Samples: Big Rusty Drums, at f07ce00 | the Big Rusty kits (`Programs/02-basic.sfz` as shipped, and with its brush maps: kick, snare, sidestick, hi-hat, 22" ride) | CC0 1.0 (`LICENSE`) | https://github.com/sfzinstruments/karoryfer.big-rusty-drums |
-
-The MIT notice for the Plaits code, which the firmware contains:
-
-    Copyright 2014 Emilie Gillet.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
-    documentation files (the "Software"), to deal in the Software without restriction, including without limitation
-    the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and
-    to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of
-    the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
-    THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
-    CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-    IN THE SOFTWARE.

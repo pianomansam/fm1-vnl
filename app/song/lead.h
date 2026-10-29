@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* The lead (lead design, 2026-10-22): it plays like its instrument. A percussive lead (vibes, kalimba, guitar lick)
-   plays the hybrid: one shaped arpeggio per song over the keys' voicing an octave up, landing on a voice-leading
-   skeleton note at each chord change (on 1, late, pushed an 8th early, or after a beat's rest). A sustained lead
-   (flute, sax, muted trumpet, saw lead) sings phrases (sustained-lead design, phrase.h): the song's motif in an 8-bar
+/* The lead (lead design, 2026-10-22): it plays like its instrument. A percussive lead (kalimba, the felt piano, the
+   sampled keys and guitars, the synth pluck) plays the hybrid: one shaped arpeggio per song over the keys' voicing an
+   octave up, landing on a voice-leading skeleton note at each chord change (on 1, late, pushed an 8th early, or after a beat's rest). A sustained lead
+   (flute, saw lead) and the vibes sing phrases (sustained-lead design, phrase.h): the song's motif in an 8-bar
    question and answer, each planned degree re-anchored to the bar's chord, a breath after the question and the
    arrival. It plays in the plan's lead blocks (L_LEAD, with keys, not the intro or outro). Notes keep the melody's
    rules: in the chord-scale, no avoid notes, chord tones on steps 0 and 8; a note pushed across a chord change is
