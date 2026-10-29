@@ -1279,15 +1279,15 @@ static int deg_of(int key, int mode, int note)
     return d;
 }
 
-/* The 4-bar lead phrases of a plan, in song order (trading fours: lead, candy, lead... in blocks with both). */
+/* The 4-bar lead phrases of a plan, in song order (every 4 bars of an L_LEAD block: no ear candy trades them,
+   Task 1b). */
 static int lead_phrase_starts(const song_plan_t *p, int *starts)
 {
     int i, j, n = 0;
     for (i = 0; i < p->n; i++) {
         const plan_block_t *b = &p->b[i];
         if (!(b->layers & L_LEAD)) continue;
-        for (j = 0; j < b->bars / 4; j++)
-            if (!(b->layers & L_CANDY) || (j & 1) == 0) starts[n++] = b->start + 4 * j;
+        for (j = 0; j < b->bars / 4; j++) starts[n++] = b->start + 4 * j;
     }
     return n;
 }
@@ -1315,10 +1315,10 @@ static void test_melody(void)
     motif_t m, m2;
     song_ev_t ev[8], ev2[8];
     int seed, bar, step, i, j;
-    int bad_scale = 0, bad_strong = 0, bad_avoid = 0, bad_lead_reg = 0, bad_candy_reg = 0, bad_both = 0;
-    int bad_late = 0, bad_vel = 0, bad_cross = 0, bad_overlap = 0, bad_det = 0, bad_ends = 0, bad_state = 0;
-    int bad_motif = 0, bad_voice = 0, bad_trade = 0, trade_n = 0;
-    int kinds[3] = {0, 0, 0}, lead_n = 0, candy_n = 0, candy_only_n = 0, phrases = 0;
+    int bad_scale = 0, bad_strong = 0, bad_avoid = 0, bad_lead_reg = 0;
+    int bad_late = 0, bad_vel = 0, bad_cross = 0, bad_det = 0, bad_ends = 0, bad_state = 0;
+    int bad_motif = 0, bad_voice = 0;
+    int kinds[3] = {0, 0, 0}, lead_n = 0, phrases = 0;
 
     for (seed = 1; seed <= 1000; seed++) {
         int starts[32], np, nn = 0, mb, bpc, loop;
@@ -1348,19 +1348,15 @@ static void test_melody(void)
             int pass = bar / loop + 1, pcs[5], npc, dark = (b->flags & PB_DARK) != 0;
             npc = harmony_chord_at(&r, bar, pass, dark, pcs);
             for (step = 0; step < 16; step++) {
-                int ne = melody_step(&r, &p, &ph, &m, bar, step, sps, r.seed, ev, 8), hasl = 0, hasc = 0;
+                int ne = melody_step(&r, &p, &ph, &m, bar, step, sps, r.seed, ev, 8);
                 int ne2 = melody_step(&r, &p, &ph, &m, bar, step, sps, r.seed, ev2, 8);
                 if (ne != ne2 || memcmp(ev, ev2, sizeof(song_ev_t) * (size_t)ne)) bad_det++;
                 for (i = 0; i < ne; i++) {
                     int n = ev[i].note, k, ct = 0;
                     float on = (float)(bar * 16 + step) * sps + (float)ev[i].delay;
                     float lim = (float)((bar / bpc + 1) * bpc * 16) * sps;
-                    if (ev[i].voice == V_LEAD) { hasl = 1; lead_n++; if (n < 62 || n > 86) bad_lead_reg++; }
-                    else if (ev[i].voice == V_CANDY) {
-                        hasc = 1; candy_n++;
-                        if (!(b->layers & L_LEAD)) candy_only_n++;
-                        if (n < 70 || n > 98) bad_candy_reg++;
-                    } else bad_voice++;
+                    if (ev[i].voice == V_LEAD) { lead_n++; if (n < 62 || n > 86) bad_lead_reg++; }
+                    else bad_voice++;   /* (no ear candy: Task 1b) */
                     if (!in_chord_scale(r.v[RF_KEY], r.v[RF_MODE], pcs, npc, n)) bad_scale++;
                     for (k = 0; k < npc; k++) if (pcs[k] == n % 12) ct = 1;
                     if ((step == 0 || step == 8) && !ct) bad_strong++;
@@ -1368,24 +1364,14 @@ static void test_melody(void)
                     if (ev[i].delay < 220 || ev[i].delay > 1103) bad_late++;
                     if (ev[i].vel < 25 || ev[i].vel > 110) bad_vel++;
                     if (ev[i].len == 0 || on + (float)ev[i].len > lim + 1.0f) bad_cross++;
-                    if (!(b->layers & (ev[i].voice == V_LEAD ? L_LEAD : L_CANDY))) bad_voice++;
-                    if ((b->layers & L_LEAD) && (b->layers & L_CANDY)) {   /* trading fours, lead first */
-                        int cphr = ((bar - b->start) / 4) & 1;
-                        if (cphr != (ev[i].voice == V_CANDY)) bad_trade++;
-                        if (cphr) trade_n++;
-                    }
+                    if (!(b->layers & L_LEAD)) bad_voice++;
                     if (nn < (int)(sizeof ns / sizeof ns[0])) {
                         ns[nn].bar = bar; ns[nn].step = step; ns[nn].voice = ev[i].voice; ns[nn].note = n;
                         ns[nn].on = on; ns[nn].off = on + (float)ev[i].len; nn++;
                     }
                 }
-                if (hasl && hasc) bad_both++;
             }
         }
-        for (i = 0; i < nn; i++)
-            for (j = 0; j < nn; j++)
-                if (ns[i].voice == V_LEAD && ns[j].voice == V_CANDY && ns[i].on < ns[j].off && ns[j].on < ns[i].off)
-                    bad_overlap++;
 
         /* phrase plan: head-solos-head, kinds counted, exact restatement of the motif */
         np = lead_phrase_starts(&p, starts);
@@ -1416,25 +1402,20 @@ static void test_melody(void)
     CHECK(bad_strong == 0, "melody: %d notes on steps 0/8 not chord tones", bad_strong);
     CHECK(bad_avoid == 0, "melody: %d avoid notes", bad_avoid);
     CHECK(bad_lead_reg == 0, "melody: %d lead notes outside 62-86", bad_lead_reg);
-    CHECK(bad_candy_reg == 0, "melody: %d candy notes outside 70-98", bad_candy_reg);
-    CHECK(bad_both == 0, "melody: %d steps with both lead and candy", bad_both);
-    CHECK(bad_overlap == 0, "melody: %d lead/candy overlaps", bad_overlap);
     CHECK(bad_late == 0, "melody: %d notes not 5-25 ms late", bad_late);
     CHECK(bad_vel == 0, "melody: %d velocities outside 25-110", bad_vel);
     CHECK(bad_cross == 0, "melody: %d notes across a chord change", bad_cross);
     CHECK(bad_voice == 0, "melody: %d events with a wrong voice or layer", bad_voice);
     CHECK(bad_det == 0, "melody: %d determinism violations", bad_det);
-    CHECK(bad_trade == 0 && trade_n > 0, "melody: trading fours broken %d times (%d candy answers)", bad_trade, trade_n);
     CHECK(bad_ends == 0, "melody: %d songs not head-solos-head", bad_ends);
     CHECK(bad_state == 0, "melody: %d PH_STATE phrases not an exact restatement", bad_state);
     CHECK(phrases > 0 && kinds[PH_STATE] * 100 >= 40 * phrases && kinds[PH_STATE] * 100 <= 60 * phrases,
           "melody: restatements %d of %d phrases", kinds[PH_STATE], phrases);
     CHECK(phrases > 0 && kinds[PH_VARIANT] * 100 >= 10 * phrases && kinds[PH_VARIANT] * 100 <= 20 * phrases,
           "melody: variants %d of %d phrases", kinds[PH_VARIANT], phrases);
-    CHECK(lead_n > 0 && candy_n > 0 && candy_only_n > 0, "melody: lead %d candy %d (candy-only %d) notes",
-          lead_n, candy_n, candy_only_n);
-    printf("melody: %d phrases, state %d variant %d new %d; lead %d candy %d notes\n", phrases, kinds[0], kinds[1],
-           kinds[2], lead_n, candy_n);
+    CHECK(lead_n > 0, "melody: lead %d notes", lead_n);
+    printf("melody: %d phrases, state %d variant %d new %d; lead %d notes\n", phrases, kinds[0], kinds[1], kinds[2],
+           lead_n);
 }
 
 static uint32_t vt_seed = 12345u;
@@ -2353,6 +2334,7 @@ static void test_role_buses(void)
             float m = 0.0f;
             vx_init();
             vx_solo(role[s]);
+            if (role[e] == V_CANDY) vx_assign(V_CANDY, INS_MUSIC_BOX);   /* (the role unplayed since Task 1b: its bus) */
             vt_ev(role[e], role[e] == V_KICK ? 0 : role[e] == V_BASS ? 43 : 64, 110, 0, 22050u);
             for (k = 0; k < 5; k++) {
                 float b = vt_block(4096, &bad);
@@ -2954,7 +2936,8 @@ static void test_vx_patches(void)
         CHECK(a == b, "the same events rendered different samples (%08x vs %08x)", (unsigned)a, (unsigned)b);
     }
 
-    /* vx_configure takes every role's instrument, the song's kit (lib_song_kit) and the chain fields from the roll */
+    /* vx_configure takes every role's instrument (no ear candy: Task 1b), the song's kit (lib_song_kit) and the chain
+       fields from the roll */
     for (s = 0; s < LIB_NSETS; s++) {
         const lib_set_t *t = &LIB_SETS[s];
         song_roll_t r;
@@ -2967,7 +2950,7 @@ static void test_vx_patches(void)
         vx_init();
         vx_configure(&r);
         c = vx_config();
-        CHECK(c->chords == t->chords && c->bass == t->bass && c->lead == t->lead && c->candy == t->candy &&
+        CHECK(c->chords == t->chords && c->bass == t->bass && c->lead == t->lead && c->candy == INS_NONE &&
                   c->pad == t->pad && c->kit == lib_song_kit(&r) && c->flavor == t->flavor,
               "set %d: configure took the wrong instruments", t->id);
         CHECK(c->dust == s % 4 && c->noise == s % 3 && c->ambience == s % 2, "set %d: configure took the wrong chain",
@@ -6878,6 +6861,7 @@ static int lk_song(const song_roll_t *roll, int role, double *db)
             cur = bar;
         }
         n = song_tick(&s, ev, 64);
+        vx_set_pad_level(song_pad_level(&s));   /* (as app.c's step: the pad's fade over a section line) */
         for (i = 0; i < n; i++) {
             if (lk_skip_lane && ev[i].voice == V_PAD && ev[i].pad == lk_skip_lane)
                 continue;
@@ -6982,8 +6966,10 @@ static void test_lead_over_keys(void)
    dB): each set's mean and median 7-11 dB under, and no song under 5 dB or over 13. */
 static void test_pad_level(void)
 {
+    static const song_ov_t pads = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1};   /* every song with a pad */
     float d[LIB_NSETS_MAX * LK_PER], sorted[LIB_NSETS_MAX * LK_PER], med;
     int k, n = 0, sets = 0;
+    song_override(&pads);
     for (k = 0; k < LIB_NSETS && k < LIB_NSETS_MAX; k++) {
         const lib_set_t *t = &LIB_SETS[k];
         uint32_t seed;
@@ -7032,6 +7018,7 @@ static void test_pad_level(void)
         CHECK(mean >= 7.0f && mean <= 11.0f, "pad level: %s's mean %.1f dB under, wanted 7-11", t->name, (double)mean);
         CHECK(smed >= 7.0f && smed <= 11.0f, "pad level: %s's median %.1f dB under, wanted 7-11", t->name, (double)smed);
     }
+    song_override(NULL);
     CHECK(sets >= 10, "pad level: only %d sets with percussive keys", sets);
     memcpy(sorted, d, (size_t)n * sizeof sorted[0]);
     qsort(sorted, (size_t)n, sizeof sorted[0], lk_cmp_f);
@@ -7987,13 +7974,27 @@ typedef struct {
     int bars, ne, first[PD_BARS + 1];                    /* first: each bar's first event */
     uint32_t at[PD_BARS * 16 + 1];                       /* each step's start sample */
     int layers[PD_BARS], sec[PD_BARS], blk[PD_BARS], key[PD_BARS], mode[PD_BARS], np[PD_BARS];
-    int part[PD_BARS], sus[PD_BARS], voice[PD_BARS];     /* pads_section_part's, sustained keys, the solo's voice */
+    int part[PD_BARS], sus[PD_BARS], voice[PD_BARS];     /* pd_part's, sustained keys, the solo's voice */
     int pcs[PD_BARS][5];
     int keys[PD_BARS][4];                                /* the bar's full keys voicing (harmony_voicing_at) */
     uint32_t hash;                                       /* the pad events */
     pd_ev_t ev[PD_MAXE];
 } pd_rec_t;
 static pd_rec_t pd_a, pd_b;
+/* the pad layer's part in block blk as song.c plays it: pads_section_part's, 0 in a song or block without the pad
+   (song_pad_on, song_pad_in: Task 1b) */
+/* The pad layer's own tests play every song with a pad (the pad_on override; its sections still drop out as rolled),
+   so they keep their samples; NULL (0) restores the roll's */
+static void pd_all_pads(int on)
+{
+    static const song_ov_t all = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1};
+    song_override(on ? &all : NULL);
+}
+static int pd_part(const song_t *s, int blk, int sus)
+{
+    if (blk < 0 || blk >= s->plan.n || !song_pad_on(&s->roll) || !song_pad_in(&s->roll, &s->plan, blk)) return 0;
+    return pads_section_part(&s->roll, blk, s->plan.b[blk].section, sus);
+}
 static int pd_req_bar = -1, pd_req_key;                  /* a key request at this bar's step 3 (-1: none) */
 
 static void pd_play(song_t *s, pd_rec_t *rec, song_t *other)
@@ -8022,7 +8023,7 @@ static void pd_play(song_t *s, pd_rec_t *rec, song_t *other)
                 const lib_set_t *set = lib_set_by_id((uint8_t)s->roll.v[RF_SET]);
                 rec->sus[bar] = !set || lib_ins_sustained(set->chords);
             }
-            rec->part[bar] = b ? pads_section_part(&s->roll, rec->blk[bar], b->section, rec->sus[bar]) : 0;
+            rec->part[bar] = b ? pd_part(s, rec->blk[bar], rec->sus[bar]) : 0;
             rec->voice[bar] = pads_solo_voice(&s->roll);
             rec->key[bar] = s->roll.v[RF_KEY];
             rec->mode[bar] = s->roll.v[RF_MODE];
@@ -8126,7 +8127,7 @@ static int pd_bpc(const song_roll_t *r)
 /* Present in every keys bar of a chord section (pads_section_part 1) over percussive keys, absent over sustained keys; 2 notes (the budget's cut (c), pads
    design call 1), never 3 or fewer than 2, the 3rd and the 7th in >= 80% of the chords that have both; onsets only at chord changes; the top voice moves 2 semitones or less in >= 80% of changes; MIDI
    55-72; no note a semitone from a sounding keys, bass or lead note */
-static void test_pad_chord(void)
+static void test_pad_chord_all(void)
 {
     static song_t s;
     song_roll_t prev, r;
@@ -8273,6 +8274,12 @@ static void test_pad_chord(void)
     CHECK(common > 5000 && lane_moved == 0 && restruck == 0, "pad chord: of %ld common pitches %ld changed lanes, %ld "
           "struck again", common, lane_moved, restruck);
 }
+static void test_pad_chord(void)
+{
+    pd_all_pads(1);
+    test_pad_chord_all();
+    pd_all_pads(0);
+}
 
 static const int PD_DEG[4] = {0, 1, 2, 6};             /* the solo's scale degrees: 1, 2, 3, 7 */
 
@@ -8309,12 +8316,13 @@ static int pd_solo_legal(const pd_rec_t *rec, int bar, int note)
     return 1;
 }
 
-/* Over 1500 songs (about 3 in 5 with a solo note, a quarter of their sections over struck keys): at most one onset a
+/* Over 2000 songs (1500 before Task 1b: the pad now drops out of about a third of its sections; about 3 in 5 with a
+   solo note, a quarter of their sections over struck keys): at most one onset a
    bar, on step 0, sounding to the bar's end (or tied); scale degrees 1, 2, 3, 7 only, the tonic in >= 35%; a note
    legal over the next chord is kept, otherwise it moves 2 semitones or less in >= 90%; MIDI 72-84 (the strings
    84-96), 3 or more above the chord part's top; no rubs with the keys or bass. A key request mid-section: no solo
    note sounds outside the new key after it lands. */
-static void test_pad_solo(void)
+static void test_pad_solo_all(void)
 {
     static song_t s;
     song_roll_t prev, r;
@@ -8322,7 +8330,7 @@ static void test_pad_solo(void)
     long notes = 0, tonic = 0, bars = 0, btonic = 0, deg_bad = 0, twice = 0, off_step = 0, short_ = 0, range = 0,
          low = 0, kept = 0, keep_bad = 0, moved = 0, near = 0, rubs = 0, checked = 0, avoid = 0;
     int k, bar, i, found = 0;
-    for (k = 0; k < 1500; k++) {
+    for (k = 0; k < 2000; k++) {
         int bpc, onsets[PD_BARS];
         seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
         roll_song(k ? &prev : 0, seed, &r);
@@ -8410,6 +8418,12 @@ static void test_pad_solo(void)
     }
     CHECK(found >= 20, "pad key request: only %d songs", found);
 }
+static void test_pad_solo(void)
+{
+    pd_all_pads(1);
+    test_pad_solo_all();
+    pd_all_pads(0);
+}
 
 /* Pads revision 2: the section's part (pads_section_part) and the song's solo voice (pads_solo_voice), pure functions
    of the roll and the plan. 40% (+-5) of songs have no solo note (every section then the chord part over struck keys,
@@ -8493,8 +8507,9 @@ static void test_pad_sections(void)
           "organ keys)", excl, fl_lead, org_keys);
 }
 
-/* Either the chord part or the solo note, never both (pads revision 2), as the songs play over 500 songs: no bar has
-   both chord-part (lanes 1-3) and solo (lane 4) events, and no pad note sounds while the other part's does; a song
+/* Either the chord part or the solo note, never both (pads revision 2), as the songs play over 700 songs (500 before
+   Task 1b): no bar has both chord-part (lanes 1-3) and solo (lane 4) events, and no pad note sounds while the other
+   part's does; a song
    with no solo voice never plays lane 4; each keys bar of a chord section over struck keys has the chord part, of a
    solo section the solo note (95%); over struck keys, in the songs with a solo, 25% (+-7) of the keys sections are the
    solo's; the solo's notes in its voice's range (the strings 84-96, the others 72-84). Handovers (Review Focus 1): at a
@@ -8527,8 +8542,8 @@ static long pd_engine_stuck(const song_roll_t *roll, long *checked, long *wrong)
         if (st == 2) {
             const plan_block_t *b = plan_at(&s.plan, bar);
             const lib_set_t *set = lib_set_by_id((uint8_t)s.roll.v[RF_SET]);
-            int part = b && (b->layers & L_KEYS) ? pads_section_part(&s.roll, (int)(b - s.plan.b), b->section,
-                                                                      !set || lib_ins_sustained(set->chords)) : 0;
+            int part = b && (b->layers & L_KEYS) ? pd_part(&s, (int)(b - s.plan.b),
+                                                           !set || lib_ins_sustained(set->chords)) : 0;
             int lane, step, held;
             for (lane = 1; lane <= 4; lane++) {
                 vx_pad_lane(lane, &step, &held);
@@ -8560,7 +8575,7 @@ static long pd_engine_stuck(const song_roll_t *roll, long *checked, long *wrong)
     vx_bed_off(0);
     return bad;
 }
-static void test_pad_either(void)
+static void test_pad_either_all(void)
 {
     static song_t s;
     song_roll_t prev, r;
@@ -8568,7 +8583,7 @@ static void test_pad_either(void)
     long both = 0, overlap = 0, none_notes = 0, cbars = 0, cmiss = 0, sbars = 0, smiss = 0, ksec = 0, ksolo = 0,
          range = 0, solo_notes = 0, hand = 0, hand_bad = 0, stuck = 0, checked = 0, wrong = 0;
     int k, bar, i, rendered = 0;
-    for (k = 0; k < 500; k++) {
+    for (k = 0; k < 700; k++) {   /* (500 before Task 1b: the pad drops out of some sections) */
         int handover = 0, voice;
         seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
         roll_song(k ? &prev : 0, seed, &r);
@@ -8639,6 +8654,12 @@ static void test_pad_either(void)
     CHECK(rendered == 6 && stuck == 0 && wrong == 0, "pad either: %ld stuck lanes, %ld bars off the solo voice (%d "
           "songs rendered)", stuck, wrong, rendered);
 }
+static void test_pad_either(void)
+{
+    pd_all_pads(1);
+    test_pad_either_all();
+    pd_all_pads(0);
+}
 
 /* the same seed gives the same pad events, alone, after another song, or with another ticking in between */
 static void test_pad_determinism(void)
@@ -8684,7 +8705,7 @@ static int pdbl_play(const song_roll_t *r, int *bad, int *notes)
         int n = song_tick(&s, ev, 64), i, j, fresh = 1;
         for (i = 0; i < n; i++)
             if (ev[i].voice == V_CHORD) {
-                if (fresh) { nc = 0; strikes++; fresh = 0; }
+                if (fresh) { nc = 0; strikes += song_pad_level(&s) > 0.0f; fresh = 0; }   /* (where the pad plays) */
                 if (nc < 4) cur[nc++] = ev[i].note;
             }
         for (i = 0; i < n; i++)
@@ -8697,7 +8718,7 @@ static int pdbl_play(const song_roll_t *r, int *bad, int *notes)
     }
     return strikes;
 }
-static void test_pad_double(void)
+static void test_pad_double_all(void)
 {
     /* 1003 for 1001: no 16th arpeggio since 3025034 moved the style draws */
     static const uint32_t SEED[3] = {1003u, 1007u, 1008u};
@@ -8719,6 +8740,12 @@ static void test_pad_double(void)
               (unsigned)SEED[k], bad, notes, strikes);
         CHECK(bad0 > 0, "pad double: seed %u's default chord part already doubles the keys", (unsigned)SEED[k]);
     }
+}
+static void test_pad_double(void)
+{
+    pd_all_pads(1);
+    test_pad_double_all();
+    pd_all_pads(0);
 }
 
 /* The strum engine (CS_STRUM, the guitars; Task 4): per strum (a step's chord events) at most 6 notes, each string's
@@ -8961,9 +8988,11 @@ static void test_strum_same(void)
     printf("strum same: voicer %08x, songs %08x, with set changes %08x\n", (unsigned)v, (unsigned)a, (unsigned)b);
     CHECK(v == 0x7b61830du, "strum same: the voicer's shapes hash %08x, wanted 7b61830d", (unsigned)v);
     /* re-pinned (cf0dca0, Sam: guitars never draw the arpeggio, so the strum songs and their draws moved; sampled hats
-       and shaker skip the off 16ths below 55% swing): were 4fc5e7a7 and f88fac2a */
-    CHECK(a == 0xa1a8e201u, "strum same: the strummed songs hash %08x, wanted a1a8e201", (unsigned)a);
-    CHECK(b == 0x3910eb79u, "strum same: with set changes %08x, wanted 3910eb79", (unsigned)b);
+       and shaker skip the off 16ths below 55% swing): were 4fc5e7a7 and f88fac2a. Re-pinned again (Task 1b, Sam,
+       2026-10-29: "Remove the ear candy part completely"; "Make it possible for the pad part to not be in a song";
+       "add the ability for the pad part to drop out of certain song sections"): were a1a8e201 and 3910eb79 */
+    CHECK(a == 0x2341dc17u, "strum same: the strummed songs hash %08x, wanted 2341dc17", (unsigned)a);
+    CHECK(b == 0xdd40694fu, "strum same: with set changes %08x, wanted dd40694f", (unsigned)b);
     v = (uint32_t)sf_last_bad();
     CHECK(v == 0, "strum same: %u strummed bars left the keys' last voicing behind", (unsigned)v);
 }
@@ -9047,8 +9076,8 @@ static void test_wb_off(void)
     uint32_t a, b;
     lib_set_wb(NULL, 0); lib_pattern_wb(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0xa1a8e201u, "wb off: the strummed songs hash %08x, wanted a1a8e201", (unsigned)a);
-    CHECK(b == 0x3910eb79u, "wb off: with set changes %08x, wanted 3910eb79", (unsigned)b);
+    CHECK(a == 0x2341dc17u, "wb off: the strummed songs hash %08x, wanted 2341dc17", (unsigned)a);
+    CHECK(b == 0xdd40694fu, "wb off: with set changes %08x, wanted dd40694f", (unsigned)b);
 }
 /* the workbench's per-song overrides (default off): each forces one choice, or re-rolls one part, and nothing else */
 typedef struct {
@@ -9101,7 +9130,7 @@ static void ov_run(const song_roll_t *r, const song_ov_t *ov, ov_rec_t *o)
 }
 static song_ov_t ov_none(void)
 {
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1};
     return o;
 }
 static void test_ov_comp(void)
@@ -9255,7 +9284,169 @@ static void test_ov_part_salts(void)
                       NAME[j], moved[j]);
     }
     song_override(NULL);
-    CHECK(sf_songs(0) == 0xa1a8e201u && sf_songs(1) == 0x3910eb79u, "ov part salts: the pinned hashes moved");
+    CHECK(sf_songs(0) == 0x2341dc17u && sf_songs(1) == 0xdd40694fu, "ov part salts: the pinned hashes moved");
+}
+/* Task 1b (Sam, 2026-10-29): "Remove the ear candy part completely"; "Make it possible for the pad part to not be in
+   a song. And update the seeds to not always have it"; "add the ability for the pad part to drop out of certain song
+   sections". Over 300 songs: no V_CANDY event; 60-73% have a pad (song_pad_on); in those, 55-78% of sections have
+   it (song_pad_in), never 3 without it in a row, intros and breaks without it more often than grooves and lead
+   sections; the events agree (no V_PAD note in a song or block without it). The fade (song_pad_level, step by
+   step): 0 through a block without the pad, 1 through one with it, but over the last bar before a block without it
+   falling (15/16 .. 0) and over the first bar back rising (1/16 .. 1). pad_on 0 and 1 force it (1: wherever the
+   layer can play; over sustained keys a song with no solo voice has none, as before). */
+static int t1b_silent(const song_t *s, int i)   /* the pad layer silent in block i (song.c's pad_part) */
+{
+    const lib_set_t *set = lib_set_by_id((uint8_t)s->roll.v[RF_SET]);
+    if (i < 0 || i >= s->plan.n) return 1;
+    return !(s->plan.b[i].layers & L_KEYS) || !song_pad_on(&s->roll) || !song_pad_in(&s->roll, &s->plan, i) ||
+           !pads_section_part(&s->roll, i, s->plan.b[i].section, !set || lib_ins_sustained(set->chords));
+}
+static void test_task1b_pad_candy(void)
+{
+    static song_t s;
+    static float lvl[80][16];
+    song_ev_t ev[64];
+    song_roll_t r;
+    int seed, i, n, candy = 0, pad_songs = 0, secs = 0, secs_in = 0, run3 = 0, wrong_pad = 0;
+    int out_ib[2] = {0, 0}, out_lg[2] = {0, 0};    /* [without the pad, all]: intros and breaks; grooves and leads */
+    int fade_in = 0, fade_out = 0, bad_level = 0, off_pads = 0, on_songs = 0;
+    for (seed = 1; seed <= 300; seed++) {
+        int padv[80], blk, bar, st, on;   /* per bar: V_PAD notes struck */
+        roll_song(NULL, (uint32_t)seed, &r);
+        on = song_pad_on(&r);
+        pad_songs += on;
+        song_start(&s, &r);
+        memset(padv, 0, sizeof padv);
+        while (s.state == SS_PLAYING) {
+            int b0 = s.bar, s0 = s.step;
+            n = song_tick(&s, ev, 64);
+            lvl[b0][s0] = song_pad_level(&s);
+            for (i = 0; i < n; i++) {
+                candy += ev[i].voice == V_CANDY;
+                padv[b0] += ev[i].voice == V_PAD;
+            }
+        }
+        for (blk = 0, i = 0; on && blk < s.plan.n; blk++) {
+            const plan_block_t *b = &s.plan.b[blk];
+            int in = song_pad_in(&r, &s.plan, blk);
+            secs++;
+            secs_in += in;
+            i = in ? 0 : i + 1;
+            run3 += i >= 3;
+            if (b->section == SEC_INTRO || b->section == SEC_BREAK) { out_ib[0] += !in; out_ib[1]++; }
+            if (b->section == SEC_GROOVE || b->section == SEC_LEAD) { out_lg[0] += !in; out_lg[1]++; }
+        }
+        for (blk = 0; blk < s.plan.n; blk++) {
+            const plan_block_t *b = &s.plan.b[blk];
+            int first = b->start, last = b->start + b->bars - 1, fin, fout;
+            if (t1b_silent(&s, blk)) {
+                for (bar = first; bar <= last; bar++) {
+                    wrong_pad += padv[bar] > 0;
+                    for (st = 0; st < 16; st++) bad_level += lvl[bar][st] != 0.0f;
+                }
+                continue;
+            }
+            fin = blk > 0 && t1b_silent(&s, blk - 1);
+            fout = blk + 1 < s.plan.n && t1b_silent(&s, blk + 1);
+            fade_in += fin;
+            fade_out += fout;
+            for (bar = first; bar <= last; bar++)
+                for (st = 0; st < 16; st++) {
+                    float want = 1.0f;
+                    if (fin && bar == first) want = (float)(st + 1) / 16.0f;
+                    if (fout && bar == last) want = 1.0f - (float)(st + 1) / 16.0f;
+                    bad_level += fm_fabsf(lvl[bar][st] - want) > 1e-6f;
+                }
+        }
+    }
+    printf("task 1b: %d candy events; %d of 300 songs with a pad; %d of %d sections with it, %d runs of 3 without; "
+           "without it: intros and breaks %d of %d, grooves and leads %d of %d; fades in %d, out %d, %d steps at the "
+           "wrong level; %d bars with pad notes where it is silent\n", candy, pad_songs, secs_in, secs, run3,
+           out_ib[0], out_ib[1], out_lg[0], out_lg[1], fade_in, fade_out, bad_level, wrong_pad);
+    CHECK(candy == 0, "task 1b: %d ear candy events", candy);
+    CHECK(pad_songs >= 180 && pad_songs <= 219, "task 1b: %d of 300 songs with a pad, want 60-73%%", pad_songs);
+    CHECK(secs_in * 100 >= 55 * secs && secs_in * 100 <= 78 * secs,
+          "task 1b: %d of %d sections with the pad, want 55-78%%", secs_in, secs);
+    CHECK(run3 == 0, "task 1b: %d runs of 3 sections without the pad", run3);
+    CHECK(out_ib[0] * out_lg[1] > out_lg[0] * out_ib[1], "task 1b: intros and breaks lose the pad no more often than "
+          "grooves and leads (%d of %d, %d of %d)", out_ib[0], out_ib[1], out_lg[0], out_lg[1]);
+    CHECK(wrong_pad == 0, "task 1b: %d bars with pad notes in a song or block without the pad", wrong_pad);
+    CHECK(fade_in >= 50 && fade_out >= 50 && bad_level == 0, "task 1b: the fade: %d in, %d out, %d steps at the wrong "
+          "level", fade_in, fade_out, bad_level);
+    for (seed = 1; seed <= 40; seed++) {   /* the override: off silences it, on gives every song one */
+        song_ov_t o = ov_none();
+        const lib_set_t *set;
+        int k, can;
+        roll_song(NULL, (uint32_t)seed, &r);
+        set = lib_set_by_id((uint8_t)r.v[RF_SET]);   /* sustained keys with no solo voice: no layer, as before */
+        can = !set || !lib_ins_sustained(set->chords) || pads_solo_voice(&r) != INS_NONE;
+        for (k = 0; k < 2; k++) {
+            int pads = 0;
+            o.pad_on = (int8_t)k;
+            song_override(&o);
+            song_start(&s, &r);
+            while (s.state == SS_PLAYING) {
+                n = song_tick(&s, ev, 64);
+                for (i = 0; i < n; i++) pads += ev[i].voice == V_PAD;
+            }
+            if (k) on_songs += (pads > 0 && song_pad_on(&r)) || !can;
+            else off_pads += pads + song_pad_on(&r);
+        }
+    }
+    song_override(NULL);
+    printf("task 1b: pad_on 0: %d pad notes in 40 songs; pad_on 1: %d of 40 songs with the pad where it can play\n",
+           off_pads, on_songs);
+    CHECK(off_pads == 0, "task 1b: pad_on 0 left %d pad notes", off_pads);
+    CHECK(on_songs == 40, "task 1b: pad_on 1 gave %d of 40 songs a pad", on_songs);
+}
+/* Task 1b's fade in the engine (vx_set_pad_level): a held strings lane, soloed, at level 0.5 sits 6 dB (within
+   0.3) under level 1; at 0 it falls 40 dB or more under it within 0.2 s; the moves don't click (no sample step over
+   1.5 times the steady note's largest); level 1 renders the layer bit for bit as before the call existed. */
+static float t1b_peak(void)   /* peak |l| of vt_l's last 4096 samples */
+{
+    float m = 0.0f;
+    int i;
+    for (i = 0; i < 4096; i++) m = fm_maxf(m, fm_fabsf(vt_l[i]));
+    return m;
+}
+#define T1B_DB(x) (6.0206f * fm_log2f(x))
+static void test_task1b_pad_level(void)
+{
+    static float a[4096], b[4096];
+    float r1, r05, r0, prev = 0.0f, steady, moved = 0.0f;
+    int bad = 0, k;
+    for (k = 0; k < 2; k++) {   /* the same note twice: once untouched, once with level 1 set every block */
+        int j;
+        vx_init();
+        vx_assign(V_PAD, INS_STRINGS);
+        vx_solo(V_PAD);
+        vt_lane(1, 60, 0, 441000u);
+        for (j = 0; j < 20; j++) {
+            if (k) vx_set_pad_level(1.0f);
+            vt_block(4096, &bad);
+        }
+        memcpy(k ? b : a, vt_l, sizeof a);
+    }
+    CHECK(!memcmp(a, b, sizeof a), "pad level: level 1 changed the layer's samples");
+    steady = vt_maxdelta(4096, 0, &prev);
+    r1 = t1b_peak();
+    vx_set_pad_level(0.5f);
+    moved = fm_maxf(moved, vt_maxdelta(4096, 0, &prev));
+    vt_maxdelta(4096, 0, &prev);
+    r05 = t1b_peak();
+    vx_set_pad_level(0.0f);
+    moved = fm_maxf(moved, vt_maxdelta(4096, 0, &prev));
+    vt_block(4096, &bad);
+    r0 = t1b_peak();
+    printf("pad level: 0.5 at %.2f dB, 0 at %.1f dB (after 0.19 s); largest step moving %.5f, steady %.5f\n",
+           (double)(T1B_DB(r05 / r1)), (double)(T1B_DB(fm_maxf(r0, 1e-9f) / r1)),
+           (double)moved, (double)steady);
+    CHECK(fm_fabsf(T1B_DB(r05 / r1) + 6.02f) < 0.3f, "pad level: 0.5 not 6 dB down");
+    CHECK(r0 < 0.01f * r1, "pad level: 0 not 40 dB down within 0.2 s");
+    CHECK(moved <= 1.5f * steady, "pad level: a move clicked (%.5f against %.5f)", (double)moved, (double)steady);
+    CHECK(!bad, "pad level: NaN or inf");
+    vx_set_pad_level(1.0f);
+    vx_solo(-1);
 }
 /* keys_oct +1 and -1: a Rhodes song's keys every one 12 up, then down (comping held, so the lead's busy bars can't
    move a strike); a nylon strum's shapes (E2-E5) have no octave left under its B5: unchanged */
@@ -9360,8 +9551,8 @@ static void test_ov_off(void)
     CHECK(o && o->comp == -1 && o->lead_style == -1 && o->pad_place == -1 && o->ride == -1 && !o->keys_oct &&
           !o->lead_oct && !o->voicing_salt && !o->phrase_salt, "ov off: the default override forces something");
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0xa1a8e201u, "ov off: the strummed songs hash %08x, wanted a1a8e201", (unsigned)a);
-    CHECK(b == 0x3910eb79u, "ov off: with set changes %08x, wanted 3910eb79", (unsigned)b);
+    CHECK(a == 0x2341dc17u, "ov off: the strummed songs hash %08x, wanted 2341dc17", (unsigned)a);
+    CHECK(b == 0xdd40694fu, "ov off: with set changes %08x, wanted dd40694f", (unsigned)b);
 }
 /* a steal of a damped string (the final review): six strings struck, the first two re-struck at once (their last
    notes damped on the 2 spare voices), then a plain chord note (no string: a stab after a set change) while they
@@ -9507,8 +9698,10 @@ static void test_strum(void)
         if (got[kind] >= 3) continue;
         got[kind]++;
         st_count0 = set == 9 && dbl_songs < 4;
+        pd_all_pads(st_count0);                         /* the doubling's songs with a pad (Task 1b) */
         st_play(&r, p, slow, 0);
         if (st_count0) { st_play(&r, p, slow, 1); dbl_songs++; }
+        pd_all_pads(0);
         {   /* every song rendered: a stroke re-strikes its strings, never steals another string's ringing voice */
             int peak;
             uint32_t st = st_render(&r, &peak);
@@ -10533,8 +10726,8 @@ static void test_drums_hook(void)
     CHECK(quiet_bad == 0, "drums hook: a silent source still sounds at %d steps", quiet_bad);
     drums_hook(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0xa1a8e201u, "drums hook off: the strummed songs hash %08x, wanted a1a8e201", (unsigned)a);
-    CHECK(b == 0x3910eb79u, "drums hook off: with set changes %08x, wanted 3910eb79", (unsigned)b);
+    CHECK(a == 0x2341dc17u, "drums hook off: the strummed songs hash %08x, wanted 2341dc17", (unsigned)a);
+    CHECK(b == 0xdd40694fu, "drums hook off: with set changes %08x, wanted dd40694f", (unsigned)b);
     dh_on = 0;
     vx_init();
     {
@@ -10849,6 +11042,8 @@ int main(int argc, char **argv)
     RUN(test_ov_voicing_salt);
     RUN(test_ov_phrase_salt);
     RUN(test_ov_part_salts);
+    RUN(test_task1b_pad_candy);
+    RUN(test_task1b_pad_level);
     RUN(test_ov_oct);
     RUN(test_ov_off);
     RUN(test_samples_table);

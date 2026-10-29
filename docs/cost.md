@@ -974,3 +974,15 @@ all of it, is under 10 us. The standard list after: forced 0.904 / 0.881 / 0.648
 `--forced 142 16`: 0.913 / 0.915 (AMB-1 142.9 ms); the standard list (`--forced 20 7 155 138 100 22`) 0.933 / 0.851 /
 0.823 / 0.820 / 0.660 / 0.833 (AMB-1 145.5 ms). Memory: image 386344 B (budget 409600; +8272 B since the strum
 work, the ride sample and the other imports), RAM 56560 B (unchanged), pool 184312 B (ok).
+
+### Workbench round 2, Task 1b: no ear candy; the pad in about two songs and sections of three (2026-10-29)
+
+No song plays the ear candy (V_CANDY unassigned, nothing emits it), and the pad layer sits out about a third of
+songs and of its sections, so the songs do less work, not more. What is added: per 4-bar group, `pad_part` for the
+block and its two neighbors (each `song_pad_in` seeds at most 24 tiny rng streams), and in the engine one multiply
+per 256-sample chunk (the pad layer's level and its 1 dB share of the keys' duck folded into its dry scale's
+target). `--forced 20 7 155 138 100 22`, HEAD (f67842d) and this task interleaved, twice each: the host was loaded
+(load average about 7.6, AMB-1 at 338-411 ms against the usual 136-146), and the ratios moved up to 0.3 between runs
+of the same binary, so the comparison is noise: HEAD 1.13 / 0.92 / 0.82 / 0.81 / 0.64 / 0.89 and 1.12 / 1.01 /
+1.15 / 0.85 / 0.68 / 0.92; Task 1b 0.95 / 0.83 / 0.82 / 1.31 / 0.68 / 0.87 and 1.08 / 1.03 / 0.88 / 0.85 / 0.64 /
+1.00. Re-measure on a quiet host before reading anything into these.

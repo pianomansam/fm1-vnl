@@ -36,6 +36,23 @@ int pads_section_part(const song_roll_t *r, int block, int section, int sustaine
     return rng_int(&g, 100) < (sustained_keys ? SUSTAINED : STRUCK)[section] ? 2 : other;
 }
 
+int song_pad_in(const song_roll_t *r, const song_plan_t *p, int block)
+{
+    /* the pad's chance in a section by SEC_INTRO, GROOVE, LEAD, BREAK, OUTRO: likelier out in intros and breaks */
+    static const uint8_t IN[5] = {45, 75, 85, 40, 60};
+    uint32_t seed = song_ov_salted(r->seed, song_ov()->pad_salt);
+    int i, in = 1, out = 0;
+    if (block < 0 || block >= p->n) return 0;
+    for (i = 0; i <= block; i++) {                       /* the run of sections without it so far */
+        int sec = p->b[i].section;
+        rng_t g;
+        rng_seed(&g, song_ov_salted(seed, (uint32_t)i + 1u), 196);   /* hashed apart from stream 190's blocks */
+        in = out >= 2 || rng_int(&g, 100) < IN[sec <= SEC_OUTRO ? sec : SEC_GROOVE];
+        out = in ? 0 : out + 1;
+    }
+    return in;
+}
+
 int pads_solo_lo(int voice) { return voice == INS_STRINGS ? 84 : 72; }
 
 int pads_rub(int a, int b)

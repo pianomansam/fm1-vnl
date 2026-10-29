@@ -348,6 +348,17 @@ static void apply_requests(song_t *s, int B)
 
 /* ---- the pad layer (pads design) ---- */
 
+/* The pad layer's part in plan block i (pads_section_part): 0 where it is silent, as in a song without a pad
+   (song_pad_on), a block without it (song_pad_in) or one without the keys */
+static int pad_part(const song_t *s, int i)
+{
+    const lib_set_t *set = lib_set_by_id((uint8_t)s->roll.v[RF_SET]);
+    if (i < 0 || i >= s->plan.n || !(s->plan.b[i].layers & L_KEYS) || !song_pad_on(&s->roll) ||
+        !song_pad_in(&s->roll, &s->plan, i))
+        return 0;
+    return pads_section_part(&s->roll, i, s->plan.b[i].section, !set || lib_ins_sustained(set->chords));
+}
+
 /* The pad layer for the 4 bars from B, a 4-bar boundary (roll and plan hold until the next, and a block covers the
    whole group): only where the keys play, the block's part (pads_section_part) alone: the chord part at each chord
    change over percussive keys, voice-led from the last, or the solo note in each bar, in its voice's range. The keys' voicings are followed as they will
@@ -355,18 +366,23 @@ static void apply_requests(song_t *s, int B)
    chord-scale, so the later bars' lead never rubs them. */
 static void pads_group(song_t *s, const plan_block_t *b, int B)
 {
-    const lib_set_t *set = lib_set_by_id((uint8_t)s->roll.v[RF_SET]);
     const lib_prog_t *pr = lib_prog_by_id((uint8_t)s->roll.v[RF_PROG]);
-    int bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1, k, i, lead[16], nlead = 0;
+    int bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1, k, i, lead[16], nlead = 0, bi = (int)(b - s->plan.b);
     int up = harmony_pad_place(&s->roll) == PL_BELOW ? 0 : 12, keys_on = (b->layers & L_KEYS) != 0;
-    int part = keys_on ? pads_section_part(&s->roll, (int)(b - s->plan.b), b->section,
-                                           !set || lib_ins_sustained(set->chords)) : 0;
+    int part = pad_part(s, bi);
     int chord_on = part == 1, solo_on = part == 2, lo = pads_solo_lo(pads_solo_voice(&s->roll));
     harmony_voicing_t vs = s->voicing;
     for (i = 0; i < 16; i++)
         if (s->lead.on[i] > 0) lead[nlead++] = s->lead.on[i];
     memset(s->pads.note, 0, sizeof s->pads.note);
+    memset(s->pads.fade, part ? PF_ON : PF_SILENT, sizeof s->pads.fade);
     if (!chord_on) memset(s->pads.chord, 0, sizeof s->pads.chord);
+    if (part) {   /* the fade over a section line: in over the first bar back after a block without the pad, out over
+                     the last bar before one */
+        if (B == b->start && bi > 0 && !pad_part(s, bi - 1)) s->pads.fade[0] = PF_IN;
+        if (b->start + b->bars - 1 - B < 4 && bi + 1 < s->plan.n && !pad_part(s, bi + 1))
+            s->pads.fade[b->start + b->bars - 1 - B] = PF_OUT;
+    }
     for (k = 0; keys_on && k < 4 && B + k < s->roll.v[RF_BARS]; k++) {
         int bar = B + k, pass = bar / loop_bars(&s->roll) + 1, pcs[5], np, keys[4], top = 0;
         np = harmony_chord_at(&s->roll, bar, pass, 0, pcs);
@@ -499,13 +515,18 @@ int song_tick(song_t *s, song_ev_t *out, int max)
                           BUF - n);
         n += melody_step(&s->roll, &s->plan, &s->ph, &s->motif, bar, step, gs, song_ov_phrase_seed(salt), buf + n,
                          BUF - n);
-        if (lead_plays(b)) {                        /* the lead's blocks: no melody lead; candy only where it rests */
+        if (lead_plays(b)) {                        /* the lead's blocks: no melody lead */
             for (i = k = 0; i < n; i++)
-                if (buf[i].voice != V_LEAD && !(buf[i].voice == V_CANDY && s->lead.active)) buf[k++] = buf[i];
+                if (buf[i].voice != V_LEAD) buf[k++] = buf[i];
             n = k;
         }
         n += lead_step(&s->lead, step, gs, buf + n, BUF - n);
         if (step == 0) n += pads_step(s, bar, buf + n, BUF - n);
+        {   /* the layer's level this step (song_pad_level) */
+            int f = s->pads.fade[bar % 4];
+            float up = (float)(step + 1) * (1.0f / 16.0f);
+            s->pad_level = f == PF_SILENT ? 0.0f : f == PF_IN ? up : f == PF_OUT ? 1.0f - up : 1.0f;
+        }
         if (bass_spike)
             n = spike_bass(s, b, bar, step, gs, pcs, np, buf, n);
     }
@@ -549,6 +570,8 @@ int song_tick(song_t *s, song_ev_t *out, int max)
 }
 
 float song_step_samples(const song_t *s) { return s->ss; }
+
+float song_pad_level(const song_t *s) { return s->pad_level; }
 
 void song_request(song_t *s, int field, int value)
 {

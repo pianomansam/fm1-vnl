@@ -4,6 +4,7 @@
 #include <string.h>
 #include "rng.h"
 #include "roll.h"
+#include "override.h"
 
 #define NC 128          /* largest candidate list: swing, 101 values */
 #define NOVELTY_MIN 5
@@ -348,4 +349,13 @@ int lib_song_kit(const song_roll_t *r)
     /* hashed apart (as the set's draw is): the streams' states differ by a constant xor and xorshift is linear */
     rng_seed(&g, mix(r->seed, 0x4B17u), 192);
     return rng_next(&g) >> 31 ? s->skit : s->kit;
+}
+
+int song_pad_on(const song_roll_t *r)
+{
+    rng_t g;
+    if (song_ov()->pad_on >= 0) return song_ov()->pad_on != 0;
+    /* hashed apart (as the kit's draw is): the streams' states differ by a constant xor and xorshift is linear */
+    rng_seed(&g, mix(r->seed, 0x9AD0u), 195);
+    return rng_int(&g, 100) < 67;
 }

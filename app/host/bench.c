@@ -101,6 +101,7 @@ static double run_vnl(uint32_t seed, int render, long *events, int force)
             }
         }
         n = song_tick(&s, ev, 64);
+        if (render) vx_set_pad_level(song_pad_level(&s));
         float adv = song_step_samples(&s);
         uint32_t step = (uint32_t)adv, left;
         if (!n && s.state == SS_ENDED) break;

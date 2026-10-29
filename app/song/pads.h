@@ -7,10 +7,13 @@
 #ifndef SONG_PADS_H
 #define SONG_PADS_H
 #include "roll.h"
+#include "plan.h"
 
-/* The layer as song.c plans it: the last chord part (by lane, 0 silent), the last solo note (0 none yet), and the
-   4-bar group's notes, by bar and lane (lanes 1-3 the chord part, 4 the solo note). Zero it at a song's start. */
-typedef struct { int chord[3]; int solo; int note[4][4]; } pads_state_t;
+/* The layer as song.c plans it: the last chord part (by lane, 0 silent), the last solo note (0 none yet), the
+   4-bar group's notes, by bar and lane (lanes 1-3 the chord part, 4 the solo note), and its level by bar (PF_*: the
+   fade over a section line, song_pad_level). Zero it at a song's start. */
+enum { PF_SILENT, PF_ON, PF_IN, PF_OUT };   /* level 0; 1; rising 0 to 1 over the bar; falling 1 to 0 over it */
+typedef struct { int chord[3]; int solo; int note[4][4]; uint8_t fade[4]; } pads_state_t;
 
 /* The song's solo voice (seed stream 191): INS_NONE (no solo note) in 40% of songs; otherwise the choir
    (INS_VOX_PAD), the flute, the organ or the strings, equally likely among those allowed: never the flute when the
@@ -23,6 +26,14 @@ int pads_solo_voice(const song_roll_t *r);
    the solo note in 60% of grooves, 50% of intros, breaks and outros, 30% under the lead, otherwise none. A song with
    no solo voice (pads_solo_voice) never takes 2. */
 int pads_section_part(const song_roll_t *r, int block, int section, int sustained_keys);
+
+/* The pad layer plays in this plan block (an index into p->b), in a song that has one (song_pad_on): about 2 sections
+   in 3. In by section: 45% of intros, 75% of grooves, 85% under the lead, 40% of breaks, 60% of outros, never out for
+   more than 2 blocks in a row (the third is in). Per song and block (seed stream 196, salted by pad_salt as the
+   section parts are). Sam, 2026-10-29: "add the ability for the pad part to drop out of certain song sections".
+   song.c fades it over the section line (song_pad_level): out over the bar before a block without it, in over the
+   first bar back. */
+int song_pad_in(const song_roll_t *r, const song_plan_t *p, int block);
 
 /* A semitone rub between two notes: the upper a minor 2nd (or a minor 9th, ...) above the lower. A major 7th is not
    one (the maj7 chord the keys voice). */

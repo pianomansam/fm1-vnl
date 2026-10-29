@@ -26,7 +26,7 @@ export const ROWS = [
   { id: "lead", group: INS, label: "Lead", kind: "role", role: "LEAD", source: "instruments" },
   { id: "bass", group: INS, label: "Bass", kind: "role", role: "BASS", source: "instruments" },
   { id: "pad", group: INS, label: "Pad", kind: "role", role: "PAD", source: "instruments" },
-  { id: "candy", group: INS, label: "Ear candy", kind: "role", role: "CANDY", source: "instruments" },
+  { id: "padOn", group: INS, label: "Pad on/off", kind: "ov", key: "PAD_ON", source: "padOn" },
   { id: "phrase", group: VP, label: "Lead phrase", kind: "reroll", key: "PHRASE_SALT" },
   { id: "leadStyle", group: VP, label: "Lead style", kind: "ov", key: "LEAD_STYLE", source: "leadStyles" },
   { id: "leadOct", group: VP, label: "Lead register", kind: "ov", key: "LEAD_OCT", source: "registers" },
@@ -55,7 +55,7 @@ const range = (lo, hi, step, fmt = String) => {
 const ROLLED = { value: -1, name: "As rolled", rolled: true };   // the engine's own choice: never a die's pick
 
 // the role a row fills in options.json's instruments
-const ROLE = { CHORD: "keys", LEAD: "lead", BASS: "bass", PAD: "pad", CANDY: "candy" };
+const ROLE = { CHORD: "keys", LEAD: "lead", BASS: "bass", PAD: "pad" };
 const SAMPLED_ONE = new Set([25, 26]);  // INS_KNIGHT, INS_EMILY: one per song, keys or lead (Sam)
 
 // a progression's note without its source ("lofi-hip-hop.md 2, ii9-V13 vamp" -> "ii9-V13 vamp")
@@ -86,6 +86,7 @@ function allOptions(r, state, opts, lib) {
     case "leadStyles": return [ROLLED, { value: 0, name: "Phrase" }, { value: 1, name: "Hybrid" }];
     case "registers": return [{ value: -1, name: "Down an octave" }, { value: 0, name: "As rolled", rolled: true },
                               { value: 1, name: "Up an octave" }];
+    case "padOn": return [ROLLED, ...list(["Off", "On"])];
     case "padPlaces": return [ROLLED, ...list(["Below the lead", "With the lead", "Above the lead"])];
     case "rides": return [ROLLED, ...list(["None", "Throughout", "One section"])];
     case "kits": return opts.kits.map((k) => ({ value: k.id, name: k.name, status: k.status, family: k.family,
@@ -188,14 +189,18 @@ export function conflicts(r, value, state, opts, rnd = Math.random, lib) {
   return out;
 }
 
-// The page's values from wb_state() (C: wb_consts()); the family is the page's, so it isn't here
+// an override row's "as rolled" value (the registers' and the re-rolls' 0, the others' -1)
+export const rolled = (r) => (r.source === "registers" || r.kind === "reroll" ? 0 : -1);
+
+// The page's values from wb_state() (C: wb_consts()); the family is the page's, so it isn't here. A shorter ov list
+// (an older engine's state) leaves its newer overrides as rolled.
 export function fromEngine(s, C, opts) {
   const v = { seed: s.seed };
   const mask = (steps) => steps.reduce((m, i) => m | (1 << i), 0);
   for (const r of ROWS) {
     if (r.kind === "roll") v[r.id] = s.roll[C.RF[r.field]];
     else if (r.kind === "role") v[r.id] = s.roles[C.V[r.role]];
-    else if (r.kind === "ov" || r.kind === "reroll") v[r.id] = s.ov[C.OV[r.key]];
+    else if (r.kind === "ov" || r.kind === "reroll") v[r.id] = s.ov[C.OV[r.key]] ?? rolled(r);
   }
   v.kit = s.kit;
   v.pattern = s.pattern;

@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The plan. Built on a grid of 4-bar slots: first the map's skeleton (intro, entry, middle event, ending), then
-   Motion's optional moves (hats out, lead and candy toggles, 1-bar drops), then slots merge into blocks of 4 or 8
-   bars along the 8-bar phrase grid of the middle.
+   Motion's optional moves (hats out, lead toggles, 1-bar drops), then slots merge into blocks of 4 or 8 bars along
+   the 8-bar phrase grid of the middle. No ear candy (Sam, 2026-10-29: "Remove the ear candy part completely"):
+   L_CANDY is never set.
 
-   Layer-change budget: at most 2 of keys/kick/snare/hats/bass/lead/candy change at a boundary. The skeleton's
+   Layer-change budget: at most 2 of keys/kick/snare/hats/bass/lead change at a boundary. The skeleton's
    drum entries and exits (entry, break, Drift's comings and goings) and the keys outro may need more; at those
    boundaries nothing optional changes. Elsewhere optional moves only use what the skeleton leaves of the 2. */
 #include <string.h>
@@ -29,7 +30,7 @@ typedef struct {
     int nu;                   /* middle units: 8 bars from ms, the last may be 4 */
     uint8_t skel[MAXS];       /* skeleton layers (keys, drums, bass) */
     uint8_t kind[MAXS];       /* S_* */
-    uint8_t lead[MAXS], candy[MAXS];
+    uint8_t lead[MAXS];
 } grid_t;
 
 static int bits(int x)
@@ -157,11 +158,11 @@ static void skeleton(grid_t *g, const lib_map_t *m, rng_t *sk)
     }
 }
 
-/* Motion's moves on the layers: hats out, lead toggles, ear candy. mo: the Motion rng; motion 0-100. */
+/* Motion's moves on the layers: hats out, lead toggles. mo: the Motion rng; motion 0-100. */
 static void moves(grid_t *g, rng_t *mo, int motion, int hats_ok)
 {
     int u, s, i, j, t;
-    int nl, lead_u[MAXS], pick[MAXS], f, need;
+    int nl, lead_u[MAXS], pick[MAXS], need;
 
     /* hats out for 4-8 bars: full-groove units after the first, apart from other hat drop-outs and away from the
        kick-out block (its snare + hats carry) */
@@ -219,24 +220,6 @@ static void moves(grid_t *g, rng_t *mo, int motion, int hats_ok)
             for (s = a; s < e; s++) g->lead[s] = 1;
         }
     }
-
-    /* ear candy, more of it with Motion: a whole unit, or failing that one of its halves (a map's drum moves leave
-       no room at many unit edges), never the unit of the lead's first statement, never back to back, only where
-       both of its edges have room left */
-    memset(g->candy, 0, sizeof g->candy);
-    f = -1;
-    for (s = 0; s < g->n && f < 0; s++) if (g->lead[s]) f = unit_of(g, s);
-    for (u = 0; u < g->nu; u++) {
-        int a = unit_start(g, u), e = unit_end(g, u), k;
-        static const int8_t TRY[3][2] = {{0, 0}, {0, -1}, {1, 0}};   /* offsets of [start, end) from [a, e) */
-        if (!motion || !chance(mo, 25 + 55 * motion / 100) || u == f || a == 0) continue;
-        for (k = 0; k < (e - a == 2 ? 3 : 1); k++) {
-            int x = a + TRY[k][0], y = e + TRY[k][1];
-            if (g->candy[x - 1] || room(g, x) < 1 || (y < g->oe && room(g, y) < 1)) continue;
-            for (s = x; s < y; s++) g->candy[s] = 1;
-            break;
-        }
-    }
 }
 
 void plan_build(const song_roll_t *r, song_plan_t *p)
@@ -267,7 +250,7 @@ void plan_build(const song_roll_t *r, song_plan_t *p)
     /* merge slots into blocks: a new block on a layer or section change, at each 8-bar unit of the middle, at the
        entry, middle and outro starts, and after 8 bars */
     for (s = 0; s < g.n; s++) {
-        uint8_t L = (uint8_t)(g.skel[s] | (g.lead[s] ? L_LEAD : 0) | (g.candy[s] ? L_CANDY : 0));
+        uint8_t L = (uint8_t)(g.skel[s] | (g.lead[s] ? L_LEAD : 0));
         uint8_t sec = (g.kind[s] & S_INTRO) ? SEC_INTRO : (g.kind[s] & S_OUTRO) ? SEC_OUTRO
                     : ((g.kind[s] & (S_BREAK | S_KICKOUT)) || !(L & (L_KICK | L_SNARE))) ? SEC_BREAK
                     : (L & L_LEAD) ? SEC_LEAD : SEC_GROOVE;   /* R12: break = drums out or thinned */

@@ -389,9 +389,8 @@ static void test_chain(void)
         if (i <= 50) hashes[i] = R1.hash;
         prev = r;
     }
-    /* R19: ear candy is occasional, not absent: in at least 70% of songs, at least 3 gestures a song on average */
-    CHECK(with_candy >= 700, "candy in %d of 1000 songs, want at least 700", with_candy);
-    CHECK(gestures >= 3000, "%ld candy gestures in 1000 songs, want at least 3 a song", gestures);
+    /* R19 retired by Task 1b (Sam, 2026-10-29: "Remove the ear candy part completely"): no song has any */
+    CHECK(with_candy == 0 && gestures == 0, "candy in %d of 1000 songs (%ld gestures), want none", with_candy, gestures);
     printf("candy: in %d of 1000 songs, %ld gestures (%.2f a song)\n", with_candy, gestures, (double)gestures / 1000.0);
     printf("strings: %d songs with the high string lead, %d with the cello lead\n", strs[0], strs[1]);
     CHECK(strs[0] >= 10 && strs[1] >= 10, "strings: %d high string and %d cello songs in 1000", strs[0], strs[1]);
@@ -407,8 +406,8 @@ static void test_chain(void)
         prev = r;
     }
     clash_checks = 1;
-    for (v = 0; v < V_N; v++)
-        CHECK(count[v] > 0, "voice %d never played in 1000 songs", v);
+    for (v = 0; v < V_N; v++)   /* every voice but the ear candy's (Task 1b) */
+        CHECK(v == V_CANDY ? count[v] == 0 : count[v] > 0, "voice %d played %ld times in 1000 songs", v, count[v]);
     printf("chain: 1000 songs, longest %d steps; events chord %ld bass %ld lead %ld candy %ld kick %ld snare %ld hat %ld\n",
            worst_t, count[V_CHORD], count[V_BASS], count[V_LEAD], count[V_CANDY], count[V_KICK], count[V_SNARE],
            count[V_HAT]);
@@ -423,7 +422,7 @@ static void test_ov_salts(void)
 {
     static song_t s;
     static const int8_t KO[9] = {0, 0, 1, -1, 0, 0, 0, 0, 0}, LO[9] = {0, 0, 0, 0, 1, -1, 0, 0, 0};
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1};
     song_roll_t r;
     int i, k;
     for (k = 0; k < 9; k++) {

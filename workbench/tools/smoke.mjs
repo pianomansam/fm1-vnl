@@ -213,12 +213,12 @@ console.log("custom set");
   const ex = await load();
   ex.wb_seed(21);
   ex.wb_apply();
-  const before = [V.CHORD, V.BASS, V.LEAD, V.CANDY, V.PAD].map((r) => ex.wb_role_get(r));
+  const before = [V.CHORD, V.BASS, V.LEAD, V.PAD].map((r) => ex.wb_role_get(r));
   const other = before[1] === before[0] ? before[2] : before[0];
   ex.wb_role_set(V.BASS, other);
-  const after = [V.CHORD, V.BASS, V.LEAD, V.CANDY, V.PAD].map((r) => ex.wb_role_get(r));
+  const after = [V.CHORD, V.BASS, V.LEAD, V.PAD].map((r) => ex.wb_role_get(r));
   check(ex.wb_roll_get(RF.SET) === C.LIB_SET_WB, "the song switches to the custom set");
-  check(after[1] === other && [0, 2, 3, 4].every((i) => after[i] === before[i]), "only the bass changed");
+  check(after[1] === other && [0, 2, 3].every((i) => after[i] === before[i]), "only the bass changed");
   ex.wb_play(1);
   ex.wb_apply();
   check(db(render(ex, 10 * SR)) > -45, "and it plays");
@@ -226,7 +226,7 @@ console.log("custom set");
 
 
 // ---- the decision rows (rows.js, options.json) and the desk (desk.js) over the engine ----
-const { ROWS, row, optionsFor, pickFor, conflicts, familyOf } = await import("../rows.js");
+const { ROWS, row, optionsFor, pickFor, conflicts, familyOf, fromEngine } = await import("../rows.js");
 const { Desk } = await import("../desk.js");
 const OPTS = JSON.parse(readFileSync(new URL("../options.json", import.meta.url), "utf8"));
 const HDR = readFileSync(new URL("../../app/song/library.h", import.meta.url), "utf8") +
@@ -279,7 +279,7 @@ console.log("options.json");
 
 // an acoustic song as the rows see it (the upright and the mixed kit hand-picked with "show retired")
 const acoustic = () => ({ values: { keys: ins("Knight piano"), lead: ins("Flute"), bass: ins("Upright bass"),
-  pad: ins("Strings"), candy: ins("Music box"), kit: 3, comp: -1, family: "acoustic", pattern: 1, kick: "" }, locks: new Set() });
+  pad: ins("Strings"), kit: 3, comp: -1, family: "acoustic", pattern: 1, kick: "" }, locks: new Set() });
 
 console.log("rows: retired options, dice, families");
 {
@@ -301,12 +301,12 @@ console.log("rows: retired options, dice, families");
     const s = acoustic();
     s.values.family = fam;
     if (fam === "synth") Object.assign(s.values, { keys: ins("DX electric piano"), lead: ins("Saw lead"), bass: ins("FM bass"),
-                                                   pad: ins("Warm pad"), candy: ins("Bells") });
-    for (const id of ["keys", "lead", "bass", "pad", "candy", "kit", "comp", "pattern", "kick", "family", "leadOct"])
+                                                   pad: ins("Warm pad") });
+    for (const id of ["keys", "lead", "bass", "pad", "padOn", "kit", "comp", "pattern", "kick", "family", "leadOct"])
       for (let i = 0; i < 40; i++) {
         const v = pickFor(row(id), s, OPTS, rnd);
         if (v === null) continue;
-        const f = ["keys", "lead", "bass", "pad", "candy", "kit"].includes(id) ? famOf(v, id) : null;
+        const f = ["keys", "lead", "bass", "pad", "kit"].includes(id) ? famOf(v, id) : null;
         if (String(v) === String(s.values[id]) || (f && f !== fam && f !== "electric" && f !== "any")) bad.push(`${fam} ${id}=${v}`);
         const o = optionsFor(row(id), s, OPTS).find((x) => String(x.value) === String(v));
         if (id !== "family" && (o?.status ?? "approved") !== "approved") bad.push(`${fam} ${id}=${v} not approved`);
@@ -316,8 +316,8 @@ console.log("rows: retired options, dice, families");
 
   const c = conflicts(row("family"), "synth", acoustic(), OPTS, lcg(3));
   const to = Object.fromEntries(c.forced.map((f) => [f.row, f.to]));
-  check(["bass", "pad", "candy"].every((id) => famOf(to[id]) === "synth") && !c.blocked,
-        `family -> synth re-derives bass, pad and ear candy to synth (${["bass", "pad", "candy"].map((id) => `${id} ${to[id]}`).join(", ")})`);
+  check(["bass", "pad"].every((id) => famOf(to[id]) === "synth") && !c.blocked,
+        `family -> synth re-derives bass and pad to synth (${["bass", "pad"].map((id) => `${id} ${to[id]}`).join(", ")})`);
   const synthKits = OPTS.kits.filter((k) => k.family === "synth" && k.status === "approved").map((k) => k.id);
   check(c.forced.some((f) => f.row === "kit" && synthKits.includes(f.to)) && !c.stuck.length,
         `family -> synth forces the kit to an approved synth kit (${c.forced.find((f) => f.row === "kit")?.to})`);
@@ -1260,6 +1260,50 @@ console.log("whole-branch review fixes");
     check(laneInactive(6, st(16), OPTS) && laneInactive(6, st(3), OPTS) && !laneInactive(6, st(19), OPTS) && !laneInactive(1, st(16), OPTS),
           "the ride lane is inactive on the 808 and Brushes, not on Gogodze; the other lanes always active");
   }
+}
+
+console.log("Task 1b: no ear candy; the pad on/off row");
+{
+  const ex = await load(), call = caller(ex);
+  ex.wb_seed(21);
+  ex.wb_apply();
+  const desk = new Desk(call, C, OPTS, await call("wb_library"), { rnd: lcg(9) });
+  await desk.read(true);
+  const r = row("padOn"), names = optionsFor(r, desk.state, OPTS).map((o) => o.name);
+  check(!row("candy") && !("CANDY" in V) && !OPTS.instruments.some((i) => i.roles.includes("candy")) && !OPTS.families.follow.includes("candy"),
+        "no ear candy row, role or option");
+  check(r && r.kind === "ov" && JSON.stringify(names) === JSON.stringify(["As rolled", "Off", "On"]) && desk.values.padOn === -1 &&
+        ex.wb_ov_get(OV.PAD_ON) === -1, `a "Pad on/off" row: as rolled, off, on (${names.join(", ")}); a new song's is as rolled`);
+  const pads = [];   // seed 2: its pad plays from bar 1
+  for (const v of [0, 1]) {
+    const e = await load();
+    e.wb_seed(2);
+    e.wb_ov_set(OV.PAD_ON, v);
+    e.wb_apply();
+    e.wb_play(1);
+    pads.push(render(e, 12 * SR));
+  }
+  check(pads[0].l.some((x, i) => x !== pads[1].l[i]), "pad off and pad on play different songs");
+  const d = await desk.dice("padOn");
+  check(d.ok && [0, 1].includes(desk.values.padOn) && ex.wb_ov_get(OV.PAD_ON) === desk.values.padOn,
+        `its dice pick off or on (${desk.values.padOn}), never "as rolled"`);
+  desk.lock("padOn", true);
+  const kept = desk.values.padOn;
+  await desk.set("seed", 99);
+  check(desk.values.padOn === kept && ex.wb_ov_get(OV.PAD_ON) === kept, "locked, it survives a new seed");
+  // a snapshot from before this task: an ear candy row, no pad on/off row; it restores, the pad as rolled
+  const old = await desk.snapshot();
+  delete old.rows.padOn;
+  old.rows.candy = 14;
+  old.locks = [];
+  const e2 = await load(), d2 = new Desk(caller(e2), C, OPTS, await caller(e2)("wb_library"));
+  const miss = await d2.restore(old);
+  check(!miss.length && d2.values.padOn === -1 && e2.wb_ov_get(OV.PAD_ON) === -1,
+        `an older snapshot (no pad row, an ear candy row) restores with the pad as rolled (mismatch: ${miss.join(", ") || "none"})`);
+  const s8 = JSON.parse(cstr(ex, ex.wb_state()));
+  s8.ov = s8.ov.slice(0, 8);
+  check(fromEngine(s8, C, OPTS).padOn === -1 && fromEngine({ ...s8, ov: s8.ov.concat([0, 0, 0]) }, C, OPTS).padOn === -1,
+        "an 8- or 11-entry ov list reads the pad as rolled");
 }
 
 console.log("options.json: statuses");

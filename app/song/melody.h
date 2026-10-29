@@ -1,14 +1,13 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The melody: one generated motif per song, developed head-solos-head over 4-bar lead phrases (exact restatement,
-   variant, new), and the ear candy that answers it (trading fours) or sprinkles candy-only blocks.
+   variant, new). No ear candy (Sam, 2026-10-29: "Remove the ear candy part completely"): nothing emits V_CANDY.
    No clashes: every note in the bar's chord-scale and never a semitone from a chord tone or a walking bass's
-   approach note (R25), chord tones on steps 0 and 8, no avoid notes, no note across a chord change, lead and candy
-   never sounding together. Notes are 5-25 ms late (no swing). Pure functions of inputs.
+   approach note (R25), chord tones on steps 0 and 8, no avoid notes, no note across a chord change. Notes are 5-25
+   ms late (no swing). Pure functions of inputs.
 
-   A lead phrase is 4 bars of a block with L_LEAD where the lead plays: in blocks with both L_LEAD and L_CANDY the
-   4-bar phrases alternate lead, candy, lead... (lead first). Phrase layout: the head (motif or its development)
-   from bar 1, the answer (the head's rhythm, moved onto the chord of bar 3, new ending; sometimes a rest) from
-   bar 3. A 1-bar head leaves bars 2 and 4 open. */
+   A lead phrase is 4 bars of a block with L_LEAD. Phrase layout: the head (motif or its development) from bar 1,
+   the answer (the head's rhythm, moved onto the chord of bar 3, new ending; sometimes a rest) from bar 3. A 1-bar
+   head leaves bars 2 and 4 open. */
 #ifndef SONG_MELODY_H
 #define SONG_MELODY_H
 #include <stdint.h>
@@ -35,8 +34,8 @@ void melody_plan(const song_roll_t *r, const song_plan_t *p, melody_phrases_t *p
 /* The same with the motif given (melody_plan builds melody_motif(r, r->seed)), so a caller holding it builds it once. */
 void melody_plan_for(const song_roll_t *r, const song_plan_t *p, const motif_t *m, melody_phrases_t *ph);
 
-/* Lead (V_LEAD, 64-84 shifted by the mood's lead_shift) and ear-candy (V_CANDY, 72-96) events of one 16th step
-   (bar from 0, step 0-15). Callable for any (bar, step) in any order. Returns the number written (at most max). */
+/* Lead (V_LEAD, 64-84 shifted by the mood's lead_shift) events of one 16th step (bar from 0, step 0-15). Callable
+   for any (bar, step) in any order. Returns the number written (at most max). */
 int melody_step(const song_roll_t *r, const song_plan_t *p, const melody_phrases_t *ph, const motif_t *m, int bar,
                 int step, float step_samples, uint32_t salt, song_ev_t *out, int max);
 

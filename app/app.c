@@ -166,7 +166,7 @@ static void song_begin(void)
 }
 
 /* one 16th: the fade (if the song's last block fades), the section moves (each role bus's filters, plan_moves), the
-   requests' slots, the step's events to the voices */
+   requests' slots, the step's events to the voices and the pad layer's level (song_pad_level) */
 static void step(void)
 {
     const plan_block_t *last = &song.plan.b[song.plan.n ? song.plan.n - 1 : 0];
@@ -187,6 +187,7 @@ static void step(void)
     {                                     /* a request that lands here on what the voices read reaches them */
         song_roll_t before = song.roll;
         n = song_tick(&song, evs, 64);
+        vx_set_pad_level(song_pad_level(&song));   /* the pad layer's fade over a section line */
         if (vx_reconfigures(&before, &song.roll)) /* sounding notes keep their patches; dust and bed changes ramp,
                                                      the delay's time glides to a new tempo */
             vx_configure(&song.roll);

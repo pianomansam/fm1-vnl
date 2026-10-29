@@ -15,8 +15,10 @@ typedef struct {
     uint32_t voicing_salt;  /* 0: as rolled; else a different, still rule-abiding voicing path */
     uint32_t phrase_salt;   /* 0: as rolled; else a new motif, rhythm and contour for the lead and melody */
     uint32_t bass_salt;     /* 0: as rolled; else the bass's style, walking window and velocities drawn anew */
-    uint32_t pad_salt;      /* 0: as rolled; else the pad's solo voice and its sections' parts drawn anew */
+    uint32_t pad_salt;      /* 0: as rolled; else the pad's solo voice, its sections' parts and which sections have
+                               it (song_pad_in) drawn anew */
     uint32_t drums_salt;    /* 0: as rolled; else new per-hit velocity and lateness jitter for the drums */
+    int8_t pad_on;          /* -1 rolled (song_pad_on), 0 no pad layer in the song, 1 a pad layer */
 } song_ov_t;
 
 void song_override(const song_ov_t *ov);   /* NULL: none (default); the struct is copied */

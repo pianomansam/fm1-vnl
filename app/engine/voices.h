@@ -129,6 +129,9 @@ void vx_release_all(void);
 void vx_stop(void);
 /* The song's level ramp: g is clamped to [0, 1], reached linearly (exactly) over 20 ms. */
 void vx_set_gain(float g);
+/* The pad layer's level (song_pad_level, each step): g clamped to [0, 1], the layer's dry scale easing to it over a
+   few chunks (about 25 ms), its sends with it. 1 (vx_init) leaves the layer as it was. */
+void vx_set_pad_level(float g);
 /* Voices still sounding (queued events not counted). */
 int vx_active(void);
 /* Anything still to hear: voices, or the chain (the bed open or fading, the plate's tail). The app renders while

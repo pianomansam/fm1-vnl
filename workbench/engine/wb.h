@@ -9,7 +9,7 @@
 
 /* wb_ov_set's keys: song_ov_t's fields (override.h), in its order */
 enum { WB_OV_COMP, WB_OV_LEAD_STYLE, WB_OV_PAD_PLACE, WB_OV_RIDE, WB_OV_KEYS_OCT, WB_OV_LEAD_OCT, WB_OV_VOICING_SALT,
-       WB_OV_PHRASE_SALT, WB_OV_BASS_SALT, WB_OV_PAD_SALT, WB_OV_DRUMS_SALT, WB_OV_N };
+       WB_OV_PHRASE_SALT, WB_OV_BASS_SALT, WB_OV_PAD_SALT, WB_OV_DRUMS_SALT, WB_OV_PAD_ON, WB_OV_N };
 
 #define WB_MAX_FRAMES 1024u
 
@@ -25,8 +25,8 @@ void wb_play(int on);                   /* on: from the start of the bar it stop
 int wb_roll_get(int field);
 int wb_roll_set(int field, int value);  /* roll_set's rules; the value applied */
 int wb_roll_dice(int field);            /* roll_dice; the new value, or -1 if no other legal one */
-/* A pitched role's instrument (V_CHORD, V_BASS, V_LEAD, V_CANDY, V_PAD) in the custom set: the first edit copies the
-   song's set into it and switches RF_SET to LIB_SET_WB */
+/* A pitched role's instrument (V_CHORD, V_BASS, V_LEAD, V_PAD; V_CANDY's is kept but unplayed) in the custom set:
+   the first edit copies the song's set into it and switches RF_SET to LIB_SET_WB */
 void wb_role_set(int role, int ins);
 int wb_role_get(int role);              /* -1 for another role */
 void wb_ov_set(int key, int value);

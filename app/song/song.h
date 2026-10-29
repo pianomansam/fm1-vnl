@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The sequencer: steps a rolled song through its plan one 16th at a time and emits every event of that step
-   (drums, bass, chords, lead, candy, pads). Listener requests wait in one slot per field and land on the next 4-bar
+   (drums, bass, chords, lead, pads). Listener requests wait in one slot per field and land on the next 4-bar
    boundary. All state lives in song_t (no statics), so two songs can run side by side. */
 #ifndef SONG_SONG_H
 #define SONG_SONG_H
@@ -38,12 +38,18 @@ typedef struct {
     int16_t pend_val[RF_N];
     int16_t pend_bar[RF_N];       /* the bar it lands on */
     int16_t ride_lo, ride_hi;     /* the bars [lo, hi) whose hats go to the ride (groove_ride) */
+    float pad_level;              /* the pad layer's level the step last ticked played (song_pad_level) */
 } song_t;
 
 void song_start(song_t *s, const song_roll_t *r);           /* plan, motif, phrases; bar 0, step 0 */
 /* One 16th: its events sorted by delay; 0 once ended. Events beyond max are dropped: pass max >= 64. */
 int song_tick(song_t *s, song_ev_t *out, int max);
 float song_step_samples(const song_t *s);                   /* 44100 * 60 / (tempo * 4), following a tempo glide */
+/* The pad layer's level (0-1) for the step song_tick last played, for vx_set_pad_level: 0 where the layer is silent
+   (a song or block without it: song_pad_on, song_pad_in), 1 where it plays; over the last bar before a block without
+   it falling linearly to 0 by its last step, over the first bar back rising to 1 (1/16 on its first step). With the
+   layer's swell and release, the pad fades over a section line instead of cutting (Task 1b). */
+float song_pad_level(const song_t *s);
 void song_request(song_t *s, int field, int value);         /* lands on the next 4-bar boundary */
 int song_pending(const song_t *s, int *field, int *bars_left);  /* the earliest pending change; 0 if none */
 

@@ -3,7 +3,7 @@
 // Every change is staged (wb_stage_mark first), checked against the locks (a locked row that moved undoes it whole and
 // says why), then committed with wb_apply: nothing staged is heard before that, so a bar line inside a change never
 // lands half of it. A seed or map change regenerates the song, so every locked or hand-set row is staged again first. call(fn, ...args) reaches wb.wasm's exports, a Promise (wb.js in the page; smoke.mjs in Node).
-import { ROWS, row, conflicts, pickFor, familyOf, fromEngine, kickMasks } from "./rows.js";
+import { ROWS, row, conflicts, pickFor, familyOf, fromEngine, kickMasks, rolled } from "./rows.js";
 import { cellOf, LANES } from "./drums.js";
 
 const SEED_TRIES = 20;   // a new seed whose song can't keep the locks is tried again (re-roll all, the seed's dice)
@@ -86,7 +86,7 @@ export class Desk {
     for (const r of ROWS) {
       if (r.id === except || r.kind === "seed" || r.kind === "family") continue;
       if (kept.has(r.id)) await this.stage(r.id, kept.get(r.id));
-      else if (fresh && (r.kind === "ov" || r.kind === "reroll")) await this.stage(r.id, r.source === "registers" || r.kind === "reroll" ? 0 : -1);
+      else if (fresh && (r.kind === "ov" || r.kind === "reroll")) await this.stage(r.id, rolled(r));
     }
     if (kept.has("family")) {
       const fam = kept.get("family");
@@ -250,6 +250,9 @@ export class Desk {
   // came out different (the engine kept another value) are returned.
   async restore(snap) {
     if (snap.version !== 1) throw new Error(`snapshot version ${snap.version}: this page reads version 1`);
+    // a row newer than the snapshot (an override: the pad on/off) as rolled
+    const older = ROWS.filter((r) => (r.kind === "ov" || r.kind === "reroll") && !(r.id in snap.rows));
+    snap = { ...snap, rows: { ...snap.rows, ...Object.fromEntries(older.map((r) => [r.id, rolled(r)])) } };
     await this.call("wb_stage_mark");
     await this.stage("seed", snap.rows.seed);
     for (const r of ROWS) if (r.kind !== "seed" && r.kind !== "family") await this.stage(r.id, snap.rows[r.id]);

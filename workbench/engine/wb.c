@@ -123,6 +123,7 @@ static void tick(void)
         vx_set_gain(1.0f - (float)at / (float)len);
     }
     n = song_tick(&song, evs, 64);
+    vx_set_pad_level(song_pad_level(&song));   /* the pad layer's fade over a section line */
     for (i = 0; i < n; i++)
         vx_event(&evs[i]);
     cur_bar = bar;
@@ -604,6 +605,7 @@ EXPORT void wb_ov_set(int key, int value)
     case WB_OV_BASS_SALT: o->bass_salt = (uint32_t)value; break;
     case WB_OV_PAD_SALT: o->pad_salt = (uint32_t)value; break;
     case WB_OV_DRUMS_SALT: o->drums_salt = (uint32_t)value; break;
+    case WB_OV_PAD_ON: o->pad_on = (int8_t)value; break;
     default: break;
     }
 }
@@ -623,6 +625,7 @@ EXPORT int wb_ov_get(int key)
     case WB_OV_BASS_SALT: return (int)o->bass_salt;
     case WB_OV_PAD_SALT: return (int)o->pad_salt;
     case WB_OV_DRUMS_SALT: return (int)o->drums_salt;
+    case WB_OV_PAD_ON: return o->pad_on;
     default: return 0;
     }
 }
@@ -788,8 +791,8 @@ EXPORT const char *wb_consts(void)
         {"COMP", WB_OV_COMP}, {"LEAD_STYLE", WB_OV_LEAD_STYLE}, {"PAD_PLACE", WB_OV_PAD_PLACE}, {"RIDE", WB_OV_RIDE},
         {"KEYS_OCT", WB_OV_KEYS_OCT}, {"LEAD_OCT", WB_OV_LEAD_OCT}, {"VOICING_SALT", WB_OV_VOICING_SALT},
         {"PHRASE_SALT", WB_OV_PHRASE_SALT}, {"BASS_SALT", WB_OV_BASS_SALT}, {"PAD_SALT", WB_OV_PAD_SALT},
-        {"DRUMS_SALT", WB_OV_DRUMS_SALT}, {"N", WB_OV_N}}, V[] = {
-        {"CHORD", V_CHORD}, {"BASS", V_BASS}, {"LEAD", V_LEAD}, {"CANDY", V_CANDY}, {"PAD", V_PAD}}, SRC[] = {
+        {"DRUMS_SALT", WB_OV_DRUMS_SALT}, {"PAD_ON", WB_OV_PAD_ON}, {"N", WB_OV_N}}, V[] = {
+        {"CHORD", V_CHORD}, {"BASS", V_BASS}, {"LEAD", V_LEAD}, {"PAD", V_PAD}}, SRC[] = {
         {"NONE", WB_SRC_NONE}, {"PT", WB_SRC_PT}, {"OPT", WB_SRC_OPT}, {"SAMPLE", WB_SRC_SAMPLE},
         {"BUILTIN", WB_SRC_BUILTIN}}, KIT[] = {
         {"PRESET", WB_KIT_PRESET}, {"PT808", WB_KIT_PT808}, {"PTCR78", WB_KIT_PTCR78}, {"OPTLOFI", WB_KIT_OPTLOFI},

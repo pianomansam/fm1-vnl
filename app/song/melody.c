@@ -24,7 +24,7 @@
 #define MAXN 24                                    /* notes in one realized phrase */
 #define MAXP 32                                    /* lead phrases per song */
 
-enum { R_NONE, R_LEAD, R_ANSWER, R_SPARSE };       /* what plays in a bar */
+enum { R_NONE, R_LEAD };                            /* what plays in a bar */
 
 typedef struct { uint8_t at, len, note; } nt_t;    /* onset and length in 16ths from the phrase start; MIDI */
 
@@ -309,13 +309,12 @@ static int lead_starts(const song_plan_t *p, int *starts)
     for (i = 0; i < p->n; i++) {
         const plan_block_t *b = &p->b[i];
         if (!(b->layers & L_LEAD)) continue;
-        for (j = 0; j < b->bars / 4 && n < MAXP; j++)
-            if (!(b->layers & L_CANDY) || (j & 1) == 0) starts[n++] = b->start + 4 * j;
+        for (j = 0; j < b->bars / 4 && n < MAXP; j++) starts[n++] = b->start + 4 * j;
     }
     return n;
 }
 
-/* What plays at `bar`: R_LEAD (lead phrase *idx from *P), R_ANSWER (candy phrase from *P), R_SPARSE or R_NONE. */
+/* What plays at `bar`: R_LEAD (lead phrase *idx from *P) or R_NONE. */
 static int role_at(const song_plan_t *p, int bar, int *P, int *idx)
 {
     int i, j, n = 0;
@@ -323,17 +322,16 @@ static int role_at(const song_plan_t *p, int bar, int *P, int *idx)
         const plan_block_t *b = &p->b[i];
         int in = bar >= b->start && bar < b->start + b->bars;
         if (!(b->layers & L_LEAD)) {
-            if (in) return (b->layers & L_CANDY) ? R_SPARSE : R_NONE;
+            if (in) return R_NONE;
             continue;
         }
         for (j = 0; j < b->bars / 4; j++) {
-            int lead = !(b->layers & L_CANDY) || (j & 1) == 0;
             if (in && bar >= b->start + 4 * j && bar < b->start + 4 * j + 4) {
                 *P = b->start + 4 * j;
                 *idx = n;
-                return lead ? (n < MAXP ? R_LEAD : R_NONE) : R_ANSWER;
+                return n < MAXP ? R_LEAD : R_NONE;
             }
-            if (lead) n++;
+            n++;
         }
         if (in) return R_NONE;
     }
@@ -489,91 +487,16 @@ static int lead_phrase(const ctx_t *c, const melody_phrases_t *ph, const motif_t
     return n;
 }
 
-/* A candy figure: up to cnt notes from 16th t, 2 or 4 apart (rising when `up`), the first a chord tone near
-   `target`, all ending by `end`; appended at out + n. Returns the new count. */
-static int candy_figure(const ctx_t *c, rng_t *g, const region_t *R, int t, int cnt, int end, int target, int up,
-                        nt_t *out, int n)
-{
-    int i, prev = -1;
-    for (i = 0; i < cnt && t < end; i++) {
-        int gap = 2 + 2 * rng_int(g, 2), len, note;
-        len = fit_len(R, t, i + 1 < cnt ? gap : 4 + rng_int(g, 3), end);
-        if (prev < 0) note = pick_near(mask_at(R, t) & R->ct[t / 16], target, 72, 96);
-        else if (up) note = pick_near(mask_at(R, t), note_of(c, deg_of(c, prev) + 1 + rng_int(g, 2)), prev + 1, 96);
-        else note = next_pitch(c, g, R, t, prev, 72, 96);
-        if (len > 0 && note >= 0) {
-            out[n].at = (uint8_t)t;
-            out[n].len = (uint8_t)hold_len(R, t, len, note);
-            out[n].note = (uint8_t)note;
-            prev = note;
-            n++;
-        }
-        t += gap;
-    }
-    return n;
-}
-
-/* Ear candy answering the lead in the candy's 4-bar phrase from bar Q: 1-4 notes early on, and about half the time
-   a second, shorter answer in bar 3. */
-static int answer_phrase(const ctx_t *c, int Q, uint32_t salt, nt_t *out)
-{
-    region_t R;
-    rng_t g;
-    int n, t, cnt, tgt;                            /* draws in a fixed order: argument order is unspecified */
-    region_at(c, Q, 4, &R);
-    rng_seed(&g, mix(salt, (uint32_t)Q, 3, 0), 134);
-    t = 2 + 2 * rng_int(&g, 3);
-    cnt = 1 + rng_int(&g, 4);
-    tgt = 82 + rng_int(&g, 6);
-    n = candy_figure(c, &g, &R, t, cnt, 32, tgt, 0, out, 0);
-    if (rng_int(&g, 2)) {
-        t = 34 + 2 * rng_int(&g, 3);
-        cnt = 1 + rng_int(&g, 3);
-        tgt = 80 + rng_int(&g, 8);
-        n = candy_figure(c, &g, &R, t, cnt, 64, tgt, 0, out, n);
-    }
-    return n;
-}
-
-/* Ear candy in a candy-only bar: 1-2 notes, the bar played with the mood's candy_pct chance raised by Motion; the
-   last bar before a layer change always plays, a 2-3 note rising figure into the change. */
-static int sparse_bar(const ctx_t *c, int bar, uint32_t salt, nt_t *out)
-{
-    static const uint8_t ON[6] = {2, 4, 6, 10, 12, 14};
-    const plan_block_t *b = plan_at(c->p, bar), *nx = plan_at(c->p, bar + 1);
-    region_t R;
-    rng_t g;
-    int pct = LIB_MOODS[clampi(c->r->v[RF_MOOD], 0, 3)].candy_pct + clampi(c->r->v[RF_MOTION], 0, 100) / 5;
-    int edge = b && nx && nx != b && nx->layers != b->layers, t, cnt, tgt;
-    rng_seed(&g, mix(salt, (uint32_t)bar, 4, 0), 135);
-    if (rng_int(&g, 100) >= pct && !edge) return 0;
-    region_at(c, bar, 1, &R);
-    if (edge) {
-        t = 8 + 2 * rng_int(&g, 2);
-        cnt = 2 + rng_int(&g, 2);
-        tgt = 78 + rng_int(&g, 6);
-    } else {
-        t = ON[rng_int(&g, 6)];
-        cnt = 1 + (rng_int(&g, 3) == 0);
-        tgt = 80 + rng_int(&g, 10);
-    }
-    return candy_figure(c, &g, &R, t, cnt, 16, tgt, edge, out, 0);
-}
-
 int melody_step(const song_roll_t *r, const song_plan_t *p, const melody_phrases_t *ph, const motif_t *m, int bar,
                 int step, float step_samples, uint32_t salt, song_ev_t *out, int max)
 {
     ctx_t c;
     nt_t ns[MAXN * 2];
-    int role, P = bar, idx = 0, n, i, rel, cnt = 0, voice;
+    int P = bar, idx = 0, n, i, rel, cnt = 0, voice = V_LEAD;
     if (max <= 0 || bar < 0 || bar >= p->bars || step < 0 || step > 15) return 0;
-    role = role_at(p, bar, &P, &idx);
-    if (role == R_NONE) return 0;
+    if (role_at(p, bar, &P, &idx) == R_NONE) return 0;
     ctx_init(&c, r, p);
-    if (role == R_LEAD) n = lead_phrase(&c, ph, m, P, idx, salt, ns);
-    else if (role == R_ANSWER) n = answer_phrase(&c, P, salt, ns);
-    else n = sparse_bar(&c, bar, salt, ns);
-    voice = role == R_LEAD ? V_LEAD : V_CANDY;
+    n = lead_phrase(&c, ph, m, P, idx, salt, ns);
     rel = (bar - P) * 16 + step;
     for (i = 0; i < n && cnt < max; i++) {
         uint32_t h = mix(salt, (uint32_t)bar, (uint32_t)step, (uint32_t)voice);
@@ -583,7 +506,7 @@ int melody_step(const song_roll_t *r, const song_plan_t *p, const melody_phrases
         if (ns[i].at != rel) continue;
         if (len > lim) len = lim;
         if (len < 1.0f) len = 1.0f;
-        vel = voice == V_LEAD ? 70 + (int)((h >> 12) % 19u) + (ns[i].at == 0 ? 6 : 0) : 46 + (int)((h >> 12) % 21u);
+        vel = 70 + (int)((h >> 12) % 19u) + (ns[i].at == 0 ? 6 : 0);
         out[cnt].voice = (uint8_t)voice;
         out[cnt].note = ns[i].note;
         out[cnt].vel = (uint8_t)clampi(vel, 25, 110);

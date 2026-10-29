@@ -284,6 +284,7 @@ static float dsend[NBUS];   /* the delay's per-bus send: the role's patch's dela
 static float csend;         /* the pad layer's send into the chorus */
 static float pd_dep;        /* the depth that send gives it */
 static float pdg = 1.0f, pdg0, pdgd; /* its dry scale: eased toward fx_chorus_dry_at(pd_dep); this chunk's ramp */
+static float pd_lvl = 1.0f;          /* the pad layer's level (vx_set_pad_level), folded into pdg's target */
 /* The mud high-pass (Sam: "add both"): a second-order (Butterworth) high-pass on the chords', the lead's, the ear
    candy's and the pad layer's sums at MUD_HZ (MUD_PAD_HZ for a pad or the pad layer), so the bass and the kick keep
    the low end. Per role, at the full rate and at half (its half-rate voices' sum, before the upsampler; the pad
@@ -309,6 +310,9 @@ static float keys_g = 1.0f; /* the song's keys level for its comping (keys_gain)
    DUCK_DB, a follower at the chunk rate (a one-pole toward 1 with a note held, else 0: about 25 ms in, 400 ms out,
    so a run of notes holds it down and a rest lets the keys back), the keys' gain ramped linearly over each chunk. */
 #define DUCK_DEPTH 0.29205f /* 1 - 10^(-3/20): 3 dB down at full duck */
+/* The pad layer dips with them, 1 dB (Task 1b: it plays more of its bars under the lead now, where the keys duck, and
+   stays 5 dB or more under them; the full 3 dB would sink it past 11 dB under in the grooves' sets) */
+#define DUCK_PAD 0.10875f   /* 1 - 10^(-1/20) */
 #define DUCK_KA 0.20717f    /* 1 - exp(-CHUNK / (25 ms * SR)) */
 #define DUCK_KR 0.014409f   /* 1 - exp(-CHUNK / (400 ms * SR)) */
 static float dk_env;        /* the follower: 0 at rest, 1 fully ducked */
@@ -396,6 +400,7 @@ void vx_init(void)
     gain_n = 0;
     cg = kg = 1.0f;
     pdg = 1.0f;
+    pd_lvl = 1.0f;
     keys_g = 1.0f;
     fx_init(); /* before the roles: the chords' patch sets the chorus */
     memset(&cfg, 0, sizeof cfg);
@@ -403,7 +408,7 @@ void vx_init(void)
     vx_assign(V_CHORD, INS_RHODES);
     vx_assign(V_BASS, INS_SUB);
     vx_assign(V_LEAD, INS_VIBES);
-    vx_assign(V_CANDY, INS_MUSIC_BOX);
+    vx_assign(V_CANDY, INS_NONE); /* no ear candy (Sam, 2026-10-29): the role stays, silent */
     vx_assign(V_PAD, INS_STRINGS);
     vx_set_kit(KIT_DUSTY);
     cfg.flavor = FL_LOFI;
@@ -503,7 +508,7 @@ void vx_configure(const song_roll_t *r)
         vx_assign(V_CHORD, s->chords);
         vx_assign(V_BASS, s->bass);
         vx_assign(V_LEAD, s->lead);
-        vx_assign(V_CANDY, s->candy);
+        vx_assign(V_CANDY, INS_NONE); /* no ear candy (Sam, 2026-10-29): the set's candy goes unplayed */
         vx_assign(V_PAD, s->pad);
         vx_set_kit(lib_song_kit(r)); /* the song's: the set's synth kit or its sampled one */
         vx_assign_pad_solo(pads_solo_voice(r)); /* the song's solo voice (none: the pad's, unplayed) */
@@ -546,7 +551,7 @@ void vx_song(const song_roll_t *r)
     vx_configure(r);
     if (!vx_active()) { /* the chorus's dry scales land (they ease only while rendering) */
         kg = cg = fx_chorus_dry();
-        pdg = fx_chorus_dry_at(pd_dep);
+        pdg = fx_chorus_dry_at(pd_dep) * pd_lvl;
     }
 }
 
@@ -2411,7 +2416,9 @@ void vx_render(float *l, float *r, uint32_t n)
             float cd = fx_chorus_dry();
             cg += (cd - cg) * 0.25f; /* the chorus's dry scale, eased over a few chunks */
             cg = fm_fabsf(cg - cd) < 1e-6f ? cd : cg;
-            cd = fx_chorus_dry_at(pd_dep); /* the pad layer's, likewise, ramped over the chunk */
+            /* the pad layer's, likewise, times its level and its share of the keys' duck under the lead (it stays
+               under them there: Task 1b), ramped over the chunk */
+            cd = fx_chorus_dry_at(pd_dep) * pd_lvl * (1.0f - DUCK_PAD * dk_env);
             pdg0 = pdg;
             pdg += (cd - pdg) * 0.25f;
             pdg = fm_fabsf(pdg - cd) < 1e-6f ? cd : pdg;
@@ -2482,6 +2489,8 @@ void vx_set_gain(float g)
     gain_step = (gain_tgt - gain) * (1.0f / 882.0f);
     gain_n = 882;
 }
+
+void vx_set_pad_level(float g) { pd_lvl = g < 0.0f ? 0.0f : g > 1.0f ? 1.0f : g; }
 
 int vx_active(void)
 {
