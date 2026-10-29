@@ -830,9 +830,10 @@ static void test_pending(void)
    rolled set's place; a set whose keys are that instrument skipped), over 300 songs each: every rule above holds
    (no semitone rubs against the keys, bass or pad, chord tones on strong beats, nothing out of the chord-scale or an
    avoid note, velocities 25-110), its lead_oct an octave up and down too (40 songs each). Also an instrument a style
-   isn't rolled for (Review Focus 4): forced, it still plays, legal. */
+   isn't rolled for (Review Focus 4): forced, it still plays, legal. It plays: per_song notes a song or more (its
+   sparsest case less a little), m9_notes over the m9 chords (style_hard). */
 static long style_notes;
-static void style_rules(int style, const char *name)
+static void style_rules(int style, const char *name, int per_song)
 {
     static song_t s;
     static const int INS[4] = {INS_FLUTE, INS_FELT_PIANO, INS_VIBES, INS_KNIGHT};
@@ -869,7 +870,7 @@ static void style_rules(int style, const char *name)
             lib_set_wb(NULL, 0);
             song_override(NULL);
             if (!oct) printf("%s on the %s: %ld songs, %ld lead notes\n", name, NM[k], songs, notes);
-            CHECK(songs > (oct ? 20 : 200) && notes > songs * 15, "%s on the %s (lead_oct %d): %ld songs, %ld notes",
+            CHECK(songs > (oct ? 20 : 200) && notes > songs * per_song, "%s on the %s (lead_oct %d): %ld songs, %ld notes",
                   name, NM[k], o.lead_oct, songs, notes);
             style_notes += notes;
         }
@@ -880,7 +881,7 @@ static void style_rules(int style, const char *name)
 /* Review Focus 1, chords with few legal notes, through every check above: the style forced on each lead instrument it
    is rolled for, in songs forced to Lydian (its maj7 chords; the first 300 of song_test's songs) and in walking-bass
    songs with 9ths (their m9 chords; of its 3000), as song_test's ls_hard plays them */
-static void style_hard(int style, const char *name, const int *ins, int nins)
+static void style_hard(int style, const char *name, const int *ins, int nins, long m9_notes)
 {
     static song_t s;
     song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, 0, -1, -1, -1};
@@ -929,7 +930,7 @@ static void style_hard(int style, const char *name, const int *ins, int nins)
         printf("%s on hard chords, %s: %ld Lydian songs (%ld lead notes over maj7 chords), %ld walking-bass songs with "
                "9ths (%ld over m9 chords)\n", name, ins[k] == INS_FLUTE ? "flute" : ins[k] == INS_VIBES ? "vibes" :
                ins[k] == INS_KNIGHT ? "Knight" : "felt piano", songs[0], hard[0], songs[1], hard[1]);
-        CHECK(songs[0] > 150 && hard[0] > 3000 && songs[1] > 50 && hard[1] > 150,
+        CHECK(songs[0] > 150 && hard[0] > 3000 && songs[1] > 50 && hard[1] > m9_notes,
               "%s on hard chords: %ld and %ld songs, %ld and %ld notes", name, songs[0], songs[1], hard[0], hard[1]);
     }
     song_override(NULL);
@@ -939,26 +940,26 @@ static void style_hard(int style, const char *name, const int *ins, int nins)
 static void test_impressionism_rules(void)
 {
     static const int INS2[2] = {INS_FLUTE, INS_VIBES};
-    style_rules(LS_IMPRESSIONISM, "Impressionism");
-    style_hard(LS_IMPRESSIONISM, "Impressionism", INS2, 2);
+    style_rules(LS_IMPRESSIONISM, "Impressionism", 20);
+    style_hard(LS_IMPRESSIONISM, "Impressionism", INS2, 2, 300);
 }
 static void test_romanticism_rules(void)
 {
     static const int INS1[1] = {INS_FLUTE};
-    style_rules(LS_ROMANTICISM, "Romanticism");
-    style_hard(LS_ROMANTICISM, "Romanticism", INS1, 1);
+    style_rules(LS_ROMANTICISM, "Romanticism", 20);
+    style_hard(LS_ROMANTICISM, "Romanticism", INS1, 1, 300);
 }
 static void test_jazz60s_rules(void)
 {
     static const int INS4[4] = {INS_FLUTE, INS_FELT_PIANO, INS_VIBES, INS_KNIGHT};
-    style_rules(LS_JAZZ60S, "'60s Jazz");
-    style_hard(LS_JAZZ60S, "'60s Jazz", INS4, 4);
+    style_rules(LS_JAZZ60S, "'60s Jazz", 18);      /* (its sparsest: 20.0 a song, the vibes an octave down) */
+    style_hard(LS_JAZZ60S, "'60s Jazz", INS4, 4, 300);
 }
 static void test_modal_rules(void)
 {
     static const int INS1[1] = {INS_FLUTE};
-    style_rules(LS_MODAL, "Modal Jazz");
-    style_hard(LS_MODAL, "Modal Jazz", INS1, 1);
+    style_rules(LS_MODAL, "Modal Jazz", 25);       /* (28.8, the felt piano an octave up) */
+    style_hard(LS_MODAL, "Modal Jazz", INS1, 1, 170);   /* (189 m9 notes, the spike's 190) */
 }
 
 int main(void)
