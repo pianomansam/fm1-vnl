@@ -344,6 +344,10 @@ Final: open — 4 commits carry "Co-Authored-By: Claude Sonnet 5.5" instead of O
     force leaps. **Decided (Sam, 2026-10-29): duck the keys instead** — when the lead needs room, the keys voice lower
     (the voice-leading rules still pick the smoothest path, in a lower window); the fixed floor goes. Part of the lead
     styles' build.
+  - **Decided (Sam, 2026-10-29): remove the two old lead engines** — the phrase planner and the hybrid arpeggio
+    ("these new ones are light years ahead"). The shortlisted styles replace them. Goes with them: the lead-arp
+    pattern family (rhythms, chord-tone orders, landings) and its workbench rows, and whatever of the melody path only
+    they use. Part of the lead styles' build.
 
 - **Done (Sam, 2026-10-29, after the lead-candidates spike, app/build/new/lead-candidates/):** "i only liked the felt
   piano and vibraphones." The vibes are the VCSL vibraphone (soft mallets, v2, 5 zones C4-E6, 18.4 KB of flash), on the
