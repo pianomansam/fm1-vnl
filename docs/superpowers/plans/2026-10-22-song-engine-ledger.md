@@ -146,6 +146,14 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
 
 ## To revisit (Sam, after listening)
 
+- **Hip hop record-style repetition for leads (Sam, 2026-10-29).** Claude's reading, to confirm with Sam: the lead
+  behaves like a sampled phrase lifted from a record — a 1-, 2- or 4-bar phrase generated once, then played back
+  identically every pass (same notes, timing, velocities, even its "imperfections"), the way a producer loops a
+  sample. Variation comes only from producer moves on the loop, not new notes: muting it for a bar or a section,
+  filtering it (low-pass in, open up), chopping or re-triggering a slice (stutters, a repeated last beat), dropping it
+  out before the drop, or re-pitching the whole loop to follow the chords. Builds on Jazz-Hop ("loops are actually
+  good") and the hybrid-styles idea.
+
 - **Hybrid lead styles (Sam, 2026-10-29).** One lead style makes the motif, then a different style takes it over and
   develops it: after 1 bar, after 3 bars, or for the second 4 bars of an 8-bar phrase. Needs the styles to share a
   motif format (rhythm + contour + scale steps) so the second style can restate and vary the first's motif. Builds on
