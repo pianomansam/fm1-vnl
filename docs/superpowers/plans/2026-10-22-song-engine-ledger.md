@@ -157,6 +157,14 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   e.g. one note or a 2-3 note fragment repeated 2-4 times in 8ths or 16ths) instead of continuing, then the phrase
   carries on (or picks up where it would have been). Repeats are the same notes as recorded, maybe each a touch
   softer or filtered; placed at phrase ends or turnarounds, not every pass.
+  **Plan (Sam, 2026-10-29): after the eight styles are built as approved, prototype loop playback as a shared engine,
+  as a toggle** (per song, a workbench row "Lead loop: on/off"; the firmware default decided by ear later). With it
+  on, a style generates its phrase once (1-4 bars, matched to the chord loop) and a shared player replays it
+  identically, adding the producer moves (mute, filter, stutter, drop-out); with it off, the style plays as built.
+  Start with Jazz-Hop and Ambient. Why: simpler logic (no per-pass variation; rules checked once per phrase), less
+  CPU and likely less flash per style. Catch: the bass's walking stretches, the pad's sections and the keys' room
+  differ by section, so the phrase is checked against every bar version it plays over, with rule-driven nudges
+  where it would rub.
 
 - **Hybrid lead styles (Sam, 2026-10-29).** One lead style makes the motif, then a different style takes it over and
   develops it: after 1 bar, after 3 bars, or for the second 4 bars of an 8-bar phrase. Needs the styles to share a
