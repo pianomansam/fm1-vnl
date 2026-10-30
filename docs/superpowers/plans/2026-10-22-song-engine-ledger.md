@@ -152,7 +152,11 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   sample. Variation comes only from producer moves on the loop, not new notes: muting it for a bar or a section,
   filtering it (low-pass in, open up), chopping or re-triggering a slice (stutters, a repeated last beat), dropping it
   out before the drop, or re-pitching the whole loop to follow the chords. Builds on Jazz-Hop ("loops are actually
-  good") and the hybrid-styles idea.
+  good") and the hybrid-styles idea. **Sam confirmed (2026-10-29) and added the key effect: the stuck-note stutter** —
+  a few notes of the phrase "get stuck" and repeat a few times (like a skipping record or a re-triggered chop,
+  e.g. one note or a 2-3 note fragment repeated 2-4 times in 8ths or 16ths) instead of continuing, then the phrase
+  carries on (or picks up where it would have been). Repeats are the same notes as recorded, maybe each a touch
+  softer or filtered; placed at phrase ends or turnarounds, not every pass.
 
 - **Hybrid lead styles (Sam, 2026-10-29).** One lead style makes the motif, then a different style takes it over and
   develops it: after 1 bar, after 3 bars, or for the second 4 bars of an 8-bar phrase. Needs the styles to share a
