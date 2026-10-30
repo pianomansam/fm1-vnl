@@ -9731,6 +9731,15 @@ static const ls_spike_t LS_SPIKE[] = {
     {LS_FILMSCORE, INS_FLUTE, 300, 14446, 4312, 4102, 1232, 634, 1160, 3732, 1598, 1793, 0, 97, 0, 0},
     {LS_FILMSCORE, INS_FELT_PIANO, 278, 13372, 3997, 3795, 1139, 587, 1076, 3456, 1480, 1653, 0, 97, 0, 0},
     {LS_FILMSCORE, INS_KNIGHT, 238, 11634, 3442, 3268, 984, 503, 939, 2983, 1264, 1439, 0, 97, 0, 0},
+    /* (lead-styles Task 5; the port's measured ratios where under the defaults: Bossa Nova felt contour 0.999, vibes
+       contour 0.999; span: flute 0.668, felt 0.770, vibes 0.818) */
+    {LS_BOSSA, INS_FLUTE, 300, 15354, 5562, 3414, 1232, 927, 1229, 4049, 2156, 2761, 0, 0, 0, 66},
+    {LS_BOSSA, INS_FELT_PIANO, 278, 14183, 5131, 3204, 1139, 846, 1136, 3744, 1972, 2553, 0, 99, 0, 77},
+    {LS_BOSSA, INS_VIBES, 300, 15351, 5561, 3436, 1232, 927, 1229, 4044, 2156, 2761, 0, 99, 0, 81},
+    {LS_AMBIENT, INS_FLUTE, 300, 12748, 3636, 1912, 1232, 1221, 1201, 3190, 2193, 1887, 0, 0, 0, 0},
+    {LS_AMBIENT, INS_FELT_PIANO, 278, 11741, 3340, 1791, 1139, 1125, 1113, 2910, 2034, 1760, 0, 0, 0, 0},
+    {LS_AMBIENT, INS_VIBES, 300, 12676, 3603, 1937, 1232, 1218, 1204, 3139, 2193, 1903, 0, 0, 0, 0},
+    {LS_AMBIENT, INS_KNIGHT, 238, 10171, 2861, 1554, 984, 970, 959, 2498, 1723, 1500, 0, 0, 0, 0},
 };
 
 static const ls_spike_t *ls_spike(int style, int ins)
@@ -9741,12 +9750,12 @@ static const ls_spike_t *ls_spike(int style, int ins)
     return 0;
 }
 
-static const char *ls_name(int style)
-{
-    return style == LS_IMPRESSIONISM ? "Impressionism" : style == LS_ROMANTICISM ? "Romanticism"
-         : style == LS_JAZZ60S ? "'60s Jazz" : style == LS_MODAL ? "Modal Jazz" : style == LS_JAZZHOP ? "Jazz-Hop"
-         : "Film Score";
-}
+/* by LS_*: the style's name; the collections its motif may count its steps in (bits of LM_*) */
+static const char *const LS_NAME[LS_N] = {"Impressionism", "Romanticism", "'60s Jazz", "Modal Jazz", "Jazz-Hop",
+                                          "Film Score", "Bossa Nova", "Ambient"};
+static const uint8_t LS_SCALES[LS_N] = {1u << LM_PENT | 1u << LM_PENT_COLOR, 1u << LM_MODE, 1u << LM_MODE,
+                                        1u << LM_MODE, 1u << LM_PENT, 1u << LM_PENT, 1u << LM_MODE, 1u << LM_PENT};
+static const char *ls_name(int style) { return style >= 0 && style < LS_N ? LS_NAME[style] : "?"; }
 static const char *ls_ins(int ins)
 {
     return ins == INS_FLUTE ? "flute" : ins == INS_VIBES ? "vibes" : ins == INS_KNIGHT ? "Knight" : "felt piano";
@@ -9759,11 +9768,24 @@ static const char *ls_ins(int ins)
    no costlier than in the spike for the songs' own density (lead-styles Task 3). Jazz-Hop and Film Score likewise
    (lead-styles Task 4): their anchors and fitted pitch levels move with the floor, so a few heads lose a planned rise
    or fall; Film Score's flute leaves a few more hard bars silent (Lydian 3, m9 2: fewer for its songs' own silent
-   share), and Jazz-Hop's flute plays 21 fewer notes on Lydian maj7 bars (0.9985 of the spike's for its density). */
-static int ls_banded(int style)
-{
-    return style == LS_JAZZ60S || style == LS_MODAL || style == LS_JAZZHOP || style == LS_FILMSCORE;
-}
+   share), and Jazz-Hop's flute plays 21 fewer notes on Lydian maj7 bars (0.9985 of the spike's for its density).
+   Bossa Nova and Ambient likewise (lead-styles Task 5): Bossa Nova's anchor (the range's middle, from the floor up)
+   rises with the floor, so its span narrows (flute 0.67 of the spike's: its LS_SPIKE rows) and its m9 bars carry a
+   little fewer notes; Ambient's motif level (chosen once per song from the first bar's range) moves with the floor
+   in a few songs, so a few more hard bars fall silent and its m9 bars carry fewer notes.
+   By LS_*: banded (judged against the songs' own density), and the hard chords' floors where the band costs them, in
+   thousandths of the spike's: Lydian notes at least, Lydian silent at most, m9 silent at most, m9 notes at least (each
+   just past the port's measured ratio). */
+typedef struct { uint8_t banded; uint16_t ly_notes, ly_silent, mw_silent, mw_notes; } ls_hard_t;
+static const ls_hard_t LS_HARD[LS_N] = {
+    {0, 1000, 1000, 1000, 1000}, {0, 1000, 1000, 1000, 1000},
+    {1, 980, 1000, 1000, 1000},  {1, 1000, 1000, 1000, 1000},     /* ('60s Jazz Lydian notes 0.984) */
+    {1, 998, 1000, 1000, 1000},  {1, 1000, 1000, 1000, 1000},     /* (Jazz-Hop Lydian notes 0.9985) */
+    {1, 1000, 1000, 1000, 993},  {1, 999, 1004, 1024, 933},      /* (Bossa Nova m9 notes 0.9939; Ambient Lydian
+                                                                     notes 0.9991, silent 1.0039, m9 silent 1.0233,
+                                                                     notes 0.9337) */
+};
+static int ls_banded(int style) { return LS_HARD[style].banded; }
 
 /* The motif restated: Impressionism's phrase heads (its arabesque) restate the song's first head's rhythm and
    contour; Romanticism's bars (its cell, every bar but the cadence's) restate its first bar's; each at least as often
@@ -9796,7 +9818,11 @@ static void ls_motif(int style, const int *ins, int nins)
     {   /* the motif's form against the first phrase head sung: every onset of it one of the motif's (aligned on the
            arabesque's landing, its last; on the cell's first; on the statement's target, its last, the head's bar and
            the next sounding it; on the hook's held tone or the long note, its last), a note the legal notes or the
-           range drop left out; Modal Jazz's head exact: its first notes the motif's onsets, from its first */
+           range drop left out; Modal Jazz's head exact: its first notes the motif's onsets, from its first. A style with a
+           rhythmic variation of its own (LS_SHIFT) may sound it there too: Bossa Nova's repeated notes an 8th early or
+           late, the long note kept (its first statement varies like the rest: its "the first statement is the motif
+           itself" asks for the song's first bar, which is never a lead bar; a spike quirk, lead-styles Task 5) */
+        static const int8_t LS_SHIFT[LS_N] = {0, 0, 0, 0, 0, 0, 2, 0};
         uint32_t k;
         long songs = 0, same = 0;
         for (k = 1; k <= 300; k++) {
@@ -9807,9 +9833,7 @@ static void ls_motif(int style, const int *ins, int nins)
             if (!ls_roll(k * 2654435761u + 17u, ins[0], &r)) continue;
             o.lead_style = (int8_t)(2 + style);
             song_override(&o);
-            CHECK(leads_motif(&r, &m) && m.n >= 2 &&
-                  (style == LS_IMPRESSIONISM ? m.scale == LM_PENT || m.scale == LM_PENT_COLOR
-                   : style == LS_JAZZHOP || style == LS_FILMSCORE ? m.scale == LM_PENT : m.scale == LM_MODE),
+            CHECK(leads_motif(&r, &m) && m.n >= 2 && m.scale < 8 && (LS_SCALES[style] >> m.scale) & 1u,
                   "%s motif: seed %u has none (or another scale)", ls_name(style), (unsigned)k);
             song_override(NULL);
             ls_play(&r, style, 0);
@@ -9833,6 +9857,15 @@ static void ls_motif(int style, const int *ins, int nins)
                 int at = style == LS_ROMANTICISM ? t - LSN[f].t3 / 3 : t - tl + m.at[m.n - 1];
                 for (j = 0, ok = 0; j < m.n; j++) ok |= m.at[j] == at;
             }
+            for (j = -LS_SHIFT[style]; !ok && j <= LS_SHIFT[style] && j; j += 2 * LS_SHIFT[style]) {
+                int y, z;                        /* (the onsets but the last, all moved by j) */
+                for (x = f, ok = 1; x < f + q && ok; x++) {
+                    int t = LSN[x].t3 / 3 + 16 * (LSN[x].bar - LSN[f].bar), tl = LSN[f + q - 1].t3 / 3 +
+                            16 * (LSN[f + q - 1].bar - LSN[f].bar);
+                    y = t - tl + m.at[m.n - 1] - (x < f + q - 1 ? j : 0);
+                    for (z = 0, ok = 0; z < m.n; z++) ok |= m.at[z] == y;
+                }
+            }
             same += ok;
         }
         lib_set_wb(NULL, 0);
@@ -9848,10 +9881,12 @@ static void ls_motif(int style, const int *ins, int nins)
    where the spike's was (each median within 3 semitones: the centers are the five songs' median together).
    Romanticism's span: the band's floor (its center less 6, where the spike's moved with the keys' top bar to bar)
    narrows it to 0.82 of the spike's on the flute (lead-styles Task 2 report, a concern for Sam's ear): held at 0.75 or
-   more, not 0.85 (its LS_SPIKE row). Jazz-Hop's A/B song 1 sits 5 lower (median 72, the spike's 77; lead-styles
-   Task 4 report, for Sam's ear): its floor 70 where the spike's was over the Knight keys' top, so its anchor (the key
-   note nearest the floor's 3 over, tied between G4 and G5) falls to G4 and the hook folds onto the floor. */
-static void ls_shape(int style, const int *ins, int nins, const double *ab_nbar, const int *ab_med)
+   more, not 0.85 (its LS_SPIKE row). ab_low (0: 3 each): how far under the spike's each A/B song's median may sit.
+   Jazz-Hop's A/B song 1 sits 5 lower (median 72, the spike's 77; lead-styles Task 4 report, for Sam's ear, on the
+   ledger's To revisit): its floor 70 where the spike's was over the Knight keys' top, so its anchor (the key note
+   nearest the floor's 3 over, tied between G4 and G5) falls to G4 and the hook folds onto the floor. */
+static void ls_shape(int style, const int *ins, int nins, const double *ab_nbar, const int *ab_med,
+                     const int *ab_low)
 {
     static const int AB[5][3] = {{101, 21, INS_FLUTE}, {1010, 9, INS_FLUTE}, {303, 4, INS_VIBES},
                                  {1111, 11, INS_FELT_PIANO}, {404, 7, INS_FLUTE}};
@@ -9898,7 +9933,7 @@ static void ls_shape(int style, const int *ins, int nins, const double *ab_nbar,
         printf("%s A/B song %d: %.2f notes a bar (spike %.2f), %d-%d, median %d (spike %d)\n", ls_name(style), k + 1,
                n ? (double)lsn_n / n : 0.0, ab_nbar[k], lo, hi, lsn_n ? med[lsn_n / 2] : 0, ab_med[k]);
         CHECK(n && (double)lsn_n / n >= ab_nbar[k] * 0.85 && (double)lsn_n / n <= ab_nbar[k] * 1.15 &&
-              med[lsn_n / 2] - ab_med[k] <= 3 && ab_med[k] - med[lsn_n / 2] <= (style == LS_JAZZHOP && k == 0 ? 5 : 3),
+              med[lsn_n / 2] - ab_med[k] <= 3 && ab_med[k] - med[lsn_n / 2] <= (ab_low ? ab_low[k] : 3),
               "%s A/B song %d: %.2f notes a bar, median %d (spike %.2f, %d)", ls_name(style), k + 1,
               n ? (double)lsn_n / n : 0.0, med[lsn_n / 2], ab_nbar[k], ab_med[k]);
     }
@@ -9947,12 +9982,14 @@ static void ls_hard(int style, const long *sp_ly, const long *sp_mw)
         double smn = (double)sp_mw[0] / sp_mw[4] / ((double)sp_mw[2] / sp_mw[3]);
         printf("%s on hard chords, for the songs' own density: Lydian silent %.3f (spike %.3f); m9 silent %.3f "
                "(spike %.3f), notes %.3f (spike %.3f)\n", ls_name(style), lys, sls, ms, sms, mn, smn);
-        CHECK(ly.hard > 2000 && lys <= sls &&
-              cost >= sp_cost * (style == LS_JAZZ60S ? 0.98 : style == LS_JAZZHOP ? 0.998 : 1.0),   /* (0.984,
-                                                                                                         0.9985) */
+        printf("%s on hard chords against the spike's: Lydian notes %.4f, silent %.4f; m9 silent %.4f, notes %.4f\n",
+               ls_name(style), cost / sp_cost, lys / sls, ms / sms, mn / smn);
+        CHECK(ly.hard > 2000 && lys <= sls * LS_HARD[style].ly_silent / 1000.0 &&
+              cost >= sp_cost * LS_HARD[style].ly_notes / 1000.0,
               "%s on Lydian maj7 chords: silent %.3f, notes %.3f (spike %.3f, %.3f)", ls_name(style), lys, cost, sls,
               sp_cost);
-        CHECK(mw.hard > 300 && ms <= sms && mn >= smn, "%s on m9 chords over the walk: silent %.3f, notes %.3f (spike "
+        CHECK(mw.hard > 300 && ms <= sms * LS_HARD[style].mw_silent / 1000.0 &&
+              mn >= smn * LS_HARD[style].mw_notes / 1000.0, "%s on m9 chords over the walk: silent %.3f, notes %.3f (spike "
               "%.3f, %.3f)", ls_name(style), ms, mn, sms, smn);
         return;
     }
@@ -10071,13 +10108,13 @@ static void test_impressionism_shape(void)
 {
     static const int INS3[3] = {INS_FLUTE, INS_VIBES, INS_FELT_PIANO}, MED[5] = {79, 77, 76, 80, 80};
     static const double NB[5] = {2.35, 2.46, 3.06, 2.58, 2.35};
-    ls_shape(LS_IMPRESSIONISM, INS3, 3, NB, MED);
+    ls_shape(LS_IMPRESSIONISM, INS3, 3, NB, MED, 0);
 }
 static void test_romanticism_shape(void)
 {
     static const int INS2[2] = {INS_FLUTE, INS_FELT_PIANO}, MED[5] = {82, 80, 78, 78, 78};
     static const double NB[5] = {3.05, 2.50, 2.35, 3.25, 3.15};
-    ls_shape(LS_ROMANTICISM, INS2, 2, NB, MED);
+    ls_shape(LS_ROMANTICISM, INS2, 2, NB, MED, 0);
 }
 /* the spike's on the same songs: Lydian (the first 300) notes on maj7 bars, silent maj7 bars, the songs' notes, their
    lead bars, the maj7 bars; m9 over the walk (3000) notes on m9 bars, silent ones */
@@ -10108,13 +10145,13 @@ static void test_jazz60s_shape(void)
 {
     static const int INS4[4] = {INS_FLUTE, INS_FELT_PIANO, INS_VIBES, INS_KNIGHT}, MED[5] = {82, 80, 78, 77, 81};
     static const double NB[5] = {2.06, 1.94, 2.50, 1.83, 2.32};
-    ls_shape(LS_JAZZ60S, INS4, 4, NB, MED);
+    ls_shape(LS_JAZZ60S, INS4, 4, NB, MED, 0);
 }
 static void test_modal_shape(void)
 {
     static const int INS2[2] = {INS_FLUTE, INS_FELT_PIANO}, MED[5] = {82, 77, 76, 82, 76};
     static const double NB[5] = {3.18, 3.00, 2.38, 2.55, 2.50};
-    ls_shape(LS_MODAL, INS2, 2, NB, MED);
+    ls_shape(LS_MODAL, INS2, 2, NB, MED, 0);
 }
 /* the spike's, as above, and the songs' silent bars: Lydian, m9 over the walk {notes on the hard bars, those silent,
    the songs' notes, their lead bars, the hard bars, the songs' silent bars} */
@@ -10144,14 +10181,15 @@ static void test_filmscore_motif(void)
 static void test_jazzhop_shape(void)
 {
     static const int INS3[3] = {INS_FLUTE, INS_FELT_PIANO, INS_VIBES}, MED[5] = {77, 75, 76, 80, 76};
+    static const int LOW[5] = {5, 3, 3, 3, 3};       /* song 1 (ls_shape): to revisit on Sam's ruling */
     static const double NB[5] = {3.10, 2.43, 4.00, 3.94, 4.00};
-    ls_shape(LS_JAZZHOP, INS3, 3, NB, MED);
+    ls_shape(LS_JAZZHOP, INS3, 3, NB, MED, LOW);
 }
 static void test_filmscore_shape(void)
 {
     static const int INS3[3] = {INS_FLUTE, INS_FELT_PIANO, INS_KNIGHT}, MED[5] = {79, 75, 76, 80, 81};
     static const double NB[5] = {3.46, 3.25, 3.54, 3.43, 3.06};
-    ls_shape(LS_FILMSCORE, INS3, 3, NB, MED);
+    ls_shape(LS_FILMSCORE, INS3, 3, NB, MED, 0);
 }
 static void test_jazzhop_hard(void)
 {
@@ -10162,6 +10200,40 @@ static void test_filmscore_hard(void)
 {
     static const long LY[6] = {6265, 698, 11041, 4588, 2481, 1336}, MW[6] = {420, 155, 4701, 2004, 336, 593};
     ls_hard(LS_FILMSCORE, LY, MW);
+}
+/* Bossa Nova and Ambient (lead-styles Task 5): each on the lead instruments it is rolled for (Bossa Nova: the flute,
+   vibes, with the felt piano, an A/B song's lead; Ambient: all four) */
+static void test_bossa_motif(void)
+{
+    static const int INS3[3] = {INS_FLUTE, INS_FELT_PIANO, INS_VIBES};
+    ls_motif(LS_BOSSA, INS3, 3);
+}
+static void test_ambient_motif(void)
+{
+    static const int INS4[4] = {INS_FLUTE, INS_FELT_PIANO, INS_VIBES, INS_KNIGHT};
+    ls_motif(LS_AMBIENT, INS4, 4);
+}
+static void test_bossa_shape(void)
+{
+    static const int INS3[3] = {INS_FLUTE, INS_FELT_PIANO, INS_VIBES}, MED[5] = {82, 82, 80, 80, 80};
+    static const double NB[5] = {2.28, 2.33, 2.67, 2.70, 3.00};
+    ls_shape(LS_BOSSA, INS3, 3, NB, MED, 0);
+}
+static void test_ambient_shape(void)
+{
+    static const int INS4[4] = {INS_FLUTE, INS_FELT_PIANO, INS_VIBES, INS_KNIGHT}, MED[5] = {77, 75, 80, 82, 78};
+    static const double NB[5] = {3.20, 2.88, 3.80, 3.04, 3.24};
+    ls_shape(LS_AMBIENT, INS4, 4, NB, MED, 0);
+}
+static void test_bossa_hard(void)
+{
+    static const long LY[6] = {6614, 164, 11710, 4588, 2481, 313}, MW[6] = {445, 44, 5008, 2004, 336, 123};
+    ls_hard(LS_BOSSA, LY, MW);
+}
+static void test_ambient_hard(void)
+{
+    static const long LY[6] = {5349, 998, 9385, 4588, 2481, 1905}, MW[6] = {271, 232, 4239, 2004, 336, 774};
+    ls_hard(LS_AMBIENT, LY, MW);
 }
 static void test_ov_ride(void)
 {
@@ -11988,6 +12060,12 @@ int main(int argc, char **argv)
     RUN(test_filmscore_shape);
     RUN(test_jazzhop_hard);
     RUN(test_filmscore_hard);
+    RUN(test_bossa_motif);
+    RUN(test_ambient_motif);
+    RUN(test_bossa_shape);
+    RUN(test_ambient_shape);
+    RUN(test_bossa_hard);
+    RUN(test_ambient_hard);
     RUN(test_ov_ride);
     RUN(test_ov_voicing_salt);
     RUN(test_ov_phrase_salt);

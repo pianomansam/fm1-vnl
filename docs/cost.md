@@ -1084,3 +1084,23 @@ forced **27-28 us**, Jazz-Hop forced (6) **27-30 us**, Film Score forced (7) **3
 all three; worst song_start 6-11 us. Film Score sits a little over the rest (each of its notes is fitted by its own
 scan of the bar's range), within Impressionism's 27-33 us; the unforced events hash is unchanged (7dbc0885,
 936e9bb7).
+
+### Lead styles, Task 5: Bossa Nova and Ambient (2026-10-30)
+
+Two style files (app/song/leads/bossa.c, ambient.c); Ambient keeps one int across bars (its motif's level, in
+lead_state_t's style union: RAM unchanged). Image by `./build.sh`, measured style by style on today's tree (its base/
+carries an uncommitted font packing, -26272 B):
+
+| build | image | delta |
+|---|---|---|
+| neither registered (Task 4's six) | 399536 B | |
+| + Bossa Nova | 402912 B | +3376 |
+| + Ambient | 405440 B | +2528 |
+
+**+5904 B for the two.** On the committed base (no packed fonts) that is about 431712 B, 22112 B over 409600; with
+the packed fonts, 405440 B, 4160 B under. RAM .data+.bss 55632 B (unchanged), pool 180216 B (unchanged).
+
+CPU: `tools/tick-bench.sh 3000 5 [STYLE]`, three runs each, interleaved: worst tick over the 2933 other songs, no style
+forced **28 us**, Bossa Nova forced (8) **28-32 us**, Ambient forced (9) **27-33 us**; strummed songs 22-30 us in all
+three; worst song_start 6-8 us. Ambient's first lead bar scores 15 motif levels over the loop's chords (once a song);
+within Film Score's and Impressionism's range. The unforced events hash is unchanged (7dbc0885, 936e9bb7).

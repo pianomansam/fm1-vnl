@@ -47,6 +47,9 @@ typedef struct {
         struct {
             int note, vel;        /* the held tone tied into this bar, for its fall-off */
         } mo;                     /* Modal Jazz */
+        struct {
+            int lvl;              /* the motif's first note, chosen once per song (0: not yet) */
+        } am;                     /* Ambient */
     } st;
 } lead_state_t;
 

@@ -264,9 +264,9 @@ typedef void leads_plan_fn(lead_state_t *ls, const leads_ctx_t *c, const plan_bl
                            const leads_next_t *nx);
 typedef void leads_motif_fn(const song_roll_t *r, lead_motif_t *m);
 static leads_plan_fn *const PLAN[LS_N] = {impressionism_plan, romanticism_plan, jazz60s_plan, modal_plan,
-                                          jazzhop_plan, filmscore_plan};
+                                          jazzhop_plan, filmscore_plan, bossa_plan, ambient_plan};
 static leads_motif_fn *const MOTIF[LS_N] = {impressionism_motif, romanticism_motif, jazz60s_motif, modal_motif,
-                                            jazzhop_motif, filmscore_motif};
+                                            jazzhop_motif, filmscore_motif, bossa_motif, ambient_motif};
 
 int leads_motif(const song_roll_t *r, lead_motif_t *m)
 {

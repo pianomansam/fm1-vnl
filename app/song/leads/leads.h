@@ -27,7 +27,11 @@ enum { LS_IMPRESSIONISM, LS_ROMANTICISM, LS_JAZZ60S, LS_MODAL, LS_JAZZHOP, LS_FI
    - Jazz-Hop: its hook, 2-4 quick notes into a held tone in one bar (in the mode's pentatonic: LM_PENT), restated
      every 2 bars, the turnaround's one change aside.
    - Film Score: its phrase heads' 3-5 notes on the 8th grid into the long note (in the mode's pentatonic), each head
-     restating its rhythm and up/down shape; the question sequences it a step up, the answer falls home. */
+     restating its rhythm and up/down shape; the question sequences it a step up, the answer falls home.
+   - Bossa Nova: its statement, 2-4 repeated notes on a syncopated cell, then a step (in the mode's scale) up or down
+     into the long note on the "and" of 4, held over the bar line; bar 3 restates it on the same note or a step off.
+   - Ambient: its 3-5 notes, legato, the last let ring (in the mode's pentatonic), restated every 2 bars at the same
+     pitches while the chords move under it. */
 enum { LM_MODE, LM_PENT, LM_PENT_COLOR };   /* the mode's 7 notes; its pentatonic; the pentatonic and the mode's
                                                color note */
 typedef struct { uint8_t n; uint8_t at[8], len[8]; int8_t step[8]; uint8_t contour, scale; } lead_motif_t;
@@ -119,5 +123,9 @@ void jazzhop_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b,
 void jazzhop_motif(const song_roll_t *r, lead_motif_t *m);
 void filmscore_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b, int bar, const leads_next_t *nx);
 void filmscore_motif(const song_roll_t *r, lead_motif_t *m);
+void bossa_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b, int bar, const leads_next_t *nx);
+void bossa_motif(const song_roll_t *r, lead_motif_t *m);
+void ambient_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b, int bar, const leads_next_t *nx);
+void ambient_motif(const song_roll_t *r, lead_motif_t *m);
 
 #endif

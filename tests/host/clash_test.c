@@ -55,6 +55,12 @@ static long strong_checked, strong_skipped, strong_in, weak_checked, rubs[2][4];
 static long bass_checked, bass_rubs;                     /* bass notes against the sounding keys */
 static long pad_checked;                                 /* pad notes against the sounding keys, bass and lead */
 static long strong_exempt;                               /* lead notes a style plays late off a strong step */
+/* By LS_*: a style whose spike sounds a color tone on beat 3 now and then (legal: in the chord-scale, not an avoid
+   note, no rub; only the chord-tone check waived, on step 8 only): Bossa Nova's repeated note or 6th leap there (its
+   research: "a 9th or 13th there now and then"; the 11th too), Ambient's added passing note there (a spike quirk:
+   its other strong-beat notes are chord tones). Lead-styles Task 5, for Sam's ruling. */
+static const uint8_t BEAT3_COLOR[LS_N] = {0, 0, 0, 0, 0, 0, 1, 1};
+static long beat3_color[LS_N];                           /* such notes played, by style */
 
 static float base_ss(int bpm) { return 44100.0f * 60.0f / ((float)bpm * 4.0f); }
 
@@ -146,9 +152,10 @@ static void check_step(const song_t *s, int bar, int step, const song_ev_t *ev, 
             strong_exempt++;                     /* a style's triplet note, a third or two of a 16th after the beat:
                                                     off it, as the style plans it */
         } else if (step == 0 || step == 8) {
-            int ct = 0;
+            int ct = 0, ls = e->voice == V_LEAD ? leads_style(&s->roll) : -1;
             for (j = 0; j < np; j++) ct |= pcs[j] % 12 == e->note % 12;
-            CHECK(ct, "seed %u bar %d step %d: note %d not a chord tone", seed, bar, step, e->note);
+            if (!ct && step == 8 && ls >= 0 && BEAT3_COLOR[ls]) beat3_color[ls]++;
+            else CHECK(ct, "seed %u bar %d step %d: note %d not a chord tone", seed, bar, step, e->note);
         }
         CHECK(a >= *last_start, "seed %u: lead/candy onsets out of order", seed);
         *last_start = a;
@@ -974,6 +981,21 @@ static void test_filmscore_rules(void)
     style_hard(LS_FILMSCORE, "Film Score", INS3, 3, 180);   /* (203 m9 notes, the felt piano) */
 }
 
+/* Bossa Nova and Ambient (lead-styles Task 5): hard chords on the instruments each is rolled for (Bossa Nova: the
+   flute, vibes; Ambient: all four) */
+static void test_bossa_rules(void)
+{
+    static const int INS2[2] = {INS_FLUTE, INS_VIBES};
+    style_rules(LS_BOSSA, "Bossa Nova", 40);         /* (43.9, the felt piano an octave up) */
+    style_hard(LS_BOSSA, "Bossa Nova", INS2, 2, 400);   /* (431 m9 notes, the vibes) */
+}
+static void test_ambient_rules(void)
+{
+    static const int INS4[4] = {INS_FLUTE, INS_FELT_PIANO, INS_VIBES, INS_KNIGHT};
+    style_rules(LS_AMBIENT, "Ambient", 34);          /* (37.5, the Knight an octave down) */
+    style_hard(LS_AMBIENT, "Ambient", INS4, 4, 130);    /* (142 m9 notes, the felt piano) */
+}
+
 int main(void)
 {
     int i;
@@ -992,6 +1014,8 @@ int main(void)
     test_modal_rules();
     test_jazzhop_rules();
     test_filmscore_rules();
+    test_bossa_rules();
+    test_ambient_rules();
     printf("strong steps: %ld lead/candy notes checked against the sounding chord and bass (%ld of them sounding "
            "tones), %ld with neither\n", strong_checked, strong_in, strong_skipped);
     printf("other steps: %ld lead/candy notes checked against the sounding chord and bass\n", weak_checked);
@@ -999,6 +1023,10 @@ int main(void)
     printf("pads: %ld pairs checked against the sounding keys, bass and lead\n", pad_checked);
     printf("strong steps: %ld lead notes a style plays a third of a 16th or more late, off the beat (exempt from the "
            "chord-tone check, not the rest)\n", strong_exempt);
+    for (i = 0; i < LS_N; i++)
+        if (BEAT3_COLOR[i])
+            printf("beat 3: %ld lead notes %s plays a color tone on (exempt from the chord-tone check, not the "
+                   "rest)\n", beat3_color[i], i == LS_BOSSA ? "Bossa Nova" : "Ambient");
     CHECK(pad_checked > 100000, "pads: only %ld pairs checked", pad_checked);
     CHECK(bass_rubs == 0, "%ld bass notes rub a semitone against the keys", bass_rubs);
     for (i = 0; i < 2; i++)
