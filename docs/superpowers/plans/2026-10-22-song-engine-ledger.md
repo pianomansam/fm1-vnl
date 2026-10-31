@@ -516,6 +516,14 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   voicing). Candidate rules to test by ear: keep the 3rd off the top voice; keep the 3rd-7th tritone off the
   bottom pair; prefer the 13th over the plain 9th where the mode allows; no 9th and 13th stacked a whole step
   apart at the top; a dominant's voicing as a fourths or upper-structure shape. A/B in songs, one rule at a time.
+  **Spiked 2026-10-30; pinned (Sam: "I will come back to them").** Census of 2,790 dominants (300 songs): 86% have an
+  adjacent whole step, 42% a whole step on top (mostly the 9th under the 3rd), 36% the 3rd on top, 89% the plain 9th,
+  40% the root voiced; commonest shape 5-b7-9-3. Rules (`VNL_DOMRULE`, `worktree-agent-a5a9423a57e338cc0` 3e176c8,
+  renders `app/build/new/dominants-2026-10-30/`): (1) no 3rd on top: moves it to a bare tritone at the bottom, fails
+  the voice-leading checks; (2) no 3rd-7th tritone at the bottom: changes little (7%), likely a cut; (3) the 13th
+  for the plain 9th where the mode allows: the only rule better in all three songs, voice leading as today (watch for
+  a 6th-chord "lounge" top, b7-3-5-13); (4) no whole step on top: helps, top voice kept 94.1% (just under the 95%
+  gate). Next if rule 3 is close: a pianist rule, 3-7 plus 9/13 only, the 13th preferred.
 - **Guitar strumming as a comping style (Sam, 2026-10-23, for later).** A good concept of strumming for the
   accompaniment: down/up strokes on a 16th grid, the strings spread a few ms apart (low to high on downstrokes, high
   to low on upstrokes), muted "chuck" strokes, accents, and patterns per song; voiced for a guitar's six strings
@@ -587,6 +595,10 @@ Renders: `app/build/new/<seed>/` and `<seed>-nobed/`, one per set (Task 8's repo
   the approach and values; clone and read it first). Our old synth vibes were the 2-op FM bell, which Sam heard as a
   plucked synth; this is a different model. A/B against the sampled vibes in the same songs; switch only if Sam can't
   tell or prefers it. Saves about 16 KB (the sample ~18 KB, the model ~1-2 KB); CPU ~0.1-0.2 for 2 voices, to measure.
+  **Spiked 2026-10-30 (Sam: "The synth vibes sound passable!"):** 3 modes at 1 : 4 : 9.9, a soft mallet, the
+  resonator's bloom, a 5 Hz motor (`VNL_VIBES=modal`, `worktree-agent-abb4f5ea87495da93` f81b4e8, renders
+  `app/build/new/modal-vibes-2026-10-30/`). ~3.6 KB against the sample's 18.4 KB (~15 KB saved), ~30% less CPU
+  (0.15 vs 0.21 for 2 voices). Kept on its branch: a ready flash trim for Task 8 if needed; otherwise the sample stays.
 
 - **Rings' reverb and chorus against ours.** Sam picked Rings' (Task 7c); ours stays host-only (`VNL_FX=ours`).
   Rings' chorus wobbles ±14 cents, near its test's 15-cent window: don't deepen it without moving the window.
