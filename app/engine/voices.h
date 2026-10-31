@@ -8,10 +8,6 @@
 #include "roll.h"
 #include "patch.h"
 
-/* A plucked voice's Karplus-Strong line, in samples: one per voice, in the pool. Sized for note 28 (E1, 41.2 Hz):
-   its period plus one for the interpolation. Lower notes play at 28's period. */
-#define VX_KS_N 1072
-
 /* The song's sound: one instrument per pitched role (INS_*; INS_NONE silences the role), the kit, the flavor and the
    lo-fi chain's fields (dust 0-3, noise 0-2, ambience 0-1), and the pump (VX_PUMP_*: the kick ducking's depth). */
 enum { VX_PUMP_SUBTLE, VX_PUMP_MEDIUM, VX_PUMP_OBVIOUS, VX_PUMP_N };
@@ -113,9 +109,6 @@ float vx_chip_out(int role, float *raw, float *step);
 float vx_pad_lane(int lane, int *step, int *held);
 /* Tests: a pad lane's (1-4) voice's patch now, NULL for a silent lane. */
 const vx_patch_t *vx_pad_lane_patch(int lane);
-/* Tests: the mono lead's (M_SUB mono) legato notes to a new pitch (its glides) on V_LEAD since vx_init (0 for
-   any other role). */
-uint32_t vx_glides(int role);
 /* Tests: the chords' pool's steals of a voice still sounding (held, or in its release; a string re-struck with no
    spare voice free counts) since vx_init (0 for any other role). */
 uint32_t vx_steals(int role);
@@ -126,10 +119,7 @@ float vx_duck_db(void);
 int vx_tiny(void);
 /* Queue an event; its delay counts from now, in samples at 44.1 kHz (the engine assumes that rate). 64 pending at
    most; when full the oldest by insertion order is dropped (not the one due first). When all voices of a pitched lane
-   are busy, the victim fades out over about 4 ms first, so a stolen note starts up to ~5 ms late. A mono synth patch
-   (M_SUB) on the lead plays a note that arrives while its last is still held, or within 25 ms of its
-   end and a 4th or less from it, legato on that voice, gliding to it; after a longer rest or a wider leap it starts
-   on its pitch. The chords' pool is
+   are busy, the victim fades out over about 4 ms first, so a stolen note starts up to ~5 ms late. The chords' pool is
    4 voices, 8 for a pad (its release crosses the next chord's swell) or a sampled instrument. On a sampled patch a
    V_CHORD event's pad is the strum's string (strum.h): bit 0 a chuck (the patch's muted note), bits 1-3 the string
    1-6, played on its own voice (the chords' first 6); a re-strike moves the string's last note to a spare voice (the

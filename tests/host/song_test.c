@@ -304,8 +304,8 @@ static int novelty(const song_roll_t *a, const song_roll_t *b)
     return d;
 }
 
-/* a synth instrument (the synths Sam kept: the triangle bass, M_SUB's organ, saw lead and pluck, the FM keys and bass;
-   not the pad layer's strings and warm pad) */
+/* a synth instrument (the synths Sam kept: the triangle bass, the organ, the FM keys and bass; the saw lead's and
+   synth pluck's ids, between them, play nothing now; not the pad layer's strings and warm pad) */
 static int is_synth(int ins) { return ins >= INS_CHIP_BASS && ins <= INS_FM_BASS; }
 static int moods_n(int m) { return (m & 1) + (m >> 1 & 1) + (m >> 2 & 1) + (m >> 3 & 1); }
 
@@ -338,9 +338,8 @@ static void test_synth_sets(void)
         CHECK(ns[i]->chords == want[i][0] && ns[i]->bass == want[i][1] && ns[i]->lead == want[i][2],
               "synth sets: %s plays %d %d %d, wanted %d %d %d", names[i], ns[i]->chords, ns[i]->bass, ns[i]->lead,
               want[i][0], want[i][1], want[i][2]);
-        CHECK(ns[i]->candy == INS_NONE || ns[i]->candy == INS_VIBES || ns[i]->candy == INS_MUSIC_BOX ||
-                  ns[i]->candy == INS_KALIMBA,
-              "synth sets: %s's candy %d, wanted vibes, music box, kalimba or none", names[i], ns[i]->candy);
+        CHECK(ns[i]->candy == INS_NONE || ns[i]->candy == INS_VIBES,
+              "synth sets: %s's candy %d, wanted vibes or none", names[i], ns[i]->candy);
     }
     for (k = 0; k < LIB_NSETS; k++) /* no other set plays a synth (but a sampled set's, test_sampled_sets: the DX keys
                                        under the Knight) */
@@ -1787,46 +1786,16 @@ static float vt_peak(uint32_t from, uint32_t to)
     return m;
 }
 
-/* The plucked strings (M_PLUCK: the upright; the nylon is sampled now, M_SAMP: test_samp; the guitar lick went) and the basses
-   (M_BASS: sub, electric bass). A pluck is in tune by its period (within 10 cents) at 40, 55 and 70; the upright falls
-   to -40 dB within 1.5 s, held; the Karplus-Strong line is sized for note 28. The sub's 2x and 3x partials are each 12 dB under the
-   fundamental; the electric bass's attack is brighter and settles within 100 ms. */
+/* The basses (M_BASS: sub, electric bass; the plucked upright and its Karplus-Strong model went 2026-10-31, the nylon
+   is sampled: test_samp). The sub's 2x and 3x partials are each 12 dB under the fundamental; the electric bass's attack
+   is brighter and settles within 100 ms. */
 static void test_vx_plucks_basses(void)
 {
-    static const int PLUCKS[1] = {INS_UPRIGHT};
-    static const int NOTES[3] = {40, 55, 70};
-    int i, j, bad = 0;
+    int j, bad = 0;
 
-    CHECK(vx_patch(INS_NYLON)->model == M_SAMP && vx_patch(INS_UPRIGHT)->model == M_PLUCK && vx_patch(INS_SUB)->model == M_BASS &&
+    CHECK(vx_patch(INS_NYLON)->model == M_SAMP && vx_patch(INS_SUB)->model == M_BASS &&
               vx_patch(INS_ELEC_BASS)->model == M_BASS,
-          "plucks and basses on the wrong models");
-    CHECK(VX_KS_N <= 44100 / 41 && (float)VX_KS_N >= 44100.0f / 41.2034f + 1.0f,
-          "the Karplus-Strong line is %d samples: wanted note 28's period (+1 for the interpolation) to 44100/41",
-          VX_KS_N);
-    for (i = 0; i < 1; i++)
-        for (j = 0; j < 3; j++) {
-            int role = vt_role_of(PLUCKS[i]);
-            float p = 44100.0f / (440.0f * fm_exp2f(((float)NOTES[j] - 69.0f) / 12.0f)), got, cents;
-            vt_note(role, PLUCKS[i], NOTES[j], 100, 4u * 44100u, 16u * 4096u, &bad);
-            got = vt_period(4410, 8192, p);
-            cents = 1200.0f * fm_log2f(p / got);
-            printf("plucks: ins %2d note %d period %.2f (wanted %.2f) %+.1f cents\n", PLUCKS[i], NOTES[j], (double)got,
-                   (double)p, (double)cents);
-            CHECK(fm_fabsf(cents) <= 10.0f, "ins %d note %d: %+.1f cents out", PLUCKS[i], NOTES[j], (double)cents);
-        }
-    for (i = 0; i < 1; i++)
-        for (j = 0; j < 3; j++) { /* held 5 s: the string's own decay */
-            float t = 1.5f, pk, at;
-            uint32_t s = (uint32_t)(t * 44100.0f);
-            vt_note(vt_role_of(PLUCKS[i]), PLUCKS[i], NOTES[j], 100, 5u * 44100u, VT_LONG, &bad);
-            pk = vt_peak(0, 4410);
-            at = vt_peak(s, s + 2205);
-            printf("plucks: ins %2d note %d peak %.4f, at %.1f s %.1f dB\n", PLUCKS[i], NOTES[j], (double)pk,
-                   (double)t, 20.0 * (double)fm_log2f(at / pk + 1e-9f) * 0.30103);
-            CHECK(at < 0.01f * pk, "ins %d note %d: %.1f dB at %.1f s, wanted -40 dB or lower", PLUCKS[i], NOTES[j],
-                  20.0 * (double)fm_log2f(at / pk + 1e-9f) * 0.30103, (double)t);
-        }
-
+          "the nylon and basses on the wrong models");
     for (j = 0; j < 3; j++) { /* the sub at 33, 40, 47: Goertzel at 1x, 2x, 3x over 8192 samples from 0.2 s */
         int note = 33 + 7 * j;
         float f = 440.0f * fm_exp2f(((float)note - 69.0f) / 12.0f) / 44100.0f, a1, a2, a3;
@@ -1854,30 +1823,7 @@ static void test_vx_plucks_basses(void)
         CHECK(fm_fabsf(b1 - b3) < 0.1f * b3, "electric bass note %d: not settled at 100 ms (%.4f vs %.4f)", note,
               (double)b1, (double)b3);
     }
-    { /* an upright re-pluck (a loud string, then a quiet note): no step beyond the string's own or a fresh pluck's */
-        float prev = 0.0f, fresh, own = 0.0f, re = 0.0f;
-        int pass, k;
-        vx_init();
-        vx_assign(V_BASS, INS_UPRIGHT);
-        vt_ev(V_BASS, 47, 20, 0, 400000);
-        fresh = vt_maxdelta(4096, 0, &prev);
-        for (pass = 0; pass < 2; pass++) {
-            vx_init();
-            vx_assign(V_BASS, INS_UPRIGHT);
-            vt_ev(V_BASS, 40, 127, 0, 400000);
-            prev = 0.0f;
-            vt_maxdelta(1024, 1024, &prev); /* 23 ms in: the string still loud */
-            if (pass)
-                vt_ev(V_BASS, 47, 20, 0, 400000);
-            for (k = 0; k < 4; k++)
-                *(pass ? &re : &own) = fm_maxf(*(pass ? &re : &own), vt_maxdelta(1024, 0, &prev));
-        }
-        printf("plucks: upright re-pluck max step %.4f (string %.4f, fresh pluck %.4f)\n", (double)re, (double)own,
-               (double)fresh);
-        CHECK(re < 1.5f * fm_maxf(own, fresh), "upright re-pluck click: max step %.4f vs %.4f / %.4f", (double)re,
-              (double)own, (double)fresh);
-    }
-    CHECK(!bad, "a pluck or bass rendered NaN or inf");
+    CHECK(!bad, "a bass rendered NaN or inf");
 }
 
 /* RMS of vt_long[from .. from+w) */
@@ -1890,57 +1836,18 @@ static float vt_rms(uint32_t from, uint32_t w)
     return fm_sqrtf(e / (float)w);
 }
 
-/* The bells (M_BELL: kalimba, music box, bells; the vibes are sampled since 2026-10-29) and the wind (M_WIND: the
-   flute; the sax and muted trumpet went). A bell decays freely, held (no sustain: under -20 dB of its peak 3 s in);
-   the bells' modulator ratio is non-integer, and they are the least periodic of the three. The wind sustains while
+/* The wind (M_WIND: the flute; the sax and muted trumpet went; the FM bells, M_BELL, went 2026-10-31, the vibes are
+   sampled since 2026-10-29). The wind sustains while
    held (half its peak RMS or more at 2 s); its vibrato waits (no pitch swing over 3 cents in any window ending by
    250 ms; then at least 4 cents by 1.5 s); its breath is there (the residual after the periodic part is combed out,
    before the vibrato, is over -30 dB). */
 static void test_vx_leads(void)
 {
-    static const int BELLS[3] = {INS_KALIMBA, INS_MUSIC_BOX, INS_BELLS};
     static const int WINDS[1] = {INS_FLUTE};
     int i, bad = 0;
-    float per[3];
 
-    for (i = 0; i < 3; i++)
-        CHECK(vx_patch(BELLS[i])->model == M_BELL && vx_patch(BELLS[i])->sus == 0.0f, "ins %d: not a free M_BELL",
-              BELLS[i]);
     for (i = 0; i < 1; i++)
         CHECK(vx_patch(WINDS[i])->model == M_WIND, "ins %d: not an M_WIND", WINDS[i]);
-    { /* the bells' ratio: the furthest from an integer of the three, and at least 0.1 from one */
-        float fr[3];
-        for (i = 0; i < 3; i++) {
-            float r = vx_patch(BELLS[i])->p[0];
-            fr[i] = fm_fabsf(r - (float)(int)(r + 0.5f));
-        }
-        CHECK(fr[2] >= 0.1f && fr[2] > fr[0] && fr[2] > fr[1],
-              "bells' ratio %.3f off an integer by %.3f: wanted the most of the three, at least 0.1",
-              (double)vx_patch(INS_BELLS)->p[0], (double)fr[2]);
-    }
-    for (i = 0; i < 3; i++) { /* held 3.2 s at note 72: the free decay, and the periodicity at the period */
-        float pk, at, s = 0.0f, e0 = 0.0f, e1 = 0.0f, p = 44100.0f / 523.2511f;
-        uint32_t n, lag = (uint32_t)(p + 0.5f);
-        vt_note(vt_role_of(BELLS[i]), BELLS[i], 72, 100, 4u * 44100u, VT_LONG, &bad);
-        pk = vt_peak(0, 4410);
-        at = vt_peak(132300, 136710);
-        /* 523.25 Hz: 84.28 samples; the normalized correlation at 3 periods (252.8, so 253) over 4096 from 50 ms */
-        lag = (uint32_t)(3.0f * p + 0.5f);
-        for (n = 2205; n < 2205 + 4096; n++) {
-            s += vt_long[n] * vt_long[n + lag];
-            e0 += vt_long[n] * vt_long[n];
-            e1 += vt_long[n + lag] * vt_long[n + lag];
-        }
-        per[i] = s * fm_rsqrtf(e0 * e1 + 1e-30f);
-        printf("bells: ins %2d peak %.4f, at 3 s %.1f dB, periodicity %.4f\n", BELLS[i], (double)pk,
-               20.0 * (double)fm_log2f(at / pk + 1e-9f) * 0.30103, (double)per[i]);
-        CHECK(at < 0.1f * pk, "ins %d: %.1f dB at 3 s held, wanted a free decay (-20 dB or lower)", BELLS[i],
-              20.0 * (double)fm_log2f(at / pk + 1e-9f) * 0.30103);
-    }
-    CHECK(per[2] < per[0] && per[2] < per[1] && per[2] < 0.95f,
-          "bells' periodicity %.4f: wanted the least periodic of the three (kalimba %.4f, music box %.4f)",
-          (double)per[2], (double)per[0], (double)per[1]);
-
     for (i = 0; i < 1; i++) { /* held 3 s at 67: sustain at 2 s, the vibrato's onset, the breath */
         float p = 44100.0f / 391.9954f, pk = 0.0f, early = 0.0f, late = 0.0f, d = 0.0f, x = 0.0f, fr;
         uint32_t t, li;
@@ -1972,7 +1879,7 @@ static void test_vx_leads(void)
               WINDS[i], (double)early, (double)late);
         CHECK(d > -30.0f, "ins %d: breath residual %.1f dB, wanted over -30 dB", WINDS[i], (double)d);
     }
-    CHECK(!bad, "a bell or wind rendered NaN or inf");
+    CHECK(!bad, "a wind rendered NaN or inf");
 }
 
 /* The chip voice (M_CHIP: the triangle bass). Its triangle is stepped to 16 levels (its plateaus in one cycle at note
@@ -2139,7 +2046,7 @@ static void test_role_buses(void)
             float m = 0.0f;
             vx_init();
             vx_solo(role[s]);
-            if (role[e] == V_CANDY) vx_assign(V_CANDY, INS_MUSIC_BOX);   /* (the role unplayed since Task 1b: its bus) */
+            if (role[e] == V_CANDY) vx_assign(V_CANDY, INS_FLUTE);   /* (the role unplayed since Task 1b: its bus) */
             vt_ev(role[e], role[e] == V_KICK ? 0 : role[e] == V_BASS ? 43 : 64, 110, 0, 22050u);
             for (k = 0; k < 5; k++) {
                 float b = vt_block(4096, &bad);
@@ -2900,8 +2807,10 @@ static void test_vx_patches(void)
         float peak = 0.0f, tail = 0.0f;
         uint32_t off_blocks;
         if (ins == INS_MUTED_TPT || ins == INS_SAX || ins == INS_GUITAR_LICK || ins == INS_STR_LEAD ||
-            ins == INS_CELLO || ins == INS_VOX_PAD)
-            continue; /* a removed lead (test_leads_2026_10_29) or the vox pad (2026-10-31): no patch */
+            ins == INS_CELLO || ins == INS_VOX_PAD || ins == INS_UPRIGHT || ins == INS_KALIMBA ||
+            ins == INS_MUSIC_BOX || ins == INS_BELLS || ins == INS_SAW_LEAD || ins == INS_SYNTH_PLUCK)
+            continue; /* a removed lead (test_leads_2026_10_29), the vox pad, or one no set played (all 2026-10-31,
+                         test_leads_2026_10_29's removed block): no patch */
         CHECK(p != NULL && p->level > 0.0f && p->model < M_N, "ins %d: no patch, level 0 or bad model", ins);
         if (!p)
             continue;
@@ -4854,7 +4763,7 @@ static float cv_song_a(const song_roll_t *ra, int keys, uint32_t tail_secs)
    before it. Song A, then the app's gap (vx_release_all, 2-4 s from A's seed), then song B through song_begin's path,
    against song B alone: from 12 s (A's tails long over) the two agree exactly; in B's first second they differ by at
    most what A's tail still adds (its peak over that second, rendered alone: cv_song_a). The pairs' B sets cover plucks, the Wurli's bark, winds' breath and the drums, then
-   the synths (the FM keys and bass; M_SUB's filters, sub and glide; the triangle bass's crush and the pluck). Each
+   the synths (the FM keys and bass; the triangle bass's crush). Each
    pair's sets are pinned (roll_set), not left to the draw: adding sets redraws them (synths plan, Review Focus 4). The
    last pair is a chillwave song into the chillwave synth set (DX and pluck). (A pair can leave a residue near -91
    dBFS in B's plate: Rings' reverb keeps its memory in 16 bits. The old chillwave pair into the Juno set did, held to
@@ -5318,7 +5227,7 @@ static void test_wet(void)
 {
     int i, k, b, bad = 0;
     static const int keys[] = {INS_RHODES, INS_WURLI, INS_PAD, INS_FELT_PIANO, INS_NYLON};
-    static const int leads[] = {INS_FLUTE, INS_VIBES, INS_KALIMBA, INS_MUSIC_BOX, INS_BELLS};
+    static const int leads[] = {INS_FLUTE, INS_VIBES};
     /* the patches' amounts */
     for (k = 0; k < 5; k++) {
         const vx_patch_t *p = vx_patch(keys[k]);
@@ -5327,11 +5236,11 @@ static void test_wet(void)
         CHECK(p->delay > 0.0f && p->delay <= 0.15f, "patch %d (keys): delay send %.2f, wanted a little", keys[k],
               (double)p->delay);
     }
-    for (k = 0; k < 5; k++)
-        CHECK(vx_patch(leads[k])->delay >= 0.15f, "patch %d (lead, candy): delay send %.2f", leads[k],
+    for (k = 0; k < 2; k++)
+        CHECK(vx_patch(leads[k])->delay >= 0.15f, "patch %d (lead): delay send %.2f", leads[k],
               (double)vx_patch(leads[k])->delay);
-    CHECK(vx_patch(INS_SUB)->delay == 0.0f && vx_patch(INS_ELEC_BASS)->delay == 0.0f &&
-              vx_patch(INS_UPRIGHT)->delay == 0.0f, "the basses send to the delay");
+    CHECK(vx_patch(INS_SUB)->delay == 0.0f && vx_patch(INS_ELEC_BASS)->delay == 0.0f,
+          "the basses send to the delay");
 
     /* a held Rhodes chord (rendered dry) through the chorus: L and R apart; at chorus 0, L = R */
     {
@@ -5697,8 +5606,6 @@ static void test_cost_moves(void)
                     fb[1] = f0 * dt * p->p[1];
                     nb = 2;
                 }
-                if (p->model == M_SUB && p->p[2] > 0.0f)
-                    fb[0] = 0.5f * f0; /* the sub-octave's partials */
                 cm_note(V_CHORD, CH[c], NOTES[j], VELS[v], 1, cm_x, 2u * 44100u);
                 cm_note(V_CHORD, CH[c], NOTES[j], VELS[v], 0, cm_y, 2u * 44100u);
                 cm_spec(cm_x + w0, CM_N, cm_pa, 0);
@@ -5734,11 +5641,11 @@ static void test_cost_moves(void)
            (double)worst_alias);
 
     /* the Wurli's bark (the only noise in a half-rate voice; the pads have none): its level over the first 40 ms, as
-       the difference of two renders whose noise differs (a silent pluck first draws from the noise: the upright on the
-       lead since the guitar lick went; eight such plucks of different lengths, so the estimate does not hang on one
-       draw), is within 0.75 dB of the full rate's, over three notes and two velocities. (One draw read 0.42 dB, then
-       1.34 once the guitar lick's longer loop shifted the draws; averaged, the half rate's bark sat about 0.53 dB off
-       with either guitar.) */
+       the difference of two renders whose noise differs (a silent flute note first draws from the noise, its breath a
+       draw a sample, and is over before the Wurli's note 250 ms in: the upright's pluck did it until 2026-10-31; eight
+       such notes of different lengths, so the estimate does not hang on one draw), is within 0.75 dB of the full
+       rate's, over three notes and two velocities. (One draw read 0.42 dB, then 1.34 once the guitar lick's longer
+       loop shifted the draws; averaged, the half rate's bark sat about 0.53 dB off with either guitar.) */
     {
         static const int BN[3] = {48, 60, 67}, BV[2] = {100, 127};
         double eb[2] = {0.0, 0.0};
@@ -5746,14 +5653,17 @@ static void test_cost_moves(void)
         for (full = 0; full < 2; full++)
             for (nn = 0; nn < 3; nn++)
                 for (vv = 0; vv < 2; vv++) {
-                    for (pass = 0; pass < 9; pass++) { /* (pass k > 0: a pluck of note 52 + 4k first) */
+                    for (pass = 0; pass < 9; pass++) { /* (pass k > 0: a silent flute note 400k samples long) */
+                        uint32_t pre;
                         vx_fx_off(full ? VX_OFF_HALF : 0u);
                         vx_init();
                         vx_assign(V_CHORD, INS_WURLI);
-                        vx_assign(V_LEAD, INS_UPRIGHT);
+                        vx_assign(V_LEAD, INS_FLUTE);
                         if (pass)
-                            vt_ev(V_LEAD, 52 + 4 * pass, 0, 0, 100);
-                        vt_ev(V_CHORD, BN[nn], BV[vv], 0, 8820);
+                            vt_ev(V_LEAD, 72, 0, 0, 400u * (uint32_t)pass);
+                        vt_ev(V_CHORD, BN[nn], BV[vv], 11024u, 8820);
+                        for (pre = 0; pre < 11024u; pre += 2756u) /* (the flute over: its release under OFF_THR) */
+                            vx_render(vt_l, vt_r, 2756);
                         memset(vt_l, 0, 1764 * sizeof(float));
                         memset(vt_r, 0, 1764 * sizeof(float));
                         vx_render(vt_l, vt_r, 1764);
@@ -5857,47 +5767,7 @@ static void test_cost_moves(void)
     }
 }
 
-/* ------------------------- Synths Task 2: the subtractive voice (M_SUB) --- */
-static const int SUB_INS[2] = {INS_SAW_LEAD, INS_SYNTH_PLUCK}; /* (the organ is the tonewheel, M_TW: test_organ) */
-static vx_patch_t sb_pt; /* a table patch's copy with a field changed (vx_assign_patch) */
-
-/* vt_long[0, n) of the left output from the events queued (n a multiple of 4096, at most VT_LONG) */
-static void sb_run(uint32_t n, int *bad)
-{
-    uint32_t k;
-    for (k = 0; k < n; k += 4096u) {
-        vt_block(4096, bad);
-        memcpy(vt_long + k, vt_l, 4096 * sizeof(float));
-    }
-}
-
-/* the period of vt_long[from .. from+w) between lo and hi samples: the normalized autocorrelation's peak,
-   parabolically interpolated */
-static float sb_period(uint32_t from, uint32_t w, int lo, int hi)
-{
-    float r[512], a, b, c, d;
-    int lag, best = lo;
-    for (lag = lo; lag <= hi; lag++) {
-        float s = 0.0f, e0 = 0.0f, e1 = 0.0f;
-        uint32_t i;
-        for (i = from; i < from + w; i++) {
-            s += vt_long[i] * vt_long[i + (uint32_t)lag];
-            e0 += vt_long[i] * vt_long[i];
-            e1 += vt_long[i + (uint32_t)lag] * vt_long[i + (uint32_t)lag];
-        }
-        r[lag - lo] = s * (e0 > 0.0f && e1 > 0.0f ? fm_rsqrtf(e0 * e1) : 0.0f);
-        if (r[lag - lo] > r[best - lo])
-            best = lag;
-    }
-    if (best == lo || best == hi)
-        return (float)best;
-    a = r[best - lo - 1];
-    b = r[best - lo];
-    c = r[best - lo + 1];
-    d = a - 2.0f * b + c;
-    return (float)best + (d != 0.0f ? 0.5f * (a - c) / d : 0.0f);
-}
-
+/* ------------------------- Synths: the spectral centroid (the FM patches) --- */
 /* the spectral centroid (Hz) of vt_long[from, from + 1024), Hann-windowed: the bins' frequencies weighted by their
    magnitudes */
 static float sb_centroid(uint32_t from)
@@ -5911,182 +5781,6 @@ static float sb_centroid(uint32_t from)
         e += a;
     }
     return e > 0.0 ? (float)(s / e) * 44100.0f / 1024.0f : 0.0f;
-}
-
-static float sb_hz(int note) { return 440.0f * fm_exp2f(((float)note - 69.0f) * (1.0f / 12.0f)); }
-
-/* A mono lead (pt) at n1 for 0.3 s, then n2 gap samples after its release: the pitch (cents from n2) in 512-sample
-   windows every 64 samples from 2048 before n2's onset; *lo the lowest, *reach when it is within 10 cents for good
-   (samples after the onset), *c10 the cents 10 ms in, *mono whether it never turned back */
-static void sb_glide(const vx_patch_t *pt, int n1, int n2, uint32_t gap, float *lo, float *reach, float *c10, int *mono)
-{
-    static float ct[1024];
-    float tg = pt->p[10] * 0.001f * 44100.0f;
-    uint32_t on = 13230u + gap, t;
-    int n = 0, j, bad = 0, lo_p = (int)(44100.0f / sb_hz(n2 > n1 ? n2 : n1) * 0.9f),
-        hi_p = (int)(44100.0f / sb_hz(n2 > n1 ? n1 : n2) * 1.1f);
-    sb_pt = *pt;
-    vx_init();
-    vx_assign_patch(V_LEAD, &sb_pt);
-    vt_ev(V_LEAD, n1, 100, 0, 13230u);
-    vt_ev(V_LEAD, n2, 100, on, 22050u);
-    sb_run(12u * 4096u, &bad);
-    CHECK(!bad, "sb_glide: the render went bad");
-    *lo = 1e9f;
-    *mono = 1;
-    *reach = -1.0f;
-    for (t = on - 2048u; t + 256u < on + (uint32_t)(3.0f * tg) && n < 1024; t += 64u, n++) {
-        ct[n] = 1200.0f * fm_log2f(44100.0f / sb_hz(n2) / sb_period(t - 256u, 512u, lo_p, hi_p));
-        if (t >= on) {
-            *lo = fm_minf(*lo, ct[n]);
-            if (ct[n] < ct[n - 1] - 2.0f)
-                *mono = 0;
-        }
-    }
-    for (j = n - 1; j >= 0 && fm_fabsf(ct[j]) <= 10.0f; j--)
-        *reach = (float)(on - 2048u) + 64.0f * (float)j - (float)on;
-    *c10 = 1200.0f * fm_log2f(44100.0f / sb_hz(n2) / sb_period(on + 441u, 512u, lo_p, hi_p));
-}
-
-/* The subtractive voice (M_SUB: the saw lead, the synth pluck). Its filter envelope sweeps (the synth
-   pluck's spectral centroid at 20 ms at least twice its centroid at 400 ms); a mono lead glides from a held note
-   (Review Focus 1: the saw lead's legato note on its target within the patch's glide time +-20%, monotonically; a
-   note after a rest on pitch at once; a stolen voice gone within 5 ms), and from one ended 10 ms before a 3rd up (the
-   ruling: within 25 ms and a 4th; a 5th, or a 40 ms rest, on pitch); on the chords role it renders at the full rate
-   (none plays the keys since the organ became the tonewheel). */
-static void test_sub(void)
-{
-    int bad = 0, i, j, v;
-    for (i = 0; i < 2; i++)
-        CHECK(vx_patch(SUB_INS[i])->model == M_SUB, "ins %d: not an M_SUB", SUB_INS[i]);
-    CHECK(lib_ins_sustained(INS_SAW_LEAD) && !lib_ins_sustained(INS_SYNTH_PLUCK),
-          "sub class: wanted the saw lead sustained, the synth pluck percussive");
-    CHECK(vx_patch(INS_SAW_LEAD)->p[9] > 0.0f && vx_patch(INS_SAW_LEAD)->p[10] > 0.0f,
-          "saw lead: wanted mono with a glide");
-    CHECK(vx_patch(INS_SYNTH_PLUCK)->p[9] == 0.0f, "the synth pluck: wanted poly");
-    vx_fx_off(VX_OFF_DELAY);
-
-    { /* the filter envelope's sweep: the synth pluck's centroid at 20 ms and at 400 ms (1024-sample windows) */
-        float a, b;
-        vt_note(V_LEAD, INS_SYNTH_PLUCK, 67, 110, 44100u, 5u * 4096u, &bad);
-        a = sb_centroid(882u - 512u);
-        b = sb_centroid(17640u - 512u);
-        printf("sub: synth pluck centroid at 20 ms %.0f Hz, at 400 ms %.0f Hz (%.2fx)\n", (double)a, (double)b,
-               (double)(a / b));
-        CHECK(a >= 2.0f * b, "synth pluck: centroid %.0f Hz at 20 ms, %.0f at 400 ms: wanted a sweep (2x)", (double)a,
-              (double)b);
-    }
-    { /* glide: the saw lead at 64, held; 69 arrives at 0.5 s while 64 still holds. Pitch (cents from 69) in 512-sample
-         windows every 64 samples */
-        static float ct[1024];
-        const vx_patch_t *p = vx_patch(INS_SAW_LEAD);
-        float tg = p->p[10] * 0.001f * 44100.0f, reach = -1.0f, lo = 1e9f;
-        uint32_t on = 22050u, t;
-        int n = 0, mono = 1, lo_p = (int)(44100.0f / sb_hz(69) * 0.9f), hi_p = (int)(44100.0f / sb_hz(64) * 1.1f);
-        vx_init();
-        vx_assign(V_LEAD, INS_SAW_LEAD);
-        vt_ev(V_LEAD, 64, 100, 0, 44100u);
-        vt_ev(V_LEAD, 69, 100, on, 22050u);
-        sb_run(12u * 4096u, &bad);
-        for (t = on - 2048u; t + 256u < on + (uint32_t)(3.0f * tg) && n < 1024; t += 64u, n++) {
-            ct[n] = 1200.0f * fm_log2f(44100.0f / sb_hz(69) / sb_period(t - 256u, 512u, lo_p, hi_p));
-            lo = fm_minf(lo, ct[n]);
-            if (n && ct[n] < ct[n - 1] - 2.0f)
-                mono = 0;
-        }
-        for (j = n - 1; j >= 0 && fm_fabsf(ct[j]) <= 10.0f; j--)
-            reach = (float)(on - 2048u) + 64.0f * (float)j - (float)on;
-        printf("sub: saw lead glide 64 to 69: from %.1f cents, on pitch %.1f ms after the note (glide %.0f ms), %s\n",
-               (double)lo, (double)reach / 44.1, (double)p->p[10], mono ? "monotonic" : "not monotonic");
-        CHECK(lo < -480.0f && lo > -520.0f, "glide: started at %.1f cents from the target, wanted -500", (double)lo);
-        CHECK(reach >= 0.8f * tg && reach <= 1.2f * tg, "glide: on pitch %.1f ms after the note, wanted %.0f ms +-20%%",
-              (double)reach / 44.1, (double)p->p[10]);
-        CHECK(mono, "glide: the pitch turned back on the way");
-    }
-    { /* after a rest: 64 released at 0.3 s (its release lengthened to 0.3 s, so its tail still sounds, about 40 dB
-         down), 69 at 0.5 s: on pitch in its first window (10 to 22 ms) */
-        float c;
-        int lo_p = (int)(44100.0f / sb_hz(69) * 0.9f), hi_p = (int)(44100.0f / sb_hz(64) * 1.1f), tail = -1;
-        uint32_t k;
-        sb_pt = *vx_patch(INS_SAW_LEAD);
-        sb_pt.rel = 0.3f;
-        vx_init();
-        vx_assign_patch(V_LEAD, &sb_pt);
-        vt_ev(V_LEAD, 64, 100, 0, 13230u);
-        vt_ev(V_LEAD, 69, 100, 22050u, 22050u);
-        for (k = 0; k < 8u * 4096u; k += 2048u) {
-            vt_block(2048, &bad);
-            memcpy(vt_long + k, vt_l, 2048 * sizeof(float));
-            if (k + 2048u == 20480u) /* 30 ms before 69 */
-                tail = vx_active();
-        }
-        c = 1200.0f * fm_log2f(44100.0f / sb_hz(69) / sb_period(22050u + 441u, 512u, lo_p, hi_p));
-        printf("sub: saw lead after a rest (the last note's tail on: %d): %.1f cents from the note 10 ms in\n",
-               tail == 1, (double)c);
-        CHECK(tail == 1, "after a rest: %d voices sounding before the note, wanted the last note's tail", tail);
-        CHECK(fm_fabsf(c) <= 5.0f, "after a rest: %.1f cents off the note 10 ms in, wanted no glide", (double)c);
-    }
-    { /* the ruling (2026-10-23): a mono lead's note within 25 ms of its last one's end and a 4th or less from it
-         glides (the saw lead, still releasing; and with a 5 ms release, gone, its voice not reused); a 5th, or a
-         40 ms gap, starts on pitch */
-        const vx_patch_t *p = vx_patch(INS_SAW_LEAD);
-        float tg = p->p[10] * 0.001f * 44100.0f, lo, reach, c10;
-        int mono, k;
-        vx_patch_t sh = *p;
-        sh.rel = 0.005f;
-        for (k = 0; k < 2; k++) {
-            sb_glide(k ? &sh : p, 64, 67, 441u, &lo, &reach, &c10, &mono);
-            printf("sub: saw lead (release %.0f ms) 64, 10 ms rest, 67: from %.1f cents, on pitch %.1f ms in, %s\n",
-                   (double)(k ? sh.rel : p->rel) * 1000.0, (double)lo, (double)reach / 44.1,
-                   mono ? "monotonic" : "not monotonic");
-            CHECK(lo < -270.0f, "glide after a 10 ms rest (k %d): lowest %.1f cents, wanted from about -300", k,
-                  (double)lo);
-            CHECK(reach >= 0.8f * tg && reach <= 1.2f * tg,
-                  "glide after a 10 ms rest (k %d): on pitch %.1f ms in, wanted %.0f ms +-20%%", k,
-                  (double)reach / 44.1, (double)p->p[10]);
-            CHECK(mono, "glide after a 10 ms rest (k %d): the pitch turned back", k);
-        }
-        sb_glide(&sh, 64, 71, 441u, &lo, &reach, &c10, &mono);
-        printf("sub: saw lead 64, 10 ms rest, 71 (a 5th): %.1f cents 10 ms in\n", (double)c10);
-        CHECK(fm_fabsf(c10) <= 5.0f, "a 5th after a 10 ms rest: %.1f cents 10 ms in, wanted on pitch", (double)c10);
-        sb_glide(&sh, 64, 67, 1764u, &lo, &reach, &c10, &mono);
-        printf("sub: saw lead 64, 40 ms rest, 67: %.1f cents 10 ms in\n", (double)c10);
-        CHECK(fm_fabsf(c10) <= 5.0f, "a 3rd after a 40 ms rest: %.1f cents 10 ms in, wanted on pitch", (double)c10);
-    }
-    { /* a steal: the saw lead (release 2 s) at 57, released; 69 after a rest, released; 81 then takes 57's voice,
-         which fades: 57's tone 5 to 25 ms after 81's start is 30 dB or more under its level before it */
-        float a0, a1, c1;
-        uint32_t on = 13230u;
-        sb_pt = *vx_patch(INS_SAW_LEAD);
-        sb_pt.rel = 2.0f;
-        vx_init();
-        vx_assign_patch(V_LEAD, &sb_pt);
-        vt_ev(V_LEAD, 57, 100, 0, 4410u);
-        vt_ev(V_LEAD, 69, 100, 6615u, 4410u);
-        vt_ev(V_LEAD, 81, 100, on, 22050u);
-        sb_run(8u * 4096u, &bad);
-        a0 = vt_tone(on - 882u, 882u, sb_hz(57) / 44100.0f);
-        a1 = vt_tone(on + 221u, 882u, sb_hz(57) / 44100.0f);
-        c1 = vt_tone(on + 221u, 882u, sb_hz(81) / 44100.0f);
-        printf("sub: steal: the victim's tone 5-25 ms after the thief %.1f dB of its level before; the thief at %.2f\n",
-               20.0 * 0.30103 * (double)fm_log2f(a1 / a0 + 1e-9f), (double)(c1 / a0));
-        CHECK(a1 < 0.0316f * a0, "steal: the victim at %.1f dB 5 ms after, wanted gone (-30 dB)",
-              20.0 * 0.30103 * (double)fm_log2f(a1 / a0 + 1e-9f));
-        CHECK(c1 > 0.1f * a0, "steal: the new note hardly sounds 5-25 ms in (%.3f)", (double)(c1 / a0));
-    }
-    { /* on the chords role, the full rate: a render is the same with the half rate allowed or not */
-        static const int NOTES[4] = {48, 60, 72, 84}, VELS[2] = {64, 110};
-        for (i = 0; i < 2; i++)
-            for (j = 0; j < 4; j++)
-                for (v = 0; v < 2; v++) {
-                    cm_note(V_CHORD, SUB_INS[i], NOTES[j], VELS[v], 1, cm_x, 8192u);
-                    cm_note(V_CHORD, SUB_INS[i], NOTES[j], VELS[v], 0, cm_y, 8192u);
-                    CHECK(!memcmp(cm_x, cm_y, 8192u * sizeof(float)), "half rate: ins %d note %d vel %d: wanted full",
-                          SUB_INS[i], NOTES[j], VELS[v]);
-                }
-    }
-    CHECK(!bad, "a subtractive voice rendered NaN or inf");
-    vx_fx_off(0u);
 }
 
 /* The tonewheel organ (2026-10-31, Sam's picks of the spike). The register rule: the keys an octave up unless the
@@ -6226,78 +5920,6 @@ static void test_organ(void)
               (double)db[1], (double)db[0]);
     }
     CHECK(!bad, "organ: NaN or inf");
-}
-
-/* The ruling (2026-10-23): in rolled songs a mono synth glides. Over 3 songs of each set that had a mono patch (the
-   saw lead: 13, 18, 19, pinned with roll_set: the first seeds whose roll takes it), a mono lead's glides (vx_glides)
-   are 15% or more of its note changes (a note after another at a new pitch); a poly one never glides, nor the bass.
-   Since the lead styles build (Task 7) the saw lead leads no set: these sets' leads are poly and glide never (the
-   mono synth's glide is checked on its own: test_sub). */
-static void test_glide_songs(void)
-{
-    static const int SETS[3] = {13, 18, 19};
-    static song_t s;
-    int k;
-    for (k = 0; k < 3; k++) {
-        const lib_set_t *set = lib_set_by_id((uint8_t)SETS[k]);
-        uint32_t seed, ch[2] = {0, 0}, gl[2] = {0, 0}, sm[2] = {0, 0};
-        int r, mono[2], got;
-        mono[0] = vx_patch(set->lead)->model == M_SUB && vx_patch(set->lead)->p[9] > 0.0f;
-        mono[1] = 0; /* (no mono synth on the bass) */
-        CHECK(!mono[0], "glides: set %d still has a mono lead (the saw lead leads no set)", SETS[k]);
-        for (seed = 1u, got = 0; got < 3 && seed < 600u; seed++) {
-            song_roll_t ro;
-            song_ev_t ev[64];
-            int last[2] = {-1, -1};
-            float frac = 0.0f;
-            roll_song(NULL, seed, &ro);
-            if (roll_set(&ro, RF_SET, SETS[k]) != SETS[k])
-                continue; /* (a seed whose roll won't take the set) */
-            got++;
-            ro.v[RF_NOISE] = ro.v[RF_AMBIENCE] = 0;
-            vx_init();
-            song_start(&s, &ro);
-            vx_song(&s.roll);
-            while (s.state == SS_PLAYING) {
-                int n = song_tick(&s, ev, 64), i;
-                float adv;
-                uint32_t left;
-                for (i = 0; i < n; i++) {
-                    int j = ev[i].voice == V_LEAD ? 0 : ev[i].voice == V_BASS ? 1 : -1;
-                    if (j >= 0 && ev[i].len) {
-                        if (last[j] >= 0 && last[j] != ev[i].note)
-                            ch[j]++;
-                        last[j] = ev[i].note;
-                    }
-                    vx_event(&ev[i]);
-                }
-                adv = song_step_samples(&s) + frac;
-                left = (uint32_t)adv;
-                frac = adv - (float)left;
-                while (left) {
-                    uint32_t b = left < 1024u ? left : 1024u;
-                    memset(vt_l, 0, b * sizeof(float));
-                    memset(vt_r, 0, b * sizeof(float));
-                    vx_render(vt_l, vt_r, b);
-                    left -= b;
-                }
-            }
-            gl[0] += vx_glides(V_LEAD);
-            gl[1] += vx_glides(V_BASS);
-        }
-        CHECK(got == 3, "glides: %d seeds take set %d, wanted 3", got, SETS[k]);
-        for (r = 0; r < 2; r++)
-            sm[r] = mono[r] ? ch[r] : 0u;
-        printf("glides: set %d (%s): lead %s %u of %u note changes, bass %s %u of %u; %.0f%%\n", SETS[k], set->name,
-               mono[0] ? "mono" : "poly", gl[0], ch[0], mono[1] ? "mono" : "poly", gl[1], ch[1],
-               100.0 * (double)(gl[0] + gl[1]) / (double)(sm[0] + sm[1] ? sm[0] + sm[1] : 1u));
-        for (r = 0; r < 2; r++)
-            if (mono[r])
-                CHECK(gl[r] * 100u >= 15u * ch[r], "glides: set %d's %s glides %u of %u note changes, wanted 15%%+",
-                      SETS[k], r ? "bass" : "lead", gl[r], ch[r]);
-            else
-                CHECK(gl[r] == 0u, "glides: set %d's poly %s glided %u times", SETS[k], r ? "bass" : "lead", gl[r]);
-    }
 }
 
 /* The FM patches (new patches on M_EP and M_BASS). The DX electric piano's first 30 ms is brighter than the Rhodes'
@@ -8598,6 +8220,28 @@ static void test_leads_2026_10_29(void)
         }
         CHECK(off == 0 && emily_keys >= 2, "leads: %d sets lead with a retired lead; %d with Emilyguitar keys", off,
               emily_keys);
+    }
+    { /* the instruments no set played, removed with their models (2026-10-31: the upright, the kalimba, music box and
+         bells, the saw lead and synth pluck): no patch, no set names one in any role; an old snapshot's lead or bass
+         stands in as an approved one with a patch (the workbench's wb_role_set), every other instrument as itself */
+        static const int RM[6] = {INS_UPRIGHT, INS_KALIMBA, INS_MUSIC_BOX, INS_BELLS, INS_SAW_LEAD, INS_SYNTH_PLUCK};
+        int named = 0;
+        for (i = 0; i < 6; i++) {
+            CHECK(vx_patch(RM[i]) == NULL, "removed: instrument %d still has a patch", RM[i]);
+            for (k = 0; k < LIB_NSETS; k++)
+                named += LIB_SETS[k].chords == RM[i] || LIB_SETS[k].bass == RM[i] || LIB_SETS[k].lead == RM[i] ||
+                         LIB_SETS[k].candy == RM[i] || LIB_SETS[k].pad == RM[i];
+        }
+        CHECK(named == 0, "removed: %d set roles name a removed instrument", named);
+        CHECK(lib_lead_approved(INS_KALIMBA) == INS_FLUTE && lib_lead_approved(INS_SAW_LEAD) == INS_VIBES &&
+                  lib_lead_approved(INS_SYNTH_PLUCK) == INS_FLUTE,
+              "removed: the kalimba, saw lead, synth pluck stand in as %d, %d, %d", lib_lead_approved(INS_KALIMBA),
+              lib_lead_approved(INS_SAW_LEAD), lib_lead_approved(INS_SYNTH_PLUCK));
+        CHECK(lib_bass_approved(INS_UPRIGHT) == INS_ELEC_BASS && vx_patch(lib_bass_approved(INS_UPRIGHT)) != NULL,
+              "removed: the upright stands in as %d", lib_bass_approved(INS_UPRIGHT));
+        for (i = 0; i < INS_NONE; i++)
+            CHECK(i == INS_UPRIGHT || lib_bass_approved(i) == i, "removed: bass %d stands in as %d", i,
+                  lib_bass_approved(i));
     }
     /* the vibes are the sampled VCSL vibraphone (the FM bell went) */
     CHECK(vx_patch(INS_VIBES)->model == M_SAMP && (int)vx_patch(INS_VIBES)->p[0] == SB_VIBES,
@@ -11940,9 +11584,7 @@ int main(int argc, char **argv)
     RUN(test_dynamics);
     RUN(test_wet);
     RUN(test_cost_moves);
-    RUN(test_sub);
     RUN(test_organ);
-    RUN(test_glide_songs);
     RUN(test_fm_patches);
     RUN(test_rings_pair);
     RUN(test_mix_parts);

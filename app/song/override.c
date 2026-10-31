@@ -31,9 +31,6 @@ void song_ov_range(int ins, int *lo, int *hi)
     case INS_EMILY: *lo = 40; *hi = 86; break;                            /* E2-D6 */
     case INS_FLUTE: *lo = 60; *hi = 96; break;                            /* C4-C7 */
     case INS_VIBES: *lo = 53; *hi = 89; break;                            /* F3-F6 */
-    case INS_KALIMBA: *lo = 60; *hi = 88; break;
-    case INS_MUSIC_BOX: *lo = 60; *hi = 96; break;
-    case INS_BELLS: *lo = 60; *hi = 108; break;
     default: *lo = 24; *hi = 108; break;
     }
 }

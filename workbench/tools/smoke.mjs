@@ -544,10 +544,18 @@ console.log("options.json");
   check(retired(OPTS.instruments, ["Upright bass"]) && retired(OPTS.comping, ["Arpeggio", "Offbeats"]) &&
         retired(OPTS.kits, ["Dusty", "Soft", "Our 808", "Warm", "Dark", "Rusty", "Gentle", "Clean"]),
         "the removed sounds are retired (upright, our synth kits, the mixed sampled kits, arpeggio, offbeats)");
+  // the instruments removed with their models (2026-10-31: no patch) can't play: no row offers one, even with "show
+  // retired"
+  const GONE = ["Upright bass", "Kalimba", "Music box", "Bells", "Saw lead", "Synth pluck"];
+  const shown = ROWS.flatMap((r) => optionsFor(r, { values: {} }, OPTS, { showRetired: true }))
+    .filter((o) => GONE.includes(o.name)).map((o) => o.name);
+  check(retired(OPTS.instruments, GONE) && !shown.length,
+        `the removed instruments are offered nowhere, even with "show retired" (${shown.join(", ") || "none"})`);
 }
 
-// an acoustic song as the rows see it (the upright and the mixed kit hand-picked with "show retired")
-const acoustic = () => ({ values: { keys: ins("Knight piano"), lead: ins("Flute"), bass: ins("Upright bass"),
+// an acoustic song as the rows see it (the electric bass, of either family: the upright, the acoustic bass, went
+// 2026-10-31)
+const acoustic = () => ({ values: { keys: ins("Knight piano"), lead: ins("Flute"), bass: ins("Electric bass"),
   pad: ins("Strings"), kit: 3, comp: -1, family: "acoustic", pattern: 1, kick: "" }, locks: new Set() });
 
 console.log("rows: retired options, dice, families");
@@ -596,7 +604,7 @@ console.log("rows: retired options, dice, families");
 
   const locked = acoustic();
   locked.locks = new Set(["bass"]);
-  check(!conflicts(row("family"), "synth", locked, OPTS, lcg(3)).blocked, "the bass locked to the upright doesn't block family -> synth");
+  check(!conflicts(row("family"), "synth", locked, OPTS, lcg(3)).blocked, "the bass locked doesn't block family -> synth");
   locked.locks = new Set(["kit"]);
   const b = conflicts(row("family"), "synth", locked, OPTS, lcg(3));
   check(b.blocked?.label === "Kit", `Review Focus 3: the kit locked (Brushes, acoustic) blocks family -> synth (${b.blocked?.label})`);
@@ -650,7 +658,7 @@ console.log("desk: rows over the engine");
   // Review Focus 3, end to end: the kit hand-set to an acoustic kit and locked; family -> synth is blocked, nothing
   // staged; unlocked, the kit follows and nothing else (families choose the drums only: Sam, 2026-10-29)
   await desk.set("family", "acoustic");
-  await desk.set("bass", ins("Upright bass"));
+  await desk.set("bass", ins("Electric bass"));
   await desk.set("kit", 3);
   desk.lock("kit", true);
   const before = cstr(ex, ex.wb_state());
@@ -1609,6 +1617,17 @@ console.log("Task 1b: no ear candy; the pad on/off row");
     check(!miss4.length && d4.values.lead === ins(to) && JSON.parse(cstr(e4, e4.wb_state())).roles[C.V.LEAD] === ins(to) &&
           d4.message.includes(said),
           `a snapshot with the ${name} on the lead restores on the ${to} (mismatch: ${miss4.join(", ") || "none"}; "${d4.message}")`);
+  }
+  { // the upright (removed 2026-10-31) on the bass: it restores on the electric bass, said
+    const sn = await desk.snapshot();
+    sn.rows.bass = ins("Upright bass");
+    sn.locks = [];
+    const e5 = await load(), d5 = new Desk(caller(e5), C, OPTS, await caller(e5)("wb_library"));
+    const miss5 = await d5.restore(sn);
+    check(!miss5.length && d5.values.bass === ins("Electric bass") &&
+          JSON.parse(cstr(e5, e5.wb_state())).roles[C.V.BASS] === ins("Electric bass") &&
+          d5.message.includes("Bass: Upright bass is retired;"),
+          `a snapshot with the upright on the bass restores on the electric bass (mismatch: ${miss5.join(", ") || "none"}; "${d5.message}")`);
   }
   const s8 = JSON.parse(cstr(ex, ex.wb_state()));
   s8.ov = s8.ov.slice(0, 8);

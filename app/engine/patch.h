@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* The patch table: one patch per instrument (INS_*), each built on one of eleven voice models. */
+/* The patch table: one patch per instrument (INS_*), each built on one of eight voice models. */
 #ifndef ENGINE_PATCH_H
 #define ENGINE_PATCH_H
 #include <stdint.h>
 
-enum { M_EP, M_PLUCK, M_PAD, M_BELL, M_WIND, M_BASS, M_CHIP, M_SUB, M_ENS, M_SAMP, M_TW, M_N };
+/* (the Karplus-Strong pluck, the FM bell and the subtractive synth went 2026-10-31 with the instruments they played) */
+enum { M_EP, M_PAD, M_WIND, M_BASS, M_CHIP, M_ENS, M_SAMP, M_TW, M_N };
 
 /* p[] is the model's own (each model documents its layout in patch.c). The envelope, in seconds: att the linear rise
    to full; dec the fall from 1 toward sus (0..1) and rel the release after note-off, both as times to -60 dB (the

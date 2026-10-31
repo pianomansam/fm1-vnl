@@ -168,7 +168,7 @@ static uint32_t heaviest(void)
    dry (vx_init leaves fx_init's chain: the plate shut, no bed, dust 0) unless a part opens the chain with
    fx_configure; every row is the best of PART_RUNS, net of the idle dry engine's render (the floor). */
 #define PART_RUNS (runs(7))
-enum { P_IDLE, P_CHORDS, P_LEAD, P_CANDY, P_BASS, P_DRUMS, P_SOURCE, P_PAD, P_SOLO };
+enum { P_IDLE, P_CHORDS, P_LEAD, P_BASS, P_DRUMS, P_SOURCE, P_PAD, P_SOLO };
 
 static void ev(int voice, int note, int vel, uint32_t len)
 {
@@ -227,9 +227,6 @@ static void part_step(int kind, int bar, int step, uint32_t st)
     case P_LEAD: /* 8ths, each held a dotted 8th, so two voices overlap */
         if (!(step & 1)) ev(V_LEAD, 72 + c[(step >> 1) & 3] % 12, 85, st * 3);
         break;
-    case P_CANDY:
-        if (!(step & 1)) ev(V_CANDY, 84 + c[(step >> 1) & 3] % 12, 80, st * 3);
-        break;
     case P_BASS: /* one voice, 8ths, legato */
         if (!(step & 1)) ev(V_BASS, 36 + c[(step >> 1) & 3] % 12, 95, st * 2);
         break;
@@ -253,13 +250,13 @@ static void part_step(int kind, int bar, int step, uint32_t st)
     }
 }
 
-typedef struct { int kind, chords, bass, lead, candy, pad, solo, kit, dust, noise, amb, chain; unsigned off; } part_t;
+typedef struct { int kind, chords, bass, lead, pad, solo, kit, dust, noise, amb, chain; unsigned off; } part_t;
 
 static part_t part_of(int kind)
 {
     part_t p;
     memset(&p, 0, sizeof p);
-    p.chords = p.bass = p.lead = p.candy = p.pad = p.solo = INS_NONE;
+    p.chords = p.bass = p.lead = p.pad = p.solo = INS_NONE;
     p.kit = KIT_DUSTY;
     p.kind = kind;
     return p;
@@ -277,7 +274,6 @@ static double run_part(const part_t *p)
     vx_assign(V_CHORD, p->chords);
     vx_assign(V_BASS, p->bass);
     vx_assign(V_LEAD, p->lead);
-    vx_assign(V_CANDY, p->candy);
     vx_assign(V_PAD, p->pad);
     vx_assign_pad_solo(p->solo);
     solo_ins = p->solo;
@@ -352,8 +348,7 @@ static void role_rows(const char *grp, int kind, int role, const named_t *l, int
         if (role == V_CHORD) p.chords = l[i].ins;
         else if (role == V_BASS) p.bass = l[i].ins;
         else if (role == V_LEAD) p.lead = l[i].ins;
-        else if (role == V_PAD) p.pad = l[i].ins;
-        else p.candy = l[i].ins;
+        else p.pad = l[i].ins;
         row(grp, l[i].n, best_part(&p), base, amb);
     }
 }
@@ -365,12 +360,10 @@ static void parts(double amb)
                                  {"nylon", INS_NYLON}, {"pad", INS_PAD},
                                  {"organ", INS_ORGAN}, {"dx ep", INS_DX_EP}, {"knight", INS_KNIGHT},
                                  {"emilyguitar", INS_EMILY}};
-    static const named_t BS[] = {{"upright", INS_UPRIGHT}, {"elec bass", INS_ELEC_BASS}, {"sub", INS_SUB},
+    static const named_t BS[] = {{"elec bass", INS_ELEC_BASS}, {"sub", INS_SUB},
                                  {"triangle bass", INS_CHIP_BASS}, {"fm bass", INS_FM_BASS}};
     static const named_t LD[] = {{"flute", INS_FLUTE}, {"vibes", INS_VIBES}, {"felt piano", INS_FELT_PIANO},
-                                 {"kalimba", INS_KALIMBA}, {"saw lead", INS_SAW_LEAD},
-                                 {"synth pluck", INS_SYNTH_PLUCK}, {"knight", INS_KNIGHT}};
-    static const named_t CD[] = {{"music box", INS_MUSIC_BOX}, {"bells", INS_BELLS}};
+                                 {"knight", INS_KNIGHT}};
     static const named_t PDL[] = {{"strings", INS_STRINGS}, {"warm pad", INS_WARM_PAD}, {"choir", INS_CHOIR},
                                   {"organ", INS_ORGAN}};
     static const named_t SOL[] = {{"choir", INS_CHOIR}, {"flute", INS_FLUTE}, {"organ", INS_ORGAN},
@@ -398,7 +391,6 @@ static void parts(double amb)
     vx_organ_force(-1, -1);
     role_rows("bass", P_BASS, V_BASS, BS, NEL(BS), base, amb);
     role_rows("lead", P_LEAD, V_LEAD, LD, NEL(LD), base, amb);
-    role_rows("candy", P_CANDY, V_CANDY, CD, NEL(CD), base, amb);
     role_rows("pad", P_PAD, V_PAD, PDL, NEL(PDL), base, amb);
     for (k = 0; k < NEL(SOL); k++) { /* the solo note alone on lane 4, over the strings pad */
         p = part_of(P_SOLO);

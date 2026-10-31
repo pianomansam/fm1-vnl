@@ -60,13 +60,14 @@ void lib_pattern_wb(const lib_pattern_t *p);
 unsigned lib_lane_hits(const lib_pattern_t *p, int lane, int bar);
 unsigned lib_lane_ghosts(const lib_pattern_t *p, int lane, int bar);
 const lib_set_t *lib_set_by_id(uint8_t id);
-/* 1: slow attack, held breath or a held tone (pads, the flute, the organ, the saw lead, the strings); 0: struck,
-   plucked,
-   the triangle bass, the synth pluck, the DX EP, the FM bass */
+/* 1: slow attack, held breath or a held tone (pads, the flute, the organ, the strings, the choir); 0: struck, plucked,
+   the triangle bass, the DX EP, the FM bass */
 int lib_ins_sustained(int ins);
 /* a removed or retired lead (the muted trumpet, sax, guitar lick, string lead, cello; the kalimba, saw lead, synth
    pluck and Emilyguitar as leads): the flute or the vibes in its place; else ins */
 int lib_lead_approved(int ins);
+/* a removed bass (the upright): the electric bass in its place; else ins */
+int lib_bass_approved(int ins);
 /* 1: a sampled struck-string instrument (the Knight, the nylon, the Emilyguitar): stabs and strums suit it */
 int lib_ins_sampled_struck(int ins);
 int lib_set_walks(const lib_set_t *s);

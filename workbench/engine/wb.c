@@ -347,13 +347,16 @@ static lib_set_t *custom_set(void)
 }
 
 /* a removed or retired lead (an old snapshot's: the muted trumpet, sax, guitar lick, string lead, cello; the kalimba,
-   saw lead, synth pluck, the Emilyguitar as a lead) lands as the lead library.c stands in for it */
+   saw lead, synth pluck, the Emilyguitar as a lead) lands as the lead library.c stands in for it; a removed bass (the
+   upright) as its bass */
 EXPORT void wb_role_set(int role, int ins)
 {
     if (!role_ins(&st.set, role) || ins < 0 || ins > 255 || !custom_set())
         return;
     if (role == V_LEAD)
         ins = lib_lead_approved(ins);
+    if (role == V_BASS)
+        ins = lib_bass_approved(ins);
     *role_ins(&st.set, role) = (uint8_t)ins;
 }
 

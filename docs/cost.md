@@ -1228,3 +1228,21 @@ arm64 -Os objects (text + data, app/song and app/song/leads) against e7f983f: **
 On the ~410.7 KB estimated after the tonewheel organ, the image is about **388.6 KB against the 409,600 B budget:
 about 21 KB under (estimated)**. CPU: the styles were already planning every forced song; rolled songs now take the
 same path (a bar's plan, once a bar), with no melody step per 16th, so the tick costs no more than before.
+
+### Lead styles Task 8: the models nothing plays go (bell, sub, pluck) (2026-10-31)
+
+Removed: three voice models and the six patches that were their only users, none of them in any set's sounding role.
+M_BELL went with the kalimba, music box and bells, which were left only in the sets' unused ear-candy slot (now none).
+M_SUB went with the saw lead and synth pluck, along with the mono lead, its glides and vx_glides. M_PLUCK went with
+the upright and its Karplus-Strong lines. The ids stay reserved. An old snapshot's kalimba, saw lead or synth pluck
+plays the flute or the vibes, as before. Its upright plays the electric bass (lib_bass_approved, new). Song hashes
+are unchanged.
+
+Flash: Docker hung, so this is **estimated** from host arm64 -Os objects (text, literals, const and data) against
+12d3848: **about -4.9 KB**. voices.o drops 4,876 B (47,620 B to 42,744 B), override.o drops 84 B, and library.o gains
+16 B for the bass stand-in. patch.o is unchanged, since its table is sized by the instrument count. On the ~388.6 KB
+estimated after Task 6, the image is about **383.7 KB against the 409,600 B budget, plus Task 7's changes, which
+were not measured: about 25.9 KB under before them (estimated)**. RAM: the Karplus-Strong lines (13 voices × 1,072
+floats) leave the .pool region, **-55,744 B of pool**. The voice union is unchanged, since the organ's is the
+largest. CPU: no song played these models, so no song's cost changes. The bench loses its upright, kalimba, saw lead,
+synth pluck and candy rows.

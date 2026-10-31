@@ -511,10 +511,16 @@ export class Desk {
     const was = this.opts.instruments.find((i) => i.id === snap.rows.lead);
     const asLead = was?.roles.includes("lead");
     const swapped = was && !(was.status === "approved" && asLead) && this.values.lead !== snap.rows.lead;
-    this.message = [swapped ? `Lead: ${was.name} is retired${asLead ? "" : " as a lead"}; the song plays ${this.opts.instruments.find((i) => i.id === this.values.lead)?.name} instead.` : "",
+    // a removed bass (the upright, 2026-10-31) likewise, as the electric bass (library.c's lib_bass_approved)
+    const wasBass = this.opts.instruments.find((i) => i.id === snap.rows.bass);
+    const bassSwapped = wasBass?.status === "retired" && this.values.bass !== snap.rows.bass;
+    const name = (id) => this.opts.instruments.find((i) => i.id === id)?.name;
+    this.message = [swapped ? `Lead: ${was.name} is retired${was.status === "approved" ? " as a lead" : ""}; the song plays ${name(this.values.lead)} instead.` : "",
+                    bassSwapped ? `Bass: ${wasBass.name} is retired; the song plays ${name(this.values.bass)} instead.` : "",
                     styleGone ? `Lead style: ${style.name} is retired; the song plays a rolled style instead.` : ""]
       .filter(Boolean).join(" ");
-    return [...ROWS.filter((r) => !(swapped && r.id === "lead") && String(this.values[r.id]) !== String(snap.rows[r.id])).map((r) => r.id), ...missing];
+    return [...ROWS.filter((r) => !(swapped && r.id === "lead") && !(bassSwapped && r.id === "bass") &&
+                                  String(this.values[r.id]) !== String(snap.rows[r.id])).map((r) => r.id), ...missing];
   }
 
   // A snapshot's drum lanes over the kit row's (a preset's, or the song's own kit's): the lanes with a source first (the

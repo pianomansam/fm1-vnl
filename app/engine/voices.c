@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* FM bell adapted from AMB-1 (fm1-amb), MPL-2.0. */
+/* FM bell adapted from AMB-1 (fm1-amb), MPL-2.0 (the bell itself removed 2026-10-31). */
 /* Voices and mix (see voices.h). The pitched roles are pools of voices: chords 4 (8 for a pad or a sampler), lead 2,
    candy 2, the bass, a mono pool of 1 whose level slews (AMP_K) and whose M_BASS retriggers are legato, and the pad
    layer 4. Each voice keeps the patch it was struck with, and voice_sample() dispatches on the patch's model:
-   keys (M_EP), plucked
-   strings (M_PLUCK), pads (M_PAD), bells (M_BELL), winds (M_WIND), basses (M_BASS), a chip triangle (M_CHIP), the
-   subtractive synths (M_SUB; a mono one on the lead glides from a held note, or a near one just ended: LEG_GAP), the
+   keys (M_EP), pads (M_PAD), winds (M_WIND), basses (M_BASS), a chip triangle (M_CHIP), the
    sampler (M_SAMP: sampler.c, its own envelope), the tonewheel organ (M_TW) and the pad layer's ensemble (M_ENS, at a
    quarter of the rate in a loop of its own: pad_seg). A key's or a pad's note whose partials stay under 9 kHz, and
    the organ on the keys, render at half the rate (half_ok), its role's half-rate voices upsampled by a half-band; the
@@ -45,7 +43,7 @@
 #define NPD 4 /* the pad layer's voices: a 3-note chord and the solo note */
 #define NFM (NCH + NLD + NCD)
 #define VB NFM       /* the bass voice: fv[VB] */
-#define PD (VB + 1)  /* the pad layer's first voice, after the bass (no Karplus-Strong line: ks[] stops at PD) */
+#define PD (VB + 1)  /* the pad layer's first voice, after the bass */
 #define NV (PD + NPD) /* every pitched voice */
 #define INV_SR (1.0f / 44100.0f)
 #define SR 44100.0f
@@ -55,11 +53,8 @@
 #define STEAL_THR 0.02f
 #define AMP_K 0.01f /* bass level slew per sample (about 2 ms) */
 #define CHUNK 256 /* vx_render's blocks through the lo-fi chain */
-/* A mono synth's legato after a short rest (the ruling, 2026-10-23: the songs' lines rarely overlap, so a glide only
-   from a held note almost never sounded): a note within LEG_GAP samples of its voice's last note's end, and LEG_INT
-   semitones or less from it (a perfect 4th), glides. Sam judges both by ear. */
+/* A pad lane's legato after a short rest: a note within LEG_GAP samples of its voice's last note's end glides. */
 #define LEG_GAP 1102u /* 25 ms */
-#define LEG_INT 5
 #define ENS_GLIDE 0.06f  /* a pad lane's glide to its next note, in seconds */
 #define ENS_QR_TOP 4000.0f /* a pad note renders at a quarter of the rate while its low-pass (key-tracked) is this or
                               under, else at half */
@@ -97,8 +92,6 @@ static const float CP_THR_KIT[KIT_N] = {0.095f, 0.090f, 0.084f, 0.162f, 0.110f, 
 #define MUTE_DRY 0.2f    /* a muted wind keeps this much of the open tone under the mute's band */
 #define HR_TOP 9000.0f   /* a half-rate voice's highest partial: below its 11 kHz Nyquist and the upsampler's band edge */
 #define HR_PAD_H 2.0f   /* a pad's highest partial counted: its upper saw's second harmonic (the filter takes the rest) */
-#define SUB_CR 16u       /* the synths' control rate in samples: the filter's envelope and coefficients */
-#define SUB_RES_K 0.85f  /* the low-pass's damping k at full resonance, as a fraction off Butterworth's (1.414) */
 #define HB_M 7           /* the 2x upsampler: a 27-tap half-band (Kaiser, beta 5), 7 coefficient pairs */
 #define HB_H (2 * HB_M)  /* the half-rate samples it keeps between chunks (its latency: 2 HB_M = 14 samples) */
 #define TW_MAXP 6        /* the organ: a registration's sounding wheels at most (the percussion's counted) */
@@ -171,15 +164,6 @@ typedef struct {
             float c1[4], s[2]; /* SVF coefficients (a1, a2, a3, k) and states (the biquad's: w1, w2) */
             float bq[5];       /* the half-rate biquad: b0, b1, b2, a1, a2 */
         } pad;
-        struct { /* M_PLUCK: a Karplus-Strong line (this voice's ks[] row) and the upright's thump */
-            float *buf;
-            float fr, xp, ly, c, rho;  /* read fraction, the averager's last input, the damping one-pole, loop gain */
-            float tp, ti, th, tk;      /* thump: phase, increment, level, decay */
-            uint16_t wp, li;           /* write index, the read delay's whole samples */
-        } pl;
-        struct { /* M_BELL: AMB-1's 2-op FM bell (phases, increments, the decaying index) and a tremolo */
-            float pc, pm, ic, im, idx, idec, tp, ti, td;
-        } bl;
         struct { /* M_WIND: an oscillator blend, a two-pole low-pass following the envelope, a mute, breath, vibrato */
             float ph, inc, f0, pw, shp, a0, a1, l1, l2;
             float bc[4], bs[2], br, ch, chk; /* the breath's band-pass (coefficients, states), level, chiff */
@@ -208,16 +192,6 @@ typedef struct {
             float t1, t2, gk, ak;
             uint32_t gn, an;
         } en;
-        struct { /* M_SUB: a phase, the increment gliding (by gk a step, gn steps, to ft); the pulse's width, the
-                    sub-octave's sign and level */
-            float ph, f0, ft, gk, pw, sg, sl;
-            float fe, fa, fk, fam;  /* the filter's envelope, its attack's rise and decay per control step, its depth
-                                       in octaves */
-            float k, cz;            /* the damping; the cutoff last set */
-            float c[5], s[2];       /* the SVF's coefficients or the half-rate biquad's; the states */
-            uint32_t gn;            /* glide steps left */
-            uint8_t wave, cc, fat;  /* the wave, the control count, the envelope in its attack */
-        } sb;
         smp_voice_t sp; /* M_SAMP: the sampler voice (sampler.h), its envelope its own */
         struct { /* M_TW: the sounding wheels (n, compact): phases and increments (Q32 turns), the unmodulated
                     increment (a fraction of a step), the bar's gain, the gain now and its ramp per step, the rotor
@@ -236,7 +210,7 @@ typedef struct {
     uint8_t on, held, role;
     uint8_t note; /* the last note struck */
     uint32_t off; /* when its gate closes (or closed): the engine's clock (t_on) at its onset plus its length */
-    uint8_t slew; /* the level slews (the bass's AMP_K): the bass, and a mono synth (its legato notes) */
+    uint8_t slew; /* the level slews (the bass's AMP_K): the bass, and the pad's solo lane's own voice */
     uint8_t hr;   /* rendered at half the rate, on even samples (a step is two), into its role's upsampler */
     uint8_t qr;   /* the pad layer's: rendered at a quarter of the rate (a step is four; pad_seg) */
     uint8_t pend; /* a steal in progress: fade out, then start pe on ppt */
@@ -253,11 +227,9 @@ typedef struct {
 static qe_t q[QN];
 static int qn;
 static voice_t fv[NV];
-static float ks[PD][VX_KS_N] VX_POOL; /* the Karplus-Strong lines, one per voice (not the pad layer's) */
 static uint32_t age_ctr, rng = 0x1234567u;
 static uint32_t clk;  /* the engine's clock at the chunk's start */
 static uint32_t t_on; /* the engine's clock (samples since vx_init) at the events firing now (vx_render) */
-static uint32_t n_glide; /* tests (vx_glides): the mono lead's legato notes to a new pitch */
 static uint32_t n_steal; /* tests (vx_steals): chord voices stolen while still sounding */
 static float gain, gain_tgt, gain_step;
 static float ch_m[CHUNK], ch_s[CHUNK]; /* a chunk's music (into fx_process_pairs) and its right channel (out) */
@@ -433,7 +405,6 @@ static void voices_clear(uint32_t seed)
     drums_song(seed);
     qn = 0;
     age_ctr = 0;
-    n_glide = 0u;
     n_steal = 0u;
     t_on = clk = 0u;
     rng = seed * 2654435761u ^ 0x1234567u;
@@ -677,17 +648,12 @@ static float solo_lvl(const voice_t *v, const vx_patch_t *p)
     return v == &fv[NV - 1] && p == solo_pt ? solo_trim : 1.0f;
 }
 
-/* a mono lead: a mono synth (M_SUB, p[9]) on the lead: legato, gliding (pool_on) */
-static int mono_lead(const vx_patch_t *p, int role)
-{
-    return role == V_LEAD && p->model == M_SUB && p->p[9] > 0.0f;
-}
-
 /* a voice's step in samples: 1, 2 at half the rate, 4 at a quarter */
 static float step_len(const voice_t *v) { return v->qr ? 4.0f : v->hr ? 2.0f : 1.0f; }
 
 /* The envelope's start, shared by every model: nat back to 1, the gate rising from where it is. A slewing voice's
-   level (the bass's, a mono lead synth's) slews from where it is on a legato retrigger, else starts at its target. */
+   level (the bass's, the solo lane's own voice's) slews from where it is on a legato retrigger, else starts at its
+   target. */
 static void env_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int legato)
 {
     float dv = step_len(v); /* a half-rate voice's steps are two samples long, a quarter-rate one's four */
@@ -707,8 +673,7 @@ static void env_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int l
                (p->model == M_SAMP && v->role == V_LEAD ? SAMP_LEAD[(int)p->p[0] % SB_N] : 1.0f) *
                (v->role == V_LEAD && cfg.lead == INS_FELT_PIANO ? FELT_LEAD_G : 1.0f);
     /* (the solo lane's own voice slews, so its legato notes ramp to their velocity's level: lane_legato) */
-    v->slew = (uint8_t)(v->role == V_BASS || mono_lead(p, v->role) ||
-                        (v->role == V_PAD && p->model != M_ENS));
+    v->slew = (uint8_t)(v->role == V_BASS || (v->role == V_PAD && p->model != M_ENS));
     if (p->model == M_SAMP) { /* the sampler's envelope is its own (sampler.c): the gate only steals and stops */
         v->nk = v->sus = v->ka = 1.0f;
         v->kr = 0.0f;
@@ -887,23 +852,6 @@ static void ens_legato(voice_t *v, const song_ev_t *e)
     }
 }
 
-/* M_BELL: AMB-1's bell (bell_voice): a sine carrier, its modulator at a ratio, the index (velocity into it) falling
-   on its own -60 dB time; the envelope's decay scaled by the key (higher bells ring shorter); the vibes' tremolo. */
-static void bell_start(voice_t *v, const song_ev_t *e)
-{
-    const vx_patch_t *p = v->pt;
-    float f = note_inc(e->note), v01 = (float)e->vel * (1.0f / 127.0f);
-    v->m.bl.pc = v->m.bl.pm = 0.0f;
-    v->m.bl.ic = f;
-    v->m.bl.im = f * p->p[0];
-    v->m.bl.idx = (p->p[1] + p->p[2] * v01) * (1.0f / FM_TWO_PI); /* radians, as turns */
-    v->m.bl.idec = 1.0f - k_t60(p->p[3]);
-    v->m.bl.td = fm_clampf(p->p[4], 0.0f, 1.0f);
-    v->m.bl.ti = p->p[5] * INV_SR;
-    v->m.bl.tp = 0.0f;
-    v->nk = 1.0f - k_t60(p->dec * fm_exp2f(-((float)e->note - 60.0f) * (1.0f / 12.0f) * p->p[6]));
-}
-
 /* M_WIND: one phase drives the blend (sine, triangle, pulse); a two-pole low-pass opens with the envelope; a muted
    wind goes through a narrow band-pass; a band of breath noise rides under it, with a chiff at the onset; the
    vibrato waits, then fades in. */
@@ -935,57 +883,6 @@ static void wind_start(voice_t *v, const song_ev_t *e)
     v->m.wd.vt = 0;
     v->m.wd.cc = 0;
     v->m.wd.gn = 0u;
-}
-
-/* atan(y / x) for x > 0, y >= 0 (note-on only): a polynomial on [0, 1], folded; about 1e-5 rad */
-static float atan_pos(float y, float x)
-{
-    int fold = y > x;
-    float t = fold ? x / y : y / x, t2 = t * t, a;
-    a = t * (0.9998660f + t2 * (-0.3302995f + t2 * (0.1801410f + t2 * (-0.0851330f + t2 * 0.0208351f))));
-    return fold ? 0.5f * FM_PI - a : a;
-}
-
-/* M_PLUCK: Karplus-Strong. A burst of low-passed noise (zero mean, unit RMS) fills the line; the loop is the line
-   (a fractional delay, linear interpolation), a two-point averager and a damping one-pole, then a gain that sets the
-   fundamental's -60 dB time. The loop's delay is the period: the averager's half sample and the one-pole's phase
-   delay at the fundamental come off the line. The upright adds a thump: a sine at the fundamental, gone fast. */
-static void pluck_start(voice_t *v, const song_ev_t *e)
-{
-    const vx_patch_t *p = v->pt;
-    float f = note_inc(e->note), v01 = (float)e->vel * (1.0f / 127.0f), w = FM_TWO_PI * f, cw = fm_cosf(w);
-    float a, len, bc, by = 0.0f, sum = 0.0f, sq = 0.0f, mean, sc, mag;
-    int i, n;
-    v->m.pl.buf = ks[v - fv];
-    v->m.pl.c = k_lp1((p->p[1] + p->p[5] * f * SR) * (0.6f + 0.4f * v01));
-    a = 1.0f - v->m.pl.c;
-    len = 1.0f / f - 0.5f - atan_pos(a * fm_sinf(w), 1.0f - a * cw) / w;
-    len = fm_clampf(len, 2.0f, (float)(VX_KS_N - 1) - 0.001f);
-    v->m.pl.li = (uint16_t)len;
-    v->m.pl.fr = len - (float)v->m.pl.li;
-    /* the fundamental's loss per period, less what the averager and the one-pole already take there */
-    mag = fm_cosf(0.5f * w) * v->m.pl.c * fm_rsqrtf(1.0f - 2.0f * a * cw + a * a);
-    v->m.pl.rho = fm_minf(fm_expf(-T60 / (p->p[0] * SR * f)) / mag, 0.99999f);
-    /* the burst: ages 1 .. li + 1 (buf[li] .. buf[0]) are all the loop reads before it writes its own */
-    n = v->m.pl.li + 1;
-    bc = k_lp1(p->p[2] * (0.6f + 0.4f * v01));
-    for (i = 0; i < n; i++) {
-        by += bc * (noise() - by);
-        v->m.pl.buf[i] = by;
-        sum += by;
-        sq += by * by;
-    }
-    mean = sum / (float)n;
-    sc = fm_rsqrtf(fm_maxf(sq / (float)n - mean * mean, 1e-12f));
-    for (i = 0; i < n; i++)
-        v->m.pl.buf[i] = (v->m.pl.buf[i] - mean) * sc;
-    v->m.pl.wp = (uint16_t)(n == VX_KS_N ? 0 : n);
-    v->m.pl.xp = v->m.pl.buf[0];
-    v->m.pl.ly = 0.0f;
-    v->m.pl.tp = 0.0f;
-    v->m.pl.ti = f;
-    v->m.pl.th = p->p[3] * v01;
-    v->m.pl.tk = 1.0f - k_t60(p->p[4]);
 }
 
 /* M_BASS: 2-op FM whose index slews to a struck target falling to its floor, plus a sine an octave down. A legato
@@ -1020,44 +917,6 @@ static void chip_start(voice_t *v, const song_ev_t *e)
     v->m.ch.lk = p->p[1] > 0.0f ? 1.0f - fm_exp2f(-9.0647f * p->p[1] * v->m.ch.inc) : 1.0f;   /* 2 pi / ln 2 */
 }
 
-
-/* M_SUB, frugal as a Juno-106: one oscillator (a polyBLEP saw or pulse) and a sub-octave square into a 2-pole
-   low-pass that its own envelope opens (an attack, then a fall to the key-tracked base). A legato note (a mono patch,
-   a held or just-ended note: pool_on) keeps the phases, the filter and its envelope, and glides to its pitch over
-   the patch's glide time, evenly in pitch; a fresh note starts on its pitch. */
-static void sub_start(voice_t *v, const song_ev_t *e, int legato)
-{
-    const vx_patch_t *p = v->pt;
-    float dv = step_len(v), f = note_inc(e->note) * dv, v01 = (float)e->vel * (1.0f / 127.0f);
-    if (legato) {
-        float n = p->p[10] * 0.001f * SR / dv;
-        v->m.sb.ft = f;
-        if (n >= 1.0f && f != v->m.sb.f0) {
-            v->m.sb.gn = (uint32_t)n;
-            v->m.sb.gk = fm_exp2f(fm_log2f(f / v->m.sb.f0) / (float)v->m.sb.gn);
-        } else {
-            v->m.sb.gn = 0u;
-            v->m.sb.f0 = f;
-        }
-        return;
-    }
-    v->m.sb.ph = 0.0f;
-    v->m.sb.f0 = v->m.sb.ft = f;
-    v->m.sb.gn = 0u;
-    v->m.sb.wave = (uint8_t)(p->p[0] > 0.0f);
-    v->m.sb.pw = fm_clampf(p->p[1], 0.05f, 0.5f);
-    v->m.sb.sg = 1.0f;
-    v->m.sb.sl = p->p[2];
-    v->m.sb.fam = p->p[6] * (0.5f + 0.5f * v01);
-    v->m.sb.fat = p->p[7] > 0.0f;
-    v->m.sb.fe = v->m.sb.fat ? 0.0f : 1.0f;
-    v->m.sb.fa = v->m.sb.fat ? (float)SUB_CR / (p->p[7] * SR) : 0.0f;
-    v->m.sb.fk = fm_expf(-T60 * (float)SUB_CR / (fm_maxf(p->p[8], 0.001f) * SR));
-    v->m.sb.k = 1.41421356f * (1.0f - SUB_RES_K * fm_clampf(p->p[4], 0.0f, 1.0f));
-    v->m.sb.cz = -1.0f;
-    memset(v->m.sb.s, 0, sizeof v->m.sb.s);
-    v->m.sb.cc = 0;
-}
 
 /* A pad lane's voice not of the ensemble (the solo lane's flute, the organ) on a held lane (pool_on), as ens_legato:
    the same pitch extends the note; another glides to it over ENS_GLIDE in even steps of pitch, the envelope, the
@@ -1289,12 +1148,9 @@ static void voice_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int
     env_start(v, p, e, legato);
     switch (p->model) {
     case M_EP: ep_start(v, e); break;
-    case M_PLUCK: pluck_start(v, e); break;
     case M_PAD: pad_start(v, e); break;
-    case M_BELL: bell_start(v, e); break;
     case M_WIND: wind_start(v, e); break;
     case M_CHIP: chip_start(v, e); break;
-    case M_SUB: sub_start(v, e, legato); break;
     case M_ENS: ens_start(v, e); break;
     case M_TW: tw_start(v, e); break;
     case M_SAMP:
@@ -1308,13 +1164,10 @@ static void voice_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int
 /* a released voice's level for the steal's pick: its gate, times a sampler's own envelope (its gate stays open) */
 static float gate_lvl(const voice_t *v) { return v->pt && v->pt->model == M_SAMP ? v->g * v->m.sp.env : v->g; }
 
-/* The chords' pool is NCH_KEYS voices, NCH for a held pad's note (PAD_LONG). A mono synth (M_SUB, p[9]) on the lead
-   glides: a note while one of its role's voices still holds that patch's note (its gate open, not being
-   stolen) goes legato onto it; so does one within LEG_GAP of a voice's last note's end and LEG_INT semitones of it
-   (still releasing, or silent but not reused). A note after a longer rest, or a wider leap, starts on its pitch. A
-   free voice starts at once. Otherwise the victim is the
-   quietest released voice, else the oldest held one, and it fades out over about 4 ms (G_STEAL) before the new note
-   starts: the new note begins up to ~5 ms after its sample-accurate time, with no step in the output. */
+/* The chords' pool is NCH_KEYS voices, NCH for a held pad's note (PAD_LONG). A free voice starts at once. Otherwise
+   the victim is the quietest released voice, else the oldest held one, and it fades out over about 4 ms (G_STEAL)
+   before the new note starts: the new note begins up to ~5 ms after its sample-accurate time, with no step in the
+   output. */
 static void pool_on(const song_ev_t *e, int role)
 {
     int i, pick = -1, first = ROLES[role].first, count = ROLES[role].count;
@@ -1378,27 +1231,6 @@ static void pool_on(const song_ev_t *e, int role)
     if (role == V_CHORD && p->model != M_SAMP && (p->model != M_PAD || e->len < PAD_LONG))
         count = NCH_KEYS; /* (a held pad's chord change overlaps: its old chord releases under the new one's swell; a
                              sampled instrument's strum takes up to 6 strings while the last stroke rings out) */
-    if (mono_lead(p, role)) {
-        for (i = first; i < first + count; i++)
-            if (fv[i].on && fv[i].held && !fv[i].pend && fv[i].pt == p) {
-                pick = i;
-                break;
-            }
-        if (pick < 0) /* the voice whose note ended last, within LEG_GAP and LEG_INT (sounding or not) */
-            for (i = first; i < first + count; i++) {
-                int d = (int)e->note - (int)fv[i].note;
-                if (!fv[i].held && !fv[i].pend && fv[i].pt == p && t_on - fv[i].off < LEG_GAP && d <= LEG_INT &&
-                    d >= -LEG_INT && (pick < 0 || t_on - fv[i].off < t_on - fv[pick].off))
-                    pick = i;
-            }
-        if (pick >= 0) {
-            v = &fv[pick];
-            v->age = ++age_ctr;
-            n_glide += e->note != v->note;
-            voice_start(v, p, e, 1); /* legato: it glides from where it is */
-            return;
-        }
-    }
     for (i = first; i < first + count; i++)
         if (!fv[i].on) {
             pick = i;
@@ -1544,52 +1376,6 @@ static float ens_sample(voice_t *v)
     return v->m.en.y2;
 }
 
-/* M_PLUCK's raw sample: the line's output through the averager and the damping, back into the line; the thump. */
-static float pluck_sample(voice_t *v)
-{
-    float *b = v->m.pl.buf, x, y;
-    int i0 = (int)v->m.pl.wp - (int)v->m.pl.li, i1;
-    if (i0 < 0)
-        i0 += VX_KS_N;
-    i1 = i0 ? i0 - 1 : VX_KS_N - 1;
-    x = b[i0] + v->m.pl.fr * (b[i1] - b[i0]);
-    v->m.pl.ly = fm_flush(v->m.pl.ly + v->m.pl.c * (0.5f * (x + v->m.pl.xp) - v->m.pl.ly));
-    v->m.pl.xp = x;
-    y = v->m.pl.ly * v->m.pl.rho;
-    b[v->m.pl.wp] = y;
-    if (++v->m.pl.wp == VX_KS_N)
-        v->m.pl.wp = 0;
-    if (v->m.pl.th > 0.0f) {
-        y += v->m.pl.th * fm_sin_turns(v->m.pl.tp);
-        v->m.pl.tp += v->m.pl.ti;
-        if (v->m.pl.tp >= 1.0f)
-            v->m.pl.tp -= 1.0f;
-        v->m.pl.th = fm_flush(v->m.pl.th * v->m.pl.tk);
-    }
-    return y;
-}
-
-/* M_BELL's raw sample: AMB-1's render_bells (the FM, the index falling), times the tremolo (1 at the onset, down by
-   the depth at its trough). */
-static float bell_sample(voice_t *v)
-{
-    float s = fm_sin_turns(v->m.bl.pc + fm_sin_turns(v->m.bl.pm) * v->m.bl.idx);
-    v->m.bl.pc += v->m.bl.ic;
-    if (v->m.bl.pc >= 1.0f)
-        v->m.bl.pc -= 1.0f;
-    v->m.bl.pm += v->m.bl.im;
-    if (v->m.bl.pm >= 1.0f)
-        v->m.bl.pm -= 1.0f;
-    v->m.bl.idx = fm_flush(v->m.bl.idx * v->m.bl.idec); /* decays: flushed before it goes denormal */
-    if (v->m.bl.td > 0.0f) {
-        s *= 1.0f - v->m.bl.td * (0.5f - 0.5f * fm_sin_turns(v->m.bl.tp + 0.25f));
-        v->m.bl.tp += v->m.bl.ti;
-        if (v->m.bl.tp >= 1.0f)
-            v->m.bl.tp -= 1.0f;
-    }
-    return s;
-}
-
 /* M_WIND's raw sample. The vibrato runs at the control rate (WIND_CR). */
 VX_INLINE float wind_sample(voice_t *v)
 {
@@ -1672,76 +1458,6 @@ static float chip_sample(voice_t *v)
     return (float)(k < 16 ? k : 31 - k) * (2.0f / 15.0f) - 1.0f;
 }
 
-/* M_SUB's control step (every SUB_CR samples): the filter's envelope, then the low-pass's coefficients for the cutoff
-   (key-tracked from the gliding pitch), set only when it moved: the SVF's, or at half the rate the matched
-   biquad's. */
-static void sub_ctl(voice_t *v)
-{
-    const vx_patch_t *p = v->pt;
-    float dv = step_len(v), hz;
-    if (v->m.sb.fat) {
-        v->m.sb.fe += v->m.sb.fa;
-        if (v->m.sb.fe >= 1.0f) {
-            v->m.sb.fe = 1.0f;
-            v->m.sb.fat = 0;
-        }
-    } else if (v->m.sb.fe > 0.0f) {
-        v->m.sb.fe *= v->m.sb.fk;
-        if (v->m.sb.fe < 1e-4f) /* settled: the cutoff stops moving (and nothing nears the denormals) */
-            v->m.sb.fe = 0.0f;
-    }
-    hz = (p->p[3] + p->p[5] * v->m.sb.f0 * (SR / dv)) * fm_exp2f(v->m.sb.fam * v->m.sb.fe);
-    if (hz == v->m.sb.cz)
-        return;
-    v->m.sb.cz = hz;
-    if (v->hr | v->qr) {
-        memset(v->m.sb.c, 0, sizeof v->m.sb.c);
-        bq_match(v->m.sb.c, hz, v->m.sb.k, 1, 1.0f, dv);
-    } else
-        svf_coefs(v->m.sb.c, hz, v->m.sb.k);
-}
-
-/* M_SUB's raw sample: the glide, the oscillator, the sub-octave (a square flipping at each of the oscillator's wraps,
-   with the saw's polyBLEP at its edge), then the low-pass. */
-VX_INLINE float sub_sample(voice_t *v)
-{
-    float t = v->m.sb.ph, dt = v->m.sb.f0, x, bp;
-    if (v->m.sb.cc == 0)
-        sub_ctl(v);
-    if (++v->m.sb.cc == (v->qr ? SUB_CR / 4u : v->hr ? SUB_CR / 2u : SUB_CR))
-        v->m.sb.cc = 0;
-    x = saw_blep(t, dt);
-    if (v->m.sb.wave) { /* the pulse: two saws apart by its width */
-        float t2 = t + v->m.sb.pw;
-        if (t2 >= 1.0f)
-            t2 -= 1.0f;
-        x -= saw_blep(t2, dt);
-    }
-    if (v->m.sb.sl > 0.0f) {
-        float sg = v->m.sb.sg, q = sg;
-        if (t < dt) { /* just after the flip */
-            float u = t / dt;
-            q += sg * (u + u - u * u - 1.0f);
-        } else if (t > 1.0f - dt) { /* just before it */
-            float u = (t - 1.0f) / dt;
-            q -= sg * (u * u + u + u + 1.0f);
-        }
-        x += v->m.sb.sl * q;
-    }
-    if (v->m.sb.gn) { /* the glide: even steps in pitch, landing exactly */
-        v->m.sb.f0 = --v->m.sb.gn ? v->m.sb.f0 * v->m.sb.gk : v->m.sb.ft;
-    }
-    t += v->m.sb.f0;
-    if (t >= 1.0f) {
-        t -= 1.0f;
-        v->m.sb.sg = -v->m.sb.sg;
-    }
-    v->m.sb.ph = t;
-    if (v->hr | v->qr)
-        return bq_step(v->m.sb.c, v->m.sb.s, x);
-    return svf_step(v->m.sb.c, v->m.sb.s, x, &bp);
-}
-
 /* The gate's step after a voice's sample: a steal's fade (then the queued note starts), the note's end, the rise or
    the release (off below OFF_THR). */
 static inline void gate_step(voice_t *v)
@@ -1778,15 +1494,12 @@ static float voice_sample(voice_t *v)
     float s, o, lv, q = 0.0f;
     switch (v->pt->model) {
     case M_EP: s = ep_sample(v); break;
-    case M_PLUCK: s = pluck_sample(v); break;
     case M_PAD: s = pad_sample(v); break;
-    case M_BELL: s = bell_sample(v); break;
     case M_WIND: s = wind_sample(v); break;
     case M_CHIP:
         s = chip_sample(v);
         q = v->m.ch.q;
         break;
-    case M_SUB: s = sub_sample(v); break;
     case M_TW: s = tw_sample(v); break;
     case M_SAMP: /* its gate closed (the note's end, vx_release_all): its own release; done: off */
         if (!v->held && v->m.sp.stage < 2)
@@ -3032,11 +2745,6 @@ const vx_patch_t *vx_pad_lane_patch(int lane)
     return v && v->on ? v->pt : NULL;
 }
 
-uint32_t vx_glides(int role)
-{
-    return role == V_LEAD ? n_glide : 0u;
-}
-
 uint32_t vx_steals(int role)
 {
     return role == V_CHORD ? n_steal : 0u;
@@ -3069,10 +2777,8 @@ int vx_tiny(void)
         c += vx_tiny_of(&bus[r].y, 1) + vx_tiny_of(&bus[r].z, 1) + vx_tiny_of(&bus[r].hm, 1);
     c += vx_tiny_of(pq_mz, 2) + vx_tiny_of(&pq0, 1) + vx_tiny_of(&pq1, 1) + vx_tiny_of(&pb_y, 1) + vx_tiny_of(&pb_z, 1);
     c += vx_tiny_of(&cho_s[0][0], 6) + vx_tiny_of(&cho_pi, 1) + vx_tiny_of(&cho_po, 1);
-    for (r = 0; r < NV; r++) /* a synth's filter envelope and states; an ensemble voice's low-pass */
-        if (fv[r].on && fv[r].pt && fv[r].pt->model == M_SUB)
-            c += vx_tiny_of(&fv[r].m.sb.fe, 1) + vx_tiny_of(fv[r].m.sb.s, 2);
-        else if (fv[r].on && fv[r].pt && fv[r].pt->model == M_ENS)
+    for (r = 0; r < NV; r++) /* an ensemble voice's low-pass; a sampler's tone and envelope */
+        if (fv[r].on && fv[r].pt && fv[r].pt->model == M_ENS)
             c += vx_tiny_of(&fv[r].m.en.y1, 2) + vx_tiny_of(fv[r].m.en.w, 2);
         else if (fv[r].on && fv[r].pt && fv[r].pt->model == M_SAMP)
             c += vx_tiny_of(&fv[r].m.sp.lp, 1) + vx_tiny_of(&fv[r].m.sp.env, 1);

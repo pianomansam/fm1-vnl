@@ -9,20 +9,10 @@
      p[0] the detune in cents (the first saw down by it, the second up), p[1] the second saw's ratio, p[2] its level,
      p[3] the low-pass cutoff in Hz plus p[4] times the note's frequency, p[5] its damping k (1/Q). (The vox pad and
      its formants went 2026-10-31: the choir, M_ENS, sings in its place.)
-   M_PLUCK (the upright; voices.c pluck_*): Karplus-Strong, a noise burst into a loop of a delay line,
-     an averager and a damping one-pole.
-     p[0] the fundamental's fall to -60 dB (s), p[1] the damping one-pole's cutoff in Hz plus p[5] times the note's
-     frequency, at full velocity (60% of it at velocity 0), p[2] the burst's one-pole cutoff in Hz at full velocity
-     (60% at velocity 0: a softer pluck is darker), p[3] the thump's level at full velocity (a sine at the fundamental;
-     0 for none), p[4] the thump's fall to -60 dB (s), p[5] the damping's key tracking.
    M_BASS (sub, electric bass; voices.c bass_*): 2-op FM with an index falling from a struck peak, plus a sine an
      octave down. On the bass role a retrigger of the same patch is legato.
      p[0] modulator ratio, p[1] the settled index, p[2] the index added at the strike at full velocity, p[3] its fall
      to -60 dB (s), p[4] the sub-octave sine's level.
-   M_BELL (kalimba, music box, bells; voices.c bell_*): AMB-1's 2-op FM bell, decaying freely (sus 0).
-     p[0] modulator ratio (the bells' non-integer: inharmonic), p[1] index at velocity 0, p[2] index added at full
-     velocity, p[3] the index's fall to -60 dB (s), p[4] the tremolo's depth (0..1; a vibes motor, none uses it now), p[5] its rate
-     in Hz, p[6] the decay's key tracking (octaves of decay time lost per octave above note 60).
    M_WIND (the flute; voices.c wind_*): an oscillator blend into a two-pole low-pass that opens with
      the envelope, a mute, breath noise and a delayed vibrato (5 Hz, after 0.3 s, faded in over 0.6 s).
      p[0] the blend (0 sine, 1 triangle, 2 pulse, crossfaded between), p[1] the pulse's width, p[2] the low-pass
@@ -34,15 +24,6 @@
      p[0] the bit crush: the voice's output (after its envelope) rounded to this many bits over its own full level
      (2^(p[0]-1) steps from 0 to the note's level; 0 for none; 7: a few-bit DAC's grit and steppy decays); p[1] a
      one-pole low-pass after the crush at this multiple of the note's frequency (0 for none; Sam: more mellow).
-   M_SUB (saw lead, synth pluck; voices.c sub_*): frugal as a Juno-106, one oscillator and a sub-octave square
-     into a 2-pole low-pass with its own envelope; mono and glide for the lead. Full rate (the leads only, since the
-     organ became the tonewheel).
-     p[0] the wave (0 saw, 1 pulse), p[1] the pulse's width (0.05-0.5), p[2] the sub-octave square's level, p[3] the
-     low-pass's cutoff in Hz plus p[5] times the note's frequency (the key tracking), p[4] the resonance (0-1,
-     clamped: the damping from Butterworth's down by 85%), p[6] the filter envelope's depth in octaves over the cutoff
-     at full velocity (half of it at velocity 0), p[7] its attack (s), p[8] its fall to -60 dB (s), p[9] 1 for mono
-     (on the lead: a note while the last is held goes legato, gliding), p[10] the glide's time in ms (0: legato, no
-     glide).
    M_ENS (the pad layer's strings, warm pad and choir; voices.c ens_*, pad_seg): frugal, in the spirit of a string
      machine, at a quarter of the rate: a polyBLEP saw and a partner saw a little sharp and quieter, into a fixed 2-pole
      low-pass (two one-poles); the ensemble's width is the chorus's (the patch's chorus: the pad bus's send into it).
@@ -72,7 +53,9 @@
    the pads deep, the felt piano and the nylon a touch. The delay's send: leads and ear candy wet, keys a little,
    basses dry. The levels: the lead about 4-6 dB over the keys while it plays, in every set (song_test's
    test_lead_over_keys). The leads Sam removed (2026-10-29: the muted trumpet, sax, guitar lick, string lead and
-   cello) have no entry: vx_patch gives NULL, so a role assigned one stays silent (their ids are never reused). */
+   cello) have no entry: vx_patch gives NULL, so a role assigned one stays silent (their ids are never reused); nor
+   have the ones no set played (2026-10-31: the upright, the kalimba, music box and bells, the saw lead and synth
+   pluck), their models gone with them (an old snapshot's: library.c's lib_lead_approved, lib_bass_approved). */
 static const vx_patch_t PATCHES[INS_NONE] = {
     [INS_RHODES] = {M_EP, {1.0f, 0.4f, 1.2f, 1.2f, 0.05f, 0.5f, 0.0f, 0.0f}, 0.002f, 4.5f, 0.0f, 0.08f, 0.944f, 0.7f, 0.08f},
     /* the Wurli struck softer (Sam: "still has lots of attack"): less index, strike and bark, a 6 ms attack */
@@ -83,7 +66,6 @@ static const vx_patch_t PATCHES[INS_NONE] = {
     [INS_NYLON] = {M_SAMP, {SB_NYLON, 300.0f, 0.55f, 0.0f, 0.0f, 0.45f, 0.6f, 0.8f, 6.0f}, 0.001f, 3.5f, 0.0f, 0.12f,
                    0.633f, 0.15f, 0.08f},
     [INS_PAD] = {M_PAD, {5.0f, 2.0f, 0.35f, 900.0f, 1.5f, 1.2f, 0.0f, 0.0f}, 0.6f, 4.0f, 0.85f, 2.0f, 0.616f, 0.6f, 0.1f},
-    [INS_UPRIGHT] = {M_PLUCK, {0.9f, 700.0f, 1500.0f, 0.5f, 0.08f, 3.0f}, 0.002f, 4.0f, 0.0f, 0.05f, 3.4f, 0.0f, 0.0f},
     [INS_ELEC_BASS] = {M_BASS, {1.0f, 0.6f, 2.4f, 0.12f, 0.0f}, 0.003f, 7.0f, 0.6f, 0.04f, 1.57f, 0.0f, 0.0f},
     [INS_SUB] = {M_BASS, {1.0f, 0.0f, 0.0f, 0.1f, 0.6f}, 0.008f, 7.0f, 1.0f, 0.06f, 1.0f, 0.0f, 0.0f},
     /* (the flute 0.3 dB down, 2026-10-29: over set 9's strummed nylon, where the sax was, it read 10.2 dB over the
@@ -94,17 +76,8 @@ static const vx_patch_t PATCHES[INS_NONE] = {
        note rings on about half a second, a held pedal's tail. The lead only. */
     [INS_VIBES] = {M_SAMP, {SB_VIBES, 0.0f, 0.0f, 0.0f, 0.0f, 0.3f, 0.0f, 0.0f, 0.0f}, 0.001f, 10.0f, 0.0f, 0.8f,
                    0.6f, 0.0f, 0.3f},
-    [INS_KALIMBA] = {M_BELL, {3.0f, 0.4f, 1.4f, 0.12f, 0.0f, 0.0f, 0.4f}, 0.002f, 1.4f, 0.0f, 0.06f, 1.614f, 0.0f, 0.35f},
-    [INS_MUSIC_BOX] = {M_BELL, {5.0f, 0.3f, 0.9f, 0.25f, 0.0f, 0.0f, 0.3f}, 0.002f, 1.2f, 0.0f, 0.05f, 1.1f, 0.0f, 0.4f},
-    [INS_BELLS] = {M_BELL, {3.53f, 0.6f, 1.2f, 1.2f, 0.0f, 0.0f, 0.3f}, 0.003f, 3.5f, 0.0f, 0.2f, 0.87f, 0.0f, 0.35f},
     /* the triangle bass (a chip voice) */
     [INS_CHIP_BASS] = {M_CHIP, {7.0f, 5.0f}, 0.003f, 7.0f, 1.0f, 0.05f, 1.3f, 0.0f, 0.0f},
-    /* the subtractive synths, warm (their cutoffs low), their levels balanced in their sets like the rest: the saw lead
-       mono and gliding; the synth pluck: a pulse snapped open and shut */
-    [INS_SAW_LEAD] = {M_SUB, {0.0f, 0.5f, 0.0f, 900.0f, 0.2f, 1.5f, 1.0f, 0.02f, 0.6f, 1.0f, 90.0f},
-                      0.01f, 3.0f, 0.8f, 0.12f, 1.09f, 0.0f, 0.3f},
-    [INS_SYNTH_PLUCK] = {M_SUB, {1.0f, 0.35f, 0.0f, 200.0f, 0.25f, 0.6f, 4.5f, 0.001f, 0.3f}, 0.002f, 1.2f, 0.0f,
-                         0.1f, 1.24f, 0.0f, 0.35f},
     /* the 80s FM keys: a 14x tine on the attack (a high ratio, a bright index falling fast) over a clean body */
     [INS_DX_EP] = {M_EP, {1.0f, 0.3f, 1.8f, 0.9f, 0.12f, 0.4f, 0.0f, 6500.0f}, 0.002f, 2.6f, 0.0f, 0.08f, 0.944f,
                    0.5f, 0.08f},
