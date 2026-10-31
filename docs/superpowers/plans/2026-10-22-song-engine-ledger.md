@@ -551,7 +551,12 @@ Renders: `app/build/new/<seed>/` and `<seed>-nobed/`, one per set (Task 8's repo
   layer (`patch.c` INS_FLUTE, its band at 1800 Hz, wide: BREATH_K 1.4) plus an onset chiff
   (CHIFF 1.5, gone in 80 ms; `voices.c`). Try a lower breath level, a narrower or higher band, and a softer
   chiff, as an A/B in songs; keep the tone's level matched. (The breathy-pad spike reuses this breath, so tune
-  them together.)
+  them together.) (Sam later cut the breathy pad, below.)
+- **Cut (Sam, 2026-10-30): the breathy pad.** A spike added the flute's breath noise to the pad layer (about -22 dB
+  under the tone), then opened its filter, slowed its swell and sent more of it to the plate
+  (`worktree-agent-abd52963f71c8c0ef`, 0efc297; renders `app/build/new/pad-breath-2026-10-30/`). Sam: none of it
+  did much; cut, not merged. Ideas only, if an airier pad comes back: a sampled choir or "aah" pad, a brighter
+  slow-moving filter, tape-style movement on the pad.
 
 - **Rings' reverb and chorus against ours.** Sam picked Rings' (Task 7c); ours stays host-only (`VNL_FX=ours`).
   Rings' chorus wobbles ±14 cents, near its test's 15-cent window: don't deepen it without moving the window.
