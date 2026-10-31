@@ -1163,3 +1163,43 @@ Flash (host -O2 objects of app/engine and app/song; the image not built, Docker 
 (voices.o -4084 B: the formants, the vox pad's legato branch and pad_sample's glide, inlined at several sites;
 roll.o +180 B: lib_song_pad), so **+0.3 KB text and +372 B data against f41748f** (before the choir) for the choir
 in all.
+
+### The tonewheel organ: the keys' organ and a pad the songs draw (2026-10-31)
+
+The spike's tonewheel (M_TW) ported as code, with Sam's picks. It replaces the square organ (INS_ORGAN on M_SUB) on
+the keys and on the pad's solo lane. On the keys, a song rolls one of three drawbar settings (A, B with percussion,
+or C; seed stream 198, equal odds). It plays an octave up, or at its register with the 16' out where the chords sit
+high (harmony_keys_high: the voicings' mean note F4 or over). It runs at half the rate with the slow rotor and the
+scanner chorus C3 (a 32-sample line on the keys' half-rate sum). The pad layer can also draw the organ: the one-stop
+4' with C3 switched by section, in 15% of songs and never over organ keys (lib_song_pad, stream 197). It runs at a
+quarter of the rate, its voices in a tight loop of their own (tw_run, sample-identical to the generic path). M_SUB
+stays, because the saw lead and the synth pluck still play it. Only its solo-lane and keys-only paths went (sub_top,
+the half-rate branch, the lane glide). Event hashes are unchanged: the instrument never reaches the events.
+
+CPU (`app/build/bench/bench --parts`, best of 7, AMB-1 about 141 ms, idle floor 0.105; workbench c4aad6f against
+this build):
+
+| Row | Today | Tonewheel |
+|-----|-------|-----------|
+| chords, the organ | 0.224 (the square) | A 0.295-0.303, **B (percussion) 0.320-0.329**, C 0.254-0.264 |
+| pad layer | warm pad 0.047 | **organ 0.074** (0.123 before tw_run) |
+| pad's solo lane | the square organ 0.043 | organ 0.046 |
+
+Whole songs (`--forced`):
+
+| Seed | What it has | Today | Tonewheel |
+|------|-------------|-------|-----------|
+| 20 | the heaviest seed, now drawing the organ pad | 0.916 / 0.936 forced | 0.937 / **0.960 forced** |
+| 108 | set 18, organ B raised | 0.633 / 0.629 forced | 0.701 / 0.703 forced |
+| 37 | set 18, organ A at its register | 0.748 / 0.751 forced | 0.759 / 0.759 forced |
+
+The worst case stays under the ~0.97 line by about 0.01. Seed 20 read 0.980 forced before tw_run, which is what
+brought it back under.
+
+Flash: Docker is down (`./build.sh` timed out), so this is estimated from host arm64 -Os objects against c4aad6f.
+Text grows by **+4.3 KB**: voices.o +3094 B, patch.o +748 B (seven organ patches), roll.o +128 B, harmony.o +256 B
+and plan.o +88 B. The wheels' sine is made at vx_init into RAM (2 KB of .bss), so it costs no flash. Deleting M_SUB
+saves nothing, since it keeps its users; trimming its organ-only paths is already counted in the voices.o figure.
+On ~406.4 KB measured last, the image is about **410.7 KB against the 409,600 B budget: about 1.1 KB over
+(estimated)**. RAM grows by +3.7 KB of data and bss: the sine, the two scanner lines, the pad organ's quarter-rate
+buffer, and a voice union about 64 B larger.
