@@ -597,6 +597,11 @@ Renders: `app/build/new/<seed>/` and `<seed>-nobed/`, one per set (Task 8's repo
   faster). Organ bass: no clear difference from the electric bass; dropped. Organ pad: the one-stop 4' beats the 8'
   but is too static; next, the 4' pad with the chorus. Choir: the oo-aah pad layer and the choir as the solo voice
   both sound good; stage 2 (the solo moves onto the choir, the vox pad and M_PAD's formants go) is next.
+  **Organ pad (2026-10-31, renders `app/build/new/organ-pad-chorus-2026-10-31/`, spike commits 0de966c..4c0824e):**
+  Sam picked the 4' with chorus C3, used as the rotary substitute and switched by section: on where the full kit
+  plays (kick and hats), still in intros, outros, breaks and hat-less grooves, 60 ms crossfade. Sam: "a good start";
+  he may tweak the on/off rules later. A stuck-note bug in the spike's organ legato retune (the pad held G from
+  0:12 on song 5) is fixed (1de05bc); the organ pad renders in `tonewheel-2026-10-30/` still have it.
 - **To do (Sam, 2026-10-30): control the organ's stops and settings in the workbench, and maybe eventually on the
   device.** Workbench rows for the nine drawbars (0-8 each), percussion (off / 2nd / 3rd, fast or slow), key click,
   rotor (slow / fast), scanner chorus (off, C1-C3), and the register (octave), per song and saved in snapshots and
