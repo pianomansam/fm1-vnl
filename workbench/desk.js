@@ -146,7 +146,7 @@ export class Desk {
   }
 
   // Stage every kept (locked or hand-set) row again, after a regenerate wiped the custom set, pattern and roll; a new
-  // seed also returns the other overrides to the engine's (a new map, the parts' salts). Then the family's followers, unless kept.
+  // seed also returns the other overrides to the engine's (a new map, the parts' salts). Then the family's kit, unless kept.
   async reapply(except, kept, fresh) {
     for (const r of ROWS) {
       if (r.id === except || r.kind === "seed" || r.kind === "family") continue;
@@ -332,7 +332,7 @@ export class Desk {
       return this.set(id, v, { dice: true });
     }
     const v = pickFor(r, this.state, this.opts, this.rnd, this.lib);
-    if (v === null) return this.done(false, `${r.label}: no other approved option${r.kind === "role" || id === "kit" ? ` for a ${this.values.family} song` : ""}.`);
+    if (v === null) return this.done(false, `${r.label}: no other approved option${id === "kit" ? ` for a ${this.values.family} song` : ""}.`);
     return this.set(id, v, { dice: true });
   }
 
@@ -505,11 +505,13 @@ export class Desk {
       this.rolls[p] = { history, at };
     }
     await this.refresh();
-    // a retired lead (the muted trumpet, sax, guitar lick, string lead, cello: Sam, 2026-10-29) lands as the approved
-    // lead the engine stands in for it (library.c's lib_lead_approved): said, not a mismatch
+    // a retired lead (the muted trumpet, sax, guitar lick, string lead, cello: Sam, 2026-10-29; the kalimba, saw lead,
+    // synth pluck, and the Emilyguitar as a lead: the lead styles build) lands as the lead the engine stands in for it
+    // (library.c's lib_lead_approved): said, not a mismatch
     const was = this.opts.instruments.find((i) => i.id === snap.rows.lead);
-    const swapped = was?.status === "retired" && was.roles.includes("lead") && this.values.lead !== snap.rows.lead;
-    this.message = [swapped ? `Lead: ${was.name} is retired; the song plays ${this.opts.instruments.find((i) => i.id === this.values.lead)?.name} instead.` : "",
+    const asLead = was?.roles.includes("lead");
+    const swapped = was && !(was.status === "approved" && asLead) && this.values.lead !== snap.rows.lead;
+    this.message = [swapped ? `Lead: ${was.name} is retired${asLead ? "" : " as a lead"}; the song plays ${this.opts.instruments.find((i) => i.id === this.values.lead)?.name} instead.` : "",
                     styleGone ? `Lead style: ${style.name} is retired; the song plays a rolled style instead.` : ""]
       .filter(Boolean).join(" ");
     return [...ROWS.filter((r) => !(swapped && r.id === "lead") && String(this.values[r.id]) !== String(snap.rows[r.id])).map((r) => r.id), ...missing];

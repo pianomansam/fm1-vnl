@@ -354,7 +354,6 @@ static float cg = 1.0f;     /* the chords' dry scale, toward fx_chorus_dry() */
 /* The felt piano on the lead (Sam, 2026-10-29): its patch's level is the keys'; on the lead it sat 2-3 dB under the
    other leads (the lead spike), so it comes up to them */
 #define FELT_LEAD_G 1.45f
-static float lead_g = 1.0f; /* the song's lead level trim (lib_set_lead_db) */
 static float keys_g = 1.0f; /* the song's keys level for its comping (keys_gain) */
 /* The keys' duck under the lead (Sam: "the lead leads"): while a lead note's gate is open the chords' bus dips
    DUCK_DB, a follower at the chunk rate (a one-pole toward 1 with a note held, else 0: about 25 ms in, 400 ms out,
@@ -477,7 +476,6 @@ void vx_init(void)
     pdg = 1.0f;
     pd_lvl = 1.0f;
     keys_g = 1.0f;
-    lead_g = 1.0f;
     fx_init(); /* before the roles: the chords' patch sets the chorus */
     memset(&cfg, 0, sizeof cfg);
     vx_assign_pad_solo(INS_NONE);
@@ -617,7 +615,6 @@ void vx_configure(const song_roll_t *r)
         cfg.flavor = s->flavor;
     }
     keys_g = keys_gain(r);
-    lead_g = fm_db2lin(lib_set_lead_db(s));
     cfg.dust = (uint8_t)fm_clampf((float)r->v[RF_DUST], 0.0f, 3.0f);
     cfg.noise = (uint8_t)fm_clampf((float)r->v[RF_NOISE], 0.0f, 2.0f);
     cfg.ambience = (uint8_t)fm_clampf((float)r->v[RF_AMBIENCE], 0.0f, 1.0f);
@@ -708,8 +705,7 @@ static void env_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int l
     v->amp_t = ROLES[v->role].gain * p->level * (float)e->vel * (1.0f / 127.0f) *
                (v->role == V_CHORD ? keys_g : solo_lvl(v, p)) *
                (p->model == M_SAMP && v->role == V_LEAD ? SAMP_LEAD[(int)p->p[0] % SB_N] : 1.0f) *
-               (v->role == V_LEAD && cfg.lead == INS_FELT_PIANO ? FELT_LEAD_G : 1.0f) *
-               (v->role == V_LEAD ? lead_g : 1.0f);
+               (v->role == V_LEAD && cfg.lead == INS_FELT_PIANO ? FELT_LEAD_G : 1.0f);
     /* (the solo lane's own voice slews, so its legato notes ramp to their velocity's level: lane_legato) */
     v->slew = (uint8_t)(v->role == V_BASS || mono_lead(p, v->role) ||
                         (v->role == V_PAD && p->model != M_ENS));

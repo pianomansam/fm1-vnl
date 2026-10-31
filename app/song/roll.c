@@ -94,6 +94,8 @@ static uint32_t mix(uint32_t a, uint32_t b)   /* murmur3 finalizer over (a, b): 
     return h;
 }
 
+uint32_t roll_mix(uint32_t a, uint32_t b) { return mix(a, b); }
+
 static void add(cands_t *c, int v, uint32_t w)
 {
     if (c->n < NC) {
