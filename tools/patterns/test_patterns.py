@@ -22,8 +22,7 @@ import midi  # noqa: E402
 from test_import import Import, ImportWithCandidates, imp  # noqa: E402,F401  (run with these)
 from test_pins import Pins  # noqa: E402,F401
 
-FAMILIES = {"drums": 8, "kick-phrases": 5, "progressions": 44, "comp-rhythms": 5, "strum": 5, "lead-arp": 18,
-            "melody-cells": 7}
+FAMILIES = {"drums": 8, "kick-phrases": 5, "progressions": 44, "comp-rhythms": 5, "strum": 5}
 GM = {"kick": 36, "snare": 38, "hat": 42, "ohat": 46, "shaker": 70, "rim": 37}
 LANES = ["kick", "snare", "hat", "ohat", "shaker", "rim"]
 STROKE = {"T": 64, "B": 65, "D": 67, "d": 69, "X": 71, "U": 72, "u": 74, "P": 76}
@@ -58,13 +57,6 @@ def expected(family, e):
                 out += [(bar * 16 + s, p) for s in (e["first"], s2) for p in TONE]
         else:
             out = [(k["step"], p) for k in e["strikes"] for p in TONE]
-    elif family == "lead-arp":
-        if e["kind"] == "rhythm":
-            out = [(at, TONE[0]) for at, _ in e["notes"]]
-        elif e["kind"] == "pattern":
-            out = [(i * 2, TONE[t]) for i, t in enumerate(e["tones"])]
-        else:
-            out = [(e["at"], TONE[0])]
     elif family == "progressions":
         pcs = {"C": 0, "Db": 1, "D": 2, "Eb": 3, "E": 4, "F": 5, "F#": 6, "G": 7, "Ab": 8, "A": 9, "Bb": 10, "B": 11}
         shape = {"maj7": [0, 4, 7, 11], "7": [0, 4, 7, 10], "m7": [0, 3, 7, 10], "m7b5": [0, 3, 6, 10]}
@@ -72,8 +64,6 @@ def expected(family, e):
             name, suffix = re.fullmatch(r"([A-G][b#]?)(maj7|m7b5|m7|7)", sym).groups()
             root = pcs[name] + (48 if pcs[name] >= 5 else 60)
             out += [(i * e["bars_per_chord"] * 16, root + x) for x in shape[suffix]]
-    elif family == "melody-cells":
-        out = [(s, TONE[0]) for s in range(4) if (int(e["mask"], 16) >> s) & 1]
     return sorted(out)
 
 
@@ -161,13 +151,9 @@ class T(unittest.TestCase):
             if e["name"] != "stabs":
                 self.assertNotIn("busy_steps", e)
         self.assertLess(l8["vel_range"][1], self.model["comp-rhythms"]["2"]["vel_range"][0])
-        la = self.model["lead-arp"]
-        self.assertEqual(la["rhythm-2"]["notes"], [[0, 3], [3, 1], [4, 3], [7, 1], [8, 3], [11, 1], [12, 4]])
-        self.assertEqual(la["pattern-3"]["tones"], [0, 1, 2, 3, 2, 1])
-        self.assertEqual([la[f"landing-{i}"]["at"] for i in range(1, 7)], [0, 0, 2, 3, 2, 4])
-        self.assertEqual([la[f"landing-{i}"]["weight"] for i in range(1, 7)], [25, 30, 10, 5, 20, 10])
-        self.assertEqual([c["mask"] for c in self.model["melody-cells"].values()],
-                         ["0x1", "0x4", "0x5", "0x9", "0x8", "0x6", "0xD"])
+        # the lead-arp and melody-cells families went with the hybrid lead and the struck melody (lead styles Task 6)
+        self.assertFalse({"lead-arp", "melody-cells"} & set(self.model))
+        self.assertFalse((ROOT / "patterns/lead-arp").exists() or (ROOT / "patterns/melody-cells").exists())
 
     def test_every_entry_has_both_files(self):
         n = 0
@@ -269,8 +255,6 @@ class T(unittest.TestCase):
         before = self.pattern_files(d)
         tables = json.loads((ROOT / "app/build/patterns/tables.json").read_text())
         tables["progs"][0]["c"][0] = [3, 0, 3]                  # prog 1: Dm7 -> Fmaj7, its slug says dm7
-        tables["arp_patterns"][0] = [3, 2, 1, 0]
-        tables["melody_cells"][0][0] = 3
         old = (d / "progressions/1-vamp-dm7-g7.mid").read_bytes()
         self.reexport(tables, d)
         self.assertEqual(self.pattern_files(d), before)

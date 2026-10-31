@@ -71,7 +71,7 @@ static int im_color(const leads_ctx_t *c, int target, int strong, const leads_ne
         if (iv == 2 || iv == 9 || (minor && iv == 5)) cost -= 4;
         if (!leads_is_ct(note, c->pcs, c->np) && !((pent >> (note % 12)) & 1u)) cost += 3;
         if (prev && (note - prev > 9 || prev - note > 9)) cost += 20;
-        if (c->keys[3] && note == c->keys[3] + 12 && !song_ov()->lead_double) cost += 4;
+        if (c->keys[3] && note == c->keys[3] + 12) cost += 4;
         if (cost < bc) { bc = cost; best = note; }
     }
     return best;

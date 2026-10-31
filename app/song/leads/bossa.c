@@ -85,7 +85,7 @@ static int bn_fit(const leads_ctx_t *c, const leads_next_t *x, const int *on, in
                 if (strong == 1 && !leads_is_ct(R, c->pcs, c->np)) cost += 3;
                 if (L > c->hi - 3) cost += (L - c->hi + 3) * 3;
                 if (d != iv) cost += 3;
-                if (c->keys[3] && L == c->keys[3] + 12 && !song_ov()->lead_double) cost += 4;
+                if (c->keys[3] && L == c->keys[3] + 12) cost += 4;
                 if (cost < bc) { bc = cost; best = L; *rep = R; }
             }
         }

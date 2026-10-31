@@ -97,9 +97,10 @@ Not refreshed in detail; the rules below still match `plan.c`.
 
 ## 6. Melody (not refreshed: the lead is being rewritten)
 
-The rows below describe the 2026-10-24 engines. Since then the ear candy is **Removed** (b4e00ff), the two old lead
-engines are being replaced by the lead styles, and the struck melody path no longer sounds in any song (ledger,
-"The melody path never sounds"). Read these rows as history until the lead styles are documented.
+The rows below describe the 2026-10-24 engines. Since then the ear candy is **Removed** (b4e00ff), and the two old
+lead engines (the phrase planner, the hybrid) and the struck melody path are **Removed** (lead styles Task 6): every
+song's lead plays one of the eight lead styles (`app/song/leads/`). Read these rows as history until the lead styles
+are documented.
 
 | Principle | Status on 2026-10-24 | Source |
 | --- | --- | --- |

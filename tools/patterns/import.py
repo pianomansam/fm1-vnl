@@ -29,7 +29,11 @@ import mxl  # noqa: E402
 import validate  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent.parent
-FAMS = ["drums", "kick-phrases", "progressions", "comp-rhythms", "strum", "lead-arp", "melody-cells"]
+FAMS = ["drums", "kick-phrases", "progressions", "comp-rhythms", "strum"]
+# families the engine no longer has (the lead styles replaced the hybrid lead's arpeggio and the struck melody,
+# 2026-10-31): a file in one is refused, naming why
+REMOVED = {"lead-arp": "the lead styles replaced the hybrid lead's arpeggio",
+           "melody-cells": "the lead styles replaced the struck melody"}
 LANE_FAMS = {"drums", "kick-phrases", "strum"}
 EXTS = (".mid", ".musicxml")
 DERIVED = ("status", "file", "symbols", "symbols_mode", "onsets")
@@ -38,8 +42,7 @@ STATUS = {"approved": 1, "candidate": 0, "retired": 2}     # the generated *_STA
 # what a pattern sounds like, to tell a renamed or saved-as copy of an entry
 SOUND_KEYS = {"drums": ("hit", "ghost", "hit_b", "ghost_b", "poly3", "two_bar"), "kick-phrases": ("a", "b"),
               "progressions": ("n", "bars_per_chord", "chords"), "comp-rhythms": ("strikes", "second", "first"),
-              "strum": ("kind", "steps"), "lead-arp": ("kind", "notes", "tones", "at", "len"),
-              "melody-cells": ("mask",)}
+              "strum": ("kind", "steps")}
 NOTICES = []                                    # (bar, note) from the file being decoded
 
 DRUM_LANE = {ln[2]: i for i, ln in enumerate(export.DRUM_LANES)}
@@ -47,13 +50,11 @@ STROKE_OF = {ln[2]: ln[0] for ln in export.STROKES}
 XML_LANES = {"drums": {(ln[3], ln[4]): ln[2] for ln in export.DRUM_LANES},
              "kick-phrases": {(ln[3], ln[4]): ln[2] for ln in export.DRUM_LANES},
              "strum": {(ln[3], ln[4]): ln[2] for ln in export.STROKES}}
-REF_TONES = [60, 64, 67, 71, 72, 76, 79, 83]    # the reference Cmaj7's chord tones up two octaves: index = tone - 1
 SHAPES = [("maj7", {0, 4, 7, 11}), ("7", {0, 4, 7, 10}), ("m7", {0, 3, 7, 10}), ("m7b5", {0, 3, 6, 10})]
 EXTENSIONS = {1, 2, 3, 5, 6, 8, 9}              # 9ths, 11ths, 13ths over a 7th chord
 TITLE_RE = re.compile(r"^Progression [^:]*: .*\((vamp|loop|jazzy); ([a-z, ]+); ([A-Za-z, ]+)\)\s*$")
 META_FIELDS = {"drums": ("pattern_family", "half_time", "src"), "kick-phrases": (), "progressions": ("kind", "moods", "modes",
-               "src"), "comp-rhythms": ("vel_range", "second_vel_pct", "busy_over", "busy_steps"), "strum": (),
-               "lead-arp": ("weight",), "melody-cells": ("weight",)}
+               "src"), "comp-rhythms": ("vel_range", "second_vel_pct", "busy_over", "busy_steps"), "strum": ()}
 # the comp rhythms written as strikes in a bar (the stabs are their own shape), with their tables' C names
 STRIKES = {"held": "COMP_HELD", "half": "COMP_HALF", "held-on-2": "COMP_HELD2", "light-eighths": "COMP_LIGHT8",
            "held-on-2-and-4": "COMP_HELD24"}
@@ -204,26 +205,6 @@ def decode(fam, key, score, base):
             e["first"] = firsts.pop()
             e["second"] = second
             e["len"] = next(x["len"] for x in notes if x["start"] == e["first"])
-    elif fam == "lead-arp":
-        only_bars(notes, 1, "a lead-arp pattern")
-        ns = one_per_onset(notes, "a lead-arp line")
-        if e.get("kind") == "rhythm":
-            e["notes"] = [[x["start"], x["len"]] for x in ns]
-        elif e.get("kind") == "pattern":
-            tones = []
-            for x in ns:
-                if x["pitch"] not in REF_TONES:
-                    raise Refused(1, f"note {x['pitch']} is not a chord tone of the reference Cmaj7 (C4 E4 G4 B4)")
-                tones.append(REF_TONES.index(x["pitch"]))
-            e["tones"] = tones
-        elif e.get("kind") == "landing":
-            if len(ns) != 1:
-                raise Refused(1, "a landing is one note")
-            e["at"], e["len"] = ns[0]["start"], ns[0]["len"]
-    elif fam == "melody-cells":
-        on = sorted({x["start"] for x in notes})
-        e["onsets"] = on
-        e["mask"] = export.hx(sum(1 << s for s in on if s < 16), 1)
     return e
 
 
@@ -325,13 +306,6 @@ def rows_from_model(model):
     pats = by_index("strum", "pattern")
     t["strum"], t["strum_status"] = [e["steps"] for e in pats], [st(e) for e in pats]
     t["strum_ballad_fill"] = by_index("strum", "fill")[0]["steps"]
-    rh, pa, la = (by_index("lead-arp", k) for k in ("rhythm", "pattern", "landing"))
-    t["arp_rhythms"], t["arp_rhythms_status"] = [e["notes"] for e in rh], [st(e) for e in rh]
-    t["arp_patterns"], t["arp_patterns_status"] = [e["tones"] for e in pa], [st(e) for e in pa]
-    t["landings"] = {"at": [e["at"] for e in la], "len": [e["len"] for e in la], "w": [e["weight"] for e in la]}
-    mc = by_index("melody-cells")
-    t["melody_cells"] = [[int(e["mask"], 16), e["weight"]] for e in mc]
-    t["melody_cells_status"] = [st(e) for e in mc]
     kicks = [{"id": e["id"], "a": e["a"], "b": e["b"], **({} if e["status"] == "approved" else {"status": e["status"]})}
              for e in model["kick-phrases"].values()]
     return t, kicks
@@ -361,8 +335,8 @@ def gen_c(t):
     H = [head, "#ifndef SONG_PATTERNS_GEN_H", "#define SONG_PATTERNS_GEN_H", "#include <stdint.h>",
          '#include "library.h"', "",
          "/* Each *_STATUS runs parallel to its table: 1 approved (the roll draws it), 0 candidate (the workbench",
-         "   only, until Sam approves it: patterns/status.json), 2 retired (never drawn). The comp rhythms, the landings",
-         "   and the ballad's fill are fixed entries, always approved. */",
+         "   only, until Sam approves it: patterns/status.json), 2 retired (never drawn). The comp rhythms and the",
+         "   ballad's fill are fixed entries, always approved. */",
          "",
          "/* drums (LIB_PATTERNS) and progressions (LIB_PROGS): the types and the tables in library.h */",
          "extern const uint8_t LIB_PATTERNS_STATUS[];",
@@ -398,23 +372,6 @@ def gen_c(t):
          "extern const uint8_t STRUM_PAT_STATUS[STRUM_NPAT];",
          "extern const char STRUM_BALLAD_FILL[];",
          "",
-         "/* lead.c's arpeggio rhythms ({at, len}, ended by {-1, 0}), arpeggio patterns (chord tones 0-3, ended by -1)",
-         "   and the six landings (at, len, weight in percent) */",
-         f"#define LEAD_NRHY {len(t['arp_rhythms'])}",
-         "extern const int8_t LEAD_RHY[LEAD_NRHY][9][2];",
-         "extern const uint8_t LEAD_RHY_STATUS[LEAD_NRHY];",
-         f"#define LEAD_NPAT {len(t['arp_patterns'])}",
-         "extern const int8_t LEAD_PAT[LEAD_NPAT][6];",
-         "extern const uint8_t LEAD_PAT_STATUS[LEAD_NPAT];",
-         "extern const int8_t LEAD_LANDING_AT[6], LEAD_LANDING_LEN[6];",
-         "extern const uint8_t LEAD_LANDING_W[6];",
-         "",
-         "/* melody.c's one-beat rhythm cells (bit i: an onset on 16th i of the beat) and their weights */",
-         f"#define MELODY_NCELLS {len(t['melody_cells'])}",
-         "extern const uint8_t MELODY_CELLS[MELODY_NCELLS];",
-         "extern const uint8_t MELODY_CELL_W[MELODY_NCELLS];",
-         "extern const uint8_t MELODY_CELLS_STATUS[MELODY_NCELLS];",
-         "",
          "#endif", ""]
     C = [head, '#include "patterns_gen.h"', "",
          "/* Degrees are 0-based in the song's mode; {degree, alter, quality}. A progression lists only the modes",
@@ -449,29 +406,13 @@ def gen_c(t):
              f"0x{sum(1 << x for x in s['busy_steps']):04X}}};")
     C += ["", "const char *const STRUM_PAT[STRUM_NPAT] = {"] + [f"    {c_str(x)}," for x in t["strum"]] + [
         "};", "const uint8_t STRUM_PAT_STATUS[STRUM_NPAT] = " + c_list(t["strum_status"]) + ";",
-        f"const char STRUM_BALLAD_FILL[] = {c_str(t['strum_ballad_fill'])};", "",
-        "const int8_t LEAD_RHY[LEAD_NRHY][9][2] = {"]
-    for r in t["arp_rhythms"]:
-        C.append("    {" + ", ".join(c_list(x) for x in list(r) + [[-1, 0]]) + "},")
-    C += ["};", "const uint8_t LEAD_RHY_STATUS[LEAD_NRHY] = " + c_list(t["arp_rhythms_status"]) + ";",
-          "const int8_t LEAD_PAT[LEAD_NPAT][6] = {"]
-    for p in t["arp_patterns"]:
-        C.append("    " + c_list(list(p) + ([-1] if len(p) < 6 else [])) + ",")
-    la = t["landings"]
-    C += ["};", "const uint8_t LEAD_PAT_STATUS[LEAD_NPAT] = " + c_list(t["arp_patterns_status"]) + ";",
-          "const int8_t LEAD_LANDING_AT[6] = " + c_list(la["at"]) + ";",
-          "const int8_t LEAD_LANDING_LEN[6] = " + c_list(la["len"]) + ";",
-          "const uint8_t LEAD_LANDING_W[6] = " + c_list(la["w"]) + ";", "",
-          "const uint8_t MELODY_CELLS[MELODY_NCELLS] = " + c_list((c[0] for c in t["melody_cells"]), "0x{:X}") + ";",
-          "const uint8_t MELODY_CELL_W[MELODY_NCELLS] = " + c_list(c[1] for c in t["melody_cells"]) + ";",
-          "const uint8_t MELODY_CELLS_STATUS[MELODY_NCELLS] = " + c_list(t["melody_cells_status"]) + ";", ""]
+        f"const char STRUM_BALLAD_FILL[] = {c_str(t['strum_ballad_fill'])};", ""]
     return "\n".join(C), "\n".join(H)
 
 
 def option_blocks(model, text):
     """workbench/options.json's generated blocks: the kick phrases, the drum patterns (named as before; a new one by its
-       file), and the strum and arpeggio patterns the workbench's override rows force ({id: the model's, index: the
-       table's})"""
+       file), and the strum patterns the workbench's override row forces ({id: the model's, index: the table's})"""
     old = {p["id"]: p["name"] for p in json.loads(text).get("patterns", [])}
     st = lambda e: f', "status": "{e["status"]}"'  # noqa: E731
     name = lambda e: json.dumps(e["file"].split("/", 1)[1])  # noqa: E731
@@ -483,8 +424,7 @@ def option_blocks(model, text):
     def indexed(fam, kind):
         es = sorted((x for x in model[fam].items() if x[1]["kind"] == kind), key=lambda x: x[1]["index"])
         return [f'    {{ "id": "{k}", "index": {e["index"]}, "name": {name(e)}{st(e)} }}' for k, e in es]
-    return {"patterns": drums, "kickPhrases": kicks, "strumPats": indexed("strum", "pattern"),
-            "arpRhythms": indexed("lead-arp", "rhythm"), "arpPatterns": indexed("lead-arp", "pattern")}
+    return {"patterns": drums, "kickPhrases": kicks, "strumPats": indexed("strum", "pattern")}
 
 
 def options_text(text, blocks):
@@ -523,18 +463,7 @@ def defaults(fam, stem, model, meta):
     if fam == "strum":
         n = sum(1 for e in es.values() if e["kind"] == "pattern")
         return str(export.strum_id(n)), {"index": n, "kind": "pattern"}
-    if fam == "lead-arp":
-        m = re.match(r"(rhythm|pattern|landing)-", stem.split("/", 1)[1])
-        kind = meta.get("kind") if meta and meta.get("kind") in ("rhythm", "pattern", "landing") else \
-            m.group(1) if m else None
-        if kind is None:
-            raise Refused(None, "a new lead-arp file names its kind: start its name with rhythm-, pattern- or landing-")
-        if kind == "landing":
-            raise Refused(None, "the landings are fixed (six): edit those files instead of adding one")
-        n = sum(1 for e in es.values() if e["kind"] == kind)
-        return f"{kind}-{n + 1}", {"kind": kind, "index": n}
-    n = len(es)
-    return str(n + 1), {"index": n, "weight": 1}
+    raise Refused(None, f"no new {fam} pattern")
 
 
 def with_meta(fam, base, meta):
@@ -547,8 +476,8 @@ def with_meta(fam, base, meta):
 
 # -------------------------------------------------------------------------------------------------- status.json
 def fixed(fam, e):
-    """the comp rhythms, the landings and the ballad's fill: fixed entries, always approved"""
-    return fam == "comp-rhythms" or e.get("kind") in ("landing", "fill")
+    """the comp rhythms and the ballad's fill: fixed entries, always approved"""
+    return fam == "comp-rhythms" or e.get("kind") == "fill"
 
 
 def set_status(pat, model, notes, refuse):
@@ -586,9 +515,7 @@ def drawn_left(model):
     def none(es):
         return es and not any(e["status"] == "approved" for e in es)
     out = []
-    for fam, kind, what in (("drums", None, "drum pattern"), ("strum", "pattern", "strum pattern"),
-                            ("lead-arp", "rhythm", "arpeggio rhythm"), ("lead-arp", "pattern", "arpeggio pattern"),
-                            ("melody-cells", None, "melody cell")):
+    for fam, kind, what in (("drums", None, "drum pattern"), ("strum", "pattern", "strum pattern")):
         if none([e for e in model[fam].values() if kind is None or e.get("kind") == kind]):
             out.append(f"no approved {what} would be left: keep at least one approved")
     for mood in validate.MOODS:
@@ -611,6 +538,14 @@ def run(pat, gen, options, check=False):
     model = json.loads((pat / "model.json").read_text())
     manifest = json.loads((pat / ".manifest.json").read_text()) if (pat / ".manifest.json").exists() else {}
     stems = {}
+    for fam, why in REMOVED.items():
+        d = pat / fam
+        gone = sorted(p.name for p in d.iterdir() if p.suffix in EXTS) if d.is_dir() else []
+        if gone:
+            print(f"import: refused: patterns/{fam}/{gone[0]}: {fam} is a removed family ({why}): delete "
+                  f"patterns/{fam}/")
+            print("import: nothing written")
+            return 1
     for fam in FAMS:
         d = pat / fam
         if not d.is_dir():

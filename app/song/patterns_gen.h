@@ -8,8 +8,8 @@
 #include "library.h"
 
 /* Each *_STATUS runs parallel to its table: 1 approved (the roll draws it), 0 candidate (the workbench
-   only, until Sam approves it: patterns/status.json), 2 retired (never drawn). The comp rhythms, the landings
-   and the ballad's fill are fixed entries, always approved. */
+   only, until Sam approves it: patterns/status.json), 2 retired (never drawn). The comp rhythms and the
+   ballad's fill are fixed entries, always approved. */
 
 /* drums (LIB_PATTERNS) and progressions (LIB_PROGS): the types and the tables in library.h */
 extern const uint8_t LIB_PATTERNS_STATUS[];
@@ -44,22 +44,5 @@ extern const patterns_stabs_t COMP_STABS;
 extern const char *const STRUM_PAT[STRUM_NPAT];
 extern const uint8_t STRUM_PAT_STATUS[STRUM_NPAT];
 extern const char STRUM_BALLAD_FILL[];
-
-/* lead.c's arpeggio rhythms ({at, len}, ended by {-1, 0}), arpeggio patterns (chord tones 0-3, ended by -1)
-   and the six landings (at, len, weight in percent) */
-#define LEAD_NRHY 6
-extern const int8_t LEAD_RHY[LEAD_NRHY][9][2];
-extern const uint8_t LEAD_RHY_STATUS[LEAD_NRHY];
-#define LEAD_NPAT 6
-extern const int8_t LEAD_PAT[LEAD_NPAT][6];
-extern const uint8_t LEAD_PAT_STATUS[LEAD_NPAT];
-extern const int8_t LEAD_LANDING_AT[6], LEAD_LANDING_LEN[6];
-extern const uint8_t LEAD_LANDING_W[6];
-
-/* melody.c's one-beat rhythm cells (bit i: an onset on 16th i of the beat) and their weights */
-#define MELODY_NCELLS 7
-extern const uint8_t MELODY_CELLS[MELODY_NCELLS];
-extern const uint8_t MELODY_CELL_W[MELODY_NCELLS];
-extern const uint8_t MELODY_CELLS_STATUS[MELODY_NCELLS];
 
 #endif

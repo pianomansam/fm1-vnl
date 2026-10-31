@@ -6,6 +6,7 @@
 #include "harmony.h"
 #include "theory.h"
 #include "groove.h"
+#include "rng.h"
 
 int lead_motif_from(lead_motif_t *m, int n, const int *at, const int *len, const int *si)
 {
@@ -41,21 +42,41 @@ int lead_motif_to(const lead_motif_t *m, int si0, int *at, int *len, int *si)
     return i;
 }
 
+/* The styles each lead instrument plays (the spec's fits, bit LS_*): the flute any of the eight; the felt piano '60s
+   Jazz, Jazz-Hop, Film Score, Ambient; the vibes Impressionism, '60s Jazz, Jazz-Hop, Bossa Nova, Ambient; the Knight
+   '60s Jazz, Film Score, Ambient. Another lead instrument (until the sets drop it as a lead) takes the flute's. */
+#define LSB(s) (1u << (s))
+static unsigned style_fit(int ins)
+{
+    if (ins == INS_FELT_PIANO) return LSB(LS_JAZZ60S) | LSB(LS_JAZZHOP) | LSB(LS_FILMSCORE) | LSB(LS_AMBIENT);
+    if (ins == INS_VIBES)
+        return LSB(LS_IMPRESSIONISM) | LSB(LS_JAZZ60S) | LSB(LS_JAZZHOP) | LSB(LS_BOSSA) | LSB(LS_AMBIENT);
+    if (ins == INS_KNIGHT) return LSB(LS_JAZZ60S) | LSB(LS_FILMSCORE) | LSB(LS_AMBIENT);
+    return LSB(LS_N) - 1u;
+}
+
 int leads_style(const song_roll_t *r)
 {
-    int s = song_ov()->lead_style;
-    (void)r;                                             /* (the style roll comes with the sets: rolled, none yet) */
-    return s >= 2 && s < 2 + LS_N ? s - 2 : -1;
+    const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
+    int s = song_ov()->lead_style, k, i;
+    unsigned fit;
+    rng_t g;
+    if (s >= 2 && s < 2 + LS_N) return s - 2;            /* forced (0 and 1, the retired engines: rolled) */
+    fit = style_fit(set ? set->lead : INS_FLUTE);       /* rolled: one of the instrument's fits, evenly (an interim
+                                                           draw: the style roll, by fit and the set's flavor, replaces
+                                                           it), from the song's seed (a lead re-roll keeps it) */
+    for (i = k = 0; i < LS_N; i++) k += (fit >> i) & 1u;
+    rng_seed(&g, r->seed, 143);
+    k = rng_int(&g, k);
+    for (i = 0; i < LS_N; i++)
+        if ((fit >> i) & 1u && k-- == 0) break;
+    return i;
 }
 
 /* The centers: each style's median lead pitch in its spike's five A/B songs (seeds 101-105: 1 flute G Aeolian,
    2 flute Db Lydian, 3 vibes B Dorian, 4 felt piano Ab Mixolydian, 5 flute A Ionian; the renders' json "lead" notes,
    app/build/new, 2026-10-29), per lead instrument; a half rounded down ('60s Jazz on the flute, 80.5). No spike put
    the Knight on the lead: it takes the style's flute center, as does any other lead instrument.
-   An older engine (no style; Task 6 removes them) plans over its own floor (a 4th over the keys' top); its center
-   sets only the keys' window: its median lead pitch over percussive keys before the band (1500 songs, lead styles
-   Task 1: flute 77, felt piano 75, vibes 77, Knight 75; the synth pluck and Emilyguitar 75, the saw lead 77: another
-   instrument 76).
 
                       flute  felt   vibes  Knight  other   (notes measured: flute / felt / vibes)
      Impressionism     79     80     76     79      79      119 /  80 / 49
@@ -65,18 +86,16 @@ int leads_style(const song_roll_t *r)
      Jazz-Hop          76     80     76     76      76      105 /  63 / 40
      Film Score        78     80     76     78      78      139 /  79 / 46
      Bossa Nova        82     80     79     82      82      129 /  81 / 48
-     Ambient           77     82     80     77      77      110 /  85 / 38
-     (no style)        77     75     77     75      76                                                        */
-static const uint8_t CENTER[LS_N + 1][5] = {
+     Ambient           77     82     80     77      77      110 /  85 / 38                                    */
+static const uint8_t CENTER[LS_N][5] = {
     {79, 80, 76, 79, 79}, {80, 78, 78, 80, 80}, {80, 77, 78, 80, 80}, {77, 82, 76, 77, 77},
     {76, 80, 76, 76, 76}, {78, 80, 76, 78, 78}, {82, 80, 79, 82, 82}, {77, 82, 80, 77, 77},
-    {77, 75, 77, 75, 76},
 };
 
 int leads_center(int style, int ins)
 {
     int col = ins == INS_FLUTE ? 0 : ins == INS_FELT_PIANO ? 1 : ins == INS_VIBES ? 2 : ins == INS_KNIGHT ? 3 : 4;
-    int c = CENTER[style >= 0 && style < LS_N ? style : LS_N][col], lo, hi;
+    int c = CENTER[style >= 0 && style < LS_N ? style : 0][col], lo, hi;
     song_ov_range(ins, &lo, &hi);
     return c < lo + 6 ? lo + 6 : c > hi - 6 ? hi - 6 : c;
 }
@@ -259,7 +278,7 @@ void leads_put(lead_state_t *ls, const leads_ctx_t *c, int p, int note, int end,
 
 /* ---- the dispatch ---- */
 
-/* the styles' planners and motifs, by LS_* (each style's file; none: the older engines plan) */
+/* the styles' planners and motifs, by LS_* (each style's file) */
 typedef void leads_plan_fn(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b, int bar,
                            const leads_next_t *nx);
 typedef void leads_motif_fn(const song_roll_t *r, lead_motif_t *m);
@@ -270,16 +289,14 @@ static leads_motif_fn *const MOTIF[LS_N] = {impressionism_motif, romanticism_mot
 
 int leads_motif(const song_roll_t *r, lead_motif_t *m)
 {
-    int s = leads_style(r);
-    if (s < 0 || !MOTIF[s]) return 0;
-    MOTIF[s](r, m);
+    MOTIF[leads_style(r)](r, m);
     return 1;
 }
 
-/* the bar's context: its range (over percussive keys the band, leads_range_bar; over a pad its place, as the older
-   engines keep it, the workbench's lead_oct moving it), the bass's pitch classes, and the next bar's chord */
-int leads_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b, int bar, const int keys[4],
-                   const int nkeys[4], const int *pcs, int np, int can_push)
+/* the bar's context: its range (over percussive keys the band, leads_range_bar; over a pad its place, the
+   workbench's lead_oct moving it), the bass's pitch classes, and the next bar's chord */
+void leads_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b, int bar, const int keys[4],
+                    const int nkeys[4], const int *pcs, int np, int can_push)
 {
     const lib_prog_t *pr = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
@@ -289,7 +306,6 @@ int leads_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b
     int loop = pr && pr->n ? pr->n * bpc : 4, npcs[5], i;
     leads_ctx_t c;
     leads_next_t nx;
-    if (s < 0 || !PLAN[s]) return 0;
     c.r = r; c.keys = keys; c.pcs = pcs; c.np = np; c.bass = 0; c.can_push = can_push;
     c.pad = set && lib_ins_sustained(set->chords);
     c.vibes = set && set->lead == INS_VIBES;
@@ -320,5 +336,4 @@ int leads_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b
         if (bn) nx.bass |= 1u << (bn % 12);
     }
     PLAN[s](ls, &c, b, bar, &nx);
-    return 1;
 }

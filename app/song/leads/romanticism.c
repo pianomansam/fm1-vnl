@@ -70,7 +70,7 @@ static int ro_spine(const leads_ctx_t *c, const int *pcs, int np, unsigned bass,
         if (prev) cost += mv == 0 ? 12 : mv <= 2 ? 0 : mv <= 4 ? 2 : (mv - 4) * 4 + 4;
         if (iv == 0) cost += 3;
         if (!chord) cost += 1;
-        if (c->keys[3] && note == c->keys[3] + 12 && !song_ov()->lead_double) cost += 4;
+        if (c->keys[3] && note == c->keys[3] + 12) cost += 4;
         if (cost < bc) { bc = cost; best = note; }
     }
     return best;

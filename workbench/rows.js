@@ -3,7 +3,7 @@
 // new value forces elsewhere. Pure: no DOM, no engine (desk.js drives the engine; smoke.mjs tests this directly).
 //   opts: options.json; state: { values: {row id: value}, locks: Set of row ids, legal: {prog, mode} (optional),
 //   unavailable: Set of kit ids whose samples are missing (optional: offered marked, never chosen), strums: the keys
-//   strum in the staged song, hybrid: its lead plays the arpeggio (both optional) };
+//   strum in the staged song (optional) };
 //   lib: wb_library()'s maps and progressions.
 
 const SONG = "Song", INS = "Instruments", VP = "Voicing and phrase", DRUMS = "Drums", TEX = "Texture";
@@ -32,10 +32,6 @@ export const ROWS = [
   { id: "phrase", group: VP, label: "Lead phrase", kind: "reroll", key: "PHRASE_SALT", part: "lead" },
   { id: "leadStyle", group: VP, label: "Lead style", kind: "ov", key: "LEAD_STYLE", source: "leadStyles" },
   { id: "leadOct", group: VP, label: "Lead register", kind: "ov", key: "LEAD_OCT", source: "registers" },
-  { id: "arpRhythm", group: VP, label: "Lead arpeggio rhythm", kind: "ov", key: "ARP_RHY", source: "arpRhythms" },
-  { id: "arpPattern", group: VP, label: "Lead arpeggio pattern", kind: "ov", key: "ARP_PAT", source: "arpPatterns" },
-  { id: "leadDouble", group: VP, label: "Lead may double other voices", kind: "ov", key: "LEAD_DOUBLE",
-    source: "onOff" },
   { id: "busyThin", group: VP, label: "Busy lead thins the comping", kind: "ov", key: "NO_BUSY_THIN",
     source: "onOffInverted" },
   { id: "voicings", group: VP, label: "Keys voicings", kind: "reroll", key: "VOICING_SALT", part: "keys" },
@@ -98,18 +94,18 @@ function allOptions(r, state, opts, lib) {
     case "comping":
       return [ROLLED, ...opts.comping.filter((c) => !c.keys || c.keys.includes(v.keys))
         .map((c) => ({ value: c.id, name: c.name, status: c.status }))];
-    case "leadStyles": return [ROLLED, { value: 0, name: "Phrase" }, { value: 1, name: "Hybrid" }];
+    case "leadStyles":   // 2 + leads.h's LS_*; the retired engines 0 and 1 behind "show retired"
+      return [ROLLED, ...opts.leadStyles.map((s) => ({ value: s.id, name: s.name, status: s.status }))];
     case "registers": return [{ value: -1, name: "Down an octave" }, { value: 0, name: "As rolled", rolled: true },
                               { value: 1, name: "Up an octave" }];
     case "padOn": return [ROLLED, ...list(["Off", "On"])];
-    case "onOff": return list(["Off", "On"]);
     case "onOffInverted": return [{ value: 0, name: "On" }, { value: 1, name: "Off" }];   // the engine's flag turns it off
     case "padPlaces": return [ROLLED, ...list(["Below the lead", "With the lead", "Above the lead"])];
     case "rides": return [ROLLED, ...list(["None", "Throughout", "One section"])];
     case "kits": return opts.kits.map((k) => ({ value: k.id, name: k.name, status: k.status, family: k.family,
                                                 unavailable: !!state.unavailable?.has(k.id) }));
     case "patterns": return opts.patterns.map((p) => ({ value: p.id, name: p.name, status: p.status, key: String(p.id) }));
-    case "strumPats": case "arpRhythms": case "arpPatterns":   // a table index (the override forces it)
+    case "strumPats":   // a table index (the override forces it)
       return [ROLLED, ...(opts[r.source] || []).map((p) => ({ value: p.index, name: p.name, status: p.status, key: p.id }))];
     case "kickPhrases": return [{ value: "", name: "The pattern's own" },
                                 ...opts.kickPhrases.map((k) => ({ value: k.id, name: k.id, status: k.status ?? "approved",
@@ -210,7 +206,7 @@ export function conflicts(r, value, state, opts, rnd = Math.random, lib) {
 }
 
 // an override row's "as rolled" value (the registers', the switches' and the re-rolls' 0, the others' -1)
-export const rolled = (r) => (r.source === "registers" || r.source === "onOff" || r.source === "onOffInverted" ||
+export const rolled = (r) => (r.source === "registers" || r.source === "onOffInverted" ||
                                r.kind === "reroll" ? 0 : -1);
 
 // The page's values from wb_state() (C: wb_consts()); the family is the page's, so it isn't here. A shorter ov list
@@ -232,8 +228,7 @@ export function fromEngine(s, C, opts) {
 }
 
 // the pattern family (patterns/model.json's) each row's options come from: a candidate there can be approved
-const FAMILY = { patterns: "drums", progs: "progressions", strumPats: "strum", arpRhythms: "lead-arp",
-                 arpPatterns: "lead-arp", kickPhrases: "kick-phrases" };
+const FAMILY = { patterns: "drums", progs: "progressions", strumPats: "strum", kickPhrases: "kick-phrases" };
 
 // The row's current value when it is a candidate pattern: { family, id, name } for POST /approve (patterns/status.json),
 // else null
@@ -247,8 +242,6 @@ export function approval(r, state, opts, lib) {
 export function inactive(r, state, opts) {
   if (r.id === "strumPat" && state.strums === false)
     return "The keys don't strum in this song: a strum pattern plays with strummed comping (the guitars).";
-  if ((r.id === "arpRhythm" || r.id === "arpPattern") && state.hybrid === false)
-    return "The lead sings phrases in this song: the arpeggio plays when the lead style is Hybrid (or a percussive lead).";
   if (r.id === "ride") {
     const kit = opts.kits.find((k) => k.id === state.values.kit);
     if (!kit?.ride) return `${kit ? kit.name : "This kit"} has no ride: the ride section plays on the sampled kits only.`;

@@ -728,10 +728,13 @@ console.log("desk: dice and registers");
         `the lead register shows what the engine applies (asked -1, plays ${desk.values.leadOct}: "${l.message}")`);
   ex.wb_ov_set(C.OV.LEAD_OCT, -1);
   const refused = await stagedLead();
-  ex.wb_seed(21);
+  let up = 0;                        // (a seed whose lead an octave up moves: the rolled style's register allows it)
   ex.wb_ov_set(C.OV.LEAD_OCT, 1);
-  const applied = await stagedLead();
-  check(refused === 0 && applied === 1, `the probe instance: seed 5 down refused (${refused}), seed 21 up applied (${applied})`);
+  for (let seed = 21; seed <= 60 && !up; seed++) {
+    ex.wb_seed(seed);
+    if ((await stagedLead()) === 1) up = seed;
+  }
+  check(refused === 0 && up > 0, `the probe instance: seed 5 down refused (${refused}), seed ${up} up applied`);
 }
 
 console.log("desk: a quantum rendered before every call (the worklet's interleaving)");
@@ -1930,13 +1933,15 @@ console.log("parts: re-rolls, history, locks, reactions (Task 5)");
           `re-roll all: the drums' newest roll is what plays (kick ${desk.values.kick})`);
   }
 
-  // a lead roll that moves the keys gives the keys-room reason
+  // a lead roll that moves the keys gives the keys-room reason (a seed whose lead rolls move the keys' comping)
   {
-    const { desk } = await deskOn(2, lcg(37));
     const said = [];
-    for (let i = 0; i < 8 && !said.length; i++) {
-      const r = await desk.reroll("lead");
-      if (/Keys moved/.test(r.message)) said.push(r.message);
+    for (let seed = 2; seed <= 12 && !said.length; seed++) {
+      const { desk } = await deskOn(seed, lcg(37));
+      for (let i = 0; i < 8 && !said.length; i++) {
+        const r = await desk.reroll("lead");
+        if (/Keys moved/.test(r.message)) said.push(r.message);
+      }
     }
     check(said.length && said.every((m) => /Keys moved: they make room for the lead/.test(m)),
           `a lead roll that moves the keys: "${said[0] ?? "(none moved them)"}"`);
@@ -2017,12 +2022,17 @@ console.log("parts: re-rolls, history, locks, reactions (Task 5)");
     check(back.ok && desk.values.kick === "k3", "and ◀ steps back to the hand-picked kick");
   }
 
-  // a keys-room reaction: seed 40's bass salt 1 moves the lead, and the keys make room for it
+  // a keys-room reaction: a bass salt that moves the lead, and the keys make room for it. (The lead styles keep clear
+  // of every bass line the salt draws in songs 1-100, so no song shows it: the reasons are checked as the desk words
+  // them; seed 40's bass roll, which moved the old engines' lead, now leaves it.)
   {
+    const { reaction } = await import("../desk.js");
+    const said = ["lead", "keys"].map((p) => reaction(p, "bass", ["lead", "keys"])).join(" ");
+    check(said === "Lead moved: it keeps clear of the bass. Keys moved: they make room for the lead.",
+          `a bass roll that moves the lead and the keys says so ("${said}")`);
     const { desk } = await deskOn(40);
     const r = await desk.reacting("bass", () => desk.set("bassLine", 1, { dice: true }));
-    check(r.ok && /Lead moved: it keeps clear of the bass/.test(r.message) && /Keys moved: they make room for the lead/.test(r.message),
-          `a bass roll that moves the lead and the keys says so ("${r.message}")`);
+    check(r.ok && !/Lead moved/.test(r.message), `seed 40's bass roll leaves the lead ("${r.message}")`);
   }
 
   // Review Focus 5: a muted part re-rolls (its roll greyed, new notes in it); unmuting plays the new roll
@@ -2099,78 +2109,56 @@ console.log("parts: re-rolls, history, locks, reactions (Task 5)");
   }
 }
 
-console.log("the lead-doubling switch (patterns and edits, Task 1)");
+console.log("the lead styles row and the retired lead engines (lead styles, Task 6)");
 {
-  const { readEvents } = await import("../wb.js");
   const ex = await load(), call = caller(ex);
   ex.wb_seed(21);
   ex.wb_apply();
   const desk = new Desk(call, C, OPTS, await call("wb_library"), { rnd: lcg(9) });
   await desk.read(true);
-  const r = row("leadDouble"), names = optionsFor(r, desk.state, OPTS).map((o) => o.name);
-  check(r && r.kind === "ov" && r.key === "LEAD_DOUBLE" && r.label === "Lead may double other voices" &&
-        JSON.stringify(names) === JSON.stringify(["Off", "On"]) && desk.values.leadDouble === 0 && ex.wb_ov_get(OV.LEAD_DOUBLE) === 0,
-        `a "Lead may double other voices" row: off, on (${names.join(", ")}); a new song's is off`);
-  // the lead's notes of a seed's committed song, with the switch off or on (a probe instance's wb_events)
-  const leadOf = async (seed, on) => {
-    const play = await load();
-    play.wb_seed(seed);
-    play.wb_ov_set(OV.LEAD_DOUBLE, on);
-    play.wb_apply();
-    const pex = await load();
-    new Uint8Array(pex.memory.buffer, pex.wb_commit_ptr(), pex.wb_stage_size())
-      .set(new Uint8Array(play.memory.buffer, play.wb_commit_ptr(), play.wb_stage_size()));
-    pex.wb_events(0);
-    return JSON.stringify(readEvents(pex).filter((e) => e.role === V.LEAD).map((e) => [e.bar, e.step, e.note]));
+  const r = row("leadStyle"), os = optionsFor(r, desk.state, OPTS), all = optionsFor(r, desk.state, OPTS, { showRetired: true });
+  const GENRES = ["Impressionism", "Romanticism", "'60s Jazz", "Modal Jazz", "Jazz-Hop", "Film Score", "Bossa Nova", "Ambient"];
+  check(os[0].rolled && JSON.stringify(os.slice(1).map((o) => [o.value, o.name])) === JSON.stringify(GENRES.map((g, i) => [i + 2, g])) &&
+        all.filter((o) => o.status === "retired").map((o) => o.value).join() === "0,1" && desk.values.leadStyle === -1,
+        `the lead style row: as rolled, then the eight styles by genre (2 + LS_*); the phrase planner and the hybrid (0, 1) retired (${os.map((o) => o.name).join(", ")})`);
+  check(["leadDouble", "arpRhythm", "arpPattern"].every((id) => !row(id)) && ["LEAD_DOUBLE", "ARP_RHY", "ARP_PAT"].every((k) => C.OV[k] === undefined) &&
+        OPTS.arpRhythms === undefined && OPTS.arpPatterns === undefined && ex.wb_lead_hybrid === undefined,
+        "no lead-doubling or arpeggio rows, overrides or options (the old engines are gone)");
+  // an old snapshot naming a retired engine (the hybrid, the phrase planner) and the lead-doubling switch: it restores
+  // with the lead style as rolled, said in the message, the switch ignored
+  const leadOf = (e) => {
+    const s = JSON.parse(cstr(e, e.wb_state()));
+    return s.ov[OV.LEAD_STYLE];
   };
-  let moved = 0;
-  for (let seed = 1; seed <= 60 && !moved; seed++) if ((await leadOf(seed, 0)) !== (await leadOf(seed, 1))) moved = seed;
-  check(moved > 0, `on, it moves some song's lead (seed ${moved})`);
-  // it toggles, landing at the next bar line
-  const pl = await load();
-  pl.wb_seed(21);
-  pl.wb_apply();
-  pl.wb_play(1);
-  until(pl, () => pl.wb_bar() === 3, 60 * SR);
-  const n0 = pl.wb_catchups();
-  pl.wb_ov_set(OV.LEAD_DOUBLE, 1);
-  pl.wb_apply();
-  render(pl, Q);
-  const waiting = pl.wb_bar() === 3 && pl.wb_catchups() === n0 && JSON.parse(cstr(pl, pl.wb_live_state())).ov[OV.LEAD_DOUBLE] === 0;
-  until(pl, () => pl.wb_bar() === 4, 60 * SR);
-  render(pl, Q);
-  check(waiting && pl.wb_catchups() === n0 + 1 && JSON.parse(cstr(pl, pl.wb_live_state())).ov[OV.LEAD_DOUBLE] === 1,
-        "set on in bar 3, it lands at bar 4's line (one catch-up)");
-  const t = await desk.set("leadDouble", 1);
-  check(t.ok !== false && desk.values.leadDouble === 1 && ex.wb_ov_get(OV.LEAD_DOUBLE) === 1, "the row turns it on");
-  // it rides in snapshots; an older one (no such row) restores it off
-  const snap = await desk.snapshot();
-  const e2 = await load(), d2 = new Desk(caller(e2), C, OPTS, await caller(e2)("wb_library"));
-  const miss = await d2.restore(snap);
-  check(snap.rows.leadDouble === 1 && !miss.length && d2.values.leadDouble === 1 && e2.wb_ov_get(OV.LEAD_DOUBLE) === 1,
-        `a snapshot keeps it on (mismatch: ${miss.join(", ") || "none"})`);
-  const old = JSON.parse(JSON.stringify(snap));
-  delete old.rows.leadDouble;
-  old.locks = [];
+  for (const [v, name] of [[1, "Hybrid"], [0, "Phrase planner"]]) {
+    const old = await desk.snapshot();
+    old.rows.leadStyle = v;
+    old.rows.leadDouble = 1;
+    old.rows.arpPattern = 2;
+    old.locks = [];
+    const e2 = await load(), d2 = new Desk(caller(e2), C, OPTS, await caller(e2)("wb_library"));
+    const miss = await d2.restore(old);
+    check(!miss.length && d2.values.leadStyle === -1 && leadOf(e2) === -1 && new RegExp(`Lead style: ${name} is retired`).test(d2.message) &&
+          !("leadDouble" in d2.values) && !("arpPattern" in d2.values),
+          `a snapshot with the retired ${name.toLowerCase()} and the lead-doubling switch restores on a rolled style, the switch ignored (mismatch: ${miss.join(", ") || "none"}; "${d2.message}")`);
+  }
+  const fresh2 = await desk.snapshot();
+  fresh2.rows.leadStyle = 2 + 4;    // Jazz-Hop
+  fresh2.locks = [];
   const e3 = await load(), d3 = new Desk(caller(e3), C, OPTS, await caller(e3)("wb_library"));
-  const miss3 = await d3.restore(old);
-  check(!miss3.length && d3.values.leadDouble === 0 && e3.wb_ov_get(OV.LEAD_DOUBLE) === 0,
-        `an older snapshot (no such row) restores it off (mismatch: ${miss3.join(", ") || "none"})`);
-  const s12 = JSON.parse(cstr(ex, ex.wb_state()));
-  check(fromEngine({ ...s12, ov: s12.ov.slice(0, 12) }, C, OPTS).leadDouble === 0, "a 12-entry ov list reads it off");
-  await desk.set("leadDouble", 0);
-  check(desk.values.leadDouble === 0 && ex.wb_ov_get(OV.LEAD_DOUBLE) === 0, "and back off");
+  const miss3 = await d3.restore(fresh2);
+  check(!miss3.length && d3.values.leadStyle === 6 && leadOf(e3) === 6 && d3.message === "",
+        `a snapshot naming a style restores it, nothing said (mismatch: ${miss3.join(", ") || "none"}; "${d3.message}")`);
 }
 
-console.log("candidates: the strum and arpeggio rows, Approve (patterns and edits, Task 4)");
+console.log("candidates: the strum row, Approve (patterns and edits, Task 4)");
 {
   const { readEvents } = await import("../wb.js");
   const { approval, inactive } = await import("../rows.js");
   const ex = await load(), call = caller(ex), lib = await call("wb_library");
   check(lib.progs.length === GEN_STATUS.LIB_PROGS.length && lib.progs.every((p, i) => p.status === GEN_STATUS.LIB_PROGS[i]),
         `wb_library's progressions carry their status (patterns_gen.c's: ${lib.progs.filter((p) => p.status !== "approved").length} not approved)`);
-  const rows = [["strumPat", "STRUM_PAT", "strumPats", "STRUM_PAT"], ["arpRhythm", "ARP_RHY", "arpRhythms", "LEAD_RHY"],
-                ["arpPattern", "ARP_PAT", "arpPatterns", "LEAD_PAT"]];
+  const rows = [["strumPat", "STRUM_PAT", "strumPats", "STRUM_PAT"]];
   ex.wb_seed(21);
   ex.wb_apply();
   const desk = new Desk(call, C, OPTS, lib, { rnd: lcg(4) });
@@ -2201,11 +2189,6 @@ console.log("candidates: the strum and arpeggio rows, Approve (patterns and edit
   for (let i = 0; i < ns; i++) forced.push((await partOf(strum, V.CHORD, [...gtr, [OV.STRUM_PAT, i]], nylon)).ev);
   check(base.comp === 5 && forced.filter((e) => e !== base.ev).length === ns - 1 && new Set(forced).size === ns,
         `a strummed song plays each of the ${ns} forced strum patterns: the rolled one as rolled, the others each its own`);
-  const lead = await partOf(21, V.LEAD, [[OV.LEAD_STYLE, 1]]), arps = [], rhys = [];
-  for (let i = 0; i < OPTS.arpPatterns.length; i++) arps.push((await partOf(21, V.LEAD, [[OV.LEAD_STYLE, 1], [OV.ARP_PAT, i]])).ev);
-  for (let i = 0; i < OPTS.arpRhythms.length; i++) rhys.push((await partOf(21, V.LEAD, [[OV.LEAD_STYLE, 1], [OV.ARP_RHY, i]])).ev);
-  check(arps.filter((e) => e !== lead.ev).length === arps.length - 1 && rhys.filter((e) => e !== lead.ev).length === rhys.length - 1,
-        "the hybrid lead plays each forced arpeggio pattern and rhythm (all but the rolled one differ from it)");
   const d2 = new Desk(call, C, OPTS, lib, { rnd: lcg(4) });
   await d2.set("seed", strum);
   await d2.set("keys", nylon);
@@ -2217,14 +2200,8 @@ console.log("candidates: the strum and arpeggio rows, Approve (patterns and edit
   await d2.set("comp", -1);
   await d2.set("keys", ins("Rhodes"));
   check(d2.strums === false && inactive(row("strumPat"), d2.state, OPTS), "on a song whose keys don't strum, the strum row is inactive");
-  await d2.set("leadStyle", 0);
-  const sung = d2.hybrid === false && ["arpRhythm", "arpPattern"].every((id) => inactive(row(id), d2.state, OPTS));
-  await d2.set("leadStyle", 1);
-  check(sung && d2.hybrid === true && ex.wb_lead_hybrid() === 1 && ["arpRhythm", "arpPattern"].every((id) => !inactive(row(id), d2.state, OPTS)),
-        "the arpeggio rows are inactive while the lead sings phrases, active when it plays the hybrid");
-  const s13 = JSON.parse(cstr(ex, ex.wb_state()));
-  check(["strumPat", "arpRhythm", "arpPattern"].every((id) => fromEngine({ ...s13, ov: s13.ov.slice(0, 13) }, C, OPTS)[id] === -1),
-        "an older engine's 13-entry ov list reads them as rolled");
+  const s12 = JSON.parse(cstr(ex, ex.wb_state()));
+  check(fromEngine({ ...s12, ov: s12.ov.slice(0, 12) }, C, OPTS).strumPat === -1, "an older engine's 12-entry ov list reads it as rolled");
 
   // a candidate: offered (marked), never the dice's pick; approval names it for POST /approve
   // (a new entry past whatever options.json and the library hold, candidates already imported among them)
@@ -2382,7 +2359,7 @@ console.log("the busy-lead thinning row (on by default; off, the existing compin
   check(!a.mismatch.length && !b.mismatch.length && Buffer.compare(wav(a), wav(b)) !== 0,
         `a replay plays it: off and on render differently (mismatch: ${[...a.mismatch, ...b.mismatch].join(", ") || "none"})`);
   const s16 = JSON.parse(cstr(ex, ex.wb_state()));
-  check(fromEngine({ ...s16, ov: s16.ov.slice(0, 16) }, C, OPTS).busyThin === 0, "a 16-entry ov list reads it on");
+  check(fromEngine({ ...s16, ov: s16.ov.slice(0, 13) }, C, OPTS).busyThin === 0, "a 13-entry ov list reads it on");
   await desk.set("busyThin", 0);
   check(desk.values.busyThin === 0 && ex.wb_ov_get(OV.NO_BUSY_THIN) === 0, "and back on");
 }

@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """The engine's rules for a pattern entry (model.json's shape), checked before import regenerates any table.
    check(fam, e) -> [(bar or None, rule)]: one entry. check_family(fam, entries) -> [(key, bar, rule)]: the rules
-   across a family (landing weights, unique ids). Bars are 1-based. A rule names what the engine needs, so the
-   message tells Sam what to change."""
+   across a family (the comp rhythms' names, the strum's fill). Bars are 1-based. A rule names what the engine needs,
+   so the message tells Sam what to change."""
 import re
 
 PF = ["PF_BOOMBAP", "PF_HALFTIME", "PF_SPARSE", "PF_BRUSHES", "PF_BOSSA"]
@@ -129,16 +129,6 @@ def check(fam, e):
                 bad(i // 16 + 1, f"an up stroke ({c}) only on an \"and\" (steps 2, 6, 10, 14), not step {i % 16}")
         if not s.strip("."):
             bad(1, "a strum pattern has at least one stroke")
-    elif fam == "lead-arp":
-        _check_arp(e, bad)
-    elif fam == "melody-cells":
-        on = e.get("onsets", [])
-        if not on:
-            bad(1, "a melody cell has at least one onset")
-        if any(not _int(s, 0, 3) for s in on):
-            bad(1, "a melody cell is one beat: onsets on 16ths 1-4 of beat 1 only")
-        if not _int(e.get("weight"), 1, 255):
-            bad(None, "a melody cell's weight is 1-255")
     return out
 
 
@@ -229,45 +219,9 @@ def _check_comp(e, bad):
             bad(None, "busy_over is 0-16 and busy_steps 1-16 steps 0-15")
 
 
-def _check_arp(e, bad):
-    kind = e.get("kind")
-    if kind == "rhythm":
-        notes = e.get("notes") or []
-        if not 1 <= len(notes) <= 8:
-            bad(1, "an arpeggio rhythm has 1-8 notes")
-        end = 0
-        for at, ln in notes:
-            if not (_int(at, 0, 15) and _int(ln, 1, 16)) or at < end:
-                bad(1, "an arpeggio rhythm's notes are in the bar, in order, never overlapping")
-            end = at + ln
-    elif kind == "pattern":
-        tones = e.get("tones") or []
-        if not 2 <= len(tones) <= 6:
-            bad(1, "an arpeggio pattern has 2-6 notes")
-        for t in tones:
-            if _int(t, 4, 99):
-                bad(1, f"a chord-tone index {t + 1} > 4: the reference voicing has 4 tones (C4 E4 G4 B4)")
-            elif not _int(t, 0, 3):
-                bad(1, "an arpeggio pattern's notes are chord tones 1-4 of the reference Cmaj7")
-    elif kind == "landing":
-        if not (_int(e.get("at"), 0, 15) and _int(e.get("len"), 1, 16)):
-            bad(1, "a landing is one note in the bar")
-        if not _int(e.get("weight"), 0, 100):
-            bad(None, "a landing's weight is 0-100")
-    else:
-        bad(None, "a lead-arp entry is a rhythm, a pattern or a landing")
-
-
 def check_family(fam, entries):
     """[(key, bar, rule)] across the family"""
     out = []
-    if fam == "lead-arp":
-        ws = [e.get("weight", 0) for e in entries.values() if e.get("kind") == "landing"]
-        if len(ws) != 6:
-            out.append((None, None, "the landings are exactly six (the engine's ways a chord change lands)"))
-        elif sum(w for w in ws if isinstance(w, int)) != 100:
-            k = next(k for k, e in entries.items() if e.get("kind") == "landing")
-            out.append((k, None, f"the landings' weights add up to 100 (they add up to {sum(ws)})"))
     if fam == "comp-rhythms" and sorted(e.get("name") for e in entries.values()) != \
             ["half", "held", "held-on-2", "held-on-2-and-4", "light-eighths", "stabs"]:
         out.append((None, None, "comp-rhythms are held, half, stabs, held-on-2, light-eighths and held-on-2-and-4, "

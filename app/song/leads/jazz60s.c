@@ -57,7 +57,7 @@ static int jz_target(const leads_ctx_t *c, const int *pcs, int np, unsigned bass
             int a = leads_coll_step(amask, note, adir), gap = a > note ? a - note : note - a;
             if (gap > 3) cost += 4 * (gap - 3);
         }
-        if (c->keys[3] && note == c->keys[3] + 12 && !song_ov()->lead_double) cost += 4;
+        if (c->keys[3] && note == c->keys[3] + 12) cost += 4;
         if (cost < bc) { bc = cost; best = note; }
     }
     return best;

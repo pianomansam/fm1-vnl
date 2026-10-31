@@ -86,29 +86,3 @@ const char *const STRUM_PAT[STRUM_NPAT] = {
 };
 const uint8_t STRUM_PAT_STATUS[STRUM_NPAT] = {1, 1, 1, 1};
 const char STRUM_BALLAD_FILL[] = "D.....u.d.......";
-
-const int8_t LEAD_RHY[LEAD_NRHY][9][2] = {
-    {{0, 2}, {2, 2}, {4, 2}, {6, 2}, {8, 2}, {10, 2}, {12, 2}, {14, 2}, {-1, 0}},
-    {{0, 3}, {3, 1}, {4, 3}, {7, 1}, {8, 3}, {11, 1}, {12, 4}, {-1, 0}},
-    {{0, 2}, {2, 2}, {6, 2}, {8, 2}, {10, 2}, {14, 2}, {-1, 0}},
-    {{0, 4}, {4, 2}, {6, 2}, {8, 4}, {12, 1}, {13, 1}, {14, 2}, {-1, 0}},
-    {{0, 3}, {3, 3}, {6, 2}, {8, 3}, {11, 3}, {14, 2}, {-1, 0}},
-    {{2, 2}, {4, 2}, {6, 3}, {10, 2}, {12, 2}, {14, 2}, {-1, 0}},
-};
-const uint8_t LEAD_RHY_STATUS[LEAD_NRHY] = {1, 1, 1, 1, 1, 1};
-const int8_t LEAD_PAT[LEAD_NPAT][6] = {
-    {0, 1, 2, 3, -1},
-    {3, 2, 1, 0, -1},
-    {0, 1, 2, 3, 2, 1},
-    {0, 2, 1, 3, -1},
-    {0, 3, 1, 3, -1},
-    {3, 0, 2, 1, -1},
-};
-const uint8_t LEAD_PAT_STATUS[LEAD_NPAT] = {1, 1, 1, 1, 1, 1};
-const int8_t LEAD_LANDING_AT[6] = {0, 0, 2, 3, 2, 4};
-const int8_t LEAD_LANDING_LEN[6] = {2, 4, 4, 3, 4, 4};
-const uint8_t LEAD_LANDING_W[6] = {25, 30, 10, 5, 20, 10};
-
-const uint8_t MELODY_CELLS[MELODY_NCELLS] = {0x1, 0x4, 0x5, 0x9, 0x8, 0x6, 0xD};
-const uint8_t MELODY_CELL_W[MELODY_NCELLS] = {3, 3, 3, 1, 2, 1, 1};
-const uint8_t MELODY_CELLS_STATUS[MELODY_NCELLS] = {1, 1, 1, 1, 1, 1, 1};

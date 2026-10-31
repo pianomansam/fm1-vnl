@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The sequencer. One tick = one 16th: the block covering the bar (plan_at), the bar's chord, then groove, harmony
-   and melody for that step, sorted by delay. The sample position of every step is tracked as an integer plus a
+   and the lead for that step, sorted by delay. The sample position of every step is tracked as an integer plus a
    float fraction, advanced by song_step_samples() after each tick, so a caller that accumulates the same way sees
    the same boundary samples. The pad layer (pads.h) is planned a 4-bar group at a time, after the lead's bar.
 
@@ -11,14 +11,13 @@
 
    Requests: one slot per field, landing on the next 4-bar boundary, applied at that boundary's first tick (Mood
    first, then by field). What each field rebuilds:
-     RF_KEY      the roll's key; the motif is transposed (same scale steps; another starting degree, or an octave,
-                 if that keeps it in the lead's register); melody_plan again (which phrases may restate it)
+     RF_KEY      the roll's key (the lead's style plans in it from the boundary on)
      RF_TEMPO    a linear glide of step samples over 2 bars; RF_BARS is kept
-     RF_MOTION,  plan_build again; blocks before the boundary stay, the new plan's blocks from it on; melody_plan
-     RF_MAP       again on the merged plan
+     RF_MOTION,  plan_build again; blocks before the boundary stay, the new plan's blocks from it on
+     RF_MAP
      RF_MOOD     roll_set (re-picks an illegal mode/progression/set), one roll_dice of the progression toward the
-                 mood; motif and phrases rebuilt (as for RF_MODE, RF_PROG, RF_COLOR: the motif depends on the chords)
-   A boundary rebuilds at most one plan, one motif and one phrase plan (all bounded loops).
+                 mood
+   A boundary rebuilds at most one plan (a bounded loop).
      RF_BARS     ignored: the bar count never changes
      the rest    roll_set only (set, pattern, swing, dust, noise, ambience take effect from the boundary) */
 #include <stdint.h>
@@ -188,65 +187,6 @@ static int loop_bars(const song_roll_t *r)
     return n > 0 ? n : 4;
 }
 
-/* ---- the motif under a new key: the same scale steps from the same degree, kept in the lead's register ---- */
-
-static void mode_offsets(int mode, int *off)
-{
-    uint16_t pool = th_mode_pool(mode);
-    int i, n = 0;
-    for (i = 0; i < 12 && n < 7; i++)
-        if ((pool >> i) & 1) off[n++] = i;
-    while (n < 7) { off[n] = n ? off[n - 1] : 0; n++; }
-}
-
-static int deg_of(int key, const int *off, int note)    /* as melody.c reads a motif */
-{
-    int d = note - key + 12, pc, i;
-    if (d < 0) d = 0;
-    pc = d % 12;
-    for (i = 6; i > 0 && off[i] > pc; i--) {}
-    return d / 12 * 7 + i;
-}
-
-static int note_of(int key, const int *off, int deg)
-{
-    if (deg < 0) deg = 0;
-    return key - 12 + deg / 7 * 12 + off[deg % 7];
-}
-
-/* semitones the motif's notes fall outside [lo, hi] when it starts on `first` */
-static int motif_spill(const motif_t *m, int key, const int *off, int first, int lo, int hi)
-{
-    int i, d0 = deg_of(key, off, first), spill = 0;
-    for (i = 0; i < m->n && i < 16; i++) {
-        int n = note_of(key, off, d0 + m->step[i]);
-        spill += n < lo ? lo - n : n > hi ? n - hi : 0;
-    }
-    return spill;
-}
-
-/* The motif moved by d semitones keeps its scale steps. If no octave of it fits the lead's register, it starts on
-   the nearest scale degree that fits (same steps, from another degree); failing that (never with 3-8 notes of a
-   20-semitone register), it is rebuilt. Returns 0 when a rebuild is needed. */
-static int transpose_motif(song_t *s, int d)
-{
-    static const int8_t shift[15] = {0, -7, 7, -1, 1, -2, 2, -3, 3, -4, 4, -5, 5, -6, 6};
-    int off[7], i, key = s->roll.v[RF_KEY], d0;
-    int mood = s->roll.v[RF_MOOD] < 0 ? 0 : s->roll.v[RF_MOOD] > 3 ? 3 : s->roll.v[RF_MOOD];
-    int lo = 64 + LIB_MOODS[mood].lead_shift;
-    if (s->motif.n == 0) return 1;
-    mode_offsets(s->roll.v[RF_MODE], off);
-    d0 = deg_of(key, off, s->motif.first + d);
-    for (i = 0; i < 15; i++) {
-        int f = note_of(key, off, d0 + shift[i]);
-        if (f >= 0 && f <= 127 && motif_spill(&s->motif, key, off, f, lo, lo + 20) == 0) {
-            s->motif.first = (uint8_t)f;
-            return 1;
-        }
-    }
-    return 0;
-}
-
 /* ---- the plan from a boundary on ---- */
 
 static void merge_plan(song_t *s, int B)
@@ -299,26 +239,21 @@ static void keys_win_for(song_t *s)
     leads_band(&s->roll, &lo, &hi);
     s->keys_win = lo - 1;
     s->win_oct = song_ov()->lead_oct;
-    s->win_style = song_ov()->lead_style;
+    s->win_style = (int8_t)leads_style(&s->roll);
 }
 
 /* ---- requests landing at B ---- */
 
-enum { RE_PLAN = 1, RE_MELODY = 2, RE_PHRASES = 4 };
-
+/* 1 where the plan is rebuilt from B (Motion, Map) */
 static int apply_one(song_t *s, int f, int B)
 {
     song_roll_t before = s->roll;
     int v = s->pend_val[f];
     s->pend[f] = 0;
     switch (f) {
-    case RF_KEY: {
-        int d;
+    case RF_KEY:
         roll_set(&s->roll, RF_KEY, v);
-        d = ((s->roll.v[RF_KEY] - before.v[RF_KEY]) % 12 + 18) % 12 - 6;   /* -6..5 */
-        if (d && !transpose_motif(s, d)) return RE_MELODY;
-        return d ? RE_PHRASES : 0;
-    }
+        return 0;
     case RF_TEMPO: {
         float to;
         roll_set(&s->roll, RF_TEMPO, v);
@@ -335,16 +270,14 @@ static int apply_one(song_t *s, int f, int B)
         roll_set(&s->roll, RF_MOOD, v);
         if (s->roll.v[RF_MOOD] == before.v[RF_MOOD]) return 0;
         roll_dice(&s->roll, RF_PROG, (uint32_t)B);
-        return RE_MELODY;
+        return 0;
     case RF_BARS:
         return 0;
     default:
         roll_set(&s->roll, f, v);
         s->roll.v[RF_BARS] = before.v[RF_BARS];
         if (memcmp(&before, &s->roll, sizeof before) == 0) return 0;
-        if (f == RF_MOTION || f == RF_MAP) return RE_PLAN;
-        if (f == RF_MODE || f == RF_PROG || f == RF_COLOR) return RE_MELODY;
-        return 0;
+        return f == RF_MOTION || f == RF_MAP;
     }
 }
 
@@ -354,9 +287,7 @@ static void apply_requests(song_t *s, int B)
     if (s->pend[RF_MOOD] && s->pend_bar[RF_MOOD] == B) re |= apply_one(s, RF_MOOD, B);
     for (f = 0; f < RF_N; f++)
         if (s->pend[f] && s->pend_bar[f] == B) re |= apply_one(s, f, B);
-    if (re & RE_PLAN) merge_plan(s, B);
-    if (re & RE_MELODY) melody_motif_for(&s->roll, &s->plan, song_ov_phrase_seed(s->roll.seed), &s->motif);
-    if (re) melody_plan_for(&s->roll, &s->plan, &s->motif, &s->ph);
+    if (re) merge_plan(s, B);
     if (set != s->roll.v[RF_SET] || motion != s->roll.v[RF_MOTION] || map != s->roll.v[RF_MAP]) ride_for(s);
     if (set != s->roll.v[RF_SET]) {                  /* another lead instrument: its band */
         keys_win_for(s);
@@ -472,8 +403,6 @@ void song_start(song_t *s, const song_roll_t *r)
     memset(s, 0, sizeof *s);
     s->roll = *r;
     plan_build(&s->roll, &s->plan);
-    melody_motif_for(&s->roll, &s->plan, song_ov_phrase_seed(s->roll.seed), &s->motif);
-    melody_plan_for(&s->roll, &s->plan, &s->motif, &s->ph);
     s->glide_to = s->glide_from = s->ss = ss_of(s->roll.v[RF_TEMPO] > 0 ? s->roll.v[RF_TEMPO] : 80);
     s->glide_t0 = -64;
     s->state = s->roll.v[RF_BARS] > 0 ? SS_PLAYING : SS_ENDED;
@@ -489,7 +418,7 @@ int song_tick(song_t *s, song_ev_t *out, int max)
     uint32_t salt;
     float gs;
     if (!s || s->state != SS_PLAYING) return 0;
-    if (song_ov()->lead_oct != s->win_oct || song_ov()->lead_style != s->win_style)
+    if (song_ov()->lead_oct != s->win_oct || leads_style(&s->roll) != s->win_style)
         keys_win_for(s);                            /* the workbench moved the lead's band */
     harmony_keys_window(0, s->keys_win);           /* this song's, while it ticks (cleared below) */
     bar = s->bar;
@@ -535,13 +464,6 @@ int song_tick(song_t *s, song_ev_t *out, int max)
         }
         n += harmony_step(&s->roll, b, bar, step, pass, gs, &s->voicing, s->lead.onsets >= 4, salt, buf + n,
                           BUF - n);
-        n += melody_step(&s->roll, &s->plan, &s->ph, &s->motif, bar, step, gs, song_ov_phrase_seed(salt), buf + n,
-                         BUF - n);
-        if (lead_plays(b)) {                        /* the lead's blocks: no melody lead */
-            for (i = k = 0; i < n; i++)
-                if (buf[i].voice != V_LEAD) buf[k++] = buf[i];
-            n = k;
-        }
         n += lead_step(&s->lead, step, gs, buf + n, BUF - n);
         if (step == 0) n += pads_step(s, bar, buf + n, BUF - n);
         {   /* the layer's level this step (song_pad_level) */
@@ -552,7 +474,7 @@ int song_tick(song_t *s, song_ev_t *out, int max)
         if (bass_spike)
             n = spike_bass(s, b, bar, step, gs, pcs, np, buf, n);
     }
-    {   /* a bass note (a swung one runs a little long) ends by the next chord change: the melody keeps clear of
+    {   /* a bass note (a swung one runs a little long) ends by the next chord change: the lead keeps clear of
            the chord it plays over, not of the one before */
         const lib_prog_t *pr = lib_prog_by_id((uint8_t)s->roll.v[RF_PROG]);
         int bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1;

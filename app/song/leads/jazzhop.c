@@ -122,7 +122,7 @@ static int jh_fit(lead_state_t *ls, const leads_ctx_t *c, const int *off, const 
         if (iv == 2 || iv == 9 || (minor && iv == 5)) cost -= 2;   /* the 9th, 13th, 11th: the sampled-jazz color */
         if (!leads_is_ct(note, c->pcs, c->np) && !((pent >> (note % 12)) & 1u)) cost += 3;
         if (prev && (note - prev > 9 || prev - note > 9)) cost += 20;
-        if (c->keys[3] && note == c->keys[3] + 12 && !song_ov()->lead_double) cost += 4;
+        if (c->keys[3] && note == c->keys[3] + 12) cost += 4;
         for (k = 0; k < n; k++)                       /* a moved note costs less than a register jump */
             if (!leads_ok(c, leads_coll_step(pent, note, off[k]), on[k] % 8 == 0)) cost += 15;
         if (cost < bc) { bc = cost; best = note; }

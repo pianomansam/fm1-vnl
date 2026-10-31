@@ -2,19 +2,15 @@
 /* Candidates are workbench-only until approved (patterns and edits, Task 4). Built against the real generated tables
    and against tools/patterns/variant.py's (one entry added to every drawn family: a candidate, or approved) by
    tests/candidates.sh:
-     candidates_test never   no candidate is drawn by the roll, the dice, the strum, the lead's arpeggio or the melody
-                             over 1000 seeds; every candidate can be forced (roll_set, the overrides) and it plays
+     candidates_test never   no candidate is drawn by the roll, the dice or the strum over 1000 seeds; every candidate can be forced (roll_set, the overrides) and it plays
      candidates_test drawn   the last entry of every drawn table (variant.py's, approved) is drawn at least once
    Both print "songs <hash>": every event of 100 chained songs, which candidates.sh compares across the builds. */
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
-#include "rng.h"
 #include "library.h"
 #include "roll.h"
 #include "harmony.h"
-#include "lead.h"
-#include "melody.h"
 #include "strum.h"
 #include "song.h"
 #include "override.h"
@@ -29,7 +25,7 @@ static int fails;
         }                                                                                                          \
     } while (0)
 
-static const song_ov_t NONE = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, 0, -1, -1, -1, 0};
+static const song_ov_t NONE = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0};
 
 static int prog_index(int id)
 {
@@ -83,13 +79,13 @@ static uint32_t songs_hash(void)
 }
 
 /* what the roll and the parts draw over 1000 chained seeds, counted per table entry */
-typedef struct { int prog[256], pattern[256], strum[64], pat[64], rhy[64], cell[64]; } drawn_t;
+typedef struct { int prog[256], pattern[256], strum[64]; } drawn_t;
 
 static void draw_all(drawn_t *d)
 {
     song_roll_t prev, r;
     uint32_t seed, k;
-    int i, slow, pat, rhy;
+    int slow;
     memset(d, 0, sizeof *d);
     for (seed = 1; seed <= 1000; seed++) {
         roll_song(seed > 1 ? &prev : NULL, seed, &r);
@@ -108,14 +104,6 @@ static void draw_all(drawn_t *d)
             d->prog[prog_index(t.v[RF_PROG])]++;
         }
         d->strum[strum_pattern(&r, &slow)]++;
-        lead_arp_pick(&r, &pat, &rhy);
-        d->pat[pat]++;
-        d->rhy[rhy]++;
-        {
-            rng_t g;
-            rng_seed(&g, seed, 7);
-            for (i = 0; i < 8; i++) d->cell[melody_cell_pick(&g)]++;
-        }
     }
 }
 
@@ -127,19 +115,13 @@ static void test_never(void)
     for (i = 0; i < LIB_NPROGS; i++) CHECK(LIB_PROGS_STATUS[i] == 1 || !d.prog[i], "candidate prog %d drawn %d times", LIB_PROGS[i].id, d.prog[i]);
     for (i = 0; i < LIB_NPATTERNS; i++) CHECK(LIB_PATTERNS_STATUS[i] == 1 || !d.pattern[i], "candidate pattern %d drawn", LIB_PATTERNS[i].id);
     for (i = 0; i < STRUM_NPAT; i++) CHECK(STRUM_PAT_STATUS[i] == 1 || !d.strum[i], "candidate strum %d drawn", i);
-    for (i = 0; i < LEAD_NPAT; i++) CHECK(LEAD_PAT_STATUS[i] == 1 || !d.pat[i], "candidate arp pattern %d drawn", i);
-    for (i = 0; i < LEAD_NRHY; i++) CHECK(LEAD_RHY_STATUS[i] == 1 || !d.rhy[i], "candidate arp rhythm %d drawn", i);
-    for (i = 0; i < MELODY_NCELLS; i++) CHECK(MELODY_CELLS_STATUS[i] == 1 || !d.cell[i], "candidate melody cell %d drawn", i);
     for (i = 0; i < LIB_NPROGS; i++) n += LIB_PROGS_STATUS[i] != 1;
     for (i = 0; i < LIB_NPATTERNS; i++) n += LIB_PATTERNS_STATUS[i] != 1;
     for (i = 0; i < STRUM_NPAT; i++) n += STRUM_PAT_STATUS[i] != 1;
-    for (i = 0; i < LEAD_NPAT; i++) n += LEAD_PAT_STATUS[i] != 1;
-    for (i = 0; i < LEAD_NRHY; i++) n += LEAD_RHY_STATUS[i] != 1;
-    for (i = 0; i < MELODY_NCELLS; i++) n += MELODY_CELLS_STATUS[i] != 1;
-    printf("never: %d candidate(s), none drawn over 1000 seeds (the roll, the dice, the strum, the arpeggio, the melody)\n", n);
+    printf("never: %d candidate(s), none drawn over 1000 seeds (the roll, the dice, the strum)\n", n);
 }
 
-/* a seed whose song strums (style), or whose lead plays the hybrid's arpeggio */
+/* a seed whose song strums (style) */
 static int first_seed(int strum, song_roll_t *r)
 {
     uint32_t seed;
@@ -155,7 +137,7 @@ static void test_forced(void)
 {
     song_roll_t r, t;
     song_ov_t o;
-    int i, k, pat, rhy, slow, forced = 0;
+    int i, slow, forced = 0;
     uint32_t base;
     for (i = 0; i < LIB_NPATTERNS; i++) {
         if (LIB_PATTERNS_STATUS[i] == 1) continue;
@@ -194,23 +176,6 @@ static void test_forced(void)
         song_override(NULL);
         forced++;
     }
-    roll_song(NULL, 3, &r);
-    for (k = 0; k < 2; k++)
-        for (i = 0; i < (k ? LEAD_NRHY : LEAD_NPAT); i++) {
-            if ((k ? LEAD_RHY_STATUS : LEAD_PAT_STATUS)[i] == 1) continue;
-            o = NONE;
-            o.lead_style = 1;                       /* the hybrid plays the arpeggio */
-            song_override(&o);
-            base = song_hash(&r, 1u << V_LEAD);
-            if (k) o.arp_rhy = (int8_t)i;
-            else o.arp_pat = (int8_t)i;
-            song_override(&o);
-            lead_arp_pick(&r, &pat, &rhy);
-            CHECK((k ? rhy : pat) == i, "arp %s %d forced", k ? "rhythm" : "pattern", i);
-            CHECK(song_hash(&r, 1u << V_LEAD) != base, "arp %s %d plays", k ? "rhythm" : "pattern", i);
-            song_override(NULL);
-            forced++;
-        }
     printf("forced: %d candidate(s) picked and heard\n", forced);
 }
 
@@ -222,12 +187,8 @@ static void test_drawn(void)
     CHECK(LIB_PROGS_STATUS[LIB_NPROGS - 1] == 1 && d.prog[LIB_NPROGS - 1] > 0, "the last prog drawn %d times", d.prog[LIB_NPROGS - 1]);
     CHECK(LIB_PATTERNS_STATUS[LIB_NPATTERNS - 1] == 1 && d.pattern[LIB_NPATTERNS - 1] > 0, "the last pattern drawn %d times", d.pattern[LIB_NPATTERNS - 1]);
     CHECK(d.strum[STRUM_NPAT - 1] > 0, "the last strum pattern drawn %d times", d.strum[STRUM_NPAT - 1]);
-    CHECK(d.pat[LEAD_NPAT - 1] > 0, "the last arp pattern drawn %d times", d.pat[LEAD_NPAT - 1]);
-    CHECK(d.rhy[LEAD_NRHY - 1] > 0, "the last arp rhythm drawn %d times", d.rhy[LEAD_NRHY - 1]);
-    CHECK(d.cell[MELODY_NCELLS - 1] > 0, "the last melody cell drawn %d times", d.cell[MELODY_NCELLS - 1]);
-    printf("drawn: prog %d, pattern %d, strum %d, arp pattern %d, rhythm %d, melody cell %d (of 1000 seeds)\n",
-           d.prog[LIB_NPROGS - 1], d.pattern[LIB_NPATTERNS - 1], d.strum[STRUM_NPAT - 1], d.pat[LEAD_NPAT - 1],
-           d.rhy[LEAD_NRHY - 1], d.cell[MELODY_NCELLS - 1]);
+    printf("drawn: prog %d, pattern %d, strum %d (of 1000 seeds)\n", d.prog[LIB_NPROGS - 1],
+           d.pattern[LIB_NPATTERNS - 1], d.strum[STRUM_NPAT - 1]);
 }
 
 int main(int argc, char **argv)

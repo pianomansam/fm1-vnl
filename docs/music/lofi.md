@@ -174,8 +174,9 @@ pads_group`.
 ## Melody and ear candy (not refreshed: the lead is being rewritten)
 
 The 2026-10-24 rows here described the struck melody, the sustained lead's phrase planner and the ear candy.
-**Removed:** the ear candy (b4e00ff, Sam: "Remove the ear candy part completely"). The phrase planner and the hybrid
-lead are being replaced by the lead styles (ledger, "Leads"). Document the lead styles when that build lands.
+**Removed:** the ear candy (b4e00ff, Sam: "Remove the ear candy part completely"), and the phrase planner, the hybrid
+lead and the struck melody (lead styles Task 6: every song plays a lead style, `app/song/leads/`). Document the lead
+styles when that build lands.
 
 ## Sound: instruments, dust and bed (not refreshed on 2026-10-30)
 

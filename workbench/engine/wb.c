@@ -757,10 +757,7 @@ EXPORT void wb_ov_set(int key, int value)
     case WB_OV_PAD_SALT: o->pad_salt = (uint32_t)value; break;
     case WB_OV_DRUMS_SALT: o->drums_salt = (uint32_t)value; break;
     case WB_OV_PAD_ON: o->pad_on = (int8_t)value; break;
-    case WB_OV_LEAD_DOUBLE: o->lead_double = (int8_t)value; break;
     case WB_OV_STRUM_PAT: o->strum_pat = (int8_t)value; break;
-    case WB_OV_ARP_RHY: o->arp_rhy = (int8_t)value; break;
-    case WB_OV_ARP_PAT: o->arp_pat = (int8_t)value; break;
     case WB_OV_NO_BUSY_THIN: o->no_busy_thin = (int8_t)(value != 0); break;
     default: break;
     }
@@ -782,10 +779,7 @@ EXPORT int wb_ov_get(int key)
     case WB_OV_PAD_SALT: return (int)o->pad_salt;
     case WB_OV_DRUMS_SALT: return (int)o->drums_salt;
     case WB_OV_PAD_ON: return o->pad_on;
-    case WB_OV_LEAD_DOUBLE: return o->lead_double;
     case WB_OV_STRUM_PAT: return o->strum_pat;
-    case WB_OV_ARP_RHY: return o->arp_rhy;
-    case WB_OV_ARP_PAT: return o->arp_pat;
     case WB_OV_NO_BUSY_THIN: return o->no_busy_thin;
     default: return 0;
     }
@@ -814,19 +808,6 @@ EXPORT int wb_comp_applied(void)
     song_override(&live.ov);
     stage_set(0);
     return cs;
-}
-
-/* 1 if the staged song's lead plays the hybrid (the arpeggio the arp_rhy and arp_pat overrides force), 0 if it sings
-   phrases (lead_hybrid: the lead style override, else its instrument) */
-EXPORT int wb_lead_hybrid(void)
-{
-    int h;
-    stage_set(1);
-    song_override(&st.ov);
-    h = lead_hybrid(&st.roll);
-    song_override(&live.ov);
-    stage_set(0);
-    return h;
 }
 
 /* a seed or map change is a new song: a jump staged before it (a bar of the old song's sections) is dropped, so
@@ -1007,8 +988,7 @@ EXPORT const char *wb_consts(void)
         {"COMP", WB_OV_COMP}, {"LEAD_STYLE", WB_OV_LEAD_STYLE}, {"PAD_PLACE", WB_OV_PAD_PLACE}, {"RIDE", WB_OV_RIDE},
         {"KEYS_OCT", WB_OV_KEYS_OCT}, {"LEAD_OCT", WB_OV_LEAD_OCT}, {"VOICING_SALT", WB_OV_VOICING_SALT},
         {"PHRASE_SALT", WB_OV_PHRASE_SALT}, {"BASS_SALT", WB_OV_BASS_SALT}, {"PAD_SALT", WB_OV_PAD_SALT},
-        {"DRUMS_SALT", WB_OV_DRUMS_SALT}, {"PAD_ON", WB_OV_PAD_ON}, {"LEAD_DOUBLE", WB_OV_LEAD_DOUBLE},
-        {"STRUM_PAT", WB_OV_STRUM_PAT}, {"ARP_RHY", WB_OV_ARP_RHY}, {"ARP_PAT", WB_OV_ARP_PAT},
+        {"DRUMS_SALT", WB_OV_DRUMS_SALT}, {"PAD_ON", WB_OV_PAD_ON}, {"STRUM_PAT", WB_OV_STRUM_PAT},
         {"NO_BUSY_THIN", WB_OV_NO_BUSY_THIN},
         {"N", WB_OV_N}}, V[] = {
         {"CHORD", V_CHORD}, {"BASS", V_BASS}, {"LEAD", V_LEAD}, {"PAD", V_PAD}, {"KICK", V_KICK}, {"SNARE", V_SNARE},

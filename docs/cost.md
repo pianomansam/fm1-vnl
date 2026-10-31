@@ -1203,3 +1203,28 @@ saves nothing, since it keeps its users; trimming its organ-only paths is alread
 On ~406.4 KB measured last, the image is about **410.7 KB against the 409,600 B budget: about 1.1 KB over
 (estimated)**. RAM grows by +3.7 KB of data and bss: the sine, the two scanner lines, the pad organ's quarter-rate
 buffer, and a voice union about 64 B larger.
+
+### Lead styles Task 6: the old lead engines, the melody path and the lead-arp patterns go (2026-10-31)
+
+Removed: lead.c's phrase planner and hybrid arpeggio (lead.c keeps the dispatch), phrase.c, melody.c (the struck
+melody, which never sounded), the lead-arp and melody-cells tables (LEAD_RHY, LEAD_PAT, LEAD_LANDING_*, MELODY_CELLS)
+and the lead_double, arp_rhy and arp_pat overrides. Every song plays a lead style; a rolled song draws one of its lead
+instrument's fits evenly (leads_style, stream 143; Task 7's weighted roll replaces it).
+
+Flash: Docker hung (`./build.sh` gave no output in 3 minutes and was stopped), so this is **estimated** from host
+arm64 -Os objects (text + data, app/song and app/song/leads) against e7f983f: **-22.1 KB** (123,418 B to 101,310 B).
+
+| Object | Before | After | Delta |
+|--------|--------|-------|-------|
+| lead.o | 8,928 | 428 | -8,500 |
+| melody.o | 8,186 | 0 | -8,186 |
+| phrase.o | 4,230 | 0 | -4,230 |
+| song.o | 8,224 | 7,192 | -1,032 |
+| patterns_gen.o | 5,485 | 5,290 | -195 |
+| leads.o (the interim style draw) | 4,769 | 4,940 | +171 |
+| the eight style files (no lead_double test) | | | -144 |
+| override.o | 552 | 528 | -24 |
+
+On the ~410.7 KB estimated after the tonewheel organ, the image is about **388.6 KB against the 409,600 B budget:
+about 21 KB under (estimated)**. CPU: the styles were already planning every forced song; rolled songs now take the
+same path (a bar's plan, once a bar), with no melody step per 16th, so the tick costs no more than before.
