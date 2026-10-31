@@ -146,6 +146,15 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
 
 ## To revisit (Sam, after listening)
 
+- **The lead's level under the eight styles (lead-styles Task 6, 2026-10-31).** With the old engines gone, every
+  song plays a style, and the lead sits about 2-3 dB lower over the keys than under the old engines: median 6.2 dB
+  (was 8-10), set means 2.1 (Rhodes neo-soul) to 8.1. No sound changed; the test now guards the measured state.
+  Sam to judge; if it's too low, a lead-bus or per-style trim (gain only, the spikes' velocities kept).
+- **Old lead rules the styles don't keep (Task 6).** Dropped with the old engines, per "styles keep their spikes'
+  rules": the sustained lead never arpeggiating (styles run 17 in 1882 bars), percussive leads singing in 80% of
+  bars (Knight now 60%+), the Motion lever's "fewer notes, held longer" at low motion, and the lead reacting to a bass
+  re-roll (0 of 100 songs per style). Bring any back Sam misses.
+
 - **Hip hop record-style repetition for leads (Sam, 2026-10-29).** Claude's reading, to confirm with Sam: the lead
   behaves like a sampled phrase lifted from a record — a 1-, 2- or 4-bar phrase generated once, then played back
   identically every pass (same notes, timing, velocities, even its "imperfections"), the way a producer loops a
