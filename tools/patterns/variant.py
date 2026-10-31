@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Test only (tests/candidates.sh): the generated tables (patterns_gen.c and .h) from patterns/model.json with one
    entry added to every family the engine draws (a drum pattern, two progressions (one for a mood and mode no
-   approved progression suits), a strum pattern, an arpeggio rhythm
-   and pattern, a melody cell; a kick phrase too, the workbench's), each unlike every entry before it, as candidates
+   approved progression suits), a strum pattern; a kick phrase too, the workbench's), each unlike every entry before
+   it, as candidates
    or approved. files: the same entries as new .mid files in a copy of patterns/, for import.py to import (the
    workbench's smoke over tables with candidates: workbench/tools/candidates_smoke.sh).
 
@@ -41,14 +41,6 @@ def variant(model, status):
     n = sum(1 for e in m["strum"].values() if e["kind"] == "pattern")
     m["strum"][str(export.strum_id(n))] = {"index": n, "status": status, "kind": "pattern",
                                            "steps": "D.D.D.D.D.D.D.D.", "file": "strum/variant-strum"}
-    off_snare = [[0, 2], [2, 4], [6, 4], [10, 4], [14, 2]]                           # (the lead's draw avoids it)
-    for kind, field, v in (("rhythm", "notes", off_snare), ("pattern", "tones", [0, 3, 1, 2])):
-        n = sum(1 for e in m["lead-arp"].values() if e["kind"] == kind)
-        m["lead-arp"][f"{kind}-{n + 1}"] = {"kind": kind, "index": n, "status": status, field: v,
-                                            "file": f"lead-arp/{kind}-variant"}
-    n = len(m["melody-cells"])
-    m["melody-cells"][str(n + 1)] = {"index": n, "status": status, "mask": "0xF", "weight": 6, "onsets": [0, 1, 2, 3],
-                                     "file": "melody-cells/variant"}                   # every 16th, weighted heavily
     n = max(int(k[1:]) for k in m["kick-phrases"]) + 1
     m["kick-phrases"][f"k{n}"] = {"id": f"k{n}", "a": [0, 3, 8], "b": [0, 3, 8], "status": status,
                                   "file": f"kick-phrases/k{n}-variant"}

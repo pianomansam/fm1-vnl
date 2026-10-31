@@ -12,9 +12,8 @@ byte.
 ## Common conventions
 
 - **Grid:** 4/4, tempo 85, quantized to 16th notes (a step is a 16th; a bar is 16 steps; bar 1 starts at step 0).
-- **Files:** `<family>/<id>-<slug>.mid` and `.musicxml`. The id is the part before the first `-` of the slug (the
-  lead-arp ids, like `rhythm-2`, keep their own dash). Index-keyed tables (strum, lead-arp, melody-cells) have id =
-  the C index + 1.
+- **Files:** `<family>/<id>-<slug>.mid` and `.musicxml`. The id is the part before the first `-` of the slug.
+  Index-keyed tables (strum) have id = the C index + 1.
 - **MIDI:** format 1, PPQ 480 (a 16th = 120 ticks), as `app/host/score.c` writes songs: a conductor track (title,
   4/4, tempo, chord symbols as text events), then one track per part. Drum-lane families (drums, kick-phrases, strum)
   are on channel 10, notes 60 ticks long; pitched families on channel 1, notes as long as they sound.
@@ -30,8 +29,7 @@ byte.
   where it plays when picked, until Sam approves it) or `"retired"` (never drawn).
 - **`status.json`:** Sam's statuses, `{family: {id: "approved" | "candidate" | "retired"}}` (ids as in
   `model.json`). The workbench's **Approve** button (beside a candidate picked in its row) writes it; it may be
-  edited by hand (a melody cell has no workbench row). The importer applies it; the comp rhythms, the landings and
-  the ballad's fill are fixed (always approved).
+  edited by hand. The importer applies it; the comp rhythms and the ballad's fill are fixed (always approved).
 - **`.manifest.json`:** the SHA-256 of each `.mid` and `.musicxml` as last written, so the importer can tell which
   file of a pattern Sam edited (either may be edited alone).
 - **Names are stable, and export never deletes:** an entry's file name is fixed when it is first exported and kept
@@ -47,15 +45,18 @@ byte.
   Sam edited is never rewritten) and both hashes go in the manifest.
 - **New patterns:** a file whose name is not in `model.json` is a new pattern, as either file alone (the other is
   written for it). It keeps its file name, takes the next free id and is a **candidate** (the workbench only, until
-  approved). A new lead-arp file's name starts with `rhythm-` or `pattern-`. The comp rhythms (held, half, stabs,
-  held on 2, light eighths, held on 2 and 4) and the six landings are fixed: edit them, but a new comp rhythm is a
+  approved). The comp rhythms (held, half, stabs,
+  held on 2, light eighths, held on 2 and 4) are fixed: edit them, but a new comp rhythm is a
   new comping style in the engine (`harmony.c`'s `CS_*`, then `dump.c`, `export.py` and `import.py` learn its name,
   as held on 2, light eighths and held on 2 and 4 did), never a file dropped in. A strum pattern added past the fourth skips id 5 (the
   ballad's fill). The engine's roll draws approved entries only (`patterns_gen.h`'s `*_STATUS`), so a candidate
-  changes no song until approved: the workbench plays it when picked (the pattern and progression rows, and the
-  strum pattern and lead arpeggio rows). Approve it there (`status.json`), then run `tools/patterns/import.sh`: the
+  changes no song until approved: the workbench plays it when picked (the pattern, progression and strum pattern
+  rows). Approve it there (`status.json`), then run `tools/patterns/import.sh`: the
   firmware draws it, and the workbench (rebuilt by `import.sh`) rolls it too. The importer notes a new file that sounds the same as an existing entry
   (a renamed or saved-as copy: it would import as a new candidate) and an entry whose files are missing (it stays).
+- **Removed families:** `lead-arp` (the hybrid lead's arpeggio rhythms, patterns and landings) and `melody-cells` (the
+  struck melody's rhythm cells) went with the lead styles (2026-10-31); a file in either folder is refused, naming
+  why, and nothing is written.
 - **What is read from the notes:** onsets (on the 16th grid: any other onset is refused), lengths (rounded to 16ths),
   pitches or lanes, and ghosts (a drum note at velocity 60 or less, or a MusicXML notehead in parentheses). Durations
   count in each file's own divisions or PPQ (MuseScore rewrites them); tied notes are one note; rests, empty staves
@@ -75,8 +76,7 @@ byte.
   with its 9th or 13th), each the same whole number of bars, 1-4 chords in a 2, 4 or 8-bar cycle; no substitutions
   (a vamp's or loop's chords lie in each of its modes; no dominant on bII or bVI or a half step above the next
   chord); no dominant the engine would leave bare (no 9th or 13th fits); no Phrygian; strum up strokes only on the "and"s, one stroke a
-  step; an arpeggio pattern's notes are chord tones 1-4 of the reference Cmaj7 (a chord-tone index over 4 is
-  refused); the landings' weights add up to 100; a melody cell stays in its beat; `src` is printable ASCII with no
+  step; `src` is printable ASCII with no
   backslash and no `??` (it becomes a C string).
 - **The hashes:** the importer lists every entry that changed or was added, and every status `status.json` changed;
   when an approved firmware entry changed, or an entry was approved or retired, the engine suite's pinned song hashes
@@ -85,12 +85,12 @@ byte.
   is a real one (exit 1). After listening, `tools/patterns/import.sh --repin` rewrites the pins in
   `tests/host/song_test.c` with a comment naming the approval(s) and reruns the suite; nothing is re-pinned without
   it. Kick phrases are the workbench's (`workbench/options.json`), so they never move them.
-- **Keep one approved:** a `status.json` that would leave a drawn table (the drum patterns, strum patterns, arpeggio
-  rhythms or patterns, melody cells) with no approved entry, or a mood with no approved progression, is refused.
+- **Keep one approved:** a `status.json` that would leave a drawn table (the drum patterns, strum patterns) with no
+  approved entry, or a mood with no approved progression, is refused.
 - **No emcc:** `import.sh` warns loudly when it can't rebuild the workbench (its engine keeps the old tables).
 - **`workbench/options.json`:** the importer regenerates its `patterns` (the drum patterns; an existing one keeps its
-  name, a new one is named by its file), `kickPhrases`, `strumPats`, `arpRhythms` and `arpPatterns` blocks with
-  their statuses; the rest of the file is kept byte for byte.
+  name, a new one is named by its file), `kickPhrases` and `strumPats` blocks with their statuses; the rest of the
+  file is kept byte for byte.
 
 ## drums
 
@@ -147,20 +147,3 @@ These three never thin under a busy lead (Sam): every bar plays the written stri
 the rest 1): T thumb E4 (64), B thumb and pinch F4 (65), D accented down G4 (67), d down A4 (69), X chuck B4 (71, x
 head), U up C5 (72), u soft up D5 (74), P pinch E5 (76). A rest is no note. Up strokes (U, u) go only on the "and"s
 (steps 2, 6, 10, 14). Id 5 is the ballad's fill-bar variant (`fill_of` 4).
-
-## lead-arp
-
-`patterns_gen.c` (`lead.c` plays them), over a reference Cmaj7 voicing C4 E4 G4 B4 = chord tones 1-4 (the lowest note is the chord's 1st
-tone, the next its 2nd, ...).
-
-- **rhythm-1 to rhythm-6** (`LEAD_RHY`): the arpeggio's onsets and lengths in a bar; the pitch is a placeholder (C4).
-- **pattern-1 to pattern-6** (`LEAD_PAT`): the order of chord tones, one 8th note each.
-- **landing-1 to landing-6** (`LEAD_LANDING_AT`, `_LEN`, `_W`): how a chord change lands on the skeleton note: the note at `at`
-  for `len` 16ths (C4, a placeholder), `weight` the share of chord changes in percent. Landing 5 (pushed) is played
-  from the and of 4 of the bar before; its `at`/`len` are the table's values, which the engine doesn't use.
-
-## melody-cells
-
-`MELODY_CELLS` and `MELODY_CELL_W` (7; `patterns_gen.c`, `melody.c` draws them). One beat of rhythm (the first beat of a 4/4 bar; the rest of the bar
-is a rest), each note held to the next onset or the end of the beat, on a placeholder C4; `weight` (how often the
-melody draws it) is in the metadata.

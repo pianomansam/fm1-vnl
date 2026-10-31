@@ -147,12 +147,12 @@ static void check_step(const song_t *s, int bar, int step, const song_ev_t *ev, 
               seed, bar, step, e->note);
         CHECK(!th_is_avoid(key, mode, pcs, np, e->note), "seed %u bar %d step %d: avoid note %d", seed, bar, step,
               e->note);
-        if ((step == 0 || step == 8) && e->voice == V_LEAD && leads_style(&s->roll) >= 0 &&
+        if ((step == 0 || step == 8) && e->voice == V_LEAD &&
             (float)e->delay + 2.0f >= song_step_samples(s) / 3.0f) {
             strong_exempt++;                     /* a style's triplet note, a third or two of a 16th after the beat:
                                                     off it, as the style plans it */
         } else if (step == 0 || step == 8) {
-            int ct = 0, ls = e->voice == V_LEAD ? leads_style(&s->roll) : -1;
+            int ct = 0, ls = e->voice == V_LEAD ? s->lead.style - 1 : -1;
             for (j = 0; j < np; j++) ct |= pcs[j] % 12 == e->note % 12;
             if (!ct && step == 8 && ls >= 0 && BEAT3_COLOR[ls]) beat3_color[ls]++;
             else CHECK(ct, "seed %u bar %d step %d: note %d not a chord tone", seed, bar, step, e->note);
@@ -427,26 +427,24 @@ static void test_chain(void)
 /* ---- the workbench's re-rolls ---- */
 
 /* songs 1-40 with the voicings re-rolled, then the lead's phrase, then the keys and the lead an octave up and down,
-   then each part salt (bass, pad, drums), then the lead let double the other voices (lead_double): every rule above
-   still holds (the registers' ranges moved with them; rubs, avoid notes and range with the doubling rules off) */
+   then each part salt (bass, pad, drums): every rule above still holds (the registers' ranges moved with them) */
 static void test_ov_salts(void)
 {
     static song_t s;
-    static const int8_t KO[10] = {0, 0, 1, -1, 0, 0, 0, 0, 0, 0}, LO[10] = {0, 0, 0, 0, 1, -1, 0, 0, 0, 0};
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, 0, -1, -1, -1, 0};
+    static const int8_t KO[9] = {0, 0, 1, -1, 0, 0, 0, 0, 0}, LO[9] = {0, 0, 0, 0, 1, -1, 0, 0, 0};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0};
     song_roll_t r;
     int i, k;
-    for (k = 0; k < 10; k++) {
+    for (k = 0; k < 9; k++) {
         o.voicing_salt = k == 0;
         o.phrase_salt = k == 1;
         o.bass_salt = k == 6;                       /* the part salts (bass, pad, drums) */
         o.pad_salt = k == 7;
         o.drums_salt = k == 8;
-        o.lead_double = k == 9;
         o.keys_oct = KO[k];
         o.lead_oct = LO[k];
         song_override(&o);
-        for (i = 1; i <= (k == 9 ? 300 : 40); i++) {   /* the doubling switch: the 300 songs song_test moves */
+        for (i = 1; i <= 40; i++) {
             roll_song(NULL, (uint32_t)i, &r);
             song_start(&s, &r);
             run(&s, &R1, NULL, NULL, NULL);
@@ -845,7 +843,7 @@ static void style_rules(int style, const char *name, int per_song)
     static song_t s;
     static const int INS[4] = {INS_FLUTE, INS_FELT_PIANO, INS_VIBES, INS_KNIGHT};
     static const char *NM[4] = {"flute", "felt piano", "vibes", "Knight"};
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, 0, -1, -1, -1, 0};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0};
     long before = fails, rub0 = rubs[0][0] + rubs[0][1] + rubs[0][2] + rubs[0][3] + rubs[1][0] + rubs[1][1] +
                                 rubs[1][2] + rubs[1][3];
     int k, i, oct;
@@ -891,7 +889,7 @@ static void style_rules(int style, const char *name, int per_song)
 static void style_hard(int style, const char *name, const int *ins, int nins, long m9_notes)
 {
     static song_t s;
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, 0, -1, -1, -1, 0};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0};
     long before = fails;
     int k;
     o.lead_style = (int8_t)(2 + style);
@@ -1006,7 +1004,7 @@ static void test_comp_new(void)
     static song_t s;
     static const int NEW[3] = {CS_HELD2, CS_HELD24, CS_LIGHT8};
     static const char *const NAME[3] = {"held on 2", "held on 2 and 4", "light eighths"};
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, 0, -1, -1, -1, 0};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0};
     int k, before = fails;
     uint32_t i;
     for (k = 0; k < 3; k++) {

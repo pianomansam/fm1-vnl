@@ -88,7 +88,7 @@ static int fs_fit(const leads_ctx_t *c, int want, int prev, int dir, int strong,
         if (kind != FK_ANY && kind != FK_LEAP && !ct && iv != 2) cost += 3;   /* a long note: the chord's, or the 9th */
         if (kind == FK_OPEN && iv == 0) cost += 6;
         if (kind == FK_HOME && !(ct && (iv == 0 || iv == 3 || iv == 4))) cost += 12;
-        if (c->keys[3] && note == c->keys[3] + 12 && !song_ov()->lead_double) cost += 4;
+        if (c->keys[3] && note == c->keys[3] + 12) cost += 4;
         if (cost < bc) { bc = cost; best = note; }
     }
     return best;

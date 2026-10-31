@@ -9,7 +9,6 @@
 #include "plan.h"
 #include "groove.h"
 #include "harmony.h"
-#include "melody.h"
 #include "lead.h"
 #include "pads.h"
 
@@ -23,12 +22,11 @@ typedef struct {
     int state;                    /* SS_* */
     /* private */
     int step;                     /* the next step to tick, 0-15 */
-    motif_t motif;
-    melody_phrases_t ph;
     lead_state_t lead;            /* the lead's bar plan and its song-long choices */
     harmony_voicing_t voicing;    /* the chord part's voicings: the loop's, and the last sounded */
     int keys_win;                 /* the keys' window's top (harmony_keys_window): under the lead's band, all set */
-    int8_t win_oct, win_style;    /* the workbench's lead_oct and lead_style it was worked out under */
+    int8_t win_oct, win_style;    /* the workbench's lead_oct and the lead style (lead.style) it was worked out
+                                     under */
     pads_state_t pads;            /* the pad layer: the 4-bar group's notes, and the last chord part and solo note */
     float ss;                     /* samples of the step last ticked (before the first tick: the first step) */
     float glide_from, glide_to;   /* step samples before and after a tempo glide */
@@ -43,7 +41,7 @@ typedef struct {
     float pad_level;              /* the pad layer's level the step last ticked played (song_pad_level) */
 } song_t;
 
-void song_start(song_t *s, const song_roll_t *r);           /* plan, motif, phrases; bar 0, step 0 */
+void song_start(song_t *s, const song_roll_t *r);           /* the plan; bar 0, step 0 */
 /* One 16th: its events sorted by delay; 0 once ended. Events beyond max are dropped: pass max >= 64. */
 int song_tick(song_t *s, song_ev_t *out, int max);
 float song_step_samples(const song_t *s);                   /* 44100 * 60 / (tempo * 4), following a tempo glide */

@@ -75,11 +75,10 @@ export class Desk {
     this.dead = {};            // parts whose 🎲 found no other roll in the song as it stands: why (cleared by any change)
     this.approved = new Set(); // candidates approved this session ("family/id"): approved once import.sh has run
     this.strums = undefined;   // the staged song's keys strum (the strum pattern row is heard only then)
-    this.hybrid = undefined;   // the staged song's lead plays the arpeggio (the arpeggio rows are heard only then)
   }
 
   get state() { return { values: this.values, locks: this.locks, legal: this.legal, unavailable: this.samples?.unavailable,
-                         strums: this.strums, hybrid: this.hybrid }; }
+                         strums: this.strums }; }
   kept(id) { return this.locks.has(id) || this.hand.has(id); }
 
   // the engine's staged state into values; the family is the page's (derive: from the keys and lead, as a new song's)
@@ -95,7 +94,6 @@ export class Desk {
       mode: await ids([0, 1, 2, 3, 4, 5], this.C.RF.MODE),
     };
     this.strums = (await this.call("wb_comp_applied")) === CS_STRUM;
-    this.hybrid = (await this.call("wb_lead_hybrid")) === 1;
     return this.values;
   }
 
@@ -475,9 +473,15 @@ export class Desk {
   // came out different (the engine kept another value) are returned.
   async restore(snap) {
     if (snap.version !== 1) throw new Error(`snapshot version ${snap.version}: this page reads version 1`);
-    // a row newer than the snapshot (an override: the pad on/off) as rolled
+    // a row newer than the snapshot (an override: the pad on/off) as rolled; a row it names that is gone (the lead
+    // doubling switch, the arpeggio rows: lead styles, 2026-10-31) is ignored
     const older = ROWS.filter((r) => (r.kind === "ov" || r.kind === "reroll") && !(r.id in snap.rows));
     snap = { ...snap, rows: { ...snap.rows, ...Object.fromEntries(older.map((r) => [r.id, rolled(r)])) } };
+    // a retired lead style (the phrase planner, the hybrid: lead styles, 2026-10-31) restores as rolled: said, not a
+    // mismatch
+    const style = this.opts.leadStyles.find((s) => s.id === snap.rows.leadStyle);
+    const styleGone = style?.status === "retired";
+    if (styleGone) snap = { ...snap, rows: { ...snap.rows, leadStyle: rolled(row("leadStyle")) } };
     await this.call("wb_stage_mark");
     await this.stage("seed", snap.rows.seed);
     for (const r of ROWS) if (r.kind !== "seed" && r.kind !== "family") await this.stage(r.id, snap.rows[r.id]);
@@ -486,8 +490,8 @@ export class Desk {
     this.listen = { mute: new Set(snap.listen?.mute), solo: snap.listen?.solo ?? null };   // an older snapshot: none
     await this.hear();
     this.values = { ...snap.rows };
-    this.locks = new Set(snap.locks);
-    this.hand = new Set(snap.hand);
+    this.locks = new Set((snap.locks ?? []).filter((id) => row(id)));   // (a gone row's lock: dropped)
+    this.hand = new Set((snap.hand ?? []).filter((id) => row(id)));
     this.moved = new Set();
     await this.read();
     this.rolls = {};   // each part's history, at the roll the rows hold (a snapshot without parts: a history of that roll)
@@ -505,7 +509,9 @@ export class Desk {
     // lead the engine stands in for it (library.c's lib_lead_approved): said, not a mismatch
     const was = this.opts.instruments.find((i) => i.id === snap.rows.lead);
     const swapped = was?.status === "retired" && was.roles.includes("lead") && this.values.lead !== snap.rows.lead;
-    this.message = swapped ? `Lead: ${was.name} is retired; the song plays ${this.opts.instruments.find((i) => i.id === this.values.lead)?.name} instead.` : "";
+    this.message = [swapped ? `Lead: ${was.name} is retired; the song plays ${this.opts.instruments.find((i) => i.id === this.values.lead)?.name} instead.` : "",
+                    styleGone ? `Lead style: ${style.name} is retired; the song plays a rolled style instead.` : ""]
+      .filter(Boolean).join(" ");
     return [...ROWS.filter((r) => !(swapped && r.id === "lead") && String(this.values[r.id]) !== String(snap.rows[r.id])).map((r) => r.id), ...missing];
   }
 

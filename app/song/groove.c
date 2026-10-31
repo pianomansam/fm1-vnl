@@ -97,7 +97,7 @@ static int rubs_chord(int n, const int *pcs, int npcs)
 }
 
 /* 7 when the chord holds a perfect fifth above its root, else 0 (the root): a fifth the chord lacks could rub the
-   melody, which keeps clear of the chord's own pitch classes only */
+   lead, which keeps clear of the chord's own pitch classes only */
 static int chord_fifth_interval(const int *pcs, int npcs)
 {
     int i;

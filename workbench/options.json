@@ -1,5 +1,5 @@
 {
-  "_note": "The workbench's options: hand-maintained from the ledgers (docs/superpowers/plans/*-ledger.md) and the workbench plan's Global Constraints. ids are app/song/library.h's (sym names the enum; smoke.mjs checks them); a kit from 16 is a workbench preset (wb_drums.h's WB_KIT_*, 16 + its index). status: approved (offered, the dice pick it), candidate (offered, marked; the dice skip it; none among the instruments; a candidate comping style is one the roll weighs 0, held on 2, held on 2 and 4 and light eighths until Sam sets their weights), retired (behind 'show retired'). ride: the kit plays the ride section (the sampled kits). set: a shipped sampled kit's sample set (samples/kits.json, git-ignored: unavailable until tools/prep_kits.py has made it). Families: electric goes with either; bass, pad and the kit follow the song's family. No ear candy (Sam, 2026-10-29): the instruments that only played it (the music box, the bells, none) have no role. The choir (the formant oo-aah, of any family): a pad a song may draw over its set's (library's lib_song_pad, 1 song in 4), and one of the pad's solo voices, in the vox pad's place (the vox pad retired, 2026-10-31: no patch). The organ is the tonewheel (2026-10-31; electric, as the Rhodes): on the keys the song's drawbars and register; as a pad (its one-stop 4', the scanner chorus by section) a song may draw it over its set's (lib_song_pad, about 1 song in 7, never over organ keys). Leads (Sam, 2026-10-29): the felt piano leads too (never over felt keys), the vibes are the sampled vibraphone; the muted trumpet, sax, guitar lick, string lead and cello are retired (the engine plays an approved lead of their family in their place: library.c's lib_lead_approved). Generated (tools/patterns/import.py, from patterns/; never edit them here): patterns (a new one named by its file), kickPhrases, strumPats, arpRhythms and arpPatterns (id: patterns/model.json's; index: the engine table's, which the override rows force). A candidate there plays only when picked; Approve writes patterns/status.json, and tools/patterns/import.sh makes it one the roll draws.",
+  "_note": "The workbench's options: hand-maintained from the ledgers (docs/superpowers/plans/*-ledger.md) and the workbench plan's Global Constraints. ids are app/song/library.h's (sym names the enum; smoke.mjs checks them); a kit from 16 is a workbench preset (wb_drums.h's WB_KIT_*, 16 + its index). status: approved (offered, the dice pick it), candidate (offered, marked; the dice skip it; none among the instruments; a candidate comping style is one the roll weighs 0, held on 2, held on 2 and 4 and light eighths until Sam sets their weights), retired (behind 'show retired'). ride: the kit plays the ride section (the sampled kits). set: a shipped sampled kit's sample set (samples/kits.json, git-ignored: unavailable until tools/prep_kits.py has made it). Families: electric goes with either; bass, pad and the kit follow the song's family. No ear candy (Sam, 2026-10-29): the instruments that only played it (the music box, the bells, none) have no role. The choir (the formant oo-aah, of any family): a pad a song may draw over its set's (library's lib_song_pad, 1 song in 4), and one of the pad's solo voices, in the vox pad's place (the vox pad retired, 2026-10-31: no patch). The organ is the tonewheel (2026-10-31; electric, as the Rhodes): on the keys the song's drawbars and register; as a pad (its one-stop 4', the scanner chorus by section) a song may draw it over its set's (lib_song_pad, about 1 song in 7, never over organ keys). Leads (Sam, 2026-10-29): the felt piano leads too (never over felt keys), the vibes are the sampled vibraphone; the muted trumpet, sax, guitar lick, string lead and cello are retired (the engine plays an approved lead of their family in their place: library.c's lib_lead_approved). Lead styles (lead styles, 2026-10-31): the lead_style override's values, 2 + leads.h's LS_*; the phrase planner (0) and the hybrid (1) are retired (an old snapshot naming one restores on a rolled style). Generated (tools/patterns/import.py, from patterns/; never edit them here): patterns (a new one named by its file), kickPhrases and strumPats (id: patterns/model.json's; index: the engine table's, which the override row forces). A candidate there plays only when picked; Approve writes patterns/status.json, and tools/patterns/import.sh makes it one the roll draws.",
   "families": {
     "acoustic": { "name": "Acoustic" },
     "synth": { "name": "Synth" },
@@ -67,6 +67,18 @@
     { "id": 7, "sym": "CS_LIGHT8", "name": "Light eighths", "status": "candidate", "keys": [0, 1, 2, 21, 25] },
     { "id": 8, "sym": "CS_HELD24", "name": "Held on 2 and 4", "status": "candidate", "keys": [0, 1, 2, 21, 25] }
   ],
+  "leadStyles": [
+    { "id": 0, "name": "Phrase planner", "status": "retired" },
+    { "id": 1, "name": "Hybrid", "status": "retired" },
+    { "id": 2, "name": "Impressionism", "status": "approved" },
+    { "id": 3, "name": "Romanticism", "status": "approved" },
+    { "id": 4, "name": "'60s Jazz", "status": "approved" },
+    { "id": 5, "name": "Modal Jazz", "status": "approved" },
+    { "id": 6, "name": "Jazz-Hop", "status": "approved" },
+    { "id": 7, "name": "Film Score", "status": "approved" },
+    { "id": 8, "name": "Bossa Nova", "status": "approved" },
+    { "id": 9, "name": "Ambient", "status": "approved" }
+  ],
   "patterns": [
     { "id": 1, "name": "Boom bap 1 (Cantaloop)", "status": "approved" },
     { "id": 2, "name": "Boom bap 2 (Fu-Gee-La)", "status": "approved" },
@@ -89,21 +101,5 @@
     { "id": "2", "index": 1, "name": "2-chuck", "status": "approved" },
     { "id": "3", "index": 2, "name": "3-bossa", "status": "approved" },
     { "id": "4", "index": 3, "name": "4-ballad", "status": "approved" }
-  ],
-  "arpRhythms": [
-    { "id": "rhythm-1", "index": 0, "name": "rhythm-1-eighths", "status": "approved" },
-    { "id": "rhythm-2", "index": 1, "name": "rhythm-2-dotted", "status": "approved" },
-    { "id": "rhythm-3", "index": 2, "name": "rhythm-3-gaps", "status": "approved" },
-    { "id": "rhythm-4", "index": 3, "name": "rhythm-4-long-short", "status": "approved" },
-    { "id": "rhythm-5", "index": 4, "name": "rhythm-5-3-3-2", "status": "approved" },
-    { "id": "rhythm-6", "index": 5, "name": "rhythm-6-off-the-one", "status": "approved" }
-  ],
-  "arpPatterns": [
-    { "id": "pattern-1", "index": 0, "name": "pattern-1-1-2-3-4", "status": "approved" },
-    { "id": "pattern-2", "index": 1, "name": "pattern-2-4-3-2-1", "status": "approved" },
-    { "id": "pattern-3", "index": 2, "name": "pattern-3-1-2-3-4-3-2", "status": "approved" },
-    { "id": "pattern-4", "index": 3, "name": "pattern-4-1-3-2-4", "status": "approved" },
-    { "id": "pattern-5", "index": 4, "name": "pattern-5-1-4-2-4", "status": "approved" },
-    { "id": "pattern-6", "index": 5, "name": "pattern-6-4-1-3-2", "status": "approved" }
   ]
 }

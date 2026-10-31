@@ -175,8 +175,7 @@ class Import(unittest.TestCase):
     def test_musescore_style_variants_import_the_same(self):
         picks = [("drums", "5"), ("drums", "1"), ("progressions", "1"), ("progressions", "19"),
                  ("comp-rhythms", "3"), ("comp-rhythms", "2"), ("comp-rhythms", "4"), ("comp-rhythms", "5"),
-                 ("comp-rhythms", "6"), ("strum", "3"), ("lead-arp", "rhythm-2"),
-                 ("lead-arp", "pattern-3"), ("melody-cells", "7"), ("kick-phrases", "k6")]
+                 ("comp-rhythms", "6"), ("strum", "3"), ("kick-phrases", "k6")]
         variants = {"divisions 480": dict(divisions=480), "ties across beats": dict(tie_beats=True),
                     "an extra empty staff": dict(extra_staff=True), "a rests-only bar": dict(rest_bar=True),
                     "all of them, metadata dropped": dict(divisions=480, tie_beats=True, extra_staff=True,
@@ -193,8 +192,7 @@ class Import(unittest.TestCase):
     def test_daw_style_midi_imports_the_same(self):
         """PPQ 960, notes a tick short, MuseScore's chord-symbol playback on its own channel, no metadata"""
         for fam, k in [("drums", "3"), ("progressions", "19"), ("progressions", "1"), ("strum", "2"),
-                       ("lead-arp", "rhythm-4"), ("comp-rhythms", "1"),
-                       ("comp-rhythms", "4"), ("comp-rhythms", "5"), ("comp-rhythms", "6")]:
+                       ("comp-rhythms", "1"), ("comp-rhythms", "4"), ("comp-rhythms", "5"), ("comp-rhythms", "6")]:
             e = self.model[fam][k]
             _, _, tracks, _, _, texts = export.render(fam, k, e)
             for tr in tracks:
@@ -282,14 +280,6 @@ class Import(unittest.TestCase):
         e = self.model["strum"]["1"]
         self.refused(self.write("strum", "1", {**e, "steps": "D...d.u..U..d.u."}, ".musicxml"), 1, "up stroke")
 
-    def test_a_chord_tone_index_over_4_is_refused(self):
-        e = self.model["lead-arp"]["pattern-1"]
-        title, _, tracks, _, _, _ = export.render("lead-arp", "pattern-1", e)
-        tracks[0]["notes"][-1] = (6 * 120, 240, 72, 80)                     # C5: the 5th tone up
-        path = self.pat / (e["file"] + ".mid")
-        midi.write(str(path), tracks, title=title)
-        self.refused(path, 1, "chord-tone index 5 > 4")
-
     def test_untrusted_files_are_refused_not_crashed_on(self):
         e = self.model["drums"]["3"]
         mid = self.pat / (e["file"] + ".mid")
@@ -338,15 +328,15 @@ class Import(unittest.TestCase):
         self.assertIn("0 pattern(s) imported", so)
 
     def test_only_the_musicxml_changed_imports_from_it_and_rewrites_the_mid(self):
-        e = self.model["melody-cells"]["1"]
-        xml = self.write("melody-cells", "1", {**e, "mask": "0x3", "onsets": [0, 1]}, ".musicxml")
+        e = self.model["strum"]["2"]
+        xml = self.write("strum", "2", {**e, "steps": "D.D.D.D.D.D.D.D."}, ".musicxml")
         sam = xml.read_bytes()
         so, model, man = self.imported()
-        self.assertEqual(model["melody-cells"]["1"]["mask"], "0x3")
+        self.assertEqual(model["strum"]["2"]["steps"], "D.D.D.D.D.D.D.D.")
         self.assertEqual(xml.read_bytes(), sam)
-        self.assertIn("wrote patterns/melody-cells/1-1.mid from patterns/melody-cells/1-1.musicxml", so)
-        self.assertIn("MELODY_CELLS[MELODY_NCELLS] = {0x3, 0x4", (self.gen / "patterns_gen.c").read_text())
-        self.assert_in_step("melody-cells", "1", model, man)
+        self.assertIn(f"wrote patterns/{e['file']}.mid from patterns/{e['file']}.musicxml", so)
+        self.assertIn('    "D.D.D.D.D.D.D.D.",\n', (self.gen / "patterns_gen.c").read_text())
+        self.assert_in_step("strum", "2", model, man)
 
     def test_both_changed_and_disagreeing_is_refused_naming_both(self):
         e = self.model["strum"]["2"]
@@ -402,22 +392,41 @@ class Import(unittest.TestCase):
         self.assert_in_step("strum", k, model, man)
 
     def test_a_new_pattern_as_a_musicxml_alone_is_a_candidate(self):
-        e = {**self.model["lead-arp"]["rhythm-1"], "file": "lead-arp/rhythm-sam", "notes": [[0, 4], [4, 4], [8, 8]]}
-        path = self.write("lead-arp", "rhythm-1", e, ".musicxml")
+        e = {**self.model["strum"]["1"], "file": "strum/sam-xml", "steps": "D...D...d.u.d.u."}
+        path = self.write("strum", "1", e, ".musicxml")
         xml_variant(path, path, drop_meta=True)
-        k, was = self.next_key("lead-arp", "rhythm"), self.statuses("LEAD_RHY")
+        k, was = self.next_key("strum", "pattern"), self.statuses("STRUM_PAT")
         so, model, man = self.imported()
-        new = model["lead-arp"][k]
-        self.assertEqual((new["status"], new["index"], new["notes"]), ("candidate", len(was), [[0, 4], [4, 4], [8, 8]]))
-        self.assertTrue((self.pat / "lead-arp/rhythm-sam.mid").is_file())
-        self.assertEqual(self.statuses("LEAD_RHY"), was + [0])
-        self.assert_in_step("lead-arp", k, model, man)
+        new = model["strum"][k]
+        self.assertEqual((new["status"], new["index"], new["steps"]), ("candidate", len(was), "D...D...d.u.d.u."))
+        self.assertTrue((self.pat / "strum/sam-xml.mid").is_file())
+        self.assertEqual(self.statuses("STRUM_PAT"), was + [0])
+        self.assert_in_step("strum", k, model, man)
+
+    def test_a_file_in_a_removed_family_is_refused(self):
+        """the lead-arp and melody-cells families went with the hybrid lead and the struck melody (lead styles,
+           2026-10-31): a file there is refused, saying so, and nothing is written"""
+        for fam, why in (("lead-arp", "the hybrid lead's arpeggio"), ("melody-cells", "the struck melody")):
+            with self.subTest(fam=fam):
+                self.tearDown()
+                self.setUp()
+                (self.pat / fam).mkdir()
+                e = {**self.model["strum"]["1"], "file": f"{fam}/rhythm-1-eighths"}
+                export.write_file(self.pat, "strum", "1", e, ".mid")
+                before = self.snapshot()
+                code, so = self.run_import()
+                self.assertEqual(code, 1, so)
+                self.assertIn(f"import: refused: patterns/{fam}/rhythm-1-eighths.mid: {fam} is a removed family "
+                              f"(the lead styles replaced {why}): delete patterns/{fam}/", so)
+                self.assertIn("nothing written", so)
+                self.assertEqual(self.snapshot(), before)
+                code, so = self.run_import("--check")
+                self.assertEqual(code, 1, so)
 
     def test_new_patterns_in_drawn_families_import_as_candidates(self):
-        """the roll draws approved entries only, so a new drum pattern, progression or melody cell waits for Sam"""
+        """the roll draws approved entries only, so a new drum pattern or progression waits for Sam"""
         for fam, k, name, table in (("drums", "7", "drums/sam-groove", "LIB_PATTERNS"),
-                                    ("progressions", "17", "progressions/sam-vamp", "LIB_PROGS"),
-                                    ("melody-cells", "3", "melody-cells/sam-cell", "MELODY_CELLS")):
+                                    ("progressions", "17", "progressions/sam-vamp", "LIB_PROGS")):
             with self.subTest(fam=fam):
                 self.tearDown()
                 self.setUp()
@@ -453,25 +462,22 @@ class Import(unittest.TestCase):
         code, so = self.run_import()                                         # and again: nothing left to do
         self.assertNotIn("->", so)
 
-    def test_a_strum_and_arpeggio_candidate_are_offered_to_the_override_rows(self):
+    def test_a_strum_candidate_is_offered_to_the_override_row(self):
         e = {**self.model["strum"]["1"], "file": "strum/sam-strum", "steps": "D...d.u.D...d.u."}
-        ks, kp = self.next_key("strum", "pattern"), self.next_key("lead-arp", "pattern")
-        ws, wp, nr = self.statuses("STRUM_PAT"), self.statuses("LEAD_PAT"), len(self.statuses("LEAD_RHY"))
+        ks, ws = self.next_key("strum", "pattern"), self.statuses("STRUM_PAT")
         self.write("strum", "1", e, ".mid")
-        self.write("lead-arp", "pattern-1", {**self.model["lead-arp"]["pattern-1"], "file": "lead-arp/pattern-sam",
-                                             "tones": [0, 3, 1, 2]}, ".mid")
         self.imported()
         opts = json.loads(self.opts.read_text())
         self.assertEqual(opts["strumPats"][-1], {"id": ks, "index": len(ws), "name": "sam-strum", "status": "candidate"})
-        self.assertEqual(opts["arpPatterns"][-1], {"id": kp, "index": len(wp), "name": "pattern-sam",
-                                                   "status": "candidate"})
-        self.assertEqual(len(opts["arpRhythms"]), nr)
-        self.approve({"strum": {ks: "approved"}, "lead-arp": {kp: "retired"}})
+        self.assertNotIn("arpPatterns", opts)
+        self.approve({"strum": {ks: "retired"}})
+        so, model, _ = self.imported()
+        self.assertEqual(self.statuses("STRUM_PAT"), ws + [2])               # retired: never drawn
+        self.assertEqual(model["strum"][ks]["status"], "retired")
+        self.assertEqual(json.loads(self.opts.read_text())["strumPats"][-1]["status"], "retired")
+        self.approve({"strum": {ks: "approved"}})
         so, model, _ = self.imported()
         self.assertEqual(self.statuses("STRUM_PAT"), ws + [1])
-        self.assertEqual(self.statuses("LEAD_PAT"), wp + [2])               # retired: never drawn
-        self.assertEqual((model["strum"][ks]["status"], model["lead-arp"][kp]["status"]), ("approved", "retired"))
-        self.assertEqual(json.loads(self.opts.read_text())["arpPatterns"][-1]["status"], "retired")
 
     def test_retiring_an_approved_entry_moves_the_pins(self):
         k = next(k for k, e in self.model["progressions"].items() if e["status"] == "approved" and k != "1")
@@ -485,9 +491,8 @@ class Import(unittest.TestCase):
         self.assertEqual(self.statuses("LIB_PROGS")[i], 2)
 
     def test_the_last_approved_entry_of_a_drawn_table_cant_be_retired(self):
-        for fam, kind, words in (("strum", "pattern", "no approved strum pattern"), ("drums", None, "no approved drum"),
-                                 ("lead-arp", "rhythm", "no approved arpeggio rhythm"),
-                                 ("melody-cells", None, "no approved melody cell")):
+        for fam, kind, words in (("strum", "pattern", "no approved strum pattern"),
+                                 ("drums", None, "no approved drum")):
             with self.subTest(fam=fam):
                 ks = [k for k, e in self.model[fam].items() if kind is None or e.get("kind") == kind]
                 self.approve({fam: {k: "retired" for k in ks}})
@@ -588,7 +593,7 @@ class Import(unittest.TestCase):
         self.refused(path, 1, "two strikes, on steps 4 and 12 (beats 2 and 4)")
 
     def test_crafted_numbers_are_unreadable(self):
-        e = self.model["lead-arp"]["pattern-2"]
+        e = self.model["comp-rhythms"]["1"]
         xml = self.pat / (e["file"] + ".musicxml")
         xml.write_text(xml.read_text().replace("<octave>4</octave>", "<alter>inf</alter><octave>4</octave>", 1))
         code, so = self.run_import()
@@ -638,7 +643,7 @@ class ImportWithCandidates(Import):
         super().setUp()
         variant.write_files(self.pat)
         code, so = self.run_import()
-        self.assertEqual((code, so.count(", a candidate\n")), (0, 8), so)
+        self.assertEqual((code, so.count(", a candidate\n")), (0, 5), so)
         self.model = json.loads((self.pat / "model.json").read_text())
 
     def test_export_then_import_regenerates_the_tables_byte_for_byte(self):

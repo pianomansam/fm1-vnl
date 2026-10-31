@@ -26,7 +26,7 @@ class T(unittest.TestCase):
         server.PATTERNS.mkdir()
         (server.PATTERNS / "model.json").write_text(json.dumps(
             {"_note": "x", "drums": {"1": {"status": "approved"}, "9": {"status": "candidate"}},
-             "strum": {"6": {"status": "candidate"}}, "lead-arp": {"pattern-7": {"status": "candidate"}}}))
+             "strum": {"6": {"status": "candidate"}}, "progressions": {"45": {"status": "candidate"}}}))
         server.Handler.log_message = lambda *a: None
         model = json.loads((server.PATTERNS / "model.json").read_text())
         model["strum"]["7"] = {"status": "retired"}
@@ -161,9 +161,9 @@ class T(unittest.TestCase):
         self.assertEqual((status, body["ok"], body["status"]), (200, True, "approved"))
         self.assertIn("tools/patterns/import.sh", body["then"])
         self.assertEqual(self.status_json(), {"drums": {"9": "approved"}})
-        self.assertEqual(self.post("/approve", {"family": "lead-arp", "id": "pattern-7"})[0], 200)
+        self.assertEqual(self.post("/approve", {"family": "progressions", "id": "45"})[0], 200)
         self.assertEqual(self.post("/approve", {"family": "drums", "id": 9})[0], 200)     # a number id, as the rows'
-        self.assertEqual(self.status_json(), {"drums": {"9": "approved"}, "lead-arp": {"pattern-7": "approved"}})
+        self.assertEqual(self.status_json(), {"drums": {"9": "approved"}, "progressions": {"45": "approved"}})
         self.assertEqual(sorted(p.name for p in server.PATTERNS.iterdir()), ["model.json", "status.json"])
 
     def test_approve_takes_only_the_models_entries(self):

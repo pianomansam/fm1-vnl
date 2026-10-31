@@ -98,32 +98,6 @@ int main(void)
     bytes("strum_status", STRUM_PAT_STATUS, STRUM_NPAT, ",\n");
     printf("\"strum_ballad_fill\": ");
     str(STRUM_BALLAD_FILL);
-    printf(",\n\"arp_rhythms\": [");
-    for (i = 0; i < LEAD_NRHY; i++) {
-        printf(i ? ", [" : "[");
-        for (j = 0; j < 9 && LEAD_RHY[i][j][0] >= 0; j++)
-            printf("%s[%d, %d]", j ? ", " : "", LEAD_RHY[i][j][0], LEAD_RHY[i][j][1]);
-        printf("]");
-    }
-    printf("],\n");
-    bytes("arp_rhythms_status", LEAD_RHY_STATUS, LEAD_NRHY, ",\n");
-    printf("\"arp_patterns\": [");
-    for (i = 0; i < LEAD_NPAT; i++) {
-        printf(i ? ", [" : "[");
-        for (j = 0; j < 6 && LEAD_PAT[i][j] >= 0; j++) printf("%s%d", j ? ", " : "", LEAD_PAT[i][j]);
-        printf("]");
-    }
-    printf("],\n");
-    bytes("arp_patterns_status", LEAD_PAT_STATUS, LEAD_NPAT, ",\n");
-    printf("\"landings\": {");
-    for (i = 0; i < 6; i++) x[i] = LEAD_LANDING_AT[i];
-    ints("at", x, 6, ", ");
-    for (i = 0; i < 6; i++) x[i] = LEAD_LANDING_LEN[i];
-    ints("len", x, 6, ", ");
-    bytes("w", LEAD_LANDING_W, 6, "},\n");
-    printf("\"melody_cells\": [");
-    for (i = 0; i < MELODY_NCELLS; i++) printf("%s[%d, %d]", i ? ", " : "", MELODY_CELLS[i], MELODY_CELL_W[i]);
-    printf("],\n");
-    bytes("melody_cells_status", MELODY_CELLS_STATUS, MELODY_NCELLS, "\n}\n");
+    printf("\n}\n");
     return 0;
 }

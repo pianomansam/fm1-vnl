@@ -46,8 +46,6 @@ STROKES = [("T", "Thumb", 64, "E", 4, None), ("B", "Thumb and pinch", 65, "F", 4
 TONE = [60, 64, 67, 71]                         # the reference Cmaj7: chord tones 1-4 = C4 E4 G4 B4
 
 STRUM_SLUG = ["d-du-udu", "chuck", "bossa", "ballad"]
-RHY_SLUG = ["eighths", "dotted", "gaps", "long-short", "3-3-2", "off-the-one"]
-LANDING_SLUG = ["on-1-eighth", "on-1-quarter", "eighth-late", "sixteenth-late", "pushed", "beat-2"]
 SP_N = 4                                        # strum.h's approved patterns; the ballad's fill holds id SP_N + 1
 
 
@@ -141,25 +139,6 @@ def build_model(t, kick_phrases):
             n = SP_N + 1
             m["strum"][str(n)] = {"index": 0, "status": "approved", "kind": "fill", "fill_of": SP_N,
                                   "steps": t["strum_ballad_fill"], "file": f"strum/{n}-ballad-fill"}
-    la = m["lead-arp"] = {}
-    for i, r in enumerate(t["arp_rhythms"]):
-        la[f"rhythm-{i + 1}"] = {"kind": "rhythm", "index": i, "status": status(t["arp_rhythms_status"][i]),
-                                 "notes": r, "file": f"lead-arp/rhythm-{i + 1}-"
-                                 f"{RHY_SLUG[i] if i < len(RHY_SLUG) else 'rhythm'}"}
-    for i, p in enumerate(t["arp_patterns"]):
-        la[f"pattern-{i + 1}"] = {"kind": "pattern", "index": i, "status": status(t["arp_patterns_status"][i]),
-                                  "tones": p, "file": f"lead-arp/pattern-{i + 1}-" + "-".join(str(x + 1) for x in p)}
-    at, ln, w = (t["landings"][k] for k in ("at", "len", "w"))
-    for i in range(len(at)):
-        la[f"landing-{i + 1}"] = {"kind": "landing", "index": i, "status": "approved", "at": at[i], "len": ln[i],
-                                  "weight": w[i], "file": f"lead-arp/landing-{i + 1}-{LANDING_SLUG[i]}"}
-    m["melody-cells"] = {}
-    for i, (mask, wt) in enumerate(t["melody_cells"]):
-        on = [s for s in range(4) if mask >> s & 1]
-        m["melody-cells"][str(i + 1)] = {"index": i, "status": status(t["melody_cells_status"][i]),
-                                         "mask": hx(mask, 1), "weight": wt,
-                                         "onsets": on,
-                                         "file": f"melody-cells/{i + 1}-" + "-".join(str(s + 1) for s in on)}
     return m
 
 
@@ -249,21 +228,6 @@ def render(fam, k, e):
             bars = 1
         tr, part = pitched("Keys", 4, notes)
         return f"Comp rhythm {k}: {e['name']} over Cmaj7", bars, [tr], [part], None, ()
-    if fam == "lead-arp":
-        if e["kind"] == "rhythm":
-            notes = [(at, n, [TONE[0]], 80) for at, n in e["notes"]]
-        elif e["kind"] == "pattern":
-            notes = [(i * 2, 2, [TONE[t]], 80) for i, t in enumerate(e["tones"])]
-        else:
-            notes = [(e["at"], e["len"], [TONE[0]], 80)]
-        tr, part = pitched("Lead", 11, notes)
-        title = f"Lead arp {k}: " + e["file"].split("/", 1)[1][len(k) + 1:].replace("-", " ")
-        return title, 1, [tr], [part], None, ()
-    if fam == "melody-cells":
-        on = e["onsets"]
-        notes = [(s, (on[i + 1] if i + 1 < len(on) else 4) - s, [TONE[0]], 80) for i, s in enumerate(on)]
-        tr, part = pitched("Melody", 73, notes)
-        return f"Melody cell {k}: 16ths " + " ".join(str(s + 1) for s in on) + " of a beat", 1, [tr], [part], None, ()
     raise ValueError(fam)
 
 
