@@ -536,7 +536,8 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   lead.
 - **To explore (Sam, 2026-10-30): remove the busy-lead interaction from the comping.** Today a bar with 4 or more lead
   onsets thins half notes and stabs to beat 1 (and offbeats and the arpeggio, now off). Sam isn't a fan of a busy lead
-  modifying the comping. A/B songs with and without it; if he doesn't miss it, remove it (and its tests).
+  modifying the comping. A/B songs with and without it; if he doesn't miss it, remove it (and its tests). The A/B
+  tool (Sam): a workbench checkbox, "Busy lead thins the comping" (on by default; firmware unchanged).
 - **Drum patterns ignore the set (found in the rule-docs refresh, 2026-10-30; to revisit).** Each of the 8 engine
   patterns is equally likely in every set, flavor and family. Sam's two-bar kick phrases (k2-k6) exist only in the
   workbench, and no engine pattern is two bars long. Decide per-set or per-flavor pattern weights, and bring the
