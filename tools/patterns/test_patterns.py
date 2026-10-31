@@ -22,7 +22,7 @@ import midi  # noqa: E402
 from test_import import Import, ImportWithCandidates, imp  # noqa: E402,F401  (run with these)
 from test_pins import Pins  # noqa: E402,F401
 
-FAMILIES = {"drums": 8, "kick-phrases": 5, "progressions": 44, "comp-rhythms": 3, "strum": 5, "lead-arp": 18,
+FAMILIES = {"drums": 8, "kick-phrases": 5, "progressions": 44, "comp-rhythms": 5, "strum": 5, "lead-arp": 18,
             "melody-cells": 7}
 GM = {"kick": 36, "snare": 38, "hat": 42, "ohat": 46, "shaker": 70, "rim": 37}
 LANES = ["kick", "snare", "hat", "ohat", "shaker", "rim"]
@@ -148,6 +148,12 @@ class T(unittest.TestCase):
         self.assertEqual(self.model["kick-phrases"]["k6"]["b"], [0, 3, 10])
         stabs = self.model["comp-rhythms"]["3"]
         self.assertEqual((stabs["second"], stabs["busy_steps"], stabs["busy_over"]), ([6, 10, 4, 12], [0, 6], 3))
+        h2, l8 = self.model["comp-rhythms"]["4"], self.model["comp-rhythms"]["5"]   # held on 2, light eighths
+        self.assertEqual((h2["file"], h2["strikes"], h2["opt_pct"], h2["busy_steps"]),
+                         ("comp-rhythms/4-held-on-2", [{"step": 4, "len": 8}, {"step": 12, "len": 4}], 40, [4]))
+        self.assertEqual((l8["file"], [s["step"] for s in l8["strikes"]], l8["busy_steps"]),
+                         ("comp-rhythms/5-light-eighths", list(range(0, 16, 2)), [0, 4, 8, 12]))
+        self.assertLess(l8["vel_range"][1], self.model["comp-rhythms"]["2"]["vel_range"][0])
         la = self.model["lead-arp"]
         self.assertEqual(la["rhythm-2"]["notes"], [[0, 3], [3, 1], [4, 3], [7, 1], [8, 3], [11, 1], [12, 4]])
         self.assertEqual(la["pattern-3"]["tones"], [0, 1, 2, 3, 2, 1])

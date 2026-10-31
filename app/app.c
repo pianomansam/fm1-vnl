@@ -24,6 +24,7 @@
 #endif
 #include "song.h"
 #include "harmony.h"
+#include "override.h"
 #include "theory.h"
 #include "library.h"
 #include "voices.h"
@@ -411,6 +412,15 @@ void app_init(void)
             const char *st = getenv("VNL_SET");    /* VNL_SET=4: the first song on that set (a render of one the roll
                                                       seldom picks first) */
             set_override = st ? atoi(st) : 0;
+        }
+        {
+            const char *cp = getenv("VNL_COMP");   /* VNL_COMP=<CS_*>: every song comps in that style (6 held on 2,
+                                                      7 light eighths; held where the keys can't play it) */
+            if (cp && *cp >= '0' && *cp <= '9' && atoi(cp) < CS_N) {
+                song_ov_t o = *song_ov();
+                o.comp = (int8_t)atoi(cp);
+                song_override(&o);
+            }
         }
         while (w && *w) {                /* VNL_SWAP="Eb3 G3 Db4 F4=Db3 G3 Eb4 F4;...": hear an alternative voicing */
             int v[8], k = 0;

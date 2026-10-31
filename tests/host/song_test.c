@@ -9280,6 +9280,139 @@ static void test_ov_comp(void)
         song_override(NULL);
     }
 }
+/* Held on 2 and light eighths (the workbench's for now: weight 0 in the roll, Sam sets it after listening), on the
+   percussive keys only (anything else holds instead). Light eighths: the voicing struck on every 8th, half an 8th
+   long, softer than half notes; a busy lead thins it to quarters. Held on 2: struck on beat 2 (a chord change on a bar
+   line too), held to the bar's end or to a soft re-strike on beat 4 in about 40% of bars (a per-bar hash of the
+   seed), which a busy lead drops. One voicing per chord in both. */
+static void test_comp_new(void)
+{
+    static const int PERC[5] = {INS_RHODES, INS_WURLI, INS_FELT_PIANO, INS_DX_EP, INS_KNIGHT};
+    const float SS = 5512.5f;
+    plan_block_t keys = {0, 16, SEC_GROOVE, L_KEYS | L_KICK, 0};
+    song_ov_t o = ov_none();
+    song_roll_t r;
+    long b4 = 0, bars2 = 0, bad_step = 0, bad_len = 0, bad_vel = 0, bad_voice = 0, bad_busy = 0, drawn = 0;
+    int k, ins, seed, cs;
+    for (ins = 0; ins < INS_NONE; ins++) {
+        int perc = 0;
+        for (k = 0; k < 5; k++) perc |= PERC[k] == ins;
+        CHECK(harmony_comp_ok(ins, CS_HELD2) == perc && harmony_comp_ok(ins, CS_LIGHT8) == perc &&
+              harmony_comp_ok(ins, CS_HELD) && harmony_comp_ok(ins, CS_HALF),
+              "comp new: instrument %d allowed %d/%d", ins, harmony_comp_ok(ins, CS_HELD2),
+              harmony_comp_ok(ins, CS_LIGHT8));
+    }
+    for (seed = 1; seed <= 3000; seed++) {   /* never drawn: weight 0 */
+        roll_song(NULL, (uint32_t)seed, &r);
+        cs = harmony_style(&r);
+        drawn += cs == CS_HELD2 || cs == CS_LIGHT8;
+    }
+    CHECK(drawn == 0, "comp new: %ld of 3000 songs drew held on 2 or light eighths", drawn);
+    CHECK(COMP_LIGHT8.vel_hi < COMP_HALF.vel_lo, "comp new: light eighths' velocities %d-%d not under half notes' %d",
+          COMP_LIGHT8.vel_lo, COMP_LIGHT8.vel_hi, COMP_HALF.vel_lo);
+    for (cs = CS_HELD2; cs <= CS_LIGHT8; cs++) {
+        o.comp = (int8_t)cs;
+        for (seed = 1; seed <= 300; seed++) {
+            const lib_set_t *st;
+            const lib_prog_t *p;
+            lib_set_t set;
+            harmony_voicing_t v0, v1;
+            int bar, step, bpc, loop, chord_notes[4] = {0, 0, 0, 0}, chord = -1;
+            roll_song(NULL, (uint32_t)seed, &r);
+            st = lib_set_by_id((uint8_t)r.v[RF_SET]);
+            set = *st;
+            set.chords = (uint8_t)PERC[seed % 5];
+            if (set.lead == set.chords) set.chords = (uint8_t)PERC[(seed + 1) % 5];
+            set.id = LIB_SET_WB;
+            lib_set_wb(&set, st->id);
+            r.v[RF_SET] = LIB_SET_WB;
+            song_override(&o);
+            CHECK(harmony_style(&r) == cs, "comp new: seed %d forced %d plays %d", seed, cs, harmony_style(&r));
+            p = lib_prog_by_id((uint8_t)r.v[RF_PROG]);
+            bpc = p->bars_per_chord;
+            loop = p->n * bpc;
+            memset(&v0, 0, sizeof v0);
+            memset(&v1, 0, sizeof v1);
+            for (bar = 0; bar < 16; bar++) {
+                int beat4 = 0, i;
+                song_ev_t e0[16], e1[16];
+                uint32_t len0[16], len1[16];
+                for (step = 0; step < 16; step++) {
+                    int n0 = harmony_step(&r, &keys, bar, step, bar / loop + 1, SS, &v0, 0, 5u, e0, 16);
+                    int n1 = harmony_step(&r, &keys, bar, step, bar / loop + 1, SS, &v1, 1, 5u, e1, 16);
+                    len0[step] = n0 ? e0[0].len + e0[0].delay : 0u;
+                    len1[step] = n1 ? e1[0].len + e1[0].delay : 0u;
+                    if (n0 && n0 != 4) bad_step++;
+                    if (cs == CS_LIGHT8) {
+                        if ((n0 > 0) != !(step & 1) || (n1 > 0) != !(step & 3)) bad_step++;
+                    } else {
+                        if ((n0 > 0) != (step == 4 || (step == 12 && n0)) || (n1 > 0) != (step == 4)) bad_step++;
+                        if (step == 12 && n0) beat4 = 1;
+                    }
+                    for (i = 0; i < n0; i++) {   /* one voicing per chord: every strike, busy or not */
+                        if (bar / bpc != chord) {
+                            int j;
+                            chord = bar / bpc;
+                            for (j = 0; j < 4; j++) chord_notes[j] = e0[j].note;
+                        }
+                        if (e0[i].note != chord_notes[i]) bad_voice++;
+                        if (e0[i].len + e0[i].delay != len0[step]) bad_len++;   /* all notes end together */
+                        if (cs == CS_LIGHT8) {
+                            float l = (float)len0[step] / (2.0f * SS);
+                            if (l < 0.45f || l > 0.55f) bad_len++;
+                            if (e0[i].vel < COMP_LIGHT8.vel_lo || e0[i].vel > COMP_LIGHT8.vel_hi) bad_vel++;
+                        } else if (step == 12) {
+                            if (e0[i].vel > COMP_HELD2.vel_hi * COMP_HELD2.later_vel_pct / 100 + 1) bad_vel++;
+                        }
+                    }
+                    for (i = 0; i < n1; i++)
+                        if (i >= n0 || e1[i].note != e0[i].note || e1[i].vel != e0[i].vel) bad_busy++;
+                }
+                if (cs == CS_HELD2) {   /* held to the next strike or the bar's end, as held (441 samples short) */
+                    for (step = 4; step < 16; step += 8) {
+                        uint32_t want = (uint32_t)((float)((step == 4 && beat4 ? 12 : 16) - step) * SS) - 441u;
+                        uint32_t busy = (uint32_t)(12.0f * SS) - 441u;
+                        if (len0[step] && (len0[step] + 2 < want || len0[step] > want + 2)) bad_len++;
+                        if (step == 4 && (len1[step] + 2 < busy || len1[step] > busy + 2)) bad_len++;
+                    }
+                    b4 += beat4;
+                    bars2++;
+                }
+            }
+        }
+    }
+    lib_set_wb(NULL, 0);
+    song_override(NULL);
+    printf("held on 2: beat 4 struck in %ld of %ld bars (%.1f%%)\n", b4, bars2, 100.0 * (double)b4 / (double)bars2);
+    CHECK(bars2 > 0 && b4 * 100 >= bars2 * 36 && b4 * 100 <= bars2 * 44, "comp new: beat 4 in %ld of %ld bars", b4,
+          bars2);
+    CHECK(bad_step == 0, "comp new: %ld strikes on the wrong steps", bad_step);
+    CHECK(bad_len == 0, "comp new: %ld notes the wrong length", bad_len);
+    CHECK(bad_vel == 0, "comp new: %ld velocities out of range", bad_vel);
+    CHECK(bad_voice == 0, "comp new: %ld notes off the chord's one voicing", bad_voice);
+    CHECK(bad_busy == 0, "comp new: %ld busy strikes not a subset of the full comping", bad_busy);
+    {   /* off the percussive keys (a guitar, the organ): forced, they hold */
+        static const int OFF[3] = {INS_NYLON, INS_ORGAN, INS_PAD};
+        for (k = 0; k < 3; k++)
+            for (cs = CS_HELD2; cs <= CS_LIGHT8; cs++) {
+                const lib_set_t *st;
+                lib_set_t set;
+                roll_song(NULL, 7u, &r);
+                st = lib_set_by_id((uint8_t)r.v[RF_SET]);
+                set = *st;
+                set.chords = (uint8_t)OFF[k];
+                set.id = LIB_SET_WB;
+                lib_set_wb(&set, st->id);
+                r.v[RF_SET] = LIB_SET_WB;
+                o.comp = (int8_t)cs;
+                song_override(&o);
+                CHECK(harmony_style(&r) == CS_HELD, "comp new: instrument %d forced %d plays %d", OFF[k], cs,
+                      harmony_style(&r));
+            }
+        lib_set_wb(NULL, 0);
+        song_override(NULL);
+    }
+}
 static void test_ov_lead_style(void)
 {
     song_roll_t r;
@@ -12040,6 +12173,7 @@ int main(int argc, char **argv)
     RUN(test_vx_mute_off);
     RUN(test_vx_mute);
     RUN(test_ov_comp);
+    RUN(test_comp_new);
     RUN(test_ov_lead_style);
     RUN(test_keys_window);
     RUN(test_keys_window_fallback);

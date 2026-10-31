@@ -996,6 +996,45 @@ static void test_ambient_rules(void)
     style_hard(LS_AMBIENT, "Ambient", INS4, 4, 130);    /* (142 m9 notes, the felt piano) */
 }
 
+/* ---- the new comping styles (held on 2, light eighths: the workbench's for now) ---- */
+
+/* Each forced over the first 300 songs on percussive keys (the ones that can play them; a pad set's keys swapped
+   for them would keep the pad's octave shift, so they are skipped): every rule above holds, the lead and the bass
+   clear of what the keys sound (no rubs) */
+static void test_comp_new(void)
+{
+    static song_t s;
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, 0, -1, -1, -1};
+    int k, before = fails;
+    uint32_t i;
+    for (k = 0; k < 2; k++) {
+        long songs = 0, strikes = 0, knight = 0;
+        o.comp = (int8_t)(k ? CS_LIGHT8 : CS_HELD2);
+        for (i = 1; songs < 300 && i < 2000; i++) {
+            song_roll_t r;
+            const lib_set_t *st;
+            int e;
+            roll_song(NULL, i, &r);
+            st = lib_set_by_id((uint8_t)r.v[RF_SET]);
+            if (!st || !harmony_comp_ok(st->chords, o.comp)) continue;
+            song_override(&o);
+            CHECK(harmony_style(&r) == o.comp, "comp new: seed %u plays %d, forced %d", (unsigned)i,
+                  harmony_style(&r), o.comp);
+            song_start(&s, &r);
+            run(&s, &R1, NULL, NULL, NULL);
+            CHECK(R1.ended, "comp new: seed %u never ended", (unsigned)i);
+            songs++;
+            knight += st->chords == INS_KNIGHT;
+            for (e = 0; e < R1.ne; e++) strikes += R1.ev[e].voice == V_CHORD;
+        }
+        song_override(NULL);
+        printf("%s forced: %ld songs (%ld on the Knight), %ld keys notes\n", k ? "light eighths" : "held on 2", songs,
+               knight, strikes);
+        CHECK(songs == 300 && knight > 10 && strikes > 0, "comp new: %ld songs, %ld keys notes", songs, strikes);
+    }
+    printf("new comping styles: %d checks failed\n", fails - before);
+}
+
 int main(void)
 {
     int i;
@@ -1016,6 +1055,7 @@ int main(void)
     test_filmscore_rules();
     test_bossa_rules();
     test_ambient_rules();
+    test_comp_new();
     printf("strong steps: %ld lead/candy notes checked against the sounding chord and bass (%ld of them sounding "
            "tones), %ld with neither\n", strong_checked, strong_in, strong_skipped);
     printf("other steps: %ld lead/candy notes checked against the sounding chord and bass\n", weak_checked);

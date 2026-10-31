@@ -47,8 +47,10 @@ byte.
   Sam edited is never rewritten) and both hashes go in the manifest.
 - **New patterns:** a file whose name is not in `model.json` is a new pattern, as either file alone (the other is
   written for it). It keeps its file name, takes the next free id and is a **candidate** (the workbench only, until
-  approved). A new lead-arp file's name starts with `rhythm-` or `pattern-`. The comp rhythms (held, half, stabs)
-  and the six landings are fixed: edit them, never add one. A strum pattern added past the fourth skips id 5 (the
+  approved). A new lead-arp file's name starts with `rhythm-` or `pattern-`. The comp rhythms (held, half, stabs,
+  held on 2, light eighths) and the six landings are fixed: edit them, but a new comp rhythm is a new comping style
+  in the engine (`harmony.c`'s `CS_*`, then `dump.c`, `export.py` and `import.py` learn its name, as held on 2 and
+  light eighths did), never a file dropped in. A strum pattern added past the fourth skips id 5 (the
   ballad's fill). The engine's roll draws approved entries only (`patterns_gen.h`'s `*_STATUS`), so a candidate
   changes no song until approved: the workbench plays it when picked (the pattern and progression rows, and the
   strum pattern and lead arpeggio rows). Approve it there (`status.json`), then run `tools/patterns/import.sh`: the
@@ -61,7 +63,7 @@ byte.
   pitched family channel 1 (else every channel but 10), so MuseScore's chord-symbol playback (its own channel) and
   other parts don't count. Chord symbols (`<harmony>`, MIDI text) are labels: the notes are the chord.
 - **What is read from the metadata:** the fields notes can't hold (`src`, a drum pattern's `family`, written
-  `pattern_family` in the metadata since its `family` is the folder's, and `half_time`, the comp rhythms' `vel_range`, `second_vel_pct`, `busy_over` and `busy_steps`, weights), when the
+  `pattern_family` in the metadata since its `family` is the folder's, and `half_time`, the comp rhythms' `vel_range`, `second_vel_pct`, `opt_pct`, `busy_over` and `busy_steps`, weights), when the
   file still has its `vnl1` metadata; else `model.json`'s. A progression's `kind`, `moods` and `modes` come from its
   title when it parses (`Progression N: ... (loop; warm, sunny; Dorian, Aeolian)`; MuseScore keeps the title, a
   DAW's MIDI may not). Each chord keeps the metadata's or `model.json`'s `{degree, alter, quality}` when it still
@@ -116,9 +118,11 @@ chord look the same on paper).
 
 ## comp-rhythms
 
-The keys' comping rhythms (`COMP_HELD`, `COMP_HALF`, `COMP_STABS` in `patterns_gen.c`; `harmony.c` plays them):
-held, half and stabs, over a reference Cmaj7 (C4 E4 G4 B4; the pitches are placeholders, only the rhythm counts). The
-velocities are written at the middle of `vel_range` (metadata).
+The keys' comping rhythms (`COMP_HELD`, `COMP_HALF`, `COMP_STABS`, `COMP_HELD2`, `COMP_LIGHT8` in `patterns_gen.c`;
+`harmony.c` plays them): held, half, stabs, held on 2 and light eighths, over a reference Cmaj7 (C4 E4 G4 B4; the
+pitches are placeholders, only the rhythm counts). The velocities are written at the middle of `vel_range`
+(metadata), a later strike at `second_vel_pct` of it. A strike written as long as the gap to the next is held to the
+next strike played, or the bar's end; a shorter one is played as written.
 
 - **held:** one strike on step 0, held the bar.
 - **half:** strikes on steps 0 and 8, a half note each, the second at 90% velocity.
@@ -126,6 +130,13 @@ velocities are written at the middle of `vel_range` (metadata).
   4, 12, tried in that order where the kick leaves the step free) are written as alternates, one bar each: bar 1 is
   the first candidate, bar 2 the second, and so on. Over a kick of more than 3 hits a bar (`busy_over`), the stabs
   are steps 0 and 6 (`busy_steps`), in the metadata.
+- **held-on-2:** a strike on step 4 (beat 2, a chord change on a bar line too), held to the bar's end, and a soft
+  re-strike of the same voicing on step 12 (beat 4, `second_vel_pct` 70) in `opt_pct` 40% of bars (a per-bar hash
+  of the song's seed), which shortens the first to a half note. Under a busy lead, step 4 only (`busy_steps`).
+  Percussive keys only; the roll's weight is 0 for now (the workbench and `VNL_COMP=6` play it).
+- **light-eighths:** a strike on every 8th (steps 0, 2, ... 14), each a 16th long (half an 8th), softer than half
+  notes (`vel_range` 30-38). Under a busy lead, the quarters (`busy_steps` 0, 4, 8, 12). Percussive keys only; weight
+  0 for now (the workbench and `VNL_COMP=7`).
 
 ## strum
 

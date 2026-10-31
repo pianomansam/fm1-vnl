@@ -2271,6 +2271,81 @@
         6
       ],
       "file": "comp-rhythms/3-stabs"
+    },
+    "4": {
+      "name": "held-on-2",
+      "status": "approved",
+      "style": "CS_HELD2",
+      "vel_range": [
+        40,
+        58
+      ],
+      "second_vel_pct": 70,
+      "opt_pct": 40,
+      "busy_steps": [
+        4
+      ],
+      "strikes": [
+        {
+          "step": 4,
+          "len": 8
+        },
+        {
+          "step": 12,
+          "len": 4
+        }
+      ],
+      "file": "comp-rhythms/4-held-on-2"
+    },
+    "5": {
+      "name": "light-eighths",
+      "status": "approved",
+      "style": "CS_LIGHT8",
+      "vel_range": [
+        30,
+        38
+      ],
+      "busy_steps": [
+        0,
+        4,
+        8,
+        12
+      ],
+      "strikes": [
+        {
+          "step": 0,
+          "len": 1
+        },
+        {
+          "step": 2,
+          "len": 1
+        },
+        {
+          "step": 4,
+          "len": 1
+        },
+        {
+          "step": 6,
+          "len": 1
+        },
+        {
+          "step": 8,
+          "len": 1
+        },
+        {
+          "step": 10,
+          "len": 1
+        },
+        {
+          "step": 12,
+          "len": 1
+        },
+        {
+          "step": 14,
+          "len": 1
+        }
+      ],
+      "file": "comp-rhythms/5-light-eighths"
     }
   },
   "strum": {

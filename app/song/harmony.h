@@ -10,7 +10,13 @@
 
 /* (CS_HALF, appended: the voicing struck on beats 1 and 3, the second a little softer; sustained keys hold instead) */
 /* (CS_STRUM, appended: the guitars' strummed chord, strum.h's engine on a guitar shape) */
-enum { CS_HELD, CS_STABS, CS_OFFBEATS, CS_ARP, CS_HALF, CS_STRUM };
+/* (CS_HELD2 and CS_LIGHT8, appended: held on 2, struck on beat 2 and held to the bar's end, a soft re-strike on beat 4
+   in about 40% of bars; light eighths, the voicing struck soft and short on every 8th. Percussive keys only
+   (harmony_comp_ok); the workbench's for now: weight 0 in the roll until Sam sets it) */
+enum { CS_HELD, CS_STABS, CS_OFFBEATS, CS_ARP, CS_HALF, CS_STRUM, CS_HELD2, CS_LIGHT8, CS_N };
+/* 0 where the chords instrument ins can't play comping style cs (held on 2 and light eighths: the percussive keys
+   only, Rhodes, Wurli, felt piano, DX electric piano and the Knight); a forced style it can't play holds instead */
+int harmony_comp_ok(int ins, int cs);
 
 /* Pitch classes (root first, up to 5) of the chord at `bar` (from 0). pass is 1-based: 1 = the first time through
    the loop (bar / (n * bars_per_chord) + 1). Passes >= 2 may recolor or substitute exactly one chord of the pass
@@ -28,7 +34,7 @@ int harmony_style_lead(int ins, int lead, int tempo, uint32_t seed);
 unsigned harmony_stab_steps(const song_roll_t *r);   /* the steps stab comping strikes: 1 and a step the kick leaves free */
 
 int harmony_half_strikes(const song_roll_t *r);   /* 1 when the song really plays half notes (not held by sustained keys or the kick) */
-unsigned harmony_comp_steps(const song_roll_t *r);   /* the steps stabs or half-note comping strike (0 if only a note on 1) */
+unsigned harmony_comp_steps(const song_roll_t *r);   /* the steps stabs, half notes, held on 2 or light eighths strike (0 if only a note on 1) */
 
 /* Chord-part events of one 16th step (bar and step from 0). Writes nothing unless the block has L_KEYS.
    voicing_state: the previous chord's 4 notes (all 0 = none), updated here for voice leading. Chords are rolled:
@@ -66,7 +72,8 @@ int harmony_keys_oct(const song_roll_t *r);
    notes of its guitar shape, ascending (0 first where the shape has fewer; its shape cache may fill). */
 void harmony_voicing_at(const song_roll_t *r, int bar, int pass, harmony_voicing_t *vs, int out4[4]);
 /* One step of the keys. busy: the lead has 4+ onsets this bar, so stabs strike on 1 only, offbeats on 6 and 14, the
-   arpeggio on even steps, half notes on step 0 of every bar, held a bar (held comping and sustained keys unchanged); the voicing never changes. */
+   arpeggio on even steps, half notes on step 0 of every bar, held a bar, light eighths on the quarters, held on 2 with
+   no beat 4 (held comping and sustained keys unchanged); the voicing never changes. */
 int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, int pass, float step_samples,
                  harmony_voicing_t *vs, int busy, uint32_t salt, song_ev_t *out, int max);
 

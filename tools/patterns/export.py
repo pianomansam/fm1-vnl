@@ -114,18 +114,27 @@ def build_model(t, kick_phrases):
             "moods": [MOODS[i] for i in range(4) if p["moods"] >> i & 1], "modes": modes, "src": p["src"],
             "symbols": symbols, "symbols_mode": MODES[first], "file": f"progressions/{p['id']}-{slug}"}
     c = t["comp"]
-    held, half, st = c["held"], c["half"], c["stabs"]
+    st = c["stabs"]
 
-    def strikes(x):
-        return [{"step": s, "len": n} for s, n in zip(x["steps"], x["lens"])]
+    def strikes(k, name, style):
+        """a strikes rhythm's entry: second_vel_pct, opt_pct and busy_steps only where they say something"""
+        x = c[name]
+        e = {"name": name, "status": "approved", "style": style, "vel_range": x["vel"]}
+        if x["later_vel_pct"] != 100:
+            e["second_vel_pct"] = x["later_vel_pct"]
+        if x.get("opt_pct", 100) != 100:
+            e["opt_pct"] = x["opt_pct"]
+        if x.get("busy_steps"):
+            e["busy_steps"] = x["busy_steps"]
+        e["strikes"] = [{"step": s, "len": n} for s, n in zip(x["steps"], x["lens"])]
+        e["file"] = f"comp-rhythms/{k}-{name}"
+        return e
     m["comp-rhythms"] = {
-        "1": {"name": "held", "status": "approved", "style": "CS_HELD", "vel_range": held["vel"],
-              "strikes": strikes(held), "file": "comp-rhythms/1-held"},
-        "2": {"name": "half", "status": "approved", "style": "CS_HALF", "vel_range": half["vel"],
-              "second_vel_pct": half["later_vel_pct"], "strikes": strikes(half), "file": "comp-rhythms/2-half"},
+        "1": strikes(1, "held", "CS_HELD"), "2": strikes(2, "half", "CS_HALF"),
         "3": {"name": "stabs", "status": "approved", "style": "CS_STABS", "vel_range": st["vel"], "len": st["len"],
               "first": st["first"], "second": st["second"], "busy_over": st["busy_over"],
-              "busy_steps": st["busy_steps"], "file": "comp-rhythms/3-stabs"}}
+              "busy_steps": st["busy_steps"], "file": "comp-rhythms/3-stabs"},
+        "4": strikes(4, "held-on-2", "CS_HELD2"), "5": strikes(5, "light-eighths", "CS_LIGHT8")}
     m["strum"] = {}
     for i, s in enumerate(t["strum"]):
         k = strum_id(i)

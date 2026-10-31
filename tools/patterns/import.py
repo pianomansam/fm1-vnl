@@ -52,8 +52,10 @@ SHAPES = [("maj7", {0, 4, 7, 11}), ("7", {0, 4, 7, 10}), ("m7", {0, 3, 7, 10}), 
 EXTENSIONS = {1, 2, 3, 5, 6, 8, 9}              # 9ths, 11ths, 13ths over a 7th chord
 TITLE_RE = re.compile(r"^Progression [^:]*: .*\((vamp|loop|jazzy); ([a-z, ]+); ([A-Za-z, ]+)\)\s*$")
 META_FIELDS = {"drums": ("pattern_family", "half_time", "src"), "kick-phrases": (), "progressions": ("kind", "moods", "modes",
-               "src"), "comp-rhythms": ("vel_range", "second_vel_pct", "busy_over", "busy_steps"), "strum": (),
+               "src"), "comp-rhythms": ("vel_range", "second_vel_pct", "opt_pct", "busy_over", "busy_steps"), "strum": (),
                "lead-arp": ("weight",), "melody-cells": ("weight",)}
+# the comp rhythms written as strikes in a bar (the stabs are their own shape), with their tables' C names
+STRIKES = {"held": "COMP_HELD", "half": "COMP_HALF", "held-on-2": "COMP_HELD2", "light-eighths": "COMP_LIGHT8"}
 
 
 class Refused(Exception):
@@ -172,14 +174,14 @@ def decode(fam, key, score, base):
     elif fam == "comp-rhythms":
         try:                                            # the file's velocities are placeholders (vel_range's middle)
             mid = sum(e["vel_range"]) // 2
-            later = mid * e.get("second_vel_pct", 100) // 100 if e.get("name") == "half" else mid
+            later = mid * e.get("second_vel_pct", 100) // 100 if e.get("name") != "stabs" else mid
             first = min((x["start"] for x in notes), default=0)
             if any(x["vel"] is not None and x["vel"] != (mid if x["start"] == first else later) for x in notes):
                 NOTICES.append((None, "velocities are ignored: the comp rhythms' vel_range and second_vel_pct are "
                                       "metadata (model.json)"))
         except (TypeError, KeyError, ValueError):
             pass
-        if e.get("name") in ("held", "half"):
+        if e.get("name") in STRIKES:
             only_bars(notes, 1, f"{e['name']} comping")
             by = {}
             for x in notes:
@@ -311,7 +313,8 @@ def rows_from_model(model):
     comp = {e["name"]: e for e in model["comp-rhythms"].values()}
     t["comp"] = {n: {"vel": comp[n]["vel_range"], "steps": [s["step"] for s in comp[n]["strikes"]],
                      "lens": [s["len"] for s in comp[n]["strikes"]],
-                     "later_vel_pct": comp[n].get("second_vel_pct", 100)} for n in ("held", "half")}
+                     "later_vel_pct": comp[n].get("second_vel_pct", 100), "opt_pct": comp[n].get("opt_pct", 100),
+                     "busy_steps": comp[n].get("busy_steps", [])} for n in STRIKES}
     s = comp["stabs"]
     t["comp"]["stabs"] = {"vel": s["vel_range"], "first": s["first"], "second": s["second"], "len": s["len"],
                           "busy_over": s["busy_over"], "busy_steps": s["busy_steps"]}
@@ -365,13 +368,18 @@ def gen_c(t):
          "extern const uint8_t LIB_PATTERNS_STATUS[];",
          "extern const uint8_t LIB_PROGS_STATUS[];",
          "",
-         "/* the keys' held and half-note comping (harmony.c): strikes in a bar, `later_vel_pct` the later strikes'",
-         "   velocity in percent of the first's; len is in 16ths (held: written a bar; the engine holds the chord) */",
+         "/* the keys' held, half-note, held-on-2 and light-eighths comping (harmony.c): strikes in a bar, `later_vel_pct`",
+         "   the later strikes' velocity in percent of the first's; len is in 16ths (held: written a bar, the engine holds the",
+         "   chord; a strike as long as the gap to the next is held to the next strike played or the bar's end); `opt_pct`",
+         "   the share of bars, in percent, that play the last strike (100: every bar); `busy_steps` the strikes a busy lead",
+         "   keeps (a mask; 0: harmony.c's own rule) */",
          "typedef struct {",
          "    uint8_t vel_lo, vel_hi;",
          "    uint8_t n;                          /* strikes */",
-         "    uint8_t step[2], len[2];",
+         "    uint8_t step[8], len[8];",
          "    uint8_t later_vel_pct;",
+         "    uint8_t opt_pct;",
+         "    uint16_t busy_steps;",
          "} patterns_comp_t;",
          "/* the stabs: one on `first`, the second on the first of `second` the kick leaves free; over a kick of more",
          "   than `busy_over` hits a bar, `busy_steps` (a mask). len: the written length (the engine strikes 60% of a",
@@ -385,7 +393,7 @@ def gen_c(t):
          "    uint8_t busy_over;",
          "    uint16_t busy_steps;",
          "} patterns_stabs_t;",
-         "extern const patterns_comp_t COMP_HELD, COMP_HALF;",
+         "extern const patterns_comp_t " + ", ".join(STRIKES.values()) + ";",
          "extern const patterns_stabs_t COMP_STABS;",
          "",
          "/* strum.c's patterns (16 steps; 32 for a two-bar one) and the ballad's fill-bar variant */",
@@ -434,11 +442,12 @@ def gen_c(t):
                  f"{p['poly3']}, {c_str(p['src'])}, {p['two_bar']}, {m['hit_b']}, {m['ghost_b']}}},")
     C += ["};", "const int LIB_NPATTERNS = (int)(sizeof LIB_PATTERNS / sizeof LIB_PATTERNS[0]);",
           "const uint8_t LIB_PATTERNS_STATUS[] = " + c_list(p["status"] for p in t["patterns"]) + ";", ""]
-    for name, key in (("COMP_HELD", "held"), ("COMP_HALF", "half")):
+    for key, name in STRIKES.items():
         x = t["comp"][key]
-        pad = lambda v: list(v) + [0] * (2 - len(v))  # noqa: E731
+        pad = lambda v: list(v) + [0] * (8 - len(v))  # noqa: E731
         C.append(f"const patterns_comp_t {name} = {{{x['vel'][0]}, {x['vel'][1]}, {len(x['steps'])}, "
-                 f"{c_list(pad(x['steps']))}, {c_list(pad(x['lens']))}, {x['later_vel_pct']}}};")
+                 f"{c_list(pad(x['steps']))}, {c_list(pad(x['lens']))}, {x['later_vel_pct']}, {x['opt_pct']}, "
+                 f"0x{sum(1 << s for s in x['busy_steps']):04X}}};")
     s = t["comp"]["stabs"]
     C.append(f"const patterns_stabs_t COMP_STABS = {{{s['vel'][0]}, {s['vel'][1]}, {s['first']}, {len(s['second'])}, "
              f"{c_list(list(s['second']) + [0] * (4 - len(s['second'])))}, {s['len']}, {s['busy_over']}, "
@@ -513,7 +522,8 @@ def defaults(fam, stem, model, meta):
         n = max((int(k[1:]) for k in es if k[1:].isdigit()), default=1) + 1
         return f"k{n}", {"id": f"k{n}"}
     if fam == "comp-rhythms":
-        raise Refused(None, "comp-rhythms are fixed (held, half and stabs): edit those files instead of adding one")
+        raise Refused(None, "comp-rhythms are fixed (held, half, stabs, held-on-2 and light-eighths: each a style the "
+                            "engine plays): edit those files instead of adding one")
     if fam == "strum":
         n = sum(1 for e in es.values() if e["kind"] == "pattern")
         return str(export.strum_id(n)), {"index": n, "kind": "pattern"}

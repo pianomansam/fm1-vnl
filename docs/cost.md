@@ -1104,3 +1104,19 @@ CPU: `tools/tick-bench.sh 3000 5 [STYLE]`, three runs each, interleaved: worst t
 forced **28 us**, Bossa Nova forced (8) **28-32 us**, Ambient forced (9) **27-33 us**; strummed songs 22-30 us in all
 three; worst song_start 6-8 us. Ambient's first lead bar scores 15 motif levels over the loop's chords (once a song);
 within Film Score's and Impressionism's range. The unforced events hash is unchanged (7dbc0885, 936e9bb7).
+
+### Keys comping: held on 2 and light eighths (2026-10-30)
+
+Two comping styles (CS_HELD2, CS_LIGHT8, harmony.c), candidates on the percussive keys only; the roll weighs them 0, so
+an unforced song is unchanged (tests/run_tests.sh's pinned hashes hold; `tools/tick-bench.sh` unforced events 95171cd4,
+strummed 93256f33). The comping tables widen to 8 strikes a bar
+(patterns_comp_t step[8]/len[8], plus opt_pct and busy_steps): flash only, RAM .data+.bss unchanged (no new state:
+both styles keep one voicing per chord and draw the beat-4 re-strike from `mix(seed, bar, ...)`).
+
+Image: **not measured yet.** `./build.sh` hung in its Docker step (the daemon stopped answering after the disk filled);
+to be added once Docker is back.
+
+CPU: `tools/tick-bench.sh 3000 5 -1 COMP` (a fourth argument, new: forces a comping style, held where the keys can't
+play it), three runs each, interleaved: worst tick over the other songs, none forced **26-30 us**, held on 2 forced (6)
+**26-27 us**, light eighths forced (7) **26-27 us**; worst song_start 6-8 us in all three. Light eighths strikes four
+times as often as half notes, but each strike is one voicing already built: no measurable cost.

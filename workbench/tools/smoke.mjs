@@ -2259,6 +2259,60 @@ console.log("candidates: the strum and arpeggio rows, Approve (patterns and edit
   check(!bad.ok && !desk.approved.has(`drums/${PID}`) && /no such strum pattern/.test(bad.message), "a refused approval says why");
 }
 
+console.log("comping: held on 2 and light eighths (the workbench's: the roll weighs them 0)");
+{
+  const HH = readFileSync(new URL("../../app/song/harmony.h", import.meta.url), "utf8");
+  const CS = HH.slice(HH.indexOf("enum { CS_HELD")).split("}")[0].replace(/enum \{/, "").split(",")
+    .map((x) => x.trim()).filter((x) => x && x !== "CS_N");
+  check(OPTS.comping.every((c) => CS[c.id] === c.sym) && OPTS.comping.length === CS.length,
+        "every comping style's id is its harmony.h enum's");
+  const perc = ["Rhodes", "Wurli", "Felt piano", "DX electric piano", "Knight piano"].map(ins);
+  const off = ["Nylon guitar", "Emilyguitar", "Organ", "Chillwave pad"].map(ins);
+  const NEW = ["Held on 2", "Light eighths"];
+  const offered = (k) => optionsFor(row("comp"), { values: { keys: k } }, OPTS).map((o) => o.name);
+  check(perc.every((k) => NEW.every((n) => offered(k).includes(n))) && off.every((k) => NEW.every((n) => !offered(k).includes(n))),
+        "held on 2 and light eighths are offered on the percussive keys only (not the guitars, organ or pad)");
+  const cand = OPTS.comping.filter((c) => c.status === "candidate").map((c) => c.id);
+  let picked = 0;
+  for (let i = 1; i <= 200; i++)
+    picked += cand.includes(pickFor(row("comp"), { values: { keys: perc[i % 5], comp: -1 }, locks: new Set() }, OPTS, lcg(i)));
+  check(JSON.stringify(cand) === "[6,7]" && picked === 0, `... as candidates, never the dice's pick (${picked} of 200)`);
+
+  const { readEvents } = await import("../wb.js");
+  const ex = await load(), call = caller(ex), lib = await call("wb_library");
+  const keysEv = async () => {   // the committed song's keys notes, from a probe instance
+    const pex = await load();
+    new Uint8Array(pex.memory.buffer, pex.wb_commit_ptr(), pex.wb_stage_size())
+      .set(new Uint8Array(ex.memory.buffer, ex.wb_commit_ptr(), ex.wb_stage_size()));
+    pex.wb_events(0);
+    return readEvents(pex).filter((e) => e.role === V.CHORD);
+  };
+  const d = new Desk(call, C, OPTS, lib, { rnd: lcg(8) });
+  await d.set("seed", 21);
+  await d.set("keys", ins("Rhodes"));
+  const h2 = await d.set("comp", 6), e2 = await keysEv();
+  const at = (es, s) => es.filter((e) => e.step === s).length;
+  check(h2.ok && ex.wb_comp_applied() === 6 && ex.wb_ov_get(OV.COMP) === 6 && e2.length &&
+        e2.every((e) => e.step === 4 || e.step === 12) && at(e2, 4) > at(e2, 12) && at(e2, 12) > 0,
+        `held on 2 picked on the Rhodes: struck on beat 2, some bars beat 4 too (${at(e2, 4)} and ${at(e2, 12)} notes)`);
+  const l8 = await d.set("comp", 7), e8 = await keysEv();
+  check(l8.ok && ex.wb_comp_applied() === 7 && e8.length && e8.every((e) => e.step % 2 === 0 && e.len <= 1) &&
+        [2, 6, 10, 14].every((s) => at(e8, s) > 0),
+        `light eighths picked on the Rhodes: every 8th, a 16th long (${e8.length} notes)`);
+  await d.set("keys", ins("Organ"));
+  check(d.values.comp === -1 && ex.wb_ov_get(OV.COMP) === -1, "keys -> organ puts light eighths back to as rolled");
+  for (const [keys, cs] of [["Organ", 7], ["Organ", 6], ["Nylon guitar", 6], ["Nylon guitar", 7]]) {
+    await d.set("keys", ins(keys));
+    const st = cstr(ex, ex.wb_state()), r = await d.set("comp", cs);
+    check(!r.ok && new RegExp(`doesn't suit the ${keys}`).test(r.message) && /Rhodes/.test(r.message) &&
+          cstr(ex, ex.wb_state()) === st && ex.wb_ov_get(OV.COMP) === -1,
+          `${cs === 6 ? "held on 2" : "light eighths"} on the ${keys}: refused, nothing staged ("${r.message}")`);
+  }
+  ex.wb_ov_set(OV.COMP, 7);   // the engine on its own (a snapshot, a host render): held where the keys can't play it
+  check(ex.wb_comp_applied() === 0, "forced on the organ by the override alone, the engine holds instead");
+  ex.wb_ov_set(OV.COMP, -1);
+}
+
 console.log("options.json: statuses");
 check(!OPTS.instruments.some((i) => i.status === "candidate") &&
       ["Chillwave pad", "Vox pad"].every((n) => OPTS.instruments.find((i) => i.name === n).status === "approved"),

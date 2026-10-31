@@ -171,6 +171,12 @@ export class Desk {
     const r = row(id);
     if (this.locks.has(id)) return this.done(false, `${r.label} is locked.`);
     if (id === "kick" && this.locks.has(PART_ROW.drums)) return this.done(false, "Kick phrase: the drums part is locked (its roll holds the kick).");
+    const comp = id === "comp" ? this.opts.comping.find((c) => c.id === value) : null;
+    if (comp?.keys && !comp.keys.includes(this.values.keys)) {   // a style these keys can't play (rows.js offers it not)
+      const name = (k) => this.opts.instruments.find((i) => i.id === k)?.name ?? `instrument ${k}`;
+      return this.done(false, `${comp.name} comping doesn't suit the ${name(this.values.keys)}: it plays on the ` +
+                              `${comp.keys.map(name).join(", ")} only.`);
+    }
     for (const p of Object.keys(PARTS)) this.rollOf(p);   // each part's history starts at the roll before this change
     const prevEv = this.partEv;
     if (id === "kit" && this.samples && !(await this.samples.kit(value))) {

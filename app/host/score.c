@@ -23,7 +23,8 @@ typedef struct { int bar, st, voice, note, vel; float delay, len, ss; } rec_t;  
 static const char *const FLATS[12] = {"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"};
 static const char *const SHARPS[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 static const char *const MODE[MODE_N] = {"major", "Dorian", "Phrygian", "Lydian", "Mixolydian", "minor"};
-static const char *const STYLE[6] = {"held", "stabs", "offbeats", "arpeggio", "half notes", "strum"};
+static const char *const STYLE[CS_N] = {"held", "stabs", "offbeats", "arpeggio", "half notes", "strum", "held on 2",
+                                        "light eighths"};
 static const char *const STRUM[SP_N + 1] = {"strum, D-DU-UDU", "strum, chucks", "strum, bossa", "strum, ballad",
                                             "strum, slow ballad"};
 static const char *const BASS[4] = {"roots", "root-fifth", "walking", "pedal"};
@@ -572,7 +573,7 @@ void score_song(const song_t *s, float now)
                 p ? p->id : 0, p ? p->src : "?", set ? set->name : "?", COLOR[r->v[RF_COLOR] % 3],
                 st == CS_HALF && !harmony_half_strikes(r) ? "half notes, held"
                 : st == CS_STRUM                         ? (slow ? STRUM[SP_N] : sp < SP_N ? STRUM[sp] : "strum, an imported pattern")
-                                                         : STYLE[st % 6],
+                                                         : STYLE[st % CS_N],
                 BASS[groove_bass_style(r) & 3]);
     }
     {
