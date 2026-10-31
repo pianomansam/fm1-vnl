@@ -567,8 +567,8 @@ Renders: `app/build/new/<seed>/` and `<seed>-nobed/`, one per set (Task 8's repo
   the kalimba lead and the ear candy. Their code and patches can go unless a spike reuses them.
 - **To do, for Task 8 (Sam, 2026-10-30): the triangle bass on the FM bass engine.** Rebuild the approved filtered,
   mellow triangle bass as an M_BASS patch (index near 0 for a near-sine, a little odd-harmonic edge), A/B in songs
-  against today's; if Sam can't hear a loss (or prefers it), switch, and drop the chip engine (M_CHIP) once the chip
-  bass is gone too. Saves an engine's flash.
+  against today's; if Sam can't hear a loss (or prefers it), switch, and drop the chip engine (M_CHIP): the triangle
+  bass (INS_CHIP_BASS) is its only user. Saves an engine's flash.
 
 - **Rings' reverb and chorus against ours.** Sam picked Rings' (Task 7c); ours stays host-only (`VNL_FX=ours`).
   Rings' chorus wobbles ±14 cents, near its test's 15-cent window: don't deepen it without moving the window.
