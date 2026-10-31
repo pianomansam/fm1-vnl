@@ -29,7 +29,6 @@ export const ROWS = [
   { id: "bass", group: INS, label: "Bass", kind: "role", role: "BASS", source: "instruments" },
   { id: "pad", group: INS, label: "Pad", kind: "role", role: "PAD", source: "instruments" },
   { id: "padOn", group: INS, label: "Pad on/off", kind: "ov", key: "PAD_ON", source: "padOn" },
-  { id: "soloChoir", group: INS, label: "Vox pad solo", kind: "ov", key: "SOLO_CHOIR", source: "soloChoir" },
   { id: "phrase", group: VP, label: "Lead phrase", kind: "reroll", key: "PHRASE_SALT", part: "lead" },
   { id: "leadStyle", group: VP, label: "Lead style", kind: "ov", key: "LEAD_STYLE", source: "leadStyles" },
   { id: "leadOct", group: VP, label: "Lead register", kind: "ov", key: "LEAD_OCT", source: "registers" },
@@ -105,7 +104,6 @@ function allOptions(r, state, opts, lib) {
     case "padOn": return [ROLLED, ...list(["Off", "On"])];
     case "onOff": return list(["Off", "On"]);
     case "onOffInverted": return [{ value: 0, name: "On" }, { value: 1, name: "Off" }];   // the engine's flag turns it off
-    case "soloChoir": return [{ value: 0, name: "Vox pad" }, { value: 1, name: "Choir" }];   // who sings its notes
     case "padPlaces": return [ROLLED, ...list(["Below the lead", "With the lead", "Above the lead"])];
     case "rides": return [ROLLED, ...list(["None", "Throughout", "One section"])];
     case "kits": return opts.kits.map((k) => ({ value: k.id, name: k.name, status: k.status, family: k.family,
@@ -213,7 +211,7 @@ export function conflicts(r, value, state, opts, rnd = Math.random, lib) {
 
 // an override row's "as rolled" value (the registers', the switches' and the re-rolls' 0, the others' -1)
 export const rolled = (r) => (r.source === "registers" || r.source === "onOff" || r.source === "onOffInverted" ||
-                               r.source === "soloChoir" || r.kind === "reroll" ? 0 : -1);
+                               r.kind === "reroll" ? 0 : -1);
 
 // The page's values from wb_state() (C: wb_consts()); the family is the page's, so it isn't here. A shorter ov list
 // (an older engine's state) leaves its newer overrides as rolled.
@@ -251,13 +249,6 @@ export function inactive(r, state, opts) {
     return "The keys don't strum in this song: a strum pattern plays with strummed comping (the guitars).";
   if ((r.id === "arpRhythm" || r.id === "arpPattern") && state.hybrid === false)
     return "The lead sings phrases in this song: the arpeggio plays when the lead style is Hybrid (or a percussive lead).";
-  if (r.id === "soloChoir" && state.padSolo !== undefined) {   // the staged song's pad solo voice as rolled (INS_*)
-    const solo = opts.instruments.find((i) => i.id === state.padSolo);
-    if (!solo || solo.sym === "INS_NONE")
-      return "No pad solo in this song: the choir sings the vox pad's solo notes where a song has them.";
-    if (solo.sym !== "INS_VOX_PAD")
-      return `This song's pad solo is the ${solo.name.toLowerCase()}: the choir sings the vox pad's solo notes only.`;
-  }
   if (r.id === "ride") {
     const kit = opts.kits.find((k) => k.id === state.values.kit);
     if (!kit?.ride) return `${kit ? kit.name : "This kit"} has no ride: the ride section plays on the sampled kits only.`;

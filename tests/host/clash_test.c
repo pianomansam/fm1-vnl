@@ -433,7 +433,7 @@ static void test_ov_salts(void)
 {
     static song_t s;
     static const int8_t KO[10] = {0, 0, 1, -1, 0, 0, 0, 0, 0, 0}, LO[10] = {0, 0, 0, 0, 1, -1, 0, 0, 0, 0};
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, 0, -1, -1, -1, 0, 0};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, 0, -1, -1, -1, 0};
     song_roll_t r;
     int i, k;
     for (k = 0; k < 10; k++) {
@@ -845,7 +845,7 @@ static void style_rules(int style, const char *name, int per_song)
     static song_t s;
     static const int INS[4] = {INS_FLUTE, INS_FELT_PIANO, INS_VIBES, INS_KNIGHT};
     static const char *NM[4] = {"flute", "felt piano", "vibes", "Knight"};
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, 0, -1, -1, -1, 0, 0};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, 0, -1, -1, -1, 0};
     long before = fails, rub0 = rubs[0][0] + rubs[0][1] + rubs[0][2] + rubs[0][3] + rubs[1][0] + rubs[1][1] +
                                 rubs[1][2] + rubs[1][3];
     int k, i, oct;
@@ -891,7 +891,7 @@ static void style_rules(int style, const char *name, int per_song)
 static void style_hard(int style, const char *name, const int *ins, int nins, long m9_notes)
 {
     static song_t s;
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, 0, -1, -1, -1, 0, 0};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, 0, -1, -1, -1, 0};
     long before = fails;
     int k;
     o.lead_style = (int8_t)(2 + style);
@@ -1006,7 +1006,7 @@ static void test_comp_new(void)
     static song_t s;
     static const int NEW[3] = {CS_HELD2, CS_HELD24, CS_LIGHT8};
     static const char *const NAME[3] = {"held on 2", "held on 2 and 4", "light eighths"};
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, 0, -1, -1, -1, 0, 0};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, 0, -1, -1, -1, 0};
     int k, before = fails;
     uint32_t i;
     for (k = 0; k < 3; k++) {
@@ -1036,51 +1036,6 @@ static void test_comp_new(void)
     printf("new comping styles: %d checks failed\n", fails - before);
 }
 
-/* The choir in the vox pad's solo place (song_ov_t's solo_choir; the workbench's "Vox pad solo" on Choir): over the
-   first 300 songs whose solo voice is the vox pad, pads_solo_voice gives the choir, every event is the vox pad's song's
-   (the same notes: only the instrument changes), and every rule above holds (0 rubs); a song with another solo voice
-   keeps it. */
-static void test_solo_choir(void)
-{
-    static song_t s;
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, 0, -1, -1, -1, 0, 0};
-    long songs = 0, others = 0;
-    int before = fails;
-    uint32_t i;
-    for (i = 1; songs < 300 && i < 3000; i++) {
-        song_roll_t r;
-        uint32_t h;
-        int v;
-        roll_song(NULL, i, &r);
-        song_override(NULL);
-        v = pads_solo_voice(&r);
-        if (v != INS_VOX_PAD) {
-            o.solo_choir = 1;
-            song_override(&o);
-            CHECK(pads_solo_voice(&r) == v, "solo choir: seed %u's solo voice %d became %d", (unsigned)i, v,
-                  pads_solo_voice(&r));
-            song_override(NULL);
-            others++;
-            continue;
-        }
-        song_start(&s, &r);
-        run(&s, &R1, NULL, NULL, NULL);
-        h = R1.hash;
-        o.solo_choir = 1;
-        song_override(&o);
-        CHECK(pads_solo_voice(&r) == INS_CHOIR, "solo choir: seed %u sings %d", (unsigned)i, pads_solo_voice(&r));
-        song_start(&s, &r);
-        run(&s, &R1, NULL, NULL, NULL);
-        song_override(NULL);
-        CHECK(R1.ended && R1.hash == h, "solo choir: seed %u's events %08x, the vox pad's %08x", (unsigned)i,
-              (unsigned)R1.hash, (unsigned)h);
-        songs++;
-    }
-    printf("solo choir: %ld songs in the vox pad's place, %ld others keep their solo voice\n", songs, others);
-    CHECK(songs == 300 && others > 100, "solo choir: %ld songs, %ld others", songs, others);
-    printf("solo choir: %d checks failed\n", fails - before);
-}
-
 int main(void)
 {
     int i;
@@ -1102,7 +1057,6 @@ int main(void)
     test_bossa_rules();
     test_ambient_rules();
     test_comp_new();
-    test_solo_choir();
     printf("strong steps: %ld lead/candy notes checked against the sounding chord and bass (%ld of them sounding "
            "tones), %ld with neither\n", strong_checked, strong_in, strong_skipped);
     printf("other steps: %ld lead/candy notes checked against the sounding chord and bass\n", weak_checked);

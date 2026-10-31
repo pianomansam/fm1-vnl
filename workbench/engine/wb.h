@@ -10,7 +10,7 @@
 /* wb_ov_set's keys: song_ov_t's fields (override.h), in its order */
 enum { WB_OV_COMP, WB_OV_LEAD_STYLE, WB_OV_PAD_PLACE, WB_OV_RIDE, WB_OV_KEYS_OCT, WB_OV_LEAD_OCT, WB_OV_VOICING_SALT,
        WB_OV_PHRASE_SALT, WB_OV_BASS_SALT, WB_OV_PAD_SALT, WB_OV_DRUMS_SALT, WB_OV_PAD_ON, WB_OV_LEAD_DOUBLE,
-       WB_OV_STRUM_PAT, WB_OV_ARP_RHY, WB_OV_ARP_PAT, WB_OV_NO_BUSY_THIN, WB_OV_SOLO_CHOIR, WB_OV_N };
+       WB_OV_STRUM_PAT, WB_OV_ARP_RHY, WB_OV_ARP_PAT, WB_OV_NO_BUSY_THIN, WB_OV_N };
 
 #define WB_MAX_FRAMES 1024u
 
@@ -34,8 +34,6 @@ void wb_ov_set(int key, int value);
 int wb_ov_get(int key);
 int wb_keys_oct_applied(void);          /* the keys' register as the engine applies it to the staged state */
 int wb_comp_applied(void);              /* the keys' comping style (CS_*) as the engine applies it to the staged state */
-int wb_pad_solo_ins(void);              /* the staged song's pad solo voice as rolled (INS_*; the solo_choir override
-                                           aside): the "Vox pad solo" row is heard on INS_VOX_PAD */
 int wb_kit_get(void);                   /* KIT_*: the staged song's kit (WB_KIT_PRESET + id: a preset) */
 void wb_kit_set(int kit);               /* in the custom set (as wb_role_set), played always; the lanes cleared (a
                                            preset's value: wb_kit_preset) */

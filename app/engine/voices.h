@@ -21,7 +21,8 @@ typedef struct { uint8_t chords, bass, lead, candy, pad, kit, flavor, dust, nois
    chain: fx_init, the subtle pump), every bus's filters open, the drums' compressor at rest. */
 void vx_init(void);
 /* At song start, before the first event, and again when a request changes one of these mid-song: the set's
-   instruments, kit and flavor (the chords' patch sets the chorus's depth, each role's patch its delay send; the
+   instruments (the pad layer's: lib_song_pad, the set's or the choir), kit and flavor (the chords' patch sets the
+   chorus's depth, each role's patch its delay send; the
    song's comping sets the keys' level), the pad's solo voice (pads_solo_voice: the seed and the set), the
    roll's RF_DUST, RF_NOISE and RF_AMBIENCE into the lo-fi chain (fx.h: the bed opens; dust and bed changes ramp, the
    dust landing at once if no voice sounds), RF_TEMPO into the delay's time, and the pump from the seed. Notes already sounding keep the
@@ -30,9 +31,9 @@ void vx_configure(const song_roll_t *r);
 /* 1 if roll b differs from a in a field vx_configure reads (a request that landed mid-song needs it again). */
 int vx_reconfigures(const song_roll_t *a, const song_roll_t *b);
 void vx_bed_off(int on);                 /* 1: no surface noise or rain (host renders, VNL_BED=0) */
-/* Host renders (VNL_PAD) and tests: the pad layer's instrument (an M_ENS one: INS_STRINGS, INS_WARM_PAD, INS_CHOIR) in
-   place of the set's from the next vx_configure on; INS_NONE (the default, or any other) the set's. Kept through
-   vx_init. */
+/* Tests and the cost bench: the pad layer's instrument (an M_ENS one: INS_STRINGS, INS_WARM_PAD, INS_CHOIR) in place
+   of the song's (lib_song_pad) from the next vx_configure on; INS_NONE (the default, or any other) the song's. Kept
+   through vx_init. */
 void vx_pad_ins(int ins);
 /* Tests: the choir's formant k (0-2, F1-F3) in Hz as its bank last set it (voices.c: the "oo-aah" morph and the
    drift), 0 before it first sang */
@@ -52,8 +53,8 @@ void vx_song(const song_roll_t *r);
    starts fresh (its swell), and on one still releasing the old note fades out (about 4 ms, as a steal) first. A lane
    never moves another's voice. */
 void vx_assign(int voice, int ins);
-/* The pad layer's solo lane (lane 4) its own patch: INS_VOX_PAD, INS_FLUTE, INS_ORGAN, INS_STRINGS or INS_CHOIR (the
-   formant choir, its bank shared with a choir pad's),
+/* The pad layer's solo lane (lane 4) its own patch: INS_CHOIR (the formant choir, its bank shared with a choir pad's),
+   INS_FLUTE, INS_ORGAN or INS_STRINGS,
    anything else (INS_NONE) the pad's (vx_assign's V_PAD). Lane 4 alone plays it, in its own model (the ensemble, the
    choir and the organ at a quarter of the rate, the flute at half), on the pad's bus (its filters, its sends),
    trimmed to the strings' loudness; lanes 1-3 and lane-less notes keep the pad's M_ENS patch. A

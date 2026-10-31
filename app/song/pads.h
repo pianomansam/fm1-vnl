@@ -15,10 +15,10 @@
 enum { PF_SILENT, PF_ON, PF_IN, PF_OUT };   /* level 0; 1; rising 0 to 1 over the bar; falling 1 to 0 over it */
 typedef struct { int chord[3]; int solo; int note[4][4]; uint8_t fade[4]; } pads_state_t;
 
-/* The song's solo voice (seed stream 191): INS_NONE (no solo note) in 40% of songs; otherwise the choir
-   (INS_VOX_PAD), the flute, the organ or the strings, equally likely among those allowed: never the flute when the
-   set's lead is the flute, nor the organ over organ keys. Reads the seed and the set only; the solo_choir override
-   (song_ov_t) gives the formant choir (INS_CHOIR) in the vox pad's place, the same draw. */
+/* The song's solo voice (seed stream 191): INS_NONE (no solo note) in 40% of songs; otherwise the formant choir
+   (INS_CHOIR, in the vox pad's place since 2026-10-31: the same draw), the flute, the organ or the strings, equally
+   likely among those allowed: never the flute when the set's lead is the flute, nor the organ over organ keys. Reads
+   the seed and the set only. */
 int pads_solo_voice(const song_roll_t *r);
 
 /* The pad layer's part in this plan block (an index into song_plan_t.b), where the keys play: 0 none, 1 the chord

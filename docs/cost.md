@@ -1143,3 +1143,23 @@ Flash (host -O2 objects of app/engine and app/song against f41748f; the image no
 text** (voices.o +4133 B: the bank, its cell update and pad_seg's split; patch.o +96 B: the patch), +372 B of data/bss
 (the bank's quarter-rate buffer, 264 B, and its state). Stage 2 (the vox pad retired, M_PAD's formant path and M_PAD
 off the solo lane) would take about 2.2 KB of that back on the same measure.
+
+### The choir in the vox pad's place, and a pad the songs draw (2026-10-31)
+
+Stage 2 of the choir: the pad's solo voice that was the vox pad is the formant choir (the same draw, the same notes;
+its level the vox pad's over C5-C6, -33.48 dBFS, pinned in test_choir_solo), and a song draws the choir as its pad
+layer in 1 song in 4 (lib_song_pad, seed stream 197) over the set's strings or warm pad. The vox pad is gone (no
+patch; its id kept), with M_PAD's formant path and its solo-lane glide (M_PAD now plays only the chillwave pad's
+keys); the stage-1 switches (`VNL_PAD`, `VNL_SOLO_CHOIR`, the "Vox pad solo" row) are gone. Event hashes: unchanged
+(the instrument never reaches the events).
+
+CPU (`bench --parts`, best of 7, AMB-1 211.9 ms on a busy host, idle floor 0.104): pad row **choir 0.053** (strings
+0.048, warm pad 0.047); layer over the full chain choir 0.059 (strings 0.046); solo row **choir 0.037** (organ 0.043,
+flute 0.138, strings 0.025; the vox pad was 0.043). Whole songs (`--forced`, best of 3, AMB-1 211.3 ms, stage 1 ->
+stage 2): seed 20 (its solo now the choir) 0.937 -> 0.943 forced, seed 7 0.857 -> 0.855, seed 155 0.801 -> 0.796.
+None of the three draws the choir pad; one in four songs now carries the pad row's +0.005 to +0.013.
+
+Flash (host -O2 objects of app/engine and app/song; the image not built, Docker down): **-3.9 KB text against stage 1**
+(voices.o -4084 B: the formants, the vox pad's legato branch and pad_sample's glide, inlined at several sites;
+roll.o +180 B: lib_song_pad), so **+0.3 KB text and +372 B data against f41748f** (before the choir) for the choir
+in all.

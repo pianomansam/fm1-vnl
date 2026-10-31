@@ -432,21 +432,6 @@ void app_init(void)
                 song_override(&o);
             }
         }
-        {
-            const char *pi = getenv("VNL_PAD");    /* VNL_PAD=choir (or strings, warm): every song's pad layer that
-                                                      instrument (the workbench's pad row) */
-            vx_pad_ins(!pi ? INS_NONE : !strcmp(pi, "choir") ? INS_CHOIR : !strcmp(pi, "strings") ? INS_STRINGS
-                       : !strcmp(pi, "warm") ? INS_WARM_PAD : INS_NONE);
-        }
-        {
-            const char *sc = getenv("VNL_SOLO_CHOIR"); /* VNL_SOLO_CHOIR=1: the choir sings the vox pad's solo notes
-                                                          (the workbench's "Vox pad solo" row on Choir) */
-            if (sc && sc[0] == '1' && !sc[1]) {
-                song_ov_t o = *song_ov();
-                o.solo_choir = 1;
-                song_override(&o);
-            }
-        }
         while (w && *w) {                /* VNL_SWAP="Eb3 G3 Db4 F4=Db3 G3 Eb4 F4;...": hear an alternative voicing */
             int v[8], k = 0;
             while (*w && *w != ';' && k < 8) {
