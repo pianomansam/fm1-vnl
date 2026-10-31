@@ -206,7 +206,7 @@ static void vc_dfs(vc_t *c, int s, int last, int fmin, int fmax, int placed, uns
     c->cur[s] = 0;
 }
 
-int strum_voicing(const int *pcs, int npcs, const int prev[6], int out[6])
+int strum_voicing(const int *pcs, int npcs, const int prev[6], int out[6], int hi)
 {
     vc_t c;
     int i, rs, f, n = 0, have = prev && (prev[0] | prev[1] | prev[2] | prev[3] | prev[4] | prev[5]);
@@ -228,7 +228,7 @@ int strum_voicing(const int *pcs, int npcs, const int prev[6], int out[6])
     c.bcost = 1 << 30;
     for (i = 0; i < 6; i++)
         for (f = 0; f <= 12; f++)
-            if (TUNE[i] + f <= V_HI && in_chord(&c, TUNE[i] + f)) c.cand[i][c.ncand[i]++] = (int8_t)f;
+            if (TUNE[i] + f <= hi && TUNE[i] + f <= V_HI && in_chord(&c, TUNE[i] + f)) c.cand[i][c.ncand[i]++] = (int8_t)f;
     for (i = V_HI; i >= 0; i--) {
         int t = top_cost(&c, i);
         c.topmin[i] = (int16_t)(i == V_HI || t < c.topmin[i + 1] ? t : c.topmin[i + 1]);
@@ -252,7 +252,7 @@ int strum_voicing(const int *pcs, int npcs, const int prev[6], int out[6])
         n = 1;
         while (++s < 6) {
             int x, ok = 0;
-            for (x = note + 3; x <= V_HI && !ok; x++) {
+            for (x = note + 3; x <= hi && x <= V_HI && !ok; x++) {
                 int k;
                 ok = in_chord(&c, x);
                 for (k = 1; k < s && ok; k++) ok = (x - out[k]) % 12 != 1;

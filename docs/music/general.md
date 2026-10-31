@@ -4,97 +4,142 @@ Principles that make music sound played by a good musician in any style. If VNL-
 a film cue, these would still hold. Genre and taste settings (how much swing, which chords, how long a song is) live
 in [lofi.md](lofi.md); ideas not adopted yet live in [ideas-from-other-apps.md](ideas-from-other-apps.md).
 
-Status: **Done** (file: function), **Partial**, **Not yet**. Sources: `docs/research/` (short names below), the
-plan ledger's rulings (R*n*), commits (short SHA), or **(Sam)** for decisions Sam made after listening.
+**Refreshed 2026-10-30 against the code** for the rule-based parts: harmony, keys voicing, bass, drums and the pad
+layer. Each rule is written **rule → its numbers**. **Not refreshed:** the melody and lead rows (section 6 and the
+lead rows of section 7). The lead engines are being rewritten as lead styles; those rows are kept as of 2026-10-24
+and marked. Where the code and the ledger disagree, the case is listed under "Open questions for Sam" at the end,
+not fixed.
+
+Status: **Done** (file: function), **Partial**, **Not yet**, **Removed** (was in the 10-24 doc, no longer true).
+Sources: `docs/research/` (short names below), the plan ledger's rulings (R*n*), commits (short SHA), or **(Sam)**
+for decisions Sam made after listening.
 
 Research short names: *genre* = `lofi-hip-hop.md`, *audio* = `lofi-audio-arrangements.md`, *midi* =
 `lofi-midi-arrangements.md`, *accomp* = `auto-accompaniment-comparison.md`, *firmwares* = `other-firmwares.md`.
 
+Code paths are under `app/song/`. "Step" means a 16th note; a bar is steps 0–15 (0 = beat 1, 4 = beat 2, 8 = beat
+3, 12 = beat 4; 2 = "and of 1", 6 = "and of 2", and so on).
+
 ## 1. Harmony
 
-| Principle | Status in VNL-1 | Source |
-| --- | --- | --- |
-| **Chord-scale.** Over each chord, melody notes come from the scale with each note a semitone above a chord tone replaced by that chord tone, so no avoid note is left. | **Done.** `melody.c: bar_masks` (the `weak` mask); `theory.c: th_is_avoid`. | R25, 1aeaa20; *accomp* §4 |
-| **Strong beats on chord tones,** weak beats free within the chord-scale. Guide tones (3rd, 7th) are the most defining. | **Done.** `strong` mask on steps 0 and 8; the motif starts on a guide tone (`melody.c: gen_figure`, `theory.c: th_guide_tones`). | spec Melody; R20 |
-| **Extensions come from the scale, never an avoid tone.** A color tone a semitone above another chord tone (natural 11 on a major chord) is left out; the 5th is the first tone to drop. | **Done.** `theory.c: th_chord_pcs` (colors 7 / 9 / rich: 13 on dominants, 11 on minor 7ths, #11 on Lydian maj7). | Task 2 ruling; *genre* §2.1 |
-| **A dominant 7th is extended, and the extension sounds.** Jazz practice: a bare V7 sounds thin and dated; at least a 9th, a 13th in richer settings, and the voicing keeps 3rd, 7th and the extension (the 5th goes). | **Done.** `harmony.c: dominant_colors`, `theory.c: th_voice_range` (dominants keep an extension). The stricter "never bare, else a triad" rule is a taste call: see [lofi.md](lofi.md#harmony). | cd9e5aa **(Sam)** |
-| **No semitone rubs between parts.** Lead and ear candy never sound a semitone from any sounding chord or bass note, at any step (not only strong beats); within the keys no two voices a semitone apart. | **Done.** `melody.c: bar_masks` (`safe`, held notes checked on every step they sound); `theory.c: th_voice_range` (no clusters); checked by `tests/host/clash_test.c` (0 allowed). Note: jazz tolerates a passing rub on a weak beat; VNL-1's zero tolerance leans toward soothing, so the *strictness* is partly taste. | R20, R25, 0996e03, 1aeaa20 **(Sam)** |
-| **Bass against keys: no minor 2nd above the bass, no major 7th above a non-root bass note** (root under a maj7 is the chord itself, so it stays). | **Done.** `groove.c: rubs_chord`, used by the walk's approach and the fifth; `clash_test` checks bass vs keys at every step (830 rubs → 0). | 8dde786 **(Sam)** |
-| **The bass's 5th only when the chord has a perfect 5th** (else the root), so the bass never adds a note the chord lacks. | **Done.** `groove.c: chord_fifth_interval`. | R20, 0996e03 |
-| **Narrow strong-beat choice is a cost.** When strong beats allow only 2 pitch classes, a lead sounds arpeggiated. Voiced color tones (the 9th in a sounding maj9) can be added without any rub. | **Not yet.** R28 deferred; see ideas file (color tones on strong beats). | R28, R30; *accomp* §6.9 |
+| Principle | Rule → numbers | Status | Source |
+| --- | --- | --- | --- |
+| **Every chord is built from the mode.** | Root, 3rd, 5th and 7th stacked in thirds from the scale degree. A progression can force a quality (m7, dominant 7, maj7) where the mode would give another; then the 5th is perfect and the 9th natural. | **Done.** `theory.c: th_chord_pcs` | Task 2 ruling |
+| **Extensions by color.** | Color 7: root, 3rd, 5th, 7th. Color 9: adds the 9th. Color "rich": the 9th plus one characteristic tone (13th on a dominant, 11th on a minor 7th, #11 on a maj7 only in Lydian) and drops a perfect 5th. At most 5 tones. | **Done.** `theory.c: th_chord_pcs` | Task 2 ruling; *genre* §2.1 |
+| **No avoid notes as colors.** | A color tone a semitone above another chord tone is left out (for example the natural 11th on a major chord, the b9 on a iii7). | **Done.** `theory.c: th_chord_pcs` | Task 2 ruling |
+| **A dominant always carries an extension.** | Any chord with a major 3rd and a minor 7th is colored at least 9. If the 9th is an avoid note, the 13th is tried. If neither fits, the chord drops its 7th and plays as a major triad. The voicer never drops the dominant's last extension. | **Done.** `harmony.c: dominant_colors`; `theory.c: th_voice_range` | cd9e5aa **(Sam)** |
+| **No substitutions.** | Reharmonizing never changes a root, 3rd or 7th. On loop passes 2 and later, in songs below "rich" color: each pass has a per-song chance of 25–50% to color one chord of that pass one step richer. Rich songs never reharmonize. | **Done.** `harmony.c: spec_at` | 167b256, aa0ce3f **(Sam)** |
+| **The intro and outro use the same chords.** | "Dark" blocks change nothing in the harmony. They only play softer and filtered. | **Done.** `harmony.c: harmony_chord_at` | **(Sam)** |
+| **No semitone rubs between parts.** | Bass against keys: no keys note a minor 2nd above the bass, nor a major 7th above a bass note that is not the root. Pad: no pad note a semitone (or minor 9th) from a keys, lead or other pad note, and none a minor 2nd over the bass's root. Keys inside the voicing: see section 2 (a penalty, not a ban). The clash test allows 0 rubs. | **Done** (bass, pad, strum); **Partial** (keys voicer, see Open questions) | R20, R25, 8dde786 **(Sam)** |
+| **The bass plays the 5th only when the chord has a perfect 5th.** | Else the root. So the bass never adds a note the chord lacks. | **Done.** `groove.c: chord_fifth_interval` | R20, 0996e03 |
 
-## 2. Voice leading (keys)
+## 2. Voice leading (the keys)
 
-Pianist rules **(Sam, 03c8cdb)**, all in `theory.c: th_voice_range`, called from `harmony.c: voice_chord`.
+Pianist rules **(Sam, 03c8cdb)**, in `theory.c: th_voice_range`, called from `harmony.c: voice_chord` and
+`loop_voicings`. The voicer scores every 4-note placement of the chord tones and keeps the cheapest. The costs are
+the numbers below.
 
-| Principle | Status in VNL-1 | Source |
-| --- | --- | --- |
-| **Hold common tones.** | **Done.** Held 76% → 96% of possible cases (300 songs). | 03c8cdb |
-| **Move the other voices to the nearest chord tone.** | **Done.** Per-voice motion cost. | 03c8cdb |
-| **Top voice first:** it stays if the new chord has it, else it steps (no leaps). | **Done.** Top voice weighted 8×; kept 69% → 100% when a clean voicing allows; top leaps 10% → 0%. | 03c8cdb; *accomp* §3.4 (Tonal's top-note rule) |
-| **One voicing per chord, voiced as a cycle.** Work out the loop's voicings once so they voice-lead smoothly all the way around (the wrap from the last chord to the first included) and play them every pass; five-tone chords drop the root first, then the 5th, never the 3rd or 7th. | **Done.** `harmony.c: loop_voicings` (switch: `harmony_set_loop_lock`, `VNL_LOOPLOCK=0`); without it 40% of songs wander between voicings. Rootless always, keys-only sections included (Sam), which replaced an earlier "keep the root without bass" rule. | 8dde786, this change |
-| **No semitone clusters; no tight 2nds low** (muddy below about C4). | **Done.** Inside sounding chords 2,830 → 0 rubs (of 18,224 strikes). | 03c8cdb |
-| **Keep the comp in its register:** E3–A4 preferred, C3–C5 allowed (room so no voicing is forced into a rub), bottom at most C4, top pulled back up when it drifts low. | **Done.** | 03c8cdb |
-| **Keep one voicing through a song:** an intro or outro is darkened by its sound (filter, softer playing), not by different voicings, so voice leading never breaks at a section seam. | **Done.** `harmony.c: voice_chord` voices dark blocks exactly as the rest; they play softer (`emit_chord`). An earlier lower-ceiling dark voicing was removed (Sam). | 03c8cdb, this change |
-| **A loop's voicings should breathe:** a pianist re-voices on repeats (the top line moves over passes). | **Not yet.** Same voicings every pass; see ideas file (slow top line). | *accomp* §6.5 |
+| Principle | Rule → numbers | Status | Source |
+| --- | --- | --- | --- |
+| **Four voices, in the comping register.** | Notes from C3 (48) to C5 (72), or lower when the keys make room for the lead (section 7). The bottom note at most C4 (60). No unisons. | **Done** | 03c8cdb |
+| **Preferred register E3–A4.** | Each note under E3 (52) or over A4 (69) costs 4 per semitone. A top note under C4 (60) costs 1 per semitone. | **Done** | 03c8cdb |
+| **Top voice first.** | The top voice costs 8 per semitone it moves, plus 6 for a leap over 2 semitones. So it stays when it can, else it steps. | **Done** | 03c8cdb; *accomp* §3.4 |
+| **Hold common tones.** | A common tone that moves to another octave or voice costs 6. | **Done** | 03c8cdb |
+| **Smallest moves for the inner voices.** | Each lower voice costs 1 per semitone it moves. | **Done** | 03c8cdb |
+| **The first chord sits near a reference.** | With nothing before it, the voicing is pulled toward a top of F4 (65) and a bottom of G3 (55), 1 per semitone off each. (The workbench's voicing re-roll moves the reference to a top of D4–Bb4 and a bottom of C3–Bb3; every other rule holds.) | **Done** | 03c8cdb |
+| **Rootless where it helps.** | Five-tone chords drop a tone. The root goes first (cost 0), then the 5th (cost 1), an extension last (cost 3). Never the 3rd or 7th. A dominant keeps one extension. Four-tone chords may drop the root and double the 5th (else the 3rd) at a cost of 2; keeping the root costs 0. So 9th and rich chords are rootless; 7th-color chords keep the root unless leaving it saves more than 2 semitones of motion. Sam (2026-10-30) kept this over strict rootless: forcing the root out cost the voice leading (common tones held 96% → 86%, top kept 96% → 76%). | **Done** | 8dde786 **(Sam)** |
+| **No minor 2nds or 9ths, no muddy seconds.** | Any two voices a minor 2nd or a minor 9th apart cost 10000 each (a ban: used only if nothing else fits). A whole step between adjacent voices below G3 (55) costs 3. | **Done** (Sam, 2026-10-30) | 03c8cdb |
+| **One voicing per chord, voiced as a cycle.** | The loop's chords (up to 4) are voiced 8 times around, each from the one before and the first from the last. The engine keeps the pass with the smallest total cost around the loop, wrap included, and plays it every pass. A chord recolored on a later pass is voiced on its own, from the last voicing. Half-note restrikes, stabs and the held chord's restrikes reuse the chord's voicing. Switch: `VNL_LOOPLOCK=0`. | **Done.** `harmony.c: loop_cycle`, `loop_voicings`, `voice_chord` | 8dde786 **(Sam)** |
+| **One voicing through the song.** | Intros and outros voice exactly like the rest; they play 6 velocity softer and low-passed. | **Done.** `harmony.c: emit_chord` | 03c8cdb **(Sam)** |
+| **Guitar shapes (strummed keys).** | A separate voicer for the nylon and the Emilyguitar when they strum: 4–6 strings, E2–E5 (40–76), the root on the low E, A or D string at C3–B3 (48–59), fretted notes within 4 frets. Chord tones only. No note a minor 2nd or 9th over another (a ban). A missing 3rd costs 100, a missing 7th 60. The top note aims at E4 (64), costs 3 per semitone over G4 (67), and costs 4 per semitone it moves from the last shape (40 more for a jump over 5). One shape per chord through the song. | **Done.** `strum.c: strum_voicing` | ee807a4, 887e370 **(Sam)** |
+| **A loop's voicings should breathe** (a pianist re-voices on repeats). | Not built: the same voicings every pass, by Sam's one-voicing rule. | **Not yet** | *accomp* §6.5 |
 
 ## 3. Bass lines
 
-| Principle | Status in VNL-1 | Source |
-| --- | --- | --- |
-| **Lock the bass to the kick;** roots on strong beats. | **Done.** `groove.c: bass_note` (roots / root-fifth on kick hits). | *genre* §3.3; spec |
-| **A walking line arrives:** the last beat before a chord change leads by a step into the **next** chord's root, placed exactly where that root will sound, never on a note that rubs the chord still sounding (else the 5th). | **Done.** `groove.c: approach`, `next_root_of`; 9 of 147 → all approaches lead in. (Diatonic-only is a taste rule: [lofi.md](lofi.md#bass).) | 8dde786; *accomp* §6.1 (Impro-Visor, JJazzLab, Dias–Guedes, autocomp) |
-| **Place each root near the previous one,** inside a window centered on the tonic, so a step in the key sounds as a step, not nearly an octave. | **Done.** `groove.c: bass_place`, `root_place` (window E1–B2, 28–47); step-wise root moves sounding a step 83% → 97%. | 8dde786; *accomp* §6.2 |
-| **No holes and no overhang:** a held bass note ends at the chord change; a pedal restrikes the new root at every change. | **Done.** `song.c` cut at changes (R22); `groove.c` pedal (R21). | R21, R22, acf29e4 |
-| **Shape the bar as a contour toward the target,** not the same climb (root, 3rd, 5th) every bar; think in two-bar phrases. | **Not yet.** See ideas file (contour walking bass). | *accomp* §3.5 |
+`groove.c`. The bass range is E1–B2 (MIDI 28–47).
+
+| Principle | Rule → numbers | Status | Source |
+| --- | --- | --- | --- |
+| **Lock the bass to the kick.** | "Roots": the root on every kick hit. "Root-fifth": the root on step 0 and on kick hits; on a kick at step 8 or 10, the 5th instead (the root if the 5th would rub). | **Done.** `groove.c: bass_note` | *genre* §3.3 |
+| **Place each root near the last.** | The tonic sits in A1–Ab2 (33–44). Every other root lands within 5 below or 6 above it, folded into E1–B2. A root more than 6 semitones from the previous root moves an octave toward it when the range allows. | **Done.** `groove.c: bass_place`, `root_place` | 8dde786; *accomp* §6.2 |
+| **A walking line arrives.** | Quarter notes: root, 3rd, 5th (the root if the chord lacks a perfect 5th), then an approach. The approach is the scale tone 1–2 semitones from the next chord's root, on the side the line comes from, placed where that root will sound. It must not rub the chord still sounding; failing both sides, the 5th. Inside a 2-bar chord, the approach targets the same root. A 3rd or 5th that rubs the chord's colors gives way to the root. | **Done.** `groove.c: approach`, `next_root_of` | 8dde786; *accomp* §6.1 |
+| **The walk is diatonic.** | Approach tones come from the mode's scale only, never chromatic. | **Done.** `groove.c: approach` | 8dde786 **(Sam)** |
+| **A pedal restrikes per chord.** | The root at each chord change, held to the next change. | **Done.** `groove.c` (R21) | R21 |
+| **No holes and no overhang.** | Roots and root-fifth notes last to the next bass note, at most a beat. Walk notes last a quarter. A bass note always ends at the chord change. | **Done.** `groove.c`; `song.c` cut (R22) | R21, R22 |
+| **Bass touch.** | Velocity 78–89, a little different every note. Odd 16ths swing with the drums. | **Done.** `groove.c: groove_step` | — |
+| **The bass never copies the keys' rhythm.** | When the keys play more than a note on beat 1 (stabs, or half notes on 1 and 3) and the drawn bass style would match that rhythm exactly, the next style in a fixed order is tried. | **Done.** `groove.c: bass_style_of` | **(Sam)** |
+| **Shape the bar as a contour toward the target,** not the same root-3rd-5th climb every bar; think in two-bar phrases. | Not built. | **Not yet** | *accomp* §3.5 |
+
+Which songs get which style (and the walk's window) is a taste setting: [lofi.md, Bass](lofi.md#bass).
 
 ## 4. Rhythm and humanization
 
-| Principle | Status in VNL-1 | Source |
-| --- | --- | --- |
-| **Systematic microtiming beats random jitter:** each part has its own consistent lateness (a "feel"), plus a little jitter. | **Done.** `groove.c: groove_step` (per-song snare and hat lateness, small jitter); `melody.c: melody_step` (lead 5–25 ms late). The amounts are lo-fi. | *genre* §3.3; *accomp* §3.3 (JJazzLab notes) |
-| **Velocity shapes the groove:** accents, ghost notes well below the backbeat, hats softer than kick and snare, every hit a little different. | **Done.** `groove.c` velocity bands (about 25–110) and jitter; `library.c: LIB_PATTERNS` ghost bits. | *genre* §3.4; *midi* §5 |
-| **Chords are rolled, not struck as a block,** bottom up. | **Done.** `harmony.c: emit_chord` (10–60 ms apart). | *genre* §2.4 |
-| **Everything that swings swings together.** A straight part against swung hats sounds like a flam. | **Not yet.** The lead and candy are not swung (R16); Sam should hear both. See ideas file. | R16; *accomp* §6.3 |
-| **Phrase starts vary:** off the beat, with pickups, not mostly on beat 1. | **Not yet.** 35% of lead gestures start on beat 1, no pickups. Ledger "To revisit". The amount of syncopation is lo-fi. | ledger; *accomp* §6.3 |
-| **Fills mark structure,** at boundaries only, never startling. | **Partial.** Fills before kick/snare/bass layer changes and 1-bar drops (`plan.c`, `groove.c`); no phrase-end turnarounds yet. | R13; Task 5 minor |
-| **Small variation inside a repeating part** (a skipped hat, a variant bar) keeps a loop alive. | **Not yet.** One comp style and one drum pattern per song, the same every bar. See ideas file. | *accomp* §1, §6.6–6.7 |
+| Principle | Rule → numbers | Status | Source |
+| --- | --- | --- | --- |
+| **Systematic microtiming beats random jitter.** | The kick sits on the grid. The snare and rim are late by a per-song base of 13–27 ms, ±3 ms a hit (always 10–30 ms). Hats, open hat and shaker by a per-song base of 0–40 ms, ±8 ms a hit, capped at 70 ms. Swing delays every odd 16th by (swing − 50%) × 2 of a 16th, on drums, bass and strums alike. | **Done.** `groove.c: groove_step` | *genre* §3.3; R13 |
+| **Velocity shapes the groove.** | Kick 94–107 (ghost 42–51). Snare 88–103 (ghost 25–34). Rim 58–69 (ghost 30–37). Closed hat 46–55, +4 on the beat (ghost 36–43). Open hat 50–59 (ghost 34–41). Shaker 42–51 (ghost 28–35). All clamped to 25–110. Every hit draws its own value. | **Done.** `groove.c: groove_step` | *genre* §3.4; *midi* §5 |
+| **Chords are rolled, not struck as a block.** | Electric and synth keys: bottom up, 10–60 ms between notes, drawn per chord and bar. The Knight (acoustic piano): all notes within 0–8 ms, no roll. Strums: 7–12 ms between strings (6–14 after a stroke's factor), 40–70 ms on a slow ballad. | **Done.** `harmony.c: harmony_step`; `strum.c` | *genre* §2.4; 95f1797 **(Sam)** |
+| **Fills mark structure,** at boundaries only. | A fill bar ends a block before the kick, snare or bass changes: steps 12–15 become snare 16ths at velocity 60, 70, 80, 90, with a kick on step 14 at 96. No crashes, no tom fills. | **Partial.** `plan.c`, `groove.c`. No phrase-end fills. | R13 |
+| **Everything that swings swings together.** | Drums, bass and strums share the swing. The lead and the melody are straight (R16). | **Partial** | R16; *accomp* §6.3 |
+| **Small variation inside a repeating part.** | Not built: one drum pattern and one comping style per song, the same every bar (velocity jitter aside). | **Not yet** | *accomp* §1, §6.6–6.7 |
+| **Phrase starts vary.** | Lead rule; not refreshed (lead rewrite). | — | ledger |
 
 ## 5. Form and variation
 
-| Principle | Status in VNL-1 | Source |
-| --- | --- | --- |
-| **Change on phrase boundaries,** not mid-phrase. | **Done.** All plan moves and listener requests land on 4/8-bar lines (`plan.c`, `song.c: song_request`, R17). The grid size is lo-fi. | spec; R17 |
-| **Change gradually:** few parts move at once; entries and exits are soft (no jumps in loudness). | **Partial.** ≤ 2 roles per boundary except map-mandated moves (R9); fades and swells flagged (`PB_FADE`, `PB_SWELL`); level checks between sections not built. | R9; spec anti-goals |
-| **Every piece has a shape:** a beginning, a middle event, an ending. | **Done.** Map skeletons with intro, middle event, outro (`plan.c: skeleton`). Which shapes is lo-fi. | spec Song maps |
-| **Intensity rises and falls** over the piece (density, velocity), not only on/off layers. | **Not yet.** See ideas file (per-block intensity). | *accomp* §6.8 |
-
-## 6. Melody
+Not refreshed in detail; the rules below still match `plan.c`.
 
 | Principle | Status in VNL-1 | Source |
 | --- | --- | --- |
-| **One motif, developed:** stated, moved onto the next chord with the same shape, given a new ending, restated. | **Done.** `melody.c: melody_motif`, `vary`, `lead_phrase`. | spec; Tuna (*firmwares*) |
-| **Repetition dominates, variation keeps interest;** restatement grows toward the end. | **Done.** Head–solos–head plan, restate / variant / new targets 50 / 15 / 35 (`melody.c: melody_plan`). The exact ratio is measured from lo-fi. | *midi* §0, §5 |
-| **Question and answer:** a phrase is answered, by itself or another voice. | **Done.** Ear-candy answers and trading fours (`melody.c: answer_phrase`, `candy_figure`); lead and candy never on the same step. | spec; R10, R16 |
-| **Sparseness leaves room;** rests are part of the line. | **Done.** About a third of beats played. The density is lo-fi. | spec |
-| **A phrase has a contour** (an arch, a descent to a guide tone) and ends on a long chord tone. | **Not yet.** `melody.c: next_pitch` is a weighted walk with center gravity, no arch. See ideas file. | *accomp* §6.9 |
-| **Avoid stutters:** no repeated same-pitch 16ths, no restatement clusters back to back. | **Not yet.** Task 8 deferred minors. | ledger Task 8 |
+| **Change on phrase boundaries,** not mid-phrase. | **Done.** All plan moves and listener requests land on 4/8-bar lines (`plan.c`, `song.c: song_request`, R17). | spec; R17 |
+| **Change gradually:** few parts move at once; entries and exits are soft. | **Partial.** At most 2 roles change per boundary except map-mandated moves (R9). The pad fades in and out over a bar at a section line (lofi.md, Pad layer). | R9; spec anti-goals |
+| **Every piece has a shape:** a beginning, a middle event, an ending. | **Done.** Map skeletons (`plan.c: skeleton`). | spec Song maps |
+| **Intensity rises and falls** over the piece (density, velocity), not only on/off layers. | **Not yet.** | *accomp* §6.8 |
 
-## 7. Register and mix
+## 6. Melody (not refreshed: the lead is being rewritten)
 
-| Principle | Status in VNL-1 | Source |
+The rows below describe the 2026-10-24 engines. Since then the ear candy is **Removed** (b4e00ff), the two old lead
+engines are being replaced by the lead styles, and the struck melody path no longer sounds in any song (ledger,
+"The melody path never sounds"). Read these rows as history until the lead styles are documented.
+
+| Principle | Status on 2026-10-24 | Source |
 | --- | --- | --- |
-| **Each role has its own register band,** so parts don't collide: bass E1–B2 (28–47), keys C3–C5 (48–72, E3–A4 preferred), lead 64–84 (shifted by mood), ear candy 72–96. | **Done.** `groove.c`, `theory.c`, `melody.h`. | spec The band |
-| **Melody above percussive accompaniment:** over struck or plucked keys, the lead sits a 4th or more above the keys' top. | **Done.** Every lead note is at least the keys' top + 5 semitones, over every chord it sounds over, up to E6, or it drops (`lead.c`). | lead design |
-| **A sustained, slow-attack accompaniment frees the register:** a pad can sit below, with, or above the lead, since its attack doesn't compete. | **Done.** One placement per song (`harmony_pad_place`). With or above, the pad sounds an octave up; above keeps the lead to C4–C5. | lead design (Sam) |
-| **The lead leads:** a busier lead means sparser comping, never the reverse. | **Done.** In bars with 4+ lead onsets, stabs strike on 1 only, offbeats on 6 and 14, the comping arpeggio on even steps. Held chords and pads are unchanged (`harmony_step`, `busy`). | lead design (Sam) |
-| **A lead plays like its instrument:** struck and plucked leads arpeggiate; wind leads sing lines that breathe. | **Done.** Vibes, kalimba and guitar play the hybrid; flute, sax and trumpet sing the skeleton line, with an arc over each phrase (`lead.c`). | lead design (Sam) |
-| **Steady levels:** no loudness jumps between sections or songs; headroom kept. | **Partial.** Engine soft clip and about −6 dBFS peak (`app/engine`, bed46a3); section and song level checks planned (spec Testing). | spec; R23 |
+| **One motif, developed.** | `melody.c: melody_motif`, `vary`, `lead_phrase`. | spec |
+| **Repetition dominates, variation keeps interest.** | Restate / variant / new 50 / 15 / 35 (`melody.c: melody_plan`). | *midi* §0, §5 |
+| **Question and answer.** | Ear-candy answers and trading fours. **Removed:** the ear candy is gone. | R10, R16 |
+| **Sparseness leaves room.** | About a third of beats played. | spec |
+| **Chord-scale and strong beats on chord tones.** | `melody.c: bar_masks`; `theory.c: th_is_avoid`. | R20, R25 |
+
+## 7. Register and mix (the accompaniment)
+
+| Principle | Rule → numbers | Status | Source |
+| --- | --- | --- | --- |
+| **Each role has its own register band.** | Bass E1–B2 (28–47). Keys C3–C5 (48–72), E3–A4 preferred; the Chillwave pad set an octave lower. Guitar shapes E2–E5 (40–76), top near E4. Pad chord part G3–C5 (55–72). Pad solo note C5–C6 (72–84), the strings C6–C7 (84–96). | **Done.** `groove.c`, `theory.c`, `strum.c`, `pads.c` | spec The band |
+| **The keys make room for the lead.** | Each song's lead claims a band: its style's center ±6 semitones. Percussive keys then voice with their top at most one semitone under the band's floor, by the same voice-leading rules. Sustained keys do too, unless the pad sits with or above the lead. Strummed guitar shapes keep their top at or under the band's floor (when that floor is E4-Eb5). The window is ignored (the lead moves up instead) when it would push the top under C4 (guitar: E4), when any loop chord can't fit under it, or for the workbench's keys octave. | **Done.** `harmony.c: harmony_keys_window`, `voice_hi`, `strum_hi`; `song.c: keys_win_for` | 54e2723, 2026-10-30 **(Sam)** |
+| **The lead leads: a busy lead thins the comping.** | In a bar with 4 or more lead onsets: stabs strike on beat 1 only; half notes strike on beat 1 only, held the whole bar. Held chords, strums and sustained keys are unchanged. | **Done.** `harmony.c: harmony_step` (`busy`) | lead design **(Sam)** |
+| **The keys duck under the lead.** | While a lead note sounds, the keys' bus dips 3 dB (about 25 ms in, 400 ms out). The pad layer dips 1 dB. | **Done.** `app/engine/voices.c` | **(Sam)** |
+| **A sustained accompaniment frees the register.** | Sustained keys (pad, vox pad, organ) sit below, with or above the lead, one placement per song, equally likely. With or above: the keys an octave up. | **Done.** `harmony.c: harmony_pad_place` | lead design **(Sam)** |
+| **Melody above percussive accompaniment.** | Lead rule; not refreshed (lead rewrite). | — | lead design |
+| **Steady levels.** | Engine soft clip and about −6 dBFS peak; section and song level checks in the tests. | **Partial** | spec; R23 |
 
 ## 8. Communication and process
 
 | Principle | Status | Source |
 | --- | --- | --- |
 | **Simplest spelling** of keys and notes in all text: Bb not A#, Db Lydian not C# Lydian, no double sharps. | **Done** in the song log and MusicXML (`app/host/score.c`); applies to docs and screen text too. | af0521c **(Sam)** |
-| **Explain the logic with measurements:** before/after counts over many rolled songs, as in the commits. | **Done** as practice (ledger, commit bodies). | **(Sam)** |
-| **Let the ear see the music:** every render has a song log, MIDI and MusicXML beside it. | **Done.** `VNL_SONGLOG`, `VNL_SCORE` in the host simulator: `app/build/scenarios/songs.log`, `songs-N.mid`, `songs-N.musicxml`. | 876a1c4, af0521c **(Sam)** |
+| **Explain the logic with measurements:** before/after counts over many rolled songs. | **Done** as practice (ledger, commit bodies). | **(Sam)** |
+| **Let the ear see the music:** every render has a song log, MIDI and MusicXML beside it. | **Done.** `VNL_SONGLOG`, `VNL_SCORE` in the host simulator. | 876a1c4, af0521c **(Sam)** |
+| **Patterns as files Sam can edit.** | **Done.** Drum patterns, progressions, comp rhythms and strum patterns live in `patterns/` as MIDI and MusicXML; `tools/patterns/import.sh` turns them into `patterns_gen.c` with checks (no substitutions, no bare dominant, kick and snare in every drum bar). New files are candidates until Sam approves them. | 8af0acf, 5c500f4 **(Sam)** |
+
+## Open questions for Sam
+
+Cases where the code and the ledger (or Sam's rules) disagree. Nothing here was changed.
+
+1. **Settled (Sam, 2026-10-30): keep the voice leading; rootless stays a preference.** Was: **Rootless voicings are a preference, not a rule.** The ledger's approved voicing is "rootless". In the code,
+   only 5-tone chords (9th and rich colors) drop the root by default. A 7th-color chord (10–30% of songs, by mood;
+   also any chord whose 9th is an avoid note) keeps its root unless dropping it saves more than 2 semitones of
+   motion. The strummed guitar shapes always put the root on the lowest string. Should rootless be a hard rule for
+   the keys? For the guitars?
+2. **Settled (Sam, 2026-10-30): the keys now ban minor 2nds and 9ths too.** Was: **The keys' own semitone check is weaker than the pad's and the strum's.** "No semitone rubs" holds as a ban for
+   the bass, the pad and the guitar shapes, including minor 9ths. The keys voicer only penalizes a semitone between
+   adjacent voices (cost 100, allowed if nothing else fits) and does not look at minor 9ths between non-adjacent
+   voices. Should the keys match the others?

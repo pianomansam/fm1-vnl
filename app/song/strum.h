@@ -21,8 +21,9 @@ int strum_pattern(const song_roll_t *r, int *slow);
    a string not played), ascending, E2-E5 (MIDI 40-76). Chord tones only, the root on the lowest string, the 3rd and
    the 7th covered first; no note a semitone over another (pads_rub: a minor 2nd or 9th) or over the root; a movable
    hand shape (fretted notes within 4 frets, open strings free). Voice-led from prev (all 0: none): the top note moves
-   the least. Returns the number of notes (4-6). */
-int strum_voicing(const int *pcs, int npcs, const int prev[6], int out[6]);
+   the least; no note over hi (76 = E5 for the whole neck; lower where the keys make room for the lead). Returns the
+   number of notes (4-6). */
+int strum_voicing(const int *pcs, int npcs, const int prev[6], int out[6], int hi);
 
 /* V_CHORD events of one 16th step (bar and step from 0) striking shape (strum_voicing's). Writes nothing unless the
    block has L_KEYS. Every note ends by the pattern's next stroke. pad carries the string: bit 0 a chuck (the

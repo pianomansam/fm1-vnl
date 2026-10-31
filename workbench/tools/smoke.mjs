@@ -1889,15 +1889,16 @@ console.log("parts: re-rolls, history, locks, reactions (Task 5)");
           `the kick phrase row's own 🎲 still works (${was} -> ${desk.values.kick}${k.ok ? "" : `: ${k.message}`})`);
   }
 
-  // a part whose 🎲 finds no other roll: seed 21's keys have one voicing path (the salt reaches the first chord's
+  // a part whose 🎲 finds no other roll: seed 26's keys have one voicing path (seed 21's until the keys' minor 9th
+  // ban, 2026-10-30, opened it a second) (the salt reaches the first chord's
   // spread only, and the loop converges); the strummed guitar never reads the salt. Refused, saying why; nothing staged,
   // nothing on the history; ◀ ▶ unaffected. Seed 2's keys roll (the each-part check above).
   {
-    const { ex, desk } = await deskOn(21);
+    const { ex, desk } = await deskOn(26);
     const st = cstr(ex, ex.wb_state()), r = await desk.reroll("keys");
     check(!r.ok && /only one voicing fits this progression/.test(r.message) && desk.parts.keys.history.length === 1 &&
           desk.values.voicings === 0 && cstr(ex, ex.wb_state()) === st && desk.cantRoll("keys") === r.message && !desk.cantRoll("keys", true),
-          `seed 21's keys 🎲: refused ("${r.message}"), history unchanged, nothing staged; the 🎲 waits`);
+          `seed 26's keys 🎲: refused ("${r.message}"), history unchanged, nothing staged; the 🎲 waits`);
     const h = await desk.set("voicings", 999);
     check(h.ok && desk.parts.keys.history.length === 1, "a salt set by hand that changes no note doesn't go on the history");
     await desk.set("keys", ins("Nylon guitar"));

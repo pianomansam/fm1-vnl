@@ -397,6 +397,16 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
     **Jazz-Hop song 1 (A/B, G Aeolian):** the built style plays its hook ~5 semitones lower than the spike (home note
     ties between G4 and G5 at the band; the tie goes low) and loses its turnaround lift. **Decided (Sam, 2026-10-29):
     break the tie toward the higher note** (to do; then drop the per-song test allowance that pins it).
+    **Bossa Nova (built 2026-10-30):** the band squeezes it hardest: its span is 0.67x the spike's on the flute
+    (0.77x felt, 0.82x vibes), because its home note sits mid-range from the floor up and rises with it. A/B song 1
+    plays 82-86 (spike 72-86) and loses its low opening; song 5's question goes to E6. The band-floor fix above should
+    restore it. Its color tone on beat 3 (11ths and 13ths) is kept by a narrow test exemption (beat 3 only, these two
+    styles only; avoid notes and rubs still checked). Spike quirk: the "first statement is the motif itself" rule
+    never fires.
+    **Ambient (built 2026-10-30):** note for note the spike in the A/B songs. Spike quirks, to revisit: its added
+    passing note can land on beat 3 unchecked (exempted as above); its level is fixed from the first lead bar's
+    range, so a later octave or set change keeps the old level; on m9 chords over a walking bass it plays 7% fewer
+    notes.
   - **Decided (Sam, 2026-10-29): remove the two old lead engines** — the phrase planner and the hybrid arpeggio
     ("these new ones are light years ahead"). The shortlisted styles replace them. Goes with them: the lead-arp
     pattern family (rhythms, chord-tone orders, landings) and its workbench rows, and whatever of the melody path only
@@ -511,6 +521,13 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   direction): a comp-figure library (lanes: rhythm, tone, accent, length; re-voiced per chord), variation by phrase
   (a planned bar-4 variant, new figure at section changes), thinning by rank, pushes shared with the lead, strumming
   as a figure family, a counter-melody voice later.
+- **Comping mix drifted (found in the rule-docs refresh, 2026-10-30; to revisit).** Turning the arpeggio off moved
+  the electric and synth keys' draw to held 55% / half notes 45% (half was 36%). The last mix Sam stated was
+  55/25/20, and "Approved by ear" still lists stabs and offbeats. Decide the mix by ear.
+- **Drum patterns ignore the set (found in the rule-docs refresh, 2026-10-30; to revisit).** Each of the 8 engine
+  patterns is equally likely in every set, flavor and family. Sam's two-bar kick phrases (k2-k6) exist only in the
+  workbench, and no engine pattern is two bars long. Decide per-set or per-flavor pattern weights, and bring the
+  kick phrases into the engine.
 
 ### Bass rhythm (spike VNL_BASS, kept as is by Sam to revisit)
 

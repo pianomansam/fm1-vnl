@@ -162,10 +162,11 @@ static int role_of(const int *pcs, int n, int i)
 
 /* Voice leading, as a pianist comps (Sam): common tones stay where they are, the other voices move to the nearest
    chord tone, and the top voice comes first: it stays when the new chord has it, else it steps. Rootless voicings
-   are welcome (the bass has the root): a five-tone chord drops its root first, then its 5th, never its 3rd or 7th,
-   a dominant keeps at least one extension. Register E3-A4 (52-69) preferred, C3-C5 (48-72) allowed so no two
-   notes are ever forced a semitone apart; the bottom at most C4, the top pulled back up when it drifts low, no
-   semitone clusters and no tight seconds low down. */
+   are welcome (the bass has the root; Sam kept the voice leading over strict rootless, 2026-10-30): a five-tone
+   chord drops its root first, then its 5th, never its 3rd or 7th, a dominant keeps at least one extension. Register
+   E3-A4 (52-69) preferred, C3-C5 (48-72) allowed so no two notes are ever forced a semitone apart; the bottom at
+   most C4, the top pulled back up when it drifts low, no minor 2nds or 9ths (unless nothing else fits) and no tight
+   seconds low down. */
 /* Exploring voicing families (host renders only, off by default): drop 2 keeps only voicings that are a close
    position (four notes inside an octave) with its second-highest note dropped an octave. */
 static int drop2;
@@ -307,8 +308,10 @@ int th_voice_range(const int *pcs, int n, const int *prev, int *out4, int hi, in
                    if (o[v] > 69) c_range += 4 * (o[v] - 69);
                }
                for (v = 0; v < 3; v++) {
-                   if (o[v + 1] - o[v] == 1) c_clus += 100;   /* no semitone clusters (unless nothing else fits) */
+                   if (o[v + 1] - o[v] == 1) c_clus += 10000; /* no semitone rubs (unless nothing else fits) */
                    if (o[v + 1] - o[v] == 2 && o[v] < 55) c_low2 += 3;   /* no tight seconds low down */
+                   for (w = v + 1; w < 4; w++)
+                       if (o[w] - o[v] == 13) c_clus += 10000;  /* nor a minor 9th */
                }
                c += c_move + c_top + c_common + c_range + c_low2 + c_clus;
                if (why) {

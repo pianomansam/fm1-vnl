@@ -189,6 +189,7 @@ static int loop_cycle(const song_roll_t *r, int top, int bottom, int hi, int out
    C3-Bb3; F4 and G3 as rolled), the first of up to 8 the salt draws whose cycle differs from the rolled one (none:
    as rolled). Every voicing rule holds: only the first chord's pull toward the spread moves. */
 static int voice_hi(const song_roll_t *r);
+static int strum_hi(const song_roll_t *r);
 
 static void loop_voicings(const song_roll_t *r, harmony_voicing_t *vs)
 {
@@ -225,6 +226,7 @@ static uint32_t harmony_sig(const song_roll_t *r)
     h = (h ^ r->seed) * 16777619u;
     if (song_ov()->voicing_salt) h = (h ^ song_ov()->voicing_salt) * 16777619u;
     h = (h ^ (uint32_t)voice_hi(r)) * 16777619u;         /* the keys' window */
+    h = (h ^ (uint32_t)strum_hi(r)) * 16777619u;
     return h | 1u;               /* never 0: 0 means not yet worked out */
 }
 
@@ -262,8 +264,9 @@ int harmony_keys_oct(const song_roll_t *r)
 
 /* The keys' window (harmony.h), and the voicer's top under it for this song: C5 (72) where it doesn't bind or can't
    hold (the top under C4, the voicer's lowest notes (C3, as placed) under the keys instrument's range or the
-   window's floor); percussive keys only, not a strum (a guitar shape keeps its place), and not where the workbench
-   moved the keys an octave (keys_oct: its place wins, the lead's range moves up over them) */
+   window's floor); every keys part under the lead (Sam: sustained keys too, unless the pad sits with or above the
+   lead), not a strum (strum_hi), and not where the workbench moved the keys an octave (keys_oct: its place wins, the
+   lead's range moves up over them) */
 static int win_lo, win_hi;
 void harmony_keys_window(int lo, int hi) { win_lo = lo; win_hi = hi; }
 
@@ -271,11 +274,20 @@ static int voice_hi(const song_roll_t *r)
 {
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
     int sh, h, lo, hi;
-    if (!win_hi || !set || keys_sustained(r) || harmony_style(r) == CS_STRUM || harmony_keys_oct(r)) return 72;
+    if (!win_hi || !set || harmony_pad_place(r) != PL_BELOW || harmony_style(r) == CS_STRUM || harmony_keys_oct(r))
+        return 72;
     sh = lib_set_keys_shift(set);
     h = win_hi - sh;
     song_ov_range(set->chords, &lo, &hi);
     return h >= 72 || h < 60 || 48 + sh < lo || 48 + sh < win_lo ? 72 : h;
+}
+
+/* a strum's top under the window (Sam: the guitar makes room for the lead too): E5 where it doesn't bind, or where
+   it would leave the shapes under E4 (the open position's top) */
+static int strum_hi(const song_roll_t *r)
+{
+    if (!win_hi || harmony_style(r) != CS_STRUM || harmony_keys_oct(r)) return 76;
+    return win_hi >= 64 && win_hi < 76 ? win_hi : 76;
 }
 
 static void keys_oct(const song_roll_t *r, int *notes, int n)
@@ -309,7 +321,7 @@ static void strum_shape(const song_roll_t *r, int bar, int pass, harmony_voicing
         }
     if (vs->gn)
         for (i = 0; i < 6; i++) prev[i] = vs->gtab[(vs->gn - 1) % HV_SHAPES][i];
-    strum_voicing(pcs, n, prev, shape);
+    strum_voicing(pcs, n, prev, shape, strum_hi(r));
     k = vs->gn % HV_SHAPES;
     for (i = 0; i < 6; i++) vs->gtab[k][i] = (uint8_t)shape[i];
     vs->gsig[k] = sig;
@@ -509,9 +521,11 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
     dark = (b->flags & PB_DARK) != 0;
     dark = dark ? 1 : !(b->layers & (L_KICK | L_LEAD)) ? 2 : 0;   /* dark; carrying (no kick, no lead); or plain */
     n = harmony_chord_at(r, bar, pass, dark, pcs);
-    if ((style == CS_HALF || rs) && !(step == 0 && bar % p->bars_per_chord == 0) && last_is_chord(vs, pcs, n))
+    if ((style == CS_HALF || style == CS_STABS || rs) && !(step == 0 && bar % p->bars_per_chord == 0) &&
+        last_is_chord(vs, pcs, n))
         memcpy(notes, vs->last, sizeof notes);            /* the chord's other strikes keep its voicing, never
-                                                             revoiced */
+                                                             revoiced (one voicing per chord, Sam; the pad leaves
+                                                             room for that one) */
     else
         voice_chord(r, bar, pcs, n, vs, notes);
     place_keys(r, notes);
