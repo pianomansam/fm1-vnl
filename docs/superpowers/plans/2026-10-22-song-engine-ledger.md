@@ -530,6 +530,13 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
 - **Comping mix drifted (found in the rule-docs refresh, 2026-10-30; to revisit).** Turning the arpeggio off moved
   the electric and synth keys' draw to held 55% / half notes 45% (half was 36%). The last mix Sam stated was
   55/25/20, and "Approved by ear" still lists stabs and offbeats. Decide the mix by ear.
+- **New comp styles (Sam, 2026-10-30; workbench-only, weight 0):** "held on 2" sounds good; the optional beat-4
+  re-strike split off as its own style, "held on 2 and 4" (always on 4). "Light eighths": less sure; could work in
+  some situations, so it needs rules for when it fits before it's ever rolled. None of the three is thinned by a busy
+  lead.
+- **To explore (Sam, 2026-10-30): remove the busy-lead interaction from the comping.** Today a bar with 4 or more lead
+  onsets thins half notes and stabs to beat 1 (and offbeats and the arpeggio, now off). Sam isn't a fan of a busy lead
+  modifying the comping. A/B songs with and without it; if he doesn't miss it, remove it (and its tests).
 - **Drum patterns ignore the set (found in the rule-docs refresh, 2026-10-30; to revisit).** Each of the 8 engine
   patterns is equally likely in every set, flavor and family. Sam's two-bar kick phrases (k2-k6) exist only in the
   workbench, and no engine pattern is two bars long. Decide per-set or per-flavor pattern weights, and bring the
@@ -569,6 +576,11 @@ Renders: `app/build/new/<seed>/` and `<seed>-nobed/`, one per set (Task 8's repo
   mellow triangle bass as an M_BASS patch (index near 0 for a near-sine, a little odd-harmonic edge), A/B in songs
   against today's; if Sam can't hear a loss (or prefers it), switch, and drop the chip engine (M_CHIP): the triangle
   bass (INS_CHIP_BASS) is its only user. Saves an engine's flash.
+- **To do, spike (Sam, 2026-10-30): modal vibes in place of the vibes sample.** A struck-bar model (a few modes, the
+  second tuned 4x the first, the motor's tremolo, a soft mallet strike), after Ravel_FM1's mallets (GPL-3.0: borrow
+  the approach and values; clone and read it first). Our old synth vibes were the 2-op FM bell, which Sam heard as a
+  plucked synth; this is a different model. A/B against the sampled vibes in the same songs; switch only if Sam can't
+  tell or prefers it. Saves about 16 KB (the sample ~18 KB, the model ~1-2 KB); CPU ~0.1-0.2 for 2 voices, to measure.
 
 - **Rings' reverb and chorus against ours.** Sam picked Rings' (Task 7c); ours stays host-only (`VNL_FX=ours`).
   Rings' chorus wobbles ±14 cents, near its test's 15-cent window: don't deepen it without moving the window.
