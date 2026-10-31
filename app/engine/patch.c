@@ -44,11 +44,11 @@
      at full velocity (half of it at velocity 0), p[7] its attack (s), p[8] its fall to -60 dB (s), p[9] 1 for mono
      (on the lead: a note while the last is held goes legato, gliding), p[10] the glide's time in ms (0: legato, no
      glide).
-   M_ENS (the pad layer's strings and warm pad; voices.c ens_*, pad_seg): frugal, in the spirit of a string machine,
-     at a quarter of the rate: a polyBLEP saw and a partner saw a little sharp and quieter, into a fixed 2-pole
+   M_ENS (the pad layer's strings, warm pad and choir; voices.c ens_*, pad_seg): frugal, in the spirit of a string
+     machine, at a quarter of the rate: a polyBLEP saw and a partner saw a little sharp and quieter, into a fixed 2-pole
      low-pass (two one-poles); the ensemble's width is the chorus's (the patch's chorus: the pad bus's send into it).
      p[0] the partner's detune in cents (up), p[1] its level, p[2] the low-pass's cutoff in Hz plus p[3] times the
-     note's frequency.
+     note's frequency, p[4] 1 for the choir: its voices sing through the formant bank (voices.c's choir_run).
    M_SAMP (the Knight upright, the nylon, the Emilyguitar, the vibraphone; sampler.c): the bank's nearest zone
      (samples.h) retuned, through a one-pole tone, on its own envelope (att, dec, sus, rel as every model's).
      p[0] the bank (SB_*), p[1] the tone's cutoff in Hz at full velocity plus p[8] times the note's frequency (both 0:
@@ -111,6 +111,10 @@ static const vx_patch_t PATCHES[INS_NONE] = {
        a warm synth pad, darker, slower and a little wetter */
     [INS_STRINGS] = {M_ENS, {7.0f, 0.4f, 1800.0f, 1.0f}, 0.6f, 4.0f, 0.85f, 1.5f, 1.0f, 0.7f, 0.1f},
     [INS_WARM_PAD] = {M_ENS, {5.0f, 0.5f, 900.0f, 1.5f}, 0.8f, 4.0f, 0.85f, 2.0f, 1.0f, 0.5f, 0.15f},
+    /* the formant choir (a candidate, Sam's pick of the spike's "oo-aah", 2026-10-30): the ensemble's saw and a
+       sharper partner, opened to 3.4 kHz (still a quarter-rate voice), through the choir's formant bank (p[4]:
+       voices.c), a 1.6 s swell; otherwise the warm pad's, its level matched to it */
+    [INS_CHOIR] = {M_ENS, {9.0f, 0.8f, 3400.0f, 0.0f, 1.0f}, 1.6f, 4.0f, 0.85f, 2.0f, 0.7745f, 0.5f, 0.15f},
     /* the sampled instruments (M_SAMP) as the spike's demos Sam passed: the Knight upright (VCSL, CC0), its tone 9x the
        note falling to 55%; the Emilyguitar (Karoryfer, CC0), a clean jazz electric, brighter, a deeper chorus. Levels
        matched to the Rhodes on the keys (the Knight 0.5 dB under: its sets' lead over keys) */

@@ -30,13 +30,20 @@ void vx_configure(const song_roll_t *r);
 /* 1 if roll b differs from a in a field vx_configure reads (a request that landed mid-song needs it again). */
 int vx_reconfigures(const song_roll_t *a, const song_roll_t *b);
 void vx_bed_off(int on);                 /* 1: no surface noise or rain (host renders, VNL_BED=0) */
+/* Host renders (VNL_PAD) and tests: the pad layer's instrument (an M_ENS one: INS_STRINGS, INS_WARM_PAD, INS_CHOIR) in
+   place of the set's from the next vx_configure on; INS_NONE (the default, or any other) the set's. Kept through
+   vx_init. */
+void vx_pad_ins(int ins);
+/* Tests: the choir's formant k (0-2, F1-F3) in Hz as its bank last set it (voices.c: the "oo-aah" morph and the
+   drift), 0 before it first sang */
+float vx_choir_formant(int k);
 /* A new song (the app's song start, before its first event): the lo-fi chain's noise and its LFOs restart from the
    roll's seed wherever nothing is left to hear them, so a seed renders the same bed and dust whatever played before
    (a previous song's ringing tail still sounds); with no voice sounding, the voices' side clears and its noise is
    seeded from the roll's seed too; then vx_configure. */
 void vx_song(const song_roll_t *r);
 /* One pitched role's instrument (voice V_CHORD, V_BASS, V_LEAD, V_CANDY or V_PAD; others ignored). The pad layer
-   (V_PAD) plays M_ENS patches only (INS_STRINGS, INS_WARM_PAD), and only it plays them: another role's notes are
+   (V_PAD) plays M_ENS patches only (INS_STRINGS, INS_WARM_PAD, INS_CHOIR), and only it plays them: another role's notes are
    silent there.
    The pad layer's lanes: its 4 voices are lanes 1-4 (the song engine's: 1-3 the chord, 4 the solo note), and a V_PAD
    event names its lane in song_ev_t.pad (0: no lane, the voice taken from the pool like any role's). A note on a lane
@@ -45,7 +52,8 @@ void vx_song(const song_roll_t *r);
    starts fresh (its swell), and on one still releasing the old note fades out (about 4 ms, as a steal) first. A lane
    never moves another's voice. */
 void vx_assign(int voice, int ins);
-/* The pad layer's solo lane (lane 4) its own patch: INS_VOX_PAD (the choir), INS_FLUTE, INS_ORGAN or INS_STRINGS,
+/* The pad layer's solo lane (lane 4) its own patch: INS_VOX_PAD, INS_FLUTE, INS_ORGAN, INS_STRINGS or INS_CHOIR (the
+   formant choir, its bank shared with a choir pad's),
    anything else (INS_NONE) the pad's (vx_assign's V_PAD). Lane 4 alone plays it, in its own model (the ensemble, the
    choir and the organ at a quarter of the rate, the flute at half), on the pad's bus (its filters, its sends),
    trimmed to the strings' loudness; lanes 1-3 and lane-less notes keep the pad's M_ENS patch. A

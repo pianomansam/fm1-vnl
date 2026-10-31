@@ -1125,3 +1125,21 @@ all. The worst seed moves from run to run (held on 2's 34-35 us fell on four dif
 host's noise: held on 2 strikes once a bar, fewer than any comping but held. Light eighths strikes four times as often
 as half notes, but each strike is one voicing already built: no measurable cost. With the thinning off, a busy bar
 strikes as a quiet one does, which the unforced songs' quiet bars already cost.
+
+### The formant choir: a candidate pad layer and solo voice (2026-10-30)
+
+The spike's "oo-aah" choir ported (INS_CHOIR: an M_ENS patch with p[4] set; voices.c's choir bank): a candidate the
+roll never draws (no set plays it; `VNL_PAD=choir` or the workbench's pad row), and the vox pad's solo notes sung by it
+(song_ov_t's solo_choir, `VNL_SOLO_CHOIR=1` or the "Vox pad solo" row). Off, nothing changes: the pinned hashes hold.
+The bank's coefficients and level match update once per 1024 samples of the engine's clock (43 a second), where the
+spike recomputed them every segment.
+
+CPU (`app/build/bench/bench --parts`, best of 7, AMB-1 135.7 ms, idle floor 0.104): pad row **choir 0.061** against the
+warm pad's and the strings' 0.048 (the spike's 0.066); solo row **choir 0.038** against the vox pad's 0.043. Whole
+songs (`--forced`, best of 3, AMB-1 138.3 ms) with every pad layer the choir: seed 20 0.927 -> 0.933 forced, seed 7
+0.857 -> 0.866, seed 155 0.799 -> 0.809 (+0.006 to +0.010).
+
+Flash (host -O2 objects of app/engine and app/song against f41748f; the image not built, Docker down): **+4.3 KB
+text** (voices.o +4133 B: the bank, its cell update and pad_seg's split; patch.o +96 B: the patch), +372 B of data/bss
+(the bank's quarter-rate buffer, 264 B, and its state). Stage 2 (the vox pad retired, M_PAD's formant path and M_PAD
+off the solo lane) would take about 2.2 KB of that back on the same measure.

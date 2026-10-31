@@ -76,10 +76,11 @@ export class Desk {
     this.approved = new Set(); // candidates approved this session ("family/id"): approved once import.sh has run
     this.strums = undefined;   // the staged song's keys strum (the strum pattern row is heard only then)
     this.hybrid = undefined;   // the staged song's lead plays the arpeggio (the arpeggio rows are heard only then)
+    this.padSolo = undefined;  // the staged song's pad solo voice as rolled (INS_*: the vox pad solo row is heard on it)
   }
 
   get state() { return { values: this.values, locks: this.locks, legal: this.legal, unavailable: this.samples?.unavailable,
-                         strums: this.strums, hybrid: this.hybrid }; }
+                         strums: this.strums, hybrid: this.hybrid, padSolo: this.padSolo }; }
   kept(id) { return this.locks.has(id) || this.hand.has(id); }
 
   // the engine's staged state into values; the family is the page's (derive: from the keys and lead, as a new song's)
@@ -96,6 +97,7 @@ export class Desk {
     };
     this.strums = (await this.call("wb_comp_applied")) === CS_STRUM;
     this.hybrid = (await this.call("wb_lead_hybrid")) === 1;
+    this.padSolo = await this.call("wb_pad_solo_ins");
     return this.values;
   }
 

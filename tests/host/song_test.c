@@ -1729,7 +1729,7 @@ static int vt_role_of(int ins)
         if (t->candy == ins) return V_CANDY;
         if (t->pad == ins) return V_PAD;
     }
-    return V_CHORD;
+    return vx_patch(ins) && vx_patch(ins)->model == M_ENS ? V_PAD : V_CHORD; /* (the choir: in no set yet) */
 }
 
 /* A mixed passage on every lane (noise drums included); a checksum of its samples. */
@@ -2150,9 +2150,9 @@ static void test_chip(void)
           INS_FM_BASS - INS_VOX_PAD);
     CHECK(INS_STRINGS == INS_FM_BASS + 1 && INS_WARM_PAD == INS_FM_BASS + 2 && INS_KNIGHT == INS_FM_BASS + 3 &&
               INS_EMILY == INS_FM_BASS + 4 && INS_STR_LEAD == INS_FM_BASS + 5 && INS_CELLO == INS_FM_BASS + 6 &&
-              INS_NONE == INS_FM_BASS + 7,
+              INS_CHOIR == INS_FM_BASS + 7 && INS_NONE == INS_FM_BASS + 8,
           "instruments: %d after the six synths, wanted the pad layer's two (strings, warm pad), the Knight, the "
-          "Emilyguitar, then the string synth's high lead and cello (removed 2026-10-29; their ids kept)",
+          "Emilyguitar, the string synth's high lead and cello (removed 2026-10-29; their ids kept), then the choir",
           INS_NONE - INS_FM_BASS - 1);
     { /* the triangle at note 36 (674 samples a cycle): its plateaus' levels in one cycle from 0.5 s, clustered */
         static float lv[1024];
@@ -2695,6 +2695,186 @@ static void test_pad_solo_patch(void)
     CHECK(vx_pad_lane_patch(4) == NULL, "pad solo patch: the organ still sounding 100 ms after vx_release_all");
     vx_solo(-1);
     CHECK(!bad, "pad solo patch: NaN or inf");
+}
+
+/* The formant choir (INS_CHOIR: an M_ENS patch whose voices sing through voices.c's formant bank), a held three-note
+   chord on lanes 1-3, the pad's bus soloed: no NaN or inf; it swells (by 100 ms under 40% of its level at 1.5 s); its
+   vowel's cycle (F1 from the bank: "oo" near 340 Hz at the start and again at 12 s, "aah" near 725 at 6 s, between
+   at 3 and 9 s, each within the drift's 3%, F2 and F3 likewise); the same samples whatever the render's blocks (4096,
+   1000, 61: within 1e-6, the engine's own rounding there; the bank's coefficients and gain step on the engine's
+   clock, not at a segment's edge); no click where
+   they step (the largest second difference within 8 samples of a step under 1.5 times the largest elsewhere); silent
+   3 s after its release with no state denormal-bound. */
+#define CV_N (17u * 44100u)
+static float cv_a[CV_N + 4096];
+static void cv_render(uint32_t blk, float *out, float f[7], int *bad)
+{
+    uint32_t at = 0;
+    int m = 0;
+    vx_fx_off(VX_OFF_CHORUS | VX_OFF_DELAY | VX_OFF_GLUE);
+    vx_init();
+    vx_assign(V_PAD, INS_CHOIR);
+    vx_solo(V_PAD);
+    vt_lane(1, 55, 0, 13u * 44100u);
+    vt_lane(2, 60, 0, 13u * 44100u);
+    vt_lane(3, 64, 0, 13u * 44100u);
+    while (at < CV_N) {
+        uint32_t n = CV_N - at < blk ? CV_N - at : blk;
+        vt_block(n, bad);
+        memcpy(out + at, vt_l, n * sizeof(float));
+        at += n;
+        if (f && m < 5 && at >= (uint32_t)(m * 3) * 44100u + 4410u) { /* 0.1 s, then 3, 6, 9, 12 s */
+            f[m] = vx_choir_formant(0);
+            if (m == 2) {
+                f[5] = vx_choir_formant(1);
+                f[6] = vx_choir_formant(2);
+            }
+            m++;
+        }
+    }
+    vx_solo(-1);
+    vx_fx_off(0u);
+}
+static void test_choir_voice(void)
+{
+    static float cv_b[CV_N + 4096];
+    static const uint32_t BLK[2] = {1000u, 61u};
+    const vx_patch_t *p = vx_patch(INS_CHOIR);
+    float f[7] = {0}, a100 = 0.0f, a15 = 0.0f, tail = 0.0f, near = 0.0f, far = 0.0f;
+    uint32_t i;
+    int k, bad = 0;
+    CHECK(p && p->model == M_ENS && p->p[4] > 0.0f && lib_ins_sustained(INS_CHOIR),
+          "choir voice: not an M_ENS patch that sings (p[4])");
+    cv_render(4096u, cv_a, f, &bad);
+    for (i = 0; i < 4410u; i++)
+        a100 = fm_maxf(a100, fm_fabsf(cv_a[i]));
+    for (i = 66150u - 2205u; i < 66150u + 2205u; i++)
+        a15 = fm_maxf(a15, fm_fabsf(cv_a[i]));
+    for (i = CV_N - 4096u; i < CV_N; i++)
+        tail = fm_maxf(tail, fm_fabsf(cv_a[i]));
+    printf("choir voice: F1 %.0f %.0f %.0f %.0f %.0f Hz at 0.1, 3, 6, 9, 12 s (F2 %.0f, F3 %.0f at 6 s); level "
+           "%.4f by 100 ms, %.4f at 1.5 s, tail %.2e\n", (double)f[0], (double)f[1], (double)f[2], (double)f[3],
+           (double)f[4], (double)f[5], (double)f[6], (double)a100, (double)a15, (double)tail);
+    CHECK(fm_fabsf(f[0] / 340.0f - 1.0f) < 0.031f && fm_fabsf(f[4] / 340.0f - 1.0f) < 0.031f,
+          "choir voice: F1 %.0f at the start, %.0f at 12 s, wanted \"oo\"'s 340", (double)f[0], (double)f[4]);
+    CHECK(fm_fabsf(f[2] / 725.0f - 1.0f) < 0.031f && fm_fabsf(f[5] / 1115.0f - 1.0f) < 0.031f &&
+              fm_fabsf(f[6] / 2725.0f - 1.0f) < 0.031f,
+          "choir voice: at 6 s F1-F3 %.0f %.0f %.0f, wanted \"aah\"'s 725 1115 2725", (double)f[2], (double)f[5],
+          (double)f[6]);
+    CHECK(f[1] > 1.1f * 340.0f && f[1] < 0.9f * 725.0f && f[3] > 1.1f * 340.0f && f[3] < 0.9f * 725.0f,
+          "choir voice: F1 %.0f at 3 s, %.0f at 9 s, wanted between \"oo\" and \"aah\"", (double)f[1], (double)f[3]);
+    CHECK(a15 > 0.01f && a100 < 0.4f * a15, "choir voice: swell %.4f by 100 ms vs %.4f at 1.5 s", (double)a100,
+          (double)a15);
+    CHECK(tail < 3.16e-5f && vx_active() == 0, "choir voice: still %.2e 3 s after its release", (double)tail);
+    CHECK(vx_tiny() == 0, "choir voice: %d denormal-bound states", vx_tiny());
+    for (k = 0; k < 2; k++) {
+        float md = 0.0f;
+        cv_render(BLK[k], cv_b, NULL, &bad);
+        for (i = 0; i < CV_N; i++)
+            md = fm_maxf(md, fm_fabsf(cv_a[i] - cv_b[i]));
+        printf("choir voice: blocks of %u, at most %.1e from blocks of 4096\n", (unsigned)BLK[k], (double)md);
+        CHECK(md < 1e-6f, "choir voice: blocks of %u render %.1e away", (unsigned)BLK[k], (double)md);
+    }
+    for (i = 2; i < 13u * 44100u; i++) { /* the held chord: the bank's steps (every 1024 samples) against the rest */
+        float d2 = fm_fabsf(cv_a[i] - 2.0f * cv_a[i - 1] + cv_a[i - 2]);
+        uint32_t ph = i % 1024u;
+        if (ph < 8u || ph > 1016u)
+            near = fm_maxf(near, d2);
+        else
+            far = fm_maxf(far, d2);
+    }
+    printf("choir voice: the largest second difference %.2e at the bank's steps, %.2e elsewhere\n", (double)near,
+           (double)far);
+    CHECK(far > 0.0f && near < 1.5f * far, "choir voice: a click at the bank's steps (%.2e vs %.2e)", (double)near,
+          (double)far);
+    CHECK(!bad, "choir voice: NaN or inf");
+}
+
+/* The choir sings the pad's solo voice too (one note at the solo's register, C5-C6): on lane 4 at a quarter of the
+   rate, its level within 0.5 dB of the vox pad's solo it would replace (the mean power over C5-C6, each note
+   test_pad_solo_patch's measure: the vox pad's fixed formants swing it 7 dB from note to note), on the pad's bus only, silent 3 s after its release; a held note glides to the next (no restrike: no
+   100 ms window after the change under half the held level), over a choir pad (one bank sings both). */
+static float cs_level(int ins, int note, int *step, float *tail, int *bad)
+{
+    float e = 0.0f;
+    int k, held;
+    vx_init();
+    vx_assign(V_PAD, INS_STRINGS);
+    vx_assign_pad_solo(ins);
+    vx_solo(V_PAD);
+    vt_lane(4, note, 0, 132300u);
+    for (k = 0; k < 66; k++) {
+        float m = vt_block(4096, bad);
+        uint32_t j;
+        if (k == 1)
+            vx_pad_lane(4, step, &held);
+        if (k >= 11 && k < 32)
+            for (j = 0; j < 4096; j++)
+                e += vt_l[j] * vt_l[j];
+        if (k == 65)
+            *tail = m;
+    }
+    vx_solo(-1);
+    return 10.0f * 0.30103f * fm_log2f(e / (21.0f * 4096.0f) + 1e-30f);
+}
+static void test_choir_solo(void)
+{
+    float other = 0.0f, held_rms = 0.0f, low = 1e9f, hz, tail = 0.0f, pv = 0.0f, pc = 0.0f, dv, dc;
+    int n, k, step = 0, held, bad = 0;
+    for (n = 72; n <= 84; n++) { /* every solo note, C5-C6: the mean power */
+        float vox = cs_level(INS_VOX_PAD, n, &step, &tail, &bad), cho = cs_level(INS_CHOIR, n, &step, &tail, &bad);
+        printf("choir solo: MIDI %d %.2f dBFS, the vox pad's %.2f\n", n, (double)cho, (double)vox);
+        pv += fm_exp2f(vox * (3.32193f / 10.0f));
+        pc += fm_exp2f(cho * (3.32193f / 10.0f));
+        CHECK(step == 4, "choir solo: MIDI %d at a step of %d, wanted a quarter", n, step);
+        CHECK(tail < 3.16e-5f && vx_active() == 0, "choir solo: MIDI %d still %.2e 3 s after", n, (double)tail);
+        CHECK(vx_tiny() == 0, "choir solo: %d denormal-bound states", vx_tiny());
+    }
+    dv = 10.0f * 0.30103f * fm_log2f(pv / 13.0f);
+    dc = 10.0f * 0.30103f * fm_log2f(pc / 13.0f);
+    printf("choir solo: C5-C6 %.2f dBFS, the vox pad's %.2f\n", (double)dc, (double)dv);
+    CHECK(fm_fabsf(dc - dv) <= 0.5f, "choir solo: C5-C6 %.2f dB vs the vox pad's %.2f", (double)dc, (double)dv);
+    vx_init();
+    vx_assign(V_PAD, INS_STRINGS);
+    vx_assign_pad_solo(INS_CHOIR);
+    vx_solo(V_CHORD);
+    vt_lane(4, 76, 0, 88200u);
+    for (k = 0; k < 8; k++)
+        other = fm_maxf(other, vt_block(4096, &bad));
+    CHECK(other < 1e-7f, "choir solo: on the keys' bus: peak %.2e", (double)other);
+    vx_init(); /* legato, over a choir pad */
+    vx_assign(V_PAD, INS_CHOIR);
+    vx_assign_pad_solo(INS_CHOIR);
+    vx_solo(V_PAD);
+    vt_lane(1, 60, 0, 132300u);
+    vt_lane(4, 76, 0, 88200u);
+    vt_lane(4, 79, 88200u, 88200u);
+    for (k = 0; k < 48; k++) {
+        static float e;
+        uint32_t j;
+        if (!(k & 1))
+            e = 0.0f;
+        vt_block(2205, &bad);
+        if (k == 1)
+            CHECK(vx_pad_lane_patch(4) == vx_patch(INS_CHOIR) && vx_pad_lane_patch(1) == vx_patch(INS_CHOIR),
+                  "choir solo: lanes 1 and 4 not on the choir");
+        for (j = 0; j < 2205; j++)
+            e += vt_l[j] * vt_l[j];
+        if (k & 1) {
+            float r = fm_sqrtf(e / 4410.0f);
+            if (k / 2 >= 16 && k / 2 < 20)
+                held_rms += 0.25f * r;
+            else if (k / 2 >= 20)
+                low = fm_minf(low, r);
+        }
+    }
+    hz = vx_pad_lane(4, &step, &held);
+    printf("choir solo: legato over a choir pad: held %.4f, lowest %.4f across the change, %.1f Hz after\n",
+           (double)held_rms, (double)low, (double)hz);
+    CHECK(low > 0.5f * held_rms && fm_fabsf(hz - 783.99f) < 2.0f && held,
+          "choir solo: the change dips to %.4f of %.4f, at %.1f Hz", (double)low, (double)held_rms, (double)hz);
+    vx_solo(-1);
+    CHECK(!bad, "choir solo: NaN or inf");
 }
 
 /* The pad layer's lanes (voices.h): two notes back to back on lane 1 glide (the level never under 80% of the held
@@ -6930,7 +7110,7 @@ static void test_lead_over_keys(void)
    dB): each set's mean and median 7-11 dB under, and no song under 5 dB or over 13. */
 static void test_pad_level(void)
 {
-    static const song_ov_t pads = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, 0, -1, -1, -1, 0};   /* every song with a pad */
+    static const song_ov_t pads = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, 0, -1, -1, -1, 0, 0};   /* every song with a pad */
     float d[LIB_NSETS_MAX * LK_PER], sorted[LIB_NSETS_MAX * LK_PER], med;
     int k, n = 0, sets = 0;
     song_override(&pads);
@@ -7032,6 +7212,46 @@ static void test_pad_level(void)
         CHECK(hi[1] - lo[1] <= 2.0f, "pad level: the solo voices at velocity 58 span %.1f dB", (double)(hi[1] - lo[1]));
         CHECK(!bad, "pad level: the solo voices: NaN or inf");
     }
+}
+
+/* The choir's level in songs: its chord part (lane 4, the solo note, left out) as loud as the warm pad's, within
+   0.5 dB over the whole song, the pad's bus soloed (lk_song), every song with a pad: the spike's two (seed 319 on
+   set 31, seed 152 on set 32: warm pad sets) and one on strings (set 21, the warm pad forced for the reference). The
+   choir held to its input's power, so its level is its patch's (patch.c). */
+static void test_choir_level(void)
+{
+    static const song_ov_t pads = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, 0, -1, -1, -1, 0, 0};
+    static const uint32_t SEED[3] = {319u, 152u, 1u};
+    static const int SET[3] = {31, 32, 21};
+    int k;
+    song_override(&pads);
+    lk_skip_lane = 4;
+    for (k = 0; k < 3; k++) {
+        song_roll_t r;
+        uint32_t seed = SEED[k];
+        double e[2];
+        int v, b, nb = 0;
+        roll_song(NULL, seed, &r);
+        while (roll_set(&r, RF_SET, SET[k]) != SET[k] && seed < 400u) /* (a mood the set allows) */
+            roll_song(NULL, ++seed, &r);
+        for (v = 0; v < 2; v++) {
+            vx_pad_ins(v ? INS_CHOIR : INS_WARM_PAD);
+            nb = lk_song(&r, V_PAD, lk_db[v]);
+            e[v] = 0.0;
+            for (b = 0; b < nb; b++)
+                e[v] += lk_db[v][b] > -150.0 ? (double)fm_exp2f((float)lk_db[v][b] * (3.32193f / 10.0f)) : 0.0;
+        }
+        vx_pad_ins(INS_NONE);
+        {
+            float d = 10.0f * 0.30103f * fm_log2f((float)(e[1] / (e[0] + 1e-30)));
+            printf("choir level: seed %u on set %d, its chord part %+.2f dB against the warm pad's (%d bars)\n",
+                   (unsigned)seed, SET[k], (double)d, nb);
+            CHECK(e[0] > 0.0 && fm_fabsf(d) <= 0.5f, "choir level: seed %u on set %d %+.2f dB from the warm pad",
+                  (unsigned)seed, SET[k], (double)d);
+        }
+    }
+    lk_skip_lane = 0;
+    song_override(NULL);
 }
 
 /* The keys duck under the lead: a held pad chord (keys only in the mix, vx_solo) against the same chord with a lead
@@ -7954,7 +8174,7 @@ static pd_rec_t pd_a, pd_b;
    so they keep their samples; NULL (0) restores the roll's */
 static void pd_all_pads(int on)
 {
-    static const song_ov_t all = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, 0, -1, -1, -1, 0};
+    static const song_ov_t all = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, 0, -1, -1, -1, 0, 0};
     song_override(on ? &all : NULL);
 }
 static int pd_part(const song_t *s, int blk, int sus)
@@ -9248,7 +9468,7 @@ static void ov_run(const song_roll_t *r, const song_ov_t *ov, ov_rec_t *o)
 }
 static song_ov_t ov_none(void)
 {
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, 0, -1, -1, -1, 0};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, 0, -1, -1, -1, 0, 0};
     return o;
 }
 static void test_ov_comp(void)
@@ -12188,6 +12408,8 @@ int main(int argc, char **argv)
     RUN(test_pad_bus_filter);
     RUN(test_pad_solo_voice);
     RUN(test_pad_solo_patch);
+    RUN(test_choir_voice);
+    RUN(test_choir_solo);
     RUN(test_pad_chorus);
     RUN(test_vx_keys);
     RUN(test_vx_plucks_basses);
@@ -12214,6 +12436,7 @@ int main(int argc, char **argv)
     RUN(test_keys_duck_mix);
     RUN(test_lead_over_keys);
     RUN(test_pad_level);
+    RUN(test_choir_level);
     RUN(test_sampled_sets);
     RUN(test_phrase_plan);
     RUN(test_sustained_phrases);

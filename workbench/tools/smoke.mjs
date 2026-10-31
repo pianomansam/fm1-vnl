@@ -2387,10 +2387,92 @@ console.log("the busy-lead thinning row (on by default; off, the existing compin
   check(desk.values.busyThin === 0 && ex.wb_ov_get(OV.NO_BUSY_THIN) === 0, "and back on");
 }
 
+console.log("the choir: a candidate pad layer, and the vox pad's solo notes sung by it");
+{
+  const { readEvents } = await import("../wb.js");
+  const { replay, wav } = await import("./replay.mjs");
+  const { inactive } = await import("../rows.js");
+  const CHOIR = ins("Choir"), VOX = ins("Vox pad"), WARM = ins("Warm pad");
+  const ex = await load(), call = caller(ex);
+  ex.wb_seed(31);
+  ex.wb_apply();
+  const desk = new Desk(call, C, OPTS, await call("wb_library"), { rnd: lcg(12) });
+  await desk.read(true);
+  // the pad row: offered, marked a candidate, never the dice's pick (either family)
+  const o = optionsFor(row("pad"), desk.state, OPTS).find((x) => x.value === CHOIR);
+  check(o && o.name === "Choir" && o.status === "candidate", "the pad row offers the choir, marked a candidate");
+  let picked = 0;
+  for (let i = 0; i < 200; i++)
+    picked += pickFor(row("pad"), { values: { pad: WARM, family: i & 1 ? "synth" : "acoustic" }, locks: new Set() },
+                      OPTS, lcg(i)) === CHOIR;
+  check(picked === 0, `the dice never pick it (${picked} of 200)`);
+  const p = await desk.set("pad", CHOIR);
+  check(p.ok !== false && desk.values.pad === CHOIR && ex.wb_role_get(V.PAD) === CHOIR, "picked, the engine's pad is the choir");
+  const f = await desk.set("family", desk.values.family === "synth" ? "acoustic" : "synth");
+  check(f.ok !== false && desk.values.pad === CHOIR, "a family change keeps it (it fits either)");
+  // the vox pad solo row: Vox pad (as rolled) or Choir; heard only where the song's solo voice is the vox pad
+  const r = row("soloChoir"), names = optionsFor(r, desk.state, OPTS).map((x) => x.name);
+  check(r && r.kind === "ov" && r.key === "SOLO_CHOIR" && JSON.stringify(names) === '["Vox pad","Choir"]' &&
+        desk.values.soloChoir === 0 && ex.wb_ov_get(OV.SOLO_CHOIR) === 0,
+        `a "Vox pad solo" row: ${names.join(", ")}; a new song's is the vox pad`);
+  let seed = 0;
+  for (let s = 1; s <= 200 && !seed; s++) {
+    await desk.set("seed", s);
+    if (desk.padSolo === VOX) seed = s;
+    else if (s < 40) check(inactive(r, desk.state, OPTS), `seed ${s}: the row is inactive (its solo voice ${desk.padSolo})`);
+  }
+  check(seed > 0 && !inactive(r, desk.state, OPTS), `seed ${seed}'s solo voice is the vox pad: the row is heard`);
+  // the same notes either way (a probe instance's wb_events of the committed song)
+  const padOf = async (solo) => {
+    const play = await load();
+    play.wb_seed(seed);
+    play.wb_ov_set(OV.PAD_ON, 1);
+    play.wb_ov_set(OV.SOLO_CHOIR, solo);
+    play.wb_apply();
+    const pex = await load();
+    new Uint8Array(pex.memory.buffer, pex.wb_commit_ptr(), pex.wb_stage_size())
+      .set(new Uint8Array(play.memory.buffer, play.wb_commit_ptr(), play.wb_stage_size()));
+    pex.wb_events(0);
+    return readEvents(pex).filter((e) => e.role === V.PAD);
+  };
+  const vox = await padOf(0), cho = await padOf(1);
+  check(vox.length && JSON.stringify(vox) === JSON.stringify(cho), `the choir sings the vox pad's notes (${vox.length} pad events)`);
+  const t = await desk.set("soloChoir", 1);
+  check(t.ok !== false && desk.values.soloChoir === 1 && ex.wb_ov_get(OV.SOLO_CHOIR) === 1 && desk.padSolo === VOX,
+        "the row puts the choir on it (the row still reads the rolled vox pad)");
+  // both ride in snapshots and replays; an older snapshot (no such row) restores the vox pad
+  await desk.set("padOn", 1);
+  await desk.set("pad", CHOIR);
+  const snap = await desk.snapshot();
+  const e2 = await load(), d2 = new Desk(caller(e2), C, OPTS, await caller(e2)("wb_library"));
+  const miss = await d2.restore(snap);
+  check(snap.rows.soloChoir === 1 && snap.rows.pad === CHOIR && !miss.length && d2.values.soloChoir === 1 &&
+        d2.values.pad === CHOIR && e2.wb_ov_get(OV.SOLO_CHOIR) === 1 && e2.wb_role_get(V.PAD) === CHOIR,
+        `a snapshot keeps the choir pad and the choir solo (mismatch: ${miss.join(", ") || "none"})`);
+  const old = JSON.parse(JSON.stringify(snap));
+  delete old.rows.soloChoir;
+  old.rows.pad = WARM;
+  old.locks = [];
+  const e3 = await load(), d3 = new Desk(caller(e3), C, OPTS, await caller(e3)("wb_library"));
+  const miss3 = await d3.restore(old);
+  check(!miss3.length && d3.values.soloChoir === 0 && e3.wb_ov_get(OV.SOLO_CHOIR) === 0 && e3.wb_role_get(V.PAD) === WARM,
+        `an older snapshot (no such row) restores the vox pad (mismatch: ${miss3.join(", ") || "none"})`);
+  const solo = JSON.parse(JSON.stringify(old));
+  solo.rows.soloChoir = 1;
+  const secs = 60;
+  const a = await replay(JSON.parse(JSON.stringify(snap)), secs), b = await replay(JSON.parse(JSON.stringify(old)), secs);
+  const c = await replay(solo, secs);
+  check(!a.mismatch.length && !b.mismatch.length && !c.mismatch.length && Buffer.compare(wav(a), wav(b)) !== 0 &&
+        Buffer.compare(wav(c), wav(b)) !== 0,
+        `a replay plays them: the choir pad, the choir solo and neither render differently (mismatch: ${[...a.mismatch, ...b.mismatch, ...c.mismatch].join(", ") || "none"})`);
+  const s17 = JSON.parse(cstr(ex, ex.wb_state()));
+  check(fromEngine({ ...s17, ov: s17.ov.slice(0, 17) }, C, OPTS).soloChoir === 0, "a 17-entry ov list reads the vox pad");
+}
+
 console.log("options.json: statuses");
-check(!OPTS.instruments.some((i) => i.status === "candidate") &&
+check(JSON.stringify(OPTS.instruments.filter((i) => i.status === "candidate").map((i) => i.name)) === '["Choir"]' &&
       ["Chillwave pad", "Vox pad"].every((n) => OPTS.instruments.find((i) => i.name === n).status === "approved"),
-      "no candidates among the instruments (the chillwave and vox pads approved)");
+      "the one candidate among the instruments is the choir (the chillwave and vox pads approved)");
 {
   const { inactive } = await import("../rows.js");
   const st = (kit) => ({ values: { kit } });

@@ -282,6 +282,35 @@ static float csend;         /* the pad layer's send into the chorus */
 static float pd_dep;        /* the depth that send gives it */
 static float pdg = 1.0f, pdg0, pdgd; /* its dry scale: eased toward fx_chorus_dry_at(pd_dep); this chunk's ramp */
 static float pd_lvl = 1.0f;          /* the pad layer's level (vx_set_pad_level), folded into pdg's target */
+/* The formant choir (INS_CHOIR: an M_ENS patch with p[4] set, on the pad layer or its solo lane): its voices sum
+   apart from the other ensemble voices, at the quarter rate, into one formant bank (one bank, not one per voice: the
+   choir sings one vowel), then join the layer's sum. The bank: Klatt's two-pole resonators (Klatt 1980), F1 and F2 in
+   cascade (unity at DC: the body below F1 stays), F3 in parallel on their input (unity at its peak, times its level
+   CH_G3: the cascade alone leaves it 35-40 dB under F1), at sung-vowel formants (tenor and alto averaged, the
+   bandwidths widened by half for a choir's spread). The vowel moves from "oo" to "aah" and back over CH_MORPH_T (a
+   log-frequency blend), all three formants drifting together by CH_DRIFT over CH_DRIFT_T, both on the engine's clock.
+   The coefficients change once per CH_UPD samples of that clock (the morph's fastest move, about 0.3 octave a second
+   at F1, is under 8 cents a step there), at the same samples however the chunks fall. The resonances lift whatever
+   harmonics land on a formant, so the bank's gain swings with the chord's register and the vowel: its output is
+   held to its input's power, both followed over CH_LVL_T and the gain ramped across each CH_UPD (a level, not a
+   compressor: the swell passes through it). The patch's level sets the choir's (within 0.5 dB of the warm pad's).
+   With VX_OFF_HALF (every voice at the full rate) the choir sings without its formants. */
+#define CH_UPD 1024u      /* the clock samples between coefficient (and gain) updates: a multiple of 4 */
+#define CH_LVL_T 0.4f     /* the power match's time constant (s) */
+#define CH_DRIFT 0.03f    /* the formants' slow drift: +-3% ... */
+#define CH_DRIFT_T 11.0f  /* ... over 11 s */
+#define CH_MORPH_T 12.0f  /* "oo" -> "aah" -> "oo" */
+/* sung "oo" and "aah": F1-F3 and their bandwidths (Hz); F3's level (about 25 and 20 dB under F1 in the pad's bus) */
+static const float CH_F[2][3] = {{340.0f, 650.0f, 2615.0f}, {725.0f, 1115.0f, 2725.0f}};
+static const float CH_BW[2][3] = {{70.0f, 90.0f, 250.0f}, {120.0f, 135.0f, 250.0f}};
+static const float CH_G3[2] = {4.0f, 7.0f};
+static float cho_xc[CHUNK / 4 + 2]; /* the segment's choir voices, at the quarter rate */
+static float cho_c[3][3], cho_s[3][2]; /* the resonators' a, b, c (y = a x + b y1 + c y2) and y1, y2 */
+static float cho_f[3];                /* their formants (Hz), for vx_choir_formant */
+static uint32_t cho_cell = 0xFFFFFFFFu; /* the CH_UPD cell of the clock the coefficients are for (none yet) */
+static float cho_pi, cho_po, cho_ai, cho_ao; /* the input's and output's power, followed; this cell's sums */
+static float cho_g = 1.0f, cho_dg;         /* the gain matching them, and its ramp per quarter-rate sample */
+static int pad_force = INS_NONE;         /* vx_pad_ins: the pad layer's instrument over the set's (host renders) */
 /* The mud high-pass (Sam: "add both"): a second-order (Butterworth) high-pass on the chords', the lead's, the ear
    candy's and the pad layer's sums at MUD_HZ (MUD_PAD_HZ for a pad or the pad layer), so the bass and the kick keep
    the low end. Per role, at the full rate and at half (its half-rate voices' sum, before the upsampler; the pad
@@ -328,8 +357,9 @@ static vx_config_t cfg;
 static const vx_patch_t *role_pt[V_PAD + 1]; /* the configured patch per pitched role, NULL for none */
 static vx_patch_t mute_pt; /* a sampled chords patch muted (p[3] 1): the strum's chucks (a V_CHORD event's pad 1) */
 /* The pad's solo lane (lane 4, vx_assign_pad_solo): its patch (NULL: the pad's) and its level's trim, by ear and by
-   the level test (song_test's test_pad_solo_patch): each voice as loud as the strings an octave up (in RMS, the choir,
-   the flute and the organ at MIDI 76, the strings at 88). */
+   the level test (song_test's test_pad_solo_patch): each voice as loud as the strings an octave up (in RMS, the vox
+   pad, the flute and the organ at MIDI 76, the strings at 88); the formant choir as loud as the vox pad over C5-C6
+   (test_choir_solo: the mean power of every note). */
 #define SOLO_V (NV - 1) /* the solo lane's voice: fv[SOLO_V] */
 /* the solo lane is the pad layer's last voice (C99 has no _Static_assert: size -1 fails the build) */
 typedef char solo_is_last_pad_[(PD + NPD == NV && SOLO_V == PD + NPD - 1) ? 1 : -1];
@@ -341,7 +371,7 @@ static float solo_trim = 1.0f;
 static const uint8_t SOLO_Q4[INS_NONE] = {[INS_VOX_PAD] = 1, [INS_ORGAN] = 1};
 static uint8_t solo_q4;
 static const float SOLO_TRIM[INS_NONE] = {[INS_VOX_PAD] = 1.334f, [INS_FLUTE] = 0.83271f, [INS_ORGAN] = 1.288f,
-                                         [INS_STRINGS] = 1.0f};
+                                         [INS_STRINGS] = 1.0f, [INS_CHOIR] = 1.131f};
 
 static float noise(void)
 {
@@ -385,6 +415,10 @@ static void voices_clear(uint32_t seed)
     pb_y = pb_z = 0.0f;
     pb_lon = pb_hon = 0;
     pq_used = 0;
+    memset(cho_s, 0, sizeof cho_s); /* (the choir's vowel starts again with the clock: "oo") */
+    cho_cell = 0xFFFFFFFFu;
+    cho_pi = cho_po = cho_ai = cho_ao = cho_dg = 0.0f;
+    cho_g = 1.0f;
     hpar = 0u;
     hr_tail = 0u;
     mute_was = mute_mask; /* (nothing sounds: no ramp) */
@@ -470,6 +504,11 @@ void vx_assign(int voice, int ins)
 static uint8_t bed_off;                   /* host renders: VNL_BED=0 leaves surface noise and rain out */
 void vx_bed_off(int on) { bed_off = (uint8_t)(on != 0); }
 
+void vx_pad_ins(int ins)
+{
+    pad_force = vx_patch(ins) && vx_patch(ins)->model == M_ENS ? ins : INS_NONE;
+}
+
 /* The keys' level for the song's comping, so the keys sit alike whatever they play (Task 8, retuned with half notes
    in, pads revision 2): struck or plucked keys held decay under the mix, so they sit up (a two-bar chord further);
    half notes restrike, so a little (their second strike softer, a busy lead thins
@@ -517,7 +556,7 @@ void vx_configure(const song_roll_t *r)
         vx_assign(V_BASS, s->bass);
         vx_assign(V_LEAD, s->lead);
         vx_assign(V_CANDY, INS_NONE); /* no ear candy (Sam, 2026-10-29): the set's candy goes unplayed */
-        vx_assign(V_PAD, s->pad);
+        vx_assign(V_PAD, pad_force != INS_NONE ? pad_force : s->pad);
         vx_set_kit(lib_song_kit(r)); /* the song's: the set's synth kit or its sampled one */
         vx_assign_pad_solo(pads_solo_voice(r)); /* the song's solo voice (none: the pad's, unplayed) */
         cfg.flavor = s->flavor;
@@ -1828,6 +1867,92 @@ static float k4_of(float k)
     r *= r;
     return 1.0f - r * r;
 }
+/* The choir's bank for the CH_UPD cell starting at clock t: the vowel's formants, the resonators' coefficients (at
+   the quarter rate), and the power match's step (the cell just ended folded into the followers, the gain ramped to
+   theirs over this cell; held where the output has gone silent). */
+static void choir_cell(uint32_t t)
+{
+    static const float LR[3] = {1.09245f, 0.77853f, 0.05945f}; /* log2 of each formant's "aah" over its "oo" */
+    uint32_t pd = (uint32_t)(CH_DRIFT_T * SR), pm = (uint32_t)(CH_MORPH_T * SR);
+    float dr = 1.0f + CH_DRIFT * fm_sinf(FM_TWO_PI * (float)(t % pd) / (float)pd);
+    float m = 0.5f - 0.5f * fm_cosf(FM_TWO_PI * (float)(t % pm) / (float)pm), kf, g;
+    int j;
+    for (j = 0; j < 3; j++) {
+        float f = CH_F[0][j] * fm_exp2f(LR[j] * m) * dr, bw = CH_BW[0][j] + (CH_BW[1][j] - CH_BW[0][j]) * m;
+        float r = fm_expf(-FM_PI * bw * 4.0f * INV_SR), w = FM_TWO_PI * f * 4.0f * INV_SR;
+        cho_f[j] = f;
+        cho_c[j][1] = 2.0f * r * fm_cosf(w);
+        cho_c[j][2] = -r * r;
+        if (j < 2) /* F1, F2 in cascade: unity at DC */
+            cho_c[j][0] = 1.0f - cho_c[j][1] - cho_c[j][2];
+        else /* F3 in parallel: unity at its peak, times its level */
+            cho_c[j][0] = (CH_G3[0] + (CH_G3[1] - CH_G3[0]) * m) * (1.0f - r) *
+                         fm_sqrtf(1.0f - 2.0f * r * fm_cosf(2.0f * w) + r * r);
+    }
+    kf = fm_expf(-(float)CH_UPD / (CH_LVL_T * SR));
+    cho_pi = fm_flush(cho_pi * kf + cho_ai);
+    cho_po = fm_flush(cho_po * kf + cho_ao);
+    cho_ai = cho_ao = 0.0f;
+    g = cho_po > 1e-12f ? fm_clampf(fm_sqrtf(cho_pi / cho_po), 0.05f, 4.0f) : cho_g;
+    cho_dg = (g - cho_g) * (4.0f / (float)CH_UPD);
+    cho_cell = t / CH_UPD;
+}
+/* nq quarter-rate samples of the choir's voices (x, the first at clock t, then every 4) through its bank, added into
+   y; its coefficients and gain step at the CH_UPD cells' first samples */
+static void choir_run(const float *x, float *y, uint32_t nq, uint32_t t)
+{
+    uint32_t i = 0;
+    if (nq && t / CH_UPD != cho_cell) /* (a cell begun at rest: its coefficients now) */
+        choir_cell(t - t % CH_UPD);
+    while (i < nq) {
+        uint32_t tc = t + 4u * i, end = i + (CH_UPD - tc % CH_UPD + 3u) / 4u;
+        float a0 = cho_c[0][0], b0 = cho_c[0][1], c0 = cho_c[0][2], a1 = cho_c[1][0], b1 = cho_c[1][1], c1 = cho_c[1][2];
+        float a2 = cho_c[2][0], b2 = cho_c[2][1], c2 = cho_c[2][2], g = cho_g, dg = cho_dg, ai = cho_ai, ao = cho_ao;
+        float s00 = cho_s[0][0], s01 = cho_s[0][1], s10 = cho_s[1][0], s11 = cho_s[1][1], s20 = cho_s[2][0],
+              s21 = cho_s[2][1];
+        if (tc % CH_UPD == 0u && tc / CH_UPD != cho_cell) {
+            choir_cell(tc);
+            continue;
+        }
+        if (end > nq)
+            end = nq;
+        for (; i < end; i++) {
+            float u = x[i], f1, f2, f3;
+            f3 = a2 * u + b2 * s20 + c2 * s21;
+            s21 = s20;
+            s20 = f3;
+            f1 = a0 * u + b0 * s00 + c0 * s01;
+            s01 = s00;
+            s00 = f1;
+            f2 = a1 * f1 + b1 * s10 + c1 * s11;
+            s11 = s10;
+            s10 = f2;
+            f2 += f3;
+            ai += u * u;
+            ao += f2 * f2;
+            g += dg;
+            y[i] += f2 * g;
+        }
+        cho_s[0][0] = fm_flush(s00);
+        cho_s[0][1] = fm_flush(s01);
+        cho_s[1][0] = fm_flush(s10);
+        cho_s[1][1] = fm_flush(s11);
+        cho_s[2][0] = fm_flush(s20);
+        cho_s[2][1] = fm_flush(s21);
+        cho_ai = ai;
+        cho_ao = ao;
+        cho_g = g;
+    }
+}
+/* the choir's bank still rings (its resonators' states) */
+static int choir_rings(void)
+{
+    int j;
+    for (j = 0; j < 3; j++)
+        if (fm_fabsf(cho_s[j][0]) > 1e-7f || fm_fabsf(cho_s[j][1]) > 1e-7f)
+            return 1;
+    return 0;
+}
 static unsigned pad_seg(uint32_t pos, uint32_t n)
 {
     voice_t *vs[NPD], *so = &fv[SOLO_V];
@@ -1846,11 +1971,12 @@ static unsigned pad_seg(uint32_t pos, uint32_t n)
         so = NULL;
     if (!(got & PAD_Q)) { /* the quarter-rate path still ringing out, or at rest (then it is silent: no work) */
         if (fm_fabsf(a0) > 1e-7f || fm_fabsf(a1) > 1e-7f || fm_fabsf(z0) > 1e-7f || fm_fabsf(z1) > 1e-7f ||
-            fm_fabsf(pb_y) > 1e-7f || fm_fabsf(pb_z) > 1e-7f)
+            fm_fabsf(pb_y) > 1e-7f || fm_fabsf(pb_z) > 1e-7f || choir_rings())
             got |= PAD_Q;
         else {
             pq0 = pq1 = pq_mz[0] = pq_mz[1] = pb_y = pb_z = 0.0f;
             pb_lon = pb_hon = 0;
+            memset(cho_s, 0, sizeof cho_s);
             if (pq_used)
                 memset(pq_buf + pos, 0, n * sizeof(float));
         }
@@ -1861,10 +1987,20 @@ static unsigned pad_seg(uint32_t pos, uint32_t n)
         float hm = bf->hm, y = pb_y, z = pb_z, d = (a1 - a0) * 0.25f, *o = pq_buf + pos;
         uint32_t ph = (clk + pos) & 3u, f0 = (4u - ph) & 3u, nq = f0 < n ? (n - f0 + 3u) / 4u : 0u, t = 0;
         static float xq[CHUNK / 4 + 2];
+        int sing = 0;
         memset(xq, 0, nq * sizeof(float));
         for (k = 0; k < nv; k++)
-            if (vs[k]->qr)
+            if (vs[k]->qr && vs[k]->pt->p[4] > 0.0f) { /* the choir's voices: into its bank */
+                if (!sing++)
+                    memset(cho_xc, 0, nq * sizeof(float));
+                ens_run(vs[k], cho_xc, nq);
+            } else if (vs[k]->qr)
                 ens_run(vs[k], xq, nq);
+        if (sing || choir_rings()) {
+            if (!sing)
+                memset(cho_xc, 0, nq * sizeof(float));
+            choir_run(cho_xc, xq, nq, clk + pos + f0);
+        }
         if (so) /* the solo lane's own voice at a quarter (till it falls silent or leaves the rate: a steal) */
             for (t = 0; t < nq && so->on && so->qr && so->pt->model != M_ENS; t++)
                 xq[t] += solo_sample(so);
@@ -2654,10 +2790,15 @@ float vx_pad_lane(int lane, int *step, int *held)
 
 void vx_assign_pad_solo(int ins)
 {
-    int ok = ins == INS_VOX_PAD || ins == INS_FLUTE || ins == INS_ORGAN || ins == INS_STRINGS;
+    int ok = ins == INS_VOX_PAD || ins == INS_FLUTE || ins == INS_ORGAN || ins == INS_STRINGS || ins == INS_CHOIR;
     solo_pt = ok ? vx_patch(ins) : NULL;
     solo_trim = ok ? SOLO_TRIM[ins] : 1.0f;
     solo_q4 = ok ? SOLO_Q4[ins] : 0;
+}
+
+float vx_choir_formant(int k)
+{
+    return k >= 0 && k < 3 && cho_cell != 0xFFFFFFFFu ? cho_f[k] : 0.0f;
 }
 
 const vx_patch_t *vx_pad_lane_patch(int lane)
@@ -2702,6 +2843,7 @@ int vx_tiny(void)
     for (r = 0; r < NBUS; r++)
         c += vx_tiny_of(&bus[r].y, 1) + vx_tiny_of(&bus[r].z, 1) + vx_tiny_of(&bus[r].hm, 1);
     c += vx_tiny_of(pq_mz, 2) + vx_tiny_of(&pq0, 1) + vx_tiny_of(&pq1, 1) + vx_tiny_of(&pb_y, 1) + vx_tiny_of(&pb_z, 1);
+    c += vx_tiny_of(&cho_s[0][0], 6) + vx_tiny_of(&cho_pi, 1) + vx_tiny_of(&cho_po, 1);
     for (r = 0; r < NV; r++) /* a synth's filter envelope and states; an ensemble voice's low-pass */
         if (fv[r].on && fv[r].pt && fv[r].pt->model == M_SUB)
             c += vx_tiny_of(&fv[r].m.sb.fe, 1) + vx_tiny_of(fv[r].m.sb.s, 2);

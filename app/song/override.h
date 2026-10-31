@@ -30,6 +30,8 @@ typedef struct {
     int8_t no_busy_thin;    /* 0: a busy lead thins the comping (half notes, stabs, offbeats, the arpeggio: harmony.c),
                                as always; 1: they keep their full rhythm (held on 2 (and 4) and light eighths never
                                thin) */
+    int8_t solo_choir;      /* 0: the pad's solo voice as rolled; 1: where it rolls the vox pad, the choir sings it
+                               (pads_solo_voice: INS_CHOIR; its notes unchanged) */
 } song_ov_t;
 
 void song_override(const song_ov_t *ov);   /* NULL: none (default); the struct is copied */

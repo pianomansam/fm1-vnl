@@ -13,7 +13,7 @@ int pads_solo_voice(const song_roll_t *r)
 {
     static const int VOICE[4] = {INS_VOX_PAD, INS_FLUTE, INS_ORGAN, INS_STRINGS};
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
-    int ok[4], n = 0, i;
+    int ok[4], n = 0, i, v;
     rng_t g;
     rng_seed(&g, song_ov_salted(r->seed, song_ov()->pad_salt), 191);
     if (rng_int(&g, 100) < 40) return INS_NONE;           /* a song with no solo note */
@@ -21,7 +21,8 @@ int pads_solo_voice(const song_roll_t *r)
         if (!set || !((VOICE[i] == INS_FLUTE && set->lead == INS_FLUTE) ||
                       (VOICE[i] == INS_ORGAN && set->chords == INS_ORGAN)))
             ok[n++] = VOICE[i];
-    return ok[rng_int(&g, n)];
+    v = ok[rng_int(&g, n)];
+    return v == INS_VOX_PAD && song_ov()->solo_choir ? INS_CHOIR : v;   /* (the choir sings the vox pad's notes) */
 }
 
 int pads_section_part(const song_roll_t *r, int block, int section, int sustained_keys)

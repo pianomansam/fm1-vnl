@@ -7,8 +7,9 @@
    heaviest seed may not carry the heaviest chain: the picked seed (and every seed with --forced) is also timed with
    its chain forced to the heaviest real one (dust 3, vinyl, rain), printed as `forced`: the upper bound.
    Each step sets the section moves (plan_moves) as the app's step() does. VNL_FXOFF=<VX_OFF_* mask> switches effects
-   off, to measure what each costs. VNL_SOLO=choir|flute|organ|strings plays the songs' solo note on that voice and
-   leaves the pad's chord part out (revision 2's solo sections). VNL_FX=ours puts our plate and chorus in place of
+   off, to measure what each costs. VNL_SOLO=vox|flute|organ|strings|choir plays the songs' solo note on that voice
+   (vox: the vox pad, "choir" in cost.md's rows before the formant choir; choir: INS_CHOIR) and leaves the pad's chord
+   part out (revision 2's solo sections). VNL_PAD=choir|strings|warm sets every song's pad layer (as app.c). VNL_FX=ours puts our plate and chorus in place of
    Rings' (the default). VNL_RUNS=<n> takes the best of n runs everywhere (default: 3 for the songs and AMB-1, 7 for
    --parts), for a busy host.
    The AMB-1 engine's headers clash with ours (MODE_*), so its few entry points are declared here by hand. */
@@ -58,13 +59,13 @@ static double now_ms(void)
 
 /* 60 s of the song at `seed`: ticks, events to the voices at the step's start (delays honored by the voices), and
    the render in blocks. *events gets the event count. Milliseconds. */
-/* VNL_SOLO=choir|flute|organ|strings: run_vnl's solo voice (INS_NONE without) */
+/* VNL_SOLO=vox|flute|organ|strings|choir: run_vnl's solo voice (INS_NONE without) */
 static int solo_env(void)
 {
     const char *v = getenv("VNL_SOLO");
     if (!v) return INS_NONE;
-    return !strcmp(v, "choir") ? INS_VOX_PAD : !strcmp(v, "flute") ? INS_FLUTE : !strcmp(v, "organ") ? INS_ORGAN
-         : !strcmp(v, "strings") ? INS_STRINGS : INS_NONE;
+    return !strcmp(v, "vox") ? INS_VOX_PAD : !strcmp(v, "flute") ? INS_FLUTE : !strcmp(v, "organ") ? INS_ORGAN
+         : !strcmp(v, "strings") ? INS_STRINGS : !strcmp(v, "choir") ? INS_CHOIR : INS_NONE;
 }
 
 static double run_vnl(uint32_t seed, int render, long *events, int force)
@@ -370,9 +371,9 @@ static void parts(double amb)
                                  {"kalimba", INS_KALIMBA}, {"saw lead", INS_SAW_LEAD},
                                  {"synth pluck", INS_SYNTH_PLUCK}, {"knight", INS_KNIGHT}};
     static const named_t CD[] = {{"music box", INS_MUSIC_BOX}, {"bells", INS_BELLS}};
-    static const named_t PDL[] = {{"strings", INS_STRINGS}, {"warm pad", INS_WARM_PAD}};
-    static const named_t SOL[] = {{"choir", INS_VOX_PAD}, {"flute", INS_FLUTE}, {"organ", INS_ORGAN},
-                                  {"strings", INS_STRINGS}};
+    static const named_t PDL[] = {{"strings", INS_STRINGS}, {"warm pad", INS_WARM_PAD}, {"choir", INS_CHOIR}};
+    static const named_t SOL[] = {{"vox pad", INS_VOX_PAD}, {"flute", INS_FLUTE}, {"organ", INS_ORGAN},
+                                  {"strings", INS_STRINGS}, {"choir", INS_CHOIR}};
     static const named_t KT[] = {{"dusty", KIT_DUSTY}, {"soft", KIT_SOFT}, {"808", KIT_808}, {"brushes", KIT_BRUSHES},
                                  {"s-warm", KIT_S_WARM}, {"s-dark", KIT_S_DARK}, {"s-rusty", KIT_S_RUSTY},
                                  {"s-gentle", KIT_S_GENTLE}, {"s-clean", KIT_S_CLEAN}};
@@ -462,6 +463,9 @@ int main(int argc, char **argv)
     int p, heavy = 0, i, ap = 0, forced = 0, doparts = 0;
     uint32_t seeds[64];
     int ns = 0;
+    const char *pi = getenv("VNL_PAD");
+    vx_pad_ins(!pi ? INS_NONE : !strcmp(pi, "choir") ? INS_CHOIR : !strcmp(pi, "strings") ? INS_STRINGS
+               : !strcmp(pi, "warm") ? INS_WARM_PAD : INS_NONE);
     for (i = 1; i < argc && ns < 64; i++) {
         if (!strcmp(argv[i], "--forced")) forced = 1;
         else if (!strcmp(argv[i], "--parts")) doparts = 1;

@@ -15,6 +15,7 @@
 #include "lead.h"
 #include "voices.h"
 #include "harmony.h"
+#include "pads.h"
 #include "poketrack/trommelsynthesizer.h"
 
 #define EXPORT __attribute__((used, visibility("default")))
@@ -757,6 +758,7 @@ EXPORT void wb_ov_set(int key, int value)
     case WB_OV_ARP_RHY: o->arp_rhy = (int8_t)value; break;
     case WB_OV_ARP_PAT: o->arp_pat = (int8_t)value; break;
     case WB_OV_NO_BUSY_THIN: o->no_busy_thin = (int8_t)(value != 0); break;
+    case WB_OV_SOLO_CHOIR: o->solo_choir = (int8_t)(value != 0); break;
     default: break;
     }
 }
@@ -782,6 +784,7 @@ EXPORT int wb_ov_get(int key)
     case WB_OV_ARP_RHY: return o->arp_rhy;
     case WB_OV_ARP_PAT: return o->arp_pat;
     case WB_OV_NO_BUSY_THIN: return o->no_busy_thin;
+    case WB_OV_SOLO_CHOIR: return o->solo_choir;
     default: return 0;
     }
 }
@@ -822,6 +825,21 @@ EXPORT int wb_lead_hybrid(void)
     song_override(&live.ov);
     stage_set(0);
     return h;
+}
+
+/* the staged song's pad solo voice as rolled (pads_solo_voice, the solo_choir override aside): INS_VOX_PAD where the
+   "Vox pad solo" row is heard, INS_NONE for a song with no solo note */
+EXPORT int wb_pad_solo_ins(void)
+{
+    song_ov_t o = st.ov;
+    int v;
+    o.solo_choir = 0;
+    stage_set(1);
+    song_override(&o);
+    v = pads_solo_voice(&st.roll);
+    song_override(&live.ov);
+    stage_set(0);
+    return v;
 }
 
 /* a seed or map change is a new song: a jump staged before it (a bar of the old song's sections) is dropped, so
@@ -1004,7 +1022,7 @@ EXPORT const char *wb_consts(void)
         {"PHRASE_SALT", WB_OV_PHRASE_SALT}, {"BASS_SALT", WB_OV_BASS_SALT}, {"PAD_SALT", WB_OV_PAD_SALT},
         {"DRUMS_SALT", WB_OV_DRUMS_SALT}, {"PAD_ON", WB_OV_PAD_ON}, {"LEAD_DOUBLE", WB_OV_LEAD_DOUBLE},
         {"STRUM_PAT", WB_OV_STRUM_PAT}, {"ARP_RHY", WB_OV_ARP_RHY}, {"ARP_PAT", WB_OV_ARP_PAT},
-        {"NO_BUSY_THIN", WB_OV_NO_BUSY_THIN},
+        {"NO_BUSY_THIN", WB_OV_NO_BUSY_THIN}, {"SOLO_CHOIR", WB_OV_SOLO_CHOIR},
         {"N", WB_OV_N}}, V[] = {
         {"CHORD", V_CHORD}, {"BASS", V_BASS}, {"LEAD", V_LEAD}, {"PAD", V_PAD}, {"KICK", V_KICK}, {"SNARE", V_SNARE},
         {"HAT", V_HAT}, {"OHAT", V_OHAT}, {"SHAKER", V_SHAKER}, {"RIM", V_RIM}, {"RIDE", V_RIDE}}, SRC[] = {

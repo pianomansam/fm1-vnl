@@ -143,7 +143,7 @@ int lib_ins_sampled_struck(int ins) { return ins == INS_KNIGHT || ins == INS_NYL
 int lib_ins_sustained(int ins)
 {
     return ins == INS_PAD || ins == INS_FLUTE || ins == INS_VOX_PAD || ins == INS_ORGAN || ins == INS_SAW_LEAD ||
-           ins == INS_STRINGS || ins == INS_WARM_PAD;
+           ins == INS_STRINGS || ins == INS_WARM_PAD || ins == INS_CHOIR;
 }
 
 /* The leads Sam removed (2026-10-29: "i only liked the felt piano and vibraphones"): an approved lead of their family
