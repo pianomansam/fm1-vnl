@@ -6949,11 +6949,13 @@ static float lk_diff(const song_roll_t *roll, int *nb)
 /* The lead leads (Sam: "the accompaniment is way too loud. I can barely hear the lead above it"): in every set (so
    every lead instrument over every keys instrument, the synths' too), six songs each, while the lead plays it sits
    over the keys. Each song's keys and lead are its set's (no set left out: LIB_NSETS_MAX).
-   Lead styles Task 6: rolled songs play the styles now (their spikes' velocities, swells and rests, as Sam heard
-   them), and their bars read about 2-3 dB lower against the keys than the phrase planner's and the hybrid's did
-   (those held each set's mean 8-10.5, its median 8-10, the median over all songs 8-10, no song under 6). Re-measured
-   on the styles, not re-balanced here (the ledger's To revisit, for Sam's ear): the median over all songs 5.5-8
-   (6.2), each set's mean 1.5-10.5 (Rhodes neo-soul 2.1 the lowest), and no song under -1.5 dB. */
+   Lead level under the styles: Sam to judge (ledger To revisit). Lead styles Task 6: rolled songs play the styles
+   now (their spikes' velocities, swells and rests, as Sam heard them), and their bars read about 2-3 dB lower
+   against the keys than the phrase planner's and the hybrid's did (those held each set's mean 8-10.5, its median
+   8-10, the median over all songs 8-10, no song under 6). Not re-balanced here; this guards the measured state: the
+   median over all songs 5.9-8 (6.2 measured), each set's mean 1.5-10.5 (the floor is Rhodes neo-soul's 2.1, its
+   felt piano lead the lowest), and no lead under its keys (0 dB) but in the two songs that measured under it,
+   Rhodes neo-soul seeds 4 (-0.2) and 6 (-0.9), held to -1. */
 #define LK_PER 6
 static void test_lead_over_keys(void)
 {
@@ -6983,8 +6985,9 @@ static void test_lead_over_keys(void)
             mean += x;
             lo = fm_minf(lo, x);
             hi = fm_maxf(hi, x);
-            CHECK(x >= -1.5f, "lead over keys: %s seed %u's lead %.1f dB over its keys, wanted -1.5 at least",
-                  t->name, (unsigned)seed, (double)x);
+            CHECK(x >= (t->id == 11 && (seed == 4u || seed == 6u) ? -1.0f : 0.0f),
+                  "lead over keys: %s seed %u's lead %.1f dB over its keys: under them", t->name, (unsigned)seed,
+                  (double)x);
         }
         CHECK(got == LK_PER, "lead over keys: only %d songs found for %s", got, t->name);
         if (!got)
@@ -7003,7 +7006,7 @@ static void test_lead_over_keys(void)
     med = n ? (n & 1 ? sorted[n / 2] : 0.5f * (sorted[n / 2 - 1] + sorted[n / 2])) : 0.0f;
     printf("lead over keys: median %+.1f dB over %d songs (%+.1f..%+.1f)\n", (double)med, n, (double)sorted[0],
            (double)sorted[n - 1]);
-    CHECK(med >= 5.5f && med <= 8.0f, "lead over keys: the median %.1f dB, wanted 5.5-8", (double)med);
+    CHECK(med >= 5.9f && med <= 8.0f, "lead over keys: the median %.1f dB, wanted 5.9-8", (double)med);
 }
 
 /* The pad layer's chord part sits under the keys (pads design, Mix: about 6 dB): in every set with percussive keys
@@ -7335,7 +7338,7 @@ static void test_keys_duck_mix(void)
    lead, an Emilyguitar on each, two moods, a pad layer, a synth kit (Task 8 adds a sampled one); each rolls (a
    seed pins it) and renders (no NaN, sound in most bars). The level tests (test_lead_over_keys, test_pad_level)
    sweep every set, so the new ones with them; the duck (2-4 dB) here with each new set's keys and lead. A sampled
-   lead is a struck lead (not lib_ins_sustained); it sings in 60% or more of the bars where it may play (80% on the
+   lead is a struck lead (not lib_ins_sustained); it sings in 70% or more of the bars where it may play (80% on the
    hybrid; its styles, lead styles Task 6, rest more: the Knight's '60s Jazz, Film Score and Ambient). */
 static void test_sampled_sets(void)
 {
@@ -7419,7 +7422,7 @@ static void test_sampled_sets(void)
             printf("sampled sets: %-24s the struck lead sings in %ld of %ld bars where it may\n", t->name, led_bars,
                    may_bars);
             CHECK(!lib_ins_sustained(t->lead), "sampled sets: %s's lead plans as sustained", t->name);
-            CHECK(may_bars > 40 && led_bars * 100 >= may_bars * 60,
+            CHECK(may_bars > 40 && led_bars * 100 >= may_bars * 70,
                   "sampled sets: %s's struck lead sang in %ld of %ld bars", t->name, led_bars, may_bars);
         }
         {   /* the duck with this set's keys and lead (test_keys_duck's measure) */
@@ -9100,6 +9103,73 @@ static void test_rolled_style(void)
     CHECK(tried > 30 && differ == 0, "rolled style: %d of %d songs' leads differ from their style forced", differ,
           tried);
     CHECK(retired == 0, "rolled style: %d plays of lead_style 0 or 1 not as rolled", retired);
+}
+
+/* The rolled style holds all song (Task 6 review): resolved at song_start (s.lead.style, LS_* + 1), a set request to
+   another lead instrument keeps it where that instrument plays it (leads_fit), and re-draws only where it can't; a
+   change of style (that, or the workbench forcing another) zeroes the per-style state (the st union, Bossa Nova's
+   anchor, akey and ctrun) before the new style plans. */
+static int rs_zero(const lead_state_t *ls)
+{
+    static const lead_state_t z;
+    return !memcmp(&ls->st, &z.st, sizeof z.st) && !ls->anchor && !ls->akey && !ls->ctrun;
+}
+
+static void test_style_holds(void)
+{
+    static song_t s;
+    song_ev_t ev[64];
+    long kept = 0, redrawn = 0, bad_kept = 0, bad_redraw = 0, forced = 0, bad_zero = 0;
+    uint32_t seed;
+    int k;
+    for (seed = 1; seed <= 300; seed++) {
+        song_roll_t r;
+        const lib_set_t *set;
+        int st0;
+        roll_song(NULL, seed, &r);
+        set = lib_set_by_id((uint8_t)r.v[RF_SET]);
+        song_start(&s, &r);
+        st0 = s.lead.style - 1;
+        if (st0 != leads_style(&r)) bad_kept++;
+        for (k = 0; k < LIB_NSETS; k++)                 /* the first set with another lead instrument */
+            if (set && LIB_SETS[k].lead != set->lead) break;
+        if (k == LIB_NSETS) continue;
+        song_request(&s, RF_SET, LIB_SETS[k].id);
+        while (s.state == SS_PLAYING && s.bar < 8) song_tick(&s, ev, 64);
+        if (s.roll.v[RF_SET] != LIB_SETS[k].id) continue;   /* refused in the song's mood */
+        if (leads_fit(LIB_SETS[k].lead, st0)) {
+            kept++;
+            bad_kept += s.lead.style - 1 != st0;
+        } else {
+            redrawn++;
+            bad_redraw += s.lead.style - 1 == st0 || !leads_fit(LIB_SETS[k].lead, s.lead.style - 1);
+        }
+    }
+    for (seed = 1; seed <= 60; seed++) {                /* the workbench forces another style mid-bar */
+        song_roll_t r;
+        song_ov_t o = ov_none();
+        int st0;
+        roll_song(NULL, seed, &r);
+        song_override(NULL);
+        song_start(&s, &r);
+        st0 = s.lead.style - 1;
+        while (s.state == SS_PLAYING && !(s.bar >= 12 && s.step == 5)) song_tick(&s, ev, 64);
+        if (s.state != SS_PLAYING) continue;
+        o.lead_style = (int8_t)(2 + (st0 + 1) % LS_N);
+        song_override(&o);
+        song_tick(&s, ev, 64);                          /* step 5: no bar is planned before step 0 */
+        forced++;
+        bad_zero += s.lead.style - 1 != (st0 + 1) % LS_N || !rs_zero(&s.lead);
+        song_override(NULL);
+    }
+    printf("style holds: %ld set requests kept the style, %ld re-drew it (the new lead can't play it); %ld forced "
+           "changes\n", kept, redrawn, forced);
+    CHECK(kept > 50 && bad_kept == 0, "style holds: %ld of %ld set requests changed a style the new lead plays",
+          bad_kept, kept);
+    CHECK(redrawn > 10 && bad_redraw == 0, "style holds: %ld of %ld re-draws kept an unplayable style", bad_redraw,
+          redrawn);
+    CHECK(forced > 30 && bad_zero == 0, "style holds: %ld of %ld forced changes left the old style's state",
+          bad_zero, forced);
 }
 
 /* the keys' top note of each bar (V_CHORD), the union of the notes each of the loop's chords sounded (by its place in
@@ -11766,6 +11836,7 @@ int main(int argc, char **argv)
     RUN(test_comp_new);
     RUN(test_busy_thin_off);
     RUN(test_rolled_style);
+    RUN(test_style_holds);
     RUN(test_keys_window);
     RUN(test_keys_window_fallback);
     RUN(test_lead_motif_format);

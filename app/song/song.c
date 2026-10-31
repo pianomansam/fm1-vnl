@@ -236,10 +236,21 @@ static void ride_for(song_t *s)
 static void keys_win_for(song_t *s)
 {
     int lo, hi;
-    leads_band(&s->roll, &lo, &hi);
+    leads_band_for(&s->roll, s->lead.style - 1, &lo, &hi);
     s->keys_win = lo - 1;
     s->win_oct = song_ov()->lead_oct;
-    s->win_style = (int8_t)leads_style(&s->roll);
+    s->win_style = (int8_t)s->lead.style;
+}
+
+/* The song's lead style, kept (leads_style_keep): a change (a set whose lead can't play it, the workbench forcing
+   another) starts the new style clean: the last style's own state (the st union, Bossa Nova's fields) zeroed */
+static void style_for(song_t *s)
+{
+    int st = leads_style_keep(&s->roll, s->lead.style - 1) + 1;
+    if (st == s->lead.style) return;
+    memset(&s->lead.st, 0, sizeof s->lead.st);
+    s->lead.anchor = s->lead.akey = s->lead.ctrun = 0;
+    s->lead.style = st;
 }
 
 /* ---- requests landing at B ---- */
@@ -289,7 +300,9 @@ static void apply_requests(song_t *s, int B)
         if (s->pend[f] && s->pend_bar[f] == B) re |= apply_one(s, f, B);
     if (re) merge_plan(s, B);
     if (set != s->roll.v[RF_SET] || motion != s->roll.v[RF_MOTION] || map != s->roll.v[RF_MAP]) ride_for(s);
-    if (set != s->roll.v[RF_SET]) {                  /* another lead instrument: its band */
+    if (set != s->roll.v[RF_SET]) {                  /* another lead instrument: its style (kept where it plays it), its
+                                                       band */
+        style_for(s);
         keys_win_for(s);
         harmony_keys_window(0, s->keys_win);
     }
@@ -407,6 +420,7 @@ void song_start(song_t *s, const song_roll_t *r)
     s->glide_t0 = -64;
     s->state = s->roll.v[RF_BARS] > 0 ? SS_PLAYING : SS_ENDED;
     ride_for(s);
+    s->lead.style = leads_style(&s->roll) + 1;
     keys_win_for(s);
 }
 
@@ -418,7 +432,8 @@ int song_tick(song_t *s, song_ev_t *out, int max)
     uint32_t salt;
     float gs;
     if (!s || s->state != SS_PLAYING) return 0;
-    if (song_ov()->lead_oct != s->win_oct || leads_style(&s->roll) != s->win_style)
+    style_for(s);                                   /* the workbench may force another style */
+    if (song_ov()->lead_oct != s->win_oct || s->lead.style != s->win_style)
         keys_win_for(s);                            /* the workbench moved the lead's band */
     harmony_keys_window(0, s->keys_win);           /* this song's, while it ticks (cleared below) */
     bar = s->bar;

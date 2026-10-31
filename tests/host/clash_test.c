@@ -152,7 +152,7 @@ static void check_step(const song_t *s, int bar, int step, const song_ev_t *ev, 
             strong_exempt++;                     /* a style's triplet note, a third or two of a 16th after the beat:
                                                     off it, as the style plans it */
         } else if (step == 0 || step == 8) {
-            int ct = 0, ls = e->voice == V_LEAD ? leads_style(&s->roll) : -1;
+            int ct = 0, ls = e->voice == V_LEAD ? s->lead.style - 1 : -1;
             for (j = 0; j < np; j++) ct |= pcs[j] % 12 == e->note % 12;
             if (!ct && step == 8 && ls >= 0 && BEAT3_COLOR[ls]) beat3_color[ls]++;
             else CHECK(ct, "seed %u bar %d step %d: note %d not a chord tone", seed, bar, step, e->note);

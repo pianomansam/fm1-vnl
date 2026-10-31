@@ -73,6 +73,16 @@ int leads_style(const song_roll_t *r)
     return i;
 }
 
+int leads_fit(int ins, int style) { return style >= 0 && style < LS_N && (style_fit(ins) >> style) & 1u; }
+
+int leads_style_keep(const song_roll_t *r, int prev)
+{
+    const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
+    int s = song_ov()->lead_style;
+    if (s >= 2 && s < 2 + LS_N) return s - 2;
+    return leads_fit(set ? set->lead : INS_FLUTE, prev) ? prev : leads_style(r);
+}
+
 /* The centers: each style's median lead pitch in its spike's five A/B songs (seeds 101-105: 1 flute G Aeolian,
    2 flute Db Lydian, 3 vibes B Dorian, 4 felt piano Ab Mixolydian, 5 flute A Ionian; the renders' json "lead" notes,
    app/build/new, 2026-10-29), per lead instrument; a half rounded down ('60s Jazz on the flute, 80.5). No spike put
@@ -100,10 +110,12 @@ int leads_center(int style, int ins)
     return c < lo + 6 ? lo + 6 : c > hi - 6 ? hi - 6 : c;
 }
 
-void leads_band(const song_roll_t *r, int *lo, int *hi)
+void leads_band(const song_roll_t *r, int *lo, int *hi) { leads_band_for(r, leads_style(r), lo, hi); }
+
+void leads_band_for(const song_roll_t *r, int style, int *lo, int *hi)
 {
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
-    int ins = set ? set->lead : INS_FLUTE, c = leads_center(leads_style(r), ins), il, ih;
+    int ins = set ? set->lead : INS_FLUTE, c = leads_center(style, ins), il, ih;
     song_ov_range(ins, &il, &ih);
     c += 12 * song_ov()->lead_oct;                       /* the workbench's octave, in the instrument's range */
     if (c < il + 6) c = il + 6;
@@ -112,7 +124,8 @@ void leads_band(const song_roll_t *r, int *lo, int *hi)
     *hi = c + 6;
 }
 
-void leads_range_bar(const song_roll_t *r, const int keys[4], const int nkeys[4], int *lo, int *lo_x, int *hi)
+static void range_bar(const song_roll_t *r, int style, const int keys[4], const int nkeys[4], int *lo, int *lo_x,
+                      int *hi)
 {
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
     int top = 0, ntop = 0, i, blo, bhi, il, ih, ko = harmony_keys_oct(r);
@@ -121,13 +134,18 @@ void leads_range_bar(const song_roll_t *r, const int keys[4], const int nkeys[4]
         if (nkeys[i] > ntop) ntop = nkeys[i];
     }
     song_ov_range(set ? set->lead : INS_FLUTE, &il, &ih);
-    leads_band(r, &blo, &bhi);
+    leads_band_for(r, style, &blo, &bhi);
     *lo = top >= blo ? top + 5 : blo;                    /* the keys reach in: a 4th over them */
     *lo_x = ntop >= blo && ntop + 5 > *lo ? ntop + 5 : *lo;
     *hi = 88 + 12 * song_ov()->lead_oct;                 /* E6, or the workbench's octave off it */
     if (ko > 0 && 88 + ko > *hi) *hi = 88 + ko;          /* the workbench's keys raised: the ceiling with them */
     if (*hi > ih) *hi = ih > 88 ? ih : 88;               /* in the instrument's range (or E6 at least: as before) */
     if (*hi < bhi) *hi = bhi;                            /* an octave down: the band's top at least */
+}
+
+void leads_range_bar(const song_roll_t *r, const int keys[4], const int nkeys[4], int *lo, int *lo_x, int *hi)
+{
+    range_bar(r, leads_style(r), keys, nkeys, lo, lo_x, hi);
 }
 
 /* ---- the helpers the styles share ---- */
@@ -302,7 +320,7 @@ void leads_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
     const plan_block_t *nb = bar + 1 < b->start + b->bars ? b
                            : (b + 1)->bars && (b + 1)->start == b->start + b->bars ? b + 1 : 0;
-    int s = leads_style(r), bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1;
+    int s = ls->style ? ls->style - 1 : leads_style(r), bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1;
     int loop = pr && pr->n ? pr->n * bpc : 4, npcs[5], i;
     leads_ctx_t c;
     leads_next_t nx;
@@ -321,7 +339,7 @@ void leads_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *
             if (nhi - nlo >= 12) { c.lo = c.lo_x = nlo; c.hi = nhi; }
         }
     } else {
-        leads_range_bar(r, keys, nkeys, &c.lo, &c.lo_x, &c.hi);
+        range_bar(r, s, keys, nkeys, &c.lo, &c.lo_x, &c.hi);
     }
     for (i = 0; i < 16; i++) {
         int bn = groove_bass_note(r, b, bar, i, pcs, np);

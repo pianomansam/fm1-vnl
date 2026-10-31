@@ -45,18 +45,25 @@ int lead_motif_to(const lead_motif_t *m, int si0, int *at, int *len, int *si);
 /* The song's lead style (LS_*): the lead_style override's (2 + LS_*), else rolled by the lead instrument's fits
    (0 and 1, the retired phrase planner and hybrid, roll too). A pure function of the roll and the overrides. */
 int leads_style(const song_roll_t *r);
+/* 1 if the lead instrument plays the style (its fits; any other lead instrument takes the flute's: all eight) */
+int leads_fit(int ins, int style);
+/* The song's style after a change (a set or mood request, the workbench's override): the forced one, else prev
+   (LS_*) where the song's lead instrument plays it, else drawn again (leads_style). A song resolves its style once
+   (song_start: lead_state_t.style) and keeps it through this. */
+int leads_style_keep(const song_roll_t *r, int prev);
 /* The register center (MIDI) of a style on a lead instrument, kept 6 semitones inside the instrument's range. */
 int leads_center(int style, int ins);
 /* The band the song's lead claims over percussive keys: its center (the workbench's lead_oct an octave off it) +-6,
    in the instrument's range. The song sets the keys' window under it (song.c). */
 void leads_band(const song_roll_t *r, int *lo, int *hi);
+void leads_band_for(const song_roll_t *r, int style, int *lo, int *hi);   /* the same for a given style */
 /* The lead's range this bar over percussive keys: from the band's floor, moved up to a 4th over the keys' top where
    the keys reach into the band (their window could not hold them: today's floor); to E6 as before (the workbench's
    lead_oct an octave off it, its keys_oct raising it with the keys, in the instrument's range), the band's top at
    least. lo_x: the floor for a note that sounds on into the next bar (over its keys, nkeys, likewise). */
 void leads_range_bar(const song_roll_t *r, const int keys[4], const int nkeys[4], int *lo, int *lo_x, int *hi);
-/* Plans the bar with the song's style (arguments as lead_plan_bar's, which calls it once it has cleared ls and
-   found the lead playing). */
+/* Plans the bar with the song's style, ls->style (leads_style where it is 0: unresolved; arguments as
+   lead_plan_bar's, which calls it once it has cleared ls and found the lead playing). */
 void leads_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b, int bar, const int keys[4],
                     const int nkeys[4], const int *pcs, int np, int can_push);
 

@@ -240,6 +240,9 @@ export function approval(r, state, opts, lib) {
 
 // why a row can't be heard now (greyed, with this as its tooltip), or null
 export function inactive(r, state, opts) {
+  const style = r.id === "leadStyle" && opts.leadStyles?.find((s) => s.id === state.values.leadStyle);
+  if (style?.status === "retired")   // (picked under "show retired": the engine plays it as rolled; restore says the same)
+    return `Lead style: ${style.name} is retired; the song plays a rolled style instead.`;
   if (r.id === "strumPat" && state.strums === false)
     return "The keys don't strum in this song: a strum pattern plays with strummed comping (the guitars).";
   if (r.id === "ride") {

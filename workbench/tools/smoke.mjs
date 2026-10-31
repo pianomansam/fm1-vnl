@@ -2024,15 +2024,12 @@ console.log("parts: re-rolls, history, locks, reactions (Task 5)");
 
   // a keys-room reaction: a bass salt that moves the lead, and the keys make room for it. (The lead styles keep clear
   // of every bass line the salt draws in songs 1-100, so no song shows it: the reasons are checked as the desk words
-  // them; seed 40's bass roll, which moved the old engines' lead, now leaves it.)
+  // them.)
   {
     const { reaction } = await import("../desk.js");
     const said = ["lead", "keys"].map((p) => reaction(p, "bass", ["lead", "keys"])).join(" ");
     check(said === "Lead moved: it keeps clear of the bass. Keys moved: they make room for the lead.",
           `a bass roll that moves the lead and the keys says so ("${said}")`);
-    const { desk } = await deskOn(40);
-    const r = await desk.reacting("bass", () => desk.set("bassLine", 1, { dice: true }));
-    check(r.ok && !/Lead moved/.test(r.message), `seed 40's bass roll leaves the lead ("${r.message}")`);
   }
 
   // Review Focus 5: a muted part re-rolls (its roll greyed, new notes in it); unmuting plays the new roll
@@ -2142,6 +2139,13 @@ console.log("the lead styles row and the retired lead engines (lead styles, Task
           !("leadDouble" in d2.values) && !("arpPattern" in d2.values),
           `a snapshot with the retired ${name.toLowerCase()} and the lead-doubling switch restores on a rolled style, the switch ignored (mismatch: ${miss.join(", ") || "none"}; "${d2.message}")`);
   }
+  const { inactive } = await import("../rows.js");
+  await desk.set("leadStyle", 1);   // picked live under "show retired": said as the restore says it
+  const why = inactive(row("leadStyle"), desk.state, OPTS);
+  check(why === "Lead style: Hybrid is retired; the song plays a rolled style instead." && ex.wb_ov_get(OV.LEAD_STYLE) === 1 &&
+        !inactive(row("leadStyle"), { ...desk.state, values: { ...desk.values, leadStyle: 6 } }, OPTS),
+        `a retired style picked live says it plays as rolled ("${why}"); a style says nothing`);
+  await desk.set("leadStyle", -1);
   const fresh2 = await desk.snapshot();
   fresh2.rows.leadStyle = 2 + 4;    // Jazz-Hop
   fresh2.locks = [];

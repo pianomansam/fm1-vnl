@@ -25,7 +25,7 @@ typedef struct {
     lead_state_t lead;            /* the lead's bar plan and its song-long choices */
     harmony_voicing_t voicing;    /* the chord part's voicings: the loop's, and the last sounded */
     int keys_win;                 /* the keys' window's top (harmony_keys_window): under the lead's band, all set */
-    int8_t win_oct, win_style;    /* the workbench's lead_oct and the lead style (leads_style) it was worked out
+    int8_t win_oct, win_style;    /* the workbench's lead_oct and the lead style (lead.style) it was worked out
                                      under */
     pads_state_t pads;            /* the pad layer: the 4-bar group's notes, and the last chord part and solo note */
     float ss;                     /* samples of the step last ticked (before the first tick: the first step) */
