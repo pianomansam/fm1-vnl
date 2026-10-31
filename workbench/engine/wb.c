@@ -325,7 +325,8 @@ static uint8_t *role_ins(lib_set_t *s, int role)
     }
 }
 
-/* the staged custom set, the song's set copied into it on the first edit (RF_SET switches to LIB_SET_WB); NULL if the
+/* the staged custom set, the song's set copied into it on the first edit (RF_SET switches to LIB_SET_WB), its pad the
+   song's (lib_song_pad: the choir where the song drew it, which the custom set then plays always); NULL if the
    song's set is unknown */
 static lib_set_t *custom_set(void)
 {
@@ -334,6 +335,7 @@ static lib_set_t *custom_set(void)
         if (!s)
             return NULL;
         st.set = *s;
+        st.set.pad = (uint8_t)lib_song_pad(&st.roll);
         st.set.id = LIB_SET_WB;
         st.base = s->id;
         st.roll.v[RF_SET] = LIB_SET_WB;
@@ -362,6 +364,8 @@ EXPORT int wb_role_get(int role)
     if (!p)
         return -1;
     s = *p;
+    if (role == V_PAD && p != &st.set)   /* the song's pad layer: the set's, or the choir drawn over it */
+        s.pad = (uint8_t)lib_song_pad(&st.roll);
     ins = role_ins(&s, role);
     return ins ? *ins : -1;
 }

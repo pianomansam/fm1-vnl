@@ -2387,10 +2387,65 @@ console.log("the busy-lead thinning row (on by default; off, the existing compin
   check(desk.values.busyThin === 0 && ex.wb_ov_get(OV.NO_BUSY_THIN) === 0, "and back on");
 }
 
+console.log("the choir: a pad layer a song may draw (1 in 4), and a choice on the pad row");
+{
+  const { replay, wav } = await import("./replay.mjs");
+  const CHOIR = ins("Choir"), WARM = ins("Warm pad"), STR = ins("Strings");
+  const ex = await load(), call = caller(ex);
+  ex.wb_seed(1);
+  ex.wb_apply();
+  const desk = new Desk(call, C, OPTS, await call("wb_library"), { rnd: lcg(12) });
+  await desk.read(true);
+  // the pad row: offered, approved, the dice's pick now and then (either family: it fits both)
+  const o = optionsFor(row("pad"), desk.state, OPTS).find((x) => x.value === CHOIR);
+  check(o && o.name === "Choir" && o.status === "approved", "the pad row offers the choir, approved");
+  let picked = 0;
+  for (let i = 0; i < 200; i++)
+    picked += pickFor(row("pad"), { values: { pad: i & 2 ? WARM : STR, family: i & 1 ? "synth" : "acoustic" }, locks: new Set() },
+                      OPTS, lcg(i)) === CHOIR;
+  check(picked > 0, `the dice pick it (${picked} of 200)`);
+  // the songs' draw: the row reads the pad each song plays (the set's, or the choir drawn over it)
+  let choir = 0, cs = 0, other = 0;
+  const odd = [];
+  for (let s = 1; s <= 200; s++) {
+    await desk.set("seed", s);
+    const p = desk.values.pad;
+    if (p !== ex.wb_role_get(V.PAD) || ![CHOIR, WARM, STR].includes(p)) odd.push(`${s}:${p}`);
+    if (p === CHOIR) { choir++; cs ||= s; } else other ||= s;
+  }
+  check(!odd.length && choir >= 30 && choir <= 70,
+        `the choir is ${choir} of 200 songs' pad (1 in 4 drawn); the row reads the engine's (off: ${odd.join(" ") || "none"})`);
+  // a choir song keeps it through another row's edit (the custom set takes the song's pad), and the row moves it
+  await desk.set("seed", cs);
+  const bass = optionsFor(row("bass"), desk.state, OPTS).find((x) => x.status === "approved" && x.value !== desk.values.bass);
+  await desk.set("bass", bass.value);
+  check(desk.values.pad === CHOIR && ex.wb_role_get(V.PAD) === CHOIR, `seed ${cs}: a bass change keeps the choir pad`);
+  const w = await desk.set("pad", WARM);
+  check(w.ok !== false && desk.values.pad === WARM && ex.wb_role_get(V.PAD) === WARM, "the pad row puts the warm pad in its place");
+  // a song that didn't draw it takes it from the row; snapshots and replays keep it
+  await desk.set("seed", other);
+  await desk.set("padOn", 1);
+  const p = await desk.set("pad", CHOIR);
+  check(p.ok !== false && desk.values.pad === CHOIR && ex.wb_role_get(V.PAD) === CHOIR, `seed ${other}: picked, the engine's pad is the choir`);
+  const snap = await desk.snapshot();
+  const e2 = await load(), d2 = new Desk(caller(e2), C, OPTS, await caller(e2)("wb_library"));
+  const miss = await d2.restore(snap);
+  check(snap.rows.pad === CHOIR && !miss.length && d2.values.pad === CHOIR && e2.wb_role_get(V.PAD) === CHOIR,
+        `a snapshot keeps the choir pad (mismatch: ${miss.join(", ") || "none"})`);
+  const old = JSON.parse(JSON.stringify(snap));
+  old.rows.pad = WARM;
+  old.locks = [];
+  const a = await replay(JSON.parse(JSON.stringify(snap)), 60), b = await replay(old, 60);
+  check(!a.mismatch.length && !b.mismatch.length && Buffer.compare(wav(a), wav(b)) !== 0,
+        `a replay plays it: the choir and the warm pad render differently (mismatch: ${[...a.mismatch, ...b.mismatch].join(", ") || "none"})`);
+  check(!ROWS.some((r) => r.id === "soloChoir") && OV.SOLO_CHOIR === undefined, "no vox pad solo row (the choir sings the solo notes)");
+}
+
 console.log("options.json: statuses");
 check(!OPTS.instruments.some((i) => i.status === "candidate") &&
-      ["Chillwave pad", "Vox pad"].every((n) => OPTS.instruments.find((i) => i.name === n).status === "approved"),
-      "no candidates among the instruments (the chillwave and vox pads approved)");
+      ["Chillwave pad", "Choir"].every((n) => OPTS.instruments.find((i) => i.name === n).status === "approved") &&
+      OPTS.instruments.find((i) => i.name === "Vox pad").status === "retired",
+      "no candidates among the instruments (the chillwave pad and the choir approved, the vox pad retired)");
 {
   const { inactive } = await import("../rows.js");
   const st = (kit) => ({ values: { kit } });

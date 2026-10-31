@@ -11,7 +11,7 @@ enum { LO = 55, HI = 72 };
 
 int pads_solo_voice(const song_roll_t *r)
 {
-    static const int VOICE[4] = {INS_VOX_PAD, INS_FLUTE, INS_ORGAN, INS_STRINGS};
+    static const int VOICE[4] = {INS_CHOIR, INS_FLUTE, INS_ORGAN, INS_STRINGS};
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
     int ok[4], n = 0, i;
     rng_t g;

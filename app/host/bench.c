@@ -7,7 +7,8 @@
    heaviest seed may not carry the heaviest chain: the picked seed (and every seed with --forced) is also timed with
    its chain forced to the heaviest real one (dust 3, vinyl, rain), printed as `forced`: the upper bound.
    Each step sets the section moves (plan_moves) as the app's step() does. VNL_FXOFF=<VX_OFF_* mask> switches effects
-   off, to measure what each costs. VNL_SOLO=choir|flute|organ|strings plays the songs' solo note on that voice and
+   off, to measure what each costs. VNL_SOLO=choir|flute|organ|strings plays the songs' solo note on that voice
+   (choir: the formant choir, INS_CHOIR; cost.md's "choir" rows before 2026-10-30 are the vox pad's, removed) and
    leaves the pad's chord part out (revision 2's solo sections). VNL_FX=ours puts our plate and chorus in place of
    Rings' (the default). VNL_RUNS=<n> takes the best of n runs everywhere (default: 3 for the songs and AMB-1, 7 for
    --parts), for a busy host.
@@ -63,8 +64,8 @@ static int solo_env(void)
 {
     const char *v = getenv("VNL_SOLO");
     if (!v) return INS_NONE;
-    return !strcmp(v, "choir") ? INS_VOX_PAD : !strcmp(v, "flute") ? INS_FLUTE : !strcmp(v, "organ") ? INS_ORGAN
-         : !strcmp(v, "strings") ? INS_STRINGS : INS_NONE;
+    return !strcmp(v, "flute") ? INS_FLUTE : !strcmp(v, "organ") ? INS_ORGAN
+         : !strcmp(v, "strings") ? INS_STRINGS : !strcmp(v, "choir") ? INS_CHOIR : INS_NONE;
 }
 
 static double run_vnl(uint32_t seed, int render, long *events, int force)
@@ -361,7 +362,7 @@ static void role_rows(const char *grp, int kind, int role, const named_t *l, int
 static void parts(double amb)
 {
     static const named_t CH[] = {{"rhodes", INS_RHODES}, {"wurli", INS_WURLI}, {"felt piano", INS_FELT_PIANO},
-                                 {"nylon", INS_NYLON}, {"pad", INS_PAD}, {"vox pad", INS_VOX_PAD},
+                                 {"nylon", INS_NYLON}, {"pad", INS_PAD},
                                  {"organ", INS_ORGAN}, {"dx ep", INS_DX_EP}, {"knight", INS_KNIGHT},
                                  {"emilyguitar", INS_EMILY}};
     static const named_t BS[] = {{"upright", INS_UPRIGHT}, {"elec bass", INS_ELEC_BASS}, {"sub", INS_SUB},
@@ -370,8 +371,8 @@ static void parts(double amb)
                                  {"kalimba", INS_KALIMBA}, {"saw lead", INS_SAW_LEAD},
                                  {"synth pluck", INS_SYNTH_PLUCK}, {"knight", INS_KNIGHT}};
     static const named_t CD[] = {{"music box", INS_MUSIC_BOX}, {"bells", INS_BELLS}};
-    static const named_t PDL[] = {{"strings", INS_STRINGS}, {"warm pad", INS_WARM_PAD}};
-    static const named_t SOL[] = {{"choir", INS_VOX_PAD}, {"flute", INS_FLUTE}, {"organ", INS_ORGAN},
+    static const named_t PDL[] = {{"strings", INS_STRINGS}, {"warm pad", INS_WARM_PAD}, {"choir", INS_CHOIR}};
+    static const named_t SOL[] = {{"choir", INS_CHOIR}, {"flute", INS_FLUTE}, {"organ", INS_ORGAN},
                                   {"strings", INS_STRINGS}};
     static const named_t KT[] = {{"dusty", KIT_DUSTY}, {"soft", KIT_SOFT}, {"808", KIT_808}, {"brushes", KIT_BRUSHES},
                                  {"s-warm", KIT_S_WARM}, {"s-dark", KIT_S_DARK}, {"s-rusty", KIT_S_RUSTY},

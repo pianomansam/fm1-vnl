@@ -5,7 +5,8 @@
 #include "library.h"
 
 /* Roles are meant to sit in separate registers (curation intent). {id, name, chords, bass, lead, candy, pad, kit, skit, flavor, moods, src}.
-   The pad layer: the warm synth pad under the synth sets (13, 18, 19, 20), strings under the rest.
+   The pad layer: the warm synth pad under the synth sets (13, 18, 19, 20), strings under the rest; a song may draw the
+   choir over either (lib_song_pad). candy: none where it was the vox pad (removed, 2026-10-31).
    skit: the set's sampled kit; a song plays it or the synth kit, about half each (lib_song_kit). By mood and flavor:
    the dusty Rhodes and Knight sets warm or dark, the Wurli and quiet acoustic sets gentle, city pop clean, the synth
    and guitar-led sets rusty. KIT_N on the 808 and Brushes sets: no sampled equivalent, the synth kit always. */
@@ -14,12 +15,12 @@ const lib_set_t LIB_SETS[] = {
     {2, "Bossa nylon", INS_NYLON, INS_SUB, INS_VIBES, INS_KALIMBA, INS_STRINGS, KIT_BRUSHES, KIT_N, FL_BOSSA, MOOD_WARM | MOOD_SUNNY, "task brief: bossa set"},
     {3, "Neo-soul Wurli", INS_WURLI, INS_ELEC_BASS, INS_FELT_PIANO, INS_BELLS, INS_STRINGS, KIT_SOFT, KIT_S_GENTLE, FL_NEOSOUL, MOOD_SAD | MOOD_WISTFUL, "task brief: neo-soul set; the felt piano leads (was the sax: Sam, 2026-10-29)"},
     {4, "Felt and vibes", INS_FELT_PIANO, INS_ELEC_BASS, INS_VIBES, INS_NONE, INS_STRINGS, KIT_DUSTY, KIT_S_DARK, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "task brief: felt piano with muted trumpet; the vibes lead (the trumpet went, Sam, 2026-10-29)"},
-    {5, "Chillwave pad", INS_PAD, INS_SUB, INS_KALIMBA, INS_VOX_PAD, INS_STRINGS, KIT_808, KIT_N, FL_CHILLWAVE, MOOD_WARM | MOOD_SUNNY, "task brief: chillwave set"},
+    {5, "Chillwave pad", INS_PAD, INS_SUB, INS_KALIMBA, INS_NONE, INS_STRINGS, KIT_808, KIT_N, FL_CHILLWAVE, MOOD_WARM | MOOD_SUNNY, "task brief: chillwave set"},
     {6, "City pop Rhodes", INS_RHODES, INS_ELEC_BASS, INS_VIBES, INS_BELLS, INS_STRINGS, KIT_SOFT, KIT_S_CLEAN, FL_CITYPOP, MOOD_WARM | MOOD_SUNNY, "task brief: bright Rhodes city pop set; the vibes lead (was the guitar lick: Sam, 2026-10-29)"},
     {7, "Felt and flute", INS_FELT_PIANO, INS_SUB, INS_FLUTE, INS_MUSIC_BOX, INS_STRINGS, KIT_SOFT, KIT_S_GENTLE, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "brainstorm: quiet felt piano lofi"},
     {8, "Wurli and vibes", INS_WURLI, INS_ELEC_BASS, INS_VIBES, INS_KALIMBA, INS_STRINGS, KIT_DUSTY, KIT_S_GENTLE, FL_LOFI, MOOD_WARM | MOOD_SUNNY, "brainstorm: warm Wurlitzer lofi"},
     {9, "Nylon and flute", INS_NYLON, INS_ELEC_BASS, INS_FLUTE, INS_NONE, INS_STRINGS, KIT_BRUSHES, KIT_N, FL_BOSSA, MOOD_WISTFUL | MOOD_WARM, "brainstorm: late-night bossa; the flute leads (was the sax: Sam, 2026-10-29; a sustained lead, so the nylon still strums)"},
-    {10, "Pad and pluck", INS_PAD, INS_ELEC_BASS, INS_SYNTH_PLUCK, INS_VOX_PAD, INS_STRINGS, KIT_808, KIT_N, FL_CHILLWAVE, MOOD_SAD | MOOD_WISTFUL, "brainstorm: hazy chillwave; the vibes lead (was the guitar lick: Sam, 2026-10-29); the synth pluck leads (vibes rebalance: Sam, 2026-10-29)"},
+    {10, "Pad and pluck", INS_PAD, INS_ELEC_BASS, INS_SYNTH_PLUCK, INS_NONE, INS_STRINGS, KIT_808, KIT_N, FL_CHILLWAVE, MOOD_SAD | MOOD_WISTFUL, "brainstorm: hazy chillwave; the vibes lead (was the guitar lick: Sam, 2026-10-29); the synth pluck leads (vibes rebalance: Sam, 2026-10-29)"},
     {11, "Rhodes neo-soul", INS_RHODES, INS_ELEC_BASS, INS_FELT_PIANO, INS_VIBES, INS_STRINGS, KIT_SOFT, KIT_S_WARM, FL_NEOSOUL, MOOD_WARM | MOOD_SUNNY, "brainstorm: smooth neo-soul; the felt piano leads (was the muted trumpet: Sam, 2026-10-29)"},
     /* the synth sets (synths plan Task 4; Sam's cut, 2026-10-24: only the DX EP, the FM slap bass, the triangle bass,
        the organ, the saw lead and the synth pluck kept). 13, 18 and 20 all synth (keys, bass and lead), so every mood
@@ -142,8 +143,8 @@ int lib_ins_sampled_struck(int ins) { return ins == INS_KNIGHT || ins == INS_NYL
 
 int lib_ins_sustained(int ins)
 {
-    return ins == INS_PAD || ins == INS_FLUTE || ins == INS_VOX_PAD || ins == INS_ORGAN || ins == INS_SAW_LEAD ||
-           ins == INS_STRINGS || ins == INS_WARM_PAD;
+    return ins == INS_PAD || ins == INS_FLUTE || ins == INS_ORGAN || ins == INS_SAW_LEAD ||
+           ins == INS_STRINGS || ins == INS_WARM_PAD || ins == INS_CHOIR;
 }
 
 /* The leads Sam removed (2026-10-29: "i only liked the felt piano and vibraphones"): an approved lead of their family
