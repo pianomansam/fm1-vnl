@@ -541,6 +541,12 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
 
 Renders: `app/build/new/<seed>/` and `<seed>-nobed/`, one per set (Task 8's report lists them).
 
+- **To do (Sam, 2026-10-30): less noise on the flute.** Its breath is too present. Today: a band-passed noise
+  layer (`patch.c` INS_FLUTE, its band at 1800 Hz, wide: BREATH_K 1.4) plus an onset chiff
+  (CHIFF 1.5, gone in 80 ms; `voices.c`). Try a lower breath level, a narrower or higher band, and a softer
+  chiff, as an A/B in songs; keep the tone's level matched. (The breathy-pad spike reuses this breath, so tune
+  them together.)
+
 - **Rings' reverb and chorus against ours.** Sam picked Rings' (Task 7c); ours stays host-only (`VNL_FX=ours`).
   Rings' chorus wobbles ±14 cents, near its test's 15-cent window: don't deepen it without moving the window.
 - **The drums' compressor.** Its attack is instant (a 10 ms attack let the snare's transient through, against the
