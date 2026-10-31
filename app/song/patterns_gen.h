@@ -15,18 +15,14 @@
 extern const uint8_t LIB_PATTERNS_STATUS[];
 extern const uint8_t LIB_PROGS_STATUS[];
 
-/* the keys' held, half-note, held-on-2 and light-eighths comping (harmony.c): strikes in a bar, `later_vel_pct`
-   the later strikes' velocity in percent of the first's; len is in 16ths (held: written a bar, the engine holds the
-   chord; a strike as long as the gap to the next is held to the next strike played or the bar's end); `opt_pct`
-   the share of bars, in percent, that play the last strike (100: every bar); `busy_steps` the strikes a busy lead
-   keeps (a mask; 0: harmony.c's own rule) */
+/* the keys' held, half-note, held-on-2 (and 4) and light-eighths comping (harmony.c): strikes in a bar,
+   `later_vel_pct` the later strikes' velocity in percent of the first's; len is in 16ths (held: written a bar, the
+   engine holds the chord; a strike as long as the gap to the next, or to the bar's end, is held to it) */
 typedef struct {
     uint8_t vel_lo, vel_hi;
     uint8_t n;                          /* strikes */
     uint8_t step[8], len[8];
     uint8_t later_vel_pct;
-    uint8_t opt_pct;
-    uint16_t busy_steps;
 } patterns_comp_t;
 /* the stabs: one on `first`, the second on the first of `second` the kick leaves free; over a kick of more
    than `busy_over` hits a bar, `busy_steps` (a mask). len: the written length (the engine strikes 60% of a
@@ -40,7 +36,7 @@ typedef struct {
     uint8_t busy_over;
     uint16_t busy_steps;
 } patterns_stabs_t;
-extern const patterns_comp_t COMP_HELD, COMP_HALF, COMP_HELD2, COMP_LIGHT8;
+extern const patterns_comp_t COMP_HELD, COMP_HALF, COMP_HELD2, COMP_LIGHT8, COMP_HELD24;
 extern const patterns_stabs_t COMP_STABS;
 
 /* strum.c's patterns (16 steps; 32 for a two-bar one) and the ballad's fill-bar variant */

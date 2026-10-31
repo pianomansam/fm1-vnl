@@ -117,15 +117,11 @@ def build_model(t, kick_phrases):
     st = c["stabs"]
 
     def strikes(k, name, style):
-        """a strikes rhythm's entry: second_vel_pct, opt_pct and busy_steps only where they say something"""
+        """a strikes rhythm's entry: second_vel_pct only where it says something"""
         x = c[name]
         e = {"name": name, "status": "approved", "style": style, "vel_range": x["vel"]}
         if x["later_vel_pct"] != 100:
             e["second_vel_pct"] = x["later_vel_pct"]
-        if x.get("opt_pct", 100) != 100:
-            e["opt_pct"] = x["opt_pct"]
-        if x.get("busy_steps"):
-            e["busy_steps"] = x["busy_steps"]
         e["strikes"] = [{"step": s, "len": n} for s, n in zip(x["steps"], x["lens"])]
         e["file"] = f"comp-rhythms/{k}-{name}"
         return e
@@ -134,7 +130,8 @@ def build_model(t, kick_phrases):
         "3": {"name": "stabs", "status": "approved", "style": "CS_STABS", "vel_range": st["vel"], "len": st["len"],
               "first": st["first"], "second": st["second"], "busy_over": st["busy_over"],
               "busy_steps": st["busy_steps"], "file": "comp-rhythms/3-stabs"},
-        "4": strikes(4, "held-on-2", "CS_HELD2"), "5": strikes(5, "light-eighths", "CS_LIGHT8")}
+        "4": strikes(4, "held-on-2", "CS_HELD2"), "5": strikes(5, "light-eighths", "CS_LIGHT8"),
+        "6": strikes(6, "held-on-2-and-4", "CS_HELD24")}
     m["strum"] = {}
     for i, s in enumerate(t["strum"]):
         k = strum_id(i)

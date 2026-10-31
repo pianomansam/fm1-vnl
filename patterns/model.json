@@ -2280,19 +2280,10 @@
         40,
         58
       ],
-      "second_vel_pct": 70,
-      "opt_pct": 40,
-      "busy_steps": [
-        4
-      ],
       "strikes": [
         {
           "step": 4,
-          "len": 8
-        },
-        {
-          "step": 12,
-          "len": 4
+          "len": 12
         }
       ],
       "file": "comp-rhythms/4-held-on-2"
@@ -2304,12 +2295,6 @@
       "vel_range": [
         30,
         38
-      ],
-      "busy_steps": [
-        0,
-        4,
-        8,
-        12
       ],
       "strikes": [
         {
@@ -2346,6 +2331,27 @@
         }
       ],
       "file": "comp-rhythms/5-light-eighths"
+    },
+    "6": {
+      "name": "held-on-2-and-4",
+      "status": "approved",
+      "style": "CS_HELD24",
+      "vel_range": [
+        40,
+        58
+      ],
+      "second_vel_pct": 70,
+      "strikes": [
+        {
+          "step": 4,
+          "len": 8
+        },
+        {
+          "step": 12,
+          "len": 4
+        }
+      ],
+      "file": "comp-rhythms/6-held-on-2-and-4"
     }
   },
   "strum": {

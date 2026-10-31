@@ -415,10 +415,20 @@ void app_init(void)
         }
         {
             const char *cp = getenv("VNL_COMP");   /* VNL_COMP=<CS_*>: every song comps in that style (6 held on 2,
-                                                      7 light eighths; held where the keys can't play it) */
+                                                      7 light eighths, 8 held on 2 and 4; held where the keys
+                                                      can't play it) */
             if (cp && *cp >= '0' && *cp <= '9' && atoi(cp) < CS_N) {
                 song_ov_t o = *song_ov();
                 o.comp = (int8_t)atoi(cp);
+                song_override(&o);
+            }
+        }
+        {
+            const char *bz = getenv("VNL_BUSY");   /* VNL_BUSY=0: a busy lead leaves the comping's rhythm be (the
+                                                      workbench's "Busy lead thins the comping" off) */
+            if (bz && bz[0] == '0' && !bz[1]) {
+                song_ov_t o = *song_ov();
+                o.no_busy_thin = 1;
                 song_override(&o);
             }
         }

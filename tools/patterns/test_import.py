@@ -175,7 +175,7 @@ class Import(unittest.TestCase):
     def test_musescore_style_variants_import_the_same(self):
         picks = [("drums", "5"), ("drums", "1"), ("progressions", "1"), ("progressions", "19"),
                  ("comp-rhythms", "3"), ("comp-rhythms", "2"), ("comp-rhythms", "4"), ("comp-rhythms", "5"),
-                 ("strum", "3"), ("lead-arp", "rhythm-2"),
+                 ("comp-rhythms", "6"), ("strum", "3"), ("lead-arp", "rhythm-2"),
                  ("lead-arp", "pattern-3"), ("melody-cells", "7"), ("kick-phrases", "k6")]
         variants = {"divisions 480": dict(divisions=480), "ties across beats": dict(tie_beats=True),
                     "an extra empty staff": dict(extra_staff=True), "a rests-only bar": dict(rest_bar=True),
@@ -194,7 +194,7 @@ class Import(unittest.TestCase):
         """PPQ 960, notes a tick short, MuseScore's chord-symbol playback on its own channel, no metadata"""
         for fam, k in [("drums", "3"), ("progressions", "19"), ("progressions", "1"), ("strum", "2"),
                        ("lead-arp", "rhythm-4"), ("comp-rhythms", "1"),
-                       ("comp-rhythms", "4"), ("comp-rhythms", "5")]:
+                       ("comp-rhythms", "4"), ("comp-rhythms", "5"), ("comp-rhythms", "6")]:
             e = self.model[fam][k]
             _, _, tracks, _, _, texts = export.render(fam, k, e)
             for tr in tracks:
@@ -563,7 +563,8 @@ class Import(unittest.TestCase):
         self.assertEqual(model["comp-rhythms"]["1"], e)
 
     def test_the_new_comp_rhythms_import_like_the_others(self):
-        """held on 2 and light eighths: an edit imports into their tables; held on 2 off beat 2 is refused"""
+        """held on 2 (and 4) and light eighths: an edit imports into their tables; held on 2 off beat 2, or held
+        on 2 and 4 without its beat 4, is refused"""
         e = self.model["comp-rhythms"]["5"]
         title, _, tracks, _, _, _ = export.render("comp-rhythms", "5", e)
         tracks[0]["notes"] = [x for x in tracks[0]["notes"] if x[0] // 120 % 4 == 0]   # quarters (120 ticks a 16th)
@@ -576,7 +577,15 @@ class Import(unittest.TestCase):
         tracks[0]["notes"] = [(t - 480, n, p, v) for t, n, p, v in tracks[0]["notes"]]   # on beat 1
         path = self.pat / (h["file"] + ".mid")
         midi.write(str(path), tracks, title=title)
-        self.refused(path, 1, "the first on step 4 (beat 2)")
+        self.refused(path, 1, "one strike, on step 4 (beat 2)")
+        title, _, tracks, _, _, _ = export.render("comp-rhythms", "4", h)   # held on 2 back as it was
+        midi.write(str(path), tracks, title=title)
+        h4 = self.model["comp-rhythms"]["6"]
+        title, _, tracks, _, _, _ = export.render("comp-rhythms", "6", h4)
+        tracks[0]["notes"] = [x for x in tracks[0]["notes"] if x[0] // 120 % 16 == 4]   # beat 2 only
+        path = self.pat / (h4["file"] + ".mid")
+        midi.write(str(path), tracks, title=title)
+        self.refused(path, 1, "two strikes, on steps 4 and 12 (beats 2 and 4)")
 
     def test_crafted_numbers_are_unreadable(self):
         e = self.model["lead-arp"]["pattern-2"]

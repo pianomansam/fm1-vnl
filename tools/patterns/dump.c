@@ -44,10 +44,7 @@ static void comp(const char *name, const patterns_comp_t *c)
     for (i = 0; i < c->n; i++) printf("%s%d", i ? ", " : "", c->step[i]);
     printf("], \"lens\": [");
     for (i = 0; i < c->n; i++) printf("%s%d", i ? ", " : "", c->len[i]);
-    printf("], \"later_vel_pct\": %d, \"opt_pct\": %d, \"busy_steps\": [", c->later_vel_pct, c->opt_pct);
-    for (i = 0; i < 16; i++)
-        if (c->busy_steps >> i & 1u) printf("%s%d", c->busy_steps & ((1u << i) - 1u) ? ", " : "", i);
-    printf("]}, ");
+    printf("], \"later_vel_pct\": %d}, ", c->later_vel_pct);
 }
 
 int main(void)
@@ -85,6 +82,7 @@ int main(void)
     comp("half", &COMP_HALF);
     comp("held-on-2", &COMP_HELD2);
     comp("light-eighths", &COMP_LIGHT8);
+    comp("held-on-2-and-4", &COMP_HELD24);
     printf("\"stabs\": {\"vel\": [%d, %d], \"first\": %d, ", s->vel_lo, s->vel_hi, s->first);
     bytes("second", s->second, s->n, ", ");
     printf("\"len\": %d, \"busy_over\": %d, ", s->len, s->busy_over);

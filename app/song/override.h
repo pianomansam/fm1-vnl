@@ -27,6 +27,9 @@ typedef struct {
     int8_t strum_pat;       /* a STRUM_PAT index (the strummed keys) */
     int8_t arp_rhy;         /* a LEAD_RHY index (the hybrid lead's arpeggio rhythm) */
     int8_t arp_pat;         /* a LEAD_PAT index (its arpeggio pattern) */
+    int8_t no_busy_thin;    /* 0: a busy lead thins the comping (half notes, stabs, offbeats, the arpeggio: harmony.c),
+                               as always; 1: they keep their full rhythm (held on 2 (and 4) and light eighths never
+                               thin) */
 } song_ov_t;
 
 void song_override(const song_ov_t *ov);   /* NULL: none (default); the struct is copied */

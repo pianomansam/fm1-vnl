@@ -107,10 +107,11 @@ static int style_draw(int ins, int tempo, int strum, uint32_t seed)
        not working" there); the sampled instruments sound better, so stabs return on the Knight and the guitars, and
        the guitars strum (the same draw: zero weights never change a pick); no arpeggio on the guitars (Sam: a 16th
        arpeggio on a guitar is "bad"), and none on any keys for now (Sam, 2026-10-28: set 23's Rhodes arpeggio "sounds
-       very synthetic"; it may come back later). Was SYNTH arpeggio 20, KNIGHT 15. Held on 2 and light eighths last,
-       0 for now (the workbench's until Sam sets them; a zero weight at the end changes no pick). */
-    static const uint8_t SYNTH[CS_N] = {44, 0, 0, 0, 36, 0, 0, 0}, KNIGHT[CS_N] = {35, 25, 0, 0, 25, 0, 0, 0},
-                         GUITAR[CS_N] = {20, 20, 0, 0, 15, 30, 0, 0}, GUITAR_SLOW[CS_N] = {0, 20, 0, 0, 35, 30, 0, 0};
+       very synthetic"; it may come back later). Was SYNTH arpeggio 20, KNIGHT 15. Held on 2, light eighths and held on
+       2 and 4 last, 0 for now (the workbench's until Sam sets them; a zero weight at the end changes no pick). */
+    static const uint8_t SYNTH[CS_N] = {44, 0, 0, 0, 36, 0, 0, 0, 0}, KNIGHT[CS_N] = {35, 25, 0, 0, 25, 0, 0, 0, 0},
+                         GUITAR[CS_N] = {20, 20, 0, 0, 15, 30, 0, 0, 0},
+                         GUITAR_SLOW[CS_N] = {0, 20, 0, 0, 35, 30, 0, 0, 0};
     const uint8_t *t = ins == INS_KNIGHT ? KNIGHT : (ins == INS_NYLON || ins == INS_EMILY) ?
                          (tempo < GUITAR_SLOW_BPM ? GUITAR_SLOW : GUITAR) : SYNTH;
     uint8_t w[CS_N];
@@ -132,7 +133,7 @@ int harmony_style_lead(int ins, int lead, int tempo, uint32_t seed)
 
 int harmony_comp_ok(int ins, int cs)
 {
-    if (cs != CS_HELD2 && cs != CS_LIGHT8) return 1;
+    if (cs != CS_HELD2 && cs != CS_LIGHT8 && cs != CS_HELD24) return 1;
     return ins == INS_RHODES || ins == INS_WURLI || ins == INS_FELT_PIANO || ins == INS_DX_EP || ins == INS_KNIGHT;
 }
 
@@ -415,7 +416,7 @@ unsigned harmony_stab_steps(const song_roll_t *r)
     return 1u << s->first;
 }
 
-/* the steps a held, half-note, held-on-2 or light-eighths comping strikes (COMP_*) */
+/* the steps a held, half-note, held-on-2 (and 4) or light-eighths comping strikes (COMP_*) */
 static unsigned comp_mask(const patterns_comp_t *c)
 {
     unsigned m = 0;
@@ -432,14 +433,15 @@ static int half_held(const song_roll_t *r)
     return keys_sustained(r) || (p && (lib_lane_hits(p, D_KICK, 0) & 0xFFFFu) == comp_mask(&COMP_HALF));
 }
 
-/* the steps the keys strike when they are more than a note on 1 (stabs, half notes, held on 2, light eighths), else
-   0: what the bass avoids */
+/* the steps the keys strike when they are more than a note on 1 (stabs, half notes, held on 2 (and 4), light
+   eighths), else 0: what the bass avoids */
 unsigned harmony_comp_steps(const song_roll_t *r)
 {
     int style = harmony_style(r);
     if (style == CS_STABS) return harmony_stab_steps(r);
     if (style == CS_HELD2) return comp_mask(&COMP_HELD2);
     if (style == CS_LIGHT8) return comp_mask(&COMP_LIGHT8);
+    if (style == CS_HELD24) return comp_mask(&COMP_HELD24);
     return harmony_half_strikes(r) ? comp_mask(&COMP_HALF) : 0u;
 }
 
@@ -458,29 +460,16 @@ static int last_is_chord(const harmony_voicing_t *vs, const int *pcs, int n)
     return 1;
 }
 
-/* Held on 2's or light eighths' strike on this step: its index in c (-1: none) and its length in 16ths. The bar's
-   strikes are the written ones; the last only in opt_pct of bars (a per-bar hash of the seed: no rng stream moves); a
-   busy lead keeps busy_steps. A strike written as long as the gap to the next is held to the next one played, or to
-   the bar's end; *held says so. */
-static int comp_strike(const song_roll_t *r, const patterns_comp_t *c, int bar, int step, int busy, int *len16,
-                       int *held)
+/* Held on 2's, held on 2 and 4's or light eighths' strike on this step: its index in c (-1: none). Every bar plays
+   the written strikes, a busy lead or not (Sam). A strike written as long as the gap to the next (or to the bar's
+   end) is held to it; *held says so. */
+static int comp_strike(const patterns_comp_t *c, int step, int *held)
 {
-    unsigned m = comp_mask(c);
-    int i, k = -1, nxt;
-    if (c->opt_pct < 100 && (int)(mix(r->seed, (uint32_t)bar, 4u, 125u) % 100u) >= c->opt_pct)
-        m &= ~(1u << c->step[c->n - 1]);
-    if (busy && c->busy_steps) m &= c->busy_steps;
-    for (i = 0; i < c->n; i++)
-        if (c->step[i] == step && ((m >> step) & 1u)) k = i;
-    if (k < 0) return -1;
-    nxt = k + 1 < c->n ? c->step[k + 1] : 16;
-    *held = step + c->len[k] >= nxt;
-    *len16 = c->len[k];
-    if (*held) {
-        for (nxt = step + 1; nxt < 16 && !((m >> nxt) & 1u); nxt++)
-            ;
-        *len16 = nxt - step;
-    }
+    int k;
+    for (k = 0; k < c->n && c->step[k] != step; k++)
+        ;
+    if (k == c->n) return -1;
+    *held = step + c->len[k] >= (k + 1 < c->n ? c->step[k + 1] : 16);
     return k;
 }
 
@@ -540,14 +529,14 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
         len = len > 441u ? len - 441u : 1u;
         lo = COMP_HALF.vel_lo; hi = COMP_HALF.vel_hi;   /* as held: struck softly */
         break;
-    case CS_HELD2:                        /* beat 2 (a chord change on a bar line too), held to the bar's end or to a
-                                             soft beat 4 */
+    case CS_HELD2:                        /* beat 2 (a chord change on a bar line too), held to the bar's end */
+    case CS_HELD24:                       /* the same, held to a soft beat 4 struck every bar */
     case CS_LIGHT8: {                     /* every 8th, half an 8th long, soft */
-        const patterns_comp_t *c = style == CS_HELD2 ? &COMP_HELD2 : &COMP_LIGHT8;
-        int len16 = 0, held = 0;
-        k = comp_strike(r, c, bar, step, busy, &len16, &held);
+        const patterns_comp_t *c = style == CS_HELD2 ? &COMP_HELD2 : style == CS_HELD24 ? &COMP_HELD24 : &COMP_LIGHT8;
+        int held = 0;
+        k = comp_strike(c, step, &held);
         if (k < 0) return 0;
-        len = (uint32_t)((float)len16 * step_samples);
+        len = (uint32_t)((float)c->len[k] * step_samples);
         if (held) len = len > 441u ? len - 441u : 1u;   /* as held: it ends just before the next strike */
         lo = c->vel_lo; hi = c->vel_hi;
         first = c->step[0];
@@ -559,7 +548,8 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
         lo = 50; hi = 70;
         break;
     }
-    if (busy && style != CS_HELD && !keys_sustained(r)) {   /* the lead is busy: the comping makes room (Sam) */
+    if (busy && style != CS_HELD && !keys_sustained(r) && !song_ov()->no_busy_thin) {   /* the lead is busy: the
+                                                             comping makes room (Sam; the workbench may turn it off) */
         if (style == CS_HALF) {                 /* beat 1 of every bar only, held to the next bar's strike */
             if (step != 0) return 0;
             len = (uint32_t)(16.0f * step_samples);
@@ -572,7 +562,7 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
     dark = (b->flags & PB_DARK) != 0;
     dark = dark ? 1 : !(b->layers & (L_KICK | L_LEAD)) ? 2 : 0;   /* dark; carrying (no kick, no lead); or plain */
     n = harmony_chord_at(r, bar, pass, dark, pcs);
-    if ((style == CS_HALF || style == CS_STABS || style == CS_HELD2 || style == CS_LIGHT8 || rs) &&
+    if ((style == CS_HALF || style == CS_STABS || style == CS_HELD2 || style == CS_HELD24 || style == CS_LIGHT8 || rs) &&
         !(step == first && bar % p->bars_per_chord == 0) && last_is_chord(vs, pcs, n))
         memcpy(notes, vs->last, sizeof notes);            /* the chord's other strikes keep its voicing, never
                                                              revoiced (one voicing per chord, Sam; the pad leaves
@@ -594,7 +584,7 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
     if (style == CS_LIGHT8 && gap * 9u > len)
         gap = len / 9u;                   /* a short strike: the roll spans a third of it at most (a wider one would
                                              leave the top note a click) */
-    if (later < 100) {                    /* held on 2's beat 4: softer than beat 2 (the same draw) */
+    if (later < 100) {                    /* held on 2 and 4's beat 4: softer than beat 2 (the same draw) */
         int c = emit_chord(notes, 4, gap, lo, hi, len, dark, salt, bar, first, out, max), i;
         for (i = 0; i < c; i++) out[i].vel = (uint8_t)clampi(out[i].vel * later / 100, 25, 110);
         return c;

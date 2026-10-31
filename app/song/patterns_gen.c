@@ -71,10 +71,11 @@ const lib_pattern_t LIB_PATTERNS[] = {
 const int LIB_NPATTERNS = (int)(sizeof LIB_PATTERNS / sizeof LIB_PATTERNS[0]);
 const uint8_t LIB_PATTERNS_STATUS[] = {1, 1, 1, 1, 1, 1, 1, 1};
 
-const patterns_comp_t COMP_HELD = {40, 58, 1, {0, 0, 0, 0, 0, 0, 0, 0}, {16, 0, 0, 0, 0, 0, 0, 0}, 100, 100, 0x0000};
-const patterns_comp_t COMP_HALF = {40, 58, 2, {0, 8, 0, 0, 0, 0, 0, 0}, {8, 8, 0, 0, 0, 0, 0, 0}, 90, 100, 0x0000};
-const patterns_comp_t COMP_HELD2 = {40, 58, 2, {4, 12, 0, 0, 0, 0, 0, 0}, {8, 4, 0, 0, 0, 0, 0, 0}, 70, 40, 0x0010};
-const patterns_comp_t COMP_LIGHT8 = {30, 38, 8, {0, 2, 4, 6, 8, 10, 12, 14}, {1, 1, 1, 1, 1, 1, 1, 1}, 100, 100, 0x1111};
+const patterns_comp_t COMP_HELD = {40, 58, 1, {0, 0, 0, 0, 0, 0, 0, 0}, {16, 0, 0, 0, 0, 0, 0, 0}, 100};
+const patterns_comp_t COMP_HALF = {40, 58, 2, {0, 8, 0, 0, 0, 0, 0, 0}, {8, 8, 0, 0, 0, 0, 0, 0}, 90};
+const patterns_comp_t COMP_HELD2 = {40, 58, 1, {4, 0, 0, 0, 0, 0, 0, 0}, {12, 0, 0, 0, 0, 0, 0, 0}, 100};
+const patterns_comp_t COMP_LIGHT8 = {30, 38, 8, {0, 2, 4, 6, 8, 10, 12, 14}, {1, 1, 1, 1, 1, 1, 1, 1}, 100};
+const patterns_comp_t COMP_HELD24 = {40, 58, 2, {4, 12, 0, 0, 0, 0, 0, 0}, {8, 4, 0, 0, 0, 0, 0, 0}, 70};
 const patterns_stabs_t COMP_STABS = {60, 85, 0, 4, {6, 10, 4, 12}, 2, 3, 0x0041};
 
 const char *const STRUM_PAT[STRUM_NPAT] = {

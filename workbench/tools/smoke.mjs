@@ -2259,7 +2259,7 @@ console.log("candidates: the strum and arpeggio rows, Approve (patterns and edit
   check(!bad.ok && !desk.approved.has(`drums/${PID}`) && /no such strum pattern/.test(bad.message), "a refused approval says why");
 }
 
-console.log("comping: held on 2 and light eighths (the workbench's: the roll weighs them 0)");
+console.log("comping: held on 2, held on 2 and 4, light eighths (the workbench's: the roll weighs them 0)");
 {
   const HH = readFileSync(new URL("../../app/song/harmony.h", import.meta.url), "utf8");
   const CS = HH.slice(HH.indexOf("enum { CS_HELD")).split("}")[0].replace(/enum \{/, "").split(",")
@@ -2268,15 +2268,15 @@ console.log("comping: held on 2 and light eighths (the workbench's: the roll wei
         "every comping style's id is its harmony.h enum's");
   const perc = ["Rhodes", "Wurli", "Felt piano", "DX electric piano", "Knight piano"].map(ins);
   const off = ["Nylon guitar", "Emilyguitar", "Organ", "Chillwave pad"].map(ins);
-  const NEW = ["Held on 2", "Light eighths"];
+  const NEW = ["Held on 2", "Held on 2 and 4", "Light eighths"];
   const offered = (k) => optionsFor(row("comp"), { values: { keys: k } }, OPTS).map((o) => o.name);
   check(perc.every((k) => NEW.every((n) => offered(k).includes(n))) && off.every((k) => NEW.every((n) => !offered(k).includes(n))),
-        "held on 2 and light eighths are offered on the percussive keys only (not the guitars, organ or pad)");
+        "the three are offered on the percussive keys only (not the guitars, organ or pad)");
   const cand = OPTS.comping.filter((c) => c.status === "candidate").map((c) => c.id);
   let picked = 0;
   for (let i = 1; i <= 200; i++)
     picked += cand.includes(pickFor(row("comp"), { values: { keys: perc[i % 5], comp: -1 }, locks: new Set() }, OPTS, lcg(i)));
-  check(JSON.stringify(cand) === "[6,7]" && picked === 0, `... as candidates, never the dice's pick (${picked} of 200)`);
+  check(JSON.stringify(cand) === "[6,7,8]" && picked === 0, `... as candidates, never the dice's pick (${picked} of 200)`);
 
   const { readEvents } = await import("../wb.js");
   const ex = await load(), call = caller(ex), lib = await call("wb_library");
@@ -2290,27 +2290,101 @@ console.log("comping: held on 2 and light eighths (the workbench's: the roll wei
   const d = new Desk(call, C, OPTS, lib, { rnd: lcg(8) });
   await d.set("seed", 21);
   await d.set("keys", ins("Rhodes"));
-  const h2 = await d.set("comp", 6), e2 = await keysEv();
   const at = (es, s) => es.filter((e) => e.step === s).length;
-  check(h2.ok && ex.wb_comp_applied() === 6 && ex.wb_ov_get(OV.COMP) === 6 && e2.length &&
-        e2.every((e) => e.step === 4 || e.step === 12) && at(e2, 4) > at(e2, 12) && at(e2, 12) > 0,
-        `held on 2 picked on the Rhodes: struck on beat 2, some bars beat 4 too (${at(e2, 4)} and ${at(e2, 12)} notes)`);
+  const bars = (es) => new Set(es.map((e) => e.bar)).size;
+  const h2 = await d.set("comp", 6), e2 = await keysEv();
+  check(h2.ok && ex.wb_comp_applied() === 6 && ex.wb_ov_get(OV.COMP) === 6 && e2.length && e2.every((e) => e.step === 4),
+        `held on 2 picked on the Rhodes: struck on beat 2 only (${e2.length} notes)`);
+  const h4 = await d.set("comp", 8), e4 = await keysEv();
+  check(h4.ok && ex.wb_comp_applied() === 8 && e4.every((e) => e.step === 4 || e.step === 12) &&
+        at(e4, 12) === at(e4, 4) && at(e4, 12) === 4 * bars(e4),
+        `held on 2 and 4 picked on the Rhodes: beats 2 and 4 in every bar (${at(e4, 4)} and ${at(e4, 12)} notes)`);
   const l8 = await d.set("comp", 7), e8 = await keysEv();
   check(l8.ok && ex.wb_comp_applied() === 7 && e8.length && e8.every((e) => e.step % 2 === 0 && e.len <= 1) &&
-        [2, 6, 10, 14].every((s) => at(e8, s) > 0),
-        `light eighths picked on the Rhodes: every 8th, a 16th long (${e8.length} notes)`);
+        [0, 2, 4, 6, 8, 10, 12, 14].every((s) => at(e8, s) === 4 * bars(e8)),
+        `light eighths picked on the Rhodes: every 8th of every bar, a 16th long (${e8.length} notes)`);
+  for (const cs of [6, 7, 8]) {   // a busy lead changes none of them, the thinning row either way
+    await d.set("comp", cs);
+    const on = JSON.stringify(await keysEv());
+    await d.set("busyThin", 1);
+    const offEv = JSON.stringify(await keysEv());
+    await d.set("busyThin", 0);
+    check(on === offEv, `comping ${cs}: the same notes with the busy-lead thinning on or off`);
+  }
   await d.set("keys", ins("Organ"));
   check(d.values.comp === -1 && ex.wb_ov_get(OV.COMP) === -1, "keys -> organ puts light eighths back to as rolled");
-  for (const [keys, cs] of [["Organ", 7], ["Organ", 6], ["Nylon guitar", 6], ["Nylon guitar", 7]]) {
+  for (const [keys, cs] of [["Organ", 7], ["Organ", 6], ["Organ", 8], ["Nylon guitar", 6], ["Nylon guitar", 8]]) {
     await d.set("keys", ins(keys));
     const st = cstr(ex, ex.wb_state()), r = await d.set("comp", cs);
     check(!r.ok && new RegExp(`doesn't suit the ${keys}`).test(r.message) && /Rhodes/.test(r.message) &&
           cstr(ex, ex.wb_state()) === st && ex.wb_ov_get(OV.COMP) === -1,
-          `${cs === 6 ? "held on 2" : "light eighths"} on the ${keys}: refused, nothing staged ("${r.message}")`);
+          `${NEW[[6, 8, 7].indexOf(cs)]} on the ${keys}: refused, nothing staged ("${r.message}")`);
   }
-  ex.wb_ov_set(OV.COMP, 7);   // the engine on its own (a snapshot, a host render): held where the keys can't play it
+  ex.wb_ov_set(OV.COMP, 8);   // the engine on its own (a snapshot, a host render): held where the keys can't play it
   check(ex.wb_comp_applied() === 0, "forced on the organ by the override alone, the engine holds instead");
   ex.wb_ov_set(OV.COMP, -1);
+}
+
+console.log("the busy-lead thinning row (on by default; off, the existing comping keeps its rhythm)");
+{
+  const { readEvents } = await import("../wb.js");
+  const { replay, wav } = await import("./replay.mjs");
+  const ex = await load(), call = caller(ex);
+  ex.wb_seed(21);
+  ex.wb_apply();
+  const desk = new Desk(call, C, OPTS, await call("wb_library"), { rnd: lcg(9) });
+  await desk.read(true);
+  const r = row("busyThin"), names = optionsFor(r, desk.state, OPTS).map((o) => o.name);
+  check(r && r.kind === "ov" && r.key === "NO_BUSY_THIN" && r.label === "Busy lead thins the comping" &&
+        JSON.stringify(names) === JSON.stringify(["On", "Off"]) && desk.values.busyThin === 0 && ex.wb_ov_get(OV.NO_BUSY_THIN) === 0,
+        `a "Busy lead thins the comping" row: on, off (${names.join(", ")}); a new song's is on`);
+  // a half-note song's keys with the row on or off (a probe instance's wb_events of the committed song)
+  const keysOf = async (seed, noThin) => {
+    const play = await load();
+    play.wb_seed(seed);
+    play.wb_role_set(V.CHORD, ins("Rhodes"));
+    play.wb_ov_set(OV.COMP, 4);
+    play.wb_ov_set(OV.NO_BUSY_THIN, noThin);
+    play.wb_apply();
+    const pex = await load();
+    new Uint8Array(pex.memory.buffer, pex.wb_commit_ptr(), pex.wb_stage_size())
+      .set(new Uint8Array(play.memory.buffer, play.wb_commit_ptr(), play.wb_stage_size()));
+    pex.wb_events(0);
+    return readEvents(pex).filter((e) => e.role === V.CHORD);
+  };
+  let seed = 0, on = null, offEv = null;
+  for (let s = 1; s <= 40 && !seed; s++) {
+    on = await keysOf(s, 0); offEv = await keysOf(s, 1);
+    if (JSON.stringify(on) !== JSON.stringify(offEv)) seed = s;
+  }
+  const b3 = (es) => es.filter((e) => e.step === 8).length;
+  check(seed > 0 && b3(offEv) > b3(on), `off, a busy-lead half-note song strikes beat 3 again (seed ${seed}: ${b3(on)} -> ${b3(offEv)} notes)`);
+  const t = await desk.set("busyThin", 1);
+  check(t.ok !== false && desk.values.busyThin === 1 && ex.wb_ov_get(OV.NO_BUSY_THIN) === 1, "the row turns it off");
+  // it rides in snapshots and replays; an older one (no such row) restores it on
+  await desk.set("seed", seed);
+  await desk.set("keys", ins("Rhodes"));
+  await desk.set("comp", 4);
+  const snap = await desk.snapshot();
+  const e2 = await load(), d2 = new Desk(caller(e2), C, OPTS, await caller(e2)("wb_library"));
+  const miss = await d2.restore(snap);
+  check(snap.rows.busyThin === 1 && !miss.length && d2.values.busyThin === 1 && e2.wb_ov_get(OV.NO_BUSY_THIN) === 1,
+        `a snapshot keeps it off (mismatch: ${miss.join(", ") || "none"})`);
+  const old = JSON.parse(JSON.stringify(snap));
+  delete old.rows.busyThin;
+  old.locks = [];
+  const e3 = await load(), d3 = new Desk(caller(e3), C, OPTS, await caller(e3)("wb_library"));
+  const miss3 = await d3.restore(old);
+  check(!miss3.length && d3.values.busyThin === 0 && e3.wb_ov_get(OV.NO_BUSY_THIN) === 0,
+        `an older snapshot (no such row) restores it on (mismatch: ${miss3.join(", ") || "none"})`);
+  const secs = 60;
+  const a = await replay(JSON.parse(JSON.stringify(snap)), secs), b = await replay(JSON.parse(JSON.stringify(old)), secs);
+  check(!a.mismatch.length && !b.mismatch.length && Buffer.compare(wav(a), wav(b)) !== 0,
+        `a replay plays it: off and on render differently (mismatch: ${[...a.mismatch, ...b.mismatch].join(", ") || "none"})`);
+  const s16 = JSON.parse(cstr(ex, ex.wb_state()));
+  check(fromEngine({ ...s16, ov: s16.ov.slice(0, 16) }, C, OPTS).busyThin === 0, "a 16-entry ov list reads it on");
+  await desk.set("busyThin", 0);
+  check(desk.values.busyThin === 0 && ex.wb_ov_get(OV.NO_BUSY_THIN) === 0, "and back on");
 }
 
 console.log("options.json: statuses");

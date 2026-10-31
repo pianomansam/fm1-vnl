@@ -36,6 +36,8 @@ export const ROWS = [
   { id: "arpPattern", group: VP, label: "Lead arpeggio pattern", kind: "ov", key: "ARP_PAT", source: "arpPatterns" },
   { id: "leadDouble", group: VP, label: "Lead may double other voices", kind: "ov", key: "LEAD_DOUBLE",
     source: "onOff" },
+  { id: "busyThin", group: VP, label: "Busy lead thins the comping", kind: "ov", key: "NO_BUSY_THIN",
+    source: "onOffInverted" },
   { id: "voicings", group: VP, label: "Keys voicings", kind: "reroll", key: "VOICING_SALT", part: "keys" },
   { id: "keysOct", group: VP, label: "Keys register", kind: "ov", key: "KEYS_OCT", source: "registers" },
   { id: "strumPat", group: VP, label: "Strum pattern", kind: "ov", key: "STRUM_PAT", source: "strumPats" },
@@ -101,6 +103,7 @@ function allOptions(r, state, opts, lib) {
                               { value: 1, name: "Up an octave" }];
     case "padOn": return [ROLLED, ...list(["Off", "On"])];
     case "onOff": return list(["Off", "On"]);
+    case "onOffInverted": return [{ value: 0, name: "On" }, { value: 1, name: "Off" }];   // the engine's flag turns it off
     case "padPlaces": return [ROLLED, ...list(["Below the lead", "With the lead", "Above the lead"])];
     case "rides": return [ROLLED, ...list(["None", "Throughout", "One section"])];
     case "kits": return opts.kits.map((k) => ({ value: k.id, name: k.name, status: k.status, family: k.family,
@@ -207,7 +210,8 @@ export function conflicts(r, value, state, opts, rnd = Math.random, lib) {
 }
 
 // an override row's "as rolled" value (the registers', the switches' and the re-rolls' 0, the others' -1)
-export const rolled = (r) => (r.source === "registers" || r.source === "onOff" || r.kind === "reroll" ? 0 : -1);
+export const rolled = (r) => (r.source === "registers" || r.source === "onOff" || r.source === "onOffInverted" ||
+                               r.kind === "reroll" ? 0 : -1);
 
 // The page's values from wb_state() (C: wb_consts()); the family is the page's, so it isn't here. A shorter ov list
 // (an older engine's state) leaves its newer overrides as rolled.

@@ -1105,18 +1105,23 @@ forced **28 us**, Bossa Nova forced (8) **28-32 us**, Ambient forced (9) **27-33
 three; worst song_start 6-8 us. Ambient's first lead bar scores 15 motif levels over the loop's chords (once a song);
 within Film Score's and Impressionism's range. The unforced events hash is unchanged (7dbc0885, 936e9bb7).
 
-### Keys comping: held on 2 and light eighths (2026-10-30)
+### Keys comping: held on 2, held on 2 and 4, light eighths; the busy-lead thinning switch (2026-10-30)
 
-Two comping styles (CS_HELD2, CS_LIGHT8, harmony.c), candidates on the percussive keys only; the roll weighs them 0, so
-an unforced song is unchanged (tests/run_tests.sh's pinned hashes hold; `tools/tick-bench.sh` unforced events 95171cd4,
-strummed 93256f33). The comping tables widen to 8 strikes a bar
-(patterns_comp_t step[8]/len[8], plus opt_pct and busy_steps): flash only, RAM .data+.bss unchanged (no new state:
-both styles keep one voicing per chord and draw the beat-4 re-strike from `mix(seed, bar, ...)`).
+Three comping styles (CS_HELD2, CS_LIGHT8, CS_HELD24, harmony.c), candidates on the percussive keys only; the roll
+weighs them 0, so an unforced song is unchanged (tests/run_tests.sh's pinned hashes hold; `tools/tick-bench.sh`
+unforced events 95171cd4, strummed 93256f33, the same before and after). The comping tables widen to 8 strikes a bar
+(patterns_comp_t step[8]/len[8]) and gain COMP_HELD24: flash only. song_ov_t gains one int8_t (no_busy_thin, the
+workbench's "Busy lead thins the comping" off, `VNL_BUSY=0` on the host): 1 B of .bss and one more test in
+harmony_step; 0 keeps today's thinning. No new state otherwise: the three styles keep one voicing per chord and draw
+nothing per bar.
 
 Image: **not measured yet.** `./build.sh` hung in its Docker step (the daemon stopped answering after the disk filled);
 to be added once Docker is back.
 
 CPU: `tools/tick-bench.sh 3000 5 -1 COMP` (a fourth argument, new: forces a comping style, held where the keys can't
-play it), three runs each, interleaved: worst tick over the other songs, none forced **26-30 us**, held on 2 forced (6)
-**26-27 us**, light eighths forced (7) **26-27 us**; worst song_start 6-8 us in all three. Light eighths strikes four
-times as often as half notes, but each strike is one voicing already built: no measurable cost.
+play it), interleaved runs: worst tick over the other songs, none forced **28-33 us** (4 runs), held on 2 forced (6)
+**28-35 us** (6 runs), held on 2 and 4 (8) **28 us** (2), light eighths (7) **28 us** (2); worst song_start 7-10 us in
+all. The worst seed moves from run to run (held on 2's 34-35 us fell on four different seeds), so the spread is the
+host's noise: held on 2 strikes once a bar, fewer than any comping but held. Light eighths strikes four times as often
+as half notes, but each strike is one voicing already built: no measurable cost. With the thinning off, a busy bar
+strikes as a quiet one does, which the unforced songs' quiet bars already cost.
