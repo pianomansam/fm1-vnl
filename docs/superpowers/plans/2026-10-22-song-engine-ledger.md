@@ -156,7 +156,7 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   re-roll (0 of 100 songs per style). Bring any back Sam misses.
 - **After the style roll (lead-styles Task 7, 2026-10-31).** (1) Duplicate sets from the spec's lead mapping: set 19
   ("Rhodes, FM bass and felt") now sounds the same as set 31 ("Rhodes and felt"), and set 29 is close to set 32
-  (Knight, flute, brushes; only bass and pad differ). Sam: a different lead for 19/29, or merge. (2) Comping pushes
+  (Knight, flute, brushes; only bass and pad differ). Sam: a different lead for 19/29, or merge. (2) The lead's pushes over the bar line
   halved under the roll (377 to 190 over the test's songs). (3) '60s Jazz and Impressionism drop a fifth or more of
   their notes in about 1 song in 8 when the workbench raises the keys (seed 34: 13 of 28). (4) The only lead under its
   keys is now set 28 seed 12 (-0.7 dB); set 11's seeds 4 and 6 are back above 0.
