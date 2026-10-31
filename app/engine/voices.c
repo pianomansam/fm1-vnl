@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* FM bell adapted from AMB-1 (fm1-amb), MPL-2.0 (the bell itself removed 2026-10-31). */
+/* TPT SVF adapted from AMB-1 (fm1-amb), MPL-2.0. */
 /* Voices and mix (see voices.h). The pitched roles are pools of voices: chords 4 (8 for a pad or a sampler), lead 2,
    candy 2, the bass, a mono pool of 1 whose level slews (AMP_K) and whose M_BASS retriggers are legato, and the pad
    layer 4. Each voice keeps the patch it was struck with, and voice_sample() dispatches on the patch's model:

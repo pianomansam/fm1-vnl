@@ -603,8 +603,9 @@ console.log("rows: retired options, dice, families");
         `family -> synth forces the kit to an approved synth kit (${c.forced.find((f) => f.row === "kit")?.to})`);
 
   const locked = acoustic();
-  locked.locks = new Set(["bass"]);
-  check(!conflicts(row("family"), "synth", locked, OPTS, lcg(3)).blocked, "the bass locked doesn't block family -> synth");
+  locked.locks = new Set(["keys", "lead"]);   // the Knight and the flute, both acoustic
+  check(!conflicts(row("family"), "synth", locked, OPTS, lcg(3)).blocked,
+        "acoustic keys and lead locked (the Knight, the flute) don't block family -> synth (the family is the drums')");
   locked.locks = new Set(["kit"]);
   const b = conflicts(row("family"), "synth", locked, OPTS, lcg(3));
   check(b.blocked?.label === "Kit", `Review Focus 3: the kit locked (Brushes, acoustic) blocks family -> synth (${b.blocked?.label})`);
