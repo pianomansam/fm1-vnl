@@ -64,8 +64,9 @@ const ROLLED = { value: -1, name: "As rolled", rolled: true };   // the engine's
 
 // the role a row fills in options.json's instruments
 const ROLE = { CHORD: "keys", LEAD: "lead", BASS: "bass", PAD: "pad" };
-// INS_KNIGHT, INS_EMILY, INS_FELT_PIANO: one per song, keys or lead (Sam; the felt never leads over itself, 2026-10-29)
-const ONE_PART = new Set([25, 26, 2]);
+// INS_KNIGHT, INS_FELT_PIANO: one per song, keys or lead (Sam; the felt never leads over itself, 2026-10-29). (The
+// Emilyguitar plays the keys only since the lead styles build.)
+const ONE_PART = new Set([25, 2]);
 
 // a progression's note without its source ("lofi-hip-hop.md 2, ii9-V13 vamp" -> "ii9-V13 vamp"); an imported one's file
 // ("imported from patterns/progressions/sam-vamp" -> "sam-vamp")
@@ -136,7 +137,8 @@ export function optionsFor(r, state, opts, { showRetired = false, lib } = {}) {
   return out;
 }
 
-// the song's family: its keys', else its lead's (electric goes with either), else acoustic
+// the song's family (it chooses the kit: Sam, 2026-10-29, the synth/acoustic divide applies to drums only): a new
+// song's from its keys, else its lead (electric goes with either), else acoustic
 export function familyOf(values, opts) {
   const fam = (id) => opts.instruments.find((i) => i.id === id)?.family;
   for (const f of [fam(values.keys), fam(values.lead)]) if (f === "acoustic" || f === "synth") return f;
@@ -146,21 +148,22 @@ export function familyOf(values, opts) {
 // an option fits a family: its own, electric, or none ("any")
 const fits = (o, family) => !o.family || o.family === family || o.family === "electric" || o.family === "any";
 
-// approved options of a row that fit the family, other than the current value (and a kit whose samples are missing)
+// approved options of a row, other than the current value (and a kit whose samples are missing); a kit's of the
+// family (the instruments mix freely across families)
 function approvedFits(r, state, opts, family, lib) {
   return allOptions(r, state, opts, lib)
     .filter((o) => (o.status ?? "approved") === "approved" && !o.rolled && !o.unavailable && !same(o.value, state.values[r.id]))
-    .filter((o) => r.kind === "family" || fits(o, family));
+    .filter((o) => r.source !== "kits" || fits(o, family));
 }
 
 const choose = (xs, rnd) => (xs.length ? xs[Math.floor(rnd() * xs.length) % xs.length].value : null);
 
-// The dice for a row the page rolls itself (family, role, ov, drum): a random approved option of the song's family
-// (or, for the family, the other one), never the current value. null when none exists.
+// The dice for a row the page rolls itself (family, role, ov, drum): a random approved option (a kit of the song's
+// family; for the family, the other one), never the current value. null when none exists.
 export function pickFor(r, state, opts, rnd = Math.random, lib) {
   const family = state.values.family ?? familyOf(state.values, opts);
   let xs = approvedFits(r, state, opts, family, lib);
-  if (r.source === "instruments" || r.source === "kits") {   // the family's own first, electric when it has none
+  if (r.source === "kits") {   // the family's own first, electric when it has none
     const own = xs.filter((o) => o.family === family);
     if (own.length) xs = own;
   }

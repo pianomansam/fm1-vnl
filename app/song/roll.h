@@ -22,6 +22,9 @@ void roll_song(const song_roll_t *prev, uint32_t seed, song_roll_t *out);   /* p
 int roll_dice(song_roll_t *r, int field, uint32_t salt);  /* 1: changed to another legal value; 0: none exists */
 int roll_set(song_roll_t *r, int field, int value);       /* manual pick, validated and clamped; the value applied
                                                              (the current one if refused); -1 if field is out of range */
+/* murmur3's finalizer over (a, b): a seed hashed apart for a draw of its own (xorshift is linear, so streams that
+   differ by a constant correlate) */
+uint32_t roll_mix(uint32_t a, uint32_t b);
 int roll_seconds(const song_roll_t *r);                   /* RF_BARS * 240 / RF_TEMPO */
 /* The song's drum kit (seed stream 192, hashed apart from the set's and the mood's draws): the set's synth kit or its
    sampled kit (skit), about half each; a set with no skit (the 808 and Brushes sets) its synth kit always, a set

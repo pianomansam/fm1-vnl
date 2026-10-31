@@ -44,7 +44,7 @@ int lead_motif_to(const lead_motif_t *m, int si0, int *at, int *len, int *si)
 
 /* The styles each lead instrument plays (the spec's fits, bit LS_*): the flute any of the eight; the felt piano '60s
    Jazz, Jazz-Hop, Film Score, Ambient; the vibes Impressionism, '60s Jazz, Jazz-Hop, Bossa Nova, Ambient; the Knight
-   '60s Jazz, Film Score, Ambient. Another lead instrument (until the sets drop it as a lead) takes the flute's. */
+   '60s Jazz, Film Score, Ambient. Any other instrument on the lead (a workbench pick) takes the flute's. */
 #define LSB(s) (1u << (s))
 static unsigned style_fit(int ins)
 {
@@ -55,22 +55,44 @@ static unsigned style_fit(int ins)
     return LSB(LS_N) - 1u;
 }
 
-int leads_style(const song_roll_t *r)
+/* The set's flavor's weight on each style, in quarters (the spec's "Style roll", Sam tunes them by ear): lofi Jazz-Hop
+   x3; bossa Bossa Nova x4; city pop Film Score and Jazz-Hop x2; neo-soul '60s Jazz, Modal Jazz and Jazz-Hop x2;
+   chillwave Ambient x3 and Impressionism x2; the rest x1, but Bossa Nova x0.25 outside the bossa sets.
+                  Impr  Rom  '60s  Modal  J-Hop  Film  Bossa  Amb */
+static const uint8_t FLAVOR_W[5][LS_N] = {
+    /* lofi */      {4,  4,   4,    4,    12,    4,    1,    4},
+    /* bossa */     {4,  4,   4,    4,     4,    4,   16,    4},
+    /* city pop */  {4,  4,   4,    4,     8,    8,    1,    4},
+    /* neo-soul */  {4,  4,   8,    8,     8,    4,    1,    4},
+    /* chillwave */ {8,  4,   4,    4,     4,    4,    1,   12},
+};
+
+int leads_weight(int ins, int flavor, int style)
+{
+    if (style < 0 || style >= LS_N || !((style_fit(ins) >> style) & 1u)) return 0;
+    return FLAVOR_W[flavor >= 0 && flavor < 5 ? flavor : FL_LOFI][style];
+}
+
+/* The roll: weight = fit x flavor (leads_weight), drawn from the song's seed (hashed apart, its own stream: a lead
+   re-roll, a salt, keeps it) */
+int leads_style_roll(const song_roll_t *r)
 {
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
-    int s = song_ov()->lead_style, k, i;
-    unsigned fit;
+    int ins = set ? set->lead : INS_FLUTE, fl = set ? set->flavor : FL_LOFI, tot = 0, k, i;
     rng_t g;
-    if (s >= 2 && s < 2 + LS_N) return s - 2;            /* forced (0 and 1, the retired engines: rolled) */
-    fit = style_fit(set ? set->lead : INS_FLUTE);       /* rolled: one of the instrument's fits, evenly (an interim
-                                                           draw: the style roll, by fit and the set's flavor, replaces
-                                                           it), from the song's seed (a lead re-roll keeps it) */
-    for (i = k = 0; i < LS_N; i++) k += (fit >> i) & 1u;
-    rng_seed(&g, r->seed, 143);
-    k = rng_int(&g, k);
-    for (i = 0; i < LS_N; i++)
-        if ((fit >> i) & 1u && k-- == 0) break;
+    for (i = 0; i < LS_N; i++) tot += leads_weight(ins, fl, i);
+    rng_seed(&g, roll_mix(r->seed, 0x57E1u), 144);
+    k = rng_int(&g, tot);
+    for (i = 0; i < LS_N - 1; i++)
+        if ((k -= leads_weight(ins, fl, i)) < 0) break;
     return i;
+}
+
+int leads_style(const song_roll_t *r)
+{
+    int s = song_ov()->lead_style;
+    return s >= 2 && s < 2 + LS_N ? s - 2 : leads_style_roll(r);   /* forced; else (0 and 1, the retired engines,
+                                                                        too) rolled */
 }
 
 int leads_fit(int ins, int style) { return style >= 0 && style < LS_N && (style_fit(ins) >> style) & 1u; }
@@ -78,9 +100,7 @@ int leads_fit(int ins, int style) { return style >= 0 && style < LS_N && (style_
 int leads_style_keep(const song_roll_t *r, int prev)
 {
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
-    int s = song_ov()->lead_style;
-    if (s >= 2 && s < 2 + LS_N) return s - 2;
-    return leads_fit(set ? set->lead : INS_FLUTE, prev) ? prev : leads_style(r);
+    return leads_fit(set ? set->lead : INS_FLUTE, prev) ? prev : leads_style_roll(r);
 }
 
 /* The centers: each style's median lead pitch in its spike's five A/B songs (seeds 101-105: 1 flute G Aeolian,

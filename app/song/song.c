@@ -242,11 +242,14 @@ static void keys_win_for(song_t *s)
     s->win_style = (int8_t)s->lead.style;
 }
 
-/* The song's lead style, kept (leads_style_keep): a change (a set whose lead can't play it, the workbench forcing
-   another) starts the new style clean: the last style's own state (the st union, Bossa Nova's fields) zeroed */
+/* The style the lead plays: the workbench's forced one, else the song's rolled one, kept (leads_style_keep: rolled
+   again only for a set whose lead can't play it), so clearing the override gives it back. A change starts the new
+   style clean: the last style's own state (the st union, Bossa Nova's fields) zeroed */
 static void style_for(song_t *s)
 {
-    int st = leads_style_keep(&s->roll, s->lead.style - 1) + 1;
+    int o = song_ov()->lead_style, st;
+    s->lead.rolled = leads_style_keep(&s->roll, s->lead.rolled - 1) + 1;
+    st = o >= 2 && o < 2 + LS_N ? o - 1 : s->lead.rolled;
     if (st == s->lead.style) return;
     memset(&s->lead.st, 0, sizeof s->lead.st);
     s->lead.anchor = s->lead.akey = s->lead.ctrun = 0;
@@ -420,6 +423,7 @@ void song_start(song_t *s, const song_roll_t *r)
     s->glide_t0 = -64;
     s->state = s->roll.v[RF_BARS] > 0 ? SS_PLAYING : SS_ENDED;
     ride_for(s);
+    s->lead.rolled = leads_style_roll(&s->roll) + 1;
     s->lead.style = leads_style(&s->roll) + 1;
     keys_win_for(s);
 }

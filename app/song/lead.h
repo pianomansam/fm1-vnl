@@ -14,8 +14,9 @@ typedef struct {
     unsigned acc;                 /* accented onsets (a style's landings) */
     unsigned ring;                /* onsets that ring across the bar line (pushes) */
     int last;                     /* the last note sung (0: none yet) */
-    int style;                    /* the song's lead style, LS_* + 1 (0: not resolved: leads_style); song.c keeps it
-                                     all song (leads_style_keep) */
+    int style;                    /* the style the lead plays, LS_* + 1 (0: not resolved: leads_style): the
+                                     workbench's forced one, else the song's rolled one */
+    int rolled;                   /* the song's rolled style, LS_* + 1: song.c keeps it all song (leads_style_keep) */
     int anchor, akey, ctrun;      /* Bossa Nova's own across bars (bossa.c) */
     int tied;                     /* a note was pushed from the last bar into this one */
     int active;                   /* the lead sounds in the planned bar (an onset, or a note pushed in) */

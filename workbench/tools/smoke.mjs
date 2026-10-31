@@ -536,6 +536,11 @@ console.log("options.json");
         ["Felt piano", "Vibes"].every((n) => OPTS.instruments.find((i) => i.name.startsWith(n))?.roles.includes("lead") &&
                                              OPTS.instruments.find((i) => i.name.startsWith(n)).status === "approved"),
         "leads (Sam, 2026-10-29): the felt piano and the vibes offered, the trumpet, sax, guitar lick, string lead and cello retired");
+  const leads = optionsFor(row("lead"), { values: {} }, OPTS).map((o) => o.name).sort();
+  check(retired(OPTS.instruments, ["Kalimba", "Saw lead", "Synth pluck"]) &&
+        JSON.stringify(OPTS.instruments.find((i) => i.name === "Emilyguitar").roles) === '["keys"]' &&
+        JSON.stringify(leads) === JSON.stringify(["Felt piano", "Flute", "Knight piano", "Vibes (sampled vibraphone)"]),
+        `the lead styles build: the lead row offers the four (${leads.join(", ")}); the kalimba, saw lead and synth pluck retired, the Emilyguitar on the keys only`);
   check(retired(OPTS.instruments, ["Upright bass"]) && retired(OPTS.comping, ["Arpeggio", "Offbeats"]) &&
         retired(OPTS.kits, ["Dusty", "Soft", "Our 808", "Warm", "Dark", "Rusty", "Gentle", "Clean"]),
         "the removed sounds are retired (upright, our synth kits, the mixed sampled kits, arpeggio, offbeats)");
@@ -561,35 +566,40 @@ console.log("rows: retired options, dice, families");
 
   const rnd = lcg(7);
   let bad = [];
+  const crossed = new Set();
   for (const fam of ["acoustic", "synth"]) {
     const s = acoustic();
     s.values.family = fam;
-    if (fam === "synth") Object.assign(s.values, { keys: ins("DX electric piano"), lead: ins("Saw lead"), bass: ins("FM bass"),
-                                                   pad: ins("Warm pad") });
+    if (fam === "synth") Object.assign(s.values, { keys: ins("DX electric piano"), lead: ins("Vibes (sampled vibraphone)"),
+                                                   bass: ins("FM bass"), pad: ins("Warm pad") });
     for (const id of ["keys", "lead", "bass", "pad", "padOn", "kit", "comp", "pattern", "kick", "family", "leadOct"])
       for (let i = 0; i < 40; i++) {
         const v = pickFor(row(id), s, OPTS, rnd);
         if (v === null) continue;
-        const f = ["keys", "lead", "bass", "pad", "kit"].includes(id) ? famOf(v, id) : null;
+        const f = id === "kit" ? famOf(v, id) : null;   // (the instruments mix freely: the family is the drums')
         if (String(v) === String(s.values[id]) || (f && f !== fam && f !== "electric" && f !== "any")) bad.push(`${fam} ${id}=${v}`);
+        if (["keys", "bass", "pad"].includes(id) && !["electric", "any", fam].includes(famOf(v))) crossed.add(id);
         const o = optionsFor(row(id), s, OPTS).find((x) => String(x.value) === String(v));
         if (id !== "family" && (o?.status ?? "approved") !== "approved") bad.push(`${fam} ${id}=${v} not approved`);
       }
   }
-  check(!bad.length, `pickFor never returns the current value, another family's or an unapproved one (${bad.slice(0, 4).join(", ") || "none"})`);
+  check(!bad.length, `pickFor never returns the current value, another family's kit or an unapproved one (${bad.slice(0, 4).join(", ") || "none"})`);
+  check(["keys", "bass", "pad"].every((id) => crossed.has(id)),
+        `families choose the drums only (Sam, 2026-10-29): the keys, bass and pad dice cross families (${[...crossed].join(", ")})`);
 
   const c = conflicts(row("family"), "synth", acoustic(), OPTS, lcg(3));
-  const to = Object.fromEntries(c.forced.map((f) => [f.row, f.to]));
-  check(["bass", "pad"].every((id) => famOf(to[id]) === "synth") && !c.blocked,
-        `family -> synth re-derives bass and pad to synth (${["bass", "pad"].map((id) => `${id} ${to[id]}`).join(", ")})`);
+  check(c.forced.length === 1 && !c.blocked,
+        `family -> synth forces the kit only, the keys, lead, bass and pad as they were (${c.forced.map((f) => f.row).join(", ")})`);
   const synthKits = OPTS.kits.filter((k) => k.family === "synth" && k.status === "approved").map((k) => k.id);
   check(c.forced.some((f) => f.row === "kit" && synthKits.includes(f.to)) && !c.stuck.length,
         `family -> synth forces the kit to an approved synth kit (${c.forced.find((f) => f.row === "kit")?.to})`);
 
   const locked = acoustic();
   locked.locks = new Set(["bass"]);
+  check(!conflicts(row("family"), "synth", locked, OPTS, lcg(3)).blocked, "the bass locked to the upright doesn't block family -> synth");
+  locked.locks = new Set(["kit"]);
   const b = conflicts(row("family"), "synth", locked, OPTS, lcg(3));
-  check(b.blocked?.label === "Bass", `Review Focus 3: the bass locked to the upright blocks family -> synth (${b.blocked?.label})`);
+  check(b.blocked?.label === "Kit", `Review Focus 3: the kit locked (Brushes, acoustic) blocks family -> synth (${b.blocked?.label})`);
 
   const st2 = acoustic();
   st2.values.comp = 1;   // stabs, on the Knight
@@ -637,17 +647,23 @@ console.log("desk: rows over the engine");
   check(!missed.length, `each row's change lands at the next bar (${missed.join(", ") || "all"})`);
   check(db(render(ex, 4 * SR)) > -45, "and the song still sounds");
 
-  // Review Focus 3, end to end: the bass hand-set to the upright and locked; family -> synth is blocked, nothing staged
+  // Review Focus 3, end to end: the kit hand-set to an acoustic kit and locked; family -> synth is blocked, nothing
+  // staged; unlocked, the kit follows and nothing else (families choose the drums only: Sam, 2026-10-29)
   await desk.set("family", "acoustic");
   await desk.set("bass", ins("Upright bass"));
-  desk.lock("bass", true);
+  await desk.set("kit", 3);
+  desk.lock("kit", true);
   const before = cstr(ex, ex.wb_state());
   const res = await desk.set("family", "synth");
-  check(!res.ok && /Bass/.test(res.message) && cstr(ex, ex.wb_state()) === before && desk.values.family === "acoustic",
-        `Review Focus 3: family -> synth with the bass locked: blocked, nothing changed ("${res.message}")`);
-  desk.lock("bass", false);
+  check(!res.ok && /Kit/.test(res.message) && cstr(ex, ex.wb_state()) === before && desk.values.family === "acoustic",
+        `Review Focus 3: family -> synth with the kit locked: blocked, nothing changed ("${res.message}")`);
+  desk.lock("kit", false);
+  const ins0 = ["keys", "lead", "bass", "pad"].map((id) => desk.values[id]).join();
   const ok = await desk.set("family", "synth");
-  check(ok.ok && famOf(desk.values.bass) === "synth" && ok.moved.includes("bass"), `unlocked, the bass follows and is highlighted (${ok.moved.join(", ")})`);
+  check(ok.ok && famOf(desk.values.kit, "kit") === "synth" && ok.moved.includes("kit") &&
+        ["keys", "lead", "bass", "pad"].map((id) => desk.values[id]).join() === ins0 &&
+        !ok.moved.some((id) => ["keys", "lead", "bass", "pad"].includes(id)),
+        `unlocked, the kit follows and is highlighted, the keys, lead, bass and pad unchanged (${ok.moved.join(", ")})`);
 
   // a locked progression: a mood that can't keep it is blocked; the others keep it
   desk.lock("prog", true);
@@ -1581,6 +1597,19 @@ console.log("Task 1b: no ear candy; the pad on/off row");
   check(!miss3.length && d3.values.lead === ins("Flute") && JSON.parse(cstr(e3, e3.wb_state())).roles[C.V.LEAD] === ins("Flute") &&
         /Sax is retired/.test(d3.message),
         `a snapshot with the retired sax restores on the flute (mismatch: ${miss3.join(", ") || "none"}; "${d3.message}")`);
+  // the leads retired by the lead styles build: the kalimba, saw lead and synth pluck, and the Emilyguitar as a lead
+  // (it stays on the keys): each restores on its stand-in (the flute or the vibes), said
+  for (const [name, to, said] of [["Kalimba", "Flute", "Kalimba is retired;"], ["Saw lead", "Vibes (sampled vibraphone)", "Saw lead is retired;"],
+                                  ["Synth pluck", "Flute", "Synth pluck is retired;"], ["Emilyguitar", "Flute", "Emilyguitar is retired as a lead;"]]) {
+    const sn = await desk.snapshot();
+    sn.rows.lead = ins(name);
+    sn.locks = [];
+    const e4 = await load(), d4 = new Desk(caller(e4), C, OPTS, await caller(e4)("wb_library"));
+    const miss4 = await d4.restore(sn);
+    check(!miss4.length && d4.values.lead === ins(to) && JSON.parse(cstr(e4, e4.wb_state())).roles[C.V.LEAD] === ins(to) &&
+          d4.message.includes(said),
+          `a snapshot with the ${name} on the lead restores on the ${to} (mismatch: ${miss4.join(", ") || "none"}; "${d4.message}")`);
+  }
   const s8 = JSON.parse(cstr(ex, ex.wb_state()));
   s8.ov = s8.ov.slice(0, 8);
   check(fromEngine(s8, C, OPTS).padOn === -1 && fromEngine({ ...s8, ov: s8.ov.concat([0, 0, 0]) }, C, OPTS).padOn === -1,

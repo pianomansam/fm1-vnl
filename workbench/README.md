@@ -20,7 +20,7 @@ AudioWorklet. Local only; not the FM-1, so it may exceed the device's budgets.
 - `wb-worklet.js` runs wb.wasm (base/web/emu/worklet.js's pattern, without the device); `wb.js` is the page's side;
   `index.html` the page: the transport and the decision rows (layout A).
 - `rows.js`: the rows, what each dropdown offers (from `options.json`; retired options only behind "show retired"),
-  the dice (an approved option of the song's family) and what a value forces (a row it moves, or the lock that blocks
+  the dice (an approved option; a kit of the song's family: the family chooses the drums only) and what a value forces (a row it moves, or the lock that blocks
   it). `desk.js` drives the engine with them: every change is staged, checked against the locks (undone whole if a
   locked row would move) and landed; a seed or map change stages every locked or hand-set row again. The lead register's read-back runs scratch songs in a second wb.wasm on the main
   thread (`wb.js`'s probe), never on the audio thread.

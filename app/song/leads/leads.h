@@ -42,14 +42,19 @@ int leads_motif(const song_roll_t *r, lead_motif_t *m);
 /* The motif's notes again, its first on scale index si0; returns n. */
 int lead_motif_to(const lead_motif_t *m, int si0, int *at, int *len, int *si);
 
-/* The song's lead style (LS_*): the lead_style override's (2 + LS_*), else rolled by the lead instrument's fits
-   (0 and 1, the retired phrase planner and hybrid, roll too). A pure function of the roll and the overrides. */
+/* The song's lead style (LS_*): the lead_style override's (2 + LS_*), else rolled (leads_style_roll; 0 and 1, the
+   retired phrase planner and hybrid, roll too). A pure function of the roll and the overrides. */
 int leads_style(const song_roll_t *r);
+/* The song's rolled style, the override aside: weighted by the lead instrument's fit and the set's flavor
+   (leads_weight), from the song's seed. */
+int leads_style_roll(const song_roll_t *r);
+/* A style's roll weight (0: the instrument isn't rolled for it) on a lead instrument in a set of flavor FL_*. */
+int leads_weight(int ins, int flavor, int style);
 /* 1 if the lead instrument plays the style (its fits; any other lead instrument takes the flute's: all eight) */
 int leads_fit(int ins, int style);
-/* The song's style after a change (a set or mood request, the workbench's override): the forced one, else prev
-   (LS_*) where the song's lead instrument plays it, else drawn again (leads_style). A song resolves its style once
-   (song_start: lead_state_t.style) and keeps it through this. */
+/* The song's rolled style after a change (a set or mood request): prev (LS_*) where the song's lead instrument plays
+   it, else rolled again (leads_style_roll). A song rolls its style once (song_start) and keeps it through this; the
+   workbench's override plays over it and, cleared, gives it back (song.c). */
 int leads_style_keep(const song_roll_t *r, int prev);
 /* The register center (MIDI) of a style on a lead instrument, kept 6 semitones inside the instrument's range. */
 int leads_center(int style, int ins);

@@ -15,25 +15,26 @@ const lib_set_t LIB_SETS[] = {
     {2, "Bossa nylon", INS_NYLON, INS_SUB, INS_VIBES, INS_KALIMBA, INS_STRINGS, KIT_BRUSHES, KIT_N, FL_BOSSA, MOOD_WARM | MOOD_SUNNY, "task brief: bossa set"},
     {3, "Neo-soul Wurli", INS_WURLI, INS_ELEC_BASS, INS_FELT_PIANO, INS_BELLS, INS_STRINGS, KIT_SOFT, KIT_S_GENTLE, FL_NEOSOUL, MOOD_SAD | MOOD_WISTFUL, "task brief: neo-soul set; the felt piano leads (was the sax: Sam, 2026-10-29)"},
     {4, "Felt and vibes", INS_FELT_PIANO, INS_ELEC_BASS, INS_VIBES, INS_NONE, INS_STRINGS, KIT_DUSTY, KIT_S_DARK, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "task brief: felt piano with muted trumpet; the vibes lead (the trumpet went, Sam, 2026-10-29)"},
-    {5, "Chillwave pad", INS_PAD, INS_SUB, INS_KALIMBA, INS_NONE, INS_STRINGS, KIT_808, KIT_N, FL_CHILLWAVE, MOOD_WARM | MOOD_SUNNY, "task brief: chillwave set"},
+    {5, "Chillwave pad", INS_PAD, INS_SUB, INS_FELT_PIANO, INS_NONE, INS_STRINGS, KIT_808, KIT_N, FL_CHILLWAVE, MOOD_WARM | MOOD_SUNNY, "task brief: chillwave set; the felt piano leads (lead styles build: Sam, 2026-10-29)"},
     {6, "City pop Rhodes", INS_RHODES, INS_ELEC_BASS, INS_VIBES, INS_BELLS, INS_STRINGS, KIT_SOFT, KIT_S_CLEAN, FL_CITYPOP, MOOD_WARM | MOOD_SUNNY, "task brief: bright Rhodes city pop set; the vibes lead (was the guitar lick: Sam, 2026-10-29)"},
     {7, "Felt and flute", INS_FELT_PIANO, INS_SUB, INS_FLUTE, INS_MUSIC_BOX, INS_STRINGS, KIT_SOFT, KIT_S_GENTLE, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "brainstorm: quiet felt piano lofi"},
     {8, "Wurli and vibes", INS_WURLI, INS_ELEC_BASS, INS_VIBES, INS_KALIMBA, INS_STRINGS, KIT_DUSTY, KIT_S_GENTLE, FL_LOFI, MOOD_WARM | MOOD_SUNNY, "brainstorm: warm Wurlitzer lofi"},
     {9, "Nylon and flute", INS_NYLON, INS_ELEC_BASS, INS_FLUTE, INS_NONE, INS_STRINGS, KIT_BRUSHES, KIT_N, FL_BOSSA, MOOD_WISTFUL | MOOD_WARM, "brainstorm: late-night bossa; the flute leads (was the sax: Sam, 2026-10-29; a sustained lead, so the nylon still strums)"},
-    {10, "Pad and pluck", INS_PAD, INS_ELEC_BASS, INS_SYNTH_PLUCK, INS_NONE, INS_STRINGS, KIT_808, KIT_N, FL_CHILLWAVE, MOOD_SAD | MOOD_WISTFUL, "brainstorm: hazy chillwave; the vibes lead (was the guitar lick: Sam, 2026-10-29); the synth pluck leads (vibes rebalance: Sam, 2026-10-29)"},
+    {10, "Pad and flute", INS_PAD, INS_ELEC_BASS, INS_FLUTE, INS_NONE, INS_STRINGS, KIT_808, KIT_N, FL_CHILLWAVE, MOOD_SAD | MOOD_WISTFUL, "brainstorm: hazy chillwave; the vibes lead (was the guitar lick: Sam, 2026-10-29); the synth pluck leads (vibes rebalance: Sam, 2026-10-29); the flute leads (lead styles build: Sam, 2026-10-29)"},
     {11, "Rhodes neo-soul", INS_RHODES, INS_ELEC_BASS, INS_FELT_PIANO, INS_VIBES, INS_STRINGS, KIT_SOFT, KIT_S_WARM, FL_NEOSOUL, MOOD_WARM | MOOD_SUNNY, "brainstorm: smooth neo-soul; the felt piano leads (was the muted trumpet: Sam, 2026-10-29)"},
     /* the synth sets (synths plan Task 4; Sam's cut, 2026-10-24: only the DX EP, the FM slap bass, the triangle bass,
-       the organ, the saw lead and the synth pluck kept). 13, 18 and 20 all synth (keys, bass and lead), so every mood
-       has one; the ear candy acoustic or none. Ids 12, 14-16 retired (the Juno, chip, organ and sine, Rhodes and Moog
-       sets). */
-    {13, "DX keys and FM bass", INS_DX_EP, INS_FM_BASS, INS_SAW_LEAD, INS_VIBES, INS_WARM_PAD, KIT_SOFT, KIT_S_CLEAN, FL_CITYPOP, MOOD_WARM | MOOD_SUNNY, "synths spec: 80s FM keys and bass, city pop; Sam's cut: the saw lead"},
-    {18, "Organ and saw lead", INS_ORGAN, INS_CHIP_BASS, INS_SAW_LEAD, INS_MUSIC_BOX, INS_WARM_PAD, KIT_SOFT, KIT_S_RUSTY, FL_NEOSOUL, MOOD_SAD | MOOD_WISTFUL, "Sam's cut: an organ over the triangle bass under a saw lead"},
-    {19, "Rhodes and saw lead", INS_RHODES, INS_FM_BASS, INS_SAW_LEAD, INS_NONE, INS_WARM_PAD, KIT_DUSTY, KIT_S_DARK, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "Sam's cut: a dusty Rhodes, the FM slap bass, a saw lead (was Rhodes and Moog)"},
-    {20, "DX and pluck", INS_DX_EP, INS_CHIP_BASS, INS_SYNTH_PLUCK, INS_KALIMBA, INS_WARM_PAD, KIT_SOFT, KIT_S_RUSTY, FL_CHILLWAVE, MOOD_SAD | MOOD_WARM, "Sam's cut: DX keys, the triangle bass, a synth pluck, chillwave"},
-    {17, "Nylon and synth pluck", INS_NYLON, INS_SUB, INS_SYNTH_PLUCK, INS_KALIMBA, INS_STRINGS, KIT_BRUSHES, KIT_N, FL_BOSSA, MOOD_WISTFUL | MOOD_SUNNY, "synths spec: a nylon guitar under a synth pluck"},
-    /* the sampled sets (sampled instruments spec, Task 5): the Knight upright and the Emilyguitar each on the keys
-       and on the lead, never both in one set (Sam: the one acoustic piano is the keys or the lead in a song; the
-       Emilyguitar the same). */
+       the organ, the saw lead and the synth pluck kept). The ear candy acoustic or none. Ids 12, 14-16 retired (the
+       Juno, chip, organ and sine, Rhodes and Moog sets). The lead styles build (Sam, 2026-10-29): the saw lead and the
+       synth pluck lead no set (one of the four lead instruments in their place), and the synth/acoustic divide is the
+       drums' only, so no mood needs an all-synth set. */
+    {13, "DX keys and FM bass", INS_DX_EP, INS_FM_BASS, INS_VIBES, INS_VIBES, INS_WARM_PAD, KIT_SOFT, KIT_S_CLEAN, FL_CITYPOP, MOOD_WARM | MOOD_SUNNY, "synths spec: 80s FM keys and bass, city pop; Sam's cut: the saw lead; the vibes lead (lead styles build: Sam, 2026-10-29)"},
+    {18, "Organ and felt", INS_ORGAN, INS_CHIP_BASS, INS_FELT_PIANO, INS_MUSIC_BOX, INS_WARM_PAD, KIT_SOFT, KIT_S_RUSTY, FL_NEOSOUL, MOOD_SAD | MOOD_WISTFUL, "Sam's cut: an organ over the triangle bass under a saw lead; the felt piano leads (lead styles build: Sam, 2026-10-29)"},
+    {19, "Rhodes, FM bass and felt", INS_RHODES, INS_FM_BASS, INS_FELT_PIANO, INS_NONE, INS_WARM_PAD, KIT_DUSTY, KIT_S_DARK, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "Sam's cut: a dusty Rhodes, the FM slap bass, a saw lead (was Rhodes and Moog); the felt piano leads (lead styles build: Sam, 2026-10-29)"},
+    {20, "DX and felt", INS_DX_EP, INS_CHIP_BASS, INS_FELT_PIANO, INS_KALIMBA, INS_WARM_PAD, KIT_SOFT, KIT_S_RUSTY, FL_CHILLWAVE, MOOD_SAD | MOOD_WARM, "Sam's cut: DX keys, the triangle bass, a synth pluck, chillwave; the felt piano leads (lead styles build: Sam, 2026-10-29)"},
+    {17, "Nylon, sub and flute", INS_NYLON, INS_SUB, INS_FLUTE, INS_KALIMBA, INS_STRINGS, KIT_BRUSHES, KIT_N, FL_BOSSA, MOOD_WISTFUL | MOOD_SUNNY, "synths spec: a nylon guitar under a synth pluck; the flute leads (lead styles build: Sam, 2026-10-29)"},
+    /* the sampled sets (sampled instruments spec, Task 5): the Knight upright on the keys or the lead, never both in
+       one set (Sam: the one acoustic piano is the keys or the lead in a song); the Emilyguitar on the keys only since
+       the lead styles build (Sam, 2026-10-29: its sets 28 and 29 lead with the Knight and the flute). */
     {21, "Knight and flute", INS_KNIGHT, INS_ELEC_BASS, INS_FLUTE, INS_MUSIC_BOX, INS_STRINGS, KIT_DUSTY, KIT_S_DARK, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "sampled spec: the Knight's keys under the flute, dusty lofi"},
     {22, "Knight and felt", INS_KNIGHT, INS_ELEC_BASS, INS_FELT_PIANO, INS_VIBES, INS_STRINGS, KIT_SOFT, KIT_S_WARM, FL_NEOSOUL, MOOD_WISTFUL | MOOD_WARM, "sampled spec: the Knight's keys under the sax, neo-soul; the felt piano leads (Sam, 2026-10-29)"},
     {23, "Rhodes and Knight", INS_RHODES, INS_ELEC_BASS, INS_KNIGHT, INS_NONE, INS_STRINGS, KIT_DUSTY, KIT_S_WARM, FL_LOFI, MOOD_WARM | MOOD_SUNNY, "sampled spec: a Knight lead over the Rhodes"},
@@ -41,14 +42,14 @@ const lib_set_t LIB_SETS[] = {
     {25, "DX and Knight", INS_DX_EP, INS_FM_BASS, INS_KNIGHT, INS_BELLS, INS_WARM_PAD, KIT_SOFT, KIT_S_CLEAN, FL_CITYPOP, MOOD_WARM | MOOD_SUNNY, "sampled spec: a Knight lead over the DX keys and the FM bass, city pop"},
     {26, "Emilyguitar and vibes", INS_EMILY, INS_ELEC_BASS, INS_VIBES, INS_KALIMBA, INS_STRINGS, KIT_SOFT, KIT_S_RUSTY, FL_CITYPOP, MOOD_WARM | MOOD_SUNNY, "sampled spec: the Emilyguitar comping (strums, stabs) under the vibes"},
     {27, "Emilyguitar and flute", INS_EMILY, INS_SUB, INS_FLUTE, INS_MUSIC_BOX, INS_STRINGS, KIT_DUSTY, KIT_S_GENTLE, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "sampled spec: the Emilyguitar comping under the flute"},
-    {28, "Rhodes and Emilyguitar", INS_RHODES, INS_ELEC_BASS, INS_EMILY, INS_VIBES, INS_STRINGS, KIT_SOFT, KIT_S_RUSTY, FL_NEOSOUL, MOOD_WARM | MOOD_SUNNY, "sampled spec: an Emilyguitar lead over the Rhodes"},
-    {29, "Knight and Emilyguitar", INS_KNIGHT, INS_ELEC_BASS, INS_EMILY, INS_NONE, INS_STRINGS, KIT_BRUSHES, KIT_N, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "sampled spec: an Emilyguitar lead over the Knight, brushes"},
+    {28, "Rhodes and Knight, neo-soul", INS_RHODES, INS_ELEC_BASS, INS_KNIGHT, INS_VIBES, INS_STRINGS, KIT_SOFT, KIT_S_RUSTY, FL_NEOSOUL, MOOD_WARM | MOOD_SUNNY, "sampled spec: an Emilyguitar lead over the Rhodes; the Knight leads (lead styles build: Sam, 2026-10-29)"},
+    {29, "Knight and flute, brushes", INS_KNIGHT, INS_ELEC_BASS, INS_FLUTE, INS_NONE, INS_STRINGS, KIT_BRUSHES, KIT_N, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "sampled spec: an Emilyguitar lead over the Knight, brushes; the flute leads (lead styles build: Sam, 2026-10-29)"},
     /* the string synth's leads' sets (sampled spec, Task 6), the warm synth pad under them (the pad layer's strings
        would have doubled the lead); the string lead and cello went (Sam, 2026-10-29): the vibes, felt or flute lead */
     {30, "Knight and flute, warm pad", INS_KNIGHT, INS_ELEC_BASS, INS_FLUTE, INS_MUSIC_BOX, INS_WARM_PAD, KIT_SOFT, KIT_S_GENTLE, FL_LOFI, MOOD_WISTFUL | MOOD_WARM, "sampled spec: a high string lead over the Knight (Task 5's deferred set); the vibes lead (Sam, 2026-10-29); the flute leads (vibes rebalance: Sam, 2026-10-29)"},
     {31, "Rhodes and felt", INS_RHODES, INS_FM_BASS, INS_FELT_PIANO, INS_BELLS, INS_WARM_PAD, KIT_DUSTY, KIT_S_DARK, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "sampled spec: the cello lead inside a dusty Rhodes, the FM slap bass under them; the felt piano leads (Sam, 2026-10-29)"},
     {32, "Knight, flute and brushes", INS_KNIGHT, INS_SUB, INS_FLUTE, INS_NONE, INS_WARM_PAD, KIT_BRUSHES, KIT_N, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "sampled spec: the cello lead inside the Knight, brushes; the flute leads (Sam, 2026-10-29)"},
-    {33, "DX and saw lead", INS_DX_EP, INS_ELEC_BASS, INS_SAW_LEAD, INS_VIBES, INS_WARM_PAD, KIT_SOFT, KIT_S_CLEAN, FL_CITYPOP, MOOD_WARM | MOOD_SUNNY, "sampled spec: a high string lead over the DX keys, city pop; the vibes lead (Sam, 2026-10-29); the saw lead leads (vibes rebalance: Sam, 2026-10-29)"},
+    {33, "DX and vibes", INS_DX_EP, INS_ELEC_BASS, INS_VIBES, INS_VIBES, INS_WARM_PAD, KIT_SOFT, KIT_S_CLEAN, FL_CITYPOP, MOOD_WARM | MOOD_SUNNY, "sampled spec: a high string lead over the DX keys, city pop; the vibes lead (Sam, 2026-10-29); the saw lead leads (vibes rebalance: Sam, 2026-10-29); the vibes lead (lead styles build: Sam, 2026-10-29)"},
 };
 const int LIB_NSETS = (int)(sizeof LIB_SETS / sizeof LIB_SETS[0]);
 
@@ -120,13 +121,6 @@ const lib_map_t *lib_map_by_id(uint8_t id)
 
 /* the keys' octave shift for a set: the Chillwave pad an octave lower (Sam, 2026-10-24: "only the chillwave pad needs
    to come down to that lower octave") */
-/* dB added to the set's lead level: set 10's synth pluck, +1.2 (its lead over keys sat 0.5 dB under the 8 dB floor;
-   vibes rebalance: Sam, 2026-10-29); a workbench copy keeps it by its base id */
-float lib_set_lead_db(const lib_set_t *s)
-{
-    return s && set_key(s) == 10 ? 1.2f : 0.0f;
-}
-
 int lib_set_keys_shift(const lib_set_t *s)
 {
     return s && set_key(s) == 5 ? -12 : 0;
@@ -147,15 +141,16 @@ int lib_ins_sustained(int ins)
            ins == INS_STRINGS || ins == INS_WARM_PAD || ins == INS_CHOIR;
 }
 
-/* The leads Sam removed (2026-10-29: "i only liked the felt piano and vibraphones"): an approved lead of their family
-   in their place (the acoustic ones the flute, the guitar lick the vibes, the string lead the saw lead); any other
-   instrument is itself */
+/* The leads Sam removed (2026-10-29: "i only liked the felt piano and vibraphones"; the lead styles build: the
+   kalimba, saw lead, synth pluck and Emilyguitar no longer lead, the Emilyguitar stays on the keys): one of the four
+   lead instruments in their place, the flute or the vibes (never on the keys, so never a lead over itself): the
+   breathy and plucked ones the flute, the struck and synth ones the vibes; any other instrument is itself */
 int lib_lead_approved(int ins)
 {
     switch (ins) {
-    case INS_MUTED_TPT: case INS_SAX: case INS_CELLO: return INS_FLUTE;
-    case INS_GUITAR_LICK: return INS_VIBES;
-    case INS_STR_LEAD: return INS_SAW_LEAD;
+    case INS_MUTED_TPT: case INS_SAX: case INS_CELLO: case INS_KALIMBA: case INS_EMILY: case INS_SYNTH_PLUCK:
+        return INS_FLUTE;
+    case INS_GUITAR_LICK: case INS_STR_LEAD: case INS_SAW_LEAD: return INS_VIBES;
     default: return ins;
     }
 }
