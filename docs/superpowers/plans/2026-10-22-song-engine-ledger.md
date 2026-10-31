@@ -587,6 +587,15 @@ Renders: `app/build/new/<seed>/` and `<seed>-nobed/`, one per set (Task 8's repo
   `app/build/new/formant-choir-2026-10-30/`): saws through one shared 3-formant bank on the pad layer. Sam: the static
   "aah" (A) "doesn't work well"; the slow "oo-aah" morph (B, 12 s cycle) "does". Keep B; ~3.5 KB flash (est.), +0.018
   CPU for the layer. Next: make it a pad-layer choice, then decide how often songs roll it.
+  **Tonewheel organ spiked 2026-10-30** (`worktree-agent-a5487d5ef8ed95342`, 0f39f8f..14dba3b, renders
+  `app/build/new/tonewheel-2026-10-30/`). Sam: "The organs sound great. All settings sound good"; A (888) and B on
+  song 3 sit too low (follow-ups rendered: an octave up, or the 16' out), plus a fast rotor, a scanner chorus, an
+  organ bass and a one-stop organ pad, awaiting his ear. ~6 KB flash (est.).
+- **To do (Sam, 2026-10-30): control the organ's stops and settings in the workbench, and maybe eventually on the
+  device.** Workbench rows for the nine drawbars (0-8 each), percussion (off / 2nd / 3rd, fast or slow), key click,
+  rotor (slow / fast), scanner chorus (off, C1-C3), and the register (octave), per song and saved in snapshots and
+  feedback. On the device, later: a page of knobs for the drawbars and the rotor, once the organ is in the firmware
+  and the UI has room (the screens spec).
 - **Flash, for Task 8 (found 2026-10-30): models left unused by the removals.** The Karplus-Strong pluck (M_PLUCK)
   only played the upright (removed); the FM bell (M_BELL) plays the kalimba, music box and bells, which leave with
   the kalimba lead and the ear candy. Their code and patches can go unless a spike reuses them.
