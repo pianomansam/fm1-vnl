@@ -591,6 +591,12 @@ Renders: `app/build/new/<seed>/` and `<seed>-nobed/`, one per set (Task 8's repo
   `app/build/new/tonewheel-2026-10-30/`). Sam: "The organs sound great. All settings sound good"; A (888) and B on
   song 3 sit too low (follow-ups rendered: an octave up, or the 16' out), plus a fast rotor, a scanner chorus, an
   organ bass and a one-stop organ pad, awaiting his ear. ~6 KB flash (est.).
+  **Sam on the follow-ups (2026-10-31):** register: A an octave up on songs 1 and 3, A with the 16' out on song 2
+  (whose voicings already sit higher). Rotor: the fast rotor isn't fast enough, but the scanner chorus "does the
+  trick, even on slow"; so the slow rotor plus the chorus, and the fast rotor is dropped (my call, over making it
+  faster). Organ bass: no clear difference from the electric bass; dropped. Organ pad: the one-stop 4' beats the 8'
+  but is too static; next, the 4' pad with the chorus. Choir: the oo-aah pad layer and the choir as the solo voice
+  both sound good; stage 2 (the solo moves onto the choir, the vox pad and M_PAD's formants go) is next.
 - **To do (Sam, 2026-10-30): control the organ's stops and settings in the workbench, and maybe eventually on the
   device.** Workbench rows for the nine drawbars (0-8 each), percussion (off / 2nd / 3rd, fast or slow), key click,
   rotor (slow / fast), scanner chorus (off, C1-C3), and the register (octave), per song and saved in snapshots and
