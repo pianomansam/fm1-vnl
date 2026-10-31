@@ -37,8 +37,9 @@ typedef struct { uint8_t n; uint8_t at[8], len[8]; int8_t step[8]; uint8_t conto
 /* A motif from n notes (onsets ascending, lengths 1 or more, si: scale indexes); 0 (and m untouched) if they don't
    fit the form. */
 int lead_motif_from(lead_motif_t *m, int n, const int *at, const int *len, const int *si);
-/* The song's motif in that form (its style's: leads_style); returns 1. */
-int leads_motif(const song_roll_t *r, lead_motif_t *m);
+/* The song's motif in that form, for its style (LS_*: the song's held lead.style - 1, or leads_style(r) for a roll
+   with no song); returns 1. */
+int leads_motif(const song_roll_t *r, int style, lead_motif_t *m);
 /* The motif's notes again, its first on scale index si0; returns n. */
 int lead_motif_to(const lead_motif_t *m, int si0, int *at, int *len, int *si);
 
@@ -58,15 +59,16 @@ int leads_fit(int ins, int style);
 int leads_style_keep(const song_roll_t *r, int prev);
 /* The register center (MIDI) of a style on a lead instrument, kept 6 semitones inside the instrument's range. */
 int leads_center(int style, int ins);
-/* The band the song's lead claims over percussive keys: its center (the workbench's lead_oct an octave off it) +-6,
-   in the instrument's range. The song sets the keys' window under it (song.c). */
-void leads_band(const song_roll_t *r, int *lo, int *hi);
-void leads_band_for(const song_roll_t *r, int style, int *lo, int *hi);   /* the same for a given style */
+/* The band a style's lead claims over percussive keys: its center (the workbench's lead_oct an octave off it) +-6, in
+   the instrument's range. The song sets the keys' window under it (song.c). The style (LS_*) is the caller's: a song's
+   held lead.style - 1 (song.c), or leads_style(r) for a roll with no song; leads_range_bar and leads_motif likewise. */
+void leads_band_for(const song_roll_t *r, int style, int *lo, int *hi);
 /* The lead's range this bar over percussive keys: from the band's floor, moved up to a 4th over the keys' top where
    the keys reach into the band (their window could not hold them: today's floor); to E6 as before (the workbench's
    lead_oct an octave off it, its keys_oct raising it with the keys, in the instrument's range), the band's top at
    least. lo_x: the floor for a note that sounds on into the next bar (over its keys, nkeys, likewise). */
-void leads_range_bar(const song_roll_t *r, const int keys[4], const int nkeys[4], int *lo, int *lo_x, int *hi);
+void leads_range_bar(const song_roll_t *r, int style, const int keys[4], const int nkeys[4], int *lo, int *lo_x,
+                     int *hi);
 /* Plans the bar with the song's style, ls->style (leads_style where it is 0: unresolved; arguments as
    lead_plan_bar's, which calls it once it has cleared ls and found the lead playing). */
 void leads_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b, int bar, const int keys[4],

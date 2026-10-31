@@ -130,8 +130,6 @@ int leads_center(int style, int ins)
     return c < lo + 6 ? lo + 6 : c > hi - 6 ? hi - 6 : c;
 }
 
-void leads_band(const song_roll_t *r, int *lo, int *hi) { leads_band_for(r, leads_style(r), lo, hi); }
-
 void leads_band_for(const song_roll_t *r, int style, int *lo, int *hi)
 {
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
@@ -163,9 +161,10 @@ static void range_bar(const song_roll_t *r, int style, const int keys[4], const 
     if (*hi < bhi) *hi = bhi;                            /* an octave down: the band's top at least */
 }
 
-void leads_range_bar(const song_roll_t *r, const int keys[4], const int nkeys[4], int *lo, int *lo_x, int *hi)
+void leads_range_bar(const song_roll_t *r, int style, const int keys[4], const int nkeys[4], int *lo, int *lo_x,
+                     int *hi)
 {
-    range_bar(r, leads_style(r), keys, nkeys, lo, lo_x, hi);
+    range_bar(r, style, keys, nkeys, lo, lo_x, hi);
 }
 
 /* ---- the helpers the styles share ---- */
@@ -325,9 +324,9 @@ static leads_plan_fn *const PLAN[LS_N] = {impressionism_plan, romanticism_plan, 
 static leads_motif_fn *const MOTIF[LS_N] = {impressionism_motif, romanticism_motif, jazz60s_motif, modal_motif,
                                             jazzhop_motif, filmscore_motif, bossa_motif, ambient_motif};
 
-int leads_motif(const song_roll_t *r, lead_motif_t *m)
+int leads_motif(const song_roll_t *r, int style, lead_motif_t *m)
 {
-    MOTIF[leads_style(r)](r, m);
+    MOTIF[style >= 0 && style < LS_N ? style : 0](r, m);
     return 1;
 }
 

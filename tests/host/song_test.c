@@ -3529,7 +3529,7 @@ static void test_pushes(void)
     }
     printf("pushes: %ld, %ld end before the bar line; %ld request bars, %ld rung into\n", pushes, short_push,
            req_bars, into_req);
-    CHECK(pushes > 150 && short_push == 0, "%ld of %ld pushes end before the bar line", short_push,
+    CHECK(pushes > 170 && short_push == 0, "%ld of %ld pushes end before the bar line", short_push,
           pushes);   /* (377 pushes before the style roll, 190 with it: lead styles Task 7) */
     printf("pushes: the sustained lead tied %ld notes over a bar line, %ld over a 4-bar line (where requests land); "
            "%ld request bars in sustained-lead songs\n", sties, sties_line, sreq);
@@ -7427,8 +7427,8 @@ static void test_sampled_sets(void)
             printf("sampled sets: %-24s the struck lead sings in %ld of %ld bars where it may\n", t->name, led_bars,
                    may_bars);
             CHECK(!lib_ins_sustained(t->lead), "sampled sets: %s's lead plans as sustained", t->name);
-            CHECK(may_bars > 40 && led_bars * 100 >= may_bars * 65,   /* (70% before the style roll; DX and Knight's
-                                                                             four songs read 69% with it, Task 7) */
+            CHECK(may_bars > 40 && led_bars * 100 >= may_bars * (t->id == 25 ? 65 : 70),   /* (DX and Knight, set
+                     25: its four songs read 59 of 86 bars, 69%, on the style roll, lead styles Task 7: held to 65) */
                   "sampled sets: %s's struck lead sang in %ld of %ld bars", t->name, led_bars, may_bars);
         }
         {   /* the duck with this set's keys and lead (test_keys_duck's measure) */
@@ -9384,7 +9384,7 @@ static void test_keys_window(void)
         set = lib_set_by_id((uint8_t)r.v[RF_SET]);
         if (!set || lib_ins_sustained(set->chords) || harmony_style(&r) == CS_STRUM) continue;
         songs++;
-        leads_band(&r, &lo, &hi);
+        leads_band_for(&r, leads_style(&r), &lo, &hi);
         kw_play(&r, NULL);
         pr = lib_prog_by_id((uint8_t)r.v[RF_PROG]);
         loop = pr && pr->n * pr->bars_per_chord ? pr->n * pr->bars_per_chord : 4;
@@ -9492,7 +9492,7 @@ static void test_keys_window_fallback(void)
         kw_play(&r, &o);
         songs++;
         song_override(&o);
-        leads_band(&r, &blo, &bhi);
+        leads_band_for(&r, leads_style(&r), &blo, &bhi);
         song_override(NULL);
         for (i = 0; i < kw_nl; i++) {
             int t = kw_top[kw_lbar[i]];
@@ -9516,17 +9516,17 @@ static void test_keys_window_fallback(void)
         set = lib_set_by_id((uint8_t)r.v[RF_SET]);
         if (set && set->lead == INS_FLUTE) break;
     }
-    leads_band(&r, &blo, &bhi);
+    leads_band_for(&r, leads_style(&r), &blo, &bhi);
     keys[3] = blo - 1;
-    leads_range_bar(&r, keys, nkeys, &lo, &lx, &hi);
+    leads_range_bar(&r, leads_style(&r), keys, nkeys, &lo, &lx, &hi);
     CHECK(lo == blo && hi == 88 && lx == blo, "keys window fallback: keys under the band: %d-%d (x %d), wanted %d-88",
           lo, hi, lx, blo);
     keys[3] = blo + 2;
-    leads_range_bar(&r, keys, nkeys, &lo, &lx, &hi);
+    leads_range_bar(&r, leads_style(&r), keys, nkeys, &lo, &lx, &hi);
     CHECK(lo == blo + 7 && hi == 88, "keys window fallback: keys in the band at %d: %d-%d", keys[3], lo, hi);
     nkeys[3] = blo + 4;
     keys[3] = blo - 3;
-    leads_range_bar(&r, keys, nkeys, &lo, &lx, &hi);
+    leads_range_bar(&r, leads_style(&r), keys, nkeys, &lo, &lx, &hi);
     CHECK(lo == blo && lx == blo + 9, "keys window fallback: the next keys in the band: floor %d, ringing over %d", lo,
           lx);
 }
@@ -9832,7 +9832,7 @@ static void ls_motif(int style, const int *ins, int nins)
             if (!ls_roll(k * 2654435761u + 17u, ins[0], &r)) continue;
             o.lead_style = (int8_t)(2 + style);
             song_override(&o);
-            CHECK(leads_motif(&r, &m) && m.n >= 2 && m.scale < 8 && (LS_SCALES[style] >> m.scale) & 1u,
+            CHECK(leads_motif(&r, leads_style(&r), &m) && m.n >= 2 && m.scale < 8 && (LS_SCALES[style] >> m.scale) & 1u,
                   "%s motif: seed %u has none (or another scale)", ls_name(style), (unsigned)k);
             song_override(NULL);
             ls_play(&r, style, 0);
@@ -10018,7 +10018,7 @@ static void test_style_fallback(void)
         o.lead_style = 2 + LS_IMPRESSIONISM;
         o.lead_oct = -1;
         song_override(&o);
-        leads_band(&r, &blo, &bhi);
+        leads_band_for(&r, leads_style(&r), &blo, &bhi);
         song_override(NULL);
         ls_play(&r, LS_IMPRESSIONISM, -1);
         songs++;
@@ -10073,13 +10073,13 @@ static void test_style_fallback(void)
         for (k = 1; k <= 200 && !moved_win; k++) {
             roll_song(NULL, k, &r);
             song_start(&a, &r);
-            leads_band(&r, &lo0, &bhi);
+            leads_band_for(&r, leads_style(&r), &lo0, &bhi);
             for (set = 0; set < LIB_NSETS; set++)            /* a set whose lead's band differs */
                 if (LIB_SETS[set].lead != lib_set_by_id((uint8_t)r.v[RF_SET])->lead) break;
             if (set == LIB_NSETS) continue;
             song_request(&a, RF_SET, LIB_SETS[set].id);
             while (a.state == SS_PLAYING && a.bar < 8) song_tick(&a, ev, 64);
-            leads_band(&a.roll, &blo, &bhi);
+            leads_band_for(&a.roll, a.lead.style - 1, &blo, &bhi);   /* the held style */
             if (a.roll.v[RF_SET] != LIB_SETS[set].id || blo == lo0) continue;   /* (refused in the song's mood; or
                                                                                    the same band) */
             tried++;
@@ -11164,8 +11164,9 @@ static void test_samp(void)
        over keys); the Knight and the Emilyguitar on the lead 2.5-6 dB under the flute; the vibes (the lead only, the
        flute's notes: no keys level) 0-3.5 dB under the flute, its decay reading less bar energy (3.0 on the phrase
        planner's notes; the set's rolled style, lead styles Task 6, reads 3.02). The level is the instrument's, not the
-       style's: each song plays the style it rolled in Task 6 (Film Score, Bossa Nova, Bossa Nova, '60s Jazz), forced,
-       so the style roll (Task 7) leaves the measure where it was. */
+       style's: each song plays the style Task 6's interim even draw happened to give it (Film Score, Bossa Nova,
+       Bossa Nova, '60s Jazz), forced. A frozen reference, not a style choice (Bossa Nova is one the Knight is never
+       rolled for): it keeps the measure where it was through the style roll (Task 7). */
     {
         static const int ST6[4] = {LS_FILMSCORE, LS_BOSSA, LS_BOSSA, LS_JAZZ60S};
         uint32_t seed;
