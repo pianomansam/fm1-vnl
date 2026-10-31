@@ -2390,7 +2390,7 @@ console.log("the busy-lead thinning row (on by default; off, the existing compin
 console.log("the choir: a pad layer a song may draw (1 in 4), and a choice on the pad row");
 {
   const { replay, wav } = await import("./replay.mjs");
-  const CHOIR = ins("Choir"), WARM = ins("Warm pad"), STR = ins("Strings");
+  const CHOIR = ins("Choir"), WARM = ins("Warm pad"), STR = ins("Strings"), ORGAN = ins("Organ");
   const ex = await load(), call = caller(ex);
   ex.wb_seed(1);
   ex.wb_apply();
@@ -2404,15 +2404,16 @@ console.log("the choir: a pad layer a song may draw (1 in 4), and a choice on th
     picked += pickFor(row("pad"), { values: { pad: i & 2 ? WARM : STR, family: i & 1 ? "synth" : "acoustic" }, locks: new Set() },
                       OPTS, lcg(i)) === CHOIR;
   check(picked > 0, `the dice pick it (${picked} of 200)`);
-  // the songs' draw: the row reads the pad each song plays (the set's, or the choir drawn over it)
-  let choir = 0, cs = 0, other = 0;
+  // the songs' draw: the row reads the pad each song plays (the set's, or the choir or the organ drawn over it)
+  let choir = 0, cs = 0, other = 0, organ = 0;
   const odd = [];
   for (let s = 1; s <= 200; s++) {
     await desk.set("seed", s);
     const p = desk.values.pad;
-    if (p !== ex.wb_role_get(V.PAD) || ![CHOIR, WARM, STR].includes(p)) odd.push(`${s}:${p}`);
-    if (p === CHOIR) { choir++; cs ||= s; } else other ||= s;
+    if (p !== ex.wb_role_get(V.PAD) || ![CHOIR, WARM, STR, ORGAN].includes(p)) odd.push(`${s}:${p}`);
+    if (p === CHOIR) { choir++; cs ||= s; } else if (p === ORGAN) organ++; else other ||= s;
   }
+  check(organ >= 15 && organ <= 45, `the organ is ${organ} of 200 songs' pad (about 1 in 7 drawn)`);
   check(!odd.length && choir >= 30 && choir <= 70,
         `the choir is ${choir} of 200 songs' pad (1 in 4 drawn); the row reads the engine's (off: ${odd.join(" ") || "none"})`);
   // a choir song keeps it through another row's edit (the custom set takes the song's pad), and the row moves it

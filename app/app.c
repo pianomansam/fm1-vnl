@@ -175,6 +175,7 @@ static void step(void)
     float adv, lp[PM_N], hp[PM_N];
     uint32_t ip;
     plan_moves(&song.plan, bar, st, lp, hp);   /* the engine ramps them (about 50 ms; sweeps move per step) */
+    vx_organ_scan(plan_full_kit(&song.plan, bar)); /* the pad's organ's scanner: on where the full kit plays */
     for (i = 0; i < PM_N; i++) {
         vx_set_filter(i, lp[i]);
         vx_set_hp(i, hp[i]);

@@ -356,6 +356,22 @@ void harmony_voicing_at(const song_roll_t *r, int bar, int pass, harmony_voicing
     place_keys(r, out4);
 }
 
+int harmony_keys_high(const song_roll_t *r)
+{
+    harmony_voicing_t vs;
+    int bar, k, o[4], sum = 0, n = 0;
+    memset(&vs, 0, sizeof vs);
+    for (bar = 0; bar < 16; bar++) {
+        harmony_voicing_at(r, bar, 0, &vs, o);
+        for (k = 0; k < 4; k++)
+            if (o[k] > 0) {
+                sum += o[k];
+                n++;
+            }
+    }
+    return n && sum >= HV_HIGH * n;
+}
+
 static void voice_chord(const song_roll_t *r, int bar, const int *pcs, int n, harmony_voicing_t *vs, int *sound)
 {
     const lib_prog_t *p = prog_of(r);

@@ -73,6 +73,12 @@ int harmony_keys_oct(const song_roll_t *r);
    (its loop cache may fill). Lets the lead plan a bar over the keys before they strike. A strummed song: the top 4
    notes of its guitar shape, ascending (0 first where the shape has fewer; its shape cache may fill). */
 void harmony_voicing_at(const song_roll_t *r, int bar, int pass, harmony_voicing_t *vs, int out4[4]);
+/* The keys sit high: the mean note of the voicings the first 16 bars sound (harmony_voicing_at, the first pass) is
+   HV_HIGH (F4) or over. The means fall in two clusters, about 58-63 (the keys under the lead) and 69-75 (sustained
+   keys raised an octave, with or over the lead: harmony_pad_place), with the gap at 64-65 (set 18, 600 seeds: 1 song
+   at 64, 4 at 65). The organ keys go up an octave unless they sit high (vx_configure). */
+enum { HV_HIGH = 65 };
+int harmony_keys_high(const song_roll_t *r);
 /* One step of the keys. busy: the lead has 4+ onsets this bar, so stabs strike on 1 only, offbeats on 6 and 14, the
    arpeggio on even steps, half notes on step 0 of every bar, held a bar (held comping, held on 2 (and 4), light
    eighths and sustained keys unchanged); the voicing never changes. */

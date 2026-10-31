@@ -140,6 +140,7 @@ static void tick(void)
     int bar = song.bar, st = song.step, n, i;
     float lp[PM_N], hp[PM_N];
     plan_moves(&song.plan, bar, st, lp, hp);
+    vx_organ_scan(plan_full_kit(&song.plan, bar)); /* the pad's organ's scanner: on where the full kit plays */
     for (i = 0; i < PM_N; i++) {
         vx_set_filter(i, lp[i]);
         vx_set_hp(i, hp[i]);

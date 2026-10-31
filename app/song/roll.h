@@ -28,10 +28,14 @@ int roll_seconds(const song_roll_t *r);                   /* RF_BARS * 240 / RF_
    with no synth kit its skit. A pure function of the seed and the set. */
 int lib_song_kit(const song_roll_t *r);
 /* The song's pad layer instrument (seed stream 197, hashed apart from every other draw): the formant choir
-   (INS_CHOIR) in LIB_CHOIR_PCT% of songs, else the set's pad (the strings or the warm pad); the workbench's custom set
+   (INS_CHOIR) in LIB_CHOIR_PCT% of songs, the organ (INS_ORGAN, its one-stop 4') in LIB_ORGAN_PCT% (never over organ
+   keys: the set's pad there), else the set's pad (the strings or the warm pad); the workbench's custom set
    (LIB_SET_WB) its pad always (the pad row's pick). A pure function of the seed and the set. */
-enum { LIB_CHOIR_PCT = 25 };
+enum { LIB_CHOIR_PCT = 25, LIB_ORGAN_PCT = 15 };
 int lib_song_pad(const song_roll_t *r);
+/* The organ keys' drawbar registration (ORG_A, ORG_B or ORG_C, patch.h's; seed stream 198, hashed apart from every
+   other draw), 0-2 at equal odds: Sam liked all three. A pure function of the seed. */
+int lib_song_organ(const song_roll_t *r);
 /* The song has a pad layer (pads.h): about 2 songs in 3 (seed stream 195, hashed apart from every other draw, so no
    other choice moves with it; Sam, 2026-10-29: "make it possible for the pad part to not be in a song"). The
    workbench's pad_on override (override.h) forces it. A pure function of the seed. */

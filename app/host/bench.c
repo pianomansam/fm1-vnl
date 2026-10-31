@@ -371,7 +371,8 @@ static void parts(double amb)
                                  {"kalimba", INS_KALIMBA}, {"saw lead", INS_SAW_LEAD},
                                  {"synth pluck", INS_SYNTH_PLUCK}, {"knight", INS_KNIGHT}};
     static const named_t CD[] = {{"music box", INS_MUSIC_BOX}, {"bells", INS_BELLS}};
-    static const named_t PDL[] = {{"strings", INS_STRINGS}, {"warm pad", INS_WARM_PAD}, {"choir", INS_CHOIR}};
+    static const named_t PDL[] = {{"strings", INS_STRINGS}, {"warm pad", INS_WARM_PAD}, {"choir", INS_CHOIR},
+                                  {"organ", INS_ORGAN}};
     static const named_t SOL[] = {{"choir", INS_CHOIR}, {"flute", INS_FLUTE}, {"organ", INS_ORGAN},
                                   {"strings", INS_STRINGS}};
     static const named_t KT[] = {{"dusty", KIT_DUSTY}, {"soft", KIT_SOFT}, {"808", KIT_808}, {"brushes", KIT_BRUSHES},
@@ -388,6 +389,13 @@ static void parts(double amb)
         for (j = 0; j < PART_RUNS; j++) { t = run_vnl(sd[k], 0, &e, 0); if (t < b) b = t; }
     printf("floor: song engine ticking only (seeds 20/100/128/183, best, no render): %.1f ms = ratio %.3f\n", b, b / amb);
     role_rows("chords", P_CHORDS, V_CHORD, CH, NEL(CH), base, amb);
+    for (k = ORG_B; k <= ORG_C; k++) { /* the organ's other registrations (the "organ" row: ORG_A), raised */
+        p = part_of(P_CHORDS);
+        p.chords = INS_ORGAN;
+        vx_organ_force(k, 0);
+        row("chords", k == ORG_B ? "organ B (perc)" : "organ C", best_part(&p), base, amb);
+    }
+    vx_organ_force(-1, -1);
     role_rows("bass", P_BASS, V_BASS, BS, NEL(BS), base, amb);
     role_rows("lead", P_LEAD, V_LEAD, LD, NEL(LD), base, amb);
     role_rows("candy", P_CANDY, V_CANDY, CD, NEL(CD), base, amb);

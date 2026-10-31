@@ -31,10 +31,18 @@ void vx_configure(const song_roll_t *r);
 /* 1 if roll b differs from a in a field vx_configure reads (a request that landed mid-song needs it again). */
 int vx_reconfigures(const song_roll_t *a, const song_roll_t *b);
 void vx_bed_off(int on);                 /* 1: no surface noise or rain (host renders, VNL_BED=0) */
-/* Tests and the cost bench: the pad layer's instrument (an M_ENS one: INS_STRINGS, INS_WARM_PAD, INS_CHOIR) in place
+/* Tests and the cost bench: the pad layer's instrument (INS_STRINGS, INS_WARM_PAD, INS_CHOIR or INS_ORGAN) in place
    of the song's (lib_song_pad) from the next vx_configure on; INS_NONE (the default, or any other) the song's. Kept
    through vx_init. */
 void vx_pad_ins(int ins);
+/* Tests and the cost bench: the organ keys' registration (ORG_*) and register (high 1: at its register with the 16'
+   out; 0: an octave up) in place of the song's (lib_song_organ, harmony_keys_high), -1 each for the song's; from the
+   next vx_assign of INS_ORGAN on the keys. Kept through vx_init. */
+void vx_organ_force(int reg, int high);
+/* The pad's organ's scanner chorus (on the pad layer or the solo lane): on (1, the default) or still (0), a 60 ms
+   crossfade; the app's and the workbench's step say where the full kit plays (plan_full_kit). Kept through
+   vx_init. */
+void vx_organ_scan(int on);
 /* Tests: the choir's formant k (0-2, F1-F3) in Hz as its bank last set it (voices.c: the "oo-aah" morph and the
    drift), 0 before it first sang */
 float vx_choir_formant(int k);
@@ -44,8 +52,9 @@ float vx_choir_formant(int k);
    seeded from the roll's seed too; then vx_configure. */
 void vx_song(const song_roll_t *r);
 /* One pitched role's instrument (voice V_CHORD, V_BASS, V_LEAD, V_CANDY or V_PAD; others ignored). The pad layer
-   (V_PAD) plays M_ENS patches only (INS_STRINGS, INS_WARM_PAD, INS_CHOIR), and only it plays them: another role's notes are
-   silent there.
+   (V_PAD) plays M_ENS patches (INS_STRINGS, INS_WARM_PAD, INS_CHOIR), and only it plays them, or the organ (INS_ORGAN:
+   its one-stop 4' there; on the keys, the song's registration and register, vx_configure's): another role's notes
+   are silent there.
    The pad layer's lanes: its 4 voices are lanes 1-4 (the song engine's: 1-3 the chord, 4 the solo note), and a V_PAD
    event names its lane in song_ev_t.pad (0: no lane, the voice taken from the pool like any role's). A note on a lane
    whose voice is held (or released under 25 ms ago) goes on legato: the same pitch extends it (to the new len from
@@ -54,7 +63,7 @@ void vx_song(const song_roll_t *r);
    never moves another's voice. */
 void vx_assign(int voice, int ins);
 /* The pad layer's solo lane (lane 4) its own patch: INS_CHOIR (the formant choir, its bank shared with a choir pad's),
-   INS_FLUTE, INS_ORGAN or INS_STRINGS,
+   INS_FLUTE, INS_ORGAN (the pad's organ, the one-stop 4') or INS_STRINGS,
    anything else (INS_NONE) the pad's (vx_assign's V_PAD). Lane 4 alone plays it, in its own model (the ensemble, the
    choir and the organ at a quarter of the rate, the flute at half), on the pad's bus (its filters, its sends),
    trimmed to the strings' loudness; lanes 1-3 and lane-less notes keep the pad's M_ENS patch. A

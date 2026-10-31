@@ -34,6 +34,9 @@ enum { PM_CHORDS, PM_BASS, PM_LEAD, PM_CANDY, PM_PAD, PM_DRUMS, PM_N };
 void plan_moves(const song_plan_t *p, int bar, int step, float *lp, float *hp);
 void plan_build(const song_roll_t *r, song_plan_t *p);           /* deterministic per roll */
 const plan_block_t *plan_at(const song_plan_t *p, int bar);      /* NULL outside [0, bars) */
+/* 1 where the full kit plays at bar (its block has the kick and the hats): the pad's organ's scanner on there, still
+   in the intros, outros, breaks and hat-less grooves, as a player works a Leslie (vx_organ_scan) */
+int plan_full_kit(const song_plan_t *p, int bar);
 const char *plan_section_name(int section);                      /* "intro", "groove", "lead", "break", "outro" */
 
 #endif

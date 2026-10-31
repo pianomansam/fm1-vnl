@@ -293,6 +293,12 @@ const plan_block_t *plan_at(const song_plan_t *p, int bar)
     return 0;
 }
 
+int plan_full_kit(const song_plan_t *p, int bar)
+{
+    const plan_block_t *b = plan_at(p, bar);
+    return b && (b->layers & (L_KICK | L_HATS)) == (L_KICK | L_HATS);
+}
+
 const char *plan_section_name(int section)
 {
     static const char *const names[] = {"intro", "groove", "lead", "break", "outro"};

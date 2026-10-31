@@ -34,9 +34,9 @@
      p[0] the bit crush: the voice's output (after its envelope) rounded to this many bits over its own full level
      (2^(p[0]-1) steps from 0 to the note's level; 0 for none; 7: a few-bit DAC's grit and steppy decays); p[1] a
      one-pole low-pass after the crush at this multiple of the note's frequency (0 for none; Sam: more mellow).
-   M_SUB (organ, saw lead, synth pluck; voices.c sub_*): frugal as a Juno-106, one oscillator and a sub-octave square
-     into a 2-pole low-pass with its own envelope; mono and glide for the lead. On the chords a patch whose highest
-     cutoff stays at 8 kHz or under renders at half the rate.
+   M_SUB (saw lead, synth pluck; voices.c sub_*): frugal as a Juno-106, one oscillator and a sub-octave square
+     into a 2-pole low-pass with its own envelope; mono and glide for the lead. Full rate (the leads only, since the
+     organ became the tonewheel).
      p[0] the wave (0 saw, 1 pulse), p[1] the pulse's width (0.05-0.5), p[2] the sub-octave square's level, p[3] the
      low-pass's cutoff in Hz plus p[5] times the note's frequency (the key tracking), p[4] the resonance (0-1,
      clamped: the damping from Butterworth's down by 85%), p[6] the filter envelope's depth in octaves over the cutoff
@@ -55,7 +55,14 @@
      muted note (the strum's chuck: the cutoff at 2.5 times the note, gone in 60 ms, released in 30), p[4] a delayed
      vibrato's depth in cents (the winds': 5 Hz after 0.3 s; 0 for none), p[5] the decay's key tracking (octaves of
      decay time lost per octave above note 60), p[6] the cutoff's fall after the strike, to this fraction of it (0:
-     none), p[7] that fall's time constant (s). */
+     none), p[7] that fall's time constant (s).
+   M_TW (the tonewheel organ; voices.c tw_*), the approach and values after SLOOP's WHEEL engine: a sine per sounding
+     drawbar, a percussion wheel, a key click and a slow rotary; on the keys' bus and the pad's, a scanner chorus.
+     p[0..8] the drawbars 16' 5 1/3' 8' 4' 2 2/3' 2' 1 3/5' 1 1/3' 1' (0-8, 3 dB a step), p[9] the percussion's
+     harmonic (0 none, 2 the 4', 3 the 2 2/3'; the bars 3 dB down with it, single trigger), p[10] its fall to -60 dB
+     (s), p[11] the key click's level, p[12] 1 for the slow rotary, p[13] the horn's amplitude depth (the drum's
+     half), p[14] the horn's Doppler (a fraction of the pitch; the drum's a quarter), p[15] semitones added to the
+     note (12: the keys an octave up, within C7). */
 #include <stddef.h>
 #include "library.h"
 #include "patch.h"
@@ -92,10 +99,8 @@ static const vx_patch_t PATCHES[INS_NONE] = {
     [INS_BELLS] = {M_BELL, {3.53f, 0.6f, 1.2f, 1.2f, 0.0f, 0.0f, 0.3f}, 0.003f, 3.5f, 0.0f, 0.2f, 0.87f, 0.0f, 0.35f},
     /* the triangle bass (a chip voice) */
     [INS_CHIP_BASS] = {M_CHIP, {7.0f, 5.0f}, 0.003f, 7.0f, 1.0f, 0.05f, 1.3f, 0.0f, 0.0f},
-    /* the subtractive synths, warm (their cutoffs low), their levels balanced in their sets like the rest. The organ:
-       a square and its sub (16' and 8'), no envelope; the saw lead mono and gliding; the synth pluck: a pulse snapped
-       open and shut */
-    [INS_ORGAN] = {M_SUB, {1.0f, 0.5f, 0.6f, 1200.0f, 0.0f, 1.0f}, 0.005f, 6.0f, 1.0f, 0.08f, 0.248f, 0.4f, 0.08f},
+    /* the subtractive synths, warm (their cutoffs low), their levels balanced in their sets like the rest: the saw lead
+       mono and gliding; the synth pluck: a pulse snapped open and shut */
     [INS_SAW_LEAD] = {M_SUB, {0.0f, 0.5f, 0.0f, 900.0f, 0.2f, 1.5f, 1.0f, 0.02f, 0.6f, 1.0f, 90.0f},
                       0.01f, 3.0f, 0.8f, 0.12f, 1.09f, 0.0f, 0.3f},
     [INS_SYNTH_PLUCK] = {M_SUB, {1.0f, 0.35f, 0.0f, 200.0f, 0.25f, 0.6f, 4.5f, 0.001f, 0.3f}, 0.002f, 1.2f, 0.0f,
@@ -122,7 +127,34 @@ static const vx_patch_t PATCHES[INS_NONE] = {
                    0.648f, 0.3f, 0.1f},
 };
 
+/* The organ's keys (Sam's picks, 2026-10-31): the slow rotary (horn 25%, Doppler 0.2%), a click, a 3 ms attack and an
+   80 ms release; the bus chorus at 0.4 under the scanner (C3, voices.c). [reg][0] raised an octave, [reg][1] at its
+   register with the 16' out (ORG_C has none: as it is). Levels: the chords' bus as the square organ's it replaced
+   (active RMS within 0.5 dB, songs 101, 202 and 505 of set 18). */
+#define ORG_KEYS(b16, b5, perc, fall, click, oct, lvl) \
+    {M_TW, {b16, b5, 8, 0, 0, 0, 0, 0, 0, perc, fall, click, 1, 0.25f, 0.002f, oct}, 0.003f, 6.0f, 1.0f, 0.08f, lvl, \
+     0.4f, 0.08f}
+static const vx_patch_t ORGAN_KEYS[ORG_N][2] = {
+    {ORG_KEYS(8, 8, 0, 0.0f, 0.25f, 12, 0.2290f), ORG_KEYS(0, 8, 0, 0.0f, 0.25f, 0, 0.3084f)},
+    {ORG_KEYS(8, 3, 2, 1.0f, 0.25f, 12, 0.3650f), ORG_KEYS(0, 3, 2, 1.0f, 0.25f, 0, 0.5619f)},
+    {ORG_KEYS(0, 0, 0, 0.0f, 0.15f, 12, 0.4027f), ORG_KEYS(0, 0, 0, 0.0f, 0.15f, 0, 0.4052f)},
+};
+/* the pad's organ, the 4' alone: no click, no percussion, the slow rotary lighter (horn 15%, Doppler 0.1%); the pads'
+   swell, sustain and release, the warm pad's chorus send and a delay send; the scanner (C3, switched by section) on
+   the pad bus. Its level: the warm pad's on the pad bus (within 0.5 dB, songs 319 and 152). */
+static const vx_patch_t ORGAN_PAD = {M_TW, {0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0.0f, 0.0f, 1, 0.15f, 0.001f}, 0.6f, 4.0f,
+                                     0.85f, 1.5f, 0.797f, 0.5f, 0.12f};
+
+const vx_patch_t *vx_organ_keys(int reg, int high)
+{
+    return &ORGAN_KEYS[reg >= 0 && reg < ORG_N ? reg : ORG_A][high != 0];
+}
+
+const vx_patch_t *vx_organ_pad(void) { return &ORGAN_PAD; }
+
 const vx_patch_t *vx_patch(int ins)
 {
+    if (ins == INS_ORGAN) /* (the organ's own tables) */
+        return &ORGAN_KEYS[ORG_A][0];
     return ins >= 0 && ins < INS_NONE && PATCHES[ins].level > 0.0f ? &PATCHES[ins] : NULL; /* (a removed one: none) */
 }

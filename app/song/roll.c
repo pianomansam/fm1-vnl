@@ -376,11 +376,23 @@ int lib_song_pad(const song_roll_t *r)
 {
     const lib_set_t *s = lib_set_by_id((uint8_t)r->v[RF_SET]);
     rng_t g;
+    int pct;
     if (!s) return INS_NONE;
     if (s->id == LIB_SET_WB || s->pad >= INS_NONE) return s->pad;
     /* hashed apart (as the kit's draw is): the streams' states differ by a constant xor and xorshift is linear */
     rng_seed(&g, mix(r->seed, 0xC401u), 197);
-    return rng_int(&g, 100) < LIB_CHOIR_PCT ? INS_CHOIR : s->pad;
+    pct = rng_int(&g, 100);
+    return pct < LIB_CHOIR_PCT ? INS_CHOIR
+           : pct < LIB_CHOIR_PCT + LIB_ORGAN_PCT && s->chords != INS_ORGAN ? INS_ORGAN /* (never over organ keys) */
+                                                                           : s->pad;
+}
+
+int lib_song_organ(const song_roll_t *r)
+{
+    rng_t g;
+    /* hashed apart (as the kit's draw is): the streams' states differ by a constant xor and xorshift is linear */
+    rng_seed(&g, mix(r->seed, 0x0D6Bu), 198);
+    return rng_int(&g, 3);
 }
 
 int song_pad_on(const song_roll_t *r)
