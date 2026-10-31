@@ -510,6 +510,12 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
 
 ### Accompaniment
 
+- **To do (Sam, 2026-10-30): dominant chords sound cheesy; fix the voicing, likely with a rule or two.** Today a
+  dominant is colored with its 9th or 13th (never bare), voiced rootless where it helps, four voices E3-A4, the top
+  voice led smoothly. First find which shapes Sam hears as cheesy (renders of dominants in songs, voicing by
+  voicing). Candidate rules to test by ear: keep the 3rd off the top voice; keep the 3rd-7th tritone off the
+  bottom pair; prefer the 13th over the plain 9th where the mode allows; no 9th and 13th stacked a whole step
+  apart at the top; a dominant's voicing as a fourths or upper-structure shape. A/B in songs, one rule at a time.
 - **Guitar strumming as a comping style (Sam, 2026-10-23, for later).** A good concept of strumming for the
   accompaniment: down/up strokes on a 16th grid, the strings spread a few ms apart (low to high on downstrokes, high
   to low on upstrokes), muted "chuck" strokes, accents, and patterns per song; voiced for a guitar's six strings
