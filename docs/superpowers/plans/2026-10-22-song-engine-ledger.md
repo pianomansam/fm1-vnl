@@ -583,6 +583,10 @@ Renders: `app/build/new/<seed>/` and `<seed>-nobed/`, one per set (Task 8's repo
   preset on an engine we have; each costs a few KB of flash and some CPU, and stays only if Sam clearly hears it in
   songs. (1) **Formant voice**: choir and "aah" pads, the airy pad's best path (the breathy pad was cut). (2)
   **Tonewheel organ**: drawbars, as the synth route to the better B3 Sam asked for (the sampled B3 spike is delayed).
+  **Formant choir spiked 2026-10-30** (`VNL_PAD_CHOIR`, `worktree-agent-ae04880fa4064e176` 159ff9d, renders
+  `app/build/new/formant-choir-2026-10-30/`): saws through one shared 3-formant bank on the pad layer. Sam: the static
+  "aah" (A) "doesn't work well"; the slow "oo-aah" morph (B, 12 s cycle) "does". Keep B; ~3.5 KB flash (est.), +0.018
+  CPU for the layer. Next: make it a pad-layer choice, then decide how often songs roll it.
 - **Flash, for Task 8 (found 2026-10-30): models left unused by the removals.** The Karplus-Strong pluck (M_PLUCK)
   only played the upright (removed); the FM bell (M_BELL) plays the kalimba, music box and bells, which leave with
   the kalimba lead and the ear candy. Their code and patches can go unless a spike reuses them.
