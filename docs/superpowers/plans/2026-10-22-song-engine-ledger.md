@@ -557,6 +557,14 @@ Renders: `app/build/new/<seed>/` and `<seed>-nobed/`, one per set (Task 8's repo
   (`worktree-agent-abd52963f71c8c0ef`, 0efc297; renders `app/build/new/pad-breath-2026-10-30/`). Sam: none of it
   did much; cut, not merged. Ideas only, if an airier pad comes back: a sampled choir or "aah" pad, a brighter
   slow-moving filter, tape-style movement on the pad.
+- **To do, spikes (Sam, 2026-10-30): two new synth engines, from the SLOOP firmware's list** (GPL-3.0-only code:
+  borrow ideas and preset values, or accept GPL-3.0-only if code is copied). Each is a new kind of sound, not another
+  preset on an engine we have; each costs a few KB of flash and some CPU, and stays only if Sam clearly hears it in
+  songs. (1) **Formant voice**: choir and "aah" pads, the airy pad's best path (the breathy pad was cut). (2)
+  **Tonewheel organ**: drawbars, as the synth route to the better B3 Sam asked for (the sampled B3 spike is delayed).
+- **Flash, for Task 8 (found 2026-10-30): models left unused by the removals.** The Karplus-Strong pluck (M_PLUCK)
+  only played the upright (removed); the FM bell (M_BELL) plays the kalimba, music box and bells, which leave with
+  the kalimba lead and the ear candy. Their code and patches can go unless a spike reuses them.
 
 - **Rings' reverb and chorus against ours.** Sam picked Rings' (Task 7c); ours stays host-only (`VNL_FX=ours`).
   Rings' chorus wobbles ±14 cents, near its test's 15-cent window: don't deepen it without moving the window.
