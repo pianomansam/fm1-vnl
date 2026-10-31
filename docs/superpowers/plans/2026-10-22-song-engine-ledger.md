@@ -560,6 +560,11 @@ Renders: `app/build/new/<seed>/` and `<seed>-nobed/`, one per set (Task 8's repo
   (CHIFF 1.5, gone in 80 ms; `voices.c`). Try a lower breath level, a narrower or higher band, and a softer
   chiff, as an A/B in songs; keep the tone's level matched. (The breathy-pad spike reuses this breath, so tune
   them together.) (Sam later cut the breathy pad, below.)
+  **Spiked 2026-10-30, no change (Sam: "I honestly can't tell a difference"):** the breath halved, then a narrower
+  band and half the chiff, then a quarter with no chiff (noise -25.5 -> -37.5 dB under the tone;
+  `worktree-agent-a46212430593ae35a`, renders `app/build/new/flute-noise-2026-10-30/`). The breath is not what Sam
+  hears; if the flute still sounds noisy, look elsewhere (the pulse in its blend, the bed, the dust chain, aliasing
+  high up).
 - **Cut (Sam, 2026-10-30): the breathy pad.** A spike added the flute's breath noise to the pad layer (about -22 dB
   under the tone), then opened its filter, slowed its swell and sent more of it to the plate
   (`worktree-agent-abd52963f71c8c0ef`, 0efc297; renders `app/build/new/pad-breath-2026-10-30/`). Sam: none of it
