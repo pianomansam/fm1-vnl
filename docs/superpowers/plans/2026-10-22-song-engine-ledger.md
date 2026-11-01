@@ -349,35 +349,38 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
 
 ### Leads (Sam: not happy with the current leads; start here when we revisit them)
 
-- **The Impressionism lead (Sam, 2026-10-29: "This impressionism lead sounds fantastic").** A new lead style: 4-bar phrases (arabesque,
-  float, varied arabesque, falling sigh), 3-5-note pentatonic/modal arabesques in 16ths or 8th triplets, landings
-  behind the beat on color tones (9th/13th over major, 11th over minor) often tied over the bar, rests after each
-  phrase, whole-tone only as the one legal 4-note fragment over dominants. Research: docs/research/lead-impressionism-2026-10-29.md;
-  spike (lead_style 2, `plan_impressionism` in lead.c): worktree branch `worktree-agent-aaf267bc7c3b70bee` (93c14e3,
-  f5bca57); renders: app/build/new/lead-impressionism-2026-10-29/. **Next: bring it into the engine properly** (tests, the
-  workbench's lead-style row, which songs roll it). Open from the spike: phrase heads may sound loopy (one variation
-  per restatement); beat 1 rarely struck (vary, not avoid); the felt piano plays it soft and its ties decay (suits
-  flute and vibes best); triplets don't take the swing; the lead's floor over percussive keys (~C5) blocks the low
-  a piece register; unplaceable notes are dropped.
+- **The Impressionism lead (Sam, 2026-10-29: this impressionist lead "sounds fantastic").** A new lead style: 4-bar
+  phrases (arabesque, float, varied arabesque, falling sigh), 3-5-note pentatonic/modal arabesques in 16ths or 8th
+  triplets, landings behind the beat on color tones (9th/13th over major, 11th over minor) often tied over the bar,
+  rests after each phrase, whole-tone only as the one legal 4-note fragment over dominants. Research:
+  docs/research/lead-impressionism-2026-10-29.md; spike (lead_style 2 in lead.c): worktree branch
+  `worktree-agent-aaf267bc7c3b70bee` (93c14e3, f5bca57); renders: app/build/new/lead-impressionism-2026-10-29/.
+  **Next: bring it into the engine properly** (tests, the workbench's lead-style row, which songs roll it). Open
+  from the spike: phrase heads may sound loopy (one variation per restatement); beat 1 rarely struck (vary, not
+  avoid); the felt piano plays it soft and its ties decay (suits flute and vibes best); triplets don't take the
+  swing; the lead's floor over percussive keys (~C5) blocks the flute's low register; unplaceable notes are dropped.
 - **Lead-style spikes, Sam's verdicts** (same five songs; queue in .superpowers/sdd/lead-styles-2026-10-29/queue.md;
-  research in docs/research/lead-<slug>-2026-10-29.md):
-  - **Neoclassical** (lead_style 3, branch `worktree-agent-a36c80b9ab11ec46a`): songs 1 (G Aeolian, flute) and 5 (A Ionian,
-    flute) the best. Song 5's 4th bar of each 4 too busy; song 1 handled it much better. Songs 2-4 "just had issues"
+  research in docs/research/lead-<genre>-2026-10-29.md):
+  - **Neoclassical** (lead_style 3, branch `worktree-agent-a36c80b9ab11ec46a`): songs 1 (G Aeolian, flute) and 5 (A
+    Ionian, flute) the best. Song 5's 4th bar of each 4 too busy; song 1 handled it much better. Songs 2-4 "just had issues"
     (Db Lydian flute, B Dorian vibes, Ab Mixolydian felt). Spike notes: leaps where few notes are legal (songs 3, 5),
     density ~3.5 notes/bar, strong-beat leaning notes.
-  - **Romanticism** (branch `worktree-agent-aeec8cac90861a25b`, 4100d01): "sounds much better than neoclassical. It doesn't have
-    any major flaws."
+  - **Romanticism** (branch `worktree-agent-aeec8cac90861a25b`, 4100d01): "sounds much better than" the Neoclassical
+    lead. "It doesn't have any major flaws."
   - **All styles so far (Sam, 2026-10-29): too much variance after the initial line** — "It sounds like it's
     wandering... not connected enough to the original motif." Every lead style should restate the opening motif more
     literally and vary it less (one small change at a time, the motif recognizable each time), so the line develops
-    the motif instead of drifting away from it. Applies to Impressionism, Romanticism, Neoclassical and '60s Jazz, and to the spikes still
-    running.
-  - **the '60s jazz pianist** (branch `worktree-agent-a4802cdbc40dd46b4`, 3b387cd): strong. **Sam's shortlist so far: Impressionism,
-    Romanticism and the '60s jazz pianist "are really strong."** Don't rework their motifs (Sam); the stay-on-the-motif rule applies to
-    the spikes still to come.
+    the motif instead of drifting away from it. Applies to Impressionism, Romanticism, Neoclassical and '60s Jazz, and
+    to the spikes still running.
+  - **'60s Jazz** (branch `worktree-agent-a4802cdbc40dd46b4`, 3b387cd): strong. **Sam's shortlist so far:
+    Impressionism, Romanticism and '60s Jazz "are really strong."** Don't rework their motifs (Sam); the
+    stay-on-the-motif rule applies to the spikes still to come.
   - **Names (Sam):** each kept style takes a genre name, and every trace of the source person is then scrubbed from
     the repo (lead-style work only): Impressionism, Romanticism, '60s Jazz, Cool Jazz, Modal Jazz, Post-Bop, Bossa Nova,
-    Jazz-Hop, Film Score, Ambient — for whichever of these are kept.
+    Jazz-Hop, Film Score, Ambient — for whichever of these are kept. (The not-kept long-period style goes by
+    Neoclassical in the scrub.) Done 2026-10-31: the research docs are renamed and rewritten by genre
+    (docs/research/lead-<genre>-2026-10-29.md); the not-kept styles' research was removed (Post-Bop's v3 rules stay
+    here); tools/scrub/check-names.sh checks the tree and history against a name list kept outside the repo.
   - **Cool Jazz** (branch `worktree-agent-a62c91983b0fa60c5`, f359ad9): "fair. Not the best."
   - **Modal Jazz** (branch `worktree-agent-a8cba358d5d753da1`, 12843da): "sounds really good." Shortlist now:
     Impressionism, Romanticism, '60s Jazz, Modal Jazz. Note: its song 5 stayed within a 3rd because the spike centers a

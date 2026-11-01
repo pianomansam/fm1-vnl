@@ -23,7 +23,7 @@ lead has room. Removals, set changes, the style roll and the workbench follow; f
   Romanticism `worktree-agent-aeec8cac90861a25b`; '60s Jazz `worktree-agent-a4802cdbc40dd46b4`; Modal Jazz
   `worktree-agent-a8cba358d5d753da1`; Jazz-Hop `worktree-agent-acdb178f7a5283930`; Film Score
   `worktree-agent-a58dfa512ae37f56c`; Bossa Nova `worktree-agent-a8d4733e8156e2a1b`; Ambient
-  `worktree-agent-aedeac7d79de88df6`. Their renders: app/build/new/{impressionism,lead-*}-2026-10-29/ (INDEX.md each).
+  `worktree-agent-aedeac7d79de88df6`. Their renders: app/build/new/lead-*-2026-10-29/ (INDEX.md each).
 - Names: only the genre names in code, comments, UI, docs, files and commits written by this plan: Impressionism,
   Romanticism, '60s Jazz, Modal Jazz, Jazz-Hop, Film Score, Bossa Nova, Ambient. Never the person.
 - Lead instruments: flute, felt piano, sampled vibes, Knight. Never the same instrument on keys and lead.
@@ -148,7 +148,7 @@ list (kalimba, Emilyguitar, saw lead and synth pluck retired as leads; Emilyguit
 ### Task 9: The name scrub
 
 **Files:** every file and commit on `workbench` (unpushed) mentioning a lead-style source person; the research docs
-(docs/research/impressionism-lead-*, lead-*-2026-10-29.md) renamed to genre names and rewritten to describe traits without
+(docs/research/lead-*-2026-10-29.md) renamed to genre names and rewritten to describe traits without
 the person or their pieces; the not-kept styles' docs (Neoclassical, Cool Jazz, Post-Bop) rewritten under genre names or
 removed (Post-Bop's v3 rules stay in the ledger as "Post-Bop"); Sam's quotes in the ledger reworded; render folders
 and files under app/build/new renamed; spike branches and worktrees deleted.

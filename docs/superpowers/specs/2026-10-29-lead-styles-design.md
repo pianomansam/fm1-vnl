@@ -5,11 +5,10 @@ Status: approved by Sam (2026-10-29: "sounds good"; builder-check answers folded
 
 ## Intent
 
-Sam auditioned lead styles prototyped as throwaway spikes (research in docs/research/lead-*-2026-10-29.md and
-lead-impressionism-2026-10-29.md; code on `worktree-agent-*` branches; renders in app/build/new/lead-*-2026-10-29/) and
-shortlisted eight. He judged them "light years ahead" of today's leads. This builds those eight into the engine as
-the only lead generators, removes the old ones, and fixes what the spikes exposed: a lead squeezed by the keys, leads
-he no longer wants, and flash.
+Sam auditioned lead styles prototyped as throwaway spikes (research in docs/research/lead-*-2026-10-29.md; code
+on `worktree-agent-*` branches; renders in app/build/new/lead-*-2026-10-29/) and shortlisted eight. He judged them "light years
+ahead" of today's leads. This builds those eight into the engine as the only lead generators, removes the old ones,
+and fixes what the spikes exposed: a lead squeezed by the keys, leads he no longer wants, and flash.
 
 ## Goals
 
@@ -17,14 +16,14 @@ he no longer wants, and flash.
 
    | Style | From spike | Best lead instruments (from the spikes) |
    |---|---|---|
-   | Impressionism | Impressionism, `aaf267bc` (lead_style 2) | flute, vibes |
-   | Romanticism | Romanticism, `aeec8cac` | flute |
-   | '60s Jazz | the '60s jazz pianist, `a4802cdb` | felt piano, vibes |
-   | Modal Jazz | the modal-jazz trumpeter (the modal-jazz album), `a8cba358` | flute |
-   | Jazz-Hop | jazz-hop, `acdb178f` | flute, felt piano, vibes |
-   | Film Score | film score, `a58dfa51` | flute (Knight truest) |
-   | Bossa Nova | bossa nova, `a8d4733e` | flute, vibes |
-   | Ambient | ambient, `aedeac7d` | felt piano, vibes |
+   | Impressionism | `aaf267bc` (lead_style 2) | flute, vibes |
+   | Romanticism | `aeec8cac` | flute |
+   | '60s Jazz | `a4802cdb` | felt piano, vibes |
+   | Modal Jazz | `a8cba358` | flute |
+   | Jazz-Hop | `acdb178f` | flute, felt piano, vibes |
+   | Film Score | `a58dfa51` | flute (Knight truest) |
+   | Bossa Nova | `a8d4733e` | flute, vibes |
+   | Ambient | `aedeac7d` | felt piano, vibes |
 
    Each style keeps its spike's rules as Sam heard them. Sam: "Don't go back and rework any motifs." The fixes below
    apply to all of them.
