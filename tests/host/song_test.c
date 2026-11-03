@@ -8787,7 +8787,7 @@ static void test_style_holds(void)
 {
     static song_t s;
     song_ev_t ev[64];
-    long kept = 0, redrawn = 0, bad_kept = 0, bad_redraw = 0, forced = 0, bad_zero = 0, bad_back = 0;
+    long kept = 0, redrawn = 0, bad_kept = 0, bad_redraw = 0, forced = 0, bad_zero = 0, bad_back = 0, amb = 0, bad_band = 0;
     uint32_t seed;
     int k;
     for (seed = 1; seed <= 300; seed++) {
@@ -8820,6 +8820,32 @@ static void test_style_holds(void)
             bad_redraw += s.lead.style - 1 == st0 || !leads_fit(LIB_SETS[k].lead, s.lead.style - 1);
         }
     }
+    for (seed = 1; seed <= 2000 && amb < 20; seed++) {  /* Ambient kept across a set request (final review M1): its
+                                                           motif level starts again on the new lead's band */
+        static song_t s2;
+        song_roll_t r;
+        const lib_set_t *set;
+        int lo;
+        roll_song(NULL, seed, &r);
+        set = lib_set_by_id((uint8_t)r.v[RF_SET]);
+        song_start(&s, &r);
+        if (!set || s.lead.style - 1 != LS_AMBIENT) continue;
+        for (k = 0; k < LIB_NSETS; k++)
+            if (LIB_SETS[k].lead != set->lead && (LIB_SETS[k].moods >> r.v[RF_MOOD] & 1) &&
+                leads_fit(LIB_SETS[k].lead, LS_AMBIENT))
+                break;
+        if (k == LIB_NSETS) continue;
+        while (s.state == SS_PLAYING && !s.lead.st.am.lvl) song_tick(&s, ev, 64);   /* the motif under way first */
+        if (s.state != SS_PLAYING) continue;
+        song_request(&s, RF_SET, LIB_SETS[k].id);
+        for (lo = s.bar + 8; s.state == SS_PLAYING && s.bar < lo;) song_tick(&s, ev, 64);
+        if (s.roll.v[RF_SET] != LIB_SETS[k].id || s.lead.style - 1 != LS_AMBIENT || !s.lead.st.am.lvl) continue;
+        lo = s.lead.st.am.lvl;                         /* as a song started on the new set would choose it */
+        song_start(&s2, &s.roll);
+        while (s2.state == SS_PLAYING && !s2.lead.st.am.lvl) song_tick(&s2, ev, 64);
+        amb++;
+        bad_band += s2.lead.style - 1 == LS_AMBIENT && s2.lead.st.am.lvl != lo;
+    }
     for (seed = 1; seed <= 60; seed++) {                /* the workbench forces another style mid-bar */
         song_roll_t r;
         song_ov_t o = ov_none();
@@ -8842,6 +8868,8 @@ static void test_style_holds(void)
     }
     printf("style holds: %ld set requests kept the style, %ld re-drew it (the new lead can't play it); %ld forced "
            "changes\n", kept, redrawn, forced);
+    CHECK(amb > 0 && bad_band == 0, "style holds: %ld of %ld kept Ambient motifs not re-leveled for the new lead's band",
+          bad_band, amb);
     CHECK(bad_back == 0, "style holds: %ld of %ld cleared overrides kept the forced style, not the rolled one",
           bad_back, forced);
     CHECK(kept > 50 && bad_kept == 0, "style holds: %ld of %ld set requests changed a style the new lead plays",

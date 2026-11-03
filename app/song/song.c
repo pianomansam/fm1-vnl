@@ -243,14 +243,15 @@ static void keys_win_for(song_t *s)
 }
 
 /* The style the lead plays: the workbench's forced one, else the song's rolled one, kept (leads_style_keep: rolled
-   again only for a set whose lead can't play it), so clearing the override gives it back. A change starts the new
-   style clean: the last style's own state (the st union, Bossa Nova's fields) zeroed */
-static void style_for(song_t *s)
+   again only for a set whose lead can't play it), so clearing the override gives it back. A change of style, or of
+   lead instrument (fresh: its band moved), starts the style clean: its own state (the st union, Bossa Nova's fields)
+   zeroed */
+static void style_for(song_t *s, int fresh)
 {
     int o = song_ov()->lead_style, st;
     s->lead.rolled = leads_style_keep(&s->roll, s->lead.rolled - 1) + 1;
     st = o >= 2 && o < 2 + LS_N ? o - 1 : s->lead.rolled;
-    if (st == s->lead.style) return;
+    if (st == s->lead.style && !fresh) return;
     memset(&s->lead.st, 0, sizeof s->lead.st);
     s->lead.anchor = s->lead.akey = s->lead.ctrun = 0;
     s->lead.style = st;
@@ -305,7 +306,7 @@ static void apply_requests(song_t *s, int B)
     if (set != s->roll.v[RF_SET] || motion != s->roll.v[RF_MOTION] || map != s->roll.v[RF_MAP]) ride_for(s);
     if (set != s->roll.v[RF_SET]) {                  /* another lead instrument: its style (kept where it plays it), its
                                                        band */
-        style_for(s);
+        style_for(s, 1);
         keys_win_for(s);
         harmony_keys_window(0, s->keys_win);
     }
@@ -436,7 +437,7 @@ int song_tick(song_t *s, song_ev_t *out, int max)
     uint32_t salt;
     float gs;
     if (!s || s->state != SS_PLAYING) return 0;
-    style_for(s);                                   /* the workbench may force another style */
+    style_for(s, 0);                                   /* the workbench may force another style */
     if (song_ov()->lead_oct != s->win_oct || s->lead.style != s->win_style)
         keys_win_for(s);                            /* the workbench moved the lead's band */
     harmony_keys_window(0, s->keys_win);           /* this song's, while it ticks (cleared below) */
