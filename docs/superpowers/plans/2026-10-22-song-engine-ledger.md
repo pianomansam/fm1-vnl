@@ -641,6 +641,10 @@ Renders: `app/build/new/<seed>/` and `<seed>-nobed/`, one per set (Task 8's repo
   resonator's bloom, a 5 Hz motor (`VNL_VIBES=modal`, `worktree-agent-abb4f5ea87495da93` f81b4e8, renders
   `app/build/new/modal-vibes-2026-10-30/`). ~3.6 KB against the sample's 18.4 KB (~15 KB saved), ~30% less CPU
   (0.15 vs 0.21 for 2 voices). Kept on its branch: a ready flash trim for Task 8 if needed; otherwise the sample stays.
+  **Done (2026-11-03, Sam: motor on and off "both sound good... can't tell the difference"):** the modal vibes, motor
+  off, are the vibes; the sample and the motor are gone (6235b2b, 9589832). Est. -15.6 KB flash, vibes CPU 0.21 to
+  0.145. The FM triangle bass (Task 8's other A/B) was dropped: Sam couldn't tell, and it saved only 0.8 KB for +0.054
+  CPU, so M_CHIP stays.
 
 - **Rings' reverb and chorus against ours.** Sam picked Rings' (Task 7c); ours stays host-only (`VNL_FX=ours`).
   Rings' chorus wobbles ±14 cents, near its test's 15-cent window: don't deepen it without moving the window.
