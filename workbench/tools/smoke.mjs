@@ -2493,6 +2493,47 @@ console.log("the choir: a pad layer a song may draw (1 in 4), and a choice on th
   check(!ROWS.some((r) => r.id === "soloChoir") && OV.SOLO_CHOIR === undefined, "no vox pad solo row (the choir sings the solo notes)");
 }
 
+console.log("lead loop end to end (Jazz-Hop, the Lead loop row On)");
+{
+  const { readEvents } = await import("../wb.js");
+  const JAZZHOP = OPTS.leadStyles.find((s) => s.name === "Jazz-Hop").id;
+  // a 48-bar song, Jazz-Hop, the loop on, committed; its events from the top on a probe instance (wb_events)
+  const song = async (seed) => {
+    const ex = await load();
+    ex.wb_seed(seed);
+    ex.wb_roll_set(RF.TEMPO, 90);
+    ex.wb_roll_set(RF.BARS, 48);   // (after the tempo: it sets the length)
+    ex.wb_ov_set(OV.LEAD_STYLE, JAZZHOP);
+    ex.wb_ov_set(OV.LEAD_LOOP, 1);
+    ex.wb_apply();
+    const pex = await load();
+    new Uint8Array(pex.memory.buffer, pex.wb_commit_ptr(), pex.wb_stage_size())
+      .set(new Uint8Array(ex.memory.buffer, ex.wb_commit_ptr(), ex.wb_stage_size()));
+    pex.wb_events(0);
+    return { ex, evs: readEvents(pex) };
+  };
+  const leadIn = (evs, a, b) => evs.some((e) => e.role === V.LEAD && e.bar >= a && e.bar < b);
+  let seed = 1, s = await song(seed);   // the first seed whose lead plays at bar 30 and at bar 16
+  while (seed < 40 && !(leadIn(s.evs, 30, 34) && leadIn(s.evs, 16, 20))) s = await song(++seed);
+  check(leadIn(s.evs, 30, 34) && leadIn(s.evs, 16, 20), `seed ${seed}: the lead plays at bars 16 and 30`);
+  const { ex, evs } = s;
+  ex.wb_play(1);
+  until(ex, () => ex.wb_bar() === 41, 300 * SR);
+  check(ex.wb_lead_loop_stat(0) > 0, `after 40 bars the loop has replayed ${ex.wb_lead_loop_stat(0)} bars`);
+  // a jump: from its landing to the next bar line the song plays wb_events' events from the bar it landed on (the
+  // heard hash restarts at a landing); the lead's among them
+  const window = (to) => {
+    ex.wb_jump(to);
+    until(ex, () => ex.wb_bar() === to + 1, 60 * SR);
+    until(ex, () => ex.wb_bar() === to + 5, 60 * SR);
+    const n = ex.wb_heard_count(), want = evs.filter((e) => e.bar >= to).slice(0, n);
+    check(n > 0 && (ex.wb_heard_hash() >>> 0) === evHash(want) && want.some((e) => e.role === V.LEAD),
+          `a jump to bar ${to}: its ${n} events (${want.filter((e) => e.role === V.LEAD).length} the lead's) as from the top`);
+  };
+  window(30);
+  window(16);
+}
+
 console.log("options.json: statuses");
 check(!OPTS.instruments.some((i) => i.status === "candidate") &&
       ["Chillwave pad", "Choir"].every((n) => OPTS.instruments.find((i) => i.name === n).status === "approved") &&

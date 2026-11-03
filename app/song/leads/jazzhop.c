@@ -12,7 +12,10 @@
    the mode's pentatonic (2nds and 3rds) in a narrow band, a 6th at most. Every note passes leads_legal().
    The hook floor (Sam 2026-11-03): every hook statement plays 3 pitches or more, a perfect 4th or wider: the
    hook is drawn with 3 pitch levels, and where the band and the chord fold it, a note moves to another chord tone
-   (jh_spread). */
+   (jh_spread).
+   With the lead loop on (leads/loop.c), Jazz-Hop records a riff, not its sparse phrase: the hook stays in its bar (no
+   tie over), and bar 2 of each 4 restates the hook a pentatonic step under its held tone (never on it), softer, its
+   first note chopped where it has 3+. */
 #include <stdint.h>
 #include "leads.h"
 #include "library.h"
@@ -195,10 +198,11 @@ static int jh_spread(const leads_ctx_t *c, int *p, int n, const int *on, int la,
 /* the held tone and the notes before it, fitted to the chord by pitch level only: the landing whose hook fits
    whole, nearest target (the same target each time: the loop's same notes over the same chord); a note that
    can't sound moves a step or two (direction kept where it can), or drops. up: the held tone a step higher (the
-   turnaround). floor: a hook (held to the hook floor, jh_spread). Returns the held tone (0 none). */
+   turnaround). avoid: a held tone not to land on, where the band allows another (0 none). floor: a hook (held
+   to the hook floor, jh_spread). Returns the held tone (0 none). */
 static int jh_fit(lead_state_t *ls, const leads_ctx_t *c, const int *off, const int *on, const int *len, int n,
                   int la, int target, int end, const leads_next_t *x, int prev, int v0, int up, unsigned pent,
-                  unsigned scale, int floor)
+                  unsigned scale, int avoid, int floor)
 {
     int note, best = 0, bc = 1 << 30, k, lo = x ? c->lo_x : c->lo, j, notes[JH_MAX];
     int minor = 0, held, hoff = 0;
@@ -214,6 +218,7 @@ static int jh_fit(lead_state_t *ls, const leads_ctx_t *c, const int *off, const 
         if (!leads_is_ct(note, c->pcs, c->np) && !((pent >> (note % 12)) & 1u)) cost += 3;
         if (prev && (note - prev > 9 || prev - note > 9)) cost += 20;
         if (c->keys[3] && note == c->keys[3] + 12) cost += 4;
+        if (note == avoid) cost += 40;               /* off the hook's own held tone (the riff's answer) */
         for (k = 0; k < n; k++)                       /* a moved note costs less than a register jump */
             if (!leads_ok(c, leads_coll_step(pent, note, off[k]), on[k] % 8 == 0)) cost += 15;
         if (cost < bc) { bc = cost; best = note; }
@@ -293,8 +298,8 @@ void jazzhop_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b,
         int on[JH_MAX], len[JH_MAX], off[JH_MAX], la, n, v = unit == 3 || (unit == 1 && vary1) ? var : JV_SAME;
         int land = 0, tie;
         n = jh_vary(&h, &v, on, len, off, &la);
-        tie = h.ans == JA_HOLD && unit != 3 && v != JV_UP;
-        if (tie && x) land = jh_fit(ls, c, off, on, len, n, la, anchor, 16 + 6, x, prev, v0, 0, pent, scale, 1);
+        tie = h.ans == JA_HOLD && unit != 3 && v != JV_UP && !leads_loop_plays(LS_JAZZHOP);
+        if (tie && x) land = jh_fit(ls, c, off, on, len, n, la, anchor, 16 + 6, x, prev, v0, 0, pent, scale, 0, 1);
         if (land && land >= c->lo_x) {
             ls->ring |= 1u << la;
             ls->tied = 1;
@@ -303,9 +308,18 @@ void jazzhop_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b,
             for (i = 0; i < 16; i++) { ls->on[i] = 0; ls->dl[i] = 0; ls->vel[i] = 0; }
             ls->acc = 0;
             ls->ring = 0;
-            land = jh_fit(ls, c, off, on, len, n, la, anchor, 15, 0, prev, v0, v == JV_UP, pent, scale, 1);
+            land = jh_fit(ls, c, off, on, len, n, la, anchor, 15, 0, prev, v0, v == JV_UP, pent, scale, 0, 1);
         }
         if (land) prev = land;
+    } else if (leads_loop_plays(LS_JAZZHOP) && bip % 4 == 1 && !from) {
+        /* the loop's riff (only its recording plans here): units 1 and 3 answer with the hook again, its first note
+           chopped (3+ notes), landing a step under the hook's held tone, never on it (where the band floors it,
+           elsewhere), softer; units 2 and 4 answer as before */
+        int on[JH_MAX], len[JH_MAX], off[JH_MAX], la, n, v = h.n >= 3 ? JV_DROP : JV_SAME;
+        n = jh_vary(&h, &v, on, len, off, &la);
+        i = jh_fit(ls, c, off, on, len, n, la, leads_coll_step(pent, prev ? prev : anchor, -1), 15, 0, prev, v0 - 8, 0,
+                   pent, scale, prev, 1);
+        if (i) prev = i;
     } else if (h.ans == JA_ECHO && unit != 3 && !from) {   /* the hook's tail echoed, late, softer, a step lower */
         int eon[1], elen[1], eoff[1], ela = 10;
         eon[0] = ela - (h.la - h.on[h.n - 1]);
@@ -313,7 +327,7 @@ void jazzhop_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b,
         elen[0] = h.len[h.n - 1];
         eoff[0] = h.off[h.n - 1];
         i = jh_fit(ls, c, eoff, eon, elen, 1, ela, leads_coll_step(pent, anchor, -1), 15, 0, prev, v0 - 12, 0, pent,
-                   scale, 0);
+                   scale, 0, 0);
         if (i) prev = i;
     }
     ls->last = prev;

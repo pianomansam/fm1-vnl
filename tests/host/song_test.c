@@ -11940,6 +11940,62 @@ static void test_lead_loop_rerecords(void)
           styn);
 }
 
+/* Jazz-Hop records a riff, not its sparse phrase (lead-loop Task 3): seeds 1-300, the felt piano leading, Jazz-Hop
+   with the loop on: the recorded block's bars average 2.7 notes or more (the prototype's 2.92; the sparse phrase was
+   about 2.3), and bar 2 (slot 1, the riff's answer) lands on the hook's held tone (bar 1's last note) in 2% of blocks
+   at most (the prototype's 0.7%) */
+static void test_lead_loop_jazzhop_riff(void)
+{
+    static song_t s;
+    song_ev_t ev[64];
+    long bars = 0, notes = 0, blocks = 0, on_held = 0;
+    uint32_t k;
+    for (k = 1; k <= 300; k++) {
+        song_roll_t r;
+        song_ov_t o = ov_none();
+        uint8_t rec[4][16], have = 0, L = 0;
+        int sl, i;
+        if (!ls_roll(k, INS_FELT_PIANO, &r)) continue;
+        o.lead_style = (int8_t)(2 + LS_JAZZHOP);
+        o.lead_loop = 1;
+        song_override(&o);
+        song_start(&s, &r);
+        while (s.state == SS_PLAYING) {
+            song_tick(&s, ev, 64);
+            if (s.lead.loop.have != have) {           /* the recording as it fills (no live change here) */
+                have = s.lead.loop.have;
+                L = s.lead.loop.bars;
+                memcpy(rec, s.lead.loop.note, sizeof rec);
+            }
+        }
+        for (sl = 0; sl < L; sl++) {
+            if (!((have >> sl) & 1u)) continue;
+            bars++;
+            for (i = 0; i < 16; i++) notes += rec[sl][i] > 0;
+        }
+        if ((have & 3u) == 3u) {
+            int h0 = 0, h1 = 0;
+            for (i = 0; i < 16; i++) {
+                if (rec[0][i]) h0 = rec[0][i];
+                if (rec[1][i]) h1 = rec[1][i];
+            }
+            if (h0 && h1) {
+                blocks++;
+                on_held += h0 == h1;
+            }
+        }
+    }
+    song_override(NULL);
+    lib_set_wb(NULL, 0);
+    printf("lead loop Jazz-Hop riff: %ld recorded bars, %.2f notes a bar; bar 2 on the hook's held tone in %ld of %ld "
+           "blocks (%.1f%%)\n", bars, bars ? (double)notes / (double)bars : 0.0, on_held, blocks,
+           blocks ? 100.0 * (double)on_held / (double)blocks : 0.0);
+    CHECK(bars > 300 && notes * 10 >= bars * 27, "lead loop Jazz-Hop riff: %.2f notes a recorded bar, wanted 2.7+",
+          bars ? (double)notes / (double)bars : 0.0);
+    CHECK(blocks > 100 && on_held * 50 <= blocks, "lead loop Jazz-Hop riff: bar 2 on the held tone in %ld of %ld blocks",
+          on_held, blocks);
+}
+
 int main(int argc, char **argv)
 {
     const char *only = argc > 1 ? argv[1] : NULL;
@@ -12083,6 +12139,7 @@ int main(int argc, char **argv)
     RUN(test_lead_loop_replays);
     RUN(test_lead_loop_moves);
     RUN(test_lead_loop_rerecords);
+    RUN(test_lead_loop_jazzhop_riff);
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;

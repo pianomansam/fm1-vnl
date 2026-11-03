@@ -4,8 +4,10 @@
    style is Jazz-Hop or Ambient records its phrase once, L bars (2 or 4: the chord loop's length, 4 at most; these
    styles' 2-bar unit sets the floor), as the style plans those bars the first time the lead reaches them (slot:
    bar % L, so each recorded bar replays over the same place in the chord loop). Every later lead bar replays its slot
-   exactly: the same notes, onsets, lengths, velocities and triplet lateness. No new notes. A new key, mode, chords,
-   set or style records anew from the bar it lands on (no transposing), and enters there as a new sample would.
+   exactly: the same notes, onsets, lengths, velocities and triplet lateness. No new notes. Jazz-Hop records a riff,
+   not its sparse phrase (jazzhop.c): per recorded bar about 2.9 notes (Ambient 2.2; the sparse phrase 2.3). A new
+   key, mode, chords, set or style records anew from the bar it lands on (no transposing), and enters there as a new
+   sample would.
    Harmony: each replayed note is checked against the bar it plays over (the section's own chord, keys and bass:
    leads_legal, a chord tone on beats 1 and 3, the bar's range); one that would rub moves to the nearest note that
    passes (a scale or pentatonic step, 2 scale steps at most), else drops. A note ringing over the bar line is cut at
