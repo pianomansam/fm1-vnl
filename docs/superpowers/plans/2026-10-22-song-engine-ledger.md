@@ -146,9 +146,8 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
 
 ## To revisit (Sam, after listening)
 
-- **Parked (Sam, 2026-11-03: "Let's forget about them and see if I ask about similar things later").** Listening
-  set `app/build/new/listening-2026-11-03/` (branch `worktree-agent-a25e2cf4241e352d5`, host-only switches). Don't
-  raise these again unless Sam asks about something similar:
+- **Parked (Sam, 2026-11-03: "Let's forget about them and see if I ask about similar things later").** The
+  listening set and its switches were deleted. Don't raise these again unless Sam asks about something similar:
   - The lead's level under the styles: median 6.2 dB over the keys (was 8-10); set 28 seed 12 at -0.7 dB.
   - The old lead rules the styles dropped (sustained no-arpeggio, percussive 80%, the Motion lever, the bass re-roll
     reaction): none changed a note in the demo songs.
