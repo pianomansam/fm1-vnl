@@ -1558,6 +1558,27 @@ console.log("whole-branch review fixes");
   }
 }
 
+console.log("lead loop row");
+{
+  const ex = await load(), call = caller(ex);
+  ex.wb_seed(21);
+  ex.wb_apply();
+  const desk = new Desk(call, C, OPTS, await call("wb_library"), { rnd: lcg(9) });
+  await desk.read(true);
+  const ids = ROWS.map((x) => x.id), r = row("leadLoop"), opts = optionsFor(r, desk.state, OPTS);
+  check(r && r.kind === "ov" && r.key === "LEAD_LOOP" && ids.indexOf("leadLoop") === ids.indexOf("leadStyle") + 1 &&
+        JSON.stringify(opts.map((o) => [o.value, o.name])) === JSON.stringify([[-1, "Default"], [0, "Off"], [1, "On"]]) &&
+        desk.values.leadLoop === -1 && ex.wb_ov_get(OV.LEAD_LOOP) === -1, "the Lead loop row follows Lead style: default, off, on; new songs default");
+  await desk.set("leadLoop", 1);
+  check(desk.values.leadLoop === 1 && ex.wb_ov_get(OV.LEAD_LOOP) === 1, "setting it round-trips through wb_ov_get");
+  const old = await desk.snapshot();
+  delete old.rows.leadLoop;
+  const e2 = await load(), d2 = new Desk(caller(e2), C, OPTS, await caller(e2)("wb_library"));
+  const miss = await d2.restore(old);
+  check(!miss.length && !d2.message && d2.values.leadLoop === -1 && e2.wb_ov_get(OV.LEAD_LOOP) === -1,
+        "an old snapshot without the row restores to Default, no message");
+}
+
 console.log("Task 1b: no ear candy; the pad on/off row");
 {
   const ex = await load(), call = caller(ex);

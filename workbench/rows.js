@@ -31,6 +31,7 @@ export const ROWS = [
   { id: "padOn", group: INS, label: "Pad on/off", kind: "ov", key: "PAD_ON", source: "padOn" },
   { id: "phrase", group: VP, label: "Lead phrase", kind: "reroll", key: "PHRASE_SALT", part: "lead" },
   { id: "leadStyle", group: VP, label: "Lead style", kind: "ov", key: "LEAD_STYLE", source: "leadStyles" },
+  { id: "leadLoop", group: VP, label: "Lead loop", kind: "ov", key: "LEAD_LOOP", source: "leadLoop" },
   { id: "leadOct", group: VP, label: "Lead register", kind: "ov", key: "LEAD_OCT", source: "registers" },
   { id: "busyThin", group: VP, label: "Busy lead thins the comping", kind: "ov", key: "NO_BUSY_THIN",
     source: "onOffInverted" },
@@ -99,6 +100,7 @@ function allOptions(r, state, opts, lib) {
       return [ROLLED, ...opts.leadStyles.map((s) => ({ value: s.id, name: s.name, status: s.status }))];
     case "registers": return [{ value: -1, name: "Down an octave" }, { value: 0, name: "As rolled", rolled: true },
                               { value: 1, name: "Up an octave" }];
+    case "leadLoop": return [{ ...ROLLED, name: "Default" }, ...list(["Off", "On"])];   // -1 follows the firmware's constant
     case "padOn": return [ROLLED, ...list(["Off", "On"])];
     case "onOffInverted": return [{ value: 0, name: "On" }, { value: 1, name: "Off" }];   // the engine's flag turns it off
     case "padPlaces": return [ROLLED, ...list(["Below the lead", "With the lead", "Above the lead"])];
