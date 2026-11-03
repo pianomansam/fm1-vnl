@@ -8,6 +8,12 @@
 #include "plan.h"
 #include "groove.h"
 
+/* the lead loop's counters and per-bar log (leads_loop_stat, leads_loop_log): the tests, the host build and the
+   workbench, not the firmware image */
+#if defined PLAT_HOST || defined __EMSCRIPTEN__ || defined __APPLE__ || defined __linux__
+#define LEADS_LOOP_STATS 1
+#endif
+
 typedef struct {
     int on[16], len[16];          /* the bar's onsets (MIDI, 0 none) and lengths in 16ths */
     uint8_t vel[16];              /* the onsets' velocities (25-110) */
@@ -42,6 +48,15 @@ typedef struct {
             int lvl;              /* the motif's first note, chosen once per song (0: not yet) */
         } am;                     /* Ambient */
     } st;
+    struct {                      /* the lead loop (leads/loop.c): the recorded phrase, L bars by slot (bar % L) */
+        uint8_t note[4][16], len[4][16], vel[4][16], dl[4][16];
+        uint16_t ring[4], acc[4];
+        uint8_t have, bars;       /* the slots recorded (bits); L */
+        uint32_t sig;             /* what it was recorded for (a new song, key, mode, chords, set or style: anew) */
+#ifdef LEADS_LOOP_STATS
+        int stat[4];              /* bars replayed, notes nudged, notes dropped, stutters (leads_loop_stat) */
+#endif
+    } loop;
 } lead_state_t;
 
 /* 1 where the lead plays: blocks with L_LEAD and L_KEYS, not intro or outro */

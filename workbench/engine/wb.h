@@ -61,6 +61,11 @@ void wb_apply(void);                    /* commit the staged state: it lands at 
 void wb_jump(int bar);                  /* the next landing goes to bar (from 0: wb_sections' start) of the committed
                                            song, with any commit waiting (one landing, at the next bar line); stopped:
                                            where play starts */
+int wb_lead_loop_log(int bar);          /* the lead loop's moves on bar (from 0) of the song it last recorded: 1 a
+                                           stutter, 2 the bar muted, 4 its last 2 beats muted, 8 filtered, 16 a
+                                           held-back entry */
+int wb_lead_loop_stat(int i);           /* the playing song's lead loop counters: 0 bars replayed, 1 notes nudged, 2
+                                           notes dropped, 3 stutters */
 const char *wb_sections(int heard);     /* JSON: the committed song's plan (heard: the song playing) [{"start": bar from 0, "bars", "name"}] */
 
 /* Listening only (heard at once, kept across landings; the song unchanged): vx_mute's buses */

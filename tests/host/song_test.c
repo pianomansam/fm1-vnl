@@ -11633,6 +11633,296 @@ static void test_kit_roll(void)
     }
 }
 
+/* ---- the lead loop (lead-loop Task 2: leads/loop.c) ----
+   With song_ov()->lead_loop on, a Jazz-Hop or Ambient song records its phrase once (L bars, the chord loop's length)
+   and replays it: each replayed note a recorded one, moved 2 scale steps at most where it would rub, or dropped; the
+   producer's moves on top (filter-in entries, a muted bar, the drop before a change, the stuck-note stutter). Off (0,
+   or -1 with LEAD_LOOP_DEFAULT 0), every song is as before. */
+
+/* every event of r's song (lead_style 2 + style, style -1: the rolled one; lead_loop loop) folded into h */
+static uint32_t ll_hash(uint32_t h, const song_roll_t *r, int style, int loop)
+{
+    static song_t s;
+    song_ev_t ev[64];
+    song_ov_t o = ov_none();
+    int i;
+    if (style >= 0) o.lead_style = (int8_t)(2 + style);
+    o.lead_loop = (int8_t)loop;
+    song_override(&o);
+    song_start(&s, r);
+    while (s.state == SS_PLAYING) {
+        int idx = s.bar * 16 + s.step, n = song_tick(&s, ev, 64);
+        for (i = 0; i < n; i++) {
+            h = sf_hash(h, idx); h = sf_hash(h, ev[i].voice); h = sf_hash(h, ev[i].note); h = sf_hash(h, ev[i].vel);
+            h = sf_hash(h, ev[i].pad); h = sf_hash(h, (int)ev[i].delay); h = sf_hash(h, (int)ev[i].len);
+        }
+    }
+    song_override(NULL);
+    return h;
+}
+
+/* Off is today: seeds 1-300, the rolled style and each style forced, lead_loop 0 and -1 (the default, off): every
+   event as before the loop existed (the hash pinned on c17423f, the switch's commit, before loop.c) */
+static void test_lead_loop_off_identical(void)
+{
+    uint32_t seed, h[2] = {2166136261u, 2166136261u};
+    int st, k;
+    for (seed = 1; seed <= 300; seed++) {
+        song_roll_t r;
+        roll_song(NULL, seed, &r);
+        for (st = -1; st < LS_N; st++)
+            for (k = 0; k < 2; k++) h[k] = ll_hash(h[k], &r, st, k - 1);
+    }
+    printf("lead loop off: events %08x (lead_loop -1), %08x (0)\n", (unsigned)h[0], (unsigned)h[1]);
+    CHECK(h[0] == 0x51b9dbb5u, "lead loop off: lead_loop -1 hashes %08x, wanted 51b9dbb5", (unsigned)h[0]);
+    CHECK(h[1] == 0x51b9dbb5u, "lead loop off: lead_loop 0 hashes %08x, wanted 51b9dbb5", (unsigned)h[1]);
+}
+
+/* Styles other than Jazz-Hop and Ambient ignore the switch: lead_loop 1 plays as 0 */
+static void test_lead_loop_other_styles(void)
+{
+    uint32_t seed;
+    int st, bad = 0, n = 0;
+    for (seed = 1; seed <= 300; seed++) {
+        song_roll_t r;
+        roll_song(NULL, seed, &r);
+        for (st = 0; st < LS_N; st++) {
+            if (st == LS_JAZZHOP || st == LS_AMBIENT) continue;
+            n++;
+            bad += ll_hash(0u, &r, st, 1) != ll_hash(0u, &r, st, 0);
+        }
+    }
+    CHECK(bad == 0, "lead loop other styles: %d of %d songs change with the switch on", bad, n);
+}
+
+typedef struct {
+    long songs, lsongs, replayed, notes, checked, nudged, dropped, stutters;
+    long bad_new, bad_same, bad_pitch, bad_legal, stut_first, mute_first, stut_adj;
+} ll_acc_t;
+
+/* r's song with style forced and the loop on into a: each replayed bar against its slot (a bar with no move logged:
+   each note its slot's in onset, length (or cut at the bar line), velocity and lateness, its pitch 2 scale steps at
+   most from the recorded one; none new); each replayed note legal over its bar; the moves' places from the log */
+static void ll_play(const song_roll_t *r, int style, ll_acc_t *a)
+{
+    static song_t s;
+    song_ev_t ev[64];
+    song_ov_t o = ov_none();
+    int plays[256], bar, i, f = -1, fend = -1;
+    o.lead_style = (int8_t)(2 + style);
+    o.lead_loop = 1;
+    song_override(&o);
+    song_start(&s, r);
+    a->songs++;
+    for (bar = 0; bar < 256; bar++) {
+        const plan_block_t *b = bar < s.plan.bars ? plan_at(&s.plan, bar) : 0;
+        plays[bar] = b && lead_plays(b);
+    }
+    while (s.state == SS_PLAYING) {
+        int b0 = s.bar, st = s.step, rep = leads_loop_stat(&s.lead, 0), lg, slot, pcs[5], np, loop;
+        unsigned bass = 0, scale;
+        const plan_block_t *b = plan_at(&s.plan, b0);
+        const lib_prog_t *pr = lib_prog_by_id((uint8_t)s.roll.v[RF_PROG]);
+        song_tick(&s, ev, 64);
+        if (st != 0 || leads_loop_stat(&s.lead, 0) == rep || !b) continue;   /* a replayed bar's plan */
+        a->replayed++;
+        loop = pr && pr->n * pr->bars_per_chord ? pr->n * pr->bars_per_chord : 4;
+        np = harmony_chord_at(&s.roll, b0, b0 / loop + 1, (b->flags & PB_DARK) != 0, pcs);
+        for (i = 0; i < 16; i++) {
+            int bn = groove_bass_note(&s.roll, b, b0, i, pcs, np);
+            if (bn) bass |= 1u << (bn % 12);
+        }
+        scale = leads_scale_mask(&s.roll);
+        slot = b0 % s.lead.loop.bars;
+        lg = leads_loop_log(b0);
+        for (i = 0; i < 16; i++) {
+            int on = s.lead.on[i], rec = s.lead.loop.note[slot][i];
+            a->notes += rec > 0;
+            if (on > 0 && !leads_legal(&s.roll, on, pcs, np, bass)) a->bad_legal++;
+            if (lg & (1 | 2 | 4 | 16)) continue;     /* a stutter, a muted bar or half, a held-back entry */
+            if (on <= 0) continue;
+            a->checked++;
+            if (rec <= 0) { a->bad_new++; continue; }
+            if (s.lead.vel[i] != s.lead.loop.vel[slot][i] || s.lead.dl[i] != s.lead.loop.dl[slot][i] ||
+                !(s.lead.len[i] == s.lead.loop.len[slot][i] ||
+                  (s.lead.len[i] == 16 - i && s.lead.loop.len[slot][i] > 16 - i)))
+                a->bad_same++;
+            if (on < leads_coll_step(scale, rec, -2) || on > leads_coll_step(scale, rec, 2)) a->bad_pitch++;
+        }
+    }
+    song_override(NULL);
+    for (bar = 0; bar < 256 && f < 0; bar++)
+        if (plays[bar]) f = bar;
+    if (f < 0) return;
+    a->lsongs++;
+    for (fend = f; fend < 256 && plays[fend] && fend < f + 8; fend++) {}
+    a->nudged += leads_loop_stat(&s.lead, 1);
+    a->dropped += leads_loop_stat(&s.lead, 2);
+    a->stutters += leads_loop_stat(&s.lead, 3);
+    for (bar = 0; bar < 256; bar++) {
+        int lg = plays[bar] ? leads_loop_log(bar) : 0;
+        const plan_block_t *b = plays[bar] ? plan_at(&s.plan, bar) : 0;
+        int drop = b && bar == b->start + b->bars - 1 && (b + 1)->bars && (b + 1)->start == bar + 1;
+        if (bar >= f && bar < fend) {
+            a->stut_first += lg & 1;
+            a->mute_first += (lg & 2) && !drop;
+        }
+        if (bar + 1 < 256 && (lg & 1) && plays[bar + 1] && (leads_loop_log(bar + 1) & 1)) a->stut_adj++;
+    }
+}
+
+static ll_acc_t ll_acc;
+static void ll_sweep(void)
+{
+    static const int INS3[3] = {INS_FELT_PIANO, INS_FLUTE, INS_VIBES}, ST[2] = {LS_JAZZHOP, LS_AMBIENT};
+    static int done;
+    uint32_t k;
+    int i, j;
+    if (done) return;
+    done = 1;
+    for (j = 0; j < 2; j++)
+        for (i = 0; i < 3; i++)
+            for (k = 1; k <= 300; k++) {
+                song_roll_t r;
+                if (!ls_roll(k, INS3[i], &r)) continue;
+                ll_play(&r, ST[j], &ll_acc);
+            }
+    lib_set_wb(NULL, 0);
+    printf("lead loop: %ld songs (%ld with a lead), %ld bars replayed, %ld notes: %ld nudged, %ld dropped; %ld "
+           "stutters (%.2f a song)\n", ll_acc.songs, ll_acc.lsongs, ll_acc.replayed, ll_acc.notes, ll_acc.nudged,
+           ll_acc.dropped, ll_acc.stutters, ll_acc.lsongs ? (double)ll_acc.stutters / (double)ll_acc.lsongs : 0.0);
+}
+
+static void test_lead_loop_replays(void)
+{
+    ll_sweep();
+    CHECK(ll_acc.replayed > 10000 && ll_acc.checked > 10000, "lead loop: only %ld bars replayed, %ld notes checked",
+          ll_acc.replayed, ll_acc.checked);
+    CHECK(ll_acc.bad_new == 0, "lead loop: %ld replayed notes not recorded", ll_acc.bad_new);
+    CHECK(ll_acc.bad_same == 0, "lead loop: %ld replayed notes off their slot's onset, length or velocity",
+          ll_acc.bad_same);
+    CHECK(ll_acc.bad_pitch == 0, "lead loop: %ld replayed notes moved over 2 scale steps", ll_acc.bad_pitch);
+    CHECK(ll_acc.bad_legal == 0, "lead loop: %ld replayed notes not legal over their bar", ll_acc.bad_legal);
+    CHECK(ll_acc.nudged * 10 <= ll_acc.notes, "lead loop: %ld of %ld notes nudged (10%% at most)", ll_acc.nudged,
+          ll_acc.notes);
+    CHECK(ll_acc.dropped * 300 <= 5 * ll_acc.songs, "lead loop: %ld notes dropped in %ld songs (5 in 300 at most)",
+          ll_acc.dropped, ll_acc.songs);
+}
+
+static void test_lead_loop_moves(void)
+{
+    double per;
+    ll_sweep();
+    per = ll_acc.lsongs ? (double)ll_acc.stutters / (double)ll_acc.lsongs : 0.0;
+    CHECK(per >= 0.5 && per <= 1.0, "lead loop: %.2f stutters a song with a lead, wanted 0.5-1.0", per);
+    CHECK(ll_acc.stut_first == 0, "lead loop: %ld stutters in a song's first lead pass", ll_acc.stut_first);
+    CHECK(ll_acc.mute_first == 0, "lead loop: %ld muted bars in a song's first lead pass", ll_acc.mute_first);
+    CHECK(ll_acc.stut_adj == 0, "lead loop: %ld stutters in the bar after a stutter", ll_acc.stut_adj);
+}
+
+/* A live change re-records: (a) a key change (song_request): once it lands, the lead's notes are in the new key's
+   scale (or its chords' tones), the recording's signature is new, and every replayed bar from then on plays a slot
+   recorded at the landing bar or later (no transposed old phrase); (b) a set change to another lead instrument that
+   fits Jazz-Hop, and the workbench forcing another style: the recording dropped (style_for) */
+static void test_lead_loop_rerecords(void)
+{
+    static song_t s;
+    static const int FITS[3] = {INS_FLUTE, INS_FELT_PIANO, INS_VIBES};
+    song_ev_t ev[64];
+    int keyn = 0, bad_old = 0, bad_key = 0, bad_sig = 0, replays = 0, setn = 0, bad_set = 0, styn = 0, bad_sty = 0;
+    uint32_t seed;
+    for (seed = 1; seed <= 300 && (keyn < 20 || setn < 20); seed++) {
+        song_roll_t r;
+        song_ov_t o = ov_none();
+        int pass;
+        roll_song(NULL, seed, &r);
+        o.lead_style = (int8_t)(2 + LS_JAZZHOP);
+        o.lead_loop = 1;
+        for (pass = 0; pass < 2; pass++) {
+            int recbar[4] = {-1, -1, -1, -1}, land = -1, key = 0, set = -1, led = 0, i, j;
+            uint32_t sig0;
+            song_override(&o);
+            song_start(&s, &r);
+            while (s.state == SS_PLAYING && leads_loop_stat(&s.lead, 0) < 2) {
+                int b0 = s.bar, st = s.step, rep = leads_loop_stat(&s.lead, 0);
+                song_tick(&s, ev, 64);
+                if (st == 0 && lead_plays(plan_at(&s.plan, b0)) && leads_loop_stat(&s.lead, 0) == rep)
+                    recbar[b0 % s.lead.loop.bars] = b0;      /* a lead bar not replayed: recorded */
+            }
+            if (s.state != SS_PLAYING) continue;
+            sig0 = s.lead.loop.sig;
+            if (pass == 0) {
+                key = (s.roll.v[RF_KEY] + 5) % 12;
+                song_request(&s, RF_KEY, key);
+            } else {
+                const lib_set_t *cur = lib_set_by_id((uint8_t)s.roll.v[RF_SET]);
+                for (j = 0; j < LIB_NSETS && set < 0; j++) {
+                    const lib_set_t *t = &LIB_SETS[j];
+                    if (!cur || t->lead == cur->lead || !set_legal(&s.roll, t->id) || t->chords == t->lead) continue;
+                    for (i = 0; i < 3; i++)
+                        if (t->lead == FITS[i]) set = t->id;
+                }
+                if (set < 0) continue;
+                song_request(&s, RF_SET, set);
+            }
+            while (s.state == SS_PLAYING) {
+                int b0 = s.bar, st = s.step, rep = leads_loop_stat(&s.lead, 0), pcs[5], np;
+                song_tick(&s, ev, 64);
+                if (land < 0 && (pass == 0 ? s.roll.v[RF_KEY] == key : s.roll.v[RF_SET] == set)) {
+                    land = b0;
+                    if (pass == 0) keyn++;
+                    else {
+                        setn++;
+                        bad_set += (s.lead.loop.have & ~(1 << (b0 % (s.lead.loop.bars ? s.lead.loop.bars : 4)))) != 0;
+                    }
+                }
+                if (st == 0 && lead_plays(plan_at(&s.plan, b0)) && leads_loop_stat(&s.lead, 0) == rep)
+                    recbar[b0 % s.lead.loop.bars] = b0;
+                if (land < 0 || st != 0 || pass) continue;
+                led |= lead_plays(plan_at(&s.plan, b0));
+                if (leads_loop_stat(&s.lead, 0) != rep) {
+                    replays++;
+                    bad_old += recbar[b0 % s.lead.loop.bars] < land;
+                }
+                {
+                    const lib_prog_t *pr = lib_prog_by_id((uint8_t)s.roll.v[RF_PROG]);
+                    const plan_block_t *b = plan_at(&s.plan, b0);
+                    int loop = pr && pr->n * pr->bars_per_chord ? pr->n * pr->bars_per_chord : 4;
+                    np = harmony_chord_at(&s.roll, b0, b0 / loop + 1, b && (b->flags & PB_DARK), pcs);
+                }
+                for (i = 0; i < 16; i++)
+                    if (s.lead.on[i] > 0 && !((leads_scale_mask(&s.roll) >> (s.lead.on[i] % 12)) & 1) &&
+                        !leads_is_ct(s.lead.on[i], pcs, np))
+                        bad_key++;
+            }
+            if (pass == 0 && led) bad_sig += s.lead.loop.sig == sig0;
+            if (pass == 1 && land >= 0 && styn < 20) {   /* the workbench forces Ambient mid-bar */
+                song_start(&s, &r);
+                while (s.state == SS_PLAYING && leads_loop_stat(&s.lead, 0) < 2) song_tick(&s, ev, 64);
+                while (s.state == SS_PLAYING && s.step == 0) song_tick(&s, ev, 64);
+                if (s.state == SS_PLAYING && s.lead.loop.have) {
+                    song_ov_t a = o;
+                    a.lead_style = (int8_t)(2 + LS_AMBIENT);
+                    song_override(&a);
+                    song_tick(&s, ev, 64);
+                    styn++;
+                    bad_sty += s.lead.loop.have != 0;
+                }
+            }
+        }
+    }
+    song_override(NULL);
+    printf("lead loop re-records: %d key changes (%d bars replayed after), %d set changes, %d style changes\n", keyn,
+           replays, setn, styn);
+    CHECK(keyn >= 20 && replays > 100, "lead loop re-records: %d key changes, %d replays after", keyn, replays);
+    CHECK(bad_sig == 0, "lead loop re-records: %d key changes kept the recording's signature", bad_sig);
+    CHECK(bad_old == 0, "lead loop re-records: %d bars replayed a recording from before the key change", bad_old);
+    CHECK(bad_key == 0, "lead loop re-records: %d notes out of the new key after the change", bad_key);
+    CHECK(setn >= 10 && bad_set == 0, "lead loop re-records: %d of %d set changes kept old slots", bad_set, setn);
+    CHECK(styn >= 10 && bad_sty == 0, "lead loop re-records: %d of %d style changes kept the recording", bad_sty,
+          styn);
+}
+
 int main(int argc, char **argv)
 {
     const char *only = argc > 1 ? argv[1] : NULL;
@@ -11771,6 +12061,11 @@ int main(int argc, char **argv)
     RUN(test_drums_blocks);
     RUN(test_drums_hook);
     RUN(test_kit_roll);
+    RUN(test_lead_loop_off_identical);
+    RUN(test_lead_loop_other_styles);
+    RUN(test_lead_loop_replays);
+    RUN(test_lead_loop_moves);
+    RUN(test_lead_loop_rerecords);
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;

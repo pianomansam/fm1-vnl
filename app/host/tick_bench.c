@@ -5,7 +5,8 @@
    apart. Also the worst song_start, plan_build and groove_ride (the ride's extra plan builds at a song's start), and
    a hash of every event (strummed and other songs apart), the same before and after a change that keeps the music.
    A third argument forces a lead_style (override.h: 2 + LS_*, a lead style) on every song, a fourth a comping style
-   (CS_*; -1 for none), held where the keys can't play it.
+   (CS_*; -1 for none), held where the keys can't play it. VNL_LEAD_LOOP=1 turns the lead loop on (lead_loop 1) for
+   every song.
    Built only with -DVNL_BENCH, otherwise this file is empty (as bench.c: the firmware globs take host/). */
 #ifdef VNL_BENCH
 #define _POSIX_C_SOURCE 199309L
@@ -41,8 +42,9 @@ int main(int argc, char **argv)
     if (argc > 3) {
         o.lead_style = (int8_t)atoi(argv[3]);
         if (argc > 4) o.comp = (int8_t)atoi(argv[4]);
-        song_override(&o);
     }
+    if (getenv("VNL_LEAD_LOOP") && *getenv("VNL_LEAD_LOOP") == '1') o.lead_loop = 1;
+    song_override(&o);
     for (seed = 2; seed <= hi; seed++) {
         song_roll_t r;
         int st, rep, nt = 0, blk;

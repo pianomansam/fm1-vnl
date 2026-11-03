@@ -372,5 +372,6 @@ void leads_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *
         int bn = groove_bass_note(r, nb, bar + 1, i, npcs, nx.np);
         if (bn) nx.bass |= 1u << (bn % 12);
     }
-    PLAN[s](ls, &c, b, bar, &nx);
+    if (leads_loop_plays(s)) leads_loop_bar(ls, &c, b, bar, &nx, s, PLAN[s]);
+    else PLAN[s](ls, &c, b, bar, &nx);
 }

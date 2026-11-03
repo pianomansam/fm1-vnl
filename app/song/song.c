@@ -254,6 +254,7 @@ static void style_for(song_t *s, int fresh)
     if (st == s->lead.style && !fresh) return;
     memset(&s->lead.st, 0, sizeof s->lead.st);
     s->lead.anchor = s->lead.akey = s->lead.ctrun = 0;
+    s->lead.loop.have = 0;                          /* the lead loop records anew (its counters kept: the song's) */
     s->lead.style = st;
 }
 
@@ -537,6 +538,13 @@ int song_tick(song_t *s, song_ev_t *out, int max)
 float song_step_samples(const song_t *s) { return s->ss; }
 
 float song_pad_level(const song_t *s) { return s->pad_level; }
+
+float song_lead_lp(const song_t *s)
+{
+    if (!s || s->state != SS_PLAYING) return 0.0f;
+    return leads_loop_lp(&s->roll, plan_at(&s->plan, s->bar), s->bar, s->step,
+                         s->lead.style ? s->lead.style - 1 : leads_style(&s->roll));
+}
 
 void song_request(song_t *s, int field, int value)
 {

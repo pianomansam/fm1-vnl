@@ -13,6 +13,7 @@
 #include "override.h"
 #include "patterns_gen.h"
 #include "lead.h"
+#include "leads/leads.h"
 #include "voices.h"
 #include "harmony.h"
 #include "poketrack/trommelsynthesizer.h"
@@ -140,6 +141,7 @@ static void tick(void)
     int bar = song.bar, st = song.step, n, i;
     float lp[PM_N], hp[PM_N];
     plan_moves(&song.plan, bar, st, lp, hp);
+    if (lp[PM_LEAD] < song_lead_lp(&song)) lp[PM_LEAD] = song_lead_lp(&song);   /* the lead loop's filter */
     vx_organ_scan(plan_full_kit(&song.plan, bar)); /* the pad's organ's scanner: on where the full kit plays */
     for (i = 0; i < PM_N; i++) {
         vx_set_filter(i, lp[i]);
@@ -235,6 +237,11 @@ EXPORT void wb_seed(uint32_t seed)
 {
     roll_song(0, seed, &st.roll);
 }
+
+/* the lead loop's log per bar (leads/loop.c's leads_loop_log) and the playing song's counters (leads_loop_stat: 0
+   bars replayed, 1 notes nudged, 2 notes dropped, 3 stutters) */
+EXPORT int wb_lead_loop_log(int bar) { return leads_loop_log(bar); }
+EXPORT int wb_lead_loop_stat(int i) { return leads_loop_stat(&song.lead, i); }
 
 EXPORT void wb_play(int on)
 {

@@ -50,6 +50,9 @@ float song_step_samples(const song_t *s);                   /* 44100 * 60 / (tem
    it falling linearly to 0 by its last step, over the first bar back rising to 1 (1/16 on its first step). With the
    layer's swell and release, the pad fades over a section line instead of cutting (Task 1b). */
 float song_pad_level(const song_t *s);
+/* The lead bus's low-pass amount the lead loop's filter moves ask for at the step about to tick (leads/loop.c; 0:
+   none, or the loop not playing) */
+float song_lead_lp(const song_t *s);
 void song_request(song_t *s, int field, int value);         /* lands on the next 4-bar boundary */
 int song_pending(const song_t *s, int *field, int *bars_left);  /* the earliest pending change; 0 if none */
 

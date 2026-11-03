@@ -74,6 +74,19 @@ void leads_range_bar(const song_roll_t *r, int style, const int keys[4], const i
 void leads_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b, int bar, const int keys[4],
                     const int nkeys[4], const int *pcs, int np, int can_push);
 
+/* The lead loop (leads/loop.c): the switch's firmware default (song_ov()->lead_loop -1 follows it); 1 where the loop
+   plays the style (on, and Jazz-Hop or Ambient); the lead bus's low-pass amount at bar and step (b: its plan block; 0
+   where it doesn't play) */
+#define LEAD_LOOP_DEFAULT 0
+int leads_loop_plays(int style);
+float leads_loop_lp(const song_roll_t *r, const plan_block_t *b, int bar, int step, int style);
+#ifdef LEADS_LOOP_STATS
+/* the song's counters (0 bars replayed, 1 notes nudged, 2 notes dropped, 3 stutters); the log per bar of the song
+   last recorded (1 a stutter, 2 the bar muted, 4 its last 2 beats muted, 8 filtered, 16 a held-back entry) */
+int leads_loop_stat(const lead_state_t *ls, int which);
+int leads_loop_log(int bar);
+#endif
+
 /* ---- for the style files ---- */
 
 typedef struct {                  /* the bar a style plans */
@@ -139,5 +152,9 @@ void bossa_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b, i
 void bossa_motif(const song_roll_t *r, lead_motif_t *m);
 void ambient_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b, int bar, const leads_next_t *nx);
 void ambient_motif(const song_roll_t *r, lead_motif_t *m);
+/* the loop's bar: plan (the style's planner) records the slot the first time, then the slot replays (loop.c) */
+void leads_loop_bar(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b, int bar, const leads_next_t *nx,
+                    int style, void (*plan)(lead_state_t *, const leads_ctx_t *, const plan_block_t *, int,
+                                            const leads_next_t *));
 
 #endif
