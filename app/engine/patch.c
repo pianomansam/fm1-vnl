@@ -84,7 +84,7 @@ static const vx_patch_t PATCHES[INS_NONE] = {
        motor cut as inaudible). Tuned on the sample's notes (its zones' first 0.4 s): the modes' levels and -60 dB
        times, the bloom; it rings free (10 s to -60 dB at C4), and a released note rings on about half a second, a
        held pedal's tail. The level matched to the sample's on the lead bus (seeds 9, 14 and 11 on sets 33, 4 and 8:
-       within 0.25 dB). The lead only. */
+       a mean of -0.33 dB, each song within 1 dB; test_vibes_level). The lead only. */
     [INS_VIBES] = {M_MODAL, {4.0f, 9.9f, 0.18f, 0.9f, 2600.0f, 0.5f, 2.4f, 0.55f, 0.8f, 0.3f, 0.3f, 0.03f}, 0.001f,
                    10.0f, 1.0f, 0.8f, 0.541f, 0.0f, 0.3f},
     /* the triangle bass (a chip voice) */
