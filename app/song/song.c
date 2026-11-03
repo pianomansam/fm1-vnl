@@ -542,7 +542,7 @@ float song_pad_level(const song_t *s) { return s->pad_level; }
 float song_lead_lp(const song_t *s)
 {
     if (!s || s->state != SS_PLAYING) return 0.0f;
-    return leads_loop_lp(&s->roll, plan_at(&s->plan, s->bar), s->bar, s->step,
+    return leads_loop_lp(&s->roll, &s->lead, plan_at(&s->plan, s->bar), s->bar, s->step,
                          s->lead.style ? s->lead.style - 1 : leads_style(&s->roll));
 }
 

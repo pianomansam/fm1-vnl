@@ -75,11 +75,12 @@ void leads_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *
                     const int nkeys[4], const int *pcs, int np, int can_push);
 
 /* The lead loop (leads/loop.c): the switch's firmware default (song_ov()->lead_loop -1 follows it); 1 where the loop
-   plays the style (on, and Jazz-Hop or Ambient); the lead bus's low-pass amount at bar and step (b: its plan block; 0
-   where it doesn't play) */
+   plays the style (on, and Jazz-Hop or Ambient); the lead bus's low-pass amount at bar and step (ls: the song's lead
+   state; b: its plan block; 0 where it doesn't play) */
 #define LEAD_LOOP_DEFAULT 0
 int leads_loop_plays(int style);
-float leads_loop_lp(const song_roll_t *r, const plan_block_t *b, int bar, int step, int style);
+float leads_loop_lp(const song_roll_t *r, const lead_state_t *ls, const plan_block_t *b, int bar, int step,
+                    int style);
 #ifdef LEADS_LOOP_STATS
 /* the song's counters (0 bars replayed, 1 notes nudged, 2 notes dropped, 3 stutters); the log per bar of the song
    last recorded (1 a stutter, 2 the bar muted, 4 its last 2 beats muted, 8 filtered, 16 a held-back entry) */

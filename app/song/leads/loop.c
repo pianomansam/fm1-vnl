@@ -5,7 +5,7 @@
    styles' 2-bar unit sets the floor), as the style plans those bars the first time the lead reaches them (slot:
    bar % L, so each recorded bar replays over the same place in the chord loop). Every later lead bar replays its slot
    exactly: the same notes, onsets, lengths, velocities and triplet lateness. No new notes. A new key, mode, chords,
-   set or style records anew from the bar it lands on (no transposing); its first replay enters as a new sample would.
+   set or style records anew from the bar it lands on (no transposing), and enters there as a new sample would.
    Harmony: each replayed note is checked against the bar it plays over (the section's own chord, keys and bass:
    leads_legal, a chord tone on beats 1 and 3, the bar's range); one that would rub moves to the nearest note that
    passes (a scale or pentatonic step, 2 scale steps at most), else drops. A note ringing over the bar line is cut at
@@ -13,7 +13,9 @@
    The producer's moves on the loop (no new notes), all drawn from the song's phrase seed:
      - the lead's entry (a block that starts a run of lead blocks): the song's first 40% filtered in (low-pass 0.75,
        about 600 Hz, for 2 bars, opening over the next 2); a later one 20% held back (its first 4 bars muted, 8-bar
-       blocks), 35% filtered in. A lead block straight after another: 15% filtered in
+       blocks), 35% filtered in. A lead block straight after another: 15% filtered in. A live change landing mid-run
+       re-records from its bar, a later entry there (held back 20%, its 4 bars muted where 8 of its block remain, else
+       filtered in; filtered in 35%), in place of the block's own entry over those 4 bars
      - a bar muted: 12% of 8-bar passes, one hook bar (the pass's bar 3 or 5); never the first pass
      - the drop before a section change: the last bar of a lead block with a block after it, 50%: half of them the
        whole bar out, half its last 2 beats
@@ -49,7 +51,7 @@ int leads_loop_log(int bar) { return bar >= 0 && bar < 256 ? lg[bar] : 0; }
 #endif
 
 enum { LE_NONE, LE_FILTER, LE_HOLD };
-typedef struct { unsigned mute; int stut; float lp0, lp1; int entry; } lm_t;
+typedef struct { unsigned mute; int stut; float lp0, lp1; int entry, hold; } lm_t;
 
 static int lead_before(const plan_block_t *b)
 {
@@ -60,18 +62,21 @@ static int lead_before(const plan_block_t *b)
     return 0;
 }
 
-/* the moves on bar (b: its plan block), as the header says */
-static void moves(const song_roll_t *r, const plan_block_t *b, int bar, lm_t *m)
+/* the moves on bar (b: its plan block; ls: the loop, for the bar a live change re-recorded from), as the header
+   says */
+static void moves(const song_roll_t *r, const lead_state_t *ls, const plan_block_t *b, int bar, lm_t *m)
 {
     uint32_t seed = song_ov_phrase_seed(r->seed);
     const plan_block_t *nb = (b + 1)->bars && (b + 1)->start == b->start + b->bars ? b + 1 : 0;
     int k = bar - b->start, first = !lead_before(b), run, pass, bip, pbars, last, x, lastbar = k == b->bars - 1, fp;
+    int from = ls->loop.from - 1, ke = k;
     const plan_block_t *rb = b;
     rng_t g;
     m->mute = 0;
     m->stut = 0;
     m->lp0 = m->lp1 = 0.0f;
     m->entry = LE_NONE;
+    m->hold = 0;
     if (!lead_plays(b)) return;
     leads_phrase_at(b, bar, &run, &pass, &bip, &pbars, &last);
     while (rb->start > run) rb--;
@@ -81,10 +86,19 @@ static void moves(const song_roll_t *r, const plan_block_t *b, int bar, lm_t *m)
     if (run != b->start) m->entry = x < 15 ? LE_FILTER : LE_NONE;   /* a lead block after a lead block */
     else m->entry = first ? (x < 40 ? LE_FILTER : LE_NONE)
                           : x < 20 ? (b->bars >= 8 ? LE_HOLD : LE_FILTER) : x < 55 ? LE_FILTER : LE_NONE;
-    if (k < 4 && m->entry == LE_HOLD) m->mute = 0xFFFFu;
-    if (k < 4 && m->entry == LE_FILTER) {
-        m->lp0 = k < 2 ? 0.75f : k == 2 ? 0.75f : 0.375f;
-        m->lp1 = k < 2 ? 0.75f : k == 2 ? 0.375f : 0.0f;
+    if (from > run && bar >= from && bar < from + 4) {   /* a live change re-recorded mid-run from bar `from`: a new
+                                                            entry there, at a later entry's odds */
+        const plan_block_t *fb = b;
+        while (fb->start > from) fb--;
+        rng_seed(&g, seed ^ ((uint32_t)from * 0x9E3779B1u), 615);
+        x = rng_int(&g, 100);
+        m->entry = x < 20 ? (from + 8 <= fb->start + fb->bars ? LE_HOLD : LE_FILTER) : x < 55 ? LE_FILTER : LE_NONE;
+        ke = bar - from;
+    }
+    if (ke < 4 && m->entry == LE_HOLD) { m->mute = 0xFFFFu; m->hold = 1; }
+    if (ke < 4 && m->entry == LE_FILTER) {
+        m->lp0 = ke < 2 ? 0.75f : ke == 2 ? 0.75f : 0.375f;
+        m->lp1 = ke < 2 ? 0.75f : ke == 2 ? 0.375f : 0.0f;
     }
     if (lastbar && nb) {                              /* the drop before the section change */
         rng_seed(&g, seed ^ ((uint32_t)bar * 0x85EBCA6Bu), 611);
@@ -102,16 +116,17 @@ static void moves(const song_roll_t *r, const plan_block_t *b, int bar, lm_t *m)
     if (m->stut && bar > 0) {                         /* none in the bar right after a stutter (the draws kept: no
                                                          other bar's move shifts) */
         lm_t p;
-        moves(r, bar - 1 >= b->start ? b : b - 1, bar - 1, &p);
+        moves(r, ls, bar - 1 >= b->start ? b : b - 1, bar - 1, &p);
         if (p.stut) m->stut = 0;
     }
 }
 
-float leads_loop_lp(const song_roll_t *r, const plan_block_t *b, int bar, int step, int style)
+float leads_loop_lp(const song_roll_t *r, const lead_state_t *ls, const plan_block_t *b, int bar, int step,
+                    int style)
 {
     lm_t m;
     if (!leads_loop_plays(style) || !b) return 0.0f;
-    moves(r, b, bar, &m);
+    moves(r, ls, b, bar, &m);
     return m.lp0 + (m.lp1 - m.lp0) * (float)(step + 1) * (1.0f / 16.0f);
 }
 
@@ -209,12 +224,16 @@ void leads_loop_bar(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *
     lm_t m, mn;
     const plan_block_t *nb = bar + 1 < b->start + b->bars ? b
                            : (b + 1)->bars && (b + 1)->start == b->start + b->bars ? b + 1 : 0;
-    if (ls->loop.sig != sig || ls->loop.bars != L) {   /* a new song (or its key, mode, chords, set): record anew */
+    if (ls->loop.sig != sig || ls->loop.bars != L || (!ls->loop.have && ls->loop.sig)) {
+        /* a new song (its state zeroed), or a live change (key, mode, chords, set, style): record anew; a live change
+           from this bar, its new entry here (moves) */
+        int live = ls->loop.sig != 0;
         ls->loop.have = 0;
         ls->loop.sig = sig;
         ls->loop.bars = (uint8_t)L;
+        ls->loop.from = (int16_t)(live ? bar + 1 : 0);
 #ifdef LEADS_LOOP_STATS
-        for (i = 0; i < 256; i++) lg[i] = 0;
+        for (i = live && bar > 0 ? bar : 0; i < 256; i++) lg[i] = 0;
 #endif
     }
     if (!((ls->loop.have >> slot) & 1u)) {            /* record: the style plans the bar, once */
@@ -252,10 +271,10 @@ void leads_loop_bar(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *
             ls->ring &= ~(1u << i);
         }
     }
-    moves(c->r, b, bar, &m);
+    moves(c->r, ls, b, bar, &m);
     if (m.stut && stutter(ls, c->r, bar)) COUNT(ls, 3);
     else m.stut = 0;
-    if (nb) moves(c->r, nb, bar + 1, &mn);
+    if (nb) moves(c->r, ls, nb, bar + 1, &mn);
     else mn.mute = 0;
     for (i = 0; i < 16; i++) {                        /* the mutes; a note into a muted step cut there */
         int e = i + ls->len[i], q;
@@ -275,6 +294,6 @@ void leads_loop_bar(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *
 #ifdef LEADS_LOOP_STATS
     if (bar >= 0 && bar < 256)
         lg[bar] = (uint8_t)((m.stut ? 1 : 0) | (m.mute == 0xFFFFu ? 2 : m.mute ? 4 : 0) | (m.lp0 > 0.0f ? 8 : 0) |
-                            (m.entry == LE_HOLD && bar - b->start < 4 ? 16 : 0));
+                            (m.hold ? 16 : 0));
 #endif
 }

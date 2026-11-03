@@ -11823,15 +11823,18 @@ static void test_lead_loop_moves(void)
 /* A live change re-records: (a) a key change (song_request): once it lands, the lead's notes are in the new key's
    scale (or its chords' tones), the recording's signature is new, and every replayed bar from then on plays a slot
    recorded at the landing bar or later (no transposed old phrase); (b) a set change to another lead instrument that
-   fits Jazz-Hop, and the workbench forcing another style: the recording dropped (style_for) */
+   fits Jazz-Hop, and the workbench forcing another style: the recording dropped (style_for). A key or set change
+   landing mid-run (the bar before it a lead bar too) is a new entry there: about 55% of them filtered in or held back
+   from the landing bar (the filter heard at once, a held-back bar silent) */
 static void test_lead_loop_rerecords(void)
 {
     static song_t s;
     static const int FITS[3] = {INS_FLUTE, INS_FELT_PIANO, INS_VIBES};
     song_ev_t ev[64];
     int keyn = 0, bad_old = 0, bad_key = 0, bad_sig = 0, replays = 0, setn = 0, bad_set = 0, styn = 0, bad_sty = 0;
+    int mid = 0, fired = 0, held = 0, bad_entry = 0;
     uint32_t seed;
-    for (seed = 1; seed <= 300 && (keyn < 20 || setn < 20); seed++) {
+    for (seed = 1; seed <= 300; seed++) {
         song_roll_t r;
         song_ov_t o = ov_none();
         int pass;
@@ -11870,6 +11873,14 @@ static void test_lead_loop_rerecords(void)
                 song_tick(&s, ev, 64);
                 if (land < 0 && (pass == 0 ? s.roll.v[RF_KEY] == key : s.roll.v[RF_SET] == set)) {
                     land = b0;
+                    if (b0 > 0 && lead_plays(plan_at(&s.plan, b0)) && lead_plays(plan_at(&s.plan, b0 - 1))) {
+                        int lg = leads_loop_log(b0), on = 0;
+                        for (i = 0; i < 16; i++) on += s.lead.on[i] > 0;
+                        mid++;
+                        fired += (lg & (8 | 16)) != 0;
+                        held += (lg & 16) != 0;
+                        bad_entry += ((lg & 8) && song_lead_lp(&s) <= 0.0f) || ((lg & 16) && on);
+                    }
                     if (pass == 0) keyn++;
                     else {
                         setn++;
@@ -11919,6 +11930,12 @@ static void test_lead_loop_rerecords(void)
     CHECK(bad_old == 0, "lead loop re-records: %d bars replayed a recording from before the key change", bad_old);
     CHECK(bad_key == 0, "lead loop re-records: %d notes out of the new key after the change", bad_key);
     CHECK(setn >= 10 && bad_set == 0, "lead loop re-records: %d of %d set changes kept old slots", bad_set, setn);
+    printf("lead loop re-records: %d changes landing mid-run, %d a new entry there (%d held back)\n", mid, fired,
+           held);
+    CHECK(mid >= 30 && fired * 10 >= mid * 3 && fired * 10 <= mid * 8,
+          "lead loop re-records: %d of %d changes landing mid-run entered anew (about 55%% wanted)", fired, mid);
+    CHECK(bad_entry == 0, "lead loop re-records: %d landing entries not heard (no filter, or notes held back)",
+          bad_entry);
     CHECK(styn >= 10 && bad_sty == 0, "lead loop re-records: %d of %d style changes kept the recording", bad_sty,
           styn);
 }

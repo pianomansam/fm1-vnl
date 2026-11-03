@@ -53,6 +53,7 @@ typedef struct {
         uint16_t ring[4], acc[4];
         uint8_t have, bars;       /* the slots recorded (bits); L */
         uint32_t sig;             /* what it was recorded for (a new song, key, mode, chords, set or style: anew) */
+        int16_t from;             /* the bar a live change re-recorded from, + 1 (0: none): a new entry there */
 #ifdef LEADS_LOOP_STATS
         int stat[4];              /* bars replayed, notes nudged, notes dropped, stutters (leads_loop_stat) */
 #endif
