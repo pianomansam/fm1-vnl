@@ -1274,3 +1274,8 @@ For the running total, the same measure from Task 6's commit (9675898) to b9653f
 models and the fixes), so on Task 6's ~388.6 KB the image was about 384.1 KB before this change. It is now about
 **368.5 KB against the 409,600 B budget: about 41 KB under (estimated)**. RAM: unchanged. The voice union keeps its
 size (the organ's is the largest; the vibraphone's state is 76 B), and voices.o's bss is the same.
+
+### Jazz-Hop hook floor: 3 pitches, a 4th or wider (2026-11-03)
+
+- Flash +1,040 B measured (`./build.sh`, image 398,200 to 399,240 B against 01f35b8, ~10.4 KB under the 409,600 B
+  budget); RAM unchanged; CPU: plan-time only (once per hook bar, a small chord-tone search), no audio-path cost.

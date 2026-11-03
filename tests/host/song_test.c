@@ -8188,9 +8188,10 @@ static void test_strum_same(void)
        keys never voice a minor 2nd or 9th): were b852d9cb and a662a137. Re-pinned again (lead styles Task 6: the
        phrase planner, the hybrid and the struck melody removed, every song plays a lead style): were dc06936c and
        62a5a384. Re-pinned again (lead styles Task 7: the weighted style roll, the ten sets' new leads): were 64ac9d89
-       and de43a061 */
-    CHECK(a == 0x9648d15au, "strum same: the strummed songs hash %08x, wanted 9648d15a", (unsigned)a);
-    CHECK(b == 0x9143260du, "strum same: with set changes %08x, wanted 9143260d", (unsigned)b);
+       and de43a061. Re-pinned again (Sam 2026-11-03: the Jazz-Hop hook floor, 3 pitches a 4th or wider): were
+       9648d15a and 9143260d */
+    CHECK(a == 0x4547863au, "strum same: the strummed songs hash %08x, wanted 4547863a", (unsigned)a);
+    CHECK(b == 0x932130c5u, "strum same: with set changes %08x, wanted 932130c5", (unsigned)b);
     v = (uint32_t)sf_last_bad();
     CHECK(v == 0, "strum same: %u strummed bars left the keys' last voicing behind", (unsigned)v);
 }
@@ -8362,8 +8363,8 @@ static void test_wb_off(void)
     uint32_t a, b;
     lib_set_wb(NULL, 0); lib_pattern_wb(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x9648d15au, "wb off: the strummed songs hash %08x, wanted 9648d15a", (unsigned)a);
-    CHECK(b == 0x9143260du, "wb off: with set changes %08x, wanted 9143260d", (unsigned)b);
+    CHECK(a == 0x4547863au, "wb off: the strummed songs hash %08x, wanted 4547863a", (unsigned)a);
+    CHECK(b == 0x932130c5u, "wb off: with set changes %08x, wanted 932130c5", (unsigned)b);
 }
 /* The workbench's mute (vx_mute, default off). mt_song: a song's first 20 s as the app plays it, its samples hashed
    (mute: vx_mute(0) called first, as the workbench's wb_init does) */
@@ -8410,8 +8411,8 @@ static void test_vx_mute_off(void)
     CHECK(a == b, "vx mute off: vx_mute(0) changed the samples (%08x, wanted %08x)", (unsigned)b, (unsigned)a);
     vx_mute(0);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x9648d15au, "vx mute off: the strummed songs hash %08x, wanted 9648d15a", (unsigned)a);
-    CHECK(b == 0x9143260du, "vx mute off: with set changes %08x, wanted 9143260d", (unsigned)b);
+    CHECK(a == 0x4547863au, "vx mute off: the strummed songs hash %08x, wanted 4547863a", (unsigned)a);
+    CHECK(b == 0x932130c5u, "vx mute off: with set changes %08x, wanted 932130c5", (unsigned)b);
 }
 /* Review Focus 2 (Task 2): a bus muted mid-note is silent after the chunk it goes out in (and a quantum for the
    chain's own filters), its voice still playing (the duck follows it); unmuted, the notes struck while muted end at
@@ -9609,7 +9610,9 @@ static void ls_shape(int style, const int *ins, int nins, const double *ab_nbar,
                ls_ins(ins[i]), nb, snb, span, sspan);
         CHECK(nb >= snb * 0.85 && nb <= snb * 1.15, "%s shape on the %s: %.2f notes a bar, spike %.2f", ls_name(style),
               ls_ins(ins[i]), nb, snb);
-        CHECK(span >= sspan * lo && span <= sspan * 1.15, "%s shape on the %s: span %.1f, spike %.1f", ls_name(style),
+        /* (Jazz-Hop's hook floor, 3 pitches a 4th or wider, widens its span: to 1.30 of the spike's) */
+        CHECK(span >= sspan * lo && span <= sspan * (style == LS_JAZZHOP ? 1.30 : 1.15),
+              "%s shape on the %s: span %.1f, spike %.1f", ls_name(style),
               ls_ins(ins[i]), span, sspan);
     }
     for (k = 0; k < 5; k++) {
@@ -9901,6 +9904,45 @@ static void test_jazzhop_hard(void)
     static const long LY[6] = {5628, 919, 9934, 4588, 2481, 1766}, MW[6] = {353, 204, 4495, 2004, 336, 727};
     ls_hard(LS_JAZZHOP, LY, MW);
 }
+/* The hook floor (Sam 2026-11-03): every Jazz-Hop hook statement (the first bar of each 2 in a lead run) with 3
+   onsets or more plays 3 distinct pitches or more, spanning a perfect 4th or more, on each lead instrument it is
+   rolled for, over the 300 songs; a statement the band can't fit is an exception, rare (1 in 500 at most) */
+static void test_jazzhop_hook_floor(void)
+{
+    static const int INS3[3] = {INS_FLUTE, INS_FELT_PIANO, INS_VIBES};
+    int i;
+    for (i = 0; i < 3; i++) {
+        long hooks = 0, miss = 0, few = 0;
+        uint32_t k;
+        for (k = 1; k <= 300; k++) {
+            song_roll_t r;
+            int j, bar;
+            if (!ls_roll(k * 2654435761u + 17u, INS3[i], &r)) continue;
+            ls_play(&r, LS_JAZZHOP, 0);
+            for (bar = 0; bar < 256; bar++) {
+                int n = 0, d = 0, lo = 128, hi = 0, q;
+                if (!ls_plays[bar] || (bar - ls_run[bar]) % 2) continue;
+                for (j = 0; j < lsn_n; j++) {
+                    if (LSN[j].bar != bar) continue;
+                    for (q = 0; q < j && !(LSN[q].bar == bar && LSN[q].note == LSN[j].note); q++) {}
+                    d += q == j;
+                    n++;
+                    if (LSN[j].note < lo) lo = LSN[j].note;
+                    if (LSN[j].note > hi) hi = LSN[j].note;
+                }
+                if (!n) continue;
+                if (n < 3) { few++; continue; }
+                hooks++;
+                miss += d < 3 || hi - lo < 5;
+            }
+        }
+        lib_set_wb(NULL, 0);
+        printf("Jazz-Hop hook floor on the %s: %ld hooks of 3+ notes, %ld under the floor; %ld with 2 notes or 1\n",
+               ls_ins(INS3[i]), hooks, miss, few);
+        CHECK(hooks > 1000 && miss * 500 <= hooks, "Jazz-Hop hook floor on the %s: %ld of %ld hooks under it",
+              ls_ins(INS3[i]), miss, hooks);
+    }
+}
 static void test_filmscore_hard(void)
 {
     static const long LY[6] = {6265, 698, 11041, 4588, 2481, 1336}, MW[6] = {420, 155, 4701, 2004, 336, 593};
@@ -10042,7 +10084,7 @@ static void test_ov_part_salts(void)
                       NAME[j], moved[j]);
     }
     song_override(NULL);
-    CHECK(sf_songs(0) == 0x9648d15au && sf_songs(1) == 0x9143260du, "ov part salts: the pinned hashes moved");
+    CHECK(sf_songs(0) == 0x4547863au && sf_songs(1) == 0x932130c5u, "ov part salts: the pinned hashes moved");
 }
 /* Task 1b (Sam, 2026-10-29): "Remove the ear candy part completely"; "Make it possible for the pad part to not be in
    a song. And update the seeds to not always have it"; "add the ability for the pad part to drop out of certain song
@@ -10312,8 +10354,8 @@ static void test_ov_off(void)
     CHECK(o && o->comp == -1 && o->lead_style == -1 && o->pad_place == -1 && o->ride == -1 && !o->keys_oct &&
           !o->lead_oct && !o->voicing_salt && !o->phrase_salt, "ov off: the default override forces something");
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x9648d15au, "ov off: the strummed songs hash %08x, wanted 9648d15a", (unsigned)a);
-    CHECK(b == 0x9143260du, "ov off: with set changes %08x, wanted 9143260d", (unsigned)b);
+    CHECK(a == 0x4547863au, "ov off: the strummed songs hash %08x, wanted 4547863a", (unsigned)a);
+    CHECK(b == 0x932130c5u, "ov off: with set changes %08x, wanted 932130c5", (unsigned)b);
 }
 /* a steal of a damped string (the final review): six strings struck, the first two re-struck at once (their last
    notes damped on the 2 spare voices), then a plain chord note (no string: a stab after a set change) while they
@@ -11368,8 +11410,8 @@ static void test_drums_hook(void)
     CHECK(quiet_bad == 0, "drums hook: a silent source still sounds at %d steps", quiet_bad);
     drums_hook(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x9648d15au, "drums hook off: the strummed songs hash %08x, wanted 9648d15a", (unsigned)a);
-    CHECK(b == 0x9143260du, "drums hook off: with set changes %08x, wanted 9143260d", (unsigned)b);
+    CHECK(a == 0x4547863au, "drums hook off: the strummed songs hash %08x, wanted 4547863a", (unsigned)a);
+    CHECK(b == 0x932130c5u, "drums hook off: with set changes %08x, wanted 932130c5", (unsigned)b);
     dh_on = 0;
     vx_init();
     {
@@ -11705,6 +11747,7 @@ int main(int argc, char **argv)
     RUN(test_jazzhop_shape);
     RUN(test_filmscore_shape);
     RUN(test_jazzhop_hard);
+    RUN(test_jazzhop_hook_floor);
     RUN(test_filmscore_hard);
     RUN(test_bossa_motif);
     RUN(test_ambient_motif);

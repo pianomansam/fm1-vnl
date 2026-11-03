@@ -9,7 +9,10 @@
    the same chord it is the same notes: the loop). Unit 4 is the turnaround, with ONE change: the held tone a step
    up, the first note stuttered into two 16ths, the first note chopped off, or the whole hook an 8th late. After
    the first 8 bars, unit 2 sometimes takes the same change (sparse variation over a long loop). Notes step through
-   the mode's pentatonic (2nds and 3rds) in a narrow band, a 6th at most. Every note passes leads_legal(). */
+   the mode's pentatonic (2nds and 3rds) in a narrow band, a 6th at most. Every note passes leads_legal().
+   The hook floor (Sam 2026-11-03): every hook statement plays 3 pitches or more, a perfect 4th or wider: the
+   hook is drawn with 3 pitch levels, and where the band and the chord fold it, a note moves to another chord tone
+   (jh_spread). */
 #include <stdint.h>
 #include "leads.h"
 #include "library.h"
@@ -72,6 +75,35 @@ static void jh_song(uint32_t seed, int motion, unsigned snare, jh_hook_t *h)
         h->off[k] = cur;
     }
     if (h->off[npre - 1] == 0 && h->off[0] == 0) h->off[0] = 1;            /* never one pitch throughout */
+    {   /* the hook floor: 3 pitch levels at least (the held tone's among them): the earliest note sharing its
+           level moved a step outward, past the hook's top or bottom (the rhythm kept; no draw, so the song's rolls
+           are the same) */
+        int mx = 0, mn = 0, d = 0, lv;
+        for (k = 0; k < npre; k++) {
+            if (h->off[k] > mx) mx = h->off[k];
+            if (h->off[k] < mn) mn = h->off[k];
+        }
+        for (lv = mn; lv <= mx; lv++) {
+            int has = lv == 0;
+            for (k = 0; k < npre; k++) has |= h->off[k] == lv;
+            d += has;
+        }
+        for (k = 0; k < npre && d < 3; k++) {
+            int j, was = h->off[k], shared = was == 0, up = 0, dn = 0;
+            for (j = 0; j < npre; j++) shared |= j != k && h->off[j] == was;
+            if (!shared) continue;
+            for (j = k - 1; j <= k + 1; j += 2) {     /* the side that turns fewer rises and falls round */
+                int o, sw;
+                if (j < 0) continue;
+                o = j < npre ? h->off[j] : 0;         /* (past the last: the held tone) */
+                sw = (was > o) - (was < o);
+                up += sw != 1;
+                dn += sw != -1;
+            }
+            h->off[k] = up < dn || (up == dn && was >= 0) ? mx + 1 : mn - 1;
+            d++;
+        }
+    }
     h->ans = rng_weighted(&g, AW, JA_N);
 }
 
@@ -101,13 +133,72 @@ static int jh_vary(const jh_hook_t *h, int *var, int *on, int *len, int *off, in
     return n;
 }
 
+/* the hook floor (Sam 2026-11-03): the floor's measure of a hook's pitches p[0..n] (0: a dropped note): its
+   distinct pitches (3 counted) and its span (5 counted), 8 a pitch and 1 a semitone; JH_FLOOR met */
+#define JH_FLOOR (3 * 8 + 5)
+static int jh_floor(const int *p, int n)
+{
+    int j, q, d = 0, a = 128, b = 0;
+    for (j = 0; j <= n; j++) {
+        if (!p[j]) continue;
+        for (q = 0; q < j && p[q] != p[j]; q++) {}
+        d += q == j;
+        if (p[j] < a) a = p[j];
+        if (p[j] > b) b = p[j];
+    }
+    return (d < 3 ? d : 3) * 8 + (b - a < 5 ? (b > a ? b - a : 0) : 5);
+}
+
+/* the hook's pitches p[0..n] (p[n] the held tone) to at least 3 distinct, a perfect 4th or more from lowest to
+   highest: one note moved to another chord tone in the band (two where one can't), each move the one that gets
+   nearest the floor, then the smallest; the held tone's move dearer, one that turns a rise or fall round dearer
+   still (the contour kept where it can). Where chord tones can't, a note off the beat may take a pentatonic tone.
+   lo: the held tone's floor (it may ring on: x, the next bar's chord, must pass too). Returns 0 where it can't (the
+   hook as it was). */
+static int jh_spread(const leads_ctx_t *c, int *p, int n, const int *on, int la, int lo, const leads_next_t *x,
+                     unsigned pent)
+{
+    int q[JH_MAX + 1], pass, mv, k, m, j;
+    for (pass = 0; pass < 2; pass++) {
+        for (k = 0; k <= n; k++) q[k] = p[k];
+        for (mv = 0; mv < 2; mv++) {
+            int best = -1, bm = 0, bs = jh_floor(q, n), bc = 1 << 30;
+            for (k = 0; k <= n; k++) {
+                int strong = (k < n ? on[k] : la) % 8 == 0, was = q[k];
+                if (!was) continue;
+                for (m = k < n ? c->lo : lo; m <= c->hi; m++) {
+                    int sc, cost;
+                    if (m == was || !leads_ok(c, m, strong)) continue;
+                    if (!leads_is_ct(m, c->pcs, c->np) && (!pass || strong || !((pent >> (m % 12)) & 1u))) continue;
+                    if (k == n && x && !leads_legal(c->r, m, x->pcs, x->np, x->bass)) continue;
+                    q[k] = m;
+                    sc = jh_floor(q, n);
+                    q[k] = was;
+                    cost = (m > was ? m - was : was - m) + (k == n ? 4 : 0);
+                    for (j = k - 1; j <= k + 1; j += 2)   /* a rise or fall into or out of it turned round */
+                        if (j >= 0 && j <= n && q[j] && (was > q[j]) - (was < q[j]) != (m > q[j]) - (m < q[j]))
+                            cost += 20;
+                    if (sc > bs || (sc == bs && best >= 0 && cost < bc)) { bs = sc; bc = cost; best = k; bm = m; }
+                }
+            }
+            if (best < 0) break;
+            q[best] = bm;
+            if (bs == JH_FLOOR) {
+                for (k = 0; k <= n; k++) p[k] = q[k];
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
 /* the held tone and the notes before it, fitted to the chord by pitch level only: the landing whose hook fits
    whole, nearest target (the same target each time: the loop's same notes over the same chord); a note that
    can't sound moves a step or two (direction kept where it can), or drops. up: the held tone a step higher (the
-   turnaround). Returns the held tone (0 none). */
+   turnaround). floor: a hook (held to the hook floor, jh_spread). Returns the held tone (0 none). */
 static int jh_fit(lead_state_t *ls, const leads_ctx_t *c, const int *off, const int *on, const int *len, int n,
                   int la, int target, int end, const leads_next_t *x, int prev, int v0, int up, unsigned pent,
-                  unsigned scale)
+                  unsigned scale, int floor)
 {
     int note, best = 0, bc = 1 << 30, k, lo = x ? c->lo_x : c->lo, j, notes[JH_MAX];
     int minor = 0, held, hoff = 0;
@@ -152,6 +243,10 @@ static int jh_fit(lead_state_t *ls, const leads_ctx_t *c, const int *off, const 
             m = alt ? alt : any;
         }
         notes[k] = m;
+    }
+    if (floor) {
+        notes[n] = held;
+        if (jh_floor(notes, n) < JH_FLOOR && jh_spread(c, notes, n, on, la, lo, x, pent)) held = notes[n];
     }
     for (k = 0; k < n; k++)
         if (notes[k])
@@ -199,7 +294,7 @@ void jazzhop_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b,
         int land = 0, tie;
         n = jh_vary(&h, &v, on, len, off, &la);
         tie = h.ans == JA_HOLD && unit != 3 && v != JV_UP;
-        if (tie && x) land = jh_fit(ls, c, off, on, len, n, la, anchor, 16 + 6, x, prev, v0, 0, pent, scale);
+        if (tie && x) land = jh_fit(ls, c, off, on, len, n, la, anchor, 16 + 6, x, prev, v0, 0, pent, scale, 1);
         if (land && land >= c->lo_x) {
             ls->ring |= 1u << la;
             ls->tied = 1;
@@ -208,7 +303,7 @@ void jazzhop_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b,
             for (i = 0; i < 16; i++) { ls->on[i] = 0; ls->dl[i] = 0; ls->vel[i] = 0; }
             ls->acc = 0;
             ls->ring = 0;
-            land = jh_fit(ls, c, off, on, len, n, la, anchor, 15, 0, prev, v0, v == JV_UP, pent, scale);
+            land = jh_fit(ls, c, off, on, len, n, la, anchor, 15, 0, prev, v0, v == JV_UP, pent, scale, 1);
         }
         if (land) prev = land;
     } else if (h.ans == JA_ECHO && unit != 3 && !from) {   /* the hook's tail echoed, late, softer, a step lower */
@@ -218,7 +313,7 @@ void jazzhop_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b,
         elen[0] = h.len[h.n - 1];
         eoff[0] = h.off[h.n - 1];
         i = jh_fit(ls, c, eoff, eon, elen, 1, ela, leads_coll_step(pent, anchor, -1), 15, 0, prev, v0 - 12, 0, pent,
-                   scale);
+                   scale, 0);
         if (i) prev = i;
     }
     ls->last = prev;

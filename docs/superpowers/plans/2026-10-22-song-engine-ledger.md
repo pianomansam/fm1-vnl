@@ -177,6 +177,8 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   CPU and likely less flash per style. Catch: the bass's walking stretches, the pad's sections and the keys' room
   differ by section, so the phrase is checked against every bar version it plays over, with rule-driven nudges
   where it would rub.
+  **Done (2026-11-03):** Jazz-Hop hooks: at least 3 pitches spanning a 4th (Sam: "I guess this is better. Keep the
+  change"); 57 of 1000 songs had 2 pitches, now 0.
 
 - **Hybrid lead styles (Sam, 2026-10-29).** One lead style makes the motif, then a different style takes it over and
   develops it: after 1 bar, after 3 bars, or for the second 4 bars of an 8-bar phrase. Needs the styles to share a
