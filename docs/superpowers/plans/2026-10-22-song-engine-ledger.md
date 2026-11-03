@@ -179,6 +179,10 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   where it would rub.
   **Done (2026-11-03):** Jazz-Hop hooks: at least 3 pitches spanning a 4th (Sam: "I guess this is better. Keep the
   change"); 57 of 1000 songs had 2 pitches, now 0.
+  **Done (2026-11-03):** the lead loop: a per-song switch (workbench row "Lead loop", firmware default off pending
+  Sam's ear) makes Jazz-Hop and Ambient record their lead and replay it over the chord loop (2 or 4 bars) with
+  producer moves; other styles ignore it. Cost: flash +3,648 B (image 402,888 B, about 6.7 KB under budget), RAM
+  +288 B, worst tick unchanged within noise (docs/cost.md).
 
 - **Hybrid lead styles (Sam, 2026-10-29).** One lead style makes the motif, then a different style takes it over and
   develops it: after 1 bar, after 3 bars, or for the second 4 bars of an 8-bar phrase. Needs the styles to share a

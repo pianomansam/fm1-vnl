@@ -1279,3 +1279,21 @@ size (the organ's is the largest; the vibraphone's state is 76 B), and voices.o'
 
 - Flash +1,040 B measured (`./build.sh`, image 398,200 to 399,240 B against 01f35b8, ~10.4 KB under the 409,600 B
   budget); RAM unchanged; CPU: plan-time only (once per hook bar, a small chord-tone search), no audio-path cost.
+
+### Lead loop: Jazz-Hop and Ambient replay a recorded phrase (2026-11-03)
+
+- Flash **+3,648 B measured** (`./build.sh`, image 399,240 to 402,888 B against c5cd893, about 6.7 KB under the
+  409,600 B budget). RAM: .data+.bss 59,584 to 59,872 B (**+288 B**, under the spec's +576 B estimate); pool
+  unchanged (124,472 B). The stats and the per-bar move log (`leads_loop_stat`, `leads_loop_log`) are host and
+  workbench only: `nm app/build/vnl.elf` shows neither, only `leads_loop_bar`, `_lp` and `_plays`.
+- CPU: song-engine tick only, no audio-path cost. `tools/tick-bench.sh 600 5 STYLE` (seeds 2-600, 5 plays each, 3 runs;
+  Jazz-Hop is style 6, Ambient 9; `VNL_LEAD_LOOP=1` for on), worst tick of the non-strummed songs, on a loaded host
+  (load about 4):
+
+  | Style | Loop off (3 runs) | Loop on (3 runs) |
+  |-------|-------------------|------------------|
+  | Jazz-Hop | 26, 33, 29 us | 34, 32, 32 us |
+  | Ambient | 30, 35, 35 us | 35, 35, 34 us |
+
+  The worst is a cold first tick (seeds 2 and 3) in every run; the difference is inside the run-to-run noise (off
+  alone varies 26-33 us). Worst song_start, plan_build and groove_ride stay at 1 us. Strummed songs: 13 us both ways.
