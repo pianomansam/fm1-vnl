@@ -146,20 +146,18 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
 
 ## To revisit (Sam, after listening)
 
-- **The lead's level under the eight styles (lead-styles Task 6, 2026-10-31).** With the old engines gone, every
-  song plays a style, and the lead sits about 2-3 dB lower over the keys than under the old engines: median 6.2 dB
-  (was 8-10), set means 2.1 (Rhodes neo-soul) to 8.1. No sound changed; the test now guards the measured state.
-  Sam to judge; if it's too low, a lead-bus or per-style trim (gain only, the spikes' velocities kept).
-- **Old lead rules the styles don't keep (Task 6).** Dropped with the old engines, per "styles keep their spikes'
-  rules": the sustained lead never arpeggiating (styles run 17 in 1882 bars), percussive leads singing in 80% of
-  bars (Knight now 60%+), the Motion lever's "fewer notes, held longer" at low motion, and the lead reacting to a bass
-  re-roll (0 of 100 songs per style). Bring any back Sam misses.
-- **After the style roll (lead-styles Task 7, 2026-10-31).** (1) Duplicate sets from the spec's lead mapping: set 19
-  ("Rhodes, FM bass and felt") now sounds the same as set 31 ("Rhodes and felt"), and set 29 is close to set 32
-  (Knight, flute, brushes; only bass and pad differ). Sam: a different lead for 19/29, or merge. (2) The lead's pushes over the bar line
-  halved under the roll (377 to 190 over the test's songs). (3) '60s Jazz and Impressionism drop a fifth or more of
-  their notes in about 1 song in 8 when the workbench raises the keys (seed 34: 13 of 28). (4) The only lead under its
-  keys is now set 28 seed 12 (-0.7 dB); set 11's seeds 4 and 6 are back above 0.
+- **Parked (Sam, 2026-11-03: "Let's forget about them and see if I ask about similar things later").** Listening
+  set `app/build/new/listening-2026-11-03/` (branch `worktree-agent-a25e2cf4241e352d5`, host-only switches). Don't
+  raise these again unless Sam asks about something similar:
+  - The lead's level under the styles: median 6.2 dB over the keys (was 8-10); set 28 seed 12 at -0.7 dB.
+  - The old lead rules the styles dropped (sustained no-arpeggio, percussive 80%, the Motion lever, the bass re-roll
+    reaction): none changed a note in the demo songs.
+  - Duplicate sets: 19 and 31 are identical definitions (bit-identical renders); 29 and 32 differ only in bass and pad.
+  - The lead's pushes: the 377 to 190 drop is mostly the test missing '60s Jazz's pushes plus fewer Bossa Nova songs
+    (32 to 13 of 300); all-notes count 542 to 339. Lever if wanted: Bossa Nova's roll weight.
+  - '60s Jazz and Impressionism drop notes when the workbench raises the keys (seed 34: 13 of 28).
+  - The organ register split (65% at register with the 16' out). Engine fact: the octave-up organ plays ~1.7 dB
+    quieter than at register.
 
 - **Hip hop record-style repetition for leads (Sam, 2026-10-29).** Claude's reading, to confirm with Sam: the lead
   behaves like a sampled phrase lifted from a record — a 1-, 2- or 4-bar phrase generated once, then played back
