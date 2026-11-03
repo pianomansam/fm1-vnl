@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 /* (the Karplus-Strong pluck, the FM bell and the subtractive synth went 2026-10-31 with the instruments they played) */
-enum { M_EP, M_PAD, M_WIND, M_BASS, M_CHIP, M_ENS, M_SAMP, M_TW, M_N };
+enum { M_EP, M_PAD, M_WIND, M_BASS, M_CHIP, M_ENS, M_SAMP, M_TW, M_MODAL, M_N };
 
 /* p[] is the model's own (each model documents its layout in patch.c). The envelope, in seconds: att the linear rise
    to full; dec the fall from 1 toward sus (0..1) and rel the release after note-off, both as times to -60 dB (the

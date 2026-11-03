@@ -18,9 +18,9 @@ typedef struct { const uint8_t *data; uint32_t len, loop_start, loop_len; uint16
                  uint8_t idx0; float gain; } smp_zone_t;   /* ADPCM nibbles; loop_len 0 = one-shot; idx0 0..88 */
 typedef struct { const smp_zone_t *z; uint8_t n; } smp_bank_t;  /* zones sorted by root */
 
-/* Pitched banks: the Knight upright (VCSL), the FreePats Spanish classical nylon, the Karoryfer Emilyguitar, the
-   VCSL vibraphone (soft mallets; the vibes lead). */
-enum { SB_KNIGHT, SB_NYLON, SB_EMILY, SB_VIBES, SB_N };
+/* Pitched banks: the Knight upright (VCSL), the FreePats Spanish classical nylon, the Karoryfer Emilyguitar (the
+   VCSL vibraphone went 2026-11-03: the vibes are modeled, modal.h). */
+enum { SB_KNIGHT, SB_NYLON, SB_EMILY, SB_N };
 /* Drum hits, one pool for every sampled kit, stored raw (a kit's pitch, low-pass and drive are applied at playback):
    GG Gogodze Phu Vol II (retro mic), BR Big Rusty, FS Frankensnare, VC VCSL. */
 enum { SH_GG_KICK, SH_BR_KICK, SH_GG_SIDE, SH_GG_SNARE, SH_FS_POPLAR, SH_VC_ROPE, SH_GG_HAT, SH_GG_OHAT,

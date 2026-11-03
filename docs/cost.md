@@ -1246,3 +1246,31 @@ were not measured: about 25.9 KB under before them (estimated)**. RAM: the Karpl
 floats) leave the .pool region, **-55,744 B of pool**. The voice union is unchanged, since the organ's is the
 largest. CPU: no song played these models, so no song's cost changes. The bench loses its upright, kalimba, saw lead,
 synth pluck and candy rows.
+
+### Lead styles Task 8: the modeled vibraphone in the sample's place (2026-11-03)
+
+Sam A/B'd the vibes (the sample, the model with its motor, the model still) and could not tell them apart. The
+modeled vibraphone (M_MODAL, `app/engine/modal.h`: three modes, a soft mallet, the tube's bloom) now plays INS_VIBES
+everywhere, at the sample's level (0.541). The motor is cut, since it was inaudible. The VCSL vibraphone's five zones
+and its bank (SB_VIBES) are removed. No switch is left. The sampler stays for the Knight, the nylon and the
+Emilyguitar. Event hashes are unchanged because the instrument never reaches the events. Only the vibes-lead songs
+sound different: of seeds 1-80, the 20 with the vibes lead render differently and the other 60 are bit-identical
+(their per-bar energies hashed).
+
+CPU (`app/build/bench/bench --parts`, best of 7, AMB-1 about 142 ms, idle floor 0.103, b9653f4 run beside this build
+on a loaded host, load about 4.5):
+
+| Row | Sample (b9653f4) | Model, motor off |
+|-----|------------------|------------------|
+| lead, vibes | 0.212 | **0.144-0.147** (about -0.066, -31%) |
+
+Whole songs with the vibes lead (`--forced`): seed 4 0.545 to 0.541 forced, seed 22 0.823 to **0.809**, seed 73
+0.704 to 0.701. The lead plays sparsely, so a song gains little. The heaviest seed (20) has no vibes and is unchanged.
+
+Flash: Docker hung, so this is **estimated** from host arm64 -Os objects (text, literals, const and data; no bss)
+against b9653f4: **-15,568 B**. samples_data.o drops 18,592 B (the zones' 18,416 B of ADPCM and their table),
+modal.o adds 2,464 B and voices.o adds 560 B. patch.o is unchanged, since its table is sized by the instrument count.
+For the running total, the same measure from Task 6's commit (9675898) to b9653f4 reads -4,537 B (Task 7, the dead
+models and the fixes), so on Task 6's ~388.6 KB the image was about 384.1 KB before this change. It is now about
+**368.5 KB against the 409,600 B budget: about 41 KB under (estimated)**. RAM: unchanged. The voice union keeps its
+size (the organ's is the largest; the vibraphone's state is 76 B), and voices.o's bss is the same.

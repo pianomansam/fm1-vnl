@@ -539,7 +539,7 @@ console.log("options.json");
   const leads = optionsFor(row("lead"), { values: {} }, OPTS).map((o) => o.name).sort();
   check(retired(OPTS.instruments, ["Kalimba", "Saw lead", "Synth pluck"]) &&
         JSON.stringify(OPTS.instruments.find((i) => i.name === "Emilyguitar").roles) === '["keys"]' &&
-        JSON.stringify(leads) === JSON.stringify(["Felt piano", "Flute", "Knight piano", "Vibes (sampled vibraphone)"]),
+        JSON.stringify(leads) === JSON.stringify(["Felt piano", "Flute", "Knight piano", "Vibes (modeled vibraphone)"]),
         `the lead styles build: the lead row offers the four (${leads.join(", ")}); the kalimba, saw lead and synth pluck retired, the Emilyguitar on the keys only`);
   check(retired(OPTS.instruments, ["Upright bass"]) && retired(OPTS.comping, ["Arpeggio", "Offbeats"]) &&
         retired(OPTS.kits, ["Dusty", "Soft", "Our 808", "Warm", "Dark", "Rusty", "Gentle", "Clean"]),
@@ -578,7 +578,7 @@ console.log("rows: retired options, dice, families");
   for (const fam of ["acoustic", "synth"]) {
     const s = acoustic();
     s.values.family = fam;
-    if (fam === "synth") Object.assign(s.values, { keys: ins("DX electric piano"), lead: ins("Vibes (sampled vibraphone)"),
+    if (fam === "synth") Object.assign(s.values, { keys: ins("DX electric piano"), lead: ins("Vibes (modeled vibraphone)"),
                                                    bass: ins("FM bass"), pad: ins("Warm pad") });
     for (const id of ["keys", "lead", "bass", "pad", "padOn", "kit", "comp", "pattern", "kick", "family", "leadOct"])
       for (let i = 0; i < 40; i++) {
@@ -1608,7 +1608,7 @@ console.log("Task 1b: no ear candy; the pad on/off row");
         `a snapshot with the retired sax restores on the flute (mismatch: ${miss3.join(", ") || "none"}; "${d3.message}")`);
   // the leads retired by the lead styles build: the kalimba, saw lead and synth pluck, and the Emilyguitar as a lead
   // (it stays on the keys): each restores on its stand-in (the flute or the vibes), said
-  for (const [name, to, said] of [["Kalimba", "Flute", "Kalimba is retired;"], ["Saw lead", "Vibes (sampled vibraphone)", "Saw lead is retired;"],
+  for (const [name, to, said] of [["Kalimba", "Flute", "Kalimba is retired;"], ["Saw lead", "Vibes (modeled vibraphone)", "Saw lead is retired;"],
                                   ["Synth pluck", "Flute", "Synth pluck is retired;"], ["Emilyguitar", "Flute", "Emilyguitar is retired as a lead;"]]) {
     const sn = await desk.snapshot();
     sn.rows.lead = ins(name);

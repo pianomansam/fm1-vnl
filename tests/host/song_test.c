@@ -4825,7 +4825,7 @@ static void test_song_carryover(void)
 }
 
 /* Carryover after the sampled branch's new parts (the final review): a strummed song (the strings' own voices, the
-   damped spares) into a strummed song on the other guitar, and a vibes song (the sampled vibraphone, ringing past its
+   damped spares) into a strummed song on the other guitar, and a vibes song (the vibraphone, ringing past its
    notes, its lead sounding when A stops at 30 s) into a felt-lead song (its lead in by 35 s; the string-lead and cello
    pair went with those leads, 2026-10-29): B after A renders exactly as B alone from
    12 s to 40 s (past B's first lead notes), and its first second differs by no more than A's tail, as
@@ -6632,6 +6632,41 @@ static void test_lead_over_keys(void)
     CHECK(med >= 5.9f && med <= 8.0f, "lead over keys: the median %.1f dB, wanted 5.9-8", (double)med);
 }
 
+/* The modeled vibraphone (M_MODAL) took the sample's place at the sample's level (2026-11-03): the lead bus soloed, its
+   mean over the bars a lead note starts in (over -45 dB), in three vibes songs (sets 33, 4 and 8, seeds 9, 14 and 11)
+   against the sampled vibes' (pinned: measured on b9653f4, the sample's last build). The three songs' mean within 0.5
+   dB of the sample's (measured: 0.33 under), each song within 1 dB (set 4 seed 14, 8 bars, 0.56 under). */
+static void test_vibes_level(void)
+{
+    static const int set[3] = {33, 4, 8};
+    static const uint32_t seed[3] = {9u, 14u, 11u};
+    static const double pin[3] = {-28.90, -26.48, -29.95};
+    double all = 0.0;
+    int i, b, n, c;
+    for (i = 0; i < 3; i++) {
+        song_roll_t r;
+        double sum = 0.0, x;
+        roll_song(NULL, seed[i], &r);
+        CHECK(roll_set(&r, RF_SET, set[i]) == set[i], "vibes level: set %d not taken", set[i]);
+        n = lk_song(&r, V_LEAD, lk_db[1]);
+        CHECK(vx_config()->lead == INS_VIBES, "vibes level: set %d seed %u leads with %d", set[i], (unsigned)seed[i],
+              vx_config()->lead);
+        for (b = c = 0; b < n; b++)
+            if (lk_on[b] && lk_db[1][b] > -45.0) {
+                sum += lk_db[1][b];
+                c++;
+            }
+        x = (c ? sum / c : -200.0) - pin[i];
+        all += x / 3.0;
+        printf("vibes level: set %d seed %u: the lead bus %+.2f dB from the sample's over %d bars\n", set[i],
+               (unsigned)seed[i], x, c);
+        CHECK(c >= 8 && x >= -1.0 && x <= 1.0, "vibes level: set %d seed %u %+.2f dB from the sample's (%d bars)",
+              set[i], (unsigned)seed[i], x, c);
+    }
+    printf("vibes level: %+.2f dB from the sample's, the mean\n", all);
+    CHECK(all >= -0.5 && all <= 0.5, "vibes level: %+.2f dB from the sample's, the mean", all);
+}
+
 /* The pad layer's chord part sits under the keys (pads design, Mix: about 6 dB): in every set with percussive keys
    (the chord part plays over those only), six songs each as test_lead_over_keys picks them, the pad bus soloed with
    its solo note left out (lane 4's events dropped) against the keys' bus, over the bars where both sound (over -60
@@ -8243,9 +8278,8 @@ static void test_leads_2026_10_29(void)
             CHECK(i == INS_UPRIGHT || lib_bass_approved(i) == i, "removed: bass %d stands in as %d", i,
                   lib_bass_approved(i));
     }
-    /* the vibes are the sampled VCSL vibraphone (the FM bell went) */
-    CHECK(vx_patch(INS_VIBES)->model == M_SAMP && (int)vx_patch(INS_VIBES)->p[0] == SB_VIBES,
-          "leads: the vibes aren't the sampled vibraphone");
+    /* the vibes are the modeled vibraphone (the FM bell went; the VCSL sample after it, 2026-11-03) */
+    CHECK(vx_patch(INS_VIBES)->model == M_MODAL, "leads: the vibes aren't the modeled vibraphone");
 }
 
 static void test_wb_set(void)
@@ -10572,7 +10606,7 @@ static void test_samples_table(void)
 }
 
 /* ------------------------------------------------------------------------------ the sampler voice (M_SAMP) --- */
-static const int SP_INS[SB_N] = {INS_KNIGHT, INS_NYLON, INS_EMILY, INS_VIBES}; /* each bank's patch */
+static const int SP_INS[SB_N] = {INS_KNIGHT, INS_NYLON, INS_EMILY}; /* each bank's patch */
 #define SP_LEN (4u * 44100u)
 static float sp_a[SP_LEN], sp_b[SP_LEN];
 
@@ -10718,9 +10752,7 @@ static void test_samp(void)
             CHECK(v.d.z == &b->z[0], "samp: bank %d note 20 not on its lowest zone", bk);
             CHECK(sp_run(&v, sp_a, SP_LEN), "samp: bank %d note 20 read past its zone or went NaN", bk);
             c = sp_cents(sp_a, (uint32_t)((float)v.d.z->loop_start / v.step) + 882u, 22050u, 44100.0f / hz);
-            CHECK(fm_fabsf(c) <= 3.0f || bk == SB_VIBES, "samp: bank %d note 20 %+.2f cents off", bk, (double)c);
-            /* (the vibraphone 40 semitones under its lowest zone reads 15 cents off: its tuned overtones, stretched,
-               fool the period measure; the vibes lead never plays under F3, override.c) */
+            CHECK(fm_fabsf(c) <= 3.0f, "samp: bank %d note 20 %+.2f cents off", bk, (double)c);
             v.dv = 1.0f;
             samp_start(&v, p, 110.0f, 0.8f);
             CHECK(v.d.z == &b->z[b->n - 1], "samp: bank %d note 110 not on its highest zone", bk);
@@ -10843,7 +10875,7 @@ static void test_samp(void)
         static const int ST6[4] = {LS_FILMSCORE, LS_BOSSA, LS_BOSSA, LS_JAZZ60S};
         uint32_t seed;
         int got = 0;
-        double dk[SB_N] = {0}, dl[SB_N] = {0};
+        double dk[SB_N] = {0}, dl[SB_N] = {0}, dv = 0.0;
         for (seed = 1u; got < 4 && seed < 600u; seed++) {
             song_roll_t r;
             song_ov_t so = ov_none();
@@ -10860,6 +10892,7 @@ static void test_samp(void)
                 dk[k] += (double)(sp_lk_mean(&r, V_CHORD, SP_INS[k], INS_NONE) - ref);
                 dl[k] += (double)(sp_lk_mean(&r, V_LEAD, INS_NONE, SP_INS[k]) - refl);
             }
+            dv += (double)(sp_lk_mean(&r, V_LEAD, INS_NONE, INS_VIBES) - refl);
             song_override(NULL);
         }
         for (k = 0; k < SB_N; k++) {
@@ -10869,12 +10902,14 @@ static void test_samp(void)
                    SP_INS[k], dk[k], dl[k]);
             /* the Knight and the Emilyguitar lead about 4 dB under the flute's bar energy (SAMP_LEAD: their sets'
                lead over keys, test_lead_over_keys, sets them; a struck lead reads over its keys at less energy) */
-            CHECK(SP_INS[k] == INS_VIBES ? dl[k] >= -3.5 && dl[k] <= 0.0 :
-                  dk[k] >= -1.5 && dk[k] <= 1.5 &&
+            CHECK(dk[k] >= -1.5 && dk[k] <= 1.5 &&
                       (SP_INS[k] == INS_NYLON ? dl[k] >= -1.5 && dl[k] <= 1.5 : dl[k] >= -6.0 && dl[k] <= -2.5),
                   "samp: ins %d's level: keys %+.2f dB from the Rhodes, lead %+.2f from the flute", SP_INS[k], dk[k],
                   dl[k]);
         }
+        dv /= got; /* the vibes (modeled since 2026-11-03, at the sample's level: test_vibes_level) */
+        printf("samp: the vibes on the lead %+.2f dB from the flute\n", dv);
+        CHECK(dv >= -3.5 && dv <= 0.0, "samp: the vibes' level: lead %+.2f from the flute", dv);
     }
 
     /* carryover: seed 2 (Bossa nylon) the same alone and after a song with the Knight on the keys */
@@ -11621,6 +11656,7 @@ int main(int argc, char **argv)
     RUN(test_keys_duck);
     RUN(test_keys_duck_mix);
     RUN(test_lead_over_keys);
+    RUN(test_vibes_level);
     RUN(test_pad_level);
     RUN(test_choir_level);
     RUN(test_choir_pad_draw);

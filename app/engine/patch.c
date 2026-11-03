@@ -29,7 +29,7 @@
      low-pass (two one-poles); the ensemble's width is the chorus's (the patch's chorus: the pad bus's send into it).
      p[0] the partner's detune in cents (up), p[1] its level, p[2] the low-pass's cutoff in Hz plus p[3] times the
      note's frequency, p[4] 1 for the choir: its voices sing through the formant bank (voices.c's choir_run).
-   M_SAMP (the Knight upright, the nylon, the Emilyguitar, the vibraphone; sampler.c): the bank's nearest zone
+   M_SAMP (the Knight upright, the nylon, the Emilyguitar; sampler.c): the bank's nearest zone
      (samples.h) retuned, through a one-pole tone, on its own envelope (att, dec, sus, rel as every model's).
      p[0] the bank (SB_*), p[1] the tone's cutoff in Hz at full velocity plus p[8] times the note's frequency (both 0:
      no tone; at most 7.5 kHz), p[2] velocity to tone (0-1: the cutoff at velocity 0 is 1 - p[2] of it), p[3] 1 for a
@@ -43,7 +43,16 @@
      harmonic (0 none, 2 the 4', 3 the 2 2/3'; the bars 3 dB down with it, single trigger), p[10] its fall to -60 dB
      (s), p[11] the key click's level, p[12] 1 for the slow rotary, p[13] the horn's amplitude depth (the drum's
      half), p[14] the horn's Doppler (a fraction of the pitch; the drum's a quarter), p[15] semitones added to the
-     note (12: the keys an octave up, within C7). */
+     note (12: the keys an octave up, within C7).
+   M_MODAL (the modeled vibraphone; modal.h): three decaying modes, a mallet and the tube's bloom (no motor). The
+     fundamental's -60 dB time is dec (shorter up the keys by p[9] octaves of time per octave); the common envelope
+     only gates it (att the mallet's contact, rel the release).
+     p[0], p[1] the 2nd and 3rd modes' ratios, p[2], p[3] their levels (over the fundamental's full) before the mallet,
+     p[4] the mallet's cutoff in Hz at full velocity (a 4th-order roll-off on the modes' levels), p[5] velocity to it
+     (the cutoff at velocity 0 is 1 - p[5] of it), p[6], p[7] the 2nd and 3rd modes' -60 dB times at C4 (s), p[8]
+     their key tracking (octaves of time lost per octave above C4), p[9] the fundamental's, p[10] the fundamental's
+     level at the strike (the bar's own share: the tube builds up the rest), p[11] the tube's build-up time constant at
+     C4 (s; halved per octave up). */
 #include <stddef.h>
 #include "library.h"
 #include "patch.h"
@@ -71,11 +80,13 @@ static const vx_patch_t PATCHES[INS_NONE] = {
     /* (the flute 0.3 dB down, 2026-10-29: over set 9's strummed nylon, where the sax was, it read 10.2 dB over the
        keys, past the 8-10 the mix holds; its solo-lane trim up by as much, so the pad's solo flute is unchanged) */
     [INS_FLUTE] = {M_WIND, {0.25f, 0.5f, 3.0f, 0.13f, 1800.0f, 14.0f, 0.0f, 0.0f}, 0.06f, 7.0f, 0.75f, 0.12f, 1.12f, 0.0f, 0.3f},
-    /* the vibraphone (VCSL soft mallets, CC0; it replaced the FM vibes, Sam 2026-10-29): as recorded, motor off, no
-       tone filter; it rings free (10 s to -60 dB at C4, shorter up the keys as the recordings do), and a released
-       note rings on about half a second, a held pedal's tail. The lead only. */
-    [INS_VIBES] = {M_SAMP, {SB_VIBES, 0.0f, 0.0f, 0.0f, 0.0f, 0.3f, 0.0f, 0.0f, 0.0f}, 0.001f, 10.0f, 0.0f, 0.8f,
-                   0.6f, 0.0f, 0.3f},
+    /* the vibraphone, modeled (M_MODAL; it replaced the VCSL sample, Sam 2026-11-03: the A/B indistinguishable, the
+       motor cut as inaudible). Tuned on the sample's notes (its zones' first 0.4 s): the modes' levels and -60 dB
+       times, the bloom; it rings free (10 s to -60 dB at C4), and a released note rings on about half a second, a
+       held pedal's tail. The level matched to the sample's on the lead bus (seeds 9, 14 and 11 on sets 33, 4 and 8:
+       within 0.25 dB). The lead only. */
+    [INS_VIBES] = {M_MODAL, {4.0f, 9.9f, 0.18f, 0.9f, 2600.0f, 0.5f, 2.4f, 0.55f, 0.8f, 0.3f, 0.3f, 0.03f}, 0.001f,
+                   10.0f, 1.0f, 0.8f, 0.541f, 0.0f, 0.3f},
     /* the triangle bass (a chip voice) */
     [INS_CHIP_BASS] = {M_CHIP, {7.0f, 5.0f}, 0.003f, 7.0f, 1.0f, 0.05f, 1.3f, 0.0f, 0.0f},
     /* the 80s FM keys: a 14x tine on the attack (a high ratio, a bright index falling fast) over a clean body */

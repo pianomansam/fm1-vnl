@@ -4,12 +4,12 @@
    candy 2, the bass, a mono pool of 1 whose level slews (AMP_K) and whose M_BASS retriggers are legato, and the pad
    layer 4. Each voice keeps the patch it was struck with, and voice_sample() dispatches on the patch's model:
    keys (M_EP), pads (M_PAD), winds (M_WIND), basses (M_BASS), a chip triangle (M_CHIP), the
-   sampler (M_SAMP: sampler.c, its own envelope), the tonewheel organ (M_TW) and the pad layer's ensemble (M_ENS, at a
-   quarter of the rate in a loop of its own: pad_seg). A key's or a pad's note whose partials stay under 9 kHz, and
-   the organ on the keys, render at half the rate (half_ok), its role's half-rate voices upsampled by a half-band; the
-   organ on the pad layer at a quarter, beside the ensemble. The pad's solo
-   lane (lane 4) may hold its own patch (vx_assign_pad_solo), rendered beside the ensemble (pad_seg) into the pad's
-   bus. A pitched note's level is the patch envelope: a natural decay (nat, from 1 toward sus) times a gate
+   sampler (M_SAMP: sampler.c, its own envelope), the modeled vibraphone (M_MODAL: modal.h), the tonewheel organ
+   (M_TW) and the pad layer's ensemble (M_ENS, at a quarter of the rate in a loop of its own: pad_seg). A key's or a
+   pad's note whose partials stay under 9 kHz, and the organ on the keys, render at half the rate (half_ok), its
+   role's half-rate voices upsampled by a half-band; the organ on the pad layer at a quarter, beside the ensemble. The
+   pad's solo lane (lane 4) may hold its own patch (vx_assign_pad_solo), rendered beside the ensemble (pad_seg) into
+   the pad's bus. A pitched note's level is the patch envelope: a natural decay (nat, from 1 toward sus) times a gate
    (g: a linear rise, a smoothed fall), so a note-off, a steal or vx_release_all fades instead of clicking. Drums are a noise burst or a swept sine. Then the mix (Task 8: the role
    gains, the keys' level per comping, the mud high-pass on the chords', the lead's, the ear candy's and the pad layer's
    sums), per role bus (chords, bass, lead, candy, pad, drums): the drums through their compressor, each bus through its
@@ -32,6 +32,7 @@
 #include "strum.h"
 #include "pads.h"
 #include "sampler.h"
+#include "modal.h"
 
 #define QN 64
 #define NCH 8 /* chord voices: a held pad uses all 8 (its release crosses the next chord's swell), the rest the first 4 */
@@ -110,12 +111,11 @@ static const float CP_THR_KIT[KIT_N] = {0.095f, 0.090f, 0.084f, 0.162f, 0.110f, 
                              loses 2.1 dB to their partial cancellation) */
 #define TW_SC_PAD 0.7182f /* (the pad's organ, its 4' nearer the comb's first notch: matched to the warm pad) */
 #define TW_SC_XF 0.06f    /* the pad's scanner switching on or off by section: a crossfade (s) */
-/* a sampled instrument (M_SAMP) on the lead, over its level on the keys, per bank (Knight, nylon, Emilyguitar,
-   vibraphone): its patch's level matches the Rhodes on the keys; the nylon +7 dB (the flute's level on the lead), the
-   Knight +3.85 and the Emilyguitar +3.5, tuned on their sets' lead over keys (test_lead_over_keys: a struck lead reads
-   8-10 dB over the keys at about 4 dB under the flute's bar energy); the vibes play the lead only, at their patch's
-   level */
-static const float SAMP_LEAD[SB_N] = {1.5578f, 2.239f, 1.4962f, 1.0f};
+/* a sampled instrument (M_SAMP) on the lead, over its level on the keys, per bank (Knight, nylon, Emilyguitar): its
+   patch's level matches the Rhodes on the keys; the nylon +7 dB (the flute's level on the lead), the Knight +3.85 and
+   the Emilyguitar +3.5, tuned on their sets' lead over keys (test_lead_over_keys: a struck lead reads 8-10 dB over the
+   keys at about 4 dB under the flute's bar energy) */
+static const float SAMP_LEAD[SB_N] = {1.5578f, 2.239f, 1.4962f};
 
 /* big zero-initialised buffers go in the device's .pool RAM region (fm1-base's PLAT_POOL; a Mach-O host has no such
    section) */
@@ -205,6 +205,7 @@ typedef struct {
             int8_t ps;
             uint8_t n, cc, hd, nt, hn[TW_MAXP];
         } tw;
+        md_voice_t md;  /* M_MODAL: the modeled vibraphone (modal.h) */
     } m;
     uint32_t gate, age;
     uint8_t on, held, role;
@@ -1153,6 +1154,7 @@ static void voice_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int
     case M_CHIP: chip_start(v, e); break;
     case M_ENS: ens_start(v, e); break;
     case M_TW: tw_start(v, e); break;
+    case M_MODAL: md_start(&v->m.md, p, (float)e->note, (float)e->vel * (1.0f / 127.0f)); break;
     case M_SAMP:
         v->m.sp.dv = step_len(v);
         samp_start(&v->m.sp, p, (float)e->note, (float)e->vel * (1.0f / 127.0f));
@@ -1495,6 +1497,7 @@ static float voice_sample(voice_t *v)
     switch (v->pt->model) {
     case M_EP: s = ep_sample(v); break;
     case M_PAD: s = pad_sample(v); break;
+    case M_MODAL: s = md_sample(&v->m.md); break;
     case M_WIND: s = wind_sample(v); break;
     case M_CHIP:
         s = chip_sample(v);
@@ -2777,10 +2780,12 @@ int vx_tiny(void)
         c += vx_tiny_of(&bus[r].y, 1) + vx_tiny_of(&bus[r].z, 1) + vx_tiny_of(&bus[r].hm, 1);
     c += vx_tiny_of(pq_mz, 2) + vx_tiny_of(&pq0, 1) + vx_tiny_of(&pq1, 1) + vx_tiny_of(&pb_y, 1) + vx_tiny_of(&pb_z, 1);
     c += vx_tiny_of(&cho_s[0][0], 6) + vx_tiny_of(&cho_pi, 1) + vx_tiny_of(&cho_po, 1);
-    for (r = 0; r < NV; r++) /* an ensemble voice's low-pass; a sampler's tone and envelope */
+    for (r = 0; r < NV; r++) /* an ensemble voice's low-pass; a sampler's tone and envelope; a vibraphone's modes */
         if (fv[r].on && fv[r].pt && fv[r].pt->model == M_ENS)
             c += vx_tiny_of(&fv[r].m.en.y1, 2) + vx_tiny_of(fv[r].m.en.w, 2);
         else if (fv[r].on && fv[r].pt && fv[r].pt->model == M_SAMP)
             c += vx_tiny_of(&fv[r].m.sp.lp, 1) + vx_tiny_of(&fv[r].m.sp.env, 1);
+        else if (fv[r].on && fv[r].pt && fv[r].pt->model == M_MODAL)
+            c += vx_tiny_of(fv[r].m.md.s1, MD_N) + vx_tiny_of(fv[r].m.md.s2, MD_N) + vx_tiny_of(&fv[r].m.md.bl, 1);
     return c;
 }

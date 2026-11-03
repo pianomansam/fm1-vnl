@@ -12,7 +12,7 @@ with thanks. `tools/samples/manifest.json` lists the exact files; `tools/samples
 
 | Source | Used for | License | URL |
 | --- | --- | --- | --- |
-| Versilian Community Sample Library (VCSL), Versilian Studios; the Knight upright sampled by Simon Dalzell (Ivy Audio) | Knight upright piano (`Upright Piano, Knight`, `vl2`); vibraphone (`Vibraphone`, soft mallets, `v2`: the vibes lead); rope-tension snare (low, snares off); hi-hat pedal close, closed (softest) and open; small shaker (high, fast) | CC0 1.0 (`LICENSE`) | https://github.com/sgossner/VCSL |
+| Versilian Community Sample Library (VCSL), Versilian Studios; the Knight upright sampled by Simon Dalzell (Ivy Audio) | Knight upright piano (`Upright Piano, Knight`, `vl2`); rope-tension snare (low, snares off); hi-hat pedal close, closed (softest) and open; small shaker (high, fast) | CC0 1.0 (`LICENSE`) | https://github.com/sgossner/VCSL |
 | FreePats Spanish Classical Guitar 2019-06-18 (SF2), by roberto@zenvoid.org | nylon guitar | CC0 1.0 (`cc0.txt`, `readme.txt`) | https://freepats.zenvoid.org/Guitar/acoustic-guitar.html |
 | Karoryfer Samples (D. Smolken, Brian Wood): Emilyguitar | electric guitar (`mf`) | CC0 1.0 (`LICENSE`) | https://github.com/sfzinstruments/karoryfer.emilyguitar |
 | Karoryfer Samples: Gogodze Phu Vol II | kick, sidestick, snare (center), closed and open hi-hat (retro mic) | CC0 1.0 (`LICENSE`) | https://github.com/sfzinstruments/karoryfer.gogodze-phu-vol-ii |
@@ -22,7 +22,9 @@ with thanks. `tools/samples/manifest.json` lists the exact files; `tools/samples
 ## Code
 
 The firmware adapts no third-party code beyond what the README lists (the string synth and its Plaits Ensemble
-went with the string and cello leads, 2026-10-29).
+went with the string and cello leads, 2026-10-29). Two of its models follow GPL-3.0 FM-1 firmwares' approach and
+values, with no code taken: the tonewheel organ (M_TW) after SLOOP's WHEEL engine, and the modeled vibraphone
+(M_MODAL, `app/engine/modal.h`; it replaced the VCSL vibraphone sample, 2026-11-03) after Ravel_FM1's TINE marimba.
 
 The workbench (`workbench/`, a local tool, not in the firmware) builds with two drum engines, credited here; their
 licenses and the files taken are in `workbench/engine/LICENSES.md`:
