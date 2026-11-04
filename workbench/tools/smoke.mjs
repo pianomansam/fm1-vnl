@@ -1845,9 +1845,10 @@ console.log("parts: re-rolls, history, locks, reactions (Task 5)");
 
   // each part's 🎲: its own events change, it lands at the next bar line, and the page lists whatever else moved
   {
-    // seed 7: a pad, keys the voicing salt moves (seed 21's don't; seed 3's guitar strums since 2026-11-04, its shapes
-    // fixed) and a bass line its salt moves (seed 2's only takes new velocities)
-    const { ex, desk } = await deskOn(7);
+    // seed 9: a pad, keys the voicing salt moves (seed 21's don't; seed 3's guitar strums since 2026-11-04, its shapes
+    // fixed) and a bass line its salt moves (seed 2's only takes new velocities; seed 7's had only the root-fifth line
+    // to roll to, gone 2026-11-04)
+    const { ex, desk } = await deskOn(9);
     ex.wb_play(1);
     until(ex, () => ex.wb_bar() === 2, 60 * SR);
     const bpm = ex.wb_roll_get(RF.TEMPO), out = [];
