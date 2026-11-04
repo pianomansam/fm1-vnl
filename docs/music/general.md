@@ -60,12 +60,12 @@ the numbers below.
 
 | Principle | Rule → numbers | Status | Source |
 | --- | --- | --- | --- |
-| **Lock the bass to the kick.** | "Roots": the root on every kick hit. "Root-fifth": the root on step 0 and on kick hits; on a kick at step 8 or 10, the 5th instead (the root if the 5th would rub). | **Done.** `groove.c: bass_note` | *genre* §3.3 |
+| **Lock the bass to the kick.** | "Roots": the root on every kick hit. No root-fifth line (Sam, 2026-11-04: the 1-to-5 bass is cheesy). | **Done.** `groove.c: bass_note` | *genre* §3.3 |
 | **Place each root near the last.** | The tonic sits in A1–Ab2 (33–44). Every other root lands within 5 below or 6 above it, folded into E1–B2. A root more than 6 semitones from the previous root moves an octave toward it when the range allows. | **Done.** `groove.c: bass_place`, `root_place` | 8dde786; *accomp* §6.2 |
 | **A walking line arrives.** | Quarter notes: root, 3rd, 5th (the root if the chord lacks a perfect 5th), then an approach. The approach is the scale tone 1–2 semitones from the next chord's root, on the side the line comes from, placed where that root will sound. It must not rub the chord still sounding; failing both sides, the 5th. Inside a 2-bar chord, the approach targets the same root. A 3rd or 5th that rubs the chord's colors gives way to the root. | **Done.** `groove.c: approach`, `next_root_of` | 8dde786; *accomp* §6.1 |
 | **The walk is diatonic.** | Approach tones come from the mode's scale only, never chromatic. | **Done.** `groove.c: approach` | 8dde786 **(Sam)** |
 | **A pedal restrikes per chord.** | The root at each chord change, held to the next change. | **Done.** `groove.c` (R21) | R21 |
-| **No holes and no overhang.** | Roots and root-fifth notes last to the next bass note, at most a beat. Walk notes last a quarter. A bass note always ends at the chord change. | **Done.** `groove.c`; `song.c` cut (R22) | R21, R22 |
+| **No holes and no overhang.** | Root notes last to the next bass note, at most a beat. Walk notes last a quarter. A bass note always ends at the chord change. | **Done.** `groove.c`; `song.c` cut (R22) | R21, R22 |
 | **Bass touch.** | Velocity 78–89, a little different every note. Odd 16ths swing with the drums. | **Done.** `groove.c: groove_step` | — |
 | **The bass never copies the keys' rhythm.** | When the keys play more than a note on beat 1 (stabs, or half notes on 1 and 3) and the drawn bass style would match that rhythm exactly, the next style in a fixed order is tried. | **Done.** `groove.c: bass_style_of` | **(Sam)** |
 | **Shape the bar as a contour toward the target,** not the same root-3rd-5th climb every bar; think in two-bar phrases. | Not built. | **Not yet** | *accomp* §3.5 |

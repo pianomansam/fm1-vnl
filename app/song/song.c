@@ -37,7 +37,7 @@ static int loop_bars(const song_roll_t *r);
 /* SPIKE (throwaway): bass rhythm (Sam: the tones are good, more rhythm). The groove's tones, in a rhythm cell per
    song: the kick's (with beat 3 sat out now and then), half notes on 1 and 3, or beats 1 and 2. Then anticipation
    (the next chord's note an 8th or 16th early, ringing over the bar line), long and short notes, and ghost notes (a
-   soft, muted 16th before a strike). Roots and root-fifth songs only; pedal and walk play as they did. VNL_BASS: 1 a
+   soft, muted 16th before a strike). Roots songs only; pedal and walk play as they did. VNL_BASS: 1 a
    cell per song, 2 the kick's, 3 half notes, 4 beats 1 and 2, 5 beats 1, 2 and 4. */
 static int pending_any(const song_t *s)
 {
@@ -131,7 +131,7 @@ static int spike_bass(song_t *s, const plan_block_t *b, int bar, int step, float
     const lib_prog_t *pr = lib_prog_by_id((uint8_t)s->roll.v[RF_PROG]);
     int bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1, style = groove_bass_style(&s->roll), i, k = 0;
     uint32_t swing = 0;
-    if (style != BS_ROOTS && style != BS_ROOT_FIFTH) return n;
+    if (style != BS_ROOTS) return n;
     for (i = 0; i < n; i++)
         if (buf[i].voice != V_BASS) buf[k++] = buf[i];
     n = k;

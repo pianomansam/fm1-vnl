@@ -105,13 +105,13 @@ One style per song (seed stream 121), weighted by the set's keys instrument. The
 
 | Choice | Rule → numbers | Kind | Status | Source |
 | --- | --- | --- | --- | --- |
-| Styles | Roots on the kick; root and fifth; pedal (a root per chord change, held); walk. Rules in [general.md §3](general.md#3-bass-lines). | genre | **Done** (`groove.c`) | *genre* §4.1; R13, R14, R21 |
-| Which style | Drawn per song (stream 112). Drift map or sad mood: pedal 50%. Else, in a walking set: walk 35%. Else roots or root-fifth, 50 / 50. So: a sad song in a walking set is pedal 50%, walk 17.5%, roots 16%, root-fifth 16%; a happy one walk 35%, roots 32.5%, root-fifth 32.5%; any other set roots / root-fifth 50 / 50 (pedal 50% first when sad or Drift). | genre; (call) | **Done** (`groove.c: bass_style_of`) | R13 |
+| Styles | Roots on the kick; pedal (a root per chord change, held); walk. No root-fifth line (Sam, 2026-11-04: "cheesy bass lines that go from 1 to 5"): its songs play roots on the kick. Rules in [general.md §3](general.md#3-bass-lines). | genre | **Done** (`groove.c`) | *genre* §4.1; R13, R14, R21 |
+| Which style | Drawn per song (stream 112). Drift map or sad mood: pedal 50%. Else, in a walking set: walk 35%. Else roots. So: a sad song in a walking set is pedal 50%, walk 17.5%, roots 32.5%; a happy one walk 35%, roots 65%; any other set roots (pedal 50% first when sad or Drift). | genre; (call) | **Done** (`groove.c: bass_style_of`) | R13 |
 | Walking sets | Sets 1 (Rhodes dusty), 4 (Felt and vibes), 8 (Wurli and vibes), 9 (Nylon and flute): the four that had the upright. | **Sam** (upright removed, 2026-10-24) | **Done** (`library.c: lib_set_walks`) | 408a271 |
-| Where the walk plays | One 8-bar window in four: bars where (bar / 8) mod 4 equals a per-song draw. It recurs every 32 bars (up to 3 windows in a 76-bar song). Root and fifth elsewhere. | genre; R14 accepted | **Done** (`groove.c: bass_style_at`) | R13, R14 |
+| Where the walk plays | One 8-bar window in four: bars where (bar / 8) mod 4 equals a per-song draw. It recurs every 32 bars (up to 3 windows in a 76-bar song). Roots on the kick elsewhere. | genre; R14 accepted | **Done** (`groove.c: bass_style_at`) | R13, R14 |
 | **Diatonic only** | The walk's approach is a scale step, never chromatic. | taste **(Sam)**: nothing out of the key | **Done** (`groove.c: approach`) | 8dde786 |
 | Register | E1–B2, the tonic in A1–Ab2. | genre | **Done** (`groove.c: bass_place`) | *genre* §4.1 |
-| Bass rhythm spike | Rhythm cells, anticipations and ghost notes for roots and root-fifth songs. Host only (`VNL_BASS`), parked by Sam. | (spike) | **Not yet** | ledger |
+| Bass rhythm spike | Rhythm cells, anticipations and ghost notes for roots songs. Host only (`VNL_BASS`), parked by Sam. | (spike) | **Not yet** | ledger |
 | **Removed:** the upright | The Karplus-Strong upright bass. | **Sam**: "I don't like the upright's sound" | **Removed** | 408a271 |
 
 ## Drums

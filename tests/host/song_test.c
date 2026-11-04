@@ -743,7 +743,7 @@ static void test_groove(void)
     int bad_bass = 0, snare_n = 0, hat_n = 0;
     long snare_sum = 0, hat_sum = 0;
     uint32_t sw = (uint32_t)(0.12f * SPS + 0.5f);
-    int up = upright_set(), styles[4] = {0, 0, 0, 0}, seed, fills_s = 0, fills_k = 0, s;
+    int up = upright_set(), styles[3] = {0, 0, 0}, seed, fills_s = 0, fills_k = 0, s;
 
     groove_roll(&r, 7, 1);
     for (bar = 0; bar < 64; bar++)
@@ -833,7 +833,7 @@ static void test_groove(void)
         groove_roll(&r2, (uint32_t)seed, (seed % 8) + 1);
         if (up >= 0 && (seed & 1)) r2.v[RF_SET] = (int16_t)up;
         style = groove_bass_style(&r2);
-        if (style < 0 || style > 3) { CHECK(0, "groove: bad style %d", style); continue; }
+        if (style < 0 || style > 2) { CHECK(0, "groove: bad style %d", style); continue; }
         styles[style]++;
         pr = lib_prog_by_id((uint8_t)r2.v[RF_PROG]);
         bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1;
@@ -847,7 +847,7 @@ static void test_groove(void)
                     if (ev[i].voice != V_BASS) continue;
                     if (ev[i].note < 28 || ev[i].note > 47) root_ok = 0;
                     pc = ev[i].note % 12;
-                    if (style != BS_WALK && pc != root && pc != (root + 7) % 12) root_ok = 0;
+                    if (style != BS_WALK && pc != root) root_ok = 0;   /* no root-fifth line (Sam) */
                     if (style == BS_PEDAL) {
                         /* R21: one note at each chord change, the root, held for the chord's length (rounding
                            aside), so no bar is silent */
@@ -866,8 +866,8 @@ static void test_groove(void)
             CHECK(pedal_n == 16 / bpc && sounded == 0xFFFF, "groove: seed %d pedal emitted %d notes in 16 bars "
                   "(%d bars a chord), bars sounded %04x", seed, pedal_n, bpc, sounded);
     }
-    CHECK(styles[BS_ROOTS] > 0 && styles[BS_ROOT_FIFTH] > 0 && styles[BS_WALK] > 0 && styles[BS_PEDAL] > 0,
-          "groove: bass styles drawn %d/%d/%d/%d", styles[0], styles[1], styles[2], styles[3]);
+    CHECK(styles[BS_ROOTS] > 0 && styles[BS_WALK] > 0 && styles[BS_PEDAL] > 0,
+          "groove: bass styles drawn %d/%d/%d", styles[0], styles[1], styles[2]);
 }
 
 static int first_step(int st) { return st == CS_STABS ? 0 : 2; }
@@ -3528,6 +3528,50 @@ static void test_keys_bass_rhythms_differ(void)
         }
     }
     CHECK(bars > 1000 && same == 0, "keys and bass share a bar's rhythm in %ld of %ld bars", same, bars);
+}
+
+/* No root-fifth line (Sam, 2026-11-04: "cheesy bass lines that go from 1 to 5"): outside the walking line's quarters
+   (root, third, fifth, approach), every bass note is the bar's root or, pushed, the next bar's */
+static void test_bass_no_root_fifth(void)
+{
+    static song_t s;
+    song_roll_t r;
+    song_ev_t ev[64];
+    long notes = 0, off = 0, walked = 0;
+    int seed, i;
+    for (seed = 1; seed <= 300; seed++) {
+        int cur = -1, nb = 0, nbar[16], nstep[16], pcs[5], next[5], np = 0, nn = 0, walk;
+        roll_song(0, (uint32_t)seed, &r);
+        walk = groove_bass_style(&r) == BS_WALK;
+        song_start(&s, &r);
+        for (;;) {
+            int playing = s.state == SS_PLAYING, bar = s.bar, st = s.step, n;
+            if (!playing || bar != cur) {                 /* judge the bar just played */
+                unsigned q = 0;
+                for (i = 0; i < nb; i++) q |= 1u << nstep[i];
+                if (walk && (q & 0x1110u) == 0x1110u && np > 1 && nb == 4) walked += nb;   /* a walking bar */
+                else
+                    for (i = 0; i < nb; i++) {
+                        notes++;
+                        if (nbar[i] != pcs[0] % 12 && (nn <= 0 || nbar[i] != next[0] % 12)) off++;
+                    }
+                if (!playing) break;
+                {
+                    const lib_prog_t *p = lib_prog_by_id((uint8_t)s.roll.v[RF_PROG]);
+                    int loop = p && p->n * p->bars_per_chord ? p->n * p->bars_per_chord : 4;
+                    np = harmony_chord_at(&s.roll, bar, bar / loop + 1, 0, pcs);
+                    nn = harmony_chord_at(&s.roll, bar + 1, (bar + 1) / loop + 1, 0, next);
+                }
+                nb = 0;
+                cur = bar;
+            }
+            n = song_tick(&s, ev, 64);
+            for (i = 0; i < n; i++)
+                if (ev[i].voice == V_BASS && nb < 16) { nbar[nb] = ev[i].note % 12; nstep[nb++] = st; }
+        }
+    }
+    printf("bass: %ld of %ld notes off the root outside the walk (%ld walking notes)\n", off, notes, walked);
+    CHECK(notes > 10000 && off == 0, "bass: %ld of %ld notes off the root outside the walking line", off, notes);
 }
 
 static void test_bass_and_roots(void)
@@ -8252,9 +8296,10 @@ static void test_strum_same(void)
     /* re-pinned (Sam 2026-11-04: the guitars only strum, under any lead; the pad's notes clear the guitar's low
        strings): were f757907a and 58e011df. Re-pinned again (Sam 2026-11-04: a fill bar strums the song's step back
        or drive): were a390df26 and 37a97ebb. Re-pinned again (Sam 2026-11-04: the drive fill syncopated,
-       D.u..du..dU..du.): were cfc38de5 and c13b2519 */
-    CHECK(a == 0xaa622c2eu, "strum same: the strummed songs hash %08x, wanted aa622c2e", (unsigned)a);
-    CHECK(b == 0x682514c2u, "strum same: with set changes %08x, wanted 682514c2", (unsigned)b);
+       D.u..du..dU..du.): were cfc38de5 and c13b2519. Re-pinned again (Sam 2026-11-04: no root-fifth bass line):
+       were aa622c2e and 682514c2 */
+    CHECK(a == 0xe0ad0308u, "strum same: the strummed songs hash %08x, wanted e0ad0308", (unsigned)a);
+    CHECK(b == 0xfe1c3672u, "strum same: with set changes %08x, wanted fe1c3672", (unsigned)b);
     v = (uint32_t)sf_last_bad();
     CHECK(v == 0, "strum same: %u strummed bars left the keys' last voicing behind", (unsigned)v);
 }
@@ -8426,8 +8471,8 @@ static void test_wb_off(void)
     uint32_t a, b;
     lib_set_wb(NULL, 0); lib_pattern_wb(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0xaa622c2eu, "wb off: the strummed songs hash %08x, wanted aa622c2e", (unsigned)a);
-    CHECK(b == 0x682514c2u, "wb off: with set changes %08x, wanted 682514c2", (unsigned)b);
+    CHECK(a == 0xe0ad0308u, "wb off: the strummed songs hash %08x, wanted e0ad0308", (unsigned)a);
+    CHECK(b == 0xfe1c3672u, "wb off: with set changes %08x, wanted fe1c3672", (unsigned)b);
 }
 /* The workbench's mute (vx_mute, default off). mt_song: a song's first 20 s as the app plays it, its samples hashed
    (mute: vx_mute(0) called first, as the workbench's wb_init does) */
@@ -8474,8 +8519,8 @@ static void test_vx_mute_off(void)
     CHECK(a == b, "vx mute off: vx_mute(0) changed the samples (%08x, wanted %08x)", (unsigned)b, (unsigned)a);
     vx_mute(0);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0xaa622c2eu, "vx mute off: the strummed songs hash %08x, wanted aa622c2e", (unsigned)a);
-    CHECK(b == 0x682514c2u, "vx mute off: with set changes %08x, wanted 682514c2", (unsigned)b);
+    CHECK(a == 0xe0ad0308u, "vx mute off: the strummed songs hash %08x, wanted e0ad0308", (unsigned)a);
+    CHECK(b == 0xfe1c3672u, "vx mute off: with set changes %08x, wanted fe1c3672", (unsigned)b);
 }
 /* Review Focus 2 (Task 2): a bus muted mid-note is silent after the chunk it goes out in (and a quantum for the
    chain's own filters), its voice still playing (the duck follows it); unmuted, the notes struck while muted end at
@@ -10216,7 +10261,7 @@ static void test_ov_part_salts(void)
                       NAME[j], moved[j]);
     }
     song_override(NULL);
-    CHECK(sf_songs(0) == 0xaa622c2eu && sf_songs(1) == 0x682514c2u, "ov part salts: the pinned hashes moved");
+    CHECK(sf_songs(0) == 0xe0ad0308u && sf_songs(1) == 0xfe1c3672u, "ov part salts: the pinned hashes moved");
 }
 /* Task 1b (Sam, 2026-10-29): "Remove the ear candy part completely"; "Make it possible for the pad part to not be in
    a song. And update the seeds to not always have it"; "add the ability for the pad part to drop out of certain song
@@ -10493,8 +10538,8 @@ static void test_ov_off(void)
     CHECK(o && o->comp == -1 && o->lead_style == -1 && o->pad_place == -1 && o->ride == -1 && !o->keys_oct &&
           !o->lead_oct && !o->voicing_salt && !o->phrase_salt, "ov off: the default override forces something");
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0xaa622c2eu, "ov off: the strummed songs hash %08x, wanted aa622c2e", (unsigned)a);
-    CHECK(b == 0x682514c2u, "ov off: with set changes %08x, wanted 682514c2", (unsigned)b);
+    CHECK(a == 0xe0ad0308u, "ov off: the strummed songs hash %08x, wanted e0ad0308", (unsigned)a);
+    CHECK(b == 0xfe1c3672u, "ov off: with set changes %08x, wanted fe1c3672", (unsigned)b);
 }
 /* a steal of a damped string (the final review): six strings struck, the first two re-struck at once (their last
    notes damped on the 2 spare voices), then a plain chord note (no string: a stab after a set change) while they
@@ -11649,8 +11694,8 @@ static void test_drums_hook(void)
     CHECK(quiet_bad == 0, "drums hook: a silent source still sounds at %d steps", quiet_bad);
     drums_hook(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0xaa622c2eu, "drums hook off: the strummed songs hash %08x, wanted aa622c2e", (unsigned)a);
-    CHECK(b == 0x682514c2u, "drums hook off: with set changes %08x, wanted 682514c2", (unsigned)b);
+    CHECK(a == 0xe0ad0308u, "drums hook off: the strummed songs hash %08x, wanted e0ad0308", (unsigned)a);
+    CHECK(b == 0xfe1c3672u, "drums hook off: with set changes %08x, wanted fe1c3672", (unsigned)b);
     dh_on = 0;
     vx_init();
     {
@@ -11918,8 +11963,8 @@ static void test_lead_loop_off_identical(void)
             for (k = 0; k < 2; k++) h[k] = ll_hash(h[k], &r, st, k - 1);
     }
     printf("lead loop off: events %08x (lead_loop -1), %08x (0)\n", (unsigned)h[0], (unsigned)h[1]);
-    CHECK(h[0] == 0xfe64bfafu, "lead loop default: lead_loop -1 hashes %08x, wanted fe64bfaf", (unsigned)h[0]);
-    CHECK(h[1] == 0xc44046c8u, "lead loop off: lead_loop 0 hashes %08x, wanted c44046c8", (unsigned)h[1]);
+    CHECK(h[0] == 0x8b99d621u, "lead loop default: lead_loop -1 hashes %08x, wanted 8b99d621", (unsigned)h[0]);
+    CHECK(h[1] == 0x30fcee76u, "lead loop off: lead_loop 0 hashes %08x, wanted 30fcee76", (unsigned)h[1]);
 }
 
 typedef struct {
@@ -12417,6 +12462,7 @@ int main(int argc, char **argv)
     RUN(test_no_chord_clusters);
     RUN(test_bass_and_roots);
     RUN(test_keys_bass_rhythms_differ);
+    RUN(test_bass_no_root_fifth);
     RUN(test_keys_kick_differ);
     RUN(test_lead_where);
     RUN(test_lead_push_legal);

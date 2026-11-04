@@ -10,7 +10,9 @@
 /* V_PAD: the pad layer (strings or a warm pad), a pitched role on its own bus; V_RIDE: the shared ride (the sampled
    kits only; a synth kit ignores it) */
 enum { V_CHORD, V_BASS, V_LEAD, V_CANDY, V_PAD, V_KICK, V_SNARE, V_HAT, V_OHAT, V_SHAKER, V_RIM, V_RIDE, V_N };
-enum { BS_ROOTS, BS_ROOT_FIFTH, BS_WALK, BS_PEDAL };
+/* the bass styles: roots on the kick's hits; walking quarters (root, third, fifth, approach); pedal (the root held
+   through each chord). No root-fifth line (Sam, 2026-11-04). */
+enum { BS_ROOTS, BS_WALK, BS_PEDAL };
 
 /* delay and len in samples at 44100 Hz (delay is late only); note is MIDI (drums 0); vel 1-127. pad: the bass's and
    the lead's push flag; on V_PAD, the note's lane (1-4, 0 for none: voices.h). */
@@ -27,7 +29,7 @@ int groove_bass_note(const song_roll_t *r, const plan_block_t *b, int bar, int s
 /* Drum and bass events of one 16th step (bar from 0, step 0-15); step_samples is one 16th in samples.
    chord_pcs: the bar's chord, root first. Returns the number of events written (at most max).
    BS_WALK is a one-in-four 8-bar window: it plays where (bar / 8) % 4 equals a seed hash mod 4, and elsewhere
-   the bass plays root and fifth. */
+   the bass plays roots on the kick. */
 int groove_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, float step_samples,
                 const int *chord_pcs, int npcs, uint32_t salt, song_ev_t *out, int max);
 

@@ -37,36 +37,34 @@ static unsigned bass_rhythm(int style, const lib_pattern_t *p)
     switch (style) {
     case BS_PEDAL: return 1u;
     case BS_WALK: return 0x1111u;
-    case BS_ROOT_FIFTH: return kick | 1u;
     default: return kick;
     }
 }
 
-/* the bass style drawn from seed (stream 112) */
+/* the bass style drawn from seed (stream 112). No root-fifth style (Sam, 2026-11-04: the 1-to-5 lines are cheesy):
+   its songs play roots on the kick, the same rhythm, as every approved pattern kicks on beat 1 */
 static int bass_style_of(const song_roll_t *r, uint32_t seed)
 {
-    static const uint8_t ALT[4][4] = {{BS_ROOT_FIFTH, BS_PEDAL, BS_WALK, BS_ROOTS},          /* the next to try */
-                                      {BS_ROOTS, BS_PEDAL, BS_WALK, BS_ROOT_FIFTH},
-                                      {BS_ROOTS, BS_PEDAL, BS_ROOT_FIFTH, BS_WALK},
-                                      {BS_ROOT_FIFTH, BS_ROOTS, BS_WALK, BS_PEDAL}};
+    static const uint8_t ALT[3][3] = {{BS_PEDAL, BS_WALK, BS_ROOTS},          /* the next to try */
+                                      {BS_ROOTS, BS_PEDAL, BS_WALK},
+                                      {BS_ROOTS, BS_WALK, BS_PEDAL}};
     const lib_pattern_t *p = lib_pattern_by_id((uint8_t)r->v[RF_PATTERN]);
     unsigned keys;
     int style, first, i;
     rng_t g;
     const lib_set_t *s = lib_set_by_id((uint8_t)r->v[RF_SET]);
     const lib_map_t *m = lib_map_by_id((uint8_t)r->v[RF_MAP]);
-    int pedal, walk, fifth;
+    int pedal, walk;
 
     rng_seed(&g, seed, 112);
     pedal = rng_int(&g, 100);
     walk = rng_int(&g, 100);
-    fifth = rng_int(&g, 2);
     if (((m && m->sparse) || r->v[RF_MOOD] == 0) && pedal < 50) style = BS_PEDAL;
     else if (lib_set_walks(s) && walk < 35) style = BS_WALK;
-    else style = fifth ? BS_ROOT_FIFTH : BS_ROOTS;
+    else style = BS_ROOTS;
     /* never the keys' rhythm when it is more than a note on 1 (Sam): the stabs, wherever they fall, or the half notes on 1 and 3 */
     keys = harmony_comp_steps(r);
-    for (i = 0, first = style; keys && i < 4 && bass_rhythm(style, p) == keys; i++) style = ALT[first][i];
+    for (i = 0, first = style; keys && i < 3 && bass_rhythm(style, p) == keys; i++) style = ALT[first][i];
     return style;
 }
 
@@ -148,12 +146,12 @@ static int root_place(const song_roll_t *r, int pc, int bar)
 static int bass_note(const song_roll_t *r, int style, const lib_pattern_t *p, int bar, int step, const int *pcs,
                      int npcs, int bpc, int next_root)
 {
-    int root = root_place(r, pcs[0], bar), fifth = chord_fifth_interval(pcs, npcs);
+    int root = root_place(r, pcs[0], bar);
     switch (style) {
     case BS_PEDAL:                        /* R21: the root at every chord change, held to the next */
         return step == 0 && bar % bpc == 0 ? root : 0;
     case BS_WALK: {                       /* quarter notes up from the root: root, third, fifth, then the approach */
-        int third = npcs > 1 ? ((pcs[1] - pcs[0]) % 12 + 12) % 12 : 4;
+        int third = npcs > 1 ? ((pcs[1] - pcs[0]) % 12 + 12) % 12 : 4, fifth = chord_fifth_interval(pcs, npcs);
         int up3 = root + third > BASS_HI ? root + third - 12 : root + third;
         int up5 = root + fifth > BASS_HI ? root + fifth - 12 : root + fifth;
         if (rubs_chord(up3, pcs, npcs)) up3 = root;     /* a note the chord's colors rub gives way to the root */
@@ -166,13 +164,6 @@ static int bass_note(const song_roll_t *r, int style, const lib_pattern_t *p, in
         default: return approach(r, bar, up5, pcs, npcs, (bar + 1) % bpc ? pcs[0] : next_root, up5);
         }
     }
-    case BS_ROOT_FIFTH:
-        if (step != 0 && !((lib_lane_hits(p, D_KICK, bar) >> step) & 1)) return 0;
-        if (step == 8 || step == 10) {
-            int f = root + fifth > BASS_HI ? root + fifth - 12 : root + fifth;
-            return rubs_chord(f, pcs, npcs) ? root : f;
-        }
-        return root;
     default:                              /* BS_ROOTS: the root on kick hits */
         return (lib_lane_hits(p, D_KICK, bar) >> step) & 1 ? root : 0;
     }
@@ -197,14 +188,14 @@ static int next_root_of(const song_roll_t *r, int bar)
     return harmony_chord_at(r, bar + 1, (bar + 1) / loop + 1, 0, pcs) > 0 ? pcs[0] : -1;
 }
 
-/* the bass style playing at `bar`: BS_WALK only inside its 8-bar window (seed stream 113), root and fifth elsewhere */
+/* the bass style playing at `bar`: BS_WALK only inside its 8-bar window (seed stream 113), roots elsewhere */
 static int bass_style_at(const song_roll_t *r, int bar)
 {
     int style = groove_bass_style(r);
     if (style == BS_WALK) {
         rng_t g;
         rng_seed(&g, bass_seed(r->seed), 113);
-        if ((bar / 8) % 4 != (int)(rng_next(&g) % 4u)) style = BS_ROOT_FIFTH;
+        if ((bar / 8) % 4 != (int)(rng_next(&g) % 4u)) style = BS_ROOTS;
     }
     return style;
 }

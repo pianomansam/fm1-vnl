@@ -27,7 +27,7 @@ static const char *const STYLE[CS_N] = {"held", "stabs", "offbeats", "arpeggio",
                                         "light eighths", "held on 2 and 4"};
 static const char *const STRUM[SP_N + 1] = {"strum, D-DU-UDU", "strum, chucks", "strum, bossa", "strum, ballad",
                                             "strum, slow ballad"};
-static const char *const BASS[4] = {"roots", "root-fifth", "walking", "pedal"};
+static const char *const BASS[3] = {"roots", "walking", "pedal"};
 static const char *const KIT[KIT_N] = {"Dusty", "Soft", "808", "Brushes", "sampled warm", "sampled dark",
                                        "sampled rusty", "sampled gentle", "sampled clean"};
 static const char *const MOOD[4] = {"sad", "wistful", "warm", "sunny"};
@@ -574,7 +574,7 @@ void score_song(const song_t *s, float now)
                 st == CS_HALF && !harmony_half_strikes(r) ? "half notes, held"
                 : st == CS_STRUM                         ? (slow ? STRUM[SP_N] : sp < SP_N ? STRUM[sp] : "strum, an imported pattern")
                                                          : STYLE[st % CS_N],
-                BASS[groove_bass_style(r) & 3]);
+                BASS[groove_bass_style(r) % 3]);
     }
     {
         int kit = lib_song_kit(r), blk, ride = groove_ride(r, &blk);
