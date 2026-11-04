@@ -33,6 +33,7 @@
 #include "pads.h"
 #include "sampler.h"
 #include "modal.h"
+#include "leads/leads.h"
 
 #define QN 64
 #define NCH 8 /* chord voices: a held pad uses all 8 (its release crosses the next chord's swell), the rest the first 4 */
@@ -327,6 +328,16 @@ static float cg = 1.0f;     /* the chords' dry scale, toward fx_chorus_dry() */
 /* The felt piano on the lead (Sam, 2026-10-29): its patch's level is the keys'; on the lead it sat 2-3 dB under the
    other leads (the lead spike), so it comes up to them */
 #define FELT_LEAD_G 1.45f
+/* The lead under the lead loop (leads/loop.c; Sam, 2026-11-04: "fix the levels"): a recorded phrase repeating reads
+   lower than the style's own phrase, so the looped lead comes up. A sustained lead (the flute) loses most: the loop
+   keeps a long note in its bar (no ties over the bar line), so over every set's songs it read 0.4 dB under its
+   unlooped level, the struck leads (felt piano, vibes, Knight) level on average but under it in some songs (the
+   vibes' three pinned songs 0.5 dB, Rhodes and Knight neo-soul seed 12 0.5). The struck leads +0.5 dB, the
+   sustained +1 (the 0.4 more they lose, so a struck lead keeps its distance under the flute: test_samp). Measured
+   by the loop-on twins of test_lead_over_keys, test_vibes_level and test_samp's levels; the producer's moves
+   (filter-ins, drops, muted bars, stutters, the riff bars' softer velocities) move these levels under 0.1 dB. */
+#define LOOP_LEAD_G 1.0593f     /* +0.5 dB */
+#define LOOP_LEAD_SUS_G 1.1220f /* +1 dB */
 static float keys_g = 1.0f; /* the song's keys level for its comping (keys_gain) */
 /* The keys' duck under the lead (Sam: "the lead leads"): while a lead note's gate is open the chords' bus dips
    DUCK_DB, a follower at the chunk rate (a one-pole toward 1 with a note held, else 0: about 25 ms in, 400 ms out,
@@ -645,6 +656,14 @@ void vx_event(const song_ev_t *e)
     qn++;
 }
 
+/* the lead's gain under the lead loop (LOOP_LEAD_G), else 1 */
+static float loop_lead_g(void)
+{
+    if (!leads_loop_plays(-1)) /* (the loop plays every style or none: the style isn't asked) */
+        return 1.0f;
+    return lib_ins_sustained(cfg.lead) ? LOOP_LEAD_SUS_G : LOOP_LEAD_G;
+}
+
 /* the solo lane's level trim: lane 4's voice on its own patch (SOLO_TRIM), else 1 */
 static float solo_lvl(const voice_t *v, const vx_patch_t *p)
 {
@@ -674,7 +693,7 @@ static void env_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int l
     v->amp_t = ROLES[v->role].gain * p->level * (float)e->vel * (1.0f / 127.0f) *
                (v->role == V_CHORD ? keys_g : solo_lvl(v, p)) *
                (p->model == M_SAMP && v->role == V_LEAD ? SAMP_LEAD[(int)p->p[0] % SB_N] : 1.0f) *
-               (v->role == V_LEAD && cfg.lead == INS_FELT_PIANO ? FELT_LEAD_G : 1.0f);
+               (v->role == V_LEAD ? (cfg.lead == INS_FELT_PIANO ? FELT_LEAD_G : 1.0f) * loop_lead_g() : 1.0f);
     /* (the solo lane's own voice slews, so its legato notes ramp to their velocity's level: lane_legato) */
     v->slew = (uint8_t)(v->role == V_BASS || (v->role == V_PAD && p->model != M_ENS));
     if (p->model == M_SAMP) { /* the sampler's envelope is its own (sampler.c): the gate only steals and stops */

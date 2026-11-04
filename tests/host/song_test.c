@@ -6603,14 +6603,15 @@ static float lk_diff(const song_roll_t *roll, int *nb)
    mean set 28's 2.8. */
 #define LK_PER 6
 static song_ov_t ov_none(void);
-static void test_lead_over_keys(void)
+static void lead_over_keys(int loop)
 {
     float d[LIB_NSETS_MAX * LK_PER], sorted[LIB_NSETS_MAX * LK_PER], med;
     int k, n = 0;
     song_ov_t off = ov_none();
-    off.lead_loop = 0;                              /* the instruments' calibration, on the styles' own phrases */
+    const char *tag = loop ? "lead over keys (loop)" : "lead over keys";
+    off.lead_loop = (int8_t)(loop ? -1 : 0);
     song_override(&off);
-    CHECK(LIB_NSETS <= LIB_NSETS_MAX, "lead over keys: %d sets, LIB_NSETS_MAX %d: raise it", LIB_NSETS, LIB_NSETS_MAX);
+    CHECK(LIB_NSETS <= LIB_NSETS_MAX, "%s: %d sets, LIB_NSETS_MAX %d: raise it", tag, LIB_NSETS, LIB_NSETS_MAX);
     for (k = 0; k < LIB_NSETS && k < LIB_NSETS_MAX; k++) {
         const lib_set_t *t = &LIB_SETS[k];
         uint32_t seed;
@@ -6627,7 +6628,7 @@ static void test_lead_over_keys(void)
             if (nb < 4)
                 continue;
             CHECK(vx_config()->chords == t->chords && vx_config()->lead == t->lead,
-                  "lead over keys: %s seed %u plays keys %d lead %d, its set's %d %d", t->name, (unsigned)seed,
+                  "%s: %s seed %u plays keys %d lead %d, its set's %d %d", tag, t->name, (unsigned)seed,
                   vx_config()->chords, vx_config()->lead, t->chords, t->lead);
             d[n++] = x;
             got++;
@@ -6635,35 +6636,43 @@ static void test_lead_over_keys(void)
             lo = fm_minf(lo, x);
             hi = fm_maxf(hi, x);
             CHECK(x >= (t->id == 28 && seed == 12u ? -1.0f : 0.0f),
-                  "lead over keys: %s seed %u's lead %.1f dB over its keys: under them", t->name, (unsigned)seed,
+                  "%s: %s seed %u's lead %.1f dB over its keys: under them", tag, t->name, (unsigned)seed,
                   (double)x);
         }
-        CHECK(got == LK_PER, "lead over keys: only %d songs found for %s", got, t->name);
+        CHECK(got == LK_PER, "%s: only %d songs found for %s", tag, got, t->name);
         if (!got)
             continue;
         mean /= (float)got;
         memcpy(ss, d + n0, (size_t)got * sizeof ss[0]);
         qsort(ss, (size_t)got, sizeof ss[0], lk_cmp_f);
         smed = got & 1 ? ss[got / 2] : 0.5f * (ss[got / 2 - 1] + ss[got / 2]);
-        printf("lead over keys: %-21s mean %+.1f median %+.1f (%+.1f..%+.1f) dB\n", t->name, (double)mean,
+        printf("%s: %-21s mean %+.1f median %+.1f (%+.1f..%+.1f) dB\n", tag, t->name, (double)mean,
                (double)smed, (double)lo, (double)hi);
-        CHECK(mean >= 1.5f && mean <= 10.5f, "lead over keys: %s's mean %.1f dB, wanted 1.5-10.5", t->name,
+        CHECK(mean >= 1.5f && mean <= 10.5f, "%s: %s's mean %.1f dB, wanted 1.5-10.5", tag, t->name,
               (double)mean);
     }
     memcpy(sorted, d, (size_t)n * sizeof sorted[0]);
     qsort(sorted, (size_t)n, sizeof sorted[0], lk_cmp_f);
     med = n ? (n & 1 ? sorted[n / 2] : 0.5f * (sorted[n / 2 - 1] + sorted[n / 2])) : 0.0f;
-    printf("lead over keys: median %+.1f dB over %d songs (%+.1f..%+.1f)\n", (double)med, n, (double)sorted[0],
+    printf("%s: median %+.1f dB over %d songs (%+.1f..%+.1f)\n", tag, (double)med, n, (double)sorted[0],
            (double)sorted[n - 1]);
-    CHECK(med >= 5.9f && med <= 8.0f, "lead over keys: the median %.1f dB, wanted 5.9-8", (double)med);
+    CHECK(med >= 5.9f && med <= 8.0f, "%s: the median %.1f dB, wanted 5.9-8", tag, (double)med);
     song_override(NULL);
+}
+
+/* the loop off (the instruments' calibration, on the styles' own phrases) and as shipped (the lead loop on: its
+   lead gain, vx's LOOP_LEAD) */
+static void test_lead_over_keys(void)
+{
+    lead_over_keys(0);
+    lead_over_keys(1);
 }
 
 /* The modeled vibraphone (M_MODAL) took the sample's place at the sample's level (2026-11-03): the lead bus soloed, its
    mean over the bars a lead note starts in (over -45 dB), in three vibes songs (sets 33, 4 and 8, seeds 9, 14 and 11)
    against the sampled vibes' (pinned: measured on b9653f4, the sample's last build). The three songs' mean within 0.5
    dB of the sample's (measured: 0.33 under), each song within 1 dB (set 4 seed 14, 8 bars, 0.56 under). */
-static void test_vibes_level(void)
+static void vibes_level(int loop)
 {
     static const int set[3] = {33, 4, 8};
     static const uint32_t seed[3] = {9u, 14u, 11u};
@@ -6671,15 +6680,16 @@ static void test_vibes_level(void)
     double all = 0.0;
     int i, b, n, c;
     song_ov_t off = ov_none();
-    off.lead_loop = 0;                              /* the pins are the styles' own phrases' */
+    const char *tag = loop ? "vibes level (loop)" : "vibes level";
+    off.lead_loop = (int8_t)(loop ? -1 : 0);
     song_override(&off);
     for (i = 0; i < 3; i++) {
         song_roll_t r;
         double sum = 0.0, x;
         roll_song(NULL, seed[i], &r);
-        CHECK(roll_set(&r, RF_SET, set[i]) == set[i], "vibes level: set %d not taken", set[i]);
+        CHECK(roll_set(&r, RF_SET, set[i]) == set[i], "%s: set %d not taken", tag, set[i]);
         n = lk_song(&r, V_LEAD, lk_db[1]);
-        CHECK(vx_config()->lead == INS_VIBES, "vibes level: set %d seed %u leads with %d", set[i], (unsigned)seed[i],
+        CHECK(vx_config()->lead == INS_VIBES, "%s: set %d seed %u leads with %d", tag, set[i], (unsigned)seed[i],
               vx_config()->lead);
         for (b = c = 0; b < n; b++)
             if (lk_on[b] && lk_db[1][b] > -45.0) {
@@ -6688,14 +6698,21 @@ static void test_vibes_level(void)
             }
         x = (c ? sum / c : -200.0) - pin[i];
         all += x / 3.0;
-        printf("vibes level: set %d seed %u: the lead bus %+.2f dB from the sample's over %d bars\n", set[i],
+        printf("%s: set %d seed %u: the lead bus %+.2f dB from the sample's over %d bars\n", tag, set[i],
                (unsigned)seed[i], x, c);
-        CHECK(c >= 8 && x >= -1.0 && x <= 1.0, "vibes level: set %d seed %u %+.2f dB from the sample's (%d bars)",
-              set[i], (unsigned)seed[i], x, c);
+        CHECK(c >= 8 && x >= -1.0 && x <= 1.0, "%s: set %d seed %u %+.2f dB from the sample's (%d bars)",
+              tag, set[i], (unsigned)seed[i], x, c);
     }
-    printf("vibes level: %+.2f dB from the sample's, the mean\n", all);
-    CHECK(all >= -0.5 && all <= 0.5, "vibes level: %+.2f dB from the sample's, the mean", all);
+    printf("%s: %+.2f dB from the sample's, the mean\n", tag, all);
+    CHECK(all >= -0.5 && all <= 0.5, "%s: %+.2f dB from the sample's, the mean", tag, all);
     song_override(NULL);
+}
+
+/* the loop off (the pins are the styles' own phrases') and as shipped (the lead loop on) */
+static void test_vibes_level(void)
+{
+    vibes_level(0);
+    vibes_level(1);
 }
 
 /* The pad layer's chord part sits under the keys (pads design, Mix: about 6 dB): in every set with percussive keys
@@ -7040,6 +7057,9 @@ static void test_sampled_sets(void)
     static const int ch[4] = {57, 60, 64, 67};
     int k, nnew = 0, kk = 0, kl = 0, ek = 0, el = 0;
     song_ov_t off = ov_none();
+    /* the struck lead's presence: measured with the loop off. With it on (as shipped) Wurli and Knight sings in 62 of
+       100 bars (the producer's drops, a repeated recorded rest): its bars broken down and a proposal for Sam in
+       .superpowers/sdd/loop-levels-report.md (2026-11-04); its loop-on check waits on his ruling */
     off.lead_loop = 0;
     for (k = 0; k < LIB_NSETS; k++) {
         const lib_set_t *t = &LIB_SETS[k];
@@ -11032,9 +11052,11 @@ static void test_samp(void)
        planner's notes; the set's rolled style, lead styles Task 6, reads 3.02). The level is the instrument's, not the
        style's: each song plays the style Task 6's interim even draw happened to give it (Film Score, Bossa Nova,
        Bossa Nova, '60s Jazz), forced. A frozen reference, not a style choice (Bossa Nova is one the Knight is never
-       rolled for): it keeps the measure where it was through the style roll (Task 7). */
-    {
+       rolled for): it keeps the measure where it was through the style roll (Task 7). Measured with the loop off (the
+       frozen reference's phrases) and as shipped (the lead loop on: its lead gain, vx's LOOP_LEAD). */
+    for (bk = 0; bk < 2; bk++) {
         static const int ST6[4] = {LS_FILMSCORE, LS_BOSSA, LS_BOSSA, LS_JAZZ60S};
+        const char *tag = bk ? "samp (loop)" : "samp";
         uint32_t seed;
         int got = 0;
         double dk[SB_N] = {0}, dl[SB_N] = {0}, dv = 0.0;
@@ -11046,7 +11068,7 @@ static void test_samp(void)
             if (roll_set(&r, RF_SET, 1) != 1)
                 continue;
             so.lead_style = (int8_t)(2 + ST6[got]);
-            so.lead_loop = 0;                       /* the frozen reference's phrases */
+            so.lead_loop = (int8_t)(bk ? -1 : 0);
             song_override(&so);
             got++;
             ref = sp_lk_mean(&r, V_CHORD, INS_NONE, INS_NONE);
@@ -11061,18 +11083,18 @@ static void test_samp(void)
         for (k = 0; k < SB_N; k++) {
             dk[k] /= got;
             dl[k] /= got;
-            printf("samp: ins %d on the keys %+.2f dB from the Rhodes, on the lead %+.2f dB from the flute\n",
+            printf("%s: ins %d on the keys %+.2f dB from the Rhodes, on the lead %+.2f dB from the flute\n", tag,
                    SP_INS[k], dk[k], dl[k]);
             /* the Knight and the Emilyguitar lead about 4 dB under the flute's bar energy (SAMP_LEAD: their sets'
                lead over keys, test_lead_over_keys, sets them; a struck lead reads over its keys at less energy) */
             CHECK(dk[k] >= -1.5 && dk[k] <= 1.5 &&
                       (SP_INS[k] == INS_NYLON ? dl[k] >= -1.5 && dl[k] <= 1.5 : dl[k] >= -6.0 && dl[k] <= -2.5),
-                  "samp: ins %d's level: keys %+.2f dB from the Rhodes, lead %+.2f from the flute", SP_INS[k], dk[k],
-                  dl[k]);
+                  "%s: ins %d's level: keys %+.2f dB from the Rhodes, lead %+.2f from the flute", tag, SP_INS[k],
+                  dk[k], dl[k]);
         }
         dv /= got; /* the vibes (modeled since 2026-11-03, at the sample's level: test_vibes_level) */
-        printf("samp: the vibes on the lead %+.2f dB from the flute\n", dv);
-        CHECK(dv >= -3.5 && dv <= 0.0, "samp: the vibes' level: lead %+.2f from the flute", dv);
+        printf("%s: the vibes on the lead %+.2f dB from the flute\n", tag, dv);
+        CHECK(dv >= -3.5 && dv <= 0.0, "%s: the vibes' level: lead %+.2f from the flute", tag, dv);
     }
 
     /* carryover: seed 2 (Bossa nylon) the same alone and after a song with the Knight on the keys */
