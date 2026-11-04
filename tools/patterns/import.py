@@ -375,7 +375,7 @@ def gen_c(t):
          "extern const uint8_t STRUM_PAT_STATUS[STRUM_NPAT];",
          "extern const char STRUM_BALLAD_FILL[];",
          "/* the fill-bar figures a strummed song draws one of (16 steps): step back, a strike on 1 and space for the",
-         "   drum fill, and drive, straight eighths into the change; [0] every pattern's but the ballad's (its own",
+         "   drum fill, and drive, pushing into the change; [0] every pattern's but the ballad's (its own",
          "   fill) and the bossa's, [1] the bossa's (its thumb and pinches) */",
          f"#define STRUM_NFILL {len(t['strum_fill_step'])}",
          "extern const char *const STRUM_FILL_STEP[STRUM_NFILL];",

@@ -161,8 +161,9 @@ song plays in a drum fill's bar (a block's last bar with a fill; a drop bar keep
 - **5 `ballad-fill`** (`fill_of` 4): the ballad's own, its up stroke on the and of 2, out of the fill's way.
 - **16 `fill-step-back`** (`figure` `"step-back"`, `fill_of` 0: every pattern but the ballad and the bossa): a strike
   on 1, then space for the drum fill.
-- **17 `fill-drive`** (`figure` `"drive"`, `fill_of` 0): straight eighths into the change, down on the beats, soft up
-  on the "and"s.
+- **17 `fill-drive`** (`figure` `"drive"`, `fill_of` 0): pushes into the change, `D.u..du..dU..du.`: down on 1, then
+  a down on the "a" of 1, 2 and 3 (steps 5, 9, 13) and an up on every "and" (Sam, 2026-11-04: straight eighths were
+  "not syncopated enough"; the bossa's keeps its eighths).
 - **18 `bossa-fill-step-back`** and **19 `bossa-fill-drive`** (`fill_of` 3): the bossa's in its thumb and pinches:
   the thumb and a pinch on 1, then space; the thumb on each beat and a pinch on each "and".
 

@@ -19,9 +19,9 @@ int strum_pattern(const song_roll_t *r, int *slow);
 
 /* A drum fill's bar (the block's last, PB_FILL_LAST and not PB_DROP_LAST: a drop bar keeps the pattern) plays a fill
    figure (Sam, 2026-11-04): the ballad its own (STRUM_BALLAD_FILL); every other pattern the song's draw on seed stream
-   199, half the songs each: 0 step back (a strike on 1, then space for the fill), 1 drive (straight eighths into the
-   change); the bossa their thumb-and-pinch versions (STRUM_FILL_STEP, STRUM_FILL_DRIVE). The workbench's strum_fill
-   override forces either. */
+   199, half the songs each: 0 step back (a strike on 1, then space for the fill), 1 drive (pushes into the change:
+   down on the "a"s, up on the "and"s); the bossa their thumb-and-pinch versions (STRUM_FILL_STEP, STRUM_FILL_DRIVE).
+   The workbench's strum_fill override forces either. */
 int strum_fill_drive(const song_roll_t *r);
 
 /* A guitar shape for the chord (pcs, root first; npcs of them): out[s] is string s's note (s 0 the low E string, 0

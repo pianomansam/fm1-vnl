@@ -98,4 +98,4 @@ const char *const STRUM_PAT[STRUM_NPAT] = {
 const uint8_t STRUM_PAT_STATUS[STRUM_NPAT] = {1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0};
 const char STRUM_BALLAD_FILL[] = "D.....u.d.......";
 const char *const STRUM_FILL_STEP[STRUM_NFILL] = {"D...............", "B..............."};
-const char *const STRUM_FILL_DRIVE[STRUM_NFILL] = {"D.u.d.u.d.u.d.u.", "B.P.T.P.T.P.T.P."};
+const char *const STRUM_FILL_DRIVE[STRUM_NFILL] = {"D.u..du..dU..du.", "B.P.T.P.T.P.T.P."};

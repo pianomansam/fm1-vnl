@@ -137,7 +137,7 @@ class T(unittest.TestCase):
                                                     "steps": "D.....u.d......."})
         fills = {k: (e["figure"], e["fill_of"], e["steps"]) for k, e in self.model["strum"].items()
                  if e["kind"] == "fill" and "figure" in e}       # step back and drive (Sam, 2026-11-04)
-        self.assertEqual(fills, {"16": ("step-back", 0, "D..............."), "17": ("drive", 0, "D.u.d.u.d.u.d.u."),
+        self.assertEqual(fills, {"16": ("step-back", 0, "D..............."), "17": ("drive", 0, "D.u..du..dU..du."),
                                  "18": ("step-back", 3, "B..............."), "19": ("drive", 3, "B.P.T.P.T.P.T.P.")})
         sys.path.insert(0, str(HERE))
         import export                                            # a new pattern skips the fills' ids, renumbers none
