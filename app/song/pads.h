@@ -59,7 +59,7 @@ int pads_double_keys(const int keys[4], int out[3]);
 
 /* The bar's solo note (0: none legal): the scale's 1st, 2nd, 3rd or 7th degree, MIDI lo to lo + 12 (pads_solo_lo),
    at least 3 semitones over chord_top (0: no chord part in the bar), no avoid note over pcs, no rub with the keys or the bar's bass notes (nbass of them;
-   over the bass a major 7th rubs too, unless the bass is the root). prev (0: none) is kept if legal; otherwise the
+   over the bass a major 7th rubs too, unless the bass is the root), never a dominant's minor 7th. prev (0: none) is kept if legal; otherwise the
    smallest move from it (from the tonic for none), ties to the tonic, the 3rd, the 2nd, the 7th. */
 int pads_solo(const song_roll_t *r, int key, int mode, const int *pcs, int np, const int keys[4], const int *bass,
               int nbass, int chord_top, int lo, int prev);

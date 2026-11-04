@@ -65,7 +65,8 @@ static int drop_iv(int *pcs, int n, int iv)
 
 /* Dominants (major 3rd, minor 7th) never sound bare (Sam: a plain Eb7 sounded bad): at least a 9th, a 13th in a
  * rich song; th_voice keeps 3rd, 7th and the extension and drops the root (the bass has it). Where the mode gives no
- * extension (each would clash), the chord drops its 7th: a plain major triad. */
+ * extension (each would clash), the chord drops its 7th: a plain major triad. The keys and the pad then sound it
+ * without its 7th anyway (harmony_sound_pcs, Sam 2026-11-04); the lead and the bass still read it here. */
 static int dominant_colors(const song_roll_t *r, th_chord_spec_t c, int color, int *pcs)
 {
     int key = r->v[RF_KEY], mode = r->v[RF_MODE], n, k, ext = 0;
@@ -81,6 +82,17 @@ static int dominant_colors(const song_roll_t *r, th_chord_spec_t c, int color, i
         return n;                                        /* th_voice drops the root first, never the extension */
     n = th_chord_pcs(key, mode, c, COLOR_7, pcs);
     return drop_iv(pcs, n, 10);
+}
+
+int harmony_sound_pcs(int *pcs, int n)
+{
+    return th_dom_b7(pcs, n) >= 0 ? drop_iv(pcs, n, 10) : n;
+}
+
+/* the chord as the keys voice it: a dominant without its 7th */
+static int keys_chord_at(const song_roll_t *r, int bar, int pass, int dark, int *pcs)
+{
+    return harmony_sound_pcs(pcs, harmony_chord_at(r, bar, pass, dark, pcs));
 }
 
 int harmony_chord_at(const song_roll_t *r, int bar, int pass, int dark, int *pcs)
@@ -175,7 +187,7 @@ static int loop_cycle(const song_roll_t *r, int top, int bottom, int hi, int out
     int pcs[4][5], np[4], v[PASSES][4][4], i, k, best = 1 << 30, pick = 0, nch = p->n < 4 ? p->n : 4;
     const int *prev = NULL;
     for (i = 0; i < nch; i++)
-        np[i] = harmony_chord_at(r, i * p->bars_per_chord, 1, 0, pcs[i]);
+        np[i] = keys_chord_at(r, i * p->bars_per_chord, 1, 0, pcs[i]);
     for (k = 0; k < PASSES; k++)
         for (i = 0; i < nch; i++) {
             if (!prev && top)
@@ -206,7 +218,7 @@ static void loop_voicings(const song_roll_t *r, harmony_voicing_t *vs)
     int rolled[4][4], v[4][4], t, nch = p->n < 4 ? p->n : 4, hi = voice_hi(r);
     uint32_t salt = song_ov()->voicing_salt;
     for (t = 0; t < nch && hi < 72; t++) {               /* the keys' window: every loop chord must fit under it */
-        int pcs[5], n = harmony_chord_at(r, t * p->bars_per_chord, 1, 0, pcs);
+        int pcs[5], n = keys_chord_at(r, t * p->bars_per_chord, 1, 0, pcs);
         if (!th_voice_range(pcs, n, NULL, v[0], hi, 1)) hi = 72;   /* one doesn't: the window is ignored */
     }
     loop_cycle(r, 0, 0, hi, rolled, NULL);
@@ -319,7 +331,7 @@ static void place_keys(const song_roll_t *r, int *notes)  /* a pad with or above
    from the shape found last (strike or peek alike, so a peek ahead and the strike agree) */
 static void strum_shape(const song_roll_t *r, int bar, int pass, harmony_voicing_t *vs, int shape[6])
 {
-    int pcs[5], n = harmony_chord_at(r, bar, pass, 0, pcs), i, k, prev[6] = {0, 0, 0, 0, 0, 0};
+    int pcs[5], n = keys_chord_at(r, bar, pass, 0, pcs), i, k, prev[6] = {0, 0, 0, 0, 0, 0};
     uint32_t sig = 2166136261u;
     for (i = 0; i < n; i++) sig = (sig ^ (uint32_t)(pcs[i] + 1)) * 16777619u;
     sig |= 1u;                                           /* never 0: an empty slot */
@@ -349,7 +361,7 @@ void harmony_voicing_at(const song_roll_t *r, int bar, int pass, harmony_voicing
             if (shape[i]) out4[--k] = shape[i];
         return;
     }
-    n = harmony_chord_at(r, bar, pass, 0, pcs);
+    n = keys_chord_at(r, bar, pass, 0, pcs);
     memcpy(keep, vs->last, sizeof keep);
     voice_chord(r, bar, pcs, n, vs, out4);
     memcpy(vs->last, keep, sizeof keep);                 /* a peek: the strike still voices from the same last */
@@ -380,7 +392,7 @@ static void voice_chord(const song_roll_t *r, int bar, const int *pcs, int n, ha
         loop_voicings(r, vs);
         vs->sig = harmony_sig(r);
     }
-    nb = harmony_chord_at(r, bar, 1, 0, base);
+    nb = keys_chord_at(r, bar, 1, 0, base);
     if (lock_loop && idx < vs->nloop && nb == n && !memcmp(base, pcs, sizeof(int) * (size_t)n))
         memcpy(sound, vs->loop[idx], 4 * sizeof(int));
     else if (!th_voice_range(pcs, n, have ? vs->last : NULL, sound, voice_hi(r), 1))
@@ -577,7 +589,7 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
     }
     dark = (b->flags & PB_DARK) != 0;
     dark = dark ? 1 : !(b->layers & (L_KICK | L_LEAD)) ? 2 : 0;   /* dark; carrying (no kick, no lead); or plain */
-    n = harmony_chord_at(r, bar, pass, dark, pcs);
+    n = keys_chord_at(r, bar, pass, dark, pcs);
     if ((style == CS_HALF || style == CS_STABS || style == CS_HELD2 || style == CS_HELD24 || style == CS_LIGHT8 || rs) &&
         !(step == first && bar % p->bars_per_chord == 0) && last_is_chord(vs, pcs, n))
         memcpy(notes, vs->last, sizeof notes);            /* the chord's other strikes keep its voicing, never

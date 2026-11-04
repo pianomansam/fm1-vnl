@@ -24,6 +24,10 @@ int harmony_comp_ok(int ins, int cs);
    the loop (bar / (n * bars_per_chord) + 1). Passes >= 2 may recolor or substitute exactly one chord of the pass
    (per-song chance 25-50%); dark (intro, outro) changes nothing here: it is a sound, not a chord. Returns the count. */
 int harmony_chord_at(const song_roll_t *r, int bar, int pass, int dark, int *pcs);
+/* The chord as the keys and the pad sound it, in place: a dominant without its minor 7th (Sam 2026-11-04: the 7th
+   sounds cheesy there), its major triad with its colors (C9 sounds as C-E-G-D, an add9);
+   any other chord as it is. The lead and the bass read harmony_chord_at's, the 7th included. Returns the count. */
+int harmony_sound_pcs(int *pcs, int n);
 
 /* The comping's per-strike hash (velocities, roll gaps): strum.c's too. */
 uint32_t harmony_mix(uint32_t a, uint32_t b, uint32_t c, uint32_t d);

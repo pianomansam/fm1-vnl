@@ -44,6 +44,8 @@ void th_add_swap(const int *from, const int *to);
 
 void th_guide_tones(const int *pcs, int n, int *third, int *seventh);   /* pitch classes, -1 if absent */
 int th_is_avoid(int key, int mode, const int *pcs, int n, int note);    /* scale note a semitone above a chord tone */
+/* a dominant's (major 3rd and minor 7th over pcs[0]) minor 7th as a pitch class, else -1 */
+int th_dom_b7(const int *pcs, int n);
 const char *th_chord_name(const int *pcs, int n, char *buf);            /* buf >= 9 bytes */
 
 #endif

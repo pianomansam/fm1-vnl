@@ -554,9 +554,11 @@ static float keys_gain(const song_roll_t *r)
     else if (style == CS_HALF)
         db = (gtr ? 3.5f : 3.0f) + cut;   /* a guitar's half notes a little up (struck softly, they sank under a struck lead) */
     else if (style == CS_STABS)
-        db = (two ? 2.75f : 2.0f) - (ins == INS_KNIGHT ? 3.0f : gtr ? 1.0f : 0.0f);   /* struck harder (vel 60-85),
-                                                    so 4 dB under held; the Knight's hammer 3 dB more, a guitar's
-                                                    pluck 1 (their sets' lead over keys) */
+        db = (two ? 2.75f : 2.0f) - (ins == INS_KNIGHT ? 3.0f : ins == INS_EMILY ? 1.25f : gtr ? 1.0f : 0.0f);
+                                                 /* struck harder (vel 60-85), so 4 dB under held; the Knight's hammer
+                                                    3 dB more, a guitar's pluck 1 (their sets' lead over keys); the
+                                                    Emilyguitar's 1.25 (its stabs voiced without a dominant's 7th,
+                                                    2026-11-04: the vibes lead had sunk under them) */
     else if (style == CS_ARP)
         db = -0.25f;
     else if (style == CS_STRUM)   /* struck harder, many strokes a bar: under the arpeggio; the ballad's three less */

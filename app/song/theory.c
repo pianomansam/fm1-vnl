@@ -119,6 +119,16 @@ int th_is_avoid(int key, int mode, const int *pcs, int n, int note)
     return 0;
 }
 
+int th_dom_b7(const int *pcs, int n)
+{
+    int i, m3 = 0, b7 = 0;
+    for (i = 1; i < n; i++) {
+        m3 |= mod12(pcs[i] - pcs[0]) == 4;
+        b7 |= mod12(pcs[i] - pcs[0]) == 10;
+    }
+    return n > 0 && m3 && b7 ? mod12(pcs[0] + 10) : -1;
+}
+
 static void sort4(int *a)
 {
     int i, j;

@@ -209,7 +209,7 @@ int pads_solo(const song_roll_t *r, int key, int mode, const int *pcs, int np, c
 {
     static const int ORDER[4] = {0, 2, 1, 6};           /* the tonic, the 3rd, the 2nd, the 7th (scale indices) */
     uint16_t pool = th_mode_pool(mode);
-    int off[7], n = 0, i, o, best = 0, bc = 1 << 30, ref;
+    int off[7], n = 0, i, o, best = 0, bc = 1 << 30, ref, b7 = th_dom_b7(pcs, np);
     (void)r;
     for (i = 0; i < 12 && n < 7; i++)
         if ((pool >> i) & 1) off[n++] = i;
@@ -219,6 +219,7 @@ int pads_solo(const song_roll_t *r, int key, int mode, const int *pcs, int np, c
         for (i = lo + mod12(key + off[ORDER[o]] - lo); i <= lo + 12; i += 12) {
             int k, c;
             if ((chord_top && i < chord_top + 3) || th_is_avoid(key, mode, pcs, np, i)) continue;
+            if (mod12(i) == b7) continue;               /* never a dominant's 7th (Sam: it sounds cheesy) */
             for (k = 0; k < 4; k++)
                 if (keys[k] && pads_rub(i, keys[k])) break;
             if (k < 4) continue;
