@@ -165,6 +165,9 @@ int wb_drums_preset(wb_drums_t *d, int id)
             s->kind = WB_SRC_PT;
             s->a = id == WB_KIT_PT808 ? M_808 : M_CR78;
             s->b = PT_V[i];
+            if (id == WB_KIT_PTCR78 && PT_V[i] == V_RS)  /* the CR-78's rim lane: its cymbal (Sam, 2026-11-04: not its
+                                                            rimshot) */
+                s->b = V_CY;
         }
     }
     d->preset = (int8_t)id;

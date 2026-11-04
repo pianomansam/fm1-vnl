@@ -22,7 +22,7 @@ const PT_808 = [["kick", "BD", 0], ["snare", "SD", 1], ["closed hat", "CH", 2], 
   ["cymbal", "CY", -1], ["cowbell", "CB", -1], ["low conga", "LC", -1], ["mid conga", "MC", -1], ["high conga", "HC", -1],
   ["claves", "CL", -1]];
 const PT_CR78 = [["kick", "BD", 0], ["snare", "SD", 1], ["closed hat", "CH", 2], ["open hat", "OH", 3], ["maracas", "MA", 4],
-  ["rimshot", "RS", 5], ["cymbal", "CY", -1], ["cowbell", "CB", -1], ["tambourine", "TB", -1], ["low bongo", "MC", -1],
+  ["rimshot", "RS", -1], ["cymbal", "CY", 5], ["cowbell", "CB", -1], ["tambourine", "TB", -1], ["low bongo", "MC", -1],
   ["high bongo", "HC", -1], ["claves", "CL", -1]];
 const OPT_LOFI = [["kick", 0, 0], ["snare", 1, 1], ["clap", 2, -1], ["closed hat", 3, 2], ["open hat", 4, 3], ["low tom", 5, -1],
   ["high tom", 6, -1], ["crash", 7, -1], ["ride", 8, RIDE], ["shaker", 9, 4], ["conga", 10, -1], ["rim", 11, 5],
