@@ -222,12 +222,26 @@ static void moves(grid_t *g, rng_t *mo, int motion, int hats_ok)
     }
 }
 
+/* Sam, 2026-11-04: hats sometimes drop out in quiet sections, not always. A kick-out break (the only break that has
+   drums) drops its hats in 40% of songs: half of those the whole break, half only its first 4 bars (the hats return
+   to build into the next section). bk: the break rng, drawn once per song so other plans never move. */
+static void break_hats(grid_t *g, rng_t *bk)
+{
+    int drop = chance(bk, 40), whole = chance(bk, 50), s;
+    if (!drop) return;
+    for (s = 0; s < g->n; s++)
+        if ((g->kind[s] & S_KICKOUT) && (g->skel[s] & L_HATS)) {
+            g->skel[s] &= (uint8_t)~L_HATS;
+            if (!whole) break;   /* first slot only */
+        }
+}
+
 void plan_build(const song_roll_t *r, song_plan_t *p)
 {
     static grid_t g;   /* static: no stack burden on the device */
     const lib_map_t *m = lib_map_by_id((uint8_t)r->v[RF_MAP]);
     int bars = r->v[RF_BARS], motion = r->v[RF_MOTION], s, i, run = 0, steady, drops_ok;
-    rng_t sk, mo;
+    rng_t sk, mo, bk;
 
     if (!m) m = &LIB_MAPS[0];
     if (bars < 36) bars = 36;
@@ -240,11 +254,13 @@ void plan_build(const song_roll_t *r, song_plan_t *p)
     g.n = bars / 4;
     rng_seed(&sk, r->seed ^ 0x504C414Eu, 100);   /* skeleton dice: independent of Motion */
     rng_seed(&mo, r->seed ^ 0x4D4F5645u, 100);   /* Motion dice */
+    rng_seed(&bk, r->seed ^ 0x42524B48u, 100);   /* break hats' dice: own stream, no other draw moves */
     skeleton(&g, m, &sk);
     /* R11: the skeleton binds over Motion. Slow bloom's drums never drop once the kick is in (no hats-out, no
        drops); Straight in has only small hat drop-outs (no 1-bar drops). */
     steady = m->middle == MID_NONE && !m->sparse;
     moves(&g, &mo, motion, !steady);
+    break_hats(&g, &bk);
     drops_ok = !steady && m->middle != MID_HATS_ONLY;
 
     /* merge slots into blocks: a new block on a layer or section change, at each 8-bar unit of the middle, at the

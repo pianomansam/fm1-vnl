@@ -563,7 +563,7 @@ static void test_plan(void)
         for (mi = 0; mi < LIB_NMAPS; mi++) {
             const lib_map_t *m = &LIB_MAPS[mi];
             int bars = 36 + 4 * (s % 11), motion = (s * 37) % 101, sum = 0;
-            int nbreak = 0, nkick = 0, drum_mid = 0, mid = 0, first_lead = -1;
+            int nbreak = 0, nkick = 0, kbars = 0, drum_mid = 0, mid = 0, first_lead = -1;
             int kick_at = -1, snare_at = -1, hats_at = -1;
             plan_roll(&r, (uint32_t)s, m->id, bars, motion);
             plan_build(&r, &p);
@@ -597,7 +597,7 @@ static void test_plan(void)
                     bad_hatsonly++;
                 if (b->section != SEC_INTRO && b->section != SEC_OUTRO) {
                     /* R12: a break is drums out or thinned: kick and snare both out, or Breather's kick-out block */
-                    int kickout = m->middle == MID_KICK_OUT && (L & L_SNARE) && (L & L_HATS) && !(L & (L_KICK | L_BASS));
+                    int kickout = m->middle == MID_KICK_OUT && (L & L_SNARE) && !(L & (L_KICK | L_BASS));
                     if ((b->section == SEC_BREAK) != (!(L & (L_KICK | L_SNARE)) || kickout)) bad_sec++;
                     mid += b->bars;
                     if (L & DRUMS) drum_mid += b->bars;
@@ -608,9 +608,11 @@ static void test_plan(void)
                              100 * b->start > 65 * bars))
                             bad_break++;
                     }
-                    if ((L & L_SNARE) && (L & L_HATS) && !(L & (L_KICK | L_BASS)) && i > 0 && (p.b[i - 1].layers & L_KICK)) {
-                        nkick++;
-                        if (b->bars != 8) bad_kickout++;
+                    /* the kick-out break: snare, kick and bass out; its hats may drop (whole, or its first 4 bars) */
+                    if ((L & L_SNARE) && !(L & (L_KICK | L_BASS)) && i > 0 &&
+                        ((p.b[i - 1].layers & L_KICK) || (kbars > 0 && kbars < 8 && p.b[i - 1].section == SEC_BREAK))) {
+                        if (kbars == 0) nkick++;
+                        kbars += b->bars;
                     }
                     if (L & L_LEAD) lead_bars += b->bars;
                     mid_bars_all += b->bars;
@@ -622,8 +624,13 @@ static void test_plan(void)
                        leaving (entry, break, Drift's comings and goings: only drum and bass bits change, one side
                        drumless) and the keys outro (everything but keys leaves, keys alone to the end). */
                     int drum_move = !(d & ~(DRUMS | L_BASS)) && (!(a & DRUMS) || !(L & DRUMS));
+                    /* and the kick-out break's edges: kick and bass go, and the hats may go with them (Sam,
+                       2026-11-04: breaks sometimes drop the hats), or come back with them */
+                    int ko_a = p.b[i - 1].section == SEC_BREAK && (a & L_SNARE) && !(a & (L_KICK | L_BASS));
+                    int ko_b = b->section == SEC_BREAK && (L & L_SNARE) && !(L & (L_KICK | L_BASS));
+                    int ko_edge = (ko_a != ko_b) && !(d & ~(L_KICK | L_BASS | L_HATS));
                     int keys_outro = i == p.n - 1 && L == L_KEYS && b->section == SEC_OUTRO;
-                    if (bits(d) > 2 && !drum_move && !keys_outro) {
+                    if (bits(d) > 2 && !drum_move && !keys_outro && !ko_edge) {
                         bad_step++;
                         if (bad_step < 4) printf("  step %02x->%02x map %d seed %d block %d\n", a, L, m->id, s, i);
                     }
@@ -641,7 +648,7 @@ static void test_plan(void)
                 bad_entry++;
             if (m->entry == EN_SNARE_FIRST && (snare_at != hats_at || kick_at - snare_at != 8)) bad_entry++;
             if (m->middle == MID_BREAK && nbreak != 1) bad_break++;
-            if (m->middle == MID_KICK_OUT && nkick != 1) bad_kickout++;
+            if (m->middle == MID_KICK_OUT && (nkick != 1 || kbars != 8)) bad_kickout++;
             if (m->ending == END_KEYS_OUTRO) {
                 const plan_block_t *e = &p.b[p.n - 1];
                 if (e->layers != L_KEYS || e->bars < 4 || e->bars > 8 || !(e->flags & PB_DARK) || e->section != SEC_OUTRO)
@@ -730,6 +737,40 @@ static int upright_set(void)   /* a set whose bass may walk (the former upright 
     for (i = 0; i < LIB_NSETS; i++)
         if (lib_set_walks(&LIB_SETS[i])) return LIB_SETS[i].id;
     return -1;
+}
+
+/* Break hats (Sam, 2026-11-04): hats sometimes drop out in quiet sections. Of the breaks that have drums (the
+   kick-out break), about 40% drop the hats: half the whole break, half its first 4 bars. Nothing else moves. */
+static void test_break_hats(void)
+{
+    song_roll_t prev, r;
+    song_plan_t p;
+    int seed, i, breaks = 0, dropped = 0, whole = 0, first = 0, bad = 0;
+    roll_song(NULL, 1, &prev);
+    for (seed = 1; seed <= 300; seed++) {
+        roll_song(&prev, (uint32_t)seed, &r);
+        plan_build(&r, &p);
+        for (i = 0; i < p.n; i++) {
+            const plan_block_t *b = &p.b[i];
+            int L = b->layers;
+            if (b->section != SEC_BREAK || !(L & L_SNARE) || (L & (L_KICK | L_BASS))) continue;
+            if (i > 0 && p.b[i - 1].section == SEC_BREAK && (p.b[i - 1].layers & L_SNARE) &&
+                !(p.b[i - 1].layers & (L_KICK | L_BASS)))
+                continue;   /* the second half of a split break */
+            breaks++;
+            if (!(L & L_HATS)) {
+                dropped++;
+                if (b->bars == 8) whole++;
+                else if (b->bars == 4 && i + 1 < p.n && (p.b[i + 1].layers & L_HATS) && p.b[i + 1].bars == 4) first++;
+                else bad++;
+            }
+        }
+        prev = r;
+    }
+    printf("break hats: %d drum breaks, %d drop hats (%d whole, %d first half)\n", breaks, dropped, whole, first);
+    CHECK(breaks > 30, "break hats: only %d drum breaks in 300 songs", breaks);
+    CHECK(100 * dropped >= 30 * breaks && 100 * dropped <= 50 * breaks, "break hats: %d of %d drum breaks drop hats", dropped, breaks);
+    CHECK(whole > 0 && first > 0 && bad == 0, "break hats: %d whole, %d first half, %d odd", whole, first, bad);
 }
 
 static void test_groove(void)
@@ -8244,9 +8285,10 @@ static void test_strum_same(void)
        or drive): were a390df26 and 37a97ebb. Re-pinned again (Sam 2026-11-04: the drive fill syncopated,
        D.u..du..dU..du.): were cfc38de5 and c13b2519. Re-pinned again (Sam 2026-11-04: no root-fifth bass line):
        were aa622c2e and 682514c2. Re-pinned again (Sam 2026-11-04: the Wurli's and DX's sets retired, so the seeds
-       draw other sets): were e0ad0308 and fe1c3672 */
-    CHECK(a == 0xc3513a4eu, "strum same: the strummed songs hash %08x, wanted c3513a4e", (unsigned)a);
-    CHECK(b == 0x50e9027fu, "strum same: with set changes %08x, wanted 50e9027f", (unsigned)b);
+       draw other sets): were e0ad0308 and fe1c3672. Re-pinned again (Sam 2026-11-05: kick-out breaks sometimes drop
+       their hats): were c3513a4e and 50e9027f */
+    CHECK(a == 0x78f452bfu, "strum same: the strummed songs hash %08x, wanted 78f452bf", (unsigned)a);
+    CHECK(b == 0xd36f686eu, "strum same: with set changes %08x, wanted d36f686e", (unsigned)b);
     v = (uint32_t)sf_last_bad();
     CHECK(v == 0, "strum same: %u strummed bars left the keys' last voicing behind", (unsigned)v);
 }
@@ -8454,8 +8496,8 @@ static void test_wb_off(void)
     uint32_t a, b;
     lib_set_wb(NULL, 0); lib_pattern_wb(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0xc3513a4eu, "wb off: the strummed songs hash %08x, wanted c3513a4e", (unsigned)a);
-    CHECK(b == 0x50e9027fu, "wb off: with set changes %08x, wanted 50e9027f", (unsigned)b);
+    CHECK(a == 0x78f452bfu, "wb off: the strummed songs hash %08x, wanted 78f452bf", (unsigned)a);
+    CHECK(b == 0xd36f686eu, "wb off: with set changes %08x, wanted d36f686e", (unsigned)b);
 }
 /* The workbench's mute (vx_mute, default off). mt_song: a song's first 20 s as the app plays it, its samples hashed
    (mute: vx_mute(0) called first, as the workbench's wb_init does) */
@@ -8502,8 +8544,8 @@ static void test_vx_mute_off(void)
     CHECK(a == b, "vx mute off: vx_mute(0) changed the samples (%08x, wanted %08x)", (unsigned)b, (unsigned)a);
     vx_mute(0);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0xc3513a4eu, "vx mute off: the strummed songs hash %08x, wanted c3513a4e", (unsigned)a);
-    CHECK(b == 0x50e9027fu, "vx mute off: with set changes %08x, wanted 50e9027f", (unsigned)b);
+    CHECK(a == 0x78f452bfu, "vx mute off: the strummed songs hash %08x, wanted 78f452bf", (unsigned)a);
+    CHECK(b == 0xd36f686eu, "vx mute off: with set changes %08x, wanted d36f686e", (unsigned)b);
 }
 /* Review Focus 2 (Task 2): a bus muted mid-note is silent after the chunk it goes out in (and a quantum for the
    chain's own filters), its voice still playing (the duck follows it); unmuted, the notes struck while muted end at
@@ -10285,7 +10327,7 @@ static void test_ov_part_salts(void)
                       NAME[j], moved[j]);
     }
     song_override(NULL);
-    CHECK(sf_songs(0) == 0xc3513a4eu && sf_songs(1) == 0x50e9027fu, "ov part salts: the pinned hashes moved");
+    CHECK(sf_songs(0) == 0x78f452bfu && sf_songs(1) == 0xd36f686eu, "ov part salts: the pinned hashes moved");
 }
 /* Task 1b (Sam, 2026-10-29): "Remove the ear candy part completely"; "Make it possible for the pad part to not be in
    a song. And update the seeds to not always have it"; "add the ability for the pad part to drop out of certain song
@@ -10562,8 +10604,8 @@ static void test_ov_off(void)
     CHECK(o && o->comp == -1 && o->lead_style == -1 && o->pad_place == -1 && o->ride == -1 && !o->keys_oct &&
           !o->lead_oct && !o->voicing_salt && !o->phrase_salt, "ov off: the default override forces something");
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0xc3513a4eu, "ov off: the strummed songs hash %08x, wanted c3513a4e", (unsigned)a);
-    CHECK(b == 0x50e9027fu, "ov off: with set changes %08x, wanted 50e9027f", (unsigned)b);
+    CHECK(a == 0x78f452bfu, "ov off: the strummed songs hash %08x, wanted 78f452bf", (unsigned)a);
+    CHECK(b == 0xd36f686eu, "ov off: with set changes %08x, wanted d36f686e", (unsigned)b);
 }
 /* a steal of a damped string (the final review): six strings struck, the first two re-struck at once (their last
    notes damped on the 2 spare voices), then a plain chord note (no string: a stab after a set change) while they
@@ -11718,8 +11760,8 @@ static void test_drums_hook(void)
     CHECK(quiet_bad == 0, "drums hook: a silent source still sounds at %d steps", quiet_bad);
     drums_hook(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0xc3513a4eu, "drums hook off: the strummed songs hash %08x, wanted c3513a4e", (unsigned)a);
-    CHECK(b == 0x50e9027fu, "drums hook off: with set changes %08x, wanted 50e9027f", (unsigned)b);
+    CHECK(a == 0x78f452bfu, "drums hook off: the strummed songs hash %08x, wanted 78f452bf", (unsigned)a);
+    CHECK(b == 0xd36f686eu, "drums hook off: with set changes %08x, wanted d36f686e", (unsigned)b);
     dh_on = 0;
     vx_init();
     {
@@ -11988,8 +12030,8 @@ static void test_lead_loop_off_identical(void)
             for (k = 0; k < 2; k++) h[k] = ll_hash(h[k], &r, st, k - 1);
     }
     printf("lead loop off: events %08x (lead_loop -1), %08x (0)\n", (unsigned)h[0], (unsigned)h[1]);
-    CHECK(h[0] == 0x0a1639e6u, "lead loop default: lead_loop -1 hashes %08x, wanted 0a1639e6", (unsigned)h[0]);
-    CHECK(h[1] == 0xa1faa950u, "lead loop off: lead_loop 0 hashes %08x, wanted a1faa950", (unsigned)h[1]);
+    CHECK(h[0] == 0x67b35062u, "lead loop default: lead_loop -1 hashes %08x, wanted 67b35062", (unsigned)h[0]);
+    CHECK(h[1] == 0xf69119c1u, "lead loop off: lead_loop 0 hashes %08x, wanted f69119c1", (unsigned)h[1]);
 }
 
 typedef struct {
@@ -12506,6 +12548,7 @@ int main(int argc, char **argv)
     RUN(test_roll);
     RUN(test_synth_sets);
     RUN(test_plan);
+    RUN(test_break_hats);
     RUN(test_groove);
     RUN(test_harmony);
     RUN(test_voices);
