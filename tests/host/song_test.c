@@ -7057,9 +7057,9 @@ static void test_sampled_sets(void)
     static const int ch[4] = {57, 60, 64, 67};
     int k, nnew = 0, kk = 0, kl = 0, ek = 0, el = 0;
     song_ov_t off = ov_none();
-    /* the struck lead's presence: measured with the loop off. With it on (as shipped) Wurli and Knight sings in 62 of
-       100 bars (the producer's drops, a repeated recorded rest): its bars broken down and a proposal for Sam in
-       .superpowers/sdd/loop-levels-report.md (2026-11-04); its loop-on check waits on his ruling */
+    /* the struck lead's presence, with the loop off (the styles' own phrases: 70%) and on (as shipped: 60%). Looped,
+       Wurli and Knight sings in 62 of 100 bars: the producer's drops and the recording's rests repeating. Sam
+       (2026-11-04) accepted it: the loop is a record (.superpowers/sdd/loop-levels-report.md) */
     off.lead_loop = 0;
     for (k = 0; k < LIB_NSETS; k++) {
         const lib_set_t *t = &LIB_SETS[k];
@@ -7092,13 +7092,13 @@ static void test_sampled_sets(void)
         const lib_set_t *t = &LIB_SETS[k];
         uint32_t seed;
         int got = 0, rendered = 0;
-        long may_bars = 0, led_bars = 0;
+        long may_bars = 0, led_bars = 0, may_lp = 0, led_lp = 0;
         if (t->id < 21)
             continue;
         for (seed = 1u; got < 4 && seed < 600u; seed++) {
             song_roll_t r;
             song_ev_t ev[64];
-            int cur = -1, may = 0, led = 0, i;
+            int cur = -1, may = 0, led = 0, i, lp;
             roll_song(NULL, seed, &r);
             if (roll_set(&r, RF_SET, t->id) != t->id)
                 continue;
@@ -7117,23 +7117,29 @@ static void test_sampled_sets(void)
             }
             if (t->lead != INS_KNIGHT && t->lead != INS_EMILY)
                 continue;
-            song_override(&off);                    /* the styles' own phrases (looped, a recording's rests repeat) */
-            song_start(&s, &r);
-            while (s.state == SS_PLAYING) {
-                int bar = s.bar, n;
-                const plan_block_t *b = plan_at(&s.plan, bar);
-                n = song_tick(&s, ev, 64);
-                if (bar != cur) {
-                    if (may) { may_bars++; led_bars += led; }
-                    cur = bar;
-                    led = 0;
-                    may = b && b->section != SEC_INTRO && b->section != SEC_OUTRO && (b->layers & L_KEYS) &&
-                          (b->layers & L_LEAD);
+            for (lp = 0; lp < 2; lp++) {             /* the styles' own phrases, then looped (its rests repeat) */
+                off.lead_loop = (int8_t)lp;
+                cur = -1;
+                may = led = 0;
+                song_override(&off);
+                song_start(&s, &r);
+                while (s.state == SS_PLAYING) {
+                    int bar = s.bar, n;
+                    const plan_block_t *b = plan_at(&s.plan, bar);
+                    n = song_tick(&s, ev, 64);
+                    if (bar != cur) {
+                        if (may) { *(lp ? &may_lp : &may_bars) += 1; *(lp ? &led_lp : &led_bars) += led; }
+                        cur = bar;
+                        led = 0;
+                        may = b && b->section != SEC_INTRO && b->section != SEC_OUTRO && (b->layers & L_KEYS) &&
+                              (b->layers & L_LEAD);
+                    }
+                    for (i = 0; i < n; i++)
+                        led |= ev[i].voice == V_LEAD;
                 }
-                for (i = 0; i < n; i++)
-                    led |= ev[i].voice == V_LEAD;
+                song_override(NULL);
             }
-            song_override(NULL);
+            off.lead_loop = 0;
         }
         CHECK(got == 4, "sampled sets: only %d seeds take %s", got, t->name);
         if (t->lead == INS_KNIGHT || t->lead == INS_EMILY) {
@@ -7143,6 +7149,9 @@ static void test_sampled_sets(void)
             CHECK(may_bars > 40 && led_bars * 100 >= may_bars * (t->id == 25 ? 65 : 70),   /* (DX and Knight, set
                      25: its four songs read 59 of 86 bars, 69%, on the style roll, lead styles Task 7: held to 65) */
                   "sampled sets: %s's struck lead sang in %ld of %ld bars", t->name, led_bars, may_bars);
+            printf("sampled sets: %-24s looped, it sings in %ld of %ld bars\n", t->name, led_lp, may_lp);
+            CHECK(may_lp > 40 && led_lp * 100 >= may_lp * 60, "sampled sets: %s's looped struck lead sang in %ld of %ld "
+                  "bars (60%% at least)", t->name, led_lp, may_lp);
         }
         {   /* the duck with this set's keys and lead (test_keys_duck's measure) */
             int pass, i;
