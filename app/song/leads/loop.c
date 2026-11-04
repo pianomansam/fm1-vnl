@@ -1,17 +1,18 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The lead loop (lead-loop design, 2026-11-03; ledger: "Hip hop record-style repetition for leads"): the lead as a
-   sampled record. With the song's switch on (song_ov()->lead_loop 1, or -1 with LEAD_LOOP_DEFAULT set), a song of any
+   sampled record. With the song's switch on (song_ov()->lead_loop 1, or -1: LEAD_LOOP_DEFAULT, on), a song of any
    lead style records its phrase once (Jazz-Hop and Ambient first, then every style: Sam, 2026-11-04), L bars (2 or
    4: the chord loop's length, 4 at most), as the style plans those bars the first time the lead reaches them (slot:
    bar % L, so each recorded bar replays over the same place in the chord loop). Every later lead bar replays its slot
    exactly: the same notes, onsets, lengths, velocities and triplet lateness. No new notes. Jazz-Hop records a riff,
    not its sparse phrase (jazzhop.c): per recorded bar about 2.9 notes (Ambient 2.2; the sparse phrase 2.3). A new
-   key, mode, chords, set or style records anew from the bar it lands on (no transposing), and enters there as a new
-   sample would.
+   key, mode, chords, set or style, or the workbench's keys or lead octave, records anew from the bar it lands on (no
+   transposing), and enters there as a new sample would.
    Harmony: each replayed note is checked against the bar it plays over (the section's own chord, keys and bass:
    leads_legal, a chord tone on beats 1 and 3, the bar's range); one that would rub moves to the nearest note that
-   passes (a scale or pentatonic step, 2 scale steps at most), else drops. A note ringing over the bar line is cut at
-   it where it would rub over the next bar's chord.
+   passes (a scale or pentatonic step, 2 scale steps at most; where the bar meets the hook floor, 3 pitches over a 4th,
+   one that keeps it first), else drops. A note ringing over the bar line (a stutter's last repeat too) is cut at it
+   where it would rub over the next bar's chord.
    The producer's moves on the loop (no new notes), all drawn from the song's phrase seed:
      - the lead's entry (a block that starts a run of lead blocks): the song's first 40% filtered in (low-pass 0.75,
        about 600 Hz, for 2 bars, opening over the next 2); a later one 20% held back (its first 4 bars muted, 8-bar
@@ -28,6 +29,7 @@
        it would have been (the notes under the stutter are skipped, the last repeat rings for the stuck note's own
        length). */
 #include <stdint.h>
+#include "harmony.h"
 #include "leads.h"
 #include "library.h"
 #include "override.h"
@@ -140,15 +142,35 @@ static int fits(const leads_ctx_t *c, int note, int t, int ext)
            (t % 8 || leads_is_ct(note, c->pcs, c->np));
 }
 
-static int nudge(const leads_ctx_t *c, int note, int t, int ext)
+/* 1 where the bar's notes (on, with step t's note q) meet the hook floor: 3 pitches or more spanning a 4th or wider
+   (a bar of under 3 notes always does) */
+static int bar_floor(const int *on, int t, int q)
+{
+    int i, n = 0, d = 0, lo = 128, hi = 0, j;
+    for (i = 0; i < 16; i++) {
+        int x = i == t ? q : on[i];
+        if (x <= 0) continue;
+        n++;
+        for (j = 0; j < i && (j == t ? q : on[j]) != x; j++) {}
+        d += j == i;
+        if (x < lo) lo = x;
+        if (x > hi) hi = x;
+    }
+    return n < 3 || (d >= 3 && hi - lo >= 5);
+}
+
+/* the nearest note that passes (a scale or pentatonic step, 2 scale steps at most), else 0; where the bar (on) meets
+   the hook floor as recorded, one that keeps it first (a nudge never folds a hook onto its own pitches) */
+static int nudge(const leads_ctx_t *c, const int *on, int note, int t, int ext)
 {
     unsigned scale = leads_scale_mask(c->r), pent = leads_pent_mask(c->r, 0);
-    int cand[6], i, best = 0, bd = 99;
+    int cand[6], i, best = 0, bd = 999, keep = bar_floor(on, t, note);
     cand[0] = leads_coll_step(scale, note, -1); cand[1] = leads_coll_step(scale, note, 1);
     cand[2] = leads_coll_step(pent, note, -1); cand[3] = leads_coll_step(pent, note, 1);
     cand[4] = leads_coll_step(scale, note, -2); cand[5] = leads_coll_step(scale, note, 2);
     for (i = 0; i < 6; i++) {
         int d = cand[i] > note ? cand[i] - note : note - cand[i];
+        if (keep && !bar_floor(on, t, cand[i])) d += 100;
         if (fits(c, cand[i], t, ext) && d < bd) { bd = d; best = cand[i]; }
     }
     return best;
@@ -204,9 +226,11 @@ static int widen(lead_state_t *ls, const leads_ctx_t *c, int last)
     return np >= need && hi - lo >= 5;
 }
 
-/* the stuck-note stutter on the bar in ls (its notes already checked) */
-static int stutter(lead_state_t *ls, const song_roll_t *r, int bar)
+/* the stuck-note stutter on the bar in ls (its notes already checked; c: the bar's context, a repeat on beat 1 or 3
+   a chord tone, else an earlier note stutters) */
+static int stutter(lead_state_t *ls, const leads_ctx_t *c, int bar)
 {
+    const song_roll_t *r = c->r;
     int t[16], n = 0, i, j, k, f, S = 0, N = 0, t0 = 0, x, ok = 0, w, fn[3], fo[3], fl[3], fv[3], fd[3], fr[3];
     rng_t g;
     for (i = 0; i < 16; i++) if (ls->on[i] > 0) t[n++] = i;
@@ -228,7 +252,16 @@ static int stutter(lead_state_t *ls, const song_roll_t *r, int bar)
         N = ff == 1 ? 2 + w : 2 + (w & 1);
         while (N > 2 && t0 + S * (N + 1) > 16) N--;
         if (t0 + S * (N + 1) > 16 && ff == 1 && S == 2) S = 1;
-        if (t0 + S * (N + 1) <= 16) { ok = 1; f = ff; }
+        if (t0 + S * (N + 1) <= 16) {
+            int q, e;
+            ok = 1;
+            for (q = 1; q <= N && ok; q++)            /* a repeat on beat 1 or 3: a chord tone */
+                for (e = 0; e < ff; e++) {
+                    int p = t0 + q * S + t[k + e] - t0;
+                    if (p < 16 && p % 8 == 0 && !leads_is_ct(ls->on[t[k + e]], c->pcs, c->np)) ok = 0;
+                }
+            if (ok) f = ff;
+        }
     }
     if (!ok) return 0;
     k++;
@@ -250,12 +283,12 @@ static int stutter(lead_state_t *ls, const song_roll_t *r, int bar)
             int p = t0 + j * S + fo[i], len = S - fo[i], vv = (int)((float)fv[i] * v + 0.5f);
             if (len > fl[i]) len = fl[i];
             if (j == N && i == f - 1 && p + fl[i] > p + len) {   /* the last repeat: its own length (to the next
-                                                                    note) */
-                int e = p + fl[i], q;
+                                                                    note; past the next bar line never) */
+                int e = p + fl[i] < 32 ? p + fl[i] : 32, q;
                 for (q = p + 1; q < 16 && q < e; q++)
                     if (ls->on[q] > 0) { e = q; break; }
                 len = e - p;
-                if (fr[i] && e == p + fl[i]) ls->ring |= 1u << p;
+                if (fr[i] && e == (p + fl[i] < 32 ? p + fl[i] : 32)) ls->ring |= 1u << p;
             }
             if (p > 15 || len < 1) continue;
             ls->on[p] = fn[i]; ls->len[p] = len; ls->dl[p] = (uint8_t)fd[i];
@@ -273,13 +306,14 @@ void leads_loop_bar(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *
     int bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1, loop = pr && pr->n ? pr->n * bpc : 4;
     int L = loop >= 4 ? 4 : 2, slot = bar % L, i, from = ls->tied ? ls->tie_end : 0, ext, tied = 0, te = 0;
     uint32_t sig = song_ov_phrase_seed(c->r->seed) ^ (uint32_t)(c->r->v[RF_KEY] * 7 + c->r->v[RF_MODE] * 131 +
-                   c->r->v[RF_PROG] * 1031 + c->r->v[RF_SET] * 8191 + style * 65537);
+                   c->r->v[RF_PROG] * 1031 + c->r->v[RF_SET] * 8191 + style * 65537 +
+                   (harmony_keys_oct(c->r) / 12 * 3 + song_ov()->lead_oct) * 524287);
     lm_t m, mn;
     const plan_block_t *nb = bar + 1 < b->start + b->bars ? b
                            : (b + 1)->bars && (b + 1)->start == b->start + b->bars ? b + 1 : 0;
     if (ls->loop.sig != sig || ls->loop.bars != L || (!ls->loop.have && ls->loop.sig && !ls->loop.redo)) {
-        /* a new song (its state zeroed), or a live change (key, mode, chords, set, style): record anew; a live change
-           from this bar, its new entry here (moves) */
+        /* a new song (its state zeroed), or a live change (key, mode, chords, set, style, the keys' or lead's
+           octave): record anew; a live change from this bar, its new entry here (moves) */
         int live = ls->loop.sig != 0;
         ls->loop.have = 0;
         ls->loop.tries = 0;
@@ -329,7 +363,7 @@ void leads_loop_bar(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *
         if (i < from) { ls->on[i] = 0; continue; }    /* a note rings in from the last bar */
         ext = i + ls->len[i] > 16;
         if (!fits(c, note, i, ext)) {
-            int a = nudge(c, note, i, ext);
+            int a = nudge(c, ls->on, note, i, ext);
             if (a) { ls->on[i] = a; COUNT(ls, 1); }
             else { ls->on[i] = 0; COUNT(ls, 2); continue; }
         }
@@ -339,8 +373,17 @@ void leads_loop_bar(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *
         }
     }
     moves(c->r, ls, b, bar, &m);
-    if (m.stut && stutter(ls, c->r, bar)) COUNT(ls, 3);
-    else m.stut = 0;
+    if (m.stut && stutter(ls, c, bar)) {
+        COUNT(ls, 3);
+        for (i = 0; i < 16; i++)                      /* a last repeat rung past the bar line: cut at it where it
+                                                         would rub over the next bar's chord, as any note, or where
+                                                         it wasn't a tie */
+            if (ls->on[i] > 0 && i + ls->len[i] > 16 && (!((ls->ring >> i) & 1u) ||
+                !(c->can_push && nx->np > 0 && leads_legal(c->r, ls->on[i], nx->pcs, nx->np, nx->bass)))) {
+                ls->len[i] = 16 - i;
+                ls->ring &= ~(1u << i);
+            }
+    } else m.stut = 0;
     if (nb) moves(c->r, ls, nb, bar + 1, &mn);
     else mn.mute = 0;
     for (i = 0; i < 16; i++) {                        /* the mutes; a note into a muted step cut there */

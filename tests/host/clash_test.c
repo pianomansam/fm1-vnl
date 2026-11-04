@@ -885,11 +885,12 @@ static void style_rules(int style, const char *name, int per_song)
 
 /* Review Focus 1, chords with few legal notes, through every check above: the style forced on each lead instrument it
    is rolled for, in songs forced to Lydian (its maj7 chords; the first 300 of song_test's songs) and in walking-bass
-   songs with 9ths (their m9 chords; of its 3000), as song_test's ls_hard plays them */
+   songs with 9ths (their m9 chords; of its 3000), as song_test's ls_hard plays them (the lead loop off: the notes
+   counted are the style's own; style_rules checks the rules with the loop on) */
 static void style_hard(int style, const char *name, const int *ins, int nins, long m9_notes)
 {
     static song_t s;
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, 0};
     long before = fails;
     int k;
     o.lead_style = (int8_t)(2 + style);

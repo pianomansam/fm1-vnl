@@ -6580,10 +6580,14 @@ static float lk_diff(const song_roll_t *roll, int *nb)
    neo-soul (set 28, the Knight leading now) seed 12, -0.7, held to -1 (Sam to judge); the median 6.0, the lowest set
    mean set 28's 2.8. */
 #define LK_PER 6
+static song_ov_t ov_none(void);
 static void test_lead_over_keys(void)
 {
     float d[LIB_NSETS_MAX * LK_PER], sorted[LIB_NSETS_MAX * LK_PER], med;
     int k, n = 0;
+    song_ov_t off = ov_none();
+    off.lead_loop = 0;                              /* the instruments' calibration, on the styles' own phrases */
+    song_override(&off);
     CHECK(LIB_NSETS <= LIB_NSETS_MAX, "lead over keys: %d sets, LIB_NSETS_MAX %d: raise it", LIB_NSETS, LIB_NSETS_MAX);
     for (k = 0; k < LIB_NSETS && k < LIB_NSETS_MAX; k++) {
         const lib_set_t *t = &LIB_SETS[k];
@@ -6630,6 +6634,7 @@ static void test_lead_over_keys(void)
     printf("lead over keys: median %+.1f dB over %d songs (%+.1f..%+.1f)\n", (double)med, n, (double)sorted[0],
            (double)sorted[n - 1]);
     CHECK(med >= 5.9f && med <= 8.0f, "lead over keys: the median %.1f dB, wanted 5.9-8", (double)med);
+    song_override(NULL);
 }
 
 /* The modeled vibraphone (M_MODAL) took the sample's place at the sample's level (2026-11-03): the lead bus soloed, its
@@ -6643,6 +6648,9 @@ static void test_vibes_level(void)
     static const double pin[3] = {-28.90, -26.48, -29.95};
     double all = 0.0;
     int i, b, n, c;
+    song_ov_t off = ov_none();
+    off.lead_loop = 0;                              /* the pins are the styles' own phrases' */
+    song_override(&off);
     for (i = 0; i < 3; i++) {
         song_roll_t r;
         double sum = 0.0, x;
@@ -6665,6 +6673,7 @@ static void test_vibes_level(void)
     }
     printf("vibes level: %+.2f dB from the sample's, the mean\n", all);
     CHECK(all >= -0.5 && all <= 0.5, "vibes level: %+.2f dB from the sample's, the mean", all);
+    song_override(NULL);
 }
 
 /* The pad layer's chord part sits under the keys (pads design, Mix: about 6 dB): in every set with percussive keys
@@ -6673,7 +6682,8 @@ static void test_vibes_level(void)
    dB): each set's mean and median 7-11 dB under, and no song under 5 dB or over 13. */
 static void test_pad_level(void)
 {
-    static const song_ov_t pads = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, -1, 0, -1};   /* every song with a pad */
+    static const song_ov_t pads = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, -1, 0, 0};   /* every song with a pad
+                                                                                                 (the lead loop off) */
     float d[LIB_NSETS_MAX * LK_PER], sorted[LIB_NSETS_MAX * LK_PER], med;
     int k, n = 0, sets = 0;
     song_override(&pads);
@@ -7007,6 +7017,8 @@ static void test_sampled_sets(void)
     static song_t s;
     static const int ch[4] = {57, 60, 64, 67};
     int k, nnew = 0, kk = 0, kl = 0, ek = 0, el = 0;
+    song_ov_t off = ov_none();
+    off.lead_loop = 0;
     for (k = 0; k < LIB_NSETS; k++) {
         const lib_set_t *t = &LIB_SETS[k];
         int samp = t->chords == INS_KNIGHT || t->chords == INS_EMILY || t->lead == INS_KNIGHT || t->lead == INS_EMILY;
@@ -7063,6 +7075,7 @@ static void test_sampled_sets(void)
             }
             if (t->lead != INS_KNIGHT && t->lead != INS_EMILY)
                 continue;
+            song_override(&off);                    /* the styles' own phrases (looped, a recording's rests repeat) */
             song_start(&s, &r);
             while (s.state == SS_PLAYING) {
                 int bar = s.bar, n;
@@ -7078,6 +7091,7 @@ static void test_sampled_sets(void)
                 for (i = 0; i < n; i++)
                     led |= ev[i].voice == V_LEAD;
             }
+            song_override(NULL);
         }
         CHECK(got == 4, "sampled sets: only %d seeds take %s", got, t->name);
         if (t->lead == INS_KNIGHT || t->lead == INS_EMILY) {
@@ -8189,9 +8203,10 @@ static void test_strum_same(void)
        phrase planner, the hybrid and the struck melody removed, every song plays a lead style): were dc06936c and
        62a5a384. Re-pinned again (lead styles Task 7: the weighted style roll, the ten sets' new leads): were 64ac9d89
        and de43a061. Re-pinned again (Sam 2026-11-03: the Jazz-Hop hook floor, 3 pitches a 4th or wider): were
-       9648d15a and 9143260d */
-    CHECK(a == 0x4547863au, "strum same: the strummed songs hash %08x, wanted 4547863a", (unsigned)a);
-    CHECK(b == 0x932130c5u, "strum same: with set changes %08x, wanted 932130c5", (unsigned)b);
+       9648d15a and 9143260d. Re-pinned again (Sam 2026-11-04: the lead loop on by default): were 4547863a and
+       932130c5 */
+    CHECK(a == 0x7d9cc633u, "strum same: the strummed songs hash %08x, wanted 7d9cc633", (unsigned)a);
+    CHECK(b == 0xee990f98u, "strum same: with set changes %08x, wanted ee990f98", (unsigned)b);
     v = (uint32_t)sf_last_bad();
     CHECK(v == 0, "strum same: %u strummed bars left the keys' last voicing behind", (unsigned)v);
 }
@@ -8363,8 +8378,8 @@ static void test_wb_off(void)
     uint32_t a, b;
     lib_set_wb(NULL, 0); lib_pattern_wb(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x4547863au, "wb off: the strummed songs hash %08x, wanted 4547863a", (unsigned)a);
-    CHECK(b == 0x932130c5u, "wb off: with set changes %08x, wanted 932130c5", (unsigned)b);
+    CHECK(a == 0x7d9cc633u, "wb off: the strummed songs hash %08x, wanted 7d9cc633", (unsigned)a);
+    CHECK(b == 0xee990f98u, "wb off: with set changes %08x, wanted ee990f98", (unsigned)b);
 }
 /* The workbench's mute (vx_mute, default off). mt_song: a song's first 20 s as the app plays it, its samples hashed
    (mute: vx_mute(0) called first, as the workbench's wb_init does) */
@@ -8411,8 +8426,8 @@ static void test_vx_mute_off(void)
     CHECK(a == b, "vx mute off: vx_mute(0) changed the samples (%08x, wanted %08x)", (unsigned)b, (unsigned)a);
     vx_mute(0);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x4547863au, "vx mute off: the strummed songs hash %08x, wanted 4547863a", (unsigned)a);
-    CHECK(b == 0x932130c5u, "vx mute off: with set changes %08x, wanted 932130c5", (unsigned)b);
+    CHECK(a == 0x7d9cc633u, "vx mute off: the strummed songs hash %08x, wanted 7d9cc633", (unsigned)a);
+    CHECK(b == 0xee990f98u, "vx mute off: with set changes %08x, wanted ee990f98", (unsigned)b);
 }
 /* Review Focus 2 (Task 2): a bus muted mid-note is silent after the chunk it goes out in (and a quantum for the
    chain's own filters), its voice still playing (the duck follows it); unmuted, the notes struck while muted end at
@@ -9294,8 +9309,8 @@ static int ls_roll(uint32_t seed, int ins, song_roll_t *r)
     return 1;
 }
 
-/* one song played with lead_style 2 + style (lead_oct oct): its lead onsets, its lead bars and their runs' first bars,
-   the keys' top note each bar */
+/* one song played with lead_style 2 + style (lead_oct oct), the lead loop off: its lead onsets, its lead bars and
+   their runs' first bars, the keys' top note each bar */
 static void ls_play(const song_roll_t *r, int style, int oct)
 {
     static song_t s;
@@ -9304,6 +9319,7 @@ static void ls_play(const song_roll_t *r, int style, int oct)
     int bar, i;
     o.lead_style = (int8_t)(2 + style);
     o.lead_oct = (int8_t)oct;
+    o.lead_loop = 0;                                 /* the style's own composer (the loop's: test_lead_loop_*) */
     song_override(&o);
     song_start(&s, r);
     lsn_n = 0;
@@ -9906,7 +9922,10 @@ static void test_jazzhop_hard(void)
 }
 /* The hook floor (Sam 2026-11-03): every Jazz-Hop hook statement (the first bar of each 2 in a lead run) with 3
    onsets or more plays 3 distinct pitches or more, spanning a perfect 4th or more, on each lead instrument it is
-   rolled for, over the 300 songs; a statement the band can't fit is an exception, rare (1 in 500 at most) */
+   rolled for, over the 300 songs; a statement the band can't fit is an exception, rare (1 in 500 at most). Its
+   sparse phrase's hooks, the lead loop off (ls_play): looped, Jazz-Hop records a riff (the loop's floor and its
+   nudges' hook floor: test_lead_loop_floor, test_lead_loop_replays), and the stutter on the turnaround's hook bar
+   repeats a note by design */
 static void test_jazzhop_hook_floor(void)
 {
     static const int INS3[3] = {INS_FLUTE, INS_FELT_PIANO, INS_VIBES};
@@ -10084,7 +10103,7 @@ static void test_ov_part_salts(void)
                       NAME[j], moved[j]);
     }
     song_override(NULL);
-    CHECK(sf_songs(0) == 0x4547863au && sf_songs(1) == 0x932130c5u, "ov part salts: the pinned hashes moved");
+    CHECK(sf_songs(0) == 0x7d9cc633u && sf_songs(1) == 0xee990f98u, "ov part salts: the pinned hashes moved");
 }
 /* Task 1b (Sam, 2026-10-29): "Remove the ear candy part completely"; "Make it possible for the pad part to not be in
    a song. And update the seeds to not always have it"; "add the ability for the pad part to drop out of certain song
@@ -10287,14 +10306,20 @@ static void test_ov_oct(void)
     CHECK(bad == 0, "ov oct: %d keys notes not where keys_oct puts them", bad);
     /* the lead keeps its room: wherever keys_oct moves the keys, at least 80% of its notes; wherever lead_oct moves
        it, inside its instrument's range or the rolled song's (an octave left under the instrument's ceiling, else
-       the rolled range stays); over percussive keys an octave down keeps the floor: never higher */
+       the rolled range stays); over percussive keys an octave down keeps the floor: never higher. The notes kept are
+       the style's (its composer's, the lead loop off: a loop repeats its recorded bars' count, so it multiplies a
+       loss in them; the loop's own octave check is test_lead_loop_octave) */
     for (seed = 1; seed <= 40; seed++) {
+        static ov_rec_t OVU;
         const lib_set_t *st;
         int j, moved = 0;
         roll_song(NULL, seed, &r);
         st = lib_set_by_id((uint8_t)r.v[RF_SET]);
         if (!st) continue;
         ov_run(&r, NULL, &OVA);
+        o = ov_none();
+        o.lead_loop = 0;
+        ov_run(&r, &o, &OVU);
         song_ov_range(st->lead, &lo, &hi);
         for (j = 0; j < 4; j++) {
             o = ov_none();
@@ -10304,13 +10329,14 @@ static void test_ov_oct(void)
             moved = j < 2 ? harmony_keys_oct(&r) != 0 : 1;
             song_override(NULL);
             if (!moved) continue;
+            if (j < 2) o.lead_loop = 0;
             ov_run(&r, &o, &OVB);
             if (j < 2)   /* (seed 34, '60s Jazz on the felt over the Knight since the style roll: 15 of 28 with the
                             keys up, held to half; '60s Jazz and Impressionism lose a fifth or more of the lead in about
                             1 song in 8 with the keys up: lead styles Task 7, To revisit) */
-                CHECK(seed == 34u && j == 0 ? OVB.nlead * 2 >= OVA.nlead : OVB.nlead * 5 >= OVA.nlead * 4,
+                CHECK(seed == 34u && j == 0 ? OVB.nlead * 2 >= OVU.nlead : OVB.nlead * 5 >= OVU.nlead * 4,
                       "ov oct: seed %u keys %+d: the lead %d notes, %d unmoved", (unsigned)seed, o.keys_oct, OVB.nlead,
-                      OVA.nlead);
+                      OVU.nlead);
             else
                 CHECK(!OVB.nlead || (OVB.lmin >= (lo < OVA.lmin ? lo : OVA.lmin) &&
                                      OVB.lmax <= (hi > OVA.lmax ? hi : OVA.lmax)),
@@ -10354,8 +10380,8 @@ static void test_ov_off(void)
     CHECK(o && o->comp == -1 && o->lead_style == -1 && o->pad_place == -1 && o->ride == -1 && !o->keys_oct &&
           !o->lead_oct && !o->voicing_salt && !o->phrase_salt, "ov off: the default override forces something");
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x4547863au, "ov off: the strummed songs hash %08x, wanted 4547863a", (unsigned)a);
-    CHECK(b == 0x932130c5u, "ov off: with set changes %08x, wanted 932130c5", (unsigned)b);
+    CHECK(a == 0x7d9cc633u, "ov off: the strummed songs hash %08x, wanted 7d9cc633", (unsigned)a);
+    CHECK(b == 0xee990f98u, "ov off: with set changes %08x, wanted ee990f98", (unsigned)b);
 }
 /* a steal of a damped string (the final review): six strings struck, the first two re-struck at once (their last
    notes damped on the 2 spare voices), then a plain chord note (no string: a stab after a set change) while they
@@ -10926,6 +10952,7 @@ static void test_samp(void)
             if (roll_set(&r, RF_SET, 1) != 1)
                 continue;
             so.lead_style = (int8_t)(2 + ST6[got]);
+            so.lead_loop = 0;                       /* the frozen reference's phrases */
             song_override(&so);
             got++;
             ref = sp_lk_mean(&r, V_CHORD, INS_NONE, INS_NONE);
@@ -11410,8 +11437,8 @@ static void test_drums_hook(void)
     CHECK(quiet_bad == 0, "drums hook: a silent source still sounds at %d steps", quiet_bad);
     drums_hook(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x4547863au, "drums hook off: the strummed songs hash %08x, wanted 4547863a", (unsigned)a);
-    CHECK(b == 0x932130c5u, "drums hook off: with set changes %08x, wanted 932130c5", (unsigned)b);
+    CHECK(a == 0x7d9cc633u, "drums hook off: the strummed songs hash %08x, wanted 7d9cc633", (unsigned)a);
+    CHECK(b == 0xee990f98u, "drums hook off: with set changes %08x, wanted ee990f98", (unsigned)b);
     dh_on = 0;
     vx_init();
     {
@@ -11636,8 +11663,9 @@ static void test_kit_roll(void)
 /* ---- the lead loop (lead-loop Task 2: leads/loop.c) ----
    With song_ov()->lead_loop on, a song records its phrase once (L bars, the chord loop's length)
    and replays it: each replayed note a recorded one, moved 2 scale steps at most where it would rub, or dropped; the
-   producer's moves on top (filter-in entries, a muted bar, the drop before a change, the stuck-note stutter). Off (0,
-   or -1 with LEAD_LOOP_DEFAULT 0), every song is as before. */
+   producer's moves on top (filter-in entries, a muted bar, the drop before a change, the stuck-note stutter). On by
+   default (-1, LEAD_LOOP_DEFAULT 1: Sam, 2026-11-04); off (0), every song is as before. Tests that measure a style's
+   own phrase or calibrate an instrument play with it off (ls_play, the level tests). */
 
 /* every event of r's song (lead_style 2 + style, style -1: the rolled one; lead_loop loop) folded into h */
 static uint32_t ll_hash(uint32_t h, const song_roll_t *r, int style, int loop)
@@ -11661,8 +11689,9 @@ static uint32_t ll_hash(uint32_t h, const song_roll_t *r, int style, int loop)
     return h;
 }
 
-/* Off is today: seeds 1-300, the rolled style and each style forced, lead_loop 0 and -1 (the default, off): every
-   event as before the loop existed (the hash pinned on c17423f, the switch's commit, before loop.c) */
+/* Off is as before: seeds 1-300, the rolled style and each style forced, lead_loop 0: every event as before the loop
+   existed (the hash pinned on c17423f, the switch's commit, before loop.c). lead_loop -1 (the default, on since Sam
+   2026-11-04) is the loop's: its hash pinned too */
 static void test_lead_loop_off_identical(void)
 {
     uint32_t seed, h[2] = {2166136261u, 2166136261u};
@@ -11674,13 +11703,13 @@ static void test_lead_loop_off_identical(void)
             for (k = 0; k < 2; k++) h[k] = ll_hash(h[k], &r, st, k - 1);
     }
     printf("lead loop off: events %08x (lead_loop -1), %08x (0)\n", (unsigned)h[0], (unsigned)h[1]);
-    CHECK(h[0] == 0x51b9dbb5u, "lead loop off: lead_loop -1 hashes %08x, wanted 51b9dbb5", (unsigned)h[0]);
+    CHECK(h[0] == 0xa6c69555u, "lead loop default: lead_loop -1 hashes %08x, wanted a6c69555", (unsigned)h[0]);
     CHECK(h[1] == 0x51b9dbb5u, "lead loop off: lead_loop 0 hashes %08x, wanted 51b9dbb5", (unsigned)h[1]);
 }
 
 typedef struct {
     long songs, lsongs, replayed, notes, checked, nudged, dropped, stutters;
-    long bad_new, bad_same, bad_pitch, bad_legal, stut_first, mute_first, stut_adj;
+    long bad_new, bad_same, bad_pitch, bad_legal, stut_first, mute_first, stut_adj, floor_bars, folded;
     long pv[10], sp[16], thin[3], all[3];
 } ll_acc_t;
 
@@ -11719,6 +11748,24 @@ static void ll_play(const song_roll_t *r, int style, ll_acc_t *a)
         scale = leads_scale_mask(&s.roll);
         slot = b0 % s.lead.loop.bars;
         lg = leads_loop_log(b0);
+        if (!(lg & (1 | 2 | 4 | 16))) {               /* the hook floor (3 pitches over a 4th, 3 notes or more) */
+            int f[2], q;
+            for (q = 0; q < 2; q++) {
+                int n = 0, d = 0, lo = 128, hi = 0, j, k2;
+                for (j = 0; j < 16; j++) {
+                    int x = q ? s.lead.on[j] : s.lead.loop.note[slot][j];
+                    if (x <= 0) continue;
+                    n++;
+                    for (k2 = 0; k2 < j && (q ? s.lead.on[k2] : s.lead.loop.note[slot][k2]) != x; k2++) {}
+                    d += k2 == j;
+                    if (x < lo) lo = x;
+                    if (x > hi) hi = x;
+                }
+                f[q] = n < 3 || (d >= 3 && hi - lo >= 5);
+            }
+            a->floor_bars += f[0];
+            a->folded += f[0] && !f[1];
+        }
         for (i = 0; i < 16; i++) {
             int on = s.lead.on[i], rec = s.lead.loop.note[slot][i];
             a->notes += rec > 0;
@@ -11836,6 +11883,12 @@ static void test_lead_loop_replays(void)
           ll_acc.notes);
     CHECK(ll_acc.dropped * 250 <= ll_acc.notes, "lead loop: %ld of %ld notes dropped (0.4%% at most)", ll_acc.dropped,
           ll_acc.notes);
+    printf("lead loop: %ld of %ld replayed bars at the hook floor as recorded fall under it\n", ll_acc.folded,
+           ll_acc.floor_bars);
+    /* a nudge keeps a bar's hook floor where a note within its 2 steps can (0.91% of them fell under it before it
+       did; what's left has no such note) */
+    CHECK(ll_acc.folded * 400 <= ll_acc.floor_bars * 3, "lead loop: %ld of %ld replayed bars nudged under the hook "
+          "floor (0.75%% at most)", ll_acc.folded, ll_acc.floor_bars);
 }
 
 /* Bossa records a riff with the loop on (bossa.c): its looped phrase about as dense as Jazz-Hop's (2.9 a bar), not
@@ -11856,6 +11909,58 @@ static void test_lead_loop_floor(void)
     for (j = 0; j < LS_N; j++)
         CHECK(ll_thin[j] * 50 <= ll_loops[j], "lead loop floor: style %d, %ld of %ld loops under it", j, ll_thin[j],
               ll_loops[j]);
+}
+
+/* A live octave (the workbench's lead_oct or keys_oct, changed mid-song with the loop playing) records the loop
+   anew in the new register: seeds 1-40, each change landing 4 bars into the song's first lead run; the replays
+   after it nudge 10% of their notes at most and drop 0.4% at most (a recording kept in the old register drops nearly
+   all of them, out of the new range) */
+static void test_lead_loop_octave(void)
+{
+    static song_t s;
+    song_ev_t ev[64];
+    long notes = 0, nudged = 0, dropped = 0, changes = 0;
+    uint32_t seed;
+    int j;
+    for (seed = 1; seed <= 40; seed++)
+        for (j = 0; j < 4; j++) {
+            song_roll_t r;
+            song_ov_t o = ov_none();
+            int first = -1, at, i, n0 = 0, d0 = 0, sw = 0;
+            roll_song(NULL, seed, &r);
+            o.lead_loop = 1;
+            song_override(&o);
+            song_start(&s, &r);
+            for (i = 0; i < s.plan.bars && first < 0; i++)
+                if (lead_plays(plan_at(&s.plan, i))) first = i;
+            if (first < 0) { song_override(NULL); continue; }
+            at = first + 4;
+            while (s.state == SS_PLAYING) {
+                int b0 = s.bar, n;
+                if (b0 == at && !sw) {
+                    sw = 1;
+                    if (j < 2) o.lead_oct = (int8_t)(j ? -1 : 1);
+                    else o.keys_oct = (int8_t)(j == 3 ? -1 : 1);
+                    song_override(&o);
+                    if (j >= 2 && !harmony_keys_oct(&r)) break;
+                    changes++;
+                    n0 = leads_loop_stat(&s.lead, 1);
+                    d0 = leads_loop_stat(&s.lead, 2);
+                }
+                n = song_tick(&s, ev, 64);
+                for (i = 0; sw && i < n; i++) notes += ev[i].voice == V_LEAD;
+            }
+            if (sw) {
+                nudged += leads_loop_stat(&s.lead, 1) - n0;
+                dropped += leads_loop_stat(&s.lead, 2) - d0;
+            }
+            song_override(NULL);
+        }
+    printf("lead loop octave: %ld live changes, %ld lead notes after them: %ld nudged, %ld dropped\n", changes, notes,
+           nudged, dropped);
+    CHECK(changes > 60 && notes > 2000, "lead loop octave: only %ld changes, %ld notes", changes, notes);
+    CHECK(nudged * 10 <= notes && dropped * 250 <= notes, "lead loop octave: %ld nudged, %ld dropped of %ld notes",
+          nudged, dropped, notes);
 }
 
 static void test_lead_loop_moves(void)
@@ -12190,6 +12295,7 @@ int main(int argc, char **argv)
     RUN(test_lead_loop_jazzhop_riff);
     RUN(test_lead_loop_bossa_riff);
     RUN(test_lead_loop_floor);
+    RUN(test_lead_loop_octave);
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;
