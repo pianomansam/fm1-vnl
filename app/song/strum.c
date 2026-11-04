@@ -55,6 +55,7 @@ static float strum_gap_ms(const song_roll_t *r, int slow)
 int strum_fill_drive(const song_roll_t *r)
 {
     rng_t g;
+    if (song_ov()->strum_fill > 0) return song_ov()->strum_fill == 2;   /* the workbench's Strum fill row */
     rng_seed(&g, r->seed, 199);
     return (int)(harmony_mix(rng_next(&g), r->seed, 199u, 1u) >> 16 & 1u);
 }

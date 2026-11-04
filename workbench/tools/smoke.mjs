@@ -2289,6 +2289,35 @@ console.log("candidates: the strum row, Approve (patterns and edits, Task 4)");
   const s12 = JSON.parse(cstr(ex, ex.wb_state()));
   check(fromEngine({ ...s12, ov: s12.ov.slice(0, 12) }, C, OPTS).strumPat === -1, "an older engine's 12-entry ov list reads it as rolled");
 
+  // the strum fill row (Sam, 2026-11-04: "a way to ... audition and tweak them"): Default (the song's draw), Step back,
+  // Drive; the two forced fills differ in the fill bars only, and the default is one of them
+  const fr = row("strumFill");
+  check(fr && fr.kind === "ov" && fr.key === "STRUM_FILL" && ROWS.indexOf(fr) === ROWS.indexOf(row("strumPat")) + 1 &&
+        JSON.stringify(optionsFor(fr, { values: {} }, OPTS).map((o) => [o.value, o.name])) ===
+        '[[-1,"Default"],[0,"Step back"],[1,"Drive"]]' && ex.wb_ov_get(OV.STRUM_FILL) === -1,
+        "a Strum fill row after the strum pattern row: Default, Step back, Drive; a new song's is the default");
+  const fills = [];
+  for (const f of [0, 1])
+    fills.push(JSON.parse((await partOf(strum, V.CHORD, [...gtr, [OV.STRUM_FILL, f]], nylon)).ev));
+  const diffBars = new Set([...fills[0], ...fills[1]].map((e) => JSON.stringify(e))
+    .filter((e) => !fills[0].some((x) => JSON.stringify(x) === e) || !fills[1].some((x) => JSON.stringify(x) === e))
+    .map((e) => JSON.parse(e)[0]));
+  const both = fills.map((f) => JSON.stringify(f));
+  check(diffBars.size > 0 && both.includes(base.ev) && both[0] !== both[1],
+        `the forced fills differ in ${diffBars.size} bar(s) (${[...diffBars].join(", ")}), the default plays one of ` +
+        "them");
+  await d2.set("keys", nylon);
+  await d2.set("comp", 5);
+  const tf = await d2.set("strumFill", 1);
+  check(tf.ok !== false && ex.wb_ov_get(OV.STRUM_FILL) === 1 && !inactive(fr, d2.state, OPTS) &&
+        JSON.parse(cstr(ex, ex.wb_state())).ov[OV.STRUM_FILL] === 1,
+        "the strum fill row forces the drive on a strummed song");
+  await d2.set("strumFill", -1);
+  await d2.set("comp", -1);
+  await d2.set("keys", ins("Rhodes"));
+  check(inactive(fr, d2.state, OPTS) && fromEngine({ ...s12, ov: s12.ov.slice(0, 15) }, C, OPTS).strumFill === -1,
+        "the strum fill row is inactive where the keys don't strum; a 15-entry ov list reads it as the default");
+
   // a candidate: offered (marked), never the dice's pick; approval names it for POST /approve
   // (a new entry past whatever options.json and the library hold, candidates already imported among them)
   const SN = OPTS.strumPats.length, PID = Math.max(...OPTS.patterns.map((p) => p.id)) + 1;

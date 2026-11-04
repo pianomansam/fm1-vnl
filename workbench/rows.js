@@ -38,6 +38,7 @@ export const ROWS = [
   { id: "voicings", group: VP, label: "Keys voicings", kind: "reroll", key: "VOICING_SALT", part: "keys" },
   { id: "keysOct", group: VP, label: "Keys register", kind: "ov", key: "KEYS_OCT", source: "registers" },
   { id: "strumPat", group: VP, label: "Strum pattern", kind: "ov", key: "STRUM_PAT", source: "strumPats" },
+  { id: "strumFill", group: VP, label: "Strum fill", kind: "ov", key: "STRUM_FILL", source: "strumFills" },
   { id: "padPlace", group: VP, label: "Pad place", kind: "ov", key: "PAD_PLACE", source: "padPlaces" },
   { id: "bassLine", group: VP, label: "Bass line", kind: "reroll", key: "BASS_SALT", part: "bass", hidden: true },
   { id: "padNotes", group: VP, label: "Pad notes", kind: "reroll", key: "PAD_SALT", part: "pad", hidden: true },
@@ -114,6 +115,8 @@ function allOptions(r, state, opts, lib) {
     case "patterns": return opts.patterns.map((p) => ({ value: p.id, name: p.name, status: p.status, key: String(p.id) }));
     case "strumPats":   // a table index (the override forces it)
       return [ROLLED, ...(opts[r.source] || []).map((p) => ({ value: p.index, name: p.name, status: p.status, key: p.id }))];
+    case "strumFills":   // the fill bars' figure (the song's draw by default; the ballad keeps its own fill)
+      return [{ ...ROLLED, name: "Default" }, ...list(["Step back", "Drive"])];
     case "kickPhrases": return [{ value: "", name: "The pattern's own" },
                                 ...opts.kickPhrases.map((k) => ({ value: k.id, name: k.id, status: k.status ?? "approved",
                                                                   key: k.id })),
@@ -254,6 +257,8 @@ export function inactive(r, state, opts) {
     return `Lead style: ${style.name} is retired; the song plays a rolled style instead.`;
   if (r.id === "strumPat" && state.strums === false)
     return "The keys don't strum in this song: a strum pattern plays with strummed comping (the guitars).";
+  if (r.id === "strumFill" && state.strums === false)
+    return "The keys don't strum in this song: a strum fill plays in a strummed song's drum-fill bars.";
   if (r.id === "ride") {
     const kit = opts.kits.find((k) => k.id === state.values.kit);
     if (!kit?.ride) return `${kit ? kit.name : "This kit"} has no ride: the ride section plays on the sampled kits only.`;

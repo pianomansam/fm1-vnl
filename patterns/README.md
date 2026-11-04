@@ -167,5 +167,7 @@ song plays in a drum fill's bar (a block's last bar with a fill; a drop bar keep
   the thumb and a pinch on 1, then space; the thumb on each beat and a pinch on each "and".
 
 Each strummed song (not the ballad) draws step back or drive, half the songs each (Sam, 2026-11-04: "vary between the
-two from song to song"). `index` is the figure's slot in `STRUM_FILL_STEP` and `STRUM_FILL_DRIVE`: 0 every pattern's,
+two from song to song"). The workbench's **Strum fill** row (Default, Step back, Drive) forces either in any strummed
+song, to audition them; there are no candidate fills: edit a fill's file in place and run `tools/patterns/import.sh`.
+`index` is the figure's slot in `STRUM_FILL_STEP` and `STRUM_FILL_DRIVE`: 0 every pattern's,
 1 the bossa's.

@@ -6702,7 +6702,7 @@ static void test_vibes_level(void)
    dB): each set's mean and median 7-11 dB under, and no song under 5 dB or over 13. */
 static void test_pad_level(void)
 {
-    static const song_ov_t pads = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, -1, 0, 0};   /* every song with a pad
+    static const song_ov_t pads = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, -1, 0, 0, 0};   /* every song with a pad
                                                                                                  (the lead loop off) */
     float d[LIB_NSETS_MAX * LK_PER], sorted[LIB_NSETS_MAX * LK_PER], med;
     int k, n = 0, sets = 0;
@@ -6819,7 +6819,7 @@ static void test_pad_level(void)
    choir held to its input's power, so its level is its patch's (patch.c). */
 static void test_choir_level(void)
 {
-    static const song_ov_t pads = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, -1, 0, -1};
+    static const song_ov_t pads = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, -1, 0, -1, 0};
     static const uint32_t SEED[3] = {319u, 152u, 1u};
     static const int SET[3] = {31, 32, 21};
     int k;
@@ -7222,7 +7222,7 @@ static pd_rec_t pd_a, pd_b;
    so they keep their samples; NULL (0) restores the roll's */
 static void pd_all_pads(int on)
 {
-    static const song_ov_t all = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, -1, 0, -1};
+    static const song_ov_t all = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, -1, 0, -1, 0};
     song_override(on ? &all : NULL);
 }
 static int pd_part(const song_t *s, int blk, int sus)
@@ -8572,7 +8572,7 @@ static void ov_run(const song_roll_t *r, const song_ov_t *ov, ov_rec_t *o)
 }
 static song_ov_t ov_none(void)
 {
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0};
     return o;
 }
 static void test_ov_comp(void)
@@ -10768,6 +10768,17 @@ static void test_strum_fill(void)
             bad_twin += (m & sf_fig(want, 7)) != sf_fig(want, 7) || (extra & ~0x4444u) || (extra & (extra - 1u));
             checked++;
         }
+    for (seed = 1; seed <= 40; seed++) {          /* the workbench's Strum fill row forces either */
+        song_roll_t r;
+        roll_song(NULL, (uint32_t)seed, &r);
+        o = ov_none();
+        o.strum_fill = 1;
+        song_override(&o);
+        bad_fill += strum_fill_drive(&r) != 0;
+        o.strum_fill = 2;
+        song_override(&o);
+        bad_fill += strum_fill_drive(&r) != 1;
+    }
     song_override(NULL);
     printf("strum fill: %d songs' fill bars checked (%d with the bass twin's up stroke)\n", checked, twins);
     CHECK(bad_fill == 0, "strum fill: %d fill bars not the song's figure", bad_fill);

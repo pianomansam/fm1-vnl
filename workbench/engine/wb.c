@@ -771,6 +771,7 @@ EXPORT void wb_ov_set(int key, int value)
     case WB_OV_STRUM_PAT: o->strum_pat = (int8_t)value; break;
     case WB_OV_NO_BUSY_THIN: o->no_busy_thin = (int8_t)(value != 0); break;
     case WB_OV_LEAD_LOOP: o->lead_loop = (int8_t)value; break;
+    case WB_OV_STRUM_FILL: o->strum_fill = (int8_t)(value == 0 || value == 1 ? value + 1 : 0); break;   /* -1: drawn */
     default: break;
     }
 }
@@ -794,6 +795,7 @@ EXPORT int wb_ov_get(int key)
     case WB_OV_STRUM_PAT: return o->strum_pat;
     case WB_OV_NO_BUSY_THIN: return o->no_busy_thin;
     case WB_OV_LEAD_LOOP: return o->lead_loop;
+    case WB_OV_STRUM_FILL: return o->strum_fill - 1;   /* -1 the song's draw, 0 step back, 1 drive */
     default: return 0;
     }
 }
@@ -1003,7 +1005,7 @@ EXPORT const char *wb_consts(void)
         {"PHRASE_SALT", WB_OV_PHRASE_SALT}, {"BASS_SALT", WB_OV_BASS_SALT}, {"PAD_SALT", WB_OV_PAD_SALT},
         {"DRUMS_SALT", WB_OV_DRUMS_SALT}, {"PAD_ON", WB_OV_PAD_ON}, {"STRUM_PAT", WB_OV_STRUM_PAT},
         {"NO_BUSY_THIN", WB_OV_NO_BUSY_THIN}, {"LEAD_LOOP", WB_OV_LEAD_LOOP},
-        {"N", WB_OV_N}}, V[] = {
+        {"STRUM_FILL", WB_OV_STRUM_FILL}, {"N", WB_OV_N}}, V[] = {
         {"CHORD", V_CHORD}, {"BASS", V_BASS}, {"LEAD", V_LEAD}, {"PAD", V_PAD}, {"KICK", V_KICK}, {"SNARE", V_SNARE},
         {"HAT", V_HAT}, {"OHAT", V_OHAT}, {"SHAKER", V_SHAKER}, {"RIM", V_RIM}, {"RIDE", V_RIDE}}, SRC[] = {
         {"NONE", WB_SRC_NONE}, {"PT", WB_SRC_PT}, {"OPT", WB_SRC_OPT}, {"SAMPLE", WB_SRC_SAMPLE},

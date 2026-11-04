@@ -25,7 +25,7 @@ static int fails;
         }                                                                                                          \
     } while (0)
 
-static const song_ov_t NONE = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1};
+static const song_ov_t NONE = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0};
 
 static int prog_index(int id)
 {

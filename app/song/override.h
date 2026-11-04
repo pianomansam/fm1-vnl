@@ -28,6 +28,8 @@ typedef struct {
                                as always; 1: they keep their full rhythm (held on 2 (and 4) and light eighths never
                                thin) */
     int8_t lead_loop;       /* -1 default (follows LEAD_LOOP_DEFAULT: on), 0 the lead loop off, 1 on */
+    int8_t strum_fill;      /* a strummed song's fill figure (strum_fill_drive): 0 the song's draw (left out of an
+                               initializer, it stays the draw), 1 step back, 2 drive */
 } song_ov_t;
 
 void song_override(const song_ov_t *ov);   /* NULL: none (default); the struct is copied */
