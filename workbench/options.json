@@ -87,7 +87,8 @@
     { "id": 5, "name": "Half-time 2 (shaker)", "status": "approved" },
     { "id": 6, "name": "Sparse", "status": "approved" },
     { "id": 7, "name": "Brushes", "status": "approved" },
-    { "id": 8, "name": "Bossa", "status": "approved" }
+    { "id": 8, "name": "Bossa", "status": "approved" },
+    { "id": 9, "name": "9-half-time-2-shaker-2", "status": "candidate" }
   ],
   "kickPhrases": [
     { "id": "k2", "a": [0, 10], "b": [0, 10] },
