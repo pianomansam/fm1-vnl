@@ -11755,6 +11755,7 @@ static void ll_play(const song_roll_t *r, int style, ll_acc_t *a)
 }
 
 static ll_acc_t ll_acc;
+static double ll_dens[LS_N];         /* recorded notes a replayed bar, per style */
 static void ll_sweep(void)
 {
     static const int INS3[3] = {INS_FELT_PIANO, INS_FLUTE, INS_VIBES};
@@ -11773,6 +11774,8 @@ static void ll_sweep(void)
                 if (!ls_roll(k, INS3[i], &r)) continue;
                 ll_play(&r, j, &ll_acc);
             }
+        ll_dens[j] = ll_acc.replayed > a0.replayed ? (double)(ll_acc.notes - a0.notes) /
+                                                     (double)(ll_acc.replayed - a0.replayed) : 0.0;
         printf("lead loop %-13s: %ld bars replayed, %ld notes (%.2f a bar): %ld nudged, %ld dropped; %.2f stutters a "
                "song\n", NM[j], ll_acc.replayed - a0.replayed, ll_acc.notes - a0.notes,
                ll_acc.replayed > a0.replayed ? (double)(ll_acc.notes - a0.notes) / (double)(ll_acc.replayed - a0.replayed) : 0.0,
@@ -11799,6 +11802,15 @@ static void test_lead_loop_replays(void)
           ll_acc.notes);
     CHECK(ll_acc.dropped * 250 <= ll_acc.notes, "lead loop: %ld of %ld notes dropped (0.4%% at most)", ll_acc.dropped,
           ll_acc.notes);
+}
+
+/* Bossa records a riff with the loop on (bossa.c): its looped phrase about as dense as Jazz-Hop's (2.9 a bar), not
+   the sparse phrase's 1-in-2 near-silent bars */
+static void test_lead_loop_bossa_riff(void)
+{
+    ll_sweep();
+    CHECK(ll_dens[LS_BOSSA] >= 2.7 && ll_dens[LS_BOSSA] <= 3.6, "lead loop Bossa riff: %.2f notes a bar, wanted 2.7-3.6",
+          ll_dens[LS_BOSSA]);
 }
 
 static void test_lead_loop_moves(void)
@@ -12131,6 +12143,7 @@ int main(int argc, char **argv)
     RUN(test_lead_loop_moves);
     RUN(test_lead_loop_rerecords);
     RUN(test_lead_loop_jazzhop_riff);
+    RUN(test_lead_loop_bossa_riff);
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;

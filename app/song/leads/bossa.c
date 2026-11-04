@@ -15,7 +15,11 @@
             next head's pickup on the "and" of 4 (a breath instead at the 8-bar answer's end, half the time)
    Every head restates the motif's rhythm and contour; one thing varies per phrase (an earlier start, another pitch
    level, or the step widened to a 3rd). Every note passes leads_legal() (no semitone rubs, no avoid notes); an onset
-   on beat 1 is a chord tone, one on beat 3 mostly (a 9th or 13th there now and then). Velocities soft (52-66). */
+   on beat 1 is a chord tone, one on beat 3 mostly (a 9th or 13th there now and then). Velocities soft (52-66).
+   With the lead loop on (leads/loop.c), Bossa records a riff (Sam 2026-11-04: the phrase looped was too sparse): the
+   long note stays in its bar (no tie over), and bar 2 of each 4 answers the motif with the motif again, its long note
+   a step under the last one (never on it), softer, its first note chopped where it has 3+; bar 4 closes as before (a step up
+   where the range's floor leaves no step down). */
 #include <stdint.h>
 #include "leads.h"
 #include "library.h"
@@ -62,7 +66,7 @@ static int bn_fn_cost(int iv)
    (iv semitones exactly in pass 0; 1-3 in pass 1, the direction kept), L legal over the next chord too when x.
    Near target, the same pitch as want (0: none) first. Returns L, *rep R. */
 static int bn_fit(const leads_ctx_t *c, const leads_next_t *x, const int *on, int n, int dir, int iv, int target,
-                  int want, int avoid, int force, int *rep)
+                  int want, int avoid, int force, int avl, int *rep)
 {
     int R, L, d, pass, best = 0, bc = 1 << 30, strong = 0, k;
     for (k = 0; k < n; k++)                             /* beat 1 a chord tone; beat 3 mostly one */
@@ -82,6 +86,7 @@ static int bn_fit(const leads_ctx_t *c, const leads_next_t *x, const int *on, in
                 if (x) cost += bn_fn_cost((L - x->pcs[0] + 120) % 12);
                 if (want && R == want) cost -= 8;
                 if (avoid && R == avoid) cost += 6;    /* a sequence: not the head's pitch again */
+                if (avl && L == avl) cost += 40;      /* the loop's answer: off the motif's own long note */
                 if (strong == 1 && !leads_is_ct(R, c->pcs, c->np)) cost += 3;
                 if (L > c->hi - 3) cost += (L - c->hi + 3) * 3;
                 if (d != iv) cost += 3;
@@ -117,7 +122,7 @@ static int bn_var(uint32_t seed, int run, int pass, int half)
 /* one statement of the motif; returns the long note (0 none). force: the repeated note, struck early as a pickup on
    the last bar's "and" of 4 (0 none) */
 static int bn_state(lead_state_t *ls, const leads_ctx_t *c, const leads_next_t *nx, const bn_song_t *s, int var,
-                    int target, int want, int avoid, int force, int from, int *rep)
+                    int target, int want, int avoid, int force, int from, int avl, int *rep)
 {
     int on[4], k, n = s->n, R = 0, L = 0, iv = s->iv, end, held = 0, f;
     const leads_next_t *x = c->can_push && nx->np > 0 ? nx : 0;
@@ -126,10 +131,10 @@ static int bn_state(lead_state_t *ls, const leads_ctx_t *c, const leads_next_t *
     for (f = force ? 0 : 1; f < 2 && !L; f++) {       /* the pickup's note first */
         int fo = f ? 0 : force;
         if (x) {
-            L = bn_fit(c, x, on, n, s->dir, iv, target, want, avoid, fo, &R);
+            L = bn_fit(c, x, on, n, s->dir, iv, target, want, avoid, fo, avl, &R);
             if (L) held = 1;
         }
-        if (!held) L = bn_fit(c, 0, on, n, s->dir, iv, target, want, avoid, fo, &R);
+        if (!held) L = bn_fit(c, 0, on, n, s->dir, iv, target, want, avoid, fo, avl, &R);
     }
     if (!L) return 0;
     for (k = 0; k < n; k++) {
@@ -169,7 +174,7 @@ static int bn_pickup(lead_state_t *ls, const leads_ctx_t *c, const leads_next_t 
     int R = 0, end;
     if (!c->can_push || nx->np <= 0 || from > 12) return 0;
     cn.pcs = nx->pcs; cn.np = nx->np; cn.bass = nx->bass; cn.lo = c->lo_x; cn.can_push = 0;
-    if (!bn_fit(&cn, 0, on, s->n, s->dir, s->iv, target, want, avoid, 0, &R) || R < c->lo_x ||
+    if (!bn_fit(&cn, 0, on, s->n, s->dir, s->iv, target, want, avoid, 0, 0, &R) || R < c->lo_x ||
         !leads_legal(c->r, R, c->pcs, c->np, c->bass) || !leads_legal(c->r, R, nx->pcs, nx->np, nx->bass))
         return 0;
     end = 16 + (on[0] >= 2 ? on[0] : 0);
@@ -182,7 +187,9 @@ static int bn_pickup(lead_state_t *ls, const leads_ctx_t *c, const leads_next_t 
 void bossa_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b, int bar, const leads_next_t *nx)
 {
     int run, pass, bip, pbars, last, role, half, i, center, prev = ls->last, var, anchor;
-    int from = ls->tied ? ls->tie_end : 0, rep, pick, on[4], seq;
+    int from = ls->tied ? ls->tie_end : 0, rep, pick, on[4], seq, k, lp = leads_loop_plays(LS_BOSSA);
+    leads_next_t nx0 = *nx;
+    const leads_next_t *nh = lp ? &nx0 : nx;           /* the loop: the long note stays in its bar */
     uint32_t seed = song_ov_phrase_seed(c->r->seed);
     bn_song_t s;
     rng_t g;
@@ -192,6 +199,7 @@ void bossa_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b, i
     role = bip % 4;
     half = bip / 4;
     if (pbars < 8 && last) half = 1;
+    nx0.np = 0;
     bn_song(seed, c->r->v[RF_MOTION], &s);
     rng_seed(&g, seed ^ ((uint32_t)run * 0x27D4EB2Fu) ^ ((uint32_t)(pass * 2 + half) * 0x165667B1u) ^ (uint32_t)bar,
              222);
@@ -207,12 +215,23 @@ void bossa_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b, i
     if (bip == 0) ls->anchor = 0;
     pick = ls->akey;                                    /* a pickup struck in the last bar (0 none) */
     ls->akey = 0;
+    if (lp && role == 1) {
+        /* the loop's riff (only its recording plans here): the motif again, its long note a step under the last
+           (never on it), softer, its first note chopped (3+ notes) */
+        int t = prev ? prev - 2 - s.dir * s.iv : anchor;
+        i = bn_state(ls, c, nh, &s, BV_SAME, t, 0, 0, 0, s.n >= 3 ? s.on[0] + 1 : 0, prev, &rep);
+        for (k = 0; k < 16; k++)
+            if (ls->on[k] > 0) ls->vel[k] = (uint8_t)(ls->vel[k] - 8);
+        if (i) prev = i;
+        ls->last = prev;
+        return;
+    }
     switch (role) {
     case 0: { /* the motif */
         int t = anchor + (pass & 1 ? 3 : 0) + (half ? (anchor - 4 >= c->lo + 4 ? -4 : 5) : 0);   /* the answer a 3rd
                                                                    lower (a 4th up off the floor); next pass higher */
         if (var == BV_LEVEL) t += rng_int(&g, 2) ? 3 : -3;
-        i = bn_state(ls, c, nx, &s, var, t, 0, 0, pick, from, &rep);
+        i = bn_state(ls, c, nh, &s, var, t, 0, 0, pick, from, 0, &rep);
         if (i) { prev = i; ls->anchor = rep; ls->ctrun = c->pcs[0] % 12 + 1; }
         break;
     }
@@ -220,7 +239,7 @@ void bossa_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b, i
         int head = ls->anchor ? ls->anchor : anchor, want = 0, t = head;
         if (seq == BS_ONE) want = head;
         else t = head + (seq == BS_DOWN ? -2 : 2);
-        i = bn_state(ls, c, nx, &s, var == BV_LEVEL ? BV_SAME : var, t, want, want ? 0 : head, pick, from, &rep);
+        i = bn_state(ls, c, nh, &s, var == BV_LEVEL ? BV_SAME : var, t, want, want ? 0 : head, pick, from, 0, &rep);
         if (i) prev = i;
         break;
     }
@@ -264,6 +283,7 @@ void bossa_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b, i
                 int q = bn_step(c, prev - k + 1, -1, 0);
                 if (q && q < prev && (!half || leads_is_ct(q, c->pcs, c->np))) rest = q;
             }
+            if (!rest && lp) rest = bn_step(c, prev, 1, 0);   /* the loop: at the range's floor, a step up instead */
             if (!rest) break;
             if (t0 == 8 && !leads_is_ct(rest, c->pcs, c->np)) t0 = 10;
         }
