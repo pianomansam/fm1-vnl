@@ -1300,3 +1300,5 @@ size (the organ's is the largest; the vibraphone's state is 76 B), and voices.o'
 - 2026-11-04, every style looping, Bossa's riff and the loop's pitch floor (23ed21a..797877d): image 402,888 to
   **404,488 B (+1,600 B)**, about 5.1 KB under the budget. RAM: the loop keeps each slot's chord and range for the
   floor (about +46 B a lead state). CPU: the floor runs once per recording (a scan of 64 steps); not re-measured.
+- 2026-11-04, on by default with the stutter, octave and hook-nudge fixes (8c230af): image 404,824 B (+336 B),
+  about 4.8 KB under the budget. Every song now runs the loop's replay path; CPU not re-measured on the device.

@@ -179,10 +179,26 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   where it would rub.
   **Done (2026-11-03):** Jazz-Hop hooks: at least 3 pitches spanning a 4th (Sam: "I guess this is better. Keep the
   change"); 57 of 1000 songs had 2 pitches, now 0.
-  **Done (2026-11-03):** the lead loop: a per-song switch (workbench row "Lead loop", firmware default off pending
-  Sam's ear) makes Jazz-Hop and Ambient record their lead and replay it over the chord loop (2 or 4 bars) with
+  **Done (2026-11-03):** the lead loop: a per-song switch (workbench row "Lead loop"; firmware default on since
+  2026-11-04) makes Jazz-Hop and Ambient record their lead and replay it over the chord loop (2 or 4 bars) with
   producer moves; other styles ignore it. Cost: flash +3,648 B (image 402,888 B, about 6.7 KB under budget), RAM
   +288 B, worst tick unchanged within noise (docs/cost.md).
+  **Done (2026-11-04):** every lead style loops (Sam: "Apply it to the rest of the genres"); Bossa records a riff
+  (bar 2 answers the motif; "C works"); a loop pitch floor for every style (4 pitches, 3 under 8 notes, over a 4th;
+  Modal Jazz 23% of loops under it to 0%; Sam on the A/B: "yes"); **on by default** (Sam: "default on, merge"),
+  lead-loop 8c230af. Image 404,824 B (4.8 KB under budget). With it on, four loop bugs fixed that Sam hasn't heard
+  (a stutter ringing over the bar line, stutter repeats off the chord on beats 1 and 3, an octave change not
+  re-recording, harmony nudges folding hooks).
+  **To revisit (by ear):**
+  - Levels with the loop on (the level tests run loop-off): vibes -0.80 dB from the sample's (vs -0.33 off); set 28
+    seed 12's lead -1.2 dB under its keys; Knight and Emilyguitar leads 1-1.6 dB hotter against the flute;
+    Wurli/Knight's struck lead sings in 62% of bars (71% off). Rule on each, then add loop-on versions of the checks.
+  - Jazz-Hop's hook floor with the loop on: hook-bar stutters fold about 2.7% of hooks (by design) and harmony
+    nudges another 0.6% (capped at 0.75%). Accept as the loop's character, or keep stutters off hook bars.
+  - On a live change, the entry filter opens one step late (a bright first note in about 4 of 36 mid-run key
+    changes); fix with song_lead_lp computed once per step.
+  - '60s Jazz on felt piano or vibes plays only its targets in about 3% of songs (2 notes per 4 bars), loop on or
+    off (seeds 67, 71): its lead-ins drop out. A fix in jazz60s.c.
 
 - **Hybrid lead styles (Sam, 2026-10-29).** One lead style makes the motif, then a different style takes it over and
   develops it: after 1 bar, after 3 bars, or for the second 4 bars of an 8-bar phrase. Needs the styles to share a
