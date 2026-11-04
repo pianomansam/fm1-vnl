@@ -154,6 +154,56 @@ static int nudge(const leads_ctx_t *c, int note, int t, int ext)
     return best;
 }
 
+/* The loop floor (Sam 2026-11-04: a loop has no longer phrase to vary its notes in): a finished recording plays 4
+   pitches or more (3 where it has fewer than 8 notes: half its notes, 3 at least) spanning a 4th or wider. Where it
+   doesn't, its repeated notes move, the last bar's first and latest first (the motif's first note never), to the
+   nearest scale note 1-3 steps away that the loop doesn't play yet and that fits its bar as recorded (a chord tone
+   on beats 1 and 3), outward first while the span is short. Onsets, lengths and velocities stay. Returns 1 where the
+   loop meets the floor. */
+static int widen(lead_state_t *ls, const leads_ctx_t *c, int last)
+{
+    unsigned scale = leads_scale_mask(c->r);
+    int cnt[128] = {0}, np = 0, lo = 127, hi = 0, n = 0, need, k, i, d, j, pcs[5];
+    leads_ctx_t h = *c;
+    for (k = 0; k < ls->loop.bars; k++)
+        for (i = 0; i < 16; i++) {
+            int note = ls->loop.note[k][i];
+            if (note <= 0) continue;
+            n++;
+            if (!cnt[note]++) np++;
+            if (note < lo) lo = note;
+            if (note > hi) hi = note;
+        }
+    need = n / 2 < 3 ? 3 : n / 2 > 4 ? 4 : n / 2;
+    h.pcs = pcs;
+    for (j = 0; j < ls->loop.bars && (np < need || hi - lo < 5); j++) {
+        int slot = (last - j + ls->loop.bars) % ls->loop.bars, first = 1;
+        for (k = 0; k < 5; k++) pcs[k] = ls->loop.pcs[slot][k];
+        h.np = ls->loop.np[slot]; h.bass = ls->loop.bass[slot];
+        h.lo = ls->loop.lo[slot]; h.lo_x = ls->loop.lo_x[slot]; h.hi = ls->loop.hi[slot];
+        for (i = 0; i < 16 && slot == (last + 1) % ls->loop.bars; i++)
+            if (ls->loop.note[slot][i] > 0) { first = i; break; }   /* the motif's first note: kept */
+        for (i = 15; i >= 0 && (np < need || hi - lo < 5); i--) {
+            int note = ls->loop.note[slot][i], ext = i + ls->loop.len[slot][i] > 16, best = 0, bc = 99;
+            if (note <= 0 || cnt[note] < 2 || (slot == (last + 1) % ls->loop.bars && i == first)) continue;
+            for (d = -3; d <= 3; d++) {
+                int q = d ? leads_coll_step(scale, note, d) : 0, cost = d < 0 ? -d * 2 : d * 2;
+                if (q <= 0 || q > 127 || cnt[q] || !fits(&h, q, i, ext)) continue;
+                if (hi - lo < 5 && q > lo && q < hi) cost += 10;   /* inside the span: no wider */
+                if (cost < bc) { bc = cost; best = q; }
+            }
+            if (!best) continue;
+            cnt[note]--;
+            cnt[best]++;
+            np++;
+            if (best < lo) lo = best;
+            if (best > hi) hi = best;
+            ls->loop.note[slot][i] = (uint8_t)best;
+        }
+    }
+    return np >= need && hi - lo >= 5;
+}
+
 /* the stuck-note stutter on the bar in ls (its notes already checked) */
 static int stutter(lead_state_t *ls, const song_roll_t *r, int bar)
 {
@@ -227,11 +277,12 @@ void leads_loop_bar(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *
     lm_t m, mn;
     const plan_block_t *nb = bar + 1 < b->start + b->bars ? b
                            : (b + 1)->bars && (b + 1)->start == b->start + b->bars ? b + 1 : 0;
-    if (ls->loop.sig != sig || ls->loop.bars != L || (!ls->loop.have && ls->loop.sig)) {
+    if (ls->loop.sig != sig || ls->loop.bars != L || (!ls->loop.have && ls->loop.sig && !ls->loop.redo)) {
         /* a new song (its state zeroed), or a live change (key, mode, chords, set, style): record anew; a live change
            from this bar, its new entry here (moves) */
         int live = ls->loop.sig != 0;
         ls->loop.have = 0;
+        ls->loop.tries = 0;
         ls->loop.sig = sig;
         ls->loop.bars = (uint8_t)L;
         ls->loop.from = (int16_t)(live ? bar + 1 : 0);
@@ -249,7 +300,20 @@ void leads_loop_bar(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *
         }
         ls->loop.ring[slot] = (uint16_t)ls->ring;
         ls->loop.acc[slot] = (uint16_t)ls->acc;
+        for (i = 0; i < 5; i++) ls->loop.pcs[slot][i] = (uint8_t)(i < c->np ? c->pcs[i] : 0);
+        ls->loop.np[slot] = (uint8_t)c->np;
+        ls->loop.bass[slot] = (uint16_t)c->bass;
+        ls->loop.lo[slot] = (uint8_t)c->lo;
+        ls->loop.lo_x[slot] = (uint8_t)c->lo_x;
+        ls->loop.hi[slot] = (uint8_t)c->hi;
         ls->loop.have |= (uint8_t)(1u << slot);
+        ls->loop.redo = 0;
+        if (ls->loop.have == (1u << L) - 1u && !widen(ls, c, slot) && ls->loop.tries < 2) {
+            ls->loop.tries++;
+            ls->loop.redo = 1;                         /* still under the floor (a lead entering mid-phrase records
+                                                         only its tail): played once, then recorded again */
+            ls->loop.have = 0;
+        }
     } else COUNT(ls, 0);
     for (i = 0; i < 16; i++) {                        /* the replay */
         ls->on[i] = ls->loop.note[slot][i];

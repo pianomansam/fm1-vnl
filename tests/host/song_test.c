@@ -11681,6 +11681,7 @@ static void test_lead_loop_off_identical(void)
 typedef struct {
     long songs, lsongs, replayed, notes, checked, nudged, dropped, stutters;
     long bad_new, bad_same, bad_pitch, bad_legal, stut_first, mute_first, stut_adj;
+    long pv[10], sp[16], thin[3], all[3];
 } ll_acc_t;
 
 /* r's song with style forced and the loop on into a: each replayed bar against its slot (a bar with no move logged:
@@ -11734,6 +11735,26 @@ static void ll_play(const song_roll_t *r, int style, ll_acc_t *a)
         }
     }
     song_override(NULL);
+    if (s.lead.loop.have) {                           /* the last recording's pitches: how many, how wide */
+        int lo = 999, hi = 0, np = 0, seen[128] = {0}, k, nn = 0, need;
+        for (k = 0; k < s.lead.loop.bars; k++)
+            for (i = 0; i < 16; i++) {
+                int n = s.lead.loop.note[k][i];
+                if (n <= 0) continue;
+                nn++;
+                if (!seen[n]++) np++;
+                if (n < lo) lo = n;
+                if (n > hi) hi = n;
+            }
+        a->pv[np < 9 ? np : 9]++;
+        {
+            int mb = r->v[RF_MOTION] < 40 ? 0 : r->v[RF_MOTION] <= 65 ? 1 : 2;
+            a->all[mb]++;
+            need = nn / 2 < 3 ? 3 : nn / 2 > 4 ? 4 : nn / 2;
+            a->thin[mb] += nn >= 3 && (np < need || hi - lo < 5);   /* 2 notes can't: a style's own gap */
+        }
+        a->sp[hi >= lo ? (hi - lo < 15 ? hi - lo : 15) : 0]++;
+    }
     for (bar = 0; bar < 256 && f < 0; bar++)
         if (plays[bar]) f = bar;
     if (f < 0) return;
@@ -11756,6 +11777,7 @@ static void ll_play(const song_roll_t *r, int style, ll_acc_t *a)
 
 static ll_acc_t ll_acc;
 static double ll_dens[LS_N];         /* recorded notes a replayed bar, per style */
+static long ll_thin[LS_N], ll_loops[LS_N];   /* loops under the floor, loops, per style */
 static void ll_sweep(void)
 {
     static const int INS3[3] = {INS_FELT_PIANO, INS_FLUTE, INS_VIBES};
@@ -11774,6 +11796,18 @@ static void ll_sweep(void)
                 if (!ls_roll(k, INS3[i], &r)) continue;
                 ll_play(&r, j, &ll_acc);
             }
+        {
+            int q;
+            printf("lead loop %-13s pitches:", NM[j]);
+            for (q = 1; q < 10; q++) printf(" %d:%ld", q, ll_acc.pv[q] - a0.pv[q]);
+            printf("  span:");
+            for (q = 0; q < 16; q++) printf(" %d:%ld", q, ll_acc.sp[q] - a0.sp[q]);
+            printf("\n   under the floor (low, mid, high motion): low %ld/%ld, mid %ld/%ld, high %ld/%ld\n",
+                   ll_acc.thin[0] - a0.thin[0], ll_acc.all[0] - a0.all[0], ll_acc.thin[1] - a0.thin[1],
+                   ll_acc.all[1] - a0.all[1], ll_acc.thin[2] - a0.thin[2], ll_acc.all[2] - a0.all[2]);
+        }
+        ll_thin[j] = ll_acc.thin[0] + ll_acc.thin[1] + ll_acc.thin[2] - a0.thin[0] - a0.thin[1] - a0.thin[2];
+        ll_loops[j] = ll_acc.all[0] + ll_acc.all[1] + ll_acc.all[2] - a0.all[0] - a0.all[1] - a0.all[2];
         ll_dens[j] = ll_acc.replayed > a0.replayed ? (double)(ll_acc.notes - a0.notes) /
                                                      (double)(ll_acc.replayed - a0.replayed) : 0.0;
         printf("lead loop %-13s: %ld bars replayed, %ld notes (%.2f a bar): %ld nudged, %ld dropped; %.2f stutters a "
@@ -11811,6 +11845,17 @@ static void test_lead_loop_bossa_riff(void)
     ll_sweep();
     CHECK(ll_dens[LS_BOSSA] >= 2.7 && ll_dens[LS_BOSSA] <= 3.6, "lead loop Bossa riff: %.2f notes a bar, wanted 2.7-3.6",
           ll_dens[LS_BOSSA]);
+}
+
+/* The loop floor (loop.c): a recorded loop plays 4 pitches or more (3 under 8 notes) over a 4th or wider; 2% of
+   each style's loops under it at most (a loop of 3 notes or more; its moves can't always fit) */
+static void test_lead_loop_floor(void)
+{
+    int j;
+    ll_sweep();
+    for (j = 0; j < LS_N; j++)
+        CHECK(ll_thin[j] * 50 <= ll_loops[j], "lead loop floor: style %d, %ld of %ld loops under it", j, ll_thin[j],
+              ll_loops[j]);
 }
 
 static void test_lead_loop_moves(void)
@@ -12144,6 +12189,7 @@ int main(int argc, char **argv)
     RUN(test_lead_loop_rerecords);
     RUN(test_lead_loop_jazzhop_riff);
     RUN(test_lead_loop_bossa_riff);
+    RUN(test_lead_loop_floor);
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;

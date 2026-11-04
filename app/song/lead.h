@@ -51,7 +51,10 @@ typedef struct {
     struct {                      /* the lead loop (leads/loop.c): the recorded phrase, L bars by slot (bar % L) */
         uint8_t note[4][16], len[4][16], vel[4][16], dl[4][16];
         uint16_t ring[4], acc[4];
-        uint8_t have, bars;       /* the slots recorded (bits); L */
+        uint8_t pcs[4][5], np[4], lo[4], lo_x[4], hi[4];   /* each slot's chord and range as recorded (the floor) */
+        uint16_t bass[4];
+        uint8_t have, bars, tries, redo;   /* the slots recorded (bits); L; recordings dropped under the floor;
+                                              1: dropped, the next bar records again (not a live change) */
         uint32_t sig;             /* what it was recorded for (a new song, key, mode, chords, set or style: anew) */
         int16_t from;             /* the bar a live change re-recorded from, + 1 (0: none): a new entry there */
 #ifdef LEADS_LOOP_STATS
