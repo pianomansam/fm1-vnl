@@ -4,6 +4,8 @@
    R plays (the host's noise filtered out), then the most over all ticks: strummed songs (CS_STRUM) and the rest
    apart. Also the worst song_start, plan_build and groove_ride (the ride's extra plan builds at a song's start), and
    a hash of every event (strummed and other songs apart), the same before and after a change that keeps the music.
+   Also the lead loop's filter (song_lead_lp_at, once per step after the tick, as app.c's step): its worst and mean
+   per step, timed alike (each step's 200 calls in a batch: the host clock's 1 us).
    A third argument forces a lead_style (override.h: 2 + LS_*, a lead style) on every song, a fourth a comping style
    (CS_*; -1 for none), held where the keys can't play it. VNL_LEAD_LOOP=1 turns the lead loop on (lead_loop 1) for
    every song.
@@ -27,7 +29,7 @@ static double now_us(void)
     return (double)t.tv_sec * 1e6 + (double)t.tv_nsec / 1e3;
 }
 
-static double tk[4096];
+static double tk[4096], lk[4096];
 
 int main(int argc, char **argv)
 {
@@ -37,7 +39,9 @@ int main(int argc, char **argv)
     uint32_t seed, hi = argc > 1 ? (uint32_t)atoi(argv[1]) : 3000u, ws[2] = {0, 0}, wst[2] = {0, 0};
     uint32_t h[2] = {2166136261u, 2166136261u};
     int reps = argc > 2 ? atoi(argv[2]) : 5, songs[2] = {0, 0}, i;
-    double mx[2] = {0, 0}, smx[2] = {0, 0}, pb = 0, gr = 0;
+    double mx[2] = {0, 0}, smx[2] = {0, 0}, pb = 0, gr = 0, lmx = 0, lsum = 0;
+    long lsteps = 0;
+    uint32_t lws = 0;
     song_ov_t o = *song_ov();
     if (argc > 3) {
         o.lead_style = (int8_t)atoi(argv[3]);
@@ -52,7 +56,7 @@ int main(int argc, char **argv)
         roll_song(NULL, seed, &r);
         st = harmony_style(&r) == CS_STRUM;
         songs[st]++;
-        for (i = 0; i < 4096; i++) tk[i] = 1e9;
+        for (i = 0; i < 4096; i++) tk[i] = lk[i] = 1e9;
         for (rep = 0; rep < reps; rep++) {
             double t0 = now_us(), t;
             song_start(&s, &r);
@@ -68,11 +72,17 @@ int main(int argc, char **argv)
             if (rep == reps - 1 && t > gr) gr = t;
             nt = 0;
             while (s.state == SS_PLAYING && nt < 4096) {
-                int n;
+                int n, b0 = s.bar, s0 = s.step, k;
+                volatile float lp;
                 t0 = now_us();
                 n = song_tick(&s, ev, 64);
                 t = now_us() - t0;
                 if (t < tk[nt]) tk[nt] = t;
+                t0 = now_us();
+                for (k = 0; k < 200; k++) lp = song_lead_lp_at(&s, b0, s0);   /* the host clock's 1 us: a batch */
+                t = (now_us() - t0) / 200.0;
+                (void)lp;
+                if (t < lk[nt]) lk[nt] = t;
                 nt++;
                 if (rep == 0)
                     for (i = 0; i < n; i++) {
@@ -82,14 +92,20 @@ int main(int argc, char **argv)
                     }
             }
         }
-        for (i = 0; i < nt; i++)
+        for (i = 0; i < nt; i++) {
             if (tk[i] > mx[st]) { mx[st] = tk[i]; ws[st] = seed; }
+            if (lk[i] > lmx) { lmx = lk[i]; lws = seed; }
+            lsum += lk[i];
+        }
+        lsteps += nt;
         if (best > smx[st]) { smx[st] = best; wst[st] = seed; }
     }
     for (i = 0; i < 2; i++)
         printf("%-5s songs %4d  worst tick %5.1f us (seed %u)  worst start %4.1f us (seed %u)  events %08x\n",
                i ? "strum" : "other", songs[i], mx[i], (unsigned)ws[i], smx[i], (unsigned)wst[i], (unsigned)h[i]);
     printf("plan_build worst %.1f us, groove_ride worst %.1f us (one play: noisier)\n", pb, gr);
+    printf("lead loop filter per step: worst %.2f us (seed %u), mean %.3f us over %ld steps\n", lmx, (unsigned)lws,
+           lsteps ? lsum / (double)lsteps : 0.0, lsteps);
     return 0;
 }
 #endif

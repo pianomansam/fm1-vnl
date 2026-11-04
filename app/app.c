@@ -172,13 +172,12 @@ static void step(void)
 {
     const plan_block_t *last = &song.plan.b[song.plan.n ? song.plan.n - 1 : 0];
     int bar = song.bar, st = (int)(r_tick & 15u), n, i;
-    float adv, lp[PM_N], hp[PM_N];
+    float adv, lp[PM_N], hp[PM_N], llp;
     uint32_t ip;
     plan_moves(&song.plan, bar, st, lp, hp);   /* the engine ramps them (about 50 ms; sweeps move per step) */
-    if (lp[PM_LEAD] < song_lead_lp(&song)) lp[PM_LEAD] = song_lead_lp(&song);   /* the lead loop's filter */
     vx_organ_scan(plan_full_kit(&song.plan, bar)); /* the pad's organ's scanner: on where the full kit plays */
     for (i = 0; i < PM_N; i++) {
-        vx_set_filter(i, lp[i]);
+        if (i != PM_LEAD) vx_set_filter(i, lp[i]);   /* the lead's after the tick */
         vx_set_hp(i, hp[i]);
     }
     if (song.plan.n && (last->flags & PB_FADE) && bar >= last->start) {
@@ -190,6 +189,8 @@ static void step(void)
     {                                     /* a request that lands here on what the voices read reaches them */
         song_roll_t before = song.roll;
         n = song_tick(&song, evs, 64);
+        llp = song_lead_lp_at(&song, bar, st);   /* the lead loop's filter, for the 16th just played */
+        vx_set_filter(PM_LEAD, lp[PM_LEAD] < llp ? llp : lp[PM_LEAD]);   /* before its events */
         vx_set_pad_level(song_pad_level(&song));   /* the pad layer's fade over a section line */
         if (vx_reconfigures(&before, &song.roll)) /* sounding notes keep their patches; dust and bed changes ramp,
                                                      the delay's time glides to a new tempo */

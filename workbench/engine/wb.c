@@ -139,12 +139,11 @@ static void tick(void)
 {
     const plan_block_t *last = &song.plan.b[song.plan.n ? song.plan.n - 1 : 0];
     int bar = song.bar, st = song.step, n, i;
-    float lp[PM_N], hp[PM_N];
+    float lp[PM_N], hp[PM_N], llp;
     plan_moves(&song.plan, bar, st, lp, hp);
-    if (lp[PM_LEAD] < song_lead_lp(&song)) lp[PM_LEAD] = song_lead_lp(&song);   /* the lead loop's filter */
     vx_organ_scan(plan_full_kit(&song.plan, bar)); /* the pad's organ's scanner: on where the full kit plays */
     for (i = 0; i < PM_N; i++) {
-        vx_set_filter(i, lp[i]);
+        if (i != PM_LEAD) vx_set_filter(i, lp[i]);   /* the lead's after the tick */
         vx_set_hp(i, hp[i]);
     }
     if (song.plan.n && (last->flags & PB_FADE) && bar >= last->start) {
@@ -152,6 +151,8 @@ static void tick(void)
         vx_set_gain(1.0f - (float)at / (float)len);
     }
     n = song_tick(&song, evs, 64);
+    llp = song_lead_lp_at(&song, bar, st);   /* the lead loop's filter, for the 16th just played */
+    vx_set_filter(PM_LEAD, lp[PM_LEAD] < llp ? llp : lp[PM_LEAD]);   /* before its events */
     vx_set_pad_level(song_pad_level(&song));   /* the pad layer's fade over a section line */
     for (i = 0; i < n; i++) {
         vx_event(&evs[i]);

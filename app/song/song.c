@@ -539,10 +539,10 @@ float song_step_samples(const song_t *s) { return s->ss; }
 
 float song_pad_level(const song_t *s) { return s->pad_level; }
 
-float song_lead_lp(const song_t *s)
+float song_lead_lp_at(const song_t *s, int bar, int st)
 {
-    if (!s || s->state != SS_PLAYING) return 0.0f;
-    return leads_loop_lp(&s->roll, &s->lead, plan_at(&s->plan, s->bar), s->bar, s->step,
+    if (!s || bar < 0 || bar >= s->roll.v[RF_BARS]) return 0.0f;   /* the song's last tick has ended it: still played */
+    return leads_loop_lp(&s->roll, &s->lead, plan_at(&s->plan, bar), bar, st,
                          s->lead.style ? s->lead.style - 1 : leads_style(&s->roll));
 }
 

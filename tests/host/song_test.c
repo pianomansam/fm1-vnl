@@ -12033,7 +12033,7 @@ static void test_lead_loop_rerecords(void)
                         mid++;
                         fired += (lg & (8 | 16)) != 0;
                         held += (lg & 16) != 0;
-                        bad_entry += ((lg & 8) && song_lead_lp(&s) <= 0.0f) || ((lg & 16) && on);
+                        bad_entry += ((lg & 8) && song_lead_lp_at(&s, b0, st) <= 0.0f) || ((lg & 16) && on);
                     }
                     if (pass == 0) keyn++;
                     else {
@@ -12092,6 +12092,49 @@ static void test_lead_loop_rerecords(void)
           bad_entry);
     CHECK(styn >= 10 && bad_sty == 0, "lead loop re-records: %d of %d style changes kept the recording", bad_sty,
           styn);
+}
+
+/* A live change's filtered entry is closed from its landing bar's step 0 (final review M1): seeds 1-300, the loop at
+   its default, a key change asked at bar 13. On each landing mid-run (the bar before it a lead bar too) that enters
+   filtered, the lead filter the step applies on step 0 (app.c's and wb.c's order: the step's bar and 16th, the
+   tick, then song_lead_lp_at) is the entry's low-pass, not open */
+static void test_lead_loop_entry_step0(void)
+{
+    static song_t s;
+    song_ev_t ev[64];
+    int mid = 0, filt = 0, open = 0;
+    uint32_t seed;
+    for (seed = 1; seed <= 300; seed++) {
+        song_roll_t r;
+        int key = -1;
+        roll_song(NULL, seed, &r);
+        song_override(NULL);
+        song_start(&s, &r);
+        while (s.state == SS_PLAYING) {
+            int b0 = s.bar, st = s.step;
+            float lp;
+            if (b0 == 13 && st == 0) {
+                key = (s.roll.v[RF_KEY] + 5) % 12;
+                song_request(&s, RF_KEY, key);
+            }
+            song_tick(&s, ev, 64);
+            lp = song_lead_lp_at(&s, b0, st);
+            if (key < 0 || st != 0 || s.roll.v[RF_KEY] != key) continue;
+            if (lead_plays(plan_at(&s.plan, b0)) && lead_plays(plan_at(&s.plan, b0 - 1))) {
+                mid++;
+                if (leads_loop_log(b0) & 8) {
+                    filt++;
+                    open += lp <= 0.0f;
+                }
+            }
+            key = -1;                     /* landed */
+        }
+    }
+    printf("lead loop entry step 0: %d key changes landing mid-run, %d filtered in, %d open on step 0\n", mid, filt,
+           open);
+    CHECK(mid >= 20 && filt >= 8, "lead loop entry step 0: %d landings mid-run, %d filtered", mid, filt);
+    CHECK(open == 0, "lead loop entry step 0: %d of %d filtered entries open on the landing bar's step 0", open,
+          filt);
 }
 
 /* Jazz-Hop records a riff, not its sparse phrase (lead-loop Task 3): seeds 1-300, the felt piano leading, Jazz-Hop
@@ -12292,6 +12335,7 @@ int main(int argc, char **argv)
     RUN(test_lead_loop_replays);
     RUN(test_lead_loop_moves);
     RUN(test_lead_loop_rerecords);
+    RUN(test_lead_loop_entry_step0);
     RUN(test_lead_loop_jazzhop_riff);
     RUN(test_lead_loop_bossa_riff);
     RUN(test_lead_loop_floor);
