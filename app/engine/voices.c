@@ -661,6 +661,8 @@ static float loop_lead_g(void)
 {
     if (!leads_loop_plays(-1)) /* (the loop plays every style or none: the style isn't asked) */
         return 1.0f;
+    if (cfg.lead == INS_EMILY) /* (it leads no set: kept at its calibration, 2.5-6 dB under the flute, test_samp) */
+        return 1.0f;
     return lib_ins_sustained(cfg.lead) ? LOOP_LEAD_SUS_G : LOOP_LEAD_G;
 }
 
