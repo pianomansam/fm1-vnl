@@ -1297,3 +1297,6 @@ size (the organ's is the largest; the vibraphone's state is 76 B), and voices.o'
 
   The worst is a cold first tick (seeds 2 and 3) in every run; the difference is inside the run-to-run noise (off
   alone varies 26-33 us). Worst song_start, plan_build and groove_ride stay at 1 us. Strummed songs: 13 us both ways.
+- 2026-11-04, every style looping, Bossa's riff and the loop's pitch floor (23ed21a..797877d): image 402,888 to
+  **404,488 B (+1,600 B)**, about 5.1 KB under the budget. RAM: the loop keeps each slot's chord and range for the
+  floor (about +46 B a lead state). CPU: the floor runs once per recording (a scan of 64 steps); not re-measured.
