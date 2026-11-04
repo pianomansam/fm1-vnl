@@ -151,6 +151,25 @@ class Import(unittest.TestCase):
             sc["meta"] = None
         return imp.content(imp.decode(fam, k, sc, imp.with_meta(fam, self.model[fam][k], sc["meta"])))
 
+    # ------------------------------------------------------------------------------------------ saved patterns
+    def test_a_saved_workbench_pattern_becomes_a_candidate_once(self):
+        import saved
+        sv = Path(self.tmp.name) / "saved"
+        sv.mkdir()
+        lanes = [[0x81, 0, 0x449, 0], [0x100, 0, 0x100, 0], [0x1111, 0x4444, 0x1111, 0x4444], [0, 0, 0, 0],
+                 [0, 0, 0x1000, 0], [0, 0, 0, 0]]
+        (sv / "my-groove.json").write_text(json.dumps({"name": "my-groove", "grid": {"base": 4, "lanes": lanes}}))
+        (sv / "broken.json").write_text("{}")
+        out = saved.convert(sv, self.pat)
+        k = max(int(x) for x in self.model["drums"]) + 1
+        self.assertIn(f"drums/{k}-my-groove", "\n".join(out))
+        self.assertIn("broken: skipped", "\n".join(out))
+        self.assertTrue((self.pat / f"drums/{k}-my-groove.mid").exists())
+        self.assertEqual([x for x in saved.convert(sv, self.pat) if "my-groove" in x], [])   # once only
+        code, so = self.run_import()
+        self.assertEqual(code, 0, so)
+        self.assertIn(f"new drums {k} (drums/{k}-my-groove), a candidate", so)
+
     # ------------------------------------------------------------------------------------------ the round trip
     def test_export_then_import_regenerates_the_tables_byte_for_byte(self):
         out = Path(self.tmp.name) / "exported"

@@ -54,6 +54,10 @@ byte.
   rows). Approve it there (`status.json`), then run `tools/patterns/import.sh`: the
   firmware draws it, and the workbench (rebuilt by `import.sh`) rolls it too. The importer notes a new file that sounds the same as an existing entry
   (a renamed or saved-as copy: it would import as a new candidate) and an entry whose files are missing (it stays).
+- **The workbench's saved drum patterns:** the drum screen's "Save as new pattern" writes `workbench/patterns/<name>.json`;
+  `import.sh` first turns each one not yet in `drums/` into `drums/<next id>-<name>` files, a candidate (its family and
+  half-time from the pattern it was drawn from; two bars where B differs), so the pattern row offers it
+  (`tools/patterns/saved.py`).
 - **Removed families:** `lead-arp` (the hybrid lead's arpeggio rhythms, patterns and landings) and `melody-cells` (the
   struck melody's rhythm cells) went with the lead styles (2026-10-31); a file in either folder is refused, naming
   why, and nothing is written.

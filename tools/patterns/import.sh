@@ -4,7 +4,8 @@
 # (app/song/patterns_gen.c and .h), workbench/options.json's generated blocks, patterns/model.json and .manifest.json,
 # with patterns/status.json's statuses (the workbench's Approve). When the tables changed it rebuilds the workbench
 # (its engine plays the new tables; reload the page) and runs the engine suite. A refusal names the file, the bar and
-# the rule, and writes nothing.
+# the rule, and writes nothing. First, the workbench's saved drum patterns (workbench/patterns/*.json, the drum
+# screen's "Save as new pattern") not yet in patterns/drums become new candidate files there (saved.py).
 #
 # Approving, retiring or changing an approved pattern moves the songs, so the suite's pinned song hashes fail on
 # purpose. The importer says why before and after the suite; if only the pins failed it exits 3 with their new values
@@ -31,6 +32,7 @@ if [ "${1:-}" = "--repin" ]; then
     suite
 fi
 before=$(cat app/song/patterns_gen.c app/song/patterns_gen.h | shasum -a 256)
+python3 -I tools/patterns/saved.py "$@" || exit 1     # the drum screen's saved patterns, as new candidates
 python3 -I tools/patterns/import.py "$@" > "$out"
 st=$?
 cat "$out"
