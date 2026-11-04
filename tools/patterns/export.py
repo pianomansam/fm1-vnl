@@ -47,6 +47,16 @@ TONE = [60, 64, 67, 71]                         # the reference Cmaj7: chord ton
 
 STRUM_SLUG = ["d-du-udu", "chuck", "bossa", "ballad"]
 SP_N = 4                                        # strum.h's approved patterns; the ballad's fill holds id SP_N + 1
+SP_BOSSA = 2
+# the fill figures (kind "fill"): (id, figure, fill_of, table index, slug). The ballad's (fill_of: its pattern's id),
+# then step back and drive (Sam, 2026-11-04) for every other pattern (fill_of 0) and the bossa (its thumb and
+# pinches), given the ids after the 15 patterns of the day: no pattern is renumbered (Sam's approvals are keyed by id)
+FIGURE = {"step": "step-back", "drive": "drive"}   # the tables' names (strum_fill_*) to the model's figures
+FIGURE_OF = {v: k for k, v in FIGURE.items()}
+FILLS = [(SP_N + 1, None, SP_N, 0, "ballad-fill"), (16, "step-back", 0, 0, "fill-step-back"),
+         (17, "drive", 0, 0, "fill-drive"), (18, "step-back", SP_BOSSA + 1, 1, "bossa-fill-step-back"),
+         (19, "drive", SP_BOSSA + 1, 1, "bossa-fill-drive")]
+FILL_IDS = {f[0] for f in FILLS}
 
 
 # metadata keys that differ from the entry's: "family" in the metadata is the pattern family (the folder)
@@ -64,8 +74,15 @@ def status(v):
 
 
 def strum_id(index):
-    """a strum pattern's id: index + 1, past the fill's id (SP_N + 1) for patterns added after the first SP_N"""
-    return index + 1 if index < SP_N else index + 2
+    """a strum pattern's id: the index-th (from 0) id from 1 that no fill holds (index + 1 for the first SP_N, + 2 past
+       the ballad's fill, and so on)"""
+    k = 0
+    while True:
+        k += 1
+        if k not in FILL_IDS:
+            if index == 0:
+                return k
+            index -= 1
 
 
 def chord_symbol(spec, mode):
@@ -130,15 +147,16 @@ def build_model(t, kick_phrases):
               "busy_steps": st["busy_steps"], "file": "comp-rhythms/3-stabs"},
         "4": strikes(4, "held-on-2", "CS_HELD2"), "5": strikes(5, "light-eighths", "CS_LIGHT8"),
         "6": strikes(6, "held-on-2-and-4", "CS_HELD24")}
-    m["strum"] = {}
+    strum = {}
     for i, s in enumerate(t["strum"]):
         k = strum_id(i)
-        m["strum"][str(k)] = {"index": i, "status": status(t["strum_status"][i]), "kind": "pattern", "steps": s,
-                              "file": f"strum/{k}-{STRUM_SLUG[i] if i < len(STRUM_SLUG) else 'pattern'}"}
-        if i + 1 == SP_N:
-            n = SP_N + 1
-            m["strum"][str(n)] = {"index": 0, "status": "approved", "kind": "fill", "fill_of": SP_N,
-                                  "steps": t["strum_ballad_fill"], "file": f"strum/{n}-ballad-fill"}
+        strum[k] = {"index": i, "status": status(t["strum_status"][i]), "kind": "pattern", "steps": s,
+                    "file": f"strum/{k}-{STRUM_SLUG[i] if i < len(STRUM_SLUG) else 'pattern'}"}
+    for k, fig, of, i, slug in FILLS:
+        steps = t["strum_ballad_fill"] if fig is None else t["strum_fill_" + FIGURE_OF[fig]][i]
+        strum[k] = {"index": i, "status": "approved", "kind": "fill", **({"figure": fig} if fig else {}),
+                    "fill_of": of, "steps": steps, "file": f"strum/{k}-{slug}"}
+    m["strum"] = {str(k): strum[k] for k in sorted(strum)}
     return m
 
 

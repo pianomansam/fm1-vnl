@@ -305,7 +305,10 @@ def rows_from_model(model):
         return sorted(es, key=lambda e: e["index"])
     pats = by_index("strum", "pattern")
     t["strum"], t["strum_status"] = [e["steps"] for e in pats], [st(e) for e in pats]
-    t["strum_ballad_fill"] = by_index("strum", "fill")[0]["steps"]
+    fills = by_index("strum", "fill")
+    t["strum_ballad_fill"] = next(e["steps"] for e in fills if "figure" not in e)
+    for fig in ("step", "drive"):
+        t[f"strum_fill_{fig}"] = [e["steps"] for e in fills if e.get("figure") == export.FIGURE[fig]]
     kicks = [{"id": e["id"], "a": e["a"], "b": e["b"], **({} if e["status"] == "approved" else {"status": e["status"]})}
              for e in model["kick-phrases"].values()]
     return t, kicks
@@ -336,7 +339,7 @@ def gen_c(t):
          '#include "library.h"', "",
          "/* Each *_STATUS runs parallel to its table: 1 approved (the roll draws it), 0 candidate (the workbench",
          "   only, until Sam approves it: patterns/status.json), 2 retired (never drawn). The comp rhythms and the",
-         "   ballad's fill are fixed entries, always approved. */",
+         "   strum fills are fixed entries, always approved. */",
          "",
          "/* drums (LIB_PATTERNS) and progressions (LIB_PROGS): the types and the tables in library.h */",
          "extern const uint8_t LIB_PATTERNS_STATUS[];",
@@ -371,6 +374,12 @@ def gen_c(t):
          "extern const char *const STRUM_PAT[STRUM_NPAT];",
          "extern const uint8_t STRUM_PAT_STATUS[STRUM_NPAT];",
          "extern const char STRUM_BALLAD_FILL[];",
+         "/* the fill-bar figures a strummed song draws one of (16 steps): step back, a strike on 1 and space for the",
+         "   drum fill, and drive, straight eighths into the change; [0] every pattern's but the ballad's (its own",
+         "   fill) and the bossa's, [1] the bossa's (its thumb and pinches) */",
+         f"#define STRUM_NFILL {len(t['strum_fill_step'])}",
+         "extern const char *const STRUM_FILL_STEP[STRUM_NFILL];",
+         "extern const char *const STRUM_FILL_DRIVE[STRUM_NFILL];",
          "",
          "#endif", ""]
     C = [head, '#include "patterns_gen.h"', "",
@@ -406,7 +415,10 @@ def gen_c(t):
              f"0x{sum(1 << x for x in s['busy_steps']):04X}}};")
     C += ["", "const char *const STRUM_PAT[STRUM_NPAT] = {"] + [f"    {c_str(x)}," for x in t["strum"]] + [
         "};", "const uint8_t STRUM_PAT_STATUS[STRUM_NPAT] = " + c_list(t["strum_status"]) + ";",
-        f"const char STRUM_BALLAD_FILL[] = {c_str(t['strum_ballad_fill'])};", ""]
+        f"const char STRUM_BALLAD_FILL[] = {c_str(t['strum_ballad_fill'])};",
+        "const char *const STRUM_FILL_STEP[STRUM_NFILL] = {" + ", ".join(map(c_str, t["strum_fill_step"])) + "};",
+        "const char *const STRUM_FILL_DRIVE[STRUM_NFILL] = {" + ", ".join(map(c_str, t["strum_fill_drive"])) + "};",
+        ""]
     return "\n".join(C), "\n".join(H)
 
 
@@ -476,7 +488,7 @@ def with_meta(fam, base, meta):
 
 # -------------------------------------------------------------------------------------------------- status.json
 def fixed(fam, e):
-    """the comp rhythms and the ballad's fill: fixed entries, always approved"""
+    """the comp rhythms and the strum fills: fixed entries, always approved"""
     return fam == "comp-rhythms" or e.get("kind") == "fill"
 
 

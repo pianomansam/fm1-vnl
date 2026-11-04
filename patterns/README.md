@@ -13,7 +13,7 @@ byte.
 
 - **Grid:** 4/4, tempo 85, quantized to 16th notes (a step is a 16th; a bar is 16 steps; bar 1 starts at step 0).
 - **Files:** `<family>/<id>-<slug>.mid` and `.musicxml`. The id is the part before the first `-` of the slug.
-  Index-keyed tables (strum) have id = the C index + 1.
+  Index-keyed tables (strum) have id = the C index + 1, skipping the fills' ids (5, 16-19).
 - **MIDI:** format 1, PPQ 480 (a 16th = 120 ticks), as `app/host/score.c` writes songs: a conductor track (title,
   4/4, tempo, chord symbols as text events), then one track per part. Drum-lane families (drums, kick-phrases, strum)
   are on channel 10, notes 60 ticks long; pitched families on channel 1, notes as long as they sound.
@@ -29,7 +29,7 @@ byte.
   where it plays when picked, until Sam approves it) or `"retired"` (never drawn).
 - **`status.json`:** Sam's statuses, `{family: {id: "approved" | "candidate" | "retired"}}` (ids as in
   `model.json`). The workbench's **Approve** button (beside a candidate picked in its row) writes it; it may be
-  edited by hand. The importer applies it; the comp rhythms and the ballad's fill are fixed (always approved).
+  edited by hand. The importer applies it; the comp rhythms and the strum fills are fixed (always approved).
 - **`.manifest.json`:** the SHA-256 of each `.mid` and `.musicxml` as last written, so the importer can tell which
   file of a pattern Sam edited (either may be edited alone).
 - **Names are stable, and export never deletes:** an entry's file name is fixed when it is first exported and kept
@@ -48,8 +48,10 @@ byte.
   approved). The comp rhythms (held, half, stabs,
   held on 2, light eighths, held on 2 and 4) are fixed: edit them, but a new comp rhythm is a
   new comping style in the engine (`harmony.c`'s `CS_*`, then `dump.c`, `export.py` and `import.py` learn its name,
-  as held on 2, light eighths and held on 2 and 4 did), never a file dropped in. A strum pattern added past the fourth skips id 5 (the
-  ballad's fill). The engine's roll draws approved entries only (`patterns_gen.h`'s `*_STATUS`), so a candidate
+  as held on 2, light eighths and held on 2 and 4 did), never a file dropped in. A strum pattern added takes the next
+  id no fill holds (past the fourth it skips 5, the ballad's fill; past the fifteenth 16-19, the step back and drive
+  fills: the next is 20). A file dropped in the strum folder is always a new pattern; the fills are edited in place,
+  never added. The engine's roll draws approved entries only (`patterns_gen.h`'s `*_STATUS`), so a candidate
   changes no song until approved: the workbench plays it when picked (the pattern, progression and strum pattern
   rows). Approve it there (`status.json`), then run `tools/patterns/import.sh`: the
   firmware draws it, and the workbench (rebuilt by `import.sh`) rolls it too. The importer notes a new file that sounds the same as an existing entry
@@ -147,7 +149,23 @@ These three never thin under a busy lead (Sam): every bar plays the written stri
 
 ## strum
 
-`STRUM_PAT` (4) and `STRUM_BALLAD_FILL` (`patterns_gen.c`; `strum.c` plays them). One pitch per stroke type, as drum lanes (the bossa is 2 bars,
+`STRUM_PAT` (14), `STRUM_BALLAD_FILL`, `STRUM_FILL_STEP` and `STRUM_FILL_DRIVE` (`patterns_gen.c`; `strum.c` plays
+them). One pitch per stroke type, as drum lanes (the bossa is 2 bars,
 the rest 1): T thumb E4 (64), B thumb and pinch F4 (65), D accented down G4 (67), d down A4 (69), X chuck B4 (71, x
 head), U up C5 (72), u soft up D5 (74), P pinch E5 (76). A rest is no note. Up strokes (U, u) go only on the "and"s
-(steps 2, 6, 10, 14). Id 5 is the ballad's fill-bar variant (`fill_of` 4).
+(steps 2, 6, 10, 14).
+
+**Fills** (`kind` `"fill"`, one bar each, fixed: always approved; edit their files like any other): what a strummed
+song plays in a drum fill's bar (a block's last bar with a fill; a drop bar keeps the song's pattern).
+
+- **5 `ballad-fill`** (`fill_of` 4): the ballad's own, its up stroke on the and of 2, out of the fill's way.
+- **16 `fill-step-back`** (`figure` `"step-back"`, `fill_of` 0: every pattern but the ballad and the bossa): a strike
+  on 1, then space for the drum fill.
+- **17 `fill-drive`** (`figure` `"drive"`, `fill_of` 0): straight eighths into the change, down on the beats, soft up
+  on the "and"s.
+- **18 `bossa-fill-step-back`** and **19 `bossa-fill-drive`** (`fill_of` 3): the bossa's in its thumb and pinches:
+  the thumb and a pinch on 1, then space; the thumb on each beat and a pinch on each "and".
+
+Each strummed song (not the ballad) draws step back or drive, half the songs each (Sam, 2026-11-04: "vary between the
+two from song to song"). `index` is the figure's slot in `STRUM_FILL_STEP` and `STRUM_FILL_DRIVE`: 0 every pattern's,
+1 the bossa's.

@@ -1310,3 +1310,11 @@ size (the organ's is the largest; the vibraphone's state is 76 B), and voices.o'
   The batch runs warm, so a cold call may cost more; not measured on the device. Stack: `widen`'s counts are bytes
   (`uint8_t cnt[128]`, 64 at most), so `leads_loop_bar`'s frame (widen and stutter still inlined) is 472 B plus 52 B of
   saved registers, 524 B, from 908 B (app/build/vnl.dis).
+
+### Strum: the guitars only strum; fill bars vary, step back or drive (2026-11-04)
+
+- Flash: image **407,240 B** (`./build.sh`), 2,360 B under the 409,600 B budget; RAM .data+.bss 59,936 B, pool
+  124,472 B. The fill figures are four 17-byte strings and two pointer tables; the guitar weight tables went.
+- CPU: `tools/tick-bench.sh 600 5` style runs (host, -O2, load about 3-4), worst tick against 4367dfc: strummed songs
+  24 us (99 songs; every guitar song strums now) against 23 us (20 songs), the rest 27 against 26 us: inside the
+  noise. The pad's keys check reads up to 6 notes, not 4 (a strummed song's whole shape), once per chord.

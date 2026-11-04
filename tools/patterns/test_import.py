@@ -359,6 +359,18 @@ class Import(unittest.TestCase):
         self.assertIn('    "D.D.D.D.D.D.D.D.",\n', (self.gen / "patterns_gen.c").read_text())
         self.assert_in_step("strum", "2", model, man)
 
+    def test_a_fill_figure_is_edited_like_a_pattern(self):
+        e = self.model["strum"]["17"]                                        # the drive fill (Sam, 2026-11-04)
+        self.write("strum", "17", {**e, "steps": "D.u.D.u.d.u.d.u."}, ".mid")
+        so, model, man = self.imported()
+        self.assertEqual((model["strum"]["17"]["steps"], model["strum"]["17"]["status"]),
+                         ("D.u.D.u.d.u.d.u.", "approved"))
+        self.assertIn('STRUM_FILL_DRIVE[STRUM_NFILL] = {"D.u.D.u.d.u.d.u.", "B.P.T.P.T.P.T.P."}',
+                      (self.gen / "patterns_gen.c").read_text())
+        self.assert_in_step("strum", "17", model, man)
+        e = model["strum"]["18"]
+        self.refused(self.write("strum", "18", {**e, "steps": "B..U............"}, ".musicxml"), 1, "up stroke")
+
     def test_both_changed_and_disagreeing_is_refused_naming_both(self):
         e = self.model["strum"]["2"]
         self.write("strum", "2", {**e, "steps": "D.u.X.U.d.u.X..."}, ".mid")

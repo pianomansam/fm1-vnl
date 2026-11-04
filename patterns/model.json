@@ -2502,6 +2502,42 @@
       "kind": "pattern",
       "steps": "T.u.d.u.T.u.d.u.",
       "file": "strum/15-boom-chuck-train"
+    },
+    "16": {
+      "index": 0,
+      "status": "approved",
+      "kind": "fill",
+      "figure": "step-back",
+      "fill_of": 0,
+      "steps": "D...............",
+      "file": "strum/16-fill-step-back"
+    },
+    "17": {
+      "index": 0,
+      "status": "approved",
+      "kind": "fill",
+      "figure": "drive",
+      "fill_of": 0,
+      "steps": "D.u.d.u.d.u.d.u.",
+      "file": "strum/17-fill-drive"
+    },
+    "18": {
+      "index": 1,
+      "status": "approved",
+      "kind": "fill",
+      "figure": "step-back",
+      "fill_of": 3,
+      "steps": "B...............",
+      "file": "strum/18-bossa-fill-step-back"
+    },
+    "19": {
+      "index": 1,
+      "status": "approved",
+      "kind": "fill",
+      "figure": "drive",
+      "fill_of": 3,
+      "steps": "B.P.T.P.T.P.T.P.",
+      "file": "strum/19-bossa-fill-drive"
     }
   }
 }

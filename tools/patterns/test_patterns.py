@@ -135,6 +135,13 @@ class T(unittest.TestCase):
         self.assertEqual(self.model["strum"]["1"]["steps"], "D...d.u...U.d.u.")
         self.assertEqual(self.model["strum"]["5"], {**self.model["strum"]["5"], "kind": "fill", "fill_of": 4,
                                                     "steps": "D.....u.d......."})
+        fills = {k: (e["figure"], e["fill_of"], e["steps"]) for k, e in self.model["strum"].items()
+                 if e["kind"] == "fill" and "figure" in e}       # step back and drive (Sam, 2026-11-04)
+        self.assertEqual(fills, {"16": ("step-back", 0, "D..............."), "17": ("drive", 0, "D.u.d.u.d.u.d.u."),
+                                 "18": ("step-back", 3, "B..............."), "19": ("drive", 3, "B.P.T.P.T.P.T.P.")})
+        sys.path.insert(0, str(HERE))
+        import export                                            # a new pattern skips the fills' ids, renumbers none
+        self.assertEqual([export.strum_id(i) for i in (0, 3, 4, 13, 14, 15)], [1, 4, 6, 15, 20, 21])
         self.assertEqual(self.model["kick-phrases"]["k6"]["b"], [0, 3, 10])
         stabs = self.model["comp-rhythms"]["3"]
         self.assertEqual((stabs["second"], stabs["busy_steps"], stabs["busy_over"]), ([6, 10, 4, 12], [0, 6], 3))

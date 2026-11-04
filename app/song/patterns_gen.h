@@ -9,7 +9,7 @@
 
 /* Each *_STATUS runs parallel to its table: 1 approved (the roll draws it), 0 candidate (the workbench
    only, until Sam approves it: patterns/status.json), 2 retired (never drawn). The comp rhythms and the
-   ballad's fill are fixed entries, always approved. */
+   strum fills are fixed entries, always approved. */
 
 /* drums (LIB_PATTERNS) and progressions (LIB_PROGS): the types and the tables in library.h */
 extern const uint8_t LIB_PATTERNS_STATUS[];
@@ -44,5 +44,11 @@ extern const patterns_stabs_t COMP_STABS;
 extern const char *const STRUM_PAT[STRUM_NPAT];
 extern const uint8_t STRUM_PAT_STATUS[STRUM_NPAT];
 extern const char STRUM_BALLAD_FILL[];
+/* the fill-bar figures a strummed song draws one of (16 steps): step back, a strike on 1 and space for the
+   drum fill, and drive, straight eighths into the change; [0] every pattern's but the ballad's (its own
+   fill) and the bossa's, [1] the bossa's (its thumb and pinches) */
+#define STRUM_NFILL 2
+extern const char *const STRUM_FILL_STEP[STRUM_NFILL];
+extern const char *const STRUM_FILL_DRIVE[STRUM_NFILL];
 
 #endif

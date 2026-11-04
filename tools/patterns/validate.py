@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """The engine's rules for a pattern entry (model.json's shape), checked before import regenerates any table.
    check(fam, e) -> [(bar or None, rule)]: one entry. check_family(fam, entries) -> [(key, bar, rule)]: the rules
-   across a family (the comp rhythms' names, the strum's fill). Bars are 1-based. A rule names what the engine needs,
+   across a family (the comp rhythms' names, the strum's fills). Bars are 1-based. A rule names what the engine needs,
    so the message tells Sam what to change."""
 import re
 
@@ -14,6 +14,9 @@ SCALE = [[0, 2, 4, 5, 7, 9, 11], [0, 2, 3, 5, 7, 9, 10], [0, 1, 3, 5, 7, 8, 10],
          [0, 2, 4, 5, 7, 9, 10], [0, 2, 3, 5, 7, 8, 10]]
 UP_STEPS = {2, 6, 10, 14}                       # the "and"s, where an up stroke may go
 STROKES = "TBDdXUuP"
+# the strum fills as (figure, fill_of), sorted: the ballad's (no figure, pattern 4), step back and drive for every
+# pattern (0) and for the bossa (3)
+STRUM_FILLS = [("None", 4), ("drive", 0), ("drive", 3), ("step-back", 0), ("step-back", 3)]
 SRC_RE = re.compile(r"[ -~]{0,200}")            # printable ASCII: it becomes a C string literal (and
 #                                                 no backslash or "??", whatever c_str escapes)
 
@@ -226,6 +229,8 @@ def check_family(fam, entries):
             ["half", "held", "held-on-2", "held-on-2-and-4", "light-eighths", "stabs"]:
         out.append((None, None, "comp-rhythms are held, half, stabs, held-on-2, light-eighths and held-on-2-and-4, "
                                 "one each"))
-    if fam == "strum" and sum(1 for e in entries.values() if e.get("kind") == "fill") != 1:
-        out.append((None, None, "strum has one fill (the ballad's)"))
+    if fam == "strum" and sorted((str(e.get("figure")), e.get("fill_of")) for e in entries.values()
+                                 if e.get("kind") == "fill") != STRUM_FILLS:
+        out.append((None, None, "strum has five fills: the ballad's, and step back and drive for every pattern and "
+                                "for the bossa"))
     return out

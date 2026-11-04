@@ -98,6 +98,16 @@ int main(void)
     bytes("strum_status", STRUM_PAT_STATUS, STRUM_NPAT, ",\n");
     printf("\"strum_ballad_fill\": ");
     str(STRUM_BALLAD_FILL);
-    printf("\n}\n");
+    printf(",\n\"strum_fill_step\": [");
+    for (i = 0; i < STRUM_NFILL; i++) {
+        printf(i ? ", " : "");
+        str(STRUM_FILL_STEP[i]);
+    }
+    printf("],\n\"strum_fill_drive\": [");
+    for (i = 0; i < STRUM_NFILL; i++) {
+        printf(i ? ", " : "");
+        str(STRUM_FILL_DRIVE[i]);
+    }
+    printf("]\n}\n");
     return 0;
 }

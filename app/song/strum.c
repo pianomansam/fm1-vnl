@@ -52,6 +52,22 @@ static float strum_gap_ms(const song_roll_t *r, int slow)
 /* the ballad in a drum fill's bar (its kick on 1, 3 and the and of 4 would be the ballad's own rhythm, Sam: the keys
    never copy the kick's): the up stroke on the and of 2, out of the fill's way (STRUM_BALLAD_FILL) */
 
+int strum_fill_drive(const song_roll_t *r)
+{
+    rng_t g;
+    rng_seed(&g, r->seed, 199);
+    return (int)(harmony_mix(rng_next(&g), r->seed, 199u, 1u) >> 16 & 1u);
+}
+
+/* the pattern's figure in a drum fill's bar: the ballad its own; every other pattern the song's step back or drive
+   (the bossa its thumb-and-pinch versions) */
+static const char *fill_figure(const song_roll_t *r, int pat)
+{
+    int k = pat == SP_BOSSA;
+    if (pat == SP_BALLAD) return STRUM_BALLAD_FILL;
+    return strum_fill_drive(r) ? STRUM_FILL_DRIVE[k] : STRUM_FILL_STEP[k];
+}
+
 static char hit_at(const char *p, int bar, int step)
 {
     return p[(p[16] ? bar & 1 : 0) * 16 + step];          /* a bar, or two (the bossa) */
@@ -304,7 +320,7 @@ int strum_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, f
     if (!(b->layers & L_KEYS) || max <= 0) return 0;
     pat = strum_pattern(r, &slow);
     fill = bar == b->start + b->bars - 1 && (b->flags & PB_FILL_LAST) && !(b->flags & PB_DROP_LAST);
-    ps = fill && pat == SP_BALLAD ? STRUM_BALLAD_FILL : STRUM_PAT[pat];
+    ps = fill ? fill_figure(r, pat) : STRUM_PAT[pat];
     c = hit_at(ps, bar, step);
     tw = bass_twin(r, b, bar, ps);                      /* (-1 none) */
     if (c == '.' && step == tw) c = 'u';

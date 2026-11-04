@@ -17,6 +17,12 @@ enum { SP_DDU, SP_CHUCK, SP_BOSSA, SP_BALLAD, SP_N };
    of them), 0 for every other pattern. */
 int strum_pattern(const song_roll_t *r, int *slow);
 
+/* A drum fill's bar (the block's last, PB_FILL_LAST and not PB_DROP_LAST: a drop bar keeps the pattern) plays a fill
+   figure (Sam, 2026-11-04): the ballad its own (STRUM_BALLAD_FILL); every other pattern the song's draw on seed stream
+   199, half the songs each: 0 step back (a strike on 1, then space for the fill), 1 drive (straight eighths into the
+   change); the bossa their thumb-and-pinch versions (STRUM_FILL_STEP, STRUM_FILL_DRIVE). */
+int strum_fill_drive(const song_roll_t *r);
+
 /* A guitar shape for the chord (pcs, root first; npcs of them): out[s] is string s's note (s 0 the low E string, 0
    a string not played), ascending, E2-E5 (MIDI 40-76). Chord tones only, the root on the lowest string, the 3rd and
    the 7th covered first; no note a semitone over another (pads_rub: a minor 2nd or 9th) or over the root; a movable
