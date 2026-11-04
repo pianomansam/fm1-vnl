@@ -18,8 +18,8 @@
    on beat 1 is a chord tone, one on beat 3 mostly (a 9th or 13th there now and then). Velocities soft (52-66).
    With the lead loop on (leads/loop.c), Bossa records a riff (Sam 2026-11-04: the phrase looped was too sparse): the
    long note stays in its bar (no tie over), and bar 2 of each 4 answers the motif with the motif again, its long note
-   a step under the last one (never on it), softer, its first note chopped where it has 3+; bar 4 closes as before (a step up
-   where the range's floor leaves no step down). */
+   a step under the last one (never on it), softer, its first note chopped where it has 3+; bar 4 closes as before (a
+   step up where the range's floor leaves no step down). */
 #include <stdint.h>
 #include "leads.h"
 #include "library.h"

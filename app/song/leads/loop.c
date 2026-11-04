@@ -185,12 +185,13 @@ static int nudge(const leads_ctx_t *c, const int *on, int note, int t, int ext)
 static int widen(lead_state_t *ls, const leads_ctx_t *c, int last)
 {
     unsigned scale = leads_scale_mask(c->r);
-    int cnt[128] = {0}, np = 0, lo = 127, hi = 0, n = 0, need, k, i, d, j, pcs[5];
+    uint8_t cnt[128] = {0};   /* a pitch's notes in the loop: 64 at most (4 bars of 16ths) */
+    int np = 0, lo = 127, hi = 0, n = 0, need, k, i, d, j, pcs[5];
     leads_ctx_t h = *c;
     for (k = 0; k < ls->loop.bars; k++)
         for (i = 0; i < 16; i++) {
             int note = ls->loop.note[k][i];
-            if (note <= 0) continue;
+            if (note <= 0 || note > 127) continue;
             n++;
             if (!cnt[note]++) np++;
             if (note < lo) lo = note;
@@ -207,7 +208,8 @@ static int widen(lead_state_t *ls, const leads_ctx_t *c, int last)
             if (ls->loop.note[slot][i] > 0) { first = i; break; }   /* the motif's first note: kept */
         for (i = 15; i >= 0 && (np < need || hi - lo < 5); i--) {
             int note = ls->loop.note[slot][i], ext = i + ls->loop.len[slot][i] > 16, best = 0, bc = 99;
-            if (note <= 0 || cnt[note] < 2 || (slot == (last + 1) % ls->loop.bars && i == first)) continue;
+            if (note <= 0 || note > 127 || cnt[note] < 2 || (slot == (last + 1) % ls->loop.bars && i == first))
+                continue;
             for (d = -3; d <= 3; d++) {
                 int q = d ? leads_coll_step(scale, note, d) : 0, cost = d < 0 ? -d * 2 : d * 2;
                 if (q <= 0 || q > 127 || cnt[q] || !fits(&h, q, i, ext)) continue;
