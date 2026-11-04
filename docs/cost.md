@@ -1318,3 +1318,16 @@ size (the organ's is the largest; the vibraphone's state is 76 B), and voices.o'
 - CPU: `tools/tick-bench.sh 600 5` style runs (host, -O2, load about 3-4), worst tick against 4367dfc: strummed songs
   24 us (99 songs; every guitar song strums now) against 23 us (20 songs), the rest 27 against 26 us: inside the
   noise. The pad's keys check reads up to 6 notes, not 4 (a strummed song's whole shape), once per chord.
+
+### Keys retired: the Wurli and the DX electric piano (2026-11-04)
+
+- Flash: image 407,192 to **405,464 B (-1,728 B)** (`./build.sh`, against 067cfc0), 4,136 B under the 409,600 B
+  budget. Gone: the two patches, the Wurli's bark in M_EP (its state, its note-on setup and its per-sample branch),
+  the seven sets' rows and strings, the DX's comping-style and register cases. RAM .data+.bss 59,936 B and the pool
+  124,472 B unchanged (M_EP's state is not the voice union's largest member).
+- CPU: the Rhodes and the felt piano render bit-identical (whole-mix hashes of five songs, sets 1, 4, 6, 7 and 11,
+  against 067cfc0), so their rows do not move; the EP's per-sample bark test is gone (not measurable). The `--parts`
+  bench has no Wurli or DX row now. Songs that rolled a retired set roll another, so per-seed ratios move with their
+  new sets (`--forced`, host, 2 runs each: seed 7 0.857 to 0.804-0.830, 100 0.811-0.816 to 0.834-0.861, 128 0.800 to
+  0.886-0.915, 183 0.813-0.815 to 0.798-0.826). The heaviest of seeds 1-200 is still seed 20 (its set unchanged), 0.941
+  forced against 0.938-0.947 before.

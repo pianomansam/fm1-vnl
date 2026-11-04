@@ -671,6 +671,14 @@ Renders: `app/build/new/<seed>/` and `<seed>-nobed/`, one per set (Task 8's repo
   difference between the rhodes, felt piano, and dx piano" (all modeled). A sampled Wurli is being searched (a
   licensed set, as a workbench candidate); the keys compared in one song: `app/build/new/keys-compare-2026-11-04/`.
   Options if they stay alike: keep one modeled EP, make each distinct, or sample them.
+  **Done (Sam, 2026-11-04: "dump the wurli", "retire"; the DX, not told from the Rhodes in a mix, "yes"):** the Wurli
+  (INS_WURLI) and the DX electric piano (INS_DX_EP) are retired with their sets: 3 Neo-soul Wurli, 8 Wurli and vibes,
+  24 Wurli and Knight; 13 DX keys and FM bass, 20 DX and felt, 25 DX and Knight, 33 DX and vibes (ids never reused).
+  Removed as the 2026-10-31 removals were: no patch, no set, offered nowhere in the workbench (not even behind "show
+  retired"); an old snapshot's keys play the Rhodes (lib_keys_approved), said on restore. The Wurli's bark went from
+  the electric-piano core; the Rhodes and felt piano render bit-identical. Every mood keeps sets (sad 10, wistful 15,
+  warm 11, sunny 8). Left for Sam: the synth sets' share of songs falls from 20%+ to 12.5% (the organ, triangle and FM
+  basses' three sets; the test's floor follows them, 10%), and the Knight leads only warm and sunny sets now (23, 28).
 - **Flash, for Task 8 (found 2026-10-30): models left unused by the removals.** The Karplus-Strong pluck (M_PLUCK)
   only played the upright (removed); the FM bell (M_BELL) plays the kalimba, music box and bells, which leave with
   the kalimba lead and the ear candy. Their code and patches can go unless a spike reuses them.
