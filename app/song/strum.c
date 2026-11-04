@@ -8,6 +8,7 @@
 #include "harmony.h"
 #include "patterns_gen.h"
 #include "override.h"
+#include "library.h"
 
 static int clampi(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }
 static int absi(int v) { return v < 0 ? -v : v; }
@@ -264,12 +265,39 @@ int strum_voicing(const int *pcs, int npcs, const int prev[6], int out[6], int h
     }
 }
 
+/* The keys never copy the bass's rhythm (test_keys_bass_rhythms_differ): where a bar's strokes (ps) fall exactly on
+   the steps the bass strikes, a soft up stroke on the first "and" both leave free. Returns that step, or -1 (the bar
+   differs already, or no "and" is free). Cached per bar. */
+static int bass_twin(const song_roll_t *r, const plan_block_t *b, int bar, const char *ps)
+{
+    static uint32_t cseed;
+    static int cbar = -1, cstep = -1;
+    static const char *cps;
+    const lib_prog_t *pr = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
+    int loop = pr && pr->n ? pr->n * (pr->bars_per_chord ? pr->bars_per_chord : 1) : 4, pcs[5], np, i;
+    unsigned km = 0, bm = 0;
+    if (cbar == bar && cseed == r->seed && cps == ps) return cstep;
+    cbar = bar;
+    cseed = r->seed;
+    cps = ps;
+    cstep = -1;
+    np = harmony_chord_at(r, bar, bar / loop + 1, 0, pcs);
+    for (i = 0; i < 16; i++) {
+        if (hit_at(ps, bar, i) != '.') km |= 1u << i;
+        if (groove_bass_note(r, b, bar, i, pcs, np)) bm |= 1u << i;
+    }
+    if (km != bm || km == 1u) return cstep;
+    for (i = 2; i < 16 && cstep < 0; i += 4)
+        if (!((km >> i) & 1u)) cstep = i;
+    return cstep;
+}
+
 /* --------------------------------------------------------------------------------------------- the strokes */
 int strum_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, float step_samples, const int shape[6],
                song_ev_t *out, int max)
 {
     const char *ps;
-    int slow, pat, fill, lo = 0, dir = 1, vel, mute = 0, thumb = 0, pinch = 0, i, k, n = 0, dark, next, low = -1;
+    int slow, pat, fill, lo = 0, dir = 1, vel, mute = 0, thumb = 0, pinch = 0, i, k, n = 0, dark, next, low = -1, tw;
     char c;
     float gap, fac = 1.0f, span;
     uint32_t t0 = 0, sw = 0;
@@ -278,9 +306,11 @@ int strum_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, f
     fill = bar == b->start + b->bars - 1 && (b->flags & PB_FILL_LAST) && !(b->flags & PB_DROP_LAST);
     ps = fill && pat == SP_BALLAD ? STRUM_BALLAD_FILL : STRUM_PAT[pat];
     c = hit_at(ps, bar, step);
+    tw = bass_twin(r, b, bar, ps);                      /* (-1 none) */
+    if (c == '.' && step == tw) c = 'u';
     if (c == '.') return 0;
-    for (next = step + 1; next < 16 && hit_at(ps, bar, next) == '.'; next++) {}   /* the next stroke (a bar's step 0
-                                                                                    always strikes) */
+    for (next = step + 1; next < 16 && next != tw && hit_at(ps, bar, next) == '.'; next++) {}   /* the next stroke (a
+                                                                                    bar's step 0 always strikes) */
     span = (float)(next - step) * step_samples;
     switch (c) {
     case 'D': vel = 76; break;

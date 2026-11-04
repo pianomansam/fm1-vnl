@@ -40,7 +40,7 @@ extern const patterns_comp_t COMP_HELD, COMP_HALF, COMP_HELD2, COMP_LIGHT8, COMP
 extern const patterns_stabs_t COMP_STABS;
 
 /* strum.c's patterns (16 steps; 32 for a two-bar one) and the ballad's fill-bar variant */
-#define STRUM_NPAT 11
+#define STRUM_NPAT 14
 extern const char *const STRUM_PAT[STRUM_NPAT];
 extern const uint8_t STRUM_PAT_STATUS[STRUM_NPAT];
 extern const char STRUM_BALLAD_FILL[];

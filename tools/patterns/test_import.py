@@ -154,6 +154,8 @@ class Import(unittest.TestCase):
     # ------------------------------------------------------------------------------------------ the round trip
     def test_export_then_import_regenerates_the_tables_byte_for_byte(self):
         out = Path(self.tmp.name) / "exported"
+        out.mkdir(parents=True)                         # as over patterns/: a file keeps the name it was first given
+        (out / "model.json").write_bytes((ROOT / "patterns/model.json").read_bytes())
         r = subprocess.run(["sh", str(HERE / "export.sh"), str(out)], capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
         code, so = self.run_import(pat=out)

@@ -2393,52 +2393,73 @@
     },
     "6": {
       "index": 4,
-      "status": "candidate",
+      "status": "approved",
       "kind": "pattern",
       "steps": "..U...U...U...U.",
-      "file": "strum/10-offbeat-skank"
+      "file": "strum/6-offbeat-skank"
     },
     "7": {
       "index": 5,
-      "status": "candidate",
+      "status": "approved",
       "kind": "pattern",
       "steps": "D.....d...U.d...",
-      "file": "strum/11-syncopated-push"
+      "file": "strum/7-syncopated-push"
     },
     "8": {
       "index": 6,
-      "status": "candidate",
+      "status": "approved",
       "kind": "pattern",
       "steps": "D.....u...U...d.",
-      "file": "strum/12-anticipation"
+      "file": "strum/8-anticipation"
     },
     "9": {
       "index": 7,
-      "status": "candidate",
+      "status": "approved",
       "kind": "pattern",
-      "steps": "D.u.d.u.d.u.d.u.",
-      "file": "strum/6-straight-eighths"
+      "steps": "D.....U.........",
+      "file": "strum/9-charleston"
     },
     "10": {
       "index": 8,
       "status": "candidate",
       "kind": "pattern",
-      "steps": "d...D...d...D...",
-      "file": "strum/7-swing-quarters"
+      "steps": "T...d.u.T...d.u.",
+      "file": "strum/10-boom-chuck"
     },
     "11": {
       "index": 9,
       "status": "candidate",
       "kind": "pattern",
-      "steps": "D.....U.........",
-      "file": "strum/8-charleston"
+      "steps": "T...d...T...d...",
+      "file": "strum/11-boom-chuck-plain"
     },
     "12": {
       "index": 10,
       "status": "candidate",
       "kind": "pattern",
-      "steps": "T...d.u.T...d.u.",
-      "file": "strum/9-boom-chuck"
+      "steps": "T...d.u.T.u.d.u.",
+      "file": "strum/12-boom-chuck-a"
+    },
+    "13": {
+      "index": 11,
+      "status": "candidate",
+      "kind": "pattern",
+      "steps": "T...P...T...P.u.",
+      "file": "strum/13-boom-chuck-pinch"
+    },
+    "14": {
+      "index": 12,
+      "status": "candidate",
+      "kind": "pattern",
+      "steps": "T.....u.T...d.u.",
+      "file": "strum/14-boom-chuck-push"
+    },
+    "15": {
+      "index": 13,
+      "status": "candidate",
+      "kind": "pattern",
+      "steps": "T.u.d.u.T.u.d.u.",
+      "file": "strum/15-boom-chuck-train"
     }
   }
 }
