@@ -212,6 +212,8 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   the shortlisted styles (Impressionism, Romanticism, '60s Jazz, Modal Jazz, Jazz-Hop, Film Score, Bossa Nova,
   Ambient).
 
+  **Dropped (Sam, 2026-11-04):** the lead loop doesn't let the motif evolve, so a second style taking it over has
+  nothing to develop.
 - **Piano-roll editing paused (Sam, 2026-10-29: "Pause piano roll editing until later").** Plan
   docs/superpowers/plans/2026-10-29-patterns-and-edits.md Tasks 5-6 (edit glue, then editing with a "why" per edit)
   not started; Tasks 1-4 (doubling switch, pattern export, import, candidates) done.
@@ -567,6 +569,10 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   for the plain 9th where the mode allows: the only rule better in all three songs, voice leading as today (watch for
   a 6th-chord "lounge" top, b7-3-5-13); (4) no whole step on top: helps, top voice kept 94.1% (just under the 95%
   gate). Next if rule 3 is close: a pianist rule, 3-7 plus 9/13 only, the 13th preferred.
+  **Done (2026-11-04, a19d443):** Sam: the 7th is what sounds cheesy. The keys and the pad sound a dominant without
+  its 7th (its major triad with the 9th or 13th: add9, 6/9); the lead and bass still read the full chord. A/B renders
+  `app/build/new/dominants-no7-2026-11-04/` (Sam: "yes"). To hear: the pad's chord part moves less smoothly (voices
+  moving a step or less 84.9% to 78.1%, the top voice 83.9% to 80.8%: the 7th-to-3rd line is gone).
 - **Guitar strumming as a comping style (Sam, 2026-10-23, for later).** A good concept of strumming for the
   accompaniment: down/up strokes on a 16th grid, the strings spread a few ms apart (low to high on downstrokes, high
   to low on upstrokes), muted "chuck" strokes, accents, and patterns per song; voiced for a guitar's six strings
@@ -578,6 +584,14 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   direction): a comp-figure library (lanes: rhythm, tone, accent, length; re-voiced per chord), variation by phrase
   (a planned bar-4 variant, new figure at section changes), thinning by rank, pushes shared with the lead, strumming
   as a figure family, a counter-melody voice later.
+  **Done (sampled instruments, d015b4f):** the strum engine (strum.c): six-string shapes, D-DU-UDU, chuck, bossa,
+  ballad, quick or slow strokes, the ballad's fill bar. **2026-11-04:** Sam approved four new patterns (offbeat skank,
+  syncopated push, anticipation, charleston), removed straight eighths and swing quarters, kept boom-chuck and five
+  boom-chuck variations as candidates (fe4f344); the keys never copy the bass's rhythm (a soft up added where they
+  would). Muted chucks: today's kept (a scratch demo was heard only soloed). In progress: the guitars only strum
+  (Sam: drop their held, stabs, half notes; they now strum under struck leads too) and the fill bar's figure varies
+  per song (step back or drive; Sam declined a figure for drum-drop bars). Not wanted yet: ghost strokes, a new
+  figure per section.
 - **Comping mix drifted (found in the rule-docs refresh, 2026-10-30; to revisit).** Turning the arpeggio off moved
   the electric and synth keys' draw to held 55% / half notes 45% (half was 36%). The last mix Sam stated was
   55/25/20, and "Approved by ear" still lists stabs and offbeats. Decide the mix by ear.
@@ -650,6 +664,13 @@ Renders: `app/build/new/<seed>/` and `<seed>-nobed/`, one per set (Task 8's repo
   rotor (slow / fast), scanner chorus (off, C1-C3), and the register (octave), per song and saved in snapshots and
   feedback. On the device, later: a page of knobs for the drawbars and the rotor, once the organ is in the firmware
   and the UI has room (the screens spec).
+  **The organ as a lead waits on these controls (Sam, 2026-11-04):** "hold off on the organ lead until we have the
+  ability to modify it in the UI (drawbar settings, chorus, percussion, etc)". Tried once as a lead (2026-10-29, the
+  old organ, struck line): "might work eventually, but would need lots of tweaks".
+- **Keys that sound alike or fake (Sam, 2026-11-04).** "The wurli sounds fake"; and "a tough time hearing the
+  difference between the rhodes, felt piano, and dx piano" (all modeled). A sampled Wurli is being searched (a
+  licensed set, as a workbench candidate); the keys compared in one song: `app/build/new/keys-compare-2026-11-04/`.
+  Options if they stay alike: keep one modeled EP, make each distinct, or sample them.
 - **Flash, for Task 8 (found 2026-10-30): models left unused by the removals.** The Karplus-Strong pluck (M_PLUCK)
   only played the upright (removed); the FM bell (M_BELL) plays the kalimba, music box and bells, which leave with
   the kalimba lead and the ear candy. Their code and patches can go unless a spike reuses them.
