@@ -8204,9 +8204,10 @@ static void test_strum_same(void)
        62a5a384. Re-pinned again (lead styles Task 7: the weighted style roll, the ten sets' new leads): were 64ac9d89
        and de43a061. Re-pinned again (Sam 2026-11-03: the Jazz-Hop hook floor, 3 pitches a 4th or wider): were
        9648d15a and 9143260d. Re-pinned again (Sam 2026-11-04: the lead loop on by default): were 4547863a and
-       932130c5 */
-    CHECK(a == 0x7d9cc633u, "strum same: the strummed songs hash %08x, wanted 7d9cc633", (unsigned)a);
-    CHECK(b == 0xee990f98u, "strum same: with set changes %08x, wanted ee990f98", (unsigned)b);
+       932130c5. Re-pinned again (2026-11-04: '60s Jazz keeps its lead-ins, its target re-placed where the range cut
+       the run-in): were 7d9cc633 and ee990f98 */
+    CHECK(a == 0x7b3c2c25u, "strum same: the strummed songs hash %08x, wanted 7b3c2c25", (unsigned)a);
+    CHECK(b == 0x7e1b7ec6u, "strum same: with set changes %08x, wanted 7e1b7ec6", (unsigned)b);
     v = (uint32_t)sf_last_bad();
     CHECK(v == 0, "strum same: %u strummed bars left the keys' last voicing behind", (unsigned)v);
 }
@@ -8378,8 +8379,8 @@ static void test_wb_off(void)
     uint32_t a, b;
     lib_set_wb(NULL, 0); lib_pattern_wb(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x7d9cc633u, "wb off: the strummed songs hash %08x, wanted 7d9cc633", (unsigned)a);
-    CHECK(b == 0xee990f98u, "wb off: with set changes %08x, wanted ee990f98", (unsigned)b);
+    CHECK(a == 0x7b3c2c25u, "wb off: the strummed songs hash %08x, wanted 7b3c2c25", (unsigned)a);
+    CHECK(b == 0x7e1b7ec6u, "wb off: with set changes %08x, wanted 7e1b7ec6", (unsigned)b);
 }
 /* The workbench's mute (vx_mute, default off). mt_song: a song's first 20 s as the app plays it, its samples hashed
    (mute: vx_mute(0) called first, as the workbench's wb_init does) */
@@ -8426,8 +8427,8 @@ static void test_vx_mute_off(void)
     CHECK(a == b, "vx mute off: vx_mute(0) changed the samples (%08x, wanted %08x)", (unsigned)b, (unsigned)a);
     vx_mute(0);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x7d9cc633u, "vx mute off: the strummed songs hash %08x, wanted 7d9cc633", (unsigned)a);
-    CHECK(b == 0xee990f98u, "vx mute off: with set changes %08x, wanted ee990f98", (unsigned)b);
+    CHECK(a == 0x7b3c2c25u, "vx mute off: the strummed songs hash %08x, wanted 7b3c2c25", (unsigned)a);
+    CHECK(b == 0x7e1b7ec6u, "vx mute off: with set changes %08x, wanted 7e1b7ec6", (unsigned)b);
 }
 /* Review Focus 2 (Task 2): a bus muted mid-note is silent after the chunk it goes out in (and a quantum for the
    chain's own filters), its voice still playing (the duck follows it); unmuted, the notes struck while muted end at
@@ -9497,11 +9498,14 @@ static const char *ls_ins(int ins)
    in a few songs, so a few more hard bars fall silent and its m9 bars carry fewer notes.
    By LS_*: banded (judged against the songs' own density), and the hard chords' floors where the band costs them, in
    thousandths of the spike's: Lydian notes at least, Lydian silent at most, m9 silent at most, m9 notes at least (each
-   just past the port's measured ratio). */
+   just past the port's measured ratio). '60s Jazz was banded (Lydian notes 0.984 of the spike's) until it kept its
+   lead-ins (2026-11-04): its targets near the band's floor had cut their run-ins, and re-placed they play more notes
+   and leave fewer hard bars silent than the spike did (Lydian 5123 notes, 107 silent, spike 4431, 272; m9 546, 19,
+   spike 505, 29), so it is held to the spike's own numbers, as the unbanded styles are. */
 typedef struct { uint8_t banded; uint16_t ly_notes, ly_silent, mw_silent, mw_notes; } ls_hard_t;
 static const ls_hard_t LS_HARD[LS_N] = {
     {0, 1000, 1000, 1000, 1000}, {0, 1000, 1000, 1000, 1000},
-    {1, 980, 1000, 1000, 1000},  {1, 1000, 1000, 1000, 1000},     /* ('60s Jazz Lydian notes 0.984) */
+    {0, 1000, 1000, 1000, 1000}, {1, 1000, 1000, 1000, 1000},     /* ('60s Jazz: see above) */
     {1, 998, 1000, 1000, 1000},  {1, 1000, 1000, 1000, 1000},     /* (Jazz-Hop Lydian notes 0.9985) */
     {1, 1000, 1000, 1000, 993},  {1, 999, 1004, 1024, 933},      /* (Bossa Nova m9 notes 0.9939; Ambient Lydian
                                                                      notes 0.9991, silent 1.0039, m9 silent 1.0233,
@@ -9865,10 +9869,12 @@ static void test_modal_motif(void)
     static const int INS2[2] = {INS_FLUTE, INS_FELT_PIANO};
     ls_motif(LS_MODAL, INS2, 2);
 }
+/* A/B song 4 (the felt piano): the spike's render, 1.83 notes a bar, had its run-ins cut by the band's floor (a rise
+   into a low target lost all but its last note or two); its lead-ins kept (2026-11-04), 2.43 */
 static void test_jazz60s_shape(void)
 {
     static const int INS4[4] = {INS_FLUTE, INS_FELT_PIANO, INS_VIBES, INS_KNIGHT}, MED[5] = {82, 80, 78, 77, 81};
-    static const double NB[5] = {2.06, 1.94, 2.50, 1.83, 2.32};
+    static const double NB[5] = {2.06, 1.94, 2.50, 2.43, 2.32};
     ls_shape(LS_JAZZ60S, INS4, 4, NB, MED, 0);
 }
 static void test_modal_shape(void)
@@ -9883,6 +9889,53 @@ static void test_jazz60s_hard(void)
 {
     static const long LY[6] = {4431, 272, 8130, 4588, 2481, 466}, MW[6] = {505, 29, 3628, 2004, 336, 200};
     ls_hard(LS_JAZZ60S, LY, MW);
+}
+/* '60s Jazz keeps its lead-ins (2026-11-04): each statement (the first bar of each 2 in a lead run, and the next,
+   where its target lands) plays its run-in notes before the target, not the target alone, on the flute, felt piano and
+   vibes, over songs 1-300 (the seeds themselves), the lead loop off. A target near the range's floor under a rising
+   run-in (or near its top under a falling one) lost the whole run-in: 14% of statements on each, the flute's too, and
+   about 1 song in 6 with 4 or more. Re-placed, the flute's are 0.2%: 1% at most on each, none with 4 in a song */
+static void test_jazz60s_leadins(void)
+{
+    static const int INS3[3] = {INS_FLUTE, INS_FELT_PIANO, INS_VIBES};
+    int i;
+    for (i = 0; i < 3; i++) {
+        long stmts = 0, lone = 0, notes = 0, lbars = 0, songs = 0, bad = 0, any = 0;
+        uint32_t k;
+        for (k = 1; k <= 300; k++) {
+            song_roll_t r;
+            int cnt[257], bar, j, sl = 0;
+            if (!ls_roll(k, INS3[i], &r)) continue;
+            ls_play(&r, LS_JAZZ60S, 0);
+            songs++;
+            memset(cnt, 0, sizeof cnt);
+            for (j = 0; j < lsn_n; j++) cnt[LSN[j].bar]++;
+            for (bar = 0; bar < 256; bar++) {
+                int n;
+                if (!ls_plays[bar]) continue;
+                lbars++;
+                notes += cnt[bar];
+                if ((bar - ls_run[bar]) % 2) continue;
+                n = cnt[bar] + (bar + 1 < 256 && ls_plays[bar + 1] ? cnt[bar + 1] : 0);
+                if (!n) continue;
+                stmts++;
+                lone += n == 1;
+                sl += n == 1;
+            }
+            bad += sl >= 4;
+            any += sl > 0;
+        }
+        lib_set_wb(NULL, 0);
+        printf("'60s Jazz lead-ins on the %s: %ld songs, %ld statements, %ld the target alone (%.1f%%), %ld songs with "
+               "one, %ld with 4 or more; %.2f notes a lead bar\n", ls_ins(INS3[i]), songs, stmts, lone,
+               stmts ? 100.0 * (double)lone / (double)stmts : 0.0, any, bad,
+               lbars ? (double)notes / (double)lbars : 0.0);
+        CHECK(stmts > 1000, "'60s Jazz lead-ins on the %s: only %ld statements", ls_ins(INS3[i]), stmts);
+        CHECK(lone * 100 <= stmts, "'60s Jazz lead-ins on the %s: %ld of %ld statements the target alone",
+              ls_ins(INS3[i]), lone, stmts);
+        CHECK(bad == 0, "'60s Jazz lead-ins on the %s: %ld songs with 4 statements or more the target alone",
+              ls_ins(INS3[i]), bad);
+    }
 }
 static void test_modal_hard(void)
 {
@@ -10103,7 +10156,7 @@ static void test_ov_part_salts(void)
                       NAME[j], moved[j]);
     }
     song_override(NULL);
-    CHECK(sf_songs(0) == 0x7d9cc633u && sf_songs(1) == 0xee990f98u, "ov part salts: the pinned hashes moved");
+    CHECK(sf_songs(0) == 0x7b3c2c25u && sf_songs(1) == 0x7e1b7ec6u, "ov part salts: the pinned hashes moved");
 }
 /* Task 1b (Sam, 2026-10-29): "Remove the ear candy part completely"; "Make it possible for the pad part to not be in
    a song. And update the seeds to not always have it"; "add the ability for the pad part to drop out of certain song
@@ -10380,8 +10433,8 @@ static void test_ov_off(void)
     CHECK(o && o->comp == -1 && o->lead_style == -1 && o->pad_place == -1 && o->ride == -1 && !o->keys_oct &&
           !o->lead_oct && !o->voicing_salt && !o->phrase_salt, "ov off: the default override forces something");
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x7d9cc633u, "ov off: the strummed songs hash %08x, wanted 7d9cc633", (unsigned)a);
-    CHECK(b == 0xee990f98u, "ov off: with set changes %08x, wanted ee990f98", (unsigned)b);
+    CHECK(a == 0x7b3c2c25u, "ov off: the strummed songs hash %08x, wanted 7b3c2c25", (unsigned)a);
+    CHECK(b == 0x7e1b7ec6u, "ov off: with set changes %08x, wanted 7e1b7ec6", (unsigned)b);
 }
 /* a steal of a damped string (the final review): six strings struck, the first two re-struck at once (their last
    notes damped on the 2 spare voices), then a plain chord note (no string: a stab after a set change) while they
@@ -11437,8 +11490,8 @@ static void test_drums_hook(void)
     CHECK(quiet_bad == 0, "drums hook: a silent source still sounds at %d steps", quiet_bad);
     drums_hook(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x7d9cc633u, "drums hook off: the strummed songs hash %08x, wanted 7d9cc633", (unsigned)a);
-    CHECK(b == 0xee990f98u, "drums hook off: with set changes %08x, wanted ee990f98", (unsigned)b);
+    CHECK(a == 0x7b3c2c25u, "drums hook off: the strummed songs hash %08x, wanted 7b3c2c25", (unsigned)a);
+    CHECK(b == 0x7e1b7ec6u, "drums hook off: with set changes %08x, wanted 7e1b7ec6", (unsigned)b);
     dh_on = 0;
     vx_init();
     {
@@ -11691,7 +11744,8 @@ static uint32_t ll_hash(uint32_t h, const song_roll_t *r, int style, int loop)
 
 /* Off is as before: seeds 1-300, the rolled style and each style forced, lead_loop 0: every event as before the loop
    existed (the hash pinned on c17423f, the switch's commit, before loop.c). lead_loop -1 (the default, on since Sam
-   2026-11-04) is the loop's: its hash pinned too */
+   2026-11-04) is the loop's: its hash pinned too. Re-pinned (2026-11-04: '60s Jazz keeps its lead-ins, so its songs
+   moved): were a6c69555 (-1) and 51b9dbb5 (0) */
 static void test_lead_loop_off_identical(void)
 {
     uint32_t seed, h[2] = {2166136261u, 2166136261u};
@@ -11703,8 +11757,8 @@ static void test_lead_loop_off_identical(void)
             for (k = 0; k < 2; k++) h[k] = ll_hash(h[k], &r, st, k - 1);
     }
     printf("lead loop off: events %08x (lead_loop -1), %08x (0)\n", (unsigned)h[0], (unsigned)h[1]);
-    CHECK(h[0] == 0xa6c69555u, "lead loop default: lead_loop -1 hashes %08x, wanted a6c69555", (unsigned)h[0]);
-    CHECK(h[1] == 0x51b9dbb5u, "lead loop off: lead_loop 0 hashes %08x, wanted 51b9dbb5", (unsigned)h[1]);
+    CHECK(h[0] == 0x7e4fe242u, "lead loop default: lead_loop -1 hashes %08x, wanted 7e4fe242", (unsigned)h[0]);
+    CHECK(h[1] == 0x1c7164d5u, "lead loop off: lead_loop 0 hashes %08x, wanted 1c7164d5", (unsigned)h[1]);
 }
 
 typedef struct {
@@ -12301,6 +12355,7 @@ int main(int argc, char **argv)
     RUN(test_jazz60s_shape);
     RUN(test_modal_shape);
     RUN(test_jazz60s_hard);
+    RUN(test_jazz60s_leadins);
     RUN(test_modal_hard);
     RUN(test_jazzhop_motif);
     RUN(test_filmscore_motif);

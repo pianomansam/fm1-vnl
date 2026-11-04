@@ -7,7 +7,9 @@
                target a step from the last one: a guide-tone line) and often displaced (an 8th or a beat later or
                earlier); the answer's last target rests lower, on a chord tone
    Every note passes leads_legal() over the chord it sounds in (and the next one when it rings over the bar line);
-   onsets on steps 0 and 8 are chord tones. No chromatic approach notes: they rub. */
+   onsets on steps 0 and 8 are chord tones. No chromatic approach notes: they rub. A target the range leaves no room
+   to run into (near its floor under a rise, near its top under a fall) moves away from that edge, so the statement
+   keeps its run-in. */
 #include <stdint.h>
 #include "leads.h"
 #include "library.h"
@@ -38,13 +40,14 @@ static void jz_song(uint32_t seed, int motion, jz_song_t *s)
 }
 
 /* the target: legal over its chord, a chord tone on 0 and 8; the guide tones (3rd, 7th) and colors (9th, 13th, the
-   11th over minor) first, the root least; near `near` */
+   11th over minor) first, the root least; near `near`, in [lo, hi] */
 static int jz_target(const leads_ctx_t *c, const int *pcs, int np, unsigned bass, int strong, int near, int rest,
-                     int lo, unsigned amask, int adir)   /* the approach: its legal notes, the side it comes from */
+                     int lo, int hi, unsigned amask, int adir)   /* the approach: its legal notes, the side it
+                                                                    comes from */
 {
     int note, best = 0, bc = 1 << 30, j, minor = 0;
     for (j = 0; j < np; j++) minor |= (pcs[j] - pcs[0] + 12) % 12 == 3;
-    for (note = lo; note <= c->hi; note++) {
+    for (note = lo; note <= hi; note++) {
         int iv = (note - pcs[0] + 120) % 12, ct = leads_is_ct(note, pcs, np), cost;
         if (!leads_legal(c->r, note, pcs, np, bass) || (strong && !ct)) continue;
         cost = (note > near ? note - near : near - note) * 3;
@@ -95,30 +98,15 @@ static void jz_note(lead_state_t *ls, const leads_ctx_t *c, int bar, int p, int 
     }
 }
 
-/* one statement from this bar: shift in 16ths (the displacement), last: the answer's close (a lower chord tone) */
-static void jz_statement(lead_state_t *ls, const leads_ctx_t *c, const leads_next_t *x, int bar, const jz_song_t *s,
-                         int rhy, int con, int n, int shift, int near, int last, int v0)
+/* the run-in to tgt: the contour's last n steps backward from it, onto the rhythm's onsets before it (notes, their
+   onsets in thirds of a 16th, from the target back); its count. *out: -1 or 1 where a step fell under the range's
+   floor or over its top and cut the run-in there, else 0 */
+static int jz_runin(const leads_ctx_t *c, const leads_next_t *x, const int *pos, int m, int con, int n, int tgt,
+                    unsigned lg0, unsigned lg1, int *notes, int *ps, int *out)
 {
-    int pos[6], m = 0, k, tp, tgt, strong, notes[6], ps[6], cnt = 0;
-    unsigned lg0 = leads_legal_pcs(c->r, c->pcs, c->np, c->bass);
-    unsigned lg1 = x ? leads_legal_pcs(c->r, x->pcs, x->np, x->bass) : 0;
-    for (k = 0; k < 5 && RHY[rhy][k] >= 0; k++) pos[m++] = RHY[rhy][k] + shift;
-    tp = pos[m - 1];
-    if (!x && tp >= 16) {                        /* no next chord known: the statement closes inside this bar */
-        int d = tp - 14;
-        for (k = 0; k < m; k++) pos[k] -= d;
-        tp = pos[m - 1];
-    }
-    if (tp >= 32) return;
-    strong = tp % 8 == 0;
-    {
-        int adir = CON[con][3] > 0 ? 1 : -1;
-        unsigned am = m >= 2 && n > 0 ? (pos[m - 2] >= 16 ? lg1 : lg0) : 0;
-        tgt = tp >= 16 ? jz_target(c, x->pcs, x->np, x->bass, strong, near, last, c->lo_x, am, adir)
-                       : jz_target(c, c->pcs, c->np, c->bass, strong, near, last, c->lo, am, adir);
-    }
-    if (!tgt) return;
-    for (k = 0; k < n && k < m - 1; k++) {       /* backward from the target: the contour's last n steps */
+    int k, cnt = 0;
+    *out = 0;
+    for (k = 0; k < n && k < m - 1; k++) {
         int i = m - 2 - k, at = pos[i], note, tries, nt = at >= 16;
         unsigned lg = nt ? lg1 : lg0;
         const int *pp = nt ? x->pcs : c->pcs;
@@ -133,7 +121,10 @@ static void jz_statement(lead_state_t *ls, const leads_ctx_t *c, const leads_nex
             else if (leads_is_ct(dn, pp, np) && note - dn <= 3) note = dn;
             else break;
         }
-        if (note < (nt ? c->lo_x : c->lo) || note > c->hi) break;
+        if (note < (nt ? c->lo_x : c->lo) || note > c->hi) {
+            *out = note > c->hi ? 1 : -1;
+            break;
+        }
         if (at % 8 == 0 && !leads_is_ct(note, pp, np)) continue;
         {
             int after = cnt ? notes[cnt - 1] : tgt;      /* no repeated note; a gap past a 5th: it starts after */
@@ -141,6 +132,51 @@ static void jz_statement(lead_state_t *ls, const leads_ctx_t *c, const leads_nex
             if (note - after > 7 || after - note > 7) break;
         }
         notes[cnt] = note; ps[cnt] = at * 3; cnt++;
+    }
+    return cnt;
+}
+
+/* one statement from this bar: shift in 16ths (the displacement), last: the answer's close (a lower chord tone) */
+static void jz_statement(lead_state_t *ls, const leads_ctx_t *c, const leads_next_t *x, int bar, const jz_song_t *s,
+                         int rhy, int con, int n, int shift, int near, int last, int v0)
+{
+    int pos[6], m = 0, k, tp, tgt, strong, notes[6], ps[6], cnt, out;
+    unsigned lg0 = leads_legal_pcs(c->r, c->pcs, c->np, c->bass);
+    unsigned lg1 = x ? leads_legal_pcs(c->r, x->pcs, x->np, x->bass) : 0;
+    for (k = 0; k < 5 && RHY[rhy][k] >= 0; k++) pos[m++] = RHY[rhy][k] + shift;
+    tp = pos[m - 1];
+    if (!x && tp >= 16) {                        /* no next chord known: the statement closes inside this bar */
+        int d = tp - 14;
+        for (k = 0; k < m; k++) pos[k] -= d;
+        tp = pos[m - 1];
+    }
+    if (tp >= 32) return;
+    strong = tp % 8 == 0;
+    {
+        int adir = CON[con][3] > 0 ? 1 : -1, lo = tp >= 16 ? c->lo_x : c->lo, hi = c->hi, tries, t2 = 0;
+        unsigned am = m >= 2 && n > 0 ? (pos[m - 2] >= 16 ? lg1 : lg0) : 0;
+        const int *tpcs = tp >= 16 ? x->pcs : c->pcs;
+        int tnp = tp >= 16 ? x->np : c->np;
+        unsigned tbass = tp >= 16 ? x->bass : c->bass;
+        tgt = jz_target(c, tpcs, tnp, tbass, strong, near, last, lo, hi, am, adir);
+        if (!tgt) return;
+        cnt = jz_runin(c, x, pos, m, con, n, tgt, lg0, lg1, notes, ps, &out);
+        /* a run-in the range cuts (a rise into a target near the floor, a fall into one near the top): the target
+           re-placed, further from that edge, until the whole run-in fits; the fullest run-in kept */
+        for (tries = 0; tries < 6 && out; tries++) {
+            int n2[6], p2[6], c2, o2;
+            if (out < 0) lo = (t2 ? t2 : tgt) + 1;
+            else hi = (t2 ? t2 : tgt) - 1;
+            t2 = lo <= hi ? jz_target(c, tpcs, tnp, tbass, strong, near, last, lo, hi, am, adir) : 0;
+            if (!t2) break;
+            c2 = jz_runin(c, x, pos, m, con, n, t2, lg0, lg1, n2, p2, &o2);
+            if (c2 > cnt) {
+                tgt = t2;
+                cnt = c2;
+                for (k = 0; k < c2; k++) { notes[k] = n2[k]; ps[k] = p2[k]; }
+            }
+            out = o2;
+        }
     }
     if (s->trip && cnt >= 2 && tp - pos[m - 3] >= 4) {   /* compressed into a triplet that starts with a rest */
         ps[0] = tp * 3 - 4;
