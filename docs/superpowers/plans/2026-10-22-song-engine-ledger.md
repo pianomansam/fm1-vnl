@@ -195,8 +195,14 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
     Wurli/Knight's struck lead sings in 62% of bars (71% off). Rule on each, then add loop-on versions of the checks.
   - Jazz-Hop's hook floor with the loop on: hook-bar stutters fold about 2.7% of hooks (by design) and harmony
     nudges another 0.6% (capped at 0.75%). Accept as the loop's character, or keep stutters off hook bars.
-  - On a live change, the entry filter opens one step late (a bright first note in about 4 of 36 mid-run key
-    changes); fix with song_lead_lp computed once per step.
+  - Fixed (2026-11-04, loop-leftovers): on a live change the entry filter opened one step late (a bright first note
+    in about 4 of 36 mid-run key changes). The loop's filter is now computed once per step, after the tick, for the
+    16th it played (song_lead_lp_at); all 19 filtered entries in the probe are closed from step 0.
+  - Old workbench snapshots and feedback items (before 2026-11-04) now replay looped: a snapshot without the Lead
+    loop row restores to the default, which is now on. Set the Lead loop row to Off to hear the old phrase.
+  - Known effect: the keys-up override (keys_oct) test's 80% "keeps its room" check runs loop-off. With the loop on,
+    a keys-up song's lost lead notes in the recorded bars repeat on every pass (seed 8: 47 lead notes, 59 off).
+    Workbench only (keys_oct is an override); no fix planned.
   - '60s Jazz on felt piano or vibes plays only its targets in about 3% of songs (2 notes per 4 bars), loop on or
     off (seeds 67, 71): its lead-ins drop out. A fix in jazz60s.c.
 

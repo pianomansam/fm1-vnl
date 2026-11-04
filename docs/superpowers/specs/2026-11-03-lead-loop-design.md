@@ -1,5 +1,8 @@
 # Lead loop: the lead as a sampled record (design)
 
+> **Superseded in part (2026-11-04):** every lead style loops (23ed21a), Bossa records a riff (3732a7d), the loop has
+> a pitch floor (797877d), and the loop is on by default (8c230af). See the song-engine ledger's lead loop entry.
+
 Date: 2026-11-03. Ledger entry: "Hip hop record-style repetition for leads" (song-engine ledger). Prototype: branch
 `worktree-agent-ac7ec4ef3495a7e8f` (d8adab7 the loop, f0d5936 Jazz-Hop's riff bar; f73c9b5's hook floor is already
 on workbench as d5c4d84). Renders: app/build/new/lead-loop-2026-11-03/ (INDEX.md).

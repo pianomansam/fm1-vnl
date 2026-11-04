@@ -1286,9 +1286,9 @@ size (the organ's is the largest; the vibraphone's state is 76 B), and voices.o'
   409,600 B budget). RAM: .data+.bss 59,584 to 59,872 B (**+288 B**, under the spec's +576 B estimate); pool
   unchanged (124,472 B). The stats and the per-bar move log (`leads_loop_stat`, `leads_loop_log`) are host and
   workbench only: `nm app/build/vnl.elf` shows neither, only `leads_loop_bar`, `_lp` and `_plays`.
-- CPU: song-engine tick only, no audio-path cost. `tools/tick-bench.sh 600 5 STYLE` (seeds 2-600, 5 plays each, 3 runs;
-  Jazz-Hop is style 6, Ambient 9; `VNL_LEAD_LOOP=1` for on), worst tick of the non-strummed songs, on a loaded host
-  (load about 4):
+- CPU: the song-engine tick, plus the loop's filter once per step (the audio path: see the 2026-11-04 loop-leftovers
+  line below). `tools/tick-bench.sh 600 5 STYLE` (seeds 2-600, 5 plays each, 3 runs; Jazz-Hop is style 6, Ambient 9;
+  `VNL_LEAD_LOOP=1` for on), worst tick of the non-strummed songs, on a loaded host (load about 4):
 
   | Style | Loop off (3 runs) | Loop on (3 runs) |
   |-------|-------------------|------------------|
@@ -1302,3 +1302,11 @@ size (the organ's is the largest; the vibraphone's state is 76 B), and voices.o'
   floor (about +46 B a lead state). CPU: the floor runs once per recording (a scan of 64 steps); not re-measured.
 - 2026-11-04, on by default with the stutter, octave and hook-nudge fixes (8c230af): image 404,824 B (+336 B),
   about 4.8 KB under the budget. Every song now runs the loop's replay path; CPU not re-measured on the device.
+- 2026-11-04, loop-leftovers (final review M1, M2, M4): the loop's filter is computed once per step, after the tick
+  (it was twice, before it). Image 404,824 to **404,840 B (+16 B)**, 4,760 B under the budget. Audio path:
+  `tools/tick-bench.sh 600 5` (loop at its default, on) now times `song_lead_lp_at` per step (each step's 200 calls in
+  a batch, the host clock being 1 us): worst **0.07 us**, mean 0.010 us over 520,576 steps (3 runs; host, -O2, load
+  about 4.8), against a worst tick of 27-28 us in the same runs: about 0.3% of the worst tick, now paid once a step.
+  The batch runs warm, so a cold call may cost more; not measured on the device. Stack: `widen`'s counts are bytes
+  (`uint8_t cnt[128]`, 64 at most), so `leads_loop_bar`'s frame (widen and stutter still inlined) is 472 B plus 52 B of
+  saved registers, 524 B, from 908 B (app/build/vnl.dis).
