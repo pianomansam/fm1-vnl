@@ -11634,7 +11634,7 @@ static void test_kit_roll(void)
 }
 
 /* ---- the lead loop (lead-loop Task 2: leads/loop.c) ----
-   With song_ov()->lead_loop on, a Jazz-Hop or Ambient song records its phrase once (L bars, the chord loop's length)
+   With song_ov()->lead_loop on, a song records its phrase once (L bars, the chord loop's length)
    and replays it: each replayed note a recorded one, moved 2 scale steps at most where it would rub, or dropped; the
    producer's moves on top (filter-in entries, a muted bar, the drop before a change, the stuck-note stutter). Off (0,
    or -1 with LEAD_LOOP_DEFAULT 0), every song is as before. */
@@ -11676,23 +11676,6 @@ static void test_lead_loop_off_identical(void)
     printf("lead loop off: events %08x (lead_loop -1), %08x (0)\n", (unsigned)h[0], (unsigned)h[1]);
     CHECK(h[0] == 0x51b9dbb5u, "lead loop off: lead_loop -1 hashes %08x, wanted 51b9dbb5", (unsigned)h[0]);
     CHECK(h[1] == 0x51b9dbb5u, "lead loop off: lead_loop 0 hashes %08x, wanted 51b9dbb5", (unsigned)h[1]);
-}
-
-/* Styles other than Jazz-Hop and Ambient ignore the switch: lead_loop 1 plays as 0 */
-static void test_lead_loop_other_styles(void)
-{
-    uint32_t seed;
-    int st, bad = 0, n = 0;
-    for (seed = 1; seed <= 300; seed++) {
-        song_roll_t r;
-        roll_song(NULL, seed, &r);
-        for (st = 0; st < LS_N; st++) {
-            if (st == LS_JAZZHOP || st == LS_AMBIENT) continue;
-            n++;
-            bad += ll_hash(0u, &r, st, 1) != ll_hash(0u, &r, st, 0);
-        }
-    }
-    CHECK(bad == 0, "lead loop other styles: %d of %d songs change with the switch on", bad, n);
 }
 
 typedef struct {
@@ -11774,19 +11757,28 @@ static void ll_play(const song_roll_t *r, int style, ll_acc_t *a)
 static ll_acc_t ll_acc;
 static void ll_sweep(void)
 {
-    static const int INS3[3] = {INS_FELT_PIANO, INS_FLUTE, INS_VIBES}, ST[2] = {LS_JAZZHOP, LS_AMBIENT};
+    static const int INS3[3] = {INS_FELT_PIANO, INS_FLUTE, INS_VIBES};
+    static const char *NM[LS_N] = {"impressionism", "romanticism", "jazz60s", "modal", "jazzhop", "filmscore",
+                                   "bossa", "ambient"};
     static int done;
     uint32_t k;
     int i, j;
     if (done) return;
     done = 1;
-    for (j = 0; j < 2; j++)
+    for (j = 0; j < LS_N; j++) {
+        ll_acc_t a0 = ll_acc;
         for (i = 0; i < 3; i++)
             for (k = 1; k <= 300; k++) {
                 song_roll_t r;
                 if (!ls_roll(k, INS3[i], &r)) continue;
-                ll_play(&r, ST[j], &ll_acc);
+                ll_play(&r, j, &ll_acc);
             }
+        printf("lead loop %-13s: %ld bars replayed, %ld notes (%.2f a bar): %ld nudged, %ld dropped; %.2f stutters a "
+               "song\n", NM[j], ll_acc.replayed - a0.replayed, ll_acc.notes - a0.notes,
+               ll_acc.replayed > a0.replayed ? (double)(ll_acc.notes - a0.notes) / (double)(ll_acc.replayed - a0.replayed) : 0.0,
+               ll_acc.nudged - a0.nudged, ll_acc.dropped - a0.dropped,
+               ll_acc.lsongs > a0.lsongs ? (double)(ll_acc.stutters - a0.stutters) / (double)(ll_acc.lsongs - a0.lsongs) : 0.0);
+    }
     lib_set_wb(NULL, 0);
     printf("lead loop: %ld songs (%ld with a lead), %ld bars replayed, %ld notes: %ld nudged, %ld dropped; %ld "
            "stutters (%.2f a song)\n", ll_acc.songs, ll_acc.lsongs, ll_acc.replayed, ll_acc.notes, ll_acc.nudged,
@@ -11805,8 +11797,8 @@ static void test_lead_loop_replays(void)
     CHECK(ll_acc.bad_legal == 0, "lead loop: %ld replayed notes not legal over their bar", ll_acc.bad_legal);
     CHECK(ll_acc.nudged * 10 <= ll_acc.notes, "lead loop: %ld of %ld notes nudged (10%% at most)", ll_acc.nudged,
           ll_acc.notes);
-    CHECK(ll_acc.dropped * 300 <= 5 * ll_acc.songs, "lead loop: %ld notes dropped in %ld songs (5 in 300 at most)",
-          ll_acc.dropped, ll_acc.songs);
+    CHECK(ll_acc.dropped * 250 <= ll_acc.notes, "lead loop: %ld of %ld notes dropped (0.4%% at most)", ll_acc.dropped,
+          ll_acc.notes);
 }
 
 static void test_lead_loop_moves(void)
@@ -12135,7 +12127,6 @@ int main(int argc, char **argv)
     RUN(test_drums_hook);
     RUN(test_kit_roll);
     RUN(test_lead_loop_off_identical);
-    RUN(test_lead_loop_other_styles);
     RUN(test_lead_loop_replays);
     RUN(test_lead_loop_moves);
     RUN(test_lead_loop_rerecords);

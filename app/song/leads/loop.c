@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The lead loop (lead-loop design, 2026-11-03; ledger: "Hip hop record-style repetition for leads"): the lead as a
-   sampled record. With the song's switch on (song_ov()->lead_loop 1, or -1 with LEAD_LOOP_DEFAULT set), a song whose
-   style is Jazz-Hop or Ambient records its phrase once, L bars (2 or 4: the chord loop's length, 4 at most; these
-   styles' 2-bar unit sets the floor), as the style plans those bars the first time the lead reaches them (slot:
+   sampled record. With the song's switch on (song_ov()->lead_loop 1, or -1 with LEAD_LOOP_DEFAULT set), a song of any
+   lead style records its phrase once (Jazz-Hop and Ambient first, then every style: Sam, 2026-11-04), L bars (2 or
+   4: the chord loop's length, 4 at most), as the style plans those bars the first time the lead reaches them (slot:
    bar % L, so each recorded bar replays over the same place in the chord loop). Every later lead bar replays its slot
    exactly: the same notes, onsets, lengths, velocities and triplet lateness. No new notes. Jazz-Hop records a riff,
    not its sparse phrase (jazzhop.c): per recorded bar about 2.9 notes (Ambient 2.2; the sparse phrase 2.3). A new
@@ -37,7 +37,8 @@ int leads_loop_plays(int style)
 {
     int on = song_ov()->lead_loop;
     if (on < 0) on = LEAD_LOOP_DEFAULT;
-    return on > 0 && (style == LS_JAZZHOP || style == LS_AMBIENT);
+    (void)style;
+    return on > 0;
 }
 
 #ifdef LEADS_LOOP_STATS
