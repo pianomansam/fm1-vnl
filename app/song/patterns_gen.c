@@ -83,6 +83,13 @@ const char *const STRUM_PAT[STRUM_NPAT] = {
     "D.u.X.U.d.u.X.U.",
     "B..P..P.T.P..P..T.P..P..T.P..P..",
     "D.......d.....u.",
+    "..U...U...U...U.",
+    "D.....d...U.d...",
+    "D.....u...U...d.",
+    "D.u.d.u.d.u.d.u.",
+    "d...D...d...D...",
+    "D.....U.........",
+    "T...d.u.T...d.u.",
 };
-const uint8_t STRUM_PAT_STATUS[STRUM_NPAT] = {1, 1, 1, 1};
+const uint8_t STRUM_PAT_STATUS[STRUM_NPAT] = {1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0};
 const char STRUM_BALLAD_FILL[] = "D.....u.d.......";

@@ -100,6 +100,13 @@
     { "id": "1", "index": 0, "name": "1-d-du-udu", "status": "approved" },
     { "id": "2", "index": 1, "name": "2-chuck", "status": "approved" },
     { "id": "3", "index": 2, "name": "3-bossa", "status": "approved" },
-    { "id": "4", "index": 3, "name": "4-ballad", "status": "approved" }
+    { "id": "4", "index": 3, "name": "4-ballad", "status": "approved" },
+    { "id": "6", "index": 4, "name": "10-offbeat-skank", "status": "candidate" },
+    { "id": "7", "index": 5, "name": "11-syncopated-push", "status": "candidate" },
+    { "id": "8", "index": 6, "name": "12-anticipation", "status": "candidate" },
+    { "id": "9", "index": 7, "name": "6-straight-eighths", "status": "candidate" },
+    { "id": "10", "index": 8, "name": "7-swing-quarters", "status": "candidate" },
+    { "id": "11", "index": 9, "name": "8-charleston", "status": "candidate" },
+    { "id": "12", "index": 10, "name": "9-boom-chuck", "status": "candidate" }
   ]
 }
