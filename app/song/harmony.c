@@ -106,45 +106,31 @@ int harmony_chord_at(const song_roll_t *r, int bar, int pass, int dark, int *pcs
     return th_chord_pcs(r->v[RF_KEY], r->v[RF_MODE], c, color, pcs);
 }
 
-/* below this tempo the guitars hold less and play half notes instead (Sam: held nylon too sparse at slow tempos) */
-enum { GUITAR_SLOW_BPM = 84 };
+static int is_guitar(int ins) { return ins == INS_NYLON || ins == INS_EMILY; }
 
 /* per song (Sam, after hearing them side by side): the synth keys' weights held 44, arpeggio 20, half notes 36, so as
    heard held about 55%, half notes 25%, arpeggio 20% (half notes hold over sustained keys and a kick on 1 and 3 alone:
    half_held); offbeats retired (Sam: the "and" 8ths liked "less and less"), stabs retired on the synth keys ("just
-   not working") and back on the Knight and the guitars (below) */
-static int style_draw(int ins, int tempo, int strum, uint32_t seed)
+   not working") and back on the Knight (below). The guitars only strum, under any lead (Sam, 2026-11-04: "since we
+   have a strumming engine drop the comping capabilities for guitars"): no draw. */
+static int style_draw(int ins, uint32_t seed)
 {
-    /* held, stabs, offbeats (retired: 0 everywhere), arpeggio, half notes, strum. Synth keys as always (stabs "just
-       not working" there); the sampled instruments sound better, so stabs return on the Knight and the guitars, and
-       the guitars strum (the same draw: zero weights never change a pick); no arpeggio on the guitars (Sam: a 16th
-       arpeggio on a guitar is "bad"), and none on any keys for now (Sam, 2026-10-28: set 23's Rhodes arpeggio "sounds
-       very synthetic"; it may come back later). Was SYNTH arpeggio 20, KNIGHT 15. Held on 2, light eighths and held on
-       2 and 4 last, 0 for now (the workbench's until Sam sets them; a zero weight at the end changes no pick). */
-    static const uint8_t SYNTH[CS_N] = {44, 0, 0, 0, 36, 0, 0, 0, 0}, KNIGHT[CS_N] = {35, 25, 0, 0, 25, 0, 0, 0, 0},
-                         GUITAR[CS_N] = {20, 20, 0, 0, 15, 30, 0, 0, 0},
-                         GUITAR_SLOW[CS_N] = {0, 20, 0, 0, 35, 30, 0, 0, 0};
-    const uint8_t *t = ins == INS_KNIGHT ? KNIGHT : (ins == INS_NYLON || ins == INS_EMILY) ?
-                         (tempo < GUITAR_SLOW_BPM ? GUITAR_SLOW : GUITAR) : SYNTH;
-    uint8_t w[CS_N];
+    /* held, stabs, offbeats (retired: 0 everywhere), arpeggio, half notes, strum (the guitars' alone). No arpeggio on
+       any keys for now (Sam, 2026-10-28: set 23's Rhodes arpeggio "sounds very synthetic"; it may come back later).
+       Was SYNTH arpeggio 20, KNIGHT 15. Held on 2, light eighths and held on 2 and 4 last, 0 for now (the
+       workbench's until Sam sets them; a zero weight at the end changes no pick). */
+    static const uint8_t SYNTH[CS_N] = {44, 0, 0, 0, 36, 0, 0, 0, 0}, KNIGHT[CS_N] = {35, 25, 0, 0, 25, 0, 0, 0, 0};
     rng_t g;
-    memcpy(w, t, sizeof w);
-    if (!strum) w[CS_STRUM] = 0;
+    if (is_guitar(ins)) return CS_STRUM;
     rng_seed(&g, seed, 121);
-    return rng_weighted(&g, w, CS_N);
+    return rng_weighted(&g, ins == INS_KNIGHT ? KNIGHT : SYNTH, CS_N);
 }
 
-int harmony_style_ins(int ins, int tempo, uint32_t seed) { return style_draw(ins, tempo, 1, seed); }
-
-/* the guitars strum only under a sustained lead (Sam, 2026-10-25): under a struck one their strum weight is 0, the
-   others as they are */
-int harmony_style_lead(int ins, int lead, int tempo, uint32_t seed)
-{
-    return style_draw(ins, tempo, lib_ins_sustained(lead), seed);
-}
+int harmony_style_ins(int ins, uint32_t seed) { return style_draw(ins, seed); }
 
 int harmony_comp_ok(int ins, int cs)
 {
+    if (is_guitar(ins)) return cs == CS_STRUM;          /* the guitars only strum */
     if (cs != CS_HELD2 && cs != CS_LIGHT8 && cs != CS_HELD24) return 1;
     return ins == INS_RHODES || ins == INS_WURLI || ins == INS_FELT_PIANO || ins == INS_DX_EP || ins == INS_KNIGHT;
 }
@@ -152,9 +138,11 @@ int harmony_comp_ok(int ins, int cs)
 int harmony_style(const song_roll_t *r)
 {
     const lib_set_t *s = lib_set_by_id((uint8_t)r->v[RF_SET]);
-    if (song_ov()->comp >= 0)             /* the workbench's (or a host render's): held where the keys can't play it */
-        return harmony_comp_ok(s ? s->chords : INS_NONE, song_ov()->comp) ? song_ov()->comp : CS_HELD;
-    return harmony_style_lead(s ? s->chords : INS_NONE, s ? s->lead : INS_NONE, r->v[RF_TEMPO], r->seed);
+    int ins = s ? s->chords : INS_NONE;
+    if (song_ov()->comp >= 0)             /* the workbench's (or a host render's): where the keys can't play it, held
+                                             (the guitars strum) */
+        return harmony_comp_ok(ins, song_ov()->comp) ? song_ov()->comp : is_guitar(ins) ? CS_STRUM : CS_HELD;
+    return style_draw(ins, r->seed);
 }
 
 /* how far voicing b is from a, as the voicer weighs it: the lower voices' moves, the top's 8 a semitone (and 6 for a
@@ -366,6 +354,17 @@ void harmony_voicing_at(const song_roll_t *r, int bar, int pass, harmony_voicing
     voice_chord(r, bar, pcs, n, vs, out4);
     memcpy(vs->last, keep, sizeof keep);                 /* a peek: the strike still voices from the same last */
     place_keys(r, out4);
+}
+
+void harmony_keys_notes_at(const song_roll_t *r, int bar, int pass, harmony_voicing_t *vs, int out6[6])
+{
+    out6[4] = out6[5] = 0;
+    if (harmony_style(r) == CS_STRUM) {                  /* the whole guitar shape, its low strings too */
+        strum_shape(r, bar, pass, vs, out6);
+        keys_oct(r, out6, 6);
+        return;
+    }
+    harmony_voicing_at(r, bar, pass, vs, out6);
 }
 
 int harmony_keys_high(const song_roll_t *r)

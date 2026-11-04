@@ -3,7 +3,7 @@
 // Every change is staged (wb_stage_mark first), checked against the locks (a locked row that moved undoes it whole and
 // says why), then committed with wb_apply: nothing staged is heard before that, so a bar line inside a change never
 // lands half of it. A seed or map change regenerates the song, so every locked or hand-set row is staged again first. call(fn, ...args) reaches wb.wasm's exports, a Promise (wb.js in the page; smoke.mjs in Node).
-import { ROWS, row, conflicts, pickFor, familyOf, fromEngine, kickMasks, rolled } from "./rows.js";
+import { ROWS, row, conflicts, pickFor, familyOf, fromEngine, kickMasks, rolled, compFits } from "./rows.js";
 import { cellOf, LANES } from "./drums.js";
 import { byPart } from "./roll.js";
 
@@ -170,10 +170,11 @@ export class Desk {
     if (this.locks.has(id)) return this.done(false, `${r.label} is locked.`);
     if (id === "kick" && this.locks.has(PART_ROW.drums)) return this.done(false, "Kick phrase: the drums part is locked (its roll holds the kick).");
     const comp = id === "comp" ? this.opts.comping.find((c) => c.id === value) : null;
-    if (comp?.keys && !comp.keys.includes(this.values.keys)) {   // a style these keys can't play (rows.js offers it not)
+    if (comp && !compFits(comp, this.values.keys)) {   // a style these keys can't play (rows.js offers it not)
       const name = (k) => this.opts.instruments.find((i) => i.id === k)?.name ?? `instrument ${k}`;
-      return this.done(false, `${comp.name} comping doesn't suit the ${name(this.values.keys)}: it plays on the ` +
-                              `${comp.keys.map(name).join(", ")} only.`);
+      return this.done(false, `${comp.name} comping doesn't suit the ${name(this.values.keys)}: ` +
+                              (comp.keys ? `it plays on the ${comp.keys.map(name).join(", ")} only.`
+                                         : "the guitars only strum."));
     }
     for (const p of Object.keys(PARTS)) this.rollOf(p);   // each part's history starts at the roll before this change
     const prevEv = this.partEv;

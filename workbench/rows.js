@@ -69,6 +69,10 @@ const ROLE = { CHORD: "keys", LEAD: "lead", BASS: "bass", PAD: "pad" };
 // Emilyguitar plays the keys only since the lead styles build.)
 const ONE_PART = new Set([25, 2]);
 
+// a comping style the keys can play: options.json's keys (only these) and notKeys (never these: the guitars only strum,
+// Sam 2026-11-04)
+export const compFits = (c, keys) => (!c.keys || c.keys.includes(keys)) && !c.notKeys?.includes(keys);
+
 // a progression's note without its source ("lofi-hip-hop.md 2, ii9-V13 vamp" -> "ii9-V13 vamp"); an imported one's file
 // ("imported from patterns/progressions/sam-vamp" -> "sam-vamp")
 const progName = (src) => src.startsWith("imported from ") ? src.replace(/^.*\//, "")
@@ -94,7 +98,7 @@ function allOptions(r, state, opts, lib) {
       return opts.instruments.filter((i) => i.roles.includes(ROLE[r.role]))
         .map((i) => ({ value: i.id, name: i.name, status: i.status, family: i.family }));
     case "comping":
-      return [ROLLED, ...opts.comping.filter((c) => !c.keys || c.keys.includes(v.keys))
+      return [ROLLED, ...opts.comping.filter((c) => compFits(c, v.keys))
         .map((c) => ({ value: c.id, name: c.name, status: c.status }))];
     case "leadStyles":   // 2 + leads.h's LS_*; the retired engines 0 and 1 behind "show retired"
       return [ROLLED, ...opts.leadStyles.map((s) => ({ value: s.id, name: s.name, status: s.status }))];
@@ -195,7 +199,7 @@ export function conflicts(r, value, state, opts, rnd = Math.random, lib) {
     }
   } else if (r.id === "keys") {
     const comp = opts.comping.find((c) => c.id === v.comp);
-    if (comp?.keys && !comp.keys.includes(value))
+    if (comp && !compFits(comp, value))
       force("comp", -1, `${comp.name} comping doesn't suit the new keys`);
     if (ONE_PART.has(value) && v.lead === value) {
       const next = { ...state, values: { ...v, keys: value } };

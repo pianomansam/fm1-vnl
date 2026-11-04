@@ -1009,15 +1009,15 @@ static void test_harmony(void)
         for (k2 = 0; k2 < 5; k2++)
             CHECK(w[k2] >= want[k2] * 100 - 200 && w[k2] <= want[k2] * 100 + 200,
                   "harmony: style %d drawn %d of 10000, want %d%% (+-2)", k2, w[k2], want[k2]);
-        {   /* songs that really play half notes, after the sustained-keys and kick-on-1-and-3 holds: 32% (+-4) now the
-               arpeggio is off (3025034; was 25%) */
+        {   /* songs that really play half notes, after the sustained-keys and kick-on-1-and-3 holds: 26% (+-4) now the
+               guitars only strum (2026-11-04: 766 of 3000; was 32% with the arpeggio off, 3025034, and 25% before) */
             int play = 0;
             for (k2 = 1; k2 <= 3000; k2++) {
                 roll_song(NULL, (uint32_t)k2, &q);
                 play += harmony_half_strikes(&q);
             }
-            CHECK(play >= 3000 * 28 / 100 && play <= 3000 * 36 / 100,
-                  "harmony: %d of 3000 songs play half notes, want 32%% (+-4)", play);
+            CHECK(play >= 3000 * 22 / 100 && play <= 3000 * 30 / 100,
+                  "harmony: %d of 3000 songs play half notes, want 26%% (+-4)", play);
         }
     }
 
@@ -1087,13 +1087,12 @@ static void test_comp_styles(void)
 {
     /* arpeggio 0 since 3025034 (Sam: it sounds very synthetic) */
     static const uint8_t OLD[5] = {44, 0, 0, 0, 36};
-    /* no arpeggio: guitars cf0dca0, keys 3025034 (Sam) */
-    static const uint8_t W[3][6] = {{44, 0, 0, 0, 36, 0}, {35, 25, 0, 0, 25, 0}, {20, 20, 0, 0, 15, 30}};
-    static const uint8_t SLOW[6] = {0, 20, 0, 0, 35, 30};
-    static const int inss[3] = {INS_DX_EP, INS_KNIGHT, INS_EMILY};
-    long cnt[3][6] = {{0}}, gcnt[6] = {0}, scnt[6] = {0}, ecnt[6] = {0};
+    /* no arpeggio: keys 3025034 (Sam); the guitars only strum (Sam, 2026-11-04) */
+    static const uint8_t W[2][6] = {{44, 0, 0, 0, 36, 0}, {35, 25, 0, 0, 25, 0}};
+    static const int inss[2] = {INS_DX_EP, INS_KNIGHT};
+    long cnt[2][6] = {{0}};
     song_roll_t r;
-    int k, i, seed, n = 500, bad_old = 0, bad_gtr = 0, gsum = 0, ssum = 0;
+    int k, i, seed, n = 500, bad_old = 0, bad_gtr = 0;
     CHECK(lib_ins_sampled_struck(INS_KNIGHT) && lib_ins_sampled_struck(INS_NYLON) &&
           lib_ins_sampled_struck(INS_EMILY) && !lib_ins_sampled_struck(INS_DX_EP) &&
           !lib_ins_sampled_struck(INS_PAD), "comp styles: lib_ins_sampled_struck");
@@ -1107,31 +1106,28 @@ static void test_comp_styles(void)
             r.v[RF_SET] = s->id;
             got = harmony_style(&r);
             CHECK(got != CS_OFFBEATS, "comp styles: offbeats never (set %d)", s->id);
-            if (s->chords == INS_NYLON) {
-                CHECK(got != CS_OFFBEATS && got <= CS_STRUM, "comp styles: nylon style in range");
+            if (s->chords == INS_NYLON || s->chords == INS_EMILY) {   /* under any lead */
+                bad_gtr += got != CS_STRUM;
                 continue;
             }
-            if (s->chords == INS_KNIGHT || s->chords == INS_EMILY) continue;
+            if (s->chords == INS_KNIGHT) continue;
             rng_seed(&g, (uint32_t)seed, 121);
             want = rng_weighted(&g, OLD, 5);
             bad_old += got != want;
             CHECK(got != CS_STABS && got != CS_STRUM, "comp styles: synth keys never stabs or strum (set %d)", s->id);
         }
-        for (i = 0; i < 3; i++) {
-            int st = harmony_style_ins(inss[i], 90, (uint32_t)seed);
+        for (i = 0; i < 2; i++) {
+            int st = harmony_style_ins(inss[i], (uint32_t)seed);
             cnt[i][st]++;
-            if (i == 0 && st != harmony_style_ins(INS_DX_EP, 70, (uint32_t)seed)) bad_old++;
             if (i == 0 && (st == CS_STABS || st == CS_STRUM)) bad_old++;
-            if (i && st == CS_OFFBEATS) bad_gtr++;
-            if (i == 1 && st == CS_STRUM) bad_gtr++;
+            if (i && (st == CS_OFFBEATS || st == CS_STRUM)) bad_gtr++;
         }
-        gcnt[harmony_style_ins(INS_NYLON, 90, (uint32_t)seed)]++;
-        scnt[harmony_style_ins(INS_NYLON, 83, (uint32_t)seed)]++;
-        ecnt[harmony_style_ins(INS_EMILY, 70, (uint32_t)seed)]++;
+        bad_gtr += harmony_style_ins(INS_NYLON, (uint32_t)seed) != CS_STRUM;
+        bad_gtr += harmony_style_ins(INS_EMILY, (uint32_t)seed) != CS_STRUM;
     }
     CHECK(bad_old == 0, "comp styles: %d synth-keys songs changed style", bad_old);
-    CHECK(bad_gtr == 0, "comp styles: %d offbeats or Knight strums", bad_gtr);
-    for (i = 0; i < 3; i++) {
+    CHECK(bad_gtr == 0, "comp styles: %d Knight offbeats or strums, or guitar songs not strumming", bad_gtr);
+    for (i = 0; i < 2; i++) {
         int tot = 0;
         for (k = 0; k < 6; k++) tot += W[i][k];
         for (k = 0; k < 6; k++) {
@@ -1139,24 +1135,9 @@ static void test_comp_styles(void)
             CHECK(pct >= want - 5 && pct <= want + 5, "comp styles: ins %d style %d is %ld%%, wanted %ld%%", i, k, pct, want);
         }
     }
-    for (k = 0; k < 6; k++) gsum += W[2][k], ssum += SLOW[k];   /* the weights no longer sum to 100 */
-    for (k = 0; k < 6; k++) {
-        long pct = gcnt[k] * 100 / n, want = W[2][k] * 100 / gsum;
-        CHECK(pct >= want - 5 && pct <= want + 5, "comp styles: nylon style %d is %ld%%, wanted %ld%%", k, pct, want);
-        pct = scnt[k] * 100 / n; want = SLOW[k] * 100 / ssum;
-        CHECK(pct >= want - 5 && pct <= want + 5, "comp styles: slow nylon style %d is %ld%%, wanted %ld%%", k, pct, want);
-        pct = ecnt[k] * 100 / n;
-        CHECK(pct >= want - 5 && pct <= want + 5, "comp styles: slow emily style %d is %ld%%, wanted %ld%%", k, pct, want);
-    }
-    CHECK(scnt[CS_HELD] == 0 && ecnt[CS_HELD] == 0, "comp styles: no held guitar below 84 BPM");
-    for (seed = 1; seed <= 200; seed++) {          /* through the roll: slow guitar songs never hold */
-        roll_song(0, (uint32_t)seed, &r);
-        for (k = 0; k < LIB_NSETS; k++) {
-            r.v[RF_SET] = LIB_SETS[k].id;
-            if (LIB_SETS[k].chords == INS_NYLON && r.v[RF_TEMPO] < 84)
-                CHECK(harmony_style(&r) != CS_HELD, "comp styles: held nylon at %d BPM", r.v[RF_TEMPO]);
-        }
-    }
+    for (k = 0; k < CS_N; k++)                     /* the guitars: strum only, even forced */
+        CHECK(harmony_comp_ok(INS_NYLON, k) == (k == CS_STRUM) && harmony_comp_ok(INS_EMILY, k) == (k == CS_STRUM),
+              "comp styles: a guitar may play style %d", k);
 }
 
 /* Task 6b: the acoustic piano strikes a chord together (a hand's 0-8 ms), the electric pianos keep the 10-60 ms roll */
@@ -8268,8 +8249,10 @@ static void test_strum_same(void)
        the run-in): were 7d9cc633 and ee990f98. Re-pinned again (Sam 2026-11-04: the keys and the pad sound a dominant
        without its 7th): were 7b3c2c25 and 7e1b7ec6 */
     /* re-pinned (tools/patterns/import.sh --repin, 2026-11-04: approved strum 6; approved strum 7; approved strum 8; approved strum 9; approved strum 10; candidate (was approved) strum 10): the strummed songs was f90b060a, with set changes was 4317c20e */
-    CHECK(a == 0xf757907au, "strum same: the strummed songs hash %08x, wanted f757907a", (unsigned)a);
-    CHECK(b == 0x58e011dfu, "strum same: with set changes %08x, wanted 58e011df", (unsigned)b);
+    /* re-pinned (Sam 2026-11-04: the guitars only strum, under any lead; the pad's notes clear the guitar's low
+       strings): were f757907a and 58e011df */
+    CHECK(a == 0xa390df26u, "strum same: the strummed songs hash %08x, wanted a390df26", (unsigned)a);
+    CHECK(b == 0x37a97ebbu, "strum same: with set changes %08x, wanted 37a97ebb", (unsigned)b);
     v = (uint32_t)sf_last_bad();
     CHECK(v == 0, "strum same: %u strummed bars left the keys' last voicing behind", (unsigned)v);
 }
@@ -8441,8 +8424,8 @@ static void test_wb_off(void)
     uint32_t a, b;
     lib_set_wb(NULL, 0); lib_pattern_wb(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0xf757907au, "wb off: the strummed songs hash %08x, wanted f757907a", (unsigned)a);
-    CHECK(b == 0x58e011dfu, "wb off: with set changes %08x, wanted 58e011df", (unsigned)b);
+    CHECK(a == 0xa390df26u, "wb off: the strummed songs hash %08x, wanted a390df26", (unsigned)a);
+    CHECK(b == 0x37a97ebbu, "wb off: with set changes %08x, wanted 37a97ebb", (unsigned)b);
 }
 /* The workbench's mute (vx_mute, default off). mt_song: a song's first 20 s as the app plays it, its samples hashed
    (mute: vx_mute(0) called first, as the workbench's wb_init does) */
@@ -8489,8 +8472,8 @@ static void test_vx_mute_off(void)
     CHECK(a == b, "vx mute off: vx_mute(0) changed the samples (%08x, wanted %08x)", (unsigned)b, (unsigned)a);
     vx_mute(0);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0xf757907au, "vx mute off: the strummed songs hash %08x, wanted f757907a", (unsigned)a);
-    CHECK(b == 0x58e011dfu, "vx mute off: with set changes %08x, wanted 58e011df", (unsigned)b);
+    CHECK(a == 0xa390df26u, "vx mute off: the strummed songs hash %08x, wanted a390df26", (unsigned)a);
+    CHECK(b == 0x37a97ebbu, "vx mute off: with set changes %08x, wanted 37a97ebb", (unsigned)b);
 }
 /* Review Focus 2 (Task 2): a bus muted mid-note is silent after the chunk it goes out in (and a quantum for the
    chain's own filters), its voice still playing (the duck follows it); unmuted, the notes struck while muted end at
@@ -8641,8 +8624,9 @@ static void test_comp_new(void)
         for (c = 0; c < 3; c++)
             CHECK(harmony_comp_ok(ins, NEW[c]) == perc, "comp new: instrument %d allowed %d for %d", ins,
                   harmony_comp_ok(ins, NEW[c]), NEW[c]);
-        CHECK(harmony_comp_ok(ins, CS_HELD) && harmony_comp_ok(ins, CS_HALF), "comp new: instrument %d refused held",
-              ins);
+        CHECK((harmony_comp_ok(ins, CS_HELD) && harmony_comp_ok(ins, CS_HALF)) ==
+                  (ins != INS_NYLON && ins != INS_EMILY),
+              "comp new: instrument %d refused held (only the guitars, which only strum)", ins);
     }
     for (seed = 1; seed <= 3000; seed++) {   /* never drawn: weight 0 */
         roll_song(NULL, (uint32_t)seed, &r);
@@ -8727,7 +8711,7 @@ static void test_comp_new(void)
     CHECK(bad_vel == 0, "comp new: %ld velocities out of range", bad_vel);
     CHECK(bad_voice == 0, "comp new: %ld notes off the chord's one voicing", bad_voice);
     CHECK(bad_busy == 0, "comp new: %ld steps a busy lead changed", bad_busy);
-    {   /* off the percussive keys (a guitar, the organ): forced, they hold */
+    {   /* off the percussive keys (a guitar, the organ): forced, they hold (a guitar strums) */
         static const int OFF[3] = {INS_NYLON, INS_ORGAN, INS_PAD};
         for (k = 0; k < 3; k++)
             for (c = 0; c < 3; c++) {
@@ -8742,8 +8726,8 @@ static void test_comp_new(void)
                 r.v[RF_SET] = LIB_SET_WB;
                 o.comp = (int8_t)NEW[c];
                 song_override(&o);
-                CHECK(harmony_style(&r) == CS_HELD, "comp new: instrument %d forced %d plays %d", OFF[k], NEW[c],
-                      harmony_style(&r));
+                CHECK(harmony_style(&r) == (OFF[k] == INS_NYLON ? CS_STRUM : CS_HELD),   /* (a guitar strums) */
+                      "comp new: instrument %d forced %d plays %d", OFF[k], NEW[c], harmony_style(&r));
             }
         lib_set_wb(NULL, 0);
         song_override(NULL);
@@ -9517,9 +9501,10 @@ static const ls_spike_t LS_SPIKE[] = {
     {LS_FILMSCORE, INS_FELT_PIANO, 278, 13372, 3997, 3795, 1139, 587, 1076, 3456, 1480, 1653, 0, 97, 0, 0},
     {LS_FILMSCORE, INS_KNIGHT, 238, 11634, 3442, 3268, 984, 503, 939, 2983, 1264, 1439, 0, 96, 0, 0},
     /* (lead-styles Task 5; the port's measured ratios where under the defaults: Bossa Nova felt contour 0.999, vibes
-       contour 0.999; span: flute 0.668, felt 0.770, vibes 0.818) */
+       contour 0.999; span: flute 0.668, felt 0.770, vibes 0.818; felt 0.77 -> 0.76 once the guitars only strum,
+       2026-11-04: span 8.9, the spike's 11.5) */
     {LS_BOSSA, INS_FLUTE, 300, 15354, 5562, 3414, 1232, 927, 1229, 4049, 2156, 2761, 0, 0, 0, 66},
-    {LS_BOSSA, INS_FELT_PIANO, 278, 14183, 5131, 3204, 1139, 846, 1136, 3744, 1972, 2553, 0, 99, 0, 77},
+    {LS_BOSSA, INS_FELT_PIANO, 278, 14183, 5131, 3204, 1139, 846, 1136, 3744, 1972, 2553, 0, 99, 0, 76},
     {LS_BOSSA, INS_VIBES, 300, 15351, 5561, 3436, 1232, 927, 1229, 4044, 2156, 2761, 0, 99, 0, 81},
     {LS_AMBIENT, INS_FLUTE, 300, 12748, 3636, 1912, 1232, 1221, 1201, 3190, 2193, 1887, 0, 0, 0, 0},
     {LS_AMBIENT, INS_FELT_PIANO, 278, 11741, 3340, 1791, 1139, 1125, 1113, 2910, 2034, 1760, 0, 0, 0, 0},
@@ -9566,10 +9551,11 @@ static const char *ls_ins(int ins)
    spike 505, 29), so it is held to the spike's own numbers, as the unbanded styles are.
    Re-baselined where the keys' voicings moved (2026-11-04: a dominant voiced without its 7th, Sam; the lead's floor
    follows the keys' top, and the loop's voicings are one cycle): Impressionism Lydian notes 1000 -> 999 (0.9995), m9
-   silent 1000 -> 1020 (53 bars for the spike's 52). */
+   silent 1000 -> 1020 (53 bars for the spike's 52). Again when the guitars only strum (2026-11-04: the strum's shapes
+   set the keys' top in every guitar song): Impressionism Lydian notes 999 -> 995 (0.9952). */
 typedef struct { uint8_t banded; uint16_t ly_notes, ly_silent, mw_silent, mw_notes; } ls_hard_t;
 static const ls_hard_t LS_HARD[LS_N] = {
-    {0, 999, 1000, 1020, 1000},  {0, 1000, 1000, 1000, 1000},
+    {0, 995, 1000, 1020, 1000},  {0, 1000, 1000, 1000, 1000},
     {0, 1000, 1000, 1000, 1000}, {1, 1000, 1000, 1000, 1000},     /* ('60s Jazz: see above) */
     {1, 998, 1000, 1000, 1000},  {1, 1000, 1000, 1000, 1000},     /* (Jazz-Hop Lydian notes 0.9985) */
     {1, 1000, 1000, 1000, 987},  {1, 999, 1004, 1024, 933},      /* (Bossa Nova m9 notes 0.9876; Ambient Lydian
@@ -10150,17 +10136,19 @@ static void test_ov_voicing_salt(void)
 {
     song_roll_t r;
     song_ov_t o = ov_none();
-    int i, diff = 0, same_rest = 0;
+    int i, diff = 0, same_rest = 0, n = 0;
     o.voicing_salt = 1;
     for (i = 1; i <= 40; i++) {
         roll_song(NULL, (uint32_t)i, &r);
         ov_run(&r, NULL, &OVA);
         ov_run(&r, &o, &OVB);
-        diff += OVA.keys != OVB.keys;
         same_rest += OVA.drums == OVB.drums && OVA.bass == OVB.bass;
+        if (harmony_style(&r) == CS_STRUM) continue;    /* (a strummed guitar keeps its shapes: no salt) */
+        diff += OVA.keys != OVB.keys;
+        n++;
     }
-    printf("ov voicing salt: the voicings changed in %d of 40 songs\n", diff);
-    CHECK(diff >= 30, "ov voicing salt: the voicings changed in %d of 40 songs, want 30", diff);
+    printf("ov voicing salt: the voicings changed in %d of %d songs (not strummed)\n", diff, n);
+    CHECK(n >= 30 && diff * 4 >= n * 3, "ov voicing salt: the voicings changed in %d of %d songs, want 75%%", diff, n);
     CHECK(same_rest == 40, "ov voicing salt: the drums or bass changed in %d of 40 songs", 40 - same_rest);
 }
 /* (the comping held in both: stabs and half notes make room in the lead's busy bars, so a new lead moves them) */
@@ -10226,7 +10214,7 @@ static void test_ov_part_salts(void)
                       NAME[j], moved[j]);
     }
     song_override(NULL);
-    CHECK(sf_songs(0) == 0xf757907au && sf_songs(1) == 0x58e011dfu, "ov part salts: the pinned hashes moved");
+    CHECK(sf_songs(0) == 0xa390df26u && sf_songs(1) == 0x37a97ebbu, "ov part salts: the pinned hashes moved");
 }
 /* Task 1b (Sam, 2026-10-29): "Remove the ear candy part completely"; "Make it possible for the pad part to not be in
    a song. And update the seeds to not always have it"; "add the ability for the pad part to drop out of certain song
@@ -10503,8 +10491,8 @@ static void test_ov_off(void)
     CHECK(o && o->comp == -1 && o->lead_style == -1 && o->pad_place == -1 && o->ride == -1 && !o->keys_oct &&
           !o->lead_oct && !o->voicing_salt && !o->phrase_salt, "ov off: the default override forces something");
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0xf757907au, "ov off: the strummed songs hash %08x, wanted f757907a", (unsigned)a);
-    CHECK(b == 0x58e011dfu, "ov off: with set changes %08x, wanted 58e011df", (unsigned)b);
+    CHECK(a == 0xa390df26u, "ov off: the strummed songs hash %08x, wanted a390df26", (unsigned)a);
+    CHECK(b == 0x37a97ebbu, "ov off: with set changes %08x, wanted 37a97ebb", (unsigned)b);
 }
 /* a steal of a damped string (the final review): six strings struck, the first two re-struck at once (their last
    notes damped on the 2 spare voices), then a plain chord note (no string: a stab after a set change) while they
@@ -10542,11 +10530,12 @@ static void st_damp_steal(void)
 }
 
 
-/* Strumming only under a sustained lead (Sam): no guitar set with a struck lead strums (500 seeds each), the guitar
-   sets with a sustained lead still do. And a strum song's lead has the register room a held song's has (Sam: strum
-   songs squeezed the lead high; seed 6 on set 2 played only A5 and B5): over the guitar sets' songs of each kind
-   (strum, against held or half notes), the strum songs' lead spans 7 semitones or more in nearly as many songs as the
-   held songs' (within 10 points), no more of them have under 3 pitches (within 5 points), and their median lowest
+/* The guitars only strum, under any lead (Sam, 2026-11-04; was only under a sustained lead): every guitar set's song
+   strums (the songs of 500 seeds that take the set). And a strum song's lead has the register room a held song's has
+   (Sam: strum songs squeezed the lead high; seed 6 on set 2 played only A5 and B5): the guitar sets' strum songs
+   against the held or half-note
+   songs of the sets that share their leads, the strum songs' lead spans 7 semitones or more in nearly as many songs as
+   the held songs' (within 10 points), no more of them have under 3 pitches (within 5 points), and their median lowest
    note is at most 2 over the held songs'. (On the phrase planner, 90% and none; the lead styles, Task 6, set the span
    by style: Ambient restates one level, Bossa Nova repeats a note.) */
 static int sl_cmp_i(const void *a, const void *b) { return *(const int *)a - *(const int *)b; }
@@ -10554,12 +10543,15 @@ static void test_strum_lead(void)
 {
     static song_t s;
     static int lows[2][400];
-    int k, n[2] = {0, 0}, wide = 0, few = 0, under = 0, struck = 0, wide_h = 0, few_h = 0;
+    int k, j, n[2] = {0, 0}, wide = 0, few = 0, under = 0, struck = 0, wide_h = 0, few_h = 0;
     for (k = 0; k < LIB_NSETS; k++) {
         const lib_set_t *set = &LIB_SETS[k];
         uint32_t seed;
-        int strums = 0;
-        if (set->chords != INS_NYLON && set->chords != INS_EMILY) continue;
+        int strums = 0, songs = 0, gtr = set->chords == INS_NYLON || set->chords == INS_EMILY, shared = 0;
+        for (j = 0; j < LIB_NSETS && !gtr && !shared; j++)   /* a held set whose lead a guitar set has */
+            shared = (LIB_SETS[j].chords == INS_NYLON || LIB_SETS[j].chords == INS_EMILY) &&
+                     LIB_SETS[j].lead == set->lead;
+        if (!gtr && !shared) continue;
         for (seed = 1; seed <= 500; seed++) {
             song_roll_t r;
             int st, kind, lo = 127, hi = 0, pitches = 0;
@@ -10569,12 +10561,10 @@ static void test_strum_lead(void)
             if (roll_set(&r, RF_SET, set->id) != set->id) continue;
             st = harmony_style(&r);
             strums += st == CS_STRUM;
-            if (!lib_ins_sustained(set->lead)) {         /* (held songs' register: the sustained leads' only) */
-                struck += st == CS_STRUM;
-                if (st != CS_STRUM) continue;
-            }
+            songs++;
+            struck += gtr && st == CS_STRUM && !lib_ins_sustained(set->lead);
             kind = st == CS_STRUM;
-            if ((!kind && st != CS_HELD && st != CS_HALF) || n[kind] >= 400 || seed > 300) continue;
+            if (kind != gtr || (!kind && st != CS_HELD && st != CS_HALF) || n[kind] >= 400 || seed > 300) continue;
             song_start(&s, &r);
             while (s.state == SS_PLAYING) {
                 int m = song_tick(&s, ev, 64), i;
@@ -10598,12 +10588,13 @@ static void test_strum_lead(void)
                 few_h += pitches < 3;
             }
         }
-        printf("strum lead: set %d (%s, lead %s): %d strum songs in 500\n", set->id, set->name,
-               lib_ins_sustained(set->lead) ? "sustained" : "struck", strums);
-        CHECK(lib_ins_sustained(set->lead) ? strums > 50 : strums == 0, "strum lead: set %d strums in %d of 500",
-              set->id, strums);
+        if (!gtr) continue;
+        printf("strum lead: set %d (%s, lead %s): %d strum songs of %d\n", set->id, set->name,
+               lib_ins_sustained(set->lead) ? "sustained" : "struck", strums, songs);
+        CHECK(songs > 100 && strums == songs, "strum lead: set %d strums in %d of %d", set->id, strums, songs);
     }
-    CHECK(struck == 0, "strum lead: %d strum songs under a struck lead", struck);
+    printf("strum lead: %d strum songs under a struck lead\n", struck);
+    CHECK(struck > 50, "strum lead: %d strum songs under a struck lead", struck);
     qsort(lows[0], (size_t)n[0], sizeof lows[0][0], sl_cmp_i);
     qsort(lows[1], (size_t)n[1], sizeof lows[1][0], sl_cmp_i);
     printf("strum lead: %d strum songs (span >= 7 in %d, under 3 pitches %d), lowest note median %d; %d held or half "
@@ -10624,7 +10615,7 @@ static void test_strum_lead(void)
 
 static void test_strum(void)
 {
-    static const int SETS[2] = {9, 27};   /* the guitar sets with a sustained lead: the only ones that strum */
+    static const int SETS[2] = {9, 27};   /* two guitar sets (every guitar set strums) */
     /* (over the approved patterns, patterns_gen.h's: today's four, or more once Sam approves one) */
     long pcnt[STRUM_NPAT] = {0}, ballads = 0, slow_ballads = 0, bad_slow = 0, st_steals = 0, napp = 0;
     int got[STRUM_NPAT + 1] = {0}, seed, k, dbl_songs = 0, st_peak = 0;
@@ -11562,8 +11553,8 @@ static void test_drums_hook(void)
     CHECK(quiet_bad == 0, "drums hook: a silent source still sounds at %d steps", quiet_bad);
     drums_hook(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0xf757907au, "drums hook off: the strummed songs hash %08x, wanted f757907a", (unsigned)a);
-    CHECK(b == 0x58e011dfu, "drums hook off: with set changes %08x, wanted 58e011df", (unsigned)b);
+    CHECK(a == 0xa390df26u, "drums hook off: the strummed songs hash %08x, wanted a390df26", (unsigned)a);
+    CHECK(b == 0x37a97ebbu, "drums hook off: with set changes %08x, wanted 37a97ebb", (unsigned)b);
     dh_on = 0;
     vx_init();
     {
@@ -11817,7 +11808,8 @@ static uint32_t ll_hash(uint32_t h, const song_roll_t *r, int style, int loop)
 /* Off is as before: seeds 1-300, the rolled style and each style forced, lead_loop 0: every event as before the loop
    existed (the hash pinned on c17423f, the switch's commit, before loop.c). lead_loop -1 (the default, on since Sam
    2026-11-04) is the loop's: its hash pinned too. Re-pinned (2026-11-04: '60s Jazz keeps its lead-ins, so its songs
-   moved): were a6c69555 (-1) and 51b9dbb5 (0) */
+   moved): were a6c69555 (-1) and 51b9dbb5 (0). Re-pinned (Sam 2026-11-04: the guitars only strum): were 91122a0e
+   (-1) and 6b509eb8 (0) */
 static void test_lead_loop_off_identical(void)
 {
     uint32_t seed, h[2] = {2166136261u, 2166136261u};
@@ -11829,8 +11821,8 @@ static void test_lead_loop_off_identical(void)
             for (k = 0; k < 2; k++) h[k] = ll_hash(h[k], &r, st, k - 1);
     }
     printf("lead loop off: events %08x (lead_loop -1), %08x (0)\n", (unsigned)h[0], (unsigned)h[1]);
-    CHECK(h[0] == 0x91122a0eu, "lead loop default: lead_loop -1 hashes %08x, wanted 91122a0e", (unsigned)h[0]);
-    CHECK(h[1] == 0x6b509eb8u, "lead loop off: lead_loop 0 hashes %08x, wanted 6b509eb8", (unsigned)h[1]);
+    CHECK(h[0] == 0xbffd5666u, "lead loop default: lead_loop -1 hashes %08x, wanted bffd5666", (unsigned)h[0]);
+    CHECK(h[1] == 0x269b1087u, "lead loop off: lead_loop 0 hashes %08x, wanted 269b1087", (unsigned)h[1]);
 }
 
 typedef struct {

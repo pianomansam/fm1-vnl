@@ -351,11 +351,13 @@ static void pads_group(song_t *s, const plan_block_t *b, int B)
             s->pads.fade[b->start + b->bars - 1 - B] = PF_OUT;
     }
     for (k = 0; keys_on && k < 4 && B + k < s->roll.v[RF_BARS]; k++) {
-        int bar = B + k, pass = bar / loop_bars(&s->roll) + 1, pcs[5], np, spcs[5], nsp, keys[4], top = 0;
+        int bar = B + k, pass = bar / loop_bars(&s->roll) + 1, pcs[5], np, spcs[5], nsp, keys[4], all[6], top = 0;
         np = harmony_chord_at(&s->roll, bar, pass, 0, pcs);
         memcpy(spcs, pcs, sizeof pcs);                   /* the chord part sounds a dominant as the keys do: no 7th */
         nsp = harmony_sound_pcs(spcs, np);
         harmony_voicing_at(&s->roll, bar, pass, &vs, keys);
+        harmony_keys_notes_at(&s->roll, bar, pass, &vs, all);   /* (what the pad must not rub: a strum's low strings
+                                                                   too) */
         if (bar % bpc == 0) {
             int cs = harmony_style(&s->roll);
             for (i = 0; i < 4; i++)                      /* the keys strike it */
@@ -364,7 +366,7 @@ static void pads_group(song_t *s, const plan_block_t *b, int B)
                                                                                   its guitar shape's top doubled */
                 pads_double_keys(keys, s->pads.chord);
             else if (chord_on)
-                pads_chord(&s->roll, keys, spcs, nsp, (unsigned)pcs[0], lead, k ? 0 : nlead, s->pads.chord,
+                pads_chord(&s->roll, all, spcs, nsp, (unsigned)pcs[0], lead, k ? 0 : nlead, s->pads.chord,
                            s->pads.chord);
         }
         for (i = 0; i < 3; i++) {
@@ -378,7 +380,7 @@ static void pads_group(song_t *s, const plan_block_t *b, int B)
                 for (i = 0; i < nb && bass[i] != x; i++) {}
                 if (x && i == nb) bass[nb++] = x;
             }
-            n = pads_solo(&s->roll, s->roll.v[RF_KEY], s->roll.v[RF_MODE], pcs, np, keys, bass, nb, top, lo,
+            n = pads_solo(&s->roll, s->roll.v[RF_KEY], s->roll.v[RF_MODE], pcs, np, all, bass, nb, top, lo,
                           s->pads.solo);
             if (n) s->pads.solo = n;
             s->pads.note[k][3] = n;

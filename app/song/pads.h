@@ -43,13 +43,14 @@ int pads_rub(int a, int b);
 /* The chord part for a chord (pcs, root first): its notes by lane into out (lane k+1; 0 silent), voice-led from prev
    (the same, all 0 for none). 2 notes (budget cut (c)): the guide tones first (3rd and 7th), then the 5th or the 9th;
    MIDI 55-72; common tones held,
-   the rest moving to the nearest legal tone, the top voice smoothest. No note rubs a keys note (keys: 4, 0 none) or a
+   the rest moving to the nearest legal tone, the top voice smoothest. No note rubs a keys note (keys: 6, 0 none:
+   harmony_keys_notes_at's, a strummed guitar's whole shape) or a
    lead note, or sits a minor 9th over the bass (bass_pc), nor two of its own. out may be prev. Returns the count: 2
    (0 only if no pair is legal). A pitch common to prev and out keeps its lane (it rings on).
    song.c passes the lead's notes of a 4-bar group's first bar only (the later bars' are not planned yet); there the
    chord part's avoidance of the lead rests on its notes being chord tones while the lead keeps to the chord-scale
    (the clash test enforces it). */
-int pads_chord(const song_roll_t *r, const int keys[4], const int *pcs, int np, unsigned bass_pc,
+int pads_chord(const song_roll_t *r, const int keys[6], const int *pcs, int np, unsigned bass_pc,
                const int *lead_notes, int nlead, const int prev[3], int out[3]);
 
 /* The A/B switch's chord part (song_set_pads_double): the keys' voicing doubled, its notes in the chord part's range
@@ -58,10 +59,11 @@ int pads_chord(const song_roll_t *r, const int keys[4], const int *pcs, int np, 
 int pads_double_keys(const int keys[4], int out[3]);
 
 /* The bar's solo note (0: none legal): the scale's 1st, 2nd, 3rd or 7th degree, MIDI lo to lo + 12 (pads_solo_lo),
-   at least 3 semitones over chord_top (0: no chord part in the bar), no avoid note over pcs, no rub with the keys or the bar's bass notes (nbass of them;
+   at least 3 semitones over chord_top (0: no chord part in the bar), no avoid note over pcs, no rub with the keys
+   (6, as pads_chord's) or the bar's bass notes (nbass of them;
    over the bass a major 7th rubs too, unless the bass is the root), never a dominant's minor 7th. prev (0: none) is kept if legal; otherwise the
    smallest move from it (from the tonic for none), ties to the tonic, the 3rd, the 2nd, the 7th. */
-int pads_solo(const song_roll_t *r, int key, int mode, const int *pcs, int np, const int keys[4], const int *bass,
+int pads_solo(const song_roll_t *r, int key, int mode, const int *pcs, int np, const int keys[6], const int *bass,
               int nbass, int chord_top, int lo, int prev);
 
 /* The solo note's lowest MIDI note for its voice: 84 for the strings (an octave up), 72 for the others. */

@@ -16,8 +16,8 @@
    roll until Sam sets it) */
 enum { CS_HELD, CS_STABS, CS_OFFBEATS, CS_ARP, CS_HALF, CS_STRUM, CS_HELD2, CS_LIGHT8, CS_HELD24, CS_N };
 /* 0 where the chords instrument ins can't play comping style cs (held on 2, held on 2 and 4 and light eighths: the
-   percussive keys only, Rhodes, Wurli, felt piano, DX electric piano and the Knight); a forced style it can't play
-   holds instead */
+   percussive keys only, Rhodes, Wurli, felt piano, DX electric piano and the Knight; the guitars only strum); a
+   forced style it can't play holds instead (the guitars strum) */
 int harmony_comp_ok(int ins, int cs);
 
 /* Pitch classes (root first, up to 5) of the chord at `bar` (from 0). pass is 1-based: 1 = the first time through
@@ -32,11 +32,10 @@ int harmony_sound_pcs(int *pcs, int n);
 /* The comping's per-strike hash (velocities, roll gaps): strum.c's too. */
 uint32_t harmony_mix(uint32_t a, uint32_t b, uint32_t c, uint32_t d);
 
-int harmony_style(const song_roll_t *r);   /* CS_*, per song (seed stream 121), weighted by the set's chords instrument */
-int harmony_style_ins(int ins, int tempo, uint32_t seed);   /* the same for a chords instrument and a tempo (BPM) */
-/* ... and its lead: the guitars strum only under a sustained lead (lib_ins_sustained; Sam), the strum's weight 0 under
-   a struck one, the other weights unchanged (stream 121). harmony_style is this for the song's set. */
-int harmony_style_lead(int ins, int lead, int tempo, uint32_t seed);
+/* CS_*, per song (seed stream 121), weighted by the set's chords instrument; the guitars (the nylon, the Emilyguitar)
+   always strum, under any lead (Sam, 2026-11-04) */
+int harmony_style(const song_roll_t *r);
+int harmony_style_ins(int ins, uint32_t seed);   /* the same for a chords instrument */
 unsigned harmony_stab_steps(const song_roll_t *r);   /* the steps stab comping strikes: 1 and a step the kick leaves free */
 
 int harmony_half_strikes(const song_roll_t *r);   /* 1 when the song really plays half notes (not held by sustained keys or the kick) */
@@ -77,6 +76,9 @@ int harmony_keys_oct(const song_roll_t *r);
    (its loop cache may fill). Lets the lead plan a bar over the keys before they strike. A strummed song: the top 4
    notes of its guitar shape, ascending (0 first where the shape has fewer; its shape cache may fill). */
 void harmony_voicing_at(const song_roll_t *r, int bar, int pass, harmony_voicing_t *vs, int out4[4]);
+/* Every note the keys sound in the bar, as harmony_voicing_at finds them (0 where fewer): a strummed song's whole
+   guitar shape, its low strings too (what the pad's notes must not rub); else harmony_voicing_at's 4, then 0, 0. */
+void harmony_keys_notes_at(const song_roll_t *r, int bar, int pass, harmony_voicing_t *vs, int out6[6]);
 /* The keys sit high: the mean note of the voicings the first 16 bars sound (harmony_voicing_at, the first pass) is
    HV_HIGH (F4) or over. The means fall in two clusters, about 58-63 (the keys under the lead) and 69-75 (sustained
    keys raised an octave, with or over the lead: harmony_pad_place), with the gap at 64-65 (set 18, 600 seeds: 1 song

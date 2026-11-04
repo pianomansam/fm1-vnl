@@ -552,9 +552,8 @@ static float keys_gain(const song_roll_t *r)
     const lib_set_t *s = lib_set_by_id((uint8_t)r->v[RF_SET]);
     const lib_prog_t *pg = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
     int style = harmony_style(r), ins = s ? s->chords : INS_NONE, two = pg && pg->bars_per_chord >= 2;
-    int gtr = ins == INS_NYLON || ins == INS_EMILY;
-    /* held and half notes with no arpeggio in the draw (3025034, cf0dca0) carry more energy: the Rhodes, Wurli and
-       guitars 0.75 dB down, the DX as it was, the Knight 0.75 dB up (its pad sat too close) */
+    /* held and half notes with no arpeggio in the draw (3025034, cf0dca0) carry more energy: the Rhodes and Wurli
+       0.75 dB down, the DX as it was, the Knight 0.75 dB up (its pad sat too close); the guitars only strum */
     float db = 0.0f, cut = ins == INS_KNIGHT ? 0.75f : ins == INS_DX_EP ? 0.0f : -0.75f;
     if (style == CS_HALF && !harmony_half_strikes(r)) /* half notes that hold (half_held) sit as held */
         style = CS_HELD;
@@ -563,17 +562,18 @@ static float keys_gain(const song_roll_t *r)
     else if (style == CS_HELD)
         db = (two ? 6.75f : 6.0f) + cut;   /* +2.25: the softer strikes (Sam) */
     else if (style == CS_HALF)
-        db = (gtr ? 3.5f : 3.0f) + cut;   /* a guitar's half notes a little up (struck softly, they sank under a struck lead) */
+        db = 3.0f + cut;
     else if (style == CS_STABS)
-        db = (two ? 2.75f : 2.0f) - (ins == INS_KNIGHT ? 3.0f : ins == INS_EMILY ? 1.25f : gtr ? 1.0f : 0.0f);
+        db = (two ? 2.75f : 2.0f) - (ins == INS_KNIGHT ? 3.0f : 0.0f);
                                                  /* struck harder (vel 60-85), so 4 dB under held; the Knight's hammer
-                                                    3 dB more, a guitar's pluck 1 (their sets' lead over keys); the
-                                                    Emilyguitar's 1.25 (its stabs voiced without a dominant's 7th,
-                                                    2026-11-04: the vibes lead had sunk under them) */
+                                                    3 dB more (its sets' lead over keys) */
     else if (style == CS_ARP)
         db = -0.25f;
-    else if (style == CS_STRUM)   /* struck harder, many strokes a bar: under the arpeggio; the ballad's three less */
-        db = strum_pattern(r, NULL) == SP_BALLAD ? -3.0f : -4.5f;
+    else if (style == CS_STRUM)   /* struck harder, many strokes a bar: under the arpeggio; the ballad's three less.
+                                     +2 dB (was -3 and -4.5) once the guitars only strum, under struck leads too
+                                     (2026-11-04): the guitar sets' lead over keys and pad level, the least in
+                                     0.25 dB steps that holds them */
+        db = strum_pattern(r, NULL) == SP_BALLAD ? -1.0f : -2.5f;
     else if (style == CS_HELD2 || style == CS_HELD24)   /* as held, a bar's chord at most (a first guess: Sam sets
                                                            the level by ear) */
         db = 6.0f + cut;

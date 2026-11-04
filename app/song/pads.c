@@ -65,10 +65,10 @@ static int mod12(int v) { return (v % 12 + 12) % 12; }
 static int absi(int v) { return v < 0 ? -v : v; }
 
 /* a note the others leave room for: no rub with the keys, the lead, or a minor 9th over the bass */
-static int clear_of(int n, const int keys[4], const int *lead, int nlead, int bass_pc)
+static int clear_of(int n, const int keys[6], const int *lead, int nlead, int bass_pc)
 {
     int i;
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
         if (keys[i] && pads_rub(n, keys[i])) return 0;
     for (i = 0; i < nlead; i++)
         if (lead[i] && pads_rub(n, lead[i])) return 0;
@@ -149,7 +149,7 @@ static void consider(pick_t *b, const int *v, const int *pen, int m, int root, i
     }
 }
 
-int pads_chord(const song_roll_t *r, const int keys[4], const int *pcs, int np, unsigned bass_pc,
+int pads_chord(const song_roll_t *r, const int keys[6], const int *pcs, int np, unsigned bass_pc,
                const int *lead_notes, int nlead, const int prev[3], int out[3])
 {
     int cand[24], pen[24], nc = 0, have3 = 0, have7 = 0, p[3], i, j, k, m;
@@ -204,7 +204,7 @@ int pads_double_keys(const int keys[4], int out[3])
     return n;
 }
 
-int pads_solo(const song_roll_t *r, int key, int mode, const int *pcs, int np, const int keys[4], const int *bass,
+int pads_solo(const song_roll_t *r, int key, int mode, const int *pcs, int np, const int keys[6], const int *bass,
               int nbass, int chord_top, int lo, int prev)
 {
     static const int ORDER[4] = {0, 2, 1, 6};           /* the tonic, the 3rd, the 2nd, the 7th (scale indices) */
@@ -220,9 +220,9 @@ int pads_solo(const song_roll_t *r, int key, int mode, const int *pcs, int np, c
             int k, c;
             if ((chord_top && i < chord_top + 3) || th_is_avoid(key, mode, pcs, np, i)) continue;
             if (mod12(i) == b7) continue;               /* never a dominant's 7th (Sam: it sounds cheesy) */
-            for (k = 0; k < 4; k++)
+            for (k = 0; k < 6; k++)
                 if (keys[k] && pads_rub(i, keys[k])) break;
-            if (k < 4) continue;
+            if (k < 6) continue;
             for (k = 0; k < nbass; k++) {               /* the bass rule: a major 7th over the root is a maj7 chord */
                 int d = mod12(i - bass[k]);
                 if (d == 1 || (d == 11 && (np <= 0 || mod12(bass[k]) != mod12(pcs[0])))) break;

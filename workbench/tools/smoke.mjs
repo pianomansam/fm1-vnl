@@ -619,6 +619,15 @@ console.log("rows: retired options, dice, families");
   check(!optionsFor(row("comp"), { values: { keys: ins("Rhodes") } }, OPTS).some((o) => o.name === "Strum") &&
         optionsFor(row("comp"), { values: { keys: ins("Nylon guitar") } }, OPTS).some((o) => o.name === "Strum"),
         "strum is offered on the guitars only");
+  const compNames = (g) => optionsFor(row("comp"), { values: { keys: ins(g) } }, OPTS).filter((o) => !o.rolled)
+    .map((o) => o.name);
+  check(["Nylon guitar", "Emilyguitar"].every((g) => JSON.stringify(compNames(g)) === '["Strum"]'),
+        "the guitars are offered Strum only (Sam, 2026-11-04: the guitars only strum)");
+  const st4 = acoustic();
+  st4.values.keys = ins("Nylon guitar");
+  st4.values.comp = 5;
+  check(conflicts(row("keys"), ins("Rhodes"), st4, OPTS).forced.some((f) => f.row === "comp" && f.to === -1),
+        "keys -> Rhodes forces strum comping back to as rolled");
   const kl = conflicts(row("lead"), ins("Knight piano"), acoustic(), OPTS, lcg(5));
   check(kl.forced.some((f) => f.row === "keys" && f.to !== ins("Knight piano")), "the Knight on the lead moves the keys off it");
   const st3 = acoustic();
@@ -1836,9 +1845,9 @@ console.log("parts: re-rolls, history, locks, reactions (Task 5)");
 
   // each part's 🎲: its own events change, it lands at the next bar line, and the page lists whatever else moved
   {
-    // seed 3: a pad, keys the voicing salt moves (seed 21's don't) and a bass line its salt moves (seed 2's only
-    // takes new velocities)
-    const { ex, desk } = await deskOn(3);
+    // seed 7: a pad, keys the voicing salt moves (seed 21's don't; seed 3's guitar strums since 2026-11-04, its shapes
+    // fixed) and a bass line its salt moves (seed 2's only takes new velocities)
+    const { ex, desk } = await deskOn(7);
     ex.wb_play(1);
     until(ex, () => ex.wb_bar() === 2, 60 * SR);
     const bpm = ex.wb_roll_get(RF.TEMPO), out = [];
@@ -1975,6 +1984,9 @@ console.log("parts: re-rolls, history, locks, reactions (Task 5)");
     const h = await desk.set("voicings", 999);
     check(h.ok && desk.parts.keys.history.length === 1, "a salt set by hand that changes no note doesn't go on the history");
     await desk.set("keys", ins("Nylon guitar"));
+    const held = await desk.set("comp", 0);
+    check(!held.ok && /the guitars only strum/.test(held.message),
+          `held comping on the nylon: refused ("${held.message}")`);
     await desk.set("comp", 5);
     const g = await desk.reroll("keys");
     check(ex.wb_comp_applied() === 5 && !g.ok && /strummed guitar keeps its shapes/.test(g.message),
@@ -2372,6 +2384,9 @@ console.log("comping: held on 2, held on 2 and 4, light eighths (the workbench's
           `${NEW[[6, 8, 7].indexOf(cs)]} on the ${keys}: refused, nothing staged ("${r.message}")`);
   }
   ex.wb_ov_set(OV.COMP, 8);   // the engine on its own (a snapshot, a host render): held where the keys can't play it
+  check(ex.wb_comp_applied() === 5, "forced on the nylon by the override alone, the engine strums instead");
+  await d.set("keys", ins("Organ"));
+  ex.wb_ov_set(OV.COMP, 8);
   check(ex.wb_comp_applied() === 0, "forced on the organ by the override alone, the engine holds instead");
   ex.wb_ov_set(OV.COMP, -1);
 }
