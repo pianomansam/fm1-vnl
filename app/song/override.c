@@ -24,8 +24,7 @@ uint32_t song_ov_phrase_seed(uint32_t seed) { return song_ov_salted(seed, cur.ph
 void song_ov_range(int ins, int *lo, int *hi)
 {
     switch (ins) {
-    case INS_RHODES: case INS_DX_EP: *lo = 28; *hi = 103; break;          /* E1-G7 */
-    case INS_WURLI: *lo = 33; *hi = 96; break;                            /* A1-C7 */
+    case INS_RHODES: *lo = 28; *hi = 103; break;                          /* E1-G7 */
     case INS_FELT_PIANO: case INS_KNIGHT: *lo = 21; *hi = 108; break;     /* A0-C8 */
     case INS_NYLON: *lo = 40; *hi = 83; break;                            /* E2-B5 */
     case INS_EMILY: *lo = 40; *hi = 86; break;                            /* E2-D6 */

@@ -80,8 +80,6 @@ static const float CP_THR_KIT[KIT_N] = {0.095f, 0.090f, 0.084f, 0.162f, 0.110f, 
 #define KR_STOP (T60 / (0.04f * SR)) /* vx_release_all's release: 40 ms to -60 dB */
 #define TINE_R 14.0f   /* the EP tine: a high partial, fading with the index */
 #define STRIKE_T60 0.25f /* the EP strike's fade */
-#define BARK_T60 0.04f   /* the Wurli bark's fade */
-#define BARK_LP 0.3f     /* the bark's one-pole on the noise: about 2.5 kHz */
 #define IDX_K 0.02f      /* the electric bass's index slew per sample (about 1 ms): a legato restrike doesn't step */
 #define WIND_CR 32       /* the winds' control rate: the vibrato updates every 32 samples */
 #define WIND_LP_LO 0.3f  /* a wind's low-pass at envelope 0, as a fraction of its cutoff at full */
@@ -156,9 +154,8 @@ typedef struct {
     union {
         struct { /* M_EP: phases, increments, index and its decay, tine */
             float pc, pm, ic, im, idx, idec, tine;
-            float hit, hk, bark, bk, by; /* EP: strike and its decay, bark level, decay, noise state */
+            float hit, hk;               /* EP: strike and its decay */
             float la, ly;                /* EP: the tone one-pole's coefficient (0: none) and state */
-            float bc;                    /* EP: the bark's noise one-pole's coefficient (at the voice's rate) */
         } ep;
         struct { /* M_PAD: two saws, then one SVF (a low-pass); at half the rate, a matched biquad in its place */
             float p1, p2, i1, i2, l2;
@@ -552,9 +549,9 @@ static float keys_gain(const song_roll_t *r)
     const lib_set_t *s = lib_set_by_id((uint8_t)r->v[RF_SET]);
     const lib_prog_t *pg = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
     int style = harmony_style(r), ins = s ? s->chords : INS_NONE, two = pg && pg->bars_per_chord >= 2;
-    /* held and half notes with no arpeggio in the draw (3025034, cf0dca0) carry more energy: the Rhodes and Wurli
-       0.75 dB down, the DX as it was, the Knight 0.75 dB up (its pad sat too close); the guitars only strum */
-    float db = 0.0f, cut = ins == INS_KNIGHT ? 0.75f : ins == INS_DX_EP ? 0.0f : -0.75f;
+    /* held and half notes with no arpeggio in the draw (3025034, cf0dca0) carry more energy: the Rhodes 0.75 dB
+       down, the Knight 0.75 dB up (its pad sat too close); the guitars only strum */
+    float db = 0.0f, cut = ins == INS_KNIGHT ? 0.75f : -0.75f;
     if (style == CS_HALF && !harmony_half_strikes(r)) /* half notes that hold (half_held) sit as held */
         style = CS_HELD;
     if (lib_ins_sustained(ins))
@@ -729,7 +726,8 @@ static void fm_start(voice_t *v, const song_ev_t *e)
 static float k_lp1(float hz) { return 1.0f - fm_expf(-FM_TWO_PI * fm_clampf(hz, 20.0f, 18000.0f) * INV_SR); }
 
 /* M_EP: the 2-op FM (velocity into the index, the index decaying: the tine's bell into a round body) plus
-   a strike that fades fast, a noise bark and a tone one-pole, as patch.c lays out p[]. The modulator restarts at
+   a strike that fades fast and a tone one-pole, as patch.c lays out p[] (the Wurli's noise bark went with it,
+   2026-11-04). The modulator restarts at
    the carrier's phase, so every note of a patch has the same attack. */
 static void ep_start(voice_t *v, const song_ev_t *e)
 {
@@ -739,13 +737,7 @@ static void ep_start(voice_t *v, const song_ev_t *e)
     v->m.ep.pm = v->m.ep.pc;
     v->m.ep.hit = p->p[5] * v01;
     v->m.ep.hk = 1.0f - k_t60(STRIKE_T60 / dv);
-    v->m.ep.bk = 1.0f - k_t60(BARK_T60 / dv);
-    v->m.ep.bc = v->hr ? 1.0f - (1.0f - BARK_LP) * (1.0f - BARK_LP) : BARK_LP; /* the same one-pole, two samples a step */
-    /* white noise drawn at half the rate has twice the power in band: the bark scaled so its one-pole's output power
-       (a / (2 - a) of the noise's) matches the full rate's */
-    v->m.ep.bark = p->p[6] * v01 *
-                   (v->hr ? fm_sqrtf((BARK_LP / (2.0f - BARK_LP)) * (2.0f - v->m.ep.bc) / v->m.ep.bc) : 1.0f);
-    v->m.ep.by = v->m.ep.ly = 0.0f; /* the union may hold another model's state */
+    v->m.ep.ly = 0.0f; /* the union may hold another model's state */
     v->m.ep.la = p->p[7] > 0.0f ? k_lp1(p->p[7] * (0.6f + 0.4f * v01) * dv) : 0.0f;
 }
 
@@ -1318,16 +1310,11 @@ static float fm_sample(voice_t *v)
     return s;
 }
 
-/* M_EP's raw sample: the FM and tine, the strike, the bark, the tone. */
+/* M_EP's raw sample: the FM and tine, the strike, the tone. */
 static float ep_sample(voice_t *v)
 {
     float s = fm_sample(v) * (1.0f + v->m.ep.hit);
     v->m.ep.hit = fm_flush(v->m.ep.hit * v->m.ep.hk);
-    if (v->m.ep.bark > 1e-4f) { /* band-limited noise, gated by the tone: a reed's bark */
-        v->m.ep.by += v->m.ep.bc * (noise() - v->m.ep.by);
-        s += v->m.ep.bark * v->m.ep.by * (s < 0.0f ? -s : s);
-        v->m.ep.bark *= v->m.ep.bk;
-    }
     if (v->m.ep.la > 0.0f) {
         v->m.ep.ly = fm_flush(v->m.ep.ly + v->m.ep.la * (s - v->m.ep.ly));
         s = v->m.ep.ly;

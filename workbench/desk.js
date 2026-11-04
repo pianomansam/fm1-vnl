@@ -515,12 +515,18 @@ export class Desk {
     // a removed bass (the upright, 2026-10-31) likewise, as the electric bass (library.c's lib_bass_approved)
     const wasBass = this.opts.instruments.find((i) => i.id === snap.rows.bass);
     const bassSwapped = wasBass?.status === "retired" && this.values.bass !== snap.rows.bass;
+    // removed keys (the Wurli, the DX electric piano: 2026-11-04) likewise, as the Rhodes (library.c's
+    // lib_keys_approved)
+    const wasKeys = this.opts.instruments.find((i) => i.id === snap.rows.keys);
+    const keysSwapped = wasKeys?.status === "retired" && this.values.keys !== snap.rows.keys;
     const name = (id) => this.opts.instruments.find((i) => i.id === id)?.name;
     this.message = [swapped ? `Lead: ${was.name} is retired${was.status === "approved" ? " as a lead" : ""}; the song plays ${name(this.values.lead)} instead.` : "",
                     bassSwapped ? `Bass: ${wasBass.name} is retired; the song plays ${name(this.values.bass)} instead.` : "",
+                    keysSwapped ? `Keys: ${wasKeys.name} is retired; the song plays ${name(this.values.keys)} instead.` : "",
                     styleGone ? `Lead style: ${style.name} is retired; the song plays a rolled style instead.` : ""]
       .filter(Boolean).join(" ");
     return [...ROWS.filter((r) => !(swapped && r.id === "lead") && !(bassSwapped && r.id === "bass") &&
+                                  !(keysSwapped && r.id === "keys") &&
                                   String(this.values[r.id]) !== String(snap.rows[r.id])).map((r) => r.id), ...missing];
   }
 

@@ -544,9 +544,9 @@ console.log("options.json");
   check(retired(OPTS.instruments, ["Upright bass"]) && retired(OPTS.comping, ["Arpeggio", "Offbeats"]) &&
         retired(OPTS.kits, ["Dusty", "Soft", "Our 808", "Warm", "Dark", "Rusty", "Gentle", "Clean"]),
         "the removed sounds are retired (upright, our synth kits, the mixed sampled kits, arpeggio, offbeats)");
-  // the instruments removed with their models (2026-10-31: no patch) can't play: no row offers one, even with "show
-  // retired"
-  const GONE = ["Upright bass", "Kalimba", "Music box", "Bells", "Saw lead", "Synth pluck"];
+  // the instruments removed with their models (2026-10-31: no patch; the Wurli and the DX electric piano, 2026-11-04)
+  // can't play: no row offers one, even with "show retired"
+  const GONE = ["Upright bass", "Kalimba", "Music box", "Bells", "Saw lead", "Synth pluck", "Wurli", "DX electric piano"];
   const shown = ROWS.flatMap((r) => optionsFor(r, { values: {} }, OPTS, { showRetired: true }))
     .filter((o) => GONE.includes(o.name)).map((o) => o.name);
   check(retired(OPTS.instruments, GONE) && !shown.length,
@@ -578,7 +578,7 @@ console.log("rows: retired options, dice, families");
   for (const fam of ["acoustic", "synth"]) {
     const s = acoustic();
     s.values.family = fam;
-    if (fam === "synth") Object.assign(s.values, { keys: ins("DX electric piano"), lead: ins("Vibes (modeled vibraphone)"),
+    if (fam === "synth") Object.assign(s.values, { keys: ins("Chillwave pad"), lead: ins("Vibes (modeled vibraphone)"),
                                                    bass: ins("FM bass"), pad: ins("Warm pad") });
     for (const id of ["keys", "lead", "bass", "pad", "padOn", "kit", "comp", "pattern", "kick", "family", "leadOct"])
       for (let i = 0; i < 40; i++) {
@@ -710,7 +710,7 @@ console.log("desk: locks and hand edits survive a regenerate");
   await desk.read();
   const tempo = desk.values.tempo === 85 ? 74 : 85;
   await desk.set("tempo", tempo);
-  await desk.set("keys", ins("Wurli"));
+  await desk.set("keys", ins("Rhodes"));
   await desk.set("lead", ins("Felt piano"));
   desk.lock("lead", true);
   await desk.set("kick", "k5");
@@ -719,7 +719,7 @@ console.log("desk: locks and hand edits survive a regenerate");
   await desk.set("comp", 4);
   await desk.set("phrase", 777);
   desk.lock("phrase", true);
-  const keep = { tempo, keys: ins("Wurli"), lead: ins("Felt piano"), kick: "k5", kit: 3, comp: 4, phrase: 777 };
+  const keep = { tempo, keys: ins("Rhodes"), lead: ins("Felt piano"), kick: "k5", kit: 3, comp: 4, phrase: 777 };
   const kept = () => Object.entries(keep).filter(([k, v]) => String(desk.values[k]) !== String(v)).map(([k]) => k);
   const seed = desk.values.seed;
   const r1 = await desk.dice("seed");
@@ -753,7 +753,7 @@ console.log("desk: dice and registers");
   check(salts.every((s) => s > 0) && new Set(salts).size === 3, `the voicings' dice set new nonzero salts (${salts.join(", ")})`);
   const t = desk.values.tempo, r = await desk.dice("tempo");
   check(r.ok && desk.values.tempo !== t && ex.wb_roll_get(C.RF.TEMPO) === desk.values.tempo, `the tempo's dice is the engine's (${t} -> ${desk.values.tempo})`);
-  const k = await desk.set("keysOct", 1);   // seed 5: the DX keys can't go up under its lead (harmony_keys_oct)
+  const k = await desk.set("keysOct", 1);   // seed 5: the keys may not go up under its lead (harmony_keys_oct)
   check(k.ok && desk.values.keysOct === ex.wb_keys_oct_applied() && ex.wb_ov_get(C.OV.KEYS_OCT) === desk.values.keysOct,
         `the keys register shows what the engine applies (asked +1, plays ${desk.values.keysOct}${k.message ? `: "${k.message}"` : ""})`);
   const probe = await prober(), stagedLead = async () => probe(await call("wb_stage_bytes"));
@@ -833,7 +833,7 @@ console.log("feedback: snapshots, replay, the queue");
   await desk.set("seed", 77);
   at = { seconds: 12.5, bar: 6 };
   await desk.set("tempo", desk.values.tempo === 75 ? 80 : 75);
-  await desk.set("keys", ins("Wurli"));
+  await desk.set("keys", ins("Rhodes"));
   await desk.dice("leadStyle");
   desk.lock("tempo", true);
   const snap = await desk.snapshot();
@@ -1496,9 +1496,10 @@ console.log("whole-branch review fixes");
   };
   const LANES808 = ["BD", "SD", "CH", "OH", "MA", "RS", "CH"].map((v) => [SRC.PT, PT.M808, PT[v], 0]);
 
-  // 1: a kit's lanes on a song whose kit is a retired mixed sampled kit (Clean, seed 16): refused, nothing staged
+  // 1: a kit's lanes on a song whose kit is a retired mixed sampled kit (Clean, seed 17: 16 until the DX's sets
+  // retired, 2026-11-04): refused, nothing staged
   {
-    const { ex, desk } = await fresh(16);
+    const { ex, desk } = await fresh(17);
     const before = cstr(ex, ex.wb_state()), was = desk.values.kit;
     const r = await desk.loadKit({ name: "x", lanes: LANES808 });
     check(was === 8 && !r.ok && /Clean/.test(r.message) && cstr(ex, ex.wb_state()) === before && !ex.wb_pending() && !desk.hand.has("kit"),
@@ -1506,7 +1507,7 @@ console.log("whole-branch review fixes");
     const r2 = await desk.loadKit({ name: "y", from: "poketrack 808", lanes: LANES808 });
     check(r2.ok && desk.values.kit === DRUMS.PRESET + DRUMS.PT808 && JSON.stringify(desk.drums.lanes) === JSON.stringify(LANES808),
           `a kit file saved from the 808: the kit row shows poketrack 808 after loading (${desk.values.kit})`);
-    const { desk: d3 } = await fresh(16);
+    const { desk: d3 } = await fresh(17);
     d3.lock("kit", true);
     const r3 = await d3.loadKit({ name: "y", from: "poketrack 808", lanes: LANES808 });
     check(!r3.ok && /Kit is locked/.test(r3.message) && d3.values.kit === 8, `... with the kit locked: blocked ("${r3.message}")`);
@@ -1659,6 +1660,18 @@ console.log("Task 1b: no ear candy; the pad on/off row");
           JSON.parse(cstr(e5, e5.wb_state())).roles[C.V.BASS] === ins("Electric bass") &&
           d5.message.includes("Bass: Upright bass is retired;"),
           `a snapshot with the upright on the bass restores on the electric bass (mismatch: ${miss5.join(", ") || "none"}; "${d5.message}")`);
+  }
+  // the keys removed 2026-11-04 (the Wurli, the DX electric piano): each restores on the Rhodes, said
+  for (const name of ["Wurli", "DX electric piano"]) {
+    const sn = await desk.snapshot();
+    sn.rows.keys = ins(name);
+    sn.locks = [];
+    const e6 = await load(), d6 = new Desk(caller(e6), C, OPTS, await caller(e6)("wb_library"));
+    const miss6 = await d6.restore(sn);
+    check(!miss6.length && d6.values.keys === ins("Rhodes") &&
+          JSON.parse(cstr(e6, e6.wb_state())).roles[C.V.CHORD] === ins("Rhodes") &&
+          d6.message.includes(`Keys: ${name} is retired;`),
+          `a snapshot with the ${name} on the keys restores on the Rhodes (mismatch: ${miss6.join(", ") || "none"}; "${d6.message}")`);
   }
   const s8 = JSON.parse(cstr(ex, ex.wb_state()));
   s8.ov = s8.ov.slice(0, 8);
@@ -2359,7 +2372,7 @@ console.log("comping: held on 2, held on 2 and 4, light eighths (the workbench's
     .map((x) => x.trim()).filter((x) => x && x !== "CS_N");
   check(OPTS.comping.every((c) => CS[c.id] === c.sym) && OPTS.comping.length === CS.length,
         "every comping style's id is its harmony.h enum's");
-  const perc = ["Rhodes", "Wurli", "Felt piano", "DX electric piano", "Knight piano"].map(ins);
+  const perc = ["Rhodes", "Felt piano", "Knight piano"].map(ins);   // (the Wurli and the DX too, to 2026-11-04)
   const off = ["Nylon guitar", "Emilyguitar", "Organ", "Chillwave pad"].map(ins);
   const NEW = ["Held on 2", "Held on 2 and 4", "Light eighths"];
   const offered = (k) => optionsFor(row("comp"), { values: { keys: k } }, OPTS).map((o) => o.name);
@@ -2368,7 +2381,7 @@ console.log("comping: held on 2, held on 2 and 4, light eighths (the workbench's
   const cand = OPTS.comping.filter((c) => c.status === "candidate").map((c) => c.id);
   let picked = 0;
   for (let i = 1; i <= 200; i++)
-    picked += cand.includes(pickFor(row("comp"), { values: { keys: perc[i % 5], comp: -1 }, locks: new Set() }, OPTS, lcg(i)));
+    picked += cand.includes(pickFor(row("comp"), { values: { keys: perc[i % 3], comp: -1 }, locks: new Set() }, OPTS, lcg(i)));
   check(JSON.stringify(cand) === "[6,7,8]" && picked === 0, `... as candidates, never the dice's pick (${picked} of 200)`);
 
   const { readEvents } = await import("../wb.js");
@@ -2487,6 +2500,7 @@ console.log("the choir: a pad layer a song may draw (1 in 4), and a choice on th
 {
   const { replay, wav } = await import("./replay.mjs");
   const CHOIR = ins("Choir"), WARM = ins("Warm pad"), STR = ins("Strings"), ORGAN = ins("Organ");
+  const PERC = ["Rhodes", "Felt piano", "Knight piano"].map(ins);
   const ex = await load(), call = caller(ex);
   ex.wb_seed(1);
   ex.wb_apply();
@@ -2507,7 +2521,9 @@ console.log("the choir: a pad layer a song may draw (1 in 4), and a choice on th
     await desk.set("seed", s);
     const p = desk.values.pad;
     if (p !== ex.wb_role_get(V.PAD) || ![CHOIR, WARM, STR, ORGAN].includes(p)) odd.push(`${s}:${p}`);
-    if (p === CHOIR) { choir++; cs ||= s; } else if (p === ORGAN) organ++; else other ||= s;
+    // (other: a song on percussive keys, so the pad's chord part sounds: over the organ it doesn't)
+    if (p === CHOIR) { choir++; cs ||= s; } else if (p === ORGAN) organ++;
+    else if (!other && PERC.includes(desk.values.keys)) other = s;
   }
   check(organ >= 15 && organ <= 45, `the organ is ${organ} of 200 songs' pad (about 1 in 7 drawn)`);
   check(!odd.length && choir >= 30 && choir <= 70,

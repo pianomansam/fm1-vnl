@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Task 7c's measured cost gate (timing is noisy, so it is not in the unit suite): runs the --parts bench and checks
 # that the rows each move targets dropped by at least half the shortlist's lower estimate (docs/cost.md): moves 1-2,
-# the Rhodes, felt piano and Wurli rows by 0.10 and the pad by 0.05 (and the vox pad, removed 2026-10-31: no row); move 3 (the dust's fast path and the
+# the Rhodes, felt piano and Wurli rows by 0.10 and the pad by 0.05 (the vox pad, removed 2026-10-31, and the Wurli,
+# retired 2026-11-04: no row); move 3 (the dust's fast path and the
 # quarter-rate plate), the always-on chain alone by 0.025. The idle floor is printed, not gated: it falls mostly
 # because the engine skips work in silence.
 #   tools/cost-gate.sh BEFORE.txt [AFTER.txt]   BEFORE/AFTER: saved `cost-bench.sh --parts` output (AFTER: run now)
@@ -22,7 +23,7 @@ FNR == 1 { f++ }
 END { for (k in ms) { split(k, kk, SUBSEP); v[kk[1], kk[2]] = ms[k] / amb } }
 END {
     printf "(ratios over the before run'"'"'s AMB-1 time, %.1f ms)\n", amb
-    split("rhodes:0.10,felt piano:0.10,wurli:0.10,pad:0.05,chain alone:0.025", g, ",")
+    split("rhodes:0.10,felt piano:0.10,pad:0.05,chain alone:0.025", g, ",")
     bad = 0
     for (i = 1; i in g; i++) {
         split(g[i], kv, ":")

@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The patch table (see patch.h). Each model reads p[] its own way:
-   M_EP (Rhodes, Wurli, felt piano; voices.c ep_*): 2-op FM with a decaying index.
+   M_EP (Rhodes, felt piano; voices.c ep_*): 2-op FM with a decaying index.
      p[0] modulator ratio, p[1] index at velocity 0, p[2] index added at full velocity, p[3] the index's fall to
      -60 dB (s), p[4] the tine level at full velocity (a 14x partial, fading with the index), p[5] the strike: extra
-     level at the hit at full velocity, gone in 0.25 s, p[6] the bark: a noise burst at full velocity (Wurli), gone in
-     40 ms, p[7] a tone one-pole's cutoff in Hz at full velocity (60% of it at velocity 0; 0 for none).
+     level at the hit at full velocity, gone in 0.25 s, p[6] unused (the Wurli's bark, removed with it 2026-11-04),
+     p[7] a tone one-pole's cutoff in Hz at full velocity (60% of it at velocity 0; 0 for none).
    M_PAD (the chillwave pad's keys; voices.c pad_*): two polyBLEP saws into a low-pass SVF.
      p[0] the detune in cents (the first saw down by it, the second up), p[1] the second saw's ratio, p[2] its level,
      p[3] the low-pass cutoff in Hz plus p[4] times the note's frequency, p[5] its damping k (1/Q). (The vox pad and
@@ -64,11 +64,10 @@
    test_lead_over_keys). The leads Sam removed (2026-10-29: the muted trumpet, sax, guitar lick, string lead and
    cello) have no entry: vx_patch gives NULL, so a role assigned one stays silent (their ids are never reused); nor
    have the ones no set played (2026-10-31: the upright, the kalimba, music box and bells, the saw lead and synth
-   pluck), their models gone with them (an old snapshot's: library.c's lib_lead_approved, lib_bass_approved). */
+   pluck), their models gone with them (an old snapshot's: library.c's lib_lead_approved, lib_bass_approved); nor the
+   keys Sam retired (2026-11-04: the Wurli, its bark gone from M_EP, and the DX electric piano: lib_keys_approved). */
 static const vx_patch_t PATCHES[INS_NONE] = {
     [INS_RHODES] = {M_EP, {1.0f, 0.4f, 1.2f, 1.2f, 0.05f, 0.5f, 0.0f, 0.0f}, 0.002f, 4.5f, 0.0f, 0.08f, 0.944f, 0.7f, 0.08f},
-    /* the Wurli struck softer (Sam: "still has lots of attack"): less index, strike and bark, a 6 ms attack */
-    [INS_WURLI] = {M_EP, {2.0f, 0.8f, 1.2f, 1.5f, 0.0f, 0.3f, 0.4f, 0.0f}, 0.006f, 3.5f, 0.0f, 0.06f, 0.932f, 0.6f, 0.08f},
     [INS_FELT_PIANO] = {M_EP, {1.0f, 0.2f, 0.6f, 0.8f, 0.0f, 0.4f, 0.0f, 1100.0f}, 0.004f, 5.0f, 0.0f, 0.15f, 0.716f, 0.2f, 0.06f},
     /* the sampled nylon (FreePats Spanish classical, CC0; it replaced the Karplus-Strong nylon): the spike's tone,
        6x the note at full velocity falling to 60% */
@@ -84,14 +83,11 @@ static const vx_patch_t PATCHES[INS_NONE] = {
        motor cut as inaudible). Tuned on the sample's notes (its zones' first 0.4 s): the modes' levels and -60 dB
        times, the bloom; it rings free (10 s to -60 dB at C4), and a released note rings on about half a second, a
        held pedal's tail. The level matched to the sample's on the lead bus (seeds 9, 14 and 11 on sets 33, 4 and 8:
-       a mean of -0.33 dB, each song within 1 dB; test_vibes_level). The lead only. */
+       a mean of -0.33 dB, each song within 1 dB; test_vibes_level, since on sets 6, 4 and 2). The lead only. */
     [INS_VIBES] = {M_MODAL, {4.0f, 9.9f, 0.18f, 0.9f, 2600.0f, 0.5f, 2.4f, 0.55f, 0.8f, 0.3f, 0.3f, 0.03f}, 0.001f,
                    10.0f, 1.0f, 0.8f, 0.541f, 0.0f, 0.3f},
     /* the triangle bass (a chip voice) */
     [INS_CHIP_BASS] = {M_CHIP, {7.0f, 5.0f}, 0.003f, 7.0f, 1.0f, 0.05f, 1.3f, 0.0f, 0.0f},
-    /* the 80s FM keys: a 14x tine on the attack (a high ratio, a bright index falling fast) over a clean body */
-    [INS_DX_EP] = {M_EP, {1.0f, 0.3f, 1.8f, 0.9f, 0.12f, 0.4f, 0.0f, 6500.0f}, 0.002f, 2.6f, 0.0f, 0.08f, 0.944f,
-                   0.5f, 0.08f},
     /* the slap FM bass: the index strikes high and is gone in 150 ms */
     [INS_FM_BASS] = {M_BASS, {1.0f, 0.1f, 8.0f, 0.15f, 0.15f}, 0.002f, 4.0f, 0.6f, 0.05f, 1.3f, 0.0f, 0.0f},
     /* the pad layer (V_PAD; levels by ear in the pads plan's Task 3): soft strings, a slow swell and a deep ensemble;

@@ -356,9 +356,9 @@ static void role_rows(const char *grp, int kind, int role, const named_t *l, int
 #define NEL(a) ((int)(sizeof(a) / sizeof((a)[0])))
 static void parts(double amb)
 {
-    static const named_t CH[] = {{"rhodes", INS_RHODES}, {"wurli", INS_WURLI}, {"felt piano", INS_FELT_PIANO},
+    static const named_t CH[] = {{"rhodes", INS_RHODES}, {"felt piano", INS_FELT_PIANO},
                                  {"nylon", INS_NYLON}, {"pad", INS_PAD},
-                                 {"organ", INS_ORGAN}, {"dx ep", INS_DX_EP}, {"knight", INS_KNIGHT},
+                                 {"organ", INS_ORGAN}, {"knight", INS_KNIGHT},
                                  {"emilyguitar", INS_EMILY}};
     static const named_t BS[] = {{"elec bass", INS_ELEC_BASS}, {"sub", INS_SUB},
                                  {"triangle bass", INS_CHIP_BASS}, {"fm bass", INS_FM_BASS}};

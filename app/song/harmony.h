@@ -16,7 +16,7 @@
    roll until Sam sets it) */
 enum { CS_HELD, CS_STABS, CS_OFFBEATS, CS_ARP, CS_HALF, CS_STRUM, CS_HELD2, CS_LIGHT8, CS_HELD24, CS_N };
 /* 0 where the chords instrument ins can't play comping style cs (held on 2, held on 2 and 4 and light eighths: the
-   percussive keys only, Rhodes, Wurli, felt piano, DX electric piano and the Knight; the guitars only strum); a
+   percussive keys only, Rhodes, felt piano and the Knight; the guitars only strum); a
    forced style it can't play holds instead (the guitars strum) */
 int harmony_comp_ok(int ins, int cs);
 

@@ -132,7 +132,7 @@ int harmony_comp_ok(int ins, int cs)
 {
     if (is_guitar(ins)) return cs == CS_STRUM;          /* the guitars only strum */
     if (cs != CS_HELD2 && cs != CS_LIGHT8 && cs != CS_HELD24) return 1;
-    return ins == INS_RHODES || ins == INS_WURLI || ins == INS_FELT_PIANO || ins == INS_DX_EP || ins == INS_KNIGHT;
+    return ins == INS_RHODES || ins == INS_FELT_PIANO || ins == INS_KNIGHT;
 }
 
 int harmony_style(const song_roll_t *r)

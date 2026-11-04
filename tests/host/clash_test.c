@@ -7,6 +7,7 @@
 #include "theory.h"
 #include "library.h"
 #include "roll.h"
+#include "rng.h"
 #include "plan.h"
 #include "groove.h"
 #include "harmony.h"
@@ -883,6 +884,44 @@ static void style_rules(int style, const char *name, int per_song)
            rubs[0][0] + rubs[0][1] + rubs[0][2] + rubs[0][3] + rubs[1][0] + rubs[1][1] + rubs[1][2] + rubs[1][3] - rub0);
 }
 
+/* song_test's ls_hard's songs (its ls_roll): the set drawn as the library stood before the Wurli's and DX's sets
+   retired (2026-11-04), the retired sets' keys standing in as the Rhodes, set 8's walk kept under set 1's id */
+static const uint8_t OLD_ORDER[29] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 18, 19, 20, 17, 21, 22, 23, 24, 25, 26, 27,
+                                      28, 29, 30, 31, 32, 33};
+static const lib_set_t OLD_SETS[7] = {
+    {3, "Neo-soul Wurli", INS_WURLI, INS_ELEC_BASS, INS_FELT_PIANO, INS_NONE, INS_STRINGS, KIT_SOFT, KIT_S_GENTLE,
+     FL_NEOSOUL, MOOD_SAD | MOOD_WISTFUL, "retired 2026-11-04"},
+    {8, "Wurli and vibes", INS_WURLI, INS_ELEC_BASS, INS_VIBES, INS_NONE, INS_STRINGS, KIT_DUSTY, KIT_S_GENTLE, FL_LOFI,
+     MOOD_WARM | MOOD_SUNNY, "retired 2026-11-04"},
+    {13, "DX keys and FM bass", INS_DX_EP, INS_FM_BASS, INS_VIBES, INS_NONE, INS_WARM_PAD, KIT_SOFT, KIT_S_CLEAN,
+     FL_CITYPOP, MOOD_WARM | MOOD_SUNNY, "retired 2026-11-04"},
+    {20, "DX and felt", INS_DX_EP, INS_CHIP_BASS, INS_FELT_PIANO, INS_NONE, INS_WARM_PAD, KIT_SOFT, KIT_S_RUSTY,
+     FL_CHILLWAVE, MOOD_SAD | MOOD_WARM, "retired 2026-11-04"},
+    {24, "Wurli and Knight", INS_WURLI, INS_ELEC_BASS, INS_KNIGHT, INS_NONE, INS_STRINGS, KIT_SOFT, KIT_S_GENTLE,
+     FL_NEOSOUL, MOOD_SAD | MOOD_WISTFUL, "retired 2026-11-04"},
+    {25, "DX and Knight", INS_DX_EP, INS_FM_BASS, INS_KNIGHT, INS_NONE, INS_WARM_PAD, KIT_SOFT, KIT_S_CLEAN, FL_CITYPOP,
+     MOOD_WARM | MOOD_SUNNY, "retired 2026-11-04"},
+    {33, "DX and vibes", INS_DX_EP, INS_ELEC_BASS, INS_VIBES, INS_NONE, INS_WARM_PAD, KIT_SOFT, KIT_S_CLEAN, FL_CITYPOP,
+     MOOD_WARM | MOOD_SUNNY, "retired 2026-11-04"},
+};
+static const lib_set_t *old_set(uint8_t id)
+{
+    int i;
+    for (i = 0; i < 7; i++)
+        if (OLD_SETS[i].id == id) return &OLD_SETS[i];
+    return lib_set_by_id(id);
+}
+static const lib_set_t *old_draw(const song_roll_t *r)
+{
+    uint8_t c[29];
+    int i, n = 0;
+    rng_t g;
+    for (i = 0; i < 29; i++)
+        if (old_set(OLD_ORDER[i])->moods & (1 << r->v[RF_MOOD])) c[n++] = OLD_ORDER[i];
+    rng_seed(&g, roll_mix(r->seed, 0x5E7u), (uint32_t)RF_SET);
+    return old_set(c[rng_next(&g) % (uint32_t)n]);
+}
+
 /* Review Focus 1, chords with few legal notes, through every check above: the style forced on each lead instrument it
    is rolled for, in songs forced to Lydian (its maj7 chords; the first 300 of song_test's songs) and in walking-bass
    songs with 9ths (their m9 chords; of its 3000), as song_test's ls_hard plays them (the lead loop off: the notes
@@ -904,12 +943,13 @@ static void style_hard(int style, const char *name, const int *ins, int nins, lo
             const lib_set_t *st;
             int pass;
             roll_song(NULL, j * 2654435761u + 17u, &r);
-            st = lib_set_by_id((uint8_t)r.v[RF_SET]);
+            st = old_draw(&r);
             if (!st || st->chords == ins[k]) continue;
             cs = *st;
+            cs.chords = (uint8_t)lib_keys_approved(st->chords);
             cs.lead = (uint8_t)ins[k];
             cs.id = LIB_SET_WB;
-            lib_set_wb(&cs, st->id);
+            lib_set_wb(&cs, st->id == 8 ? 1 : st->id);
             r.v[RF_SET] = LIB_SET_WB;
             for (pass = 0; pass < 2; pass++) {
                 int e;

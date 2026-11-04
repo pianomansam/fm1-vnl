@@ -10,6 +10,7 @@ enum { L_KEYS = 1, L_KICK = 2, L_SNARE = 4, L_HATS = 8, L_BASS = 16, L_LEAD = 32
 enum { MOOD_SAD = 1, MOOD_WISTFUL = 2, MOOD_WARM = 4, MOOD_SUNNY = 8 };      /* bits; LIB_MOODS is indexed 0..3 in this order */
 enum { PK_VAMP, PK_LOOP, PK_JAZZY };
 
+/* INS_WURLI and INS_DX_EP: removed (Sam, 2026-11-04): no patch, no set; ids never reused (lib_keys_approved) */
 enum { INS_RHODES, INS_WURLI, INS_FELT_PIANO, INS_NYLON, INS_PAD, INS_UPRIGHT, INS_ELEC_BASS, INS_SUB, INS_FLUTE,
        INS_MUTED_TPT, INS_SAX, INS_VIBES, INS_KALIMBA, INS_GUITAR_LICK, INS_MUSIC_BOX, INS_BELLS, INS_VOX_PAD,
        INS_CHIP_BASS, INS_ORGAN, INS_SAW_LEAD, INS_SYNTH_PLUCK, INS_DX_EP, INS_FM_BASS,
@@ -61,13 +62,15 @@ unsigned lib_lane_hits(const lib_pattern_t *p, int lane, int bar);
 unsigned lib_lane_ghosts(const lib_pattern_t *p, int lane, int bar);
 const lib_set_t *lib_set_by_id(uint8_t id);
 /* 1: slow attack, held breath or a held tone (pads, the flute, the organ, the strings, the choir); 0: struck, plucked,
-   the triangle bass, the DX EP, the FM bass */
+   the triangle bass, the FM bass */
 int lib_ins_sustained(int ins);
 /* a removed or retired lead (the muted trumpet, sax, guitar lick, string lead, cello; the kalimba, saw lead, synth
    pluck and Emilyguitar as leads): the flute or the vibes in its place; else ins */
 int lib_lead_approved(int ins);
 /* a removed bass (the upright): the electric bass in its place; else ins */
 int lib_bass_approved(int ins);
+/* a removed keys (the Wurli, the DX EP: 2026-11-04): the Rhodes in its place; else ins */
+int lib_keys_approved(int ins);
 /* 1: a sampled struck-string instrument (the Knight, the nylon, the Emilyguitar): stabs and strums suit it */
 int lib_ins_sampled_struck(int ins);
 int lib_set_walks(const lib_set_t *s);
