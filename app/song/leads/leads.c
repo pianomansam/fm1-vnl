@@ -328,17 +328,142 @@ int leads_motif(const song_roll_t *r, int style, lead_motif_t *m)
     return 1;
 }
 
+/* ---- a phrase never ends on a dominant's 7th (Sam, 2026-11-05: "the lead motif can end on the 7th of a dominant.
+   That sounds bad") ---- */
+
+static void plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b, int bar, const int keys[4],
+                     const int nkeys[4], const int *pcs, int np, int can_push, int settle);
+
+/* the chord's root, 3rd and 5th as pitch classes (its 5th: a perfect one, a m7b5's diminished one) */
+static int triad(const int *pcs, int np, int *t)
+{
+    int i, n = 0, iv = 0;
+    for (i = 1; i < np; i++) iv |= 1 << (pcs[i] - pcs[0] + 120) % 12;
+    t[n++] = pcs[0] % 12;
+    if (iv & (1 << 3 | 1 << 4)) t[n++] = (pcs[0] + (iv & 1 << 4 ? 4 : 3)) % 12;
+    t[n++] = (pcs[0] + (!(iv & 1 << 7) && (iv & 1 << 3) && (iv & 1 << 6) ? 6 : 7)) % 12;
+    return n;
+}
+
+/* 1 where the bar's notes (with step t's note q) meet the hook floor: 3 pitches or more spanning a 4th or wider (a bar
+   of under 3 notes always does; loop.c's bar_floor) */
+static int hook_floor(const int *on, int t, int q)
+{
+    int i, j, n = 0, d = 0, lo = 128, hi = 0;
+    for (i = 0; i < 16; i++) {
+        int x = i == t ? q : on[i];
+        if (x <= 0) continue;
+        n++;
+        for (j = 0; j < i && (j == t ? q : on[j]) != x; j++) {}
+        d += j == i;
+        if (x < lo) lo = x;
+        if (x > hi) hi = x;
+    }
+    return n < 3 || (d >= 3 && hi - lo >= 5);
+}
+
+/* The next bar's lead onsets (bit i: an onset at 16th i), planned ahead on a copy of the lead's state as the next
+   bar will plan them (the style, or the loop's replay; its keys taken for the bar after too) */
+static lead_state_t ahead;
+static unsigned next_onsets(const lead_state_t *ls, const song_roll_t *r, const plan_block_t *nb, int bar,
+                            const int nkeys[4], const int *npcs, int nnp)
+{
+    const plan_block_t *n2 = bar + 2 < nb->start + nb->bars ? nb
+                           : (nb + 1)->bars && (nb + 1)->start == nb->start + nb->bars ? nb + 1 : 0;
+    unsigned m = 0;
+    int i;
+    ahead = *ls;
+    for (i = 0; i < 16; i++) { ahead.on[i] = 0; ahead.vel[i] = 0; ahead.dl[i] = 0; }
+    ahead.acc = 0;
+    ahead.ring = 0;
+    plan_bar(&ahead, r, nb, bar + 1, nkeys, nkeys, npcs, nnp, n2 != 0, 0);
+    for (i = 0; i < 16; i++)
+        if (ahead.on[i] > 0) m |= 1u << i;
+    return m;
+}
+
+/* The bar's settled notes (after the style or the loop's replay and stutter): a phrase-ending note (a beat's rest or
+   more after it, or the lead's end; the next bar's onsets planned ahead) on the b7 of the dominant it ends over (the
+   next bar's where it rings over the bar line) moves to the nearest root, 3rd or 5th of that chord in the bar's range,
+   legal where it sounds (a chord tone on beats 1 and 3), on the same side of the note before it and keeping the bar's
+   hook floor where it can, and 2 scale steps away at most (the loop's replay: always, as its nudges; else where it
+   can). A ringing note with none is cut at the bar line (then checked over this bar's chord); a note with none at
+   all drops. prev: the last note sung before the bar; nkeys: the next bar's keys. */
+static void end_off_b7(lead_state_t *ls, const leads_ctx_t *c, const leads_next_t *nx, const plan_block_t *nb,
+                       int bar, int style, int prev, const int nkeys[4])
+{
+    int b7 = th_dom_b7(c->pcs, c->np), nb7 = c->can_push && nx->np > 0 ? th_dom_b7(nx->pcs, nx->np) : -1, i, j;
+    int moved = 0, known = 0, loop = leads_loop_plays(style);
+    unsigned nxt = 0, scale = leads_scale_mask(c->r, c->pcs, c->np);
+    if (b7 < 0 && nb7 < 0) return;
+    for (i = 15; i >= 0; i--) {
+        int note = ls->on[i], e = i + ls->len[i], ext = e > 16, tb7 = ext ? nb7 : b7, best = 0, bc = 1 << 20;
+        int tri[3], nt, k, p, pp, floor, s2lo, s2hi;
+        if (note <= 0 || tb7 < 0 || note % 12 != tb7) continue;
+        s2lo = leads_coll_step(scale, note, -2);
+        s2hi = leads_coll_step(scale, note, 2);
+        for (j = i + 1; j < 16 && ls->on[j] <= 0; j++) {}
+        if (j < 16) {
+            if (j - e < 4) continue;                     /* the phrase goes on in the bar */
+        } else if (nb && lead_plays(nb) && nx->np > 0) {
+            if (!known) { nxt = next_onsets(ls, c->r, nb, bar, nkeys, nx->pcs, nx->np); known = 1; }
+            for (j = ext ? e - 16 : 0; j < 16 && !((nxt >> j) & 1u); j++) {}
+            if (j < 16 && 16 + j - e < 4) continue;      /* it goes on into the next bar */
+        }
+        for (pp = 0, j = i - 1; j >= 0 && !pp; j--) pp = ls->on[j];
+        if (!pp) pp = prev;
+        floor = hook_floor(ls->on, i, note);
+        nt = ext ? triad(nx->pcs, nx->np, tri) : triad(c->pcs, c->np, tri);
+        for (p = ext ? c->lo_x : c->lo; p <= c->hi; p++) {
+            int cost = p > note ? p - note : note - p;
+            for (k = 0; k < nt && p % 12 != tri[k]; k++) {}
+            if (k == nt || !leads_legal(c->r, p, c->pcs, c->np, c->bass) ||
+                (i % 8 == 0 && !leads_is_ct(p, c->pcs, c->np)) ||
+                (ext && !leads_legal(c->r, p, nx->pcs, nx->np, nx->bass)))
+                continue;
+            if (pp && pp != note && (p == pp || (p > pp) != (note > pp))) cost += 100;   /* the contour turned */
+            if (floor && !hook_floor(ls->on, i, p)) cost += 2000;                        /* the hook folded */
+            if (p < s2lo || p > s2hi) {                  /* over 2 scale steps: the loop's replay never moves so far */
+                if (loop) continue;
+                cost += 1000;
+            }
+            if (cost < bc) { bc = cost; best = p; }
+        }
+        moved = 1;
+        if (!best && ext) {                              /* cut at the bar line: over this bar's chord */
+            ls->len[i] = 16 - i;
+            ls->ring &= ~(1u << i);
+            for (j = 0; j < 16 && !(ls->on[j] > 0 && ((ls->ring >> j) & 1u) && j + ls->len[j] > 16); j++) {}
+            if (j == 16) { ls->tied = 0; ls->tie_end = 0; }
+            i++;
+            continue;
+        }
+        if (!best) {
+            ls->on[i] = 0; ls->len[i] = 0; ls->vel[i] = 0; ls->dl[i] = 0;
+            ls->ring &= ~(1u << i);
+            ls->acc &= ~(1u << i);
+            continue;
+        }
+        if (style == LS_MODAL && ext && ls->st.mo.note == note) ls->st.mo.note = best;   /* its held tone */
+        ls->on[i] = best;
+    }
+    if (!moved) return;
+    for (i = 15; i >= 0 && ls->on[i] <= 0; i--) {}
+    if (i >= 0) ls->last = ls->on[i];
+}
+
 /* the bar's context: its range (over percussive keys the band, leads_range_bar; over a pad its place, the
-   workbench's lead_oct moving it), the bass's pitch classes, and the next bar's chord */
-void leads_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b, int bar, const int keys[4],
-                    const int nkeys[4], const int *pcs, int np, int can_push)
+   workbench's lead_oct moving it), the bass's pitch classes, and the next bar's chord; settle: the phrase's end off a
+   dominant's 7th (end_off_b7; 0 for the bar planned ahead) */
+static void plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b, int bar, const int keys[4],
+                     const int nkeys[4], const int *pcs, int np, int can_push, int settle)
 {
     const lib_prog_t *pr = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
     const plan_block_t *nb = bar + 1 < b->start + b->bars ? b
                            : (b + 1)->bars && (b + 1)->start == b->start + b->bars ? b + 1 : 0;
     int s = ls->style ? ls->style - 1 : leads_style(r), bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1;
-    int loop = pr && pr->n ? pr->n * bpc : 4, npcs[5], i;
+    int loop = pr && pr->n ? pr->n * bpc : 4, npcs[5], i, prev;
     leads_ctx_t c;
     leads_next_t nx;
     c.r = r; c.keys = keys; c.pcs = pcs; c.np = np; c.bass = 0; c.can_push = can_push;
@@ -370,6 +495,14 @@ void leads_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *
         int bn = groove_bass_note(r, nb, bar + 1, i, npcs, nx.np);
         if (bn) nx.bass |= 1u << (bn % 12);
     }
+    prev = ls->last;
     if (leads_loop_plays(s)) leads_loop_bar(ls, &c, b, bar, &nx, s, PLAN[s]);
     else PLAN[s](ls, &c, b, bar, &nx);
+    if (settle) end_off_b7(ls, &c, &nx, nb, bar, s, prev, nkeys);
+}
+
+void leads_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b, int bar, const int keys[4],
+                    const int nkeys[4], const int *pcs, int np, int can_push)
+{
+    plan_bar(ls, r, b, bar, keys, nkeys, pcs, np, can_push, 1);
 }

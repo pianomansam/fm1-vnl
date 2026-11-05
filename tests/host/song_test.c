@@ -8537,9 +8537,11 @@ static void test_strum_same(void)
        d36f686e. Re-pinned again (Sam 2026-11-05: modes become major or minor): were 4fa861d9 and e694d37e. Re-pinned again
        (Sam 2026-11-05: drums pattern 9 approved): were e6ac3f61 and d4487617.
        Re-pinned again (Sam 2026-11-05: motion first; drums, bass and strum lean with it): were 0c88aa01
-       and 1c44f163. Re-pinned again (Sam 2026-11-05: calm songs thin the hats): were f02eafd0 and fb36b1d6 */
-    CHECK(a == 0xa1a2ed59u, "strum same: the strummed songs hash %08x, wanted a1a2ed59", (unsigned)a);
-    CHECK(b == 0x70f7bb49u, "strum same: with set changes %08x, wanted 70f7bb49", (unsigned)b);
+       and 1c44f163. Re-pinned again (Sam 2026-11-05: calm songs thin the hats): were f02eafd0 and fb36b1d6.
+       Re-pinned again (Sam 2026-11-05: the lead never ends a phrase on a dominant's 7th): were a1a2ed59 and
+       70f7bb49 */
+    CHECK(a == 0x88efe746u, "strum same: the strummed songs hash %08x, wanted 88efe746", (unsigned)a);
+    CHECK(b == 0x04161afdu, "strum same: with set changes %08x, wanted 04161afd", (unsigned)b);
     v = (uint32_t)sf_last_bad();
     CHECK(v == 0, "strum same: %u strummed bars left the keys' last voicing behind", (unsigned)v);
 }
@@ -8747,8 +8749,8 @@ static void test_wb_off(void)
     uint32_t a, b;
     lib_set_wb(NULL, 0); lib_pattern_wb(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0xa1a2ed59u, "wb off: the strummed songs hash %08x, wanted a1a2ed59", (unsigned)a);
-    CHECK(b == 0x70f7bb49u, "wb off: with set changes %08x, wanted 70f7bb49", (unsigned)b);
+    CHECK(a == 0x88efe746u, "wb off: the strummed songs hash %08x, wanted 88efe746", (unsigned)a);
+    CHECK(b == 0x04161afdu, "wb off: with set changes %08x, wanted 04161afd", (unsigned)b);
 }
 /* The workbench's mute (vx_mute, default off). mt_song: a song's first 20 s as the app plays it, its samples hashed
    (mute: vx_mute(0) called first, as the workbench's wb_init does) */
@@ -8795,8 +8797,8 @@ static void test_vx_mute_off(void)
     CHECK(a == b, "vx mute off: vx_mute(0) changed the samples (%08x, wanted %08x)", (unsigned)b, (unsigned)a);
     vx_mute(0);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0xa1a2ed59u, "vx mute off: the strummed songs hash %08x, wanted a1a2ed59", (unsigned)a);
-    CHECK(b == 0x70f7bb49u, "vx mute off: with set changes %08x, wanted 70f7bb49", (unsigned)b);
+    CHECK(a == 0x88efe746u, "vx mute off: the strummed songs hash %08x, wanted 88efe746", (unsigned)a);
+    CHECK(b == 0x04161afdu, "vx mute off: with set changes %08x, wanted 04161afd", (unsigned)b);
 }
 /* Review Focus 2 (Task 2): a bus muted mid-note is silent after the chunk it goes out in (and a quantum for the
    chain's own filters), its voice still playing (the duck follows it); unmuted, the notes struck while muted end at
@@ -10343,7 +10345,7 @@ static const ls_spike_t LS_SPIKE[] = {
     {LS_JAZZ60S, INS_VIBES, 300, 10577, 5486, 3874, 897, 241, 337, 3548, 452, 924, 93, 0, 0, 0},
     {LS_JAZZ60S, INS_KNIGHT, 238, 8460, 4357, 3063, 714, 201, 266, 2812, 371, 727, 0, 0, 80, 82},
     {LS_MODAL, INS_FLUTE, 300, 10441, 3821, 3418, 1232, 1134, 1007, 3204, 1738, 1518, 97, 97, 0, 0},
-    {LS_MODAL, INS_FELT_PIANO, 278, 9651, 3523, 3166, 1139, 1051, 934, 2956, 1610, 1412, 97, 94, 0, 79},
+    {LS_MODAL, INS_FELT_PIANO, 278, 9651, 3523, 3166, 1139, 1051, 934, 2956, 1610, 1412, 97, 93, 0, 79},
     /* (lead-styles Task 4; the port's measured ratios where under the defaults: Jazz-Hop flute rhythm 0.998, contour
        0.989; felt rhythm 0.999, contour 0.997; vibes rhythm 0.998, contour 0.988; Film Score contour: flute 0.976,
        felt 0.976, Knight 0.971; 0.967 once the keys never voice a minor 2nd or 9th, 2026-10-30) */
@@ -10358,7 +10360,9 @@ static const ls_spike_t LS_SPIKE[] = {
     /* (lead-styles Task 5; the port's measured ratios where under the defaults: Bossa Nova felt contour 0.999, vibes
        contour 0.999; span: flute 0.668, felt 0.770, vibes 0.818; felt 0.77 -> 0.76 once the guitars only strum,
        2026-11-04: span 8.9, the spike's 11.5) */
-    {LS_BOSSA, INS_FLUTE, 300, 15354, 5562, 3414, 1232, 927, 1229, 4049, 2156, 2761, 0, 0, 0, 66},
+    /* (re-baselined, Sam 2026-11-05: no phrase ends on a dominant's 7th, the note moved to a root, 3rd or 5th:
+       Modal felt contour 0.939, was held to 0.94; Bossa Nova flute contour 0.999, was held to 1.00) */
+    {LS_BOSSA, INS_FLUTE, 300, 15354, 5562, 3414, 1232, 927, 1229, 4049, 2156, 2761, 0, 99, 0, 66},
     {LS_BOSSA, INS_FELT_PIANO, 278, 14183, 5131, 3204, 1139, 846, 1136, 3744, 1972, 2553, 0, 99, 0, 76},
     {LS_BOSSA, INS_VIBES, 300, 15351, 5561, 3436, 1232, 927, 1229, 4044, 2156, 2761, 0, 99, 0, 81},
     {LS_AMBIENT, INS_FLUTE, 300, 12748, 3636, 1912, 1232, 1221, 1201, 3190, 2193, 1887, 0, 0, 0, 0},
@@ -10414,7 +10418,9 @@ static const char *ls_ins(int ins)
 typedef struct { uint8_t banded; uint16_t ly_notes, ly_silent, mw_silent, mw_notes; } ls_hard_t;
 static const ls_hard_t LS_HARD[LS_N] = {
     {0, 994, 1000, 1020, 1000},  {0, 1000, 1000, 1000, 1000},
-    {0, 1000, 1000, 1000, 1000}, {1, 1000, 1000, 1000, 997},      /* ('60s Jazz: see above) */
+    {0, 1000, 1000, 1000, 1000}, {1, 1000, 1003, 1000, 997},      /* ('60s Jazz: see above; Modal Jazz Lydian
+                                                                     silent 1.0021, was held to 1.000: no phrase
+                                                                     ends on a dominant's 7th, Sam 2026-11-05) */
     {1, 991, 1026, 1000, 1000},  {1, 1000, 1000, 1000, 1000},     /* (Jazz-Hop Lydian notes 0.9985; re-baselined,
                                                                      Sam 2026-11-05: drums pattern 9 approved, the
                                                                      songs roll other patterns: Lydian notes 0.9915,
@@ -11080,7 +11086,7 @@ static void test_ov_part_salts(void)
                       NAME[j], moved[j]);
     }
     song_override(NULL);
-    CHECK(sf_songs(0) == 0xa1a2ed59u && sf_songs(1) == 0x70f7bb49u, "ov part salts: the pinned hashes moved");
+    CHECK(sf_songs(0) == 0x88efe746u && sf_songs(1) == 0x04161afdu, "ov part salts: the pinned hashes moved");
 }
 /* Task 1b (Sam, 2026-10-29): "Remove the ear candy part completely"; "Make it possible for the pad part to not be in
    a song. And update the seeds to not always have it"; "add the ability for the pad part to drop out of certain song
@@ -11357,8 +11363,8 @@ static void test_ov_off(void)
     CHECK(o && o->comp == -1 && o->lead_style == -1 && o->pad_place == -1 && o->ride == -1 && !o->keys_oct &&
           !o->lead_oct && !o->voicing_salt && !o->phrase_salt, "ov off: the default override forces something");
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0xa1a2ed59u, "ov off: the strummed songs hash %08x, wanted a1a2ed59", (unsigned)a);
-    CHECK(b == 0x70f7bb49u, "ov off: with set changes %08x, wanted 70f7bb49", (unsigned)b);
+    CHECK(a == 0x88efe746u, "ov off: the strummed songs hash %08x, wanted 88efe746", (unsigned)a);
+    CHECK(b == 0x04161afdu, "ov off: with set changes %08x, wanted 04161afd", (unsigned)b);
 }
 /* a steal of a damped string (the final review): six strings struck, the first two re-struck at once (their last
    notes damped on the 2 spare voices), then a plain chord note (no string: a stab after a set change) while they
@@ -12528,8 +12534,8 @@ static void test_drums_hook(void)
     CHECK(quiet_bad == 0, "drums hook: a silent source still sounds at %d steps", quiet_bad);
     drums_hook(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0xa1a2ed59u, "drums hook off: the strummed songs hash %08x, wanted a1a2ed59", (unsigned)a);
-    CHECK(b == 0x70f7bb49u, "drums hook off: with set changes %08x, wanted 70f7bb49", (unsigned)b);
+    CHECK(a == 0x88efe746u, "drums hook off: the strummed songs hash %08x, wanted 88efe746", (unsigned)a);
+    CHECK(b == 0x04161afdu, "drums hook off: with set changes %08x, wanted 04161afd", (unsigned)b);
     dh_on = 0;
     vx_init();
     {
@@ -12795,7 +12801,8 @@ static uint32_t ll_hash(uint32_t h, const song_roll_t *r, int style, int loop)
    7a166b84 (-1) and 91b1bba1 (0). Re-pinned again (Sam 2026-11-05: progression 19, now the same as 18, retired):
    were 8484d705 (-1) and bafe9a1e (0). Re-pinned again (Sam 2026-11-05: motion first; drums,
    bass and strum lean with it): were 356d409f (-1) and 59487bd0 (0). Re-pinned again (Sam 2026-11-05: calm songs thin
-   the hats): were 5c5262db (-1) and d57edc13 (0) */
+   the hats): were 5c5262db (-1) and d57edc13 (0). Re-pinned again (Sam 2026-11-05: the lead never ends a phrase on a
+   dominant's 7th): were 24d5953d (-1) and 83e6ac47 (0) */
 static void test_lead_loop_off_identical(void)
 {
     uint32_t seed, h[2] = {2166136261u, 2166136261u};
@@ -12807,8 +12814,8 @@ static void test_lead_loop_off_identical(void)
             for (k = 0; k < 2; k++) h[k] = ll_hash(h[k], &r, st, k - 1);
     }
     printf("lead loop off: events %08x (lead_loop -1), %08x (0)\n", (unsigned)h[0], (unsigned)h[1]);
-    CHECK(h[0] == 0x24d5953du, "lead loop default: lead_loop -1 hashes %08x, wanted 24d5953d", (unsigned)h[0]);
-    CHECK(h[1] == 0x83e6ac47u, "lead loop off: lead_loop 0 hashes %08x, wanted 83e6ac47", (unsigned)h[1]);
+    CHECK(h[0] == 0xb06a36a1u, "lead loop default: lead_loop -1 hashes %08x, wanted b06a36a1", (unsigned)h[0]);
+    CHECK(h[1] == 0x8b298449u, "lead loop off: lead_loop 0 hashes %08x, wanted 8b298449", (unsigned)h[1]);
 }
 
 typedef struct {
@@ -13297,6 +13304,70 @@ static void test_lead_loop_jazzhop_riff(void)
           on_held, blocks);
 }
 
+/* The lead never ends a phrase on a dominant's 7th (Sam, 2026-11-05: "the lead motif can end on the 7th of a dominant.
+   That sounds bad"): seeds 1-120 per style (every style forced, the loop at its default; seeds 1-40 with it off). A
+   phrase ends on a note followed by a beat's rest or more, or by the lead's end; the chord it ends over is the bar its
+   last 16th sounds in (a note held over the bar line ends over the next bar's chord). None is that chord's b7 (a
+   major 3rd and a minor 7th over its root: th_dom_b7). */
+static void test_lead_no_dom7_ending(void)
+{
+    static song_t s;
+    static int on[256 * 16], len[256 * 16], dom[257];
+    song_ev_t ev[64];
+    long ends = 0, bad = 0, bad_style[LS_N] = {0};
+    int style, pass;
+    uint32_t seed;
+    for (pass = 0; pass < 2; pass++)
+        for (style = 0; style < LS_N; style++)
+            for (seed = 1; seed <= (pass ? 40u : 120u); seed++) {
+                song_roll_t r;
+                song_ov_t o = ov_none();
+                int bars, t, i;
+                roll_song(NULL, seed * 7919u + (uint32_t)style, &r);
+                o.lead_style = (int8_t)(2 + style);
+                o.lead_loop = (int8_t)(pass ? 0 : -1);
+                song_override(&o);
+                song_start(&s, &r);
+                memset(on, 0, sizeof on);
+                bars = s.plan.bars;
+                for (i = 0; i <= bars; i++) {
+                    const plan_block_t *b = i < s.plan.bars ? plan_at(&s.plan, i) : 0;
+                    const lib_prog_t *pr = lib_prog_by_id((uint8_t)s.roll.v[RF_PROG]);
+                    int loop = pr && pr->n * pr->bars_per_chord ? pr->n * pr->bars_per_chord : 4, pcs[5];
+                    int np = b ? harmony_chord_at(&s.roll, i, i / loop + 1, (b->flags & PB_DARK) != 0, pcs) : 0;
+                    dom[i] = np > 0 ? th_dom_b7(pcs, np) : -1;
+                }
+                while (s.state == SS_PLAYING) {
+                    int b0 = s.bar, st = s.step;
+                    song_tick(&s, ev, 64);
+                    if (st || b0 >= 256) continue;
+                    for (i = 0; i < 16; i++) {
+                        on[b0 * 16 + i] = s.lead.on[i];
+                        len[b0 * 16 + i] = s.lead.len[i];
+                    }
+                }
+                for (t = 0; t < bars * 16; t++) {
+                    int e, nx, eb;
+                    if (on[t] <= 0) continue;
+                    e = t + len[t];
+                    for (nx = t + 1; nx < bars * 16 && on[nx] <= 0; nx++) {}
+                    if (nx < bars * 16 && nx - e < 4) continue;   /* the phrase goes on */
+                    ends++;
+                    eb = (e - 1) / 16 > t / 16 ? t / 16 + 1 : t / 16;
+                    if (dom[eb] >= 0 && on[t] % 12 == dom[eb]) {
+                        bad++;
+                        bad_style[style]++;
+                    }
+                }
+            }
+    song_override(NULL);
+    printf("lead dom7 endings: %ld of %ld phrase endings on a dominant's 7th (by style:", bad, ends);
+    for (style = 0; style < LS_N; style++) printf(" %ld", bad_style[style]);
+    printf(")\n");
+    CHECK(ends > 5000, "lead dom7 endings: only %ld phrase endings", ends);
+    CHECK(bad == 0, "lead dom7 endings: %ld of %ld phrase endings on a dominant's 7th", bad, ends);
+}
+
 int main(int argc, char **argv)
 {
     const char *only = argc > 1 ? argv[1] : NULL;
@@ -13448,6 +13519,7 @@ int main(int argc, char **argv)
     RUN(test_kit_roll);
     RUN(test_lead_loop_off_identical);
     RUN(test_lead_loop_replays);
+    RUN(test_lead_no_dom7_ending);
     RUN(test_lead_loop_moves);
     RUN(test_lead_loop_rerecords);
     RUN(test_lead_loop_entry_step0);
