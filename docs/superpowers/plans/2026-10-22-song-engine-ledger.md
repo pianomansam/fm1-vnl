@@ -279,6 +279,11 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
 
 ### General
 
+- **Direction: the workbench becomes a device UI in the browser (Sam, 2026-11-05).** "Eventually we'll probably do
+  away with the workbench and ONLY have an in-browser UI representing the device. And it's controllable from the
+  device USB. Many other firmwares do that." Until then, the workbench is where we work out what the device can do
+  (not one to one): parts as sections now, then a live mock of the main screen and its per-part sub-screens. Later:
+  the browser page talks to the FM-1 over USB to show and steer the playing song.
 - **CC0 sample libraries to mine (2026-10-25): VCSL and VSCO-2 CE (sgossner, both CC0).** Beyond the spike's piano
   (VCSL Kawai grand; also Steinway B, Knight and Yamaha uprights) and strings (VSCO-2 CE Violin, Viola and Cello
   Sections): sampled vibraphone, marimba, glockenspiel, several kalimbas and mbiras (could replace our FM vibes and
