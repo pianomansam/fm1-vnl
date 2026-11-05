@@ -60,7 +60,7 @@ const lib_prog_t LIB_PROGS[] = {
     {48, PK_LOOP, 4, 1, {{0, 0, Q_DIATONIC}, {4, 0, Q_DIATONIC}, {2, 0, Q_DIATONIC}, {6, 0, Q_DIATONIC}}, MOOD_SAD | MOOD_WISTFUL | MOOD_WARM, (1 << MODE_MINOR), "split from 41 (Aeolian)"},
 };
 const int LIB_NPROGS = (int)(sizeof LIB_PROGS / sizeof LIB_PROGS[0]);
-const uint8_t LIB_PROGS_STATUS[] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+const uint8_t LIB_PROGS_STATUS[] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
 
 /* Lanes: kick, snare, hat, open hat, shaker, rim. 16 steps, bit i = step i. */
 const lib_pattern_t LIB_PATTERNS[] = {

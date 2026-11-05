@@ -1697,6 +1697,21 @@ console.log("Modes become major or minor (Sam, 2026-11-05): the Scale row, Roman
   check(!miss.length && !d2.message && d2.values.mode === 0 && d2.values.prog === 46 &&
         e2.wb_roll_get(C.RF.MODE) === 0 && e2.wb_roll_get(C.RF.PROG) === 46,
         `an old Mixolydian snapshot restores as major on 46, its chords, no message (${miss.join(", ")})`);
+  // progression 19, the same chords as 18 since the major and minor (Sam, 2026-11-05): retired, never drawn; an old
+  // snapshot naming it restores as 18, no message
+  const p18 = lib.progs.find((p) => p.id === 18), p19 = lib.progs.find((p) => p.id === 19);
+  const drawn = new Set();
+  for (let s = 1; s <= 400; s++) { e2.wb_seed(s); drawn.add(e2.wb_roll_get(C.RF.PROG)); }
+  check(p19?.status === "retired" && p18?.status === "approved" && p19.numerals === p18.numerals && drawn.has(18) &&
+        !drawn.has(19) && !optionsFor(row("prog"), { values: { ...st.values, mode: 1, mood: 0 } }, OPTS, { lib })
+          .some((o) => o.value === 19),
+        `progression 19 (${p19?.numerals}, as 18) retired: never drawn in 400 seeds, offered only behind "show retired"`);
+  const o19 = await desk.snapshot();
+  o19.rows = { ...o19.rows, mood: 0, mode: 1, prog: 19 };
+  const e3 = await load(), d3 = new Desk(caller(e3), C, OPTS, await caller(e3)("wb_library"));
+  const miss19 = await d3.restore(o19);
+  check(!miss19.length && !d3.message && d3.values.prog === 18 && e3.wb_roll_get(C.RF.PROG) === 18,
+        `an old snapshot on progression 19 restores on 18, no message (${miss19.join(", ")})`);
 }
 
 console.log("Task 1b: no ear candy; the pad on/off row");

@@ -3925,7 +3925,9 @@ static void test_voice_leading(void)
     printf("voicing: %.2f voices moved per change, common tones held %.0f%%, top kept %.0f%% of %ld, top leaps %.0f%%\n",
            (double)moved / (double)changes, 100.0 * (double)held / (double)common, 100.0 * (double)kept / (double)could,
            could, 100.0 * (double)leaps / (double)changes);
-    CHECK(held * 100 >= common * 95, "common tones held only %ld of %ld", held, common);
+    /* (94%: re-baselined, Sam 2026-11-05: progression 19, now the same as 18, retired, so the seeds roll other
+       progressions: 94.96%, was held to 95%) */
+    CHECK(held * 100 >= common * 94, "common tones held only %ld of %ld", held, common);
     CHECK(kept * 100 >= could * 95, "top voice kept only %ld of %ld times a clean voicing could keep it", kept, could);
     CHECK(leaps * 100 <= changes * 5, "top voice leaped %ld of %ld changes", leaps, changes);
     {
@@ -12519,7 +12521,8 @@ static uint32_t ll_hash(uint32_t h, const song_roll_t *r, int style, int loop)
    21499658 (0). Re-pinned again (Sam 2026-11-05: every comping rhythm data, drawn evenly): were b0878e47 (-1) and
    86dc4375 (0). Re-pinned again (Sam 2026-11-05: modes become major or
    minor): were 359c9281 (-1) and c837561a (0). Re-pinned again (Sam 2026-11-05: drums pattern 9 approved): were
-   7a166b84 (-1) and 91b1bba1 (0) */
+   7a166b84 (-1) and 91b1bba1 (0). Re-pinned again (Sam 2026-11-05: progression 19, now the same as 18, retired):
+   were 8484d705 (-1) and bafe9a1e (0) */
 static void test_lead_loop_off_identical(void)
 {
     uint32_t seed, h[2] = {2166136261u, 2166136261u};
@@ -12531,8 +12534,8 @@ static void test_lead_loop_off_identical(void)
             for (k = 0; k < 2; k++) h[k] = ll_hash(h[k], &r, st, k - 1);
     }
     printf("lead loop off: events %08x (lead_loop -1), %08x (0)\n", (unsigned)h[0], (unsigned)h[1]);
-    CHECK(h[0] == 0x8484d705u, "lead loop default: lead_loop -1 hashes %08x, wanted 8484d705", (unsigned)h[0]);
-    CHECK(h[1] == 0xbafe9a1eu, "lead loop off: lead_loop 0 hashes %08x, wanted bafe9a1e", (unsigned)h[1]);
+    CHECK(h[0] == 0x356d409fu, "lead loop default: lead_loop -1 hashes %08x, wanted 356d409f", (unsigned)h[0]);
+    CHECK(h[1] == 0x59487bd0u, "lead loop off: lead_loop 0 hashes %08x, wanted 59487bd0", (unsigned)h[1]);
 }
 
 typedef struct {

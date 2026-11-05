@@ -63,6 +63,11 @@ export function fromModes(rows) {
   return { ...rows, mode: TONALITY[m], prog: SPLIT[`${m}:${rows.prog}`] ?? rows.prog };
 }
 
+// A retired progression that plays the same chords as another (Sam, 2026-11-05: 19, the same as 18 since the major
+// and minor): an old snapshot naming it restores as that one. Exact: nothing to say.
+const SAME_PROG = { 19: 18 };
+export const sameProg = (rows) => (rows.prog in SAME_PROG ? { ...rows, prog: SAME_PROG[rows.prog] } : rows);
+
 const SEED_TRIES = 20;   // a new seed whose song can't keep the locks is tried again (re-roll all, the seed's dice)
 
 // a die from a seed (the same song lands on the same kit every time)
@@ -514,7 +519,8 @@ export class Desk {
     // doubling switch, the arpeggio rows: lead styles, 2026-10-31) is ignored
     const older = ROWS.filter((r) => (r.kind === "ov" || r.kind === "reroll") && !(r.id in snap.rows));
     snap = { ...snap, rows: { ...snap.rows, ...Object.fromEntries(older.map((r) => [r.id, rolled(r)])) } };
-    snap = { ...snap, rows: fromModes(snap.rows) };   // an old mode: major or minor, the same chords
+    snap = { ...snap, rows: sameProg(fromModes(snap.rows)) };   // an old mode: major or minor; a retired twin
+                                                                   // progression: its twin (the same chords)
     // the Comp rhythm row (to 2026-11-05) is the Comping row's now: a rhythm it forced restores as that rhythm there
     if (snap.rows.compPat >= 0) snap = { ...snap, rows: { ...snap.rows, comp: COMP_PAT_BASE + snap.rows.compPat } };
     // a removed comping style (light eighths: Sam, 2026-11-05) restores as held: said, not a mismatch

@@ -1282,7 +1282,7 @@
     },
     "19": {
       "id": 19,
-      "status": "approved",
+      "status": "retired",
       "kind": "PK_JAZZY",
       "n": 4,
       "bars_per_chord": 1,
