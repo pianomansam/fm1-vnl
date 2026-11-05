@@ -24,7 +24,7 @@ static const char *const FLATS[12] = {"C", "Db", "D", "Eb", "E", "F", "Gb", "G",
 static const char *const SHARPS[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 static const char *const MODE[MODE_N] = {"major", "Dorian", "Phrygian", "Lydian", "Mixolydian", "minor"};
 static const char *const STYLE[CS_N] = {"held", "stabs", "offbeats", "arpeggio", "half notes", "strum", "held on 2",
-                                        "light eighths", "held on 2 and 4", "a comp rhythm"};
+                                        "(removed: light eighths)", "held on 2 and 4", "a comp rhythm"};
 static const char *const STRUM[SP_N + 1] = {"strum, D-DU-UDU", "strum, chucks", "strum, bossa", "strum, ballad",
                                             "strum, slow ballad"};
 static const char *const BASS[3] = {"roots", "walking", "pedal"};

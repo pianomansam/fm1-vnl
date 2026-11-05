@@ -2330,50 +2330,6 @@
       ],
       "file": "comp-rhythms/4-held-on-2"
     },
-    "5": {
-      "name": "light-eighths",
-      "status": "approved",
-      "style": "CS_LIGHT8",
-      "vel_range": [
-        30,
-        38
-      ],
-      "strikes": [
-        {
-          "step": 0,
-          "len": 1
-        },
-        {
-          "step": 2,
-          "len": 1
-        },
-        {
-          "step": 4,
-          "len": 1
-        },
-        {
-          "step": 6,
-          "len": 1
-        },
-        {
-          "step": 8,
-          "len": 1
-        },
-        {
-          "step": 10,
-          "len": 1
-        },
-        {
-          "step": 12,
-          "len": 1
-        },
-        {
-          "step": 14,
-          "len": 1
-        }
-      ],
-      "file": "comp-rhythms/5-light-eighths"
-    },
     "6": {
       "name": "held-on-2-and-4",
       "status": "approved",

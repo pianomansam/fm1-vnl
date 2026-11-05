@@ -8710,9 +8710,9 @@ static void test_ov_comp(void)
 }
 /* The vibes on the keys (Sam, 2026-11-05): the one vibraphone is the keys or the lead in a song, never both (a song's
    parts are its set's, vx_configure, so the rule holds in the set table); at least three sets play them, each with a
-   lead other than the vibes. They comp held, half notes, held on 2 and held on 2 and 4 (harmony_comp_ok), never
-   stabs, strum or light eighths, and the roll draws those four for them (re-baselined, Sam 2026-11-05: held on 2
-   and held on 2 and 4 approved, so drawn too; a comp rhythm too: Sam, "enable vibes on the new comp rhythm"). The motor always runs on them (a
+   lead other than the vibes. They comp held, half notes, held on 2, held on 2 and 4 and a comp rhythm
+   (harmony_comp_ok), never stabs or strum, and the roll draws all five for them (re-baselined, Sam 2026-11-05: held
+   on 2 and 2 and 4 approved; "enable vibes on the new comp rhythm"). The motor always runs on them (a
    tremolo of 0.9 at 4 Hz on the tube's share of the fundamental) and never on the lead's vibes: a held note's
    per-25 ms level, its 4 Hz part against its mean, deep on the keys and near none on the lead. */
 static void test_vibes_keys(void)
@@ -8803,40 +8803,41 @@ static void test_vibes_keys(void)
           (double)depth[0], (double)depth[1]);
 }
 
-/* Held on 2, held on 2 and 4 and light eighths (the workbench's for now: weight 0 in the roll, Sam sets them after
-   listening), on the percussive keys only (anything else holds instead). Held on 2: struck on beat 2 (a chord change
-   on a bar line too), held to the bar's end, never a beat 4. Held on 2 and 4: the same, then the same voicing struck
-   softly (70%) on beat 4 in every bar. Light eighths: the voicing struck on every 8th, half an 8th long, softer than
-   half notes. A busy lead changes none of them (Sam), and each keeps one voicing per chord. */
+/* Held on 2 and held on 2 and 4 (approved, Sam 2026-11-05), on the percussive keys and the vibes only (anything else
+   holds instead). Held on 2: struck on beat 2 (a chord change on a bar line too), held to the bar's end, never a beat
+   4. Held on 2 and 4: the same, then the same voicing struck softly (70%) on beat 4 in every bar. A busy lead changes
+   neither (Sam), and each keeps one voicing per chord. Light eighths (CS_LIGHT8_GONE) removed (Sam, 2026-11-05:
+   "remove light eighths completely"): no keys play it, never drawn, and forced (an old snapshot's) it holds. */
 static void test_comp_new(void)
 {
     static const int PERC[3] = {INS_RHODES, INS_FELT_PIANO, INS_KNIGHT};   /* (and the Wurli and DX, to 2026-11-04) */
-    static const int NEW[3] = {CS_HELD2, CS_HELD24, CS_LIGHT8};
+    static const int NEW[2] = {CS_HELD2, CS_HELD24};
     const float SS = 5512.5f;
     plan_block_t keys = {0, 16, SEC_GROOVE, L_KEYS | L_KICK, 0};
     song_ov_t o = ov_none();
     song_roll_t r;
-    long bad_step = 0, bad_len = 0, bad_vel = 0, bad_voice = 0, bad_busy = 0, strikes[3] = {0, 0, 0};
+    long bad_step = 0, bad_len = 0, bad_vel = 0, bad_voice = 0, bad_busy = 0, strikes[2] = {0, 0};
     int k, c, ins, seed, cs;
     for (ins = 0; ins < INS_NONE; ins++) {
         int perc = 0;
         for (k = 0; k < 3; k++) perc |= PERC[k] == ins;
-        for (c = 0; c < 3; c++)   /* the vibes on the keys hold on 2 (and 4), no light eighths (2026-11-05) */
-            CHECK(harmony_comp_ok(ins, NEW[c]) == (perc || (ins == INS_VIBES && NEW[c] != CS_LIGHT8)),
+        for (c = 0; c < 2; c++)   /* the vibes on the keys hold on 2 (and 4) too (2026-11-05) */
+            CHECK(harmony_comp_ok(ins, NEW[c]) == (perc || ins == INS_VIBES),
                   "comp new: instrument %d allowed %d for %d", ins, harmony_comp_ok(ins, NEW[c]), NEW[c]);
+        CHECK(!harmony_comp_ok(ins, CS_LIGHT8_GONE), "comp new: instrument %d plays the removed light eighths", ins);
         CHECK((harmony_comp_ok(ins, CS_HELD) && harmony_comp_ok(ins, CS_HALF)) ==
                   (ins != INS_NYLON && ins != INS_EMILY),
               "comp new: instrument %d refused held (only the guitars, which only strum)", ins);
     }
     {   /* re-baselined (Sam 2026-11-05: held on 2 and held on 2 and 4 approved, weights 15 and 10): drawn, on the
-           percussive keys only (207 and 133 of 3000 songs); light eighths never (weight 0) */
+           percussive keys and the vibes only; light eighths (removed) never */
         long h2 = 0, h24 = 0, l8 = 0, off = 0;
         for (seed = 1; seed <= 3000; seed++) {
             roll_song(NULL, (uint32_t)seed, &r);
             cs = harmony_style(&r);
             h2 += cs == CS_HELD2;
             h24 += cs == CS_HELD24;
-            l8 += cs == CS_LIGHT8;
+            l8 += cs == CS_LIGHT8_GONE;
             off += (cs == CS_HELD2 || cs == CS_HELD24 || cs == CS_PAT) &&
                    !harmony_comp_ok(lib_set_by_id((uint8_t)r.v[RF_SET])->chords, cs);
         }
@@ -8845,9 +8846,7 @@ static void test_comp_new(void)
               "comp new: %ld and %ld of 3000 songs drew held on 2 and held on 2 and 4, wanted about 207 and 133", h2, h24);
         CHECK(off == 0, "comp new: %ld songs drew held on 2 (and 4) or a comp rhythm on keys that can't play it", off);
     }
-    CHECK(COMP_LIGHT8.vel_hi < COMP_HALF.vel_lo, "comp new: light eighths' velocities %d-%d not under half notes' %d",
-          COMP_LIGHT8.vel_lo, COMP_LIGHT8.vel_hi, COMP_HALF.vel_lo);
-    for (c = 0; c < 3; c++) {
+    for (c = 0; c < 2; c++) {
         cs = NEW[c];
         o.comp = (int8_t)cs;
         for (seed = 1; seed <= 300; seed++) {
@@ -8877,17 +8876,14 @@ static void test_comp_new(void)
                 for (step = 0; step < 16; step++) {
                     int n0 = harmony_step(&r, &keys, bar, step, bar / loop + 1, SS, &v0, 0, 5u, e0, 16);
                     int n1 = harmony_step(&r, &keys, bar, step, bar / loop + 1, SS, &v1, 1, 5u, e1, 16);
-                    int want = cs == CS_LIGHT8 ? !(step & 1) : cs == CS_HELD2 ? step == 4 : step == 4 || step == 12;
+                    int want = cs == CS_HELD2 ? step == 4 : step == 4 || step == 12;
                     uint32_t len = n0 ? e0[0].len + e0[0].delay : 0u;
                     if ((n0 > 0) != want || (n0 && n0 != 4)) bad_step++;
                     strikes[c] += n0 > 0;
                     /* a busy lead: the same strikes, note for note (no thinning) */
                     if (n1 != n0 || memcmp(e0, e1, sizeof(song_ev_t) * (size_t)n0)) bad_busy++;
                     if (!n0) continue;
-                    if (cs == CS_LIGHT8) {
-                        float l = (float)len / (2.0f * SS);
-                        if (l < 0.45f || l > 0.55f) bad_len++;
-                    } else {   /* held to the next strike or the bar's end, as held (441 samples short) */
+                    {   /* held to the next strike or the bar's end, as held (441 samples short) */
                         uint32_t w = (uint32_t)((float)((cs == CS_HELD24 && step == 4 ? 12 : 16) - step) * SS) - 441u;
                         if (len + 2 < w || len > w + 2) bad_len++;
                     }
@@ -8899,9 +8895,7 @@ static void test_comp_new(void)
                         }
                         if (e0[i].note != chord_notes[i]) bad_voice++;
                         if (e0[i].len + e0[i].delay != len) bad_len++;   /* all notes end together */
-                        if (cs == CS_LIGHT8) {
-                            if (e0[i].vel < COMP_LIGHT8.vel_lo || e0[i].vel > COMP_LIGHT8.vel_hi) bad_vel++;
-                        } else if (step == 12) {
+                        if (step == 12) {
                             if (e0[i].vel > COMP_HELD24.vel_hi * COMP_HELD24.later_vel_pct / 100 + 1) bad_vel++;
                         } else if (e0[i].vel < 25 || e0[i].vel > COMP_HELD2.vel_hi + 12) {
                             bad_vel++;
@@ -8913,19 +8907,20 @@ static void test_comp_new(void)
     }
     lib_set_wb(NULL, 0);
     song_override(NULL);
-    printf("comp new: %ld held on 2, %ld held on 2 and 4, %ld light eighths strikes over 300 songs' 16 bars\n",
-           strikes[0], strikes[1], strikes[2]);
-    CHECK(strikes[0] == 300L * 16 && strikes[1] == 300L * 32 && strikes[2] == 300L * 128,
-          "comp new: strikes %ld %ld %ld, want every bar's", strikes[0], strikes[1], strikes[2]);
+    printf("comp new: %ld held on 2, %ld held on 2 and 4 strikes over 300 songs' 16 bars\n", strikes[0], strikes[1]);
+    CHECK(strikes[0] == 300L * 16 && strikes[1] == 300L * 32, "comp new: strikes %ld %ld, want every bar's",
+          strikes[0], strikes[1]);
     CHECK(bad_step == 0, "comp new: %ld strikes on the wrong steps", bad_step);
     CHECK(bad_len == 0, "comp new: %ld notes the wrong length", bad_len);
     CHECK(bad_vel == 0, "comp new: %ld velocities out of range", bad_vel);
     CHECK(bad_voice == 0, "comp new: %ld notes off the chord's one voicing", bad_voice);
     CHECK(bad_busy == 0, "comp new: %ld steps a busy lead changed", bad_busy);
-    {   /* off the percussive keys (a guitar, the organ): forced, they hold (a guitar strums) */
-        static const int OFF[3] = {INS_NYLON, INS_ORGAN, INS_PAD};
-        for (k = 0; k < 3; k++)
-            for (c = 0; c < 3; c++) {
+    {   /* off the percussive keys (a guitar, the organ): forced, they hold (a guitar strums); the removed light
+           eighths forced (an old snapshot's 7) holds on any keys */
+        static const int OFF[6] = {INS_NYLON, INS_ORGAN, INS_PAD, INS_RHODES, INS_KNIGHT, INS_VIBES};
+        static const int FORCE[3] = {CS_HELD2, CS_HELD24, CS_LIGHT8_GONE};
+        for (k = 0; k < 6; k++)
+            for (c = k < 3 ? 0 : 2; c < 3; c++) {
                 const lib_set_t *st;
                 lib_set_t set;
                 roll_song(NULL, 7u, &r);
@@ -8935,18 +8930,18 @@ static void test_comp_new(void)
                 set.id = LIB_SET_WB;
                 lib_set_wb(&set, st->id);
                 r.v[RF_SET] = LIB_SET_WB;
-                o.comp = (int8_t)NEW[c];
+                o.comp = (int8_t)FORCE[c];
                 song_override(&o);
                 CHECK(harmony_style(&r) == (OFF[k] == INS_NYLON ? CS_STRUM : CS_HELD),   /* (a guitar strums) */
-                      "comp new: instrument %d forced %d plays %d", OFF[k], NEW[c], harmony_style(&r));
+                      "comp new: instrument %d forced %d plays %d", OFF[k], FORCE[c], harmony_style(&r));
             }
         lib_set_wb(NULL, 0);
         song_override(NULL);
     }
 }
 /* The comp rhythms past the six styles (CS_PAT, patterns_gen.h's COMP_PAT; patterns/comp-rhythms 7 on): they play
-   where held on 2 does (not on the vibes: they ring, held or half notes, 2026-11-05), the roll draws one only once one is approved (a candidate never), and forced (the comp_pat
-   override, the workbench's Comp rhythm row) each plays its written strikes in every keys bar of a whole song, never
+   where held on 2 does (the vibes too, Sam 2026-11-05), the roll draws one only once one is approved (a candidate never), and forced (the comp_pat
+   override, a comp rhythm in the workbench's Comping row) each plays its written strikes in every keys bar of a whole song, never
    the bass's rhythm (the bass steps aside, as for the stabs) nor the kick's (over a kick of its very rhythm it holds,
    as half notes do) */
 static void test_comp_pat(void)

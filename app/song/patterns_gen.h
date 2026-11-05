@@ -15,7 +15,7 @@
 extern const uint8_t LIB_PATTERNS_STATUS[];
 extern const uint8_t LIB_PROGS_STATUS[];
 
-/* the keys' held, half-note, held-on-2 (and 4) and light-eighths comping (harmony.c): strikes in a bar,
+/* the keys' held, half-note and held-on-2 (and 4) comping (harmony.c): strikes in a bar,
    `later_vel_pct` the later strikes' velocity in percent of the first's; len is in 16ths (held: written a bar, the
    engine holds the chord; a strike as long as the gap to the next, or to the bar's end, is held to it) */
 typedef struct {
@@ -36,9 +36,9 @@ typedef struct {
     uint8_t busy_over;
     uint16_t busy_steps;
 } patterns_stabs_t;
-extern const patterns_comp_t COMP_HELD, COMP_HALF, COMP_HELD2, COMP_LIGHT8, COMP_HELD24;
+extern const patterns_comp_t COMP_HELD, COMP_HALF, COMP_HELD2, COMP_HELD24;
 extern const patterns_stabs_t COMP_STABS;
-/* the comp rhythms past those six (patterns/comp-rhythms' added files; harmony.c's CS_PAT), one bar of
+/* the comp rhythms past those (ids 7 on: patterns/comp-rhythms' added files; harmony.c's CS_PAT), one bar of
    strikes each. The host's and the workbench's builds hold every entry (a candidate plays when the comp_pat
    override forces it); the firmware only the approved, the ones the roll draws: a candidate costs it
    nothing */

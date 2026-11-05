@@ -2384,7 +2384,7 @@ console.log("candidates: the strum row, Approve (patterns and edits, Task 4)");
   check(!bad.ok && !desk.approved.has(`drums/${PID}`) && /no such strum pattern/.test(bad.message), "a refused approval says why");
 }
 
-console.log("comping: held on 2, held on 2 and 4 (approved, Sam 2026-11-05), light eighths (a candidate: the roll weighs it 0)");
+console.log("comping: held on 2, held on 2 and 4 (approved, Sam 2026-11-05); light eighths removed (Sam 2026-11-05)");
 {
   const HH = readFileSync(new URL("../../app/song/harmony.h", import.meta.url), "utf8");
   const CS = HH.slice(HH.indexOf("enum { CS_HELD")).split("}")[0].replace(/enum \{/, "").split(",")
@@ -2393,12 +2393,16 @@ console.log("comping: held on 2, held on 2 and 4 (approved, Sam 2026-11-05), lig
         "every comping style's id is its harmony.h enum's");
   const perc = ["Rhodes", "Felt piano", "Knight piano"].map(ins);   // (the Wurli and the DX too, to 2026-11-04)
   const off = ["Nylon guitar", "Emilyguitar", "Organ", "Chillwave pad"].map(ins);
-  const NEW = ["Held on 2", "Held on 2 and 4", "Light eighths"];
-  const offered = (k) => optionsFor(row("comp"), { values: { keys: k } }, OPTS).map((o) => o.name);
+  const NEW = ["Held on 2", "Held on 2 and 4"];
+  const offered = (k, showRetired = false) => optionsFor(row("comp"), { values: { keys: k } }, OPTS, { showRetired })
+    .map((o) => o.name);
   check(perc.every((k) => NEW.every((n) => offered(k).includes(n))) && off.every((k) => NEW.every((n) => !offered(k).includes(n))),
-        "the three are offered on the percussive keys only (not the guitars, organ or pad)");
-  // the dice: approved choices only (held on 2, held on 2 and 4, the approved comp rhythms), never a candidate (light
-  // eighths) nor CS_PAT alone (no entry of its own: the rhythms are offered by name)
+        "the two are offered on the percussive keys only (not the guitars, organ or pad)");
+  check(OPTS.comping.find((c) => c.id === 7)?.status === "removed" && OPTS.comping[7].sym === "CS_LIGHT8_GONE" &&
+        [...perc, ...off, ins("Vibes (modeled vibraphone)")].every((k) => !offered(k, true).includes("Light eighths")),
+        "light eighths (7, removed) is offered on no keys, not even behind \"show retired\"; its id kept, not reused");
+  // the dice: approved choices only (held on 2, held on 2 and 4, the approved comp rhythms), never a candidate nor
+  // CS_PAT alone (no entry of its own: the rhythms are offered by name)
   const cand = OPTS.comping.filter((c) => c.status === "candidate").map((c) => c.id);
   const pat = OPTS.comping.find((c) => c.sym === "CS_PAT").id;
   const picks = new Map();
@@ -2406,11 +2410,11 @@ console.log("comping: held on 2, held on 2 and 4 (approved, Sam 2026-11-05), lig
     const v = pickFor(row("comp"), { values: { keys: perc[i % 3], comp: -1 }, locks: new Set() }, OPTS, lcg(i));
     picks.set(v, (picks.get(v) ?? 0) + 1);
   }
-  const bad = [...picks.keys()].filter((v) => cand.includes(v) || v === pat);
-  check(JSON.stringify(cand) === "[7]" && !bad.length && picks.has(6) && picks.has(8) &&
+  const bad = [...picks.keys()].filter((v) => cand.includes(v) || v === pat || v === 7);
+  check(!bad.length && picks.has(6) && picks.has(8) &&
         OPTS.compPats.every((p) => picks.has(COMP_PAT_BASE + p.index) === (p.status === "approved")),
-        `... light eighths a candidate, never the dice's pick; held on 2, held on 2 and 4 and each approved comp rhythm ` +
-        `are (${[...picks].map(([v, n]) => `${v}: ${n}`).join(", ")})`);
+        `the dice pick held on 2, held on 2 and 4 and each approved comp rhythm, never a candidate, CS_PAT alone or the ` +
+        `removed light eighths (${[...picks].map(([v, n]) => `${v}: ${n}`).join(", ")})`);
 
   const { readEvents } = await import("../wb.js");
   const ex = await load(), call = caller(ex), lib = await call("wb_library");
@@ -2433,11 +2437,21 @@ console.log("comping: held on 2, held on 2 and 4 (approved, Sam 2026-11-05), lig
   check(h4.ok && ex.wb_comp_applied() === 8 && e4.every((e) => e.step === 4 || e.step === 12) &&
         at(e4, 12) === at(e4, 4) && at(e4, 12) === 4 * bars(e4),
         `held on 2 and 4 picked on the Rhodes: beats 2 and 4 in every bar (${at(e4, 4)} and ${at(e4, 12)} notes)`);
-  const l8 = await d.set("comp", 7), e8 = await keysEv();
-  check(l8.ok && ex.wb_comp_applied() === 7 && e8.length && e8.every((e) => e.step % 2 === 0 && e.len <= 1) &&
-        [0, 2, 4, 6, 8, 10, 12, 14].every((s) => at(e8, s) === 4 * bars(e8)),
-        `light eighths picked on the Rhodes: every 8th of every bar, a 16th long (${e8.length} notes)`);
-  for (const cs of [6, 7, 8]) {   // a busy lead changes none of them, the thinning row either way
+  const st8 = cstr(ex, ex.wb_state()), l8 = await d.set("comp", 7);
+  check(!l8.ok && /removed/.test(l8.message) && cstr(ex, ex.wb_state()) === st8 && d.values.comp === 8,
+        `light eighths (7) set by hand: refused, nothing staged ("${l8.message}")`);
+  ex.wb_ov_set(OV.COMP, 7);   // the engine on its own (a host render's VNL_COMP=7): held
+  check(ex.wb_comp_applied() === 0, "light eighths forced by the override alone: the engine holds");
+  ex.wb_ov_set(OV.COMP, 8);
+  {   // an old snapshot (or a feedback item) that picked light eighths restores as held, and says so
+    const snap = await d.snapshot();
+    const miss = await d.restore({ ...snap, rows: { ...snap.rows, comp: 7 } });
+    check(d.values.comp === 0 && ex.wb_ov_get(OV.COMP) === 0 && !miss.includes("comp") &&
+          /Comping: Light eighths is removed; the song plays Held instead\./.test(d.message),
+          `an old snapshot's light eighths restores as held, said ("${d.message}"; mismatch: ${miss.join(", ") || "none"})`);
+    await d.restore(snap);
+  }
+  for (const cs of [6, 8]) {   // a busy lead changes none of them, the thinning row either way
     await d.set("comp", cs);
     const on = JSON.stringify(await keysEv());
     await d.set("busyThin", 1);
@@ -2446,13 +2460,13 @@ console.log("comping: held on 2, held on 2 and 4 (approved, Sam 2026-11-05), lig
     check(on === offEv, `comping ${cs}: the same notes with the busy-lead thinning on or off`);
   }
   await d.set("keys", ins("Organ"));
-  check(d.values.comp === -1 && ex.wb_ov_get(OV.COMP) === -1, "keys -> organ puts light eighths back to as rolled");
-  for (const [keys, cs] of [["Organ", 7], ["Organ", 6], ["Organ", 8], ["Nylon guitar", 6], ["Nylon guitar", 8]]) {
+  check(d.values.comp === -1 && ex.wb_ov_get(OV.COMP) === -1, "keys -> organ puts held on 2 and 4 back to as rolled");
+  for (const [keys, cs] of [["Organ", 6], ["Organ", 8], ["Nylon guitar", 6], ["Nylon guitar", 8]]) {
     await d.set("keys", ins(keys));
     const st = cstr(ex, ex.wb_state()), r = await d.set("comp", cs);
     check(!r.ok && new RegExp(`doesn't suit the ${keys}`).test(r.message) && /Rhodes/.test(r.message) &&
           cstr(ex, ex.wb_state()) === st && ex.wb_ov_get(OV.COMP) === -1,
-          `${NEW[[6, 8, 7].indexOf(cs)]} on the ${keys}: refused, nothing staged ("${r.message}")`);
+          `${NEW[[6, 8].indexOf(cs)]} on the ${keys}: refused, nothing staged ("${r.message}")`);
   }
   ex.wb_ov_set(OV.COMP, 8);   // the engine on its own (a snapshot, a host render): held where the keys can't play it
   check(ex.wb_comp_applied() === 5, "forced on the nylon by the override alone, the engine strums instead");
@@ -2481,7 +2495,7 @@ console.log("comp rhythms: in the Comping row by name, one place to pick comping
   await d.set("keys", ins("Rhodes"));
   const names = optionsFor(row("comp"), d.state, OPTS).filter((o) => !o.rolled).map((o) => o.name);
   const pname = (p) => { const x = p.name.replace(/^\d+-/, "").replace(/-/g, " "); return x[0].toUpperCase() + x.slice(1); };
-  const want = ["Held", "Half notes", "Held on 2", "Light eighths", "Held on 2 and 4", ...OPTS.compPats.map(pname)];
+  const want = ["Held", "Half notes", "Held on 2", "Held on 2 and 4", ...OPTS.compPats.map(pname)];
   check(JSON.stringify(names) === JSON.stringify(want) && names.includes("Charleston") && names.includes("Late one"),
         `the Comping row on the Rhodes lists every choice, the comp rhythms by name (${names.join(", ")})`);
   const vib = optionsFor(row("comp"), { values: { keys: ins("Vibes (modeled vibraphone)") } }, OPTS).filter((o) => !o.rolled)

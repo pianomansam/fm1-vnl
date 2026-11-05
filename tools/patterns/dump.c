@@ -81,7 +81,6 @@ int main(void)
     comp("held", &COMP_HELD);
     comp("half", &COMP_HALF);
     comp("held-on-2", &COMP_HELD2);
-    comp("light-eighths", &COMP_LIGHT8);
     comp("held-on-2-and-4", &COMP_HELD24);
     printf("\"stabs\": {\"vel\": [%d, %d], \"first\": %d, ", s->vel_lo, s->vel_hi, s->first);
     bytes("second", s->second, s->n, ", ");

@@ -29,7 +29,7 @@ byte.
   where it plays when picked, until Sam approves it) or `"retired"` (never drawn).
 - **`status.json`:** Sam's statuses, `{family: {id: "approved" | "candidate" | "retired"}}` (ids as in
   `model.json`). The workbench's **Approve** button (beside a candidate picked in its row) writes it; it may be
-  edited by hand. The importer applies it; the six comp rhythms (1-6) and the strum fills are fixed (always approved).
+  edited by hand. The importer applies it; the comp rhythms 1-6 (5 removed) and the strum fills are fixed (always approved).
 - **`.manifest.json`:** the SHA-256 of each `.mid` and `.musicxml` as last written, so the importer can tell which
   file of a pattern Sam edited (either may be edited alone).
 - **Names are stable, and export never deletes:** an entry's file name is fixed when it is first exported and kept
@@ -45,7 +45,8 @@ byte.
   Sam edited is never rewritten) and both hashes go in the manifest.
 - **New patterns:** a file whose name is not in `model.json` is a new pattern, as either file alone (the other is
   written for it). It keeps its file name, takes the next free id and is a **candidate** (the workbench only, until
-  approved). The six comp rhythms (held, half, stabs, held on 2, light eighths, held on 2 and 4) are fixed styles:
+  approved). The five comp rhythms (held, half, stabs, held on 2, held on 2 and 4; ids 1-6, 5 light eighths removed
+  2026-11-05 and never reused) are fixed styles:
   edit them in place. A file dropped in `comp-rhythms/` is a new **comp rhythm** (id 7 on, one bar of strikes, played
   as `CS_PAT`), a candidate like any other. A strum pattern added takes the next
   id no fill holds (past the fourth it skips 5, the ballad's fill; past the fifteenth 16-19, the step back and drive
@@ -123,8 +124,8 @@ chord look the same on paper).
 
 ## comp-rhythms
 
-The keys' comping rhythms (`COMP_HELD`, `COMP_HALF`, `COMP_STABS`, `COMP_HELD2`, `COMP_LIGHT8`, `COMP_HELD24` in
-`patterns_gen.c`; `harmony.c` plays them): held, half, stabs, held on 2, light eighths and held on 2 and 4, over a
+The keys' comping rhythms (`COMP_HELD`, `COMP_HALF`, `COMP_STABS`, `COMP_HELD2`, `COMP_HELD24` in
+`patterns_gen.c`; `harmony.c` plays them): held, half, stabs, held on 2 and held on 2 and 4, over a
 reference Cmaj7 (C4 E4 G4 B4; the pitches are placeholders, only the rhythm counts). The velocities are written at
 the middle of `vel_range` (metadata), a later strike at `second_vel_pct` of it. A strike written as long as the gap
 to the next (or to the bar's end) is held to it; a shorter one is played as written.
@@ -138,13 +139,13 @@ to the next (or to the bar's end) is held to it; a shorter one is played as writ
 - **held-on-2:** one strike on step 4 (beat 2, a chord change on a bar line too), held to the bar's end; never a
   beat 4. Percussive keys (and the vibes) only; approved (Sam, 2026-11-05), the roll's weight 15 (`VNL_COMP=6`).
   `vel_range` 32-46, under held's: it never thins under a busy lead, so it sits lower (the lead over the keys).
-- **light-eighths:** a strike on every 8th (steps 0, 2, ... 14), each a 16th long (half an 8th), softer than half
-  notes (`vel_range` 30-38). Percussive keys only; weight 0 for now (the workbench and `VNL_COMP=7`).
+- **light-eighths (5):** removed (Sam, 2026-11-05: "remove light eighths completely"): no file, no table, no
+  style (`CS_LIGHT8_GONE` keeps its slot); a forced 7 (an old snapshot's, `VNL_COMP=7`) holds.
 - **held-on-2-and-4:** held on 2, then a soft re-strike of the same voicing on step 12 (beat 4, `second_vel_pct` 70)
   in every bar, which shortens the first to a half note. Percussive keys (and the vibes) only; approved (Sam,
   2026-11-05), weight 10 (`VNL_COMP=8`). `vel_range` 28-41, under held on 2's, for the same reason.
 
-These three never thin under a busy lead (Sam): every bar plays the written strikes. Held, half and stabs do thin
+These two (and the comp rhythms) never thin under a busy lead (Sam): every bar plays the written strikes. Held, half and stabs do thin
 (`harmony.c`), unless the workbench's "Busy lead thins the comping" row is off (`VNL_BUSY=0` for a host render).
 
 **Comp rhythms** (id 7 on, `kind` `"pattern"`, `COMP_PAT` in `patterns_gen.c`, `index` its slot; `harmony.c`'s

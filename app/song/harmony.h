@@ -10,16 +10,16 @@
 
 /* (CS_HALF, appended: the voicing struck on beats 1 and 3, the second a little softer; sustained keys hold instead) */
 /* (CS_STRUM, appended: the guitars' strummed chord, strum.h's engine on a guitar shape) */
-/* (CS_HELD2, CS_LIGHT8 and CS_HELD24, appended: held on 2, struck on beat 2 and held to the bar's end; light eighths,
-   the voicing struck soft and short on every 8th; held on 2 and 4, held on 2 with a soft re-strike on beat 4 every
-   bar. Percussive keys only (harmony_comp_ok), a busy lead leaves them be; the workbench's for now: weight 0 in the
-   roll until Sam sets it) */
+/* (CS_HELD2 and CS_HELD24, appended: held on 2, struck on beat 2 and held to the bar's end; held on 2 and 4, held on
+   2 with a soft re-strike on beat 4 every bar. Percussive keys and the vibes only (harmony_comp_ok), a busy lead
+   leaves them be; approved, Sam 2026-11-05. CS_LIGHT8_GONE: light eighths, removed (Sam, 2026-11-05: "remove light
+   eighths completely"); its id is never reused, and a forced 7 (an old snapshot's) holds) */
 /* (CS_PAT, appended: a comp rhythm from patterns/comp-rhythms past the fixed six (patterns_gen.h's COMP_PAT): where
    held on 2 plays. The roll draws it only once one is approved; a candidate plays when the comp_pat override forces
-   it (the workbench's "Comp rhythm" row) */
-enum { CS_HELD, CS_STABS, CS_OFFBEATS, CS_ARP, CS_HALF, CS_STRUM, CS_HELD2, CS_LIGHT8, CS_HELD24, CS_PAT, CS_N };
-/* 0 where the chords instrument ins can't play comping style cs (held on 2, held on 2 and 4 and light eighths: the
-   percussive keys only, Rhodes, felt piano and the Knight; the guitars only strum); a
+   it (the workbench's Comping row) */
+enum { CS_HELD, CS_STABS, CS_OFFBEATS, CS_ARP, CS_HALF, CS_STRUM, CS_HELD2, CS_LIGHT8_GONE, CS_HELD24, CS_PAT, CS_N };
+/* 0 where the chords instrument ins can't play comping style cs (held on 2, held on 2 and 4 and a comp rhythm: the
+   percussive keys, Rhodes, felt piano and the Knight, and the vibes; the guitars only strum; CS_LIGHT8_GONE none); a
    forced style it can't play holds instead (the guitars strum) */
 int harmony_comp_ok(int ins, int cs);
 
@@ -45,7 +45,7 @@ unsigned harmony_stab_steps(const song_roll_t *r);   /* the steps stab comping s
 int harmony_comp_pat(const song_roll_t *r);
 
 int harmony_half_strikes(const song_roll_t *r);   /* 1 when the song really plays half notes (not held by sustained keys or the kick) */
-/* the steps stabs, half notes, held on 2 (and 4), light eighths or a comp rhythm strike (0 if only a note on 1) */
+/* the steps stabs, half notes, held on 2 (and 4) or a comp rhythm strike (0 if only a note on 1) */
 unsigned harmony_comp_steps(const song_roll_t *r);
 
 /* Chord-part events of one 16th step (bar and step from 0). Writes nothing unless the block has L_KEYS.

@@ -543,8 +543,8 @@ void vx_organ_scan(int on) { psc_on = on != 0; }
    in, pads revision 2): struck or plucked keys held decay under the mix, so they sit up (a two-bar chord further);
    half notes restrike, so a little (their second strike softer, a busy lead thins
    them to the chord changes); an arpeggio about level; half notes that hold (half_held) sit as held; a strum (struck
-   harder, many strokes a bar) under them all, the ballad's three strokes a bar less so; held on 2 (and 4) as held,
-   light eighths as half notes. A pad sustains, except its arpeggio (short notes that barely swell). */
+   harder, many strokes a bar) under them all, the ballad's three strokes a bar less so; held on 2 (and 4) and a comp
+   rhythm as held. A pad sustains, except its arpeggio (short notes that barely swell). */
 static float keys_gain(const song_roll_t *r)
 {
     const lib_set_t *s = lib_set_by_id((uint8_t)r->v[RF_SET]);
@@ -575,8 +575,6 @@ static float keys_gain(const song_roll_t *r)
     else if (style == CS_HELD2 || style == CS_HELD24 || style == CS_PAT)   /* as held, a bar's chord at most (a
                                                            first guess: Sam sets the level by ear; a comp rhythm too) */
         db = 6.0f + cut;
-    else if (style == CS_LIGHT8)  /* struck softer than half notes (vel 30-38) but eight times a bar: as half notes */
-        db = 3.0f + cut;
     if (ins == INS_VIBES)         /* the vibes on the keys (their patch level matched to the Rhodes on struck bars,
                                      the motor on): +0.5 dB, the pad layer's chord part 7.8-9.5 dB under them, the
                                      lead 4.6-6.0 over them by set (test_lead_over_keys, test_pad_level; 2026-11-05) */

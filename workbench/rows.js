@@ -117,9 +117,10 @@ function allOptions(r, state, opts, lib) {
       return opts.instruments.filter((i) => i.roles.includes(ROLE[r.role]))
         .map((i) => ({ value: i.id, name: i.name, status: i.status, family: i.family }));
     case "comping": {   // the styles, then each comp rhythm by name (on the keys that play CS_PAT). CS_PAT alone (an
-                        // old snapshot's "a drawn comp rhythm") is never offered: shown only as the current value
+                        // old snapshot's "a drawn comp rhythm") is never offered: shown only as the current value; a
+                        // removed style (light eighths) never
       const pats = (opts.compPats || []).map((p) => compOption(opts, COMP_PAT_BASE + p.index)).filter(Boolean);
-      return [ROLLED, ...[...opts.comping, ...pats].filter((c) => compFits(c, v.keys))
+      return [ROLLED, ...[...opts.comping, ...pats].filter((c) => c.status !== "removed" && compFits(c, v.keys))
         .map((c) => ({ value: c.id, name: c.name, status: c.status, ...(c.sym === "CS_PAT" && !isCompPat(c.id) ? { hidden: true } : {}),
                        ...(isCompPat(c.id) ? { key: c.key } : {}) }))];
     }

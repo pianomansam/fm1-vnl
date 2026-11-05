@@ -25,7 +25,7 @@ typedef struct {
        which the roll never draws. -1 rolled (the roll draws over the approved entries only) */
     int8_t strum_pat;       /* a STRUM_PAT index (the strummed keys) */
     int8_t no_busy_thin;    /* 0: a busy lead thins the comping (half notes, stabs, offbeats, the arpeggio: harmony.c),
-                               as always; 1: they keep their full rhythm (held on 2 (and 4) and light eighths never
+                               as always; 1: they keep their full rhythm (held on 2 (and 4) and the comp rhythms never
                                thin) */
     int8_t lead_loop;       /* -1 default (follows LEAD_LOOP_DEFAULT: on), 0 the lead loop off, 1 on */
     int8_t strum_fill;      /* a strummed song's fill figure (strum_fill_drive): 0 the song's draw (left out of an

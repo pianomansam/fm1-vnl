@@ -1035,7 +1035,7 @@ static void test_ambient_rules(void)
     style_hard(LS_AMBIENT, "Ambient", INS4, 4, 130);    /* (142 m9 notes, the felt piano) */
 }
 
-/* ---- the new comping styles (held on 2, held on 2 and 4, light eighths: the workbench's for now) ---- */
+/* ---- the new comping styles (held on 2, held on 2 and 4; light eighths removed, 2026-11-05) ---- */
 
 /* Each forced over the first 300 songs on percussive keys (the ones that can play them; a pad set's keys swapped
    for them would keep the pad's octave shift, so they are skipped): every rule above holds, the lead and the bass
@@ -1043,12 +1043,12 @@ static void test_ambient_rules(void)
 static void test_comp_new(void)
 {
     static song_t s;
-    static const int NEW[3] = {CS_HELD2, CS_HELD24, CS_LIGHT8};
-    static const char *const NAME[3] = {"held on 2", "held on 2 and 4", "light eighths"};
+    static const int NEW[2] = {CS_HELD2, CS_HELD24};
+    static const char *const NAME[2] = {"held on 2", "held on 2 and 4"};
     song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0, 0};
     int k, before = fails;
     uint32_t i;
-    for (k = 0; k < 3; k++) {
+    for (k = 0; k < 2; k++) {
         long songs = 0, strikes = 0, knight = 0;
         o.comp = (int8_t)NEW[k];
         for (i = 1; songs < 300 && i < 2000; i++) {

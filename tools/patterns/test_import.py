@@ -195,7 +195,7 @@ class Import(unittest.TestCase):
 
     def test_musescore_style_variants_import_the_same(self):
         picks = [("drums", "5"), ("drums", "1"), ("progressions", "1"), ("progressions", "19"),
-                 ("comp-rhythms", "3"), ("comp-rhythms", "2"), ("comp-rhythms", "4"), ("comp-rhythms", "5"),
+                 ("comp-rhythms", "3"), ("comp-rhythms", "2"), ("comp-rhythms", "4"), ("comp-rhythms", "8"),
                  ("comp-rhythms", "6"), ("strum", "3"), ("kick-phrases", "k6")]
         variants = {"divisions 480": dict(divisions=480), "ties across beats": dict(tie_beats=True),
                     "an extra empty staff": dict(extra_staff=True), "a rests-only bar": dict(rest_bar=True),
@@ -213,7 +213,7 @@ class Import(unittest.TestCase):
     def test_daw_style_midi_imports_the_same(self):
         """PPQ 960, notes a tick short, MuseScore's chord-symbol playback on its own channel, no metadata"""
         for fam, k in [("drums", "3"), ("progressions", "19"), ("progressions", "1"), ("strum", "2"),
-                       ("comp-rhythms", "1"), ("comp-rhythms", "4"), ("comp-rhythms", "5"), ("comp-rhythms", "6")]:
+                       ("comp-rhythms", "1"), ("comp-rhythms", "4"), ("comp-rhythms", "8"), ("comp-rhythms", "6")]:
             e = self.model[fam][k]
             _, _, tracks, _, _, texts = export.render(fam, k, e)
             for tr in tracks:
@@ -629,15 +629,9 @@ class Import(unittest.TestCase):
         self.assertEqual(model["comp-rhythms"]["1"], e)
 
     def test_the_new_comp_rhythms_import_like_the_others(self):
-        """held on 2 (and 4) and light eighths: an edit imports into their tables; held on 2 off beat 2, or held
-        on 2 and 4 without its beat 4, is refused"""
-        e = self.model["comp-rhythms"]["5"]
-        title, _, tracks, _, _, _ = export.render("comp-rhythms", "5", e)
-        tracks[0]["notes"] = [x for x in tracks[0]["notes"] if x[0] // 120 % 4 == 0]   # quarters (120 ticks a 16th)
-        midi.write(str(self.pat / (e["file"] + ".mid")), tracks, title=title)
-        so, model, _ = self.imported()
-        self.assertEqual([s["step"] for s in model["comp-rhythms"]["5"]["strikes"]], [0, 4, 8, 12], so)
-        self.assertIn("COMP_LIGHT8 = {30, 38, 4, {0, 4, 8, 12, 0, 0, 0, 0}", (self.gen / "patterns_gen.c").read_text())
+        """held on 2 (and 4): an edit imports into their tables; held on 2 off beat 2, or held on 2 and 4 without its
+        beat 4, is refused (light eighths, 5, removed 2026-11-05: no entry, no table)"""
+        self.assertNotIn("5", self.model["comp-rhythms"])
         h = self.model["comp-rhythms"]["4"]
         title, _, tracks, _, _, _ = export.render("comp-rhythms", "4", h)
         tracks[0]["notes"] = [(t - 480, n, p, v) for t, n, p, v in tracks[0]["notes"]]   # on beat 1

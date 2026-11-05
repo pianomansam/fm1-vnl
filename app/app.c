@@ -418,7 +418,7 @@ void app_init(void)
         }
         {
             const char *cp = getenv("VNL_COMP");   /* VNL_COMP=<CS_*>: every song comps in that style (6 held on 2,
-                                                      7 light eighths, 8 held on 2 and 4; held where the keys
+                                                      8 held on 2 and 4; 7, removed, holds; held where the keys
                                                       can't play it) */
             if (cp && *cp >= '0' && *cp <= '9' && atoi(cp) < CS_N) {
                 song_ov_t o = *song_ov();

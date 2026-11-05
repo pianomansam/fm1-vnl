@@ -183,7 +183,7 @@ def _check_comp(e, bad):
     lo_hi = e.get("vel_range") or []
     if len(lo_hi) != 2 or not (_int(lo_hi[0], 25, 110) and _int(lo_hi[1], 25, 110) and lo_hi[0] <= lo_hi[1]):
         bad(None, "vel_range is [lo, hi] within 25-110")
-    if e.get("name") in ("held", "half", "held-on-2", "light-eighths", "held-on-2-and-4") or e.get("kind") == "pattern":
+    if e.get("name") in ("held", "half", "held-on-2", "held-on-2-and-4") or e.get("kind") == "pattern":
         st = e.get("strikes") or []
         if e.get("kind") == "pattern" and not 1 <= len(st) <= 8:
             bad(1, "a comp rhythm is 1-8 strikes in one bar (the engine has no push over the bar line)")
@@ -198,8 +198,6 @@ def _check_comp(e, bad):
             bad(1, "held on 2 is one strike, on step 4 (beat 2)")
         if e.get("name") == "held-on-2-and-4" and [s.get("step") for s in st] != [4, 12]:
             bad(1, "held on 2 and 4 is two strikes, on steps 4 and 12 (beats 2 and 4)")
-        if e.get("name") == "light-eighths" and not 1 <= len(st) <= 8:
-            bad(1, "light eighths are 1-8 strikes in the bar")
         if "second_vel_pct" in e and not _int(e["second_vel_pct"], 25, 100):
             bad(None, "second_vel_pct is 25-100")
         end = 0
@@ -228,9 +226,9 @@ def check_family(fam, entries):
     """[(key, bar, rule)] across the family"""
     out = []
     if fam == "comp-rhythms" and sorted(e.get("name") for e in entries.values() if e.get("kind") != "pattern") != \
-            ["half", "held", "held-on-2", "held-on-2-and-4", "light-eighths", "stabs"]:
-        out.append((None, None, "comp-rhythms are held, half, stabs, held-on-2, light-eighths and held-on-2-and-4, "
-                                "one each"))
+            ["half", "held", "held-on-2", "held-on-2-and-4", "stabs"]:
+        out.append((None, None, "comp-rhythms are held, half, stabs, held-on-2 and held-on-2-and-4, one each (light "
+                                "eighths, 5, removed 2026-11-05)"))
     if fam == "strum" and sorted((str(e.get("figure")), e.get("fill_of")) for e in entries.values()
                                  if e.get("kind") == "fill") != STRUM_FILLS:
         out.append((None, None, "strum has five fills: the ballad's, and step back and drive for every pattern and "

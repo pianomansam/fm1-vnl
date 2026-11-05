@@ -58,6 +58,7 @@ FILLS = [(SP_N + 1, None, SP_N, 0, "ballad-fill"), (16, "step-back", 0, 0, "fill
          (19, "drive", SP_BOSSA + 1, 1, "bossa-fill-drive")]
 FILL_IDS = {f[0] for f in FILLS}
 COMP_FIXED = 6                                  # the comp rhythms 1-6 (held ... held on 2 and 4), each its own style
+                                                # (5, light eighths, removed 2026-11-05: its id never reused)
 COMP_PAT_VEL = (40, 58)                         # a new comp rhythm's vel_range: held's (a metadata vel_range wins)
 
 
@@ -152,7 +153,7 @@ def build_model(t, kick_phrases):
         "3": {"name": "stabs", "status": "approved", "style": "CS_STABS", "vel_range": st["vel"], "len": st["len"],
               "first": st["first"], "second": st["second"], "busy_over": st["busy_over"],
               "busy_steps": st["busy_steps"], "file": "comp-rhythms/3-stabs"},
-        "4": strikes(4, "held-on-2", "CS_HELD2"), "5": strikes(5, "light-eighths", "CS_LIGHT8"),
+        "4": strikes(4, "held-on-2", "CS_HELD2"),   # (5, light eighths: removed, 2026-11-05; its id never reused)
         "6": strikes(6, "held-on-2-and-4", "CS_HELD24")}
     for i, x in enumerate(t.get("comp_pat", [])):   # the comp rhythms added since (CS_PAT), by table index
         k = comp_pat_id(i)

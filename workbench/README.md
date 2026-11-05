@@ -48,13 +48,15 @@ AudioWorklet. Local only; not the FM-1, so it may exceed the device's budgets.
   only a candidate progression suits can be picked too (its candidate comes with it). The strum row is greyed when the
   keys don't strum.
 - Comping: one place to pick the keys' comping (Sam, 2026-11-05): the styles (held, half notes, stabs, strum, held on
-  2, held on 2 and 4, light eighths), then each comp rhythm from `patterns/comp-rhythms` by name (Charleston, Tresillo,
+  2, held on 2 and 4), then each comp rhythm from `patterns/comp-rhythms` by name (Charleston, Tresillo,
   Late one; a new one marked "(candidate)" until approved), only those the keys play. A comp rhythm picked stages
   the engine's `comp_pat` override (`CS_PAT` with that rhythm; the row's value is 100 + its table index); anything
   else stages the style and clears it. A comp rhythm plays on the percussive keys only: new keys that don't play one
   put the row back to as rolled, as for the other styles, and one left on such keys (a snapshot, the engine's) greys
   the row (still open to pick another). Approve on a candidate rhythm writes `patterns/status.json`, as for strum. A
-  snapshot from before (its Comp rhythm row) restores that rhythm in Comping.
+  snapshot from before (its Comp rhythm row) restores that rhythm in Comping. Light eighths is removed (Sam,
+  2026-11-05): never offered, not even behind "show retired"; a snapshot or feedback item that picked it restores as
+  Held and says so.
 - Feedback: 👍/👎 and a note, on the song or a row, save a line to `workbench/feedback.jsonl`: a versioned snapshot
   (every row, the locks, the seed; `desk.snapshot()` / `desk.restore()`), where the song was, and the log of every applied
   change. Entries queue in localStorage while the server is down (the page says "not saved yet") and are resent.

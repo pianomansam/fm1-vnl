@@ -146,13 +146,12 @@ class T(unittest.TestCase):
         stabs = self.model["comp-rhythms"]["3"]
         self.assertEqual((stabs["second"], stabs["busy_steps"], stabs["busy_over"]), ([6, 10, 4, 12], [0, 6], 3))
         cr = self.model["comp-rhythms"]
-        h2, l8, h24 = cr["4"], cr["5"], cr["6"]   # held on 2, light eighths, held on 2 and 4
+        h2, h24 = cr["4"], cr["6"]   # held on 2, held on 2 and 4 (5, light eighths, removed 2026-11-05)
         self.assertEqual((h2["file"], h2["strikes"], "second_vel_pct" in h2),
                          ("comp-rhythms/4-held-on-2", [{"step": 4, "len": 12}], False))
         self.assertEqual((h24["file"], h24["strikes"], h24["second_vel_pct"]),
                          ("comp-rhythms/6-held-on-2-and-4", [{"step": 4, "len": 8}, {"step": 12, "len": 4}], 70))
-        self.assertEqual((l8["file"], [s["step"] for s in l8["strikes"]]),
-                         ("comp-rhythms/5-light-eighths", list(range(0, 16, 2))))
+        self.assertFalse("5" in cr or (ROOT / "patterns/comp-rhythms/5-light-eighths.mid").exists())
         pats = {k: (e["file"], [(s["step"], s["len"]) for s in e["strikes"]]) for k, e in cr.items()
                 if e.get("kind") == "pattern"}   # the comp rhythms past the six (CS_PAT), 2026-11-05's candidates
         self.assertEqual({k: pats[k] for k in ("7", "8", "9")},
@@ -163,7 +162,6 @@ class T(unittest.TestCase):
             self.assertNotIn("opt_pct", e)
             if e.get("name") != "stabs":
                 self.assertNotIn("busy_steps", e)
-        self.assertLess(l8["vel_range"][1], self.model["comp-rhythms"]["2"]["vel_range"][0])
         # the lead-arp and melody-cells families went with the hybrid lead and the struck melody (lead styles Task 6)
         self.assertFalse({"lead-arp", "melody-cells"} & set(self.model))
         self.assertFalse((ROOT / "patterns/lead-arp").exists() or (ROOT / "patterns/melody-cells").exists())

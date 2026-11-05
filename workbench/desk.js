@@ -175,6 +175,8 @@ export class Desk {
     if (this.locks.has(id)) return this.done(false, `${r.label} is locked.`);
     if (id === "kick" && this.locks.has(PART_ROW.drums)) return this.done(false, "Kick phrase: the drums part is locked (its roll holds the kick).");
     const comp = id === "comp" ? compOption(this.opts, value) : null;
+    if (comp?.status === "removed")   // (light eighths, 2026-11-05: rows.js never offers it)
+      return this.done(false, `${comp.name} comping is removed.`);
     if (comp && !compFits(comp, this.values.keys)) {   // a style these keys can't play (rows.js offers it not)
       const name = (k) => this.opts.instruments.find((i) => i.id === k)?.name ?? `instrument ${k}`;
       return this.done(false, `${comp.name} comping doesn't suit the ${name(this.values.keys)}: ` +
@@ -485,6 +487,9 @@ export class Desk {
     snap = { ...snap, rows: { ...snap.rows, ...Object.fromEntries(older.map((r) => [r.id, rolled(r)])) } };
     // the Comp rhythm row (to 2026-11-05) is the Comping row's now: a rhythm it forced restores as that rhythm there
     if (snap.rows.compPat >= 0) snap = { ...snap, rows: { ...snap.rows, comp: COMP_PAT_BASE + snap.rows.compPat } };
+    // a removed comping style (light eighths: Sam, 2026-11-05) restores as held: said, not a mismatch
+    const compGone = this.opts.comping.find((c) => c.id === snap.rows.comp && c.status === "removed");
+    if (compGone) snap = { ...snap, rows: { ...snap.rows, comp: this.opts.comping.find((c) => c.sym === "CS_HELD").id } };
     // a retired lead style (the phrase planner, the hybrid: lead styles, 2026-10-31) restores as rolled: said, not a
     // mismatch
     const style = this.opts.leadStyles.find((s) => s.id === snap.rows.leadStyle);
@@ -530,7 +535,8 @@ export class Desk {
     this.message = [swapped ? `Lead: ${was.name} is retired${was.status === "approved" ? " as a lead" : ""}; the song plays ${name(this.values.lead)} instead.` : "",
                     bassSwapped ? `Bass: ${wasBass.name} is retired; the song plays ${name(this.values.bass)} instead.` : "",
                     keysSwapped ? `Keys: ${wasKeys.name} is retired; the song plays ${name(this.values.keys)} instead.` : "",
-                    styleGone ? `Lead style: ${style.name} is retired; the song plays a rolled style instead.` : ""]
+                    styleGone ? `Lead style: ${style.name} is retired; the song plays a rolled style instead.` : "",
+                    compGone ? `Comping: ${compGone.name} is removed; the song plays Held instead.` : ""]
       .filter(Boolean).join(" ");
     return [...ROWS.filter((r) => !(swapped && r.id === "lead") && !(bassSwapped && r.id === "bass") &&
                                   !(keysSwapped && r.id === "keys") &&
