@@ -288,6 +288,10 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   the buttons might do").** First rule: any register/octave choice (lead register, comp register, any later octave
   row) is changed on the device by the octave up/down buttons while that part's page is showing. To do: map every
   FM-1 button and knob to a role on each screen (home, each part's page, preview), alongside the screen designs.
+- **A mixer screen (Sam, 2026-11-05: "a screen to show a mixer with volumes, then that can be modified").** The
+  device (and the browser UI) gets a mixer page: each part's level (drums, bass, comp, pad, lead, texture/bed) shown
+  and adjustable, per song. To decide with the screens: whether a mix change is saved with the song, and how it sits
+  on the knobs (one part per knob, paged).
 - **CC0 sample libraries to mine (2026-10-25): VCSL and VSCO-2 CE (sgossner, both CC0).** Beyond the spike's piano
   (VCSL Kawai grand; also Steinway B, Knight and Yamaha uprights) and strings (VSCO-2 CE Violin, Viola and Cello
   Sections): sampled vibraphone, marimba, glockenspiel, several kalimbas and mbiras (could replace our FM vibes and
