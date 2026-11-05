@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 #include "rng.h"
 #include "theory.h"
 #include "fastmath.h"
@@ -1010,8 +1011,10 @@ static void test_harmony(void)
                     {                          /* a pad with or above the lead sounds an octave up (lead design) */
                         int up = (harmony_pad_place(&r) == PL_BELOW ? 0 : 12) +
                                  lib_set_keys_shift(lib_set_by_id((uint8_t)r.v[RF_SET]));   /* (Sam: the Chillwave pad lower) */
-                        if (ev[i].note < 48 + up || ev[i].note > (harmony_style(&r) == CS_STRUM ? 76 : 72) + up)
-                            bad_range++;               /* (a guitar shape reaches E5) */
+                        if (ev[i].note < 48 + up ||
+                            ev[i].note > (harmony_style(&r) == CS_STRUM ||
+                                          lib_set_by_id((uint8_t)r.v[RF_SET])->chords == INS_VIBES ? 76 : 72) + up)
+                            bad_range++;               /* (a guitar shape reaches E5; the vibes too, place_keys) */
                     }
                     if (ev[i].vel < 25 || ev[i].vel > 110) bad_vel++;
                     if (ev[i].len == 0) bad_range++;
@@ -1019,7 +1022,9 @@ static void test_harmony(void)
                 if (harmony_style(&r) != CS_ARP && harmony_style(&r) != CS_STRUM && ne > 0) {   /* (test_strum) */
                     chords_seen++;
                     if (ne != 4) bad_roll++;
-                    if (lib_set_by_id((uint8_t)r.v[RF_SET])->chords == INS_KNIGHT) continue;   /* struck together (test_knight_no_roll) */
+                    if (lib_set_by_id((uint8_t)r.v[RF_SET])->chords == INS_KNIGHT ||
+                        lib_set_by_id((uint8_t)r.v[RF_SET])->chords == INS_VIBES)
+                        continue;   /* struck together (test_knight_no_roll; the vibes' four mallets too) */
                     for (i = 1; i < ne; i++) {
                         uint32_t gap = ev[i].delay - ev[i - 1].delay;
                         if (ev[i].delay <= ev[i - 1].delay || ev[i].note <= ev[i - 1].note) bad_roll++;
@@ -1043,6 +1048,8 @@ static void test_harmony(void)
         int w[5] = {0, 0, 0, 0, 0}, want[5] = {55, 0, 0, 0, 45}, k2;
         song_roll_t q;
         roll_song(NULL, 1u, &q);
+        roll_set(&q, RF_SET, 6);   /* the synth keys' draw: City pop Rhodes, seed 1's set until the vibes-on-keys sets
+                                      (2026-11-05) moved it to a Knight set */
         for (k2 = 0; k2 < 10000; k2++) {
             q.seed = (uint32_t)k2 * 2654435761u + 1u;
             w[harmony_style(&q)]++;
@@ -6500,9 +6507,11 @@ static void test_levels_steady(void)
         }
     }
     /* the glue: 1-4 dB on average over a song's full band, under 1 dB in its intro (seed 53, Knight and flute, warm
-       pad: 0.89 since the style roll, lead styles Task 7, held to 0.85) */
+       pad: 0.89 since the style roll, lead styles Task 7, held to 0.85; seeds 5 and 50, Vibes and felt since the
+       vibes-on-keys sets, 2026-11-05: 0.97 each, held to 0.95) */
     for (k = 0; k < n; k++) {
-        CHECK(lv_song_gr[k] >= (sd[k] == 53u ? 0.85f : 1.0f) && lv_song_gr[k] <= 4.0f,
+        CHECK(lv_song_gr[k] >= (sd[k] == 53u ? 0.85f : sd[k] == 5u || sd[k] == 50u ? 0.95f : 1.0f) &&
+                  lv_song_gr[k] <= 4.0f,
               "glue: seed %d's full band %.2f dB, wanted 1-4", (int)sd[k], (double)lv_song_gr[k]);
         CHECK(lv_intro_gr[k] < 1.0f, "glue: seed %d's intro %.2f dB, wanted under 1", (int)sd[k], (double)lv_intro_gr[k]);
     }
@@ -6512,10 +6521,10 @@ static void test_levels_steady(void)
 /* A song as the app plays it (vx_song, the moves, the fade), its bed off, with only one role's bus in the mix
    (vx_solo: every voice still plays, so the keys' duck follows the lead) and the glue off (it would level a soloed
    bus as it never does in the mix, where it moves every bus alike): per bar the energy of both channels, in dB (-200
-   for a silent bar), and in lk_on whether a lead note starts in it. */
+   for a silent bar), and in lk_on whether a lead note starts in it (lk_kon: a keys note). */
 #define LK_BARS 512
 static double lk_db[2][LK_BARS];
-static uint8_t lk_on[LK_BARS];
+static uint8_t lk_on[LK_BARS], lk_kon[LK_BARS];
 static int lk_skip_lane; /* a V_PAD lane (1-4) whose events lk_song drops (test_pad_level: 4, the solo note), 0 none */
 static int lk_keys = INS_NONE, lk_lead = INS_NONE; /* test_samp: the keys' and the lead's instrument in place of the
                                                       set's (INS_NONE: the set's) */
@@ -6532,6 +6541,7 @@ static int lk_song(const song_roll_t *roll, int role, double *db)
     vx_init();
     vx_solo(role);
     memset(lk_on, 0, sizeof lk_on);
+    memset(lk_kon, 0, sizeof lk_kon);
     song_start(&s, roll);
     vx_song(&s.roll);
     if (lk_keys != INS_NONE)
@@ -6560,6 +6570,8 @@ static int lk_song(const song_roll_t *roll, int role, double *db)
             vx_event(&ev[i]);
             if (ev[i].voice == V_LEAD && bar < LK_BARS)
                 lk_on[bar] = 1;
+            if (ev[i].voice == V_CHORD && bar < LK_BARS)
+                lk_kon[bar] = 1;
         }
         adv = song_step_samples(&s) + frac;
         left = (uint32_t)adv;
@@ -6581,14 +6593,19 @@ static int lk_song(const song_roll_t *roll, int role, double *db)
     return cur < LK_BARS ? cur : LK_BARS;
 }
 
-/* lead minus keys (dB), the mean over the bars where both play (a lead note starts in the bar, the keys sound over
-   -60 dB: a bar of only the lead's echo tail is a rest); the bars counted in *nb */
+/* the keys sound in bar b of the song lk_song played last: over -60 dB; the vibes on the keys only where a chord is
+   struck (they ring about 10 s, a held two-bar chord's second bar still over -60 dB where struck keys have decayed
+   under it: counted, it read their level 5-12 dB low against the pad and the lead) */
+static int lk_keys_sound(int b) { return lk_db[0][b] > -60.0 && (vx_config()->chords != INS_VIBES || lk_kon[b]); }
+
+/* lead minus keys (dB), the mean over the bars where both play (a lead note starts in the bar, the keys sound:
+   lk_keys_sound; a bar of only the lead's echo tail is a rest); the bars counted in *nb */
 static float lk_diff(const song_roll_t *roll, int *nb)
 {
     int b, n = lk_song(roll, V_CHORD, lk_db[0]), m = lk_song(roll, V_LEAD, lk_db[1]), c = 0;
     double sum = 0.0;
     for (b = 0; b < n && b < m; b++)
-        if (lk_on[b] && lk_db[1][b] > -45.0 && lk_db[0][b] > -60.0) {
+        if (lk_on[b] && lk_db[1][b] > -45.0 && lk_keys_sound(b)) {
             sum += lk_db[1][b] - lk_db[0][b];
             c++;
         }
@@ -6757,7 +6774,7 @@ static void test_pad_level(void)
             np = lk_song(&r, V_PAD, lk_db[1]);
             lk_skip_lane = 0;
             for (b = 0; b < nk && b < np; b++)
-                if (lk_db[0][b] > -60.0 && lk_db[1][b] > -60.0) {
+                if (lk_keys_sound(b) && lk_db[1][b] > -60.0) {
                     sum += lk_db[0][b] - lk_db[1][b];
                     c++;
                 }
@@ -7086,9 +7103,9 @@ static void test_sampled_sets(void)
         kl += t->lead == INS_KNIGHT;
         ek += t->chords == INS_EMILY;
         el += t->lead == INS_EMILY;
-        CHECK(samp || (t->id >= 30 && t->id <= 33),
+        CHECK(samp || (t->id >= 30 && t->id <= 33) || t->chords == INS_VIBES,
               "sampled sets: new set %s plays neither the Knight nor the Emilyguitar (and isn't one of the string synth's "
-              "former sets, 30-33)", t->name);
+              "former sets, 30-33, or a vibes-on-keys set)", t->name);
         CHECK(moods_n(t->moods) == 2, "sampled sets: %s has %d moods, wanted 2", t->name, moods_n(t->moods));
         CHECK(t->pad == INS_STRINGS || t->pad == INS_WARM_PAD, "sampled sets: %s's pad %d", t->name, t->pad);
         CHECK(t->lead != INS_NONE && t->chords != INS_UPRIGHT && t->bass != INS_UPRIGHT,
@@ -8286,9 +8303,11 @@ static void test_strum_same(void)
        D.u..du..dU..du.): were cfc38de5 and c13b2519. Re-pinned again (Sam 2026-11-04: no root-fifth bass line):
        were aa622c2e and 682514c2. Re-pinned again (Sam 2026-11-04: the Wurli's and DX's sets retired, so the seeds
        draw other sets): were e0ad0308 and fe1c3672. Re-pinned again (Sam 2026-11-05: kick-out breaks sometimes drop
-       their hats): were c3513a4e and 50e9027f */
-    CHECK(a == 0x78f452bfu, "strum same: the strummed songs hash %08x, wanted 78f452bf", (unsigned)a);
-    CHECK(b == 0xd36f686eu, "strum same: with set changes %08x, wanted d36f686e", (unsigned)b);
+       their hats): were c3513a4e and 50e9027f. Re-pinned again (Sam 2026-11-05: the vibes on the keys, four new sets,
+       so the seeds draw other sets; a strum that copies the kick takes the twin's up stroke): were 78f452bf and
+       d36f686e */
+    CHECK(a == 0x4fa861d9u, "strum same: the strummed songs hash %08x, wanted 4fa861d9", (unsigned)a);
+    CHECK(b == 0xe694d37eu, "strum same: with set changes %08x, wanted e694d37e", (unsigned)b);
     v = (uint32_t)sf_last_bad();
     CHECK(v == 0, "strum same: %u strummed bars left the keys' last voicing behind", (unsigned)v);
 }
@@ -8496,8 +8515,8 @@ static void test_wb_off(void)
     uint32_t a, b;
     lib_set_wb(NULL, 0); lib_pattern_wb(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x78f452bfu, "wb off: the strummed songs hash %08x, wanted 78f452bf", (unsigned)a);
-    CHECK(b == 0xd36f686eu, "wb off: with set changes %08x, wanted d36f686e", (unsigned)b);
+    CHECK(a == 0x4fa861d9u, "wb off: the strummed songs hash %08x, wanted 4fa861d9", (unsigned)a);
+    CHECK(b == 0xe694d37eu, "wb off: with set changes %08x, wanted e694d37e", (unsigned)b);
 }
 /* The workbench's mute (vx_mute, default off). mt_song: a song's first 20 s as the app plays it, its samples hashed
    (mute: vx_mute(0) called first, as the workbench's wb_init does) */
@@ -8544,8 +8563,8 @@ static void test_vx_mute_off(void)
     CHECK(a == b, "vx mute off: vx_mute(0) changed the samples (%08x, wanted %08x)", (unsigned)b, (unsigned)a);
     vx_mute(0);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x78f452bfu, "vx mute off: the strummed songs hash %08x, wanted 78f452bf", (unsigned)a);
-    CHECK(b == 0xd36f686eu, "vx mute off: with set changes %08x, wanted d36f686e", (unsigned)b);
+    CHECK(a == 0x4fa861d9u, "vx mute off: the strummed songs hash %08x, wanted 4fa861d9", (unsigned)a);
+    CHECK(b == 0xe694d37eu, "vx mute off: with set changes %08x, wanted e694d37e", (unsigned)b);
 }
 /* Review Focus 2 (Task 2): a bus muted mid-note is silent after the chunk it goes out in (and a quantum for the
    chain's own filters), its voice still playing (the duck follows it); unmuted, the notes struck while muted end at
@@ -8675,6 +8694,95 @@ static void test_ov_comp(void)
         song_override(NULL);
     }
 }
+/* The vibes on the keys (Sam, 2026-11-05): the one vibraphone is the keys or the lead in a song, never both (a song's
+   parts are its set's, vx_configure, so the rule holds in the set table); at least three sets play them, each with a
+   lead other than the vibes. They comp held, half notes, held on 2 and held on 2 and 4 (harmony_comp_ok), never
+   stabs, strum or light eighths, and the roll draws held or half notes for them. The motor always runs on them (a
+   tremolo of 0.9 at 4 Hz on the tube's share of the fundamental) and never on the lead's vibes: a held note's
+   per-25 ms level, its 4 Hz part against its mean, deep on the keys and near none on the lead. */
+static void test_vibes_keys(void)
+{
+    int k, n = 0, cs, seen[CS_N] = {0}, pass;
+    float depth[2];
+    for (k = 0; k < LIB_NSETS; k++) {
+        const lib_set_t *t = &LIB_SETS[k];
+        uint32_t seed;
+        int got = 0;
+        if (t->chords != INS_VIBES)
+            continue;
+        n++;
+        CHECK(t->lead != INS_VIBES && t->lead != INS_NONE, "vibes keys: %s leads with %d", t->name, t->lead);
+        for (seed = 1u; got < 40 && seed < 4000u; seed++) {
+            song_roll_t r;
+            roll_song(NULL, seed, &r);
+            if (roll_set(&r, RF_SET, t->id) != t->id)
+                continue;
+            got++;
+            cs = harmony_style(&r);
+            seen[cs]++;
+            CHECK(cs == CS_HELD || cs == CS_HALF, "vibes keys: %s seed %u draws comping %d", t->name, (unsigned)seed,
+                  cs);
+            vx_configure(&r);
+            CHECK(vx_config()->chords == INS_VIBES && vx_config()->lead != INS_VIBES,
+                  "vibes keys: %s seed %u plays keys %d lead %d", t->name, (unsigned)seed, vx_config()->chords,
+                  vx_config()->lead);
+        }
+        CHECK(got == 40, "vibes keys: only %d seeds take %s", got, t->name);
+    }
+    printf("vibes keys: %d sets; drawn held %d, half notes %d\n", n, seen[CS_HELD], seen[CS_HALF]);
+    CHECK(n >= 3, "vibes keys: %d sets play the vibes on the keys, wanted 3 or more", n);
+    CHECK(seen[CS_HELD] > 0 && seen[CS_HALF] > 0, "vibes keys: held %d, half notes %d drawn", seen[CS_HELD],
+          seen[CS_HALF]);
+    for (cs = 0; cs < CS_N; cs++)
+        CHECK(harmony_comp_ok(INS_VIBES, cs) == (cs == CS_HELD || cs == CS_HALF || cs == CS_HELD2 || cs == CS_HELD24),
+              "vibes keys: comping %d allowed %d", cs, harmony_comp_ok(INS_VIBES, cs));
+    CHECK(vx_vibes_keys()->model == M_MODAL && vx_vibes_keys()->p[12] == 0.9f && vx_vibes_keys()->p[13] == 4.0f &&
+              vx_patch(INS_VIBES)->p[12] == 0.0f,
+          "vibes keys: the motor %.2f at %.1f Hz on the keys, %.2f on the lead", (double)vx_vibes_keys()->p[12],
+          (double)vx_vibes_keys()->p[13], (double)vx_patch(INS_VIBES)->p[12]);
+    for (pass = 0; pass < 2; pass++) {   /* the keys (0), the lead (1): one A3 held 2 s, its level from 0.5 s */
+        enum { W = 1102, NW = 56 };
+        int voice = pass ? V_LEAD : V_CHORD, w;
+        uint32_t tt;
+        double lv[NW], mean = 0.0, re = 0.0, im = 0.0;
+        vx_init();
+        vx_fx_off(VX_OFF_GLUE);
+        vx_solo(voice);
+        vx_assign(voice, INS_VIBES);
+        vt_ev(voice, 57, 90, 0, 2u * 44100u);
+        for (tt = 0; tt < 2u * 44100u; tt += 256u) {
+            memset(vt_l, 0, 256 * sizeof(float));
+            memset(vt_r, 0, 256 * sizeof(float));
+            vx_render(vt_l, vt_r, 256);
+            memcpy(sb_l + tt, vt_l, 256 * sizeof(float));
+        }
+        vx_solo(-1);
+        vx_fx_off(0u);
+        for (w = 0; w < NW; w++) {   /* 25 ms windows from 0.5 s, the level's 4 Hz part (10 windows a turn) */
+            lv[w] = sqrt(lk_win(sb_l, 22050u + (uint32_t)w * W, 22050u + (uint32_t)(w + 1) * W));
+            mean += lv[w] / NW;
+        }
+        {   /* the level's decay taken out (a line through it), then its 4 Hz part over five turns */
+            double sx = 0.0, sxy = 0.0, slope;
+            for (w = 0; w < 50; w++) {
+                sx += (w - 24.5) * (w - 24.5);
+                sxy += (w - 24.5) * lv[w];
+            }
+            slope = sxy / sx;
+            for (w = 0; w < 50; w++) {
+                double d = lv[w] - mean - slope * (w - 24.5);
+                re += d * cos(2.0 * 3.14159265358979 * w / 10.0) / 25.0;
+                im += d * sin(2.0 * 3.14159265358979 * w / 10.0) / 25.0;
+            }
+        }
+        depth[pass] = mean > 0.0 ? (float)(sqrt(re * re + im * im) / mean) : 0.0f;
+    }
+    printf("vibes keys: the motor's 4 Hz depth %.3f on the keys, %.3f on the lead\n", (double)depth[0],
+           (double)depth[1]);
+    CHECK(depth[0] > 0.1f && depth[1] < 0.02f, "vibes keys: the 4 Hz depth %.3f on the keys, %.3f on the lead",
+          (double)depth[0], (double)depth[1]);
+}
+
 /* Held on 2, held on 2 and 4 and light eighths (the workbench's for now: weight 0 in the roll, Sam sets them after
    listening), on the percussive keys only (anything else holds instead). Held on 2: struck on beat 2 (a chord change
    on a bar line too), held to the bar's end, never a beat 4. Held on 2 and 4: the same, then the same voicing struck
@@ -8693,9 +8801,9 @@ static void test_comp_new(void)
     for (ins = 0; ins < INS_NONE; ins++) {
         int perc = 0;
         for (k = 0; k < 3; k++) perc |= PERC[k] == ins;
-        for (c = 0; c < 3; c++)
-            CHECK(harmony_comp_ok(ins, NEW[c]) == perc, "comp new: instrument %d allowed %d for %d", ins,
-                  harmony_comp_ok(ins, NEW[c]), NEW[c]);
+        for (c = 0; c < 3; c++)   /* the vibes on the keys hold on 2 (and 4), no light eighths (2026-11-05) */
+            CHECK(harmony_comp_ok(ins, NEW[c]) == (perc || (ins == INS_VIBES && NEW[c] != CS_LIGHT8)),
+                  "comp new: instrument %d allowed %d for %d", ins, harmony_comp_ok(ins, NEW[c]), NEW[c]);
         CHECK((harmony_comp_ok(ins, CS_HELD) && harmony_comp_ok(ins, CS_HALF)) ==
                   (ins != INS_NYLON && ins != INS_EMILY),
               "comp new: instrument %d refused held (only the guitars, which only strum)", ins);
@@ -8806,7 +8914,7 @@ static void test_comp_new(void)
     }
 }
 /* The comp rhythms past the six styles (CS_PAT, patterns_gen.h's COMP_PAT; patterns/comp-rhythms 7 on): they play
-   where held on 2 does, the roll draws one only once one is approved (a candidate never), and forced (the comp_pat
+   where held on 2 does (not on the vibes: they ring, held or half notes, 2026-11-05), the roll draws one only once one is approved (a candidate never), and forced (the comp_pat
    override, the workbench's Comp rhythm row) each plays its written strikes in every keys bar of a whole song, never
    the bass's rhythm (the bass steps aside, as for the stabs) nor the kick's (over a kick of its very rhythm it holds,
    as half notes do) */
@@ -8820,7 +8928,7 @@ static void test_comp_pat(void)
     long drawn = 0, bars = 0, bad_mask = 0, bass_twin = 0, kick_twin = 0, bad_style = 0, held = 0;
     int ins, seed, i, k, napp = 0;
     for (ins = 0; ins < INS_NONE; ins++)
-        CHECK(harmony_comp_ok(ins, CS_PAT) == (COMP_NPAT && harmony_comp_ok(ins, CS_HELD2)),
+        CHECK(harmony_comp_ok(ins, CS_PAT) == (COMP_NPAT && ins != INS_VIBES && harmony_comp_ok(ins, CS_HELD2)),
               "comp pat: instrument %d allowed %d", ins, harmony_comp_ok(ins, CS_PAT));
 #if COMP_NPAT
     for (k = 0; k < COMP_NPAT; k++) napp += COMP_PAT_APPROVED(k);
@@ -9222,8 +9330,9 @@ static void test_style_roll(void)
 }
 
 /* The sets' leads (lead styles Task 7; the spec's "Lost sets' new leads"): every set leads with the flute, felt piano,
-   vibes or Knight (flute 10 sets, felt 6, vibes 4, Knight 2, since the Wurli's and DX's sets retired, 2026-11-04: felt
-   8, vibes 7, Knight 4 before), never with its keys' instrument; the ten that lost their lead (the kalimba, synth
+   vibes or Knight (flute 12 sets, felt 7, vibes 4, Knight 3 with the vibes-on-keys sets, 2026-11-05: flute 10, felt 6,
+   Knight 2 before; felt 8, vibes 7, Knight 4 before the Wurli's and DX's sets retired, 2026-11-04), never with its
+   keys' instrument; the ten that lost their lead (the kalimba, synth
    pluck, saw lead, Emilyguitar) have the spec's (the seven left: 13, 20 and 33 retired). */
 static void test_style_sets(void)
 {
@@ -9240,8 +9349,8 @@ static void test_style_sets(void)
         CHECK(t->lead != t->chords, "style sets: %s plays the same instrument (%d) on keys and lead", t->name, t->lead);
     }
     printf("style sets: flute %d, felt %d, vibes %d, Knight %d, other %d\n", n[0], n[1], n[2], n[3], other);
-    CHECK(n[0] == 10 && n[1] == 6 && n[2] == 4 && n[3] == 2 && other == 0,
-          "style sets: leads flute %d felt %d vibes %d Knight %d other %d, wanted 10 6 4 2 0", n[0], n[1], n[2], n[3],
+    CHECK(n[0] == 12 && n[1] == 7 && n[2] == 4 && n[3] == 3 && other == 0,
+          "style sets: leads flute %d felt %d vibes %d Knight %d other %d, wanted 12 7 4 3 0", n[0], n[1], n[2], n[3],
           other);
     for (k = 0; k < 7; k++) {
         const lib_set_t *t = lib_set_by_id((uint8_t)NEW[k][0]);
@@ -9314,13 +9423,16 @@ static int kw_popcount(const uint32_t *w)
    window (the lead's band floor, less a semitone) holds in every bar: the keys' top at most its top, one voicing per
    chord all song (each chord's pitch classes sound in at most its 4 notes), and no lead note a semitone from a keys
    note of its bar. As the styles' centers stand the window seldom binds (the keys' voicing without it would reach
-   into the band: printed); a tighter window (its top D4-A4) binds in many, and holds the same way. */
+   into the band: printed); a tighter window (its top D4-A4) binds in many, and holds the same way. The vibes on the
+   keys (2026-11-05) are left out of both windows and printed: the window can't hold over them (voice_hi), the rubs
+   and the one voicing per chord still checked. */
 static void test_keys_window(void)
 {
     static song_t s0;
     uint32_t seed = 7171;
     song_roll_t prev, r;
-    long songs = 0, bars = 0, lead_bars = 0, over = 0, revoiced = 0, rubs = 0, binds = 0, lnotes = 0;
+    long songs = 0, bars = 0, lead_bars = 0, over = 0, revoiced = 0, rubs = 0, binds = 0, lnotes = 0, vbars = 0,
+         vover = 0;
     long tight = 0, tight_over = 0, tight_revoiced = 0, tight_binds = 0;
     int k, i, j;
     for (k = 0; k < 300; k++) {
@@ -9348,13 +9460,19 @@ static void test_keys_window(void)
             bars++;
             b = plan_at(&s0.plan, bar);
             lead_bars += b && lead_plays(b);
-            over += kw_top[bar] > lo - 1;
+            if (set->chords == INS_VIBES) {              /* (the window can't hold over the vibes: voice_hi) */
+                vbars++;
+                vover += kw_top[bar] > lo - 1;
+            } else
+                over += kw_top[bar] > lo - 1;
             harmony_voicing_at(&r, bar, bar / loop + 1, &v, un);   /* the voicing with no window */
             for (i = 0; i < 4; i++) if (un[i] > top) top = un[i];
             binds += top > lo - 1;
         }
         for (j = 0; j < kw_nch; j++) revoiced += kw_popcount(kw_set[j]) > 4;
-        {   /* a tighter window, D4-A4 for the top (as a lower lead's band would set): the voicer under it */
+        if (set->chords != INS_VIBES) {   /* a tighter window, D4-A4 for the top (as a lower lead's band would set):
+                                             the voicer under it (not the vibes on the keys: their range's floor, F3,
+                                             is over the voicer's C3, so voice_hi leaves them unwindowed) */
             int w = 62 + k % 8, first[16][4], have[16] = {0};
             harmony_voicing_t vw;
             memset(&vw, 0, sizeof vw);
@@ -9391,6 +9509,9 @@ static void test_keys_window(void)
     printf("keys window: %ld songs, %ld keys bars (%ld with the lead), the window binds in %ld; %ld over it, %ld chords "
            "revoiced, %ld lead notes, %ld rubs\n", songs, bars, lead_bars, binds, over, revoiced, lnotes, rubs);
     CHECK(songs > 100 && lead_bars > 2000, "keys window: only %ld songs, %ld lead bars", songs, lead_bars);
+    printf("keys window: the vibes on the keys: %ld of %ld bars with the top over the lead's band floor (their range's "
+           "floor, F3, over the voicer's C3: voice_hi leaves them unwindowed; a note lifted to F3 that would rub a "
+           "semitone goes up an octave)\n", vover, vbars);
     printf("keys window: a D4-A4 window: binds in %ld of %ld bars; %ld over it, %ld loop chords revoiced\n",
            tight_binds, tight, tight_over, tight_revoiced);
     CHECK(tight_binds > tight / 5, "keys window: a D4-A4 window binds in only %ld of %ld bars", tight_binds, tight);
@@ -10436,7 +10557,7 @@ static void test_ov_part_salts(void)
                       NAME[j], moved[j]);
     }
     song_override(NULL);
-    CHECK(sf_songs(0) == 0x78f452bfu && sf_songs(1) == 0xd36f686eu, "ov part salts: the pinned hashes moved");
+    CHECK(sf_songs(0) == 0x4fa861d9u && sf_songs(1) == 0xe694d37eu, "ov part salts: the pinned hashes moved");
 }
 /* Task 1b (Sam, 2026-10-29): "Remove the ear candy part completely"; "Make it possible for the pad part to not be in
    a song. And update the seeds to not always have it"; "add the ability for the pad part to drop out of certain song
@@ -10713,8 +10834,8 @@ static void test_ov_off(void)
     CHECK(o && o->comp == -1 && o->lead_style == -1 && o->pad_place == -1 && o->ride == -1 && !o->keys_oct &&
           !o->lead_oct && !o->voicing_salt && !o->phrase_salt, "ov off: the default override forces something");
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x78f452bfu, "ov off: the strummed songs hash %08x, wanted 78f452bf", (unsigned)a);
-    CHECK(b == 0xd36f686eu, "ov off: with set changes %08x, wanted d36f686e", (unsigned)b);
+    CHECK(a == 0x4fa861d9u, "ov off: the strummed songs hash %08x, wanted 4fa861d9", (unsigned)a);
+    CHECK(b == 0xe694d37eu, "ov off: with set changes %08x, wanted e694d37e", (unsigned)b);
 }
 /* a steal of a damped string (the final review): six strings struck, the first two re-struck at once (their last
    notes damped on the 2 spare voices), then a plain chord note (no string: a stab after a set change) while they
@@ -10934,11 +11055,22 @@ static unsigned sf_fig(const char *p, int bar)
     return m;
 }
 
+/* a bar's strokes m against the figure's fig: the same, or (the figure the song's kick in that bar: the keys never copy
+   the kick's rhythm, strum.c's bass_twin) the figure and one soft up stroke on an "and" */
+static int sf_ok(const song_roll_t *r, int bar, unsigned m, unsigned fig)
+{
+    const lib_pattern_t *dp = lib_pattern_by_id((uint8_t)r->v[RF_PATTERN]);
+    unsigned kick = dp ? lib_lane_hits(dp, D_KICK, bar) & 0xFFFFu : 0u, extra = m & ~fig;
+    return m == fig || (fig == kick && fig != 1u && (m & fig) == fig && extra && !(extra & ~0x4444u) &&
+                        !(extra & (extra - 1u)));
+}
+
 /* Fill variance (Sam, 2026-11-04): a drum fill's bar (the block's last, PB_FILL_LAST without PB_DROP_LAST) strums the
    song's drawn figure, step back (a strike on 1, then space for the fill) or drive (pushes into the change),
    the bossa their thumb-and-pinch versions, the ballad its own fill; a drop bar and every other bar play the pattern
-   as before (every pattern, candidates too, forced, 40 songs each). With the bass in the block, a fill bar plays its
-   figure and at most the bass twin's soft up stroke on an "and" (the keys never copy the bass's rhythm). The draw
+   as before (every pattern, candidates too, forced, 40 songs each; a bar whose figure is the song's kick, with the
+   kick twin's up stroke: sf_ok, 2026-11-05). With the bass in the block, a fill bar plays its figure and at most the
+   bass twin's soft up stroke on an "and" (the keys never copy the bass's rhythm). The draw
    (stream 199) is about half and half over the strummed songs that draw it (45-55% drive), each figure under every
    approved pattern but the ballad. */
 static void test_strum_fill(void)
@@ -10979,10 +11111,10 @@ static void test_strum_fill(void)
             o.strum_pat = (int8_t)p;
             song_override(&o);
             want = p == SP_BALLAD ? STRUM_BALLAD_FILL : strum_fill_drive(&r) ? STRUM_FILL_DRIVE[k] : STRUM_FILL_STEP[k];
-            bad_fill += sf_mask(&r, &fill, 7, shape) != sf_fig(want, 7);
-            bad_drop += sf_mask(&r, &drop, 7, shape) != sf_fig(STRUM_PAT[p], 7);
+            bad_fill += !sf_ok(&r, 7, sf_mask(&r, &fill, 7, shape), sf_fig(want, 7));
+            bad_drop += !sf_ok(&r, 7, sf_mask(&r, &drop, 7, shape), sf_fig(STRUM_PAT[p], 7));
             for (bar = 0; bar < 7; bar++)
-                bad_other += sf_mask(&r, &fill, bar, shape) != sf_fig(STRUM_PAT[p], bar);
+                bad_other += !sf_ok(&r, bar, sf_mask(&r, &fill, bar, shape), sf_fig(STRUM_PAT[p], bar));
             m = sf_mask(&r, &bass, 7, shape);
             extra = m & ~sf_fig(want, 7);
             twins += extra != 0;
@@ -11869,8 +12001,8 @@ static void test_drums_hook(void)
     CHECK(quiet_bad == 0, "drums hook: a silent source still sounds at %d steps", quiet_bad);
     drums_hook(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x78f452bfu, "drums hook off: the strummed songs hash %08x, wanted 78f452bf", (unsigned)a);
-    CHECK(b == 0xd36f686eu, "drums hook off: with set changes %08x, wanted d36f686e", (unsigned)b);
+    CHECK(a == 0x4fa861d9u, "drums hook off: the strummed songs hash %08x, wanted 4fa861d9", (unsigned)a);
+    CHECK(b == 0xe694d37eu, "drums hook off: with set changes %08x, wanted e694d37e", (unsigned)b);
     dh_on = 0;
     vx_init();
     {
@@ -12127,7 +12259,9 @@ static uint32_t ll_hash(uint32_t h, const song_roll_t *r, int style, int loop)
    moved): were a6c69555 (-1) and 51b9dbb5 (0). Re-pinned (Sam 2026-11-04: the guitars only strum): were 91122a0e
    (-1) and 6b509eb8 (0); again (Sam 2026-11-04: the strum's fill figures): were bffd5666 (-1) and 269b1087 (0);
    again (Sam 2026-11-04: the drive fill syncopated): were 87b57dba (-1) and 791e753d (0); again (Sam 2026-11-04: the
-   Wurli's and DX's sets retired, so the seeds draw other sets): were 8b99d621 (-1) and 30fcee76 (0) */
+   Wurli's and DX's sets retired, so the seeds draw other sets): were 8b99d621 (-1) and 30fcee76 (0); again (Sam
+   2026-11-05: the vibes on the keys, four new sets, so the seeds draw other sets): were 67b35062 (-1) and f69119c1
+   (0) */
 static void test_lead_loop_off_identical(void)
 {
     uint32_t seed, h[2] = {2166136261u, 2166136261u};
@@ -12139,8 +12273,8 @@ static void test_lead_loop_off_identical(void)
             for (k = 0; k < 2; k++) h[k] = ll_hash(h[k], &r, st, k - 1);
     }
     printf("lead loop off: events %08x (lead_loop -1), %08x (0)\n", (unsigned)h[0], (unsigned)h[1]);
-    CHECK(h[0] == 0x67b35062u, "lead loop default: lead_loop -1 hashes %08x, wanted 67b35062", (unsigned)h[0]);
-    CHECK(h[1] == 0xf69119c1u, "lead loop off: lead_loop 0 hashes %08x, wanted f69119c1", (unsigned)h[1]);
+    CHECK(h[0] == 0x6d0207e2u, "lead loop default: lead_loop -1 hashes %08x, wanted 6d0207e2", (unsigned)h[0]);
+    CHECK(h[1] == 0x21499658u, "lead loop off: lead_loop 0 hashes %08x, wanted 21499658", (unsigned)h[1]);
 }
 
 typedef struct {
@@ -12722,6 +12856,7 @@ int main(int argc, char **argv)
     RUN(test_ov_comp);
     RUN(test_comp_new);
     RUN(test_comp_pat);
+    RUN(test_vibes_keys);
     RUN(test_busy_thin_off);
     RUN(test_rolled_style);
     RUN(test_style_holds);

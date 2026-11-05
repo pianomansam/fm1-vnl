@@ -325,10 +325,11 @@ console.log("a jump while stopped");
   check(ex.wb_live_get(RF.N) === 22 && ex.wb_bar() === sections(ex)[1].start + 1, "a new seed committed, then a jump: its song, at its section 2");
 }
 
-// a lead-only render (wb_solo) of seed 21 from bar 1, the bed off, to a quantum where the lead sounds
+// a lead-only render (wb_solo) of seed 2 from bar 1, the bed off, to a quantum where the lead sounds (seed 21 until
+// the vibes-on-keys sets, 2026-11-05: its new song's wet tails read 0.3 dB over the mute's 20 dB)
 const leadOnly = async () => {
   const ex = await load();
-  ex.wb_seed(21);
+  ex.wb_seed(2);
   for (const f of [RF.DUST, RF.NOISE, RF.AMBIENCE]) ex.wb_roll_set(f, 0);
   ex.wb_apply();
   ex.wb_solo(V.LEAD);
@@ -743,7 +744,7 @@ console.log("desk: dice and registers");
   const ex = await load();
   const call = caller(ex);
   const desk = new Desk(call, C, OPTS, await call("wb_library"), { rnd: lcg(5), probe: await prober() });
-  ex.wb_seed(5);
+  ex.wb_seed(1);   // (seed 5 until the vibes-on-keys sets, 2026-11-05, moved its song to one whose lead goes down)
   ex.wb_apply();
   ex.wb_play(1);
   render(ex, Q);
@@ -753,11 +754,11 @@ console.log("desk: dice and registers");
   check(salts.every((s) => s > 0) && new Set(salts).size === 3, `the voicings' dice set new nonzero salts (${salts.join(", ")})`);
   const t = desk.values.tempo, r = await desk.dice("tempo");
   check(r.ok && desk.values.tempo !== t && ex.wb_roll_get(C.RF.TEMPO) === desk.values.tempo, `the tempo's dice is the engine's (${t} -> ${desk.values.tempo})`);
-  const k = await desk.set("keysOct", 1);   // seed 5: the keys may not go up under its lead (harmony_keys_oct)
+  const k = await desk.set("keysOct", 1);   // (where harmony_keys_oct keeps them, the engine's place shows)
   check(k.ok && desk.values.keysOct === ex.wb_keys_oct_applied() && ex.wb_ov_get(C.OV.KEYS_OCT) === desk.values.keysOct,
         `the keys register shows what the engine applies (asked +1, plays ${desk.values.keysOct}${k.message ? `: "${k.message}"` : ""})`);
   const probe = await prober(), stagedLead = async () => probe(await call("wb_stage_bytes"));
-  const l = await desk.set("leadOct", -1);   // seed 5: the lead can't go down (lead.c keeps it)
+  const l = await desk.set("leadOct", -1);   // seed 1: the lead can't go down (lead.c keeps it)
   check(l.ok && desk.values.leadOct === 0 && ex.wb_ov_get(C.OV.LEAD_OCT) === 0 && /Lead register/.test(l.message),
         `the lead register shows what the engine applies (asked -1, plays ${desk.values.leadOct}: "${l.message}")`);
   ex.wb_ov_set(C.OV.LEAD_OCT, -1);
@@ -768,7 +769,7 @@ console.log("desk: dice and registers");
     ex.wb_seed(seed);
     if ((await stagedLead()) === 1) up = seed;
   }
-  check(refused === 0 && up > 0, `the probe instance: seed 5 down refused (${refused}), seed ${up} up applied`);
+  check(refused === 0 && up > 0, `the probe instance: seed 1 down refused (${refused}), seed ${up} up applied`);
 }
 
 console.log("desk: a quantum rendered before every call (the worklet's interleaving)");
@@ -1496,10 +1497,10 @@ console.log("whole-branch review fixes");
   };
   const LANES808 = ["BD", "SD", "CH", "OH", "MA", "RS", "CH"].map((v) => [SRC.PT, PT.M808, PT[v], 0]);
 
-  // 1: a kit's lanes on a song whose kit is a retired mixed sampled kit (Clean, seed 17: 16 until the DX's sets
-  // retired, 2026-11-04): refused, nothing staged
+  // 1: a kit's lanes on a song whose kit is a retired mixed sampled kit (Clean, seed 18: 16 until the DX's sets
+  // retired, 2026-11-04, then 17 until the vibes-on-keys sets, 2026-11-05): refused, nothing staged
   {
-    const { ex, desk } = await fresh(17);
+    const { ex, desk } = await fresh(18);
     const before = cstr(ex, ex.wb_state()), was = desk.values.kit;
     const r = await desk.loadKit({ name: "x", lanes: LANES808 });
     check(was === 8 && !r.ok && /Clean/.test(r.message) && cstr(ex, ex.wb_state()) === before && !ex.wb_pending() && !desk.hand.has("kit"),
@@ -1507,7 +1508,7 @@ console.log("whole-branch review fixes");
     const r2 = await desk.loadKit({ name: "y", from: "poketrack 808", lanes: LANES808 });
     check(r2.ok && desk.values.kit === DRUMS.PRESET + DRUMS.PT808 && JSON.stringify(desk.drums.lanes) === JSON.stringify(LANES808),
           `a kit file saved from the 808: the kit row shows poketrack 808 after loading (${desk.values.kit})`);
-    const { desk: d3 } = await fresh(17);
+    const { desk: d3 } = await fresh(18);
     d3.lock("kit", true);
     const r3 = await d3.loadKit({ name: "y", from: "poketrack 808", lanes: LANES808 });
     check(!r3.ok && /Kit is locked/.test(r3.message) && d3.values.kit === 8, `... with the kit locked: blocked ("${r3.message}")`);

@@ -132,6 +132,15 @@ const vx_patch_t *vx_organ_keys(int reg, int high)
 
 const vx_patch_t *vx_organ_pad(void) { return &ORGAN_PAD; }
 
+/* The vibes on the keys (Sam, 2026-11-05: "vibes with the motor on definitely work"): the lead's vibraphone with the
+   keys' delay send (a little, not the lead's 0.3), the motor always on (p[12] its depth on the tube's share, 0.9;
+   p[13] its rate, 4 Hz: md_motor), a touch of chorus as the Knight's (0.1: with none the pad layer's chorus, set
+   against the keys', went too, its strings 2-3 dB up on the keys); the song's level by comping in keys_gain */
+static const vx_patch_t VIBES_KEYS = {M_MODAL, {4.0f, 9.9f, 0.18f, 0.9f, 2600.0f, 0.5f, 2.4f, 0.55f, 0.8f, 0.3f, 0.3f,
+                                                0.03f, 0.9f, 4.0f}, 0.001f, 10.0f, 1.0f, 0.8f, 0.418f, 0.1f, 0.1f};
+
+const vx_patch_t *vx_vibes_keys(void) { return &VIBES_KEYS; }
+
 const vx_patch_t *vx_patch(int ins)
 {
     if (ins == INS_ORGAN) /* (the organ's own tables) */

@@ -28,5 +28,7 @@ const vx_patch_t *vx_patch(int ins); /* NULL for INS_NONE or an unknown id */
 enum { ORG_A, ORG_B, ORG_C, ORG_N };
 const vx_patch_t *vx_organ_keys(int reg, int high);
 const vx_patch_t *vx_organ_pad(void);
+/* The vibes on the keys (INS_VIBES on V_CHORD): the lead's vibraphone with the motor on and the keys' delay send */
+const vx_patch_t *vx_vibes_keys(void);
 
 #endif

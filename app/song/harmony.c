@@ -155,6 +155,9 @@ int harmony_style_ins(int ins, uint32_t seed) { return style_draw(ins, seed); }
 int harmony_comp_ok(int ins, int cs)
 {
     if (is_guitar(ins)) return cs == CS_STRUM;          /* the guitars only strum */
+    if (ins == INS_VIBES)                               /* the vibes on the keys ring: held, half notes, held on 2
+                                                           (and 4); no stabs, strum or light eighths (2026-11-05) */
+        return cs == CS_HELD || cs == CS_HALF || cs == CS_HELD2 || cs == CS_HELD24;
     if (cs == CS_PAT) return COMP_NPAT && harmony_comp_ok(ins, CS_HELD2);   /* a comp rhythm: where held on 2 plays */
     if (cs != CS_HELD2 && cs != CS_LIGHT8 && cs != CS_HELD24) return 1;
     return ins == INS_RHODES || ins == INS_FELT_PIANO || ins == INS_KNIGHT;
@@ -290,7 +293,8 @@ int harmony_keys_oct(const song_roll_t *r)
 {
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
     int d = 12 * song_ov()->keys_oct, lo, hi, sh, strum;
-    if (!d || !set) return 0;
+    if (!d || !set || set->chords == INS_VIBES) return 0;   /* (the vibes: their register is the bars' own, F3 up,
+                                                               place_keys) */
     strum = harmony_style(r) == CS_STRUM;
     sh = strum ? 0 : lib_set_keys_shift(set) + (harmony_pad_place(r) != PL_BELOW ? 12 : 0);
     song_ov_range(set->lead, &lo, &hi);
@@ -337,11 +341,22 @@ static void keys_oct(const song_roll_t *r, int *notes, int n)
 
 static void place_keys(const song_roll_t *r, int *notes)  /* a pad with or above the lead: an octave up */
 {
-    int i, sh = lib_set_keys_shift(lib_set_by_id((uint8_t)r->v[RF_SET]));
+    const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
+    int i, sh = lib_set_keys_shift(set);
     if (harmony_pad_place(r) != PL_BELOW) sh += 12;
     for (i = 0; i < 4; i++)
         if (notes[i]) notes[i] += sh;
     keys_oct(r, notes, 4);
+    if (set && set->chords == INS_VIBES) {   /* the vibes: four mallets in the bars' range, a note under F3 an octave
+                                                up; one a semitone under another (the lift's) up again, a 7th over it */
+        int j, k;
+        for (i = 0; i < 4; i++)
+            while (notes[i] && notes[i] < 53) notes[i] += 12;
+        for (k = 0; k < 4; k++)
+            for (i = 0; i < 4; i++)
+                for (j = 0; j < 4; j++)
+                    if (notes[i] && notes[j] - notes[i] == 1) notes[i] += 12;
+    }
 }
 
 /* A strummed song's guitar shape for this bar's chord: the one it had before in the song, else a new one voice-led
@@ -368,6 +383,11 @@ static void strum_shape(const song_roll_t *r, int bar, int pass, harmony_voicing
 
 void harmony_voicing_at(const song_roll_t *r, int bar, int pass, harmony_voicing_t *vs, int out4[4])
 {
+    harmony_voicing_raw_at(r, bar, pass, vs, out4, NULL);
+}
+
+void harmony_voicing_raw_at(const song_roll_t *r, int bar, int pass, harmony_voicing_t *vs, int out4[4], int raw4[4])
+{
     int pcs[5], n, keep[4];
     if (harmony_style(r) == CS_STRUM) {                  /* the guitar shape's top 4 */
         int shape[6], i, k = 4;
@@ -382,6 +402,7 @@ void harmony_voicing_at(const song_roll_t *r, int bar, int pass, harmony_voicing
     memcpy(keep, vs->last, sizeof keep);
     voice_chord(r, bar, pcs, n, vs, out4);
     memcpy(vs->last, keep, sizeof keep);                 /* a peek: the strike still voices from the same last */
+    if (raw4) memcpy(raw4, out4, 4 * sizeof(int));
     place_keys(r, out4);
 }
 
@@ -683,9 +704,11 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
     /* per-chord roll spread, 10-60 ms between notes (the Knight: see below), the same for every strike of the chord
        in a bar */
     gap = (uint32_t)(10 + (int)(mix(salt, (uint32_t)bar, r->seed, 50) % 51u)) * 441u / 10u;
-    if (lib_set_by_id((uint8_t)r->v[RF_SET]) && lib_set_by_id((uint8_t)r->v[RF_SET])->chords == INS_KNIGHT)
+    if (lib_set_by_id((uint8_t)r->v[RF_SET]) && (lib_set_by_id((uint8_t)r->v[RF_SET])->chords == INS_KNIGHT ||
+                                                 lib_set_by_id((uint8_t)r->v[RF_SET])->chords == INS_VIBES))
         gap = (mix(salt, (uint32_t)bar, r->seed, 50) % 9u) * 441u / 10u / 3u;   /* Sam: an acoustic piano strikes
-                                                                                 together, 0-8 ms in all */
+                                                                                 together, 0-8 ms in all (the vibes'
+                                                                                 four mallets too) */
     if (style == CS_LIGHT8 && gap * 9u > len)
         gap = len / 9u;                   /* a short strike: the roll spans a third of it at most (a wider one would
                                              leave the top note a click) */

@@ -290,6 +290,9 @@ EXPORT void wb_solo(int role)
     listen();
 }
 
+/* effects off (VX_OFF_*), for vibes_keys.mjs's lead-over-keys measure (the glue off, as the test) */
+EXPORT void wb_fx_off(unsigned mask) { vx_fx_off(mask); }
+
 EXPORT uint32_t wb_heard_hash(void) { return heard_h; }
 EXPORT int wb_heard_count(void) { return (int)heard_n; }
 

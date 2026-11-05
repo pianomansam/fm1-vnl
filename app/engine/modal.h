@@ -21,11 +21,23 @@ typedef struct {
     float g1, g1t, bl, blk;    /* the fundamental's gain now and its step; the bloom (1 - the tube's share now), its
                                   fall per control step */
     float a0, tube;            /* the bar's share of the fundamental at the strike; the tube's level (1 - a0) */
+    float tph, tinc, td;       /* the motor's tremolo (the vibes on the keys): phase (turns), its step per control step,
+                                  depth (0: still) */
     uint32_t cc;
 } md_voice_t;
 
 /* A note on: note (MIDI), vel 0-1. */
 void md_start(md_voice_t *v, const vx_patch_t *p, float note, float vel);
+
+/* The motor on a note just started: its discs over the tube, an amplitude tremolo of depth on the tube's share of
+   the fundamental (the bar's own modes unmodulated) at rate Hz, ph the motor's phase now (turns: one motor for every
+   note). The vibes on the keys only (Sam, 2026-11-05); the lead's vibes stay still. */
+static inline void md_motor(md_voice_t *v, float depth, float rate, float ph)
+{
+    v->td = fm_clampf(depth, 0.0f, 1.0f);
+    v->tinc = rate * (float)MD_CR * (1.0f / 44100.0f);
+    v->tph = ph - (float)(int)ph;
+}
 
 static inline float md_sample(md_voice_t *v)
 {
@@ -34,7 +46,14 @@ static inline float md_sample(md_voice_t *v)
     if (++v->cc >= MD_CR) { /* the bloom, at the control rate */
         v->cc = 0;
         v->bl = v->bl > 1e-6f ? v->bl * v->blk : 0.0f; /* (done: 0, never denormal) */
-        v->g1t = (v->a0 + v->tube * (1.0f - v->bl) - v->g1) * (1.0f / (float)MD_CR); /* a ramp to it */
+        if (v->td > 0.0f) { /* the motor */
+            float tr = 1.0f - v->td * (0.5f - 0.5f * fm_sin_turns(v->tph));
+            v->tph += v->tinc;
+            if (v->tph >= 1.0f)
+                v->tph -= 1.0f;
+            v->g1t = (v->a0 + v->tube * (1.0f - v->bl) * tr - v->g1) * (1.0f / (float)MD_CR);
+        } else
+            v->g1t = (v->a0 + v->tube * (1.0f - v->bl) - v->g1) * (1.0f / (float)MD_CR); /* a ramp to it */
         for (k = 0; k < MD_N; k++) /* a finished mode's state to 0 before it goes denormal */
             if (fm_fabsf(v->s1[k]) + fm_fabsf(v->s2[k]) < 1e-12f)
                 v->s1[k] = v->s2[k] = 0.0f;

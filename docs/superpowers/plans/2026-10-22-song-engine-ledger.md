@@ -222,6 +222,10 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   keys: which comping styles suit mallets (held chords ringing, half notes; maybe broken chords), voicing range against
   the 5 sampled zones (C4-E6), level against the lead, and which sets/families take them (electric: goes with either).
   Never vibes on keys and lead in the same song.
+  **Done (Sam, 2026-11-05: "vibes with the motor on definitely work"):** the vibes on the keys, motor always on (0.9 at
+  4 Hz), four mallets from F3 struck together; held, half notes, held on 2, held on 2 and 4 (no stabs, strum or light
+  eighths); never with the vibes lead. Sets 34 Vibes and flute, city pop (warm, sunny), 35 Vibes and Knight (wistful,
+  warm), 36 Vibes and felt (sad, wistful), 37 Bossa vibes and flute (warm, sunny).
 
 - **The melody path never sounds (found 2026-10-29).** Since the ear candy went, the struck melody (melody.c: motif,
   rhythm cells) is dropped in every block the lead plays and turned up in no song over 400 seeds, yet it's still

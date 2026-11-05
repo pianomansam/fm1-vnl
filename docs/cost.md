@@ -1331,3 +1331,14 @@ size (the organ's is the largest; the vibraphone's state is 76 B), and voices.o'
   new sets (`--forced`, host, 2 runs each: seed 7 0.857 to 0.804-0.830, 100 0.811-0.816 to 0.834-0.861, 128 0.800 to
   0.886-0.915, 183 0.813-0.815 to 0.798-0.826). The heaviest of seeds 1-200 is still seed 20 (its set unchanged), 0.941
   forced against 0.938-0.947 before.
+
+### The vibes on the keys (2026-11-05)
+
+- Flash: image 379,288 to **381,160 B (+1,872 B)** (`./build.sh` against b3788ef, both on today's base/ with its
+  uncommitted font packing; the Wurli/DX entry's 405,464 B is the same tree on the committed fonts, so about 407,336 B
+  there, 2,264 B under the 409,600 B budget). The four sets' rows and strings, the keys' vibes patch, the motor in
+  M_MODAL, the vibes' voicing, comping and register cases, the pad's raw voicing call, the strum's kick twin. RAM
+  .data+.bss 59,936 B and the pool 124,472 B unchanged (the motor's three floats fit the voice union).
+- CPU (`bench --parts`, one run, AMB-1 158.5 ms): the vibes on the keys with the motor **0.238**, under the Rhodes'
+  0.262 and the felt piano's 0.258 in the same run (the motor is a sine per voice per control step). They take the
+  keys' place in their sets, so no song gets heavier.

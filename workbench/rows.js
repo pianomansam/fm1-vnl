@@ -69,7 +69,8 @@ const ROLLED = { value: -1, name: "As rolled", rolled: true };   // the engine's
 const ROLE = { CHORD: "keys", LEAD: "lead", BASS: "bass", PAD: "pad" };
 // INS_KNIGHT, INS_FELT_PIANO: one per song, keys or lead (Sam; the felt never leads over itself, 2026-10-29). (The
 // Emilyguitar plays the keys only since the lead styles build.)
-const ONE_PART = new Set([25, 2]);
+// INS_VIBES too (on the keys from 2026-11-05: never the vibes on the keys and the lead in one song)
+const ONE_PART = new Set([25, 2, 11]);
 
 // a comping style the keys can play: options.json's keys (only these) and notKeys (never these: the guitars only strum,
 // Sam 2026-11-04)

@@ -83,6 +83,9 @@ int harmony_keys_oct(const song_roll_t *r);
    (its loop cache may fill). Lets the lead plan a bar over the keys before they strike. A strummed song: the top 4
    notes of its guitar shape, ascending (0 first where the shape has fewer; its shape cache may fill). */
 void harmony_voicing_at(const song_roll_t *r, int bar, int pass, harmony_voicing_t *vs, int out4[4]);
+/* The same, and in raw4 (NULL: none) the voicing before it is placed (what a strike leaves in vs->last; a strummed
+   song leaves raw4 as it was): the vibes' notes lifted to F3 can't be placed back by an octave shift */
+void harmony_voicing_raw_at(const song_roll_t *r, int bar, int pass, harmony_voicing_t *vs, int out4[4], int raw4[4]);
 /* Every note the keys sound in the bar, as harmony_voicing_at finds them (0 where fewer): a strummed song's whole
    guitar shape, its low strings too (what the pad's notes must not rub); else harmony_voicing_at's 4, then 0, 0. */
 void harmony_keys_notes_at(const song_roll_t *r, int bar, int pass, harmony_voicing_t *vs, int out6[6]);

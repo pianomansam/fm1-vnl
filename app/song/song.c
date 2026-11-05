@@ -337,6 +337,8 @@ static void pads_group(song_t *s, const plan_block_t *b, int B)
     int bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1, k, i, lead[16], nlead = 0, bi = (int)(b - s->plan.b);
     int up = harmony_pad_place(&s->roll) == PL_BELOW ? 0 : 12, keys_on = (b->layers & L_KEYS) != 0;
     int part = pad_part(s, bi);
+    const lib_set_t *set = lib_set_by_id((uint8_t)s->roll.v[RF_SET]);
+    int vibes = set && set->chords == INS_VIBES;
     int chord_on = part == 1, solo_on = part == 2, lo = pads_solo_lo(pads_solo_voice(&s->roll));
     harmony_voicing_t vs = s->voicing;
     for (i = 0; i < 16; i++)
@@ -351,17 +353,19 @@ static void pads_group(song_t *s, const plan_block_t *b, int B)
             s->pads.fade[b->start + b->bars - 1 - B] = PF_OUT;
     }
     for (k = 0; keys_on && k < 4 && B + k < s->roll.v[RF_BARS]; k++) {
-        int bar = B + k, pass = bar / loop_bars(&s->roll) + 1, pcs[5], np, spcs[5], nsp, keys[4], all[6], top = 0;
+        int bar = B + k, pass = bar / loop_bars(&s->roll) + 1, pcs[5], np, spcs[5], nsp, keys[4], all[6], top = 0,
+            raw[4] = {0, 0, 0, 0};
         np = harmony_chord_at(&s->roll, bar, pass, 0, pcs);
         memcpy(spcs, pcs, sizeof pcs);                   /* the chord part sounds a dominant as the keys do: no 7th */
         nsp = harmony_sound_pcs(spcs, np);
-        harmony_voicing_at(&s->roll, bar, pass, &vs, keys);
+        harmony_voicing_raw_at(&s->roll, bar, pass, &vs, keys, raw);
         harmony_keys_notes_at(&s->roll, bar, pass, &vs, all);   /* (what the pad must not rub: a strum's low strings
                                                                    too) */
         if (bar % bpc == 0) {
             int cs = harmony_style(&s->roll);
-            for (i = 0; i < 4; i++)                      /* the keys strike it */
-                vs.last[i] = keys[i] ? keys[i] - up - harmony_keys_oct(&s->roll) : 0;
+            for (i = 0; i < 4; i++)                      /* the keys strike it (the vibes' as voiced: place_keys
+                                                            lifts their low notes alone) */
+                vs.last[i] = vibes ? raw[i] : keys[i] ? keys[i] - up - harmony_keys_oct(&s->roll) : 0;
             if (chord_on && pads_double && (cs == CS_HELD || cs == CS_STRUM))   /* a strum sustains as held does:
                                                                                   its guitar shape's top doubled */
                 pads_double_keys(keys, s->pads.chord);

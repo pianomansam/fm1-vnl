@@ -359,7 +359,7 @@ static void parts(double amb)
     static const named_t CH[] = {{"rhodes", INS_RHODES}, {"felt piano", INS_FELT_PIANO},
                                  {"nylon", INS_NYLON}, {"pad", INS_PAD},
                                  {"organ", INS_ORGAN}, {"knight", INS_KNIGHT},
-                                 {"emilyguitar", INS_EMILY}};
+                                 {"emilyguitar", INS_EMILY}, {"vibes (motor)", INS_VIBES}};
     static const named_t BS[] = {{"elec bass", INS_ELEC_BASS}, {"sub", INS_SUB},
                                  {"triangle bass", INS_CHIP_BASS}, {"fm bass", INS_FM_BASS}};
     static const named_t LD[] = {{"flute", INS_FLUTE}, {"vibes", INS_VIBES}, {"felt piano", INS_FELT_PIANO},

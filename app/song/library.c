@@ -46,6 +46,13 @@ const lib_set_t LIB_SETS[] = {
     {30, "Knight and flute, warm pad", INS_KNIGHT, INS_ELEC_BASS, INS_FLUTE, INS_NONE, INS_WARM_PAD, KIT_SOFT, KIT_S_GENTLE, FL_LOFI, MOOD_WISTFUL | MOOD_WARM, "sampled spec: a high string lead over the Knight (Task 5's deferred set); the vibes lead (Sam, 2026-10-29); the flute leads (vibes rebalance: Sam, 2026-10-29)"},
     {31, "Rhodes and felt", INS_RHODES, INS_FM_BASS, INS_FELT_PIANO, INS_NONE, INS_WARM_PAD, KIT_DUSTY, KIT_S_DARK, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "sampled spec: the cello lead inside a dusty Rhodes, the FM slap bass under them; the felt piano leads (Sam, 2026-10-29)"},
     {32, "Knight, flute and brushes", INS_KNIGHT, INS_SUB, INS_FLUTE, INS_NONE, INS_WARM_PAD, KIT_BRUSHES, KIT_N, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "sampled spec: the cello lead inside the Knight, brushes; the flute leads (Sam, 2026-10-29)"},
+    /* the vibes on the keys (Sam, 2026-11-05: "vibes with the motor on definitely work"), each from a set it names, the
+       keys swapped for the vibes and a lead other than the vibes (never both: the one vibraphone is the keys or the
+       lead in a song), the thinner moods first (sunny and warm) */
+    {34, "Vibes and flute, city pop", INS_VIBES, INS_ELEC_BASS, INS_FLUTE, INS_NONE, INS_STRINGS, KIT_SOFT, KIT_S_CLEAN, FL_CITYPOP, MOOD_WARM | MOOD_SUNNY, "vibes on the keys: set 6 (City pop Rhodes), the flute leading"},
+    {35, "Vibes and Knight", INS_VIBES, INS_ELEC_BASS, INS_KNIGHT, INS_NONE, INS_STRINGS, KIT_SOFT, KIT_S_WARM, FL_NEOSOUL, MOOD_WISTFUL | MOOD_WARM, "vibes on the keys: set 22 (Knight and felt), the Knight leading"},
+    {36, "Vibes and felt", INS_VIBES, INS_FM_BASS, INS_FELT_PIANO, INS_NONE, INS_STRINGS, KIT_DUSTY, KIT_S_DARK, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "vibes on the keys: set 31 (Rhodes and felt), the felt leading"},
+    {37, "Bossa vibes and flute", INS_VIBES, INS_SUB, INS_FLUTE, INS_NONE, INS_STRINGS, KIT_BRUSHES, KIT_N, FL_BOSSA, MOOD_WARM | MOOD_SUNNY, "vibes on the keys: set 2 (Bossa nylon), the flute leading"},
 };
 const int LIB_NSETS = (int)(sizeof LIB_SETS / sizeof LIB_SETS[0]);
 
@@ -139,7 +146,8 @@ int lib_ins_sustained(int ins)
 
 /* The leads Sam removed (2026-10-29: "i only liked the felt piano and vibraphones"; the lead styles build: the
    kalimba, saw lead, synth pluck and Emilyguitar no longer lead, the Emilyguitar stays on the keys): one of the four
-   lead instruments in their place, the flute or the vibes (never on the keys, so never a lead over itself): the
+   lead instruments in their place, the flute or the vibes (an old snapshot's keys never the vibes, which joined the
+   keys 2026-11-05, so never a lead over itself): the
    breathy and plucked ones the flute, the struck and synth ones the vibes; any other instrument is itself */
 int lib_lead_approved(int ins)
 {

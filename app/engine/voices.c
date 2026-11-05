@@ -508,7 +508,8 @@ void vx_assign(int voice, int ins)
     if (voice < V_CHORD || voice > V_PAD)
         return;
     /* the organ: the song's registration and register on the keys, the one-stop 4' on the pad layer */
-    assign_pt(voice, ins != INS_ORGAN ? vx_patch(ins)
+    assign_pt(voice, ins == INS_VIBES && voice == V_CHORD ? vx_vibes_keys()   /* the vibes on the keys */
+                     : ins != INS_ORGAN ? vx_patch(ins)
                      : voice == V_PAD ? vx_organ_pad()
                                       : vx_organ_keys(org_freg >= 0 ? org_freg : org_reg,
                                                       org_fhigh >= 0 ? org_fhigh : org_high));
@@ -576,6 +577,10 @@ static float keys_gain(const song_roll_t *r)
         db = 6.0f + cut;
     else if (style == CS_LIGHT8)  /* struck softer than half notes (vel 30-38) but eight times a bar: as half notes */
         db = 3.0f + cut;
+    if (ins == INS_VIBES)         /* the vibes on the keys (their patch level matched to the Rhodes on struck bars,
+                                     the motor on): +0.5 dB, the pad layer's chord part 7.8-9.5 dB under them, the
+                                     lead 4.6-6.0 over them by set (test_lead_over_keys, test_pad_level; 2026-11-05) */
+        db += 0.5f;
     return fm_db2lin(db);
 }
 
@@ -1169,7 +1174,12 @@ static void voice_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int
     case M_CHIP: chip_start(v, e); break;
     case M_ENS: ens_start(v, e); break;
     case M_TW: tw_start(v, e); break;
-    case M_MODAL: md_start(&v->m.md, p, (float)e->note, (float)e->vel * (1.0f / 127.0f)); break;
+    case M_MODAL:
+        md_start(&v->m.md, p, (float)e->note, (float)e->vel * (1.0f / 127.0f));
+        if (p->p[12] > 0.0f) /* the motor (the vibes on the keys; one for every note: its phase from the clock;
+                                10 s is whole turns at 4 Hz) */
+            md_motor(&v->m.md, p->p[12], p->p[13], (float)(t_on % 441000u) * p->p[13] * INV_SR);
+        break;
     case M_SAMP:
         v->m.sp.dv = step_len(v);
         samp_start(&v->m.sp, p, (float)e->note, (float)e->vel * (1.0f / 127.0f));

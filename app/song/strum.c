@@ -282,9 +282,10 @@ int strum_voicing(const int *pcs, int npcs, const int prev[6], int out[6], int h
     }
 }
 
-/* The keys never copy the bass's rhythm (test_keys_bass_rhythms_differ): where a bar's strokes (ps) fall exactly on
-   the steps the bass strikes, a soft up stroke on the first "and" both leave free. Returns that step, or -1 (the bar
-   differs already, or no "and" is free). Cached per bar. */
+/* The keys never copy the bass's rhythm (test_keys_bass_rhythms_differ) nor the kick's (test_keys_kick_differ: the
+   pattern "D.....U" over a kick on 1 and the and of 2): where a bar's strokes (ps) fall exactly on the steps the bass
+   strikes, or the drum pattern's kick, a soft up stroke on the first "and" both leave free. Returns that step, or -1
+   (the bar differs already, or no "and" is free). Cached per bar. */
 static int bass_twin(const song_roll_t *r, const plan_block_t *b, int bar, const char *ps)
 {
     static uint32_t cseed;
@@ -292,7 +293,8 @@ static int bass_twin(const song_roll_t *r, const plan_block_t *b, int bar, const
     static const char *cps;
     const lib_prog_t *pr = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
     int loop = pr && pr->n ? pr->n * (pr->bars_per_chord ? pr->bars_per_chord : 1) : 4, pcs[5], np, i;
-    unsigned km = 0, bm = 0;
+    const lib_pattern_t *dp = lib_pattern_by_id((uint8_t)r->v[RF_PATTERN]);
+    unsigned km = 0, bm = 0, dm = dp ? lib_lane_hits(dp, D_KICK, bar) & 0xFFFFu : 0u;
     if (cbar == bar && cseed == r->seed && cps == ps) return cstep;
     cbar = bar;
     cseed = r->seed;
@@ -303,9 +305,9 @@ static int bass_twin(const song_roll_t *r, const plan_block_t *b, int bar, const
         if (hit_at(ps, bar, i) != '.') km |= 1u << i;
         if (groove_bass_note(r, b, bar, i, pcs, np)) bm |= 1u << i;
     }
-    if (km != bm || km == 1u) return cstep;
+    if ((km != bm && km != dm) || km == 1u) return cstep;
     for (i = 2; i < 16 && cstep < 0; i += 4)
-        if (!((km >> i) & 1u)) cstep = i;
+        if (!((km >> i) & 1u) && !((dm >> i) & 1u)) cstep = i;
     return cstep;
 }
 
