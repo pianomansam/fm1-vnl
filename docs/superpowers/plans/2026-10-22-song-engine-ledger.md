@@ -292,6 +292,12 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   device (and the browser UI) gets a mixer page: each part's level (drums, bass, comp, pad, lead, texture/bed) shown
   and adjustable, per song. To decide with the screens: whether a mix change is saved with the song, and how it sits
   on the knobs (one part per knob, paged).
+- **An "Advanced" section for the rules (Sam, 2026-11-05: "having many (all?) of the rules we have toggle-able into
+  the device's UI under an advanced section").** Each musical rule the engine applies (e.g. calm songs thin or drop the
+  hats, motion leans the draws, the lead loop, busy lead thins the comp, the keys never copy the bass or kick, hats
+  sometimes drop in breaks, dominants without the 7th) gets an on/off (and, where it has one, its number) in an
+  Advanced area of the device and browser UI, defaults as today. To do first: an inventory of the rules (from the
+  ledger and the rule docs), which ones make sense to expose, and how they're saved with a song.
 - **CC0 sample libraries to mine (2026-10-25): VCSL and VSCO-2 CE (sgossner, both CC0).** Beyond the spike's piano
   (VCSL Kawai grand; also Steinway B, Knight and Yamaha uprights) and strings (VSCO-2 CE Violin, Viola and Cello
   Sections): sampled vibraphone, marimba, glockenspiel, several kalimbas and mbiras (could replace our FM vibes and
