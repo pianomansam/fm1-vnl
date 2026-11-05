@@ -358,6 +358,11 @@ int strum_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, f
     for (i = 0; i < 6; i++)
         if (shape[i]) { low = i; break; }
     if (low < 0) return 0;
+    if (step == tw) {                                    /* the twin's up stroke must sound: on a shape with no string
+                                                            from its lo up (a thinned shape), its top string */
+        for (i = 5; i > 0 && !shape[i]; i--) {}
+        if (i < lo) lo = i;
+    }
     for (k = 0; k < 6 && n < max; k++) {
         int s = dir > 0 ? k : 5 - k, v;
         uint32_t at, end;
