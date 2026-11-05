@@ -13,12 +13,13 @@ export const PARTS = { keys: "CHORD", bass: "BASS", lead: "LEAD", pad: "PAD", dr
 
 // each part's salt row (rows.js's part: its 🎲 sets it), and its name in messages
 export const PART_ROW = Object.fromEntries(ROWS.filter((r) => r.part).map((r) => [r.part, r.id]));
-const NAME = { keys: "Keys", bass: "Bass", lead: "Lead", pad: "Pad", drums: "Drums" };
+export const PART_NAME = { keys: "Comp", bass: "Bass", lead: "Lead", pad: "Pad", drums: "Drums" };
+const NAME = PART_NAME;
 
 // What part p's events moving says, after a re-roll of part by (moved: every part that moved): "<part> moved", and
 // why where the engine's rules say (a part re-roll moves only its own streams; these are its known reactions)
 const WHY = {
-  keys: (moved, by) => (moved.includes("lead") || by === "lead" ? "they make room for the lead" : ""),
+  keys: (moved, by) => (moved.includes("lead") || by === "lead" ? "it makes room for the lead" : ""),
   lead: (moved, by) => (by === "bass" ? "it keeps clear of the bass" : ""),
 };
 // what a part's events sound as: each (bar, step, role, note, length), sorted. Velocity and the order within a step
@@ -75,11 +76,12 @@ export class Desk {
     this.reactions = [];       // what else the last part roll moved ("Lead moved: ...")
     this.dead = {};            // parts whose 🎲 found no other roll in the song as it stands: why (cleared by any change)
     this.approved = new Set(); // candidates approved this session ("family/id"): approved once import.sh has run
-    this.strums = undefined;   // the staged song's keys strum (the strum pattern row is heard only then)
+    this.strums = undefined;   // the staged song's comp strums (the strum pattern row is heard only then)
+    this.comp = undefined;     // the comping style (CS_*) the engine applies to the staged song (the Comp summary's)
   }
 
   get state() { return { values: this.values, locks: this.locks, legal: this.legal, unavailable: this.samples?.unavailable,
-                         strums: this.strums }; }
+                         strums: this.strums, comp: this.comp, padless: this.padless, grid: !!this.drums?.grid?.edited }; }
   kept(id) { return this.locks.has(id) || this.hand.has(id); }
 
   // the engine's staged state into values; the family is the page's (derive: from the keys and lead, as a new song's)
@@ -94,7 +96,8 @@ export class Desk {
       prog: await ids(this.lib.progs.map((p) => p.id), this.C.RF.PROG),
       mode: await ids([0, 1, 2, 3, 4, 5], this.C.RF.MODE),
     };
-    this.strums = (await this.call("wb_comp_applied")) === CS_STRUM;
+    this.comp = await this.call("wb_comp_applied");
+    this.strums = this.comp === CS_STRUM;
     return this.values;
   }
 
@@ -136,7 +139,7 @@ export class Desk {
     const k = await this.call("wb_keys_oct_applied");
     if (k !== this.values.keysOct) {
       await this.call("wb_ov_set", OV.KEYS_OCT, k);
-      said.push(`Keys register: the engine kept it ${k ? (k > 0 ? "up" : "down") + " an octave" : "where it was"} (the instrument's range).`);
+      said.push(`Comp register: the engine kept it ${k ? (k > 0 ? "up" : "down") + " an octave" : "where it was"} (the instrument's range).`);
       this.values.keysOct = k;
     }
     if (this.probe && this.values.leadOct) {
@@ -379,7 +382,7 @@ export class Desk {
   async deadWhy(p) {
     if (p !== "keys") return DEAD[p];
     const cs = await this.call("wb_comp_applied");   // (the staged state is the committed one between changes)
-    return cs === CS_STRUM ? "Keys: the strummed guitar keeps its shapes (one voicing path)." : "Keys: only one voicing fits this progression.";
+    return cs === CS_STRUM ? "Comp: the strummed guitar keeps its shapes (one voicing path)." : "Comp: only one voicing fits this progression.";
   }
 
   // the committed song's events by part (null without events()); kept as partEv, with padless
@@ -534,7 +537,7 @@ export class Desk {
     const name = (id) => this.opts.instruments.find((i) => i.id === id)?.name;
     this.message = [swapped ? `Lead: ${was.name} is retired${was.status === "approved" ? " as a lead" : ""}; the song plays ${name(this.values.lead)} instead.` : "",
                     bassSwapped ? `Bass: ${wasBass.name} is retired; the song plays ${name(this.values.bass)} instead.` : "",
-                    keysSwapped ? `Keys: ${wasKeys.name} is retired; the song plays ${name(this.values.keys)} instead.` : "",
+                    keysSwapped ? `Comp: ${wasKeys.name} is retired; the song plays ${name(this.values.keys)} instead.` : "",
                     styleGone ? `Lead style: ${style.name} is retired; the song plays a rolled style instead.` : "",
                     compGone ? `Comping: ${compGone.name} is removed; the song plays Held instead.` : ""]
       .filter(Boolean).join(" ");

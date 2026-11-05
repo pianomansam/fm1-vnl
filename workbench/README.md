@@ -18,7 +18,17 @@ AudioWorklet. Local only; not the FM-1, so it may exceed the device's budgets.
 - `wb_consts()` exports the engine's indices (RF_*, WB_OV_*, the roles, LIB_SET_WB) as JSON, so the page never keeps
   its own copy.
 - `wb-worklet.js` runs wb.wasm (base/web/emu/worklet.js's pattern, without the device); `wb.js` is the page's side;
-  `index.html` the page: the transport and the decision rows (layout A).
+  `index.html` the page: the transport, then the decision rows by part (below).
+- The page by part (Sam, 2026-11-05; what the workbench can do should later drive the device's screen and four knobs):
+  `rows.js`'s `SECTIONS`, top to bottom like a track: Song (seed, key, tempo, mood, motion; under "more" the mode,
+  swing, map, progression, chord color and the family), Drums, Bass, Comp, Pad, Lead, Texture. Each part's header
+  carries the part's controls (mute and solo, listening only; ◀ 🎲 ▶ through its rolls and which roll it is; its
+  lock; 👍 / 👎 on the roll heard; the drums' "Edit kit & pattern") and a one-line summary of its values (`summary()`:
+  "Rhodes · Tresillo · mid register"). A part shows its instrument and its rhythm or style (the drums: kit and
+  pattern); the rest folds under its "more", open or folded per viewer (localStorage `wb-more`, when the browser
+  allows it; folded without). A part's roll row (phrase, voicings, bass line, pad notes, drum variation) shows the
+  roll; its 🎲 and lock are the header's. The keys part is the Comp part in the page's text; the engine's names
+  (`V_CHORD`, `keys_*`), the row ids and the snapshot's part key (`keys`) stay.
 - `rows.js`: the rows, what each dropdown offers (from `options.json`; retired options only behind "show retired"),
   the dice (an approved option; a kit of the song's family: the family chooses the drums only) and what a value forces (a row it moves, or the lock that blocks
   it). `desk.js` drives the engine with them: every change is staged, checked against the locks (undone whole if a
@@ -46,13 +56,13 @@ AudioWorklet. Local only; not the FM-1, so it may exceed the device's budgets.
   roll and the dice never draw it. Under it, **Approve** posts it to `/approve`, which writes
   `patterns/status.json`; `tools/patterns/import.sh` then makes the firmware draw it and rebuilds the workbench. A mode
   only a candidate progression suits can be picked too (its candidate comes with it). The strum row is greyed when the
-  keys don't strum.
-- Comping: one place to pick the keys' comping (Sam, 2026-11-05): the styles (held, half notes, stabs, strum, held on
-  2, held on 2 and 4), then each comp rhythm from `patterns/comp-rhythms` by name (Charleston, Tresillo,
-  Late one; a new one marked "(candidate)" until approved), only those the keys play. A comp rhythm picked stages
-  the engine's `comp_pat` override (`CS_PAT` with that rhythm; the row's value is 100 + its table index); anything
-  else stages the style and clears it. A comp rhythm plays on the percussive keys only: new keys that don't play one
-  put the row back to as rolled, as for the other styles, and one left on such keys (a snapshot, the engine's) greys
+  comp doesn't strum.
+- Comping: one place to pick the Comp part's comping (Sam, 2026-11-05): the styles (held, half notes, stabs, strum,
+  held on 2, held on 2 and 4), then each comp rhythm from `patterns/comp-rhythms` by name (Charleston, Tresillo,
+  Late one; a new one marked "(candidate)" until approved), only those the comp instrument plays. A comp rhythm picked
+  stages the engine's `comp_pat` override (`CS_PAT` with that rhythm; the row's value is 100 + its table index);
+  anything else stages the style and clears it. A comp rhythm plays on the percussive keys only: a new comp
+  instrument that doesn't play one puts the row back to as rolled, as for the other styles, and one left on such keys (a snapshot, the engine's) greys
   the row (still open to pick another). Approve on a candidate rhythm writes `patterns/status.json`, as for strum. A
   snapshot from before (its Comp rhythm row) restores that rhythm in Comping. Light eighths is removed (Sam,
   2026-11-05): never offered, not even behind "show retired"; a snapshot or feedback item that picked it restores as

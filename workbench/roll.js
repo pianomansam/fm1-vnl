@@ -3,6 +3,7 @@
 // Node); draw() paints a layout on a canvas.
 
 export const LANES = ["keys", "bass", "lead", "pad", "drums"];
+const SHOWN = { keys: "comp" };   // a lane's name on the page (the keys part is the Comp part)
 export const BAR_PX = 40, LANE_PX = { drums: 90 }, LANE_DEFAULT_PX = 56;
 
 // an event's role (C.V) -> its part (a lane), or null
@@ -84,7 +85,8 @@ export function draw(canvas, lay, playhead, listen) {
     g.globalAlpha = 1;
     g.fillStyle = muted;
     g.font = "11px system-ui, sans-serif";
-    g.fillText(l.notes.length ? l.role + (off ? " (muted)" : "") : `${l.role} (none)`, 4, top + 12);
+    const name = SHOWN[l.role] ?? l.role;
+    g.fillText(l.notes.length ? name + (off ? " (muted)" : "") : `${name} (none)`, 4, top + 12);
     top += h;
   }
   if (!playhead) return null;

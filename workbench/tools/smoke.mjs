@@ -480,7 +480,7 @@ console.log("the piano roll (roll.js: layout on the committed song's events; dra
   fills = {}; labels = [];
   const stopped = draw(canvas, lay, 0, { mute: new Set(), solo: "bass" });
   check(stopped === null && (fills["#9a9a9a"] || 0) === total - lane("bass").notes.length && labels.includes("bass") &&
-        labels.includes("keys (muted)") && !labels.includes("bass (muted)"),
+        labels.includes("comp (muted)") && !labels.includes("bass (muted)"),
         "stopped: no playhead; solo greys every other lane (the pad's empty one aside) and not the soloed one");
   check(tl + td < 200, `layout ${tl.toFixed(1)} ms + draw ${td.toFixed(1)} ms on ${bars} bars, all parts: under 200 ms`);
 }
@@ -1671,7 +1671,7 @@ console.log("Task 1b: no ear candy; the pad on/off row");
     const miss6 = await d6.restore(sn);
     check(!miss6.length && d6.values.keys === ins("Rhodes") &&
           JSON.parse(cstr(e6, e6.wb_state())).roles[C.V.CHORD] === ins("Rhodes") &&
-          d6.message.includes(`Keys: ${name} is retired;`),
+          d6.message.includes(`Comp: ${name} is retired;`),
           `a snapshot with the ${name} on the keys restores on the Rhodes (mismatch: ${miss6.join(", ") || "none"}; "${d6.message}")`);
   }
   const s8 = JSON.parse(cstr(ex, ex.wb_state()));
@@ -1831,7 +1831,7 @@ console.log("the section strip, mute/solo and listening state (Task 3)");
 // ---- the parts: re-rolls, history, locks, reactions, feedback per part (Task 5) ----
 console.log("parts: re-rolls, history, locks, reactions (Task 5)");
 {
-  const { PARTS, PART_ROW, notesOf } = await import("../desk.js");
+  const { PARTS, PART_ROW, PART_NAME, notesOf } = await import("../desk.js");
   const { readEvents } = await import("../wb.js");
   const { layout } = await import("../roll.js");
   const { cellOf } = await import("../drums.js");
@@ -1948,7 +1948,7 @@ console.log("parts: re-rolls, history, locks, reactions (Task 5)");
     const after = desk.parts, rolledP = names.filter((q) => after[q].salt !== before[q].salt && after[q].salt &&
                                                      after[q].history.at(-1).salt === after[q].salt && after[q].at === after[q].history.length - 1);
     // (a part with one roll in the song, or no pad: re-roll all names it)
-    const want = names.filter((q) => q !== "lead" && !all.message.includes(`${q[0].toUpperCase()}${q.slice(1)}: `) && !(q === "pad" && /No pad/.test(all.message)));
+    const want = names.filter((q) => q !== "lead" && !all.message.includes(`${PART_NAME[q]}: `) && !(q === "pad" && /No pad/.test(all.message)));
     check(all.ok && want.length >= 2 && want.every((q) => rolledP.includes(q)) && after.lead.salt === lead.salt,
           `re-roll all (seed locked) re-rolls the unlocked parts (${rolledP.join(", ")}), not the locked lead`);
   }
@@ -2037,10 +2037,10 @@ console.log("parts: re-rolls, history, locks, reactions (Task 5)");
       const { desk } = await deskOn(seed, lcg(37));
       for (let i = 0; i < 8 && !said.length; i++) {
         const r = await desk.reroll("lead");
-        if (/Keys moved/.test(r.message)) said.push(r.message);
+        if (/Comp moved/.test(r.message)) said.push(r.message);
       }
     }
-    check(said.length && said.every((m) => /Keys moved: they make room for the lead/.test(m)),
+    check(said.length && said.every((m) => /Comp moved: it makes room for the lead/.test(m)),
           `a lead roll that moves the keys: "${said[0] ?? "(none moved them)"}"`);
   }
 
@@ -2125,7 +2125,7 @@ console.log("parts: re-rolls, history, locks, reactions (Task 5)");
   {
     const { reaction } = await import("../desk.js");
     const said = ["lead", "keys"].map((p) => reaction(p, "bass", ["lead", "keys"])).join(" ");
-    check(said === "Lead moved: it keeps clear of the bass. Keys moved: they make room for the lead.",
+    check(said === "Lead moved: it keeps clear of the bass. Comp moved: it makes room for the lead.",
           `a bass roll that moves the lead and the keys says so ("${said}")`);
   }
 
@@ -2571,9 +2571,9 @@ console.log("the busy-lead thinning row (on by default; off, the existing compin
   const desk = new Desk(call, C, OPTS, await call("wb_library"), { rnd: lcg(9) });
   await desk.read(true);
   const r = row("busyThin"), names = optionsFor(r, desk.state, OPTS).map((o) => o.name);
-  check(r && r.kind === "ov" && r.key === "NO_BUSY_THIN" && r.label === "Busy lead thins the comping" &&
+  check(r && r.kind === "ov" && r.key === "NO_BUSY_THIN" && r.label === "Busy lead thins the comp" &&
         JSON.stringify(names) === JSON.stringify(["On", "Off"]) && desk.values.busyThin === 0 && ex.wb_ov_get(OV.NO_BUSY_THIN) === 0,
-        `a "Busy lead thins the comping" row: on, off (${names.join(", ")}); a new song's is on`);
+        `a "Busy lead thins the comp" row: on, off (${names.join(", ")}); a new song's is on`);
   // a half-note song's keys with the row on or off (a probe instance's wb_events of the committed song)
   const keysOf = async (seed, noThin) => {
     const play = await load();
@@ -2731,6 +2731,88 @@ check(!OPTS.instruments.some((i) => i.status === "candidate") &&
   const { inactive } = await import("../rows.js");
   const st = (kit) => ({ values: { kit } });
   check(inactive(row("ride"), st(3), OPTS) && !inactive(row("ride"), st(4), OPTS), "the ride row is inactive on a kit with no ride (Brushes), not on a sampled kit");
+}
+
+console.log("the page by part: sections, part headers, the folded rows, summaries, the Comp part's name");
+{
+  const { SECTIONS, sectionOf, folds, FOLD_KEY, summary, inactive } = await import("../rows.js");
+  const { PARTS, PART_NAME } = await import("../desk.js");
+  // the sections in track order; every row in exactly one, main or more; the parts' sections are desk.js's parts
+  const ids = SECTIONS.flatMap((s) => [...s.main, ...s.more]);
+  check(SECTIONS.map((s) => s.name).join() === "Song,Drums,Bass,Comp,Pad,Lead,Texture" &&
+        ids.length === ROWS.length && new Set(ids).size === ids.length && ROWS.every((r) => sectionOf(r.id)),
+        `sections ${SECTIONS.map((s) => s.name).join(", ")}: each of the ${ROWS.length} rows in one`);
+  const want = {
+    Song: [["seed", "key", "tempo", "mood", "motion"], ["mode", "swing", "map", "prog", "color", "family"]],
+    Drums: [["kit", "pattern"], ["kick", "ride", "drumsVar"]],
+    Bass: [["bass", "bassLine"], []],
+    Comp: [["keys", "comp", "strumPat"], ["strumFill", "voicings", "keysOct", "busyThin"]],
+    Pad: [["pad", "padOn"], ["padPlace", "padNotes"]],
+    Lead: [["lead", "leadStyle"], ["phrase", "leadLoop", "leadOct"]],
+    Texture: [["dust", "noise", "ambience"], []],
+  };
+  check(SECTIONS.every((s) => JSON.stringify([s.main, s.more]) === JSON.stringify(want[s.name])),
+        "main rows: the song's home knobs and seed, each part's instrument and rhythm or style (the kit and pattern); the rest folded");
+  const parted = SECTIONS.filter((s) => s.part);
+  check(parted.map((s) => s.part).sort().join() === Object.keys(PARTS).sort().join() &&
+        parted.every((s) => PART_NAME[s.part] === s.name && ROWS.filter((r) => r.part === s.part).every((r) => sectionOf(r.id) === s)),
+        "a header per part (Drums, Bass, Comp, Pad, Lead: desk.js's parts), each part's roll row in its own section");
+  check(["keys", "bass", "pad", "lead"].every((id) => row(id).short === "Instrument") && row("keys").label === "Comp instrument" &&
+        row("family") && sectionOf("family").name === "Song",
+        "the instruments read Instrument in their part's section (Comp instrument in messages); the family is the song's");
+  // the Comp part, never the keys part, in the page's text: the labels, the part names, the greyed rows' reasons
+  const keysWord = /\bkeys\b/i;
+  const st = { values: { keys: 3, comp: COMP_PAT_BASE, kit: 3 }, strums: false };
+  const why = ROWS.map((r) => inactive(r, st, OPTS)).filter(Boolean);
+  check(!ROWS.some((r) => keysWord.test(r.label) || keysWord.test(r.short ?? "")) && PART_NAME.keys === "Comp" &&
+        why.length >= 3 && why.every((w) => !/^(The|These) keys\b/.test(w)),
+        `no row or part named keys (${why.length} greyed reasons checked)`);
+  // index.html: no parts panel, no group named Instruments or Voicing and phrase; mute, solo, the part's 🎲, ◀ ▶ and
+  // lock in the part header only (one place each)
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const once = (s) => html.split(s).length === 2;
+  check(!/id="parts"|Voicing and phrase|"Instruments"|GROUPS/.test(html) && /function partHead/.test(html) &&
+        ["desk.mute(", "desk.solo(", "desk.reroll(p)", "desk.stepPart(p, -1)", "desk.stepPart(p, 1)", "desk.lock(PART_ROW[p]",
+         "feedback(`part:${p}`"].every(once) && /if \(r\.part\) for \(const b of \[dice, lock\]\)/.test(html),
+        "index.html: the part header holds mute, solo, ◀ 🎲 ▶, the lock and the part's feedback, once each; a roll row defers to it");
+  // folding: per viewer in storage when there is one; a throwing, missing or garbled storage folds and still works
+  const mem = () => { const m = new Map(); return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => m.set(k, String(v)), m }; };
+  const s1 = mem(), f1 = folds(() => s1);
+  const shut = !f1.isOpen("Comp");
+  f1.set("Comp", true);
+  f1.set("Song", false);
+  const f2 = folds(() => s1);
+  check(shut && f2.isOpen("Comp") && !f2.isOpen("Song") && !f2.isOpen("Lead") && JSON.parse(s1.m.get(FOLD_KEY)).Comp === true,
+        "more: folded at first; opened, it stays open for this viewer (localStorage)");
+  const boom = () => { throw new Error("SecurityError"); };
+  const f3 = folds(boom), f4 = folds(() => ({ getItem: boom, setItem: boom })), f5 = folds(() => undefined);
+  const s6 = mem(); s6.setItem(FOLD_KEY, "{not json"); const f6 = folds(() => s6);
+  for (const f of [f3, f4, f5, f6]) f.set("Pad", true);
+  check([f3, f4, f5, f6].every((f) => f.isOpen("Pad") && !f.isOpen("Lead")),
+        "more without storage (blocked, throwing, absent, garbled): folded at first, toggles for the visit");
+  // the headers' summaries, on a song
+  const ex = await load(), call = caller(ex);
+  ex.wb_seed(21);
+  ex.wb_apply();
+  const desk = new Desk(call, C, OPTS, await call("wb_library"), { rnd: lcg(5) });
+  await desk.read(true);
+  const name = (id) => OPTS.instruments.find((i) => i.id === id).name;
+  const sums = Object.fromEntries(Object.keys(PARTS).map((p) => [p, summary(p, desk.state, OPTS)]));
+  const kit = OPTS.kits.find((k) => k.id === desk.values.kit), pat = OPTS.patterns.find((p) => p.id === desk.values.pattern);
+  check(sums.keys.startsWith(`${name(desk.values.keys)} · `) && /· (low|mid|high) register$/.test(sums.keys) &&
+        sums.bass === name(desk.values.bass) && sums.lead.startsWith(name(desk.values.lead)) &&
+        sums.drums.startsWith(`${kit.name} · ${pat.name}`) && Object.values(sums).every((x) => x && !x.includes("undefined")),
+        `summaries: ${Object.entries(sums).map(([p, x]) => `${PART_NAME[p]} "${x}"`).join(", ")}`);
+  await desk.set("keys", ins("Rhodes"));
+  await desk.set("comp", COMP_PAT_BASE + OPTS.compPats.find((p) => p.name === "8-tresillo").index);
+  await desk.set("keysOct", 0);
+  const ride = { ...desk.state, values: { ...desk.values, kit: 19, pattern: 1, ride: 2, kick: "k3" } };
+  check(summary("keys", desk.state, OPTS) === "Rhodes · Tresillo · mid register" &&
+        summary("drums", ride, OPTS) === "Gogodze · Boom bap 1 (Cantaloop) · kick k3 · ride in one section" &&
+        summary("pad", { ...desk.state, padless: true, values: { ...desk.values, padOn: -1 } }, OPTS) === "no pad in this song" &&
+        summary("lead", { ...desk.state, values: { ...desk.values, lead: ins("Flute"), leadStyle: 8, leadOct: 1 } }, OPTS) ===
+          "Flute · Bossa Nova · high register",
+        `the Comp header on a Rhodes tresillo reads "${summary("keys", desk.state, OPTS)}"; the drums name the ride, the pad its absence`);
 }
 
 console.log(failed ? `smoke: ${failed} FAILED` : "smoke: all passed");

@@ -33,8 +33,6 @@
   #rollbox { overflow-x: auto; margin-top: 10px; border: 1px solid var(--line); border-radius: 6px; }
   #roll { display: block; }
   #strip .head { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--accent); pointer-events: none; }
-  .row button.part { font-size: 12px; font-weight: 600; padding: 4px 6px; }
-  .row button.part[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
   .switch { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); }
   #msg { min-height: 1.4em; margin: 12px 0 0; color: var(--accent); }
   section { margin-top: 20px; }
@@ -43,7 +41,6 @@
   .rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 4px 24px; }
   .row { display: grid; grid-template-columns: 9.5em 1fr auto auto auto auto; gap: 6px; align-items: center; padding: 2px 4px;
          border-radius: 6px; transition: background 0.6s; }
-  .row.part { grid-template-columns: 9.5em 1fr auto auto auto auto auto auto; }
   .row.moved { background: var(--moved); }
   .row label { color: var(--muted); }
   .row button { padding: 4px 8px; line-height: 1; }
@@ -54,11 +51,26 @@
   @media (max-width: 520px) {
     .rows { grid-template-columns: 1fr; }
     .row { grid-template-columns: 7em 1fr auto auto auto auto; }
-    .row.part { grid-template-columns: 7em 1fr auto auto auto auto auto auto; }
+    .phead .sum { flex-basis: 100%; order: 9; }
   }
-  /* the parts: a 🎲 each, ◀ ▶ through its rolls, a lock, feedback on the roll heard */
-  #parts .row { grid-template-columns: 4.5em 1fr auto auto auto auto auto auto; }
-  #parts .roll { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* a part's header: its name, a summary of its values, then mute and solo, ◀ 🎲 ▶ through its rolls, its lock and
+     feedback on the roll heard */
+  .phead { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 6px; padding: 0 4px; }
+  .phead h2 { margin: 0; }
+  .phead .sum { flex: 1 1 12em; min-width: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .phead .roll { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .phead button { padding: 4px 8px; line-height: 1; }
+  .phead button.part { font-size: 12px; font-weight: 600; padding: 4px 6px; }
+  .phead button.part[aria-pressed="true"], .phead button.lock[aria-pressed="true"] { background: var(--accent);
+    border-color: var(--accent); color: #fff; }
+  .phead button.fb { opacity: 0.55; }
+  .phead button.fb:hover { opacity: 1; }
+  .phead.locked .sum { opacity: 0.7; }
+  /* a section's folded rows: under its "more" */
+  button.more { margin: 4px 4px 0; padding: 2px 8px; font-size: 12px; color: var(--muted); border-style: dashed; }
+  button.more.moved { background: var(--moved); color: var(--fg); }
+  .rows.folded { margin-top: 4px; }
+  .rows.folded[hidden] { display: none; }
   .feedback { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
   .feedback input { flex: 1 1 16em; min-width: 0; }
   #fb { color: var(--muted); }
@@ -112,14 +124,13 @@
     <span id="fb" role="status" aria-live="polite"></span>
   </div>
   <p id="msg" role="status" aria-live="polite"></p>
-  <section id="parts"><h2>Parts</h2><div class="rows"></div></section>
   <div id="desk"></div>
   <div id="drums" hidden></div>
 </main>
 <script type="module">
   import * as wb from "./wb.js";
-  import { ROWS, GROUPS, optionsFor, inactive, approval } from "./rows.js";
-  import { Desk, PARTS, PART_ROW, sectionAt, positionOf, loopAt } from "./desk.js";
+  import { ROWS, row, SECTIONS, folds, summary, optionsFor, inactive, approval } from "./rows.js";
+  import { Desk, PART_ROW, PART_NAME, sectionAt, positionOf, loopAt } from "./desk.js";
   import { layout, draw } from "./roll.js";
   import { DrumScreen } from "./drums.js";
   const $ = (id) => document.getElementById(id);
@@ -155,7 +166,7 @@
     el.className = "row";
     el.dataset.row = r.id;
     const lab = document.createElement("label");
-    lab.textContent = r.label;
+    lab.textContent = r.short ?? r.label;   // (in its section: "Instrument" under Comp)
     lab.htmlFor = `in-${r.id}`;
     let input;
     if (r.kind === "seed") {
@@ -182,54 +193,54 @@
     const approve = Object.assign(document.createElement("button"), { textContent: "Approve", className: "approve", hidden: true });
     approve.onclick = () => { const t = approval(r, desk.state, desk.opts, lib); if (t) run(() => desk.approve(t)); };
     el.append(lab, input, dice, lock, approve, fb("up", `${r.label} is good`), fb("down", `${r.label} is not good`));
-    // mute and solo (listening only) beside a part's row: the keys, bass, lead, pad and drums (the kit row)
-    const part = Object.keys(PARTS).find((p) => PARTS[p] === r.role || (p === "drums" && r.id === "kit"));
-    const hear = {};
-    if (part) {
-      el.classList.add("part");
-      for (const [k, text, what] of [["mute", "M", "Mute"], ["solo", "S", "Solo"]])
-        el.append(hear[k] = Object.assign(document.createElement("button"), { textContent: text, className: "part",
-          title: `${what} ${r.label.toLowerCase()} (listening only: the song is unchanged)`,
-          onclick: () => run(() => k === "mute" ? desk.mute(part, !desk.listen.mute.has(part))
-                                                : desk.solo(desk.listen.solo === part ? null : part)) }));
-    }
-    Object.assign(el, { input, dice, lock, approve, partKey: part, hear });
+    // a part's roll (phrase, voicings, bass line, pad notes, drum variation): its 🎲 and 🔒 are the part header's
+    if (r.part) for (const b of [dice, lock]) b.style.visibility = "hidden";
+    Object.assign(el, { input, dice, lock, approve });
     return el;
   }
 
   // the decision list: built once, refreshed after every change
-  const els = new Map();
+  const els = new Map(), toggles = new Map(), fold = folds();   // fold: each section's "more", per viewer
   function render() {
     if (!desk) return;
     if (!els.size) {
-      for (const g of GROUPS) {
-        const sec = document.createElement("section"), h = document.createElement("h2"), box = document.createElement("div");
-        h.textContent = g;
-        if (g === "Drums") {
-          const edit = Object.assign(document.createElement("button"), { textContent: "Edit kit & pattern", onclick: () => screen(true) });
-          h.append(edit);
-        }
+      for (const s of SECTIONS) {
+        const sec = document.createElement("section"), box = document.createElement("div");
+        sec.dataset.section = s.name;
+        const head = s.part ? partHead(s) : Object.assign(document.createElement("h2"), { textContent: s.name });
         box.className = "rows";
-        for (const r of ROWS.filter((x) => x.group === g && !x.hidden)) { const el = rowEl(r); els.set(r.id, el); box.append(el); }
-        sec.append(h, box);
+        const add = (to, ids) => { for (const id of ids) { const el = rowEl(row(id)); els.set(id, el); to.append(el); } };
+        add(box, s.main);
+        sec.append(head, box);
+        if (s.more.length) {   // the rest, folded (open or not: remembered per viewer)
+          const more = Object.assign(document.createElement("div"), { className: "rows folded", id: `more-${s.name.toLowerCase()}` });
+          add(more, s.more);
+          const t = Object.assign(document.createElement("button"), { className: "more" });
+          t.setAttribute("aria-controls", more.id);
+          const show = (on) => {
+            more.hidden = !on;
+            t.setAttribute("aria-expanded", String(on));
+            t.textContent = `${on ? "▾ Less" : "▸ More"}: ${s.more.map((id) => row(id).short ?? row(id).label).join(", ")}`;
+          };
+          t.onclick = () => { const on = more.hidden; fold.set(s.name, on); show(on); };
+          show(fold.isOpen(s.name));
+          toggles.set(s.name, t);
+          sec.append(t, more);
+        }
         $("desk").append(sec);
       }
-      $("parts").querySelector(".rows").append(...Object.keys(PARTS).map(partEl));
     }
     renderParts();
+    for (const s of SECTIONS)   // a folded row the last change moved: its "more" says so
+      toggles.get(s.name)?.classList.toggle("moved", s.more.some((id) => desk.moved.has(id)));
     drums?.render(pos);
     strip().catch((e) => { $("msg").textContent = String(e); });
     const showRetired = $("retired").checked;
     for (const r of ROWS) {
       const el = els.get(r.id), cur = desk.values[r.id], locked = desk.locks.has(r.id);
-      if (!el) continue;   // a part's own salt (the parts panel's)
       el.classList.toggle("moved", desk.moved.has(r.id));
       el.classList.toggle("locked", locked);
       el.lock.setAttribute("aria-pressed", String(locked));
-      if (el.partKey) {
-        el.hear.mute.setAttribute("aria-pressed", String(desk.listen.mute.has(el.partKey)));
-        el.hear.solo.setAttribute("aria-pressed", String(desk.listen.solo === el.partKey));
-      }
       const why = inactive(r, desk.state, desk.opts);
       // (the Comping row stays open when greyed: a comp rhythm a snapshot left on keys that don't play one is
       // changed there)
@@ -255,33 +266,43 @@
     }
   }
 
-  // a part's controls: its roll (n of the history), ◀ 🎲 ▶, its lock (its salt row's), 👍 / 👎 on the roll heard
+  // a part's section header (Drums, Bass, Comp, Pad, Lead): its name and a summary of its values; mute and solo
+  // (listening only); ◀ 🎲 ▶ through its rolls, and which it is; its lock (its roll row's); 👍 / 👎 on the roll heard
   const partEls = new Map();
-  function partEl(p) {
-    const el = document.createElement("div"), name = p[0].toUpperCase() + p.slice(1);
-    el.className = "row";
-    const lab = Object.assign(document.createElement("label"), { textContent: name });
+  function partHead(s) {
+    const p = s.part, name = PART_NAME[p], el = Object.assign(document.createElement("div"), { className: "phead" });
+    el.dataset.part = p;
+    const h = Object.assign(document.createElement("h2"), { textContent: s.name });
+    const sum = Object.assign(document.createElement("span"), { className: "sum" });
     const roll = Object.assign(document.createElement("span"), { className: "roll" });
     const btn = (textContent, title, onclick, className = "") => Object.assign(document.createElement("button"), { textContent, title, onclick, className });
+    const mute = btn("M", `Mute the ${name.toLowerCase()} (listening only: the song is unchanged)`,
+                     () => run(() => desk.mute(p, !desk.listen.mute.has(p))), "part");
+    const solo = btn("S", `Solo the ${name.toLowerCase()} (listening only: the song is unchanged)`,
+                     () => run(() => desk.solo(desk.listen.solo === p ? null : p)), "part");
     const back = btn("◀", `${name}: the roll before`, () => run(() => desk.stepPart(p, -1)));
-    const dice = btn("🎲", `${name}: new notes (this part only; it lands at the next bar)`, () => run(() => desk.reroll(p)));
+    const dice = btn("🎲", "", () => run(() => desk.reroll(p)));
     const fwd = btn("▶", `${name}: the roll after`, () => run(() => desk.stepPart(p, 1)));
-    const lock = btn("🔒", `Keep ${p}'s roll when re-rolling and on a new song`, () => run(() => desk.lock(PART_ROW[p], !desk.locks.has(PART_ROW[p]))), "lock");
+    const lock = btn("🔒", `Keep the ${name.toLowerCase()}'s roll when re-rolling and on a new song`,
+                     () => run(() => desk.lock(PART_ROW[p], !desk.locks.has(PART_ROW[p]))), "lock");
     const fb = (rating) => btn(rating === "up" ? "👍" : "👎", `${name}'s roll is ${rating === "up" ? "" : "not "}good (with the note above)`,
                                () => feedback(`part:${p}`, rating), "fb");
-    el.append(lab, roll, back, dice, fwd, lock, fb("up"), fb("down"));
-    partEls.set(p, Object.assign(el, { roll, back, dice, fwd, lock }));
+    el.append(h, sum, mute, solo, back, dice, fwd, roll, lock, fb("up"), fb("down"));
+    if (p === "drums") el.append(btn("Edit kit & pattern", "The drum screen: each lane's sound and level, the pattern grid", () => screen(true)));
+    partEls.set(p, Object.assign(el, { sum, roll, mute, solo, back, dice, fwd, lock }));
     return el;
   }
   function renderParts() {
-    const parts = desk.parts;
+    const parts = desk.parts, state = desk.state;
     for (const [p, x] of Object.entries(parts)) {
       const el = partEls.get(p), why = desk.cantRoll(p), n = x.history.length;
-      el.roll.textContent = p === "pad" && desk.padless ? "no pad in this song"
-        : `${x.salt ? "roll" : "as rolled"}${n > 1 ? ` · ${x.at + 1} of ${n}` : ""}`;
+      el.sum.textContent = el.sum.title = summary(p, state, desk.opts);
+      el.roll.textContent = p === "pad" && desk.padless ? "" : `${x.salt ? "re-rolled" : "as rolled"}${n > 1 ? ` · ${x.at + 1} of ${n}` : ""}`;
+      el.mute.setAttribute("aria-pressed", String(desk.listen.mute.has(p)));
+      el.solo.setAttribute("aria-pressed", String(desk.listen.solo === p));
       el.lock.setAttribute("aria-pressed", String(x.locked));
       el.classList.toggle("locked", x.locked);
-      el.title = why || "";
+      el.dice.title = why || `${PART_NAME[p]}: new notes (this part only; it lands at the next bar)`;
       el.dice.disabled = !!why;
       const stuck = desk.cantRoll(p, true);   // ◀ ▶ still step through a part whose 🎲 found no other roll
       el.back.disabled = !!stuck || x.at === 0;
