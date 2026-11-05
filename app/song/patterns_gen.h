@@ -14,6 +14,9 @@
 /* drums (LIB_PATTERNS) and progressions (LIB_PROGS): the types and the tables in library.h */
 extern const uint8_t LIB_PATTERNS_STATUS[];
 extern const uint8_t LIB_PROGS_STATUS[];
+/* each drum pattern's busyness, parallel to LIB_PATTERNS: 0 sparse, 1 middle, 2 busy (the roll's draw
+   leans on the song's motion: roll.h's motion_tilt) */
+extern const uint8_t LIB_PATTERNS_BUSY[];
 
 /* The keys' comping rhythms (patterns/comp-rhythms, harmony.c plays them), one table, one row each,
    in id order: the fixed five (held, half, stabs, held on 2, held on 2 and 4: ids 1-6, 5 removed), then
@@ -82,6 +85,7 @@ extern const uint8_t COMP_STATUS[COMP_N];
 #define STRUM_NPAT 14
 extern const char *const STRUM_PAT[STRUM_NPAT];
 extern const uint8_t STRUM_PAT_STATUS[STRUM_NPAT];
+extern const uint8_t STRUM_PAT_BUSY[STRUM_NPAT];   /* 0 sparse, 1 middle, 2 busy (the motion tilt) */
 extern const char STRUM_BALLAD_FILL[];
 /* the fill-bar figures a strummed song draws one of (16 steps): step back, a strike on 1 and space for the
    drum fill, and drive, pushing into the change; [0] every pattern's but the ballad's (its own

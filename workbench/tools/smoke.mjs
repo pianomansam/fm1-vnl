@@ -1317,10 +1317,11 @@ console.log("drum screen: the grid");
   const { sounds, soundOptions, pickSound, cellOf, cycle, patternFile, kitFile, save, listSaved, getSaved, laneSources } = await import("../drums.js");
   const grid = (ex) => JSON.parse(cstr(ex, ex.wb_state())).drums.grid;
   const KICK = 0, STEP = 6;
-  // seed 77 from bar 1 on the 808 kit (the lanes' meters), played to the middle of bar 5; edit: staged there
+  // seed 72 from bar 1 on the 808 kit (the lanes' meters), played to the middle of bar 5; edit: staged there (its
+  // pattern, the bossa, leaves the kick's step 7 free: seed 77 until the pattern leaned on the motion, 2026-11-05)
   const run = async (edit) => {
     const ex = await load(), call = caller(ex);
-    ex.wb_seed(77);
+    ex.wb_seed(72);
     ex.wb_kit_preset(DRUMS.PT808);
     ex.wb_apply();
     ex.wb_play(1);
@@ -1345,7 +1346,7 @@ console.log("drum screen: the grid");
     return { ex, desk, bars };
   };
   const ref = await run(false), ed = await run(true);
-  check(ref.bars[5].ms > 1e-6, `seed 77's kick plays in bar 5 (${(10 * Math.log10(ref.bars[5].ms)).toFixed(1)} dB)`);
+  check(ref.bars[5].ms > 1e-6, `seed 72's kick plays in bar 5 (${(10 * Math.log10(ref.bars[5].ms)).toFixed(1)} dB)`);
   check(ed.ex.wb_pat_get(KICK, 1, STEP) === 1 && ed.ex.wb_pat_get(KICK, 0, STEP) === 0 && grid(ed.ex).edited === 1,
         "the edit is in the custom pattern's bar B only (wb_pat_get)");
   check(ed.bars[5].hash === ref.bars[5].hash, "edited in bar 5: bar 5's kick lane is untouched");
@@ -2748,7 +2749,11 @@ console.log("the busy-lead thinning row (on by default; off, the existing compin
   const miss3 = await d3.restore(old);
   check(!miss3.length && d3.values.busyThin === 0 && e3.wb_ov_get(OV.NO_BUSY_THIN) === 0,
         `an older snapshot (no such row) restores it on (mismatch: ${miss3.join(", ") || "none"})`);
-  const secs = 60;
+  // through the first bar the two differ in (at 70 BPM, the slowest), a minute at least
+  const found = on.findIndex((e, i) => JSON.stringify(e) !== JSON.stringify(offEv[i]));
+  const differ = found < 0 ? on.length : found;
+  const firstBar = Math.min(...[on[differ], offEv[differ]].filter(Boolean).map((e) => e.bar));
+  const secs = Math.max(60, Math.ceil((firstBar + 2) * 240 / 70));
   const a = await replay(JSON.parse(JSON.stringify(snap)), secs), b = await replay(JSON.parse(JSON.stringify(old)), secs);
   check(!a.mismatch.length && !b.mismatch.length && Buffer.compare(wav(a), wav(b)) !== 0,
         `a replay plays it: off and on render differently (mismatch: ${[...a.mismatch, ...b.mismatch].join(", ") || "none"})`);

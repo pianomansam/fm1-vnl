@@ -41,6 +41,7 @@
         "0x0000",
         "0x0000"
       ],
+      "busy": 2,
       "file": "drums/1-boombap"
     },
     "2": {
@@ -83,6 +84,7 @@
         "0x0000",
         "0x0000"
       ],
+      "busy": 2,
       "file": "drums/2-boombap"
     },
     "3": {
@@ -125,6 +127,7 @@
         "0x0000",
         "0x0000"
       ],
+      "busy": 2,
       "file": "drums/3-boombap"
     },
     "4": {
@@ -167,6 +170,7 @@
         "0x0000",
         "0x0000"
       ],
+      "busy": 0,
       "file": "drums/4-half-time"
     },
     "5": {
@@ -209,6 +213,7 @@
         "0x0000",
         "0x0000"
       ],
+      "busy": 0,
       "file": "drums/5-half-time"
     },
     "6": {
@@ -251,6 +256,7 @@
         "0x0000",
         "0x0000"
       ],
+      "busy": 0,
       "file": "drums/6-sparse"
     },
     "7": {
@@ -293,6 +299,7 @@
         "0x0000",
         "0x0000"
       ],
+      "busy": 1,
       "file": "drums/7-brushes"
     },
     "8": {
@@ -335,6 +342,7 @@
         "0x0000",
         "0x0000"
       ],
+      "busy": 2,
       "file": "drums/8-bossa"
     },
     "9": {
@@ -377,6 +385,7 @@
         "0x0000",
         "0x0000"
       ],
+      "busy": 0,
       "file": "drums/9-half-time-2-shaker-2"
     }
   },
@@ -2877,6 +2886,7 @@
       "status": "approved",
       "kind": "pattern",
       "steps": "D...d.u...U.d.u.",
+      "busy": 1,
       "file": "strum/1-d-du-udu"
     },
     "2": {
@@ -2884,6 +2894,7 @@
       "status": "approved",
       "kind": "pattern",
       "steps": "D.u.X.U.d.u.X.U.",
+      "busy": 2,
       "file": "strum/2-chuck"
     },
     "3": {
@@ -2891,6 +2902,7 @@
       "status": "approved",
       "kind": "pattern",
       "steps": "B..P..P.T.P..P..T.P..P..T.P..P..",
+      "busy": 1,
       "file": "strum/3-bossa"
     },
     "4": {
@@ -2898,6 +2910,7 @@
       "status": "approved",
       "kind": "pattern",
       "steps": "D.......d.....u.",
+      "busy": 0,
       "file": "strum/4-ballad"
     },
     "5": {
@@ -2913,6 +2926,7 @@
       "status": "approved",
       "kind": "pattern",
       "steps": "..U...U...U...U.",
+      "busy": 2,
       "file": "strum/6-offbeat-skank"
     },
     "7": {
@@ -2920,6 +2934,7 @@
       "status": "approved",
       "kind": "pattern",
       "steps": "D.....d...U.d...",
+      "busy": 2,
       "file": "strum/7-syncopated-push"
     },
     "8": {
@@ -2927,6 +2942,7 @@
       "status": "approved",
       "kind": "pattern",
       "steps": "D.....u...U...d.",
+      "busy": 0,
       "file": "strum/8-anticipation"
     },
     "9": {
@@ -2934,6 +2950,7 @@
       "status": "approved",
       "kind": "pattern",
       "steps": "D.....U.........",
+      "busy": 1,
       "file": "strum/9-charleston"
     },
     "10": {
@@ -2941,6 +2958,7 @@
       "status": "candidate",
       "kind": "pattern",
       "steps": "T...d.u.T...d.u.",
+      "busy": 1,
       "file": "strum/10-boom-chuck"
     },
     "11": {
@@ -2948,6 +2966,7 @@
       "status": "candidate",
       "kind": "pattern",
       "steps": "T...d...T...d...",
+      "busy": 1,
       "file": "strum/11-boom-chuck-plain"
     },
     "12": {
@@ -2955,6 +2974,7 @@
       "status": "candidate",
       "kind": "pattern",
       "steps": "T...d.u.T.u.d.u.",
+      "busy": 1,
       "file": "strum/12-boom-chuck-a"
     },
     "13": {
@@ -2962,6 +2982,7 @@
       "status": "candidate",
       "kind": "pattern",
       "steps": "T...P...T...P.u.",
+      "busy": 1,
       "file": "strum/13-boom-chuck-pinch"
     },
     "14": {
@@ -2969,6 +2990,7 @@
       "status": "candidate",
       "kind": "pattern",
       "steps": "T.....u.T...d.u.",
+      "busy": 1,
       "file": "strum/14-boom-chuck-push"
     },
     "15": {
@@ -2976,6 +2998,7 @@
       "status": "candidate",
       "kind": "pattern",
       "steps": "T.u.d.u.T.u.d.u.",
+      "busy": 2,
       "file": "strum/15-boom-chuck-train"
     },
     "16": {

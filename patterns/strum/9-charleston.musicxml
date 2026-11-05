@@ -4,7 +4,7 @@
   <work><work-title>Strum 9: charleston</work-title></work>
   <identification>
     <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
-    <miscellaneous><miscellaneous-field name="vnl1">{"family":"strum","id":"9","index":7,"status":"candidate","kind":"pattern","steps":"D.....U........."}</miscellaneous-field></miscellaneous>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"strum","id":"9","index":7,"status":"approved","kind":"pattern","steps":"D.....U.........","busy":1}</miscellaneous-field></miscellaneous>
   </identification>
   <part-list>
     <score-part id="P1">

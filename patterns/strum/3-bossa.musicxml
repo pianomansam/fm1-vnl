@@ -4,7 +4,7 @@
   <work><work-title>Strum 3: bossa</work-title></work>
   <identification>
     <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
-    <miscellaneous><miscellaneous-field name="vnl1">{"family":"strum","id":"3","index":2,"status":"approved","kind":"pattern","steps":"B..P..P.T.P..P..T.P..P..T.P..P.."}</miscellaneous-field></miscellaneous>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"strum","id":"3","index":2,"status":"approved","kind":"pattern","steps":"B..P..P.T.P..P..T.P..P..T.P..P..","busy":1}</miscellaneous-field></miscellaneous>
   </identification>
   <part-list>
     <score-part id="P1">

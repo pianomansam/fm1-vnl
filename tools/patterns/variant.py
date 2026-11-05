@@ -40,7 +40,7 @@ def variant(model, status):
     m["progressions"][str(nid)] = p
     n = sum(1 for e in m["strum"].values() if e["kind"] == "pattern")
     m["strum"][str(export.strum_id(n))] = {"index": n, "status": status, "kind": "pattern",
-                                           "steps": "D.D.D.D.D.D.D.D.", "file": "strum/variant-strum"}
+                                           "steps": "D.D.D.D.D.D.D.D.", "busy": 2, "file": "strum/variant-strum"}
     n = sum(1 for e in m["comp-rhythms"].values() if e.get("kind") == "pattern")
     m["comp-rhythms"][str(export.comp_pat_id(n))] = {
         "status": status, "style": "CS_PAT", "kind": "pattern", "index": n, **copy.deepcopy(export.COMP_PAT_DRAW),

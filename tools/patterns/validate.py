@@ -36,7 +36,8 @@ def _ins_enum():
 INS = _ins_enum()
 GUITARS = ("INS_NYLON", "INS_EMILY")            # they only strum (CS_STRUM, its own engine): never a comp rhythm's
 KEYS_ALL = 0xFFFFFFFF & ~sum(1 << INS.index(g) for g in GUITARS)   # keys "all" (patterns_gen.h's CK_ALL)
-BUSY = (0, 1, 2)                                 # a comp rhythm's busyness: sparse, middle, busy (roll.h's motion_tilt)
+# a comp rhythm's, drum pattern's or strum pattern's busyness:
+BUSY = (0, 1, 2)                                 # sparse, middle, busy (roll.h's motion_tilt)
 SRC_RE = re.compile(r"[ -~]{0,200}")            # printable ASCII: it becomes a C string literal (and
 #                                                 no backslash or "??", whatever c_str escapes)
 
@@ -142,6 +143,8 @@ def check(fam, e):
             bad(None, f"family is one of {', '.join(PF)}")
         if e.get("half_time") not in (0, 1) or e.get("poly3") not in (0, 1) or e.get("two_bar") not in (0, 1):
             bad(None, "half_time, poly3 and two_bar are 0 or 1")
+        if e.get("busy") not in BUSY:
+            bad(None, "busy is 0 (sparse), 1 (middle) or 2 (busy)")
         for bar in range(2):
             b = bar == 1 and e.get("two_bar")
             hit = [_mask(x) for x in (e["hit_b"] if b else e["hit"])]
@@ -165,6 +168,8 @@ def check(fam, e):
         s = e.get("steps", "")
         if len(s) not in (16, 32) or (e.get("kind") == "fill" and len(s) != 16):
             bad(None, "a strum pattern is 1 bar (2 for a two-bar pattern; a fill 1)")
+        if e.get("kind") == "pattern" and e.get("busy") not in BUSY:
+            bad(None, "busy is 0 (sparse), 1 (middle) or 2 (busy)")
         for i, c in enumerate(s):
             if c != "." and c not in STROKES:
                 bad(i // 16 + 1, f"stroke {c!r} is not one of {STROKES}")

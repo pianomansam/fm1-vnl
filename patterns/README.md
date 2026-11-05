@@ -111,6 +111,12 @@ table's shaker mask (`hit[D_SHAKER]`, 0x9249: steps 0, 3, 6, 9, 12, 15); bar 2's
 polymeter runs on, so it doesn't make the pattern two-bar (`two_bar` stays 0; the other lanes decide that).
 `family` (as `pattern_family`), `half_time` and `src` are metadata.
 
+`busy` (model.json; Sam edits it there, import.sh regenerates `LIB_PATTERNS_BUSY`): 0 sparse, 1 middle, 2 busy. The
+roll draws the song's pattern from the approved ones evenly, tilted by the motion the song was rolled with and the
+pattern's `busy`, as the comping is (`roll.h`'s `motion_tilt`; Sam, 2026-11-05: "motion roll -> informed busy-ness
+roll"). Judged from the grid (kick and snare density, ghost notes, 16th hats or shaker): boom-bap 1-3 and the bossa
+(8) 2; the brushes (7) 1; the half-times (4, 5), the sparse (6) and half-time-2-shaker-2 (9) 0. A new pattern takes 1.
+
 ## kick-phrases
 
 `kickPhrases` in `workbench/options.json` (5). Two bars, kick only (note 36): bar 1 is `a`, bar 2 is `b`.
@@ -211,6 +217,11 @@ them). One pitch per stroke type, as drum lanes (the bossa is 2 bars,
 the rest 1): T thumb E4 (64), B thumb and pinch F4 (65), D accented down G4 (67), d down A4 (69), X chuck B4 (71, x
 head), U up C5 (72), u soft up D5 (74), P pinch E5 (76). A rest is no note. Up strokes (U, u) go only on the "and"s
 (steps 2, 6, 10, 14).
+
+`busy` (each pattern, not the fills; model.json, `STRUM_PAT_BUSY`): 0 sparse, 1 middle, 2 busy; the song's pattern is
+drawn from the approved evenly, tilted by its rolled motion (`motion_tilt`, as the drums and the comping). The ballad
+(4) and anticipation (8) 0; D-DU-UDU (1), the bossa (3), the charleston (9) and the boom-chucks (10-14) 1; the chuck
+(2), offbeat skank (6), syncopated push (7) and the boom-chuck train (15) 2. A new pattern takes 1.
 
 **Fills** (`kind` `"fill"`, one bar each, fixed: always approved; edit their files like any other): what a strummed
 song plays in a drum fill's bar (a block's last bar with a fill; a drop bar keeps the song's pattern).

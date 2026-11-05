@@ -138,8 +138,10 @@ static void cands(const song_roll_t *r, int f, cands_t *c)
     }
     case RF_COLOR: for (i = 0; i < 3; i++) add(c, i, LIB_MOODS[mood].color_w[i]); break;
     case RF_SET: for (i = 0; i < LIB_NSETS; i++) if (LIB_SETS[i].moods & (1 << mood)) add(c, LIB_SETS[i].id, 1); break;
-    case RF_PATTERN:
-        for (i = 0; i < LIB_NPATTERNS; i++) if (LIB_PATTERNS_STATUS[i] == 1) add(c, LIB_PATTERNS[i].id, 1);
+    case RF_PATTERN:   /* evenly, leaning on the song's motion by each pattern's busyness (motion_tilt) */
+        for (i = 0; i < LIB_NPATTERNS; i++)
+            if (LIB_PATTERNS_STATUS[i] == 1)
+                add(c, LIB_PATTERNS[i].id, motion_tilt(1, LIB_PATTERNS_BUSY[i], roll_motion(r)));
         break;
     case RF_SWING: for (i = 520; i <= 620; i++) add(c, i, tri(i, 520, 525, 620)); break;   /* mean 555, median ~551 */
     case RF_DUST: for (i = 0; i <= 3; i++) add(c, i, 1); break;
@@ -180,8 +182,9 @@ static int pick(const cands_t *c, uint32_t seed, int f)
     int i;
     if (c->n == 0) return -1;
     /* the set's stream hashed apart: rng_seed's streams differ by a constant xor, and xorshift is linear, so the set's
-       draw shares the mood's low bits (x % 4) and a mood's set count divisible by 2 or 4 left sets unreachable */
-    rng_seed(&g, f == RF_SET ? mix(seed, 0x5E7u) : seed, (uint32_t)f);
+       draw shares the mood's low bits (x % 4) and a mood's set count divisible by 2 or 4 left sets unreachable; the
+       drum pattern's too, as its weights follow the motion's draw */
+    rng_seed(&g, f == RF_SET ? mix(seed, 0x5E7u) : f == RF_PATTERN ? mix(seed, 0x9A7u) : seed, (uint32_t)f);
     for (i = 0; i < c->n; i++) tot += c->w[i];
     if (tot == 0) return c->v[rng_int(&g, c->n)];
     x = rng_next(&g) % tot;
@@ -275,6 +278,7 @@ void roll_song(const song_roll_t *prev_in, uint32_t seed, song_roll_t *out)
     if (prev_in) prev = *prev_in;
     memset(&r, 0, sizeof r);
     r.seed = seed;
+    draw(&r, RF_MOTION, seed, KEEP_ALL, 0);   /* first: the drum pattern (the bass, the strum) lean on it */
     draw(&r, RF_MOOD, seed, KEEP_ALL, 0);
     draw(&r, RF_MODE, seed, KEEP_ALL, 0);
     if (prev_in) draw_key(&r, &prev, seed);
@@ -289,7 +293,6 @@ void roll_song(const song_roll_t *prev_in, uint32_t seed, song_roll_t *out)
     draw(&r, RF_DUST, seed, KEEP_ALL, 0);
     draw(&r, RF_NOISE, seed, KEEP_ALL, 0);
     draw(&r, RF_AMBIENCE, seed, KEEP_ALL, 0);
-    draw(&r, RF_MOTION, seed, KEEP_ALL, 0);
 
     /* length: a target in 120-210 s (mode 150 s), to bars, clamped to the seconds rule */
     c.n = 0;

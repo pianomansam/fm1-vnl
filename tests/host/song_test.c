@@ -6814,7 +6814,10 @@ static void test_lead_over_keys(void)
    against the sampled vibes' (pinned: measured on b9653f4, the sample's last build). The three songs' mean within 0.5
    dB of the sample's, each song within 1 dB (set 4 seed 14, 8 bars, 0.56 under). (Sets 33 and 8, seeds 9 and 11,
    until their keys retired, 2026-11-04: set 6 seed 9 is set 33's song, the same lead bus on b9653f4, -28.90; for
-   set 8's, set 2 seed 12 measured there, -30.93: seed 11 on a vibes set left reads +1.02 dB looped, 12 the next.) */
+   set 8's, set 2 seed 12 measured there, -30.93: seed 11 on a vibes set left reads +1.02 dB looped, 12 the next.)
+   The songs keep the drum pattern they were measured with (ls_old_pattern: the pattern's draw leans on the motion
+   since 2026-11-05, and the lead plays around its snare). */
+static int ls_old_pattern(const song_roll_t *r);
 static void vibes_level(int loop)
 {
     static const int set[3] = {6, 4, 2};
@@ -6831,6 +6834,7 @@ static void vibes_level(int loop)
         double sum = 0.0, x;
         roll_song(NULL, seed[i], &r);
         CHECK(roll_set(&r, RF_SET, set[i]) == set[i], "%s: set %d not taken", tag, set[i]);
+        r.v[RF_PATTERN] = (int16_t)ls_old_pattern(&r);   /* the drum pattern the pin's song had */
         n = lk_song(&r, V_LEAD, lk_db[1]);
         CHECK(vx_config()->lead == INS_VIBES, "%s: set %d seed %u leads with %d", tag, set[i], (unsigned)seed[i],
               vx_config()->lead);
@@ -8429,9 +8433,11 @@ static void test_strum_same(void)
        their hats): were c3513a4e and 50e9027f. Re-pinned again (Sam 2026-11-05: the vibes on the keys, four new sets,
        so the seeds draw other sets; a strum that copies the kick takes the twin's up stroke): were 78f452bf and
        d36f686e. Re-pinned again (Sam 2026-11-05: modes become major or minor): were 4fa861d9 and e694d37e. Re-pinned again
-       (Sam 2026-11-05: drums pattern 9 approved): were e6ac3f61 and d4487617 */
-    CHECK(a == 0x0c88aa01u, "strum same: the strummed songs hash %08x, wanted 0c88aa01", (unsigned)a);
-    CHECK(b == 0x1c44f163u, "strum same: with set changes %08x, wanted 1c44f163", (unsigned)b);
+       (Sam 2026-11-05: drums pattern 9 approved): were e6ac3f61 and d4487617.
+       Re-pinned again (Sam 2026-11-05: motion first; drums, bass and strum lean with it): were 0c88aa01
+       and 1c44f163 */
+    CHECK(a == 0xf02eafd0u, "strum same: the strummed songs hash %08x, wanted f02eafd0", (unsigned)a);
+    CHECK(b == 0xfb36b1d6u, "strum same: with set changes %08x, wanted fb36b1d6", (unsigned)b);
     v = (uint32_t)sf_last_bad();
     CHECK(v == 0, "strum same: %u strummed bars left the keys' last voicing behind", (unsigned)v);
 }
@@ -8639,8 +8645,8 @@ static void test_wb_off(void)
     uint32_t a, b;
     lib_set_wb(NULL, 0); lib_pattern_wb(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x0c88aa01u, "wb off: the strummed songs hash %08x, wanted 0c88aa01", (unsigned)a);
-    CHECK(b == 0x1c44f163u, "wb off: with set changes %08x, wanted 1c44f163", (unsigned)b);
+    CHECK(a == 0xf02eafd0u, "wb off: the strummed songs hash %08x, wanted f02eafd0", (unsigned)a);
+    CHECK(b == 0xfb36b1d6u, "wb off: with set changes %08x, wanted fb36b1d6", (unsigned)b);
 }
 /* The workbench's mute (vx_mute, default off). mt_song: a song's first 20 s as the app plays it, its samples hashed
    (mute: vx_mute(0) called first, as the workbench's wb_init does) */
@@ -8687,8 +8693,8 @@ static void test_vx_mute_off(void)
     CHECK(a == b, "vx mute off: vx_mute(0) changed the samples (%08x, wanted %08x)", (unsigned)b, (unsigned)a);
     vx_mute(0);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x0c88aa01u, "vx mute off: the strummed songs hash %08x, wanted 0c88aa01", (unsigned)a);
-    CHECK(b == 0x1c44f163u, "vx mute off: with set changes %08x, wanted 1c44f163", (unsigned)b);
+    CHECK(a == 0xf02eafd0u, "vx mute off: the strummed songs hash %08x, wanted f02eafd0", (unsigned)a);
+    CHECK(b == 0xfb36b1d6u, "vx mute off: with set changes %08x, wanted fb36b1d6", (unsigned)b);
 }
 /* Review Focus 2 (Task 2): a bus muted mid-note is silent after the chunk it goes out in (and a quantum for the
    chain's own filters), its voice still playing (the duck follows it); unmuted, the notes struck while muted end at
@@ -9123,6 +9129,150 @@ static void test_comp_motion(void)
         found++;
     }
     CHECK(found == 5, "comp motion: only %d songs whose draw a motion would move", found);
+}
+
+/* The drum pattern, the bass style and the strum pattern lean on the song's motion as the keys' comping does (Sam,
+   2026-11-05: "motion roll -> informed busy-ness roll"): each option drawn evenly (the bass from the styles the song
+   allows), tilted by its busyness (LIB_PATTERNS_BUSY, STRUM_PAT_BUSY; the bass's pedal sparse, roots middle, walk
+   busy) at the rolled motion (roll.h's motion_tilt). At motion 20 each sparse option beats each busy one over 2x, at
+   80 the reverse, at 50 every option within 2.5 points of an even share; every option keeps a chance. The motion is
+   drawn before the drum pattern. And a live Motion request re-plans from its boundary but never re-draws any of the
+   three. */
+static int mb_share_ok(const long *cnt, const int *ok, int n, long tot, int m, const uint8_t *busy, const char *what)
+{
+    int i, j, bad = 0;
+    long want = 0;
+    for (i = 0; i < n; i++) want += ok[i] ? (long)motion_tilt(1, busy[i], m) : 0;
+    for (i = 0; i < n; i++) {
+        if (!ok[i]) continue;
+        CHECK(cnt[i] > 0, "motion busy: %s %d never drawn at motion %d", what, i, m);
+        bad |= cnt[i] == 0;
+        if (m == 50) {
+            long pm = cnt[i] * 1000 / tot, w = (long)motion_tilt(1, busy[i], m) * 1000 / want;
+            CHECK(pm >= w - 25 && pm <= w + 25, "motion busy: %s %d at motion 50 drawn %ld per mille, want %ld (+-25)",
+                  what, i, pm, w);
+            bad |= pm < w - 25 || pm > w + 25;
+        }
+        for (j = 0; j < n; j++)
+            if (ok[j] && busy[i] == 0 && busy[j] == 2 && m != 50) {
+                long sp = cnt[i], bu = cnt[j];
+                CHECK(m == 20 ? sp > 2 * bu : bu > 2 * sp,
+                      "motion busy: %s sparse %d (%ld) against busy %d (%ld) at %d", what, i, sp, j, bu, m);
+                bad |= m == 20 ? sp <= 2 * bu : bu <= 2 * sp;
+            }
+    }
+    return !bad;
+}
+
+static void test_motion_busy(void)
+{
+    static song_t s;
+    static const int MO[3] = {20, 50, 80};
+    static const uint8_t BASS_BUSY[3] = {1, 2, 0};   /* by BS_*: roots, walk, pedal */
+    static const char *const CASE[3] = {"walk sets", "pedal songs", "both"};
+    song_ev_t ev[64];
+    song_roll_t r;
+    long dcnt[3][32], dtot[3], scnt[3][STRUM_NPAT], bcnt[3][3][3], btot[3][3];
+    int dok[32], sok[STRUM_NPAT], m, i, k, n = 30000, found[3] = {0, 0, 0};
+    uint32_t seed;
+    CHECK(LIB_NPATTERNS <= 32, "motion busy: %d drum patterns", LIB_NPATTERNS);
+    memset(dcnt, 0, sizeof dcnt);
+    memset(dtot, 0, sizeof dtot);
+    memset(scnt, 0, sizeof scnt);
+    memset(bcnt, 0, sizeof bcnt);
+    memset(btot, 0, sizeof btot);
+    for (i = 0; i < LIB_NPATTERNS && i < 32; i++) dok[i] = LIB_PATTERNS_STATUS[i] == 1;
+    for (i = 0; i < STRUM_NPAT; i++) sok[i] = STRUM_PAT_STATUS[i] == 1;
+    /* the drum pattern: the roll's own draw, at the motion it drew first (songs rolled at 20, 50 or 80) */
+    for (seed = 1u; seed <= 400000u; seed++) {
+        roll_song(NULL, seed, &r);
+        for (m = 0; m < 3; m++)
+            if (r.v[RF_MOTION] == MO[m]) {
+                for (i = 0; i < LIB_NPATTERNS; i++)
+                    if (LIB_PATTERNS[i].id == r.v[RF_PATTERN]) dcnt[m][i]++;
+                dtot[m]++;
+            }
+    }
+    /* the bass style and the strum pattern: pure functions of the roll, at a motion set by hand */
+    for (k = 0; k < n; k++) {
+        const lib_map_t *mp;
+        int walk, pedal, c;
+        roll_song(NULL, (uint32_t)k * 2654435761u + 7u, &r);
+        mp = lib_map_by_id((uint8_t)r.v[RF_MAP]);
+        walk = lib_set_walks(lib_set_by_id((uint8_t)r.v[RF_SET]));
+        pedal = (mp && mp->sparse) || r.v[RF_MOOD] == 0;
+        c = walk && pedal ? 2 : pedal ? 1 : walk ? 0 : -1;
+        for (m = 0; m < 3; m++) {
+            roll_set(&r, RF_MOTION, MO[m]);
+            scnt[m][strum_pattern(&r, NULL)]++;
+            if (c >= 0) {
+                bcnt[c][m][groove_bass_style(&r)]++;
+                btot[c][m]++;
+            }
+        }
+    }
+    for (m = 0; m < 3; m++) {
+        int bok[3][3] = {{1, 1, 0}, {1, 0, 1}, {1, 1, 1}}, c;
+        printf("motion busy: motion %d: drums (%ld songs)", MO[m], dtot[m]);
+        for (i = 0; i < LIB_NPATTERNS; i++)
+            if (dok[i]) printf(" %d:%.1f%%", LIB_PATTERNS[i].id, (double)dcnt[m][i] * 100.0 / (double)dtot[m]);
+        printf("; strum");
+        for (i = 0; i < STRUM_NPAT; i++)
+            if (sok[i]) printf(" %d:%.1f%%", i, (double)scnt[m][i] * 100.0 / n);
+        printf("; bass (roots walk pedal)");
+        for (c = 0; c < 3; c++)
+            printf(" %s %.1f/%.1f/%.1f%%", CASE[c], (double)bcnt[c][m][0] * 100.0 / (double)btot[c][m],
+                   (double)bcnt[c][m][1] * 100.0 / (double)btot[c][m],
+                   (double)bcnt[c][m][2] * 100.0 / (double)btot[c][m]);
+        printf("\n");
+        mb_share_ok(dcnt[m], dok, LIB_NPATTERNS, dtot[m], MO[m], LIB_PATTERNS_BUSY, "drum pattern");
+        mb_share_ok(scnt[m], sok, STRUM_NPAT, n, MO[m], STRUM_PAT_BUSY, "strum pattern");
+        for (c = 0; c < 3; c++) {
+            mb_share_ok(bcnt[c][m], bok[c], 3, btot[c][m], MO[m], BASS_BUSY, CASE[c]);
+            if (MO[m] != 50 && bok[c][2])   /* sparse over middle at 20, the reverse at 80 */
+                CHECK(MO[m] == 20 ? bcnt[c][m][BS_PEDAL] > bcnt[c][m][BS_ROOTS] :
+                                    bcnt[c][m][BS_ROOTS] > bcnt[c][m][BS_PEDAL],
+                      "motion busy: %s at %d: pedal %ld, roots %ld", CASE[c], MO[m], bcnt[c][m][BS_PEDAL],
+                      bcnt[c][m][BS_ROOTS]);
+            if (MO[m] != 50 && bok[c][1])   /* middle over busy at 20, the reverse at 80 */
+                CHECK(MO[m] == 20 ? bcnt[c][m][BS_ROOTS] > bcnt[c][m][BS_WALK] :
+                                    bcnt[c][m][BS_WALK] > bcnt[c][m][BS_ROOTS],
+                      "motion busy: %s at %d: roots %ld, walk %ld", CASE[c], MO[m], bcnt[c][m][BS_ROOTS],
+                      bcnt[c][m][BS_WALK]);
+        }
+    }
+    /* a live Motion request: the drum pattern, the bass style and the strum pattern stay (songs whose draw the new
+       motion would move: the bass's, the strum's) */
+    for (seed = 1u; seed < 4000u && (found[1] < 4 || found[2] < 4); seed++) {
+        song_roll_t t;
+        int to, pat0, bass0, strum0, mb, ms;
+        roll_song(NULL, seed, &r);
+        to = r.v[RF_MOTION] < 50 ? 80 : 20;
+        t = r;
+        roll_set(&t, RF_MOTION, to);
+        mb = groove_bass_style(&t) != groove_bass_style(&r);
+        ms = strum_pattern(&t, NULL) != strum_pattern(&r, NULL);
+        if (!(mb && found[1] < 4) && !(ms && found[2] < 4)) continue;
+        song_start(&s, &r);
+        pat0 = s.roll.v[RF_PATTERN];
+        bass0 = groove_bass_style(&s.roll);
+        strum0 = strum_pattern(&s.roll, NULL);
+        song_request(&s, RF_MOTION, to);
+        while (s.bar < 9 && s.state == SS_PLAYING) (void)song_tick(&s, ev, 64);   /* (it lands at bar 4) */
+        CHECK(s.roll.v[RF_MOTION] == to && roll_motion(&s.roll) == r.v[RF_MOTION],
+              "motion busy: seed %u's motion %d, rolled %d (wanted %d and %d)", (unsigned)seed, s.roll.v[RF_MOTION],
+              roll_motion(&s.roll), to, r.v[RF_MOTION]);
+        CHECK(s.roll.v[RF_PATTERN] == pat0 && groove_bass_style(&s.roll) == bass0 &&
+                  strum_pattern(&s.roll, NULL) == strum0,
+              "motion busy: seed %u re-drawn by a live motion change: pattern %d to %d, bass %d to %d, strum %d to %d",
+              (unsigned)seed, pat0, s.roll.v[RF_PATTERN], bass0, groove_bass_style(&s.roll), strum0,
+              strum_pattern(&s.roll, NULL));
+        found[0]++;
+        found[1] += mb;
+        found[2] += ms;
+    }
+    CHECK(found[1] >= 4 && found[2] >= 4, "motion busy: only %d bass and %d strum songs a motion would move",
+          found[1], found[2]);
 }
 
 /* The comp rhythms past the six styles (CS_PAT, patterns_gen.h's COMP_PAT; patterns/comp-rhythms 7 on): they play
@@ -9860,7 +10010,8 @@ static int ls_cmp(const void *a, const void *b) { return *(const int *)a - *(con
 /* The style tests' songs are the spike's: its seeds rolled the library as it was before the Wurli's and the DX's sets
    retired (2026-11-04), so ls_roll draws the set as roll.c did then (the old table's order, one weight each, the set's
    hashed stream), the retired sets' rows kept here with their keys standing in as the Rhodes (lib_keys_approved, as an
-   old snapshot's); every other field of the roll is as it was (the set draws on its own stream). */
+   old snapshot's); every other field of the roll is as it was (the set draws on its own stream), the drum pattern
+   drawn as it was too (ls_old_pattern). */
 static const uint8_t LS_OLD_ORDER[29] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 18, 19, 20, 17, 21, 22, 23, 24, 25, 26,
                                          27, 28, 29, 30, 31, 32, 33};
 static const lib_set_t LS_OLD_SETS[7] = {
@@ -9926,10 +10077,23 @@ static int ls_lydian(song_roll_t *r)
     return 1;
 }
 
+/* the drum pattern as roll.c drew it before it leaned on the motion (2026-11-05): the approved, one weight each, on
+   the pattern's own stream (the jazz-hop lead plays around its snare) */
+static int ls_old_pattern(const song_roll_t *r)
+{
+    int id[32], i, n = 0;
+    rng_t g;
+    for (i = 0; i < LIB_NPATTERNS && n < 32; i++)
+        if (LIB_PATTERNS_STATUS[i] == 1) id[n++] = LIB_PATTERNS[i].id;
+    rng_seed(&g, r->seed, (uint32_t)RF_PATTERN);
+    return id[rng_next(&g) % (uint32_t)n];
+}
+
 static int ls_roll(uint32_t seed, int ins, song_roll_t *r)
 {
     const lib_set_t *st;
     old_roll(seed, r);                                  /* (the spike's songs) */
+    r->v[RF_PATTERN] = (int16_t)ls_old_pattern(r);   /* (and the pattern they drew) */
     st = ls_old_draw(r);
     if (!st || st->chords == ins) return 0;
     ls_set = *st;
@@ -10319,7 +10483,11 @@ static void ls_shape(int style, const int *ins, int nins, const double *ab_nbar,
    the hard chords cost no more than they did), (m9 over the walk) as many notes on them. Rubs: clash_test, on every
    song. A style the band costs (ls_banded: its spike's 6 numbers, the last the songs' silent bars) is held to the
    songs' own density: its hard bars left silent no more often for its songs' silent share than the spike's, its notes
-   on them (Lydian: '60s Jazz 0.98 of the spike's or more, Jazz-Hop 0.998) as many for its songs' notes a bar. */
+   on them (Lydian: '60s Jazz 0.98 of the spike's or more, Jazz-Hop 0.998) as many for its songs' notes a bar.
+   The walk's songs moved when the bass's draw leaned on the motion (Sam 2026-11-05: motion first; drums, bass and
+   strum lean with it): 698 m9 bars over the walk where the spike's songs had 336, so an unbanded style's m9 bars are
+   held to the spike's per bar (LS_MW_BARS): silent no more often, as many notes. */
+#define LS_MW_BARS 336
 static void ls_hard(int style, const long *sp_ly, const long *sp_mw)
 {
     ls_acc_t ly, mw;
@@ -10369,15 +10537,16 @@ static void ls_hard(int style, const long *sp_ly, const long *sp_mw)
     }
     printf("%s on hard chords against the spike's: Lydian notes %.4f, silent %.4f; m9 silent %.4f, notes %.4f\n",
            ls_name(style), cost / sp_cost, (double)ly.hard_silent / (double)sp_ly[1],
-           (double)mw.hard_silent / (double)sp_mw[1], (double)mw.hard_notes / (double)sp_mw[0]);
+           (double)mw.hard_silent * LS_MW_BARS / ((double)sp_mw[1] * (double)mw.hard),
+           (double)mw.hard_notes * LS_MW_BARS / ((double)sp_mw[0] * (double)mw.hard));
     CHECK(ly.hard > 2000 && ly.hard_silent * 1000 <= sp_ly[1] * LS_HARD[style].ly_silent &&
           cost >= sp_cost * LS_HARD[style].ly_notes / 1000.0,
           "%s on Lydian maj7 chords: %ld notes, %ld silent bars, %.3f (spike %ld, %ld, %.3f)", ls_name(style),
           ly.hard_notes, ly.hard_silent, cost, sp_ly[0], sp_ly[1], sp_cost);
-    CHECK(mw.hard > 300 && mw.hard_silent * 1000 <= sp_mw[1] * LS_HARD[style].mw_silent &&
-          mw.hard_notes * 1000 >= sp_mw[0] * LS_HARD[style].mw_notes,
-          "%s on m9 chords over the walk: %ld notes, %ld silent bars (spike %ld, %ld)", ls_name(style), mw.hard_notes,
-          mw.hard_silent, sp_mw[0], sp_mw[1]);
+    CHECK(mw.hard > 300 && mw.hard_silent * LS_MW_BARS * 1000 <= sp_mw[1] * mw.hard * LS_HARD[style].mw_silent &&
+          mw.hard_notes * LS_MW_BARS * 1000 >= sp_mw[0] * mw.hard * LS_HARD[style].mw_notes,
+          "%s on m9 chords over the walk: %ld bars, %ld notes, %ld silent (spike %d, %ld, %ld)", ls_name(style),
+          mw.hard, mw.hard_notes, mw.hard_silent, LS_MW_BARS, sp_mw[0], sp_mw[1]);
 }
 
 /* The style's own floor where the keys reach into its band (the keys' window can't hold them: under C4), with
@@ -10809,7 +10978,7 @@ static void test_ov_part_salts(void)
                       NAME[j], moved[j]);
     }
     song_override(NULL);
-    CHECK(sf_songs(0) == 0x0c88aa01u && sf_songs(1) == 0x1c44f163u, "ov part salts: the pinned hashes moved");
+    CHECK(sf_songs(0) == 0xf02eafd0u && sf_songs(1) == 0xfb36b1d6u, "ov part salts: the pinned hashes moved");
 }
 /* Task 1b (Sam, 2026-10-29): "Remove the ear candy part completely"; "Make it possible for the pad part to not be in
    a song. And update the seeds to not always have it"; "add the ability for the pad part to drop out of certain song
@@ -11086,8 +11255,8 @@ static void test_ov_off(void)
     CHECK(o && o->comp == -1 && o->lead_style == -1 && o->pad_place == -1 && o->ride == -1 && !o->keys_oct &&
           !o->lead_oct && !o->voicing_salt && !o->phrase_salt, "ov off: the default override forces something");
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x0c88aa01u, "ov off: the strummed songs hash %08x, wanted 0c88aa01", (unsigned)a);
-    CHECK(b == 0x1c44f163u, "ov off: with set changes %08x, wanted 1c44f163", (unsigned)b);
+    CHECK(a == 0xf02eafd0u, "ov off: the strummed songs hash %08x, wanted f02eafd0", (unsigned)a);
+    CHECK(b == 0xfb36b1d6u, "ov off: with set changes %08x, wanted fb36b1d6", (unsigned)b);
 }
 /* a steal of a damped string (the final review): six strings struck, the first two re-struck at once (their last
    notes damped on the 2 spare voices), then a plain chord note (no string: a stab after a set change) while they
@@ -12257,8 +12426,8 @@ static void test_drums_hook(void)
     CHECK(quiet_bad == 0, "drums hook: a silent source still sounds at %d steps", quiet_bad);
     drums_hook(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x0c88aa01u, "drums hook off: the strummed songs hash %08x, wanted 0c88aa01", (unsigned)a);
-    CHECK(b == 0x1c44f163u, "drums hook off: with set changes %08x, wanted 1c44f163", (unsigned)b);
+    CHECK(a == 0xf02eafd0u, "drums hook off: the strummed songs hash %08x, wanted f02eafd0", (unsigned)a);
+    CHECK(b == 0xfb36b1d6u, "drums hook off: with set changes %08x, wanted fb36b1d6", (unsigned)b);
     dh_on = 0;
     vx_init();
     {
@@ -12522,7 +12691,8 @@ static uint32_t ll_hash(uint32_t h, const song_roll_t *r, int style, int loop)
    86dc4375 (0). Re-pinned again (Sam 2026-11-05: modes become major or
    minor): were 359c9281 (-1) and c837561a (0). Re-pinned again (Sam 2026-11-05: drums pattern 9 approved): were
    7a166b84 (-1) and 91b1bba1 (0). Re-pinned again (Sam 2026-11-05: progression 19, now the same as 18, retired):
-   were 8484d705 (-1) and bafe9a1e (0) */
+   were 8484d705 (-1) and bafe9a1e (0). Re-pinned again (Sam 2026-11-05: motion first; drums,
+   bass and strum lean with it): were 356d409f (-1) and 59487bd0 (0) */
 static void test_lead_loop_off_identical(void)
 {
     uint32_t seed, h[2] = {2166136261u, 2166136261u};
@@ -12534,8 +12704,8 @@ static void test_lead_loop_off_identical(void)
             for (k = 0; k < 2; k++) h[k] = ll_hash(h[k], &r, st, k - 1);
     }
     printf("lead loop off: events %08x (lead_loop -1), %08x (0)\n", (unsigned)h[0], (unsigned)h[1]);
-    CHECK(h[0] == 0x356d409fu, "lead loop default: lead_loop -1 hashes %08x, wanted 356d409f", (unsigned)h[0]);
-    CHECK(h[1] == 0x59487bd0u, "lead loop off: lead_loop 0 hashes %08x, wanted 59487bd0", (unsigned)h[1]);
+    CHECK(h[0] == 0x5c5262dbu, "lead loop default: lead_loop -1 hashes %08x, wanted 5c5262db", (unsigned)h[0]);
+    CHECK(h[1] == 0xd57edc13u, "lead loop off: lead_loop 0 hashes %08x, wanted d57edc13", (unsigned)h[1]);
 }
 
 typedef struct {
@@ -13118,6 +13288,7 @@ int main(int argc, char **argv)
     RUN(test_comp_new);
     RUN(test_comp_pat);
     RUN(test_comp_motion);
+    RUN(test_motion_busy);
     RUN(test_vibes_keys);
     RUN(test_busy_thin_off);
     RUN(test_rolled_style);

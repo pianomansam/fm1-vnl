@@ -13,8 +13,9 @@
 enum { SP_DDU, SP_CHUCK, SP_BOSSA, SP_BALLAD, SP_N };
 
 /* The song's pattern, a STRUM_PAT index (patterns_gen.h): drawn on seed stream 194 over the approved patterns, equal
-   weights (a candidate only when the strum_pat override forces it); *slow (may be NULL) is 1 for a slow ballad (half
-   of them), 0 for every other pattern. */
+   weights tilted by the rolled motion and each pattern's busyness (STRUM_PAT_BUSY, roll.h's motion_tilt; a live Motion
+   change never re-draws it; a candidate only when the strum_pat override forces it); *slow (may be NULL) is 1 for a
+   slow ballad (half of them), 0 for every other pattern. */
 int strum_pattern(const song_roll_t *r, int *slow);
 
 /* A drum fill's bar (the block's last, PB_FILL_LAST and not PB_DROP_LAST: a drop bar keeps the pattern) plays a fill

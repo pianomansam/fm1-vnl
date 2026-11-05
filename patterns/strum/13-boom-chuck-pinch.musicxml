@@ -4,7 +4,7 @@
   <work><work-title>Strum 13: boom chuck pinch</work-title></work>
   <identification>
     <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
-    <miscellaneous><miscellaneous-field name="vnl1">{"family":"strum","id":"13","index":11,"status":"candidate","kind":"pattern","steps":"T...P...T...P.u."}</miscellaneous-field></miscellaneous>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"strum","id":"13","index":11,"status":"candidate","kind":"pattern","steps":"T...P...T...P.u.","busy":1}</miscellaneous-field></miscellaneous>
   </identification>
   <part-list>
     <score-part id="P1">

@@ -31,12 +31,17 @@ static uint32_t strum_draw(const song_roll_t *r)
 
 int strum_pattern(const song_roll_t *r, int *slow)
 {
-    uint32_t h = strum_draw(r), n = 0, k;
-    int i, p = 0, f = song_ov()->strum_pat;
-    for (i = 0; i < STRUM_NPAT; i++) n += STRUM_PAT_STATUS[i] == 1;
-    k = n ? h % n : 0;            /* the k-th approved pattern: over today's four, h % SP_N as before */
-    for (i = 0; i < STRUM_NPAT; i++)
-        if (STRUM_PAT_STATUS[i] == 1 && k-- == 0) { p = i; break; }
+    uint32_t h = strum_draw(r), n = 0, k, w;
+    int i, p = 0, f = song_ov()->strum_pat, m = roll_motion(r);
+    for (i = 0; i < STRUM_NPAT; i++)   /* the approved, evenly, leaning on the rolled motion by busyness */
+        if (STRUM_PAT_STATUS[i] == 1) n += motion_tilt(1, STRUM_PAT_BUSY[i], m);
+    k = n ? h % n : 0;
+    for (i = 0; i < STRUM_NPAT; i++) {
+        if (STRUM_PAT_STATUS[i] != 1) continue;
+        w = motion_tilt(1, STRUM_PAT_BUSY[i], m);
+        if (k < w) { p = i; break; }
+        k -= w;
+    }
     if (f >= 0 && f < STRUM_NPAT) p = f;
     if (slow) *slow = p == SP_BALLAD && ((h / (n ? n : 1u)) & 1u);
     return p;

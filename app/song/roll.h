@@ -14,8 +14,9 @@ enum { RF_KEY, RF_TEMPO, RF_MOTION, RF_MOOD, RF_MODE, RF_MAP, RF_PROG, RF_COLOR,
    RF_NOISE 0 none / 1 vinyl / 2 tape; RF_AMBIENCE 0 none / 1 rain; RF_BARS 36-76, a multiple of 4, with
    RF_BARS * 240 / RF_TEMPO within 120-210 s. A progression is legal only if it suits both the mood and the mode.
    Progressions and drum patterns are drawn (roll_song, roll_dice, the novelty passes) from the approved entries only
-   (patterns_gen.h's *_STATUS 1); roll_set takes a candidate too (the workbench's way to hear one), and a mode only a
-   candidate progression suits (that progression then, unless the song's suits it). */
+   (patterns_gen.h's *_STATUS 1), the drum patterns evenly, tilted by the rolled motion (LIB_PATTERNS_BUSY,
+   motion_tilt); roll_set takes a candidate too (the workbench's way to hear one), and a mode only a candidate
+   progression suits (that progression then, unless the song's suits it). */
 /* motion_moved: how far a live Motion request (song.c's, from a 4-bar boundary) moved v[RF_MOTION] from the motion the
    song was rolled (or staged) with; 0 in any roll that was never live-changed. roll_motion reads the rolled one. */
 typedef struct { uint32_t seed; int16_t v[RF_N]; int16_t motion_moved; } song_roll_t;
@@ -29,7 +30,8 @@ int roll_set(song_roll_t *r, int field, int value);       /* manual pick, valida
 uint32_t roll_mix(uint32_t a, uint32_t b);
 int roll_seconds(const song_roll_t *r);                   /* RF_BARS * 240 / RF_TEMPO */
 /* The motion the song was rolled with (v[RF_MOTION] less a live request's move): what a per-song draw that must not
-   change mid-song (the keys' comping rhythm) reads */
+   change mid-song (the keys' comping rhythm, the drum pattern, the bass style, the strum pattern) reads. roll_song
+   draws the motion first, before the drum pattern that leans on it. */
 int roll_motion(const song_roll_t *r);
 /* The motion tilt, shared by every per-song draw that leans on the song's motion ("motion roll -> informed busy-ness
    roll", Sam 2026-11-05): an entry of base weight `weight` and busyness `busy` (0 sparse, 1 middle, 2 busy) drawn at

@@ -632,12 +632,20 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   velocities in `patterns/model.json`; at motion 50 even, at 20 sparse (held, late one) 3x busy (tresillo, stabs), at 80
   the reverse. The Rhodes at motion 50: 1 in 7 each (was held 35%, half 29%). The pad and organ keep held 44 / half 36.
   Late one up to 36-50 (was 32-46): drawn more often, the pad sat under 5 dB below the vibes' late one.
+- **The drum pattern, the bass style and the strum pattern lean on the song's motion too (Sam, 2026-11-05: "motion
+  roll -> informed busy-ness roll"):** **Done (2026-11-05).** The roll draws the motion first; each part's options
+  are drawn evenly (the bass from the styles the song allows) with the comping's tilt, and a live Motion change
+  re-draws none. Busy: drums boom-bap 1-3 and bossa, brushes middle, half-time, sparse and half-time-2-shaker-2
+  sparse; bass pedal sparse, roots middle, walk busy; strum ballad and anticipation sparse, D-DU-UDU, bossa,
+  charleston and the boom-chucks middle (the train busy), chuck, offbeat skank and syncopated push busy
+  (`patterns/model.json`). At motion 50 the bass is even too: a walking set walks 50% (was 35%), with a pedal a third
+  each (was pedal 50%, walk 17.5%). The kick phrases stay the workbench's (not rolled). The lead and the pad unchanged.
 - **To explore (Sam, 2026-10-30): remove the busy-lead interaction from the comping.** Today a bar with 4 or more lead
   onsets thins half notes and stabs to beat 1 (and offbeats and the arpeggio, now off). Sam isn't a fan of a busy lead
   modifying the comping. A/B songs with and without it; if he doesn't miss it, remove it (and its tests). The A/B
   tool (Sam): a workbench checkbox, "Busy lead thins the comping" (on by default; firmware unchanged).
 - **Drum patterns ignore the set (found in the rule-docs refresh, 2026-10-30; to revisit).** Each of the 8 engine
-  patterns is equally likely in every set, flavor and family. Sam's two-bar kick phrases (k2-k6) exist only in the
+  patterns is equally likely in every set, flavor and family (the motion's tilt aside, 2026-11-05). Sam's two-bar kick phrases (k2-k6) exist only in the
   workbench, and no engine pattern is two bars long. Decide per-set or per-flavor pattern weights, and bring the
   kick phrases into the engine.
 - **Drums, 2026-11-04:**

@@ -76,6 +76,7 @@ const lib_pattern_t LIB_PATTERNS[] = {
 };
 const int LIB_NPATTERNS = (int)(sizeof LIB_PATTERNS / sizeof LIB_PATTERNS[0]);
 const uint8_t LIB_PATTERNS_STATUS[] = {1, 1, 1, 1, 1, 1, 1, 1, 1};
+const uint8_t LIB_PATTERNS_BUSY[] = {2, 2, 2, 0, 0, 0, 1, 2, 0};
 
 const patterns_comp_t COMP[COMP_N] = {
     {CS_HELD, 1, 0, 0, CK_ALL, 40, 58, 1, {0, 0, 0, 0, 0, 0, 0, 0}, {16, 0, 0, 0, 0, 0, 0, 0}, 100},
@@ -109,6 +110,7 @@ const char *const STRUM_PAT[STRUM_NPAT] = {
     "T.u.d.u.T.u.d.u.",
 };
 const uint8_t STRUM_PAT_STATUS[STRUM_NPAT] = {1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0};
+const uint8_t STRUM_PAT_BUSY[STRUM_NPAT] = {1, 2, 1, 0, 2, 2, 0, 1, 1, 1, 1, 1, 1, 2};
 const char STRUM_BALLAD_FILL[] = "D.....u.d.......";
 const char *const STRUM_FILL_STEP[STRUM_NFILL] = {"D...............", "B..............."};
 const char *const STRUM_FILL_DRIVE[STRUM_NFILL] = {"D.u..du..dU..du.", "B.P.T.P.T.P.T.P."};

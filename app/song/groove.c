@@ -42,9 +42,13 @@ static unsigned bass_rhythm(int style, const lib_pattern_t *p)
 }
 
 /* the bass style drawn from seed (stream 112). No root-fifth style (Sam, 2026-11-04: the 1-to-5 lines are cheesy):
-   its songs play roots on the kick, the same rhythm, as every approved pattern kicks on beat 1 */
+   its songs play roots on the kick, the same rhythm, as every approved pattern kicks on beat 1. The styles the song
+   allows (roots always; pedal over a sparse map or a sad song; walk in a walking set) drawn evenly, tilted by the
+   rolled motion (roll.h's motion_tilt; Sam, 2026-11-05: "motion roll -> informed busy-ness roll"): pedal sparse,
+   roots middle, walk busy */
 static int bass_style_of(const song_roll_t *r, uint32_t seed)
 {
+    static const uint8_t BUSY[3] = {1, 2, 0};                                 /* by BS_*: roots, walk, pedal */
     static const uint8_t ALT[3][3] = {{BS_PEDAL, BS_WALK, BS_ROOTS},          /* the next to try */
                                       {BS_ROOTS, BS_PEDAL, BS_WALK},
                                       {BS_ROOTS, BS_WALK, BS_PEDAL}};
@@ -54,14 +58,20 @@ static int bass_style_of(const song_roll_t *r, uint32_t seed)
     rng_t g;
     const lib_set_t *s = lib_set_by_id((uint8_t)r->v[RF_SET]);
     const lib_map_t *m = lib_map_by_id((uint8_t)r->v[RF_MAP]);
-    int pedal, walk;
+    int ok[3], mo = roll_motion(r);
+    uint32_t tot = 0, x;
 
+    ok[BS_ROOTS] = 1;
+    ok[BS_WALK] = lib_set_walks(s);
+    ok[BS_PEDAL] = (m && m->sparse) || r->v[RF_MOOD] == 0;
+    for (i = 0; i < 3; i++) tot += ok[i] ? motion_tilt(1, BUSY[i], mo) : 0u;
     rng_seed(&g, seed, 112);
-    pedal = rng_int(&g, 100);
-    walk = rng_int(&g, 100);
-    if (((m && m->sparse) || r->v[RF_MOOD] == 0) && pedal < 50) style = BS_PEDAL;
-    else if (lib_set_walks(s) && walk < 35) style = BS_WALK;
-    else style = BS_ROOTS;
+    x = roll_mix(rng_next(&g), 112u) % tot;   /* hashed: a bare stream tracks the others (xorshift is linear) */
+    for (style = BS_ROOTS, i = 0; i < 3; i++) {
+        uint32_t w = ok[i] ? motion_tilt(1, BUSY[i], mo) : 0u;
+        if (x < w) { style = i; break; }
+        x -= w;
+    }
     /* never the keys' rhythm when it is more than a note on 1 (Sam): the stabs, wherever they fall, or the half notes on 1 and 3 */
     keys = harmony_comp_steps(r);
     for (i = 0, first = style; keys && i < 3 && bass_rhythm(style, p) == keys; i++) style = ALT[first][i];

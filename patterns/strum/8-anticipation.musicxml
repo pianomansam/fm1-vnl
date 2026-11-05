@@ -4,7 +4,7 @@
   <work><work-title>Strum 8: anticipation</work-title></work>
   <identification>
     <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
-    <miscellaneous><miscellaneous-field name="vnl1">{"family":"strum","id":"8","index":6,"status":"candidate","kind":"pattern","steps":"D.....u...U...d."}</miscellaneous-field></miscellaneous>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"strum","id":"8","index":6,"status":"approved","kind":"pattern","steps":"D.....u...U...d.","busy":0}</miscellaneous-field></miscellaneous>
   </identification>
   <part-list>
     <score-part id="P1">

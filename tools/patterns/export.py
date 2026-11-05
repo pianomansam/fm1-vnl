@@ -135,7 +135,7 @@ def build_model(t, kick_phrases):
             "id": p["id"], "status": status(p["status"]), "family": PF[p["family"]], "hit": [hx(v) for v in p["hit"]],
             "ghost": [hx(v) for v in p["ghost"]], "half_time": p["half_time"], "poly3": p["poly3"], "src": p["src"],
             "two_bar": p["two_bar"], "hit_b": [hx(v) for v in p["hit_b"]], "ghost_b": [hx(v) for v in p["ghost_b"]],
-            "file": f"drums/{p['id']}-{PF_SLUG[p['family']]}"}
+            "busy": p["busy"], "file": f"drums/{p['id']}-{PF_SLUG[p['family']]}"}
     m["kick-phrases"] = {}
     for k in kick_phrases:
         slug = "-".join(map(str, k["a"])) + ("" if k["a"] == k["b"] else "-then-" + "-".join(map(str, k["b"])))
@@ -185,6 +185,7 @@ def build_model(t, kick_phrases):
     for i, s in enumerate(t["strum"]):
         k = strum_id(i)
         strum[k] = {"index": i, "status": status(t["strum_status"][i]), "kind": "pattern", "steps": s,
+                    "busy": t["strum_busy"][i],
                     "file": f"strum/{k}-{STRUM_SLUG[i] if i < len(STRUM_SLUG) else 'pattern'}"}
     for k, fig, of, i, slug in FILLS:
         steps = t["strum_ballad_fill"] if fig is None else t["strum_fill_" + FIGURE_OF[fig]][i]

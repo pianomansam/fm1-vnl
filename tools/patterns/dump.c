@@ -63,7 +63,8 @@ int main(void)
         masks(p->hit_b);
         printf(", \"ghost_b\": ");
         masks(p->ghost_b);
-        printf(", \"status\": %d}%s\n", LIB_PATTERNS_STATUS[i], i + 1 < LIB_NPATTERNS ? "," : "");
+        printf(", \"busy\": %d, \"status\": %d}%s\n", LIB_PATTERNS_BUSY[i], LIB_PATTERNS_STATUS[i],
+               i + 1 < LIB_NPATTERNS ? "," : "");
     }
     printf("],\n\"progs\": [\n");
     for (i = 0; i < LIB_NPROGS; i++) {
@@ -91,6 +92,7 @@ int main(void)
     }
     printf("],\n");
     bytes("strum_status", STRUM_PAT_STATUS, STRUM_NPAT, ",\n");
+    bytes("strum_busy", STRUM_PAT_BUSY, STRUM_NPAT, ",\n");
     printf("\"strum_ballad_fill\": ");
     str(STRUM_BALLAD_FILL);
     printf(",\n\"strum_fill_step\": [");

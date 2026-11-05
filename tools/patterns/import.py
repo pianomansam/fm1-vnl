@@ -281,7 +281,7 @@ def rows_from_model(model):
         t["patterns"].append({"id": e["id"], "family": validate.PF.index(e["family"]),
                               **{k: [int(x, 16) for x in e[k]] for k in ("hit", "ghost", "hit_b", "ghost_b")},
                               "half_time": e["half_time"], "poly3": e["poly3"], "src": e["src"],
-                              "two_bar": e["two_bar"], "status": st(e)})
+                              "two_bar": e["two_bar"], "busy": e["busy"], "status": st(e)})
     for e in model["progressions"].values():
         c = [[x["degree"], x["alter"], validate.Q.index(x["quality"])] for x in e["chords"]]
         t["progs"].append({"id": e["id"], "kind": validate.PK.index(e["kind"]), "n": e["n"],
@@ -304,6 +304,7 @@ def rows_from_model(model):
                   "busy_steps": s["busy_steps"]}
     pats = by_index("strum", "pattern")
     t["strum"], t["strum_status"] = [e["steps"] for e in pats], [st(e) for e in pats]
+    t["strum_busy"] = [e["busy"] for e in pats]
     fills = by_index("strum", "fill")
     t["strum_ballad_fill"] = next(e["steps"] for e in fills if "figure" not in e)
     for fig in ("step", "drive"):
@@ -343,6 +344,9 @@ def gen_c(t):
          "/* drums (LIB_PATTERNS) and progressions (LIB_PROGS): the types and the tables in library.h */",
          "extern const uint8_t LIB_PATTERNS_STATUS[];",
          "extern const uint8_t LIB_PROGS_STATUS[];",
+         "/* each drum pattern's busyness, parallel to LIB_PATTERNS: 0 sparse, 1 middle, 2 busy (the roll's draw",
+         "   leans on the song's motion: roll.h's motion_tilt) */",
+         "extern const uint8_t LIB_PATTERNS_BUSY[];",
          "",
          "/* The keys' comping rhythms (patterns/comp-rhythms, harmony.c plays them), one table, one row each,",
          "   in id order: the fixed five (held, half, stabs, held on 2, held on 2 and 4: ids 1-6, 5 removed), then",
@@ -411,6 +415,7 @@ def gen_c(t):
          f"#define STRUM_NPAT {len(t['strum'])}",
          "extern const char *const STRUM_PAT[STRUM_NPAT];",
          "extern const uint8_t STRUM_PAT_STATUS[STRUM_NPAT];",
+         "extern const uint8_t STRUM_PAT_BUSY[STRUM_NPAT];   /* 0 sparse, 1 middle, 2 busy (the motion tilt) */",
          "extern const char STRUM_BALLAD_FILL[];",
          "/* the fill-bar figures a strummed song draws one of (16 steps): step back, a strike on 1 and space for the",
          "   drum fill, and drive, pushing into the change; [0] every pattern's but the ballad's (its own",
@@ -441,7 +446,8 @@ def gen_c(t):
         C.append(f"    {{{p['id']}, {validate.PF[p['family']]}, {m['hit']}, {m['ghost']}, {p['half_time']}, "
                  f"{p['poly3']}, {c_str(p['src'])}, {p['two_bar']}, {m['hit_b']}, {m['ghost_b']}}},")
     C += ["};", "const int LIB_NPATTERNS = (int)(sizeof LIB_PATTERNS / sizeof LIB_PATTERNS[0]);",
-          "const uint8_t LIB_PATTERNS_STATUS[] = " + c_list(p["status"] for p in t["patterns"]) + ";", ""]
+          "const uint8_t LIB_PATTERNS_STATUS[] = " + c_list(p["status"] for p in t["patterns"]) + ";",
+          "const uint8_t LIB_PATTERNS_BUSY[] = " + c_list(p["busy"] for p in t["patterns"]) + ";", ""]
     pad = lambda v: list(v) + [0] * (8 - len(v))  # noqa: E731
     rows, cand = [], False
     for x in t["comp"]:                             # the firmware's (COMP_ALL 0): the approved alone
@@ -464,6 +470,7 @@ def gen_c(t):
           f"0x{sum(1 << x for x in s['busy_steps']):04X}}};"]
     C += ["", "const char *const STRUM_PAT[STRUM_NPAT] = {"] + [f"    {c_str(x)}," for x in t["strum"]] + [
         "};", "const uint8_t STRUM_PAT_STATUS[STRUM_NPAT] = " + c_list(t["strum_status"]) + ";",
+        "const uint8_t STRUM_PAT_BUSY[STRUM_NPAT] = " + c_list(t["strum_busy"]) + ";",
         f"const char STRUM_BALLAD_FILL[] = {c_str(t['strum_ballad_fill'])};",
         "const char *const STRUM_FILL_STEP[STRUM_NFILL] = {" + ", ".join(map(c_str, t["strum_fill_step"])) + "};",
         "const char *const STRUM_FILL_DRIVE[STRUM_NFILL] = {" + ", ".join(map(c_str, t["strum_fill_drive"])) + "};",
@@ -540,7 +547,7 @@ def defaults(fam, stem, model, meta):
         if fam == "drums":
             slug = stem.split("/", 1)[1].lower()
             fam_name = next((validate.PF[i] for i, s in enumerate(export.PF_SLUG) if s in slug), "PF_BOOMBAP")
-            return str(nid), {"id": nid, "family": fam_name, "half_time": 0, "src": src}
+            return str(nid), {"id": nid, "family": fam_name, "half_time": 0, "src": src, "busy": 1}
         return str(nid), {"id": nid, "kind": "PK_JAZZY", "moods": [], "modes": [], "src": src}
     if fam == "kick-phrases":
         n = max((int(k[1:]) for k in es if k[1:].isdigit()), default=1) + 1
@@ -552,7 +559,7 @@ def defaults(fam, stem, model, meta):
                                             "vel_range": list(export.COMP_PAT_VEL)}
     if fam == "strum":
         n = sum(1 for e in es.values() if e["kind"] == "pattern")
-        return str(export.strum_id(n)), {"index": n, "kind": "pattern"}
+        return str(export.strum_id(n)), {"index": n, "kind": "pattern", "busy": 1}
     raise Refused(None, f"no new {fam} pattern")
 
 

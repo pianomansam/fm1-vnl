@@ -4,7 +4,7 @@
   <work><work-title>Strum 11: boom chuck plain</work-title></work>
   <identification>
     <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
-    <miscellaneous><miscellaneous-field name="vnl1">{"family":"strum","id":"11","index":9,"status":"candidate","kind":"pattern","steps":"T...d...T...d..."}</miscellaneous-field></miscellaneous>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"strum","id":"11","index":9,"status":"candidate","kind":"pattern","steps":"T...d...T...d...","busy":1}</miscellaneous-field></miscellaneous>
   </identification>
   <part-list>
     <score-part id="P1">

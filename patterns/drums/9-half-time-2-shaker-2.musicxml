@@ -4,7 +4,7 @@
   <work><work-title>Drums 9: half time 2 shaker 2</work-title></work>
   <identification>
     <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
-    <miscellaneous><miscellaneous-field name="vnl1">{"family":"drums","id":"9","status":"candidate","pattern_family":"PF_HALFTIME","hit":["0x0081","0x0100","0x1111","0x4000","0x0000","0x0000"],"ghost":["0x0000","0x0000","0x4444","0x0000","0x0000","0x0000"],"half_time":1,"poly3":0,"src":"Sam, workbench pattern half-time-2-shaker-2 (2026-10-29), from Half-time 2","two_bar":1,"hit_b":["0x0449","0x0100","0x1111","0x9000","0x1000","0x0000"],"ghost_b":["0x0000","0x0000","0x4444","0x4000","0x0000","0x0000"]}</miscellaneous-field></miscellaneous>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"drums","id":"9","status":"approved","pattern_family":"PF_HALFTIME","hit":["0x0081","0x0100","0x1111","0x4000","0x0000","0x0000"],"ghost":["0x0000","0x0000","0x4444","0x0000","0x0000","0x0000"],"half_time":1,"poly3":0,"src":"Sam, workbench pattern half-time-2-shaker-2 (2026-10-29), from Half-time 2","two_bar":1,"hit_b":["0x0449","0x0100","0x1111","0x9000","0x1000","0x0000"],"ghost_b":["0x0000","0x0000","0x4444","0x4000","0x0000","0x0000"],"busy":0}</miscellaneous-field></miscellaneous>
   </identification>
   <part-list>
     <score-part id="P1">

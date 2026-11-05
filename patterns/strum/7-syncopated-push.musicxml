@@ -4,7 +4,7 @@
   <work><work-title>Strum 7: syncopated push</work-title></work>
   <identification>
     <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
-    <miscellaneous><miscellaneous-field name="vnl1">{"family":"strum","id":"7","index":5,"status":"candidate","kind":"pattern","steps":"D.....d...U.d..."}</miscellaneous-field></miscellaneous>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"strum","id":"7","index":5,"status":"approved","kind":"pattern","steps":"D.....d...U.d...","busy":2}</miscellaneous-field></miscellaneous>
   </identification>
   <part-list>
     <score-part id="P1">

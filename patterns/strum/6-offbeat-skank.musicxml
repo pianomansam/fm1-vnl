@@ -4,7 +4,7 @@
   <work><work-title>Strum 6: offbeat skank</work-title></work>
   <identification>
     <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
-    <miscellaneous><miscellaneous-field name="vnl1">{"family":"strum","id":"6","index":4,"status":"candidate","kind":"pattern","steps":"..U...U...U...U."}</miscellaneous-field></miscellaneous>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"strum","id":"6","index":4,"status":"approved","kind":"pattern","steps":"..U...U...U...U.","busy":2}</miscellaneous-field></miscellaneous>
   </identification>
   <part-list>
     <score-part id="P1">
