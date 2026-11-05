@@ -284,6 +284,10 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   device USB. Many other firmwares do that." Until then, the workbench is where we work out what the device can do
   (not one to one): parts as sections now, then a live mock of the main screen and its per-part sub-screens. Later:
   the browser page talks to the FM-1 over USB to show and steer the playing song.
+- **Device buttons, not just screens (Sam, 2026-11-05: "we should start thinking about not only the screens, but what
+  the buttons might do").** First rule: any register/octave choice (lead register, comp register, any later octave
+  row) is changed on the device by the octave up/down buttons while that part's page is showing. To do: map every
+  FM-1 button and knob to a role on each screen (home, each part's page, preview), alongside the screen designs.
 - **CC0 sample libraries to mine (2026-10-25): VCSL and VSCO-2 CE (sgossner, both CC0).** Beyond the spike's piano
   (VCSL Kawai grand; also Steinway B, Knight and Yamaha uprights) and strings (VSCO-2 CE Violin, Viola and Cello
   Sections): sampled vibraphone, marimba, glockenspiel, several kalimbas and mbiras (could replace our FM vibes and
