@@ -51,8 +51,8 @@ byte.
   id no fill holds (past the fourth it skips 5, the ballad's fill; past the fifteenth 16-19, the step back and drive
   fills: the next is 20). A file dropped in the strum folder is always a new pattern; the fills are edited in place,
   never added. The engine's roll draws approved entries only (`patterns_gen.h`'s `*_STATUS`), so a candidate
-  changes no song until approved: the workbench plays it when picked (the pattern, progression, strum pattern and comp
-  rhythm rows). Approve it there (`status.json`), then run `tools/patterns/import.sh`: the
+  changes no song until approved: the workbench plays it when picked (the pattern, progression and strum pattern rows,
+  a comp rhythm in the Comping row). Approve it there (`status.json`), then run `tools/patterns/import.sh`: the
   firmware draws it, and the workbench (rebuilt by `import.sh`) rolls it too. The importer notes a new file that sounds the same as an existing entry
   (a renamed or saved-as copy: it would import as a new candidate) and an entry whose files are missing (it stays).
 - **The workbench's saved drum patterns:** the drum screen's "Save as new pattern" writes `workbench/patterns/<name>.json`;
@@ -156,7 +156,7 @@ the lead): charleston 27-39, tresillo 25-33, late one 32-46. They play
 where held on 2 does (the percussive keys and, from 2026-11-05, the vibes: `harmony_comp_ok`), every bar, never thinned; the bass steps aside from
 their rhythm (as from the stabs), and over a kick of the very same rhythm they hold instead (as half notes do). A
 candidate is in the host's and the workbench's table only (the firmware's `COMP_NPAT` counts the approved): the
-workbench's **Comp rhythm** row forces one (`VNL_COMP_PAT=<id>` for a host render), and its Approve writes
+workbench's **Comping** row lists them by name and forces the one picked (`VNL_COMP_PAT=<id>` for a host render), and its Approve writes
 `status.json`. All three are approved (Sam, 2026-11-05); the roll draws `CS_PAT` on those keys at weight 20 (`harmony.c`'s
 `COMP_PAT_WEIGHT`, a first guess: about 1 song in 5 of them), the approved rhythms equally.
 

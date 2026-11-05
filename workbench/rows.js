@@ -24,8 +24,9 @@ export const ROWS = [
   { id: "color", group: SONG, label: "Chord color", kind: "roll", field: "COLOR", source: "colors" },
   { id: "family", group: INS, label: "Family", kind: "family", source: "families" },
   { id: "keys", group: INS, label: "Keys", kind: "role", role: "CHORD", source: "instruments" },
+  // (one place to pick comping, Sam 2026-11-05: the styles and the comp rhythms in one list; desk.js stages a comp
+  // rhythm as the COMP_PAT override, anything else as COMP)
   { id: "comp", group: INS, label: "Comping", kind: "ov", key: "COMP", source: "comping" },
-  { id: "compPat", group: INS, label: "Comp rhythm", kind: "ov", key: "COMP_PAT", source: "compPats" },
   { id: "lead", group: INS, label: "Lead", kind: "role", role: "LEAD", source: "instruments" },
   { id: "bass", group: INS, label: "Bass", kind: "role", role: "BASS", source: "instruments" },
   { id: "pad", group: INS, label: "Pad", kind: "role", role: "PAD", source: "instruments" },
@@ -76,6 +77,21 @@ const ONE_PART = new Set([25, 2, 11]);
 // Sam 2026-11-04)
 export const compFits = (c, keys) => (!c.keys || c.keys.includes(keys)) && !c.notKeys?.includes(keys);
 
+// The Comping row's value: -1 as rolled, a style's id (options.json's comping), or COMP_PAT_BASE + a comp rhythm's
+// table index (options.json's compPats: the engine's CS_PAT with that rhythm forced, the comp_pat override)
+export const COMP_PAT_BASE = 100;
+export const isCompPat = (v) => Number.isInteger(v) && v >= COMP_PAT_BASE;
+// a comp rhythm's name from its file ("9-late-one" -> "Late one")
+const patName = (file) => { const n = file.replace(/^\d+-/, "").replace(/-/g, " "); return n[0].toUpperCase() + n.slice(1); };
+// the comping choice a Comping value names: a style's entry, or a comp rhythm's (CS_PAT's keys, its own name, status
+// and key), or undefined
+export function compOption(opts, v) {
+  if (!isCompPat(v)) return opts.comping.find((c) => c.id === v);
+  const p = (opts.compPats || []).find((x) => x.index === v - COMP_PAT_BASE);
+  const cs = opts.comping.find((c) => c.sym === "CS_PAT");
+  return p && cs && { ...cs, id: v, name: patName(p.name), status: p.status, key: p.id };
+}
+
 // a progression's note without its source ("lofi-hip-hop.md 2, ii9-V13 vamp" -> "ii9-V13 vamp"); an imported one's file
 // ("imported from patterns/progressions/sam-vamp" -> "sam-vamp")
 const progName = (src) => src.startsWith("imported from ") ? src.replace(/^.*\//, "")
@@ -100,9 +116,13 @@ function allOptions(r, state, opts, lib) {
     case "instruments":
       return opts.instruments.filter((i) => i.roles.includes(ROLE[r.role]))
         .map((i) => ({ value: i.id, name: i.name, status: i.status, family: i.family }));
-    case "comping":
-      return [ROLLED, ...opts.comping.filter((c) => compFits(c, v.keys))
-        .map((c) => ({ value: c.id, name: c.name, status: c.status }))];
+    case "comping": {   // the styles, then each comp rhythm by name (on the keys that play CS_PAT). CS_PAT alone (an
+                        // old snapshot's "a drawn comp rhythm") is never offered: shown only as the current value
+      const pats = (opts.compPats || []).map((p) => compOption(opts, COMP_PAT_BASE + p.index)).filter(Boolean);
+      return [ROLLED, ...[...opts.comping, ...pats].filter((c) => compFits(c, v.keys))
+        .map((c) => ({ value: c.id, name: c.name, status: c.status, ...(c.sym === "CS_PAT" && !isCompPat(c.id) ? { hidden: true } : {}),
+                       ...(isCompPat(c.id) ? { key: c.key } : {}) }))];
+    }
     case "leadStyles":   // 2 + leads.h's LS_*; the retired engines 0 and 1 behind "show retired"
       return [ROLLED, ...opts.leadStyles.map((s) => ({ value: s.id, name: s.name, status: s.status }))];
     case "registers": return [{ value: -1, name: "Down an octave" }, { value: 0, name: "As rolled", rolled: true },
@@ -116,9 +136,7 @@ function allOptions(r, state, opts, lib) {
                                                 unavailable: !!state.unavailable?.has(k.id) }));
     case "patterns": return opts.patterns.map((p) => ({ value: p.id, name: p.name, status: p.status, key: String(p.id) }));
     case "strumPats":   // a table index (the override forces it)
-    case "compPats":    // (a comp rhythm picked plays on the keys that can, CS_PAT; none: the Comping row's style)
-      return [r.source === "compPats" ? { ...ROLLED, name: "None (the Comping row)" } : ROLLED,
-              ...(opts[r.source] || []).map((p) => ({ value: p.index, name: p.name, status: p.status, key: p.id }))];
+      return [ROLLED, ...(opts[r.source] || []).map((p) => ({ value: p.index, name: p.name, status: p.status, key: p.id }))];
     case "strumFills":   // the fill bars' figure (the song's draw by default; the ballad keeps its own fill)
       return [{ ...ROLLED, name: "Default" }, ...list(["Step back", "Drive"])];
     case "kickPhrases": return [{ value: "", name: "The pattern's own" },
@@ -142,10 +160,10 @@ export function optionsFor(r, state, opts, { showRetired = false, lib } = {}) {
   if (r.kind === "reroll")
     return [{ value: 0, name: "As rolled" }, ...(cur ? [{ value: cur, name: `Variant ${cur}` }] : [])];
   const all = allOptions(r, state, opts, lib);
-  const out = all.filter((o) => showRetired || o.status !== "retired");
+  const out = all.filter((o) => (showRetired || o.status !== "retired") && !o.hidden);
   if (cur !== undefined && !out.some((o) => same(o.value, cur))) {
-    const o = all.find((x) => same(x.value, cur));
-    out.push(o ? { ...o, current: true } : { value: cur, name: String(cur), current: true });
+    const o = all.find((x) => same(x.value, cur)) ?? (r.source === "comping" ? compOption(opts, cur) : null);
+    out.push(o ? { ...o, value: o.value ?? o.id, current: true } : { value: cur, name: String(cur), current: true });
   }
   return out;
 }
@@ -165,7 +183,8 @@ const fits = (o, family) => !o.family || o.family === family || o.family === "el
 // family (the instruments mix freely across families)
 function approvedFits(r, state, opts, family, lib) {
   return allOptions(r, state, opts, lib)
-    .filter((o) => (o.status ?? "approved") === "approved" && !o.rolled && !o.unavailable && !same(o.value, state.values[r.id]))
+    .filter((o) => (o.status ?? "approved") === "approved" && !o.rolled && !o.unavailable && !o.hidden &&
+                   !same(o.value, state.values[r.id]))
     .filter((o) => r.source !== "kits" || fits(o, family));
 }
 
@@ -204,8 +223,8 @@ export function conflicts(r, value, state, opts, rnd = Math.random, lib) {
         force(id, choose(own.length ? own : xs, rnd), `${row(id).label} is ${cur.name} (${cur.family}); the song goes ${value}`);
       }
     }
-  } else if (r.id === "keys") {
-    const comp = opts.comping.find((c) => c.id === v.comp);
+  } else if (r.id === "keys") {   // (a comp rhythm too: the percussive keys only)
+    const comp = compOption(opts, v.comp);
     if (comp && !compFits(comp, value))
       force("comp", -1, `${comp.name} comping doesn't suit the new keys`);
     if (ONE_PART.has(value) && v.lead === value) {
@@ -235,6 +254,8 @@ export function fromEngine(s, C, opts) {
     else if (r.kind === "role") v[r.id] = s.roles[C.V[r.role]];
     else if (r.kind === "ov" || r.kind === "reroll") v[r.id] = s.ov[C.OV[r.key]] ?? rolled(r);
   }
+  const pat = s.ov[C.OV.COMP_PAT] ?? -1;   // a comp rhythm forced: the Comping row's value names it
+  if (pat >= 0) v.comp = COMP_PAT_BASE + pat;
   v.kit = s.kit;
   v.pattern = s.pattern;
   // the kick lane: the pattern's own (""), a kick phrase, or drawn in the grid ("grid": no phrase, or ghosts)
@@ -244,12 +265,15 @@ export function fromEngine(s, C, opts) {
 }
 
 // the pattern family (patterns/model.json's) each row's options come from: a candidate there can be approved
-const FAMILY = { patterns: "drums", progs: "progressions", strumPats: "strum", kickPhrases: "kick-phrases",
-                 compPats: "comp-rhythms" };
+const FAMILY = { patterns: "drums", progs: "progressions", strumPats: "strum", kickPhrases: "kick-phrases" };
 
 // The row's current value when it is a candidate pattern: { family, id, name } for POST /approve (patterns/status.json),
 // else null
 export function approval(r, state, opts, lib) {
+  if (r.id === "comp") {   // a comp rhythm (patterns/comp-rhythms); the fixed styles aren't patterns
+    const o = isCompPat(state.values.comp) && compOption(opts, state.values.comp);
+    return o?.status === "candidate" ? { family: "comp-rhythms", id: o.key, name: o.name } : null;
+  }
   if (!FAMILY[r.source]) return null;
   const o = allOptions(r, state, opts, lib).find((x) => same(x.value, state.values[r.id]));
   return o?.status === "candidate" ? { family: FAMILY[r.source], id: o.key, name: o.name } : null;
@@ -262,10 +286,11 @@ export function inactive(r, state, opts) {
     return `Lead style: ${style.name} is retired; the song plays a rolled style instead.`;
   if (r.id === "strumPat" && state.strums === false)
     return "The keys don't strum in this song: a strum pattern plays with strummed comping (the guitars).";
-  if (r.id === "compPat") {   // CS_PAT's keys (options.json's comping): where held on 2 plays
-    const c = opts.comping.find((x) => x.sym === "CS_PAT");
+  if (r.id === "comp" && isCompPat(state.values.comp)) {   // CS_PAT's keys (options.json's comping): where held on 2 plays
+    const c = compOption(opts, state.values.comp);
     if (c && !compFits(c, state.values.keys))
-      return "These keys don't play a comp rhythm: it plays on the percussive keys only (Rhodes, felt piano, Knight).";
+      return "These keys don't play a comp rhythm: it plays on the percussive keys and the vibes only (Rhodes, felt piano, " +
+             "Knight, vibes).";
   }
   if (r.id === "strumFill" && state.strums === false)
     return "The keys don't strum in this song: a strum fill plays in a strummed song's drum-fill bars.";

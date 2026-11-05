@@ -486,7 +486,7 @@ console.log("the piano roll (roll.js: layout on the committed song's events; dra
 }
 
 // ---- the decision rows (rows.js, options.json) and the desk (desk.js) over the engine ----
-const { ROWS, row, optionsFor, pickFor, conflicts, familyOf, fromEngine } = await import("../rows.js");
+const { ROWS, row, optionsFor, pickFor, conflicts, familyOf, fromEngine, COMP_PAT_BASE } = await import("../rows.js");
 const { Desk } = await import("../desk.js");
 const OPTS = JSON.parse(readFileSync(env("WB_OPTIONS", "../options.json"), "utf8"));
 const HDR = readFileSync(new URL("../../app/song/library.h", import.meta.url), "utf8") +
@@ -2259,7 +2259,7 @@ console.log("candidates: the strum row, Approve (patterns and edits, Task 4)");
   const ex = await load(), call = caller(ex), lib = await call("wb_library");
   check(lib.progs.length === GEN_STATUS.LIB_PROGS.length && lib.progs.every((p, i) => p.status === GEN_STATUS.LIB_PROGS[i]),
         `wb_library's progressions carry their status (patterns_gen.c's: ${lib.progs.filter((p) => p.status !== "approved").length} not approved)`);
-  const rows = [["strumPat", "STRUM_PAT", "strumPats", "STRUM_PAT"], ["compPat", "COMP_PAT", "compPats", "COMP_PAT"]];
+  const rows = [["strumPat", "STRUM_PAT", "strumPats", "STRUM_PAT"]];   // (the comp rhythms: the Comping row's, below)
   ex.wb_seed(21);
   ex.wb_apply();
   const desk = new Desk(call, C, OPTS, lib, { rnd: lcg(4) });
@@ -2355,6 +2355,24 @@ console.log("candidates: the strum row, Approve (patterns and edits, Task 4)");
         [ap("strumPat", okStrum[0]), ap("strumPat", -1), ap("pattern", first(OPTS.patterns).id), ap("prog", first(lib.progs).id),
          ap("kick", ""), ap("mood", 1)].every((x) => x === null),
         "approval names a candidate (strum, drum pattern, progression, kick phrase), nothing else");
+  {   // a candidate comp rhythm (patterns/comp-rhythms): in the Comping row, marked; Approve names it for POST /approve
+    const CI = OPTS.compPats.length, cv = COMP_PAT_BASE + CI;
+    const cc = { ...OPTS, compPats: [...OPTS.compPats, { id: "c-new", index: CI, name: "12-sam-comp", status: "candidate" }] };
+    const sc = { values: { ...desk.values, keys: ins("Rhodes"), comp: cv }, locks: new Set() };
+    const o = optionsFor(row("comp"), sc, cc).find((x) => x.value === cv);
+    const held2 = OPTS.comping.find((c) => c.sym === "CS_HELD2").id;
+    check(o?.status === "candidate" && o.name === "Sam comp" &&
+          JSON.stringify(approval(row("comp"), sc, cc)) === '{"family":"comp-rhythms","id":"c-new","name":"Sam comp"}' &&
+          approval(row("comp"), { ...sc, values: { ...sc.values, comp: COMP_PAT_BASE } }, cc) === null &&
+          approval(row("comp"), { ...sc, values: { ...sc.values, comp: held2 } }, cc) === null,
+          "a candidate comp rhythm is offered in the Comping row, marked, and Approve names it (comp-rhythms); an " +
+          "approved one or a fixed style, nothing");
+    const sentC = [];
+    const r = await desk.approve(approval(row("comp"), sc, cc), async (url, init) => { sentC.push(init.body);
+      return { ok: true, status: 200, json: async () => ({ ok: true }) }; });
+    check(r.ok && desk.approved.has("comp-rhythms/c-new") && sentC[0] === '{"family":"comp-rhythms","id":"c-new"}',
+          "Approve on a comp rhythm posts { family: comp-rhythms, id } to /approve (patterns/status.json, as strum)");
+  }
   const sent = [];
   const fake = (ok) => async (url, init) => { sent.push([url, init.method, init.headers["Content-Type"], init.body]);
     return { ok, status: ok ? 200 : 400, json: async () => (ok ? { ok: true } : { ok: false, error: "no such strum pattern" }) }; };
@@ -2379,12 +2397,20 @@ console.log("comping: held on 2, held on 2 and 4 (approved, Sam 2026-11-05), lig
   const offered = (k) => optionsFor(row("comp"), { values: { keys: k } }, OPTS).map((o) => o.name);
   check(perc.every((k) => NEW.every((n) => offered(k).includes(n))) && off.every((k) => NEW.every((n) => !offered(k).includes(n))),
         "the three are offered on the percussive keys only (not the guitars, organ or pad)");
+  // the dice: approved choices only (held on 2, held on 2 and 4, the approved comp rhythms), never a candidate (light
+  // eighths) nor CS_PAT alone (no entry of its own: the rhythms are offered by name)
   const cand = OPTS.comping.filter((c) => c.status === "candidate").map((c) => c.id);
-  let picked = 0;
-  for (let i = 1; i <= 200; i++)
-    picked += cand.includes(pickFor(row("comp"), { values: { keys: perc[i % 3], comp: -1 }, locks: new Set() }, OPTS, lcg(i)));
-  check(JSON.stringify(cand) === "[7]" && picked === 0,
-        `... light eighths a candidate, never the dice's pick (${picked} of 200)`);
+  const pat = OPTS.comping.find((c) => c.sym === "CS_PAT").id;
+  const picks = new Map();
+  for (let i = 1; i <= 300; i++) {
+    const v = pickFor(row("comp"), { values: { keys: perc[i % 3], comp: -1 }, locks: new Set() }, OPTS, lcg(i));
+    picks.set(v, (picks.get(v) ?? 0) + 1);
+  }
+  const bad = [...picks.keys()].filter((v) => cand.includes(v) || v === pat);
+  check(JSON.stringify(cand) === "[7]" && !bad.length && picks.has(6) && picks.has(8) &&
+        OPTS.compPats.every((p) => picks.has(COMP_PAT_BASE + p.index) === (p.status === "approved")),
+        `... light eighths a candidate, never the dice's pick; held on 2, held on 2 and 4 and each approved comp rhythm ` +
+        `are (${[...picks].map(([v, n]) => `${v}: ${n}`).join(", ")})`);
 
   const { readEvents } = await import("../wb.js");
   const ex = await load(), call = caller(ex), lib = await call("wb_library");
@@ -2436,7 +2462,7 @@ console.log("comping: held on 2, held on 2 and 4 (approved, Sam 2026-11-05), lig
   ex.wb_ov_set(OV.COMP, -1);
 }
 
-console.log("comp rhythms: the Comp rhythm row forces one (patterns/comp-rhythms 7 on; candidates until approved)");
+console.log("comp rhythms: in the Comping row by name, one place to pick comping (Sam, 2026-11-05)");
 {
   const { readEvents } = await import("../wb.js");
   const { inactive } = await import("../rows.js");
@@ -2448,24 +2474,77 @@ console.log("comp rhythms: the Comp rhythm row forces one (patterns/comp-rhythms
     pex.wb_events(0);
     return JSON.stringify(readEvents(pex).filter((e) => e.role === V.CHORD).map((e) => [e.bar, e.step, e.note]));
   };
+  check(!row("compPat") && !OPTS.comping.some((c) => /row below/.test(c.name)),
+        "no Comp rhythm row, and no \"Comp rhythm (the row below)\" entry");
   const d = new Desk(call, C, OPTS, lib, { rnd: lcg(8) });
   await d.set("seed", 21);
   await d.set("keys", ins("Rhodes"));
-  const os = optionsFor(row("compPat"), d.state, OPTS), n = OPTS.compPats.length, heard = new Set();
-  check(os[0].value === -1 && /None/.test(os[0].name) && d.values.compPat === -1 && ex.wb_ov_get(OV.COMP_PAT) === -1 &&
-        !inactive(row("compPat"), d.state, OPTS), "a Comp rhythm row: none by default, heard on the Rhodes");
+  const names = optionsFor(row("comp"), d.state, OPTS).filter((o) => !o.rolled).map((o) => o.name);
+  const pname = (p) => { const x = p.name.replace(/^\d+-/, "").replace(/-/g, " "); return x[0].toUpperCase() + x.slice(1); };
+  const want = ["Held", "Half notes", "Held on 2", "Light eighths", "Held on 2 and 4", ...OPTS.compPats.map(pname)];
+  check(JSON.stringify(names) === JSON.stringify(want) && names.includes("Charleston") && names.includes("Late one"),
+        `the Comping row on the Rhodes lists every choice, the comp rhythms by name (${names.join(", ")})`);
+  const vib = optionsFor(row("comp"), { values: { keys: ins("Vibes (modeled vibraphone)") } }, OPTS).filter((o) => !o.rolled)
+    .map((o) => o.name);
+  check(JSON.stringify(vib) === JSON.stringify(["Held", "Half notes", "Held on 2", "Held on 2 and 4", ...OPTS.compPats.map(pname)]),
+        `the vibes on the keys are offered the comp rhythms too (Sam, 2026-11-05: ${vib.join(", ")})`);
+  const n = OPTS.compPats.length, heard = new Set();
+  check(d.values.comp === -1 && ex.wb_ov_get(OV.COMP_PAT) === -1 && ex.wb_ov_get(OV.COMP) === -1,
+        "a new song's Comping is as rolled, no comp rhythm forced");
   let played = 0;
   for (const p of OPTS.compPats) {
-    const r = await d.set("compPat", p.index), es = await keysEv();
-    played += r.ok && ex.wb_comp_applied() === 9 && ex.wb_ov_get(OV.COMP_PAT) === p.index && es !== "[]";
+    const r = await d.set("comp", COMP_PAT_BASE + p.index), es = await keysEv();
+    played += r.ok && d.values.comp === COMP_PAT_BASE + p.index && ex.wb_comp_applied() === 9 &&
+              ex.wb_ov_get(OV.COMP_PAT) === p.index && ex.wb_ov_get(OV.COMP) === -1 && es !== "[]";
     heard.add(es);
   }
-  check(n > 0 && played === n && heard.size === n, `each of the ${n} comp rhythms picked plays (CS_PAT), each its own`);
+  check(n > 0 && played === n && heard.size === n,
+        `each of the ${n} comp rhythms picked in Comping plays (CS_PAT, the comp_pat override), each its own`);
+  await d.set("comp", 6);
+  check(ex.wb_ov_get(OV.COMP_PAT) === -1 && ex.wb_ov_get(OV.COMP) === 6 && ex.wb_comp_applied() === 6,
+        "picking a style after a comp rhythm clears the comp rhythm");
+  await d.set("comp", COMP_PAT_BASE);
+  await d.set("comp", -1);
+  check(ex.wb_ov_get(OV.COMP_PAT) === -1 && ex.wb_ov_get(OV.COMP) === -1, "as rolled clears both");
+  await d.set("comp", COMP_PAT_BASE + 1);
+  const ko = await d.set("keys", ins("Organ"));
+  check(ko.ok && d.values.comp === -1 && ex.wb_ov_get(OV.COMP_PAT) === -1 && ex.wb_comp_applied() !== 9,
+        "keys -> organ puts a comp rhythm back to as rolled (the percussive keys only), as the other styles");
+  const rr = await d.set("comp", COMP_PAT_BASE + 1);
+  check(!rr.ok && /doesn't suit the Organ/.test(rr.message) && /Rhodes/.test(rr.message) && ex.wb_ov_get(OV.COMP_PAT) === -1 &&
+        !optionsFor(row("comp"), d.state, OPTS).some((o) => o.value >= COMP_PAT_BASE),
+        `a comp rhythm on the organ: not offered, refused ("${rr.message}")`);
+  // a snapshot (or the engine alone) with a rhythm on keys that don't play one: kept, the row greyed
   await d.set("keys", ins("Nylon guitar"));
-  check(ex.wb_comp_applied() === 5 && inactive(row("compPat"), d.state, OPTS),
-        "on the nylon the row is inactive: it strums");
-  await d.set("compPat", -1);
-  check(ex.wb_ov_get(OV.COMP_PAT) === -1, "none puts the override back");
+  ex.wb_ov_set(OV.COMP_PAT, 0);
+  await d.read();
+  check(d.values.comp === COMP_PAT_BASE && ex.wb_comp_applied() === 5 && inactive(row("comp"), d.state, OPTS) &&
+        optionsFor(row("comp"), d.state, OPTS).some((o) => o.value === COMP_PAT_BASE && o.current),
+        "a comp rhythm left on the nylon (the engine's): it strums, the Comping row names it, greyed");
+  ex.wb_ov_set(OV.COMP_PAT, -1);
+  await d.read();
+  check(!inactive(row("comp"), d.state, OPTS), "... and not greyed otherwise");
+
+  // an old snapshot's Comp rhythm row (to 2026-11-05) restores as that rhythm in the Comping row
+  const d2 = new Desk(call, C, OPTS, lib, { rnd: lcg(8) });
+  await d2.set("seed", 21);
+  await d2.set("keys", ins("Rhodes"));
+  const snap = await d2.snapshot();
+  const old = { ...snap, rows: { ...snap.rows, comp: -1, compPat: 2 } };
+  const miss = await d2.restore(old);
+  check(d2.values.comp === COMP_PAT_BASE + 2 && ex.wb_ov_get(OV.COMP_PAT) === 2 && ex.wb_comp_applied() === 9 &&
+        !miss.length, `an old snapshot's comp rhythm 2 restores as ${OPTS.compPats[2].name} in Comping (mismatch: ${miss.join(", ") || "none"})`);
+  const miss2 = await d2.restore({ ...snap, rows: { ...snap.rows, comp: 6, compPat: -1 } });
+  check(d2.values.comp === 6 && ex.wb_ov_get(OV.COMP_PAT) === -1 && !miss2.length,
+        "an old snapshot with no comp rhythm keeps its Comping style");
+  const now = await d2.snapshot();
+  check(!("compPat" in now.rows) && now.rows.comp === 6, "a snapshot holds the Comping row's value alone");
+  await d2.set("comp", COMP_PAT_BASE + 1);
+  const s1 = await d2.snapshot();
+  await d2.set("comp", -1);
+  const miss3 = await d2.restore(s1);
+  check(d2.values.comp === COMP_PAT_BASE + 1 && ex.wb_ov_get(OV.COMP_PAT) === 1 && !miss3.length,
+        "a new snapshot with a comp rhythm restores it");
 }
 
 console.log("the busy-lead thinning row (on by default; off, the existing comping keeps its rhythm)");

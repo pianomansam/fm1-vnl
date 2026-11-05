@@ -3,7 +3,8 @@
 // Every change is staged (wb_stage_mark first), checked against the locks (a locked row that moved undoes it whole and
 // says why), then committed with wb_apply: nothing staged is heard before that, so a bar line inside a change never
 // lands half of it. A seed or map change regenerates the song, so every locked or hand-set row is staged again first. call(fn, ...args) reaches wb.wasm's exports, a Promise (wb.js in the page; smoke.mjs in Node).
-import { ROWS, row, conflicts, pickFor, familyOf, fromEngine, kickMasks, rolled, compFits } from "./rows.js";
+import { ROWS, row, conflicts, pickFor, familyOf, fromEngine, kickMasks, rolled, compFits, compOption, isCompPat,
+         COMP_PAT_BASE } from "./rows.js";
 import { cellOf, LANES } from "./drums.js";
 import { byPart } from "./roll.js";
 
@@ -114,6 +115,10 @@ export class Desk {
     const r = row(id), { RF, V, OV } = this.C, c = this.call;
     if (r.kind === "seed") return c("wb_seed", v >>> 0);
     if (r.kind === "roll") return c("wb_roll_set", RF[r.field], v);
+    if (id === "comp") {   // a comp rhythm: the COMP_PAT override (CS_PAT where the keys play it); else COMP, no rhythm
+      await c("wb_ov_set", OV.COMP, isCompPat(v) ? -1 : v);
+      return c("wb_ov_set", OV.COMP_PAT, isCompPat(v) ? v - COMP_PAT_BASE : -1);
+    }
     if (r.kind === "role") return c("wb_role_set", V[r.role], v);
     if (r.kind === "ov" || r.kind === "reroll") return c("wb_ov_set", OV[r.key], v);
     if (id === "kit") return (await this.samples?.kit(v)) === false ? false : c("wb_kit_set", v);   // false: unavailable
@@ -169,7 +174,7 @@ export class Desk {
     const r = row(id);
     if (this.locks.has(id)) return this.done(false, `${r.label} is locked.`);
     if (id === "kick" && this.locks.has(PART_ROW.drums)) return this.done(false, "Kick phrase: the drums part is locked (its roll holds the kick).");
-    const comp = id === "comp" ? this.opts.comping.find((c) => c.id === value) : null;
+    const comp = id === "comp" ? compOption(this.opts, value) : null;
     if (comp && !compFits(comp, this.values.keys)) {   // a style these keys can't play (rows.js offers it not)
       const name = (k) => this.opts.instruments.find((i) => i.id === k)?.name ?? `instrument ${k}`;
       return this.done(false, `${comp.name} comping doesn't suit the ${name(this.values.keys)}: ` +
@@ -478,6 +483,8 @@ export class Desk {
     // doubling switch, the arpeggio rows: lead styles, 2026-10-31) is ignored
     const older = ROWS.filter((r) => (r.kind === "ov" || r.kind === "reroll") && !(r.id in snap.rows));
     snap = { ...snap, rows: { ...snap.rows, ...Object.fromEntries(older.map((r) => [r.id, rolled(r)])) } };
+    // the Comp rhythm row (to 2026-11-05) is the Comping row's now: a rhythm it forced restores as that rhythm there
+    if (snap.rows.compPat >= 0) snap = { ...snap, rows: { ...snap.rows, comp: COMP_PAT_BASE + snap.rows.compPat } };
     // a retired lead style (the phrase planner, the hybrid: lead styles, 2026-10-31) restores as rolled: said, not a
     // mismatch
     const style = this.opts.leadStyles.find((s) => s.id === snap.rows.leadStyle);

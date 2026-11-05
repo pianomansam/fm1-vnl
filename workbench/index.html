@@ -231,7 +231,10 @@
         el.hear.solo.setAttribute("aria-pressed", String(desk.listen.solo === el.partKey));
       }
       const why = inactive(r, desk.state, desk.opts);
-      el.dice.disabled = el.input.disabled = locked || !!why;
+      // (the Comping row stays open when greyed: a comp rhythm a snapshot left on keys that don't play one is
+      // changed there)
+      el.dice.disabled = locked || !!why;
+      el.input.disabled = locked || (!!why && r.id !== "comp");
       el.classList.toggle("inactive", !!why);
       el.title = why || "";
       if (r.kind === "seed") { el.input.value = cur; continue; }
