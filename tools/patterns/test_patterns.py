@@ -22,7 +22,8 @@ import midi  # noqa: E402
 from test_import import Import, ImportWithCandidates, imp  # noqa: E402,F401  (run with these)
 from test_pins import Pins  # noqa: E402,F401
 
-FAMILIES = {"drums": 8, "kick-phrases": 5, "progressions": 48, "comp-rhythms": 5, "strum": 5}
+# progressions: 48 less 19, retired (the same chords as 18)
+FAMILIES = {"drums": 8, "kick-phrases": 5, "progressions": 47, "comp-rhythms": 5, "strum": 5}
 GM = {"kick": 36, "snare": 38, "hat": 42, "ohat": 46, "shaker": 70, "rim": 37}
 LANES = ["kick", "snare", "hat", "ohat", "shaker", "rim"]
 STROKE = {"T": 64, "B": 65, "D": 67, "d": 69, "X": 71, "U": 72, "u": 74, "P": 76}
@@ -123,7 +124,7 @@ class T(unittest.TestCase):
         for fam, n in FAMILIES.items():
             self.assertGreaterEqual(sum(e["status"] == "approved" for e in self.model[fam].values()), n, fam)
         for fam, k, e in self.entries():
-            self.assertIn(e["status"], ("approved", "candidate"), (fam, k))
+            self.assertIn(e["status"], ("approved", "candidate", "retired"), (fam, k))
 
     def test_major_minor_chords_sound_as_the_modes_did(self):
         """Sam, 2026-11-05: the modes became major or minor, and the chords must sound the same. Every progression in

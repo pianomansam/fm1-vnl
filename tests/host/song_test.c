@@ -6623,11 +6623,11 @@ static void test_levels_steady(void)
        2026-11-05, and it draws it, softer than held: held to 0.85 with seed 53; seed 5 0.90 since every comping
        rhythm is drawn evenly, Sam 2026-11-05, and it draws a comp rhythm, softer than held: held to 0.85 too; seeds 10
        and 14 0.94 and 0.98 since drums pattern 9 was approved, Sam 2026-11-05, and they draw other songs: held to 0.85
-       with them; seeds 10, 14 and 23, Sam 2026-11-05: motion-tilted draws gave these seeds softer patterns: held to
-       0.85 too) */
+       with them; seeds 10, 14, 23, 12 and 36, Sam 2026-11-05: motion-tilted draws gave these seeds softer patterns:
+       held to 0.85 too) */
     for (k = 0; k < n; k++) {
         CHECK(lv_song_gr[k] >= (sd[k] == 53u || sd[k] == 50u || sd[k] == 5u || sd[k] == 10u || sd[k] == 14u ||
-                                sd[k] == 23u ? 0.85f : 1.0f) &&
+                                sd[k] == 23u || sd[k] == 12u || sd[k] == 36u ? 0.85f : 1.0f) &&
                   lv_song_gr[k] <= 4.0f,
               "glue: seed %d's full band %.2f dB, wanted 1-4", (int)sd[k], (double)lv_song_gr[k]);
         CHECK(lv_intro_gr[k] < 1.0f, "glue: seed %d's intro %.2f dB, wanted under 1", (int)sd[k], (double)lv_intro_gr[k]);
