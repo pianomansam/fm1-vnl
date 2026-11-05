@@ -621,6 +621,13 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   12%, held on 2 and 4 8%, a comp rhythm 16% (the Knight keeps stabs). The new styles never thin under a busy lead,
   so they strike softer (held on 2 about 2 dB under held): to judge in songs. The vibes play the rhythms too (Sam).
   The workbench picks all of them in one Comping row (Sam: one place, not two).
+- **Every comping rhythm is data, drawn evenly, leaning on the song's motion (Sam, 2026-11-05: "I think of all comping
+  rhythms the same"; "Any reason to not make them even?"; the rolled rhythm follows the song's motion, and a live Motion
+  change leaves it: "It should stay"):** **Done (2026-11-05).** Held, half, stabs, held on 2 (and 4), charleston,
+  tresillo and late one are rows of one table, each with its weight (1: even), busyness, keys, thinning, holding and
+  velocities in `patterns/model.json`; at motion 50 even, at 20 sparse (held, late one) 3x busy (tresillo, stabs), at 80
+  the reverse. The Rhodes at motion 50: 1 in 7 each (was held 35%, half 29%). The pad and organ keep held 44 / half 36.
+  Late one up to 36-50 (was 32-46): drawn more often, the pad sat under 5 dB below the vibes' late one.
 - **To explore (Sam, 2026-10-30): remove the busy-lead interaction from the comping.** Today a bar with 4 or more lead
   onsets thins half notes and stabs to beat 1 (and offbeats and the arpeggio, now off). Sam isn't a fan of a busy lead
   modifying the comping. A/B songs with and without it; if he doesn't miss it, remove it (and its tests). The A/B
