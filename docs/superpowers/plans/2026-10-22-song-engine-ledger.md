@@ -205,6 +205,12 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
     Workbench only (keys_oct is an override); no fix planned.
   - '60s Jazz on felt piano or vibes plays only its targets in about 3% of songs (2 notes per 4 bars), loop on or
     off (seeds 67, 71): its lead-ins drop out. A fix in jazz60s.c.
+  - **Bolder stutters (Sam, 2026-11-05: "the stutters are the thing that is too subtle"; on the short list, not
+    started).** Today: 40% of turnaround bars and 30% of block-ending bars, 1-3 notes repeated 2-4 more times in 16ths
+    or 8ths, each repeat 12% softer, so a stutter lasts under a beat and fades into the phrase. Proposal: 4-7
+    repeats (one to two beats), mostly 16ths with an occasional 32nd roll on the last beat, repeats at full level
+    while the lead's low-pass closes to about 600 Hz by the last one (the entry filter's), snapping open when the
+    phrase resumes. Same frequency unless Sam asks for more. A/B against today's stutter.
 
 - **Hybrid lead styles (Sam, 2026-10-29).** One lead style makes the motif, then a different style takes it over and
   develops it: after 1 bar, after 3 bars, or for the second 4 bars of an 8-bar phrase. Needs the styles to share a
