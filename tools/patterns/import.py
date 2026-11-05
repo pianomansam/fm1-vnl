@@ -183,8 +183,8 @@ def decode(fam, key, score, base):
                                       "metadata (model.json)"))
         except (TypeError, KeyError, ValueError):
             pass
-        if e.get("name") in STRIKES:
-            only_bars(notes, 1, f"{e['name']} comping")
+        if e.get("name") in STRIKES or e.get("kind") == "pattern":
+            only_bars(notes, 1, f"{e.get('name', 'a comp rhythm')} comping")
             by = {}
             for x in notes:
                 by[x["start"]] = max(by.get(x["start"], 0), x["len"])
@@ -292,7 +292,7 @@ def rows_from_model(model):
                            "moods": sum(1 << validate.MOODS.index(x) for x in e["moods"]),
                            "modes": sum(1 << validate.MODES.index(x) for x in e["modes"]), "src": e["src"],
                            "status": st(e)})
-    comp = {e["name"]: e for e in model["comp-rhythms"].values()}
+    comp = {e["name"]: e for e in model["comp-rhythms"].values() if e.get("kind") != "pattern"}
     t["comp"] = {n: {"vel": comp[n]["vel_range"], "steps": [s["step"] for s in comp[n]["strikes"]],
                      "lens": [s["len"] for s in comp[n]["strikes"]],
                      "later_vel_pct": comp[n].get("second_vel_pct", 100)} for n in STRIKES}
@@ -303,6 +303,9 @@ def rows_from_model(model):
     def by_index(fam, kind=None):
         es = [e for e in model[fam].values() if kind is None or e.get("kind") == kind]
         return sorted(es, key=lambda e: e["index"])
+    t["comp_pat"] = [{"vel": e["vel_range"], "steps": [x["step"] for x in e["strikes"]],
+                      "lens": [x["len"] for x in e["strikes"]], "later_vel_pct": e.get("second_vel_pct", 100),
+                      "status": st(e)} for e in by_index("comp-rhythms", "pattern")]
     pats = by_index("strum", "pattern")
     t["strum"], t["strum_status"] = [e["steps"] for e in pats], [st(e) for e in pats]
     fills = by_index("strum", "fill")
@@ -368,6 +371,26 @@ def gen_c(t):
          "} patterns_stabs_t;",
          "extern const patterns_comp_t " + ", ".join(STRIKES.values()) + ";",
          "extern const patterns_stabs_t COMP_STABS;",
+         "/* the comp rhythms past those six (patterns/comp-rhythms' added files; harmony.c's CS_PAT), one bar of",
+         "   strikes each. The host's and the workbench's builds hold every entry (a candidate plays when the comp_pat",
+         "   override forces it); the firmware only the approved, the ones the roll draws: a candidate costs it",
+         "   nothing */",
+         "#if defined PLAT_HOST || defined __EMSCRIPTEN__ || defined __APPLE__ || defined __linux__",
+         "#define COMP_PAT_ALL 1",
+         f"#define COMP_NPAT {len(t['comp_pat'])}",
+         "#else",
+         "#define COMP_PAT_ALL 0",
+         f"#define COMP_NPAT {sum(1 for x in t['comp_pat'] if x['status'] == 1)}",
+         "#endif",
+         "#if COMP_NPAT",
+         "extern const patterns_comp_t COMP_PAT[COMP_NPAT];",
+         "#endif",
+         "#if COMP_PAT_ALL && COMP_NPAT",
+         "extern const uint8_t COMP_PAT_STATUS[COMP_NPAT];",
+         "#define COMP_PAT_APPROVED(i) (COMP_PAT_STATUS[i] == 1)",
+         "#else",
+         "#define COMP_PAT_APPROVED(i) 1                 /* (the firmware's are all approved) */",
+         "#endif",
          "",
          "/* strum.c's patterns (16 steps; 32 for a two-bar one) and the ballad's fill-bar variant */",
          f"#define STRUM_NPAT {len(t['strum'])}",
@@ -404,15 +427,29 @@ def gen_c(t):
                  f"{p['poly3']}, {c_str(p['src'])}, {p['two_bar']}, {m['hit_b']}, {m['ghost_b']}}},")
     C += ["};", "const int LIB_NPATTERNS = (int)(sizeof LIB_PATTERNS / sizeof LIB_PATTERNS[0]);",
           "const uint8_t LIB_PATTERNS_STATUS[] = " + c_list(p["status"] for p in t["patterns"]) + ";", ""]
+    pad = lambda v: list(v) + [0] * (8 - len(v))  # noqa: E731
     for key, name in STRIKES.items():
         x = t["comp"][key]
-        pad = lambda v: list(v) + [0] * (8 - len(v))  # noqa: E731
         C.append(f"const patterns_comp_t {name} = {{{x['vel'][0]}, {x['vel'][1]}, {len(x['steps'])}, "
                  f"{c_list(pad(x['steps']))}, {c_list(pad(x['lens']))}, {x['later_vel_pct']}}};")
     s = t["comp"]["stabs"]
     C.append(f"const patterns_stabs_t COMP_STABS = {{{s['vel'][0]}, {s['vel'][1]}, {s['first']}, {len(s['second'])}, "
              f"{c_list(list(s['second']) + [0] * (4 - len(s['second'])))}, {s['len']}, {s['busy_over']}, "
              f"0x{sum(1 << x for x in s['busy_steps']):04X}}};")
+    if t["comp_pat"]:                               # the firmware's (COMP_PAT_ALL 0): the approved alone
+        rows, cand = [], False
+        for x in t["comp_pat"]:
+            if (x["status"] != 1) != cand:
+                cand = not cand
+                rows.append("#if COMP_PAT_ALL" if cand else "#endif")
+            rows.append(f"    {{{x['vel'][0]}, {x['vel'][1]}, {len(x['steps'])}, {c_list(pad(x['steps']))}, "
+                        f"{c_list(pad(x['lens']))}, {x['later_vel_pct']}}},")
+        if cand:
+            rows.append("#endif")
+        C += ["#if COMP_NPAT", "const patterns_comp_t COMP_PAT[COMP_NPAT] = {", *rows, "};", "#endif",
+              "#if COMP_PAT_ALL && COMP_NPAT",
+              "const uint8_t COMP_PAT_STATUS[COMP_NPAT] = " + c_list(x["status"] for x in t["comp_pat"]) + ";",
+              "#endif"]
     C += ["", "const char *const STRUM_PAT[STRUM_NPAT] = {"] + [f"    {c_str(x)}," for x in t["strum"]] + [
         "};", "const uint8_t STRUM_PAT_STATUS[STRUM_NPAT] = " + c_list(t["strum_status"]) + ";",
         f"const char STRUM_BALLAD_FILL[] = {c_str(t['strum_ballad_fill'])};",
@@ -434,9 +471,10 @@ def option_blocks(model, text):
              for e in model["drums"].values()]
 
     def indexed(fam, kind):
-        es = sorted((x for x in model[fam].items() if x[1]["kind"] == kind), key=lambda x: x[1]["index"])
+        es = sorted((x for x in model[fam].items() if x[1].get("kind") == kind), key=lambda x: x[1]["index"])
         return [f'    {{ "id": "{k}", "index": {e["index"]}, "name": {name(e)}{st(e)} }}' for k, e in es]
-    return {"patterns": drums, "kickPhrases": kicks, "strumPats": indexed("strum", "pattern")}
+    return {"patterns": drums, "kickPhrases": kicks, "strumPats": indexed("strum", "pattern"),
+            "compPats": indexed("comp-rhythms", "pattern")}
 
 
 def options_text(text, blocks):
@@ -468,10 +506,10 @@ def defaults(fam, stem, model, meta):
     if fam == "kick-phrases":
         n = max((int(k[1:]) for k in es if k[1:].isdigit()), default=1) + 1
         return f"k{n}", {"id": f"k{n}"}
-    if fam == "comp-rhythms":
-        raise Refused(None, "comp-rhythms are fixed (held, half, stabs, held-on-2, light-eighths and held-on-2-and-4: "
-                            "each a style the "
-                            "engine plays): edit those files instead of adding one")
+    if fam == "comp-rhythms":                       # a comp rhythm past the fixed six (CS_PAT): one bar of strikes
+        n = sum(1 for e in es.values() if e.get("kind") == "pattern")
+        return str(export.comp_pat_id(n)), {"style": "CS_PAT", "kind": "pattern", "index": n,
+                                            "vel_range": list(export.COMP_PAT_VEL)}
     if fam == "strum":
         n = sum(1 for e in es.values() if e["kind"] == "pattern")
         return str(export.strum_id(n)), {"index": n, "kind": "pattern"}
@@ -488,8 +526,8 @@ def with_meta(fam, base, meta):
 
 # -------------------------------------------------------------------------------------------------- status.json
 def fixed(fam, e):
-    """the comp rhythms and the strum fills: fixed entries, always approved"""
-    return fam == "comp-rhythms" or e.get("kind") == "fill"
+    """the six comp rhythms and the strum fills: fixed entries, always approved"""
+    return (fam == "comp-rhythms" and e.get("kind") != "pattern") or e.get("kind") == "fill"
 
 
 def set_status(pat, model, notes, refuse):

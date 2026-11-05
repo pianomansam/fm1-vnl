@@ -57,6 +57,8 @@ FILLS = [(SP_N + 1, None, SP_N, 0, "ballad-fill"), (16, "step-back", 0, 0, "fill
          (17, "drive", 0, 0, "fill-drive"), (18, "step-back", SP_BOSSA + 1, 1, "bossa-fill-step-back"),
          (19, "drive", SP_BOSSA + 1, 1, "bossa-fill-drive")]
 FILL_IDS = {f[0] for f in FILLS}
+COMP_FIXED = 6                                  # the comp rhythms 1-6 (held ... held on 2 and 4), each its own style
+COMP_PAT_VEL = (40, 58)                         # a new comp rhythm's vel_range: held's (a metadata vel_range wins)
 
 
 # metadata keys that differ from the entry's: "family" in the metadata is the pattern family (the folder)
@@ -83,6 +85,11 @@ def strum_id(index):
             if index == 0:
                 return k
             index -= 1
+
+
+def comp_pat_id(index):
+    """a comp rhythm's id past the fixed six (COMP_PAT[index]): 7 the first"""
+    return COMP_FIXED + 1 + index
 
 
 def chord_symbol(spec, mode):
@@ -147,6 +154,14 @@ def build_model(t, kick_phrases):
               "busy_steps": st["busy_steps"], "file": "comp-rhythms/3-stabs"},
         "4": strikes(4, "held-on-2", "CS_HELD2"), "5": strikes(5, "light-eighths", "CS_LIGHT8"),
         "6": strikes(6, "held-on-2-and-4", "CS_HELD24")}
+    for i, x in enumerate(t.get("comp_pat", [])):   # the comp rhythms added since (CS_PAT), by table index
+        k = comp_pat_id(i)
+        e = {"status": status(x["status"]), "style": "CS_PAT", "kind": "pattern", "index": i, "vel_range": x["vel"]}
+        if x["later_vel_pct"] != 100:
+            e["second_vel_pct"] = x["later_vel_pct"]
+        e["strikes"] = [{"step": s, "len": n} for s, n in zip(x["steps"], x["lens"])]
+        e["file"] = f"comp-rhythms/{k}-pattern"
+        m["comp-rhythms"][str(k)] = e
     strum = {}
     for i, s in enumerate(t["strum"]):
         k = strum_id(i)
@@ -236,7 +251,7 @@ def render(fam, k, e):
     if fam == "comp-rhythms":
         lo, hi = e["vel_range"]
         vel = (lo + hi) // 2
-        if e["name"] == "stabs":
+        if e.get("name") == "stabs":
             notes = [(bar * 16 + s, e["len"], TONE, vel)
                      for bar, s2 in enumerate(e["second"]) for s in (e["first"], s2)]
             bars = len(e["second"])
@@ -245,7 +260,8 @@ def render(fam, k, e):
                      for i, x in enumerate(e["strikes"])]
             bars = 1
         tr, part = pitched("Keys", 4, notes)
-        return f"Comp rhythm {k}: {e['name']} over Cmaj7", bars, [tr], [part], None, ()
+        name = e.get("name") or e["file"].split("/", 1)[1].split("-", 1)[1].replace("-", " ")
+        return f"Comp rhythm {k}: {name} over Cmaj7", bars, [tr], [part], None, ()
     raise ValueError(fam)
 
 

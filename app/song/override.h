@@ -30,6 +30,8 @@ typedef struct {
     int8_t lead_loop;       /* -1 default (follows LEAD_LOOP_DEFAULT: on), 0 the lead loop off, 1 on */
     int8_t strum_fill;      /* a strummed song's fill figure (strum_fill_drive): 0 the song's draw (left out of an
                                initializer, it stays the draw), 1 step back, 2 drive */
+    int8_t comp_pat;        /* a comp rhythm forced (the keys play CS_PAT where they can): 0 none (left out of an
+                               initializer, it stays none), else 1 + its COMP_PAT index, approved or candidate */
 } song_ov_t;
 
 void song_override(const song_ov_t *ov);   /* NULL: none (default); the struct is copied */

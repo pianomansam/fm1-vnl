@@ -183,20 +183,22 @@ def _check_comp(e, bad):
     lo_hi = e.get("vel_range") or []
     if len(lo_hi) != 2 or not (_int(lo_hi[0], 25, 110) and _int(lo_hi[1], 25, 110) and lo_hi[0] <= lo_hi[1]):
         bad(None, "vel_range is [lo, hi] within 25-110")
-    if e.get("name") in ("held", "half", "held-on-2", "light-eighths", "held-on-2-and-4"):
+    if e.get("name") in ("held", "half", "held-on-2", "light-eighths", "held-on-2-and-4") or e.get("kind") == "pattern":
         st = e.get("strikes") or []
-        if e["name"] == "held" and [s.get("step") for s in st] != [0]:
+        if e.get("kind") == "pattern" and not 1 <= len(st) <= 8:
+            bad(1, "a comp rhythm is 1-8 strikes in one bar (the engine has no push over the bar line)")
+        if e.get("name") == "held" and [s.get("step") for s in st] != [0]:
             bad(1, "held comping is one strike, on step 0 (the engine holds it through the chord)")
-        if e["name"] == "half":
+        if e.get("name") == "half":
             if not 1 <= len(st) <= 2 or st[0].get("step") != 0:
                 bad(1, "half comping is one or two strikes in the bar, the first on step 0")
             if not _int(e.get("second_vel_pct"), 50, 100):
                 bad(None, "second_vel_pct is 50-100")
-        if e["name"] == "held-on-2" and [s.get("step") for s in st] != [4]:
+        if e.get("name") == "held-on-2" and [s.get("step") for s in st] != [4]:
             bad(1, "held on 2 is one strike, on step 4 (beat 2)")
-        if e["name"] == "held-on-2-and-4" and [s.get("step") for s in st] != [4, 12]:
+        if e.get("name") == "held-on-2-and-4" and [s.get("step") for s in st] != [4, 12]:
             bad(1, "held on 2 and 4 is two strikes, on steps 4 and 12 (beats 2 and 4)")
-        if e["name"] == "light-eighths" and not 1 <= len(st) <= 8:
+        if e.get("name") == "light-eighths" and not 1 <= len(st) <= 8:
             bad(1, "light eighths are 1-8 strikes in the bar")
         if "second_vel_pct" in e and not _int(e["second_vel_pct"], 25, 100):
             bad(None, "second_vel_pct is 25-100")
@@ -204,7 +206,7 @@ def _check_comp(e, bad):
         for s in st:
             if not (_int(s.get("step"), 0, 15) and _int(s.get("len"), 1, 16)) or s["step"] < end or \
                s["step"] + s["len"] > 16:
-                bad(1, "strikes are in the bar, in order, never overlapping")
+                bad(1, "strikes are in the bar, in order, never overlapping (none rings past the bar line)")
             end = s.get("step", 0) + s.get("len", 0)
     elif e.get("name") == "stabs":
         first, second = e.get("first"), e.get("second") or []
@@ -225,7 +227,7 @@ def _check_comp(e, bad):
 def check_family(fam, entries):
     """[(key, bar, rule)] across the family"""
     out = []
-    if fam == "comp-rhythms" and sorted(e.get("name") for e in entries.values()) != \
+    if fam == "comp-rhythms" and sorted(e.get("name") for e in entries.values() if e.get("kind") != "pattern") != \
             ["half", "held", "held-on-2", "held-on-2-and-4", "light-eighths", "stabs"]:
         out.append((None, None, "comp-rhythms are held, half, stabs, held-on-2, light-eighths and held-on-2-and-4, "
                                 "one each"))

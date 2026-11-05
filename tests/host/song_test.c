@@ -6731,7 +6731,7 @@ static void test_vibes_level(void)
    dB): each set's mean and median 7-11 dB under, and no song under 5 dB or over 13. */
 static void test_pad_level(void)
 {
-    static const song_ov_t pads = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, -1, 0, 0, 0};   /* every song with a pad
+    static const song_ov_t pads = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, -1, 0, 0, 0, 0};   /* every song with a pad
                                                                                                  (the lead loop off) */
     float d[LIB_NSETS_MAX * LK_PER], sorted[LIB_NSETS_MAX * LK_PER], med;
     int k, n = 0, sets = 0;
@@ -6848,7 +6848,7 @@ static void test_pad_level(void)
    choir held to its input's power, so its level is its patch's (patch.c). */
 static void test_choir_level(void)
 {
-    static const song_ov_t pads = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, -1, 0, -1, 0};
+    static const song_ov_t pads = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, -1, 0, -1, 0, 0};
     static const uint32_t SEED[3] = {319u, 152u, 1u};
     static const int SET[3] = {31, 32, 21};
     int k;
@@ -7253,7 +7253,7 @@ static pd_rec_t pd_a, pd_b;
    so they keep their samples; NULL (0) restores the roll's */
 static void pd_all_pads(int on)
 {
-    static const song_ov_t all = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, -1, 0, -1, 0};
+    static const song_ov_t all = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, -1, 0, -1, 0, 0};
     song_override(on ? &all : NULL);
 }
 static int pd_part(const song_t *s, int blk, int sus)
@@ -8643,7 +8643,7 @@ static void ov_run(const song_roll_t *r, const song_ov_t *ov, ov_rec_t *o)
 }
 static song_ov_t ov_none(void)
 {
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0, 0};
     return o;
 }
 static void test_ov_comp(void)
@@ -8805,6 +8805,115 @@ static void test_comp_new(void)
         song_override(NULL);
     }
 }
+/* The comp rhythms past the six styles (CS_PAT, patterns_gen.h's COMP_PAT; patterns/comp-rhythms 7 on): they play
+   where held on 2 does, the roll draws one only once one is approved (a candidate never), and forced (the comp_pat
+   override, the workbench's Comp rhythm row) each plays its written strikes in every keys bar of a whole song, never
+   the bass's rhythm (the bass steps aside, as for the stabs) nor the kick's (over a kick of its very rhythm it holds,
+   as half notes do) */
+static void test_comp_pat(void)
+{
+    static const int PERC[3] = {INS_RHODES, INS_FELT_PIANO, INS_KNIGHT};
+    static song_t s;
+    song_ov_t o = ov_none();
+    song_roll_t r;
+    song_ev_t ev[64];
+    long drawn = 0, bars = 0, bad_mask = 0, bass_twin = 0, kick_twin = 0, bad_style = 0, held = 0;
+    int ins, seed, i, k, napp = 0;
+    for (ins = 0; ins < INS_NONE; ins++)
+        CHECK(harmony_comp_ok(ins, CS_PAT) == (COMP_NPAT && harmony_comp_ok(ins, CS_HELD2)),
+              "comp pat: instrument %d allowed %d", ins, harmony_comp_ok(ins, CS_PAT));
+#if COMP_NPAT
+    for (k = 0; k < COMP_NPAT; k++) napp += COMP_PAT_APPROVED(k);
+#endif
+    for (seed = 1; seed <= 3000; seed++) {
+        roll_song(NULL, (uint32_t)seed, &r);
+        if (harmony_style(&r) == CS_PAT) {
+            drawn++;
+            k = harmony_comp_pat(&r);
+#if COMP_NPAT
+            CHECK(k >= 0 && COMP_PAT_APPROVED(k), "comp pat: seed %d drew comp rhythm %d, not approved", seed, k);
+#endif
+        }
+    }
+    CHECK(napp || drawn == 0, "comp pat: %ld of 3000 songs drew a comp rhythm, none approved", drawn);
+#if COMP_NPAT
+    for (k = 0; k < COMP_NPAT; k++) {
+        unsigned want = 0;
+        for (i = 0; i < COMP_PAT[k].n; i++) want |= 1u << COMP_PAT[k].step[i];
+        o.comp_pat = (int8_t)(k + 1);
+        for (seed = 1; seed <= 40; seed++) {
+            const lib_set_t *st;
+            const lib_pattern_t *pp;
+            lib_set_t set;
+            unsigned km = 0, bm = 0, dm = 0;
+            int cur = 0, on_kick;
+            roll_song(NULL, (uint32_t)seed, &r);
+            st = lib_set_by_id((uint8_t)r.v[RF_SET]);
+            set = *st;
+            set.chords = (uint8_t)PERC[seed % 3];
+            if (set.lead == set.chords) set.chords = (uint8_t)PERC[(seed + 1) % 3];
+            set.id = LIB_SET_WB;
+            lib_set_wb(&set, st->id);
+            r.v[RF_SET] = LIB_SET_WB;
+            song_override(&o);
+            pp = lib_pattern_by_id((uint8_t)r.v[RF_PATTERN]);
+            on_kick = pp && (lib_lane_hits(pp, D_KICK, 0) & 0xFFFFu) == want;
+            held += on_kick;
+            bad_style += harmony_style(&r) != CS_PAT || harmony_comp_pat(&r) != k ||
+                         harmony_comp_steps(&r) != (on_kick ? 0u : want);
+            song_start(&s, &r);
+            while (s.state == SS_PLAYING) {
+                int bar = s.bar, step = s.step, n = song_tick(&s, ev, 64);
+                if (bar != cur) {
+                    if (km) {
+                        bars++;
+                        bad_mask += on_kick ? km != 1u : km != want;
+                        bass_twin += bm && km == bm && km != 1u;
+                        kick_twin += dm && km == dm && km != 1u;
+                    }
+                    km = bm = dm = 0;
+                    cur = bar;
+                }
+                for (i = 0; i < n; i++) {
+                    if (ev[i].voice == V_CHORD) km |= 1u << step;
+                    if (ev[i].voice == V_BASS) bm |= 1u << step;
+                    if (ev[i].voice == V_KICK && ev[i].vel > 60) dm |= 1u << step;
+                }
+            }
+            song_override(NULL);
+        }
+    }
+    lib_set_wb(NULL, 0);
+    {   /* off the percussive keys (a guitar, the organ, the pad): forced, the keys play their own style */
+        static const int OFF[3] = {INS_NYLON, INS_ORGAN, INS_PAD};
+        for (k = 0; k < 3; k++) {
+            const lib_set_t *st;
+            lib_set_t set;
+            roll_song(NULL, 7u, &r);
+            st = lib_set_by_id((uint8_t)r.v[RF_SET]);
+            set = *st;
+            set.chords = (uint8_t)OFF[k];
+            set.id = LIB_SET_WB;
+            lib_set_wb(&set, st->id);
+            r.v[RF_SET] = LIB_SET_WB;
+            o.comp_pat = 1;
+            song_override(&o);
+            bad_style += harmony_style(&r) == CS_PAT;
+            song_override(NULL);
+        }
+        lib_set_wb(NULL, 0);
+    }
+#endif
+    printf("comp pat: %d comp rhythm(s), %d approved; %ld of 3000 songs drew one; forced, %ld keys bars (%ld "
+           "songs held over a kick of the same rhythm)\n", COMP_NPAT, napp, drawn, bars, held);
+    CHECK(!COMP_NPAT || bars > 1000L * COMP_NPAT, "comp pat: only %ld keys bars", bars);
+    CHECK(bad_style == 0, "comp pat: %ld songs forced a comp rhythm that didn't play it (or played it off the keys "
+                          "that can)", bad_style);
+    CHECK(bad_mask == 0, "comp pat: %ld of %ld bars off the comp rhythm's strikes", bad_mask, bars);
+    CHECK(bass_twin == 0, "comp pat: %ld of %ld bars the bass plays the keys' rhythm", bass_twin, bars);
+    CHECK(kick_twin == 0, "comp pat: %ld of %ld bars the kick plays the keys' rhythm", kick_twin, bars);
+}
+
 /* no_busy_thin (the workbench's "Busy lead thins the comping", off): a busy lead leaves the existing comping's rhythm
    be, so half notes strike beat 3 again and stabs, offbeats and the arpeggio keep theirs, strike for strike as in a
    quiet bar. Left at 0 (the default), the steps are exactly today's: thinned. */
@@ -12612,6 +12721,7 @@ int main(int argc, char **argv)
     RUN(test_vx_mute);
     RUN(test_ov_comp);
     RUN(test_comp_new);
+    RUN(test_comp_pat);
     RUN(test_busy_thin_off);
     RUN(test_rolled_style);
     RUN(test_style_holds);

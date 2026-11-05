@@ -29,7 +29,7 @@ byte.
   where it plays when picked, until Sam approves it) or `"retired"` (never drawn).
 - **`status.json`:** Sam's statuses, `{family: {id: "approved" | "candidate" | "retired"}}` (ids as in
   `model.json`). The workbench's **Approve** button (beside a candidate picked in its row) writes it; it may be
-  edited by hand. The importer applies it; the comp rhythms and the strum fills are fixed (always approved).
+  edited by hand. The importer applies it; the six comp rhythms (1-6) and the strum fills are fixed (always approved).
 - **`.manifest.json`:** the SHA-256 of each `.mid` and `.musicxml` as last written, so the importer can tell which
   file of a pattern Sam edited (either may be edited alone).
 - **Names are stable, and export never deletes:** an entry's file name is fixed when it is first exported and kept
@@ -45,15 +45,14 @@ byte.
   Sam edited is never rewritten) and both hashes go in the manifest.
 - **New patterns:** a file whose name is not in `model.json` is a new pattern, as either file alone (the other is
   written for it). It keeps its file name, takes the next free id and is a **candidate** (the workbench only, until
-  approved). The comp rhythms (held, half, stabs,
-  held on 2, light eighths, held on 2 and 4) are fixed: edit them, but a new comp rhythm is a
-  new comping style in the engine (`harmony.c`'s `CS_*`, then `dump.c`, `export.py` and `import.py` learn its name,
-  as held on 2, light eighths and held on 2 and 4 did), never a file dropped in. A strum pattern added takes the next
+  approved). The six comp rhythms (held, half, stabs, held on 2, light eighths, held on 2 and 4) are fixed styles:
+  edit them in place. A file dropped in `comp-rhythms/` is a new **comp rhythm** (id 7 on, one bar of strikes, played
+  as `CS_PAT`), a candidate like any other. A strum pattern added takes the next
   id no fill holds (past the fourth it skips 5, the ballad's fill; past the fifteenth 16-19, the step back and drive
   fills: the next is 20). A file dropped in the strum folder is always a new pattern; the fills are edited in place,
   never added. The engine's roll draws approved entries only (`patterns_gen.h`'s `*_STATUS`), so a candidate
-  changes no song until approved: the workbench plays it when picked (the pattern, progression and strum pattern
-  rows). Approve it there (`status.json`), then run `tools/patterns/import.sh`: the
+  changes no song until approved: the workbench plays it when picked (the pattern, progression, strum pattern and comp
+  rhythm rows). Approve it there (`status.json`), then run `tools/patterns/import.sh`: the
   firmware draws it, and the workbench (rebuilt by `import.sh`) rolls it too. The importer notes a new file that sounds the same as an existing entry
   (a renamed or saved-as copy: it would import as a new candidate) and an entry whose files are missing (it stays).
 - **The workbench's saved drum patterns:** the drum screen's "Save as new pattern" writes `workbench/patterns/<name>.json`;
@@ -146,6 +145,25 @@ to the next (or to the bar's end) is held to it; a shorter one is played as writ
 
 These three never thin under a busy lead (Sam): every bar plays the written strikes. Held, half and stabs do thin
 (`harmony.c`), unless the workbench's "Busy lead thins the comping" row is off (`VNL_BUSY=0` for a host render).
+
+**Comp rhythms** (id 7 on, `kind` `"pattern"`, `COMP_PAT` in `patterns_gen.c`, `index` its slot; `harmony.c`'s
+`CS_PAT` plays them): any further rhythm, a file dropped in this folder, one bar of 1-8 strikes over the reference
+Cmaj7, read as held, half and the rest are (a strike as long as the gap to the next is held to it; none rings past
+the bar line). `vel_range` is held's (40-58) and `second_vel_pct` 100 unless the metadata says otherwise. They play
+where held on 2 does (the percussive keys: `harmony_comp_ok`), every bar, never thinned; the bass steps aside from
+their rhythm (as from the stabs), and over a kick of the very same rhythm they hold instead (as half notes do). A
+candidate is in the host's and the workbench's table only (the firmware's `COMP_NPAT` counts the approved): the
+workbench's **Comp rhythm** row forces one (`VNL_COMP_PAT=<id>` for a host render), and its Approve writes
+`status.json`. Once one is approved the roll draws `CS_PAT` on those keys at weight 20 (`harmony.c`'s
+`COMP_PAT_WEIGHT`, a first guess: about 1 song in 5 of them), the approved rhythms equally.
+
+- **7 charleston:** beat 1, then the "and" of 2 held to the bar's end (steps 0 and 6), the second at 90%.
+- **8 tresillo:** 3+3+2, steps 0, 6 and 12, each held to the next, the later two at 90%.
+- **9 late-one:** one strike on the "and" of 1 (step 2), held to the bar's end: held, laid back an 8th.
+
+Not added (2026-11-05): dotted quarters (one bar of them is the tresillo's 0, 6, 12), a two-feel push (beats 1 and 3
+with 3 anticipated is the charleston's 0, 6), and a push into the next bar on the "and" of 4 (it needs the next
+bar's chord and a note held over the bar line and the 4-bar note-off line: an engine change, not a pattern).
 
 ## strum
 

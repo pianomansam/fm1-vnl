@@ -3,7 +3,8 @@
    and against tools/patterns/variant.py's (one entry added to every drawn family: a candidate, or approved) by
    tests/candidates.sh:
      candidates_test never   no candidate is drawn by the roll, the dice or the strum over 1000 seeds; every candidate can be forced (roll_set, the overrides) and it plays
-     candidates_test drawn   the last entry of every drawn table (variant.py's, approved) is drawn at least once
+     candidates_test drawn   the last entry of every drawn table (variant.py's, approved) is drawn at least once (a
+                             comp rhythm: by the keys that play one)
    Both print "songs <hash>": every event of 100 chained songs, which candidates.sh compares across the builds. */
 #include <stdio.h>
 #include <stdint.h>
@@ -25,7 +26,7 @@ static int fails;
         }                                                                                                          \
     } while (0)
 
-static const song_ov_t NONE = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0};
+static const song_ov_t NONE = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0, 0};
 
 static int prog_index(int id)
 {
@@ -79,7 +80,7 @@ static uint32_t songs_hash(void)
 }
 
 /* what the roll and the parts draw over 1000 chained seeds, counted per table entry */
-typedef struct { int prog[256], pattern[256], strum[64]; } drawn_t;
+typedef struct { int prog[256], pattern[256], strum[64], comp[64]; } drawn_t;
 
 static void draw_all(drawn_t *d)
 {
@@ -104,6 +105,7 @@ static void draw_all(drawn_t *d)
             d->prog[prog_index(t.v[RF_PROG])]++;
         }
         d->strum[strum_pattern(&r, &slow)]++;
+        if (harmony_style(&r) == CS_PAT && harmony_comp_pat(&r) >= 0) d->comp[harmony_comp_pat(&r)]++;
     }
 }
 
@@ -118,7 +120,11 @@ static void test_never(void)
     for (i = 0; i < LIB_NPROGS; i++) n += LIB_PROGS_STATUS[i] != 1;
     for (i = 0; i < LIB_NPATTERNS; i++) n += LIB_PATTERNS_STATUS[i] != 1;
     for (i = 0; i < STRUM_NPAT; i++) n += STRUM_PAT_STATUS[i] != 1;
-    printf("never: %d candidate(s), none drawn over 1000 seeds (the roll, the dice, the strum)\n", n);
+#if COMP_NPAT
+    for (i = 0; i < COMP_NPAT; i++) CHECK(COMP_PAT_APPROVED(i) || !d.comp[i], "candidate comp rhythm %d drawn", i);
+    for (i = 0; i < COMP_NPAT; i++) n += !COMP_PAT_APPROVED(i);
+#endif
+    printf("never: %d candidate(s), none drawn over 1000 seeds (the roll, the dice, the strum, the comping)\n", n);
 }
 
 /* a seed whose song strums (style) */
@@ -176,6 +182,28 @@ static void test_forced(void)
         song_override(NULL);
         forced++;
     }
+#if COMP_NPAT
+    {   /* a comp rhythm: forced (the comp_pat override) on keys that play it */
+        uint32_t seed;
+        for (seed = 1; seed < 400; seed++) {
+            const lib_set_t *s;
+            roll_song(NULL, seed, &r);
+            s = lib_set_by_id((uint8_t)r.v[RF_SET]);
+            if (s && harmony_comp_ok(s->chords, CS_PAT) && harmony_style(&r) != CS_PAT) break;
+        }
+        base = song_hash(&r, 1u << V_CHORD);
+        for (i = 0; i < COMP_NPAT; i++) {
+            if (COMP_PAT_APPROVED(i)) continue;
+            o = NONE;
+            o.comp_pat = (int8_t)(i + 1);
+            song_override(&o);
+            CHECK(harmony_style(&r) == CS_PAT && harmony_comp_pat(&r) == i, "comp rhythm %d forced", i);
+            CHECK(song_hash(&r, 1u << V_CHORD) != base, "comp rhythm %d plays", i);
+            song_override(NULL);
+            forced++;
+        }
+    }
+#endif
     printf("forced: %d candidate(s) picked and heard\n", forced);
 }
 
@@ -187,8 +215,12 @@ static void test_drawn(void)
     CHECK(LIB_PROGS_STATUS[LIB_NPROGS - 1] == 1 && d.prog[LIB_NPROGS - 1] > 0, "the last prog drawn %d times", d.prog[LIB_NPROGS - 1]);
     CHECK(LIB_PATTERNS_STATUS[LIB_NPATTERNS - 1] == 1 && d.pattern[LIB_NPATTERNS - 1] > 0, "the last pattern drawn %d times", d.pattern[LIB_NPATTERNS - 1]);
     CHECK(d.strum[STRUM_NPAT - 1] > 0, "the last strum pattern drawn %d times", d.strum[STRUM_NPAT - 1]);
-    printf("drawn: prog %d, pattern %d, strum %d (of 1000 seeds)\n", d.prog[LIB_NPROGS - 1],
-           d.pattern[LIB_NPATTERNS - 1], d.strum[STRUM_NPAT - 1]);
+#if COMP_NPAT
+    CHECK(COMP_PAT_APPROVED(COMP_NPAT - 1) && d.comp[COMP_NPAT - 1] > 0, "the last comp rhythm drawn %d times",
+          d.comp[COMP_NPAT - 1]);
+#endif
+    printf("drawn: prog %d, pattern %d, strum %d, comp rhythm %d (of 1000 seeds)\n", d.prog[LIB_NPROGS - 1],
+           d.pattern[LIB_NPATTERNS - 1], d.strum[STRUM_NPAT - 1], COMP_NPAT ? d.comp[COMP_NPAT - 1] : 0);
 }
 
 int main(int argc, char **argv)

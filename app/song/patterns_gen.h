@@ -38,6 +38,26 @@ typedef struct {
 } patterns_stabs_t;
 extern const patterns_comp_t COMP_HELD, COMP_HALF, COMP_HELD2, COMP_LIGHT8, COMP_HELD24;
 extern const patterns_stabs_t COMP_STABS;
+/* the comp rhythms past those six (patterns/comp-rhythms' added files; harmony.c's CS_PAT), one bar of
+   strikes each. The host's and the workbench's builds hold every entry (a candidate plays when the comp_pat
+   override forces it); the firmware only the approved, the ones the roll draws: a candidate costs it
+   nothing */
+#if defined PLAT_HOST || defined __EMSCRIPTEN__ || defined __APPLE__ || defined __linux__
+#define COMP_PAT_ALL 1
+#define COMP_NPAT 3
+#else
+#define COMP_PAT_ALL 0
+#define COMP_NPAT 0
+#endif
+#if COMP_NPAT
+extern const patterns_comp_t COMP_PAT[COMP_NPAT];
+#endif
+#if COMP_PAT_ALL && COMP_NPAT
+extern const uint8_t COMP_PAT_STATUS[COMP_NPAT];
+#define COMP_PAT_APPROVED(i) (COMP_PAT_STATUS[i] == 1)
+#else
+#define COMP_PAT_APPROVED(i) 1                 /* (the firmware's are all approved) */
+#endif
 
 /* strum.c's patterns (16 steps; 32 for a two-bar one) and the ballad's fill-bar variant */
 #define STRUM_NPAT 14

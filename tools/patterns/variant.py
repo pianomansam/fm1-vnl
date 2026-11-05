@@ -2,10 +2,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Test only (tests/candidates.sh): the generated tables (patterns_gen.c and .h) from patterns/model.json with one
    entry added to every family the engine draws (a drum pattern, two progressions (one for a mood and mode no
-   approved progression suits), a strum pattern; a kick phrase too, the workbench's), each unlike every entry before
-   it, as candidates
-   or approved. files: the same entries as new .mid files in a copy of patterns/, for import.py to import (the
-   workbench's smoke over tables with candidates: workbench/tools/candidates_smoke.sh).
+   approved progression suits), a strum pattern, a comp rhythm; a kick phrase too, the workbench's), each unlike every
+   entry before it, as candidates or approved. files: the same entries as new .mid files in a copy of patterns/, for
+   import.py to import (the workbench's smoke over tables with candidates: workbench/tools/candidates_smoke.sh).
 
    python3 -I tools/patterns/variant.py candidate|approved OUTDIR
    python3 -I tools/patterns/variant.py files PATTERNS_COPY"""
@@ -41,6 +40,10 @@ def variant(model, status):
     n = sum(1 for e in m["strum"].values() if e["kind"] == "pattern")
     m["strum"][str(export.strum_id(n))] = {"index": n, "status": status, "kind": "pattern",
                                            "steps": "D.D.D.D.D.D.D.D.", "file": "strum/variant-strum"}
+    n = sum(1 for e in m["comp-rhythms"].values() if e.get("kind") == "pattern")
+    m["comp-rhythms"][str(export.comp_pat_id(n))] = {
+        "status": status, "style": "CS_PAT", "kind": "pattern", "index": n, "vel_range": [40, 58],
+        "strikes": [{"step": 0, "len": 4}, {"step": 4, "len": 12}], "file": "comp-rhythms/variant-comp"}   # 1 and 2
     n = max(int(k[1:]) for k in m["kick-phrases"]) + 1
     m["kick-phrases"][f"k{n}"] = {"id": f"k{n}", "a": [0, 3, 8], "b": [0, 3, 8], "status": status,
                                   "file": f"kick-phrases/k{n}-variant"}

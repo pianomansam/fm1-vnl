@@ -571,8 +571,8 @@ static float keys_gain(const song_roll_t *r)
                                      (2026-11-04): the guitar sets' lead over keys and pad level, the least in
                                      0.25 dB steps that holds them */
         db = strum_pattern(r, NULL) == SP_BALLAD ? -1.0f : -2.5f;
-    else if (style == CS_HELD2 || style == CS_HELD24)   /* as held, a bar's chord at most (a first guess: Sam sets
-                                                           the level by ear) */
+    else if (style == CS_HELD2 || style == CS_HELD24 || style == CS_PAT)   /* as held, a bar's chord at most (a
+                                                           first guess: Sam sets the level by ear; a comp rhythm too) */
         db = 6.0f + cut;
     else if (style == CS_LIGHT8)  /* struck softer than half notes (vel 30-38) but eight times a bar: as half notes */
         db = 3.0f + cut;

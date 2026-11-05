@@ -2394,6 +2394,71 @@
         }
       ],
       "file": "comp-rhythms/6-held-on-2-and-4"
+    },
+    "7": {
+      "status": "candidate",
+      "style": "CS_PAT",
+      "kind": "pattern",
+      "index": 0,
+      "vel_range": [
+        40,
+        58
+      ],
+      "second_vel_pct": 90,
+      "strikes": [
+        {
+          "step": 0,
+          "len": 6
+        },
+        {
+          "step": 6,
+          "len": 10
+        }
+      ],
+      "file": "comp-rhythms/7-charleston"
+    },
+    "8": {
+      "status": "candidate",
+      "style": "CS_PAT",
+      "kind": "pattern",
+      "index": 1,
+      "vel_range": [
+        40,
+        58
+      ],
+      "second_vel_pct": 90,
+      "strikes": [
+        {
+          "step": 0,
+          "len": 6
+        },
+        {
+          "step": 6,
+          "len": 6
+        },
+        {
+          "step": 12,
+          "len": 4
+        }
+      ],
+      "file": "comp-rhythms/8-tresillo"
+    },
+    "9": {
+      "status": "candidate",
+      "style": "CS_PAT",
+      "kind": "pattern",
+      "index": 2,
+      "vel_range": [
+        40,
+        58
+      ],
+      "strikes": [
+        {
+          "step": 2,
+          "len": 14
+        }
+      ],
+      "file": "comp-rhythms/9-late-one"
     }
   },
   "strum": {

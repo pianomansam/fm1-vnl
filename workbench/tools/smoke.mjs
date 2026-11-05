@@ -2258,7 +2258,7 @@ console.log("candidates: the strum row, Approve (patterns and edits, Task 4)");
   const ex = await load(), call = caller(ex), lib = await call("wb_library");
   check(lib.progs.length === GEN_STATUS.LIB_PROGS.length && lib.progs.every((p, i) => p.status === GEN_STATUS.LIB_PROGS[i]),
         `wb_library's progressions carry their status (patterns_gen.c's: ${lib.progs.filter((p) => p.status !== "approved").length} not approved)`);
-  const rows = [["strumPat", "STRUM_PAT", "strumPats", "STRUM_PAT"]];
+  const rows = [["strumPat", "STRUM_PAT", "strumPats", "STRUM_PAT"], ["compPat", "COMP_PAT", "compPats", "COMP_PAT"]];
   ex.wb_seed(21);
   ex.wb_apply();
   const desk = new Desk(call, C, OPTS, lib, { rnd: lcg(4) });
@@ -2382,7 +2382,8 @@ console.log("comping: held on 2, held on 2 and 4, light eighths (the workbench's
   let picked = 0;
   for (let i = 1; i <= 200; i++)
     picked += cand.includes(pickFor(row("comp"), { values: { keys: perc[i % 3], comp: -1 }, locks: new Set() }, OPTS, lcg(i)));
-  check(JSON.stringify(cand) === "[6,7,8]" && picked === 0, `... as candidates, never the dice's pick (${picked} of 200)`);
+  check(JSON.stringify(cand) === "[6,7,8,9]" && picked === 0,
+        `... as candidates (and the comp rhythm style), never the dice's pick (${picked} of 200)`);
 
   const { readEvents } = await import("../wb.js");
   const ex = await load(), call = caller(ex), lib = await call("wb_library");
@@ -2432,6 +2433,38 @@ console.log("comping: held on 2, held on 2 and 4, light eighths (the workbench's
   ex.wb_ov_set(OV.COMP, 8);
   check(ex.wb_comp_applied() === 0, "forced on the organ by the override alone, the engine holds instead");
   ex.wb_ov_set(OV.COMP, -1);
+}
+
+console.log("comp rhythms: the Comp rhythm row forces one (patterns/comp-rhythms 7 on; candidates until approved)");
+{
+  const { readEvents } = await import("../wb.js");
+  const { inactive } = await import("../rows.js");
+  const ex = await load(), call = caller(ex), lib = await call("wb_library");
+  const keysEv = async () => {   // the committed song's keys notes, from a probe instance
+    const pex = await load();
+    new Uint8Array(pex.memory.buffer, pex.wb_commit_ptr(), pex.wb_stage_size())
+      .set(new Uint8Array(ex.memory.buffer, ex.wb_commit_ptr(), ex.wb_stage_size()));
+    pex.wb_events(0);
+    return JSON.stringify(readEvents(pex).filter((e) => e.role === V.CHORD).map((e) => [e.bar, e.step, e.note]));
+  };
+  const d = new Desk(call, C, OPTS, lib, { rnd: lcg(8) });
+  await d.set("seed", 21);
+  await d.set("keys", ins("Rhodes"));
+  const os = optionsFor(row("compPat"), d.state, OPTS), n = OPTS.compPats.length, heard = new Set();
+  check(os[0].value === -1 && /None/.test(os[0].name) && d.values.compPat === -1 && ex.wb_ov_get(OV.COMP_PAT) === -1 &&
+        !inactive(row("compPat"), d.state, OPTS), "a Comp rhythm row: none by default, heard on the Rhodes");
+  let played = 0;
+  for (const p of OPTS.compPats) {
+    const r = await d.set("compPat", p.index), es = await keysEv();
+    played += r.ok && ex.wb_comp_applied() === 9 && ex.wb_ov_get(OV.COMP_PAT) === p.index && es !== "[]";
+    heard.add(es);
+  }
+  check(n > 0 && played === n && heard.size === n, `each of the ${n} comp rhythms picked plays (CS_PAT), each its own`);
+  await d.set("keys", ins("Nylon guitar"));
+  check(ex.wb_comp_applied() === 5 && inactive(row("compPat"), d.state, OPTS),
+        "on the nylon the row is inactive: it strums");
+  await d.set("compPat", -1);
+  check(ex.wb_ov_get(OV.COMP_PAT) === -1, "none puts the override back");
 }
 
 console.log("the busy-lead thinning row (on by default; off, the existing comping keeps its rhythm)");

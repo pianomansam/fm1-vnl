@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="4.0">
+  <work><work-title>Comp rhythm 9: late one over Cmaj7</work-title></work>
+  <identification>
+    <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"comp-rhythms","id":"9","status":"candidate","style":"CS_PAT","kind":"pattern","index":2,"vel_range":[40,58],"strikes":[{"step":2,"len":14}]}</miscellaneous-field></miscellaneous>
+  </identification>
+  <part-list>
+    <score-part id="P1">
+      <part-name>Keys</part-name>
+      <score-instrument id="P1-I1"><instrument-name>Keys</instrument-name></score-instrument>
+      <midi-instrument id="P1-I1"><midi-channel>1</midi-channel><midi-program>5</midi-program></midi-instrument>
+    </score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes><divisions>4</divisions><key><fifths>0</fifths></key><time><beats>4</beats><beat-type>4</beat-type></time><clef><sign>G</sign><line>2</line></clef></attributes>
+      <direction placement="above"><direction-type><metronome><beat-unit>quarter</beat-unit><per-minute>85</per-minute></metronome></direction-type><sound tempo="85"/></direction>
+      <note><rest/><duration>2</duration><voice>1</voice><type>eighth</type></note>
+      <note dynamics="54.44"><pitch><step>C</step><octave>4</octave></pitch><duration>12</duration><tie type="start"/><voice>1</voice><type>half</type><dot/><notations><tied type="start"/></notations></note>
+      <note dynamics="54.44"><chord/><pitch><step>E</step><octave>4</octave></pitch><duration>12</duration><tie type="start"/><voice>1</voice><type>half</type><dot/><notations><tied type="start"/></notations></note>
+      <note dynamics="54.44"><chord/><pitch><step>G</step><octave>4</octave></pitch><duration>12</duration><tie type="start"/><voice>1</voice><type>half</type><dot/><notations><tied type="start"/></notations></note>
+      <note dynamics="54.44"><chord/><pitch><step>B</step><octave>4</octave></pitch><duration>12</duration><tie type="start"/><voice>1</voice><type>half</type><dot/><notations><tied type="start"/></notations></note>
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>2</duration><tie type="stop"/><voice>1</voice><type>eighth</type><notations><tied type="stop"/></notations></note>
+      <note><chord/><pitch><step>E</step><octave>4</octave></pitch><duration>2</duration><tie type="stop"/><voice>1</voice><type>eighth</type><notations><tied type="stop"/></notations></note>
+      <note><chord/><pitch><step>G</step><octave>4</octave></pitch><duration>2</duration><tie type="stop"/><voice>1</voice><type>eighth</type><notations><tied type="stop"/></notations></note>
+      <note><chord/><pitch><step>B</step><octave>4</octave></pitch><duration>2</duration><tie type="stop"/><voice>1</voice><type>eighth</type><notations><tied type="stop"/></notations></note>
+    </measure>
+  </part>
+</score-partwise>

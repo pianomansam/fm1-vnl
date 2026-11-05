@@ -89,6 +89,17 @@ int main(void)
     for (i = 0, j = 0; i < 16; i++)
         if (s->busy_steps >> i & 1u) x[j++] = i;
     ints("busy_steps", x, j, "}},\n");
+    printf("\"comp_pat\": [");                 /* (the host's build: every entry, candidates too) */
+#if COMP_NPAT
+    for (i = 0; i < COMP_NPAT; i++) {
+        const patterns_comp_t *c = &COMP_PAT[i];
+        printf("%s{\"vel\": [%d, %d], ", i ? ", " : "", c->vel_lo, c->vel_hi);
+        bytes("steps", c->step, c->n, ", ");
+        bytes("lens", c->len, c->n, ", ");
+        printf("\"later_vel_pct\": %d, \"status\": %d}", c->later_vel_pct, COMP_PAT_STATUS[i]);
+    }
+#endif
+    printf("],\n");
     printf("\"strum\": [");
     for (i = 0; i < STRUM_NPAT; i++) {
         printf(i ? ", " : "");

@@ -14,7 +14,10 @@
    the voicing struck soft and short on every 8th; held on 2 and 4, held on 2 with a soft re-strike on beat 4 every
    bar. Percussive keys only (harmony_comp_ok), a busy lead leaves them be; the workbench's for now: weight 0 in the
    roll until Sam sets it) */
-enum { CS_HELD, CS_STABS, CS_OFFBEATS, CS_ARP, CS_HALF, CS_STRUM, CS_HELD2, CS_LIGHT8, CS_HELD24, CS_N };
+/* (CS_PAT, appended: a comp rhythm from patterns/comp-rhythms past the fixed six (patterns_gen.h's COMP_PAT): where
+   held on 2 plays. The roll draws it only once one is approved; a candidate plays when the comp_pat override forces
+   it (the workbench's "Comp rhythm" row) */
+enum { CS_HELD, CS_STABS, CS_OFFBEATS, CS_ARP, CS_HALF, CS_STRUM, CS_HELD2, CS_LIGHT8, CS_HELD24, CS_PAT, CS_N };
 /* 0 where the chords instrument ins can't play comping style cs (held on 2, held on 2 and 4 and light eighths: the
    percussive keys only, Rhodes, felt piano and the Knight; the guitars only strum); a
    forced style it can't play holds instead (the guitars strum) */
@@ -37,9 +40,13 @@ uint32_t harmony_mix(uint32_t a, uint32_t b, uint32_t c, uint32_t d);
 int harmony_style(const song_roll_t *r);
 int harmony_style_ins(int ins, uint32_t seed);   /* the same for a chords instrument */
 unsigned harmony_stab_steps(const song_roll_t *r);   /* the steps stab comping strikes: 1 and a step the kick leaves free */
+/* the COMP_PAT index a CS_PAT song plays: the comp_pat override's, else one of the approved drawn from the seed
+   (stream 202; any entry when none is approved); -1 where the table is empty (the firmware, until one is approved) */
+int harmony_comp_pat(const song_roll_t *r);
 
 int harmony_half_strikes(const song_roll_t *r);   /* 1 when the song really plays half notes (not held by sustained keys or the kick) */
-unsigned harmony_comp_steps(const song_roll_t *r);   /* the steps stabs, half notes, held on 2 (and 4) or light eighths strike (0 if only a note on 1) */
+/* the steps stabs, half notes, held on 2 (and 4), light eighths or a comp rhythm strike (0 if only a note on 1) */
+unsigned harmony_comp_steps(const song_roll_t *r);
 
 /* Chord-part events of one 16th step (bar and step from 0). Writes nothing unless the block has L_KEYS.
    voicing_state: the previous chord's 4 notes (all 0 = none), updated here for voice leading. Chords are rolled:

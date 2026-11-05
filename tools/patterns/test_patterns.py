@@ -52,7 +52,7 @@ def expected(family, e):
     elif family == "strum":
         out = [(i, STROKE[c]) for i, c in enumerate(e["steps"]) if c != "."]
     elif family == "comp-rhythms":
-        if e["name"] == "stabs":
+        if e.get("name") == "stabs":
             for bar, s2 in enumerate(e["second"]):
                 out += [(bar * 16 + s, p) for s in (e["first"], s2) for p in TONE]
         else:
@@ -153,9 +153,15 @@ class T(unittest.TestCase):
                          ("comp-rhythms/6-held-on-2-and-4", [{"step": 4, "len": 8}, {"step": 12, "len": 4}], 70))
         self.assertEqual((l8["file"], [s["step"] for s in l8["strikes"]]),
                          ("comp-rhythms/5-light-eighths", list(range(0, 16, 2))))
+        pats = {k: (e["file"], [(s["step"], s["len"]) for s in e["strikes"]]) for k, e in cr.items()
+                if e.get("kind") == "pattern"}   # the comp rhythms past the six (CS_PAT), 2026-11-05's candidates
+        self.assertEqual({k: pats[k] for k in ("7", "8", "9")},
+                         {"7": ("comp-rhythms/7-charleston", [(0, 6), (6, 10)]),
+                          "8": ("comp-rhythms/8-tresillo", [(0, 6), (6, 6), (12, 4)]),
+                          "9": ("comp-rhythms/9-late-one", [(2, 14)])})
         for e in cr.values():   # no busy-lead rule for the new rhythms; opt_pct is gone
             self.assertNotIn("opt_pct", e)
-            if e["name"] != "stabs":
+            if e.get("name") != "stabs":
                 self.assertNotIn("busy_steps", e)
         self.assertLess(l8["vel_range"][1], self.model["comp-rhythms"]["2"]["vel_range"][0])
         # the lead-arp and melody-cells families went with the hybrid lead and the struck melody (lead styles Task 6)

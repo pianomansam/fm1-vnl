@@ -427,6 +427,16 @@ void app_init(void)
             }
         }
         {
+            const char *cr = getenv("VNL_COMP_PAT");   /* VNL_COMP_PAT=<id>: every song's keys play that comp rhythm
+                                                          (patterns/model.json's comp-rhythms id, 7 the first past the
+                                                          fixed six; a candidate too), where they can */
+            if (cr && atoi(cr) > 6 && atoi(cr) - 6 <= 127) {
+                song_ov_t o = *song_ov();
+                o.comp_pat = (int8_t)(atoi(cr) - 6);
+                song_override(&o);
+            }
+        }
+        {
             const char *bz = getenv("VNL_BUSY");   /* VNL_BUSY=0: a busy lead leaves the comping's rhythm be (the
                                                       workbench's "Busy lead thins the comping" off) */
             if (bz && bz[0] == '0' && !bz[1]) {
