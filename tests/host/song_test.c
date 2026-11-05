@@ -6909,10 +6909,11 @@ static void test_pad_level(void)
         printf("pad level: %-21s chord part under the keys: mean %.1f median %.1f (%.1f..%.1f) dB\n", t->name,
                (double)mean, (double)smed, (double)lo, (double)hi);
         /* (City pop Rhodes, set 6: 11.1 and 11.0 since the style roll moved its songs' keys windows, lead styles Task
-           7: held to 11.5) */
+           7: held to 11.5; Vibes and Knight, set 35: median 6.9 since the modes became major or minor and the comp
+           rhythms became data (Sam 2026-11-05: its six songs roll other progressions and rhythms): held to 6.8) */
         CHECK(mean >= 7.0f && mean <= (t->id == 6 ? 11.5f : 11.0f), "pad level: %s's mean %.1f dB under, wanted 7-11",
               t->name, (double)mean);
-        CHECK(smed >= 7.0f && smed <= (t->id == 6 ? 11.5f : 11.0f), "pad level: %s's median %.1f dB under, wanted 7-11",
+        CHECK(smed >= (t->id == 35 ? 6.8f : 7.0f) && smed <= (t->id == 6 ? 11.5f : 11.0f), "pad level: %s's median %.1f dB under, wanted 7-11",
               t->name, (double)smed);
     }
     song_override(NULL);
@@ -12515,8 +12516,8 @@ static void test_lead_loop_off_identical(void)
             for (k = 0; k < 2; k++) h[k] = ll_hash(h[k], &r, st, k - 1);
     }
     printf("lead loop off: events %08x (lead_loop -1), %08x (0)\n", (unsigned)h[0], (unsigned)h[1]);
-    CHECK(h[0] == 0x359c9281u, "lead loop default: lead_loop -1 hashes %08x, wanted 359c9281", (unsigned)h[0]);
-    CHECK(h[1] == 0xc837561au, "lead loop off: lead_loop 0 hashes %08x, wanted c837561a", (unsigned)h[1]);
+    CHECK(h[0] == 0x7a166b84u, "lead loop default: lead_loop -1 hashes %08x, wanted 7a166b84", (unsigned)h[0]);
+    CHECK(h[1] == 0x91b1bba1u, "lead loop off: lead_loop 0 hashes %08x, wanted 91b1bba1", (unsigned)h[1]);
 }
 
 typedef struct {

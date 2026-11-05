@@ -1345,8 +1345,8 @@ size (the organ's is the largest; the vibraphone's state is 76 B), and voices.o'
 
 ### Modes become major or minor (2026-11-05)
 
-- Flash: image 381,672 to **381,928 B (+256 B)** (`./build.sh` against 66aaf4b, today's base/ with its uncommitted
-  font packing). Most of it is the four progressions split from 5, 31, 33 and 41 (45-48: their rows and notes); the
+- Flash: image 381,736 to **381,976 B (+240 B)** (`./build.sh` against 6a85498, today's base/ with its uncommitted
+  font packing; 381,672 to 381,928 against 66aaf4b before the comp rhythms' rebase). Most of it is the four progressions split from 5, 31, 33 and 41 (45-48: their rows and notes); the
   scale over a chord (`th_scale`) and the lead's color note from the chord about even with the six modes' tables they
   replace, the screen's key names (a minor key spelled apart: C#, F#, G# minor) a few bytes. RAM .data+.bss 59,936 B
   and the pool 124,472 B unchanged.

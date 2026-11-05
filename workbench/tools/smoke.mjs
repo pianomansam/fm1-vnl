@@ -1598,9 +1598,11 @@ console.log("Modes become major or minor (Sam, 2026-11-05): the Scale row, Roman
   const desk = new Desk(call, C, OPTS, lib, { rnd: lcg(9) });
   await desk.read(true);
   const st = { values: { ...desk.values }, locks: new Set() };
-  check(row("mode").label === "Scale" && row("mode").id === "mode" &&
+  const { sectionOf } = await import("../rows.js");
+  check(row("mode").label === "Scale" && row("mode").id === "mode" && sectionOf("mode").name === "Song" &&
+        sectionOf("mode").more.includes("mode") &&
         JSON.stringify(optionsFor(row("mode"), st, OPTS).map((o) => o.name)) === JSON.stringify(["Major", "Minor"]),
-        "the Scale row (the Mode row's id, for the snapshots): major, minor");
+        "the Scale row (the Mode row's id, for the snapshots; in the Song section's more rows): major, minor");
   const p17 = lib.progs.find((p) => p.id === 17), p27 = lib.progs.find((p) => p.id === 27);
   check(p17.mode === 1 && p17.numerals === "i7 IV7" && p27.mode === 0 && p27.numerals === "Imaj7(#11) II7" &&
         optionsFor(row("prog"), st, OPTS, { lib }).some((o) => o.value === 17 && o.name === "#17 i7 IV7 (minor)"),
