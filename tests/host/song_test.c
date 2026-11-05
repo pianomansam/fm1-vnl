@@ -146,14 +146,14 @@ static void test_theory(void)
     c.degree = 1; c.alter = 0; c.quality = Q_DIATONIC;
     n = th_chord_pcs(0, MODE_MAJOR, c, COLOR_9, pcs);
     CHECK(n == 5 && pcs[0] == 2 && pcs[1] == 5 && pcs[2] == 9 && pcs[3] == 0 && pcs[4] == 4, "ii9 pcs");
-    CHECK(!strcmp(th_chord_name(pcs, n, nm), "Dm9"), "name %s, want Dm9", nm);
+    CHECK(!strcmp(th_chord_name(pcs, n, 0, MODE_MAJOR, nm), "Dm9"), "name %s, want Dm9", nm);
     {
         int dm9[6], g13[6], n2;
         memcpy(dm9, pcs, sizeof dm9);
         th_voice(dm9, n, NULL, prev);
         c.degree = 4;
         n2 = th_chord_pcs(0, MODE_MAJOR, c, COLOR_RICH, g13);
-        CHECK(!strcmp(th_chord_name(g13, n2, nm), "G13"), "name %s, want G13", nm);
+        CHECK(!strcmp(th_chord_name(g13, n2, 0, MODE_MAJOR, nm), "G13"), "name %s, want G13", nm);
         th_voice(g13, n2, prev, out);
         for (i = 0; i < 4; i++)
             if (out[i] - prev[i] > move || prev[i] - out[i] > move)
@@ -162,13 +162,13 @@ static void test_theory(void)
     }
     c.degree = 0;
     n = th_chord_pcs(0, MODE_MAJOR, c, COLOR_9, pcs);
-    CHECK(!strcmp(th_chord_name(pcs, n, nm), "Cmaj9"), "name %s, want Cmaj9", nm);
+    CHECK(!strcmp(th_chord_name(pcs, n, 0, MODE_MAJOR, nm), "Cmaj9"), "name %s, want Cmaj9", nm);
     c.degree = 3; c.alter = 0; c.quality = Q_MIN7;
     n = th_chord_pcs(0, MODE_MAJOR, c, COLOR_7, pcs);
-    CHECK(!strcmp(th_chord_name(pcs, n, nm), "Fm7"), "name %s, want Fm7", nm);
+    CHECK(!strcmp(th_chord_name(pcs, n, 0, MODE_MAJOR, nm), "Fm7"), "name %s, want Fm7", nm);
     c.degree = 4; c.quality = Q_DIATONIC;
     n = th_chord_pcs(0, MODE_MAJOR, c, COLOR_7, pcs);
-    CHECK(!strcmp(th_chord_name(pcs, n, nm), "G7"), "name %s, want G7", nm);
+    CHECK(!strcmp(th_chord_name(pcs, n, 0, MODE_MAJOR, nm), "G7"), "name %s, want G7", nm);
     th_guide_tones(pcs, n, &third, &seventh);
     CHECK(third == 11 && seventh == 5, "G7 guide tones %d %d, want 11 5", third, seventh);
 
@@ -227,6 +227,32 @@ static void test_theory(void)
                                 sc[k2].n), "%s: the same over another key", sc[k2].what);
         }
     }
+}
+
+/* The chord name follows the key's spelling (Sam, 2026-11-05: Ab major showed F#maj9): sharps in a sharp key, flats in
+   a flat one, by the relative major; C major and A minor the mixed table. Every key's tonic chord is spelled as the
+   key's name (app.c's KEY_NAME). */
+static void test_chord_spelling(void)
+{
+    static const char *const KEY[MODE_N][12] = {{"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"},
+                                                 {"C", "C#", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B"}};
+    char nm[16];
+    int key, mode;
+    CHECK(!strcmp(th_chord_name((const int[4]){6, 10, 1, 5}, 4, 8, MODE_MAJOR, nm), "Gbmaj7"),
+          "Ab major, a Gb root: %s, want Gbmaj7", nm);
+    CHECK(!strcmp(th_chord_name((const int[4]){1, 5, 8, 0}, 4, 9, MODE_MAJOR, nm), "C#maj7"),
+          "A major, a C# root: %s, want C#maj7", nm);
+    CHECK(!strcmp(th_chord_name((const int[4]){6, 10, 1, 5}, 4, 0, MODE_MAJOR, nm), "F#maj7"),
+          "C major, an F# root: %s, want F#maj7", nm);
+    CHECK(!strcmp(th_chord_name((const int[4]){10, 2, 5, 8}, 4, 4, MODE_MINOR, nm), "A#7"),
+          "C# minor's key (E), an A# root: %s, want A#7", nm);
+    for (mode = 0; mode < MODE_N; mode++)
+        for (key = 0; key < 12; key++) {
+            int m3 = mode == MODE_MINOR ? 3 : 4, len = (int)strlen(KEY[mode][key]);
+            th_chord_name((const int[3]){key, (key + m3) % 12, (key + 7) % 12}, 3, key, mode, nm);
+            CHECK(!strncmp(nm, KEY[mode][key], (size_t)len) && (nm[len] == 0 || nm[len] == 'm'),
+                  "%s %s: its tonic chord spelled %s", KEY[mode][key], mode ? "minor" : "major", nm);
+        }
 }
 
 static void test_library(void)
@@ -298,7 +324,7 @@ static void test_library(void)
             for (j = 0; j < p->n; j++) {
                 int n = th_chord_pcs(0, sp[k].mode, p->c[j], COLOR_7, pcs);
                 if (j) strcat(got, " ");
-                strcat(got, th_chord_name(pcs, n, nm));
+                strcat(got, th_chord_name(pcs, n, 0, sp[k].mode, nm));
             }
             CHECK(strcmp(got, sp[k].want) == 0, "prog %d: got '%s' want '%s'", sp[k].id, got, sp[k].want);
         }
@@ -13295,6 +13321,7 @@ int main(int argc, char **argv)
     RUN(test_dominant_extensions);
     RUN(test_no_substitution);
     RUN(test_theory);
+    RUN(test_chord_spelling);
     RUN(test_library);
     RUN(test_roll);
     RUN(test_synth_sets);

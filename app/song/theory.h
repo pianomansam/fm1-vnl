@@ -60,6 +60,8 @@ int th_is_avoid(int key, int mode, const int *pcs, int n, int note);    /* scale
                                                                            a semitone above a chord tone */
 /* a dominant's (major 3rd and minor 7th over pcs[0]) minor 7th as a pitch class, else -1 */
 int th_dom_b7(const int *pcs, int n);
-const char *th_chord_name(const int *pcs, int n, char *buf);            /* buf >= 9 bytes */
+/* the chord's name, its root spelled as the key (tonic pitch class, MODE_*) is: sharps in a sharp key, flats in a flat
+   one (by its relative major), C major's and A minor's mixed table (Db Eb F# Ab Bb); buf >= 9 bytes */
+const char *th_chord_name(const int *pcs, int n, int key, int mode, char *buf);
 
 #endif

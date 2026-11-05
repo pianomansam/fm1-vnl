@@ -578,7 +578,7 @@ static void line_chord(const snap_t *s, char *t)  /* the chord of the bar playin
     np = harmony_chord_at(&s->roll, s->bar, s->bar / loop + 1, (s->flags & PB_DARK) != 0, pcs);
     t[0] = 0;
     if (np > 0)
-        th_chord_name(pcs, np, t);
+        th_chord_name(pcs, np, s->roll.v[RF_KEY], s->roll.v[RF_MODE], t);
 }
 
 static void line_pending(const snap_t *s, char *t)   /* "TEMPO 78 IN 3 BARS" */

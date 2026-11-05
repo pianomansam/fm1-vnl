@@ -603,7 +603,7 @@ void score_step(const song_t *s, int bar, int st, const song_ev_t *ev, int n, fl
         const lib_prog_t *p = lib_prog_by_id((uint8_t)s->roll.v[RF_PROG]);
         int loop = p && p->n * p->bars_per_chord ? p->n * p->bars_per_chord : 4, pcs[5], np;
         np = harmony_chord_at(&s->roll, bar, bar / loop + 1, b && (b->flags & PB_DARK), pcs);
-        th_chord_name(pcs, np, chord[bar]);
+        th_chord_name(pcs, np, s->roll.v[RF_KEY], s->roll.v[RF_MODE], chord[bar]);
         section[bar] = b ? b->section : 0;
         log_flush();
         snprintf(lline, sizeof lline, "%6.2fs  bar %2d  %-6s  %-8s", (double)now, bar + 1,
