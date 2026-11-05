@@ -1317,11 +1317,12 @@ console.log("drum screen: the grid");
   const { sounds, soundOptions, pickSound, cellOf, cycle, patternFile, kitFile, save, listSaved, getSaved, laneSources } = await import("../drums.js");
   const grid = (ex) => JSON.parse(cstr(ex, ex.wb_state())).drums.grid;
   const KICK = 0, STEP = 6;
-  // seed 72 from bar 1 on the 808 kit (the lanes' meters), played to the middle of bar 5; edit: staged there (its
-  // pattern, the bossa, leaves the kick's step 7 free: seed 77 until the pattern leaned on the motion, 2026-11-05)
+  // seed 74 from bar 1 on the 808 kit (the lanes' meters), played to the middle of bar 5; edit: staged there (its
+  // pattern, boom-bap 2, leaves the kick's step 7 free: seed 77 until the pattern leaned on the motion, then 72 until
+  // pattern 9 was approved, 2026-11-05)
   const run = async (edit) => {
     const ex = await load(), call = caller(ex);
-    ex.wb_seed(72);
+    ex.wb_seed(74);
     ex.wb_kit_preset(DRUMS.PT808);
     ex.wb_apply();
     ex.wb_play(1);
@@ -1346,7 +1347,7 @@ console.log("drum screen: the grid");
     return { ex, desk, bars };
   };
   const ref = await run(false), ed = await run(true);
-  check(ref.bars[5].ms > 1e-6, `seed 72's kick plays in bar 5 (${(10 * Math.log10(ref.bars[5].ms)).toFixed(1)} dB)`);
+  check(ref.bars[5].ms > 1e-6, `seed 74's kick plays in bar 5 (${(10 * Math.log10(ref.bars[5].ms)).toFixed(1)} dB)`);
   check(ed.ex.wb_pat_get(KICK, 1, STEP) === 1 && ed.ex.wb_pat_get(KICK, 0, STEP) === 0 && grid(ed.ex).edited === 1,
         "the edit is in the custom pattern's bar B only (wb_pat_get)");
   check(ed.bars[5].hash === ref.bars[5].hash, "edited in bar 5: bar 5's kick lane is untouched");
