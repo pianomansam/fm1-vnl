@@ -133,7 +133,7 @@
 <script type="module">
   import * as wb from "./wb.js";
   import { ROWS, row, SECTIONS, RHYTHM_ROWS, rhythmRow, folds, summary, optionsFor, inactive, approval } from "./rows.js";
-  import { Desk, PART_ROW, PART_NAME, sectionAt, positionOf, loopAt } from "./desk.js";
+  import { Desk, PART_ROW, PART_NAME, sectionAt, positionOf, loopAt, endsSong } from "./desk.js";
   import { layout, draw } from "./roll.js";
   import { DrumScreen } from "./drums.js";
   const $ = (id) => document.getElementById(id);
@@ -159,6 +159,7 @@
     await wb.call("wb_apply");
     await desk.refresh();
     if (replaced) { desk.moved = new Set(["kit"]); $("msg").textContent = replaced; }
+    await wb.call("wb_advance", $("loop").checked ? 0 : 1);   // the song's end: the next song (show)
     wb.onPosition(show);
     render();
     sync(await wb.flushFeedback());
@@ -385,6 +386,8 @@
   };
   $("all").onclick = () => run(() => desk.rerollAll());
   $("retired").onchange = render;
+  // looping a section never moves on: at the song's end (a loop checked in its silence) the engine plays it again
+  $("loop").onchange = () => { if (desk) wb.call("wb_advance", $("loop").checked ? 0 : 1).catch(() => {}); };
 
   // feedback: the snapshot, where the song was, the change log and the note; queued and sent (wb.js). The snapshot is
   // taken in the queue, so a change in flight is never half in it
@@ -424,7 +427,12 @@
     render();
   }
 
+  let lastGap = 0;   // the engine's silence after a song (wb_gap) the next song was rolled for
   function show(p) {
+    // the song's end, as the device does it: its silence, then the next song, rolled as Re-roll all rolls (the locks
+    // kept); it lands as the silence ends. Looping a section, never.
+    if (playing && desk && endsSong(p.gap, lastGap, $("loop").checked)) run(() => desk.nextSong());
+    if (p.gap) lastGap = p.gap;
     if (p.bar !== pos.bar && desk) wb.call("wb_sections", 1).then((s) => {   // a bar line: a landing may have changed the song heard
       heard = s; mark(); roll().catch(() => {});
       // looping: the section's last bar has begun → back to its start at the next bar line (a click on another section

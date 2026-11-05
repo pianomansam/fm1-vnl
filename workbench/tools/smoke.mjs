@@ -212,7 +212,7 @@ console.log("a new map, and the song's end");
   const bars = ex.wb_bars();
   until(ex, () => ex.wb_bar() === bars, 400 * SR);
   const tail = until(ex, () => ex.wb_bar() === 1, 30 * SR);
-  check(ex.wb_bar() === 1 && tail > 2 * SR, `at its end the song loops after its last bar and a 2 s gap`);
+  check(ex.wb_bar() === 1 && tail > 2 * SR, `at its end (wb_advance 0, as wb_init leaves it) the song plays again after its last bar and a 2-4 s silence`);
 }
 
 console.log("custom set");
@@ -487,7 +487,7 @@ console.log("the piano roll (roll.js: layout on the committed song's events; dra
 
 // ---- the decision rows (rows.js, options.json) and the desk (desk.js) over the engine ----
 const { ROWS, row, optionsFor, pickFor, conflicts, familyOf, fromEngine, COMP_PAT_BASE } = await import("../rows.js");
-const { Desk, fromModes } = await import("../desk.js");
+const { Desk, fromModes, endsSong } = await import("../desk.js");
 const OPTS = JSON.parse(readFileSync(env("WB_OPTIONS", "../options.json"), "utf8"));
 const HDR = readFileSync(new URL("../../app/song/library.h", import.meta.url), "utf8") +
             readFileSync(new URL("../engine/wb_drums.h", import.meta.url), "utf8");
@@ -646,6 +646,69 @@ console.log("rows: retired options, dice, families");
   st3.values.keys = ins("Felt piano");
   const fl = conflicts(row("lead"), ins("Felt piano"), st3, OPTS, lcg(5));
   check(fl.forced.some((f) => f.row === "keys" && f.to !== ins("Felt piano")), "the felt piano on the lead moves the keys off it (never felt over felt)");
+}
+
+// the song's end, as the device does it (the design spec: the map's ending, 2-4 s of true silence, the next song):
+// the page (index.html's show) rolls the next song once per silence (endsSong), as Re-roll all does, unless a
+// section is looping (wb_advance 0: the engine plays the song again)
+console.log("the song's end: a silence, then the next song");
+{
+  const ex = await load(), call = caller(ex);
+  ex.wb_seed(21);
+  ex.wb_apply();
+  ex.wb_advance(1);
+  ex.wb_play(1);
+  render(ex, Q);
+  const desk = new Desk(call, C, OPTS, await call("wb_library"), { rnd: lcg(17), probe: await prober() });
+  await desk.read();
+  const toGap = () => {   // the last bar (a jump), then into the silence
+    const bars = ex.wb_bars();
+    ex.wb_jump(bars - 1);
+    until(ex, () => ex.wb_bar() === bars, 60 * SR);
+    return until(ex, () => ex.wb_gap() > 0, 60 * SR);
+  };
+  const gapOf = (seed) => Math.round((2000 + ((Math.imul(seed, 2654435761) >>> 0) >>> 16) % 2001) * 441 / 10);
+  desk.lock("tempo", true);
+  const tempo = desk.values.tempo, seed0 = ex.wb_live_get(RF.N);
+  toGap();
+  const g = ex.wb_gap();
+  check(g === 1 && endsSong(g, 0, false) && !endsSong(g, g, false) && !endsSong(g, 0, true) && !endsSong(0, 0, false),
+        "at the song's end the engine is in its silence; the page rolls once per silence, never when looping a section");
+  const res = await desk.nextSong();
+  const want = gapOf(seed0), out = render(ex, want - 2 * Q), still = ex.wb_gap();
+  const landed = until(ex, () => ex.wb_gap() === 0, 2 * SR);
+  const quiet = db(out, out.l.length - SR / 2);
+  check(res.ok && desk.values.seed !== seed0 && desk.values.tempo === tempo && still === g && landed <= 3 * Q &&
+        ex.wb_live_get(RF.N) === desk.values.seed && ex.wb_bar() <= 1 && want >= 2 * SR && want <= 4 * SR && quiet < -90,
+        `then ${(want / SR).toFixed(2)} s of silence (2-4 s from the seed, as app.c; its last 0.5 s ${quiet.toFixed(0)} dBFS), ` +
+        `then a new song (seed ${seed0} -> ${desk.values.seed}), the locked tempo kept (${tempo} BPM)`);
+  check(db(render(ex, 4 * SR)) > -45, "and the new song sounds");
+
+  // no next song yet (the page still rolling): the silence holds, then the next song lands when it comes
+  toGap();
+  const seed1 = ex.wb_live_get(RF.N), held = render(ex, gapOf(seed1) + 2 * SR);
+  check(ex.wb_gap() === 2 && db(held, held.l.length - SR) < -90, "with no next song yet, the silence holds past the gap");
+  await desk.nextSong();
+  until(ex, () => ex.wb_gap() === 0, SR);
+  check(ex.wb_gap() === 0 && ex.wb_live_get(RF.N) === desk.values.seed && desk.values.seed !== seed1,
+        `and the next song lands as it comes (seed ${seed1} -> ${desk.values.seed})`);
+
+  // looping a section (index.html: wb_advance 0, endsSong false): the same song again after its silence
+  ex.wb_advance(0);
+  toGap();
+  const seed2 = ex.wb_live_get(RF.N), seedRow = desk.values.seed;
+  until(ex, () => ex.wb_gap() === 0, 5 * SR);
+  check(ex.wb_gap() === 0 && ex.wb_live_get(RF.N) === seed2 && desk.values.seed === seedRow && ex.wb_bar() <= 1,
+        `looping a section: no new song, the same one again from bar 1 (seed ${seed2})`);
+
+  // everything locked (nothing can roll): the same song again, never a silence held for good
+  for (const r of ROWS) desk.lock(r.id, true);
+  ex.wb_advance(1);
+  toGap();
+  const seed3 = ex.wb_live_get(RF.N);
+  await desk.nextSong();
+  until(ex, () => ex.wb_gap() === 0, 5 * SR);
+  check(ex.wb_gap() === 0 && ex.wb_live_get(RF.N) === seed3 && ex.wb_bar() <= 1, "all locked: the same song again after its silence");
 }
 
 console.log("desk: rows over the engine");

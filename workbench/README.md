@@ -14,7 +14,10 @@ AudioWorklet. Local only; not the FM-1, so it may exceed the device's budgets.
   commit is heard, at the next bar line by catch-up: the song
   restarts silently with the staged state, ticks to that bar, and sound resumes, so every state is as if the song had
   always had those decisions. A seed or a new arrangement map restarts from bar 1; a change in the last bar does too.
-  The song loops after a 2 s gap at its end.
+  At its end, as on the device (the design spec): 2-4 s of true silence (`app.c`'s, from the seed), then the next song,
+  which the page rolls in the silence as "Re-roll all unlocked" does (the locks kept; `Desk.nextSong`) and which lands
+  as the silence ends (`wb_advance`: the silence holds until it comes). With "Loop section" checked the page rolls
+  nothing and the song never moves on.
 - `wb_consts()` exports the engine's indices (RF_*, WB_OV_*, the roles, LIB_SET_WB) as JSON, so the page never keeps
   its own copy.
 - `wb-worklet.js` runs wb.wasm (base/web/emu/worklet.js's pattern, without the device); `wb.js` is the page's side;

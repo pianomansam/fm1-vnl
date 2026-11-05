@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The workbench's engine glue (wb.h). The render runs the song as the app does (app.c's step: the plan's filter
    moves, the last block's fade, the step's events to the voices at its start sample), without the app's mailbox,
-   requests or gaps between songs: one song, looped after a 2 s gap at its end. Exports for the worklet follow
+   requests: one song, then at its end 2-4 s of silence (app.c's) and the page's next song (wb_advance), or the same
+   one again. Exports for the worklet follow
    base/web/emu/emu_web.c's pattern. */
 #include <stdarg.h>
 #include <stdio.h>
@@ -20,7 +21,7 @@
 
 #define EXPORT __attribute__((used, visibility("default")))
 #define SR 44100u
-#define GAP (2u * SR)                   /* the silence between the song's end and its loop */
+#define HOLD (SR / 100u)                /* the silence held, a step at a time, while the page rolls the next song */
 
 static song_t song;
 /* Everything the page decides: the roll, the overrides, the custom set (LIB_SET_WB) and pattern (LIB_PATTERN_WB) */
@@ -38,7 +39,8 @@ typedef struct {
    half-done); live: playing (the hooks point into it); mark: wb_stage_mark's copy */
 static stage_t st, com, live, mark;
 static song_t scratch[2];               /* wb_lead_oct_probe's (a probe instance's, never the one playing) */
-static uint8_t playing, apply_pend, start_pend, in_gap;
+static uint8_t playing, apply_pend, start_pend, in_gap, next_song;
+static uint32_t gaps;                   /* songs ended (wb_gap) */
 static int cur_bar = -1;                /* the bar of the step last ticked (-1: none yet) */
 static int resume_bar;                  /* where play starts */
 static uint32_t next_at;                /* frames to the next step (or to the gap's end) */
@@ -163,20 +165,26 @@ static void tick(void)
     next_at = advance();
 }
 
-/* a step is due: a landing waiting for this bar line, the song's end (the gap, then the loop), or the next 16th */
+/* a step is due: a landing waiting for this bar line, the song's end (the gap, then the next song: wb_advance), or
+   the next 16th */
 static void due(void)
 {
     if (apply_pend && (song.step == 0 || song.state == SS_ENDED)) {
         catchups++;
         land(song.bar, com.roll.seed != live.roll.seed);
     } else if (song.state == SS_ENDED) {
+        uint32_t h = live.roll.seed * 2654435761u;   /* (app.c's gap: 2-4 s from the seed) */
         if (in_gap) {
-            land(0, 1);
+            if (next_song)
+                next_at = HOLD;         /* the page's next song lands when it comes */
+            else
+                land(0, 1);
             return;
         }
         vx_release_all();
         in_gap = 1;
-        next_at = GAP;
+        gaps++;
+        next_at = (2000u + (h >> 16) % 2001u) * 441u / 10u;
         return;
     }
     tick();
@@ -193,7 +201,8 @@ EXPORT void wb_init(void)
     hooks(&live);
     vx_init();
     wb_drums_init();
-    playing = apply_pend = start_pend = in_gap = 0;
+    playing = apply_pend = start_pend = in_gap = next_song = 0;
+    gaps = 0;
     jump = solo = -1;
     mute = 0;
     vx_mute(0);
@@ -254,6 +263,9 @@ EXPORT void wb_play(int on)
         vx_stop();
     }
 }
+
+EXPORT void wb_advance(int on) { next_song = on != 0; }
+EXPORT int wb_gap(void) { return playing && in_gap ? (int)gaps : 0; }
 
 /* A jump to bar (from 0: wb_sections' start) of the committed song: playing, the next landing goes there at the next
    bar line, with any commit waiting for it (one catch-up); stopped, play starts there */

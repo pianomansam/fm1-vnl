@@ -21,6 +21,12 @@ void wb_render(uint32_t n);             /* n (<= 1024) frames into the outputs; 
                                            fade) */
 void wb_seed(uint32_t seed);            /* roll a song (staged): wb_apply lands it from bar 1 */
 void wb_play(int on);                   /* on: from the start of the bar it stopped in; off: out in 40 ms */
+/* The song's end: its last sound released, then 2-4 s of silence (app.c's, from the seed), then the next landing:
+   with wb_advance(1) the page's next song (a commit, or wb_jump), the silence held until one comes; with
+   wb_advance(0) (wb_init's) the same song again */
+void wb_advance(int on);
+int wb_gap(void);                       /* in the silence after a song: its count (from 1, a new one each song's
+                                           end); else 0 */
 
 /* Staged (the page's view): the values the next landing applies */
 int wb_roll_get(int field);

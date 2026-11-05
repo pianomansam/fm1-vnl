@@ -72,7 +72,7 @@ class Workbench extends AudioWorkletProcessor {
     if (out[1]) out[1].set(new Float32Array(ex.memory.buffer, ex.wb_out_r(), n));
     if (currentTime - this.lastPos >= 0.1) {
       this.lastPos = currentTime;
-      this.port.postMessage({ type: "pos", bar: ex.wb_bar(), bars: ex.wb_bars(), seconds: ex.wb_seconds() });
+      this.port.postMessage({ type: "pos", bar: ex.wb_bar(), bars: ex.wb_bars(), seconds: ex.wb_seconds(), gap: ex.wb_gap() });
     }
     return true;
   }

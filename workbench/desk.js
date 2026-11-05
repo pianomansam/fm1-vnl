@@ -43,6 +43,10 @@ export const sectionAt = (secs, bar) => secs?.find((x) => bar > x.start && bar <
 // line, as the section ends), else null
 export const loopAt = (secs, bar) => { const s = sectionAt(secs, bar); return s && bar === s.start + s.bars ? s.start : null; };
 
+// the song's end: a new silence after it (wb_gap's count; last: the one already rolled for) rolls the next song
+// (Desk.nextSong), unless a section is looping (the engine plays the song again: wb_advance 0)
+export const endsSong = (gap, last, looping) => !!gap && gap !== last && !looping;
+
 // where the song heard is: { seconds, bar, section } (the section's name in the song playing, or null). live: the playing
 // song's sections (wb_live_sections), not the committed ones (a change may be waiting)
 export const positionOf = (pos, live) => ({ seconds: pos.seconds, bar: pos.bar, section: sectionAt(live, pos.bar)?.name ?? null });
@@ -473,6 +477,15 @@ export class Desk {
     }
     this.moved = new Set();
     return this.done(true, notes.join(" "));
+  }
+
+  // The song's end (the engine's silence after it, wb_gap; the page calls this once per gap): the next song, as Re-roll
+  // all rolls it, landing as the silence ends (the design spec: the map's ending, 2-4 s of silence, the next song).
+  // Nothing could move (all locked): the same song again from bar 1, so the silence never holds for good.
+  async nextSong() {
+    const res = await this.rerollAll();
+    if (!(await this.call("wb_pending"))) await this.call("wb_jump", 0);
+    return res;
   }
 
   // Everything a replay needs (version 1; later tasks add to it): the rows of the song being HEARD (the engine's live
