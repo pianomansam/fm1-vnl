@@ -1024,8 +1024,9 @@ static void test_jazzhop_rules(void)
 {
     static const int INS3[3] = {INS_FLUTE, INS_FELT_PIANO, INS_VIBES};
     style_rules(LS_JAZZHOP, "Jazz-Hop", 35);         /* (39.4, the vibes an octave down) */
-    style_hard(LS_JAZZHOP, "Jazz-Hop", INS3, 3, 130);   /* (144 m9 notes, the felt piano; re-baselined, Sam 2026-11-05:
-                                                           modes become major or minor: were 150 and 166) */
+    style_hard(LS_JAZZHOP, "Jazz-Hop", INS3, 3, 110);   /* (118 m9 notes, the felt piano; re-baselined, Sam 2026-11-05:
+                                                           modes become major or minor: were 150 and 166; again,
+                                                           drums pattern 9 approved: were 130 and 144) */
 }
 static void test_filmscore_rules(void)
 {

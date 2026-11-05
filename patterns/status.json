@@ -4,11 +4,14 @@
     "8": "approved",
     "9": "approved"
   },
+  "drums": {
+    "9": "approved"
+  },
   "strum": {
-    "10": "candidate",
     "6": "approved",
     "7": "approved",
     "8": "approved",
-    "9": "approved"
+    "9": "approved",
+    "10": "candidate"
   }
 }

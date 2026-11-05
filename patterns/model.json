@@ -339,7 +339,7 @@
     },
     "9": {
       "id": 9,
-      "status": "candidate",
+      "status": "approved",
       "family": "PF_HALFTIME",
       "hit": [
         "0x0081",

@@ -75,7 +75,7 @@ const lib_pattern_t LIB_PATTERNS[] = {
     {9, PF_HALFTIME, {0x0081, 0x0100, 0x1111, 0x4000, 0x0000, 0x0000}, {0x0000, 0x0000, 0x4444, 0x0000, 0x0000, 0x0000}, 1, 0, "Sam, workbench pattern half-time-2-shaker-2 (2026-10-29), from Half-time 2", 1, {0x0449, 0x0100, 0x1111, 0x9000, 0x1000, 0x0000}, {0x0000, 0x0000, 0x4444, 0x4000, 0x0000, 0x0000}},
 };
 const int LIB_NPATTERNS = (int)(sizeof LIB_PATTERNS / sizeof LIB_PATTERNS[0]);
-const uint8_t LIB_PATTERNS_STATUS[] = {1, 1, 1, 1, 1, 1, 1, 1, 0};
+const uint8_t LIB_PATTERNS_STATUS[] = {1, 1, 1, 1, 1, 1, 1, 1, 1};
 
 const patterns_comp_t COMP[COMP_N] = {
     {CS_HELD, 1, 0, 0, CK_ALL, 40, 58, 1, {0, 0, 0, 0, 0, 0, 0, 0}, {16, 0, 0, 0, 0, 0, 0, 0}, 100},
