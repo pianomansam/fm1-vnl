@@ -211,6 +211,10 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
     repeats (one to two beats), mostly 16ths with an occasional 32nd roll on the last beat, repeats at full level
     while the lead's low-pass closes to about 600 Hz by the last one (the entry filter's), snapping open when the
     phrase resumes. Same frequency unless Sam asks for more. A/B against today's stutter.
+  - **The stutter on the comp too (Sam, 2026-11-05: "add this stutter to the comping"; on the short list, not
+    started).** After the bolder lead stutter, the comp gets the same move: a chord (or its top notes) stuck and
+    repeated with the closing filter, at the comp's own turnarounds. To settle: how often, never in the same bar as a
+    lead stutter, and how it works on held comps (pad, organ) vs struck ones.
 
 - **Hybrid lead styles (Sam, 2026-10-29).** One lead style makes the motif, then a different style takes it over and
   develops it: after 1 bar, after 3 bars, or for the second 4 bars of an 8-bar phrase. Needs the styles to share a
