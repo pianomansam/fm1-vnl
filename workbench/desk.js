@@ -47,6 +47,18 @@ export const loopAt = (secs, bar) => { const s = sectionAt(secs, bar); return s 
 // song's sections (wb_live_sections), not the committed ones (a change may be waiting)
 export const positionOf = (pos, live) => ({ seconds: pos.seconds, bar: pos.bar, section: sectionAt(live, pos.bar)?.name ?? null });
 
+// A snapshot from before the modes became major and minor (Sam, 2026-11-05): its mode (Ionian 0, Dorian 1, Phrygian
+// 2, Lydian 3, Mixolydian 4, Aeolian 5) and progression as the major or minor song with the same chords
+// (tools/patterns/major_minor_2026-11-05.json). Ionian and Dorian kept their values as major and minor, and the first
+// mode a progression listed kept its id; the four it was split from take the new ids. Exact: nothing to say.
+const TONALITY = [0, 1, 1, 0, 0, 1];
+const SPLIT = { "4:5": 45, "4:31": 46, "5:33": 47, "5:41": 48 };
+export function fromModes(rows) {
+  const m = rows.mode;
+  if (!(m >= 2 && m <= 5)) return rows;
+  return { ...rows, mode: TONALITY[m], prog: SPLIT[`${m}:${rows.prog}`] ?? rows.prog };
+}
+
 const SEED_TRIES = 20;   // a new seed whose song can't keep the locks is tried again (re-roll all, the seed's dice)
 
 // a die from a seed (the same song lands on the same kit every time)
@@ -94,7 +106,7 @@ export class Desk {
       .then((ok) => xs.filter((x, i) => ok[i]));
     this.legal = {
       prog: await ids(this.lib.progs.map((p) => p.id), this.C.RF.PROG),
-      mode: await ids([0, 1, 2, 3, 4, 5], this.C.RF.MODE),
+      mode: await ids([0, 1], this.C.RF.MODE),   // major, minor
     };
     this.comp = await this.call("wb_comp_applied");
     this.strums = this.comp === CS_STRUM;
@@ -488,6 +500,7 @@ export class Desk {
     // doubling switch, the arpeggio rows: lead styles, 2026-10-31) is ignored
     const older = ROWS.filter((r) => (r.kind === "ov" || r.kind === "reroll") && !(r.id in snap.rows));
     snap = { ...snap, rows: { ...snap.rows, ...Object.fromEntries(older.map((r) => [r.id, rolled(r)])) } };
+    snap = { ...snap, rows: fromModes(snap.rows) };   // an old mode: major or minor, the same chords
     // the Comp rhythm row (to 2026-11-05) is the Comping row's now: a rhythm it forced restores as that rhythm there
     if (snap.rows.compPat >= 0) snap = { ...snap, rows: { ...snap.rows, comp: COMP_PAT_BASE + snap.rows.compPat } };
     // a removed comping style (light eighths: Sam, 2026-11-05) restores as held: said, not a mismatch

@@ -15,7 +15,8 @@
 export const ROWS = [
   { id: "seed", label: "Seed", kind: "seed", regenerates: true },
   { id: "key", label: "Key", kind: "roll", field: "KEY", source: "keys" },
-  { id: "mode", label: "Mode", kind: "roll", field: "MODE", source: "modes" },
+  // major or minor (the six modes to 2026-11-05; the row keeps its id, "mode", for the snapshots)
+  { id: "mode", label: "Scale", kind: "roll", field: "MODE", source: "modes" },
   { id: "tempo", label: "Tempo", kind: "roll", field: "TEMPO", source: "tempo" },
   { id: "swing", label: "Swing", kind: "roll", field: "SWING", source: "swing" },
   { id: "mood", label: "Mood", kind: "roll", field: "MOOD", source: "moods" },
@@ -86,7 +87,8 @@ export function folds(storage = () => globalThis.localStorage) {
 }
 
 const KEYS = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
-const MODES = ["Ionian", "Dorian", "Phrygian", "Lydian", "Mixolydian", "Aeolian"];
+// (an old snapshot's Ionian 0 and Dorian 1 are major and minor: desk.js maps the rest)
+const MODES = ["Major", "Minor"];
 const list = (names, from = 0) => names.map((name, i) => ({ value: i + from, name }));
 const range = (lo, hi, step, fmt = String) => {
   const out = [];
@@ -118,10 +120,10 @@ export function compOption(opts, v) {
   return x ? { ...x, id: v, key: x.id } : opts.comping.find((c) => c.id === v);
 }
 
-// a progression's note without its source ("lofi-hip-hop.md 2, ii9-V13 vamp" -> "ii9-V13 vamp"); an imported one's file
-// ("imported from patterns/progressions/sam-vamp" -> "sam-vamp")
-const progName = (src) => src.startsWith("imported from ") ? src.replace(/^.*\//, "")
-  : src.replace(/^[^:,]*[:,]\s*(\d+,\s*)?/, "").replace(/;.*$/, "");
+// a progression as its Roman numerals in its key, major or minor (wb_library's: "#17 i7 IV7 (minor)"), an imported
+// one's file after them ("imported from patterns/progressions/sam-vamp": "... sam-vamp")
+const progName = (p) => `#${p.id} ${p.numerals} (${MODES[p.mode].toLowerCase()})` +
+  (p.src.startsWith("imported from ") ? ` ${p.src.replace(/^.*\//, "")}` : "");
 
 // Every option a row can take: { value, name, status, family }. Not yet filtered for retired ones or legality.
 function allOptions(r, state, opts, lib) {
@@ -136,7 +138,7 @@ function allOptions(r, state, opts, lib) {
     case "maps": return (lib?.maps || []).map((m) => ({ value: m.id, name: m.name }));
     case "progs":
       return (lib?.progs || []).filter((p) => !state.legal?.prog || state.legal.prog.includes(p.id))
-        .map((p) => ({ value: p.id, name: `#${p.id} ${progName(p.src)}`, status: p.status, key: String(p.id) }));
+        .map((p) => ({ value: p.id, name: progName(p), status: p.status, key: String(p.id) }));
     case "colors": return list(["7ths", "9ths", "Rich (9/11/13)"]);
     case "families": return ["acoustic", "synth"].map((f) => ({ value: f, name: opts.families[f].name }));
     case "instruments":

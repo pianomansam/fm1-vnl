@@ -487,7 +487,7 @@ console.log("the piano roll (roll.js: layout on the committed song's events; dra
 
 // ---- the decision rows (rows.js, options.json) and the desk (desk.js) over the engine ----
 const { ROWS, row, optionsFor, pickFor, conflicts, familyOf, fromEngine, COMP_PAT_BASE } = await import("../rows.js");
-const { Desk } = await import("../desk.js");
+const { Desk, fromModes } = await import("../desk.js");
 const OPTS = JSON.parse(readFileSync(env("WB_OPTIONS", "../options.json"), "utf8"));
 const HDR = readFileSync(new URL("../../app/song/library.h", import.meta.url), "utf8") +
             readFileSync(new URL("../engine/wb_drums.h", import.meta.url), "utf8");
@@ -1590,6 +1590,34 @@ console.log("lead loop row");
         "an old snapshot without the row restores to Default, no message");
 }
 
+console.log("Modes become major or minor (Sam, 2026-11-05): the Scale row, Roman numerals, old snapshots");
+{
+  const ex = await load(), call = caller(ex), lib = await call("wb_library");
+  ex.wb_seed(21);
+  ex.wb_apply();
+  const desk = new Desk(call, C, OPTS, lib, { rnd: lcg(9) });
+  await desk.read(true);
+  const st = { values: { ...desk.values }, locks: new Set() };
+  check(row("mode").label === "Scale" && row("mode").id === "mode" &&
+        JSON.stringify(optionsFor(row("mode"), st, OPTS).map((o) => o.name)) === JSON.stringify(["Major", "Minor"]),
+        "the Scale row (the Mode row's id, for the snapshots): major, minor");
+  const p17 = lib.progs.find((p) => p.id === 17), p27 = lib.progs.find((p) => p.id === 27);
+  check(p17.mode === 1 && p17.numerals === "i7 IV7" && p27.mode === 0 && p27.numerals === "Imaj7(#11) II7" &&
+        optionsFor(row("prog"), st, OPTS, { lib }).some((o) => o.value === 17 && o.name === "#17 i7 IV7 (minor)"),
+        `the progressions by their Roman numerals in their key (${p17.numerals}; ${p27.numerals})`);
+  check(JSON.stringify([fromModes({ mode: 4, prog: 31 }), fromModes({ mode: 5, prog: 41 }), fromModes({ mode: 3, prog: 27 }),
+                        fromModes({ mode: 1, prog: 17 }), fromModes({ mode: 0, prog: 5 })]) ===
+        JSON.stringify([{ mode: 0, prog: 46 }, { mode: 1, prog: 48 }, { mode: 0, prog: 27 }, { mode: 1, prog: 17 },
+                        { mode: 0, prog: 5 }]), "an old mode and progression as major or minor, the splits' new ids");
+  const old = await desk.snapshot();
+  old.rows = { ...old.rows, mood: 0, mode: 4, prog: 31 };   // sad, Mixolydian v7 I7 (Gm7 C7 in C)
+  const e2 = await load(), d2 = new Desk(caller(e2), C, OPTS, await caller(e2)("wb_library"));
+  const miss = await d2.restore(old);
+  check(!miss.length && !d2.message && d2.values.mode === 0 && d2.values.prog === 46 &&
+        e2.wb_roll_get(C.RF.MODE) === 0 && e2.wb_roll_get(C.RF.PROG) === 46,
+        `an old Mixolydian snapshot restores as major on 46, its chords, no message (${miss.join(", ")})`);
+}
+
 console.log("Task 1b: no ear candy; the pad on/off row");
 {
   const ex = await load(), call = caller(ex);
@@ -2340,7 +2368,8 @@ console.log("candidates: the strum row, Approve (patterns and edits, Task 4)");
   const cand = { ...OPTS, strumPats: [...OPTS.strumPats, { id: "s-new", index: SN, name: "sam-strum", status: "candidate" }],
                  patterns: [...OPTS.patterns, { id: PID, name: "sam-groove", status: "candidate" }],
                  kickPhrases: [...OPTS.kickPhrases, { id: KID, a: [0], b: [0], status: "candidate" }] };
-  const clib = { ...lib, progs: [...lib.progs, { id: GID, src: "imported from patterns/progressions/sam-vamp", status: "candidate" }] };
+  const clib = { ...lib, progs: [...lib.progs, { id: GID, mode: 1, numerals: "i7 iv7", src: "imported from patterns/progressions/sam-vamp",
+                                                status: "candidate" }] };
   const st = (values) => ({ values: { ...desk.values, ...values }, locks: new Set() });
   check(optionsFor(row("strumPat"), st({}), cand).at(-1).status === "candidate" &&
         optionsFor(row("prog"), st({}), cand, { lib: clib }).at(-1).status === "candidate", "a candidate is offered, marked");
@@ -2351,7 +2380,7 @@ console.log("candidates: the strum row, Approve (patterns and edits, Task 4)");
   const first = (xs) => xs.find((x) => x.status === "approved");
   check(JSON.stringify([ap("strumPat", SN), ap("pattern", PID), ap("prog", GID), ap("kick", KID)]) === JSON.stringify([
           { family: "strum", id: "s-new", name: "sam-strum" }, { family: "drums", id: String(PID), name: "sam-groove" },
-          { family: "progressions", id: String(GID), name: `#${GID} sam-vamp` }, { family: "kick-phrases", id: KID, name: KID }]) &&
+          { family: "progressions", id: String(GID), name: `#${GID} i7 iv7 (minor) sam-vamp` }, { family: "kick-phrases", id: KID, name: KID }]) &&
         [ap("strumPat", okStrum[0]), ap("strumPat", -1), ap("pattern", first(OPTS.patterns).id), ap("prog", first(lib.progs).id),
          ap("kick", ""), ap("mood", 1)].every((x) => x === null),
         "approval names a candidate (strum, drum pattern, progression, kick phrase), nothing else");
