@@ -646,6 +646,9 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
     (tools/patterns/saved.py, 777c97f). His "half-time-2-shaker-2" is drums pattern 9 (5cacad0).
   - **Hats in breaks:** Sam: "I don't want them to always drop out in quiet sections, but they could sometimes."
     Kick-out breaks drop their hats in about 40% of songs (b3788ef; Sam, 2026-11-05: "sound great").
+- **Modes become major or minor (Sam, 2026-11-05: "easier writing and approving of progressions. plus reasoning about
+  what i'm hearing"):** a song is major or minor; the progressions are respelled as major or minor Roman numerals with
+  the same chords (four split: 45-48), and the lead's and bass's scale follows the sounding chord (patterns/README.md).
 
 ### Bass rhythm (spike VNL_BASS, kept as is by Sam to revisit)
 
