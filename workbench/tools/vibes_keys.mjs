@@ -163,7 +163,8 @@ export async function run(name, outDir) {
     }
   const lo = Math.min(...keysNotes), hi = Math.max(...keysNotes);
   const ins = (id) => desk.opts.instruments.find((i) => i.id === id)?.name;
-  const comp = desk.opts.comping.find((c) => c.id === ex.wb_comp_applied())?.name;
+  const comp = [...desk.opts.compRhythms.map((c) => ({ id: c.value, name: c.name })), ...desk.opts.comping]
+    .find((c) => c.id === ex.wb_comp_applied())?.name;
   return {
     name, set: spec.set, seed: spec.seed, bpm, bars, seconds: n / SR,
     keys: ins(st.keys), lead: ins(st.lead), bass: ins(st.bass), pad: ins(st.pad), comp,

@@ -108,78 +108,97 @@ int harmony_chord_at(const song_roll_t *r, int bar, int pass, int dark, int *pcs
 
 static int is_guitar(int ins) { return ins == INS_NYLON || ins == INS_EMILY; }
 
-#if COMP_NPAT
-/* CS_PAT's weight in the keys' draw (beside held 44 and half notes 36; the Knight's 35, 25, 25) once a comp rhythm is
-   approved, on the keys that play it: a first guess, about 1 song in 5 of those keys, the approved rhythms equally
-   (Sam sets it by ear) */
-#define COMP_PAT_WEIGHT 20
-/* the approved comp rhythms (COMP_PAT): the roll draws CS_PAT only once there is one */
-static int comp_pat_napproved(void)
-{
-    int i, n = 0;
-    for (i = 0; i < COMP_NPAT; i++) n += COMP_PAT_APPROVED(i);
-    return n;
-}
-#endif
+/* the keys ins (an INS_*, INS_NONE at most: under 32) play COMP's row i (its keys, patterns/comp-rhythms) */
+static int row_ok(int ins, int i) { return COMP[i].keys >> ins & 1u; }
 
-/* per song (Sam, after hearing them side by side): the synth keys' weights held 44, arpeggio 20, half notes 36, so as
-   heard held about 55%, half notes 25%, arpeggio 20% (half notes hold over sustained keys and a kick on 1 and 3 alone:
-   half_held); offbeats retired (Sam: the "and" 8ths liked "less and less"), stabs retired on the synth keys ("just
-   not working") and back on the Knight (below). The guitars only strum, under any lead (Sam, 2026-11-04: "since we
-   have a strumming engine drop the comping capabilities for guitars"): no draw. */
-static int style_draw(int ins, uint32_t seed)
+/* The keys' comping rhythm, one per song (seed stream 121): every comping rhythm is a row of one table (COMP,
+   patterns/comp-rhythms: Sam, 2026-11-05, "I think of all comping rhythms the same"), drawn from the approved rows
+   the keys play, each at its weight (1 each: even) tilted by the motion the song was rolled with and the row's
+   busyness (motion_tilt: at 20 a sparse rhythm 3x a busy one, at 80 the reverse). Keys that play held and half notes
+   only (the pad, the organ) keep their old draw, held 44 to half notes 36 (Sam: mostly held), untilted. History:
+   offbeats retired (Sam: the "and" 8ths liked "less and less"), the arpeggio off (2026-10-28: "sounds very
+   synthetic"), stabs on the Knight only, the guitars only strum (2026-11-04: no draw), light eighths removed. */
+static int row_draw(int ins, uint32_t seed, int motion)
 {
-    /* held, stabs, offbeats (retired: 0 everywhere), arpeggio, half notes, strum (the guitars' alone). No arpeggio on
-       any keys for now (Sam, 2026-10-28: set 23's Rhodes arpeggio "sounds very synthetic"; it may come back later).
-       Was SYNTH arpeggio 20, KNIGHT 15. Held on 2 15 and held on 2 and 4 10 (Sam, 2026-11-05: approved; first-guess
-       weights); light eighths removed (Sam, 2026-11-05: its slot stays 0). */
-    static const uint8_t SYNTH[CS_N] = {44, 0, 0, 0, 36, 0, 15, 0, 10, 0},
-                         KNIGHT[CS_N] = {35, 25, 0, 0, 25, 0, 15, 0, 10, 0};
-    uint8_t w[CS_N];
-    int k;
+    uint32_t w[COMP_N], total = 0, pick;
+    int i, other = 0;
     rng_t g;
-    if (is_guitar(ins)) return CS_STRUM;
     rng_seed(&g, seed, 121);
-    memcpy(w, ins == INS_KNIGHT ? KNIGHT : SYNTH, sizeof w);
-    for (k = CS_HELD2; k < CS_N; k++)     /* held on 2 (and 4), a comp rhythm: only on the keys that play them (the
-                                             percussive keys and the vibes), the others' draw as before */
-        if (!harmony_comp_ok(ins, k)) w[k] = 0;
-#if COMP_NPAT
-    if (comp_pat_napproved() && harmony_comp_ok(ins, CS_PAT))   /* an approved comp rhythm: the keys that play it
-                                                                   draw one at COMP_PAT_WEIGHT */
-        w[CS_PAT] = COMP_PAT_WEIGHT;
-#endif
-    return rng_weighted(&g, w, CS_N);
+    for (i = 0; i < COMP_N; i++) {
+        w[i] = COMP_APPROVED(i) && row_ok(ins, i) ? motion_tilt(COMP[i].weight, COMP[i].busy, motion) : 0u;
+        other |= w[i] && i != COMP_I_HELD && i != COMP_I_HALF;
+        total += w[i];
+    }
+    if (!other && w[COMP_I_HELD] && w[COMP_I_HALF])   /* held and half notes alone: the old 44/36 */
+        return rng_next(&g) % 80u < 44u ? COMP_I_HELD : COMP_I_HALF;
+    if (!total) return COMP_I_HELD;
+    pick = rng_next(&g) % total;
+    for (i = 0; i < COMP_N; i++) {
+        if (pick < w[i]) return i;
+        pick -= w[i];
+    }
+    return COMP_I_HELD;
 }
 
-int harmony_style_ins(int ins, uint32_t seed) { return style_draw(ins, seed); }
+int harmony_style_ins(int ins, uint32_t seed, int motion)
+{
+    return is_guitar(ins) ? CS_STRUM : COMP[row_draw(ins, seed, motion)].style;
+}
 
 int harmony_comp_ok(int ins, int cs)
 {
-    if (cs == CS_LIGHT8_GONE) return 0;                 /* light eighths, removed (2026-11-05): held instead */
+    int i, ok = -1;
     if (is_guitar(ins)) return cs == CS_STRUM;          /* the guitars only strum */
-    if (ins == INS_VIBES)                               /* the vibes on the keys ring: held, half notes, held on 2
-                                                           (and 4), a comp rhythm (Sam, 2026-11-05: "enable vibes on
-                                                           the new comp rhythm"); no stabs or strum */
-        return cs == CS_HELD || cs == CS_HALF || cs == CS_HELD2 || cs == CS_HELD24 || (COMP_NPAT && cs == CS_PAT);
-    if (cs == CS_PAT) return COMP_NPAT && harmony_comp_ok(ins, CS_HELD2);   /* a comp rhythm: where held on 2 plays */
-    if (cs != CS_HELD2 && cs != CS_HELD24) return 1;
-    return ins == INS_RHODES || ins == INS_FELT_PIANO || ins == INS_KNIGHT;
+    for (i = 0; i < COMP_N; i++)                        /* a rhythm: the keys its row names (CS_PAT: any added one's) */
+        if (COMP[i].style == cs) ok = ok > 0 || row_ok(ins, i);
+    if (ok >= 0) return ok;
+    /* light eighths, removed (2026-11-05): none (held instead); CS_PAT with no added rhythm none; strum, offbeats and
+       the arpeggio (forced only) any keys but the vibes */
+    return cs != CS_LIGHT8_GONE && cs != CS_PAT && ins != INS_VIBES;
 }
 
-int harmony_style(const song_roll_t *r)
+/* an old snapshot's comping 9, "a drawn comp rhythm": one of the approved added rows (stream 202; any one where none
+   is), whatever the keys */
+static int pat_draw(const song_roll_t *r)
+{
+    int i, n = 0;
+    uint32_t k;
+    rng_t g;
+    for (i = 0; i < COMP_NPAT; i++) n += COMP_PAT_APPROVED(i);
+    rng_seed(&g, r->seed, 202);
+    k = rng_next(&g) % (uint32_t)(n ? n : COMP_NPAT);
+    for (i = 0; i < COMP_NPAT; i++)
+        if ((!n || COMP_PAT_APPROVED(i)) && k-- == 0) return COMP_NFIXED + i;
+    return COMP_I_HELD;
+}
+
+int harmony_comp_row(const song_roll_t *r)
 {
     const lib_set_t *s = lib_set_by_id((uint8_t)r->v[RF_SET]);
-    int ins = s ? s->chords : INS_NONE;
-#if COMP_NPAT
-    if (song_ov()->comp_pat > 0 && harmony_comp_ok(ins, CS_PAT))   /* the workbench's forced comp rhythm */
-        return CS_PAT;
-#endif
-    if (song_ov()->comp >= 0)             /* the workbench's (or a host render's): where the keys can't play it, held
-                                             (the guitars strum) */
-        return harmony_comp_ok(ins, song_ov()->comp) ? song_ov()->comp : is_guitar(ins) ? CS_STRUM : CS_HELD;
-    return style_draw(ins, r->seed);
+    int ins = s ? s->chords : INS_NONE, cs = song_ov()->comp, f = song_ov()->comp_pat - 1, i;
+    if (is_guitar(ins)) return -1;
+    if (f >= 0 && f < COMP_NPAT && row_ok(ins, COMP_NFIXED + f))   /* the workbench's forced rhythm */
+        return COMP_NFIXED + f;
+    if (cs >= 0) {                        /* the workbench's (or a host render's): where the keys can't play it, held */
+        if (!harmony_comp_ok(ins, cs)) return COMP_I_HELD;
+        if (cs == CS_PAT) return COMP_NPAT ? pat_draw(r) : COMP_I_HELD;
+        for (i = 0; i < COMP_NFIXED; i++)
+            if (COMP[i].style == cs) return i;
+        return -1;                        /* offbeats, the arpeggio, strum: their own code */
+    }
+    return row_draw(ins, r->seed, roll_motion(r));   /* the rolled motion: a live Motion request leaves it */
 }
+
+static int row_style(const song_roll_t *r, int row)
+{
+    const lib_set_t *s;
+    if (row >= 0) return COMP[row].style;
+    s = lib_set_by_id((uint8_t)r->v[RF_SET]);
+    return s && is_guitar(s->chords) ? CS_STRUM : song_ov()->comp;
+}
+
+/* (never inlined: called from six places here, it would grow each; flash is tight) */
+__attribute__((noinline)) int harmony_style(const song_roll_t *r) { return row_style(r, harmony_comp_row(r)); }
 
 /* how far voicing b is from a, as the voicer weighs it: the lower voices' moves, the top's 8 a semitone (and 6 for a
    leap), 6 for each common tone that moved */
@@ -497,78 +516,46 @@ unsigned harmony_stab_steps(const song_roll_t *r)
     return 1u << s->first;
 }
 
-/* the steps a held, half-note, held-on-2 (and 4) or comp-rhythm comping strikes (COMP_*) */
+/* the steps a comping rhythm's row strikes */
 static unsigned comp_mask(const patterns_comp_t *c)
 {
     unsigned m = 0;
     int i;
-    for (i = 0; c && i < c->n; i++) m |= 1u << c->step[i];
+    for (i = 0; i < c->n; i++) m |= 1u << c->step[i];
     return m;
 }
 
 int harmony_comp_pat(const song_roll_t *r)
 {
-#if COMP_NPAT
-    int i, f = song_ov()->comp_pat - 1, n = comp_pat_napproved();
-    uint32_t k;
-    rng_t g;
-    if (f >= 0 && f < COMP_NPAT) return f;
-    rng_seed(&g, r->seed, 202);
-    k = rng_next(&g) % (uint32_t)(n ? n : COMP_NPAT);
-    for (i = 0; i < COMP_NPAT; i++)
-        if ((!n || COMP_PAT_APPROVED(i)) && k-- == 0) return i;
-#endif
-    (void)r;
-    return -1;
+    int i = harmony_comp_row(r);
+    return i >= COMP_NFIXED ? i - COMP_NFIXED : -1;
 }
 
-/* the strikes a held-on-2 (and 4) or comp-rhythm song plays (NULL: another style) */
-static const patterns_comp_t *strikes_of(const song_roll_t *r, int style)
+/* A row with CR_HOLD (half notes, the added rhythms) holds instead over sustained keys (a pad never re-strikes) and
+   over a kick that plays its very rhythm (Sam: the keys never copy the kick's rhythm; half notes over a kick on 1 and
+   3 alone, a charleston over a kick on 1 and the and of 2) */
+static int row_held(const song_roll_t *r, int i)
 {
-#if COMP_NPAT
-    if (style == CS_PAT) {
-        int i = harmony_comp_pat(r);
-        return i >= 0 ? &COMP_PAT[i] : NULL;
-    }
-#endif
-    (void)r;
-    return style == CS_HELD2 ? &COMP_HELD2 : style == CS_HELD24 ? &COMP_HELD24 : NULL;
+    const lib_pattern_t *p;
+    if (i < 0 || !(COMP[i].rules & CR_HOLD)) return 0;
+    p = lib_pattern_by_id((uint8_t)r->v[RF_PATTERN]);
+    return keys_sustained(r) || (p && (lib_lane_hits(p, D_KICK, 0) & 0xFFFFu) == comp_mask(&COMP[i]));
 }
 
-/* Half notes hold instead over sustained keys (a pad never re-strikes), and over a kick that already plays on 1 and 3
-   alone (Sam: the keys never copy the kick's rhythm) */
-static int half_held(const song_roll_t *r)
-{
-    const lib_pattern_t *p = lib_pattern_by_id((uint8_t)r->v[RF_PATTERN]);
-    return keys_sustained(r) || (p && (lib_lane_hits(p, D_KICK, 0) & 0xFFFFu) == comp_mask(&COMP_HALF));
-}
-
-#if COMP_NPAT
-/* A comp rhythm holds instead, as half notes do, over a kick that plays its very rhythm (a charleston over a kick on
-   1 and the and of 2) */
-static int pat_held(const song_roll_t *r)
-{
-    const lib_pattern_t *p = lib_pattern_by_id((uint8_t)r->v[RF_PATTERN]);
-    const patterns_comp_t *c = strikes_of(r, CS_PAT);
-    return !c || (p && (lib_lane_hits(p, D_KICK, 0) & 0xFFFFu) == comp_mask(c));
-}
-#endif
-
-/* the steps the keys strike when they are more than a note on 1 (stabs, half notes, held on 2 (and 4), light
-   eighths, a comp rhythm), else 0: what the bass avoids */
+/* the steps the keys strike when they are more than a note on 1 (stabs, half notes, held on 2 (and 4), a comp
+   rhythm), else 0: what the bass avoids */
 unsigned harmony_comp_steps(const song_roll_t *r)
 {
-    int style = harmony_style(r);
-    if (style == CS_STABS) return harmony_stab_steps(r);
-#if COMP_NPAT
-    if (style == CS_PAT && pat_held(r)) return 0u;
-#endif
-    if (style == CS_HELD2 || style == CS_HELD24 || style == CS_PAT)
-        return comp_mask(strikes_of(r, style));
-    return harmony_half_strikes(r) ? comp_mask(&COMP_HALF) : 0u;
+    int i = harmony_comp_row(r);
+    if (i < 0 || i == COMP_I_HELD || row_held(r, i)) return 0u;
+    return COMP[i].style == CS_STABS ? harmony_stab_steps(r) : comp_mask(&COMP[i]);
 }
 
-int harmony_half_strikes(const song_roll_t *r) { return harmony_style(r) == CS_HALF && !half_held(r); }
+int harmony_half_strikes(const song_roll_t *r)
+{
+    int i = harmony_comp_row(r);
+    return i == COMP_I_HALF && !row_held(r, i);
+}
 
 /* is the last voicing sounded made of this chord's pitch classes (so a later strike of it can keep it) */
 static int last_is_chord(const harmony_voicing_t *vs, const int *pcs, int n)
@@ -602,16 +589,17 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
 
     static const uint8_t ARP[6] = {0, 1, 2, 3, 2, 1};
     const lib_prog_t *p;
-    int style, pcs[5], n, dark, lo, hi, k;
+    int style, row, pcs[5], n, dark, lo, hi, k = 0, held = 0;
     uint32_t len, gap;
     int notes[4], one, rs, first = 0, later = 100;
     if (!(b->layers & L_KEYS) || max <= 0) return 0;
     p = prog_of(r);
-    style = harmony_style(r);
-    if (style == CS_HALF && half_held(r)) style = CS_HELD;
-#if COMP_NPAT
-    if (style == CS_PAT && pat_held(r)) style = CS_HELD;
-#endif
+    row = harmony_comp_row(r);
+    style = row_style(r, row);
+    if (row_held(r, row)) {               /* half notes, a comp rhythm: held instead (row_held) */
+        row = COMP_I_HELD;
+        style = CS_HELD;
+    }
     /* a drum entry with no kick and no bass (snare-first's keys, snare and hats) over struck keys held a chord of 2
        bars or more: they would ring out in its second bar, so the held chord restrikes each bar it spans */
     rs = style == CS_HELD && p->bars_per_chord >= 2 && !(b->flags & PB_DARK) && !(b->layers & (L_KICK | L_LEAD)) &&
@@ -640,27 +628,18 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
     case CS_STABS:
         if (!((harmony_stab_steps(r) >> step) & 1u)) return 0;
         len = (uint32_t)(4.0f * step_samples * 0.6f);
-        lo = COMP_STABS.vel_lo; hi = COMP_STABS.vel_hi;
+        lo = COMP[row].vel_lo; hi = COMP[row].vel_hi;
         break;
     case CS_OFFBEATS:
         if (step != 2 && step != 6 && step != 10 && step != 14) return 0;
         len = (uint32_t)(2.0f * step_samples * 0.8f);
         lo = 60; hi = 85;
         break;
-    case CS_HALF:                         /* beats 1 and 3, each held to the next strike */
-        for (k = 0; k < COMP_HALF.n && COMP_HALF.step[k] != step; k++)
-            ;
-        if (k == COMP_HALF.n) return 0;
-        len = (uint32_t)((float)COMP_HALF.len[k] * step_samples);
-        len = len > 441u ? len - 441u : 1u;
-        lo = COMP_HALF.vel_lo; hi = COMP_HALF.vel_hi;   /* as held: struck softly */
-        break;
+    case CS_HALF:                         /* beats 1 and 3, each held to the next strike (as held: struck softly) */
     case CS_HELD2:                        /* beat 2 (a chord change on a bar line too), held to the bar's end */
     case CS_HELD24:                       /* the same, held to a soft beat 4 struck every bar */
-    case CS_PAT: {                        /* a comp rhythm's strikes (COMP_PAT), every bar */
-        const patterns_comp_t *c = strikes_of(r, style);
-        int held = 0;
-        if (!c) return 0;
+    case CS_PAT: {                        /* an added comp rhythm's strikes, every bar */
+        const patterns_comp_t *c = &COMP[row];
         k = comp_strike(c, step, &held);
         if (k < 0) return 0;
         len = (uint32_t)((float)c->len[k] * step_samples);
@@ -677,20 +656,21 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
     }
     if (busy && style != CS_HELD && !keys_sustained(r) && !song_ov()->no_busy_thin) {   /* the lead is busy: the
                                                              comping makes room (Sam; the workbench may turn it off) */
-        if (style == CS_HALF) {                 /* beat 1 of every bar only, held to the next bar's strike */
-            if (step != 0) return 0;
-            len = (uint32_t)(16.0f * step_samples);
-            len = len > 441u ? len - 441u : 1u;
+        if (row >= 0 && (COMP[row].rules & CR_THIN)) {   /* half notes, stabs: the first strike of every bar only,
+                                                            one held to the next strike held to the next bar's */
+            if (style == CS_STABS ? step != COMP_STABS.first : k > 0) return 0;
+            if (style != CS_STABS && held) {
+                len = (uint32_t)((float)(16 - COMP[row].step[0]) * step_samples);
+                len = len > 441u ? len - 441u : 1u;
+            }
         }
-        if (style == CS_STABS && step != 0) return 0;
         if (style == CS_OFFBEATS && step != 6 && step != 14) return 0;
         if (style == CS_ARP && (step & 1)) return 0;
     }
     dark = (b->flags & PB_DARK) != 0;
     dark = dark ? 1 : !(b->layers & (L_KICK | L_LEAD)) ? 2 : 0;   /* dark; carrying (no kick, no lead); or plain */
     n = keys_chord_at(r, bar, pass, dark, pcs);
-    if ((style == CS_HALF || style == CS_STABS || style == CS_HELD2 || style == CS_HELD24 || style == CS_PAT ||
-         rs) &&
+    if (((row >= 0 && row != COMP_I_HELD) || rs) &&
         !(step == first && bar % p->bars_per_chord == 0) && last_is_chord(vs, pcs, n))
         memcpy(notes, vs->last, sizeof notes);            /* the chord's other strikes keep its voicing, never
                                                              revoiced (one voicing per chord, Sam; the pad leaves
@@ -711,16 +691,10 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
         gap = (mix(salt, (uint32_t)bar, r->seed, 50) % 9u) * 441u / 10u / 3u;   /* Sam: an acoustic piano strikes
                                                                                  together, 0-8 ms in all (the vibes'
                                                                                  four mallets too) */
-    if (later < 100) {                    /* held on 2 and 4's beat 4 (a comp rhythm's later strikes): softer than
-                                             the first (the same draw) */
+    if (later < 100) {                    /* a rhythm's later strikes (half notes' beat 3, held on 2 and 4's beat 4):
+                                             softer than the first (the same draw) */
         int c = emit_chord(notes, 4, gap, lo, hi, len, dark, salt, bar, first, out, max), i;
         for (i = 0; i < c; i++) out[i].vel = (uint8_t)clampi(out[i].vel * later / 100, 25, 110);
-        return c;
-    }
-    if (style == CS_HALF && step != COMP_HALF.step[0]) {  /* the later strikes a little softer than the first (same
-                                                             draw) */
-        int c = emit_chord(notes, 4, gap, lo, hi, len, dark, salt, bar, 0, out, max), i;
-        for (i = 0; i < c; i++) out[i].vel = (uint8_t)clampi(out[i].vel * COMP_HALF.later_vel_pct / 100, 25, 110);
         return c;
     }
     return emit_chord(notes, 4, gap, lo, hi, len, dark, salt, bar, step, out, max);

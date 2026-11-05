@@ -2356,11 +2356,12 @@ console.log("candidates: the strum row, Approve (patterns and edits, Task 4)");
          ap("kick", ""), ap("mood", 1)].every((x) => x === null),
         "approval names a candidate (strum, drum pattern, progression, kick phrase), nothing else");
   {   // a candidate comp rhythm (patterns/comp-rhythms): in the Comping row, marked; Approve names it for POST /approve
-    const CI = OPTS.compPats.length, cv = COMP_PAT_BASE + CI;
-    const cc = { ...OPTS, compPats: [...OPTS.compPats, { id: "c-new", index: CI, name: "12-sam-comp", status: "candidate" }] };
+    const CI = OPTS.compRhythms.filter((c) => c.index !== undefined).length, cv = COMP_PAT_BASE + CI;
+    const cc = { ...OPTS, compRhythms: [...OPTS.compRhythms, { id: "c-new", value: cv, index: CI, name: "Sam comp",
+                                                               status: "candidate", keys: [0, 2, 11, 25] }] };
     const sc = { values: { ...desk.values, keys: ins("Rhodes"), comp: cv }, locks: new Set() };
     const o = optionsFor(row("comp"), sc, cc).find((x) => x.value === cv);
-    const held2 = OPTS.comping.find((c) => c.sym === "CS_HELD2").id;
+    const held2 = OPTS.compRhythms.find((c) => c.name === "Held on 2").value;
     check(o?.status === "candidate" && o.name === "Sam comp" &&
           JSON.stringify(approval(row("comp"), sc, cc)) === '{"family":"comp-rhythms","id":"c-new","name":"Sam comp"}' &&
           approval(row("comp"), { ...sc, values: { ...sc.values, comp: COMP_PAT_BASE } }, cc) === null &&
@@ -2389,8 +2390,14 @@ console.log("comping: held on 2, held on 2 and 4 (approved, Sam 2026-11-05); lig
   const HH = readFileSync(new URL("../../app/song/harmony.h", import.meta.url), "utf8");
   const CS = HH.slice(HH.indexOf("enum { CS_HELD")).split("}")[0].replace(/enum \{/, "").split(",")
     .map((x) => x.trim()).filter((x) => x && x !== "CS_N");
-  check(OPTS.comping.every((c) => CS[c.id] === c.sym) && OPTS.comping.length === CS.length,
-        "every comping style's id is its harmony.h enum's");
+  // every style id is its harmony.h enum's: the rhythms' (compRhythms, generated from patterns/comp-rhythms: a fixed
+  // one's value its CS_* id) and the other styles' (comping), together every CS_* once (CS_PAT's the added rhythms')
+  const fixedVals = OPTS.compRhythms.filter((c) => c.index === undefined).map((c) => c.value);
+  check(OPTS.comping.every((c) => CS[c.id] === c.sym) &&
+        JSON.stringify([...fixedVals, ...OPTS.comping.map((c) => c.id)].sort((a, b) => a - b)) ===
+          JSON.stringify(CS.map((_, i) => i)) &&
+        OPTS.compRhythms.filter((c) => c.index !== undefined).every((c) => c.value === COMP_PAT_BASE + c.index),
+        "every comping style's id is its harmony.h enum's, once: the rhythms' from compRhythms, the rest from comping");
   const perc = ["Rhodes", "Felt piano", "Knight piano"].map(ins);   // (the Wurli and the DX too, to 2026-11-04)
   const off = ["Nylon guitar", "Emilyguitar", "Organ", "Chillwave pad"].map(ins);
   const NEW = ["Held on 2", "Held on 2 and 4"];
@@ -2398,12 +2405,13 @@ console.log("comping: held on 2, held on 2 and 4 (approved, Sam 2026-11-05); lig
     .map((o) => o.name);
   check(perc.every((k) => NEW.every((n) => offered(k).includes(n))) && off.every((k) => NEW.every((n) => !offered(k).includes(n))),
         "the two are offered on the percussive keys only (not the guitars, organ or pad)");
-  check(OPTS.comping.find((c) => c.id === 7)?.status === "removed" && OPTS.comping[7].sym === "CS_LIGHT8_GONE" &&
+  const gone8 = OPTS.comping.find((c) => c.id === 7);
+  check(gone8?.status === "removed" && gone8.sym === "CS_LIGHT8_GONE" &&
         [...perc, ...off, ins("Vibes (modeled vibraphone)")].every((k) => !offered(k, true).includes("Light eighths")),
         "light eighths (7, removed) is offered on no keys, not even behind \"show retired\"; its id kept, not reused");
   // the dice: approved choices only (held on 2, held on 2 and 4, the approved comp rhythms), never a candidate nor
   // CS_PAT alone (no entry of its own: the rhythms are offered by name)
-  const cand = OPTS.comping.filter((c) => c.status === "candidate").map((c) => c.id);
+  const cand = OPTS.compRhythms.filter((c) => c.status === "candidate").map((c) => c.value);
   const pat = OPTS.comping.find((c) => c.sym === "CS_PAT").id;
   const picks = new Map();
   for (let i = 1; i <= 300; i++) {
@@ -2412,7 +2420,8 @@ console.log("comping: held on 2, held on 2 and 4 (approved, Sam 2026-11-05); lig
   }
   const bad = [...picks.keys()].filter((v) => cand.includes(v) || v === pat || v === 7);
   check(!bad.length && picks.has(6) && picks.has(8) &&
-        OPTS.compPats.every((p) => picks.has(COMP_PAT_BASE + p.index) === (p.status === "approved")),
+        OPTS.compRhythms.filter((p) => p.index !== undefined)
+          .every((p) => picks.has(p.value) === (p.status === "approved")),
         `the dice pick held on 2, held on 2 and 4 and each approved comp rhythm, never a candidate, CS_PAT alone or the ` +
         `removed light eighths (${[...picks].map(([v, n]) => `${v}: ${n}`).join(", ")})`);
 
@@ -2494,19 +2503,19 @@ console.log("comp rhythms: in the Comping row by name, one place to pick comping
   await d.set("seed", 21);
   await d.set("keys", ins("Rhodes"));
   const names = optionsFor(row("comp"), d.state, OPTS).filter((o) => !o.rolled).map((o) => o.name);
-  const pname = (p) => { const x = p.name.replace(/^\d+-/, "").replace(/-/g, " "); return x[0].toUpperCase() + x.slice(1); };
-  const want = ["Held", "Half notes", "Held on 2", "Held on 2 and 4", ...OPTS.compPats.map(pname)];
+  const PATS = OPTS.compRhythms.filter((c) => c.index !== undefined), pname = (p) => p.name;   // (the added rhythms)
+  const want = ["Held", "Half notes", "Held on 2", "Held on 2 and 4", ...PATS.map(pname)];
   check(JSON.stringify(names) === JSON.stringify(want) && names.includes("Charleston") && names.includes("Late one"),
         `the Comping row on the Rhodes lists every choice, the comp rhythms by name (${names.join(", ")})`);
   const vib = optionsFor(row("comp"), { values: { keys: ins("Vibes (modeled vibraphone)") } }, OPTS).filter((o) => !o.rolled)
     .map((o) => o.name);
-  check(JSON.stringify(vib) === JSON.stringify(["Held", "Half notes", "Held on 2", "Held on 2 and 4", ...OPTS.compPats.map(pname)]),
+  check(JSON.stringify(vib) === JSON.stringify(["Held", "Half notes", "Held on 2", "Held on 2 and 4", ...PATS.map(pname)]),
         `the vibes on the keys are offered the comp rhythms too (Sam, 2026-11-05: ${vib.join(", ")})`);
-  const n = OPTS.compPats.length, heard = new Set();
+  const n = PATS.length, heard = new Set();
   check(d.values.comp === -1 && ex.wb_ov_get(OV.COMP_PAT) === -1 && ex.wb_ov_get(OV.COMP) === -1,
         "a new song's Comping is as rolled, no comp rhythm forced");
   let played = 0;
-  for (const p of OPTS.compPats) {
+  for (const p of PATS) {
     const r = await d.set("comp", COMP_PAT_BASE + p.index), es = await keysEv();
     played += r.ok && d.values.comp === COMP_PAT_BASE + p.index && ex.wb_comp_applied() === 9 &&
               ex.wb_ov_get(OV.COMP_PAT) === p.index && ex.wb_ov_get(OV.COMP) === -1 && es !== "[]";
@@ -2547,7 +2556,7 @@ console.log("comp rhythms: in the Comping row by name, one place to pick comping
   const old = { ...snap, rows: { ...snap.rows, comp: -1, compPat: 2 } };
   const miss = await d2.restore(old);
   check(d2.values.comp === COMP_PAT_BASE + 2 && ex.wb_ov_get(OV.COMP_PAT) === 2 && ex.wb_comp_applied() === 9 &&
-        !miss.length, `an old snapshot's comp rhythm 2 restores as ${OPTS.compPats[2].name} in Comping (mismatch: ${miss.join(", ") || "none"})`);
+        !miss.length, `an old snapshot's comp rhythm 2 restores as ${PATS[2].name} in Comping (mismatch: ${miss.join(", ") || "none"})`);
   const miss2 = await d2.restore({ ...snap, rows: { ...snap.rows, comp: 6, compPat: -1 } });
   check(d2.values.comp === 6 && ex.wb_ov_get(OV.COMP_PAT) === -1 && !miss2.length,
         "an old snapshot with no comp rhythm keeps its Comping style");
@@ -2804,7 +2813,7 @@ console.log("the page by part: sections, part headers, the folded rows, summarie
         sums.drums.startsWith(`${kit.name} · ${pat.name}`) && Object.values(sums).every((x) => x && !x.includes("undefined")),
         `summaries: ${Object.entries(sums).map(([p, x]) => `${PART_NAME[p]} "${x}"`).join(", ")}`);
   await desk.set("keys", ins("Rhodes"));
-  await desk.set("comp", COMP_PAT_BASE + OPTS.compPats.find((p) => p.name === "8-tresillo").index);
+  await desk.set("comp", OPTS.compRhythms.find((p) => p.name === "Tresillo").value);
   await desk.set("keysOct", 0);
   const ride = { ...desk.state, values: { ...desk.values, kit: 19, pattern: 1, ride: 2, kick: "k3" } };
   check(summary("keys", desk.state, OPTS) === "Rhodes · Tresillo · mid register" &&

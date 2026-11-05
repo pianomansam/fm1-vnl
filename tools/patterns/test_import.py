@@ -513,12 +513,13 @@ class Import(unittest.TestCase):
         self.assertEqual(self.statuses("STRUM_PAT"), ws + [1])
 
     def test_a_comp_rhythm_candidate_is_offered_and_kept_out_of_the_firmware(self):
-        """a file added to comp-rhythms is a comp rhythm past the six (CS_PAT): a candidate, offered to the Comp
-           rhythm row, in the host's and the workbench's table only until approved"""
+        """a file added to comp-rhythms is a comp rhythm past the fixed five (a row of COMP, played as CS_PAT): a
+           candidate with the default draw fields, offered in the Comping row (compRhythms), in the host's and the
+           workbench's table only until approved"""
         n = sum(1 for e in self.model["comp-rhythms"].values() if e.get("kind") == "pattern")
-        k, ws = str(export.comp_pat_id(n)), self.statuses("COMP_PAT") if n else []
-        napp = sum(1 for e in self.model["comp-rhythms"].values() if e.get("kind") == "pattern" and
-                   e["status"] == "approved")
+        k, ws = str(export.comp_pat_id(n)), self.statuses("COMP")
+        napp = 5 + sum(1 for e in self.model["comp-rhythms"].values() if e.get("kind") == "pattern" and
+                       e["status"] == "approved")
         e = {"status": "candidate", "style": "CS_PAT", "kind": "pattern", "index": n, "vel_range": [40, 58],
              "strikes": [{"step": 0, "len": 10}, {"step": 10, "len": 6}], "file": "comp-rhythms/sam-comp"}
         self.write("comp-rhythms", k, e, ".mid")
@@ -526,17 +527,19 @@ class Import(unittest.TestCase):
         self.assertNotIn("will move", so)
         self.assertEqual({x: model["comp-rhythms"][k][x] for x in ("status", "kind", "index", "strikes")},
                          {x: e[x] for x in ("status", "kind", "index", "strikes")})
-        self.assertEqual(json.loads(self.opts.read_text())["compPats"][-1],
-                         {"id": k, "index": n, "name": "sam-comp", "status": "candidate"})
-        self.assertEqual(self.statuses("COMP_PAT"), ws + [0])
+        self.assertEqual({x: model["comp-rhythms"][k][x] for x in export.COMP_PAT_DRAW}, export.COMP_PAT_DRAW)
+        self.assertEqual(json.loads(self.opts.read_text())["compRhythms"][-1],
+                         {"id": k, "value": 100 + n, "index": n, "name": "Sam comp", "status": "candidate",
+                          "keys": [0, 2, 11, 25]})
+        self.assertEqual(self.statuses("COMP"), ws + [0])
         h = (self.gen / "patterns_gen.h").read_text()
-        self.assertIn(f"#else\n#define COMP_PAT_ALL 0\n#define COMP_NPAT {napp}\n", h)   # the firmware's: approved only
-        self.assertIn(f"#define COMP_NPAT {n + 1}\n#else", h)
+        self.assertIn(f"#else\n#define COMP_ALL 0\n#define COMP_N {napp}\n", h)   # the firmware's: approved only
+        self.assertIn(f"#define COMP_N {5 + n + 1}\n#else", h)
         self.approve({"comp-rhythms": {k: "approved"}})
         so, model, _ = self.imported()
         self.assertIn("will move", so)
-        self.assertEqual(self.statuses("COMP_PAT"), ws + [1])
-        self.assertIn(f"#define COMP_NPAT {napp + 1}\n#endif", (self.gen / "patterns_gen.h").read_text())
+        self.assertEqual(self.statuses("COMP"), ws + [1])
+        self.assertIn(f"#define COMP_N {napp + 1}\n#endif", (self.gen / "patterns_gen.h").read_text())
         late = {**e, "file": "comp-rhythms/sam-late", "strikes": [{"step": 12, "len": 8}]}   # past the bar line
         self.refused(self.write("comp-rhythms", k, late, ".mid"), 1, "none rings past the bar line")
 

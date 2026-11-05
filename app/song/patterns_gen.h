@@ -15,20 +15,34 @@
 extern const uint8_t LIB_PATTERNS_STATUS[];
 extern const uint8_t LIB_PROGS_STATUS[];
 
-/* the keys' held, half-note and held-on-2 (and 4) comping (harmony.c): strikes in a bar,
-   `later_vel_pct` the later strikes' velocity in percent of the first's; len is in 16ths (held: written a bar, the
-   engine holds the chord; a strike as long as the gap to the next, or to the bar's end, is held to it) */
+/* The keys' comping rhythms (patterns/comp-rhythms, harmony.c plays them), one table, one row each,
+   in id order: the fixed five (held, half, stabs, held on 2, held on 2 and 4: ids 1-6, 5 removed), then
+   the added ones (ids 7 on, played as CS_PAT). The roll draws one per song from the approved rows the
+   song's keys play (`keys`), at `weight` tilted by the song's motion and the row's `busy` (roll.h's
+   motion_tilt). A row's strikes in a bar: `later_vel_pct` the later strikes' velocity in percent of the
+   first's; len in 16ths (held: written a bar, the engine holds the chord; a strike as long as the gap to
+   the next, or to the bar's end, is held to it). The stabs' strikes are COMP_STABS's (n 0 here). rules:
+   CR_THIN, a busy lead thins it to its first strike (held to the next bar where it was held); CR_HOLD,
+   it holds instead over sustained keys or a kick of its very rhythm. */
+#define CR_THIN 1
+#define CR_HOLD 2
+/* keys "all": every keys instrument but the guitars (they only strum: CS_STRUM, its own engine) */
+#define CK_ALL (0xFFFFFFFFu & ~(1u << INS_NYLON | 1u << INS_EMILY))
 typedef struct {
+    uint8_t style;                      /* harmony.h's CS_* that plays it */
+    uint8_t weight;                     /* the draw's base weight (patterns/model.json: 1 each) */
+    uint8_t busy;                       /* 0 sparse, 1 middle, 2 busy (the motion tilt) */
+    uint8_t rules;                      /* CR_* */
+    uint32_t keys;                      /* the chords instruments that play it: 1u << INS_* */
     uint8_t vel_lo, vel_hi;
     uint8_t n;                          /* strikes */
     uint8_t step[8], len[8];
     uint8_t later_vel_pct;
 } patterns_comp_t;
-/* the stabs: one on `first`, the second on the first of `second` the kick leaves free; over a kick of more
-   than `busy_over` hits a bar, `busy_steps` (a mask). len: the written length (the engine strikes 60% of a
-   quarter) */
+/* the stabs' strikes: one on `first`, the second on the first of `second` the kick leaves free;
+   over a kick of more than `busy_over` hits a bar, `busy_steps` (a mask). len: the written length (the
+   engine strikes 60% of a quarter) */
 typedef struct {
-    uint8_t vel_lo, vel_hi;
     uint8_t first;
     uint8_t n;                          /* second-stab candidates, tried in order */
     uint8_t second[4];
@@ -36,28 +50,33 @@ typedef struct {
     uint8_t busy_over;
     uint16_t busy_steps;
 } patterns_stabs_t;
-extern const patterns_comp_t COMP_HELD, COMP_HALF, COMP_HELD2, COMP_HELD24;
 extern const patterns_stabs_t COMP_STABS;
-/* the comp rhythms past those (ids 7 on: patterns/comp-rhythms' added files; harmony.c's CS_PAT), one bar of
-   strikes each. The host's and the workbench's builds hold every entry (a candidate plays when the comp_pat
-   override forces it); the firmware only the approved, the ones the roll draws: a candidate costs it
-   nothing */
+/* the fixed rows (always approved, first in every build) */
+enum { COMP_I_HELD, COMP_I_HALF, COMP_I_STABS, COMP_I_HELD2, COMP_I_HELD24, COMP_NFIXED };
+/* The host's and the workbench's builds hold every row (a candidate plays when the workbench forces it);
+   the firmware only the approved, the ones the roll draws: a candidate costs it nothing */
 #if defined PLAT_HOST || defined __EMSCRIPTEN__ || defined __APPLE__ || defined __linux__
-#define COMP_PAT_ALL 1
-#define COMP_NPAT 3
+#define COMP_ALL 1
+#define COMP_N 8
 #else
-#define COMP_PAT_ALL 0
-#define COMP_NPAT 3
+#define COMP_ALL 0
+#define COMP_N 8
 #endif
-#if COMP_NPAT
-extern const patterns_comp_t COMP_PAT[COMP_NPAT];
-#endif
-#if COMP_PAT_ALL && COMP_NPAT
-extern const uint8_t COMP_PAT_STATUS[COMP_NPAT];
-#define COMP_PAT_APPROVED(i) (COMP_PAT_STATUS[i] == 1)
+extern const patterns_comp_t COMP[COMP_N];
+#if COMP_ALL
+extern const uint8_t COMP_STATUS[COMP_N];
+#define COMP_APPROVED(i) (COMP_STATUS[i] == 1)
 #else
-#define COMP_PAT_APPROVED(i) 1                 /* (the firmware's are all approved) */
+#define COMP_APPROVED(i) 1                     /* (the firmware's are all approved) */
 #endif
+#define COMP_HELD (COMP[COMP_I_HELD])
+#define COMP_HALF (COMP[COMP_I_HALF])
+#define COMP_HELD2 (COMP[COMP_I_HELD2])
+#define COMP_HELD24 (COMP[COMP_I_HELD24])
+/* the added rhythms (ids 7 on, CS_PAT), by their own index: the workbench's comp_pat override names one */
+#define COMP_NPAT (COMP_N - COMP_NFIXED)
+#define COMP_PAT (COMP + COMP_NFIXED)
+#define COMP_PAT_APPROVED(i) COMP_APPROVED(COMP_NFIXED + (i))
 
 /* strum.c's patterns (16 steps; 32 for a two-bar one) and the ballad's fill-bar variant */
 #define STRUM_NPAT 14

@@ -2258,6 +2258,11 @@
       "name": "held",
       "status": "approved",
       "style": "CS_HELD",
+      "weight": 1,
+      "busy": 0,
+      "keys": "all",
+      "thin": 0,
+      "hold": 0,
       "vel_range": [
         40,
         58
@@ -2274,6 +2279,11 @@
       "name": "half",
       "status": "approved",
       "style": "CS_HALF",
+      "weight": 1,
+      "busy": 1,
+      "keys": "all",
+      "thin": 1,
+      "hold": 1,
       "vel_range": [
         40,
         58
@@ -2295,6 +2305,13 @@
       "name": "stabs",
       "status": "approved",
       "style": "CS_STABS",
+      "weight": 1,
+      "busy": 2,
+      "keys": [
+        "INS_KNIGHT"
+      ],
+      "thin": 1,
+      "hold": 0,
       "vel_range": [
         60,
         85
@@ -2318,6 +2335,16 @@
       "name": "held-on-2",
       "status": "approved",
       "style": "CS_HELD2",
+      "weight": 1,
+      "busy": 1,
+      "keys": [
+        "INS_RHODES",
+        "INS_FELT_PIANO",
+        "INS_VIBES",
+        "INS_KNIGHT"
+      ],
+      "thin": 0,
+      "hold": 0,
       "vel_range": [
         32,
         46
@@ -2334,6 +2361,16 @@
       "name": "held-on-2-and-4",
       "status": "approved",
       "style": "CS_HELD24",
+      "weight": 1,
+      "busy": 1,
+      "keys": [
+        "INS_RHODES",
+        "INS_FELT_PIANO",
+        "INS_VIBES",
+        "INS_KNIGHT"
+      ],
+      "thin": 0,
+      "hold": 0,
       "vel_range": [
         28,
         41
@@ -2356,6 +2393,16 @@
       "style": "CS_PAT",
       "kind": "pattern",
       "index": 0,
+      "weight": 1,
+      "busy": 1,
+      "keys": [
+        "INS_RHODES",
+        "INS_FELT_PIANO",
+        "INS_VIBES",
+        "INS_KNIGHT"
+      ],
+      "thin": 0,
+      "hold": 1,
       "vel_range": [
         27,
         39
@@ -2378,6 +2425,16 @@
       "style": "CS_PAT",
       "kind": "pattern",
       "index": 1,
+      "weight": 1,
+      "busy": 2,
+      "keys": [
+        "INS_RHODES",
+        "INS_FELT_PIANO",
+        "INS_VIBES",
+        "INS_KNIGHT"
+      ],
+      "thin": 0,
+      "hold": 1,
       "vel_range": [
         25,
         33
@@ -2404,9 +2461,19 @@
       "style": "CS_PAT",
       "kind": "pattern",
       "index": 2,
+      "weight": 1,
+      "busy": 0,
+      "keys": [
+        "INS_RHODES",
+        "INS_FELT_PIANO",
+        "INS_VIBES",
+        "INS_KNIGHT"
+      ],
+      "thin": 0,
+      "hold": 1,
       "vel_range": [
-        32,
-        46
+        36,
+        50
       ],
       "strikes": [
         {

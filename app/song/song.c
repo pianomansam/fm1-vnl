@@ -293,6 +293,9 @@ static int apply_one(song_t *s, int f, int B)
         roll_set(&s->roll, f, v);
         s->roll.v[RF_BARS] = before.v[RF_BARS];
         if (memcmp(&before, &s->roll, sizeof before) == 0) return 0;
+        if (f == RF_MOTION)              /* the plan follows; the per-song draws (the keys' comping) read the rolled
+                                            motion and stay (Sam, 2026-11-05: "It should stay") */
+            s->roll.motion_moved = (int16_t)(s->roll.motion_moved + s->roll.v[RF_MOTION] - before.v[RF_MOTION]);
         return f == RF_MOTION || f == RF_MAP;
     }
 }

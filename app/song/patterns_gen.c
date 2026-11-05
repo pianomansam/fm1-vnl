@@ -3,6 +3,7 @@
    patterns/README.md), then run tools/patterns/import.sh. Never edit this file. */
 
 #include "patterns_gen.h"
+#include "harmony.h"
 
 /* Degrees are 0-based in the song's mode; {degree, alter, quality}. A progression lists only the modes
    where its degrees give the chords named in src. R25: a vamp's or loop's chords lie in each mode it lists
@@ -72,21 +73,20 @@ const lib_pattern_t LIB_PATTERNS[] = {
 const int LIB_NPATTERNS = (int)(sizeof LIB_PATTERNS / sizeof LIB_PATTERNS[0]);
 const uint8_t LIB_PATTERNS_STATUS[] = {1, 1, 1, 1, 1, 1, 1, 1, 0};
 
-const patterns_comp_t COMP_HELD = {40, 58, 1, {0, 0, 0, 0, 0, 0, 0, 0}, {16, 0, 0, 0, 0, 0, 0, 0}, 100};
-const patterns_comp_t COMP_HALF = {40, 58, 2, {0, 8, 0, 0, 0, 0, 0, 0}, {8, 8, 0, 0, 0, 0, 0, 0}, 90};
-const patterns_comp_t COMP_HELD2 = {32, 46, 1, {4, 0, 0, 0, 0, 0, 0, 0}, {12, 0, 0, 0, 0, 0, 0, 0}, 100};
-const patterns_comp_t COMP_HELD24 = {28, 41, 2, {4, 12, 0, 0, 0, 0, 0, 0}, {8, 4, 0, 0, 0, 0, 0, 0}, 70};
-const patterns_stabs_t COMP_STABS = {60, 85, 0, 4, {6, 10, 4, 12}, 2, 3, 0x0041};
-#if COMP_NPAT
-const patterns_comp_t COMP_PAT[COMP_NPAT] = {
-    {27, 39, 2, {0, 6, 0, 0, 0, 0, 0, 0}, {6, 10, 0, 0, 0, 0, 0, 0}, 90},
-    {25, 33, 3, {0, 6, 12, 0, 0, 0, 0, 0}, {6, 6, 4, 0, 0, 0, 0, 0}, 90},
-    {32, 46, 1, {2, 0, 0, 0, 0, 0, 0, 0}, {14, 0, 0, 0, 0, 0, 0, 0}, 100},
+const patterns_comp_t COMP[COMP_N] = {
+    {CS_HELD, 1, 0, 0, CK_ALL, 40, 58, 1, {0, 0, 0, 0, 0, 0, 0, 0}, {16, 0, 0, 0, 0, 0, 0, 0}, 100},
+    {CS_HALF, 1, 1, CR_THIN | CR_HOLD, CK_ALL, 40, 58, 2, {0, 8, 0, 0, 0, 0, 0, 0}, {8, 8, 0, 0, 0, 0, 0, 0}, 90},
+    {CS_STABS, 1, 2, CR_THIN, 1u << INS_KNIGHT, 60, 85, 0, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, 100},
+    {CS_HELD2, 1, 1, 0, 1u << INS_RHODES | 1u << INS_FELT_PIANO | 1u << INS_VIBES | 1u << INS_KNIGHT, 32, 46, 1, {4, 0, 0, 0, 0, 0, 0, 0}, {12, 0, 0, 0, 0, 0, 0, 0}, 100},
+    {CS_HELD24, 1, 1, 0, 1u << INS_RHODES | 1u << INS_FELT_PIANO | 1u << INS_VIBES | 1u << INS_KNIGHT, 28, 41, 2, {4, 12, 0, 0, 0, 0, 0, 0}, {8, 4, 0, 0, 0, 0, 0, 0}, 70},
+    {CS_PAT, 1, 1, CR_HOLD, 1u << INS_RHODES | 1u << INS_FELT_PIANO | 1u << INS_VIBES | 1u << INS_KNIGHT, 27, 39, 2, {0, 6, 0, 0, 0, 0, 0, 0}, {6, 10, 0, 0, 0, 0, 0, 0}, 90},
+    {CS_PAT, 1, 2, CR_HOLD, 1u << INS_RHODES | 1u << INS_FELT_PIANO | 1u << INS_VIBES | 1u << INS_KNIGHT, 25, 33, 3, {0, 6, 12, 0, 0, 0, 0, 0}, {6, 6, 4, 0, 0, 0, 0, 0}, 90},
+    {CS_PAT, 1, 0, CR_HOLD, 1u << INS_RHODES | 1u << INS_FELT_PIANO | 1u << INS_VIBES | 1u << INS_KNIGHT, 36, 50, 1, {2, 0, 0, 0, 0, 0, 0, 0}, {14, 0, 0, 0, 0, 0, 0, 0}, 100},
 };
+#if COMP_ALL
+const uint8_t COMP_STATUS[COMP_N] = {1, 1, 1, 1, 1, 1, 1, 1};
 #endif
-#if COMP_PAT_ALL && COMP_NPAT
-const uint8_t COMP_PAT_STATUS[COMP_NPAT] = {1, 1, 1};
-#endif
+const patterns_stabs_t COMP_STABS = {0, 4, {6, 10, 4, 12}, 2, 3, 0x0041};
 
 const char *const STRUM_PAT[STRUM_NPAT] = {
     "D...d.u...U.d.u.",

@@ -57,16 +57,18 @@ AudioWorklet. Local only; not the FM-1, so it may exceed the device's budgets.
   `patterns/status.json`; `tools/patterns/import.sh` then makes the firmware draw it and rebuilds the workbench. A mode
   only a candidate progression suits can be picked too (its candidate comes with it). The strum row is greyed when the
   comp doesn't strum.
-- Comping: one place to pick the Comp part's comping (Sam, 2026-11-05): the styles (held, half notes, stabs, strum,
-  held on 2, held on 2 and 4), then each comp rhythm from `patterns/comp-rhythms` by name (Charleston, Tresillo,
-  Late one; a new one marked "(candidate)" until approved), only those the comp instrument plays. A comp rhythm picked
-  stages the engine's `comp_pat` override (`CS_PAT` with that rhythm; the row's value is 100 + its table index);
-  anything else stages the style and clears it. A comp rhythm plays on the percussive keys only: a new comp
-  instrument that doesn't play one puts the row back to as rolled, as for the other styles, and one left on such keys (a snapshot, the engine's) greys
-  the row (still open to pick another). Approve on a candidate rhythm writes `patterns/status.json`, as for strum. A
-  snapshot from before (its Comp rhythm row) restores that rhythm in Comping. Light eighths is removed (Sam,
-  2026-11-05): never offered, not even behind "show retired"; a snapshot or feedback item that picked it restores as
-  Held and says so.
+- Comping: one place to pick the Comp part's comping (Sam, 2026-11-05), from one source: every comping rhythm in
+  `patterns/comp-rhythms` (`options.json`'s generated `compRhythms`: Held, Half notes, Stabs, Held on 2, Held on 2
+  and 4, Charleston, Tresillo, Late one; a new one marked "(candidate)" until approved), each only on the comp
+  instruments its data names, then Strum (the guitars) and the retired styles (behind "show retired"). A fixed
+  rhythm's value is its `CS_*` id (staged as the engine's comp override), an added one's 100 + its table index (the
+  `comp_pat` override, the comp override cleared), so snapshots keep their values. A new comp instrument that doesn't
+  play the rhythm picked puts the row back to as rolled, and one left on such an instrument (a snapshot, the
+  engine's) greys the row (still open to pick another). Approve on a candidate rhythm writes `patterns/status.json`,
+  as for strum. A snapshot from before (its Comp rhythm row) restores that rhythm in Comping. Light eighths is removed
+  (Sam, 2026-11-05): never offered, not even behind "show retired"; a snapshot or feedback item that picked it
+  restores as Held and says so. The roll's draw (each rhythm's weight, its busyness against the song's motion) is the
+  engine's: `patterns/README.md`.
 - Feedback: 👍/👎 and a note, on the song or a row, save a line to `workbench/feedback.jsonl`: a versioned snapshot
   (every row, the locks, the seed; `desk.snapshot()` / `desk.restore()`), where the song was, and the log of every applied
   change. Entries queue in localStorage while the server is down (the page says "not saved yet") and are resent.

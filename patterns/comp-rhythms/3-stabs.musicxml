@@ -4,7 +4,7 @@
   <work><work-title>Comp rhythm 3: stabs over Cmaj7</work-title></work>
   <identification>
     <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
-    <miscellaneous><miscellaneous-field name="vnl1">{"family":"comp-rhythms","id":"3","name":"stabs","status":"approved","style":"CS_STABS","vel_range":[60,85],"len":2,"first":0,"second":[6,10,4,12],"busy_over":3,"busy_steps":[0,6]}</miscellaneous-field></miscellaneous>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"comp-rhythms","id":"3","name":"stabs","status":"approved","style":"CS_STABS","weight":1,"busy":2,"keys":["INS_KNIGHT"],"thin":1,"hold":0,"vel_range":[60,85],"len":2,"first":0,"second":[6,10,4,12],"busy_over":3,"busy_steps":[0,6]}</miscellaneous-field></miscellaneous>
   </identification>
   <part-list>
     <score-part id="P1">

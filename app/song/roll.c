@@ -357,6 +357,14 @@ int roll_set(song_roll_t *r, int field, int value)
     return value;
 }
 
+int roll_motion(const song_roll_t *r) { return r->v[RF_MOTION] - r->motion_moved; }
+
+uint32_t motion_tilt(int weight, int busy, int motion)
+{
+    int m = motion < 20 ? 20 : motion > 80 ? 80 : motion, b = busy < 0 ? 0 : busy > 2 ? 2 : busy;
+    return weight > 0 ? (uint32_t)weight * (uint32_t)(60 + (m - 50) * (b - 1)) : 0u;
+}
+
 int roll_seconds(const song_roll_t *r)
 {
     return r->v[RF_TEMPO] > 0 ? r->v[RF_BARS] * 240 / r->v[RF_TEMPO] : 0;

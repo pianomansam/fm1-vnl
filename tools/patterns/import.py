@@ -55,8 +55,8 @@ EXTENSIONS = {1, 2, 3, 5, 6, 8, 9}              # 9ths, 11ths, 13ths over a 7th 
 TITLE_RE = re.compile(r"^Progression [^:]*: .*\((vamp|loop|jazzy); ([a-z, ]+); ([A-Za-z, ]+)\)\s*$")
 META_FIELDS = {"drums": ("pattern_family", "half_time", "src"), "kick-phrases": (), "progressions": ("kind", "moods", "modes",
                "src"), "comp-rhythms": ("vel_range", "second_vel_pct", "busy_over", "busy_steps"), "strum": ()}
-# the comp rhythms written as strikes in a bar (the stabs are their own shape), with their tables' C names
-STRIKES = {"held": "COMP_HELD", "half": "COMP_HALF", "held-on-2": "COMP_HELD2", "held-on-2-and-4": "COMP_HELD24"}
+# the fixed comp rhythms written as strikes in a bar (the stabs are their own shape)
+STRIKES = ("held", "half", "held-on-2", "held-on-2-and-4")
 
 
 class Refused(Exception):
@@ -291,20 +291,19 @@ def rows_from_model(model):
                            "moods": sum(1 << validate.MOODS.index(x) for x in e["moods"]),
                            "modes": sum(1 << validate.MODES.index(x) for x in e["modes"]), "src": e["src"],
                            "status": st(e)})
-    comp = {e["name"]: e for e in model["comp-rhythms"].values() if e.get("kind") != "pattern"}
-    t["comp"] = {n: {"vel": comp[n]["vel_range"], "steps": [s["step"] for s in comp[n]["strikes"]],
-                     "lens": [s["len"] for s in comp[n]["strikes"]],
-                     "later_vel_pct": comp[n].get("second_vel_pct", 100)} for n in STRIKES}
-    s = comp["stabs"]
-    t["comp"]["stabs"] = {"vel": s["vel_range"], "first": s["first"], "second": s["second"], "len": s["len"],
-                          "busy_over": s["busy_over"], "busy_steps": s["busy_steps"]}
-
     def by_index(fam, kind=None):
         es = [e for e in model[fam].values() if kind is None or e.get("kind") == kind]
         return sorted(es, key=lambda e: e["index"])
-    t["comp_pat"] = [{"vel": e["vel_range"], "steps": [x["step"] for x in e["strikes"]],
-                      "lens": [x["len"] for x in e["strikes"]], "later_vel_pct": e.get("second_vel_pct", 100),
-                      "status": st(e)} for e in by_index("comp-rhythms", "pattern")]
+    comp = {e["name"]: e for e in model["comp-rhythms"].values() if e.get("kind") != "pattern"}
+    rows = [comp[name] for _k, name, _s in export.COMP_FIXED_ROWS] + by_index("comp-rhythms", "pattern")
+    t["comp"] = [{"style": export.CS.index(e["style"]), "weight": e["weight"], "busy": e["busy"],
+                  "rules": export.CR_THIN * e["thin"] | export.CR_HOLD * e["hold"], "keys": export.keys_mask(e["keys"]),
+                  "vel": e["vel_range"], "steps": [x["step"] for x in e.get("strikes", [])],
+                  "lens": [x["len"] for x in e.get("strikes", [])], "later_vel_pct": e.get("second_vel_pct", 100),
+                  "status": st(e)} for e in rows]
+    s = comp["stabs"]
+    t["stabs"] = {"first": s["first"], "second": s["second"], "len": s["len"], "busy_over": s["busy_over"],
+                  "busy_steps": s["busy_steps"]}
     pats = by_index("strum", "pattern")
     t["strum"], t["strum_status"] = [e["steps"] for e in pats], [st(e) for e in pats]
     fills = by_index("strum", "fill")
@@ -347,20 +346,34 @@ def gen_c(t):
          "extern const uint8_t LIB_PATTERNS_STATUS[];",
          "extern const uint8_t LIB_PROGS_STATUS[];",
          "",
-         "/* the keys' held, half-note and held-on-2 (and 4) comping (harmony.c): strikes in a bar,",
-         "   `later_vel_pct` the later strikes' velocity in percent of the first's; len is in 16ths (held: written a bar, the",
-         "   engine holds the chord; a strike as long as the gap to the next, or to the bar's end, is held to it) */",
+         "/* The keys' comping rhythms (patterns/comp-rhythms, harmony.c plays them), one table, one row each,",
+         "   in id order: the fixed five (held, half, stabs, held on 2, held on 2 and 4: ids 1-6, 5 removed), then",
+         "   the added ones (ids 7 on, played as CS_PAT). The roll draws one per song from the approved rows the",
+         "   song's keys play (`keys`), at `weight` tilted by the song's motion and the row's `busy` (roll.h's",
+         "   motion_tilt). A row's strikes in a bar: `later_vel_pct` the later strikes' velocity in percent of the",
+         "   first's; len in 16ths (held: written a bar, the engine holds the chord; a strike as long as the gap to",
+         "   the next, or to the bar's end, is held to it). The stabs' strikes are COMP_STABS's (n 0 here). rules:",
+         "   CR_THIN, a busy lead thins it to its first strike (held to the next bar where it was held); CR_HOLD,",
+         "   it holds instead over sustained keys or a kick of its very rhythm. */",
+         "#define CR_THIN 1",
+         "#define CR_HOLD 2",
+         "/* keys \"all\": every keys instrument but the guitars (they only strum: CS_STRUM, its own engine) */",
+         "#define CK_ALL (0xFFFFFFFFu & ~(1u << INS_NYLON | 1u << INS_EMILY))",
          "typedef struct {",
+         "    uint8_t style;                      /* harmony.h's CS_* that plays it */",
+         "    uint8_t weight;                     /* the draw's base weight (patterns/model.json: 1 each) */",
+         "    uint8_t busy;                       /* 0 sparse, 1 middle, 2 busy (the motion tilt) */",
+         "    uint8_t rules;                      /* CR_* */",
+         "    uint32_t keys;                      /* the chords instruments that play it: 1u << INS_* */",
          "    uint8_t vel_lo, vel_hi;",
          "    uint8_t n;                          /* strikes */",
          "    uint8_t step[8], len[8];",
          "    uint8_t later_vel_pct;",
          "} patterns_comp_t;",
-         "/* the stabs: one on `first`, the second on the first of `second` the kick leaves free; over a kick of more",
-         "   than `busy_over` hits a bar, `busy_steps` (a mask). len: the written length (the engine strikes 60% of a",
-         "   quarter) */",
+         "/* the stabs' strikes: one on `first`, the second on the first of `second` the kick leaves free;",
+         "   over a kick of more than `busy_over` hits a bar, `busy_steps` (a mask). len: the written length (the",
+         "   engine strikes 60% of a quarter) */",
          "typedef struct {",
-         "    uint8_t vel_lo, vel_hi;",
          "    uint8_t first;",
          "    uint8_t n;                          /* second-stab candidates, tried in order */",
          "    uint8_t second[4];",
@@ -368,28 +381,33 @@ def gen_c(t):
          "    uint8_t busy_over;",
          "    uint16_t busy_steps;",
          "} patterns_stabs_t;",
-         "extern const patterns_comp_t " + ", ".join(STRIKES.values()) + ";",
          "extern const patterns_stabs_t COMP_STABS;",
-         "/* the comp rhythms past those (ids 7 on: patterns/comp-rhythms' added files; harmony.c's CS_PAT), one bar of",
-         "   strikes each. The host's and the workbench's builds hold every entry (a candidate plays when the comp_pat",
-         "   override forces it); the firmware only the approved, the ones the roll draws: a candidate costs it",
-         "   nothing */",
+         "/* the fixed rows (always approved, first in every build) */",
+         "enum { COMP_I_HELD, COMP_I_HALF, COMP_I_STABS, COMP_I_HELD2, COMP_I_HELD24, COMP_NFIXED };",
+         "/* The host's and the workbench's builds hold every row (a candidate plays when the workbench forces it);",
+         "   the firmware only the approved, the ones the roll draws: a candidate costs it nothing */",
          "#if defined PLAT_HOST || defined __EMSCRIPTEN__ || defined __APPLE__ || defined __linux__",
-         "#define COMP_PAT_ALL 1",
-         f"#define COMP_NPAT {len(t['comp_pat'])}",
+         "#define COMP_ALL 1",
+         f"#define COMP_N {len(t['comp'])}",
          "#else",
-         "#define COMP_PAT_ALL 0",
-         f"#define COMP_NPAT {sum(1 for x in t['comp_pat'] if x['status'] == 1)}",
+         "#define COMP_ALL 0",
+         f"#define COMP_N {sum(1 for x in t['comp'] if x['status'] == 1)}",
          "#endif",
-         "#if COMP_NPAT",
-         "extern const patterns_comp_t COMP_PAT[COMP_NPAT];",
-         "#endif",
-         "#if COMP_PAT_ALL && COMP_NPAT",
-         "extern const uint8_t COMP_PAT_STATUS[COMP_NPAT];",
-         "#define COMP_PAT_APPROVED(i) (COMP_PAT_STATUS[i] == 1)",
+         "extern const patterns_comp_t COMP[COMP_N];",
+         "#if COMP_ALL",
+         "extern const uint8_t COMP_STATUS[COMP_N];",
+         "#define COMP_APPROVED(i) (COMP_STATUS[i] == 1)",
          "#else",
-         "#define COMP_PAT_APPROVED(i) 1                 /* (the firmware's are all approved) */",
+         "#define COMP_APPROVED(i) 1                     /* (the firmware's are all approved) */",
          "#endif",
+         "#define COMP_HELD (COMP[COMP_I_HELD])",
+         "#define COMP_HALF (COMP[COMP_I_HALF])",
+         "#define COMP_HELD2 (COMP[COMP_I_HELD2])",
+         "#define COMP_HELD24 (COMP[COMP_I_HELD24])",
+         "/* the added rhythms (ids 7 on, CS_PAT), by their own index: the workbench's comp_pat override names one */",
+         "#define COMP_NPAT (COMP_N - COMP_NFIXED)",
+         "#define COMP_PAT (COMP + COMP_NFIXED)",
+         "#define COMP_PAT_APPROVED(i) COMP_APPROVED(COMP_NFIXED + (i))",
          "",
          "/* strum.c's patterns (16 steps; 32 for a two-bar one) and the ballad's fill-bar variant */",
          f"#define STRUM_NPAT {len(t['strum'])}",
@@ -404,7 +422,7 @@ def gen_c(t):
          "extern const char *const STRUM_FILL_DRIVE[STRUM_NFILL];",
          "",
          "#endif", ""]
-    C = [head, '#include "patterns_gen.h"', "",
+    C = [head, '#include "patterns_gen.h"', '#include "harmony.h"', "",
          "/* Degrees are 0-based in the song's mode; {degree, alter, quality}. A progression lists only the modes",
          "   where its degrees give the chords named in src. R25: a vamp's or loop's chords lie in each mode it lists",
          "   at every color (Q_DIATONIC where the mode's own chord is the one named, so its color tones fit too); only",
@@ -427,28 +445,25 @@ def gen_c(t):
     C += ["};", "const int LIB_NPATTERNS = (int)(sizeof LIB_PATTERNS / sizeof LIB_PATTERNS[0]);",
           "const uint8_t LIB_PATTERNS_STATUS[] = " + c_list(p["status"] for p in t["patterns"]) + ";", ""]
     pad = lambda v: list(v) + [0] * (8 - len(v))  # noqa: E731
-    for key, name in STRIKES.items():
-        x = t["comp"][key]
-        C.append(f"const patterns_comp_t {name} = {{{x['vel'][0]}, {x['vel'][1]}, {len(x['steps'])}, "
-                 f"{c_list(pad(x['steps']))}, {c_list(pad(x['lens']))}, {x['later_vel_pct']}}};")
-    s = t["comp"]["stabs"]
-    C.append(f"const patterns_stabs_t COMP_STABS = {{{s['vel'][0]}, {s['vel'][1]}, {s['first']}, {len(s['second'])}, "
-             f"{c_list(list(s['second']) + [0] * (4 - len(s['second'])))}, {s['len']}, {s['busy_over']}, "
-             f"0x{sum(1 << x for x in s['busy_steps']):04X}}};")
-    if t["comp_pat"]:                               # the firmware's (COMP_PAT_ALL 0): the approved alone
-        rows, cand = [], False
-        for x in t["comp_pat"]:
-            if (x["status"] != 1) != cand:
-                cand = not cand
-                rows.append("#if COMP_PAT_ALL" if cand else "#endif")
-            rows.append(f"    {{{x['vel'][0]}, {x['vel'][1]}, {len(x['steps'])}, {c_list(pad(x['steps']))}, "
-                        f"{c_list(pad(x['lens']))}, {x['later_vel_pct']}}},")
-        if cand:
-            rows.append("#endif")
-        C += ["#if COMP_NPAT", "const patterns_comp_t COMP_PAT[COMP_NPAT] = {", *rows, "};", "#endif",
-              "#if COMP_PAT_ALL && COMP_NPAT",
-              "const uint8_t COMP_PAT_STATUS[COMP_NPAT] = " + c_list(x["status"] for x in t["comp_pat"]) + ";",
-              "#endif"]
+    rows, cand = [], False
+    for x in t["comp"]:                             # the firmware's (COMP_ALL 0): the approved alone
+        if (x["status"] != 1) != cand:
+            cand = not cand
+            rows.append("#if COMP_ALL" if cand else "#endif")
+        keys = "CK_ALL" if x["keys"] == validate.KEYS_ALL else \
+            " | ".join(f"1u << {n}" for i, n in enumerate(validate.INS) if x["keys"] >> i & 1)
+        rules = " | ".join(n for b, n in ((1, "CR_THIN"), (2, "CR_HOLD")) if x["rules"] & b) or "0"
+        rows.append(f"    {{{export.CS[x['style']]}, {x['weight']}, {x['busy']}, {rules}, {keys}, {x['vel'][0]}, "
+                    f"{x['vel'][1]}, {len(x['steps'])}, {c_list(pad(x['steps']))}, {c_list(pad(x['lens']))}, "
+                    f"{x['later_vel_pct']}}},")
+    if cand:
+        rows.append("#endif")
+    s = t["stabs"]
+    C += ["const patterns_comp_t COMP[COMP_N] = {", *rows, "};", "#if COMP_ALL",
+          "const uint8_t COMP_STATUS[COMP_N] = " + c_list(x["status"] for x in t["comp"]) + ";", "#endif",
+          f"const patterns_stabs_t COMP_STABS = {{{s['first']}, {len(s['second'])}, "
+          f"{c_list(list(s['second']) + [0] * (4 - len(s['second'])))}, {s['len']}, {s['busy_over']}, "
+          f"0x{sum(1 << x for x in s['busy_steps']):04X}}};"]
     C += ["", "const char *const STRUM_PAT[STRUM_NPAT] = {"] + [f"    {c_str(x)}," for x in t["strum"]] + [
         "};", "const uint8_t STRUM_PAT_STATUS[STRUM_NPAT] = " + c_list(t["strum_status"]) + ";",
         f"const char STRUM_BALLAD_FILL[] = {c_str(t['strum_ballad_fill'])};",
@@ -473,7 +488,34 @@ def option_blocks(model, text):
         es = sorted((x for x in model[fam].items() if x[1].get("kind") == kind), key=lambda x: x[1]["index"])
         return [f'    {{ "id": "{k}", "index": {e["index"]}, "name": {name(e)}{st(e)} }}' for k, e in es]
     return {"patterns": drums, "kickPhrases": kicks, "strumPats": indexed("strum", "pattern"),
-            "compPats": indexed("comp-rhythms", "pattern")}
+            "compRhythms": comp_rhythms(model)}
+
+
+# the fixed comp rhythms' names in the workbench (an added one's from its file: "9-late-one" -> "Late one")
+COMP_LABEL = {"held": "Held", "half": "Half notes", "stabs": "Stabs", "held-on-2": "Held on 2",
+              "held-on-2-and-4": "Held on 2 and 4"}
+
+
+def comp_rhythms(model):
+    """options.json's compRhythms: every keys comping rhythm, in the engine's table order, as the Comping row offers
+       it. value: the row's (a fixed rhythm's CS_* id, the COMP override; an added one's 100 + its index, the COMP_PAT
+       override); keys: the keys instruments that play it (\"all\": notKeys, the guitars, which strum)"""
+    es = model["comp-rhythms"]
+    fixed = {e["name"]: (k, e) for k, e in es.items() if e.get("kind") != "pattern"}
+    rows = [fixed[n] for _i, n, _s in export.COMP_FIXED_ROWS] + \
+        sorted(((k, e) for k, e in es.items() if e.get("kind") == "pattern"), key=lambda x: x[1]["index"])
+    out = []
+    for k, e in rows:
+        if e.get("kind") == "pattern":
+            slug = re.sub(r"^\d+-", "", e["file"].split("/", 1)[1]).replace("-", " ")   # ("9-late-one": "Late one")
+            name = json.dumps(slug[:1].upper() + slug[1:])
+            head = f'"value": {100 + e["index"]}, "index": {e["index"]}, "name": {name}'
+        else:
+            head = f'"value": {export.CS.index(e["style"])}, "name": {json.dumps(COMP_LABEL[e["name"]])}'
+        keys = (f'"notKeys": {json.dumps([validate.INS.index(g) for g in validate.GUITARS])}' if e["keys"] == "all"
+                else f'"keys": {json.dumps(sorted(validate.INS.index(x) for x in e["keys"]))}')
+        out.append(f'    {{ "id": "{k}", {head}, "status": "{e["status"]}", {keys} }}')
+    return out
 
 
 def options_text(text, blocks):
@@ -508,6 +550,7 @@ def defaults(fam, stem, model, meta):
     if fam == "comp-rhythms":                       # a comp rhythm past the fixed six (CS_PAT): one bar of strikes
         n = sum(1 for e in es.values() if e.get("kind") == "pattern")
         return str(export.comp_pat_id(n)), {"style": "CS_PAT", "kind": "pattern", "index": n,
+                                            **copy.deepcopy(export.COMP_PAT_DRAW),
                                             "vel_range": list(export.COMP_PAT_VEL)}
     if fam == "strum":
         n = sum(1 for e in es.values() if e["kind"] == "pattern")

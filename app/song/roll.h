@@ -16,7 +16,9 @@ enum { RF_KEY, RF_TEMPO, RF_MOTION, RF_MOOD, RF_MODE, RF_MAP, RF_PROG, RF_COLOR,
    Progressions and drum patterns are drawn (roll_song, roll_dice, the novelty passes) from the approved entries only
    (patterns_gen.h's *_STATUS 1); roll_set takes a candidate too (the workbench's way to hear one), and a mode only a
    candidate progression suits (that progression then, unless the song's suits it). */
-typedef struct { uint32_t seed; int16_t v[RF_N]; } song_roll_t;
+/* motion_moved: how far a live Motion request (song.c's, from a 4-bar boundary) moved v[RF_MOTION] from the motion the
+   song was rolled (or staged) with; 0 in any roll that was never live-changed. roll_motion reads the rolled one. */
+typedef struct { uint32_t seed; int16_t v[RF_N]; int16_t motion_moved; } song_roll_t;
 
 void roll_song(const song_roll_t *prev, uint32_t seed, song_roll_t *out);   /* prev NULL for the first song */
 int roll_dice(song_roll_t *r, int field, uint32_t salt);  /* 1: changed to another legal value; 0: none exists */
@@ -26,6 +28,15 @@ int roll_set(song_roll_t *r, int field, int value);       /* manual pick, valida
    differ by a constant correlate) */
 uint32_t roll_mix(uint32_t a, uint32_t b);
 int roll_seconds(const song_roll_t *r);                   /* RF_BARS * 240 / RF_TEMPO */
+/* The motion the song was rolled with (v[RF_MOTION] less a live request's move): what a per-song draw that must not
+   change mid-song (the keys' comping rhythm) reads */
+int roll_motion(const song_roll_t *r);
+/* The motion tilt, shared by every per-song draw that leans on the song's motion ("motion roll -> informed busy-ness
+   roll", Sam 2026-11-05): an entry of base weight `weight` and busyness `busy` (0 sparse, 1 middle, 2 busy) drawn at
+   `motion` (20-80; clamped) weighs weight * (60 + (motion - 50) * (busy - 1)): at 50 every busyness alike, at 20 sparse
+   3x busy (90 to 30, middle 60), at 80 busy 3x sparse; never 0 for a weight over 0. Integer only; the result fits a
+   uint32_t for any uint8_t weight (draw with rng_next() % total, not rng_weighted's uint8_t weights). */
+uint32_t motion_tilt(int weight, int busy, int motion);
 /* The song's drum kit (seed stream 192, hashed apart from the set's and the mood's draws): the set's synth kit or its
    sampled kit (skit), about half each; a set with no skit (the 808 and Brushes sets) its synth kit always, a set
    with no synth kit its skit. A pure function of the seed and the set. */

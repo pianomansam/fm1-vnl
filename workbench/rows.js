@@ -106,19 +106,16 @@ const ONE_PART = new Set([25, 2, 11]);
 // Sam 2026-11-04)
 export const compFits = (c, keys) => (!c.keys || c.keys.includes(keys)) && !c.notKeys?.includes(keys);
 
-// The Comping row's value: -1 as rolled, a style's id (options.json's comping), or COMP_PAT_BASE + a comp rhythm's
-// table index (options.json's compPats: the engine's CS_PAT with that rhythm forced, the comp_pat override)
+// The Comping row's value: -1 as rolled; a comping rhythm's (options.json's compRhythms, generated from
+// patterns/comp-rhythms, every keys rhythm in one list, Sam 2026-11-05): a fixed one's CS_* id (staged as COMP), an
+// added one's COMP_PAT_BASE + its table index (the engine's CS_PAT with that rhythm forced, the comp_pat override); or
+// another style's id (options.json's comping: strum, the retired, the removed, and CS_PAT alone, an old snapshot's)
 export const COMP_PAT_BASE = 100;
 export const isCompPat = (v) => Number.isInteger(v) && v >= COMP_PAT_BASE;
-// a comp rhythm's name from its file ("9-late-one" -> "Late one")
-const patName = (file) => { const n = file.replace(/^\d+-/, "").replace(/-/g, " "); return n[0].toUpperCase() + n.slice(1); };
-// the comping choice a Comping value names: a style's entry, or a comp rhythm's (CS_PAT's keys, its own name, status
-// and key), or undefined
+// the comping choice a Comping value names: a rhythm's (key: its patterns/comp-rhythms id), a style's, or undefined
 export function compOption(opts, v) {
-  if (!isCompPat(v)) return opts.comping.find((c) => c.id === v);
-  const p = (opts.compPats || []).find((x) => x.index === v - COMP_PAT_BASE);
-  const cs = opts.comping.find((c) => c.sym === "CS_PAT");
-  return p && cs && { ...cs, id: v, name: patName(p.name), status: p.status, key: p.id };
+  const x = (opts.compRhythms || []).find((c) => c.value === v);
+  return x ? { ...x, id: v, key: x.id } : opts.comping.find((c) => c.id === v);
 }
 
 // a progression's note without its source ("lofi-hip-hop.md 2, ii9-V13 vamp" -> "ii9-V13 vamp"); an imported one's file
@@ -145,13 +142,13 @@ function allOptions(r, state, opts, lib) {
     case "instruments":
       return opts.instruments.filter((i) => i.roles.includes(ROLE[r.role]))
         .map((i) => ({ value: i.id, name: i.name, status: i.status, family: i.family }));
-    case "comping": {   // the styles, then each comp rhythm by name (on the keys that play CS_PAT). CS_PAT alone (an
-                        // old snapshot's "a drawn comp rhythm") is never offered: shown only as the current value; a
-                        // removed style (light eighths) never
-      const pats = (opts.compPats || []).map((p) => compOption(opts, COMP_PAT_BASE + p.index)).filter(Boolean);
-      return [ROLLED, ...[...opts.comping, ...pats].filter((c) => c.status !== "removed" && compFits(c, v.keys))
-        .map((c) => ({ value: c.id, name: c.name, status: c.status, ...(c.sym === "CS_PAT" && !isCompPat(c.id) ? { hidden: true } : {}),
-                       ...(isCompPat(c.id) ? { key: c.key } : {}) }))];
+    case "comping": {   // every rhythm (on the keys its data names), then strum and the retired styles. CS_PAT alone
+                        // (an old snapshot's "a drawn comp rhythm") is never offered: shown only as the current value;
+                        // a removed style (light eighths) never
+      const rhythms = (opts.compRhythms || []).map((c) => compOption(opts, c.value));
+      return [ROLLED, ...[...rhythms, ...opts.comping].filter((c) => c.status !== "removed" && compFits(c, v.keys))
+        .map((c) => ({ value: c.id, name: c.name, status: c.status, ...(c.sym === "CS_PAT" ? { hidden: true } : {}),
+                       ...(c.key ? { key: c.key } : {}) }))];
     }
     case "leadStyles":   // 2 + leads.h's LS_*; the retired engines 0 and 1 behind "show retired"
       return [ROLLED, ...opts.leadStyles.map((s) => ({ value: s.id, name: s.name, status: s.status }))];
@@ -300,9 +297,9 @@ const FAMILY = { patterns: "drums", progs: "progressions", strumPats: "strum", k
 // The row's current value when it is a candidate pattern: { family, id, name } for POST /approve (patterns/status.json),
 // else null
 export function approval(r, state, opts, lib) {
-  if (r.id === "comp") {   // a comp rhythm (patterns/comp-rhythms); the fixed styles aren't patterns
-    const o = isCompPat(state.values.comp) && compOption(opts, state.values.comp);
-    return o?.status === "candidate" ? { family: "comp-rhythms", id: o.key, name: o.name } : null;
+  if (r.id === "comp") {   // a comping rhythm (patterns/comp-rhythms)
+    const o = compOption(opts, state.values.comp);
+    return o?.key && o.status === "candidate" ? { family: "comp-rhythms", id: o.key, name: o.name } : null;
   }
   if (!FAMILY[r.source]) return null;
   const o = allOptions(r, state, opts, lib).find((x) => same(x.value, state.values[r.id]));
@@ -316,11 +313,13 @@ export function inactive(r, state, opts) {
     return `Lead style: ${style.name} is retired; the song plays a rolled style instead.`;
   if (r.id === "strumPat" && state.strums === false)
     return "The comp doesn't strum in this song: a strum pattern plays with strummed comping (the guitars).";
-  if (r.id === "comp" && isCompPat(state.values.comp)) {   // CS_PAT's keys (options.json's comping): where held on 2 plays
+  if (r.id === "comp") {   // a rhythm left on a comp instrument its data doesn't name (a snapshot's): it holds
     const c = compOption(opts, state.values.comp);
-    if (c && !compFits(c, state.values.keys))
-      return "This comp instrument doesn't play a comp rhythm: it plays on the percussive keys and the vibes only " +
-             "(Rhodes, felt piano, Knight, vibes).";
+    if (c?.key && !compFits(c, state.values.keys)) {
+      const name = (k) => opts.instruments.find((i) => i.id === k)?.name ?? `instrument ${k}`;
+      return `This comp instrument doesn't play ${c.name}: ` +
+             (c.keys ? `it plays on the ${c.keys.map(name).join(", ")} only.` : "the guitars only strum.");
+    }
   }
   if (r.id === "strumFill" && state.strums === false)
     return "The comp doesn't strum in this song: a strum fill plays in a strummed song's drum-fill bars.";
@@ -347,7 +346,7 @@ export function summary(part, state, opts) {
     out.push(ins(v.bass));
   } else if (part === "keys") {
     out.push(ins(v.keys));
-    const style = v.comp >= 0 ? compOption(opts, v.comp) : opts.comping.find((c) => c.id === state.comp);
+    const style = compOption(opts, v.comp >= 0 ? v.comp : state.comp);   // (as rolled: the style the engine applies)
     const pat = style?.sym === "CS_STRUM" && v.strumPat >= 0 ? opts.strumPats?.find((p) => p.index === v.strumPat) : null;
     out.push(pat ? `strum ${pat.name}` : style?.sym === "CS_PAT" && !isCompPat(style.id) ? "a comp rhythm" : style?.name);
     out.push(reg(v.keysOct));

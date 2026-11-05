@@ -4,7 +4,7 @@
   <work><work-title>Comp rhythm 1: held over Cmaj7</work-title></work>
   <identification>
     <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
-    <miscellaneous><miscellaneous-field name="vnl1">{"family":"comp-rhythms","id":"1","name":"held","status":"approved","style":"CS_HELD","vel_range":[40,58],"strikes":[{"step":0,"len":16}]}</miscellaneous-field></miscellaneous>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"comp-rhythms","id":"1","name":"held","status":"approved","style":"CS_HELD","weight":1,"busy":0,"keys":"all","thin":0,"hold":0,"vel_range":[40,58],"strikes":[{"step":0,"len":16}]}</miscellaneous-field></miscellaneous>
   </identification>
   <part-list>
     <score-part id="P1">

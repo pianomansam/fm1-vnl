@@ -4,7 +4,7 @@
   <work><work-title>Comp rhythm 8: tresillo over Cmaj7</work-title></work>
   <identification>
     <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
-    <miscellaneous><miscellaneous-field name="vnl1">{"family":"comp-rhythms","id":"8","status":"approved","style":"CS_PAT","kind":"pattern","index":1,"vel_range":[25,33],"second_vel_pct":90,"strikes":[{"step":0,"len":6},{"step":6,"len":6},{"step":12,"len":4}]}</miscellaneous-field></miscellaneous>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"comp-rhythms","id":"8","status":"approved","style":"CS_PAT","kind":"pattern","index":1,"weight":1,"busy":2,"keys":["INS_RHODES","INS_FELT_PIANO","INS_VIBES","INS_KNIGHT"],"thin":0,"hold":1,"vel_range":[25,33],"second_vel_pct":90,"strikes":[{"step":0,"len":6},{"step":6,"len":6},{"step":12,"len":4}]}</miscellaneous-field></miscellaneous>
   </identification>
   <part-list>
     <score-part id="P1">

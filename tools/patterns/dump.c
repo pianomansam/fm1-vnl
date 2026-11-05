@@ -37,14 +37,13 @@ static void masks(const uint16_t *m)
     printf("]");
 }
 
-static void comp(const char *name, const patterns_comp_t *c)
+static void comp(const patterns_comp_t *c, int status, const char *end)
 {
-    int i;
-    printf("\"%s\": {\"vel\": [%d, %d], \"steps\": [", name, c->vel_lo, c->vel_hi);
-    for (i = 0; i < c->n; i++) printf("%s%d", i ? ", " : "", c->step[i]);
-    printf("], \"lens\": [");
-    for (i = 0; i < c->n; i++) printf("%s%d", i ? ", " : "", c->len[i]);
-    printf("], \"later_vel_pct\": %d}, ", c->later_vel_pct);
+    printf("  {\"style\": %d, \"weight\": %d, \"busy\": %d, \"rules\": %d, \"keys\": %lu, \"vel\": [%d, %d], ",
+           c->style, c->weight, c->busy, c->rules, (unsigned long)c->keys, c->vel_lo, c->vel_hi);
+    bytes("steps", c->step, c->n, ", ");
+    bytes("lens", c->len, c->n, ", ");
+    printf("\"later_vel_pct\": %d, \"status\": %d}%s\n", c->later_vel_pct, status, end);
 }
 
 int main(void)
@@ -77,28 +76,14 @@ int main(void)
         str(p->src);
         printf(", \"status\": %d}%s\n", LIB_PROGS_STATUS[i], i + 1 < LIB_NPROGS ? "," : "");
     }
-    printf("],\n\"comp\": {");
-    comp("held", &COMP_HELD);
-    comp("half", &COMP_HALF);
-    comp("held-on-2", &COMP_HELD2);
-    comp("held-on-2-and-4", &COMP_HELD24);
-    printf("\"stabs\": {\"vel\": [%d, %d], \"first\": %d, ", s->vel_lo, s->vel_hi, s->first);
+    printf("],\n\"comp\": [\n");           /* (the host's build: every row, candidates too) */
+    for (i = 0; i < COMP_N; i++) comp(&COMP[i], COMP_STATUS[i], i + 1 < COMP_N ? "," : "");
+    printf("],\n\"stabs\": {\"first\": %d, ", s->first);
     bytes("second", s->second, s->n, ", ");
     printf("\"len\": %d, \"busy_over\": %d, ", s->len, s->busy_over);
     for (i = 0, j = 0; i < 16; i++)
         if (s->busy_steps >> i & 1u) x[j++] = i;
-    ints("busy_steps", x, j, "}},\n");
-    printf("\"comp_pat\": [");                 /* (the host's build: every entry, candidates too) */
-#if COMP_NPAT
-    for (i = 0; i < COMP_NPAT; i++) {
-        const patterns_comp_t *c = &COMP_PAT[i];
-        printf("%s{\"vel\": [%d, %d], ", i ? ", " : "", c->vel_lo, c->vel_hi);
-        bytes("steps", c->step, c->n, ", ");
-        bytes("lens", c->len, c->n, ", ");
-        printf("\"later_vel_pct\": %d, \"status\": %d}", c->later_vel_pct, COMP_PAT_STATUS[i]);
-    }
-#endif
-    printf("],\n");
+    ints("busy_steps", x, j, "},\n");
     printf("\"strum\": [");
     for (i = 0; i < STRUM_NPAT; i++) {
         printf(i ? ", " : "");

@@ -42,7 +42,8 @@ def variant(model, status):
                                            "steps": "D.D.D.D.D.D.D.D.", "file": "strum/variant-strum"}
     n = sum(1 for e in m["comp-rhythms"].values() if e.get("kind") == "pattern")
     m["comp-rhythms"][str(export.comp_pat_id(n))] = {
-        "status": status, "style": "CS_PAT", "kind": "pattern", "index": n, "vel_range": [40, 58],
+        "status": status, "style": "CS_PAT", "kind": "pattern", "index": n, **copy.deepcopy(export.COMP_PAT_DRAW),
+        "vel_range": [40, 58],
         "strikes": [{"step": 0, "len": 4}, {"step": 4, "len": 12}], "file": "comp-rhythms/variant-comp"}   # 1 and 2
     n = max(int(k[1:]) for k in m["kick-phrases"]) + 1
     m["kick-phrases"][f"k{n}"] = {"id": f"k{n}", "a": [0, 3, 8], "b": [0, 3, 8], "status": status,

@@ -45,10 +45,9 @@ byte.
   Sam edited is never rewritten) and both hashes go in the manifest.
 - **New patterns:** a file whose name is not in `model.json` is a new pattern, as either file alone (the other is
   written for it). It keeps its file name, takes the next free id and is a **candidate** (the workbench only, until
-  approved). The five comp rhythms (held, half, stabs, held on 2, held on 2 and 4; ids 1-6, 5 light eighths removed
-  2026-11-05 and never reused) are fixed styles:
-  edit them in place. A file dropped in `comp-rhythms/` is a new **comp rhythm** (id 7 on, one bar of strikes, played
-  as `CS_PAT`), a candidate like any other. A strum pattern added takes the next
+  approved). The five fixed comp rhythms (held, half, stabs, held on 2, held on 2 and 4; ids 1-6, 5 light eighths
+  removed 2026-11-05 and never reused): edit them in place. A file dropped in `comp-rhythms/` is a new **comp rhythm**
+  (id 7 on, one bar of strikes, a row of the same table), a candidate like any other. A strum pattern added takes the next
   id no fill holds (past the fourth it skips 5, the ballad's fill; past the fifteenth 16-19, the step back and drive
   fills: the next is 20). A file dropped in the strum folder is always a new pattern; the fills are edited in place,
   never added. The engine's roll draws approved entries only (`patterns_gen.h`'s `*_STATUS`), so a candidate
@@ -124,42 +123,63 @@ chord look the same on paper).
 
 ## comp-rhythms
 
-The keys' comping rhythms (`COMP_HELD`, `COMP_HALF`, `COMP_STABS`, `COMP_HELD2`, `COMP_HELD24` in
-`patterns_gen.c`; `harmony.c` plays them): held, half, stabs, held on 2 and held on 2 and 4, over a
-reference Cmaj7 (C4 E4 G4 B4; the pitches are placeholders, only the rhythm counts). The velocities are written at
-the middle of `vel_range` (metadata), a later strike at `second_vel_pct` of it. A strike written as long as the gap
-to the next (or to the bar's end) is held to it; a shorter one is played as written.
+Every comping rhythm the keys play, one row each of one table (`COMP` in `patterns_gen.c`, in id order; `harmony.c`
+plays them; Sam, 2026-11-05: "I think of all comping rhythms the same"): held, half, stabs, held on 2 and held on 2
+and 4 (ids 1-6, fixed: always approved, edit them in place), then the comp rhythms added since (id 7 on, `kind`
+`"pattern"`, `index` its place among them), over a reference Cmaj7 (C4 E4 G4 B4; the pitches are placeholders, only
+the rhythm counts). The velocities are written at the middle of `vel_range` (metadata), a later strike at
+`second_vel_pct` of it. A strike written as long as the gap to the next (or to the bar's end) is held to it; a
+shorter one is played as written.
 
-- **held:** one strike on step 0, held the bar.
-- **half:** strikes on steps 0 and 8, a half note each, the second at 90% velocity.
-- **stabs:** a stab on step 0 and a second stab, an 8th long. The second stab's candidates (`second`: steps 6, 10,
+**The draw.** The roll draws one rhythm per song (seed stream 121) from the approved rows the song's keys play, each
+at its `weight` tilted by the motion the song was rolled with and its `busy` (`roll.h`'s `motion_tilt`: weight x
+(60 + (motion - 50) x (busy - 1))). At motion 50 every rhythm alike; at 20 a sparse one about 3x a busy one, at 80
+the reverse; a middle one stays between; none ever 0. A live Motion request (a knob turn, from the next 4-bar
+boundary) re-plans the song but never re-draws its comping (Sam: "It should stay"). Keys that play only held and half
+notes (the pad, the organ) keep their old draw, held 44 to half 36, untilted (`harmony.c`).
+
+**Editing a rhythm's draw:** each entry's fields in `model.json` (Sam edits them there, then runs
+`tools/patterns/import.sh`; they are not read from a file's metadata, so a file edited later never undoes them):
+
+- `weight`: the rhythm's share, 1 each (even). 2 draws it twice as often as a 1; 0 never (the workbench still plays
+  it when picked).
+- `busy`: 0 sparse, 1 middle, 2 busy (the motion tilt). Held and late one 0; half, held on 2, held on 2 and 4 and
+  charleston 1; tresillo and stabs 2.
+- `keys`: `"all"` (every keys instrument but the guitars, which only strum: `CS_STRUM`, its own engine) or a list of
+  `INS_*` names (`app/song/library.h`). Held and half `"all"`; stabs the Knight; held on 2, held on 2 and 4 and the
+  added rhythms the percussive keys and the vibes (`INS_RHODES`, `INS_FELT_PIANO`, `INS_VIBES`, `INS_KNIGHT`). A
+  rhythm forced on keys it doesn't name (the workbench, a host render's `VNL_COMP`) holds instead.
+- `thin`: 1 where a busy lead (4+ onsets in the bar) thins it to its first strike, held to the next bar's where it
+  was held (half notes, stabs; the workbench's "Busy lead thins the comping" row, `VNL_BUSY=0`, turns it off); 0
+  every bar plays the written strikes.
+- `hold`: 1 where it holds instead over sustained keys or a kick of its very rhythm (half notes over a kick on 1 and 3
+  alone, a charleston over a kick on 1 and the and of 2; the bass then has no keys rhythm to step aside from).
+
+A new rhythm takes weight 1, busy 1, held on 2's keys, thin 0 and hold 1 (`export.py`'s `COMP_PAT_DRAW`).
+
+- **held (1):** one strike on step 0, held the bar.
+- **half (2):** strikes on steps 0 and 8, a half note each, the second at 90% velocity.
+- **stabs (3):** a stab on step 0 and a second stab, an 8th long. The second stab's candidates (`second`: steps 6, 10,
   4, 12, tried in that order where the kick leaves the step free) are written as alternates, one bar each: bar 1 is
   the first candidate, bar 2 the second, and so on. Over a kick of more than 3 hits a bar (`busy_over`), the stabs
-  are steps 0 and 6 (`busy_steps`), in the metadata.
-- **held-on-2:** one strike on step 4 (beat 2, a chord change on a bar line too), held to the bar's end; never a
-  beat 4. Percussive keys (and the vibes) only; approved (Sam, 2026-11-05), the roll's weight 15 (`VNL_COMP=6`).
-  `vel_range` 32-46, under held's: it never thins under a busy lead, so it sits lower (the lead over the keys).
-- **light-eighths (5):** removed (Sam, 2026-11-05: "remove light eighths completely"): no file, no table, no
-  style (`CS_LIGHT8_GONE` keeps its slot); a forced 7 (an old snapshot's, `VNL_COMP=7`) holds.
-- **held-on-2-and-4:** held on 2, then a soft re-strike of the same voicing on step 12 (beat 4, `second_vel_pct` 70)
-  in every bar, which shortens the first to a half note. Percussive keys (and the vibes) only; approved (Sam,
-  2026-11-05), weight 10 (`VNL_COMP=8`). `vel_range` 28-41, under held on 2's, for the same reason.
+  are steps 0 and 6 (`busy_steps`), in the metadata (the stabs' strikes: `COMP_STABS`).
+- **held-on-2 (4):** one strike on step 4 (beat 2, a chord change on a bar line too), held to the bar's end; never a
+  beat 4 (`VNL_COMP=6`). `vel_range` 32-46, under held's: it never thins under a busy lead, so it sits lower (the
+  lead over the keys).
+- **light-eighths (5):** removed (Sam, 2026-11-05: "remove light eighths completely"): no file, no row, no style
+  (`CS_LIGHT8_GONE` keeps its slot); a forced 7 (an old snapshot's, `VNL_COMP=7`) holds.
+- **held-on-2-and-4 (6):** held on 2, then a soft re-strike of the same voicing on step 12 (beat 4, `second_vel_pct`
+  70) in every bar, which shortens the first to a half note (`VNL_COMP=8`). `vel_range` 28-41, under held on 2's.
 
-These two (and the comp rhythms) never thin under a busy lead (Sam): every bar plays the written strikes. Held, half and stabs do thin
-(`harmony.c`), unless the workbench's "Busy lead thins the comping" row is off (`VNL_BUSY=0` for a host render).
-
-**Comp rhythms** (id 7 on, `kind` `"pattern"`, `COMP_PAT` in `patterns_gen.c`, `index` its slot; `harmony.c`'s
-`CS_PAT` plays them): any further rhythm, a file dropped in this folder, one bar of 1-8 strikes over the reference
-Cmaj7, read as held, half and the rest are (a strike as long as the gap to the next is held to it; none rings past
-the bar line). A new one's `vel_range` is held's (40-58) and `second_vel_pct` 100 unless the metadata says otherwise;
-the three below were set under it (2026-11-05: they never thin under a busy lead, and at held's level they sat on
-the lead): charleston 27-39, tresillo 25-33, late one 32-46. They play
-where held on 2 does (the percussive keys and, from 2026-11-05, the vibes: `harmony_comp_ok`), every bar, never thinned; the bass steps aside from
-their rhythm (as from the stabs), and over a kick of the very same rhythm they hold instead (as half notes do). A
-candidate is in the host's and the workbench's table only (the firmware's `COMP_NPAT` counts the approved): the
-workbench's **Comping** row lists them by name and forces the one picked (`VNL_COMP_PAT=<id>` for a host render), and its Approve writes
-`status.json`. All three are approved (Sam, 2026-11-05); the roll draws `CS_PAT` on those keys at weight 20 (`harmony.c`'s
-`COMP_PAT_WEIGHT`, a first guess: about 1 song in 5 of them), the approved rhythms equally.
+**Comp rhythms** (id 7 on): any further rhythm, a file dropped in this folder, one bar of 1-8 strikes over the
+reference Cmaj7, read as held, half and the rest are (none rings past the bar line); played by `harmony.c`'s `CS_PAT`
+path. A new one's `vel_range` is held's (40-58) and `second_vel_pct` 100 unless the metadata says otherwise; the three
+below were set under it (2026-11-05: they never thin under a busy lead, and at held's level they sat on the lead):
+charleston 27-39, tresillo 25-33, late one 36-50 (32-46 until the draw went even: drawn more often, the pad's chord
+part sat less than 5 dB under the vibes' late one; at 36-50 the lead still sits 6.1 dB over the keys). A candidate is in the host's and the workbench's table only (the
+firmware's `COMP_N` counts the approved): the workbench's **Comping** row lists it by name and forces the one picked
+(`VNL_COMP_PAT=<id>` for a host render), and its Approve writes `status.json`. All three are approved (Sam,
+2026-11-05).
 
 - **7 charleston:** beat 1, then the "and" of 2 held to the bar's end (steps 0 and 6), the second at 90%.
 - **8 tresillo:** 3+3+2, steps 0, 6 and 12, each held to the next, the later two at 90%.

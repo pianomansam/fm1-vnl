@@ -4,7 +4,7 @@
   <work><work-title>Comp rhythm 9: late one over Cmaj7</work-title></work>
   <identification>
     <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
-    <miscellaneous><miscellaneous-field name="vnl1">{"family":"comp-rhythms","id":"9","status":"approved","style":"CS_PAT","kind":"pattern","index":2,"vel_range":[32,46],"strikes":[{"step":2,"len":14}]}</miscellaneous-field></miscellaneous>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"comp-rhythms","id":"9","status":"approved","style":"CS_PAT","kind":"pattern","index":2,"weight":1,"busy":0,"keys":["INS_RHODES","INS_FELT_PIANO","INS_VIBES","INS_KNIGHT"],"thin":0,"hold":1,"vel_range":[36,50],"strikes":[{"step":2,"len":14}]}</miscellaneous-field></miscellaneous>
   </identification>
   <part-list>
     <score-part id="P1">
@@ -18,10 +18,10 @@
       <attributes><divisions>4</divisions><key><fifths>0</fifths></key><time><beats>4</beats><beat-type>4</beat-type></time><clef><sign>G</sign><line>2</line></clef></attributes>
       <direction placement="above"><direction-type><metronome><beat-unit>quarter</beat-unit><per-minute>85</per-minute></metronome></direction-type><sound tempo="85"/></direction>
       <note><rest/><duration>2</duration><voice>1</voice><type>eighth</type></note>
-      <note dynamics="43.33"><pitch><step>C</step><octave>4</octave></pitch><duration>12</duration><tie type="start"/><voice>1</voice><type>half</type><dot/><notations><tied type="start"/></notations></note>
-      <note dynamics="43.33"><chord/><pitch><step>E</step><octave>4</octave></pitch><duration>12</duration><tie type="start"/><voice>1</voice><type>half</type><dot/><notations><tied type="start"/></notations></note>
-      <note dynamics="43.33"><chord/><pitch><step>G</step><octave>4</octave></pitch><duration>12</duration><tie type="start"/><voice>1</voice><type>half</type><dot/><notations><tied type="start"/></notations></note>
-      <note dynamics="43.33"><chord/><pitch><step>B</step><octave>4</octave></pitch><duration>12</duration><tie type="start"/><voice>1</voice><type>half</type><dot/><notations><tied type="start"/></notations></note>
+      <note dynamics="47.78"><pitch><step>C</step><octave>4</octave></pitch><duration>12</duration><tie type="start"/><voice>1</voice><type>half</type><dot/><notations><tied type="start"/></notations></note>
+      <note dynamics="47.78"><chord/><pitch><step>E</step><octave>4</octave></pitch><duration>12</duration><tie type="start"/><voice>1</voice><type>half</type><dot/><notations><tied type="start"/></notations></note>
+      <note dynamics="47.78"><chord/><pitch><step>G</step><octave>4</octave></pitch><duration>12</duration><tie type="start"/><voice>1</voice><type>half</type><dot/><notations><tied type="start"/></notations></note>
+      <note dynamics="47.78"><chord/><pitch><step>B</step><octave>4</octave></pitch><duration>12</duration><tie type="start"/><voice>1</voice><type>half</type><dot/><notations><tied type="start"/></notations></note>
       <note><pitch><step>C</step><octave>4</octave></pitch><duration>2</duration><tie type="stop"/><voice>1</voice><type>eighth</type><notations><tied type="stop"/></notations></note>
       <note><chord/><pitch><step>E</step><octave>4</octave></pitch><duration>2</duration><tie type="stop"/><voice>1</voice><type>eighth</type><notations><tied type="stop"/></notations></note>
       <note><chord/><pitch><step>G</step><octave>4</octave></pitch><duration>2</duration><tie type="stop"/><voice>1</voice><type>eighth</type><notations><tied type="stop"/></notations></note>

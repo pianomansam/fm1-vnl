@@ -4,6 +4,7 @@
    across a family (the comp rhythms' names, the strum's fills). Bars are 1-based. A rule names what the engine needs,
    so the message tells Sam what to change."""
 import re
+from pathlib import Path
 
 PF = ["PF_BOOMBAP", "PF_HALFTIME", "PF_SPARSE", "PF_BRUSHES", "PF_BOSSA"]
 PK = ["PK_VAMP", "PK_LOOP", "PK_JAZZY"]
@@ -17,6 +18,19 @@ STROKES = "TBDdXUuP"
 # the strum fills as (figure, fill_of), sorted: the ballad's (no figure, pattern 4), step back and drive for every
 # pattern (0) and for the bossa (3)
 STRUM_FILLS = [("None", 4), ("drive", 0), ("drive", 3), ("step-back", 0), ("step-back", 3)]
+
+
+def _ins_enum():
+    """library.h's INS_* in enum order (a comp rhythm's keys are a mask of them)"""
+    text = (Path(__file__).resolve().parent.parent.parent / "app/song/library.h").read_text()
+    body = re.search(r"enum\s*\{\s*(INS_RHODES.*?)\}", text, re.S).group(1)
+    return re.findall(r"\b(INS_[A-Z0-9_]+)\b", re.sub(r"/\*.*?\*/", "", body, flags=re.S))
+
+
+INS = _ins_enum()
+GUITARS = ("INS_NYLON", "INS_EMILY")            # they only strum (CS_STRUM, its own engine): never a comp rhythm's
+KEYS_ALL = 0xFFFFFFFF & ~sum(1 << INS.index(g) for g in GUITARS)   # keys "all" (patterns_gen.h's CK_ALL)
+BUSY = (0, 1, 2)                                 # a comp rhythm's busyness: sparse, middle, busy (roll.h's motion_tilt)
 SRC_RE = re.compile(r"[ -~]{0,200}")            # printable ASCII: it becomes a C string literal (and
 #                                                 no backslash or "??", whatever c_str escapes)
 
@@ -183,6 +197,17 @@ def _check_comp(e, bad):
     lo_hi = e.get("vel_range") or []
     if len(lo_hi) != 2 or not (_int(lo_hi[0], 25, 110) and _int(lo_hi[1], 25, 110) and lo_hi[0] <= lo_hi[1]):
         bad(None, "vel_range is [lo, hi] within 25-110")
+    if not _int(e.get("weight"), 0, 20):
+        bad(None, "weight is 0-20 (the keys' draw: 1 each by default; 0 never drawn)")
+    if e.get("busy") not in BUSY:
+        bad(None, "busy is 0 (sparse), 1 (middle) or 2 (busy)")
+    if e.get("thin") not in (0, 1) or e.get("hold") not in (0, 1):
+        bad(None, "thin and hold are 0 or 1")
+    keys = e.get("keys")
+    if keys != "all" and (not isinstance(keys, list) or not keys or len(set(keys)) != len(keys) or
+                          any(k not in INS or k in GUITARS or k == "INS_NONE" for k in keys)):
+        bad(None, "keys is \"all\" (every keys instrument but the guitars, which strum) or a list of INS_* names "
+                  "(library.h), never a guitar")
     if e.get("name") in ("held", "half", "held-on-2", "held-on-2-and-4") or e.get("kind") == "pattern":
         st = e.get("strikes") or []
         if e.get("kind") == "pattern" and not 1 <= len(st) <= 8:

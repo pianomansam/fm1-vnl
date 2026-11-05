@@ -4,7 +4,7 @@
   <work><work-title>Comp rhythm 7: charleston over Cmaj7</work-title></work>
   <identification>
     <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
-    <miscellaneous><miscellaneous-field name="vnl1">{"family":"comp-rhythms","id":"7","status":"approved","style":"CS_PAT","kind":"pattern","index":0,"vel_range":[27,39],"second_vel_pct":90,"strikes":[{"step":0,"len":6},{"step":6,"len":10}]}</miscellaneous-field></miscellaneous>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"comp-rhythms","id":"7","status":"approved","style":"CS_PAT","kind":"pattern","index":0,"weight":1,"busy":1,"keys":["INS_RHODES","INS_FELT_PIANO","INS_VIBES","INS_KNIGHT"],"thin":0,"hold":1,"vel_range":[27,39],"second_vel_pct":90,"strikes":[{"step":0,"len":6},{"step":6,"len":10}]}</miscellaneous-field></miscellaneous>
   </identification>
   <part-list>
     <score-part id="P1">

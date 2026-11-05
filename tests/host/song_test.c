@@ -1047,11 +1047,15 @@ static void test_harmony(void)
            the synth keys (they return on the Knight and the guitars: test_comp_styles). Re-baselined (Sam 2026-11-05:
            held on 2 15, held on 2 and 4 10 and the comp rhythms, CS_PAT at COMP_PAT_WEIGHT 20, approved): on City pop Rhodes
            (the Rhodes), of 44 + 36 + 15 + 10 + 20 = 125 held 35%, half 29%, held on 2 12%, held on 2 and 4 8%, a
-           comp rhythm 16% (were 55 and 45); light eighths never */
-        int w[CS_N], want[CS_N] = {35, 0, 0, 0, 29, 0, 12, 0, 8, 16}, k2;
+           comp rhythm 16% (were 55 and 45); light eighths never. Re-baselined again (Sam 2026-11-05: every comping
+           rhythm data, drawn evenly): at motion 50 (the tilt even) the Rhodes' seven rhythms 1 in 7 each, held, half,
+           held on 2 and held on 2 and 4 14%, the three comp rhythms 43% (were 35, 29, 12, 8 and 16; test_comp_motion
+           has the tilt) */
+        int w[CS_N], want[CS_N] = {14, 0, 0, 0, 14, 0, 14, 0, 14, 43}, k2;
         song_roll_t q;
         memset(w, 0, sizeof w);
         roll_song(NULL, 1u, &q);
+        roll_set(&q, RF_MOTION, 50);
         roll_set(&q, RF_SET, 6);   /* the synth keys' draw: City pop Rhodes, seed 1's set until the vibes-on-keys sets
                                       (2026-11-05) moved it to a Knight set */
         CHECK(lib_set_by_id((uint8_t)q.v[RF_SET])->chords == INS_RHODES, "harmony: set 6's keys not the Rhodes");
@@ -1062,17 +1066,18 @@ static void test_harmony(void)
         for (k2 = 0; k2 < CS_N; k2++)
             CHECK(w[k2] >= want[k2] * 100 - 200 && w[k2] <= want[k2] * 100 + 200,
                   "harmony: style %d drawn %d of 10000, want %d%% (+-2)", k2, w[k2], want[k2]);
-        {   /* songs that really play half notes, after the sustained-keys and kick-on-1-and-3 holds: 14% (+-4) since
-               held on 2 (and 4) and the comp rhythms took their share of the percussive keys (Sam 2026-11-05: 414 of
-               3000; 22%, 649, when the Wurli's and DX's sets retired, 2026-11-04; 26%, 766, when the guitars came to
-               only strum; was 32% with the arpeggio off, 3025034, and 25% before) */
+        {   /* songs that really play half notes, after the sustained-keys and kick-on-1-and-3 holds: 8% (+-4) since
+               every comping rhythm is drawn evenly (Sam 2026-11-05: 242 of 3000; 14%, 414, when held on 2 (and 4) and
+               the comp rhythms took their share of the percussive keys; 22%, 649, when the Wurli's and DX's sets
+               retired, 2026-11-04; 26%, 766, when the guitars came to only strum; was 32% with the arpeggio off,
+               3025034, and 25% before) */
             int play = 0;
             for (k2 = 1; k2 <= 3000; k2++) {
                 roll_song(NULL, (uint32_t)k2, &q);
                 play += harmony_half_strikes(&q);
             }
-            CHECK(play >= 3000 * 10 / 100 && play <= 3000 * 18 / 100,
-                  "harmony: %d of 3000 songs play half notes, want 14%% (+-4)", play);
+            CHECK(play >= 3000 * 4 / 100 && play <= 3000 * 12 / 100,
+                  "harmony: %d of 3000 songs play half notes, want 8%% (+-4)", play);
         }
     }
 
@@ -1144,8 +1149,10 @@ static void test_comp_styles(void)
     static const uint8_t OLD[5] = {44, 0, 0, 0, 36};
     /* no arpeggio: keys 3025034 (Sam); the guitars only strum (Sam, 2026-11-04). Re-baselined (Sam 2026-11-05: held on 2
        15, held on 2 and 4 10 and the comp rhythms, CS_PAT at COMP_PAT_WEIGHT 20, approved, on the percussive keys);
-       light eighths never */
-    static const uint8_t W[2][CS_N] = {{44, 0, 0, 0, 36, 0, 15, 0, 10, 20}, {35, 25, 0, 0, 25, 0, 15, 0, 10, 20}};
+       light eighths never. Re-baselined again (Sam 2026-11-05: every comping rhythm data, drawn evenly): at motion 50
+       one share each, the Rhodes' seven (held, half, held on 2, held on 2 and 4 and the three comp rhythms) and the
+       Knight's eight (and stabs); were {44, 36, 15, 10, 20} and {35, 25, 25, 15, 10, 20} */
+    static const uint8_t W[2][CS_N] = {{1, 0, 0, 0, 1, 0, 1, 0, 1, 3}, {1, 1, 0, 0, 1, 0, 1, 0, 1, 3}};
     static const int inss[2] = {INS_RHODES, INS_KNIGHT};   /* (the DX's until it retired, 2026-11-04) */
     long cnt[2][CS_N] = {{0}};
     song_roll_t r;
@@ -1170,7 +1177,7 @@ static void test_comp_styles(void)
             if (s->chords == INS_KNIGHT) continue;
             CHECK(got != CS_STABS && got != CS_STRUM, "comp styles: synth keys never stabs or strum (set %d)", s->id);
             if (harmony_comp_ok(s->chords, CS_HELD2)) {   /* the percussive keys: the new draw (the shares below) */
-                bad_old += got != harmony_style_ins(s->chords, (uint32_t)seed);
+                bad_old += got != harmony_style_ins(s->chords, (uint32_t)seed, r.v[RF_MOTION]);
                 continue;
             }
             rng_seed(&g, (uint32_t)seed, 121);
@@ -1178,13 +1185,13 @@ static void test_comp_styles(void)
             bad_old += got != want;
         }
         for (i = 0; i < 2; i++) {
-            int st = harmony_style_ins(inss[i], (uint32_t)seed);
+            int st = harmony_style_ins(inss[i], (uint32_t)seed, 50);
             cnt[i][st]++;
             if (i == 0 && (st == CS_STABS || st == CS_STRUM)) bad_old++;
             if (i && (st == CS_OFFBEATS || st == CS_STRUM)) bad_gtr++;
         }
-        bad_gtr += harmony_style_ins(INS_NYLON, (uint32_t)seed) != CS_STRUM;
-        bad_gtr += harmony_style_ins(INS_EMILY, (uint32_t)seed) != CS_STRUM;
+        bad_gtr += harmony_style_ins(INS_NYLON, (uint32_t)seed, r.v[RF_MOTION]) != CS_STRUM;
+        bad_gtr += harmony_style_ins(INS_EMILY, (uint32_t)seed, r.v[RF_MOTION]) != CS_STRUM;
     }
     CHECK(bad_old == 0, "comp styles: %d synth-keys songs changed style", bad_old);
     CHECK(bad_gtr == 0, "comp styles: %d Knight offbeats or strums, or guitar songs not strumming", bad_gtr);
@@ -6521,9 +6528,10 @@ static void test_levels_steady(void)
     /* the glue: 1-4 dB on average over a song's full band, under 1 dB in its intro (seed 53, Knight and flute, warm
        pad: 0.89 since the style roll, lead styles Task 7, held to 0.85; seeds 5 and 50, Vibes and felt since the
        vibes-on-keys sets, 2026-11-05: 0.97 each, held to 0.95; seed 50 0.86 since held on 2 and 4 was approved, Sam
-       2026-11-05, and it draws it, softer than held: held to 0.85 with seed 53) */
+       2026-11-05, and it draws it, softer than held: held to 0.85 with seed 53; seed 5 0.90 since every comping
+       rhythm is drawn evenly, Sam 2026-11-05, and it draws a comp rhythm, softer than held: held to 0.85 too) */
     for (k = 0; k < n; k++) {
-        CHECK(lv_song_gr[k] >= (sd[k] == 53u || sd[k] == 50u ? 0.85f : sd[k] == 5u ? 0.95f : 1.0f) &&
+        CHECK(lv_song_gr[k] >= (sd[k] == 53u || sd[k] == 50u || sd[k] == 5u ? 0.85f : 1.0f) &&
                   lv_song_gr[k] <= 4.0f,
               "glue: seed %d's full band %.2f dB, wanted 1-4", (int)sd[k], (double)lv_song_gr[k]);
         CHECK(lv_intro_gr[k] < 1.0f, "glue: seed %d's intro %.2f dB, wanted under 1", (int)sd[k], (double)lv_intro_gr[k]);
@@ -8027,8 +8035,11 @@ static void test_pad_double_all(void)
 {
     /* 1003 for 1001: no 16th arpeggio since 3025034 moved the style draws; 1029 for 1003 since the keys' minor 9th
        ban (2026-10-30): 1003's chord part, still all the keys' notes, thinned to 23 for 24 strikes; 1025 for 1007 on set 4
-       since held on 2 (and 4) and the comp rhythms were approved (Sam 2026-11-05: 1007 draws a comp rhythm now) */
-    static const uint32_t SEED[3] = {1029u, 1025u, 1008u};
+       since held on 2 (and 4) and the comp rhythms were approved (Sam 2026-11-05: 1007 draws a comp rhythm now); 1013,
+       1004 and 1023 for 1029, 1025 and 1008 since every comping rhythm is drawn evenly (Sam 2026-11-05: those three
+       draw a comp rhythm or half notes now; the earlier held songs, 1005 on set 1 and 1002 on sets 4 and 19, have a
+       default chord part that already doubles the keys) */
+    static const uint32_t SEED[3] = {1013u, 1004u, 1023u};
     static const int SET[3] = {1, 4, 19};
     int k;
     for (k = 0; k < 3; k++) {
@@ -8842,8 +8853,10 @@ static void test_comp_new(void)
                    !harmony_comp_ok(lib_set_by_id((uint8_t)r.v[RF_SET])->chords, cs);
         }
         CHECK(l8 == 0, "comp new: %ld of 3000 songs drew light eighths", l8);
-        CHECK(h2 >= 150 && h2 <= 270 && h24 >= 90 && h24 <= 180,
-              "comp new: %ld and %ld of 3000 songs drew held on 2 and held on 2 and 4, wanted about 207 and 133", h2, h24);
+        CHECK(h2 >= 230 && h2 <= 350 && h24 >= 230 && h24 <= 350,   /* re-baselined again (Sam 2026-11-05: every
+                                                                          comping rhythm data, drawn evenly): 291 and
+                                                                          286, were 207 and 133 */
+              "comp new: %ld and %ld of 3000 songs drew held on 2 and held on 2 and 4, wanted about 290 each", h2, h24);
         CHECK(off == 0, "comp new: %ld songs drew held on 2 (and 4) or a comp rhythm on keys that can't play it", off);
     }
     for (c = 0; c < 2; c++) {
@@ -8939,6 +8952,80 @@ static void test_comp_new(void)
         song_override(NULL);
     }
 }
+/* Every keys comping rhythm is a row of one table (patterns_gen.h's COMP; Sam, 2026-11-05: "I think of all comping
+   rhythms the same"), drawn at its weight (1 each: even) tilted by the song's motion and the row's busyness (Sam,
+   2026-11-05: the rolled rhythm follows the song's motion; roll.h's motion_tilt): at motion 50 every rhythm the keys
+   play alike, at 20 a sparse one (held, late one) about 3x a busy one (tresillo, stabs), at 80 the reverse, never 0.
+   The shares on the Rhodes at 20, 50 and 80 (+-1.5 points of the tilt's). And the rhythm is the song's: a live Motion
+   request re-plans from its boundary but never re-draws the comping (Sam: "It should stay"). */
+static void test_comp_motion(void)
+{
+    static song_t s;
+    static const char *const NAME[8] = {"held", "half", "stabs", "held on 2", "held on 2 and 4", "charleston",
+                                        "tresillo", "late one"};
+    song_ev_t ev[64];
+    song_roll_t r;
+    long cnt[3][COMP_N];
+    uint32_t seed;
+    int m, i, j, found = 0, n = 20000;
+    CHECK(motion_tilt(1, 0, 50) == motion_tilt(1, 2, 50) && motion_tilt(1, 0, 20) == 3 * motion_tilt(1, 2, 20) &&
+              motion_tilt(1, 2, 80) == 3 * motion_tilt(1, 0, 80) && motion_tilt(1, 1, 20) == motion_tilt(1, 1, 80) &&
+              motion_tilt(1, 2, 0) > 0 && motion_tilt(1, 0, 100) > 0 && motion_tilt(0, 1, 50) == 0,
+          "comp motion: motion_tilt's contract");
+    memset(cnt, 0, sizeof cnt);
+    roll_song(NULL, 1u, &r);
+    roll_set(&r, RF_SET, 6);   /* City pop Rhodes */
+    CHECK(lib_set_by_id((uint8_t)r.v[RF_SET])->chords == INS_RHODES, "comp motion: set 6's keys not the Rhodes");
+    for (m = 0; m < 3; m++) {
+        long tot = 0;
+        CHECK(roll_set(&r, RF_MOTION, 20 + 30 * m) == 20 + 30 * m, "comp motion: motion %d refused", 20 + 30 * m);
+        for (i = 0; i < n; i++) {
+            r.seed = (uint32_t)i * 2654435761u + 1u;
+            cnt[m][harmony_comp_row(&r)]++;
+        }
+        for (i = 0; i < COMP_N; i++)
+            if (COMP_APPROVED(i) && (COMP[i].keys >> INS_RHODES & 1u))
+                tot += (long)motion_tilt(COMP[i].weight, COMP[i].busy, 20 + 30 * m);
+        printf("comp motion: the Rhodes at motion %d:", 20 + 30 * m);
+        for (i = 0; i < COMP_N; i++) {
+            long want = COMP_APPROVED(i) && (COMP[i].keys >> INS_RHODES & 1u) ?
+                            (long)motion_tilt(COMP[i].weight, COMP[i].busy, 20 + 30 * m) * 1000 / tot : 0;
+            printf(" %s %.1f%%", i < 8 ? NAME[i] : "added", (double)cnt[m][i] * 100.0 / n);
+            CHECK(cnt[m][i] * 1000 / n >= want - 15 && cnt[m][i] * 1000 / n <= want + 15,
+                  "comp motion: row %d at motion %d drawn %ld of %d, want %ld per mille (+-15)", i, 20 + 30 * m,
+                  cnt[m][i], n, want);
+        }
+        printf("\n");
+    }
+    for (i = 0; i < COMP_N; i++)       /* low motion: sparse beats busy; high motion: the reverse */
+        for (j = 0; j < COMP_N; j++)
+            if (cnt[1][i] && cnt[1][j] && COMP[i].busy == 0 && COMP[j].busy == 2)
+                CHECK(cnt[0][i] > 2 * cnt[0][j] && cnt[2][j] > 2 * cnt[2][i],
+                      "comp motion: sparse %d against busy %d: %ld and %ld at 20, %ld and %ld at 80", i, j, cnt[0][i],
+                      cnt[0][j], cnt[2][i], cnt[2][j]);
+    for (seed = 1u; seed < 2000u && found < 5; seed++) {   /* a live Motion request: the comping stays */
+        song_roll_t t;
+        int to, row0;
+        roll_song(NULL, seed, &r);
+        to = r.v[RF_MOTION] < 50 ? 80 : 20;
+        t = r;
+        roll_set(&t, RF_MOTION, to);
+        if (harmony_comp_row(&t) == harmony_comp_row(&r)) continue;   /* a song the new motion would draw anew */
+        song_start(&s, &r);
+        row0 = harmony_comp_row(&s.roll);
+        song_request(&s, RF_MOTION, to);
+        while (s.bar < 9 && s.state == SS_PLAYING) (void)song_tick(&s, ev, 64);   /* (it lands at bar 4) */
+        CHECK(s.roll.v[RF_MOTION] == to && roll_motion(&s.roll) == r.v[RF_MOTION],
+              "comp motion: seed %u's motion %d, rolled %d (wanted %d and %d)", (unsigned)seed, s.roll.v[RF_MOTION],
+              roll_motion(&s.roll), to, r.v[RF_MOTION]);
+        CHECK(harmony_comp_row(&s.roll) == row0 && harmony_style(&s.roll) == harmony_style(&r),
+              "comp motion: seed %u's comping re-drawn by a live motion change (row %d to %d)", (unsigned)seed, row0,
+              harmony_comp_row(&s.roll));
+        found++;
+    }
+    CHECK(found == 5, "comp motion: only %d songs whose draw a motion would move", found);
+}
+
 /* The comp rhythms past the six styles (CS_PAT, patterns_gen.h's COMP_PAT; patterns/comp-rhythms 7 on): they play
    where held on 2 does (the vibes too, Sam 2026-11-05), the roll draws one only once one is approved (a candidate never), and forced (the comp_pat
    override, a comp rhythm in the workbench's Comping row) each plays its written strikes in every keys bar of a whole song, never
@@ -10977,8 +11064,10 @@ static void test_strum_lead(void)
     CHECK(under && n[0] && few * 100 / under <= few_h * 100 / n[0] + 5,
           "strum lead: %d of %d strum songs with a lead of under 3 pitches (%d of %d held)", few, under, few_h, n[0]);
     /* +2 (was +1): the strum songs' median is 73 at a162c90 and now; the held and half songs' went 72 to 71 (a sample of
-       about 110) when the guitar and keys arpeggio draws (cf0dca0, 3025034) moved into held and half */
-    CHECK(n[0] && n[1] && lows[1][n[1] / 2] <= lows[0][n[0] / 2] + 2,
+       about 110) when the guitar and keys arpeggio draws (cf0dca0, 3025034) moved into held and half. +3 (Sam
+       2026-11-05: every comping rhythm data, drawn evenly): the strum songs' median is still 75, the held and half
+       songs' went 73 to 72 (other songs: fewer of the shared-lead sets' songs draw held or half now) */
+    CHECK(n[0] && n[1] && lows[1][n[1] / 2] <= lows[0][n[0] / 2] + 3,
           "strum lead: the strum songs' lowest lead note's median %d, the held songs' %d", n[1] ? lows[1][n[1] / 2] : 0,
           n[0] ? lows[0][n[0] / 2] : 0);
 }
@@ -12289,7 +12378,8 @@ static uint32_t ll_hash(uint32_t h, const song_roll_t *r, int style, int loop)
    Wurli's and DX's sets retired, so the seeds draw other sets): were 8b99d621 (-1) and 30fcee76 (0); again (Sam
    2026-11-05: the vibes on the keys, four new sets, so the seeds draw other sets): were 67b35062 (-1) and f69119c1
    (0). Re-pinned again (Sam 2026-11-05: comp rhythms and held on 2 / 2 and 4 approved): were 6d0207e2 (-1) and
-   21499658 (0) */
+   21499658 (0). Re-pinned again (Sam 2026-11-05: every comping rhythm data, drawn evenly): were b0878e47 (-1) and
+   86dc4375 (0) */
 static void test_lead_loop_off_identical(void)
 {
     uint32_t seed, h[2] = {2166136261u, 2166136261u};
@@ -12301,8 +12391,8 @@ static void test_lead_loop_off_identical(void)
             for (k = 0; k < 2; k++) h[k] = ll_hash(h[k], &r, st, k - 1);
     }
     printf("lead loop off: events %08x (lead_loop -1), %08x (0)\n", (unsigned)h[0], (unsigned)h[1]);
-    CHECK(h[0] == 0xb0878e47u, "lead loop default: lead_loop -1 hashes %08x, wanted b0878e47", (unsigned)h[0]);
-    CHECK(h[1] == 0x86dc4375u, "lead loop off: lead_loop 0 hashes %08x, wanted 86dc4375", (unsigned)h[1]);
+    CHECK(h[0] == 0x359c9281u, "lead loop default: lead_loop -1 hashes %08x, wanted 359c9281", (unsigned)h[0]);
+    CHECK(h[1] == 0xc837561au, "lead loop off: lead_loop 0 hashes %08x, wanted c837561a", (unsigned)h[1]);
 }
 
 typedef struct {
@@ -12884,6 +12974,7 @@ int main(int argc, char **argv)
     RUN(test_ov_comp);
     RUN(test_comp_new);
     RUN(test_comp_pat);
+    RUN(test_comp_motion);
     RUN(test_vibes_keys);
     RUN(test_busy_thin_off);
     RUN(test_rolled_style);

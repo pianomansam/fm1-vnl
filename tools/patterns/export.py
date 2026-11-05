@@ -15,6 +15,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import midi  # noqa: E402
 import mxl  # noqa: E402
+import validate  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 TEMPO = 85
@@ -60,6 +61,16 @@ FILL_IDS = {f[0] for f in FILLS}
 COMP_FIXED = 6                                  # the comp rhythms 1-6 (held ... held on 2 and 4), each its own style
                                                 # (5, light eighths, removed 2026-11-05: its id never reused)
 COMP_PAT_VEL = (40, 58)                         # a new comp rhythm's vel_range: held's (a metadata vel_range wins)
+# the fixed rhythms (ids 1-6), in the engine's table order (COMP[0..4]): (id, name, style)
+COMP_FIXED_ROWS = [(1, "held", "CS_HELD"), (2, "half", "CS_HALF"), (3, "stabs", "CS_STABS"),
+                   (4, "held-on-2", "CS_HELD2"), (6, "held-on-2-and-4", "CS_HELD24")]
+CS = ["CS_HELD", "CS_STABS", "CS_OFFBEATS", "CS_ARP", "CS_HALF", "CS_STRUM", "CS_HELD2", "CS_LIGHT8_GONE",
+      "CS_HELD24", "CS_PAT"]                    # harmony.h's enum, in order
+# a new comp rhythm's draw fields (model.json, Sam edits them there): weight 1 as every rhythm's, middle busyness,
+# where held on 2 plays (the percussive keys and the vibes), never thinned, held over a kick of its very rhythm
+COMP_PAT_DRAW = {"weight": 1, "busy": 1, "keys": ["INS_RHODES", "INS_FELT_PIANO", "INS_VIBES", "INS_KNIGHT"],
+                 "thin": 0, "hold": 1}
+CR_THIN, CR_HOLD = 1, 2                         # patterns_gen.h's rules bits
 
 
 # metadata keys that differ from the entry's: "family" in the metadata is the pattern family (the folder)
@@ -91,6 +102,17 @@ def strum_id(index):
 def comp_pat_id(index):
     """a comp rhythm's id past the fixed six (COMP_PAT[index]): 7 the first"""
     return COMP_FIXED + 1 + index
+
+
+def keys_names(mask):
+    """a comp rhythm's keys mask (1 << INS_*) -> model.json's: "all" (every keys instrument but the guitars) or names"""
+    if mask == validate.KEYS_ALL:
+        return "all"
+    return [validate.INS[i] for i in range(len(validate.INS)) if mask >> i & 1]
+
+
+def keys_mask(keys):
+    return validate.KEYS_ALL if keys == "all" else sum(1 << validate.INS.index(k) for k in keys)
 
 
 def chord_symbol(spec, mode):
@@ -136,32 +158,30 @@ def build_model(t, kick_phrases):
             "bars_per_chord": p["bars_per_chord"], "chords": chords,
             "moods": [MOODS[i] for i in range(4) if p["moods"] >> i & 1], "modes": modes, "src": p["src"],
             "symbols": symbols, "symbols_mode": MODES[first], "file": f"progressions/{p['id']}-{slug}"}
-    c = t["comp"]
-    st = c["stabs"]
-
-    def strikes(k, name, style):
-        """a strikes rhythm's entry: second_vel_pct only where it says something"""
-        x = c[name]
-        e = {"name": name, "status": "approved", "style": style, "vel_range": x["vel"]}
-        if x["later_vel_pct"] != 100:
-            e["second_vel_pct"] = x["later_vel_pct"]
-        e["strikes"] = [{"step": s, "len": n} for s, n in zip(x["steps"], x["lens"])]
-        e["file"] = f"comp-rhythms/{k}-{name}"
-        return e
-    m["comp-rhythms"] = {
-        "1": strikes(1, "held", "CS_HELD"), "2": strikes(2, "half", "CS_HALF"),
-        "3": {"name": "stabs", "status": "approved", "style": "CS_STABS", "vel_range": st["vel"], "len": st["len"],
-              "first": st["first"], "second": st["second"], "busy_over": st["busy_over"],
-              "busy_steps": st["busy_steps"], "file": "comp-rhythms/3-stabs"},
-        "4": strikes(4, "held-on-2", "CS_HELD2"),   # (5, light eighths: removed, 2026-11-05; its id never reused)
-        "6": strikes(6, "held-on-2-and-4", "CS_HELD24")}
-    for i, x in enumerate(t.get("comp_pat", [])):   # the comp rhythms added since (CS_PAT), by table index
-        k = comp_pat_id(i)
-        e = {"status": status(x["status"]), "style": "CS_PAT", "kind": "pattern", "index": i, "vel_range": x["vel"]}
-        if x["later_vel_pct"] != 100:
-            e["second_vel_pct"] = x["later_vel_pct"]
-        e["strikes"] = [{"step": s, "len": n} for s, n in zip(x["steps"], x["lens"])]
-        e["file"] = f"comp-rhythms/{k}-pattern"
+    st = t["stabs"]
+    fixed = {style: (k, name) for k, name, style in COMP_FIXED_ROWS}
+    m["comp-rhythms"] = {}
+    npat = 0
+    for x in t["comp"]:                             # one table, every keys comping rhythm (ids 1-6 fixed, 7 on added)
+        style = CS[x["style"]]
+        if style in fixed:
+            k, name = fixed[style]
+            e = {"name": name, "status": "approved", "style": style}
+        else:
+            k = comp_pat_id(npat)
+            e = {"status": status(x["status"]), "style": style, "kind": "pattern", "index": npat}
+            npat += 1
+        e.update({"weight": x["weight"], "busy": x["busy"], "keys": keys_names(x["keys"]),
+                  "thin": int(bool(x["rules"] & CR_THIN)), "hold": int(bool(x["rules"] & CR_HOLD)),
+                  "vel_range": x["vel"]})
+        if style == "CS_STABS":
+            e.update({"len": st["len"], "first": st["first"], "second": st["second"], "busy_over": st["busy_over"],
+                      "busy_steps": st["busy_steps"]})
+        else:
+            if x["later_vel_pct"] != 100:
+                e["second_vel_pct"] = x["later_vel_pct"]
+            e["strikes"] = [{"step": s, "len": n} for s, n in zip(x["steps"], x["lens"])]
+        e["file"] = f"comp-rhythms/{k}-{e.get('name', 'pattern')}"
         m["comp-rhythms"][str(k)] = e
     strum = {}
     for i, s in enumerate(t["strum"]):

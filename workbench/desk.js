@@ -492,7 +492,7 @@ export class Desk {
     if (snap.rows.compPat >= 0) snap = { ...snap, rows: { ...snap.rows, comp: COMP_PAT_BASE + snap.rows.compPat } };
     // a removed comping style (light eighths: Sam, 2026-11-05) restores as held: said, not a mismatch
     const compGone = this.opts.comping.find((c) => c.id === snap.rows.comp && c.status === "removed");
-    if (compGone) snap = { ...snap, rows: { ...snap.rows, comp: this.opts.comping.find((c) => c.sym === "CS_HELD").id } };
+    if (compGone) snap = { ...snap, rows: { ...snap.rows, comp: 0 } };   // (held: CS_HELD)
     // a retired lead style (the phrase planner, the hybrid: lead styles, 2026-10-31) restores as rolled: said, not a
     // mismatch
     const style = this.opts.leadStyles.find((s) => s.id === snap.rows.leadStyle);

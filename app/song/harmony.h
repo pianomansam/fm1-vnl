@@ -14,13 +14,16 @@
    2 with a soft re-strike on beat 4 every bar. Percussive keys and the vibes only (harmony_comp_ok), a busy lead
    leaves them be; approved, Sam 2026-11-05. CS_LIGHT8_GONE: light eighths, removed (Sam, 2026-11-05: "remove light
    eighths completely"); its id is never reused, and a forced 7 (an old snapshot's) holds) */
-/* (CS_PAT, appended: a comp rhythm from patterns/comp-rhythms past the fixed six (patterns_gen.h's COMP_PAT): where
-   held on 2 plays. The roll draws it only once one is approved; a candidate plays when the comp_pat override forces
-   it (the workbench's Comping row) */
+/* (CS_PAT, appended: the code path of the comp rhythms added past the fixed five (ids 7 on), each its own row of
+   patterns_gen.h's COMP; a candidate plays when the comp_pat override forces it (the workbench's Comping row).
+   Every keys comping rhythm, fixed or added, is a row of COMP (Sam, 2026-11-05: "I think of all comping rhythms the
+   same"): its keys, weight, busyness, rules and velocities are data (patterns/model.json); the CS_* ids stay as the
+   code paths and the override's values) */
 enum { CS_HELD, CS_STABS, CS_OFFBEATS, CS_ARP, CS_HALF, CS_STRUM, CS_HELD2, CS_LIGHT8_GONE, CS_HELD24, CS_PAT, CS_N };
-/* 0 where the chords instrument ins can't play comping style cs (held on 2, held on 2 and 4 and a comp rhythm: the
-   percussive keys, Rhodes, felt piano and the Knight, and the vibes; the guitars only strum; CS_LIGHT8_GONE none); a
-   forced style it can't play holds instead (the guitars strum) */
+/* 0 where the chords instrument ins can't play comping style cs: a rhythm's row's keys (COMP: held and half notes all
+   keys, stabs the Knight, held on 2 (and 4) and the added rhythms the percussive keys and the vibes); the guitars only
+   strum; CS_LIGHT8_GONE none; strum, offbeats and the arpeggio (forced) any keys but the vibes. A forced style the
+   keys can't play holds instead (the guitars strum) */
 int harmony_comp_ok(int ins, int cs);
 
 /* Pitch classes (root first, up to 5) of the chord at `bar` (from 0). pass is 1-based: 1 = the first time through
@@ -35,13 +38,17 @@ int harmony_sound_pcs(int *pcs, int n);
 /* The comping's per-strike hash (velocities, roll gaps): strum.c's too. */
 uint32_t harmony_mix(uint32_t a, uint32_t b, uint32_t c, uint32_t d);
 
-/* CS_*, per song (seed stream 121), weighted by the set's chords instrument; the guitars (the nylon, the Emilyguitar)
-   always strum, under any lead (Sam, 2026-11-04) */
+/* The song's COMP row (patterns_gen.h): the workbench's forced one, else drawn per song (seed stream 121) from the
+   approved rows the set's chords instrument plays, at their weights tilted by the rolled motion (roll_motion: a live
+   Motion request never re-draws it); -1 where no row plays (the guitars strum; a forced strum, offbeats or
+   arpeggio) */
+int harmony_comp_row(const song_roll_t *r);
+/* CS_*, per song: the row's style; the guitars (the nylon, the Emilyguitar) always strum, under any lead (Sam,
+   2026-11-04) */
 int harmony_style(const song_roll_t *r);
-int harmony_style_ins(int ins, uint32_t seed);   /* the same for a chords instrument */
+int harmony_style_ins(int ins, uint32_t seed, int motion);   /* the draw for a chords instrument at a motion */
 unsigned harmony_stab_steps(const song_roll_t *r);   /* the steps stab comping strikes: 1 and a step the kick leaves free */
-/* the COMP_PAT index a CS_PAT song plays: the comp_pat override's, else one of the approved drawn from the seed
-   (stream 202; any entry when none is approved); -1 where the table is empty (the firmware, until one is approved) */
+/* the COMP_PAT index (an added rhythm's) the song plays, else -1 */
 int harmony_comp_pat(const song_roll_t *r);
 
 int harmony_half_strikes(const song_roll_t *r);   /* 1 when the song really plays half notes (not held by sustained keys or the kick) */
