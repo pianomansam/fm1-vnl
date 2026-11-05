@@ -275,6 +275,9 @@ int groove_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, 
                 hit = (lib_lane_hits(p, lane, bar) >> step) & 1;
                 ghost = !hit && ((lib_lane_ghosts(p, lane, bar) >> step) & 1);
             }
+            /* calm songs thin the hats (Sam, 2026-11-05): rolled below motion 35, the closed hat drops its ghosts
+               (below 25, song.c drops the hats altogether, after the ride takes its share) */
+            if (lane == D_HAT && roll_motion(r) < 35) ghost = 0;
             if (eighths && (lane == D_HAT || lane == D_SHAKER) && (step & 1)) hit = ghost = 0;
             if (fill && step >= 12 && (lane == D_SNARE || (lane == D_KICK && step == 14))) hit = ghost = 0;
             if (!hit && !ghost) continue;

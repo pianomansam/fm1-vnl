@@ -102,6 +102,8 @@ AudioWorklet. Local only; not the FM-1, so it may exceed the device's budgets.
   A drawn grid is a hand edit of the pattern row (it survives a new seed; a locked pattern refuses it) and is in the
   snapshot (`drums.grid`). "Save as new kit / pattern" writes `workbench/kits|patterns/<name>.json` (the lanes or the
   grid, with their sounds named and the grid drawn: `x` hit, `o` ghost); "Load" plays one back.
+  The grid shows the pattern as written: a song rolled below motion 35 plays the closed hat without its ghosts, and
+  below 25 no closed or open hats at all, forced or edited pattern alike (calm songs thin the hats, 2026-11-05).
 
 The smoke test is the evidence that the engine renders and lands changes; whether it sounds right needs a listen in
 Chrome or Safari.

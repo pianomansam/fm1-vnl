@@ -495,6 +495,11 @@ int song_tick(song_t *s, song_ev_t *out, int max)
             }
             n = j;
         }
+        if (roll_motion(&s->roll) < 25) {   /* the calmest songs (Sam, 2026-11-05): no hats, the ride kept */
+            for (i = j = k; i < n; i++)
+                if (buf[i].voice != V_HAT && buf[i].voice != V_OHAT) buf[j++] = buf[i];
+            n = j;
+        }
         n += harmony_step(&s->roll, b, bar, step, pass, gs, &s->voicing, s->lead.onsets >= 4, salt, buf + n,
                           BUF - n);
         n += lead_step(&s->lead, step, gs, buf + n, BUF - n);

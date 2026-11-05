@@ -857,6 +857,81 @@ static void test_break_hats(void)
     CHECK(whole > 0 && first > 0 && bad == 0, "break hats: %d whole, %d first half, %d odd", whole, first, bad);
 }
 
+/* Calm songs thin the hats (Sam, 2026-11-05: "The high hats on Motion 20 (calm) are still a bit busy"; "anything
+   below 25 motion should have no hats"), by the motion the song was rolled with (roll_motion), never a live change:
+   below 25 no closed or open hat at all (the ride, shaker, kick, snare and rim as they were); 25-34 the closed hat
+   plays its pattern's hits, no ghosts; 35 and up as written. Every pattern, both bars of a two-bar one. */
+static void test_calm_hats(void)
+{
+    static const int MO[] = {20, 24, 25, 30, 34, 35, 50, 80};
+    static song_t s;
+    song_ev_t ev[64];
+    plan_block_t all = {0, 64, SEC_GROOVE, 0xFF, 0};
+    int seed, bar, st, i, n, bad_hat = 0, bad_ohat = 0, ghosts_kept = 0, songs[3] = {0, 0, 0};
+    int bad_none = 0, bad_ghost = 0, bad_live = 0, quiet_hi = 0, rides = 0;
+    for (seed = 1; seed <= 360; seed++) {   /* the groove: every pattern at every motion */
+        song_roll_t r;
+        const lib_pattern_t *p;
+        int mo = MO[seed % 8], eighths;
+        roll_song(NULL, (uint32_t)seed, &r);
+        r.v[RF_PATTERN] = LIB_PATTERNS[(seed / 8) % LIB_NPATTERNS].id;
+        CHECK(roll_set(&r, RF_MOTION, mo) == mo && roll_motion(&r) == mo, "calm hats: motion %d refused", mo);
+        p = lib_pattern_by_id((uint8_t)r.v[RF_PATTERN]);
+        eighths = r.v[RF_SWING] < 550 && lib_kit_sampled(lib_song_kit(&r));
+        for (bar = 0; bar < 4; bar++)
+            for (st = 0; st < 16; st++) {
+                int hat = 0, ohat = 0, h = (lib_lane_hits(p, D_HAT, bar) >> st) & 1;
+                int g = (lib_lane_ghosts(p, D_HAT, bar) >> st) & 1, oh = (lib_lane_hits(p, D_OHAT, bar) >> st) & 1;
+                int og = (lib_lane_ghosts(p, D_OHAT, bar) >> st) & 1;
+                n = groove_step(&r, &all, bar, st, SPS, NULL, 0, (uint32_t)seed, ev, 16);
+                for (i = 0; i < n; i++) {
+                    hat += ev[i].voice == V_HAT;
+                    ohat += ev[i].voice == V_OHAT;
+                }
+                if (eighths && (st & 1)) h = g = 0;
+                bad_hat += hat != (h || (mo >= 35 && g));
+                bad_ohat += ohat != (oh || og);
+                ghosts_kept += mo >= 35 && !h && g && hat;
+            }
+    }
+    for (seed = 1; seed <= 90; seed++) {    /* whole songs, and a live Motion request the other way */
+        song_roll_t r;
+        const lib_pattern_t *p;
+        int mo = MO[(seed * 3) % 8], to = mo < 35 ? 70 : 20, hats = 0;
+        roll_song(NULL, (uint32_t)(4000 + seed), &r);
+        roll_set(&r, RF_MOTION, mo);
+        p = lib_pattern_by_id((uint8_t)r.v[RF_PATTERN]);
+        song_start(&s, &r);
+        if (seed % 2) song_request(&s, RF_MOTION, to);
+        songs[mo < 25 ? 0 : mo < 35 ? 1 : 2]++;
+        while (s.state == SS_PLAYING) {
+            int b0 = s.bar, s0 = s.step;
+            n = song_tick(&s, ev, 64);
+            for (i = 0; i < n; i++) {
+                int ghost_step = !((lib_lane_hits(p, D_HAT, b0) >> s0) & 1);
+                if (ev[i].voice == V_HAT || ev[i].voice == V_OHAT || ev[i].voice == V_RIDE) hats++;
+                if (ev[i].voice == V_RIDE && mo < 25) rides++;
+                if (mo < 25 && (ev[i].voice == V_HAT || ev[i].voice == V_OHAT))
+                    (*(seed % 2 ? &bad_live : &bad_none))++;
+                if (mo >= 25 && mo < 35 && ev[i].voice == V_HAT && ghost_step)
+                    (*(seed % 2 ? &bad_live : &bad_ghost))++;
+            }
+        }
+        quiet_hi += mo >= 25 && hats == 0;
+    }
+    printf("calm hats: songs %d below 25, %d at 25-34, %d at 35+; %d ghosts kept at 35+, %d ride hits below 25\n",
+           songs[0], songs[1], songs[2], ghosts_kept, rides);
+    CHECK(bad_hat == 0 && bad_ohat == 0, "calm hats: %d closed-hat and %d open-hat steps off their pattern", bad_hat,
+          bad_ohat);
+    CHECK(ghosts_kept > 100, "calm hats: only %d ghost hats at motion 35 and up", ghosts_kept);
+    CHECK(bad_none == 0, "calm hats: %d hats in songs rolled below motion 25", bad_none);
+    CHECK(bad_ghost == 0, "calm hats: %d ghost closed hats in songs rolled at motion 25-34", bad_ghost);
+    CHECK(bad_live == 0, "calm hats: %d hats a live Motion request brought back", bad_live);
+    CHECK(quiet_hi == 0, "calm hats: %d songs at motion 25 and up with no hats", quiet_hi);
+    CHECK(songs[0] > 10 && songs[1] > 10 && songs[2] > 10, "calm hats: songs %d, %d, %d per band", songs[0], songs[1],
+          songs[2]);
+}
+
 static void test_groove(void)
 {
     song_roll_t r, r2;
@@ -8436,9 +8511,9 @@ static void test_strum_same(void)
        d36f686e. Re-pinned again (Sam 2026-11-05: modes become major or minor): were 4fa861d9 and e694d37e. Re-pinned again
        (Sam 2026-11-05: drums pattern 9 approved): were e6ac3f61 and d4487617.
        Re-pinned again (Sam 2026-11-05: motion first; drums, bass and strum lean with it): were 0c88aa01
-       and 1c44f163 */
-    CHECK(a == 0xf02eafd0u, "strum same: the strummed songs hash %08x, wanted f02eafd0", (unsigned)a);
-    CHECK(b == 0xfb36b1d6u, "strum same: with set changes %08x, wanted fb36b1d6", (unsigned)b);
+       and 1c44f163. Re-pinned again (Sam 2026-11-05: calm songs thin the hats): were f02eafd0 and fb36b1d6 */
+    CHECK(a == 0xa1a2ed59u, "strum same: the strummed songs hash %08x, wanted a1a2ed59", (unsigned)a);
+    CHECK(b == 0x70f7bb49u, "strum same: with set changes %08x, wanted 70f7bb49", (unsigned)b);
     v = (uint32_t)sf_last_bad();
     CHECK(v == 0, "strum same: %u strummed bars left the keys' last voicing behind", (unsigned)v);
 }
@@ -8646,8 +8721,8 @@ static void test_wb_off(void)
     uint32_t a, b;
     lib_set_wb(NULL, 0); lib_pattern_wb(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0xf02eafd0u, "wb off: the strummed songs hash %08x, wanted f02eafd0", (unsigned)a);
-    CHECK(b == 0xfb36b1d6u, "wb off: with set changes %08x, wanted fb36b1d6", (unsigned)b);
+    CHECK(a == 0xa1a2ed59u, "wb off: the strummed songs hash %08x, wanted a1a2ed59", (unsigned)a);
+    CHECK(b == 0x70f7bb49u, "wb off: with set changes %08x, wanted 70f7bb49", (unsigned)b);
 }
 /* The workbench's mute (vx_mute, default off). mt_song: a song's first 20 s as the app plays it, its samples hashed
    (mute: vx_mute(0) called first, as the workbench's wb_init does) */
@@ -8694,8 +8769,8 @@ static void test_vx_mute_off(void)
     CHECK(a == b, "vx mute off: vx_mute(0) changed the samples (%08x, wanted %08x)", (unsigned)b, (unsigned)a);
     vx_mute(0);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0xf02eafd0u, "vx mute off: the strummed songs hash %08x, wanted f02eafd0", (unsigned)a);
-    CHECK(b == 0xfb36b1d6u, "vx mute off: with set changes %08x, wanted fb36b1d6", (unsigned)b);
+    CHECK(a == 0xa1a2ed59u, "vx mute off: the strummed songs hash %08x, wanted a1a2ed59", (unsigned)a);
+    CHECK(b == 0x70f7bb49u, "vx mute off: with set changes %08x, wanted 70f7bb49", (unsigned)b);
 }
 /* Review Focus 2 (Task 2): a bus muted mid-note is silent after the chunk it goes out in (and a quantum for the
    chain's own filters), its voice still playing (the duck follows it); unmuted, the notes struck while muted end at
@@ -10979,7 +11054,7 @@ static void test_ov_part_salts(void)
                       NAME[j], moved[j]);
     }
     song_override(NULL);
-    CHECK(sf_songs(0) == 0xf02eafd0u && sf_songs(1) == 0xfb36b1d6u, "ov part salts: the pinned hashes moved");
+    CHECK(sf_songs(0) == 0xa1a2ed59u && sf_songs(1) == 0x70f7bb49u, "ov part salts: the pinned hashes moved");
 }
 /* Task 1b (Sam, 2026-10-29): "Remove the ear candy part completely"; "Make it possible for the pad part to not be in
    a song. And update the seeds to not always have it"; "add the ability for the pad part to drop out of certain song
@@ -11256,8 +11331,8 @@ static void test_ov_off(void)
     CHECK(o && o->comp == -1 && o->lead_style == -1 && o->pad_place == -1 && o->ride == -1 && !o->keys_oct &&
           !o->lead_oct && !o->voicing_salt && !o->phrase_salt, "ov off: the default override forces something");
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0xf02eafd0u, "ov off: the strummed songs hash %08x, wanted f02eafd0", (unsigned)a);
-    CHECK(b == 0xfb36b1d6u, "ov off: with set changes %08x, wanted fb36b1d6", (unsigned)b);
+    CHECK(a == 0xa1a2ed59u, "ov off: the strummed songs hash %08x, wanted a1a2ed59", (unsigned)a);
+    CHECK(b == 0x70f7bb49u, "ov off: with set changes %08x, wanted 70f7bb49", (unsigned)b);
 }
 /* a steal of a damped string (the final review): six strings struck, the first two re-struck at once (their last
    notes damped on the 2 spare voices), then a plain chord note (no string: a stab after a set change) while they
@@ -12427,8 +12502,8 @@ static void test_drums_hook(void)
     CHECK(quiet_bad == 0, "drums hook: a silent source still sounds at %d steps", quiet_bad);
     drums_hook(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0xf02eafd0u, "drums hook off: the strummed songs hash %08x, wanted f02eafd0", (unsigned)a);
-    CHECK(b == 0xfb36b1d6u, "drums hook off: with set changes %08x, wanted fb36b1d6", (unsigned)b);
+    CHECK(a == 0xa1a2ed59u, "drums hook off: the strummed songs hash %08x, wanted a1a2ed59", (unsigned)a);
+    CHECK(b == 0x70f7bb49u, "drums hook off: with set changes %08x, wanted 70f7bb49", (unsigned)b);
     dh_on = 0;
     vx_init();
     {
@@ -12693,7 +12768,8 @@ static uint32_t ll_hash(uint32_t h, const song_roll_t *r, int style, int loop)
    minor): were 359c9281 (-1) and c837561a (0). Re-pinned again (Sam 2026-11-05: drums pattern 9 approved): were
    7a166b84 (-1) and 91b1bba1 (0). Re-pinned again (Sam 2026-11-05: progression 19, now the same as 18, retired):
    were 8484d705 (-1) and bafe9a1e (0). Re-pinned again (Sam 2026-11-05: motion first; drums,
-   bass and strum lean with it): were 356d409f (-1) and 59487bd0 (0) */
+   bass and strum lean with it): were 356d409f (-1) and 59487bd0 (0). Re-pinned again (Sam 2026-11-05: calm songs thin
+   the hats): were 5c5262db (-1) and d57edc13 (0) */
 static void test_lead_loop_off_identical(void)
 {
     uint32_t seed, h[2] = {2166136261u, 2166136261u};
@@ -12705,8 +12781,8 @@ static void test_lead_loop_off_identical(void)
             for (k = 0; k < 2; k++) h[k] = ll_hash(h[k], &r, st, k - 1);
     }
     printf("lead loop off: events %08x (lead_loop -1), %08x (0)\n", (unsigned)h[0], (unsigned)h[1]);
-    CHECK(h[0] == 0x5c5262dbu, "lead loop default: lead_loop -1 hashes %08x, wanted 5c5262db", (unsigned)h[0]);
-    CHECK(h[1] == 0xd57edc13u, "lead loop off: lead_loop 0 hashes %08x, wanted d57edc13", (unsigned)h[1]);
+    CHECK(h[0] == 0x24d5953du, "lead loop default: lead_loop -1 hashes %08x, wanted 24d5953d", (unsigned)h[0]);
+    CHECK(h[1] == 0x83e6ac47u, "lead loop off: lead_loop 0 hashes %08x, wanted 83e6ac47", (unsigned)h[1]);
 }
 
 typedef struct {
@@ -13224,6 +13300,7 @@ int main(int argc, char **argv)
     RUN(test_synth_sets);
     RUN(test_plan);
     RUN(test_break_hats);
+    RUN(test_calm_hats);
     RUN(test_groove);
     RUN(test_harmony);
     RUN(test_voices);

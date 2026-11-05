@@ -640,6 +640,9 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   charleston and the boom-chucks middle (the train busy), chuck, offbeat skank and syncopated push busy
   (`patterns/model.json`). At motion 50 the bass is even too: a walking set walks 50% (was 35%), with a pedal a third
   each (was pedal 50%, walk 17.5%). The kick phrases stay the workbench's (not rolled). The lead and the pad unchanged.
+- Calm songs thin the hats (Sam, 2026-11-05: 'The high hats on Motion 20 (calm) are still a bit busy'; 'anything below
+  25 motion should have no hats'; always, by the rolled motion): below 25 no closed or open hats (ride, shaker, kick,
+  snare and rim kept); 25-34 the closed hat drops its ghosts; 35 and up as written.
 - **To explore (Sam, 2026-10-30): remove the busy-lead interaction from the comping.** Today a bar with 4 or more lead
   onsets thins half notes and stabs to beat 1 (and offbeats and the arpeggio, now off). Sam isn't a fan of a busy lead
   modifying the comping. A/B songs with and without it; if he doesn't miss it, remove it (and its tests). The A/B
