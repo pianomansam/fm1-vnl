@@ -605,8 +605,13 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   some situations, so it needs rules for when it fits before it's ever rolled. None of the three is thinned by a busy
   lead.
 - **Comp rhythm candidates (Sam, 2026-11-04: "like we did for strumming, give me some more comping pattern
-  candidates"):** in progress (2026-11-05): Charleston, tresillo, push, dotted, two-feel push and late one, added to
-  patterns/comp-rhythms as workbench candidates for Sam to approve or remove.
+  candidates"):** **Done (2026-11-05, 98b0076..346e4b1):** Charleston, tresillo and late one added and approved by
+  Sam (dotted and two-feel push duplicated them; push needs a chord held over the bar line: an engine task if
+  wanted). Sam also approved held on 2 and held on 2 and 4, and removed light eighths completely ("remove light
+  eighths completely"; an old snapshot plays Held). Draw on the Rhodes, felt and vibes: held 35%, half 29%, held on 2
+  12%, held on 2 and 4 8%, a comp rhythm 16% (the Knight keeps stabs). The new styles never thin under a busy lead,
+  so they strike softer (held on 2 about 2 dB under held): to judge in songs. The vibes play the rhythms too (Sam).
+  The workbench picks all of them in one Comping row (Sam: one place, not two).
 - **To explore (Sam, 2026-10-30): remove the busy-lead interaction from the comping.** Today a bar with 4 or more lead
   onsets thins half notes and stabs to beat 1 (and offbeats and the arpeggio, now off). Sam isn't a fan of a busy lead
   modifying the comping. A/B songs with and without it; if he doesn't miss it, remove it (and its tests). The A/B
