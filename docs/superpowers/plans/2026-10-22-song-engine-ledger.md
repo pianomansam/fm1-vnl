@@ -210,7 +210,10 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
     or 8ths, each repeat 12% softer, so a stutter lasts under a beat and fades into the phrase. Proposal: 4-7
     repeats (one to two beats), mostly 16ths with an occasional 32nd roll on the last beat, repeats at full level
     while the lead's low-pass closes to about 600 Hz by the last one (the entry filter's), snapping open when the
-    phrase resumes. Same frequency unless Sam asks for more. A/B against today's stutter.
+    phrase resumes. **More often too** (Sam, 2026-11-05: "Another reason the stutter might be too subtle is how
+    infrequent it is"): today about one turnaround in two (40% of hook bars, 30% of block ends, none in the first
+    lead pass); propose about 70% and 50%, measured per song with the loop stats, and A/B both changes against
+    today's stutter.
   - **The stutter on the comp too (Sam, 2026-11-05: "add this stutter to the comping"; on the short list, not
     started).** After the bolder lead stutter, the comp gets the same move: a chord (or its top notes) stuck and
     repeated with the closing filter, at the comp's own turnarounds. Struck comps only, never held ones (pad, organ).
