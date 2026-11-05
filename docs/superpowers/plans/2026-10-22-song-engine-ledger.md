@@ -291,8 +291,8 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
 - **Bass and kick separation: back burner (Sam, 2026-10-24: "Don't pursue right now. Put it way on the back
   burner. If it's idiomatic to pair them, that's fine.").** The bass locked to the kick is the genre's idiom; the
   parked bass-rhythm spike (VNL_BASS) stays parked.
-- **Piano broken-chord climb (Sam, 2026-10-24: "soon, just not quite yet").** The arpeggio comping on piano-like keys
-  (Rhodes, Wurli, felt, DX EP) as a rising broken chord over 2-3 octaves: root an octave below the voicing, 5th,
+- **Piano broken-chord climb (Sam, 2026-10-24: "soon, just not quite yet"; 2026-11-05: still wanted, keep it).** The
+  arpeggio comping on piano-like keys (Rhodes, felt, the Knight; the Wurli and DX are retired; maybe the vibes) as a rising broken chord over 2-3 octaves: root an octave below the voicing, 5th,
   10th, then the voicing and the voicing an octave up; chord tones only down low. It sometimes lands on the voicing as a
   block chord at the top, held to the bar's end: always in a 4-bar phrase's last bar, about 1 in 3 other bars,
   deterministic per loop position. Pedal-like ringing; velocity about 50 to 70 up the climb, 75 on the top chord. Under
@@ -588,10 +588,11 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   ballad, quick or slow strokes, the ballad's fill bar. **2026-11-04:** Sam approved four new patterns (offbeat skank,
   syncopated push, anticipation, charleston), removed straight eighths and swing quarters, kept boom-chuck and five
   boom-chuck variations as candidates (fe4f344); the keys never copy the bass's rhythm (a soft up added where they
-  would). Muted chucks: today's kept (a scratch demo was heard only soloed). In progress: the guitars only strum
-  (Sam: drop their held, stabs, half notes; they now strum under struck leads too) and the fill bar's figure varies
-  per song (step back or drive; Sam declined a figure for drum-drop bars). Not wanted yet: ghost strokes, a new
-  figure per section.
+  would). Muted chucks: today's kept (a scratch demo was heard only soloed). **Done (2026-11-04, ed406bd):** the
+  guitars only strum (Sam: "drop the comping capabilities for guitars"; held, stabs and half notes gone; they strum
+  under any lead, 2 dB up), and a fill bar's figure varies song to song: step back (one stroke) or drive
+  (D.u..du..dU..du., syncopated at Sam's ask); bossa B............... or B.P.T.P.T.P.T.P. A workbench "Strum fill" row
+  auditions either. Sam declined a figure for drum-drop bars. Not wanted yet: ghost strokes, a new figure per section.
 - **Comping mix drifted (found in the rule-docs refresh, 2026-10-30; to revisit).** Turning the arpeggio off moved
   the electric and synth keys' draw to held 55% / half notes 45% (half was 36%). The last mix Sam stated was
   55/25/20, and "Approved by ear" still lists stabs and offbeats. Decide the mix by ear.
@@ -599,6 +600,9 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   re-strike split off as its own style, "held on 2 and 4" (always on 4). "Light eighths": less sure; could work in
   some situations, so it needs rules for when it fits before it's ever rolled. None of the three is thinned by a busy
   lead.
+- **Comp rhythm candidates (Sam, 2026-11-04: "like we did for strumming, give me some more comping pattern
+  candidates"):** in progress (2026-11-05): Charleston, tresillo, push, dotted, two-feel push and late one, added to
+  patterns/comp-rhythms as workbench candidates for Sam to approve or remove.
 - **To explore (Sam, 2026-10-30): remove the busy-lead interaction from the comping.** Today a bar with 4 or more lead
   onsets thins half notes and stabs to beat 1 (and offbeats and the arpeggio, now off). Sam isn't a fan of a busy lead
   modifying the comping. A/B songs with and without it; if he doesn't miss it, remove it (and its tests). The A/B
@@ -607,6 +611,12 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   patterns is equally likely in every set, flavor and family. Sam's two-bar kick phrases (k2-k6) exist only in the
   workbench, and no engine pattern is two bars long. Decide per-set or per-flavor pattern weights, and bring the
   kick phrases into the engine.
+- **Drums, 2026-11-04:**
+  - **CR-78 rim:** Sam: "i don't like the cr-78 rimshot sound." The CR-78 kit's rim lane plays its cymbal (45ffa71).
+  - **Saved patterns:** a pattern Sam saves in the workbench becomes a drums candidate on the next import
+    (tools/patterns/saved.py, 777c97f). His "half-time-2-shaker-2" is drums pattern 9 (5cacad0).
+  - **Hats in breaks:** Sam: "I don't want them to always drop out in quiet sections, but they could sometimes."
+    Kick-out breaks drop their hats in about 40% of songs (b3788ef; Sam, 2026-11-05: "sound great").
 
 ### Bass rhythm (spike VNL_BASS, kept as is by Sam to revisit)
 
@@ -615,6 +625,8 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   22%, beats 1, 2 and 4 22%. Plus anticipation (~35% of chord changes, an 8th or 16th early, ringing over), beat 1
   held and the rest long or short per song, ghost notes (60% of songs, ~30% of strikes). Revisit: the weights, how
   much anticipation, and whether to bring it into the engine proper (it lives in song.c as a spike).
+- **Done (Sam, 2026-11-04: "cheesy bass lines that go from 1 to 5... get rid of them"; faf260c):** the root-fifth
+  line (BS_ROOT_FIFTH) is gone; its songs play roots on the kick.
 
 ### Sound (judge by ear, Task 8)
 
