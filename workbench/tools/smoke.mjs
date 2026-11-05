@@ -2366,7 +2366,7 @@ console.log("candidates: the strum row, Approve (patterns and edits, Task 4)");
   check(!bad.ok && !desk.approved.has(`drums/${PID}`) && /no such strum pattern/.test(bad.message), "a refused approval says why");
 }
 
-console.log("comping: held on 2, held on 2 and 4, light eighths (the workbench's: the roll weighs them 0)");
+console.log("comping: held on 2, held on 2 and 4 (approved, Sam 2026-11-05), light eighths (a candidate: the roll weighs it 0)");
 {
   const HH = readFileSync(new URL("../../app/song/harmony.h", import.meta.url), "utf8");
   const CS = HH.slice(HH.indexOf("enum { CS_HELD")).split("}")[0].replace(/enum \{/, "").split(",")
@@ -2383,8 +2383,8 @@ console.log("comping: held on 2, held on 2 and 4, light eighths (the workbench's
   let picked = 0;
   for (let i = 1; i <= 200; i++)
     picked += cand.includes(pickFor(row("comp"), { values: { keys: perc[i % 3], comp: -1 }, locks: new Set() }, OPTS, lcg(i)));
-  check(JSON.stringify(cand) === "[6,7,8,9]" && picked === 0,
-        `... as candidates (and the comp rhythm style), never the dice's pick (${picked} of 200)`);
+  check(JSON.stringify(cand) === "[7]" && picked === 0,
+        `... light eighths a candidate, never the dice's pick (${picked} of 200)`);
 
   const { readEvents } = await import("../wb.js");
   const ex = await load(), call = caller(ex), lib = await call("wb_library");

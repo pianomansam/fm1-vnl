@@ -136,12 +136,13 @@ to the next (or to the bar's end) is held to it; a shorter one is played as writ
   the first candidate, bar 2 the second, and so on. Over a kick of more than 3 hits a bar (`busy_over`), the stabs
   are steps 0 and 6 (`busy_steps`), in the metadata.
 - **held-on-2:** one strike on step 4 (beat 2, a chord change on a bar line too), held to the bar's end; never a
-  beat 4. Percussive keys only; the roll's weight is 0 for now (the workbench and `VNL_COMP=6` play it).
+  beat 4. Percussive keys (and the vibes) only; approved (Sam, 2026-11-05), the roll's weight 15 (`VNL_COMP=6`).
+  `vel_range` 32-46, under held's: it never thins under a busy lead, so it sits lower (the lead over the keys).
 - **light-eighths:** a strike on every 8th (steps 0, 2, ... 14), each a 16th long (half an 8th), softer than half
   notes (`vel_range` 30-38). Percussive keys only; weight 0 for now (the workbench and `VNL_COMP=7`).
 - **held-on-2-and-4:** held on 2, then a soft re-strike of the same voicing on step 12 (beat 4, `second_vel_pct` 70)
-  in every bar, which shortens the first to a half note. Percussive keys only; weight 0 for now (the workbench and
-  `VNL_COMP=8`).
+  in every bar, which shortens the first to a half note. Percussive keys (and the vibes) only; approved (Sam,
+  2026-11-05), weight 10 (`VNL_COMP=8`). `vel_range` 28-41, under held on 2's, for the same reason.
 
 These three never thin under a busy lead (Sam): every bar plays the written strikes. Held, half and stabs do thin
 (`harmony.c`), unless the workbench's "Busy lead thins the comping" row is off (`VNL_BUSY=0` for a host render).
@@ -149,12 +150,14 @@ These three never thin under a busy lead (Sam): every bar plays the written stri
 **Comp rhythms** (id 7 on, `kind` `"pattern"`, `COMP_PAT` in `patterns_gen.c`, `index` its slot; `harmony.c`'s
 `CS_PAT` plays them): any further rhythm, a file dropped in this folder, one bar of 1-8 strikes over the reference
 Cmaj7, read as held, half and the rest are (a strike as long as the gap to the next is held to it; none rings past
-the bar line). `vel_range` is held's (40-58) and `second_vel_pct` 100 unless the metadata says otherwise. They play
-where held on 2 does (the percussive keys: `harmony_comp_ok`), every bar, never thinned; the bass steps aside from
+the bar line). A new one's `vel_range` is held's (40-58) and `second_vel_pct` 100 unless the metadata says otherwise;
+the three below were set under it (2026-11-05: they never thin under a busy lead, and at held's level they sat on
+the lead): charleston 27-39, tresillo 25-33, late one 32-46. They play
+where held on 2 does (the percussive keys and, from 2026-11-05, the vibes: `harmony_comp_ok`), every bar, never thinned; the bass steps aside from
 their rhythm (as from the stabs), and over a kick of the very same rhythm they hold instead (as half notes do). A
 candidate is in the host's and the workbench's table only (the firmware's `COMP_NPAT` counts the approved): the
 workbench's **Comp rhythm** row forces one (`VNL_COMP_PAT=<id>` for a host render), and its Approve writes
-`status.json`. Once one is approved the roll draws `CS_PAT` on those keys at weight 20 (`harmony.c`'s
+`status.json`. All three are approved (Sam, 2026-11-05); the roll draws `CS_PAT` on those keys at weight 20 (`harmony.c`'s
 `COMP_PAT_WEIGHT`, a first guess: about 1 song in 5 of them), the approved rhythms equally.
 
 - **7 charleston:** beat 1, then the "and" of 2 held to the bar's end (steps 0 and 6), the second at 90%.

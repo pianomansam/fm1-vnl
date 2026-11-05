@@ -74,21 +74,19 @@ const uint8_t LIB_PATTERNS_STATUS[] = {1, 1, 1, 1, 1, 1, 1, 1, 0};
 
 const patterns_comp_t COMP_HELD = {40, 58, 1, {0, 0, 0, 0, 0, 0, 0, 0}, {16, 0, 0, 0, 0, 0, 0, 0}, 100};
 const patterns_comp_t COMP_HALF = {40, 58, 2, {0, 8, 0, 0, 0, 0, 0, 0}, {8, 8, 0, 0, 0, 0, 0, 0}, 90};
-const patterns_comp_t COMP_HELD2 = {40, 58, 1, {4, 0, 0, 0, 0, 0, 0, 0}, {12, 0, 0, 0, 0, 0, 0, 0}, 100};
+const patterns_comp_t COMP_HELD2 = {32, 46, 1, {4, 0, 0, 0, 0, 0, 0, 0}, {12, 0, 0, 0, 0, 0, 0, 0}, 100};
 const patterns_comp_t COMP_LIGHT8 = {30, 38, 8, {0, 2, 4, 6, 8, 10, 12, 14}, {1, 1, 1, 1, 1, 1, 1, 1}, 100};
-const patterns_comp_t COMP_HELD24 = {40, 58, 2, {4, 12, 0, 0, 0, 0, 0, 0}, {8, 4, 0, 0, 0, 0, 0, 0}, 70};
+const patterns_comp_t COMP_HELD24 = {28, 41, 2, {4, 12, 0, 0, 0, 0, 0, 0}, {8, 4, 0, 0, 0, 0, 0, 0}, 70};
 const patterns_stabs_t COMP_STABS = {60, 85, 0, 4, {6, 10, 4, 12}, 2, 3, 0x0041};
 #if COMP_NPAT
 const patterns_comp_t COMP_PAT[COMP_NPAT] = {
-#if COMP_PAT_ALL
-    {40, 58, 2, {0, 6, 0, 0, 0, 0, 0, 0}, {6, 10, 0, 0, 0, 0, 0, 0}, 90},
-    {40, 58, 3, {0, 6, 12, 0, 0, 0, 0, 0}, {6, 6, 4, 0, 0, 0, 0, 0}, 90},
-    {40, 58, 1, {2, 0, 0, 0, 0, 0, 0, 0}, {14, 0, 0, 0, 0, 0, 0, 0}, 100},
-#endif
+    {27, 39, 2, {0, 6, 0, 0, 0, 0, 0, 0}, {6, 10, 0, 0, 0, 0, 0, 0}, 90},
+    {25, 33, 3, {0, 6, 12, 0, 0, 0, 0, 0}, {6, 6, 4, 0, 0, 0, 0, 0}, 90},
+    {32, 46, 1, {2, 0, 0, 0, 0, 0, 0, 0}, {14, 0, 0, 0, 0, 0, 0, 0}, 100},
 };
 #endif
 #if COMP_PAT_ALL && COMP_NPAT
-const uint8_t COMP_PAT_STATUS[COMP_NPAT] = {0, 0, 0};
+const uint8_t COMP_PAT_STATUS[COMP_NPAT] = {1, 1, 1};
 #endif
 
 const char *const STRUM_PAT[STRUM_NPAT] = {

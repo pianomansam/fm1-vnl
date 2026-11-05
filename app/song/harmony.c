@@ -131,23 +131,25 @@ static int style_draw(int ins, uint32_t seed)
 {
     /* held, stabs, offbeats (retired: 0 everywhere), arpeggio, half notes, strum (the guitars' alone). No arpeggio on
        any keys for now (Sam, 2026-10-28: set 23's Rhodes arpeggio "sounds very synthetic"; it may come back later).
-       Was SYNTH arpeggio 20, KNIGHT 15. Held on 2, light eighths and held on 2 and 4 last, 0 for now (the
-       workbench's until Sam sets them; a zero weight at the end changes no pick). */
-    static const uint8_t SYNTH[CS_N] = {44, 0, 0, 0, 36, 0, 0, 0, 0, 0},
-                         KNIGHT[CS_N] = {35, 25, 0, 0, 25, 0, 0, 0, 0, 0};
+       Was SYNTH arpeggio 20, KNIGHT 15. Held on 2 15 and held on 2 and 4 10 (Sam, 2026-11-05: approved; first-guess
+       weights); light eighths 0 (not approved). */
+    static const uint8_t SYNTH[CS_N] = {44, 0, 0, 0, 36, 0, 15, 0, 10, 0},
+                         KNIGHT[CS_N] = {35, 25, 0, 0, 25, 0, 15, 0, 10, 0};
+    uint8_t w[CS_N];
+    int k;
     rng_t g;
     if (is_guitar(ins)) return CS_STRUM;
     rng_seed(&g, seed, 121);
+    memcpy(w, ins == INS_KNIGHT ? KNIGHT : SYNTH, sizeof w);
+    for (k = CS_HELD2; k < CS_N; k++)     /* held on 2 (and 4), a comp rhythm: only on the keys that play them (the
+                                             percussive keys and the vibes), the others' draw as before */
+        if (!harmony_comp_ok(ins, k)) w[k] = 0;
 #if COMP_NPAT
-    if (comp_pat_napproved() && harmony_comp_ok(ins, CS_PAT)) {   /* an approved comp rhythm: the keys that play it
-                                                                     draw one at COMP_PAT_WEIGHT */
-        uint8_t w[CS_N];
-        memcpy(w, ins == INS_KNIGHT ? KNIGHT : SYNTH, sizeof w);
+    if (comp_pat_napproved() && harmony_comp_ok(ins, CS_PAT))   /* an approved comp rhythm: the keys that play it
+                                                                   draw one at COMP_PAT_WEIGHT */
         w[CS_PAT] = COMP_PAT_WEIGHT;
-        return rng_weighted(&g, w, CS_N);
-    }
 #endif
-    return rng_weighted(&g, ins == INS_KNIGHT ? KNIGHT : SYNTH, CS_N);
+    return rng_weighted(&g, w, CS_N);
 }
 
 int harmony_style_ins(int ins, uint32_t seed) { return style_draw(ins, seed); }
@@ -156,8 +158,9 @@ int harmony_comp_ok(int ins, int cs)
 {
     if (is_guitar(ins)) return cs == CS_STRUM;          /* the guitars only strum */
     if (ins == INS_VIBES)                               /* the vibes on the keys ring: held, half notes, held on 2
-                                                           (and 4); no stabs, strum or light eighths (2026-11-05) */
-        return cs == CS_HELD || cs == CS_HALF || cs == CS_HELD2 || cs == CS_HELD24;
+                                                           (and 4), a comp rhythm (Sam, 2026-11-05: "enable vibes on
+                                                           the new comp rhythm"); no stabs, strum or light eighths */
+        return cs == CS_HELD || cs == CS_HALF || cs == CS_HELD2 || cs == CS_HELD24 || (COMP_NPAT && cs == CS_PAT);
     if (cs == CS_PAT) return COMP_NPAT && harmony_comp_ok(ins, CS_HELD2);   /* a comp rhythm: where held on 2 plays */
     if (cs != CS_HELD2 && cs != CS_LIGHT8 && cs != CS_HELD24) return 1;
     return ins == INS_RHODES || ins == INS_FELT_PIANO || ins == INS_KNIGHT;

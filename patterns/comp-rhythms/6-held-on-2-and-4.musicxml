@@ -4,7 +4,7 @@
   <work><work-title>Comp rhythm 6: held-on-2-and-4 over Cmaj7</work-title></work>
   <identification>
     <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
-    <miscellaneous><miscellaneous-field name="vnl1">{"family":"comp-rhythms","id":"6","name":"held-on-2-and-4","status":"approved","style":"CS_HELD24","vel_range":[40,58],"second_vel_pct":70,"strikes":[{"step":4,"len":8},{"step":12,"len":4}]}</miscellaneous-field></miscellaneous>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"comp-rhythms","id":"6","name":"held-on-2-and-4","status":"approved","style":"CS_HELD24","vel_range":[28,41],"second_vel_pct":70,"strikes":[{"step":4,"len":8},{"step":12,"len":4}]}</miscellaneous-field></miscellaneous>
   </identification>
   <part-list>
     <score-part id="P1">
@@ -18,14 +18,14 @@
       <attributes><divisions>4</divisions><key><fifths>0</fifths></key><time><beats>4</beats><beat-type>4</beat-type></time><clef><sign>G</sign><line>2</line></clef></attributes>
       <direction placement="above"><direction-type><metronome><beat-unit>quarter</beat-unit><per-minute>85</per-minute></metronome></direction-type><sound tempo="85"/></direction>
       <note><rest/><duration>4</duration><voice>1</voice><type>quarter</type></note>
-      <note dynamics="54.44"><pitch><step>C</step><octave>4</octave></pitch><duration>8</duration><voice>1</voice><type>half</type></note>
-      <note dynamics="54.44"><chord/><pitch><step>E</step><octave>4</octave></pitch><duration>8</duration><voice>1</voice><type>half</type></note>
-      <note dynamics="54.44"><chord/><pitch><step>G</step><octave>4</octave></pitch><duration>8</duration><voice>1</voice><type>half</type></note>
-      <note dynamics="54.44"><chord/><pitch><step>B</step><octave>4</octave></pitch><duration>8</duration><voice>1</voice><type>half</type></note>
-      <note dynamics="37.78"><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type></note>
-      <note dynamics="37.78"><chord/><pitch><step>E</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type></note>
-      <note dynamics="37.78"><chord/><pitch><step>G</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type></note>
-      <note dynamics="37.78"><chord/><pitch><step>B</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type></note>
+      <note dynamics="37.78"><pitch><step>C</step><octave>4</octave></pitch><duration>8</duration><voice>1</voice><type>half</type></note>
+      <note dynamics="37.78"><chord/><pitch><step>E</step><octave>4</octave></pitch><duration>8</duration><voice>1</voice><type>half</type></note>
+      <note dynamics="37.78"><chord/><pitch><step>G</step><octave>4</octave></pitch><duration>8</duration><voice>1</voice><type>half</type></note>
+      <note dynamics="37.78"><chord/><pitch><step>B</step><octave>4</octave></pitch><duration>8</duration><voice>1</voice><type>half</type></note>
+      <note dynamics="27.78"><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type></note>
+      <note dynamics="27.78"><chord/><pitch><step>E</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type></note>
+      <note dynamics="27.78"><chord/><pitch><step>G</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type></note>
+      <note dynamics="27.78"><chord/><pitch><step>B</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type></note>
     </measure>
   </part>
 </score-partwise>

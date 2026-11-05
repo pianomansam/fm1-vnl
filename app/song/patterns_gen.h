@@ -47,7 +47,7 @@ extern const patterns_stabs_t COMP_STABS;
 #define COMP_NPAT 3
 #else
 #define COMP_PAT_ALL 0
-#define COMP_NPAT 0
+#define COMP_NPAT 3
 #endif
 #if COMP_NPAT
 extern const patterns_comp_t COMP_PAT[COMP_NPAT];

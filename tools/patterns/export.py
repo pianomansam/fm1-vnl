@@ -256,8 +256,8 @@ def render(fam, k, e):
                      for bar, s2 in enumerate(e["second"]) for s in (e["first"], s2)]
             bars = len(e["second"])
         else:
-            notes = [(x["step"], x["len"], TONE, vel * e.get("second_vel_pct", 100) // 100 if i else vel)
-                     for i, x in enumerate(e["strikes"])]
+            notes = [(x["step"], x["len"], TONE, max(25, vel * e.get("second_vel_pct", 100) // 100) if i else vel)
+                     for i, x in enumerate(e["strikes"])]   # (a later strike never under 25: the engine's floor)
             bars = 1
         tr, part = pitched("Keys", 4, notes)
         name = e.get("name") or e["file"].split("/", 1)[1].split("-", 1)[1].replace("-", " ")

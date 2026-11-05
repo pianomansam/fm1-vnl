@@ -2319,8 +2319,8 @@
       "status": "approved",
       "style": "CS_HELD2",
       "vel_range": [
-        40,
-        58
+        32,
+        46
       ],
       "strikes": [
         {
@@ -2379,8 +2379,8 @@
       "status": "approved",
       "style": "CS_HELD24",
       "vel_range": [
-        40,
-        58
+        28,
+        41
       ],
       "second_vel_pct": 70,
       "strikes": [
@@ -2396,13 +2396,13 @@
       "file": "comp-rhythms/6-held-on-2-and-4"
     },
     "7": {
-      "status": "candidate",
+      "status": "approved",
       "style": "CS_PAT",
       "kind": "pattern",
       "index": 0,
       "vel_range": [
-        40,
-        58
+        27,
+        39
       ],
       "second_vel_pct": 90,
       "strikes": [
@@ -2418,13 +2418,13 @@
       "file": "comp-rhythms/7-charleston"
     },
     "8": {
-      "status": "candidate",
+      "status": "approved",
       "style": "CS_PAT",
       "kind": "pattern",
       "index": 1,
       "vel_range": [
-        40,
-        58
+        25,
+        33
       ],
       "second_vel_pct": 90,
       "strikes": [
@@ -2444,13 +2444,13 @@
       "file": "comp-rhythms/8-tresillo"
     },
     "9": {
-      "status": "candidate",
+      "status": "approved",
       "style": "CS_PAT",
       "kind": "pattern",
       "index": 2,
       "vel_range": [
-        40,
-        58
+        32,
+        46
       ],
       "strikes": [
         {
