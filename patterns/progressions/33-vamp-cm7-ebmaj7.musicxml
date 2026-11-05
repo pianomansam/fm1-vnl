@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
 <score-partwise version="4.0">
-  <work><work-title>Progression 33: Cm7 Ebmaj7 (vamp; sad, wistful, warm; Dorian, Aeolian)</work-title></work>
+  <work><work-title>Progression 33: i7 IIImaj7(#11) = Cm7 Ebmaj7 in C (vamp; sad, wistful, warm; Minor)</work-title></work>
   <identification>
     <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
-    <miscellaneous><miscellaneous-field name="vnl1">{"family":"progressions","id":"33","status":"approved","kind":"PK_VAMP","n":2,"bars_per_chord":2,"chords":[{"degree":0,"alter":0,"quality":"Q_DIATONIC"},{"degree":2,"alter":0,"quality":"Q_DIATONIC"}],"moods":["MOOD_SAD","MOOD_WISTFUL","MOOD_WARM"],"modes":["MODE_DORIAN","MODE_AEOLIAN"],"src":"R25: i7-bIIImaj7 vamp (Cm7 Ebmaj7)","symbols":["Cm7","Ebmaj7"],"symbols_mode":"MODE_DORIAN"}</miscellaneous-field></miscellaneous>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"progressions","id":"33","status":"approved","kind":"PK_VAMP","n":2,"bars_per_chord":2,"chords":[{"degree":0,"alter":0,"quality":"Q_DIATONIC"},{"degree":2,"alter":0,"quality":"Q_MAJ7S11"}],"moods":["MOOD_SAD","MOOD_WISTFUL","MOOD_WARM"],"modes":["MODE_MINOR"],"src":"R25: i7-bIIImaj7 vamp (Cm7 Ebmaj7)","numerals":["i7","IIImaj7(#11)"],"symbols":["Cm7","Ebmaj7"],"symbols_mode":"MODE_MINOR"}</miscellaneous-field></miscellaneous>
   </identification>
   <part-list>
     <score-part id="P1">

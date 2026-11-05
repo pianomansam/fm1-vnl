@@ -49,8 +49,10 @@ void *vnl_memmove(void *d, const void *s, unsigned n)
 }
 #endif
 
-static const char *const KEY_NAME[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
-static const char *const MODE_NAME[MODE_N] = {"MAJOR", "DORIAN", "PHRYGIAN", "LYDIAN", "MIXOLYDIAN", "MINOR"};
+/* the simplest spelling of a major key and of a minor one (the fewer accidentals; flats on a tie: Gb, Eb minor) */
+static const char *const KEY_NAME[MODE_N][12] = {{"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"},
+                                                 {"C", "C#", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B"}};
+static const char *const MODE_NAME[MODE_N] = {"MAJOR", "MINOR"};
 static const char *const MOOD_NAME[4] = {"SAD", "WISTFUL", "WARM", "SUNNY"};
 static const char *const SEC_NAME[] = {"INTRO", "GROOVE", "LEAD", "BREAK", "OUTRO"};
 /* the four knobs: the field each asks for, its step a detent, its name */
@@ -524,11 +526,11 @@ void app_say(const char *a, const char *b)
 }
 
 /* a field's value as the screen writes it */
-static void value_text(int f, int v, char *t)
+static void value_text(int f, int v, int mode, char *t)
 {
     t[0] = 0;
     if (f == RF_KEY)
-        text_cat(t, KEY_NAME[v % 12]);
+        text_cat(t, KEY_NAME[mode % MODE_N][v % 12]);
     else if (f == RF_MOOD)
         text_cat(t, MOOD_NAME[v & 3]);
     else
@@ -536,11 +538,11 @@ static void value_text(int f, int v, char *t)
 }
 
 /* the screen's lines, as text: the header's key and tempo, the place in the song, the chord, the pending change */
-static void line_key(const snap_t *s, char *t)    /* "F DORIAN  78 BPM" */
+static void line_key(const snap_t *s, char *t)    /* "F MINOR  78 BPM" */
 {
     char n[8];
     t[0] = 0;
-    text_cat(t, KEY_NAME[s->roll.v[RF_KEY] % 12]);
+    text_cat(t, KEY_NAME[s->roll.v[RF_MODE] % MODE_N][s->roll.v[RF_KEY] % 12]);
     text_cat(t, " ");
     text_cat(t, MODE_NAME[s->roll.v[RF_MODE] % MODE_N]);
     text_cat(t, "  ");
@@ -592,7 +594,7 @@ static void line_pending(const snap_t *s, char *t)   /* "TEMPO 78 IN 3 BARS" */
     text_cat(t, k < 4 ? KNOB_NAME[k] : "CHANGE");
     if (s->req_set[s->pend_field]) {
         text_cat(t, " ");
-        value_text(s->pend_field, s->req_val[s->pend_field], n);
+        value_text(s->pend_field, s->req_val[s->pend_field], s->roll.v[RF_MODE], n);
         text_cat(t, n);
     }
     text_cat(t, " IN ");
@@ -647,7 +649,7 @@ static void input(void)
         post(C_REQ, f, (int)e * KNOB_STEP[k]);
         if (ui.shown.has_song) {            /* what it will be, as far as the main loop can tell */
             int v = ui.shown.req_set[f] ? ui.shown.req_val[f] : ui.shown.roll.v[f];
-            value_text(f, field_step(f, v, (int)e * KNOB_STEP[k]), t);
+            value_text(f, field_step(f, v, (int)e * KNOB_STEP[k]), ui.shown.roll.v[RF_MODE], t);
             app_say(KNOB_NAME[k], t);
         }
     }
@@ -703,7 +705,7 @@ static void draw(void)
         int32_t x = 4 + k * 58;
         cv_text(x, 2, &FONT_XS, KNOB_NAME[k], C_GRAY);
         if (s->has_song) {
-            value_text(KNOB_FIELD[k], s->roll.v[KNOB_FIELD[k]], t);
+            value_text(KNOB_FIELD[k], s->roll.v[KNOB_FIELD[k]], s->roll.v[RF_MODE], t);
             cv_text(x, 18, &FONT_XS, t, C_HI);
         }
     }

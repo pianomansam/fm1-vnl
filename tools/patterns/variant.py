@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Test only (tests/candidates.sh): the generated tables (patterns_gen.c and .h) from patterns/model.json with one
-   entry added to every family the engine draws (a drum pattern, two progressions (one for a mood and mode no
-   approved progression suits), a strum pattern, a comp rhythm; a kick phrase too, the workbench's), each unlike every
+   entry added to every family the engine draws (a drum pattern, two progressions (one for a single mood, sad), a
+   strum pattern, a comp rhythm; a kick phrase too, the workbench's), each unlike every
    entry before it, as candidates or approved. files: the same entries as new .mid files in a copy of patterns/, for
    import.py to import (the workbench's smoke over tables with candidates: workbench/tools/candidates_smoke.sh).
 
@@ -27,10 +27,11 @@ def variant(model, status):
     d.update(id=nid, status=status, src="variant.py", file=f"drums/{nid}-variant")
     d["hit"] = ["0x1111", "0x1010", "0x5555", "0x0000", "0x0000", "0x0000"]        # four on the floor
     m["drums"][str(nid)] = d
-    nid = max(e["id"] for e in m["progressions"].values()) + 1        # sad and Lydian: no approved one suits them
+    # sad and major (until the modes became major or minor, 2026-11-05: sad and Lydian, which no approved one suited)
+    nid = max(e["id"] for e in m["progressions"].values()) + 1
     m["progressions"][str(nid)] = {**copy.deepcopy(m["progressions"]["1"]), "id": nid, "status": status,
-                                   "src": "variant.py, lydian", "file": f"progressions/{nid}-variant-lydian", "kind": "PK_JAZZY",
-                                   "moods": ["MOOD_SAD"], "modes": ["MODE_LYDIAN"]}
+                                   "src": "variant.py, sad", "file": f"progressions/{nid}-variant-sad",
+                                   "kind": "PK_JAZZY", "moods": ["MOOD_SAD"], "modes": ["MODE_MAJOR"]}
     p = copy.deepcopy(m["progressions"]["1"])
     nid += 1
     p.update(id=nid, status=status, src="variant.py", file=f"progressions/{nid}-variant",
@@ -63,6 +64,7 @@ def write_files(pat):
             if fam == "progressions":                       # the symbols the file's text events carry
                 mode = export.MODES.index(e["modes"][0])
                 e = {**e, "symbols_mode": e["modes"][0],
+                     "numerals": [export.validate.numeral(mode, c) for c in e["chords"]],
                      "symbols": [export.ROOT_NAME[r] + x for r, x in (export.chord_symbol(c, mode) for c in e["chords"])]}
             export.write_file(pat, fam, k, e, ".mid")
 

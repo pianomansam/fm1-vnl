@@ -9,7 +9,7 @@
 enum { RF_KEY, RF_TEMPO, RF_MOTION, RF_MOOD, RF_MODE, RF_MAP, RF_PROG, RF_COLOR, RF_SET, RF_PATTERN, RF_SWING,
        RF_DUST, RF_NOISE, RF_AMBIENCE, RF_BARS, RF_N };
 
-/* v[RF_KEY] 0-11; RF_TEMPO BPM 70-90; RF_MOTION 0-100; RF_MOOD 0-3 (LIB_MOODS index); RF_MODE MODE_*;
+/* v[RF_KEY] 0-11; RF_TEMPO BPM 70-90; RF_MOTION 0-100; RF_MOOD 0-3 (LIB_MOODS index); RF_MODE MODE_MAJOR or MODE_MINOR;
    RF_MAP/PROG/SET/PATTERN library ids; RF_COLOR COLOR_*; RF_SWING per-mille 520-620; RF_DUST 0-3;
    RF_NOISE 0 none / 1 vinyl / 2 tape; RF_AMBIENCE 0 none / 1 rain; RF_BARS 36-76, a multiple of 4, with
    RF_BARS * 240 / RF_TEMPO within 120-210 s. A progression is legal only if it suits both the mood and the mode.

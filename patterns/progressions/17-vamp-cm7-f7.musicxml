@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
 <score-partwise version="4.0">
-  <work><work-title>Progression 17: Cm7 F7 (vamp; wistful, warm, sunny; Dorian)</work-title></work>
+  <work><work-title>Progression 17: i7 IV7 = Cm7 F7 in C (vamp; wistful, warm, sunny; Minor)</work-title></work>
   <identification>
     <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
-    <miscellaneous><miscellaneous-field name="vnl1">{"family":"progressions","id":"17","status":"approved","kind":"PK_VAMP","n":2,"bars_per_chord":2,"chords":[{"degree":0,"alter":0,"quality":"Q_MIN7"},{"degree":3,"alter":0,"quality":"Q_DOM7"}],"moods":["MOOD_WISTFUL","MOOD_WARM","MOOD_SUNNY"],"modes":["MODE_DORIAN"],"src":"brainstorm: Dorian i7-IV7 vamp (Cm7 F7 in C)","symbols":["Cm7","F7"],"symbols_mode":"MODE_DORIAN"}</miscellaneous-field></miscellaneous>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"progressions","id":"17","status":"approved","kind":"PK_VAMP","n":2,"bars_per_chord":2,"chords":[{"degree":0,"alter":0,"quality":"Q_MIN7"},{"degree":3,"alter":0,"quality":"Q_DOM7"}],"moods":["MOOD_WISTFUL","MOOD_WARM","MOOD_SUNNY"],"modes":["MODE_MINOR"],"src":"brainstorm: Dorian i7-IV7 vamp (Cm7 F7 in C)","numerals":["i7","IV7"],"symbols":["Cm7","F7"],"symbols_mode":"MODE_MINOR"}</miscellaneous-field></miscellaneous>
   </identification>
   <part-list>
     <score-part id="P1">

@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
 <score-partwise version="4.0">
-  <work><work-title>Progression 36: Cmaj7 Am7 D7 Gmaj7 (loop; wistful, warm, sunny; Lydian)</work-title></work>
+  <work><work-title>Progression 36: Imaj7(#11) vi7 II7 Vmaj7 = Cmaj7 Am7 D7 Gmaj7 in C (loop; wistful, warm, sunny; Major)</work-title></work>
   <identification>
     <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
-    <miscellaneous><miscellaneous-field name="vnl1">{"family":"progressions","id":"36","status":"approved","kind":"PK_LOOP","n":4,"bars_per_chord":1,"chords":[{"degree":0,"alter":0,"quality":"Q_DIATONIC"},{"degree":5,"alter":0,"quality":"Q_DIATONIC"},{"degree":1,"alter":0,"quality":"Q_DIATONIC"},{"degree":4,"alter":0,"quality":"Q_DIATONIC"}],"moods":["MOOD_WISTFUL","MOOD_WARM","MOOD_SUNNY"],"modes":["MODE_LYDIAN"],"src":"R25: Lydian Imaj7-vi7-II7-Vmaj7 loop (Cmaj7 Am7 D7 Gmaj7)","symbols":["Cmaj7","Am7","D7","Gmaj7"],"symbols_mode":"MODE_LYDIAN"}</miscellaneous-field></miscellaneous>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"progressions","id":"36","status":"approved","kind":"PK_LOOP","n":4,"bars_per_chord":1,"chords":[{"degree":0,"alter":0,"quality":"Q_MAJ7S11"},{"degree":5,"alter":0,"quality":"Q_DIATONIC"},{"degree":1,"alter":0,"quality":"Q_DOM7"},{"degree":4,"alter":0,"quality":"Q_MAJ7"}],"moods":["MOOD_WISTFUL","MOOD_WARM","MOOD_SUNNY"],"modes":["MODE_MAJOR"],"src":"R25: Lydian Imaj7-vi7-II7-Vmaj7 loop (Cmaj7 Am7 D7 Gmaj7)","numerals":["Imaj7(#11)","vi7","II7","Vmaj7"],"symbols":["Cmaj7","Am7","D7","Gmaj7"],"symbols_mode":"MODE_MAJOR"}</miscellaneous-field></miscellaneous>
   </identification>
   <part-list>
     <score-part id="P1">

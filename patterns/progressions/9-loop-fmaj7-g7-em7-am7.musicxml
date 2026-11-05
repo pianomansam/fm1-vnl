@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
 <score-partwise version="4.0">
-  <work><work-title>Progression 9: Fmaj7 G7 Em7 Am7 (loop; sad, wistful, sunny; Ionian)</work-title></work>
+  <work><work-title>Progression 9: IVmaj7 V7 iii7 vi7 = Fmaj7 G7 Em7 Am7 in C (loop; sad, wistful, sunny; Major)</work-title></work>
   <identification>
     <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
-    <miscellaneous><miscellaneous-field name="vnl1">{"family":"progressions","id":"9","status":"approved","kind":"PK_LOOP","n":4,"bars_per_chord":1,"chords":[{"degree":3,"alter":0,"quality":"Q_MAJ7"},{"degree":4,"alter":0,"quality":"Q_DOM7"},{"degree":2,"alter":0,"quality":"Q_DIATONIC"},{"degree":5,"alter":0,"quality":"Q_MIN7"}],"moods":["MOOD_SAD","MOOD_WISTFUL","MOOD_SUNNY"],"modes":["MODE_IONIAN"],"src":"lofi-hip-hop.md 2, IVmaj7-V7-iii7-vi7 royal road","symbols":["Fmaj7","G7","Em7","Am7"],"symbols_mode":"MODE_IONIAN"}</miscellaneous-field></miscellaneous>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"progressions","id":"9","status":"approved","kind":"PK_LOOP","n":4,"bars_per_chord":1,"chords":[{"degree":3,"alter":0,"quality":"Q_MAJ7"},{"degree":4,"alter":0,"quality":"Q_DOM7"},{"degree":2,"alter":0,"quality":"Q_DIATONIC"},{"degree":5,"alter":0,"quality":"Q_MIN7"}],"moods":["MOOD_SAD","MOOD_WISTFUL","MOOD_SUNNY"],"modes":["MODE_MAJOR"],"src":"lofi-hip-hop.md 2, IVmaj7-V7-iii7-vi7 royal road","numerals":["IVmaj7","V7","iii7","vi7"],"symbols":["Fmaj7","G7","Em7","Am7"],"symbols_mode":"MODE_MAJOR"}</miscellaneous-field></miscellaneous>
   </identification>
   <part-list>
     <score-part id="P1">

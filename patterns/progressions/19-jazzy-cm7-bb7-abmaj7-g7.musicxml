@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
 <score-partwise version="4.0">
-  <work><work-title>Progression 19: Cm7 Bb7 Abmaj7 G7 (jazzy; sad, wistful; Dorian)</work-title></work>
+  <work><work-title>Progression 19: i7 VII7 VImaj7 V7 = Cm7 Bb7 Abmaj7 G7 in C (jazzy; sad, wistful; Minor)</work-title></work>
   <identification>
     <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
-    <miscellaneous><miscellaneous-field name="vnl1">{"family":"progressions","id":"19","status":"approved","kind":"PK_JAZZY","n":4,"bars_per_chord":1,"chords":[{"degree":0,"alter":0,"quality":"Q_MIN7"},{"degree":6,"alter":0,"quality":"Q_DOM7"},{"degree":5,"alter":-1,"quality":"Q_MAJ7"},{"degree":4,"alter":0,"quality":"Q_DOM7"}],"moods":["MOOD_SAD","MOOD_WISTFUL"],"modes":["MODE_DORIAN"],"src":"brainstorm: Dorian-key i7-bVII7-bVImaj7-V7 (borrowed bVI, Abmaj7); R25: borrows, so jazzy","symbols":["Cm7","Bb7","Abmaj7","G7"],"symbols_mode":"MODE_DORIAN"}</miscellaneous-field></miscellaneous>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"progressions","id":"19","status":"approved","kind":"PK_JAZZY","n":4,"bars_per_chord":1,"chords":[{"degree":0,"alter":0,"quality":"Q_MIN7"},{"degree":6,"alter":0,"quality":"Q_DOM7"},{"degree":5,"alter":0,"quality":"Q_MAJ7"},{"degree":4,"alter":0,"quality":"Q_DOM7"}],"moods":["MOOD_SAD","MOOD_WISTFUL"],"modes":["MODE_MINOR"],"src":"brainstorm: Dorian-key i7-bVII7-bVImaj7-V7 (borrowed bVI, Abmaj7); R25: borrows, so jazzy","numerals":["i7","VII7","VImaj7","V7"],"symbols":["Cm7","Bb7","Abmaj7","G7"],"symbols_mode":"MODE_MINOR"}</miscellaneous-field></miscellaneous>
   </identification>
   <part-list>
     <score-part id="P1">

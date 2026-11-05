@@ -8,11 +8,17 @@ from pathlib import Path
 
 PF = ["PF_BOOMBAP", "PF_HALFTIME", "PF_SPARSE", "PF_BRUSHES", "PF_BOSSA"]
 PK = ["PK_VAMP", "PK_LOOP", "PK_JAZZY"]
-Q = ["Q_DIATONIC", "Q_MIN7", "Q_DOM7", "Q_MAJ7"]
+Q = ["Q_DIATONIC", "Q_MIN7", "Q_DOM7", "Q_MAJ7", "Q_MIN7B9", "Q_MAJ7S11"]
 MOODS = ["MOOD_SAD", "MOOD_WISTFUL", "MOOD_WARM", "MOOD_SUNNY"]
-MODES = ["MODE_IONIAN", "MODE_DORIAN", "MODE_PHRYGIAN", "MODE_LYDIAN", "MODE_MIXOLYDIAN", "MODE_AEOLIAN"]
-SCALE = [[0, 2, 4, 5, 7, 9, 11], [0, 2, 3, 5, 7, 9, 10], [0, 1, 3, 5, 7, 8, 10], [0, 2, 4, 6, 7, 9, 11],
-         [0, 2, 4, 5, 7, 9, 10], [0, 2, 3, 5, 7, 8, 10]]
+MODES = ["MODE_MAJOR", "MODE_MINOR"]           # a song is major or minor (Sam, 2026-11-05; six modes before)
+SCALE = [[0, 2, 4, 5, 7, 9, 11], [0, 2, 3, 5, 7, 8, 10]]   # major, natural minor
+# the scale degree a pitch class over the key spells, the simplest way: b2 b3 #4 b6 b7 in major, b2 3 #4 6 7 in minor
+# (theory.c's DEG)
+DEG = [0, 1, 1, 2, 2, 3, 3, 4, 5, 5, 6, 6]
+# the major scales (their roots over the key) a vamp's or loop's chords may keep to: the key's modes, Ionian,
+# Mixolydian (F major over C) and Lydian (G major) in a major key, Aeolian (Eb major) and Dorian (Bb major) in a minor
+# one (R25, kept from the six modes)
+KEY_MODES = [[0, 5, 7], [3, 10]]
 UP_STEPS = {2, 6, 10, 14}                       # the "and"s, where an up stroke may go
 STROKES = "TBDdXUuP"
 # the strum fills as (figure, fill_of), sorted: the ballad's (no figure, pattern 4), step back and drive for every
@@ -43,17 +49,17 @@ def _stack(mode, d, k):
 
 def chord_pcs(mode, spec, color):
     """theory.c's th_chord_pcs in C (key 0): the chord's pitch classes, root first, avoid notes left out.
-       color 0: 7ths, 1: 9ths, 2: rich (9/11/13 where the mode allows)"""
+       color 0: 7ths, 1: 9ths, 2: rich (9/11/13 where the key or the quality allows)"""
     d = max(0, min(6, spec["degree"]))
     q = Q.index(spec["quality"])
     root = (SCALE[mode][d] + spec["alter"]) % 12
     i3, i5, i7, i9 = (_stack(mode, d, k) for k in (2, 4, 6, 8))
     ext = -1
     if q != 0:
-        i5, i9 = 7, 2
-        i3 = 3 if q == 1 else 4
-        i7 = 11 if q == 3 else 10
-        ext = 9 if q == 2 else 5 if q == 1 else 6 if mode == 3 else -1
+        i5, i9 = 7, 1 if q == 4 else 2
+        i3 = 3 if q in (1, 4) else 4
+        i7 = 11 if q in (3, 5) else 10
+        ext = {1: 5, 2: 9, 4: 5, 5: 6}.get(q, -1)
     elif i3 == 4 and i7 == 10:
         ext = _stack(mode, d, 12)
     elif i3 == 3 and i5 == 7 and i7 == 10:
@@ -78,6 +84,26 @@ def chord_pcs(mode, spec, color):
 def _is_dominant(pcs):
     ivs = {(p - pcs[0]) % 12 for p in pcs[1:]}
     return 4 in ivs and 10 in ivs
+
+
+def spec_of(mode, root):
+    """{degree, alter}: a root (a pitch class over the key) spelled the simplest way (DEG)"""
+    d = DEG[root % 12]
+    return {"degree": d, "alter": (root - SCALE[mode][d] + 6) % 12 - 6}
+
+
+def numeral(mode, spec):
+    """the chord as a Roman numeral in its key: its root's degree (b or # off the key's scale), upper case over a
+       major 3rd, then 7 (maj7 over a major 7th, 7b5 over a diminished 5th); a forced color the key's own chord
+       there lacks: (#11) for Q_MAJ7S11, (no 9) for Q_MIN7B9 (its 9th a semitone over the root: left out)"""
+    pcs = chord_pcs(mode, spec, 0)
+    ivs = [(p - pcs[0]) % 12 for p in pcs]
+    r = ["I", "II", "III", "IV", "V", "VI", "VII"][max(0, min(6, spec["degree"]))]
+    acc = {-1: "b", 1: "#"}.get(spec["alter"], "")
+    major = 4 in ivs
+    suffix = ("maj7" if 11 in ivs else "7") if major else ("7b5" if 6 in ivs else "7")
+    return acc + (r if major else r.lower()) + suffix + {"Q_MAJ7S11": "(#11)", "Q_MIN7B9": "(no 9)"}.get(
+        spec["quality"], "")
 
 
 def _dominant_has_color(mode, spec):
@@ -157,11 +183,9 @@ def _check_prog(e, bad):
     moods, modes = e.get("moods") or [], e.get("modes") or []
     if not moods or any(m not in MOODS for m in moods):
         bad(None, "at least one mood, each one of " + ", ".join(MOODS))
-    if not modes or any(m not in MODES for m in modes):
-        bad(None, "at least one mode, each one of " + ", ".join(MODES))
+    if len(modes) != 1 or modes[0] not in MODES:
+        bad(None, "major or minor: one of " + ", ".join(MODES))
         return
-    if "MODE_PHRYGIAN" in modes:
-        bad(None, "no Phrygian: the engine never plays it")
     n, bpc, chords = e.get("n"), e.get("bars_per_chord"), e.get("chords") or []
     if not _int(n, 1, 4) or len(chords) != n:
         bad(None, "a progression has 1-4 chords")
@@ -177,13 +201,19 @@ def _check_prog(e, bad):
     for mode_name in modes:
         mode = MODES.index(mode_name)
         roots = [chord_pcs(mode, c, 0) for c in chords]
+        name = mode_name[5:].lower()
+        notes = set()
+        for i, c in enumerate(chords):                  # the first chord that leaves every mode of the key
+            notes |= {p for color in range(3) for p in chord_pcs(mode, c, color)}
+            if not jazzy and not any(notes <= {(k + x) % 12 for x in SCALE[0]} for k in KEY_MODES[mode]):
+                bad(i * bpc + 1, f"a chord outside every mode of the {name} key (a borrowed chord or substitution): "
+                                 "a vamp's or loop's chords keep to one of " +
+                                 ("Ionian, Mixolydian or Lydian" if mode == 0 else "Aeolian or Dorian") +
+                                 "; only a jazzy progression borrows")
+                break
         for i, c in enumerate(chords):
             bar = i * bpc + 1
             pcs = roots[i]
-            name = mode_name[5:].capitalize()
-            if not jazzy and any(p not in SCALE[mode] for p in pcs):
-                bad(bar, f"a chord outside {name} (a borrowed chord or substitution): only a jazzy progression "
-                         "borrows")
             if _is_dominant(pcs):
                 nxt = roots[(i + 1) % n][0]
                 if pcs[0] in (1, 8) or (pcs[0] - nxt) % 12 == 1:

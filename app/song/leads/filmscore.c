@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Film Score (lead-styles design, 2026-10-29; ported unchanged from its spike but for the shared register): a
-   singable 2-bar motif, drawn once per song: a bar of 3-5 notes on the 8th grid over the mode's pentatonic, mostly
+   singable 2-bar motif, drawn once per song: a bar of 3-5 notes on the 8th grid over the pentatonic, mostly
    by step, into a long note held through the next bar. A 4-bar phrase twice per 8 (question, answer):
      question  bars 1-2 the motif; bars 3-4 the motif sequenced up a pentatonic step (the lift), its long note open
                (not the root), then a breath
@@ -143,7 +143,7 @@ void filmscore_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *
     int run, pass, bip, pbars, last, role, half, i, key = c->r->v[RF_KEY], center, prev = ls->last, sung;
     int from = ls->tied ? ls->tie_end : 0, base, on[6], n, tied = 0, lvl, answer_at;
     uint32_t seed = song_ov_phrase_seed(c->r->seed);
-    unsigned pent = leads_pent_mask(c->r, 0);
+    unsigned pent = leads_pent_mask(c->r, c->pcs, c->np, 0);
     fs_motif_t m;
     fs_pass_t p;
     const leads_next_t *x = c->can_push && nx->np > 0 ? nx : 0;
@@ -232,7 +232,7 @@ void filmscore_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *
 }
 
 /* The song's motif: its phrase heads' notes as the song draws them (before the legal notes and the range bend them):
-   3-5 notes on the 8th grid in the mode's pentatonic, the last the long note, held to the bar's end (often tied on
+   3-5 notes on the 8th grid in the pentatonic, the last the long note, held to the bar's end (often tied on
    through the next). */
 void filmscore_motif(const song_roll_t *r, lead_motif_t *m)
 {

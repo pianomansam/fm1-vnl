@@ -26,11 +26,8 @@ HIT_VEL, GHOST_VEL = 90, 40                     # a drum hit (> 60) and a ghost 
 PF = ["PF_BOOMBAP", "PF_HALFTIME", "PF_SPARSE", "PF_BRUSHES", "PF_BOSSA"]
 PF_SLUG = ["boombap", "half-time", "sparse", "brushes", "bossa"]
 PK = ["PK_VAMP", "PK_LOOP", "PK_JAZZY"]
-Q = ["Q_DIATONIC", "Q_MIN7", "Q_DOM7", "Q_MAJ7"]
+Q, MODES, SCALE = validate.Q, validate.MODES, validate.SCALE     # (major or minor: Sam, 2026-11-05)
 MOODS = ["MOOD_SAD", "MOOD_WISTFUL", "MOOD_WARM", "MOOD_SUNNY"]
-MODES = ["MODE_IONIAN", "MODE_DORIAN", "MODE_PHRYGIAN", "MODE_LYDIAN", "MODE_MIXOLYDIAN", "MODE_AEOLIAN"]
-SCALE = [[0, 2, 4, 5, 7, 9, 11], [0, 2, 3, 5, 7, 9, 10], [0, 1, 3, 5, 7, 8, 10], [0, 2, 4, 6, 7, 9, 11],
-         [0, 2, 4, 5, 7, 9, 10], [0, 2, 3, 5, 7, 8, 10]]
 ROOT_NAME = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"]
 QUALITY = {  # symbol suffix: (tones above the root, MusicXML kind)
     "maj7": ([0, 4, 7, 11], "major-seventh"), "7": ([0, 4, 7, 10], "dominant"),
@@ -123,7 +120,7 @@ def chord_symbol(spec, mode):
         third, fifth, sev = ((sc[(deg + k) % 7] - sc[deg]) % 12 for k in (2, 4, 6))
         suffix = {(4, 7, 11): "maj7", (4, 7, 10): "7", (3, 7, 10): "m7", (3, 6, 10): "m7b5"}[(third, fifth, sev)]
     else:
-        suffix = {"Q_MIN7": "m7", "Q_DOM7": "7", "Q_MAJ7": "maj7"}[q]
+        suffix = {"Q_MIN7": "m7", "Q_DOM7": "7", "Q_MAJ7": "maj7", "Q_MIN7B9": "m7", "Q_MAJ7S11": "maj7"}[q]
     return root, suffix
 
 
@@ -157,6 +154,7 @@ def build_model(t, kick_phrases):
             "id": p["id"], "status": status(p["status"]), "kind": PK[p["kind"]], "n": p["n"],
             "bars_per_chord": p["bars_per_chord"], "chords": chords,
             "moods": [MOODS[i] for i in range(4) if p["moods"] >> i & 1], "modes": modes, "src": p["src"],
+            "numerals": [validate.numeral(first, c) for c in chords],
             "symbols": symbols, "symbols_mode": MODES[first], "file": f"progressions/{p['id']}-{slug}"}
     st = t["stabs"]
     fixed = {style: (k, name) for k, name, style in COMP_FIXED_ROWS}
@@ -267,7 +265,8 @@ def render(fam, k, e):
         tr, part = pitched("Chords", 4, notes)
         moods = ", ".join(x[5:].lower() for x in e["moods"])
         modes = ", ".join(x[5:].capitalize() for x in e["modes"])
-        title = f"Progression {k}: {' '.join(e['symbols'])} ({e['kind'][3:].lower()}; {moods}; {modes})"
+        title = (f"Progression {k}: {' '.join(e['numerals'])} = {' '.join(e['symbols'])} in C "
+                 f"({e['kind'][3:].lower()}; {moods}; {modes})")
         return title, step // 16, [tr], [part], chords, texts
     if fam == "comp-rhythms":
         lo, hi = e["vel_range"]

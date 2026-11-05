@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
 <score-partwise version="4.0">
-  <work><work-title>Progression 14: Fmaj7 Fm7 Em7 A7 (jazzy; sad, wistful; Ionian, Mixolydian)</work-title></work>
+  <work><work-title>Progression 14: IVmaj7 iv7 iii7 VI7 = Fmaj7 Fm7 Em7 A7 in C (jazzy; sad, wistful; Major)</work-title></work>
   <identification>
     <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
-    <miscellaneous><miscellaneous-field name="vnl1">{"family":"progressions","id":"14","status":"approved","kind":"PK_JAZZY","n":4,"bars_per_chord":1,"chords":[{"degree":3,"alter":0,"quality":"Q_MAJ7"},{"degree":3,"alter":0,"quality":"Q_MIN7"},{"degree":2,"alter":0,"quality":"Q_MIN7"},{"degree":5,"alter":0,"quality":"Q_DOM7"}],"moods":["MOOD_SAD","MOOD_WISTFUL"],"modes":["MODE_IONIAN","MODE_MIXOLYDIAN"],"src":"lofi-hip-hop.md 2, IVmaj7-iv7-iii7-VI7 borrowed iv","symbols":["Fmaj7","Fm7","Em7","A7"],"symbols_mode":"MODE_IONIAN"}</miscellaneous-field></miscellaneous>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"progressions","id":"14","status":"approved","kind":"PK_JAZZY","n":4,"bars_per_chord":1,"chords":[{"degree":3,"alter":0,"quality":"Q_MAJ7"},{"degree":3,"alter":0,"quality":"Q_MIN7"},{"degree":2,"alter":0,"quality":"Q_MIN7"},{"degree":5,"alter":0,"quality":"Q_DOM7"}],"moods":["MOOD_SAD","MOOD_WISTFUL"],"modes":["MODE_MAJOR"],"src":"lofi-hip-hop.md 2, IVmaj7-iv7-iii7-VI7 borrowed iv","numerals":["IVmaj7","iv7","iii7","VI7"],"symbols":["Fmaj7","Fm7","Em7","A7"],"symbols_mode":"MODE_MAJOR"}</miscellaneous-field></miscellaneous>
   </identification>
   <part-list>
     <score-part id="P1">

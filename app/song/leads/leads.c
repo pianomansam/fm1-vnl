@@ -186,7 +186,7 @@ int leads_legal(const song_roll_t *r, int note, const int *pcs, int np, unsigned
         int d = (note - pcs[j] + 120) % 12;
         if (d == 1 || d == 11) return 0;
     }
-    return leads_is_ct(note, pcs, np) || th_in_scale(r->v[RF_KEY], r->v[RF_MODE], note);
+    return leads_is_ct(note, pcs, np) || th_in_scale(r->v[RF_KEY], r->v[RF_MODE], pcs, np, note);
 }
 
 unsigned leads_legal_pcs(const song_roll_t *r, const int *pcs, int np, unsigned bass)
@@ -229,46 +229,44 @@ void leads_phrase_at(const plan_block_t *b, int bar, int *run, int *pass, int *b
     *pbars = end - (f->start + *pass * 8) >= 8 ? 8 : 4;
 }
 
-void leads_scale(const song_roll_t *r, int *sc)
+void leads_scale(const song_roll_t *r, const int *pcs, int np, int *sc)
 {
-    unsigned pool = th_mode_pool(r->v[RF_MODE]);
-    int i, k = 0;
-    for (i = 0; i < 12 && k < 7; i++)
-        if ((pool >> i) & 1u) sc[k++] = i;
-    for (; k < 7; k++) sc[k] = sc[k - 1] + 1;
+    th_scale(r->v[RF_KEY], r->v[RF_MODE], pcs, np, sc);
 }
 
-unsigned leads_scale_mask(const song_roll_t *r)
+unsigned leads_scale_mask(const song_roll_t *r, const int *pcs, int np)
 {
     int sc[7], i;
     unsigned m = 0;
-    leads_scale(r, sc);
+    leads_scale(r, pcs, np, sc);
     for (i = 0; i < 7; i++) m |= 1u << ((r->v[RF_KEY] + sc[i]) % 12);
     return m;
 }
 
-unsigned leads_pent_mask(const song_roll_t *r, int color)
+unsigned leads_pent_mask(const song_roll_t *r, const int *pcs, int np, int color)
 {
-    /* the mode's pentatonic, as scale indexes (Ionian, Lydian, Mixolydian: 1 2 3 5 6; Dorian, Phrygian, Aeolian:
-       1 b3 4 5 b7) */
-    static const int8_t PENT[MODE_N][5] = {{0, 1, 2, 4, 5}, {0, 2, 3, 4, 6}, {0, 2, 3, 4, 6},
-                                          {0, 1, 2, 4, 5}, {0, 1, 2, 4, 5}, {0, 2, 3, 4, 6}};
-    int sc[7], i, key = r->v[RF_KEY], mode = r->v[RF_MODE], col = color ? leads_color_pc(r) : -1;
+    /* the pentatonic of the scale over the chord, as scale indexes: major 1 2 3 5 6, minor 1 b3 4 5 b7 */
+    static const int8_t PENT[MODE_N][5] = {{0, 1, 2, 4, 5}, {0, 2, 3, 4, 6}};
+    int sc[7], i, key = r->v[RF_KEY], mode = r->v[RF_MODE] == MODE_MINOR, col = color ? leads_color_pc(r, pcs, np) : -1;
     unsigned m = 0;
-    leads_scale(r, sc);
+    leads_scale(r, pcs, np, sc);
     for (i = 0; i < 5; i++) m |= 1u << ((key + sc[PENT[mode][i]]) % 12);
     if (col >= 0) m |= 1u << col;
     return m;
 }
 
-int leads_color_pc(const song_roll_t *r)
+int leads_color_pc(const song_roll_t *r, const int *pcs, int np)
 {
-    static const int8_t COLOR[MODE_N] = {-1, 5, 1, 3, 6, 5};   /* scale indexes: Ionian none, Dorian 6, Phrygian b2,
-                                                                  Lydian #4, Mixolydian b7, Aeolian b6 */
-    int sc[7], c = r->v[RF_MODE] >= 0 && r->v[RF_MODE] < MODE_N ? COLOR[r->v[RF_MODE]] : -1;
-    if (c < 0) return -1;
-    leads_scale(r, sc);
-    return (r->v[RF_KEY] + sc[c]) % 12;
+    int sc[7], i;
+    unsigned plain = th_scale_pool(r->v[RF_KEY], r->v[RF_MODE], 0, 0);
+    leads_scale(r, pcs, np, sc);
+    for (i = 0; i < np; i++) {                           /* the first chord tone, root first, that alters the key */
+        int o = (pcs[i] - r->v[RF_KEY] + 120) % 12, k;
+        if ((plain >> o) & 1u) continue;
+        for (k = 0; k < 7; k++)
+            if (sc[k] == o) return pcs[i] % 12;
+    }
+    return -1;
 }
 
 int leads_si_note(int key, const int *sc, int si)

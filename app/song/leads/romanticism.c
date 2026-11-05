@@ -94,7 +94,7 @@ void romanticism_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t
     if (pbars < 8 && last) half = 1;
     ro_song(seed, c->r->v[RF_MOTION], &s);
     ro_pass(seed, run, pass, half, &s, &p);
-    leads_scale(c->r, sc);
+    leads_scale(c->r, c->pcs, c->np, sc);
     center = c->hi - 9 < 72 ? c->hi - 9 : 72;              /* low in the range: the line has a 6th over it */
     if (center < c->lo + 3) center = c->lo + 3;
     asi = leads_note_si(key, sc, center);

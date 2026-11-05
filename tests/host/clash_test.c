@@ -86,7 +86,7 @@ static int in_chord_scale(int key, int mode, const int *pcs, int n, int note)
         if (d == 0) return 1;
         if (d == 1 || d == 11) near = 1;
     }
-    return !near && th_in_scale(key, mode, pc);
+    return !near && th_in_scale(key, mode, pcs, n, pc);
 }
 
 /* every rule a single step's events must keep, against the roll and plan the sequencer used for it */
@@ -926,6 +926,18 @@ static const lib_set_t *old_draw(const song_roll_t *r)
    is rolled for, in songs forced to Lydian (its maj7 chords; the first 300 of song_test's songs) and in walking-bass
    songs with 9ths (their m9 chords; of its 3000), as song_test's ls_hard plays them (the lead loop off: the notes
    counted are the style's own; style_rules checks the rules with the loop on) */
+/* A song forced to Lydian before the modes became major and minor (2026-11-05): major, on one of the progressions
+   that were Lydian (27, 28, 35, 36), the one the seed picks where the mood has it. 1 where it took. */
+static int to_lydian(song_roll_t *r)
+{
+    static const int LY[4] = {27, 28, 35, 36};
+    int i;
+    if (roll_set(r, RF_MODE, MODE_MAJOR) != MODE_MAJOR) return 0;
+    for (i = 0; i < 4; i++)
+        if (roll_set(r, RF_PROG, LY[(r->seed + (uint32_t)i) % 4u]) == LY[(r->seed + (uint32_t)i) % 4u]) return 1;
+    return 0;
+}
+
 static void style_hard(int style, const char *name, const int *ins, int nins, long m9_notes)
 {
     static song_t s;
@@ -953,7 +965,7 @@ static void style_hard(int style, const char *name, const int *ins, int nins, lo
             r.v[RF_SET] = LIB_SET_WB;
             for (pass = 0; pass < 2; pass++) {
                 int e;
-                if (pass == 0 && (roll_set(&r, RF_MODE, MODE_LYDIAN) != MODE_LYDIAN || j > 300)) continue;
+                if (pass == 0 && (!to_lydian(&r) || j > 300)) continue;
                 if (pass == 1) {
                     if (groove_bass_style(&r) != BS_WALK) continue;
                     roll_set(&r, RF_COLOR, COLOR_9);
@@ -1005,13 +1017,15 @@ static void test_modal_rules(void)
 {
     static const int INS1[1] = {INS_FLUTE};
     style_rules(LS_MODAL, "Modal Jazz", 25);       /* (28.8, the felt piano an octave up) */
-    style_hard(LS_MODAL, "Modal Jazz", INS1, 1, 170);   /* (189 m9 notes, the spike's 190) */
+    style_hard(LS_MODAL, "Modal Jazz", INS1, 1, 140);   /* (153 m9 notes; re-baselined, Sam 2026-11-05: modes become
+                                                           major or minor: were 170 and 189) */
 }
 static void test_jazzhop_rules(void)
 {
     static const int INS3[3] = {INS_FLUTE, INS_FELT_PIANO, INS_VIBES};
     style_rules(LS_JAZZHOP, "Jazz-Hop", 35);         /* (39.4, the vibes an octave down) */
-    style_hard(LS_JAZZHOP, "Jazz-Hop", INS3, 3, 150);   /* (166 m9 notes, the felt piano) */
+    style_hard(LS_JAZZHOP, "Jazz-Hop", INS3, 3, 130);   /* (144 m9 notes, the felt piano; re-baselined, Sam 2026-11-05:
+                                                           modes become major or minor: were 150 and 166) */
 }
 static void test_filmscore_rules(void)
 {
@@ -1026,13 +1040,15 @@ static void test_bossa_rules(void)
 {
     static const int INS2[2] = {INS_FLUTE, INS_VIBES};
     style_rules(LS_BOSSA, "Bossa Nova", 40);         /* (43.9, the felt piano an octave up) */
-    style_hard(LS_BOSSA, "Bossa Nova", INS2, 2, 400);   /* (431 m9 notes, the vibes) */
+    style_hard(LS_BOSSA, "Bossa Nova", INS2, 2, 370);   /* (383 m9 notes, the flute; re-baselined, Sam 2026-11-05: modes
+                                                           become major or minor: were 400 and 430) */
 }
 static void test_ambient_rules(void)
 {
     static const int INS4[4] = {INS_FLUTE, INS_FELT_PIANO, INS_VIBES, INS_KNIGHT};
     style_rules(LS_AMBIENT, "Ambient", 34);          /* (37.5, the Knight an octave down) */
-    style_hard(LS_AMBIENT, "Ambient", INS4, 4, 130);    /* (142 m9 notes, the felt piano) */
+    style_hard(LS_AMBIENT, "Ambient", INS4, 4, 115);    /* (128 m9 notes, the felt piano; re-baselined, Sam 2026-11-05:
+                                                           modes become major or minor: were 130 and 142) */
 }
 
 /* ---- the new comping styles (held on 2, held on 2 and 4; light eighths removed, 2026-11-05) ---- */

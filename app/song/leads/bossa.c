@@ -311,7 +311,7 @@ void bossa_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b, i
 
 /* The song's motif: its statement as the song draws it (before the legal notes and the range bend it): 2-4 repeated
    notes on the song's syncopated cell (each to the next onset), then the long note struck on the "and" of 4, a step
-   up or down (a whole step: one step of the mode's scale), held over the bar line to the next bar's beat 3. */
+   up or down (a whole step: one step of the scale), held over the bar line to the next bar's beat 3. */
 void bossa_motif(const song_roll_t *r, lead_motif_t *m)
 {
     bn_song_t s;

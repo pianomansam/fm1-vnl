@@ -251,7 +251,7 @@ class Import(unittest.TestCase):
 
     def test_a_borrowed_chord_in_a_loop_is_refused(self):
         chords = copy.deepcopy(self.model["progressions"]["7"]["chords"])
-        chords[1] = {"degree": 2, "alter": -1, "quality": "Q_MAJ7"}          # iii7 -> bIIImaj7 in an Ionian loop
+        chords[1] = {"degree": 2, "alter": -1, "quality": "Q_MAJ7"}          # iii7 -> bIIImaj7 in a major loop
         e = entry(self.model, "progressions", "7", chords=chords)
         self.refused(self.write("progressions", "7", e, ".mid"), 2, "only a jazzy progression borrows")
 
@@ -589,15 +589,15 @@ class Import(unittest.TestCase):
             self.assertIn("nothing written", so)
             self.assertEqual(self.snapshot(), before)
 
-    def test_a_title_edit_changes_a_progressions_modes(self):
+    def test_a_title_edit_changes_a_progressions_key(self):
         e = self.model["progressions"]["17"]
         path = self.pat / (e["file"] + ".musicxml")
         xml_variant(path, path, drop_meta=True)
-        path.write_text(path.read_text().replace("(vamp; wistful, warm, sunny; Dorian)", "(loop; warm; Dorian)"))
+        path.write_text(path.read_text().replace("(vamp; wistful, warm, sunny; Minor)", "(jazzy; warm; Major)"))
         so, model, man = self.imported()
         got = model["progressions"]["17"]
         self.assertEqual((got["status"], got["kind"], got["moods"], got["modes"]),
-                         ("approved", "PK_LOOP", ["MOOD_WARM"], ["MODE_DORIAN"]))
+                         ("approved", "PK_JAZZY", ["MOOD_WARM"], ["MODE_MAJOR"]))
         self.assertIn("approved progressions 17 changed", so)
         self.assertIn("will move", so)
         self.assert_in_step("progressions", "17", model, man)

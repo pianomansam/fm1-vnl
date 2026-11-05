@@ -15,23 +15,23 @@ enum { LS_IMPRESSIONISM, LS_ROMANTICISM, LS_JAZZ60S, LS_MODAL, LS_JAZZHOP, LS_FI
    contour (bit i set: note i + 1 rises over note i).
    What each style carries as its motif:
    - Impressionism: the arabesque of its phrase heads (its quick notes and the long note they land on), in the
-     mode's pentatonic (with the mode's color note in its modal songs).
-   - Romanticism: its rhythm cell, one bar's onsets with the walk's steps through them (in the mode's scale), which
+     pentatonic (with the chord's color note in its modal songs).
+   - Romanticism: its rhythm cell, one bar's onsets with the walk's steps through them (in the scale), which
      every bar of the phrase restates a step or two higher or lower. The spine the cell is sequenced along (a bar
      head a bar, rising, falling or an arch) is the style's own way of developing it, not part of the motif.
    - '60s Jazz: its statement, 2-4 8ths off the beat into a target over the bar line, undisplaced; its steps count in
-     the chord's legal notes (the mode's, less those that rub: LM_MODE). Restatements displace it and sequence it.
-   - Modal Jazz: its phrase heads' 1-3 notes stepping into the held tone (in the mode's scale), every head exact.
-   - Jazz-Hop: its hook, 2-4 quick notes into a held tone in one bar (in the mode's pentatonic: LM_PENT), restated
+     the chord's legal notes (the scale's, less those that rub: LM_MODE). Restatements displace it and sequence it.
+   - Modal Jazz: its phrase heads' 1-3 notes stepping into the held tone (in the scale), every head exact.
+   - Jazz-Hop: its hook, 2-4 quick notes into a held tone in one bar (in the pentatonic: LM_PENT), restated
      every 2 bars, the turnaround's one change aside.
-   - Film Score: its phrase heads' 3-5 notes on the 8th grid into the long note (in the mode's pentatonic), each head
+   - Film Score: its phrase heads' 3-5 notes on the 8th grid into the long note (in the pentatonic), each head
      restating its rhythm and up/down shape; the question sequences it a step up, the answer falls home.
-   - Bossa Nova: its statement, 2-4 repeated notes on a syncopated cell, then a step (in the mode's scale) up or down
+   - Bossa Nova: its statement, 2-4 repeated notes on a syncopated cell, then a step (in the scale) up or down
      into the long note on the "and" of 4, held over the bar line; bar 3 restates it on the same note or a step off.
-   - Ambient: its 3-5 notes, legato, the last let ring (in the mode's pentatonic), restated every 2 bars at the same
+   - Ambient: its 3-5 notes, legato, the last let ring (in the pentatonic), restated every 2 bars at the same
      pitches while the chords move under it. */
-enum { LM_MODE, LM_PENT, LM_PENT_COLOR };   /* the mode's 7 notes; its pentatonic; the pentatonic and the mode's
-                                               color note */
+enum { LM_MODE, LM_PENT, LM_PENT_COLOR };   /* the scale's 7 notes (over the bar's chord); its pentatonic; that and
+                                               the chord's color note */
 typedef struct { uint8_t n; uint8_t at[8], len[8]; int8_t step[8]; uint8_t contour, scale; } lead_motif_t;
 
 /* A motif from n notes (onsets ascending, lengths 1 or more, si: scale indexes); 0 (and m untouched) if they don't
@@ -115,16 +115,17 @@ int leads_place(int pc, int lo, int hi, int near);
    bip the bar in it), a 4-bar remainder half a phrase (pbars 4); last: no lead block follows in the song. b must be
    the plan's own block (its neighbors are read from the plan). */
 void leads_phrase_at(const plan_block_t *b, int bar, int *run, int *pass, int *bip, int *pbars, int *last);
-/* the roll's scale, 7 pitch classes over the key; scale index <-> MIDI note (index 0: the key's lowest octave) */
-void leads_scale(const song_roll_t *r, int *sc);
+/* the scale over the chord pcs (th_scale: the song's major or natural minor, its degrees altered to the chord's
+   tones), 7 semitones over the key; scale index <-> MIDI note (index 0: the key's lowest octave) */
+void leads_scale(const song_roll_t *r, const int *pcs, int np, int *sc);
 int leads_si_note(int key, const int *sc, int si);
-/* the roll's scale as pitch-class bits; its mode's color note's pitch class (Dorian 6, Phrygian b2, Lydian #4,
-   Mixolydian b7, Aeolian b6), -1 for Ionian */
-unsigned leads_scale_mask(const song_roll_t *r);
-int leads_color_pc(const song_roll_t *r);
-/* the mode's pentatonic as pitch-class bits (Ionian, Lydian, Mixolydian: 1 2 3 5 6; Dorian, Phrygian, Aeolian:
-   1 b3 4 5 b7), with its color note where color is set (and the mode has one) */
-unsigned leads_pent_mask(const song_roll_t *r, int color);
+/* that scale as pitch-class bits; its color note's pitch class: the first chord tone (root first) off the plain
+   major or minor scale (F7's A in C minor, D7's F# in C major, Bb7's Bb in C major), -1 where the chord has none */
+unsigned leads_scale_mask(const song_roll_t *r, const int *pcs, int np);
+int leads_color_pc(const song_roll_t *r, const int *pcs, int np);
+/* that scale's pentatonic as pitch-class bits (major: 1 2 3 5 6; minor: 1 b3 4 5 b7, as degrees of the scale over
+   the chord), with its color note where color is set (and the chord has one) */
+unsigned leads_pent_mask(const song_roll_t *r, const int *pcs, int np, int color);
 int leads_note_si(int key, const int *sc, int note);   /* the scale note at or under note */
 /* k members of mask (pitch-class bits) from note, up (k > 0) or down */
 int leads_coll_step(unsigned mask, int note, int k);

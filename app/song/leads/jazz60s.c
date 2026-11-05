@@ -245,7 +245,7 @@ void jazz60s_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b,
 
 /* The song's motif: its first statement as the song draws it (undisplaced, before the legal notes and the range bend
    it): the rhythm's last n onsets before the target, the contour's last n steps into it (in the chord's legal notes:
-   the mode's, less those that rub), the last two an 8th triplet where the song compresses them (rounded down to
+   the scale's, less those that rub), the last two an 8th triplet where the song compresses them (rounded down to
    their 16th); legato, the target held 6 16ths (8 on a beat 1). */
 void jazz60s_motif(const song_roll_t *r, lead_motif_t *m)
 {

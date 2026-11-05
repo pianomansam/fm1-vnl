@@ -118,7 +118,7 @@ static int approach(const song_roll_t *r, int bar, int from, const int *pcs, int
     for (k = 0; k < 2; k++, side = -side)
         for (d = 1; d <= 2; d++) {
             int n = target + side * d;
-            if (th_in_scale(r->v[RF_KEY], r->v[RF_MODE], n)) {
+            if (th_in_scale(r->v[RF_KEY], r->v[RF_MODE], pcs, npcs, n)) {   /* the scale over the chord */
                 if (n >= BASS_LO && n <= BASS_HI) cand[nc++] = n;   /* (folded, it would land an octave away) */
                 break;
             }

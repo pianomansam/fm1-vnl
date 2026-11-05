@@ -5,9 +5,9 @@
 #include <string.h>
 #include "theory.h"
 
-static const uint8_t SCALE[MODE_N][7] = {
-    {0, 2, 4, 5, 7, 9, 11}, {0, 2, 3, 5, 7, 9, 10}, {0, 1, 3, 5, 7, 8, 10},
-    {0, 2, 4, 6, 7, 9, 11}, {0, 2, 4, 5, 7, 9, 10}, {0, 2, 3, 5, 7, 8, 10}};
+static const uint8_t SCALE[MODE_N][7] = {{0, 2, 4, 5, 7, 9, 11}, {0, 2, 3, 5, 7, 8, 10}};   /* major, natural minor */
+/* the degree a pitch class over the key spells, the simplest way: b2 b3 #4 b6 b7 in major, b2 3 #4 6 7 in minor */
+static const uint8_t DEG[12] = {0, 1, 1, 2, 2, 3, 3, 4, 5, 5, 6, 6};
 
 static int mod12(int x)
 {
@@ -15,20 +15,35 @@ static int mod12(int x)
     return x < 0 ? x + 12 : x;
 }
 
-uint16_t th_mode_pool(int mode)
+void th_scale(int key, int mode, const int *pcs, int n, int *sc)
 {
-    uint16_t m = 0;
-    int i;
+    int i, own = 0;
     if (mode < 0 || mode >= MODE_N)
         mode = 0;
     for (i = 0; i < 7; i++)
-        m |= (uint16_t)(1u << SCALE[mode][i]);
+        sc[i] = SCALE[mode][i];
+    for (i = 0; i < n; i++)
+        own |= 1 << mod12(pcs[i] - key);
+    for (i = 0; i < n; i++) {                            /* a chord tone off the scale: its degree takes it, */
+        int o = mod12(pcs[i] - key), d = DEG[o];         /* unless the degree's own tone sounds too */
+        if (sc[d] != o && !((own >> SCALE[mode][d]) & 1))
+            sc[d] = o;
+    }
+}
+
+uint16_t th_scale_pool(int key, int mode, const int *pcs, int n)
+{
+    int sc[7], i;
+    uint16_t m = 0;
+    th_scale(key, mode, pcs, n, sc);
+    for (i = 0; i < 7; i++)
+        m |= (uint16_t)(1u << sc[i]);
     return m;
 }
 
-int th_in_scale(int key, int mode, int note)
+int th_in_scale(int key, int mode, const int *pcs, int n, int note)
 {
-    return (th_mode_pool(mode) >> mod12(note - key)) & 1;
+    return (th_scale_pool(key, mode, pcs, n) >> mod12(note - key)) & 1;
 }
 
 /* interval in semitones from the degree's root up k scale steps (k = 2 third, 4 fifth, 6 seventh, 8 ninth ...) */
@@ -46,21 +61,17 @@ int th_chord_pcs(int key, int mode, th_chord_spec_t c, int color, int *pcs)
     root = mod12(key + SCALE[mode][d] + c.alter);
     i3 = stack(mode, d, 2); i5 = stack(mode, d, 4); i7 = stack(mode, d, 6); i9 = stack(mode, d, 8);
     if (c.quality != Q_DIATONIC) {
-        i5 = 7; i9 = 2;
-        i3 = c.quality == Q_MIN7 ? 3 : 4;
-        i7 = c.quality == Q_MAJ7 ? 11 : 10;
-        if (c.quality == Q_DOM7)
-            ext = 9;
-        else if (c.quality == Q_MIN7)
-            ext = 5;
-        else if (mode == MODE_LYDIAN)
-            ext = 6;
+        i5 = 7;
+        i9 = c.quality == Q_MIN7B9 ? 1 : 2;
+        i3 = c.quality == Q_MIN7 || c.quality == Q_MIN7B9 ? 3 : 4;
+        i7 = c.quality == Q_MAJ7 || c.quality == Q_MAJ7S11 ? 11 : 10;
+        ext = c.quality == Q_DOM7 ? 9 : c.quality == Q_MAJ7S11 ? 6 : c.quality == Q_MAJ7 ? -1 : 5;
     } else if (i3 == 4 && i7 == 10) {
         ext = stack(mode, d, 12);                          /* dominant: 13th */
     } else if (i3 == 3 && i5 == 7 && i7 == 10) {
         ext = stack(mode, d, 10);                          /* minor 7: 11th */
     } else if (i3 == 4 && i7 == 11 && stack(mode, d, 10) == 6) {
-        ext = 6;                                           /* major 7 in Lydian: #11 */
+        ext = 6;                                           /* a major 7th under a #11 (major's IV, minor's VI) */
     }
     t[n++] = 0;
     t[n++] = i3;
@@ -108,7 +119,7 @@ void th_guide_tones(const int *pcs, int n, int *third, int *seventh)
 int th_is_avoid(int key, int mode, const int *pcs, int n, int note)
 {
     int i, pc = mod12(note);
-    if (!th_in_scale(key, mode, pc))
+    if (!th_in_scale(key, mode, pcs, n, pc))
         return 0;
     for (i = 0; i < n; i++)
         if (pcs[i] == pc)
