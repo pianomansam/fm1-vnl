@@ -515,6 +515,7 @@ const prober = async () => {
   };
 };
 const ins = (name) => OPTS.instruments.find((i) => i.name === name).id;
+const insSym = (sym) => OPTS.instruments.find((i) => i.sym === sym).id;   // (the two pads are both "Pad")
 const famOf = (id, row) => (row === "kit" ? OPTS.kits : OPTS.instruments).find((x) => x.id === id)?.family;
 
 console.log("options.json");
@@ -539,11 +540,11 @@ console.log("options.json");
         "leads (Sam, 2026-10-29): the felt piano and the vibes offered, the trumpet, sax, guitar lick, string lead and cello retired");
   const leads = optionsFor(row("lead"), { values: {} }, OPTS).map((o) => o.name).sort();
   check(retired(OPTS.instruments, ["Kalimba", "Saw lead", "Synth pluck"]) &&
-        JSON.stringify(OPTS.instruments.find((i) => i.name === "Emilyguitar").roles) === '["keys"]' &&
-        JSON.stringify(leads) === JSON.stringify(["Felt piano", "Flute", "Knight piano", "Vibes (modeled vibraphone)"]),
-        `the lead styles build: the lead row offers the four (${leads.join(", ")}); the kalimba, saw lead and synth pluck retired, the Emilyguitar on the keys only`);
+        JSON.stringify(OPTS.instruments.find((i) => i.name === "Electric guitar").roles) === '["keys"]' &&
+        JSON.stringify(leads) === JSON.stringify(["Acoustic piano", "Felt piano", "Flute", "Vibes"]),
+        `the lead styles build: the lead row offers the four (${leads.join(", ")}); the kalimba, saw lead and synth pluck retired, the Electric guitar on the keys only`);
   check(retired(OPTS.instruments, ["Upright bass"]) && retired(OPTS.comping, ["Arpeggio", "Offbeats"]) &&
-        retired(OPTS.kits, ["Dusty", "Soft", "Our 808", "Warm", "Dark", "Rusty", "Gentle", "Clean"]),
+        retired(OPTS.kits, ["Dusty (synth)", "Soft (synth)", "Our 808", "Warm", "Dark", "Rusty", "Gentle", "Clean"]),
         "the removed sounds are retired (upright, our synth kits, the mixed sampled kits, arpeggio, offbeats)");
   // the instruments removed with their models (2026-10-31: no patch; the Wurli and the DX electric piano, 2026-11-04)
   // can't play: no row offers one, even with "show retired"
@@ -552,11 +553,21 @@ console.log("options.json");
     .filter((o) => GONE.includes(o.name)).map((o) => o.name);
   check(retired(OPTS.instruments, GONE) && !shown.length,
         `the removed instruments are offered nowhere, even with "show retired" (${shown.join(", ") || "none"})`);
+  // display names (Sam, 2026-11-05): the two pads are both "Pad", never in one dropdown; a bass's short name only in
+  // the Bass part's own dropdown and header
+  const dup = ROWS.filter((r) => { const ns = optionsFor(r, { values: {} }, OPTS, { showRetired: true }).map((o) => o.name);
+                                   return ns.length !== new Set(ns).size; }).map((r) => r.id);
+  const bassNames = optionsFor(row("bass"), { values: {} }, OPTS).map((o) => o.name).sort();
+  check(!dup.length && JSON.stringify(bassNames) === '["Electric","FM","Sub","Triangle"]' &&
+        (await import("../rows.js")).summary("bass", { values: { bass: ins("FM bass") } }, OPTS) === "FM" &&
+        OPTS.instruments.filter((i) => i.name === "Pad").map((i) => i.sym).join() === "INS_PAD,INS_WARM_PAD",
+        `no dropdown repeats a name, even with "show retired" (${dup.join(", ") || "none"}); the Bass dropdown and ` +
+        `header say ${bassNames.join(", ")}; the comp's and the pad part's pads are both "Pad"`);
 }
 
 // an acoustic song as the rows see it (the electric bass, of either family: the upright, the acoustic bass, went
 // 2026-10-31)
-const acoustic = () => ({ values: { keys: ins("Knight piano"), lead: ins("Flute"), bass: ins("Electric bass"),
+const acoustic = () => ({ values: { keys: ins("Acoustic piano"), lead: ins("Flute"), bass: ins("Electric bass"),
   pad: ins("Strings"), kit: 3, comp: -1, family: "acoustic", pattern: 1, kick: "" }, locks: new Set() });
 
 console.log("rows: retired options, dice, families");
@@ -579,8 +590,8 @@ console.log("rows: retired options, dice, families");
   for (const fam of ["acoustic", "synth"]) {
     const s = acoustic();
     s.values.family = fam;
-    if (fam === "synth") Object.assign(s.values, { keys: ins("Chillwave pad"), lead: ins("Vibes (modeled vibraphone)"),
-                                                   bass: ins("FM bass"), pad: ins("Warm pad") });
+    if (fam === "synth") Object.assign(s.values, { keys: insSym("INS_PAD"), lead: ins("Vibes"),
+                                                   bass: ins("FM bass"), pad: insSym("INS_WARM_PAD") });
     for (const id of ["keys", "lead", "bass", "pad", "padOn", "kit", "comp", "pattern", "kick", "family", "leadOct"])
       for (let i = 0; i < 40; i++) {
         const v = pickFor(row(id), s, OPTS, rnd);
@@ -604,15 +615,15 @@ console.log("rows: retired options, dice, families");
         `family -> synth forces the kit to an approved synth kit (${c.forced.find((f) => f.row === "kit")?.to})`);
 
   const locked = acoustic();
-  locked.locks = new Set(["keys", "lead"]);   // the Knight and the flute, both acoustic
+  locked.locks = new Set(["keys", "lead"]);   // the acoustic piano and the flute, both acoustic
   check(!conflicts(row("family"), "synth", locked, OPTS, lcg(3)).blocked,
-        "acoustic keys and lead locked (the Knight, the flute) don't block family -> synth (the family is the drums')");
+        "acoustic keys and lead locked (the acoustic piano, the flute) don't block family -> synth (the family is the drums')");
   locked.locks = new Set(["kit"]);
   const b = conflicts(row("family"), "synth", locked, OPTS, lcg(3));
-  check(b.blocked?.label === "Kit", `Review Focus 3: the kit locked (Brushes, acoustic) blocks family -> synth (${b.blocked?.label})`);
+  check(b.blocked?.label === "Kit", `Review Focus 3: the kit locked (Soft brushes, acoustic) blocks family -> synth (${b.blocked?.label})`);
 
   const st2 = acoustic();
-  st2.values.comp = 1;   // stabs, on the Knight
+  st2.values.comp = 1;   // stabs, on the acoustic piano
   const k = conflicts(row("keys"), ins("Rhodes"), st2, OPTS);
   check(k.forced.some((f) => f.row === "comp" && f.to === -1), "keys -> Rhodes forces stab comping back to as rolled");
   st2.locks = new Set(["comp"]);
@@ -622,15 +633,15 @@ console.log("rows: retired options, dice, families");
         "strum is offered on the guitars only");
   const compNames = (g) => optionsFor(row("comp"), { values: { keys: ins(g) } }, OPTS).filter((o) => !o.rolled)
     .map((o) => o.name);
-  check(["Nylon guitar", "Emilyguitar"].every((g) => JSON.stringify(compNames(g)) === '["Strum"]'),
+  check(["Nylon guitar", "Electric guitar"].every((g) => JSON.stringify(compNames(g)) === '["Strum"]'),
         "the guitars are offered Strum only (Sam, 2026-11-04: the guitars only strum)");
   const st4 = acoustic();
   st4.values.keys = ins("Nylon guitar");
   st4.values.comp = 5;
   check(conflicts(row("keys"), ins("Rhodes"), st4, OPTS).forced.some((f) => f.row === "comp" && f.to === -1),
         "keys -> Rhodes forces strum comping back to as rolled");
-  const kl = conflicts(row("lead"), ins("Knight piano"), acoustic(), OPTS, lcg(5));
-  check(kl.forced.some((f) => f.row === "keys" && f.to !== ins("Knight piano")), "the Knight on the lead moves the keys off it");
+  const kl = conflicts(row("lead"), ins("Acoustic piano"), acoustic(), OPTS, lcg(5));
+  check(kl.forced.some((f) => f.row === "keys" && f.to !== ins("Acoustic piano")), "the acoustic piano on the lead moves the keys off it");
   const st3 = acoustic();
   st3.values.keys = ins("Felt piano");
   const fl = conflicts(row("lead"), ins("Felt piano"), st3, OPTS, lcg(5));
@@ -919,7 +930,7 @@ console.log("drums: synth presets and lanes");
     return { ex, out, lane, all: ex.wb_drum_meter(L) };
   }
   const only = (ex, keep) => { for (let i = 0; i < L; i++) if (!keep.includes(i)) ex.wb_lane_src(i, SRC.NONE, 0, 0); };
-  const NAMES = ["poketrack 808", "poketrack CR-78", "Optimist LO-FI"];
+  const NAMES = ["808", "CR-78", "Crunchy machine"];
 
   for (let p = 0; p < DRUMS.GOGODZE; p++) {
     const r = await song(21, (ex) => ex.wb_kit_set(DRUMS.PRESET + p), 60);   // (seed 21's drums come in at bar 8)
@@ -942,7 +953,7 @@ console.log("drums: synth presets and lanes");
           `seed ${seed}: 808 kit + the CR-78's snare: only the snare lane's samples change (same: ${same.map((s, i) => (s ? i : "-")).join("")}; ${heard} lanes heard), the kit row stays the 808`);
   }
 
-  // levels: each preset's kick and snare against the Brushes kit's (its own lanes through the hook) on the same songs
+  // levels: each preset's kick and snare against the Soft brushes kit's (its own lanes through the hook) on the same songs
   for (const seed of SEEDS) {
     const br = await song(seed, (ex) => { ex.wb_kit_set(3); ex.wb_lane_src(0, SRC.BUILTIN, 3, 0); only(ex, [0, 1]); }, 60);
     const got = [];
@@ -951,7 +962,7 @@ console.log("drums: synth presets and lanes");
       got.push(toDb(r.all) - toDb(br.all));
     }
     check(br.all > 1e-6 && got.every((g) => Math.abs(g) <= 2),
-          `seed ${seed}: each preset's kick + snare within 2 dB of Brushes' (${got.map((g, p) => `${NAMES[p]} ${g >= 0 ? "+" : ""}${g.toFixed(2)}`).join(", ")} dB)`);
+          `seed ${seed}: each preset's kick + snare within 2 dB of Soft brushes' (${got.map((g, p) => `${NAMES[p]} ${g >= 0 ? "+" : ""}${g.toFixed(2)}`).join(", ")} dB)`);
   }
 
   // an audition: heard at once, stopped or playing, and the song doesn't move
@@ -963,7 +974,7 @@ console.log("drums: synth presets and lanes");
     ex.wb_audition(1, 110);
     const s = render(ex, SR / 2);
     check(db(s) > -50 && ex.wb_seconds() === 0 && ex.wb_bar() === 0,
-          `stopped: a LO-FI snare audition is heard (${db(s).toFixed(1)} dBFS) and the song stays at its start`);
+          `stopped: a Crunchy machine snare audition is heard (${db(s).toFixed(1)} dBFS) and the song stays at its start`);
     const tail = render(ex, 3 * SR);
     check(longestZeros({ l: tail.l.subarray(2 * SR), r: tail.r.subarray(2 * SR) }) === SR, "... and ends in silence");
     const ex2 = await load();
@@ -1058,7 +1069,7 @@ console.log("drums: sampled kits, the first lane edit");
     const ex = await load(), call = caller(ex), smp = new Samples(call, C, disk(new Set([gone])));
     await smp.check(OPTS);
     const gg = DRUMS.PRESET + DRUMS.GOGODZE;
-    check(smp.unavailable.has(gg), `with ${gone} missing, Gogodze is unavailable`);
+    check(smp.unavailable.has(gg), `with ${gone} missing, Dusty is unavailable`);
     ex.wb_seed(21);
     ex.wb_apply();
     const desk = new Desk(call, C, OPTS, await call("wb_library"), { rnd: lcg(5), samples: smp });
@@ -1091,7 +1102,7 @@ console.log("drums: sampled kits, the first lane edit");
           `a file gone after the check: the first use fails, the kit turns unavailable, the choice is refused, no lane plays it ("${res.message}")`);
     const desk2 = new Desk(call, C, OPTS, await call("wb_library"), { samples: smp });
     const { missing: miss } = await desk2.stageDrums({ lanes: [[SRC.SAMPLE, 1, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]] });
-    check(miss.length === 1 && /Big Rusty \(sticks\): samples missing/.test(miss[0]), `a snapshot's lanes on that set name the cause (${miss[0]})`);
+    check(miss.length === 1 && /Room - big: samples missing/.test(miss[0]), `a snapshot's lanes on that set name the cause (${miss[0]})`);
   }
 
   // a set loaded while the song plays: the audio thread's work between quanta (each call the worklet runs, and the
@@ -1116,7 +1127,7 @@ console.log("drums: sampled kits, the first lane edit");
     await smp.check(OPTS);
     const t0 = performance.now(), ok = await smp.load(1), all = performance.now() - t0;
     const worst = Math.max(times.alloc, times.write) + times.render;
-    console.log(`  (Big Rusty (sticks) loaded while playing: ${times.calls} calls, ${all.toFixed(0)} ms in all; worst alloc ${(times.alloc * 1000).toFixed(0)} us, ` +
+    console.log(`  (Room - big loaded while playing: ${times.calls} calls, ${all.toFixed(0)} ms in all; worst alloc ${(times.alloc * 1000).toFixed(0)} us, ` +
                 `worst write ${(times.write * 1000).toFixed(0)} us, worst quantum after one ${(times.render * 1000).toFixed(0)} us)`);
     check(ok && worst < 2.9, `a set loaded while playing: no call plus its quantum over the 2.9 ms quantum (worst ${worst.toFixed(2)} ms)`);
   }
@@ -1126,7 +1137,7 @@ console.log("drums: sampled kits, the first lane edit");
     console.log("  SKIP the sampled kits' sound: their files aren't in workbench/samples (python3 -I workbench/tools/prep_kits.py FETCH_DIR workbench/samples)");
   } else {
     const idx = JSON.parse(readFileSync(here("samples/kits.json"), "utf8"));
-    const br = {};   // Brushes' kick and snare on each seed (its own lanes through the hook)
+    const br = {};   // Soft brushes' kick and snare on each seed (its own lanes through the hook)
     for (const seed of SEEDS)
       for (const lane of [0, 1])
         br[`${seed}/${lane}`] = (await song(seed, (ex) => { ex.wb_kit_set(3); ex.wb_lane_src(lane, SRC.BUILTIN, 3, lane); only(ex, [lane]); }, 60)).all;
@@ -1146,13 +1157,13 @@ console.log("drums: sampled kits, the first lane edit");
           got.push(toDb(s.all) - toDb(br[`${seed}/${lane}`]));
         }
       check(got.every((g) => Math.abs(g) <= 2),
-            `${k.name}: kick and snare each within 2 dB of Brushes' on seeds ${SEEDS.join(", ")} (${got.map((g) => `${g >= 0 ? "+" : ""}${g.toFixed(2)}`).join(", ")} dB)`);
+            `${k.name}: kick and snare each within 2 dB of Soft brushes' on seeds ${SEEDS.join(", ")} (${got.map((g) => `${g >= 0 ? "+" : ""}${g.toFixed(2)}`).join(", ")} dB)`);
     }
     // the ride section plays on them: a song where it does, and the ride lane heard
     {
       const rusty = DRUMS.PRESET + DRUMS.RUSTY;
       const r = await song(21, (ex) => { ex.wb_kit_set(rusty); ex.wb_ov_set(C.OV.RIDE, 1); }, 90, [1]);
-      check(r.lane[6].ms > 1e-6, `Big Rusty: the ride section throughout plays its ride (${toDb(r.lane[6].ms).toFixed(1)} dB)`);
+      check(r.lane[6].ms > 1e-6, `Room - big: the ride section throughout plays its ride (${toDb(r.lane[6].ms).toFixed(1)} dB)`);
     }
     // a lane's override on a sampled kit: only that lane changes
     {
@@ -1160,7 +1171,7 @@ console.log("drums: sampled kits, the first lane edit");
       const b = await song(21, (ex) => { ex.wb_kit_preset(DRUMS.GOGODZE); ex.wb_lane_src(1, SRC.SAMPLE, 2, 1); }, 60, [0, 2]);
       const same = a.lane.map((l, i) => l.hash === b.lane[i].hash);
       check(!same[1] && same.every((s, i) => s || i === 1) && b.lane[1].ms > 1e-6,
-            `Gogodze + the brush snare: only the snare lane changes (same: ${same.map((s, i) => (s ? i : "-")).join("")})`);
+            `Dusty + the brush snare: only the snare lane changes (same: ${same.map((s, i) => (s ? i : "-")).join("")})`);
     }
     // a snapshot with sampled lanes replays (the replay loads the sets it names)
     {
@@ -1171,17 +1182,17 @@ console.log("drums: sampled kits, the first lane edit");
       const { replay } = await import("./replay.mjs");
       const rp = await replay(JSON.parse(JSON.stringify(snap)), 20);
       const s2 = await song(21, (x) => { x.wb_kit_preset(DRUMS.BRUSHES); x.wb_lane_db(0, -3); }, 20, [2]);
-      check(!rp.mismatch.length && rp.l.every((x, i) => x === s2.out.l[i]), "a snapshot of Big Rusty (brushes) replays sample for sample");
+      check(!rp.mismatch.length && rp.l.every((x, i) => x === s2.out.l[i]), "a snapshot of Room - brushes replays sample for sample");
     }
   }
 
   // the first lane edit copies the song's kit onto every lane: a synth kit's as BUILTIN; a retired mixed sampled kit's
   // is refused (its hits are processed copies, not sources), with a message
-  for (const [kit, name] of [[0, "Dusty"], [1, "Soft"]]) {
+  for (const [kit, name] of [[0, "Dusty synth"], [1, "Soft synth"]]) {
     const r = await song(21, (ex) => { ex.wb_kit_set(kit); ex.wb_lane_src(1, SRC.BUILTIN, 3, 1); }, 30);
     const d = lanesOf(r.ex).lanes;
     check(d.every((l, i) => (i === 1 ? l[0] === SRC.BUILTIN && l[1] === 3 : i <= 5 ? l[0] === SRC.BUILTIN && l[1] === kit && l[2] === i : l[0] === SRC.NONE)) &&
-          r.all > 1e-6, `a ${name} song: the first lane edit (the Brushes snare) keeps ${name} on the kick, hats, shaker and rim; the drums play`);
+          r.all > 1e-6, `a ${name} song: the first lane edit (the Soft brushes snare) keeps ${name} on the kick, hats, shaker and rim; the drums play`);
   }
   {
     const ex = await load(), call = caller(ex);
@@ -1197,7 +1208,7 @@ console.log("drums: sampled kits, the first lane edit");
     ex.wb_lane_db(2, NaN);
     check(lanesOf(ex).lanes[2][3] === -6, "a lane's level ignores NaN");
   }
-  // the no-lanes audition plays the staged kit (not the one playing): Dusty and Soft staged on the same song differ
+  // the no-lanes audition plays the staged kit (not the one playing): Dusty synth and Soft synth staged on the same song differ
   {
     const aud = async (kit) => {
       const ex = await load();
@@ -1209,9 +1220,9 @@ console.log("drums: sampled kits, the first lane edit");
     };
     const a = await aud(0), b = await aud(1), c = await aud(0);
     check(db(a) > -50 && db(b) > -50 && a.l.some((x, i) => x !== b.l[i]) && a.l.every((x, i) => x === c.l[i]),
-          "with no lanes, the audition plays the staged kit's lane (Dusty's snare and Soft's differ)");
+          "with no lanes, the audition plays the staged kit's lane (Dusty synth's snare and Soft synth's differ)");
   }
-  // a BUILTIN hit on another kit leaves drums.c on the song's: a Dusty song after a Brushes kick audition (a sine: the
+  // a BUILTIN hit on another kit leaves drums.c on the song's: a Dusty synth song after a Soft brushes kick audition (a sine: the
   // noise stream stays the song's) plays on as without it, to the compressor's last trace
   {
     const run = async (kit) => {
@@ -1230,7 +1241,7 @@ console.log("drums: sampled kits, the first lane edit");
     };
     const ref = await run(-1), a = await run(3);
     const diff = { l: a.l.map((x, i) => x - ref.l[i]), r: a.r.map((x, i) => x - ref.r[i]) };
-    check(db(diff) - db(ref) < -60, `after a Brushes kick audition, a Dusty song's drums are Dusty's again (the next 20 s: ${(db(diff) - db(ref)).toFixed(1)} dB against it; stuck on Brushes: about -5)`);
+    check(db(diff) - db(ref) < -60, `after a Soft brushes kick audition, a Dusty synth song's drums are Dusty synth's again (the next 20 s: ${(db(diff) - db(ref)).toFixed(1)} dB against it; stuck on Soft brushes: about -5)`);
   }
 }
 
@@ -1372,20 +1383,23 @@ console.log("drum screen: the grid");
   console.log("drum screen: lane sounds");
   const ALL = sounds(C, OPTS);
   const offered = soundOptions(ALL, "", false), retired = soundOptions(ALL, "", true);
-  const REMOVED = /upright|x0x|909|boombap|vintage|dusty|soft|our 808|warm|dark|gentle|clean|mixed/i;
+  const REMOVED = /upright|x0x|909|boombap|vintage|synth|our 808|warm|dark|gentle|clean|mixed/i;
   check(offered.length > 40 && offered.every((s) => s.status === "approved") && !offered.some((s) => REMOVED.test(`${s.name} ${s.kitName}`)),
         `the lane pickers offer ${offered.length} approved sounds, none removed`);
   const kits = new Set(offered.map((s) => s.kitName));
-  check(["poketrack 808", "poketrack CR-78", "Optimist LO-FI", "Gogodze", "Big Rusty (sticks)", "Big Rusty (brushes)", "Brushes"].every((k) => kits.has(k)),
+  check(["808", "CR-78", "Crunchy machine", "Dusty", "Room - big", "Room - brushes", "Soft brushes"].every((k) => kits.has(k)),
         `from every approved kit (${[...kits].join(", ")})`);
   check(retired.length > offered.length && retired.filter((s) => s.status === "retired").every((s) => /Dusty|Soft|Our 808/.test(s.name)),
         `"show retired" adds the retired synth kits' (${retired.length - offered.length})`);
   const cow = ALL.find((s) => s.kind === SRC.OPT && s.b === 12);
-  check(cow?.name === "LO-FI cowbell", `Optimist LO-FI's lane 12 is "${cow?.name}"`);
+  check(cow?.name === "Crunchy machine cowbell", `Crunchy machine's lane 12 is "${cow?.name}"`);
+  const twice = ALL.map((s) => s.name).filter((n, i, xs) => xs.indexOf(n) !== i);
+  check(!twice.length && ALL.some((s) => s.name === "Dusty kick") && ALL.some((s) => s.name === "Dusty synth kick"),
+        `every lane sound has its own name, the retired Dusty (synth)'s kick apart from the Dusty kit's (${twice.join(", ") || "none twice"})`);
   const ok = await load();
   check(ALL.every((s) => s.kind === SRC.SAMPLE || ok.wb_lane_src(0, s.kind, s.a, s.b) === 1), "every synth sound is a source the engine takes");
   const rnd = lcg(7), picks = new Set([...Array(40)].map(() => pickSound(ALL, 0, null, "synth", rnd)?.kitName));
-  check([...picks].every((k) => ["poketrack 808", "poketrack CR-78", "Optimist LO-FI"].includes(k)) && picks.size === 3,
+  check([...picks].every((k) => ["808", "CR-78", "Crunchy machine"].includes(k)) && picks.size === 3,
         `a synth song's kick 🎲 picks the synth kits' kicks (${[...picks].join(", ")})`);
   {
     const ex = await load(), call = caller(ex);
@@ -1396,7 +1410,7 @@ console.log("drum screen: the grid");
     await desk.read(true);
     const src = laneSources(desk.drums, C);
     check(src.every((l, i) => (i < 6 ? l[0] === SRC.BUILTIN && l[1] === 3 && l[2] === i : l[0] === SRC.NONE)),
-          "with no lanes set, the screen shows the kit's own (Brushes')");
+          "with no lanes set, the screen shows the kit's own (Soft brushes')");
     await desk.level(2, -9);
     const d = desk.drums;
     check(d.lanes[2][3] === -9 && d.lanes[0][0] === SRC.BUILTIN && d.lanes[0][1] === 3, "a level on the kit's own lanes copies them first (heard): hats at -9 dB");
@@ -1418,7 +1432,7 @@ console.log("drum screen: the grid");
     until(ex, () => ex.wb_live_get(C.RF.N) === desk.values.seed, 10 * SR);
     check(r.ok && desk.values.seed !== seed && JSON.stringify(desk.drums.lanes) === lanes &&
           JSON.stringify(JSON.parse(cstr(ex, ex.wb_live_state())).drums.lanes) === lanes,
-          `kit locked, a new seed (${desk.values.seed}) keeps the LO-FI snare at -5 dB on the 808, staged and heard`);
+          `kit locked, a new seed (${desk.values.seed}) keeps the Crunchy machine snare at -5 dB on the 808, staged and heard`);
     desk.lock("kit", false);
     const r2 = await desk.dice("seed");
     check(r2.ok && JSON.stringify(desk.drums.lanes) === lanes, "unlocked, the lane edits are hand edits: kept too");
@@ -1457,11 +1471,11 @@ print(srv.server_address[1], flush=True); srv.serve_forever()`;
       for (const [l, b, s, v] of [[1, 1, 14, 2], [2, 0, 1, 1], [5, 1, 7, 1], [4, 0, 0, 1]]) await desk.step(l, b, s, v);
       const g = desk.drums.grid, lanes = desk.drums.lanes;
       const pr = await save("pattern", patternFile("smoke-pattern", g, OPTS), f);
-      const kr = await save("kit", kitFile("smoke-kit", lanes, ALL, "poketrack CR-78"), f);
+      const kr = await save("kit", kitFile("smoke-kit", lanes, ALL, "CR-78"), f);
       const names = [await listSaved("pattern", f), await listSaved("kit", f)];
       check(pr.ok && kr.ok && names[0].includes("smoke-pattern") && names[1].includes("smoke-kit"), `saved and listed (${names.flat().join(", ")})`);
       const pf = await getSaved("pattern", "smoke-pattern", f), kf = await getSaved("kit", "smoke-kit", f);
-      check(pf.drawn.Snare.includes("o") && kf.sounds.Snare === "LO-FI snare" && kf.sounds.Kick === "CR-78 kick",
+      check(pf.drawn.Snare.includes("o") && kf.sounds.Snare === "Crunchy machine snare" && kf.sounds.Kick === "CR-78 kick",
             `the files name what they hold (snare: ${pf.drawn.Snare}; ${kf.sounds.Kick}, ${kf.sounds.Snare})`);
       const ex2 = await load(), call2 = caller(ex2);
       ex2.wb_seed(5);
@@ -1505,12 +1519,12 @@ console.log("whole-branch review fixes");
     const r = await desk.loadKit({ name: "x", lanes: LANES808 });
     check(was === 8 && !r.ok && /Clean/.test(r.message) && cstr(ex, ex.wb_state()) === before && !ex.wb_pending() && !desk.hand.has("kit"),
           `load kit on the Clean (mixed) kit: refused, nothing staged or pinned ("${r.message}")`);
-    const r2 = await desk.loadKit({ name: "y", from: "poketrack 808", lanes: LANES808 });
+    const r2 = await desk.loadKit({ name: "y", from: "808", lanes: LANES808 });
     check(r2.ok && desk.values.kit === DRUMS.PRESET + DRUMS.PT808 && JSON.stringify(desk.drums.lanes) === JSON.stringify(LANES808),
-          `a kit file saved from the 808: the kit row shows poketrack 808 after loading (${desk.values.kit})`);
+          `a kit file saved from the 808: the kit row shows 808 after loading (${desk.values.kit})`);
     const { desk: d3 } = await fresh(18);
     d3.lock("kit", true);
-    const r3 = await d3.loadKit({ name: "y", from: "poketrack 808", lanes: LANES808 });
+    const r3 = await d3.loadKit({ name: "y", from: "808", lanes: LANES808 });
     check(!r3.ok && /Kit is locked/.test(r3.message) && d3.values.kit === 8, `... with the kit locked: blocked ("${r3.message}")`);
   }
   // 1: a kept drawn grid the engine won't take back (every base is legal today: wb_pat_load refused here) is reported
@@ -1565,7 +1579,7 @@ console.log("whole-branch review fixes");
     const { laneInactive } = await import("../drums.js");
     const st = (kit) => ({ values: { kit } });
     check(laneInactive(6, st(16), OPTS) && laneInactive(6, st(3), OPTS) && !laneInactive(6, st(19), OPTS) && !laneInactive(1, st(16), OPTS),
-          "the ride lane is inactive on the 808 and Brushes, not on Gogodze; the other lanes always active");
+          "the ride lane is inactive on the 808 and Soft brushes, not on Dusty; the other lanes always active");
   }
 }
 
@@ -1668,10 +1682,10 @@ console.log("Task 1b: no ear candy; the pad on/off row");
   check(!miss3.length && d3.values.lead === ins("Flute") && JSON.parse(cstr(e3, e3.wb_state())).roles[C.V.LEAD] === ins("Flute") &&
         /Sax is retired/.test(d3.message),
         `a snapshot with the retired sax restores on the flute (mismatch: ${miss3.join(", ") || "none"}; "${d3.message}")`);
-  // the leads retired by the lead styles build: the kalimba, saw lead and synth pluck, and the Emilyguitar as a lead
+  // the leads retired by the lead styles build: the kalimba, saw lead and synth pluck, and the Electric guitar as a lead
   // (it stays on the keys): each restores on its stand-in (the flute or the vibes), said
-  for (const [name, to, said] of [["Kalimba", "Flute", "Kalimba is retired;"], ["Saw lead", "Vibes (modeled vibraphone)", "Saw lead is retired;"],
-                                  ["Synth pluck", "Flute", "Synth pluck is retired;"], ["Emilyguitar", "Flute", "Emilyguitar is retired as a lead;"]]) {
+  for (const [name, to, said] of [["Kalimba", "Flute", "Kalimba is retired;"], ["Saw lead", "Vibes", "Saw lead is retired;"],
+                                  ["Synth pluck", "Flute", "Synth pluck is retired;"], ["Electric guitar", "Flute", "Electric guitar is retired as a lead;"]]) {
     const sn = await desk.snapshot();
     sn.rows.lead = ins(name);
     sn.locks = [];
@@ -2429,8 +2443,8 @@ console.log("comping: held on 2, held on 2 and 4 (approved, Sam 2026-11-05); lig
           JSON.stringify(CS.map((_, i) => i)) &&
         OPTS.compRhythms.filter((c) => c.index !== undefined).every((c) => c.value === COMP_PAT_BASE + c.index),
         "every comping style's id is its harmony.h enum's, once: the rhythms' from compRhythms, the rest from comping");
-  const perc = ["Rhodes", "Felt piano", "Knight piano"].map(ins);   // (the Wurli and the DX too, to 2026-11-04)
-  const off = ["Nylon guitar", "Emilyguitar", "Organ", "Chillwave pad"].map(ins);
+  const perc = ["Rhodes", "Felt piano", "Acoustic piano"].map(ins);   // (the Wurli and the DX too, to 2026-11-04)
+  const off = [ins("Nylon guitar"), ins("Electric guitar"), ins("Organ"), insSym("INS_PAD")];
   const NEW = ["Held on 2", "Held on 2 and 4"];
   const offered = (k, showRetired = false) => optionsFor(row("comp"), { values: { keys: k } }, OPTS, { showRetired })
     .map((o) => o.name);
@@ -2438,7 +2452,7 @@ console.log("comping: held on 2, held on 2 and 4 (approved, Sam 2026-11-05); lig
         "the two are offered on the percussive keys only (not the guitars, organ or pad)");
   const gone8 = OPTS.comping.find((c) => c.id === 7);
   check(gone8?.status === "removed" && gone8.sym === "CS_LIGHT8_GONE" &&
-        [...perc, ...off, ins("Vibes (modeled vibraphone)")].every((k) => !offered(k, true).includes("Light eighths")),
+        [...perc, ...off, ins("Vibes")].every((k) => !offered(k, true).includes("Light eighths")),
         "light eighths (7, removed) is offered on no keys, not even behind \"show retired\"; its id kept, not reused");
   // the dice: approved choices only (held on 2, held on 2 and 4, the approved comp rhythms), never a candidate nor
   // CS_PAT alone (no entry of its own: the rhythms are offered by name)
@@ -2538,7 +2552,7 @@ console.log("comp rhythms: in the Comping row by name, one place to pick comping
   const want = ["Held", "Half notes", "Held on 2", "Held on 2 and 4", ...PATS.map(pname)];
   check(JSON.stringify(names) === JSON.stringify(want) && names.includes("Charleston") && names.includes("Late one"),
         `the Comping row on the Rhodes lists every choice, the comp rhythms by name (${names.join(", ")})`);
-  const vib = optionsFor(row("comp"), { values: { keys: ins("Vibes (modeled vibraphone)") } }, OPTS).filter((o) => !o.rolled)
+  const vib = optionsFor(row("comp"), { values: { keys: ins("Vibes") } }, OPTS).filter((o) => !o.rolled)
     .map((o) => o.name);
   check(JSON.stringify(vib) === JSON.stringify(["Held", "Half notes", "Held on 2", "Held on 2 and 4", ...PATS.map(pname)]),
         `the vibes on the keys are offered the comp rhythms too (Sam, 2026-11-05: ${vib.join(", ")})`);
@@ -2666,8 +2680,8 @@ console.log("the busy-lead thinning row (on by default; off, the existing compin
 console.log("the choir: a pad layer a song may draw (1 in 4), and a choice on the pad row");
 {
   const { replay, wav } = await import("./replay.mjs");
-  const CHOIR = ins("Choir"), WARM = ins("Warm pad"), STR = ins("Strings"), ORGAN = ins("Organ");
-  const PERC = ["Rhodes", "Felt piano", "Knight piano"].map(ins);
+  const CHOIR = ins("Choir"), WARM = insSym("INS_WARM_PAD"), STR = ins("Strings"), ORGAN = ins("Organ");
+  const PERC = ["Rhodes", "Felt piano", "Acoustic piano"].map(ins);
   const ex = await load(), call = caller(ex);
   ex.wb_seed(1);
   ex.wb_apply();
@@ -2764,13 +2778,13 @@ console.log("lead loop end to end (Jazz-Hop, the Lead loop row On)");
 
 console.log("options.json: statuses");
 check(!OPTS.instruments.some((i) => i.status === "candidate") &&
-      ["Chillwave pad", "Choir"].every((n) => OPTS.instruments.find((i) => i.name === n).status === "approved") &&
+      ["INS_PAD", "INS_CHOIR"].every((n) => OPTS.instruments.find((i) => i.sym === n).status === "approved") &&
       OPTS.instruments.find((i) => i.name === "Vox pad").status === "retired",
       "no candidates among the instruments (the chillwave pad and the choir approved, the vox pad retired)");
 {
   const { inactive } = await import("../rows.js");
   const st = (kit) => ({ values: { kit } });
-  check(inactive(row("ride"), st(3), OPTS) && !inactive(row("ride"), st(4), OPTS), "the ride row is inactive on a kit with no ride (Brushes), not on a sampled kit");
+  check(inactive(row("ride"), st(3), OPTS) && !inactive(row("ride"), st(4), OPTS), "the ride row is inactive on a kit with no ride (Soft brushes), not on a sampled kit");
 }
 
 console.log("the page by part: sections, part headers, the folded rows, summaries, the Comp part's name");
@@ -2840,7 +2854,7 @@ console.log("the page by part: sections, part headers, the folded rows, summarie
   const sums = Object.fromEntries(Object.keys(PARTS).map((p) => [p, summary(p, desk.state, OPTS)]));
   const kit = OPTS.kits.find((k) => k.id === desk.values.kit), pat = OPTS.patterns.find((p) => p.id === desk.values.pattern);
   check(sums.keys.startsWith(`${name(desk.values.keys)} · `) && /· (low|mid|high) register$/.test(sums.keys) && !/a comp rhythm/.test(sums.keys) &&
-        sums.bass === name(desk.values.bass) && sums.lead.startsWith(name(desk.values.lead)) &&
+        sums.bass === OPTS.instruments.find((i) => i.id === desk.values.bass).short && sums.lead.startsWith(name(desk.values.lead)) &&
         sums.drums.startsWith(`${kit.name} · ${pat.name}`) && Object.values(sums).every((x) => x && !x.includes("undefined")),
         `summaries: ${Object.entries(sums).map(([p, x]) => `${PART_NAME[p]} "${x}"`).join(", ")}`);
   await desk.set("keys", ins("Rhodes"));
@@ -2848,7 +2862,7 @@ console.log("the page by part: sections, part headers, the folded rows, summarie
   await desk.set("keysOct", 0);
   const ride = { ...desk.state, values: { ...desk.values, kit: 19, pattern: 1, ride: 2, kick: "k3" } };
   check(summary("keys", desk.state, OPTS) === "Rhodes · Tresillo · mid register" &&
-        summary("drums", ride, OPTS) === "Gogodze · Boom bap 1 (Cantaloop) · kick k3 · ride in one section" &&
+        summary("drums", ride, OPTS) === "Dusty · Boom bap 1 (Cantaloop) · kick k3 · ride in one section" &&
         summary("pad", { ...desk.state, padless: true, values: { ...desk.values, padOn: -1 } }, OPTS) === "no pad in this song" &&
         summary("lead", { ...desk.state, values: { ...desk.values, lead: ins("Flute"), leadStyle: 8, leadOct: 1 } }, OPTS) ===
           "Flute · Bossa Nova · high register",
@@ -2859,8 +2873,8 @@ console.log("the page by part: sections, part headers, the folded rows, summarie
   const on = (keys, comp = -1) => rhythmRow({ values: { keys, comp } }, OPTS);
   const tres = OPTS.compRhythms.find((p) => p.name === "Tresillo").value;
   check(RHYTHM_ROWS.every((id) => row(id).short === "Rhythm" && sectionOf(id).name === "Comp" && sectionOf(id).main.includes(id)) &&
-        ["Rhodes", "Felt piano", "Knight piano", "Vibes (modeled vibraphone)", "Organ", "Chillwave pad"].every((n) => on(ins(n)) === "comp") &&
-        ["Nylon guitar", "Emilyguitar"].every((n) => on(ins(n)) === "strumPat" && on(ins(n), 5) === "strumPat") &&
+        [ins("Rhodes"), ins("Felt piano"), ins("Acoustic piano"), ins("Vibes"), ins("Organ"), insSym("INS_PAD")].every((k) => on(k) === "comp") &&
+        ["Nylon guitar", "Electric guitar"].every((n) => on(ins(n)) === "strumPat" && on(ins(n), 5) === "strumPat") &&
         on(ins("Nylon guitar"), tres) === "comp" &&
         /if \(RHYTHM_ROWS\.includes\(r\.id\)\) el\.hidden = r\.id !== rhythm;/.test(html),
         "one Rhythm row: the comp rhythms on keys, the strum patterns on the guitars (a rhythm a snapshot left on a guitar: the comp row, to change it)");

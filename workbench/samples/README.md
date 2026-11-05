@@ -12,12 +12,12 @@ reuses it), and writes the float32 mono 44.1 kHz files here (about 110 MB) and `
 FLAC: the script decodes them with `flac`, or with macOS's `afconvert`. Its test: `python3 -I
 workbench/tools/test_prep_kits.py`.
 
-- **Gogodze**: kick, snare, sidestick (the rim lane), closed and open hat. No ride: the ride lane plays its closed hat.
-  No shaker.
-- **Big Rusty (sticks)**: kick, snare, sidestick, closed and open hat, the 22" ride. No shaker.
-- **Big Rusty (brushes)**: the same kick, the brush snare, hats and ride; no brush sidestick, so the rim lane plays the
-  brush snare at 45% of the velocity. No shaker.
+- **Gogodze** (the page's Dusty): kick, snare, sidestick (the rim lane), closed and open hat. No ride: the ride lane
+  plays its closed hat. No shaker.
+- **Big Rusty (sticks)** (the page's Room - big): kick, snare, sidestick, closed and open hat, the 22" ride. No shaker.
+- **Big Rusty (brushes)** (the page's Room - brushes): the same kick, the brush snare, hats and ride; no brush
+  sidestick, so the rim lane plays the brush snare at 45% of the velocity. No shaker.
 
-Each kit's level, and its kick's against its snare, is set in `workbench/engine/wb_drums.c` (`SMP_DB`, `SMP_KICK_DB`):
-kick and snare at the Brushes kit's. A kit whose files aren't all here shows as unavailable in the page's kit picker
-and can't be chosen; the page loads a kit's files the first time it is chosen.
+Each kit's level, and its kick's against its snare, is set in `workbench/engine/wb_drums.c` (`SMP_DB`,
+`SMP_KICK_DB`): kick and snare at the Soft brushes kit's. A kit whose files aren't all here shows as unavailable in
+the page's kit picker and can't be chosen; the page loads a kit's files the first time it is chosen.

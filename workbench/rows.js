@@ -155,7 +155,7 @@ function allOptions(r, state, opts, lib) {
     case "families": return ["acoustic", "synth"].map((f) => ({ value: f, name: opts.families[f].name }));
     case "instruments":
       return opts.instruments.filter((i) => i.roles.includes(ROLE[r.role]))
-        .map((i) => ({ value: i.id, name: i.name, status: i.status, family: i.family }));
+        .map((i) => ({ value: i.id, name: (r.role === "BASS" && i.short) || i.name, status: i.status, family: i.family }));
     case "comping": {   // every rhythm (on the keys its data names), then strum and the retired styles. CS_PAT alone
                         // (an old snapshot's "a drawn comp rhythm") is never offered: shown only as the current value;
                         // a removed style (light eighths) never
@@ -357,7 +357,7 @@ export function summary(part, state, opts) {
     if (v.kick && v.kick !== "grid") out.push(`kick ${v.kick}`);
     if (kit?.ride) out.push(["no ride", "ride throughout", "ride in one section"][v.ride]);
   } else if (part === "bass") {
-    out.push(ins(v.bass));
+    out.push(opts.instruments.find((i) => i.id === v.bass)?.short ?? ins(v.bass));
   } else if (part === "keys") {
     out.push(ins(v.keys));
     const style = compOption(opts, v.comp >= 0 ? v.comp : state.comp);   // (as rolled: the style the engine applies)

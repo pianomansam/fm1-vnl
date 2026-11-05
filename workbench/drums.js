@@ -32,7 +32,6 @@ const SMP = { 0: [["kick", "KICK", 0], ["snare", "SNARE", 1], ["sidestick", "RIM
   2: [["kick", "KICK", 0], ["snare", "SNARE", 1], ["snare, light (rim)", "RIM", 5], ["closed hat", "HAT", 2], ["open hat", "OHAT", 3], ["ride", "RIDE", RIDE]] };
 const BUILTIN = [["kick", 0, 0], ["snare", 1, 1], ["closed hat", 2, 2], ["open hat", 3, 3], ["shaker", 4, 4], ["rim", 5, 5]];
 const SYNTH_KITS = ["KIT_DUSTY", "KIT_SOFT", "KIT_808", "KIT_BRUSHES"];   // the engine's (BUILTIN: a is the kit id)
-const SET_NAME = ["Gogodze", "Big Rusty", "Big Rusty brushes"];   // the sample sets' (WB_SMP_*)
 
 export const soundKey = (kind, a, b) => `${kind}:${a}:${b}`;
 
@@ -44,11 +43,12 @@ export function sounds(C, opts, unavailable = new Set()) {
     lane, status: k.status, family: k.family, unavailable: unavailable.has(k.id) });
   for (const k of opts.kits) {
     const preset = k.id - DRUMS.PRESET;
-    if (preset === DRUMS.PT808) for (const [n, v, l] of PT_808) add(k, SRC.PT, PT.M808, PT[v], `808 ${n}`, l);
-    else if (preset === DRUMS.PTCR78) for (const [n, v, l] of PT_CR78) add(k, SRC.PT, PT.MCR78, PT[v], `CR-78 ${n}`, l);
-    else if (preset === DRUMS.OPTLOFI) for (const [n, v, l] of OPT_LOFI) add(k, SRC.OPT, 0, v, `LO-FI ${n}`, l);
-    else if (k.set !== undefined) for (const [n, p, l] of SMP[k.set]) add(k, SRC.SAMPLE, k.set, P[p], `${SET_NAME[k.set]} ${n}`, l);
-    else if (SYNTH_KITS.includes(k.sym)) for (const [n, b, l] of BUILTIN) add(k, SRC.BUILTIN, k.id, b, `${k.name.replace(/ \(synth\)$/, "")} ${n}`, l);
+    if (preset === DRUMS.PT808) for (const [n, v, l] of PT_808) add(k, SRC.PT, PT.M808, PT[v], `${k.name} ${n}`, l);
+    else if (preset === DRUMS.PTCR78) for (const [n, v, l] of PT_CR78) add(k, SRC.PT, PT.MCR78, PT[v], `${k.name} ${n}`, l);
+    else if (preset === DRUMS.OPTLOFI) for (const [n, v, l] of OPT_LOFI) add(k, SRC.OPT, 0, v, `${k.name} ${n}`, l);
+    else if (k.set !== undefined) for (const [n, p, l] of SMP[k.set]) add(k, SRC.SAMPLE, k.set, P[p], `${k.name} ${n}`, l);
+    // (a retired synth kit's sounds keep "synth": "Dusty synth kick", not the sampled Dusty's "Dusty kick")
+    else if (SYNTH_KITS.includes(k.sym)) for (const [n, b, l] of BUILTIN) add(k, SRC.BUILTIN, k.id, b, `${k.name.replace(/ \(synth\)$/, " synth")} ${n}`, l);
   }
   return out;
 }
