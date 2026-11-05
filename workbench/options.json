@@ -76,15 +76,15 @@
     { "id": 9, "name": "Ambient", "status": "approved" }
   ],
   "patterns": [
-    { "id": 1, "name": "Boom bap 1 (Cantaloop)", "status": "approved" },
-    { "id": 2, "name": "Boom bap 2 (Fu-Gee-La)", "status": "approved" },
-    { "id": 3, "name": "Boom bap 3 (Changes)", "status": "approved" },
-    { "id": 4, "name": "Half-time 1", "status": "approved" },
-    { "id": 5, "name": "Half-time 2 (shaker)", "status": "approved" },
-    { "id": 6, "name": "Sparse", "status": "approved" },
+    { "id": 1, "name": "Boom bap - steady", "status": "approved" },
+    { "id": 2, "name": "Boom bap - skip", "status": "approved" },
+    { "id": 3, "name": "Boom bap - shaker", "status": "approved" },
+    { "id": 4, "name": "Half-time", "status": "approved" },
+    { "id": 5, "name": "Half-time - shaker", "status": "approved" },
+    { "id": 6, "name": "Sparse - quarter hats", "status": "approved" },
     { "id": 7, "name": "Brushes", "status": "approved" },
     { "id": 8, "name": "Bossa", "status": "approved" },
-    { "id": 9, "name": "9-half-time-2-shaker-2", "status": "candidate" }
+    { "id": 9, "name": "Half-time - two-bar", "status": "candidate" }
   ],
   "kickPhrases": [
     { "id": "k2", "a": [0, 10], "b": [0, 10] },

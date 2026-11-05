@@ -4,7 +4,7 @@
   <work><work-title>Drums 3: boombap</work-title></work>
   <identification>
     <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
-    <miscellaneous><miscellaneous-field name="vnl1">{"family":"drums","id":"3","status":"approved","pattern_family":"PF_BOOMBAP","hit":["0x0409","0x1010","0x5555","0x8000","0x5555","0x0000"],"ghost":["0x0020","0x0808","0x0000","0x0000","0xAAAA","0x0000"],"half_time":0,"poly3":0,"src":"lofi-midi-arrangements.md 3.4, Tupac Changes grid; lofi-hip-hop.md 6 Magenta","two_bar":0,"hit_b":["0x0000","0x0000","0x0000","0x0000","0x0000","0x0000"],"ghost_b":["0x0000","0x0000","0x0000","0x0000","0x0000","0x0000"]}</miscellaneous-field></miscellaneous>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"drums","id":"3","status":"approved","pattern_family":"PF_BOOMBAP","hit":["0x0409","0x1010","0x5555","0x8000","0x5555","0x0000"],"ghost":["0x0020","0x0808","0x0000","0x0000","0xAAAA","0x0000"],"half_time":0,"poly3":0,"src":"lofi-midi-arrangements.md 3.4, boom-bap grid with 16th shakers; lofi-hip-hop.md 6 Magenta","two_bar":0,"hit_b":["0x0000","0x0000","0x0000","0x0000","0x0000","0x0000"],"ghost_b":["0x0000","0x0000","0x0000","0x0000","0x0000","0x0000"]}</miscellaneous-field></miscellaneous>
   </identification>
   <part-list>
     <score-part id="P1">

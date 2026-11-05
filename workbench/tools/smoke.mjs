@@ -2925,7 +2925,7 @@ console.log("the page by part: sections, part headers, the folded rows, summarie
   await desk.set("keysOct", 0);
   const ride = { ...desk.state, values: { ...desk.values, kit: 19, pattern: 1, ride: 2, kick: "k3" } };
   check(summary("keys", desk.state, OPTS) === "Rhodes · Tresillo · mid register" &&
-        summary("drums", ride, OPTS) === "Dusty · Boom bap 1 (Cantaloop) · kick k3 · ride in one section" &&
+        summary("drums", ride, OPTS) === "Dusty · Boom bap - steady · kick k3 · ride in one section" &&
         summary("pad", { ...desk.state, padless: true, values: { ...desk.values, padOn: -1 } }, OPTS) === "no pad in this song" &&
         summary("lead", { ...desk.state, values: { ...desk.values, lead: ins("Flute"), leadStyle: 8, leadOct: 1 } }, OPTS) ===
           "Flute · Bossa Nova · high register",

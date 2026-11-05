@@ -483,7 +483,7 @@ class Import(unittest.TestCase):
         self.assertEqual(model["drums"][k]["status"], "candidate")
         opts = json.loads(self.opts.read_text())
         self.assertEqual(opts["patterns"][-1], {"id": int(k), "name": "sam-groove", "status": "candidate"})
-        self.assertEqual(opts["patterns"][0]["name"], "Boom bap 1 (Cantaloop)")              # the names kept
+        self.assertEqual(opts["patterns"][0]["name"], "Boom bap - steady")                   # the names kept
         self.approve({"drums": {k: "approved"}})
         so, model, _ = self.imported()
         self.assertEqual(model["drums"][k]["status"], "approved")
