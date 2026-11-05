@@ -52,17 +52,17 @@ AudioWorklet. Local only; not the FM-1, so it may exceed the device's budgets.
   (the phrase planner or the hybrid, removed with the lead styles) restores on a rolled style and says so; rows it
   names that are gone (the lead-doubling switch, the lead arpeggio rows) are ignored.
 - Candidates (`patterns/README.md`): a new pattern imported from `patterns/` is offered, marked "(candidate)", in its
-  row (Pattern, Progression, Kick phrase, Strum pattern; a comp rhythm in Comping) and plays when picked; the
+  row (Pattern, Progression, Kick phrase; a comp rhythm or strum pattern in Rhythm) and plays when picked; the
   roll and the dice never draw it. Under it, **Approve** posts it to `/approve`, which writes
   `patterns/status.json`; `tools/patterns/import.sh` then makes the firmware draw it and rebuilds the workbench. A scale
-  (major or minor) only a candidate progression suits can be picked too (its candidate comes with it). The strum row is
-  greyed when the comp doesn't strum.
+  (major or minor) only a candidate progression suits can be picked too (its candidate comes with it). The strum pattern
+  is greyed when the comp doesn't strum.
 - Scale (to 2026-11-05 the Mode row; in the Song section's more rows): major or minor; the Progression row names each
   progression by its Roman numerals in that key (`#17 i7 IV7 (minor)`). An older snapshot or feedback entry's mode
   restores as the major or minor song with the same chords (`desk.js`'s `fromModes`: a progression split from one
   listed in two modes takes its new id).
-- Comping: one place to pick the Comp part's comping (Sam, 2026-11-05), from one source: every comping rhythm in
-  `patterns/comp-rhythms` (`options.json`'s generated `compRhythms`: Held, Half notes, Stabs, Held on 2, Held on 2
+- Comping (the Rhythm row on keys): one place to pick the Comp part's comping (Sam, 2026-11-05), from one source:
+  every comping rhythm in `patterns/comp-rhythms` (`options.json`'s generated `compRhythms`: Held, Half notes, Stabs, Held on 2, Held on 2
   and 4, Charleston, Tresillo, Late one; a new one marked "(candidate)" until approved), each only on the comp
   instruments its data names, then Strum (the guitars) and the retired styles (behind "show retired"). A fixed
   rhythm's value is its `CS_*` id (staged as the engine's comp override), an added one's 100 + its table index (the
@@ -73,6 +73,11 @@ AudioWorklet. Local only; not the FM-1, so it may exceed the device's budgets.
   (Sam, 2026-11-05): never offered, not even behind "show retired"; a snapshot or feedback item that picked it
   restores as Held and says so. The roll's draw (each rhythm's weight, its busyness against the song's motion) is the
   engine's: `patterns/README.md`.
+- The Comp part's one Rhythm row (Sam, 2026-11-05; `rows.js`'s `rhythmRow`): on keys it is the comping row above (the
+  comp rhythms); on the guitars, which only strum, it is the strum pattern row (candidates marked, retired hidden, as
+  in any row). The two stay rows of their own underneath (their overrides, locks and snapshot values), so snapshots
+  and feedback restore as before; the page shows the one the comp instrument plays. A comp rhythm a guitar can't play
+  (a snapshot's, the engine's) shows the comping row instead, greyed and open to change.
 - Feedback: 👍/👎 and a note, on the song or a row, save a line to `workbench/feedback.jsonl`: a versioned snapshot
   (every row, the locks, the seed; `desk.snapshot()` / `desk.restore()`), where the song was, and the log of every applied
   change. Entries queue in localStorage while the server is down (the page says "not saved yet") and are resent.

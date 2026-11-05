@@ -832,6 +832,19 @@ EXPORT int wb_comp_applied(void)
     return cs;
 }
 
+/* The added comp rhythm (its COMP_PAT index) the staged state plays, else -1: which rhythm a CS_PAT song's is (the
+   page's Comp summary; read only) */
+EXPORT int wb_comp_pat_applied(void)
+{
+    int p;
+    stage_set(1);
+    song_override(&st.ov);
+    p = harmony_comp_pat(&st.roll);
+    song_override(&live.ov);
+    stage_set(0);
+    return p;
+}
+
 /* a seed or map change is a new song: a jump staged before it (a bar of the old song's sections) is dropped, so
    the song starts at bar 1 (in this call: no bar line can land between the two) */
 EXPORT void wb_apply(void)

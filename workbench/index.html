@@ -73,7 +73,7 @@
   button.more { margin: 4px 4px 0; padding: 2px 8px; font-size: 12px; color: var(--muted); border-style: dashed; }
   button.more.moved { background: var(--moved); color: var(--fg); }
   .rows.folded { margin-top: 4px; }
-  .rows.folded[hidden] { display: none; }
+  .rows.folded[hidden], .row[hidden] { display: none; }
   .feedback { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
   .feedback input { flex: 1 1 16em; min-width: 0; }
   #fb { color: var(--muted); }
@@ -132,7 +132,7 @@
 </main>
 <script type="module">
   import * as wb from "./wb.js";
-  import { ROWS, row, SECTIONS, folds, summary, optionsFor, inactive, approval } from "./rows.js";
+  import { ROWS, row, SECTIONS, RHYTHM_ROWS, rhythmRow, folds, summary, optionsFor, inactive, approval } from "./rows.js";
   import { Desk, PART_ROW, PART_NAME, sectionAt, positionOf, loopAt } from "./desk.js";
   import { layout, draw } from "./roll.js";
   import { DrumScreen } from "./drums.js";
@@ -238,14 +238,15 @@
       toggles.get(s.name)?.classList.toggle("moved", s.more.some((id) => desk.moved.has(id)));
     drums?.render(pos);
     strip().catch((e) => { $("msg").textContent = String(e); });
-    const showRetired = $("retired").checked;
+    const showRetired = $("retired").checked, rhythm = rhythmRow(desk.state, desk.opts);   // (Comp: one Rhythm row)
     for (const r of ROWS) {
       const el = els.get(r.id), cur = desk.values[r.id], locked = desk.locks.has(r.id);
+      if (RHYTHM_ROWS.includes(r.id)) el.hidden = r.id !== rhythm;
       el.classList.toggle("moved", desk.moved.has(r.id));
       el.classList.toggle("locked", locked);
       el.lock.setAttribute("aria-pressed", String(locked));
       const why = inactive(r, desk.state, desk.opts);
-      // (the Comping row stays open when greyed: a comp rhythm a snapshot left on keys that don't play one is
+      // (the Rhythm (comp) row stays open when greyed: a comp rhythm a snapshot left on keys that don't play one is
       // changed there)
       el.dice.disabled = locked || !!why;
       el.input.disabled = locked || (!!why && r.id !== "comp");

@@ -34,6 +34,7 @@ void wb_ov_set(int key, int value);
 int wb_ov_get(int key);
 int wb_keys_oct_applied(void);          /* the keys' register as the engine applies it to the staged state */
 int wb_comp_applied(void);              /* the keys' comping style (CS_*) as the engine applies it to the staged state */
+int wb_comp_pat_applied(void);          /* the added comp rhythm (COMP_PAT index) the staged state plays, else -1 */
 int wb_kit_get(void);                   /* KIT_*: the staged song's kit (WB_KIT_PRESET + id: a preset) */
 void wb_kit_set(int kit);               /* in the custom set (as wb_role_set), played always; the lanes cleared (a
                                            preset's value: wb_kit_preset) */

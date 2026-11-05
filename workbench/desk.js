@@ -27,7 +27,7 @@ const WHY = {
 export const notesOf = (evs) => evs.map((e) => `${e.bar}.${e.step}.${e.role}.${e.note}.${e.len}`).sort().join(" ");
 
 // a part whose 🎲 found no other roll (no salt of ROLL_TRIES changed its notes): why, by part
-const ROLL_TRIES = 8, CS_STRUM = 5;
+const ROLL_TRIES = 8, CS_STRUM = 5, CS_PAT = 9;
 const DEAD = {
   bass: "Bass: no other bass line fits this song.",
   lead: "Lead: no other phrase fits this song.",
@@ -89,7 +89,7 @@ export class Desk {
     this.dead = {};            // parts whose 🎲 found no other roll in the song as it stands: why (cleared by any change)
     this.approved = new Set(); // candidates approved this session ("family/id"): approved once import.sh has run
     this.strums = undefined;   // the staged song's comp strums (the strum pattern row is heard only then)
-    this.comp = undefined;     // the comping style (CS_*) the engine applies to the staged song (the Comp summary's)
+    this.comp = undefined;     // the comping the engine applies to the staged song, as a Comping value (the summary's)
   }
 
   get state() { return { values: this.values, locks: this.locks, legal: this.legal, unavailable: this.samples?.unavailable,
@@ -108,8 +108,9 @@ export class Desk {
       prog: await ids(this.lib.progs.map((p) => p.id), this.C.RF.PROG),
       mode: await ids([0, 1], this.C.RF.MODE),   // major, minor
     };
-    this.comp = await this.call("wb_comp_applied");
-    this.strums = this.comp === CS_STRUM;
+    const cs = await this.call("wb_comp_applied"), pat = cs === CS_PAT ? await this.call("wb_comp_pat_applied") : -1;
+    this.comp = pat >= 0 ? COMP_PAT_BASE + pat : cs;   // (an added rhythm: which one)
+    this.strums = cs === CS_STRUM;
     return this.values;
   }
 
@@ -552,7 +553,7 @@ export class Desk {
                     bassSwapped ? `Bass: ${wasBass.name} is retired; the song plays ${name(this.values.bass)} instead.` : "",
                     keysSwapped ? `Comp: ${wasKeys.name} is retired; the song plays ${name(this.values.keys)} instead.` : "",
                     styleGone ? `Lead style: ${style.name} is retired; the song plays a rolled style instead.` : "",
-                    compGone ? `Comping: ${compGone.name} is removed; the song plays Held instead.` : ""]
+                    compGone ? `Comp rhythm: ${compGone.name} is removed; the song plays Held instead.` : ""]
       .filter(Boolean).join(" ");
     return [...ROWS.filter((r) => !(swapped && r.id === "lead") && !(bassSwapped && r.id === "bass") &&
                                   !(keysSwapped && r.id === "keys") &&

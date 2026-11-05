@@ -616,7 +616,7 @@ console.log("rows: retired options, dice, families");
   const k = conflicts(row("keys"), ins("Rhodes"), st2, OPTS);
   check(k.forced.some((f) => f.row === "comp" && f.to === -1), "keys -> Rhodes forces stab comping back to as rolled");
   st2.locks = new Set(["comp"]);
-  check(conflicts(row("keys"), ins("Rhodes"), st2, OPTS).blocked?.label === "Comping", "... and a locked stab comping blocks it");
+  check(conflicts(row("keys"), ins("Rhodes"), st2, OPTS).blocked?.label === "Comp rhythm", "... and a locked stab comping blocks it");
   check(!optionsFor(row("comp"), { values: { keys: ins("Rhodes") } }, OPTS).some((o) => o.name === "Strum") &&
         optionsFor(row("comp"), { values: { keys: ins("Nylon guitar") } }, OPTS).some((o) => o.name === "Strum"),
         "strum is offered on the guitars only");
@@ -2487,7 +2487,7 @@ console.log("comping: held on 2, held on 2 and 4 (approved, Sam 2026-11-05); lig
     const snap = await d.snapshot();
     const miss = await d.restore({ ...snap, rows: { ...snap.rows, comp: 7 } });
     check(d.values.comp === 0 && ex.wb_ov_get(OV.COMP) === 0 && !miss.includes("comp") &&
-          /Comping: Light eighths is removed; the song plays Held instead\./.test(d.message),
+          /Comp rhythm: Light eighths is removed; the song plays Held instead\./.test(d.message),
           `an old snapshot's light eighths restores as held, said ("${d.message}"; mismatch: ${miss.join(", ") || "none"})`);
     await d.restore(snap);
   }
@@ -2529,7 +2529,7 @@ console.log("comp rhythms: in the Comping row by name, one place to pick comping
     return JSON.stringify(readEvents(pex).filter((e) => e.role === V.CHORD).map((e) => [e.bar, e.step, e.note]));
   };
   check(!row("compPat") && !OPTS.comping.some((c) => /row below/.test(c.name)),
-        "no Comp rhythm row, and no \"Comp rhythm (the row below)\" entry");
+        "no separate compPat row, and no \"Comp rhythm (the row below)\" entry");
   const d = new Desk(call, C, OPTS, lib, { rnd: lcg(8) });
   await d.set("seed", 21);
   await d.set("keys", ins("Rhodes"));
@@ -2839,7 +2839,7 @@ console.log("the page by part: sections, part headers, the folded rows, summarie
   const name = (id) => OPTS.instruments.find((i) => i.id === id).name;
   const sums = Object.fromEntries(Object.keys(PARTS).map((p) => [p, summary(p, desk.state, OPTS)]));
   const kit = OPTS.kits.find((k) => k.id === desk.values.kit), pat = OPTS.patterns.find((p) => p.id === desk.values.pattern);
-  check(sums.keys.startsWith(`${name(desk.values.keys)} · `) && /· (low|mid|high) register$/.test(sums.keys) &&
+  check(sums.keys.startsWith(`${name(desk.values.keys)} · `) && /· (low|mid|high) register$/.test(sums.keys) && !/a comp rhythm/.test(sums.keys) &&
         sums.bass === name(desk.values.bass) && sums.lead.startsWith(name(desk.values.lead)) &&
         sums.drums.startsWith(`${kit.name} · ${pat.name}`) && Object.values(sums).every((x) => x && !x.includes("undefined")),
         `summaries: ${Object.entries(sums).map(([p, x]) => `${PART_NAME[p]} "${x}"`).join(", ")}`);
@@ -2853,6 +2853,44 @@ console.log("the page by part: sections, part headers, the folded rows, summarie
         summary("lead", { ...desk.state, values: { ...desk.values, lead: ins("Flute"), leadStyle: 8, leadOct: 1 } }, OPTS) ===
           "Flute · Bossa Nova · high register",
         `the Comp header on a Rhodes tresillo reads "${summary("keys", desk.state, OPTS)}"; the drums name the ride, the pad its absence`);
+
+  // the Comp part's one Rhythm row: the comp rhythms on keys, the strum patterns on the guitars
+  const { RHYTHM_ROWS, rhythmRow } = await import("../rows.js");
+  const on = (keys, comp = -1) => rhythmRow({ values: { keys, comp } }, OPTS);
+  const tres = OPTS.compRhythms.find((p) => p.name === "Tresillo").value;
+  check(RHYTHM_ROWS.every((id) => row(id).short === "Rhythm" && sectionOf(id).name === "Comp" && sectionOf(id).main.includes(id)) &&
+        ["Rhodes", "Felt piano", "Knight piano", "Vibes (modeled vibraphone)", "Organ", "Chillwave pad"].every((n) => on(ins(n)) === "comp") &&
+        ["Nylon guitar", "Emilyguitar"].every((n) => on(ins(n)) === "strumPat" && on(ins(n), 5) === "strumPat") &&
+        on(ins("Nylon guitar"), tres) === "comp" &&
+        /if \(RHYTHM_ROWS\.includes\(r\.id\)\) el\.hidden = r\.id !== rhythm;/.test(html),
+        "one Rhythm row: the comp rhythms on keys, the strum patterns on the guitars (a rhythm a snapshot left on a guitar: the comp row, to change it)");
+  const offered = (id, keys, more = {}) => optionsFor(row(id), { values: { keys, comp: -1, strumPat: -1 } }, more.opts ?? OPTS,
+                                                       { showRetired: !!more.retired });
+  const rh = offered("comp", ins("Rhodes")).filter((o) => !o.rolled);
+  const fits = OPTS.compRhythms.filter((c) => (!c.keys || c.keys.includes(ins("Rhodes"))) && !c.notKeys?.includes(ins("Rhodes")));
+  const top = Math.max(...OPTS.compRhythms.map((c) => c.value)) + 1;   // (past any imported candidate's)
+  const candOpts = { ...OPTS, compRhythms: [...OPTS.compRhythms, { id: "99", value: top, index: top - COMP_PAT_BASE,
+                                                                   name: "Test rhythm", status: "candidate", keys: [0] }] };
+  const sp = offered("strumPat", ins("Nylon guitar")).filter((o) => !o.rolled);
+  check(JSON.stringify(rh.map((o) => o.name)) === JSON.stringify(fits.map((c) => c.name)) && !rh.some((o) => o.name === "Strum") &&
+        !rh.some((o) => o.status === "retired") && offered("comp", ins("Rhodes"), { retired: true }).some((o) => o.status === "retired") &&
+        offered("comp", ins("Rhodes"), { opts: candOpts }).some((o) => o.name === "Test rhythm" && o.status === "candidate") &&
+        sp.length === OPTS.strumPats.filter((p) => p.status !== "retired").length &&
+        sp.some((o) => o.status === "candidate") && sp.every((o) => OPTS.strumPats.some((p) => p.index === o.value)),
+        `Rhythm on the Rhodes: ${rh.map((o) => o.name).join(", ")}; on the nylon: ${sp.length} strum patterns (candidates marked, retired hidden)`);
+  // a snapshot restores either way: a guitar's strum pattern, a keys' comp rhythm
+  for (const [keys, id, v] of [["Nylon guitar", "strumPat", OPTS.strumPats.find((p) => p.status === "approved" && p.index > 0).index],
+                               ["Rhodes", "comp", tres]]) {
+    const a = await load(), da = new Desk(caller(a), C, OPTS, await caller(a)("wb_library"), { rnd: lcg(3) });
+    a.wb_seed(21); a.wb_apply();
+    await da.read(true);
+    await da.set("keys", ins(keys));
+    const r1 = await da.set(id, v), sn = await da.snapshot();
+    const b = await load(), db = new Desk(caller(b), C, OPTS, await caller(b)("wb_library"));
+    const miss = await db.restore(JSON.parse(JSON.stringify(sn)));
+    check(r1.ok && !miss.length && db.values[id] === v && rhythmRow(db.state, OPTS) === id,
+          `a ${keys} snapshot with its Rhythm (${id} ${v}) restores to it, shown in the Rhythm row (mismatch: ${miss.join(", ") || "none"})`);
+  }
 }
 
 console.log(failed ? `smoke: ${failed} FAILED` : "smoke: all passed");

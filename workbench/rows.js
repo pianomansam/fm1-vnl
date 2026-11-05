@@ -3,7 +3,7 @@
 // new value forces elsewhere. Pure: no DOM, no engine (desk.js drives the engine; smoke.mjs tests this directly).
 //   opts: options.json; state: { values: {row id: value}, locks: Set of row ids, legal: {prog, mode} (optional),
 //   unavailable: Set of kit ids whose samples are missing (optional: offered marked, never chosen), strums: the comp
-//   strums in the staged song (optional), comp: the comping style (CS_*) the engine applies to it (optional),
+//   strums in the staged song (optional), comp: the comping the engine applies to it, a Comping value (optional),
 //   padless: the committed song has no pad (optional), grid: the drum grid holds hand edits (optional) };
 //   lib: wb_library()'s maps and progressions.
 
@@ -28,7 +28,7 @@ export const ROWS = [
   { id: "keys", label: "Comp instrument", short: "Instrument", kind: "role", role: "CHORD", source: "instruments" },
   // (one place to pick comping, Sam 2026-11-05: the styles and the comp rhythms in one list; desk.js stages a comp
   // rhythm as the COMP_PAT override, anything else as COMP)
-  { id: "comp", label: "Comping", kind: "ov", key: "COMP", source: "comping" },
+  { id: "comp", label: "Comp rhythm", short: "Rhythm", kind: "ov", key: "COMP", source: "comping" },
   { id: "lead", label: "Lead instrument", short: "Instrument", kind: "role", role: "LEAD", source: "instruments" },
   { id: "bass", label: "Bass instrument", short: "Instrument", kind: "role", role: "BASS", source: "instruments" },
   { id: "pad", label: "Pad instrument", short: "Instrument", kind: "role", role: "PAD", source: "instruments" },
@@ -40,7 +40,7 @@ export const ROWS = [
   { id: "busyThin", label: "Busy lead thins the comp", kind: "ov", key: "NO_BUSY_THIN", source: "onOffInverted" },
   { id: "voicings", label: "Comp voicings", short: "Voicings", kind: "reroll", key: "VOICING_SALT", part: "keys" },
   { id: "keysOct", label: "Comp register", short: "Register", kind: "ov", key: "KEYS_OCT", source: "registers" },
-  { id: "strumPat", label: "Strum pattern", kind: "ov", key: "STRUM_PAT", source: "strumPats" },
+  { id: "strumPat", label: "Strum pattern", short: "Rhythm", kind: "ov", key: "STRUM_PAT", source: "strumPats" },
   { id: "strumFill", label: "Strum fill", kind: "ov", key: "STRUM_FILL", source: "strumFills" },
   { id: "padPlace", label: "Pad place", short: "Place", kind: "ov", key: "PAD_PLACE", source: "padPlaces" },
   { id: "bassLine", label: "Bass line", kind: "reroll", key: "BASS_SALT", part: "bass" },
@@ -70,6 +70,18 @@ export const SECTIONS = [
   { name: "Texture", main: ["dust", "noise", "ambience"], more: [] },
 ];
 export const sectionOf = (id) => SECTIONS.find((s) => s.main.includes(id) || s.more.includes(id));
+
+// The Comp part's one Rhythm row (Sam, 2026-11-05): the comp rhythms (the comp row) on keys, the strum patterns (the
+// strumPat row) on the guitars, which only strum. The page shows the row this names and hides the other; both stay
+// rows of their own (their overrides, locks and snapshot values unchanged). A comp rhythm a guitar can't play, left by a
+// snapshot or the engine, keeps the comp row in view (greyed, open to change).
+export const RHYTHM_ROWS = ["comp", "strumPat"];
+export function rhythmRow(state, opts) {
+  const strum = opts.comping.find((c) => c.sym === "CS_STRUM"), v = state.values;
+  if (!strum || !compFits(strum, v.keys)) return "comp";
+  const c = v.comp >= 0 ? compOption(opts, v.comp) : null;
+  return c && c.sym !== "CS_STRUM" && !compFits(c, v.keys) ? "comp" : "strumPat";
+}
 
 // Each section's "more" open or folded, per viewer (localStorage, when there is one: a private window or blocked
 // storage throws, and the page works without it, folded). storage(): the Storage, or a test's stand-in
