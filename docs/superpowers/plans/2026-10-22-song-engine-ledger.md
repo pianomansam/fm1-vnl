@@ -323,7 +323,8 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   comp rhythms and the like on the device, saved on the device (its data flash) and drawn by the roll beside the
   built-in ones (the built-ins are data already: patterns/model.json). Stretch: a companion website that edits them
   in the browser and uploads/downloads them to and from the device over USB (the same SysEx upload as the sample
-  banks; see "From other FM-1 firmwares", item 3).
+  banks; see "From other FM-1 firmwares", item 3). Also song layouts (Sam, 2026-11-06): users build their own maps (the
+  song's sections in order and their lengths: intro, groove, lead, break, outro), drawn beside the built-in ones.
 - **A simplified and an expanded main screen (Sam, 2026-11-06: an idea, part of the screens work).** Two main
   screens: a simple one (e.g. the chord and where the song is) and an expanded one (the song and every part's rolls);
   the expanded one opens from the simple one, and the user sets which is the default (HOME's). Mockups A-C in the
