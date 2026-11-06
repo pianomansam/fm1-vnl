@@ -561,6 +561,14 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
     sax's top sample (G5, +5 semitones), the trumpet's (A5, +3) and very high for a cello; and the flash (about 7 KB of
     room is left after the vibraphone).
 
+- **New synthesized leads to try (Sam, 2026-11-05: on the short list, not started).** Today's leads are flute, felt
+  piano, vibes and acoustic piano; the guitar lead is parked and the organ lead waits on its UI controls. Each is
+  judged in songs, level-matched to the leads we have:
+  - **Harp:** a plucked string with a long, soft ring and no pick noise; a retone of the existing plucked-string
+    model (the retired guitar lick), so almost no flash. First to try.
+  - **Whistle:** a sine with breath noise and slow vibrato; sustained, on the phrase planner like the flute.
+  - **Soft synth lead:** a rounded triangle or square with vibrato and glide; the synth family has no lead now (the
+    saw lead and synth pluck were cut, 2026-10-29).
 - **The slow arpeggio as a lead.** One chord tone per 8th, up then down, sounded *melodic* rather than like
   accompaniment when it was a comping style (it's now in 16ths for comping). Use that 8th-note arpeggio, drawn from
   the song's voicings, as lead material.
