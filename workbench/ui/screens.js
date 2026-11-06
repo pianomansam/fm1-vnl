@@ -232,7 +232,8 @@ export default {
         ] },
       ],
       knobs: [{ field: "key", step: 1 }, { field: "tempo", step: 1 }, { field: "motion", step: 5 }, { field: "mood", step: 1 }],
-      controls: { ALGO: { do: "cursor" }, EDIT: { go: "cursor" } },
+      // ALGO picks the part (the convention); SELECT too, the main screen having no pages (Sam, 2026-11-06)
+      controls: { ALGO: { do: "cursor" }, SELECT: { do: "cursor" }, EDIT: { go: "cursor" } },
       say: [{ when: "song", text: "CHORD {chord}. {section}, BAR {bar} OF {bars}" }, { when: "!song", text: "{idle}" },
             { when: "pending", text: ". {pending}" }],
     },
