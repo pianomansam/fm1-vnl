@@ -386,6 +386,10 @@ export class Device {
     const was = this.live;
     this.live = live;
     if (!this.hasSong() || (was && was.seed !== live.seed)) this.req = {};   // a new song or none: nothing waits
+    if (was && was.seed !== live.seed && this.stack.length > 1) {   // a new song (rolled or the next one): back to the
+      this.stack = [this.data.home];                                  // main screen (Sam, 2026-11-06)
+      this.speak();
+    }
     const bar = live.bar - 1;
     for (const [f, q] of Object.entries(this.req)) {
       if (bar >= q.at) delete this.req[f];

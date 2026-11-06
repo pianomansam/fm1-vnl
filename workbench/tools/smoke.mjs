@@ -3100,6 +3100,13 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
     d2.press("OCT+");
     check(d2.values().pending === "TEMPO 81 IN 4 BARS", `OCT+ as a nudge asks for tempo + 1: "${d2.values().pending}"`);
   }
+  {   // a new song, rolled or the next one, goes back to the main screen
+    dev.press("ALGO", 1); dev.press("EDIT");
+    const inPart = dev.id;
+    dev.update({ ...live(6), seed: 8 });
+    check(inPart.startsWith("p") && dev.id === "main" && dev.stack.length === 1, `a new song from ${inPart}: back on the main screen (${dev.id})`);
+    dev.update(live(6));
+  }
   dev.press("PLAY");
   t += 2000;
   dev.update({ ...live(5), playing: false });
