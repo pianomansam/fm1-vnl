@@ -105,5 +105,22 @@ AudioWorklet. Local only; not the FM-1, so it may exceed the device's budgets.
   The grid shows the pattern as written: a song rolled below motion 35 plays the closed hat without its ghosts, and
   below 25 no closed or open hats at all, forced or edited pattern alike (calm songs thin the hats, 2026-11-05).
 
+- The device mock ("Device screen (mock)", folded per viewer as `wb-more`'s "Device"): the FM-1's 240 x 240 screen at
+  2x, its controls by printed label (plat.h's buttons, the SELECT, ALGO and PRESET encoders, K1-K4; clickable, a
+  scroll on a dial, and keys: 1-4 the knobs, 5-7 the encoders, Shift for counter-clockwise, a letter per button, `[`
+  `]` the OCT buttons), the screen reader's line under it, and the flow between the screens with the breadcrumb. It
+  plays the song heard: a knob asks for a change that waits for the next 4-bar boundary as app.c's do (shown pending),
+  then goes to the engine through the rows' own `Desk.set`; PLAY is the page's Play. All of it is in `ui/`, which
+  `build.sh` doesn't copy, so the server serves it straight from disk:
+  - `ui/screens.js`: the screens as data (bands and what they draw, the knobs, each control's action and where it
+    leads, what the reader says; its header has the format). Edit it, then "Reload screens" (the song plays on) or
+    reload the page. Its mistakes are listed under the flow and the last good screens stay.
+  - `ui/device.js`: gfx.c's drawing (cv_begin, cv_text with its blending, text_w, the amber palette) and app.c's words
+    (KEY_NAME ...), no DOM; `ui/panel.js` the page's side. `ui/fonts.js` is generated:
+    `.venv/bin/python3 -I workbench/tools/export_font.py` (base/tools/gen_font.py's fonts as base/ has them).
+  - The song's facts the main screen shows (the section, the map's name, the chord as `th_chord_name` spells it) come
+    from `wb_screen(bar)`. `tools/screen_check.mjs` draws today's main screen in the host simulator (`./build.sh
+    --host`) and in the mock, in six states for two seeds, and compares them pixel for pixel (tests/run_tests.sh).
+
 The smoke test is the evidence that the engine renders and lands changes; whether it sounds right needs a listen in
 Chrome or Safari.

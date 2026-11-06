@@ -127,6 +127,10 @@
     <span id="fb" role="status" aria-live="polite"></span>
   </div>
   <p id="msg" role="status" aria-live="polite"></p>
+  <section id="device" aria-label="Device screen (mock)">
+    <button id="devfold" class="more" aria-controls="devbox"></button>
+    <div id="devbox" hidden></div>
+  </section>
   <div id="desk"></div>
   <div id="drums" hidden></div>
 </main>
@@ -139,6 +143,7 @@
   const $ = (id) => document.getElementById(id);
   const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
   let playing = false, desk = null, lib = null, pos = { seconds: 0, bar: 0 }, sentChanges = 0, drums = null, secs = [], heard = [];   // secs: the committed song's sections; heard: the playing song's
+  let device = null, lastPos = { bar: 0, bars: 0, gap: 0 };   // the device mock (ui/panel.js) and the engine's last position
 
   // one change at a time: clicks queue behind the one in flight
   let queue = Promise.resolve();
@@ -161,8 +166,26 @@
     if (replaced) { desk.moved = new Set(["kit"]); $("msg").textContent = replaced; }
     await wb.call("wb_advance", $("loop").checked ? 0 : 1);   // the song's end: the next song (show)
     wb.onPosition(show);
+    deviceMock();
     render();
     sync(await wb.flushFeedback());
+  }
+
+  // the device mock (ui/, served from disk: no rebuild): its knobs set rows as the rows do, its PLAY is Play. Folded
+  // or open per viewer (wb-more's "Device"); a mistake in ui/ leaves the rest of the page working
+  async function deviceMock() {
+    const show = (on) => {
+      $("devbox").hidden = !on;
+      $("devfold").setAttribute("aria-expanded", String(on));
+      $("devfold").textContent = `${on ? "▾" : "▸"} Device screen (mock): the FM-1's screen, its controls, the flow between screens`;
+    };
+    $("devfold").onclick = () => { const on = $("devbox").hidden; fold.set("Device", on); show(on); };
+    show(fold.isOpen("Device"));
+    try {
+      const { mountDevice } = await import("./ui/panel.js");
+      device = mountDevice($("devbox"), { call: wb.call, C: wb.C,
+        engine: { set: (id, v) => run(() => desk.set(id, v)), play: () => $("play").click() } });
+    } catch (e) { $("devbox").textContent = `The device mock didn't load: ${e}`; }
   }
 
   function rowEl(r) {
@@ -235,6 +258,7 @@
       }
     }
     renderParts();
+    device?.changed();
     for (const s of SECTIONS)   // a folded row the last change moved: its "more" says so
       toggles.get(s.name)?.classList.toggle("moved", s.more.some((id) => desk.moved.has(id)));
     drums?.render(pos);
@@ -382,6 +406,7 @@
     playing = !playing;
     $("play").textContent = playing ? "Stop" : "Play";
     await wb.play(playing);
+    device?.position(lastPos, playing);
     roll().catch(() => {});
   };
   $("all").onclick = () => run(() => desk.rerollAll());
@@ -442,6 +467,8 @@
     }, () => {});
     if (drums && ((p.bar - 1) & 1) !== ((pos.bar - 1) & 1)) drums.render(p);   // the bar sounding (1 or 2)
     pos = { seconds: p.seconds, bar: p.bar };
+    lastPos = p;
+    device?.position(p, playing);
     $("pos").textContent = `bar ${p.bar || "–"} / ${p.bars}  ·  ${fmt(p.seconds)}`;
     mark();
     paintRoll();
