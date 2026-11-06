@@ -71,10 +71,12 @@ export const positionOf = (pos, live) => ({ seconds: pos.seconds, bar: pos.bar, 
 // chords (the 2026-11-05 migration's record, inverted). A six-mode snapshot's mode 0 or 1 is legal on its progression
 // and stays; a major or minor one that names a mode the progression wasn't listed in takes the first one it was;
 // 45-48, split off then, go back to the progressions they came from. Exact: nothing to say.
-const LISTED = { 1: [0], 2: [0], 3: [5], 4: [0], 5: [0], 6: [5], 7: [0], 8: [0], 9: [0], 10: [0], 11: [0], 12: [0], 13: [0],
-  14: [0, 4], 15: [0], 16: [0, 4], 17: [1], 18: [5], 19: [1], 20: [5], 21: [1], 22: [5], 23: [5], 24: [1, 5], 25: [1],
-  26: [1], 27: [3], 28: [3], 29: [4], 30: [4], 31: [1], 32: [1], 33: [1], 34: [4], 35: [3], 36: [3], 37: [4], 38: [4],
-  39: [4], 40: [1], 41: [1], 42: [5], 43: [0], 44: [1] };
+const LISTED = {
+  1: [0], 2: [0], 3: [5], 4: [0], 5: [0], 6: [5], 7: [0], 8: [0], 9: [0], 10: [0], 11: [0], 12: [0], 13: [0], 14: [0, 4],
+  15: [0], 16: [0, 4], 17: [1], 18: [5], 19: [1], 20: [5], 21: [1], 22: [5], 23: [5], 24: [1, 5], 25: [1], 26: [1],
+  27: [3], 28: [3], 29: [4], 30: [4], 31: [1], 32: [1], 33: [1], 34: [4], 35: [3], 36: [3], 37: [4], 38: [4], 39: [4],
+  40: [1], 41: [1], 42: [5], 43: [0], 44: [1],
+};
 const SPLIT = { 45: [4, 5], 46: [4, 31], 47: [5, 33], 48: [5, 41] };   // split id: [its mode, the progression]
 export function fromMajorMinor(rows) {
   const m = rows.mode, p = rows.prog;

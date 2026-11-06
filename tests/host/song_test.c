@@ -3815,7 +3815,8 @@ static void test_bass_and_roots(void)
            "keys without bass voice the root %ld/%ld\n", close, steps, led, walks, rooted, nobass);
     /* (re-baselined, Sam 2026-11-06: the six modes back, over the songs as they roll since (motion first, pattern 9):
        2539 of 2687, 94.5%; was 95% before the major/minor move, 92% during it) */
-    CHECK(steps > 100 && close * 100 >= steps * 94, "step-wise roots placed a step apart only %ld of %ld", close, steps);
+    CHECK(steps > 100 && close * 100 >= steps * 94, "step-wise roots placed a step apart only %ld of %ld", close,
+          steps);
     CHECK(walks > 20 && led * 100 >= walks * 95, "walking approaches led into the next root only %ld of %ld", led, walks);
     (void)rooted;                                    /* (Sam: keys-only sections stay rootless, like the rest; */
     CHECK(nobass > 100, "only %ld keys-only bars", nobass);   /* test_loop_voicings holds them to the same shapes) */
