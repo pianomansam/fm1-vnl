@@ -837,11 +837,12 @@ EXPORT int wb_keys_oct_applied(void)
 /* JSON: what the engine plays for the overrides a song leaves "as rolled", on the staged state (the device mock writes
    "AS ROLLED (HELD)"): the comp style (CS_*) and its added rhythm (COMP_PAT index, else -1), the lead style (LS_*), the
    pad on (0/1) and its place (PL_*), the strum pattern (its table index) and the fill (0 step back, 1 drive), the
-   lead loop's firmware default, the bass line's style (BS_*: roots, walking, pedal). Read only. */
+   lead loop's firmware default, the bass line's style (BS_*: roots, walking, pedal), the ride (RIDE_*), whether the
+   keys sit high (harmony_keys_high) and the lead's band (MIDI, leads_band_for). Read only. */
 EXPORT const char *wb_rolled(void)
 {
-    static char out[200];
-    int slow, cs, pat, ls, on, pl, sp, fd, bs;
+    static char out[320];
+    int slow, cs, pat, ls, on, pl, sp, fd, bs, ride, blk, kh, llo, lhi;
     stage_set(1);
     song_override(&st.ov);
     cs = harmony_style(&st.roll);
@@ -852,11 +853,14 @@ EXPORT const char *wb_rolled(void)
     sp = strum_pattern(&st.roll, &slow);
     fd = strum_fill_drive(&st.roll);
     bs = groove_bass_style(&st.roll);
+    ride = groove_ride(&st.roll, &blk);
+    kh = harmony_keys_high(&st.roll);
+    leads_band_for(&st.roll, ls, &llo, &lhi);
     song_override(&live.ov);
     stage_set(0);
     snprintf(out, sizeof out, "{\"comp\":%d,\"comp_pat\":%d,\"lead_style\":%d,\"pad_on\":%d,\"pad_place\":%d,"
-             "\"strum_pat\":%d,\"strum_fill\":%d,\"lead_loop\":%d,\"bass_style\":%d}", cs, pat, ls, on, pl, sp, fd,
-             LEAD_LOOP_DEFAULT, bs);
+             "\"strum_pat\":%d,\"strum_fill\":%d,\"lead_loop\":%d,\"bass_style\":%d,\"ride\":%d,\"keys_high\":%d,"
+             "\"lead_lo\":%d,\"lead_hi\":%d}", cs, pat, ls, on, pl, sp, fd, LEAD_LOOP_DEFAULT, bs, ride, kh, llo, lhi);
     return out;
 }
 

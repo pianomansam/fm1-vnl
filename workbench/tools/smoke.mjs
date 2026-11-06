@@ -2995,6 +2995,21 @@ console.log("the page by part: sections, part headers, the folded rows, summarie
 }
 
 console.log("the device mock (ui/): the device's words, palette and knobs; the screens' data; the flow between screens");
+{   // every "as rolled" (or "Default") choice a row offers names what it plays (ui/rolled.js), or is in NO_NAME with
+    // its reason: Sam kept finding plain AS ROLLEDs; a new row can't slip by now
+  const { rolledNames, NO_NAME } = await import("../ui/rolled.js");
+  for (const seed of [21, 72, 140, 300]) {
+    const ex = await load(), call = caller(ex);
+    ex.wb_seed(seed); ex.wb_apply();
+    const desk = new Desk(call, C, OPTS, await call("wb_library"), { rnd: lcg(5) });
+    await desk.read();
+    const x = JSON.parse(cstr(ex, ex.wb_rolled())), names = rolledNames(x, desk.state, OPTS);
+    const missing = ROWS.filter((r) => r.kind !== "seed" && r.kind !== "family" && !NO_NAME[r.id] && !names[r.id] &&
+      (r.kind === "reroll" || optionsFor(r, desk.state, OPTS, {}).some((o) => /^(as rolled|default)$/i.test(o.name))))
+      .map((r) => r.id);
+    check(!missing.length && names.rhythm, `seed ${seed}: every "as rolled" names what it plays${missing.length ? `; unnamed: ${missing.join(", ")}` : ""} (${Object.entries(names).filter(([, v]) => v).map(([k, v]) => `${k} ${v}`).join("; ")})`);
+  }
+}
 {   // the mock marks a row waiting where the staged value differs from the song as it plays: with nothing staged,
     // after a song lands, no row may differ (a false "*")
   for (const seed of [21, 72, 140]) {
@@ -3019,7 +3034,7 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
 }
 {   // wb_rolled: what the "as rolled" rows play (the mock writes "AS ROLLED (HELD)"); the comp agrees with wb_comp_applied
   const ex = await fresh(72), x = JSON.parse(cstr(ex, ex.wb_rolled()));
-  const keys = ["comp", "comp_pat", "lead_style", "pad_on", "pad_place", "strum_pat", "strum_fill", "lead_loop", "bass_style"];
+  const keys = ["comp", "comp_pat", "lead_style", "pad_on", "pad_place", "strum_pat", "strum_fill", "lead_loop", "bass_style", "ride", "keys_high", "lead_lo", "lead_hi"];
   check(keys.every((k) => Number.isInteger(x[k])) && x.comp === ex.wb_comp_applied() && [0, 1].includes(x.pad_on) &&
         [0, 1].includes(x.strum_fill) && x.pad_place >= 0 && x.pad_place <= 2, `wb_rolled: ${JSON.stringify(x)}`);
 }

@@ -182,21 +182,10 @@
     $("devfold").onclick = () => { const on = $("devbox").hidden; fold.set("Device", on); show(on); };
     show(fold.isOpen("Device"));
     try {
-      const { mountDevice } = await import("./ui/panel.js");
+      const { mountDevice } = await import("./ui/panel.js"), { rolledNames: rolledOf } = await import("./ui/rolled.js");
       // every row's shown name (upper case, as the device writes), for screens that show the rolls: {kit}, {lead}, ...;
       // {rhythm}: the comp's one Rhythm row (comp rhythms or strum patterns)
-      // what an "as rolled" row plays (wb_rolled: the engine's own choice), by row: shown after it, "AS ROLLED (HELD)"
-      const rolledNames = (x) => {
-        if (!x) return {};
-        const o = desk.opts, up = (s) => (s == null ? undefined : String(s).toUpperCase());
-        const comp = up(compOption(o, x.comp_pat >= 0 ? COMP_PAT_BASE + x.comp_pat : x.comp)?.name);
-        const strum = up(o.strumPats?.find((p) => p.index === x.strum_pat)?.name);
-        return { comp, strumPat: strum, rhythm: rhythmRow(desk.state, o) === "comp" ? comp : strum,
-                 leadStyle: up(o.leadStyles?.find((s) => s.id === x.lead_style + 2)?.name), padOn: ["OFF", "ON"][x.pad_on],
-                 padPlace: ["BELOW THE LEAD", "WITH THE LEAD", "ABOVE THE LEAD"][x.pad_place],
-                 strumFill: ["STEP BACK", "DRIVE"][x.strum_fill], leadLoop: ["OFF", "ON"][x.lead_loop],
-                 bassLine: ["ROOTS", "WALKING", "PEDAL"][x.bass_style] };
-      };
+      const rolledNames = (x) => rolledOf(x, desk.state, desk.opts);   // ui/rolled.js
       const labels = (x) => {
         const rn = rolledNames(x);
         const name = (id, as = id) => { const r = row(id), v = desk.state.values[id];

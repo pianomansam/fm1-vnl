@@ -143,7 +143,7 @@ export function fieldText(def, v, mode, rows) {
   if (def.options) return rows?.options?.[def.row]?.find((o) => String(o.value) === String(v))?.name ?? String(v);
   if (def.format === "variant") {   // a re-roll: what it plays, where the engine names it (the bass line's style)
     const what = String(v) === String(rows?.values?.[def.row]) ? rows?.rolled?.[def.row] : undefined;
-    return `${v ? `VARIANT ${v}` : "AS ROLLED"}${what ? ` (${what})` : ""}`;
+    return `${v ? `VARIANT ${v}` : what ? "AS ROLLED" : "ORIGINAL"}${what ? ` (${what})` : ""}`;   // nothing to name: ORIGINAL
   }
   return valueText(def, v, mode);
 }
