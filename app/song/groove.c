@@ -246,7 +246,7 @@ int groove_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, 
     /* a sampled kit's hats and shaker in 16ths at a light swing march (Sam, set 26): there, 8ths only */
     eighths = r->v[RF_SWING] < 550 && lib_kit_sampled(lib_song_kit(r));
     last_bar = bar == b->start + b->bars - 1;
-    drop = last_bar && (b->flags & PB_DROP_LAST);
+    drop = (b->flags & PB_DROP_LAST) && (last_bar || ((b->flags & PB_DROP2) && bar == b->start + b->bars - 2));   /* 1 or 2 bars */
     fill = last_bar && (b->flags & PB_FILL_LAST) && !drop;
 
     /* per-song lateness bases; the snare range leaves room for its +-3 ms so every snare stays within 10-30 ms */

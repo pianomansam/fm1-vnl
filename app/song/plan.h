@@ -14,7 +14,8 @@ enum {
     PB_DROP_LAST = 2,   /* 1-bar drum drop on the block's last bar */
     PB_DARK = 4,        /* darker chord voicing (intro, keys outro) */
     PB_FADE = 8,        /* fade over the block */
-    PB_SWELL = 16       /* a swell before the next block (sound in Plan 3) */
+    PB_SWELL = 16,      /* a swell before the next block (sound in Plan 3) */
+    PB_DROP2 = 32       /* with PB_DROP_LAST: the drop is the block's last 2 bars (Sam, 2026-11-06) */
 };
 
 typedef struct { uint8_t start, bars; uint8_t section; uint8_t layers; uint8_t flags; } plan_block_t; /* layers: L_* */

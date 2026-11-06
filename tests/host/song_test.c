@@ -8465,9 +8465,10 @@ static void test_strum_same(void)
        Re-pinned again (Sam 2026-11-05: the lead never ends a phrase on a dominant's 7th): were a1a2ed59 and
        70f7bb49. Re-pinned again (Sam 2026-11-06: modes restored, the move to major or minor undone): were 88efe746
        and 04161afd. Re-pinned (Sam 2026-11-06: leads evened, sets 22, 27, 30, 32, 34, 37 re-led): were 5d70ccd5 and
-       b029afb6 */
-    CHECK(a == 0x6cd3cd86u, "strum same: the strummed songs hash %08x, wanted 6cd3cd86", (unsigned)a);
-    CHECK(b == 0xdd41f6e5u, "strum same: with set changes %08x, wanted dd41f6e5", (unsigned)b);
+       b029afb6. Re-pinned (Sam 2026-11-06: more drum drops, 1 or 2 bars, and a section without the comp in some
+       songs): were 6cd3cd86 and dd41f6e5 */
+    CHECK(a == 0x4d0cbf47u, "strum same: the strummed songs hash %08x, wanted 4d0cbf47", (unsigned)a);
+    CHECK(b == 0x567123f0u, "strum same: with set changes %08x, wanted 567123f0", (unsigned)b);
     v = (uint32_t)sf_last_bad();
     CHECK(v == 0, "strum same: %u strummed bars left the keys' last voicing behind", (unsigned)v);
 }
@@ -8675,8 +8676,8 @@ static void test_wb_off(void)
     uint32_t a, b;
     lib_set_wb(NULL, 0); lib_pattern_wb(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x6cd3cd86u, "wb off: the strummed songs hash %08x, wanted 6cd3cd86", (unsigned)a);
-    CHECK(b == 0xdd41f6e5u, "wb off: with set changes %08x, wanted dd41f6e5", (unsigned)b);
+    CHECK(a == 0x4d0cbf47u, "wb off: the strummed songs hash %08x, wanted 4d0cbf47", (unsigned)a);
+    CHECK(b == 0x567123f0u, "wb off: with set changes %08x, wanted 567123f0", (unsigned)b);
 }
 /* The workbench's mute (vx_mute, default off). mt_song: a song's first 20 s as the app plays it, its samples hashed
    (mute: vx_mute(0) called first, as the workbench's wb_init does) */
@@ -8723,8 +8724,8 @@ static void test_vx_mute_off(void)
     CHECK(a == b, "vx mute off: vx_mute(0) changed the samples (%08x, wanted %08x)", (unsigned)b, (unsigned)a);
     vx_mute(0);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x6cd3cd86u, "vx mute off: the strummed songs hash %08x, wanted 6cd3cd86", (unsigned)a);
-    CHECK(b == 0xdd41f6e5u, "vx mute off: with set changes %08x, wanted dd41f6e5", (unsigned)b);
+    CHECK(a == 0x4d0cbf47u, "vx mute off: the strummed songs hash %08x, wanted 4d0cbf47", (unsigned)a);
+    CHECK(b == 0x567123f0u, "vx mute off: with set changes %08x, wanted 567123f0", (unsigned)b);
 }
 /* Review Focus 2 (Task 2): a bus muted mid-note is silent after the chunk it goes out in (and a quantum for the
    chain's own filters), its voice still playing (the duck follows it); unmuted, the notes struck while muted end at
@@ -8835,7 +8836,7 @@ static void test_vx_level(void)
     b = mt_song(0);
     CHECK(a == b, "vx level: 0 dB changed the samples (%08x, wanted %08x)", (unsigned)b, (unsigned)a);
     a = sf_songs(0);
-    CHECK(a == 0x6cd3cd86u, "vx level: the strummed songs hash %08x at 0 dB, wanted 6cd3cd86", (unsigned)a);
+    CHECK(a == 0x4d0cbf47u, "vx level: the strummed songs hash %08x at 0 dB, wanted 4d0cbf47", (unsigned)a);
     for (i = 0; i < (int)(sizeof P / sizeof P[0]); i++) {
         for (k = 0; k < 2; k++)
             ref[k] = mx_song(P[i].seed[k], P[i].role);
@@ -11105,7 +11106,7 @@ static void test_ov_part_salts(void)
                       NAME[j], moved[j]);
     }
     song_override(NULL);
-    CHECK(sf_songs(0) == 0x6cd3cd86u && sf_songs(1) == 0xdd41f6e5u, "ov part salts: the pinned hashes moved");
+    CHECK(sf_songs(0) == 0x4d0cbf47u && sf_songs(1) == 0x567123f0u, "ov part salts: the pinned hashes moved");
 }
 /* Task 1b (Sam, 2026-10-29): "Remove the ear candy part completely"; "Make it possible for the pad part to not be in
    a song. And update the seeds to not always have it"; "add the ability for the pad part to drop out of certain song
@@ -11382,8 +11383,8 @@ static void test_ov_off(void)
     CHECK(o && o->comp == -1 && o->lead_style == -1 && o->pad_place == -1 && o->ride == -1 && !o->keys_oct &&
           !o->lead_oct && !o->voicing_salt && !o->phrase_salt, "ov off: the default override forces something");
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x6cd3cd86u, "ov off: the strummed songs hash %08x, wanted 6cd3cd86", (unsigned)a);
-    CHECK(b == 0xdd41f6e5u, "ov off: with set changes %08x, wanted dd41f6e5", (unsigned)b);
+    CHECK(a == 0x4d0cbf47u, "ov off: the strummed songs hash %08x, wanted 4d0cbf47", (unsigned)a);
+    CHECK(b == 0x567123f0u, "ov off: with set changes %08x, wanted 567123f0", (unsigned)b);
 }
 /* a steal of a damped string (the final review): six strings struck, the first two re-struck at once (their last
    notes damped on the 2 spare voices), then a plain chord note (no string: a stab after a set change) while they
@@ -12553,8 +12554,8 @@ static void test_drums_hook(void)
     CHECK(quiet_bad == 0, "drums hook: a silent source still sounds at %d steps", quiet_bad);
     drums_hook(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x6cd3cd86u, "drums hook off: the strummed songs hash %08x, wanted 6cd3cd86", (unsigned)a);
-    CHECK(b == 0xdd41f6e5u, "drums hook off: with set changes %08x, wanted dd41f6e5", (unsigned)b);
+    CHECK(a == 0x4d0cbf47u, "drums hook off: the strummed songs hash %08x, wanted 4d0cbf47", (unsigned)a);
+    CHECK(b == 0x567123f0u, "drums hook off: with set changes %08x, wanted 567123f0", (unsigned)b);
     dh_on = 0;
     vx_init();
     {
@@ -12824,7 +12825,8 @@ static uint32_t ll_hash(uint32_t h, const song_roll_t *r, int style, int loop)
    dominant's 7th): were 24d5953d (-1) and 83e6ac47 (0). Re-pinned again (Sam 2026-11-06: no roll, every keys
    instrument strikes its chord together like the piano; then the modes restored, the move to major or minor undone):
    were b06a36a1 (-1) and 8b298449 (0). Re-pinned (Sam 2026-11-06: leads evened, sets 22, 27, 30, 32, 34, 37 re-led):
-   were f1ed957f (-1) and e0865680 (0) */
+   were f1ed957f (-1) and e0865680 (0). Re-pinned (Sam 2026-11-06: more drum drops, a section without the comp):
+   were 3f87c951 (-1) and e7597b5f (0) */
 static void test_lead_loop_off_identical(void)
 {
     uint32_t seed, h[2] = {2166136261u, 2166136261u};
@@ -12836,8 +12838,8 @@ static void test_lead_loop_off_identical(void)
             for (k = 0; k < 2; k++) h[k] = ll_hash(h[k], &r, st, k - 1);
     }
     printf("lead loop off: events %08x (lead_loop -1), %08x (0)\n", (unsigned)h[0], (unsigned)h[1]);
-    CHECK(h[0] == 0x3f87c951u, "lead loop default: lead_loop -1 hashes %08x, wanted 3f87c951", (unsigned)h[0]);
-    CHECK(h[1] == 0xe7597b5fu, "lead loop off: lead_loop 0 hashes %08x, wanted e7597b5f", (unsigned)h[1]);
+    CHECK(h[0] == 0x939545e9u, "lead loop default: lead_loop -1 hashes %08x, wanted 939545e9", (unsigned)h[0]);
+    CHECK(h[1] == 0xf0ae3f5du, "lead loop off: lead_loop 0 hashes %08x, wanted f0ae3f5d", (unsigned)h[1]);
 }
 
 typedef struct {

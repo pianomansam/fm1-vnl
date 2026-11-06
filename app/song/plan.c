@@ -48,6 +48,7 @@ static int unit_end(const grid_t *g, int u)
 }
 static int unit_of(const grid_t *g, int s) { return (s - g->ms) / 2; }
 static int chance(rng_t *r, int pct) { return rng_int(r, 100) < pct; }
+static int popcount8(uint8_t x) { int n = 0; for (; x; x &= (uint8_t)(x - 1)) n++; return n; }
 
 /* Optional changes a boundary (slot s-1 -> s) can still take, given the skeleton and the lead already placed. */
 static int room(const grid_t *g, int s)
@@ -241,7 +242,7 @@ void plan_build(const song_roll_t *r, song_plan_t *p)
     static grid_t g;   /* static: no stack burden on the device */
     const lib_map_t *m = lib_map_by_id((uint8_t)r->v[RF_MAP]);
     int bars = r->v[RF_BARS], motion = r->v[RF_MOTION], s, i, run = 0, steady, drops_ok;
-    rng_t sk, mo, bk;
+    rng_t sk, mo, bk, dr, ck;
 
     if (!m) m = &LIB_MAPS[0];
     if (bars < 36) bars = 36;
@@ -255,6 +256,8 @@ void plan_build(const song_roll_t *r, song_plan_t *p)
     rng_seed(&sk, r->seed ^ 0x504C414Eu, 100);   /* skeleton dice: independent of Motion */
     rng_seed(&mo, r->seed ^ 0x4D4F5645u, 100);   /* Motion dice */
     rng_seed(&bk, r->seed ^ 0x42524B48u, 100);   /* break hats' dice: own stream, no other draw moves */
+    rng_seed(&dr, r->seed ^ 0x44524F50u, 100);   /* the drum drops' dice (2026-11-06): own stream */
+    rng_seed(&ck, r->seed ^ 0x4B4F4646u, 100);   /* the comp-less section's dice (2026-11-06): own stream */
     skeleton(&g, m, &sk);
     /* R11: the skeleton binds over Motion. Slow bloom's drums never drop once the kick is in (no hats-out, no
        drops); Straight in has only small hat drop-outs (no 1-bar drops). */
@@ -287,14 +290,32 @@ void plan_build(const song_roll_t *r, song_plan_t *p)
     }
     p->bars = (uint8_t)bars;
 
+    /* A section without the comp (Sam, 2026-11-06: less sameness): about a third of songs, one groove or break block
+       with no lead, never the first after the intro, plays without the keys (the pad goes with them: pad_part) */
+    if (chance(&ck, 33)) {
+        int pick[24], np = 0;
+        for (i = 1; i < p->n; i++) {
+            plan_block_t *b = &p->b[i];
+            uint8_t nl = (uint8_t)(b->layers & ~L_KEYS), nxl = i + 1 < p->n ? p->b[i + 1].layers : nl;
+            if ((b->section == SEC_GROOVE || b->section == SEC_BREAK) && !(b->layers & L_LEAD) && (b->layers & L_KEYS) &&
+                (b->layers & DRUMS) && p->b[i - 1].section != SEC_INTRO &&
+                popcount8((uint8_t)(p->b[i - 1].layers ^ nl)) <= 2 && popcount8((uint8_t)(nl ^ nxl)) <= 2)   /* R: at most 2 layers a boundary */
+                pick[np++] = i;
+        }
+        if (np) p->b[pick[rng_int(&ck, np)]].layers &= (uint8_t)~L_KEYS;
+    }
     for (i = 0; i < p->n; i++) {
         plan_block_t *b = &p->b[i], *nx = i + 1 < p->n ? &p->b[i + 1] : 0;
-        int drop = chance(&mo, 40 * motion / 100);
+        /* a drum drop at a section change where the drums go on (Sam, 2026-11-06: more of them, 1 or 2 bars): about
+           45% at Motion 50 (90 * Motion: none at Motion 0), 2 bars in 60% where the block is 8, never at two changes in a row; the
+           steady maps keep theirs (R11) */
+        int drop = chance(&dr, 90 * motion / 100), two = chance(&dr, 60);
         if (b->section == SEC_INTRO || b->section == SEC_OUTRO) b->flags |= PB_DARK;
         if (!nx) continue;
         if (!(b->layers & DRUMS) && (nx->layers & DRUMS)) b->flags |= PB_SWELL;
         if (!(b->layers & (L_KICK | L_SNARE))) continue;
-        if (drop && drops_ok && b->bars == 8 && ((b->layers ^ nx->layers) & (DRUMS | L_BASS)) == 0) b->flags |= PB_DROP_LAST;
+        if (drop && drops_ok && b->bars >= 4 && (nx->layers & (L_KICK | L_SNARE)) && !(i && (p->b[i - 1].flags & PB_DROP_LAST)))
+            b->flags |= (uint8_t)(PB_DROP_LAST | (two && b->bars >= 8 ? PB_DROP2 : 0));
         else if ((b->layers ^ nx->layers) & (L_KICK | L_SNARE | L_BASS)) b->flags |= PB_FILL_LAST;
     }
     if (m->ending == END_FADE) p->b[p->n - 1].flags |= PB_FADE;
