@@ -20,6 +20,18 @@ said STOP
 peakreset
 wait 1000
 expect peak_db_max <-90
+# the screen: the song held (its key line, the bar PLAY continues from), STOPPED
+expect same_song 1
+expect bars_on 0
+where
+wait 50
+said BPM
+where
+wait 50
+said STOPPED
+where
+wait 50
+said /
 # PLAY: the same song, back at the start of that bar, the change still on its way
 tap PLAY
 wait 30
@@ -58,6 +70,7 @@ tap SEQ
 wait 50
 said NEW SONG
 expect playing 0
+expect same_song 0
 peakreset
 wait 1000
 expect peak_db_max <-90

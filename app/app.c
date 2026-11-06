@@ -103,6 +103,7 @@ static void post(uint32_t c, int a, int b)
 /* ------------------------------------------------------- render -> main --- */
 typedef struct {
     uint8_t playing, has_song, stopped;
+    uint8_t ready, held;                 /* stopped, a song ready (roll); held: one to continue (bar, section) */
     uint8_t req_set[RF_N];               /* a knob's request waiting for the boundary, and its value */
     int16_t req_val[RF_N];
     int32_t songs, bar, section, flags, pend_field, pend_bars, voices;
@@ -331,6 +332,18 @@ static void publish(void)
         memcpy(snap.req_val, req_val, sizeof req_val);
     } else {
         snap.section = -1;
+    }
+    snap.held = rs == RS_STOP && held;
+    snap.ready = snap.held || (rs == RS_STOP && mb_full);   /* (the main loop writes mb_roll only while it's empty) */
+    if (snap.held) {                     /* the song held, at the bar it continues from */
+        b = plan_at(&mark.plan, mark.bar);
+        snap.roll = song.roll;
+        snap.bar = mark.bar;
+        snap.section = b ? b->section : -1;
+        snap.flags = b ? b->flags : 0;
+    } else if (snap.ready) {             /* the song in the mailbox, from its start */
+        snap.roll = mb_roll;
+        snap.bar = 0;
     }
     snap.pend_field = f;
     snap.pend_bars = bars;
@@ -702,8 +715,19 @@ static void speak(void)
         text_cat(t, APP_NAME ". ");
         if (rm.on)
             text_cat(t, "BROWSER. CONTROLLING THE WORKBENCH");
-        else if (!ui.shown.has_song)
+        else if (!ui.shown.has_song) {
             text_cat(t, ui.shown.stopped ? "STOPPED" : "NEXT SONG");
+            if (ui.shown.ready) {            /* the song ready: its key and tempo, and where it continues from */
+                text_cat(t, ". ");
+                line_key(&ui.shown, l);
+                text_cat(t, l);
+            }
+            if (ui.shown.held) {
+                text_cat(t, ". ");
+                line_place(&ui.shown, l);
+                text_cat(t, l);
+            }
+        }
         else {
             line_key(&ui.shown, l);
             text_cat(t, l);
@@ -900,7 +924,7 @@ static void draw(void)
         cv_text(x + 8, 6, &FONT_B, ui.msg[1], C_HI);
     } else {
         cv_text(10, 6, &FONT_B, APP_NAME, C_WHITE);
-        if (s->has_song && !rm.on) {
+        if ((s->has_song || s->ready) && !rm.on) {
             line_key(s, t);
             cv_text(230 - text_w(&FONT_XS, t), 10, &FONT_XS, t, C_HI);
         }
@@ -919,6 +943,10 @@ static void draw(void)
         line_pending(s, t);
         cv_text(10, 74, &FONT_XS, t, C_HI);
     } else {
+        if (s->held) {                    /* where PLAY continues */
+            line_place(s, t);
+            cv_text(10, 4, &FONT_XS, t, C_GRAY);
+        }
         cv_text(10, 34, &FONT_B, s->stopped ? "STOPPED" : "NEXT SONG", C_GRAY);
     }
     cv_blit(0, 40);
@@ -949,7 +977,8 @@ void app_frame(void)
         seed_boot();
     roll_next();
     snap_read(&s);
-    if (s.has_song != ui.shown.has_song || s.stopped != ui.shown.stopped || s.bar != ui.shown.bar
+    if (s.has_song != ui.shown.has_song || s.stopped != ui.shown.stopped || s.ready != ui.shown.ready
+        || s.held != ui.shown.held || s.bar != ui.shown.bar
         || s.section != ui.shown.section || s.pend_field != ui.shown.pend_field || s.pend_bars != ui.shown.pend_bars
         || memcmp(&s.roll, &ui.shown.roll, sizeof s.roll) || memcmp(s.req_val, ui.shown.req_val, sizeof s.req_val))
         ui.redraw = 1;
@@ -978,7 +1007,7 @@ int app_expect(const char *what, int *got)
     else if (!strcmp(what, "songs"))
         *got = s.songs;
     else if (!strcmp(what, "bar"))
-        *got = s.has_song ? s.bar : -1;
+        *got = s.has_song || s.held ? s.bar : -1;   /* (held: the bar PLAY continues from) */
     else if (!strcmp(what, "section"))
         *got = s.has_song ? s.section : -1;
     else if (!strcmp(what, "tempo"))
@@ -991,10 +1020,11 @@ int app_expect(const char *what, int *got)
         *got = s.voices;
     else if (!strcmp(what, "remote"))
         *got = rm.on;
-    else if (!strcmp(what, "same_song"))   /* the song playing is the one remembered (1), another (0); none: -1 */
-        *got = s.has_song && rem_bar >= 0 ? s.roll.seed == rem_seed : -1;
-    else if (!strcmp(what, "bars_on"))     /* the bar playing, less the one remembered (the same song) */
-        *got = s.has_song && rem_bar >= 0 && s.roll.seed == rem_seed ? s.bar - rem_bar : -99;
+    else if (!strcmp(what, "same_song"))   /* the song playing or ready is the one remembered (1), another (0); none:
+                                              -1 */
+        *got = (s.has_song || s.ready) && rem_bar >= 0 ? s.roll.seed == rem_seed : -1;
+    else if (!strcmp(what, "bars_on"))     /* the bar playing (or held), less the one remembered (the same song) */
+        *got = (s.has_song || s.held) && rem_bar >= 0 && s.roll.seed == rem_seed ? s.bar - rem_bar : -99;
     else
         return 0;
     return 1;

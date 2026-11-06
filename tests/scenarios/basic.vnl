@@ -5,6 +5,10 @@
 listen
 wait 600
 said STOPPED
+# the song ready: its key line
+where
+wait 50
+said BPM
 shot boot.png
 expect playing 0
 expect songs 0

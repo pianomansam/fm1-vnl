@@ -380,11 +380,13 @@ export default {
           { when: "msg", text: "{msg1}", font: "B", after: 8, y: 6, color: "HI" },
           { when: "!msg", text: "{APP}", font: "B", x: 10, y: 6, color: "WHITE" },
           { when: ["!msg", "song"], text: "{keyline}", font: "XS", right: 230, y: 10, color: "HI" },
+          { when: ["!msg", "stopped"], text: "{keyline}", font: "XS", right: 230, y: 10, color: "HI" },   // the song ready
         ] },
         { y: 40, h: 120, draw: [
           { when: "song", text: "{place}", font: "XS", x: 10, y: 4, color: "GRAY" },
           { when: "song", text: "{chord}", font: "B", x: 10, y: 34, color: "WHITE" },
           { when: "song", text: "{pending}", font: "XS", x: 10, y: 74, color: "HI" },
+          { when: ["stopped", "section"], text: "{place}", font: "XS", x: 10, y: 4, color: "GRAY" },   // held: where PLAY continues
           { when: "!song", text: "{idle}", font: "B", x: 10, y: 34, color: "GRAY" },
         ] },
         { y: 190, h: 40, draw: [

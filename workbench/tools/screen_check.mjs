@@ -4,9 +4,10 @@
 // pixel by pixel (RGB565). Both need their builds:
 //   ./build.sh --host && sh workbench/build.sh && node workbench/tools/screen_check.mjs [OUTDIR]
 // OUTDIR: each state as a PNG, the device's beside the mock's (and their differences in red).
-// The states: at boot (stopped, a song ready: STOPPED), a song playing (after PLAY), a knob just turned (the message
-// and the change waiting), the change waiting, a stop's message, stopped, and between songs (NEXT SONG: PLAY continues
-// the song, SEQ cuts to the gap before a new one). The simulator's state (the bar, the key ...) is read off its
+// The states: at boot (stopped, a song ready: its key line and STOPPED), a song playing (after PLAY), a knob just
+// turned (the message and the change waiting), the change waiting, a stop's message, stopped (the song held: its key
+// line, the bar PLAY continues from, STOPPED), and between songs (NEXT SONG: PLAY continues the song, SEQ cuts to the
+// gap before a new one). The simulator's state (the bar, the key ...) is read off its
 // own `expect` lines (a deliberately impossible value prints what it got); the song's facts the mock needs (the
 // section, the map, the chord) come from the workbench's wb.wasm for the same seed and bar.
 import { execFileSync } from "node:child_process";
@@ -111,20 +112,20 @@ const TURNS = { 12345: ["K2", 1], 4242: ["K1", -2] };
 for (const seed of SEEDS) {
   const [knob, n] = TURNS[seed];
   const h = host(seed, [
-    "wait 5", "fbdump boot.raw",
+    "wait 100", "fbdump boot.raw",
     "tap PLAY", "wait 6000", "expect bar -99", "fbdump play.raw",
     `turn ${knob} ${n}`, "expect bar -99", "expect pending -99", "fbdump msg.raw",
     "wait 1400", "expect bar -99", "expect pending -99", "fbdump pending.raw",
-    "tap PLAY", "wait 50", "fbdump stopmsg.raw", "wait 1400", "fbdump stopped.raw",
+    "tap PLAY", "wait 50", "expect bar -99", "fbdump stopmsg.raw", "wait 1400", "fbdump stopped.raw",
     "tap PLAY", "tap SEQ", "wait 1400", "fbdump next.raw",
   ]);
   const seq = h.got.map(([k, v]) => `${k}=${v}`);
-  if (h.got.length !== 5) { console.log(`  FAIL ${seed}: the simulator's state unread (${seq})`); ok = false; continue; }
-  const [b0, b1, p1, b2, p2] = h.got.map(([, v]) => v);
+  if (h.got.length !== 6) { console.log(`  FAIL ${seed}: the simulator's state unread (${seq})`); ok = false; continue; }
+  const [b0, b1, p1, b2, p2, b3] = h.got.map(([, v]) => v);
   t = 0;
   const now = () => t, dev = new Device(data, engine, now);
   dev.stack = ["today"];   // the device's screen as it is today (the new main screen isn't on the device yet)
-  dev.update(live(seed, 0, { playing: false }));   // boot: stopped, the song not started
+  dev.update(live(seed, 0, { playing: false, facts: { section: -1 } }));   // boot: stopped, the song ready (no place)
   ok = compare(`${seed}-boot`, h.shot("boot.raw"), mock(dev)) && ok;
   dev.update(live(seed, b0));
   ok = compare(`${seed}-playing`, h.shot("play.raw"), mock(dev)) && ok;
@@ -138,7 +139,7 @@ for (const seed of SEEDS) {
   if ((dev.shown().pend?.bars ?? -1) !== p2) { console.log(`  FAIL ${seed}: pending ${dev.shown().pend?.bars} vs ${p2}`); ok = false; }
   ok = compare(`${seed}-pending`, h.shot("pending.raw"), mock(dev)) && ok;
   dev.press("PLAY");
-  dev.update({ ...live(seed, b2), playing: false });
+  dev.update({ ...live(seed, b3), playing: false });   // the song held at the bar it stopped in
   ok = compare(`${seed}-stop-message`, h.shot("stopmsg.raw"), mock(dev)) && ok;
   t += 1400;
   ok = compare(`${seed}-stopped`, h.shot("stopped.raw"), mock(dev)) && ok;
