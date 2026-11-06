@@ -633,6 +633,19 @@ void score_step(const song_t *s, int bar, int st, const song_ev_t *ev, int n, fl
         log_flush();
 }
 
+void score_resume(int bar, float now)
+{
+    if (!ready() || !live)
+        return;
+    log_flush();
+    while (nrec && recs[nrec - 1].bar >= bar)           /* the bar plays again from its start: once in the score */
+        nrec--;
+    if (logf) {
+        fprintf(logf, "%6.2fs  stopped; continues from bar %d\n", (double)now, bar + 1);
+        fflush(logf);
+    }
+}
+
 void score_gap(float now, float secs)
 {
     if (!ready())

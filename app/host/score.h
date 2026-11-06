@@ -9,5 +9,6 @@
 void score_song(const song_t *s, float now);            /* a song starts at `now` seconds since boot */
 void score_step(const song_t *s, int bar, int st, const song_ev_t *ev, int n, float now);   /* one 16th's events */
 void score_gap(float now, float secs);                  /* the song ended; silence follows */
+void score_resume(int bar, float now);                  /* after a stop, the song continues from bar's start */
 
 #endif
