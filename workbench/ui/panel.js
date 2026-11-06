@@ -26,6 +26,12 @@ const CSS = `
   .dev .ctl button { font-size: 11px; font-weight: 600; padding: 4px 0; width: 64px; letter-spacing: 0.04em; }
   .dev .ctl button i, .dev .enc i { font-style: normal; font-weight: 400; color: var(--muted); margin-left: 4px; }
   .dev .ctl button.live { border-color: var(--accent); }
+  .dev .keys27 { position: relative; height: 64px; margin-top: 12px; max-width: ${2 * W + 20}px; }
+  .dev .keys27 button { position: absolute; top: 0; padding: 0; border-radius: 0 0 4px 4px; font-size: 9px; }
+  .dev .keys27 button.w { height: 64px; background: #f4f2ec; color: #555; border: 1px solid #999; z-index: 1;
+                          display: flex; align-items: flex-end; justify-content: center; padding-bottom: 3px; }
+  .dev .keys27 button.b { height: 38px; background: #222; color: #ddd; border: 1px solid #000; z-index: 2; }
+  .dev .keys27 button.live { box-shadow: inset 0 -4px 0 var(--accent); }
   .dev .encs { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
   .dev .enc { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; width: 78px; }
   .dev .enc .dial { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--line); background: var(--panel);
@@ -105,8 +111,21 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
     } });
   tools.append(usbBtn);
   addEventListener("pagehide", () => usb?.disconnect());
+  // the 27 keys, F3 up (plat.h's keys 0..26): KEY0..KEY26; a screen maps them like any control (the song map's
+  // white keys jump, Sam 2026-11-06). The OP1-OP5 black keys are printed on the FM-1's lower black keys.
+  const BLACK = new Set([1, 3, 5, 8, 10]), white = [], keyRow = el("div", { className: "keys27" });
+  for (let k = 0; k < 27; k++) if (!BLACK.has(((k % 12) + 12) % 12)) white.push(k);
+  const kw = Math.floor((2 * W + 20) / white.length);
+  for (let k = 0; k < 27; k++) {
+    const id = `KEY${k}`, isB = BLACK.has(k % 12), wi = white.filter((w) => w < k).length;
+    const b = el("button", { className: isB ? "b" : "w", title: `key ${k}`, onclick: () => act(id),
+                             textContent: isB ? "" : "FGABCDE"[wi % 7] });
+    Object.assign(b.style, isB ? { left: `${wi * kw - kw * 0.3}px`, width: `${kw * 0.6}px` } : { left: `${wi * kw}px`, width: `${kw}px` });
+    ctl.set(id, b);
+    keyRow.append(b);
+  }
   box.append(el("div", { className: "dev" },
-                el("div", {}, canvas, say, encs, knobs, ...rows),
+                el("div", {}, canvas, say, encs, knobs, ...rows, keyRow),
                 el("div", {}, crumb, flow, bad, tools, usbState)));
 
   // ui/screens.js, fresh from disk (a new URL each time, past the module cache); a mistake shows here and the last
@@ -145,7 +164,8 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
       const a = actionOf(d, id, c);
       return !a || (a.go === "home" && id === d.home) ? "" : a.go ? `→ ${a.go === "back" || a.go === "home" ? a.go : a.go === "cursor" ? "the highlighted part" : d.screens[a.go]?.title ?? a.go}`
         : a.do === "play" ? "play / stop" : a.do === "cursor" ? "move the highlight" : a.do === "part" ? "next part"
-        : a.do === "page" ? "next page" : `${d.fields[a.field]?.name ?? a.field}${a.do === "nudge" ? ` ${a.by > 0 ? "+" : ""}${a.by}` : ""}`;
+        : a.do === "page" ? "next page" : a.do === "jump" ? (a.i !== undefined ? `go to section ${a.i + 1}` : "go to the highlighted section")
+        : a.do === "reroll" ? "new song" : `${d.fields[a.field]?.name ?? a.field}${a.do === "nudge" ? ` ${a.by > 0 ? "+" : ""}${a.by}` : ""}`;
     };
     for (const [id, e] of ctl) {   // what each control does here
       const what = does(dev.id, id);

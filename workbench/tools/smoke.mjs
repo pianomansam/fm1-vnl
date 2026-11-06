@@ -3111,6 +3111,10 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
     dj.update({ ...live(4), sections: secs });
     check(w.pending === "GO TO LEAD IN 3 BARS" && w.sec2 === "*LEAD" && w.sec2Pend && early === 0 && JSON.stringify(jumps) === '[[24,"lead"]]',
           `a jump at bar 2: "${w.pending}", "${w.sec2}" waiting; sent in bar 4 (${JSON.stringify(jumps)})`);
+    dj.update({ ...live(5), sections: secs });
+    dj.press("KEY2");   // the second white key: the second section
+    const k = dj.values();
+    check(k.pending === "GO TO GROOVE IN 4 BARS" && k.sec1 === "*GROOVE", `the second white key on the song map: "${k.pending}"`);
   }
   {   // a new song, rolled or the next one, goes back to the main screen
     dev.press("ALGO", 1); dev.press("EDIT");

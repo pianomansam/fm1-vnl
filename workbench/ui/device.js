@@ -359,7 +359,7 @@ export function problems(data) {
     if ((s.knobs ?? []).length > 4) out.push(`${id}: more than four knobs`);
     for (const k of s.knobs ?? []) if (!data.fields?.[k.field]) out.push(`${id}.knobs: no field "${k.field}"`);
     for (const [c, a] of Object.entries(s.controls ?? {})) {
-      if (![...BUTTONS, ...ENCODERS].includes(c)) out.push(`${id}.controls: no control ${c} (K1-K4 are knobs)`);
+      if (![...BUTTONS, ...ENCODERS].includes(c) && !/^KEY([0-9]|1[0-9]|2[0-6])$/.test(c)) out.push(`${id}.controls: no control ${c} (K1-K4 are knobs; keys KEY0-KEY26)`);
       act(`${id}.controls.${c}`, a);
     }
     for (const p of s.say ?? []) typeof p === "string" ? tpl(`${id}.say`, p) : (tpl(`${id}.say`, p.text), cond(`${id}.say`, p.when));
@@ -447,11 +447,11 @@ export class Device {
       return { from, control, to: this.id };
     }
     if (a.do === "jump") {   // the highlighted section: the song goes there (at the next bar line, as the workbench's strip)
-      const sec = this.live?.sections?.[this.cursor[this.id] ?? 0];
+      const i = a.i ?? this.cursor[this.id] ?? 0, sec = this.live?.sections?.[i];   // a.i: a key's own section
       if (sec && this.hasSong()) {   // it lands on the next 4-bar boundary, as a knob's change does (Sam, 2026-11-06)
         const l = this.live, bar = l.bar - 1, at = (Math.floor(bar / 4) + 1) * 4;
         if (at < l.bars) {
-          this.jumpReq = { start: sec.start, name: sec.name, i: this.cursor[this.id] ?? 0, at, sent: false };
+          this.jumpReq = { start: sec.start, name: sec.name, i, at, sent: false };
           if (bar >= at - 1) this.update(l);
         }
         this.say("GO TO", String(sec.name).toUpperCase());
