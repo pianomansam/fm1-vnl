@@ -2995,6 +2995,28 @@ console.log("the page by part: sections, part headers, the folded rows, summarie
 }
 
 console.log("the device mock (ui/): the device's words, palette and knobs; the screens' data; the flow between screens");
+{   // the mock marks a row waiting where the staged value differs from the song as it plays: with nothing staged,
+    // after a song lands, no row may differ (a false "*")
+  for (const seed of [21, 72, 140]) {
+    const ex = await load(), call = caller(ex);
+    ex.wb_seed(seed); ex.wb_apply(); ex.wb_play(1); render(ex, Q);
+    const desk = new Desk(call, C, OPTS, await call("wb_library"), { rnd: lcg(5) });
+    await desk.read();
+    const live = fromEngine(JSON.parse(cstr(ex, ex.wb_live_state())), C, OPTS);
+    const off = ROWS.filter((r) => r.kind !== "seed" && r.kind !== "family" && String(desk.state.values[r.id]) !== String(live[r.id]))
+      .map((r) => `${r.id} ${desk.state.values[r.id]}/${live[r.id]}`);
+    check(!off.length, `seed ${seed}: nothing staged, no row marked waiting${off.length ? `: ${off.join(", ")}` : ""}`);
+    if (seed === 140) {   // a bass instrument set on the page: staged, so marked until its bar line, then not
+      const other = optionsFor(row("bass"), desk.state, OPTS, {}).find((o) => o.value !== desk.state.values.bass && !o.unavailable);
+      await desk.set("bass", other.value);
+      const before = fromEngine(JSON.parse(cstr(ex, ex.wb_live_state())), C, OPTS).bass;
+      render(ex, 4 * SR);
+      const after = fromEngine(JSON.parse(cstr(ex, ex.wb_live_state())), C, OPTS).bass;
+      check(String(desk.state.values.bass) !== String(before) && String(desk.state.values.bass) === String(after),
+            `a bass set on the page (${other.name}) differs from the song as it plays until its bar line (marked), then lands`);
+    }
+  }
+}
 {   // wb_rolled: what the "as rolled" rows play (the mock writes "AS ROLLED (HELD)"); the comp agrees with wb_comp_applied
   const ex = await fresh(72), x = JSON.parse(cstr(ex, ex.wb_rolled()));
   const keys = ["comp", "comp_pat", "lead_style", "pad_on", "pad_place", "strum_pat", "strum_fill", "lead_loop"];

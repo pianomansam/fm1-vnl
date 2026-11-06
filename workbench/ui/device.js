@@ -174,6 +174,14 @@ export function valuesOf(s, data) {
   // value and its row's label (a tile's {kit}); {field}Pend / {row}Pend true. Not on the reference screen (today's
   // device draws the old value until it lands)
   const waiting = s.mark ? Object.entries(s.reqs ?? {}) : [];
+  // and a change made elsewhere (the workbench's rows) staged but not playing yet: its row's value differs from the
+  // song's as it plays (rows.live)
+  if (s.mark && s.rows?.live)
+    for (const [k, def] of Object.entries(f)) {
+      if (!def.row || k in (s.reqs ?? {})) continue;
+      const staged = s.rows.values?.[def.row], now = r[k] !== undefined ? r[k] : s.rows.live[def.row];
+      if (staged !== undefined && now !== undefined && String(staged) !== String(now)) waiting.push([k, staged]);
+    }
   for (const [k, v] of waiting) {
     const def = f[k], t = fieldText(def, v, r.mode ?? 0, s.rows);
     bag[k] = `*${t}`; bag[`${k}Pend`] = true; bag[`${k}Frac`] = fieldFrac(def, v, s.rows);

@@ -136,7 +136,7 @@
 </main>
 <script type="module">
   import * as wb from "./wb.js";
-  import { ROWS, row, SECTIONS, RHYTHM_ROWS, rhythmRow, folds, summary, optionsFor, inactive, approval, compOption, COMP_PAT_BASE } from "./rows.js";
+  import { ROWS, row, SECTIONS, RHYTHM_ROWS, rhythmRow, folds, summary, optionsFor, inactive, approval, compOption, COMP_PAT_BASE, fromEngine } from "./rows.js";
   import { Desk, PART_ROW, PART_NAME, sectionAt, positionOf, loopAt, endsSong } from "./desk.js";
   import { layout, draw } from "./roll.js";
   import { DrumScreen } from "./drums.js";
@@ -206,13 +206,15 @@
       };
       // the rows a screen's knobs can set: each row's value and its choices ({ value, name }, as the device writes
       // them); "rhythm" is the comp's one Rhythm row
-      const rows = (x) => {
+      const rows = (x, heard) => {   // heard: wb_live_state (the song as it plays: a staged change not in it yet)
         const rn = rolledNames(x);
         const choices = (id, as = id) => optionsFor(row(id), desk.state, desk.opts, { lib }).filter((o) => !o.unavailable)
           .map((o) => { const n = String(o.short ?? o.name).toUpperCase();
                         return { value: o.value, name: o.rolled && rn[as] ? `${n} (${rn[as]})` : n }; });
         const rh = rhythmRow(desk.state, desk.opts), ids = ROWS.filter((r) => r.kind !== "seed" && r.kind !== "reroll").map((r) => r.id);
-        return { values: { ...desk.state.values, rhythm: desk.state.values[rh] },
+        const live = heard ? fromEngine(heard, wb.C, desk.opts) : null;
+        if (live) live.rhythm = live[rh];
+        return { values: { ...desk.state.values, rhythm: desk.state.values[rh] }, live,
                  options: { ...Object.fromEntries(ids.map((id) => [id, choices(id)])), rhythm: choices(rh, "rhythm") } };
       };
       device = mountDevice($("devbox"), { call: wb.call, C: wb.C, labels, rows,
