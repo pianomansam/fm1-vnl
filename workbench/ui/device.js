@@ -215,10 +215,11 @@ export function valuesOf(s, data) {
     bag.pending = `${def?.name ?? "CHANGE"}${s.pend.val !== undefined ? ` ${fieldText(def, s.pend.val, r.mode ?? 0, s.rows)}` : ""}` +
                   ` IN ${s.pend.bars}${s.pend.bars === 1 ? " BAR" : " BARS"}`;
   }
-  if (s.roll && (!s.pend || s.roll.at < s.pend.at) && (!s.jump || s.roll.at <= s.jump.at))
-    bag.pending = `${s.roll.name}: NEW ROLL IN ${s.roll.bars}${s.roll.bars === 1 ? " BAR" : " BARS"}`;
+  const pr = s.partRoll;   // a part's re-roll waiting (SEQ on its screen)
+  if (pr && (!s.pend || pr.at < s.pend.at) && (!s.jump || pr.at <= s.jump.at))
+    bag.pending = `${pr.name}: NEW ROLL IN ${pr.bars}${pr.bars === 1 ? " BAR" : " BARS"}`;
   if (s.jump) {
-    if ((!s.pend || s.jump.at < s.pend.at) && (!s.roll || s.jump.at < s.roll.at))
+    if ((!s.pend || s.jump.at < s.pend.at) && (!pr || s.jump.at < pr.at))
       bag.pending = `GO TO ${String(s.jump.name).toUpperCase()} IN ${s.jump.bars}${s.jump.bars === 1 ? " BAR" : " BARS"}`;
     if (bag[`sec${s.jump.i}`] !== undefined) { bag[`sec${s.jump.i}`] = `*${bag[`sec${s.jump.i}`]}`; bag[`sec${s.jump.i}Pend`] = true; }
   }
@@ -429,7 +430,7 @@ export class Device {
     return { hasSong: song, stopped: !l.playing, roll, bar, section: l.facts?.section ?? -1, map: l.facts?.map,
              chord: l.facts?.chord, labels: l.labels, rows: l.rows, mark: !this.screen?.reference,
              reqs: Object.fromEntries(Object.entries(this.req).map(([f, q]) => [f, q.val])),
-             roll: this.rollReq && song ? { name: this.rollReq.name, at: this.rollReq.at, bars: this.rollReq.at - bar } : null,
+             partRoll: this.rollReq && song ? { name: this.rollReq.name, at: this.rollReq.at, bars: this.rollReq.at - bar } : null,
              jump: this.jumpReq && song ? { name: this.jumpReq.name, i: this.jumpReq.i, at: this.jumpReq.at, bars: this.jumpReq.at - bar } : null,
              page: this.screen?.pages?.length > 1 ? `${this.screen.pages.indexOf(this.id) + 1}/${this.screen.pages.length}` : "",
              cursor: this.screen?.menu || this.screen?.list ? this.cursor[this.id] ?? 0 : -1, sections: l.sections, pend, msg: this.msg && this.now() < this.msg.until ? this.msg.text : null };

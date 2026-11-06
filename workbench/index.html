@@ -214,7 +214,7 @@
             : run(() => desk.set(id === "rhythm" ? rhythmRow(desk.state, desk.opts) : id, v)),
           play: () => $("play").click(),
           reroll: () => $("all").click(),   // SEQ: Re-roll all unlocked (the device: a new song)
-          rerollPart: (p) => run(() => desk.reroll(p)),   // SEQ on a part's screen: its 🎲
+          rerollPart: (part) => run(() => desk.reroll(part)),   // SEQ on a part's screen: its dice
           jump: (start, name) => run(() => desk.jumpTo(start, name)),
         } });
     } catch (e) { $("devbox").textContent = `The device mock didn't load: ${e}`; }
