@@ -4864,6 +4864,14 @@
        "text": "{sec6Bars} BARS",
        "when": "sec6",
        "y": 111
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "right": 232,
+       "text": "{secRange}",
+       "when": "secRange",
+       "y": 130
       }
      ],
      "h": 144,
@@ -4894,14 +4902,6 @@
        "right": 232,
        "text": "EDIT OR ITS KEY: GO THERE",
        "y": 2
-      },
-      {
-       "color": "GRAY",
-       "font": "T",
-       "text": "{secRange}",
-       "when": "secRange",
-       "x": 120,
-       "y": 26
       },
       {
        "color": "DIM",

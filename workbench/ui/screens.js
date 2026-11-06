@@ -450,11 +450,11 @@ export default {
           { when: "sec6", text: "{sec6}", font: "XS", x: 26, y: 109, color: "WHITE" },
           { when: "sec6Now", text: "PLAYING", font: "T", after: 8, y: 111, color: "AMB" },
           { when: "sec6", text: "{sec6Bars} BARS", font: "T", right: 232, y: 111, color: "GRAY" },
+          { when: "secRange", text: "{secRange}", font: "T", right: 232, y: 130, color: "GRAY" },   // the pager, under the list (Sam)
         ] },
         { y: 202, h: 38, draw: [
           { knobs: { x: 8, dx: 58, label: { y: 0, font: "T", color: "GRAY" }, value: { y: 11, font: "XS", color: "HI", when: "song" } } },
           { text: "EDIT OR ITS KEY: GO THERE", font: "T", right: 232, y: 2, color: "DIM" },
-          { when: "secRange", text: "{secRange}", font: "T", x: 120, y: 26, color: "GRAY" },
           { text: "SEL BACK", font: "T", right: 232, y: 16, color: "DIM" },
         ] },
       ],
