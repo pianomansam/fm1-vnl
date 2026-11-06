@@ -61,14 +61,14 @@ export default {
       "#.......#",
       ".#######.",
     ],
-    bass: [   // a bass guitar: the body low left, the neck up to the right
-      ".......##",
-      "......##.",
-      ".....#...",
-      "..###....",
-      ".####....",
-      "#####....",
-      ".###.....",
+    bass: [   // a bass guitar: the body low right, the neck up to the left
+      "##.......",
+      ".##......",
+      "...#.....",
+      "....###..",
+      "....####.",
+      "....#####",
+      ".....###.",
     ],
     comp: [   // keys
       "#########",
