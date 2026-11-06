@@ -319,6 +319,15 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   rolls a new song: playing, it starts with the usual between-songs gap; stopped, it waits for PLAY. The song's end
   still moves on to a new song. The screen reader says "NEW SONG". To settle: pending knob requests across a stop,
   and the button (try it in the workbench mock first).
+- **User patterns made on the device (Sam, 2026-11-06: future, not started).** Users create their own drum patterns,
+  comp rhythms and the like on the device, saved on the device (its data flash) and drawn by the roll beside the
+  built-in ones (the built-ins are data already: patterns/model.json). Stretch: a companion website that edits them
+  in the browser and uploads/downloads them to and from the device over USB (the same SysEx upload as the sample
+  banks; see "From other FM-1 firmwares", item 3).
+- **A simplified and an expanded main screen (Sam, 2026-11-06: an idea, part of the screens work).** Two main
+  screens: a simple one (e.g. the chord and where the song is) and an expanded one (the song and every part's rolls);
+  the expanded one opens from the simple one, and the user sets which is the default (HOME's). Mockups A-C in the
+  workbench's device mock are candidates for either.
 - **From other FM-1 firmwares (Sam, 2026-11-05: on the short list, not started).** Evaluated setBfree-fm1
   (github.com/R-Jeb/setBfree-fm1), Cut-A-Dor (github.com/kidbee85-beep/cut-a-dor-release) and the B1 Drawbar Organ
   (github.com/SikkenWorks/B1-Drawbar-Organ). License per item: GPL-2.0-or-later code may be copied (credit it);
