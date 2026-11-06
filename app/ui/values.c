@@ -26,7 +26,7 @@ static const char *const UI_MODE_NAME[MODE_N] = {"MAJOR", "DORIAN", "PHRYGIAN", 
 static const char *const UI_MOOD_NAME[4] = {"SAD", "WISTFUL", "WARM", "SUNNY"};
 static const char *const UI_SEC_NAME[5] = {"INTRO", "GROOVE", "LEAD", "BREAK", "OUTRO"};
 static const char UI_SEC_KEYS[] = "FGABCDEFGA";   /* the white keys from F3, a section each (the Sections screen) */
-enum { MENU_MAX = 10, OPTS_MAX = 128 };
+enum { MENU_MAX = 10, OPTS_MAX = UI_OPTS_MAX };
 
 /* ------------------------------------------------------------------------------------------------- text --- */
 static int slen(const char *s) { int n = 0; while (s[n]) n++; return n; }
@@ -298,8 +298,10 @@ void ui_values(const snap_t *s, const ui_nav_t *nav, ui_bag_t *b)
     b->n = nav;
     b->screen = nav && nav->depth ? nav->stack[nav->depth - 1] : UI_HOME;
     song_rolled(&s->roll, &b->rolled);
-    for (f = 0; nav && f < UI_N_FIELDS; f++)       /* the earliest change waiting; a tie: the first field */
-        if (nav->req_at[f] >= 0 && (best < 0 || nav->req_at[f] < nav->req_at[best])) best = f;
+    for (f = 0; nav && f < UI_N_FIELDS; f++)       /* the earliest change waiting; a tie: the first one made */
+        if (nav->req_at[f] >= 0 && (best < 0 || nav->req_at[f] < nav->req_at[best] ||
+                                    (nav->req_at[f] == nav->req_at[best] && nav->req_seq[f] < nav->req_seq[best])))
+            best = f;
     b->pend_field = best;
     b->pend_bars = best >= 0 ? nav->req_at[best] - s->bar : 0;
 }
@@ -360,7 +362,13 @@ static const char *pending_text(const ui_bag_t *b, char *t)
     return cat(t, bars == 1 ? " BAR" : " BARS");
 }
 
-static int list_off(const ui_bag_t *b) { (void)b; return 0; }   /* the Sections list's scroll: phase 2 */
+static int list_off(const ui_bag_t *b) { return b->n ? b->n->off[b->screen] : 0; }   /* (ui_list_off keeps it) */
+/* a list's lines shown: the screen's rows, at most MENU_MAX */
+static int list_rows(const ui_bag_t *b)
+{
+    int r = UI_SCREENS[b->screen].rows;
+    return r && r < MENU_MAX ? r : MENU_MAX;
+}
 
 static const char *fill_line(const ui_bag_t *b, int line, char *t);
 
@@ -412,6 +420,15 @@ const char *ui_value(const ui_bag_t *b, int id, int index, char *t)
     case UV_KNOWN: return known ? "1" : "";
     case UV_SEC_COUNT: return cat_int(t, s->n_secs);
     case UV_LOOPING: return "";
+    case UV_SEC_RANGE: {                                    /* "1-7 OF 9": a list longer than its lines */
+        int rows = UI_SCREENS[b->screen].rows ? UI_SCREENS[b->screen].rows : MENU_MAX, off = list_off(b);
+        if (s->n_secs <= rows) return "";
+        cat_int(t, off + 1);
+        cat(t, "-");
+        cat_int(t, off + rows < s->n_secs ? off + rows : s->n_secs);
+        cat(t, " OF ");
+        return cat_int(t, s->n_secs);
+    }
     default: break;
     }
     if (id >= UV_I0 && id < UV_I(UV_I_COUNT, 0)) {        /* sel{i}, sec{i}... */
@@ -422,7 +439,7 @@ const char *ui_value(const ui_bag_t *b, int id, int index, char *t)
             int has = UI_LISTS[sc->menu].n || sc->list || UI_LISTS[sc->lanes].n;
             return has && n && n->cursor[b->screen] - off == i ? "1" : "";
         }
-        if (at >= s->n_secs) return "";
+        if (at >= s->n_secs || i >= list_rows(b)) return "";
         switch (k) {
         case UVK_I_SEC:
             if (n && n->jump_i == at) cat(t, "*");
@@ -569,13 +586,7 @@ void ui_snap_sections(snap_t *s)
     s->n_secs = (uint8_t)i;
 }
 
-void ui_nav_init(ui_nav_t *n)
-{
-    int i;
-    memset(n, 0, sizeof *n);
-    n->stack[0] = (uint8_t)UI_HOME;
-    n->depth = 1;
-    for (i = 0; i < UI_N_FIELDS; i++)
-        n->req_at[i] = -1;
-    n->roll_part = n->jump_i = -1;
-}
+/* for the navigator: a field's text for v, its value playing, its choices */
+const char *ui_field_text(const ui_bag_t *b, int f, int v, char *t) { return field_text(b, f, v, t); }
+int ui_field_now(const ui_bag_t *b, int f) { return field_value(b, f); }
+int ui_field_options(const ui_bag_t *b, int f, int *out) { return options(b, UI_FIELDS[f].row, out); }

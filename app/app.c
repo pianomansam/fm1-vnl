@@ -41,6 +41,7 @@
 #include "ui/choices_gen.c"
 #include "ui/screens_gen.c"
 #include "ui/values.c"
+#include "ui/nav.c"
 #include "render.h"
 #include "ui/render.c"
 #endif
@@ -104,7 +105,7 @@ static volatile uint8_t mb_full;
 #define B_NEW B_SEQ
 
 /* commands, drained at a block's start (AMB-1's pattern) */
-enum { C_PLAY, C_REQ, C_STOP, C_NEW };
+enum { C_PLAY, C_REQ, C_STOP, C_NEW, C_ROW };   /* C_ROW: a row's request (the UI runtime's: song_request_row) */
 #define QN 32u
 static uint32_t q[QN];
 static volatile uint32_t q_w, q_r;
@@ -310,6 +311,18 @@ static void command(uint32_t c)
             else
                 mb_full = 0;             /* the one ready dropped: the main loop rolls the next */
         }                                /* (in the gap or waiting: a new song is already coming) */
+#ifdef PLAT_HOST
+    } else if (op == C_ROW && rs == RS_SONG && song.state == SS_PLAYING && a < ROW_N) {
+        int16_t rows[ROW_N];             /* the rhythm row is the comp's or the strum patterns' */
+        ui_song_rows(&song.roll, rows);
+        if (a == ROW_RHYTHM)
+            a = ch_rhythm_row(rows[ROW_KEYS], rows[ROW_COMP]);
+        if (a == ROW_COMP) {             /* a comp rhythm (from 100): the COMP_PAT override; else COMP (desk.js) */
+            song_request_row(&song, SR_OV + OV_COMP, b >= 100 ? -1 : b);
+            song_request_row(&song, SR_OV + OV_COMP_PAT, b >= 100 ? b - 100 : -1);
+        } else if (CH_SONG_ROW[a] >= 0)
+            song_request_row(&song, CH_SONG_ROW[a], b);
+#endif
     } else if (op == C_REQ && rs == RS_SONG && song.state == SS_PLAYING && a < RF_N) {
         int v = field_step(a, req_set[a] ? req_val[a] : song.roll.v[a], b);
         if (v != (req_set[a] ? req_val[a] : song.roll.v[a])) {
@@ -912,6 +925,11 @@ static void rm_input(uint32_t btn)
         rm_leave();
 }
 
+#if defined(PLAT_HOST) && !defined(PLAT_WEB)
+static int ui_host = -1;                 /* the UI runtime shows its screens (uiscreen): it takes the controls */
+static void ui_host_input(uint32_t btn);
+#endif
+
 static void input(void)
 {
     uint32_t btn = plat_buttons();
@@ -929,6 +947,12 @@ static void input(void)
             return;
         }
     }
+#if defined(PLAT_HOST) && !defined(PLAT_WEB)
+    if (ui_host >= 0) {
+        ui_host_input(btn);
+        return;
+    }
+#endif
     if ((btn >> B_PLAY & 1u) && !(ui.btn >> B_PLAY & 1u)) {
         post(C_PLAY, 0, 0);
         app_say(ui.shown.stopped ? "PLAY" : "STOP", "");
@@ -1024,24 +1048,101 @@ void app_ui_init(void)
 #if defined(PLAT_HOST) && !defined(PLAT_WEB)
 /* The UI runtime's screens in the simulator (uiscreen, uistate: workbench/tools/parity.mjs), over today's screen until
    it replaces it: the screen it shows (-1: today's), its navigator, the snapshot it last drew from, rows forced */
-static int ui_host = -1;
 static ui_nav_t ui_hnav;
 static snap_t ui_hsnap;
 static int16_t ui_hrow[ROW_N];
 static uint8_t ui_hrow_set[ROW_N];
+static uint32_t ui_hkeys;                /* the keys down, as last read */
+static unsigned ui_hmute;                /* the engine's listening: vx_mute's bits (by part), the part soloed */
+static int ui_hsolo = -1;
 
-static void ui_host_draw(void)
+/* the mock's engine, as the simulator's app has it: a row's change to the render (C_ROW: the song's request), play,
+   a new song, a part's re-roll (its salt drawn anew; the drums' pattern too), the listening and the mixer at once */
+static const uint8_t UI_PART_BUS[] = {V_KICK, V_BASS, V_CHORD, V_PAD, V_LEAD, 0};
+static void ui_e_set(int row, int v) { post(C_ROW, row, v); }
+static void ui_e_play(void) { post(C_PLAY, 0, 0); }
+static void ui_e_reroll(void) { post(C_NEW, 0, 0); }
+static void ui_e_reroll_part(int p)
 {
-    ui_bag_t b;
+    static const int ROW[] = {ROW_DRUMS_VAR, ROW_BASS_LINE, ROW_VOICINGS, ROW_PAD_NOTES, ROW_PHRASE};
+    if (p < 0 || p > UI_PART_LEAD) return;
+    post(C_ROW, ROW[p], 1 + (int)(plat_ms() % 99u));
+    if (p == UI_PART_DRUMS)              /* the drums' re-roll draws a new pattern too (desk.js) */
+        post(C_ROW, ROW_PATTERN, ui_hsnap.rows[ROW_PATTERN] % LIB_NPATTERNS + 1);
+}
+static void ui_e_listen(void)
+{
+    unsigned m = 0;
+    int p;
+    for (p = 0; p < UI_PART_TEXTURE; p++)
+        if (ui_hsolo >= 0 ? p != ui_hsolo : (ui_hmute >> p & 1u)) m |= 1u << UI_PART_BUS[p];
+    vx_mute(m);
+}
+static void ui_e_mute(int p, int on) { ui_hmute = on ? ui_hmute | 1u << p : ui_hmute & ~(1u << p); ui_e_listen(); }
+static void ui_e_solo(int p) { ui_hsolo = p; ui_e_listen(); }
+static int ui_e_muted(int p) { return (int)(ui_hmute >> p & 1u); }
+static int ui_e_soloed(void) { return ui_hsolo; }
+static void ui_e_level(int p, int db) { vx_level_set(p, db); }
+static int ui_e_level_get(int p) { return vx_level_get(p); }
+static const ui_engine_t UI_HENG = {ui_e_set, ui_e_play, ui_e_reroll, ui_e_reroll_part, 0, ui_e_mute, ui_e_solo,
+                                    ui_e_muted, ui_e_soloed, ui_e_level, ui_e_level_get};
+
+/* the snapshot the runtime sees: the render's, rows forced (uirow), a ready song's sections */
+static void ui_host_snap(void)
+{
     int i;
+    if (ui.shown.roll.seed != ui_hsnap.roll.seed && ui_hsolo + (int)ui_hmute != -1) {   /* a new song: no mutes, no
+                                                                                           solo (desk.js) */
+        ui_hmute = 0;
+        ui_hsolo = -1;
+        ui_e_listen();
+    }
     ui_hsnap = ui.shown;
     for (i = 0; i < ROW_N; i++)
         if (ui_hrow_set[i])
             ui_hsnap.rows[i] = ui_hrow[i];
     ui_snap_sections(&ui_hsnap);
-    ui_hnav.now = plat_ms();
+    ui_update(&ui_hnav, &ui_hsnap, plat_ms());
+}
+
+static void ui_host_draw(void)
+{
+    static int last = -1;
+    int id;
+    ui_bag_t b;
+    ui_host_snap();
+    id = ui_hnav.stack[ui_hnav.depth - 1];
+    if (id != last)                      /* another screen: what its bands leave uncovered, cleared */
+        lcd_fill(0, 0, 240, 240, C_BLACK);
+    last = id;
     ui_values(&ui_hsnap, &ui_hnav, &b);
-    ui_draw(&UI_SCREENS[ui_host], &b, 0xFFFFFFFFu);
+    ui_draw(&UI_SCREENS[id], &b, 0xFFFFFFFFu);
+}
+
+/* the controls to the navigator: a button's press, an encoder's detents, a key down or up; the lights */
+static void ui_host_input(uint32_t btn)
+{
+    uint32_t keys = plat_keys(), now = plat_ms(), blink, on;
+    int b, e, k;
+    ui_host_snap();
+    for (b = 0; b < NB; b++)
+        if ((btn >> b & 1u) && !(ui.btn >> b & 1u))
+            ui_press(&ui_hnav, UI_CTL_BUTTON(b), 1);
+    for (e = 0; e < NE; e++) {
+        int32_t d = plat_enc(e);
+        if (d)
+            ui_press(&ui_hnav, UI_CTL_ENCODER(e), (int)d);
+    }
+    for (k = 0; k < UI_KEYS; k++)
+        if ((keys ^ ui_hkeys) >> k & 1u)
+            ui_key(&ui_hnav, k, (int)(keys >> k & 1u), now);
+    ui_hkeys = keys;
+    ui_tick(&ui_hnav, now);
+    ui.btn = btn;
+    ui.redraw = 1;                       /* (the simulator: every frame) */
+    on = ui_key_lights(&ui_hnav, &ui_hsnap, &blink);
+    plat_glow(1);
+    plat_leds(btn | (ui.shown.playing ? 1u << B_PLAY : 0u), on | ((now / 250u) & 1u ? blink : 0u));
 }
 
 /* a JSON string */
@@ -1065,7 +1166,11 @@ static void ui_host_state(void)
     char t[UI_VALUE_MAX];
     int i, j, first = 1;
     ui_values(&ui_hsnap, &ui_hnav, &b);
-    printf("uistate {\"screen\":");
+    printf("uistate {\"said\":");
+    ui_json_str(ui_hnav.said);
+    printf(",\"msg\":");
+    ui_json_str(ui_hnav.msg_until && ui_hnav.now < ui_hnav.msg_until ? ui_hnav.msg[0] : "");
+    printf(",\"screen\":");
     ui_json_str(UI_SCREEN_NAME[b.screen]);
     printf(",\"stack\":[");
     for (i = 0; i < ui_hnav.depth; i++) {
@@ -1188,17 +1293,23 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
         }
         ui_host = i;
         ui_nav_init(&ui_hnav);
+        ui_hnav.eng = &UI_HENG;
         ui_hnav.stack[0] = (uint8_t)i;
+        ui_hkeys = plat_keys();
         lcd_fill(0, 0, 240, 240, C_BLACK);
         ui_host_draw();
         return 1;
     }
     if (!strcmp(cmd, "uibench")) {       /* uibench: each screen's full draw (values and bands), the worst in us */
-        int i, k, keep = ui_host, worst = 0, at = 0;
+        int i, k, keep = ui_hnav.stack[ui_hnav.depth - 1], worst = 0, at = 0;
+        if (ui_host < 0) {
+            printf("uibench: uiscreen first\n");
+            return 1;
+        }
         for (i = 0; i < UI_N_SCREENS; i++) {
             clock_t t0;
             int us;
-            ui_host = i;
+            ui_hnav.stack[ui_hnav.depth - 1] = (uint8_t)i;
             t0 = clock();
             for (k = 0; k < 50; k++)
                 ui_host_draw();
@@ -1208,7 +1319,7 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
                 worst = us, at = i;
         }
         printf("uibench worst %s %d us (the host's)\n", UI_SCREEN_NAME[at], worst);
-        ui_host = keep;
+        ui_hnav.stack[ui_hnav.depth - 1] = (uint8_t)keep;
         return 1;
     }
     if (!strcmp(cmd, "uistate")) {       /* uistate: the bag and the stack the runtime's screen was drawn from, JSON */

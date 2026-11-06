@@ -27,7 +27,7 @@ run song sh -c "$CC -O2 -std=c99 -ffp-contract=off -Wall -Wextra -Wdouble-promot
 run clash sh -c "$CC -O2 -std=c99 -ffp-contract=off -Wall -Wextra -Wdouble-promotion -Werror -Iapp/song -Iapp/engine -Ibase/include \
     -o $OUT/clash_test tests/host/clash_test.c app/song/*.c app/song/leads/*.c && $OUT/clash_test"
 run ui sh -c "$CC -O2 -std=c99 -ffp-contract=off -Wall -Wextra -Werror -DPLAT_HOST -Iapp/ui -Iapp/song -Iapp/engine \
-    -Ibase/include -Itests/host -o $OUT/ui_test tests/host/ui_test.c app/ui/values.c app/ui/screens_gen.c \
+    -Ibase/include -Itests/host -o $OUT/ui_test tests/host/ui_test.c app/ui/nav.c app/ui/values.c app/ui/screens_gen.c \
     app/ui/choices_gen.c app/song/*.c app/song/leads/*.c app/engine/*.c -lm && $OUT/ui_test"   # the screens' runtime
 run candidates sh tests/candidates.sh       # candidates are workbench-only until approved (patterns_gen.h)
 run screens-export node workbench/tools/export_screens.mjs --check   # ui/screens.json matches screens.js, in ui/vocab.json's words

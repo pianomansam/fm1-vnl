@@ -3,7 +3,8 @@
 // (app/ui: the generated tables, the value bag, render.c) and prints the bag it drew from (uistate); the mock
 // (ui/device.js's drawScreen) draws the same screen from that bag. Every pixel must match. Steps of a script:
 //   { press: CONTROL } | { turn: [CONTROL, DETENTS] } | { key: [N, MS] } | { wait: MS } | { screen: ID } |
-//   { row: [ROW, VALUE] } (a row's value forced in the snapshot shown: the longest names) | { check: NAME }
+//   { row: [ROW, VALUE] } (a row's value forced in the snapshot shown: the longest names) | { spin: [ENC, N] } (N detents
+//   at once) | { keydown: K } | { keyup: K } | { check: NAME, expect: (state) => "" or what is wrong }
 // Phase 1: the main and part screens (lanes and faders: later phases, skipped).
 //   ./build.sh --host && node workbench/tools/parity.mjs [OUTDIR]
 import { execFileSync } from "node:child_process";
@@ -33,20 +34,23 @@ function run(seed, steps) {
   for (const s of steps) {
     if (s.press) lines.push(`tap ${s.press}`);
     else if (s.turn) lines.push(`turn ${s.turn[0]} ${s.turn[1]}`);
+    else if (s.spin) lines.push(`spin ${s.spin[0]} ${s.spin[1]}`);
+    else if (s.keydown !== undefined) lines.push(`key ${s.keydown} down`);
+    else if (s.keyup !== undefined) lines.push(`key ${s.keyup} up`);
     else if (s.wait) lines.push(`wait ${s.wait}`);
     else if (s.screen) lines.push(`uiscreen ${s.screen}`, "wait 20");
     else if (s.row) lines.push(`uirow ${s.row[0]} ${s.row[1]}`, "wait 20");
-    else if (s.check) { lines.push("uistate", `fbdump ${checks.length}.raw`); checks.push(s.check); }
+    else if (s.check) { lines.push("wait 20", "uistate", `fbdump ${checks.length}.raw`); checks.push(s); }
   }
   writeFileSync(join(dir, "s.vnl"), lines.join("\n") + "\n");
   let out = "";
   try { out = execFileSync(HOST, [join(dir, "s.vnl"), dir], { env: { ...process.env, VNL_SEED: String(seed) }, encoding: "utf8", maxBuffer: 1 << 26 }); }
   catch (e) { out = e.stdout ?? ""; console.log(e.stderr ?? ""); }
   const states = [...out.matchAll(/^uistate (.*)$/gm)].map((m) => JSON.parse(m[1]));
-  return checks.map((name, i) => {
+  return checks.map((c, i) => {
     const b = readFileSync(join(dir, `${i}.raw`)), px = new Uint16Array(W * H);
     for (let k = 0; k < W * H; k++) px[k] = (b[2 * k] << 8) | b[2 * k + 1];
-    return { name, fb: px, state: states[i] };
+    return { name: c.check, expect: c.expect, fb: px, state: states[i] };
   });
 }
 
@@ -91,9 +95,10 @@ function compare(c, extra = "") {
   for (const b of screen.bands) for (let y = b.y; y < b.y + b.h; y++) inBand[y] = 1;
   let outside = 0;
   for (let y = 0; y < H; y++) if (!inBand[y]) for (let x = 0; x < W; x++) outside += c.fb[y * W + x] !== 0;
-  const good = same === W * H && !outside;
+  const wrong = c.expect ? c.expect(c.state) : "";
+  const good = same === W * H && !outside && !wrong;
   console.log(`  ${good ? "ok  " : "FAIL"} ${c.name}: ${((100 * same) / (W * H)).toFixed(3)}% of pixels match` +
-              `${same === W * H ? "" : ` (${W * H - same} differ)`}${outside ? `, ${outside} drawn outside the bands` : ""}${extra}`);
+              `${same === W * H ? "" : ` (${W * H - same} differ)`}${outside ? `, ${outside} drawn outside the bands` : ""}${wrong ? `; ${wrong}` : ""}${extra}`);
   if (outDir) png(join(outDir, `${c.name}.png`), [c.fb, mk, diff(c.fb, mk)]);
   ok = ok && good;
 }
@@ -128,6 +133,45 @@ const SEED = 72;
     const best = names.reduce((a, x) => ((x.short ?? x.name).length > (a.short ?? a.name).length ? x : a));
     steps.push({ screen: id }, { row: [row, best.id] }, { check: `longest-${k}` });
   }
+  for (const c of run(SEED, steps)) compare(c);
+}
+{   // the navigator (nav.c) on scripted presses, as the mock's Device moves (the plan's nav_* scripts): every step drawn
+  // and compared, and what it should have done checked
+  const v = (st) => st.values, is = (what, got, want) => (got === want ? "" : `${what} ${JSON.stringify(got)}, not ${JSON.stringify(want)}`);
+  const steps = [
+    { press: "PLAY" }, { wait: 5000 }, { screen: "main" },
+    // nav_main_to_comp: ALGO 3, EDIT, K1 +1, OCT+, SELECT, ALGO 1, HOME
+    { spin: ["ALGO", 3] }, { check: "nav-algo3", expect: (st) => is("sel3", v(st).sel3, true) },
+    { press: "EDIT" }, { check: "nav-edit", expect: (st) => is("screen", st.screen, "pComp") || is("stack", st.stack.join(), "main,pComp") ||
+                                                       (st.said.startsWith("COMP, PAGE 1/2") ? "" : `said ${st.said}`) },
+    { spin: ["K1", 1] }, { check: "nav-k1", expect: (st) => is("compInsPend", v(st).compInsPend, true) || (v(st).compIns.startsWith("*") ? "" : `compIns ${v(st).compIns}`) },
+    { press: "OCT+" }, { check: "nav-oct", expect: (st) => is("compRegPend", v(st).compRegPend, true) || is("msg", st.msg, "REGISTER") },
+    { spin: ["SELECT", 1] }, { check: "nav-select", expect: (st) => is("screen", st.screen, "pCompMore") },
+    { spin: ["ALGO", 1] }, { check: "nav-algo1", expect: (st) => is("screen", st.screen, "pPad") },
+    { press: "HOME" }, { check: "nav-home", expect: (st) => is("stack", st.stack.join(), "main") },
+    // nav_pending: K2 +2 waits, marked, then lands (nothing waits)
+    // (the comp's change, made first, is still the line's: the earliest boundary, a tie the first made)
+    { spin: ["K2", 2] }, { check: "nav-pending", expect: (st) => (/^INSTRUMENT .* IN \d BARS?$/.test(v(st).pending) ? "" : `pending ${v(st).pending}`) ||
+                                                                 is("tempoPend", !!v(st).tempoPend, true) || (v(st).tempo.startsWith("*") ? "" : `tempo ${v(st).tempo}`) },
+    { wait: 14000 }, { check: "nav-landed", expect: (st) => is("pending", v(st).pending, "") },
+    // nav_preset: PRESET on Drums steps its kit; nav_seq_part: SEQ on Bass re-rolls it
+    { spin: ["ALGO", -2] }, { press: "EDIT" },
+    // (the device plays one approved kit, Soft brushes: PRESET on Drums has nowhere to go; on Bass it steps)
+    { spin: ["PRESET", -1] }, { check: "nav-preset-drums", expect: (st) => is("screen", st.screen, "pDrums") },
+    { spin: ["ALGO", 1] }, { press: "SEQ" }, { check: "nav-seq-part", expect: (st) => is("screen", st.screen, "pBass") ||
+                                                                         (/^BASS: NEW ROLL IN \d BARS?$/.test(v(st).pending) ? "" : `pending ${v(st).pending}`) },
+    { spin: ["PRESET", 1] }, { check: "nav-preset", expect: (st) => is("bassInsPend", !!v(st).bassInsPend, true) },
+    // nav_fast (Review Focus 4): SELECT +12 at once on the main screen; F and C down together; C held while K1 turns
+    { press: "HOME" }, { spin: ["SELECT", 12] }, { check: "nav-spin", expect: (st) => is("sel6", v(st).sel6, true) },   // (1 + 12) % 7
+    { keydown: 0 }, { keydown: 7 }, { wait: 100 }, { keyup: 0 }, { spin: ["K1", 1] }, { wait: 600 },
+    { check: "nav-keys", expect: (st) => (st.said === "LEAD SOLO" ? "" : `said ${st.said}`) },
+    { keyup: 7 }, { keydown: 7 }, { wait: 50 }, { keyup: 7 }, { check: "nav-unsolo", expect: (st) => is("said", st.said, "LEAD SOLO OFF") },
+    // nav_stopped (Review Focus 3): stopped, K2 asks nothing
+    { press: "PLAY" }, { wait: 1500 }, { spin: ["K2", 1] }, { check: "nav-stopped", expect: (st) => is("pending", v(st).pending, "") || is("song", v(st).song, false) },
+    // nav_new_song: on Comp the song ends, the next starts: the main screen
+    { press: "PLAY" }, { spin: ["ALGO", 4] }, { press: "EDIT" }, { check: "nav-comp", expect: (st) => is("screen", st.screen, "pComp") },
+    { wait: 230000 }, { check: "nav-new-song", expect: (st) => is("stack", st.stack.join(), "main") },
+  ];
   for (const c of run(SEED, steps)) compare(c);
 }
 console.log(ok ? "parity: all match" : "parity: FAILED");

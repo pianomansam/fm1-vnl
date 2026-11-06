@@ -131,13 +131,13 @@ typedef struct {
 typedef struct { uint8_t field, step; } ui_knob_t;
 /* a screen. bands: its first in UI_BANDS; knobs: UI_NONE none; controls: an action (UI_ACTIONS) each
    (UC_IN_*); menu, pages, lanes: lists; list: 1 the song's sections; key_leds: UI_KEY_LEDS + 1 (0 none);
-   say: its first part in UI_SAYS */
+   say: its first part in UI_SAYS; rows: a list's lines that fit (0: all; more scroll with the highlight) */
 typedef struct {
     uint16_t title;
     uint8_t bands, n_bands;
     ui_knob_t knobs[4];
     uint8_t controls[UI_N_CONTROLS];
-    uint8_t menu, pages, lanes, list, key_leds, placeholder;
+    uint8_t menu, pages, lanes, list, key_leds, placeholder, rows;
     uint8_t say, n_say;
 } ui_screen_t;
 

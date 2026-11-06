@@ -590,7 +590,7 @@ def gen_screens(data, vocab, rows):
                         lanes=lst(part(p) for p in sc.get("lanes", [])),
                         list=1 if sc.get("list") == "sections" else 0,
                         key_leds=key_leds(f"{sid}.keyLeds", sc.get("keyLeds")) or default_kl,
-                        say=say0, n_say=len(says) - say0, placeholder=1 if sc.get("placeholder") else 0))
+                        say=say0, n_say=len(says) - say0, placeholder=1 if sc.get("placeholder") else 0, rows=sc.get("rows", 0)))
     line_tpl = [tpl(f"lines.{k}", t) for k, t in data.get("lines", {}).items()]
     part_screens = lst(screens.index(p) for p in data.get("parts", []) if p in screens)
     if data["home"] not in screens:
@@ -693,9 +693,9 @@ def gen_screens(data, vocab, rows):
         "typedef struct { uint8_t field, step; } ui_knob_t;\n"
         "/* a screen. bands: its first in UI_BANDS; knobs: UI_NONE none; controls: an action (UI_ACTIONS) each\n"
         "   (UC_IN_*); menu, pages, lanes: lists; list: 1 the song's sections; key_leds: UI_KEY_LEDS + 1 (0 none);\n"
-        "   say: its first part in UI_SAYS */\n"
+        "   say: its first part in UI_SAYS; rows: a list's lines that fit (0: all; more scroll with the highlight) */\n"
         "typedef struct {\n    uint16_t title;\n    uint8_t bands, n_bands;\n    ui_knob_t knobs[4];\n"
-        "    uint8_t controls[UI_N_CONTROLS];\n    uint8_t menu, pages, lanes, list, key_leds, placeholder;\n"
+        "    uint8_t controls[UI_N_CONTROLS];\n    uint8_t menu, pages, lanes, list, key_leds, placeholder, rows;\n"
         "    uint8_t say, n_say;\n} ui_screen_t;\n\n"
         "extern const ui_screen_t UI_SCREENS[];\nextern const int UI_N_SCREENS, UI_HOME;\n"
         "extern const uint8_t UI_PART_SCREENS;   /* the parts in ALGO's order: a list */\n"
@@ -756,7 +756,7 @@ def gen_screens(data, vocab, rows):
         c.append(f"    {{ /* {sid} */ {x['title']}, {x['bands']}, {x['n_bands']}, "
                  "{" + ", ".join(f"{{{f}, {st}}}" for f, st in x["knobs"]) + "},\n      {" +
                  ", ".join(map(str, x["controls"])) + "},\n      "
-                 f"{x['menu']}, {x['pages']}, {x['lanes']}, {x['list']}, {x['key_leds']}, {x['placeholder']}, "
+                 f"{x['menu']}, {x['pages']}, {x['lanes']}, {x['list']}, {x['key_leds']}, {x['placeholder']}, {x['rows']}, "
                  f"{x['say']}, {x['n_say']}}},\n")
     c.append("};\n")
     vs = Strings()

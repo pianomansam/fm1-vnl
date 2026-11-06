@@ -10,7 +10,7 @@
 #include "rolled.h"
 #include "song.h"
 
-enum { UI_VALUE_MAX = 64 };              /* a value's text, NUL included (the longest name plus "*AS ROLLED (...)") */
+enum { UI_VALUE_MAX = 64, UI_OPTS_MAX = 128 };              /* a value's text, NUL included (the longest name plus "*AS ROLLED (...)") */
 
 typedef struct ui_bag {
     const snap_t *s;
@@ -34,6 +34,11 @@ int ui_true(const ui_bag_t *b, int cond_id);
 /* each row's value as a song with roll r plays it (the render side, for the snapshot): the roll's fields, its set's
    instruments and kit, the overrides in force (song_ov) */
 void ui_song_rows(const song_roll_t *r, int16_t rows[ROW_N]);
+/* for the navigator: a field's text for value v (the mock's fieldText), its value as the song plays it, its choices
+   in order (the device's options: values into out, UI_OPTS_MAX at most; the count) */
+const char *ui_field_text(const ui_bag_t *b, int f, int v, char *t);
+int ui_field_now(const ui_bag_t *b, int f);
+int ui_field_options(const ui_bag_t *b, int f, int *out);
 /* the sections of a song stopped and ready (its plan not built by the render yet): from its roll */
 void ui_snap_sections(snap_t *s);
 

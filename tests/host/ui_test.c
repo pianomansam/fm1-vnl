@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The device's screens runtime on the host (app/ui): the value bag against the mock's values in the same states
-   (ui_values_fixture.h, workbench/tools/ui_fixture.mjs). */
+   (ui_values_fixture.h, workbench/tools/ui_fixture.mjs); the navigator (nav.c) against the mock's Device's rules. */
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
@@ -152,6 +152,262 @@ static void test_values_unknown_choice(void)
     CHECK(ui_true(&b, UV_FIELD(UFLD_DRUM_KIT, UVK_FIELD_LAST)), "an unknown value is at its list's end");
 }
 
+/* ---- the navigator (nav.c): the mock's Device, its calls on the engine logged ---- */
+static char eng_log[2048];
+static int eng_muted[UI_PART_TEXTURE + 1], eng_solo = -1, eng_level[UI_PART_TEXTURE + 1];
+static void logf_(const char *what, int a, int b)
+{
+    char t[48];
+    snprintf(t, sizeof t, "%s%s %d %d", eng_log[0] ? "; " : "", what, a, b);
+    strncat(eng_log, t, sizeof eng_log - strlen(eng_log) - 1);
+}
+static void e_set(int row, int v) { logf_("set", row, v); }
+static void e_play(void) { logf_("play", 0, 0); }
+static void e_reroll(void) { logf_("reroll", 0, 0); }
+static void e_reroll_part(int p) { logf_("reroll_part", p, 0); }
+static void e_jump(int start, int i) { logf_("jump", start, i); }
+static void e_mute(int p, int on) { eng_muted[p] = on; logf_("mute", p, on); }
+static void e_solo(int p) { eng_solo = p; logf_("solo", p, 0); }
+static int e_muted(int p) { return eng_muted[p]; }
+static int e_soloed(void) { return eng_solo; }
+static void e_level(int p, int db) { eng_level[p] = db; logf_("level", p, db); }
+static int e_level_get(int p) { return eng_level[p]; }
+static const ui_engine_t ENG = {e_set, e_play, e_reroll, e_reroll_part, e_jump, e_mute, e_solo, e_muted, e_soloed,
+                                e_level, e_level_get};
+
+static void nav_fresh(ui_nav_t *n, snap_t *s, int bar)
+{
+    snap_for(s, UI_FX_SEED, bar, 1);
+    ui_nav_init(n);
+    n->eng = &ENG;
+    eng_log[0] = 0;
+    memset(eng_muted, 0, sizeof eng_muted);
+    memset(eng_level, 0, sizeof eng_level);
+    eng_solo = -1;
+    ui_update(n, s, 0);
+}
+static int shown(const ui_nav_t *n) { return n->stack[n->depth - 1]; }
+
+/* ALGO 3, EDIT, K1 +1, OCT+, SELECT, ALGO 1, HOME (the plan's nav_main_to_comp) */
+static void test_nav_main_to_comp(void)
+{
+    ui_nav_t n;
+    snap_t s;
+    char t[UI_VALUE_MAX];
+    ui_bag_t b;
+    nav_fresh(&n, &s, 2);
+    ui_press(&n, UC_IN_ALGO, 3);
+    CHECK(n.cursor[US_MAIN] == 3, "ALGO 3 highlights Comp (%d)", n.cursor[US_MAIN]);
+    ui_press(&n, UC_IN_EDIT, 1);
+    CHECK(shown(&n) == US_P_COMP && n.depth == 2, "EDIT opens Comp (%d, depth %d)", shown(&n), n.depth);
+    CHECK(strstr(n.said, "COMP, PAGE 1/2") == n.said, "the reader hears Comp: %s", n.said);
+    ui_press(&n, UC_IN_K1, 1);
+    CHECK(n.req_at[UFLD_COMP_INS] == 4, "K1 asks for another comp instrument at bar 4 (%d)", n.req_at[UFLD_COMP_INS]);
+    ui_press(&n, UC_IN_OCT_PLUS, 1);
+    CHECK(n.req_at[UFLD_COMP_REG] == 4 && n.req_val[UFLD_COMP_REG] == 1, "OCT+ asks for the register up (%d at %d)",
+          n.req_val[UFLD_COMP_REG], n.req_at[UFLD_COMP_REG]);
+    ui_values(&s, &n, &b);
+    CHECK(!strcmp(ui_value(&b, UV_FIELD(UFLD_COMP_REG, UVK_FIELD_VALUE), 0, t), "*UP AN OCTAVE"), "{compReg}: %s", t);
+    CHECK(!strcmp(n.msg[0], "REGISTER") && !strcmp(n.msg[1], "UP AN OCTAVE"), "the header: %s %s", n.msg[0], n.msg[1]);
+    ui_press(&n, UC_IN_SELECT, 1);
+    CHECK(shown(&n) == US_P_COMP_MORE, "SELECT: Comp's page 2 (%d)", shown(&n));
+    ui_press(&n, UC_IN_ALGO, 1);
+    CHECK(shown(&n) == US_P_PAD && n.depth == 2, "ALGO: the next part, Pad, at its first page (%d)", shown(&n));
+    ui_press(&n, UC_IN_HOME, 1);
+    CHECK(shown(&n) == US_MAIN && n.depth == 1, "HOME: the main screen");
+    CHECK(!strstr(eng_log, "set"), "nothing sent before the bar before its boundary: %s", eng_log);
+}
+
+/* K2 +2 at bar 2: waits, sent in bar 3 once, done at bar 4; turning back undoes (sent: set back) */
+static void test_nav_pending(void)
+{
+    ui_nav_t n;
+    snap_t s;
+    int tempo;
+    nav_fresh(&n, &s, 2);
+    tempo = s.roll.v[RF_TEMPO];
+    ui_press(&n, UC_IN_K2, 2);
+    CHECK(n.req_at[UFLD_TEMPO] == 4 && n.req_val[UFLD_TEMPO] == tempo + 2, "K2 +2: tempo %d at 4 (%d at %d)", tempo + 2,
+          n.req_val[UFLD_TEMPO], n.req_at[UFLD_TEMPO]);
+    s.bar = 3;
+    ui_update(&n, &s, 100);
+    ui_update(&n, &s, 200);
+    {
+        char want[32];
+        snprintf(want, sizeof want, "set %d %d", ROW_TEMPO, tempo + 2);
+        CHECK(!strcmp(eng_log, want), "sent once in bar 3: %s", eng_log);
+    }
+    ui_press(&n, UC_IN_K2, -2);
+    CHECK(n.req_at[UFLD_TEMPO] < 0, "turned back to what plays: nothing waits");
+    CHECK(strstr(eng_log, "; set") != NULL, "and the one sent is set back: %s", eng_log);
+    s.bar = 5;
+    ui_update(&n, &s, 300);
+    ui_press(&n, UC_IN_K2, 1);
+    CHECK(n.req_at[UFLD_TEMPO] == 8, "at bar 5 a change waits for bar 8 (%d)", n.req_at[UFLD_TEMPO]);
+    s.bar = 8;
+    ui_update(&n, &s, 400);
+    CHECK(n.req_at[UFLD_TEMPO] < 0, "past its boundary nothing waits");
+}
+
+/* the pending line: the earliest boundary, a tie the first made */
+static void test_nav_pending_order(void)
+{
+    ui_nav_t n;
+    snap_t s;
+    ui_bag_t b;
+    char t[UI_VALUE_MAX];
+    nav_fresh(&n, &s, 2);
+    ui_press(&n, UC_IN_K2, 1);   /* tempo first */
+    ui_press(&n, UC_IN_K4, -1);  /* then mood, the same boundary (a lower field: not what decides) */
+    ui_press(&n, UC_IN_K2, 1);   /* tempo again: it keeps its place */
+    ui_values(&s, &n, &b);
+    CHECK(!strncmp(ui_value(&b, UV_PENDING, 0, t), "TEMPO", 5), "the first made: %s", t);
+}
+
+/* Review Focus 3: stopped, between songs, past the last boundary: nothing waits; the header still says it */
+static void test_nav_stopped(void)
+{
+    ui_nav_t n;
+    snap_t s;
+    nav_fresh(&n, &s, 2);
+    s.has_song = 0;
+    s.playing = 0;
+    s.stopped = 1;
+    ui_update(&n, &s, 0);
+    ui_press(&n, UC_IN_K2, 1);
+    CHECK(n.req_at[UFLD_TEMPO] < 0 && !n.msg_until, "stopped: nothing waits, nothing said");
+    snap_for(&s, UI_FX_SEED, 2, 1);
+    s.bar = s.roll.v[RF_BARS] - 2;
+    ui_update(&n, &s, 0);
+    ui_press(&n, UC_IN_K2, 1);
+    CHECK(n.req_at[UFLD_TEMPO] < 0 && !strcmp(n.msg[0], "TEMPO"), "past the last boundary: nothing waits, the header "
+          "says it (%d, %s)", n.req_at[UFLD_TEMPO], n.msg[0]);
+}
+
+/* a new song: home, nothing waiting */
+static void test_nav_new_song(void)
+{
+    ui_nav_t n;
+    snap_t s;
+    nav_fresh(&n, &s, 2);
+    ui_press(&n, UC_IN_ALGO, 3);
+    ui_press(&n, UC_IN_EDIT, 1);
+    ui_press(&n, UC_IN_K1, 1);
+    s.roll.seed++;
+    ui_update(&n, &s, 0);
+    CHECK(shown(&n) == US_MAIN && n.depth == 1 && n.req_at[UFLD_COMP_INS] < 0, "a new song: the main screen, nothing "
+          "waits (%d)", shown(&n));
+}
+
+/* PRESET on the main screen: the highlighted part's instrument; SEQ on Bass: its re-roll, sent in the bar before */
+static void test_nav_preset_seq(void)
+{
+    ui_nav_t n;
+    snap_t s;
+    char want[32];
+    nav_fresh(&n, &s, 2);
+    ui_press(&n, UC_IN_PRESET, 1);
+    CHECK(n.req_at[UFLD_DRUM_KIT] < 0 && n.req_at[UFLD_BASS_INS] < 0, "Song highlighted: PRESET does nothing");
+    ui_press(&n, UC_IN_ALGO, 2);
+    ui_press(&n, UC_IN_PRESET, 1);
+    CHECK(n.req_at[UFLD_BASS_INS] == 4, "Bass highlighted: PRESET steps the bass (%d)", n.req_at[UFLD_BASS_INS]);
+    ui_press(&n, UC_IN_EDIT, 1);
+    ui_press(&n, UC_IN_SEQ, 1);
+    CHECK(n.roll_part == UI_PART_BASS && n.roll_at == 4, "SEQ on Bass: its re-roll waits for bar 4");
+    s.bar = 3;
+    ui_update(&n, &s, 0);
+    snprintf(want, sizeof want, "reroll_part %d 0", UI_PART_BASS);
+    CHECK(strstr(eng_log, want) != NULL, "sent in bar 3: %s", eng_log);
+    ui_press(&n, UC_IN_HOME, 1);
+    ui_press(&n, UC_IN_SEQ, 1);
+    CHECK(strstr(eng_log, "reroll 0 0") != NULL, "SEQ on the main screen: a new song: %s", eng_log);
+}
+
+/* Review Focus 4: a spun encoder adds up; two keys at once; a long press while a knob turns; the lights */
+static void test_nav_fast_keys(void)
+{
+    ui_nav_t n;
+    snap_t s;
+    char want[64];
+    uint32_t blink, on;
+    nav_fresh(&n, &s, 2);
+    ui_press(&n, UC_IN_SELECT, 12);
+    CHECK(n.cursor[US_MAIN] == 12 % 7, "SELECT +12: the highlight wraps to %d (%d)", 12 % 7, n.cursor[US_MAIN]);
+    ui_key(&n, 0, 1, 1000);                    /* F (drums) and C (lead) down together */
+    ui_key(&n, 7, 1, 1000);
+    ui_key(&n, 0, 0, 1100);                    /* F let go soon: drums muted */
+    ui_tick(&n, 1200);
+    ui_press(&n, UC_IN_K1, 1);                 /* a knob turns while C is held */
+    ui_tick(&n, 1600);                         /* C held 600 ms: the lead soloed, once */
+    ui_tick(&n, 1700);
+    ui_key(&n, 7, 0, 1800);
+    snprintf(want, sizeof want, "mute %d 1; solo %d 0", UI_PART_DRUMS, UI_PART_LEAD);
+    CHECK(!strcmp(eng_log, want), "each key's press judged on its own: %s", eng_log);
+    CHECK(n.req_at[UFLD_KEY] == 4, "the knob's turn still asked (%d)", n.req_at[UFLD_KEY]);
+    on = ui_key_lights(&n, &s, &blink);
+    CHECK(on == 0 && blink == 1u << 7, "lead soloed: key 7 blinking, the others dark (on %x, blink %x)", on, blink);
+    eng_log[0] = 0;
+    ui_key(&n, 7, 1, 2000);                    /* a press on the soloed part's key: un-solo, not mute */
+    ui_key(&n, 7, 0, 2100);
+    CHECK(!strcmp(eng_log, "solo -1 0"), "a press on the soloed lead un-solos it: %s", eng_log);
+    eng_muted[UI_PART_DRUMS] = 0;
+    eng_muted[UI_PART_BASS] = 1;
+    on = ui_key_lights(&n, &s, &blink);
+    CHECK(on == (1u << 0 | 1u << 4 | 1u << 6 | 1u << 7) && !blink, "bass muted: keys 0, 4, 6, 7 lit (%x)", on);
+}
+
+/* the switches flip either way; the mixer's level and a lane's mute on Parts */
+static void test_nav_switch_mixer(void)
+{
+    ui_nav_t n;
+    snap_t s;
+    nav_fresh(&n, &s, 2);
+    ui_press(&n, UC_IN_FX, 1);
+    CHECK(shown(&n) == US_LEVELS, "FX: the mixer");
+    ui_press(&n, UC_IN_ALGO, 1);
+    ui_press(&n, UC_IN_K1, -3);
+    CHECK(eng_level[UI_PART_BASS] == -3 && !strcmp(n.msg[0], "BASS") && !strcmp(n.msg[1], "-3 DB"),
+          "K1 sets the bass's level at once (%d, %s %s)", eng_level[UI_PART_BASS], n.msg[0], n.msg[1]);
+    ui_press(&n, UC_IN_K1, -20);
+    CHECK(eng_level[UI_PART_BASS] == -12, "clamped at -12 dB (%d)", eng_level[UI_PART_BASS]);
+}
+
+/* Sections: the list scrolls with the highlight (rows: 7); a jump from the last section lands on the song's last bar;
+   it clears once landed, even backward */
+static void test_nav_sections(void)
+{
+    ui_nav_t n;
+    snap_t s;
+    ui_bag_t b;
+    char t[UI_VALUE_MAX];
+    int i, bars;
+    nav_fresh(&n, &s, 2);
+    s.n_secs = 9;                              /* nine sections of 4 bars */
+    for (i = 0; i < 9; i++) {
+        s.secs[i].start = (uint8_t)(4 * i);
+        s.secs[i].bars = 4;
+        s.secs[i].section = SEC_GROOVE;
+    }
+    bars = s.roll.v[RF_BARS];
+    ui_update(&n, &s, 0);
+    ui_press(&n, UC_IN_SEL, 1);
+    CHECK(shown(&n) == US_SECTIONS, "SEL: the sections");
+    ui_press(&n, UC_IN_SELECT, 8);
+    ui_values(&s, &n, &b);
+    CHECK(n.off[US_SECTIONS] == 2 && ui_true(&b, UV_I(6, UVK_I_SEL)), "the highlight on the 9th: lines from the 3rd "
+          "(off %d)", n.off[US_SECTIONS]);
+    CHECK(!strcmp(ui_value(&b, UV_SEC_RANGE, 0, t), "3-9 OF 9"), "the pager: %s", t);
+    s.bar = bars - 2;                          /* the last section: its boundary past the end */
+    ui_update(&n, &s, 0);
+    ui_press(&n, UC_IN_EDIT, 1);
+    CHECK(n.jump_i == 8 && n.jump_at == bars - 1, "a jump from the last section lands on the last bar (%d at %d)",
+          n.jump_i, n.jump_at);
+    CHECK(strstr(eng_log, "jump") != NULL, "sent at once (the bar before): %s", eng_log);
+    s.bar = 4;                                 /* the song went back (a jump to an earlier section) */
+    ui_update(&n, &s, 0);
+    CHECK(n.jump_i < 0, "it clears once the song has moved on, back too");
+}
+
 int main(int argc, char **argv)
 {
     const char *only = argc > 1 ? argv[1] : NULL;
@@ -159,6 +415,15 @@ int main(int argc, char **argv)
     RUN(test_values_fixture);
     RUN(test_values_pending);
     RUN(test_values_unknown_choice);
+    RUN(test_nav_main_to_comp);
+    RUN(test_nav_pending);
+    RUN(test_nav_pending_order);
+    RUN(test_nav_stopped);
+    RUN(test_nav_new_song);
+    RUN(test_nav_preset_seq);
+    RUN(test_nav_fast_keys);
+    RUN(test_nav_switch_mixer);
+    RUN(test_nav_sections);
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;
