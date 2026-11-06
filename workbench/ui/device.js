@@ -130,7 +130,9 @@ const holds = (when, bag) => [].concat(when ?? []).every((w) => (w[0] === "!" ? 
 // The values a screen's templates read, from what the screen shows (Device.shown(): app.c's snap_t, as the UI holds
 // it). app.c's line_pending is `pending`
 const MENU_MAX = 10;
-// a field's value as a share of its range (0..1): a knob's fill bar
+// a field's value as a share of its range (0..1): a knob's fill bar. Only a number has one (Sam, 2026-11-06: tempo,
+// motion); a choice from a list (a key, a mood, an instrument) doesn't: its place in the list means little
+export const hasBar = (def) => !!def && !def.options && !def.format && !def.wrap;
 const fracOf = (def, v) => def.wrap ? v / (def.wrap - 1) : (v - (def.min ?? 0)) / ((def.max ?? 100) - (def.min ?? 0));
 // A field's value now: the roll's (key, tempo, ...), else its workbench row's (rows: the page's { values, options })
 export const fieldValue = (def, k, roll, rows) => (roll?.[k] !== undefined ? roll[k] : rows?.values?.[def.row]);
@@ -193,6 +195,8 @@ export function drawScreen(lcd, screen, bag, data, C = colors(THEME, data.colors
       }
       else if (it.meter) {   // a bar filled to a value's share (0..1): { meter: [x, y, w, h], value, color, back }
         const [x, y, w, h] = it.meter, v = Math.max(0, Math.min(1, Number(bag[it.value]) || 0));
+        const fd = data.fields?.[String(it.value).replace(/Frac$/, "")];
+        if (fd && !hasBar(fd)) continue;   // a field's bar: numbers only
         if (it.back) lcd.rect(x, y, w, h, C[it.back]);
         lcd.rect(x, y, Math.round(w * v), h, C[it.color]);
       }
@@ -202,7 +206,7 @@ export function drawScreen(lcd, screen, bag, data, C = colors(THEME, data.colors
           const x = k.x + i * k.dx;
           lcd.text(x, k.label.y, font(k.label.font), kn.label ?? data.fields[kn.field].name, C[k.label.color]);
           if (holds(k.value.when, bag)) lcd.text(x, k.value.y, font(k.value.font), String(bag[kn.field] ?? ""), C[k.value.color]);
-          if (k.bar && holds(k.value.when, bag)) {   // { y, w, h, color, back }: the knob's place in its range
+          if (k.bar && hasBar(data.fields[kn.field]) && holds(k.value.when, bag)) {   // { y, w, h, color, back }: the knob's place in its range
             lcd.rect(x, k.bar.y, k.bar.w, k.bar.h, C[k.bar.back]);
             lcd.rect(x, k.bar.y, Math.round(k.bar.w * Math.max(0, Math.min(1, bag[`${kn.field}Frac`] ?? 0))), k.bar.h, C[k.bar.color]);
           }
