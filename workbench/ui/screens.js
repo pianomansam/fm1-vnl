@@ -43,32 +43,32 @@ export default {
 
   // 1-bit icons, 9 px wide, rows of "#" (lit) and "." (mockup B3): one per part, drawn in its color
   icons: {
-    song: [   // a record
+    song: [   // a record (Sam)
       "..#####..",
       ".#.....#.",
-      "#..###..#",
-      "#..#.#..#",
-      "#..###..#",
+      "#.......#",
+      "#...#...#",
+      "#.......#",
       ".#.....#.",
       "..#####..",
     ],
-    drums: [   // a drum from the side: its head on top, the shell laced
+    drums: [   // a drum from the side: its head on top (Sam)
       ".#######.",
       "#.......#",
-      "#########",
-      "#.#.#.#.#",
-      "##.#.#.##",
+      "##.....##",
+      "#.#####.#",
+      "#.......#",
       "#.......#",
       ".#######.",
     ],
-    bass: [   // a bass guitar: the body low right, the neck up to the left
+    bass: [   // a bass guitar: the body low right, the neck up to the left (Sam)
       "##.......",
       ".##......",
-      "...#.....",
+      "...#.#...",
       "....###..",
-      "....####.",
       "....#####",
-      ".....###.",
+      "....#####",
+      ".....###",
     ],
     comp: [   // keys
       "#########",
