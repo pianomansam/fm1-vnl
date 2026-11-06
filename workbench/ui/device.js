@@ -276,8 +276,10 @@ export function drawScreen(lcd, screen, bag, data, C = colors(THEME, data.colors
           for (const [nx, nw, ny, nh, shade] of act?.notes?.[p] ?? []) {
             if (nx + nw < from || nx > from + span) continue;
             const x0 = Math.max(lx, Math.round(X(nx))), x1 = Math.min(lx + lw, Math.round(X(nx + nw)));
-            const now = bag.song && nx <= pos && pos < nx + Math.max(nw, 0.06);   // sounding: lit (Sam, 2026-11-06)
-            const base = off ? C.DIM : now ? C.WHITE : nx < pos ? col : C.GRAY;   // played: its color
+            // reduced motion (the default, Sam 2026-11-06): no note lights as it sounds, and played vs to come changes a
+            // bar at a time; `live` (more movement) lights the sounding notes and colors them as they pass
+            const now = it.live && bag.song && nx <= pos && pos < nx + Math.max(nw, 0.06);
+            const base = off ? C.DIM : now ? C.WHITE : nx < (it.live ? pos : Math.floor(pos)) ? col : C.GRAY;   // played: its color
             lcd.rect(x0, ry + 1 + Math.round(ny * (rowH - 4)), Math.max(1, x1 - x0 - 1), Math.max(1, Math.round(nh * (rowH - 4))),
                      now && !off ? base : dim(base, 0.45 + 0.55 * shade));
           }
