@@ -32,7 +32,7 @@
     { "id": 22, "sym": "INS_FM_BASS", "name": "FM bass", "short": "FM", "roles": ["bass"], "family": "synth", "status": "approved" },
     { "id": 23, "sym": "INS_STRINGS", "name": "Strings", "roles": ["pad"], "family": "acoustic", "status": "approved" },
     { "id": 24, "sym": "INS_WARM_PAD", "name": "Pad", "roles": ["pad"], "family": "synth", "status": "approved" },
-    { "id": 25, "sym": "INS_KNIGHT", "name": "Acoustic piano", "roles": ["keys", "lead"], "family": "acoustic", "status": "approved" },
+    { "id": 25, "sym": "INS_KNIGHT", "name": "Piano", "roles": ["keys", "lead"], "family": "acoustic", "status": "approved" },
     { "id": 26, "sym": "INS_EMILY", "name": "Electric guitar", "roles": ["keys"], "family": "acoustic", "status": "approved" },
     { "id": 27, "sym": "INS_STR_LEAD", "name": "String lead", "roles": ["lead"], "family": "synth", "status": "retired" },
     { "id": 28, "sym": "INS_CELLO", "name": "Cello", "roles": ["lead"], "family": "acoustic", "status": "retired" },

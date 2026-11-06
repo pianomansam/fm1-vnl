@@ -555,7 +555,7 @@ console.log("options.json");
   const leads = optionsFor(row("lead"), { values: {} }, OPTS).map((o) => o.name).sort();
   check(retired(OPTS.instruments, ["Kalimba", "Saw lead", "Synth pluck"]) &&
         JSON.stringify(OPTS.instruments.find((i) => i.name === "Electric guitar").roles) === '["keys"]' &&
-        JSON.stringify(leads) === JSON.stringify(["Acoustic piano", "Felt piano", "Flute", "Vibes"]),
+        JSON.stringify(leads) === JSON.stringify(["Felt piano", "Flute", "Piano", "Vibes"]),
         `the lead styles build: the lead row offers the four (${leads.join(", ")}); the kalimba, saw lead and synth pluck retired, the Electric guitar on the keys only`);
   check(retired(OPTS.instruments, ["Upright bass"]) && retired(OPTS.comping, ["Arpeggio", "Offbeats"]) &&
         retired(OPTS.kits, ["Dusty (synth)", "Soft (synth)", "Our 808", "Warm", "Dark", "Rusty", "Gentle", "Clean"]),
@@ -581,7 +581,7 @@ console.log("options.json");
 
 // an acoustic song as the rows see it (the electric bass, of either family: the upright, the acoustic bass, went
 // 2026-10-31)
-const acoustic = () => ({ values: { keys: ins("Acoustic piano"), lead: ins("Flute"), bass: ins("Electric bass"),
+const acoustic = () => ({ values: { keys: ins("Piano"), lead: ins("Flute"), bass: ins("Electric bass"),
   pad: ins("Strings"), kit: 3, comp: -1, family: "acoustic", pattern: 1, kick: "" }, locks: new Set() });
 
 console.log("rows: retired options, dice, families");
@@ -654,8 +654,8 @@ console.log("rows: retired options, dice, families");
   st4.values.comp = 5;
   check(conflicts(row("keys"), ins("Rhodes"), st4, OPTS).forced.some((f) => f.row === "comp" && f.to === -1),
         "keys -> Rhodes forces strum comping back to as rolled");
-  const kl = conflicts(row("lead"), ins("Acoustic piano"), acoustic(), OPTS, lcg(5));
-  check(kl.forced.some((f) => f.row === "keys" && f.to !== ins("Acoustic piano")), "the acoustic piano on the lead moves the keys off it");
+  const kl = conflicts(row("lead"), ins("Piano"), acoustic(), OPTS, lcg(5));
+  check(kl.forced.some((f) => f.row === "keys" && f.to !== ins("Piano")), "the acoustic piano on the lead moves the keys off it");
   const st3 = acoustic();
   st3.values.keys = ins("Felt piano");
   const fl = conflicts(row("lead"), ins("Felt piano"), st3, OPTS, lcg(5));
@@ -2545,7 +2545,7 @@ console.log("comping: held on 2, held on 2 and 4 (approved, Sam 2026-11-05); lig
           JSON.stringify(CS.map((_, i) => i)) &&
         OPTS.compRhythms.filter((c) => c.index !== undefined).every((c) => c.value === COMP_PAT_BASE + c.index),
         "every comping style's id is its harmony.h enum's, once: the rhythms' from compRhythms, the rest from comping");
-  const perc = ["Rhodes", "Felt piano", "Acoustic piano"].map(ins);   // (the Wurli and the DX too, to 2026-11-04)
+  const perc = ["Rhodes", "Felt piano", "Piano"].map(ins);   // (the Wurli and the DX too, to 2026-11-04)
   const off = [ins("Nylon guitar"), ins("Electric guitar"), ins("Organ"), insSym("INS_PAD")];
   const NEW = ["Held on 2", "Held on 2 and 4"];
   const offered = (k, showRetired = false) => optionsFor(row("comp"), { values: { keys: k } }, OPTS, { showRetired })
@@ -2788,7 +2788,7 @@ console.log("the choir: a pad layer a song may draw (1 in 4), and a choice on th
 {
   const { replay, wav } = await import("./replay.mjs");
   const CHOIR = ins("Choir"), WARM = insSym("INS_WARM_PAD"), STR = ins("Strings"), ORGAN = ins("Organ");
-  const PERC = ["Rhodes", "Felt piano", "Acoustic piano"].map(ins);
+  const PERC = ["Rhodes", "Felt piano", "Piano"].map(ins);
   const ex = await load(), call = caller(ex);
   ex.wb_seed(1);
   ex.wb_apply();
@@ -2985,7 +2985,7 @@ console.log("the page by part: sections, part headers, the folded rows, summarie
   const on = (keys, comp = -1) => rhythmRow({ values: { keys, comp } }, OPTS);
   const tres = OPTS.compRhythms.find((p) => p.name === "Tresillo").value;
   check(RHYTHM_ROWS.every((id) => row(id).short === "Rhythm" && sectionOf(id).name === "Comp" && sectionOf(id).main.includes(id)) &&
-        [ins("Rhodes"), ins("Felt piano"), ins("Acoustic piano"), ins("Vibes"), ins("Organ"), insSym("INS_PAD")].every((k) => on(k) === "comp") &&
+        [ins("Rhodes"), ins("Felt piano"), ins("Piano"), ins("Vibes"), ins("Organ"), insSym("INS_PAD")].every((k) => on(k) === "comp") &&
         ["Nylon guitar", "Electric guitar"].every((n) => on(ins(n)) === "strumPat" && on(ins(n), 5) === "strumPat") &&
         on(ins("Nylon guitar"), tres) === "comp" &&
         /if \(RHYTHM_ROWS\.includes\(r\.id\)\) el\.hidden = r\.id !== rhythm;/.test(html),
