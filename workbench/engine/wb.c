@@ -12,6 +12,7 @@
 #include "song.h"
 #include "library.h"
 #include "override.h"
+#include "rolled.h"
 #include "patterns_gen.h"
 #include "lead.h"
 #include "leads/leads.h"
@@ -775,55 +776,9 @@ EXPORT int wb_events_count(void) { return nevents; }
 EXPORT uint32_t wb_chords_ptr(void) { return (uint32_t)(uintptr_t)chords; }
 EXPORT int wb_chords_count(void) { return nchords; }
 
-EXPORT void wb_ov_set(int key, int value)
-{
-    song_ov_t *o = &st.ov;
-    switch (key) {
-    case WB_OV_COMP: o->comp = (int8_t)value; break;
-    case WB_OV_LEAD_STYLE: o->lead_style = (int8_t)value; break;
-    case WB_OV_PAD_PLACE: o->pad_place = (int8_t)value; break;
-    case WB_OV_RIDE: o->ride = (int8_t)value; break;
-    case WB_OV_KEYS_OCT: o->keys_oct = (int8_t)value; break;
-    case WB_OV_LEAD_OCT: o->lead_oct = (int8_t)value; break;
-    case WB_OV_VOICING_SALT: o->voicing_salt = (uint32_t)value; break;
-    case WB_OV_PHRASE_SALT: o->phrase_salt = (uint32_t)value; break;
-    case WB_OV_BASS_SALT: o->bass_salt = (uint32_t)value; break;
-    case WB_OV_PAD_SALT: o->pad_salt = (uint32_t)value; break;
-    case WB_OV_DRUMS_SALT: o->drums_salt = (uint32_t)value; break;
-    case WB_OV_PAD_ON: o->pad_on = (int8_t)value; break;
-    case WB_OV_STRUM_PAT: o->strum_pat = (int8_t)value; break;
-    case WB_OV_NO_BUSY_THIN: o->no_busy_thin = (int8_t)(value != 0); break;
-    case WB_OV_LEAD_LOOP: o->lead_loop = (int8_t)value; break;
-    case WB_OV_STRUM_FILL: o->strum_fill = (int8_t)(value == 0 || value == 1 ? value + 1 : 0); break;   /* -1: drawn */
-    case WB_OV_COMP_PAT: o->comp_pat = (int8_t)(value >= 0 && value < 127 ? value + 1 : 0); break;   /* -1: none */
-    default: break;
-    }
-}
+EXPORT void wb_ov_set(int key, int value) { song_ov_set(&st.ov, key, value); }
 
-EXPORT int wb_ov_get(int key)
-{
-    const song_ov_t *o = &st.ov;
-    switch (key) {
-    case WB_OV_COMP: return o->comp;
-    case WB_OV_LEAD_STYLE: return o->lead_style;
-    case WB_OV_PAD_PLACE: return o->pad_place;
-    case WB_OV_RIDE: return o->ride;
-    case WB_OV_KEYS_OCT: return o->keys_oct;
-    case WB_OV_LEAD_OCT: return o->lead_oct;
-    case WB_OV_VOICING_SALT: return (int)o->voicing_salt;
-    case WB_OV_PHRASE_SALT: return (int)o->phrase_salt;
-    case WB_OV_BASS_SALT: return (int)o->bass_salt;
-    case WB_OV_PAD_SALT: return (int)o->pad_salt;
-    case WB_OV_DRUMS_SALT: return (int)o->drums_salt;
-    case WB_OV_PAD_ON: return o->pad_on;
-    case WB_OV_STRUM_PAT: return o->strum_pat;
-    case WB_OV_NO_BUSY_THIN: return o->no_busy_thin;
-    case WB_OV_LEAD_LOOP: return o->lead_loop;
-    case WB_OV_STRUM_FILL: return o->strum_fill - 1;   /* -1 the song's draw, 0 step back, 1 drive */
-    case WB_OV_COMP_PAT: return o->comp_pat - 1;       /* -1 none, else a COMP_PAT index */
-    default: return 0;
-    }
-}
+EXPORT int wb_ov_get(int key) { return song_ov_get(&st.ov, key); }
 
 /* The keys' register as the engine applies it to the staged state, -1, 0 or +1 (harmony_keys_oct: 0 where the
    instrument's range can't hold the move) */
@@ -846,25 +801,16 @@ EXPORT int wb_keys_oct_applied(void)
 EXPORT const char *wb_rolled(void)
 {
     static char out[320];
-    int slow, cs, pat, ls, on, pl, sp, fd, bs, ride, blk, kh, llo, lhi;
+    song_rolled_t x;
     stage_set(1);
     song_override(&st.ov);
-    cs = harmony_style(&st.roll);
-    pat = harmony_comp_pat(&st.roll);
-    ls = leads_style(&st.roll);
-    on = song_pad_on(&st.roll);
-    pl = harmony_pad_place(&st.roll);
-    sp = strum_pattern(&st.roll, &slow);
-    fd = strum_fill_drive(&st.roll);
-    bs = groove_bass_style(&st.roll);
-    ride = groove_ride(&st.roll, &blk);
-    kh = harmony_keys_high(&st.roll);
-    leads_band_for(&st.roll, ls, &llo, &lhi);
+    song_rolled(&st.roll, &x);
     song_override(&live.ov);
     stage_set(0);
     snprintf(out, sizeof out, "{\"comp\":%d,\"comp_pat\":%d,\"lead_style\":%d,\"pad_on\":%d,\"pad_place\":%d,"
              "\"strum_pat\":%d,\"strum_fill\":%d,\"lead_loop\":%d,\"bass_style\":%d,\"ride\":%d,\"keys_high\":%d,"
-             "\"lead_lo\":%d,\"lead_hi\":%d}", cs, pat, ls, on, pl, sp, fd, LEAD_LOOP_DEFAULT, bs, ride, kh, llo, lhi);
+             "\"lead_lo\":%d,\"lead_hi\":%d}", x.comp, x.comp_pat, x.lead_style, x.pad_on, x.pad_place, x.strum_pat,
+             x.strum_fill, x.lead_loop, x.bass_style, x.ride, x.keys_high, x.lead_lo, x.lead_hi);
     return out;
 }
 

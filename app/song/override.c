@@ -33,3 +33,51 @@ void song_ov_range(int ins, int *lo, int *hi)
     default: *lo = 24; *hi = 108; break;
     }
 }
+
+void song_ov_set(song_ov_t *o, int key, int value)
+{
+    switch (key) {
+    case OV_COMP: o->comp = (int8_t)value; break;
+    case OV_LEAD_STYLE: o->lead_style = (int8_t)value; break;
+    case OV_PAD_PLACE: o->pad_place = (int8_t)value; break;
+    case OV_RIDE: o->ride = (int8_t)value; break;
+    case OV_KEYS_OCT: o->keys_oct = (int8_t)value; break;
+    case OV_LEAD_OCT: o->lead_oct = (int8_t)value; break;
+    case OV_VOICING_SALT: o->voicing_salt = (uint32_t)value; break;
+    case OV_PHRASE_SALT: o->phrase_salt = (uint32_t)value; break;
+    case OV_BASS_SALT: o->bass_salt = (uint32_t)value; break;
+    case OV_PAD_SALT: o->pad_salt = (uint32_t)value; break;
+    case OV_DRUMS_SALT: o->drums_salt = (uint32_t)value; break;
+    case OV_PAD_ON: o->pad_on = (int8_t)value; break;
+    case OV_STRUM_PAT: o->strum_pat = (int8_t)value; break;
+    case OV_NO_BUSY_THIN: o->no_busy_thin = (int8_t)(value != 0); break;
+    case OV_LEAD_LOOP: o->lead_loop = (int8_t)value; break;
+    case OV_STRUM_FILL: o->strum_fill = (int8_t)(value == 0 || value == 1 ? value + 1 : 0); break;   /* -1: drawn */
+    case OV_COMP_PAT: o->comp_pat = (int8_t)(value >= 0 && value < 127 ? value + 1 : 0); break;   /* -1: none */
+    default: break;
+    }
+}
+
+int song_ov_get(const song_ov_t *o, int key)
+{
+    switch (key) {
+    case OV_COMP: return o->comp;
+    case OV_LEAD_STYLE: return o->lead_style;
+    case OV_PAD_PLACE: return o->pad_place;
+    case OV_RIDE: return o->ride;
+    case OV_KEYS_OCT: return o->keys_oct;
+    case OV_LEAD_OCT: return o->lead_oct;
+    case OV_VOICING_SALT: return (int)o->voicing_salt;
+    case OV_PHRASE_SALT: return (int)o->phrase_salt;
+    case OV_BASS_SALT: return (int)o->bass_salt;
+    case OV_PAD_SALT: return (int)o->pad_salt;
+    case OV_DRUMS_SALT: return (int)o->drums_salt;
+    case OV_PAD_ON: return o->pad_on;
+    case OV_STRUM_PAT: return o->strum_pat;
+    case OV_NO_BUSY_THIN: return o->no_busy_thin;
+    case OV_LEAD_LOOP: return o->lead_loop;
+    case OV_STRUM_FILL: return o->strum_fill - 1;   /* -1 the song's draw, 0 step back, 1 drive */
+    case OV_COMP_PAT: return o->comp_pat - 1;       /* -1 none, else a COMP_PAT index */
+    default: return 0;
+    }
+}

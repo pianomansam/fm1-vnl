@@ -72,5 +72,9 @@ int ch_fits(int row, int value, int keys_ins);
 /* rows.js's rhythmRow: ROW_STRUM_PAT when the strum style fits keys_ins and comp (a ROW_COMP value) is as
    rolled, strum or a style that fits; else ROW_COMP */
 int ch_rhythm_row(int keys_ins, int comp);
+/* each row's request on the song (song.h's song_request_row: SR_ROLL + RF_*, SR_ROLE + V_*, SR_OV + OV_*,
+   SR_KIT), -1 where it takes none. The comp row's value is the workbench's: a comp rhythm (from 100) is the
+   COMP_PAT override, anything else COMP */
+extern const int8_t CH_SONG_ROW[ROW_N];
 
 #endif

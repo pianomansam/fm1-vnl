@@ -300,12 +300,82 @@ static int apply_one(song_t *s, int f, int B)
     }
 }
 
+/* the song's own set, copied from its library set on the first role or kit request (NULL: the set is unknown) */
+static lib_set_t *own_set(song_t *s)
+{
+    if (!(s->own & SONG_OWN_SET)) {
+        const lib_set_t *from = lib_set_by_id((uint8_t)s->roll.v[RF_SET]);
+        if (!from) return 0;
+        s->set = *from;
+        if (s->roll.v[RF_SET] != LIB_SET_WB) {
+            s->set.pad = (uint8_t)lib_song_pad(&s->roll);   /* the song's pad layer: the set's, or the choir drawn */
+            s->set_base = from->id;
+        }
+        s->set.id = LIB_SET_WB;
+        s->roll.v[RF_SET] = LIB_SET_WB;
+        s->own |= SONG_OWN_SET;
+        lib_set_wb(&s->set, s->set_base);
+    }
+    return &s->set;
+}
+
+/* the song's own overrides and set, where it has them, in force while it ticks */
+static void own_install(const song_t *s)
+{
+    if (s->own & SONG_OWN_OV) song_override(&s->ov);
+    if (s->own & SONG_OWN_SET) lib_set_wb(&s->set, s->set_base);
+}
+
+/* what song_request_row had in force before the song first made its own (restored when it starts a new song) */
+static const song_t *own_by;
+static song_ov_t own_ov_before;
+
+static void apply_row(song_t *s, int row, int v)
+{
+    lib_set_t *set;
+    if (row >= SR_OV && row < SR_OV + OV_N) {
+        if (!(s->own & SONG_OWN_OV)) {
+            if (own_by != s) {
+                own_ov_before = *song_ov();
+                own_by = s;
+            }
+            s->ov = *song_ov();
+            s->own |= SONG_OWN_OV;
+        }
+        song_ov_set(&s->ov, row - SR_OV, v);
+        song_override(&s->ov);
+    } else if ((set = own_set(s)) != 0) {
+        switch (row) {
+        case SR_ROLE + V_CHORD: set->chords = (uint8_t)lib_keys_approved(v); break;
+        case SR_ROLE + V_BASS: set->bass = (uint8_t)lib_bass_approved(v); break;
+        case SR_ROLE + V_LEAD: set->lead = (uint8_t)lib_lead_approved(v); break;
+        case SR_ROLE + V_PAD: set->pad = (uint8_t)v; break;
+        case SR_KIT:
+            set->kit = lib_kit_sampled(v) ? KIT_N : (uint8_t)v;
+            set->skit = lib_kit_sampled(v) ? (uint8_t)v : KIT_N;
+            break;
+        default: break;
+        }
+    }
+    s->changes++;
+}
+
 static void apply_requests(song_t *s, int B)
 {
-    int f, re = 0, set = s->roll.v[RF_SET], motion = s->roll.v[RF_MOTION], map = s->roll.v[RF_MAP];
+    int f, i, re = 0, set = s->roll.v[RF_SET], motion = s->roll.v[RF_MOTION], map = s->roll.v[RF_MAP], rows = 0;
     if (s->pend[RF_MOOD] && s->pend_bar[RF_MOOD] == B) re |= apply_one(s, RF_MOOD, B);
     for (f = 0; f < RF_N; f++)
         if (s->pend[f] && s->pend_bar[f] == B) re |= apply_one(s, f, B);
+    for (i = 0; i < s->rq_n;)                         /* the rows' requests, in the order they came */
+        if (s->rq[i].bar == B) {
+            apply_row(s, s->rq[i].row, s->rq[i].val);
+            s->rq[i] = s->rq[--s->rq_n];
+            rows = 1;
+        } else
+            i++;
+    if (rows)
+        set = -1;                                     /* an instrument, the kit or an override: as a set change (the
+                                                         lead's style and band, the keys' window, the ride) */
     if (re) merge_plan(s, B);
     if (set != s->roll.v[RF_SET] || motion != s->roll.v[RF_MOTION] || map != s->roll.v[RF_MAP]) ride_for(s);
     if (set != s->roll.v[RF_SET]) {                  /* another lead instrument: its style (kept where it plays it), its
@@ -430,6 +500,10 @@ static int pads_step(const song_t *s, int bar, song_ev_t *out, int max)
 
 void song_start(song_t *s, const song_roll_t *r)
 {
+    if (own_by == s) {                               /* a new song: as rolled, as before this song made its own */
+        song_override(&own_ov_before);
+        own_by = 0;
+    }
     memset(s, 0, sizeof *s);
     s->roll = *r;
     plan_build(&s->roll, &s->plan);
@@ -450,6 +524,7 @@ int song_tick(song_t *s, song_ev_t *out, int max)
     uint32_t salt;
     float gs;
     if (!s || s->state != SS_PLAYING) return 0;
+    own_install(s);                                    /* this song's own overrides and set (song_request_row) */
     style_for(s, 0);                                   /* the workbench may force another style */
     if (song_ov()->lead_oct != s->win_oct || s->lead.style != s->win_style)
         keys_win_for(s);                            /* the workbench moved the lead's band */
@@ -574,10 +649,48 @@ void song_request(song_t *s, int field, int value)
     s->pend_bar[field] = (int16_t)B;
 }
 
+int song_request_row(song_t *s, int row, int value)
+{
+    int B, i;
+    if (!s || s->state != SS_PLAYING) return 0;
+    if (row >= SR_ROLL && row < SR_ROLL + RF_N) {
+        if (row == RF_BARS) return 0;
+        B = (s->step == 0 && s->bar % 4 == 0) ? s->bar : (s->bar / 4 + 1) * 4;
+        if (B >= s->roll.v[RF_BARS]) return 0;
+        song_request(s, row, value);
+        return 1;
+    }
+    if (!(row >= SR_OV && row < SR_OV + OV_N) && row != SR_ROLE + V_CHORD && row != SR_ROLE + V_BASS &&
+        row != SR_ROLE + V_LEAD && row != SR_ROLE + V_PAD && row != SR_KIT)
+        return 0;
+    if (row == SR_KIT && (value < 0 || value >= KIT_N)) return 0;
+    if (row >= SR_ROLE && row < SR_OV && (value < 0 || value > 255)) return 0;
+    B = (s->step == 0 && s->bar % 4 == 0) ? s->bar : (s->bar / 4 + 1) * 4;
+    if (B >= s->roll.v[RF_BARS]) return 0;            /* the song ends first */
+    for (i = 0; i < s->rq_n && s->rq[i].row != row; i++) {}
+    if (i == s->rq_n) {
+        if (s->rq_n == SONG_ROW_REQS) return 0;
+        s->rq_n++;
+    }
+    s->rq[i].row = (int16_t)row;
+    s->rq[i].val = (int16_t)value;
+    s->rq[i].bar = (int16_t)B;
+    return 1;
+}
+
 void song_carry_requests(song_t *s, const song_t *later)
 {
     int f;
     if (!s || !later) return;
+    for (f = 0; f < later->rq_n; f++) {               /* the rows' too (one a row) */
+        int i;
+        for (i = 0; i < s->rq_n && s->rq[i].row != later->rq[f].row; i++) {}
+        if (i == s->rq_n) {
+            if (s->rq_n == SONG_ROW_REQS) continue;
+            s->rq_n++;
+        }
+        s->rq[i] = later->rq[f];
+    }
     for (f = 0; f < RF_N; f++)
         if (later->pend[f]) {
             s->pend[f] = 1;

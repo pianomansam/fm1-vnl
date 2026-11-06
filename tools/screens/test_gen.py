@@ -46,10 +46,10 @@ class Gen(unittest.TestCase):
     def harness(self, body):
         """a C program over the generated tables: its stdout"""
         prog = Path(self.tmp.name) / "h.c"
-        prog.write_text('#include <stdio.h>\n#include "screens_gen.h"\n#include "choices_gen.h"\n'
+        prog.write_text('#include <stdio.h>\n#include "screens_gen.h"\n#include "choices_gen.h"\n#include "song.h"\n'
                         "int main(void) {\n" + body + "\nreturn 0;\n}\n")
         exe = Path(self.tmp.name) / "h"
-        r = subprocess.run(["cc", "-O1", "-std=c99", "-DPLAT_HOST", "-Wall", "-Wextra", "-Werror", f"-I{self.out}", "-o", str(exe),
+        r = subprocess.run(["cc", "-O1", "-std=c99", "-DPLAT_HOST", "-Wall", "-Wextra", "-Werror", f"-I{self.out}", f"-I{ROOT}/app/song", f"-I{ROOT}/app/engine", f"-I{ROOT}/base/include", "-o", str(exe),
                             str(prog), str(self.out / "screens_gen.c"), str(self.out / "choices_gen.c")],
                            capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -125,6 +125,14 @@ class Gen(unittest.TestCase):
         self.assertEqual(out[4], "1 0")         # kit 6 retired, 19 approved
         self.assertEqual(out[5], "1 0 0")       # strum: the guitars only; held: never the guitars
         self.assertEqual(out[6], f"{len(opts['kits'])} {opts['kits'][-1]['id']}")
+
+    def test_song_rows(self):
+        """each row's request on the song: a role's instrument, an override, the kit; none for the seed"""
+        out = self.harness(r"""
+            printf("%d %d\n", CH_SONG_ROW[ROW_KEYS] == SR_ROLE + V_CHORD, CH_SONG_ROW[ROW_KEYS_OCT] == SR_OV + OV_KEYS_OCT);
+            printf("%d %d %d\n", CH_SONG_ROW[ROW_KIT] == SR_KIT, CH_SONG_ROW[ROW_TEMPO] == SR_ROLL + RF_TEMPO,
+                   CH_SONG_ROW[ROW_SEED]);""").splitlines()
+        self.assertEqual(out, ["1 1", "1 1 -1"])
 
     def test_check_stale(self):
         """--check: 0 on the committed files; 1 when screens.json has moved on"""

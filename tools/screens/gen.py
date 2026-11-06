@@ -211,6 +211,21 @@ def shown_rows(data):
     return out
 
 
+def song_row(r):
+    """the song's request on a row (song.h's song_request_row): SR_ROLL + RF_*, SR_ROLE + V_*, SR_OV + OV_*, SR_KIT;
+       -1 where the song takes none (the seed, the family, the screens' own rows, a kick phrase: not on the device yet)"""
+    kind = r.get("kind")
+    if kind == "roll":
+        return f"SR_ROLL + RF_{r['field']}"
+    if kind == "role":
+        return f"SR_ROLE + V_{r['role']}"
+    if kind in ("ov", "reroll"):
+        return f"SR_OV + OV_{r['key']}"
+    if kind == "drum":
+        return {"kit": "SR_KIT", "pattern": "SR_ROLL + RF_PATTERN"}.get(r.get("key"), "-1")
+    return "-1"
+
+
 def gen_choices(rows, opts, shown):
     rows = rows["rows"] + [{"id": "rhythm", "kind": "virtual"}, {"id": "loop", "kind": "virtual", "source": "offOn"},
                             {"id": "endless", "kind": "virtual", "source": "offOn"}]
@@ -251,8 +266,13 @@ def gen_choices(rows, opts, shown):
          "int ch_fits(int row, int value, int keys_ins);\n",
          "/* rows.js's rhythmRow: ROW_STRUM_PAT when the strum style fits keys_ins and comp (a ROW_COMP value) is as\n"
          "   rolled, strum or a style that fits; else ROW_COMP */\n",
-         "int ch_rhythm_row(int keys_ins, int comp);\n\n#endif\n"]
-    c = [HEAD, '#include "choices_gen.h"\n\n', s.c("CH_STR"), "\n",
+         "int ch_rhythm_row(int keys_ins, int comp);\n",
+         "/* each row's request on the song (song.h's song_request_row: SR_ROLL + RF_*, SR_ROLE + V_*, SR_OV + OV_*,\n"
+         "   SR_KIT), -1 where it takes none. The comp row's value is the workbench's: a comp rhythm (from 100) is the\n"
+         "   COMP_PAT override, anything else COMP */\n",
+         "extern const int8_t CH_SONG_ROW[ROW_N];\n\n#endif\n"]
+    c = [HEAD, '#include "choices_gen.h"\n#include "song.h"\n\n', s.c("CH_STR"), "\n",
+         "const int8_t CH_SONG_ROW[ROW_N] = {\n" + "".join(f"    {song_row(r)},   /* {r['id']} */\n" for r in rows) + "};\n",
          "typedef struct { int16_t value; uint16_t name; uint8_t flags; } ch_entry_t;\n",
          f"static const ch_entry_t CH_E[{len(entries)}] = {{\n" +
          "".join(f"    {{{v}, {nm}, {fl}}},\n" for v, nm, fl, _, _ in entries) + "};\n",
@@ -607,7 +627,7 @@ def gen_screens(data, vocab, rows):
          "/* fonts (ui/fonts.js's faces: gfx's FONT_*), colors (UI_COLORS: the theme's, gfx.c's palette for APP_PALETTE,\n"
          "   then the screens' own), icons, parts (the lanes', keys', mute's and solo's), screens, fields */\n",
          E("ui_font", fonts, "UI_FONT_"), E("ui_color", colors, "UC_"), f"#define UC_N_THEME {len(THEME)}\n",
-         E("ui_icon", icons, "UI_ICON_"), E("ui_part", parts, "UI_PART_"), E("ui_screen_id", screens, "US_"),
+         E("ui_icon", icons, "UI_ICON_"), E("ui_part", parts, "UI_PART_"), E("ui_screen_id", screens, "US_"), f"#define UI_MAX_SCREENS {len(screens)}\n",
          E("ui_field", fields, "UFLD_"), f"#define UI_N_FIELDS {len(fields)}\n\n",
          "/* the values (vocab.json's): 0 none, then the fixed ones, then each pattern's family, one id an item and member:\n"
          "   UV_<FAMILY>(item, member) */\n",

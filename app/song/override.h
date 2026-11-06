@@ -34,6 +34,14 @@ typedef struct {
                                initializer, it stays none), else 1 + its COMP_PAT index, approved or candidate */
 } song_ov_t;
 
+/* The overrides by key (the workbench's rows: rows.json's ov and reroll keys), as wb_ov_set / wb_ov_get see them:
+   strum_fill -1 the song's draw, 0 step back, 1 drive; comp_pat -1 none, else a COMP_PAT index; no_busy_thin 0/1 */
+enum { OV_COMP, OV_LEAD_STYLE, OV_PAD_PLACE, OV_RIDE, OV_KEYS_OCT, OV_LEAD_OCT, OV_VOICING_SALT, OV_PHRASE_SALT,
+       OV_BASS_SALT, OV_PAD_SALT, OV_DRUMS_SALT, OV_PAD_ON, OV_STRUM_PAT, OV_NO_BUSY_THIN, OV_LEAD_LOOP, OV_STRUM_FILL,
+       OV_COMP_PAT, OV_N };
+void song_ov_set(song_ov_t *o, int key, int value);
+int song_ov_get(const song_ov_t *o, int key);
+
 void song_override(const song_ov_t *ov);   /* NULL: none (default); the struct is copied */
 const song_ov_t *song_ov(void);            /* never NULL: a static all-rolled struct when none */
 

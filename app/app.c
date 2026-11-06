@@ -261,12 +261,13 @@ static void step(void)
         memset(req_set, 0, sizeof req_set);   /* every waiting request lands on this boundary */
     {                                     /* a request that lands here on what the voices read reaches them */
         song_roll_t before = song.roll;
+        uint16_t changes = song.changes;  /* a row request (an instrument, the kit) landing: song_request_row */
         n = song_tick(&song, evs, 64);
         llp = song_lead_lp_at(&song, bar, st);   /* the lead loop's filter, for the 16th just played */
         vx_set_filter(PM_LEAD, lp[PM_LEAD] < llp ? llp : lp[PM_LEAD]);   /* before its events */
         vx_set_pad_level(song_pad_level(&song));   /* the pad layer's fade over a section line */
-        if (vx_reconfigures(&before, &song.roll)) /* sounding notes keep their patches; dust and bed changes ramp,
-                                                     the delay's time glides to a new tempo */
+        /* sounding notes keep their patches; dust and bed changes ramp, the delay's time glides to a new tempo */
+        if (vx_reconfigures(&before, &song.roll) || song.changes != changes)
             vx_configure(&song.roll);
     }
     SLOG_STEP(&song, bar, st, evs, n);

@@ -11,8 +11,11 @@
 #include "harmony.h"
 #include "lead.h"
 #include "pads.h"
+#include "override.h"
+#include "library.h"
 
 enum { SS_PLAYING, SS_ENDED };
+enum { SONG_ROW_REQS = 8 };       /* song_request_row's requests waiting at once (one a row) */
 
 typedef struct {
     /* read-only for callers */
@@ -39,7 +42,18 @@ typedef struct {
     int16_t pend_bar[RF_N];       /* the bar it lands on */
     int16_t ride_lo, ride_hi;     /* the bars [lo, hi) whose hats go to the ride (groove_ride) */
     float pad_level;              /* the pad layer's level the step last ticked played (song_pad_level) */
+    /* song_request_row's: the requests waiting (row, value, the bar each lands on), and what landed ones made the
+       song's own: its overrides (installed with song_override every tick) and its set (a role's or the kit's
+       request: LIB_SET_WB, installed with lib_set_wb, copied from set_base's) */
+    uint8_t rq_n;
+    struct { int16_t row, val, bar; } rq[SONG_ROW_REQS];
+    uint8_t own;                  /* SONG_OWN_OV, SONG_OWN_SET */
+    uint8_t set_base;
+    song_ov_t ov;
+    lib_set_t set;
+    uint16_t changes;             /* bumps as a row request lands: the voices read the instruments again */
 } song_t;
+enum { SONG_OWN_OV = 1, SONG_OWN_SET = 2 };
 
 void song_start(song_t *s, const song_roll_t *r);           /* the plan; bar 0, step 0 */
 /* One 16th: its events sorted by delay; 0 once ended. Events beyond max are dropped: pass max >= 64. */
@@ -60,6 +74,16 @@ int song_pending(const song_t *s, int *field, int *bars_left);  /* the earliest 
    that bar), each landing on the bar it would have; one waiting in s but not in `later` landed on that bar's
    downbeat and lands there again */
 void song_carry_requests(song_t *s, const song_t *later);
+
+/* A request on any row the screens set, landing on the next 4-bar boundary exactly as song_request's and carried
+   across a stop like them. row: SR_ROLL + RF_* a roll field (song_request), SR_ROLE + V_* a role's instrument (V_CHORD,
+   V_BASS, V_LEAD, V_PAD; library.c's stand-ins for a removed one), SR_OV + OV_* an override or a re-roll's salt
+   (override.h's keys and values), SR_KIT a kit (KIT_*). A role or the kit makes the song's set its own (LIB_SET_WB,
+   copied from the song's), as the workbench's custom set; overrides become the song's own (song_override, from the
+   ones in force). Both are undone when the same song_t starts a new song. 1: it waits; 0: refused (an unknown row, a
+   kit the device has not, the song's end first, nothing playing). A second request on a row replaces the first. */
+enum { SR_ROLL = 0, SR_ROLE = 32, SR_OV = 64, SR_KIT = 96 };
+int song_request_row(song_t *s, int row, int value);
 
 /* SPIKE: bass rhythm: 1 a cell per song, 2 the kick's, 3 half notes on 1 and 3, 4 beats 1 and 2,
    5 beats 1, 2 and 4; 0 off */

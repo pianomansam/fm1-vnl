@@ -24,6 +24,7 @@
 #include "drums.h"
 #include "skits.h"
 #include "override.h"
+#include "rolled.h"
 #include "patterns_gen.h"
 #include "leads/leads.h"
 
@@ -13392,6 +13393,80 @@ static void test_lead_no_dom7_ending(void)
     CHECK(bad == 0, "lead dom7 endings: %ld of %ld phrase endings on a dominant's 7th", bad, ends);
 }
 
+/* song_rolled: what the "as rolled" rows play, as wb_rolled reported before it moved here (pinned 2026-11-06 from the
+   workbench at seeds 21, 72, 140 and 300, no overrides) */
+static void test_rolled_matches_wb(void)
+{
+    static const struct { uint32_t seed; int v[13]; } want[] = {
+        {21, {9, 0, 3, 1, 0, 4, 1, 1, 2, 0, 0, 71, 83}},
+        {72, {9, 2, 5, 1, 0, 2, 1, 1, 2, 0, 0, 72, 84}},
+        {140, {9, 1, 2, 1, 0, 1, 0, 1, 0, 0, 0, 72, 84}},
+        {300, {6, -1, 0, 1, 0, 0, 1, 1, 1, 2, 0, 70, 82}},
+    };
+    int i;
+    song_override(NULL);
+    for (i = 0; i < 4; i++) {
+        song_roll_t r;
+        song_rolled_t x;
+        roll_song(NULL, want[i].seed, &r);
+        song_rolled(&r, &x);
+        int got[13] = {x.comp, x.comp_pat, x.lead_style, x.pad_on, x.pad_place, x.strum_pat, x.strum_fill,
+                       x.lead_loop, x.bass_style, x.ride, x.keys_high, x.lead_lo, x.lead_hi};
+        CHECK(memcmp(got, want[i].v, sizeof got) == 0, "song_rolled at seed %u: comp %d pat %d style %d pad %d/%d "
+              "strum %d/%d loop %d bass %d ride %d high %d lead %d-%d", want[i].seed, got[0], got[1], got[2], got[3],
+              got[4], got[5], got[6], got[7], got[8], got[9], got[10], got[11], got[12]);
+    }
+}
+
+/* a song ticked silently up to the first step of bar `bar` */
+static void tick_to(song_t *s, int bar)
+{
+    song_ev_t ev[64];
+    while (s->state == SS_PLAYING && (s->bar < bar || s->step != 0))
+        song_tick(s, ev, 64);
+}
+
+/* song_request_row: a role's instrument, an override and a re-roll's salt wait for the next 4-bar boundary, as a
+   roll field's request does, then play from it; a new song starts without them */
+static void test_request_row_lands(void)
+{
+    song_roll_t r;
+    song_t s;
+    const lib_set_t *set;
+    int keys, other, ok;
+    song_override(NULL);
+    roll_song(NULL, 72, &r);
+    song_start(&s, &r);
+    tick_to(&s, 2);
+    set = lib_set_by_id((uint8_t)s.roll.v[RF_SET]);
+    keys = set->chords;
+    other = keys == INS_RHODES ? INS_FELT_PIANO : INS_RHODES;
+    ok = song_request_row(&s, SR_ROLE + V_CHORD, other);
+    CHECK(ok, "a comp instrument request at bar 2 waits");
+    CHECK(song_request_row(&s, SR_OV + OV_KEYS_OCT, 1), "a keys register request waits");
+    CHECK(song_request_row(&s, SR_OV + OV_BASS_SALT, 7), "a bass re-roll waits");
+    tick_to(&s, 3);
+    CHECK(lib_set_by_id((uint8_t)s.roll.v[RF_SET])->chords == keys && song_ov()->keys_oct == 0 &&
+          song_ov()->bass_salt == 0, "nothing changes before bar 4 (bar 3: keys %d, oct %d, salt %u)",
+          lib_set_by_id((uint8_t)s.roll.v[RF_SET])->chords, song_ov()->keys_oct, song_ov()->bass_salt);
+    tick_to(&s, 4);
+    song_tick(&s, (song_ev_t[64]){{0}}, 64);   /* bar 4's first step: the requests land */
+    set = lib_set_by_id((uint8_t)s.roll.v[RF_SET]);
+    CHECK(s.roll.v[RF_SET] == LIB_SET_WB && set && set->chords == other, "from bar 4 the new comp instrument plays "
+          "(set %d, keys %d, wanted %d)", s.roll.v[RF_SET], set ? set->chords : -1, other);
+    CHECK(set && set->bass == lib_set_by_id((uint8_t)r.v[RF_SET])->bass, "the song's other instruments stay");
+    CHECK(song_ov()->keys_oct == 1 && song_ov()->bass_salt == 7, "from bar 4 the keys an octave up (%d) and the bass "
+          "re-rolled (%u)", song_ov()->keys_oct, song_ov()->bass_salt);
+    CHECK(!song_request_row(&s, SR_KIT, KIT_N + 3), "a kit the device lacks is refused");
+    CHECK(!song_request_row(&s, 999, 1), "an unknown row is refused");
+    song_start(&s, &r);
+    CHECK(song_ov()->keys_oct == 0 && song_ov()->bass_salt == 0, "a new song starts as rolled (oct %d, salt %u)",
+          song_ov()->keys_oct, song_ov()->bass_salt);
+    tick_to(&s, s.roll.v[RF_BARS] - 2);
+    CHECK(!song_request_row(&s, SR_OV + OV_KEYS_OCT, 1), "a request the song's end comes before is refused");
+    song_override(NULL);
+}
+
 int main(int argc, char **argv)
 {
     const char *only = argc > 1 ? argv[1] : NULL;
@@ -13552,6 +13627,8 @@ int main(int argc, char **argv)
     RUN(test_lead_loop_bossa_riff);
     RUN(test_lead_loop_floor);
     RUN(test_lead_loop_octave);
+    RUN(test_rolled_matches_wb);
+    RUN(test_request_row_lands);
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;
