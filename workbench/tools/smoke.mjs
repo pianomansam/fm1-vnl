@@ -832,7 +832,8 @@ console.log("desk: dice and registers");
   const ex = await load();
   const call = caller(ex);
   const desk = new Desk(call, C, OPTS, await call("wb_library"), { rnd: lcg(5), probe: await prober() });
-  ex.wb_seed(1);   // (seed 5 until the vibes-on-keys sets, 2026-11-05, moved its song to one whose lead goes down)
+  ex.wb_seed(2);   // (seed 5 until the vibes-on-keys sets, 2026-11-05, moved its song to one whose lead goes down; seed 1
+                   // until the leads evened, Sam 2026-11-06: its set 22 leads with the vibes now, which go down)
   ex.wb_apply();
   ex.wb_play(1);
   render(ex, Q);
@@ -846,7 +847,7 @@ console.log("desk: dice and registers");
   check(k.ok && desk.values.keysOct === ex.wb_keys_oct_applied() && ex.wb_ov_get(C.OV.KEYS_OCT) === desk.values.keysOct,
         `the keys register shows what the engine applies (asked +1, plays ${desk.values.keysOct}${k.message ? `: "${k.message}"` : ""})`);
   const probe = await prober(), stagedLead = async () => probe(await call("wb_stage_bytes"));
-  const l = await desk.set("leadOct", -1);   // seed 1: the lead can't go down (lead.c keeps it)
+  const l = await desk.set("leadOct", -1);   // seed 2: the lead can't go down (lead.c keeps it)
   check(l.ok && desk.values.leadOct === 0 && ex.wb_ov_get(C.OV.LEAD_OCT) === 0 && /Lead register/.test(l.message),
         `the lead register shows what the engine applies (asked -1, plays ${desk.values.leadOct}: "${l.message}")`);
   ex.wb_ov_set(C.OV.LEAD_OCT, -1);
@@ -857,7 +858,7 @@ console.log("desk: dice and registers");
     ex.wb_seed(seed);
     if ((await stagedLead()) === 1) up = seed;
   }
-  check(refused === 0 && up > 0, `the probe instance: seed 1 down refused (${refused}), seed ${up} up applied`);
+  check(refused === 0 && up > 0, `the probe instance: seed 2 down refused (${refused}), seed ${up} up applied`);
 }
 
 console.log("desk: a quantum rendered before every call (the worklet's interleaving)");
