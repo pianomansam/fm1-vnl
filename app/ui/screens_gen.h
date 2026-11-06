@@ -121,7 +121,12 @@ typedef struct { uint16_t text; uint8_t when; } ui_say_t;
 /* a field: its row (choices_gen.h's ROW_*), name, kind, range, step, format, now (acts at once) */
 enum { UI_FK_ROLL, UI_FK_OPTIONS, UI_FK_VARIANT };
 enum { UI_FMT_NONE, UI_FMT_KEY, UI_FMT_MOOD, UI_FMT_MODE, UI_FMT_VARIANT };
-typedef struct { uint8_t row; uint16_t name; uint8_t kind; int16_t min, max; uint8_t wrap, step, format, now; } ui_field_t;
+/* as_row: the field is named as its row (key, tempo ...): the mock's bag holds one {name}Pend for both, the
+   row's text */
+typedef struct {
+    uint8_t row; uint16_t name; uint8_t kind; int16_t min, max;
+    uint8_t wrap, step, format, now, as_row;
+} ui_field_t;
 typedef struct { uint8_t field, step; } ui_knob_t;
 /* a screen. bands: its first in UI_BANDS; knobs: UI_NONE none; controls: an action (UI_ACTIONS) each
    (UC_IN_*); menu, pages, lanes: lists; list: 1 the song's sections; key_leds: UI_KEY_LEDS + 1 (0 none);

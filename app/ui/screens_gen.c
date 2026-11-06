@@ -748,42 +748,42 @@ const uint8_t UI_LIST_DATA[59] = {0, 2, 4, 6, 7, 0, 1, 2, 3, 4, 0, 1, 2, 3, 4, 5
 const ui_key_leds_t UI_KEY_LEDS[2] = {{1, 1, 2}, {2, 14, 0}};
 const ui_say_t UI_SAYS[23] = {{118, 0}, {126, 1}, {258, 1}, {18, 3}, {289, 8}, {308, 6}, {404, 0}, {126, 1}, {500, 0}, {629, 0}, {749, 0}, {891, 0}, {974, 0}, {1055, 0}, {1142, 0}, {1226, 0}, {1365, 0}, {1447, 0}, {1551, 0}, {1669, 0}, {1911, 0}, {2133, 0}, {2163, 30}};
 const ui_field_t UI_FIELDS[36] = {
-    {ROW_BASS, 2217, 1, 0, 0, 0, 1, 0, 0},   /* bassIns */
-    {ROW_BASS_LINE, 2228, 2, 0, 99, 0, 1, 4, 0},   /* bassLine */
-    {ROW_STRUM_FILL, 2233, 1, 0, 0, 0, 1, 0, 0},   /* compFill */
-    {ROW_KEYS, 2217, 1, 0, 0, 0, 1, 0, 0},   /* compIns */
-    {ROW_KEYS_OCT, 2244, 1, 0, 0, 0, 1, 0, 0},   /* compReg */
-    {ROW_RHYTHM, 2253, 1, 0, 0, 0, 1, 0, 0},   /* compRhythm */
-    {ROW_BUSY_THIN, 2260, 1, 0, 0, 0, 1, 0, 0},   /* compThin */
-    {ROW_VOICINGS, 2276, 2, 0, 99, 0, 1, 4, 0},   /* compVoicing */
-    {ROW_KICK, 2285, 1, 0, 0, 0, 1, 0, 0},   /* drumKick */
-    {ROW_KIT, 2290, 1, 0, 0, 0, 1, 0, 0},   /* drumKit */
-    {ROW_PATTERN, 2294, 1, 0, 0, 0, 1, 0, 0},   /* drumPattern */
-    {ROW_RIDE, 2302, 1, 0, 0, 0, 1, 0, 0},   /* drumRide */
-    {ROW_DRUMS_VAR, 2307, 2, 0, 99, 0, 1, 4, 0},   /* drumVar */
-    {ROW_ENDLESS, 2317, 1, 0, 0, 2, 1, 0, 1},   /* endless */
-    {ROW_KEY, 2330, 0, 0, 0, 12, 1, 1, 0},   /* key */
-    {ROW_LEAD, 2217, 1, 0, 0, 0, 1, 0, 0},   /* leadIns */
-    {ROW_LEAD_LOOP, 13, 1, 0, 0, 0, 1, 0, 0},   /* leadLoopSet */
-    {ROW_PHRASE, 2334, 2, 0, 99, 0, 1, 4, 0},   /* leadPhrase */
-    {ROW_LEAD_OCT, 2244, 1, 0, 0, 0, 1, 0, 0},   /* leadReg */
-    {ROW_LEAD_STYLE, 2341, 1, 0, 0, 0, 1, 0, 0},   /* leadStyleSet */
-    {ROW_LOOP, 13, 1, 0, 0, 2, 1, 0, 1},   /* loop */
-    {ROW_MODE, 2347, 0, 0, 0, 6, 1, 3, 0},   /* mode */
-    {ROW_MOOD, 2353, 0, 0, 3, 0, 1, 2, 0},   /* mood */
-    {ROW_MOTION, 2358, 0, 0, 100, 0, 1, 0, 0},   /* motion */
-    {ROW_PAD, 2217, 1, 0, 0, 0, 1, 0, 0},   /* padIns */
-    {ROW_PAD_NOTES, 2365, 2, 0, 99, 0, 1, 4, 0},   /* padNotes */
-    {ROW_PAD_ON, 2371, 1, 0, 0, 0, 1, 0, 0},   /* padOnSet */
-    {ROW_PAD_PLACE, 2378, 1, 0, 0, 0, 1, 0, 0},   /* padPlaceSet */
-    {ROW_COLOR, 2384, 1, 0, 0, 0, 1, 0, 0},   /* songColor */
-    {ROW_MAP, 2396, 1, 0, 0, 0, 1, 0, 0},   /* songMap */
-    {ROW_PROG, 2403, 1, 0, 0, 0, 1, 0, 0},   /* songProg */
-    {ROW_SWING, 2410, 1, 0, 0, 0, 1, 0, 0},   /* songSwing */
-    {ROW_TEMPO, 2416, 0, 70, 90, 0, 1, 0, 0},   /* tempo */
-    {ROW_AMBIENCE, 2422, 1, 0, 0, 0, 1, 0, 0},   /* texAmb */
-    {ROW_DUST, 2431, 1, 0, 0, 0, 1, 0, 0},   /* texDust */
-    {ROW_NOISE, 2436, 1, 0, 0, 0, 1, 0, 0},   /* texNoise */
+    {ROW_BASS, 2217, 1, 0, 0, 0, 1, 0, 0, 0},   /* bassIns */
+    {ROW_BASS_LINE, 2228, 2, 0, 99, 0, 1, 4, 0, 1},   /* bassLine */
+    {ROW_STRUM_FILL, 2233, 1, 0, 0, 0, 1, 0, 0, 0},   /* compFill */
+    {ROW_KEYS, 2217, 1, 0, 0, 0, 1, 0, 0, 0},   /* compIns */
+    {ROW_KEYS_OCT, 2244, 1, 0, 0, 0, 1, 0, 0, 0},   /* compReg */
+    {ROW_RHYTHM, 2253, 1, 0, 0, 0, 1, 0, 0, 0},   /* compRhythm */
+    {ROW_BUSY_THIN, 2260, 1, 0, 0, 0, 1, 0, 0, 0},   /* compThin */
+    {ROW_VOICINGS, 2276, 2, 0, 99, 0, 1, 4, 0, 0},   /* compVoicing */
+    {ROW_KICK, 2285, 1, 0, 0, 0, 1, 0, 0, 0},   /* drumKick */
+    {ROW_KIT, 2290, 1, 0, 0, 0, 1, 0, 0, 0},   /* drumKit */
+    {ROW_PATTERN, 2294, 1, 0, 0, 0, 1, 0, 0, 0},   /* drumPattern */
+    {ROW_RIDE, 2302, 1, 0, 0, 0, 1, 0, 0, 0},   /* drumRide */
+    {ROW_DRUMS_VAR, 2307, 2, 0, 99, 0, 1, 4, 0, 0},   /* drumVar */
+    {ROW_ENDLESS, 2317, 1, 0, 0, 2, 1, 0, 1, 1},   /* endless */
+    {ROW_KEY, 2330, 0, 0, 0, 12, 1, 1, 0, 1},   /* key */
+    {ROW_LEAD, 2217, 1, 0, 0, 0, 1, 0, 0, 0},   /* leadIns */
+    {ROW_LEAD_LOOP, 13, 1, 0, 0, 0, 1, 0, 0, 0},   /* leadLoopSet */
+    {ROW_PHRASE, 2334, 2, 0, 99, 0, 1, 4, 0, 0},   /* leadPhrase */
+    {ROW_LEAD_OCT, 2244, 1, 0, 0, 0, 1, 0, 0, 0},   /* leadReg */
+    {ROW_LEAD_STYLE, 2341, 1, 0, 0, 0, 1, 0, 0, 0},   /* leadStyleSet */
+    {ROW_LOOP, 13, 1, 0, 0, 2, 1, 0, 1, 1},   /* loop */
+    {ROW_MODE, 2347, 0, 0, 0, 6, 1, 3, 0, 1},   /* mode */
+    {ROW_MOOD, 2353, 0, 0, 3, 0, 1, 2, 0, 1},   /* mood */
+    {ROW_MOTION, 2358, 0, 0, 100, 0, 1, 0, 0, 1},   /* motion */
+    {ROW_PAD, 2217, 1, 0, 0, 0, 1, 0, 0, 0},   /* padIns */
+    {ROW_PAD_NOTES, 2365, 2, 0, 99, 0, 1, 4, 0, 1},   /* padNotes */
+    {ROW_PAD_ON, 2371, 1, 0, 0, 0, 1, 0, 0, 0},   /* padOnSet */
+    {ROW_PAD_PLACE, 2378, 1, 0, 0, 0, 1, 0, 0, 0},   /* padPlaceSet */
+    {ROW_COLOR, 2384, 1, 0, 0, 0, 1, 0, 0, 0},   /* songColor */
+    {ROW_MAP, 2396, 1, 0, 0, 0, 1, 0, 0, 0},   /* songMap */
+    {ROW_PROG, 2403, 1, 0, 0, 0, 1, 0, 0, 0},   /* songProg */
+    {ROW_SWING, 2410, 1, 0, 0, 0, 1, 0, 0, 0},   /* songSwing */
+    {ROW_TEMPO, 2416, 0, 70, 90, 0, 1, 0, 0, 1},   /* tempo */
+    {ROW_AMBIENCE, 2422, 1, 0, 0, 0, 1, 0, 0, 0},   /* texAmb */
+    {ROW_DUST, 2431, 1, 0, 0, 0, 1, 0, 0, 0},   /* texDust */
+    {ROW_NOISE, 2436, 1, 0, 0, 0, 1, 0, 0, 0},   /* texNoise */
 };
 const ui_screen_t UI_SCREENS[17] = {
     { /* levels */ 146, 0, 4, {{255, 0}, {255, 0}, {255, 0}, {255, 0}},

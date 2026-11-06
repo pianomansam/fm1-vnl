@@ -676,7 +676,10 @@ def gen_screens(data, vocab, rows):
         "/* a field: its row (choices_gen.h's ROW_*), name, kind, range, step, format, now (acts at once) */\n"
         "enum { UI_FK_ROLL, UI_FK_OPTIONS, UI_FK_VARIANT };\n"
         "enum { UI_FMT_NONE, UI_FMT_KEY, UI_FMT_MOOD, UI_FMT_MODE, UI_FMT_VARIANT };\n"
-        "typedef struct { uint8_t row; uint16_t name; uint8_t kind; int16_t min, max; uint8_t wrap, step, format, now; } ui_field_t;\n"
+        "/* as_row: the field is named as its row (key, tempo ...): the mock's bag holds one {name}Pend for both, the\n"
+        "   row's text */\n"
+        "typedef struct {\n    uint8_t row; uint16_t name; uint8_t kind; int16_t min, max;\n"
+        "    uint8_t wrap, step, format, now, as_row;\n} ui_field_t;\n"
         "typedef struct { uint8_t field, step; } ui_knob_t;\n"
         "/* a screen. bands: its first in UI_BANDS; knobs: UI_NONE none; controls: an action (UI_ACTIONS) each\n"
         "   (UC_IN_*); menu, pages, lanes: lists; list: 1 the song's sections; key_leds: UI_KEY_LEDS + 1 (0 none);\n"
@@ -705,7 +708,8 @@ def gen_screens(data, vocab, rows):
             raise Refused(f"fields.{k}: no row {d['row']}")
         kind = 1 if d.get("options") else 2 if d.get("format") == "variant" else 0
         fld.append(f"    {{ROW_{ident(d['row'])}, {s(d['name'])}, {kind}, {d.get('min', 0)}, {d.get('max', 0)}, "
-                   f"{d.get('wrap', 0)}, {d.get('step', 1)}, {fmt.get(d.get('format'), 0)}, {1 if d.get('now') else 0}}},   /* {k} */\n")
+                   f"{d.get('wrap', 0)}, {d.get('step', 1)}, {fmt.get(d.get('format'), 0)}, {1 if d.get('now') else 0}, "
+                   f"{1 if d['row'] == k else 0}}},   /* {k} */\n")
     c = [HEAD, '#include "screens_gen.h"\n#include "choices_gen.h"\n\n', s.c("UI_STRINGS"), "\n",
          f"const int UI_N_SCREENS = {len(screens)}, UI_HOME = {screens.index(data['home'])};\n",
          f"const uint8_t UI_PART_SCREENS = {part_screens};\n",

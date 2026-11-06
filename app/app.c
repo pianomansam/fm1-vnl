@@ -32,6 +32,15 @@
 #include "library.h"
 #include "voices.h"
 #include "fx.h"
+#include "snap.h"
+/* The screens' runtime (app/ui: the workbench's screens as tables, their values, their drawing): in the simulator only
+   until it replaces this file's own screen (the device's flash can't hold both) */
+#ifdef PLAT_HOST
+#include "values.h"
+#include "ui/choices_gen.c"
+#include "ui/screens_gen.c"
+#include "ui/values.c"
+#endif
 
 #define BARRIER() __asm__ volatile("" ::: "memory")
 
@@ -107,15 +116,7 @@ static void post(uint32_t c, int a, int b)
 }
 
 /* ------------------------------------------------------- render -> main --- */
-typedef struct {
-    uint8_t playing, has_song, stopped;
-    uint8_t ready, held;                 /* stopped, a song ready (roll); held: one to continue (bar, section) */
-    uint8_t req_set[RF_N];               /* a knob's request waiting for the boundary, and its value */
-    int16_t req_val[RF_N];
-    int32_t songs, bar, section, flags, pend_field, pend_bars, voices;
-    song_roll_t roll;
-} snap_t;
-static snap_t snap;
+static snap_t snap;                     /* (ui/snap.h) */
 static volatile uint32_t snap_seq;       /* odd while the render writes */
 
 static void snap_read(snap_t *o)        /* main loop: a consistent copy */
@@ -356,6 +357,21 @@ static void publish(void)
     }
     snap.pend_field = f;
     snap.pend_bars = bars;
+#ifdef PLAT_HOST
+    if (snap.has_song || snap.ready) {   /* the screens' values: each row's, the plan's sections */
+        const song_plan_t *p = snap.held ? &mark.plan : snap.has_song ? &song.plan : 0;
+        int i;
+        ui_song_rows(&snap.roll, snap.rows);
+        snap.n_secs = 0;
+        for (i = 0; p && i < p->n && i < SNAP_SECS; i++) {
+            snap.secs[i].start = p->b[i].start;
+            snap.secs[i].bars = p->b[i].bars;
+            snap.secs[i].section = p->b[i].section;
+        }
+        snap.n_secs = (uint8_t)i;
+        snap.changes = song.changes;
+    }
+#endif
     BARRIER();
     snap_seq++;
 }
