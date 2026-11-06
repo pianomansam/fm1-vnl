@@ -330,6 +330,11 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   between them with the piano keys, as the song map's white keys do (each queued change lands on the 4-bar boundary,
   marked while it waits). With nothing queued, the section playing repeats. Goes with the song map screen and its
   key jumps in the workbench mock (2026-11-06) and with user song layouts (above).
+- **The song planner changes an instrument mid-song (Sam, 2026-11-06: future, not started).** The plan can switch a
+  part's instrument at a section change (the pad, the comp, the lead): e.g. the comp moves from the Rhodes to the
+  felt piano for the break, or the lead from the flute to the vibes for the second lead section. To settle: which
+  parts, how often, which pairs go together (the family and the set's rules), and how the screens show it (the
+  main screen's tile, the part's "as rolled").
 - **A simplified and an expanded main screen (Sam, 2026-11-06: an idea, part of the screens work).** Two main
   screens: a simple one (e.g. the chord and where the song is) and an expanded one (the song and every part's rolls);
   the expanded one opens from the simple one, and the user sets which is the default (HOME's). Mockups A-C in the
