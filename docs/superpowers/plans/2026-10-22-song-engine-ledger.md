@@ -339,6 +339,11 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   the bar it landed on, over the song's seed and starting state. Playback replays those changes on the same bars, so
   the take comes back exactly (the engine is deterministic from the seed). Saved on the device beside saved songs
   (PRESET browses them); REC arms and stops it.
+- **A section without the comp (Sam, 2026-11-06).** The engine can already play a block without the keys (a plan
+  block's layers without L_KEYS: the pad goes with them, song.c's pad_part), but the planner never plans one: every
+  section's skeleton has L_KEYS (plan.c). To decide, by ear: how often (e.g. one break or groove in some songs, drums
+  and bass alone, or drums only), and where (never the intro or the outro). Also a manual switch for it (a part's mute
+  is the listening-only version today).
 - **The song planner changes an instrument mid-song (Sam, 2026-11-06: future, not started).** The plan can switch a
   part's instrument at a section change (the pad, the comp, the lead): e.g. the comp moves from the Rhodes to the
   felt piano for the break, or the lead from the flute to the vibes for the second lead section. To settle: which
