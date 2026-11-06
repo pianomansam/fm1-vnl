@@ -46,15 +46,14 @@ export default {
 
   // 1-bit icons, 9 px wide, rows of "#" (lit) and "." (the main screen's): one per part, drawn in its color
   icons: {
-    song: [   // a record on a turntable, tilted, its tonearm on it (Sam, 2026-11-06)
-      "......###",
-      ".....#...",
-      ".........",
-      "..#####..",
-      ".#.....#.",
-      "#...#...#",
-      ".#.....#.",
-      "..#####..",
+    song: [   // two eighth notes, beamed (Sam, 2026-11-06; tried records, lanes, a cassette)
+      "...######",
+      "...#....#",
+      "...#....#",
+      "...#....#",
+      ".###..###",
+      "####.####",
+      ".##...##.",
     ],
     drums: [   // a drum from the side: its head on top (Sam)
       ".#######.",
