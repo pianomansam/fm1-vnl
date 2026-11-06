@@ -4868,9 +4868,9 @@
       {
        "color": "GRAY",
        "font": "T",
-       "right": 232,
        "text": "{secRange}",
        "when": "secRange",
+       "x": 12,
        "y": 130
       }
      ],
