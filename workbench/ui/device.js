@@ -596,7 +596,8 @@ export class Device {
     if (a.do === "mute" || a.do === "solo") {   // the highlighted lane's part: muted, or soloed (again: neither); at once
       const part = a.part ?? this.screen.lanes?.[this.cursor[this.id] ?? 0], act = this.live?.activity;
       if (!part || part === "texture") return null;   // (the texture: a level only)
-      if (a.do === "mute") { const on = !act?.mute?.includes(part); this.engine.mute?.(part, on); this.say(part.toUpperCase(), on ? "MUTED" : "ON"); }
+      if (a.do === "mute" && act?.solo === part) { this.engine.solo?.(null); this.say(part.toUpperCase(), "SOLO OFF"); }   // a press on the soloed part: un-solo (Sam, 2026-11-06: not mute)
+      else if (a.do === "mute") { const on = !act?.mute?.includes(part); this.engine.mute?.(part, on); this.say(part.toUpperCase(), on ? "MUTED" : "ON"); }
       else { const on = act?.solo !== part; this.engine.solo?.(on ? part : null); this.say(part.toUpperCase(), on ? "SOLO" : "SOLO OFF"); }
       return null;
     }

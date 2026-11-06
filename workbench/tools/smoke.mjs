@@ -3131,8 +3131,8 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
   {   // the Parts screen: K1 mutes the highlighted lane's part, K2 solos it (again: off), at once
     const got = [], dm = new D.Device(data, { set() {}, play() {}, mute: (p, on) => got.push(["mute", p, on]), solo: (p) => got.push(["solo", p]) }, () => t);
     dm.update({ ...live(3), activity: { bars: 64, lanes: {}, mute: [], solo: null } });
-    dm.stack = ["main"]; dm.press("GLO"); dm.press("ALGO", 2); dm.press("K1"); dm.press("K2");
-    check(dm.id === "mixer" && JSON.stringify(got) === '[["mute","keys",true],["solo","keys"]]', `GLO opens Parts; the third lane muted, then soloed (${JSON.stringify(got)})`);
+    dm.stack = ["main"]; dm.press("ARP"); dm.press("ALGO", 2); dm.press("K1"); dm.press("K2");
+    check(dm.id === "mixer" && JSON.stringify(got) === '[["mute","keys",true],["solo","keys"]]', `ARP opens Parts; the third lane muted, then soloed (${JSON.stringify(got)})`);
   }
   {   // on the Parts roll a key press mutes its lane's part, a long press solos it (Device.tick past LONG_MS)
     let tt = 0;
@@ -3142,6 +3142,10 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
     dk.keyDown("KEY2"); tt += 100; dk.tick(); dk.keyUp("KEY2");                 // G: bass, a press
     dk.keyDown("KEY7"); tt += D.LONG_MS + 10; dk.tick(); dk.tick(); dk.keyUp("KEY7");   // C: lead, held
     check(JSON.stringify(got) === '[["mute","bass",true],["solo","lead"]]', `Parts: G pressed mutes the bass, C held solos the lead (${JSON.stringify(got)})`);
+    dk.update({ ...live(3), activity: { bars: 64, lanes: {}, mute: [], solo: "lead" } });
+    got.length = 0;
+    dk.keyDown("KEY7"); tt += 100; dk.tick(); dk.keyUp("KEY7");   // C pressed while the lead is soloed: un-solo, not mute
+    check(JSON.stringify(got) === '[["solo",null]]', `a press on the soloed lead un-solos it (${JSON.stringify(got)})`);
   }
   {   // the keys' lights: on Parts a playing part's key lit, a soloed one blinking; on Sections the playing section's
     const dl = new D.Device(data, { set() {}, play() {} }, () => t);

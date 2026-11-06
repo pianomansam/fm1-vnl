@@ -167,7 +167,9 @@ export default {
     HOME: { go: "home" },
     SEQ: { do: "reroll" },   // a new song (Sam, 2026-11-06); the firmware's B_SEQ
     SEL: { go: "sections" },   // the song map, from any screen (Sam, 2026-11-06); on Sections, SEL goes back
-    GLO: { go: "mixer" },      // the parts and the mixer, from any screen; on Parts, GLO goes back
+    ARP: { go: "mixer" },      // the Parts roll, from any screen; on it, ARP goes back (Sam, 2026-11-06)
+    FX: { go: "levels" },      // the Mixer, from any screen; on it, FX goes back
+    GLO: { go: "prefs" },      // the Settings, from any screen (the FM-1 convention: GLO = global); on it, GLO goes back
     // the lowest white keys, a part each (F drums, G bass, A comp, B pad, C lead), on every screen but Sections (its
     // keys jump): press mutes, a long press solos; again: off (Sam, 2026-11-06)
     KEY0: { do: "mute", part: "drums", long: { do: "solo", part: "drums" } },
@@ -260,8 +262,8 @@ export default {
             { when: "pending", text: ". {pending}" }],
     },
 
-    // The parts over the song (Sam, 2026-11-06: the workbench's roll on the device, growing into the mixer): GLO from
-    // the main screen (the FM-1 convention: GLO = global, the mixer). A lane a part: its icon and name, then its notes
+    // The parts over the song (Sam, 2026-11-06: the workbench's roll on the device): ARP, from any screen (notes laid
+    // out over time, as an arpeggiator's are). A lane a part: its icon and name, then its notes
     // as the workbench's piano roll draws them, 8 bars across, scrolling with the song (played notes in its color, the
     // rest gray), the playhead. ALGO or SELECT picks
     // a lane, K1 mutes it, K2 solos it (again: off); listening only, at once. Levels later (the mixer item).
@@ -278,7 +280,6 @@ export default {
         { y: 18, h: 28, draw: [
           { rect: [2, 0, 2, 26], color: "WHITE" },
           { text: "PARTS", font: "B", x: 10, y: 4, color: "WHITE" },
-          { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
           { when: ["song", "!pending"], text: "{chord}", font: "XS", right: 232, y: 5, color: "WHITE" },
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
@@ -287,23 +288,21 @@ export default {
         ] },
         { y: 196, h: 44, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
-          { text: "KEY MUTE   HOLD KEY SOLO   SELECT MIXER", font: "T", x: 8, y: 8, color: "DIM" },
-          { text: "GLO BACK   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
+          { text: "KEY MUTE   HOLD KEY SOLO   ALGO PICK", font: "T", x: 8, y: 8, color: "DIM" },
+          { text: "ARP BACK   FX MIXER   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
-      pages: ["mixer", "levels", "prefs"],   // SELECT: the mixer's levels (Sam, 2026-11-06: GLO, then SELECT)
       controls: {
-        ALGO: { do: "cursor" }, SELECT: { do: "page" }, K1: { do: "mute" }, K2: { do: "solo" }, GLO: { go: "back" },
+        ALGO: { do: "cursor" }, SELECT: { do: "cursor" }, K1: { do: "mute" }, K2: { do: "solo" }, ARP: { go: "back" },
       },
       say: ["PARTS. ", { when: "song", text: "{section}, BAR {bar} OF {bars}" }],
     },
 
-    // The mixer (GLO, then SELECT from Parts): a fader a part, its level -12..+6 dB (kept across songs), M / S under
+    // The mixer (FX, from any screen): a fader a part, its level -12..+6 dB (kept across songs), M / S under
     // it. ALGO picks, K1 sets the level, K2 mutes, K3 solos; the keys mute and solo as everywhere.
     levels: {
       title: "Mixer",
       lanes: ["drums", "bass", "keys", "pad", "lead", "texture"],
-      pages: ["mixer", "levels", "prefs"],
       bands: [
         { y: 0, h: 16, draw: [
           { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
@@ -314,7 +313,6 @@ export default {
         { y: 18, h: 28, draw: [
           { rect: [2, 0, 2, 26], color: "WHITE" },
           { text: "MIXER", font: "B", x: 10, y: 4, color: "WHITE" },
-          { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
           { when: ["song", "!pending"], text: "{chord}", font: "XS", right: 232, y: 5, color: "WHITE" },
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
@@ -324,22 +322,21 @@ export default {
         { y: 196, h: 44, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
           { text: "ALGO PICK   K1 LEVEL   K2 MUTE   K3 SOLO", font: "T", x: 8, y: 8, color: "DIM" },
-          { text: "SELECT SETTINGS   GLO BACK   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
+          { text: "FX BACK   ARP PARTS   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
       controls: {
-        ALGO: { do: "cursor" }, SELECT: { do: "page" }, K1: { do: "level" }, K2: { do: "mute" }, K3: { do: "solo" }, GLO: { go: "back" },
+        ALGO: { do: "cursor" }, SELECT: { do: "cursor" }, K1: { do: "level" }, K2: { do: "mute" }, K3: { do: "solo" }, FX: { go: "back" },
       },
       say: ["MIXER. ", { when: "song", text: "{section}, BAR {bar} OF {bars}" }],
     },
 
-    // PLACEHOLDER: the user's settings, GLO's third page (Sam, 2026-11-06): what goes here (reduced movement, the
+    // PLACEHOLDER: the user's settings, GLO (Sam, 2026-11-06): what goes here (reduced movement, the
     // screen reader, the key lights, brightness, which main screen is the default, the Advanced rules) is listed, not
-    // working yet. SELECT pages back to Parts.
+    // working yet.
     prefs: {
       title: "Settings (placeholder)",
       placeholder: true,
-      pages: ["mixer", "levels", "prefs"],
       bands: [
         { y: 0, h: 16, draw: [
           { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
@@ -349,7 +346,6 @@ export default {
         { y: 18, h: 28, draw: [
           { rect: [2, 0, 2, 26], color: "WHITE" },
           { text: "SETTINGS", font: "B", x: 10, y: 4, color: "WHITE" },
-          { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
           { text: "PLACEHOLDER", font: "T", right: 232, y: 8, color: "DIM" },
         ] },
         { y: 50, h: 140, draw: [
@@ -363,10 +359,10 @@ export default {
         { y: 196, h: 44, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
           { text: "NOT WORKING YET: WHAT GOES HERE", font: "T", x: 8, y: 8, color: "DIM" },
-          { text: "SELECT PARTS   GLO BACK   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
+          { text: "GLO BACK   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
-      controls: { SELECT: { do: "page" }, GLO: { go: "back" } },
+      controls: { GLO: { go: "back" } },
       say: ["SETTINGS, A PLACEHOLDER"],
     },
 
@@ -591,6 +587,7 @@ export default {
       ],
       knobs: [{ field: "drumKit", step: 1 }, { field: "drumPattern", step: 1 }, { field: "drumKick", step: 1 }, { field: "drumRide", step: 1 }],
       controls: {
+        PRESET: { do: "turn", field: "drumKit", step: 1 },   // browse its instrument (Sam, 2026-11-06)
         SEQ: { do: "reroll", part: "drums" },   // this part re-rolls (its 🎲), on the 4-bar boundary (Sam, 2026-11-06)
         ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
       },
@@ -626,6 +623,7 @@ export default {
       ],
       knobs: [{ field: "drumVar", step: 1 }],
       controls: {
+        PRESET: { do: "turn", field: "drumKit", step: 1 },   // browse its instrument (Sam, 2026-11-06)
         SEQ: { do: "reroll", part: "drums" },   // this part re-rolls (its 🎲), on the 4-bar boundary (Sam, 2026-11-06)
         ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
       },
@@ -664,6 +662,7 @@ export default {
       ],
       knobs: [{ field: "bassIns", step: 1 }, { field: "bassLine", step: 1 }],
       controls: {
+        PRESET: { do: "turn", field: "bassIns", step: 1 },   // browse its instrument (Sam, 2026-11-06)
         SEQ: { do: "reroll", part: "bass" },   // this part re-rolls (its 🎲), on the 4-bar boundary (Sam, 2026-11-06)
         ALGO: { do: "part" }, EDIT: { go: "back" },
       },
@@ -712,6 +711,7 @@ export default {
       ],
       knobs: [{ field: "compIns", step: 1 }, { field: "compRhythm", step: 1 }, { field: "compVoicing", step: 1 }, { field: "compReg", step: 1 }],
       controls: {
+        PRESET: { do: "turn", field: "compIns", step: 1 },   // browse its instrument (Sam, 2026-11-06)
         SEQ: { do: "reroll", part: "keys" },   // this part re-rolls (its 🎲), on the 4-bar boundary (Sam, 2026-11-06)
         ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
         "OCT-": { do: "nudge", field: "compReg", by: -1 }, "OCT+": { do: "nudge", field: "compReg", by: 1 },
@@ -751,6 +751,7 @@ export default {
       ],
       knobs: [{ field: "compFill", step: 1 }, { field: "compThin", step: 1 }],
       controls: {
+        PRESET: { do: "turn", field: "compIns", step: 1 },   // browse its instrument (Sam, 2026-11-06)
         SEQ: { do: "reroll", part: "keys" },   // this part re-rolls (its 🎲), on the 4-bar boundary (Sam, 2026-11-06)
         ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
         "OCT-": { do: "nudge", field: "compReg", by: -1 }, "OCT+": { do: "nudge", field: "compReg", by: 1 },
@@ -796,6 +797,7 @@ export default {
       ],
       knobs: [{ field: "padIns", step: 1 }, { field: "padOnSet", step: 1 }, { field: "padPlaceSet", step: 1 }, { field: "padNotes", step: 1 }],
       controls: {
+        PRESET: { do: "turn", field: "padIns", step: 1 },   // browse its instrument (Sam, 2026-11-06)
         SEQ: { do: "reroll", part: "pad" },   // this part re-rolls (its 🎲), on the 4-bar boundary (Sam, 2026-11-06)
         ALGO: { do: "part" }, EDIT: { go: "back" },
       },
@@ -840,6 +842,7 @@ export default {
       ],
       knobs: [{ field: "leadIns", step: 1 }, { field: "leadStyleSet", step: 1 }, { field: "leadPhrase", step: 1 }, { field: "leadReg", step: 1 }],
       controls: {
+        PRESET: { do: "turn", field: "leadIns", step: 1 },   // browse its instrument (Sam, 2026-11-06)
         SEQ: { do: "reroll", part: "lead" },   // this part re-rolls (its 🎲), on the 4-bar boundary (Sam, 2026-11-06)
         ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
         "OCT-": { do: "nudge", field: "leadReg", by: -1 }, "OCT+": { do: "nudge", field: "leadReg", by: 1 },
@@ -876,6 +879,7 @@ export default {
       ],
       knobs: [{ field: "leadLoopSet", step: 1 }],
       controls: {
+        PRESET: { do: "turn", field: "leadIns", step: 1 },   // browse its instrument (Sam, 2026-11-06)
         SEQ: { do: "reroll", part: "lead" },   // this part re-rolls (its 🎲), on the 4-bar boundary (Sam, 2026-11-06)
         ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
         "OCT-": { do: "nudge", field: "leadReg", by: -1 }, "OCT+": { do: "nudge", field: "leadReg", by: 1 },
