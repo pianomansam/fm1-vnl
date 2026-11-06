@@ -56,6 +56,10 @@ float song_pad_level(const song_t *s);
 float song_lead_lp_at(const song_t *s, int bar, int st);
 void song_request(song_t *s, int field, int value);         /* lands on the next 4-bar boundary */
 int song_pending(const song_t *s, int *field, int *bars_left);  /* the earliest pending change; 0 if none */
+/* The requests waiting in `later` (the same song further on: a stop's) carried into s (the song back at the start of
+   that bar), each landing on the bar it would have; one waiting in s but not in `later` landed on that bar's
+   downbeat and lands there again */
+void song_carry_requests(song_t *s, const song_t *later);
 
 /* SPIKE: bass rhythm: 1 a cell per song, 2 the kick's, 3 half notes on 1 and 3, 4 beats 1 and 2,
    5 beats 1, 2 and 4; 0 off */

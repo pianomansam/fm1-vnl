@@ -574,6 +574,18 @@ void song_request(song_t *s, int field, int value)
     s->pend_bar[field] = (int16_t)B;
 }
 
+void song_carry_requests(song_t *s, const song_t *later)
+{
+    int f;
+    if (!s || !later) return;
+    for (f = 0; f < RF_N; f++)
+        if (later->pend[f]) {
+            s->pend[f] = 1;
+            s->pend_val[f] = later->pend_val[f];
+            s->pend_bar[f] = later->pend_bar[f];
+        }
+}
+
 int song_pending(const song_t *s, int *field, int *bars_left)
 {
     int f, best = -1;
