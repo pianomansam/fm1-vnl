@@ -173,6 +173,16 @@ export function valuesOf(s, data) {
     bag[`${k}Frac`] = fieldFrac(def, v, s.rows);
   }
   bag.page = s.page ?? "";
+  // a list's ends (Sam, 2026-11-06: arrows, not a bar): {field}First / {field}Last where the value (or the change
+  // waiting) can't move further that way; a number without ends (a wrap) has neither
+  for (const [k, def] of Object.entries(f)) {
+    const v = k in (s.reqs ?? {}) ? s.reqs[k] : fieldValue(def, k, r, s.rows);
+    if (v === undefined || def.wrap) continue;
+    if (def.options) {
+      const o = s.rows?.options?.[def.row] ?? [], i = o.findIndex((x) => String(x.value) === String(v));
+      bag[`${k}First`] = i <= 0; bag[`${k}Last`] = i < 0 || i >= o.length - 1;
+    } else { bag[`${k}First`] = v <= (def.min ?? -Infinity); bag[`${k}Last`] = v >= (def.max ?? Infinity); }
+  }
   // a change waiting for its bar shows at once, marked (Sam, 2026-11-06: "*", in the pending color): the field's
   // value and its row's label (a tile's {kit}); {field}Pend / {row}Pend true. Not on the reference screen (today's
   // device draws the old value until it lands)
@@ -236,7 +246,13 @@ export function drawScreen(lcd, screen, bag, data, C = colors(THEME, data.colors
         const f = font(it.font), s = fill(it.text, bag);
         const x = it.right !== undefined ? it.right - textW(f, s) : it.after !== undefined ? pen + it.after : it.x;
         const lone = /^\{(\w+)\}$/.exec(it.text)?.[1];   // a value alone: the pending color while it waits
-        pen = lcd.text(x, it.y, f, s, C[lone && bag[`${lone}Pend`] && C.PENDING !== undefined ? "PENDING" : it.color]);
+        const col = C[lone && bag[`${lone}Pend`] && C.PENDING !== undefined ? "PENDING" : it.color];
+        if (it.arrows && lone) {   // "< VALUE >": an arrow only where the list goes on (its slot kept, so the value stays put)
+          const ac = C[it.arrows === true ? "DIM" : it.arrows], lw = textW(f, "< ");
+          if (!bag[`${lone}First`]) lcd.text(x, it.y, f, "<", ac);
+          pen = lcd.text(x + lw, it.y, f, s, col);
+          if (!bag[`${lone}Last`]) pen = lcd.text(pen + textW(f, " "), it.y, f, ">", ac);
+        } else pen = lcd.text(x, it.y, f, s, col);
       }
     }
     lcd.blit(0, band.y);
@@ -278,7 +294,7 @@ export function problems(data) {
   if (!data.screens?.[data.home]) out.push(`home "${data.home}" is not a screen`);
   for (const p of data.parts ?? []) if (!data.screens?.[p]) out.push(`parts: no screen "${p}"`);
   const known = new Set(["APP", "song", "stopped", "idle", "msg", "msg0", "msg1", "map", "section", "bar", "bars", "chord",
-                         "pending", "rhythm", "progress", "page", ...Object.keys(data.fields ?? {}).map((k) => `${k}Pend`), ...ROWS.map((r) => `${r.id}Pend`), ...Object.keys(data.fields ?? {}).map((k) => `${k}Frac`), ...ROWS.map((r) => r.id), ...Array.from({ length: MENU_MAX }, (_, i) => `sel${i}`),
+                         "pending", "rhythm", "progress", "page", ...Object.keys(data.fields ?? {}).flatMap((k) => [`${k}First`, `${k}Last`]), ...Object.keys(data.fields ?? {}).map((k) => `${k}Pend`), ...ROWS.map((r) => `${r.id}Pend`), ...Object.keys(data.fields ?? {}).map((k) => `${k}Frac`), ...ROWS.map((r) => r.id), ...Array.from({ length: MENU_MAX }, (_, i) => `sel${i}`),
                          ...Object.keys(data.fields ?? {}), ...Object.keys(data.lines ?? {})]);
   const tpl = (where, t) => { for (const [, k] of String(t).matchAll(/\{(\w+)\}/g)) if (!known.has(k)) out.push(`${where}: no value {${k}}`); };
   const cond = (where, w) => { for (const x of [].concat(w ?? [])) if (!known.has(x.replace(/^!/, ""))) out.push(`${where}: no value "${x}"`); };
