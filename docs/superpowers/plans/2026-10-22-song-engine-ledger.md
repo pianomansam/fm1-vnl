@@ -345,9 +345,10 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   parts, how often, which pairs go together (the family and the set's rules), and how the screens show it (the
   main screen's tile, the part's "as rolled").
 - **A "more movement" display setting (Sam, 2026-11-06: future, not started).** The Parts screen's piano roll steps a
-  bar at a time by default (live scrolling was too much motion). A setting for more movement turns on smooth, live
-  scrolling (the mock's roll item already takes `live: true`), and perhaps other motion (a gliding playhead, animated
-  transitions). Belongs with the device's settings / the Advanced section.
+  bar at a time by default (live scrolling was too much motion), and in that default reduced motion no note lights
+  up as it sounds and played vs to come changes a bar at a time (Sam, 2026-11-06). A setting for more movement turns
+  on smooth, live scrolling with the sounding notes lit (the mock's roll item already takes `live: true`), and perhaps
+  other motion (a gliding playhead, animated transitions). Belongs with the device's settings / the Advanced section.
 - **ENV: a part's sound page (Sam, 2026-11-06: future, not started).** On the device, ENV (the FM-1 convention: the
   current track's envelope) opens the current or highlighted part's sound: attack, release, brightness, a little
   drive, and the instrument's own controls (the organ's drawbars, percussion and chorus: the organ lead waits on
