@@ -339,6 +339,10 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   felt piano for the break, or the lead from the flute to the vibes for the second lead section. To settle: which
   parts, how often, which pairs go together (the family and the set's rules), and how the screens show it (the
   main screen's tile, the part's "as rolled").
+- **A "more movement" display setting (Sam, 2026-11-06: future, not started).** The Parts screen's piano roll steps a
+  bar at a time by default (live scrolling was too much motion). A setting for more movement turns on smooth, live
+  scrolling (the mock's roll item already takes `live: true`), and perhaps other motion (a gliding playhead, animated
+  transitions). Belongs with the device's settings / the Advanced section.
 - **A simplified and an expanded main screen (Sam, 2026-11-06: an idea, part of the screens work).** Two main
   screens: a simple one (e.g. the chord and where the song is) and an expanded one (the song and every part's rolls);
   the expanded one opens from the simple one, and the user sets which is the default (HOME's). Mockups A-C in the
