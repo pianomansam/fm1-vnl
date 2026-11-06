@@ -23,6 +23,7 @@ enum { UC_IN_FX, UC_IN_SEL, UC_IN_ENV, UC_IN_LFO, UC_IN_EDIT, UC_IN_GLO, UC_IN_H
 enum ui_font { UI_FONT_T, UI_FONT_XS, UI_FONT_S, UI_FONT_B, UI_FONT_M, UI_FONT_L };
 enum ui_color { UC_BLACK, UC_WHITE, UC_LINE, UC_DIM, UC_GRAY, UC_AMB, UC_HI, UC_BASS, UC_COMP, UC_DRUMS, UC_LEAD, UC_PAD, UC_PENDING, UC_SONG, UC_TEXTURE };
 #define UC_N_THEME 7
+#define UI_PENDING_COLOR UC_PENDING   /* a value waiting (-1: none) */
 enum ui_icon { UI_ICON_BASS, UI_ICON_COMP, UI_ICON_DRUMS, UI_ICON_LEAD, UI_ICON_PAD, UI_ICON_SONG, UI_ICON_TEXTURE };
 enum ui_part { UI_PART_DRUMS, UI_PART_BASS, UI_PART_KEYS, UI_PART_PAD, UI_PART_LEAD, UI_PART_TEXTURE };
 enum ui_screen_id { US_LEVELS, US_MAIN, US_MIXER, US_P_BASS, US_P_COMP, US_P_COMP_MORE, US_P_DRUMS, US_P_DRUMS_MORE, US_P_LEAD, US_P_LEAD_MORE, US_P_PAD, US_P_SONG, US_P_SONG3, US_P_SONG_MORE, US_P_TEXTURE, US_PREFS, US_SECTIONS };
@@ -158,10 +159,14 @@ extern const uint16_t UI_COLORS[];
 extern const uint16_t UI_ICONS[][8];
 extern const uint8_t UI_ICON_ROWS[];
 extern const uint16_t UI_LINES[];   /* each line's template (UV_LINE(i, 0)'s) */
+/* a text item that is a value alone ({kit}): its past - 1 here, the value ids of its Pend, First and Last (0:
+   none). A meter's past: 1 when its field has no bar (a choice from a list) */
+extern const uint16_t UI_LONES[][3];
 #ifdef PLAT_HOST
 /* a value id's name: the simulator's uistate (not on the device) */
 extern const char UI_VALUE_STRINGS[];
 extern const uint16_t UI_VALUE_NAME[];
+extern const char *const UI_SCREEN_NAME[];   /* each screen's id (screens.js's) */
 #define UI_VALUE_STR(id) (UI_VALUE_STRINGS + UI_VALUE_NAME[id])
 #endif
 

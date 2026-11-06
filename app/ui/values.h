@@ -34,5 +34,7 @@ int ui_true(const ui_bag_t *b, int cond_id);
 /* each row's value as a song with roll r plays it (the render side, for the snapshot): the roll's fields, its set's
    instruments and kit, the overrides in force (song_ov) */
 void ui_song_rows(const song_roll_t *r, int16_t rows[ROW_N]);
+/* the sections of a song stopped and ready (its plan not built by the render yet): from its roll */
+void ui_snap_sections(snap_t *s);
 
 #endif

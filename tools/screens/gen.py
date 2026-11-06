@@ -446,7 +446,7 @@ def gen_screens(data, vocab, rows):
             actions.append(t)
         return actions.index(t)
 
-    items, bands, says, knob_styles, lane_items, keyleds = [], [], [], [], [], []
+    items, bands, says, knob_styles, lane_items, keyleds, lones = [], [], [], [], [], [], []
     band_at = {}
 
     def item(where, it):
@@ -472,6 +472,12 @@ def gen_screens(data, vocab, rows):
             if it.get("arrows"):
                 arrows = 1 + color(where, "DIM" if it["arrows"] is True else it["arrows"])
                 arrows_right = it.get("arrowsRight", 232)
+            lone = re.fullmatch(r"\{(\w+)\}", it["text"])   # a value alone: its Pend (the pending color), First, Last
+            if lone:
+                lt = tuple(vid.get(lone.group(1) + x, 0) for x in ("Pend", "First", "Last"))
+                if lt not in lones:
+                    lones.append(lt)
+                past = 1 + lones.index(lt)
         elif kind == "icon":
             if it["icon"] not in icons:
                 errs.append(f"{where}: no icon {it['icon']}")
@@ -503,6 +509,9 @@ def gen_screens(data, vocab, rows):
                     errs.append(f'{where}: no value "{it["value"]}"')
                 else:
                     ref = vid[it["value"]]
+                fd = data["fields"].get(re.sub(r"Frac$", "", it["value"]))
+                if fd and (fd.get("options") or fd.get("format") or fd.get("wrap")):
+                    past = 1                                    # a field's bar: numbers only (device.js's hasBar)
             if kind in ("lanes", "faders"):
                 lt = (lst(part(p) for p in it["parts"]), it.get("label", 52), it.get("rowH", 22), it.get("window", 8),
                       s(" ".join(it.get("keys", []))), 1 if it.get("live") else 0)
@@ -627,6 +636,7 @@ def gen_screens(data, vocab, rows):
          "/* fonts (ui/fonts.js's faces: gfx's FONT_*), colors (UI_COLORS: the theme's, gfx.c's palette for APP_PALETTE,\n"
          "   then the screens' own), icons, parts (the lanes', keys', mute's and solo's), screens, fields */\n",
          E("ui_font", fonts, "UI_FONT_"), E("ui_color", colors, "UC_"), f"#define UC_N_THEME {len(THEME)}\n",
+         f"#define UI_PENDING_COLOR {'UC_PENDING' if 'PENDING' in colors else -1}   /* a value waiting (-1: none) */\n",
          E("ui_icon", icons, "UI_ICON_"), E("ui_part", parts, "UI_PART_"), E("ui_screen_id", screens, "US_"), f"#define UI_MAX_SCREENS {len(screens)}\n",
          E("ui_field", fields, "UFLD_"), f"#define UI_N_FIELDS {len(fields)}\n\n",
          "/* the values (vocab.json's): 0 none, then the fixed ones, then each pattern's family, one id an item and member:\n"
@@ -695,8 +705,12 @@ def gen_screens(data, vocab, rows):
         "extern const ui_key_leds_t UI_KEY_LEDS[];\nextern const ui_say_t UI_SAYS[];\nextern const ui_field_t UI_FIELDS[];\n"
         "extern const uint16_t UI_COLORS[];\nextern const uint16_t UI_ICONS[][8];\nextern const uint8_t UI_ICON_ROWS[];\n"
         "extern const uint16_t UI_LINES[];   /* each line's template (UV_LINE(i, 0)'s) */\n"
+        "/* a text item that is a value alone ({kit}): its past - 1 here, the value ids of its Pend, First and Last (0:\n"
+        "   none). A meter's past: 1 when its field has no bar (a choice from a list) */\n"
+        "extern const uint16_t UI_LONES[][3];\n"
         "#ifdef PLAT_HOST\n/* a value id's name: the simulator's uistate (not on the device) */\n"
         "extern const char UI_VALUE_STRINGS[];\nextern const uint16_t UI_VALUE_NAME[];\n"
+        "extern const char *const UI_SCREEN_NAME[];   /* each screen's id (screens.js's) */\n"
         "#define UI_VALUE_STR(id) (UI_VALUE_STRINGS + UI_VALUE_NAME[id])\n#endif\n\n#endif\n")
 
     # ---- the tables
@@ -718,6 +732,7 @@ def gen_screens(data, vocab, rows):
          "".join("    {" + ", ".join(f"0x{v:03x}" for v in r) + "},\n" for r in icon_rows) + "};\n",
          f"const uint8_t UI_ICON_ROWS[{max(1, len(icons))}] = {{" + ", ".join(str(len(r)) for r in icon_rows) + "};\n",
          f"const uint16_t UI_LINES[{max(1, len(line_tpl))}] = {{" + ", ".join(map(str, line_tpl)) + "};\n",
+         f"const uint16_t UI_LONES[{max(1, len(lones))}][3] = {{" + ", ".join("{%d, %d, %d}" % t for t in lones) + "};\n",
          f"const ui_when_t UI_WHENS[{len(whens)}] = {{\n" + "".join(
              "    {" + ", ".join(str(x) for x in (list(w) + [0, 0, 0])[:3]) + "},\n" for w in whens) + "};\n",
          f"const ui_item_t UI_ITEMS[{len(items)}] = {{\n" + "".join(
@@ -747,7 +762,9 @@ def gen_screens(data, vocab, rows):
     vs = Strings()
     names = [vs("")] + [vs(v) for v in values]
     c.append("\n#ifdef PLAT_HOST\n" + vs.c("UI_VALUE_STRINGS") +
-             f"const uint16_t UI_VALUE_NAME[{len(names)}] = {{" + ", ".join(map(str, names)) + "};\n#endif\n")
+             f"const uint16_t UI_VALUE_NAME[{len(names)}] = {{" + ", ".join(map(str, names)) + "};\n" +
+             f"const char *const UI_SCREEN_NAME[{len(screens)}] = {{" + ", ".join(f'"{x}"' for x in screens) +
+             "};\n#endif\n")
     # the strings table last: every s() above has run
     c[2] = s.c("UI_STRINGS")
     return "".join(h), "".join(c)

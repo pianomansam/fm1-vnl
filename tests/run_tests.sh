@@ -34,6 +34,7 @@ run screens-export node workbench/tools/export_screens.mjs --check   # ui/screen
 run screens-gen python3 -I tools/screens/gen.py --check           # app/ui's *_gen.c/.h match the workbench's data
 run screens-gen-test python3 -I tools/screens/test_gen.py
 run host-build sh build.sh --host
+run parity node workbench/tools/parity.mjs $B/tests/parity   # the device's screens (app/ui) against the mock's, pixel for pixel
 mkdir -p $B/scenarios
 for f in tests/scenarios/*.vnl; do      # the app in the host simulator; outputs (songs.wav, shots) in app/build/scenarios
     name=$(basename "$f" .vnl)         # its song log, MIDI and MusicXML beside its outputs (songs.log, songs-1.mid ... go with songs.wav)

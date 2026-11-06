@@ -24,6 +24,7 @@
 #include <string.h>
 #if defined(PLAT_HOST) && !defined(PLAT_WEB)
 #include <stdlib.h>
+#include <time.h>
 #endif
 #include "song.h"
 #include "harmony.h"
@@ -40,6 +41,8 @@
 #include "ui/choices_gen.c"
 #include "ui/screens_gen.c"
 #include "ui/values.c"
+#include "render.h"
+#include "ui/render.c"
 #endif
 
 #define BARRIER() __asm__ volatile("" ::: "memory")
@@ -1018,6 +1021,84 @@ void app_ui_init(void)
     ui.redraw = 1;
 }
 
+#if defined(PLAT_HOST) && !defined(PLAT_WEB)
+/* The UI runtime's screens in the simulator (uiscreen, uistate: workbench/tools/parity.mjs), over today's screen until
+   it replaces it: the screen it shows (-1: today's), its navigator, the snapshot it last drew from, rows forced */
+static int ui_host = -1;
+static ui_nav_t ui_hnav;
+static snap_t ui_hsnap;
+static int16_t ui_hrow[ROW_N];
+static uint8_t ui_hrow_set[ROW_N];
+
+static void ui_host_draw(void)
+{
+    ui_bag_t b;
+    int i;
+    ui_hsnap = ui.shown;
+    for (i = 0; i < ROW_N; i++)
+        if (ui_hrow_set[i])
+            ui_hsnap.rows[i] = ui_hrow[i];
+    ui_snap_sections(&ui_hsnap);
+    ui_hnav.now = plat_ms();
+    ui_values(&ui_hsnap, &ui_hnav, &b);
+    ui_draw(&UI_SCREENS[ui_host], &b, 0xFFFFFFFFu);
+}
+
+/* a JSON string */
+static void ui_json_str(const char *s)
+{
+    putchar('"');
+    for (; *s; s++)
+        if (*s == '"' || *s == '\\')
+            printf("\\%c", *s);
+        else if ((unsigned char)*s < 32)
+            printf("\\u%04x", *s);
+        else
+            putchar(*s);
+    putchar('"');
+}
+
+/* uistate: the bag the screen was last drawn from, as the mock's (name: text, true/false or a number), and the stack */
+static void ui_host_state(void)
+{
+    ui_bag_t b;
+    char t[UI_VALUE_MAX];
+    int i, j, first = 1;
+    ui_values(&ui_hsnap, &ui_hnav, &b);
+    printf("uistate {\"screen\":");
+    ui_json_str(UI_SCREEN_NAME[b.screen]);
+    printf(",\"stack\":[");
+    for (i = 0; i < ui_hnav.depth; i++) {
+        printf("%s", i ? "," : "");
+        ui_json_str(UI_SCREEN_NAME[ui_hnav.stack[i]]);
+    }
+    printf("],\"values\":{");
+    for (i = 1; i < UI_N_VALUES; i++) {
+        const char *n = UI_VALUE_STR(i);
+        for (j = 1; j < i && strcmp(UI_VALUE_STR(j), n); j++) {}
+        if (j < i)
+            continue;                    /* a name in two families: the first's */
+        printf("%s", first ? "" : ",");
+        first = 0;
+        ui_json_str(n);
+        putchar(':');
+        if (ui_value_kind(i) == UI_VK_BOOL)
+            printf("%s", ui_true(&b, i) ? "true" : "false");
+        else if (ui_value_kind(i) == UI_VK_NUM)
+            printf("%.17g", ui_value_num(&b, i));
+        else
+            ui_json_str(ui_value(&b, i, 0, t));
+    }
+    printf(",\"secList\":[");
+    for (i = 0; i < ui_hsnap.n_secs; i++) {
+        printf("%s{\"start\":%d,\"bars\":%d,\"name\":", i ? "," : "", ui_hsnap.secs[i].start, ui_hsnap.secs[i].bars);
+        ui_json_str(plan_section_name(ui_hsnap.secs[i].section));
+        putchar('}');
+    }
+    printf("],\"activity\":null,\"levels\":{},\"barPos\":%d}}\n", (int)ui_hsnap.bar);
+}
+#endif
+
 void app_frame(void)
 {
     snap_t s;
@@ -1040,7 +1121,12 @@ void app_frame(void)
     }
     if (ui.redraw) {
         ui.redraw = 0;
-        draw();
+#if defined(PLAT_HOST) && !defined(PLAT_WEB)
+        if (ui_host >= 0)
+            ui_host_draw();
+        else
+#endif
+            draw();
     }
 }
 
@@ -1091,7 +1177,61 @@ int app_expect(const char *what, int *got)
 static int rm_fails;
 int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, const char *d)
 {
-    (void)b, (void)c, (void)d;
+    (void)c, (void)d;
+    if (!strcmp(cmd, "uiscreen")) {     /* uiscreen ID: the UI runtime shows that screen (workbench/ui/screens.js's id) */
+        int i;
+        for (i = 0; i < UI_N_SCREENS && strcmp(UI_SCREEN_NAME[i], a); i++) {}
+        if (i == UI_N_SCREENS) {
+            printf("uiscreen: no screen %s\n", a);
+            rm_fails++;
+            return 1;
+        }
+        ui_host = i;
+        ui_nav_init(&ui_hnav);
+        ui_hnav.stack[0] = (uint8_t)i;
+        lcd_fill(0, 0, 240, 240, C_BLACK);
+        ui_host_draw();
+        return 1;
+    }
+    if (!strcmp(cmd, "uibench")) {       /* uibench: each screen's full draw (values and bands), the worst in us */
+        int i, k, keep = ui_host, worst = 0, at = 0;
+        for (i = 0; i < UI_N_SCREENS; i++) {
+            clock_t t0;
+            int us;
+            ui_host = i;
+            t0 = clock();
+            for (k = 0; k < 50; k++)
+                ui_host_draw();
+            us = (int)((clock() - t0) * 1000000.0 / CLOCKS_PER_SEC / 50);
+            printf("uibench %s %d us\n", UI_SCREEN_NAME[i], us);
+            if (us > worst)
+                worst = us, at = i;
+        }
+        printf("uibench worst %s %d us (the host's)\n", UI_SCREEN_NAME[at], worst);
+        ui_host = keep;
+        return 1;
+    }
+    if (!strcmp(cmd, "uistate")) {       /* uistate: the bag and the stack the runtime's screen was drawn from, JSON */
+        if (ui_host < 0)
+            printf("uistate null\n");
+        else
+            ui_host_state();
+        return 1;
+    }
+    if (!strcmp(cmd, "uirow")) {         /* uirow ROW VALUE: a row's value forced in what the runtime shows */
+        int r;
+        for (r = 0; r < ROW_N && strcmp(UI_VALUE_STR(UV_ROW(r, UVK_ROW_VALUE)), a); r++) {}
+        if (r == ROW_N) {
+            printf("uirow: no row %s\n", a);
+            rm_fails++;
+            return 1;
+        }
+        ui_hrow[r] = (int16_t)atoi(b);
+        ui_hrow_set[r] = 1;
+        if (ui_host >= 0)
+            ui_host_draw();
+        return 1;
+    }
     if (!strcmp(cmd, "remember")) {
         snap_t s;
         snap_read(&s);

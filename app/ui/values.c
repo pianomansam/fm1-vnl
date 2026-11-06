@@ -555,6 +555,20 @@ void ui_song_rows(const song_roll_t *r, int16_t rows[ROW_N])
     rows[ROW_RHYTHM] = rows[ch_rhythm_row(rows[ROW_KEYS], rows[ROW_COMP]) == ROW_COMP ? ROW_COMP : ROW_STRUM_PAT];
 }
 
+void ui_snap_sections(snap_t *s)
+{
+    song_plan_t p;
+    int i;
+    if (s->n_secs || !s->ready) return;
+    plan_build(&s->roll, &p);
+    for (i = 0; i < p.n && i < SNAP_SECS; i++) {
+        s->secs[i].start = p.b[i].start;
+        s->secs[i].bars = p.b[i].bars;
+        s->secs[i].section = p.b[i].section;
+    }
+    s->n_secs = (uint8_t)i;
+}
+
 void ui_nav_init(ui_nav_t *n)
 {
     int i;
