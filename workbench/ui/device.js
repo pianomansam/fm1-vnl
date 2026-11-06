@@ -215,8 +215,10 @@ export function valuesOf(s, data) {
     bag.pending = `${def?.name ?? "CHANGE"}${s.pend.val !== undefined ? ` ${fieldText(def, s.pend.val, r.mode ?? 0, s.rows)}` : ""}` +
                   ` IN ${s.pend.bars}${s.pend.bars === 1 ? " BAR" : " BARS"}`;
   }
+  if (s.roll && (!s.pend || s.roll.at < s.pend.at) && (!s.jump || s.roll.at <= s.jump.at))
+    bag.pending = `${s.roll.name}: NEW ROLL IN ${s.roll.bars}${s.roll.bars === 1 ? " BAR" : " BARS"}`;
   if (s.jump) {
-    if (!s.pend || s.jump.at < s.pend.at)
+    if ((!s.pend || s.jump.at < s.pend.at) && (!s.roll || s.jump.at < s.roll.at))
       bag.pending = `GO TO ${String(s.jump.name).toUpperCase()} IN ${s.jump.bars}${s.jump.bars === 1 ? " BAR" : " BARS"}`;
     if (bag[`sec${s.jump.i}`] !== undefined) { bag[`sec${s.jump.i}`] = `*${bag[`sec${s.jump.i}`]}`; bag[`sec${s.jump.i}Pend`] = true; }
   }
@@ -390,7 +392,13 @@ export class Device {
   update(live) {
     const was = this.live;
     this.live = live;
-    if (!this.hasSong() || (was && was.seed !== live.seed)) { this.req = {}; this.jumpReq = null; }   // a new song or none: nothing waits
+    if (!this.hasSong() || (was && was.seed !== live.seed)) { this.req = {}; this.jumpReq = null; this.rollReq = null; }   // a new song or none: nothing waits
+    const rr = this.rollReq;
+    if (rr) {   // a part's re-roll: sent in the bar before its boundary
+      const bar = live.bar - 1;
+      if (bar >= rr.at) this.rollReq = null;
+      else if (!rr.sent && bar >= rr.at - 1) { rr.sent = true; this.engine.rerollPart?.(rr.part); }
+    }
     const jr = this.jumpReq;
     if (jr) {   // a jump: sent in the bar before its boundary (the workbench lands it at the next bar line)
       const bar = live.bar - 1;
@@ -421,6 +429,7 @@ export class Device {
     return { hasSong: song, stopped: !l.playing, roll, bar, section: l.facts?.section ?? -1, map: l.facts?.map,
              chord: l.facts?.chord, labels: l.labels, rows: l.rows, mark: !this.screen?.reference,
              reqs: Object.fromEntries(Object.entries(this.req).map(([f, q]) => [f, q.val])),
+             roll: this.rollReq && song ? { name: this.rollReq.name, at: this.rollReq.at, bars: this.rollReq.at - bar } : null,
              jump: this.jumpReq && song ? { name: this.jumpReq.name, i: this.jumpReq.i, at: this.jumpReq.at, bars: this.jumpReq.at - bar } : null,
              page: this.screen?.pages?.length > 1 ? `${this.screen.pages.indexOf(this.id) + 1}/${this.screen.pages.length}` : "",
              cursor: this.screen?.menu || this.screen?.list ? this.cursor[this.id] ?? 0 : -1, sections: l.sections, pend, msg: this.msg && this.now() < this.msg.until ? this.msg.text : null };
@@ -455,6 +464,17 @@ export class Device {
           if (bar >= at - 1) this.update(l);
         }
         this.say("GO TO", String(sec.name).toUpperCase());
+      }
+      return null;
+    }
+    if (a.do === "reroll" && a.part) {   // SEQ on a part's screen: that part re-rolls (its 🎲), on the 4-bar boundary
+      if (this.hasSong()) {
+        const l = this.live, bar = l.bar - 1, at = (Math.floor(bar / 4) + 1) * 4, name = this.screen.title?.split(":")[0] ?? a.part;
+        if (at < l.bars) {
+          this.rollReq = { part: a.part, name: String(name).toUpperCase(), at, sent: false };
+          if (bar >= at - 1) this.update(l);
+        }
+        this.say(String(name).toUpperCase(), "NEW ROLL");
       }
       return null;
     }

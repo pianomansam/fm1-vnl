@@ -3116,6 +3116,13 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
     const k = dj.values();
     check(k.pending === "GO TO GROOVE IN 4 BARS" && k.sec1 === "*GROOVE", `the second white key on the song map: "${k.pending}"`);
   }
+  {   // SEQ on a part's screen re-rolls that part on the 4-bar boundary; on the main screen, a new song
+    const got = [], dr = new D.Device(data, { set() {}, play() {}, rerollPart: (p) => got.push(p), reroll: () => got.push("song") }, () => t);
+    dr.update(live(2)); dr.stack = ["main", "pBass"]; dr.press("SEQ");
+    const w = dr.values().pending;
+    dr.update(live(4)); dr.stack = ["main"]; dr.press("SEQ");
+    check(w === "BASS: NEW ROLL IN 3 BARS" && JSON.stringify(got) === '["bass","song"]', `SEQ on Bass: "${w}", then sent; on the main screen a new song (${got})`);
+  }
   {   // a new song, rolled or the next one, goes back to the main screen
     dev.press("ALGO", 1); dev.press("EDIT");
     const inPart = dev.id;

@@ -480,11 +480,12 @@ export default {
         { y: 200, h: 40, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
           { text: "ALGO PART   SELECT PAGE", font: "T", x: 8, y: 8, color: "DIM" },
-          { text: "EDIT BACK   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
+          { text: "EDIT BACK   HOME MAIN   SEQ RE-ROLL", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
       knobs: [{ field: "drumKit", step: 1 }, { field: "drumPattern", step: 1 }, { field: "drumKick", step: 1 }, { field: "drumRide", step: 1 }],
       controls: {
+        SEQ: { do: "reroll", part: "drums" },   // this part re-rolls (its 🎲), on the 4-bar boundary (Sam, 2026-11-06)
         ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
       },
       say: ["DRUMS, PAGE {page}. KIT {drumKit}. PATTERN {drumPattern}. KICK {drumKick}. RIDE {drumRide}."],
@@ -514,11 +515,12 @@ export default {
         { y: 200, h: 40, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
           { text: "ALGO PART   SELECT PAGE", font: "T", x: 8, y: 8, color: "DIM" },
-          { text: "EDIT BACK   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
+          { text: "EDIT BACK   HOME MAIN   SEQ RE-ROLL", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
       knobs: [{ field: "drumVar", step: 1 }],
       controls: {
+        SEQ: { do: "reroll", part: "drums" },   // this part re-rolls (its 🎲), on the 4-bar boundary (Sam, 2026-11-06)
         ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
       },
       say: ["DRUMS, PAGE {page}. VARIATION {drumVar}."],
@@ -551,11 +553,12 @@ export default {
         { y: 200, h: 40, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
           { text: "ALGO PART", font: "T", x: 8, y: 8, color: "DIM" },
-          { text: "EDIT BACK   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
+          { text: "EDIT BACK   HOME MAIN   SEQ RE-ROLL", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
       knobs: [{ field: "bassIns", step: 1 }, { field: "bassLine", step: 1 }],
       controls: {
+        SEQ: { do: "reroll", part: "bass" },   // this part re-rolls (its 🎲), on the 4-bar boundary (Sam, 2026-11-06)
         ALGO: { do: "part" }, EDIT: { go: "back" },
       },
       say: ["BASS. INSTRUMENT {bassIns}. LINE {bassLine}."],
@@ -598,11 +601,12 @@ export default {
         { y: 200, h: 40, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
           { text: "ALGO PART   SELECT PAGE   OCT REGISTER", font: "T", x: 8, y: 8, color: "DIM" },
-          { text: "EDIT BACK   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
+          { text: "EDIT BACK   HOME MAIN   SEQ RE-ROLL", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
       knobs: [{ field: "compIns", step: 1 }, { field: "compRhythm", step: 1 }, { field: "compVoicing", step: 1 }, { field: "compReg", step: 1 }],
       controls: {
+        SEQ: { do: "reroll", part: "keys" },   // this part re-rolls (its 🎲), on the 4-bar boundary (Sam, 2026-11-06)
         ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
         "OCT-": { do: "nudge", field: "compReg", by: -1 }, "OCT+": { do: "nudge", field: "compReg", by: 1 },
       },
@@ -636,11 +640,12 @@ export default {
         { y: 200, h: 40, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
           { text: "ALGO PART   SELECT PAGE   OCT REGISTER", font: "T", x: 8, y: 8, color: "DIM" },
-          { text: "EDIT BACK   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
+          { text: "EDIT BACK   HOME MAIN   SEQ RE-ROLL", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
       knobs: [{ field: "compFill", step: 1 }, { field: "compThin", step: 1 }],
       controls: {
+        SEQ: { do: "reroll", part: "keys" },   // this part re-rolls (its 🎲), on the 4-bar boundary (Sam, 2026-11-06)
         ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
         "OCT-": { do: "nudge", field: "compReg", by: -1 }, "OCT+": { do: "nudge", field: "compReg", by: 1 },
       },
@@ -680,11 +685,12 @@ export default {
         { y: 200, h: 40, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
           { text: "ALGO PART", font: "T", x: 8, y: 8, color: "DIM" },
-          { text: "EDIT BACK   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
+          { text: "EDIT BACK   HOME MAIN   SEQ RE-ROLL", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
       knobs: [{ field: "padIns", step: 1 }, { field: "padOnSet", step: 1 }, { field: "padPlaceSet", step: 1 }, { field: "padNotes", step: 1 }],
       controls: {
+        SEQ: { do: "reroll", part: "pad" },   // this part re-rolls (its 🎲), on the 4-bar boundary (Sam, 2026-11-06)
         ALGO: { do: "part" }, EDIT: { go: "back" },
       },
       say: ["PAD. INSTRUMENT {padIns}. ON/OFF {padOnSet}. PLACE {padPlaceSet}. NOTES {padNotes}."],
@@ -723,11 +729,12 @@ export default {
         { y: 200, h: 40, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
           { text: "ALGO PART   SELECT PAGE   OCT REGISTER", font: "T", x: 8, y: 8, color: "DIM" },
-          { text: "EDIT BACK   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
+          { text: "EDIT BACK   HOME MAIN   SEQ RE-ROLL", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
       knobs: [{ field: "leadIns", step: 1 }, { field: "leadStyleSet", step: 1 }, { field: "leadPhrase", step: 1 }, { field: "leadReg", step: 1 }],
       controls: {
+        SEQ: { do: "reroll", part: "lead" },   // this part re-rolls (its 🎲), on the 4-bar boundary (Sam, 2026-11-06)
         ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
         "OCT-": { do: "nudge", field: "leadReg", by: -1 }, "OCT+": { do: "nudge", field: "leadReg", by: 1 },
       },
@@ -758,11 +765,12 @@ export default {
         { y: 200, h: 40, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
           { text: "ALGO PART   SELECT PAGE   OCT REGISTER", font: "T", x: 8, y: 8, color: "DIM" },
-          { text: "EDIT BACK   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
+          { text: "EDIT BACK   HOME MAIN   SEQ RE-ROLL", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
       knobs: [{ field: "leadLoopSet", step: 1 }],
       controls: {
+        SEQ: { do: "reroll", part: "lead" },   // this part re-rolls (its 🎲), on the 4-bar boundary (Sam, 2026-11-06)
         ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
         "OCT-": { do: "nudge", field: "leadReg", by: -1 }, "OCT+": { do: "nudge", field: "leadReg", by: 1 },
       },
@@ -804,6 +812,7 @@ export default {
       ],
       knobs: [{ field: "texDust", step: 1 }, { field: "texNoise", step: 1 }, { field: "texAmb", step: 1 }],
       controls: {
+        SEQ: null,   // nothing to re-roll here (rather than a whole new song by surprise)
         ALGO: { do: "part" }, EDIT: { go: "back" },
       },
       say: ["TEXTURE. DUST {texDust}. NOISE {texNoise}. AMBIENCE {texAmb}."],
