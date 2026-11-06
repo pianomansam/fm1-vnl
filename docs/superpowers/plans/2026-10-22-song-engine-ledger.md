@@ -325,6 +325,11 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   in the browser and uploads/downloads them to and from the device over USB (the same SysEx upload as the sample
   banks; see "From other FM-1 firmwares", item 3). Also song layouts (Sam, 2026-11-06): users build their own maps (the
   song's sections in order and their lengths: intro, groove, lead, break, outro), drawn beside the built-in ones.
+- **A free-flowing song, no map (Sam, 2026-11-06: future, not started).** A switch turns the song's map off. The
+  user gets a screen of the sections there are to go to (intro, groove, lead, break, outro and the like) and jumps
+  between them with the piano keys, as the song map's white keys do (each queued change lands on the 4-bar boundary,
+  marked while it waits). With nothing queued, the section playing repeats. Goes with the song map screen and its
+  key jumps in the workbench mock (2026-11-06) and with user song layouts (above).
 - **A simplified and an expanded main screen (Sam, 2026-11-06: an idea, part of the screens work).** Two main
   screens: a simple one (e.g. the chord and where the song is) and an expanded one (the song and every part's rolls);
   the expanded one opens from the simple one, and the user sets which is the default (HOME's). Mockups A-C in the
