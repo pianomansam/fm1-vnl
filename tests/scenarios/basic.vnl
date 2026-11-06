@@ -1,8 +1,26 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# VNL-1 in the host simulator: it boots playing, the screen shows the song, the knobs are heard and read out.
+# VNL-1 in the host simulator: it boots stopped and silent, a song ready; PLAY plays it, the screen shows the song, the
+# knobs are heard and read out.
 #   ./build.sh --host, then app/build/host/vnl_host tests/scenarios/basic.vnl app/build/scenarios
+listen
 wait 600
+said STOPPED
 shot boot.png
+expect playing 0
+expect songs 0
+expect voices 0
+expect peak_db_max <-90
+# the knobs do nothing while stopped
+turn K1 1
+wait 50
+said_none
+wait 3000
+expect playing 0
+expect songs 0
+expect peak_db_max <-90
+tap PLAY
+wait 600
+said PLAY
 expect playing 1
 expect songs 1
 expect bar <2
@@ -12,8 +30,9 @@ expect tempo <91
 expect key >-1
 expect key <12
 expect peak_db_max <0
+expect peak_db_max >-60
 # the screen reader hears the whole screen
-listen
+where
 wait 100
 said VNL-1
 # K1: the key one semitone up, waiting for the next 4-bar boundary

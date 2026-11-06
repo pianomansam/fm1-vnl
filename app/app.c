@@ -14,11 +14,13 @@
  * to hear (vx_sounding: no notes, no plate tail, no bed fade), so a song change never cuts a tail; a request that
  * changes the set, the dust, the noise or the ambience reconfigures the voices where it lands (step()).
  *
- * Controls (minimal; the real UI comes later): PLAY stops / plays (a stop is true silence; play after a stop is a
- * fresh song), K1 key +-1 semitone, K2 tempo +-1 BPM, K3 motion +-5, K4 mood +-1: each a request that lands on the
- * song's next 4-bar boundary. Over USB the workbench's device mock may take every control, the FM-1 silent meanwhile
- * (the browser's remote, below). Part of the unity build (device/unity.c, host/plat_host.c), after the platform:
- * gfx.c and announce.c are in scope. */
+ * Controls (minimal; the real UI comes later): the FM-1 boots stopped, a song rolled and ready. PLAY stops / plays (a
+ * stop is true silence; play after a stop continues the same song from the start of the bar it stopped in, every
+ * change waiting still landing where it would have), B_NEW (SEQ) rolls a new song (playing: after the usual gap;
+ * stopped: ready for PLAY), K1 key +-1 semitone, K2 tempo +-1 BPM, K3 motion +-5, K4 mood +-1: each a request that
+ * lands on the song's next 4-bar boundary (stopped, the knobs do nothing). Over USB the workbench's device mock may
+ * take every control, the FM-1 silent meanwhile (the browser's remote, below). Part of the unity build (device/unity.c,
+ * host/plat_host.c), after the platform: gfx.c and announce.c are in scope. */
 #include <string.h>
 #if defined(PLAT_HOST) && !defined(PLAT_WEB)
 #include <stdlib.h>
@@ -80,8 +82,11 @@ static int field_step(int f, int v, int d)
 static song_roll_t mb_roll;
 static volatile uint8_t mb_full;
 
+/* the button that rolls a new song (one constant: remap it here) */
+#define B_NEW B_SEQ
+
 /* commands, drained at a block's start (AMB-1's pattern) */
-enum { C_PLAY, C_REQ, C_STOP };
+enum { C_PLAY, C_REQ, C_STOP, C_NEW };
 #define QN 32u
 static uint32_t q[QN];
 static volatile uint32_t q_w, q_r;
@@ -126,18 +131,26 @@ static uint32_t slog_samples;
 #define SLOG_SONG(s) score_song(s, SLOG_NOW())
 #define SLOG_STEP(s, bar, st, ev, n) score_step(s, bar, st, ev, n, SLOG_NOW())
 #define SLOG_GAP(secs) score_gap(SLOG_NOW(), secs)
+#define SLOG_RESUME(bar) score_resume(bar, SLOG_NOW())
 #define SLOG_TIME(n) (slog_samples += (n))
 #else
 #define SLOG_SONG(s) ((void)0)
 #define SLOG_STEP(s, bar, st, ev, n) ((void)0)
 #define SLOG_GAP(secs) ((void)0)
+#define SLOG_RESUME(bar) ((void)0)
 #define SLOG_TIME(n) ((void)0)
 #endif
 
 /* ------------------------------------------------------------- render --- */
 enum { RS_STOP, RS_WAIT, RS_SONG, RS_GAP };   /* stopped; playing: waiting for a song, in one, between two */
 static song_t song;
-static uint8_t rs = RS_WAIT;
+static uint8_t rs = RS_STOP;             /* boots stopped: PLAY plays the song in the mailbox */
+static uint8_t held;                     /* stopped in a song: PLAY continues it from `mark` */
+/* the song as it was at the start of the bar playing (taken at the bar's first 16th, before its tick), and the
+   render's place then: a stop goes back to it */
+static song_t mark;
+static uint32_t mark_pos, mark_tick;
+static float mark_frac;
 static volatile uint8_t panic_now;
 static volatile uint8_t remote_mute;     /* the browser has the controls: the output ramps to silence */
 static volatile int32_t songs_started;
@@ -151,11 +164,8 @@ static int16_t req_val[RF_N];
 static float mix_l[APP_BLOCK], mix_r[APP_BLOCK], gain_now;
 static song_ev_t evs[64];
 
-static void song_begin(void)
+static void voices_begin(void)
 {
-    song_start(&song, &mb_roll);
-    BARRIER();
-    mb_full = 0;                         /* the main loop rolls the next one */
     if (vx_sounding())                   /* a tail (notes, the plate, the bed's fade) rings on: keep it */
         vx_set_gain(1.0f);
     else
@@ -163,12 +173,55 @@ static void song_begin(void)
     vx_song(&song.roll);                 /* this song's instruments, kit and chain (the bed fades in, the dust ramps
                                             if anything still sounds; the chain's noise from its seed), before its
                                             first event */
+}
+
+static void song_begin(void)
+{
+    song_start(&song, &mb_roll);
+    BARRIER();
+    mb_full = 0;                         /* the main loop rolls the next one */
+    voices_begin();
     r_now = r_pos = r_tick = 0;
     r_frac = 0.0f;
     memset(req_set, 0, sizeof req_set);
     songs_started++;
+    held = 0;
     rs = RS_SONG;
     SLOG_SONG(&song);
+}
+
+/* PLAY after a stop: the song from the start of the bar it stopped in (its first 16th's events again, on the
+   downbeat), the changes waiting at the stop carried over, each landing on the bar it would have */
+static void song_resume(void)
+{
+    song_carry_requests(&mark, &song);
+    song = mark;
+    r_now = r_pos = mark_pos;
+    r_frac = mark_frac;
+    r_tick = mark_tick;
+    voices_begin();
+    held = 0;
+    rs = RS_SONG;
+    SLOG_RESUME(song.bar);
+}
+
+/* the music stops (the voices already told): a song cut short is held to continue */
+static void stop_here(void)
+{
+    if (rs == RS_STOP)
+        return;
+    held = rs == RS_SONG && song.state == SS_PLAYING;
+    rs = RS_STOP;
+}
+
+/* the silence between songs: 2-4 s, from the song's seed (at its end, or cut short by B_NEW) */
+static void gap_begin(void)
+{
+    uint32_t h = song.roll.seed * 2654435761u;
+    vx_release_all();
+    gap_left = (2000u + (h >> 16) % 2001u) * 441u / 10u;
+    SLOG_GAP((float)gap_left / 44100.0f);
+    rs = RS_GAP;
 }
 
 /* one 16th: the fade (if the song's last block fades), the section moves (each role bus's filters, plan_moves), the
@@ -179,6 +232,12 @@ static void step(void)
     int bar = song.bar, st = (int)(r_tick & 15u), n, i;
     float adv, lp[PM_N], hp[PM_N], llp;
     uint32_t ip;
+    if (st == 0) {                       /* a stop in this bar goes back here */
+        mark = song;
+        mark_pos = r_pos;
+        mark_frac = r_frac;
+        mark_tick = r_tick;
+    }
     plan_moves(&song.plan, bar, st, lp, hp);   /* the engine ramps them (about 50 ms; sweeps move per step) */
     vx_organ_scan(plan_full_kit(&song.plan, bar)); /* the pad's organ's scanner: on where the full kit plays */
     for (i = 0; i < PM_N; i++) {
@@ -218,15 +277,25 @@ static void command(uint32_t c)
     if (op == C_STOP) {                  /* the browser takes the controls: stopped (already: nothing) */
         if (rs != RS_STOP) {
             vx_stop();
-            rs = RS_STOP;
+            stop_here();
         }
     } else if (op == C_PLAY) {
-        if (rs == RS_STOP)
-            rs = RS_WAIT;                /* a fresh song from the mailbox */
-        else {
+        if (rs != RS_STOP) {
             vx_stop();                   /* the notes, the bed and the plate out in 40 ms */
-            rs = RS_STOP;
-        }
+            stop_here();
+        } else if (held)
+            song_resume();
+        else
+            rs = RS_WAIT;                /* the song in the mailbox */
+    } else if (op == C_NEW) {
+        if (rs == RS_SONG)
+            gap_begin();                 /* the mailbox's song after the gap, as at a song's end */
+        else if (rs == RS_STOP) {        /* stopped, a new song ready: the mailbox's, never heard, or (none held) */
+            if (held)
+                held = 0;
+            else
+                mb_full = 0;             /* the one ready dropped: the main loop rolls the next */
+        }                                /* (in the gap or waiting: a new song is already coming) */
     } else if (op == C_REQ && rs == RS_SONG && song.state == SS_PLAYING && a < RF_N) {
         int v = field_step(a, req_set[a] ? req_val[a] : song.roll.v[a], b);
         if (v != (req_set[a] ? req_val[a] : song.roll.v[a])) {
@@ -278,7 +347,7 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     if (panic_now) {
         panic_now = 0;
         vx_init();
-        rs = RS_STOP;
+        stop_here();
     }
     while (q_r != q_w) {
         uint32_t c = q[q_r % QN];
@@ -296,13 +365,8 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
             if (r_now >= r_pos) {        /* a step starts here (or, ended, the song's last sample is past) */
                 if (song.state == SS_PLAYING)
                     step();
-                else {                   /* the silence between songs: 2-4 s, from the song's seed */
-                    uint32_t h = song.roll.seed * 2654435761u;
-                    vx_release_all();
-                    gap_left = (2000u + (h >> 16) % 2001u) * 441u / 10u;
-                    SLOG_GAP((float)gap_left / 44100.0f);
-                    rs = RS_GAP;
-                }
+                else
+                    gap_begin();
                 continue;
             }
             if (r_pos - r_now < seg)
@@ -671,8 +735,8 @@ static void speak(void)
  *                                complement, -64..63; + clockwise)
  * While on, the song stops, the output is silent and the controls go to the browser only (the keys are left out:
  * the mock has none). It ends on 02, after 3 s without a 01, or at a new USB connection; the FM-1 stays stopped,
- * ready for PLAY. The messages go out on the MIDI ring when it has room (plat_midi_out_room, never waiting): button
- * edges wait in a small queue, an encoder's detents add up until they go. */
+ * the song held: PLAY continues it. The messages go out on the MIDI ring when it has room (plat_midi_out_room, never
+ * waiting): button edges wait in a small queue, an encoder's detents add up until they go. */
 #if defined(PLAT_HOST) && !defined(PLAT_WEB)
 static char rm_sent[2048];               /* the simulator's: the messages sent since the last "remote_sent" */
 #endif
@@ -739,7 +803,7 @@ static void rm_leave(void)
 {
     rm.on = 0;
     rm.ack = 1;                          /* "off", if anyone still listens */
-    remote_mute = 0;                     /* stopped (C_STOP), so silent until PLAY */
+    remote_mute = 0;                     /* stopped (C_STOP), so silent until PLAY continues the song */
     app_say("BROWSER", "DISCONNECTED");
 }
 
@@ -792,6 +856,10 @@ static void input(void)
     if ((btn >> B_PLAY & 1u) && !(ui.btn >> B_PLAY & 1u)) {
         post(C_PLAY, 0, 0);
         app_say(ui.shown.stopped ? "PLAY" : "STOP", "");
+    }
+    if ((btn >> B_NEW & 1u) && !(ui.btn >> B_NEW & 1u)) {
+        post(C_NEW, 0, 0);
+        app_say("NEW SONG", "");
     }
     for (k = 0; k < 4; k++) {               /* K1..K4: a request, by steps (the render adds them up) */
         int f = KNOB_FIELD[k];
@@ -899,6 +967,8 @@ void app_frame(void)
 }
 
 #ifdef PLAT_HOST
+static int32_t rem_bar = -1;             /* "remember": the song shown then (its seed) and its bar */
+static uint32_t rem_seed;
 int app_expect(const char *what, int *got)
 {
     snap_t s;
@@ -921,6 +991,10 @@ int app_expect(const char *what, int *got)
         *got = s.voices;
     else if (!strcmp(what, "remote"))
         *got = rm.on;
+    else if (!strcmp(what, "same_song"))   /* the song playing is the one remembered (1), another (0); none: -1 */
+        *got = s.has_song && rem_bar >= 0 ? s.roll.seed == rem_seed : -1;
+    else if (!strcmp(what, "bars_on"))     /* the bar playing, less the one remembered (the same song) */
+        *got = s.has_song && rem_bar >= 0 && s.roll.seed == rem_seed ? s.bar - rem_bar : -99;
     else
         return 0;
     return 1;
@@ -932,11 +1006,21 @@ int app_expect(const char *what, int *got)
 /* the simulator's commands for the browser's remote (tests/scenarios/remote.vnl):
  *   remote on | remote off | remote HEX   a SysEx message from the browser (HEX: the bytes between F0 and F7)
  *   remote_sent HEX...                    each message (F0 .. F7) was sent since the last remote_sent / remote_none
- *   remote_none                           nothing was sent since then */
+ *   remote_none                           nothing was sent since then
+ * and for the transport (tests/scenarios/stop.vnl):
+ *   remember                              the song playing and its bar, for "expect same_song" and "bars_on" */
 static int rm_fails;
 int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, const char *d)
 {
     (void)b, (void)c, (void)d;
+    if (!strcmp(cmd, "remember")) {
+        snap_t s;
+        snap_read(&s);
+        rem_bar = s.has_song ? s.bar : -1;
+        rem_seed = s.roll.seed;
+        printf("remember: %s\n", s.has_song ? "the song playing" : "no song playing");
+        return 1;
+    }
     if (!strcmp(cmd, "remote")) {
         uint8_t m[32] = {RM_PFX0, RM_PFX1, RM_PFX2, RM_ON};
         uint32_t n = 4;

@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # A knob's change waits for the next 4-bar boundary, then lands.
+tap PLAY
 wait 2000
 expect pending -1
 # K1: the key +3 semitones (the key wraps, so this is a change whatever song 1 is; tempo, motion and mood stop

@@ -1,14 +1,84 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# PLAY stops the music (true silence), PLAY again starts a freshly rolled song.
+# The transport: PLAY stops the music (true silence) and PLAY again continues the same song from the start of the bar
+# it stopped in; a change waiting at the stop still lands; SEQ rolls a new song, after the gap while playing, ready
+# and silent while stopped.
+listen
+tap PLAY
 wait 20000
+expect playing 1
+expect songs 1
+# stopped in a bar, a change waiting
+turn K1 3
+wait 50
+expect pending >0
+remember
 tap PLAY
 wait 100
 expect playing 0
 expect voices 0
+said STOP
 peakreset
 wait 1000
 expect peak_db_max <-90
+# PLAY: the same song, back at the start of that bar, the change still on its way
 tap PLAY
+wait 30
+said PLAY
+expect playing 1
+expect songs 1
+expect same_song 1
+expect bars_on 0
+expect pending >0
 wait 500
+expect peak_db_max >-60
+# 4 bars at the slowest tempo (70 BPM) last 13715 ms: the change has landed by then
+wait 14000
+expect pending -1
+expect same_song 1
+# SEQ while playing: the gap's silence, then a new song
+remember
+tap SEQ
+wait 50
+said NEW SONG
+expect songs 1
+wait 2000
+peakreset
+wait 500
+expect peak_db_max <-60
+wait 2000
 expect playing 1
 expect songs 2
+expect same_song 0
+# SEQ while stopped: stays stopped and silent; PLAY plays another song from its start
+wait 5000
+remember
+tap PLAY
+wait 100
+tap SEQ
+wait 50
+said NEW SONG
+expect playing 0
+peakreset
+wait 1000
+expect peak_db_max <-90
+expect playing 0
+tap PLAY
+wait 200
+expect playing 1
+expect songs 3
+expect same_song 0
+expect bar 0
+# twice while stopped: still another (the one ready dropped, the next rolled)
+remember
+tap PLAY
+wait 100
+tap SEQ
+wait 100
+tap SEQ
+wait 100
+expect playing 0
+tap PLAY
+wait 200
+expect songs 4
+expect same_song 0
+expect bar 0

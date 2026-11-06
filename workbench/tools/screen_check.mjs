@@ -4,8 +4,9 @@
 // pixel by pixel (RGB565). Both need their builds:
 //   ./build.sh --host && sh workbench/build.sh && node workbench/tools/screen_check.mjs [OUTDIR]
 // OUTDIR: each state as a PNG, the device's beside the mock's (and their differences in red).
-// The states: before the first song (NEXT SONG), a song playing, a knob just turned (the message and the change
-// waiting), the change waiting, a stop's message, stopped. The simulator's state (the bar, the key ...) is read off its
+// The states: at boot (stopped, a song ready: STOPPED), a song playing (after PLAY), a knob just turned (the message
+// and the change waiting), the change waiting, a stop's message, stopped, and between songs (NEXT SONG: PLAY continues
+// the song, SEQ cuts to the gap before a new one). The simulator's state (the bar, the key ...) is read off its
 // own `expect` lines (a deliberately impossible value prints what it got); the song's facts the mock needs (the
 // section, the map, the chord) come from the workbench's wb.wasm for the same seed and bar.
 import { execFileSync } from "node:child_process";
@@ -110,11 +111,12 @@ const TURNS = { 12345: ["K2", 1], 4242: ["K1", -2] };
 for (const seed of SEEDS) {
   const [knob, n] = TURNS[seed];
   const h = host(seed, [
-    "wait 5", "fbdump next.raw",
-    "wait 6000", "expect bar -99", "fbdump play.raw",
+    "wait 5", "fbdump boot.raw",
+    "tap PLAY", "wait 6000", "expect bar -99", "fbdump play.raw",
     `turn ${knob} ${n}`, "expect bar -99", "expect pending -99", "fbdump msg.raw",
     "wait 1400", "expect bar -99", "expect pending -99", "fbdump pending.raw",
     "tap PLAY", "wait 50", "fbdump stopmsg.raw", "wait 1400", "fbdump stopped.raw",
+    "tap PLAY", "tap SEQ", "wait 1400", "fbdump next.raw",
   ]);
   const seq = h.got.map(([k, v]) => `${k}=${v}`);
   if (h.got.length !== 5) { console.log(`  FAIL ${seed}: the simulator's state unread (${seq})`); ok = false; continue; }
@@ -122,8 +124,8 @@ for (const seed of SEEDS) {
   t = 0;
   const now = () => t, dev = new Device(data, engine, now);
   dev.stack = ["today"];   // the device's screen as it is today (the new main screen isn't on the device yet)
-  dev.update(live(seed, 0, { bar: 0 }));   // the first frame: no song yet
-  ok = compare(`${seed}-next-song`, h.shot("next.raw"), mock(dev)) && ok;
+  dev.update(live(seed, 0, { playing: false }));   // boot: stopped, the song not started
+  ok = compare(`${seed}-boot`, h.shot("boot.raw"), mock(dev)) && ok;
   dev.update(live(seed, b0));
   ok = compare(`${seed}-playing`, h.shot("play.raw"), mock(dev)) && ok;
   dev.update(live(seed, b1));
@@ -140,6 +142,9 @@ for (const seed of SEEDS) {
   ok = compare(`${seed}-stop-message`, h.shot("stopmsg.raw"), mock(dev)) && ok;
   t += 1400;
   ok = compare(`${seed}-stopped`, h.shot("stopped.raw"), mock(dev)) && ok;
+  t += 1400;   // (SEQ's NEW SONG gone by then: the mock's reference screen has no SEQ)
+  dev.update({ ...live(seed, b2), gap: 1 });   // playing, between songs
+  ok = compare(`${seed}-next-song`, h.shot("next.raw"), mock(dev)) && ok;
 }
 console.log(ok ? "screen_check: all match" : "screen_check: FAILED");
 process.exit(ok ? 0 : 1);

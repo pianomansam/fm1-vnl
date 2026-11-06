@@ -1,10 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # The workbench's remote (app.c, workbench/ui/usb.js): "remote on" stops the song and silences the FM-1, its controls
-# go to the browser as SysEx and do nothing here; without a keepalive for 3 s it lets go, stopped and ready for PLAY.
+# go to the browser as SysEx and do nothing here; without a keepalive for 3 s it lets go, stopped, the song held: PLAY
+# continues it from the bar it stopped in.
 listen
+tap PLAY
 wait 5000
 expect playing 1
 remote_none
+remember
 remote on
 wait 100
 remote_sent F07D564E110101F7
@@ -26,6 +29,11 @@ release EDIT
 tap HOME
 wait 100
 remote_sent F07D564E200401F7 F07D564E200400F7 F07D564E200601F7 F07D564E200600F7
+# SEQ too: sent, no new song rolled
+tap SEQ
+wait 100
+remote_sent F07D564E200901F7 F07D564E200900F7
+unsaid NEW SONG
 expect playing 0
 expect remote 1
 # a fast spin adds up: never more than 63 a message, every detent sent
@@ -55,7 +63,9 @@ expect peak_db_max <-90
 tap PLAY
 wait 300
 expect playing 1
-expect songs 2
+expect songs 1
+expect same_song 1
+expect bars_on 0
 # remote off ends it at once
 remote on
 wait 100

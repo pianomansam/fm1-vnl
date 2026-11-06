@@ -2,6 +2,7 @@
 #   app/build/host/vnl_host app/tests/screens.txt app/docs/img
 wait 900
 shot screen-ready.png
+tap PLAY
 wait 12000
 turn K2 3
 wait 300
