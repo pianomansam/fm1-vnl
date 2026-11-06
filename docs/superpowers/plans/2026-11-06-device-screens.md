@@ -295,6 +295,29 @@ Phases 2–4 are outlined at the end and get their own plans.
 
 ---
 
+## Live state for Claude (Sam, 2026-11-06: "I will be asking you live questions")
+
+Claude must be able to read what Sam is hearing and seeing, in the workbench or on a connected FM-1, without Sam
+describing it. Build it alongside the phases; it shares their pieces.
+
+- **One state shape for both:** `{ source: "workbench" | "device", at, seed, playing, bar, bars, section, chord,
+  screen (id and title), stack, cursor, values (the screen's value bag: valuesOf / ui_values), rows (each row's value
+  and its name, "as rolled" resolved), levels, mute, solo, loop, stay, pending (waiting changes, jump, re-roll) }`.
+  The mock's `Device.values()` and the device's `ui_values` (Task 5) already produce most of it; one function each
+  serializes it (`stateOf()` in device.js, `ui_state_json()` in app/ui).
+- **The workbench:** the page posts its state to the local server about once a second while open (`POST /state`,
+  JSON, under the server's existing Host/Origin/content-type checks; 127.0.0.1 only), and the server keeps the latest
+  in `app/build/live/workbench.json` (git-ignored). Claude reads that file. No new listening ports, nothing leaves the
+  machine.
+- **The device:** a SysEx request on the browser-remote prefix (F0 7D 56 4E 04: "state") answered with the state as
+  a chunked SysEx stream (7-bit text), and `base/tools/fm1_remote.py`-style tool of our own, `tools/fm1_state.py`
+  (mido, read-only), that asks and prints the JSON. The simulator's `uistate` command (Task 6) is the same function,
+  so the parity check covers it. While the browser remote is connected, the page can relay the device's answer to
+  the server too, so one file holds whichever is live.
+- **When:** the workbench half any time (small: a timer, an endpoint, a file); the device half after Task 8 (it needs
+  the runtime's bag on the device). Tests: smoke checks the posted shape against `Device.values()`; a host scenario
+  checks the device's answer against `uistate`.
+
 ## Later phases (their own plans)
 
 - **Phase 2, Sections on the device:**
