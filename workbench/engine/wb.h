@@ -100,6 +100,8 @@ const char *wb_live_state(void);         /* JSON: wb_state's fields for the song
 int wb_pending(void);                    /* 1: a commit is waiting for its bar line */
 const char *wb_state(void);             /* JSON: the staged seed, roll, roles, overrides, kit, pattern, kick lane,
                                            drums ({preset, lanes: [kind, a, b, dB] each, kit_lanes, grid}) */
+const char *wb_screen(int bar);         /* JSON: the device's main screen's song facts for bar (from 0) of the song
+                                           heard: {section, flags, map (its name), chord (th_chord_name)} */
 const char *wb_library(void);           /* JSON: the library's maps and progressions (each with its status:
                                            approved, candidate or retired, patterns_gen.h's) */
 const char *wb_consts(void);            /* JSON: the RF_*, WB_OV_*, V_*, WB_SRC_* and WB_KIT_* indices and LIB_SET_WB,

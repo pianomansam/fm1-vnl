@@ -999,6 +999,36 @@ EXPORT const char *wb_sections(int heard)
     return out_done(&o);
 }
 
+/* JSON: what the device's main screen shows of bar (from 0) of the song heard (the committed one before it lands), as
+   app.c's line_place and line_chord read it: {"section": SEC_* (-1 outside the plan), "flags", "map": the arrangement
+   map's name, "chord": th_chord_name of harmony_chord_at, the key-aware spelling ("" for none)} */
+EXPORT const char *wb_screen(int bar)
+{
+    const stage_t *src = cur_bar >= 0 ? &live : &com;
+    static char buf[256];
+    static song_plan_t p;
+    out_t o = {buf, sizeof buf, 0};
+    const plan_block_t *b;
+    const lib_prog_t *pr = lib_prog_by_id((uint8_t)src->roll.v[RF_PROG]);
+    const lib_map_t *m = lib_map_by_id((uint8_t)src->roll.v[RF_MAP]);
+    int pcs[5], np, loop = pr && pr->n * pr->bars_per_chord ? pr->n * pr->bars_per_chord : 4;
+    char name[32];
+    hooks(src);
+    plan_build(&src->roll, &p);
+    b = plan_at(&p, bar);
+    np = harmony_chord_at(&src->roll, bar, bar / loop + 1, b && (b->flags & PB_DARK) != 0, pcs);
+    hooks(&live);
+    name[0] = 0;
+    if (np > 0)
+        th_chord_name(pcs, np, src->roll.v[RF_KEY], src->roll.v[RF_MODE], name);
+    put(&o, "{\"section\":%d,\"flags\":%d,\"map\":", b ? b->section : -1, b ? b->flags : 0);
+    put_str(&o, m ? m->name : "");
+    put(&o, ",\"chord\":");
+    put_str(&o, name);
+    put(&o, "}");
+    return out_done(&o);
+}
+
 EXPORT const char *wb_library(void)
 {
     static char buf[16384];             /* about 100 B a progression: room for the imported ones */

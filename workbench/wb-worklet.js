@@ -3,7 +3,7 @@
 // to its wb_* exports arrive between quanta (so a group of stagings sent together lands as one), and the song's
 // position goes back about ten times a second. Instantiated as base/web/emu/worklet.js does, without the device.
 
-const STRINGS = new Set(["wb_consts", "wb_state", "wb_live_state", "wb_library", "wb_sections"]);   // exports that return JSON (parsed here)
+const STRINGS = new Set(["wb_consts", "wb_state", "wb_live_state", "wb_library", "wb_sections", "wb_screen"]);   // exports that return JSON (parsed here)
 
 class Workbench extends AudioWorkletProcessor {
   constructor() {
