@@ -3116,6 +3116,14 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
     dj.update({ ...live(4), sections: secs });
     check(w.pending === "GO TO LEAD IN 3 BARS" && w.sec2 === "*LEAD" && w.sec2Pend && early === 0 && JSON.stringify(jumps) === '[[24,"lead"]]',
           `a jump at bar 2: "${w.pending}", "${w.sec2}" waiting; sent in bar 4 (${JSON.stringify(jumps)})`);
+    {   // a jump back to the intro: once the song is there, nothing waits and its key stops blinking
+      const back = new D.Device(data, { set() {}, play() {}, jump() {} }, () => t);
+      back.update({ ...live(10), sections: secs });
+      back.stack = ["main", "sections"]; back.press("KEY0");
+      back.update({ ...live(12), sections: secs });   // sent in the bar before the boundary (bar 12 from 1)
+      back.update({ ...live(1), sections: secs });    // the song went to the intro
+      check(!back.jumpReq && !back.keyLights().blink.size && back.values().pending === "", "a jump back to the intro clears once it lands (no blinking key)");
+    }
     dj.update({ ...live(5), sections: secs });
     dj.press("KEY2");   // the second white key: the second section
     const k = dj.values();

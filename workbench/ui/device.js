@@ -468,8 +468,10 @@ export class Device {
     const jr = this.jumpReq;
     if (jr) {   // a jump: sent in the bar before its boundary (the workbench lands it at the next bar line)
       const bar = live.bar - 1;
-      if (bar >= jr.at) this.jumpReq = null;
-      else if (!jr.sent && bar >= jr.at - 1) { jr.sent = true; this.engine.jump?.(jr.start, jr.name); }
+      // done once the song has moved on from the bar it was sent in: forward past the boundary, or back (a jump to an
+      // earlier section, the intro: Sam saw its key keep blinking)
+      if (bar >= jr.at || (jr.sent && bar !== jr.sentBar)) this.jumpReq = null;
+      else if (!jr.sent && bar >= jr.at - 1) { jr.sent = true; jr.sentBar = bar; this.engine.jump?.(jr.start, jr.name); }
     }
     if (was && was.seed !== live.seed && this.stack.length > 1) {   // a new song (rolled or the next one): back to the
       this.stack = [this.data.home];                                  // main screen (Sam, 2026-11-06)
