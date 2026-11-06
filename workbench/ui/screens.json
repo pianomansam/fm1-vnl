@@ -1,0 +1,4845 @@
+{
+ "colors": {
+  "BASS": [
+   158,
+   130,
+   236
+  ],
+  "COMP": [
+   70,
+   196,
+   176
+  ],
+  "DRUMS": [
+   236,
+   104,
+   88
+  ],
+  "LEAD": [
+   236,
+   124,
+   184
+  ],
+  "PAD": [
+   96,
+   164,
+   240
+  ],
+  "PENDING": [
+   250,
+   226,
+   90
+  ],
+  "SONG": [
+   255,
+   184,
+   70
+  ],
+  "TEXTURE": [
+   186,
+   168,
+   138
+  ]
+ },
+ "defaults": {
+  "ARP": {
+   "go": "mixer"
+  },
+  "FX": {
+   "go": "levels"
+  },
+  "GLO": {
+   "go": "prefs"
+  },
+  "HOME": {
+   "go": "home"
+  },
+  "KEY0": {
+   "do": "mute",
+   "long": {
+    "do": "solo",
+    "part": "drums"
+   },
+   "part": "drums"
+  },
+  "KEY2": {
+   "do": "mute",
+   "long": {
+    "do": "solo",
+    "part": "bass"
+   },
+   "part": "bass"
+  },
+  "KEY4": {
+   "do": "mute",
+   "long": {
+    "do": "solo",
+    "part": "keys"
+   },
+   "part": "keys"
+  },
+  "KEY6": {
+   "do": "mute",
+   "long": {
+    "do": "solo",
+    "part": "pad"
+   },
+   "part": "pad"
+  },
+  "KEY7": {
+   "do": "mute",
+   "long": {
+    "do": "solo",
+    "part": "lead"
+   },
+   "part": "lead"
+  },
+  "PLAY": {
+   "do": "play"
+  },
+  "SEL": {
+   "go": "sections"
+  },
+  "SEQ": {
+   "do": "reroll"
+  }
+ },
+ "fields": {
+  "bassIns": {
+   "name": "INSTRUMENT",
+   "options": true,
+   "row": "bass"
+  },
+  "bassLine": {
+   "format": "variant",
+   "max": 99,
+   "min": 0,
+   "name": "LINE",
+   "row": "bassLine"
+  },
+  "compFill": {
+   "name": "STRUM FILL",
+   "options": true,
+   "row": "strumFill"
+  },
+  "compIns": {
+   "name": "INSTRUMENT",
+   "options": true,
+   "row": "keys"
+  },
+  "compReg": {
+   "name": "REGISTER",
+   "options": true,
+   "row": "keysOct"
+  },
+  "compRhythm": {
+   "name": "RHYTHM",
+   "options": true,
+   "row": "rhythm"
+  },
+  "compThin": {
+   "name": "BUSY LEAD THINS",
+   "options": true,
+   "row": "busyThin"
+  },
+  "compVoicing": {
+   "format": "variant",
+   "max": 99,
+   "min": 0,
+   "name": "VOICINGS",
+   "row": "voicings"
+  },
+  "drumKick": {
+   "name": "KICK",
+   "options": true,
+   "row": "kick"
+  },
+  "drumKit": {
+   "name": "KIT",
+   "options": true,
+   "row": "kit"
+  },
+  "drumPattern": {
+   "name": "PATTERN",
+   "options": true,
+   "row": "pattern"
+  },
+  "drumRide": {
+   "name": "RIDE",
+   "options": true,
+   "row": "ride"
+  },
+  "drumVar": {
+   "format": "variant",
+   "max": 99,
+   "min": 0,
+   "name": "VARIATION",
+   "row": "drumsVar"
+  },
+  "key": {
+   "format": "key",
+   "name": "KEY",
+   "row": "key",
+   "wrap": 12
+  },
+  "leadIns": {
+   "name": "INSTRUMENT",
+   "options": true,
+   "row": "lead"
+  },
+  "leadLoopSet": {
+   "name": "LOOP",
+   "options": true,
+   "row": "leadLoop"
+  },
+  "leadPhrase": {
+   "format": "variant",
+   "max": 99,
+   "min": 0,
+   "name": "PHRASE",
+   "row": "phrase"
+  },
+  "leadReg": {
+   "name": "REGISTER",
+   "options": true,
+   "row": "leadOct"
+  },
+  "leadStyleSet": {
+   "name": "STYLE",
+   "options": true,
+   "row": "leadStyle"
+  },
+  "loop": {
+   "name": "LOOP",
+   "now": true,
+   "options": true,
+   "row": "loop"
+  },
+  "mode": {
+   "format": "mode",
+   "name": "SCALE",
+   "row": "mode",
+   "wrap": 2
+  },
+  "mood": {
+   "format": "mood",
+   "max": 3,
+   "min": 0,
+   "name": "MOOD",
+   "row": "mood"
+  },
+  "motion": {
+   "max": 100,
+   "min": 0,
+   "name": "MOTION",
+   "row": "motion"
+  },
+  "padIns": {
+   "name": "INSTRUMENT",
+   "options": true,
+   "row": "pad"
+  },
+  "padNotes": {
+   "format": "variant",
+   "max": 99,
+   "min": 0,
+   "name": "NOTES",
+   "row": "padNotes"
+  },
+  "padOnSet": {
+   "name": "ON/OFF",
+   "options": true,
+   "row": "padOn"
+  },
+  "padPlaceSet": {
+   "name": "PLACE",
+   "options": true,
+   "row": "padPlace"
+  },
+  "songMap": {
+   "name": "LAYOUT",
+   "options": true,
+   "row": "map"
+  },
+  "songProg": {
+   "name": "CHORDS",
+   "options": true,
+   "row": "prog"
+  },
+  "songSwing": {
+   "name": "SWING",
+   "options": true,
+   "row": "swing"
+  },
+  "tempo": {
+   "max": 90,
+   "min": 70,
+   "name": "TEMPO",
+   "row": "tempo"
+  },
+  "texAmb": {
+   "name": "AMBIENCE",
+   "options": true,
+   "row": "ambience"
+  },
+  "texDust": {
+   "name": "DUST",
+   "options": true,
+   "row": "dust"
+  },
+  "texNoise": {
+   "name": "NOISE",
+   "options": true,
+   "row": "noise"
+  }
+ },
+ "home": "main",
+ "icons": {
+  "bass": [
+   "##.......",
+   ".##......",
+   "...#.#...",
+   "....###..",
+   "....#####",
+   "....#####",
+   ".....###"
+  ],
+  "comp": [
+   "#########",
+   "#.#.#.#.#",
+   "#.#.#.#.#",
+   "#.......#",
+   "#########",
+   ".........",
+   "........."
+  ],
+  "drums": [
+   ".#######.",
+   "#.......#",
+   "##.....##",
+   "#.#####.#",
+   "#.......#",
+   "#.......#",
+   ".#######."
+  ],
+  "lead": [
+   ".....#...",
+   ".....##..",
+   ".....#.#.",
+   ".....#...",
+   "..####...",
+   ".#####...",
+   "..###...."
+  ],
+  "pad": [
+   ".........",
+   ".##......",
+   "#..#....#",
+   "....#..#.",
+   ".....##..",
+   ".........",
+   "........."
+  ],
+  "song": [
+   "......###",
+   ".....#...",
+   ".........",
+   "..#####..",
+   ".#.....#.",
+   "#...#...#",
+   ".#.....#.",
+   "..#####.."
+  ],
+  "texture": [
+   "#.....#..",
+   "...#....#",
+   ".#.......",
+   ".....#...",
+   "#.......#",
+   "...#.#...",
+   ".#.....#."
+  ]
+ },
+ "keyLeds": {
+  "lanes": [
+   0,
+   2,
+   4,
+   6,
+   7
+  ],
+  "parts": [
+   "drums",
+   "bass",
+   "keys",
+   "pad",
+   "lead"
+  ]
+ },
+ "lines": {
+  "keyline": "{key} {mode}  {tempo} BPM",
+  "place": "{map}  {section}  {bar}/{bars}"
+ },
+ "parts": [
+  "pSong",
+  "pDrums",
+  "pBass",
+  "pComp",
+  "pPad",
+  "pLead",
+  "pTexture"
+ ],
+ "screens": {
+  "levels": {
+   "bands": [
+    {
+     "draw": [
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{section}  {bar}/{bars}",
+       "when": "song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "after": 8,
+       "color": "HI",
+       "font": "T",
+       "text": "LOOP",
+       "when": [
+        "song",
+        "looping"
+       ],
+       "y": 2
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{idle}",
+       "when": "!song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{tempo} BPM",
+       "when": "known",
+       "y": 2
+      }
+     ],
+     "h": 16,
+     "y": 0
+    },
+    {
+     "draw": [
+      {
+       "color": "WHITE",
+       "rect": [
+        2,
+        0,
+        2,
+        26
+       ]
+      },
+      {
+       "color": "WHITE",
+       "font": "B",
+       "text": "MIXER",
+       "x": 10,
+       "y": 4
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "right": 232,
+       "text": "{chord}",
+       "when": [
+        "song",
+        "!pending"
+       ],
+       "y": 5
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{pending}",
+       "when": "pending",
+       "y": 8
+      }
+     ],
+     "h": 28,
+     "y": 18
+    },
+    {
+     "draw": [
+      {
+       "faders": [
+        6,
+        0,
+        228,
+        140
+       ],
+       "parts": [
+        "drums",
+        "bass",
+        "keys",
+        "pad",
+        "lead",
+        "texture"
+       ]
+      }
+     ],
+     "h": 140,
+     "y": 50
+    },
+    {
+     "draw": [
+      {
+       "color": "LINE",
+       "rect": [
+        8,
+        0,
+        224,
+        1
+       ]
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "ALGO PICK   K1 LEVEL   K2 MUTE   K3 SOLO",
+       "x": 8,
+       "y": 8
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "FX BACK   ARP PARTS   HOME MAIN",
+       "x": 8,
+       "y": 24
+      }
+     ],
+     "h": 44,
+     "y": 196
+    }
+   ],
+   "controls": {
+    "ALGO": {
+     "do": "cursor"
+    },
+    "FX": {
+     "go": "back"
+    },
+    "K1": {
+     "do": "level"
+    },
+    "K2": {
+     "do": "mute"
+    },
+    "K3": {
+     "do": "solo"
+    },
+    "SELECT": {
+     "do": "cursor"
+    }
+   },
+   "lanes": [
+    "drums",
+    "bass",
+    "keys",
+    "pad",
+    "lead",
+    "texture"
+   ],
+   "say": [
+    "MIXER. ",
+    {
+     "text": "{section}, BAR {bar} OF {bars}",
+     "when": "song"
+    }
+   ],
+   "title": "Mixer"
+  },
+  "main": {
+   "bands": [
+    {
+     "draw": [
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{section}  {bar}/{bars}",
+       "when": "song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "after": 8,
+       "color": "HI",
+       "font": "T",
+       "text": "LOOP",
+       "when": [
+        "song",
+        "looping"
+       ],
+       "y": 2
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{idle}",
+       "when": "!song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{tempo} BPM",
+       "when": "known",
+       "y": 2
+      }
+     ],
+     "h": 16,
+     "y": 0
+    },
+    {
+     "draw": [
+      {
+       "color": "LINE",
+       "rect": [
+        2,
+        0,
+        236,
+        46
+       ],
+       "when": "sel0"
+      },
+      {
+       "color": "SONG",
+       "rect": [
+        2,
+        0,
+        2,
+        46
+       ],
+       "when": "sel0"
+      },
+      {
+       "color": "WHITE",
+       "font": "B",
+       "text": "{chord}",
+       "when": "song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "HI",
+       "font": "XS",
+       "right": 232,
+       "text": "{key} {mode}",
+       "when": "song",
+       "y": 2
+      },
+      {
+       "color": "SONG",
+       "icon": "song",
+       "when": [
+        "song",
+        "!pending"
+       ],
+       "x": 8,
+       "y": 26
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{map}",
+       "when": [
+        "song",
+        "!pending"
+       ],
+       "x": 21,
+       "y": 24
+      },
+      {
+       "color": "DIM",
+       "rect": [
+        6,
+        21,
+        228,
+        15
+       ],
+       "when": "pending"
+      },
+      {
+       "color": "BLACK",
+       "font": "T",
+       "text": "{pending}",
+       "when": "pending",
+       "x": 10,
+       "y": 23
+      },
+      {
+       "color": "WHITE",
+       "font": "B",
+       "text": "{key} {mode}",
+       "when": "ready",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "SONG",
+       "icon": "song",
+       "when": "ready",
+       "x": 8,
+       "y": 26
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{map}",
+       "when": "ready",
+       "x": 21,
+       "y": 24
+      },
+      {
+       "back": "LINE",
+       "color": "AMB",
+       "past": "DIM",
+       "sections": [
+        8,
+        40,
+        224,
+        3
+       ]
+      }
+     ],
+     "h": 46,
+     "y": 18
+    },
+    {
+     "draw": [
+      {
+       "color": "LINE",
+       "rect": [
+        2,
+        0,
+        116,
+        46
+       ],
+       "when": "sel1"
+      },
+      {
+       "color": "DRUMS",
+       "rect": [
+        2,
+        0,
+        2,
+        46
+       ],
+       "when": "sel1"
+      },
+      {
+       "color": "DRUMS",
+       "icon": "drums",
+       "x": 8,
+       "y": 5
+      },
+      {
+       "color": "DRUMS",
+       "font": "T",
+       "text": "DRUMS",
+       "x": 21,
+       "y": 3
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "text": "{kit}",
+       "x": 8,
+       "y": 15
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{pattern}",
+       "x": 8,
+       "y": 32
+      },
+      {
+       "color": "LINE",
+       "rect": [
+        122,
+        0,
+        116,
+        46
+       ],
+       "when": "sel2"
+      },
+      {
+       "color": "BASS",
+       "rect": [
+        122,
+        0,
+        2,
+        46
+       ],
+       "when": "sel2"
+      },
+      {
+       "color": "BASS",
+       "icon": "bass",
+       "x": 128,
+       "y": 5
+      },
+      {
+       "color": "BASS",
+       "font": "T",
+       "text": "BASS",
+       "x": 141,
+       "y": 3
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "text": "{bass}",
+       "x": 128,
+       "y": 15
+      },
+      {
+       "color": "LINE",
+       "rect": [
+        2,
+        48,
+        116,
+        46
+       ],
+       "when": "sel3"
+      },
+      {
+       "color": "COMP",
+       "rect": [
+        2,
+        48,
+        2,
+        46
+       ],
+       "when": "sel3"
+      },
+      {
+       "color": "COMP",
+       "icon": "comp",
+       "x": 8,
+       "y": 53
+      },
+      {
+       "color": "COMP",
+       "font": "T",
+       "text": "COMP",
+       "x": 21,
+       "y": 51
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "text": "{keys}",
+       "x": 8,
+       "y": 63
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{rhythm}",
+       "x": 8,
+       "y": 80
+      },
+      {
+       "color": "LINE",
+       "rect": [
+        122,
+        48,
+        116,
+        46
+       ],
+       "when": "sel4"
+      },
+      {
+       "color": "PAD",
+       "rect": [
+        122,
+        48,
+        2,
+        46
+       ],
+       "when": "sel4"
+      },
+      {
+       "color": "PAD",
+       "icon": "pad",
+       "x": 128,
+       "y": 53
+      },
+      {
+       "color": "PAD",
+       "font": "T",
+       "text": "PAD",
+       "x": 141,
+       "y": 51
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "text": "{pad}",
+       "x": 128,
+       "y": 63
+      },
+      {
+       "color": "LINE",
+       "rect": [
+        2,
+        96,
+        116,
+        46
+       ],
+       "when": "sel5"
+      },
+      {
+       "color": "LEAD",
+       "rect": [
+        2,
+        96,
+        2,
+        46
+       ],
+       "when": "sel5"
+      },
+      {
+       "color": "LEAD",
+       "icon": "lead",
+       "x": 8,
+       "y": 101
+      },
+      {
+       "color": "LEAD",
+       "font": "T",
+       "text": "LEAD",
+       "x": 21,
+       "y": 99
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "text": "{lead}",
+       "x": 8,
+       "y": 111
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{leadStyle}",
+       "x": 8,
+       "y": 128
+      },
+      {
+       "color": "LINE",
+       "rect": [
+        122,
+        96,
+        116,
+        46
+       ],
+       "when": "sel6"
+      },
+      {
+       "color": "TEXTURE",
+       "rect": [
+        122,
+        96,
+        2,
+        46
+       ],
+       "when": "sel6"
+      },
+      {
+       "color": "TEXTURE",
+       "icon": "texture",
+       "x": 128,
+       "y": 101
+      },
+      {
+       "color": "TEXTURE",
+       "font": "T",
+       "text": "TEXTURE",
+       "x": 141,
+       "y": 99
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "text": "DUST {dust}",
+       "x": 128,
+       "y": 111
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "NOISE {noise}  ROOM {ambience}",
+       "x": 128,
+       "y": 128
+      }
+     ],
+     "h": 144,
+     "y": 66
+    },
+    {
+     "draw": [
+      {
+       "knobs": {
+        "bar": {
+         "back": "LINE",
+         "color": "AMB",
+         "h": 2,
+         "w": 50,
+         "y": 26
+        },
+        "dx": 58,
+        "label": {
+         "color": "GRAY",
+         "font": "T",
+         "y": 0
+        },
+        "value": {
+         "color": "HI",
+         "font": "XS",
+         "when": "known",
+         "y": 11
+        },
+        "x": 8
+       }
+      }
+     ],
+     "h": 28,
+     "y": 212
+    }
+   ],
+   "controls": {
+    "ALGO": {
+     "do": "cursor"
+    },
+    "EDIT": {
+     "go": "cursor"
+    },
+    "PRESET": {
+     "byCursor": [
+      null,
+      "drumKit",
+      "bassIns",
+      "compIns",
+      "padIns",
+      "leadIns",
+      null
+     ],
+     "do": "turn",
+     "step": 1
+    },
+    "SELECT": {
+     "do": "cursor"
+    }
+   },
+   "knobs": [
+    {
+     "field": "key",
+     "step": 1
+    },
+    {
+     "field": "tempo",
+     "step": 1
+    },
+    {
+     "field": "motion",
+     "step": 5
+    },
+    {
+     "field": "mood",
+     "step": 1
+    }
+   ],
+   "menu": [
+    "pSong",
+    "pDrums",
+    "pBass",
+    "pComp",
+    "pPad",
+    "pLead",
+    "pTexture"
+   ],
+   "say": [
+    {
+     "text": "CHORD {chord}. {section}, BAR {bar} OF {bars}",
+     "when": "song"
+    },
+    {
+     "text": "{idle}",
+     "when": "!song"
+    },
+    {
+     "text": ". {key} {mode}, {tempo} BPM",
+     "when": "ready"
+    },
+    {
+     "text": ". {pending}",
+     "when": "pending"
+    }
+   ],
+   "title": "Main"
+  },
+  "mixer": {
+   "bands": [
+    {
+     "draw": [
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{section}  {bar}/{bars}",
+       "when": "song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "after": 8,
+       "color": "HI",
+       "font": "T",
+       "text": "LOOP",
+       "when": [
+        "song",
+        "looping"
+       ],
+       "y": 2
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{idle}",
+       "when": "!song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{tempo} BPM",
+       "when": "known",
+       "y": 2
+      }
+     ],
+     "h": 16,
+     "y": 0
+    },
+    {
+     "draw": [
+      {
+       "color": "WHITE",
+       "rect": [
+        2,
+        0,
+        2,
+        26
+       ]
+      },
+      {
+       "color": "WHITE",
+       "font": "B",
+       "text": "PARTS",
+       "x": 10,
+       "y": 4
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "right": 232,
+       "text": "{chord}",
+       "when": [
+        "song",
+        "!pending"
+       ],
+       "y": 5
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{pending}",
+       "when": "pending",
+       "y": 8
+      }
+     ],
+     "h": 28,
+     "y": 18
+    },
+    {
+     "draw": [
+      {
+       "keys": [
+        "F",
+        "G",
+        "A",
+        "B",
+        "C"
+       ],
+       "label": 46,
+       "lanes": [
+        8,
+        0,
+        224,
+        132
+       ],
+       "parts": [
+        "drums",
+        "bass",
+        "keys",
+        "pad",
+        "lead"
+       ],
+       "rowH": 26,
+       "window": 8
+      }
+     ],
+     "h": 132,
+     "y": 50
+    },
+    {
+     "draw": [
+      {
+       "color": "LINE",
+       "rect": [
+        8,
+        0,
+        224,
+        1
+       ]
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "KEY MUTE   HOLD KEY SOLO   ALGO PICK",
+       "x": 8,
+       "y": 8
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "ARP BACK   FX MIXER   HOME MAIN",
+       "x": 8,
+       "y": 24
+      }
+     ],
+     "h": 44,
+     "y": 196
+    }
+   ],
+   "controls": {
+    "ALGO": {
+     "do": "cursor"
+    },
+    "ARP": {
+     "go": "back"
+    },
+    "K1": {
+     "do": "mute"
+    },
+    "K2": {
+     "do": "solo"
+    },
+    "SELECT": {
+     "do": "cursor"
+    }
+   },
+   "lanes": [
+    "drums",
+    "bass",
+    "keys",
+    "pad",
+    "lead"
+   ],
+   "say": [
+    "PARTS. ",
+    {
+     "text": "{section}, BAR {bar} OF {bars}",
+     "when": "song"
+    }
+   ],
+   "title": "Parts"
+  },
+  "pBass": {
+   "bands": [
+    {
+     "draw": [
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{section}  {bar}/{bars}",
+       "when": "song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{idle}",
+       "when": "!song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{tempo} BPM",
+       "when": "known",
+       "y": 2
+      }
+     ],
+     "h": 16,
+     "y": 0
+    },
+    {
+     "draw": [
+      {
+       "color": "BASS",
+       "rect": [
+        2,
+        0,
+        2,
+        26
+       ]
+      },
+      {
+       "color": "BASS",
+       "icon": "bass",
+       "x": 10,
+       "y": 9
+      },
+      {
+       "color": "BASS",
+       "font": "B",
+       "text": "BASS",
+       "x": 23,
+       "y": 4
+      },
+      {
+       "after": 8,
+       "color": "GRAY",
+       "font": "T",
+       "text": "{page}",
+       "y": 8
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "right": 232,
+       "text": "{chord}",
+       "when": [
+        "song",
+        "!pending"
+       ],
+       "y": 5
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{pending}",
+       "when": "pending",
+       "y": 8
+      }
+     ],
+     "h": 28,
+     "y": 18
+    },
+    {
+     "draw": [
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K1  INSTRUMENT",
+       "x": 8,
+       "y": 3
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{bassIns}",
+       "x": 8,
+       "y": 14
+      },
+      {
+       "back": "LINE",
+       "color": "BASS",
+       "meter": [
+        8,
+        33,
+        224,
+        2
+       ],
+       "value": "bassInsFrac"
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K2  LINE",
+       "x": 8,
+       "y": 39
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{bassLine}",
+       "x": 8,
+       "y": 50
+      },
+      {
+       "back": "LINE",
+       "color": "BASS",
+       "meter": [
+        8,
+        69,
+        224,
+        2
+       ],
+       "value": "bassLineFrac"
+      }
+     ],
+     "h": 144,
+     "y": 48
+    },
+    {
+     "draw": [
+      {
+       "color": "LINE",
+       "rect": [
+        8,
+        0,
+        224,
+        1
+       ]
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "ALGO PART",
+       "x": 8,
+       "y": 8
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "EDIT BACK   HOME MAIN   SEQ RE-ROLL",
+       "x": 8,
+       "y": 24
+      }
+     ],
+     "h": 40,
+     "y": 200
+    }
+   ],
+   "controls": {
+    "ALGO": {
+     "do": "part"
+    },
+    "EDIT": {
+     "go": "back"
+    },
+    "PRESET": {
+     "do": "turn",
+     "field": "bassIns",
+     "step": 1
+    },
+    "SEQ": {
+     "do": "reroll",
+     "part": "bass"
+    }
+   },
+   "knobs": [
+    {
+     "field": "bassIns",
+     "step": 1
+    },
+    {
+     "field": "bassLine",
+     "step": 1
+    }
+   ],
+   "pages": [
+    "pBass"
+   ],
+   "say": [
+    "BASS. INSTRUMENT {bassIns}. LINE {bassLine}."
+   ],
+   "title": "Bass"
+  },
+  "pComp": {
+   "bands": [
+    {
+     "draw": [
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{section}  {bar}/{bars}",
+       "when": "song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{idle}",
+       "when": "!song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{tempo} BPM",
+       "when": "known",
+       "y": 2
+      }
+     ],
+     "h": 16,
+     "y": 0
+    },
+    {
+     "draw": [
+      {
+       "color": "COMP",
+       "rect": [
+        2,
+        0,
+        2,
+        26
+       ]
+      },
+      {
+       "color": "COMP",
+       "icon": "comp",
+       "x": 10,
+       "y": 9
+      },
+      {
+       "color": "COMP",
+       "font": "B",
+       "text": "COMP",
+       "x": 23,
+       "y": 4
+      },
+      {
+       "after": 8,
+       "color": "GRAY",
+       "font": "T",
+       "text": "{page}",
+       "y": 8
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "right": 232,
+       "text": "{chord}",
+       "when": [
+        "song",
+        "!pending"
+       ],
+       "y": 5
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{pending}",
+       "when": "pending",
+       "y": 8
+      }
+     ],
+     "h": 28,
+     "y": 18
+    },
+    {
+     "draw": [
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K1  INSTRUMENT",
+       "x": 8,
+       "y": 3
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{compIns}",
+       "x": 8,
+       "y": 14
+      },
+      {
+       "back": "LINE",
+       "color": "COMP",
+       "meter": [
+        8,
+        33,
+        224,
+        2
+       ],
+       "value": "compInsFrac"
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K2  RHYTHM",
+       "x": 8,
+       "y": 39
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{compRhythm}",
+       "x": 8,
+       "y": 50
+      },
+      {
+       "back": "LINE",
+       "color": "COMP",
+       "meter": [
+        8,
+        69,
+        224,
+        2
+       ],
+       "value": "compRhythmFrac"
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K3  VOICINGS",
+       "x": 8,
+       "y": 75
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{compVoicing}",
+       "x": 8,
+       "y": 86
+      },
+      {
+       "back": "LINE",
+       "color": "COMP",
+       "meter": [
+        8,
+        105,
+        224,
+        2
+       ],
+       "value": "compVoicingFrac"
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K4  REGISTER",
+       "x": 8,
+       "y": 111
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{compReg}",
+       "x": 8,
+       "y": 122
+      },
+      {
+       "back": "LINE",
+       "color": "COMP",
+       "meter": [
+        8,
+        141,
+        224,
+        2
+       ],
+       "value": "compRegFrac"
+      }
+     ],
+     "h": 144,
+     "y": 48
+    },
+    {
+     "draw": [
+      {
+       "color": "LINE",
+       "rect": [
+        8,
+        0,
+        224,
+        1
+       ]
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "ALGO PART   SELECT PAGE   OCT REGISTER",
+       "x": 8,
+       "y": 8
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "EDIT BACK   HOME MAIN   SEQ RE-ROLL",
+       "x": 8,
+       "y": 24
+      }
+     ],
+     "h": 40,
+     "y": 200
+    }
+   ],
+   "controls": {
+    "ALGO": {
+     "do": "part"
+    },
+    "EDIT": {
+     "go": "back"
+    },
+    "OCT+": {
+     "by": 1,
+     "do": "nudge",
+     "field": "compReg"
+    },
+    "OCT-": {
+     "by": -1,
+     "do": "nudge",
+     "field": "compReg"
+    },
+    "PRESET": {
+     "do": "turn",
+     "field": "compIns",
+     "step": 1
+    },
+    "SELECT": {
+     "do": "page"
+    },
+    "SEQ": {
+     "do": "reroll",
+     "part": "keys"
+    }
+   },
+   "knobs": [
+    {
+     "field": "compIns",
+     "step": 1
+    },
+    {
+     "field": "compRhythm",
+     "step": 1
+    },
+    {
+     "field": "compVoicing",
+     "step": 1
+    },
+    {
+     "field": "compReg",
+     "step": 1
+    }
+   ],
+   "pages": [
+    "pComp",
+    "pCompMore"
+   ],
+   "say": [
+    "COMP, PAGE {page}. INSTRUMENT {compIns}. RHYTHM {compRhythm}. VOICINGS {compVoicing}. REGISTER {compReg}."
+   ],
+   "title": "Comp"
+  },
+  "pCompMore": {
+   "bands": [
+    {
+     "draw": [
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{section}  {bar}/{bars}",
+       "when": "song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{idle}",
+       "when": "!song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{tempo} BPM",
+       "when": "known",
+       "y": 2
+      }
+     ],
+     "h": 16,
+     "y": 0
+    },
+    {
+     "draw": [
+      {
+       "color": "COMP",
+       "rect": [
+        2,
+        0,
+        2,
+        26
+       ]
+      },
+      {
+       "color": "COMP",
+       "icon": "comp",
+       "x": 10,
+       "y": 9
+      },
+      {
+       "color": "COMP",
+       "font": "B",
+       "text": "COMP",
+       "x": 23,
+       "y": 4
+      },
+      {
+       "after": 8,
+       "color": "GRAY",
+       "font": "T",
+       "text": "{page}",
+       "y": 8
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "right": 232,
+       "text": "{chord}",
+       "when": [
+        "song",
+        "!pending"
+       ],
+       "y": 5
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{pending}",
+       "when": "pending",
+       "y": 8
+      }
+     ],
+     "h": 28,
+     "y": 18
+    },
+    {
+     "draw": [
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K1  STRUM FILL",
+       "x": 8,
+       "y": 3
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{compFill}",
+       "x": 8,
+       "y": 14
+      },
+      {
+       "back": "LINE",
+       "color": "COMP",
+       "meter": [
+        8,
+        33,
+        224,
+        2
+       ],
+       "value": "compFillFrac"
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K2  BUSY LEAD THINS",
+       "x": 8,
+       "y": 39
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{compThin}",
+       "x": 8,
+       "y": 50
+      },
+      {
+       "back": "LINE",
+       "color": "COMP",
+       "meter": [
+        8,
+        69,
+        224,
+        2
+       ],
+       "value": "compThinFrac"
+      }
+     ],
+     "h": 144,
+     "y": 48
+    },
+    {
+     "draw": [
+      {
+       "color": "LINE",
+       "rect": [
+        8,
+        0,
+        224,
+        1
+       ]
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "ALGO PART   SELECT PAGE   OCT REGISTER",
+       "x": 8,
+       "y": 8
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "EDIT BACK   HOME MAIN   SEQ RE-ROLL",
+       "x": 8,
+       "y": 24
+      }
+     ],
+     "h": 40,
+     "y": 200
+    }
+   ],
+   "controls": {
+    "ALGO": {
+     "do": "part"
+    },
+    "EDIT": {
+     "go": "back"
+    },
+    "OCT+": {
+     "by": 1,
+     "do": "nudge",
+     "field": "compReg"
+    },
+    "OCT-": {
+     "by": -1,
+     "do": "nudge",
+     "field": "compReg"
+    },
+    "PRESET": {
+     "do": "turn",
+     "field": "compIns",
+     "step": 1
+    },
+    "SELECT": {
+     "do": "page"
+    },
+    "SEQ": {
+     "do": "reroll",
+     "part": "keys"
+    }
+   },
+   "knobs": [
+    {
+     "field": "compFill",
+     "step": 1
+    },
+    {
+     "field": "compThin",
+     "step": 1
+    }
+   ],
+   "pages": [
+    "pComp",
+    "pCompMore"
+   ],
+   "say": [
+    "COMP, PAGE {page}. STRUM FILL {compFill}. BUSY LEAD THINS {compThin}."
+   ],
+   "title": "Comp: more"
+  },
+  "pDrums": {
+   "bands": [
+    {
+     "draw": [
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{section}  {bar}/{bars}",
+       "when": "song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{idle}",
+       "when": "!song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{tempo} BPM",
+       "when": "known",
+       "y": 2
+      }
+     ],
+     "h": 16,
+     "y": 0
+    },
+    {
+     "draw": [
+      {
+       "color": "DRUMS",
+       "rect": [
+        2,
+        0,
+        2,
+        26
+       ]
+      },
+      {
+       "color": "DRUMS",
+       "icon": "drums",
+       "x": 10,
+       "y": 9
+      },
+      {
+       "color": "DRUMS",
+       "font": "B",
+       "text": "DRUMS",
+       "x": 23,
+       "y": 4
+      },
+      {
+       "after": 8,
+       "color": "GRAY",
+       "font": "T",
+       "text": "{page}",
+       "y": 8
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "right": 232,
+       "text": "{chord}",
+       "when": [
+        "song",
+        "!pending"
+       ],
+       "y": 5
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{pending}",
+       "when": "pending",
+       "y": 8
+      }
+     ],
+     "h": 28,
+     "y": 18
+    },
+    {
+     "draw": [
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K1  KIT",
+       "x": 8,
+       "y": 3
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{drumKit}",
+       "x": 8,
+       "y": 14
+      },
+      {
+       "back": "LINE",
+       "color": "DRUMS",
+       "meter": [
+        8,
+        33,
+        224,
+        2
+       ],
+       "value": "drumKitFrac"
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K2  PATTERN",
+       "x": 8,
+       "y": 39
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{drumPattern}",
+       "x": 8,
+       "y": 50
+      },
+      {
+       "back": "LINE",
+       "color": "DRUMS",
+       "meter": [
+        8,
+        69,
+        224,
+        2
+       ],
+       "value": "drumPatternFrac"
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K3  KICK",
+       "x": 8,
+       "y": 75
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{drumKick}",
+       "x": 8,
+       "y": 86
+      },
+      {
+       "back": "LINE",
+       "color": "DRUMS",
+       "meter": [
+        8,
+        105,
+        224,
+        2
+       ],
+       "value": "drumKickFrac"
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K4  RIDE",
+       "x": 8,
+       "y": 111
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{drumRide}",
+       "x": 8,
+       "y": 122
+      },
+      {
+       "back": "LINE",
+       "color": "DRUMS",
+       "meter": [
+        8,
+        141,
+        224,
+        2
+       ],
+       "value": "drumRideFrac"
+      }
+     ],
+     "h": 144,
+     "y": 48
+    },
+    {
+     "draw": [
+      {
+       "color": "LINE",
+       "rect": [
+        8,
+        0,
+        224,
+        1
+       ]
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "ALGO PART   SELECT PAGE",
+       "x": 8,
+       "y": 8
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "EDIT BACK   HOME MAIN   SEQ RE-ROLL",
+       "x": 8,
+       "y": 24
+      }
+     ],
+     "h": 40,
+     "y": 200
+    }
+   ],
+   "controls": {
+    "ALGO": {
+     "do": "part"
+    },
+    "EDIT": {
+     "go": "back"
+    },
+    "PRESET": {
+     "do": "turn",
+     "field": "drumKit",
+     "step": 1
+    },
+    "SELECT": {
+     "do": "page"
+    },
+    "SEQ": {
+     "do": "reroll",
+     "part": "drums"
+    }
+   },
+   "knobs": [
+    {
+     "field": "drumKit",
+     "step": 1
+    },
+    {
+     "field": "drumPattern",
+     "step": 1
+    },
+    {
+     "field": "drumKick",
+     "step": 1
+    },
+    {
+     "field": "drumRide",
+     "step": 1
+    }
+   ],
+   "pages": [
+    "pDrums",
+    "pDrumsMore"
+   ],
+   "say": [
+    "DRUMS, PAGE {page}. KIT {drumKit}. PATTERN {drumPattern}. KICK {drumKick}. RIDE {drumRide}."
+   ],
+   "title": "Drums"
+  },
+  "pDrumsMore": {
+   "bands": [
+    {
+     "draw": [
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{section}  {bar}/{bars}",
+       "when": "song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{idle}",
+       "when": "!song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{tempo} BPM",
+       "when": "known",
+       "y": 2
+      }
+     ],
+     "h": 16,
+     "y": 0
+    },
+    {
+     "draw": [
+      {
+       "color": "DRUMS",
+       "rect": [
+        2,
+        0,
+        2,
+        26
+       ]
+      },
+      {
+       "color": "DRUMS",
+       "icon": "drums",
+       "x": 10,
+       "y": 9
+      },
+      {
+       "color": "DRUMS",
+       "font": "B",
+       "text": "DRUMS",
+       "x": 23,
+       "y": 4
+      },
+      {
+       "after": 8,
+       "color": "GRAY",
+       "font": "T",
+       "text": "{page}",
+       "y": 8
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "right": 232,
+       "text": "{chord}",
+       "when": [
+        "song",
+        "!pending"
+       ],
+       "y": 5
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{pending}",
+       "when": "pending",
+       "y": 8
+      }
+     ],
+     "h": 28,
+     "y": 18
+    },
+    {
+     "draw": [
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K1  VARIATION",
+       "x": 8,
+       "y": 3
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{drumVar}",
+       "x": 8,
+       "y": 14
+      },
+      {
+       "back": "LINE",
+       "color": "DRUMS",
+       "meter": [
+        8,
+        33,
+        224,
+        2
+       ],
+       "value": "drumVarFrac"
+      }
+     ],
+     "h": 144,
+     "y": 48
+    },
+    {
+     "draw": [
+      {
+       "color": "LINE",
+       "rect": [
+        8,
+        0,
+        224,
+        1
+       ]
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "ALGO PART   SELECT PAGE",
+       "x": 8,
+       "y": 8
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "EDIT BACK   HOME MAIN   SEQ RE-ROLL",
+       "x": 8,
+       "y": 24
+      }
+     ],
+     "h": 40,
+     "y": 200
+    }
+   ],
+   "controls": {
+    "ALGO": {
+     "do": "part"
+    },
+    "EDIT": {
+     "go": "back"
+    },
+    "PRESET": {
+     "do": "turn",
+     "field": "drumKit",
+     "step": 1
+    },
+    "SELECT": {
+     "do": "page"
+    },
+    "SEQ": {
+     "do": "reroll",
+     "part": "drums"
+    }
+   },
+   "knobs": [
+    {
+     "field": "drumVar",
+     "step": 1
+    }
+   ],
+   "pages": [
+    "pDrums",
+    "pDrumsMore"
+   ],
+   "say": [
+    "DRUMS, PAGE {page}. VARIATION {drumVar}."
+   ],
+   "title": "Drums: more"
+  },
+  "pLead": {
+   "bands": [
+    {
+     "draw": [
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{section}  {bar}/{bars}",
+       "when": "song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{idle}",
+       "when": "!song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{tempo} BPM",
+       "when": "known",
+       "y": 2
+      }
+     ],
+     "h": 16,
+     "y": 0
+    },
+    {
+     "draw": [
+      {
+       "color": "LEAD",
+       "rect": [
+        2,
+        0,
+        2,
+        26
+       ]
+      },
+      {
+       "color": "LEAD",
+       "icon": "lead",
+       "x": 10,
+       "y": 9
+      },
+      {
+       "color": "LEAD",
+       "font": "B",
+       "text": "LEAD",
+       "x": 23,
+       "y": 4
+      },
+      {
+       "after": 8,
+       "color": "GRAY",
+       "font": "T",
+       "text": "{page}",
+       "y": 8
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "right": 232,
+       "text": "{chord}",
+       "when": [
+        "song",
+        "!pending"
+       ],
+       "y": 5
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{pending}",
+       "when": "pending",
+       "y": 8
+      }
+     ],
+     "h": 28,
+     "y": 18
+    },
+    {
+     "draw": [
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K1  INSTRUMENT",
+       "x": 8,
+       "y": 3
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{leadIns}",
+       "x": 8,
+       "y": 14
+      },
+      {
+       "back": "LINE",
+       "color": "LEAD",
+       "meter": [
+        8,
+        33,
+        224,
+        2
+       ],
+       "value": "leadInsFrac"
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K2  STYLE",
+       "x": 8,
+       "y": 39
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{leadStyleSet}",
+       "x": 8,
+       "y": 50
+      },
+      {
+       "back": "LINE",
+       "color": "LEAD",
+       "meter": [
+        8,
+        69,
+        224,
+        2
+       ],
+       "value": "leadStyleSetFrac"
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K3  PHRASE",
+       "x": 8,
+       "y": 75
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{leadPhrase}",
+       "x": 8,
+       "y": 86
+      },
+      {
+       "back": "LINE",
+       "color": "LEAD",
+       "meter": [
+        8,
+        105,
+        224,
+        2
+       ],
+       "value": "leadPhraseFrac"
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K4  REGISTER",
+       "x": 8,
+       "y": 111
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{leadReg}",
+       "x": 8,
+       "y": 122
+      },
+      {
+       "back": "LINE",
+       "color": "LEAD",
+       "meter": [
+        8,
+        141,
+        224,
+        2
+       ],
+       "value": "leadRegFrac"
+      }
+     ],
+     "h": 144,
+     "y": 48
+    },
+    {
+     "draw": [
+      {
+       "color": "LINE",
+       "rect": [
+        8,
+        0,
+        224,
+        1
+       ]
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "ALGO PART   SELECT PAGE   OCT REGISTER",
+       "x": 8,
+       "y": 8
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "EDIT BACK   HOME MAIN   SEQ RE-ROLL",
+       "x": 8,
+       "y": 24
+      }
+     ],
+     "h": 40,
+     "y": 200
+    }
+   ],
+   "controls": {
+    "ALGO": {
+     "do": "part"
+    },
+    "EDIT": {
+     "go": "back"
+    },
+    "OCT+": {
+     "by": 1,
+     "do": "nudge",
+     "field": "leadReg"
+    },
+    "OCT-": {
+     "by": -1,
+     "do": "nudge",
+     "field": "leadReg"
+    },
+    "PRESET": {
+     "do": "turn",
+     "field": "leadIns",
+     "step": 1
+    },
+    "SELECT": {
+     "do": "page"
+    },
+    "SEQ": {
+     "do": "reroll",
+     "part": "lead"
+    }
+   },
+   "knobs": [
+    {
+     "field": "leadIns",
+     "step": 1
+    },
+    {
+     "field": "leadStyleSet",
+     "step": 1
+    },
+    {
+     "field": "leadPhrase",
+     "step": 1
+    },
+    {
+     "field": "leadReg",
+     "step": 1
+    }
+   ],
+   "pages": [
+    "pLead",
+    "pLeadMore"
+   ],
+   "say": [
+    "LEAD, PAGE {page}. INSTRUMENT {leadIns}. STYLE {leadStyleSet}. PHRASE {leadPhrase}. REGISTER {leadReg}."
+   ],
+   "title": "Lead"
+  },
+  "pLeadMore": {
+   "bands": [
+    {
+     "draw": [
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{section}  {bar}/{bars}",
+       "when": "song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{idle}",
+       "when": "!song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{tempo} BPM",
+       "when": "known",
+       "y": 2
+      }
+     ],
+     "h": 16,
+     "y": 0
+    },
+    {
+     "draw": [
+      {
+       "color": "LEAD",
+       "rect": [
+        2,
+        0,
+        2,
+        26
+       ]
+      },
+      {
+       "color": "LEAD",
+       "icon": "lead",
+       "x": 10,
+       "y": 9
+      },
+      {
+       "color": "LEAD",
+       "font": "B",
+       "text": "LEAD",
+       "x": 23,
+       "y": 4
+      },
+      {
+       "after": 8,
+       "color": "GRAY",
+       "font": "T",
+       "text": "{page}",
+       "y": 8
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "right": 232,
+       "text": "{chord}",
+       "when": [
+        "song",
+        "!pending"
+       ],
+       "y": 5
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{pending}",
+       "when": "pending",
+       "y": 8
+      }
+     ],
+     "h": 28,
+     "y": 18
+    },
+    {
+     "draw": [
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K1  LOOP",
+       "x": 8,
+       "y": 3
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{leadLoopSet}",
+       "x": 8,
+       "y": 14
+      },
+      {
+       "back": "LINE",
+       "color": "LEAD",
+       "meter": [
+        8,
+        33,
+        224,
+        2
+       ],
+       "value": "leadLoopSetFrac"
+      }
+     ],
+     "h": 144,
+     "y": 48
+    },
+    {
+     "draw": [
+      {
+       "color": "LINE",
+       "rect": [
+        8,
+        0,
+        224,
+        1
+       ]
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "ALGO PART   SELECT PAGE   OCT REGISTER",
+       "x": 8,
+       "y": 8
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "EDIT BACK   HOME MAIN   SEQ RE-ROLL",
+       "x": 8,
+       "y": 24
+      }
+     ],
+     "h": 40,
+     "y": 200
+    }
+   ],
+   "controls": {
+    "ALGO": {
+     "do": "part"
+    },
+    "EDIT": {
+     "go": "back"
+    },
+    "OCT+": {
+     "by": 1,
+     "do": "nudge",
+     "field": "leadReg"
+    },
+    "OCT-": {
+     "by": -1,
+     "do": "nudge",
+     "field": "leadReg"
+    },
+    "PRESET": {
+     "do": "turn",
+     "field": "leadIns",
+     "step": 1
+    },
+    "SELECT": {
+     "do": "page"
+    },
+    "SEQ": {
+     "do": "reroll",
+     "part": "lead"
+    }
+   },
+   "knobs": [
+    {
+     "field": "leadLoopSet",
+     "step": 1
+    }
+   ],
+   "pages": [
+    "pLead",
+    "pLeadMore"
+   ],
+   "say": [
+    "LEAD, PAGE {page}. LOOP {leadLoopSet}."
+   ],
+   "title": "Lead: more"
+  },
+  "pPad": {
+   "bands": [
+    {
+     "draw": [
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{section}  {bar}/{bars}",
+       "when": "song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{idle}",
+       "when": "!song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{tempo} BPM",
+       "when": "known",
+       "y": 2
+      }
+     ],
+     "h": 16,
+     "y": 0
+    },
+    {
+     "draw": [
+      {
+       "color": "PAD",
+       "rect": [
+        2,
+        0,
+        2,
+        26
+       ]
+      },
+      {
+       "color": "PAD",
+       "icon": "pad",
+       "x": 10,
+       "y": 9
+      },
+      {
+       "color": "PAD",
+       "font": "B",
+       "text": "PAD",
+       "x": 23,
+       "y": 4
+      },
+      {
+       "after": 8,
+       "color": "GRAY",
+       "font": "T",
+       "text": "{page}",
+       "y": 8
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "right": 232,
+       "text": "{chord}",
+       "when": [
+        "song",
+        "!pending"
+       ],
+       "y": 5
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{pending}",
+       "when": "pending",
+       "y": 8
+      }
+     ],
+     "h": 28,
+     "y": 18
+    },
+    {
+     "draw": [
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K1  INSTRUMENT",
+       "x": 8,
+       "y": 3
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{padIns}",
+       "x": 8,
+       "y": 14
+      },
+      {
+       "back": "LINE",
+       "color": "PAD",
+       "meter": [
+        8,
+        33,
+        224,
+        2
+       ],
+       "value": "padInsFrac"
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K2  ON/OFF",
+       "x": 8,
+       "y": 39
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{padOnSet}",
+       "x": 8,
+       "y": 50
+      },
+      {
+       "back": "LINE",
+       "color": "PAD",
+       "meter": [
+        8,
+        69,
+        224,
+        2
+       ],
+       "value": "padOnSetFrac"
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K3  PLACE",
+       "x": 8,
+       "y": 75
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{padPlaceSet}",
+       "x": 8,
+       "y": 86
+      },
+      {
+       "back": "LINE",
+       "color": "PAD",
+       "meter": [
+        8,
+        105,
+        224,
+        2
+       ],
+       "value": "padPlaceSetFrac"
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K4  NOTES",
+       "x": 8,
+       "y": 111
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{padNotes}",
+       "x": 8,
+       "y": 122
+      },
+      {
+       "back": "LINE",
+       "color": "PAD",
+       "meter": [
+        8,
+        141,
+        224,
+        2
+       ],
+       "value": "padNotesFrac"
+      }
+     ],
+     "h": 144,
+     "y": 48
+    },
+    {
+     "draw": [
+      {
+       "color": "LINE",
+       "rect": [
+        8,
+        0,
+        224,
+        1
+       ]
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "ALGO PART",
+       "x": 8,
+       "y": 8
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "EDIT BACK   HOME MAIN   SEQ RE-ROLL",
+       "x": 8,
+       "y": 24
+      }
+     ],
+     "h": 40,
+     "y": 200
+    }
+   ],
+   "controls": {
+    "ALGO": {
+     "do": "part"
+    },
+    "EDIT": {
+     "go": "back"
+    },
+    "PRESET": {
+     "do": "turn",
+     "field": "padIns",
+     "step": 1
+    },
+    "SEQ": {
+     "do": "reroll",
+     "part": "pad"
+    }
+   },
+   "knobs": [
+    {
+     "field": "padIns",
+     "step": 1
+    },
+    {
+     "field": "padOnSet",
+     "step": 1
+    },
+    {
+     "field": "padPlaceSet",
+     "step": 1
+    },
+    {
+     "field": "padNotes",
+     "step": 1
+    }
+   ],
+   "pages": [
+    "pPad"
+   ],
+   "say": [
+    "PAD. INSTRUMENT {padIns}. ON/OFF {padOnSet}. PLACE {padPlaceSet}. NOTES {padNotes}."
+   ],
+   "title": "Pad"
+  },
+  "pSong": {
+   "bands": [
+    {
+     "draw": [
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{section}  {bar}/{bars}",
+       "when": "song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{idle}",
+       "when": "!song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{tempo} BPM",
+       "when": "known",
+       "y": 2
+      }
+     ],
+     "h": 16,
+     "y": 0
+    },
+    {
+     "draw": [
+      {
+       "color": "SONG",
+       "rect": [
+        2,
+        0,
+        2,
+        26
+       ]
+      },
+      {
+       "color": "SONG",
+       "icon": "song",
+       "x": 10,
+       "y": 9
+      },
+      {
+       "color": "SONG",
+       "font": "B",
+       "text": "SONG",
+       "x": 23,
+       "y": 4
+      },
+      {
+       "after": 8,
+       "color": "GRAY",
+       "font": "T",
+       "text": "{page}",
+       "y": 8
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "right": 232,
+       "text": "{chord}",
+       "when": [
+        "song",
+        "!pending"
+       ],
+       "y": 5
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{pending}",
+       "when": "pending",
+       "y": 8
+      }
+     ],
+     "h": 28,
+     "y": 18
+    },
+    {
+     "draw": [
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K1  KEY",
+       "x": 8,
+       "y": 3
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{key}",
+       "x": 8,
+       "y": 14
+      },
+      {
+       "back": "LINE",
+       "color": "SONG",
+       "meter": [
+        8,
+        33,
+        224,
+        2
+       ],
+       "value": "keyFrac"
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K2  SCALE",
+       "x": 8,
+       "y": 39
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{mode}",
+       "x": 8,
+       "y": 50
+      },
+      {
+       "back": "LINE",
+       "color": "SONG",
+       "meter": [
+        8,
+        69,
+        224,
+        2
+       ],
+       "value": "modeFrac"
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K3  TEMPO",
+       "x": 8,
+       "y": 75
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{tempo}",
+       "x": 8,
+       "y": 86
+      },
+      {
+       "back": "LINE",
+       "color": "SONG",
+       "meter": [
+        8,
+        105,
+        224,
+        2
+       ],
+       "value": "tempoFrac"
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K4  MOOD",
+       "x": 8,
+       "y": 111
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{mood}",
+       "x": 8,
+       "y": 122
+      },
+      {
+       "back": "LINE",
+       "color": "SONG",
+       "meter": [
+        8,
+        141,
+        224,
+        2
+       ],
+       "value": "moodFrac"
+      }
+     ],
+     "h": 144,
+     "y": 48
+    },
+    {
+     "draw": [
+      {
+       "color": "LINE",
+       "rect": [
+        8,
+        0,
+        224,
+        1
+       ]
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "ALGO PART   SELECT PAGE",
+       "x": 8,
+       "y": 8
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "EDIT BACK   HOME MAIN",
+       "x": 8,
+       "y": 24
+      }
+     ],
+     "h": 40,
+     "y": 200
+    }
+   ],
+   "controls": {
+    "ALGO": {
+     "do": "part"
+    },
+    "EDIT": {
+     "go": "back"
+    },
+    "SELECT": {
+     "do": "page"
+    }
+   },
+   "knobs": [
+    {
+     "field": "key",
+     "step": 1
+    },
+    {
+     "field": "mode",
+     "step": 1
+    },
+    {
+     "field": "tempo",
+     "step": 1
+    },
+    {
+     "field": "mood",
+     "step": 1
+    }
+   ],
+   "pages": [
+    "pSong",
+    "pSongMore"
+   ],
+   "say": [
+    "SONG, PAGE {page}. KEY {key}. SCALE {mode}. TEMPO {tempo}. MOOD {mood}."
+   ],
+   "title": "Song"
+  },
+  "pSongMore": {
+   "bands": [
+    {
+     "draw": [
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{section}  {bar}/{bars}",
+       "when": "song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{idle}",
+       "when": "!song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{tempo} BPM",
+       "when": "known",
+       "y": 2
+      }
+     ],
+     "h": 16,
+     "y": 0
+    },
+    {
+     "draw": [
+      {
+       "color": "SONG",
+       "rect": [
+        2,
+        0,
+        2,
+        26
+       ]
+      },
+      {
+       "color": "SONG",
+       "icon": "song",
+       "x": 10,
+       "y": 9
+      },
+      {
+       "color": "SONG",
+       "font": "B",
+       "text": "SONG",
+       "x": 23,
+       "y": 4
+      },
+      {
+       "after": 8,
+       "color": "GRAY",
+       "font": "T",
+       "text": "{page}",
+       "y": 8
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "right": 232,
+       "text": "{chord}",
+       "when": [
+        "song",
+        "!pending"
+       ],
+       "y": 5
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{pending}",
+       "when": "pending",
+       "y": 8
+      }
+     ],
+     "h": 28,
+     "y": 18
+    },
+    {
+     "draw": [
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K1  MOTION",
+       "x": 8,
+       "y": 3
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{motion}",
+       "x": 8,
+       "y": 14
+      },
+      {
+       "back": "LINE",
+       "color": "SONG",
+       "meter": [
+        8,
+        33,
+        224,
+        2
+       ],
+       "value": "motionFrac"
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K2  SWING",
+       "x": 8,
+       "y": 39
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{songSwing}",
+       "x": 8,
+       "y": 50
+      },
+      {
+       "back": "LINE",
+       "color": "SONG",
+       "meter": [
+        8,
+        69,
+        224,
+        2
+       ],
+       "value": "songSwingFrac"
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K3  LAYOUT",
+       "x": 8,
+       "y": 75
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{songMap}",
+       "x": 8,
+       "y": 86
+      },
+      {
+       "back": "LINE",
+       "color": "SONG",
+       "meter": [
+        8,
+        105,
+        224,
+        2
+       ],
+       "value": "songMapFrac"
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K4  CHORDS",
+       "x": 8,
+       "y": 111
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{songProg}",
+       "x": 8,
+       "y": 122
+      },
+      {
+       "back": "LINE",
+       "color": "SONG",
+       "meter": [
+        8,
+        141,
+        224,
+        2
+       ],
+       "value": "songProgFrac"
+      }
+     ],
+     "h": 144,
+     "y": 48
+    },
+    {
+     "draw": [
+      {
+       "color": "LINE",
+       "rect": [
+        8,
+        0,
+        224,
+        1
+       ]
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "ALGO PART   SELECT PAGE",
+       "x": 8,
+       "y": 8
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "EDIT BACK   HOME MAIN",
+       "x": 8,
+       "y": 24
+      }
+     ],
+     "h": 40,
+     "y": 200
+    }
+   ],
+   "controls": {
+    "ALGO": {
+     "do": "part"
+    },
+    "EDIT": {
+     "go": "back"
+    },
+    "SELECT": {
+     "do": "page"
+    }
+   },
+   "knobs": [
+    {
+     "field": "motion",
+     "step": 1
+    },
+    {
+     "field": "songSwing",
+     "step": 1
+    },
+    {
+     "field": "songMap",
+     "step": 1
+    },
+    {
+     "field": "songProg",
+     "step": 1
+    }
+   ],
+   "pages": [
+    "pSong",
+    "pSongMore"
+   ],
+   "say": [
+    "SONG, PAGE {page}. MOTION {motion}. SWING {songSwing}. LAYOUT {songMap}. CHORDS {songProg}."
+   ],
+   "title": "Song: more"
+  },
+  "pTexture": {
+   "bands": [
+    {
+     "draw": [
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{section}  {bar}/{bars}",
+       "when": "song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{idle}",
+       "when": "!song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{tempo} BPM",
+       "when": "known",
+       "y": 2
+      }
+     ],
+     "h": 16,
+     "y": 0
+    },
+    {
+     "draw": [
+      {
+       "color": "TEXTURE",
+       "rect": [
+        2,
+        0,
+        2,
+        26
+       ]
+      },
+      {
+       "color": "TEXTURE",
+       "icon": "texture",
+       "x": 10,
+       "y": 9
+      },
+      {
+       "color": "TEXTURE",
+       "font": "B",
+       "text": "TEXTURE",
+       "x": 23,
+       "y": 4
+      },
+      {
+       "after": 8,
+       "color": "GRAY",
+       "font": "T",
+       "text": "{page}",
+       "y": 8
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "right": 232,
+       "text": "{chord}",
+       "when": [
+        "song",
+        "!pending"
+       ],
+       "y": 5
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{pending}",
+       "when": "pending",
+       "y": 8
+      }
+     ],
+     "h": 28,
+     "y": 18
+    },
+    {
+     "draw": [
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K1  DUST",
+       "x": 8,
+       "y": 3
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{texDust}",
+       "x": 8,
+       "y": 14
+      },
+      {
+       "back": "LINE",
+       "color": "TEXTURE",
+       "meter": [
+        8,
+        33,
+        224,
+        2
+       ],
+       "value": "texDustFrac"
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K2  NOISE",
+       "x": 8,
+       "y": 39
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{texNoise}",
+       "x": 8,
+       "y": 50
+      },
+      {
+       "back": "LINE",
+       "color": "TEXTURE",
+       "meter": [
+        8,
+        69,
+        224,
+        2
+       ],
+       "value": "texNoiseFrac"
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K3  AMBIENCE",
+       "x": 8,
+       "y": 75
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{texAmb}",
+       "x": 8,
+       "y": 86
+      },
+      {
+       "back": "LINE",
+       "color": "TEXTURE",
+       "meter": [
+        8,
+        105,
+        224,
+        2
+       ],
+       "value": "texAmbFrac"
+      }
+     ],
+     "h": 144,
+     "y": 48
+    },
+    {
+     "draw": [
+      {
+       "color": "LINE",
+       "rect": [
+        8,
+        0,
+        224,
+        1
+       ]
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "ALGO PART",
+       "x": 8,
+       "y": 8
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "EDIT BACK   HOME MAIN",
+       "x": 8,
+       "y": 24
+      }
+     ],
+     "h": 40,
+     "y": 200
+    }
+   ],
+   "controls": {
+    "ALGO": {
+     "do": "part"
+    },
+    "EDIT": {
+     "go": "back"
+    },
+    "SEQ": null
+   },
+   "knobs": [
+    {
+     "field": "texDust",
+     "step": 1
+    },
+    {
+     "field": "texNoise",
+     "step": 1
+    },
+    {
+     "field": "texAmb",
+     "step": 1
+    }
+   ],
+   "pages": [
+    "pTexture"
+   ],
+   "say": [
+    "TEXTURE. DUST {texDust}. NOISE {texNoise}. AMBIENCE {texAmb}."
+   ],
+   "title": "Texture"
+  },
+  "prefs": {
+   "bands": [
+    {
+     "draw": [
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{section}  {bar}/{bars}",
+       "when": "song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{idle}",
+       "when": "!song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{tempo} BPM",
+       "when": "known",
+       "y": 2
+      }
+     ],
+     "h": 16,
+     "y": 0
+    },
+    {
+     "draw": [
+      {
+       "color": "WHITE",
+       "rect": [
+        2,
+        0,
+        2,
+        26
+       ]
+      },
+      {
+       "color": "WHITE",
+       "font": "B",
+       "text": "SETTINGS",
+       "x": 10,
+       "y": 4
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "right": 232,
+       "text": "PLACEHOLDER",
+       "y": 8
+      }
+     ],
+     "h": 28,
+     "y": 18
+    },
+    {
+     "draw": [
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "MOVEMENT",
+       "x": 8,
+       "y": 4
+      },
+      {
+       "color": "DIM",
+       "font": "XS",
+       "right": 232,
+       "text": "LESS (A BAR AT A TIME)",
+       "y": 2
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "SCREEN READER",
+       "x": 8,
+       "y": 24
+      },
+      {
+       "color": "DIM",
+       "font": "XS",
+       "right": 232,
+       "text": "ON",
+       "y": 22
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "KEY LIGHTS",
+       "x": 8,
+       "y": 44
+      },
+      {
+       "color": "DIM",
+       "font": "XS",
+       "right": 232,
+       "text": "ON",
+       "y": 42
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "BRIGHTNESS",
+       "x": 8,
+       "y": 64
+      },
+      {
+       "color": "DIM",
+       "font": "XS",
+       "right": 232,
+       "text": "HIGH",
+       "y": 62
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "MAIN SCREEN",
+       "x": 8,
+       "y": 84
+      },
+      {
+       "color": "DIM",
+       "font": "XS",
+       "right": 232,
+       "text": "EXPANDED",
+       "y": 82
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "ADVANCED RULES",
+       "x": 8,
+       "y": 104
+      },
+      {
+       "color": "DIM",
+       "font": "XS",
+       "right": 232,
+       "text": "...",
+       "y": 102
+      }
+     ],
+     "h": 140,
+     "y": 50
+    },
+    {
+     "draw": [
+      {
+       "color": "LINE",
+       "rect": [
+        8,
+        0,
+        224,
+        1
+       ]
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "NOT WORKING YET: WHAT GOES HERE",
+       "x": 8,
+       "y": 8
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "GLO BACK   HOME MAIN",
+       "x": 8,
+       "y": 24
+      }
+     ],
+     "h": 44,
+     "y": 196
+    }
+   ],
+   "controls": {
+    "GLO": {
+     "go": "back"
+    }
+   },
+   "placeholder": true,
+   "say": [
+    "SETTINGS, A PLACEHOLDER"
+   ],
+   "title": "Settings (placeholder)"
+  },
+  "sections": {
+   "bands": [
+    {
+     "draw": [
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{section}  {bar}/{bars}",
+       "when": "song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "after": 8,
+       "color": "HI",
+       "font": "T",
+       "text": "LOOP",
+       "when": [
+        "song",
+        "looping"
+       ],
+       "y": 2
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{idle}",
+       "when": "!song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{tempo} BPM",
+       "when": "known",
+       "y": 2
+      }
+     ],
+     "h": 16,
+     "y": 0
+    },
+    {
+     "draw": [
+      {
+       "color": "SONG",
+       "rect": [
+        2,
+        0,
+        2,
+        26
+       ]
+      },
+      {
+       "color": "SONG",
+       "icon": "song",
+       "x": 10,
+       "y": 9
+      },
+      {
+       "color": "SONG",
+       "font": "B",
+       "text": "SECTIONS",
+       "x": 23,
+       "y": 4
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "right": 232,
+       "text": "{map}",
+       "when": [
+        "song",
+        "!pending"
+       ],
+       "y": 5
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{pending}",
+       "when": "pending",
+       "y": 8
+      },
+      {
+       "back": "LINE",
+       "color": "AMB",
+       "past": "DIM",
+       "sections": [
+        8,
+        31,
+        224,
+        3
+       ]
+      }
+     ],
+     "h": 36,
+     "y": 18
+    },
+    {
+     "draw": [
+      {
+       "color": "LINE",
+       "rect": [
+        4,
+        0,
+        232,
+        17
+       ],
+       "when": "sel0"
+      },
+      {
+       "color": "SONG",
+       "rect": [
+        4,
+        0,
+        2,
+        17
+       ],
+       "when": "sec0Now"
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "F",
+       "when": "sec0",
+       "x": 12,
+       "y": 3
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "text": "F",
+       "when": "sec0Now",
+       "x": 12,
+       "y": 3
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "text": "{sec0}",
+       "when": "sec0",
+       "x": 26,
+       "y": 1
+      },
+      {
+       "after": 8,
+       "color": "AMB",
+       "font": "T",
+       "text": "PLAYING",
+       "when": "sec0Now",
+       "y": 3
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "right": 232,
+       "text": "{sec0Bars} BARS",
+       "when": "sec0",
+       "y": 3
+      },
+      {
+       "color": "LINE",
+       "rect": [
+        4,
+        18,
+        232,
+        17
+       ],
+       "when": "sel1"
+      },
+      {
+       "color": "SONG",
+       "rect": [
+        4,
+        18,
+        2,
+        17
+       ],
+       "when": "sec1Now"
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "G",
+       "when": "sec1",
+       "x": 12,
+       "y": 21
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "text": "G",
+       "when": "sec1Now",
+       "x": 12,
+       "y": 21
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "text": "{sec1}",
+       "when": "sec1",
+       "x": 26,
+       "y": 19
+      },
+      {
+       "after": 8,
+       "color": "AMB",
+       "font": "T",
+       "text": "PLAYING",
+       "when": "sec1Now",
+       "y": 21
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "right": 232,
+       "text": "{sec1Bars} BARS",
+       "when": "sec1",
+       "y": 21
+      },
+      {
+       "color": "LINE",
+       "rect": [
+        4,
+        36,
+        232,
+        17
+       ],
+       "when": "sel2"
+      },
+      {
+       "color": "SONG",
+       "rect": [
+        4,
+        36,
+        2,
+        17
+       ],
+       "when": "sec2Now"
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "A",
+       "when": "sec2",
+       "x": 12,
+       "y": 39
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "text": "A",
+       "when": "sec2Now",
+       "x": 12,
+       "y": 39
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "text": "{sec2}",
+       "when": "sec2",
+       "x": 26,
+       "y": 37
+      },
+      {
+       "after": 8,
+       "color": "AMB",
+       "font": "T",
+       "text": "PLAYING",
+       "when": "sec2Now",
+       "y": 39
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "right": 232,
+       "text": "{sec2Bars} BARS",
+       "when": "sec2",
+       "y": 39
+      },
+      {
+       "color": "LINE",
+       "rect": [
+        4,
+        54,
+        232,
+        17
+       ],
+       "when": "sel3"
+      },
+      {
+       "color": "SONG",
+       "rect": [
+        4,
+        54,
+        2,
+        17
+       ],
+       "when": "sec3Now"
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "B",
+       "when": "sec3",
+       "x": 12,
+       "y": 57
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "text": "B",
+       "when": "sec3Now",
+       "x": 12,
+       "y": 57
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "text": "{sec3}",
+       "when": "sec3",
+       "x": 26,
+       "y": 55
+      },
+      {
+       "after": 8,
+       "color": "AMB",
+       "font": "T",
+       "text": "PLAYING",
+       "when": "sec3Now",
+       "y": 57
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "right": 232,
+       "text": "{sec3Bars} BARS",
+       "when": "sec3",
+       "y": 57
+      },
+      {
+       "color": "LINE",
+       "rect": [
+        4,
+        72,
+        232,
+        17
+       ],
+       "when": "sel4"
+      },
+      {
+       "color": "SONG",
+       "rect": [
+        4,
+        72,
+        2,
+        17
+       ],
+       "when": "sec4Now"
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "C",
+       "when": "sec4",
+       "x": 12,
+       "y": 75
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "text": "C",
+       "when": "sec4Now",
+       "x": 12,
+       "y": 75
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "text": "{sec4}",
+       "when": "sec4",
+       "x": 26,
+       "y": 73
+      },
+      {
+       "after": 8,
+       "color": "AMB",
+       "font": "T",
+       "text": "PLAYING",
+       "when": "sec4Now",
+       "y": 75
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "right": 232,
+       "text": "{sec4Bars} BARS",
+       "when": "sec4",
+       "y": 75
+      },
+      {
+       "color": "LINE",
+       "rect": [
+        4,
+        90,
+        232,
+        17
+       ],
+       "when": "sel5"
+      },
+      {
+       "color": "SONG",
+       "rect": [
+        4,
+        90,
+        2,
+        17
+       ],
+       "when": "sec5Now"
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "D",
+       "when": "sec5",
+       "x": 12,
+       "y": 93
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "text": "D",
+       "when": "sec5Now",
+       "x": 12,
+       "y": 93
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "text": "{sec5}",
+       "when": "sec5",
+       "x": 26,
+       "y": 91
+      },
+      {
+       "after": 8,
+       "color": "AMB",
+       "font": "T",
+       "text": "PLAYING",
+       "when": "sec5Now",
+       "y": 93
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "right": 232,
+       "text": "{sec5Bars} BARS",
+       "when": "sec5",
+       "y": 93
+      },
+      {
+       "color": "LINE",
+       "rect": [
+        4,
+        108,
+        232,
+        17
+       ],
+       "when": "sel6"
+      },
+      {
+       "color": "SONG",
+       "rect": [
+        4,
+        108,
+        2,
+        17
+       ],
+       "when": "sec6Now"
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "E",
+       "when": "sec6",
+       "x": 12,
+       "y": 111
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "text": "E",
+       "when": "sec6Now",
+       "x": 12,
+       "y": 111
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "text": "{sec6}",
+       "when": "sec6",
+       "x": 26,
+       "y": 109
+      },
+      {
+       "after": 8,
+       "color": "AMB",
+       "font": "T",
+       "text": "PLAYING",
+       "when": "sec6Now",
+       "y": 111
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "right": 232,
+       "text": "{sec6Bars} BARS",
+       "when": "sec6",
+       "y": 111
+      },
+      {
+       "color": "LINE",
+       "rect": [
+        4,
+        126,
+        232,
+        17
+       ],
+       "when": "sel7"
+      },
+      {
+       "color": "SONG",
+       "rect": [
+        4,
+        126,
+        2,
+        17
+       ],
+       "when": "sec7Now"
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "F",
+       "when": "sec7",
+       "x": 12,
+       "y": 129
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "text": "F",
+       "when": "sec7Now",
+       "x": 12,
+       "y": 129
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "text": "{sec7}",
+       "when": "sec7",
+       "x": 26,
+       "y": 127
+      },
+      {
+       "after": 8,
+       "color": "AMB",
+       "font": "T",
+       "text": "PLAYING",
+       "when": "sec7Now",
+       "y": 129
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "right": 232,
+       "text": "{sec7Bars} BARS",
+       "when": "sec7",
+       "y": 129
+      }
+     ],
+     "h": 144,
+     "y": 56
+    },
+    {
+     "draw": [
+      {
+       "knobs": {
+        "dx": 58,
+        "label": {
+         "color": "GRAY",
+         "font": "T",
+         "y": 0
+        },
+        "value": {
+         "color": "HI",
+         "font": "XS",
+         "when": "song",
+         "y": 11
+        },
+        "x": 8
+       }
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "right": 232,
+       "text": "EDIT OR ITS KEY: GO THERE",
+       "y": 2
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "right": 232,
+       "text": "SEL BACK",
+       "y": 16
+      }
+     ],
+     "h": 38,
+     "y": 202
+    }
+   ],
+   "controls": {
+    "ALGO": {
+     "do": "cursor"
+    },
+    "EDIT": {
+     "do": "jump"
+    },
+    "KEY0": {
+     "do": "jump",
+     "i": 0
+    },
+    "KEY11": {
+     "do": "jump",
+     "i": 6
+    },
+    "KEY12": {
+     "do": "jump",
+     "i": 7
+    },
+    "KEY2": {
+     "do": "jump",
+     "i": 1
+    },
+    "KEY4": {
+     "do": "jump",
+     "i": 2
+    },
+    "KEY6": {
+     "do": "jump",
+     "i": 3
+    },
+    "KEY7": {
+     "do": "jump",
+     "i": 4
+    },
+    "KEY9": {
+     "do": "jump",
+     "i": 5
+    },
+    "SEL": {
+     "go": "back"
+    },
+    "SELECT": {
+     "do": "cursor"
+    }
+   },
+   "keyLeds": {
+    "sections": [
+     0,
+     2,
+     4,
+     6,
+     7,
+     9,
+     11,
+     12
+    ]
+   },
+   "knobs": [
+    {
+     "field": "loop",
+     "step": 1
+    }
+   ],
+   "list": "sections",
+   "say": [
+    "SECTIONS. {section}, BAR {bar} OF {bars}",
+    {
+     "text": ", LOOPING",
+     "when": "looping"
+    }
+   ],
+   "title": "Sections"
+  }
+ }
+}

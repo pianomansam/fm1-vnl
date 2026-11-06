@@ -27,6 +27,7 @@ run song sh -c "$CC -O2 -std=c99 -ffp-contract=off -Wall -Wextra -Wdouble-promot
 run clash sh -c "$CC -O2 -std=c99 -ffp-contract=off -Wall -Wextra -Wdouble-promotion -Werror -Iapp/song -Iapp/engine -Ibase/include \
     -o $OUT/clash_test tests/host/clash_test.c app/song/*.c app/song/leads/*.c && $OUT/clash_test"
 run candidates sh tests/candidates.sh       # candidates are workbench-only until approved (patterns_gen.h)
+run screens-export node workbench/tools/export_screens.mjs --check   # ui/screens.json matches screens.js, in ui/vocab.json's words
 run host-build sh build.sh --host
 mkdir -p $B/scenarios
 for f in tests/scenarios/*.vnl; do      # the app in the host simulator; outputs (songs.wav, shots) in app/build/scenarios

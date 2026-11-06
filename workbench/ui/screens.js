@@ -26,6 +26,7 @@
 //   { do: "play" }     play / stop
 //   { do: "nudge", field, by }   a button: the field `by` steps (a request, landing as a knob's does)
 //   { do: "turn", field, step }  an encoder: each detent `step` (a request)
+//   { do: "turn", byCursor: [field | null, ...], step }  the field of the highlighted menu line (null: nothing)
 // `defaults` apply on every screen unless the screen maps that control itself (null: the control does nothing there).
 // A knob: { field, step, label } (label: the field's name if left out). A knob's or nudge's change is a request: it
 // lands on the song's next 4-bar boundary, and the screen shows it waiting (`pending`), as app.c's requests do.
@@ -256,7 +257,12 @@ export default {
       ],
       knobs: [{ field: "key", step: 1 }, { field: "tempo", step: 1 }, { field: "motion", step: 5 }, { field: "mood", step: 1 }],
       // ALGO picks the part (the convention); SELECT too, the main screen having no pages (Sam, 2026-11-06)
-      controls: { ALGO: { do: "cursor" }, SELECT: { do: "cursor" }, EDIT: { go: "cursor" } },
+      controls: {
+        ALGO: { do: "cursor" }, SELECT: { do: "cursor" }, EDIT: { go: "cursor" },
+        // the highlighted part's instrument (or kit), a request as a knob's (Sam, 2026-11-06): a field a menu line
+        // (null: nothing there)
+        PRESET: { do: "turn", byCursor: [null, "drumKit", "bassIns", "compIns", "padIns", "leadIns", null], step: 1 },
+      },
       say: [{ when: "song", text: "CHORD {chord}. {section}, BAR {bar} OF {bars}" }, { when: "!song", text: "{idle}" },
             { when: "ready", text: ". {key} {mode}, {tempo} BPM" },
             { when: "pending", text: ". {pending}" }],

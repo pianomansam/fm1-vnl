@@ -1,0 +1,33 @@
+{
+  "_note": "The screens' vocabulary (docs/superpowers/plans/2026-11-06-device-screens.md): the draw items, actions and values ui/screens.js may use, which device.js (the mock) and the device's UI runtime both implement. device.js's problems() and tools/screens/gen.py refuse anything outside it. Adding a word here means implementing it twice: in device.js and in app/ui. items: a draw item's kind (the key that names it) and every key it may carry, in the order the generator numbers them (ui_item_kind). actions: an action's kind ({ go } or { do }) and its other keys (ui_action, after UA_NONE). values: the names a template ({name}) or a condition (when) may read: fixed ones, and patterns: {a-b} a number in that range, {field} a key of screens.js's fields, {row} a row id of rows.js, {line} a key of screens.js's lines.",
+  "items": {
+    "text": ["text", "font", "x", "right", "after", "y", "color", "when", "arrows", "arrowsRight"],
+    "rect": ["rect", "color", "when"],
+    "icon": ["icon", "x", "y", "color", "when"],
+    "meter": ["meter", "value", "color", "back", "when"],
+    "knobs": ["knobs", "when"],
+    "sections": ["sections", "color", "back", "past", "when"],
+    "lanes": ["lanes", "parts", "label", "rowH", "window", "keys", "live", "when"],
+    "faders": ["faders", "parts", "when"]
+  },
+  "actions": {
+    "go": ["go"],
+    "play": [],
+    "nudge": ["field", "by"],
+    "turn": ["field", "step", "byCursor"],
+    "cursor": [],
+    "page": [],
+    "part": [],
+    "jump": ["i"],
+    "reroll": ["part"],
+    "mute": ["part", "long"],
+    "solo": ["part"],
+    "level": ["part"]
+  },
+  "values": {
+    "fixed": ["APP", "song", "stopped", "idle", "msg", "msg0", "msg1", "map", "section", "bar", "bars", "chord", "pending",
+              "rhythm", "progress", "page", "ready", "known", "secCount", "looping"],
+    "patterns": ["sel{0-9}", "sec{0-9}", "sec{0-9}Bars", "sec{0-9}Now", "sec{0-9}Pend", "{field}", "{field}Frac",
+                 "{field}Pend", "{field}First", "{field}Last", "{row}", "{row}Pend", "{line}"]
+  }
+}

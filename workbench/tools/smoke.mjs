@@ -3079,6 +3079,24 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
   check(!bad.length, `ui/screens.js has no problems${bad.length ? `: ${bad.join("; ")}` : ""}`);
   const broken = { ...data, screens: { ...data.screens, main: { ...data.screens.main, controls: { EDIT: { go: "nowhere" }, K9: { do: "play" } } } } };
   check(D.problems(broken).length === 2, `a transition to no screen and an unknown control are problems (${D.problems(broken).join("; ")})`);
+  {   // the vocabulary manifest (ui/vocab.json): the draw items, actions and values both the mock and the device know
+    const vocab = JSON.parse(src("../ui/vocab.json"));
+    const used = { items: new Set(), actions: new Set() }, walk = (a) => { if (a) { used.actions.add(a.do ?? "go"); walk(a.long); } };
+    for (const s of Object.values(data.screens)) {
+      for (const b of s.bands) for (const it of b.draw) used.items.add(Object.keys(vocab.items).find((k) => it[k] !== undefined));
+      for (const a of Object.values(s.controls ?? {})) walk(a);
+    }
+    for (const a of Object.values(data.defaults)) walk(a);
+    check([...used.items].every((k) => k && k in vocab.items) && [...used.actions].every((k) => k in vocab.actions) &&
+          !D.problems(data, vocab).length, `vocab: every item, action and value screens.js uses is in vocab.json (${[...used.items]}; ${[...used.actions]})`);
+    const band0 = (draw) => ({ ...data, screens: { ...data.screens, main: { ...data.screens.main, bands: [{ y: 0, h: 16, draw }] } } });
+    const spark = D.problems(band0([{ spark: 1 }]), vocab), odd = D.problems(band0([{ text: "{nowhere}", font: "T", x: 0, y: 0, color: "GRAY" }]), vocab);
+    const warp = D.problems({ ...data, defaults: { ...data.defaults, PLAY: { do: "warp" } } }, vocab);
+    const extra = D.problems(band0([{ rect: [0, 0, 1, 1], color: "LINE", glow: 2 }]), vocab);
+    check(spark.includes("main.bands[0]: no draw item spark") && warp.some((p) => p.endsWith("unknown action warp")) &&
+          odd.includes("main.bands[0]: no value {nowhere}") && extra.includes("main.bands[0]: rect has no key glow"),
+          `vocab: an unknown item, action, value or key is named (${[...spark, ...warp, ...odd, ...extra].join("; ")})`);
+  }
   // the flow: ALGO moves the highlight over the parts, EDIT opens the highlighted part, HOME (or EDIT) comes back; the
   // knobs ask for changes that land on the next 4-bar boundary, the bar before it reaching the engine
   const sets = [];
@@ -3110,6 +3128,19 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
     d2.update(live(5));
     d2.press("OCT+");
     check(d2.values().pending === "TEMPO 81 IN 4 BARS", `OCT+ as a nudge asks for tempo + 1: "${d2.values().pending}"`);
+  }
+  {   // PRESET on the main screen: the highlighted part's instrument, a request as a knob's, its tile marked at once
+    const sent = [], dp = new D.Device(data, { set: (r, x) => sent.push([r, x]), play() {} }, () => t);
+    const rows = { values: { bass: 6 }, options: { bass: [{ value: 6, name: "ELECTRIC" }, { value: 7, name: "SUB" }, { value: 17, name: "TRIANGLE" }] } };
+    dp.update({ ...live(2), rows, labels: { bass: "ELECTRIC" } });
+    dp.press("PRESET");   // Song highlighted: nothing
+    const none = dp.values().pending;
+    dp.press("ALGO", 2); dp.press("PRESET", 1);
+    const w = dp.values();
+    dp.update({ ...live(4), rows, labels: { bass: "ELECTRIC" } });
+    check(none === "" && w.sel2 && w.pending === "INSTRUMENT SUB IN 3 BARS" && w.bass === "*SUB" && w.bassInsPend &&
+          JSON.stringify(sent) === '[["bass",7]]',
+          `main, ALGO to Bass, PRESET +1: "${w.pending}", the tile "${w.bass}"; sent in the bar before (${JSON.stringify(sent)})`);
   }
   {   // a section jump waits for the 4-bar boundary, marked, then goes to the engine in the bar before it
     const jumps = [], dj = new D.Device(data, { set() {}, play() {}, jump: (st, n) => jumps.push([st, n]) }, () => t);

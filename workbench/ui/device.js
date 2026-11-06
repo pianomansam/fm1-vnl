@@ -3,6 +3,7 @@
 // it, today's screen's text as app.c writes it, and the screens of ui/screens.js driven by the panel's controls.
 import { FONTS } from "./fonts.js";
 import { ROWS } from "../rows.js";
+import VOCAB from "./vocab.json" with { type: "json" };
 
 // ------------------------------------------------------------------------------------------------ the LCD (gfx.c) ---
 export const W = 240, H = 240;
@@ -381,22 +382,41 @@ export function transitions(data) {
   return out;
 }
 
-// What's wrong with the data (an empty list: nothing): the panel shows these, smoke.mjs checks there are none
-export function problems(data) {
+// The value names a vocabulary's `values` allows for this data (its fixed names, its patterns expanded): a Set
+export function valueNames(data, vocab = VOCAB) {
+  const sub = { field: Object.keys(data.fields ?? {}), row: ROWS.map((r) => r.id), line: Object.keys(data.lines ?? {}) };
+  const expand = (p) => {
+    const m = /\{(\d+)-(\d+)\}|\{(field|row|line)\}/.exec(p);
+    if (!m) return [p];
+    const xs = m[3] ? sub[m[3]] : Array.from({ length: +m[2] - +m[1] + 1 }, (_, i) => String(+m[1] + i));
+    return xs.flatMap((x) => expand(p.slice(0, m.index) + x + p.slice(m.index + m[0].length)));
+  };
+  return new Set([...vocab.values.fixed, ...vocab.values.patterns.flatMap(expand)]);
+}
+// a draw item's kind: the first of the vocabulary's item kinds it carries (undefined: none)
+export const itemKind = (it, vocab = VOCAB) => Object.keys(vocab.items).find((k) => it[k] !== undefined);
+
+// What's wrong with the data (an empty list: nothing): the panel shows these, smoke.mjs and tools/export_screens.mjs
+// check there are none. Draw items, actions and values must be ui/vocab.json's (the device implements those only)
+export function problems(data, vocab = VOCAB) {
   const out = [], C = colors(THEME, data.colors), ids = Object.keys(data.screens ?? {});
   if (!data.screens?.[data.home]) out.push(`home "${data.home}" is not a screen`);
   for (const p of data.parts ?? []) if (!data.screens?.[p]) out.push(`parts: no screen "${p}"`);
-  const known = new Set(["APP", "song", "stopped", "idle", "msg", "msg0", "msg1", "map", "section", "bar", "bars", "chord",
-                         "pending", "rhythm", "progress", "page", "ready", "known", "secCount", "looping", ...Array.from({ length: MENU_MAX }, (_, i) => [`sec${i}`, `sec${i}Bars`, `sec${i}Now`, `sec${i}Pend`]).flat(), ...Object.keys(data.fields ?? {}).flatMap((k) => [`${k}First`, `${k}Last`]), ...Object.keys(data.fields ?? {}).map((k) => `${k}Pend`), ...ROWS.map((r) => `${r.id}Pend`), ...Object.keys(data.fields ?? {}).map((k) => `${k}Frac`), ...ROWS.map((r) => r.id), ...Array.from({ length: MENU_MAX }, (_, i) => `sel${i}`),
-                         ...Object.keys(data.fields ?? {}), ...Object.keys(data.lines ?? {})]);
+  const known = valueNames(data, vocab);
   const tpl = (where, t) => { for (const [, k] of String(t).matchAll(/\{(\w+)\}/g)) if (!known.has(k)) out.push(`${where}: no value {${k}}`); };
   const cond = (where, w) => { for (const x of [].concat(w ?? [])) if (!known.has(x.replace(/^!/, ""))) out.push(`${where}: no value "${x}"`); };
   const act = (where, a) => {
     if (a === null) return;
-    if (a.go) { if (!["back", "home", "cursor"].includes(a.go) && !ids.includes(a.go)) out.push(`${where}: no screen "${a.go}"`); }
-    else if (["play", "cursor", "part", "page", "jump", "reroll", "mute", "solo", "level"].includes(a.do)) { if (a.long) act(`${where}.long`, a.long); }
-    else if (a.do === "nudge" || a.do === "turn") { if (!data.fields?.[a.field]) out.push(`${where}: no field "${a.field}"`); }
-    else out.push(`${where}: unknown action ${JSON.stringify(a)}`);
+    const kind = a.go !== undefined ? "go" : a.do, keys = vocab.actions[kind];
+    if (!keys) { out.push(`${where}: unknown action ${kind ?? JSON.stringify(a)}`); return; }
+    for (const k of Object.keys(a)) if (k !== "do" && !keys.includes(k)) out.push(`${where}: ${kind} has no key ${k}`);
+    if (kind === "go") { if (!["back", "home", "cursor"].includes(a.go) && !ids.includes(a.go)) out.push(`${where}: no screen "${a.go}"`); }
+    else if (kind === "turn" && a.byCursor) {
+      if (!Array.isArray(a.byCursor) || a.field !== undefined) out.push(`${where}: byCursor is a list of fields, without field`);
+      else for (const f of a.byCursor) if (f !== null && !data.fields?.[f]) out.push(`${where}: no field "${f}"`);
+    }
+    else if (kind === "nudge" || kind === "turn") { if (!data.fields?.[a.field]) out.push(`${where}: no field "${a.field}"`); }
+    if (a.long) act(`${where}.long`, a.long);
   };
   for (const [k, t] of Object.entries(data.lines ?? {})) tpl(`lines.${k}`, t);
   for (const [c, a] of Object.entries(data.defaults ?? {})) {
@@ -410,6 +430,9 @@ export function problems(data) {
       if (!(b.y >= 0 && b.h > 0 && b.y + b.h <= H)) out.push(`${w}: outside the screen (y ${b.y}, h ${b.h})`);
       if (b.bg && !(b.bg in C)) out.push(`${w}: no color ${b.bg}`);
       for (const it of b.draw ?? []) {
+        const kind = itemKind(it, vocab);
+        if (!kind) { out.push(`${w}: no draw item ${Object.keys(it).find((k) => k !== "when") ?? "(empty)"}`); continue; }
+        for (const k of Object.keys(it)) if (!vocab.items[kind].includes(k)) out.push(`${w}: ${kind} has no key ${k}`);
         cond(w, it.when);
         const faces = it.knobs ? [it.knobs.label.font, it.knobs.value.font] : it.text !== undefined ? [it.font] : [];
         for (const f of faces) if (!FONTS[f]) out.push(`${w}: no font ${f}`);
@@ -623,7 +646,10 @@ export class Device {
     if (a.do === "play") {
       this.say(this.live?.playing ? "STOP" : "PLAY");
       this.engine.play();
-    } else if (a.do === "turn" || a.do === "nudge") this.request(a.field, a.do === "turn" ? detents * (a.step ?? 1) : a.by);
+    } else if (a.do === "turn" || a.do === "nudge") {
+      const field = a.byCursor ? a.byCursor[this.cursor[this.id] ?? 0] : a.field;   // byCursor: the highlighted line's
+      if (field) this.request(field, a.do === "turn" ? detents * (a.step ?? 1) : a.by);
+    }
     return null;
   }
 
