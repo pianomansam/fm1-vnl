@@ -140,7 +140,7 @@ function allOptions(r, state, opts, lib) {
     case "strumFills":   // the fill bars' figure (the song's draw by default; the ballad keeps its own fill)
       return [{ ...ROLLED, name: "Default" }, ...list(["Step back", "Drive"])];
     case "kickPhrases": return [{ value: "", name: "The pattern's own" },
-                                ...opts.kickPhrases.map((k) => ({ value: k.id, name: k.id, status: k.status ?? "approved",
+                                ...opts.kickPhrases.map((k) => ({ value: k.id, name: kickName(k), status: k.status ?? "approved",
                                                                   key: k.id })),
                                 ...(v.kick === "grid" ? [{ value: "grid", name: "Drawn in the grid", rolled: true }] : [])];
     case "dust": return list(["None", "Light", "Medium", "Heavy"]);
@@ -331,6 +331,9 @@ export function summary(part, state, opts) {
   }
   return out.filter(Boolean).join(" · ");
 }
+
+// a kick phrase's shown name: "Kick 2" for k2 (Sam, 2026-11-06: "k2" read like a knob, K1-K4)
+export const kickName = (k) => k.name ?? `Kick ${String(k.id).replace(/^k/i, "")}`;
 
 // a kick phrase's step masks (bars A and B); [0, 0] for the pattern's own
 export function kickMasks(id, opts) {

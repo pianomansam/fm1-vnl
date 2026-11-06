@@ -172,7 +172,7 @@ def choices(row, opts):
                                           for p in opts["strumPats"]]
     if src == "kickPhrases":
         return [(0, "THE PATTERN'S OWN", 0, 0, None, None)] + [
-            (i + 1, k["id"].upper(), ST[k.get("status", "approved")], 0, None, None)
+            (i + 1, (k.get("name") or "KICK " + k["id"].lstrip("kK")).upper(), ST[k.get("status", "approved")], 0, None, None)
             for i, k in enumerate(opts["kickPhrases"])]
     if src in RUNTIME_SOURCES:
         return []

@@ -2498,7 +2498,7 @@ console.log("candidates: the strum row, Approve (patterns and edits, Task 4)");
   const first = (xs) => xs.find((x) => x.status === "approved");
   check(JSON.stringify([ap("strumPat", SN), ap("pattern", PID), ap("prog", GID), ap("kick", KID)]) === JSON.stringify([
           { family: "strum", id: "s-new", name: "sam-strum" }, { family: "drums", id: String(PID), name: "sam-groove" },
-          { family: "progressions", id: String(GID), name: `#${GID} i7 iv7 (minor) sam-vamp` }, { family: "kick-phrases", id: KID, name: KID }]) &&
+          { family: "progressions", id: String(GID), name: `#${GID} i7 iv7 (minor) sam-vamp` }, { family: "kick-phrases", id: KID, name: `Kick ${KID.replace(/^k/i, "")}` }]) &&
         [ap("strumPat", okStrum[0]), ap("strumPat", -1), ap("pattern", first(OPTS.patterns).id), ap("prog", first(lib.progs).id),
          ap("kick", ""), ap("mood", 1)].every((x) => x === null),
         "approval names a candidate (strum, drum pattern, progression, kick phrase), nothing else");
