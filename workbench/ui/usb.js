@@ -9,7 +9,9 @@
 // The FM-1 lets go after 3 s without a 01 (a closed tab, the cable out) or at "remote off".
 import { BUTTONS, ENCODERS, KNOBS } from "./device.js";
 
-export const PORT_NAME = "VNL-1 FM-1";   // fm1.toml's usb_product
+// the FM-1's USB-MIDI ports: any named "FM-1" (the device reports "AMB-1 FM-1", fm1-base's, not fm1.toml's
+// usb_product); only VNL-1 answers the handshake, so another firmware just stays "waiting"
+export const PORT_NAME = "FM-1";
 export const PREFIX = [0xf0, 0x7d, 0x56, 0x4e];
 export const ON = [...PREFIX, 0x01, 0xf7], OFF = [...PREFIX, 0x02, 0xf7];
 const ENC = [...ENCODERS, ...KNOBS];       // plat.h's EN_* order
@@ -88,7 +90,7 @@ export async function connect({ act, onState = () => {}, request, timers = globa
 
 const TEXT = {
   unsupported: "Web MIDI isn't available in this browser (Safari has none): open the workbench in Chrome or Edge.",
-  searching: `Looking for "${PORT_NAME}": plug the FM-1 in by USB (VNL-1 on it).`,
+  searching: "Looking for an FM-1: plug it in by USB (VNL-1 on it), and close other apps using its MIDI.",
   waiting: "Found the FM-1; waiting for it to answer (VNL-1 with the remote?).",
   connected: "FM-1 connected: its controls drive the mock, and it stays silent.",
   off: "FM-1 disconnected: it's stopped, ready for PLAY.",
