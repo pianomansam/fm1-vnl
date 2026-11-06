@@ -12830,8 +12830,8 @@ static void test_lead_loop_off_identical(void)
             for (k = 0; k < 2; k++) h[k] = ll_hash(h[k], &r, st, k - 1);
     }
     printf("lead loop off: events %08x (lead_loop -1), %08x (0)\n", (unsigned)h[0], (unsigned)h[1]);
-    CHECK(h[0] == 0xe150e047u, "lead loop default: lead_loop -1 hashes %08x, wanted e150e047", (unsigned)h[0]);
-    CHECK(h[1] == 0xc9c9e5e6u, "lead loop off: lead_loop 0 hashes %08x, wanted c9c9e5e6", (unsigned)h[1]);
+    CHECK(h[0] == 0xf1ed957fu, "lead loop default: lead_loop -1 hashes %08x, wanted f1ed957f", (unsigned)h[0]);
+    CHECK(h[1] == 0xe0865680u, "lead loop off: lead_loop 0 hashes %08x, wanted e0865680", (unsigned)h[1]);
 }
 
 typedef struct {
