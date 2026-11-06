@@ -119,7 +119,7 @@ export default {
     tempo: { row: "tempo", name: "TEMPO", min: 70, max: 90 },
     motion: { row: "motion", name: "MOTION", min: 0, max: 100 },
     mood: { row: "mood", name: "MOOD", min: 0, max: 3, format: "mood" },
-    mode: { row: "mode", name: "SCALE", wrap: 2, format: "mode" },
+    mode: { row: "mode", name: "SCALE", wrap: 6, format: "mode" },
     // a part's settings: `options: true` steps through its workbench row's choices (named as the row names them);
     // "variant" a re-roll (0 as rolled)
     compIns: { row: "keys", name: "INSTRUMENT", options: true },
@@ -131,6 +131,7 @@ export default {
     songSwing: { row: "swing", name: "SWING", options: true },
     songMap: { row: "map", name: "LAYOUT", options: true },
     songProg: { row: "prog", name: "CHORDS", options: true },
+    songColor: { row: "color", name: "CHORD COLOR", options: true },
     drumKit: { row: "kit", name: "KIT", options: true },
     drumPattern: { row: "pattern", name: "PATTERN", options: true },
     drumKick: { row: "kick", name: "KICK", options: true },
@@ -472,7 +473,7 @@ export default {
 
     pSong: {
       title: "Song",
-      pages: ["pSong", "pSongMore"],
+      pages: ["pSong", "pSongMore", "pSong3"],
       bands: [
         { y: 0, h: 16, draw: [
           { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
@@ -515,7 +516,7 @@ export default {
     },
     pSongMore: {
       title: "Song: more",
-      pages: ["pSong", "pSongMore"],
+      pages: ["pSong", "pSongMore", "pSong3"],
       bands: [
         { y: 0, h: 16, draw: [
           { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
@@ -555,6 +556,43 @@ export default {
         ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
       },
       say: ["SONG, PAGE {page}. MOTION {motion}. SWING {songSwing}. LAYOUT {songMap}. CHORDS {songProg}."],
+    },
+    // the Song part's third page (Sam, 2026-11-06): the chord color. The Family row isn't a field: its values are the
+    // page's own strings (acoustic, synth), not an engine field the device can step (choices_gen has no table for it).
+    // The six modes bring back no setting of their own: the Scale knob (page 1) steps through all six.
+    pSong3: {
+      title: "Song: color",
+      pages: ["pSong", "pSongMore", "pSong3"],
+      bands: [
+        { y: 0, h: 16, draw: [
+          { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
+          { when: "!song", text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
+          { when: "known", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
+        ] },
+        { y: 18, h: 28, draw: [
+          { rect: [2, 0, 2, 26], color: "SONG" },
+          { icon: "song", x: 10, y: 9, color: "SONG" },
+          { text: "SONG", font: "B", x: 23, y: 4, color: "SONG" },
+          { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
+          { when: ["song", "!pending"], text: "{chord}", font: "XS", right: 232, y: 5, color: "WHITE" },
+          { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
+        ] },
+        { y: 48, h: 144, draw: [
+          { text: "K1  CHORD COLOR", font: "T", x: 8, y: 3, color: "GRAY" },
+          { text: "{songColor}", font: "B", x: 8, y: 14, color: "WHITE", arrows: true },
+          { meter: [8, 33, 224, 2], value: "songColorFrac", color: "SONG", back: "LINE" },
+        ] },
+        { y: 200, h: 40, draw: [
+          { rect: [8, 0, 224, 1], color: "LINE" },
+          { text: "ALGO PART   SELECT PAGE", font: "T", x: 8, y: 8, color: "DIM" },
+          { text: "EDIT BACK   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
+        ] },
+      ],
+      knobs: [{ field: "songColor", step: 1 }],
+      controls: {
+        ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
+      },
+      say: ["SONG, PAGE {page}. CHORD COLOR {songColor}."],
     },
     pDrums: {
       title: "Drums",

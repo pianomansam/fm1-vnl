@@ -225,7 +225,7 @@
    "format": "mode",
    "name": "SCALE",
    "row": "mode",
-   "wrap": 2
+   "wrap": 6
   },
   "mood": {
    "format": "mood",
@@ -261,6 +261,11 @@
    "name": "PLACE",
    "options": true,
    "row": "padPlace"
+  },
+  "songColor": {
+   "name": "CHORD COLOR",
+   "options": true,
+   "row": "color"
   },
   "songMap": {
    "name": "LAYOUT",
@@ -3454,12 +3459,188 @@
    ],
    "pages": [
     "pSong",
-    "pSongMore"
+    "pSongMore",
+    "pSong3"
    ],
    "say": [
     "SONG, PAGE {page}. KEY {key}. SCALE {mode}. TEMPO {tempo}. MOOD {mood}."
    ],
    "title": "Song"
+  },
+  "pSong3": {
+   "bands": [
+    {
+     "draw": [
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{section}  {bar}/{bars}",
+       "when": "song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{idle}",
+       "when": "!song",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{tempo} BPM",
+       "when": "known",
+       "y": 2
+      }
+     ],
+     "h": 16,
+     "y": 0
+    },
+    {
+     "draw": [
+      {
+       "color": "SONG",
+       "rect": [
+        2,
+        0,
+        2,
+        26
+       ]
+      },
+      {
+       "color": "SONG",
+       "icon": "song",
+       "x": 10,
+       "y": 9
+      },
+      {
+       "color": "SONG",
+       "font": "B",
+       "text": "SONG",
+       "x": 23,
+       "y": 4
+      },
+      {
+       "after": 8,
+       "color": "GRAY",
+       "font": "T",
+       "text": "{page}",
+       "y": 8
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "right": 232,
+       "text": "{chord}",
+       "when": [
+        "song",
+        "!pending"
+       ],
+       "y": 5
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{pending}",
+       "when": "pending",
+       "y": 8
+      }
+     ],
+     "h": 28,
+     "y": 18
+    },
+    {
+     "draw": [
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K1  CHORD COLOR",
+       "x": 8,
+       "y": 3
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{songColor}",
+       "x": 8,
+       "y": 14
+      },
+      {
+       "back": "LINE",
+       "color": "SONG",
+       "meter": [
+        8,
+        33,
+        224,
+        2
+       ],
+       "value": "songColorFrac"
+      }
+     ],
+     "h": 144,
+     "y": 48
+    },
+    {
+     "draw": [
+      {
+       "color": "LINE",
+       "rect": [
+        8,
+        0,
+        224,
+        1
+       ]
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "ALGO PART   SELECT PAGE",
+       "x": 8,
+       "y": 8
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "EDIT BACK   HOME MAIN",
+       "x": 8,
+       "y": 24
+      }
+     ],
+     "h": 40,
+     "y": 200
+    }
+   ],
+   "controls": {
+    "ALGO": {
+     "do": "part"
+    },
+    "EDIT": {
+     "go": "back"
+    },
+    "SELECT": {
+     "do": "page"
+    }
+   },
+   "knobs": [
+    {
+     "field": "songColor",
+     "step": 1
+    }
+   ],
+   "pages": [
+    "pSong",
+    "pSongMore",
+    "pSong3"
+   ],
+   "say": [
+    "SONG, PAGE {page}. CHORD COLOR {songColor}."
+   ],
+   "title": "Song: color"
   },
   "pSongMore": {
    "bands": [
@@ -3718,7 +3899,8 @@
    ],
    "pages": [
     "pSong",
-    "pSongMore"
+    "pSongMore",
+    "pSong3"
    ],
    "say": [
     "SONG, PAGE {page}. MOTION {motion}. SWING {songSwing}. LAYOUT {songMap}. CHORDS {songProg}."
