@@ -121,6 +121,7 @@ for (const seed of SEEDS) {
   const [b0, b1, p1, b2, p2] = h.got.map(([, v]) => v);
   t = 0;
   const now = () => t, dev = new Device(data, engine, now);
+  dev.stack = ["today"];   // the device's screen as it is today (the new main screen isn't on the device yet)
   dev.update(live(seed, 0, { bar: 0 }));   // the first frame: no song yet
   ok = compare(`${seed}-next-song`, h.shot("next.raw"), mock(dev)) && ok;
   dev.update(live(seed, b0));

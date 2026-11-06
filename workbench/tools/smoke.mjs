@@ -3024,8 +3024,8 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
   check(!bad.length, `ui/screens.js has no problems${bad.length ? `: ${bad.join("; ")}` : ""}`);
   const broken = { ...data, screens: { ...data.screens, main: { ...data.screens.main, controls: { EDIT: { go: "nowhere" }, K9: { do: "play" } } } } };
   check(D.problems(broken).length === 2, `a transition to no screen and an unknown control are problems (${D.problems(broken).join("; ")})`);
-  // the flow: EDIT opens the placeholder, HOME (or EDIT) comes back; the knobs ask for changes that land on the next
-  // 4-bar boundary, the bar before it reaching the engine
+  // the flow: ALGO moves the highlight over the parts, EDIT opens the highlighted part, HOME (or EDIT) comes back; the
+  // knobs ask for changes that land on the next 4-bar boundary, the bar before it reaching the engine
   const sets = [];
   let plays = 0, t = 0;
   const dev = new D.Device(data, { set: (r, v) => sets.push([r, v]), play: () => plays++ }, () => t);
@@ -3033,7 +3033,7 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
                            facts: { section: 1, map: "Drift", chord: "Dm9" } });
   dev.update(live(2));
   const tr = D.transitions(data);
-  check(tr.some((x) => x.from === "main" && x.control === "EDIT" && x.to === "edit") && tr.some((x) => x.from === "edit" && x.control === "HOME" && x.to === "home"),
+  check(tr.some((x) => x.from === "main" && x.control === "EDIT") && tr.some((x) => x.from === "pComp" && x.control === "HOME" && x.to === "home"),
         `the flow: ${tr.map((x) => `${x.from} ${x.control} → ${x.to}`).join(", ")}`);
   dev.press("K2", 2);
   const v = dev.values();
@@ -3044,12 +3044,18 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
   check(JSON.stringify(sets) === '[["tempo",82]]', "in the bar before the boundary the change goes to the engine once (Desk.set's tempo row)");
   dev.update(live(5));
   check(dev.values().pending === "", "past the boundary nothing waits");
-  const to = dev.press("EDIT"), crumb = [...dev.stack];
-  dev.press("OCT+");
-  const p2 = dev.values().pending;
+  dev.press("ALGO", 3);
+  const hi = dev.values().sel3, to = dev.press("EDIT"), crumb = [...dev.stack];
   dev.press("HOME");
-  check(to.to === "edit" && crumb.join() === "main,edit" && p2 === "TEMPO 81 IN 4 BARS" && dev.id === "main" && dev.said.startsWith("VNL-1. D MINOR"),
-        `EDIT opens the placeholder (breadcrumb ${crumb.join(" › ")}), its OCT+ asks for tempo + 1, HOME returns and the reader hears the screen`);
+  check(hi && to.to === "pComp" && crumb.join() === "main,pComp" && dev.id === "main" && dev.said.startsWith("CHORD Dm9"),
+        `ALGO 3 highlights Comp, EDIT opens it (breadcrumb ${crumb.join(" › ")}), HOME returns and the reader hears the screen`);
+  {   // a button's nudge (e.g. OCT+ stepping a field) asks for a change as a knob does
+    const d2 = new D.Device({ ...data, screens: { ...data.screens, main: { ...data.screens.main,
+      controls: { ...data.screens.main.controls, "OCT+": { do: "nudge", field: "tempo", by: 1 } } } } }, { set() {}, play() {} }, () => t);
+    d2.update(live(5));
+    d2.press("OCT+");
+    check(d2.values().pending === "TEMPO 81 IN 4 BARS", `OCT+ as a nudge asks for tempo + 1: "${d2.values().pending}"`);
+  }
   dev.press("PLAY");
   t += 2000;
   dev.update({ ...live(5), playing: false });

@@ -34,14 +34,14 @@
 export default {
   home: "main",
 
-  // colors of the screens' own, over the theme's (BLACK WHITE LINE DIM GRAY AMB HI): a color per part (mockup B3;
+  // colors of the screens' own, over the theme's (BLACK WHITE LINE DIM GRAY AMB HI): a color per part (the main screen's;
   // the firmware's palette would need them too). [r, g, b]
   colors: {
     SONG: [255, 184, 70], DRUMS: [236, 104, 88], BASS: [158, 130, 236], COMP: [70, 196, 176],
     PAD: [96, 164, 240], LEAD: [236, 124, 184], TEXTURE: [186, 168, 138],
   },
 
-  // 1-bit icons, 9 px wide, rows of "#" (lit) and "." (mockup B3): one per part, drawn in its color
+  // 1-bit icons, 9 px wide, rows of "#" (lit) and "." (the main screen's): one per part, drawn in its color
   icons: {
     song: [   // a record (Sam)
       "..#####..",
@@ -130,230 +130,13 @@ export default {
   },
 
   screens: {
-    // Today's screen (app.c's draw()): the header, the song, the knob strip
+    // The main screen (Sam, 2026-11-06: mockup B3, chosen over A-C; the FM-1 conventions from
+    // docs/research/fm1-screens-2026-11-06.md): a thin status bar (where the song is, tempo top right), the song as
+    // the hero (the chord, the key, a progress bar through the song, a pill for a change on its way), six part tiles
+    // in their colors with their icons, and the 4-knob strip with fill bars. ALGO picks the part (the convention:
+    // ALGO = track), EDIT opens it; the highlighted tile gets its part's color down its left edge.
     main: {
       title: "Main",
-      bands: [
-        { y: 0, h: 32, draw: [
-          { when: "msg", text: "{msg0}", font: "B", x: 10, y: 6, color: "WHITE" },
-          { when: "msg", text: "{msg1}", font: "B", after: 8, y: 6, color: "HI" },
-          { when: "!msg", text: "{APP}", font: "B", x: 10, y: 6, color: "WHITE" },
-          { when: ["!msg", "song"], text: "{keyline}", font: "XS", right: 230, y: 10, color: "HI" },
-        ] },
-        { y: 40, h: 120, draw: [
-          { when: "song", text: "{place}", font: "XS", x: 10, y: 4, color: "GRAY" },
-          { when: "song", text: "{chord}", font: "B", x: 10, y: 34, color: "WHITE" },
-          { when: "song", text: "{pending}", font: "XS", x: 10, y: 74, color: "HI" },
-          { when: "!song", text: "{idle}", font: "B", x: 10, y: 34, color: "GRAY" },
-        ] },
-        { y: 190, h: 40, draw: [
-          { knobs: { x: 4, dx: 58, label: { y: 2, font: "XS", color: "GRAY" },
-                     value: { y: 18, font: "XS", color: "HI", when: "song" } } },
-        ] },
-      ],
-      knobs: [{ field: "key", step: 1 }, { field: "tempo", step: 1 }, { field: "motion", step: 5 }, { field: "mood", step: 1 }],
-      controls: {
-        EDIT: { go: "edit" },   // PLACEHOLDER: the device does nothing on EDIT today; this proves a transition
-      },
-      say: ["{APP}. ", { when: "!song", text: "{idle}" }, { when: "song", text: "{keyline}. {place}. CHORD {chord}" },
-            { when: "pending", text: ". {pending}" }],
-    },
-
-    // PLACEHOLDER, not a design: a second screen only to prove a transition end to end (EDIT opens it, HOME or EDIT
-    // returns), a different knob map, and OCT-/OCT+ stepping a field
-    edit: {
-      title: "Edit (placeholder)",
-      placeholder: true,
-      bands: [
-        { y: 0, h: 32, draw: [
-          { when: "msg", text: "{msg0}", font: "B", x: 10, y: 6, color: "WHITE" },
-          { when: "msg", text: "{msg1}", font: "B", after: 8, y: 6, color: "HI" },
-          { when: "!msg", text: "EDIT", font: "B", x: 10, y: 6, color: "WHITE" },
-          { when: "!msg", text: "PLACEHOLDER", font: "XS", right: 230, y: 10, color: "DIM" },
-        ] },
-        { y: 40, h: 120, draw: [
-          { rect: [10, 0, 220, 1], color: "LINE" },
-          { text: "TEMPO", font: "XS", x: 10, y: 12, color: "GRAY" },
-          { text: "{tempo}", font: "M", x: 10, y: 30, color: "HI" },
-          { text: "OCT- / OCT+ STEP IT", font: "XS", x: 10, y: 62, color: "DIM" },
-          { when: "pending", text: "{pending}", font: "XS", x: 10, y: 84, color: "HI" },
-          { text: "HOME RETURNS", font: "XS", x: 10, y: 104, color: "DIM" },
-        ] },
-        { y: 190, h: 40, draw: [
-          { knobs: { x: 4, dx: 58, label: { y: 2, font: "XS", color: "GRAY" },
-                     value: { y: 18, font: "XS", color: "HI", when: "song" } } },
-        ] },
-      ],
-      knobs: [{ field: "tempo", step: 1 }, { field: "mode", step: 1 }],
-      controls: {
-        "OCT-": { do: "nudge", field: "tempo", by: -1 },
-        "OCT+": { do: "nudge", field: "tempo", by: 1 },
-        EDIT: { go: "back" },
-        SELECT: { do: "turn", field: "motion", step: 5 },
-      },
-      say: ["EDIT, PLACEHOLDER. TEMPO {tempo}", { when: "pending", text: ". {pending}" }, ". HOME RETURNS"],
-    },
-
-    // ---- MOCKUPS (2026-11-06, to react to; not designs yet): three main screens that show the song and its rolls
-    // and lead into each part. Click a card's title in the flow view to jump to one. SELECT moves the highlight,
-    // EDIT opens the highlighted part (A, B); C's EDIT opens a parts list.
-
-    // A: a parts list. The chord and where the song is up top; one line per part (what was rolled); SELECT moves
-    // the highlight, EDIT opens that part. The knobs shrink to one dim line.
-    mockA: {
-      title: "Mockup A: parts list",
-      menu: ["pSong", "pDrums", "pBass", "pComp", "pPad", "pLead", "pTexture"],
-      bands: [
-        { y: 0, h: 44, draw: [
-          { when: "song", text: "{chord}", font: "B", x: 10, y: 4, color: "WHITE" },
-          { when: "song", text: "{tempo} BPM", font: "XS", right: 230, y: 6, color: "HI" },
-          { when: "song", text: "{place}", font: "XS", x: 10, y: 24, color: "GRAY" },
-          { when: "!song", text: "{idle}", font: "B", x: 10, y: 4, color: "GRAY" },
-        ] },
-        { y: 46, h: 126, draw: [
-          { when: "sel0", rect: [4, 0, 232, 20], color: "LINE" },
-          { text: "SONG", font: "T", x: 10, y: 4, color: "GRAY" },
-          { text: "{key} {mode}  {mood}  MOTION {motion}", font: "XS", x: 64, y: 2, color: "WHITE" },
-          { when: "sel1", rect: [4, 21, 232, 20], color: "LINE" },
-          { text: "DRUMS", font: "T", x: 10, y: 25, color: "GRAY" },
-          { text: "{kit} / {pattern}", font: "XS", x: 64, y: 23, color: "WHITE" },
-          { when: "sel2", rect: [4, 42, 232, 20], color: "LINE" },
-          { text: "BASS", font: "T", x: 10, y: 46, color: "GRAY" },
-          { text: "{bass}", font: "XS", x: 64, y: 44, color: "WHITE" },
-          { when: "sel3", rect: [4, 63, 232, 20], color: "LINE" },
-          { text: "COMP", font: "T", x: 10, y: 67, color: "GRAY" },
-          { text: "{keys} / {rhythm}", font: "XS", x: 64, y: 65, color: "WHITE" },
-          { when: "sel4", rect: [4, 84, 232, 20], color: "LINE" },
-          { text: "PAD", font: "T", x: 10, y: 88, color: "GRAY" },
-          { text: "{pad}", font: "XS", x: 64, y: 86, color: "WHITE" },
-          { when: "sel5", rect: [4, 105, 232, 20], color: "LINE" },
-          { text: "LEAD", font: "T", x: 10, y: 109, color: "GRAY" },
-          { text: "{lead} / {leadStyle}", font: "XS", x: 64, y: 107, color: "WHITE" },
-        ] },
-        { y: 172, h: 22, draw: [
-          { when: "sel6", rect: [4, 0, 232, 20], color: "LINE" },
-          { text: "TEXTURE", font: "T", x: 10, y: 4, color: "GRAY" },
-          { text: "DUST {dust}  NOISE {noise}  ROOM {ambience}", font: "XS", x: 64, y: 2, color: "WHITE" },
-        ] },
-        { y: 200, h: 40, draw: [
-          { when: "pending", text: "{pending}", font: "XS", x: 10, y: 2, color: "HI" },
-          { text: "K1 KEY  K2 TEMPO  K3 MOTION  K4 MOOD", font: "T", x: 10, y: 22, color: "DIM" },
-        ] },
-      ],
-      knobs: [{ field: "key", step: 1 }, { field: "tempo", step: 1 }, { field: "motion", step: 5 }, { field: "mood", step: 1 }],
-      controls: { SELECT: { do: "cursor" }, EDIT: { go: "cursor" } },
-      say: [{ when: "song", text: "CHORD {chord}. {place}" }, { when: "!song", text: "{idle}" }],
-    },
-
-    // B: tiles. The song across the top; six part tiles (two columns), each its instrument and its rhythm or style;
-    // SELECT moves the highlight over them, EDIT opens one. No knob strip at all.
-    mockB: {
-      title: "Mockup B: tiles",
-      menu: ["pSong", "pDrums", "pBass", "pComp", "pPad", "pLead", "pTexture"],
-      bands: [
-        { y: 0, h: 60, draw: [
-          { when: "sel0", rect: [0, 0, 240, 58], color: "LINE" },
-          { when: "song", text: "{chord}", font: "B", x: 10, y: 8, color: "WHITE" },   // (M and L have no lower case: "maj")
-          { when: "song", text: "{key} {mode}", font: "XS", right: 230, y: 4, color: "HI" },
-          { when: "song", text: "{tempo} BPM  {mood}", font: "XS", right: 230, y: 20, color: "HI" },
-          { when: "song", text: "{place}", font: "XS", x: 10, y: 38, color: "GRAY" },
-          { when: "!song", text: "{idle}", font: "M", x: 10, y: 2, color: "GRAY" },
-        ] },
-        { y: 62, h: 116, draw: [
-          { when: "sel1", rect: [2, 0, 116, 56], color: "LINE" },
-          { text: "DRUMS", font: "T", x: 8, y: 4, color: "GRAY" },
-          { text: "{kit}", font: "XS", x: 8, y: 18, color: "WHITE" },
-          { text: "{pattern}", font: "T", x: 8, y: 38, color: "GRAY" },
-          { when: "sel2", rect: [122, 0, 116, 56], color: "LINE" },
-          { text: "BASS", font: "T", x: 128, y: 4, color: "GRAY" },
-          { text: "{bass}", font: "XS", x: 128, y: 18, color: "WHITE" },
-          { when: "sel3", rect: [2, 58, 116, 56], color: "LINE" },
-          { text: "COMP", font: "T", x: 8, y: 62, color: "GRAY" },
-          { text: "{keys}", font: "XS", x: 8, y: 76, color: "WHITE" },
-          { text: "{rhythm}", font: "T", x: 8, y: 96, color: "GRAY" },
-          { when: "sel4", rect: [122, 58, 116, 56], color: "LINE" },
-          { text: "PAD", font: "T", x: 128, y: 62, color: "GRAY" },
-          { text: "{pad}", font: "XS", x: 128, y: 76, color: "WHITE" },
-        ] },
-        { y: 180, h: 58, draw: [
-          { when: "sel5", rect: [2, 0, 116, 56], color: "LINE" },
-          { text: "LEAD", font: "T", x: 8, y: 4, color: "GRAY" },
-          { text: "{lead}", font: "XS", x: 8, y: 18, color: "WHITE" },
-          { text: "{leadStyle}", font: "T", x: 8, y: 38, color: "GRAY" },
-          { when: "sel6", rect: [122, 0, 116, 56], color: "LINE" },
-          { text: "TEXTURE", font: "T", x: 128, y: 4, color: "GRAY" },
-          { text: "DUST {dust}", font: "XS", x: 128, y: 18, color: "WHITE" },
-          { text: "NOISE {noise}  ROOM {ambience}", font: "T", x: 128, y: 38, color: "GRAY" },
-        ] },
-      ],
-      knobs: [{ field: "key", step: 1 }, { field: "tempo", step: 1 }, { field: "motion", step: 5 }, { field: "mood", step: 1 }],
-      controls: { SELECT: { do: "cursor" }, EDIT: { go: "cursor" } },
-      say: [{ when: "song", text: "CHORD {chord}. {place}" }, { when: "!song", text: "{idle}" }],
-    },
-
-    // B2: B with the FM-1 conventions applied (docs/research/fm1-screens-2026-11-06.md): a thin status bar (where the
-    // song is, tempo top right), the song as the hero (the chord, the key, a progress bar through the song, a pill
-    // for a change on its way), six part tiles, and the 4-knob strip back at the bottom with fill bars (8 of the top
-    // 10 firmwares keep one). ALGO picks the part (the convention: ALGO = track), EDIT opens it.
-    mockB2: {
-      title: "Mockup B2: tiles, FM-1 conventions",
-      menu: ["pSong", "pDrums", "pBass", "pComp", "pPad", "pLead", "pTexture"],
-      bands: [
-        { y: 0, h: 16, draw: [
-          { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
-          { when: "!song", text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
-          { when: "song", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
-        ] },
-        { y: 18, h: 46, draw: [
-          { when: "sel0", rect: [2, 0, 236, 46], color: "LINE" },
-          { when: "song", text: "{chord}", font: "B", x: 8, y: 2, color: "WHITE" },
-          { when: "song", text: "{key} {mode}", font: "XS", right: 232, y: 2, color: "HI" },
-          { when: ["song", "!pending"], text: "{map}", font: "T", x: 8, y: 24, color: "GRAY" },
-          { when: "pending", rect: [6, 21, 228, 15], color: "DIM" },
-          { when: "pending", text: "{pending}", font: "T", x: 10, y: 23, color: "BLACK" },
-          { when: "!song", text: "{idle}", font: "B", x: 8, y: 2, color: "GRAY" },
-          { meter: [8, 40, 224, 3], value: "progress", color: "AMB", back: "LINE" },
-        ] },
-        { y: 66, h: 144, draw: [
-          { when: "sel1", rect: [2, 0, 116, 46], color: "LINE" },
-          { text: "DRUMS", font: "T", x: 8, y: 3, color: "GRAY" },
-          { text: "{kit}", font: "XS", x: 8, y: 15, color: "WHITE" },
-          { text: "{pattern}", font: "T", x: 8, y: 32, color: "GRAY" },
-          { when: "sel2", rect: [122, 0, 116, 46], color: "LINE" },
-          { text: "BASS", font: "T", x: 128, y: 3, color: "GRAY" },
-          { text: "{bass}", font: "XS", x: 128, y: 15, color: "WHITE" },
-          { when: "sel3", rect: [2, 48, 116, 46], color: "LINE" },
-          { text: "COMP", font: "T", x: 8, y: 51, color: "GRAY" },
-          { text: "{keys}", font: "XS", x: 8, y: 63, color: "WHITE" },
-          { text: "{rhythm}", font: "T", x: 8, y: 80, color: "GRAY" },
-          { when: "sel4", rect: [122, 48, 116, 46], color: "LINE" },
-          { text: "PAD", font: "T", x: 128, y: 51, color: "GRAY" },
-          { text: "{pad}", font: "XS", x: 128, y: 63, color: "WHITE" },
-          { when: "sel5", rect: [2, 96, 116, 46], color: "LINE" },
-          { text: "LEAD", font: "T", x: 8, y: 99, color: "GRAY" },
-          { text: "{lead}", font: "XS", x: 8, y: 111, color: "WHITE" },
-          { text: "{leadStyle}", font: "T", x: 8, y: 128, color: "GRAY" },
-          { when: "sel6", rect: [122, 96, 116, 46], color: "LINE" },
-          { text: "TEXTURE", font: "T", x: 128, y: 99, color: "GRAY" },
-          { text: "DUST {dust}", font: "XS", x: 128, y: 111, color: "WHITE" },
-          { text: "NOISE {noise}  ROOM {ambience}", font: "T", x: 128, y: 128, color: "GRAY" },
-        ] },
-        { y: 212, h: 28, draw: [
-          { knobs: { x: 8, dx: 58, label: { y: 0, font: "T", color: "GRAY" },
-                     value: { y: 11, font: "XS", color: "HI", when: "song" },
-                     bar: { y: 26, w: 50, h: 2, color: "AMB", back: "LINE" } } },
-        ] },
-      ],
-      knobs: [{ field: "key", step: 1 }, { field: "tempo", step: 1 }, { field: "motion", step: 5 }, { field: "mood", step: 1 }],
-      controls: { ALGO: { do: "cursor" }, EDIT: { go: "cursor" } },
-      say: [{ when: "song", text: "CHORD {chord}. {section}, BAR {bar} OF {bars}" }, { when: "!song", text: "{idle}" },
-            { when: "pending", text: ". {pending}" }],
-    },
-
-    // B3: B2 with a color and an icon per part (the convention: one color per track, reused everywhere; a small
-    // glyph before a label). The highlighted tile also gets its part's color down its left edge.
-    mockB3: {
-      title: "Mockup B3: B2 + part colors and icons",
       menu: ["pSong", "pDrums", "pBass", "pComp", "pPad", "pLead", "pTexture"],
       bands: [
         { y: 0, h: 16, draw: [
@@ -421,54 +204,34 @@ export default {
             { when: "pending", text: ". {pending}" }],
     },
 
-    // C: now playing. The song is the screen (a big chord, where it is, what's waiting); the rolls in small type
-    // underneath, read only; EDIT opens a parts list to pick from (two steps to a part, a calmer main screen).
-    mockC: {
-      title: "Mockup C: now playing",
+    // The device's screen today (app.c's draw()), kept as the mock's reference: screen_check.mjs compares it with
+    // the simulator pixel for pixel. Not reachable from the new main screen.
+    today: {
+      title: "Today's device screen (reference)",
       bands: [
-        { y: 0, h: 30, draw: [
-          { text: "{APP}", font: "S", x: 10, y: 6, color: "WHITE" },
-          { when: "song", text: "{key} {mode}  {tempo} BPM", font: "XS", right: 230, y: 8, color: "HI" },
+        { y: 0, h: 32, draw: [
+          { when: "msg", text: "{msg0}", font: "B", x: 10, y: 6, color: "WHITE" },
+          { when: "msg", text: "{msg1}", font: "B", after: 8, y: 6, color: "HI" },
+          { when: "!msg", text: "{APP}", font: "B", x: 10, y: 6, color: "WHITE" },
+          { when: ["!msg", "song"], text: "{keyline}", font: "XS", right: 230, y: 10, color: "HI" },
         ] },
-        { y: 32, h: 92, draw: [
-          { when: "song", text: "{chord}", font: "B", x: 10, y: 14, color: "WHITE" },   // (M and L have no lower case: "maj")
-          { when: "song", text: "{place}", font: "XS", x: 10, y: 46, color: "GRAY" },
-          { when: "pending", text: "{pending}", font: "XS", x: 10, y: 66, color: "HI" },
-          { when: "!song", text: "{idle}", font: "L", x: 10, y: 4, color: "GRAY" },
+        { y: 40, h: 120, draw: [
+          { when: "song", text: "{place}", font: "XS", x: 10, y: 4, color: "GRAY" },
+          { when: "song", text: "{chord}", font: "B", x: 10, y: 34, color: "WHITE" },
+          { when: "song", text: "{pending}", font: "XS", x: 10, y: 74, color: "HI" },
+          { when: "!song", text: "{idle}", font: "B", x: 10, y: 34, color: "GRAY" },
         ] },
-        { y: 126, h: 114, draw: [
-          { rect: [10, 0, 220, 1], color: "LINE" },
-          { text: "DRUMS  {kit} / {pattern}", font: "T", x: 10, y: 8, color: "GRAY" },
-          { text: "BASS  {bass}", font: "T", x: 10, y: 24, color: "GRAY" },
-          { text: "COMP  {keys} / {rhythm}", font: "T", x: 10, y: 40, color: "GRAY" },
-          { text: "PAD  {pad}", font: "T", x: 10, y: 56, color: "GRAY" },
-          { text: "LEAD  {lead} / {leadStyle}", font: "T", x: 10, y: 72, color: "GRAY" },
-          { text: "{mood}  MOTION {motion}  /  EDIT: PARTS", font: "T", x: 10, y: 94, color: "DIM" },
+        { y: 190, h: 40, draw: [
+          { knobs: { x: 4, dx: 58, label: { y: 2, font: "XS", color: "GRAY" },
+                     value: { y: 18, font: "XS", color: "HI", when: "song" } } },
         ] },
       ],
       knobs: [{ field: "key", step: 1 }, { field: "tempo", step: 1 }, { field: "motion", step: 5 }, { field: "mood", step: 1 }],
-      controls: { EDIT: { go: "partsC" } },
-      say: [{ when: "song", text: "CHORD {chord}. {place}" }, { when: "!song", text: "{idle}" }],
+      say: ["{APP}. ", { when: "!song", text: "{idle}" }, { when: "song", text: "{keyline}. {place}. CHORD {chord}" },
+            { when: "pending", text: ". {pending}" }],
     },
-    partsC: {
-      title: "Mockup C: parts list",
-      menu: ["pSong", "pDrums", "pBass", "pComp", "pPad", "pLead", "pTexture"],
-      bands: [
-        { y: 0, h: 30, draw: [{ text: "PARTS", font: "B", x: 10, y: 6, color: "WHITE" }] },
-        { y: 34, h: 144, draw: [
-          { when: "sel0", rect: [4, 0, 232, 20], color: "LINE" }, { text: "SONG", font: "XS", x: 12, y: 2, color: "WHITE" },
-          { when: "sel1", rect: [4, 20, 232, 20], color: "LINE" }, { text: "DRUMS", font: "XS", x: 12, y: 22, color: "WHITE" },
-          { when: "sel2", rect: [4, 40, 232, 20], color: "LINE" }, { text: "BASS", font: "XS", x: 12, y: 42, color: "WHITE" },
-          { when: "sel3", rect: [4, 60, 232, 20], color: "LINE" }, { text: "COMP", font: "XS", x: 12, y: 62, color: "WHITE" },
-          { when: "sel4", rect: [4, 80, 232, 20], color: "LINE" }, { text: "PAD", font: "XS", x: 12, y: 82, color: "WHITE" },
-          { when: "sel5", rect: [4, 100, 232, 20], color: "LINE" }, { text: "LEAD", font: "XS", x: 12, y: 102, color: "WHITE" },
-          { when: "sel6", rect: [4, 120, 232, 20], color: "LINE" }, { text: "TEXTURE", font: "XS", x: 12, y: 122, color: "WHITE" },
-        ] },
-        { y: 200, h: 20, draw: [{ text: "SELECT: MOVE  EDIT: OPEN  HOME: BACK", font: "T", x: 10, y: 4, color: "DIM" }] },
-      ],
-      controls: { SELECT: { do: "cursor" }, EDIT: { go: "cursor" } },
-      say: ["PARTS"],
-    },
+
+
     pSong: {
       title: "Part: Song (placeholder)",
       placeholder: true,
