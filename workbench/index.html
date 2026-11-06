@@ -204,11 +204,18 @@
         const rh = rhythmRow(desk.state, desk.opts), ids = ROWS.filter((r) => r.kind !== "seed" && r.kind !== "reroll").map((r) => r.id);
         const live = heard ? fromEngine(heard, wb.C, desk.opts) : null;
         if (live) live.rhythm = live[rh];
-        return { values: { ...desk.state.values, rhythm: desk.state.values[rh] }, live, rolled: rn,
-                 options: { ...Object.fromEntries(ids.map((id) => [id, choices(id)])), rhythm: choices(rh, "rhythm") } };
+        return { values: { ...desk.state.values, rhythm: desk.state.values[rh], loop: $("loop").checked ? 1 : 0 }, live, rolled: rn,
+                 options: { ...Object.fromEntries(ids.map((id) => [id, choices(id)])), rhythm: choices(rh, "rhythm"),
+                            loop: [{ value: 0, name: "OFF" }, { value: 1, name: "ON" }] } };
       };
       device = mountDevice($("devbox"), { call: wb.call, C: wb.C, labels, rows,
-        engine: { set: (id, v) => run(() => desk.set(id === "rhythm" ? rhythmRow(desk.state, desk.opts) : id, v)), play: () => $("play").click() } });
+        engine: {
+          set: (id, v) => id === "loop" ? ($("loop").checked = !!v, $("loop").onchange(), device?.redraw())
+            : run(() => desk.set(id === "rhythm" ? rhythmRow(desk.state, desk.opts) : id, v)),
+          play: () => $("play").click(),
+          reroll: () => $("all").click(),   // SEQ: Re-roll all unlocked (the device: a new song)
+          jump: (start, name) => run(() => desk.jumpTo(start, name)),
+        } });
     } catch (e) { $("devbox").textContent = `The device mock didn't load: ${e}`; }
   }
 

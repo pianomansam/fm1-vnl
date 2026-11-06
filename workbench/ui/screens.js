@@ -148,6 +148,8 @@ export default {
     texDust: { row: "dust", name: "DUST", options: true },
     texNoise: { row: "noise", name: "NOISE", options: true },
     texAmb: { row: "ambience", name: "AMBIENCE", options: true },
+    // the section playing repeats instead of moving on (the workbench's Loop section); acts at once
+    loop: { row: "loop", name: "LOOP", options: true, now: true },
   },
 
   // the parts, in ALGO's order (on a part's screen ALGO moves to the next one, at its first page)
@@ -162,6 +164,7 @@ export default {
   defaults: {
     PLAY: { do: "play" },
     HOME: { go: "home" },
+    SEQ: { do: "reroll" },   // a new song (Sam, 2026-11-06); the firmware's B_SEQ
   },
 
   screens: {
@@ -176,6 +179,7 @@ export default {
       bands: [
         { y: 0, h: 16, draw: [
           { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
+          { when: ["song", "looping"], text: "LOOP", font: "T", after: 8, y: 2, color: "HI" },
           { when: "!song", text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
           { when: "song", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
         ] },
@@ -189,7 +193,7 @@ export default {
           { when: "pending", rect: [6, 21, 228, 15], color: "DIM" },
           { when: "pending", text: "{pending}", font: "T", x: 10, y: 23, color: "BLACK" },
           { when: "!song", text: "{idle}", font: "B", x: 8, y: 2, color: "GRAY" },
-          { meter: [8, 40, 224, 3], value: "progress", color: "AMB", back: "LINE" },
+          { sections: [8, 40, 224, 3], color: "AMB", back: "LINE", past: "DIM" },   // the song's map, a segment a section
         ] },
         { y: 66, h: 144, draw: [
           { when: "sel1", rect: [2, 0, 116, 46], color: "LINE" },
@@ -235,9 +239,81 @@ export default {
       ],
       knobs: [{ field: "key", step: 1 }, { field: "tempo", step: 1 }, { field: "motion", step: 5 }, { field: "mood", step: 1 }],
       // ALGO picks the part (the convention); SELECT too, the main screen having no pages (Sam, 2026-11-06)
-      controls: { ALGO: { do: "cursor" }, SELECT: { do: "cursor" }, EDIT: { go: "cursor" } },
+      controls: { ALGO: { do: "cursor" }, SELECT: { do: "cursor" }, EDIT: { go: "cursor" }, SEL: { go: "sections" } },
       say: [{ when: "song", text: "CHORD {chord}. {section}, BAR {bar} OF {bars}" }, { when: "!song", text: "{idle}" },
             { when: "pending", text: ". {pending}" }],
+    },
+
+    // The song's map (Sam, 2026-11-06: where we are in the map, jump to a section, loop the one playing): SEL from
+    // the main screen. One line a section (the one playing marked), ALGO or SELECT moves the highlight, EDIT goes
+    // there (at the next bar line), K1 loops the section playing; the strip under the header is the main screen's.
+    sections: {
+      title: "Sections",
+      list: "sections",
+      bands: [
+        { y: 0, h: 16, draw: [
+          { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
+          { when: ["song", "looping"], text: "LOOP", font: "T", after: 8, y: 2, color: "HI" },
+          { when: "!song", text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
+          { when: "song", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
+        ] },
+        { y: 18, h: 36, draw: [
+          { rect: [2, 0, 2, 26], color: "SONG" },
+          { icon: "song", x: 10, y: 9, color: "SONG" },
+          { text: "SECTIONS", font: "B", x: 23, y: 4, color: "SONG" },
+          { when: "song", text: "{map}", font: "XS", right: 232, y: 5, color: "WHITE" },
+          { sections: [8, 31, 224, 3], color: "AMB", back: "LINE", past: "DIM" },
+        ] },
+        { y: 56, h: 144, draw: [
+          { when: "sel0", rect: [4, 0, 232, 17], color: "LINE" },
+          { when: "sec0Now", rect: [4, 0, 2, 17], color: "SONG" },
+          { when: "sec0", text: "{sec0}", font: "XS", x: 12, y: 1, color: "WHITE" },
+          { when: "sec0Now", text: "PLAYING", font: "T", after: 8, y: 3, color: "AMB" },
+          { when: "sec0", text: "{sec0Bars} BARS", font: "T", right: 232, y: 3, color: "GRAY" },
+          { when: "sel1", rect: [4, 18, 232, 17], color: "LINE" },
+          { when: "sec1Now", rect: [4, 18, 2, 17], color: "SONG" },
+          { when: "sec1", text: "{sec1}", font: "XS", x: 12, y: 19, color: "WHITE" },
+          { when: "sec1Now", text: "PLAYING", font: "T", after: 8, y: 21, color: "AMB" },
+          { when: "sec1", text: "{sec1Bars} BARS", font: "T", right: 232, y: 21, color: "GRAY" },
+          { when: "sel2", rect: [4, 36, 232, 17], color: "LINE" },
+          { when: "sec2Now", rect: [4, 36, 2, 17], color: "SONG" },
+          { when: "sec2", text: "{sec2}", font: "XS", x: 12, y: 37, color: "WHITE" },
+          { when: "sec2Now", text: "PLAYING", font: "T", after: 8, y: 39, color: "AMB" },
+          { when: "sec2", text: "{sec2Bars} BARS", font: "T", right: 232, y: 39, color: "GRAY" },
+          { when: "sel3", rect: [4, 54, 232, 17], color: "LINE" },
+          { when: "sec3Now", rect: [4, 54, 2, 17], color: "SONG" },
+          { when: "sec3", text: "{sec3}", font: "XS", x: 12, y: 55, color: "WHITE" },
+          { when: "sec3Now", text: "PLAYING", font: "T", after: 8, y: 57, color: "AMB" },
+          { when: "sec3", text: "{sec3Bars} BARS", font: "T", right: 232, y: 57, color: "GRAY" },
+          { when: "sel4", rect: [4, 72, 232, 17], color: "LINE" },
+          { when: "sec4Now", rect: [4, 72, 2, 17], color: "SONG" },
+          { when: "sec4", text: "{sec4}", font: "XS", x: 12, y: 73, color: "WHITE" },
+          { when: "sec4Now", text: "PLAYING", font: "T", after: 8, y: 75, color: "AMB" },
+          { when: "sec4", text: "{sec4Bars} BARS", font: "T", right: 232, y: 75, color: "GRAY" },
+          { when: "sel5", rect: [4, 90, 232, 17], color: "LINE" },
+          { when: "sec5Now", rect: [4, 90, 2, 17], color: "SONG" },
+          { when: "sec5", text: "{sec5}", font: "XS", x: 12, y: 91, color: "WHITE" },
+          { when: "sec5Now", text: "PLAYING", font: "T", after: 8, y: 93, color: "AMB" },
+          { when: "sec5", text: "{sec5Bars} BARS", font: "T", right: 232, y: 93, color: "GRAY" },
+          { when: "sel6", rect: [4, 108, 232, 17], color: "LINE" },
+          { when: "sec6Now", rect: [4, 108, 2, 17], color: "SONG" },
+          { when: "sec6", text: "{sec6}", font: "XS", x: 12, y: 109, color: "WHITE" },
+          { when: "sec6Now", text: "PLAYING", font: "T", after: 8, y: 111, color: "AMB" },
+          { when: "sec6", text: "{sec6Bars} BARS", font: "T", right: 232, y: 111, color: "GRAY" },
+          { when: "sel7", rect: [4, 126, 232, 17], color: "LINE" },
+          { when: "sec7Now", rect: [4, 126, 2, 17], color: "SONG" },
+          { when: "sec7", text: "{sec7}", font: "XS", x: 12, y: 127, color: "WHITE" },
+          { when: "sec7Now", text: "PLAYING", font: "T", after: 8, y: 129, color: "AMB" },
+          { when: "sec7", text: "{sec7Bars} BARS", font: "T", right: 232, y: 129, color: "GRAY" },
+        ] },
+        { y: 202, h: 38, draw: [
+          { knobs: { x: 8, dx: 58, label: { y: 0, font: "T", color: "GRAY" }, value: { y: 11, font: "XS", color: "HI", when: "song" } } },
+          { text: "EDIT GO THERE   SEL BACK", font: "T", right: 232, y: 14, color: "DIM" },
+        ] },
+      ],
+      knobs: [{ field: "loop", step: 1 }],
+      controls: { ALGO: { do: "cursor" }, SELECT: { do: "cursor" }, EDIT: { do: "jump" }, SEL: { go: "back" } },
+      say: ["SECTIONS. {section}, BAR {bar} OF {bars}", { when: "looping", text: ", LOOPING" }],
     },
 
     // The device's screen today (app.c's draw()), kept as the mock's reference: screen_check.mjs compares it with

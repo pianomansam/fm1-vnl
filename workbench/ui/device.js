@@ -173,6 +173,15 @@ export function valuesOf(s, data) {
     bag[`${k}Frac`] = fieldFrac(def, v, s.rows);
   }
   bag.page = s.page ?? "";
+  // the song's map (wb_sections, heard): each section's name and length, the one playing; looping (the workbench's
+  // Loop section)
+  const secs = s.sections ?? [], bar1 = (s.bar ?? 0) + 1;
+  bag.secCount = secs.length; bag.secList = secs;
+  secs.slice(0, MENU_MAX).forEach((x, i) => {
+    bag[`sec${i}`] = String(x.name ?? "").toUpperCase(); bag[`sec${i}Bars`] = x.bars;
+    bag[`sec${i}Now`] = song && bar1 > x.start && bar1 <= x.start + x.bars;
+  });
+  bag.looping = String(s.rows?.values?.loop) === "1";
   // a list's ends (Sam, 2026-11-06: arrows, not a bar): {field}First / {field}Last where the value (or the change
   // waiting) can't move further that way; a number without ends (a wrap) has neither
   for (const [k, def] of Object.entries(f)) {
@@ -223,6 +232,18 @@ export function drawScreen(lcd, screen, bag, data, C = colors(THEME, data.colors
       else if (it.icon) {   // a 1-bit icon from the data's `icons` (rows of "#" and "."): { icon, x, y, color }
         (data.icons?.[it.icon] ?? []).forEach((row, j) => [...row].forEach((c, i) => { if (c === "#") lcd.rect(it.x + i, it.y + j, 1, 1, C[it.color]); }));
       }
+      else if (it.sections) {   // the song's map: a segment per section (by its bars), the one playing filled to
+        // where the song is in it, those before it in `past`, those after in `back`
+        const [x, y, w, h] = it.sections, secs = bag.secList ?? [], total = secs.reduce((a, s) => a + s.bars, 0);
+        let at = x;
+        secs.forEach((sec, i) => {
+          const sw = Math.max(2, Math.round((w * sec.bars) / (total || 1)) - 2), bar = bag.bar ?? 0;
+          const now = bar > sec.start && bar <= sec.start + sec.bars, done = bar > sec.start + sec.bars;
+          lcd.rect(at, y, sw, h, C[done ? it.past : it.back]);
+          if (now && bag.song) lcd.rect(at, y, Math.max(1, Math.round((sw * (bar - sec.start)) / sec.bars)), h, C[it.color]);
+          at += sw + 2;
+        });
+      }
       else if (it.meter) {   // a bar filled to a value's share (0..1): { meter: [x, y, w, h], value, color, back }
         const [x, y, w, h] = it.meter, v = Math.max(0, Math.min(1, Number(bag[it.value]) || 0));
         const fd = data.fields?.[String(it.value).replace(/Frac$/, "")];
@@ -247,12 +268,12 @@ export function drawScreen(lcd, screen, bag, data, C = colors(THEME, data.colors
         const x = it.right !== undefined ? it.right - textW(f, s) : it.after !== undefined ? pen + it.after : it.x;
         const lone = /^\{(\w+)\}$/.exec(it.text)?.[1];   // a value alone: the pending color while it waits
         const col = C[lone && bag[`${lone}Pend`] && C.PENDING !== undefined ? "PENDING" : it.color];
-        if (it.arrows && lone) {   // "< VALUE >": an arrow only where the list goes on (its slot kept, so the value stays put)
-          const ac = C[it.arrows === true ? "DIM" : it.arrows], lw = textW(f, "< ");
-          if (!bag[`${lone}First`]) lcd.text(x, it.y, f, "<", ac);
-          pen = lcd.text(x + lw, it.y, f, s, col);
-          if (!bag[`${lone}Last`]) pen = lcd.text(pen + textW(f, " "), it.y, f, ">", ac);
-        } else pen = lcd.text(x, it.y, f, s, col);
+        pen = lcd.text(x, it.y, f, s, col);
+        if (it.arrows && lone) {   // "<  >" at the line's right end (Sam, 2026-11-06): an arrow only where the list goes on
+          const ac = C[it.arrows === true ? "DIM" : it.arrows], r = it.arrowsRight ?? 232;
+          if (!bag[`${lone}Last`]) lcd.text(r - textW(f, ">"), it.y, f, ">", ac);
+          if (!bag[`${lone}First`]) lcd.text(r - textW(f, ">") - textW(f, "  <"), it.y, f, "<", ac);
+        }
       }
     }
     lcd.blit(0, band.y);
@@ -294,14 +315,14 @@ export function problems(data) {
   if (!data.screens?.[data.home]) out.push(`home "${data.home}" is not a screen`);
   for (const p of data.parts ?? []) if (!data.screens?.[p]) out.push(`parts: no screen "${p}"`);
   const known = new Set(["APP", "song", "stopped", "idle", "msg", "msg0", "msg1", "map", "section", "bar", "bars", "chord",
-                         "pending", "rhythm", "progress", "page", ...Object.keys(data.fields ?? {}).flatMap((k) => [`${k}First`, `${k}Last`]), ...Object.keys(data.fields ?? {}).map((k) => `${k}Pend`), ...ROWS.map((r) => `${r.id}Pend`), ...Object.keys(data.fields ?? {}).map((k) => `${k}Frac`), ...ROWS.map((r) => r.id), ...Array.from({ length: MENU_MAX }, (_, i) => `sel${i}`),
+                         "pending", "rhythm", "progress", "page", "secCount", "looping", ...Array.from({ length: MENU_MAX }, (_, i) => [`sec${i}`, `sec${i}Bars`, `sec${i}Now`]).flat(), ...Object.keys(data.fields ?? {}).flatMap((k) => [`${k}First`, `${k}Last`]), ...Object.keys(data.fields ?? {}).map((k) => `${k}Pend`), ...ROWS.map((r) => `${r.id}Pend`), ...Object.keys(data.fields ?? {}).map((k) => `${k}Frac`), ...ROWS.map((r) => r.id), ...Array.from({ length: MENU_MAX }, (_, i) => `sel${i}`),
                          ...Object.keys(data.fields ?? {}), ...Object.keys(data.lines ?? {})]);
   const tpl = (where, t) => { for (const [, k] of String(t).matchAll(/\{(\w+)\}/g)) if (!known.has(k)) out.push(`${where}: no value {${k}}`); };
   const cond = (where, w) => { for (const x of [].concat(w ?? [])) if (!known.has(x.replace(/^!/, ""))) out.push(`${where}: no value "${x}"`); };
   const act = (where, a) => {
     if (a === null) return;
     if (a.go) { if (!["back", "home", "cursor"].includes(a.go) && !ids.includes(a.go)) out.push(`${where}: no screen "${a.go}"`); }
-    else if (["play", "cursor", "part", "page"].includes(a.do)) { /* */ }
+    else if (["play", "cursor", "part", "page", "jump", "reroll"].includes(a.do)) { /* */ }
     else if (a.do === "nudge" || a.do === "turn") { if (!data.fields?.[a.field]) out.push(`${where}: no field "${a.field}"`); }
     else out.push(`${where}: unknown action ${JSON.stringify(a)}`);
   };
@@ -321,6 +342,7 @@ export function problems(data) {
         const faces = it.knobs ? [it.knobs.label.font, it.knobs.value.font] : it.text !== undefined ? [it.font] : [];
         for (const f of faces) if (!FONTS[f]) out.push(`${w}: no font ${f}`);
         if (it.meter) cond(w, it.value);
+        if (it.sections) for (const c of [it.color, it.back, it.past]) if (!(c in C)) out.push(`${w}: no color ${c}`);
         if (it.icon && !data.icons?.[it.icon]) out.push(`${w}: no icon ${it.icon}`);
         for (const c of it.knobs ? [it.knobs.label.color, it.knobs.value.color, ...(it.knobs.bar ? [it.knobs.bar.color, it.knobs.bar.back] : [])]
                         : [it.color, ...(it.back ? [it.back] : [])])
@@ -385,7 +407,7 @@ export class Device {
              chord: l.facts?.chord, labels: l.labels, rows: l.rows, mark: !this.screen?.reference,
              reqs: Object.fromEntries(Object.entries(this.req).map(([f, q]) => [f, q.val])),
              page: this.screen?.pages?.length > 1 ? `${this.screen.pages.indexOf(this.id) + 1}/${this.screen.pages.length}` : "",
-             cursor: this.screen?.menu ? this.cursor[this.id] ?? 0 : -1, pend, msg: this.msg && this.now() < this.msg.until ? this.msg.text : null };
+             cursor: this.screen?.menu || this.screen?.list ? this.cursor[this.id] ?? 0 : -1, sections: l.sections, pend, msg: this.msg && this.now() < this.msg.until ? this.msg.text : null };
   }
   values() { return valuesOf(this.shown(), this.data); }
   draw(lcd) { drawScreen(lcd, this.screen, this.values(), this.data); }
@@ -408,8 +430,18 @@ export class Device {
       if (this.id !== from) this.speak();
       return { from, control, to: this.id };
     }
+    if (a.do === "jump") {   // the highlighted section: the song goes there (at the next bar line, as the workbench's strip)
+      const sec = this.live?.sections?.[this.cursor[this.id] ?? 0];
+      if (sec && this.hasSong()) { this.engine.jump?.(sec.start, sec.name); this.say("GO TO", String(sec.name).toUpperCase()); }
+      return null;
+    }
+    if (a.do === "reroll") {   // SEQ: a new song (Sam, 2026-11-06), as the device's
+      this.engine.reroll?.();
+      this.say("NEW SONG");
+      return null;
+    }
     if (a.do === "cursor") {   // a menu: the highlight moves (wraps)
-      const n = this.screen.menu?.length ?? 0;
+      const n = this.screen.menu?.length ?? (this.screen.list === "sections" ? Math.min(this.live?.sections?.length ?? 0, MENU_MAX) : 0);
       if (n) this.cursor[this.id] = (((this.cursor[this.id] ?? 0) + detents) % n + n) % n;
       return null;
     }
@@ -435,6 +467,11 @@ export class Device {
     const def = this.data.fields[f];
     if (!this.hasSong()) return;
     const l = this.live, bar = l.bar - 1, from = this.req[f]?.val ?? fieldValue(def, f, l.roll, l.rows), v = fieldMove(def, from, d, l.rows);
+    if (def.now) {   // a switch that acts at once (the loop): no waiting for a 4-bar boundary
+      if (v !== from) { this.engine.set(def.row, v); if (l.rows?.values) l.rows.values[def.row] = v; }
+      this.say(def.name, fieldText(def, v, l.roll.mode ?? 0, l.rows));
+      return;
+    }
     if (v !== from) {
       const at = (Math.floor(bar / 4) + 1) * 4;
       if (at < l.bars) {

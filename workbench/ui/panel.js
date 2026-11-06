@@ -178,8 +178,9 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
     try {
       const s = await call("wb_live_state"), facts = pos.bar > 0 ? await call("wb_screen", pos.bar - 1) : {};
       const rolled = await call("wb_rolled").catch(() => null);   // what the "as rolled" rows play
+      const sections = await call("wb_sections", 1).catch(() => []);   // the song's map, as it plays
       const r = (f) => s.roll[C.RF[f]];
-      dev.update({ playing, gap: pos.gap, bar: pos.bar, bars: pos.bars || r("BARS"), seed: s.seed, facts, labels: labels(rolled), rows: rowsOf(rolled, s),
+      dev.update({ playing, gap: pos.gap, bar: pos.bar, bars: pos.bars || r("BARS"), seed: s.seed, facts, labels: labels(rolled), rows: rowsOf(rolled, s), sections,
                    roll: { key: r("KEY"), tempo: r("TEMPO"), motion: r("MOTION"), mood: r("MOOD"), mode: r("MODE") } });
     } finally {
       fetching = false;
@@ -199,5 +200,6 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
   return {
     position(p, on) { pos = p; playing = on; refresh(); },   // each position the engine reports, and the transport
     changed() { refresh(true); },                            // after a change on the page
+    redraw() { refresh(true); },                             // (the loop switch)
   };
 }
