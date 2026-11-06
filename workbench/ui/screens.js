@@ -45,12 +45,14 @@ export default {
 
   // 1-bit icons, 9 px wide, rows of "#" (lit) and "." (the main screen's): one per part, drawn in its color
   icons: {
-    song: [   // arrangement lanes: parts laid out over time (Sam, 2026-11-06; was a record)
-      "####.....",
-      ".........",
-      "..#####..",
-      ".........",
-      ".....####",
+    song: [   // a cassette (Sam, 2026-11-06; tried a record, then arrangement lanes)
+      "#########",
+      "#.......#",
+      "#.##.##.#",
+      "#.##.##.#",
+      "#.......#",
+      "##.###.##",
+      "#########",
     ],
     drums: [   // a drum from the side: its head on top (Sam)
       ".#######.",
