@@ -7,7 +7,7 @@
    heaviest seed may not carry the heaviest chain: the picked seed (and every seed with --forced) is also timed with
    its chain forced to the heaviest real one (dust 3, vinyl, rain), printed as `forced`: the upper bound.
    Each step sets the section moves (plan_moves) as the app's step() does. VNL_FXOFF=<VX_OFF_* mask> switches effects
-   off, to measure what each costs. VNL_SOLO=choir|flute|organ|strings plays the songs' solo note on that voice
+   off, to measure what each costs. VNL_LEVEL=<dB> sets every part's mixer level (vx_level_set). VNL_SOLO=choir|flute|organ|strings plays the songs' solo note on that voice
    (choir: the formant choir, INS_CHOIR; cost.md's "choir" rows before 2026-10-30 are the vox pad's, removed) and
    leaves the pad's chord part out (revision 2's solo sections). VNL_FX=ours puts our plate and chorus in place of
    Rings' (the default). VNL_RUNS=<n> takes the best of n runs everywhere (default: 3 for the songs and AMB-1, 7 for
@@ -84,6 +84,11 @@ static double run_vnl(uint32_t seed, int render, long *events, int force)
         roll.v[RF_AMBIENCE] = 1;
     }
     vx_fx_off(getenv("VNL_FXOFF") ? (unsigned)atoi(getenv("VNL_FXOFF")) : 0u);
+    if (getenv("VNL_LEVEL")) { /* every part at that many dB (the mixer: off 0 dB, the filtered mix path) */
+        int p;
+        for (p = 0; p < VX_PART_N; p++)
+            vx_level_set(p, atoi(getenv("VNL_LEVEL")));
+    }
     rings_switch();
     vx_init();
     song_start(&s, &roll);
