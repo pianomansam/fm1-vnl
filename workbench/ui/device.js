@@ -128,6 +128,8 @@ const holds = (when, bag) => [].concat(when ?? []).every((w) => (w[0] === "!" ? 
 // The values a screen's templates read, from what the screen shows (Device.shown(): app.c's snap_t, as the UI holds
 // it). app.c's line_pending is `pending`
 const MENU_MAX = 10;
+// a field's value as a share of its range (0..1): a knob's fill bar
+const fracOf = (def, v) => def.wrap ? v / (def.wrap - 1) : (v - (def.min ?? 0)) / ((def.max ?? 100) - (def.min ?? 0));
 export function valuesOf(s, data) {
   const r = s.roll ?? {}, f = data.fields, song = !!s.hasSong;
   const bag = {
@@ -137,6 +139,8 @@ export function valuesOf(s, data) {
     chord: s.chord ?? "", pending: "",
   };
   for (const [k, def] of Object.entries(f)) bag[k] = r[k] === undefined ? "" : valueText(def, r[k], r.mode ?? 0);
+  for (const [k, def] of Object.entries(f)) bag[`${k}Frac`] = r[k] === undefined ? 0 : fracOf(def, r[k]);
+  bag.progress = song && r.bars ? Math.min(1, ((s.bar ?? 0) + 1) / r.bars) : 0;
   if (song && s.pend) {
     const def = f[s.pend.field];
     bag.pending = `${def?.name ?? "CHANGE"}${s.pend.val !== undefined ? ` ${valueText(def, s.pend.val, r.mode ?? 0)}` : ""}` +
@@ -156,12 +160,21 @@ export function drawScreen(lcd, screen, bag, data, C = colors()) {
     for (const it of band.draw) {
       if (!holds(it.when, bag)) continue;
       if (it.rect) lcd.rect(...it.rect, C[it.color]);
+      else if (it.meter) {   // a bar filled to a value's share (0..1): { meter: [x, y, w, h], value, color, back }
+        const [x, y, w, h] = it.meter, v = Math.max(0, Math.min(1, Number(bag[it.value]) || 0));
+        if (it.back) lcd.rect(x, y, w, h, C[it.back]);
+        lcd.rect(x, y, Math.round(w * v), h, C[it.color]);
+      }
       else if (it.knobs) {
         const k = it.knobs;
         (screen.knobs ?? []).forEach((kn, i) => {
           const x = k.x + i * k.dx;
           lcd.text(x, k.label.y, font(k.label.font), kn.label ?? data.fields[kn.field].name, C[k.label.color]);
           if (holds(k.value.when, bag)) lcd.text(x, k.value.y, font(k.value.font), String(bag[kn.field] ?? ""), C[k.value.color]);
+          if (k.bar && holds(k.value.when, bag)) {   // { y, w, h, color, back }: the knob's place in its range
+            lcd.rect(x, k.bar.y, k.bar.w, k.bar.h, C[k.bar.back]);
+            lcd.rect(x, k.bar.y, Math.round(k.bar.w * Math.max(0, Math.min(1, bag[`${kn.field}Frac`] ?? 0))), k.bar.h, C[k.bar.color]);
+          }
         });
       } else {
         const f = font(it.font), s = fill(it.text, bag);
@@ -207,7 +220,7 @@ export function problems(data) {
   const out = [], C = colors(), ids = Object.keys(data.screens ?? {});
   if (!data.screens?.[data.home]) out.push(`home "${data.home}" is not a screen`);
   const known = new Set(["APP", "song", "stopped", "idle", "msg", "msg0", "msg1", "map", "section", "bar", "bars", "chord",
-                         "pending", "rhythm", ...ROWS.map((r) => r.id), ...Array.from({ length: MENU_MAX }, (_, i) => `sel${i}`),
+                         "pending", "rhythm", "progress", ...Object.keys(data.fields ?? {}).map((k) => `${k}Frac`), ...ROWS.map((r) => r.id), ...Array.from({ length: MENU_MAX }, (_, i) => `sel${i}`),
                          ...Object.keys(data.fields ?? {}), ...Object.keys(data.lines ?? {})]);
   const tpl = (where, t) => { for (const [, k] of String(t).matchAll(/\{(\w+)\}/g)) if (!known.has(k)) out.push(`${where}: no value {${k}}`); };
   const cond = (where, w) => { for (const x of [].concat(w ?? [])) if (!known.has(x.replace(/^!/, ""))) out.push(`${where}: no value "${x}"`); };
@@ -233,7 +246,9 @@ export function problems(data) {
         cond(w, it.when);
         const faces = it.knobs ? [it.knobs.label.font, it.knobs.value.font] : it.text !== undefined ? [it.font] : [];
         for (const f of faces) if (!FONTS[f]) out.push(`${w}: no font ${f}`);
-        for (const c of it.knobs ? [it.knobs.label.color, it.knobs.value.color] : [it.color])
+        if (it.meter) cond(w, it.value);
+        for (const c of it.knobs ? [it.knobs.label.color, it.knobs.value.color, ...(it.knobs.bar ? [it.knobs.bar.color, it.knobs.bar.back] : [])]
+                        : [it.color, ...(it.back ? [it.back] : [])])
           if (!(c in C)) out.push(`${w}: no color ${c}`);
         if (it.text !== undefined) tpl(w, it.text);
         if (it.knobs) cond(w, it.knobs.value.when);

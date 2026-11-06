@@ -217,6 +217,65 @@ export default {
       say: [{ when: "song", text: "CHORD {chord}. {place}" }, { when: "!song", text: "{idle}" }],
     },
 
+    // B2: B with the FM-1 conventions applied (docs/research/fm1-screens-2026-11-06.md): a thin status bar (where the
+    // song is, tempo top right), the song as the hero (the chord, the key, a progress bar through the song, a pill
+    // for a change on its way), six part tiles, and the 4-knob strip back at the bottom with fill bars (8 of the top
+    // 10 firmwares keep one). ALGO picks the part (the convention: ALGO = track), EDIT opens it.
+    mockB2: {
+      title: "Mockup B2: tiles, FM-1 conventions",
+      menu: ["pSong", "pDrums", "pBass", "pComp", "pPad", "pLead", "pTexture"],
+      bands: [
+        { y: 0, h: 16, draw: [
+          { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
+          { when: "!song", text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
+          { when: "song", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
+        ] },
+        { y: 18, h: 46, draw: [
+          { when: "sel0", rect: [2, 0, 236, 46], color: "LINE" },
+          { when: "song", text: "{chord}", font: "B", x: 8, y: 2, color: "WHITE" },
+          { when: "song", text: "{key} {mode}", font: "XS", right: 232, y: 2, color: "HI" },
+          { when: ["song", "!pending"], text: "{map}", font: "T", x: 8, y: 24, color: "GRAY" },
+          { when: "pending", rect: [6, 21, 228, 15], color: "DIM" },
+          { when: "pending", text: "{pending}", font: "T", x: 10, y: 23, color: "BLACK" },
+          { when: "!song", text: "{idle}", font: "B", x: 8, y: 2, color: "GRAY" },
+          { meter: [8, 40, 224, 3], value: "progress", color: "AMB", back: "LINE" },
+        ] },
+        { y: 66, h: 144, draw: [
+          { when: "sel1", rect: [2, 0, 116, 46], color: "LINE" },
+          { text: "DRUMS", font: "T", x: 8, y: 3, color: "GRAY" },
+          { text: "{kit}", font: "XS", x: 8, y: 15, color: "WHITE" },
+          { text: "{pattern}", font: "T", x: 8, y: 32, color: "GRAY" },
+          { when: "sel2", rect: [122, 0, 116, 46], color: "LINE" },
+          { text: "BASS", font: "T", x: 128, y: 3, color: "GRAY" },
+          { text: "{bass}", font: "XS", x: 128, y: 15, color: "WHITE" },
+          { when: "sel3", rect: [2, 48, 116, 46], color: "LINE" },
+          { text: "COMP", font: "T", x: 8, y: 51, color: "GRAY" },
+          { text: "{keys}", font: "XS", x: 8, y: 63, color: "WHITE" },
+          { text: "{rhythm}", font: "T", x: 8, y: 80, color: "GRAY" },
+          { when: "sel4", rect: [122, 48, 116, 46], color: "LINE" },
+          { text: "PAD", font: "T", x: 128, y: 51, color: "GRAY" },
+          { text: "{pad}", font: "XS", x: 128, y: 63, color: "WHITE" },
+          { when: "sel5", rect: [2, 96, 116, 46], color: "LINE" },
+          { text: "LEAD", font: "T", x: 8, y: 99, color: "GRAY" },
+          { text: "{lead}", font: "XS", x: 8, y: 111, color: "WHITE" },
+          { text: "{leadStyle}", font: "T", x: 8, y: 128, color: "GRAY" },
+          { when: "sel6", rect: [122, 96, 116, 46], color: "LINE" },
+          { text: "TEXTURE", font: "T", x: 128, y: 99, color: "GRAY" },
+          { text: "DUST {dust}", font: "XS", x: 128, y: 111, color: "WHITE" },
+          { text: "NOISE {noise}  ROOM {ambience}", font: "T", x: 128, y: 128, color: "GRAY" },
+        ] },
+        { y: 212, h: 28, draw: [
+          { knobs: { x: 8, dx: 58, label: { y: 0, font: "T", color: "GRAY" },
+                     value: { y: 11, font: "XS", color: "HI", when: "song" },
+                     bar: { y: 26, w: 50, h: 2, color: "AMB", back: "LINE" } } },
+        ] },
+      ],
+      knobs: [{ field: "key", step: 1 }, { field: "tempo", step: 1 }, { field: "motion", step: 5 }, { field: "mood", step: 1 }],
+      controls: { ALGO: { do: "cursor" }, EDIT: { go: "cursor" } },
+      say: [{ when: "song", text: "CHORD {chord}. {section}, BAR {bar} OF {bars}" }, { when: "!song", text: "{idle}" },
+            { when: "pending", text: ". {pending}" }],
+    },
+
     // C: now playing. The song is the screen (a big chord, where it is, what's waiting); the rolls in small type
     // underneath, read only; EDIT opens a parts list to pick from (two steps to a part, a calmer main screen).
     mockC: {
