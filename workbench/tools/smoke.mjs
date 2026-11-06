@@ -3187,6 +3187,17 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
     dv.update({ ...live(5), levels: { ...store } });
     check(store.keys === -5 && dv.values().levels.keys === -5, `the Mixer: the comp at ${store.keys} dB, still ${dv.values().levels.keys} two bars on`);
   }
+  {   // turning a change back to what plays undoes it: no mark, no IN n BARS; one already sent is set back
+    const sets2 = [], du = new D.Device(data, { set: (r, v) => sets2.push([r, v]), play() {} }, () => t);
+    du.update(live(2));
+    du.press("K2", 2); du.press("K2", -2);
+    const a = du.values();
+    du.update(live(4)); du.press("K2", 1);   // sent at once (the bar before the boundary)
+    du.press("K2", -1);
+    const b = du.values();
+    check(a.pending === "" && a.tempo === "80" && !a.tempoPend && b.pending === "" && JSON.stringify(sets2) === '[["tempo",81],["tempo",80]]',
+          `K2 +2 then -2: "${a.pending}" ${a.tempo}; sent then undone: ${JSON.stringify(sets2)}`);
+  }
   {   // a new song, rolled or the next one, goes back to the main screen
     dev.press("ALGO", 1); dev.press("EDIT");
     const inPart = dev.id;

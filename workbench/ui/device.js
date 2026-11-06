@@ -638,7 +638,14 @@ export class Device {
       this.say(def.name, fieldText(def, v, l.roll.mode ?? 0, l.rows));
       return;
     }
-    if (v !== from) {
+    // what the song plays now (not a change staged in the workbench): turning back to it undoes the change (Sam,
+    // 2026-11-06): no mark, no "IN n BARS"; one already sent to the engine is set back
+    const playing = l.roll?.[f] !== undefined ? l.roll[f] : l.rows?.live?.[def.row] ?? l.rows?.values?.[def.row];
+    if (v !== from && String(v) === String(playing)) {
+      const was = this.req[f];
+      delete this.req[f];
+      if (was?.sent) this.engine.set(def.row, v);
+    } else if (v !== from) {
       const at = (Math.floor(bar / 4) + 1) * 4;
       if (at < l.bars) {
         this.req[f] = { val: v, at, sent: false };
