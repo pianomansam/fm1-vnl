@@ -173,6 +173,8 @@ export function valuesOf(s, data) {
     bag[`${k}Frac`] = fieldFrac(def, v, s.rows);
   }
   bag.page = s.page ?? "";
+  bag.ready = r.key !== undefined && !!s.stopped;   // stopped with a song ready (its key and tempo are known)
+  bag.known = song || bag.ready;                     // a song playing or ready: its values can show
   // the song's map (wb_sections, heard): each section's name and length, the one playing; looping (the workbench's
   // Loop section)
   const secs = s.sections ?? [], bar1 = (s.bar ?? 0) + 1;
@@ -323,7 +325,7 @@ export function problems(data) {
   if (!data.screens?.[data.home]) out.push(`home "${data.home}" is not a screen`);
   for (const p of data.parts ?? []) if (!data.screens?.[p]) out.push(`parts: no screen "${p}"`);
   const known = new Set(["APP", "song", "stopped", "idle", "msg", "msg0", "msg1", "map", "section", "bar", "bars", "chord",
-                         "pending", "rhythm", "progress", "page", "secCount", "looping", ...Array.from({ length: MENU_MAX }, (_, i) => [`sec${i}`, `sec${i}Bars`, `sec${i}Now`, `sec${i}Pend`]).flat(), ...Object.keys(data.fields ?? {}).flatMap((k) => [`${k}First`, `${k}Last`]), ...Object.keys(data.fields ?? {}).map((k) => `${k}Pend`), ...ROWS.map((r) => `${r.id}Pend`), ...Object.keys(data.fields ?? {}).map((k) => `${k}Frac`), ...ROWS.map((r) => r.id), ...Array.from({ length: MENU_MAX }, (_, i) => `sel${i}`),
+                         "pending", "rhythm", "progress", "page", "ready", "known", "secCount", "looping", ...Array.from({ length: MENU_MAX }, (_, i) => [`sec${i}`, `sec${i}Bars`, `sec${i}Now`, `sec${i}Pend`]).flat(), ...Object.keys(data.fields ?? {}).flatMap((k) => [`${k}First`, `${k}Last`]), ...Object.keys(data.fields ?? {}).map((k) => `${k}Pend`), ...ROWS.map((r) => `${r.id}Pend`), ...Object.keys(data.fields ?? {}).map((k) => `${k}Frac`), ...ROWS.map((r) => r.id), ...Array.from({ length: MENU_MAX }, (_, i) => `sel${i}`),
                          ...Object.keys(data.fields ?? {}), ...Object.keys(data.lines ?? {})]);
   const tpl = (where, t) => { for (const [, k] of String(t).matchAll(/\{(\w+)\}/g)) if (!known.has(k)) out.push(`${where}: no value {${k}}`); };
   const cond = (where, w) => { for (const x of [].concat(w ?? [])) if (!known.has(x.replace(/^!/, ""))) out.push(`${where}: no value "${x}"`); };

@@ -181,7 +181,7 @@ export default {
           { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
           { when: ["song", "looping"], text: "LOOP", font: "T", after: 8, y: 2, color: "HI" },
           { when: "!song", text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
-          { when: "song", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
+          { when: "known", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
         ] },
         { y: 18, h: 46, draw: [
           { when: "sel0", rect: [2, 0, 236, 46], color: "LINE" },
@@ -192,7 +192,10 @@ export default {
           { when: ["song", "!pending"], text: "{map}", font: "T", x: 21, y: 24, color: "GRAY" },
           { when: "pending", rect: [6, 21, 228, 15], color: "DIM" },
           { when: "pending", text: "{pending}", font: "T", x: 10, y: 23, color: "BLACK" },
-          { when: "!song", text: "{idle}", font: "B", x: 8, y: 2, color: "GRAY" },
+          // stopped with a song ready: its key (Sam, 2026-11-06), STOPPED only once (the status bar's)
+          { when: "ready", text: "{key} {mode}", font: "B", x: 8, y: 2, color: "WHITE" },
+          { when: "ready", icon: "song", x: 8, y: 26, color: "SONG" },
+          { when: "ready", text: "{map}", font: "T", x: 21, y: 24, color: "GRAY" },
           { sections: [8, 40, 224, 3], color: "AMB", back: "LINE", past: "DIM" },   // the song's map, a segment a section
         ] },
         { y: 66, h: 144, draw: [
@@ -233,7 +236,7 @@ export default {
         ] },
         { y: 212, h: 28, draw: [
           { knobs: { x: 8, dx: 58, label: { y: 0, font: "T", color: "GRAY" },
-                     value: { y: 11, font: "XS", color: "HI", when: "song" },
+                     value: { y: 11, font: "XS", color: "HI", when: "known" },
                      bar: { y: 26, w: 50, h: 2, color: "AMB", back: "LINE" } } },
         ] },
       ],
@@ -241,6 +244,7 @@ export default {
       // ALGO picks the part (the convention); SELECT too, the main screen having no pages (Sam, 2026-11-06)
       controls: { ALGO: { do: "cursor" }, SELECT: { do: "cursor" }, EDIT: { go: "cursor" }, SEL: { go: "sections" } },
       say: [{ when: "song", text: "CHORD {chord}. {section}, BAR {bar} OF {bars}" }, { when: "!song", text: "{idle}" },
+            { when: "ready", text: ". {key} {mode}, {tempo} BPM" },
             { when: "pending", text: ". {pending}" }],
     },
 
@@ -255,7 +259,7 @@ export default {
           { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
           { when: ["song", "looping"], text: "LOOP", font: "T", after: 8, y: 2, color: "HI" },
           { when: "!song", text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
-          { when: "song", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
+          { when: "known", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
         ] },
         { y: 18, h: 36, draw: [
           { rect: [2, 0, 2, 26], color: "SONG" },
@@ -367,7 +371,7 @@ export default {
         { y: 0, h: 16, draw: [
           { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
           { when: "!song", text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
-          { when: "song", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
+          { when: "known", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
         ] },
         { y: 18, h: 28, draw: [
           { rect: [2, 0, 2, 26], color: "SONG" },
@@ -410,7 +414,7 @@ export default {
         { y: 0, h: 16, draw: [
           { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
           { when: "!song", text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
-          { when: "song", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
+          { when: "known", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
         ] },
         { y: 18, h: 28, draw: [
           { rect: [2, 0, 2, 26], color: "SONG" },
@@ -453,7 +457,7 @@ export default {
         { y: 0, h: 16, draw: [
           { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
           { when: "!song", text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
-          { when: "song", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
+          { when: "known", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
         ] },
         { y: 18, h: 28, draw: [
           { rect: [2, 0, 2, 26], color: "DRUMS" },
@@ -497,7 +501,7 @@ export default {
         { y: 0, h: 16, draw: [
           { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
           { when: "!song", text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
-          { when: "song", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
+          { when: "known", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
         ] },
         { y: 18, h: 28, draw: [
           { rect: [2, 0, 2, 26], color: "DRUMS" },
@@ -532,7 +536,7 @@ export default {
         { y: 0, h: 16, draw: [
           { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
           { when: "!song", text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
-          { when: "song", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
+          { when: "known", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
         ] },
         { y: 18, h: 28, draw: [
           { rect: [2, 0, 2, 26], color: "BASS" },
@@ -574,7 +578,7 @@ export default {
         { y: 0, h: 16, draw: [
           { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
           { when: "!song", text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
-          { when: "song", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
+          { when: "known", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
         ] },
         { y: 18, h: 28, draw: [
           { rect: [2, 0, 2, 26], color: "COMP" },
@@ -619,7 +623,7 @@ export default {
         { y: 0, h: 16, draw: [
           { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
           { when: "!song", text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
-          { when: "song", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
+          { when: "known", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
         ] },
         { y: 18, h: 28, draw: [
           { rect: [2, 0, 2, 26], color: "COMP" },
@@ -658,7 +662,7 @@ export default {
         { y: 0, h: 16, draw: [
           { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
           { when: "!song", text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
-          { when: "song", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
+          { when: "known", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
         ] },
         { y: 18, h: 28, draw: [
           { rect: [2, 0, 2, 26], color: "PAD" },
@@ -702,7 +706,7 @@ export default {
         { y: 0, h: 16, draw: [
           { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
           { when: "!song", text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
-          { when: "song", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
+          { when: "known", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
         ] },
         { y: 18, h: 28, draw: [
           { rect: [2, 0, 2, 26], color: "LEAD" },
@@ -747,7 +751,7 @@ export default {
         { y: 0, h: 16, draw: [
           { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
           { when: "!song", text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
-          { when: "song", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
+          { when: "known", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
         ] },
         { y: 18, h: 28, draw: [
           { rect: [2, 0, 2, 26], color: "LEAD" },
@@ -783,7 +787,7 @@ export default {
         { y: 0, h: 16, draw: [
           { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
           { when: "!song", text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
-          { when: "song", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
+          { when: "known", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
         ] },
         { y: 18, h: 28, draw: [
           { rect: [2, 0, 2, 26], color: "TEXTURE" },
