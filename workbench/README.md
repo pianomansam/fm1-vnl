@@ -123,9 +123,9 @@ AudioWorklet. Local only; not the FM-1, so it may exceed the device's budgets.
     --host`) and in the mock, in six states for two seeds, and compares them pixel for pixel (tests/run_tests.sh).
   - The real FM-1 as the mock's controls (`ui/usb.js`, app.c's "browser's remote"; Chrome or Edge: Safari has no Web
     MIDI): "Connect FM-1" asks for MIDI with SysEx, finds the ports named "VNL-1 FM-1" and takes the FM-1's buttons,
-    encoders and knobs; the mock acts on them as on its own (a button as it goes down). Meanwhile the FM-1 stops its
-    song, stays silent and shows BROWSER / CONTROLLING THE WORKBENCH; it acts on nothing itself. "Disconnect FM-1",
-    closing the tab or unplugging gives it back (stopped, ready for PLAY). The protocol, SysEx prefix F0 7D 56 4E
+    keys, encoders and knobs; the mock acts on them as on its own (a button or key as it goes down). Meanwhile the
+    FM-1 stops its song, stays silent and shows BROWSER / CONTROLLING THE WORKBENCH; it acts on nothing itself.
+    "Disconnect FM-1", closing the tab or unplugging gives it back (stopped, the song held: PLAY continues it). The protocol, SysEx prefix F0 7D 56 4E
     ("VN", apart from base's remote 7D 4C 43, log 7D 4C 47, WiFi 7D 4C 57, the screen reader 7D 53 52 and the
     update's framing that the updater and the mirror use), one message an event:
     - browser to FM-1: `F0 7D 56 4E 01 F7` remote on, re-sent each second as the keepalive (the FM-1 lets go after
@@ -133,8 +133,9 @@ AudioWorklet. Local only; not the FM-1, so it may exceed the device's budgets.
     - FM-1 to browser: `F0 7D 56 4E 11 ss 01 F7` the state (ss 1 on: the answer to each remote on; 0 off; 01 the
       protocol); `F0 7D 56 4E 20 bb ss F7` button bb (plat.h's `B_*`: FX 0 ... OCT+ 13) down (1) or up (0);
       `F0 7D 56 4E 21 ee dd F7` encoder ee (0 SELECT, 1 ALGO, 2 PRESET, 3-6 K1-K4) turned dd detents (7-bit two's
-      complement, -64..63; + clockwise; a fast turn's detents add up, sent as the MIDI out ring has room). The keys
-      are not sent (the mock has none).
+      complement, -64..63; + clockwise; a fast turn's detents add up, sent as the MIDI out ring has room);
+      `F0 7D 56 4E 22 kk ss F7` key kk (0..26, plat.h's: 0 = F3) down (1) or up (0): the mock acts on KEYkk as it
+      goes down (its song map's sections), the up ignored. The FM-1 acts on none of them itself.
 
 The smoke test is the evidence that the engine renders and lands changes; whether it sounds right needs a listen in
 Chrome or Safari.

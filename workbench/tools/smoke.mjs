@@ -3175,6 +3175,11 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
   check(JSON.stringify(U.decode([0xf0, 0x7d, 0x56, 0x4e, 0x21, 0x06, 0x40, 0xf7])) === '{"control":"K4","detents":-64}' &&
         JSON.stringify(U.decode([0xf0, 0x7d, 0x56, 0x4e, 0x20, 0x0d, 0x01, 0xf7])) === '{"control":"OCT+","down":true}' &&
         U.decode([0xf0, 0x7d, 0x56, 0x4e, 0x20, 0x0e, 0x01, 0xf7]) === null, "decode: K4 -64, OCT+ down, no 15th button");
+  // a key: KEY7 down reaches the mock, its up doesn't; no 28th key
+  acts.length = 0;
+  for (const m of ["F07D564E220701F7", "F07D564E220700F7", "F07D564E221B01F7"]) from(m);
+  check(acts.join() === "KEY7 1" && JSON.stringify(U.decode([0xf0, 0x7d, 0x56, 0x4e, 0x22, 0x1a, 0x00, 0xf7])) === '{"control":"KEY26","down":false}',
+        `the FM-1's keys: KEY7 down acts, its up doesn't, no 28th key (${acts.join(", ")})`);
   // the keepalive: "remote on" each second; no answer for over 3.5 s, back to waiting
   sent.length = 0;
   for (let i = 0; i < 3; i++) { t += 1000; tick(); from("F07D564E110101F7"); }

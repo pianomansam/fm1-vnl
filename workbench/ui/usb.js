@@ -6,6 +6,7 @@
 //   FM-1 -> browser   11 ss 01   the state (ss 1 on, the answer to each 01; 0 off)
 //                     20 bb ss   button bb (plat.h's B_*) down (1) or up (0)
 //                     21 ee dd   encoder ee (SELECT ALGO PRESET K1..K4) turned dd detents (7-bit two's complement)
+//                     22 kk ss   key kk (0..26, plat.h's: 0 = F3) down (1) or up (0): the mock's KEY0..KEY26
 // The FM-1 lets go after 3 s without a 01 (a closed tab, the cable out) or at "remote off".
 import { BUTTONS, ENCODERS, KNOBS } from "./device.js";
 
@@ -16,14 +17,17 @@ export const PREFIX = [0xf0, 0x7d, 0x56, 0x4e];
 export const ON = [...PREFIX, 0x01, 0xf7], OFF = [...PREFIX, 0x02, 0xf7];
 const ENC = [...ENCODERS, ...KNOBS];       // plat.h's EN_* order
 export const KEEPALIVE_MS = 1000, SILENT_MS = 3500;
+const NKEYS = 27;                          // plat.h's keys, F3..G5
 
-// a message from the FM-1: { ack: on } | { control, down } (a button) | { control, detents } (an encoder) | null
+// a message from the FM-1: { ack: on } | { control, down } (a button or a key) | { control, detents } (an encoder) |
+// null
 export function decode(d) {
   if (d.length !== 8 || PREFIX.some((b, i) => d[i] !== b) || d[7] !== 0xf7) return null;
   const [op, a, b] = [d[4], d[5], d[6]];
   if (op === 0x11) return { ack: a === 1 };
   if (op === 0x20 && BUTTONS[a]) return { control: BUTTONS[a], down: b === 1 };
   if (op === 0x21 && ENC[a]) return { control: ENC[a], detents: b >= 64 ? b - 128 : b };
+  if (op === 0x22 && a < NKEYS) return { control: `KEY${a}`, down: b === 1 };
   return null;
 }
 
@@ -50,7 +54,7 @@ export async function connect({ act, onState = () => {}, request, timers = globa
     if ("ack" in m) {
       if (m.ack) { heard = now(); set("connected"); } else if (!closed) set("waiting");
     } else if (m.detents) act(m.control, m.detents);
-    else if (m.down) act(m.control, 1);   // a button acts as it goes down
+    else if (m.down) act(m.control, 1);   // a button or key acts as it goes down (a key's up: nothing)
   };
   const find = (ports) => [...ports.values()].find((p) => p.name?.includes(PORT_NAME) && p.state !== "disconnected") ?? null;
   const bind = () => {

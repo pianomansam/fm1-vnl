@@ -34,6 +34,12 @@ tap SEQ
 wait 100
 remote_sent F07D564E200901F7 F07D564E200900F7
 unsaid NEW SONG
+# a key: sent down and up, not played
+tapkey 7
+wait 100
+remote_sent F07D564E220701F7 F07D564E220700F7
+expect voices 0
+expect playing 0
 expect playing 0
 expect remote 1
 # a fast spin adds up: never more than 63 a message, every detent sent

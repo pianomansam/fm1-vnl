@@ -569,14 +569,16 @@ static struct {
 #define RM_PFX0 0x7Du
 #define RM_PFX1 0x56u
 #define RM_PFX2 0x4Eu
-enum { RM_ON = 0x01, RM_OFF = 0x02, RM_STATE = 0x11, RM_BTN = 0x20, RM_ENC = 0x21 };
+enum { RM_ON = 0x01, RM_OFF = 0x02, RM_STATE = 0x11, RM_BTN = 0x20, RM_ENC = 0x21, RM_KEY = 0x22 };
 #define RM_TIMEOUT 3000u
-#define RM_BQ 16u
+#define RM_BQ 32u
+#define RM_KEY0 0x20u                    /* a key's edge in the queue: RM_KEY0 + k (a button's: B_*, under it) */
 static struct {
     uint8_t on;
     uint32_t heard, link;                /* the last 01's time; the USB connection it came over */
-    uint8_t bq[RM_BQ];                   /* button edges to send: B_*, bit 7 down */
+    uint8_t bq[RM_BQ];                   /* button and key edges to send: B_* or RM_KEY0 + k, bit 7 down */
     uint32_t bq_w, bq_r;
+    uint32_t keys;                       /* the keys held at the last input */
     int16_t enc[NE];                     /* detents to send */
     uint8_t ack;                         /* a state message owed (1 + its ss) */
 } rm;
@@ -757,8 +759,9 @@ static void speak(void)
  *                     20 bb ss   button bb (plat.h's B_*) down (ss 1) or up (ss 0)
  *                     21 ee dd   encoder ee (EN_*: SELECT ALGO PRESET K1..K4) turned dd detents (7-bit two's
  *                                complement, -64..63; + clockwise)
- * While on, the song stops, the output is silent and the controls go to the browser only (the keys are left out:
- * the mock has none). It ends on 02, after 3 s without a 01, or at a new USB connection; the FM-1 stays stopped,
+ *                     22 kk ss   key kk (0..26, plat.h's: 0 = F3) down (ss 1) or up (ss 0)
+ * While on, the song stops, the output is silent and the controls go to the browser only, the keys too (neither acts
+ * here). It ends on 02, after 3 s without a 01, or at a new USB connection; the FM-1 stays stopped,
  * the song held: PLAY continues it. The messages go out on the MIDI ring when it has room (plat_midi_out_room, never
  * waiting): button edges wait in a small queue, an encoder's detents add up until they go. */
 #if defined(PLAT_HOST) && !defined(PLAT_WEB)
@@ -792,8 +795,8 @@ static void rm_flush(void)              /* what waits, while there is room */
     if (rm.ack && rm_send(RM_STATE, (uint8_t)(rm.ack - 1u), 1))
         rm.ack = 0;
     while (rm.bq_r != rm.bq_w) {
-        uint8_t v = rm.bq[rm.bq_r % RM_BQ];
-        if (!rm_send(RM_BTN, v & 0x7Fu, v >> 7))
+        uint8_t v = rm.bq[rm.bq_r % RM_BQ], c = v & 0x7Fu;
+        if (!(c >= RM_KEY0 ? rm_send(RM_KEY, (uint8_t)(c - RM_KEY0), v >> 7) : rm_send(RM_BTN, c, v >> 7)))
             return;
         rm.bq_r++;
     }
@@ -812,6 +815,7 @@ static void rm_enter(void)
     rm.on = 1;
     rm.link = plat_midi_out_link();
     rm.bq_r = rm.bq_w;
+    rm.keys = plat_keys();               /* keys held from before are not the browser's */
     for (e = 0; e < NE; e++) {
         plat_enc(e);                     /* turns from before are not the browser's */
         rm.enc[e] = 0;
@@ -848,11 +852,15 @@ int app_sysex(const uint8_t *p, uint32_t n)
 /* the controls to the browser, none acted on here; the remote let go when the browser is gone */
 static void rm_input(uint32_t btn)
 {
-    uint32_t ch = btn ^ ui.btn;
+    uint32_t ch = btn ^ ui.btn, keys = plat_keys(), kch = keys ^ rm.keys;
     int b, e;
     for (b = 0; b < NB; b++)
         if ((ch >> b & 1u) && rm.bq_w - rm.bq_r < RM_BQ)
             rm.bq[rm.bq_w++ % RM_BQ] = (uint8_t)(b | (btn >> b & 1u) << 7);
+    for (b = 0; b < NKEYS; b++)
+        if ((kch >> b & 1u) && rm.bq_w - rm.bq_r < RM_BQ)
+            rm.bq[rm.bq_w++ % RM_BQ] = (uint8_t)((RM_KEY0 + (uint32_t)b) | (keys >> b & 1u) << 7);
+    rm.keys = keys;
     for (e = 0; e < NE; e++) {
         int32_t d = plat_enc(e), v = rm.enc[e] + d;
         rm.enc[e] = (int16_t)(v > 999 ? 999 : v < -999 ? -999 : v);
