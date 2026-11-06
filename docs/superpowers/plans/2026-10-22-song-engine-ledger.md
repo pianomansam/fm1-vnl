@@ -313,6 +313,12 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   sometimes drop in breaks, dominants without the 7th) gets an on/off (and, where it has one, its number) in an
   Advanced area of the device and browser UI, defaults as today. To do first: an inventory of the rules (from the
   ledger and the rule docs), which ones make sense to expose, and how they're saved with a song.
+- **Transport: no autoplay, stop/play continues, a button to reroll (Sam, 2026-11-06: queued, not started).** The
+  firmware boots stopped (a song ready, silent until PLAY). PLAY after a stop continues the same song, from the start
+  of the bar it stopped in, instead of rolling a new one. A separate button (TBD; provisionally SEQ, one constant)
+  rolls a new song: playing, it starts with the usual between-songs gap; stopped, it waits for PLAY. The song's end
+  still moves on to a new song. The screen reader says "NEW SONG". To settle: pending knob requests across a stop,
+  and the button (try it in the workbench mock first).
 - **From other FM-1 firmwares (Sam, 2026-11-05: on the short list, not started).** Evaluated setBfree-fm1
   (github.com/R-Jeb/setBfree-fm1), Cut-A-Dor (github.com/kidbee85-beep/cut-a-dor-release) and the B1 Drawbar Organ
   (github.com/SikkenWorks/B1-Drawbar-Organ). License per item: GPL-2.0-or-later code may be copied (credit it);
