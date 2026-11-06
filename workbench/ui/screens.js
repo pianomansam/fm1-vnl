@@ -119,5 +119,265 @@ export default {
       },
       say: ["EDIT, PLACEHOLDER. TEMPO {tempo}", { when: "pending", text: ". {pending}" }, ". HOME RETURNS"],
     },
+
+    // ---- MOCKUPS (2026-11-06, to react to; not designs yet): three main screens that show the song and its rolls
+    // and lead into each part. Click a card's title in the flow view to jump to one. SELECT moves the highlight,
+    // EDIT opens the highlighted part (A, B); C's EDIT opens a parts list.
+
+    // A: a parts list. The chord and where the song is up top; one line per part (what was rolled); SELECT moves
+    // the highlight, EDIT opens that part. The knobs shrink to one dim line.
+    mockA: {
+      title: "Mockup A: parts list",
+      menu: ["pSong", "pDrums", "pBass", "pComp", "pPad", "pLead", "pTexture"],
+      bands: [
+        { y: 0, h: 44, draw: [
+          { when: "song", text: "{chord}", font: "B", x: 10, y: 4, color: "WHITE" },
+          { when: "song", text: "{tempo} BPM", font: "XS", right: 230, y: 6, color: "HI" },
+          { when: "song", text: "{place}", font: "XS", x: 10, y: 24, color: "GRAY" },
+          { when: "!song", text: "{idle}", font: "B", x: 10, y: 4, color: "GRAY" },
+        ] },
+        { y: 46, h: 126, draw: [
+          { when: "sel0", rect: [4, 0, 232, 20], color: "LINE" },
+          { text: "SONG", font: "T", x: 10, y: 4, color: "GRAY" },
+          { text: "{key} {mode}  {mood}  MOTION {motion}", font: "XS", x: 64, y: 2, color: "WHITE" },
+          { when: "sel1", rect: [4, 21, 232, 20], color: "LINE" },
+          { text: "DRUMS", font: "T", x: 10, y: 25, color: "GRAY" },
+          { text: "{kit} / {pattern}", font: "XS", x: 64, y: 23, color: "WHITE" },
+          { when: "sel2", rect: [4, 42, 232, 20], color: "LINE" },
+          { text: "BASS", font: "T", x: 10, y: 46, color: "GRAY" },
+          { text: "{bass}", font: "XS", x: 64, y: 44, color: "WHITE" },
+          { when: "sel3", rect: [4, 63, 232, 20], color: "LINE" },
+          { text: "COMP", font: "T", x: 10, y: 67, color: "GRAY" },
+          { text: "{keys} / {rhythm}", font: "XS", x: 64, y: 65, color: "WHITE" },
+          { when: "sel4", rect: [4, 84, 232, 20], color: "LINE" },
+          { text: "PAD", font: "T", x: 10, y: 88, color: "GRAY" },
+          { text: "{pad}", font: "XS", x: 64, y: 86, color: "WHITE" },
+          { when: "sel5", rect: [4, 105, 232, 20], color: "LINE" },
+          { text: "LEAD", font: "T", x: 10, y: 109, color: "GRAY" },
+          { text: "{lead} / {leadStyle}", font: "XS", x: 64, y: 107, color: "WHITE" },
+        ] },
+        { y: 172, h: 22, draw: [
+          { when: "sel6", rect: [4, 0, 232, 20], color: "LINE" },
+          { text: "TEXTURE", font: "T", x: 10, y: 4, color: "GRAY" },
+          { text: "DUST {dust}  NOISE {noise}  ROOM {ambience}", font: "XS", x: 64, y: 2, color: "WHITE" },
+        ] },
+        { y: 200, h: 40, draw: [
+          { when: "pending", text: "{pending}", font: "XS", x: 10, y: 2, color: "HI" },
+          { text: "K1 KEY  K2 TEMPO  K3 MOTION  K4 MOOD", font: "T", x: 10, y: 22, color: "DIM" },
+        ] },
+      ],
+      knobs: [{ field: "key", step: 1 }, { field: "tempo", step: 1 }, { field: "motion", step: 5 }, { field: "mood", step: 1 }],
+      controls: { SELECT: { do: "cursor" }, EDIT: { go: "cursor" } },
+      say: [{ when: "song", text: "CHORD {chord}. {place}" }, { when: "!song", text: "{idle}" }],
+    },
+
+    // B: tiles. The song across the top; six part tiles (two columns), each its instrument and its rhythm or style;
+    // SELECT moves the highlight over them, EDIT opens one. No knob strip at all.
+    mockB: {
+      title: "Mockup B: tiles",
+      menu: ["pSong", "pDrums", "pBass", "pComp", "pPad", "pLead", "pTexture"],
+      bands: [
+        { y: 0, h: 60, draw: [
+          { when: "sel0", rect: [0, 0, 240, 58], color: "LINE" },
+          { when: "song", text: "{chord}", font: "B", x: 10, y: 8, color: "WHITE" },   // (M and L have no lower case: "maj")
+          { when: "song", text: "{key} {mode}", font: "XS", right: 230, y: 4, color: "HI" },
+          { when: "song", text: "{tempo} BPM  {mood}", font: "XS", right: 230, y: 20, color: "HI" },
+          { when: "song", text: "{place}", font: "XS", x: 10, y: 38, color: "GRAY" },
+          { when: "!song", text: "{idle}", font: "M", x: 10, y: 2, color: "GRAY" },
+        ] },
+        { y: 62, h: 116, draw: [
+          { when: "sel1", rect: [2, 0, 116, 56], color: "LINE" },
+          { text: "DRUMS", font: "T", x: 8, y: 4, color: "GRAY" },
+          { text: "{kit}", font: "XS", x: 8, y: 18, color: "WHITE" },
+          { text: "{pattern}", font: "T", x: 8, y: 38, color: "GRAY" },
+          { when: "sel2", rect: [122, 0, 116, 56], color: "LINE" },
+          { text: "BASS", font: "T", x: 128, y: 4, color: "GRAY" },
+          { text: "{bass}", font: "XS", x: 128, y: 18, color: "WHITE" },
+          { when: "sel3", rect: [2, 58, 116, 56], color: "LINE" },
+          { text: "COMP", font: "T", x: 8, y: 62, color: "GRAY" },
+          { text: "{keys}", font: "XS", x: 8, y: 76, color: "WHITE" },
+          { text: "{rhythm}", font: "T", x: 8, y: 96, color: "GRAY" },
+          { when: "sel4", rect: [122, 58, 116, 56], color: "LINE" },
+          { text: "PAD", font: "T", x: 128, y: 62, color: "GRAY" },
+          { text: "{pad}", font: "XS", x: 128, y: 76, color: "WHITE" },
+        ] },
+        { y: 180, h: 58, draw: [
+          { when: "sel5", rect: [2, 0, 116, 56], color: "LINE" },
+          { text: "LEAD", font: "T", x: 8, y: 4, color: "GRAY" },
+          { text: "{lead}", font: "XS", x: 8, y: 18, color: "WHITE" },
+          { text: "{leadStyle}", font: "T", x: 8, y: 38, color: "GRAY" },
+          { when: "sel6", rect: [122, 0, 116, 56], color: "LINE" },
+          { text: "TEXTURE", font: "T", x: 128, y: 4, color: "GRAY" },
+          { text: "DUST {dust}", font: "XS", x: 128, y: 18, color: "WHITE" },
+          { text: "NOISE {noise}  ROOM {ambience}", font: "T", x: 128, y: 38, color: "GRAY" },
+        ] },
+      ],
+      knobs: [{ field: "key", step: 1 }, { field: "tempo", step: 1 }, { field: "motion", step: 5 }, { field: "mood", step: 1 }],
+      controls: { SELECT: { do: "cursor" }, EDIT: { go: "cursor" } },
+      say: [{ when: "song", text: "CHORD {chord}. {place}" }, { when: "!song", text: "{idle}" }],
+    },
+
+    // C: now playing. The song is the screen (a big chord, where it is, what's waiting); the rolls in small type
+    // underneath, read only; EDIT opens a parts list to pick from (two steps to a part, a calmer main screen).
+    mockC: {
+      title: "Mockup C: now playing",
+      bands: [
+        { y: 0, h: 30, draw: [
+          { text: "{APP}", font: "S", x: 10, y: 6, color: "WHITE" },
+          { when: "song", text: "{key} {mode}  {tempo} BPM", font: "XS", right: 230, y: 8, color: "HI" },
+        ] },
+        { y: 32, h: 92, draw: [
+          { when: "song", text: "{chord}", font: "B", x: 10, y: 14, color: "WHITE" },   // (M and L have no lower case: "maj")
+          { when: "song", text: "{place}", font: "XS", x: 10, y: 46, color: "GRAY" },
+          { when: "pending", text: "{pending}", font: "XS", x: 10, y: 66, color: "HI" },
+          { when: "!song", text: "{idle}", font: "L", x: 10, y: 4, color: "GRAY" },
+        ] },
+        { y: 126, h: 114, draw: [
+          { rect: [10, 0, 220, 1], color: "LINE" },
+          { text: "DRUMS  {kit} / {pattern}", font: "T", x: 10, y: 8, color: "GRAY" },
+          { text: "BASS  {bass}", font: "T", x: 10, y: 24, color: "GRAY" },
+          { text: "COMP  {keys} / {rhythm}", font: "T", x: 10, y: 40, color: "GRAY" },
+          { text: "PAD  {pad}", font: "T", x: 10, y: 56, color: "GRAY" },
+          { text: "LEAD  {lead} / {leadStyle}", font: "T", x: 10, y: 72, color: "GRAY" },
+          { text: "{mood}  MOTION {motion}  /  EDIT: PARTS", font: "T", x: 10, y: 94, color: "DIM" },
+        ] },
+      ],
+      knobs: [{ field: "key", step: 1 }, { field: "tempo", step: 1 }, { field: "motion", step: 5 }, { field: "mood", step: 1 }],
+      controls: { EDIT: { go: "partsC" } },
+      say: [{ when: "song", text: "CHORD {chord}. {place}" }, { when: "!song", text: "{idle}" }],
+    },
+    partsC: {
+      title: "Mockup C: parts list",
+      menu: ["pSong", "pDrums", "pBass", "pComp", "pPad", "pLead", "pTexture"],
+      bands: [
+        { y: 0, h: 30, draw: [{ text: "PARTS", font: "B", x: 10, y: 6, color: "WHITE" }] },
+        { y: 34, h: 144, draw: [
+          { when: "sel0", rect: [4, 0, 232, 20], color: "LINE" }, { text: "SONG", font: "XS", x: 12, y: 2, color: "WHITE" },
+          { when: "sel1", rect: [4, 20, 232, 20], color: "LINE" }, { text: "DRUMS", font: "XS", x: 12, y: 22, color: "WHITE" },
+          { when: "sel2", rect: [4, 40, 232, 20], color: "LINE" }, { text: "BASS", font: "XS", x: 12, y: 42, color: "WHITE" },
+          { when: "sel3", rect: [4, 60, 232, 20], color: "LINE" }, { text: "COMP", font: "XS", x: 12, y: 62, color: "WHITE" },
+          { when: "sel4", rect: [4, 80, 232, 20], color: "LINE" }, { text: "PAD", font: "XS", x: 12, y: 82, color: "WHITE" },
+          { when: "sel5", rect: [4, 100, 232, 20], color: "LINE" }, { text: "LEAD", font: "XS", x: 12, y: 102, color: "WHITE" },
+          { when: "sel6", rect: [4, 120, 232, 20], color: "LINE" }, { text: "TEXTURE", font: "XS", x: 12, y: 122, color: "WHITE" },
+        ] },
+        { y: 200, h: 20, draw: [{ text: "SELECT: MOVE  EDIT: OPEN  HOME: BACK", font: "T", x: 10, y: 4, color: "DIM" }] },
+      ],
+      controls: { SELECT: { do: "cursor" }, EDIT: { go: "cursor" } },
+      say: ["PARTS"],
+    },
+    pSong: {
+      title: "Part: Song (placeholder)",
+      placeholder: true,
+      bands: [
+        { y: 0, h: 30, draw: [{ text: "SONG", font: "B", x: 10, y: 6, color: "WHITE" }, { when: "song", text: "{chord}", font: "XS", right: 230, y: 10, color: "HI" }] },
+        { y: 34, h: 144, draw: [
+          { text: "KEY", font: "T", x: 10, y: 4, color: "GRAY" }, { text: "{key} {mode}", font: "XS", x: 92, y: 2, color: "WHITE" },
+          { text: "TEMPO", font: "T", x: 10, y: 24, color: "GRAY" }, { text: "{tempo}", font: "XS", x: 92, y: 22, color: "WHITE" },
+          { text: "MOOD", font: "T", x: 10, y: 44, color: "GRAY" }, { text: "{mood}", font: "XS", x: 92, y: 42, color: "WHITE" },
+          { text: "MOTION", font: "T", x: 10, y: 64, color: "GRAY" }, { text: "{motion}", font: "XS", x: 92, y: 62, color: "WHITE" },
+          { text: "SWING", font: "T", x: 10, y: 84, color: "GRAY" }, { text: "{swing}", font: "XS", x: 92, y: 82, color: "WHITE" },
+          { text: "MAP", font: "T", x: 10, y: 104, color: "GRAY" }, { text: "{map}", font: "XS", x: 92, y: 102, color: "WHITE" },
+          { text: "CHORDS", font: "T", x: 10, y: 124, color: "GRAY" }, { text: "{prog}", font: "XS", x: 92, y: 122, color: "WHITE" },
+        ] },
+        { y: 200, h: 20, draw: [{ text: "PLACEHOLDER: WHAT THIS PART HAS  /  HOME", font: "T", x: 10, y: 4, color: "DIM" }] },
+      ],
+      controls: { EDIT: { go: "back" } },
+      say: ["SONG"],
+    },
+    pDrums: {
+      title: "Part: Drums (placeholder)",
+      placeholder: true,
+      bands: [
+        { y: 0, h: 30, draw: [{ text: "DRUMS", font: "B", x: 10, y: 6, color: "WHITE" }, { when: "song", text: "{chord}", font: "XS", right: 230, y: 10, color: "HI" }] },
+        { y: 34, h: 144, draw: [
+          { text: "KIT", font: "T", x: 10, y: 4, color: "GRAY" }, { text: "{kit}", font: "XS", x: 92, y: 2, color: "WHITE" },
+          { text: "PATTERN", font: "T", x: 10, y: 24, color: "GRAY" }, { text: "{pattern}", font: "XS", x: 92, y: 22, color: "WHITE" },
+          { text: "KICK", font: "T", x: 10, y: 44, color: "GRAY" }, { text: "{kick}", font: "XS", x: 92, y: 42, color: "WHITE" },
+          { text: "RIDE", font: "T", x: 10, y: 64, color: "GRAY" }, { text: "{ride}", font: "XS", x: 92, y: 62, color: "WHITE" },
+          { text: "VARIATION", font: "T", x: 10, y: 84, color: "GRAY" }, { text: "{drumsVar}", font: "XS", x: 92, y: 82, color: "WHITE" },
+        ] },
+        { y: 200, h: 20, draw: [{ text: "PLACEHOLDER: WHAT THIS PART HAS  /  HOME", font: "T", x: 10, y: 4, color: "DIM" }] },
+      ],
+      controls: { EDIT: { go: "back" } },
+      say: ["DRUMS"],
+    },
+    pBass: {
+      title: "Part: Bass (placeholder)",
+      placeholder: true,
+      bands: [
+        { y: 0, h: 30, draw: [{ text: "BASS", font: "B", x: 10, y: 6, color: "WHITE" }, { when: "song", text: "{chord}", font: "XS", right: 230, y: 10, color: "HI" }] },
+        { y: 34, h: 144, draw: [
+          { text: "INSTRUMENT", font: "T", x: 10, y: 4, color: "GRAY" }, { text: "{bass}", font: "XS", x: 92, y: 2, color: "WHITE" },
+          { text: "LINE", font: "T", x: 10, y: 24, color: "GRAY" }, { text: "{bassLine}", font: "XS", x: 92, y: 22, color: "WHITE" },
+        ] },
+        { y: 200, h: 20, draw: [{ text: "PLACEHOLDER: WHAT THIS PART HAS  /  HOME", font: "T", x: 10, y: 4, color: "DIM" }] },
+      ],
+      controls: { EDIT: { go: "back" } },
+      say: ["BASS"],
+    },
+    pComp: {
+      title: "Part: Comp (placeholder)",
+      placeholder: true,
+      bands: [
+        { y: 0, h: 30, draw: [{ text: "COMP", font: "B", x: 10, y: 6, color: "WHITE" }, { when: "song", text: "{chord}", font: "XS", right: 230, y: 10, color: "HI" }] },
+        { y: 34, h: 144, draw: [
+          { text: "INSTRUMENT", font: "T", x: 10, y: 4, color: "GRAY" }, { text: "{keys}", font: "XS", x: 92, y: 2, color: "WHITE" },
+          { text: "RHYTHM", font: "T", x: 10, y: 24, color: "GRAY" }, { text: "{rhythm}", font: "XS", x: 92, y: 22, color: "WHITE" },
+          { text: "VOICINGS", font: "T", x: 10, y: 44, color: "GRAY" }, { text: "{voicings}", font: "XS", x: 92, y: 42, color: "WHITE" },
+          { text: "REGISTER", font: "T", x: 10, y: 64, color: "GRAY" }, { text: "{keysOct}", font: "XS", x: 92, y: 62, color: "WHITE" },
+        ] },
+        { y: 200, h: 20, draw: [{ text: "PLACEHOLDER: WHAT THIS PART HAS  /  HOME", font: "T", x: 10, y: 4, color: "DIM" }] },
+      ],
+      controls: { EDIT: { go: "back" } },
+      say: ["COMP"],
+    },
+    pPad: {
+      title: "Part: Pad (placeholder)",
+      placeholder: true,
+      bands: [
+        { y: 0, h: 30, draw: [{ text: "PAD", font: "B", x: 10, y: 6, color: "WHITE" }, { when: "song", text: "{chord}", font: "XS", right: 230, y: 10, color: "HI" }] },
+        { y: 34, h: 144, draw: [
+          { text: "INSTRUMENT", font: "T", x: 10, y: 4, color: "GRAY" }, { text: "{pad}", font: "XS", x: 92, y: 2, color: "WHITE" },
+          { text: "ON/OFF", font: "T", x: 10, y: 24, color: "GRAY" }, { text: "{padOn}", font: "XS", x: 92, y: 22, color: "WHITE" },
+          { text: "PLACE", font: "T", x: 10, y: 44, color: "GRAY" }, { text: "{padPlace}", font: "XS", x: 92, y: 42, color: "WHITE" },
+          { text: "NOTES", font: "T", x: 10, y: 64, color: "GRAY" }, { text: "{padNotes}", font: "XS", x: 92, y: 62, color: "WHITE" },
+        ] },
+        { y: 200, h: 20, draw: [{ text: "PLACEHOLDER: WHAT THIS PART HAS  /  HOME", font: "T", x: 10, y: 4, color: "DIM" }] },
+      ],
+      controls: { EDIT: { go: "back" } },
+      say: ["PAD"],
+    },
+    pLead: {
+      title: "Part: Lead (placeholder)",
+      placeholder: true,
+      bands: [
+        { y: 0, h: 30, draw: [{ text: "LEAD", font: "B", x: 10, y: 6, color: "WHITE" }, { when: "song", text: "{chord}", font: "XS", right: 230, y: 10, color: "HI" }] },
+        { y: 34, h: 144, draw: [
+          { text: "INSTRUMENT", font: "T", x: 10, y: 4, color: "GRAY" }, { text: "{lead}", font: "XS", x: 92, y: 2, color: "WHITE" },
+          { text: "STYLE", font: "T", x: 10, y: 24, color: "GRAY" }, { text: "{leadStyle}", font: "XS", x: 92, y: 22, color: "WHITE" },
+          { text: "PHRASE", font: "T", x: 10, y: 44, color: "GRAY" }, { text: "{phrase}", font: "XS", x: 92, y: 42, color: "WHITE" },
+          { text: "LOOP", font: "T", x: 10, y: 64, color: "GRAY" }, { text: "{leadLoop}", font: "XS", x: 92, y: 62, color: "WHITE" },
+          { text: "REGISTER", font: "T", x: 10, y: 84, color: "GRAY" }, { text: "{leadOct}", font: "XS", x: 92, y: 82, color: "WHITE" },
+        ] },
+        { y: 200, h: 20, draw: [{ text: "PLACEHOLDER: WHAT THIS PART HAS  /  HOME", font: "T", x: 10, y: 4, color: "DIM" }] },
+      ],
+      controls: { EDIT: { go: "back" } },
+      say: ["LEAD"],
+    },
+    pTexture: {
+      title: "Part: Texture (placeholder)",
+      placeholder: true,
+      bands: [
+        { y: 0, h: 30, draw: [{ text: "TEXTURE", font: "B", x: 10, y: 6, color: "WHITE" }, { when: "song", text: "{chord}", font: "XS", right: 230, y: 10, color: "HI" }] },
+        { y: 34, h: 144, draw: [
+          { text: "DUST", font: "T", x: 10, y: 4, color: "GRAY" }, { text: "{dust}", font: "XS", x: 92, y: 2, color: "WHITE" },
+          { text: "NOISE", font: "T", x: 10, y: 24, color: "GRAY" }, { text: "{noise}", font: "XS", x: 92, y: 22, color: "WHITE" },
+          { text: "AMBIENCE", font: "T", x: 10, y: 44, color: "GRAY" }, { text: "{ambience}", font: "XS", x: 92, y: 42, color: "WHITE" },
+        ] },
+        { y: 200, h: 20, draw: [{ text: "PLACEHOLDER: WHAT THIS PART HAS  /  HOME", font: "T", x: 10, y: 4, color: "DIM" }] },
+      ],
+      controls: { EDIT: { go: "back" } },
+      say: ["TEXTURE"],
+    },
   },
 };

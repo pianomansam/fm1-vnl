@@ -54,7 +54,7 @@ const CSS = `
 const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
 
 // box: the section to fill; call: wb.call; C: wb.C; engine: { set(row, value), play() }
-export function mountDevice(box, { call, C, engine }) {
+export function mountDevice(box, { call, C, engine, labels = () => ({}) }) {
   document.head.append(el("style", { textContent: CSS }));
   const canvas = el("canvas", { width: W, height: H, role: "img", ariaLabel: "The device's screen (mock)" });
   const ctx = canvas.getContext("2d"), img = ctx.createImageData(W, H), lcd = new Lcd();
@@ -138,7 +138,8 @@ export function mountDevice(box, { call, C, engine }) {
     }
     const tr = transitions(d);
     flow.replaceChildren(...Object.entries(d.screens).map(([id, s]) => el("div", { className: `card${id === dev.id ? " now" : ""}` },
-      el("h3", {}, s.title ?? id, ...(s.placeholder ? [el("span", { className: "ph", textContent: "PLACEHOLDER" })] : [])),
+      el("h3", { title: "Show this screen (a workbench shortcut, not a device move)", style: "cursor: pointer",
+                 onclick: () => { dev.stack = id === d.home ? [d.home] : [d.home, id]; took = null; panel(); draw(); } }, s.title ?? id, ...(s.placeholder ? [el("span", { className: "ph", textContent: "PLACEHOLDER" })] : [])),
       el("ul", {}, ...tr.filter((t) => t.from === id).map((t) => el("li", {
         className: took && took.from === id && took.control === t.control ? "took" : "" },
         el("button", { textContent: t.control, title: id === dev.id ? `Press ${t.control}` : `On ${s.title ?? id}`,
@@ -160,7 +161,7 @@ export function mountDevice(box, { call, C, engine }) {
     try {
       const s = await call("wb_live_state"), facts = pos.bar > 0 ? await call("wb_screen", pos.bar - 1) : {};
       const r = (f) => s.roll[C.RF[f]];
-      dev.update({ playing, gap: pos.gap, bar: pos.bar, bars: pos.bars || r("BARS"), seed: s.seed, facts,
+      dev.update({ playing, gap: pos.gap, bar: pos.bar, bars: pos.bars || r("BARS"), seed: s.seed, facts, labels: labels(),
                    roll: { key: r("KEY"), tempo: r("TEMPO"), motion: r("MOTION"), mood: r("MOOD"), mode: r("MODE") } });
     } finally {
       fetching = false;

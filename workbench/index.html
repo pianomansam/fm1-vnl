@@ -183,7 +183,15 @@
     show(fold.isOpen("Device"));
     try {
       const { mountDevice } = await import("./ui/panel.js");
-      device = mountDevice($("devbox"), { call: wb.call, C: wb.C,
+      // every row's shown name (upper case, as the device writes), for screens that show the rolls: {kit}, {lead}, ...;
+      // {rhythm}: the comp's one Rhythm row (comp rhythms or strum patterns)
+      const labels = () => {
+        const name = (id) => { const r = row(id), v = desk.state.values[id];
+          const o = optionsFor(r, desk.state, desk.opts, { showRetired: true, lib }).find((x) => String(x.value) === String(v));
+          return String(o?.short ?? o?.name ?? v ?? "").toUpperCase(); };
+        return { ...Object.fromEntries(ROWS.map((r) => [r.id, name(r.id)])), rhythm: name(rhythmRow(desk.state, desk.opts)) };
+      };
+      device = mountDevice($("devbox"), { call: wb.call, C: wb.C, labels,
         engine: { set: (id, v) => run(() => desk.set(id, v)), play: () => $("play").click() } });
     } catch (e) { $("devbox").textContent = `The device mock didn't load: ${e}`; }
   }

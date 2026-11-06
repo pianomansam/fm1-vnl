@@ -2,6 +2,7 @@
 // The device mock's core, no DOM (Node runs it too: tools/screen_check.mjs, smoke.mjs): the FM-1's LCD as gfx.c draws
 // it, today's screen's text as app.c writes it, and the screens of ui/screens.js driven by the panel's controls.
 import { FONTS } from "./fonts.js";
+import { ROWS } from "../rows.js";
 
 // ------------------------------------------------------------------------------------------------ the LCD (gfx.c) ---
 export const W = 240, H = 240;
@@ -126,6 +127,7 @@ const holds = (when, bag) => [].concat(when ?? []).every((w) => (w[0] === "!" ? 
 
 // The values a screen's templates read, from what the screen shows (Device.shown(): app.c's snap_t, as the UI holds
 // it). app.c's line_pending is `pending`
+const MENU_MAX = 10;
 export function valuesOf(s, data) {
   const r = s.roll ?? {}, f = data.fields, song = !!s.hasSong;
   const bag = {
@@ -140,6 +142,8 @@ export function valuesOf(s, data) {
     bag.pending = `${def?.name ?? "CHANGE"}${s.pend.val !== undefined ? ` ${valueText(def, s.pend.val, r.mode ?? 0)}` : ""}` +
                   ` IN ${s.pend.bars}${s.pend.bars === 1 ? " BAR" : " BARS"}`;
   }
+  for (const [k, v] of Object.entries(s.labels ?? {})) if (!(k in bag)) bag[k] = v;   // the rolls, by row: {kit}, {lead}
+  for (let i = 0; i < MENU_MAX; i++) bag[`sel${i}`] = s.cursor === i;                  // a menu's highlighted line
   for (const [k, t] of Object.entries(data.lines ?? {})) bag[k] = fill(t, bag);
   return bag;
 }
@@ -203,13 +207,14 @@ export function problems(data) {
   const out = [], C = colors(), ids = Object.keys(data.screens ?? {});
   if (!data.screens?.[data.home]) out.push(`home "${data.home}" is not a screen`);
   const known = new Set(["APP", "song", "stopped", "idle", "msg", "msg0", "msg1", "map", "section", "bar", "bars", "chord",
-                         "pending", ...Object.keys(data.fields ?? {}), ...Object.keys(data.lines ?? {})]);
+                         "pending", "rhythm", ...ROWS.map((r) => r.id), ...Array.from({ length: MENU_MAX }, (_, i) => `sel${i}`),
+                         ...Object.keys(data.fields ?? {}), ...Object.keys(data.lines ?? {})]);
   const tpl = (where, t) => { for (const [, k] of String(t).matchAll(/\{(\w+)\}/g)) if (!known.has(k)) out.push(`${where}: no value {${k}}`); };
   const cond = (where, w) => { for (const x of [].concat(w ?? [])) if (!known.has(x.replace(/^!/, ""))) out.push(`${where}: no value "${x}"`); };
   const act = (where, a) => {
     if (a === null) return;
-    if (a.go) { if (!["back", "home"].includes(a.go) && !ids.includes(a.go)) out.push(`${where}: no screen "${a.go}"`); }
-    else if (a.do === "play") { /* */ }
+    if (a.go) { if (!["back", "home", "cursor"].includes(a.go) && !ids.includes(a.go)) out.push(`${where}: no screen "${a.go}"`); }
+    else if (a.do === "play" || a.do === "cursor") { /* */ }
     else if (a.do === "nudge" || a.do === "turn") { if (!data.fields?.[a.field]) out.push(`${where}: no field "${a.field}"`); }
     else out.push(`${where}: unknown action ${JSON.stringify(a)}`);
   };
@@ -219,6 +224,7 @@ export function problems(data) {
     act(`defaults.${c}`, a);
   }
   for (const [id, s] of Object.entries(data.screens ?? {})) {
+    for (const m of s.menu ?? []) if (!ids.includes(m)) out.push(`${id}.menu: no screen "${m}"`);
     for (const [i, b] of (s.bands ?? []).entries()) {
       const w = `${id}.bands[${i}]`;
       if (!(b.y >= 0 && b.h > 0 && b.y + b.h <= H)) out.push(`${w}: outside the screen (y ${b.y}, h ${b.h})`);
@@ -251,7 +257,7 @@ export function problems(data) {
 // pending, then goes to the engine in the bar before it (the workbench lands a change at the next bar line).
 export class Device {
   constructor(data, engine, now = () => Date.now()) {
-    Object.assign(this, { data, engine, now, stack: [data.home], req: {}, msg: null, said: "", live: null });
+    Object.assign(this, { data, engine, now, stack: [data.home], cursor: {}, req: {}, msg: null, said: "", live: null });
   }
   get id() { return this.stack[this.stack.length - 1]; }
   get screen() { return this.data.screens[this.id]; }
@@ -286,7 +292,8 @@ export class Device {
     for (const [f, q] of Object.entries(this.req))   // the earliest; a tie: the first field (app.c: the lowest RF_*)
       if (!pend || q.at < pend.at) pend = { field: f, val: q.val, at: q.at, bars: q.at - bar };
     return { hasSong: song, stopped: !l.playing, roll, bar, section: l.facts?.section ?? -1, map: l.facts?.map,
-             chord: l.facts?.chord, pend, msg: this.msg && this.now() < this.msg.until ? this.msg.text : null };
+             chord: l.facts?.chord, labels: l.labels,
+             cursor: this.screen?.menu ? this.cursor[this.id] ?? 0 : -1, pend, msg: this.msg && this.now() < this.msg.until ? this.msg.text : null };
   }
   values() { return valuesOf(this.shown(), this.data); }
   draw(lcd) { drawScreen(lcd, this.screen, this.values(), this.data); }
@@ -301,11 +308,17 @@ export class Device {
   press(control, detents = 1) {
     const a = actionOf(this.data, this.id, control);
     if (!a) return null;
+    if (a.do === "cursor") {   // a menu: the highlight moves (wraps)
+      const n = this.screen.menu?.length ?? 0;
+      if (n) this.cursor[this.id] = (((this.cursor[this.id] ?? 0) + detents) % n + n) % n;
+      return null;
+    }
     if (a.go) {
-      const from = this.id;
-      if (a.go === "back") { if (this.stack.length > 1) this.stack.pop(); }
-      else if (a.go === "home") this.stack = [this.data.home];
-      else if (a.go !== this.id) this.stack.push(a.go);
+      const from = this.id, to = a.go === "cursor" ? this.screen.menu?.[this.cursor[this.id] ?? 0] : a.go;
+      if (!to) return null;
+      if (to === "back") { if (this.stack.length > 1) this.stack.pop(); }
+      else if (to === "home") this.stack = [this.data.home];
+      else if (to !== this.id) this.stack.push(to);
       if (this.id !== from) this.speak();
       return { from, control, to: this.id };
     }
