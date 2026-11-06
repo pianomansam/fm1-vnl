@@ -253,6 +253,10 @@ export function drawScreen(lcd, screen, bag, data, C = colors(THEME, data.colors
         const from = Math.max(0, Math.min(bars - span, pos - span / 4)), ppb = lw / span, X = (b) => lx + (b - from) * ppb;
         const dim = (c, k) => { const r = c >> 11, g = (c >> 5) & 63, b = c & 31; return (Math.round(r * k) << 11) | (Math.round(g * k) << 5) | Math.round(b * k); };
         const height = it.parts.length * rowH - 2;
+        if (bag.song) {   // the bar playing, highlighted whole (Sam, 2026-11-06: not a line in front of it)
+          const b0 = Math.floor(pos), xa = Math.max(lx, Math.round(X(b0))), xb = Math.min(lx + lw, Math.round(X(b0 + 1)));
+          lcd.rect(xa, y, xb - xa, height, C.LINE);
+        }
         for (let b = Math.ceil(from); b <= from + span; b++) lcd.rect(Math.round(X(b)), y, 1, height, C.LINE);   // bar lines
         for (const sb of act?.sections ?? []) if (sb > from && sb < from + span) lcd.rect(Math.round(X(sb)), y, 1, height, C.DIM);
         it.parts.forEach((p, i) => {
@@ -274,7 +278,6 @@ export function drawScreen(lcd, screen, bag, data, C = colors(THEME, data.colors
                      now && !off ? base : dim(base, 0.45 + 0.55 * shade));
           }
         });
-        if (bag.song) lcd.rect(Math.round(X(pos)), y, 1, height, C.WHITE);   // the playhead
       }
       else if (it.sections) {   // the song's map: a segment per section (by its bars), the one playing filled to
         // where the song is in it, those before it in `past`, those after in `back`
