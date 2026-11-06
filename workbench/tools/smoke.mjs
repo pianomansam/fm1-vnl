@@ -3044,8 +3044,8 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
         `the flow: ${tr.map((x) => `${x.from} ${x.control} → ${x.to}`).join(", ")}`);
   dev.press("K2", 2);
   const v = dev.values();
-  check(v.pending === "TEMPO 82 IN 3 BARS" && v.msg0 === "TEMPO" && v.msg1 === "82" && !sets.length && v.keyline === "D MINOR  80 BPM" &&
-        v.place === "DRIFT  GROOVE  2/64", `K2 twice at bar 2: "${v.pending}", the header "${v.msg0} ${v.msg1}", nothing sent yet`);
+  check(v.pending === "TEMPO 82 IN 3 BARS" && v.msg0 === "TEMPO" && v.msg1 === "82" && !sets.length && v.keyline === "D MINOR  *82 BPM" && v.tempo === "*82" && v.tempoPend &&
+        v.place === "DRIFT  GROOVE  2/64", `K2 twice at bar 2: "${v.pending}", the header "${v.msg0} ${v.msg1}", the tempo shown at once as "${v.tempo}" (waiting), nothing sent yet`);
   dev.update(live(4));
   dev.update(live(4));
   check(JSON.stringify(sets) === '[["tempo",82]]', "in the bar before the boundary the change goes to the engine once (Desk.set's tempo row)");

@@ -39,6 +39,8 @@ export default {
   colors: {
     SONG: [255, 184, 70], DRUMS: [236, 104, 88], BASS: [158, 130, 236], COMP: [70, 196, 176],
     PAD: [96, 164, 240], LEAD: [236, 124, 184], TEXTURE: [186, 168, 138],
+    // a change made but not live yet: its value at once, "*" in front, in this color (Sam, 2026-11-06)
+    PENDING: [250, 226, 90],
   },
 
   // 1-bit icons, 9 px wide, rows of "#" (lit) and "." (the main screen's): one per part, drawn in its color
@@ -135,14 +137,14 @@ export default {
     bassIns: { row: "bass", name: "INSTRUMENT", options: true },
     bassLine: { row: "bassLine", name: "LINE", format: "variant", min: 0, max: 99 },
     padIns: { row: "pad", name: "INSTRUMENT", options: true },
-    padOn: { row: "padOn", name: "ON/OFF", options: true },
-    padPlace: { row: "padPlace", name: "PLACE", options: true },
+    padOnSet: { row: "padOn", name: "ON/OFF", options: true },
+    padPlaceSet: { row: "padPlace", name: "PLACE", options: true },
     padNotes: { row: "padNotes", name: "NOTES", format: "variant", min: 0, max: 99 },
     leadIns: { row: "lead", name: "INSTRUMENT", options: true },
-    leadStyle: { row: "leadStyle", name: "STYLE", options: true },
+    leadStyleSet: { row: "leadStyle", name: "STYLE", options: true },
     leadPhrase: { row: "phrase", name: "PHRASE", format: "variant", min: 0, max: 99 },
     leadReg: { row: "leadOct", name: "REGISTER", options: true },
-    leadLoop: { row: "leadLoop", name: "LOOP", options: true },
+    leadLoopSet: { row: "leadLoop", name: "LOOP", options: true },
     texDust: { row: "dust", name: "DUST", options: true },
     texNoise: { row: "noise", name: "NOISE", options: true },
     texAmb: { row: "ambience", name: "AMBIENCE", options: true },
@@ -241,6 +243,7 @@ export default {
     // The device's screen today (app.c's draw()), kept as the mock's reference: screen_check.mjs compares it with
     // the simulator pixel for pixel. Not reachable from the new main screen.
     today: {
+      reference: true,   // draws as the device does today: a waiting change shows only in the pending line
       title: "Today's device screen (reference)",
       bands: [
         { y: 0, h: 32, draw: [
@@ -574,11 +577,11 @@ export default {
           { text: "{padIns}", font: "B", x: 8, y: 14, color: "WHITE" },
           { meter: [8, 33, 224, 2], value: "padInsFrac", color: "PAD", back: "LINE" },
           { text: "K2  ON/OFF", font: "T", x: 8, y: 39, color: "GRAY" },
-          { text: "{padOn}", font: "B", x: 8, y: 50, color: "WHITE" },
-          { meter: [8, 69, 224, 2], value: "padOnFrac", color: "PAD", back: "LINE" },
+          { text: "{padOnSet}", font: "B", x: 8, y: 50, color: "WHITE" },
+          { meter: [8, 69, 224, 2], value: "padOnSetFrac", color: "PAD", back: "LINE" },
           { text: "K3  PLACE", font: "T", x: 8, y: 75, color: "GRAY" },
-          { text: "{padPlace}", font: "B", x: 8, y: 86, color: "WHITE" },
-          { meter: [8, 105, 224, 2], value: "padPlaceFrac", color: "PAD", back: "LINE" },
+          { text: "{padPlaceSet}", font: "B", x: 8, y: 86, color: "WHITE" },
+          { meter: [8, 105, 224, 2], value: "padPlaceSetFrac", color: "PAD", back: "LINE" },
           { text: "K4  NOTES", font: "T", x: 8, y: 111, color: "GRAY" },
           { text: "{padNotes}", font: "B", x: 8, y: 122, color: "WHITE" },
           { meter: [8, 141, 224, 2], value: "padNotesFrac", color: "PAD", back: "LINE" },
@@ -589,11 +592,11 @@ export default {
           { text: "EDIT BACK   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
-      knobs: [{ field: "padIns", step: 1 }, { field: "padOn", step: 1 }, { field: "padPlace", step: 1 }, { field: "padNotes", step: 1 }],
+      knobs: [{ field: "padIns", step: 1 }, { field: "padOnSet", step: 1 }, { field: "padPlaceSet", step: 1 }, { field: "padNotes", step: 1 }],
       controls: {
         ALGO: { do: "part" }, EDIT: { go: "back" },
       },
-      say: ["PAD. INSTRUMENT {padIns}. ON/OFF {padOn}. PLACE {padPlace}. NOTES {padNotes}."],
+      say: ["PAD. INSTRUMENT {padIns}. ON/OFF {padOnSet}. PLACE {padPlaceSet}. NOTES {padNotes}."],
     },
     pLead: {
       title: "Lead",
@@ -617,8 +620,8 @@ export default {
           { text: "{leadIns}", font: "B", x: 8, y: 14, color: "WHITE" },
           { meter: [8, 33, 224, 2], value: "leadInsFrac", color: "LEAD", back: "LINE" },
           { text: "K2  STYLE", font: "T", x: 8, y: 39, color: "GRAY" },
-          { text: "{leadStyle}", font: "B", x: 8, y: 50, color: "WHITE" },
-          { meter: [8, 69, 224, 2], value: "leadStyleFrac", color: "LEAD", back: "LINE" },
+          { text: "{leadStyleSet}", font: "B", x: 8, y: 50, color: "WHITE" },
+          { meter: [8, 69, 224, 2], value: "leadStyleSetFrac", color: "LEAD", back: "LINE" },
           { text: "K3  PHRASE", font: "T", x: 8, y: 75, color: "GRAY" },
           { text: "{leadPhrase}", font: "B", x: 8, y: 86, color: "WHITE" },
           { meter: [8, 105, 224, 2], value: "leadPhraseFrac", color: "LEAD", back: "LINE" },
@@ -632,12 +635,12 @@ export default {
           { text: "EDIT BACK   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
-      knobs: [{ field: "leadIns", step: 1 }, { field: "leadStyle", step: 1 }, { field: "leadPhrase", step: 1 }, { field: "leadReg", step: 1 }],
+      knobs: [{ field: "leadIns", step: 1 }, { field: "leadStyleSet", step: 1 }, { field: "leadPhrase", step: 1 }, { field: "leadReg", step: 1 }],
       controls: {
         ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
         "OCT-": { do: "nudge", field: "leadReg", by: -1 }, "OCT+": { do: "nudge", field: "leadReg", by: 1 },
       },
-      say: ["LEAD, PAGE {page}. INSTRUMENT {leadIns}. STYLE {leadStyle}. PHRASE {leadPhrase}. REGISTER {leadReg}."],
+      say: ["LEAD, PAGE {page}. INSTRUMENT {leadIns}. STYLE {leadStyleSet}. PHRASE {leadPhrase}. REGISTER {leadReg}."],
     },
     pLeadMore: {
       title: "Lead: more",
@@ -658,8 +661,8 @@ export default {
         ] },
         { y: 48, h: 144, draw: [
           { text: "K1  LOOP", font: "T", x: 8, y: 3, color: "GRAY" },
-          { text: "{leadLoop}", font: "B", x: 8, y: 14, color: "WHITE" },
-          { meter: [8, 33, 224, 2], value: "leadLoopFrac", color: "LEAD", back: "LINE" },
+          { text: "{leadLoopSet}", font: "B", x: 8, y: 14, color: "WHITE" },
+          { meter: [8, 33, 224, 2], value: "leadLoopSetFrac", color: "LEAD", back: "LINE" },
         ] },
         { y: 200, h: 40, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
@@ -667,12 +670,12 @@ export default {
           { text: "EDIT BACK   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
-      knobs: [{ field: "leadLoop", step: 1 }],
+      knobs: [{ field: "leadLoopSet", step: 1 }],
       controls: {
         ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
         "OCT-": { do: "nudge", field: "leadReg", by: -1 }, "OCT+": { do: "nudge", field: "leadReg", by: 1 },
       },
-      say: ["LEAD, PAGE {page}. LOOP {leadLoop}."],
+      say: ["LEAD, PAGE {page}. LOOP {leadLoopSet}."],
     },
     pTexture: {
       title: "Texture",

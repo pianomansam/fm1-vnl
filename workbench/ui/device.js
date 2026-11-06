@@ -170,13 +170,22 @@ export function valuesOf(s, data) {
     bag[`${k}Frac`] = fieldFrac(def, v, s.rows);
   }
   bag.page = s.page ?? "";
+  // a change waiting for its bar shows at once, marked (Sam, 2026-11-06: "*", in the pending color): the field's
+  // value and its row's label (a tile's {kit}); {field}Pend / {row}Pend true. Not on the reference screen (today's
+  // device draws the old value until it lands)
+  const waiting = s.mark ? Object.entries(s.reqs ?? {}) : [];
+  for (const [k, v] of waiting) {
+    const def = f[k], t = fieldText(def, v, r.mode ?? 0, s.rows);
+    bag[k] = `*${t}`; bag[`${k}Pend`] = true; bag[`${k}Frac`] = fieldFrac(def, v, s.rows);
+    if (def.row) { bag[`${def.row}Pend`] = `*${t.replace(/^AS ROLLED \((.*)\)$/, "$1")}`; }
+  }
   bag.progress = song && r.bars ? Math.min(1, ((s.bar ?? 0) + 1) / r.bars) : 0;
   if (song && s.pend) {
     const def = f[s.pend.field];
     bag.pending = `${def?.name ?? "CHANGE"}${s.pend.val !== undefined ? ` ${fieldText(def, s.pend.val, r.mode ?? 0, s.rows)}` : ""}` +
                   ` IN ${s.pend.bars}${s.pend.bars === 1 ? " BAR" : " BARS"}`;
   }
-  for (const [k, v] of Object.entries(s.labels ?? {})) if (!(k in bag)) bag[k] = v;   // the rolls, by row: {kit}, {lead}
+  for (const [k, v] of Object.entries(s.labels ?? {})) if (!(k in bag)) bag[k] = bag[`${k}Pend`] || v;   // the rolls, by row: {kit}, {lead}
   for (let i = 0; i < MENU_MAX; i++) bag[`sel${i}`] = s.cursor === i;                  // a menu's highlighted line
   for (const [k, t] of Object.entries(data.lines ?? {})) bag[k] = fill(t, bag);
   return bag;
@@ -205,7 +214,8 @@ export function drawScreen(lcd, screen, bag, data, C = colors(THEME, data.colors
         (screen.knobs ?? []).forEach((kn, i) => {
           const x = k.x + i * k.dx;
           lcd.text(x, k.label.y, font(k.label.font), kn.label ?? data.fields[kn.field].name, C[k.label.color]);
-          if (holds(k.value.when, bag)) lcd.text(x, k.value.y, font(k.value.font), String(bag[kn.field] ?? ""), C[k.value.color]);
+          if (holds(k.value.when, bag))
+            lcd.text(x, k.value.y, font(k.value.font), String(bag[kn.field] ?? ""), C[bag[`${kn.field}Pend`] && C.PENDING !== undefined ? "PENDING" : k.value.color]);
           if (k.bar && hasBar(data.fields[kn.field]) && holds(k.value.when, bag)) {   // { y, w, h, color, back }: the knob's place in its range
             lcd.rect(x, k.bar.y, k.bar.w, k.bar.h, C[k.bar.back]);
             lcd.rect(x, k.bar.y, Math.round(k.bar.w * Math.max(0, Math.min(1, bag[`${kn.field}Frac`] ?? 0))), k.bar.h, C[k.bar.color]);
@@ -214,7 +224,8 @@ export function drawScreen(lcd, screen, bag, data, C = colors(THEME, data.colors
       } else {
         const f = font(it.font), s = fill(it.text, bag);
         const x = it.right !== undefined ? it.right - textW(f, s) : it.after !== undefined ? pen + it.after : it.x;
-        pen = lcd.text(x, it.y, f, s, C[it.color]);
+        const lone = /^\{(\w+)\}$/.exec(it.text)?.[1];   // a value alone: the pending color while it waits
+        pen = lcd.text(x, it.y, f, s, C[lone && bag[`${lone}Pend`] && C.PENDING !== undefined ? "PENDING" : it.color]);
       }
     }
     lcd.blit(0, band.y);
@@ -256,7 +267,7 @@ export function problems(data) {
   if (!data.screens?.[data.home]) out.push(`home "${data.home}" is not a screen`);
   for (const p of data.parts ?? []) if (!data.screens?.[p]) out.push(`parts: no screen "${p}"`);
   const known = new Set(["APP", "song", "stopped", "idle", "msg", "msg0", "msg1", "map", "section", "bar", "bars", "chord",
-                         "pending", "rhythm", "progress", "page", ...Object.keys(data.fields ?? {}).map((k) => `${k}Frac`), ...ROWS.map((r) => r.id), ...Array.from({ length: MENU_MAX }, (_, i) => `sel${i}`),
+                         "pending", "rhythm", "progress", "page", ...Object.keys(data.fields ?? {}).map((k) => `${k}Pend`), ...ROWS.map((r) => `${r.id}Pend`), ...Object.keys(data.fields ?? {}).map((k) => `${k}Frac`), ...ROWS.map((r) => r.id), ...Array.from({ length: MENU_MAX }, (_, i) => `sel${i}`),
                          ...Object.keys(data.fields ?? {}), ...Object.keys(data.lines ?? {})]);
   const tpl = (where, t) => { for (const [, k] of String(t).matchAll(/\{(\w+)\}/g)) if (!known.has(k)) out.push(`${where}: no value {${k}}`); };
   const cond = (where, w) => { for (const x of [].concat(w ?? [])) if (!known.has(x.replace(/^!/, ""))) out.push(`${where}: no value "${x}"`); };
@@ -344,7 +355,8 @@ export class Device {
     for (const [f, q] of Object.entries(this.req))   // the earliest; a tie: the first field (app.c: the lowest RF_*)
       if (!pend || q.at < pend.at) pend = { field: f, val: q.val, at: q.at, bars: q.at - bar };
     return { hasSong: song, stopped: !l.playing, roll, bar, section: l.facts?.section ?? -1, map: l.facts?.map,
-             chord: l.facts?.chord, labels: l.labels, rows: l.rows,
+             chord: l.facts?.chord, labels: l.labels, rows: l.rows, mark: !this.screen?.reference,
+             reqs: Object.fromEntries(Object.entries(this.req).map(([f, q]) => [f, q.val])),
              page: this.screen?.pages?.length > 1 ? `${this.screen.pages.indexOf(this.id) + 1}/${this.screen.pages.length}` : "",
              cursor: this.screen?.menu ? this.cursor[this.id] ?? 0 : -1, pend, msg: this.msg && this.now() < this.msg.until ? this.msg.text : null };
   }
