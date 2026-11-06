@@ -3170,6 +3170,15 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
     check(JSON.stringify(got) === '[["mute","bass"],["mute","bass"]]' && dk.jumpReq?.name === "groove" && [...dk.keyLights().on].join() === "0,2,4,6,7",
           `G mutes the bass on the main and Comp screens, jumps on Sections (${JSON.stringify(got)}, jump ${dk.jumpReq?.name}; Sections lit [${lit}])`);
   }
+  {   // the Mixer: K1 sets the highlighted part's level, and the next bar's refresh (the engine's levels) keeps it
+    const store = { drums: 0, bass: 0, keys: 0, pad: 0, lead: 0, texture: 0 };
+    const dv = new D.Device(data, { set() {}, play() {}, level: (p, db) => { store[p] = db; } }, () => t);
+    dv.update({ ...live(3), levels: { ...store } });
+    dv.stack = ["main", "levels"]; dv.press("ALGO", 2); dv.press("K1", -5);
+    dv.update({ ...live(4), levels: { ...store } });
+    dv.update({ ...live(5), levels: { ...store } });
+    check(store.keys === -5 && dv.values().levels.keys === -5, `the Mixer: the comp at ${store.keys} dB, still ${dv.values().levels.keys} two bars on`);
+  }
   {   // a new song, rolled or the next one, goes back to the main screen
     dev.press("ALGO", 1); dev.press("EDIT");
     const inPart = dev.id;
