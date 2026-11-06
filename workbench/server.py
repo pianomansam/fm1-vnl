@@ -8,7 +8,9 @@ the body has "overwrite": true, which isn't written). POST /approve ({"family": 
 of patterns/model.json; anything else is refused) marks it approved in patterns/status.json, the one file it writes outside
 workbench/; tools/patterns/import.sh then makes it one the roll draws. Only this page's requests are answered (the Host is
 127.0.0.1 or localhost with the port; a POST's Origin too). GET /list/kits and /list/patterns
-give the saved names ({"names": [...]}), each served at /kits/<name>.json and /patterns/<name>.json."""
+give the saved names ({"names": [...]}), each served at /kits/<name>.json and /patterns/<name>.json. POST /state (the
+device mock's live state, about once a second) keeps only the latest in app/build/live/workbench.json (git-ignored), for
+Claude to read when Sam asks a live question."""
 import json
 import os
 import re
@@ -22,6 +24,7 @@ REPO = Path(__file__).resolve().parent.parent
 DATA = REPO / "workbench"          # where it writes (the tests point it elsewhere)
 PATTERNS = REPO / "patterns"       # model.json (read) and status.json (written by /approve); the tests point it elsewhere
 BUILD = REPO / "app" / "build" / "workbench"      # the page and wb.wasm (served first, then DATA)
+LIVE = REPO / "app" / "build" / "live"            # POST /state's latest (the tests point it elsewhere)
 MAX_BODY = 1 << 20                 # a request body over 1 MB is refused
 NAME = re.compile(r"[a-z0-9-]{1,40}")
 WRITE = threading.Lock()
@@ -71,7 +74,7 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         route = self.path.split("?")[0]
-        if route not in ("/feedback", "/kit", "/pattern", "/approve"):
+        if route not in ("/feedback", "/kit", "/pattern", "/approve", "/state"):
             return self.reply(404, {"ok": False, "error": "no such route"})
         # only this page: a web page elsewhere can POST here too (a simple request, or DNS rebinding), so the Host, the
         # Origin (if sent) and a JSON content type (which a cross-site form can't send) must all be ours
@@ -100,6 +103,13 @@ class Handler(SimpleHTTPRequestHandler):
             return self.reply(400, {"ok": False, "error": "expected a JSON object"})
         if route == "/approve":
             return self.approve(body)
+        if route == "/state":   # the latest only: written whole, then renamed into place
+            with WRITE:
+                LIVE.mkdir(parents=True, exist_ok=True)
+                tmp = LIVE / ".workbench.tmp"
+                tmp.write_text(json.dumps(body, indent=1) + "\n", encoding="utf-8")
+                os.replace(tmp, LIVE / "workbench.json")
+            return self.reply(200, {"ok": True})
         if route == "/feedback":
             path = DATA / "feedback.jsonl"
             with WRITE:

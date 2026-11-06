@@ -23,6 +23,7 @@ class T(unittest.TestCase):
         cls.tmp = tempfile.TemporaryDirectory()
         server.DATA = Path(cls.tmp.name)
         server.PATTERNS = Path(cls.tmp.name) / "pat"
+        server.LIVE = Path(cls.tmp.name) / "live"
         server.PATTERNS.mkdir()
         (server.PATTERNS / "model.json").write_text(json.dumps(
             {"_note": "x", "drums": {"1": {"status": "approved"}, "9": {"status": "candidate"}},
@@ -47,6 +48,13 @@ class T(unittest.TestCase):
         out = r.status, json.loads(r.read())
         c.close()
         return out
+
+    def test_state_kept_for_claude(self):   # POST /state: the page's live state, the latest only, for Claude to read
+        self.assertEqual(self.post("/state", {"source": "workbench", "bar": 3}), (200, {"ok": True}))
+        self.assertEqual(self.post("/state", {"source": "workbench", "bar": 4}), (200, {"ok": True}))
+        self.assertEqual(json.loads((server.LIVE / "workbench.json").read_text())["bar"], 4)
+        self.assertEqual(self.post("/state", {"bar": 5}, headers={"Origin": "http://evil.example"})[0], 403)
+        self.assertEqual(json.loads((server.LIVE / "workbench.json").read_text())["bar"], 4)
 
     def test_feedback_appends_lines(self):
         self.assertEqual(self.post("/feedback", {"rating": "up", "note": "x"}), (200, {"ok": True}))

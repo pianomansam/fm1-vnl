@@ -236,7 +236,16 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
     e.preventDefault();
     act(c, e.shiftKey ? -1 : 1);
   });
-  setInterval(() => { dev?.tick(); draw(); }, 100);   // a message's 1.3 s runs out; a long press; the playhead moves
+  setInterval(() => { dev?.tick(); draw(); }, 100);
+  // the live state for Claude: posted about once a second when it changes (an older server without /state: ignored)
+  let sentState = "";
+  setInterval(() => {
+    if (!dev) return;
+    const st = dev.state(), key = JSON.stringify({ ...st, at: 0 });
+    if (key === sentState) return;
+    sentState = key;
+    fetch("/state", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(st) }).catch(() => {});
+  }, 1000);   // a message's 1.3 s runs out; a long press; the playhead moves
   load();
   return {
     position(p, on) { pos = p; playing = on; refresh(); },   // each position the engine reports, and the transport

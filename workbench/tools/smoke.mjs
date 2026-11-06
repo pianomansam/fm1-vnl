@@ -3252,6 +3252,14 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
     check(looped === '["loop",1]' && v.secRange === "3-9 OF 9" && v.sec6Key === "G" && v.sel6 && dz.values().pending === "REGISTER UP AN OCTAVE IN 3 BARS",
           `loop flips turning down (${looped}); Sections ${v.secRange}, the last line's key ${v.sec6Key}; OCT+ on Comp: "${dz.values().pending}"`);
   }
+  {   // the live state for Claude: what plays and what the screen shows, as plain data
+    const ds = new D.Device(data, { set() {}, play() {} }, () => t);
+    ds.update(live(6));
+    ds.press("K2", 1);
+    const st = ds.state();
+    check(st.source === "workbench" && st.screen === "main" && st.bar === 6 && st.values.chord === "Dm9" && st.waiting.changes.tempo?.value === 81 &&
+          JSON.parse(JSON.stringify(st)).seed === 7, `state(): ${JSON.stringify({ screen: st.screen, bar: st.bar, chord: st.values.chord, waiting: st.waiting.changes })}`);
+  }
   {   // a new song, rolled or the next one, goes back to the main screen
     dev.press("ALGO", 1); dev.press("EDIT");
     const inPart = dev.id;

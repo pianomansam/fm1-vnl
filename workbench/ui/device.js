@@ -564,6 +564,21 @@ export class Device {
     delete this.held[control];
     return h && !h.fired ? this.press(control, 1, h.a) : null;
   }
+  // the live state for Claude (docs/superpowers/plans/2026-11-06-device-screens.md, "Live state"): what plays and what
+  // the screen shows, as plain data (the page posts it to the server about once a second)
+  state() {
+    const l = this.live ?? {}, v = this.values(), drop = new Set(["activity", "secList"]);
+    const values = Object.fromEntries(Object.entries(v).filter(([k, x]) => !drop.has(k) && x !== "" && x !== false && x !== undefined));
+    return {
+      source: "workbench", at: new Date(this.now()).toISOString(), seed: l.seed, playing: !!l.playing, bar: l.bar, bars: l.bars,
+      section: v.section, chord: v.chord, screen: this.id, title: this.screen?.title, stack: [...this.stack],
+      cursor: this.cursor[this.id] ?? null, values, rows: l.rows?.values ?? {}, rolled: l.rows?.rolled ?? {},
+      levels: l.levels ?? {}, mute: l.activity?.mute ?? [], solo: l.activity?.solo ?? null, sections: l.sections ?? [],
+      waiting: { changes: Object.fromEntries(Object.entries(this.req).map(([f, q]) => [f, { value: q.val, at: q.at }])),
+                 jump: this.jumpReq ? { section: this.jumpReq.name, at: this.jumpReq.at } : null,
+                 reroll: this.rollReq ? { part: this.rollReq.part, at: this.rollReq.at } : null },
+    };
+  }
   // a scrolling list's first line shown (a screen's `rows`: how many lines fit): it follows the highlight
   listOff() {
     const rows = this.screen?.rows;
