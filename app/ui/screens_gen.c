@@ -4,7 +4,7 @@
 #include "screens_gen.h"
 #include "choices_gen.h"
 
-const char UI_STRINGS[2441] =
+const char UI_STRINGS[2443] =
     "\001\211\200  \001\212\200/\001\213\200\000"
     "LOOP\000"
     "\001\204\200\000"
@@ -204,7 +204,7 @@ const char UI_STRINGS[2441] =
     "PATTERN\000"
     "RIDE\000"
     "VARIATION\000"
-    "KEEP GOING\000"
+    "STAY ON SONG\000"
     "KEY\000"
     "PHRASE\000"
     "STYLE\000"
@@ -762,28 +762,28 @@ const ui_field_t UI_FIELDS[36] = {
     {ROW_RIDE, 2302, 1, 0, 0, 0, 1, 0, 0},   /* drumRide */
     {ROW_DRUMS_VAR, 2307, 2, 0, 99, 0, 1, 4, 0},   /* drumVar */
     {ROW_ENDLESS, 2317, 1, 0, 0, 2, 1, 0, 1},   /* endless */
-    {ROW_KEY, 2328, 0, 0, 0, 12, 1, 1, 0},   /* key */
+    {ROW_KEY, 2330, 0, 0, 0, 12, 1, 1, 0},   /* key */
     {ROW_LEAD, 2217, 1, 0, 0, 0, 1, 0, 0},   /* leadIns */
     {ROW_LEAD_LOOP, 13, 1, 0, 0, 0, 1, 0, 0},   /* leadLoopSet */
-    {ROW_PHRASE, 2332, 2, 0, 99, 0, 1, 4, 0},   /* leadPhrase */
+    {ROW_PHRASE, 2334, 2, 0, 99, 0, 1, 4, 0},   /* leadPhrase */
     {ROW_LEAD_OCT, 2244, 1, 0, 0, 0, 1, 0, 0},   /* leadReg */
-    {ROW_LEAD_STYLE, 2339, 1, 0, 0, 0, 1, 0, 0},   /* leadStyleSet */
+    {ROW_LEAD_STYLE, 2341, 1, 0, 0, 0, 1, 0, 0},   /* leadStyleSet */
     {ROW_LOOP, 13, 1, 0, 0, 2, 1, 0, 1},   /* loop */
-    {ROW_MODE, 2345, 0, 0, 0, 6, 1, 3, 0},   /* mode */
-    {ROW_MOOD, 2351, 0, 0, 3, 0, 1, 2, 0},   /* mood */
-    {ROW_MOTION, 2356, 0, 0, 100, 0, 1, 0, 0},   /* motion */
+    {ROW_MODE, 2347, 0, 0, 0, 6, 1, 3, 0},   /* mode */
+    {ROW_MOOD, 2353, 0, 0, 3, 0, 1, 2, 0},   /* mood */
+    {ROW_MOTION, 2358, 0, 0, 100, 0, 1, 0, 0},   /* motion */
     {ROW_PAD, 2217, 1, 0, 0, 0, 1, 0, 0},   /* padIns */
-    {ROW_PAD_NOTES, 2363, 2, 0, 99, 0, 1, 4, 0},   /* padNotes */
-    {ROW_PAD_ON, 2369, 1, 0, 0, 0, 1, 0, 0},   /* padOnSet */
-    {ROW_PAD_PLACE, 2376, 1, 0, 0, 0, 1, 0, 0},   /* padPlaceSet */
-    {ROW_COLOR, 2382, 1, 0, 0, 0, 1, 0, 0},   /* songColor */
-    {ROW_MAP, 2394, 1, 0, 0, 0, 1, 0, 0},   /* songMap */
-    {ROW_PROG, 2401, 1, 0, 0, 0, 1, 0, 0},   /* songProg */
-    {ROW_SWING, 2408, 1, 0, 0, 0, 1, 0, 0},   /* songSwing */
-    {ROW_TEMPO, 2414, 0, 70, 90, 0, 1, 0, 0},   /* tempo */
-    {ROW_AMBIENCE, 2420, 1, 0, 0, 0, 1, 0, 0},   /* texAmb */
-    {ROW_DUST, 2429, 1, 0, 0, 0, 1, 0, 0},   /* texDust */
-    {ROW_NOISE, 2434, 1, 0, 0, 0, 1, 0, 0},   /* texNoise */
+    {ROW_PAD_NOTES, 2365, 2, 0, 99, 0, 1, 4, 0},   /* padNotes */
+    {ROW_PAD_ON, 2371, 1, 0, 0, 0, 1, 0, 0},   /* padOnSet */
+    {ROW_PAD_PLACE, 2378, 1, 0, 0, 0, 1, 0, 0},   /* padPlaceSet */
+    {ROW_COLOR, 2384, 1, 0, 0, 0, 1, 0, 0},   /* songColor */
+    {ROW_MAP, 2396, 1, 0, 0, 0, 1, 0, 0},   /* songMap */
+    {ROW_PROG, 2403, 1, 0, 0, 0, 1, 0, 0},   /* songProg */
+    {ROW_SWING, 2410, 1, 0, 0, 0, 1, 0, 0},   /* songSwing */
+    {ROW_TEMPO, 2416, 0, 70, 90, 0, 1, 0, 0},   /* tempo */
+    {ROW_AMBIENCE, 2422, 1, 0, 0, 0, 1, 0, 0},   /* texAmb */
+    {ROW_DUST, 2431, 1, 0, 0, 0, 1, 0, 0},   /* texDust */
+    {ROW_NOISE, 2436, 1, 0, 0, 0, 1, 0, 0},   /* texNoise */
 };
 const ui_screen_t UI_SCREENS[17] = {
     { /* levels */ 146, 0, 4, {{255, 0}, {255, 0}, {255, 0}, {255, 0}},

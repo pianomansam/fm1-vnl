@@ -154,7 +154,7 @@ export default {
     // the section playing repeats instead of moving on (the workbench's Loop section); acts at once
     loop: { row: "loop", name: "LOOP", options: true, now: true, wrap: 2 },   // turning either way flips it (Sam)
     // never end (Sam, 2026-11-06): where the outro would start, back to the section after the intro; no next song
-    endless: { row: "endless", name: "KEEP GOING", options: true, now: true, wrap: 2 },
+    endless: { row: "endless", name: "STAY ON SONG", options: true, now: true, wrap: 2 },   // off by default (Sam)
   },
 
   // the parts, in ALGO's order (on a part's screen ALGO moves to the next one, at its first page)

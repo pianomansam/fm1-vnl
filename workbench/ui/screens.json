@@ -177,7 +177,7 @@
    "row": "drumsVar"
   },
   "endless": {
-   "name": "KEEP GOING",
+   "name": "STAY ON SONG",
    "now": true,
    "options": true,
    "row": "endless",
