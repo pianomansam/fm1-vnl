@@ -17,9 +17,11 @@ export const PALETTES = {
   MONO: [...NEUTRALS, RGB(196, 196, 202), RGB(236, 236, 240)],
 };
 export const THEME = "AMBER";   // fm1b_config.h's APP_PALETTE 1 (VNL-1 doesn't set its own)
-export const colors = (theme = THEME) => {
+// the theme's colors, plus the screen data's own (`colors`: { NAME: [r, g, b] }, e.g. a color per part)
+export const colors = (theme = THEME, extra = {}) => {
   const p = PALETTES[theme];
-  return { BLACK: 0x0000, WHITE: 0xffff, LINE: p[0], DIM: p[1], GRAY: p[2], AMB: p[3], HI: p[4] };
+  return { BLACK: 0x0000, WHITE: 0xffff, LINE: p[0], DIM: p[1], GRAY: p[2], AMB: p[3], HI: p[4],
+           ...Object.fromEntries(Object.entries(extra).map(([k, [r, g, b]]) => [k, RGB(r, g, b)])) };
 };
 
 const decoded = new Map();
@@ -153,13 +155,16 @@ export function valuesOf(s, data) {
 }
 
 // a screen's bands onto lcd, from its values (app.c's draw(), as data)
-export function drawScreen(lcd, screen, bag, data, C = colors()) {
+export function drawScreen(lcd, screen, bag, data, C = colors(THEME, data.colors)) {
   for (const band of screen.bands) {
     lcd.begin(W, band.h, C[band.bg ?? "BLACK"]);
     let pen = 0;
     for (const it of band.draw) {
       if (!holds(it.when, bag)) continue;
       if (it.rect) lcd.rect(...it.rect, C[it.color]);
+      else if (it.icon) {   // a 1-bit icon from the data's `icons` (rows of "#" and "."): { icon, x, y, color }
+        (data.icons?.[it.icon] ?? []).forEach((row, j) => [...row].forEach((c, i) => { if (c === "#") lcd.rect(it.x + i, it.y + j, 1, 1, C[it.color]); }));
+      }
       else if (it.meter) {   // a bar filled to a value's share (0..1): { meter: [x, y, w, h], value, color, back }
         const [x, y, w, h] = it.meter, v = Math.max(0, Math.min(1, Number(bag[it.value]) || 0));
         if (it.back) lcd.rect(x, y, w, h, C[it.back]);
@@ -217,7 +222,7 @@ export function transitions(data) {
 
 // What's wrong with the data (an empty list: nothing): the panel shows these, smoke.mjs checks there are none
 export function problems(data) {
-  const out = [], C = colors(), ids = Object.keys(data.screens ?? {});
+  const out = [], C = colors(THEME, data.colors), ids = Object.keys(data.screens ?? {});
   if (!data.screens?.[data.home]) out.push(`home "${data.home}" is not a screen`);
   const known = new Set(["APP", "song", "stopped", "idle", "msg", "msg0", "msg1", "map", "section", "bar", "bars", "chord",
                          "pending", "rhythm", "progress", ...Object.keys(data.fields ?? {}).map((k) => `${k}Frac`), ...ROWS.map((r) => r.id), ...Array.from({ length: MENU_MAX }, (_, i) => `sel${i}`),
@@ -247,6 +252,7 @@ export function problems(data) {
         const faces = it.knobs ? [it.knobs.label.font, it.knobs.value.font] : it.text !== undefined ? [it.font] : [];
         for (const f of faces) if (!FONTS[f]) out.push(`${w}: no font ${f}`);
         if (it.meter) cond(w, it.value);
+        if (it.icon && !data.icons?.[it.icon]) out.push(`${w}: no icon ${it.icon}`);
         for (const c of it.knobs ? [it.knobs.label.color, it.knobs.value.color, ...(it.knobs.bar ? [it.knobs.bar.color, it.knobs.bar.back] : [])]
                         : [it.color, ...(it.back ? [it.back] : [])])
           if (!(c in C)) out.push(`${w}: no color ${c}`);
