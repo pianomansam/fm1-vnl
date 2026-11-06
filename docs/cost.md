@@ -1353,3 +1353,10 @@ size (the organ's is the largest; the vibraphone's state is 76 B), and voices.o'
 - CPU (`tools/tick-bench.sh 1000 3`, host): worst tick 27.0 us (others) and 32.0 us (strummed), against 29.0 and 40.0
   us before on the same seeds (which now roll other progressions: noise). The scale over a chord is a 7-entry pass per
   call (the lead's legal-note checks call it per candidate note); not measurable.
+
+### Transport: boot stopped, continue after a stop, SEQ for a new song (2026-11-06)
+
+- Flash: image 386,008 to **386,392 B (+384 B)** (`./build.sh`, against 4b47df8). RAM .data+.bss 60,656 to
+  **62,000 B (+1,344 B)**: the song as it was at its bar's start (a second `song_t`), copied at each bar's first 16th so
+  a stop can go back to it. Pool 124,472 B unchanged.
+- CPU: one `song_t` copy (about 1.3 KB) a bar in the render; not measurable.
