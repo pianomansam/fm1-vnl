@@ -313,12 +313,16 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   sometimes drop in breaks, dominants without the 7th) gets an on/off (and, where it has one, its number) in an
   Advanced area of the device and browser UI, defaults as today. To do first: an inventory of the rules (from the
   ledger and the rule docs), which ones make sense to expose, and how they're saved with a song.
-- **Transport: no autoplay, stop/play continues, a button to reroll (Sam, 2026-11-06: queued, not started).** The
+- **Transport: no autoplay, stop/play continues, a button to reroll (Sam, 2026-11-06: built on branch
+  transport-no-autoplay, to merge).** The
   firmware boots stopped (a song ready, silent until PLAY). PLAY after a stop continues the same song, from the start
   of the bar it stopped in, instead of rolling a new one. A separate button (TBD; provisionally SEQ, one constant)
   rolls a new song: playing, it starts with the usual between-songs gap; stopped, it waits for PLAY. The song's end
   still moves on to a new song. The screen reader says "NEW SONG". To settle: pending knob requests across a stop,
-  and the button (try it in the workbench mock first).
+  and the button (try it in the workbench mock first). Built: the screen says STOPPED at boot and stopped, NEXT SONG
+  in the gap (SEQ while playing cuts to it); a change waiting at a stop lands on the bar it would have (the knobs do
+  nothing while stopped); the button is B_NEW (= B_SEQ) in app.c. Open: the workbench mock's SEQ (its reference
+  screen has none), and whether the stopped screen should show the song that's ready.
 - **User patterns made on the device (Sam, 2026-11-06: future, not started).** Users create their own drum patterns,
   comp rhythms and the like on the device, saved on the device (its data flash) and drawn by the roll beside the
   built-in ones (the built-ins are data already: patterns/model.json). Stretch: a companion website that edits them

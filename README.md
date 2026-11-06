@@ -48,7 +48,8 @@ on USB, `base/bsp/tools/fm1_rescue.sh` restores stock firmware.
   Pillow. `build.sh` uses `.venv/bin/python` when it exists; `PYTHON=...` overrides.
 - Status: VNL-1 plays generated songs, one after another, on placeholder voices (111 KB image, 31 KB RAM); it
   passes in the simulator and runs in the browser emulator. Not yet installed on a real FM-1. Minimal controls:
-  PLAY stops / plays, K1-K4 key, tempo, motion, mood (each lands on the next 4-bar boundary).
+  it boots stopped with a song ready; PLAY stops / plays (after a stop, the same song from the bar it stopped in),
+  SEQ rolls a new song, K1-K4 key, tempo, motion, mood (each lands on the next 4-bar boundary).
 - Budget: 581 KB flash app slot, 96 KB RAM, 336 KB buffer pool, no external RAM.
 - `ref/` (git-ignored) holds read-only clones: `fm1_open` (M-VAVE's official V14, Windows toolchain, binary engine
   SDK, GPLv3), `fm1-base`, `felucca-bsp`, `fm1-amb` and `fm1-dub` (the two direction references).
