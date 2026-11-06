@@ -3285,7 +3285,7 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
         `no Web MIDI: "${said[0][1]}"; refused: "${said[1][1]}"`);
 }
 
-// ---- the mixer's levels (wb_level_set, desk.levels): mixer state, kept across songs ----
+// ---- the mixer's levels (wb_level_set, desk.levels): mixer state, back to 0 dB on a new song ----
 console.log("mixer levels");
 {
   const { LEVEL_PARTS, LEVEL_KEY } = await import("../desk.js");
@@ -3308,7 +3308,7 @@ console.log("mixer levels");
   const z = render(zero, loudAt + SR);
   check(z.l.every((x, i) => x === a.l[i] && z.r[i] === a.r[i]), "0 dB: the samples unchanged");
 
-  // the desk: a level set, kept through a regenerate and the next song, saved for the viewer and restored on load
+  // the desk: a level set, kept through a mute, saved for the viewer and restored on load; a new song: 0 dB
   const saved = new Map(), storage = () => ({ getItem: (k) => saved.get(k) ?? null, setItem: (k, v) => saved.set(k, v) });
   const dex = await load(), call = caller(dex);
   dex.wb_seed(21);
@@ -3325,19 +3325,23 @@ console.log("mixer levels");
   check(JSON.stringify(desk.levels) === JSON.stringify(want) && JSON.stringify(engine()) === JSON.stringify(want) &&
         JSON.stringify(JSON.parse(saved.get(LEVEL_KEY))) === JSON.stringify(want),
         `setLevel: whole dB, clamped, on the engine and saved (${JSON.stringify(desk.levels)})`);
-  const seed0 = desk.values.seed;
-  await desk.set("seed", 77);
   await desk.mute("lead", true);
-  await desk.nextSong();
-  dex.wb_play(1);
-  render(dex, SR);
-  check(desk.values.seed !== seed0 && JSON.stringify(desk.levels) === JSON.stringify(want) &&
-        JSON.stringify(engine()) === JSON.stringify(want), "kept through a regenerate, a mute and the next song");
+  check(JSON.stringify(desk.levels) === JSON.stringify(want) && JSON.stringify(engine()) === JSON.stringify(want), "kept through a mute");
   await desk.mute("lead", false);
   const dex2 = await load(), again = new Desk(caller(dex2), C, OPTS, await caller(dex2)("wb_library"), { storage });
   await again.levelsReady;
   check(JSON.stringify(again.levels) === JSON.stringify(want) &&
         LEVEL_PARTS.every((p, i) => dex2.wb_level_get(i) === want[p]), "a page load restores the viewer's levels into the engine");
+  // a new song sets every part back to 0 dB (Sam, 2026-11-06: no longer kept across songs)
+  const seed0 = desk.values.seed;
+  await desk.nextSong();
+  dex.wb_play(1);
+  render(dex, SR);
+  check(desk.values.seed !== seed0 && LEVEL_PARTS.every((p, i) => desk.levels[p] === 0 && dex.wb_level_get(i) === 0),
+        `the next song: every part back to 0 dB (${JSON.stringify(desk.levels)})`);
+  await desk.setLevel("bass", -4);
+  await desk.set("seed", 77);
+  check(desk.levels.bass === 0 && dex.wb_level_get(C.PART.BASS) === 0, "a new seed: back to 0 dB too");
   const broken = () => { throw new Error("blocked"); };
   const priv = new Desk(caller(dex2), C, OPTS, await caller(dex2)("wb_library"), { storage: broken });
   await priv.levelsReady;

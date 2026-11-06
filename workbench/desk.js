@@ -14,8 +14,9 @@ export const PARTS = { keys: "CHORD", bass: "BASS", lead: "LEAD", pad: "PAD", dr
 // The mixer's level per part (the device's mixer screen; wb_level_set's parts, wb_consts' PART: drums 0, bass 1,
 // keys 2 (the comp), pad 3, lead 4, texture 5 (the bed: surface noise, rain)), in dB, LEVEL_MIN to LEVEL_MAX in 1 dB
 // steps, 0 the default. Mixer state, per viewer (localStorage's LEVEL_KEY, when there is one: a private window or
-// blocked storage throws, and the levels then last this visit only): never the song's, so a regenerate, a new song or
-// a restore keeps them, and mute and solo leave them.
+// blocked storage throws, and the levels then last this visit only). A new song (a new seed) sets them all back to 0
+// dB (Sam, 2026-11-06, changing his earlier "keep them across songs"); a regenerate of the same song, a restore, mute
+// and solo leave them.
 export const LEVEL_KEY = "wb-levels", LEVEL_MIN = -12, LEVEL_MAX = 6;
 export const LEVEL_PARTS = ["drums", "bass", "keys", "pad", "lead", "texture"];
 const levelOf = (db) => Math.max(LEVEL_MIN, Math.min(LEVEL_MAX, Math.round(Number(db) || 0)));
@@ -155,7 +156,10 @@ export class Desk {
 
   async stage(id, v) {
     const r = row(id), { RF, V, OV } = this.C, c = this.call;
-    if (r.kind === "seed") return c("wb_seed", v >>> 0);
+    if (r.kind === "seed") {   // a new song: the mixer back to 0 dB (a regenerate of this song keeps it)
+      if ((v >>> 0) !== (await c("wb_live_get", this.C.RF.N)) >>> 0) await this.resetLevels();
+      return c("wb_seed", v >>> 0);
+    }
     if (r.kind === "roll") return c("wb_roll_set", RF[r.field], v);
     if (id === "comp") {   // a comp rhythm: the COMP_PAT override (CS_PAT where the keys play it); else COMP, no rhythm
       await c("wb_ov_set", OV.COMP, isCompPat(v) ? -1 : v);
@@ -348,6 +352,11 @@ export class Desk {
     return this.levels[part];
   }
   // every part's level onto the engine (the constructor's: a page load restores the viewer's mix)
+  async resetLevels() {   // every part to 0 dB (a new song)
+    this.levels = Object.fromEntries(LEVEL_PARTS.map((p) => [p, 0]));
+    try { this.storage()?.setItem(LEVEL_KEY, JSON.stringify(this.levels)); } catch { /* this visit only */ }
+    await this.applyLevels();
+  }
   async applyLevels() {
     for (const [i, p] of LEVEL_PARTS.entries()) await this.call("wb_level_set", i, this.levels[p]);
   }

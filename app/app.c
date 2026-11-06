@@ -185,6 +185,8 @@ static void song_begin(void)
     r_now = r_pos = r_tick = 0;
     r_frac = 0.0f;
     memset(req_set, 0, sizeof req_set);
+    for (int lp = 0; lp < VX_PART_N; lp++)   /* a new song: the mixer back to 0 dB (Sam, 2026-11-06; a resume keeps it) */
+        vx_level_set(lp, 0);
     songs_started++;
     held = 0;
     rs = RS_SONG;
