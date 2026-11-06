@@ -1926,7 +1926,10 @@ console.log("the section strip, mute/solo and listening state (Task 3)");
   await d.mute("pad", false);
   await d.solo("keys");
   await d.set("seed", 31);
-  check(d.listen.mute.size === 4 && !d.listen.mute.has("pad") && d.listen.solo === "keys", "mute/solo state survives a new seed (the page's)");
+  check(d.listen.mute.size === 0 && d.listen.solo === null, "a new seed clears the mutes and the solo (Sam, 2026-11-06)");
+  for (const p of Object.keys(PARTS)) await d.mute(p, true);   // again, on the new song, for the checks below
+  await d.mute("pad", false);
+  await d.solo("keys");
   e.wb_play(1);
   const solo = render(e, 6 * SR);
   check(db(solo) > -60, `the solo is still heard in the new song (${db(solo).toFixed(1)} dB)`);
@@ -3391,8 +3394,11 @@ console.log("mixer levels");
   check(desk.values.seed !== seed0 && LEVEL_PARTS.every((p, i) => desk.levels[p] === 0 && dex.wb_level_get(i) === 0),
         `the next song: every part back to 0 dB (${JSON.stringify(desk.levels)})`);
   await desk.setLevel("bass", -4);
+  await desk.mute("lead", true);
+  await desk.solo("bass");
   await desk.set("seed", 77);
-  check(desk.levels.bass === 0 && dex.wb_level_get(C.PART.BASS) === 0, "a new seed: back to 0 dB too");
+  check(desk.levels.bass === 0 && dex.wb_level_get(C.PART.BASS) === 0 && !desk.listen.mute.size && desk.listen.solo === null,
+        "a new seed: back to 0 dB, no mutes, no solo");
   const broken = () => { throw new Error("blocked"); };
   const priv = new Desk(caller(dex2), C, OPTS, await caller(dex2)("wb_library"), { storage: broken });
   await priv.levelsReady;

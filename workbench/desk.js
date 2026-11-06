@@ -106,7 +106,7 @@ export class Desk {
     this.locks = new Set();
     this.hand = new Set();     // rows set from their dropdown (they survive a regenerate, as locks do)
     this.moved = new Set();    // rows the last change forced (highlighted)
-    this.listen = { mute: new Set(), solo: null };   // parts muted, the part soloed: listening only, kept across regenerates
+    this.listen = { mute: new Set(), solo: null };   // parts muted, the part soloed: listening only; a new song clears them
     this.legal = {};
     this.message = "";
     this.rolls = {};           // each part's rolls: { history: [{ salt } (the drums': { salt, kick })], at }
@@ -157,7 +157,11 @@ export class Desk {
   async stage(id, v) {
     const r = row(id), { RF, V, OV } = this.C, c = this.call;
     if (r.kind === "seed") {   // a new song: the mixer back to 0 dB (a regenerate of this song keeps it)
-      if ((v >>> 0) !== (await c("wb_live_get", this.C.RF.N)) >>> 0) await this.resetLevels();
+      if ((v >>> 0) !== (await c("wb_live_get", this.C.RF.N)) >>> 0) {   // and no mutes or solo (Sam, 2026-11-06)
+        await this.resetLevels();
+        this.listen = { mute: new Set(), solo: null };
+        await this.hear();
+      }
       return c("wb_seed", v >>> 0);
     }
     if (r.kind === "roll") return c("wb_roll_set", RF[r.field], v);
