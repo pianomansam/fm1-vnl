@@ -4,6 +4,7 @@
 // the breadcrumb. It plays the workbench's song: a knob's change goes through the rows' own calls (Desk.set), PLAY is
 // the page's Play. Served from workbench/ui/ as it is on disk: edit screens.js, then "Reload screens" (or reload).
 import { Lcd, Device, W, H, BUTTONS, ENCODERS, KNOBS, actionOf, transitions, problems } from "./device.js";
+import { connect } from "./usb.js";
 
 // the panel's keys (the page's, not the device's): a knob or encoder clockwise, with Shift counter-clockwise
 const KEYS = { Digit1: "K1", Digit2: "K2", Digit3: "K3", Digit4: "K4", Digit5: "SELECT", Digit6: "ALGO", Digit7: "PRESET",
@@ -49,6 +50,7 @@ const CSS = `
   .dev .bad { color: var(--accent); font-size: 13px; white-space: pre-wrap; }
   .dev .tools { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
   .dev .tools button { font-size: 12px; padding: 3px 10px; }
+  .dev .usb { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
 `;
 
 const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
@@ -89,9 +91,23 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
   const tools = el("div", { className: "tools" },
                    el("button", { textContent: "Reload screens", title: "Read ui/screens.js again (the song plays on)", onclick: () => load() }),
                    el("button", { textContent: "Speak screen", title: "What a screen reader hears asking for the whole screen", onclick: () => { dev?.speak(); draw(); } }));
+  // the real FM-1's controls over USB (ui/usb.js): the mock acts on them; the FM-1 stays silent meanwhile
+  const usbState = el("p", { className: "usb", ariaLive: "polite" });
+  let usb = null, usbIs = "";
+  const usbBtn = el("button", { textContent: "Connect FM-1", title: "Use the FM-1's buttons, encoders and knobs on this mock (Web MIDI)",
+    onclick: async () => {
+      if (usb) { usb.disconnect(); usb = null; usbBtn.textContent = "Connect FM-1"; return; }
+      usbBtn.disabled = true;
+      usb = await connect({ act, onState: (s, text) => { usbIs = s; usbState.textContent = text; } });
+      usbBtn.disabled = false;
+      if (usbIs === "unsupported" || usbIs === "denied") usb = null;   // nothing to disconnect
+      usbBtn.textContent = usb ? "Disconnect FM-1" : "Connect FM-1";
+    } });
+  tools.append(usbBtn);
+  addEventListener("pagehide", () => usb?.disconnect());
   box.append(el("div", { className: "dev" },
                 el("div", {}, canvas, say, encs, knobs, ...rows),
-                el("div", {}, crumb, flow, bad, tools)));
+                el("div", {}, crumb, flow, bad, tools, usbState)));
 
   // ui/screens.js, fresh from disk (a new URL each time, past the module cache); a mistake shows here and the last
   // good screens stay

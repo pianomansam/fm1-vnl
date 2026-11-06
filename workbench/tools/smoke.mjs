@@ -3069,5 +3069,69 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
   check(plays === 1 && dev.values().idle === "STOPPED" && !dev.values().msg && !dev.values().pending, "PLAY stops; the screen says STOPPED");
 }
 
+{   // the real FM-1 as the mock's controls (ui/usb.js, app.c's remote): a fake Web MIDI with the FM-1's two ports
+  const U = await import("../ui/usb.js"), D = await import("../ui/device.js"), data = (await import("../ui/screens.js")).default;
+  const hex = (m) => [...m].map((b) => b.toString(16).padStart(2, "0")).join("").toUpperCase();
+  let t = 0, tick = null;
+  const timers = { setInterval: (f) => (tick = f, 1), clearInterval: () => { tick = null; } };
+  const sent = [], input = { name: "VNL-1 FM-1", state: "connected", onmidimessage: null };
+  const output = { name: "VNL-1 FM-1", state: "connected", send: (m) => sent.push(hex(m)) };
+  const access = { inputs: new Map([["i", input]]), outputs: new Map([["o", output]]), onstatechange: null };
+  const from = (h) => input.onmidimessage?.({ data: Uint8Array.from(h.match(/../g).map((x) => parseInt(x, 16))) });
+  const dev = new D.Device(data, { set() {}, play() {} }, () => t), acts = [], states = [];
+  dev.update({ playing: true, gap: 0, bar: 2, bars: 64, seed: 7, roll: { key: 2, mode: 1, tempo: 80, motion: 50, mood: 1 },
+               facts: { section: 1, map: "Drift", chord: "Dm9" } });
+  let asked = null;
+  const link = await U.connect({ act: (c, d) => { acts.push(`${c} ${d}`); dev.press(c, d); }, onState: (s) => states.push(s),
+                                 request: async (o) => { asked = o; return access; }, timers, now: () => t });
+  check(asked?.sysex === true && JSON.stringify(sent) === '["F07D564E01F7"]' && states.join() === "waiting",
+        `Connect asks for SysEx and sends "remote on" to the FM-1's port (${sent.join(" ")}; ${states.join(", ")})`);
+  from("F07D564E110101F7");
+  check(states.at(-1) === "connected", "the FM-1's answer: connected");
+  // ALGO +3, EDIT down and up, HOME, K2 one counter-clockwise; a message of another protocol is ignored
+  for (const m of ["F07D564E210103F7", "F07D564E200401F7", "F07D564E200400F7", "F07D53520101F7"]) from(m);
+  const opened = dev.id;
+  for (const m of ["F07D564E200601F7", "F07D564E200600F7", "F07D564E21047FF7"]) from(m);
+  check(acts.join() === "ALGO 3,EDIT 1,HOME 1,K2 -1" && opened === "pComp" && dev.id === "main" && dev.values().pending === "TEMPO 79 IN 3 BARS",
+        `the FM-1's controls press the mock's: ${acts.join(", ")} (EDIT opened ${opened}, HOME came back, K2 asks for "${dev.values().pending}")`);
+  check(JSON.stringify(U.decode([0xf0, 0x7d, 0x56, 0x4e, 0x21, 0x06, 0x40, 0xf7])) === '{"control":"K4","detents":-64}' &&
+        JSON.stringify(U.decode([0xf0, 0x7d, 0x56, 0x4e, 0x20, 0x0d, 0x01, 0xf7])) === '{"control":"OCT+","down":true}' &&
+        U.decode([0xf0, 0x7d, 0x56, 0x4e, 0x20, 0x0e, 0x01, 0xf7]) === null, "decode: K4 -64, OCT+ down, no 15th button");
+  // the keepalive: "remote on" each second; no answer for over 3.5 s, back to waiting
+  sent.length = 0;
+  for (let i = 0; i < 3; i++) { t += 1000; tick(); from("F07D564E110101F7"); }
+  check(sent.length === 3 && sent.every((m) => m === "F07D564E01F7") && states.at(-1) === "connected", `the keepalive: ${sent.length} in 3 s, still connected`);
+  for (let i = 0; i < 4; i++) { t += 1000; tick(); }
+  check(states.at(-1) === "waiting", "no answer for 4 s: waiting again (the FM-1 let go)");
+  from("F07D564E110101F7");
+  // unplugged: the ports go, searching; plugged back: "remote on" again
+  input.state = output.state = "disconnected";
+  access.onstatechange();
+  sent.length = 0;
+  t += 1000;
+  tick();
+  check(states.at(-1) === "searching" && !sent.length, "unplugged: searching, nothing sent");
+  const input2 = { name: "VNL-1 FM-1", state: "connected", onmidimessage: null };
+  access.inputs.set("i", input2);
+  access.outputs.set("o", { ...output, state: "connected" });
+  access.onstatechange();
+  input2.onmidimessage({ data: Uint8Array.of(0xf0, 0x7d, 0x56, 0x4e, 0x11, 0x01, 0x01, 0xf7) });
+  check(sent.join() === "F07D564E01F7" && states.at(-1) === "connected" && input.onmidimessage === null, "plugged back: remote on again, connected");
+  // Disconnect: "remote off", the keepalive stops, the FM-1's controls no longer reach the mock
+  sent.length = 0;
+  link.disconnect();
+  const n = acts.length;
+  input2.onmidimessage?.({ data: Uint8Array.of(0xf0, 0x7d, 0x56, 0x4e, 0x20, 0x0a, 0x01, 0xf7) });
+  check(sent.join() === "F07D564E02F7" && tick === null && states.at(-1) === "off" && acts.length === n && input2.onmidimessage === null,
+        "Disconnect: remote off sent, the keepalive stopped, the FM-1's buttons ignored");
+  // no Web MIDI (Safari), or permission refused: said plainly
+  const said = [];
+  await U.connect({ act() {}, onState: (s, text) => said.push([s, text]), request: null, timers });
+  await U.connect({ act() {}, onState: (s, text) => said.push([s, text]), timers,
+                    request: async () => { throw Object.assign(new Error("denied"), { name: "SecurityError" }); } });
+  check(said[0][0] === "unsupported" && /Chrome/.test(said[0][1]) && said[1][0] === "denied" && /allow MIDI/.test(said[1][1]),
+        `no Web MIDI: "${said[0][1]}"; refused: "${said[1][1]}"`);
+}
+
 console.log(failed ? `smoke: ${failed} FAILED` : "smoke: all passed");
 process.exit(failed ? 1 : 0);
