@@ -420,7 +420,7 @@ export class Desk {
     }));
   }
   // the part's roll as it stands (a history entry); its history (a new one: this roll alone)
-  entry(p) { return p === "drums" ? { salt: this.values.drumsVar ?? 0, kick: this.values.kick ?? "" } : { salt: this.values[PART_ROW[p]] ?? 0 }; }
+  entry(p) { return p === "drums" ? { salt: this.values.drumsVar ?? 0, kick: this.values.kick ?? "", pattern: this.values.pattern } : { salt: this.values[PART_ROW[p]] ?? 0 }; }
   rollOf(p) { return (this.rolls[p] ??= { history: [this.entry(p)], at: 0 }); }
 
   // why part p can't take a new roll (step: or step through its history), or null: it can
@@ -476,6 +476,12 @@ export class Desk {
     const why = this.cantRoll(p);
     if (why) return this.done(false, why);
     const also = [], kick = this.values.kick, handKick = this.hand.has("kick") && kick && kick !== "grid", salt = () => 1 + Math.floor(this.rnd() * 0x7ffffffe);
+    if (p === "drums" && !this.locks.has("pattern")) {   // a new pattern too (Sam, 2026-11-06: not just the kick)
+      for (let i = 0; i < 8; i++) {
+        const pat = pickFor(row("pattern"), this.state, this.opts, this.rnd, this.lib);
+        if (pat !== undefined && pat !== this.values.pattern) { also.push(["pattern", pat]); break; }
+      }
+    }
     if (p === "drums" && !this.locks.has("kick")) {
       const ks = this.opts.kickPhrases.filter((k) => (k.status ?? "approved") === "approved" && k.id !== kick);
       if (ks.length) also.push(["kick", ks[Math.floor(this.rnd() * ks.length) % ks.length].id]);
@@ -503,6 +509,7 @@ export class Desk {
     if (why) return this.done(false, why);
     const e = h.history[to];
     const also = p === "drums" && e.kick !== this.values.kick && !this.locks.has("kick") ? [["kick", e.kick]] : [];
+    if (p === "drums" && e.pattern !== undefined && e.pattern !== this.values.pattern && !this.locks.has("pattern")) also.unshift(["pattern", e.pattern]);
     const res = await this.reacting(p, () => this.set(PART_ROW[p], e.salt, { dice: true, step: true, also }));
     if (res.ok) h.at = to;
     return res;

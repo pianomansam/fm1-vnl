@@ -2205,9 +2205,15 @@ console.log("parts: re-rolls, history, locks, reactions (Task 5)");
           `... the 🎲 skips it and commits the next salt that moves notes (${dm.values.bassLine}, wanted ${moves})`);
     const { desk: dd } = await deskOn(21);
     dd.lock("kick", true);
+    dd.lock("pattern", true);
     const rd2 = await dd.reroll("drums");
     check(!rd2.ok && /no other variation fits this pattern/.test(rd2.message) && dd.values.drumsVar === 0 && dd.parts.drums.history.length === 1,
-          `seed 21's drums with the kick locked (jitter only): refused ("${rd2.message}")`);
+          `seed 21's drums with the kick and the pattern locked (jitter only): refused ("${rd2.message}")`);
+    const { desk: dp } = await deskOn(21);   // the kick locked, the pattern free: the drums' roll draws a new pattern
+    dp.lock("kick", true);
+    const p0 = dp.values.pattern, rd3 = await dp.reroll("drums");
+    check(rd3.ok && dp.values.pattern !== p0 && dp.parts.drums.history.length === 2,
+          `the drums' roll draws a new pattern too (${p0} → ${dp.values.pattern}), the kick locked`);
   }
 
   // Final review 2: a locked drums part keeps its kick phrase through a new seed and re-roll all; the kick row
