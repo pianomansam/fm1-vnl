@@ -3019,7 +3019,7 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
 }
 {   // wb_rolled: what the "as rolled" rows play (the mock writes "AS ROLLED (HELD)"); the comp agrees with wb_comp_applied
   const ex = await fresh(72), x = JSON.parse(cstr(ex, ex.wb_rolled()));
-  const keys = ["comp", "comp_pat", "lead_style", "pad_on", "pad_place", "strum_pat", "strum_fill", "lead_loop"];
+  const keys = ["comp", "comp_pat", "lead_style", "pad_on", "pad_place", "strum_pat", "strum_fill", "lead_loop", "bass_style"];
   check(keys.every((k) => Number.isInteger(x[k])) && x.comp === ex.wb_comp_applied() && [0, 1].includes(x.pad_on) &&
         [0, 1].includes(x.strum_fill) && x.pad_place >= 0 && x.pad_place <= 2, `wb_rolled: ${JSON.stringify(x)}`);
 }

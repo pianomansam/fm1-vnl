@@ -141,7 +141,10 @@ export const fieldValue = (def, k, roll, rows) => (roll?.[k] !== undefined ? rol
 export function fieldText(def, v, mode, rows) {
   if (v === undefined) return "";
   if (def.options) return rows?.options?.[def.row]?.find((o) => String(o.value) === String(v))?.name ?? String(v);
-  if (def.format === "variant") return v ? `VARIANT ${v}` : "AS ROLLED";
+  if (def.format === "variant") {   // a re-roll: what it plays, where the engine names it (the bass line's style)
+    const what = String(v) === String(rows?.values?.[def.row]) ? rows?.rolled?.[def.row] : undefined;
+    return `${v ? `VARIANT ${v}` : "AS ROLLED"}${what ? ` (${what})` : ""}`;
+  }
   return valueText(def, v, mode);
 }
 const fieldFrac = (def, v, rows) => {

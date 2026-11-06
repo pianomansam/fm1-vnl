@@ -194,7 +194,8 @@
         return { comp, strumPat: strum, rhythm: rhythmRow(desk.state, o) === "comp" ? comp : strum,
                  leadStyle: up(o.leadStyles?.find((s) => s.id === x.lead_style + 2)?.name), padOn: ["OFF", "ON"][x.pad_on],
                  padPlace: ["BELOW THE LEAD", "WITH THE LEAD", "ABOVE THE LEAD"][x.pad_place],
-                 strumFill: ["STEP BACK", "DRIVE"][x.strum_fill], leadLoop: ["OFF", "ON"][x.lead_loop] };
+                 strumFill: ["STEP BACK", "DRIVE"][x.strum_fill], leadLoop: ["OFF", "ON"][x.lead_loop],
+                 bassLine: ["ROOTS", "WALKING", "PEDAL"][x.bass_style] };
       };
       const labels = (x) => {
         const rn = rolledNames(x);
@@ -214,7 +215,7 @@
         const rh = rhythmRow(desk.state, desk.opts), ids = ROWS.filter((r) => r.kind !== "seed" && r.kind !== "reroll").map((r) => r.id);
         const live = heard ? fromEngine(heard, wb.C, desk.opts) : null;
         if (live) live.rhythm = live[rh];
-        return { values: { ...desk.state.values, rhythm: desk.state.values[rh] }, live,
+        return { values: { ...desk.state.values, rhythm: desk.state.values[rh] }, live, rolled: rn,
                  options: { ...Object.fromEntries(ids.map((id) => [id, choices(id)])), rhythm: choices(rh, "rhythm") } };
       };
       device = mountDevice($("devbox"), { call: wb.call, C: wb.C, labels, rows,

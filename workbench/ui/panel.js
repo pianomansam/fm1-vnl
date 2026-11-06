@@ -143,8 +143,9 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
     // what control c does on screen id, in a few words ("": nothing; HOME on the home screen is nothing)
     const does = (id, c) => {
       const a = actionOf(d, id, c);
-      return !a || (a.go === "home" && id === d.home) ? "" : a.go ? `→ ${a.go === "back" || a.go === "home" ? a.go : d.screens[a.go]?.title ?? a.go}`
-        : a.do === "play" ? "play / stop" : `${d.fields[a.field]?.name ?? a.field}${a.do === "nudge" ? ` ${a.by > 0 ? "+" : ""}${a.by}` : ""}`;
+      return !a || (a.go === "home" && id === d.home) ? "" : a.go ? `→ ${a.go === "back" || a.go === "home" ? a.go : a.go === "cursor" ? "the highlighted part" : d.screens[a.go]?.title ?? a.go}`
+        : a.do === "play" ? "play / stop" : a.do === "cursor" ? "move the highlight" : a.do === "part" ? "next part"
+        : a.do === "page" ? "next page" : `${d.fields[a.field]?.name ?? a.field}${a.do === "nudge" ? ` ${a.by > 0 ? "+" : ""}${a.by}` : ""}`;
     };
     for (const [id, e] of ctl) {   // what each control does here
       const what = does(dev.id, id);
