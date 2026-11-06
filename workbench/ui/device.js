@@ -243,25 +243,35 @@ export function drawScreen(lcd, screen, bag, data, C = colors(THEME, data.colors
       else if (it.icon) {   // a 1-bit icon from the data's `icons` (rows of "#" and "."): { icon, x, y, color }
         (data.icons?.[it.icon] ?? []).forEach((row, j) => [...row].forEach((c, i) => { if (c === "#") lcd.rect(it.x + i, it.y + j, 1, 1, C[it.color]); }));
       }
-      else if (it.lanes) {   // { lanes: [x, y, w, h], parts, label, rowH }: the parts over the song (the workbench's roll)
+      else if (it.lanes) {   // { lanes: [x, y, w, h], parts, label, rowH, window }: the workbench's piano roll, small: a
+        // lane a part, its notes by time (x) and pitch (y; a drum lane one row a drum), brighter for louder; `window`
+        // bars across, scrolling with the song (the playhead a quarter in); bar lines, section starts; played notes in
+        // the part's color, those to come gray; a muted (or soloed-out) part dim
         const [x, y, w] = it.lanes, act = bag.activity, rowH = it.rowH ?? 22, lx = x + (it.label ?? 52), lw = w - (lx - x);
-        const bars = act?.bars || 1, cur = bag.bar ?? 0, f = font("T");
+        const bars = act?.bars || 1, span = Math.min(it.window ?? 8, bars), pos = Math.max(0, (bag.bar ?? 1) - 1), f = font("T");
+        const from = Math.max(0, Math.min(bars - span, pos - span / 4)), ppb = lw / span, X = (b) => lx + (b - from) * ppb;
+        const dim = (c, k) => { const r = c >> 11, g = (c >> 5) & 63, b = c & 31; return (Math.round(r * k) << 11) | (Math.round(g * k) << 5) | Math.round(b * k); };
+        const height = it.parts.length * rowH - 2;
+        for (let b = Math.ceil(from); b <= from + span; b++) lcd.rect(Math.round(X(b)), y, 1, height, C.LINE);   // bar lines
+        for (const sb of act?.sections ?? []) if (sb > from && sb < from + span) lcd.rect(Math.round(X(sb)), y, 1, height, C.DIM);
         it.parts.forEach((p, i) => {
           const ry = y + i * rowH, part = p === "keys" ? "comp" : p, col = C[part.toUpperCase()] ?? C.WHITE;
-          const muted = act?.mute?.includes(p) || (act?.solo && act.solo !== p), sel = bag[`sel${i}`];
-          if (sel) lcd.rect(x - 4, ry, w + 8, rowH - 2, C.LINE);
-          if (data.icons?.[part]) data.icons[part].forEach((row, j) => [...row].forEach((c, k) => { if (c === "#") lcd.rect(x + k, ry + 6 + j, 1, 1, muted ? C.DIM : col); }));
-          lcd.text(x + 12, ry + 4, f, part.toUpperCase().slice(0, 5), muted ? C.DIM : col);
-          const n = act?.lanes?.[p] ?? [], top = Math.max(1, ...n);
-          for (let b = 0; b < bars; b++) {
-            const bx = lx + Math.floor((b * lw) / bars), bw = Math.max(1, Math.floor(((b + 1) * lw) / bars) - Math.floor((b * lw) / bars) - (lw / bars > 2 ? 1 : 0));
-            const hh = n[b] ? Math.max(1, Math.round(((rowH - 6) * n[b]) / top)) : 0;
-            if (hh) lcd.rect(bx, ry + rowH - 3 - hh, bw, hh, muted ? C.DIM : b < cur ? col : C.GRAY);
+          const off = act?.solo ? act.solo !== p : act?.mute?.includes(p), sel = bag[`sel${i}`];
+          if (sel) lcd.rect(x - 4, ry, lx - x, rowH - 2, C.LINE);
+          if (data.icons?.[part]) data.icons[part].forEach((row, j) => [...row].forEach((c, k) => { if (c === "#") lcd.rect(x + k, ry + 4 + j, 1, 1, off ? C.DIM : col); }));
+          lcd.text(x, ry + 13, f, part.toUpperCase().slice(0, 7), off ? C.DIM : col);
+          if (act?.mute?.includes(p)) lcd.text(x + 12, ry + 2, f, "M", C.HI);
+          if (act?.solo === p) lcd.text(x + 12, ry + 2, f, "S", C.HI);
+          lcd.rect(lx, ry + rowH - 2, lw, 1, C.LINE);
+          for (const [nx, nw, ny, nh, shade] of act?.notes?.[p] ?? []) {
+            if (nx + nw < from || nx > from + span) continue;
+            const x0 = Math.max(lx, Math.round(X(nx))), x1 = Math.min(lx + lw, Math.round(X(nx + nw)));
+            const base = off ? C.DIM : nx < pos ? col : C.GRAY;   // played: its color
+            lcd.rect(x0, ry + 1 + Math.round(ny * (rowH - 4)), Math.max(1, x1 - x0 - 1), Math.max(1, Math.round(nh * (rowH - 4))),
+                     dim(base, 0.45 + 0.55 * shade));
           }
-          if (act?.mute?.includes(p)) lcd.text(lx - 10, ry + 4, f, "M", C.HI);
-          if (act?.solo === p) lcd.text(lx - 10, ry + 4, f, "S", C.HI);
         });
-        if (bag.song) lcd.rect(lx + Math.floor(((cur - 0.5) * lw) / bars), y, 1, it.parts.length * rowH - 2, C.WHITE);   // the playhead
+        if (bag.song) lcd.rect(Math.round(X(pos)), y, 1, height, C.WHITE);   // the playhead
       }
       else if (it.sections) {   // the song's map: a segment per section (by its bars), the one playing filled to
         // where the song is in it, those before it in `past`, those after in `back`

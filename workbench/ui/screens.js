@@ -250,8 +250,9 @@ export default {
     },
 
     // The parts over the song (Sam, 2026-11-06: the workbench's roll on the device, growing into the mixer): GLO from
-    // the main screen (the FM-1 convention: GLO = global, the mixer). A lane a part: its icon and name, a column a bar
-    // as tall as the part's notes there (played bars in its color, the rest gray), the playhead. ALGO or SELECT picks
+    // the main screen (the FM-1 convention: GLO = global, the mixer). A lane a part: its icon and name, then its notes
+    // as the workbench's piano roll draws them, 8 bars across, scrolling with the song (played notes in its color, the
+    // rest gray), the playhead. ALGO or SELECT picks
     // a lane, K1 mutes it, K2 solos it (again: off); listening only, at once. Levels later (the mixer item).
     mixer: {
       title: "Parts",
@@ -270,7 +271,7 @@ export default {
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
         { y: 50, h: 132, draw: [
-          { lanes: [8, 0, 224, 132], parts: ["drums", "bass", "keys", "pad", "lead"], label: 52, rowH: 26 },
+          { lanes: [8, 0, 224, 132], parts: ["drums", "bass", "keys", "pad", "lead"], label: 46, rowH: 26, window: 8 },
         ] },
         { y: 196, h: 44, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },

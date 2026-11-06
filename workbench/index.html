@@ -218,7 +218,9 @@
           for (const x of l.notes) { const b = Math.floor(x.x); if (b >= 0 && b < n.length) n[b]++; }
           lanes[l.role] = n;
         }
-        return { bars: rollLay.bars, lanes, mute: [...desk.listen.mute], solo: desk.listen.solo };
+        // the roll's own notes too ([x, w, y, h, shade]: bars from 0; lane fractions), for the device's piano roll
+        const notes = Object.fromEntries(rollLay.lanes.map((l) => [l.role, l.notes.map((n) => [n.x, n.w, n.y, n.h, n.shade])]));
+        return { bars: rollLay.bars, lanes, notes, sections: rollLay.sections, mute: [...desk.listen.mute], solo: desk.listen.solo };
       };
       device = mountDevice($("devbox"), { call: wb.call, C: wb.C, labels, rows, activity,
         engine: {
