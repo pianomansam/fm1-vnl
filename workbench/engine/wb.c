@@ -304,6 +304,10 @@ EXPORT void wb_solo(int role)
     listen();
 }
 
+/* mixer state, not the song's: kept across landings, new songs and wb_init (vx_init keeps it) */
+EXPORT void wb_level_set(int part, int db) { vx_level_set(part, db); }
+EXPORT int wb_level_get(int part) { return vx_level_get(part); }
+
 /* effects off (VX_OFF_*), for vibes_keys.mjs's lead-over-keys measure (the glue off, as the test) */
 EXPORT void wb_fx_off(unsigned mask) { vx_fx_off(mask); }
 
@@ -1125,11 +1129,15 @@ EXPORT const char *wb_consts(void)
         {"MT", V_MT}, {"HT", V_HT}, {"CH", V_CH}, {"OH", V_OH}, {"CY", V_CY}, {"CB", V_CB}, {"TB", V_TB},
         {"LC", V_LC}, {"MC", V_MC}, {"HC", V_HC}, {"MA", V_MA}, {"CL", V_CL}}, SMP[] = {
         {"KICK", WB_P_KICK}, {"SNARE", WB_P_SNARE}, {"RIM", WB_P_RIM}, {"HAT", WB_P_HAT}, {"OHAT", WB_P_OHAT},
-        {"RIDE", WB_P_RIDE}};
+        {"RIDE", WB_P_RIDE}}, PART[] = {
+        {"DRUMS", VX_PART_DRUMS}, {"BASS", VX_PART_BASS}, {"KEYS", VX_PART_KEYS}, {"PAD", VX_PART_PAD},
+        {"LEAD", VX_PART_LEAD}, {"TEXTURE", VX_PART_TEXTURE}, {"N", VX_PART_N}, {"MIN", VX_LEVEL_MIN},
+        {"MAX", VX_LEVEL_MAX}};
     static const struct { const char *key; const kv_t *t; unsigned n; } T[] = {
         {"RF", RF, sizeof RF / sizeof RF[0]}, {"OV", OV, sizeof OV / sizeof OV[0]}, {"V", V, sizeof V / sizeof V[0]},
         {"SRC", SRC, sizeof SRC / sizeof SRC[0]}, {"DRUMS", KIT, sizeof KIT / sizeof KIT[0]},
-        {"PT", PT, sizeof PT / sizeof PT[0]}, {"SMP", SMP, sizeof SMP / sizeof SMP[0]}};
+        {"PT", PT, sizeof PT / sizeof PT[0]}, {"SMP", SMP, sizeof SMP / sizeof SMP[0]},
+        {"PART", PART, sizeof PART / sizeof PART[0]}};
     static char buf[4096];
     static const char *done;
     out_t o = {buf, sizeof buf, 0};

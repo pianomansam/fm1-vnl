@@ -3257,5 +3257,65 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
         `no Web MIDI: "${said[0][1]}"; refused: "${said[1][1]}"`);
 }
 
+// ---- the mixer's levels (wb_level_set, desk.levels): mixer state, kept across songs ----
+console.log("mixer levels");
+{
+  const { LEVEL_PARTS, LEVEL_KEY } = await import("../desk.js");
+  check(LEVEL_PARTS.every((p, i) => C.PART[p.toUpperCase()] === i) && C.PART.N === 6 && C.PART.MIN === -12 && C.PART.MAX === 6,
+        `the desk's parts are wb_consts' PART, in order (${LEVEL_PARTS.join(", ")})`);
+  const ex = await load();
+  const trip = [-12, -6, 0, 3, 6].every((d) => (ex.wb_level_set(C.PART.LEAD, d), ex.wb_level_get(C.PART.LEAD) === d));
+  ex.wb_level_set(C.PART.LEAD, -40);
+  const lo = ex.wb_level_get(C.PART.LEAD);
+  ex.wb_level_set(C.PART.LEAD, 0);
+  check(trip && lo === -12 && LEVEL_PARTS.every((p, i) => ex.wb_level_get(i) === 0), "wb_level_set/get round-trip, clamped to -12");
+  // the lead alone (seed 2) to the quantum where it sounds, then a second: at -12 dB against 0 dB
+  const ref = await leadOnly(), low = await leadOnly();
+  low.wb_level_set(C.PART.LEAD, -12);
+  const a = render(ref, loudAt + SR), b = render(low, loudAt + SR), from = loudAt - Q;
+  const d = db(b, from) - db(a, from);
+  check(d < -10 && d > -13, `a -12 dB lead measures ${d.toFixed(1)} dB under the 0 dB one (${db(a, from).toFixed(1)} dBFS)`);
+  const zero = await leadOnly();
+  zero.wb_level_set(C.PART.LEAD, 0);
+  const z = render(zero, loudAt + SR);
+  check(z.l.every((x, i) => x === a.l[i] && z.r[i] === a.r[i]), "0 dB: the samples unchanged");
+
+  // the desk: a level set, kept through a regenerate and the next song, saved for the viewer and restored on load
+  const saved = new Map(), storage = () => ({ getItem: (k) => saved.get(k) ?? null, setItem: (k, v) => saved.set(k, v) });
+  const dex = await load(), call = caller(dex);
+  dex.wb_seed(21);
+  dex.wb_apply();
+  const desk = new Desk(call, C, OPTS, await call("wb_library"), { rnd: lcg(29), probe: await prober(), storage });
+  await desk.levelsReady;
+  await desk.read();
+  check(LEVEL_PARTS.every((p) => desk.levels[p] === 0), "a viewer with nothing saved: every part at 0 dB");
+  await desk.setLevel("lead", -7);
+  await desk.setLevel("texture", 4.6);
+  await desk.setLevel("drums", -20);
+  const want = { drums: -12, bass: 0, keys: 0, pad: 0, lead: -7, texture: 5 };
+  const engine = () => Object.fromEntries(LEVEL_PARTS.map((p, i) => [p, dex.wb_level_get(i)]));
+  check(JSON.stringify(desk.levels) === JSON.stringify(want) && JSON.stringify(engine()) === JSON.stringify(want) &&
+        JSON.stringify(JSON.parse(saved.get(LEVEL_KEY))) === JSON.stringify(want),
+        `setLevel: whole dB, clamped, on the engine and saved (${JSON.stringify(desk.levels)})`);
+  const seed0 = desk.values.seed;
+  await desk.set("seed", 77);
+  await desk.mute("lead", true);
+  await desk.nextSong();
+  dex.wb_play(1);
+  render(dex, SR);
+  check(desk.values.seed !== seed0 && JSON.stringify(desk.levels) === JSON.stringify(want) &&
+        JSON.stringify(engine()) === JSON.stringify(want), "kept through a regenerate, a mute and the next song");
+  await desk.mute("lead", false);
+  const dex2 = await load(), again = new Desk(caller(dex2), C, OPTS, await caller(dex2)("wb_library"), { storage });
+  await again.levelsReady;
+  check(JSON.stringify(again.levels) === JSON.stringify(want) &&
+        LEVEL_PARTS.every((p, i) => dex2.wb_level_get(i) === want[p]), "a page load restores the viewer's levels into the engine");
+  const broken = () => { throw new Error("blocked"); };
+  const priv = new Desk(caller(dex2), C, OPTS, await caller(dex2)("wb_library"), { storage: broken });
+  await priv.levelsReady;
+  check(LEVEL_PARTS.every((p) => priv.levels[p] === 0) && (await priv.setLevel("bass", -3)) === -3,
+        "storage blocked: 0 dB, and a level still sets (this visit only)");
+}
+
 console.log(failed ? `smoke: ${failed} FAILED` : "smoke: all passed");
 process.exit(failed ? 1 : 0);

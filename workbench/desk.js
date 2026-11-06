@@ -11,6 +11,20 @@ import { byPart } from "./roll.js";
 // the parts a listener can mute or solo (the page's names) and the engine's role for each (the drums' bus on V_KICK)
 export const PARTS = { keys: "CHORD", bass: "BASS", lead: "LEAD", pad: "PAD", drums: "KICK" };
 
+// The mixer's level per part (the device's mixer screen; wb_level_set's parts, wb_consts' PART: drums 0, bass 1,
+// keys 2 (the comp), pad 3, lead 4, texture 5 (the bed: surface noise, rain)), in dB, LEVEL_MIN to LEVEL_MAX in 1 dB
+// steps, 0 the default. Mixer state, per viewer (localStorage's LEVEL_KEY, when there is one: a private window or
+// blocked storage throws, and the levels then last this visit only): never the song's, so a regenerate, a new song or
+// a restore keeps them, and mute and solo leave them.
+export const LEVEL_KEY = "wb-levels", LEVEL_MIN = -12, LEVEL_MAX = 6;
+export const LEVEL_PARTS = ["drums", "bass", "keys", "pad", "lead", "texture"];
+const levelOf = (db) => Math.max(LEVEL_MIN, Math.min(LEVEL_MAX, Math.round(Number(db) || 0)));
+export function loadLevels(storage = () => globalThis.localStorage) {
+  let saved = {};
+  try { saved = JSON.parse(storage()?.getItem(LEVEL_KEY) || "{}") || {}; } catch { saved = {}; }
+  return Object.fromEntries(LEVEL_PARTS.map((p) => [p, levelOf(saved[p])]));
+}
+
 // each part's salt row (rows.js's part: its 🎲 sets it), and its name in messages
 export const PART_ROW = Object.fromEntries(ROWS.filter((r) => r.part).map((r) => [r.part, r.id]));
 export const PART_NAME = { keys: "Comp", bass: "Bass", lead: "Lead", pad: "Pad", drums: "Drums" };
@@ -80,9 +94,12 @@ export class Desk {
   // samples: wb.js's Samples (the sampled kits: which are unavailable, and their files loaded on first use), or none
   // events(bytes): the committed song's { events } (wb.js's events, on the probe instance), for the parts' reactions and
   // whether the song has a pad; without it neither is known
+  // storage(): the Storage the levels persist in (localStorage), or a test's stand-in
   constructor(call, C, opts, lib, { rnd = Math.random, probe = null, position = () => ({ seconds: 0, bar: 0 }), samples = null,
-                                    events = null } = {}) {
-    Object.assign(this, { call, C, opts, lib, rnd, probe, position, samples, events });
+                                    events = null, storage = () => globalThis.localStorage } = {}) {
+    Object.assign(this, { call, C, opts, lib, rnd, probe, position, samples, events, storage });
+    this.levels = loadLevels(storage);   // the mixer's dB by part (LEVEL_PARTS), restored into the engine at once
+    this.levelsReady = this.applyLevels().catch(() => {});
     this.changes = [];         // every applied change: { seconds, bar, row, from, to }
     this.values = {};
     this.locks = new Set();
@@ -319,6 +336,20 @@ export class Desk {
     this.listen.solo = part;
     await this.hear();
     return this.done(true, "");
+  }
+
+  // the mixer: part (LEVEL_PARTS) to db (clamped to LEVEL_MIN..LEVEL_MAX, whole dB), heard at once, saved for this
+  // viewer; its level after
+  async setLevel(part, db) {
+    if (!LEVEL_PARTS.includes(part)) throw new Error(`no mixer part ${part}`);
+    this.levels = { ...this.levels, [part]: levelOf(db) };
+    try { this.storage()?.setItem(LEVEL_KEY, JSON.stringify(this.levels)); } catch { /* kept for this visit only */ }
+    await this.call("wb_level_set", LEVEL_PARTS.indexOf(part), this.levels[part]);
+    return this.levels[part];
+  }
+  // every part's level onto the engine (the constructor's: a page load restores the viewer's mix)
+  async applyLevels() {
+    for (const [i, p] of LEVEL_PARTS.entries()) await this.call("wb_level_set", i, this.levels[p]);
   }
 
   done(ok, message) {

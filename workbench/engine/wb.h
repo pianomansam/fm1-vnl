@@ -78,6 +78,11 @@ const char *wb_sections(int heard);     /* JSON: the committed song's plan (hear
 /* Listening only (heard at once, kept across landings; the song unchanged): vx_mute's buses */
 void wb_mute(unsigned mask);            /* a bit per bus: V_CHORD, V_BASS, V_LEAD, V_PAD, V_KICK (the drums) */
 void wb_solo(int role);                 /* that bus alone (a drum voice: the drums), the mutes aside; -1 none */
+/* The mixer's level per part (vx_level_set): part 0 drums, 1 bass, 2 keys (the comp), 3 pad, 4 lead, 5 texture (the
+   bed: surface noise, rain); wb_consts' PART. db -12 to +6 (clamped), 0 the default; heard at once (a few ms' ramp),
+   kept across landings, new songs and wb_init, apart from the mutes and the solo. wb_level_get: the dB set. */
+void wb_level_set(int part, int db);
+int wb_level_get(int part);
 uint32_t wb_heard_hash(void);           /* the events played since the last landing, (bar, step, role, note) hashed
                                            (FNV-1a over each as 32-bit values; a drum's note its lane): tests */
 int wb_heard_count(void);
