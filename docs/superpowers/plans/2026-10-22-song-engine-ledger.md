@@ -313,6 +313,24 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   sometimes drop in breaks, dominants without the 7th) gets an on/off (and, where it has one, its number) in an
   Advanced area of the device and browser UI, defaults as today. To do first: an inventory of the rules (from the
   ledger and the rule docs), which ones make sense to expose, and how they're saved with a song.
+- **From other FM-1 firmwares (Sam, 2026-11-05: on the short list, not started).** Evaluated setBfree-fm1
+  (github.com/R-Jeb/setBfree-fm1), Cut-A-Dor (github.com/kidbee85-beep/cut-a-dor-release) and the B1 Drawbar Organ
+  (github.com/SikkenWorks/B1-Drawbar-Organ). License per item: GPL-2.0-or-later code may be copied (credit it);
+  GPL-3.0-only code is approaches only, our own code.
+  1. **A rotary speaker on the organ comp** (setBfree-fm1 `organ_fx.h`, GPL-2.0-or-later: copyable). Horn and drum
+     with Doppler and speed changes; `LES_REFL2 0` saves about 30% of its CPU. About 28 KB of tables (over today's
+     image headroom: decimate them or put them in the data area) and 8 KB of delay lines.
+  2. **Organ key click and key compression** (from setBfree itself, GPL-2.0-or-later). Random click envelopes, a
+     percussion click, the gain dropping as more keys are held. Cheap.
+  3. **Sample-bank upload to the data area** (Cut-A-Dor `docs/PROTOCOL.txt`, `editor.c`; GPL-3.0-only: approach
+     only). Banks read in place from data flash; uploaded over SysEx, erased 4 KB at a time while stopped, CRC32,
+     the header written last so a half-finished upload never counts. One protocol for moving our banks off the image
+     and for the browser UI. Goes with the sample-banks-to-flash item.
+  4. **A captured-slice stutter** (Cut-A-Dor `cad.c`; approach only). Repeats a slice of the audio with edge fades,
+     a gate, reverse and a brake. A base for the bolder stutters (lead and comp), with our closing filter added.
+  5. **CPU tools** (B1, setBfree-fm1; approaches only). An on-screen peak-load and missed-deadline readout, the
+     idle instruction in the main loop, and redrawing only the screen rows that changed.
+  Skip: B1's update and recovery code (unverified on hardware by its own notes).
 - **CC0 sample libraries to mine (2026-10-25): VCSL and VSCO-2 CE (sgossner, both CC0).** Beyond the spike's piano
   (VCSL Kawai grand; also Steinway B, Knight and Yamaha uprights) and strings (VSCO-2 CE Violin, Viola and Cello
   Sections): sampled vibraphone, marimba, glockenspiel, several kalimbas and mbiras (could replace our FM vibes and
