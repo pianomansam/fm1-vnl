@@ -8847,6 +8847,132 @@ static void test_vx_mute(void)
     vx_fx_off(0u);
     CHECK(!bad, "vx mute: NaN or inf");
 }
+/* The mixer's levels (vx_level_set). mx_song: seed's first 60 s as the app plays it (a new song: vx_init, vx_song),
+   the bed off and the glue off (its gain follows the level), only role's bus heard (vx_solo; -1 all); the RMS of l */
+static float mx_song(uint32_t seed, int role)
+{
+    static song_t s;
+    song_ev_t ev[64];
+    song_roll_t r;
+    uint32_t left, k, done = 0;
+    float frac = 0.0f;
+    double e = 0.0;
+    roll_song(NULL, seed, &r);
+    r.v[RF_NOISE] = 0;
+    r.v[RF_AMBIENCE] = 0;
+    vx_init();
+    vx_fx_off(VX_OFF_GLUE);
+    vx_solo(role);
+    song_start(&s, &r);
+    vx_song(&s.roll);
+    while (s.state == SS_PLAYING && done < 60u * 44100u) {
+        int n = song_tick(&s, ev, 64), i;
+        float adv = song_step_samples(&s) + frac;
+        vx_set_pad_level(song_pad_level(&s));
+        for (i = 0; i < n; i++)
+            vx_event(&ev[i]);
+        left = (uint32_t)adv;
+        frac = adv - (float)left;
+        while (left) {
+            uint32_t b = left < 1024u ? left : 1024u;
+            memset(vt_l, 0, b * sizeof(float));
+            memset(vt_r, 0, b * sizeof(float));
+            vx_render(vt_l, vt_r, b);
+            for (k = 0; k < b; k++)
+                e += (double)vt_l[k] * (double)vt_l[k];
+            left -= b;
+            done += b;
+        }
+    }
+    vx_solo(-1);
+    vx_fx_off(0u);
+    return fm_sqrtf((float)(e / (double)done));
+}
+/* 0 dB on every part is today's mix bit for bit (a level set and set back, too); each part at -6 dB measures 6 dB
+   under its own 0 dB, within 0.5, on two songs in a row with the level set once (it survives a new song); the
+   texture (the bed alone) likewise; a part muted keeps its level; out of range clamps */
+static void test_vx_level(void)
+{
+    static const struct { int part, role; uint32_t seed[2]; } P[] = {
+        {VX_PART_DRUMS, V_KICK, {21, 3}}, {VX_PART_BASS, V_BASS, {21, 3}}, {VX_PART_KEYS, V_CHORD, {21, 3}},
+        {VX_PART_PAD, V_PAD, {21, 77}}, {VX_PART_LEAD, V_LEAD, {2, 5}}};
+    uint32_t a = mt_song(0), b;
+    float ref[2], at[2], t0, t1;
+    int i, k;
+    for (i = 0; i < VX_PART_N; i++) {
+        CHECK(vx_level_get(i) == 0, "vx level: part %d starts at %d dB", i, vx_level_get(i));
+        vx_level_set(i, -6);
+    }
+    (void)mt_song(0);
+    for (i = 0; i < VX_PART_N; i++)
+        vx_level_set(i, 0);
+    b = mt_song(0);
+    CHECK(a == b, "vx level: 0 dB changed the samples (%08x, wanted %08x)", (unsigned)b, (unsigned)a);
+    a = sf_songs(0);
+    CHECK(a == 0x88efe746u, "vx level: the strummed songs hash %08x at 0 dB, wanted 88efe746", (unsigned)a);
+    for (i = 0; i < (int)(sizeof P / sizeof P[0]); i++) {
+        for (k = 0; k < 2; k++)
+            ref[k] = mx_song(P[i].seed[k], P[i].role);
+        vx_level_set(P[i].part, -6);
+        for (k = 0; k < 2; k++) /* (each a new song: vx_init, vx_song) */
+            at[k] = mx_song(P[i].seed[k], P[i].role);
+        CHECK(vx_level_get(P[i].part) == -6, "vx level: part %d reads %d dB after two songs", P[i].part,
+              vx_level_get(P[i].part));
+        vx_level_set(P[i].part, 0);
+        for (k = 0; k < 2; k++) {
+            float d = 20.0f * fm_log2f(at[k] / ref[k]) * 0.30103f;
+            printf("vx level: part %d seed %u: rms %.4f at 0 dB, %.4f at -6 (%.2f dB)\n", P[i].part,
+                   (unsigned)P[i].seed[k], (double)ref[k], (double)at[k], (double)d);
+            CHECK(ref[k] > 1e-3f && d > -6.5f && d < -5.5f, "vx level: part %d seed %u at -6 dB measures %.2f dB",
+                  P[i].part, (unsigned)P[i].seed[k], (double)d);
+        }
+    }
+    t0 = fx_bed_rms(1, 1, 5, NULL);
+    vx_level_set(VX_PART_TEXTURE, -6);
+    t1 = fx_bed_rms(1, 1, 5, NULL);
+    vx_level_set(VX_PART_TEXTURE, 0);
+    printf("vx level: the bed rms %.5f at 0 dB, %.5f at -6 (%.2f dB)\n", (double)t0, (double)t1,
+           (double)(20.0f * fm_log2f(t1 / t0) * 0.30103f));
+    CHECK(fm_fabsf(20.0f * fm_log2f(t1 / t0) * 0.30103f + 6.0f) < 0.5f, "vx level: the bed at -6 dB measures %.2f dB",
+          (double)(20.0f * fm_log2f(t1 / t0) * 0.30103f));
+    vx_level_set(VX_PART_LEAD, -9);
+    vx_mute(1u << V_LEAD);
+    vx_mute(0);
+    CHECK(vx_level_get(VX_PART_LEAD) == -9, "vx level: a mute moved the lead's level (%d)", vx_level_get(VX_PART_LEAD));
+    vx_level_set(VX_PART_LEAD, -40);
+    k = vx_level_get(VX_PART_LEAD);
+    vx_level_set(VX_PART_LEAD, 40);
+    CHECK(k == VX_LEVEL_MIN && vx_level_get(VX_PART_LEAD) == VX_LEVEL_MAX, "vx level: clamped to %d and %d", k,
+          vx_level_get(VX_PART_LEAD));
+    vx_level_set(VX_PART_LEAD, 0);
+    vx_level_set(VX_PART_DRUMS + VX_PART_N, -3); /* (unknown: ignored) */
+    CHECK(vx_level_get(VX_PART_N) == 0, "vx level: an unknown part reads %d", vx_level_get(VX_PART_N));
+    { /* heard at once, with no click: a held bass note, +6 to -12 dB mid-note; its steps while the gain moves stay
+         within twice the note's own at +6, and the next chunk is at -12 */
+        float prev = 0.0f, steady, step, before, after;
+        int bad = 0;
+        vx_fx_off(VX_OFF_DELAY);
+        vx_init();
+        vx_solo(V_BASS);
+        vx_level_set(VX_PART_BASS, VX_LEVEL_MAX);
+        vt_ev(V_BASS, 40, 110, 0, 4u * 44100u);
+        (void)vt_maxdelta(4096, 0, &prev);
+        steady = vt_maxdelta(2048, 0, &prev);
+        before = vt_block(512, &bad);
+        prev = vt_l[511];
+        vx_level_set(VX_PART_BASS, VX_LEVEL_MIN);
+        step = vt_maxdelta(256, 0, &prev);
+        after = vt_block(512, &bad);
+        printf("vx level: a bass note +6 to -12 dB: steps %.4f steady, %.4f moving; peak %.3f to %.3f\n",
+               (double)steady, (double)step, (double)before, (double)after);
+        CHECK(step < 2.0f * steady && after < before * 0.2f, "vx level: +6 to -12 dB steps %.4f (steady %.4f), peak "
+              "%.3f to %.3f", (double)step, (double)steady, (double)before, (double)after);
+        vx_level_set(VX_PART_BASS, 0);
+        vx_solo(-1);
+        vx_fx_off(0u);
+        CHECK(!bad, "vx level: NaN or inf");
+    }
+}
 /* the workbench's per-song overrides (default off): each forces one choice, or re-rolls one part, and nothing else */
 typedef struct {
     uint32_t keys, drums, bass, lead, candy, pad;
@@ -13460,6 +13586,7 @@ int main(int argc, char **argv)
     RUN(test_wb_off);
     RUN(test_vx_mute_off);
     RUN(test_vx_mute);
+    RUN(test_vx_level);
     RUN(test_ov_comp);
     RUN(test_comp_new);
     RUN(test_comp_pat);

@@ -134,6 +134,8 @@ static uint8_t gl_on, gl_off;
 #define BCR 16              /* the gusts update every 16 steps */
 
 static float bo, bo_t;                  /* the bed's open level and target */
+static float bg = 1.0f, bg_t = 1.0f, bg_s; /* fx_bed_level: the gain, its target and its step (kept through fx_init) */
+#define BG_STEPS (0.005f * BR)          /* its ramp: 5 ms */
 static float lv, lv_t, lt, lt_t, lr, lr_t; /* layer levels: vinyl, tape, rain */
 static uint32_t brng = 0x9E3779B9u;
 static float hv_l[2], hv_r[2], ht_l[2], ht_r[2]; /* hiss filter states (low-pass, high-pass) */
@@ -389,6 +391,7 @@ void fx_init(void)
     w_ph = 0;
     dust_params();
     bo = bo_t = lv = lv_t = lt = lt_t = lr = lr_t = 0.0f;
+    bg = bg_t; /* (fx_bed_level kept, its ramp landed) */
     bed_clear(0u);
     for (k = 0, b = 0; k < L_N; k++) {
         pl_base[k] = b;
@@ -600,6 +603,14 @@ static inline float clip(float y)
     return y < 0.0f ? -x : x;
 }
 
+void fx_bed_level(float g)
+{
+    bg_t = g;
+    bg_s = fm_fabsf(bg_t - bg) * (1.0f / BG_STEPS);
+    if (bo == 0.0f && bo_t == 0.0f)
+        bg = bg_t;
+}
+
 /* bed steps to the next event of a Poisson stream at rate per second */
 static uint32_t next_gap(float rate)
 {
@@ -636,6 +647,8 @@ static void bed(float *l, float *r, uint32_t n)
             t = ramp(t, lt_t, (float)BDIV * RAMP);
         if (w != lr_t)
             w = ramp(w, lr_t, (float)BDIV * RAMP);
+        if (bg != bg_t)
+            bg = ramp(bg, bg_t, bg_s);
         rs ^= rs << 13;
         rs ^= rs >> 17;
         rs ^= rs << 5;
@@ -707,8 +720,8 @@ static void bed(float *l, float *r, uint32_t n)
         }
         l0 = l1;
         q0 = q1;
-        l1 = ol;
-        q1 = or_;
+        l1 = ol * bg;
+        q1 = or_ * bg;
         l[i] += l0; /* a step late, so the next sample can interpolate */
         r[i] += q0;
     }

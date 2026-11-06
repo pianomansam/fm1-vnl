@@ -355,6 +355,19 @@ static int solo_bus = -1;   /* vx_solo: the one bus mixed, -1 for all (kept thro
 /* vx_mute: a bit per bus out of the mix (kept through vx_init), and the mask at the last chunk's end (a chunk ramps a
    bus between the two: out or back in over its samples) */
 static unsigned mute_mask, mute_was;
+/* vx_level_set: a gain per bus (kept through vx_init), the target and the gain at the last chunk's end (a chunk ramps
+   a bus between the two), and its dB per part; lvl_on: any bus not at unity or still ramping */
+static float lvl_t[NBUS] = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f}, lvl_g[NBUS] = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
+static int8_t lvl_db[VX_PART_N];
+static uint8_t lvl_on;
+static int lvl_unity(void)
+{
+    int r;
+    for (r = 0; r < NBUS; r++)
+        if (lvl_t[r] != 1.0f || lvl_g[r] != 1.0f)
+            return 0;
+    return 1;
+}
 static uint32_t gain_n;
 static vx_config_t cfg;
 static const vx_patch_t *role_pt[V_PAD + 1]; /* the configured patch per pitched role, NULL for none */
@@ -435,6 +448,8 @@ static void voices_clear(uint32_t seed)
     hpar = 0u;
     hr_tail = 0u;
     mute_was = mute_mask; /* (nothing sounds: no ramp) */
+    memcpy(lvl_g, lvl_t, sizeof lvl_g);
+    lvl_on = lvl_unity() ? 0u : 1u;
     cp_env = 0.0f;
     cp_g = CP_MAKEUP;
     dk_env = 0.0f;
@@ -2378,6 +2393,24 @@ static void mute_block(uint32_t c, uint32_t o, uint32_t n)
     }
 }
 
+/* vx_level_set over one block (n samples at o in a chunk of c): each bus not at unity scaled, one moving ramped
+   linearly over the chunk (the pad's quarter-rate sum with its bus) */
+static void level_block(uint32_t c, uint32_t o, uint32_t n)
+{
+    int r;
+    uint32_t i;
+    for (r = 0; r < NBUS; r++) {
+        float g0 = lvl_g[r], g1 = lvl_t[r], dg = (g1 - g0) / (float)c;
+        float *x[2] = {bb[r] + o, r == V_PAD && pq_used ? pq_buf + o : NULL};
+        int k;
+        if (g0 == 1.0f && g1 == 1.0f)
+            continue;
+        for (k = 0; k < 2 && x[k]; k++)
+            for (i = 0; i < n; i++)
+                x[k][i] *= g0 + dg * (float)(o + i + 1u);
+    }
+}
+
 /* the chunk's mix (c samples): per block, the drums compressed, the buses filtered (filt) and summed, into the music
    and the wet inputs' pairs; the song gain on everything */
 static const float pq_zero[CHUNK];
@@ -2425,6 +2458,8 @@ static void mix_chunk(uint32_t c, int filt, unsigned live)
                         memset(bb[r] + o, 0, n * sizeof(float));
             if (mute_mask | mute_was)
                 mute_block(c, o, n);
+            if (lvl_on)
+                level_block(c, o, n);
             for (i = 0; i < n; i++) {
                 float x = b0[i] * (cgl += kgd);
                 float p4 = b4[i] + q4[i];
@@ -2483,8 +2518,8 @@ static void mix_chunk(uint32_t c, int filt, unsigned live)
 static int filtering(void)
 {
     int r;
-    if (solo_bus >= 0 || mute_mask || mute_was)
-        return 1; /* (vx_solo, vx_mute: the buses kept apart, the others zeroed in the mix) */
+    if (solo_bus >= 0 || mute_mask || mute_was || lvl_on)
+        return 1; /* (vx_solo, vx_mute, vx_level_set: the buses kept apart, the others zeroed or scaled in the mix) */
     if (fx_off & VX_OFF_FILTERS)
         return 0;
     for (r = 0; r < NBUS; r++)
@@ -2576,6 +2611,10 @@ void vx_render(float *l, float *r, uint32_t n)
             live |= live_buses(); /* (a voice that started in the chunk) */
         mix_chunk(c, filt, live);
         mute_was = mute_mask;
+        if (lvl_on) {
+            memcpy(lvl_g, lvl_t, sizeof lvl_g);
+            lvl_on = lvl_unity() ? 0u : 1u;
+        }
         fx_process_pairs(ch_m, ch_s, t_s, t_c, t_d, c, drums_kick_env());
         for (k = 0; k < c; k++) {
             l[done + k] += ch_m[k];
@@ -2718,6 +2757,32 @@ void vx_mute(unsigned mask)
         drums_release();
     mute_mask = mask & ((1u << NBUS) - 1u) & ~(1u << V_CANDY);
 }
+
+/* 10^(dB / 20) for VX_LEVEL_MIN..VX_LEVEL_MAX dB (0 dB exactly 1) */
+static const float LVL_G[VX_LEVEL_MAX - VX_LEVEL_MIN + 1] = {
+    0.25118864f, 0.28183829f, 0.31622777f, 0.35481339f, 0.39810717f, 0.44668359f, 0.50118723f, 0.56234133f,
+    0.63095734f, 0.70794578f, 0.79432823f, 0.89125094f, 1.0f, 1.12201845f, 1.25892541f, 1.41253754f,
+    1.58489319f, 1.77827941f, 1.99526231f};
+
+void vx_level_set(int part, int db)
+{
+    static const int8_t BUS[VX_PART_N] = {[VX_PART_DRUMS] = DRB, [VX_PART_BASS] = V_BASS, [VX_PART_KEYS] = V_CHORD,
+                                           [VX_PART_PAD] = V_PAD, [VX_PART_LEAD] = V_LEAD, [VX_PART_TEXTURE] = -1};
+    float g;
+    if (part < 0 || part >= VX_PART_N)
+        return;
+    db = db < VX_LEVEL_MIN ? VX_LEVEL_MIN : db > VX_LEVEL_MAX ? VX_LEVEL_MAX : db;
+    lvl_db[part] = (int8_t)db;
+    g = LVL_G[db - VX_LEVEL_MIN];
+    if (BUS[part] < 0)
+        fx_bed_level(g);
+    else if (lvl_t[BUS[part]] != g) { /* (the same level again: nothing moves) */
+        lvl_t[BUS[part]] = g;
+        lvl_on = 1u;
+    }
+}
+
+int vx_level_get(int part) { return part >= 0 && part < VX_PART_N ? lvl_db[part] : 0; }
 
 float vx_chip_out(int role, float *raw, float *step)
 {

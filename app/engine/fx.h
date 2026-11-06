@@ -61,6 +61,9 @@ void fx_rings(int on);
 void fx_fast(int on);
 /* The kick ducking's depth: about db dB at a full kick body. */
 void fx_pump(float db);
+/* The bed's level (vx_level_set's texture): g a linear gain (1, the default, leaves it exactly as it was), reached
+   linearly over about 5 ms (at once while the bed is closed). Kept through fx_init. */
+void fx_bed_level(float g);
 /* The glue compressor's gain reduction now, in dB (0 for none; its make-up not counted). */
 float fx_glue_db(void);
 /* Tests and the cost bench: the glue off (1; kept through fx_init). */

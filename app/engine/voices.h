@@ -100,6 +100,17 @@ void vx_solo(int role);
    follows a muted lead). A bus going out ramps to silence over the next chunk; coming back, the notes struck while it
    was muted end first (the drums released), so only notes struck after are heard. Kept through vx_init. */
 void vx_mute(unsigned mask);
+/* The mixer's level per part (VX_PART_*), in dB: VX_LEVEL_MIN to VX_LEVEL_MAX (clamped), 0 the default (the mix
+   unchanged, bit for bit). The drums are the drums' bus (every drum voice, after its compressor), the keys the comp's
+   (V_CHORD), the texture the bed (fx_bed_level: the surface noise and the ambience; the dust colors the music, it has
+   no level of its own). Mixer state: heard at once (a bus ramps to it over the next chunk, the bed over about 5 ms),
+   kept through vx_init and every song (no roll or override touches it), on its bus's wet sends too, and apart from
+   vx_mute and vx_solo (a muted part keeps its level). vx_level_get returns the dB set (0 for an unknown part). */
+enum { VX_PART_DRUMS, VX_PART_BASS, VX_PART_KEYS, VX_PART_PAD, VX_PART_LEAD, VX_PART_TEXTURE, VX_PART_N };
+#define VX_LEVEL_MIN (-12)
+#define VX_LEVEL_MAX 6
+void vx_level_set(int part, int db);
+int vx_level_get(int part);
 /* Tests: a sounding chip voice's (M_CHIP) last output sample on role, as the voice returns it to the mix (after its
    envelope and its bit crush); *raw the same sample before the crush, *step the crush's step (the voice's level over
    2^(bits-1)). All 0 for none or no crush. */
