@@ -184,6 +184,7 @@ export function valuesOf(s, data) {
     bag[`sec${i}Now`] = song && bar1 > x.start && bar1 <= x.start + x.bars;
   });
   bag.looping = String(s.rows?.values?.loop) === "1";
+  bag.activity = s.activity ?? null;
   // a list's ends (Sam, 2026-11-06: arrows, not a bar): {field}First / {field}Last where the value (or the change
   // waiting) can't move further that way; a number without ends (a wrap) has neither
   for (const [k, def] of Object.entries(f)) {
@@ -241,6 +242,26 @@ export function drawScreen(lcd, screen, bag, data, C = colors(THEME, data.colors
       if (it.rect) lcd.rect(...it.rect, C[it.color]);
       else if (it.icon) {   // a 1-bit icon from the data's `icons` (rows of "#" and "."): { icon, x, y, color }
         (data.icons?.[it.icon] ?? []).forEach((row, j) => [...row].forEach((c, i) => { if (c === "#") lcd.rect(it.x + i, it.y + j, 1, 1, C[it.color]); }));
+      }
+      else if (it.lanes) {   // { lanes: [x, y, w, h], parts, label, rowH }: the parts over the song (the workbench's roll)
+        const [x, y, w] = it.lanes, act = bag.activity, rowH = it.rowH ?? 22, lx = x + (it.label ?? 52), lw = w - (lx - x);
+        const bars = act?.bars || 1, cur = bag.bar ?? 0, f = font("T");
+        it.parts.forEach((p, i) => {
+          const ry = y + i * rowH, part = p === "keys" ? "comp" : p, col = C[part.toUpperCase()] ?? C.WHITE;
+          const muted = act?.mute?.includes(p) || (act?.solo && act.solo !== p), sel = bag[`sel${i}`];
+          if (sel) lcd.rect(x - 4, ry, w + 8, rowH - 2, C.LINE);
+          if (data.icons?.[part]) data.icons[part].forEach((row, j) => [...row].forEach((c, k) => { if (c === "#") lcd.rect(x + k, ry + 6 + j, 1, 1, muted ? C.DIM : col); }));
+          lcd.text(x + 12, ry + 4, f, part.toUpperCase().slice(0, 5), muted ? C.DIM : col);
+          const n = act?.lanes?.[p] ?? [], top = Math.max(1, ...n);
+          for (let b = 0; b < bars; b++) {
+            const bx = lx + Math.floor((b * lw) / bars), bw = Math.max(1, Math.floor(((b + 1) * lw) / bars) - Math.floor((b * lw) / bars) - (lw / bars > 2 ? 1 : 0));
+            const hh = n[b] ? Math.max(1, Math.round(((rowH - 6) * n[b]) / top)) : 0;
+            if (hh) lcd.rect(bx, ry + rowH - 3 - hh, bw, hh, muted ? C.DIM : b < cur ? col : C.GRAY);
+          }
+          if (act?.mute?.includes(p)) lcd.text(lx - 10, ry + 4, f, "M", C.HI);
+          if (act?.solo === p) lcd.text(lx - 10, ry + 4, f, "S", C.HI);
+        });
+        if (bag.song) lcd.rect(lx + Math.floor(((cur - 0.5) * lw) / bars), y, 1, it.parts.length * rowH - 2, C.WHITE);   // the playhead
       }
       else if (it.sections) {   // the song's map: a segment per section (by its bars), the one playing filled to
         // where the song is in it, those before it in `past`, those after in `back`
@@ -332,7 +353,7 @@ export function problems(data) {
   const act = (where, a) => {
     if (a === null) return;
     if (a.go) { if (!["back", "home", "cursor"].includes(a.go) && !ids.includes(a.go)) out.push(`${where}: no screen "${a.go}"`); }
-    else if (["play", "cursor", "part", "page", "jump", "reroll"].includes(a.do)) { /* */ }
+    else if (["play", "cursor", "part", "page", "jump", "reroll", "mute", "solo"].includes(a.do)) { /* */ }
     else if (a.do === "nudge" || a.do === "turn") { if (!data.fields?.[a.field]) out.push(`${where}: no field "${a.field}"`); }
     else out.push(`${where}: unknown action ${JSON.stringify(a)}`);
   };
@@ -354,7 +375,7 @@ export function problems(data) {
         if (it.meter) cond(w, it.value);
         if (it.sections) for (const c of [it.color, it.back, it.past]) if (!(c in C)) out.push(`${w}: no color ${c}`);
         if (it.icon && !data.icons?.[it.icon]) out.push(`${w}: no icon ${it.icon}`);
-        for (const c of it.knobs ? [it.knobs.label.color, it.knobs.value.color, ...(it.knobs.bar ? [it.knobs.bar.color, it.knobs.bar.back] : [])]
+        for (const c of it.lanes ? [] : it.knobs ? [it.knobs.label.color, it.knobs.value.color, ...(it.knobs.bar ? [it.knobs.bar.color, it.knobs.bar.back] : [])]
                         : [it.color, ...(it.back ? [it.back] : [])])
           if (!(c in C)) out.push(`${w}: no color ${c}`);
         if (it.text !== undefined) tpl(w, it.text);
@@ -364,7 +385,7 @@ export function problems(data) {
     if ((s.knobs ?? []).length > 4) out.push(`${id}: more than four knobs`);
     for (const k of s.knobs ?? []) if (!data.fields?.[k.field]) out.push(`${id}.knobs: no field "${k.field}"`);
     for (const [c, a] of Object.entries(s.controls ?? {})) {
-      if (![...BUTTONS, ...ENCODERS].includes(c) && !/^KEY([0-9]|1[0-9]|2[0-6])$/.test(c)) out.push(`${id}.controls: no control ${c} (K1-K4 are knobs; keys KEY0-KEY26)`);
+      if (![...BUTTONS, ...ENCODERS].includes(c) && !/^KEY([0-9]|1[0-9]|2[0-6])$/.test(c) && !(KNOBS.includes(c) && ["mute", "solo"].includes(a?.do))) out.push(`${id}.controls: no control ${c} (K1-K4 are knobs; keys KEY0-KEY26)`);
       act(`${id}.controls.${c}`, a);
     }
     for (const p of s.say ?? []) typeof p === "string" ? tpl(`${id}.say`, p) : (tpl(`${id}.say`, p.text), cond(`${id}.say`, p.when));
@@ -435,7 +456,8 @@ export class Device {
              partRoll: this.rollReq && song ? { name: this.rollReq.name, at: this.rollReq.at, bars: this.rollReq.at - bar } : null,
              jump: this.jumpReq && song ? { name: this.jumpReq.name, i: this.jumpReq.i, at: this.jumpReq.at, bars: this.jumpReq.at - bar } : null,
              page: this.screen?.pages?.length > 1 ? `${this.screen.pages.indexOf(this.id) + 1}/${this.screen.pages.length}` : "",
-             cursor: this.screen?.menu || this.screen?.list ? this.cursor[this.id] ?? 0 : -1, sections: l.sections, pend, msg: this.msg && this.now() < this.msg.until ? this.msg.text : null };
+             cursor: this.screen?.menu || this.screen?.list || this.screen?.lanes ? this.cursor[this.id] ?? 0 : -1, sections: l.sections,
+             activity: l.activity, pend, msg: this.msg && this.now() < this.msg.until ? this.msg.text : null };
   }
   values() { return valuesOf(this.shown(), this.data); }
   draw(lcd) { drawScreen(lcd, this.screen, this.values(), this.data); }
@@ -486,8 +508,16 @@ export class Device {
       this.say("NEW SONG");
       return null;
     }
+    if (a.do === "mute" || a.do === "solo") {   // the highlighted lane's part: muted, or soloed (again: neither); at once
+      const part = this.screen.lanes?.[this.cursor[this.id] ?? 0], act = this.live?.activity;
+      if (!part) return null;
+      if (a.do === "mute") { const on = !act?.mute?.includes(part); this.engine.mute?.(part, on); this.say(part.toUpperCase(), on ? "MUTED" : "ON"); }
+      else { const on = act?.solo !== part; this.engine.solo?.(on ? part : null); this.say(part.toUpperCase(), on ? "SOLO" : "SOLO OFF"); }
+      return null;
+    }
     if (a.do === "cursor") {   // a menu: the highlight moves (wraps)
-      const n = this.screen.menu?.length ?? (this.screen.list === "sections" ? Math.min(this.live?.sections?.length ?? 0, MENU_MAX) : 0);
+      const n = this.screen.menu?.length ?? (this.screen.list === "sections" ? Math.min(this.live?.sections?.length ?? 0, MENU_MAX)
+        : this.screen.lanes?.length ?? 0);
       if (n) this.cursor[this.id] = (((this.cursor[this.id] ?? 0) + detents) % n + n) % n;
       return null;
     }

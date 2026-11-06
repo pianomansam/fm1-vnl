@@ -208,7 +208,19 @@
                  options: { ...Object.fromEntries(ids.map((id) => [id, choices(id)])), rhythm: choices(rh, "rhythm"),
                             loop: [{ value: 0, name: "OFF" }, { value: 1, name: "ON" }] } };
       };
-      device = mountDevice($("devbox"), { call: wb.call, C: wb.C, labels, rows,
+      // each part's notes a bar (from the roll's layout: the song as committed) and what is muted or soloed, for the
+      // device's Parts screen
+      const activity = () => {
+        if (!rollLay) return null;
+        const lanes = {};
+        for (const l of rollLay.lanes) {
+          const n = new Array(rollLay.bars).fill(0);
+          for (const x of l.notes) { const b = Math.floor(x.x); if (b >= 0 && b < n.length) n[b]++; }
+          lanes[l.role] = n;
+        }
+        return { bars: rollLay.bars, lanes, mute: [...desk.listen.mute], solo: desk.listen.solo };
+      };
+      device = mountDevice($("devbox"), { call: wb.call, C: wb.C, labels, rows, activity,
         engine: {
           set: (id, v) => id === "loop" ? ($("loop").checked = !!v, $("loop").onchange(), device?.redraw())
             : run(() => desk.set(id === "rhythm" ? rhythmRow(desk.state, desk.opts) : id, v)),
@@ -216,6 +228,8 @@
           reroll: () => $("all").click(),   // SEQ: Re-roll all unlocked (the device: a new song)
           rerollPart: (part) => run(() => desk.reroll(part)),   // SEQ on a part's screen: its dice
           jump: (start, name) => run(() => desk.jumpTo(start, name)),
+          mute: (part, on) => run(() => desk.mute(part, on)).then(() => device?.redraw()),   // listening only, at once
+          solo: (part) => run(() => desk.solo(part)).then(() => device?.redraw()),
         } });
     } catch (e) { $("devbox").textContent = `The device mock didn't load: ${e}`; }
   }

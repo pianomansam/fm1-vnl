@@ -243,10 +243,43 @@ export default {
       ],
       knobs: [{ field: "key", step: 1 }, { field: "tempo", step: 1 }, { field: "motion", step: 5 }, { field: "mood", step: 1 }],
       // ALGO picks the part (the convention); SELECT too, the main screen having no pages (Sam, 2026-11-06)
-      controls: { ALGO: { do: "cursor" }, SELECT: { do: "cursor" }, EDIT: { go: "cursor" }, SEL: { go: "sections" } },
+      controls: { ALGO: { do: "cursor" }, SELECT: { do: "cursor" }, EDIT: { go: "cursor" }, SEL: { go: "sections" }, GLO: { go: "mixer" } },
       say: [{ when: "song", text: "CHORD {chord}. {section}, BAR {bar} OF {bars}" }, { when: "!song", text: "{idle}" },
             { when: "ready", text: ". {key} {mode}, {tempo} BPM" },
             { when: "pending", text: ". {pending}" }],
+    },
+
+    // The parts over the song (Sam, 2026-11-06: the workbench's roll on the device, growing into the mixer): GLO from
+    // the main screen (the FM-1 convention: GLO = global, the mixer). A lane a part: its icon and name, a column a bar
+    // as tall as the part's notes there (played bars in its color, the rest gray), the playhead. ALGO or SELECT picks
+    // a lane, K1 mutes it, K2 solos it (again: off); listening only, at once. Levels later (the mixer item).
+    mixer: {
+      title: "Parts",
+      lanes: ["drums", "bass", "keys", "pad", "lead"],
+      bands: [
+        { y: 0, h: 16, draw: [
+          { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
+          { when: ["song", "looping"], text: "LOOP", font: "T", after: 8, y: 2, color: "HI" },
+          { when: "!song", text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
+          { when: "known", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
+        ] },
+        { y: 18, h: 28, draw: [
+          { rect: [2, 0, 2, 26], color: "WHITE" },
+          { text: "PARTS", font: "B", x: 10, y: 4, color: "WHITE" },
+          { when: ["song", "!pending"], text: "{chord}", font: "XS", right: 232, y: 5, color: "WHITE" },
+          { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
+        ] },
+        { y: 50, h: 132, draw: [
+          { lanes: [8, 0, 224, 132], parts: ["drums", "bass", "keys", "pad", "lead"], label: 52, rowH: 26 },
+        ] },
+        { y: 196, h: 44, draw: [
+          { rect: [8, 0, 224, 1], color: "LINE" },
+          { text: "ALGO PICK   K1 MUTE   K2 SOLO", font: "T", x: 8, y: 8, color: "DIM" },
+          { text: "GLO BACK   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
+        ] },
+      ],
+      controls: { ALGO: { do: "cursor" }, SELECT: { do: "cursor" }, K1: { do: "mute" }, K2: { do: "solo" }, GLO: { go: "back" } },
+      say: ["PARTS. ", { when: "song", text: "{section}, BAR {bar} OF {bars}" }],
     },
 
     // The song's map (Sam, 2026-11-06: where we are in the map, jump to a section, loop the one playing): SEL from

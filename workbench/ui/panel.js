@@ -62,7 +62,7 @@ const CSS = `
 const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
 
 // box: the section to fill; call: wb.call; C: wb.C; engine: { set(row, value), play() }
-export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: rowsOf = () => ({}) }) {
+export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: rowsOf = () => ({}), activity = () => null }) {
   document.head.append(el("style", { textContent: CSS }));
   const canvas = el("canvas", { width: W, height: H, role: "img", ariaLabel: "The device's screen (mock)" });
   const ctx = canvas.getContext("2d"), img = ctx.createImageData(W, H), lcd = new Lcd();
@@ -200,7 +200,7 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
       const rolled = await call("wb_rolled").catch(() => null);   // what the "as rolled" rows play
       const sections = await call("wb_sections", 1).catch(() => []);   // the song's map, as it plays
       const r = (f) => s.roll[C.RF[f]];
-      dev.update({ playing, gap: pos.gap, bar: pos.bar, bars: pos.bars || r("BARS"), seed: s.seed, facts, labels: labels(rolled), rows: rowsOf(rolled, s), sections,
+      dev.update({ playing, gap: pos.gap, bar: pos.bar, bars: pos.bars || r("BARS"), seed: s.seed, facts, labels: labels(rolled), rows: rowsOf(rolled, s), sections, activity: activity(),
                    roll: { key: r("KEY"), tempo: r("TEMPO"), motion: r("MOTION"), mood: r("MOOD"), mode: r("MODE") } });
     } finally {
       fetching = false;

@@ -2912,8 +2912,13 @@ console.log("the page by part: sections, part headers, the folded rows, summarie
   // lock in the part header only (one place each)
   const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
   const once = (s) => html.split(s).length === 2;
+  // (the device mock's Parts screen mutes and solos too: its engine hooks are the one other caller, desk.mute(part, /
+  // desk.solo(part)
+  const header = html.replace("desk.mute(part, on)", "").replace("desk.solo(part)", "");
+  const onceH = (s) => header.split(s).length === 2;
   check(!/id="parts"|Voicing and phrase|"Instruments"|GROUPS/.test(html) && /function partHead/.test(html) &&
-        ["desk.mute(", "desk.solo(", "desk.reroll(p)", "desk.stepPart(p, -1)", "desk.stepPart(p, 1)", "desk.lock(PART_ROW[p]",
+        ["desk.mute(", "desk.solo("].every(onceH) &&
+        ["desk.reroll(p)", "desk.stepPart(p, -1)", "desk.stepPart(p, 1)", "desk.lock(PART_ROW[p]",
          "feedback(`part:${p}`"].every(once) && /if \(r\.part\) for \(const b of \[dice, lock\]\)/.test(html),
         "index.html: the part header holds mute, solo, ◀ 🎲 ▶, the lock and the part's feedback, once each; a roll row defers to it");
   // folding: per viewer in storage when there is one; a throwing, missing or garbled storage folds and still works
@@ -3122,6 +3127,12 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
     const w = dr.values().pending;
     dr.update(live(4)); dr.stack = ["main"]; dr.press("SEQ");
     check(w === "BASS: NEW ROLL IN 3 BARS" && JSON.stringify(got) === '["bass","song"]', `SEQ on Bass: "${w}", then sent; on the main screen a new song (${got})`);
+  }
+  {   // the Parts screen: K1 mutes the highlighted lane's part, K2 solos it (again: off), at once
+    const got = [], dm = new D.Device(data, { set() {}, play() {}, mute: (p, on) => got.push(["mute", p, on]), solo: (p) => got.push(["solo", p]) }, () => t);
+    dm.update({ ...live(3), activity: { bars: 64, lanes: {}, mute: [], solo: null } });
+    dm.stack = ["main"]; dm.press("GLO"); dm.press("ALGO", 2); dm.press("K1"); dm.press("K2");
+    check(dm.id === "mixer" && JSON.stringify(got) === '[["mute","keys",true],["solo","keys"]]', `GLO opens Parts; the third lane muted, then soloed (${JSON.stringify(got)})`);
   }
   {   // a new song, rolled or the next one, goes back to the main screen
     dev.press("ALGO", 1); dev.press("EDIT");
