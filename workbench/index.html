@@ -114,6 +114,7 @@
     <button id="all">🎲 Re-roll all unlocked</button>
     <span id="pos">bar – / –  ·  0:00</span>
     <label class="switch" title="Repeat the section playing instead of moving on"><input id="loop" type="checkbox"> 🔁 Loop section</label>
+    <label class="switch" title="Never end: where the outro would start, go back to the section after the intro (no next song)"><input id="endless" type="checkbox"> ∞ Keep going</label>
     <label class="switch"><input id="retired" type="checkbox"> Show retired</label>
   </div>
   <div class="bar"><div id="progress"></div></div>
@@ -204,9 +205,11 @@
         const rh = rhythmRow(desk.state, desk.opts), ids = ROWS.filter((r) => r.kind !== "seed" && r.kind !== "reroll").map((r) => r.id);
         const live = heard ? fromEngine(heard, wb.C, desk.opts) : null;
         if (live) live.rhythm = live[rh];
-        return { values: { ...desk.state.values, rhythm: desk.state.values[rh], loop: $("loop").checked ? 1 : 0 }, live, rolled: rn,
+        return { values: { ...desk.state.values, rhythm: desk.state.values[rh], loop: $("loop").checked ? 1 : 0,
+                           endless: $("endless").checked ? 1 : 0 }, live, rolled: rn,
                  options: { ...Object.fromEntries(ids.map((id) => [id, choices(id)])), rhythm: choices(rh, "rhythm"),
-                            loop: [{ value: 0, name: "OFF" }, { value: 1, name: "ON" }] } };
+                            loop: [{ value: 0, name: "OFF" }, { value: 1, name: "ON" }],
+                            endless: [{ value: 0, name: "OFF" }, { value: 1, name: "ON" }] } };
       };
       // each part's notes a bar (from the roll's layout: the song as committed) and what is muted or soloed, for the
       // device's Parts screen
@@ -226,6 +229,7 @@
       device = mountDevice($("devbox"), { call: wb.call, C: wb.C, labels, rows, activity, levels,
         engine: {
           set: (id, v) => id === "loop" ? ($("loop").checked = !!v, $("loop").onchange(), device?.redraw())
+            : id === "endless" ? ($("endless").checked = !!v, device?.redraw())
             : run(() => desk.set(id === "rhythm" ? rhythmRow(desk.state, desk.opts) : id, v)),
           play: () => $("play").click(),
           reroll: () => $("all").click(),   // SEQ: Re-roll all unlocked (the device: a new song)
@@ -506,7 +510,7 @@
   function show(p) {
     // the song's end, as the device does it: its silence, then the next song, rolled as Re-roll all rolls (the locks
     // kept); it lands as the silence ends. Looping a section, never.
-    if (playing && desk && endsSong(p.gap, lastGap, $("loop").checked)) run(() => desk.nextSong());
+    if (playing && desk && endsSong(p.gap, lastGap, $("loop").checked || $("endless").checked)) run(() => desk.nextSong());
     if (p.gap) lastGap = p.gap;
     if (p.bar !== pos.bar && desk) wb.call("wb_sections", 1).then((s) => {   // a bar line: a landing may have changed the song heard
       heard = s; mark(); roll().catch(() => {});
@@ -514,6 +518,10 @@
       // during this bar still wins: the later jump replaces this one)
       const back = playing && $("loop").checked ? loopAt(heard, p.bar) : null;
       if (back !== null) wb.call("wb_jump", back).catch(() => {});
+      // keep going (Sam, 2026-11-06): the bar before the last section (the outro) → the section after the intro, so
+      // the song never ends and no next song comes
+      else if (playing && $("endless").checked && heard.length > 2 && p.bar === heard[heard.length - 1].start)
+        wb.call("wb_jump", heard[1].start).catch(() => {});
     }, () => {});
     if (drums && ((p.bar - 1) & 1) !== ((pos.bar - 1) & 1)) drums.render(p);   // the bar sounding (1 or 2)
     pos = { seconds: p.seconds, bar: p.bar };

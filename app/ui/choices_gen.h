@@ -50,6 +50,7 @@ enum {
     ROW_AMBIENCE,
     ROW_RHYTHM,
     ROW_LOOP,
+    ROW_ENDLESS,
     ROW_N
 };
 

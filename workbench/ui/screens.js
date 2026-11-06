@@ -152,6 +152,8 @@ export default {
     texAmb: { row: "ambience", name: "AMBIENCE", options: true },
     // the section playing repeats instead of moving on (the workbench's Loop section); acts at once
     loop: { row: "loop", name: "LOOP", options: true, now: true },
+    // never end (Sam, 2026-11-06): where the outro would start, back to the section after the intro; no next song
+    endless: { row: "endless", name: "KEEP GOING", options: true, now: true },
   },
 
   // the parts, in ALGO's order (on a part's screen ALGO moves to the next one, at its first page)
@@ -458,7 +460,7 @@ export default {
           { text: "SEL BACK", font: "T", right: 232, y: 16, color: "DIM" },
         ] },
       ],
-      knobs: [{ field: "loop", step: 1 }],
+      knobs: [{ field: "loop", step: 1 }, { field: "endless", step: 1 }],
       controls: {
         ALGO: { do: "cursor" }, SELECT: { do: "cursor" }, EDIT: { do: "jump" }, SEL: { go: "back" },
         // the lowest white keys jump straight to a section, first key the first section (Sam, 2026-11-06); the dim

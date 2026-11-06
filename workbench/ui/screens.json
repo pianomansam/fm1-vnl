@@ -176,6 +176,12 @@
    "name": "VARIATION",
    "row": "drumsVar"
   },
+  "endless": {
+   "name": "KEEP GOING",
+   "now": true,
+   "options": true,
+   "row": "endless"
+  },
   "key": {
    "format": "key",
    "name": "KEY",
@@ -4828,6 +4834,10 @@
    "knobs": [
     {
      "field": "loop",
+     "step": 1
+    },
+    {
+     "field": "endless",
      "step": 1
     }
    ],

@@ -214,7 +214,7 @@ const char CH_STR[1808] =
     "RAIN\000";
 
 typedef struct { int16_t value; uint16_t name; uint8_t flags; } ch_entry_t;
-static const ch_entry_t CH_E[232] = {
+static const ch_entry_t CH_E[234] = {
     {520, 0, 0},
     {521, 6, 0},
     {522, 12, 0},
@@ -447,6 +447,8 @@ static const ch_entry_t CH_E[232] = {
     {1, 1802, 0},
     {0, 913, 0},
     {1, 917, 0},
+    {0, 913, 0},
+    {1, 917, 0},
 };
 static const uint16_t CH_SPAN[ROW_N][2] = {
     {0, 0},   /* seed */
@@ -488,6 +490,7 @@ static const uint16_t CH_SPAN[ROW_N][2] = {
     {228, 2},   /* ambience */
     {230, 0},   /* rhythm */
     {230, 2},   /* loop */
+    {232, 2},   /* endless */
 };
 static const uint32_t CH_COMP_FIT[14][2] = {
     {4294967295u, 0u},

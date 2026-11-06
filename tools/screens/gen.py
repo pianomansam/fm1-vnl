@@ -89,7 +89,7 @@ def font_names():
 RUNTIME_SOURCES = {"maps", "progs", "families", None}
 # Rows the screens name that rows.json lacks (the page builds them): rhythm, the Comp part's one Rhythm row (comp or
 # strumPat by fits.rhythmRow: ch_rhythm_row), and loop (the workbench's Loop section switch)
-VIRTUAL = ["rhythm", "loop"]
+VIRTUAL = ["rhythm", "loop", "endless"]
 ST = {"approved": 0, "candidate": 1, "retired": 2, "removed": 3}
 CH_HIDDEN, CH_ROLLED = 4, 8
 
@@ -212,7 +212,8 @@ def shown_rows(data):
 
 
 def gen_choices(rows, opts, shown):
-    rows = rows["rows"] + [{"id": "rhythm", "kind": "virtual"}, {"id": "loop", "kind": "virtual", "source": "offOn"}]
+    rows = rows["rows"] + [{"id": "rhythm", "kind": "virtual"}, {"id": "loop", "kind": "virtual", "source": "offOn"},
+                            {"id": "endless", "kind": "virtual", "source": "offOn"}]
     fits = json.loads((WB / "rows.json").read_text())["fits"]
     s = Strings()
     entries, spans, fit_rows = [], [], []
