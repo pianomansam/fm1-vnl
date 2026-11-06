@@ -496,7 +496,7 @@ const enumOf = (first) => {   // the enum whose first name is `first`: its names
   return body.replace(/\/\*[\s\S]*?\*\//g, "").replace(/enum \{/, "").split(",").map((x) => x.trim()).filter(Boolean);
 };
 const lcg = (s) => () => ((s = (s * 1103515245 + 12345) >>> 0) / 4294967296);
-const STR = new Set(["wb_consts", "wb_state", "wb_live_state", "wb_library", "wb_sections", "wb_screen"]);
+const STR = new Set(["wb_consts", "wb_state", "wb_live_state", "wb_library", "wb_sections", "wb_screen", "wb_rolled"]);
 // the page's call (the worklet's): JSON exports parsed, wb_stage_bytes a copy of the staged state
 const caller = (ex) => async (fn, ...a) => {
   if (fn === "wb_stage_bytes") return new Uint8Array(ex.memory.buffer, ex.wb_stage_ptr(), ex.wb_stage_size()).slice();
@@ -2995,6 +2995,12 @@ console.log("the page by part: sections, part headers, the folded rows, summarie
 }
 
 console.log("the device mock (ui/): the device's words, palette and knobs; the screens' data; the flow between screens");
+{   // wb_rolled: what the "as rolled" rows play (the mock writes "AS ROLLED (HELD)"); the comp agrees with wb_comp_applied
+  const ex = await fresh(72), x = JSON.parse(cstr(ex, ex.wb_rolled()));
+  const keys = ["comp", "comp_pat", "lead_style", "pad_on", "pad_place", "strum_pat", "strum_fill", "lead_loop"];
+  check(keys.every((k) => Number.isInteger(x[k])) && x.comp === ex.wb_comp_applied() && [0, 1].includes(x.pad_on) &&
+        [0, 1].includes(x.strum_fill) && x.pad_place >= 0 && x.pad_place <= 2, `wb_rolled: ${JSON.stringify(x)}`);
+}
 {
   const D = await import("../ui/device.js"), data = (await import("../ui/screens.js")).default;
   await import("../ui/panel.js");   // the page's side loads (a syntax error there blanks the mock)

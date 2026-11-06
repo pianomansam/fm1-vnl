@@ -160,8 +160,9 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
     fetching = true;
     try {
       const s = await call("wb_live_state"), facts = pos.bar > 0 ? await call("wb_screen", pos.bar - 1) : {};
+      const rolled = await call("wb_rolled").catch(() => null);   // what the "as rolled" rows play
       const r = (f) => s.roll[C.RF[f]];
-      dev.update({ playing, gap: pos.gap, bar: pos.bar, bars: pos.bars || r("BARS"), seed: s.seed, facts, labels: labels(), rows: rowsOf(),
+      dev.update({ playing, gap: pos.gap, bar: pos.bar, bars: pos.bars || r("BARS"), seed: s.seed, facts, labels: labels(rolled), rows: rowsOf(rolled),
                    roll: { key: r("KEY"), tempo: r("TEMPO"), motion: r("MOTION"), mood: r("MOOD"), mode: r("MODE") } });
     } finally {
       fetching = false;

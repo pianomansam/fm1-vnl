@@ -136,7 +136,7 @@
 </main>
 <script type="module">
   import * as wb from "./wb.js";
-  import { ROWS, row, SECTIONS, RHYTHM_ROWS, rhythmRow, folds, summary, optionsFor, inactive, approval } from "./rows.js";
+  import { ROWS, row, SECTIONS, RHYTHM_ROWS, rhythmRow, folds, summary, optionsFor, inactive, approval, compOption, COMP_PAT_BASE } from "./rows.js";
   import { Desk, PART_ROW, PART_NAME, sectionAt, positionOf, loopAt, endsSong } from "./desk.js";
   import { layout, draw } from "./roll.js";
   import { DrumScreen } from "./drums.js";
@@ -185,20 +185,35 @@
       const { mountDevice } = await import("./ui/panel.js");
       // every row's shown name (upper case, as the device writes), for screens that show the rolls: {kit}, {lead}, ...;
       // {rhythm}: the comp's one Rhythm row (comp rhythms or strum patterns)
-      const labels = () => {
-        const name = (id) => { const r = row(id), v = desk.state.values[id];
-          const o = optionsFor(r, desk.state, desk.opts, { showRetired: true, lib }).find((x) => String(x.value) === String(v));
-          return String(o?.short ?? o?.name ?? v ?? "").toUpperCase(); };
-        return { ...Object.fromEntries(ROWS.map((r) => [r.id, name(r.id)])), rhythm: name(rhythmRow(desk.state, desk.opts)) };
+      // what an "as rolled" row plays (wb_rolled: the engine's own choice), by row: shown after it, "AS ROLLED (HELD)"
+      const rolledNames = (x) => {
+        if (!x) return {};
+        const o = desk.opts, up = (s) => (s == null ? undefined : String(s).toUpperCase());
+        const comp = up(compOption(o, x.comp_pat >= 0 ? COMP_PAT_BASE + x.comp_pat : x.comp)?.name);
+        const strum = up(o.strumPats?.find((p) => p.index === x.strum_pat)?.name);
+        return { comp, strumPat: strum, rhythm: rhythmRow(desk.state, o) === "comp" ? comp : strum,
+                 leadStyle: up(o.leadStyles?.find((s) => s.id === x.lead_style + 2)?.name), padOn: ["OFF", "ON"][x.pad_on],
+                 padPlace: ["BELOW THE LEAD", "WITH THE LEAD", "ABOVE THE LEAD"][x.pad_place],
+                 strumFill: ["STEP BACK", "DRIVE"][x.strum_fill], leadLoop: ["OFF", "ON"][x.lead_loop] };
+      };
+      const labels = (x) => {
+        const rn = rolledNames(x);
+        const name = (id, as = id) => { const r = row(id), v = desk.state.values[id];
+          const o = optionsFor(r, desk.state, desk.opts, { showRetired: true, lib }).find((y) => String(y.value) === String(v));
+          const n = String(o?.short ?? o?.name ?? v ?? "").toUpperCase();
+          return o?.rolled && rn[as] ? rn[as] : n; };   // the main screen's tiles: what plays
+        return { ...Object.fromEntries(ROWS.map((r) => [r.id, name(r.id)])), rhythm: name(rhythmRow(desk.state, desk.opts), "rhythm") };
       };
       // the rows a screen's knobs can set: each row's value and its choices ({ value, name }, as the device writes
       // them); "rhythm" is the comp's one Rhythm row
-      const rows = () => {
-        const choices = (id) => optionsFor(row(id), desk.state, desk.opts, { lib }).filter((o) => !o.unavailable)
-          .map((o) => ({ value: o.value, name: String(o.short ?? o.name).toUpperCase() }));
+      const rows = (x) => {
+        const rn = rolledNames(x);
+        const choices = (id, as = id) => optionsFor(row(id), desk.state, desk.opts, { lib }).filter((o) => !o.unavailable)
+          .map((o) => { const n = String(o.short ?? o.name).toUpperCase();
+                        return { value: o.value, name: o.rolled && rn[as] ? `${n} (${rn[as]})` : n }; });
         const rh = rhythmRow(desk.state, desk.opts), ids = ROWS.filter((r) => r.kind !== "seed" && r.kind !== "reroll").map((r) => r.id);
         return { values: { ...desk.state.values, rhythm: desk.state.values[rh] },
-                 options: { ...Object.fromEntries(ids.map((id) => [id, choices(id)])), rhythm: choices(rh) } };
+                 options: { ...Object.fromEntries(ids.map((id) => [id, choices(id)])), rhythm: choices(rh, "rhythm") } };
       };
       device = mountDevice($("devbox"), { call: wb.call, C: wb.C, labels, rows,
         engine: { set: (id, v) => run(() => desk.set(id === "rhythm" ? rhythmRow(desk.state, desk.opts) : id, v)), play: () => $("play").click() } });
