@@ -137,6 +137,7 @@ const holds = (when, bag) => [].concat(when ?? []).every((w) => (w[0] === "!" ? 
 // The values a screen's templates read, from what the screen shows (Device.shown(): app.c's snap_t, as the UI holds
 // it). app.c's line_pending is `pending`
 const MENU_MAX = 10;
+const SEC_KEYS = "FGABCDEFGA";   // the white keys from F3, a section each (the Sections screen's jumps)
 // a field's value as a share of its range (0..1): a knob's fill bar. Only a number has one (Sam, 2026-11-06: tempo,
 // motion); a choice from a list (a key, a mood, an instrument) doesn't: its place in the list means little
 export const hasBar = (def) => !!def && !def.options && !def.format && !def.wrap;
@@ -164,7 +165,9 @@ const fieldFrac = (def, v, rows) => {
 export function fieldMove(def, v, d, rows) {
   if (!def.options) return fieldStep(def, v, d);
   const o = rows?.options?.[def.row] ?? [], i = o.findIndex((x) => String(x.value) === String(v));
-  return o.length ? o[Math.min(Math.max((i < 0 ? 0 : i) + d, 0), o.length - 1)].value : v;
+  if (!o.length) return v;
+  if (def.wrap) return o[((((i < 0 ? 0 : i) + d) % o.length) + o.length) % o.length].value;   // a switch: either way flips it
+  return o[Math.min(Math.max((i < 0 ? 0 : i) + d, 0), o.length - 1)].value;
 }
 export function valuesOf(s, data) {
   const r = s.roll ?? {}, f = data.fields, song = !!s.hasSong;
@@ -184,12 +187,14 @@ export function valuesOf(s, data) {
   bag.known = song || bag.ready;                     // a song playing or ready: its values can show
   // the song's map (wb_sections, heard): each section's name and length, the one playing; looping (the workbench's
   // Loop section)
-  const secs = s.sections ?? [], bar1 = (s.bar ?? 0) + 1;
+  const secs = s.sections ?? [], bar1 = (s.bar ?? 0) + 1, off = s.secOff ?? 0, shownN = s.secRows ?? MENU_MAX;
   bag.secCount = secs.length; bag.secList = secs;
-  secs.slice(0, MENU_MAX).forEach((x, i) => {
+  secs.slice(off, off + Math.min(shownN, MENU_MAX)).forEach((x, i) => {   // line i shows section off + i (Sam: it scrolls)
     bag[`sec${i}`] = String(x.name ?? "").toUpperCase(); bag[`sec${i}Bars`] = x.bars;
     bag[`sec${i}Now`] = song && bar1 > x.start && bar1 <= x.start + x.bars;
+    bag[`sec${i}Key`] = SEC_KEYS[off + i] ?? "";
   });
+  bag.secRange = secs.length > shownN ? `${off + 1}-${Math.min(off + shownN, secs.length)} OF ${secs.length}` : "";
   bag.looping = String(s.rows?.values?.loop) === "1";
   bag.activity = s.activity ?? null;
   bag.levels = s.levels ?? {};
@@ -198,7 +203,7 @@ export function valuesOf(s, data) {
   // waiting) can't move further that way; a number without ends (a wrap) has neither
   for (const [k, def] of Object.entries(f)) {
     const v = k in (s.reqs ?? {}) ? s.reqs[k] : fieldValue(def, k, r, s.rows);
-    if (v === undefined || def.wrap) continue;
+    if (v === undefined || def.wrap) continue;   // (a wrapping number or switch has no ends)
     if (def.options) {
       const o = s.rows?.options?.[def.row] ?? [], i = o.findIndex((x) => String(x.value) === String(v));
       bag[`${k}First`] = i <= 0; bag[`${k}Last`] = i < 0 || i >= o.length - 1;
@@ -233,7 +238,8 @@ export function valuesOf(s, data) {
   if (s.jump) {
     if ((!s.pend || s.jump.at < s.pend.at) && (!pr || s.jump.at < pr.at))
       bag.pending = `GO TO ${String(s.jump.name).toUpperCase()} IN ${s.jump.bars}${s.jump.bars === 1 ? " BAR" : " BARS"}`;
-    if (bag[`sec${s.jump.i}`] !== undefined) { bag[`sec${s.jump.i}`] = `*${bag[`sec${s.jump.i}`]}`; bag[`sec${s.jump.i}Pend`] = true; }
+    const ji = s.jump.i - (s.secOff ?? 0);   // its line, when shown
+    if (bag[`sec${ji}`] !== undefined) { bag[`sec${ji}`] = `*${bag[`sec${ji}`]}`; bag[`sec${ji}Pend`] = true; }
   }
   for (const [k, v] of Object.entries(s.labels ?? {})) if (!(k in bag)) bag[k] = bag[`${k}Pend`] || v;   // the rolls, by row: {kit}, {lead}
   for (let i = 0; i < MENU_MAX; i++) bag[`sel${i}`] = s.cursor === i;                  // a menu's highlighted line
@@ -286,7 +292,7 @@ export function drawScreen(lcd, screen, bag, data, C = colors(THEME, data.colors
             // reduced motion (the default, Sam 2026-11-06): no note lights as it sounds, and played vs to come changes a
             // bar at a time; `live` (more movement) lights the sounding notes and colors them as they pass
             const now = it.live && bag.song && nx <= pos && pos < nx + Math.max(nw, 0.06);
-            const base = off ? C.DIM : now ? C.WHITE : nx < (it.live ? pos : Math.floor(pos)) ? col : C.GRAY;   // played: its color
+            const base = off ? C.DIM : now ? C.WHITE : nx < (it.live ? pos : Math.floor(pos) + 1) ? col : C.GRAY;   // played or this bar: its color (Sam: only bars to come gray)
             lcd.rect(x0, ry + 1 + Math.round(ny * (rowH - 4)), Math.max(1, x1 - x0 - 1), Math.max(1, Math.round(nh * (rowH - 4))),
                      now && !off ? base : dim(base, 0.45 + 0.55 * shade));
           }
@@ -417,7 +423,7 @@ export function problems(data, vocab = VOCAB) {
     if (!keys) { out.push(`${where}: unknown action ${kind ?? JSON.stringify(a)}`); return; }
     for (const k of Object.keys(a)) if (k !== "do" && !keys.includes(k)) out.push(`${where}: ${kind} has no key ${k}`);
     if (kind === "go") { if (!["back", "home", "cursor"].includes(a.go) && !ids.includes(a.go)) out.push(`${where}: no screen "${a.go}"`); }
-    else if (kind === "turn" && a.byCursor) {
+    else if ((kind === "turn" || kind === "nudge") && a.byCursor) {
       if (!Array.isArray(a.byCursor) || a.field !== undefined) out.push(`${where}: byCursor is a list of fields, without field`);
       else for (const f of a.byCursor) if (f !== null && !data.fields?.[f]) out.push(`${where}: no field "${f}"`);
     }
@@ -529,7 +535,8 @@ export class Device {
              partRoll: this.rollReq && song ? { name: this.rollReq.name, at: this.rollReq.at, bars: this.rollReq.at - bar } : null,
              jump: this.jumpReq && song ? { name: this.jumpReq.name, i: this.jumpReq.i, at: this.jumpReq.at, bars: this.jumpReq.at - bar } : null,
              page: this.screen?.pages?.length > 1 ? `${this.screen.pages.indexOf(this.id) + 1}/${this.screen.pages.length}` : "",
-             cursor: this.screen?.menu || this.screen?.list || this.screen?.lanes ? this.cursor[this.id] ?? 0 : -1, sections: l.sections,
+             cursor: this.screen?.menu || this.screen?.list || this.screen?.lanes ? (this.cursor[this.id] ?? 0) - this.listOff() : -1,
+             secOff: this.listOff(), secRows: this.screen?.rows, sections: l.sections,
              activity: l.activity, levels: l.levels,
              barPos: song ? bar + Math.min(0.999, (this.now() - (this.barT ?? this.now())) / (240000 / Math.max(40, l.roll?.tempo ?? 80))) : bar, pend, msg: this.msg && this.now() < this.msg.until ? this.msg.text : null };
   }
@@ -557,6 +564,18 @@ export class Device {
     delete this.held[control];
     return h && !h.fired ? this.press(control, 1, h.a) : null;
   }
+  // a scrolling list's first line shown (a screen's `rows`: how many lines fit): it follows the highlight
+  listOff() {
+    const rows = this.screen?.rows;
+    if (!rows) return 0;
+    const cur = this.cursor[this.id] ?? 0, n = this.live?.sections?.length ?? 0;
+    let off = this.off?.[this.id] ?? 0;
+    if (cur < off) off = cur;
+    if (cur >= off + rows) off = cur - rows + 1;
+    off = Math.max(0, Math.min(off, Math.max(0, n - rows)));
+    (this.off ??= {})[this.id] = off;
+    return off;
+  }
   // the keys lit and blinking on this screen (Sam, 2026-11-06), from its `keyLeds`: { lanes: [key a lane] } a part on
   // (not muted, not soloed out) lit, soloed blinking; { sections: [key a section] } the playing section lit, a jump
   // waiting blinking. -> { on: Set, blink: Set } of key numbers (the mock's keys, and the FM-1's over USB)
@@ -569,8 +588,12 @@ export class Device {
         else if (!(act?.solo || act?.mute?.includes(p))) on.add(k.lanes[i]);
       });
     if (k?.sections && this.hasSong()) {
-      const v = this.values();
-      k.sections.forEach((key, i) => { if (v[`sec${i}Now`]) on.add(key); if (v[`sec${i}Pend`]) blink.add(key); });
+      const secs = this.live?.sections ?? [], bar1 = this.live.bar;
+      k.sections.forEach((key, i) => {
+        const x = secs[i];
+        if (x && bar1 > x.start && bar1 <= x.start + x.bars) on.add(key);
+        if (this.jumpReq?.i === i) blink.add(key);
+      });
     }
     return { on, blink };
   }

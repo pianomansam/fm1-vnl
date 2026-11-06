@@ -3238,6 +3238,20 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
     check(a.pending === "" && a.tempo === "80" && !a.tempoPend && b.pending === "" && JSON.stringify(sets2) === '[["tempo",81],["tempo",80]]',
           `K2 +2 then -2: "${a.pending}" ${a.tempo}; sent then undone: ${JSON.stringify(sets2)}`);
   }
+  {   // Sam, 2026-11-06: the loop switch flips either way; OCT on the main screen steps the highlighted part's
+    // register; the Sections list scrolls with the highlight (lines and letters by the absolute section)
+    const secs9 = Array.from({ length: 9 }, (_, i) => ({ start: i * 8, bars: 8, name: i ? "groove" : "intro" }));
+    const sets3 = [], dz = new D.Device(data, { set: (r, v) => sets3.push([r, v]), play() {}, jump() {} }, () => t);
+    dz.update({ ...live(2), sections: secs9, rows: { values: { loop: 0, keysOct: 0 }, options: { loop: [{ value: 0, name: "OFF" }, { value: 1, name: "ON" }],
+      keysOct: [{ value: -1, name: "DOWN AN OCTAVE" }, { value: 0, name: "AS ROLLED" }, { value: 1, name: "UP AN OCTAVE" }] } } });
+    dz.stack = ["main", "sections"]; dz.press("K1", -1);
+    const looped = JSON.stringify(sets3[0]);
+    dz.press("SELECT", 8);
+    const v = dz.values();
+    dz.stack = ["main"]; dz.cursor.main = 3; dz.press("OCT+");
+    check(looped === '["loop",1]' && v.secRange === "3-9 OF 9" && v.sec6Key === "G" && v.sel6 && dz.values().pending === "REGISTER UP AN OCTAVE IN 3 BARS",
+          `loop flips turning down (${looped}); Sections ${v.secRange}, the last line's key ${v.sec6Key}; OCT+ on Comp: "${dz.values().pending}"`);
+  }
   {   // a new song, rolled or the next one, goes back to the main screen
     dev.press("ALGO", 1); dev.press("EDIT");
     const inPart = dev.id;

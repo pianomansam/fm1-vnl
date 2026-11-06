@@ -180,7 +180,8 @@
    "name": "KEEP GOING",
    "now": true,
    "options": true,
-   "row": "endless"
+   "row": "endless",
+   "wrap": 2
   },
   "key": {
    "format": "key",
@@ -219,7 +220,8 @@
    "name": "LOOP",
    "now": true,
    "options": true,
-   "row": "loop"
+   "row": "loop",
+   "wrap": 2
   },
   "mode": {
    "format": "mode",
@@ -658,10 +660,7 @@
       {
        "color": "SONG",
        "icon": "song",
-       "when": [
-        "song",
-        "!pending"
-       ],
+       "when": "song",
        "x": 8,
        "y": 26
       },
@@ -669,30 +668,17 @@
        "color": "GRAY",
        "font": "T",
        "text": "{map}",
-       "when": [
-        "song",
-        "!pending"
-       ],
+       "when": "song",
        "x": 21,
        "y": 24
       },
       {
-       "color": "DIM",
-       "rect": [
-        6,
-        21,
-        228,
-        15
-       ],
-       "when": "pending"
-      },
-      {
-       "color": "BLACK",
+       "color": "HI",
        "font": "T",
+       "right": 232,
        "text": "{pending}",
        "when": "pending",
-       "x": 10,
-       "y": 23
+       "y": 24
       },
       {
        "color": "WHITE",
@@ -1043,6 +1029,32 @@
     },
     "EDIT": {
      "go": "cursor"
+    },
+    "OCT+": {
+     "by": 1,
+     "byCursor": [
+      null,
+      null,
+      null,
+      "compReg",
+      null,
+      "leadReg",
+      null
+     ],
+     "do": "nudge"
+    },
+    "OCT-": {
+     "by": -1,
+     "byCursor": [
+      null,
+      null,
+      null,
+      "compReg",
+      null,
+      "leadReg",
+      null
+     ],
+     "do": "nudge"
     },
     "PRESET": {
      "byCursor": [
@@ -4456,7 +4468,7 @@
       {
        "color": "DIM",
        "font": "T",
-       "text": "F",
+       "text": "{sec0Key}",
        "when": "sec0",
        "x": 12,
        "y": 3
@@ -4464,7 +4476,7 @@
       {
        "color": "HI",
        "font": "T",
-       "text": "F",
+       "text": "{sec0Key}",
        "when": "sec0Now",
        "x": 12,
        "y": 3
@@ -4516,7 +4528,7 @@
       {
        "color": "DIM",
        "font": "T",
-       "text": "G",
+       "text": "{sec1Key}",
        "when": "sec1",
        "x": 12,
        "y": 21
@@ -4524,7 +4536,7 @@
       {
        "color": "HI",
        "font": "T",
-       "text": "G",
+       "text": "{sec1Key}",
        "when": "sec1Now",
        "x": 12,
        "y": 21
@@ -4576,7 +4588,7 @@
       {
        "color": "DIM",
        "font": "T",
-       "text": "A",
+       "text": "{sec2Key}",
        "when": "sec2",
        "x": 12,
        "y": 39
@@ -4584,7 +4596,7 @@
       {
        "color": "HI",
        "font": "T",
-       "text": "A",
+       "text": "{sec2Key}",
        "when": "sec2Now",
        "x": 12,
        "y": 39
@@ -4636,7 +4648,7 @@
       {
        "color": "DIM",
        "font": "T",
-       "text": "B",
+       "text": "{sec3Key}",
        "when": "sec3",
        "x": 12,
        "y": 57
@@ -4644,7 +4656,7 @@
       {
        "color": "HI",
        "font": "T",
-       "text": "B",
+       "text": "{sec3Key}",
        "when": "sec3Now",
        "x": 12,
        "y": 57
@@ -4696,7 +4708,7 @@
       {
        "color": "DIM",
        "font": "T",
-       "text": "C",
+       "text": "{sec4Key}",
        "when": "sec4",
        "x": 12,
        "y": 75
@@ -4704,7 +4716,7 @@
       {
        "color": "HI",
        "font": "T",
-       "text": "C",
+       "text": "{sec4Key}",
        "when": "sec4Now",
        "x": 12,
        "y": 75
@@ -4756,7 +4768,7 @@
       {
        "color": "DIM",
        "font": "T",
-       "text": "D",
+       "text": "{sec5Key}",
        "when": "sec5",
        "x": 12,
        "y": 93
@@ -4764,7 +4776,7 @@
       {
        "color": "HI",
        "font": "T",
-       "text": "D",
+       "text": "{sec5Key}",
        "when": "sec5Now",
        "x": 12,
        "y": 93
@@ -4816,7 +4828,7 @@
       {
        "color": "DIM",
        "font": "T",
-       "text": "E",
+       "text": "{sec6Key}",
        "when": "sec6",
        "x": 12,
        "y": 111
@@ -4824,7 +4836,7 @@
       {
        "color": "HI",
        "font": "T",
-       "text": "E",
+       "text": "{sec6Key}",
        "when": "sec6Now",
        "x": 12,
        "y": 111
@@ -4852,66 +4864,6 @@
        "text": "{sec6Bars} BARS",
        "when": "sec6",
        "y": 111
-      },
-      {
-       "color": "LINE",
-       "rect": [
-        4,
-        126,
-        232,
-        17
-       ],
-       "when": "sel7"
-      },
-      {
-       "color": "SONG",
-       "rect": [
-        4,
-        126,
-        2,
-        17
-       ],
-       "when": "sec7Now"
-      },
-      {
-       "color": "DIM",
-       "font": "T",
-       "text": "F",
-       "when": "sec7",
-       "x": 12,
-       "y": 129
-      },
-      {
-       "color": "HI",
-       "font": "T",
-       "text": "F",
-       "when": "sec7Now",
-       "x": 12,
-       "y": 129
-      },
-      {
-       "color": "WHITE",
-       "font": "XS",
-       "text": "{sec7}",
-       "when": "sec7",
-       "x": 26,
-       "y": 127
-      },
-      {
-       "after": 8,
-       "color": "AMB",
-       "font": "T",
-       "text": "PLAYING",
-       "when": "sec7Now",
-       "y": 129
-      },
-      {
-       "color": "GRAY",
-       "font": "T",
-       "right": 232,
-       "text": "{sec7Bars} BARS",
-       "when": "sec7",
-       "y": 129
       }
      ],
      "h": 144,
@@ -4944,6 +4896,14 @@
        "y": 2
       },
       {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{secRange}",
+       "when": "secRange",
+       "x": 120,
+       "y": 26
+      },
+      {
        "color": "DIM",
        "font": "T",
        "right": 232,
@@ -4973,6 +4933,14 @@
     "KEY12": {
      "do": "jump",
      "i": 7
+    },
+    "KEY14": {
+     "do": "jump",
+     "i": 8
+    },
+    "KEY16": {
+     "do": "jump",
+     "i": 9
     },
     "KEY2": {
      "do": "jump",
@@ -5010,7 +4978,9 @@
      7,
      9,
      11,
-     12
+     12,
+     14,
+     16
     ]
    },
    "knobs": [
@@ -5024,6 +4994,7 @@
     }
    ],
    "list": "sections",
+   "rows": 7,
    "say": [
     "SECTIONS. {section}, BAR {bar} OF {bars}",
     {

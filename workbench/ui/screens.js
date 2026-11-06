@@ -152,9 +152,9 @@ export default {
     texNoise: { row: "noise", name: "NOISE", options: true },
     texAmb: { row: "ambience", name: "AMBIENCE", options: true },
     // the section playing repeats instead of moving on (the workbench's Loop section); acts at once
-    loop: { row: "loop", name: "LOOP", options: true, now: true },
+    loop: { row: "loop", name: "LOOP", options: true, now: true, wrap: 2 },   // turning either way flips it (Sam)
     // never end (Sam, 2026-11-06): where the outro would start, back to the section after the intro; no next song
-    endless: { row: "endless", name: "KEEP GOING", options: true, now: true },
+    endless: { row: "endless", name: "KEEP GOING", options: true, now: true, wrap: 2 },
   },
 
   // the parts, in ALGO's order (on a part's screen ALGO moves to the next one, at its first page)
@@ -206,10 +206,9 @@ export default {
           { when: "sel0", rect: [2, 0, 2, 46], color: "SONG" },
           { when: "song", text: "{chord}", font: "B", x: 8, y: 2, color: "WHITE" },
           { when: "song", text: "{key} {mode}", font: "XS", right: 232, y: 2, color: "HI" },
-          { when: ["song", "!pending"], icon: "song", x: 8, y: 26, color: "SONG" },
-          { when: ["song", "!pending"], text: "{map}", font: "T", x: 21, y: 24, color: "GRAY" },
-          { when: "pending", rect: [6, 21, 228, 15], color: "DIM" },
-          { when: "pending", text: "{pending}", font: "T", x: 10, y: 23, color: "BLACK" },
+          { when: "song", icon: "song", x: 8, y: 26, color: "SONG" },
+          { when: "song", text: "{map}", font: "T", x: 21, y: 24, color: "GRAY" },
+          { when: "pending", text: "{pending}", font: "T", right: 232, y: 24, color: "HI" },   // as on a part's screen (Sam)
           // stopped with a song ready: its key (Sam, 2026-11-06), STOPPED only once (the status bar's)
           { when: "ready", text: "{key} {mode}", font: "B", x: 8, y: 2, color: "WHITE" },
           { when: "ready", icon: "song", x: 8, y: 26, color: "SONG" },
@@ -265,6 +264,9 @@ export default {
         // the highlighted part's instrument (or kit), a request as a knob's (Sam, 2026-11-06): a field a menu line
         // (null: nothing there)
         PRESET: { do: "turn", byCursor: [null, "drumKit", "bassIns", "compIns", "padIns", "leadIns", null], step: 1 },
+        // OCT-/OCT+: the highlighted part's register, as on its own screen (Sam, 2026-11-06): the comp's and the lead's
+        "OCT-": { do: "nudge", byCursor: [null, null, null, "compReg", null, "leadReg", null], by: -1 },
+        "OCT+": { do: "nudge", byCursor: [null, null, null, "compReg", null, "leadReg", null], by: 1 },
       },
       say: [{ when: "song", text: "CHORD {chord}. {section}, BAR {bar} OF {bars}" }, { when: "!song", text: "{idle}" },
             { when: "ready", text: ". {key} {mode}, {tempo} BPM" },
@@ -381,7 +383,8 @@ export default {
     sections: {
       title: "Sections",
       list: "sections",
-      keyLeds: { sections: [0, 2, 4, 6, 7, 9, 11, 12] },   // the playing section's key lit, a jump waiting blinking
+      rows: 7,   // lines that fit; more sections scroll with the highlight (Sam, 2026-11-06)
+      keyLeds: { sections: [0, 2, 4, 6, 7, 9, 11, 12, 14, 16] },   // the playing section's key lit, a jump waiting blinking
       bands: [
         { y: 0, h: 16, draw: [
           { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
@@ -400,64 +403,58 @@ export default {
         { y: 56, h: 144, draw: [
           { when: "sel0", rect: [4, 0, 232, 17], color: "LINE" },
           { when: "sec0Now", rect: [4, 0, 2, 17], color: "SONG" },
-          { when: "sec0", text: "F", font: "T", x: 12, y: 3, color: "DIM" },
-          { when: "sec0Now", text: "F", font: "T", x: 12, y: 3, color: "HI" },   // the playing section's key, lit
+          { when: "sec0", text: "{sec0Key}", font: "T", x: 12, y: 3, color: "DIM" },
+          { when: "sec0Now", text: "{sec0Key}", font: "T", x: 12, y: 3, color: "HI" },   // the playing section's key, lit
           { when: "sec0", text: "{sec0}", font: "XS", x: 26, y: 1, color: "WHITE" },
           { when: "sec0Now", text: "PLAYING", font: "T", after: 8, y: 3, color: "AMB" },
           { when: "sec0", text: "{sec0Bars} BARS", font: "T", right: 232, y: 3, color: "GRAY" },
           { when: "sel1", rect: [4, 18, 232, 17], color: "LINE" },
           { when: "sec1Now", rect: [4, 18, 2, 17], color: "SONG" },
-          { when: "sec1", text: "G", font: "T", x: 12, y: 21, color: "DIM" },
-          { when: "sec1Now", text: "G", font: "T", x: 12, y: 21, color: "HI" },   // the playing section's key, lit
+          { when: "sec1", text: "{sec1Key}", font: "T", x: 12, y: 21, color: "DIM" },
+          { when: "sec1Now", text: "{sec1Key}", font: "T", x: 12, y: 21, color: "HI" },   // the playing section's key, lit
           { when: "sec1", text: "{sec1}", font: "XS", x: 26, y: 19, color: "WHITE" },
           { when: "sec1Now", text: "PLAYING", font: "T", after: 8, y: 21, color: "AMB" },
           { when: "sec1", text: "{sec1Bars} BARS", font: "T", right: 232, y: 21, color: "GRAY" },
           { when: "sel2", rect: [4, 36, 232, 17], color: "LINE" },
           { when: "sec2Now", rect: [4, 36, 2, 17], color: "SONG" },
-          { when: "sec2", text: "A", font: "T", x: 12, y: 39, color: "DIM" },
-          { when: "sec2Now", text: "A", font: "T", x: 12, y: 39, color: "HI" },   // the playing section's key, lit
+          { when: "sec2", text: "{sec2Key}", font: "T", x: 12, y: 39, color: "DIM" },
+          { when: "sec2Now", text: "{sec2Key}", font: "T", x: 12, y: 39, color: "HI" },   // the playing section's key, lit
           { when: "sec2", text: "{sec2}", font: "XS", x: 26, y: 37, color: "WHITE" },
           { when: "sec2Now", text: "PLAYING", font: "T", after: 8, y: 39, color: "AMB" },
           { when: "sec2", text: "{sec2Bars} BARS", font: "T", right: 232, y: 39, color: "GRAY" },
           { when: "sel3", rect: [4, 54, 232, 17], color: "LINE" },
           { when: "sec3Now", rect: [4, 54, 2, 17], color: "SONG" },
-          { when: "sec3", text: "B", font: "T", x: 12, y: 57, color: "DIM" },
-          { when: "sec3Now", text: "B", font: "T", x: 12, y: 57, color: "HI" },   // the playing section's key, lit
+          { when: "sec3", text: "{sec3Key}", font: "T", x: 12, y: 57, color: "DIM" },
+          { when: "sec3Now", text: "{sec3Key}", font: "T", x: 12, y: 57, color: "HI" },   // the playing section's key, lit
           { when: "sec3", text: "{sec3}", font: "XS", x: 26, y: 55, color: "WHITE" },
           { when: "sec3Now", text: "PLAYING", font: "T", after: 8, y: 57, color: "AMB" },
           { when: "sec3", text: "{sec3Bars} BARS", font: "T", right: 232, y: 57, color: "GRAY" },
           { when: "sel4", rect: [4, 72, 232, 17], color: "LINE" },
           { when: "sec4Now", rect: [4, 72, 2, 17], color: "SONG" },
-          { when: "sec4", text: "C", font: "T", x: 12, y: 75, color: "DIM" },
-          { when: "sec4Now", text: "C", font: "T", x: 12, y: 75, color: "HI" },   // the playing section's key, lit
+          { when: "sec4", text: "{sec4Key}", font: "T", x: 12, y: 75, color: "DIM" },
+          { when: "sec4Now", text: "{sec4Key}", font: "T", x: 12, y: 75, color: "HI" },   // the playing section's key, lit
           { when: "sec4", text: "{sec4}", font: "XS", x: 26, y: 73, color: "WHITE" },
           { when: "sec4Now", text: "PLAYING", font: "T", after: 8, y: 75, color: "AMB" },
           { when: "sec4", text: "{sec4Bars} BARS", font: "T", right: 232, y: 75, color: "GRAY" },
           { when: "sel5", rect: [4, 90, 232, 17], color: "LINE" },
           { when: "sec5Now", rect: [4, 90, 2, 17], color: "SONG" },
-          { when: "sec5", text: "D", font: "T", x: 12, y: 93, color: "DIM" },
-          { when: "sec5Now", text: "D", font: "T", x: 12, y: 93, color: "HI" },   // the playing section's key, lit
+          { when: "sec5", text: "{sec5Key}", font: "T", x: 12, y: 93, color: "DIM" },
+          { when: "sec5Now", text: "{sec5Key}", font: "T", x: 12, y: 93, color: "HI" },   // the playing section's key, lit
           { when: "sec5", text: "{sec5}", font: "XS", x: 26, y: 91, color: "WHITE" },
           { when: "sec5Now", text: "PLAYING", font: "T", after: 8, y: 93, color: "AMB" },
           { when: "sec5", text: "{sec5Bars} BARS", font: "T", right: 232, y: 93, color: "GRAY" },
           { when: "sel6", rect: [4, 108, 232, 17], color: "LINE" },
           { when: "sec6Now", rect: [4, 108, 2, 17], color: "SONG" },
-          { when: "sec6", text: "E", font: "T", x: 12, y: 111, color: "DIM" },
-          { when: "sec6Now", text: "E", font: "T", x: 12, y: 111, color: "HI" },   // the playing section's key, lit
+          { when: "sec6", text: "{sec6Key}", font: "T", x: 12, y: 111, color: "DIM" },
+          { when: "sec6Now", text: "{sec6Key}", font: "T", x: 12, y: 111, color: "HI" },   // the playing section's key, lit
           { when: "sec6", text: "{sec6}", font: "XS", x: 26, y: 109, color: "WHITE" },
           { when: "sec6Now", text: "PLAYING", font: "T", after: 8, y: 111, color: "AMB" },
           { when: "sec6", text: "{sec6Bars} BARS", font: "T", right: 232, y: 111, color: "GRAY" },
-          { when: "sel7", rect: [4, 126, 232, 17], color: "LINE" },
-          { when: "sec7Now", rect: [4, 126, 2, 17], color: "SONG" },
-          { when: "sec7", text: "F", font: "T", x: 12, y: 129, color: "DIM" },
-          { when: "sec7Now", text: "F", font: "T", x: 12, y: 129, color: "HI" },   // the playing section's key, lit
-          { when: "sec7", text: "{sec7}", font: "XS", x: 26, y: 127, color: "WHITE" },
-          { when: "sec7Now", text: "PLAYING", font: "T", after: 8, y: 129, color: "AMB" },
-          { when: "sec7", text: "{sec7Bars} BARS", font: "T", right: 232, y: 129, color: "GRAY" },
         ] },
         { y: 202, h: 38, draw: [
           { knobs: { x: 8, dx: 58, label: { y: 0, font: "T", color: "GRAY" }, value: { y: 11, font: "XS", color: "HI", when: "song" } } },
           { text: "EDIT OR ITS KEY: GO THERE", font: "T", right: 232, y: 2, color: "DIM" },
+          { when: "secRange", text: "{secRange}", font: "T", x: 120, y: 26, color: "GRAY" },
           { text: "SEL BACK", font: "T", right: 232, y: 16, color: "DIM" },
         ] },
       ],
@@ -466,7 +463,7 @@ export default {
         ALGO: { do: "cursor" }, SELECT: { do: "cursor" }, EDIT: { do: "jump" }, SEL: { go: "back" },
         // the lowest white keys jump straight to a section, first key the first section (Sam, 2026-11-06); the dim
         // letter on each line names its key
-        KEY0: { do: "jump", i: 0 }, KEY2: { do: "jump", i: 1 }, KEY4: { do: "jump", i: 2 }, KEY6: { do: "jump", i: 3 }, KEY7: { do: "jump", i: 4 }, KEY9: { do: "jump", i: 5 }, KEY11: { do: "jump", i: 6 }, KEY12: { do: "jump", i: 7 },
+        KEY0: { do: "jump", i: 0 }, KEY2: { do: "jump", i: 1 }, KEY4: { do: "jump", i: 2 }, KEY6: { do: "jump", i: 3 }, KEY7: { do: "jump", i: 4 }, KEY9: { do: "jump", i: 5 }, KEY11: { do: "jump", i: 6 }, KEY12: { do: "jump", i: 7 }, KEY14: { do: "jump", i: 8 }, KEY16: { do: "jump", i: 9 },
       },
       say: ["SECTIONS. {section}, BAR {bar} OF {bars}", { when: "looping", text: ", LOOPING" }],
     },
