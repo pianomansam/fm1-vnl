@@ -683,14 +683,9 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
         one = notes[k];
         return emit_chord(&one, 1, 0, lo, hi, len, dark, salt, bar, step, out, max);
     }
-    /* per-chord roll spread, 10-60 ms between notes (the Knight: see below), the same for every strike of the chord
-       in a bar */
-    gap = (uint32_t)(10 + (int)(mix(salt, (uint32_t)bar, r->seed, 50) % 51u)) * 441u / 10u;
-    if (lib_set_by_id((uint8_t)r->v[RF_SET]) && (lib_set_by_id((uint8_t)r->v[RF_SET])->chords == INS_KNIGHT ||
-                                                 lib_set_by_id((uint8_t)r->v[RF_SET])->chords == INS_VIBES))
-        gap = (mix(salt, (uint32_t)bar, r->seed, 50) % 9u) * 441u / 10u / 3u;   /* Sam: an acoustic piano strikes
-                                                                                 together, 0-8 ms in all (the vibes'
-                                                                                 four mallets too) */
+    /* every keys instrument strikes its chord together, 0-8 ms in all (Sam, 2026-11-06: "no roll", after the Rhodes'
+       10-60 ms a note smeared a tresillo; the piano and the vibes struck together already) */
+    gap = (mix(salt, (uint32_t)bar, r->seed, 50) % 9u) * 441u / 10u / 3u;
     if (later < 100) {                    /* a rhythm's later strikes (half notes' beat 3, held on 2 and 4's beat 4):
                                              softer than the first (the same draw) */
         int c = emit_chord(notes, 4, gap, lo, hi, len, dark, salt, bar, first, out, max), i;

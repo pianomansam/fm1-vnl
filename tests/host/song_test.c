@@ -1208,13 +1208,12 @@ static void test_harmony(void)
                     if (ne != 4) bad_roll++;
                     if (lib_set_by_id((uint8_t)r.v[RF_SET])->chords == INS_KNIGHT ||
                         lib_set_by_id((uint8_t)r.v[RF_SET])->chords == INS_VIBES)
-                        continue;   /* struck together (test_knight_no_roll; the vibes' four mallets too) */
-                    for (i = 1; i < ne; i++) {
-                        uint32_t gap = ev[i].delay - ev[i - 1].delay;
-                        if (ev[i].delay <= ev[i - 1].delay || ev[i].note <= ev[i - 1].note) bad_roll++;
-                        if (gap < 441 || gap > 2646) bad_roll++;
-                    }
-                    if (ev[0].delay != 0) bad_roll++;
+                        continue;   /* their own checks (test_knight_no_roll; the vibes' mallets lifted to F3) */
+                    /* every other keys instrument strikes together too, 0-8 ms in all (Sam, 2026-11-06: "no roll",
+                       just like the piano), the notes rising */
+                    for (i = 1; i < ne; i++)
+                        if (ev[i].delay < ev[i - 1].delay || ev[i].note <= ev[i - 1].note) bad_roll++;
+                    if (ev[0].delay != 0 || ev[ne - 1].delay > 353u) bad_roll++;
                 }
             }
     }
@@ -1418,13 +1417,14 @@ static void test_knight_no_roll(void)
                 uint32_t lo = 0xffffffffu, hi = 0;
                 if (n < 2) continue;
                 for (i = 0; i < n; i++) { if (ev[i].delay < lo) lo = ev[i].delay; if (ev[i].delay > hi) hi = ev[i].delay; }
-                if (isk) { strikes++; if (hi - lo > 353u) bad++; }
-                else if (hi - lo >= 441u) rolled++;
+                strikes++;
+                if (hi - lo > 353u) bad++;   /* the piano and the Rhodes alike: together (Sam, 2026-11-06) */
+                if (isr) rolled++;
             }
     }
     CHECK(knight > 5 && strikes > 100, "knight: %d songs, %d strikes", knight, strikes);
-    CHECK(bad == 0, "knight: %d strikes spread over 8 ms", bad);
-    CHECK(rhodes > 5 && rolled > 50, "rhodes keeps the 10-60 ms roll: %d songs, %d rolled strikes", rhodes, rolled);
+    CHECK(bad == 0, "piano and Rhodes: %d strikes spread over 8 ms", bad);
+    CHECK(rhodes > 5 && rolled > 50, "the Rhodes strikes together too: %d songs, %d strikes checked", rhodes, rolled);
 }
 
 static void test_half_comping(void)
@@ -12928,7 +12928,8 @@ static uint32_t ll_hash(uint32_t h, const song_roll_t *r, int style, int loop)
    were 8484d705 (-1) and bafe9a1e (0). Re-pinned again (Sam 2026-11-05: motion first; drums,
    bass and strum lean with it): were 356d409f (-1) and 59487bd0 (0). Re-pinned again (Sam 2026-11-05: calm songs thin
    the hats): were 5c5262db (-1) and d57edc13 (0). Re-pinned again (Sam 2026-11-05: the lead never ends a phrase on a
-   dominant's 7th): were 24d5953d (-1) and 83e6ac47 (0) */
+   dominant's 7th): were 24d5953d (-1) and 83e6ac47 (0). Re-pinned again (Sam 2026-11-06: no roll, every keys
+   instrument strikes its chord together like the piano): were b06a36a1 (-1) and 8b298449 (0) */
 static void test_lead_loop_off_identical(void)
 {
     uint32_t seed, h[2] = {2166136261u, 2166136261u};
@@ -12940,8 +12941,8 @@ static void test_lead_loop_off_identical(void)
             for (k = 0; k < 2; k++) h[k] = ll_hash(h[k], &r, st, k - 1);
     }
     printf("lead loop off: events %08x (lead_loop -1), %08x (0)\n", (unsigned)h[0], (unsigned)h[1]);
-    CHECK(h[0] == 0xb06a36a1u, "lead loop default: lead_loop -1 hashes %08x, wanted b06a36a1", (unsigned)h[0]);
-    CHECK(h[1] == 0x8b298449u, "lead loop off: lead_loop 0 hashes %08x, wanted 8b298449", (unsigned)h[1]);
+    CHECK(h[0] == 0xdcca2c0fu, "lead loop default: lead_loop -1 hashes %08x, wanted dcca2c0f", (unsigned)h[0]);
+    CHECK(h[1] == 0x8365b15bu, "lead loop off: lead_loop 0 hashes %08x, wanted 8365b15b", (unsigned)h[1]);
 }
 
 typedef struct {
