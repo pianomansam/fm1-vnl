@@ -91,52 +91,6 @@ static void test_rng(void)
     CHECK(rng_weighted(&a, z, 3) == -1, "all-zero weights return -1");
 }
 
-/* A first song as it rolled before the modes became major or minor (Sam, 2026-11-05): the roll draws major or minor by
-   new weights, so a seed may roll another progression now. A test about given songs (the ones a spike measured, a
-   song Sam heard) keeps them: roll_song, then the mode and progression the old draw gave (its weights, ionian dorian
-   phrygian lydian mixolydian aeolian, and each progression's modes), as major or minor and the progression with the
-   same chords (tools/patterns/major_minor_2026-11-05.json; the four split from 5, 31, 33 and 41 take 45-48). */
-static void old_roll(uint32_t seed, song_roll_t *r)
-{
-    static const uint8_t W[4][6] = {{1, 4, 0, 0, 1, 6}, {1, 5, 0, 0, 2, 5}, {5, 2, 0, 1, 5, 1}, {6, 1, 0, 4, 3, 0}};
-    static const uint8_t MODES[44] = {1, 1, 32, 1, 17, 32, 1, 1, 1, 1, 1, 1, 1, 17, 1, 17, 2, 32, 2, 32, 2, 32, 32, 34,
-                                      2, 2, 8, 8, 16, 16, 18, 2, 34, 16, 8, 8, 16, 16, 16, 2, 34, 32, 1, 2};
-    static const uint8_t TON[6] = {MODE_MAJOR, MODE_MINOR, MODE_MINOR, MODE_MAJOR, MODE_MAJOR, MODE_MINOR};
-    static const uint32_t KIND_W[3] = {40, 45, 15};
-    int mood, m, i, mode = 0, prog = 1, cnt[3] = {0, 0, 0};
-    uint32_t tot = 0, x, w[6];
-    rng_t g;
-    roll_song(NULL, seed, r);
-    mood = r->v[RF_MOOD];
-    for (m = 0; m < 6; m++) {                            /* a mode with a progression for the mood, by its weight */
-        int has = 0;
-        for (i = 0; i < 44; i++) has |= (LIB_PROGS[i].moods >> mood & 1) && (MODES[i] >> m & 1);
-        w[m] = has ? W[mood][m] : 0;
-        tot += w[m];
-    }
-    rng_seed(&g, seed, RF_MODE);
-    x = rng_next(&g) % tot;
-    for (m = 0; m < 6 && x >= w[m]; m++) x -= w[m];
-    mode = m;
-    for (i = 0; i < 44; i++)                             /* a progression for both, kinds 40/45/15 */
-        if ((LIB_PROGS[i].moods >> mood & 1) && (MODES[i] >> mode & 1)) cnt[LIB_PROGS[i].kind]++;
-    for (tot = 0, i = 0; i < 44; i++)
-        if ((LIB_PROGS[i].moods >> mood & 1) && (MODES[i] >> mode & 1))
-            tot += KIND_W[LIB_PROGS[i].kind] * 840u / (uint32_t)cnt[LIB_PROGS[i].kind];
-    rng_seed(&g, seed, RF_PROG);
-    x = rng_next(&g) % tot;
-    for (i = 0; i < 44; i++)
-        if ((LIB_PROGS[i].moods >> mood & 1) && (MODES[i] >> mode & 1)) {
-            uint32_t wi = KIND_W[LIB_PROGS[i].kind] * 840u / (uint32_t)cnt[LIB_PROGS[i].kind];
-            if (x < wi) { prog = LIB_PROGS[i].id; break; }
-            x -= wi;
-        }
-    if (mode == 4 && (prog == 5 || prog == 31)) prog = prog == 5 ? 45 : 46;   /* (the splits: Mixolydian's) */
-    if (mode == 5 && (prog == 33 || prog == 41)) prog = prog == 33 ? 47 : 48;   /* (Aeolian's) */
-    r->v[RF_MODE] = TON[mode];
-    r->v[RF_PROG] = (int16_t)prog;
-}
-
 static void test_theory(void)
 {
     int pcs[6], n, i, k, d, col, mode, key, out[4], prev[4], bad = 0, third, seventh, move = 0;
@@ -144,16 +98,16 @@ static void test_theory(void)
     th_chord_spec_t c;
 
     c.degree = 1; c.alter = 0; c.quality = Q_DIATONIC;
-    n = th_chord_pcs(0, MODE_MAJOR, c, COLOR_9, pcs);
+    n = th_chord_pcs(0, MODE_IONIAN, c, COLOR_9, pcs);
     CHECK(n == 5 && pcs[0] == 2 && pcs[1] == 5 && pcs[2] == 9 && pcs[3] == 0 && pcs[4] == 4, "ii9 pcs");
-    CHECK(!strcmp(th_chord_name(pcs, n, 0, MODE_MAJOR, nm), "Dm9"), "name %s, want Dm9", nm);
+    CHECK(!strcmp(th_chord_name(pcs, n, 0, MODE_IONIAN, nm), "Dm9"), "name %s, want Dm9", nm);
     {
         int dm9[6], g13[6], n2;
         memcpy(dm9, pcs, sizeof dm9);
         th_voice(dm9, n, NULL, prev);
         c.degree = 4;
-        n2 = th_chord_pcs(0, MODE_MAJOR, c, COLOR_RICH, g13);
-        CHECK(!strcmp(th_chord_name(g13, n2, 0, MODE_MAJOR, nm), "G13"), "name %s, want G13", nm);
+        n2 = th_chord_pcs(0, MODE_IONIAN, c, COLOR_RICH, g13);
+        CHECK(!strcmp(th_chord_name(g13, n2, 0, MODE_IONIAN, nm), "G13"), "name %s, want G13", nm);
         th_voice(g13, n2, prev, out);
         for (i = 0; i < 4; i++)
             if (out[i] - prev[i] > move || prev[i] - out[i] > move)
@@ -161,23 +115,23 @@ static void test_theory(void)
         CHECK(move <= 4, "Dm9 to G13 moved a voice %d semitones", move);
     }
     c.degree = 0;
-    n = th_chord_pcs(0, MODE_MAJOR, c, COLOR_9, pcs);
-    CHECK(!strcmp(th_chord_name(pcs, n, 0, MODE_MAJOR, nm), "Cmaj9"), "name %s, want Cmaj9", nm);
+    n = th_chord_pcs(0, MODE_IONIAN, c, COLOR_9, pcs);
+    CHECK(!strcmp(th_chord_name(pcs, n, 0, MODE_IONIAN, nm), "Cmaj9"), "name %s, want Cmaj9", nm);
     c.degree = 3; c.alter = 0; c.quality = Q_MIN7;
-    n = th_chord_pcs(0, MODE_MAJOR, c, COLOR_7, pcs);
-    CHECK(!strcmp(th_chord_name(pcs, n, 0, MODE_MAJOR, nm), "Fm7"), "name %s, want Fm7", nm);
+    n = th_chord_pcs(0, MODE_IONIAN, c, COLOR_7, pcs);
+    CHECK(!strcmp(th_chord_name(pcs, n, 0, MODE_IONIAN, nm), "Fm7"), "name %s, want Fm7", nm);
     c.degree = 4; c.quality = Q_DIATONIC;
-    n = th_chord_pcs(0, MODE_MAJOR, c, COLOR_7, pcs);
-    CHECK(!strcmp(th_chord_name(pcs, n, 0, MODE_MAJOR, nm), "G7"), "name %s, want G7", nm);
+    n = th_chord_pcs(0, MODE_IONIAN, c, COLOR_7, pcs);
+    CHECK(!strcmp(th_chord_name(pcs, n, 0, MODE_IONIAN, nm), "G7"), "name %s, want G7", nm);
     th_guide_tones(pcs, n, &third, &seventh);
     CHECK(third == 11 && seventh == 5, "G7 guide tones %d %d, want 11 5", third, seventh);
 
-    for (mode = 0; mode < MODE_N * (Q_MAJ7S11 + 1); mode++)   /* (each quality too: the modes' colors, forced) */
+    for (mode = 0; mode < MODE_N; mode++)
         for (key = 0; key < 12; key++)
             for (d = 0; d < 7; d++)
                 for (col = COLOR_7; col <= COLOR_RICH; col++) {
-                    c.degree = (int8_t)d; c.alter = 0; c.quality = (uint8_t)(mode / MODE_N);
-                    n = th_chord_pcs(key, mode % MODE_N, c, col, pcs);
+                    c.degree = (int8_t)d; c.alter = 0; c.quality = Q_DIATONIC;
+                    n = th_chord_pcs(key, mode, c, col, pcs);
                     th_voice(pcs, n, NULL, out);
                     for (i = 0; i < 4; i++) {
                         if (out[i] > 72 || out[i] < 48)  /* the keys' register: C3-C5, E3-A4 preferred */
@@ -194,64 +148,52 @@ static void test_theory(void)
                     if (n < 4 || n > 5)
                         bad++;
                     for (i = 0; i < n; i++)
-                        if (!th_in_scale(key, mode % MODE_N, NULL, 0, pcs[i]) && col != COLOR_RICH &&
-                            c.quality == Q_DIATONIC)
+                        if (!th_in_scale(key, mode, pcs[i]) && col != COLOR_RICH)
                             bad++;
                 }
     CHECK(bad == 0, "voicing/chord invariants broken %d times", bad);
 
     pcs[0] = 0; pcs[1] = 4; pcs[2] = 7; pcs[3] = 11;
-    CHECK(th_is_avoid(0, MODE_MAJOR, pcs, 4, 65) == 1, "F4 over Cmaj7 is an avoid note");
-    CHECK(th_is_avoid(0, MODE_MAJOR, pcs, 4, 64) == 0, "E4 over Cmaj7 is not an avoid note");
-    CHECK(th_in_scale(0, MODE_MAJOR, NULL, 0, 64) == 1 && th_in_scale(0, MODE_MAJOR, NULL, 0, 63) == 0, "th_in_scale");
-    CHECK(th_scale_pool(0, MODE_MAJOR, NULL, 0) == 0xAB5u, "major pool 0x%x", th_scale_pool(0, MODE_MAJOR, NULL, 0));
-    CHECK(th_scale_pool(0, MODE_MINOR, NULL, 0) == 0x5ADu, "minor pool 0x%x", th_scale_pool(0, MODE_MINOR, NULL, 0));
-    {   /* the scale over a chord: its tones off the scale replace the degrees they spell (the modes' colors) */
-        static const struct { int mode, n, pcs[5]; unsigned want; const char *what; } sc[] = {
-            {MODE_MINOR, 4, {5, 9, 0, 3}, 0x6AD, "F7 in C minor: A for Ab (Dorian)"},
-            {MODE_MINOR, 4, {0, 3, 7, 10}, 0x5AD, "Cm7 in C minor: plain"},
-            {MODE_MINOR, 4, {7, 11, 2, 5}, 0x9AD, "G7 in C minor: B for Bb"},
-            {MODE_MINOR, 4, {1, 5, 8, 0}, 0x5AB, "Dbmaj7 in C minor: Db for D"},
-            {MODE_MAJOR, 4, {2, 6, 9, 0}, 0xAD5, "D7 in C major: F# for F (Lydian)"},
-            {MODE_MAJOR, 4, {10, 2, 5, 9}, 0x6B5, "Bbmaj7 in C major: Bb for B (Mixolydian)"},
-            {MODE_MAJOR, 5, {0, 4, 11, 2, 6}, 0xAD5, "Cmaj7#11 in C major: F# for F (Lydian)"},
-            {MODE_MAJOR, 4, {5, 8, 0, 3}, 0x9AD, "Fm7 in C major: Ab for A, Eb for E"},
-        };
-        int k2;
-        for (k2 = 0; k2 < (int)(sizeof sc / sizeof sc[0]); k2++) {
-            unsigned got = th_scale_pool(0, sc[k2].mode, sc[k2].pcs, sc[k2].n);
-            CHECK(got == sc[k2].want, "%s: pool 0x%x, want 0x%x", sc[k2].what, got, sc[k2].want);
-            CHECK(th_scale_pool(5, sc[k2].mode, sc[k2].pcs, sc[k2].n) ==
-                  th_scale_pool(0, sc[k2].mode, (const int[5]){(sc[k2].pcs[0] + 7) % 12, (sc[k2].pcs[1] + 7) % 12,
-                                (sc[k2].pcs[2] + 7) % 12, (sc[k2].pcs[3] + 7) % 12, (sc[k2].pcs[4] + 7) % 12},
-                                sc[k2].n), "%s: the same over another key", sc[k2].what);
-        }
-    }
+    CHECK(th_is_avoid(0, MODE_IONIAN, pcs, 4, 65) == 1, "F4 over Cmaj7 is an avoid note");
+    CHECK(th_is_avoid(0, MODE_IONIAN, pcs, 4, 64) == 0, "E4 over Cmaj7 is not an avoid note");
+    CHECK(th_in_scale(0, MODE_IONIAN, 64) == 1 && th_in_scale(0, MODE_IONIAN, 63) == 0, "th_in_scale");
+    CHECK(th_mode_pool(MODE_IONIAN) == 0xAB5u, "ionian pool 0x%x", th_mode_pool(MODE_IONIAN));
 }
 
 /* The chord name follows the key's spelling (Sam, 2026-11-05: Ab major showed F#maj9): sharps in a sharp key, flats in
-   a flat one, by the relative major; C major and A minor the mixed table. Every key's tonic chord is spelled as the
-   key's name (app.c's KEY_NAME). */
+   a flat one, by the mode's parent major (Db Lydian is Ab major's notes: flats); C major's modes the mixed table.
+   Every key's tonic chord in every mode is spelled as the key's name (app.c's KEY_NAME). */
 static void test_chord_spelling(void)
 {
-    static const char *const KEY[MODE_N][12] = {{"C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"},
-                                                 {"C", "C#", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B"}};
+    static const char *const KEY[MODE_N][12] = {
+        {"C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"},
+        {"C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"},
+        {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "Bb", "B"},
+        {"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"},
+        {"C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"},
+        {"C", "C#", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B"}};
+    static const char *const MN[MODE_N] = {"major", "Dorian", "Phrygian", "Lydian", "Mixolydian", "minor"};
+    static const int M3[MODE_N] = {4, 3, 3, 4, 4, 3};
     char nm[16];
     int key, mode;
-    CHECK(!strcmp(th_chord_name((const int[4]){6, 10, 1, 5}, 4, 8, MODE_MAJOR, nm), "Gbmaj7"),
+    CHECK(!strcmp(th_chord_name((const int[4]){6, 10, 1, 5}, 4, 8, MODE_IONIAN, nm), "Gbmaj7"),
           "Ab major, a Gb root: %s, want Gbmaj7", nm);
-    CHECK(!strcmp(th_chord_name((const int[4]){1, 5, 8, 0}, 4, 9, MODE_MAJOR, nm), "C#maj7"),
+    CHECK(!strcmp(th_chord_name((const int[4]){1, 5, 8, 0}, 4, 9, MODE_IONIAN, nm), "C#maj7"),
           "A major, a C# root: %s, want C#maj7", nm);
-    CHECK(!strcmp(th_chord_name((const int[4]){6, 10, 1, 5}, 4, 0, MODE_MAJOR, nm), "F#maj7"),
+    CHECK(!strcmp(th_chord_name((const int[4]){6, 10, 1, 5}, 4, 0, MODE_IONIAN, nm), "F#maj7"),
           "C major, an F# root: %s, want F#maj7", nm);
-    CHECK(!strcmp(th_chord_name((const int[4]){10, 2, 5, 8}, 4, 4, MODE_MINOR, nm), "A#7"),
+    CHECK(!strcmp(th_chord_name((const int[4]){10, 2, 5, 8}, 4, 4, MODE_AEOLIAN, nm), "A#7"),
           "C# minor's key (E), an A# root: %s, want A#7", nm);
+    CHECK(!strcmp(th_chord_name((const int[4]){3, 7, 10, 2}, 4, 1, MODE_LYDIAN, nm), "Ebmaj7"),
+          "Db Lydian (Ab major's notes), an Eb root: %s, want Ebmaj7", nm);
+    CHECK(!strcmp(th_chord_name((const int[4]){6, 10, 1, 4}, 4, 1, MODE_DORIAN, nm), "F#7"),
+          "C# Dorian (B major's notes), an F# root: %s, want F#7", nm);
     for (mode = 0; mode < MODE_N; mode++)
         for (key = 0; key < 12; key++) {
-            int m3 = mode == MODE_MINOR ? 3 : 4, len = (int)strlen(KEY[mode][key]);
-            th_chord_name((const int[3]){key, (key + m3) % 12, (key + 7) % 12}, 3, key, mode, nm);
+            int len = (int)strlen(KEY[mode][key]);
+            th_chord_name((const int[3]){key, (key + M3[mode]) % 12, (key + 7) % 12}, 3, key, mode, nm);
             CHECK(!strncmp(nm, KEY[mode][key], (size_t)len) && (nm[len] == 0 || nm[len] == 'm'),
-                  "%s %s: its tonic chord spelled %s", KEY[mode][key], mode ? "minor" : "major", nm);
+                  "%s %s: its tonic chord spelled %s", KEY[mode][key], MN[mode], nm);
         }
 }
 
@@ -269,8 +211,7 @@ static void test_library(void)
     }
     for (i = 0; i < LIB_NPROGS; i++) {
         int cyc = LIB_PROGS[i].n * LIB_PROGS[i].bars_per_chord;
-        CHECK(LIB_PROGS[i].modes == 1 << MODE_MAJOR || LIB_PROGS[i].modes == 1 << MODE_MINOR, "prog %d: major or minor",
-              LIB_PROGS[i].id);
+        CHECK(LIB_PROGS[i].modes != 0 && !(LIB_PROGS[i].modes & (1 << MODE_PHRYGIAN)), "prog %d modes", LIB_PROGS[i].id);
         CHECK(cyc == 2 || cyc == 4 || cyc == 8, "prog %d cycle %d bars", LIB_PROGS[i].id, cyc);
     }
     {
@@ -284,37 +225,32 @@ static void test_library(void)
                 CHECK(cnt >= 3, "mood %d mode %d has %d progressions", i, m, cnt);
             }
     }
-    {   /* R25: a non-jazzy progression's chords, at every color, keep to one mode of its key (major: Ionian,
-           Mixolydian, Lydian, the major scales on C, F and G over C; minor: Aeolian, Dorian, on Eb and Bb); jazzy
-           ones may borrow */
-        static const int8_t MODES_OF[MODE_N][4] = {{0, 5, 7, -1}, {3, 10, -1, -1}};
+    {   /* R25: a non-jazzy progression's chords, at every color, lie in each mode it claims (jazzy ones may borrow) */
         int m, c, k;
         for (j = 0; j < LIB_NPROGS; j++) {
             const lib_prog_t *p = &LIB_PROGS[j];
-            unsigned all = 0, fits = 0;
             if (p->kind == PK_JAZZY) continue;
-            m = p->modes >> MODE_MINOR & 1;
-            for (i = 0; i < p->n; i++)
-                for (c = COLOR_7; c <= COLOR_RICH; c++) {
-                    int pcs[8], n = th_chord_pcs(0, m, p->c[i], c, pcs);
-                    for (k = 0; k < n; k++) all |= 1u << pcs[k];
-                }
-            for (k = 0; k < 4 && MODES_OF[m][k] >= 0; k++) {
-                unsigned sc = th_scale_pool(0, MODE_MAJOR, NULL, 0), sh = (unsigned)MODES_OF[m][k];
-                fits |= (all & ~((sc << sh | sc >> (12 - sh)) & 0xFFFu)) == 0;
+            for (m = 0; m < MODE_N; m++) {
+                if (!(p->modes & (1 << m))) continue;
+                for (i = 0; i < p->n; i++)
+                    for (c = COLOR_7; c <= COLOR_RICH; c++) {
+                        int pcs[8], n = th_chord_pcs(0, m, p->c[i], c, pcs);
+                        for (k = 0; k < n; k++)
+                            if (!th_in_scale(0, m, pcs[k])) {
+                                CHECK(0, "R25: prog %d mode %d chord %d color %d: pc %d out of scale", p->id, m, i, c,
+                                      pcs[k]);
+                                break;
+                            }
+                    }
             }
-            CHECK(fits, "R25: prog %d's chords (0x%03x) keep to no mode of its key", p->id, all);
         }
     }
     {   /* spot-check the claimed chords by name */
         static const struct { int id, mode; const char *want; } sp[] = {
-            {9, MODE_MAJOR, "Fmaj7 G7 Em7 Am7"}, {15, MODE_MAJOR, "Dm7 G7 Cmaj7 A7"},
-            {6, MODE_MINOR, "Cm7 Bb7"}, {18, MODE_MINOR, "Cm7 Bb7 Abmaj7 G7"}, {13, MODE_MAJOR, "Fmaj7 E7 Am7 C7"},
-            {22, MODE_MINOR, "Cm7 Fm7 Abmaj7 G7"}, {24, MODE_MINOR, "Cm7 Dbmaj7"},
-            {25, MODE_MINOR, "Cm7 F7 Bbmaj7 Ebmaj7"}, {26, MODE_MINOR, "Cm7 Dm7 Ebmaj7 F7"},
-            {27, MODE_MAJOR, "Cmaj7 D7"}, {29, MODE_MAJOR, "C7 Bbmaj7"}, {31, MODE_MINOR, "Gm7 Cm7"},
-            {46, MODE_MAJOR, "Gm7 C7"}, {41, MODE_MINOR, "Cm7 Gm7 Ebmaj7 Bbmaj7"},
-            {48, MODE_MINOR, "Cm7 Gm7 Ebmaj7 Bb7"},
+            {9, MODE_IONIAN, "Fmaj7 G7 Em7 Am7"}, {15, MODE_IONIAN, "Dm7 G7 Cmaj7 A7"},
+            {6, MODE_DORIAN, "Cm7 Bb7"}, {18, MODE_AEOLIAN, "Cm7 Bb7 Abmaj7 G7"}, {13, MODE_IONIAN, "Fmaj7 E7 Am7 C7"},
+            {22, MODE_AEOLIAN, "Cm7 Fm7 Abmaj7 G7"}, {24, MODE_DORIAN, "Cm7 Dbmaj7"},
+            {25, MODE_DORIAN, "Cm7 F7 Bbmaj7 Ebmaj7"}, {26, MODE_DORIAN, "Cm7 Dm7 Ebmaj7 F7"},
         };
         int k;
         for (k = 0; k < (int)(sizeof sp / sizeof sp[0]); k++) {
@@ -372,17 +308,11 @@ static void test_library(void)
     for (i = 0; i < 4; i++) {
         int sum = 0;
         for (j = 0; j < MODE_N; j++) sum += LIB_MOODS[i].mode_w[j];
-        CHECK(sum > 0, "mood %d weights", i);
-    }
-    {   /* the six modes' weights summed (2026-11-05): major Ionian + Lydian + Mixolydian, minor Dorian + Aeolian */
-        static const uint8_t W[4][MODE_N] = {{2, 10}, {3, 10}, {11, 3}, {13, 1}};
-        for (i = 0; i < 4; i++)
-            CHECK(!memcmp(LIB_MOODS[i].mode_w, W[i], sizeof W[i]), "mood %d: major %d, minor %d", i,
-                  LIB_MOODS[i].mode_w[0], LIB_MOODS[i].mode_w[1]);
+        CHECK(sum > 0 && LIB_MOODS[i].mode_w[MODE_PHRYGIAN] == 0, "mood %d weights", i);
     }
 }
 
-static int major_family(int mode) { return mode == MODE_MAJOR; }
+static int major_family(int mode) { return mode == MODE_IONIAN || mode == MODE_LYDIAN || mode == MODE_MIXOLYDIAN; }
 
 static int prog_legal(const song_roll_t *r, int id)
 {
@@ -562,7 +492,7 @@ static void test_roll(void)
         two[1] = *lib_prog_by_id(8);
         roll_song(NULL, 3, &cur);
         roll_set(&cur, RF_MOOD, 3);      /* sunny */
-        roll_set(&cur, RF_MODE, MODE_MAJOR);
+        roll_set(&cur, RF_MODE, MODE_IONIAN);
         roll_use_progs(one, 1);
         cur.v[RF_PROG] = 1;
         CHECK(roll_dice(&cur, RF_PROG, 5) == 0 && cur.v[RF_PROG] == 1, "one progression: dice returns 0");
@@ -570,14 +500,12 @@ static void test_roll(void)
         CHECK(roll_dice(&cur, RF_PROG, 5) == 1 && cur.v[RF_PROG] == 8, "two progressions: dice gives the other");
         CHECK(roll_dice(&cur, RF_PROG, 6) == 1 && cur.v[RF_PROG] == 1, "and back");
         roll_use_progs(NULL, 0);
-        /* the real library: wistful and minor (the mode picked after major) re-picks a legal progression, and its dice
-           another */
+        /* the real library: wistful + Lydian allows exactly progressions 27 and 36 (R25) */
         roll_set(&cur, RF_MOOD, 1);
-        CHECK(roll_set(&cur, RF_MODE, MODE_MINOR) == MODE_MINOR, "wistful minor pickable");
+        CHECK(roll_set(&cur, RF_MODE, MODE_LYDIAN) == MODE_LYDIAN, "wistful Lydian pickable");
         CHECK(prog_legal(&cur, cur.v[RF_PROG]), "prog re-picked on mode change");
         k = cur.v[RF_PROG];
-        CHECK(roll_dice(&cur, RF_PROG, 9) == 1 && cur.v[RF_PROG] != k && prog_legal(&cur, cur.v[RF_PROG]),
-              "wistful minor dice");
+        CHECK(roll_dice(&cur, RF_PROG, 9) == 1 && cur.v[RF_PROG] == (k == 27 ? 36 : 27), "wistful Lydian dice");
     }
     for (f = 0; f < RF_N; f++) {
         int same = 0, illegal = 0, unrelated = 0;
@@ -618,7 +546,7 @@ static void test_roll(void)
         }
         CHECK(bad == 0, "R4: %d bad mood/mode picks", bad);
         roll_song(NULL, 5, &cur);
-        CHECK(roll_set(&cur, RF_MODE, 5) == MODE_MINOR, "a value past minor (an old mode's) is minor");
+        CHECK(roll_set(&cur, RF_MODE, MODE_PHRYGIAN) != MODE_PHRYGIAN, "Phrygian has no progression");
     }
 }
 
@@ -3289,7 +3217,7 @@ static void test_dominant_extensions(void)
     {
         song_roll_t r;                                   /* song 1 of songs.wav: the D#7 (Eb7) of bars 3, 7, 11 */
         int pcs[5], n, k, ext = 0;
-        old_roll(3248581516u, &r);
+        roll_song(0, 3248581516u, &r);
         n = harmony_chord_at(&r, 2, 1, 0, pcs);
         for (k = 1; k < n; k++)
             ext |= is_ext((pcs[k] - pcs[0] + 12) % 12);
@@ -3348,7 +3276,7 @@ static int lr_chord_scale(int key, int mode, const int *pcs, int n, int note)
         if (d == 0) return 1;
         if (d == 1 || d == 11) near = 1;
     }
-    return !near && th_in_scale(key, mode, pcs, n, pc);
+    return !near && th_in_scale(key, mode, pc);
 }
 
 static void lr_scan(void)
@@ -3687,11 +3615,8 @@ static void test_pushes(void)
     }
     printf("pushes: %ld, %ld end before the bar line; %ld request bars, %ld rung into\n", pushes, short_push,
            req_bars, into_req);
-    CHECK(pushes > 145 && short_push == 0, "%ld of %ld pushes end before the bar line", short_push,
-          pushes);   /* (377 pushes before the style roll, 190 with it: lead styles Task 7; re-baselined again (Sam
-                        2026-11-05: modes become major or minor, the songs roll other progressions): were 170 and 186,
-                        167 now; re-baselined again (Sam 2026-11-05: drums pattern 9 approved, the songs roll other
-                        patterns): was 160, 154 now) */
+    CHECK(pushes > 170 && short_push == 0, "%ld of %ld pushes end before the bar line", short_push,
+          pushes);   /* (377 pushes before the style roll, 190 with it: lead styles Task 7) */
     printf("pushes: the sustained lead tied %ld notes over a bar line, %ld over a 4-bar line (where requests land); "
            "%ld request bars in sustained-lead songs\n", sties, sties_line, sreq);
     CHECK(sties > 100 && sreq > 20, "sustained ties: %ld; %ld request bars", sties, sreq);
@@ -3888,11 +3813,9 @@ static void test_bass_and_roots(void)
     }
     printf("bass: %ld/%ld step-wise root moves placed a step apart; %ld/%ld walking approaches lead by a step; "
            "keys without bass voice the root %ld/%ld\n", close, steps, led, walks, rooted, nobass);
-    /* (re-baselined, Sam 2026-11-05: modes become major or minor: the roll's major and minor weights draw more of
-       the progressions whose step-wise roots cross the bass window's edge (42, 22: 88 of 154, 22 of 57): 2505 of
-       2703 now; were 95% and 2590 of 2705) */
-    CHECK(steps > 100 && close * 100 >= steps * 92, "step-wise roots placed a step apart only %ld of %ld", close,
-          steps);
+    /* (re-baselined, Sam 2026-11-06: the six modes back, over the songs as they roll since (motion first, pattern 9):
+       2539 of 2687, 94.5%; was 95% before the major/minor move, 92% during it) */
+    CHECK(steps > 100 && close * 100 >= steps * 94, "step-wise roots placed a step apart only %ld of %ld", close, steps);
     CHECK(walks > 20 && led * 100 >= walks * 95, "walking approaches led into the next root only %ld of %ld", led, walks);
     (void)rooted;                                    /* (Sam: keys-only sections stay rootless, like the rest; */
     CHECK(nobass > 100, "only %ld keys-only bars", nobass);   /* test_loop_voicings holds them to the same shapes) */
@@ -4026,16 +3949,14 @@ static void test_voice_leading(void)
     printf("voicing: %.2f voices moved per change, common tones held %.0f%%, top kept %.0f%% of %ld, top leaps %.0f%%\n",
            (double)moved / (double)changes, 100.0 * (double)held / (double)common, 100.0 * (double)kept / (double)could,
            could, 100.0 * (double)leaps / (double)changes);
-    /* (94%: re-baselined, Sam 2026-11-05: progression 19, now the same as 18, retired, so the seeds roll other
-       progressions: 94.96%, was held to 95%) */
-    CHECK(held * 100 >= common * 94, "common tones held only %ld of %ld", held, common);
+    CHECK(held * 100 >= common * 95, "common tones held only %ld of %ld", held, common);
     CHECK(kept * 100 >= could * 95, "top voice kept only %ld of %ld times a clean voicing could keep it", kept, could);
     CHECK(leaps * 100 <= changes * 5, "top voice leaped %ld of %ld changes", leaps, changes);
     {
         /* song 1, bars 1-3: Dbmaj7 -> Bbm7 -> Eb9 (Db Lydian, heard as IV -> ii -> V in Ab): every common tone held,
            the top moves at most a step, the 9th (F) sounds and the root (Eb) is left to the bass */
         int pcs[5], a[4], bb[4], c[4], n, held2 = 0, common2 = 0, has9 = 0;
-        old_roll(3248581516u, &r);
+        roll_song(0, 3248581516u, &r);
         n = harmony_chord_at(&r, 0, 1, 0, pcs);
         th_voice(pcs, n, NULL, a);
         n = harmony_chord_at(&r, 1, 1, 0, pcs);
@@ -4942,7 +4863,7 @@ static uint32_t sg_run(uint32_t seed, int moves, int bars_to)
     uint32_t h = 2166136261u;
     float frac = 0.0f;
     bq_t q;
-    old_roll(seed, &roll);
+    roll_song(NULL, seed, &roll);
     if (sg_set)
         roll_set(&roll, RF_SET, sg_set);
     roll.v[RF_NOISE] = 0;
@@ -5315,7 +5236,7 @@ static void test_moves(void)
             song_roll_t roll;
             song_plan_t q;
             int i;
-            old_roll(seed, &roll);
+            roll_song(NULL, seed, &roll);
             if (roll_set(&roll, RF_SET, sg_set) != sg_set || harmony_style(&roll) != CS_HELD) /* (a re-struck chord's
                                                                          attacks mask the filter's ramp per beat) */
                 continue;
@@ -6506,7 +6427,7 @@ static void lv_song(uint32_t seed, int set, int bed)
     song_ev_t ev[64];
     float frac = 0.0f;
     memset(&lv, 0, sizeof lv);
-    old_roll(seed, &lv.roll);                           /* (the songs the levels were set on) */
+    roll_song(NULL, seed, &lv.roll);
     if (set >= 0)
         (void)roll_set(&lv.roll, RF_SET, set);
     if (!bed)
@@ -7023,11 +6944,10 @@ static void test_pad_level(void)
         printf("pad level: %-21s chord part under the keys: mean %.1f median %.1f (%.1f..%.1f) dB\n", t->name,
                (double)mean, (double)smed, (double)lo, (double)hi);
         /* (City pop Rhodes, set 6: 11.1 and 11.0 since the style roll moved its songs' keys windows, lead styles Task
-           7: held to 11.5; Vibes and Knight, set 35: median 6.9 since the modes became major or minor and the comp
-           rhythms became data (Sam 2026-11-05: its six songs roll other progressions and rhythms): held to 6.8) */
+           7: held to 11.5) */
         CHECK(mean >= 7.0f && mean <= (t->id == 6 ? 11.5f : 11.0f), "pad level: %s's mean %.1f dB under, wanted 7-11",
               t->name, (double)mean);
-        CHECK(smed >= (t->id == 35 ? 6.8f : 7.0f) && smed <= (t->id == 6 ? 11.5f : 11.0f), "pad level: %s's median %.1f dB under, wanted 7-11",
+        CHECK(smed >= 7.0f && smed <= (t->id == 6 ? 11.5f : 11.0f), "pad level: %s's median %.1f dB under, wanted 7-11",
               t->name, (double)smed);
     }
     song_override(NULL);
@@ -7797,13 +7717,14 @@ static void test_pad_chord(void)
 
 static const int PD_DEG[4] = {0, 1, 2, 6};             /* the solo's scale degrees: 1, 2, 3, 7 */
 
-static int pd_degree(int key, int mode, const int *pcs, int np, int note)   /* index into PD_DEG (of the scale over
-                                                                          pcs), -1 if another degree */
+static int pd_degree(int key, int mode, int note)       /* index into PD_DEG, -1 if another degree */
 {
-    int off[7], i, pc = ((note - key) % 12 + 12) % 12;
-    th_scale(key, mode, pcs, np, off);
+    uint16_t pool = th_mode_pool(mode);
+    int off[7], i, n = 0, pc = ((note - key) % 12 + 12) % 12;
+    for (i = 0; i < 12 && n < 7; i++)
+        if ((pool >> i) & 1) off[n++] = i;
     for (i = 0; i < 4; i++)
-        if (off[PD_DEG[i]] == pc) return i;
+        if (PD_DEG[i] < n && off[PD_DEG[i]] == pc) return i;
     return -1;
 }
 
@@ -7815,8 +7736,7 @@ static int pd_solo_lo(int voice) { return voice == INS_STRINGS ? 84 : 72; }
 static int pd_solo_legal(const pd_rec_t *rec, int bar, int note)
 {
     int chord[4], n, k, to = bar + 1 < rec->bars ? rec->first[bar + 1] : rec->ne, lo = pd_solo_lo(rec->voice[bar]);
-    if (pd_degree(rec->key[bar], rec->mode[bar], rec->pcs[bar], rec->np[bar], note) < 0 || note < lo || note > lo + 12)
-        return 0;
+    if (pd_degree(rec->key[bar], rec->mode[bar], note) < 0 || note < lo || note > lo + 12) return 0;
     n = pd_sounding(rec, bar, rec->at[bar * 16], 1, 3, chord);
     if (n && note < chord[n - 1] + 3) return 0;
     if (th_is_avoid(rec->key[bar], rec->mode[bar], rec->pcs[bar], rec->np[bar], note)) return 0;
@@ -7863,7 +7783,7 @@ static void test_pad_solo_all(void)
             if (e->start != pd_a.at[e->bar * 16]) off_step++;
             for (b2 = e->bar + 1; b2 <= pd_a.bars && pd_a.at[b2 * 16] < e->end; b2++) {}
             if (b2 > pd_a.bars || pd_a.at[b2 * 16] != e->end) short_++;   /* ends on a bar line */
-            d = pd_degree(pd_a.key[e->bar], pd_a.mode[e->bar], pd_a.pcs[e->bar], pd_a.np[e->bar], e->note);
+            d = pd_degree(pd_a.key[e->bar], pd_a.mode[e->bar], e->note);
             deg_bad += d < 0;
             tonic += d == 0;
             range += e->note < pd_solo_lo(pd_a.voice[e->bar]) || e->note > pd_solo_lo(pd_a.voice[e->bar]) + 12;
@@ -7876,7 +7796,7 @@ static void test_pad_solo_all(void)
             n = pd_sounding(&pd_a, bar, pd_a.at[bar * 16], 4, 4, so);
             if (!n) continue;
             bars++;
-            btonic += pd_degree(pd_a.key[bar], pd_a.mode[bar], pd_a.pcs[bar], pd_a.np[bar], so[0]) == 0;
+            btonic += pd_degree(pd_a.key[bar], pd_a.mode[bar], so[0]) == 0;
             nc = pd_sounding(&pd_a, bar, pd_a.at[bar * 16], 1, 3, ch);
             if (nc && so[0] < ch[nc - 1] + 3) low++;
             if (bar == 0 || bar % bpc || pd_a.key[bar] != pd_a.key[bar - 1]) continue;
@@ -7928,7 +7848,7 @@ static void test_pad_solo_all(void)
             const pd_ev_t *e = &pd_b.ev[i];
             if (e->voice != V_PAD || e->lane != 4 || e->end <= pd_b.at[16 * 16]) continue;
             after += e->lane == 4;
-            if (e->lane == 4) bad += pd_degree(nk, pd_b.mode[16], pd_b.pcs[e->bar], pd_b.np[e->bar], e->note) < 0;
+            if (e->lane == 4) bad += pd_degree(nk, pd_b.mode[16], e->note) < 0;
         }
         CHECK(after > 0 && bad == 0, "pad key request, seed %u: %d of %d solo notes after it outside the new key", seed,
               bad, after);
@@ -8249,7 +8169,7 @@ static void test_pad_double_all(void)
     for (k = 0; k < 3; k++) {
         song_roll_t r;
         int bad, notes, bad0, notes0, strikes;
-        old_roll(SEED[k], &r);
+        roll_song(NULL, SEED[k], &r);
         CHECK(roll_set(&r, RF_SET, SET[k]) == SET[k] && harmony_style(&r) == CS_HELD,
               "pad double: seed %u on set %d is not a held-comping song", (unsigned)SEED[k], SET[k]);
         pdbl_play(&r, &bad0, &notes0);
@@ -8539,9 +8459,10 @@ static void test_strum_same(void)
        Re-pinned again (Sam 2026-11-05: motion first; drums, bass and strum lean with it): were 0c88aa01
        and 1c44f163. Re-pinned again (Sam 2026-11-05: calm songs thin the hats): were f02eafd0 and fb36b1d6.
        Re-pinned again (Sam 2026-11-05: the lead never ends a phrase on a dominant's 7th): were a1a2ed59 and
-       70f7bb49 */
-    CHECK(a == 0x88efe746u, "strum same: the strummed songs hash %08x, wanted 88efe746", (unsigned)a);
-    CHECK(b == 0x04161afdu, "strum same: with set changes %08x, wanted 04161afd", (unsigned)b);
+       70f7bb49. Re-pinned again (Sam 2026-11-06: modes restored, the move to major or minor undone): were 88efe746
+       and 04161afd */
+    CHECK(a == 0x5d70ccd5u, "strum same: the strummed songs hash %08x, wanted 5d70ccd5", (unsigned)a);
+    CHECK(b == 0xb029afb6u, "strum same: with set changes %08x, wanted b029afb6", (unsigned)b);
     v = (uint32_t)sf_last_bad();
     CHECK(v == 0, "strum same: %u strummed bars left the keys' last voicing behind", (unsigned)v);
 }
@@ -8749,8 +8670,8 @@ static void test_wb_off(void)
     uint32_t a, b;
     lib_set_wb(NULL, 0); lib_pattern_wb(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x88efe746u, "wb off: the strummed songs hash %08x, wanted 88efe746", (unsigned)a);
-    CHECK(b == 0x04161afdu, "wb off: with set changes %08x, wanted 04161afd", (unsigned)b);
+    CHECK(a == 0x5d70ccd5u, "wb off: the strummed songs hash %08x, wanted 5d70ccd5", (unsigned)a);
+    CHECK(b == 0xb029afb6u, "wb off: with set changes %08x, wanted b029afb6", (unsigned)b);
 }
 /* The workbench's mute (vx_mute, default off). mt_song: a song's first 20 s as the app plays it, its samples hashed
    (mute: vx_mute(0) called first, as the workbench's wb_init does) */
@@ -8797,8 +8718,8 @@ static void test_vx_mute_off(void)
     CHECK(a == b, "vx mute off: vx_mute(0) changed the samples (%08x, wanted %08x)", (unsigned)b, (unsigned)a);
     vx_mute(0);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x88efe746u, "vx mute off: the strummed songs hash %08x, wanted 88efe746", (unsigned)a);
-    CHECK(b == 0x04161afdu, "vx mute off: with set changes %08x, wanted 04161afd", (unsigned)b);
+    CHECK(a == 0x5d70ccd5u, "vx mute off: the strummed songs hash %08x, wanted 5d70ccd5", (unsigned)a);
+    CHECK(b == 0xb029afb6u, "vx mute off: with set changes %08x, wanted b029afb6", (unsigned)b);
 }
 /* Review Focus 2 (Task 2): a bus muted mid-note is silent after the chunk it goes out in (and a quantum for the
    chain's own filters), its voice still playing (the duck follows it); unmuted, the notes struck while muted end at
@@ -8909,7 +8830,7 @@ static void test_vx_level(void)
     b = mt_song(0);
     CHECK(a == b, "vx level: 0 dB changed the samples (%08x, wanted %08x)", (unsigned)b, (unsigned)a);
     a = sf_songs(0);
-    CHECK(a == 0x88efe746u, "vx level: the strummed songs hash %08x at 0 dB, wanted 88efe746", (unsigned)a);
+    CHECK(a == 0x5d70ccd5u, "vx level: the strummed songs hash %08x at 0 dB, wanted 5d70ccd5", (unsigned)a);
     for (i = 0; i < (int)(sizeof P / sizeof P[0]); i++) {
         for (k = 0; k < 2; k++)
             ref[k] = mx_song(P[i].seed[k], P[i].role);
@@ -10278,35 +10199,6 @@ static const lib_set_t *ls_old_draw(const song_roll_t *r)
     return ls_old_set(c[rng_next(&g) % (uint32_t)n]);
 }
 
-/* A song forced to Lydian as before the modes became major and minor (2026-11-05; roll_set's Lydian then): major, on
-   the progression that was Lydian (Imaj7(#11) II7, Imaj7(#11) Vmaj7 and the two loops) it kept or drew (fix_deps:
-   kinds 40/45/15 over the mood's, roll_set's seed). 1 where the mood has one (old_roll's songs). */
-static int ls_lydian(song_roll_t *r)
-{
-    static const int LY[4] = {27, 28, 35, 36};
-    static const uint32_t KIND_W[3] = {40, 45, 15};
-    uint32_t w[4], tot = 0, x;
-    int i, cnt[3] = {0, 0, 0};
-    rng_t g;
-    for (i = 0; i < 4; i++) {
-        const lib_prog_t *p = lib_prog_by_id((uint8_t)LY[i]);
-        if (p->moods >> r->v[RF_MOOD] & 1) cnt[p->kind]++;
-        if (r->v[RF_MODE] == MODE_MAJOR && r->v[RF_PROG] == LY[i] && (p->moods >> r->v[RF_MOOD] & 1)) return 1;
-    }
-    for (i = 0; i < 4; i++) {
-        const lib_prog_t *p = lib_prog_by_id((uint8_t)LY[i]);
-        w[i] = p->moods >> r->v[RF_MOOD] & 1 ? KIND_W[p->kind] * 840u / (uint32_t)cnt[p->kind] : 0;
-        tot += w[i];
-    }
-    if (!tot) return 0;
-    rng_seed(&g, roll_mix(roll_mix(r->seed, 0x5E7u), (uint32_t)(RF_MODE << 8 | 3)), RF_PROG);
-    x = rng_next(&g) % tot;
-    for (i = 0; i < 3 && x >= w[i]; i++) x -= w[i];
-    r->v[RF_MODE] = MODE_MAJOR;
-    r->v[RF_PROG] = (int16_t)LY[i];
-    return 1;
-}
-
 /* the drum pattern as roll.c drew it before it leaned on the motion (2026-11-05): the approved, one weight each, on
    the pattern's own stream (the jazz-hop lead plays around its snare) */
 static int ls_old_pattern(const song_roll_t *r)
@@ -10322,7 +10214,7 @@ static int ls_old_pattern(const song_roll_t *r)
 static int ls_roll(uint32_t seed, int ins, song_roll_t *r)
 {
     const lib_set_t *st;
-    old_roll(seed, r);                                  /* (the spike's songs) */
+    roll_song(NULL, seed, r);
     r->v[RF_PATTERN] = (int16_t)ls_old_pattern(r);   /* (and the pattern they drew) */
     st = ls_old_draw(r);
     if (!st || st->chords == ins) return 0;
@@ -10457,11 +10349,9 @@ typedef struct {
 } ls_spike_t;
 static const ls_spike_t LS_SPIKE[] = {
     {LS_IMPRESSIONISM, INS_FLUTE, 300, 14434, 5726, 3922, 1190, 351, 753, 3861, 622, 1263, 0, 0, 0, 0},
-    {LS_IMPRESSIONISM, INS_VIBES, 300, 14501, 5732, 3916, 1191, 354, 754, 3868, 631, 1277, 99, 99, 0, 0},
-    /* (re-baselined, Sam 2026-11-05: modes become major or minor (the scale under the motif follows the chord):
-       Impressionism vibes rhythm 0.997, contour 0.997; Romanticism flute contour 0.994) */
+    {LS_IMPRESSIONISM, INS_VIBES, 300, 14501, 5732, 3916, 1191, 354, 754, 3868, 631, 1277, 0, 0, 0, 0},
     {LS_IMPRESSIONISM, INS_FELT_PIANO, 278, 13471, 5302, 3608, 1104, 329, 707, 3582, 583, 1182, 0, 0, 0, 0},
-    {LS_ROMANTICISM, INS_FLUTE, 300, 16860, 6128, 4602, 1232, 641, 317, 4296, 1487, 790, 0, 99, 0, 75},  /* 0.82 */
+    {LS_ROMANTICISM, INS_FLUTE, 300, 16860, 6128, 4602, 1232, 641, 317, 4296, 1487, 790, 0, 0, 0, 75},   /* 0.82 */
     {LS_ROMANTICISM, INS_FELT_PIANO, 278, 15661, 5668, 4253, 1139, 611, 289, 3973, 1410, 737, 0, 0, 0, 0},
     /* (lead-styles Task 3; the port's measured ratios where under the defaults: flute heads 0.845, span 0.839;
        vibes rhythm 0.948; Knight heads 0.832, span 0.844; Modal flute rhythm 0.984, contour 0.988; felt rhythm
@@ -10537,19 +10427,16 @@ static const char *ls_ins(int ins)
    Re-baselined where the keys' voicings moved (2026-11-04: a dominant voiced without its 7th, Sam; the lead's floor
    follows the keys' top, and the loop's voicings are one cycle): Impressionism Lydian notes 1000 -> 999 (0.9995), m9
    silent 1000 -> 1020 (53 bars for the spike's 52). Again when the guitars only strum (2026-11-04: the strum's shapes
-   set the keys' top in every guitar song): Impressionism Lydian notes 999 -> 995 (0.9952). Re-baselined again (Sam
-   2026-11-05: modes become major or minor; the scale over a chord follows the chord, so a maj7 lends the lead its #11
-   only where the chord has it): Impressionism Lydian notes 995 -> 994 (0.9942), Modal Jazz m9 notes 1000 -> 997
-   (0.9974). */
+   set the keys' top in every guitar song): Impressionism Lydian notes 999 -> 995 (0.9952). */
 typedef struct { uint8_t banded; uint16_t ly_notes, ly_silent, mw_silent, mw_notes; } ls_hard_t;
 static const ls_hard_t LS_HARD[LS_N] = {
-    {0, 994, 1000, 1020, 1000},  {0, 1000, 1000, 1000, 1000},
-    {0, 1000, 1000, 1000, 1000}, {1, 1000, 1003, 1000, 997},      /* ('60s Jazz: see above; Modal Jazz Lydian
-                                                                     silent 1.0021, was held to 1.000: no phrase
+    {0, 995, 1000, 1020, 1000},  {0, 1000, 1000, 1000, 1000},
+    {0, 1000, 1000, 1000, 1000}, {1, 1000, 1003, 1000, 1000},     /* ('60s Jazz: see above; Modal Jazz Lydian
+                                                                     silent 1.0028, was held to 1.000: no phrase
                                                                      ends on a dominant's 7th, Sam 2026-11-05) */
     {1, 991, 1026, 1000, 1000},  {1, 1000, 1000, 1000, 1000},     /* (Jazz-Hop Lydian notes 0.9985; re-baselined,
                                                                      Sam 2026-11-05: drums pattern 9 approved, the
-                                                                     songs roll other patterns: Lydian notes 0.9915,
+                                                                     songs roll other patterns: Lydian notes 0.9917,
                                                                      silent 1.0258, were held to 0.998 and 1.000) */
     {1, 1000, 1000, 1000, 987},  {1, 999, 1004, 1024, 933},      /* (Bossa Nova m9 notes 0.9876; Ambient Lydian
                                                                      notes 0.9991, silent 1.0039, m9 silent 1.0233,
@@ -10683,7 +10570,7 @@ static void ls_shape(int style, const int *ins, int nins, const double *ab_nbar,
         song_roll_t r;
         const lib_set_t *st;
         int bars[256], n = 0, j, med[1024], lo = 128, hi = 0;
-        old_roll((uint32_t)AB[k][0], &r);
+        roll_song(NULL, (uint32_t)AB[k][0], &r);
         roll_set(&r, RF_SET, AB[k][1]);              /* (as the workbench rendered them: the set it takes) */
         st = lib_set_by_id((uint8_t)r.v[RF_SET]);
         ls_set = *st;
@@ -10732,7 +10619,7 @@ static void ls_hard(int style, const long *sp_ly, const long *sp_mw)
     for (k = 1; k <= 3000; k++) {
         song_roll_t r;
         if (!ls_roll(k * 2654435761u + 17u, INS_FLUTE, &r)) continue;
-        if (ls_lydian(&r) && k <= 300) {
+        if (roll_set(&r, RF_MODE, MODE_LYDIAN) == MODE_LYDIAN && k <= 300) {
             ls_play(&r, style, 0);
             ls_measure(&r, &ly, 1);
         }
@@ -11212,7 +11099,7 @@ static void test_ov_part_salts(void)
                       NAME[j], moved[j]);
     }
     song_override(NULL);
-    CHECK(sf_songs(0) == 0x88efe746u && sf_songs(1) == 0x04161afdu, "ov part salts: the pinned hashes moved");
+    CHECK(sf_songs(0) == 0x5d70ccd5u && sf_songs(1) == 0xb029afb6u, "ov part salts: the pinned hashes moved");
 }
 /* Task 1b (Sam, 2026-10-29): "Remove the ear candy part completely"; "Make it possible for the pad part to not be in
    a song. And update the seeds to not always have it"; "add the ability for the pad part to drop out of certain song
@@ -11489,8 +11376,8 @@ static void test_ov_off(void)
     CHECK(o && o->comp == -1 && o->lead_style == -1 && o->pad_place == -1 && o->ride == -1 && !o->keys_oct &&
           !o->lead_oct && !o->voicing_salt && !o->phrase_salt, "ov off: the default override forces something");
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x88efe746u, "ov off: the strummed songs hash %08x, wanted 88efe746", (unsigned)a);
-    CHECK(b == 0x04161afdu, "ov off: with set changes %08x, wanted 04161afd", (unsigned)b);
+    CHECK(a == 0x5d70ccd5u, "ov off: the strummed songs hash %08x, wanted 5d70ccd5", (unsigned)a);
+    CHECK(b == 0xb029afb6u, "ov off: with set changes %08x, wanted b029afb6", (unsigned)b);
 }
 /* a steal of a damped string (the final review): six strings struck, the first two re-struck at once (their last
    notes damped on the 2 spare voices), then a plain chord note (no string: a stab after a set change) while they
@@ -12169,7 +12056,7 @@ static void test_samp(void)
             song_roll_t r;
             song_ov_t so = ov_none();
             float ref, refl;
-            old_roll(seed, &r);                          /* (the frozen reference's songs) */
+            roll_song(NULL, seed, &r);
             if (roll_set(&r, RF_SET, 1) != 1)
                 continue;
             so.lead_style = (int8_t)(2 + ST6[got]);
@@ -12660,8 +12547,8 @@ static void test_drums_hook(void)
     CHECK(quiet_bad == 0, "drums hook: a silent source still sounds at %d steps", quiet_bad);
     drums_hook(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x88efe746u, "drums hook off: the strummed songs hash %08x, wanted 88efe746", (unsigned)a);
-    CHECK(b == 0x04161afdu, "drums hook off: with set changes %08x, wanted 04161afd", (unsigned)b);
+    CHECK(a == 0x5d70ccd5u, "drums hook off: the strummed songs hash %08x, wanted 5d70ccd5", (unsigned)a);
+    CHECK(b == 0xb029afb6u, "drums hook off: with set changes %08x, wanted b029afb6", (unsigned)b);
     dh_on = 0;
     vx_init();
     {
@@ -12929,7 +12816,8 @@ static uint32_t ll_hash(uint32_t h, const song_roll_t *r, int style, int loop)
    bass and strum lean with it): were 356d409f (-1) and 59487bd0 (0). Re-pinned again (Sam 2026-11-05: calm songs thin
    the hats): were 5c5262db (-1) and d57edc13 (0). Re-pinned again (Sam 2026-11-05: the lead never ends a phrase on a
    dominant's 7th): were 24d5953d (-1) and 83e6ac47 (0). Re-pinned again (Sam 2026-11-06: no roll, every keys
-   instrument strikes its chord together like the piano): were b06a36a1 (-1) and 8b298449 (0) */
+   instrument strikes its chord together like the piano; then the modes restored, the move to major or minor undone):
+   were b06a36a1 (-1) and 8b298449 (0) */
 static void test_lead_loop_off_identical(void)
 {
     uint32_t seed, h[2] = {2166136261u, 2166136261u};
@@ -12941,8 +12829,8 @@ static void test_lead_loop_off_identical(void)
             for (k = 0; k < 2; k++) h[k] = ll_hash(h[k], &r, st, k - 1);
     }
     printf("lead loop off: events %08x (lead_loop -1), %08x (0)\n", (unsigned)h[0], (unsigned)h[1]);
-    CHECK(h[0] == 0xdcca2c0fu, "lead loop default: lead_loop -1 hashes %08x, wanted dcca2c0f", (unsigned)h[0]);
-    CHECK(h[1] == 0x8365b15bu, "lead loop off: lead_loop 0 hashes %08x, wanted 8365b15b", (unsigned)h[1]);
+    CHECK(h[0] == 0xe150e047u, "lead loop default: lead_loop -1 hashes %08x, wanted e150e047", (unsigned)h[0]);
+    CHECK(h[1] == 0xc9c9e5e6u, "lead loop off: lead_loop 0 hashes %08x, wanted c9c9e5e6", (unsigned)h[1]);
 }
 
 typedef struct {
@@ -12983,7 +12871,7 @@ static void ll_play(const song_roll_t *r, int style, ll_acc_t *a)
             int bn = groove_bass_note(&s.roll, b, b0, i, pcs, np);
             if (bn) bass |= 1u << (bn % 12);
         }
-        scale = leads_scale_mask(&s.roll, pcs, np);
+        scale = leads_scale_mask(&s.roll);
         slot = b0 % s.lead.loop.bars;
         lg = leads_loop_log(b0);
         if (!(lg & (1 | 2 | 4 | 16))) {               /* the hook floor (3 pitches over a 4th, 3 notes or more) */
@@ -13294,7 +13182,7 @@ static void test_lead_loop_rerecords(void)
                     np = harmony_chord_at(&s.roll, b0, b0 / loop + 1, b && (b->flags & PB_DARK), pcs);
                 }
                 for (i = 0; i < 16; i++)
-                    if (s.lead.on[i] > 0 && !((leads_scale_mask(&s.roll, pcs, np) >> (s.lead.on[i] % 12)) & 1) &&
+                    if (s.lead.on[i] > 0 && !((leads_scale_mask(&s.roll) >> (s.lead.on[i] % 12)) & 1) &&
                         !leads_is_ct(s.lead.on[i], pcs, np))
                         bad_key++;
             }

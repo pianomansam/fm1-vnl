@@ -163,7 +163,7 @@ static int bar_floor(const int *on, int t, int q)
    the hook floor as recorded, one that keeps it first (a nudge never folds a hook onto its own pitches) */
 static int nudge(const leads_ctx_t *c, const int *on, int note, int t, int ext)
 {
-    unsigned scale = leads_scale_mask(c->r, c->pcs, c->np), pent = leads_pent_mask(c->r, c->pcs, c->np, 0);
+    unsigned scale = leads_scale_mask(c->r), pent = leads_pent_mask(c->r, 0);
     int cand[6], i, best = 0, bd = 999, keep = bar_floor(on, t, note);
     cand[0] = leads_coll_step(scale, note, -1); cand[1] = leads_coll_step(scale, note, 1);
     cand[2] = leads_coll_step(pent, note, -1); cand[3] = leads_coll_step(pent, note, 1);
@@ -184,7 +184,7 @@ static int nudge(const leads_ctx_t *c, const int *on, int note, int t, int ext)
    loop meets the floor. */
 static int widen(lead_state_t *ls, const leads_ctx_t *c, int last)
 {
-    unsigned scale = leads_scale_mask(c->r, c->pcs, c->np);
+    unsigned scale = leads_scale_mask(c->r);
     uint8_t cnt[128] = {0};   /* a pitch's notes in the loop: 64 at most (4 bars of 16ths) */
     int np = 0, lo = 127, hi = 0, n = 0, need, k, i, d, j, pcs[5];
     leads_ctx_t h = *c;

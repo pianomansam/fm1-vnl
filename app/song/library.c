@@ -65,14 +65,12 @@ const lib_map_t LIB_MAPS[] = {
 };
 const int LIB_NMAPS = (int)(sizeof LIB_MAPS / sizeof LIB_MAPS[0]);
 
-/* mode_w: major, minor (the six modes' weights summed, 2026-11-05: major Ionian + Lydian + Mixolydian, minor Dorian +
-   Aeolian + Phrygian; were ionian dorian phrygian lydian mixolydian aeolian 1 4 0 0 1 6, 1 5 0 0 2 5, 5 2 0 1 5 1 and
-   6 1 0 4 3 0); color_w: 7, 9, rich. */
+/* mode_w: ionian dorian phrygian lydian mixolydian aeolian; color_w: 7, 9, rich. */
 const lib_mood_t LIB_MOODS[4] = {
-    {{2, 10}, {1, 4, 5}, -2, 20},   /* sad: 17% major */
-    {{3, 10}, {2, 5, 3}, -1, 30},   /* wistful: 23% */
-    {{11, 3}, {3, 5, 2}, 0, 35},    /* warm: 79% */
-    {{13, 1}, {3, 5, 2}, 0, 50},    /* sunny: 93% */
+    {{1, 4, 0, 0, 1, 6}, {1, 4, 5}, -2, 20},   /* sad */
+    {{1, 5, 0, 0, 2, 5}, {2, 5, 3}, -1, 30},   /* wistful */
+    {{5, 2, 0, 1, 5, 1}, {3, 5, 2}, 0, 35},    /* warm */
+    {{6, 1, 0, 4, 3, 0}, {3, 5, 2}, 0, 50},    /* sunny */
 };
 
 const lib_prog_t *lib_prog_by_id(uint8_t id)

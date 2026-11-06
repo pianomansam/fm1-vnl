@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
 <score-partwise version="4.0">
-  <work><work-title>Progression 31: v7 i7 = Gm7 Cm7 in C (vamp; sad, wistful; Minor)</work-title></work>
+  <work><work-title>Progression 31: Gm7 Cm7 (vamp; sad, wistful; Dorian, Mixolydian)</work-title></work>
   <identification>
     <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
-    <miscellaneous><miscellaneous-field name="vnl1">{"family":"progressions","id":"31","status":"approved","kind":"PK_VAMP","n":2,"bars_per_chord":2,"chords":[{"degree":4,"alter":0,"quality":"Q_MIN7"},{"degree":0,"alter":0,"quality":"Q_DIATONIC"}],"moods":["MOOD_SAD","MOOD_WISTFUL"],"modes":["MODE_MINOR"],"src":"R25: v7-i vamp (Dorian Gm7 Cm7; Mixolydian Gm7 C7)","numerals":["v7","i7"],"symbols":["Gm7","Cm7"],"symbols_mode":"MODE_MINOR"}</miscellaneous-field></miscellaneous>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"progressions","id":"31","status":"approved","kind":"PK_VAMP","n":2,"bars_per_chord":2,"chords":[{"degree":4,"alter":0,"quality":"Q_DIATONIC"},{"degree":0,"alter":0,"quality":"Q_DIATONIC"}],"moods":["MOOD_SAD","MOOD_WISTFUL"],"modes":["MODE_DORIAN","MODE_MIXOLYDIAN"],"src":"R25: v7-i vamp (Dorian Gm7 Cm7; Mixolydian Gm7 C7)","symbols":["Gm7","Cm7"],"symbols_mode":"MODE_DORIAN"}</miscellaneous-field></miscellaneous>
   </identification>
   <part-list>
     <score-part id="P1">

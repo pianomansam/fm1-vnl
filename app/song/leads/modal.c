@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Modal Jazz (lead-styles design, 2026-10-29; ported unchanged from its spike but for the shared register): a modal,
-   spare lead: one motif per song (2-4 notes into a long held tone), lines from the scale over the chord (walked by
+   spare lead: one motif per song (2-4 notes into a long held tone), lines from the song's mode (the scale walked by
    steps, not the chord arpeggiated), lots of space. A 4-bar unit, twice per 8 (call, answer):
      bar 1  the head: the motif, starting late (after 1), landing on a held chord or color tone, tied over the bar
      bar 2  the hold, then a fall-off (a short note a step or two down) or nothing
@@ -70,7 +70,7 @@ static int mo_fit(lead_state_t *ls, const leads_ctx_t *c, const int *off, const 
                   int target, int end, const leads_next_t *x, int prev, int v0, int answer, unsigned scale)
 {
     int note, best = 0, bc = 1 << 30, k, lo = x ? c->lo_x : c->lo, minor = 0, j, notes[6];
-    int colpc = leads_color_pc(c->r, c->pcs, c->np);
+    int colpc = leads_color_pc(c->r);
     for (j = 0; j < c->np; j++) minor |= (c->pcs[j] - c->pcs[0] + 12) % 12 == 3;
     for (note = lo; note <= c->hi; note++) {
         int iv = (note - c->pcs[0] + 120) % 12, cost;
@@ -81,7 +81,7 @@ static int mo_fit(lead_state_t *ls, const leads_ctx_t *c, const int *off, const 
         if (iv == 0 && !answer) cost += 6;
         if (iv == 7) cost += 2;
         if (iv == 2 || iv == 9 || (minor && iv == 5)) cost -= 2;
-        if (note % 12 == colpc) cost += 5;               /* the chord's color note: a passing touch, not a held tone */
+        if (note % 12 == colpc) cost += 5;               /* the mode's color note: a passing touch, not a held tone */
         if (prev && (note - prev > 9 || prev - note > 9)) cost += 20;
         for (k = 0; k < n; k++) {
             int m = leads_coll_step(scale, note, off[k]);
@@ -131,7 +131,7 @@ void modal_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b, i
     int run, pass, bip, pbars, last, role, half, i, key = c->r->v[RF_KEY], center, prev = ls->last, anchor;
     int from = ls->tied ? ls->tie_end : 0, held = ls->tied ? ls->st.mo.note : 0, hv = ls->st.mo.vel, v0;
     uint32_t seed = song_ov_phrase_seed(c->r->seed);
-    unsigned scale = leads_scale_mask(c->r, c->pcs, c->np);
+    unsigned scale = leads_scale_mask(c->r);
     mo_song_t s;
     rng_t g;
     const leads_next_t *x = c->can_push && nx->np > 0 ? nx : 0;

@@ -58,13 +58,13 @@ AudioWorklet. Local only; not the FM-1, so it may exceed the device's budgets.
 - Candidates (`patterns/README.md`): a new pattern imported from `patterns/` is offered, marked "(candidate)", in its
   row (Pattern, Progression, Kick phrase; a comp rhythm or strum pattern in Rhythm) and plays when picked; the
   roll and the dice never draw it. Under it, **Approve** posts it to `/approve`, which writes
-  `patterns/status.json`; `tools/patterns/import.sh` then makes the firmware draw it and rebuilds the workbench. A scale
-  (major or minor) only a candidate progression suits can be picked too (its candidate comes with it). The strum pattern
-  is greyed when the comp doesn't strum.
-- Scale (to 2026-11-05 the Mode row; in the Song section's more rows): major or minor; the Progression row names each
-  progression by its Roman numerals in that key (`#17 i7 IV7 (minor)`). An older snapshot or feedback entry's mode
-  restores as the major or minor song with the same chords (`desk.js`'s `fromModes`: a progression split from one
-  listed in two modes takes its new id).
+  `patterns/status.json`; `tools/patterns/import.sh` then makes the firmware draw it and rebuilds the workbench. A mode
+  only a candidate progression suits can be picked too (its candidate comes with it). The strum pattern is greyed when
+  the comp doesn't strum.
+- Scale (the Mode row's id, "mode"; in the Song section's more rows): the six modes, Ionian to Aeolian. Songs were
+  major or minor from 2026-11-05 until Sam undid it on 2026-11-06; a snapshot or feedback entry saved then restores on
+  the mode its progression was listed in, with the same chords (`desk.js`'s `fromMajorMinor`: 45-48, split off then,
+  go back to 5, 31, 33 and 41).
 - Comping (the Rhythm row on keys): one place to pick the Comp part's comping (Sam, 2026-11-05), from one source:
   every comping rhythm in `patterns/comp-rhythms` (`options.json`'s generated `compRhythms`: Held, Half notes, Stabs, Held on 2, Held on 2
   and 4, Charleston, Tresillo, Late one; a new one marked "(candidate)" until approved), each only on the comp

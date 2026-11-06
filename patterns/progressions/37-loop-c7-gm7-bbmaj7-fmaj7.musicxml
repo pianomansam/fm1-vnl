@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
 <score-partwise version="4.0">
-  <work><work-title>Progression 37: I7 v7 bVIImaj7(#11) IVmaj7 = C7 Gm7 Bbmaj7 Fmaj7 in C (loop; warm, sunny; Major)</work-title></work>
+  <work><work-title>Progression 37: C7 Gm7 Bbmaj7 Fmaj7 (loop; warm, sunny; Mixolydian)</work-title></work>
   <identification>
     <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
-    <miscellaneous><miscellaneous-field name="vnl1">{"family":"progressions","id":"37","status":"approved","kind":"PK_LOOP","n":4,"bars_per_chord":1,"chords":[{"degree":0,"alter":0,"quality":"Q_DOM7"},{"degree":4,"alter":0,"quality":"Q_MIN7"},{"degree":6,"alter":-1,"quality":"Q_MAJ7S11"},{"degree":3,"alter":0,"quality":"Q_MAJ7"}],"moods":["MOOD_WARM","MOOD_SUNNY"],"modes":["MODE_MAJOR"],"src":"R25: Mixolydian I7-v7-bVIImaj7-IVmaj7 loop (C7 Gm7 Bbmaj7 Fmaj7)","numerals":["I7","v7","bVIImaj7(#11)","IVmaj7"],"symbols":["C7","Gm7","Bbmaj7","Fmaj7"],"symbols_mode":"MODE_MAJOR"}</miscellaneous-field></miscellaneous>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"progressions","id":"37","status":"approved","kind":"PK_LOOP","n":4,"bars_per_chord":1,"chords":[{"degree":0,"alter":0,"quality":"Q_DIATONIC"},{"degree":4,"alter":0,"quality":"Q_DIATONIC"},{"degree":6,"alter":0,"quality":"Q_DIATONIC"},{"degree":3,"alter":0,"quality":"Q_DIATONIC"}],"moods":["MOOD_WARM","MOOD_SUNNY"],"modes":["MODE_MIXOLYDIAN"],"src":"R25: Mixolydian I7-v7-bVIImaj7-IVmaj7 loop (C7 Gm7 Bbmaj7 Fmaj7)","symbols":["C7","Gm7","Bbmaj7","Fmaj7"],"symbols_mode":"MODE_MIXOLYDIAN"}</miscellaneous-field></miscellaneous>
   </identification>
   <part-list>
     <score-part id="P1">

@@ -22,7 +22,7 @@ typedef struct { int bar, st, voice, note, vel; float delay, len, ss; } rec_t;  
 
 static const char *const FLATS[12] = {"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"};
 static const char *const SHARPS[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
-static const char *const MODE[MODE_N] = {"major", "minor"};
+static const char *const MODE[MODE_N] = {"major", "Dorian", "Phrygian", "Lydian", "Mixolydian", "minor"};
 static const char *const STYLE[CS_N] = {"held", "stabs", "offbeats", "arpeggio", "half notes", "strum", "held on 2",
                                         "(removed: light eighths)", "held on 2 and 4", "a comp rhythm"};
 static const char *const STRUM[SP_N + 1] = {"strum, D-DU-UDU", "strum, chucks", "strum, bossa", "strum, ballad",
@@ -53,7 +53,7 @@ static th_why_t why_live, lwhy;
 /* the key's simplest spelling: the parent major scale with the fewest accidentals, flats on a tie; fifths < 0 flats */
 static int key_fifths(int key, int mode)
 {
-    static const int8_t OFF[MODE_N] = {0, 9};                  /* major: itself; minor: its relative major */
+    static const int8_t OFF[MODE_N] = {0, 2, 4, 5, 7, 9};
     static const int8_t SH[12] = {0, 7, 2, 9, 4, 11, 6, 1, 8, 3, 10, 5}, FL[12] = {0, 5, 10, 3, 8, 1, 6, 11, 4, 9, 2, 7};
     int parent = (key - OFF[mode] + 12) % 12;
     return SH[parent] < FL[parent] ? SH[parent] : -FL[parent];

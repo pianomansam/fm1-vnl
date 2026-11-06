@@ -7,7 +7,7 @@
      bar 3  the arabesque again, varied (extended, shifted, re-timed, or a whole-tone tetrachord over a dominant),
             landing on the phrase's peak (the question) or lower (the answer)
      bar 4  the fall: a descending sigh into a resting note, then at least 6 16ths of silence
-   Pentatonic-leaning (over the chord), the chord's color note in modal songs. Every note passes leads_legal();
+   Pentatonic-leaning (the mode's pentatonic), the mode's color note in modal songs. Every note passes leads_legal();
    a strong-beat onset (steps 0, 8) is a chord tone. Planned a bar at a time from (seed, run, pass). */
 #include <stdint.h>
 #include "leads.h"
@@ -49,9 +49,9 @@ static void im_pass(uint32_t seed, int run, int pass, int half, im_pass_t *p)
     p->shift = rng_int(&g, 2) ? 2 : -2;
 }
 
-static unsigned im_mask(const leads_ctx_t *c, int which)   /* 0 the scale, 1 its pentatonic (+ color: 2) */
+static unsigned im_mask(const song_roll_t *r, int which)   /* 0 the scale, 1 its pentatonic (+ color: 2) */
 {
-    return which == 0 ? leads_scale_mask(c->r, c->pcs, c->np) : leads_pent_mask(c->r, c->pcs, c->np, which == 2);
+    return which == 0 ? leads_scale_mask(r) : leads_pent_mask(r, which == 2);
 }
 
 /* the long note: legal (over the next chord too when tied, x), a chord tone on a strong beat; near target, the
@@ -148,7 +148,7 @@ void impressionism_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block
     int run, pass, bip, pbars, last, role, half, key = c->r->v[RF_KEY], center, prev = ls->last;
     int from = ls->tied ? ls->tie_end : 0, anchor, tgt, land, at, end;
     uint32_t seed = song_ov_phrase_seed(c->r->seed);
-    unsigned scale = im_mask(c, 0), coll;
+    unsigned scale = im_mask(c->r, 0), coll;
     im_song_t s;
     im_pass_t p;
     const leads_next_t *x = c->can_push && nx->np > 0 ? nx : 0;
@@ -160,7 +160,7 @@ void impressionism_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block
     if (pbars < 8 && last) half = 1;
     im_song(seed, c->r->v[RF_MOTION], &s);
     im_pass(seed, run, pass, half, &p);
-    coll = im_mask(c, s.modal ? 2 : 1);
+    coll = im_mask(c->r, s.modal ? 2 : 1);
     center = c->hi - 7 < 74 ? c->hi - 7 : 74;                /* the flute's middle, never its top */
     if (center < c->lo + 5) center = c->lo + 5;
     anchor = leads_place(key % 12, center - 6, center + 5, center);   /* the phrase's home pitch */

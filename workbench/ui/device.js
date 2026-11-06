@@ -105,9 +105,15 @@ export class Lcd {
 
 // ------------------------------------------------------------------------------------- the words (app.c, app.h) ---
 export const APP_NAME = "VNL-1";
+// each mode's keys spelled by its parent major, the simplest way (app.c's KEY_NAME: major, Dorian, Phrygian, Lydian,
+// Mixolydian, minor)
 export const KEY_NAME = [["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"],
+                         ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"],
+                         ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "Bb", "B"],
+                         ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"],
+                         ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"],
                          ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B"]];
-export const MODE_NAME = ["MAJOR", "MINOR"];
+export const MODE_NAME = ["MAJOR", "DORIAN", "PHRYGIAN", "LYDIAN", "MIXOLYDIAN", "MINOR"];
 export const MOOD_NAME = ["SAD", "WISTFUL", "WARM", "SUNNY"];
 export const SEC_NAME = ["INTRO", "GROOVE", "LEAD", "BREAK", "OUTRO"];
 
@@ -119,9 +125,9 @@ export function fieldStep(def, v, d) {
 
 // app.c's value_text
 export function valueText(def, v, mode) {
-  if (def.format === "key") return KEY_NAME[mode % 2][v % 12];
+  if (def.format === "key") return KEY_NAME[mode % 6][v % 12];
   if (def.format === "mood") return MOOD_NAME[v & 3];
-  if (def.format === "mode") return MODE_NAME[v % 2];
+  if (def.format === "mode") return MODE_NAME[v % 6];
   return String(v);
 }
 

@@ -1343,17 +1343,6 @@ size (the organ's is the largest; the vibraphone's state is 76 B), and voices.o'
   0.262 and the felt piano's 0.258 in the same run (the motor is a sine per voice per control step). They take the
   keys' place in their sets, so no song gets heavier.
 
-### Modes become major or minor (2026-11-05)
-
-- Flash: image 381,736 to **381,976 B (+240 B)** (`./build.sh` against 6a85498, today's base/ with its uncommitted
-  font packing; 381,672 to 381,928 against 66aaf4b before the comp rhythms' rebase). Most of it is the four progressions split from 5, 31, 33 and 41 (45-48: their rows and notes); the
-  scale over a chord (`th_scale`) and the lead's color note from the chord about even with the six modes' tables they
-  replace, the screen's key names (a minor key spelled apart: C#, F#, G# minor) a few bytes. RAM .data+.bss 59,936 B
-  and the pool 124,472 B unchanged.
-- CPU (`tools/tick-bench.sh 1000 3`, host): worst tick 27.0 us (others) and 32.0 us (strummed), against 29.0 and 40.0
-  us before on the same seeds (which now roll other progressions: noise). The scale over a chord is a 7-entry pass per
-  call (the lead's legal-note checks call it per candidate note); not measurable.
-
 ### Transport: boot stopped, continue after a stop, SEQ for a new song (2026-11-06)
 
 - Flash: image 386,008 to **386,392 B (+384 B)** (`./build.sh`, against 4b47df8). RAM .data+.bss 60,656 to

@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
 <score-partwise version="4.0">
-  <work><work-title>Progression 43: Imaj7 iii7 IVmaj7 V7 = Cmaj7 Em7 Fmaj7 G7 in C (loop; warm, sunny; Major)</work-title></work>
+  <work><work-title>Progression 43: Cmaj7 Em7 Fmaj7 G7 (loop; warm, sunny; Ionian)</work-title></work>
   <identification>
     <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
-    <miscellaneous><miscellaneous-field name="vnl1">{"family":"progressions","id":"43","status":"approved","kind":"PK_LOOP","n":4,"bars_per_chord":1,"chords":[{"degree":0,"alter":0,"quality":"Q_DIATONIC"},{"degree":2,"alter":0,"quality":"Q_DIATONIC"},{"degree":3,"alter":0,"quality":"Q_DIATONIC"},{"degree":4,"alter":0,"quality":"Q_DIATONIC"}],"moods":["MOOD_WARM","MOOD_SUNNY"],"modes":["MODE_MAJOR"],"src":"R25: Ionian Imaj7-iii7-IVmaj7-V7 loop (Cmaj7 Em7 Fmaj7 G7)","numerals":["Imaj7","iii7","IVmaj7","V7"],"symbols":["Cmaj7","Em7","Fmaj7","G7"],"symbols_mode":"MODE_MAJOR"}</miscellaneous-field></miscellaneous>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"progressions","id":"43","status":"approved","kind":"PK_LOOP","n":4,"bars_per_chord":1,"chords":[{"degree":0,"alter":0,"quality":"Q_DIATONIC"},{"degree":2,"alter":0,"quality":"Q_DIATONIC"},{"degree":3,"alter":0,"quality":"Q_DIATONIC"},{"degree":4,"alter":0,"quality":"Q_DIATONIC"}],"moods":["MOOD_WARM","MOOD_SUNNY"],"modes":["MODE_IONIAN"],"src":"R25: Ionian Imaj7-iii7-IVmaj7-V7 loop (Cmaj7 Em7 Fmaj7 G7)","symbols":["Cmaj7","Em7","Fmaj7","G7"],"symbols_mode":"MODE_IONIAN"}</miscellaneous-field></miscellaneous>
   </identification>
   <part-list>
     <score-part id="P1">

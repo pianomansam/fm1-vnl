@@ -70,7 +70,7 @@ static int mode_has(int mood, int mode, int any)
 }
 static int mode_has_prog(int mood, int mode) { return mode_has(mood, mode, 0); }
 
-static int major_family(int mode) { return mode == MODE_MAJOR; }
+static int major_family(int mode) { return mode == MODE_IONIAN || mode == MODE_LYDIAN || mode == MODE_MIXOLYDIAN; }
 
 static int family_of(int pattern_id)
 {

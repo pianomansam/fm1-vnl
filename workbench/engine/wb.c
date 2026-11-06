@@ -1081,23 +1081,9 @@ EXPORT const char *wb_library(void)
     }
     put(&o, "],\"progs\":[");
     for (i = 0; i < LIB_NPROGS; i++) {
-        const lib_prog_t *p = &LIB_PROGS[i];
-        int mode = (p->modes >> MODE_MINOR) & 1, k;
-        put(&o, "%s{\"id\":%d,\"status\":\"%s\",\"mode\":%d,\"numerals\":\"", i ? "," : "", p->id,
-            LIB_PROGS_STATUS[i] == 1 ? "approved" : LIB_PROGS_STATUS[i] == 2 ? "retired" : "candidate", mode);
-        for (k = 0; k < p->n; k++) {               /* the chords as Roman numerals (validate.py's numeral) */
-            static const char *const UP[7] = {"I", "II", "III", "IV", "V", "VI", "VII"};
-            static const char *const LO[7] = {"i", "ii", "iii", "iv", "v", "vi", "vii"};
-            th_chord_spec_t c = p->c[k];
-            int pcs[5], n = th_chord_pcs(0, mode, c, COLOR_7, pcs), j, iv = 0, d = c.degree < 0 ? 0 : c.degree % 7;
-            for (j = 1; j < n; j++) iv |= 1 << ((pcs[j] - pcs[0] + 12) % 12);
-            put(&o, "%s%s%s%s%s", k ? " " : "", c.alter < 0 ? "b" : c.alter > 0 ? "#" : "",
-                (iv >> 4) & 1 ? UP[d] : LO[d],
-                (iv >> 4) & 1 ? ((iv >> 11) & 1 ? "maj7" : "7") : ((iv >> 6) & 1 ? "7b5" : "7"),
-                c.quality == Q_MAJ7S11 ? "(#11)" : c.quality == Q_MIN7B9 ? "(no 9)" : "");
-        }
-        put(&o, "\",\"src\":");
-        put_str(&o, p->src);
+        put(&o, "%s{\"id\":%d,\"status\":\"%s\",\"src\":", i ? "," : "", LIB_PROGS[i].id,
+            LIB_PROGS_STATUS[i] == 1 ? "approved" : LIB_PROGS_STATUS[i] == 2 ? "retired" : "candidate");
+        put_str(&o, LIB_PROGS[i].src);
         put(&o, "}");
     }
     put(&o, "]}");

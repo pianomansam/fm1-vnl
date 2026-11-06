@@ -71,19 +71,16 @@ byte.
 - **What is read from the metadata:** the fields notes can't hold (`src`, a drum pattern's `family`, written
   `pattern_family` in the metadata since its `family` is the folder's, and `half_time`, the comp rhythms' `vel_range`, `second_vel_pct`, `busy_over` and `busy_steps`, weights), when the
   file still has its `vnl1` metadata; else `model.json`'s. A progression's `kind`, `moods` and `modes` come from its
-  title when it parses (`Progression N: i7 IV7 = Cm7 F7 in C (loop; warm, sunny; Minor)`, its key `Major` or
-  `Minor`; MuseScore keeps the title, a DAW's MIDI may not). Each chord keeps the metadata's or `model.json`'s
-  `{degree, alter, quality}` when it still sounds the same (the key's own chord and a forced quality look alike, as
-  do a forced color and its plain chord), else it is read in the key: its root's simplest degree, the key's own chord
-  there or the written quality.
+  title when it parses (`Progression N: ... (loop; warm, sunny; Dorian, Aeolian)`; MuseScore keeps the title, a
+  DAW's MIDI may not). Each chord keeps the metadata's or `model.json`'s `{degree, alter, quality}` when it still
+  sounds the same (a mode's own chord and a forced quality look alike), else it is read in the first mode listed.
   The comp rhythms' velocities in a file are placeholders: if they differ, the importer notes that they are ignored.
 - **The rules** (a refusal names the file, the bar and the rule, and nothing is written): a drum pattern has a kick
   and a snare in every bar and plays only the six lanes; a progression's chords are maj7, 7, m7 or m7b5 over the
   lowest note (written extensions are ignored, with a note: the engine colors every chord itself, a dominant always
   with its 9th or 13th), each the same whole number of bars, 1-4 chords in a 2, 4 or 8-bar cycle; no substitutions
-  (a vamp's or loop's chords, at every color, keep to one mode of its key: Ionian, Mixolydian or Lydian in major,
-  Aeolian or Dorian in minor; no dominant on bII or bVI or a half step above the next chord); no dominant the engine
-  would leave bare (no 9th or 13th fits); a progression is major or minor, one of them; strum up strokes only on the "and"s, one stroke a
+  (a vamp's or loop's chords lie in each of its modes; no dominant on bII or bVI or a half step above the next
+  chord); no dominant the engine would leave bare (no 9th or 13th fits); no Phrygian; strum up strokes only on the "and"s, one stroke a
   step; `src` is printable ASCII with no
   backslash and no `??` (it becomes a C string).
 - **The hashes:** the importer lists every entry that changed or was added, and every status `status.json` changed;
@@ -123,24 +120,12 @@ roll"). Judged from the grid (kick and snare density, ghost notes, 16th hats or 
 
 ## progressions
 
-`LIB_PROGS` (48; `app/song/patterns_gen.c`). Each progression is **major or minor** (`modes`: `["MODE_MAJOR"]` or
-`["MODE_MINOR"]`; Sam, 2026-11-05: "easier writing and approving of progressions. plus reasoning about what i'm
-hearing"), its chords degrees of the major or the natural minor scale with accidentals (`alter`: b2 b3 #4 b6 b7 in
-major, b2 3 #4 6 7 in minor, the simplest spelling), as Roman numerals in its title and `numerals` (`i7 IV7`: upper
-case over a major 3rd; `(#11)` and `(no 9)` mark the forced colors `Q_MAJ7S11`, a maj7 with its #11, and `Q_MIN7B9`,
-a m7 whose 9th is a semitone over its root, left out). Chord symbols in C, one chord per its `bars_per_chord` bars (a
-2-bar chord is tied across the bar line), as MusicXML `<harmony>` and MIDI text events, over the chord's tones (root,
-3rd, 5th, 7th, root between F3 and E4); a `Q_DIATONIC` chord takes the key's own 7th chord there. `kind`, `moods` and
-the key are in the title and the metadata, and the exact `{degree, alter, quality}` of each chord is in the metadata
-(`Dm7` from `Q_MIN7` or from the key's own chord look the same on paper).
-
-The six modes they were written in (Ionian, Dorian, Lydian, Mixolydian, Aeolian; no Phrygian) were respelled on
-2026-11-05 by `tools/patterns/migrate_major_minor.py`, every chord the same pitch classes in every key at every color
-(`tools/patterns/major_minor_2026-11-05.json`, held by `test_patterns.py`): Ionian, Lydian and Mixolydian became major,
-Dorian and Aeolian minor. A progression listed in modes that spelled it differently was split, the first mode keeping
-its id: 45 (5's Mixolydian vi7(no 9) ii7), 46 (31's Mixolydian v7 I7), 47 (33's Aeolian i7 IIImaj7) and 48 (41's
-Aeolian i7 v7 IIImaj7 VII7). Since the scale over a chord follows the chord (`theory.h`'s `th_scale`), 18 and 19 now
-sound the same (they differed only in the mode the lead read).
+`LIB_PROGS` (44; `app/song/patterns_gen.c`). Chord symbols in C, one chord per its `bars_per_chord` bars (a 2-bar chord
+is tied across the bar line), as MusicXML `<harmony>` and MIDI text events, over the chord's tones (root, 3rd, 5th,
+7th, root between F3 and E4). The symbols are spelled in the first mode the progression lists (`symbols_mode`; a
+`Q_DIATONIC` chord takes that mode's 7th chord). `kind`, `moods` and `modes` are in the title and the metadata, and
+the exact `{degree, alter, quality}` of each chord is in the metadata (`Dm7` from `Q_MIN7` or from the mode's own
+chord look the same on paper).
 
 ## comp-rhythms
 

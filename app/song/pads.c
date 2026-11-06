@@ -210,9 +210,12 @@ int pads_solo(const song_roll_t *r, int key, int mode, const int *pcs, int np, c
               int nbass, int chord_top, int lo, int prev)
 {
     static const int ORDER[4] = {0, 2, 1, 6};           /* the tonic, the 3rd, the 2nd, the 7th (scale indices) */
-    int off[7], i, o, best = 0, bc = 1 << 30, ref, b7 = th_dom_b7(pcs, np);
+    uint16_t pool = th_mode_pool(mode);
+    int off[7], n = 0, i, o, best = 0, bc = 1 << 30, ref, b7 = th_dom_b7(pcs, np);
     (void)r;
-    th_scale(key, mode, pcs, np, off);                  /* the scale over the chord */
+    for (i = 0; i < 12 && n < 7; i++)
+        if ((pool >> i) & 1) off[n++] = i;
+    if (n < 7) return 0;
     ref = prev ? prev : lo + mod12(key - lo);           /* no note yet: from the tonic */
     for (o = 0; o < 4; o++)
         for (i = lo + mod12(key + off[ORDER[o]] - lo); i <= lo + 12; i += 12) {

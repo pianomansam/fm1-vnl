@@ -52,11 +52,17 @@ void *vnl_memmove(void *d, const void *s, unsigned n)
 }
 #endif
 
-/* the simplest spelling of a major key and of a minor one (the fewer accidentals; a tie: F# major (Sam,
-   2026-11-05), Eb minor) */
-static const char *const KEY_NAME[MODE_N][12] = {{"C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"},
-                                                 {"C", "C#", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B"}};
-static const char *const MODE_NAME[MODE_N] = {"MAJOR", "MINOR"};
+/* each mode's keys spelled the simplest way: by the mode's parent major, the fewer accidentals (Db Lydian, not C#);
+   on the F#/Gb tie, the tonic's simplest name (F# major (Sam, 2026-11-05), B Lydian; Ab Dorian, Bb Phrygian, Db
+   Mixolydian, Eb minor). theory.c's spelling() spells the chords the same way. */
+static const char *const KEY_NAME[MODE_N][12] = {
+    {"C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"},    /* major (Ionian) */
+    {"C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"},    /* Dorian */
+    {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "Bb", "B"},    /* Phrygian */
+    {"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"},    /* Lydian */
+    {"C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"},    /* Mixolydian */
+    {"C", "C#", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B"}};   /* minor (Aeolian) */
+static const char *const MODE_NAME[MODE_N] = {"MAJOR", "DORIAN", "PHRYGIAN", "LYDIAN", "MIXOLYDIAN", "MINOR"};
 static const char *const MOOD_NAME[4] = {"SAD", "WISTFUL", "WARM", "SUNNY"};
 static const char *const SEC_NAME[] = {"INTRO", "GROOVE", "LEAD", "BREAK", "OUTRO"};
 /* the four knobs: the field each asks for, its step a detent, its name */
@@ -646,7 +652,7 @@ static void value_text(int f, int v, int mode, char *t)
 }
 
 /* the screen's lines, as text: the header's key and tempo, the place in the song, the chord, the pending change */
-static void line_key(const snap_t *s, char *t)    /* "F MINOR  78 BPM" */
+static void line_key(const snap_t *s, char *t)    /* "F DORIAN  78 BPM" */
 {
     char n[8];
     t[0] = 0;

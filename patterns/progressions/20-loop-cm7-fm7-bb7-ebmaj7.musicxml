@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
 <score-partwise version="4.0">
-  <work><work-title>Progression 20: i7 iv7 VII7 IIImaj7 = Cm7 Fm7 Bb7 Ebmaj7 in C (loop; sad, wistful; Minor)</work-title></work>
+  <work><work-title>Progression 20: Cm7 Fm7 Bb7 Ebmaj7 (loop; sad, wistful; Aeolian)</work-title></work>
   <identification>
     <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
-    <miscellaneous><miscellaneous-field name="vnl1">{"family":"progressions","id":"20","status":"approved","kind":"PK_LOOP","n":4,"bars_per_chord":1,"chords":[{"degree":0,"alter":0,"quality":"Q_MIN7"},{"degree":3,"alter":0,"quality":"Q_MIN7"},{"degree":6,"alter":0,"quality":"Q_DOM7"},{"degree":2,"alter":0,"quality":"Q_MAJ7"}],"moods":["MOOD_SAD","MOOD_WISTFUL"],"modes":["MODE_MINOR"],"src":"brainstorm: i7-iv7-bVII7-bIIImaj7 (Cm7 Fm7 Bb7 Ebmaj7)","numerals":["i7","iv7","VII7","IIImaj7"],"symbols":["Cm7","Fm7","Bb7","Ebmaj7"],"symbols_mode":"MODE_MINOR"}</miscellaneous-field></miscellaneous>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"progressions","id":"20","status":"approved","kind":"PK_LOOP","n":4,"bars_per_chord":1,"chords":[{"degree":0,"alter":0,"quality":"Q_MIN7"},{"degree":3,"alter":0,"quality":"Q_MIN7"},{"degree":6,"alter":0,"quality":"Q_DOM7"},{"degree":2,"alter":0,"quality":"Q_MAJ7"}],"moods":["MOOD_SAD","MOOD_WISTFUL"],"modes":["MODE_AEOLIAN"],"src":"brainstorm: i7-iv7-bVII7-bIIImaj7 (Cm7 Fm7 Bb7 Ebmaj7)","symbols":["Cm7","Fm7","Bb7","Ebmaj7"],"symbols_mode":"MODE_AEOLIAN"}</miscellaneous-field></miscellaneous>
   </identification>
   <part-list>
     <score-part id="P1">

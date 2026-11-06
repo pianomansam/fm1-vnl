@@ -9,7 +9,7 @@
    the same chord it is the same notes: the loop). Unit 4 is the turnaround, with ONE change: the held tone a step
    up, the first note stuttered into two 16ths, the first note chopped off, or the whole hook an 8th late. After
    the first 8 bars, unit 2 sometimes takes the same change (sparse variation over a long loop). Notes step through
-   the pentatonic (2nds and 3rds) in a narrow band, a 6th at most. Every note passes leads_legal().
+   the mode's pentatonic (2nds and 3rds) in a narrow band, a 6th at most. Every note passes leads_legal().
    The hook floor (Sam 2026-11-03): every hook statement plays 3 pitches or more, a perfect 4th or wider: the
    hook is drawn with 3 pitch levels, and where the band and the chord fold it, a note moves to another chord tone
    (jh_spread).
@@ -62,7 +62,7 @@ static void jh_song(uint32_t seed, int motion, unsigned snare, jh_hook_t *h)
     h->la = t;
     h->n = npre;
     kind = rng_weighted(&g, KW, JS_N);                /* the contour, back from the held tone (offset 0), in steps
-                                                         of the pentatonic */
+                                                         of the mode's pentatonic */
     cur = 0;
     for (k = npre - 1; k >= 0; k--) {
         int d, x = rng_int(&g, 100);
@@ -274,7 +274,7 @@ void jazzhop_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b,
     int run, pass, bip, pbars, last, i, key = c->r->v[RF_KEY], center, prev = ls->last, anchor, unit, v0, var, vary1;
     int from = ls->tied ? ls->tie_end : 0;
     uint32_t seed = song_ov_phrase_seed(c->r->seed);
-    unsigned scale = leads_scale_mask(c->r, c->pcs, c->np), pent = leads_pent_mask(c->r, c->pcs, c->np, 0);
+    unsigned scale = leads_scale_mask(c->r), pent = leads_pent_mask(c->r, 0);
     const lib_set_t *set = lib_set_by_id((uint8_t)c->r->v[RF_SET]);
     unsigned snare = jh_snare(c->r);
     jh_hook_t h;
@@ -334,7 +334,7 @@ void jazzhop_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b,
 }
 
 /* The song's motif: its hook as the song draws it (before the legal notes and the range bend it): its 2-4 quick
-   notes (in the pentatonic, steps from the held tone) into the held tone, which rings to the bar's last 16th
+   notes (in the mode's pentatonic, steps from the held tone) into the held tone, which rings to the bar's last 16th
    (or over the bar line). */
 void jazzhop_motif(const song_roll_t *r, lead_motif_t *m)
 {

@@ -84,7 +84,7 @@ void ambient_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b,
     static const uint8_t VW[3] = {40, 35, 25};
     int run, pass, bip, pbars, last, k, unit, v0, var, vary1, center, from = ls->tied ? ls->tie_end : 0;
     uint32_t seed = song_ov_phrase_seed(c->r->seed);
-    unsigned scale = leads_scale_mask(c->r, c->pcs, c->np), pent = leads_pent_mask(c->r, c->pcs, c->np, 0);
+    unsigned scale = leads_scale_mask(c->r), pent = leads_pent_mask(c->r, 0);
     const lib_set_t *set = lib_set_by_id((uint8_t)c->r->v[RF_SET]);
     const leads_next_t *x = c->can_push && nx->np > 0 ? nx : 0;
     int sustained = set && lib_ins_sustained(set->lead) && !c->vibes;
@@ -182,7 +182,7 @@ void ambient_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b,
 }
 
 /* The song's motif: its 3-5 notes as the song draws them (before the legal notes bend them), each legato to the next
-   onset, the last ringing to the bar's end, in steps of the pentatonic from the first. */
+   onset, the last ringing to the bar's end, in steps of the mode's pentatonic from the first. */
 void ambient_motif(const song_roll_t *r, lead_motif_t *m)
 {
     am_motif_t a;

@@ -36,7 +36,7 @@ REMOVED = {"lead-arp": "the lead styles replaced the hybrid lead's arpeggio",
            "melody-cells": "the lead styles replaced the struck melody"}
 LANE_FAMS = {"drums", "kick-phrases", "strum"}
 EXTS = (".mid", ".musicxml")
-DERIVED = ("status", "file", "numerals", "symbols", "symbols_mode", "onsets")
+DERIVED = ("status", "file", "symbols", "symbols_mode", "onsets")
 HASHES = "the pinned song hashes (tests/host/song_test.c's strum_same)"
 STATUS = {"approved": 1, "candidate": 0, "retired": 2}     # the generated *_STATUS values (the engine draws 1 only)
 # what a pattern sounds like, to tell a renamed or saved-as copy of an entry
@@ -215,8 +215,7 @@ def decode_prog(e, score, notes):
         e["modes"] = ["MODE_" + x.strip().upper() for x in m.group(3).split(",") if x.strip()]
     modes = [x for x in e.get("modes") or [] if x in validate.MODES]
     if not modes:
-        raise Refused(1, "major or minor: name the key in the title, as \"Progression N: ... (loop; warm; Minor)\" "
-                         "(the six modes are gone: Ionian, Lydian and Mixolydian are major, Dorian and Aeolian minor)")
+        raise Refused(1, "no mode: name the modes in the title, as \"Progression N: ... (loop; warm; Dorian)\"")
     mode = validate.MODES.index(modes[0])
     by = {}
     for x in notes:
@@ -253,23 +252,26 @@ def chord_of(notes, bar):
 
 
 def spec_for(root, suffix, mode, hints, bar):
-    """the {degree, alter, quality} that sounds root+suffix in the major or minor key: a hint that does (the
-       metadata's, model.json's) first, since the key's own chord and a forced quality look alike (and a forced color,
-       Q_MIN7B9's or Q_MAJ7S11's, looks like its plain chord); else the key's own chord on that root, else a forced
-       quality on the root's simplest degree (validate.spec_of)"""
+    """the {degree, alter, quality} that sounds root+suffix in the mode: a hint that does (the metadata's, model.json's)
+       first, since a mode's own chord and a forced quality look alike; else the mode's own chord on that root, else
+       a forced quality on the nearest degree (flat before sharp)"""
     for h in hints:
         try:
             if export.chord_symbol(h, mode) == (root, suffix):
                 return {"degree": h["degree"], "alter": h["alter"], "quality": h["quality"]}
         except (KeyError, IndexError, TypeError, ValueError):
             pass
-    spec = {**validate.spec_of(mode, root), "quality": "Q_DIATONIC"}
-    if spec["alter"] == 0 and export.chord_symbol(spec, mode) == (root, suffix):
-        return spec
-    q = {"maj7": "Q_MAJ7", "7": "Q_DOM7", "m7": "Q_MIN7"}.get(suffix)
-    if q:
-        return {**spec, "quality": q}
-    raise Refused(bar, f"a m7b5 only where the key has it as its own chord ({validate.MODES[mode][5:].lower()})")
+    sc = validate.SCALE[mode]
+    for alter in (0, -1, 1):
+        if (root - alter) % 12 in sc:
+            d = sc.index((root - alter) % 12)
+            spec = {"degree": d, "alter": alter, "quality": "Q_DIATONIC"}
+            if alter == 0 and export.chord_symbol(spec, mode) == (root, suffix):
+                return spec
+            q = {"maj7": "Q_MAJ7", "7": "Q_DOM7", "m7": "Q_MIN7"}.get(suffix)
+            if q:
+                return {"degree": d, "alter": alter, "quality": q}
+    raise Refused(bar, f"a m7b5 only where the mode has it as its own chord ({validate.MODES[mode][5:].capitalize()})")
 
 
 # ------------------------------------------------------------------------------------------- the model's tables
@@ -426,10 +428,10 @@ def gen_c(t):
          "",
          "#endif", ""]
     C = [head, '#include "patterns_gen.h"', '#include "harmony.h"', "",
-         "/* Degrees are 0-based in the song's major or natural minor scale; {degree, alter, quality}. A",
-         "   progression is major or minor (1 << MODE_MAJOR or MODE_MINOR; the six modes were respelled 2026-11-05,",
-         "   each chord the same pitch classes). R25: a vamp's or loop's chords keep to one mode of the key (major:",
-         "   Ionian, Mixolydian, Lydian; minor: Aeolian, Dorian) at every color; only jazzy progressions borrow. */",
+         "/* Degrees are 0-based in the song's mode; {degree, alter, quality}. A progression lists only the modes",
+         "   where its degrees give the chords named in src. R25: a vamp's or loop's chords lie in each mode it lists",
+         "   at every color (Q_DIATONIC where the mode's own chord is the one named, so its color tones fit too); only",
+         "   jazzy progressions borrow. */",
          "const lib_prog_t LIB_PROGS[] = {"]
     for p in t["progs"]:
         cs = ", ".join("{%d, %d, %s}" % (d, a, validate.Q[q] if (d, a, q) != (0, 0, 0) or i < p["n"] else "0")

@@ -487,7 +487,7 @@ console.log("the piano roll (roll.js: layout on the committed song's events; dra
 
 // ---- the decision rows (rows.js, options.json) and the desk (desk.js) over the engine ----
 const { ROWS, row, optionsFor, pickFor, conflicts, familyOf, fromEngine, COMP_PAT_BASE } = await import("../rows.js");
-const { Desk, fromModes, endsSong } = await import("../desk.js");
+const { Desk, fromMajorMinor, endsSong } = await import("../desk.js");
 const OPTS = JSON.parse(readFileSync(env("WB_OPTIONS", "../options.json"), "utf8"));
 {   // the rows as data (rows.json, which the device's tables are generated from): rows.js gives what it gave before
   const R = await import("../rows.js"), was = JSON.parse(readFileSync(new URL("fixtures/rows_before.json", import.meta.url), "utf8"));
@@ -1685,7 +1685,7 @@ console.log("lead loop row");
         "an old snapshot without the row restores to Default, no message");
 }
 
-console.log("Modes become major or minor (Sam, 2026-11-05): the Scale row, Roman numerals, old snapshots");
+console.log("The six modes back (Sam, 2026-11-06, undoing major or minor): the Scale row, snapshots saved meanwhile");
 {
   const ex = await load(), call = caller(ex), lib = await call("wb_library");
   ex.wb_seed(21);
@@ -1695,39 +1695,25 @@ console.log("Modes become major or minor (Sam, 2026-11-05): the Scale row, Roman
   const st = { values: { ...desk.values }, locks: new Set() };
   const { sectionOf } = await import("../rows.js");
   check(row("mode").label === "Scale" && row("mode").id === "mode" && sectionOf("mode").name === "Song" &&
-        sectionOf("mode").more.includes("mode") &&
-        JSON.stringify(optionsFor(row("mode"), st, OPTS).map((o) => o.name)) === JSON.stringify(["Major", "Minor"]),
-        "the Scale row (the Mode row's id, for the snapshots; in the Song section's more rows): major, minor");
-  const p17 = lib.progs.find((p) => p.id === 17), p27 = lib.progs.find((p) => p.id === 27);
-  check(p17.mode === 1 && p17.numerals === "i7 IV7" && p27.mode === 0 && p27.numerals === "Imaj7(#11) II7" &&
-        optionsFor(row("prog"), st, OPTS, { lib }).some((o) => o.value === 17 && o.name === "#17 i7 IV7 (minor)"),
-        `the progressions by their Roman numerals in their key (${p17.numerals}; ${p27.numerals})`);
-  check(JSON.stringify([fromModes({ mode: 4, prog: 31 }), fromModes({ mode: 5, prog: 41 }), fromModes({ mode: 3, prog: 27 }),
-                        fromModes({ mode: 1, prog: 17 }), fromModes({ mode: 0, prog: 5 })]) ===
-        JSON.stringify([{ mode: 0, prog: 46 }, { mode: 1, prog: 48 }, { mode: 0, prog: 27 }, { mode: 1, prog: 17 },
-                        { mode: 0, prog: 5 }]), "an old mode and progression as major or minor, the splits' new ids");
+        JSON.stringify(optionsFor(row("mode"), { ...st, legal: {} }, OPTS).map((o) => o.name)) ===
+          JSON.stringify(["Ionian", "Dorian", "Phrygian", "Lydian", "Mixolydian", "Aeolian"]),
+        "the Scale row: the six modes");
+  check(lib.progs.some((p) => p.id === 19 && p.status === "approved") && !lib.progs.some((p) => p.id >= 45),
+        "progression 19 approved again; 45-48 (split off for major and minor) gone");
+  check(JSON.stringify([fromMajorMinor({ mode: 0, prog: 46 }), fromMajorMinor({ mode: 1, prog: 48 }),
+                        fromMajorMinor({ mode: 0, prog: 27 }), fromMajorMinor({ mode: 1, prog: 17 }),
+                        fromMajorMinor({ mode: 1, prog: 3 }), fromMajorMinor({ mode: 4, prog: 31 }),
+                        fromMajorMinor({ mode: 0, prog: 5 })]) ===
+        JSON.stringify([{ mode: 4, prog: 31 }, { mode: 5, prog: 41 }, { mode: 3, prog: 27 }, { mode: 1, prog: 17 },
+                        { mode: 5, prog: 3 }, { mode: 4, prog: 31 }, { mode: 0, prog: 5 }]),
+        "a major or minor snapshot's mode and progression as the mode it was listed in; a six-mode one kept");
   const old = await desk.snapshot();
-  old.rows = { ...old.rows, mood: 0, mode: 4, prog: 31 };   // sad, Mixolydian v7 I7 (Gm7 C7 in C)
+  old.rows = { ...old.rows, mood: 0, mode: 0, prog: 46 };   // saved as major on 46 (Gm7 C7 in C: Mixolydian's v7 I7)
   const e2 = await load(), d2 = new Desk(caller(e2), C, OPTS, await caller(e2)("wb_library"));
   const miss = await d2.restore(old);
-  check(!miss.length && !d2.message && d2.values.mode === 0 && d2.values.prog === 46 &&
-        e2.wb_roll_get(C.RF.MODE) === 0 && e2.wb_roll_get(C.RF.PROG) === 46,
-        `an old Mixolydian snapshot restores as major on 46, its chords, no message (${miss.join(", ")})`);
-  // progression 19, the same chords as 18 since the major and minor (Sam, 2026-11-05): retired, never drawn; an old
-  // snapshot naming it restores as 18, no message
-  const p18 = lib.progs.find((p) => p.id === 18), p19 = lib.progs.find((p) => p.id === 19);
-  const drawn = new Set();
-  for (let s = 1; s <= 400; s++) { e2.wb_seed(s); drawn.add(e2.wb_roll_get(C.RF.PROG)); }
-  check(p19?.status === "retired" && p18?.status === "approved" && p19.numerals === p18.numerals && drawn.has(18) &&
-        !drawn.has(19) && !optionsFor(row("prog"), { values: { ...st.values, mode: 1, mood: 0 } }, OPTS, { lib })
-          .some((o) => o.value === 19),
-        `progression 19 (${p19?.numerals}, as 18) retired: never drawn in 400 seeds, offered only behind "show retired"`);
-  const o19 = await desk.snapshot();
-  o19.rows = { ...o19.rows, mood: 0, mode: 1, prog: 19 };
-  const e3 = await load(), d3 = new Desk(caller(e3), C, OPTS, await caller(e3)("wb_library"));
-  const miss19 = await d3.restore(o19);
-  check(!miss19.length && !d3.message && d3.values.prog === 18 && e3.wb_roll_get(C.RF.PROG) === 18,
-        `an old snapshot on progression 19 restores on 18, no message (${miss19.join(", ")})`);
+  check(!miss.length && !d2.message && d2.values.mode === 4 && d2.values.prog === 31 &&
+        e2.wb_roll_get(C.RF.MODE) === 4 && e2.wb_roll_get(C.RF.PROG) === 31,
+        `a major snapshot on 46 restores as Mixolydian on 31, its chords, no message (${miss.join(", ")})`);
 }
 
 console.log("Task 1b: no ear candy; the pad on/off row");
@@ -2489,8 +2475,7 @@ console.log("candidates: the strum row, Approve (patterns and edits, Task 4)");
   const cand = { ...OPTS, strumPats: [...OPTS.strumPats, { id: "s-new", index: SN, name: "sam-strum", status: "candidate" }],
                  patterns: [...OPTS.patterns, { id: PID, name: "sam-groove", status: "candidate" }],
                  kickPhrases: [...OPTS.kickPhrases, { id: KID, a: [0], b: [0], status: "candidate" }] };
-  const clib = { ...lib, progs: [...lib.progs, { id: GID, mode: 1, numerals: "i7 iv7", src: "imported from patterns/progressions/sam-vamp",
-                                                status: "candidate" }] };
+  const clib = { ...lib, progs: [...lib.progs, { id: GID, src: "imported from patterns/progressions/sam-vamp", status: "candidate" }] };
   const st = (values) => ({ values: { ...desk.values, ...values }, locks: new Set() });
   check(optionsFor(row("strumPat"), st({}), cand).at(-1).status === "candidate" &&
         optionsFor(row("prog"), st({}), cand, { lib: clib }).at(-1).status === "candidate", "a candidate is offered, marked");
@@ -2501,7 +2486,7 @@ console.log("candidates: the strum row, Approve (patterns and edits, Task 4)");
   const first = (xs) => xs.find((x) => x.status === "approved");
   check(JSON.stringify([ap("strumPat", SN), ap("pattern", PID), ap("prog", GID), ap("kick", KID)]) === JSON.stringify([
           { family: "strum", id: "s-new", name: "sam-strum" }, { family: "drums", id: String(PID), name: "sam-groove" },
-          { family: "progressions", id: String(GID), name: `#${GID} i7 iv7 (minor) sam-vamp` }, { family: "kick-phrases", id: KID, name: `Kick ${KID.replace(/^k/i, "")}` }]) &&
+          { family: "progressions", id: String(GID), name: `#${GID} sam-vamp` }, { family: "kick-phrases", id: KID, name: `Kick ${KID.replace(/^k/i, "")}` }]) &&
         [ap("strumPat", okStrum[0]), ap("strumPat", -1), ap("pattern", first(OPTS.patterns).id), ap("prog", first(lib.progs).id),
          ap("kick", ""), ap("mood", 1)].every((x) => x === null),
         "approval names a candidate (strum, drum pattern, progression, kick phrase), nothing else");
@@ -3073,7 +3058,7 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
   const app = src("../../app/app.c"), gfx = src("../../base/device/gfx.c");
   const strs = (name) => [...app.match(new RegExp(`${name}[^=]*=\\s*([^;]*);`))[1].matchAll(/"([^"]*)"/g)].map((m) => m[1]);
   const keys = strs("KEY_NAME");
-  check(JSON.stringify([keys.slice(0, 12), keys.slice(12)]) === JSON.stringify(D.KEY_NAME) &&
+  check(JSON.stringify([0, 1, 2, 3, 4, 5].map((m) => keys.slice(12 * m, 12 * m + 12))) === JSON.stringify(D.KEY_NAME) &&
         JSON.stringify(strs("MODE_NAME")) === JSON.stringify(D.MODE_NAME) && JSON.stringify(strs("MOOD_NAME")) === JSON.stringify(D.MOOD_NAME) &&
         JSON.stringify(strs("SEC_NAME")) === JSON.stringify(D.SEC_NAME) &&
         src("../../app/app.h").includes(`#define APP_NAME "${D.APP_NAME}"`),

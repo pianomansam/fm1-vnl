@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
 <score-partwise version="4.0">
-  <work><work-title>Progression 2: IVmaj7 iii7 = Fmaj7 Em7 in C (vamp; warm, sunny; Major)</work-title></work>
+  <work><work-title>Progression 2: Fmaj7 Em7 (vamp; warm, sunny; Ionian)</work-title></work>
   <identification>
     <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
-    <miscellaneous><miscellaneous-field name="vnl1">{"family":"progressions","id":"2","status":"approved","kind":"PK_VAMP","n":2,"bars_per_chord":2,"chords":[{"degree":3,"alter":0,"quality":"Q_MAJ7"},{"degree":2,"alter":0,"quality":"Q_DIATONIC"}],"moods":["MOOD_WARM","MOOD_SUNNY"],"modes":["MODE_MAJOR"],"src":"lofi-hip-hop.md 2, IVmaj7-iii7 vamp","numerals":["IVmaj7","iii7"],"symbols":["Fmaj7","Em7"],"symbols_mode":"MODE_MAJOR"}</miscellaneous-field></miscellaneous>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"progressions","id":"2","status":"approved","kind":"PK_VAMP","n":2,"bars_per_chord":2,"chords":[{"degree":3,"alter":0,"quality":"Q_MAJ7"},{"degree":2,"alter":0,"quality":"Q_DIATONIC"}],"moods":["MOOD_WARM","MOOD_SUNNY"],"modes":["MODE_IONIAN"],"src":"lofi-hip-hop.md 2, IVmaj7-iii7 vamp","symbols":["Fmaj7","Em7"],"symbols_mode":"MODE_IONIAN"}</miscellaneous-field></miscellaneous>
   </identification>
   <part-list>
     <score-part id="P1">

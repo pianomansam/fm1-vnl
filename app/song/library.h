@@ -32,8 +32,7 @@ enum { MID_BREAK, MID_KICK_OUT, MID_HATS_ONLY, MID_NONE };
 enum { END_KEYS_OUTRO, END_FADE, END_RING };
 
 typedef struct { uint8_t id; uint8_t kind; uint8_t n; uint8_t bars_per_chord; th_chord_spec_t c[4]; uint8_t moods; uint8_t modes; const char *src; } lib_prog_t;
-/* modes: 1 << MODE_MAJOR or 1 << MODE_MINOR, the key its degrees are in (one: a progression is major or minor); moods:
-   MOOD_* bits. n * bars_per_chord is 2, 4 or 8. */
+/* modes: bit (1 << MODE_x) for each mode whose degrees give the chords the note claims; moods: MOOD_* bits. n * bars_per_chord is 2, 4 or 8. */
 /* pad: the pad layer's instrument (INS_STRINGS or INS_WARM_PAD; a song may draw the choir over it: lib_song_pad).
    candy (and lib_mood_t's candy_pct, and L_CANDY): unused since the ear candy went (Sam, 2026-10-29), kept as the curation's record */
 /* kit: the synth kit (KIT_N: none, the skit only); skit: the sampled kit (KIT_N: none, the synth kit always) */

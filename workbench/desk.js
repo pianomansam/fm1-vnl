@@ -66,22 +66,22 @@ export const endsSong = (gap, last, looping) => !!gap && gap !== last && !loopin
 // song's sections (wb_live_sections), not the committed ones (a change may be waiting)
 export const positionOf = (pos, live) => ({ seconds: pos.seconds, bar: pos.bar, section: sectionAt(live, pos.bar)?.name ?? null });
 
-// A snapshot from before the modes became major and minor (Sam, 2026-11-05): its mode (Ionian 0, Dorian 1, Phrygian
-// 2, Lydian 3, Mixolydian 4, Aeolian 5) and progression as the major or minor song with the same chords
-// (tools/patterns/major_minor_2026-11-05.json). Ionian and Dorian kept their values as major and minor, and the first
-// mode a progression listed kept its id; the four it was split from take the new ids. Exact: nothing to say.
-const TONALITY = [0, 1, 1, 0, 0, 1];
-const SPLIT = { "4:5": 45, "4:31": 46, "5:33": 47, "5:41": 48 };
-export function fromModes(rows) {
-  const m = rows.mode;
-  if (!(m >= 2 && m <= 5)) return rows;
-  return { ...rows, mode: TONALITY[m], prog: SPLIT[`${m}:${rows.prog}`] ?? rows.prog };
+// A snapshot or feedback entry saved while songs were major or minor (Sam, 2026-11-05 to 2026-11-06; undone, the six
+// modes back): its mode (major 0, minor 1) and progression as the mode the progression was listed in, with the same
+// chords (the 2026-11-05 migration's record, inverted). A six-mode snapshot's mode 0 or 1 is legal on its progression
+// and stays; a major or minor one that names a mode the progression wasn't listed in takes the first one it was;
+// 45-48, split off then, go back to the progressions they came from. Exact: nothing to say.
+const LISTED = { 1: [0], 2: [0], 3: [5], 4: [0], 5: [0], 6: [5], 7: [0], 8: [0], 9: [0], 10: [0], 11: [0], 12: [0], 13: [0],
+  14: [0, 4], 15: [0], 16: [0, 4], 17: [1], 18: [5], 19: [1], 20: [5], 21: [1], 22: [5], 23: [5], 24: [1, 5], 25: [1],
+  26: [1], 27: [3], 28: [3], 29: [4], 30: [4], 31: [1], 32: [1], 33: [1], 34: [4], 35: [3], 36: [3], 37: [4], 38: [4],
+  39: [4], 40: [1], 41: [1], 42: [5], 43: [0], 44: [1] };
+const SPLIT = { 45: [4, 5], 46: [4, 31], 47: [5, 33], 48: [5, 41] };   // split id: [its mode, the progression]
+export function fromMajorMinor(rows) {
+  const m = rows.mode, p = rows.prog;
+  if (p in SPLIT) return { ...rows, mode: SPLIT[p][0], prog: SPLIT[p][1] };
+  if (!(m === 0 || m === 1) || !LISTED[p] || LISTED[p].includes(m)) return rows;
+  return { ...rows, mode: LISTED[p][0] };
 }
-
-// A retired progression that plays the same chords as another (Sam, 2026-11-05: 19, the same as 18 since the major
-// and minor): an old snapshot naming it restores as that one. Exact: nothing to say.
-const SAME_PROG = { 19: 18 };
-export const sameProg = (rows) => (rows.prog in SAME_PROG ? { ...rows, prog: SAME_PROG[rows.prog] } : rows);
 
 const SEED_TRIES = 20;   // a new seed whose song can't keep the locks is tried again (re-roll all, the seed's dice)
 
@@ -133,7 +133,7 @@ export class Desk {
       .then((ok) => xs.filter((x, i) => ok[i]));
     this.legal = {
       prog: await ids(this.lib.progs.map((p) => p.id), this.C.RF.PROG),
-      mode: await ids([0, 1], this.C.RF.MODE),   // major, minor
+      mode: await ids([0, 1, 2, 3, 4, 5], this.C.RF.MODE),
     };
     const cs = await this.call("wb_comp_applied"), pat = cs === CS_PAT ? await this.call("wb_comp_pat_applied") : -1;
     this.comp = pat >= 0 ? COMP_PAT_BASE + pat : cs;   // (an added rhythm: which one)
@@ -570,8 +570,7 @@ export class Desk {
     // doubling switch, the arpeggio rows: lead styles, 2026-10-31) is ignored
     const older = ROWS.filter((r) => (r.kind === "ov" || r.kind === "reroll") && !(r.id in snap.rows));
     snap = { ...snap, rows: { ...snap.rows, ...Object.fromEntries(older.map((r) => [r.id, rolled(r)])) } };
-    snap = { ...snap, rows: sameProg(fromModes(snap.rows)) };   // an old mode: major or minor; a retired twin
-                                                                   // progression: its twin (the same chords)
+    snap = { ...snap, rows: fromMajorMinor(snap.rows) };   // saved while songs were major or minor: the mode it was
     // the Comp rhythm row (to 2026-11-05) is the Comping row's now: a rhythm it forced restores as that rhythm there
     if (snap.rows.compPat >= 0) snap = { ...snap, rows: { ...snap.rows, comp: COMP_PAT_BASE + snap.rows.compPat } };
     // a removed comping style (light eighths: Sam, 2026-11-05) restores as held: said, not a mismatch

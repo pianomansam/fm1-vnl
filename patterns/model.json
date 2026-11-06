@@ -487,18 +487,14 @@
         "MOOD_SUNNY"
       ],
       "modes": [
-        "MODE_MAJOR"
+        "MODE_IONIAN"
       ],
       "src": "lofi-hip-hop.md 2, ii9-V13 vamp",
-      "numerals": [
-        "ii7",
-        "V7"
-      ],
       "symbols": [
         "Dm7",
         "G7"
       ],
-      "symbols_mode": "MODE_MAJOR",
+      "symbols_mode": "MODE_IONIAN",
       "file": "progressions/1-vamp-dm7-g7"
     },
     "2": {
@@ -524,18 +520,14 @@
         "MOOD_SUNNY"
       ],
       "modes": [
-        "MODE_MAJOR"
+        "MODE_IONIAN"
       ],
       "src": "lofi-hip-hop.md 2, IVmaj7-iii7 vamp",
-      "numerals": [
-        "IVmaj7",
-        "iii7"
-      ],
       "symbols": [
         "Fmaj7",
         "Em7"
       ],
-      "symbols_mode": "MODE_MAJOR",
+      "symbols_mode": "MODE_IONIAN",
       "file": "progressions/2-vamp-fmaj7-em7"
     },
     "3": {
@@ -561,18 +553,14 @@
         "MOOD_WISTFUL"
       ],
       "modes": [
-        "MODE_MINOR"
+        "MODE_AEOLIAN"
       ],
       "src": "lofi-hip-hop.md 2, i9-iv9 vamp",
-      "numerals": [
-        "i7",
-        "iv7"
-      ],
       "symbols": [
         "Cm7",
         "Fm7"
       ],
-      "symbols_mode": "MODE_MINOR",
+      "symbols_mode": "MODE_AEOLIAN",
       "file": "progressions/3-vamp-cm7-fm7"
     },
     "4": {
@@ -598,18 +586,14 @@
         "MOOD_SUNNY"
       ],
       "modes": [
-        "MODE_MAJOR"
+        "MODE_IONIAN"
       ],
       "src": "lofi-hip-hop.md 2, Imaj7-IVmaj7 vamp",
-      "numerals": [
-        "Imaj7",
-        "IVmaj7"
-      ],
       "symbols": [
         "Cmaj7",
         "Fmaj7"
       ],
-      "symbols_mode": "MODE_MAJOR",
+      "symbols_mode": "MODE_IONIAN",
       "file": "progressions/4-vamp-cmaj7-fmaj7"
     },
     "5": {
@@ -635,18 +619,15 @@
         "MOOD_WISTFUL"
       ],
       "modes": [
-        "MODE_MAJOR"
+        "MODE_IONIAN",
+        "MODE_MIXOLYDIAN"
       ],
       "src": "brainstorm: vi7-ii7 minor vamp",
-      "numerals": [
-        "vi7",
-        "ii7"
-      ],
       "symbols": [
         "Am7",
         "Dm7"
       ],
-      "symbols_mode": "MODE_MAJOR",
+      "symbols_mode": "MODE_IONIAN",
       "file": "progressions/5-vamp-am7-dm7"
     },
     "6": {
@@ -673,18 +654,14 @@
         "MOOD_WARM"
       ],
       "modes": [
-        "MODE_MINOR"
+        "MODE_AEOLIAN"
       ],
       "src": "brainstorm: i7-bVII7 modal vamp (Cm7 Bb7 in C)",
-      "numerals": [
-        "i7",
-        "VII7"
-      ],
       "symbols": [
         "Cm7",
         "Bb7"
       ],
-      "symbols_mode": "MODE_MINOR",
+      "symbols_mode": "MODE_AEOLIAN",
       "file": "progressions/6-vamp-cm7-bb7"
     },
     "7": {
@@ -720,22 +697,16 @@
         "MOOD_WARM"
       ],
       "modes": [
-        "MODE_MAJOR"
+        "MODE_IONIAN"
       ],
       "src": "lofi-hip-hop.md 2, IVmaj7-iii7-ii7-Imaj7 descending loop",
-      "numerals": [
-        "IVmaj7",
-        "iii7",
-        "ii7",
-        "Imaj7"
-      ],
       "symbols": [
         "Fmaj7",
         "Em7",
         "Dm7",
         "Cmaj7"
       ],
-      "symbols_mode": "MODE_MAJOR",
+      "symbols_mode": "MODE_IONIAN",
       "file": "progressions/7-loop-fmaj7-em7-dm7-cmaj7"
     },
     "8": {
@@ -772,22 +743,16 @@
         "MOOD_SUNNY"
       ],
       "modes": [
-        "MODE_MAJOR"
+        "MODE_IONIAN"
       ],
       "src": "lofi-hip-hop.md 2, ii9-V13-Imaj9-vi7 loop",
-      "numerals": [
-        "ii7",
-        "V7",
-        "Imaj7",
-        "vi7"
-      ],
       "symbols": [
         "Dm7",
         "G7",
         "Cmaj7",
         "Am7"
       ],
-      "symbols_mode": "MODE_MAJOR",
+      "symbols_mode": "MODE_IONIAN",
       "file": "progressions/8-loop-dm7-g7-cmaj7-am7"
     },
     "9": {
@@ -824,22 +789,16 @@
         "MOOD_SUNNY"
       ],
       "modes": [
-        "MODE_MAJOR"
+        "MODE_IONIAN"
       ],
       "src": "lofi-hip-hop.md 2, IVmaj7-V7-iii7-vi7 royal road",
-      "numerals": [
-        "IVmaj7",
-        "V7",
-        "iii7",
-        "vi7"
-      ],
       "symbols": [
         "Fmaj7",
         "G7",
         "Em7",
         "Am7"
       ],
-      "symbols_mode": "MODE_MAJOR",
+      "symbols_mode": "MODE_IONIAN",
       "file": "progressions/9-loop-fmaj7-g7-em7-am7"
     },
     "10": {
@@ -876,22 +835,16 @@
         "MOOD_WARM"
       ],
       "modes": [
-        "MODE_MAJOR"
+        "MODE_IONIAN"
       ],
       "src": "lofi-hip-hop.md 2, vi9-ii9-V13-Imaj9 loop",
-      "numerals": [
-        "vi7",
-        "ii7",
-        "V7",
-        "Imaj7"
-      ],
       "symbols": [
         "Am7",
         "Dm7",
         "G7",
         "Cmaj7"
       ],
-      "symbols_mode": "MODE_MAJOR",
+      "symbols_mode": "MODE_IONIAN",
       "file": "progressions/10-loop-am7-dm7-g7-cmaj7"
     },
     "11": {
@@ -927,22 +880,16 @@
         "MOOD_SUNNY"
       ],
       "modes": [
-        "MODE_MAJOR"
+        "MODE_IONIAN"
       ],
       "src": "lofi-hip-hop.md 2, Imaj9-vi9-ii9-V13 turnaround loop",
-      "numerals": [
-        "Imaj7",
-        "vi7",
-        "ii7",
-        "V7"
-      ],
       "symbols": [
         "Cmaj7",
         "Am7",
         "Dm7",
         "G7"
       ],
-      "symbols_mode": "MODE_MAJOR",
+      "symbols_mode": "MODE_IONIAN",
       "file": "progressions/11-loop-cmaj7-am7-dm7-g7"
     },
     "12": {
@@ -978,22 +925,16 @@
         "MOOD_SUNNY"
       ],
       "modes": [
-        "MODE_MAJOR"
+        "MODE_IONIAN"
       ],
       "src": "lofi-hip-hop.md 2, bossa ii7-V7-Imaj7-VI7 (bossa flavor); R25: borrows, so jazzy",
-      "numerals": [
-        "ii7",
-        "V7",
-        "Imaj7",
-        "VI7"
-      ],
       "symbols": [
         "Dm7",
         "G7",
         "Cmaj7",
         "A7"
       ],
-      "symbols_mode": "MODE_MAJOR",
+      "symbols_mode": "MODE_IONIAN",
       "file": "progressions/12-jazzy-dm7-g7-cmaj7-a7"
     },
     "13": {
@@ -1029,22 +970,16 @@
         "MOOD_SUNNY"
       ],
       "modes": [
-        "MODE_MAJOR"
+        "MODE_IONIAN"
       ],
       "src": "brainstorm: city pop IVmaj7-III7-vi7-I7 (city pop flavor); R25: borrows, so jazzy",
-      "numerals": [
-        "IVmaj7",
-        "III7",
-        "vi7",
-        "I7"
-      ],
       "symbols": [
         "Fmaj7",
         "E7",
         "Am7",
         "C7"
       ],
-      "symbols_mode": "MODE_MAJOR",
+      "symbols_mode": "MODE_IONIAN",
       "file": "progressions/13-jazzy-fmaj7-e7-am7-c7"
     },
     "14": {
@@ -1080,22 +1015,17 @@
         "MOOD_WISTFUL"
       ],
       "modes": [
-        "MODE_MAJOR"
+        "MODE_IONIAN",
+        "MODE_MIXOLYDIAN"
       ],
       "src": "lofi-hip-hop.md 2, IVmaj7-iv7-iii7-VI7 borrowed iv",
-      "numerals": [
-        "IVmaj7",
-        "iv7",
-        "iii7",
-        "VI7"
-      ],
       "symbols": [
         "Fmaj7",
         "Fm7",
         "Em7",
         "A7"
       ],
-      "symbols_mode": "MODE_MAJOR",
+      "symbols_mode": "MODE_IONIAN",
       "file": "progressions/14-jazzy-fmaj7-fm7-em7-a7"
     },
     "15": {
@@ -1131,22 +1061,16 @@
         "MOOD_SUNNY"
       ],
       "modes": [
-        "MODE_MAJOR"
+        "MODE_IONIAN"
       ],
       "src": "lofi-hip-hop.md 2, ii9-V13-Imaj9-VI7 turnaround (was a ii-bII7-I tritone sub: none, Sam)",
-      "numerals": [
-        "ii7",
-        "V7",
-        "Imaj7",
-        "VI7"
-      ],
       "symbols": [
         "Dm7",
         "G7",
         "Cmaj7",
         "A7"
       ],
-      "symbols_mode": "MODE_MAJOR",
+      "symbols_mode": "MODE_IONIAN",
       "file": "progressions/15-jazzy-dm7-g7-cmaj7-a7"
     },
     "16": {
@@ -1182,22 +1106,17 @@
         "MOOD_WARM"
       ],
       "modes": [
-        "MODE_MAJOR"
+        "MODE_IONIAN",
+        "MODE_MIXOLYDIAN"
       ],
       "src": "lofi-hip-hop.md 2, Imaj7-I7-IVmaj7-iv7",
-      "numerals": [
-        "Imaj7",
-        "I7",
-        "IVmaj7",
-        "iv7"
-      ],
       "symbols": [
         "Cmaj7",
         "C7",
         "Fmaj7",
         "Fm7"
       ],
-      "symbols_mode": "MODE_MAJOR",
+      "symbols_mode": "MODE_IONIAN",
       "file": "progressions/16-jazzy-cmaj7-c7-fmaj7-fm7"
     },
     "17": {
@@ -1224,18 +1143,14 @@
         "MOOD_SUNNY"
       ],
       "modes": [
-        "MODE_MINOR"
+        "MODE_DORIAN"
       ],
       "src": "brainstorm: Dorian i7-IV7 vamp (Cm7 F7 in C)",
-      "numerals": [
-        "i7",
-        "IV7"
-      ],
       "symbols": [
         "Cm7",
         "F7"
       ],
-      "symbols_mode": "MODE_MINOR",
+      "symbols_mode": "MODE_DORIAN",
       "file": "progressions/17-vamp-cm7-f7"
     },
     "18": {
@@ -1271,27 +1186,21 @@
         "MOOD_WISTFUL"
       ],
       "modes": [
-        "MODE_MINOR"
+        "MODE_AEOLIAN"
       ],
       "src": "brainstorm: Aeolian i7-bVII7-bVImaj7-V7 (Cm7 Bb7 Abmaj7 G7); R25: borrows, so jazzy",
-      "numerals": [
-        "i7",
-        "VII7",
-        "VImaj7",
-        "V7"
-      ],
       "symbols": [
         "Cm7",
         "Bb7",
         "Abmaj7",
         "G7"
       ],
-      "symbols_mode": "MODE_MINOR",
+      "symbols_mode": "MODE_AEOLIAN",
       "file": "progressions/18-jazzy-cm7-bb7-abmaj7-g7"
     },
     "19": {
       "id": 19,
-      "status": "retired",
+      "status": "approved",
       "kind": "PK_JAZZY",
       "n": 4,
       "bars_per_chord": 1,
@@ -1308,7 +1217,7 @@
         },
         {
           "degree": 5,
-          "alter": 0,
+          "alter": -1,
           "quality": "Q_MAJ7"
         },
         {
@@ -1322,22 +1231,16 @@
         "MOOD_WISTFUL"
       ],
       "modes": [
-        "MODE_MINOR"
+        "MODE_DORIAN"
       ],
       "src": "brainstorm: Dorian-key i7-bVII7-bVImaj7-V7 (borrowed bVI, Abmaj7); R25: borrows, so jazzy",
-      "numerals": [
-        "i7",
-        "VII7",
-        "VImaj7",
-        "V7"
-      ],
       "symbols": [
         "Cm7",
         "Bb7",
         "Abmaj7",
         "G7"
       ],
-      "symbols_mode": "MODE_MINOR",
+      "symbols_mode": "MODE_DORIAN",
       "file": "progressions/19-jazzy-cm7-bb7-abmaj7-g7"
     },
     "20": {
@@ -1373,22 +1276,16 @@
         "MOOD_WISTFUL"
       ],
       "modes": [
-        "MODE_MINOR"
+        "MODE_AEOLIAN"
       ],
       "src": "brainstorm: i7-iv7-bVII7-bIIImaj7 (Cm7 Fm7 Bb7 Ebmaj7)",
-      "numerals": [
-        "i7",
-        "iv7",
-        "VII7",
-        "IIImaj7"
-      ],
       "symbols": [
         "Cm7",
         "Fm7",
         "Bb7",
         "Ebmaj7"
       ],
-      "symbols_mode": "MODE_MINOR",
+      "symbols_mode": "MODE_AEOLIAN",
       "file": "progressions/20-loop-cm7-fm7-bb7-ebmaj7"
     },
     "21": {
@@ -1414,18 +1311,14 @@
         "MOOD_SUNNY"
       ],
       "modes": [
-        "MODE_MINOR"
+        "MODE_DORIAN"
       ],
       "src": "brainstorm: Dorian IV7-bVII7 funk vamp (F7 Bb7 in C); R25: borrows, so jazzy",
-      "numerals": [
-        "IV7",
-        "VII7"
-      ],
       "symbols": [
         "F7",
         "Bb7"
       ],
-      "symbols_mode": "MODE_MINOR",
+      "symbols_mode": "MODE_DORIAN",
       "file": "progressions/21-jazzy-f7-bb7"
     },
     "22": {
@@ -1461,22 +1354,16 @@
         "MOOD_WISTFUL"
       ],
       "modes": [
-        "MODE_MINOR"
+        "MODE_AEOLIAN"
       ],
       "src": "brainstorm R8: im9-iv9-bVImaj7-V7, major V forced (Cm7 Fm7 Abmaj7 G7)",
-      "numerals": [
-        "i7",
-        "iv7",
-        "VImaj7",
-        "V7"
-      ],
       "symbols": [
         "Cm7",
         "Fm7",
         "Abmaj7",
         "G7"
       ],
-      "symbols_mode": "MODE_MINOR",
+      "symbols_mode": "MODE_AEOLIAN",
       "file": "progressions/22-jazzy-cm7-fm7-abmaj7-g7"
     },
     "23": {
@@ -1512,22 +1399,16 @@
         "MOOD_WISTFUL"
       ],
       "modes": [
-        "MODE_MINOR"
+        "MODE_AEOLIAN"
       ],
       "src": "brainstorm R8: im9-ivm9-V7-im9, major V forced (Cm7 Fm7 G7 Cm7; was bVI7, a tritone sub: none, Sam)",
-      "numerals": [
-        "i7",
-        "iv7",
-        "V7",
-        "i7"
-      ],
       "symbols": [
         "Cm7",
         "Fm7",
         "G7",
         "Cm7"
       ],
-      "symbols_mode": "MODE_MINOR",
+      "symbols_mode": "MODE_AEOLIAN",
       "file": "progressions/23-jazzy-cm7-fm7-g7-cm7"
     },
     "24": {
@@ -1554,18 +1435,15 @@
         "MOOD_WARM"
       ],
       "modes": [
-        "MODE_MINOR"
+        "MODE_DORIAN",
+        "MODE_AEOLIAN"
       ],
       "src": "brainstorm R8: im9-bIImaj7 Neapolitan color (Cm7 Dbmaj7)",
-      "numerals": [
-        "i7",
-        "bIImaj7"
-      ],
       "symbols": [
         "Cm7",
         "Dbmaj7"
       ],
-      "symbols_mode": "MODE_MINOR",
+      "symbols_mode": "MODE_DORIAN",
       "file": "progressions/24-jazzy-cm7-dbmaj7"
     },
     "25": {
@@ -1601,22 +1479,16 @@
         "MOOD_SUNNY"
       ],
       "modes": [
-        "MODE_MINOR"
+        "MODE_DORIAN"
       ],
       "src": "brainstorm R8: bright Dorian i7-IV7-bVIImaj7-bIIImaj7 loop (Cm7 F7 Bbmaj7 Ebmaj7)",
-      "numerals": [
-        "i7",
-        "IV7",
-        "VIImaj7",
-        "IIImaj7"
-      ],
       "symbols": [
         "Cm7",
         "F7",
         "Bbmaj7",
         "Ebmaj7"
       ],
-      "symbols_mode": "MODE_MINOR",
+      "symbols_mode": "MODE_DORIAN",
       "file": "progressions/25-loop-cm7-f7-bbmaj7-ebmaj7"
     },
     "26": {
@@ -1634,7 +1506,7 @@
         {
           "degree": 1,
           "alter": 0,
-          "quality": "Q_MIN7B9"
+          "quality": "Q_DIATONIC"
         },
         {
           "degree": 2,
@@ -1653,22 +1525,16 @@
         "MOOD_SUNNY"
       ],
       "modes": [
-        "MODE_MINOR"
+        "MODE_DORIAN"
       ],
       "src": "brainstorm R8: rising Dorian i7-ii7-bIIImaj7-IV7 loop (Cm7 Dm7 Ebmaj7 F7)",
-      "numerals": [
-        "i7",
-        "ii7(no 9)",
-        "IIImaj7",
-        "IV7"
-      ],
       "symbols": [
         "Cm7",
         "Dm7",
         "Ebmaj7",
         "F7"
       ],
-      "symbols_mode": "MODE_MINOR",
+      "symbols_mode": "MODE_DORIAN",
       "file": "progressions/26-loop-cm7-dm7-ebmaj7-f7"
     },
     "27": {
@@ -1681,12 +1547,12 @@
         {
           "degree": 0,
           "alter": 0,
-          "quality": "Q_MAJ7S11"
+          "quality": "Q_DIATONIC"
         },
         {
           "degree": 1,
           "alter": 0,
-          "quality": "Q_DOM7"
+          "quality": "Q_DIATONIC"
         }
       ],
       "moods": [
@@ -1695,18 +1561,14 @@
         "MOOD_SUNNY"
       ],
       "modes": [
-        "MODE_MAJOR"
+        "MODE_LYDIAN"
       ],
       "src": "R25: Lydian Imaj7-II7 vamp (Cmaj7 D7)",
-      "numerals": [
-        "Imaj7(#11)",
-        "II7"
-      ],
       "symbols": [
         "Cmaj7",
         "D7"
       ],
-      "symbols_mode": "MODE_MAJOR",
+      "symbols_mode": "MODE_LYDIAN",
       "file": "progressions/27-vamp-cmaj7-d7"
     },
     "28": {
@@ -1719,12 +1581,12 @@
         {
           "degree": 0,
           "alter": 0,
-          "quality": "Q_MAJ7S11"
+          "quality": "Q_DIATONIC"
         },
         {
           "degree": 4,
           "alter": 0,
-          "quality": "Q_MAJ7"
+          "quality": "Q_DIATONIC"
         }
       ],
       "moods": [
@@ -1732,18 +1594,14 @@
         "MOOD_SUNNY"
       ],
       "modes": [
-        "MODE_MAJOR"
+        "MODE_LYDIAN"
       ],
       "src": "R25: Lydian Imaj7-Vmaj7 vamp (Cmaj7 Gmaj7)",
-      "numerals": [
-        "Imaj7(#11)",
-        "Vmaj7"
-      ],
       "symbols": [
         "Cmaj7",
         "Gmaj7"
       ],
-      "symbols_mode": "MODE_MAJOR",
+      "symbols_mode": "MODE_LYDIAN",
       "file": "progressions/28-vamp-cmaj7-gmaj7"
     },
     "29": {
@@ -1756,12 +1614,12 @@
         {
           "degree": 0,
           "alter": 0,
-          "quality": "Q_DOM7"
+          "quality": "Q_DIATONIC"
         },
         {
           "degree": 6,
-          "alter": -1,
-          "quality": "Q_MAJ7S11"
+          "alter": 0,
+          "quality": "Q_DIATONIC"
         }
       ],
       "moods": [
@@ -1770,18 +1628,14 @@
         "MOOD_SUNNY"
       ],
       "modes": [
-        "MODE_MAJOR"
+        "MODE_MIXOLYDIAN"
       ],
       "src": "R25: Mixolydian I7-bVIImaj7 vamp (C7 Bbmaj7)",
-      "numerals": [
-        "I7",
-        "bVIImaj7(#11)"
-      ],
       "symbols": [
         "C7",
         "Bbmaj7"
       ],
-      "symbols_mode": "MODE_MAJOR",
+      "symbols_mode": "MODE_MIXOLYDIAN",
       "file": "progressions/29-vamp-c7-bbmaj7"
     },
     "30": {
@@ -1794,12 +1648,12 @@
         {
           "degree": 0,
           "alter": 0,
-          "quality": "Q_DOM7"
+          "quality": "Q_DIATONIC"
         },
         {
           "degree": 3,
           "alter": 0,
-          "quality": "Q_MAJ7"
+          "quality": "Q_DIATONIC"
         }
       ],
       "moods": [
@@ -1807,18 +1661,14 @@
         "MOOD_SUNNY"
       ],
       "modes": [
-        "MODE_MAJOR"
+        "MODE_MIXOLYDIAN"
       ],
       "src": "R25: Mixolydian I7-IVmaj7 vamp (C7 Fmaj7)",
-      "numerals": [
-        "I7",
-        "IVmaj7"
-      ],
       "symbols": [
         "C7",
         "Fmaj7"
       ],
-      "symbols_mode": "MODE_MAJOR",
+      "symbols_mode": "MODE_MIXOLYDIAN",
       "file": "progressions/30-vamp-c7-fmaj7"
     },
     "31": {
@@ -1831,7 +1681,7 @@
         {
           "degree": 4,
           "alter": 0,
-          "quality": "Q_MIN7"
+          "quality": "Q_DIATONIC"
         },
         {
           "degree": 0,
@@ -1844,18 +1694,15 @@
         "MOOD_WISTFUL"
       ],
       "modes": [
-        "MODE_MINOR"
+        "MODE_DORIAN",
+        "MODE_MIXOLYDIAN"
       ],
       "src": "R25: v7-i vamp (Dorian Gm7 Cm7; Mixolydian Gm7 C7)",
-      "numerals": [
-        "v7",
-        "i7"
-      ],
       "symbols": [
         "Gm7",
         "Cm7"
       ],
-      "symbols_mode": "MODE_MINOR",
+      "symbols_mode": "MODE_DORIAN",
       "file": "progressions/31-vamp-gm7-cm7"
     },
     "32": {
@@ -1873,7 +1720,7 @@
         {
           "degree": 1,
           "alter": 0,
-          "quality": "Q_MIN7B9"
+          "quality": "Q_DIATONIC"
         }
       ],
       "moods": [
@@ -1882,18 +1729,14 @@
         "MOOD_SUNNY"
       ],
       "modes": [
-        "MODE_MINOR"
+        "MODE_DORIAN"
       ],
       "src": "R25: Dorian i7-ii7 vamp (Cm7 Dm7)",
-      "numerals": [
-        "i7",
-        "ii7(no 9)"
-      ],
       "symbols": [
         "Cm7",
         "Dm7"
       ],
-      "symbols_mode": "MODE_MINOR",
+      "symbols_mode": "MODE_DORIAN",
       "file": "progressions/32-vamp-cm7-dm7"
     },
     "33": {
@@ -1911,7 +1754,7 @@
         {
           "degree": 2,
           "alter": 0,
-          "quality": "Q_MAJ7S11"
+          "quality": "Q_DIATONIC"
         }
       ],
       "moods": [
@@ -1920,18 +1763,15 @@
         "MOOD_WARM"
       ],
       "modes": [
-        "MODE_MINOR"
+        "MODE_DORIAN",
+        "MODE_AEOLIAN"
       ],
       "src": "R25: i7-bIIImaj7 vamp (Cm7 Ebmaj7)",
-      "numerals": [
-        "i7",
-        "IIImaj7(#11)"
-      ],
       "symbols": [
         "Cm7",
         "Ebmaj7"
       ],
-      "symbols_mode": "MODE_MINOR",
+      "symbols_mode": "MODE_DORIAN",
       "file": "progressions/33-vamp-cm7-ebmaj7"
     },
     "34": {
@@ -1944,12 +1784,12 @@
         {
           "degree": 5,
           "alter": 0,
-          "quality": "Q_MIN7B9"
+          "quality": "Q_DIATONIC"
         },
         {
           "degree": 4,
           "alter": 0,
-          "quality": "Q_MIN7"
+          "quality": "Q_DIATONIC"
         }
       ],
       "moods": [
@@ -1957,18 +1797,14 @@
         "MOOD_WISTFUL"
       ],
       "modes": [
-        "MODE_MAJOR"
+        "MODE_MIXOLYDIAN"
       ],
       "src": "R25: Mixolydian vi7-v7 vamp (Am7 Gm7)",
-      "numerals": [
-        "vi7(no 9)",
-        "v7"
-      ],
       "symbols": [
         "Am7",
         "Gm7"
       ],
-      "symbols_mode": "MODE_MAJOR",
+      "symbols_mode": "MODE_MIXOLYDIAN",
       "file": "progressions/34-vamp-am7-gm7"
     },
     "35": {
@@ -1981,22 +1817,22 @@
         {
           "degree": 0,
           "alter": 0,
-          "quality": "Q_MAJ7S11"
+          "quality": "Q_DIATONIC"
         },
         {
           "degree": 1,
           "alter": 0,
-          "quality": "Q_DOM7"
+          "quality": "Q_DIATONIC"
         },
         {
           "degree": 6,
           "alter": 0,
-          "quality": "Q_MIN7B9"
+          "quality": "Q_DIATONIC"
         },
         {
           "degree": 2,
           "alter": 0,
-          "quality": "Q_MIN7"
+          "quality": "Q_DIATONIC"
         }
       ],
       "moods": [
@@ -2004,22 +1840,16 @@
         "MOOD_SUNNY"
       ],
       "modes": [
-        "MODE_MAJOR"
+        "MODE_LYDIAN"
       ],
       "src": "R25: Lydian Imaj7-II7-vii7-iii7 loop (Cmaj7 D7 Bm7 Em7)",
-      "numerals": [
-        "Imaj7(#11)",
-        "II7",
-        "vii7(no 9)",
-        "iii7"
-      ],
       "symbols": [
         "Cmaj7",
         "D7",
         "Bm7",
         "Em7"
       ],
-      "symbols_mode": "MODE_MAJOR",
+      "symbols_mode": "MODE_LYDIAN",
       "file": "progressions/35-loop-cmaj7-d7-bm7-em7"
     },
     "36": {
@@ -2032,7 +1862,7 @@
         {
           "degree": 0,
           "alter": 0,
-          "quality": "Q_MAJ7S11"
+          "quality": "Q_DIATONIC"
         },
         {
           "degree": 5,
@@ -2042,12 +1872,12 @@
         {
           "degree": 1,
           "alter": 0,
-          "quality": "Q_DOM7"
+          "quality": "Q_DIATONIC"
         },
         {
           "degree": 4,
           "alter": 0,
-          "quality": "Q_MAJ7"
+          "quality": "Q_DIATONIC"
         }
       ],
       "moods": [
@@ -2056,22 +1886,16 @@
         "MOOD_SUNNY"
       ],
       "modes": [
-        "MODE_MAJOR"
+        "MODE_LYDIAN"
       ],
       "src": "R25: Lydian Imaj7-vi7-II7-Vmaj7 loop (Cmaj7 Am7 D7 Gmaj7)",
-      "numerals": [
-        "Imaj7(#11)",
-        "vi7",
-        "II7",
-        "Vmaj7"
-      ],
       "symbols": [
         "Cmaj7",
         "Am7",
         "D7",
         "Gmaj7"
       ],
-      "symbols_mode": "MODE_MAJOR",
+      "symbols_mode": "MODE_LYDIAN",
       "file": "progressions/36-loop-cmaj7-am7-d7-gmaj7"
     },
     "37": {
@@ -2084,22 +1908,22 @@
         {
           "degree": 0,
           "alter": 0,
-          "quality": "Q_DOM7"
+          "quality": "Q_DIATONIC"
         },
         {
           "degree": 4,
           "alter": 0,
-          "quality": "Q_MIN7"
+          "quality": "Q_DIATONIC"
         },
         {
           "degree": 6,
-          "alter": -1,
-          "quality": "Q_MAJ7S11"
+          "alter": 0,
+          "quality": "Q_DIATONIC"
         },
         {
           "degree": 3,
           "alter": 0,
-          "quality": "Q_MAJ7"
+          "quality": "Q_DIATONIC"
         }
       ],
       "moods": [
@@ -2107,22 +1931,16 @@
         "MOOD_SUNNY"
       ],
       "modes": [
-        "MODE_MAJOR"
+        "MODE_MIXOLYDIAN"
       ],
       "src": "R25: Mixolydian I7-v7-bVIImaj7-IVmaj7 loop (C7 Gm7 Bbmaj7 Fmaj7)",
-      "numerals": [
-        "I7",
-        "v7",
-        "bVIImaj7(#11)",
-        "IVmaj7"
-      ],
       "symbols": [
         "C7",
         "Gm7",
         "Bbmaj7",
         "Fmaj7"
       ],
-      "symbols_mode": "MODE_MAJOR",
+      "symbols_mode": "MODE_MIXOLYDIAN",
       "file": "progressions/37-loop-c7-gm7-bbmaj7-fmaj7"
     },
     "38": {
@@ -2135,22 +1953,22 @@
         {
           "degree": 5,
           "alter": 0,
-          "quality": "Q_MIN7B9"
+          "quality": "Q_DIATONIC"
         },
         {
           "degree": 4,
           "alter": 0,
-          "quality": "Q_MIN7"
+          "quality": "Q_DIATONIC"
         },
         {
           "degree": 3,
           "alter": 0,
-          "quality": "Q_MAJ7"
+          "quality": "Q_DIATONIC"
         },
         {
           "degree": 0,
           "alter": 0,
-          "quality": "Q_DOM7"
+          "quality": "Q_DIATONIC"
         }
       ],
       "moods": [
@@ -2158,22 +1976,16 @@
         "MOOD_WISTFUL"
       ],
       "modes": [
-        "MODE_MAJOR"
+        "MODE_MIXOLYDIAN"
       ],
       "src": "R25: Mixolydian vi7-v7-IVmaj7-I7 loop (Am7 Gm7 Fmaj7 C7)",
-      "numerals": [
-        "vi7(no 9)",
-        "v7",
-        "IVmaj7",
-        "I7"
-      ],
       "symbols": [
         "Am7",
         "Gm7",
         "Fmaj7",
         "C7"
       ],
-      "symbols_mode": "MODE_MAJOR",
+      "symbols_mode": "MODE_MIXOLYDIAN",
       "file": "progressions/38-loop-am7-gm7-fmaj7-c7"
     },
     "39": {
@@ -2191,17 +2003,17 @@
         {
           "degree": 4,
           "alter": 0,
-          "quality": "Q_MIN7"
+          "quality": "Q_DIATONIC"
         },
         {
           "degree": 0,
           "alter": 0,
-          "quality": "Q_DOM7"
+          "quality": "Q_DIATONIC"
         },
         {
           "degree": 3,
           "alter": 0,
-          "quality": "Q_MAJ7"
+          "quality": "Q_DIATONIC"
         }
       ],
       "moods": [
@@ -2210,22 +2022,16 @@
         "MOOD_SUNNY"
       ],
       "modes": [
-        "MODE_MAJOR"
+        "MODE_MIXOLYDIAN"
       ],
       "src": "R25: Mixolydian ii7-v7-I7-IVmaj7 loop (Dm7 Gm7 C7 Fmaj7)",
-      "numerals": [
-        "ii7",
-        "v7",
-        "I7",
-        "IVmaj7"
-      ],
       "symbols": [
         "Dm7",
         "Gm7",
         "C7",
         "Fmaj7"
       ],
-      "symbols_mode": "MODE_MAJOR",
+      "symbols_mode": "MODE_MIXOLYDIAN",
       "file": "progressions/39-loop-dm7-gm7-c7-fmaj7"
     },
     "40": {
@@ -2243,17 +2049,17 @@
         {
           "degree": 4,
           "alter": 0,
-          "quality": "Q_MIN7"
+          "quality": "Q_DIATONIC"
         },
         {
           "degree": 6,
           "alter": 0,
-          "quality": "Q_MAJ7"
+          "quality": "Q_DIATONIC"
         },
         {
           "degree": 3,
           "alter": 0,
-          "quality": "Q_DOM7"
+          "quality": "Q_DIATONIC"
         }
       ],
       "moods": [
@@ -2261,22 +2067,16 @@
         "MOOD_WISTFUL"
       ],
       "modes": [
-        "MODE_MINOR"
+        "MODE_DORIAN"
       ],
       "src": "R25: Dorian i7-v7-bVIImaj7-IV7 loop (Cm7 Gm7 Bbmaj7 F7)",
-      "numerals": [
-        "i7",
-        "v7",
-        "VIImaj7",
-        "IV7"
-      ],
       "symbols": [
         "Cm7",
         "Gm7",
         "Bbmaj7",
         "F7"
       ],
-      "symbols_mode": "MODE_MINOR",
+      "symbols_mode": "MODE_DORIAN",
       "file": "progressions/40-loop-cm7-gm7-bbmaj7-f7"
     },
     "41": {
@@ -2294,17 +2094,17 @@
         {
           "degree": 4,
           "alter": 0,
-          "quality": "Q_MIN7"
+          "quality": "Q_DIATONIC"
         },
         {
           "degree": 2,
           "alter": 0,
-          "quality": "Q_MAJ7S11"
+          "quality": "Q_DIATONIC"
         },
         {
           "degree": 6,
           "alter": 0,
-          "quality": "Q_MAJ7"
+          "quality": "Q_DIATONIC"
         }
       ],
       "moods": [
@@ -2313,22 +2113,17 @@
         "MOOD_WARM"
       ],
       "modes": [
-        "MODE_MINOR"
+        "MODE_DORIAN",
+        "MODE_AEOLIAN"
       ],
       "src": "R25: i7-v7-bIIImaj7-bVII loop (Dorian Cm7 Gm7 Ebmaj7 Bbmaj7; Aeolian ... Bb7)",
-      "numerals": [
-        "i7",
-        "v7",
-        "IIImaj7(#11)",
-        "VIImaj7"
-      ],
       "symbols": [
         "Cm7",
         "Gm7",
         "Ebmaj7",
         "Bbmaj7"
       ],
-      "symbols_mode": "MODE_MINOR",
+      "symbols_mode": "MODE_DORIAN",
       "file": "progressions/41-loop-cm7-gm7-ebmaj7-bbmaj7"
     },
     "42": {
@@ -2364,22 +2159,16 @@
         "MOOD_WARM"
       ],
       "modes": [
-        "MODE_MINOR"
+        "MODE_AEOLIAN"
       ],
       "src": "R25: Aeolian bVImaj7-bVII7-i7-bIIImaj7 loop (Abmaj7 Bb7 Cm7 Ebmaj7)",
-      "numerals": [
-        "VImaj7",
-        "VII7",
-        "i7",
-        "IIImaj7"
-      ],
       "symbols": [
         "Abmaj7",
         "Bb7",
         "Cm7",
         "Ebmaj7"
       ],
-      "symbols_mode": "MODE_MINOR",
+      "symbols_mode": "MODE_AEOLIAN",
       "file": "progressions/42-loop-abmaj7-bb7-cm7-ebmaj7"
     },
     "43": {
@@ -2415,22 +2204,16 @@
         "MOOD_SUNNY"
       ],
       "modes": [
-        "MODE_MAJOR"
+        "MODE_IONIAN"
       ],
       "src": "R25: Ionian Imaj7-iii7-IVmaj7-V7 loop (Cmaj7 Em7 Fmaj7 G7)",
-      "numerals": [
-        "Imaj7",
-        "iii7",
-        "IVmaj7",
-        "V7"
-      ],
       "symbols": [
         "Cmaj7",
         "Em7",
         "Fmaj7",
         "G7"
       ],
-      "symbols_mode": "MODE_MAJOR",
+      "symbols_mode": "MODE_IONIAN",
       "file": "progressions/43-loop-cmaj7-em7-fmaj7-g7"
     },
     "44": {
@@ -2448,17 +2231,17 @@
         {
           "degree": 3,
           "alter": 0,
-          "quality": "Q_DOM7"
+          "quality": "Q_DIATONIC"
         },
         {
           "degree": 2,
           "alter": 0,
-          "quality": "Q_MAJ7S11"
+          "quality": "Q_DIATONIC"
         },
         {
           "degree": 1,
           "alter": 0,
-          "quality": "Q_MIN7B9"
+          "quality": "Q_DIATONIC"
         }
       ],
       "moods": [
@@ -2466,187 +2249,17 @@
         "MOOD_WISTFUL"
       ],
       "modes": [
-        "MODE_MINOR"
+        "MODE_DORIAN"
       ],
       "src": "R25: Dorian i7-IV7-bIIImaj7-ii7 loop (Cm7 F7 Ebmaj7 Dm7)",
-      "numerals": [
-        "i7",
-        "IV7",
-        "IIImaj7(#11)",
-        "ii7(no 9)"
-      ],
       "symbols": [
         "Cm7",
         "F7",
         "Ebmaj7",
         "Dm7"
       ],
-      "symbols_mode": "MODE_MINOR",
+      "symbols_mode": "MODE_DORIAN",
       "file": "progressions/44-loop-cm7-f7-ebmaj7-dm7"
-    },
-    "45": {
-      "id": 45,
-      "status": "approved",
-      "kind": "PK_VAMP",
-      "n": 2,
-      "bars_per_chord": 2,
-      "chords": [
-        {
-          "degree": 5,
-          "alter": 0,
-          "quality": "Q_MIN7B9"
-        },
-        {
-          "degree": 1,
-          "alter": 0,
-          "quality": "Q_MIN7"
-        }
-      ],
-      "moods": [
-        "MOOD_SAD",
-        "MOOD_WISTFUL"
-      ],
-      "modes": [
-        "MODE_MAJOR"
-      ],
-      "src": "split from 5 (Mixolydian)",
-      "numerals": [
-        "vi7(no 9)",
-        "ii7"
-      ],
-      "symbols": [
-        "Am7",
-        "Dm7"
-      ],
-      "symbols_mode": "MODE_MAJOR",
-      "file": "progressions/45-vamp-am7-dm7"
-    },
-    "46": {
-      "id": 46,
-      "status": "approved",
-      "kind": "PK_VAMP",
-      "n": 2,
-      "bars_per_chord": 2,
-      "chords": [
-        {
-          "degree": 4,
-          "alter": 0,
-          "quality": "Q_MIN7"
-        },
-        {
-          "degree": 0,
-          "alter": 0,
-          "quality": "Q_DOM7"
-        }
-      ],
-      "moods": [
-        "MOOD_SAD",
-        "MOOD_WISTFUL"
-      ],
-      "modes": [
-        "MODE_MAJOR"
-      ],
-      "src": "split from 31 (Mixolydian)",
-      "numerals": [
-        "v7",
-        "I7"
-      ],
-      "symbols": [
-        "Gm7",
-        "C7"
-      ],
-      "symbols_mode": "MODE_MAJOR",
-      "file": "progressions/46-vamp-gm7-c7"
-    },
-    "47": {
-      "id": 47,
-      "status": "approved",
-      "kind": "PK_VAMP",
-      "n": 2,
-      "bars_per_chord": 2,
-      "chords": [
-        {
-          "degree": 0,
-          "alter": 0,
-          "quality": "Q_DIATONIC"
-        },
-        {
-          "degree": 2,
-          "alter": 0,
-          "quality": "Q_DIATONIC"
-        }
-      ],
-      "moods": [
-        "MOOD_SAD",
-        "MOOD_WISTFUL",
-        "MOOD_WARM"
-      ],
-      "modes": [
-        "MODE_MINOR"
-      ],
-      "src": "split from 33 (Aeolian)",
-      "numerals": [
-        "i7",
-        "IIImaj7"
-      ],
-      "symbols": [
-        "Cm7",
-        "Ebmaj7"
-      ],
-      "symbols_mode": "MODE_MINOR",
-      "file": "progressions/47-vamp-cm7-ebmaj7"
-    },
-    "48": {
-      "id": 48,
-      "status": "approved",
-      "kind": "PK_LOOP",
-      "n": 4,
-      "bars_per_chord": 1,
-      "chords": [
-        {
-          "degree": 0,
-          "alter": 0,
-          "quality": "Q_DIATONIC"
-        },
-        {
-          "degree": 4,
-          "alter": 0,
-          "quality": "Q_DIATONIC"
-        },
-        {
-          "degree": 2,
-          "alter": 0,
-          "quality": "Q_DIATONIC"
-        },
-        {
-          "degree": 6,
-          "alter": 0,
-          "quality": "Q_DIATONIC"
-        }
-      ],
-      "moods": [
-        "MOOD_SAD",
-        "MOOD_WISTFUL",
-        "MOOD_WARM"
-      ],
-      "modes": [
-        "MODE_MINOR"
-      ],
-      "src": "split from 41 (Aeolian)",
-      "numerals": [
-        "i7",
-        "v7",
-        "IIImaj7",
-        "VII7"
-      ],
-      "symbols": [
-        "Cm7",
-        "Gm7",
-        "Ebmaj7",
-        "Bb7"
-      ],
-      "symbols_mode": "MODE_MINOR",
-      "file": "progressions/48-loop-cm7-gm7-ebmaj7-bb7"
     }
   },
   "comp-rhythms": {

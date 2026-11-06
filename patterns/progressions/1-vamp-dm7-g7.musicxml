@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
 <score-partwise version="4.0">
-  <work><work-title>Progression 1: ii7 V7 = Dm7 G7 in C (vamp; wistful, warm, sunny; Major)</work-title></work>
+  <work><work-title>Progression 1: Dm7 G7 (vamp; wistful, warm, sunny; Ionian)</work-title></work>
   <identification>
     <encoding><software>VNL-1 tools/patterns/export.py</software></encoding>
-    <miscellaneous><miscellaneous-field name="vnl1">{"family":"progressions","id":"1","status":"approved","kind":"PK_VAMP","n":2,"bars_per_chord":2,"chords":[{"degree":1,"alter":0,"quality":"Q_MIN7"},{"degree":4,"alter":0,"quality":"Q_DOM7"}],"moods":["MOOD_WISTFUL","MOOD_WARM","MOOD_SUNNY"],"modes":["MODE_MAJOR"],"src":"lofi-hip-hop.md 2, ii9-V13 vamp","numerals":["ii7","V7"],"symbols":["Dm7","G7"],"symbols_mode":"MODE_MAJOR"}</miscellaneous-field></miscellaneous>
+    <miscellaneous><miscellaneous-field name="vnl1">{"family":"progressions","id":"1","status":"approved","kind":"PK_VAMP","n":2,"bars_per_chord":2,"chords":[{"degree":1,"alter":0,"quality":"Q_MIN7"},{"degree":4,"alter":0,"quality":"Q_DOM7"}],"moods":["MOOD_WISTFUL","MOOD_WARM","MOOD_SUNNY"],"modes":["MODE_IONIAN"],"src":"lofi-hip-hop.md 2, ii9-V13 vamp","symbols":["Dm7","G7"],"symbols_mode":"MODE_IONIAN"}</miscellaneous-field></miscellaneous>
   </identification>
   <part-list>
     <score-part id="P1">

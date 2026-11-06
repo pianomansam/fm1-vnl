@@ -22,8 +22,7 @@ import midi  # noqa: E402
 from test_import import Import, ImportWithCandidates, imp  # noqa: E402,F401  (run with these)
 from test_pins import Pins  # noqa: E402,F401
 
-# progressions: 48 less 19, retired (the same chords as 18)
-FAMILIES = {"drums": 8, "kick-phrases": 5, "progressions": 47, "comp-rhythms": 5, "strum": 5}
+FAMILIES = {"drums": 8, "kick-phrases": 5, "progressions": 44, "comp-rhythms": 5, "strum": 5}
 GM = {"kick": 36, "snare": 38, "hat": 42, "ohat": 46, "shaker": 70, "rim": 37}
 LANES = ["kick", "snare", "hat", "ohat", "shaker", "rim"]
 STROKE = {"T": 64, "B": 65, "D": 67, "d": 69, "X": 71, "U": 72, "u": 74, "P": 76}
@@ -126,40 +125,12 @@ class T(unittest.TestCase):
         for fam, k, e in self.entries():
             self.assertIn(e["status"], ("approved", "candidate", "retired"), (fam, k))
 
-    def test_major_minor_chords_sound_as_the_modes_did(self):
-        """Sam, 2026-11-05: the modes became major or minor, and the chords must sound the same. Every progression in
-           every mode it listed (the migration's record), in every key at every color: its major or minor progression's
-           chords are the same pitch classes, in order (root first), from the engine (theory.c) and from validate.py"""
-        import validate
-        fx = json.loads((HERE / "major_minor_2026-11-05.json").read_text())["progressions"]
-        exe = Path(self.tmp.name) / "chords"
-        r = subprocess.run(["cc", "-O1", "-std=c99", "-Wall", "-Wextra", "-Werror", f"-I{ROOT}/app/song",
-                            f"-I{ROOT}/app/engine", f"-I{ROOT}/base/include", "-o", str(exe), str(HERE / "chords.c"),
-                            str(ROOT / "app/song/patterns_gen.c"), str(ROOT / "app/song/theory.c")],
-                           capture_output=True, text=True)
-        self.assertEqual(r.returncode, 0, r.stderr)
-        engine = json.loads(subprocess.run([str(exe)], capture_output=True, text=True, check=True).stdout)
-        progs = json.loads((ROOT / "patterns/model.json").read_text())["progressions"]
-        self.assertEqual(len(fx), 51)                          # 44 progressions, 7 in two modes
-        for x in fx:
-            new = progs[str(x["new_id"])]
-            mode = validate.MODES.index(new["modes"][0])
-            self.assertEqual(new["modes"], [x["new_mode"]])
-            self.assertEqual(len(new["chords"]), len(x["pcs"]))
-            for i, (c, old) in enumerate(zip(new["chords"], x["pcs"])):
-                for key in range(12):
-                    for color in range(3):
-                        want = [(p + key) % 12 for p in old[color]]
-                        what = (x["id"], x["mode"], x["new_id"], i, key, color)
-                        self.assertEqual(engine[str(x["new_id"])][i][key][color], want, what)
-                        self.assertEqual([(p + key) % 12 for p in validate.chord_pcs(mode, c, color)], want, what)
-
     def test_model_matches_sources(self):
         lib = (ROOT / "app/song/patterns_gen.c").read_text()
         d = self.model["drums"]
         self.assertEqual(d["1"]["hit"][0], "0x4441")
         self.assertEqual((d["5"]["poly3"], d["5"]["hit"][4]), (1, "0x9249"))
-        self.assertEqual(self.model["progressions"]["19"]["chords"][2], {"degree": 5, "alter": 0, "quality": "Q_MAJ7"})
+        self.assertEqual(self.model["progressions"]["19"]["chords"][2], {"degree": 5, "alter": -1, "quality": "Q_MAJ7"})
         self.assertEqual(len(self.model["progressions"]), len(re.findall(r"^    \{\d+, PK_", lib, re.M)))
         self.assertEqual(self.model["strum"]["1"]["steps"], "D...d.u...U.d.u.")
         self.assertEqual(self.model["strum"]["5"], {**self.model["strum"]["5"], "kind": "fill", "fill_of": 4,

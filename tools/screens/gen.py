@@ -110,7 +110,7 @@ def choices(row, opts):
     if src == "keys":
         plain = lst(["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"])
     elif src == "modes":
-        plain = lst(["Major", "Minor"])
+        plain = lst(["Ionian", "Dorian", "Phrygian", "Lydian", "Mixolydian", "Aeolian"])
     elif src == "tempo":
         plain = rng(70, 90, 1, lambda t: f"{t} BPM")
     elif src == "swing":
