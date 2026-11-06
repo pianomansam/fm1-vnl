@@ -215,6 +215,11 @@ export function valuesOf(s, data) {
     bag.pending = `${def?.name ?? "CHANGE"}${s.pend.val !== undefined ? ` ${fieldText(def, s.pend.val, r.mode ?? 0, s.rows)}` : ""}` +
                   ` IN ${s.pend.bars}${s.pend.bars === 1 ? " BAR" : " BARS"}`;
   }
+  if (s.jump) {
+    if (!s.pend || s.jump.at < s.pend.at)
+      bag.pending = `GO TO ${String(s.jump.name).toUpperCase()} IN ${s.jump.bars}${s.jump.bars === 1 ? " BAR" : " BARS"}`;
+    if (bag[`sec${s.jump.i}`] !== undefined) { bag[`sec${s.jump.i}`] = `*${bag[`sec${s.jump.i}`]}`; bag[`sec${s.jump.i}Pend`] = true; }
+  }
   for (const [k, v] of Object.entries(s.labels ?? {})) if (!(k in bag)) bag[k] = bag[`${k}Pend`] || v;   // the rolls, by row: {kit}, {lead}
   for (let i = 0; i < MENU_MAX; i++) bag[`sel${i}`] = s.cursor === i;                  // a menu's highlighted line
   for (const [k, t] of Object.entries(data.lines ?? {})) bag[k] = fill(t, bag);
@@ -315,7 +320,7 @@ export function problems(data) {
   if (!data.screens?.[data.home]) out.push(`home "${data.home}" is not a screen`);
   for (const p of data.parts ?? []) if (!data.screens?.[p]) out.push(`parts: no screen "${p}"`);
   const known = new Set(["APP", "song", "stopped", "idle", "msg", "msg0", "msg1", "map", "section", "bar", "bars", "chord",
-                         "pending", "rhythm", "progress", "page", "secCount", "looping", ...Array.from({ length: MENU_MAX }, (_, i) => [`sec${i}`, `sec${i}Bars`, `sec${i}Now`]).flat(), ...Object.keys(data.fields ?? {}).flatMap((k) => [`${k}First`, `${k}Last`]), ...Object.keys(data.fields ?? {}).map((k) => `${k}Pend`), ...ROWS.map((r) => `${r.id}Pend`), ...Object.keys(data.fields ?? {}).map((k) => `${k}Frac`), ...ROWS.map((r) => r.id), ...Array.from({ length: MENU_MAX }, (_, i) => `sel${i}`),
+                         "pending", "rhythm", "progress", "page", "secCount", "looping", ...Array.from({ length: MENU_MAX }, (_, i) => [`sec${i}`, `sec${i}Bars`, `sec${i}Now`, `sec${i}Pend`]).flat(), ...Object.keys(data.fields ?? {}).flatMap((k) => [`${k}First`, `${k}Last`]), ...Object.keys(data.fields ?? {}).map((k) => `${k}Pend`), ...ROWS.map((r) => `${r.id}Pend`), ...Object.keys(data.fields ?? {}).map((k) => `${k}Frac`), ...ROWS.map((r) => r.id), ...Array.from({ length: MENU_MAX }, (_, i) => `sel${i}`),
                          ...Object.keys(data.fields ?? {}), ...Object.keys(data.lines ?? {})]);
   const tpl = (where, t) => { for (const [, k] of String(t).matchAll(/\{(\w+)\}/g)) if (!known.has(k)) out.push(`${where}: no value {${k}}`); };
   const cond = (where, w) => { for (const x of [].concat(w ?? [])) if (!known.has(x.replace(/^!/, ""))) out.push(`${where}: no value "${x}"`); };
@@ -385,7 +390,13 @@ export class Device {
   update(live) {
     const was = this.live;
     this.live = live;
-    if (!this.hasSong() || (was && was.seed !== live.seed)) this.req = {};   // a new song or none: nothing waits
+    if (!this.hasSong() || (was && was.seed !== live.seed)) { this.req = {}; this.jumpReq = null; }   // a new song or none: nothing waits
+    const jr = this.jumpReq;
+    if (jr) {   // a jump: sent in the bar before its boundary (the workbench lands it at the next bar line)
+      const bar = live.bar - 1;
+      if (bar >= jr.at) this.jumpReq = null;
+      else if (!jr.sent && bar >= jr.at - 1) { jr.sent = true; this.engine.jump?.(jr.start, jr.name); }
+    }
     if (was && was.seed !== live.seed && this.stack.length > 1) {   // a new song (rolled or the next one): back to the
       this.stack = [this.data.home];                                  // main screen (Sam, 2026-11-06)
       this.speak();
@@ -410,6 +421,7 @@ export class Device {
     return { hasSong: song, stopped: !l.playing, roll, bar, section: l.facts?.section ?? -1, map: l.facts?.map,
              chord: l.facts?.chord, labels: l.labels, rows: l.rows, mark: !this.screen?.reference,
              reqs: Object.fromEntries(Object.entries(this.req).map(([f, q]) => [f, q.val])),
+             jump: this.jumpReq && song ? { name: this.jumpReq.name, i: this.jumpReq.i, at: this.jumpReq.at, bars: this.jumpReq.at - bar } : null,
              page: this.screen?.pages?.length > 1 ? `${this.screen.pages.indexOf(this.id) + 1}/${this.screen.pages.length}` : "",
              cursor: this.screen?.menu || this.screen?.list ? this.cursor[this.id] ?? 0 : -1, sections: l.sections, pend, msg: this.msg && this.now() < this.msg.until ? this.msg.text : null };
   }
@@ -436,7 +448,14 @@ export class Device {
     }
     if (a.do === "jump") {   // the highlighted section: the song goes there (at the next bar line, as the workbench's strip)
       const sec = this.live?.sections?.[this.cursor[this.id] ?? 0];
-      if (sec && this.hasSong()) { this.engine.jump?.(sec.start, sec.name); this.say("GO TO", String(sec.name).toUpperCase()); }
+      if (sec && this.hasSong()) {   // it lands on the next 4-bar boundary, as a knob's change does (Sam, 2026-11-06)
+        const l = this.live, bar = l.bar - 1, at = (Math.floor(bar / 4) + 1) * 4;
+        if (at < l.bars) {
+          this.jumpReq = { start: sec.start, name: sec.name, i: this.cursor[this.id] ?? 0, at, sent: false };
+          if (bar >= at - 1) this.update(l);
+        }
+        this.say("GO TO", String(sec.name).toUpperCase());
+      }
       return null;
     }
     if (a.do === "reroll") {   // SEQ: a new song (Sam, 2026-11-06), as the device's

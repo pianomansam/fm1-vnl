@@ -261,7 +261,8 @@ export default {
           { rect: [2, 0, 2, 26], color: "SONG" },
           { icon: "song", x: 10, y: 9, color: "SONG" },
           { text: "SECTIONS", font: "B", x: 23, y: 4, color: "SONG" },
-          { when: "song", text: "{map}", font: "XS", right: 232, y: 5, color: "WHITE" },
+          { when: ["song", "!pending"], text: "{map}", font: "XS", right: 232, y: 5, color: "WHITE" },
+          { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
           { sections: [8, 31, 224, 3], color: "AMB", back: "LINE", past: "DIM" },
         ] },
         { y: 56, h: 144, draw: [

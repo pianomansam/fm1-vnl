@@ -3100,6 +3100,18 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
     d2.press("OCT+");
     check(d2.values().pending === "TEMPO 81 IN 4 BARS", `OCT+ as a nudge asks for tempo + 1: "${d2.values().pending}"`);
   }
+  {   // a section jump waits for the 4-bar boundary, marked, then goes to the engine in the bar before it
+    const jumps = [], dj = new D.Device(data, { set() {}, play() {}, jump: (st, n) => jumps.push([st, n]) }, () => t);
+    const secs = [{ start: 0, bars: 8, name: "intro" }, { start: 8, bars: 16, name: "groove" }, { start: 24, bars: 8, name: "lead" }];
+    dj.update({ ...live(2), sections: secs });
+    dj.stack = ["main", "sections"]; dj.press("SELECT", 2); dj.press("EDIT");
+    const w = dj.values();
+    dj.update({ ...live(3), sections: secs });
+    const early = jumps.length;
+    dj.update({ ...live(4), sections: secs });
+    check(w.pending === "GO TO LEAD IN 3 BARS" && w.sec2 === "*LEAD" && w.sec2Pend && early === 0 && JSON.stringify(jumps) === '[[24,"lead"]]',
+          `a jump at bar 2: "${w.pending}", "${w.sec2}" waiting; sent in bar 4 (${JSON.stringify(jumps)})`);
+  }
   {   // a new song, rolled or the next one, goes back to the main screen
     dev.press("ALGO", 1); dev.press("EDIT");
     const inPart = dev.id;
