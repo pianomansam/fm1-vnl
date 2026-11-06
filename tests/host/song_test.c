@@ -234,7 +234,7 @@ static void test_theory(void)
    key's name (app.c's KEY_NAME). */
 static void test_chord_spelling(void)
 {
-    static const char *const KEY[MODE_N][12] = {{"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"},
+    static const char *const KEY[MODE_N][12] = {{"C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"},
                                                  {"C", "C#", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B"}};
     char nm[16];
     int key, mode;

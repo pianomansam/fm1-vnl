@@ -371,12 +371,14 @@ static const char *const NOTE[3][12] = {{"C", "Db", "D", "Eb", "E", "F", "F#", "
                                         {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"},
                                         {"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"}};
 
-/* the key's spelling, by its relative major (agrees with the key's name, app.c's KEY_NAME): G D A E B sharps; F Bb Eb
-   Ab Db Gb flats; C the mixed table */
+/* the key's spelling, by its relative major (agrees with the key's name, app.c's KEY_NAME): G D A E B, and F#
+   major, sharps; F Bb Eb Ab Db flats, and Eb minor (its relative major Gb); C the mixed table */
 static int spelling(int key, int mode)
 {
     int rel = mod12(mode == MODE_MINOR ? key + 3 : key);
-    return rel == 7 || rel == 2 || rel == 9 || rel == 4 || rel == 11 ? 1 : rel == 0 ? 0 : 2;
+    return rel == 7 || rel == 2 || rel == 9 || rel == 4 || rel == 11 || (rel == 6 && mode != MODE_MINOR) ? 1
+           : rel == 0                                                                    ? 0
+                                                                                         : 2;
 }
 
 const char *th_chord_name(const int *pcs, int n, int key, int mode, char *buf)

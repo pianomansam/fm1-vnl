@@ -49,8 +49,9 @@ void *vnl_memmove(void *d, const void *s, unsigned n)
 }
 #endif
 
-/* the simplest spelling of a major key and of a minor one (the fewer accidentals; flats on a tie: Gb, Eb minor) */
-static const char *const KEY_NAME[MODE_N][12] = {{"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"},
+/* the simplest spelling of a major key and of a minor one (the fewer accidentals; a tie: F# major (Sam,
+   2026-11-05), Eb minor) */
+static const char *const KEY_NAME[MODE_N][12] = {{"C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"},
                                                  {"C", "C#", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B"}};
 static const char *const MODE_NAME[MODE_N] = {"MAJOR", "MINOR"};
 static const char *const MOOD_NAME[4] = {"SAD", "WISTFUL", "WARM", "SUNNY"};
