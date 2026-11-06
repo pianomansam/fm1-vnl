@@ -343,6 +343,14 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   bar at a time by default (live scrolling was too much motion). A setting for more movement turns on smooth, live
   scrolling (the mock's roll item already takes `live: true`), and perhaps other motion (a gliding playhead, animated
   transitions). Belongs with the device's settings / the Advanced section.
+- **ENV: a part's sound page (Sam, 2026-11-06: future, not started).** On the device, ENV (the FM-1 convention: the
+  current track's envelope) opens the current or highlighted part's sound: attack, release, brightness, a little
+  drive, and the instrument's own controls (the organ's drawbars, percussion and chorus: the organ lead waits on
+  them; the pad's swell, the Rhodes' bark). EDIT stays what the part plays; ENV is how it sounds. Needs those
+  controls in the engine first.
+- **The song's energy over time (Sam, 2026-11-06: an idea, not started).** A curve of how busy and loud the song is
+  through its sections (the intro builds, the break drops out), shown as an envelope for the whole song, with knobs
+  for a flatter or more dramatic arc. A generative player's own page; where it lives on the device is open.
 - **A simplified and an expanded main screen (Sam, 2026-11-06: an idea, part of the screens work).** Two main
   screens: a simple one (e.g. the chord and where the song is) and an expanded one (the song and every part's rolls);
   the expanded one opens from the simple one, and the user sets which is the default (HOME's). Mockups A-C in the
