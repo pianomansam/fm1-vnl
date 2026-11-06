@@ -132,6 +132,28 @@ const holds = (when, bag) => [].concat(when ?? []).every((w) => (w[0] === "!" ? 
 const MENU_MAX = 10;
 // a field's value as a share of its range (0..1): a knob's fill bar
 const fracOf = (def, v) => def.wrap ? v / (def.wrap - 1) : (v - (def.min ?? 0)) / ((def.max ?? 100) - (def.min ?? 0));
+// A field's value now: the roll's (key, tempo, ...), else its workbench row's (rows: the page's { values, options })
+export const fieldValue = (def, k, roll, rows) => (roll?.[k] !== undefined ? roll[k] : rows?.values?.[def.row]);
+// a field's text: an options field (`options: true`) names its value from its row's options (an instrument, a
+// rhythm); `format: "variant"` a re-roll (0 as rolled, else variant n); else app.c's value_text
+export function fieldText(def, v, mode, rows) {
+  if (v === undefined) return "";
+  if (def.options) return rows?.options?.[def.row]?.find((o) => String(o.value) === String(v))?.name ?? String(v);
+  if (def.format === "variant") return v ? `VARIANT ${v}` : "AS ROLLED";
+  return valueText(def, v, mode);
+}
+const fieldFrac = (def, v, rows) => {
+  if (v === undefined) return 0;
+  if (!def.options) return fracOf(def, v);
+  const o = rows?.options?.[def.row] ?? [], i = o.findIndex((x) => String(x.value) === String(v));
+  return o.length > 1 && i >= 0 ? i / (o.length - 1) : 0;
+};
+// a step of d from v: an options field steps through its row's options (no wrap), else fieldStep
+export function fieldMove(def, v, d, rows) {
+  if (!def.options) return fieldStep(def, v, d);
+  const o = rows?.options?.[def.row] ?? [], i = o.findIndex((x) => String(x.value) === String(v));
+  return o.length ? o[Math.min(Math.max((i < 0 ? 0 : i) + d, 0), o.length - 1)].value : v;
+}
 export function valuesOf(s, data) {
   const r = s.roll ?? {}, f = data.fields, song = !!s.hasSong;
   const bag = {
@@ -140,12 +162,16 @@ export function valuesOf(s, data) {
     map: (s.map ?? "").toUpperCase(), section: SEC_NAME[s.section] ?? "", bar: (s.bar ?? 0) + 1, bars: r.bars,
     chord: s.chord ?? "", pending: "",
   };
-  for (const [k, def] of Object.entries(f)) bag[k] = r[k] === undefined ? "" : valueText(def, r[k], r.mode ?? 0);
-  for (const [k, def] of Object.entries(f)) bag[`${k}Frac`] = r[k] === undefined ? 0 : fracOf(def, r[k]);
+  for (const [k, def] of Object.entries(f)) {
+    const v = fieldValue(def, k, r, s.rows);
+    bag[k] = fieldText(def, v, r.mode ?? 0, s.rows);
+    bag[`${k}Frac`] = fieldFrac(def, v, s.rows);
+  }
+  bag.page = s.page ?? "";
   bag.progress = song && r.bars ? Math.min(1, ((s.bar ?? 0) + 1) / r.bars) : 0;
   if (song && s.pend) {
     const def = f[s.pend.field];
-    bag.pending = `${def?.name ?? "CHANGE"}${s.pend.val !== undefined ? ` ${valueText(def, s.pend.val, r.mode ?? 0)}` : ""}` +
+    bag.pending = `${def?.name ?? "CHANGE"}${s.pend.val !== undefined ? ` ${fieldText(def, s.pend.val, r.mode ?? 0, s.rows)}` : ""}` +
                   ` IN ${s.pend.bars}${s.pend.bars === 1 ? " BAR" : " BARS"}`;
   }
   for (const [k, v] of Object.entries(s.labels ?? {})) if (!(k in bag)) bag[k] = v;   // the rolls, by row: {kit}, {lead}
@@ -224,15 +250,16 @@ export function transitions(data) {
 export function problems(data) {
   const out = [], C = colors(THEME, data.colors), ids = Object.keys(data.screens ?? {});
   if (!data.screens?.[data.home]) out.push(`home "${data.home}" is not a screen`);
+  for (const p of data.parts ?? []) if (!data.screens?.[p]) out.push(`parts: no screen "${p}"`);
   const known = new Set(["APP", "song", "stopped", "idle", "msg", "msg0", "msg1", "map", "section", "bar", "bars", "chord",
-                         "pending", "rhythm", "progress", ...Object.keys(data.fields ?? {}).map((k) => `${k}Frac`), ...ROWS.map((r) => r.id), ...Array.from({ length: MENU_MAX }, (_, i) => `sel${i}`),
+                         "pending", "rhythm", "progress", "page", ...Object.keys(data.fields ?? {}).map((k) => `${k}Frac`), ...ROWS.map((r) => r.id), ...Array.from({ length: MENU_MAX }, (_, i) => `sel${i}`),
                          ...Object.keys(data.fields ?? {}), ...Object.keys(data.lines ?? {})]);
   const tpl = (where, t) => { for (const [, k] of String(t).matchAll(/\{(\w+)\}/g)) if (!known.has(k)) out.push(`${where}: no value {${k}}`); };
   const cond = (where, w) => { for (const x of [].concat(w ?? [])) if (!known.has(x.replace(/^!/, ""))) out.push(`${where}: no value "${x}"`); };
   const act = (where, a) => {
     if (a === null) return;
     if (a.go) { if (!["back", "home", "cursor"].includes(a.go) && !ids.includes(a.go)) out.push(`${where}: no screen "${a.go}"`); }
-    else if (a.do === "play" || a.do === "cursor") { /* */ }
+    else if (["play", "cursor", "part", "page"].includes(a.do)) { /* */ }
     else if (a.do === "nudge" || a.do === "turn") { if (!data.fields?.[a.field]) out.push(`${where}: no field "${a.field}"`); }
     else out.push(`${where}: unknown action ${JSON.stringify(a)}`);
   };
@@ -242,7 +269,7 @@ export function problems(data) {
     act(`defaults.${c}`, a);
   }
   for (const [id, s] of Object.entries(data.screens ?? {})) {
-    for (const m of s.menu ?? []) if (!ids.includes(m)) out.push(`${id}.menu: no screen "${m}"`);
+    for (const m of [...(s.menu ?? []), ...(s.pages ?? [])]) if (!ids.includes(m)) out.push(`${id}: no screen "${m}"`);
     for (const [i, b] of (s.bands ?? []).entries()) {
       const w = `${id}.bands[${i}]`;
       if (!(b.y >= 0 && b.h > 0 && b.y + b.h <= H)) out.push(`${w}: outside the screen (y ${b.y}, h ${b.h})`);
@@ -313,7 +340,8 @@ export class Device {
     for (const [f, q] of Object.entries(this.req))   // the earliest; a tie: the first field (app.c: the lowest RF_*)
       if (!pend || q.at < pend.at) pend = { field: f, val: q.val, at: q.at, bars: q.at - bar };
     return { hasSong: song, stopped: !l.playing, roll, bar, section: l.facts?.section ?? -1, map: l.facts?.map,
-             chord: l.facts?.chord, labels: l.labels,
+             chord: l.facts?.chord, labels: l.labels, rows: l.rows,
+             page: this.screen?.pages?.length > 1 ? `${this.screen.pages.indexOf(this.id) + 1}/${this.screen.pages.length}` : "",
              cursor: this.screen?.menu ? this.cursor[this.id] ?? 0 : -1, pend, msg: this.msg && this.now() < this.msg.until ? this.msg.text : null };
   }
   values() { return valuesOf(this.shown(), this.data); }
@@ -329,6 +357,14 @@ export class Device {
   press(control, detents = 1) {
     const a = actionOf(this.data, this.id, control);
     if (!a) return null;
+    if (a.do === "part" || a.do === "page") {   // ALGO: the next part (data.parts, at its first page); SELECT: the next page
+      const list = a.do === "part" ? this.data.parts ?? [] : this.screen.pages ?? [], from = this.id;
+      const here = a.do === "part" ? list.findIndex((id) => id === from || this.data.screens[id]?.pages?.includes(from)) : list.indexOf(from);
+      if (here < 0 || list.length < 2) return null;
+      this.stack[this.stack.length - 1] = list[(((here + detents) % list.length) + list.length) % list.length];
+      if (this.id !== from) this.speak();
+      return { from, control, to: this.id };
+    }
     if (a.do === "cursor") {   // a menu: the highlight moves (wraps)
       const n = this.screen.menu?.length ?? 0;
       if (n) this.cursor[this.id] = (((this.cursor[this.id] ?? 0) + detents) % n + n) % n;
@@ -355,7 +391,7 @@ export class Device {
   request(f, d) {
     const def = this.data.fields[f];
     if (!this.hasSong()) return;
-    const l = this.live, bar = l.bar - 1, from = this.req[f]?.val ?? l.roll[f], v = fieldStep(def, from, d);
+    const l = this.live, bar = l.bar - 1, from = this.req[f]?.val ?? fieldValue(def, f, l.roll, l.rows), v = fieldMove(def, from, d, l.rows);
     if (v !== from) {
       const at = (Math.floor(bar / 4) + 1) * 4;
       if (at < l.bars) {
@@ -363,6 +399,6 @@ export class Device {
         if (bar >= at - 1) this.update(l);
       }
     }
-    this.say(def.name, valueText(def, v, l.roll.mode ?? 0));
+    this.say(def.name, fieldText(def, v, l.roll.mode ?? 0, l.rows));
   }
 }

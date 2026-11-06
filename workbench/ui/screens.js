@@ -116,7 +116,18 @@ export default {
     motion: { row: "motion", name: "MOTION", min: 0, max: 100 },
     mood: { row: "mood", name: "MOOD", min: 0, max: 3, format: "mood" },
     mode: { row: "mode", name: "SCALE", wrap: 2, format: "mode" },
+    // a part's settings: `options: true` steps through its workbench row's choices (named as the row names them);
+    // "variant" a re-roll (0 as rolled)
+    compIns: { row: "keys", name: "INSTRUMENT", options: true },
+    compRhythm: { row: "rhythm", name: "RHYTHM", options: true },
+    compVoicing: { row: "voicings", name: "VOICINGS", format: "variant", min: 0, max: 99 },
+    compReg: { row: "keysOct", name: "REGISTER", options: true },
+    compFill: { row: "strumFill", name: "STRUM FILL", options: true },
+    compThin: { row: "busyThin", name: "BUSY LEAD THINS", options: true },
   },
+
+  // the parts, in ALGO's order (on a part's screen ALGO moves to the next one, at its first page)
+  parts: ["pSong", "pDrums", "pBass", "pComp", "pPad", "pLead", "pTexture"],
 
   // lines more than one place uses (app.c's line_key and line_place)
   lines: {
@@ -248,7 +259,7 @@ export default {
         ] },
         { y: 200, h: 20, draw: [{ text: "PLACEHOLDER: WHAT THIS PART HAS  /  HOME", font: "T", x: 10, y: 4, color: "DIM" }] },
       ],
-      controls: { EDIT: { go: "back" } },
+      controls: { EDIT: { go: "back" }, ALGO: { do: "part" } },
       say: ["SONG"],
     },
     pDrums: {
@@ -265,7 +276,7 @@ export default {
         ] },
         { y: 200, h: 20, draw: [{ text: "PLACEHOLDER: WHAT THIS PART HAS  /  HOME", font: "T", x: 10, y: 4, color: "DIM" }] },
       ],
-      controls: { EDIT: { go: "back" } },
+      controls: { EDIT: { go: "back" }, ALGO: { do: "part" } },
       say: ["DRUMS"],
     },
     pBass: {
@@ -279,24 +290,94 @@ export default {
         ] },
         { y: 200, h: 20, draw: [{ text: "PLACEHOLDER: WHAT THIS PART HAS  /  HOME", font: "T", x: 10, y: 4, color: "DIM" }] },
       ],
-      controls: { EDIT: { go: "back" } },
+      controls: { EDIT: { go: "back" }, ALGO: { do: "part" } },
       say: ["BASS"],
     },
+    // The Comp part (the part-screen template, 2026-11-06): the status bar as on the main screen, the part's name in
+    // its color with its icon and the page (SELECT steps the pages), then one row per knob (K1-K4: its name, its
+    // value large, a fill bar in the part's color), and a hint line naming the buttons. ALGO moves to the next part,
+    // OCT-/OCT+ step the register (Sam: the octave buttons move register dropdowns), EDIT goes back.
     pComp: {
-      title: "Part: Comp (placeholder)",
-      placeholder: true,
+      title: "Comp",
+      pages: ["pComp", "pCompMore"],
       bands: [
-        { y: 0, h: 30, draw: [{ text: "COMP", font: "B", x: 10, y: 6, color: "WHITE" }, { when: "song", text: "{chord}", font: "XS", right: 230, y: 10, color: "HI" }] },
-        { y: 34, h: 144, draw: [
-          { text: "INSTRUMENT", font: "T", x: 10, y: 4, color: "GRAY" }, { text: "{keys}", font: "XS", x: 92, y: 2, color: "WHITE" },
-          { text: "RHYTHM", font: "T", x: 10, y: 24, color: "GRAY" }, { text: "{rhythm}", font: "XS", x: 92, y: 22, color: "WHITE" },
-          { text: "VOICINGS", font: "T", x: 10, y: 44, color: "GRAY" }, { text: "{voicings}", font: "XS", x: 92, y: 42, color: "WHITE" },
-          { text: "REGISTER", font: "T", x: 10, y: 64, color: "GRAY" }, { text: "{keysOct}", font: "XS", x: 92, y: 62, color: "WHITE" },
+        { y: 0, h: 16, draw: [
+          { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
+          { when: "!song", text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
+          { when: "song", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
         ] },
-        { y: 200, h: 20, draw: [{ text: "PLACEHOLDER: WHAT THIS PART HAS  /  HOME", font: "T", x: 10, y: 4, color: "DIM" }] },
+        { y: 18, h: 28, draw: [
+          { rect: [2, 0, 2, 26], color: "COMP" },
+          { icon: "comp", x: 10, y: 9, color: "COMP" },
+          { text: "COMP", font: "B", x: 23, y: 4, color: "COMP" },
+          { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
+          { when: ["song", "!pending"], text: "{chord}", font: "XS", right: 232, y: 5, color: "WHITE" },
+          { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
+        ] },
+        { y: 48, h: 144, draw: [
+          { text: "K1  INSTRUMENT", font: "T", x: 8, y: 3, color: "GRAY" },
+          { text: "{compIns}", font: "B", x: 8, y: 14, color: "WHITE" },
+          { meter: [8, 33, 224, 2], value: "compInsFrac", color: "COMP", back: "LINE" },
+          { text: "K2  RHYTHM", font: "T", x: 8, y: 39, color: "GRAY" },
+          { text: "{compRhythm}", font: "B", x: 8, y: 50, color: "WHITE" },
+          { meter: [8, 69, 224, 2], value: "compRhythmFrac", color: "COMP", back: "LINE" },
+          { text: "K3  VOICINGS", font: "T", x: 8, y: 75, color: "GRAY" },
+          { text: "{compVoicing}", font: "B", x: 8, y: 86, color: "WHITE" },
+          { meter: [8, 105, 224, 2], value: "compVoicingFrac", color: "COMP", back: "LINE" },
+          { text: "K4  REGISTER", font: "T", x: 8, y: 111, color: "GRAY" },
+          { text: "{compReg}", font: "B", x: 8, y: 122, color: "WHITE" },
+          { meter: [8, 141, 224, 2], value: "compRegFrac", color: "COMP", back: "LINE" },
+        ] },
+        { y: 200, h: 40, draw: [
+          { rect: [8, 0, 224, 1], color: "LINE" },
+          { text: "ALGO PART   SELECT PAGE   OCT REGISTER", font: "T", x: 8, y: 8, color: "DIM" },
+          { text: "EDIT BACK   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
+        ] },
       ],
-      controls: { EDIT: { go: "back" } },
-      say: ["COMP"],
+      knobs: [{ field: "compIns", step: 1 }, { field: "compRhythm", step: 1 }, { field: "compVoicing", step: 1 }, { field: "compReg", step: 1 }],
+      controls: {
+        ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
+        "OCT-": { do: "nudge", field: "compReg", by: -1 }, "OCT+": { do: "nudge", field: "compReg", by: 1 },
+      },
+      say: ["COMP, PAGE {page}. INSTRUMENT {compIns}. RHYTHM {compRhythm}. VOICINGS {compVoicing}. REGISTER {compReg}."],
+    },
+    pCompMore: {
+      title: "Comp: more",
+      pages: ["pComp", "pCompMore"],
+      bands: [
+        { y: 0, h: 16, draw: [
+          { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
+          { when: "!song", text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
+          { when: "song", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
+        ] },
+        { y: 18, h: 28, draw: [
+          { rect: [2, 0, 2, 26], color: "COMP" },
+          { icon: "comp", x: 10, y: 9, color: "COMP" },
+          { text: "COMP", font: "B", x: 23, y: 4, color: "COMP" },
+          { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
+          { when: ["song", "!pending"], text: "{chord}", font: "XS", right: 232, y: 5, color: "WHITE" },
+          { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
+        ] },
+        { y: 48, h: 144, draw: [
+          { text: "K1  STRUM FILL", font: "T", x: 8, y: 3, color: "GRAY" },
+          { text: "{compFill}", font: "B", x: 8, y: 14, color: "WHITE" },
+          { meter: [8, 33, 224, 2], value: "compFillFrac", color: "COMP", back: "LINE" },
+          { text: "K2  BUSY LEAD THINS", font: "T", x: 8, y: 39, color: "GRAY" },
+          { text: "{compThin}", font: "B", x: 8, y: 50, color: "WHITE" },
+          { meter: [8, 69, 224, 2], value: "compThinFrac", color: "COMP", back: "LINE" },
+        ] },
+        { y: 200, h: 40, draw: [
+          { rect: [8, 0, 224, 1], color: "LINE" },
+          { text: "ALGO PART   SELECT PAGE   OCT REGISTER", font: "T", x: 8, y: 8, color: "DIM" },
+          { text: "EDIT BACK   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
+        ] },
+      ],
+      knobs: [{ field: "compFill", step: 1 }, { field: "compThin", step: 1 }],
+      controls: {
+        ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
+        "OCT-": { do: "nudge", field: "compReg", by: -1 }, "OCT+": { do: "nudge", field: "compReg", by: 1 },
+      },
+      say: ["COMP, PAGE {page}. STRUM FILL {compFill}. BUSY LEAD THINS {compThin}."],
     },
     pPad: {
       title: "Part: Pad (placeholder)",
@@ -311,7 +392,7 @@ export default {
         ] },
         { y: 200, h: 20, draw: [{ text: "PLACEHOLDER: WHAT THIS PART HAS  /  HOME", font: "T", x: 10, y: 4, color: "DIM" }] },
       ],
-      controls: { EDIT: { go: "back" } },
+      controls: { EDIT: { go: "back" }, ALGO: { do: "part" } },
       say: ["PAD"],
     },
     pLead: {
@@ -328,7 +409,7 @@ export default {
         ] },
         { y: 200, h: 20, draw: [{ text: "PLACEHOLDER: WHAT THIS PART HAS  /  HOME", font: "T", x: 10, y: 4, color: "DIM" }] },
       ],
-      controls: { EDIT: { go: "back" } },
+      controls: { EDIT: { go: "back" }, ALGO: { do: "part" } },
       say: ["LEAD"],
     },
     pTexture: {
@@ -343,7 +424,7 @@ export default {
         ] },
         { y: 200, h: 20, draw: [{ text: "PLACEHOLDER: WHAT THIS PART HAS  /  HOME", font: "T", x: 10, y: 4, color: "DIM" }] },
       ],
-      controls: { EDIT: { go: "back" } },
+      controls: { EDIT: { go: "back" }, ALGO: { do: "part" } },
       say: ["TEXTURE"],
     },
   },

@@ -191,8 +191,17 @@
           return String(o?.short ?? o?.name ?? v ?? "").toUpperCase(); };
         return { ...Object.fromEntries(ROWS.map((r) => [r.id, name(r.id)])), rhythm: name(rhythmRow(desk.state, desk.opts)) };
       };
-      device = mountDevice($("devbox"), { call: wb.call, C: wb.C, labels,
-        engine: { set: (id, v) => run(() => desk.set(id, v)), play: () => $("play").click() } });
+      // the rows a screen's knobs can set: each row's value and its choices ({ value, name }, as the device writes
+      // them); "rhythm" is the comp's one Rhythm row
+      const rows = () => {
+        const choices = (id) => optionsFor(row(id), desk.state, desk.opts, { lib }).filter((o) => !o.unavailable)
+          .map((o) => ({ value: o.value, name: String(o.short ?? o.name).toUpperCase() }));
+        const rh = rhythmRow(desk.state, desk.opts), ids = ROWS.filter((r) => r.kind !== "seed" && r.kind !== "reroll").map((r) => r.id);
+        return { values: { ...desk.state.values, rhythm: desk.state.values[rh] },
+                 options: { ...Object.fromEntries(ids.map((id) => [id, choices(id)])), rhythm: choices(rh) } };
+      };
+      device = mountDevice($("devbox"), { call: wb.call, C: wb.C, labels, rows,
+        engine: { set: (id, v) => run(() => desk.set(id === "rhythm" ? rhythmRow(desk.state, desk.opts) : id, v)), play: () => $("play").click() } });
     } catch (e) { $("devbox").textContent = `The device mock didn't load: ${e}`; }
   }
 

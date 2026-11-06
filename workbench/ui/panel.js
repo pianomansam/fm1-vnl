@@ -54,7 +54,7 @@ const CSS = `
 const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
 
 // box: the section to fill; call: wb.call; C: wb.C; engine: { set(row, value), play() }
-export function mountDevice(box, { call, C, engine, labels = () => ({}) }) {
+export function mountDevice(box, { call, C, engine, labels = () => ({}), rows = () => ({}) }) {
   document.head.append(el("style", { textContent: CSS }));
   const canvas = el("canvas", { width: W, height: H, role: "img", ariaLabel: "The device's screen (mock)" });
   const ctx = canvas.getContext("2d"), img = ctx.createImageData(W, H), lcd = new Lcd();
@@ -161,7 +161,7 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}) }) {
     try {
       const s = await call("wb_live_state"), facts = pos.bar > 0 ? await call("wb_screen", pos.bar - 1) : {};
       const r = (f) => s.roll[C.RF[f]];
-      dev.update({ playing, gap: pos.gap, bar: pos.bar, bars: pos.bars || r("BARS"), seed: s.seed, facts, labels: labels(),
+      dev.update({ playing, gap: pos.gap, bar: pos.bar, bars: pos.bars || r("BARS"), seed: s.seed, facts, labels: labels(), rows: rows(),
                    roll: { key: r("KEY"), tempo: r("TEMPO"), motion: r("MOTION"), mood: r("MOOD"), mode: r("MODE") } });
     } finally {
       fetching = false;
