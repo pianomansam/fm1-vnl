@@ -16,7 +16,8 @@
  *
  * Controls (minimal; the real UI comes later): PLAY stops / plays (a stop is true silence; play after a stop is a
  * fresh song), K1 key +-1 semitone, K2 tempo +-1 BPM, K3 motion +-5, K4 mood +-1: each a request that lands on the
- * song's next 4-bar boundary. Part of the unity build (device/unity.c, host/plat_host.c), after the platform:
+ * song's next 4-bar boundary. Over USB the workbench's device mock may take every control, the FM-1 silent meanwhile
+ * (the browser's remote, below). Part of the unity build (device/unity.c, host/plat_host.c), after the platform:
  * gfx.c and announce.c are in scope. */
 #include <string.h>
 #if defined(PLAT_HOST) && !defined(PLAT_WEB)
@@ -80,7 +81,7 @@ static song_roll_t mb_roll;
 static volatile uint8_t mb_full;
 
 /* commands, drained at a block's start (AMB-1's pattern) */
-enum { C_PLAY, C_REQ };
+enum { C_PLAY, C_REQ, C_STOP };
 #define QN 32u
 static uint32_t q[QN];
 static volatile uint32_t q_w, q_r;
@@ -138,6 +139,7 @@ enum { RS_STOP, RS_WAIT, RS_SONG, RS_GAP };   /* stopped; playing: waiting for a
 static song_t song;
 static uint8_t rs = RS_WAIT;
 static volatile uint8_t panic_now;
+static volatile uint8_t remote_mute;     /* the browser has the controls: the output ramps to silence */
 static volatile int32_t songs_started;
 static uint32_t r_now;                   /* samples since the song started (or the gap's left) */
 static uint32_t r_pos;                   /* the next step's start sample: integer and fraction, advanced as */
@@ -213,7 +215,12 @@ static void command(uint32_t c)
 {
     uint32_t op = c >> 24;
     int a = (int)((c >> 16) & 0xFFu), b = (int)(int16_t)(c & 0xFFFFu);
-    if (op == C_PLAY) {
+    if (op == C_STOP) {                  /* the browser takes the controls: stopped (already: nothing) */
+        if (rs != RS_STOP) {
+            vx_stop();
+            rs = RS_STOP;
+        }
+    } else if (op == C_PLAY) {
         if (rs == RS_STOP)
             rs = RS_WAIT;                /* a fresh song from the mailbox */
         else {
@@ -266,6 +273,8 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
 {
     uint32_t i = 0, k;
     float gain = (float)master_q12 * (8388607.0f / 4096.0f);   /* MASTER, read once a block: float -> 24-bit */
+    if (remote_mute)
+        gain = 0.0f;                     /* (gain_now ramps there: no click) */
     if (panic_now) {
         panic_now = 0;
         vx_init();
@@ -479,6 +488,22 @@ static struct {
     uint8_t redraw;
 } ui;
 
+/* the browser's remote (below) */
+#define RM_PFX0 0x7Du
+#define RM_PFX1 0x56u
+#define RM_PFX2 0x4Eu
+enum { RM_ON = 0x01, RM_OFF = 0x02, RM_STATE = 0x11, RM_BTN = 0x20, RM_ENC = 0x21 };
+#define RM_TIMEOUT 3000u
+#define RM_BQ 16u
+static struct {
+    uint8_t on;
+    uint32_t heard, link;                /* the last 01's time; the USB connection it came over */
+    uint8_t bq[RM_BQ];                   /* button edges to send: B_*, bit 7 down */
+    uint32_t bq_w, bq_r;
+    int16_t enc[NE];                     /* detents to send */
+    uint8_t ack;                         /* a state message owed (1 + its ss) */
+} rm;
+
 static void text_cat(char *d, const char *s)
 {
     while (*d)
@@ -611,7 +636,9 @@ static void speak(void)
     if (ann_on() && ann_where()) {
         t[0] = 0;
         text_cat(t, APP_NAME ". ");
-        if (!ui.shown.has_song)
+        if (rm.on)
+            text_cat(t, "BROWSER. CONTROLLING THE WORKBENCH");
+        else if (!ui.shown.has_song)
             text_cat(t, ui.shown.stopped ? "STOPPED" : "NEXT SONG");
         else {
             line_key(&ui.shown, l);
@@ -633,11 +660,135 @@ static void speak(void)
     ann_tick(plat_ms());
 }
 
+/* ------------------------------------------------------- the browser's remote --- */
+/* The workbench's device mock (workbench/ui/usb.js) takes the FM-1's controls over USB-MIDI SysEx, prefix
+ * F0 7D 56 4E ("VN"; base's are 7D 4C 43 / 47 / 57 and 7D 53 52, the updater's and the mirror's the update's
+ * framing), one message an event:
+ *   browser -> FM-1   01 remote on (and its keepalive, about once a second)   02 remote off
+ *   FM-1 -> browser   11 ss 01   the state, ss 1 on (the answer to each 01) or 0 off (leaving), protocol 1
+ *                     20 bb ss   button bb (plat.h's B_*) down (ss 1) or up (ss 0)
+ *                     21 ee dd   encoder ee (EN_*: SELECT ALGO PRESET K1..K4) turned dd detents (7-bit two's
+ *                                complement, -64..63; + clockwise)
+ * While on, the song stops, the output is silent and the controls go to the browser only (the keys are left out:
+ * the mock has none). It ends on 02, after 3 s without a 01, or at a new USB connection; the FM-1 stays stopped,
+ * ready for PLAY. The messages go out on the MIDI ring when it has room (plat_midi_out_room, never waiting): button
+ * edges wait in a small queue, an encoder's detents add up until they go. */
+#if defined(PLAT_HOST) && !defined(PLAT_WEB)
+static char rm_sent[2048];               /* the simulator's: the messages sent since the last "remote_sent" */
+#endif
+
+/* one message, F0 7D 56 4E a b c F7, as three USB-MIDI SysEx packets (CIN 4 goes on, 6 ends with two bytes) */
+static int rm_send(uint8_t a, uint8_t b, uint8_t c)
+{
+    uint32_t f;
+    if (plat_midi_out_room(TO_USB) < 3u + 4u)   /* (some room kept for anyone else) */
+        return 0;
+    f = plat_lock();                     /* the three together */
+    plat_midi_out(0x04u | 0xF0u << 8 | RM_PFX0 << 16 | RM_PFX1 << 24);
+    plat_midi_out(0x04u | RM_PFX2 << 8 | (uint32_t)a << 16 | (uint32_t)b << 24);
+    plat_midi_out(0x06u | (uint32_t)c << 8 | 0xF7u << 16);
+    plat_unlock(f);
+#if defined(PLAT_HOST) && !defined(PLAT_WEB)
+    {
+        size_t n = strlen(rm_sent);
+        if (n + 24 < sizeof rm_sent)
+            snprintf(rm_sent + n, sizeof rm_sent - n, "F07D564E%02X%02X%02XF7 ", a, b, c);
+    }
+#endif
+    return 1;
+}
+
+static void rm_flush(void)              /* what waits, while there is room */
+{
+    int e;
+    if (rm.ack && rm_send(RM_STATE, (uint8_t)(rm.ack - 1u), 1))
+        rm.ack = 0;
+    while (rm.bq_r != rm.bq_w) {
+        uint8_t v = rm.bq[rm.bq_r % RM_BQ];
+        if (!rm_send(RM_BTN, v & 0x7Fu, v >> 7))
+            return;
+        rm.bq_r++;
+    }
+    for (e = 0; e < NE; e++)
+        while (rm.enc[e]) {
+            int d = rm.enc[e] > 63 ? 63 : rm.enc[e] < -64 ? -64 : rm.enc[e];
+            if (!rm_send(RM_ENC, (uint8_t)e, (uint8_t)(d & 0x7F)))
+                return;
+            rm.enc[e] = (int16_t)(rm.enc[e] - d);
+        }
+}
+
+static void rm_enter(void)
+{
+    int e;
+    rm.on = 1;
+    rm.link = plat_midi_out_link();
+    rm.bq_r = rm.bq_w;
+    for (e = 0; e < NE; e++) {
+        plat_enc(e);                     /* turns from before are not the browser's */
+        rm.enc[e] = 0;
+    }
+    remote_mute = 1;
+    post(C_STOP, 0, 0);
+    ui.redraw = 1;
+    if (ann_on())
+        ann_say("BROWSER. CONTROLLING THE WORKBENCH", 0, ANN_NOW);
+}
+
+static void rm_leave(void)
+{
+    rm.on = 0;
+    rm.ack = 1;                          /* "off", if anyone still listens */
+    remote_mute = 0;                     /* stopped (C_STOP), so silent until PLAY */
+    app_say("BROWSER", "DISCONNECTED");
+}
+
+int app_sysex(const uint8_t *p, uint32_t n)
+{
+    if (n < 4u || p[0] != RM_PFX0 || p[1] != RM_PFX1 || p[2] != RM_PFX2)
+        return 0;
+    if (p[3] == RM_ON) {
+        rm.heard = plat_ms();
+        if (!rm.on)
+            rm_enter();
+        rm.ack = 2;
+    } else if (p[3] == RM_OFF && rm.on)
+        rm_leave();
+    return 1;
+}
+
+/* the controls to the browser, none acted on here; the remote let go when the browser is gone */
+static void rm_input(uint32_t btn)
+{
+    uint32_t ch = btn ^ ui.btn;
+    int b, e;
+    for (b = 0; b < NB; b++)
+        if ((ch >> b & 1u) && rm.bq_w - rm.bq_r < RM_BQ)
+            rm.bq[rm.bq_w++ % RM_BQ] = (uint8_t)(b | (btn >> b & 1u) << 7);
+    for (e = 0; e < NE; e++) {
+        int32_t d = plat_enc(e), v = rm.enc[e] + d;
+        rm.enc[e] = (int16_t)(v > 999 ? 999 : v < -999 ? -999 : v);
+    }
+    if (plat_ms() - rm.heard > RM_TIMEOUT || plat_midi_out_link() != rm.link)
+        rm_leave();
+}
+
 static void input(void)
 {
     uint32_t btn = plat_buttons();
     int32_t e;
     int k;
+    if (rm.on)
+        rm_input(btn);
+    if (rm.on || rm.ack) {
+        rm_flush();
+        if (rm.on) {                         /* the browser's: the held buttons lit, nothing else */
+            ui.btn = btn;
+            plat_glow(1);
+            plat_leds(btn, 0);
+            return;
+        }
+    }
     if ((btn >> B_PLAY & 1u) && !(ui.btn >> B_PLAY & 1u)) {
         post(C_PLAY, 0, 0);
         app_say(ui.shown.stopped ? "PLAY" : "STOP", "");
@@ -681,7 +832,7 @@ static void draw(void)
         cv_text(x + 8, 6, &FONT_B, ui.msg[1], C_HI);
     } else {
         cv_text(10, 6, &FONT_B, APP_NAME, C_WHITE);
-        if (s->has_song) {
+        if (s->has_song && !rm.on) {
             line_key(s, t);
             cv_text(230 - text_w(&FONT_XS, t), 10, &FONT_XS, t, C_HI);
         }
@@ -689,7 +840,10 @@ static void draw(void)
     cv_blit(0, 0);
     /* the song: where it is, the chord, the change on its way */
     cv_begin(240, 120, C_BLACK);
-    if (s->has_song) {
+    if (rm.on) {                          /* the browser has the controls */
+        cv_text(10, 34, &FONT_B, "BROWSER", C_WHITE);
+        cv_text(10, 74, &FONT_XS, "CONTROLLING THE WORKBENCH", C_GRAY);
+    } else if (s->has_song) {
         line_place(s, t);
         cv_text(10, 4, &FONT_XS, t, C_GRAY);
         line_chord(s, t);
@@ -702,7 +856,7 @@ static void draw(void)
     cv_blit(0, 40);
     /* the four knobs and their values */
     cv_begin(240, 40, C_BLACK);
-    for (k = 0; k < 4; k++) {
+    for (k = 0; k < 4 && !rm.on; k++) {
         int32_t x = 4 + k * 58;
         cv_text(x, 2, &FONT_XS, KNOB_NAME[k], C_GRAY);
         if (s->has_song) {
@@ -765,9 +919,56 @@ int app_expect(const char *what, int *got)
         *got = s.pend_field >= 0 ? s.pend_bars : -1;
     else if (!strcmp(what, "voices"))
         *got = s.voices;
+    else if (!strcmp(what, "remote"))
+        *got = rm.on;
     else
         return 0;
     return 1;
 }
 #endif
 
+
+#if defined(PLAT_HOST) && !defined(PLAT_WEB)
+/* the simulator's commands for the browser's remote (tests/scenarios/remote.vnl):
+ *   remote on | remote off | remote HEX   a SysEx message from the browser (HEX: the bytes between F0 and F7)
+ *   remote_sent HEX...                    each message (F0 .. F7) was sent since the last remote_sent / remote_none
+ *   remote_none                           nothing was sent since then */
+static int rm_fails;
+int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, const char *d)
+{
+    (void)b, (void)c, (void)d;
+    if (!strcmp(cmd, "remote")) {
+        uint8_t m[32] = {RM_PFX0, RM_PFX1, RM_PFX2, RM_ON};
+        uint32_t n = 4;
+        if (!strcmp(a, "off"))
+            m[3] = RM_OFF;
+        else if (strcmp(a, "on"))
+            for (n = 0; a[2 * n] && a[2 * n + 1] && n < sizeof m; n++) {
+                unsigned v;
+                sscanf(a + 2 * n, "%2x", &v);
+                m[n] = (uint8_t)v;
+            }
+        if (!app_sysex(m, n))
+            printf("remote: %s not taken\n", a);
+        return 1;
+    }
+    if (!strcmp(cmd, "remote_sent") || !strcmp(cmd, "remote_none")) {
+        const char *w = plat_host_line + strlen(cmd);
+        char one[64];
+        int k, bad = 0;
+        if (cmd[7] == 'n' && rm_sent[0])
+            bad = 1;
+        while (cmd[7] == 's' && sscanf(w, "%63s%n", one, &k) == 1) {
+            if (!strstr(rm_sent, one))
+                bad = 1;
+            w += k;
+        }
+        printf("%s %s: sent %s\n", bad ? "FAIL" : "  ok", cmd, rm_sent[0] ? rm_sent : "nothing");
+        rm_fails += bad;
+        rm_sent[0] = 0;
+        return 1;
+    }
+    return 0;
+}
+int app_host_fails(void) { return rm_fails; }
+#endif

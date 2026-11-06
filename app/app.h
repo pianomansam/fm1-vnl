@@ -27,4 +27,14 @@ void app_say(const char *a, const char *b);   /* a short message on the screen a
 /* the host simulator's checks (host/plat_host.c "expect"): playing (0/1), songs (started since boot), bar, section
  * (SEC_*, -1 none), tempo, key, pending (bars until the earliest knob change lands, -1 none), voices (sounding) */
 #define APP_HOST_EXPECT
-int app_expect(const char *what, int *got);
+int app_expect(const char *what, int *got);   /* and remote (0/1: the browser has the controls) */
+#if defined(PLAT_HOST) && !defined(PLAT_WEB)
+#define APP_HOST_CMD                     /* the browser's remote, as SysEx in and out (app.c) */
+int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, const char *d);
+#define APP_HOST_FAILS
+int app_host_fails(void);
+#endif
+
+/* SysEx from USB: the workbench's remote (F0 7D 56 4E; app.c) */
+#define APP_SYSEX
+int app_sysex(const uint8_t *p, uint32_t n);

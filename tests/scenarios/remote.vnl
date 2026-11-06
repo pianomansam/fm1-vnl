@@ -1,0 +1,70 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# The workbench's remote (app.c, workbench/ui/usb.js): "remote on" stops the song and silences the FM-1, its controls
+# go to the browser as SysEx and do nothing here; without a keepalive for 3 s it lets go, stopped and ready for PLAY.
+listen
+wait 5000
+expect playing 1
+remote_none
+remote on
+wait 100
+remote_sent F07D564E110101F7
+said BROWSER. CONTROLLING THE WORKBENCH
+expect remote 1
+expect playing 0
+shot remote.png
+peakreset
+wait 500
+expect peak_db_max <-90
+# the controls: to the browser, not acted on (PLAY doesn't play; a knob asks for nothing)
+tap PLAY
+spin ALGO 3
+turn K2 -2 20
+wait 100
+remote_sent F07D564E200A01F7 F07D564E200A00F7 F07D564E210103F7 F07D564E21047FF7
+press EDIT
+release EDIT
+tap HOME
+wait 100
+remote_sent F07D564E200401F7 F07D564E200400F7 F07D564E200601F7 F07D564E200600F7
+expect playing 0
+expect remote 1
+# a fast spin adds up: never more than 63 a message, every detent sent
+spin K1 100
+wait 50
+remote_sent F07D564E21033FF7 F07D564E210325F7
+# the keepalive holds it past the timeout, each answered
+remote on
+wait 1000
+remote on
+wait 1000
+remote on
+wait 1500
+remote on
+wait 1500
+remote_sent F07D564E110101F7
+expect remote 1
+# the browser gone: 3 s without one, it lets go, says so, and stays stopped until PLAY
+wait 1600
+expect remote 0
+said BROWSER DISCONNECTED
+remote_sent F07D564E110001F7
+expect playing 0
+peakreset
+wait 500
+expect peak_db_max <-90
+tap PLAY
+wait 300
+expect playing 1
+expect songs 2
+# remote off ends it at once
+remote on
+wait 100
+expect remote 1
+expect playing 0
+remote off
+wait 50
+expect remote 0
+remote_sent F07D564E110101F7 F07D564E110001F7
+# another prefix isn't the remote's
+remote 7D564F01
+expect remote 0
