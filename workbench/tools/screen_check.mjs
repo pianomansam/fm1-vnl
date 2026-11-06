@@ -16,7 +16,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { deflateSync } from "node:zlib";
 import { Lcd, Device, W, H } from "../ui/device.js";
-import data from "../ui/screens.js";
+import screens from "../ui/screens.js";
+import today from "./today_screen.mjs";
+const data = { ...screens, screens: { ...screens.screens, today } };   // the firmware's screen as it is today
 
 const root = new URL("../../", import.meta.url).pathname;
 const HOST = join(root, "app/build/host/vnl_host"), WASM = join(root, "app/build/workbench/wb.wasm");
