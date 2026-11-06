@@ -2997,6 +2997,7 @@ console.log("the page by part: sections, part headers, the folded rows, summarie
 console.log("the device mock (ui/): the device's words, palette and knobs; the screens' data; the flow between screens");
 {
   const D = await import("../ui/device.js"), data = (await import("../ui/screens.js")).default;
+  await import("../ui/panel.js");   // the page's side loads (a syntax error there blanks the mock)
   const src = (rel) => readFileSync(new URL(rel, import.meta.url), "utf8");
   const app = src("../../app/app.c"), gfx = src("../../base/device/gfx.c");
   const strs = (name) => [...app.match(new RegExp(`${name}[^=]*=\\s*([^;]*);`))[1].matchAll(/"([^"]*)"/g)].map((m) => m[1]);
