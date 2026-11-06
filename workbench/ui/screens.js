@@ -271,15 +271,20 @@ export default {
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
         { y: 50, h: 132, draw: [
-          { lanes: [8, 0, 224, 132], parts: ["drums", "bass", "keys", "pad", "lead"], label: 46, rowH: 26, window: 8 },
+          { lanes: [8, 0, 224, 132], parts: ["drums", "bass", "keys", "pad", "lead"], label: 46, rowH: 26, window: 8, keys: ["F", "G", "A", "B", "C"] },
         ] },
         { y: 196, h: 44, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
-          { text: "ALGO PICK   K1 MUTE   K2 SOLO", font: "T", x: 8, y: 8, color: "DIM" },
+          { text: "KEY MUTE   HOLD KEY SOLO   (K1 / K2)", font: "T", x: 8, y: 8, color: "DIM" },
           { text: "GLO BACK   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
-      controls: { ALGO: { do: "cursor" }, SELECT: { do: "cursor" }, K1: { do: "mute" }, K2: { do: "solo" }, GLO: { go: "back" } },
+      controls: {
+        ALGO: { do: "cursor" }, SELECT: { do: "cursor" }, K1: { do: "mute" }, K2: { do: "solo" }, GLO: { go: "back" },
+        // the lowest white keys, a lane each (F drums, G bass, A comp, B pad, C lead): press mutes, a long press solos
+        // (Sam, 2026-11-06); again: off
+        KEY0: { do: "mute", part: "drums", long: { do: "solo", part: "drums" } }, KEY2: { do: "mute", part: "bass", long: { do: "solo", part: "bass" } }, KEY4: { do: "mute", part: "keys", long: { do: "solo", part: "keys" } }, KEY6: { do: "mute", part: "pad", long: { do: "solo", part: "pad" } }, KEY7: { do: "mute", part: "lead", long: { do: "solo", part: "lead" } },
+      },
       say: ["PARTS. ", { when: "song", text: "{section}, BAR {bar} OF {bars}" }],
     },
 
@@ -308,48 +313,56 @@ export default {
           { when: "sel0", rect: [4, 0, 232, 17], color: "LINE" },
           { when: "sec0Now", rect: [4, 0, 2, 17], color: "SONG" },
           { when: "sec0", text: "F", font: "T", x: 12, y: 3, color: "DIM" },
+          { when: "sec0Now", text: "F", font: "T", x: 12, y: 3, color: "HI" },   // the playing section's key, lit
           { when: "sec0", text: "{sec0}", font: "XS", x: 26, y: 1, color: "WHITE" },
           { when: "sec0Now", text: "PLAYING", font: "T", after: 8, y: 3, color: "AMB" },
           { when: "sec0", text: "{sec0Bars} BARS", font: "T", right: 232, y: 3, color: "GRAY" },
           { when: "sel1", rect: [4, 18, 232, 17], color: "LINE" },
           { when: "sec1Now", rect: [4, 18, 2, 17], color: "SONG" },
           { when: "sec1", text: "G", font: "T", x: 12, y: 21, color: "DIM" },
+          { when: "sec1Now", text: "G", font: "T", x: 12, y: 21, color: "HI" },   // the playing section's key, lit
           { when: "sec1", text: "{sec1}", font: "XS", x: 26, y: 19, color: "WHITE" },
           { when: "sec1Now", text: "PLAYING", font: "T", after: 8, y: 21, color: "AMB" },
           { when: "sec1", text: "{sec1Bars} BARS", font: "T", right: 232, y: 21, color: "GRAY" },
           { when: "sel2", rect: [4, 36, 232, 17], color: "LINE" },
           { when: "sec2Now", rect: [4, 36, 2, 17], color: "SONG" },
           { when: "sec2", text: "A", font: "T", x: 12, y: 39, color: "DIM" },
+          { when: "sec2Now", text: "A", font: "T", x: 12, y: 39, color: "HI" },   // the playing section's key, lit
           { when: "sec2", text: "{sec2}", font: "XS", x: 26, y: 37, color: "WHITE" },
           { when: "sec2Now", text: "PLAYING", font: "T", after: 8, y: 39, color: "AMB" },
           { when: "sec2", text: "{sec2Bars} BARS", font: "T", right: 232, y: 39, color: "GRAY" },
           { when: "sel3", rect: [4, 54, 232, 17], color: "LINE" },
           { when: "sec3Now", rect: [4, 54, 2, 17], color: "SONG" },
           { when: "sec3", text: "B", font: "T", x: 12, y: 57, color: "DIM" },
+          { when: "sec3Now", text: "B", font: "T", x: 12, y: 57, color: "HI" },   // the playing section's key, lit
           { when: "sec3", text: "{sec3}", font: "XS", x: 26, y: 55, color: "WHITE" },
           { when: "sec3Now", text: "PLAYING", font: "T", after: 8, y: 57, color: "AMB" },
           { when: "sec3", text: "{sec3Bars} BARS", font: "T", right: 232, y: 57, color: "GRAY" },
           { when: "sel4", rect: [4, 72, 232, 17], color: "LINE" },
           { when: "sec4Now", rect: [4, 72, 2, 17], color: "SONG" },
           { when: "sec4", text: "C", font: "T", x: 12, y: 75, color: "DIM" },
+          { when: "sec4Now", text: "C", font: "T", x: 12, y: 75, color: "HI" },   // the playing section's key, lit
           { when: "sec4", text: "{sec4}", font: "XS", x: 26, y: 73, color: "WHITE" },
           { when: "sec4Now", text: "PLAYING", font: "T", after: 8, y: 75, color: "AMB" },
           { when: "sec4", text: "{sec4Bars} BARS", font: "T", right: 232, y: 75, color: "GRAY" },
           { when: "sel5", rect: [4, 90, 232, 17], color: "LINE" },
           { when: "sec5Now", rect: [4, 90, 2, 17], color: "SONG" },
           { when: "sec5", text: "D", font: "T", x: 12, y: 93, color: "DIM" },
+          { when: "sec5Now", text: "D", font: "T", x: 12, y: 93, color: "HI" },   // the playing section's key, lit
           { when: "sec5", text: "{sec5}", font: "XS", x: 26, y: 91, color: "WHITE" },
           { when: "sec5Now", text: "PLAYING", font: "T", after: 8, y: 93, color: "AMB" },
           { when: "sec5", text: "{sec5Bars} BARS", font: "T", right: 232, y: 93, color: "GRAY" },
           { when: "sel6", rect: [4, 108, 232, 17], color: "LINE" },
           { when: "sec6Now", rect: [4, 108, 2, 17], color: "SONG" },
           { when: "sec6", text: "E", font: "T", x: 12, y: 111, color: "DIM" },
+          { when: "sec6Now", text: "E", font: "T", x: 12, y: 111, color: "HI" },   // the playing section's key, lit
           { when: "sec6", text: "{sec6}", font: "XS", x: 26, y: 109, color: "WHITE" },
           { when: "sec6Now", text: "PLAYING", font: "T", after: 8, y: 111, color: "AMB" },
           { when: "sec6", text: "{sec6Bars} BARS", font: "T", right: 232, y: 111, color: "GRAY" },
           { when: "sel7", rect: [4, 126, 232, 17], color: "LINE" },
           { when: "sec7Now", rect: [4, 126, 2, 17], color: "SONG" },
           { when: "sec7", text: "F", font: "T", x: 12, y: 129, color: "DIM" },
+          { when: "sec7Now", text: "F", font: "T", x: 12, y: 129, color: "HI" },   // the playing section's key, lit
           { when: "sec7", text: "{sec7}", font: "XS", x: 26, y: 127, color: "WHITE" },
           { when: "sec7Now", text: "PLAYING", font: "T", after: 8, y: 129, color: "AMB" },
           { when: "sec7", text: "{sec7Bars} BARS", font: "T", right: 232, y: 129, color: "GRAY" },

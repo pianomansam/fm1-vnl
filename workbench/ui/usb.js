@@ -35,7 +35,7 @@ export function decode(d) {
 // onState(state, text) each change. state: unsupported, denied, searching (not plugged in), waiting (asked, no
 // answer yet), connected, off. Returns { disconnect() }. request: navigator.requestMIDIAccess by default;
 // timers and now for the tests.
-export async function connect({ act, onState = () => {}, request, timers = globalThis, now = () => Date.now() }) {
+export async function connect({ act, key, onState = () => {}, request, timers = globalThis, now = () => Date.now() }) {
   let state = "", access, input = null, output = null, heard = 0, timer = null, closed = false;
   const set = (s, text) => { if (s !== state || text) { state = s; onState(s, text ?? TEXT[s]); } };
   request ??= typeof navigator !== "undefined" && navigator.requestMIDIAccess
@@ -54,7 +54,8 @@ export async function connect({ act, onState = () => {}, request, timers = globa
     if ("ack" in m) {
       if (m.ack) { heard = now(); set("connected"); } else if (!closed) set("waiting");
     } else if (m.detents) act(m.control, m.detents);
-    else if (m.down) act(m.control, 1);   // a button or key acts as it goes down (a key's up: nothing)
+    else if (key && m.control.startsWith("KEY")) key(m.control, m.down);   // a key: down and up (a long press)
+    else if (m.down) act(m.control, 1);   // a button acts as it goes down
   };
   const find = (ports) => [...ports.values()].find((p) => p.name?.includes(PORT_NAME) && p.state !== "disconnected") ?? null;
   const bind = () => {

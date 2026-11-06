@@ -3134,6 +3134,15 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
     dm.stack = ["main"]; dm.press("GLO"); dm.press("ALGO", 2); dm.press("K1"); dm.press("K2");
     check(dm.id === "mixer" && JSON.stringify(got) === '[["mute","keys",true],["solo","keys"]]', `GLO opens Parts; the third lane muted, then soloed (${JSON.stringify(got)})`);
   }
+  {   // on the Parts roll a key press mutes its lane's part, a long press solos it (Device.tick past LONG_MS)
+    let tt = 0;
+    const got = [], dk = new D.Device(data, { set() {}, play() {}, mute: (p, on) => got.push(["mute", p, on]), solo: (p) => got.push(["solo", p]) }, () => tt);
+    dk.update({ ...live(3), activity: { bars: 64, lanes: {}, mute: [], solo: null } });
+    dk.stack = ["main", "mixer"];
+    dk.keyDown("KEY2"); tt += 100; dk.tick(); dk.keyUp("KEY2");                 // G: bass, a press
+    dk.keyDown("KEY7"); tt += D.LONG_MS + 10; dk.tick(); dk.tick(); dk.keyUp("KEY7");   // C: lead, held
+    check(JSON.stringify(got) === '[["mute","bass",true],["solo","lead"]]', `Parts: G pressed mutes the bass, C held solos the lead (${JSON.stringify(got)})`);
+  }
   {   // a new song, rolled or the next one, goes back to the main screen
     dev.press("ALGO", 1); dev.press("EDIT");
     const inPart = dev.id;

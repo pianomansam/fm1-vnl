@@ -185,6 +185,7 @@ export function valuesOf(s, data) {
   });
   bag.looping = String(s.rows?.values?.loop) === "1";
   bag.activity = s.activity ?? null;
+  bag.barPos = s.barPos ?? (s.bar ?? 0);   // bars from 0, with the fraction of the bar playing
   // a list's ends (Sam, 2026-11-06: arrows, not a bar): {field}First / {field}Last where the value (or the change
   // waiting) can't move further that way; a number without ends (a wrap) has neither
   for (const [k, def] of Object.entries(f)) {
@@ -248,7 +249,7 @@ export function drawScreen(lcd, screen, bag, data, C = colors(THEME, data.colors
         // bars across, scrolling with the song (the playhead a quarter in); bar lines, section starts; played notes in
         // the part's color, those to come gray; a muted (or soloed-out) part dim
         const [x, y, w] = it.lanes, act = bag.activity, rowH = it.rowH ?? 22, lx = x + (it.label ?? 52), lw = w - (lx - x);
-        const bars = act?.bars || 1, span = Math.min(it.window ?? 8, bars), pos = Math.max(0, (bag.bar ?? 1) - 1), f = font("T");
+        const bars = act?.bars || 1, span = Math.min(it.window ?? 8, bars), pos = Math.max(0, bag.barPos ?? 0), f = font("T");
         const from = Math.max(0, Math.min(bars - span, pos - span / 4)), ppb = lw / span, X = (b) => lx + (b - from) * ppb;
         const dim = (c, k) => { const r = c >> 11, g = (c >> 5) & 63, b = c & 31; return (Math.round(r * k) << 11) | (Math.round(g * k) << 5) | Math.round(b * k); };
         const height = it.parts.length * rowH - 2;
@@ -260,15 +261,17 @@ export function drawScreen(lcd, screen, bag, data, C = colors(THEME, data.colors
           if (sel) lcd.rect(x - 4, ry, lx - x, rowH - 2, C.LINE);
           if (data.icons?.[part]) data.icons[part].forEach((row, j) => [...row].forEach((c, k) => { if (c === "#") lcd.rect(x + k, ry + 4 + j, 1, 1, off ? C.DIM : col); }));
           lcd.text(x, ry + 13, f, part.toUpperCase().slice(0, 7), off ? C.DIM : col);
+          if (it.keys?.[i]) lcd.text(x + 32, ry + 2, f, it.keys[i], C.DIM);   // its key (press mutes, hold solos)
           if (act?.mute?.includes(p)) lcd.text(x + 12, ry + 2, f, "M", C.HI);
           if (act?.solo === p) lcd.text(x + 12, ry + 2, f, "S", C.HI);
           lcd.rect(lx, ry + rowH - 2, lw, 1, C.LINE);
           for (const [nx, nw, ny, nh, shade] of act?.notes?.[p] ?? []) {
             if (nx + nw < from || nx > from + span) continue;
             const x0 = Math.max(lx, Math.round(X(nx))), x1 = Math.min(lx + lw, Math.round(X(nx + nw)));
-            const base = off ? C.DIM : nx < pos ? col : C.GRAY;   // played: its color
+            const now = bag.song && nx <= pos && pos < nx + Math.max(nw, 0.06);   // sounding: lit (Sam, 2026-11-06)
+            const base = off ? C.DIM : now ? C.WHITE : nx < pos ? col : C.GRAY;   // played: its color
             lcd.rect(x0, ry + 1 + Math.round(ny * (rowH - 4)), Math.max(1, x1 - x0 - 1), Math.max(1, Math.round(nh * (rowH - 4))),
-                     dim(base, 0.45 + 0.55 * shade));
+                     now && !off ? base : dim(base, 0.45 + 0.55 * shade));
           }
         });
         if (bag.song) lcd.rect(Math.round(X(pos)), y, 1, height, C.WHITE);   // the playhead
@@ -329,6 +332,7 @@ export const sayOf = (screen, bag) =>
 export const BUTTONS = ["FX", "SEL", "ENV", "LFO", "EDIT", "GLO", "HOME", "SAVE", "ARP", "SEQ", "PLAY", "REC", "OCT-", "OCT+"];
 export const ENCODERS = ["SELECT", "ALGO", "PRESET"];
 export const KNOBS = ["K1", "K2", "K3", "K4"];
+export const LONG_MS = 500;   // a long press
 
 // A control's action on a screen (the screen's own, else the defaults'; null: none)
 export function actionOf(data, id, control) {
@@ -363,7 +367,7 @@ export function problems(data) {
   const act = (where, a) => {
     if (a === null) return;
     if (a.go) { if (!["back", "home", "cursor"].includes(a.go) && !ids.includes(a.go)) out.push(`${where}: no screen "${a.go}"`); }
-    else if (["play", "cursor", "part", "page", "jump", "reroll", "mute", "solo"].includes(a.do)) { /* */ }
+    else if (["play", "cursor", "part", "page", "jump", "reroll", "mute", "solo", "level"].includes(a.do)) { if (a.long) act(`${where}.long`, a.long); }
     else if (a.do === "nudge" || a.do === "turn") { if (!data.fields?.[a.field]) out.push(`${where}: no field "${a.field}"`); }
     else out.push(`${where}: unknown action ${JSON.stringify(a)}`);
   };
@@ -410,7 +414,7 @@ export function problems(data) {
 // pending, then goes to the engine in the bar before it (the workbench lands a change at the next bar line).
 export class Device {
   constructor(data, engine, now = () => Date.now()) {
-    Object.assign(this, { data, engine, now, stack: [data.home], cursor: {}, req: {}, msg: null, said: "", live: null });
+    Object.assign(this, { data, engine, now, stack: [data.home], cursor: {}, held: {}, req: {}, msg: null, said: "", live: null });
   }
   get id() { return this.stack[this.stack.length - 1]; }
   get screen() { return this.data.screens[this.id]; }
@@ -425,6 +429,7 @@ export class Device {
 
   update(live) {
     const was = this.live;
+    if (!was || was.bar !== live.bar || was.seed !== live.seed) this.barT = this.now();   // the bar began (as far as we know)
     this.live = live;
     if (!this.hasSong() || (was && was.seed !== live.seed)) { this.req = {}; this.jumpReq = null; this.rollReq = null; }   // a new song or none: nothing waits
     const rr = this.rollReq;
@@ -467,7 +472,8 @@ export class Device {
              jump: this.jumpReq && song ? { name: this.jumpReq.name, i: this.jumpReq.i, at: this.jumpReq.at, bars: this.jumpReq.at - bar } : null,
              page: this.screen?.pages?.length > 1 ? `${this.screen.pages.indexOf(this.id) + 1}/${this.screen.pages.length}` : "",
              cursor: this.screen?.menu || this.screen?.list || this.screen?.lanes ? this.cursor[this.id] ?? 0 : -1, sections: l.sections,
-             activity: l.activity, pend, msg: this.msg && this.now() < this.msg.until ? this.msg.text : null };
+             activity: l.activity,
+             barPos: song ? bar + Math.min(0.999, (this.now() - (this.barT ?? this.now())) / (240000 / Math.max(40, l.roll?.tempo ?? 80))) : bar, pend, msg: this.msg && this.now() < this.msg.until ? this.msg.text : null };
   }
   values() { return valuesOf(this.shown(), this.data); }
   draw(lcd) { drawScreen(lcd, this.screen, this.values(), this.data); }
@@ -479,8 +485,26 @@ export class Device {
   speak() { this.said = sayOf(this.screen, this.values()); return this.said; }   // the reader asks for the screen
 
   // a control pressed (a button) or turned (an encoder or knob: detents, + clockwise); what it did, for the flow view
-  press(control, detents = 1) {
+  // a key down / up (the mock's keys, the FM-1's over USB): a key whose action has `long` acts on release when let go
+  // soon (a press) or once held LONG_MS (its long action: Sam, 2026-11-06: press = mute, long press = solo); others act
+  // as they go down
+  keyDown(control) {
     const a = actionOf(this.data, this.id, control);
+    if (!a?.long) return this.press(control);
+    this.held[control] = { t: this.now(), fired: false, a };
+    return null;
+  }
+  keyUp(control) {
+    const h = this.held[control];
+    delete this.held[control];
+    return h && !h.fired ? this.press(control, 1, h.a) : null;
+  }
+  tick() {   // a held key past LONG_MS: its long action, once
+    for (const [c, h] of Object.entries(this.held))
+      if (!h.fired && this.now() - h.t >= LONG_MS) { h.fired = true; this.press(c, 1, h.a.long); }
+  }
+
+  press(control, detents = 1, a = actionOf(this.data, this.id, control)) {
     if (!a) return null;
     if (a.do === "part" || a.do === "page") {   // ALGO: the next part (data.parts, at its first page); SELECT: the next page
       const list = a.do === "part" ? this.data.parts ?? [] : this.screen.pages ?? [], from = this.id;
@@ -519,7 +543,7 @@ export class Device {
       return null;
     }
     if (a.do === "mute" || a.do === "solo") {   // the highlighted lane's part: muted, or soloed (again: neither); at once
-      const part = this.screen.lanes?.[this.cursor[this.id] ?? 0], act = this.live?.activity;
+      const part = a.part ?? this.screen.lanes?.[this.cursor[this.id] ?? 0], act = this.live?.activity;
       if (!part) return null;
       if (a.do === "mute") { const on = !act?.mute?.includes(part); this.engine.mute?.(part, on); this.say(part.toUpperCase(), on ? "MUTED" : "ON"); }
       else { const on = act?.solo !== part; this.engine.solo?.(on ? part : null); this.say(part.toUpperCase(), on ? "SOLO" : "SOLO OFF"); }

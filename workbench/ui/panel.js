@@ -78,6 +78,14 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
     draw();
     panel();
   };
+  const down = new Set();   // keys held (a long press: Device.tick)
+  const keyAct = (control, isDown) => {
+    if (!dev || isDown === down.has(control)) return;
+    if (isDown) down.add(control); else down.delete(control);
+    took = (isDown ? dev.keyDown(control) : dev.keyUp(control)) ?? took;
+    draw();
+    panel();
+  };
   const knob = (id) => {
     const what = el("span", { className: "what" }), dial = el("div", { className: "dial", title: `${id}: scroll, or the arrows` });
     dial.onwheel = (e) => { e.preventDefault(); act(id, e.deltaY < 0 ? 1 : -1); };
@@ -104,7 +112,7 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
     onclick: async () => {
       if (usb) { usb.disconnect(); usb = null; usbBtn.textContent = "Connect FM-1"; return; }
       usbBtn.disabled = true;
-      usb = await connect({ act, onState: (s, text) => { usbIs = s; usbState.textContent = text; } });
+      usb = await connect({ act, key: keyAct, onState: (s, text) => { usbIs = s; usbState.textContent = text; } });
       usbBtn.disabled = false;
       if (usbIs === "unsupported" || usbIs === "denied") usb = null;   // nothing to disconnect
       usbBtn.textContent = usb ? "Disconnect FM-1" : "Connect FM-1";
@@ -118,7 +126,9 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
   const kw = Math.floor((2 * W + 20) / white.length);
   for (let k = 0; k < 27; k++) {
     const id = `KEY${k}`, isB = BLACK.has(k % 12), wi = white.filter((w) => w < k).length;
-    const b = el("button", { className: isB ? "b" : "w", title: `key ${k}`, onclick: () => act(id),
+    const b = el("button", { className: isB ? "b" : "w", title: `key ${k}`,
+                             onpointerdown: (e) => { e.preventDefault(); keyAct(id, true); }, onpointerup: () => keyAct(id, false),
+                             onpointerleave: () => keyAct(id, false),
                              textContent: isB ? "" : "FGABCDE"[wi % 7] });
     Object.assign(b.style, isB ? { left: `${wi * kw - kw * 0.3}px`, width: `${kw * 0.6}px` } : { left: `${wi * kw}px`, width: `${kw}px` });
     ctl.set(id, b);
@@ -215,7 +225,7 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
     e.preventDefault();
     act(c, e.shiftKey ? -1 : 1);
   });
-  setInterval(draw, 200);   // a message's 1.3 s runs out
+  setInterval(() => { dev?.tick(); draw(); }, 100);   // a message's 1.3 s runs out; a long press; the playhead moves
   load();
   return {
     position(p, on) { pos = p; playing = on; refresh(); },   // each position the engine reports, and the transport
