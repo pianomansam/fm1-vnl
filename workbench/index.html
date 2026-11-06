@@ -115,7 +115,6 @@
     <span id="pos">bar – / –  ·  0:00</span>
     <label class="switch" title="Repeat the section playing instead of moving on"><input id="loop" type="checkbox"> 🔁 Loop section</label>
     <label class="switch" title="Never end: where the outro would start, go back to the section after the intro (no next song)"><input id="endless" type="checkbox"> ∞ Stay on song</label>
-    <label class="switch"><input id="retired" type="checkbox"> Show retired</label>
   </div>
   <div class="bar"><div id="progress"></div></div>
   <div id="strip" role="group" aria-label="Sections: click to jump"></div>
@@ -161,10 +160,10 @@
     desk = new Desk(wb.call, wb.C, opts, lib, { probe: wb.probe, position: () => pos, samples, events: wb.events });
     await wb.call("wb_seed", 21);
     await desk.read(true);
-    const replaced = await desk.approvedKit();   // the boot song lands on an approved kit too, highlighted
+    await desk.approvedKit();   // the boot song lands on an approved kit too
     await wb.call("wb_apply");
     await desk.refresh();
-    if (replaced) { desk.moved = new Set(["kit"]); $("msg").textContent = replaced; }
+    // (a rolled retired kit becomes an approved one quietly: Sam, 2026-11-06, no note)
     await wb.call("wb_advance", $("loop").checked ? 0 : 1);   // the song's end: the next song (show)
     wb.onPosition(show);
     deviceMock();
@@ -317,7 +316,7 @@
       toggles.get(s.name)?.classList.toggle("moved", s.more.some((id) => desk.moved.has(id)));
     drums?.render(pos);
     strip().catch((e) => { $("msg").textContent = String(e); });
-    const showRetired = $("retired").checked, rhythm = rhythmRow(desk.state, desk.opts);   // (Comp: one Rhythm row)
+    const showRetired = false, rhythm = rhythmRow(desk.state, desk.opts);   // retired choices are never offered (Sam, 2026-11-06)   // (Comp: one Rhythm row)
     for (const r of ROWS) {
       const el = els.get(r.id), cur = desk.values[r.id], locked = desk.locks.has(r.id);
       if (RHYTHM_ROWS.includes(r.id)) el.hidden = r.id !== rhythm;
@@ -464,7 +463,6 @@
     roll().catch(() => {});
   };
   $("all").onclick = () => run(() => desk.rerollAll());
-  $("retired").onchange = render;
   // looping a section never moves on: at the song's end (a loop checked in its silence) the engine plays it again
   $("loop").onchange = () => { if (desk) wb.call("wb_advance", $("loop").checked ? 0 : 1).catch(() => {}); };
 
@@ -499,7 +497,7 @@
   // the drum screen in place of the desk (the transport and the song stay)
   function screen(on) {
     if (on && !drums)
-      drums = new DrumScreen($("drums"), { desk, call: wb.call, run, retired: () => $("retired").checked,
+      drums = new DrumScreen($("drums"), { desk, call: wb.call, run, retired: () => false,
                                            audio: wb.resume, say: (m) => { $("msg").textContent = m; }, back: () => screen(false) });
     $("drums").hidden = !on;
     $("desk").hidden = on;
@@ -518,10 +516,13 @@
       // during this bar still wins: the later jump replaces this one)
       const back = playing && $("loop").checked ? loopAt(heard, p.bar) : null;
       if (back !== null) wb.call("wb_jump", back).catch(() => {});
-      // keep going (Sam, 2026-11-06): the bar before the last section (the outro) → the section after the intro, so
-      // the song never ends and no next song comes
-      else if (playing && $("endless").checked && heard.length > 2 && p.bar === heard[heard.length - 1].start)
-        wb.call("wb_jump", heard[1].start).catch(() => {});
+      // stay on song (Sam, 2026-11-06): the bar before the last section (the outro) → the section after the intro, so
+      // the song never ends and no next song comes; turned on inside the last section, at its next 4-bar line
+      else if (playing && $("endless").checked && heard.length > 2) {
+        const last = heard[heard.length - 1];
+        if (p.bar === last.start || (p.bar > last.start && (p.bar - last.start) % 4 === 0))
+          wb.call("wb_jump", heard[1].start).catch(() => {});
+      }
     }, () => {});
     if (drums && ((p.bar - 1) & 1) !== ((pos.bar - 1) & 1)) drums.render(p);   // the bar sounding (1 or 2)
     pos = { seconds: p.seconds, bar: p.bar };

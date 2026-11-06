@@ -290,7 +290,7 @@ export class Desk {
     if (dice) this.hand.delete(id); else this.hand.add(id);
     const lost = r.regenerates ? [...kept.keys()].filter((k) => this.hand.has(k) && String(this.values[k]) !== String(kept.get(k))) : [];
     lost.forEach((k) => this.hand.delete(k));
-    this.moved = new Set(r.regenerates ? (replaced ? ["kit"] : []) : changed.map((x) => x.id));
+    this.moved = new Set(r.regenerates ? [] : changed.map((x) => x.id).filter((x) => !(replaced && x === "kit")));   // a quiet kit swap isn't a move
     for (const x of changed) if (!r.regenerates) this.hand.delete(x.id);
     this.message = "";
     await this.readBack();
@@ -314,7 +314,6 @@ export class Desk {
       ...c.stuck.map((s) => `${row(s.row).label} stays: no approved ${value} option yet.`),
       ...lost.map((k) => `${row(k).label} couldn't be kept in the new song.`),
       ...dropped,
-      ...(replaced ? [replaced] : []),
     ];
     if (this.message) notes.push(this.message);
     return this.done(true, notes.join(" "));

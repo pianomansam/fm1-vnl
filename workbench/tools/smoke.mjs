@@ -1627,9 +1627,9 @@ console.log("whole-branch review fixes");
     for (let s = 1; s <= 200; s++) {
       const r = await desk.set("seed", s, { dice: true });
       if (retired(desk.values.kit)) bad.push(`${s}:${desk.values.kit}`);
-      if (r.moved.includes("kit")) forced.push(s);
+      if (r.moved.includes("kit") || /retired/.test(r.message)) forced.push(s);
     }
-    check(!bad.length && forced.length > 100, `seeds 1-200: no landed kit is retired (${bad.join(" ") || "none"}); ${forced.length} replaced, highlighted`);
+    check(!bad.length && !forced.length, `seeds 1-200: no landed kit is retired (${bad.join(" ") || "none"}); the swap is quiet (Sam, 2026-11-06: no note, no highlight; ${forced.length} said)`);
     const a = (await desk.set("seed", 16, { dice: true }), desk.values.kit);
     await desk.set("seed", 17, { dice: true });
     const b = (await desk.set("seed", 16, { dice: true }), desk.values.kit);
@@ -3157,6 +3157,13 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
     dj.update({ ...live(4), sections: secs });
     check(w.pending === "GO TO LEAD IN 3 BARS" && w.sec2 === "*LEAD" && w.sec2Pend && early === 0 && JSON.stringify(jumps) === '[[24,"lead"]]',
           `a jump at bar 2: "${w.pending}", "${w.sec2}" waiting; sent in bar 4 (${JSON.stringify(jumps)})`);
+    {   // from the last section (its 4-bar line past the song's end), a jump still goes, on the last bar (Sam)
+      const outro = new D.Device(data, { set() {}, play() {}, jump() {} }, () => t);
+      const short = [{ start: 0, bars: 8, name: "intro" }, { start: 8, bars: 8, name: "groove" }, { start: 16, bars: 2, name: "outro" }];
+      outro.update({ ...live(17), bars: 18, sections: short });
+      outro.stack = ["main", "sections"]; outro.press("KEY2");
+      check(outro.jumpReq?.at === 17 && outro.jumpReq.sent, `a jump from an 18-bar song's outro lands on its last bar (${JSON.stringify(outro.jumpReq)})`);
+    }
     {   // a jump back to the intro: once the song is there, nothing waits and its key stops blinking
       const back = new D.Device(data, { set() {}, play() {}, jump() {} }, () => t);
       back.update({ ...live(10), sections: secs });

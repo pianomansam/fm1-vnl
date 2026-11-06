@@ -630,11 +630,11 @@ export class Device {
     if (a.do === "jump") {   // the highlighted section: the song goes there (at the next bar line, as the workbench's strip)
       const i = a.i ?? this.cursor[this.id] ?? 0, sec = this.live?.sections?.[i];   // a.i: a key's own section
       if (sec && this.hasSong()) {   // it lands on the next 4-bar boundary, as a knob's change does (Sam, 2026-11-06)
-        const l = this.live, bar = l.bar - 1, at = (Math.floor(bar / 4) + 1) * 4;
-        if (at < l.bars) {
-          this.jumpReq = { start: sec.start, name: sec.name, i, at, sent: false };
-          if (bar >= at - 1) this.update(l);
-        }
+        // the next 4-bar boundary, or the song's last bar where the song ends first (Sam: from the outro, a jump
+        // never went: its boundary was past the end)
+        const l = this.live, bar = l.bar - 1, at = Math.min((Math.floor(bar / 4) + 1) * 4, Math.max(bar + 1, l.bars - 1));
+        this.jumpReq = { start: sec.start, name: sec.name, i, at, sent: false };
+        if (bar >= at - 1) this.update(l);
         this.say("GO TO", String(sec.name).toUpperCase());
       }
       return null;
