@@ -1349,3 +1349,11 @@ size (the organ's is the largest; the vibraphone's state is 76 B), and voices.o'
   **62,000 B (+1,344 B)**: the song as it was at its bar's start (a second `song_t`), copied at each bar's first 16th so
   a stop can go back to it. Pool 124,472 B unchanged.
 - CPU: one `song_t` copy (about 1.3 KB) a bar in the render; not measurable.
+
+### The six modes back: the move to major or minor undone (2026-11-06)
+
+- Flash: image 388,120 to **388,040 B (-80 B)** (`./build.sh`, against b8d2a8e): the four split progressions (45-48)
+  and the scale over a chord go; the six modes' tables and the per-mode key names come back. RAM .data+.bss 62,112 B
+  and the pool 124,472 B unchanged.
+- CPU (`tools/tick-bench.sh 1000 3`, host): worst tick 28.0 us (others) and 30.0 us (strummed), against 27.0 and 32.0
+  us with major or minor (other songs: noise). The mode's scale is a table lookup again; not measurable.

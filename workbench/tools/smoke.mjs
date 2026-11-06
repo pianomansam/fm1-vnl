@@ -1698,7 +1698,8 @@ console.log("The six modes back (Sam, 2026-11-06, undoing major or minor): the S
         JSON.stringify(optionsFor(row("mode"), { ...st, legal: {} }, OPTS).map((o) => o.name)) ===
           JSON.stringify(["Ionian", "Dorian", "Phrygian", "Lydian", "Mixolydian", "Aeolian"]),
         "the Scale row: the six modes");
-  check(lib.progs.some((p) => p.id === 19 && p.status === "approved") && !lib.progs.some((p) => p.id >= 45),
+  check(lib.progs.some((p) => p.id === 19 && p.status === "approved") &&
+        !lib.progs.some((p) => p.id >= 45 && p.id <= 48 && p.status === "approved"),
         "progression 19 approved again; 45-48 (split off for major and minor) gone");
   check(JSON.stringify([fromMajorMinor({ mode: 0, prog: 46 }), fromMajorMinor({ mode: 1, prog: 48 }),
                         fromMajorMinor({ mode: 0, prog: 27 }), fromMajorMinor({ mode: 1, prog: 17 }),
@@ -3112,7 +3113,7 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
         `the flow: ${tr.map((x) => `${x.from} ${x.control} → ${x.to}`).join(", ")}`);
   dev.press("K2", 2);
   const v = dev.values();
-  check(v.pending === "TEMPO 82 IN 3 BARS" && v.msg0 === "TEMPO" && v.msg1 === "82" && !sets.length && v.keyline === "D MINOR  *82 BPM" && v.tempo === "*82" && v.tempoPend &&
+  check(v.pending === "TEMPO 82 IN 3 BARS" && v.msg0 === "TEMPO" && v.msg1 === "82" && !sets.length && v.keyline === "D DORIAN  *82 BPM" && v.tempo === "*82" && v.tempoPend &&
         v.place === "DRIFT  GROOVE  2/64", `K2 twice at bar 2: "${v.pending}", the header "${v.msg0} ${v.msg1}", the tempo shown at once as "${v.tempo}" (waiting), nothing sent yet`);
   dev.update(live(4));
   dev.update(live(4));
