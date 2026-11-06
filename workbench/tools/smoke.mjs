@@ -496,7 +496,7 @@ const enumOf = (first) => {   // the enum whose first name is `first`: its names
   return body.replace(/\/\*[\s\S]*?\*\//g, "").replace(/enum \{/, "").split(",").map((x) => x.trim()).filter(Boolean);
 };
 const lcg = (s) => () => ((s = (s * 1103515245 + 12345) >>> 0) / 4294967296);
-const STR = new Set(["wb_consts", "wb_state", "wb_live_state", "wb_library", "wb_sections"]);
+const STR = new Set(["wb_consts", "wb_state", "wb_live_state", "wb_library", "wb_sections", "wb_screen"]);
 // the page's call (the worklet's): JSON exports parsed, wb_stage_bytes a copy of the staged state
 const caller = (ex) => async (fn, ...a) => {
   if (fn === "wb_stage_bytes") return new Uint8Array(ex.memory.buffer, ex.wb_stage_ptr(), ex.wb_stage_size()).slice();
@@ -2992,6 +2992,68 @@ console.log("the page by part: sections, part headers, the folded rows, summarie
     check(r1.ok && !miss.length && db.values[id] === v && rhythmRow(db.state, OPTS) === id,
           `a ${keys} snapshot with its Rhythm (${id} ${v}) restores to it, shown in the Rhythm row (mismatch: ${miss.join(", ") || "none"})`);
   }
+}
+
+console.log("the device mock (ui/): the device's words, palette and knobs; the screens' data; the flow between screens");
+{
+  const D = await import("../ui/device.js"), data = (await import("../ui/screens.js")).default;
+  const src = (rel) => readFileSync(new URL(rel, import.meta.url), "utf8");
+  const app = src("../../app/app.c"), gfx = src("../../base/device/gfx.c");
+  const strs = (name) => [...app.match(new RegExp(`${name}[^=]*=\\s*([^;]*);`))[1].matchAll(/"([^"]*)"/g)].map((m) => m[1]);
+  const keys = strs("KEY_NAME");
+  check(JSON.stringify([keys.slice(0, 12), keys.slice(12)]) === JSON.stringify(D.KEY_NAME) &&
+        JSON.stringify(strs("MODE_NAME")) === JSON.stringify(D.MODE_NAME) && JSON.stringify(strs("MOOD_NAME")) === JSON.stringify(D.MOOD_NAME) &&
+        JSON.stringify(strs("SEC_NAME")) === JSON.stringify(D.SEC_NAME) &&
+        src("../../app/app.h").includes(`#define APP_NAME "${D.APP_NAME}"`),
+        "the mock's key, scale, mood and section names and APP_NAME are app.c's and app.h's");
+  const rgb = (s) => s.match(/RGB\(\d+, \d+, \d+\)/g).map((x) => D.RGB(...x.match(/\d+/g).map(Number)));
+  const neutrals = rgb(gfx.match(/#define NEUTRALS (.*)/)[1]);
+  const pal = Object.fromEntries([...gfx.matchAll(/\{"(\w+)", \{NEUTRALS, (RGB[^}]*)\}\}/g)].map((m) => [m[1], [...neutrals, ...rgb(m[2])]]));
+  const theme = Object.keys(pal)[+src("../../base/include/fm1b_config.h").match(/#define APP_PALETTE (\d+)u/)[1]];
+  check(JSON.stringify(pal) === JSON.stringify(D.PALETTES) && theme === D.THEME,
+        `the palette is gfx.c's, the theme fm1b_config.h's (${theme})`);
+  const knobs = data.screens[data.home].knobs, KF = ["RF_KEY", "RF_TEMPO", "RF_MOTION", "RF_MOOD"];
+  const arr = (name) => app.match(new RegExp(`${name}\\[4\\] = \\{([^}]*)\\}`))[1].split(",").map((x) => x.trim().replace(/"/g, ""));
+  check(JSON.stringify(arr("KNOB_FIELD")) === JSON.stringify(knobs.map((k) => KF[["key", "tempo", "motion", "mood"].indexOf(k.field)])) &&
+        JSON.stringify(arr("KNOB_STEP").map(Number)) === JSON.stringify(knobs.map((k) => k.step)) &&
+        JSON.stringify(arr("KNOB_NAME")) === JSON.stringify(knobs.map((k) => data.fields[k.field].name)) &&
+        D.fieldStep(data.fields.key, 11, 1) === 0 && D.fieldStep(data.fields.key, 0, -1) === 11 &&
+        D.fieldStep(data.fields.tempo, 90, 1) === 90 && D.fieldStep(data.fields.motion, 3, -5) === 0 && D.fieldStep(data.fields.mood, 3, 1) === 3,
+        "the home screen's knobs are app.c's (fields, steps, names); a field steps as field_step does");
+  const bad = D.problems(data);
+  check(!bad.length, `ui/screens.js has no problems${bad.length ? `: ${bad.join("; ")}` : ""}`);
+  const broken = { ...data, screens: { ...data.screens, main: { ...data.screens.main, controls: { EDIT: { go: "nowhere" }, K9: { do: "play" } } } } };
+  check(D.problems(broken).length === 2, `a transition to no screen and an unknown control are problems (${D.problems(broken).join("; ")})`);
+  // the flow: EDIT opens the placeholder, HOME (or EDIT) comes back; the knobs ask for changes that land on the next
+  // 4-bar boundary, the bar before it reaching the engine
+  const sets = [];
+  let plays = 0, t = 0;
+  const dev = new D.Device(data, { set: (r, v) => sets.push([r, v]), play: () => plays++ }, () => t);
+  const live = (bar) => ({ playing: true, gap: 0, bar, bars: 64, seed: 7, roll: { key: 2, mode: 1, tempo: 80, motion: 50, mood: 1 },
+                           facts: { section: 1, map: "Drift", chord: "Dm9" } });
+  dev.update(live(2));
+  const tr = D.transitions(data);
+  check(tr.some((x) => x.from === "main" && x.control === "EDIT" && x.to === "edit") && tr.some((x) => x.from === "edit" && x.control === "HOME" && x.to === "home"),
+        `the flow: ${tr.map((x) => `${x.from} ${x.control} → ${x.to}`).join(", ")}`);
+  dev.press("K2", 2);
+  const v = dev.values();
+  check(v.pending === "TEMPO 82 IN 3 BARS" && v.msg0 === "TEMPO" && v.msg1 === "82" && !sets.length && v.keyline === "D MINOR  80 BPM" &&
+        v.place === "DRIFT  GROOVE  2/64", `K2 twice at bar 2: "${v.pending}", the header "${v.msg0} ${v.msg1}", nothing sent yet`);
+  dev.update(live(4));
+  dev.update(live(4));
+  check(JSON.stringify(sets) === '[["tempo",82]]', "in the bar before the boundary the change goes to the engine once (Desk.set's tempo row)");
+  dev.update(live(5));
+  check(dev.values().pending === "", "past the boundary nothing waits");
+  const to = dev.press("EDIT"), crumb = [...dev.stack];
+  dev.press("OCT+");
+  const p2 = dev.values().pending;
+  dev.press("HOME");
+  check(to.to === "edit" && crumb.join() === "main,edit" && p2 === "TEMPO 81 IN 4 BARS" && dev.id === "main" && dev.said.startsWith("VNL-1. D MINOR"),
+        `EDIT opens the placeholder (breadcrumb ${crumb.join(" › ")}), its OCT+ asks for tempo + 1, HOME returns and the reader hears the screen`);
+  dev.press("PLAY");
+  t += 2000;
+  dev.update({ ...live(5), playing: false });
+  check(plays === 1 && dev.values().idle === "STOPPED" && !dev.values().msg && !dev.values().pending, "PLAY stops; the screen says STOPPED");
 }
 
 console.log(failed ? `smoke: ${failed} FAILED` : "smoke: all passed");
