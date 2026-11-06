@@ -489,6 +489,20 @@ console.log("the piano roll (roll.js: layout on the committed song's events; dra
 const { ROWS, row, optionsFor, pickFor, conflicts, familyOf, fromEngine, COMP_PAT_BASE } = await import("../rows.js");
 const { Desk, fromModes, endsSong } = await import("../desk.js");
 const OPTS = JSON.parse(readFileSync(env("WB_OPTIONS", "../options.json"), "utf8"));
+{   // the rows as data (rows.json, which the device's tables are generated from): rows.js gives what it gave before
+  const R = await import("../rows.js"), was = JSON.parse(readFileSync(new URL("fixtures/rows_before.json", import.meta.url), "utf8"));
+  const data = JSON.parse(readFileSync(new URL("../rows.json", import.meta.url), "utf8"));
+  const O = JSON.parse(readFileSync(new URL("../options.json", import.meta.url), "utf8"));   // the fixture's options
+  const comps = [...O.compRhythms.map((c) => R.compOption(O, c.value)), ...O.comping], fits = {}, rr = {};
+  for (const i of O.instruments) {
+    fits[i.id] = comps.map((c) => (R.compFits(c, i.id) ? 1 : 0));
+    rr[i.id] = [-1, ...comps.map((c) => c.id)].map((v) => R.rhythmRow({ values: { keys: i.id, comp: v } }, O));
+  }
+  check(JSON.stringify(R.ROWS) === JSON.stringify(was.ROWS) && JSON.stringify(R.SECTIONS) === JSON.stringify(was.SECTIONS) &&
+        JSON.stringify(data.rows) === JSON.stringify(was.ROWS) && JSON.stringify(fits) === JSON.stringify(was.compFits) &&
+        JSON.stringify(rr) === JSON.stringify(was.rhythmRow) && data.fits?.comping?.keysOf === "keys",
+        `rows.json: ROWS and SECTIONS as before the move, compFits and rhythmRow the same for every instrument and comping (${comps.length} x ${O.instruments.length})`);
+}
 const HDR = readFileSync(new URL("../../app/song/library.h", import.meta.url), "utf8") +
             readFileSync(new URL("../engine/wb_drums.h", import.meta.url), "utf8");
 const enumOf = (first) => {   // the enum whose first name is `first`: its names in order

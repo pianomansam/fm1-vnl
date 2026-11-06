@@ -7,80 +7,37 @@
 //   padless: the committed song has no pad (optional), grid: the drum grid holds hand edits (optional) };
 //   lib: wb_library()'s maps and progressions.
 
-// kind: seed | roll (a roll field) | family (the page's own) | role (an instrument in the custom set) | ov (an override)
-// | reroll (an override's salt) | drum (kit, pattern, kick phrase). field: RF_*; role: V_*; key: WB_OV_*. part: the
-// part a salt re-rolls (desk.js's parts: the part header's 🎲 sets it). label: the row's name in messages and
-// tooltips; short: its name inside its section (SECTIONS), which names the part. The keys rows are the Comp part's in
-// the page's text; their ids (keys, keysOct) and the engine's names (V_CHORD, KEYS_OCT) stay.
-export const ROWS = [
-  { id: "seed", label: "Seed", kind: "seed", regenerates: true },
-  { id: "key", label: "Key", kind: "roll", field: "KEY", source: "keys" },
-  // major or minor (the six modes to 2026-11-05; the row keeps its id, "mode", for the snapshots)
-  { id: "mode", label: "Scale", kind: "roll", field: "MODE", source: "modes" },
-  { id: "tempo", label: "Tempo", kind: "roll", field: "TEMPO", source: "tempo" },
-  { id: "swing", label: "Swing", kind: "roll", field: "SWING", source: "swing" },
-  { id: "mood", label: "Mood", kind: "roll", field: "MOOD", source: "moods" },
-  { id: "motion", label: "Motion", kind: "roll", field: "MOTION", source: "motion" },
-  { id: "map", label: "Map", kind: "roll", field: "MAP", source: "maps", regenerates: true },
-  { id: "prog", label: "Progression", kind: "roll", field: "PROG", source: "progs" },
-  { id: "color", label: "Chord color", kind: "roll", field: "COLOR", source: "colors" },
-  { id: "family", label: "Family", kind: "family", source: "families" },
-  { id: "keys", label: "Comp instrument", short: "Instrument", kind: "role", role: "CHORD", source: "instruments" },
-  // (one place to pick comping, Sam 2026-11-05: the styles and the comp rhythms in one list; desk.js stages a comp
-  // rhythm as the COMP_PAT override, anything else as COMP)
-  { id: "comp", label: "Comp rhythm", short: "Rhythm", kind: "ov", key: "COMP", source: "comping" },
-  { id: "lead", label: "Lead instrument", short: "Instrument", kind: "role", role: "LEAD", source: "instruments" },
-  { id: "bass", label: "Bass instrument", short: "Instrument", kind: "role", role: "BASS", source: "instruments" },
-  { id: "pad", label: "Pad instrument", short: "Instrument", kind: "role", role: "PAD", source: "instruments" },
-  { id: "padOn", label: "Pad on/off", kind: "ov", key: "PAD_ON", source: "padOn" },
-  { id: "phrase", label: "Lead phrase", short: "Phrase", kind: "reroll", key: "PHRASE_SALT", part: "lead" },
-  { id: "leadStyle", label: "Lead style", short: "Style", kind: "ov", key: "LEAD_STYLE", source: "leadStyles" },
-  { id: "leadLoop", label: "Lead loop", short: "Loop", kind: "ov", key: "LEAD_LOOP", source: "leadLoop" },
-  { id: "leadOct", label: "Lead register", short: "Register", kind: "ov", key: "LEAD_OCT", source: "registers" },
-  { id: "busyThin", label: "Busy lead thins the comp", kind: "ov", key: "NO_BUSY_THIN", source: "onOffInverted" },
-  { id: "voicings", label: "Comp voicings", short: "Voicings", kind: "reroll", key: "VOICING_SALT", part: "keys" },
-  { id: "keysOct", label: "Comp register", short: "Register", kind: "ov", key: "KEYS_OCT", source: "registers" },
-  { id: "strumPat", label: "Strum pattern", short: "Rhythm", kind: "ov", key: "STRUM_PAT", source: "strumPats" },
-  { id: "strumFill", label: "Strum fill", kind: "ov", key: "STRUM_FILL", source: "strumFills" },
-  { id: "padPlace", label: "Pad place", short: "Place", kind: "ov", key: "PAD_PLACE", source: "padPlaces" },
-  { id: "bassLine", label: "Bass line", kind: "reroll", key: "BASS_SALT", part: "bass" },
-  { id: "padNotes", label: "Pad notes", short: "Notes", kind: "reroll", key: "PAD_SALT", part: "pad" },
-  { id: "drumsVar", label: "Drum variation", kind: "reroll", key: "DRUMS_SALT", part: "drums" },
-  { id: "kit", label: "Kit", kind: "drum", key: "kit", source: "kits" },
-  { id: "pattern", label: "Pattern", kind: "drum", key: "pattern", source: "patterns" },
-  { id: "kick", label: "Kick phrase", kind: "drum", key: "kick", source: "kickPhrases" },
-  { id: "ride", label: "Ride section", kind: "ov", key: "RIDE", source: "rides" },
-  { id: "dust", label: "Dust", kind: "roll", field: "DUST", source: "dust" },
-  { id: "noise", label: "Noise", kind: "roll", field: "NOISE", source: "noise" },
-  { id: "ambience", label: "Ambience", kind: "roll", field: "AMBIENCE", source: "ambience" },
-];
+// The rows, the sections and the comp's fit rules are data (rows.json), which the device's tables are generated from
+// too (tools/screens/gen.py). A row's kind: seed | roll (a roll field) | family (the page's own) | role (an instrument
+// in the custom set) | ov (an override) | reroll (an override's salt) | drum (kit, pattern, kick phrase). field: RF_*;
+// role: V_*; key: WB_OV_*. part: the part a salt re-rolls (desk.js's parts: the part header's 🎲 sets it). label: the
+// row's name in messages and tooltips; short: its name inside its section (SECTIONS), which names the part. The keys
+// rows are the Comp part's in the page's text; their ids (keys, keysOct) and the engine's names (V_CHORD, KEYS_OCT)
+// stay. The mode row is major or minor (the six modes to 2026-11-05; it keeps its id, "mode", for the snapshots). One
+// place to pick comping (Sam 2026-11-05): the comp row lists the styles and the comp rhythms in one list; desk.js
+// stages a comp rhythm as the COMP_PAT override, anything else as COMP.
+import DATA from "./rows.json" with { type: "json" };
+export const ROWS = DATA.rows;
 export const row = (id) => ROWS.find((r) => r.id === id);
 
 // The page's sections, top to bottom, built up like a track: the song, each part, the texture (ROWS keeps its own
 // order: the desk stages and rolls in it). part: desk.js's PARTS key (its header carries the part's mute, solo, rolls,
 // lock and feedback, and summary()). main: the rows always shown (a part's instrument and its rhythm or style; the
 // song's are the device's home knobs and the seed); more: those folded under the section's "more" toggle.
-export const SECTIONS = [
-  { name: "Song", main: ["seed", "key", "tempo", "mood", "motion"], more: ["mode", "swing", "map", "prog", "color", "family"] },
-  { name: "Drums", part: "drums", main: ["kit", "pattern"], more: ["kick", "ride", "drumsVar"] },
-  { name: "Bass", part: "bass", main: ["bass", "bassLine"], more: [] },
-  { name: "Comp", part: "keys", main: ["keys", "comp", "strumPat"], more: ["strumFill", "voicings", "keysOct", "busyThin"] },
-  { name: "Pad", part: "pad", main: ["pad", "padOn"], more: ["padPlace", "padNotes"] },
-  { name: "Lead", part: "lead", main: ["lead", "leadStyle"], more: ["phrase", "leadLoop", "leadOct"] },
-  { name: "Texture", main: ["dust", "noise", "ambience"], more: [] },
-];
+export const SECTIONS = DATA.sections;
 export const sectionOf = (id) => SECTIONS.find((s) => s.main.includes(id) || s.more.includes(id));
 
 // The Comp part's one Rhythm row (Sam, 2026-11-05): the comp rhythms (the comp row) on keys, the strum patterns (the
 // strumPat row) on the guitars, which only strum. The page shows the row this names and hides the other; both stay
 // rows of their own (their overrides, locks and snapshot values unchanged). A comp rhythm a guitar can't play, left by a
 // snapshot or the engine, keeps the comp row in view (greyed, open to change).
-export const RHYTHM_ROWS = ["comp", "strumPat"];
+const RR = DATA.fits.rhythmRow;   // { strumSym, compRow, strumRow }
+export const RHYTHM_ROWS = [RR.compRow, RR.strumRow];
 export function rhythmRow(state, opts) {
-  const strum = opts.comping.find((c) => c.sym === "CS_STRUM"), v = state.values;
-  if (!strum || !compFits(strum, v.keys)) return "comp";
+  const strum = opts.comping.find((c) => c.sym === RR.strumSym), v = state.values;
+  if (!strum || !compFits(strum, v.keys)) return RR.compRow;
   const c = v.comp >= 0 ? compOption(opts, v.comp) : null;
-  return c && c.sym !== "CS_STRUM" && !compFits(c, v.keys) ? "comp" : "strumPat";
+  return c && c.sym !== RR.strumSym && !compFits(c, v.keys) ? RR.compRow : RR.strumRow;
 }
 
 // Each section's "more" open or folded, per viewer (localStorage, when there is one: a private window or blocked
@@ -118,7 +75,9 @@ const ONE_PART = new Set([25, 2, 11]);
 
 // a comping style the keys can play: options.json's keys (only these) and notKeys (never these: the guitars only strum,
 // Sam 2026-11-04)
-export const compFits = (c, keys) => (!c.keys || c.keys.includes(keys)) && !c.notKeys?.includes(keys);
+// (rows.json's fits.comping names the two lists)
+const FIT = DATA.fits.comping;
+export const compFits = (c, keys) => (!c[FIT.keysOf] || c[FIT.keysOf].includes(keys)) && !c[FIT.notKeysOf]?.includes(keys);
 
 // The Comping row's value: -1 as rolled; a comping rhythm's (options.json's compRhythms, generated from
 // patterns/comp-rhythms, every keys rhythm in one list, Sam 2026-11-05): a fixed one's CS_* id (staged as COMP), an
