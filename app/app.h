@@ -10,6 +10,13 @@
 #define APP_SPLASH_RGB RGB(242, 120, 72)
 #define APP_BLOCK 256u                   /* frames per audio block: 5.8 ms at 44.1 kHz */
 
+/* The device's UI: 0 today's hand-drawn screen (app.c's draw()), 1 the screens' runtime (app/ui: the workbench's
+   screens, generated; docs/superpowers/plans/2026-11-06-device-screens.md, Task 8 turns it on). The simulator has the
+   runtime either way (its uiscreen command). */
+#ifndef VNL_UI_RUNTIME
+#define VNL_UI_RUNTIME 0
+#endif
+
 /* the store: the app's objects, the panel calibration (the platform's) and Bluetooth's address and pairing among
  * them, and their flash offsets */
 enum { OBJ_SETTINGS, OBJ_PANEL, OBJ_BLE, OBJ_NOBJ };

@@ -14,7 +14,7 @@
 #include "override.h"
 
 /* app.c's words (the mock's KEY_NAME ...): each mode's keys spelled by its parent major */
-static const char *const UI_KEY_NAME[MODE_N][12] = {
+static const char UI_KEY_NAME[MODE_N][12][3] = {   /* (characters, not pointers: half the flash) */
     {"C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"},
     {"C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"},
     {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "Bb", "B"},
@@ -246,15 +246,22 @@ static int field_value(const ui_bag_t *b, int f) { return value_of_row(b, real_r
 static int waiting(const ui_bag_t *b, int f) { return b->n && b->n->req_at[f] >= 0; }
 static int field_shown(const ui_bag_t *b, int f) { return waiting(b, f) ? b->n->req_val[f] : field_value(b, f); }
 
-static double field_frac(const ui_bag_t *b, int f, int v)
+/* a field's share of its range, as a fraction num / *den (the device has no double: the drawing rounds it exactly) */
+static int field_frac(const ui_bag_t *b, int f, int v, int *den)
 {
     const ui_field_t *d = &UI_FIELDS[f];
+    *den = 1;
     if (d->kind == UI_FK_OPTIONS) {
         int o[OPTS_MAX], n = options(b, d->row, o), i = index_of(o, n, v);
-        return n > 1 && i >= 0 ? (double)i / (double)(n - 1) : 0.0;
+        if (n > 1 && i >= 0) *den = n - 1;
+        return n > 1 && i >= 0 ? i : 0;
     }
-    if (d->wrap) return (double)v / (double)(d->wrap - 1);
-    return (double)(v - d->min) / (double)((d->max ? d->max : 100) - d->min);
+    if (d->wrap) {
+        *den = d->wrap - 1;
+        return v;
+    }
+    *den = (d->max ? d->max : 100) - d->min;
+    return v - d->min;
 }
 
 /* a list's ends (device.js): {field}First / {field}Last; a wrap has neither */
@@ -431,7 +438,7 @@ const char *ui_value(const ui_bag_t *b, int id, int index, char *t)
     }
     default: break;
     }
-    if (id >= UV_I0 && id < UV_I(UV_I_COUNT, 0)) {        /* sel{i}, sec{i}... */
+    if (id >= UV_I0 && id < UV_I(UV_I_COUNT, 0)) {        /* sel{i}, sec{i}... (the Sections list's: not in phase 1) */
         const ui_screen_t *sc = &UI_SCREENS[b->screen];
         int i = (id - UV_I0) / UVK_I_N, off = list_off(b), at = off + i;
         k = (id - UV_I0) % UVK_I_N;
@@ -439,6 +446,9 @@ const char *ui_value(const ui_bag_t *b, int id, int index, char *t)
             int has = UI_LISTS[sc->menu].n || sc->list || UI_LISTS[sc->lanes].n;
             return has && n && n->cursor[b->screen] - off == i ? "1" : "";
         }
+#if UI_PHASE1
+        return "";
+#endif
         if (at >= s->n_secs || i >= list_rows(b)) return "";
         switch (k) {
         case UVK_I_SEC:
@@ -513,16 +523,19 @@ static const char *fill_line(const ui_bag_t *b, int line, char *t)
     return t;
 }
 
-double ui_value_num(const ui_bag_t *b, int id)
+int ui_value_num(const ui_bag_t *b, int id, int *den)
 {
     const snap_t *s = b->s;
     int f, k;
     char t[UI_VALUE_MAX];
-    if (id == UV_PROGRESS)
-        return s->has_song && s->roll.v[RF_BARS] ? ((double)(s->bar + 1) / s->roll.v[RF_BARS] > 1.0 ? 1.0
-                                                    : (double)(s->bar + 1) / s->roll.v[RF_BARS]) : 0.0;
+    *den = 1;
+    if (id == UV_PROGRESS) {
+        if (!s->has_song || !s->roll.v[RF_BARS]) return 0;
+        *den = s->roll.v[RF_BARS];
+        return s->bar + 1 < *den ? s->bar + 1 : *den;
+    }
     if ((f = find_field(id, &k)) >= 0 && k == UVK_FIELD_FRAC)
-        return field_frac(b, f, field_shown(b, f));
+        return field_frac(b, f, field_shown(b, f), den);
     {
         const char *x = ui_value(b, id, 0, t);
         int v = 0, neg = *x == '-';
@@ -537,7 +550,10 @@ int ui_true(const ui_bag_t *b, int cond)
     char t[UI_VALUE_MAX];
     if (!id) return 1;
     if (ui_value_kind(id) == UI_VK_NUM)
-        on = ui_value_num(b, id) != 0.0;
+    {
+        int den;
+        on = ui_value_num(b, id, &den) != 0;
+    }
     else
         on = ui_value(b, id, 0, t)[0] != 0;
     return cond < 0 ? !on : on;

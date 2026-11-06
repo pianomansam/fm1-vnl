@@ -233,10 +233,15 @@ def gen_choices(rows, opts, shown):
     s = Strings()
     entries, spans, fit_rows = [], [], []
     for r in rows:
-        cs = choices(r, opts) if r["id"] in shown else []   # (a row no screen names: no table, no flash)
+        cs = choices(r, opts) if r["id"] in shown and r.get("source") != "swing" else []   # (a row no screen names:
+        # no table, no flash; the swing's 101 names are written, not stored: ch_name)
         spans.append((len(entries), len(cs)))
         for v, n, st, fl, keys, nkeys in cs:
+            if not -128 <= v <= 127:
+                raise Refused(f"rows.json: row {r['id']}: value {v} doesn't fit a byte (ch_entry_t)")
             entries.append((v, s(n), st | fl, keys, nkeys))
+    if len(entries) > 255:
+        raise Refused(f"{len(entries)} choices: more than CH_SPAN's bytes hold")
     kof, nkof = fits["comping"]["keysOf"], fits["comping"]["notKeysOf"]
     assert (kof, nkof) == ("keys", "notKeys"), "choices(): reads comping's keys and notKeys"
     comp_row = next(i for i, r in enumerate(rows) if r.get("source") == "comping")
@@ -273,10 +278,10 @@ def gen_choices(rows, opts, shown):
          "extern const int8_t CH_SONG_ROW[ROW_N];\n\n#endif\n"]
     c = [HEAD, '#include "choices_gen.h"\n#include "song.h"\n\n', s.c("CH_STR"), "\n",
          "const int8_t CH_SONG_ROW[ROW_N] = {\n" + "".join(f"    {song_row(r)},   /* {r['id']} */\n" for r in rows) + "};\n",
-         "typedef struct { int16_t value; uint16_t name; uint8_t flags; } ch_entry_t;\n",
+         "typedef struct { int8_t value; uint8_t flags; uint16_t name; } ch_entry_t;   /* 4 bytes */\n",
          f"static const ch_entry_t CH_E[{len(entries)}] = {{\n" +
-         "".join(f"    {{{v}, {nm}, {fl}}},\n" for v, nm, fl, _, _ in entries) + "};\n",
-         f"static const uint16_t CH_SPAN[ROW_N][2] = {{\n" + "".join(f"    {{{a}, {b}}},   /* {r['id']} */\n"
+         "".join(f"    {{{v}, {fl}, {nm}}},\n" for v, nm, fl, _, _ in entries) + "};\n",
+         f"static const uint8_t CH_SPAN[ROW_N][2] = {{\n" + "".join(f"    {{{a}, {b}}},   /* {r['id']} */\n"
                                                                 for (a, b), r in zip(spans, rows)) + "};\n",
          f"static const uint32_t CH_COMP_FIT[{max(1, n)}][2] = {{\n" +
          "".join(f"    {{{a}u, {b}u}},\n" for a, b in fit_masks) + "};\n\n",
@@ -285,10 +290,28 @@ def gen_choices(rows, opts, shown):
          "    for (int i = 0; i < CH_SPAN[row][1]; i++)\n"
          "        if (CH_E[CH_SPAN[row][0] + i].value == value) return CH_SPAN[row][0] + i;\n"
          "    return -1;\n}\n\n"
-         "const char *ch_name(int row, int value) { int i = find(row, value); return i < 0 ? 0 : CH_STR + CH_E[i].name; }\n"
-         "int ch_count(int row) { return row < 0 || row >= ROW_N ? 0 : CH_SPAN[row][1]; }\n"
-         "int ch_value(int row, int index) { return CH_E[CH_SPAN[row][0] + index].value; }\n"
-         "int ch_flags(int row, int value) { int i = find(row, value); return i < 0 ? -1 : CH_E[i].flags; }\n"
+         "/* the swing: per mille 520..620, named \"52.0%\" (rows.js's), written rather than stored */\n"
+         "#define CH_SWING_LO 520\n#define CH_SWING_HI 620\n"
+         "static int is_swing(int row, int v) { return row == ROW_SWING && v >= CH_SWING_LO && v <= CH_SWING_HI; }\n"
+         "const char *ch_name(int row, int value)\n{\n"
+         "    static char t[8];\n"
+         "    int i;\n"
+         "    if (is_swing(row, value)) {\n"
+         "        t[0] = (char)('0' + value / 100); t[1] = (char)('0' + value / 10 % 10); t[2] = '.';\n"
+         "        t[3] = (char)('0' + value % 10); t[4] = '%'; t[5] = 0;\n"
+         "        return t;\n"
+         "    }\n"
+         "    i = find(row, value);\n"
+         "    return i < 0 ? 0 : CH_STR + CH_E[i].name;\n}\n"
+         "int ch_count(int row)\n{\n"
+         "    if (row == ROW_SWING) return CH_SWING_HI - CH_SWING_LO + 1;\n"
+         "    return row < 0 || row >= ROW_N ? 0 : CH_SPAN[row][1];\n}\n"
+         "int ch_value(int row, int index) { return row == ROW_SWING ? CH_SWING_LO + index : CH_E[CH_SPAN[row][0] + index].value; }\n"
+         "int ch_flags(int row, int value)\n{\n"
+         "    int i;\n"
+         "    if (is_swing(row, value)) return 0;\n"
+         "    i = find(row, value);\n"
+         "    return i < 0 ? -1 : CH_E[i].flags;\n}\n"
          "int ch_is_retired(int row, int value) { int f = ch_flags(row, value); return f >= 0 && CH_STATUS(f) >= 2; }\n\n"
          "int ch_fits(int row, int value, int keys_ins) {\n"
          f"    if (row != ROW_{ident(rows[comp_row]['id'])} || keys_ins < 0 || keys_ins >= 32) return 1;\n"
@@ -307,13 +330,32 @@ def gen_choices(rows, opts, shown):
 
 
 # ------------------------------------------------------------------------------------------------- the screens ---
-def gen_screens(data, vocab, rows):
+def part_names(data):
+    """every part the screens name, in the order they first appear (lanes, keys' lights, actions): ui_part"""
+    out = []
+    def walk(x, key=None):
+        if isinstance(x, dict):
+            for k, v in x.items():
+                walk(v, k)
+        elif isinstance(x, list):
+            for v in x:
+                walk(v, key)
+        elif isinstance(x, str) and key in ("parts", "lanes", "part") and x not in out:
+            out.append(x)
+    walk(data["screens"])
+    walk(data.get("defaults", {}))
+    walk(data.get("keyLeds", {}))
+    return out
+
+
+def gen_screens(data, vocab, rows, all_parts=None):
     errs = []
     row_ids = [r["id"] for r in rows]                              # choices_gen.h's rows (rows.json's, the virtual ones)
     value_rows = [r["id"] for r in rows if r.get("kind") != "virtual"]   # {row}: rows.json's (device.js's valueNames)
     fields = list(data["fields"])
     lines = list(data.get("lines", {}))
     fonts = font_names()
+    used_fonts = set()
     theme = theme_colors()
     colors = list(THEME) + list(data.get("colors", {}))
     color_val = [theme[k] for k in THEME] + [rgb565(*v) for v in data.get("colors", {}).values()]
@@ -385,6 +427,7 @@ def gen_screens(data, vocab, rows):
         return colors.index(c)
 
     def font(where, f):
+        used_fonts.add(f)
         if f not in fonts:
             errs.append(f"{where}: no font {f}")
             return 0
@@ -398,7 +441,7 @@ def gen_screens(data, vocab, rows):
             lists.append(t)
         return lists.index(t)
 
-    parts = []
+    parts = list(all_parts or [])       # (the same numbering for the device's tables as the simulator's)
     def part(p):
         if p not in parts:
             parts.append(p)
@@ -474,7 +517,8 @@ def gen_screens(data, vocab, rows):
                 arrows_right = it.get("arrowsRight", 232)
             lone = re.fullmatch(r"\{(\w+)\}", it["text"])   # a value alone: its Pend (the pending color), First, Last
             if lone:
-                lt = tuple(vid.get(lone.group(1) + x, 0) for x in ("Pend", "First", "Last"))
+                lt = tuple(vid.get(lone.group(1) + x, 0) for x in ("Pend", "First", "Last")) + \
+                    ((it.get("arrowsRight", 232) if it.get("arrows") else 0), arrows)
                 if lt not in lones:
                     lones.append(lt)
                 past = 1 + lones.index(lt)
@@ -521,8 +565,10 @@ def gen_screens(data, vocab, rows):
         for v in (x, y, w, h, arrows_right):
             if not 0 <= v <= 255:
                 errs.append(f"{where}: {v} doesn't fit a byte")
-        return (kinds.index(kind), fnt, col, pos, x & 0xFF, y & 0xFF, w & 0xFF, h & 0xFF, ref, back, past, arrows,
-                arrows_right & 0xFF, when(where, it.get("when")))
+        if col > 15 or back > 15 or fnt > 7 or len(kinds) > 8:
+            errs.append(f"{where}: more colors, faces or kinds than an item packs")
+        return (kinds.index(kind), fnt, pos, col, back, x & 0xFF, y & 0xFF, w & 0xFF, h & 0xFF,
+                when(where, it.get("when")), past, ref)
 
     def band(where, b):
         its = [item(where, it) for it in b.get("draw", [])]
@@ -635,7 +681,9 @@ def gen_screens(data, vocab, rows):
          f"#define UI_CTL_KNOB(k) ({len(BUTTONS) + len(ENCODERS)} + (k))\n#define UI_CTL_KEY(k) ({len(BUTTONS) + len(ENCODERS) + len(KNOBS)} + (k))\n\n",
          "/* fonts (ui/fonts.js's faces: gfx's FONT_*), colors (UI_COLORS: the theme's, gfx.c's palette for APP_PALETTE,\n"
          "   then the screens' own), icons, parts (the lanes', keys', mute's and solo's), screens, fields */\n",
-         E("ui_font", fonts, "UI_FONT_"), E("ui_color", colors, "UC_"), f"#define UC_N_THEME {len(THEME)}\n",
+         E("ui_font", fonts, "UI_FONT_"),
+         "#define UI_FONT_TABLE {" + ", ".join(f"&FONT_{f}" if f in used_fonts else "0" for f in fonts) +
+         "}   /* gfx's faces the screens use (0: none) */\n", E("ui_color", colors, "UC_"), f"#define UC_N_THEME {len(THEME)}\n",
          f"#define UI_PENDING_COLOR {'UC_PENDING' if 'PENDING' in colors else -1}   /* a value waiting (-1: none) */\n",
          E("ui_icon", icons, "UI_ICON_"), E("ui_part", parts, "UI_PART_"), E("ui_screen_id", screens, "US_"), f"#define UI_MAX_SCREENS {len(screens)}\n",
          E("ui_field", fields, "UFLD_"), f"#define UI_N_FIELDS {len(fields)}\n\n",
@@ -658,9 +706,9 @@ def gen_screens(data, vocab, rows):
         "/* a draw item. ref: a text's template (UI_STR), an icon (UI_ICONS), a meter's value id, a knobs' style\n"
         "   (UI_KNOB_STYLES), lanes' or faders' (UI_LANE_ITEMS). x y w h: an icon's or text's pen (x, y), a geometry's\n"
         "   [x, y, w, h], in the band. color back past: ui_color (sections: the playing one, those to come, those\n"
-        "   played; meter: fill and back). arrows: 0 none, else 1 + their color, at arrows_right. when: UI_WHENS */\n"
-        "typedef struct {\n    uint8_t kind, font, color, pos, x, y, w, h;\n    uint16_t ref;\n"
-        "    uint8_t back, past, arrows, arrows_right, when;\n} ui_item_t;\n"
+        "   played; meter: fill and back). A lone text's arrows: UI_LONES. when: UI_WHENS. 10 bytes */\n"
+        "typedef struct {\n    uint8_t kind : 3, font : 3, pos : 2;\n    uint8_t color : 4, back : 4;\n"
+        "    uint8_t x, y, w, h, when, past;\n    uint16_t ref;\n} ui_item_t;\n"
         "/* a condition: up to 3 value ids, each true (non-empty, non-zero); negative: false. 0 ends it */\n"
         "typedef int16_t ui_when_t[3];\n"
         "typedef struct { uint8_t y, h, bg; uint16_t first_item; uint8_t n_items; } ui_band_t;\n"
@@ -688,16 +736,20 @@ def gen_screens(data, vocab, rows):
         "enum { UI_FMT_NONE, UI_FMT_KEY, UI_FMT_MOOD, UI_FMT_MODE, UI_FMT_VARIANT };\n"
         "/* as_row: the field is named as its row (key, tempo ...): the mock's bag holds one {name}Pend for both, the\n"
         "   row's text */\n"
-        "typedef struct {\n    uint8_t row; uint16_t name; uint8_t kind; int16_t min, max;\n"
+        "typedef struct {\n    uint16_t name;\n    uint8_t row, kind;\n    int8_t min, max;\n"
         "    uint8_t wrap, step, format, now, as_row;\n} ui_field_t;\n"
         "typedef struct { uint8_t field, step; } ui_knob_t;\n"
         "/* a screen. bands: its first in UI_BANDS; knobs: UI_NONE none; controls: an action (UI_ACTIONS) each\n"
         "   (UC_IN_*); menu, pages, lanes: lists; list: 1 the song's sections; key_leds: UI_KEY_LEDS + 1 (0 none);\n"
         "   say: its first part in UI_SAYS; rows: a list's lines that fit (0: all; more scroll with the highlight) */\n"
         "typedef struct {\n    uint16_t title;\n    uint8_t bands, n_bands;\n    ui_knob_t knobs[4];\n"
-        "    uint8_t controls[UI_N_CONTROLS];\n    uint8_t menu, pages, lanes, list, key_leds, placeholder, rows;\n"
+        "    uint8_t controls[UI_CTL_KEY(0)];\n    uint8_t keys, menu, pages, lanes, list, key_leds, placeholder, rows;\n"
         "    uint8_t say, n_say;\n} ui_screen_t;\n\n"
         "extern const ui_screen_t UI_SCREENS[];\nextern const int UI_N_SCREENS, UI_HOME;\n"
+        "extern const uint8_t UI_KEYMAPS[][UI_N_CONTROLS - UI_CTL_KEY(0)];   /* the keys' actions: a screen's keys map */\n"
+        "/* a control's action on a screen (UC_IN_*: a button, an encoder, a knob, a key) */\n"
+        "static inline int ui_control(const ui_screen_t *sc, int control)\n{\n"
+        "    return control < UI_CTL_KEY(0) ? sc->controls[control] : UI_KEYMAPS[sc->keys][control - UI_CTL_KEY(0)];\n}\n"
         "extern const uint8_t UI_PART_SCREENS;   /* the parts in ALGO's order: a list */\n"
         "extern const ui_band_t UI_BANDS[];\nextern const ui_item_t UI_ITEMS[];\nextern const ui_when_t UI_WHENS[];\n"
         "extern const ui_knob_style_t UI_KNOB_STYLES[];\nextern const ui_lanes_t UI_LANE_ITEMS[];\n"
@@ -706,8 +758,10 @@ def gen_screens(data, vocab, rows):
         "extern const uint16_t UI_COLORS[];\nextern const uint16_t UI_ICONS[][8];\nextern const uint8_t UI_ICON_ROWS[];\n"
         "extern const uint16_t UI_LINES[];   /* each line's template (UV_LINE(i, 0)'s) */\n"
         "/* a text item that is a value alone ({kit}): its past - 1 here, the value ids of its Pend, First and Last (0:\n"
-        "   none). A meter's past: 1 when its field has no bar (a choice from a list) */\n"
-        "extern const uint16_t UI_LONES[][3];\n"
+        "   none), the x its arrows end at and their color (1 + ui_color; 0 none). A meter's past: 1 when its field has no\n"
+        "   bar (a choice from a list) */\n"
+        "typedef struct { uint16_t pend, first, last; uint8_t right, color; } ui_lone_t;\n"
+        "extern const ui_lone_t UI_LONES[];\n"
         "#ifdef PLAT_HOST\n/* a value id's name: the simulator's uistate (not on the device) */\n"
         "extern const char UI_VALUE_STRINGS[];\nextern const uint16_t UI_VALUE_NAME[];\n"
         "extern const char *const UI_SCREEN_NAME[];   /* each screen's id (screens.js's) */\n"
@@ -721,7 +775,10 @@ def gen_screens(data, vocab, rows):
         if d["row"] not in row_ix:
             raise Refused(f"fields.{k}: no row {d['row']}")
         kind = 1 if d.get("options") else 2 if d.get("format") == "variant" else 0
-        fld.append(f"    {{ROW_{ident(d['row'])}, {s(d['name'])}, {kind}, {d.get('min', 0)}, {d.get('max', 0)}, "
+        for x in ("min", "max"):
+            if not -128 <= d.get(x, 0) <= 127:
+                raise Refused(f"fields.{k}: {x} {d[x]} doesn't fit a byte")
+        fld.append(f"    {{{s(d['name'])}, ROW_{ident(d['row'])}, {kind}, {d.get('min', 0)}, {d.get('max', 0)}, "
                    f"{d.get('wrap', 0)}, {d.get('step', 1)}, {fmt.get(d.get('format'), 0)}, {1 if d.get('now') else 0}, "
                    f"{1 if d['row'] == k else 0}}},   /* {k} */\n")
     c = [HEAD, '#include "screens_gen.h"\n#include "choices_gen.h"\n\n', s.c("UI_STRINGS"), "\n",
@@ -732,7 +789,7 @@ def gen_screens(data, vocab, rows):
          "".join("    {" + ", ".join(f"0x{v:03x}" for v in r) + "},\n" for r in icon_rows) + "};\n",
          f"const uint8_t UI_ICON_ROWS[{max(1, len(icons))}] = {{" + ", ".join(str(len(r)) for r in icon_rows) + "};\n",
          f"const uint16_t UI_LINES[{max(1, len(line_tpl))}] = {{" + ", ".join(map(str, line_tpl)) + "};\n",
-         f"const uint16_t UI_LONES[{max(1, len(lones))}][3] = {{" + ", ".join("{%d, %d, %d}" % t for t in lones) + "};\n",
+         f"const ui_lone_t UI_LONES[{max(1, len(lones))}] = {{" + ", ".join("{%d, %d, %d, %d, %d}" % t for t in lones) + "};\n",
          f"const ui_when_t UI_WHENS[{len(whens)}] = {{\n" + "".join(
              "    {" + ", ".join(str(x) for x in (list(w) + [0, 0, 0])[:3]) + "},\n" for w in whens) + "};\n",
          f"const ui_item_t UI_ITEMS[{len(items)}] = {{\n" + "".join(
@@ -751,12 +808,22 @@ def gen_screens(data, vocab, rows):
              "{" + ", ".join(map(str, k)) + "}" for k in keyleds) + "};\n",
          f"const ui_say_t UI_SAYS[{max(1, len(says))}] = {{" + ", ".join(f"{{{t}, {w}}}" for t, w in says) + "};\n",
          f"const ui_field_t UI_FIELDS[{len(fld)}] = {{\n" + "".join(fld) + "};\n",
-         f"const ui_screen_t UI_SCREENS[{len(scr)}] = {{\n"]
+         ]
+    nk = len(BUTTONS) + len(ENCODERS) + len(KNOBS)
+    keymaps = []
+    for x in scr:
+        km = tuple(x["controls"][nk:])
+        if km not in keymaps:
+            keymaps.append(km)
+        x["keys"] = keymaps.index(km)
+    c.append(f"const uint8_t UI_KEYMAPS[{len(keymaps)}][{len(KEYS)}] = {{\n" +
+             "".join("    {" + ", ".join(map(str, km)) + "},\n" for km in keymaps) + "};\n")
+    c.append(f"const ui_screen_t UI_SCREENS[{len(scr)}] = {{\n")
     for sid, x in zip(screens, scr):
         c.append(f"    {{ /* {sid} */ {x['title']}, {x['bands']}, {x['n_bands']}, "
                  "{" + ", ".join(f"{{{f}, {st}}}" for f, st in x["knobs"]) + "},\n      {" +
-                 ", ".join(map(str, x["controls"])) + "},\n      "
-                 f"{x['menu']}, {x['pages']}, {x['lanes']}, {x['list']}, {x['key_leds']}, {x['placeholder']}, {x['rows']}, "
+                 ", ".join(map(str, x["controls"][:nk])) + "},\n      "
+                 f"{x['keys']}, {x['menu']}, {x['pages']}, {x['lanes']}, {x['list']}, {x['key_leds']}, {x['placeholder']}, {x['rows']}, "
                  f"{x['say']}, {x['n_say']}}},\n")
     c.append("};\n")
     vs = Strings()
@@ -770,6 +837,38 @@ def gen_screens(data, vocab, rows):
     return "".join(h), "".join(c)
 
 
+def phase1(data):
+    """the screens the device holds in phase 1: the main and part screens (a screen with lanes, faders, the section
+       list or a placeholder comes with a later phase); a control that would go to one does nothing"""
+    later = {sid for sid, sc in data["screens"].items()
+             if sc.get("placeholder") or sc.get("list") or
+             any(k in it for b in sc.get("bands", []) for it in b.get("draw", []) for k in ("lanes", "faders"))}
+    def keep(a):
+        return a is not None and a.get("go") not in later
+    out = json.loads(json.dumps(data))
+    out["screens"] = {sid: sc for sid, sc in out["screens"].items() if sid not in later}
+    out["defaults"] = {c: (a if keep(a) else None) for c, a in out.get("defaults", {}).items()}
+    for sc in out["screens"].values():
+        sc["controls"] = {c: (a if keep(a) else None) for c, a in sc.get("controls", {}).items()}
+        sc["menu"] = [m for m in sc.get("menu", []) if m not in later]
+    return out
+
+
+def combine(p1, full):
+    """one header and one file holding both table sets: the device's (phase 1, UI_PHASE1) and the simulator's (all)"""
+    (h1, c1), (hf, cf) = p1, full
+    hpre = HEAD + "#ifndef UI_SCREENS_GEN_H\n#define UI_SCREENS_GEN_H\n#include <stdint.h>\n\n"
+    cpre = HEAD + '#include "screens_gen.h"\n#include "choices_gen.h"\n\n'
+    assert h1.startswith(hpre) and hf.startswith(hpre) and c1.startswith(cpre) and cf.startswith(cpre)
+    body = lambda h: h[len(hpre):-len("#endif\n")]
+    sel = ("/* The device holds the phase-1 screens (the main and part screens: UI_PHASE1); the simulator and the tests\n"
+           "   every screen. Define UI_PHASE1_TABLES for the device's in the simulator. */\n"
+           "#if !defined(PLAT_HOST) || defined(UI_PHASE1_TABLES)\n#define UI_PHASE1 1\n#else\n#define UI_PHASE1 0\n#endif\n")
+    h = hpre + sel + "#if UI_PHASE1\n" + body(h1) + "#else\n" + body(hf) + "#endif\n#endif\n"
+    c = cpre + "#if UI_PHASE1\n" + c1[len(cpre):] + "#else\n" + cf[len(cpre):] + "#endif\n"
+    return h, c
+
+
 def run(screens_path, out, check):
     try:
         data = json.loads(Path(screens_path).read_text())
@@ -777,7 +876,8 @@ def run(screens_path, out, check):
         rows = json.loads((WB / "rows.json").read_text())
         opts = json.loads((WB / "options.json").read_text())
         ch_h, ch_c, all_rows = gen_choices(rows, opts, shown_rows(data))
-        sc_h, sc_c = gen_screens(data, vocab, all_rows)
+        parts = part_names(data)
+        sc_h, sc_c = combine(gen_screens(phase1(data), vocab, all_rows, parts), gen_screens(data, vocab, all_rows, parts))
     except Refused as e:
         for line in str(e).splitlines():
             print(f"gen: {line}", file=sys.stderr)

@@ -108,7 +108,8 @@ static void test_values_fixture(void)
                 if (got != (v->num != 0)) bad++;
                 CHECK(got == (v->num != 0), "%s: %s is %d, the mock's %d", x->name, v->name, got, v->num != 0);
             } else {
-                double got = ui_value_num(&b, id);
+                int den, num = ui_value_num(&b, id, &den);
+                double got = (double)num / den;
                 if (fabs(got - v->num) > 1e-12) bad++;
                 CHECK(fabs(got - v->num) <= 1e-12, "%s: %s is %.17g, the mock's %.17g", x->name, v->name, got, v->num);
             }

@@ -28,7 +28,8 @@ void ui_values(const snap_t *s, const ui_nav_t *nav, ui_bag_t *b);
    reserved (0) */
 const char *ui_value(const ui_bag_t *b, int value_id, int index, char *tmp);
 int ui_value_kind(int value_id);
-double ui_value_num(const ui_bag_t *b, int value_id);    /* a number's value (a Frac: 0..1) */
+/* a number's value as the fraction (the return) / *den: an integer over 1, a Frac 0..1 (the device has no double) */
+int ui_value_num(const ui_bag_t *b, int value_id, int *den);
 /* a condition (screens_gen.h's ui_when_t entry: a value id, negative for "not"): the mock's !!bag[name] */
 int ui_true(const ui_bag_t *b, int cond_id);
 /* each row's value as a song with roll r plays it (the render side, for the snapshot): the roll's fields, its set's

@@ -34,9 +34,11 @@
 #include "voices.h"
 #include "fx.h"
 #include "snap.h"
-/* The screens' runtime (app/ui: the workbench's screens as tables, their values, their drawing): in the simulator only
-   until it replaces this file's own screen (the device's flash can't hold both) */
-#ifdef PLAT_HOST
+/* The screens' runtime (app/ui: the workbench's screens as tables, their values, their drawing, the navigator): the
+   device's UI with VNL_UI_RUNTIME (app.h; Task 8 turns it on), else today's hand-drawn screen below; the simulator
+   has it either way (uiscreen: workbench/tools/parity.mjs) */
+#if VNL_UI_RUNTIME || defined(PLAT_HOST)
+#define UI_RT 1
 #include "values.h"
 #include "ui/choices_gen.c"
 #include "ui/screens_gen.c"
@@ -44,6 +46,8 @@
 #include "ui/nav.c"
 #include "render.h"
 #include "ui/render.c"
+#else
+#define UI_RT 0
 #endif
 
 #define BARRIER() __asm__ volatile("" ::: "memory")
@@ -65,6 +69,7 @@ void *vnl_memmove(void *d, const void *s, unsigned n)
 }
 #endif
 
+#if !VNL_UI_RUNTIME
 /* each mode's keys spelled the simplest way: by the mode's parent major, the fewer accidentals (Db Lydian, not C#);
    on the F#/Gb tie, the tonic's simplest name (F# major (Sam, 2026-11-05), B Lydian; Ab Dorian, Bb Phrygian, Db
    Mixolydian, Eb minor). theory.c's spelling() spells the chords the same way. */
@@ -95,6 +100,7 @@ static int field_step(int f, int v, int d)
         return v < 0 ? 0 : v > 100 ? 100 : v;
     return v < 0 ? 0 : v > 3 ? 3 : v;    /* RF_MOOD */
 }
+#endif
 
 /* ------------------------------------------------------- main -> render --- */
 /* the next song, rolled by the main loop: full until the render takes it */
@@ -311,7 +317,7 @@ static void command(uint32_t c)
             else
                 mb_full = 0;             /* the one ready dropped: the main loop rolls the next */
         }                                /* (in the gap or waiting: a new song is already coming) */
-#ifdef PLAT_HOST
+#if UI_RT
     } else if (op == C_ROW && rs == RS_SONG && song.state == SS_PLAYING && a < ROW_N) {
         int16_t rows[ROW_N];             /* the rhythm row is the comp's or the strum patterns' */
         ui_song_rows(&song.roll, rows);
@@ -323,6 +329,7 @@ static void command(uint32_t c)
         } else if (CH_SONG_ROW[a] >= 0)
             song_request_row(&song, CH_SONG_ROW[a], b);
 #endif
+#if !VNL_UI_RUNTIME
     } else if (op == C_REQ && rs == RS_SONG && song.state == SS_PLAYING && a < RF_N) {
         int v = field_step(a, req_set[a] ? req_val[a] : song.roll.v[a], b);
         if (v != (req_set[a] ? req_val[a] : song.roll.v[a])) {
@@ -333,6 +340,7 @@ static void command(uint32_t c)
                 req_val[a] = (int16_t)v;
             }
         }
+#endif
     }
 }
 
@@ -373,7 +381,7 @@ static void publish(void)
     }
     snap.pend_field = f;
     snap.pend_bars = bars;
-#ifdef PLAT_HOST
+#if UI_RT
     if (snap.has_song || snap.ready) {   /* the screens' values: each row's, the plan's sections */
         const song_plan_t *p = snap.held ? &mark.plan : snap.has_song ? &song.plan : 0;
         int i;
@@ -649,6 +657,11 @@ static void int_text(int32_t v, char *b)     /* signed, no padding */
     *b = 0;
 }
 
+#if UI_RT
+static int ui_host;                      /* (below: the runtime's screens, and its navigator) */
+static ui_nav_t ui_hnav;
+#endif
+
 void app_say(const char *a, const char *b)
 {
     uint32_t i;
@@ -661,6 +674,12 @@ void app_say(const char *a, const char *b)
     ui.msg[1][i] = 0;
     ui.msg_until = plat_ms() + 1300u;
     ui.redraw = 1;
+#if UI_RT
+    if (ui_host >= 0) {                  /* the runtime's header says it */
+        memcpy(ui_hnav.msg, ui.msg, sizeof ui_hnav.msg);
+        ui_hnav.msg_until = ui.msg_until;
+    }
+#endif
     if (ann_on()) {                          /* and to a screen reader (announce.c, fm1-reader) */
         t[0] = 0;
         text_cat(t, ui.msg[0]);
@@ -672,6 +691,7 @@ void app_say(const char *a, const char *b)
     }
 }
 
+#if !VNL_UI_RUNTIME
 /* a field's value as the screen writes it */
 static void value_text(int f, int v, int mode, char *t)
 {
@@ -791,6 +811,7 @@ static void speak(void)
     }
     ann_tick(plat_ms());
 }
+#endif
 
 /* ------------------------------------------------------- the browser's remote --- */
 /* The workbench's device mock (workbench/ui/usb.js) takes the FM-1's controls over USB-MIDI SysEx, prefix
@@ -925,16 +946,20 @@ static void rm_input(uint32_t btn)
         rm_leave();
 }
 
-#if defined(PLAT_HOST) && !defined(PLAT_WEB)
-static int ui_host = -1;                 /* the UI runtime shows its screens (uiscreen): it takes the controls */
+#if UI_RT
+/* the UI runtime shows its screens and takes the controls: always with VNL_UI_RUNTIME, in the simulator once uiscreen
+   asks (else -1) */
+static int ui_host = VNL_UI_RUNTIME ? 0 : -1;
 static void ui_host_input(uint32_t btn);
 #endif
 
 static void input(void)
 {
     uint32_t btn = plat_buttons();
+#if !VNL_UI_RUNTIME
     int32_t e;
     int k;
+#endif
     if (rm.on)
         rm_input(btn);
     if (rm.on || rm.ack) {
@@ -947,12 +972,13 @@ static void input(void)
             return;
         }
     }
-#if defined(PLAT_HOST) && !defined(PLAT_WEB)
+#if UI_RT
     if (ui_host >= 0) {
         ui_host_input(btn);
         return;
     }
 #endif
+#if !VNL_UI_RUNTIME
     if ((btn >> B_PLAY & 1u) && !(ui.btn >> B_PLAY & 1u)) {
         post(C_PLAY, 0, 0);
         app_say(ui.shown.stopped ? "PLAY" : "STOP", "");
@@ -978,6 +1004,7 @@ static void input(void)
     ui.btn = btn;
     plat_glow(1);                            /* the unlit buttons glow, readable in the dark */
     plat_leds(btn | (ui.shown.playing ? 1u << B_PLAY : 0u), 0);
+#endif
 }
 
 void app_input_only(void)
@@ -987,6 +1014,7 @@ void app_input_only(void)
     input();
 }
 
+#if !VNL_UI_RUNTIME
 static void draw(void)
 {
     char t[48];
@@ -1038,16 +1066,12 @@ static void draw(void)
     }
     cv_blit(0, 190);
 }
+#endif
 
-void app_ui_init(void)
-{
-    lcd_fill(0, 0, 240, 240, C_BLACK);
-    ui.redraw = 1;
-}
-
-#if defined(PLAT_HOST) && !defined(PLAT_WEB)
-/* The UI runtime's screens in the simulator (uiscreen, uistate: workbench/tools/parity.mjs), over today's screen until
-   it replaces it: the screen it shows (-1: today's), its navigator, the snapshot it last drew from, rows forced */
+#if UI_RT
+/* The UI runtime's screens (app/ui): the device's UI with VNL_UI_RUNTIME, in the simulator over today's screen once
+   uiscreen asks (uistate, uirow, uibench: workbench/tools/parity.mjs): its navigator, the snapshot it last drew from,
+   rows forced (the simulator's) */
 static ui_nav_t ui_hnav;
 static snap_t ui_hsnap;
 static int16_t ui_hrow[ROW_N];
@@ -1130,21 +1154,34 @@ static void ui_host_input(uint32_t btn)
             ui_press(&ui_hnav, UI_CTL_BUTTON(b), 1);
     for (e = 0; e < NE; e++) {
         int32_t d = plat_enc(e);
-        if (d)
+        if (d) {
             ui_press(&ui_hnav, UI_CTL_ENCODER(e), (int)d);
+            ui.redraw = 1;
+        }
     }
     for (k = 0; k < UI_KEYS; k++)
         if ((keys ^ ui_hkeys) >> k & 1u)
             ui_key(&ui_hnav, k, (int)(keys >> k & 1u), now);
+    if (keys != ui_hkeys || btn != ui.btn)   /* (a key or a button: the screen may change) */
+        ui.redraw = 1;
     ui_hkeys = keys;
+    if (keys)                            /* a key held: its long press may act */
+        ui.redraw = 1;
     ui_tick(&ui_hnav, now);
+    if (ui_hnav.msg_until && now >= ui_hnav.msg_until) {   /* the header's message gone */
+        ui_hnav.msg_until = 0;
+        ui.redraw = 1;
+    }
     ui.btn = btn;
+#ifdef PLAT_HOST
     ui.redraw = 1;                       /* (the simulator: every frame) */
+#endif
     on = ui_key_lights(&ui_hnav, &ui_hsnap, &blink);
     plat_glow(1);
     plat_leds(btn | (ui.shown.playing ? 1u << B_PLAY : 0u), on | ((now / 250u) & 1u ? blink : 0u));
 }
 
+#if defined(PLAT_HOST) && !defined(PLAT_WEB)
 /* a JSON string */
 static void ui_json_str(const char *s)
 {
@@ -1189,9 +1226,10 @@ static void ui_host_state(void)
         putchar(':');
         if (ui_value_kind(i) == UI_VK_BOOL)
             printf("%s", ui_true(&b, i) ? "true" : "false");
-        else if (ui_value_kind(i) == UI_VK_NUM)
-            printf("%.17g", ui_value_num(&b, i));
-        else
+        else if (ui_value_kind(i) == UI_VK_NUM) {
+            int den, num = ui_value_num(&b, i, &den);
+            printf("%.17g", (double)num / den);
+        } else
             ui_json_str(ui_value(&b, i, 0, t));
     }
     printf(",\"secList\":[");
@@ -1203,6 +1241,53 @@ static void ui_host_state(void)
     printf("],\"activity\":null,\"levels\":{},\"barPos\":%d}}\n", (int)ui_hsnap.bar);
 }
 #endif
+#endif
+
+#if VNL_UI_RUNTIME
+/* the screen: the runtime's, or while the browser has the controls, that */
+static void draw(void)
+{
+    if (rm.on) {
+        lcd_fill(0, 0, 240, 240, C_BLACK);
+        cv_begin(240, 120, C_BLACK);
+        cv_text(10, 34, &FONT_B, "BROWSER", C_WHITE);
+        cv_text(10, 74, &FONT_XS, "CONTROLLING THE WORKBENCH", C_GRAY);
+        cv_blit(0, 40);
+        return;
+    }
+    ui_host_draw();
+}
+
+/* a screen reader that has just started listening (or asks) hears the whole screen; what the navigator said (a
+   screen opened, a change asked) it hears as it is said */
+static void speak(void)
+{
+    static char last[UI_SAID];
+    if (ann_on()) {
+        if (ann_where()) {
+            ui_speak(&ui_hnav);
+            ann_say(rm.on ? APP_NAME ". BROWSER. CONTROLLING THE WORKBENCH" : ui_hnav.said, 0, ANN_NOW);
+        } else {
+            int i;
+            for (i = 0; i < UI_SAID && last[i] == ui_hnav.said[i] && last[i]; i++) {}
+            if (i < UI_SAID && last[i] != ui_hnav.said[i])
+                ann_say(ui_hnav.said, 0, ANN_NOW);
+        }
+    }
+    memcpy(last, ui_hnav.said, sizeof last);
+    ann_tick(plat_ms());
+}
+#endif
+
+void app_ui_init(void)
+{
+    lcd_fill(0, 0, 240, 240, C_BLACK);
+    ui.redraw = 1;
+#if VNL_UI_RUNTIME
+    ui_nav_init(&ui_hnav);               /* the main screen (the runtime's) */
+    ui_hnav.eng = &UI_HENG;
+#endif
+}
 
 void app_frame(void)
 {

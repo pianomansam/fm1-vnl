@@ -5,6 +5,14 @@
 #define UI_SCREENS_GEN_H
 #include <stdint.h>
 
+/* The device holds the phase-1 screens (the main and part screens: UI_PHASE1); the simulator and the tests
+   every screen. Define UI_PHASE1_TABLES for the device's in the simulator. */
+#if !defined(PLAT_HOST) || defined(UI_PHASE1_TABLES)
+#define UI_PHASE1 1
+#else
+#define UI_PHASE1 0
+#endif
+#if UI_PHASE1
 /* the vocabulary (workbench/ui/vocab.json), in its order */
 enum ui_item_kind { UI_TEXT, UI_RECT, UI_ICON, UI_METER, UI_KNOBS, UI_SECTIONS, UI_LANES, UI_FADERS };
 enum ui_action { UA_NONE, UA_GO, UA_PLAY, UA_NUDGE, UA_TURN, UA_CURSOR, UA_PAGE, UA_PART, UA_JUMP, UA_REROLL, UA_MUTE, UA_SOLO, UA_LEVEL };
@@ -21,6 +29,185 @@ enum { UC_IN_FX, UC_IN_SEL, UC_IN_ENV, UC_IN_LFO, UC_IN_EDIT, UC_IN_GLO, UC_IN_H
 /* fonts (ui/fonts.js's faces: gfx's FONT_*), colors (UI_COLORS: the theme's, gfx.c's palette for APP_PALETTE,
    then the screens' own), icons, parts (the lanes', keys', mute's and solo's), screens, fields */
 enum ui_font { UI_FONT_T, UI_FONT_XS, UI_FONT_S, UI_FONT_B, UI_FONT_M, UI_FONT_L };
+#define UI_FONT_TABLE {&FONT_T, &FONT_XS, 0, &FONT_B, 0, 0}   /* gfx's faces the screens use (0: none) */
+enum ui_color { UC_BLACK, UC_WHITE, UC_LINE, UC_DIM, UC_GRAY, UC_AMB, UC_HI, UC_BASS, UC_COMP, UC_DRUMS, UC_LEAD, UC_PAD, UC_PENDING, UC_SONG, UC_TEXTURE };
+#define UC_N_THEME 7
+#define UI_PENDING_COLOR UC_PENDING   /* a value waiting (-1: none) */
+enum ui_icon { UI_ICON_BASS, UI_ICON_COMP, UI_ICON_DRUMS, UI_ICON_LEAD, UI_ICON_PAD, UI_ICON_SONG, UI_ICON_TEXTURE };
+enum ui_part { UI_PART_DRUMS, UI_PART_BASS, UI_PART_KEYS, UI_PART_PAD, UI_PART_LEAD, UI_PART_TEXTURE };
+enum ui_screen_id { US_MAIN, US_P_BASS, US_P_COMP, US_P_COMP_MORE, US_P_DRUMS, US_P_DRUMS_MORE, US_P_LEAD, US_P_LEAD_MORE, US_P_PAD, US_P_SONG, US_P_SONG3, US_P_SONG_MORE, US_P_TEXTURE };
+#define UI_MAX_SCREENS 13
+enum ui_field { UFLD_BASS_INS, UFLD_BASS_LINE, UFLD_COMP_FILL, UFLD_COMP_INS, UFLD_COMP_REG, UFLD_COMP_RHYTHM, UFLD_COMP_THIN, UFLD_COMP_VOICING, UFLD_DRUM_KICK, UFLD_DRUM_KIT, UFLD_DRUM_PATTERN, UFLD_DRUM_RIDE, UFLD_DRUM_VAR, UFLD_ENDLESS, UFLD_KEY, UFLD_LEAD_INS, UFLD_LEAD_LOOP_SET, UFLD_LEAD_PHRASE, UFLD_LEAD_REG, UFLD_LEAD_STYLE_SET, UFLD_LOOP, UFLD_MODE, UFLD_MOOD, UFLD_MOTION, UFLD_PAD_INS, UFLD_PAD_NOTES, UFLD_PAD_ON_SET, UFLD_PAD_PLACE_SET, UFLD_SONG_COLOR, UFLD_SONG_MAP, UFLD_SONG_PROG, UFLD_SONG_SWING, UFLD_TEMPO, UFLD_TEX_AMB, UFLD_TEX_DUST, UFLD_TEX_NOISE };
+#define UI_N_FIELDS 36
+
+/* the values (vocab.json's): 0 none, then the fixed ones, then each pattern's family, one id an item and member:
+   UV_<FAMILY>(item, member) */
+enum ui_value {
+    UV_NONE,
+    UV_APP,
+    UV_SONG,
+    UV_STOPPED,
+    UV_IDLE,
+    UV_MSG,
+    UV_MSG0,
+    UV_MSG1,
+    UV_MAP,
+    UV_SECTION,
+    UV_BAR,
+    UV_BARS,
+    UV_CHORD,
+    UV_PENDING,
+    UV_RHYTHM,
+    UV_PROGRESS,
+    UV_PAGE,
+    UV_READY,
+    UV_KNOWN,
+    UV_SEC_COUNT,
+    UV_LOOPING,
+    UV_SEC_RANGE,
+    UV_N_FIXED
+};
+enum { UVK_I_SEL, UVK_I_SEC, UVK_I_SEC_BARS, UVK_I_SEC_NOW, UVK_I_SEC_PEND, UVK_I_SEC_KEY, UVK_I_N };   /* sel{0-9}, sec{0-9}, sec{0-9}Bars, sec{0-9}Now, sec{0-9}Pend, sec{0-9}Key */
+#define UV_I0 22
+#define UV_I(i, k) (UV_I0 + (i) * UVK_I_N + (k))
+#define UV_I_COUNT 10
+enum { UVK_FIELD_VALUE, UVK_FIELD_FRAC, UVK_FIELD_PEND, UVK_FIELD_FIRST, UVK_FIELD_LAST, UVK_FIELD_N };   /* {field}, {field}Frac, {field}Pend, {field}First, {field}Last */
+#define UV_FIELD0 82
+#define UV_FIELD(i, k) (UV_FIELD0 + (i) * UVK_FIELD_N + (k))
+#define UV_FIELD_COUNT 36
+enum { UVK_ROW_VALUE, UVK_ROW_PEND, UVK_ROW_N };   /* {row}, {row}Pend */
+#define UV_ROW0 262
+#define UV_ROW(i, k) (UV_ROW0 + (i) * UVK_ROW_N + (k))
+#define UV_ROW_COUNT 37
+enum { UVK_LINE_VALUE, UVK_LINE_N };   /* {line} */
+#define UV_LINE0 336
+#define UV_LINE(i, k) (UV_LINE0 + (i) * UVK_LINE_N + (k))
+#define UV_LINE_COUNT 2
+#define UI_N_VALUES 338
+
+/* a template: text with a value at each UI_TPL_VAL byte, its id in the next two (UI_TPL_ID); never a NUL */
+#define UI_TPL_VAL 1
+#define UI_TPL_ID(p) (((p)[0] & 0x7f) | (((p)[1] & 0x7f) << 7))
+extern const char UI_STRINGS[];
+#define UI_STR(id) (UI_STRINGS + (id))
+
+/* a text's x: UI_POS_X the pen's left, UI_POS_RIGHT its right end, UI_POS_AFTER past the previous item's end */
+enum { UI_POS_X, UI_POS_RIGHT, UI_POS_AFTER };
+/* a draw item. ref: a text's template (UI_STR), an icon (UI_ICONS), a meter's value id, a knobs' style
+   (UI_KNOB_STYLES), lanes' or faders' (UI_LANE_ITEMS). x y w h: an icon's or text's pen (x, y), a geometry's
+   [x, y, w, h], in the band. color back past: ui_color (sections: the playing one, those to come, those
+   played; meter: fill and back). A lone text's arrows: UI_LONES. when: UI_WHENS. 10 bytes */
+typedef struct {
+    uint8_t kind : 3, font : 3, pos : 2;
+    uint8_t color : 4, back : 4;
+    uint8_t x, y, w, h, when, past;
+    uint16_t ref;
+} ui_item_t;
+/* a condition: up to 3 value ids, each true (non-empty, non-zero); negative: false. 0 ends it */
+typedef int16_t ui_when_t[3];
+typedef struct { uint8_t y, h, bg; uint16_t first_item; uint8_t n_items; } ui_band_t;
+/* the screen's four knobs' strip: K1 at x, each next dx on; the label, the value (when), the bar (w 0: none) */
+typedef struct {
+    uint8_t x, dx, label_y, label_font, label_color, value_y, value_font, value_color, value_when;
+    uint8_t bar_y, bar_w, bar_h, bar_color, bar_back;
+} ui_knob_style_t;
+/* lanes or faders: their parts (a list), a lane's label width, row height, bars across, the keys' letters
+   (space-separated, UI_STR), live (scrolls smoothly) */
+typedef struct { uint8_t parts, label, row_h, window; uint16_t keys; uint8_t live; } ui_lanes_t;
+/* an action. arg: a go's screen (or UI_GO_*), a turn's or nudge's field, a jump's section (255: the cursor's),
+   a mute's, solo's, reroll's or level's part (255: the highlighted lane's, or the song); by: a turn's step or
+   a nudge's amount; lng: the long press's action (0 none); list: a turn's byCursor fields (255: none there) */
+typedef struct { uint8_t kind, arg; int8_t by; uint8_t lng, list; } ui_action_t;
+#define UI_GO_BACK 253
+#define UI_GO_HOME 254
+#define UI_GO_CURSOR 252
+#define UI_NONE 255
+/* a list (UI_LISTS): its bytes in UI_LIST_DATA; list 0 is empty */
+typedef struct { uint16_t at; uint8_t n; } ui_list_t;
+/* key lights: UI_KL_LANES a part's key (keys[i] for parts[i]) lit while it plays, blinking soloed;
+   UI_KL_SECTIONS the playing section's key (keys[i] for section i) lit, a jump waiting blinking */
+enum { UI_KL_LANES = 1, UI_KL_SECTIONS };
+typedef struct { uint8_t kind, keys, parts; } ui_key_leds_t;
+typedef struct { uint16_t text; uint8_t when; } ui_say_t;
+/* a field: its row (choices_gen.h's ROW_*), name, kind, range, step, format, now (acts at once) */
+enum { UI_FK_ROLL, UI_FK_OPTIONS, UI_FK_VARIANT };
+enum { UI_FMT_NONE, UI_FMT_KEY, UI_FMT_MOOD, UI_FMT_MODE, UI_FMT_VARIANT };
+/* as_row: the field is named as its row (key, tempo ...): the mock's bag holds one {name}Pend for both, the
+   row's text */
+typedef struct {
+    uint16_t name;
+    uint8_t row, kind;
+    int8_t min, max;
+    uint8_t wrap, step, format, now, as_row;
+} ui_field_t;
+typedef struct { uint8_t field, step; } ui_knob_t;
+/* a screen. bands: its first in UI_BANDS; knobs: UI_NONE none; controls: an action (UI_ACTIONS) each
+   (UC_IN_*); menu, pages, lanes: lists; list: 1 the song's sections; key_leds: UI_KEY_LEDS + 1 (0 none);
+   say: its first part in UI_SAYS; rows: a list's lines that fit (0: all; more scroll with the highlight) */
+typedef struct {
+    uint16_t title;
+    uint8_t bands, n_bands;
+    ui_knob_t knobs[4];
+    uint8_t controls[UI_CTL_KEY(0)];
+    uint8_t keys, menu, pages, lanes, list, key_leds, placeholder, rows;
+    uint8_t say, n_say;
+} ui_screen_t;
+
+extern const ui_screen_t UI_SCREENS[];
+extern const int UI_N_SCREENS, UI_HOME;
+extern const uint8_t UI_KEYMAPS[][UI_N_CONTROLS - UI_CTL_KEY(0)];   /* the keys' actions: a screen's keys map */
+/* a control's action on a screen (UC_IN_*: a button, an encoder, a knob, a key) */
+static inline int ui_control(const ui_screen_t *sc, int control)
+{
+    return control < UI_CTL_KEY(0) ? sc->controls[control] : UI_KEYMAPS[sc->keys][control - UI_CTL_KEY(0)];
+}
+extern const uint8_t UI_PART_SCREENS;   /* the parts in ALGO's order: a list */
+extern const ui_band_t UI_BANDS[];
+extern const ui_item_t UI_ITEMS[];
+extern const ui_when_t UI_WHENS[];
+extern const ui_knob_style_t UI_KNOB_STYLES[];
+extern const ui_lanes_t UI_LANE_ITEMS[];
+extern const ui_action_t UI_ACTIONS[];
+extern const ui_list_t UI_LISTS[];
+extern const uint8_t UI_LIST_DATA[];
+extern const ui_key_leds_t UI_KEY_LEDS[];
+extern const ui_say_t UI_SAYS[];
+extern const ui_field_t UI_FIELDS[];
+extern const uint16_t UI_COLORS[];
+extern const uint16_t UI_ICONS[][8];
+extern const uint8_t UI_ICON_ROWS[];
+extern const uint16_t UI_LINES[];   /* each line's template (UV_LINE(i, 0)'s) */
+/* a text item that is a value alone ({kit}): its past - 1 here, the value ids of its Pend, First and Last (0:
+   none), the x its arrows end at and their color (1 + ui_color; 0 none). A meter's past: 1 when its field has no
+   bar (a choice from a list) */
+typedef struct { uint16_t pend, first, last; uint8_t right, color; } ui_lone_t;
+extern const ui_lone_t UI_LONES[];
+#ifdef PLAT_HOST
+/* a value id's name: the simulator's uistate (not on the device) */
+extern const char UI_VALUE_STRINGS[];
+extern const uint16_t UI_VALUE_NAME[];
+extern const char *const UI_SCREEN_NAME[];   /* each screen's id (screens.js's) */
+#define UI_VALUE_STR(id) (UI_VALUE_STRINGS + UI_VALUE_NAME[id])
+#endif
+
+#else
+/* the vocabulary (workbench/ui/vocab.json), in its order */
+enum ui_item_kind { UI_TEXT, UI_RECT, UI_ICON, UI_METER, UI_KNOBS, UI_SECTIONS, UI_LANES, UI_FADERS };
+enum ui_action { UA_NONE, UA_GO, UA_PLAY, UA_NUDGE, UA_TURN, UA_CURSOR, UA_PAGE, UA_PART, UA_JUMP, UA_REROLL, UA_MUTE, UA_SOLO, UA_LEVEL };
+
+/* the controls an action a screen: plat.h's buttons (B_*), the encoders (EN_SELECT, EN_ALGO, EN_PRESET), the
+   knobs K1-K4, the keys 0-26 */
+enum { UC_IN_FX, UC_IN_SEL, UC_IN_ENV, UC_IN_LFO, UC_IN_EDIT, UC_IN_GLO, UC_IN_HOME, UC_IN_SAVE, UC_IN_ARP, UC_IN_SEQ, UC_IN_PLAY, UC_IN_REC, UC_IN_OCT_MINUS, UC_IN_OCT_PLUS, UC_IN_SELECT, UC_IN_ALGO, UC_IN_PRESET, UC_IN_K1, UC_IN_K2, UC_IN_K3, UC_IN_K4, UC_IN_KEY0, UC_IN_KEY1, UC_IN_KEY2, UC_IN_KEY3, UC_IN_KEY4, UC_IN_KEY5, UC_IN_KEY6, UC_IN_KEY7, UC_IN_KEY8, UC_IN_KEY9, UC_IN_KEY10, UC_IN_KEY11, UC_IN_KEY12, UC_IN_KEY13, UC_IN_KEY14, UC_IN_KEY15, UC_IN_KEY16, UC_IN_KEY17, UC_IN_KEY18, UC_IN_KEY19, UC_IN_KEY20, UC_IN_KEY21, UC_IN_KEY22, UC_IN_KEY23, UC_IN_KEY24, UC_IN_KEY25, UC_IN_KEY26 };
+#define UI_N_CONTROLS 48
+#define UI_CTL_BUTTON(b) (b)
+#define UI_CTL_ENCODER(e) (14 + (e))
+#define UI_CTL_KNOB(k) (17 + (k))
+#define UI_CTL_KEY(k) (21 + (k))
+
+/* fonts (ui/fonts.js's faces: gfx's FONT_*), colors (UI_COLORS: the theme's, gfx.c's palette for APP_PALETTE,
+   then the screens' own), icons, parts (the lanes', keys', mute's and solo's), screens, fields */
+enum ui_font { UI_FONT_T, UI_FONT_XS, UI_FONT_S, UI_FONT_B, UI_FONT_M, UI_FONT_L };
+#define UI_FONT_TABLE {&FONT_T, &FONT_XS, 0, &FONT_B, 0, 0}   /* gfx's faces the screens use (0: none) */
 enum ui_color { UC_BLACK, UC_WHITE, UC_LINE, UC_DIM, UC_GRAY, UC_AMB, UC_HI, UC_BASS, UC_COMP, UC_DRUMS, UC_LEAD, UC_PAD, UC_PENDING, UC_SONG, UC_TEXTURE };
 #define UC_N_THEME 7
 #define UI_PENDING_COLOR UC_PENDING   /* a value waiting (-1: none) */
@@ -87,11 +274,12 @@ enum { UI_POS_X, UI_POS_RIGHT, UI_POS_AFTER };
 /* a draw item. ref: a text's template (UI_STR), an icon (UI_ICONS), a meter's value id, a knobs' style
    (UI_KNOB_STYLES), lanes' or faders' (UI_LANE_ITEMS). x y w h: an icon's or text's pen (x, y), a geometry's
    [x, y, w, h], in the band. color back past: ui_color (sections: the playing one, those to come, those
-   played; meter: fill and back). arrows: 0 none, else 1 + their color, at arrows_right. when: UI_WHENS */
+   played; meter: fill and back). A lone text's arrows: UI_LONES. when: UI_WHENS. 10 bytes */
 typedef struct {
-    uint8_t kind, font, color, pos, x, y, w, h;
+    uint8_t kind : 3, font : 3, pos : 2;
+    uint8_t color : 4, back : 4;
+    uint8_t x, y, w, h, when, past;
     uint16_t ref;
-    uint8_t back, past, arrows, arrows_right, when;
 } ui_item_t;
 /* a condition: up to 3 value ids, each true (non-empty, non-zero); negative: false. 0 ends it */
 typedef int16_t ui_when_t[3];
@@ -125,7 +313,9 @@ enum { UI_FMT_NONE, UI_FMT_KEY, UI_FMT_MOOD, UI_FMT_MODE, UI_FMT_VARIANT };
 /* as_row: the field is named as its row (key, tempo ...): the mock's bag holds one {name}Pend for both, the
    row's text */
 typedef struct {
-    uint8_t row; uint16_t name; uint8_t kind; int16_t min, max;
+    uint16_t name;
+    uint8_t row, kind;
+    int8_t min, max;
     uint8_t wrap, step, format, now, as_row;
 } ui_field_t;
 typedef struct { uint8_t field, step; } ui_knob_t;
@@ -136,13 +326,19 @@ typedef struct {
     uint16_t title;
     uint8_t bands, n_bands;
     ui_knob_t knobs[4];
-    uint8_t controls[UI_N_CONTROLS];
-    uint8_t menu, pages, lanes, list, key_leds, placeholder, rows;
+    uint8_t controls[UI_CTL_KEY(0)];
+    uint8_t keys, menu, pages, lanes, list, key_leds, placeholder, rows;
     uint8_t say, n_say;
 } ui_screen_t;
 
 extern const ui_screen_t UI_SCREENS[];
 extern const int UI_N_SCREENS, UI_HOME;
+extern const uint8_t UI_KEYMAPS[][UI_N_CONTROLS - UI_CTL_KEY(0)];   /* the keys' actions: a screen's keys map */
+/* a control's action on a screen (UC_IN_*: a button, an encoder, a knob, a key) */
+static inline int ui_control(const ui_screen_t *sc, int control)
+{
+    return control < UI_CTL_KEY(0) ? sc->controls[control] : UI_KEYMAPS[sc->keys][control - UI_CTL_KEY(0)];
+}
 extern const uint8_t UI_PART_SCREENS;   /* the parts in ALGO's order: a list */
 extern const ui_band_t UI_BANDS[];
 extern const ui_item_t UI_ITEMS[];
@@ -160,8 +356,10 @@ extern const uint16_t UI_ICONS[][8];
 extern const uint8_t UI_ICON_ROWS[];
 extern const uint16_t UI_LINES[];   /* each line's template (UV_LINE(i, 0)'s) */
 /* a text item that is a value alone ({kit}): its past - 1 here, the value ids of its Pend, First and Last (0:
-   none). A meter's past: 1 when its field has no bar (a choice from a list) */
-extern const uint16_t UI_LONES[][3];
+   none), the x its arrows end at and their color (1 + ui_color; 0 none). A meter's past: 1 when its field has no
+   bar (a choice from a list) */
+typedef struct { uint16_t pend, first, last; uint8_t right, color; } ui_lone_t;
+extern const ui_lone_t UI_LONES[];
 #ifdef PLAT_HOST
 /* a value id's name: the simulator's uistate (not on the device) */
 extern const char UI_VALUE_STRINGS[];
@@ -170,4 +368,5 @@ extern const char *const UI_SCREEN_NAME[];   /* each screen's id (screens.js's) 
 #define UI_VALUE_STR(id) (UI_VALUE_STRINGS + UI_VALUE_NAME[id])
 #endif
 
+#endif
 #endif

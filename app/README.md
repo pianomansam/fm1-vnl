@@ -9,6 +9,7 @@ manual.
 | `app.h` | The app's settings (name, block size, the store's objects) and its half of the contract with the platform |
 | `app.c` | The app: the song engine and voices on the platform (roll, render, knobs, screen) |
 | `song/`, `engine/` | The song engine and the placeholder voices (compiled apart at -O2) |
+| `ui/` | The screens' runtime: the workbench's screens as generated tables (`*_gen.c/.h`, from `tools/screens/gen.py`: never edit them), the value bag (`values.c`), the drawing (`render.c`) and the navigator (`nav.c`). The device's UI once `app.h`'s `VNL_UI_RUNTIME` is 1; the simulator has it either way (`uiscreen`, `uistate`: `workbench/tools/parity.mjs`). See workbench/README.md for how to change a screen |
 | `fm1.toml` | Build and site settings: name, package identity, USB names, tagline, source, licence |
 | `words.tsv` | The screen reader's words (fm1-reader): the screen's text and how to say it |
 | `tests/screens.txt` | The manual's screenshots |

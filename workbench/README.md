@@ -118,9 +118,21 @@ AudioWorklet. Local only; not the FM-1, so it may exceed the device's budgets.
   - `ui/device.js`: gfx.c's drawing (cv_begin, cv_text with its blending, text_w, the amber palette) and app.c's words
     (KEY_NAME ...), no DOM; `ui/panel.js` the page's side. `ui/fonts.js` is generated:
     `.venv/bin/python3 -I workbench/tools/export_font.py` (base/tools/gen_font.py's fonts as base/ has them).
+  - The device runs the same screens (docs/superpowers/plans/2026-11-06-device-screens.md): `ui/screens.js` is the one
+    source. `ui/vocab.json` lists the draw items, actions and values both sides implement (`problems()` and the
+    generator refuse anything else); `node workbench/tools/export_screens.mjs` writes `ui/screens.json`, and
+    `.venv/bin/python -I tools/screens/gen.py` turns it, `rows.json` and `options.json` into `app/ui/*_gen.c/.h`, the
+    tables app/ui's runtime reads (the value bag `values.c`, the drawing `render.c`, the navigator `nav.c`: the mock's
+    `valuesOf`, `drawScreen` and `Device` in C). To iterate: edit `ui/screens.js` (and `device.js` for a new item or
+    action, with its C twin in `app/ui/`), reload the mock, then run both tools and `./build.sh --host`; `node
+    workbench/tools/parity.mjs [OUTDIR]` runs scripted presses on the simulator (`uiscreen`, `uistate`, `uirow`) and
+    compares every screen with the mock pixel for pixel (OUTDIR: the PNGs, the device's beside the mock's).
+    `tests/run_tests.sh` checks that both generated files are fresh and that the parity holds. The device holds the
+    phase-1 screens (the main and part screens); it runs them once app.h's `VNL_UI_RUNTIME` is 1 (Task 8).
   - The song's facts the main screen shows (the section, the map's name, the chord as `th_chord_name` spells it) come
     from `wb_screen(bar)`. `tools/screen_check.mjs` draws today's main screen in the host simulator (`./build.sh
-    --host`) and in the mock, in six states for two seeds, and compares them pixel for pixel (tests/run_tests.sh).
+    --host`) and in the mock, in six states for two seeds, and compares them pixel for pixel (tests/run_tests.sh);
+    it and `tools/today_screen.mjs` go when the device switches to the runtime.
   - The real FM-1 as the mock's controls (`ui/usb.js`, app.c's "browser's remote"; Chrome or Edge: Safari has no Web
     MIDI): "Connect FM-1" asks for MIDI with SysEx, finds the ports named "VNL-1 FM-1" and takes the FM-1's buttons,
     keys, encoders and knobs; the mock acts on them as on its own (a button or key as it goes down). Meanwhile the

@@ -54,7 +54,7 @@ static void say(ui_nav_t *n, const char *a, const char *b)
 /* the bag of the screen shown, for the text of a value (the navigator's own state read as the mock's shown() is) */
 static void bag(ui_nav_t *n, ui_bag_t *b)
 {
-    static const snap_t none;
+    static snap_t none;                  /* (no song seen yet: in RAM, zeros, not a table in flash) */
     ui_values(n->live ? n->live : &none, n, b);
 }
 
@@ -244,7 +244,9 @@ static void act(ui_nav_t *n, int ai, int detents)
     const ui_action_t *a = &UI_ACTIONS[ai];
     const ui_screen_t *sc = nav_screen(n);
     int id = nav_id(n), bar = bar_now(n);
-    char t[UI_VALUE_MAX];
+#if !UI_PHASE1
+    char t[UI_VALUE_MAX];                /* (a jump's section, a level) */
+#endif
     if (!ai) return;
     switch (a->kind) {
     case UA_PART:                                     /* ALGO: the next part (at its first page); SELECT: next page */
@@ -262,6 +264,7 @@ static void act(ui_nav_t *n, int ai, int detents)
         if (nav_id(n) != id) ui_speak(n);
         return;
     }
+#if !UI_PHASE1                                        /* (no Sections, no Mixer on the device in phase 1) */
     case UA_JUMP: {                                   /* the highlighted section (or the key's): at the next 4-bar
                                                          boundary, or the song's last bar where the song ends first */
         int i = a->arg != UI_NONE ? a->arg : n->cursor[id];
@@ -279,6 +282,7 @@ static void act(ui_nav_t *n, int ai, int detents)
         }
         return;
     }
+#endif
     case UA_REROLL:
         if (a->arg != UI_NONE) {                      /* SEQ on a part's screen: that part, on the 4-bar boundary */
             if (has_song(n)) {
@@ -302,6 +306,7 @@ static void act(ui_nav_t *n, int ai, int detents)
             say(n, "NEW SONG", "");
         }
         return;
+#if !UI_PHASE1
     case UA_LEVEL: {                                  /* the mixer: 1 dB a detent, -12..+6 dB, at once */
         int p = lane_part(n, a), db;
         char v[8];
@@ -321,6 +326,7 @@ static void act(ui_nav_t *n, int ai, int detents)
         say(n, part_name(p, 1), t);
         return;
     }
+#endif
     case UA_MUTE:
     case UA_SOLO: {                                   /* the lane's part muted or soloed (again: neither); at once */
         int p = lane_part(n, a), solo = n->eng && n->eng->soloed ? n->eng->soloed() : -1;
@@ -383,7 +389,7 @@ static void act(ui_nav_t *n, int ai, int detents)
 void ui_press(ui_nav_t *n, int control, int detents)
 {
     if (control < 0 || control >= UI_N_CONTROLS) return;
-    act(n, nav_screen(n)->controls[control], detents);
+    act(n, ui_control(nav_screen(n), control), detents);
 }
 
 /* a key whose action has a long press acts on release when let go soon, or once held UI_LONG_MS (its long action);
@@ -394,7 +400,7 @@ void ui_key(ui_nav_t *n, int key, int down, uint32_t ms)
     if (key < 0 || key >= UI_KEYS) return;
     n->now = ms;
     if (down) {
-        ai = nav_screen(n)->controls[UI_CTL_KEY(key)];
+        ai = ui_control(nav_screen(n), UI_CTL_KEY(key));
         if (!ai || !UI_ACTIONS[ai].lng) {
             act(n, ai, 1);
             return;
