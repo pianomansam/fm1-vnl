@@ -185,6 +185,7 @@ export function valuesOf(s, data) {
   });
   bag.looping = String(s.rows?.values?.loop) === "1";
   bag.activity = s.activity ?? null;
+  bag.levels = s.levels ?? {};
   bag.barPos = s.barPos ?? (s.bar ?? 0);   // bars from 0, with the fraction of the bar playing
   // a list's ends (Sam, 2026-11-06: arrows, not a bar): {field}First / {field}Last where the value (or the change
   // waiting) can't move further that way; a number without ends (a wrap) has neither
@@ -250,7 +251,10 @@ export function drawScreen(lcd, screen, bag, data, C = colors(THEME, data.colors
         // the part's color, those to come gray; a muted (or soloed-out) part dim
         const [x, y, w] = it.lanes, act = bag.activity, rowH = it.rowH ?? 22, lx = x + (it.label ?? 52), lw = w - (lx - x);
         const bars = act?.bars || 1, span = Math.min(it.window ?? 8, bars), pos = Math.max(0, bag.barPos ?? 0), f = font("T");
-        const from = Math.max(0, Math.min(bars - span, pos - span / 4)), ppb = lw / span, X = (b) => lx + (b - from) * ppb;
+        // the window steps a bar at a time (Sam, 2026-11-06: live scrolling was too much motion; `live: true` scrolls
+        // smoothly, for a future "more movement" setting)
+        const at = it.live ? pos : Math.floor(pos);
+        const from = Math.max(0, Math.min(bars - span, at - Math.floor(span / 4))), ppb = lw / span, X = (b) => lx + (b - from) * ppb;
         const dim = (c, k) => { const r = c >> 11, g = (c >> 5) & 63, b = c & 31; return (Math.round(r * k) << 11) | (Math.round(g * k) << 5) | Math.round(b * k); };
         const height = it.parts.length * rowH - 2;
         if (bag.song) {   // the bar playing, highlighted whole (Sam, 2026-11-06: not a line in front of it)
@@ -277,6 +281,24 @@ export function drawScreen(lcd, screen, bag, data, C = colors(THEME, data.colors
             lcd.rect(x0, ry + 1 + Math.round(ny * (rowH - 4)), Math.max(1, x1 - x0 - 1), Math.max(1, Math.round(nh * (rowH - 4))),
                      now && !off ? base : dim(base, 0.45 + 0.55 * shade));
           }
+        });
+      }
+      else if (it.faders) {   // { faders: [x, y, w, h], parts }: the mixer, a column a part (levels -12..+6 dB)
+        const [x, y, w, h] = it.faders, n = it.parts.length, cw = Math.floor(w / n), act = bag.activity, f = font("T");
+        const top = y + 14, tH = h - 34, at = (db) => top + Math.round(((6 - db) / 18) * tH);
+        it.parts.forEach((p, i) => {
+          const cx = x + i * cw, part = p === "keys" ? "comp" : p, col = C[part.toUpperCase()] ?? C.WHITE;
+          const off = act?.solo ? act.solo !== p : act?.mute?.includes(p), db = bag.levels?.[p] ?? 0, mid = cx + Math.floor(cw / 2);
+          if (bag[`sel${i}`]) lcd.rect(cx + 1, y, cw - 2, h, C.LINE);
+          if (data.icons?.[part]) data.icons[part].forEach((row, j) => [...row].forEach((c, k) => { if (c === "#") lcd.rect(mid - 4 + k, y + 2 + j, 1, 1, off ? C.DIM : col); }));
+          lcd.rect(mid - 2, top, 4, tH, C.DIM);                          // the track
+          lcd.rect(mid - 2, at(db), 4, top + tH - at(db), off ? C.GRAY : col);   // the level, from the bottom
+          lcd.rect(mid - 6, at(0), 12, 1, C.WHITE);                       // 0 dB
+          lcd.rect(mid - 7, at(db) - 1, 14, 3, off ? C.GRAY : C.WHITE);   // the fader's cap
+          const t = `${db > 0 ? "+" : ""}${db}`;
+          lcd.text(mid - Math.floor(textW(f, t) / 2), y + h - 18, f, t, off ? C.DIM : C.WHITE);
+          const ms = act?.solo === p ? "S" : act?.mute?.includes(p) ? "M" : "";
+          if (ms) lcd.text(mid - Math.floor(textW(f, ms) / 2), y + h - 8, f, ms, C.HI);
         });
       }
       else if (it.sections) {   // the song's map: a segment per section (by its bars), the one playing filled to
@@ -376,7 +398,7 @@ export function problems(data) {
   };
   for (const [k, t] of Object.entries(data.lines ?? {})) tpl(`lines.${k}`, t);
   for (const [c, a] of Object.entries(data.defaults ?? {})) {
-    if (![...BUTTONS, ...ENCODERS].includes(c)) out.push(`defaults: no control ${c}`);
+    if (![...BUTTONS, ...ENCODERS].includes(c) && !/^KEY([0-9]|1[0-9]|2[0-6])$/.test(c)) out.push(`defaults: no control ${c}`);
     act(`defaults.${c}`, a);
   }
   for (const [id, s] of Object.entries(data.screens ?? {})) {
@@ -392,7 +414,7 @@ export function problems(data) {
         if (it.meter) cond(w, it.value);
         if (it.sections) for (const c of [it.color, it.back, it.past]) if (!(c in C)) out.push(`${w}: no color ${c}`);
         if (it.icon && !data.icons?.[it.icon]) out.push(`${w}: no icon ${it.icon}`);
-        for (const c of it.lanes ? [] : it.knobs ? [it.knobs.label.color, it.knobs.value.color, ...(it.knobs.bar ? [it.knobs.bar.color, it.knobs.bar.back] : [])]
+        for (const c of it.lanes || it.faders ? [] : it.knobs ? [it.knobs.label.color, it.knobs.value.color, ...(it.knobs.bar ? [it.knobs.bar.color, it.knobs.bar.back] : [])]
                         : [it.color, ...(it.back ? [it.back] : [])])
           if (!(c in C)) out.push(`${w}: no color ${c}`);
         if (it.text !== undefined) tpl(w, it.text);
@@ -402,7 +424,7 @@ export function problems(data) {
     if ((s.knobs ?? []).length > 4) out.push(`${id}: more than four knobs`);
     for (const k of s.knobs ?? []) if (!data.fields?.[k.field]) out.push(`${id}.knobs: no field "${k.field}"`);
     for (const [c, a] of Object.entries(s.controls ?? {})) {
-      if (![...BUTTONS, ...ENCODERS].includes(c) && !/^KEY([0-9]|1[0-9]|2[0-6])$/.test(c) && !(KNOBS.includes(c) && ["mute", "solo"].includes(a?.do))) out.push(`${id}.controls: no control ${c} (K1-K4 are knobs; keys KEY0-KEY26)`);
+      if (![...BUTTONS, ...ENCODERS].includes(c) && !/^KEY([0-9]|1[0-9]|2[0-6])$/.test(c) && !(KNOBS.includes(c) && ["mute", "solo", "level"].includes(a?.do))) out.push(`${id}.controls: no control ${c} (K1-K4 are knobs; keys KEY0-KEY26)`);
       act(`${id}.controls.${c}`, a);
     }
     for (const p of s.say ?? []) typeof p === "string" ? tpl(`${id}.say`, p) : (tpl(`${id}.say`, p.text), cond(`${id}.say`, p.when));
@@ -475,7 +497,7 @@ export class Device {
              jump: this.jumpReq && song ? { name: this.jumpReq.name, i: this.jumpReq.i, at: this.jumpReq.at, bars: this.jumpReq.at - bar } : null,
              page: this.screen?.pages?.length > 1 ? `${this.screen.pages.indexOf(this.id) + 1}/${this.screen.pages.length}` : "",
              cursor: this.screen?.menu || this.screen?.list || this.screen?.lanes ? this.cursor[this.id] ?? 0 : -1, sections: l.sections,
-             activity: l.activity,
+             activity: l.activity, levels: l.levels,
              barPos: song ? bar + Math.min(0.999, (this.now() - (this.barT ?? this.now())) / (240000 / Math.max(40, l.roll?.tempo ?? 80))) : bar, pend, msg: this.msg && this.now() < this.msg.until ? this.msg.text : null };
   }
   values() { return valuesOf(this.shown(), this.data); }
@@ -501,6 +523,23 @@ export class Device {
     const h = this.held[control];
     delete this.held[control];
     return h && !h.fired ? this.press(control, 1, h.a) : null;
+  }
+  // the keys lit and blinking on this screen (Sam, 2026-11-06), from its `keyLeds`: { lanes: [key a lane] } a part on
+  // (not muted, not soloed out) lit, soloed blinking; { sections: [key a section] } the playing section lit, a jump
+  // waiting blinking. -> { on: Set, blink: Set } of key numbers (the mock's keys, and the FM-1's over USB)
+  keyLights() {
+    const on = new Set(), blink = new Set(), k = this.screen?.keyLeds ?? this.data.keyLeds, act = this.live?.activity;
+    if (k?.lanes)
+      (k.parts ?? this.screen.lanes ?? []).forEach((p, i) => {
+        if (k.lanes[i] === undefined) return;
+        if (act?.solo === p) blink.add(k.lanes[i]);
+        else if (!(act?.solo || act?.mute?.includes(p))) on.add(k.lanes[i]);
+      });
+    if (k?.sections && this.hasSong()) {
+      const v = this.values();
+      k.sections.forEach((key, i) => { if (v[`sec${i}Now`]) on.add(key); if (v[`sec${i}Pend`]) blink.add(key); });
+    }
+    return { on, blink };
   }
   tick() {   // a held key past LONG_MS: its long action, once
     for (const [c, h] of Object.entries(this.held))
@@ -545,9 +584,18 @@ export class Device {
       this.say("NEW SONG");
       return null;
     }
+    if (a.do === "level") {   // the mixer: a part's level, 1 dB a detent, -12..+6 dB, at once (levels kept across songs)
+      const part = a.part ?? this.screen.lanes?.[this.cursor[this.id] ?? 0];
+      if (!part) return null;
+      const db = Math.max(-12, Math.min(6, (this.live?.levels?.[part] ?? 0) + detents));
+      this.engine.level?.(part, db);
+      if (this.live) this.live.levels = { ...(this.live.levels ?? {}), [part]: db };
+      this.say(`${(part === "keys" ? "comp" : part).toUpperCase()}`, `${db > 0 ? "+" : ""}${db} DB`);
+      return null;
+    }
     if (a.do === "mute" || a.do === "solo") {   // the highlighted lane's part: muted, or soloed (again: neither); at once
       const part = a.part ?? this.screen.lanes?.[this.cursor[this.id] ?? 0], act = this.live?.activity;
-      if (!part) return null;
+      if (!part || part === "texture") return null;   // (the texture: a level only)
       if (a.do === "mute") { const on = !act?.mute?.includes(part); this.engine.mute?.(part, on); this.say(part.toUpperCase(), on ? "MUTED" : "ON"); }
       else { const on = act?.solo !== part; this.engine.solo?.(on ? part : null); this.say(part.toUpperCase(), on ? "SOLO" : "SOLO OFF"); }
       return null;

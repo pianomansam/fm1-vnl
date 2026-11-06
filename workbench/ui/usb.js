@@ -57,6 +57,7 @@ export async function connect({ act, key, onState = () => {}, request, timers = 
     else if (key && m.control.startsWith("KEY")) key(m.control, m.down);   // a key: down and up (a long press)
     else if (m.down) act(m.control, 1);   // a button acts as it goes down
   };
+  let lit = "";   // the lights last sent (03)
   const find = (ports) => [...ports.values()].find((p) => p.name?.includes(PORT_NAME) && p.state !== "disconnected") ?? null;
   const bind = () => {
     const i = find(access.inputs), o = find(access.outputs);
@@ -67,6 +68,7 @@ export async function connect({ act, key, onState = () => {}, request, timers = 
     }
     if (o !== output) {
       output = o;
+      lit = "";   // a new port: the lights again
       if (output) send(ON);
     }
     if (!input || !output) set("searching");
@@ -80,6 +82,14 @@ export async function connect({ act, key, onState = () => {}, request, timers = 
     if (state === "connected" && now() - heard > SILENT_MS) set("waiting");
   }, KEEPALIVE_MS);
   return {
+    // the keys to light and to blink (Sets of key numbers), sent when they change (03; 7 bits a byte)
+    lights(on, blink) {
+      const pack = (s) => [0, 1, 2, 3].map((i) => [...s].reduce((m, k) => (k >= 7 * i && k < 7 * i + 7 ? m | (1 << (k - 7 * i)) : m), 0));
+      const msg = [0xf0, 0x7d, 0x56, 0x4e, 0x03, ...pack(on), ...pack(blink), 0xf7], key = msg.join(",");
+      if (key === lit || !output) return;
+      lit = key;
+      send(msg);
+    },
     disconnect() {
       if (closed) return;
       closed = true;

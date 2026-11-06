@@ -166,7 +166,18 @@ export default {
     PLAY: { do: "play" },
     HOME: { go: "home" },
     SEQ: { do: "reroll" },   // a new song (Sam, 2026-11-06); the firmware's B_SEQ
+    SEL: { go: "sections" },   // the song map, from any screen (Sam, 2026-11-06); on Sections, SEL goes back
+    GLO: { go: "mixer" },      // the parts and the mixer, from any screen; on Parts, GLO goes back
+    // the lowest white keys, a part each (F drums, G bass, A comp, B pad, C lead), on every screen but Sections (its
+    // keys jump): press mutes, a long press solos; again: off (Sam, 2026-11-06)
+    KEY0: { do: "mute", part: "drums", long: { do: "solo", part: "drums" } },
+    KEY2: { do: "mute", part: "bass", long: { do: "solo", part: "bass" } },
+    KEY4: { do: "mute", part: "keys", long: { do: "solo", part: "keys" } },
+    KEY6: { do: "mute", part: "pad", long: { do: "solo", part: "pad" } },
+    KEY7: { do: "mute", part: "lead", long: { do: "solo", part: "lead" } },
   },
+  // the keys' lights on every screen but one with its own (Sections): a part's key lit while it plays, blinking soloed
+  keyLeds: { lanes: [0, 2, 4, 6, 7], parts: ["drums", "bass", "keys", "pad", "lead"] },
 
   screens: {
     // The main screen (Sam, 2026-11-06: mockup B3, chosen over A-C; the FM-1 conventions from
@@ -243,7 +254,7 @@ export default {
       ],
       knobs: [{ field: "key", step: 1 }, { field: "tempo", step: 1 }, { field: "motion", step: 5 }, { field: "mood", step: 1 }],
       // ALGO picks the part (the convention); SELECT too, the main screen having no pages (Sam, 2026-11-06)
-      controls: { ALGO: { do: "cursor" }, SELECT: { do: "cursor" }, EDIT: { go: "cursor" }, SEL: { go: "sections" }, GLO: { go: "mixer" } },
+      controls: { ALGO: { do: "cursor" }, SELECT: { do: "cursor" }, EDIT: { go: "cursor" } },
       say: [{ when: "song", text: "CHORD {chord}. {section}, BAR {bar} OF {bars}" }, { when: "!song", text: "{idle}" },
             { when: "ready", text: ". {key} {mode}, {tempo} BPM" },
             { when: "pending", text: ". {pending}" }],
@@ -267,6 +278,7 @@ export default {
         { y: 18, h: 28, draw: [
           { rect: [2, 0, 2, 26], color: "WHITE" },
           { text: "PARTS", font: "B", x: 10, y: 4, color: "WHITE" },
+          { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
           { when: ["song", "!pending"], text: "{chord}", font: "XS", right: 232, y: 5, color: "WHITE" },
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
@@ -275,17 +287,87 @@ export default {
         ] },
         { y: 196, h: 44, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
-          { text: "KEY MUTE   HOLD KEY SOLO   (K1 / K2)", font: "T", x: 8, y: 8, color: "DIM" },
+          { text: "KEY MUTE   HOLD KEY SOLO   SELECT MIXER", font: "T", x: 8, y: 8, color: "DIM" },
           { text: "GLO BACK   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
+      pages: ["mixer", "levels", "prefs"],   // SELECT: the mixer's levels (Sam, 2026-11-06: GLO, then SELECT)
       controls: {
-        ALGO: { do: "cursor" }, SELECT: { do: "cursor" }, K1: { do: "mute" }, K2: { do: "solo" }, GLO: { go: "back" },
-        // the lowest white keys, a lane each (F drums, G bass, A comp, B pad, C lead): press mutes, a long press solos
-        // (Sam, 2026-11-06); again: off
-        KEY0: { do: "mute", part: "drums", long: { do: "solo", part: "drums" } }, KEY2: { do: "mute", part: "bass", long: { do: "solo", part: "bass" } }, KEY4: { do: "mute", part: "keys", long: { do: "solo", part: "keys" } }, KEY6: { do: "mute", part: "pad", long: { do: "solo", part: "pad" } }, KEY7: { do: "mute", part: "lead", long: { do: "solo", part: "lead" } },
+        ALGO: { do: "cursor" }, SELECT: { do: "page" }, K1: { do: "mute" }, K2: { do: "solo" }, GLO: { go: "back" },
       },
       say: ["PARTS. ", { when: "song", text: "{section}, BAR {bar} OF {bars}" }],
+    },
+
+    // The mixer (GLO, then SELECT from Parts): a fader a part, its level -12..+6 dB (kept across songs), M / S under
+    // it. ALGO picks, K1 sets the level, K2 mutes, K3 solos; the keys mute and solo as everywhere.
+    levels: {
+      title: "Mixer",
+      lanes: ["drums", "bass", "keys", "pad", "lead", "texture"],
+      pages: ["mixer", "levels", "prefs"],
+      bands: [
+        { y: 0, h: 16, draw: [
+          { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
+          { when: ["song", "looping"], text: "LOOP", font: "T", after: 8, y: 2, color: "HI" },
+          { when: "!song", text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
+          { when: "known", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
+        ] },
+        { y: 18, h: 28, draw: [
+          { rect: [2, 0, 2, 26], color: "WHITE" },
+          { text: "MIXER", font: "B", x: 10, y: 4, color: "WHITE" },
+          { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
+          { when: ["song", "!pending"], text: "{chord}", font: "XS", right: 232, y: 5, color: "WHITE" },
+          { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
+        ] },
+        { y: 50, h: 140, draw: [
+          { faders: [6, 0, 228, 140], parts: ["drums", "bass", "keys", "pad", "lead", "texture"] },
+        ] },
+        { y: 196, h: 44, draw: [
+          { rect: [8, 0, 224, 1], color: "LINE" },
+          { text: "ALGO PICK   K1 LEVEL   K2 MUTE   K3 SOLO", font: "T", x: 8, y: 8, color: "DIM" },
+          { text: "SELECT SETTINGS   GLO BACK   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
+        ] },
+      ],
+      controls: {
+        ALGO: { do: "cursor" }, SELECT: { do: "page" }, K1: { do: "level" }, K2: { do: "mute" }, K3: { do: "solo" }, GLO: { go: "back" },
+      },
+      say: ["MIXER. ", { when: "song", text: "{section}, BAR {bar} OF {bars}" }],
+    },
+
+    // PLACEHOLDER: the user's settings, GLO's third page (Sam, 2026-11-06): what goes here (reduced movement, the
+    // screen reader, the key lights, brightness, which main screen is the default, the Advanced rules) is listed, not
+    // working yet. SELECT pages back to Parts.
+    prefs: {
+      title: "Settings (placeholder)",
+      placeholder: true,
+      pages: ["mixer", "levels", "prefs"],
+      bands: [
+        { y: 0, h: 16, draw: [
+          { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
+          { when: "!song", text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
+          { when: "known", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
+        ] },
+        { y: 18, h: 28, draw: [
+          { rect: [2, 0, 2, 26], color: "WHITE" },
+          { text: "SETTINGS", font: "B", x: 10, y: 4, color: "WHITE" },
+          { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
+          { text: "PLACEHOLDER", font: "T", right: 232, y: 8, color: "DIM" },
+        ] },
+        { y: 50, h: 140, draw: [
+          { text: "MOVEMENT", font: "T", x: 8, y: 4, color: "GRAY" }, { text: "LESS (A BAR AT A TIME)", font: "XS", right: 232, y: 2, color: "DIM" },
+          { text: "SCREEN READER", font: "T", x: 8, y: 24, color: "GRAY" }, { text: "ON", font: "XS", right: 232, y: 22, color: "DIM" },
+          { text: "KEY LIGHTS", font: "T", x: 8, y: 44, color: "GRAY" }, { text: "ON", font: "XS", right: 232, y: 42, color: "DIM" },
+          { text: "BRIGHTNESS", font: "T", x: 8, y: 64, color: "GRAY" }, { text: "HIGH", font: "XS", right: 232, y: 62, color: "DIM" },
+          { text: "MAIN SCREEN", font: "T", x: 8, y: 84, color: "GRAY" }, { text: "EXPANDED", font: "XS", right: 232, y: 82, color: "DIM" },
+          { text: "ADVANCED RULES", font: "T", x: 8, y: 104, color: "GRAY" }, { text: "...", font: "XS", right: 232, y: 102, color: "DIM" },
+        ] },
+        { y: 196, h: 44, draw: [
+          { rect: [8, 0, 224, 1], color: "LINE" },
+          { text: "NOT WORKING YET: WHAT GOES HERE", font: "T", x: 8, y: 8, color: "DIM" },
+          { text: "SELECT PARTS   GLO BACK   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
+        ] },
+      ],
+      controls: { SELECT: { do: "page" }, GLO: { go: "back" } },
+      say: ["SETTINGS, A PLACEHOLDER"],
     },
 
     // The song's map (Sam, 2026-11-06: where we are in the map, jump to a section, loop the one playing): SEL from
@@ -294,6 +376,7 @@ export default {
     sections: {
       title: "Sections",
       list: "sections",
+      keyLeds: { sections: [0, 2, 4, 6, 7, 9, 11, 12] },   // the playing section's key lit, a jump waiting blinking
       bands: [
         { y: 0, h: 16, draw: [
           { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },

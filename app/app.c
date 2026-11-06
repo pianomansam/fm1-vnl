@@ -569,7 +569,7 @@ static struct {
 #define RM_PFX0 0x7Du
 #define RM_PFX1 0x56u
 #define RM_PFX2 0x4Eu
-enum { RM_ON = 0x01, RM_OFF = 0x02, RM_STATE = 0x11, RM_BTN = 0x20, RM_ENC = 0x21, RM_KEY = 0x22 };
+enum { RM_ON = 0x01, RM_OFF = 0x02, RM_LIGHTS = 0x03, RM_STATE = 0x11, RM_BTN = 0x20, RM_ENC = 0x21, RM_KEY = 0x22 };
 #define RM_TIMEOUT 3000u
 #define RM_BQ 32u
 #define RM_KEY0 0x20u                    /* a key's edge in the queue: RM_KEY0 + k (a button's: B_*, under it) */
@@ -581,6 +581,7 @@ static struct {
     uint32_t keys;                       /* the keys held at the last input */
     int16_t enc[NE];                     /* detents to send */
     uint8_t ack;                         /* a state message owed (1 + its ss) */
+    uint32_t lit, blink;                 /* the keys the browser lights, and those it blinks (03) */
 } rm;
 
 static void text_cat(char *d, const char *s)
@@ -760,6 +761,8 @@ static void speak(void)
  *                     21 ee dd   encoder ee (EN_*: SELECT ALGO PRESET K1..K4) turned dd detents (7-bit two's
  *                                complement, -64..63; + clockwise)
  *                     22 kk ss   key kk (0..26, plat.h's: 0 = F3) down (ss 1) or up (ss 0)
+ *   browser -> FM-1   03 l0 l1 l2 l3 b0 b1 b2 b3   the keys to light (l: key k is bit k%7 of byte k/7) and those to
+ *                                blink (b, 4 Hz; Sam 2026-11-06: a part on lit, a soloed one blinking)
  * While on, the song stops, the output is silent and the controls go to the browser only, the keys too (neither acts
  * here). It ends on 02, after 3 s without a 01, or at a new USB connection; the FM-1 stays stopped,
  * the song held: PLAY continues it. The messages go out on the MIDI ring when it has room (plat_midi_out_room, never
@@ -821,6 +824,7 @@ static void rm_enter(void)
         rm.enc[e] = 0;
     }
     remote_mute = 1;
+    rm.lit = rm.blink = 0;
     post(C_STOP, 0, 0);
     ui.redraw = 1;
     if (ann_on())
@@ -831,6 +835,7 @@ static void rm_leave(void)
 {
     rm.on = 0;
     rm.ack = 1;                          /* "off", if anyone still listens */
+    rm.lit = rm.blink = 0;
     remote_mute = 0;                     /* stopped (C_STOP), so silent until PLAY continues the song */
     app_say("BROWSER", "DISCONNECTED");
 }
@@ -846,6 +851,16 @@ int app_sysex(const uint8_t *p, uint32_t n)
         rm.ack = 2;
     } else if (p[3] == RM_OFF && rm.on)
         rm_leave();
+    else if (p[3] == RM_LIGHTS && n >= 12u && rm.on) {   /* 4 + 4 bytes of 7 bits: lit, then blinking */
+        uint32_t l = 0, b = 0;
+        int i;
+        for (i = 3; i >= 0; i--) {
+            l = l << 7 | (p[4 + i] & 0x7Fu);
+            b = b << 7 | (p[8 + i] & 0x7Fu);
+        }
+        rm.lit = l & ((1u << NKEYS) - 1u);
+        rm.blink = b & ((1u << NKEYS) - 1u);
+    }
     return 1;
 }
 
@@ -878,10 +893,11 @@ static void input(void)
         rm_input(btn);
     if (rm.on || rm.ack) {
         rm_flush();
-        if (rm.on) {                         /* the browser's: the held buttons lit, nothing else */
+        if (rm.on) {                         /* the browser's: the held buttons lit, the keys as it asks (03) */
+            uint32_t ph = (plat_ms() / 125u) & 1u;
             ui.btn = btn;
             plat_glow(1);
-            plat_leds(btn, 0);
+            plat_leds(btn, (rm.lit & ~rm.blink) | (ph ? rm.blink : 0u));
             return;
         }
     }

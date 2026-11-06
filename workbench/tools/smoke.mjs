@@ -3143,6 +3143,29 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
     dk.keyDown("KEY7"); tt += D.LONG_MS + 10; dk.tick(); dk.tick(); dk.keyUp("KEY7");   // C: lead, held
     check(JSON.stringify(got) === '[["mute","bass",true],["solo","lead"]]', `Parts: G pressed mutes the bass, C held solos the lead (${JSON.stringify(got)})`);
   }
+  {   // the keys' lights: on Parts a playing part's key lit, a soloed one blinking; on Sections the playing section's
+    const dl = new D.Device(data, { set() {}, play() {} }, () => t);
+    dl.update({ ...live(3), activity: { bars: 64, lanes: {}, mute: ["bass"], solo: null } });
+    dl.stack = ["main", "mixer"];
+    const a = dl.keyLights();
+    dl.update({ ...live(3), activity: { bars: 64, lanes: {}, mute: [], solo: "lead" } });
+    const b = dl.keyLights();
+    dl.update({ ...live(10), sections: [{ start: 0, bars: 8, name: "intro" }, { start: 8, bars: 8, name: "groove" }] });
+    dl.stack = ["main", "sections"];
+    const c = dl.keyLights();
+    check([...a.on].join() === "0,4,6,7" && !a.blink.size && !b.on.size && [...b.blink].join() === "7" && [...c.on].join() === "2",
+          `key lights: bass muted [${[...a.on]}], lead soloed blinking [${[...b.blink]}], Sections' playing section [${[...c.on]}]`);
+  }
+  {   // the keys mute and solo on every screen but Sections (where they jump); the lights follow everywhere
+    let tt = 0;
+    const got = [], dk = new D.Device(data, { set() {}, play() {}, mute: (p, on) => got.push(["mute", p]), solo: (p) => got.push(["solo", p]), jump: (st) => got.push(["jump", st]) }, () => tt);
+    dk.update({ ...live(3), activity: { bars: 64, lanes: {}, mute: [], solo: null }, sections: [{ start: 0, bars: 8, name: "intro" }, { start: 8, bars: 8, name: "groove" }] });
+    for (const sc of ["main", "pComp", "sections"]) { dk.stack = sc === "main" ? ["main"] : ["main", sc]; dk.keyDown("KEY2"); dk.keyUp("KEY2"); }
+    const lit = [...dk.keyLights().on].join();
+    dk.stack = ["main"];
+    check(JSON.stringify(got) === '[["mute","bass"],["mute","bass"]]' && dk.jumpReq?.name === "groove" && [...dk.keyLights().on].join() === "0,2,4,6,7",
+          `G mutes the bass on the main and Comp screens, jumps on Sections (${JSON.stringify(got)}, jump ${dk.jumpReq?.name}; Sections lit [${lit}])`);
+  }
   {   // a new song, rolled or the next one, goes back to the main screen
     dev.press("ALGO", 1); dev.press("EDIT");
     const inPart = dev.id;
@@ -3209,6 +3232,11 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
   access.onstatechange();
   input2.onmidimessage({ data: Uint8Array.of(0xf0, 0x7d, 0x56, 0x4e, 0x11, 0x01, 0x01, 0xf7) });
   check(sent.join() === "F07D564E01F7" && states.at(-1) === "connected" && input.onmidimessage === null, "plugged back: remote on again, connected");
+  // the keys' lights (03): lit F3 and C#4 (keys 0, 8), blinking C4 (key 7), 7 bits a byte; the same again: not resent
+  sent.length = 0;
+  link.lights(new Set([0, 8]), new Set([7]));
+  link.lights(new Set([0, 8]), new Set([7]));
+  check(sent.join() === "F07D564E030102000000010000F7", `lights: ${sent.join()}`);
   // Disconnect: "remote off", the keepalive stops, the FM-1's controls no longer reach the mock
   sent.length = 0;
   link.disconnect();

@@ -32,6 +32,10 @@ const CSS = `
                           display: flex; align-items: flex-end; justify-content: center; padding-bottom: 3px; }
   .dev .keys27 button.b { height: 38px; background: #222; color: #ddd; border: 1px solid #000; z-index: 2; }
   .dev .keys27 button.live { box-shadow: inset 0 -4px 0 var(--accent); }
+  .dev .keys27 button.lit { background: #ffb846; }
+  .dev .keys27 button.b.lit { background: #c98a1e; }
+  .dev .keys27 button.blink { animation: keyblink 0.25s steps(1) infinite; }
+  @keyframes keyblink { 50% { background: #ffb846; } }
   .dev .encs { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
   .dev .enc { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; width: 78px; }
   .dev .enc .dial { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--line); background: var(--panel);
@@ -62,7 +66,7 @@ const CSS = `
 const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
 
 // box: the section to fill; call: wb.call; C: wb.C; engine: { set(row, value), play() }
-export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: rowsOf = () => ({}), activity = () => null }) {
+export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: rowsOf = () => ({}), activity = () => null, levels = () => ({}) }) {
   document.head.append(el("style", { textContent: CSS }));
   const canvas = el("canvas", { width: W, height: H, role: "img", ariaLabel: "The device's screen (mock)" });
   const ctx = canvas.getContext("2d"), img = ctx.createImageData(W, H), lcd = new Lcd();
@@ -155,8 +159,15 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
   }
 
   // the screen and what the reader said
+  let lightsKey = "";
   function draw() {
     if (!dev) return;
+    const L = dev.keyLights(), lk = [...L.on].join() + "|" + [...L.blink].join();   // the keys' lights, here and on the FM-1
+    if (lk !== lightsKey) {
+      lightsKey = lk;
+      for (let k = 0; k < 27; k++) { const b = ctl.get(`KEY${k}`); b?.classList.toggle("lit", L.on.has(k)); b?.classList.toggle("blink", L.blink.has(k)); }
+    }
+    usb?.lights?.(L.on, L.blink);
     if (dev.id !== shownId) { lcd.fill(0); shownId = dev.id; }   // a new screen: cleared first, as an app would (lcd_fill)
     dev.draw(lcd);
     ctx.putImageData(new ImageData(lcd.rgba(img.data), W, H), 0, 0);
@@ -210,7 +221,7 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
       const rolled = await call("wb_rolled").catch(() => null);   // what the "as rolled" rows play
       const sections = await call("wb_sections", 1).catch(() => []);   // the song's map, as it plays
       const r = (f) => s.roll[C.RF[f]];
-      dev.update({ playing, gap: pos.gap, bar: pos.bar, bars: pos.bars || r("BARS"), seed: s.seed, facts, labels: labels(rolled), rows: rowsOf(rolled, s), sections, activity: activity(),
+      dev.update({ playing, gap: pos.gap, bar: pos.bar, bars: pos.bars || r("BARS"), seed: s.seed, facts, labels: labels(rolled), rows: rowsOf(rolled, s), sections, activity: activity(), levels: levels(),
                    roll: { key: r("KEY"), tempo: r("TEMPO"), motion: r("MOTION"), mood: r("MOOD"), mode: r("MODE") } });
     } finally {
       fetching = false;

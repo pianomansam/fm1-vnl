@@ -222,7 +222,8 @@
         const notes = Object.fromEntries(rollLay.lanes.map((l) => [l.role, l.notes.map((n) => [n.x, n.w, n.y, n.h, n.shade])]));
         return { bars: rollLay.bars, lanes, notes, sections: rollLay.sections, mute: [...desk.listen.mute], solo: desk.listen.solo };
       };
-      device = mountDevice($("devbox"), { call: wb.call, C: wb.C, labels, rows, activity,
+      const levels = () => ({ ...(desk.levels ?? {}) });   // the mixer's levels by part, dB (desk.js keeps them across songs)
+      device = mountDevice($("devbox"), { call: wb.call, C: wb.C, labels, rows, activity, levels,
         engine: {
           set: (id, v) => id === "loop" ? ($("loop").checked = !!v, $("loop").onchange(), device?.redraw())
             : run(() => desk.set(id === "rhythm" ? rhythmRow(desk.state, desk.opts) : id, v)),
@@ -232,6 +233,7 @@
           jump: (start, name) => run(() => desk.jumpTo(start, name)),
           mute: (part, on) => run(() => desk.mute(part, on)).then(() => device?.redraw()),   // listening only, at once
           solo: (part) => run(() => desk.solo(part)).then(() => device?.redraw()),
+          level: (part, db) => desk.setLevel?.(part, db),   // the mixer (desk.setLevel: the engine's level, at once)
         } });
     } catch (e) { $("devbox").textContent = `The device mock didn't load: ${e}`; }
   }
