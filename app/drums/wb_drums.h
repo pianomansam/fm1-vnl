@@ -48,6 +48,13 @@ int wb_drums_src_ok(int kind, int a, int b);    /* 1 if the source exists (a sou
    kit's as samples/kits.json says), levels 0 dB; 0 if id isn't one or a sampled kit's pieces aren't there (no
    bank) */
 int wb_drums_preset(wb_drums_t *d, int id);
+/* the modeled machines' voices (WB_SRC_PT), rendered once into RAM for the lanes to play back (wb_drums.c): the ones
+   d's lanes need (wb_drums_want), rendered up to frames at a time (wb_drums_work: the FM-1's main loop; now: at once,
+   cutting a slot that plays an old one: the workbench's), and whether all d needs is there (wb_drums_ready; a lane
+   whose voice isn't is silent). wb_drums_work: 1 while work remains. */
+void wb_drums_want(const wb_drums_t *d);
+int wb_drums_work(uint32_t frames, int now);
+int wb_drums_ready(const wb_drums_t *d);
 void wb_drums_kit(int kit);                     /* the song's kit (KIT_*), as vx_set_kit has just set it */
 /* src's sound on lane now (vel 1-127), outside the song, through the same chain (NONE: nothing) */
 void wb_drums_audition(const wb_src_t *src, int lane, int vel);

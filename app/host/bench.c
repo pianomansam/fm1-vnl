@@ -291,6 +291,8 @@ static double run_part(const part_t *p)
         wb_drums_preset(&d, p->preset);
         wb_drums_song(1u);
         wb_drums_kit(p->kit);
+        wb_drums_want(&d);
+        wb_drums_work(0, 1);            /* (the modeled machines' voices, rendered once: outside the timing) */
         wb_drums_set(&d);
     }
     if (p->chain) fx_configure(p->dust, p->noise, p->amb, FL_LOFI);

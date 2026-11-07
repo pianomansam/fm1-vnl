@@ -94,6 +94,8 @@ static void land(int target, int fresh)
     jump = -1;
     live = com;
     hooks(&live);
+    wb_drums_want(drums_of(&live));      /* (the modeled machines' voices, rendered now: the FM-1 renders them ahead) */
+    wb_drums_work(0, 1);
     wb_drums_set(drums_of(&live));
     song_override(&live.ov);
     song_start(&song, &live.roll);

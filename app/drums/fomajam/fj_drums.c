@@ -2,8 +2,8 @@
 /* Adapted from FOMAJAM's src/drums.c (FOMAJAM 138c5d9, GPL-3.0-only: LICENSE; by FOMAJAM's authors, its
    LICENSING.md), whose modeled machines are ported from trommelsynthesizer in poketrack (zlib: LICENSE.poketrack).
    Altered for VNL-1: the modeled machines only (808, 909, SDS-V, CR-78; the ROM recordings, the store's kits, the
-   samples, the synths and the tracks left out), a voice a slot (the drum lanes', wb_drums.c) with its knobs at the
-   middle (TONE, EXTRA, DECAY, TUNE 64; LEVEL full), float out, a noise generator a slot (reseeded a song), its sine (FOMAJAM's
+   samples, the synths and the tracks left out), a voice rendered whole, once (the drum lanes play it back, wb_drums.c),
+   its knobs at the middle (TONE, EXTRA, DECAY, TUNE 64; LEVEL and velocity full), its noise from a fixed seed, its sine (FOMAJAM's
    platform/common.c) here, and every 64-bit multiply in a helper of its own, out of line on the FM-1 (a multiply
    inlined beside a load may leave a register a bit off there: base/bsp/docs/CPU.md). This is not the original
    software.
@@ -96,15 +96,12 @@ static uint32_t tuned(uint32_t inc, int semis)
     return oct >= 0 ? r << oct : r >> -oct;
 }
 
-static uint32_t *xrp;   /* the rendering slot's noise (FOMAJAM's one generator, a slot's own here: a lane's sound
-                           never moves with another's) */
+static uint32_t xr = 2463534242u;
 static inline int32_t noise(void)
 {
-    uint32_t xr = *xrp;
     xr ^= xr << 13;
     xr ^= xr >> 17;
     xr ^= xr << 5;
-    *xrp = xr;
     return (int32_t)xr >> 16; /* +-32767 */
 }
 
@@ -121,8 +118,7 @@ typedef struct {
     uint8_t kind, on;
 } dv_t;
 
-static dv_t dv[FJ_SLOTS];
-static uint32_t xr[FJ_SLOTS];
+static dv_t rv;   /* the voice being rendered (fj_voice_begin) */
 static int32_t acc[256];
 
 static const uint16_t METAL_HZ10[6] = {2053, 3044, 3696, 5227, 5400, 8000};
@@ -218,8 +214,8 @@ static void voice_start(dv_t *v, int m, int voice)
     }
 }
 
-/* one voice into out for n frames; 0 once it has ended */
-static int voice_render(dv_t *v, int32_t *out, uint32_t n)
+/* one voice into out for n frames: the frames written (fewer than n once it has ended: v->on 0) */
+static uint32_t voice_render(dv_t *v, int32_t *out, uint32_t n)
 {
     const patch_t *p = v->p;
     uint32_t i;
@@ -334,54 +330,40 @@ static int voice_render(dv_t *v, int32_t *out, uint32_t n)
             break;
         }
         default:
-            return 0;
+            v->on = 0;
+            return i;
         }
         v->t++;
-        out[i] += mul_sh(x, v->gain, 15);
-        if (quiet)
-            return 0;
+        out[i] = mul_sh(x, v->gain, 15);
+        if (quiet) {
+            v->on = 0;
+            return i + 1;
+        }
     }
-    return 1;
-}
-
-void fj_seed(uint32_t seed)
-{
-    int i;
-    for (i = 0; i < FJ_SLOTS; i++)
-        xr[i] = (seed ^ (2463534242u + 2654435761u * (uint32_t)i)) | 1u;   /* (never 0) */
+    return n;
 }
 
 int fj_has(int m, int v) { return m >= 0 && m < M_MODELLED && v >= 0 && v < V_COUNT && PATCH[m][v].kind != K_NONE; }
 
-void fj_start(int slot, int m, int v, int vel)
+void fj_voice_begin(int m, int v)
 {
-    dv_t *d;
-    if (slot < 0 || slot >= FJ_SLOTS || !fj_has(m, v))
+    xr = 2463534242u ^ (2654435761u * (uint32_t)(m * V_COUNT + v + 1));   /* (a hit's noise: the same every time) */
+    rv.on = 0;
+    if (!fj_has(m, v))
         return;
-    d = &dv[slot];
-    voice_start(d, m, v);
-    d->gain = mul_sh(127 * clamp(vel, 1, 127) * 2, GAIN[m][v], 15); /* (FOMAJAM's, at LEVEL 127) */
-    d->on = 1;
+    voice_start(&rv, m, v);
+    rv.gain = mul_sh(127 * 127 * 2, GAIN[m][v], 15); /* (FOMAJAM's, at LEVEL and velocity 127) */
+    rv.on = 1;
 }
 
-void fj_stop(int slot)
+uint32_t fj_voice_next(int16_t *out, uint32_t n)
 {
-    if (slot >= 0 && slot < FJ_SLOTS)
-        dv[slot].on = 0;
-}
-
-int fj_render(int slot, float *x, uint32_t n)
-{
-    uint32_t i;
-    if (n > 256)
-        n = 256;
-    for (i = 0; i < n; i++)
-        acc[i] = 0;
-    if (slot >= 0 && slot < FJ_SLOTS && dv[slot].on) {
-        xrp = &xr[slot];
-        dv[slot].on = (uint8_t)voice_render(&dv[slot], acc, n);
+    uint32_t i, k = 0;
+    while (rv.on && k < n) {
+        uint32_t c = n - k < 256u ? n - k : 256u, w = voice_render(&rv, acc, c);
+        for (i = 0; i < w; i++)
+            out[k + i] = (int16_t)clamp(acc[i], -32767, 32767);
+        k += w;
     }
-    for (i = 0; i < n; i++)
-        x[i] = (float)acc[i] * (1.0f / 32768.0f);
-    return slot >= 0 && slot < FJ_SLOTS && dv[slot].on;
+    return k;
 }

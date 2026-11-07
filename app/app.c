@@ -204,11 +204,35 @@ static void roll_clear(void);
 #endif
 
 /* the drum lanes (app/drums, as the workbench's): a shipped kit's (song.kit_preset), or none (the song's own kit) */
+static uint8_t drums_wait;               /* a shipped kit whose voices the main loop is still rendering */
+static uint32_t kit_wait;                /* samples a song has waited for its kit's voices */
+#define KIT_WAIT_MAX (44100u * 3u)       /* then it starts on the set's own kit until they are there */
+
+/* the drum lanes: the shipped kit's (song.kit_preset), or none (the song's own kit); a modeled machine's whose voices
+   aren't rendered yet: none (the set's own kit under it: Soft brushes) until they are (step) */
 static void drums_apply(void)
 {
     wb_drums_t d;
-    wb_drums_set(song.kit_preset >= 0 && wb_drums_preset(&d, song.kit_preset) ? &d : 0);
+    int on = song.kit_preset >= 0 && wb_drums_preset(&d, song.kit_preset);
+    drums_wait = (uint8_t)(on && !wb_drums_ready(&d));
+    wb_drums_set(on && !drums_wait ? &d : 0);
     wb_drums_kit(lib_song_kit(&song.roll));
+}
+
+/* the next song's shipped kit (its seeded pick) is ready to play, or it has waited long enough */
+static int kit_ready_next(uint32_t n)
+{
+#if UI_RT
+    wb_drums_t d;
+    int k = ui_kit_pick(&mb_roll, smp_ready());
+    if (k < SONG_KIT_PRESET || !wb_drums_preset(&d, k - SONG_KIT_PRESET) || wb_drums_ready(&d) || kit_wait >= KIT_WAIT_MAX)
+        return 1;
+    kit_wait += n;
+    return 0;
+#else
+    (void)n;
+    return 1;
+#endif
 }
 
 static void voices_begin(void)
@@ -448,6 +472,8 @@ static void step(void)
     int bar, st = (int)(r_tick & 15u), n, i;
     float adv, lp[PM_N], hp[PM_N], llp;
     uint32_t ip;
+    if (drums_wait)                      /* the shipped kit's voices rendered since: its lanes now */
+        drums_apply();
 #if UI_RT
     if (st == 0) {                       /* a bar line: a jump ready lands; the Loop's and Stay's; the roll's notes */
         if (j_target >= 0 && j_ready && song.bar > j_from)
@@ -690,8 +716,10 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
         q_r++;
         command(c);
     }
-    if (rs == RS_WAIT && mb_full)
+    if (rs == RS_WAIT && mb_full && kit_ready_next(n)) {
+        kit_wait = 0;
         song_begin();
+    }
 #if UI_RT
     if (rs == RS_SONG) {                 /* the jump's fast-forward, the roll's look-ahead: a few 16ths a block */
         jump_prepare();
@@ -1755,6 +1783,23 @@ void app_ui_init(void)
         app_say("NO SAMPLES", "SYNTHS ONLY");   /* no sample bank (tools/fm1_bank.py writes it) */
 }
 
+/* main loop: the modeled machine kit's voices (wb_drums_want, wb_drums_work) the song playing needs, else the next
+   one, a slice at a time (never in the audio interrupt): ready before the next song starts */
+#define KIT_SLICE 2048u                  /* frames a main-loop pass (the host: ~25 us; the FM-1: a few ms) */
+static void kit_render(const snap_t *s)
+{
+    wb_drums_t d;
+    int k = (s->has_song || s->held) ? s->rows[ROW_KIT] : -1;
+    if (!(k >= SONG_KIT_PRESET && wb_drums_preset(&d, k - SONG_KIT_PRESET) && !wb_drums_ready(&d))) {
+        int nx = mb_full ? ui_kit_pick(&mb_roll, smp_ready()) : -1;
+        if (!(nx >= SONG_KIT_PRESET && wb_drums_preset(&d, nx - SONG_KIT_PRESET)))
+            if (!(k >= SONG_KIT_PRESET && wb_drums_preset(&d, k - SONG_KIT_PRESET)))
+                return;
+    }
+    wb_drums_want(&d);
+    wb_drums_work(KIT_SLICE, 0);
+}
+
 void app_frame(void)
 {
     snap_t s;
@@ -1763,6 +1808,9 @@ void app_frame(void)
         seed_boot();
     roll_next();
     snap_read(&s);
+#if UI_RT
+    kit_render(&s);
+#endif
     if (s.has_song != ui.shown.has_song || s.stopped != ui.shown.stopped || s.ready != ui.shown.ready
         || s.held != ui.shown.held || s.bar != ui.shown.bar
         || s.section != ui.shown.section || s.pend_field != ui.shown.pend_field || s.pend_bars != ui.shown.pend_bars
@@ -1812,6 +1860,9 @@ int app_expect(const char *what, int *got)
     snap_read(&s);
     if (!strcmp(what, "playing"))
         *got = s.playing;
+    else if (!strcmp(what, "kit_lanes"))   /* the song's shipped kit: 1 its lanes play, 0 its voices still rendering
+                                              (the set's own kit meanwhile); -1 none */
+        *got = rs == RS_SONG && song.kit_preset >= 0 ? !drums_wait : -1;
     else if (!strcmp(what, "songs"))
         *got = s.songs;
     else if (!strcmp(what, "bar"))

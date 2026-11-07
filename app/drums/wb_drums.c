@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* The workbench's drum lanes (wb_drums.h). A slot per lane, and one for auditions: a hit starts the slot's sound on
-   its lane's source (a new hit restarts it, as on the machines), at the source's calibrated level times the lane's.
-   FOMAJAM's modeled machines run a voice per slot (fomajam/fj_drums.h: integers, so a lane's sound never depends on
-   another's or on the platform); a closed hat chokes the open one (4 ms), as both machines do. A sampled piece plays its layer from the sample bank
-   (samples.h smp_piece: ADPCM, read at 44.1 kHz with a linear step). The built-in kits' lanes go to drums.c, unhooked
-   for the call: a hit on
-   another kit than the song's leaves drums.c on the song's (at once for its routing; its synth kit once nothing
-   sounds, as a hit sounding reads its kit's table). */
+/* The drum lanes (wb_drums.h), the FM-1's and the workbench's. A slot per lane, and one for auditions: a hit starts
+   the slot's sound on its lane's source (a new hit restarts it, as on the machines), at the source's calibrated level
+   times the lane's. FOMAJAM's modeled machines' voices play back from RAM, rendered once (fomajam/fj_drums.h:
+   integers, so the FM-1 and the workbench have the same samples; below); a closed hat chokes the open one (4 ms), as
+   both machines do. A sampled piece plays its layer from the sample bank (samples.h smp_piece: ADPCM, read at 44.1 kHz
+   with a linear step). The built-in kits' lanes go to drums.c, unhooked for the call: a hit on another kit than the
+   song's leaves drums.c on the song's (at once for its routing; its synth kit once nothing sounds, as a hit sounding
+   reads its kit's table). */
 #include <string.h>
 #include "fastmath.h"
 #include "wb_drums.h"
@@ -45,7 +45,8 @@ typedef struct {
     float rel;                          /* release: 1, or REL while drums_release's fade runs */
     float fade;                         /* the release's level so far */
     int choke;                          /* samples left of a choke (0: none) */
-    smp_dec_t d;                        /* SAMPLE: the layer's decoder, the two samples the read is between, the read's */
+    smp_zone_t z;                       /* PT: the voice's hit (hit_buf), as a zone */
+    smp_dec_t d;                        /* SAMPLE, PT: the decoder, the two samples the read is between, the read's */
     float h0, h1;                       /* place past h0 and its step (16.16: the zone's rate over 44.1 kHz) */
     uint32_t ph, step;
     uint8_t on;
@@ -83,6 +84,215 @@ static const drums_hook_t HOOK = {h_on, h_render, h_active, h_kick_env, h_releas
 static int pt_machine(int a) { return a == M_808 || a == M_CR78; }
 
 static int piece_ok(int set, int p) { return smp_piece(set, p) != 0; }
+
+/* ---- the modeled machines' voices (fomajam/fj_drums.h), rendered once into RAM as the lanes need them, then played
+   back as samples, at the hit's velocity (only its level moves with velocity). 4-bit IMA ADPCM at 44.1 kHz (samples.h's
+   format), the decoder's start index the one of HIT_IDX0 that encodes the first 256 samples best. A voice is cut at
+   HIT_CAP (faded over its last quarter second; only the CR-78 cymbal rings that long), and the set at HIT_BYTES (a
+   voice that would pass it shorter, faded: only a workbench lane mix of the two machines' longest voices comes near).
+   The render (wb_drums_work) runs in the main loop on the FM-1, a slice at a time; it starts a new set only once no
+   slot plays from the old one, and a hit plays a voice only once the whole set is there (hit_done). */
+#define HIT_MAX (WB_LANES + 1)          /* a voice a lane, and the audition's */
+#define HIT_CAP (44100u * 5u / 2u)      /* 2.5 s */
+#define HIT_FADE 11025u                 /* 0.25 s */
+#define HIT_END 316                     /* a voice ends where 256 samples all stay 50 dB under its peak (FOMAJAM's
+                                           own end, about 66 dB under, rings on unheard under the next hit) */
+#define HIT_BYTES 136000u
+#ifdef FELUCCA_ID
+#define HIT_POOL __attribute__((section(".pool")))
+#else
+#define HIT_POOL
+#endif
+static uint8_t hit_buf[HIT_BYTES] HIT_POOL;
+typedef struct { uint16_t key; uint32_t off, len; uint8_t idx0; } hit_t;   /* key: machine * V_COUNT + voice + 1 */
+static hit_t hit[HIT_MAX];
+static uint16_t want_k[HIT_MAX];
+static int hit_n, want_n;
+static volatile uint8_t hit_done;
+static struct {                         /* the render under way: its voice, frames so far, cap and fade's start, the
+                                           encoder (prediction, index, a low nibble waiting), the next byte */
+    int i;
+    uint32_t f, cap, fade, pos;
+    int32_t pred, idx, nib, peak;
+} job = {-1, 0, 0, 0, 0, 0, 0, -1, 0};
+static int16_t pcm[256];
+
+static uint16_t hit_key(const wb_src_t *s)
+{
+    return s->kind == WB_SRC_PT && pt_machine(s->a) && fj_has(s->a, s->b) ? (uint16_t)(s->a * V_COUNT + s->b + 1) : 0;
+}
+
+/* the voices d's lanes need (and extra's), each once, in lane order: -> how many */
+static int hit_need(const wb_drums_t *d, const wb_src_t *extra, uint16_t *k)
+{
+    int n = 0, i, j;
+    for (i = 0; i <= WB_LANES; i++) {
+        uint16_t x = i < WB_LANES ? (d ? hit_key(&d->lane[i]) : 0) : extra ? hit_key(extra) : 0;
+        for (j = 0; j < n && k[j] != x; j++) {}
+        if (x && j == n)
+            k[n++] = x;
+    }
+    return n;
+}
+
+static const hit_t *hit_of(const wb_src_t *s)
+{
+    uint16_t x = hit_key(s);
+    int i;
+    for (i = 0; hit_done && x && i < hit_n; i++)
+        if (hit[i].key == x)
+            return &hit[i];
+    return 0;
+}
+
+static int hit_has(const uint16_t *k, int n)
+{
+    int i, j;
+    for (i = 0; i < n; i++) {
+        for (j = 0; j < hit_n && hit[j].key != k[i]; j++) {}
+        if (j == hit_n)
+            return 0;
+    }
+    return 1;
+}
+
+/* IMA ADPCM's code for x from (pred, idx), the state moved on (pack.py's adpcm_encode) */
+static int ima_code(int32_t x, int32_t *pred, int32_t *idx)
+{
+    int32_t step = SMP_STEP[*idx], d = x - *pred, diff = step >> 3;
+    int code = 0;
+    if (d < 0) {
+        code = 8;
+        d = -d;
+    }
+    if (d >= step) {
+        code |= 4;
+        d -= step;
+        diff += step;
+    }
+    if (d >= step >> 1) {
+        code |= 2;
+        d -= step >> 1;
+        diff += step >> 1;
+    }
+    if (d >= step >> 2) {
+        code |= 1;
+        diff += step >> 2;
+    }
+    *pred += code & 8 ? -diff : diff;
+    *pred = *pred < -32768 ? -32768 : *pred > 32767 ? 32767 : *pred;
+    *idx += SMP_IDXT[code & 7];
+    *idx = *idx < 0 ? 0 : *idx > 88 ? 88 : *idx;
+    return code;
+}
+
+/* the voice's next n samples (pcm) encoded, faded and cut as its cap says */
+static void hit_encode(uint32_t n)
+{
+    uint32_t k;
+    for (k = 0; k < n; k++, job.f++) {
+        int32_t x = pcm[k];
+        int c;
+        if (job.f >= job.fade)
+            x = x * (int32_t)(job.cap - job.f) / (int32_t)(job.cap - job.fade);   /* (32767 x 11025 at most) */
+        c = ima_code(x, &job.pred, &job.idx);
+        if (job.nib < 0) {
+            job.nib = c;
+        } else {
+            hit_buf[job.pos++] = (uint8_t)(job.nib | c << 4);
+            job.nib = -1;
+        }
+    }
+}
+
+void wb_drums_want(const wb_drums_t *d) { want_n = hit_need(d, 0, want_k); }
+
+int wb_drums_ready(const wb_drums_t *d)
+{
+    uint16_t k[HIT_MAX];
+    int n = hit_need(d, 0, k);
+    return !n || (hit_done && hit_has(k, n));
+}
+
+int wb_drums_work(uint32_t frames, int now)
+{
+    int i;
+    if (!want_n || (job.i < 0 && hit_done && hit_has(want_k, want_n)))
+        return 0;
+    if (job.i < 0 || !hit_has(want_k, want_n)) {   /* a new set: once no slot plays the old one */
+        hit_done = 0;
+        for (i = 0; i < NS; i++)
+            if (sl[i].on && sl[i].src.kind == WB_SRC_PT) {
+                if (!now)
+                    return 1;
+                sl[i].on = 0;
+            }
+        for (hit_n = 0; hit_n < want_n; hit_n++)
+            hit[hit_n] = (hit_t){want_k[hit_n], 0, 0, 0};
+        job.i = 0;
+        job.pos = 0;
+        job.f = 0;
+    }
+    while (job.i < hit_n && (now || frames)) {
+        hit_t *h = &hit[job.i];
+        uint32_t want = 256u, got;
+        if (job.f == 0) {               /* a voice begins: its cap, its first samples, the index they start best at */
+            static const uint8_t HIT_IDX0[8] = {0, 12, 24, 36, 48, 60, 72, 84};
+            uint32_t best = 0xFFFFFFFFu;
+            uint32_t room = (HIT_BYTES - job.pos) * 2u;
+            fj_voice_begin((h->key - 1) / V_COUNT, (h->key - 1) % V_COUNT);
+            job.cap = room < HIT_CAP ? room : HIT_CAP;
+            job.fade = job.cap - (job.cap / 4u < HIT_FADE ? job.cap / 4u : HIT_FADE);
+            got = fj_voice_next(pcm, want < job.cap ? want : job.cap);
+            for (i = 0; i < 8; i++) {
+                int32_t p = 0, x = HIT_IDX0[i];
+                uint32_t k, e = 0;
+                for (k = 0; k < got; k++) {
+                    int32_t q = pcm[k] - (ima_code(pcm[k], &p, &x), p);
+                    e += (uint32_t)(q < 0 ? -q : q);   /* (the error's sum: 256 at most, no overflow) */
+                }
+                if (e < best) {
+                    best = e;
+                    h->idx0 = HIT_IDX0[i];
+                }
+            }
+            h->off = job.pos;
+            job.peak = 0;
+            job.pred = 0;
+            job.idx = h->idx0;
+            job.nib = -1;
+        } else {
+            uint32_t left = job.cap - job.f;
+            want = left < want ? left : want;
+            if (!now && frames < want)
+                want = frames;
+            got = fj_voice_next(pcm, want);
+        }
+        {                               /* its peak so far; a piece all under HIT_END of it: the voice ends there */
+            uint32_t k;
+            int32_t m = 0;
+            for (k = 0; k < got; k++)
+                m = pcm[k] > m ? pcm[k] : -pcm[k] > m ? -pcm[k] : m;
+            job.peak = m > job.peak ? m : job.peak;
+            if (job.f >= 2048u && m * HIT_END < job.peak)
+                got = 0;
+        }
+        hit_encode(got);
+        frames = frames > got ? frames - got : 0;
+        if (got < want || job.f >= job.cap) {   /* the voice ended, or its cap */
+            if (job.nib >= 0)
+                hit_buf[job.pos++] = (uint8_t)job.nib;
+            h->len = job.f;
+            job.i++;
+            job.f = 0;
+        }
+    }
+    if (job.i < hit_n)
+        return 1;
+    job.i = -1;
+    hit_done = 1;
+    return 0;
+}
 
 /* a hit on an engine kit's lane through drums.c (unhooked), then drums.c back on the song's kit: its routing (a
    sampled kit's voices keep their kit) at once; its synth kit when nothing sounds or before the song's own next hit */
@@ -189,9 +399,9 @@ static void start(int i, const wb_src_t *src, int lane, int vel)
         kit_on(src->a, &e);
         return;
     }
-    if (src->kind == WB_SRC_SAMPLE ? !piece_ok(src->a, src->b) : src->kind != WB_SRC_PT && src->kind != WB_SRC_OPT)
-        return;
-    fj_stop(i);
+    if (src->kind == WB_SRC_SAMPLE ? !piece_ok(src->a, src->b) : src->kind == WB_SRC_PT ? !hit_of(src)
+                                                                : src->kind != WB_SRC_OPT)
+        return;                          /* (a voice not rendered yet: silent) */
     wb_opt_off(i);
     s->g = src_gain(src);
     if (src->kind == WB_SRC_SAMPLE) {   /* the range up to whose top the velocity falls: its kept layer, its level */
@@ -208,8 +418,18 @@ static void start(int i, const wb_src_t *src, int lane, int vel)
         s->ph = 0;
         s->step = (uint32_t)z->rate * 65536u / 44100u;   /* (a rate under 65536 Hz) */
         s->g *= z->gain * (1.0f / 32768.0f) * p->lvl[l] * fm_powf((float)v / (float)p->hi[l], (float)p->curve);
-    } else if (src->kind == WB_SRC_PT) {
-        fj_start(i, src->a, src->b, vel);
+    } else if (src->kind == WB_SRC_PT) {  /* the voice at full velocity, scaled to this one */
+        const hit_t *h = hit_of(src);
+        s->z = (smp_zone_t){0, h->len, 0, 0, 44100u, 60, h->idx0, 1.0f};
+        memset(&s->d, 0, sizeof s->d);
+        s->d.z = &s->z;
+        s->d.p = hit_buf + h->off;
+        s->d.idx = s->d.lidx = h->idx0;
+        s->h0 = (float)smp_dec_fast(&s->d);
+        s->h1 = (float)smp_dec_fast(&s->d);
+        s->ph = 0;
+        s->step = 65536u;
+        s->g *= (float)vel * (1.0f / (127.0f * 32768.0f));
     } else {
         wb_opt_on(i, src->a, src->b, vel);
     }
@@ -247,7 +467,33 @@ static void slot_render(int i, float *x, uint32_t n)
 {
     slot_t *s = &sl[i];
     uint32_t k;
-    if (s->src.kind == WB_SRC_SAMPLE) {
+#ifndef METER
+    if (s->src.kind == WB_SRC_PT && !s->choke && s->rel == 1.0f) {   /* the common case in one pass (fade stays 1:
+                                                                        the same samples as below) */
+        float g = s->g;
+        x[0] += s->h0 * g;
+        if (n > 1)
+            x[1] += s->h1 * g;
+        for (k = 2; k < n; k++)
+            x[k] += (float)smp_dec_fast(&s->d) * g;
+        s->h0 = (float)smp_dec_fast(&s->d);
+        s->h1 = (float)smp_dec_fast(&s->d);
+        if (s->d.ni >= s->d.z->len)   /* (the decoder stops at len: its last two samples, 50 dB down, go unplayed) */
+            s->on = 0;
+        return;
+    }
+#endif
+    if (s->src.kind == WB_SRC_PT) {      /* (at the zone's own rate: no read between samples) */
+        t[0] = s->h0;
+        if (n > 1)
+            t[1] = s->h1;
+        for (k = 2; k < n; k++)
+            t[k] = (float)smp_dec_fast(&s->d);
+        s->h0 = (float)smp_dec_fast(&s->d);
+        s->h1 = (float)smp_dec_fast(&s->d);
+        if (s->d.ni >= s->d.z->len)   /* (the decoder stops at len: its last two samples, 50 dB down, go unplayed) */
+            s->on = 0;
+    } else if (s->src.kind == WB_SRC_SAMPLE) {
         for (k = 0; k < n; k++) {
             t[k] = s->h0 + (s->h1 - s->h0) * (float)(s->ph & 0xFFFFu) * (1.0f / 65536.0f);
             for (s->ph += s->step; s->ph >> 16; s->ph -= 1u << 16) {
@@ -256,9 +502,6 @@ static void slot_render(int i, float *x, uint32_t n)
             }
         }
         if (s->d.ni >= s->d.z->len)     /* (played out: the zone's tail faded to nothing) */
-            s->on = 0;
-    } else if (s->src.kind == WB_SRC_PT) {
-        if (!fj_render(i, t, n))
             s->on = 0;
     } else if (!wb_opt_render(i, t, n)) {
         s->on = 0;
@@ -346,9 +589,10 @@ static void h_release(void)
 void wb_drums_init(void)
 {
     int i;
-    fj_seed(1u);
+    hit_n = want_n = 0;
+    hit_done = 0;
+    job.i = -1;
     for (i = 0; i < NS; i++) {
-        fj_stop(i);
         wb_opt_off(i);
     }
     memset(sl, 0, sizeof sl);
@@ -383,7 +627,6 @@ void wb_drums_set(const wb_drums_t *d)
 void wb_drums_song(uint32_t seed)
 {
     wb_opt_seed(seed);
-    fj_seed(seed);
 }
 
 void wb_drums_kit(int kit)
@@ -394,6 +637,10 @@ void wb_drums_kit(int kit)
 
 void wb_drums_audition(const wb_src_t *src, int lane, int vel)
 {
+    if (src->kind == WB_SRC_PT && !hit_of(src)) {   /* (the workbench's: a voice the lanes don't play, rendered now) */
+        want_n = hit_need(cfg_any ? &cfg : 0, src, want_k);
+        wb_drums_work(0, 1);
+    }
     if (lane >= 0 && lane < WB_LANES && src->kind != WB_SRC_NONE)
         start(AUD, src, lane, vel);
 }
