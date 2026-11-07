@@ -44,8 +44,8 @@
   {"name":"Drums","part":"drums","main":["kit","pattern"],"more":["kick","ride","drumsVar"]},
   {"name":"Bass","part":"bass","main":["bass","bassLine"],"more":[]},
   {"name":"Comp","part":"keys","main":["keys","comp","strumPat"],"more":["strumFill","voicings","keysOct","busyThin"]},
-  {"name":"Pad","part":"pad","main":["pad","padOn"],"more":["padPlace","padNotes"]},
   {"name":"Lead","part":"lead","main":["lead","leadStyle"],"more":["phrase","leadLoop","leadOct"]},
+  {"name":"Pad","part":"pad","main":["pad","padOn"],"more":["padPlace","padNotes"]},
   {"name":"Texture","main":["dust","noise","ambience"],"more":[]}
  ],
  "fits": {"comping":{"keysOf":"keys","notKeysOf":"notKeys"},"rhythmRow":{"strumSym":"CS_STRUM","compRow":"comp","strumRow":"strumPat"}}

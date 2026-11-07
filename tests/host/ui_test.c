@@ -213,7 +213,7 @@ static void test_nav_main_to_comp(void)
     ui_press(&n, UC_IN_SELECT, 1);
     CHECK(shown(&n) == US_P_COMP_MORE, "SELECT: Comp's page 2 (%d)", shown(&n));
     ui_press(&n, UC_IN_ALGO, 1);
-    CHECK(shown(&n) == US_P_PAD && n.depth == 2, "ALGO: the next part, Pad, at its first page (%d)", shown(&n));
+    CHECK(shown(&n) == US_P_LEAD && n.depth == 2, "ALGO: the next part, Lead, at its first page (%d)", shown(&n));
     ui_press(&n, UC_IN_HOME, 1);
     CHECK(shown(&n) == US_MAIN && n.depth == 1, "HOME: the main screen");
     CHECK(!strstr(eng_log, "set"), "nothing sent before the bar before its boundary: %s", eng_log);
@@ -334,23 +334,23 @@ static void test_nav_fast_keys(void)
     nav_fresh(&n, &s, 2);
     ui_press(&n, UC_IN_SELECT, 12);
     CHECK(n.cursor[US_MAIN] == 12 % 7, "SELECT +12: the highlight wraps to %d (%d)", 12 % 7, n.cursor[US_MAIN]);
-    ui_key(&n, 0, 1, 1000);                    /* F (drums) and C (lead) down together */
+    ui_key(&n, 0, 1, 1000);                    /* F (drums) and C (pad) down together */
     ui_key(&n, 7, 1, 1000);
     ui_key(&n, 0, 0, 1100);                    /* F let go soon: drums muted */
     ui_tick(&n, 1200);
     ui_press(&n, UC_IN_K1, 1);                 /* a knob turns while C is held */
-    ui_tick(&n, 1600);                         /* C held 600 ms: the lead soloed, once */
+    ui_tick(&n, 1600);                         /* C held 600 ms: the pad soloed, once */
     ui_tick(&n, 1700);
     ui_key(&n, 7, 0, 1800);
-    snprintf(want, sizeof want, "mute %d 1; solo %d 0", UI_PART_DRUMS, UI_PART_LEAD);
+    snprintf(want, sizeof want, "mute %d 1; solo %d 0", UI_PART_DRUMS, UI_PART_PAD);
     CHECK(!strcmp(eng_log, want), "each key's press judged on its own: %s", eng_log);
     CHECK(n.req_at[UFLD_KEY] == 4, "the knob's turn still asked (%d)", n.req_at[UFLD_KEY]);
     on = ui_key_lights(&n, &s, &blink);
-    CHECK(on == 0 && blink == 1u << 7, "lead soloed: key 7 blinking, the others dark (on %x, blink %x)", on, blink);
+    CHECK(on == 0 && blink == 1u << 7, "pad soloed: key 7 blinking, the others dark (on %x, blink %x)", on, blink);
     eng_log[0] = 0;
     ui_key(&n, 7, 1, 2000);                    /* a press on the soloed part's key: un-solo, not mute */
     ui_key(&n, 7, 0, 2100);
-    CHECK(!strcmp(eng_log, "solo -1 0"), "a press on the soloed lead un-solos it: %s", eng_log);
+    CHECK(!strcmp(eng_log, "solo -1 0"), "a press on the soloed pad un-solos it: %s", eng_log);
     eng_muted[UI_PART_DRUMS] = 0;
     eng_muted[UI_PART_BASS] = 1;
     on = ui_key_lights(&n, &s, &blink);

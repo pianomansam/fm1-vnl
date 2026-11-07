@@ -330,9 +330,14 @@ def gen_choices(rows, opts, shown):
 
 
 # ------------------------------------------------------------------------------------------------- the screens ---
+# the engine's parts, in its order (voices.h's VX_PART_*: the mixer's levels): ui_part numbers them so, whatever order
+# the screens show them in
+ENGINE_PARTS = ["drums", "bass", "keys", "pad", "lead", "texture"]
+
+
 def part_names(data):
-    """every part the screens name, in the order they first appear (lanes, keys' lights, actions): ui_part"""
-    out = []
+    """every part the screens name: the engine's first, in its order (VX_PART_*), then any other as it appears"""
+    out = list(ENGINE_PARTS)
     def walk(x, key=None):
         if isinstance(x, dict):
             for k, v in x.items():

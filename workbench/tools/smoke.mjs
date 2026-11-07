@@ -443,8 +443,8 @@ console.log("the piano roll (roll.js: layout on the committed song's events; dra
   const t0 = performance.now(), lay = layout(evs, secs, bars, V, chords), tl = performance.now() - t0;
   const lane = (r) => lay.lanes.find((l) => l.role === r);
   const total = lay.lanes.reduce((n, l) => n + l.notes.length, 0);
-  check(lay.lanes.map((l) => l.role).join() === "keys,bass,lead,pad,drums" && total === evs.length,
-        `${bars} bars, ${evs.length} events: one rectangle each, in the five lanes (keys, bass, lead, pad, drums)`);
+  check(lay.lanes.map((l) => l.role).join() === "drums,bass,keys,lead,pad" && total === evs.length,
+        `${bars} bars, ${evs.length} events: one rectangle each, in the five lanes (drums, bass, keys, lead, pad)`);
   const part = (e) => (e.role >= V.KICK ? "drums" : { [V.CHORD]: "keys", [V.BASS]: "bass", [V.LEAD]: "lead", [V.PAD]: "pad" }[e.role]);
   const at = (r) => evs.filter((e) => part(e) === r);
   check(["keys", "bass", "lead", "pad", "drums"].every((r) => at(r).every((e, i) => {
@@ -1985,7 +1985,7 @@ console.log("parts: re-rolls, history, locks, reactions (Task 5)");
   };
   const evs = (desk) => JSON.stringify(desk.partEv);
   const names = Object.keys(PARTS);
-  check(JSON.stringify(names) === JSON.stringify(["keys", "bass", "lead", "pad", "drums"]) && !names.includes("candy") &&
+  check(JSON.stringify(names) === JSON.stringify(["drums", "bass", "keys", "lead", "pad"]) && !names.includes("candy") &&
         names.every((p) => row(PART_ROW[p]).kind === "reroll"), "five parts (no ear candy), each re-rolled by its salt row");
 
   // each part's 🎲: its own events change, it lands at the next bar line, and the page lists whatever else moved
@@ -2890,7 +2890,7 @@ console.log("the page by part: sections, part headers, the folded rows, summarie
   const { PARTS, PART_NAME } = await import("../desk.js");
   // the sections in track order; every row in exactly one, main or more; the parts' sections are desk.js's parts
   const ids = SECTIONS.flatMap((s) => [...s.main, ...s.more]);
-  check(SECTIONS.map((s) => s.name).join() === "Song,Drums,Bass,Comp,Pad,Lead,Texture" &&
+  check(SECTIONS.map((s) => s.name).join() === "Song,Drums,Bass,Comp,Lead,Pad,Texture" &&
         ids.length === ROWS.length && new Set(ids).size === ids.length && ROWS.every((r) => sectionOf(r.id)),
         `sections ${SECTIONS.map((s) => s.name).join(", ")}: each of the ${ROWS.length} rows in one`);
   const want = {
@@ -3196,11 +3196,11 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
     dk.update({ ...live(3), activity: { bars: 64, lanes: {}, mute: [], solo: null } });
     dk.stack = ["main", "mixer"];
     dk.keyDown("KEY2"); tt += 100; dk.tick(); dk.keyUp("KEY2");                 // G: bass, a press
-    dk.keyDown("KEY7"); tt += D.LONG_MS + 10; dk.tick(); dk.tick(); dk.keyUp("KEY7");   // C: lead, held
-    check(JSON.stringify(got) === '[["mute","bass",true],["solo","lead"]]', `Parts: G pressed mutes the bass, C held solos the lead (${JSON.stringify(got)})`);
+    dk.keyDown("KEY6"); tt += D.LONG_MS + 10; dk.tick(); dk.tick(); dk.keyUp("KEY6");   // B: lead, held
+    check(JSON.stringify(got) === '[["mute","bass",true],["solo","lead"]]', `Parts: G pressed mutes the bass, B held solos the lead (${JSON.stringify(got)})`);
     dk.update({ ...live(3), activity: { bars: 64, lanes: {}, mute: [], solo: "lead" } });
     got.length = 0;
-    dk.keyDown("KEY7"); tt += 100; dk.tick(); dk.keyUp("KEY7");   // C pressed while the lead is soloed: un-solo, not mute
+    dk.keyDown("KEY6"); tt += 100; dk.tick(); dk.keyUp("KEY6");   // B pressed while the lead is soloed: un-solo, not mute
     check(JSON.stringify(got) === '[["solo",null]]', `a press on the soloed lead un-solos it (${JSON.stringify(got)})`);
   }
   {   // the keys' lights: on Parts a playing part's key lit, a soloed one blinking; on Sections the playing section's
@@ -3213,7 +3213,7 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
     dl.update({ ...live(10), sections: [{ start: 0, bars: 8, name: "intro" }, { start: 8, bars: 8, name: "groove" }] });
     dl.stack = ["main", "sections"];
     const c = dl.keyLights();
-    check([...a.on].join() === "0,4,6,7" && !a.blink.size && !b.on.size && [...b.blink].join() === "7" && [...c.on].join() === "2",
+    check([...a.on].join() === "0,4,6,7" && !a.blink.size && !b.on.size && [...b.blink].join() === "6" && [...c.on].join() === "2",
           `key lights: bass muted [${[...a.on]}], lead soloed blinking [${[...b.blink]}], Sections' playing section [${[...c.on]}]`);
   }
   {   // the keys mute and solo on every screen but Sections (where they jump); the lights follow everywhere

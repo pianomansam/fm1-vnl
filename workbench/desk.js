@@ -9,7 +9,7 @@ import { cellOf, LANES } from "./drums.js";
 import { byPart } from "./roll.js";
 
 // the parts a listener can mute or solo (the page's names) and the engine's role for each (the drums' bus on V_KICK)
-export const PARTS = { keys: "CHORD", bass: "BASS", lead: "LEAD", pad: "PAD", drums: "KICK" };
+export const PARTS = { drums: "KICK", bass: "BASS", keys: "CHORD", lead: "LEAD", pad: "PAD" };   // (the display order)
 
 // The mixer's level per part (the device's mixer screen; wb_level_set's parts, wb_consts' PART: drums 0, bass 1,
 // keys 2 (the comp), pad 3, lead 4, texture 5 (the bed: surface noise, rain)), in dB, LEVEL_MIN to LEVEL_MAX in 1 dB
@@ -28,7 +28,7 @@ export function loadLevels(storage = () => globalThis.localStorage) {
 
 // each part's salt row (rows.js's part: its 🎲 sets it), and its name in messages
 export const PART_ROW = Object.fromEntries(ROWS.filter((r) => r.part).map((r) => [r.part, r.id]));
-export const PART_NAME = { keys: "Comp", bass: "Bass", lead: "Lead", pad: "Pad", drums: "Drums" };
+export const PART_NAME = { drums: "Drums", bass: "Bass", keys: "Comp", lead: "Lead", pad: "Pad" };
 const NAME = PART_NAME;
 
 // What part p's events moving says, after a re-roll of part by (moved: every part that moved): "<part> moved", and

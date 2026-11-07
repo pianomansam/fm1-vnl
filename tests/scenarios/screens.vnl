@@ -26,14 +26,14 @@ key 2 up
 wait 50
 said BASS MUTED
 expect key_lit 209
-# a long press solos (the lead: C, key 7), blinking; a press again un-solos
-key 7 down
+# a long press solos (the lead: B, key 6), blinking; a press again un-solos
+key 6 down
 wait 600
-key 7 up
+key 6 up
 said LEAD SOLO
-key 7 down
+key 6 down
 wait 50
-key 7 up
+key 6 up
 said LEAD SOLO OFF
 tap HOME
 wait 50

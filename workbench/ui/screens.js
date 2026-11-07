@@ -157,8 +157,8 @@ export default {
     endless: { row: "endless", name: "STAY ON SONG", options: true, now: true, wrap: 2 },   // off by default (Sam)
   },
 
-  // the parts, in ALGO's order (on a part's screen ALGO moves to the next one, at its first page)
-  parts: ["pSong", "pDrums", "pBass", "pComp", "pPad", "pLead", "pTexture"],
+  // the parts, in ALGO's order (Sam, 2026-11-07: drums, bass, comp, lead, pad, texture, everywhere parts are listed) (on a part's screen ALGO moves to the next one, at its first page)
+  parts: ["pSong", "pDrums", "pBass", "pComp", "pLead", "pPad", "pTexture"],
 
   // lines more than one place uses (app.c's line_key and line_place)
   lines: {
@@ -174,16 +174,16 @@ export default {
     ARP: { go: "mixer" },      // the Parts roll, from any screen; on it, ARP goes back (Sam, 2026-11-06)
     FX: { go: "levels" },      // the Mixer, from any screen; on it, FX goes back
     GLO: { go: "prefs" },      // the Settings, from any screen (the FM-1 convention: GLO = global); on it, GLO goes back
-    // the lowest white keys, a part each (F drums, G bass, A comp, B pad, C lead), on every screen but Sections (its
+    // the lowest white keys, a part each (F drums, G bass, A comp, B lead, C pad), on every screen but Sections (its
     // keys jump): press mutes, a long press solos; again: off (Sam, 2026-11-06)
     KEY0: { do: "mute", part: "drums", long: { do: "solo", part: "drums" } },
     KEY2: { do: "mute", part: "bass", long: { do: "solo", part: "bass" } },
     KEY4: { do: "mute", part: "keys", long: { do: "solo", part: "keys" } },
-    KEY6: { do: "mute", part: "pad", long: { do: "solo", part: "pad" } },
-    KEY7: { do: "mute", part: "lead", long: { do: "solo", part: "lead" } },
+    KEY6: { do: "mute", part: "lead", long: { do: "solo", part: "lead" } },
+    KEY7: { do: "mute", part: "pad", long: { do: "solo", part: "pad" } },
   },
   // the keys' lights on every screen but one with its own (Sections): a part's key lit while it plays, blinking soloed
-  keyLeds: { lanes: [0, 2, 4, 6, 7], parts: ["drums", "bass", "keys", "pad", "lead"] },
+  keyLeds: { lanes: [0, 2, 4, 6, 7], parts: ["drums", "bass", "keys", "lead", "pad"] },
 
   screens: {
     // The main screen (Sam, 2026-11-06: mockup B3, chosen over A-C; the FM-1 conventions from
@@ -193,7 +193,7 @@ export default {
     // ALGO = track), EDIT opens it; the highlighted tile gets its part's color down its left edge.
     main: {
       title: "Main",
-      menu: ["pSong", "pDrums", "pBass", "pComp", "pPad", "pLead", "pTexture"],
+      menu: ["pSong", "pDrums", "pBass", "pComp", "pLead", "pPad", "pTexture"],
       bands: [
         { y: 0, h: 16, draw: [
           { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
@@ -234,16 +234,16 @@ export default {
           { text: "{keys}", font: "XS", x: 8, y: 63, color: "WHITE" },
           { text: "{rhythm}", font: "T", x: 8, y: 80, color: "GRAY" },
           { when: "sel4", rect: [122, 48, 116, 46], color: "LINE" },
-          { when: "sel4", rect: [122, 48, 2, 46], color: "PAD" },
-          { icon: "pad", x: 128, y: 53, color: "PAD" },
-          { text: "PAD", font: "T", x: 141, y: 51, color: "PAD" },
-          { text: "{pad}", font: "XS", x: 128, y: 63, color: "WHITE" },
+          { when: "sel4", rect: [122, 48, 2, 46], color: "LEAD" },
+          { icon: "lead", x: 128, y: 53, color: "LEAD" },
+          { text: "LEAD", font: "T", x: 141, y: 51, color: "LEAD" },
+          { text: "{lead}", font: "XS", x: 128, y: 63, color: "WHITE" },
+          { text: "{leadStyle}", font: "T", x: 128, y: 80, color: "GRAY" },
           { when: "sel5", rect: [2, 96, 116, 46], color: "LINE" },
-          { when: "sel5", rect: [2, 96, 2, 46], color: "LEAD" },
-          { icon: "lead", x: 8, y: 101, color: "LEAD" },
-          { text: "LEAD", font: "T", x: 21, y: 99, color: "LEAD" },
-          { text: "{lead}", font: "XS", x: 8, y: 111, color: "WHITE" },
-          { text: "{leadStyle}", font: "T", x: 8, y: 128, color: "GRAY" },
+          { when: "sel5", rect: [2, 96, 2, 46], color: "PAD" },
+          { icon: "pad", x: 8, y: 101, color: "PAD" },
+          { text: "PAD", font: "T", x: 21, y: 99, color: "PAD" },
+          { text: "{pad}", font: "XS", x: 8, y: 111, color: "WHITE" },
           { when: "sel6", rect: [122, 96, 116, 46], color: "LINE" },
           { when: "sel6", rect: [122, 96, 2, 46], color: "TEXTURE" },
           { icon: "texture", x: 128, y: 101, color: "TEXTURE" },
@@ -264,10 +264,10 @@ export default {
         HOME: { go: "mixer" },   // HOME steps main -> Parts -> Mixer -> main (Sam, 2026-11-07: a trial)
         // the highlighted part's instrument (or kit), a request as a knob's (Sam, 2026-11-06): a field a menu line
         // (null: nothing there)
-        PRESET: { do: "turn", byCursor: [null, "drumKit", "bassIns", "compIns", "padIns", "leadIns", null], step: 1 },
+        PRESET: { do: "turn", byCursor: [null, "drumKit", "bassIns", "compIns", "leadIns", "padIns", null], step: 1 },
         // OCT-/OCT+: the highlighted part's register, as on its own screen (Sam, 2026-11-06): the comp's and the lead's
-        "OCT-": { do: "nudge", byCursor: [null, null, null, "compReg", null, "leadReg", null], by: -1 },
-        "OCT+": { do: "nudge", byCursor: [null, null, null, "compReg", null, "leadReg", null], by: 1 },
+        "OCT-": { do: "nudge", byCursor: [null, null, null, "compReg", "leadReg", null, null], by: -1 },
+        "OCT+": { do: "nudge", byCursor: [null, null, null, "compReg", "leadReg", null, null], by: 1 },
       },
       say: [{ when: "song", text: "CHORD {chord}. {section}, BAR {bar} OF {bars}" }, { when: "!song", text: "{idle}" },
             { when: "ready", text: ". {key} {mode}, {tempo} BPM" },
@@ -281,7 +281,7 @@ export default {
     // a lane, K1 mutes it, K2 solos it (again: off); listening only, at once. Levels later (the mixer item).
     mixer: {
       title: "Parts",
-      lanes: ["drums", "bass", "keys", "pad", "lead"],
+      lanes: ["drums", "bass", "keys", "lead", "pad"],
       bands: [
         { y: 0, h: 16, draw: [
           { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
@@ -296,7 +296,7 @@ export default {
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
         { y: 50, h: 132, draw: [
-          { lanes: [8, 0, 224, 132], parts: ["drums", "bass", "keys", "pad", "lead"], label: 46, rowH: 26, window: 8, keys: ["F", "G", "A", "B", "C"] },
+          { lanes: [8, 0, 224, 132], parts: ["drums", "bass", "keys", "lead", "pad"], label: 46, rowH: 26, window: 8, keys: ["F", "G", "A", "B", "C"] },
         ] },
         { y: 196, h: 44, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
@@ -315,7 +315,7 @@ export default {
     // it. ALGO picks, K1 sets the level, K2 mutes, K3 solos; the keys mute and solo as everywhere.
     levels: {
       title: "Mixer",
-      lanes: ["drums", "bass", "keys", "pad", "lead", "texture"],
+      lanes: ["drums", "bass", "keys", "lead", "pad", "texture"],
       bands: [
         { y: 0, h: 16, draw: [
           { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
@@ -330,7 +330,7 @@ export default {
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
         { y: 50, h: 140, draw: [
-          { faders: [6, 0, 228, 140], parts: ["drums", "bass", "keys", "pad", "lead", "texture"], labels: ["DRUMS", "BASS", "COMP", "PAD", "LEAD", "TEXT"] },
+          { faders: [6, 0, 228, 140], parts: ["drums", "bass", "keys", "lead", "pad", "texture"], labels: ["DRUMS", "BASS", "COMP", "LEAD", "PAD", "TEXT"] },
         ] },
         { y: 196, h: 44, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
@@ -346,7 +346,7 @@ export default {
 
     // The mixer, laid out for the knobs (Sam, 2026-11-07: a variant to compare; the mock's "Mixer" switch under the
     // screen picks it, the device keeps the layout above): the same faders, K1-K4 one part's level each, two pages
-    // (SELECT or ALGO flips them: drums, bass, comp, pad; then lead, texture), the knob under each fader it drives.
+    // (SELECT or ALGO flips them: drums, bass, comp, lead; then pad, texture), the knob under each fader it drives.
     levelsKnobs: {
       title: "Mixer: knobs",
       pages: ["levelsKnobs", "levelsKnobs2"],
@@ -365,19 +365,19 @@ export default {
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
         { y: 50, h: 140, draw: [
-          { faders: [6, 0, 228, 140], parts: ["drums", "bass", "keys", "pad", "lead", "texture"], labels: ["DRUMS", "BASS", "COMP", "PAD", "LEAD", "TEXT"],
+          { faders: [6, 0, 228, 140], parts: ["drums", "bass", "keys", "lead", "pad", "texture"], labels: ["DRUMS", "BASS", "COMP", "LEAD", "PAD", "TEXT"],
             tags: ["K1", "K2", "K3", "K4", "", ""] },
         ] },
         { y: 196, h: 44, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
-          { text: "K1-K4 LEVEL   SELECT LEAD/TEXT   KEY MUTE/SOLO", font: "T", x: 8, y: 8, color: "DIM" },
+          { text: "K1-K4 LEVEL   SELECT PAD/TEXT   KEY MUTE/SOLO", font: "T", x: 8, y: 8, color: "DIM" },
           { text: "FX BACK   ARP PARTS   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
       // K1-K4 a part's level each (this page's: the tags under the faders say which); SELECT or ALGO the other page;
       // the keys mute (press) and solo (hold) as everywhere
       controls: {
-        K1: { do: "level", part: "drums" }, K2: { do: "level", part: "bass" }, K3: { do: "level", part: "keys" }, K4: { do: "level", part: "pad" },
+        K1: { do: "level", part: "drums" }, K2: { do: "level", part: "bass" }, K3: { do: "level", part: "keys" }, K4: { do: "level", part: "lead" },
         ALGO: { do: "page" }, SELECT: { do: "page" }, FX: { go: "back" }, HOME: { go: "home" },
       },
       say: ["MIXER, PAGE {page}. ", { when: "song", text: "{section}, BAR {bar} OF {bars}" }],
@@ -400,19 +400,19 @@ export default {
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
         { y: 50, h: 140, draw: [
-          { faders: [6, 0, 228, 140], parts: ["drums", "bass", "keys", "pad", "lead", "texture"], labels: ["DRUMS", "BASS", "COMP", "PAD", "LEAD", "TEXT"],
+          { faders: [6, 0, 228, 140], parts: ["drums", "bass", "keys", "lead", "pad", "texture"], labels: ["DRUMS", "BASS", "COMP", "LEAD", "PAD", "TEXT"],
             tags: ["", "", "", "", "K1", "K2"] },
         ] },
         { y: 196, h: 44, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
-          { text: "K1-K4 LEVEL   SELECT DRUMS-PAD   KEY MUTE/SOLO", font: "T", x: 8, y: 8, color: "DIM" },
+          { text: "K1-K4 LEVEL   SELECT DRUMS-LEAD   KEY MUTE/SOLO", font: "T", x: 8, y: 8, color: "DIM" },
           { text: "FX BACK   ARP PARTS   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
       // K1-K4 a part's level each (this page's: the tags under the faders say which); SELECT or ALGO the other page;
       // the keys mute (press) and solo (hold) as everywhere
       controls: {
-        K1: { do: "level", part: "lead" }, K2: { do: "level", part: "texture" },
+        K1: { do: "level", part: "pad" }, K2: { do: "level", part: "texture" },
         ALGO: { do: "page" }, SELECT: { do: "page" }, FX: { go: "back" }, HOME: { go: "home" },
       },
       say: ["MIXER, PAGE {page}. ", { when: "song", text: "{section}, BAR {bar} OF {bars}" }],

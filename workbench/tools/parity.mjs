@@ -146,7 +146,7 @@ const SEED = 72;
     { spin: ["K1", 1] }, { check: "nav-k1", expect: (st) => is("compInsPend", v(st).compInsPend, true) || (v(st).compIns.startsWith("*") ? "" : `compIns ${v(st).compIns}`) },
     { press: "OCT+" }, { check: "nav-oct", expect: (st) => is("compRegPend", v(st).compRegPend, true) || is("msg", st.msg, "REGISTER") },
     { spin: ["SELECT", 1] }, { check: "nav-select", expect: (st) => is("screen", st.screen, "pCompMore") },
-    { spin: ["ALGO", 1] }, { check: "nav-algo1", expect: (st) => is("screen", st.screen, "pPad") },
+    { spin: ["ALGO", 1] }, { check: "nav-algo1", expect: (st) => is("screen", st.screen, "pLead") },
     { press: "HOME" }, { check: "nav-home", expect: (st) => is("stack", st.stack.join(), "main") },
     // nav_pending: K2 +2 waits, marked, then lands (nothing waits)
     // (the comp's change, made first, is still the line's: the earliest boundary, a tie the first made)
@@ -162,9 +162,9 @@ const SEED = 72;
     { spin: ["PRESET", 1] }, { check: "nav-preset", expect: (st) => is("bassInsPend", !!v(st).bassInsPend, true) },
     // nav_fast (Review Focus 4): SELECT +12 at once on the main screen; F and C down together; C held while K1 turns
     { press: "HOME" }, { spin: ["SELECT", 12] }, { check: "nav-spin", expect: (st) => is("sel6", v(st).sel6, true) },   // (1 + 12) % 7
-    { keydown: 0 }, { keydown: 7 }, { wait: 100 }, { keyup: 0 }, { spin: ["K1", 1] }, { wait: 600 },
+    { keydown: 0 }, { keydown: 6 }, { wait: 100 }, { keyup: 0 }, { spin: ["K1", 1] }, { wait: 600 },
     { check: "nav-keys", expect: (st) => (st.said === "LEAD SOLO" ? "" : `said ${st.said}`) },
-    { keyup: 7 }, { keydown: 7 }, { wait: 50 }, { keyup: 7 }, { check: "nav-unsolo", expect: (st) => is("said", st.said, "LEAD SOLO OFF") },
+    { keyup: 6 }, { keydown: 6 }, { wait: 50 }, { keyup: 6 }, { check: "nav-unsolo", expect: (st) => is("said", st.said, "LEAD SOLO OFF") },
     // nav_stopped (Review Focus 3): stopped, K2 asks nothing
     { press: "PLAY" }, { wait: 1500 }, { spin: ["K2", 1] }, { check: "nav-stopped", expect: (st) => is("pending", v(st).pending, "") || is("song", v(st).song, false) },
     // nav_new_song: on Comp the song ends, the next starts: the main screen
@@ -192,7 +192,7 @@ const SEED = 72;
     { screen: "levelsKnobs" }, { spin: ["K2", -3] }, { keydown: 4 }, { keyup: 4 },
     { check: "mixer-knobs", expect: (st) => is("bass level", v(st).levels.bass, -3) || is("mute", v(st).activity.mute.join(), "keys") },
     { spin: ["SELECT", 1] }, { spin: ["K1", 2] },
-    { check: "mixer-knobs-2", expect: (st) => is("screen", st.screen, "levelsKnobs2") || is("lead level", v(st).levels.lead, 2) },
+    { check: "mixer-knobs-2", expect: (st) => is("screen", st.screen, "levelsKnobs2") || is("pad level", v(st).levels.pad, 2) },
     { keydown: 4 }, { keyup: 4 }, { screen: "levels" },
     // Settings (GLO): the placeholder; GLO back
     { press: "GLO" }, { check: "settings", expect: (st) => is("screen", st.screen, "prefs") },

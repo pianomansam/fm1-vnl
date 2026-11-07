@@ -82,17 +82,17 @@
    "do": "mute",
    "long": {
     "do": "solo",
-    "part": "pad"
+    "part": "lead"
    },
-   "part": "pad"
+   "part": "lead"
   },
   "KEY7": {
    "do": "mute",
    "long": {
     "do": "solo",
-    "part": "lead"
+    "part": "pad"
    },
-   "part": "lead"
+   "part": "pad"
   },
   "PLAY": {
    "do": "play"
@@ -385,8 +385,8 @@
    "drums",
    "bass",
    "keys",
-   "pad",
-   "lead"
+   "lead",
+   "pad"
   ]
  },
  "lines": {
@@ -398,8 +398,8 @@
   "pDrums",
   "pBass",
   "pComp",
-  "pPad",
   "pLead",
+  "pPad",
   "pTexture"
  ],
  "screens": {
@@ -500,16 +500,16 @@
         "DRUMS",
         "BASS",
         "COMP",
-        "PAD",
         "LEAD",
+        "PAD",
         "TEXT"
        ],
        "parts": [
         "drums",
         "bass",
         "keys",
-        "pad",
         "lead",
+        "pad",
         "texture"
        ]
       }
@@ -571,8 +571,8 @@
     "drums",
     "bass",
     "keys",
-    "pad",
     "lead",
+    "pad",
     "texture"
    ],
    "say": [
@@ -688,16 +688,16 @@
         "DRUMS",
         "BASS",
         "COMP",
-        "PAD",
         "LEAD",
+        "PAD",
         "TEXT"
        ],
        "parts": [
         "drums",
         "bass",
         "keys",
-        "pad",
         "lead",
+        "pad",
         "texture"
        ],
        "tags": [
@@ -727,7 +727,7 @@
       {
        "color": "DIM",
        "font": "T",
-       "text": "K1-K4 LEVEL   SELECT LEAD/TEXT   KEY MUTE/SOLO",
+       "text": "K1-K4 LEVEL   SELECT PAD/TEXT   KEY MUTE/SOLO",
        "x": 8,
        "y": 8
       },
@@ -767,7 +767,7 @@
     },
     "K4": {
      "do": "level",
-     "part": "pad"
+     "part": "lead"
     },
     "SELECT": {
      "do": "page"
@@ -890,16 +890,16 @@
         "DRUMS",
         "BASS",
         "COMP",
-        "PAD",
         "LEAD",
+        "PAD",
         "TEXT"
        ],
        "parts": [
         "drums",
         "bass",
         "keys",
-        "pad",
         "lead",
+        "pad",
         "texture"
        ],
        "tags": [
@@ -929,7 +929,7 @@
       {
        "color": "DIM",
        "font": "T",
-       "text": "K1-K4 LEVEL   SELECT DRUMS-PAD   KEY MUTE/SOLO",
+       "text": "K1-K4 LEVEL   SELECT DRUMS-LEAD   KEY MUTE/SOLO",
        "x": 8,
        "y": 8
       },
@@ -957,7 +957,7 @@
     },
     "K1": {
      "do": "level",
-     "part": "lead"
+     "part": "pad"
     },
     "K2": {
      "do": "level",
@@ -1269,7 +1269,7 @@
        "when": "sel4"
       },
       {
-       "color": "PAD",
+       "color": "LEAD",
        "rect": [
         122,
         48,
@@ -1279,24 +1279,31 @@
        "when": "sel4"
       },
       {
-       "color": "PAD",
-       "icon": "pad",
+       "color": "LEAD",
+       "icon": "lead",
        "x": 128,
        "y": 53
       },
       {
-       "color": "PAD",
+       "color": "LEAD",
        "font": "T",
-       "text": "PAD",
+       "text": "LEAD",
        "x": 141,
        "y": 51
       },
       {
        "color": "WHITE",
        "font": "XS",
-       "text": "{pad}",
+       "text": "{lead}",
        "x": 128,
        "y": 63
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{leadStyle}",
+       "x": 128,
+       "y": 80
       },
       {
        "color": "LINE",
@@ -1309,7 +1316,7 @@
        "when": "sel5"
       },
       {
-       "color": "LEAD",
+       "color": "PAD",
        "rect": [
         2,
         96,
@@ -1319,31 +1326,24 @@
        "when": "sel5"
       },
       {
-       "color": "LEAD",
-       "icon": "lead",
+       "color": "PAD",
+       "icon": "pad",
        "x": 8,
        "y": 101
       },
       {
-       "color": "LEAD",
+       "color": "PAD",
        "font": "T",
-       "text": "LEAD",
+       "text": "PAD",
        "x": 21,
        "y": 99
       },
       {
        "color": "WHITE",
        "font": "XS",
-       "text": "{lead}",
+       "text": "{pad}",
        "x": 8,
        "y": 111
-      },
-      {
-       "color": "GRAY",
-       "font": "T",
-       "text": "{leadStyle}",
-       "x": 8,
-       "y": 128
       },
       {
        "color": "LINE",
@@ -1444,8 +1444,8 @@
       null,
       null,
       "compReg",
-      null,
       "leadReg",
+      null,
       null
      ],
      "do": "nudge"
@@ -1457,8 +1457,8 @@
       null,
       null,
       "compReg",
-      null,
       "leadReg",
+      null,
       null
      ],
      "do": "nudge"
@@ -1469,8 +1469,8 @@
       "drumKit",
       "bassIns",
       "compIns",
-      "padIns",
       "leadIns",
+      "padIns",
       null
      ],
      "do": "turn",
@@ -1503,8 +1503,8 @@
     "pDrums",
     "pBass",
     "pComp",
-    "pPad",
     "pLead",
+    "pPad",
     "pTexture"
    ],
    "say": [
@@ -1632,8 +1632,8 @@
         "drums",
         "bass",
         "keys",
-        "pad",
-        "lead"
+        "lead",
+        "pad"
        ],
        "rowH": 26,
        "window": 8
@@ -1696,8 +1696,8 @@
     "drums",
     "bass",
     "keys",
-    "pad",
-    "lead"
+    "lead",
+    "pad"
    ],
    "say": [
     "PARTS. ",

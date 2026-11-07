@@ -2,7 +2,7 @@
 // The piano roll (view only): the song as it plays, one lane per part, from wb_events. layout() is pure (tested in
 // Node); draw() paints a layout on a canvas.
 
-export const LANES = ["keys", "bass", "lead", "pad", "drums"];
+export const LANES = ["drums", "bass", "keys", "lead", "pad"];   // (Sam, 2026-11-07: the parts' order everywhere)
 const SHOWN = { keys: "comp" };   // a lane's name on the page (the keys part is the Comp part)
 export const BAR_PX = 40, LANE_PX = { drums: 90 }, LANE_DEFAULT_PX = 56;
 
