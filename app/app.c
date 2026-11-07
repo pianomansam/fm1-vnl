@@ -33,6 +33,7 @@
 #include "library.h"
 #include "voices.h"
 #include "fx.h"
+#include "samples.h"
 #include "snap.h"
 /* The screens' runtime (app/ui: the workbench's screens as tables, their values, their drawing, the navigator): the
    device's UI with VNL_UI_RUNTIME (app.h; Task 8 turns it on), else today's hand-drawn screen below; the simulator
@@ -602,8 +603,73 @@ void app_init(void)
         }
     }
 #endif
+#ifdef PLAT_HOST
+    smp_mount(smp_blob, SMP_HEAD + smp_bytes());   /* the sample bank: the host's own copy, checked as the FM-1's */
+#else
+    smp_mount(plat_data(APP_BANK_LO), APP_BANK_HI - APP_BANK_LO);
+#endif
+    lib_set_samples(smp_ready());        /* none (or another build's): synth instruments only, NO SAMPLES */
     vx_init();                           /* the first song: app_frame, once seeded */
 }
+
+#ifdef APP_USB_CMD
+/* The sample bank from the host (tools/fm1_bank.py), in the update's framing: the host's request (BANK_CMD, the bank's
+   length and CRC-32), then the FM-1 pulls it with read requests, as a restore does, and reports with a read of
+   BANK_OK or BANK_FAIL + an error. Stopped only. Its head first, checked against the tables (another build's: refused,
+   nothing changed); then the bank unmounted, the voices cleared, the area erased, the payload written, the head last
+   (cut short, there is no bank: never half of one), and the whole checked and mounted as at boot. */
+#define BANK_CMD 0x60u
+#define BANK_OK 0xC0000000u
+#define BANK_FAIL 0xCF000000u
+enum { BK_E_READ = 2, BK_E_HEAD = 3, BK_E_ERASE = 7, BK_E_WRITE = 8, BK_E_CHECK = 9, BK_E_PLAYING = 10 };
+
+static uint32_t bank_rx(uint32_t len)
+{
+    static uint8_t b[512];
+    uint32_t off, k, t0;
+    if (rs != RS_STOP)
+        return BK_E_PLAYING;
+    if (len != SMP_HEAD + smp_bytes() || len > APP_BANK_HI - APP_BANK_LO)
+        return BK_E_HEAD;
+    if (plat_host_read(0, b, SMP_HEAD))
+        return BK_E_READ;
+    if (!smp_head_ok(b))
+        return BK_E_HEAD;
+    smp_mount(0, 0);                     /* no new sampled note; the sounding ones cleared (the render's vx_init) */
+    lib_set_samples(0);
+    panic_now = 1;
+    for (t0 = plat_ms(); panic_now && plat_ms() - t0 < 100u;)
+        plat_yield();
+    for (off = 0; off < len; off += 0x1000u)
+        if (plat_data_erase(APP_BANK_LO + off))
+            return BK_E_ERASE;
+    for (off = SMP_HEAD; off < len; off += k) {
+        k = len - off < sizeof b ? len - off : sizeof b;
+        if (plat_host_read(off, b, k))
+            return BK_E_READ;
+        if (plat_data_write(APP_BANK_LO + off, b, k))
+            return BK_E_WRITE;
+    }
+    if (plat_host_read(0, b, SMP_HEAD) || !smp_head_ok(b))
+        return BK_E_READ;
+    if (plat_data_write(APP_BANK_LO, b, SMP_HEAD))
+        return BK_E_WRITE;
+    return smp_mount(plat_data(APP_BANK_LO), APP_BANK_HI - APP_BANK_LO) ? BK_E_CHECK : 0u;
+}
+
+void app_usb_cmd(const uint8_t *d, uint32_t n)
+{
+    uint8_t ack[8];
+    uint32_t rc;
+    if (n != 15u || d[2] != BANK_CMD)
+        return;
+    rc = bank_rx(d[6] | (uint32_t)d[7] << 8 | (uint32_t)d[8] << 16 | (uint32_t)d[9] << 24);
+    lib_set_samples(smp_ready());
+    plat_host_read(rc ? BANK_FAIL | rc : BANK_OK, ack, sizeof ack);
+    app_say(rc == BK_E_PLAYING ? "STOP FIRST" : "SAMPLES", !rc ? "WRITTEN" : rc == BK_E_PLAYING ? "then write" :
+            smp_ready() ? "NOTHING CHANGED" : "NO SAMPLES");
+}
+#endif
 
 /* --------------------------------------------------------------------- UI --- */
 static struct {
@@ -1052,6 +1118,8 @@ static void draw(void)
             cv_text(10, 4, &FONT_XS, t, C_GRAY);
         }
         cv_text(10, 34, &FONT_B, s->stopped ? "STOPPED" : "NEXT SONG", C_GRAY);
+        if (!smp_ready())
+            cv_text(10, 74, &FONT_XS, "NO SAMPLES", C_HI);   /* no sample bank: synth instruments only */
     }
     cv_blit(0, 40);
     /* the four knobs and their values */
@@ -1287,6 +1355,8 @@ void app_ui_init(void)
     ui_nav_init(&ui_hnav);               /* the main screen (the runtime's) */
     ui_hnav.eng = &UI_HENG;
 #endif
+    if (!smp_ready())
+        app_say("NO SAMPLES", "SYNTHS ONLY");   /* no sample bank (tools/fm1_bank.py writes it) */
 }
 
 void app_frame(void)

@@ -57,7 +57,7 @@ static int prog_drawn(const lib_prog_t *p, int mood, int mode)
 static int set_ok(int id, int mood)
 {
     const lib_set_t *s = lib_set_by_id((uint8_t)id);
-    return s && (s->moods & (1 << mood));
+    return s && (s->moods & (1 << mood)) && lib_set_playable(s);
 }
 
 /* the mode has a progression the roll can draw (an approved one); any: or a candidate (a manual pick of the mode) */
@@ -137,7 +137,10 @@ static void cands(const song_roll_t *r, int f, cands_t *c)
         break;
     }
     case RF_COLOR: for (i = 0; i < 3; i++) add(c, i, LIB_MOODS[mood].color_w[i]); break;
-    case RF_SET: for (i = 0; i < LIB_NSETS; i++) if (LIB_SETS[i].moods & (1 << mood)) add(c, LIB_SETS[i].id, 1); break;
+    case RF_SET:   /* (with no sample bank, the synth sets only: lib_set_playable) */
+        for (i = 0; i < LIB_NSETS; i++)
+            if ((LIB_SETS[i].moods & (1 << mood)) && lib_set_playable(&LIB_SETS[i])) add(c, LIB_SETS[i].id, 1);
+        break;
     case RF_PATTERN:   /* evenly, leaning on the song's motion by each pattern's busyness (motion_tilt) */
         for (i = 0; i < LIB_NPATTERNS; i++)
             if (LIB_PATTERNS_STATUS[i] == 1)
@@ -378,7 +381,7 @@ int lib_song_kit(const song_roll_t *r)
     const lib_set_t *s = lib_set_by_id((uint8_t)r->v[RF_SET]);
     rng_t g;
     if (!s) return KIT_DUSTY;
-    if (s->skit >= KIT_N) return s->kit;
+    if (s->skit >= KIT_N || (!lib_samples() && s->kit < KIT_N)) return s->kit;   /* (no sample bank: the synth kit) */
     if (s->kit >= KIT_N) return s->skit;
     /* hashed apart (as the set's draw is): the streams' states differ by a constant xor and xorshift is linear */
     rng_seed(&g, mix(r->seed, 0x4B17u), 192);

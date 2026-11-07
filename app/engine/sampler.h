@@ -15,6 +15,7 @@
    those at the loop's start (restored at each wrap). */
 typedef struct {
     const smp_zone_t *z;
+    const uint8_t *p;             /* the zone's bytes */
     uint32_t ni;
     int32_t pred, idx, lpred, lidx;
 } smp_dec_t;
@@ -68,7 +69,7 @@ static inline int smp_dec_fast(smp_dec_t *d)
         }
     } else if (d->ni >= z->len)
         return 0;
-    code = (z->data[d->ni >> 1] >> ((d->ni & 1u) * 4u)) & 15;
+    code = (d->p[d->ni >> 1] >> ((d->ni & 1u) * 4u)) & 15;
     step = SMP_STEP[d->idx];
     diff = step >> 3;
     if (code & 4)

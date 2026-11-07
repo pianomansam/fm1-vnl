@@ -22,6 +22,15 @@
 enum { OBJ_SETTINGS, OBJ_PANEL, OBJ_BLE, OBJ_NOBJ };
 #define APP_STORE_MAP {0xFC000u, 0xDC000u, 0xDE000u}
 
+/* the sample bank (engine/samples.h) in the flash's data area, below the store's objects; checked at boot, written over
+ * USB while stopped (app_usb_cmd: tools/fm1_bank.py). The update never touches it (its loader writes 0x4000..0x93000) */
+#define APP_BANK_LO 0x97000u
+#define APP_BANK_HI 0xDC000u
+#ifndef PLAT_HOST
+#define APP_USB_CMD
+void app_usb_cmd(const uint8_t *d, uint32_t n);
+#endif
+
 /* the contract: the platform calls these */
 void app_init(void);                     /* boot: the voices, and the first song rolled */
 void app_render(int32_t *lr, uint32_t n, uint32_t master_q12);   /* audio interrupt: n stereo frames, 24-bit */

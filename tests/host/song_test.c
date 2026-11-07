@@ -11747,7 +11747,8 @@ static void test_samp_seams(void)
    well formed, the byte count adds up, and the whole set fits its flash share. */
 static void check_zone(const smp_zone_t *z, const char *what, int id, int k)
 {
-    CHECK(z->data != NULL && z->len > 0, "%s %d zone %d: empty", what, id, k);
+    CHECK(z->len > 0 && z->off + (z->len + 1) / 2 <= smp_bytes(), "%s %d zone %d: empty or past the bank", what, id,
+          k);
     CHECK(z->loop_start + z->loop_len <= z->len, "%s %d zone %d: loop %u+%u past %u", what, id, k,
           (unsigned)z->loop_start, (unsigned)z->loop_len, (unsigned)z->len);
     CHECK(z->rate == 16000 || z->rate == 22050 || z->rate == 32000, "%s %d zone %d: rate %u", what, id, k,
@@ -11785,6 +11786,103 @@ static void test_samples_table(void)
     CHECK(smp_hit(-1) == NULL && smp_hit(SH_N) == NULL, "hit out of range not NULL");
     CHECK(sum == smp_bytes(), "zone bytes %u, smp_bytes %u", (unsigned)sum, (unsigned)smp_bytes());
     CHECK(smp_bytes() <= 200 * 1024, "samples %u B over 200 KB", (unsigned)smp_bytes());
+}
+
+/* The sample bank (samples.h): the host's copy checks out as the FM-1's would (head, CRC-32); a damaged, short, stale
+   or missing bank mounts as none, and then no sampled instrument or kit is ever rolled or sounds, and nothing crashes
+   (the songs roll, the voices render). */
+static void test_samples_bank(void)
+{
+    static uint8_t bad[SMP_HEAD + 200u * 1024u];
+    uint32_t n = SMP_HEAD + smp_bytes(), seed = 12345u, i;
+    int k, sampled = 0, songs = 0;
+    song_roll_t r, prev;
+    smp_voice_t v;
+    vx_patch_t p;
+    song_ev_t e;
+    float l[256], rr[256];
+
+    CHECK(smp_crc32(0, smp_blob + SMP_HEAD, smp_bytes()) == smp_crc(), "bank: CRC-32 %08X, tables' %08X",
+          (unsigned)smp_crc32(0, smp_blob + SMP_HEAD, smp_bytes()), (unsigned)smp_crc());
+    CHECK(smp_crc32(0, (const uint8_t *)"123456789", 9) == 0xCBF43926u, "bank: CRC-32 not the standard one");
+    CHECK(smp_mount(smp_blob, n) == 0 && smp_ready(), "bank: the host's copy does not mount");
+    CHECK(smp_mount(smp_blob, n - 1u) != 0 && !smp_ready(), "bank: a short window mounts");
+    CHECK(smp_mount(NULL, n) != 0, "bank: none mounts");
+    memcpy(bad, smp_blob, n);
+    bad[SMP_HEAD + smp_bytes() / 2u] ^= 0x10u;    /* a byte of the payload changed */
+    CHECK(smp_mount(bad, n) != 0, "bank: a damaged payload mounts");
+    memcpy(bad, smp_blob, n);
+    bad[12] ^= 1u;                                /* another build's samples (the head's CRC-32 not the tables') */
+    CHECK(smp_mount(bad, n) != 0, "bank: a stale bank mounts");
+    memcpy(bad, smp_blob, n);
+    bad[4] = 2u;                                  /* another format */
+    CHECK(smp_mount(bad, n) != 0, "bank: another format mounts");
+    memset(bad, 0xFF, n);                         /* erased flash: never written, or cut short (the head last) */
+    CHECK(smp_mount(bad, n) != 0 && !smp_ready(), "bank: erased flash mounts");
+    CHECK(smp_bank(SB_KNIGHT) == NULL && smp_hit(SH_GG_KICK) == NULL, "bank: none, yet tables given");
+
+    lib_set_samples(0);                           /* as app_init with no bank */
+    for (i = 0; i < 3000u; i++) {                 /* the chain of songs: never a sampled instrument or kit */
+        const lib_set_t *s;
+        roll_song(i ? &prev : NULL, seed, &r);
+        prev = r;
+        seed = seed * 1664525u + 1013904223u;
+        s = lib_set_by_id((uint8_t)r.v[RF_SET]);
+        CHECK(s != NULL, "no bank: song %u has no set (%d)", (unsigned)i, r.v[RF_SET]);
+        if (!s)
+            continue;
+        songs++;
+        sampled += lib_ins_sampled_struck(s->chords) || lib_ins_sampled_struck(s->bass) ||
+                   lib_ins_sampled_struck(s->lead) || lib_kit_sampled(lib_song_kit(&r));
+        CHECK(roll_dice(&r, RF_SET, i) >= 0, "dice");
+        s = lib_set_by_id((uint8_t)r.v[RF_SET]);
+        sampled += s && (lib_ins_sampled_struck(s->chords) || lib_ins_sampled_struck(s->lead) ||
+                         lib_kit_sampled(lib_song_kit(&r)));
+    }
+    CHECK(sampled == 0, "no bank: %d of %d songs with a sampled instrument or kit", sampled, songs);
+    for (i = 0; i < (uint32_t)LIB_NSETS; i++) {   /* a set picked by hand: refused if sampled */
+        const lib_set_t *s = &LIB_SETS[i];
+        roll_song(NULL, 777u + i, &r);
+        roll_set(&r, RF_SET, s->id);
+        s = lib_set_by_id((uint8_t)r.v[RF_SET]);
+        CHECK(s && !lib_ins_sampled_struck(s->chords) && !lib_ins_sampled_struck(s->lead) &&
+                  !lib_kit_sampled(lib_song_kit(&r)), "no bank: set %d taken by hand", LIB_SETS[i].id);
+    }
+    p = *vx_patch(INS_KNIGHT);                    /* the voices: a sampled note or hit is silent, never noise */
+    memset(&v, 0, sizeof v);
+    v.dv = 1.0f;
+    samp_start(&v, &p, 60.0f, 1.0f);
+    CHECK(!v.on, "no bank: a sampled note sounds");
+    skits_clear();
+    skits_set(KIT_S_WARM);
+    memset(&e, 0, sizeof e);
+    e.voice = V_KICK;
+    e.vel = 120;
+    skits_on(&e);
+    CHECK(skits_active() == 0, "no bank: a sampled hit sounds");
+    vx_init();                                    /* and a sampled set forced on the voices renders silence */
+    vx_assign(V_CHORD, INS_KNIGHT);
+    vx_set_kit(KIT_S_WARM);
+    memset(&e, 0, sizeof e);
+    for (k = 0; k < 3; k++) {
+        e.voice = (uint8_t)(k == 0 ? V_CHORD : k == 1 ? V_KICK : V_SNARE);
+        e.note = 60;
+        e.vel = 120;
+        e.len = 44100u;
+        vx_event(&e);
+    }
+    for (i = 0; i < 50u; i++) {
+        memset(l, 0, sizeof l);
+        memset(rr, 0, sizeof rr);
+        vx_render(l, rr, 256);
+        for (k = 0; k < 256; k++)
+            CHECK(l[k] == l[k] && fm_fabsf(l[k]) < 1e-3f, "no bank: a forced sampled set sounds (%g)", (double)l[k]);
+    }
+
+    lib_set_samples(1);
+    CHECK(smp_mount(smp_blob, n) == 0 && smp_bank(SB_KNIGHT) != NULL, "bank: the host's copy does not mount again");
+    printf("bank: %u B, CRC-32 %08X; no bank: %d songs rolled, none sampled\n", (unsigned)n, (unsigned)smp_crc(),
+           songs);
 }
 
 /* ------------------------------------------------------------------------------ the sampler voice (M_SAMP) --- */
@@ -13610,6 +13708,7 @@ int main(int argc, char **argv)
     RUN(test_ov_oct);
     RUN(test_ov_off);
     RUN(test_samples_table);
+    RUN(test_samples_bank);
     RUN(test_samp_seams);
     RUN(test_samp);
     RUN(test_comp_styles);

@@ -344,6 +344,9 @@ static void apply_row(song_t *s, int row, int v)
         }
         song_ov_set(&s->ov, row - SR_OV, v);
         song_override(&s->ov);
+    } else if (!lib_samples() &&
+               (row == SR_KIT ? lib_kit_sampled(v) : row >= SR_ROLE && row < SR_OV && lib_ins_sampled_struck(v))) {
+        /* (no sample bank: a sampled instrument or kit refused) */
     } else if ((set = own_set(s)) != 0) {
         switch (row) {
         case SR_ROLE + V_CHORD: set->chords = (uint8_t)lib_keys_approved(v); break;

@@ -5,7 +5,7 @@
 # and decode the FLACs to WAV (afconvert on macOS, else flac). Nothing from a download is executed; files already
 # fetched are kept.
 #   tools/samples/fetch.sh SCRATCH
-#   PY: a Python 3 (default python3); then: $PY -I tools/samples/pack.py pack SCRATCH app/engine/samples_data.c
+#   PY: a Python 3 (default python3); then: $PY -I tools/samples/pack.py pack SCRATCH app/engine
 set -eu
 [ $# -eq 1 ] || { echo "usage: fetch.sh SCRATCH"; exit 2; }
 D=$1

@@ -34,6 +34,11 @@ Script commands are listed at the top of `base/host/plat_host.c`.
 ## Install on the device
 
     .venv/bin/python base/tools/fm1_install.py app/build/vnl.fwsc
+    .venv/bin/python tools/fm1_bank.py            # the sample bank, with VNL-1 running and stopped
+
+The sampled instruments and drum hits live outside the firmware, in the flash's data area: `tools/fm1_bank.py` writes
+them (once, and again only when the samples change; an update leaves them). Without a bank that matches the firmware,
+VNL-1 says NO SAMPLES and plays its synth instruments only.
 
 At your own risk. Hold OCT- and OCT+ for 5 s for update mode. If the FM-1 won't boot but shows up as `4C4A:8057`
 on USB, `base/bsp/tools/fm1_rescue.sh` restores stock firmware.

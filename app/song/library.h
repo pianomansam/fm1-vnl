@@ -73,6 +73,13 @@ int lib_bass_approved(int ins);
 int lib_keys_approved(int ins);
 /* 1: a sampled struck-string instrument (the Knight, the nylon, the Emilyguitar): stabs and strums suit it */
 int lib_ins_sampled_struck(int ins);
+/* the sample bank (engine/samples.h): 1 mounted (the default), 0 none (the app's boot, or a bank being written). With
+   none the songs keep to synth instruments: no set with sampled keys, bass or lead is drawn or taken, a set's kit is
+   its synth one, and a sampled instrument or kit asked for by hand is refused */
+void lib_set_samples(int on);
+int lib_samples(void);
+int lib_set_playable(const lib_set_t *s);   /* its keys, bass and lead, and a kit, play without the bank, or it is
+                                               mounted */
 int lib_set_walks(const lib_set_t *s);
 int lib_set_keys_shift(const lib_set_t *s);          /* semitones the keys sit from their usual octave */               /* the bass may walk in this set */
 const lib_pattern_t *lib_pattern_by_id(uint8_t id);

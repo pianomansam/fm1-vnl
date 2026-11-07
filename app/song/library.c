@@ -138,6 +138,15 @@ int lib_set_walks(const lib_set_t *s)
 
 int lib_ins_sampled_struck(int ins) { return ins == INS_KNIGHT || ins == INS_NYLON || ins == INS_EMILY; }
 
+static uint8_t samples_on = 1;
+void lib_set_samples(int on) { samples_on = on != 0; }
+int lib_samples(void) { return samples_on; }
+int lib_set_playable(const lib_set_t *s)
+{
+    return samples_on || (!lib_ins_sampled_struck(s->chords) && !lib_ins_sampled_struck(s->bass) &&
+                          !lib_ins_sampled_struck(s->lead) && s->kit < KIT_N);
+}
+
 int lib_ins_sustained(int ins)
 {
     return ins == INS_PAD || ins == INS_FLUTE || ins == INS_ORGAN || ins == INS_STRINGS || ins == INS_WARM_PAD ||
