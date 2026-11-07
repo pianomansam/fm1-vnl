@@ -13,7 +13,7 @@ export const GRID_LANES = 6, RIDE = 6;
 export const cellOf = (m, bar, step) => ((m[bar * 2] >> step) & 1 ? 1 : (m[bar * 2 + 1] >> step) & 1 ? 2 : 0);
 export const cycle = (state) => (state + 1) % 3;
 
-// Each kit's sounds: [name, voice or lane, the lane it plays as shipped (-1: an extra)]. poketrack's are the machines'
+// Each kit's sounds: [name, voice or lane, the lane it plays as shipped (-1: an extra)]. the modeled machines' are their
 // voices (C.PT); Optimist's the LO-FI kit's lanes (drum_synth.c DS_LANES: lane 12's sound is named BOOMBAP COWBELL
 // upstream, a removed kit's name: here it's the LO-FI cowbell); the sampled kits' their pieces (C.SMP; Gogodze has no
 // ride, the brushes' rim is the brush snare played lightly); the engine's synth kits their six lanes.

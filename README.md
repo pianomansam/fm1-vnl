@@ -67,16 +67,16 @@ It is built on [fm1-base](https://github.com/charlesvestal/fm1-base) and
 Kuroshita (Hügelton Instruments), both MPL-2.0, which allows combining with GPL code. Files adapted from fm1-base
 and AMB-1 (`app/app.c`, `app/app.h`, `app/words.tsv`, `app/engine/fx.c`, `app/engine/voices.c`, `build.sh`,
 `tests/run_tests.sh`) keep their MPL-2.0 notice (`LICENSES/MPL-2.0.txt`). Up to the tag `mpl-final`, all of VNL-1 is
-MPL-2.0. The firmware binary includes Optimist's GPL-3.0-only drum synth (`app/drums/optimist/`, the Crunchy machine
-kit), so the binary as a whole is GPL-3.0-only (as the workbench's wasm is); VNL-1's own source stays
-GPL-3.0-or-later. The drum engines' notices are in `app/drums/LICENSES.md`.
+MPL-2.0. The firmware binary includes GPL-3.0-only drum code (Optimist's drum synth, `app/drums/optimist/`, the Crunchy
+machine kit; FOMAJAM's modeled machines, `app/drums/fomajam/`, the 808 and CR-78), so the binary as a whole
+is GPL-3.0-only (as the workbench's wasm is); VNL-1's own source stays GPL-3.0-or-later. The drum engines' notices are in `app/drums/LICENSES.md`.
 
 ### Third-party material
 
 | What | Licence | Where |
 | --- | --- | --- |
 | The lo-fi chain's reverb and chorus, adapted from [Mutable Instruments Rings](https://github.com/pichenettes/eurorack) (`rings/dsp/fx/reverb.h`, `chorus.h`, `fx_engine.h`) by Emilie Gillet | MIT (below) | `app/engine/rings_fx.c`, `rings_fx.h` |
-| The 808 and CR-78 kits' voices, poketrack's trommelsynthesizer by David Konsumer (altered: single precision, a fixed pool) | zlib (`app/drums/poketrack/LICENSE`) | `app/drums/poketrack/` |
+| The 808 and CR-78 kits' voices, FOMAJAM's modeled drum machines (by FOMAJAM's authors; ported from poketrack's trommelsynthesizer by David Konsumer, zlib: `LICENSE.poketrack`), altered | GPL-3.0-only (`app/drums/fomajam/LICENSE`) | `app/drums/fomajam/` |
 | The Crunchy machine kit, [Optimist](https://github.com/w0ts/optimist)'s synth drum engine by Leo Kuroshita (@kurogedelic), Hügelton Instruments, and the Optimist contributors (as is) | GPL-3.0-only (`app/drums/optimist/LICENSE`) | `app/drums/optimist/` |
 
 The MIT notice for the Rings code, which the firmware contains:

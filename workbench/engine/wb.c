@@ -20,7 +20,7 @@
 #include "harmony.h"
 #include "strum.h"
 #include "groove.h"
-#include "poketrack/trommelsynthesizer.h"
+#include "fomajam/fj_drums.h"
 #include "values.h"
 
 #define EXPORT __attribute__((used, visibility("default")))

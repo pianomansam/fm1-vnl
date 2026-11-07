@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The workbench's drums: seven lanes (kick, snare, closed hat, open hat, shaker, rim, ride: V_KICK..V_RIDE's order),
-   each playing a sound from a source: poketrack's synthesized 808 and CR-78 (poketrack/, zlib), Optimist's synth kits
+   each playing a sound from a source: FOMAJAM's modeled 808 and CR-78 (fomajam/, GPL-3.0-only), Optimist's synth kits
    (optimist/, GPL-3.0-only: LO-FI), the engine's built-in synth kits (Brushes; Dusty, Soft and our 808 when a song
    has one), or the shipped sampled kits (Karoryfer's Gogodze and Big Rusty, CC0: reduced into the sample bank,
    samples.h smp_piece). Installed with
@@ -14,7 +14,7 @@
 /* a lane's source: what a and b name */
 enum {
     WB_SRC_NONE,    /* silent (every lane NONE: the song's own kit) */
-    WB_SRC_PT,      /* a: the poketrack machine (M_808, M_CR78), b: its voice (V_BD, V_SD, ...: trommelsynthesizer.h) */
+    WB_SRC_PT,      /* a: the modeled machine (M_808, M_CR78), b: its voice (V_BD, V_SD, ...: fomajam/fj_drums.h) */
     WB_SRC_OPT,     /* a: the Optimist kit (WB_OPT_*), b: its lane (0 kick, 1 snare, 3 hat, 4 open hat, 9 shaker, 11 rim:
                        drum_synth.c DS_LANES) */
     WB_SRC_SAMPLE,  /* a: the sample set (WB_SMP_*), b: its piece (WB_P_*); only with a sample bank */

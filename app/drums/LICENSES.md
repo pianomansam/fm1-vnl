@@ -2,13 +2,16 @@
 
 The drum lanes' own code here (`wb_drums.c`, `wb_drums.h`, `wb_opt.c`, `wb_opt.h`) is VNL-1's: GPL-3.0-or-later. It
 builds with two third-party drum engines, each kept under its own license, into both the firmware and the workbench's
-wasm. Because the Optimist files are GPL-3.0-only, the firmware binary (`app/build/fm1/`) and the workbench's wasm
-(`app/build/workbench/wb.wasm`) are each, as a whole, GPL-3.0-only; VNL-1's own source stays GPL-3.0-or-later.
+wasm. Because the FOMAJAM and Optimist files are GPL-3.0-only, the firmware binary (`app/build/fm1/`) and the
+workbench's wasm (`app/build/workbench/wb.wasm`) are each, as a whole, GPL-3.0-only; VNL-1's own source stays GPL-3.0-or-later.
 
 | Directory | From | License | Files |
 | --- | --- | --- | --- |
-| `poketrack/` | [konsumer/poketrack](https://github.com/konsumer/poketrack) 2c5d4a6, `plugins/trommelsynthesizer/src/`, by David Konsumer | zlib (`poketrack/LICENSE`, the repository's notice) | `gains.h`, `samples.h`, `samples_stub.c`: copied unaltered. `trommelsynthesizer.c`, `trommelsynthesizer.h`: altered for VNL-1 (single precision with `fastmath.h`'s functions, so the FM-1, which has no double, and the workbench render the same samples; engines from a fixed pool; the plug-in's parameter list left out), marked so in the file |
+| `fomajam/` | [FOMAJAM](https://github.com/konsumer/fomajam) 138c5d9, `src/drums.c`, `src/drums.h`, `src/gains.h` (and its `platform/common.c` sine), by FOMAJAM's authors (its `LICENSING.md`); its modeled machines are ported from trommelsynthesizer in [konsumer/poketrack](https://github.com/konsumer/poketrack) by David Konsumer | GPL-3.0-only (`fomajam/LICENSE`); the upstream's zlib notice in `fomajam/LICENSE.poketrack` | `fj_drums.c`: altered from `drums.c` (the modeled machines only, a voice a slot, the knobs at the middle, float out, a noise generator a slot, the 64-bit multiplies in helpers kept out of line on the FM-1), marked so in the file. `fj_tables.h`: `drums.h` trimmed to what they use, plus `tables.h`'s `SEMI`. `gains.h`: its include renamed. `fj_drums.h`: the interface (its enums from `drums.h`). The ROM recordings (`roms.h`, from tidal-drum-machines, no license) are not taken |
 | `optimist/` | [w0ts/optimist](https://github.com/w0ts/optimist) 915fd8a: Leo Kuroshita (@kurogedelic), Hügelton Instruments, and the Optimist contributors | GPL-3.0-only (`optimist/LICENSE`) | `drum_synth.c` (`firmware/src/drums/synth/`): copied unaltered. `ds_deps.h`: the parts of Optimist's firmware it calls, copied (each from the file it names). `felucca_tables.h`, `felucca_drumkits.h`: Optimist's generated tables (`tools/gen_tables.py`, `tools/gen_drumkits.py`), trimmed to what the LO-FI kit needs |
 
-The poketrack files have no per-file notice. The repository's zlib notice in `poketrack/LICENSE` covers them, and it
-must stay with them; the altered two say so at their top, as the notice asks. Each Optimist file keeps its `SPDX-License-Identifier: GPL-3.0-only` header and its copyright line.
+FOMAJAM's source files carry no SPDX header or copyright line of their own (its `LICENSE` and `LICENSING.md` cover
+them); ours say GPL-3.0-only and where they came from, and the zlib notice of the trommelsynthesizer they port stays
+beside them (`fomajam/LICENSE.poketrack`), the alterations marked as it asks. FOMAJAM also has the 909 and the SDS-V
+(`fj_drums.h` `M_909`, `M_SDS`), not used yet. Each Optimist file keeps its `SPDX-License-Identifier: GPL-3.0-only`
+header and its copyright line.

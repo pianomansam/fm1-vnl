@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The workbench's engine (workbench/engine/wb.c) built natively, for workbench/tools/kits_native.mjs: the same calls
    as the page's on wb.wasm, so the two renders can be held to each other sample for sample (the drum lanes' float
-   code: poketrack's port, Optimist's, the bank's kits). Usage: wb_native SECONDS SEED... For each seed: the song
+   code: FOMAJAM's machines, Optimist's, the bank's kits). Usage: wb_native SECONDS SEED... For each seed: the song
    rolled, its kit as the device picks it (wb_kit_pick: a retired one swapped, as desk.js does), played from bar 1;
    prints "seed kit hash" (FNV-1a over the left and right outputs' float bits, 128-frame quanta). */
 #include <stdio.h>

@@ -12,6 +12,6 @@ emcc -O2 -ffp-contract=off -std=gnu99 -Wall -Wextra -Wno-unused-parameter -Werro
     -I"$song" -Iapp/engine -Iapp/drums -Iapp/ui -Ibase/include -Iworkbench/engine \
     --no-entry -sSTANDALONE_WASM -sALLOW_MEMORY_GROWTH \
     -o "$out/wb.wasm" "$song"/*.c "$song"/leads/*.c app/engine/*.c app/drums/*.c \
-    app/drums/poketrack/*.c app/ui/kitpick.c app/ui/choices_gen.c workbench/engine/*.c
+    app/drums/fomajam/*.c app/ui/kitpick.c app/ui/choices_gen.c workbench/engine/*.c
 cp workbench/index.html workbench/wb.js workbench/wb-worklet.js workbench/rows.js workbench/rows.json workbench/desk.js workbench/drums.js "$out/"
 echo "workbench  $out  ($(wc -c < "$out/wb.wasm" | tr -d ' ') B wasm)"

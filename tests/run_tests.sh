@@ -32,7 +32,7 @@ run ui sh -c "$CC -O2 -std=c99 -ffp-contract=off -Wall -Wextra -Werror -DPLAT_HO
 run candidates sh tests/candidates.sh       # candidates are workbench-only until approved (patterns_gen.h)
 run kits-native sh -c "$CC -O2 -std=gnu99 -ffp-contract=off -Wall -Wextra -Wno-unused-parameter -Werror -Iapp/song \
     -Iapp/engine -Iapp/drums -Iapp/ui -Ibase/include -Iworkbench/engine -o $OUT/wb_native tests/host/wb_native.c \
-    app/song/*.c app/song/leads/*.c app/engine/*.c app/drums/*.c app/drums/poketrack/*.c app/ui/kitpick.c \
+    app/song/*.c app/song/leads/*.c app/engine/*.c app/drums/*.c app/drums/fomajam/*.c app/ui/kitpick.c \
     app/ui/choices_gen.c workbench/engine/*.c && sh workbench/build.sh && node workbench/tools/kits_native.mjs $OUT/wb_native"
 run bank sh -c "python3 -I tools/fm1_bank.py --check && python3 -I tools/test_fm1_bank.py"   # the bank: head, CRC, areas, no update mark
 run screens-export node workbench/tools/export_screens.mjs --check   # ui/screens.json matches screens.js, in ui/vocab.json's words

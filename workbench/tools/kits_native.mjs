@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The workbench's wasm against the same engine built natively (tests/host/wb_native.c): for a seed that lands on each
-// approved kit (the device's pick, wb_kit_pick), 20 s of the song from bar 1, both hashed sample for sample. They must
-// match: the drum lanes' float code (poketrack's port, Optimist's, the sample bank's kits) renders the same on both.
+// approved kit (the device's pick, wb_kit_pick), 40 s of the song from bar 1, both hashed sample for sample. They must
+// match: the drum lanes' float code (FOMAJAM's machines, Optimist's, the sample bank's kits) renders the same on both.
 //   node workbench/tools/kits_native.mjs app/build/tests/wb_native
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 
-const SECS = 20, Q = 128;
+const SECS = 40, Q = 128;   // (40 s: past any intro without drums)
 const native = process.argv[2];
 const wasm = readFileSync(new URL("../../app/build/workbench/wb.wasm", import.meta.url));
 const opts = JSON.parse(readFileSync(new URL("../options.json", import.meta.url), "utf8"));

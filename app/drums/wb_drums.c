@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The workbench's drum lanes (wb_drums.h). A slot per lane, and one for auditions: a hit starts the slot's sound on
    its lane's source (a new hit restarts it, as on the machines), at the source's calibrated level times the lane's.
-   poketrack's machines run an engine per slot (its own output clip, so a lane's sound never depends on another's); a
-   closed hat chokes the open one (4 ms), as both machines do. A sampled piece plays its layer from the sample bank
+   FOMAJAM's modeled machines run a voice per slot (fomajam/fj_drums.h: integers, so a lane's sound never depends on
+   another's or on the platform); a closed hat chokes the open one (4 ms), as both machines do. A sampled piece plays its layer from the sample bank
    (samples.h smp_piece: ADPCM, read at 44.1 kHz with a linear step). The built-in kits' lanes go to drums.c, unhooked
    for the call: a hit on
    another kit than the song's leaves drums.c on the song's (at once for its routing; its synth kit once nothing
@@ -14,7 +14,7 @@
 #include "drums.h"
 #include "library.h"
 #include "sampler.h"
-#include "poketrack/trommelsynthesizer.h"
+#include "fomajam/fj_drums.h"
 
 #define EXPORT __attribute__((used, visibility("default")))
 #define SR 44100.0f
@@ -28,9 +28,9 @@
 #define KICK_T60 0.3f                   /* the ducking envelope of a synth kick */
 
 /* the sources' levels (linear): a preset's kick and snare (RMS over a song, before the drums' compressor) at the
-   Brushes kit's, the middle of their range over six songs (unity: 808 +7.6..+10.6 dB, CR-78 +5.0..+6.7, LO-FI
+   Brushes kit's, the middle of their range over six songs (unity: 808 +11.3..+14.3 dB, CR-78 +8.8..+10.5, LO-FI
    +14.7..+15.5; smoke.mjs checks two within 2 dB); the built-in's is its own */
-static const float PT_G[2] = {0.3508f, 0.5129f};    /* M_808 -9.1 dB, M_CR78 -5.8 dB */
+static const float PT_G[2] = {0.2281f, 0.3308f};    /* M_808 -12.8 dB, M_CR78 -9.6 dB (FOMAJAM's voices) */
 static const float OPT_G[WB_OPT_N] = {0.1758f};     /* LO-FI -15.1 dB */
 /* a sampled kit's level in dB (its snare at the Brushes kit's snare, by the same measure), and its kick's against
    that (the kick at Brushes' kick): as shipped (the SFZ programs' default mic mixes, the files as prep_kits.py makes
@@ -45,20 +45,18 @@ typedef struct {
     float rel;                          /* release: 1, or REL while drums_release's fade runs */
     float fade;                         /* the release's level so far */
     int choke;                          /* samples left of a choke (0: none) */
-    int zeros;                          /* PT: the run of zero samples (an engine's voice has ended) */
     smp_dec_t d;                        /* SAMPLE: the layer's decoder, the two samples the read is between, the read's */
     float h0, h1;                       /* place past h0 and its step (16.16: the zone's rate over 44.1 kHz) */
     uint32_t ph, step;
     uint8_t on;
 } slot_t;
 
-static Engine *pt[NS];
 static slot_t sl[NS];
 static wb_drums_t cfg;
 static int cfg_any;
 static float kenv, kdec;
 static int song_kit, stale;             /* the song's kit (vx_set_kit's); drums.c's synth kit isn't it (a BUILTIN hit) */
-static float t[256], tr[256];
+static float t[256];
 /* meters (the workbench's tests: wasm only; the firmware has no double): each lane's and the whole output's sum
    of squares and sample count, a hash of each lane's samples */
 #ifdef __EMSCRIPTEN__
@@ -110,7 +108,7 @@ int wb_drums_src_ok(int kind, int a, int b)
 {
     switch (kind) {
     case WB_SRC_NONE: return 1;
-    case WB_SRC_PT: return pt_machine(a) && b >= 0 && b < V_COUNT && eng_machine_has(a, b);
+    case WB_SRC_PT: return pt_machine(a) && fj_has(a, b);
     case WB_SRC_OPT: return wb_opt_has(a, b);
     case WB_SRC_SAMPLE: return piece_ok(a, b);
     case WB_SRC_BUILTIN: return a >= 0 && a <= KIT_BRUSHES && b >= 0 && b <= V_RIM - V_KICK;
@@ -193,7 +191,7 @@ static void start(int i, const wb_src_t *src, int lane, int vel)
     }
     if (src->kind == WB_SRC_SAMPLE ? !piece_ok(src->a, src->b) : src->kind != WB_SRC_PT && src->kind != WB_SRC_OPT)
         return;
-    eng_reset(pt[i]);
+    fj_stop(i);
     wb_opt_off(i);
     s->g = src_gain(src);
     if (src->kind == WB_SRC_SAMPLE) {   /* the range up to whose top the velocity falls: its kept layer, its level */
@@ -211,13 +209,13 @@ static void start(int i, const wb_src_t *src, int lane, int vel)
         s->step = (uint32_t)z->rate * 65536u / 44100u;   /* (a rate under 65536 Hz) */
         s->g *= z->gain * (1.0f / 32768.0f) * p->lvl[l] * fm_powf((float)v / (float)p->hi[l], (float)p->curve);
     } else if (src->kind == WB_SRC_PT) {
-        eng_trigger(pt[i], src->a, src->b, 0, (float)vel * (1.0f / 127.0f));
+        fj_start(i, src->a, src->b, vel);
     } else {
         wb_opt_on(i, src->a, src->b, vel);
     }
     s->src = *src;
     s->rel = s->fade = 1.0f;
-    s->choke = s->zeros = 0;
+    s->choke = 0;
     s->on = 1;
     if (lane == 0 && i != AUD)
         kenv = (float)vel * (1.0f / 127.0f);
@@ -260,10 +258,7 @@ static void slot_render(int i, float *x, uint32_t n)
         if (s->d.ni >= s->d.z->len)     /* (played out: the zone's tail faded to nothing) */
             s->on = 0;
     } else if (s->src.kind == WB_SRC_PT) {
-        eng_render(pt[i], t, tr, n);
-        for (k = 0; k < n; k++)
-            s->zeros = t[k] == 0.0f ? s->zeros + 1 : 0;
-        if (s->zeros >= 64)
+        if (!fj_render(i, t, n))
             s->on = 0;
     } else if (!wb_opt_render(i, t, n)) {
         s->on = 0;
@@ -351,10 +346,9 @@ static void h_release(void)
 void wb_drums_init(void)
 {
     int i;
+    fj_seed(1u);
     for (i = 0; i < NS; i++) {
-        if (!pt[i])
-            pt[i] = eng_create(SR);
-        eng_reset(pt[i]);
+        fj_stop(i);
         wb_opt_off(i);
     }
     memset(sl, 0, sizeof sl);
@@ -389,6 +383,7 @@ void wb_drums_set(const wb_drums_t *d)
 void wb_drums_song(uint32_t seed)
 {
     wb_opt_seed(seed);
+    fj_seed(seed);
 }
 
 void wb_drums_kit(int kit)
