@@ -6,9 +6,9 @@
    (samples_blob.c: every build but the firmware's, the one with FELUCCA_ID); the FM-1 with none until app_init
    mounts its flash's. */
 #ifndef FELUCCA_ID
-static const uint8_t *base = smp_blob + SMP_HEAD;
+static const uint8_t *base = smp_blob + SMP_HEAD, *rest = smp_blob + SMP_HEAD;
 #else
-static const uint8_t *base;
+static const uint8_t *base, *rest;
 #endif
 
 static uint32_t rd32(const uint8_t *p)
@@ -35,16 +35,22 @@ int smp_head_ok(const uint8_t *h)
     return rd32(h) == SMP_MAGIC && rd32(h + 4) == SMP_FORMAT && rd32(h + 8) == smp_bytes() && rd32(h + 12) == smp_crc();
 }
 
-int smp_mount(const uint8_t *bank, uint32_t avail)
+int smp_mount(const uint8_t *bank, uint32_t avail, const uint8_t *more, uint32_t more_avail)
 {
+    uint32_t n0 = more ? smp_split() : smp_bytes();
     base = 0;
-    if (!bank || avail < SMP_HEAD + smp_bytes() || !smp_head_ok(bank) ||
-        smp_crc32(0, bank + SMP_HEAD, smp_bytes()) != smp_crc())
+    if (!more) {                         /* (one piece: the rest follows the first part) */
+        more = bank ? bank + SMP_HEAD + smp_split() : 0;
+        more_avail = smp_bytes() - smp_split();
+    }
+    if (!bank || avail < SMP_HEAD + n0 || more_avail < smp_bytes() - smp_split() || !smp_head_ok(bank) ||
+        smp_crc32(smp_crc32(0, bank + SMP_HEAD, smp_split()), more, smp_bytes() - smp_split()) != smp_crc())
         return -1;
     base = bank + SMP_HEAD;
+    rest = more - smp_split();           /* (an offset at or past the split: in the second area) */
     return 0;
 }
 
 int smp_ready(void) { return base != 0; }
 
-const uint8_t *smp_data(const smp_zone_t *z) { return base + z->off; }
+const uint8_t *smp_data(const smp_zone_t *z) { return (z->off < smp_split() ? base : rest) + z->off; }

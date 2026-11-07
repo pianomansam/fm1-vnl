@@ -16,8 +16,9 @@
 #   pack.py list                 the files to download: "dir<TAB>url<TAB>path" (fetch.sh reads this)
 #   pack.py licenses             each source's license file: "dir<TAB>url<TAB>path", then "sha256<TAB>" the CC0 1.0
 #                                legal code's hash every license file must match
-#   pack.py pack SCRATCH DIR     pack from SCRATCH (fetch.sh's dl_* directories) into DIR's samples_data.c and
-#                                samples_blob.c (DIR: app/engine)
+#   pack.py pack SCRATCH DIR [KITS]  pack from SCRATCH (fetch.sh's dl_* directories) and KITS (the workbench's
+#                                sampled kits: workbench/tools/prep_kits.py's folder, default workbench/samples) into
+#                                DIR's samples_data.c and samples_blob.c (DIR: app/engine)
 # Input files are untrusted data: only parsed as RIFF/WAVE or SF2 sample data.
 import json
 import math
@@ -251,7 +252,14 @@ def downloads(m):
     return out
 
 
-MAGIC, FORMAT, HEAD = b'VNLB', 1, 16   # samples.h: SMP_MAGIC, SMP_FORMAT, SMP_HEAD
+MAGIC, FORMAT, HEAD = b'VNLB', 2, 16   # samples.h: SMP_MAGIC, SMP_FORMAT, SMP_HEAD
+# the bank's two areas in the FM-1's flash (app.h APP_BANK_LO..HI, APP_BANK1_LO..HI): the head and the first part,
+# then the rest; the sectors in base/include/plat.h's extra windows (PLAT_XDATA0: the first four of the first area,
+# PLAT_XDATA1: the whole second) never have "AT" at their bytes 0xF06..0xF07 (an update record's mark)
+AREA0, AREA0_END, AREA1, AREA1_END = 0x93000, 0xDC000, 0xE5000, 0xFC000
+XDATA0_END = 0x97000
+KIT_SETS = ['gogodze', 'rusty', 'brushes']                      # samples.h SK_*: wb_drums.h WB_SMP_*
+KIT_PIECES = ['kick', 'snare', 'rim', 'hat', 'ohat', 'ride']     # wb_drums.h WB_P_*
 
 
 def c_rows(b):
@@ -262,14 +270,63 @@ def c_zone(z):
     return '{%du, %du, %du, %du, %du, %d, %d, %.6ef}' % (z.off, len(z.pcm), z.ls, z.ll, z.rate, z.root, z.idx0, z.gain)
 
 
-def write(banks, hits, out):
-    """banks [(id, tag, [Zone])], hits [(id, Zone)] -> out/samples_blob.c (the bank) and out/samples_data.c (the
-    tables); each zone's offset (z.off) set. The bank: the head (magic, format, the payload's length and CRC-32,
-    little-endian), then the payload, every zone's ADPCM in table order. Returns the payload's length."""
-    payload = bytearray()
-    for z in [z for _, _, zs in banks for z in zs] + [z for _, z in hits]:
-        z.off = len(payload)
-        payload += z.data
+def marked(payload, split):
+    """the payload's offsets that land on 0xF06 of an extra window's sector and read "AT" there"""
+    bad = []
+    for sec in range(AREA0, XDATA0_END, 0x1000):
+        o = sec + 0xF06 - AREA0 - HEAD
+        if o < min(split, len(payload) - 1) and payload[o:o + 2] == b'AT':
+            bad.append(o)
+    for sec in range(AREA1, AREA1_END, 0x1000):
+        o = sec + 0xF06 - AREA1 + split
+        if o < len(payload) - 1 and payload[o:o + 2] == b'AT':
+            bad.append(o)
+    return bad
+
+
+def layout(first, kit):
+    """the payload: first (every zone), then kit's in the first area where they fit (first fit), the rest in the
+    second (a zone whole in one); a zone that would put "AT" on a marked spot moves on a byte. Returns (payload, split)."""
+    cap0, cap1 = AREA0_END - AREA0 - HEAD, AREA1_END - AREA1
+    pad = {}
+    while True:
+        a0, a1 = [], []
+        n0 = sum(len(z.data) + pad.get(id(z), 0) for z in first)
+        for z in kit:
+            if n0 + len(z.data) + pad.get(id(z), 0) <= cap0:
+                a0.append(z)
+                n0 += len(z.data) + pad.get(id(z), 0)
+            else:
+                a1.append(z)
+        payload = bytearray()
+        split = 0
+        for zs in (first + a0, a1):
+            if zs is a1:
+                split = len(payload)
+            for z in zs:
+                payload += bytes(pad.get(id(z), 0))
+                z.off = len(payload)
+                payload += z.data
+        assert split <= cap0 and len(payload) - split <= cap1, 'the bank does not fit its areas: %d + %d kit B, %d + %d' % (sum(len(z.data) for z in first), sum(len(z.data) for z in kit), split, len(payload) - split)
+        bad = marked(payload, split)
+        if not bad:
+            return payload, split
+        z = max((z for z in first + a0 + a1 if z.off <= bad[0]), key=lambda z: z.off)
+        pad[id(z)] = pad.get(id(z), 0) + 1
+
+
+def write(banks, hits, kits, out):
+    """banks [(id, tag, [Zone])], hits [(id, Zone)], kits [[piece or None]] (a piece: ([Zone], [hi], curve, vel))
+    -> out/samples_blob.c (the bank) and out/samples_data.c (the tables); each zone's offset (z.off) set. The bank:
+    the head (magic, format, the payload's length and CRC-32, little-endian), then the payload, every zone's ADPCM
+    (layout's order). Returns (the payload's length, split)."""
+    kz = []
+    for pieces in kits:
+        for pc in pieces:
+            for z in pc[0] if pc else []:
+                if all(z is not k for k in kz):
+                    kz.append(z)
+    payload, split = layout([z for _, _, zs in banks for z in zs] + [z for _, z in hits], kz)
     crc = zlib.crc32(payload) & 0xFFFFFFFF
     blob = MAGIC + struct.pack('<III', FORMAT, len(payload), crc) + payload
     gen = ['/* SPDX-License-Identifier: GPL-3.0-or-later */\n',
@@ -292,17 +349,82 @@ def write(banks, hits, out):
     o.extend('    [%s] = {B_%s, %d},\n' % (bid, tag, len(zs)) for bid, tag, zs in banks)
     o.append('};\nstatic const smp_zone_t HITS[SH_N] = {\n')
     o.extend('    [%s] = %s,\n' % (hid, c_zone(z)) for hid, z in hits)
+    o.append('};\nstatic const smp_zone_t KZ[%d] = {\n%s};\n' % (len(kz), ''.join('    %s,\n' % c_zone(z) for z in kz)))
+    o.append('static const smp_piece_t PIECES[SK_N][SK_P_N] = {\n')
+    for pieces in kits:
+        o.append('    {%s},\n' % ',\n     '.join(
+            '{{%s}, {%s}, {%s}, {%s}, %d, %d, %d}' % (
+                ', '.join('&KZ[%d]' % next(i for i, k in enumerate(kz) if k is z) for z in pc[0]),
+                ', '.join(str(h) for h in pc[1]), ', '.join(str(u) for u in pc[2]),
+                ', '.join('%.4ff' % v for v in pc[3]), len(pc[1]), pc[4], pc[5])
+            if pc else '{{0}, {0}, {0}, {0}, 0, 0, 0}' for pc in pieces))
     o.append('};\n\n')
     o.append('const smp_bank_t *smp_bank(int id) { return smp_ready() && id >= 0 && id < SB_N ? &BANKS[id] : 0; }\n')
     o.append('const smp_zone_t *smp_hit(int id) { return smp_ready() && id >= 0 && id < SH_N ? &HITS[id] : 0; }\n')
+    o.append('const smp_piece_t *smp_piece(int set, int p)\n{\n    return smp_ready() && set >= 0 && set < SK_N && p >= 0 && '
+             'p < SK_P_N && PIECES[set][p].n ? &PIECES[set][p] : 0;\n}\n')
     o.append('uint32_t smp_bytes(void) { return %du; }\n' % len(payload))
+    o.append('uint32_t smp_split(void) { return %du; }\n' % split)
     o.append('uint32_t smp_crc(void) { return 0x%08Xu; }\n' % crc)
     with open(os.path.join(out, 'samples_data.c'), 'w', newline='\n') as f:
         f.write(''.join(o))
-    return len(payload)
+    return len(payload), split
 
 
-def pack(scratch, out):
+def kit_zone(x, rate, length):
+    """a kit piece's layer (float mono at 44.1 kHz, prep_kits.py's: from its onset) at rate, cut to length s (the
+    last 40% faded); its gain gives back the file's level (the decoded sample, as -1..1, times gain)"""
+    y = resample(x, 44100, rate)
+    L = min(int(length * rate), len(y)) & ~1
+    y = y[:L].copy()
+    F = int(0.4 * L)
+    y[L - F:] *= 0.5 + 0.5 * np.cos(np.pi * np.arange(F) / F)
+    pk = np.max(np.abs(y)) + 1e-12
+    z = Zone('', np.round(y / pk * 0.95 * 32767).astype(np.int16), rate, 60, 0, 0)
+    z.gain = float(pk * 32768.0 / max(1, int(np.max(np.abs(z.pcm.astype(np.int32))))))
+    return z
+
+
+def pack_kits(m, kits_dir):
+    """the sampled kits' pieces, KIT_SETS x KIT_PIECES: ([Zone], [hi], [use], [lvl], curve, vel) or None. Every
+    velocity range kits.json gives (its top hi) keeps its level: it plays the kept layer nearest it (use) at the level
+    ratio of its own file to that one's (lvl, RMS over the first 200 ms). A piece kits.json gives as "same" shares
+    that piece's zones; a file two kits ship (the same bytes) is packed once."""
+    k = m['kits']
+    with open(os.path.join(kits_dir, 'kits.json')) as f:
+        kj = {kit['name']: kit for kit in json.load(f)['kits']}
+    made, out = {}, []
+    for name in KIT_SETS:
+        by_id = {p['id']: p for p in kj[name]['pieces']}
+        row = []
+        for pid, pname in enumerate(KIT_PIECES):
+            p = by_id.get(pid)
+            if not p:
+                row.append(None)
+                continue
+            q = by_id[p['same']] if p.get('same') is not None else p
+            qn = KIT_PIECES[q['id']]
+            ln = k.get('kit_len', {}).get(name, {}).get(qn, k['len'][qn])
+            nl = len(q['layers'])
+            keep = sorted(set(min(li, nl - 1) for li in k['layers']))
+            x, zs = [], []
+            for lay in q['layers']:
+                with open(os.path.join(kits_dir, lay['files'][0]), 'rb') as f:
+                    x.append(f.read())
+            for li in keep:
+                key = (zlib.crc32(x[li]), len(x[li]), ln)
+                if key not in made:
+                    made[key] = kit_zone(np.frombuffer(x[li], dtype='<f4').astype(np.float64), k['rate'], ln)
+                zs.append(made[key])
+            rms = [float(np.sqrt(np.mean(np.frombuffer(b, dtype='<f4')[:8820].astype(np.float64) ** 2))) for b in x]
+            use = [min(range(len(keep)), key=lambda j: (abs(keep[j] - li), -keep[j])) for li in range(nl)]
+            lvl = [rms[li] / rms[keep[use[li]]] for li in range(nl)]
+            row.append((zs, [lay['hi'] for lay in q['layers']], use, lvl, q.get('curve', 1), p.get('vel', 100)))
+        out.append(row)
+    return out
+
+
+def pack(scratch, out, kits_dir):
     m = load_manifest()
     rate = m.get('rate', 16000)
     banks, hits, log = [], [], []
@@ -337,7 +459,8 @@ def pack(scratch, out):
             sr, d = read_wav(wav_path(scratch, h['src'], p))
             parts.append((sr, d, w))
         hits.append((h['id'], make_hit('', parts, h['len'], h.get('hp', 0), h.get('rate', rate))))
-    total = write(banks, hits, out)
+    kits = pack_kits(m, kits_dir)
+    total, split = write(banks, hits, kits, out)
 
     print('%-10s %5s %6s %7s %5s %6s %7s %6s %4s' % ('bank', 'zone', 'root', 'bytes', 'len_s', 'loop', 'snr_dB', 'gain',
                                                    'idx0'))
@@ -350,7 +473,14 @@ def pack(scratch, out):
     for hid, z in hits:
         print('%-13s %7d %5.2f %7.1f %6.2f %4d' % (hid, len(z.data), len(z.pcm) / z.rate, z.snr, z.gain, z.idx0))
     print('hits total %d B' % sum(len(z.data) for _, z in hits))
-    print('all samples %d B' % total)
+    for name, row in zip(KIT_SETS, kits):
+        for pname, pc in zip(KIT_PIECES, row):
+            if pc:
+                print('kit %-8s %-6s %s; tops %s plays %s at %s; vel %d' % (
+                    name, pname, ' '.join('%dB/%.2fs/%.1fdB' % (len(z.data), len(z.pcm) / z.rate, z.snr) for z in pc[0]),
+                    pc[1], pc[2], ' '.join('%.2f' % v for v in pc[3]), pc[5]))
+    print('all samples %d B: area 0 %d of %d B, area 1 %d of %d B' % (total, HEAD + split, AREA0_END - AREA0,
+                                                                     total - split, AREA1_END - AREA1))
     print('\n'.join(log))
 
 
@@ -364,10 +494,10 @@ def main():
         for key in sorted(m['sources']):
             print('dl_%s\t%s\t%s' % (key, m['sources'][key]['url'], m['sources'][key]['license']))
         print('sha256\t%s' % m['license_sha256'])
-    elif a[:1] == ['pack'] and len(a) == 3:
-        pack(a[1], a[2])
+    elif a[:1] == ['pack'] and len(a) in (3, 4):
+        pack(a[1], a[2], a[3] if len(a) == 4 else os.path.join(HERE, '..', '..', 'workbench', 'samples'))
     else:
-        sys.exit('usage: pack.py list | licenses | pack SCRATCH DIR')
+        sys.exit('usage: pack.py list | licenses | pack SCRATCH DIR [KITS]')
 
 
 if __name__ == '__main__':

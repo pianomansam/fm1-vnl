@@ -128,7 +128,7 @@ const STEP = ["empty", "hit", "ghost"];
 export class DrumScreen {
   constructor(root, ctx) {
     Object.assign(this, { root, ...ctx, lanes: [], heads: {} });
-    this.all = sounds(this.desk.C, this.desk.opts, this.desk.samples?.unavailable);
+    this.all = sounds(this.desk.C, this.desk.opts);
     this.build();
   }
 

@@ -6,8 +6,11 @@
     python3 tools/fm1_bank.py --check [BANK]
 
 BANK: app/engine/samples_blob.c (the default: tools/samples/pack.py's) or a raw bank file (the same bytes). The
-firmware keeps only the zones' tables; the bank lives in the flash's data area (app.h APP_BANK_LO), outside the
-update's reach, so a firmware update leaves it, and it is written once here (again only when the samples change).
+firmware keeps only the zones' tables (samples_data.c, beside the bank or app/engine's: where the bank splits); the
+bank lives in two areas of the flash outside the update's reach (app.h APP_BANK_LO..HI, its head and first part, and
+APP_BANK1_LO..HI, the rest), so a firmware update leaves it, and it is written once here (again only when the samples
+change). The check: the head, the CRC-32, each part within its area, and no "AT" at byte 0xF06 of a sector in the
+extra windows (base/include/plat.h: the update loader would read an update record there).
 
 The FM-1 must run VNL-1 built from the same samples, and be stopped (STOP FIRST otherwise). It checks the bank's head
 against its tables first (another build's bank: refused, nothing changed), then erases its bank area, pulls the bank
@@ -31,14 +34,17 @@ import fm1_install as I  # noqa: E402
 import fm1_backup as B  # noqa: E402
 
 BANK_CMD = 0x60                                  # app.c's
-MAGIC, FORMAT, HEAD = b"VNLB", 1, 16             # app/engine/samples.h's SMP_MAGIC, SMP_FORMAT, SMP_HEAD
+MAGIC, FORMAT, HEAD = b"VNLB", 2, 16             # app/engine/samples.h's SMP_MAGIC, SMP_FORMAT, SMP_HEAD
+AREA0, AREA0_END, AREA1, AREA1_END = 0x93000, 0xDC000, 0xE5000, 0xFC000   # app.h APP_BANK_LO..HI, APP_BANK1_LO..HI
+XDATA0_END, XDATA1 = 0x97000, 0xE5000            # base/include/plat.h's extra windows (PLAT_XDATA0_HI, _XDATA1_LO)
 DEFAULT = os.path.join(ROOT, "app", "engine", "samples_blob.c")
 KIND = B.Kind(identity="FM-1_22", name="VNL-1", port="VNL-1 FM-1")
 PLAYING = 10
 ERRORS = {2: "the transfer (a read request unanswered)",
           3: "the bank's head: not the bank this firmware was built with (install the firmware and the bank from the "
              "same checkout)",
-          7: "a flash erase", 8: "a flash write", 9: "the check after writing (CRC-32)"}
+          7: "a flash erase", 8: "a flash write", 9: "the check after writing (CRC-32)",
+          11: "an update record's mark in the bank (refused)"}
 
 
 def load(path):
@@ -60,6 +66,30 @@ def load(path):
     return data
 
 
+def split_of(path):
+    """where the bank splits between its areas: samples_data.c's smp_split, beside a .c bank or app/engine's"""
+    tables = os.path.join(os.path.dirname(path) if path.endswith(".c") else os.path.dirname(DEFAULT), "samples_data.c")
+    with open(tables) as f:
+        m = re.search(r"smp_split\(void\) \{ return (\d+)u", f.read())
+    if not m:
+        raise ValueError(f"{tables}: no smp_split in it")
+    return int(m.group(1))
+
+
+def placed(bank, split):
+    """[(flash address, its bytes)] for each area; ValueError if a part outgrows its area or an extra window's
+    sector would read "AT" at 0xF06"""
+    if split > len(bank) - HEAD or HEAD + split > AREA0_END - AREA0 or len(bank) - HEAD - split > AREA1_END - AREA1:
+        raise ValueError("the bank does not fit its areas")
+    areas = [(AREA0, bank[:HEAD + split]), (AREA1, bank[HEAD + split:])]
+    for at, b in areas:
+        for sec in range(at, at + len(b), 0x1000):
+            o = sec - at + 0xF06
+            if (sec < XDATA0_END or sec >= XDATA1) and b[o:o + 2] == b"AT":
+                raise ValueError(f"an update record's mark at {sec + 0xF06:#x}")
+    return areas
+
+
 def main(argv=None, backend=None, out=sys.stdout, ask=I.ask_tty):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("bank", nargs="?", default=DEFAULT, help="the bank (default: app/engine/samples_blob.c)")
@@ -72,8 +102,14 @@ def main(argv=None, backend=None, out=sys.stdout, ask=I.ask_tty):
     except (OSError, ValueError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
+    try:
+        areas = placed(bank, split_of(a.bank))
+    except (OSError, ValueError) as e:
+        print(f"error: {a.bank}: {e}", file=sys.stderr)
+        return 2
     crc = struct.unpack_from("<I", bank, 12)[0]
-    print(f"bank: {len(bank)} bytes, samples CRC-32 {crc:08X}", file=out)
+    print(f"bank: {len(bank)} bytes, samples CRC-32 {crc:08X}; " +
+          ", ".join(f"{len(b)} at {at:#x}" for at, b in areas), file=out)
     if a.check:
         return 0
     try:

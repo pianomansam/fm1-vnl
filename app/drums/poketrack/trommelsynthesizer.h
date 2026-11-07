@@ -1,3 +1,5 @@
+/* Altered from poketrack's trommelsynthesizer.h (konsumer/poketrack 2c5d4a6, zlib: poketrack/LICENSE) for VNL-1:
+   single precision, the plug-in's parameter list left out. This is not the original software. */
 // trommelsynthesizer: drum machine voices with General MIDI note mapping.
 //
 // Pure DSP, no CLAP dependency, so test/render.c can drive it natively.
@@ -82,23 +84,19 @@ typedef struct {
   uint32_t id;
   char name[24];
   char module[16];
-  double min, max, def;
+  float min, max, def;
   bool stepped;
 } ParamInfo;
 
-// The exposed param list: only params a voice really has a knob for.
-uint32_t param_count(void);
-bool param_info(uint32_t index, ParamInfo* out);
-bool param_info_by_id(uint32_t id, ParamInfo* out);
-void param_text(uint32_t id, double value, char* out, uint32_t size);
+// (VNL-1: the plugin's parameter list, param_count .. param_text, left out; single precision throughout)
 const char* machine_name(int machine);
 
 typedef struct Engine Engine;
-Engine* eng_create(double sample_rate);
+Engine* eng_create(float sample_rate);
 void eng_destroy(Engine* e);
 void eng_reset(Engine* e);
-void eng_set_param(Engine* e, uint32_t id, double value);
-double eng_get_param(const Engine* e, uint32_t id);
+void eng_set_param(Engine* e, uint32_t id, float value);
+float eng_get_param(const Engine* e, uint32_t id);
 // key is a General MIDI drum key (35..81); vel is 0..1.
 void eng_note_on(Engine* e, int key, float vel);
 // Same, but with an explicit machine/voice, for tests.

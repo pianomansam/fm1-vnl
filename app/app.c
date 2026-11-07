@@ -34,6 +34,7 @@
 #include "voices.h"
 #include "fx.h"
 #include "samples.h"
+#include "wb_drums.h"
 #include "snap.h"
 /* The screens' runtime (app/ui: the workbench's screens as tables, their values, their drawing, the navigator): the
    device's UI with VNL_UI_RUNTIME (app.h; Task 8 turns it on), else today's hand-drawn screen below; the simulator
@@ -44,6 +45,7 @@
 #include "ui/choices_gen.c"
 #include "ui/screens_gen.c"
 #include "ui/values.c"
+#include "ui/kitpick.c"
 #include "ui/nav.c"
 #include "render.h"
 #include "ui/render.c"
@@ -201,6 +203,14 @@ static int16_t j_target;                 /* (below: the jumps and the roll's not
 static void roll_clear(void);
 #endif
 
+/* the drum lanes (app/drums, as the workbench's): a shipped kit's (song.kit_preset), or none (the song's own kit) */
+static void drums_apply(void)
+{
+    wb_drums_t d;
+    wb_drums_set(song.kit_preset >= 0 && wb_drums_preset(&d, song.kit_preset) ? &d : 0);
+    wb_drums_kit(lib_song_kit(&song.roll));
+}
+
 static void voices_begin(void)
 {
     if (vx_sounding())                   /* a tail (notes, the plate, the bed's fade) rings on: keep it */
@@ -210,11 +220,17 @@ static void voices_begin(void)
     vx_song(&song.roll);                 /* this song's instruments, kit and chain (the bed fades in, the dust ramps
                                             if anything still sounds; the chain's noise from its seed), before its
                                             first event */
+    wb_drums_song(song.roll.seed);
+    drums_apply();
 }
 
 static void song_begin(void)
 {
+#if UI_RT
+    song_start_kit(&song, &mb_roll, ui_kit_pick(&mb_roll, smp_ready()));   /* no retired kit (desk.js's approvedKit) */
+#else
     song_start(&song, &mb_roll);
+#endif
     BARRIER();
     mb_full = 0;                         /* the main loop rolls the next one */
     voices_begin();
@@ -331,6 +347,7 @@ static void jump_land(void)
     j_target = -1;
     vx_release_all();
     vx_configure(&song.roll);            /* (the bed reopens, as the workbench's landing) */
+    drums_apply();
 }
 
 /* the bar line's own jumps (Loop, Stay on song), from the plan's sections; bar1 the bar beginning, from 1 */
@@ -467,8 +484,10 @@ static void step(void)
         vx_set_filter(PM_LEAD, lp[PM_LEAD] < llp ? llp : lp[PM_LEAD]);   /* before its events */
         vx_set_pad_level(song_pad_level(&song));   /* the pad layer's fade over a section line */
         /* sounding notes keep their patches; dust and bed changes ramp, the delay's time glides to a new tempo */
-        if (vx_reconfigures(&before, &song.roll) || song.changes != changes)
+        if (vx_reconfigures(&before, &song.roll) || song.changes != changes) {
             vx_configure(&song.roll);
+            drums_apply();
+        }
     }
     SLOG_STEP(&song, bar, st, evs, n);
     for (i = 0; i < n; i++)
@@ -492,13 +511,13 @@ static int row_other(int row, int avoid)
     int i, n = ch_count(row), k = 0, pick;
     for (i = 0; i < n; i++) {
         int v = ch_value(row, i), f = ch_flags(row, v);
-        if (v != avoid && f == 0) k++;   /* approved, not hidden, not the engine's own choice */
+        if (v != avoid && (f & 15) == 0) k++;   /* approved, not hidden, not the engine's own choice */
     }
     if (!k) return avoid;
     pick = (int)(song.roll.seed % (uint32_t)k);
     for (i = 0; i < n; i++) {
         int v = ch_value(row, i), f = ch_flags(row, v);
-        if (v != avoid && f == 0 && !pick--) return v;
+        if (v != avoid && (f & 15) == 0 && !pick--) return v;
     }
     return avoid;
 }
@@ -561,6 +580,8 @@ static void command(uint32_t c)
     } else if (op == C_ROW && rs == RS_SONG && song.state == SS_PLAYING && a < ROW_N) {
         int16_t rows[ROW_N];             /* the rhythm row is the comp's or the strum patterns' */
         ui_song_rows(&song.roll, rows);
+        if (song.kit_preset >= 0)
+            rows[ROW_KIT] = (int16_t)(SONG_KIT_PRESET + song.kit_preset);
         if (a == ROW_RHYTHM)
             a = ch_rhythm_row(rows[ROW_KEYS], rows[ROW_COMP]);
         row_rules(a, b, rows);           /* what the new value forces elsewhere (rows.js's conflicts) */
@@ -627,6 +648,12 @@ static void publish(void)
         const song_plan_t *p = snap.held ? &mark.plan : snap.has_song ? &song.plan : 0;
         int i;
         ui_song_rows(&snap.roll, snap.rows);
+        if (snap.has_song || snap.held) {   /* the kit row: a shipped kit's value; the next song's, as it will pick */
+            if (song.kit_preset >= 0)
+                snap.rows[ROW_KIT] = (int16_t)(SONG_KIT_PRESET + song.kit_preset);
+        } else if ((i = ui_kit_pick(&snap.roll, smp_ready())) >= 0) {
+            snap.rows[ROW_KIT] = (int16_t)i;
+        }
         snap.n_secs = 0;
         for (i = 0; p && i < p->n && i < SNAP_SECS; i++) {
             snap.secs[i].start = p->b[i].start;
@@ -874,27 +901,32 @@ void app_init(void)
     }
 #endif
 #ifdef PLAT_HOST
-    smp_mount(smp_blob, SMP_HEAD + smp_bytes());   /* the sample bank: the host's own copy, checked as the FM-1's */
+    smp_mount(smp_blob, SMP_HEAD + smp_bytes(), 0, 0);   /* the sample bank: the host's own copy, checked as the FM-1's */
 #else
-    smp_mount(plat_data(APP_BANK_LO), APP_BANK_HI - APP_BANK_LO);
+    smp_mount(plat_data(APP_BANK_LO), APP_BANK_HI - APP_BANK_LO, plat_data(APP_BANK1_LO), APP_BANK1_HI - APP_BANK1_LO);
 #endif
     lib_set_samples(smp_ready());        /* none (or another build's): synth instruments only, NO SAMPLES */
-#if VNL_UI_RUNTIME
-    lib_set_kit_rule(1);                 /* no retired kit rolled (the workbench swaps its own: desk.js) */
-#endif
     vx_init();                           /* the first song: app_frame, once seeded */
+    wb_drums_init();
 }
 
 #ifdef APP_USB_CMD
 /* The sample bank from the host (tools/fm1_bank.py), in the update's framing: the host's request (BANK_CMD, the bank's
    length and CRC-32), then the FM-1 pulls it with read requests, as a restore does, and reports with a read of
    BANK_OK or BANK_FAIL + an error. Stopped only. Its head first, checked against the tables (another build's: refused,
-   nothing changed); then the bank unmounted, the voices cleared, the area erased, the payload written, the head last
-   (cut short, there is no bank: never half of one), and the whole checked and mounted as at boot. */
+   nothing changed); then the bank unmounted, the voices cleared, its two areas erased, the payload written (refused
+   at an "AT" on an XDATA sector's 0xF06: app.h), the head last (cut short, there is no bank: never half of one), and
+   the whole checked and mounted as at boot. */
 #define BANK_CMD 0x60u
 #define BANK_OK 0xC0000000u
 #define BANK_FAIL 0xCF000000u
-enum { BK_E_READ = 2, BK_E_HEAD = 3, BK_E_ERASE = 7, BK_E_WRITE = 8, BK_E_CHECK = 9, BK_E_PLAYING = 10 };
+enum { BK_E_READ = 2, BK_E_HEAD = 3, BK_E_ERASE = 7, BK_E_WRITE = 8, BK_E_CHECK = 9, BK_E_PLAYING = 10, BK_E_MARK = 11 };
+
+/* the bank file's byte off: its place in flash (the head and first part in one area, the rest in the other) */
+static uint32_t bank_at(uint32_t off)
+{
+    return off < SMP_HEAD + smp_split() ? APP_BANK_LO + off : APP_BANK1_LO + (off - SMP_HEAD - smp_split());
+}
 
 static uint32_t bank_rx(uint32_t len)
 {
@@ -902,32 +934,42 @@ static uint32_t bank_rx(uint32_t len)
     uint32_t off, k, t0;
     if (rs != RS_STOP)
         return BK_E_PLAYING;
-    if (len != SMP_HEAD + smp_bytes() || len > APP_BANK_HI - APP_BANK_LO)
+    if (len != SMP_HEAD + smp_bytes() || SMP_HEAD + smp_split() > APP_BANK_HI - APP_BANK_LO ||
+        smp_bytes() - smp_split() > APP_BANK1_HI - APP_BANK1_LO)
         return BK_E_HEAD;
     if (plat_host_read(0, b, SMP_HEAD))
         return BK_E_READ;
     if (!smp_head_ok(b))
         return BK_E_HEAD;
-    smp_mount(0, 0);                     /* no new sampled note; the sounding ones cleared (the render's vx_init) */
+    smp_mount(0, 0, 0, 0);                     /* no new sampled note; the sounding ones cleared (the render's vx_init) */
     lib_set_samples(0);
     panic_now = 1;
     for (t0 = plat_ms(); panic_now && plat_ms() - t0 < 100u;)
         plat_yield();
-    for (off = 0; off < len; off += 0x1000u)
+    for (off = 0; off < SMP_HEAD + smp_split(); off += 0x1000u)
         if (plat_data_erase(APP_BANK_LO + off))
             return BK_E_ERASE;
-    for (off = SMP_HEAD; off < len; off += k) {
-        k = len - off < sizeof b ? len - off : sizeof b;
+    for (off = 0; off < smp_bytes() - smp_split(); off += 0x1000u)
+        if (plat_data_erase(APP_BANK1_LO + off))
+            return BK_E_ERASE;
+    for (off = SMP_HEAD; off < len; off += k) {   /* (pieces 512-aligned in flash: a sector's 0xF06..0xF07 in one) */
+        uint32_t j, a = bank_at(off), edge = off < SMP_HEAD + smp_split() ? SMP_HEAD + smp_split() : len;
+        k = sizeof b - (a & (sizeof b - 1u));
+        k = edge - off < k ? edge - off : k;
         if (plat_host_read(off, b, k))
             return BK_E_READ;
-        if (plat_data_write(APP_BANK_LO + off, b, k))
+        for (j = 0; j + 1u < k; j++)
+            if (((a + j) & 0xFFFu) == 0xF06u && (a + j < PLAT_XDATA0_HI || a + j >= PLAT_XDATA1_LO) &&
+                b[j] == 'A' && b[j + 1u] == 'T')
+                return BK_E_MARK;
+        if (plat_data_write(a, b, k))
             return BK_E_WRITE;
     }
     if (plat_host_read(0, b, SMP_HEAD) || !smp_head_ok(b))
         return BK_E_READ;
     if (plat_data_write(APP_BANK_LO, b, SMP_HEAD))
         return BK_E_WRITE;
-    return smp_mount(plat_data(APP_BANK_LO), APP_BANK_HI - APP_BANK_LO) ? BK_E_CHECK : 0u;
+    return smp_mount(plat_data(APP_BANK_LO), APP_BANK_HI - APP_BANK_LO, plat_data(APP_BANK1_LO), APP_BANK1_HI - APP_BANK1_LO) ? BK_E_CHECK : 0u;
 }
 
 void app_usb_cmd(const uint8_t *d, uint32_t n)

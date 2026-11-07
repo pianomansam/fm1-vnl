@@ -376,19 +376,8 @@ int roll_seconds(const song_roll_t *r)
     return r->v[RF_TEMPO] > 0 ? r->v[RF_BARS] * 240 / r->v[RF_TEMPO] : 0;
 }
 
-static int song_kit_drawn(const song_roll_t *r);
-
-/* the song's kit; with lib_set_kit_rule, a retired one becomes an approved one of its family (acoustic: Soft brushes,
-   the one approved; the synth kits have none on the device: they stay) */
+/* the song's kit as rolled (a retired one: the device's app.c and the workbench's desk.js pick an approved one) */
 int lib_song_kit(const song_roll_t *r)
-{
-    int k = song_kit_drawn(r);
-    if (lib_kit_rule() && lib_kit_retired(k) && k != KIT_DUSTY && k != KIT_SOFT && k != KIT_808)
-        return KIT_BRUSHES;
-    return k;
-}
-
-static int song_kit_drawn(const song_roll_t *r)
 {
     const lib_set_t *s = lib_set_by_id((uint8_t)r->v[RF_SET]);
     rng_t g;

@@ -23,6 +23,7 @@
 #include "voices.h"
 #include "fx.h"
 #include "library.h"
+#include "wb_drums.h"
 
 void en_init(void);
 void en_set(int param, int value);
@@ -255,7 +256,7 @@ static void part_step(int kind, int bar, int step, uint32_t st)
     }
 }
 
-typedef struct { int kind, chords, bass, lead, pad, solo, kit, dust, noise, amb, chain; unsigned off; } part_t;
+typedef struct { int kind, chords, bass, lead, pad, solo, kit, preset, dust, noise, amb, chain; unsigned off; } part_t;
 
 static part_t part_of(int kind)
 {
@@ -263,6 +264,7 @@ static part_t part_of(int kind)
     memset(&p, 0, sizeof p);
     p.chords = p.bass = p.lead = p.pad = p.solo = INS_NONE;
     p.kit = KIT_DUSTY;
+    p.preset = -1;
     p.kind = kind;
     return p;
 }
@@ -283,6 +285,14 @@ static double run_part(const part_t *p)
     vx_assign_pad_solo(p->solo);
     solo_ins = p->solo;
     vx_set_kit(p->kit);
+    wb_drums_init();
+    if (p->preset >= 0) {               /* a shipped kit: the drum lanes (app/drums), as app.c's drums_apply */
+        wb_drums_t d;
+        wb_drums_preset(&d, p->preset);
+        wb_drums_song(1u);
+        wb_drums_kit(p->kit);
+        wb_drums_set(&d);
+    }
     if (p->chain) fx_configure(p->dust, p->noise, p->amb, FL_LOFI);
     t0 = now_ms();
     while (done < total) {
@@ -407,6 +417,14 @@ static void parts(double amb)
         p = part_of(P_DRUMS);
         p.kit = KT[k].ins;
         row("drums", KT[k].n, best_part(&p), base, amb);
+    }
+    for (k = 0; k < WB_KIT_PRESETS; k++) {   /* the shipped kits (the lanes over the set's kit: wb.c's wb_kit_preset) */
+        static const char *const PN[WB_KIT_PRESETS] = {"808", "cr-78", "crunchy", "dusty (bank)", "room big (bank)",
+                                                        "room brushes (bank)"};
+        p = part_of(P_DRUMS);
+        p.kit = WB_KIT_SAMPLED(k) ? KIT_S_RUSTY : KIT_BRUSHES;
+        p.preset = (int)k;
+        row("drums", PN[k], best_part(&p), base, amb);
     }
     /* the chain on a fixed source (rhodes chord, sub bass, dusty kit); the rows are net of the source dry, except
        the "over plate" ones, which are net of the source with the plate open and dust 0 */

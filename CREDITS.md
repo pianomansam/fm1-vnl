@@ -26,17 +26,19 @@ went with the string and cello leads, 2026-10-29). Two of its models follow GPL-
 values, with no code taken: the tonewheel organ (M_TW) after SLOOP's WHEEL engine, and the modeled vibraphone
 (M_MODAL, `app/engine/modal.h`; it replaced the VCSL vibraphone sample, 2026-11-03) after Ravel_FM1's TINE marimba.
 
-The workbench (`workbench/`, a local tool, not in the firmware) builds with two drum engines, credited here; their
-licenses and the files taken are in `workbench/engine/LICENSES.md`:
+The drum lanes (`app/drums/`: the shipped kits 808, CR-78 and Crunchy machine, in the firmware and the workbench) build
+with two drum engines, credited here; their licenses and the files taken are in `app/drums/LICENSES.md`. Optimist's is
+GPL-3.0-only, so the firmware binary as a whole is GPL-3.0-only (the README's "Credits and licenses"):
 
 | What | License | URL | Where |
 | --- | --- | --- | --- |
-| poketrack's trommelsynthesizer (synthesized TR-808 and CR-78 voices), by David Konsumer, at 2c5d4a6 | zlib (`workbench/engine/poketrack/LICENSE`) | https://github.com/konsumer/poketrack | `workbench/engine/poketrack/` |
-| Optimist's synth drum engine (`drum_synth.c`) and its LO-FI kit, by Leo Kuroshita (@kurogedelic), Hügelton Instruments, and the Optimist contributors, at 915fd8a | GPL-3.0-only (`workbench/engine/optimist/LICENSE`) | https://github.com/w0ts/optimist | `workbench/engine/optimist/` |
+| poketrack's trommelsynthesizer (synthesized TR-808 and CR-78 voices), by David Konsumer, at 2c5d4a6 | zlib (`app/drums/poketrack/LICENSE`) | https://github.com/konsumer/poketrack | `app/drums/poketrack/` (two files altered: single precision, a fixed pool) |
+| Optimist's synth drum engine (`drum_synth.c`) and its LO-FI kit, by Leo Kuroshita (@kurogedelic), Hügelton Instruments, and the Optimist contributors, at 915fd8a | GPL-3.0-only (`app/drums/optimist/LICENSE`) | https://github.com/w0ts/optimist | `app/drums/optimist/` (as is, its SPDX header and copyright kept) |
 
-Its sampled kits play recordings dedicated to the public domain under CC0 1.0, fetched and mixed by
-`workbench/tools/prep_kits.py` (which checks each `LICENSE`) into `workbench/samples/` (git-ignored; never in the
-firmware). No attribution is required; it is given with thanks:
+The shipped sampled kits (Dusty, Room - big, Room - brushes) play recordings dedicated to the public domain under CC0
+1.0, fetched and mixed by `workbench/tools/prep_kits.py` (which checks each `LICENSE`) into `workbench/samples/`
+(git-ignored), then reduced by `tools/samples/pack.py` into the sample bank (the firmware's and the workbench's). No
+attribution is required; it is given with thanks:
 
 | Source | Used for | License | URL |
 | --- | --- | --- | --- |

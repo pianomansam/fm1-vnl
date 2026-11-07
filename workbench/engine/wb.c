@@ -21,6 +21,7 @@
 #include "strum.h"
 #include "groove.h"
 #include "poketrack/trommelsynthesizer.h"
+#include "values.h"
 
 #define EXPORT __attribute__((used, visibility("default")))
 #define SR 44100u
@@ -415,6 +416,17 @@ EXPORT int wb_kit_get(void)
         return WB_KIT_PRESET + st.drums.preset;
     stage_set(1);
     k = lib_song_kit(&st.roll);
+    stage_set(0);
+    return k;
+}
+
+/* the device's seeded kit pick (values.h ui_kit_pick) on the staged song, the bank there: smoke.mjs holds it to
+   desk.js's approvedKit */
+EXPORT int wb_kit_pick(void)
+{
+    int k;
+    stage_set(1);
+    k = ui_kit_pick(&st.roll, 1);
     stage_set(0);
     return k;
 }
@@ -1056,7 +1068,7 @@ EXPORT const char *wb_consts(void)
         {"BUILTIN", WB_SRC_BUILTIN}}, KIT[] = {
         {"PRESET", WB_KIT_PRESET}, {"PT808", WB_KIT_PT808}, {"PTCR78", WB_KIT_PTCR78}, {"OPTLOFI", WB_KIT_OPTLOFI},
         {"GOGODZE", WB_KIT_GOGODZE}, {"RUSTY", WB_KIT_RUSTY}, {"BRUSHES", WB_KIT_BRUSHES},
-        {"PRESETS", WB_KIT_PRESETS}, {"LANES", WB_LANES}, {"VL", WB_SMP_VL}, {"RR", WB_SMP_RR}}, PT[] = {
+        {"PRESETS", WB_KIT_PRESETS}, {"LANES", WB_LANES}}, PT[] = {
         {"M808", M_808}, {"MCR78", M_CR78}, {"BD", V_BD}, {"SD", V_SD}, {"RS", V_RS}, {"CP", V_CP}, {"LT", V_LT},
         {"MT", V_MT}, {"HT", V_HT}, {"CH", V_CH}, {"OH", V_OH}, {"CY", V_CY}, {"CB", V_CB}, {"TB", V_TB},
         {"LC", V_LC}, {"MC", V_MC}, {"HC", V_HC}, {"MA", V_MA}, {"CL", V_CL}}, SMP[] = {

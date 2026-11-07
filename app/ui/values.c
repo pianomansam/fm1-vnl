@@ -122,6 +122,14 @@ static const char *choice_name(int row, int v, char *buf)
     return 0;
 }
 
+/* a kit row value the device plays: an engine kit, or a shipped one (song.h SONG_KIT_PRESET..; a sampled one only
+   with the sample bank, as index.html leaves out an unavailable one) */
+static int kit_ok(int v)
+{
+    return (v >= 0 && v < KIT_N) || (v >= SONG_KIT_PRESET && v < SONG_KIT_PRESET + SONG_KIT_PRESETS &&
+                                     (v < SONG_KIT_PRESET + SONG_KIT_SAMPLED || lib_samples()));
+}
+
 /* rows.js's optionsFor, filtered as index.html's rows() does: the choices the device offers, in order (retired,
    removed and hidden ones left out, the comp's by what the comp instrument plays, the kits the device can't play
    left out), the value playing appended when it isn't among them. -> the count; values into out */
@@ -142,7 +150,7 @@ static int options(const ui_bag_t *b, int row, int *out)
             st = CH_STATUS(f);
         }
         if (row == ROW_COMP && (st == 3 || !ch_fits(row, v, b->s->rows[ROW_KEYS]))) continue;
-        if (row == ROW_KIT && (v < 0 || v >= KIT_N)) continue;        /* the workbench's presets: not on the device */
+        if (row == ROW_KIT && !kit_ok(v)) continue;
         if (row == ROW_PROG) {                                       /* legal for the song (the mood, the mode) */
             song_roll_t t = b->s->roll;
             if (roll_set(&t, RF_PROG, v) != v) continue;
@@ -151,7 +159,7 @@ static int options(const ui_bag_t *b, int row, int *out)
         if (v == cur) have = 1;
         out[n++] = v;
     }
-    if (!have && !(row == ROW_KIT && (cur < 0 || cur >= KIT_N)))
+    if (!have && !(row == ROW_KIT && !kit_ok(cur)))
         out[n++] = cur;
     return n;
 }

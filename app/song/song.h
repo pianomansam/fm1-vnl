@@ -52,10 +52,20 @@ typedef struct {
     song_ov_t ov;
     lib_set_t set;
     uint16_t changes;             /* bumps as a row request lands: the voices read the instruments again */
+    int8_t kit_preset;            /* the shipped kit the drum lanes play (SONG_KIT_PRESET + it is the kit row's value:
+                                     app/drums/wb_drums.h's WB_KIT_*), -1 none */
 } song_t;
+/* the kit row's shipped kits (the drum lanes': wb_drums.h WB_KIT_PRESET..), past the engine's KIT_*: the synth
+   machines', then from SONG_KIT_SAMPLED the sampled ones (the sample bank's) */
+#define SONG_KIT_PRESET 16
+#define SONG_KIT_PRESETS 6
+#define SONG_KIT_SAMPLED 3
 enum { SONG_OWN_OV = 1, SONG_OWN_SET = 2 };
 
 void song_start(song_t *s, const song_roll_t *r);           /* the plan; bar 0, step 0 */
+/* song_start with the kit row at kit from the start (-1: as rolled): the song's set its own, as a kit request makes
+   it, before the plan, as the workbench stages a kit before its song starts */
+void song_start_kit(song_t *s, const song_roll_t *r, int kit);
 /* One 16th: its events sorted by delay; 0 once ended. Events beyond max are dropped: pass max >= 64. */
 int song_tick(song_t *s, song_ev_t *out, int max);
 float song_step_samples(const song_t *s);                   /* 44100 * 60 / (tempo * 4), following a tempo glide */
@@ -78,7 +88,8 @@ void song_carry_requests(song_t *s, const song_t *later);
 /* A request on any row the screens set, landing on the next 4-bar boundary exactly as song_request's and carried
    across a stop like them. row: SR_ROLL + RF_* a roll field (song_request), SR_ROLE + V_* a role's instrument (V_CHORD,
    V_BASS, V_LEAD, V_PAD; library.c's stand-ins for a removed one), SR_OV + OV_* an override or a re-roll's salt
-   (override.h's keys and values), SR_KIT a kit (KIT_*). A role or the kit makes the song's set its own (LIB_SET_WB,
+   (override.h's keys and values), SR_KIT a kit (KIT_*, or a shipped kit: SONG_KIT_PRESET..; the set's kit under it
+   Brushes, or for a sampled one the mixed Rusty, as wb.c's wb_kit_preset). A role or the kit makes the song's set its own (LIB_SET_WB,
    copied from the song's), as the workbench's custom set; overrides become the song's own (song_override, from the
    ones in force). Both are undone when the same song_t starts a new song. 1: it waits; 0: refused (an unknown row, a
    kit the device has not, the song's end first, nothing playing). A second request on a row replaces the first. */

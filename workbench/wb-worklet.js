@@ -44,12 +44,6 @@ class Workbench extends AudioWorkletProcessor {
         this.port.postMessage({ type: "result", id: m.id, value });
         return;
       }
-      if (m.fn === "wb_write") {               // [ptr, Float32Array]: the page's samples into wasm memory (Samples)
-        const [ptr, x] = m.args;
-        new Float32Array(ex.memory.buffer, ptr, x.length).set(x);
-        this.port.postMessage({ type: "result", id: m.id });
-        return;
-      }
       const f = /^wb_/.test(m.fn) ? ex[m.fn] : null;
       let value = f ? f(...(m.args || [])) : undefined;
       if (STRINGS.has(m.fn)) value = JSON.parse(this.cstr(value));

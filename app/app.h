@@ -22,10 +22,15 @@
 enum { OBJ_SETTINGS, OBJ_PANEL, OBJ_BLE, OBJ_NOBJ };
 #define APP_STORE_MAP {0xFC000u, 0xDC000u, 0xDE000u}
 
-/* the sample bank (engine/samples.h) in the flash's data area, below the store's objects; checked at boot, written over
- * USB while stopped (app_usb_cmd: tools/fm1_bank.py). The update never touches it (its loader writes 0x4000..0x93000) */
-#define APP_BANK_LO 0x97000u
+/* the sample bank (engine/samples.h) in two areas: PLAT_XDATA0 and the data area below the store's objects (one run:
+ * its head and first part), then PLAT_XDATA1 (the rest); checked at boot, written over USB while stopped
+ * (app_usb_cmd: tools/fm1_bank.py). The update never touches it (its loader writes 0x4000..0x93000). In the XDATA
+ * windows' sectors bytes 0xF06..0xF07 never read "AT" (plat.h: the packer lays the bank out so, the write refuses
+ * one that has it) */
+#define APP_BANK_LO 0x93000u             /* PLAT_XDATA0_LO */
 #define APP_BANK_HI 0xDC000u
+#define APP_BANK1_LO 0xE5000u            /* PLAT_XDATA1_LO.._HI */
+#define APP_BANK1_HI 0xFC000u
 #ifndef PLAT_HOST
 #define APP_USB_CMD
 void app_usb_cmd(const uint8_t *d, uint32_t n);

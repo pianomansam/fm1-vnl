@@ -5,7 +5,9 @@
    tools/fm1_bank.py) and the host build maps from the file. Read-only, no code that runs per sample.
 
    The bank: a 16-byte head (little-endian: SMP_MAGIC, SMP_FORMAT, the payload's length, its CRC-32), then the
-   payload, every zone's bytes; a zone's `off` is its place in the payload. It mounts (smp_mount) only when its head
+   payload, every zone's bytes; a zone's `off` is its place in the payload. The FM-1 keeps it in two areas (app.h
+   APP_BANK_LO.., APP_BANK1_LO..): the head and the payload up to smp_split(), then the rest (a zone whole in one).
+   It mounts (smp_mount) only when its head
    matches the tables (the length and CRC-32 they were generated with: another build's bank is refused, never played)
    and its payload's CRC-32 checks out. With none mounted, smp_bank and smp_hit give NULL: the sampler and the sampled
    kits are silent, and the songs keep to synth instruments (library.h lib_set_samples).
@@ -17,7 +19,8 @@
    loop_start and restores them at each wrap, which gives exactly the loop's samples again. `root` is the MIDI note the
    zone sounds when played at `rate` (the packer retunes each zone to a whole note; hits carry 60, played at `rate` for
    no shift). `gain` scales the decoded sample (as -1..1) to unit loudness: its RMS over the first 150 ms becomes 1.0,
-   so a caller sets levels as loudness. */
+   so a caller sets levels as loudness; but a kit piece's (smp_piece) gives back its file's level instead (the decoded
+   sample times gain: the workbench's levels, wb_drums.c). */
 #ifndef ENGINE_SAMPLES_H
 #define ENGINE_SAMPLES_H
 #include <stdint.h>
@@ -34,16 +37,29 @@ enum { SB_KNIGHT, SB_NYLON, SB_EMILY, SB_N };
 enum { SH_GG_KICK, SH_BR_KICK, SH_GG_SIDE, SH_GG_SNARE, SH_FS_POPLAR, SH_VC_ROPE, SH_GG_HAT, SH_GG_OHAT,
        SH_BR_CHICK, SH_BR_OHAT, SH_VC_PEDAL, SH_VC_HAT, SH_VC_OHAT, SH_VC_SHAKER, SH_RIDE, SH_N };
 
+/* The workbench's sampled kits (wb_drums.c; prep_kits.py's files, reduced): a piece keeps SK_VL of its layers; each of
+   its velocity ranges (hi: their tops, ascending, n of them) plays kept layer use at lvl (its own recording's level
+   over that one's) times (vel / hi) ^ curve, the hit's velocity taken at vel percent. */
+enum { SK_GOGODZE, SK_RUSTY, SK_BRUSHES, SK_N };                      /* wb_drums.h WB_SMP_* */
+enum { SK_KICK, SK_SNARE, SK_RIM, SK_HAT, SK_OHAT, SK_RIDE, SK_P_N };  /* wb_drums.h WB_P_* */
+#define SK_VL 2
+#define SK_RANGES 4
+typedef struct { const smp_zone_t *z[SK_VL]; uint8_t hi[SK_RANGES], use[SK_RANGES]; float lvl[SK_RANGES];
+                 uint8_t n, curve, vel; } smp_piece_t;
+
 const smp_bank_t *smp_bank(int id);   /* NULL out of range, or no bank */
 const smp_zone_t *smp_hit(int id);    /* NULL out of range, or no bank */
+const smp_piece_t *smp_piece(int set, int piece);   /* NULL out of range, a piece the kit lacks, or no bank */
+uint32_t smp_split(void);             /* the payload's bytes in the first area (the tables') */
 uint32_t smp_bytes(void);             /* the payload's length (the tables') */
 uint32_t smp_crc(void);               /* the payload's CRC-32 (the tables') */
 
 #define SMP_MAGIC 0x424C4E56u         /* "VNLB" */
-#define SMP_FORMAT 1u
+#define SMP_FORMAT 2u
 #define SMP_HEAD 16u
-int smp_mount(const uint8_t *bank, uint32_t avail);   /* the bank at bank (avail bytes readable): 0 mounted; else
-                                                          none (bank NULL: unmounts) */
+/* the bank's head and first part at bank (avail bytes readable), the rest at more (more_avail; more NULL: right
+   after the first part): 0 mounted; else none (bank NULL: unmounts) */
+int smp_mount(const uint8_t *bank, uint32_t avail, const uint8_t *more, uint32_t more_avail);
 int smp_ready(void);                  /* a bank is mounted */
 int smp_head_ok(const uint8_t *h);    /* a head (SMP_HEAD bytes) that matches the tables */
 const uint8_t *smp_data(const smp_zone_t *z);   /* a zone's bytes (a bank mounted) */

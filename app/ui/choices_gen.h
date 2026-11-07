@@ -56,10 +56,13 @@ enum {
 
 /* a choice's flags (ch_flags): its status in the low 2 bits (0 approved, 1 candidate, 2 retired: behind
    "show retired", 3 removed: never offered), CH_HIDDEN never offered itself (shown as the current value
-   only), CH_ROLLED the engine's own choice ("as rolled") */
+   only), CH_ROLLED the engine's own choice ("as rolled"), CH_FAM an instrument's or kit's family (0 none,
+   CH_ACOUSTIC, CH_SYNTH, CH_ELECTRIC, CH_ANY: options.json's) */
 #define CH_STATUS(f) ((f) & 3)
 #define CH_HIDDEN 4
 #define CH_ROLLED 8
+#define CH_FAM(f) ((f) >> 4 & 7)
+enum { CH_ACOUSTIC = 1, CH_SYNTH, CH_ELECTRIC, CH_ANY };
 
 const char *ch_name(int row, int value);          /* its name as the device writes it; NULL: no such choice */
 int ch_count(int row);                            /* its choices, in the workbench's order */

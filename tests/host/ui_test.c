@@ -409,6 +409,33 @@ static void test_nav_sections(void)
     CHECK(n.jump_i < 0, "it clears once the song has moved on, back too");
 }
 
+/* ui_kit_pick (desk.js's approvedKit; smoke.mjs holds it to the page's over 300 seeds): only a retired rolled kit
+   moves, onto an approved kit of the song's family; with no bank never onto a sampled shipped kit */
+static void test_kit_pick(void)
+{
+    uint32_t seed;
+    int moved = 0, kept = 0;
+    for (seed = 1; seed <= 300; seed++) {
+        song_roll_t r;
+        int was, k, nb;
+        roll_song(NULL, seed, &r);
+        was = lib_song_kit(&r);
+        k = ui_kit_pick(&r, 1);
+        nb = ui_kit_pick(&r, 0);
+        if (CH_STATUS(ch_flags(ROW_KIT, was)) == 2) {
+            CHECK(k >= 0 && CH_STATUS(ch_flags(ROW_KIT, k)) == 0 &&
+                      CH_FAM(ch_flags(ROW_KIT, k)) == CH_FAM(ch_flags(ROW_KIT, nb)),
+                  "seed %u: retired kit %d picks %d (no bank: %d)", (unsigned)seed, was, k, nb);
+            CHECK(nb >= 0 && nb < SONG_KIT_PRESET + SONG_KIT_SAMPLED, "seed %u: no bank, yet kit %d", (unsigned)seed, nb);
+            moved++;
+        } else {
+            CHECK(k == -1 && nb == -1, "seed %u: approved kit %d moved to %d", (unsigned)seed, was, k);
+            kept++;
+        }
+    }
+    CHECK(moved > 0, "no seed in 300 rolled a retired kit (%d kept)", kept);
+}
+
 int main(int argc, char **argv)
 {
     const char *only = argc > 1 ? argv[1] : NULL;
@@ -425,6 +452,7 @@ int main(int argc, char **argv)
     RUN(test_nav_fast_keys);
     RUN(test_nav_switch_mixer);
     RUN(test_nav_sections);
+    RUN(test_kit_pick);
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;

@@ -2,17 +2,18 @@
 /* The workbench's drum lanes (wb_drums.h). A slot per lane, and one for auditions: a hit starts the slot's sound on
    its lane's source (a new hit restarts it, as on the machines), at the source's calibrated level times the lane's.
    poketrack's machines run an engine per slot (its own output clip, so a lane's sound never depends on another's); a
-   closed hat chokes the open one (4 ms), as both machines do. A sampled piece plays its layer's file (the round robins
-   in turn) from wasm memory the page filled. The built-in kits' lanes go to drums.c, unhooked for the call: a hit on
+   closed hat chokes the open one (4 ms), as both machines do. A sampled piece plays its layer from the sample bank
+   (samples.h smp_piece: ADPCM, read at 44.1 kHz with a linear step). The built-in kits' lanes go to drums.c, unhooked
+   for the call: a hit on
    another kit than the song's leaves drums.c on the song's (at once for its routing; its synth kit once nothing
    sounds, as a hit sounding reads its kit's table). */
-#include <math.h>
-#include <stdlib.h>
 #include <string.h>
+#include "fastmath.h"
 #include "wb_drums.h"
 #include "wb_opt.h"
 #include "drums.h"
 #include "library.h"
+#include "sampler.h"
 #include "poketrack/trommelsynthesizer.h"
 
 #define EXPORT __attribute__((used, visibility("default")))
@@ -38,16 +39,6 @@ static const float OPT_G[WB_OPT_N] = {0.1758f};     /* LO-FI -15.1 dB */
 static const float SMP_DB[WB_SMP_N] = {-3.8f, -4.4f, 6.1f};
 static const float SMP_KICK_DB[WB_SMP_N] = {-6.3f, 4.2f, -6.3f};
 
-/* a piece: its layers' files (WB_SMP_RR round robins each; frames 0: none) and tops, the velocity curve, its velocity
-   percent (the brushes' rim: the brush snare at 45) */
-typedef struct {
-    const float *x[WB_SMP_VL][WB_SMP_RR];
-    uint32_t n[WB_SMP_VL][WB_SMP_RR];
-    uint8_t hi[WB_SMP_VL], nvl, curve, vel;
-} piece_t;
-static piece_t pc[WB_SMP_N][WB_P_N];
-static uint8_t rr_at[WB_SMP_N][WB_P_N];  /* the round robin a piece's next hit plays */
-
 typedef struct {
     wb_src_t src;
     float g;                            /* level */
@@ -55,8 +46,9 @@ typedef struct {
     float fade;                         /* the release's level so far */
     int choke;                          /* samples left of a choke (0: none) */
     int zeros;                          /* PT: the run of zero samples (an engine's voice has ended) */
-    const float *x;                     /* SAMPLE: the file, its length, where it plays */
-    uint32_t n, at;
+    smp_dec_t d;                        /* SAMPLE: the layer's decoder, the two samples the read is between, the read's */
+    float h0, h1;                       /* place past h0 and its step (16.16: the zone's rate over 44.1 kHz) */
+    uint32_t ph, step;
     uint8_t on;
 } slot_t;
 
@@ -67,9 +59,13 @@ static int cfg_any;
 static float kenv, kdec;
 static int song_kit, stale;             /* the song's kit (vx_set_kit's); drums.c's synth kit isn't it (a BUILTIN hit) */
 static float t[256], tr[256];
-/* meters (tests): each lane's and the whole output's sum of squares and sample count, a hash of each lane's samples */
+/* meters (the workbench's tests: wasm only; the firmware has no double): each lane's and the whole output's sum
+   of squares and sample count, a hash of each lane's samples */
+#ifdef __EMSCRIPTEN__
+#define METER 1
 static double m_sum[WB_LANES + 1];
 static uint32_t m_n[WB_LANES + 1], m_hash[WB_LANES];
+#endif
 
 static void h_on(const song_ev_t *e);
 static void h_render(float *x, uint32_t n);
@@ -88,10 +84,7 @@ static const drums_hook_t HOOK = {h_on, h_render, h_active, h_kick_env, h_releas
 
 static int pt_machine(int a) { return a == M_808 || a == M_CR78; }
 
-static int piece_ok(int set, int p)
-{
-    return set >= 0 && set < WB_SMP_N && p >= 0 && p < WB_P_N && pc[set][p].nvl && pc[set][p].n[0][0];
-}
+static int piece_ok(int set, int p) { return smp_piece(set, p) != 0; }
 
 /* a hit on an engine kit's lane through drums.c (unhooked), then drums.c back on the song's kit: its routing (a
    sampled kit's voices keep their kit) at once; its synth kit when nothing sounds or before the song's own next hit */
@@ -178,8 +171,8 @@ static float src_gain(const wb_src_t *s)
 {
     float g = s->kind == WB_SRC_PT ? PT_G[s->a == M_CR78] : s->kind == WB_SRC_OPT ? OPT_G[s->a] : 1.0f;
     if (s->kind == WB_SRC_SAMPLE)
-        g = powf(10.0f, (SMP_DB[s->a] + (s->b == WB_P_KICK ? SMP_KICK_DB[s->a] : 0.0f)) * 0.05f);
-    return g * powf(10.0f, s->gain_db * 0.05f);
+        g = fm_powf(10.0f, (SMP_DB[s->a] + (s->b == WB_P_KICK ? SMP_KICK_DB[s->a] : 0.0f)) * 0.05f);
+    return g * fm_powf(10.0f, s->gain_db * 0.05f);
 }
 
 static void hook_on(void) { drums_hook(&HOOK); }
@@ -203,20 +196,20 @@ static void start(int i, const wb_src_t *src, int lane, int vel)
     eng_reset(pt[i]);
     wb_opt_off(i);
     s->g = src_gain(src);
-    if (src->kind == WB_SRC_SAMPLE) {   /* the layer up to whose top the velocity falls, its next round robin */
-        const piece_t *p = &pc[src->a][src->b];
-        uint8_t *rr = &rr_at[src->a][src->b];
+    if (src->kind == WB_SRC_SAMPLE) {   /* the range up to whose top the velocity falls: its kept layer, its level */
+        const smp_piece_t *p = smp_piece(src->a, src->b);
+        const smp_zone_t *z;
         int v = vel * p->vel / 100, l = 0;
         v = v < 1 ? 1 : v;
-        while (l < p->nvl - 1 && v > p->hi[l])
+        while (l < p->n - 1 && v > p->hi[l])
             l++;
-        if (!p->n[l][*rr])
-            *rr = 0;
-        s->x = p->x[l][*rr];
-        s->n = p->n[l][*rr];
-        s->at = 0;
-        *rr = (uint8_t)((*rr + 1) % WB_SMP_RR);
-        s->g *= powf((float)v / (float)p->hi[l], (float)p->curve);
+        z = p->z[p->use[l]];
+        smp_dec_init(&s->d, z);
+        s->h0 = (float)smp_dec_fast(&s->d);
+        s->h1 = (float)smp_dec_fast(&s->d);
+        s->ph = 0;
+        s->step = (uint32_t)z->rate * 65536u / 44100u;   /* (a rate under 65536 Hz) */
+        s->g *= z->gain * (1.0f / 32768.0f) * p->lvl[l] * fm_powf((float)v / (float)p->hi[l], (float)p->curve);
     } else if (src->kind == WB_SRC_PT) {
         eng_trigger(pt[i], src->a, src->b, 0, (float)vel * (1.0f / 127.0f));
     } else {
@@ -242,12 +235,14 @@ static void h_on(const song_ev_t *e)
         start(lane, &cfg.lane[lane], lane, e->vel);
 }
 
+#ifdef METER
 static uint32_t fnv(uint32_t h, float x)
 {
     uint32_t u;
     memcpy(&u, &x, 4);
     return (h ^ u) * 16777619u;
 }
+#endif
 
 /* slot i's next n samples, added into x */
 static void slot_render(int i, float *x, uint32_t n)
@@ -255,11 +250,14 @@ static void slot_render(int i, float *x, uint32_t n)
     slot_t *s = &sl[i];
     uint32_t k;
     if (s->src.kind == WB_SRC_SAMPLE) {
-        uint32_t m = s->n - s->at < n ? s->n - s->at : n;
-        memcpy(t, s->x + s->at, m * sizeof *t);
-        memset(t + m, 0, (n - m) * sizeof *t);
-        s->at += m;
-        if (s->at >= s->n)
+        for (k = 0; k < n; k++) {
+            t[k] = s->h0 + (s->h1 - s->h0) * (float)(s->ph & 0xFFFFu) * (1.0f / 65536.0f);
+            for (s->ph += s->step; s->ph >> 16; s->ph -= 1u << 16) {
+                s->h0 = s->h1;
+                s->h1 = (float)smp_dec_fast(&s->d);
+            }
+        }
+        if (s->d.ni >= s->d.z->len)     /* (played out: the zone's tail faded to nothing) */
             s->on = 0;
     } else if (s->src.kind == WB_SRC_PT) {
         eng_render(pt[i], t, tr, n);
@@ -282,6 +280,7 @@ static void slot_render(int i, float *x, uint32_t n)
     }
     if (s->fade < OFF)
         s->on = 0;
+#ifdef METER
     if (i < WB_LANES) {
         for (k = 0; k < n; k++) {
             m_sum[i] += (double)t[k] * t[k];
@@ -289,6 +288,7 @@ static void slot_render(int i, float *x, uint32_t n)
         }
         m_n[i] += n;
     }
+#endif
 }
 
 static void h_render(float *x, uint32_t n)
@@ -312,10 +312,12 @@ static void h_render(float *x, uint32_t n)
     }
     for (i = 0; i < NS; i++)
         any |= sl[i].on;
-    kenv = sl[0].on ? kenv * powf(kdec, (float)n) : 0.0f;
+    kenv = sl[0].on ? kenv * fm_powf(kdec, (float)n) : 0.0f;
+#ifdef METER
     for (k = 0; k < n; k++)
         m_sum[WB_LANES] += (double)x[k] * x[k];
     m_n[WB_LANES] += n;
+#endif
     if (cfg_any || any || drums_active())
         hook_on();                      /* (else off: the song's own kit, as with no lanes) */
 }
@@ -356,14 +358,13 @@ void wb_drums_init(void)
         wb_opt_off(i);
     }
     memset(sl, 0, sizeof sl);
-    memset(rr_at, 0, sizeof rr_at);
     memset(&cfg, 0, sizeof cfg);
     song_kit = KIT_DUSTY;               /* (vx_init's) */
     stale = 0;
     cfg.preset = -1;
     cfg_any = 0;
     kenv = 0.0f;
-    kdec = expf(-6.9078f / (KICK_T60 * SR));
+    kdec = fm_expf(-6.9078f / (KICK_T60 * SR));
     drums_hook(NULL);
 }
 
@@ -388,7 +389,6 @@ void wb_drums_set(const wb_drums_t *d)
 void wb_drums_song(uint32_t seed)
 {
     wb_opt_seed(seed);
-    memset(rr_at, 0, sizeof rr_at);
 }
 
 void wb_drums_kit(int kit)
@@ -413,35 +413,10 @@ void wb_drums_audition_kit(int kit, int lane, int vel)
     kit_on(kit, &e);                    /* (h_render turns the hook off again once it has ended) */
 }
 
-/* the page's samples: memory for a file (wasm memory, never freed: a set loads once), then a piece's layer (vl * RR +
-   round robin) in it, and the piece's layer tops (hi0.. ascending, 0: no more layers), curve and velocity percent */
-EXPORT uint32_t wb_sample_alloc(uint32_t bytes) { return (uint32_t)(uintptr_t)malloc(bytes ? bytes : 1); }
-EXPORT void wb_sample_set(int set, int piece, int layer, uint32_t ptr, uint32_t frames)
-{
-    if (set < 0 || set >= WB_SMP_N || piece < 0 || piece >= WB_P_N || layer < 0 || layer >= WB_SMP_VL * WB_SMP_RR)
-        return;
-    pc[set][piece].x[layer / WB_SMP_RR][layer % WB_SMP_RR] = (const float *)(uintptr_t)ptr;
-    pc[set][piece].n[layer / WB_SMP_RR][layer % WB_SMP_RR] = ptr ? frames : 0;
-}
-EXPORT void wb_sample_piece(int set, int piece, int curve, int vel, int hi0, int hi1, int hi2, int hi3)
-{
-    const int hi[WB_SMP_VL] = {hi0, hi1, hi2, hi3};
-    piece_t *p;
-    int l;
-    if (set < 0 || set >= WB_SMP_N || piece < 0 || piece >= WB_P_N)
-        return;
-    p = &pc[set][piece];
-    p->curve = (uint8_t)(curve == 1 ? 1 : 2);
-    p->vel = (uint8_t)(vel < 1 ? 1 : vel > 100 ? 100 : vel);
-    for (l = 0; l < WB_SMP_VL && hi[l] > (l ? hi[l - 1] : 0) && hi[l] <= 127; l++)
-        p->hi[l] = (uint8_t)hi[l];
-    for (p->nvl = (uint8_t)l; l > 0; l--)  /* every layer needs its first round robin */
-        if (!p->n[l - 1][0])
-            p->nvl = 0;
-}
-
+#ifdef METER
 /* tests: a lane's (0..6) or the whole hooked output's (WB_LANES) mean square since the reset, a lane's samples' hash */
 EXPORT float wb_drum_meter(int lane) { return lane >= 0 && lane <= WB_LANES && m_n[lane] ? (float)(m_sum[lane] / m_n[lane]) : 0.0f; }
+EXPORT uint32_t wb_drum_frames(void) { return m_n[WB_LANES]; }   /* the frames the meters ran (a drum sounding) */
 EXPORT int wb_drum_hash(int lane) { return lane >= 0 && lane < WB_LANES ? (int)m_hash[lane] : 0; }
 EXPORT void wb_drum_meter_reset(void)
 {
@@ -449,3 +424,4 @@ EXPORT void wb_drum_meter_reset(void)
     memset(m_n, 0, sizeof m_n);
     memset(m_hash, 0, sizeof m_hash);
 }
+#endif

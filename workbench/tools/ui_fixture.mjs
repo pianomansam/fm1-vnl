@@ -3,7 +3,7 @@
 // (app/ui/values.c) must give the same text, flags and fractions. The states: seed 72 at bar 14 (13 from 0), playing,
 // everything as rolled, on the main screen (the bass tile highlighted), with a tempo change waiting, on part screens;
 // and stopped with the song ready. The page's rows and labels are built as index.html builds them (rows.js's
-// optionsFor, ui/rolled.js's names from wb_rolled), the workbench's own kits (16 on) unavailable, as on the device.
+// optionsFor, ui/rolled.js's names from wb_rolled), every kit available, as on the device with its sample bank.
 //   sh workbench/build.sh && node workbench/tools/ui_fixture.mjs [--check]
 import { readFileSync, writeFileSync } from "node:fs";
 import * as D from "../ui/device.js";
@@ -31,7 +31,7 @@ ex.wb_apply();
 const st = json(ex.wb_state()), values = fromEngine(st, C, opts);
 values.family = familyOf(values, opts);
 const legal = { prog: lib.progs.map((p) => p.id).filter((id) => ex.wb_roll_legal(C.RF.PROG, id)) };
-const state = { values, legal, unavailable: new Set(opts.kits.filter((k) => k.id >= 16).map((k) => k.id)) };
+const state = { values, legal, unavailable: new Set() };
 const rn = rolledNames(json(ex.wb_rolled()), state, opts);
 // index.html's labels() and rows()
 const name = (id, as = id) => {

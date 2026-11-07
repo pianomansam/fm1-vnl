@@ -94,13 +94,12 @@ export class Desk {
   // probe(bytes): the lead register the engine applies to a staged state (wb_stage_bytes), from a second wb.wasm
   // instance off the audio thread (wb.js's probe); without one the lead register isn't read back
   // position(): { seconds, bar } of the song playing, for the change log (none: 0, 0)
-  // samples: wb.js's Samples (the sampled kits: which are unavailable, and their files loaded on first use), or none
   // events(bytes): the committed song's { events } (wb.js's events, on the probe instance), for the parts' reactions and
   // whether the song has a pad; without it neither is known
   // storage(): the Storage the levels persist in (localStorage), or a test's stand-in
-  constructor(call, C, opts, lib, { rnd = Math.random, probe = null, position = () => ({ seconds: 0, bar: 0 }), samples = null,
+  constructor(call, C, opts, lib, { rnd = Math.random, probe = null, position = () => ({ seconds: 0, bar: 0 }),
                                     events = null, storage = () => globalThis.localStorage } = {}) {
-    Object.assign(this, { call, C, opts, lib, rnd, probe, position, samples, events, storage });
+    Object.assign(this, { call, C, opts, lib, rnd, probe, position, events, storage });
     this.levels = loadLevels(storage);   // the mixer's dB by part (LEVEL_PARTS), restored into the engine at once
     this.levelsReady = this.applyLevels().catch(() => {});
     this.changes = [];         // every applied change: { seconds, bar, row, from, to }
@@ -121,7 +120,7 @@ export class Desk {
     this.comp = undefined;     // the comping the engine applies to the staged song, as a Comping value (the summary's)
   }
 
-  get state() { return { values: this.values, locks: this.locks, legal: this.legal, unavailable: this.samples?.unavailable,
+  get state() { return { values: this.values, locks: this.locks, legal: this.legal,
                          strums: this.strums, comp: this.comp, padless: this.padless, grid: !!this.drums?.grid?.edited }; }
   kept(id) { return this.locks.has(id) || this.hand.has(id); }
 
@@ -173,7 +172,7 @@ export class Desk {
     }
     if (r.kind === "role") return c("wb_role_set", V[r.role], v);
     if (r.kind === "ov" || r.kind === "reroll") return c("wb_ov_set", OV[r.key], v);
-    if (id === "kit") return (await this.samples?.kit(v)) === false ? false : c("wb_kit_set", v);   // false: unavailable
+    if (id === "kit") return c("wb_kit_set", v);
     if (id === "kick") return v === "grid" ? undefined : c("wb_kick_phrase", ...kickMasks(v, this.opts));   // (the grid's own)
     if (id === "pattern") {
       await c("wb_roll_set", RF.PATTERN, v);
@@ -237,10 +236,6 @@ export class Desk {
     }
     for (const p of Object.keys(PARTS)) this.rollOf(p);   // each part's history starts at the roll before this change
     const prevEv = this.partEv;
-    if (id === "kit" && this.samples && !(await this.samples.kit(value))) {
-      const k = this.opts.kits.find((x) => x.id === value);
-      return this.done(false, `${k?.name ?? "That kit"} is unavailable: its sample files are missing (see workbench/samples/README.md).`);
-    }
     const c = r.regenerates || r.kind === "roll" ? { forced: [], stuck: [], blocked: null }
                                                   : conflicts(r, value, this.state, this.opts, this.rnd, this.lib);
     if (c.blocked) return this.done(false, `Blocked: ${c.blocked.label} is locked (${c.blocked.why}).`);
@@ -377,7 +372,7 @@ export class Desk {
   async approvedKit() {
     const was = this.opts.kits.find((k) => k.id === this.values.kit);
     if (was?.status !== "retired") return null;
-    const no = new Set(this.samples?.unavailable);   // and a kit the engine didn't take (a sampled one not loaded)
+    const no = new Set();   // a kit the engine didn't take
     for (;;) {
       const v = pickFor(row("kit"), { ...this.state, unavailable: no }, this.opts, seeded(this.values.seed), this.lib);
       if (v === null) return null;
@@ -632,18 +627,12 @@ export class Desk {
 
   // A snapshot's drum lanes over the kit row's (a preset's, or the song's own kit's): the lanes with a source first (the
   // first one set on a song with none fills the others from its kit), then the silent ones; each lane's level.
-  // { missing, refused }: missing, what couldn't be restored (["drums (<kit>: samples missing)"] for a sample set that
-  // didn't load: its lanes keep the kit row's sources); refused, why the engine refused a lane (a retired mixed sampled
-  // kit's hits aren't lane sources), or null: the caller undoes it (no level is staged)
+  // { missing, refused }: missing, what couldn't be restored (the drawn pattern); refused, why the engine refused a
+  // lane (a retired mixed sampled kit's hits aren't lane sources), or null: the caller undoes it (no level is staged)
   async stageDrums(d) {
     const lanes = d?.lanes || [], missing = [];
     if (d?.grid?.edited && !(await this.stageGrid(d.grid))) missing.push("the drawn pattern (its base pattern isn't legal here)");
     if (!lanes.some((l) => l[0] !== this.C.SRC.NONE)) return { missing, refused: null };
-    for (const a of new Set(lanes.filter((l) => l[0] === this.C.SRC.SAMPLE).map((l) => l[1])))
-      if (!this.samples || !(await this.samples.load(a))) {
-        const k = this.opts.kits.find((x) => x.set === a);
-        missing.push(`drums (${k?.name ?? `sample set ${a}`}: samples missing)`);
-      }
     const no = [];
     for (const silent of [false, true])
       for (const [i, [kind, a, b]] of lanes.entries())
@@ -661,8 +650,6 @@ export class Desk {
   // Lane i plays a source (WB_SRC_*), staged and committed (the drum screen's). The first on a song with none copies
   // its kit to the others; a retired mixed sampled kit refuses: its hits aren't lane sources. { ok, message }
   async lane(i, kind, a, b) {
-    if (kind === this.C.SRC.SAMPLE && this.samples && !(await this.samples.load(a)))
-      return this.done(false, "Those samples are missing (see workbench/samples/README.md).");
     const k = this.opts.kits.find((x) => x.id === this.values.kit);
     const refused = this.drums && !this.drums.kit_lanes
       ? `${k?.name ?? "This kit"} can't be edited lane by lane (its hits are mixed copies, not sources): choose a shipped kit first.`

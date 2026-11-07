@@ -5,9 +5,8 @@
 // the bed off) and where the keys sound before the lead and where the lead plays (m:ss). Each render is written with
 // the bed (the song's noise and ambience, vinyl where it rolled none) and without it (name-nobed.wav).
 //   node workbench/tools/vibes_keys.mjs <out dir> [name ...]   (no names: every render below)
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { Desk } from "../desk.js";
-import { Samples } from "../wb.js";
 import { wav } from "./replay.mjs";
 
 const SR = 44100, Q = 128, VX_OFF_GLUE = 64;
@@ -54,20 +53,10 @@ async function setup(spec, bed = false) {
   };
   const C = await call("wb_consts"), lib = await call("wb_library");
   const opts = JSON.parse(readFileSync(here("../options.json"), "utf8"));
-  const files = {
-    exists: async (p) => existsSync(here(`../${p}`)),
-    get: async (p) => {
-      if (!existsSync(here(`../${p}`))) return null;
-      const b = readFileSync(here(`../${p}`));
-      return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength);
-    },
-  };
-  const samples = new Samples(call, C, files);
-  await samples.check(opts);
   ex.wb_seed(spec.seed);
   if (ex.wb_roll_set(C.RF.SET, spec.set) !== spec.set) throw new Error(`seed ${spec.seed}: set ${spec.set} not taken`);
   ex.wb_apply();
-  const desk = new Desk(call, C, opts, lib, { samples, rnd: () => 0.5 });
+  const desk = new Desk(call, C, opts, lib, { rnd: () => 0.5 });
   await desk.read(true);
   const said = [];
   const set = async (id, v) => { const r = await desk.set(id, v); if (!r.ok) said.push(`${id}: ${r.message}`); };

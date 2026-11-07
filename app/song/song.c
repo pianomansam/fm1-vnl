@@ -345,7 +345,8 @@ static void apply_row(song_t *s, int row, int v)
         song_ov_set(&s->ov, row - SR_OV, v);
         song_override(&s->ov);
     } else if (!lib_samples() &&
-               (row == SR_KIT ? lib_kit_sampled(v) : row >= SR_ROLE && row < SR_OV && lib_ins_sampled_struck(v))) {
+               (row == SR_KIT ? lib_kit_sampled(v) || v >= SONG_KIT_PRESET + SONG_KIT_SAMPLED
+                              : row >= SR_ROLE && row < SR_OV && lib_ins_sampled_struck(v))) {
         /* (no sample bank: a sampled instrument or kit refused) */
     } else if ((set = own_set(s)) != 0) {
         switch (row) {
@@ -354,6 +355,11 @@ static void apply_row(song_t *s, int row, int v)
         case SR_ROLE + V_LEAD: set->lead = (uint8_t)lib_lead_approved(v); break;
         case SR_ROLE + V_PAD: set->pad = (uint8_t)v; break;
         case SR_KIT:
+            s->kit_preset = (int8_t)(v >= SONG_KIT_PRESET ? v - SONG_KIT_PRESET : -1);
+            if (s->kit_preset >= SONG_KIT_SAMPLED)
+                v = KIT_S_RUSTY;          /* (under a shipped kit: a sampled kit's song, the ride section, the hats) */
+            else if (s->kit_preset >= 0)
+                v = KIT_BRUSHES;          /* (a synth kit's song: no ride section, its compressor) */
             set->kit = lib_kit_sampled(v) ? KIT_N : (uint8_t)v;
             set->skit = lib_kit_sampled(v) ? (uint8_t)v : KIT_N;
             break;
@@ -508,6 +514,7 @@ void song_start(song_t *s, const song_roll_t *r)
         own_by = 0;
     }
     memset(s, 0, sizeof *s);
+    s->kit_preset = -1;
     s->roll = *r;
     plan_build(&s->roll, &s->plan);
     s->glide_to = s->glide_from = s->ss = ss_of(s->roll.v[RF_TEMPO] > 0 ? s->roll.v[RF_TEMPO] : 80);
@@ -517,6 +524,28 @@ void song_start(song_t *s, const song_roll_t *r)
     s->lead.rolled = leads_style_roll(&s->roll) + 1;
     s->lead.style = leads_style(&s->roll) + 1;
     keys_win_for(s);
+}
+
+void song_start_kit(song_t *s, const song_roll_t *r, int kit)
+{
+    static lib_set_t set;                /* (the set the plan reads while song_start clears s) */
+    song_roll_t own;
+    int base, preset;
+    song_start(s, r);
+    if (kit < 0 || !own_set(s))
+        return;
+    apply_row(s, SR_KIT, kit);
+    set = s->set;
+    base = s->set_base;
+    own = s->roll;
+    preset = s->kit_preset;
+    lib_set_wb(&set, base);
+    song_start(s, &own);                 /* (as the workbench's: its stage's set and roll, its song from them) */
+    s->set = set;
+    s->set_base = (uint8_t)base;
+    s->own = SONG_OWN_SET;
+    s->kit_preset = (int8_t)preset;
+    lib_set_wb(&s->set, base);
 }
 
 int song_tick(song_t *s, song_ev_t *out, int max)
@@ -666,7 +695,8 @@ int song_request_row(song_t *s, int row, int value)
     if (!(row >= SR_OV && row < SR_OV + OV_N) && row != SR_ROLE + V_CHORD && row != SR_ROLE + V_BASS &&
         row != SR_ROLE + V_LEAD && row != SR_ROLE + V_PAD && row != SR_KIT)
         return 0;
-    if (row == SR_KIT && (value < 0 || value >= KIT_N)) return 0;
+    if (row == SR_KIT && (value < 0 || (value >= KIT_N && (value < SONG_KIT_PRESET ||
+                                                         value >= SONG_KIT_PRESET + SONG_KIT_PRESETS)))) return 0;
     if (row >= SR_ROLE && row < SR_OV && (value < 0 || value > 255)) return 0;
     B = (s->step == 0 && s->bar % 4 == 0) ? s->bar : (s->bar / 4 + 1) * 4;
     if (B >= s->roll.v[RF_BARS]) return 0;            /* the song ends first */

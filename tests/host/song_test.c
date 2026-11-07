@@ -11784,8 +11784,27 @@ static void test_samples_table(void)
     }
     CHECK(smp_bank(-1) == NULL && smp_bank(SB_N) == NULL, "bank out of range not NULL");
     CHECK(smp_hit(-1) == NULL && smp_hit(SH_N) == NULL, "hit out of range not NULL");
-    CHECK(sum == smp_bytes(), "zone bytes %u, smp_bytes %u", (unsigned)sum, (unsigned)smp_bytes());
-    CHECK(smp_bytes() <= 200 * 1024, "samples %u B over 200 KB", (unsigned)smp_bytes());
+    {                                             /* the kits' pieces: each zone once (pieces share some) */
+        const smp_zone_t *seen[SK_N * SK_P_N * SK_VL];
+        int ns = 0, set, pc, l, j;
+        for (set = 0; set < SK_N; set++)
+            for (pc = 0; pc < SK_P_N; pc++) {
+                const smp_piece_t *q = smp_piece(set, pc);
+                for (l = 0; q && l < SK_VL; l++) {
+                    for (j = 0; j < ns && seen[j] != q->z[l]; j++) {}
+                    if (j < ns)
+                        continue;
+                    seen[ns++] = q->z[l];
+                    check_zone(q->z[l], "kit", set, pc);
+                    sum += (q->z[l]->len + 1) / 2;
+                }
+            }
+    }
+    /* (a few pad bytes: the packer moves a zone off an update record's mark, app.h) */
+    CHECK(sum <= smp_bytes() && smp_bytes() - sum < 64, "zone bytes %u, smp_bytes %u", (unsigned)sum,
+          (unsigned)smp_bytes());
+    CHECK(SMP_HEAD + smp_split() <= 0xDC000u - 0x93000u && smp_bytes() - smp_split() <= 0xFC000u - 0xE5000u,
+          "samples %u B (%u in the first area) outgrow the bank's areas", (unsigned)smp_bytes(), (unsigned)smp_split());
 }
 
 /* The sample bank (samples.h): the host's copy checks out as the FM-1's would (head, CRC-32); a damaged, short, stale
@@ -11793,7 +11812,7 @@ static void test_samples_table(void)
    (the songs roll, the voices render). */
 static void test_samples_bank(void)
 {
-    static uint8_t bad[SMP_HEAD + 200u * 1024u];
+    static uint8_t bad[SMP_HEAD + 400u * 1024u], more[100u * 1024u];
     uint32_t n = SMP_HEAD + smp_bytes(), seed = 12345u, i;
     int k, sampled = 0, songs = 0;
     song_roll_t r, prev;
@@ -11805,20 +11824,32 @@ static void test_samples_bank(void)
     CHECK(smp_crc32(0, smp_blob + SMP_HEAD, smp_bytes()) == smp_crc(), "bank: CRC-32 %08X, tables' %08X",
           (unsigned)smp_crc32(0, smp_blob + SMP_HEAD, smp_bytes()), (unsigned)smp_crc());
     CHECK(smp_crc32(0, (const uint8_t *)"123456789", 9) == 0xCBF43926u, "bank: CRC-32 not the standard one");
-    CHECK(smp_mount(smp_blob, n) == 0 && smp_ready(), "bank: the host's copy does not mount");
-    CHECK(smp_mount(smp_blob, n - 1u) != 0 && !smp_ready(), "bank: a short window mounts");
-    CHECK(smp_mount(NULL, n) != 0, "bank: none mounts");
+    CHECK(smp_mount(smp_blob, n, NULL, 0) == 0 && smp_ready(), "bank: the host's copy does not mount");
+    CHECK(smp_mount(smp_blob, n - 1u, NULL, 0) != 0 && !smp_ready(), "bank: a short window mounts");
+    CHECK(smp_mount(NULL, n, NULL, 0) != 0, "bank: none mounts");
     memcpy(bad, smp_blob, n);
     bad[SMP_HEAD + smp_bytes() / 2u] ^= 0x10u;    /* a byte of the payload changed */
-    CHECK(smp_mount(bad, n) != 0, "bank: a damaged payload mounts");
+    CHECK(smp_mount(bad, n, NULL, 0) != 0, "bank: a damaged payload mounts");
     memcpy(bad, smp_blob, n);
     bad[12] ^= 1u;                                /* another build's samples (the head's CRC-32 not the tables') */
-    CHECK(smp_mount(bad, n) != 0, "bank: a stale bank mounts");
+    CHECK(smp_mount(bad, n, NULL, 0) != 0, "bank: a stale bank mounts");
     memcpy(bad, smp_blob, n);
-    bad[4] = 2u;                                  /* another format */
-    CHECK(smp_mount(bad, n) != 0, "bank: another format mounts");
+    bad[4] = 1u;                                  /* another format (the one-area bank's) */
+    CHECK(smp_mount(bad, n, NULL, 0) != 0, "bank: another format mounts");
+    CHECK(smp_bytes() - smp_split() <= sizeof more, "bank: the second area's part outgrew the test");
+    memcpy(bad, smp_blob, SMP_HEAD + smp_split());  /* in two areas, as the FM-1 keeps it */
+    memset(bad + SMP_HEAD + smp_split(), 0xFF, smp_bytes() - smp_split());
+    memcpy(more, smp_blob + SMP_HEAD + smp_split(), smp_bytes() - smp_split());
+    CHECK(smp_mount(bad, SMP_HEAD + smp_split(), more, sizeof more) == 0 &&
+              smp_piece(SK_BRUSHES, SK_RIDE)->z[1]->off >= smp_split() && smp_data(smp_piece(SK_BRUSHES, SK_RIDE)->z[1])[0] ==
+                  smp_blob[SMP_HEAD + smp_piece(SK_BRUSHES, SK_RIDE)->z[1]->off],
+          "bank: two areas do not mount, or a zone reads from the wrong one");
+    CHECK(smp_mount(bad, SMP_HEAD + smp_split(), more, smp_bytes() - smp_split() - 1u) != 0,
+          "bank: a short second area mounts");
+    more[7] ^= 1u;
+    CHECK(smp_mount(bad, SMP_HEAD + smp_split(), more, sizeof more) != 0, "bank: a damaged second area mounts");
     memset(bad, 0xFF, n);                         /* erased flash: never written, or cut short (the head last) */
-    CHECK(smp_mount(bad, n) != 0 && !smp_ready(), "bank: erased flash mounts");
+    CHECK(smp_mount(bad, n, NULL, 0) != 0 && !smp_ready(), "bank: erased flash mounts");
     CHECK(smp_bank(SB_KNIGHT) == NULL && smp_hit(SH_GG_KICK) == NULL, "bank: none, yet tables given");
 
     lib_set_samples(0);                           /* as app_init with no bank */
@@ -11880,7 +11911,7 @@ static void test_samples_bank(void)
     }
 
     lib_set_samples(1);
-    CHECK(smp_mount(smp_blob, n) == 0 && smp_bank(SB_KNIGHT) != NULL, "bank: the host's copy does not mount again");
+    CHECK(smp_mount(smp_blob, n, NULL, 0) == 0 && smp_bank(SB_KNIGHT) != NULL, "bank: the host's copy does not mount again");
     printf("bank: %u B, CRC-32 %08X; no bank: %d songs rolled, none sampled\n", (unsigned)n, (unsigned)smp_crc(),
            songs);
 }
@@ -13565,30 +13596,28 @@ static void test_request_row_lands(void)
     song_override(NULL);
 }
 
-/* lib_set_kit_rule (the device's): a song never plays a retired kit: a retired acoustic one becomes Soft brushes, the
-   synth ones (no approved synth kit on the device) stay; off, every kit as rolled */
-static void test_kit_rule(void)
+/* song_start_kit: a shipped kit from the start: the song's own set, the set's kit under it (Brushes, or the mixed
+   Rusty for a sampled one), the preset kept; a plain kit no preset; -1 the song as rolled. Refused kit rows: none. */
+static void test_start_kit(void)
 {
-    uint32_t seed;
-    int swapped = 0, kept = 0;
-    for (seed = 1; seed < 400; seed++) {
-        song_roll_t r;
-        int was, now;
-        roll_song(NULL, seed, &r);
-        lib_set_kit_rule(0);
-        was = lib_song_kit(&r);
-        lib_set_kit_rule(1);
-        now = lib_song_kit(&r);
-        if (lib_kit_retired(was) && was != KIT_DUSTY && was != KIT_SOFT && was != KIT_808) {
-            CHECK(now == KIT_BRUSHES, "seed %u: retired kit %d plays %d, not Soft brushes", seed, was, now);
-            swapped++;
-        } else {
-            CHECK(now == was, "seed %u: kit %d moved to %d", seed, was, now);
-            kept++;
-        }
-    }
-    lib_set_kit_rule(0);
-    CHECK(swapped > 0 && kept > 0, "some songs' kits swapped (%d), the rest kept (%d)", swapped, kept);
+    song_t s;
+    song_roll_t r;
+    roll_song(NULL, 21u, &r);
+    song_start_kit(&s, &r, -1);
+    CHECK(s.kit_preset == -1 && !(s.own & SONG_OWN_SET) && s.roll.v[RF_SET] == r.v[RF_SET], "start_kit -1: as rolled");
+    song_start_kit(&s, &r, SONG_KIT_PRESET + 1);
+    CHECK(s.kit_preset == 1 && (s.own & SONG_OWN_SET) && s.roll.v[RF_SET] == LIB_SET_WB &&
+              lib_song_kit(&s.roll) == KIT_BRUSHES && s.state == SS_PLAYING && s.bar == 0,
+          "start_kit CR-78: preset %d, kit %d", s.kit_preset, lib_song_kit(&s.roll));
+    song_start_kit(&s, &r, SONG_KIT_PRESET + SONG_KIT_SAMPLED + 2);
+    CHECK(s.kit_preset == SONG_KIT_SAMPLED + 2 && lib_song_kit(&s.roll) == KIT_S_RUSTY,
+          "start_kit Room - brushes: preset %d, kit %d", s.kit_preset, lib_song_kit(&s.roll));
+    song_start_kit(&s, &r, KIT_BRUSHES);
+    CHECK(s.kit_preset == -1 && lib_song_kit(&s.roll) == KIT_BRUSHES, "start_kit Soft brushes: no preset");
+    CHECK(song_request_row(&s, SR_KIT, SONG_KIT_PRESET + SONG_KIT_PRESETS - 1) &&
+              !song_request_row(&s, SR_KIT, SONG_KIT_PRESET + SONG_KIT_PRESETS) && !song_request_row(&s, SR_KIT, KIT_N),
+          "a kit request takes the shipped kits, nothing past them");
+    song_start(&s, &r);
 }
 
 int main(int argc, char **argv)
@@ -13754,7 +13783,7 @@ int main(int argc, char **argv)
     RUN(test_lead_loop_octave);
     RUN(test_rolled_matches_wb);
     RUN(test_request_row_lands);
-    RUN(test_kit_rule);
+    RUN(test_start_kit);
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;

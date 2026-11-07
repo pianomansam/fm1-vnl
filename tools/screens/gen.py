@@ -92,6 +92,7 @@ RUNTIME_SOURCES = {"maps", "progs", "families", None}
 VIRTUAL = ["rhythm", "loop", "endless"]
 ST = {"approved": 0, "candidate": 1, "retired": 2, "removed": 3}
 CH_HIDDEN, CH_ROLLED = 4, 8
+FAM = {None: 0, "acoustic": 1, "synth": 2, "electric": 3, "any": 4}   # CH_FAM: an instrument's or kit's family
 
 
 def choices(row, opts):
@@ -133,8 +134,8 @@ def choices(row, opts):
         return [(v, n.upper(), 0, 0, None, None) for v, n in plain]
     if src == "instruments":
         role = {"CHORD": "keys", "LEAD": "lead", "BASS": "bass", "PAD": "pad"}[row["role"]]
-        return [(i["id"], ((row["role"] == "BASS" and i.get("short")) or i["name"]).upper(), ST[i["status"]], 0, None,
-                 None) for i in opts["instruments"] if role in i["roles"]]
+        return [(i["id"], ((row["role"] == "BASS" and i.get("short")) or i["name"]).upper(), ST[i["status"]],
+                 FAM[i.get("family")] << 4, None, None) for i in opts["instruments"] if role in i["roles"]]
     if src == "comping":
         out.append(rolled + (None, None))
         rhythms = [dict(c, id=c["value"]) for c in opts.get("compRhythms", [])]
@@ -164,7 +165,8 @@ def choices(row, opts):
     if src == "strumFills":
         return with_rolled(["Step back", "Drive"], "Default")
     if src == "kits":
-        return [(k["id"], (k.get("short") or k["name"]).upper(), ST[k["status"]], 0, None, None) for k in opts["kits"]]
+        return [(k["id"], (k.get("short") or k["name"]).upper(), ST[k["status"]], FAM[k.get("family")] << 4, None, None)
+                for k in opts["kits"]]
     if src == "patterns":
         return [(p["id"], p["name"].upper(), ST[p["status"]], 0, None, None) for p in opts["patterns"]]
     if src == "strumPats":
@@ -259,8 +261,10 @@ def gen_choices(rows, opts, shown):
          "enum {\n" + "".join(f"    ROW_{ident(r['id'])},\n" for r in rows) + "    ROW_N\n};\n\n",
          "/* a choice's flags (ch_flags): its status in the low 2 bits (0 approved, 1 candidate, 2 retired: behind\n"
          "   \"show retired\", 3 removed: never offered), CH_HIDDEN never offered itself (shown as the current value\n"
-         "   only), CH_ROLLED the engine's own choice (\"as rolled\") */\n"
-         "#define CH_STATUS(f) ((f) & 3)\n#define CH_HIDDEN 4\n#define CH_ROLLED 8\n\n",
+         "   only), CH_ROLLED the engine's own choice (\"as rolled\"), CH_FAM an instrument's or kit's family (0 none,\n"
+         "   CH_ACOUSTIC, CH_SYNTH, CH_ELECTRIC, CH_ANY: options.json's) */\n"
+         "#define CH_STATUS(f) ((f) & 3)\n#define CH_HIDDEN 4\n#define CH_ROLLED 8\n#define CH_FAM(f) ((f) >> 4 & 7)\n"
+         "enum { CH_ACOUSTIC = 1, CH_SYNTH, CH_ELECTRIC, CH_ANY };\n\n",
          "const char *ch_name(int row, int value);          /* its name as the device writes it; NULL: no such choice */\n",
          "int ch_count(int row);                            /* its choices, in the workbench's order */\n",
          "int ch_value(int row, int index);\n",

@@ -154,10 +154,7 @@
     await wb.start();
     const opts = await (await fetch("options.json")).json();
     lib = await wb.call("wb_library");
-    const samples = new wb.Samples(wb.call, wb.C);
-    await samples.check(opts);
-    samples.preload().catch((e) => { $("msg").textContent = String(e); });   // before Play, so a load mid-song is rare
-    desk = new Desk(wb.call, wb.C, opts, lib, { probe: wb.probe, position: () => pos, samples, events: wb.events });
+    desk = new Desk(wb.call, wb.C, opts, lib, { probe: wb.probe, position: () => pos, events: wb.events });
     await wb.call("wb_seed", 21);
     await desk.read(true);
     await desk.approvedKit();   // the boot song lands on an approved kit too
