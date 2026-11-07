@@ -1741,8 +1741,8 @@ int app_expect(const char *what, int *got)
 #endif
     }
 #if VNL_UI_RUNTIME
-    else if (!strcmp(what, "screen"))   /* the screen shown (screens_gen.h's US_*) */
-        *got = ui_hnav.stack[ui_hnav.depth - 1];
+    else if (!strcmp(what, "home"))     /* the main screen shown (1) or another (0) */
+        *got = ui_hnav.stack[ui_hnav.depth - 1] == UI_HOME;
     else if (!strcmp(what, "key_lit")) {   /* the keys lit, bit k key k (blinking ones not counted) */
         uint32_t blink;
         *got = (int)ui_key_lights(&ui_hnav, &s, &blink);

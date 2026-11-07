@@ -27,8 +27,8 @@ enum ui_color { UC_BLACK, UC_WHITE, UC_LINE, UC_DIM, UC_GRAY, UC_AMB, UC_HI, UC_
 #define UI_PENDING_COLOR UC_PENDING   /* a value waiting (-1: none) */
 enum ui_icon { UI_ICON_BASS, UI_ICON_COMP, UI_ICON_DRUMS, UI_ICON_LEAD, UI_ICON_PAD, UI_ICON_SONG, UI_ICON_TEXTURE };
 enum ui_part { UI_PART_DRUMS, UI_PART_BASS, UI_PART_KEYS, UI_PART_PAD, UI_PART_LEAD, UI_PART_TEXTURE };
-enum ui_screen_id { US_LEVELS, US_MAIN, US_MIXER, US_P_BASS, US_P_COMP, US_P_COMP_MORE, US_P_DRUMS, US_P_DRUMS_MORE, US_P_LEAD, US_P_LEAD_MORE, US_P_PAD, US_P_SONG, US_P_SONG3, US_P_SONG_MORE, US_P_TEXTURE, US_PREFS, US_SECTIONS };
-#define UI_MAX_SCREENS 17
+enum ui_screen_id { US_LEVELS, US_LEVELS_KNOBS, US_LEVELS_KNOBS2, US_MAIN, US_MIXER, US_P_BASS, US_P_COMP, US_P_COMP_MORE, US_P_DRUMS, US_P_DRUMS_MORE, US_P_LEAD, US_P_LEAD_MORE, US_P_PAD, US_P_SONG, US_P_SONG3, US_P_SONG_MORE, US_P_TEXTURE, US_PREFS, US_SECTIONS };
+#define UI_MAX_SCREENS 19
 enum ui_field { UFLD_BASS_INS, UFLD_BASS_LINE, UFLD_COMP_FILL, UFLD_COMP_INS, UFLD_COMP_REG, UFLD_COMP_RHYTHM, UFLD_COMP_THIN, UFLD_COMP_VOICING, UFLD_DRUM_KICK, UFLD_DRUM_KIT, UFLD_DRUM_PATTERN, UFLD_DRUM_RIDE, UFLD_DRUM_VAR, UFLD_ENDLESS, UFLD_KEY, UFLD_LEAD_INS, UFLD_LEAD_LOOP_SET, UFLD_LEAD_PHRASE, UFLD_LEAD_REG, UFLD_LEAD_STYLE_SET, UFLD_LOOP, UFLD_MODE, UFLD_MOOD, UFLD_MOTION, UFLD_PAD_INS, UFLD_PAD_NOTES, UFLD_PAD_ON_SET, UFLD_PAD_PLACE_SET, UFLD_SONG_COLOR, UFLD_SONG_MAP, UFLD_SONG_PROG, UFLD_SONG_SWING, UFLD_TEMPO, UFLD_TEX_AMB, UFLD_TEX_DUST, UFLD_TEX_NOISE };
 #define UI_N_FIELDS 36
 
@@ -104,8 +104,9 @@ typedef struct {
     uint8_t bar_y, bar_w, bar_h, bar_color, bar_back;
 } ui_knob_style_t;
 /* lanes or faders: their parts (a list), a lane's label width, row height, bars across, the keys' letters
-   (space-separated, UI_STR), live (scrolls smoothly) */
-typedef struct { uint8_t parts, label, row_h, window; uint16_t keys; uint8_t live; } ui_lanes_t;
+   (faders: the parts' names under their icons) and the tags under the faders (what drives each), each list
+   |-separated (UI_STR), live (scrolls smoothly) */
+typedef struct { uint8_t parts, label, row_h, window; uint16_t keys, tags; uint8_t live; } ui_lanes_t;
 /* an action. arg: a go's screen (or UI_GO_*), a turn's or nudge's field, a jump's section (255: the cursor's),
    a mute's, solo's, reroll's or level's part (255: the highlighted lane's, or the song); by: a turn's step or
    a nudge's amount; lng: the long press's action (0 none); list: a turn's byCursor fields (255: none there) */

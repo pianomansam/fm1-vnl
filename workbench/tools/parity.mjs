@@ -188,6 +188,12 @@ const SEED = 72;
     { check: "mixer", expect: (st) => is("screen", st.screen, "levels") || is("keys level", v(st).levels.keys, -4) },
     { spin: ["K1", 20] }, { check: "mixer-top", expect: (st) => is("keys level", v(st).levels.keys, 6) },
     { spin: ["K1", -6] },
+    // the Mixer laid out for the knobs (the mock's variant): K1-K4 a part's level each, SELECT the other page
+    { screen: "levelsKnobs" }, { spin: ["K2", -3] }, { keydown: 4 }, { keyup: 4 },
+    { check: "mixer-knobs", expect: (st) => is("bass level", v(st).levels.bass, -3) || is("mute", v(st).activity.mute.join(), "keys") },
+    { spin: ["SELECT", 1] }, { spin: ["K1", 2] },
+    { check: "mixer-knobs-2", expect: (st) => is("screen", st.screen, "levelsKnobs2") || is("lead level", v(st).levels.lead, 2) },
+    { keydown: 4 }, { keyup: 4 }, { screen: "levels" },
     // Settings (GLO): the placeholder; GLO back
     { press: "GLO" }, { check: "settings", expect: (st) => is("screen", st.screen, "prefs") },
     { press: "GLO" }, { check: "settings-back", expect: (st) => is("screen", st.screen, "levels") },

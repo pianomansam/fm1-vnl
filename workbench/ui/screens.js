@@ -330,7 +330,7 @@ export default {
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
         { y: 50, h: 140, draw: [
-          { faders: [6, 0, 228, 140], parts: ["drums", "bass", "keys", "pad", "lead", "texture"] },
+          { faders: [6, 0, 228, 140], parts: ["drums", "bass", "keys", "pad", "lead", "texture"], labels: ["DRUMS", "BASS", "COMP", "PAD", "LEAD", "TEXT"] },
         ] },
         { y: 196, h: 44, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
@@ -342,6 +342,80 @@ export default {
         ALGO: { do: "cursor" }, SELECT: { do: "cursor" }, K1: { do: "level" }, K2: { do: "mute" }, K3: { do: "solo" }, FX: { go: "back" },
       },
       say: ["MIXER. ", { when: "song", text: "{section}, BAR {bar} OF {bars}" }],
+    },
+
+    // The mixer, laid out for the knobs (Sam, 2026-11-07: a variant to compare; the mock's "Mixer" switch under the
+    // screen picks it, the device keeps the layout above): the same faders, K1-K4 one part's level each, two pages
+    // (SELECT or ALGO flips them: drums, bass, comp, pad; then lead, texture), the knob under each fader it drives.
+    levelsKnobs: {
+      title: "Mixer: knobs",
+      pages: ["levelsKnobs", "levelsKnobs2"],
+      bands: [
+        { y: 0, h: 16, draw: [
+          { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
+          { when: ["song", "looping"], text: "LOOP", font: "T", after: 8, y: 2, color: "HI" },
+          { when: "!song", text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
+          { when: "known", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
+        ] },
+        { y: 18, h: 28, draw: [
+          { rect: [2, 0, 2, 26], color: "WHITE" },
+          { text: "MIXER", font: "B", x: 10, y: 4, color: "WHITE" },
+          { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
+          { when: ["song", "!pending"], text: "{chord}", font: "XS", right: 232, y: 5, color: "WHITE" },
+          { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
+        ] },
+        { y: 50, h: 140, draw: [
+          { faders: [6, 0, 228, 140], parts: ["drums", "bass", "keys", "pad", "lead", "texture"], labels: ["DRUMS", "BASS", "COMP", "PAD", "LEAD", "TEXT"],
+            tags: ["K1", "K2", "K3", "K4", "", ""] },
+        ] },
+        { y: 196, h: 44, draw: [
+          { rect: [8, 0, 224, 1], color: "LINE" },
+          { text: "K1-K4 LEVEL   SELECT LEAD/TEXT   KEY MUTE/SOLO", font: "T", x: 8, y: 8, color: "DIM" },
+          { text: "FX BACK   ARP PARTS   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
+        ] },
+      ],
+      // K1-K4 a part's level each (this page's: the tags under the faders say which); SELECT or ALGO the other page;
+      // the keys mute (press) and solo (hold) as everywhere
+      controls: {
+        K1: { do: "level", part: "drums" }, K2: { do: "level", part: "bass" }, K3: { do: "level", part: "keys" }, K4: { do: "level", part: "pad" },
+        ALGO: { do: "page" }, SELECT: { do: "page" }, FX: { go: "back" }, HOME: { go: "home" },
+      },
+      say: ["MIXER, PAGE {page}. ", { when: "song", text: "{section}, BAR {bar} OF {bars}" }],
+    },
+    levelsKnobs2: {
+      title: "Mixer: knobs",
+      pages: ["levelsKnobs", "levelsKnobs2"],
+      bands: [
+        { y: 0, h: 16, draw: [
+          { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
+          { when: ["song", "looping"], text: "LOOP", font: "T", after: 8, y: 2, color: "HI" },
+          { when: "!song", text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
+          { when: "known", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
+        ] },
+        { y: 18, h: 28, draw: [
+          { rect: [2, 0, 2, 26], color: "WHITE" },
+          { text: "MIXER", font: "B", x: 10, y: 4, color: "WHITE" },
+          { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
+          { when: ["song", "!pending"], text: "{chord}", font: "XS", right: 232, y: 5, color: "WHITE" },
+          { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
+        ] },
+        { y: 50, h: 140, draw: [
+          { faders: [6, 0, 228, 140], parts: ["drums", "bass", "keys", "pad", "lead", "texture"], labels: ["DRUMS", "BASS", "COMP", "PAD", "LEAD", "TEXT"],
+            tags: ["", "", "", "", "K1", "K2"] },
+        ] },
+        { y: 196, h: 44, draw: [
+          { rect: [8, 0, 224, 1], color: "LINE" },
+          { text: "K1-K4 LEVEL   SELECT DRUMS-PAD   KEY MUTE/SOLO", font: "T", x: 8, y: 8, color: "DIM" },
+          { text: "FX BACK   ARP PARTS   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
+        ] },
+      ],
+      // K1-K4 a part's level each (this page's: the tags under the faders say which); SELECT or ALGO the other page;
+      // the keys mute (press) and solo (hold) as everywhere
+      controls: {
+        K1: { do: "level", part: "lead" }, K2: { do: "level", part: "texture" },
+        ALGO: { do: "page" }, SELECT: { do: "page" }, FX: { go: "back" }, HOME: { go: "home" },
+      },
+      say: ["MIXER, PAGE {page}. ", { when: "song", text: "{section}, BAR {bar} OF {bars}" }],
     },
 
     // PLACEHOLDER: the user's settings, GLO (Sam, 2026-11-06): what goes here (reduced movement, the

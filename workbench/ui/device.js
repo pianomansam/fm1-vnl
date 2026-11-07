@@ -298,22 +298,27 @@ export function drawScreen(lcd, screen, bag, data, C = colors(THEME, data.colors
           }
         });
       }
-      else if (it.faders) {   // { faders: [x, y, w, h], parts }: the mixer, a column a part (levels -12..+6 dB)
+      else if (it.faders) {   // { faders: [x, y, w, h], parts, labels, tags }: the mixer, a column a part (levels
+        // -12..+6 dB); labels: each part's name under its icon (Sam, 2026-11-07); tags: what drives each (K1 ...)
         const [x, y, w, h] = it.faders, n = it.parts.length, cw = Math.floor(w / n), act = bag.activity, f = font("T");
-        const top = y + 14, tH = h - 34, at = (db) => top + Math.round(((6 - db) / 18) * tH);
+        const top = y + (it.labels ? 25 : 14), tH = h - (it.labels ? 45 : 34), at = (db) => top + Math.round(((6 - db) / 18) * tH);
         it.parts.forEach((p, i) => {
           const cx = x + i * cw, part = p === "keys" ? "comp" : p, col = C[part.toUpperCase()] ?? C.WHITE;
           const off = act?.solo ? act.solo !== p : act?.mute?.includes(p), db = bag.levels?.[p] ?? 0, mid = cx + Math.floor(cw / 2);
           if (bag[`sel${i}`]) lcd.rect(cx + 1, y, cw - 2, h, C.LINE);
           if (data.icons?.[part]) data.icons[part].forEach((row, j) => [...row].forEach((c, k) => { if (c === "#") lcd.rect(mid - 4 + k, y + 2 + j, 1, 1, off ? C.DIM : col); }));
+          if (it.labels?.[i]) lcd.text(mid - Math.floor(textW(f, it.labels[i]) / 2), y + 11, f, it.labels[i], off ? C.DIM : col);
           lcd.rect(mid - 2, top, 4, tH, C.DIM);                          // the track
           lcd.rect(mid - 2, at(db), 4, top + tH - at(db), off ? C.GRAY : col);   // the level, from the bottom
           lcd.rect(mid - 6, at(0), 12, 1, C.WHITE);                       // 0 dB
           lcd.rect(mid - 7, at(db) - 1, 14, 3, off ? C.GRAY : C.WHITE);   // the fader's cap
           const t = `${db > 0 ? "+" : ""}${db}`;
           lcd.text(mid - Math.floor(textW(f, t) / 2), y + h - 18, f, t, off ? C.DIM : C.WHITE);
-          const ms = act?.solo === p ? "S" : act?.mute?.includes(p) ? "M" : "";
-          if (ms) lcd.text(mid - Math.floor(textW(f, ms) / 2), y + h - 8, f, ms, C.HI);
+          // under it: its knob (tags), and M or S
+          const ms = act?.solo === p ? "S" : act?.mute?.includes(p) ? "M" : "", tag = it.tags?.[i] ?? "";
+          const both = tag ? `${tag}${ms ? ` ${ms}` : ""}` : ms, x0 = mid - Math.floor(textW(f, both) / 2);
+          const pen = tag ? lcd.text(x0, y + h - 8, f, tag, C.GRAY) : x0;
+          if (ms) lcd.text(tag ? pen + textW(f, " ") : x0, y + h - 8, f, ms, C.HI);
         });
       }
       else if (it.sections) {   // the song's map: a segment per section (by its bars), the one playing filled to

@@ -116,6 +116,17 @@ static int32_t ui_round_q(int32_t num, int32_t den)
     return a >= 0 ? a / d : -((-a + d - 1) / d);
 }
 
+/* the i-th entry of a |-separated list (UI_STR), into t (at most n - 1 characters): "" past its end */
+static const char *ui_nth(const char *list, int i, char *t, int n)
+{
+    int k = 0;
+    for (; *list && i; list++)
+        if (*list == '|') i--;
+    for (; *list && *list != '|' && k < n - 1; list++) t[k++] = *list;
+    t[k] = 0;
+    return t;
+}
+
 /* a part's look, dimmed when it is muted or soloed out */
 static int ui_part_off(const ui_activity_t *act, int p)
 {
@@ -166,15 +177,11 @@ static void ui_lanes(const ui_bag_t *b, const ui_item_t *it)
         int p = UI_LIST_DATA[parts->at + i], off = ui_part_off(act, p), lo = 127, hi = 0, rspan, n;
         int32_t ry = y + i * rowH;
         uint16_t col = UI_COLORS[UI_PART_LOOK[p].color], dimc = UI_COLORS[UC_DIM];
-        char key[4];
+        char key[8];
         if (ui_true(b, UV_I(i, UVK_I_SEL))) cv_rect(x - 4, ry, lx - x, rowH - 2, UI_COLORS[UC_LINE]);
         ui_part_icon(p, x, ry + 4, off ? dimc : col);
         cv_text(x, ry + 13, &FONT_T, UI_STR(UI_PART_LOOK[p].name), off ? dimc : col);
-        for (n = 0, k = 0; keys[k] && n < i; k++)                /* its key's letter (the i-th of the list) */
-            if (keys[k] == ' ') n++;
-        for (n = 0; keys[k] && keys[k] != ' ' && n < 3; k++) key[n++] = keys[k];
-        key[n] = 0;
-        if (key[0]) cv_text(x + 32, ry + 2, &FONT_T, key, dimc);
+        if (ui_nth(keys, i, key, sizeof key)[0]) cv_text(x + 32, ry + 2, &FONT_T, key, dimc);   /* its key's letter */
         if (act && act->mute >> p & 1u) cv_text(x + 12, ry + 2, &FONT_T, "M", UI_COLORS[UC_HI]);
         if (act && act->solo == p) cv_text(x + 12, ry + 2, &FONT_T, "S", UI_COLORS[UC_HI]);
         cv_rect(lx, ry + rowH - 2, lw, 1, UI_COLORS[UC_LINE]);
@@ -215,17 +222,21 @@ static void ui_faders(const ui_bag_t *b, const ui_item_t *it)
 {
     const ui_list_t *parts = &UI_LISTS[UI_LANE_ITEMS[it->ref].parts];
     const ui_activity_t *act = b->act;
-    int32_t x = it->x, y = it->y, w = it->w, h = it->h, n = parts->n, cw = w / (n ? n : 1), top = y + 14, tH = h - 34;
+    const char *labels = UI_STR(UI_LANE_ITEMS[it->ref].keys), *tags = UI_STR(UI_LANE_ITEMS[it->ref].tags);
+    int32_t x = it->x, y = it->y, w = it->w, h = it->h, n = parts->n, cw = w / (n ? n : 1);
+    int32_t top = y + (*labels ? 25 : 14), tH = h - (*labels ? 45 : 34);
     int i;
 #define UI_AT(db) (top + ui_round_q((6 - (db)) * tH, 18))
     for (i = 0; i < n; i++) {
         int p = UI_LIST_DATA[parts->at + i], off = ui_part_off(act, p), db = act ? act->level[p] : 0, k = 0, m;
         int32_t cx = x + i * cw, mid = cx + cw / 2;
         uint16_t col = UI_COLORS[UI_PART_LOOK[p].color], gray = UI_COLORS[UC_GRAY];
-        char t[6];
+        char t[6], name[12], tag[8];
         const char *ms;
         if (ui_true(b, UV_I(i, UVK_I_SEL))) cv_rect(cx + 1, y, cw - 2, h, UI_COLORS[UC_LINE]);
         ui_part_icon(p, mid - 4, y + 2, off ? UI_COLORS[UC_DIM] : col);
+        if (ui_nth(labels, i, name, sizeof name)[0])           /* its name under the icon */
+            cv_text(mid - text_w(&FONT_T, name) / 2, y + 11, &FONT_T, name, off ? UI_COLORS[UC_DIM] : col);
         cv_rect(mid - 2, top, 4, tH, UI_COLORS[UC_DIM]);                              /* the track */
         cv_rect(mid - 2, UI_AT(db), 4, top + tH - UI_AT(db), off ? gray : col);    /* the level */
         cv_rect(mid - 6, UI_AT(0), 12, 1, UI_COLORS[UC_WHITE]);                    /* 0 dB */
@@ -238,7 +249,20 @@ static void ui_faders(const ui_bag_t *b, const ui_item_t *it)
         t[k] = 0;
         cv_text(mid - text_w(&FONT_T, t) / 2, y + h - 18, &FONT_T, t, off ? UI_COLORS[UC_DIM] : UI_COLORS[UC_WHITE]);
         ms = act && act->solo == p ? "S" : act && act->mute >> p & 1u ? "M" : "";
-        if (*ms) cv_text(mid - text_w(&FONT_T, ms) / 2, y + h - 8, &FONT_T, ms, UI_COLORS[UC_HI]);
+        ui_nth(tags, i, tag, sizeof tag);
+        {                                                       /* under it: its knob, and M or S */
+            char both[16];
+            int32_t x0, pen;
+            both[0] = 0;
+            k = 0;
+            while (tag[k]) { both[k] = tag[k]; k++; }
+            if (tag[0] && *ms) both[k++] = ' ';
+            if (*ms) both[k++] = *ms;
+            both[k] = 0;
+            x0 = mid - text_w(&FONT_T, both) / 2;
+            pen = tag[0] ? cv_text(x0, y + h - 8, &FONT_T, tag, gray) : x0;
+            if (*ms) cv_text(tag[0] ? pen + text_w(&FONT_T, " ") : x0, y + h - 8, &FONT_T, ms, UI_COLORS[UC_HI]);
+        }
     }
 #undef UI_AT
 }

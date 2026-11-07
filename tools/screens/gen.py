@@ -558,7 +558,8 @@ def gen_screens(data, vocab, rows, all_parts=None):
                     past = 1                                    # a field's bar: numbers only (device.js's hasBar)
             if kind in ("lanes", "faders"):
                 lt = (lst(part(p) for p in it["parts"]), it.get("label", 52), it.get("rowH", 22), it.get("window", 8),
-                      s(" ".join(it.get("keys", []))), 1 if it.get("live") else 0)
+                      s("|".join(it.get("keys", it.get("labels", [])))), s("|".join(it.get("tags", []))),
+                      1 if it.get("live") else 0)
                 if lt not in lane_items:
                     lane_items.append(lt)
                 ref = lane_items.index(lt)
@@ -716,8 +717,9 @@ def gen_screens(data, vocab, rows, all_parts=None):
         "typedef struct {\n    uint8_t x, dx, label_y, label_font, label_color, value_y, value_font, value_color, value_when;\n"
         "    uint8_t bar_y, bar_w, bar_h, bar_color, bar_back;\n} ui_knob_style_t;\n"
         "/* lanes or faders: their parts (a list), a lane's label width, row height, bars across, the keys' letters\n"
-        "   (space-separated, UI_STR), live (scrolls smoothly) */\n"
-        "typedef struct { uint8_t parts, label, row_h, window; uint16_t keys; uint8_t live; } ui_lanes_t;\n"
+        "   (faders: the parts' names under their icons) and the tags under the faders (what drives each), each list\n"
+        "   |-separated (UI_STR), live (scrolls smoothly) */\n"
+        "typedef struct { uint8_t parts, label, row_h, window; uint16_t keys, tags; uint8_t live; } ui_lanes_t;\n"
         "/* an action. arg: a go's screen (or UI_GO_*), a turn's or nudge's field, a jump's section (255: the cursor's),\n"
         "   a mute's, solo's, reroll's or level's part (255: the highlighted lane's, or the song); by: a turn's step or\n"
         "   a nudge's amount; lng: the long press's action (0 none); list: a turn's byCursor fields (255: none there) */\n"

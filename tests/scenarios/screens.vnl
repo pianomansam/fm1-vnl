@@ -9,7 +9,7 @@ where
 wait 50
 said BPM
 shot boot.png
-expect screen 1
+expect home 1
 tap PLAY
 wait 3000
 said PLAY
@@ -37,14 +37,14 @@ key 7 up
 said LEAD SOLO OFF
 tap HOME
 wait 50
-expect screen 1
+expect home 1
 tap SEL
 wait 50
 said SECTIONS
 shot sections.png
 tap SEL
 wait 50
-expect screen 1
+expect home 1
 tap ARP
 wait 50
 said PARTS
@@ -61,4 +61,4 @@ said SETTINGS
 shot settings.png
 tap GLO
 wait 50
-expect screen 1
+expect home 1

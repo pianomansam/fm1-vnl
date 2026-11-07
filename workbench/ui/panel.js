@@ -122,6 +122,24 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
       usbBtn.textContent = usb ? "Disconnect FM-1" : "Connect FM-1";
     } });
   tools.append(usbBtn);
+  // the Mixer's layout, to compare (the mock only, remembered per viewer; the device keeps the faders layout): faders
+  // (ALGO picks, K1 the level, K2 mute, K3 solo) or knobs (K1-K4 a part's level each, SELECT the page)
+  const MIX_KEY = "wb-mixer";
+  const mixGet = () => { try { return localStorage.getItem(MIX_KEY) === "knobs" ? "knobs" : "faders"; } catch { return "faders"; } };
+  const mixSel = el("select", { title: "The Mixer's layout (the mock only; the device keeps faders)",
+    onchange: () => { try { localStorage.setItem(MIX_KEY, mixSel.value); } catch { /* this visit only */ } load(); } },
+    el("option", { value: "faders", textContent: "Mixer: faders (ALGO, K1)" }),
+    el("option", { value: "knobs", textContent: "Mixer: knobs (K1-K4, 2 pages)" }));
+  mixSel.value = mixGet();
+  tools.append(mixSel);
+  // the screens with the Mixer's layout chosen: every way to the Mixer goes to the knobs' one instead
+  const withMixer = (data) => {
+    if (mixSel.value !== "knobs" || !data.screens.levelsKnobs) return data;
+    const to = (a) => (a?.go === "levels" ? { ...a, go: "levelsKnobs" } : a);
+    const map = (c) => Object.fromEntries(Object.entries(c ?? {}).map(([k, a]) => [k, to(a)]));
+    return { ...data, defaults: map(data.defaults),
+             screens: Object.fromEntries(Object.entries(data.screens).map(([id, sc]) => [id, { ...sc, controls: map(sc.controls) }])) };
+  };
   addEventListener("pagehide", () => usb?.disconnect());
   // the 27 keys, F3 up (plat.h's keys 0..26): KEY0..KEY26; a screen maps them like any control (the song map's
   // white keys jump, Sam 2026-11-06). The OP1-OP5 black keys are printed on the FM-1's lower black keys.
@@ -146,7 +164,7 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
   // good screens stay
   async function load() {
     try {
-      const data = (await import(`./screens.js?t=${Date.now()}`)).default, bad_ = problems(data);
+      const data = withMixer((await import(`./screens.js?t=${Date.now()}`)).default), bad_ = problems(data);
       bad.textContent = bad_.length ? `screens.js:\n${bad_.join("\n")}` : "";
       if (bad_.length && dev) return;
       if (dev) dev.load(data); else dev = new Device(data, engine);
