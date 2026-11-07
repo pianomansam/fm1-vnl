@@ -7,7 +7,8 @@
 #   --forced 20 7 155 138 100 22 (Sam's synth cut, from a forced sweep of seeds 1-200: 20 Rhodes and saw lead, the
 #   heaviest; 7 a held pad; the heaviest of the other synth sets: 155 DX keys and FM bass, 138 DX and pluck, 100 Organ
 #   and saw lead, 22 Nylon and synth pluck)
-# Prints: vnl <ms> amb <ms> ratio <x> (and a `forced` line per seed when forcing). Needs ref/fm1-amb (gitignored)
+# Each song plays the kit the FM-1 would (the seeded pick; VNL_KIT=<kit row value> forces one, VNL_KITLOG=1
+# names it). Prints: vnl <ms> amb <ms> ratio <x> (and a `forced` line per seed when forcing). Needs ref/fm1-amb (gitignored)
 # and base/include/fastmath.h.
 set -e
 cd "$(dirname "$0")/.."
@@ -15,7 +16,7 @@ cd "$(dirname "$0")/.."
 OUT=app/build/bench
 mkdir -p "$OUT"
 ${CC:-cc} -O2 -std=gnu99 -ffp-contract=off -Wall -Wextra -DVNL_BENCH -DEN_HOST \
-    -Iapp/song -Iapp/engine -Iapp/drums -Ibase/include -Iref/fm1-amb/app/dsp \
+    -Iapp/song -Iapp/engine -Iapp/drums -Iapp/ui -Ibase/include -Iref/fm1-amb/app/dsp \
     -o "$OUT/bench" app/host/bench.c app/song/*.c app/song/leads/*.c app/engine/*.c app/drums/*.c \
-    app/drums/fomajam/*.c ref/fm1-amb/app/dsp/amb.c
+    app/drums/fomajam/*.c app/ui/kitpick.c app/ui/choices_gen.c ref/fm1-amb/app/dsp/amb.c
 exec "$OUT/bench" "$@"

@@ -10,7 +10,8 @@
    off, to measure what each costs. VNL_LEVEL=<dB> sets every part's mixer level (vx_level_set). VNL_SOLO=choir|flute|organ|strings plays the songs' solo note on that voice
    (choir: the formant choir, INS_CHOIR; cost.md's "choir" rows before 2026-10-30 are the vox pad's, removed) and
    leaves the pad's chord part out (revision 2's solo sections). VNL_FX=ours puts our plate and chorus in place of
-   Rings' (the default). VNL_RUNS=<n> takes the best of n runs everywhere (default: 3 for the songs and AMB-1, 7 for
+   Rings' (the default). VNL_KIT=<kit row value> plays every song on that kit (else the seeded pick, as the FM-1),
+   VNL_KITLOG=1 names it. VNL_RUNS=<n> takes the best of n runs everywhere (default: 3 for the songs and AMB-1, 7 for
    --parts), for a busy host.
    The AMB-1 engine's headers clash with ours (MODE_*), so its few entry points are declared here by hand. */
 #include <stdint.h>
@@ -24,6 +25,7 @@
 #include "fx.h"
 #include "library.h"
 #include "wb_drums.h"
+#include "values.h"
 
 void en_init(void);
 void en_set(int param, int value);
@@ -92,8 +94,28 @@ static double run_vnl(uint32_t seed, int render, long *events, int force)
     }
     rings_switch();
     vx_init();
-    song_start(&s, &roll);
-    vx_song(&s.roll);
+    {                                   /* the kit as the FM-1 plays it: the seeded pick (a retired kit swapped,
+                                           values.h ui_kit_pick), or VNL_KIT's kit row value; a shipped kit's lanes,
+                                           a modeled machine's voices rendered first (the main loop's work on the
+                                           FM-1: outside the timing) */
+        wb_drums_t d;
+        double tk;
+        song_start_kit(&s, &roll, getenv("VNL_KIT") ? atoi(getenv("VNL_KIT")) : ui_kit_pick(&roll, 1));
+        vx_song(&s.roll);
+        wb_drums_init();
+        wb_drums_song(s.roll.seed);
+        tk = now_ms();
+        if (s.kit_preset >= 0 && wb_drums_preset(&d, s.kit_preset)) {
+            wb_drums_want(&d);
+            wb_drums_work(0, 1);
+            wb_drums_set(&d);
+        }
+        t0 += now_ms() - tk;
+        wb_drums_kit(lib_song_kit(&s.roll));
+        if (getenv("VNL_KITLOG"))
+            printf("(seed %u: kit row %d)\n", (unsigned)seed,
+                   s.kit_preset >= 0 ? SONG_KIT_PRESET + s.kit_preset : lib_song_kit(&s.roll));
+    }
     if (solo_env() != INS_NONE) /* VNL_SOLO: the song's solo note on that voice, the pad's chord part left out (the
                                    solo's sections as revision 2 plays them: either/or) */
         vx_assign_pad_solo(solo_env());
