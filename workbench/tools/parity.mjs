@@ -194,6 +194,13 @@ const SEED = 72;
     { spin: ["SELECT", 1] }, { spin: ["K1", 2] },
     { check: "mixer-knobs-2", expect: (st) => is("screen", st.screen, "levelsKnobs2") || is("pad level", v(st).levels.pad, 2) },
     { keydown: 4 }, { keyup: 4 }, { screen: "levels" },
+    // the instrument rules on a part change (rows.js's conflicts, on the device's requests): seed 72's comp plays the
+    // vibes and its lead the piano; the comp to the piano too moves the lead to another instrument, landing together
+    { screen: "pComp" }, { spin: ["K1", 2] },
+    { check: "rules-asked", expect: (st) => is("compIns", v(st).compIns, "*PIANO") },
+    { wait: 16000 }, { check: "rules-landed", expect: (st) => is("compIns", v(st).compIns, "PIANO") ||
+                                                              (v(st).lead !== "PIANO" ? "" : "the lead still plays the piano") },
+    { screen: "levels" },
     // Settings (GLO): the placeholder; GLO back
     { press: "GLO" }, { check: "settings", expect: (st) => is("screen", st.screen, "prefs") },
     { press: "GLO" }, { check: "settings-back", expect: (st) => is("screen", st.screen, "levels") },

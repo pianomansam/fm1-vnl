@@ -13565,6 +13565,32 @@ static void test_request_row_lands(void)
     song_override(NULL);
 }
 
+/* lib_set_kit_rule (the device's): a song never plays a retired kit: a retired acoustic one becomes Soft brushes, the
+   synth ones (no approved synth kit on the device) stay; off, every kit as rolled */
+static void test_kit_rule(void)
+{
+    uint32_t seed;
+    int swapped = 0, kept = 0;
+    for (seed = 1; seed < 400; seed++) {
+        song_roll_t r;
+        int was, now;
+        roll_song(NULL, seed, &r);
+        lib_set_kit_rule(0);
+        was = lib_song_kit(&r);
+        lib_set_kit_rule(1);
+        now = lib_song_kit(&r);
+        if (lib_kit_retired(was) && was != KIT_DUSTY && was != KIT_SOFT && was != KIT_808) {
+            CHECK(now == KIT_BRUSHES, "seed %u: retired kit %d plays %d, not Soft brushes", seed, was, now);
+            swapped++;
+        } else {
+            CHECK(now == was, "seed %u: kit %d moved to %d", seed, was, now);
+            kept++;
+        }
+    }
+    lib_set_kit_rule(0);
+    CHECK(swapped > 0 && kept > 0, "some songs' kits swapped (%d), the rest kept (%d)", swapped, kept);
+}
+
 int main(int argc, char **argv)
 {
     const char *only = argc > 1 ? argv[1] : NULL;
@@ -13728,6 +13754,7 @@ int main(int argc, char **argv)
     RUN(test_lead_loop_octave);
     RUN(test_rolled_matches_wb);
     RUN(test_request_row_lands);
+    RUN(test_kit_rule);
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;

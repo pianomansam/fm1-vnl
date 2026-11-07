@@ -106,6 +106,10 @@ const lib_set_t *lib_set_by_id(uint8_t id)
 }
 
 int lib_kit_sampled(int kit) { return kit >= KIT_S_WARM && kit <= KIT_S_CLEAN; }
+int lib_kit_retired(int kit) { return kit != KIT_BRUSHES && kit >= 0 && kit < KIT_N; }
+static int kit_rule;
+void lib_set_kit_rule(int on) { kit_rule = on != 0; }
+int lib_kit_rule(void) { return kit_rule; }
 
 const lib_pattern_t *lib_pattern_by_id(uint8_t id)
 {

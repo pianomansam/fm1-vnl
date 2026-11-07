@@ -45,6 +45,13 @@ typedef struct { uint8_t mode_w[MODE_N]; uint8_t color_w[3]; int8_t lead_shift; 
 
 /* 1 for a sampled kit (KIT_S_*), else 0 */
 int lib_kit_sampled(int kit);
+/* the kits Sam retired (workbench/options.json's status: the synth Dusty, Soft and 808, the mixed sampled ones) */
+int lib_kit_retired(int kit);
+/* 1: a song never plays a retired kit: lib_song_kit takes an approved one of the same family instead, where one
+   exists (the workbench's quiet swap, desk.js's approvedKit; the device's: app.c turns it on). 0, the default: as
+   rolled */
+void lib_set_kit_rule(int on);
+int lib_kit_rule(void);
 
 extern const lib_prog_t LIB_PROGS[];       extern const int LIB_NPROGS;
 extern const lib_set_t LIB_SETS[];         extern const int LIB_NSETS;

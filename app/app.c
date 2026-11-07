@@ -480,6 +480,44 @@ static void step(void)
     r_tick++;
 }
 
+#if UI_RT
+/* rows.js's conflicts, on the song's requests: what a part's new instrument forces elsewhere, landing with it. A comp
+   instrument that can't play the comp rhythm set: the rhythm back to as rolled; the felt piano, the piano and the
+   vibes play the comp or the lead, never both: the other part takes another approved instrument (from the song's
+   seed, as the workbench's dice would) */
+static int one_part(int ins) { return ins == INS_KNIGHT || ins == INS_FELT_PIANO || ins == INS_VIBES; }
+
+static int row_other(int row, int avoid)
+{
+    int i, n = ch_count(row), k = 0, pick;
+    for (i = 0; i < n; i++) {
+        int v = ch_value(row, i), f = ch_flags(row, v);
+        if (v != avoid && f == 0) k++;   /* approved, not hidden, not the engine's own choice */
+    }
+    if (!k) return avoid;
+    pick = (int)(song.roll.seed % (uint32_t)k);
+    for (i = 0; i < n; i++) {
+        int v = ch_value(row, i), f = ch_flags(row, v);
+        if (v != avoid && f == 0 && !pick--) return v;
+    }
+    return avoid;
+}
+
+static void row_rules(int row, int v, const int16_t *rows)
+{
+    if (row == ROW_KEYS) {
+        int comp = rows[ROW_COMP];
+        if (comp >= 0 && ch_flags(ROW_COMP, comp) >= 0 && !ch_fits(ROW_COMP, comp, v)) {
+            song_request_row(&song, SR_OV + OV_COMP, -1);
+            song_request_row(&song, SR_OV + OV_COMP_PAT, -1);
+        }
+        if (one_part(v) && rows[ROW_LEAD] == v)
+            song_request_row(&song, CH_SONG_ROW[ROW_LEAD], row_other(ROW_LEAD, v));
+    } else if (row == ROW_LEAD && one_part(v) && rows[ROW_KEYS] == v)
+        song_request_row(&song, CH_SONG_ROW[ROW_KEYS], row_other(ROW_KEYS, v));
+}
+#endif
+
 static void command(uint32_t c)
 {
     uint32_t op = c >> 24;
@@ -525,6 +563,7 @@ static void command(uint32_t c)
         ui_song_rows(&song.roll, rows);
         if (a == ROW_RHYTHM)
             a = ch_rhythm_row(rows[ROW_KEYS], rows[ROW_COMP]);
+        row_rules(a, b, rows);           /* what the new value forces elsewhere (rows.js's conflicts) */
         if (a == ROW_COMP) {             /* a comp rhythm (from 100): the COMP_PAT override; else COMP (desk.js) */
             song_request_row(&song, SR_OV + OV_COMP, b >= 100 ? -1 : b);
             song_request_row(&song, SR_OV + OV_COMP_PAT, b >= 100 ? b - 100 : -1);
@@ -840,6 +879,9 @@ void app_init(void)
     smp_mount(plat_data(APP_BANK_LO), APP_BANK_HI - APP_BANK_LO);
 #endif
     lib_set_samples(smp_ready());        /* none (or another build's): synth instruments only, NO SAMPLES */
+#if VNL_UI_RUNTIME
+    lib_set_kit_rule(1);                 /* no retired kit rolled (the workbench swaps its own: desk.js) */
+#endif
     vx_init();                           /* the first song: app_frame, once seeded */
 }
 
@@ -1684,6 +1726,15 @@ void app_frame(void)
         || s.section != ui.shown.section || s.pend_field != ui.shown.pend_field || s.pend_bars != ui.shown.pend_bars
         || memcmp(&s.roll, &ui.shown.roll, sizeof s.roll) || memcmp(s.req_val, ui.shown.req_val, sizeof s.req_val))
         ui.redraw = 1;
+#if VNL_UI_RUNTIME
+    {                                    /* no sample bank: said at boot and as each song starts */
+        static int32_t said_songs = -1;
+        if (!smp_ready() && s.songs != said_songs) {
+            said_songs = s.songs;
+            app_say("NO SAMPLES", "SYNTHS ONLY");
+        }
+    }
+#endif
     ui.shown = s;
     input();
     speak();
