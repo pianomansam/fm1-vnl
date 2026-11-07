@@ -11,7 +11,9 @@ player, with a generated "ghost" lead and a call-and-response voice) and **Tuna*
 lo-fi hip hop style). Close behind: **MIN-1** (a self-playing minimalist ensemble: seeded progressions, arp figures,
 a chord-tone lead), **Polly** (a QY70-style arranger that re-voices hand-written cells to any chord), **AMB-1** and
 its forks **HYP-1**, **CTY-1**, **DUB-1** (chord drift, voice-led pads, bass grooves, an acid line), and **MAKU**'s
-phrase-table arp. All of these are GPL-3.0-only (**ideas only** for VNL-1) **except AMB-1, which is MPL-2.0**.
+phrase-table arp. All of these are GPL-3.0-only (**ideas only** for VNL-1 when this was written, under MPL; since VNL-1 went
+GPL-3.0-or-later on 2026-10-25 they are copyable, making the shipped firmware GPL-3.0-only) **except AMB-1, which
+is MPL-2.0**. "Ideas only" in the table below means the MPL-era rule.
 
 The code that *is* reusable under MPL-2.0:
 

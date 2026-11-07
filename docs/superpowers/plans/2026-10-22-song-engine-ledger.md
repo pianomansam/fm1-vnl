@@ -369,21 +369,41 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
 - **From other FM-1 firmwares (Sam, 2026-11-05: on the short list, not started).** Evaluated setBfree-fm1
   (github.com/R-Jeb/setBfree-fm1), Cut-A-Dor (github.com/kidbee85-beep/cut-a-dor-release) and the B1 Drawbar Organ
   (github.com/SikkenWorks/B1-Drawbar-Organ). License per item: GPL-2.0-or-later code may be copied (credit it);
-  GPL-3.0-only code is approaches only, our own code.
+  GPL-3.0-only code may be copied too (corrected 2026-11-07: an earlier "approaches only" here was wrong; the
+  shipped firmware is then GPL-3.0-only as a whole, our files keep "or-later"; see "Borrow, don't rebuild").
   1. **A rotary speaker on the organ comp** (setBfree-fm1 `organ_fx.h`, GPL-2.0-or-later: copyable). Horn and drum
      with Doppler and speed changes; `LES_REFL2 0` saves about 30% of its CPU. About 28 KB of tables (over today's
      image headroom: decimate them or put them in the data area) and 8 KB of delay lines.
   2. **Organ key click and key compression** (from setBfree itself, GPL-2.0-or-later). Random click envelopes, a
      percussion click, the gain dropping as more keys are held. Cheap.
-  3. **Sample-bank upload to the data area** (Cut-A-Dor `docs/PROTOCOL.txt`, `editor.c`; GPL-3.0-only: approach
-     only). Banks read in place from data flash; uploaded over SysEx, erased 4 KB at a time while stopped, CRC32,
+  3. **Sample-bank upload to the data area** (Cut-A-Dor `docs/PROTOCOL.txt`, `editor.c`; GPL-3.0-only). **Done
+     2026-11-07, our own code** (d0e858f, tools/fm1_bank.py). Banks read in place from data flash; uploaded over SysEx, erased 4 KB at a time while stopped, CRC32,
      the header written last so a half-finished upload never counts. One protocol for moving our banks off the image
      and for the browser UI. Goes with the sample-banks-to-flash item.
-  4. **A captured-slice stutter** (Cut-A-Dor `cad.c`; approach only). Repeats a slice of the audio with edge fades,
+  4. **A captured-slice stutter** (Cut-A-Dor `cad.c`; GPL-3.0-only: copyable). Repeats a slice of the audio with edge fades,
      a gate, reverse and a brake. A base for the bolder stutters (lead and comp), with our closing filter added.
-  5. **CPU tools** (B1, setBfree-fm1; approaches only). An on-screen peak-load and missed-deadline readout, the
+  5. **CPU tools** (B1, setBfree-fm1; copyable). An on-screen peak-load and missed-deadline readout, the
      idle instruction in the main loop, and redrawing only the screen rows that changed.
   Skip: B1's update and recovery code (unverified on hardware by its own notes).
+- **Borrow, don't rebuild: GPL-3.0-only code is copyable (Sam, 2026-11-07).** VNL-1 is GPL-3.0-or-later; copying a
+  GPL-3.0-only file makes the shipped firmware GPL-3.0-only as a whole (the workbench wasm already is, for the
+  Optimist drums). Copied files keep their SPDX header and copyright; credit in CREDITS.md. Still out: GPL-2.0-only
+  and unlicensed code. Older notes saying "ideas only" for GPL-3.0-only (docs/research/fm1-accompaniment-code.md,
+  other-firmwares.md, written in the MPL days) and the 2026-11-05 "approaches only" above are superseded. Porting
+  caution: integer DSP (Felucca, Optimist) can hit the FM-1's 64-bit-multiply fault (base/bsp/docs/CPU.md): check the
+  disassembly; float code is safe.
+  Built our own where a borrow existed: the sample-bank upload (Cut-A-Dor; works, keep ours), the device's SAVE CPU
+  readout (Optimist's `core/audio.c` `audio_max_us` from TIMER4 measures the real audio time: swap in), the lead
+  loop and comping (Tuna, LOF-1; approved, keep ours).
+  **Short list (Sam, 2026-11-07: "stutter will definitely be on the shortlist, as will all the new drums"; after
+  the work in progress):**
+  1. **The bolder stutter, lead then comp**, from Cut-A-Dor's captured-slice stutter (`cad.c`): slice repeats with
+     edge fades, gate, reverse, brake; our closing filter added.
+  2. **New drums:** Optimist's kit recipes (`tools/gen_drumkits.py`: BOOMBAP, LO-FI, JAZZ, PHONK), Cut-A-Dor's
+     boom-bap drum generator (patterns and kick phrases), PERF-1's LOFI genre, zp12's 12-bit grit.
+  Also copyable, not on the short list: Optimist's load guard (`system/cpuguard.c`: steps quality down before a late
+  block), its spring reverb (`fx/spring/spring.c`), SLOOP's synth engines (the two-engine spike: code, not just preset
+  values), Optimist's dual-core split (`system/dual.c`; CPU1 is unreliable on some units).
 - **CC0 sample libraries to mine (2026-10-25): VCSL and VSCO-2 CE (sgossner, both CC0).** Beyond the spike's piano
   (VCSL Kawai grand; also Steinway B, Knight and Yamaha uprights) and strings (VSCO-2 CE Violin, Viola and Cello
   Sections): sampled vibraphone, marimba, glockenspiel, several kalimbas and mbiras (could replace our FM vibes and
