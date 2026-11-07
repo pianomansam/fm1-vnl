@@ -261,6 +261,7 @@ export default {
       // ALGO picks the part (the convention); SELECT too, the main screen having no pages (Sam, 2026-11-06)
       controls: {
         ALGO: { do: "cursor" }, SELECT: { do: "cursor" }, EDIT: { go: "cursor" },
+        HOME: { go: "mixer" },   // HOME steps main -> Parts -> Mixer -> main (Sam, 2026-11-07: a trial)
         // the highlighted part's instrument (or kit), a request as a knob's (Sam, 2026-11-06): a field a menu line
         // (null: nothing there)
         PRESET: { do: "turn", byCursor: [null, "drumKit", "bassIns", "compIns", "padIns", "leadIns", null], step: 1 },
@@ -300,11 +301,12 @@ export default {
         { y: 196, h: 44, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
           { text: "KEY MUTE   HOLD KEY SOLO   ALGO PICK", font: "T", x: 8, y: 8, color: "DIM" },
-          { text: "ARP BACK   FX MIXER   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
+          { text: "ARP BACK   FX MIXER   HOME MIXER", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
       controls: {
         ALGO: { do: "cursor" }, SELECT: { do: "cursor" }, K1: { do: "mute" }, K2: { do: "solo" }, ARP: { go: "back" },
+        HOME: { go: "levels" },
       },
       say: ["PARTS. ", { when: "song", text: "{section}, BAR {bar} OF {bars}" }],
     },

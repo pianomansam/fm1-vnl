@@ -1030,6 +1030,9 @@
     "EDIT": {
      "go": "cursor"
     },
+    "HOME": {
+     "go": "mixer"
+    },
     "OCT+": {
      "by": 1,
      "byCursor": [
@@ -1256,7 +1259,7 @@
       {
        "color": "DIM",
        "font": "T",
-       "text": "ARP BACK   FX MIXER   HOME MAIN",
+       "text": "ARP BACK   FX MIXER   HOME MIXER",
        "x": 8,
        "y": 24
       }
@@ -1271,6 +1274,9 @@
     },
     "ARP": {
      "go": "back"
+    },
+    "HOME": {
+     "go": "levels"
     },
     "K1": {
      "do": "mute"
