@@ -5,7 +5,7 @@
 //   { press: CONTROL } | { turn: [CONTROL, DETENTS] } | { key: [N, MS] } | { wait: MS } | { screen: ID } |
 //   { row: [ROW, VALUE] } (a row's value forced in the snapshot shown: the longest names) | { spin: [ENC, N] } (N detents
 //   at once) | { keydown: K } | { keyup: K } | { check: NAME, expect: (state) => "" or what is wrong }
-// Phase 1: the main and part screens (lanes and faders: later phases, skipped).
+// Every screen: the main and part screens, Sections, the Parts roll, the Mixer, Settings.
 //   ./build.sh --host && node workbench/tools/parity.mjs [OUTDIR]
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
@@ -23,8 +23,7 @@ const outDir = process.argv[2];
 if (outDir) mkdirSync(outDir, { recursive: true });
 const opts = JSON.parse(readFileSync(join(root, "workbench/options.json"), "utf8"));
 
-// phase 1's screens: those without lanes or faders
-const PHASE1 = Object.keys(data.screens).filter((id) => !data.screens[id].bands.some((b) => b.draw.some((it) => it.lanes || it.faders)));
+const PHASE1 = Object.keys(data.screens);   // (every screen now)
 
 const CONTROL = { press: "tap", turn: "turn", wait: "wait" };
 // a script on the simulator: its checks' frames and bags, in order
@@ -171,6 +170,39 @@ const SEED = 72;
     // nav_new_song: on Comp the song ends, the next starts: the main screen
     { press: "PLAY" }, { spin: ["ALGO", 4] }, { press: "EDIT" }, { check: "nav-comp", expect: (st) => is("screen", st.screen, "pComp") },
     { wait: 230000 }, { check: "nav-new-song", expect: (st) => is("stack", st.stack.join(), "main") },
+  ];
+  for (const c of run(SEED, steps)) compare(c);
+}
+{   // the screens after the main and part screens (Sections, the Parts roll, the Mixer, Settings) on scripted presses
+  const v = (st) => st.values, is = (what, got, want) => (got === want ? "" : `${what} ${JSON.stringify(got)}, not ${JSON.stringify(want)}`);
+  const notes = (st) => Object.values(v(st).activity?.notes ?? {}).reduce((n, x) => n + x.length, 0);
+  const steps = [
+    { press: "PLAY" }, { wait: 9000 }, { screen: "main" },
+    // the Parts roll (ARP): a lane a part, the bar playing highlighted, the notes around it; K1 mutes a lane, K2 solos
+    { press: "ARP" }, { check: "parts", expect: (st) => is("screen", st.screen, "mixer") || (notes(st) > 20 ? "" : `${notes(st)} notes`) },
+    { spin: ["ALGO", 1] }, { spin: ["K1", 1] }, { check: "parts-mute", expect: (st) => is("mute", v(st).activity.mute.join(), "bass") },
+    { spin: ["K2", 1] }, { check: "parts-solo", expect: (st) => is("solo", v(st).activity.solo, "bass") },
+    { spin: ["K2", 1] }, { spin: ["K1", 1] }, { wait: 3400 }, { check: "parts-next-bar" },
+    // the Mixer (FX): faders; K1 the highlighted part's level, -12..+6 dB
+    { press: "FX" }, { spin: ["ALGO", 2] }, { spin: ["K1", -4] },
+    { check: "mixer", expect: (st) => is("screen", st.screen, "levels") || is("keys level", v(st).levels.keys, -4) },
+    { spin: ["K1", 20] }, { check: "mixer-top", expect: (st) => is("keys level", v(st).levels.keys, 6) },
+    { spin: ["K1", -6] },
+    // Settings (GLO): the placeholder; GLO back
+    { press: "GLO" }, { check: "settings", expect: (st) => is("screen", st.screen, "prefs") },
+    { press: "GLO" }, { check: "settings-back", expect: (st) => is("screen", st.screen, "levels") },
+    // Sections (SEL): the list, the playing one marked; SELECT, EDIT: a jump waiting for the 4-bar line, then landed
+    { press: "HOME" }, { press: "SEL" }, { check: "sections", expect: (st) => is("screen", st.screen, "sections") },
+    { spin: ["SELECT", 2] }, { press: "EDIT" },
+    { check: "sections-jump", expect: (st) => (/^GO TO .* IN \d BARS?$/.test(v(st).pending) ? "" : `pending ${v(st).pending}`) },
+    { wait: 14000 }, { check: "sections-landed", expect: (st) => is("pending", v(st).pending, "") || is("sec2Now", v(st).sec2Now, true) },
+    // a white key jumps too (the second: G, the second section)
+    { keydown: 2 }, { keyup: 2 }, { check: "sections-key", expect: (st) => (/^GO TO /.test(v(st).pending) ? "" : `pending ${v(st).pending}`) },
+    // K1 Loop, K2 Stay on song: switches, at once
+    { spin: ["K1", 1] }, { check: "sections-loop", expect: (st) => is("looping", v(st).looping, true) },
+    { spin: ["K2", 1] }, { check: "sections-stay", expect: (st) => is("endless", v(st).endless, "ON") },
+    { wait: 20000 }, { check: "sections-looping", expect: (st) => is("looping", v(st).looping, true) },
+    { spin: ["K1", 1] }, { spin: ["K2", 1] }, { check: "sections-off", expect: (st) => is("looping", v(st).looping, false) },
   ];
   for (const c of run(SEED, steps)) compare(c);
 }

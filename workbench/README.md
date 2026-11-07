@@ -127,12 +127,11 @@ AudioWorklet. Local only; not the FM-1, so it may exceed the device's budgets.
     action, with its C twin in `app/ui/`), reload the mock, then run both tools and `./build.sh --host`; `node
     workbench/tools/parity.mjs [OUTDIR]` runs scripted presses on the simulator (`uiscreen`, `uistate`, `uirow`) and
     compares every screen with the mock pixel for pixel (OUTDIR: the PNGs, the device's beside the mock's).
-    `tests/run_tests.sh` checks that both generated files are fresh and that the parity holds. The device holds the
-    phase-1 screens (the main and part screens); it runs them once app.h's `VNL_UI_RUNTIME` is 1 (Task 8).
+    `tests/run_tests.sh` checks that both generated files are fresh and that the parity holds. The device runs every
+    screen (app.h's `VNL_UI_RUNTIME`, 1); the Parts roll's notes come from the song itself, a copy run ahead of it
+    (app.c), and the Sections screen's jumps, Loop and Stay on song from the song started again and fast-forwarded.
   - The song's facts the main screen shows (the section, the map's name, the chord as `th_chord_name` spells it) come
-    from `wb_screen(bar)`. `tools/screen_check.mjs` draws today's main screen in the host simulator (`./build.sh
-    --host`) and in the mock, in six states for two seeds, and compares them pixel for pixel (tests/run_tests.sh);
-    it and `tools/today_screen.mjs` go when the device switches to the runtime.
+    from `wb_screen(bar)`.
   - The real FM-1 as the mock's controls (`ui/usb.js`, app.c's "browser's remote"; Chrome or Edge: Safari has no Web
     MIDI): "Connect FM-1" asks for MIDI with SysEx, finds the ports named "VNL-1 FM-1" and takes the FM-1's buttons,
     keys, encoders and knobs; the mock acts on them as on its own (a button or key as it goes down). Meanwhile the

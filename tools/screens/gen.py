@@ -756,6 +756,10 @@ def gen_screens(data, vocab, rows, all_parts=None):
         "extern const ui_action_t UI_ACTIONS[];\nextern const ui_list_t UI_LISTS[];\nextern const uint8_t UI_LIST_DATA[];\n"
         "extern const ui_key_leds_t UI_KEY_LEDS[];\nextern const ui_say_t UI_SAYS[];\nextern const ui_field_t UI_FIELDS[];\n"
         "extern const uint16_t UI_COLORS[];\nextern const uint16_t UI_ICONS[][8];\nextern const uint8_t UI_ICON_ROWS[];\n"
+        "/* a part as the Parts roll and the Mixer draw it (the mock's): its color and icon (the keys are the Comp's;\n"
+        "   UI_NONE: none) and its name (upper case, at most 7 letters: UI_STR) */\n"
+        "typedef struct { uint8_t color, icon; uint16_t name; } ui_part_look_t;\n"
+        "extern const ui_part_look_t UI_PART_LOOK[];\n"
         "extern const uint16_t UI_LINES[];   /* each line's template (UV_LINE(i, 0)'s) */\n"
         "/* a text item that is a value alone ({kit}): its past - 1 here, the value ids of its Pend, First and Last (0:\n"
         "   none), the x its arrows end at and their color (1 + ui_color; 0 none). A meter's past: 1 when its field has no\n"
@@ -788,6 +792,10 @@ def gen_screens(data, vocab, rows, all_parts=None):
          f"const uint16_t UI_ICONS[{max(1, len(icons))}][8] = {{\n" +
          "".join("    {" + ", ".join(f"0x{v:03x}" for v in r) + "},\n" for r in icon_rows) + "};\n",
          f"const uint8_t UI_ICON_ROWS[{max(1, len(icons))}] = {{" + ", ".join(str(len(r)) for r in icon_rows) + "};\n",
+         f"const ui_part_look_t UI_PART_LOOK[{max(1, len(parts))}] = {{" + ", ".join(
+             "{%d, %d, %d}" % (colors.index(nm.upper()) if nm.upper() in colors else colors.index("WHITE"),
+                               icons.index(nm) if nm in icons else NONE8, s(nm.upper()[:7]))
+             for nm in ("comp" if x == "keys" else x for x in parts)) + "};\n",
          f"const uint16_t UI_LINES[{max(1, len(line_tpl))}] = {{" + ", ".join(map(str, line_tpl)) + "};\n",
          f"const ui_lone_t UI_LONES[{max(1, len(lones))}] = {{" + ", ".join("{%d, %d, %d, %d, %d}" % t for t in lones) + "};\n",
          f"const ui_when_t UI_WHENS[{len(whens)}] = {{\n" + "".join(
@@ -837,38 +845,6 @@ def gen_screens(data, vocab, rows, all_parts=None):
     return "".join(h), "".join(c)
 
 
-def phase1(data):
-    """the screens the device holds in phase 1: the main and part screens (a screen with lanes, faders, the section
-       list or a placeholder comes with a later phase); a control that would go to one does nothing"""
-    later = {sid for sid, sc in data["screens"].items()
-             if sc.get("placeholder") or sc.get("list") or
-             any(k in it for b in sc.get("bands", []) for it in b.get("draw", []) for k in ("lanes", "faders"))}
-    def keep(a):
-        return a is not None and a.get("go") not in later
-    out = json.loads(json.dumps(data))
-    out["screens"] = {sid: sc for sid, sc in out["screens"].items() if sid not in later}
-    out["defaults"] = {c: (a if keep(a) else None) for c, a in out.get("defaults", {}).items()}
-    for sc in out["screens"].values():
-        sc["controls"] = {c: (a if keep(a) else None) for c, a in sc.get("controls", {}).items()}
-        sc["menu"] = [m for m in sc.get("menu", []) if m not in later]
-    return out
-
-
-def combine(p1, full):
-    """one header and one file holding both table sets: the device's (phase 1, UI_PHASE1) and the simulator's (all)"""
-    (h1, c1), (hf, cf) = p1, full
-    hpre = HEAD + "#ifndef UI_SCREENS_GEN_H\n#define UI_SCREENS_GEN_H\n#include <stdint.h>\n\n"
-    cpre = HEAD + '#include "screens_gen.h"\n#include "choices_gen.h"\n\n'
-    assert h1.startswith(hpre) and hf.startswith(hpre) and c1.startswith(cpre) and cf.startswith(cpre)
-    body = lambda h: h[len(hpre):-len("#endif\n")]
-    sel = ("/* The device holds the phase-1 screens (the main and part screens: UI_PHASE1); the simulator and the tests\n"
-           "   every screen. Define UI_PHASE1_TABLES for the device's in the simulator. */\n"
-           "#if !defined(PLAT_HOST) || defined(UI_PHASE1_TABLES)\n#define UI_PHASE1 1\n#else\n#define UI_PHASE1 0\n#endif\n")
-    h = hpre + sel + "#if UI_PHASE1\n" + body(h1) + "#else\n" + body(hf) + "#endif\n#endif\n"
-    c = cpre + "#if UI_PHASE1\n" + c1[len(cpre):] + "#else\n" + cf[len(cpre):] + "#endif\n"
-    return h, c
-
-
 def run(screens_path, out, check):
     try:
         data = json.loads(Path(screens_path).read_text())
@@ -877,7 +853,7 @@ def run(screens_path, out, check):
         opts = json.loads((WB / "options.json").read_text())
         ch_h, ch_c, all_rows = gen_choices(rows, opts, shown_rows(data))
         parts = part_names(data)
-        sc_h, sc_c = combine(gen_screens(phase1(data), vocab, all_rows, parts), gen_screens(data, vocab, all_rows, parts))
+        sc_h, sc_c = gen_screens(data, vocab, all_rows, parts)
     except Refused as e:
         for line in str(e).splitlines():
             print(f"gen: {line}", file=sys.stderr)

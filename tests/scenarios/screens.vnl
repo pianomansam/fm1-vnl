@@ -1,0 +1,64 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# The device's screens (app/ui: the workbench's screens, generated): boot shows the main screen stopped, the song ready
+# (its key line); PLAY; ALGO to Comp, EDIT opens it and the reader says so; the G key mutes the bass, its light dark;
+# HOME; SEL, ARP, FX and GLO open Sections, the Parts roll, the Mixer and Settings, and each goes back.
+listen
+wait 600
+said STOPPED
+where
+wait 50
+said BPM
+shot boot.png
+expect screen 1
+tap PLAY
+wait 3000
+said PLAY
+spin ALGO 3
+tap EDIT
+wait 50
+said COMP, PAGE 1/2
+shot comp.png
+# the five lowest white keys: a part's key lit while it plays
+expect key_lit 213
+key 2 down
+wait 100
+key 2 up
+wait 50
+said BASS MUTED
+expect key_lit 209
+# a long press solos (the lead: C, key 7), blinking; a press again un-solos
+key 7 down
+wait 600
+key 7 up
+said LEAD SOLO
+key 7 down
+wait 50
+key 7 up
+said LEAD SOLO OFF
+tap HOME
+wait 50
+expect screen 1
+tap SEL
+wait 50
+said SECTIONS
+shot sections.png
+tap SEL
+wait 50
+expect screen 1
+tap ARP
+wait 50
+said PARTS
+shot parts.png
+tap ARP
+tap FX
+wait 50
+said MIXER
+shot mixer.png
+tap FX
+tap GLO
+wait 50
+said SETTINGS
+shot settings.png
+tap GLO
+wait 50
+expect screen 1

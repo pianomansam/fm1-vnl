@@ -303,6 +303,7 @@ void ui_values(const snap_t *s, const ui_nav_t *nav, ui_bag_t *b)
     int f, best = -1;
     b->s = s;
     b->n = nav;
+    b->act = 0;
     b->screen = nav && nav->depth ? nav->stack[nav->depth - 1] : UI_HOME;
     song_rolled(&s->roll, &b->rolled);
     for (f = 0; nav && f < UI_N_FIELDS; f++)       /* the earliest change waiting; a tie: the first one made */
@@ -426,7 +427,7 @@ const char *ui_value(const ui_bag_t *b, int id, int index, char *t)
     case UV_READY: return s->ready ? "1" : "";
     case UV_KNOWN: return known ? "1" : "";
     case UV_SEC_COUNT: return cat_int(t, s->n_secs);
-    case UV_LOOPING: return "";
+    case UV_LOOPING: return s->rows[ROW_LOOP] == 1 ? "1" : "";
     case UV_SEC_RANGE: {                                    /* "1-7 OF 9": a list longer than its lines */
         int rows = UI_SCREENS[b->screen].rows ? UI_SCREENS[b->screen].rows : MENU_MAX, off = list_off(b);
         if (s->n_secs <= rows) return "";
@@ -438,7 +439,7 @@ const char *ui_value(const ui_bag_t *b, int id, int index, char *t)
     }
     default: break;
     }
-    if (id >= UV_I0 && id < UV_I(UV_I_COUNT, 0)) {        /* sel{i}, sec{i}... (the Sections list's: not in phase 1) */
+    if (id >= UV_I0 && id < UV_I(UV_I_COUNT, 0)) {        /* sel{i}, sec{i}... */
         const ui_screen_t *sc = &UI_SCREENS[b->screen];
         int i = (id - UV_I0) / UVK_I_N, off = list_off(b), at = off + i;
         k = (id - UV_I0) % UVK_I_N;
@@ -446,9 +447,6 @@ const char *ui_value(const ui_bag_t *b, int id, int index, char *t)
             int has = UI_LISTS[sc->menu].n || sc->list || UI_LISTS[sc->lanes].n;
             return has && n && n->cursor[b->screen] - off == i ? "1" : "";
         }
-#if UI_PHASE1
-        return "";
-#endif
         if (at >= s->n_secs || i >= list_rows(b)) return "";
         switch (k) {
         case UVK_I_SEC:

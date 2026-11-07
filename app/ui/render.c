@@ -109,6 +109,140 @@ static void ui_sections(const ui_bag_t *b, const ui_item_t *it)
     }
 }
 
+/* JS's Math.round(num / den) for any sign (floor(x + 0.5)), den > 0 */
+static int32_t ui_round_q(int32_t num, int32_t den)
+{
+    int32_t a = 2 * num + den, d = 2 * den;
+    return a >= 0 ? a / d : -((-a + d - 1) / d);
+}
+
+/* a part's look, dimmed when it is muted or soloed out */
+static int ui_part_off(const ui_activity_t *act, int p)
+{
+    if (!act) return 0;
+    return act->solo >= 0 ? act->solo != p : (int)(act->mute >> p & 1u);
+}
+
+static void ui_part_icon(int p, int32_t x, int32_t y, uint16_t c)
+{
+    if (UI_PART_LOOK[p].icon != UI_NONE) ui_icon(UI_PART_LOOK[p].icon, x, y, c);
+}
+
+/* dim(c, k) with k = 0.45 + 0.55 * vel / 127 (the mock's: brighter for louder), each channel rounded */
+static uint16_t ui_dim(uint16_t c, int vel)
+{
+    int32_t k = 5715 + 55 * vel, r = c >> 11, g = (c >> 5) & 63, bl = c & 31;
+    return (uint16_t)(ui_round_q(r * k, 12700) << 11 | ui_round_q(g * k, 12700) << 5 | ui_round_q(bl * k, 12700));
+}
+
+/* the Parts roll (the mock's lanes): a lane a part, its notes by time and pitch (a drum lane a row a drum), `window`
+   bars across, stepping a bar at a time (the window's first bar a quarter of it before the bar playing); the bar
+   playing highlighted, bar lines, section starts; notes played or in this bar in the part's color, those to come
+   gray, a muted or soloed-out part dim. Positions are exact fractions (the mock's doubles round alike) */
+static void ui_lanes(const ui_bag_t *b, const ui_item_t *it)
+{
+    const ui_lanes_t *L = &UI_LANE_ITEMS[it->ref];
+    const ui_activity_t *act = b->act;
+    const ui_list_t *parts = &UI_LISTS[L->parts];
+    int32_t x = it->x, y = it->y, w = it->w, rowH = L->row_h, lx = x + L->label, lw = w - (lx - x), i, k;
+    int32_t bars = b->s->roll.v[RF_BARS] ? b->s->roll.v[RF_BARS] : 1, span = L->window < bars ? L->window : bars;
+    int32_t pos = b->s->bar < 0 ? 0 : b->s->bar, from = pos - span / 4, height = parts->n * rowH - 2;
+    const char *keys = UI_STR(L->keys);
+    if (from > bars - span) from = bars - span;
+    if (from < 0) from = 0;
+#define UI_X16(t16) (lx + ui_round_q(((t16) - 16 * from) * lw, 16 * span))   /* X(b) for b in 16ths of a bar */
+    if (ui_true(b, UV_SONG)) {                                   /* the bar playing, whole */
+        int32_t xa = UI_X16(16 * pos), xb = UI_X16(16 * pos + 16);
+        if (xa < lx) xa = lx;
+        if (xb > lx + lw) xb = lx + lw;
+        cv_rect(xa, y, xb - xa, height, UI_COLORS[UC_LINE]);
+    }
+    for (k = from; k <= from + span; k++) cv_rect(UI_X16(16 * k), y, 1, height, UI_COLORS[UC_LINE]);   /* bar lines */
+    for (k = 0; k < b->s->n_secs; k++) {                         /* section starts */
+        int32_t sb = b->s->secs[k].start;
+        if (sb > from && sb < from + span) cv_rect(UI_X16(16 * sb), y, 1, height, UI_COLORS[UC_DIM]);
+    }
+    for (i = 0; i < parts->n; i++) {
+        int p = UI_LIST_DATA[parts->at + i], off = ui_part_off(act, p), lo = 127, hi = 0, rspan, n;
+        int32_t ry = y + i * rowH;
+        uint16_t col = UI_COLORS[UI_PART_LOOK[p].color], dimc = UI_COLORS[UC_DIM];
+        char key[4];
+        if (ui_true(b, UV_I(i, UVK_I_SEL))) cv_rect(x - 4, ry, lx - x, rowH - 2, UI_COLORS[UC_LINE]);
+        ui_part_icon(p, x, ry + 4, off ? dimc : col);
+        cv_text(x, ry + 13, &FONT_T, UI_STR(UI_PART_LOOK[p].name), off ? dimc : col);
+        for (n = 0, k = 0; keys[k] && n < i; k++)                /* its key's letter (the i-th of the list) */
+            if (keys[k] == ' ') n++;
+        for (n = 0; keys[k] && keys[k] != ' ' && n < 3; k++) key[n++] = keys[k];
+        key[n] = 0;
+        if (key[0]) cv_text(x + 32, ry + 2, &FONT_T, key, dimc);
+        if (act && act->mute >> p & 1u) cv_text(x + 12, ry + 2, &FONT_T, "M", UI_COLORS[UC_HI]);
+        if (act && act->solo == p) cv_text(x + 12, ry + 2, &FONT_T, "S", UI_COLORS[UC_HI]);
+        cv_rect(lx, ry + rowH - 2, lw, 1, UI_COLORS[UC_LINE]);
+        if (!act) continue;
+        if (p != UI_PART_DRUMS)                                  /* a pitched lane spans its lowest to highest note */
+            for (n = 0; n < act->n; n++)
+                if (act->notes[n].part == p) {
+                    if (act->notes[n].note < lo) lo = act->notes[n].note;
+                    if (act->notes[n].note > hi) hi = act->notes[n].note;
+                }
+        rspan = (hi - lo > 11 ? hi - lo : 11) + 1;
+        for (n = 0; n < act->n; n++) {
+            const ui_note_t *e = &act->notes[n];
+            int32_t t = 16 * e->bar + e->step, len = e->len ? e->len : 1, x0, x1, ny, nh;
+            uint16_t base;
+            if (e->part != p || t + len < 16 * from || t > 16 * (from + span)) continue;
+            x0 = UI_X16(t);
+            x1 = UI_X16(t + len);
+            if (x0 < lx) x0 = lx;
+            if (x1 > lx + lw) x1 = lx + lw;
+            if (p == UI_PART_DRUMS) {                            /* a row a drum (V_KICK .. V_RIDE) */
+                ny = ui_round_q(e->note * (rowH - 4), V_RIDE - V_KICK + 1);
+                nh = ui_round_q(rowH - 4, V_RIDE - V_KICK + 1);
+            } else {
+                ny = ui_round_q((hi - e->note) * (rowH - 4), rspan);
+                nh = ui_round_q(rowH - 4, rspan);
+            }
+            base = off ? dimc : t < 16 * (pos + 1) ? col : UI_COLORS[UC_GRAY];   /* played or this bar: its color */
+            cv_rect(x0, ry + 1 + ny, x1 - x0 - 1 > 1 ? x1 - x0 - 1 : 1, nh > 1 ? nh : 1, ui_dim(base, e->vel));
+        }
+    }
+#undef UI_X16
+}
+
+/* the Mixer (the mock's faders): a column a part, its level -12..+6 dB from the bottom, 0 dB marked, the cap, the
+   number, M or S under it */
+static void ui_faders(const ui_bag_t *b, const ui_item_t *it)
+{
+    const ui_list_t *parts = &UI_LISTS[UI_LANE_ITEMS[it->ref].parts];
+    const ui_activity_t *act = b->act;
+    int32_t x = it->x, y = it->y, w = it->w, h = it->h, n = parts->n, cw = w / (n ? n : 1), top = y + 14, tH = h - 34;
+    int i;
+#define UI_AT(db) (top + ui_round_q((6 - (db)) * tH, 18))
+    for (i = 0; i < n; i++) {
+        int p = UI_LIST_DATA[parts->at + i], off = ui_part_off(act, p), db = act ? act->level[p] : 0, k = 0, m;
+        int32_t cx = x + i * cw, mid = cx + cw / 2;
+        uint16_t col = UI_COLORS[UI_PART_LOOK[p].color], gray = UI_COLORS[UC_GRAY];
+        char t[6];
+        const char *ms;
+        if (ui_true(b, UV_I(i, UVK_I_SEL))) cv_rect(cx + 1, y, cw - 2, h, UI_COLORS[UC_LINE]);
+        ui_part_icon(p, mid - 4, y + 2, off ? UI_COLORS[UC_DIM] : col);
+        cv_rect(mid - 2, top, 4, tH, UI_COLORS[UC_DIM]);                              /* the track */
+        cv_rect(mid - 2, UI_AT(db), 4, top + tH - UI_AT(db), off ? gray : col);    /* the level */
+        cv_rect(mid - 6, UI_AT(0), 12, 1, UI_COLORS[UC_WHITE]);                    /* 0 dB */
+        cv_rect(mid - 7, UI_AT(db) - 1, 14, 3, off ? gray : UI_COLORS[UC_WHITE]);  /* the cap */
+        if (db > 0) t[k++] = '+';
+        if (db < 0) t[k++] = '-';
+        m = db < 0 ? -db : db;
+        if (m >= 10) t[k++] = (char)('0' + m / 10);
+        t[k++] = (char)('0' + m % 10);
+        t[k] = 0;
+        cv_text(mid - text_w(&FONT_T, t) / 2, y + h - 18, &FONT_T, t, off ? UI_COLORS[UC_DIM] : UI_COLORS[UC_WHITE]);
+        ms = act && act->solo == p ? "S" : act && act->mute >> p & 1u ? "M" : "";
+        if (*ms) cv_text(mid - text_w(&FONT_T, ms) / 2, y + h - 8, &FONT_T, ms, UI_COLORS[UC_HI]);
+    }
+#undef UI_AT
+}
+
 static int32_t ui_text_item(const ui_bag_t *b, const ui_item_t *it, int32_t pen)
 {
     const felucca_font_t *f = UI_FONT(it->font);
@@ -151,9 +285,9 @@ void ui_draw(const ui_screen_t *sc, const ui_bag_t *b, uint32_t band_mask)
                 break;
             case UI_KNOBS: ui_knobs(b, sc, &UI_KNOB_STYLES[it->ref]); break;
             case UI_SECTIONS: ui_sections(b, it); break;
-            default:                              /* lanes, faders: a later phase */
-                cv_text(it->x + 4, it->y + 4, &FONT_T, "NOT YET", UI_COLORS[UC_DIM]);
-                break;
+            case UI_LANES: ui_lanes(b, it); break;
+            case UI_FADERS: ui_faders(b, it); break;
+            default: break;
             }
         }
         cv_blit(0, band->y);

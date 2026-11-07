@@ -244,9 +244,7 @@ static void act(ui_nav_t *n, int ai, int detents)
     const ui_action_t *a = &UI_ACTIONS[ai];
     const ui_screen_t *sc = nav_screen(n);
     int id = nav_id(n), bar = bar_now(n);
-#if !UI_PHASE1
-    char t[UI_VALUE_MAX];                /* (a jump's section, a level) */
-#endif
+    char t[UI_VALUE_MAX];
     if (!ai) return;
     switch (a->kind) {
     case UA_PART:                                     /* ALGO: the next part (at its first page); SELECT: next page */
@@ -264,7 +262,6 @@ static void act(ui_nav_t *n, int ai, int detents)
         if (nav_id(n) != id) ui_speak(n);
         return;
     }
-#if !UI_PHASE1                                        /* (no Sections, no Mixer on the device in phase 1) */
     case UA_JUMP: {                                   /* the highlighted section (or the key's): at the next 4-bar
                                                          boundary, or the song's last bar where the song ends first */
         int i = a->arg != UI_NONE ? a->arg : n->cursor[id];
@@ -282,7 +279,6 @@ static void act(ui_nav_t *n, int ai, int detents)
         }
         return;
     }
-#endif
     case UA_REROLL:
         if (a->arg != UI_NONE) {                      /* SEQ on a part's screen: that part, on the 4-bar boundary */
             if (has_song(n)) {
@@ -306,7 +302,6 @@ static void act(ui_nav_t *n, int ai, int detents)
             say(n, "NEW SONG", "");
         }
         return;
-#if !UI_PHASE1
     case UA_LEVEL: {                                  /* the mixer: 1 dB a detent, -12..+6 dB, at once */
         int p = lane_part(n, a), db;
         char v[8];
@@ -326,7 +321,6 @@ static void act(ui_nav_t *n, int ai, int detents)
         say(n, part_name(p, 1), t);
         return;
     }
-#endif
     case UA_MUTE:
     case UA_SOLO: {                                   /* the lane's part muted or soloed (again: neither); at once */
         int p = lane_part(n, a), solo = n->eng && n->eng->soloed ? n->eng->soloed() : -1;

@@ -112,7 +112,9 @@ static volatile uint8_t mb_full;
 #define B_NEW B_SEQ
 
 /* commands, drained at a block's start (AMB-1's pattern) */
-enum { C_PLAY, C_REQ, C_STOP, C_NEW, C_ROW };   /* C_ROW: a row's request (the UI runtime's: song_request_row) */
+/* C_ROW a row's request (the UI runtime's: song_request_row), C_JUMP a section jump, C_MUTE / C_SOLO / C_LEVEL the
+   listening and the mixer (the voices' state the render reads: set here, between blocks) */
+enum { C_PLAY, C_REQ, C_STOP, C_NEW, C_ROW, C_JUMP, C_MUTE, C_SOLO, C_LEVEL };
 #define QN 32u
 static uint32_t q[QN];
 static volatile uint32_t q_w, q_r;
@@ -183,6 +185,22 @@ static int16_t req_val[RF_N];
 static float mix_l[APP_BLOCK], mix_r[APP_BLOCK], gain_now;
 static song_ev_t evs[64];
 
+#if VNL_UI_RUNTIME
+/* What it costs, readable on the device (SAVE shows it in the header): the longest redraw (a frame's drawing), the
+   longest render of an audio block and the blocks whose render took longer than the block lasts (late) */
+static uint32_t m_draw_max, m_render_max, m_late;
+#ifdef PLAT_HOST
+#define M_US() 0u
+#else
+#define M_US() fm1_micros()
+#endif
+#endif
+
+#if UI_RT
+static int16_t j_target;                 /* (below: the jumps and the roll's notes) */
+static void roll_clear(void);
+#endif
+
 static void voices_begin(void)
 {
     if (vx_sounding())                   /* a tail (notes, the plate, the bed's fade) rings on: keep it */
@@ -203,6 +221,10 @@ static void song_begin(void)
     r_now = r_pos = r_tick = 0;
     r_frac = 0.0f;
     memset(req_set, 0, sizeof req_set);
+#if UI_RT
+    j_target = -1;
+    roll_clear();
+#endif
     for (int lp = 0; lp < VX_PART_N; lp++)   /* a new song: the mixer back to 0 dB (Sam, 2026-11-06; a resume keeps it) */
         vx_level_set(lp, 0);
     songs_started++;
@@ -245,14 +267,180 @@ static void gap_begin(void)
     rs = RS_GAP;
 }
 
+#if UI_RT
+#ifdef PLAT_HOST
+#define UI_POOL
+#else
+#define UI_POOL __attribute__((section(".pool")))
+#endif
+/* Section jumps (the Sections screen, Loop, Stay on song): the song started again and fast-forwarded silently, a few
+   16ths a block (the workbench's landing, spread over the bar before), then put in at the next bar line with the
+   changes still waiting carried over. Loop: the section playing, from its last bar, back to its start; Stay on song:
+   the bar before the last section (or inside it, at a 4-bar line) back to the section after the intro (index.html's) */
+static song_t jsong UI_POOL;
+static int16_t j_target = -1, j_from;    /* the bar the song jumps to (-1: none), the bar it was asked in */
+static uint8_t j_ready, loop_on, endless_on;
+static song_ev_t j_evs[64];
+enum { J_TICKS = 24 };                    /* 16ths fast-forwarded a block */
+
+static void jump_ask(int bar)
+{
+    if (rs != RS_SONG || bar < 0 || bar >= song.roll.v[RF_BARS])
+        return;
+    song_start(&jsong, &song.roll);
+    jsong.own = song.own;                /* the song's own overrides and set (song_request_row's) */
+    jsong.ov = song.ov;
+    jsong.set = song.set;
+    jsong.set_base = song.set_base;
+    jsong.changes = song.changes;
+    j_target = (int16_t)bar;
+    j_from = (int16_t)song.bar;
+    j_ready = 0;
+}
+
+static void jump_prepare(void)
+{
+    int k;
+    for (k = 0; k < J_TICKS && j_target >= 0 && !j_ready; k++) {
+        if (jsong.bar >= j_target || jsong.state != SS_PLAYING)
+            j_ready = 1;
+        else
+            song_tick(&jsong, j_evs, 64);
+    }
+    if (j_target >= 0 && jsong.bar >= j_target)
+        j_ready = 1;
+}
+
+/* a carried request's bar in the song jumped to: the next 4-bar boundary there if its own has gone by */
+static int16_t jump_rebar(int bar)
+{
+    int b = jsong.bar;
+    return (int16_t)(bar >= b ? bar : b % 4 == 0 ? b : (b / 4 + 1) * 4);
+}
+
+static void jump_land(void)
+{
+    int f, i;
+    song_carry_requests(&jsong, &song);
+    for (f = 0; f < RF_N; f++)
+        if (jsong.pend[f])
+            jsong.pend_bar[f] = jump_rebar(jsong.pend_bar[f]);
+    for (i = 0; i < jsong.rq_n; i++)
+        jsong.rq[i].bar = jump_rebar(jsong.rq[i].bar);
+    song = jsong;
+    j_target = -1;
+    vx_release_all();
+    vx_configure(&song.roll);            /* (the bed reopens, as the workbench's landing) */
+}
+
+/* the bar line's own jumps (Loop, Stay on song), from the plan's sections; bar1 the bar beginning, from 1 */
+static void jump_rules(void)
+{
+    int bar1 = song.bar + 1, i, n = song.plan.n;
+    if (j_target >= 0)
+        return;                          /* (a jump asked already wins) */
+    if (loop_on) {
+        for (i = 0; i < n; i++)
+            if (bar1 > song.plan.b[i].start && bar1 <= song.plan.b[i].start + song.plan.b[i].bars) {
+                if (bar1 == song.plan.b[i].start + song.plan.b[i].bars)
+                    jump_ask(song.plan.b[i].start);
+                return;
+            }
+    } else if (endless_on && n > 2) {
+        int last = song.plan.b[n - 1].start;
+        if (bar1 == last || (bar1 > last && (bar1 - last) % 4 == 0))
+            jump_ask(song.plan.b[1].start);
+    }
+}
+
+/* The Parts roll's notes: the song around the bar playing (the lanes' window), from the song itself. At each bar
+   line a copy of the song (as it starts the bar) is ticked silently ahead to the window's end, a few 16ths a block,
+   into the buffer the main loop doesn't read; the bars before keep the notes they had; then the buffers swap. */
+enum { UI_ROLL_MAX = 1024, R_TICKS = 8 };
+static struct { uint16_t n; ui_note_t note[UI_ROLL_MAX]; } roll_buf[2] UI_POOL;
+static volatile uint8_t roll_front;
+static song_t rsong UI_POOL;
+static int16_t roll_to = -1;
+static song_ev_t r_evs[64];
+
+static int roll_part(int voice)
+{
+    return voice == V_CHORD ? UI_PART_KEYS : voice == V_BASS ? UI_PART_BASS : voice == V_LEAD ? UI_PART_LEAD
+         : voice == V_PAD ? UI_PART_PAD : voice >= V_KICK && voice <= V_RIDE ? UI_PART_DRUMS : -1;
+}
+
+static void roll_bar_line(void)
+{
+    const ui_lanes_t *L = &UI_LANE_ITEMS[0];
+    int bars = song.roll.v[RF_BARS], span = L->window < bars ? L->window : bars, from = song.bar - span / 4, i;
+    uint8_t back = (uint8_t)!roll_front;
+    if (from > bars - span) from = bars - span;
+    if (from < 0) from = 0;
+    roll_buf[back].n = 0;
+    for (i = 0; i < roll_buf[roll_front].n; i++) {   /* the bars played keep their notes */
+        const ui_note_t *e = &roll_buf[roll_front].note[i];
+        if (e->bar >= from && e->bar < song.bar)
+            roll_buf[back].note[roll_buf[back].n++] = *e;
+    }
+    rsong = song;
+    roll_to = (int16_t)(from + span < bars ? from + span : bars);
+}
+
+static void roll_generate(void)
+{
+    uint8_t back = (uint8_t)!roll_front;
+    int k, i;
+    for (k = 0; k < R_TICKS && roll_to >= 0; k++) {
+        int bar = rsong.bar, st = rsong.step, n;
+        float ss;
+        if (rsong.state != SS_PLAYING || bar >= roll_to) {
+            BARRIER();
+            roll_front = back;           /* done: the main loop reads it */
+            roll_to = -1;
+            break;
+        }
+        n = song_tick(&rsong, r_evs, 64);
+        ss = song_step_samples(&rsong);
+        for (i = 0; i < n && roll_buf[back].n < UI_ROLL_MAX; i++) {
+            int p = roll_part(r_evs[i].voice), len = (int)((float)r_evs[i].len / ss + 0.5f);
+            ui_note_t *e = &roll_buf[back].note[roll_buf[back].n];
+            if (p < 0) continue;
+            e->bar = (uint8_t)bar;
+            e->step = (uint8_t)st;
+            e->len = (uint8_t)(len > 255 ? 255 : len);
+            e->note = (uint8_t)(r_evs[i].voice >= V_KICK ? r_evs[i].voice - V_KICK : r_evs[i].note);
+            e->vel = r_evs[i].vel;
+            e->part = (uint8_t)p;
+            roll_buf[back].n++;
+        }
+    }
+}
+
+static void roll_clear(void)
+{
+    roll_to = -1;
+    roll_buf[0].n = roll_buf[1].n = 0;
+}
+#endif
+
 /* one 16th: the fade (if the song's last block fades), the section moves (each role bus's filters, plan_moves), the
    requests' slots, the step's events to the voices and the pad layer's level (song_pad_level) */
 static void step(void)
 {
-    const plan_block_t *last = &song.plan.b[song.plan.n ? song.plan.n - 1 : 0];
-    int bar = song.bar, st = (int)(r_tick & 15u), n, i;
+    const plan_block_t *last;
+    int bar, st = (int)(r_tick & 15u), n, i;
     float adv, lp[PM_N], hp[PM_N], llp;
     uint32_t ip;
+#if UI_RT
+    if (st == 0) {                       /* a bar line: a jump ready lands; the Loop's and Stay's; the roll's notes */
+        if (j_target >= 0 && j_ready && song.bar > j_from)
+            jump_land();
+        jump_rules();
+        roll_bar_line();
+    }
+#endif
+    last = &song.plan.b[song.plan.n ? song.plan.n - 1 : 0];
+    bar = song.bar;
     if (st == 0) {                       /* a stop in this bar goes back here */
         mark = song;
         mark_pos = r_pos;
@@ -319,6 +507,19 @@ static void command(uint32_t c)
                 mb_full = 0;             /* the one ready dropped: the main loop rolls the next */
         }                                /* (in the gap or waiting: a new song is already coming) */
 #if UI_RT
+    } else if (op == C_ROW && (a == ROW_LOOP || a == ROW_ENDLESS)) {   /* the switches: at once */
+        if (a == ROW_LOOP)
+            loop_on = (uint8_t)(b == 1);
+        else
+            endless_on = (uint8_t)(b == 1);
+    } else if (op == C_JUMP) {
+        jump_ask(b);
+    } else if (op == C_MUTE) {
+        vx_mute((unsigned)b);
+    } else if (op == C_SOLO) {
+        vx_solo(b);
+    } else if (op == C_LEVEL) {
+        vx_level_set(a, b);
     } else if (op == C_ROW && rs == RS_SONG && song.state == SS_PLAYING && a < ROW_N) {
         int16_t rows[ROW_N];             /* the rhythm row is the comp's or the strum patterns' */
         ui_song_rows(&song.roll, rows);
@@ -396,6 +597,8 @@ static void publish(void)
         snap.n_secs = (uint8_t)i;
         snap.changes = song.changes;
     }
+    snap.rows[ROW_LOOP] = loop_on;
+    snap.rows[ROW_ENDLESS] = endless_on;
 #endif
     BARRIER();
     snap_seq++;
@@ -404,6 +607,9 @@ static void publish(void)
 void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
 {
     uint32_t i = 0, k;
+#if VNL_UI_RUNTIME
+    uint32_t m_t0 = M_US();
+#endif
     float gain = (float)master_q12 * (8388607.0f / 4096.0f);   /* MASTER, read once a block: float -> 24-bit */
     if (remote_mute)
         gain = 0.0f;                     /* (gain_now ramps there: no click) */
@@ -420,6 +626,12 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     }
     if (rs == RS_WAIT && mb_full)
         song_begin();
+#if UI_RT
+    if (rs == RS_SONG) {                 /* the jump's fast-forward, the roll's look-ahead: a few 16ths a block */
+        jump_prepare();
+        roll_generate();
+    }
+#endif
     memset(mix_l, 0, sizeof(float) * n);
     memset(mix_r, 0, sizeof(float) * n);
     while (i < n) {
@@ -428,6 +640,16 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
             if (r_now >= r_pos) {        /* a step starts here (or, ended, the song's last sample is past) */
                 if (song.state == SS_PLAYING)
                     step();
+#if UI_RT
+                else if (loop_on || endless_on) {   /* looping or staying: the song again, no next one */
+                    jump_ask(0);
+                    jump_prepare();
+                    if (j_ready)
+                        jump_land();
+                    else
+                        gap_begin();
+                }
+#endif
                 else
                     gap_begin();
                 continue;
@@ -457,6 +679,15 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
         lr[2 * k + 1] = (int32_t)(b > 8388607.0f ? 8388607.0f : b < -8388607.0f ? -8388607.0f : b);
     }
     publish();
+#if VNL_UI_RUNTIME
+    {
+        uint32_t dt = M_US() - m_t0;
+        if (dt > m_render_max)
+            m_render_max = dt;
+        if (dt > n * 1000000u / 44100u)
+            m_late++;
+    }
+#endif
 }
 
 void app_panic(void)
@@ -1145,8 +1376,10 @@ static snap_t ui_hsnap;
 static int16_t ui_hrow[ROW_N];
 static uint8_t ui_hrow_set[ROW_N];
 static uint32_t ui_hkeys;                /* the keys down, as last read */
-static unsigned ui_hmute;                /* the engine's listening: vx_mute's bits (by part), the part soloed */
+static unsigned ui_hmute;                /* the engine's listening: the parts muted (bit UI_PART_*), soloed */
 static int ui_hsolo = -1;
+static int8_t ui_hlevel[VX_PART_N];      /* the mixer's levels, dB (the render's, as last asked) */
+static ui_activity_t ui_hact;
 
 /* the mock's engine, as the simulator's app has it: a row's change to the render (C_ROW: the song's request), play,
    a new song, a part's re-roll (its salt drawn anew; the drums' pattern too), the listening and the mixer at once */
@@ -1162,32 +1395,57 @@ static void ui_e_reroll_part(int p)
     if (p == UI_PART_DRUMS)              /* the drums' re-roll draws a new pattern too (desk.js) */
         post(C_ROW, ROW_PATTERN, ui_hsnap.rows[ROW_PATTERN] % LIB_NPATTERNS + 1);
 }
+/* the listening to the render (C_MUTE: vx_mute's bits; a solo mutes every other bus, the mutes set aside while it
+   lasts, as wb.c's listen()): the voices' state is the render's, so it changes between blocks, never during one */
 static void ui_e_listen(void)
 {
     unsigned m = 0;
     int p;
     for (p = 0; p < UI_PART_TEXTURE; p++)
         if (ui_hsolo >= 0 ? p != ui_hsolo : (ui_hmute >> p & 1u)) m |= 1u << UI_PART_BUS[p];
-    vx_mute(m);
+    post(C_MUTE, 0, (int)m);
 }
 static void ui_e_mute(int p, int on) { ui_hmute = on ? ui_hmute | 1u << p : ui_hmute & ~(1u << p); ui_e_listen(); }
 static void ui_e_solo(int p) { ui_hsolo = p; ui_e_listen(); }
 static int ui_e_muted(int p) { return (int)(ui_hmute >> p & 1u); }
 static int ui_e_soloed(void) { return ui_hsolo; }
-static void ui_e_level(int p, int db) { vx_level_set(p, db); }
-static int ui_e_level_get(int p) { return vx_level_get(p); }
-static const ui_engine_t UI_HENG = {ui_e_set, ui_e_play, ui_e_reroll, ui_e_reroll_part, 0, ui_e_mute, ui_e_solo,
-                                    ui_e_muted, ui_e_soloed, ui_e_level, ui_e_level_get};
+static void ui_e_level(int p, int db)
+{
+    if (p < 0 || p >= VX_PART_N) return;
+    ui_hlevel[p] = (int8_t)db;
+    post(C_LEVEL, p, db);
+}
+static int ui_e_level_get(int p) { return p >= 0 && p < VX_PART_N ? ui_hlevel[p] : 0; }
+static void ui_e_jump(int start, int i) { (void)i; post(C_JUMP, 0, start); }
+static const ui_engine_t UI_HENG = {ui_e_set, ui_e_play, ui_e_reroll, ui_e_reroll_part, ui_e_jump, ui_e_mute,
+                                    ui_e_solo, ui_e_muted, ui_e_soloed, ui_e_level, ui_e_level_get};
+
+/* what the Parts roll and the Mixer show: the render's notes (the buffer it isn't writing), the listening, levels */
+static const ui_activity_t *ui_activity(void)
+{
+    int p;
+    uint8_t f = roll_front;
+    ui_hact.notes = roll_buf[f].note;
+    ui_hact.n = ui.shown.has_song ? roll_buf[f].n : 0;
+    ui_hact.mute = ui_hmute;
+    ui_hact.solo = ui_hsolo;
+    for (p = 0; p < VX_PART_N && p < (int)sizeof ui_hact.level; p++)
+        ui_hact.level[p] = ui_hlevel[p];
+    return &ui_hact;
+}
 
 /* the snapshot the runtime sees: the render's, rows forced (uirow), a ready song's sections */
 static void ui_host_snap(void)
 {
     int i;
-    if (ui.shown.roll.seed != ui_hsnap.roll.seed && ui_hsolo + (int)ui_hmute != -1) {   /* a new song: no mutes, no
-                                                                                           solo (desk.js) */
-        ui_hmute = 0;
-        ui_hsolo = -1;
-        ui_e_listen();
+    if (ui.shown.roll.seed != ui_hsnap.roll.seed) {   /* a new song: no mutes, no solo (desk.js); the render sets the
+                                                        levels back to 0 dB itself (song_begin) */
+        if (ui_hsolo + (int)ui_hmute != -1) {
+            ui_hmute = 0;
+            ui_hsolo = -1;
+            ui_e_listen();
+        }
+        memset(ui_hlevel, 0, sizeof ui_hlevel);
     }
     ui_hsnap = ui.shown;
     for (i = 0; i < ROW_N; i++)
@@ -1208,6 +1466,7 @@ static void ui_host_draw(void)
         lcd_fill(0, 0, 240, 240, C_BLACK);
     last = id;
     ui_values(&ui_hsnap, &ui_hnav, &b);
+    b.act = ui_activity();
     ui_draw(&UI_SCREENS[id], &b, 0xFFFFFFFFu);
 }
 
@@ -1220,6 +1479,23 @@ static void ui_host_input(uint32_t btn)
     for (b = 0; b < NB; b++)
         if ((btn >> b & 1u) && !(ui.btn >> b & 1u))
             ui_press(&ui_hnav, UI_CTL_BUTTON(b), 1);
+#if VNL_UI_RUNTIME
+    if ((btn >> B_SAVE & 1u) && !(ui.btn >> B_SAVE & 1u)) {   /* SAVE: the measures (no screen maps it) */
+        char a[UI_MSG], c[UI_MSG], v[12];
+        a[0] = c[0] = 0;
+        text_cat(a, "REDRAW ");
+        int_text((int32_t)m_draw_max, v);
+        text_cat(a, v);
+        text_cat(a, " US");
+        text_cat(c, "LATE ");
+        int_text((int32_t)m_late, v);
+        text_cat(c, v);
+        text_cat(c, " MAX ");
+        int_text((int32_t)m_render_max, v);
+        text_cat(c, v);
+        app_say(a, c);
+    }
+#endif
     for (e = 0; e < NE; e++) {
         int32_t d = plat_enc(e);
         if (d) {
@@ -1306,7 +1582,43 @@ static void ui_host_state(void)
         ui_json_str(plan_section_name(ui_hsnap.secs[i].section));
         putchar('}');
     }
-    printf("],\"activity\":null,\"levels\":{},\"barPos\":%d}}\n", (int)ui_hsnap.bar);
+    {                                    /* the Parts roll's and the Mixer's: the mock's activity and levels */
+        static const char *const PART[] = {"drums", "bass", "keys", "pad", "lead", "texture"};
+        const ui_activity_t *act = ui_activity();
+        int p, k, any;
+        printf("],\"activity\":{\"bars\":%d,\"sections\":[", ui_hsnap.roll.v[RF_BARS]);
+        for (i = 0; i < ui_hsnap.n_secs; i++)
+            printf("%s%d", i ? "," : "", ui_hsnap.secs[i].start);
+        printf("],\"mute\":[");
+        for (p = 0, any = 0; p < UI_PART_TEXTURE; p++)
+            if (act->mute >> p & 1u) printf("%s\"%s\"", any++ ? "," : "", PART[p]);
+        printf("],\"solo\":");
+        if (act->solo >= 0) printf("\"%s\"", PART[act->solo]); else printf("null");
+        printf(",\"notes\":{");
+        for (p = 0; p < UI_PART_TEXTURE; p++) {
+            int lo = 127, hi = 0, span;
+            for (k = 0; k < act->n; k++)
+                if (act->notes[k].part == p) {
+                    if (act->notes[k].note < lo) lo = act->notes[k].note;
+                    if (act->notes[k].note > hi) hi = act->notes[k].note;
+                }
+            span = (hi - lo > 11 ? hi - lo : 11) + 1;
+            printf("%s\"%s\":[", p ? "," : "", PART[p]);
+            for (k = 0, any = 0; k < act->n; k++) {
+                const ui_note_t *e = &act->notes[k];
+                int rows = V_RIDE - V_KICK + 1;
+                if (e->part != p) continue;
+                printf("%s[%.17g,%.17g,%.17g,%.17g,%.17g]", any++ ? "," : "", e->bar + e->step / 16.0,
+                       (e->len ? e->len : 1) / 16.0, p == UI_PART_DRUMS ? (double)e->note / rows : (double)(hi - e->note) / span,
+                       p == UI_PART_DRUMS ? 1.0 / rows : 1.0 / span, e->vel / 127.0);
+            }
+            printf("]");
+        }
+        printf("}},\"levels\":{");
+        for (p = 0; p < VX_PART_N; p++)
+            printf("%s\"%s\":%d", p ? "," : "", PART[p], act->level[p]);
+        printf("},\"barPos\":%d}}\n", (int)ui_hsnap.bar);
+    }
 }
 #endif
 #endif
@@ -1382,9 +1694,17 @@ void app_frame(void)
     if (ui.redraw) {
         ui.redraw = 0;
 #if defined(PLAT_HOST) && !defined(PLAT_WEB)
-        if (ui_host >= 0)
+        if (ui_host >= 0) {
+#if VNL_UI_RUNTIME
+            uint32_t m_t0 = M_US(), dt;
             ui_host_draw();
-        else
+            dt = M_US() - m_t0;
+            if (dt > m_draw_max)
+                m_draw_max = dt;
+#else
+            ui_host_draw();
+#endif
+        } else
 #endif
             draw();
     }
@@ -1409,8 +1729,25 @@ int app_expect(const char *what, int *got)
         *got = s.has_song ? s.roll.v[RF_TEMPO] : -1;
     else if (!strcmp(what, "key"))
         *got = s.has_song ? s.roll.v[RF_KEY] : -1;
-    else if (!strcmp(what, "pending"))
+    else if (!strcmp(what, "pending")) {
         *got = s.pend_field >= 0 ? s.pend_bars : -1;
+#if VNL_UI_RUNTIME
+        {                                /* the navigator's: a change waits there until the bar before it lands */
+            ui_bag_t bag;
+            ui_values(&s, &ui_hnav, &bag);
+            if (bag.pend_field >= 0 && (*got < 0 || bag.pend_bars < *got))
+                *got = bag.pend_bars;
+        }
+#endif
+    }
+#if VNL_UI_RUNTIME
+    else if (!strcmp(what, "screen"))   /* the screen shown (screens_gen.h's US_*) */
+        *got = ui_hnav.stack[ui_hnav.depth - 1];
+    else if (!strcmp(what, "key_lit")) {   /* the keys lit, bit k key k (blinking ones not counted) */
+        uint32_t blink;
+        *got = (int)ui_key_lights(&ui_hnav, &s, &blink);
+    }
+#endif
     else if (!strcmp(what, "voices"))
         *got = s.voices;
     else if (!strcmp(what, "remote"))

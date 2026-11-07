@@ -12,12 +12,24 @@
 
 enum { UI_VALUE_MAX = 64, UI_OPTS_MAX = 128 };              /* a value's text, NUL included (the longest name plus "*AS ROLLED (...)") */
 
+/* What the Parts roll and the Mixer show besides the values (the mock's bag.activity and bag.levels): the song's notes
+   around the bar playing (the render's: a window of bars, from the song itself), what is muted and soloed, the levels */
+typedef struct { uint8_t bar, step, len, note, vel, part; } ui_note_t;   /* step 0..15, len in 16ths, part UI_PART_* */
+typedef struct {
+    const ui_note_t *notes;
+    int n;
+    uint32_t mute;                       /* bit UI_PART_*: muted */
+    int solo;                            /* the part soloed, -1 none */
+    int8_t level[8];                     /* the mixer's level by part, dB */
+} ui_activity_t;
+
 typedef struct ui_bag {
     const snap_t *s;
     const ui_nav_t *n;
     int screen;                          /* the screen shown */
     song_rolled_t rolled;                /* what the "as rolled" rows play */
     int pend_field, pend_bars;           /* the earliest field waiting (-1 none), and its bars to go */
+    const ui_activity_t *act;            /* (the caller's, after ui_values; NULL: none) */
 } ui_bag_t;
 
 /* a value's kind: what the mock's bag holds for it (uistate writes it so: a string, true/false, a number) */

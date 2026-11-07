@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The device mock's core, no DOM (Node runs it too: tools/screen_check.mjs, smoke.mjs): the FM-1's LCD as gfx.c draws
+// The device mock's core, no DOM (Node runs it too: tools/parity.mjs, smoke.mjs): the FM-1's LCD as gfx.c draws
 // it, today's screen's text as app.c writes it, and the screens of ui/screens.js driven by the panel's controls.
 import { FONTS } from "./fonts.js";
 import { ROWS } from "../rows.js";

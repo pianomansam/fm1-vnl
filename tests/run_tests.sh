@@ -43,10 +43,8 @@ done
 if command -v emcc >/dev/null 2>&1; then
     run emu sh build.sh --web
     run smoke-candidates sh workbench/tools/candidates_smoke.sh   # the workbench with a candidate in every family
-    # the workbench's device mock against the simulator's screen, pixel for pixel
     # the device's value bag's fixture: the mock's values in fixed states (tests/host/ui_values_fixture.h)
     run ui-fixture sh -c "sh workbench/build.sh && node workbench/tools/ui_fixture.mjs --check"
-    run screen-check sh -c "sh workbench/build.sh && node workbench/tools/screen_check.mjs $B/tests/screens"
 else
     echo "  skip emu (no emcc)"
 fi

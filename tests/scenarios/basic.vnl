@@ -38,7 +38,7 @@ expect peak_db_max >-60
 # the screen reader hears the whole screen
 where
 wait 100
-said VNL-1
+said CHORD
 # K1: the key one semitone up, waiting for the next 4-bar boundary
 turn K1 1
 wait 50
