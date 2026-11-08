@@ -407,7 +407,9 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
 - **A "B" section in the song planner (Sam, 2026-11-08: ledger, not started).** Today's maps vary arrangement
   (intro, groove, lead, break, outro, drops, a section without the comp) over one progression. A B section is a
   contrasting part with its own progression (and maybe its own voicing color, comp rhythm or drum pattern variation),
-  so a song can run A-A-B-A or A-B-A-B. Related ideas already noted: the lament descent as a B section (Eight Bells
+  so a song can run A-A-B-A or A-B-A-B. The B section can also switch the comp: its instrument, rhythm pattern or
+  approach (struck, broken chord, held), then back for the return of A (Sam, 2026-11-08; ties to "The song planner
+  changes an instrument mid-song" above). A big piece of work. Related ideas already noted: the lament descent as a B section (Eight Bells
   notes above), the two-lead A-B-A item, hats to ride for one section. Open questions: how often a song gets one,
   how the B progression relates to A (same key, relative or a neighbor key), and whether the lead's motif carries
   over or answers it.
