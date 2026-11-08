@@ -404,6 +404,13 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   Also copyable, not on the short list: Optimist's load guard (`system/cpuguard.c`: steps quality down before a late
   block), its spring reverb (`fx/spring/spring.c`), SLOOP's synth engines (the two-engine spike: code, not just preset
   values), Optimist's dual-core split (`system/dual.c`; CPU1 is unreliable on some units).
+- **A "B" section in the song planner (Sam, 2026-11-08: ledger, not started).** Today's maps vary arrangement
+  (intro, groove, lead, break, outro, drops, a section without the comp) over one progression. A B section is a
+  contrasting part with its own progression (and maybe its own voicing color, comp rhythm or drum pattern variation),
+  so a song can run A-A-B-A or A-B-A-B. Related ideas already noted: the lament descent as a B section (Eight Bells
+  notes above), the two-lead A-B-A item, hats to ride for one section. Open questions: how often a song gets one,
+  how the B progression relates to A (same key, relative or a neighbor key), and whether the lead's motif carries
+  over or answers it.
 - **CC0 sample libraries to mine (2026-10-25): VCSL and VSCO-2 CE (sgossner, both CC0).** Beyond the spike's piano
   (VCSL Kawai grand; also Steinway B, Knight and Yamaha uprights) and strings (VSCO-2 CE Violin, Viola and Cello
   Sections): sampled vibraphone, marimba, glockenspiel, several kalimbas and mbiras (could replace our FM vibes and
