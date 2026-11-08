@@ -11,9 +11,11 @@ CPU (the render's load now and its peak in % of a block, late blocks, the slowes
 CPU guard's level and steps). Writes app/build/live/device.json (as the workbench writes workbench.json) and prints a
 summary. --watch N: again every N seconds until Ctrl-C. --reset: each answer then zeroes the measures (the peak, the
 late blocks and their causes, the slowest render and redraw, the guard's steps: 04 01), to measure one event at a time.
---ab FLAGS: set the A/B switches first (04 02 ff; 0 all as built, 1 the CPU guard off, 2 the Parts roll's look-ahead
-off, 4 the kit voice render paused, 8 the shipped kits' lanes off; added together), to find a drop-out without a
-reflash. The late blocks' causes (cpu.late_by): song (a new song), row (a change landing), jump, roll (the Parts roll's
+--ab FLAGS[,FLAGS2]: set the A/B switches first (04 02 ff gg; 0 all as built), to find a drop-out or a sound without a
+reflash. FLAGS, added together: 1 the CPU guard off, 2 the Parts roll's look-ahead off, 4 the kit voice render paused,
+8 the shipped kits' lanes off, 16 the chorus and delay off, 32 the plate off, 64 every voice at the full rate.
+FLAGS2: 1 the bed off, 2 the buses' filters off, 4 the drums' compressor off, 8 the glue off, 16 the mud high-pass
+off, 64 the output summed to mono. The late blocks' causes (cpu.late_by): song (a new song), row (a change landing), jump, roll (the Parts roll's
 look-ahead), draw, kit (the kit voices rendering), flash, other. Coexists with the browser remote (its other commands are
 left alone). Uses fm1-base's tools (base/tools: fm1_install.py's port lookup); needs mido with python-rtmidi.
 Exit codes: 0 done, 1 no answer, 3 FM-1 not found.
@@ -31,8 +33,8 @@ ASK = PFX + bytes([0x04, 0xF7])
 ASK_RESET = PFX + bytes([0x04, 0x01, 0xF7])
 
 
-def ask_ab(flags):
-    return PFX + bytes([0x04, 0x02, flags & 0x0F, 0xF7])
+def ask_ab(flags, flags2=0):
+    return PFX + bytes([0x04, 0x02, flags & 0x7F, flags2 & 0x7F, 0xF7])
 REPLY = 0x14
 
 
@@ -66,7 +68,7 @@ def summary(s):
             f"cpu {cpu.get('load')}% (peak {cpu.get('peak')}%), late {cpu.get('late')}, render {cpu.get('render_us')} us, "
             f"redraw {cpu.get('redraw_us')} us, guard {guard[cpu.get('guard', 0)] if cpu.get('guard', 0) < 4 else '?'} "
             f"x{cpu.get('guard_steps')}; late by {' '.join(f'{k} {v}' for k, v in cpu.get('late_by', {}).items() if v) or '-'}"
-            f"{'; A/B ' + str(cpu.get('ab')) if cpu.get('ab') else ''}")
+            f"{'; A/B ' + str(cpu.get('ab')) + ',' + str(cpu.get('ab2')) if cpu.get('ab') or cpu.get('ab2') else ''}")
 
 
 def ask(link, timeout=2.0, pkt=ASK):
@@ -90,7 +92,7 @@ def main(argv=None):
     ap.add_argument("--port", metavar="NAME", help="MIDI port to use (part of its name; default: VNL-1 FM-1's)")
     ap.add_argument("--watch", type=float, metavar="SECONDS", help="ask again every SECONDS until Ctrl-C")
     ap.add_argument("--reset", action="store_true", help="zero the measures after each answer")
-    ap.add_argument("--ab", type=int, metavar="FLAGS", help="set the A/B switches first (see above)")
+    ap.add_argument("--ab", metavar="FLAGS[,FLAGS2]", help="set the A/B switches first (see above)")
     a = ap.parse_args(argv)
     sys.path.insert(0, os.path.join(ROOT, "base", "tools"))
     import fm1_install as I  # noqa: E402
@@ -101,7 +103,7 @@ def main(argv=None):
         print(f"error: {e}", file=sys.stderr)
         return 3
     try:
-        if a.ab is not None and ask(dev.link, pkt=ask_ab(a.ab)) is None:
+        if a.ab is not None and ask(dev.link, pkt=ask_ab(*[int(x) for x in a.ab.split(",")][:2])) is None:
             print("error: the FM-1 did not answer the A/B switches", file=sys.stderr)
             return 1
         while True:

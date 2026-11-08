@@ -136,7 +136,8 @@ static uint8_t gl_on, gl_off;
 static float bo, bo_t;                  /* the bed's open level and target */
 static float bg = 1.0f, bg_t = 1.0f, bg_s; /* fx_bed_level: the gain, its target and its step (kept through fx_init) */
 static float bg_u = 1.0f;               /* (fx_bed_level's own; the target is 0 while the guard has the bed off) */
-static uint8_t g_bed, g_plate;          /* fx_guard's */
+static uint8_t g_bed, g_plate;          /* fx_guard's and fx_ab's together */
+static uint8_t gd_plate, gd_bed, ab_plate, ab_bed;
 #define BG_STEPS (0.005f * BR)          /* its ramp: 5 ms */
 static float lv, lv_t, lt, lt_t, lr, lr_t; /* layer levels: vinyl, tape, rain */
 static uint32_t brng = 0x9E3779B9u;
@@ -605,13 +606,25 @@ static inline float clip(float y)
     return y < 0.0f ? -x : x;
 }
 
-void fx_guard(int plate_off, int bed_off)
+static void g_set(void)
 {
-    g_plate = (uint8_t)(plate_off != 0);
-    if (g_bed != (bed_off != 0)) {
-        g_bed = (uint8_t)(bed_off != 0);
+    g_plate = (uint8_t)(gd_plate | ab_plate);
+    if (g_bed != (gd_bed | ab_bed)) {
+        g_bed = (uint8_t)(gd_bed | ab_bed);
         fx_bed_level(bg_u);
     }
+}
+void fx_guard(int plate_off, int bed_off)
+{
+    gd_plate = (uint8_t)(plate_off != 0);
+    gd_bed = (uint8_t)(bed_off != 0);
+    g_set();
+}
+void fx_ab(int plate_off, int bed_off)
+{
+    ab_plate = (uint8_t)(plate_off != 0);
+    ab_bed = (uint8_t)(bed_off != 0);
+    g_set();
 }
 
 void fx_bed_level(float g)

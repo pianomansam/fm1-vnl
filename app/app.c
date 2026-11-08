@@ -117,7 +117,7 @@ static volatile uint8_t mb_full;
 /* commands, drained at a block's start (AMB-1's pattern) */
 /* C_ROW a row's request (the UI runtime's: song_request_row), C_JUMP a section jump, C_MUTE / C_SOLO / C_LEVEL the
    listening and the mixer (the voices' state the render reads: set here, between blocks) */
-enum { C_PLAY, C_REQ, C_STOP, C_NEW, C_ROW, C_JUMP, C_MUTE, C_SOLO, C_LEVEL };
+enum { C_PLAY, C_REQ, C_STOP, C_NEW, C_ROW, C_JUMP, C_MUTE, C_SOLO, C_LEVEL, C_AB };
 #define QN 32u
 static uint32_t q[QN];
 static volatile uint32_t q_w, q_r;
@@ -229,8 +229,12 @@ static uint8_t drums_wait;               /* a shipped kit whose voices the main 
 /* A/B switches for finding a drop-out on the device without a reflash (the live state's 04 02 ff; 0, the default:
    all as built): AB_GUARD the CPU guard off, AB_ROLL the Parts roll's look-ahead off, AB_KIT the main loop's kit
    voice render paused, AB_LANES the shipped kits' lanes off (the set's own kit under them plays) */
-enum { AB_GUARD = 1, AB_ROLL = 2, AB_KIT = 4, AB_LANES = 8 };
-static volatile uint8_t ab_flags;
+enum { AB_GUARD = 1, AB_ROLL = 2, AB_KIT = 4, AB_LANES = 8, AB_CHODLY = 16, AB_PLATE = 32, AB_FULLRATE = 64 };
+/* and a second byte (04 02 ff gg), the mix's stages one at a time, for a sound the device makes and the workbench
+   doesn't: AB2_BED the bed off, AB2_FILTERS the buses' filters off, AB2_COMP the drums' compressor off, AB2_GLUE the
+   glue off, AB2_MUD the mud high-pass off, AB2_MONO the output summed to mono (a channel out of phase cancels) */
+enum { AB2_BED = 1, AB2_FILTERS = 2, AB2_COMP = 4, AB2_GLUE = 8, AB2_MUD = 16, AB2_MONO = 64 };
+static volatile uint8_t ab_flags, ab_flags2;
 static uint32_t kit_wait;                /* samples a song has waited for its kit's voices */
 #define KIT_WAIT_MAX (44100u * 3u)       /* then it starts on the set's own kit until they are there */
 
@@ -441,6 +445,8 @@ static struct { uint16_t n; ui_note_t note[UI_ROLL_MAX]; } roll_buf[2] UI_POOL;
 static volatile uint8_t roll_front;
 static song_t rsong UI_POOL;
 static int16_t roll_to = -1;
+static volatile uint8_t roll_shown;      /* the screen shown has the Parts roll (the main loop's): the look-ahead runs
+                                            only then (its song ticks cost the render; nothing else reads its notes) */
 static song_ev_t r_evs[64];
 
 static int roll_part(int voice)
@@ -452,6 +458,10 @@ static int roll_part(int voice)
 static void roll_bar_line(void)
 {
     const ui_lanes_t *L = &UI_LANE_ITEMS[0];
+    if (!roll_shown) {
+        roll_to = -1;
+        return;
+    }
     int bars = song.roll.v[RF_BARS], span = L->window < bars ? L->window : bars, from = song.bar - span / 4, i;
     uint8_t back = (uint8_t)!roll_front;
     if (from > bars - span) from = bars - span;
@@ -651,6 +661,11 @@ static void command(uint32_t c)
         vx_solo(b);
     } else if (op == C_LEVEL) {
         vx_level_set(a, b);
+    } else if (op == C_AB) {            /* the A/B switches' mix stages (the render's: vx_fx_off reassigns voices) */
+        vx_fx_off((b & AB_CHODLY ? VX_OFF_CHORUS | VX_OFF_DELAY : 0u) | (b & AB_FULLRATE ? VX_OFF_HALF : 0u) |
+                  (a & AB2_FILTERS ? VX_OFF_FILTERS : 0u) | (a & AB2_COMP ? VX_OFF_COMP : 0u) |
+                  (a & AB2_GLUE ? VX_OFF_GLUE : 0u) | (a & AB2_MUD ? VX_OFF_MUD : 0u));
+        fx_ab((b & AB_PLATE) != 0, (a & AB2_BED) != 0);
     } else if (op == C_ROW && rs == RS_SONG && song.state == SS_PLAYING && a < ROW_N) {
         int16_t rows[ROW_N];             /* the rhythm row is the comp's or the strum patterns' */
         ui_song_rows(&song.roll, rows);
@@ -814,8 +829,12 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     if (rs == RS_SONG && !bar_ticked) {  /* the jump's fast-forward, the roll's look-ahead: a few 16ths a block, at
                                             most one bar's first 16th (the costly one: its generation) each, and none
                                             in a block whose song generated a bar of its own */
+        static uint8_t was_shown;
         jump_prepare();
-        if (!(ab_flags & AB_ROLL))
+        if (roll_shown && !was_shown && roll_to < 0)
+            roll_bar_line();             /* (the roll's screen opened: its notes from here, not from the next bar) */
+        was_shown = roll_shown;
+        if (!(ab_flags & AB_ROLL) && roll_shown)
             roll_generate();
     }
     bar_ticked = 0;
@@ -823,6 +842,8 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     for (k = 0; k < n; k++) {
         gain_now += (gain - gain_now) * 0.004f;   /* ~5 ms: turning MASTER does not click */
         float a = mix_l[k] * gain_now, b = mix_r[k] * gain_now;
+        if (ab_flags2 & AB2_MONO)
+            a = b = 0.5f * (a + b);
         lr[2 * k] = (int32_t)(a > 8388607.0f ? 8388607.0f : a < -8388607.0f ? -8388607.0f : a);   /* 24-bit */
         lr[2 * k + 1] = (int32_t)(b > 8388607.0f ? 8388607.0f : b < -8388607.0f ? -8388607.0f : b);
     }
@@ -1411,8 +1432,10 @@ int app_sysex(const uint8_t *p, uint32_t n)
 #if UI_RT
     if (p[3] == 0x04u) {                 /* the live state (below): answered at once, the remote on or not; 04 01:
                                             then its measures back to zero */
-        if (n >= 6u && p[4] == 0x02u) {   /* 04 02 ff: the A/B switches (AB_*), then the answer */
-            ab_flags = (uint8_t)(p[5] & 0x0Fu);
+        if (n >= 6u && p[4] == 0x02u) {   /* 04 02 ff [gg]: the A/B switches (AB_*, AB2_*), then the answer */
+            ab_flags = (uint8_t)(p[5] & 0x7Fu);
+            ab_flags2 = (uint8_t)(n >= 7u ? p[6] & 0x7Fu : 0u);
+            post(C_AB, ab_flags2, ab_flags);
 #if VNL_UI_RUNTIME && !defined(PLAT_HOST)
             cg_on(!(ab_flags & AB_GUARD), 218u, 204u, 256u);
 #endif
@@ -1985,7 +2008,8 @@ static uint32_t live_state(char *o, uint32_t cap)
     jbk(&b, "late"); jbi(&b, (int32_t)m_late);
     jbk(&b, "redraw_us"); jbi(&b, (int32_t)m_draw_max);
     jbk(&b, "render_us"); jbi(&b, (int32_t)m_render_max);
-    jbk(&b, "ab"); jbi(&b, ab_flags);    /* the A/B switches (app.c AB_*: 1 guard off, 2 roll off, 4 kit render off,
+    jbk(&b, "ab"); jbi(&b, ab_flags);
+    jbk(&b, "ab2"); jbi(&b, ab_flags2);    /* the A/B switches (app.c AB_*: 1 guard off, 2 roll off, 4 kit render off,
                                             8 lanes off) */
     jbk(&b, "guard"); jbi(&b, cg_level());
     jbk(&b, "guard_steps"); jbi(&b, (int32_t)g->steps);
@@ -2126,6 +2150,14 @@ void app_frame(void)
     snap_read(&s);
 #if UI_RT
     kit_render(&s);
+    {                                    /* the Parts roll shown: a screen with lanes */
+        int scr = ui_hnav.depth ? ui_hnav.stack[ui_hnav.depth - 1] : UI_HOME, bi, ii, on = 0;
+        const ui_screen_t *sc = &UI_SCREENS[scr];
+        for (bi = 0; bi < sc->n_bands && !on; bi++)
+            for (ii = 0; ii < UI_BANDS[sc->bands + bi].n_items; ii++)
+                on |= UI_ITEMS[UI_BANDS[sc->bands + bi].first_item + ii].kind == UI_LANES;
+        roll_shown = (uint8_t)on;
+    }
 #endif
     if (s.has_song != ui.shown.has_song || s.stopped != ui.shown.stopped || s.ready != ui.shown.ready
         || s.held != ui.shown.held || s.bar != ui.shown.bar

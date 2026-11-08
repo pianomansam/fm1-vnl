@@ -71,6 +71,8 @@ void fx_glue_off(int off);
 /* The CPU guard's (app/drums/cpuguard.h): plate_off 1, the plate takes no new input, rings out and stops; bed_off 1,
    the bed fades out (as fx_bed_level's ramp) and stops. 0 0 (the default): as before, sample for sample. */
 void fx_guard(int plate_off, int bed_off);
+/* The same two for a test on the device (the live state's A/B switches): either one's off holds */
+void fx_ab(int plate_off, int bed_off);
 /* The bed is open or fading, or the plate's or the delay's tail is still above -100 dB. */
 int fx_active(void);
 /* Tests: stored state values that are neither 0 nor at least 1e-20 in magnitude (denormal-bound); should be 0. */
