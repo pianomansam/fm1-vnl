@@ -79,5 +79,6 @@ int ch_rhythm_row(int keys_ins, int comp);
    SR_KIT), -1 where it takes none. The comp row's value is the workbench's: a comp rhythm (from 100) is the
    COMP_PAT override, anything else COMP */
 extern const int8_t CH_SONG_ROW[ROW_N];
+extern const char *const CH_ROW_ID[ROW_N];      /* each row's id (rows.json's: the live state) */
 
 #endif

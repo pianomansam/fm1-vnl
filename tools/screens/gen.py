@@ -279,9 +279,11 @@ def gen_choices(rows, opts, shown):
          "/* each row's request on the song (song.h's song_request_row: SR_ROLL + RF_*, SR_ROLE + V_*, SR_OV + OV_*,\n"
          "   SR_KIT), -1 where it takes none. The comp row's value is the workbench's: a comp rhythm (from 100) is the\n"
          "   COMP_PAT override, anything else COMP */\n",
-         "extern const int8_t CH_SONG_ROW[ROW_N];\n\n#endif\n"]
+         "extern const int8_t CH_SONG_ROW[ROW_N];\n"
+         "extern const char *const CH_ROW_ID[ROW_N];      /* each row's id (rows.json's: the live state) */\n\n#endif\n"]
     c = [HEAD, '#include "choices_gen.h"\n#include "song.h"\n\n', s.c("CH_STR"), "\n",
          "const int8_t CH_SONG_ROW[ROW_N] = {\n" + "".join(f"    {song_row(r)},   /* {r['id']} */\n" for r in rows) + "};\n",
+         "const char *const CH_ROW_ID[ROW_N] = {" + ", ".join(f'"{r["id"]}"' for r in rows) + "};\n",
          "typedef struct { int8_t value; uint8_t flags; uint16_t name; } ch_entry_t;   /* 4 bytes */\n",
          f"static const ch_entry_t CH_E[{len(entries)}] = {{\n" +
          "".join(f"    {{{v}, {fl}, {nm}}},\n" for v, nm, fl, _, _ in entries) + "};\n",
@@ -777,9 +779,9 @@ def gen_screens(data, vocab, rows, all_parts=None):
         "   bar (a choice from a list) */\n"
         "typedef struct { uint16_t pend, first, last; uint8_t right, color; } ui_lone_t;\n"
         "extern const ui_lone_t UI_LONES[];\n"
+        "extern const char *const UI_SCREEN_NAME[];   /* each screen's id (screens.js's: uistate, the live state) */\n"
         "#ifdef PLAT_HOST\n/* a value id's name: the simulator's uistate (not on the device) */\n"
         "extern const char UI_VALUE_STRINGS[];\nextern const uint16_t UI_VALUE_NAME[];\n"
-        "extern const char *const UI_SCREEN_NAME[];   /* each screen's id (screens.js's) */\n"
         "#define UI_VALUE_STR(id) (UI_VALUE_STRINGS + UI_VALUE_NAME[id])\n#endif\n\n#endif\n")
 
     # ---- the tables
@@ -847,10 +849,10 @@ def gen_screens(data, vocab, rows, all_parts=None):
     c.append("};\n")
     vs = Strings()
     names = [vs("")] + [vs(v) for v in values]
-    c.append("\n#ifdef PLAT_HOST\n" + vs.c("UI_VALUE_STRINGS") +
+    c.append(f"\nconst char *const UI_SCREEN_NAME[{len(screens)}] = {{" + ", ".join(f'"{x}"' for x in screens) + "};\n" +
+             "#ifdef PLAT_HOST\n" + vs.c("UI_VALUE_STRINGS") +
              f"const uint16_t UI_VALUE_NAME[{len(names)}] = {{" + ", ".join(map(str, names)) + "};\n" +
-             f"const char *const UI_SCREEN_NAME[{len(screens)}] = {{" + ", ".join(f'"{x}"' for x in screens) +
-             "};\n#endif\n")
+             "#endif\n")
     # the strings table last: every s() above has run
     c[2] = s.c("UI_STRINGS")
     return "".join(h), "".join(c)

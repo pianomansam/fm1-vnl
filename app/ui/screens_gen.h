@@ -179,11 +179,11 @@ extern const uint16_t UI_LINES[];   /* each line's template (UV_LINE(i, 0)'s) */
    bar (a choice from a list) */
 typedef struct { uint16_t pend, first, last; uint8_t right, color; } ui_lone_t;
 extern const ui_lone_t UI_LONES[];
+extern const char *const UI_SCREEN_NAME[];   /* each screen's id (screens.js's: uistate, the live state) */
 #ifdef PLAT_HOST
 /* a value id's name: the simulator's uistate (not on the device) */
 extern const char UI_VALUE_STRINGS[];
 extern const uint16_t UI_VALUE_NAME[];
-extern const char *const UI_SCREEN_NAME[];   /* each screen's id (screens.js's) */
 #define UI_VALUE_STR(id) (UI_VALUE_STRINGS + UI_VALUE_NAME[id])
 #endif
 

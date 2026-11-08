@@ -192,6 +192,7 @@ static song_ev_t evs[64];
 /* What it costs, readable on the device (SAVE shows it in the header): the longest redraw (a frame's drawing), the
    longest render of an audio block and the blocks whose render took longer than the block lasts (late) */
 static uint32_t m_draw_max, m_render_max, m_late;
+static uint32_t m_load_now, m_load_peak; /* the render's load, % of its block: the last block's, the highest */
 #ifdef PLAT_HOST
 #define M_US() 0u
 #else
@@ -782,6 +783,9 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
             m_render_max = dt;
         if (dt > blk)
             m_late++;
+        m_load_now = blk ? dt * 100u / blk : 0u;
+        if (m_load_now > m_load_peak)
+            m_load_peak = m_load_now;
         cg_post(blk ? dt * 256u / blk : 0u);   /* (its load: 1/256 of the block's time) */
     }
 #endif
@@ -1319,10 +1323,20 @@ static void rm_leave(void)
     app_say("BROWSER", "DISCONNECTED");
 }
 
+#if UI_RT
+static void live_reply(void);
+#endif
+
 int app_sysex(const uint8_t *p, uint32_t n)
 {
     if (n < 4u || p[0] != RM_PFX0 || p[1] != RM_PFX1 || p[2] != RM_PFX2)
         return 0;
+#if UI_RT
+    if (p[3] == 0x04u) {                 /* the live state (below): answered at once, the remote on or not */
+        live_reply();
+        return 1;
+    }
+#endif
     if (p[3] == RM_ON) {
         rm.heard = plat_ms();
         if (!rm.on)
@@ -1748,6 +1762,184 @@ static void ui_host_state(void)
 #endif
 #endif
 
+#if UI_RT
+/* ---- the live state (docs/superpowers/plans/2026-11-06-device-screens.md "Live state"): the browser-remote prefix's
+   04 asks, and the FM-1 answers with JSON in frames F0 7D 56 4E 14 pp nn <text> F7 (pp this frame, nn of them,
+   from 0; the text 7-bit, LIVE_CHUNK bytes a frame at most), the fields of the mock's Device.state() it has, and its
+   CPU. Built in the main loop when asked (app_sysex), from the snapshot the render publishes: never in the audio
+   interrupt, safe while it plays. tools/fm1_state.py asks and reads it; the simulator's "live" prints the frames. */
+#define LIVE_CMD 0x04u
+#define LIVE_REPLY 0x14u
+#define LIVE_CHUNK 100u
+static char live_buf[6144] UI_POOL;
+typedef struct { char *p; uint32_t n, cap; } jb_t;
+static void jb(jb_t *b, const char *s)
+{
+    while (*s && b->n + 1u < b->cap)
+        b->p[b->n++] = *s++;
+    b->p[b->n] = 0;
+}
+static void jbi(jb_t *b, int32_t v)
+{
+    char t[12];
+    int_text(v, t);
+    jb(b, t);
+}
+static void jbu(jb_t *b, uint32_t v)
+{
+    char t[12];
+    int k = 11;
+    t[k] = 0;
+    do
+        t[--k] = (char)('0' + v % 10u);
+    while (v /= 10u);
+    jb(b, t + k);
+}
+static void jbs(jb_t *b, const char *s)  /* a JSON string: quotes and backslashes escaped, 7-bit only */
+{
+    char c[3] = {0, 0, 0};
+    jb(b, "\"");
+    for (; s && *s; s++) {
+        c[0] = (char)((unsigned char)*s >= 0x20u && (unsigned char)*s < 0x7Fu ? *s : '?');
+        c[1] = 0;
+        if (c[0] == '"' || c[0] == '\\') {
+            c[1] = c[0];
+            c[0] = '\\';
+        }
+        jb(b, c);
+    }
+    jb(b, "\"");
+}
+static void jbk(jb_t *b, const char *k)   /* a key: ,"k": */
+{
+    if (b->n && b->p[b->n - 1] != '{' && b->p[b->n - 1] != '[')
+        jb(b, ",");
+    jbs(b, k);
+    jb(b, ":");
+}
+
+static uint32_t live_state(char *o, uint32_t cap)
+{
+    static const char *const PART[] = {"drums", "bass", "keys", "pad", "lead", "texture"};
+    static const char *const KEY[12] = {"C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"};
+    static const char *const MODE[6] = {"Ionian", "Dorian", "Phrygian", "Lydian", "Mixolydian", "Aeolian"};
+    jb_t b = {o, 0, cap};
+    snap_t s;
+    const ui_activity_t *act = ui_activity();
+    const cg_stats_t *g = cg_stats();
+    int i, scr = ui_hnav.depth ? ui_hnav.stack[ui_hnav.depth - 1] : UI_HOME;
+    snap_read(&s);
+    jb(&b, "{");
+    jbk(&b, "source"); jbs(&b, "device");
+    jbk(&b, "seed"); jbu(&b, s.roll.seed);
+    jbk(&b, "playing"); jb(&b, s.playing ? "true" : "false");
+    jbk(&b, "held"); jb(&b, s.held ? "true" : "false");
+    jbk(&b, "bar"); jbi(&b, s.has_song || s.held ? s.bar : -1);
+    jbk(&b, "bars"); jbi(&b, s.roll.v[RF_BARS]);
+    jbk(&b, "section"); jbs(&b, s.section >= 0 ? plan_section_name(s.section) : "");
+    jbk(&b, "key"); jbs(&b, KEY[(unsigned)s.roll.v[RF_KEY] % 12u]);
+    jbk(&b, "mode"); jbs(&b, MODE[(unsigned)s.roll.v[RF_MODE] % 6u]);
+    jbk(&b, "tempo"); jbi(&b, s.roll.v[RF_TEMPO]);
+    jbk(&b, "loop"); jb(&b, s.rows[ROW_LOOP] ? "true" : "false");
+    jbk(&b, "stay"); jb(&b, s.rows[ROW_ENDLESS] ? "true" : "false");
+    jbk(&b, "screen"); jbs(&b, UI_SCREEN_NAME[scr]);
+    jbk(&b, "stack"); jb(&b, "[");
+    for (i = 0; i < ui_hnav.depth; i++) {
+        if (i) jb(&b, ",");
+        jbs(&b, UI_SCREEN_NAME[ui_hnav.stack[i]]);
+    }
+    jb(&b, "]");
+    jbk(&b, "cursor"); jbi(&b, ui_hnav.cursor[scr]);
+    jbk(&b, "rows"); jb(&b, "{");      /* each row: its value and its name (none: a number, or the engine's own) */
+    for (i = 0; i < ROW_N; i++) {
+        const char *n = ch_name(i, s.rows[i]);
+        jbk(&b, CH_ROW_ID[i]);
+        jb(&b, "[");
+        jbi(&b, s.rows[i]);
+        if (n) {
+            jb(&b, ",");
+            jbs(&b, n);
+        }
+        jb(&b, "]");
+    }
+    jb(&b, "}");
+    jbk(&b, "waiting"); jb(&b, "{");   /* the changes asked for, the bar each lands on (from 0); a jump, a re-roll */
+    jbk(&b, "changes"); jb(&b, "{");
+    for (i = 0; i < UI_N_FIELDS; i++)
+        if (ui_hnav.req_at[i] >= 0) {
+            jbk(&b, UI_STR(UI_FIELDS[i].name));
+            jb(&b, "{\"value\":");
+            jbi(&b, ui_hnav.req_val[i]);
+            jb(&b, ",\"at\":");
+            jbi(&b, ui_hnav.req_at[i]);
+            jb(&b, "}");
+        }
+    jb(&b, "}");
+    jbk(&b, "jump"); if (ui_hnav.jump_i >= 0) jbi(&b, ui_hnav.jump_start); else jb(&b, "null");
+    jbk(&b, "reroll"); if (ui_hnav.roll_part >= 0) jbs(&b, PART[ui_hnav.roll_part % 6]); else jb(&b, "null");
+    jb(&b, "}");
+    jbk(&b, "mute"); jb(&b, "[");
+    for (i = 0; i < UI_PART_TEXTURE; i++)
+        if (act->mute >> i & 1u) {
+            if (b.p[b.n - 1] != '[') jb(&b, ",");
+            jbs(&b, PART[i]);
+        }
+    jb(&b, "]");
+    jbk(&b, "solo"); if (act->solo >= 0) jbs(&b, PART[act->solo % 6]); else jb(&b, "null");
+    jbk(&b, "levels"); jb(&b, "{");
+    for (i = 0; i < VX_PART_N && i < 6; i++) {
+        jbk(&b, PART[i]);
+        jbi(&b, act->level[i]);
+    }
+    jb(&b, "}");
+    jbk(&b, "cpu"); jb(&b, "{");       /* % of a block; microseconds; the guard (cpuguard.h: 0 off .. 3 plate) */
+    jbk(&b, "load"); jbi(&b, (int32_t)m_load_now);
+    jbk(&b, "peak"); jbi(&b, (int32_t)m_load_peak);
+    jbk(&b, "late"); jbi(&b, (int32_t)m_late);
+    jbk(&b, "redraw_us"); jbi(&b, (int32_t)m_draw_max);
+    jbk(&b, "render_us"); jbi(&b, (int32_t)m_render_max);
+    jbk(&b, "guard"); jbi(&b, cg_level());
+    jbk(&b, "guard_steps"); jbi(&b, (int32_t)g->steps);
+    jb(&b, "}}");
+    return b.n;
+}
+
+#if defined(PLAT_HOST) && !defined(PLAT_WEB)
+static char live_sent[16384];            /* the simulator's: the frames, hex ("live" prints them) */
+#endif
+
+/* the answer, LIVE_CHUNK bytes a frame */
+static void live_reply(void)
+{
+    uint32_t n = live_state(live_buf, sizeof live_buf), parts = (n + LIVE_CHUNK - 1u) / LIVE_CHUNK, k, i;
+    uint8_t f[8 + LIVE_CHUNK + 1];
+    parts = parts ? parts : 1u;
+    for (k = 0; k < parts && k < 128u; k++) {
+        uint32_t a = k * LIVE_CHUNK, m = n - a < LIVE_CHUNK ? n - a : LIVE_CHUNK;
+        f[0] = 0xF0u;
+        f[1] = RM_PFX0;
+        f[2] = RM_PFX1;
+        f[3] = RM_PFX2;
+        f[4] = LIVE_REPLY;
+        f[5] = (uint8_t)k;
+        f[6] = (uint8_t)parts;
+        for (i = 0; i < m; i++)
+            f[7 + i] = (uint8_t)(live_buf[a + i] & 0x7F);
+        f[7 + m] = 0xF7u;
+        plat_sysex_send(f, 8u + m);
+#if defined(PLAT_HOST) && !defined(PLAT_WEB)
+        for (i = 0; i < 8u + m; i++) {
+            size_t l = strlen(live_sent);
+            if (l + 3 < sizeof live_sent)
+                snprintf(live_sent + l, sizeof live_sent - l, "%02X", f[i]);
+        }
+        if (strlen(live_sent) + 2 < sizeof live_sent)
+            strcat(live_sent, " ");
+#endif
+    }
+}
+#endif
+
 #if VNL_UI_RUNTIME
 /* the screen: the runtime's, or while the browser has the controls, that */
 static void draw(void)
@@ -1990,6 +2182,14 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
         ui_hrow_set[r] = 1;
         if (ui_host >= 0)
             ui_host_draw();
+        return 1;
+    }
+    if (!strcmp(cmd, "live")) {          /* live: the live state asked for as over USB (F0 7D 56 4E 04 F7); its frames,
+                                            hex (tools/fm1_state.py's test reads them) */
+        static const uint8_t ASK[4] = {RM_PFX0, RM_PFX1, RM_PFX2, 0x04u};
+        live_sent[0] = 0;
+        app_sysex(ASK, sizeof ASK);
+        printf("live %s\n", live_sent);
         return 1;
     }
     if (!strcmp(cmd, "remember")) {

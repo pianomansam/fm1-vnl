@@ -158,6 +158,7 @@ const int8_t CH_SONG_ROW[ROW_N] = {
     -1,   /* loop */
     -1,   /* endless */
 };
+const char *const CH_ROW_ID[ROW_N] = {"seed", "key", "mode", "tempo", "swing", "mood", "motion", "map", "prog", "color", "family", "keys", "comp", "lead", "bass", "pad", "padOn", "phrase", "leadStyle", "leadLoop", "leadOct", "busyThin", "voicings", "keysOct", "strumPat", "strumFill", "padPlace", "bassLine", "padNotes", "drumsVar", "kit", "pattern", "kick", "ride", "dust", "noise", "ambience", "rhythm", "loop", "endless"};
 typedef struct { int8_t value; uint8_t flags; uint16_t name; } ch_entry_t;   /* 4 bytes */
 static const ch_entry_t CH_E[136] = {
     {0, 0, 0},
