@@ -242,8 +242,18 @@ enum { AB_GUARD = 1, AB_ROLL = 2, AB_KIT = 4, AB_LANES = 8, AB_CHODLY = 16, AB_P
    glue off, AB2_MUD the mud high-pass off, AB2_MONO the output summed to mono (a channel out of phase cancels) */
 enum { AB2_BED = 1, AB2_FILTERS = 2, AB2_COMP = 4, AB2_GLUE = 8, AB2_MUD = 16, AB2_MONO = 64 };
 static volatile uint8_t ab_flags, ab_flags2;
-static uint32_t kit_wait;                /* samples a song has waited for its kit's voices */
-#define KIT_WAIT_MAX (44100u * 3u)       /* then it starts on the set's own kit until they are there */
+/* A new song whose shipped kit's voices the main loop is still rendering starts on time anyway, its comp and the
+   texture alone (Sam, 2026-11-08: a short comp-only intro, not silence): the drums, the bass, the lead and the pad
+   held out of the mix (vx_mute, under the listener's own mutes) until the first bar line after the voices are there,
+   or after KIT_WAIT_MAX (then on the set's own kit until they are). The song itself plays as ever, only unheard. */
+#if UI_RT
+static uint32_t kit_wait;                /* samples the song has held them */
+#define KIT_WAIT_MAX (44100u * 3u)
+#define HOLD_BUSES (1u << V_KICK | 1u << V_BASS | 1u << V_LEAD | 1u << V_PAD)
+static uint8_t kit_hold;
+static unsigned mute_user;               /* the listener's mutes (C_MUTE) */
+static void mutes_apply(void) { vx_mute(mute_user | (kit_hold ? HOLD_BUSES : 0u)); }
+#endif
 
 /* the drum lanes: the shipped kit's (song.kit_preset), or none (the song's own kit); a modeled machine's whose voices
    aren't rendered yet: none (the set's own kit under it: Soft brushes) until they are (step) */
@@ -254,22 +264,6 @@ static void drums_apply(void)
     drums_wait = (uint8_t)(on && !wb_drums_ready(&d));
     wb_drums_set(on && !drums_wait ? &d : 0);
     wb_drums_kit(lib_song_kit(&song.roll));
-}
-
-/* the next song's shipped kit (its seeded pick) is ready to play, or it has waited long enough */
-static int kit_ready_next(uint32_t n)
-{
-#if UI_RT
-    wb_drums_t d;
-    int k = ui_kit_pick(&mb_roll, smp_ready());
-    if (k < SONG_KIT_PRESET || !wb_drums_preset(&d, k - SONG_KIT_PRESET) || wb_drums_ready(&d) || kit_wait >= KIT_WAIT_MAX)
-        return 1;
-    kit_wait += n;
-    return 0;
-#else
-    (void)n;
-    return 1;
-#endif
 }
 
 static void voices_begin(void)
@@ -298,6 +292,11 @@ static void song_begin(uint32_t n)
     BARRIER();
     mb_full = 0;                         /* the main loop rolls the next one */
     voices_begin();
+#if UI_RT
+    kit_hold = drums_wait;               /* (its kit's voices still rendering: comp and texture first) */
+    kit_wait = 0;
+    mutes_apply();
+#endif
     r_now = r_tick = 0;
     r_pos = n * (1u + SONG_FIRST_BAR_PARTS);   /* (its first 16th after its first bar's planning, a part a block:
                                             the song's setup and that planning not in one block's render) */
@@ -563,6 +562,12 @@ static void step(void)
         m_cause |= 1u << MC_ROW;
 #endif
     }
+#if UI_RT
+    if (kit_hold && st == 0 && (!drums_wait || kit_wait >= KIT_WAIT_MAX)) {   /* the held parts in at this bar line */
+        kit_hold = 0;
+        mutes_apply();
+    }
+#endif
 #if VNL_UI_RUNTIME
     m_cause |= 1u << MC_STEP;
 #endif
@@ -702,7 +707,8 @@ static void command(uint32_t c)
     } else if (op == C_JUMP) {
         jump_ask(b);
     } else if (op == C_MUTE) {
-        vx_mute((unsigned)b);
+        mute_user = (unsigned)b;
+        mutes_apply();
     } else if (op == C_SOLO) {
         vx_solo(b);
     } else if (op == C_LEVEL) {
@@ -842,10 +848,12 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
         m_cause |= 1u << MC_SONG;
 #endif
     }
-    if (rs == RS_WAIT && mb_full && kit_ready_next(n)) {
-        kit_wait = 0;
+    if (rs == RS_WAIT && mb_full)
         song_begin(n);
-    }
+#if UI_RT
+    if (kit_hold && rs == RS_SONG)
+        kit_wait += n;
+#endif
     memset(mix_l, 0, sizeof(float) * n);
     memset(mix_r, 0, sizeof(float) * n);
     while (i < n) {
