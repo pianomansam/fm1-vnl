@@ -358,7 +358,12 @@ static int16_t j_target = -1, j_from;    /* the bar the song jumps to (-1: none)
 static uint8_t j_ready, loop_on, endless_on;
 static song_ev_t j_evs[64];
 enum { J_TICKS = 24 };                    /* 16ths fast-forwarded a block */
-static uint8_t bar_ticked;               /* the song ticked a bar's first 16th in this block (step) */
+static uint8_t bar_ticked;               /* the song ticked a costly 16th in this block (step): a bar's first (its
+                                            events, a request landing) or one of the next bar's planning (song.c:
+                                            the 13th to 15th) */
+static uint8_t roll_line_due;            /* a bar line passed: the Parts roll's copy waits for a light block */
+/* a song's 16th that costs (the song's planning or its downbeat): st, the 16th it ticks */
+#define HEAVY_16TH(st) ((st) == 0 || ((st) >= 12 && (st) <= 14))
 
 static void jump_ask(int bar)
 {
@@ -382,13 +387,13 @@ static void jump_prepare(void)
         if (jsong.bar >= j_target || jsong.state != SS_PLAYING) {
             j_ready = 1;
         } else {
-            int heavy = jsong.step == 0;
+            int heavy = HEAVY_16TH(jsong.step);
             song_tick(&jsong, j_evs, 64);
 #if VNL_UI_RUNTIME
             m_cause |= 1u << MC_JUMP;
 #endif
             if (heavy)
-                break;                   /* (a bar's generation: one a block) */
+                break;                   /* (a bar's generation or planning: one a block) */
         }
     }
     if (j_target >= 0 && jsong.bar >= j_target)
@@ -438,14 +443,18 @@ static void jump_rules(void)
     }
 }
 
-/* The Parts roll's notes: the song around the bar playing (the lanes' window), from the song itself. At each bar
-   line a copy of the song (as it starts the bar) is ticked silently ahead to the window's end, a few 16ths a block,
-   into the buffer the main loop doesn't read; the bars before keep the notes they had; then the buffers swap. */
-enum { UI_ROLL_MAX = 1024, R_TICKS = 8 };
+/* The Parts roll's notes: the song around the bar playing (the lanes' window), from the song itself. A copy of the
+   song is ticked silently ahead to a bar past the window's end, a few 16ths a block, into the buffer the main loop
+   doesn't read; then the buffers swap. At each bar line the copy goes on from where it was (one bar more: the song's
+   own cost), the notes it had kept; only when the song changed what it can't foresee (a request, a jump: song_key)
+   does it start again from the song as the bar began. */
+enum { UI_ROLL_MAX = 1024, R_TICKS = 4 };
 static struct { uint16_t n; ui_note_t note[UI_ROLL_MAX]; } roll_buf[2] UI_POOL;
 static volatile uint8_t roll_front;
 static song_t rsong UI_POOL;
 static int16_t roll_to = -1;
+static int16_t roll_bar = -1;            /* the bar line the copy last went on from (-1: none; it starts again) */
+static uint32_t roll_key;                /* the song's song_key then */
 static volatile uint8_t roll_shown;      /* the screen shown has the Parts roll (the main loop's): the look-ahead runs
                                             only then (its song ticks cost the render; nothing else reads its notes) */
 static song_ev_t r_evs[64];
@@ -460,21 +469,26 @@ static void roll_bar_line(void)
 {
     const ui_lanes_t *L = &UI_LANE_ITEMS[0];
     if (!roll_shown) {
-        roll_to = -1;
+        roll_to = roll_bar = -1;
         return;
     }
     int bars = song.roll.v[RF_BARS], span = L->window < bars ? L->window : bars, from = song.bar - span / 4, i;
     uint8_t back = (uint8_t)!roll_front;
+    uint32_t key = song_key(&mark);
+    int on = roll_to < 0 && roll_bar >= 0 && mark.bar == roll_bar + 1 && key == roll_key && rsong.bar >= mark.bar;
     if (from > bars - span) from = bars - span;
     if (from < 0) from = 0;
     roll_buf[back].n = 0;
-    for (i = 0; i < roll_buf[roll_front].n; i++) {   /* the bars played keep their notes */
+    for (i = 0; i < roll_buf[roll_front].n; i++) {   /* the bars played keep their notes; going on, those ahead too */
         const ui_note_t *e = &roll_buf[roll_front].note[i];
-        if (e->bar >= from && e->bar < song.bar)
+        if (e->bar >= from && (on || e->bar < mark.bar))
             roll_buf[back].note[roll_buf[back].n++] = *e;
     }
-    rsong = song;
-    roll_to = (int16_t)(from + span < bars ? from + span : bars);
+    if (!on)
+        rsong = mark;                    /* (the song as the bar began: mark, step's copy at the bar line) */
+    roll_bar = (int16_t)mark.bar;
+    roll_key = key;
+    roll_to = (int16_t)(from + span + 1 < bars ? from + span + 1 : bars);   /* (a bar past: the next bar line's) */
 }
 
 static void roll_generate(void)
@@ -507,14 +521,14 @@ static void roll_generate(void)
             e->part = (uint8_t)p;
             roll_buf[back].n++;
         }
-        if (st == 0)
-            break;                       /* (a bar's generation: one a block) */
+        if (HEAVY_16TH(st))
+            break;                       /* (a bar's generation or planning: one a block) */
     }
 }
 
 static void roll_clear(void)
 {
-    roll_to = -1;
+    roll_to = roll_bar = -1;
     roll_buf[0].n = roll_buf[1].n = 0;
 }
 #endif
@@ -535,11 +549,13 @@ static void step(void)
 #if VNL_UI_RUNTIME
         m_cause |= 1u << MC_BAR;
 #endif
+        roll_line_due = 1;               /* (the roll's copy at the next light block: roll_bar_line) */
         if (j_target >= 0 && j_ready && song.bar > j_from)
             jump_land();
         jump_rules();
-        roll_bar_line();
     }
+    if (st >= 12 && st <= 14)
+        bar_ticked = 1;                  /* (the next bar's planning in this 16th's tick: song.c) */
 #endif
     last = &song.plan.b[song.plan.n ? song.plan.n - 1 : 0];
     bar = song.bar;
@@ -835,11 +851,14 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
                                             in a block whose song generated a bar of its own */
         static uint8_t was_shown;
         jump_prepare();
-        if (roll_shown && !was_shown && roll_to < 0)
-            roll_bar_line();             /* (the roll's screen opened: its notes from here, not from the next bar) */
-        was_shown = roll_shown;
-        if (!(ab_flags & AB_ROLL) && roll_shown)
+        if (roll_line_due || (roll_shown && !was_shown && roll_to < 0)) {
+            roll_line_due = 0;           /* (a bar line passed, or the roll's screen opened: its copy, this block's
+                                            only work for it) */
+            roll_bar_line();
+        } else if (!(ab_flags & AB_ROLL) && roll_shown) {
             roll_generate();
+        }
+        was_shown = roll_shown;
     }
     bar_ticked = 0;
 #endif

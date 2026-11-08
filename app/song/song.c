@@ -571,9 +571,9 @@ void song_start_kit(song_t *s, const song_roll_t *r, int kit)
 
 /* what the next bar's planning depends on that a tick between could change: the requests waiting and what has landed
    (the roll, the rows' changes), the keys' window */
-static uint32_t stage_key(const song_t *s)
+uint32_t song_key(const song_t *s)
 {
-    uint32_t h = 2166136261u;
+    uint32_t h = 2166136261u ^ s->roll.seed;
     int i;
     for (i = 0; i < RF_N; i++)
         h = (h ^ (uint32_t)(s->pend[i] ? 1 + s->pend_bar[i] * 31 + s->pend_val[i] : 0)) * 16777619u;
@@ -589,8 +589,9 @@ static uint32_t stage_key(const song_t *s)
         for (j = 0; j < sizeof(song_ov_t); j++)
             h = (h ^ o[j]) * 16777619u;
     }
-    return (h ^ (uint32_t)s->keys_win) * 16777619u;
+    return h;
 }
+static uint32_t stage_key(const song_t *s) { return (song_key(s) ^ (uint32_t)s->keys_win) * 16777619u; }
 
 /* a request lands on bar B (its planning waits for the downbeat, after it) */
 static int lands_on(const song_t *s, int B)

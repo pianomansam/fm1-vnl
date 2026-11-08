@@ -179,7 +179,8 @@ const SEED = 72;
   const steps = [
     { press: "PLAY" }, { wait: 9000 }, { screen: "main" },
     // the Parts roll (ARP): a lane a part, the bar playing highlighted, the notes around it; K1 mutes a lane, K2 solos
-    { press: "ARP" }, { check: "parts", expect: (st) => is("screen", st.screen, "mixer") || (notes(st) > 20 ? "" : `${notes(st)} notes`) },
+    // (its look-ahead a few 16ths a block: the window's notes a moment after it opens)
+    { press: "ARP" }, { wait: 400 }, { check: "parts", expect: (st) => is("screen", st.screen, "mixer") || (notes(st) > 20 ? "" : `${notes(st)} notes`) },
     { spin: ["ALGO", 1] }, { spin: ["K1", 1] }, { check: "parts-mute", expect: (st) => is("mute", v(st).activity.mute.join(), "bass") },
     { spin: ["K2", 1] }, { check: "parts-solo", expect: (st) => is("solo", v(st).activity.solo, "bass") },
     { spin: ["K2", 1] }, { spin: ["K1", 1] }, { wait: 3400 }, { check: "parts-next-bar" },

@@ -173,44 +173,61 @@ static void ui_lanes(const ui_bag_t *b, const ui_item_t *it)
         int32_t sb = b->s->secs[k].start;
         if (sb > from && sb < from + span) cv_rect(UI_X16(16 * sb), y, 1, height, UI_COLORS[UC_DIM]);
     }
-    for (i = 0; i < parts->n; i++) {
-        int p = UI_LIST_DATA[parts->at + i], off = ui_part_off(act, p), lo = 127, hi = 0, rspan, n;
-        int32_t ry = y + i * rowH;
-        uint16_t col = UI_COLORS[UI_PART_LOOK[p].color], dimc = UI_COLORS[UC_DIM];
-        char key[8];
-        if (ui_true(b, UV_I(i, UVK_I_SEL))) cv_rect(x - 4, ry, lx - x, rowH - 2, UI_COLORS[UC_LINE]);
-        ui_part_icon(p, x, ry + 4, off ? dimc : col);
-        cv_text(x, ry + 13, &FONT_T, UI_STR(UI_PART_LOOK[p].name), off ? dimc : col);
-        if (ui_nth(keys, i, key, sizeof key)[0]) cv_text(x + 32, ry + 2, &FONT_T, key, dimc);   /* its key's letter */
-        if (act && act->mute >> p & 1u) cv_text(x + 12, ry + 2, &FONT_T, "M", UI_COLORS[UC_HI]);
-        if (act && act->solo == p) cv_text(x + 12, ry + 2, &FONT_T, "S", UI_COLORS[UC_HI]);
-        cv_rect(lx, ry + rowH - 2, lw, 1, UI_COLORS[UC_LINE]);
-        if (!act) continue;
-        if (p != UI_PART_DRUMS)                                  /* a pitched lane spans its lowest to highest note */
-            for (n = 0; n < act->n; n++)
-                if (act->notes[n].part == p) {
-                    if (act->notes[n].note < lo) lo = act->notes[n].note;
-                    if (act->notes[n].note > hi) hi = act->notes[n].note;
-                }
-        rspan = (hi - lo > 11 ? hi - lo : 11) + 1;
-        for (n = 0; n < act->n; n++) {
-            const ui_note_t *e = &act->notes[n];
-            int32_t t = 16 * e->bar + e->step, len = e->len ? e->len : 1, x0, x1, ny, nh;
-            uint16_t base;
-            if (e->part != p || t + len < 16 * from || t > 16 * (from + span)) continue;
-            x0 = UI_X16(t);
-            x1 = UI_X16(t + len);
-            if (x0 < lx) x0 = lx;
-            if (x1 > lx + lw) x1 = lx + lw;
-            if (p == UI_PART_DRUMS) {                            /* a row a drum (V_KICK .. V_RIDE) */
-                ny = ui_round_q(e->note * (rowH - 4), V_RIDE - V_KICK + 1);
-                nh = ui_round_q(rowH - 4, V_RIDE - V_KICK + 1);
-            } else {
-                ny = ui_round_q((hi - e->note) * (rowH - 4), rspan);
-                nh = ui_round_q(rowH - 4, rspan);
+    {
+        /* each lane's part, its row, its colors, a pitched lane's lowest and highest note: one pass over the notes for
+           all lanes, then one drawing them (a lane's row its own: the same pixels as lane by lane) */
+        int lane_of[16], lo[8], hi[8], rspan[8], n;
+        int32_t ry0[8];
+        uint16_t col[8], dimc = UI_COLORS[UC_DIM];
+        int8_t offp[8];
+        for (k = 0; k < 16; k++) lane_of[k] = -1;
+        for (i = 0; i < parts->n && i < 8; i++) {
+            int p = UI_LIST_DATA[parts->at + i];
+            char key[8];
+            lane_of[p & 15] = i;
+            offp[i] = (int8_t)ui_part_off(act, p);
+            ry0[i] = y + i * rowH;
+            col[i] = UI_COLORS[UI_PART_LOOK[p].color];
+            lo[i] = 127;
+            hi[i] = 0;
+            if (ui_true(b, UV_I(i, UVK_I_SEL))) cv_rect(x - 4, ry0[i], lx - x, rowH - 2, UI_COLORS[UC_LINE]);
+            ui_part_icon(p, x, ry0[i] + 4, offp[i] ? dimc : col[i]);
+            cv_text(x, ry0[i] + 13, &FONT_T, UI_STR(UI_PART_LOOK[p].name), offp[i] ? dimc : col[i]);
+            if (ui_nth(keys, i, key, sizeof key)[0]) cv_text(x + 32, ry0[i] + 2, &FONT_T, key, dimc);   /* its key's letter */
+            if (act && act->mute >> p & 1u) cv_text(x + 12, ry0[i] + 2, &FONT_T, "M", UI_COLORS[UC_HI]);
+            if (act && act->solo == p) cv_text(x + 12, ry0[i] + 2, &FONT_T, "S", UI_COLORS[UC_HI]);
+            cv_rect(lx, ry0[i] + rowH - 2, lw, 1, UI_COLORS[UC_LINE]);
+        }
+        if (act) {
+            for (n = 0; n < act->n; n++) {                       /* a pitched lane spans its lowest to highest note */
+                const ui_note_t *e = &act->notes[n];
+                int l = e->part < 16 ? lane_of[e->part] : -1;
+                if (l < 0 || e->part == UI_PART_DRUMS) continue;
+                if (e->note < lo[l]) lo[l] = e->note;
+                if (e->note > hi[l]) hi[l] = e->note;
             }
-            base = off ? dimc : t < 16 * (pos + 1) ? col : UI_COLORS[UC_GRAY];   /* played or this bar: its color */
-            cv_rect(x0, ry + 1 + ny, x1 - x0 - 1 > 1 ? x1 - x0 - 1 : 1, nh > 1 ? nh : 1, ui_dim(base, e->vel));
+            for (i = 0; i < parts->n && i < 8; i++)
+                rspan[i] = (hi[i] - lo[i] > 11 ? hi[i] - lo[i] : 11) + 1;
+            for (n = 0; n < act->n; n++) {
+                const ui_note_t *e = &act->notes[n];
+                int l = e->part < 16 ? lane_of[e->part] : -1;
+                int32_t t = 16 * e->bar + e->step, len = e->len ? e->len : 1, x0, x1, ny, nh;
+                uint16_t base;
+                if (l < 0 || t + len < 16 * from || t > 16 * (from + span)) continue;
+                x0 = UI_X16(t);
+                x1 = UI_X16(t + len);
+                if (x0 < lx) x0 = lx;
+                if (x1 > lx + lw) x1 = lx + lw;
+                if (e->part == UI_PART_DRUMS) {                  /* a row a drum (V_KICK .. V_RIDE) */
+                    ny = ui_round_q(e->note * (rowH - 4), V_RIDE - V_KICK + 1);
+                    nh = ui_round_q(rowH - 4, V_RIDE - V_KICK + 1);
+                } else {
+                    ny = ui_round_q((hi[l] - e->note) * (rowH - 4), rspan[l]);
+                    nh = ui_round_q(rowH - 4, rspan[l]);
+                }
+                base = offp[l] ? dimc : t < 16 * (pos + 1) ? col[l] : UI_COLORS[UC_GRAY];   /* played or this bar */
+                cv_rect(x0, ry0[l] + 1 + ny, x1 - x0 - 1 > 1 ? x1 - x0 - 1 : 1, nh > 1 ? nh : 1, ui_dim(base, e->vel));
+            }
         }
     }
 #undef UI_X16
@@ -287,21 +304,44 @@ static int32_t ui_text_item(const ui_bag_t *b, const ui_item_t *it, int32_t pen)
     return pen;
 }
 
-/* each band's pixels as last sent (a sum of the canvas, by its index in UI_BANDS): a band drawn the same as before
-   is not sent to the panel again (the panel's transfer is a redraw's cost; one late audio block in ten was a redraw's,
-   the FM-1, 2026-11-07) */
-#define UI_SUMS 256
-static uint32_t ui_sum[UI_SUMS];
-static uint8_t ui_sum_ok[UI_SUMS];
+/* the panel's pixels as last sent, a sum each strip of UI_STRIP rows (by the screen row it starts on): only the
+   strips drawn differently are sent again, a run of them at once (the panel's transfer is a redraw's cost; one late
+   audio block in ten was a redraw's, the FM-1, 2026-11-07; the Parts roll's lanes, one tall band, changed a few
+   strips a bar but sent them all, 2026-11-08) */
+#define UI_STRIP 8u
+static uint32_t ui_sum[240];
+static uint8_t ui_sum_ok[240];
 void ui_draw_all(void) { memset(ui_sum_ok, 0, sizeof ui_sum_ok); }
 
-static uint32_t canvas_sum(uint32_t n)
+static uint32_t canvas_sum(uint32_t r0, uint32_t rows)
 {
-    const uint32_t *p = (const uint32_t *)cv_px;
+    const uint32_t *p = (const uint32_t *)(cv_px + r0 * cv_w);
     uint32_t h = 2166136261u, i;
-    for (i = 0; i < n / 2u; i++)
+    for (i = 0; i < rows * cv_w / 2u; i++)
         h = (h ^ p[i]) * 16777619u;
     return h;
+}
+
+/* the canvas's strips that changed, to screen row y */
+static void ui_send(uint32_t y)
+{
+    uint32_t r0, at = cv_h;
+    for (r0 = 0; r0 < cv_h; r0 += UI_STRIP) {
+        uint32_t k = y + r0, h = canvas_sum(r0, cv_h - r0 < UI_STRIP ? cv_h - r0 : UI_STRIP);
+        int same = k < 240u && ui_sum_ok[k] && ui_sum[k] == h;
+        if (k < 240u) {
+            ui_sum[k] = h;
+            ui_sum_ok[k] = 1;
+        }
+        if (!same && at == cv_h)
+            at = r0;
+        else if (same && at < cv_h) {
+            lcd_blit(0, y + at, cv_w, r0 - at, cv_px + at * cv_w);
+            at = cv_h;
+        }
+    }
+    if (at < cv_h)
+        lcd_blit(0, y + at, cv_w, cv_h - at, cv_px + at * cv_w);
 }
 
 void ui_draw(const ui_screen_t *sc, const ui_bag_t *b, uint32_t band_mask)
@@ -331,12 +371,6 @@ void ui_draw(const ui_screen_t *sc, const ui_bag_t *b, uint32_t band_mask)
             default: break;
             }
         }
-        {
-            uint32_t k = (uint32_t)(sc->bands + bi) % UI_SUMS, h = canvas_sum(cv_w * cv_h);
-            if (!ui_sum_ok[k] || ui_sum[k] != h)
-                cv_blit(0, band->y);
-            ui_sum[k] = h;
-            ui_sum_ok[k] = 1;
-        }
+        ui_send((uint32_t)band->y);
     }
 }

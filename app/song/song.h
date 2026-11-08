@@ -97,6 +97,9 @@ int song_pending(const song_t *s, int *field, int *bars_left);  /* the earliest 
    that bar), each landing on the bar it would have; one waiting in s but not in `later` landed on that bar's
    downbeat and lands there again */
 void song_carry_requests(song_t *s, const song_t *later);
+/* what a copy ticked ahead can't foresee: the song's seed, the requests waiting, what landed (the roll, the rows'
+   changes), the overrides; equal keys, the same notes ahead (the Parts roll's look-ahead goes on from where it was) */
+uint32_t song_key(const song_t *s);
 
 /* A request on any row the screens set, landing on the next 4-bar boundary exactly as song_request's and carried
    across a stop like them. row: SR_ROLL + RF_* a roll field (song_request), SR_ROLE + V_* a role's instrument (V_CHORD,
