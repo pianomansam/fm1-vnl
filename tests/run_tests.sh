@@ -34,6 +34,8 @@ run kits-native sh -c "$CC -O2 -std=gnu99 -ffp-contract=off -Wall -Wextra -Wno-u
     -Iapp/engine -Iapp/drums -Iapp/ui -Ibase/include -Iworkbench/engine -o $OUT/wb_native tests/host/wb_native.c \
     app/song/*.c app/song/leads/*.c app/engine/*.c app/drums/*.c app/drums/fomajam/*.c app/ui/kitpick.c \
     app/ui/choices_gen.c workbench/engine/*.c && sh workbench/build.sh && node workbench/tools/kits_native.mjs $OUT/wb_native"
+run cpuguard sh -c "$CC -O2 -std=gnu99 -Wall -Wextra -Werror -Iapp/drums -Iapp/engine -Iapp/song -Ibase/include \
+    -o $OUT/cpuguard_test tests/host/cpuguard_test.c app/drums/cpuguard.c && $OUT/cpuguard_test"   # the guard's stepping
 run bank sh -c "python3 -I tools/fm1_bank.py --check && python3 -I tools/test_fm1_bank.py"   # the bank: head, CRC, areas, no update mark
 run screens-export node workbench/tools/export_screens.mjs --check   # ui/screens.json matches screens.js, in ui/vocab.json's words
 run screens-gen python3 -I tools/screens/gen.py --check           # app/ui's *_gen.c/.h match the workbench's data

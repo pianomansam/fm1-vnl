@@ -33,6 +33,7 @@ GPL-3.0-only, as is FOMAJAM's, so the firmware binary as a whole is GPL-3.0-only
 | What | License | URL | Where |
 | --- | --- | --- | --- |
 | FOMAJAM's modeled drum machines (the 808 and CR-78; the 909 and SDS-V there, unused), integer tables of poketrack's trommelsynthesizer (by David Konsumer, zlib), by FOMAJAM's authors, at 138c5d9 | GPL-3.0-only (`app/drums/fomajam/LICENSE`; the upstream's zlib notice in `LICENSE.poketrack`) | https://github.com/konsumer/fomajam | `app/drums/fomajam/` (altered: the modeled machines only, a voice a slot) |
+| Optimist's predictive CPU guard (`cpuguard.c`, after Flowstate's guard by Zakaria Chowdhury), at 8a91efd | GPL-3.0-only (`app/drums/optimist/LICENSE`) | https://github.com/w0ts/optimist | `app/drums/cpuguard.c` (altered: our ladder, a learned voice cost) |
 | Optimist's synth drum engine (`drum_synth.c`) and its LO-FI kit, by Leo Kuroshita (@kurogedelic), Hügelton Instruments, and the Optimist contributors, at 915fd8a | GPL-3.0-only (`app/drums/optimist/LICENSE`) | https://github.com/w0ts/optimist | `app/drums/optimist/` (as is, its SPDX header and copyright kept) |
 
 The shipped sampled kits (Dusty, Room - big, Room - brushes) play recordings dedicated to the public domain under CC0

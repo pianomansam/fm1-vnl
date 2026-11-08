@@ -35,6 +35,7 @@
 #include "fx.h"
 #include "samples.h"
 #include "wb_drums.h"
+#include "cpuguard.h"
 #include "snap.h"
 /* The screens' runtime (app/ui: the workbench's screens as tables, their values, their drawing, the navigator): the
    device's UI with VNL_UI_RUNTIME (app.h; Task 8 turns it on), else today's hand-drawn screen below; the simulator
@@ -701,6 +702,7 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     uint32_t i = 0, k;
 #if VNL_UI_RUNTIME
     uint32_t m_t0 = M_US();
+    cg_pre((uint32_t)vx_active());       /* the CPU guard (the FM-1's: app_init turns it on) */
 #endif
     float gain = (float)master_q12 * (8388607.0f / 4096.0f);   /* MASTER, read once a block: float -> 24-bit */
     if (remote_mute)
@@ -775,11 +777,12 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     publish();
 #if VNL_UI_RUNTIME
     {
-        uint32_t dt = M_US() - m_t0;
+        uint32_t dt = M_US() - m_t0, blk = n * 1000000u / 44100u;
         if (dt > m_render_max)
             m_render_max = dt;
-        if (dt > n * 1000000u / 44100u)
+        if (dt > blk)
             m_late++;
+        cg_post(blk ? dt * 256u / blk : 0u);   /* (its load: 1/256 of the block's time) */
     }
 #endif
 }
@@ -936,6 +939,11 @@ void app_init(void)
     lib_set_samples(smp_ready());        /* none (or another build's): synth instruments only, NO SAMPLES */
     vx_init();                           /* the first song: app_frame, once seeded */
     wb_drums_init();
+#if VNL_UI_RUNTIME && !defined(PLAT_HOST)
+    cg_on(1, 218u, 204u, 256u);          /* the CPU guard: over 85 % of a block it steps quality down (cpuguard.h), back
+                                            under 80 %; the host simulator and the workbench never (their time isn't
+                                            the FM-1's) */
+#endif
 }
 
 #ifdef APP_USB_CMD
@@ -1598,7 +1606,12 @@ static void ui_host_input(uint32_t btn)
         text_cat(a, "REDRAW ");
         int_text((int32_t)m_draw_max, v);
         text_cat(a, v);
-        text_cat(a, " US");
+        text_cat(a, " US G");             /* the CPU guard: its level now (0 off, 1 tails, 2 bed, 3 plate), its steps */
+        int_text((int32_t)cg_level(), v);
+        text_cat(a, v);
+        text_cat(a, " X");
+        int_text((int32_t)cg_stats()->steps, v);
+        text_cat(a, v);
         text_cat(c, "LATE ");
         int_text((int32_t)m_late, v);
         text_cat(c, v);

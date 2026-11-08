@@ -8,7 +8,7 @@
 #   heaviest; 7 a held pad; the heaviest of the other synth sets: 155 DX keys and FM bass, 138 DX and pluck, 100 Organ
 #   and saw lead, 22 Nylon and synth pluck)
 # Each song plays the kit the FM-1 would (the seeded pick; VNL_KIT=<kit row value> forces one, VNL_KITLOG=1
-# names it). Prints: vnl <ms> amb <ms> ratio <x> (and a `forced` line per seed when forcing). Needs ref/fm1-amb (gitignored)
+# names it; VNL_GUARD=1 runs the CPU guard against the budget, printing what it did). Prints: vnl <ms> amb <ms> ratio <x> (and a `forced` line per seed when forcing). Needs ref/fm1-amb (gitignored)
 # and base/include/fastmath.h.
 set -e
 cd "$(dirname "$0")/.."

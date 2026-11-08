@@ -15,6 +15,7 @@
 #include "library.h"
 #include "sampler.h"
 #include "fomajam/fj_drums.h"
+#include "cpuguard.h"
 
 #define EXPORT __attribute__((used, visibility("default")))
 #define SR 44100.0f
@@ -49,6 +50,7 @@ typedef struct {
     smp_dec_t d;                        /* SAMPLE, PT: the decoder, the two samples the read is between, the read's */
     float h0, h1;                       /* place past h0 and its step (16.16: the zone's rate over 44.1 kHz) */
     uint32_t ph, step;
+    uint32_t age;                       /* samples since its hit (the guard's tails) */
     uint8_t on;
 } slot_t;
 
@@ -56,6 +58,7 @@ static slot_t sl[NS];
 static wb_drums_t cfg;
 static int cfg_any;
 static float kenv, kdec;
+static uint8_t g_tails;                 /* wb_drums_guard's */
 static int song_kit, stale;             /* the song's kit (vx_set_kit's); drums.c's synth kit isn't it (a BUILTIN hit) */
 static float t[256];
 /* meters (the workbench's tests: wasm only; the firmware has no double): each lane's and the whole output's sum
@@ -436,6 +439,7 @@ static void start(int i, const wb_src_t *src, int lane, int vel)
     s->src = *src;
     s->rel = s->fade = 1.0f;
     s->choke = 0;
+    s->age = 0;
     s->on = 1;
     if (lane == 0 && i != AUD)
         kenv = (float)vel * (1.0f / 127.0f);
@@ -462,11 +466,16 @@ static uint32_t fnv(uint32_t h, float x)
 }
 #endif
 
+void wb_drums_guard(int tails) { g_tails = (uint8_t)(tails != 0); }
+
 /* slot i's next n samples, added into x */
 static void slot_render(int i, float *x, uint32_t n)
 {
     slot_t *s = &sl[i];
     uint32_t k;
+    s->age += n;
+    if (g_tails && s->age > (uint32_t)(CG_TAIL_S * SR) && s->rel == 1.0f)
+        s->rel = REL;                   /* (the guard's: the ring goes, as drums_release fades it) */
 #ifndef METER
     if (s->src.kind == WB_SRC_PT && !s->choke && s->rel == 1.0f) {   /* the common case in one pass (fade stays 1:
                                                                         the same samples as below) */

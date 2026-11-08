@@ -135,6 +135,8 @@ static uint8_t gl_on, gl_off;
 
 static float bo, bo_t;                  /* the bed's open level and target */
 static float bg = 1.0f, bg_t = 1.0f, bg_s; /* fx_bed_level: the gain, its target and its step (kept through fx_init) */
+static float bg_u = 1.0f;               /* (fx_bed_level's own; the target is 0 while the guard has the bed off) */
+static uint8_t g_bed, g_plate;          /* fx_guard's */
 #define BG_STEPS (0.005f * BR)          /* its ramp: 5 ms */
 static float lv, lv_t, lt, lt_t, lr, lr_t; /* layer levels: vinyl, tape, rain */
 static uint32_t brng = 0x9E3779B9u;
@@ -200,7 +202,7 @@ static const int DL_LEN[L_N] = {PRE_N, HS(142), HS(107), HS(379), HS(277), HS(67
 static float pl_buf[PL_N] FX_POOL;
 static uint32_t pl_base[L_N], pw;
 static float pl_bw, pl_damp_l, pl_damp_r, lfo_s, lfo_c = 1.0f;
-static float pl_acc, pl_wl0, pl_wl1, pl_wr0, pl_wr1, pl_peak;
+static float pl_acc, pl_wl0, pl_wl1, pl_wr0, pl_wr1, pl_peak, pl_pp;   /* (pl_pp: the plate's own peak, a block) */
 static uint8_t pl_open;
 static uint8_t rings = 1; /* Rings' reverb and chorus (the default), or (fx_rings(0), host only) our plate and chorus */
 static float og = 1.0f; /* the plate's return level: 1, or falling to 0 after fx_stop */
@@ -370,7 +372,7 @@ static void plate_clear(void)
     pl_bw = pl_damp_l = pl_damp_r = 0.0f;
     lfo_s = 0.0f;
     lfo_c = 1.0f;
-    pl_acc = pl_wl0 = pl_wl1 = pl_wr0 = pl_wr1 = pl_peak = 0.0f;
+    pl_acc = pl_wl0 = pl_wl1 = pl_wr0 = pl_wr1 = pl_peak = pl_pp = 0.0f;
 }
 
 void fx_init(void)
@@ -603,8 +605,19 @@ static inline float clip(float y)
     return y < 0.0f ? -x : x;
 }
 
+void fx_guard(int plate_off, int bed_off)
+{
+    g_plate = (uint8_t)(plate_off != 0);
+    if (g_bed != (bed_off != 0)) {
+        g_bed = (uint8_t)(bed_off != 0);
+        fx_bed_level(bg_u);
+    }
+}
+
 void fx_bed_level(float g)
 {
+    bg_u = g;
+    g = g_bed ? 0.0f : g;
     bg_t = g;
     bg_s = fm_fabsf(bg_t - bg) * (1.0f / BG_STEPS);
     if (bo == 0.0f && bo_t == 0.0f)
@@ -924,8 +937,8 @@ static void wet_run(float *l, float *r, const float *s2, const float *c2, const 
         evr = er0 + (er1 - er0) * f6;
     }
     float cs = ch_s, cc = ch_c, dep = ch_dep, dt = dl_t, ws = dl_ws, wc = dl_wc, y = dl_y, dpk = dl_peak;
-    float kp = dl_k, open = pl_open ? 1.0f : 0.0f, mu = gl_mu;
-    int plate = pl_open || pl_peak > PL_QUIET;
+    float kp = dl_k, open = pl_open ? 1.0f : 0.0f, mu = gl_mu, pin = g_plate ? 0.0f : open, ppk = 0.0f;
+    int plate = g_plate ? pl_pp > PL_QUIET : pl_open || pl_peak > PL_QUIET;   /* (the guard's: its tail, then none) */
     int chorus = dep > 0.0f || ch_dep_t > 0.0f;
     int delay = !dl_off && (pl_open || dpk > PL_QUIET);
     int wet = chorus || delay || ml != 0.0f || sl != 0.0f || el1 != 0.0f || er1 != 0.0f || el0 != 0.0f || er0 != 0.0f;
@@ -944,11 +957,12 @@ static void wet_run(float *l, float *r, const float *s2, const float *c2, const 
             wr0 = wr1;
             if (plate) {
                 if (rings)
-                    rfx_reverb((0.25f * open) * acc, &wl1, &wr1);
+                    rfx_reverb((0.25f * pin) * acc, &wl1, &wr1);
                 else
-                    plate_step((0.25f * open) * acc, &wl1, &wr1);
+                    plate_step((0.25f * pin) * acc, &wl1, &wr1);
                 wl1 = fm_flush(wl1 * mu);
                 wr1 = fm_flush(wr1 * mu);
+                ppk = fm_maxf(ppk, fm_fabsf(wl1) + fm_fabsf(wr1));
             } else
                 wl1 = wr1 = 0.0f;
             acc = 0.0f;
@@ -1035,6 +1049,7 @@ static void wet_run(float *l, float *r, const float *s2, const float *c2, const 
     pl_wr1 = wr1;
     pl_acc = fm_flush(acc);
     pl_peak = pk;
+    pl_pp = ppk;
     w_ac = fm_flush(ac);
     w_ad = fm_flush(ad);
     w_ml = fm_flush(ml);
@@ -1081,7 +1096,7 @@ void fx_process_pairs(float *l, float *r, const float *s2, const float *c2, cons
         pl_peak = dl_peak = 0.0f;
         w_ml = w_sl = w_el0 = w_el1 = w_er0 = w_er1 = 0.0f;
     }
-    if (bo > 0.0f || bo_t > 0.0f)
+    if ((bo > 0.0f || bo_t > 0.0f) && !(g_bed && bg == 0.0f))   /* (the guard's: once faded, not run) */
         bed(l, r, n);
 }
 

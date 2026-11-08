@@ -56,6 +56,9 @@ void wb_drums_want(const wb_drums_t *d);
 int wb_drums_work(uint32_t frames, int now);
 int wb_drums_ready(const wb_drums_t *d);
 void wb_drums_kit(int kit);                     /* the song's kit (KIT_*), as vx_set_kit has just set it */
+/* The CPU guard's (cpuguard.h CG_TAILS): 1, a lane's sound past CG_TAIL_S fades out (drums_release's fade); 0, the
+   default: as before, sample for sample */
+void wb_drums_guard(int tails);
 /* src's sound on lane now (vel 1-127), outside the song, through the same chain (NONE: nothing) */
 void wb_drums_audition(const wb_src_t *src, int lane, int vel);
 void wb_drums_audition_kit(int kit, int lane, int vel);    /* an engine kit's (KIT_*) lane, the same way */
