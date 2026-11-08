@@ -408,12 +408,13 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   (intro, groove, lead, break, outro, drops, a section without the comp) over one progression. A B section is a
   contrasting part with its own progression (and maybe its own voicing color, comp rhythm or drum pattern variation),
   so a song can run A-A-B-A or A-B-A-B. The B section can also switch the comp (its instrument, rhythm pattern or
-  approach: struck, broken chord, held) and the lead (its instrument and pattern), and move either an octave
-  (the lead's register, the comp's too), then all back for the return of A (Sam, 2026-11-08; ties to "The song
+  approach: struck, broken chord, held), the lead (its instrument and pattern) and the drums (pattern, maybe kit or
+  hats to ride), and move the lead or comp an octave, then all back for the return of A (Sam, 2026-11-08; ties to "The song
   planner changes an instrument mid-song" above). A big piece of work. Related ideas already noted: the lament descent as a B section (Eight Bells
   notes above), the two-lead A-B-A item, hats to ride for one section. Open questions: how often a song gets one,
   how the B progression relates to A (same key, relative or a neighbor key), and whether the lead's motif carries
-  over or answers it.
+  over or answers it, and how B pairs with the break sections (a break before or after B, B in
+  place of a break, or a break inside B).
 - **CC0 sample libraries to mine (2026-10-25): VCSL and VSCO-2 CE (sgossner, both CC0).** Beyond the spike's piano
   (VCSL Kawai grand; also Steinway B, Knight and Yamaha uprights) and strings (VSCO-2 CE Violin, Viola and Cello
   Sections): sampled vibraphone, marimba, glockenspiel, several kalimbas and mbiras (could replace our FM vibes and
