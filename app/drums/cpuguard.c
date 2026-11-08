@@ -29,6 +29,7 @@ static const uint16_t CG_SETTLE[CG_LEVELS] = {0u, 69u, 9u, 345u};
 static struct {
     uint8_t on, level, over, gpend, gn;
     uint16_t settle;                   /* blocks left before the last step's saving shows */
+    uint8_t need, lates;               /* cg_need_late's; the late blocks in the run over the ceiling so far */
     uint8_t gain[CG_LEVELS];           /* the load each level saved (1/256), measured after its step */
     uint16_t under, spk, stuck;        /* (stuck: blocks under the release level that the level's saving holds up) */
     uint32_t ceil, rel, full;
@@ -43,6 +44,8 @@ static void cg_apply(void)
     wb_drums_guard(cg.level >= CG_TAILS);
     fx_guard(cg.level >= CG_PLATE, cg.level >= CG_BED);
 }
+
+void cg_need_late(uint32_t n) { cg.need = (uint8_t)(n < 255u ? n : 255u); }
 
 void cg_on(int on, uint32_t ceil, uint32_t rel, uint32_t full)
 {
@@ -82,7 +85,7 @@ void cg_pre(uint32_t voices)
     pred = pred < 0 ? 0 : pred;
     cg.nv = voices;
     if ((uint32_t)pred >= cg.full && cg.meas > cg.ceil && cg.meas < cg.full && !cg.gpend &&
-        cg.level < CG_LEVELS - 1) {
+        cg.level < CG_LEVELS - 1 && cg.lates >= cg.need) {
         cg.st.early++;                  /* predicted late after a block over the ceiling: a step before it renders */
         cg_step();
     }
@@ -115,11 +118,14 @@ void cg_post(uint32_t m)
         if (m > cg.ceil && prev > cg.ceil)
             cg.under = 0;                /* (one block over among lighter ones, its prediction the next: the release
                                             keeps counting) */
-        if ((late && prev > cg.ceil) || (!cg.gpend && ++cg.over >= CG_HOLD))
-            cg_step();
+        cg.lates = (uint8_t)(cg.lates + (late && cg.lates < 255u));
+        if (!cg.gpend && cg.lates >= cg.need && ((late && prev > cg.ceil) || ++cg.over >= CG_HOLD))
+            cg_step();                   /* (one step a burst: the next only once its saving shows, so a transient
+                                            takes the drum tails, not the bed and the plate with them) */
     } else {
         uint32_t back = load + cg.gain[cg.level];   /* (the load with the level's saving back) */
         cg.over = 0;
+        cg.lates = 0;
         if (cg.level && !(late && cg.avg >= CG_RFLOOR) && back < cg.rel) {
             cg.stuck = 0;
             if (++cg.under >= CG_RELEASE) {
@@ -141,7 +147,7 @@ void cg_post(uint32_t m)
         cg.spk = (uint16_t)(cg.spk + CG_SPK_HIT < 0xFFFFu ? cg.spk + CG_SPK_HIT : 0xFFFFu);
     else if (cg.spk)
         cg.spk--;
-    if (cg.spk >= CG_SPK_ON && cg.avg >= CG_RFLOOR) {
+    if (cg.spk >= CG_SPK_ON && cg.avg >= CG_RFLOOR && !cg.gpend) {   /* (late blocks themselves: no need's count) */
         cg.spk = 0;
         cg_step();
     }
@@ -192,6 +198,16 @@ int cg_selftest(void)
     for (n = 0; n < 4000 && cg_level() != CG_OFF; n++)
         cg_pre(4), cg_post(n % 100 == 50 ? 230u : 90u + (uint32_t)(n * 7 % 31));
     CK(n < 345 + 8 + 3 * (345 + 2) + 345);       /* the plate's settle, its measure, then a level each 2 s */
+    /* the FM-1's (cg_need_late 2): a peak over the ceiling with no late block steps nothing, nor one late block in it;
+       a second late one in the same run does */
+    cg_on(1, 240u, 204u, 256u);
+    cg_need_late(2);
+    for (i = 0; i < 40; i++)
+        cg_pre(4), cg_post(i == 20 ? 260u : 245u);
+    CK(cg_level() == CG_OFF);
+    cg_pre(4), cg_post(260u);
+    CK(cg_level() == CG_TAILS);
+    cg_need_late(0);
     cg_on(0, 0u, 0u, 0u);
     for (i = 0; i < 40; i++)
         cg_pre(4), cg_post(1000u);

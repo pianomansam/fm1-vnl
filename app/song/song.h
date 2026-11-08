@@ -54,6 +54,19 @@ typedef struct {
     uint16_t changes;             /* bumps as a row request lands: the voices read the instruments again */
     int8_t kit_preset;            /* the shipped kit the drum lanes play (SONG_KIT_PRESET + it is the kit row's value:
                                      app/drums/wb_drums.h's WB_KIT_*), -1 none */
+    /* the next bar's planning, done ahead (song_tick: its voicings at the bar's 13th 16th, the lead's plan at its 14th,
+       the pad group's at its 15th; a song's first bar at its start) so the downbeat's tick carries only its own
+       events: the states it started from (v0, l0), what it made, the bar it is for (-1 none), how far it got (0
+       voiced, 1 planned, 2 the pad group too) and the requests and window it was made under (a change between: made
+       again on the downbeat, as before) */
+    int16_t stg_bar;
+    uint8_t stg_stage;
+    int8_t stg_np;
+    int stg_keys[4], stg_nkeys[4], stg_pcs[5];
+    uint32_t stg_key;
+    harmony_voicing_t stg_v0, stg_v;
+    lead_state_t stg_l0, stg_l;
+    pads_state_t stg_p;
 } song_t;
 /* the kit row's shipped kits (the drum lanes': wb_drums.h WB_KIT_PRESET..), past the engine's KIT_*: the synth
    machines', then from SONG_KIT_SAMPLED the sampled ones (the sample bank's) */

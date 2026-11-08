@@ -193,10 +193,11 @@ static song_ev_t evs[64];
    longest render of an audio block and the blocks whose render took longer than the block lasts (late) */
 static uint32_t m_draw_max, m_render_max, m_late;
 static uint32_t m_load_now, m_load_peak; /* the render's load, % of its block: the last block's, the highest */
-/* what a late block had going on (each cause it had counts it; none: other), for the live state: the render's own
+/* what a late block had going on (its first cause in this order counts it, one each; none: other), for the live state: the render's own
    (a new song, a row's request landing, a jump's fast-forward or landing, the Parts roll's look-ahead) and the main
    loop's around it (a redraw, the kit's voices rendering, a flash write) */
-enum { MC_SONG, MC_ROW, MC_JUMP, MC_ROLL, MC_DRAW, MC_KIT, MC_FLASH, MC_OTHER, MC_N };
+enum { MC_SONG, MC_ROW, MC_JUMP, MC_ROLL, MC_BAR, MC_DRAW, MC_KIT, MC_FLASH, MC_OTHER, MC_N };   /* (MC_BAR: the
+                                            song generated its next bar in the block) */
 static uint32_t m_late_by[MC_N];
 static uint8_t m_cause;                  /* the render's, this block */
 static volatile uint8_t m_cause_main;    /* the main loop's, while it lasts */
@@ -531,6 +532,9 @@ static void step(void)
 #if UI_RT
     if (st == 0) {                       /* a bar line: a jump ready lands; the Loop's and Stay's; the roll's notes */
         bar_ticked = 1;
+#if VNL_UI_RUNTIME
+        m_cause |= 1u << MC_BAR;
+#endif
         if (j_target >= 0 && j_ready && song.bar > j_from)
             jump_land();
         jump_rules();
@@ -858,9 +862,9 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
         if (dt > blk) {
             m_late++;
             c = m_cause | m_cause_main | m_cause_t0;
-            for (k = 0; k < MC_OTHER; k++)
-                m_late_by[k] += c >> k & 1u;
-            m_late_by[MC_OTHER] += !c;
+            for (k = 0; k < MC_OTHER && !(c >> k & 1u); k++) {}
+            m_late_by[k]++;              /* (the first cause, in MC_*'s order: the render's own before the main
+                                            loop's around it; none: other) */
         }
 #if defined(PLAT_HOST) && !defined(PLAT_WEB)
         {                                /* VNL_SLOW=x (the simulator): each block over x times the running mean, its
@@ -1038,9 +1042,10 @@ void app_init(void)
     vx_init();                           /* the first song: app_frame, once seeded */
     wb_drums_init();
 #if VNL_UI_RUNTIME && !defined(PLAT_HOST)
-    cg_on(1, 218u, 204u, 256u);          /* the CPU guard: over 85 % of a block it steps quality down (cpuguard.h), back
-                                            under 80 %; the host simulator and the workbench never (their time isn't
-                                            the FM-1's) */
+    cg_on(1, 240u, 204u, 256u);          /* the CPU guard: over 94 % of a block with blocks late among them it steps
+                                            quality down (cpuguard.h), back under 80 %; the host simulator and the
+                                            workbench never (their time isn't the FM-1's) */
+    cg_need_late(2);
 #endif
 }
 
@@ -1081,7 +1086,7 @@ static uint32_t bank_rx(uint32_t len)
     for (t0 = plat_ms(); panic_now && plat_ms() - t0 < 100u;)
         plat_yield();
 #if VNL_UI_RUNTIME
-    m_cause_main |= 1u << MC_FLASH;      /* (cleared by the next live-state reset: the bank's write is a stop) */
+    m_cause_main |= 1u << MC_FLASH;      /* (until the write ends: app_usb_cmd) */
 #endif
     for (off = 0; off < SMP_HEAD + smp_split(); off += 0x1000u)
         if (plat_data_erase(APP_BANK_LO + off))
@@ -1116,6 +1121,9 @@ void app_usb_cmd(const uint8_t *d, uint32_t n)
     if (n != 15u || d[2] != BANK_CMD)
         return;
     rc = bank_rx(d[6] | (uint32_t)d[7] << 8 | (uint32_t)d[8] << 16 | (uint32_t)d[9] << 24);
+#if VNL_UI_RUNTIME
+    m_cause_main &= (uint8_t)~(1u << MC_FLASH);   /* (the write over: before, the cause stayed set until a reset) */
+#endif
     lib_set_samples(smp_ready());
     plat_host_read(rc ? BANK_FAIL | rc : BANK_OK, ack, sizeof ack);
     app_say(rc == BK_E_PLAYING ? "STOP FIRST" : "SAMPLES", !rc ? "WRITTEN" : rc == BK_E_PLAYING ? "then write" :
@@ -1437,7 +1445,8 @@ int app_sysex(const uint8_t *p, uint32_t n)
             ab_flags2 = (uint8_t)(n >= 7u ? p[6] & 0x7Fu : 0u);
             post(C_AB, ab_flags2, ab_flags);
 #if VNL_UI_RUNTIME && !defined(PLAT_HOST)
-            cg_on(!(ab_flags & AB_GUARD), 218u, 204u, 256u);
+            cg_on(!(ab_flags & AB_GUARD), 240u, 204u, 256u);
+            cg_need_late(2);
 #endif
             drums_wait = 1;              /* (the lanes again at the next 16th: drums_apply) */
         }
@@ -1706,8 +1715,10 @@ static void ui_host_draw(void)
     ui_bag_t b;
     ui_host_snap();
     id = ui_hnav.stack[ui_hnav.depth - 1];
-    if (id != last)                      /* another screen: what its bands leave uncovered, cleared */
+    if (id != last) {                    /* another screen: what its bands leave uncovered, cleared */
         lcd_fill(0, 0, 240, 240, C_BLACK);
+        ui_draw_all();
+    }
     last = id;
     ui_values(&ui_hsnap, &ui_hnav, &b);
     b.act = ui_activity();
@@ -2015,7 +2026,7 @@ static uint32_t live_state(char *o, uint32_t cap)
     jbk(&b, "guard_steps"); jbi(&b, (int32_t)g->steps);
     jbk(&b, "late_by"); jb(&b, "{");   /* what the late blocks had going on (live_state's causes, app.c MC_*) */
     {
-        static const char *const MC[MC_N] = {"song", "row", "jump", "roll", "draw", "kit", "flash", "other"};
+        static const char *const MC[MC_N] = {"song", "row", "jump", "roll", "bar", "draw", "kit", "flash", "other"};
         for (i = 0; i < MC_N; i++) {
             jbk(&b, MC[i]);
             jbi(&b, (int32_t)m_late_by[i]);
@@ -2035,7 +2046,6 @@ static void live_reset(void)
 {
     m_load_peak = m_late = m_render_max = m_draw_max = 0;
     memset(m_late_by, 0, sizeof m_late_by);
-    m_cause_main &= (uint8_t)~(1u << MC_FLASH);
     cg_stats_reset();
 }
 
@@ -2077,6 +2087,7 @@ static void draw(void)
 {
     if (rm.on) {
         lcd_fill(0, 0, 240, 240, C_BLACK);
+        ui_draw_all();                   /* (the runtime's screen again in full once the browser lets go) */
         cv_begin(240, 120, C_BLACK);
         cv_text(10, 34, &FONT_B, "BROWSER", C_WHITE);
         cv_text(10, 74, &FONT_XS, "CONTROLLING THE WORKBENCH", C_GRAY);
@@ -2288,6 +2299,7 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
         ui_hnav.stack[0] = (uint8_t)i;
         ui_hkeys = plat_keys();
         lcd_fill(0, 0, 240, 240, C_BLACK);
+        ui_draw_all();
         ui_host_draw();
         return 1;
     }
@@ -2302,8 +2314,10 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
             int us;
             ui_hnav.stack[ui_hnav.depth - 1] = (uint8_t)i;
             t0 = clock();
-            for (k = 0; k < 50; k++)
+            for (k = 0; k < 50; k++) {
+                ui_draw_all();           /* (a full draw: every band sent) */
                 ui_host_draw();
+            }
             us = (int)((clock() - t0) * 1000000.0 / CLOCKS_PER_SEC / 50);
             printf("uibench %s %d us\n", UI_SCREEN_NAME[i], us);
             if (us > worst)

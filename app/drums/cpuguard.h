@@ -22,6 +22,10 @@ enum {
    the level saves) it steps back up; full: a late block (the FM-1: its whole block, a drop-out), which after one over
    the ceiling steps at once. Resets its state. */
 void cg_on(int on, uint32_t ceil, uint32_t rel, uint32_t full);
+/* n > 0: a step on the load also needs n late blocks (full) among the blocks over the ceiling before it: the FM-1's,
+   where a peak that makes no block late is no reason to cut anything (Sam, 2026-11-07: he heard the steps). 0, cg_on's
+   default: the load alone (the bench, whose budget is AMB-1's, not a block's time) */
+void cg_need_late(uint32_t n);
 /* before a block's render: voices, what sounds now (the prediction: the last block plus what it adds) */
 void cg_pre(uint32_t voices);
 /* after it: its load, 1/256 of the budget (256: the whole budget; more: late) */

@@ -287,6 +287,23 @@ static int32_t ui_text_item(const ui_bag_t *b, const ui_item_t *it, int32_t pen)
     return pen;
 }
 
+/* each band's pixels as last sent (a sum of the canvas, by its index in UI_BANDS): a band drawn the same as before
+   is not sent to the panel again (the panel's transfer is a redraw's cost; one late audio block in ten was a redraw's,
+   the FM-1, 2026-11-07) */
+#define UI_SUMS 256
+static uint32_t ui_sum[UI_SUMS];
+static uint8_t ui_sum_ok[UI_SUMS];
+void ui_draw_all(void) { memset(ui_sum_ok, 0, sizeof ui_sum_ok); }
+
+static uint32_t canvas_sum(uint32_t n)
+{
+    const uint32_t *p = (const uint32_t *)cv_px;
+    uint32_t h = 2166136261u, i;
+    for (i = 0; i < n / 2u; i++)
+        h = (h ^ p[i]) * 16777619u;
+    return h;
+}
+
 void ui_draw(const ui_screen_t *sc, const ui_bag_t *b, uint32_t band_mask)
 {
     int bi, ii;
@@ -314,6 +331,12 @@ void ui_draw(const ui_screen_t *sc, const ui_bag_t *b, uint32_t band_mask)
             default: break;
             }
         }
-        cv_blit(0, band->y);
+        {
+            uint32_t k = (uint32_t)(sc->bands + bi) % UI_SUMS, h = canvas_sum(cv_w * cv_h);
+            if (!ui_sum_ok[k] || ui_sum[k] != h)
+                cv_blit(0, band->y);
+            ui_sum[k] = h;
+            ui_sum_ok[k] = 1;
+        }
     }
 }

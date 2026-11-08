@@ -30,6 +30,7 @@ static double now_us(void)
 }
 
 static double tk[4096], lk[4096];
+static uint8_t tk0[4096];                /* the tick was a bar's first 16th (the downbeat's generation) */
 
 int main(int argc, char **argv)
 {
@@ -39,7 +40,9 @@ int main(int argc, char **argv)
     uint32_t seed, hi = argc > 1 ? (uint32_t)atoi(argv[1]) : 3000u, ws[2] = {0, 0}, wst[2] = {0, 0};
     uint32_t h[2] = {2166136261u, 2166136261u};
     int reps = argc > 2 ? atoi(argv[2]) : 5, songs[2] = {0, 0}, i;
-    double mx[2] = {0, 0}, smx[2] = {0, 0}, pb = 0, gr = 0, lmx = 0, lsum = 0;
+    double mx[2] = {0, 0}, smx[2] = {0, 0}, pb = 0, gr = 0, lmx = 0, lsum = 0, dmx = 0, omx = 0, dsum = 0, osum = 0;
+    long dn = 0, on = 0;
+    uint32_t dws = 0;
     long lsteps = 0;
     uint32_t lws = 0;
     song_ov_t o = *song_ov();
@@ -78,6 +81,7 @@ int main(int argc, char **argv)
                 n = song_tick(&s, ev, 64);
                 t = now_us() - t0;
                 if (t < tk[nt]) tk[nt] = t;
+                tk0[nt] = (uint8_t)(s0 == 0);
                 t0 = now_us();
                 for (k = 0; k < 200; k++) lp = song_lead_lp_at(&s, b0, s0);   /* the host clock's 1 us: a batch */
                 t = (now_us() - t0) / 200.0;
@@ -94,6 +98,15 @@ int main(int argc, char **argv)
         }
         for (i = 0; i < nt; i++) {
             if (tk[i] > mx[st]) { mx[st] = tk[i]; ws[st] = seed; }
+            if (tk0[i]) {
+                if (tk[i] > dmx) { dmx = tk[i]; dws = seed; }
+                dsum += tk[i];
+                dn++;
+            } else {
+                omx = tk[i] > omx ? tk[i] : omx;
+                osum += tk[i];
+                on++;
+            }
             if (lk[i] > lmx) { lmx = lk[i]; lws = seed; }
             lsum += lk[i];
         }
@@ -104,6 +117,8 @@ int main(int argc, char **argv)
         printf("%-5s songs %4d  worst tick %5.1f us (seed %u)  worst start %4.1f us (seed %u)  events %08x\n",
                i ? "strum" : "other", songs[i], mx[i], (unsigned)ws[i], smx[i], (unsigned)wst[i], (unsigned)h[i]);
     printf("plan_build worst %.1f us, groove_ride worst %.1f us (one play: noisier)\n", pb, gr);
+    printf("a bar's first 16th (the downbeat): worst %.1f us (seed %u), mean %.2f us; the other 16ths: worst %.1f us, mean "
+           "%.2f us\n", dmx, (unsigned)dws, dn ? dsum / (double)dn : 0.0, omx, on ? osum / (double)on : 0.0);
     printf("lead loop filter per step: worst %.2f us (seed %u), mean %.3f us over %ld steps\n", lmx, (unsigned)lws,
            lsteps ? lsum / (double)lsteps : 0.0, lsteps);
     return 0;

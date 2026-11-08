@@ -10,5 +10,6 @@
 /* the screen's bands whose bit is set in band_mask (bit i: band i; all on a screen change, else those whose values
    changed), each drawn whole and blitted */
 void ui_draw(const ui_screen_t *sc, const ui_bag_t *b, uint32_t band_mask);
+void ui_draw_all(void);                  /* the next draw sends every band (the panel was cleared) */
 
 #endif

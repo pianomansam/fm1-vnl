@@ -245,9 +245,33 @@ static void test_nav_pending(void)
     ui_update(&n, &s, 300);
     ui_press(&n, UC_IN_K2, 1);
     CHECK(n.req_at[UFLD_TEMPO] == 8, "at bar 5 a change waits for bar 8 (%d)", n.req_at[UFLD_TEMPO]);
-    s.bar = 8;
-    ui_update(&n, &s, 400);
-    CHECK(n.req_at[UFLD_TEMPO] < 0, "past its boundary nothing waits");
+    {   /* the landing (Sam, 2026-11-07: the old value flashed between the pending one and the new): at the boundary
+           the song plays the change a 16th later; until its row shows it the pending value stays, so no frame shows
+           the old one */
+        ui_bag_t bg;
+        char t[UI_VALUE_MAX], want[UI_VALUE_MAX];
+        int k, v = n.req_val[UFLD_TEMPO], old = s.rows[ROW_TEMPO];
+        ui_values(&s, &n, &bg);
+        snprintf(want, sizeof want, "%s", ui_value(&bg, UV_ROW(ROW_TEMPO, UVK_ROW_PEND), 0, t));
+        for (k = 0; k < 3; k++) {         /* bar 8, before the engine has it (rows still the old value) */
+            s.bar = 8;
+            s.rows[ROW_TEMPO] = (int16_t)old;
+            ui_update(&n, &s, 400u + (uint32_t)k);
+            ui_values(&s, &n, &bg);
+            CHECK(n.req_at[UFLD_TEMPO] == 8 && !strcmp(ui_value(&bg, UV_ROW(ROW_TEMPO, UVK_ROW_PEND), 0, t), want),
+                  "the landing bar, the row not there yet: still the pending %s (%s)", want, t);
+        }
+        s.rows[ROW_TEMPO] = (int16_t)v;   /* the engine plays it */
+        ui_update(&n, &s, 410);
+        CHECK(n.req_at[UFLD_TEMPO] < 0, "the row shows it: nothing waits");
+        ui_press(&n, UC_IN_K2, 1);        /* a change the engine never plays (refused): gone a bar past its boundary */
+        s.bar = 12;
+        ui_update(&n, &s, 420);
+        CHECK(n.req_at[UFLD_TEMPO] == 12, "not played at its boundary: it waits (%d)", n.req_at[UFLD_TEMPO]);
+        s.bar = 13;
+        ui_update(&n, &s, 430);
+        CHECK(n.req_at[UFLD_TEMPO] < 0, "a bar past its boundary nothing waits");
+    }
 }
 
 /* the pending line: the earliest boundary, a tie the first made */

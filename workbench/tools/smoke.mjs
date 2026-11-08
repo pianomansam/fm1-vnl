@@ -3054,8 +3054,11 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
   dev.update(live(4));
   dev.update(live(4));
   check(JSON.stringify(sets) === '[["tempo",82]]', "in the bar before the boundary the change goes to the engine once (Desk.set's tempo row)");
-  dev.update(live(5));
-  check(dev.values().pending === "", "past the boundary nothing waits");
+  dev.update(live(5));            // the boundary, the engine not playing it yet: the pending value stays (never the old)
+  check(dev.values().tempo === "*82" && dev.values().pending !== "",
+        `at the boundary before the song plays it the tempo still shows the pending "${dev.values().tempo}", never the old 80`);
+  dev.update({ ...live(5), roll: { ...live(5).roll, tempo: 82 } });
+  check(dev.values().pending === "" && dev.values().tempo === "82", "once the song plays it nothing waits: the new value");
   dev.press("ALGO", 3);
   const hi = dev.values().sel3, to = dev.press("EDIT"), crumb = [...dev.stack];
   dev.press("HOME");
