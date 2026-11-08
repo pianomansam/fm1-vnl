@@ -388,12 +388,11 @@ static void test_nav_switch_mixer(void)
     snap_t s;
     nav_fresh(&n, &s, 2);
     ui_press(&n, UC_IN_FX, 1);
-    CHECK(shown(&n) == US_LEVELS, "FX: the mixer");
-    ui_press(&n, UC_IN_ALGO, 1);
-    ui_press(&n, UC_IN_K1, -3);
+    CHECK(shown(&n) == US_LEVELS_KNOBS, "FX: the mixer (its knobs layout)");
+    ui_press(&n, UC_IN_K2, -3);
     CHECK(eng_level[UI_PART_BASS] == -3 && !strcmp(n.msg[0], "BASS") && !strcmp(n.msg[1], "-3 DB"),
-          "K1 sets the bass's level at once (%d, %s %s)", eng_level[UI_PART_BASS], n.msg[0], n.msg[1]);
-    ui_press(&n, UC_IN_K1, -20);
+          "K2 sets the bass's level at once (%d, %s %s)", eng_level[UI_PART_BASS], n.msg[0], n.msg[1]);
+    ui_press(&n, UC_IN_K2, -20);
     CHECK(eng_level[UI_PART_BASS] == -12, "clamped at -12 dB (%d)", eng_level[UI_PART_BASS]);
 }
 

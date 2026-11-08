@@ -122,20 +122,20 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
       usbBtn.textContent = usb ? "Disconnect FM-1" : "Connect FM-1";
     } });
   tools.append(usbBtn);
-  // the Mixer's layout, to compare (the mock only, remembered per viewer; the device keeps the faders layout): faders
+  // the Mixer's layout, to compare (the mock only, remembered per viewer; the device's is the knobs layout): faders
   // (ALGO picks, K1 the level, K2 mute, K3 solo) or knobs (K1-K4 a part's level each, SELECT the page)
   const MIX_KEY = "wb-mixer";
-  const mixGet = () => { try { return localStorage.getItem(MIX_KEY) === "knobs" ? "knobs" : "faders"; } catch { return "faders"; } };
-  const mixSel = el("select", { title: "The Mixer's layout (the mock only; the device keeps faders)",
+  const mixGet = () => { try { return localStorage.getItem(MIX_KEY) === "faders" ? "faders" : "knobs"; } catch { return "knobs"; } };
+  const mixSel = el("select", { title: "The Mixer's layout (the mock only; the device's is knobs)",
     onchange: () => { try { localStorage.setItem(MIX_KEY, mixSel.value); } catch { /* this visit only */ } load(); } },
     el("option", { value: "faders", textContent: "Mixer: faders (ALGO, K1)" }),
     el("option", { value: "knobs", textContent: "Mixer: knobs (K1-K4, 2 pages)" }));
   mixSel.value = mixGet();
   tools.append(mixSel);
-  // the screens with the Mixer's layout chosen: every way to the Mixer goes to the knobs' one instead
+  // the screens with the Mixer's layout chosen: faders, every way to the Mixer goes to the faders' one instead
   const withMixer = (data) => {
-    if (mixSel.value !== "knobs" || !data.screens.levelsKnobs) return data;
-    const to = (a) => (a?.go === "levels" ? { ...a, go: "levelsKnobs" } : a);
+    if (mixSel.value !== "faders" || !data.screens.levels) return data;
+    const to = (a) => (a?.go === "levelsKnobs" ? { ...a, go: "levels" } : a);
     const map = (c) => Object.fromEntries(Object.entries(c ?? {}).map(([k, a]) => [k, to(a)]));
     return { ...data, defaults: map(data.defaults),
              screens: Object.fromEntries(Object.entries(data.screens).map(([id, sc]) => [id, { ...sc, controls: map(sc.controls) }])) };

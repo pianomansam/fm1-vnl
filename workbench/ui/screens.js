@@ -172,7 +172,7 @@ export default {
     SEQ: { do: "reroll" },   // a new song (Sam, 2026-11-06); the firmware's B_SEQ
     SEL: { go: "sections" },   // the song map, from any screen (Sam, 2026-11-06); on Sections, SEL goes back
     ARP: { go: "mixer" },      // the Parts roll, from any screen; on it, ARP goes back (Sam, 2026-11-06)
-    FX: { go: "levels" },      // the Mixer, from any screen; on it, FX goes back
+    FX: { go: "levelsKnobs" }, // the Mixer (its knobs layout, Sam 2026-11-08), from any screen; on it, FX goes back
     GLO: { go: "prefs" },      // the Settings, from any screen (the FM-1 convention: GLO = global); on it, GLO goes back
     // the lowest white keys, a part each (F drums, G bass, A comp, B lead, C pad), on every screen but Sections (its
     // keys jump): press mutes, a long press solos; again: off (Sam, 2026-11-06)
@@ -342,8 +342,8 @@ export default {
       say: ["MIXER. ", { when: "song", text: "{section}, BAR {bar} OF {bars}" }],
     },
 
-    // The mixer, laid out for the knobs (Sam, 2026-11-07: a variant to compare; the mock's "Mixer" switch under the
-    // screen picks it, the device keeps the layout above): the same faders, K1-K4 one part's level each, two pages
+    // The mixer, laid out for the knobs (Sam, 2026-11-07; the device's since 2026-11-08, the mock's "Mixer" switch
+    // under the screen picks the faders layout above to compare): the same faders, K1-K4 one part's level each, two pages
     // (SELECT or ALGO flips them: drums, bass, comp, lead; then pad, texture), the knob under each fader it drives.
     levelsKnobs: {
       title: "Mixer: knobs",

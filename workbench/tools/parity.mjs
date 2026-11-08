@@ -184,12 +184,16 @@ const SEED = 72;
     { spin: ["ALGO", 1] }, { spin: ["K1", 1] }, { check: "parts-mute", expect: (st) => is("mute", v(st).activity.mute.join(), "bass") },
     { spin: ["K2", 1] }, { check: "parts-solo", expect: (st) => is("solo", v(st).activity.solo, "bass") },
     { spin: ["K2", 1] }, { spin: ["K1", 1] }, { wait: 3400 }, { check: "parts-next-bar" },
-    // the Mixer (FX): faders; K1 the highlighted part's level, -12..+6 dB
-    { press: "FX" }, { spin: ["ALGO", 2] }, { spin: ["K1", -4] },
-    { check: "mixer", expect: (st) => is("screen", st.screen, "levels") || is("keys level", v(st).levels.keys, -4) },
-    { spin: ["K1", 20] }, { check: "mixer-top", expect: (st) => is("keys level", v(st).levels.keys, 6) },
-    { spin: ["K1", -6] },
-    // the Mixer laid out for the knobs (the mock's variant): K1-K4 a part's level each, SELECT the other page
+    // the Mixer (FX): the knobs layout, K1-K4 a part's level each (K3 the comp's), -12..+6 dB
+    { press: "FX" }, { spin: ["K3", -4] },
+    { check: "mixer", expect: (st) => is("screen", st.screen, "levelsKnobs") || is("keys level", v(st).levels.keys, -4) },
+    { spin: ["K3", 20] }, { check: "mixer-top", expect: (st) => is("keys level", v(st).levels.keys, 6) },
+    { spin: ["K3", -6] },
+    // the faders layout (the mock's variant): K1 the highlighted part's level
+    { screen: "levels" }, { spin: ["ALGO", 2] }, { spin: ["K1", -4] },
+    { check: "mixer-faders", expect: (st) => is("keys level", v(st).levels.keys, -4) },
+    { spin: ["K1", 4] },
+    // the knobs layout's pages: SELECT the other page
     { screen: "levelsKnobs" }, { spin: ["K2", -3] }, { keydown: 4 }, { keyup: 4 },
     { check: "mixer-knobs", expect: (st) => is("bass level", v(st).levels.bass, -3) || is("mute", v(st).activity.mute.join(), "keys") },
     { spin: ["SELECT", 1] }, { spin: ["K1", 2] },

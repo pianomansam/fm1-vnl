@@ -46,7 +46,7 @@
    "go": "mixer"
   },
   "FX": {
-   "go": "levels"
+   "go": "levelsKnobs"
   },
   "GLO": {
    "go": "prefs"
