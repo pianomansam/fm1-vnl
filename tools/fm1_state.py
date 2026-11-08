@@ -2,14 +2,19 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Read VNL-1's live state from a connected FM-1, over USB-MIDI (read-only).
 
-    python3 tools/fm1_state.py [--port NAME] [--watch SECONDS]
+    python3 tools/fm1_state.py [--port NAME] [--watch SECONDS] [--reset] [--ab FLAGS]
 
 Asks the FM-1 (the browser-remote prefix's command 04: F0 7D 56 4E 04 F7) and reads its answer, JSON in frames
 F0 7D 56 4E 14 pp nn <text> F7 (frame pp of nn; app/app.c live_state): the screen and its cursor, the song (seed,
 key, mode, tempo, section, bar), each row's value and name, what waits, mutes, solo, levels, the transport, and its
 CPU (the render's load now and its peak in % of a block, late blocks, the slowest redraw and block render in us, the
 CPU guard's level and steps). Writes app/build/live/device.json (as the workbench writes workbench.json) and prints a
-summary. --watch N: again every N seconds until Ctrl-C. Coexists with the browser remote (its other commands are
+summary. --watch N: again every N seconds until Ctrl-C. --reset: each answer then zeroes the measures (the peak, the
+late blocks and their causes, the slowest render and redraw, the guard's steps: 04 01), to measure one event at a time.
+--ab FLAGS: set the A/B switches first (04 02 ff; 0 all as built, 1 the CPU guard off, 2 the Parts roll's look-ahead
+off, 4 the kit voice render paused, 8 the shipped kits' lanes off; added together), to find a drop-out without a
+reflash. The late blocks' causes (cpu.late_by): song (a new song), row (a change landing), jump, roll (the Parts roll's
+look-ahead), draw, kit (the kit voices rendering), flash, other. Coexists with the browser remote (its other commands are
 left alone). Uses fm1-base's tools (base/tools: fm1_install.py's port lookup); needs mido with python-rtmidi.
 Exit codes: 0 done, 1 no answer, 3 FM-1 not found.
 """
@@ -23,6 +28,11 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "app", "build", "live", "device.json")
 PFX = bytes([0xF0, 0x7D, 0x56, 0x4E])
 ASK = PFX + bytes([0x04, 0xF7])
+ASK_RESET = PFX + bytes([0x04, 0x01, 0xF7])
+
+
+def ask_ab(flags):
+    return PFX + bytes([0x04, 0x02, flags & 0x0F, 0xF7])
 REPLY = 0x14
 
 
@@ -55,12 +65,13 @@ def summary(s):
             f"mute {','.join(s.get('mute', [])) or '-'} solo {s.get('solo') or '-'}; "
             f"cpu {cpu.get('load')}% (peak {cpu.get('peak')}%), late {cpu.get('late')}, render {cpu.get('render_us')} us, "
             f"redraw {cpu.get('redraw_us')} us, guard {guard[cpu.get('guard', 0)] if cpu.get('guard', 0) < 4 else '?'} "
-            f"x{cpu.get('guard_steps')}")
+            f"x{cpu.get('guard_steps')}; late by {' '.join(f'{k} {v}' for k, v in cpu.get('late_by', {}).items() if v) or '-'}"
+            f"{'; A/B ' + str(cpu.get('ab')) if cpu.get('ab') else ''}")
 
 
-def ask(link, timeout=2.0):
+def ask(link, timeout=2.0, pkt=ASK):
     link.drain()
-    if not link.send(ASK):
+    if not link.send(pkt):
         return None
     got, t0 = [], time.monotonic()
     while time.monotonic() - t0 < timeout:
@@ -78,6 +89,8 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--port", metavar="NAME", help="MIDI port to use (part of its name; default: VNL-1 FM-1's)")
     ap.add_argument("--watch", type=float, metavar="SECONDS", help="ask again every SECONDS until Ctrl-C")
+    ap.add_argument("--reset", action="store_true", help="zero the measures after each answer")
+    ap.add_argument("--ab", type=int, metavar="FLAGS", help="set the A/B switches first (see above)")
     a = ap.parse_args(argv)
     sys.path.insert(0, os.path.join(ROOT, "base", "tools"))
     import fm1_install as I  # noqa: E402
@@ -88,8 +101,11 @@ def main(argv=None):
         print(f"error: {e}", file=sys.stderr)
         return 3
     try:
+        if a.ab is not None and ask(dev.link, pkt=ask_ab(a.ab)) is None:
+            print("error: the FM-1 did not answer the A/B switches", file=sys.stderr)
+            return 1
         while True:
-            s = ask(dev.link)
+            s = ask(dev.link, pkt=ASK_RESET if a.reset else ASK)
             if s is None:
                 print("error: the FM-1 did not answer (a VNL-1 without the live state?)", file=sys.stderr)
                 return 1

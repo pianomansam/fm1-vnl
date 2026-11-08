@@ -30,5 +30,6 @@ int cg_level(void);
 /* what it did: steps down (early: on a prediction), blocks spent at each level, the highest level */
 typedef struct { uint32_t steps, early, blocks[CG_LEVELS]; uint8_t top; } cg_stats_t;
 const cg_stats_t *cg_stats(void);
+void cg_stats_reset(void);              /* its steps and times back to zero (the live state's reset) */
 
 #endif

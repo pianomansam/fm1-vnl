@@ -193,11 +193,30 @@ static song_ev_t evs[64];
    longest render of an audio block and the blocks whose render took longer than the block lasts (late) */
 static uint32_t m_draw_max, m_render_max, m_late;
 static uint32_t m_load_now, m_load_peak; /* the render's load, % of its block: the last block's, the highest */
+/* what a late block had going on (each cause it had counts it; none: other), for the live state: the render's own
+   (a new song, a row's request landing, a jump's fast-forward or landing, the Parts roll's look-ahead) and the main
+   loop's around it (a redraw, the kit's voices rendering, a flash write) */
+enum { MC_SONG, MC_ROW, MC_JUMP, MC_ROLL, MC_DRAW, MC_KIT, MC_FLASH, MC_OTHER, MC_N };
+static uint32_t m_late_by[MC_N];
+static uint8_t m_cause;                  /* the render's, this block */
+static volatile uint8_t m_cause_main;    /* the main loop's, while it lasts */
 #ifdef PLAT_HOST
-#define M_US() 0u
+#include <time.h>
+static uint32_t m_us_host(void)          /* (the simulator: the host's clock, for the live state's figures) */
+{
+    struct timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return (uint32_t)((uint64_t)t.tv_sec * 1000000u + (uint64_t)t.tv_nsec / 1000u);
+}
+#define M_T() m_us_host()
+#define M_DT(t0) (m_us_host() - (t0))
 #else
-#define M_US() fm1_micros()
+/* (TIMER4's ticks: their difference, unsigned, is right across the counter's wrap; fm1_micros() wraps at 178.9 s of
+   microseconds, not at 2^32, so a difference of two of those across it read as minus 178 953 402 us) */
+#define M_T() fm1_ticks()
+#define M_DT(t0) ((uint32_t)(fm1_ticks() - (t0)) / FM1_TICKS_PER_US)
 #endif
+#define M_SANE_US 1000000u               /* a block or a redraw measured longer than this: not a reading (dropped) */
 #endif
 
 #if UI_RT
@@ -207,6 +226,11 @@ static void roll_clear(void);
 
 /* the drum lanes (app/drums, as the workbench's): a shipped kit's (song.kit_preset), or none (the song's own kit) */
 static uint8_t drums_wait;               /* a shipped kit whose voices the main loop is still rendering */
+/* A/B switches for finding a drop-out on the device without a reflash (the live state's 04 02 ff; 0, the default:
+   all as built): AB_GUARD the CPU guard off, AB_ROLL the Parts roll's look-ahead off, AB_KIT the main loop's kit
+   voice render paused, AB_LANES the shipped kits' lanes off (the set's own kit under them plays) */
+enum { AB_GUARD = 1, AB_ROLL = 2, AB_KIT = 4, AB_LANES = 8 };
+static volatile uint8_t ab_flags;
 static uint32_t kit_wait;                /* samples a song has waited for its kit's voices */
 #define KIT_WAIT_MAX (44100u * 3u)       /* then it starts on the set's own kit until they are there */
 
@@ -215,7 +239,7 @@ static uint32_t kit_wait;                /* samples a song has waited for its ki
 static void drums_apply(void)
 {
     wb_drums_t d;
-    int on = song.kit_preset >= 0 && wb_drums_preset(&d, song.kit_preset);
+    int on = song.kit_preset >= 0 && !(ab_flags & AB_LANES) && wb_drums_preset(&d, song.kit_preset);
     drums_wait = (uint8_t)(on && !wb_drums_ready(&d));
     wb_drums_set(on && !drums_wait ? &d : 0);
     wb_drums_kit(lib_song_kit(&song.roll));
@@ -250,7 +274,7 @@ static void voices_begin(void)
     drums_apply();
 }
 
-static void song_begin(void)
+static void song_begin(uint32_t n)
 {
 #if UI_RT
     song_start_kit(&song, &mb_roll, ui_kit_pick(&mb_roll, smp_ready()));   /* no retired kit (desk.js's approvedKit) */
@@ -260,9 +284,14 @@ static void song_begin(void)
     BARRIER();
     mb_full = 0;                         /* the main loop rolls the next one */
     voices_begin();
-    r_now = r_pos = r_tick = 0;
+    r_now = r_tick = 0;
+    r_pos = n;                           /* (its first 16th at the next block: the song's setup and its first bar's
+                                            generation not in one block's render) */
     r_frac = 0.0f;
     memset(req_set, 0, sizeof req_set);
+#if VNL_UI_RUNTIME
+    m_cause |= 1u << MC_SONG;
+#endif
 #if UI_RT
     j_target = -1;
     roll_clear();
@@ -324,6 +353,7 @@ static int16_t j_target = -1, j_from;    /* the bar the song jumps to (-1: none)
 static uint8_t j_ready, loop_on, endless_on;
 static song_ev_t j_evs[64];
 enum { J_TICKS = 24 };                    /* 16ths fast-forwarded a block */
+static uint8_t bar_ticked;               /* the song ticked a bar's first 16th in this block (step) */
 
 static void jump_ask(int bar)
 {
@@ -344,10 +374,17 @@ static void jump_prepare(void)
 {
     int k;
     for (k = 0; k < J_TICKS && j_target >= 0 && !j_ready; k++) {
-        if (jsong.bar >= j_target || jsong.state != SS_PLAYING)
+        if (jsong.bar >= j_target || jsong.state != SS_PLAYING) {
             j_ready = 1;
-        else
+        } else {
+            int heavy = jsong.step == 0;
             song_tick(&jsong, j_evs, 64);
+#if VNL_UI_RUNTIME
+            m_cause |= 1u << MC_JUMP;
+#endif
+            if (heavy)
+                break;                   /* (a bar's generation: one a block) */
+        }
     }
     if (j_target >= 0 && jsong.bar >= j_target)
         j_ready = 1;
@@ -443,6 +480,9 @@ static void roll_generate(void)
             break;
         }
         n = song_tick(&rsong, r_evs, 64);
+#if VNL_UI_RUNTIME
+        m_cause |= 1u << MC_ROLL;
+#endif
         ss = song_step_samples(&rsong);
         for (i = 0; i < n && roll_buf[back].n < UI_ROLL_MAX; i++) {
             int p = roll_part(r_evs[i].voice), len = (int)((float)r_evs[i].len / ss + 0.5f);
@@ -456,6 +496,8 @@ static void roll_generate(void)
             e->part = (uint8_t)p;
             roll_buf[back].n++;
         }
+        if (st == 0)
+            break;                       /* (a bar's generation: one a block) */
     }
 }
 
@@ -478,6 +520,7 @@ static void step(void)
         drums_apply();
 #if UI_RT
     if (st == 0) {                       /* a bar line: a jump ready lands; the Loop's and Stay's; the roll's notes */
+        bar_ticked = 1;
         if (j_target >= 0 && j_ready && song.bar > j_from)
             jump_land();
         jump_rules();
@@ -515,6 +558,9 @@ static void step(void)
         if (vx_reconfigures(&before, &song.roll) || song.changes != changes) {
             vx_configure(&song.roll);
             drums_apply();
+#if VNL_UI_RUNTIME
+            m_cause |= 1u << MC_ROW;
+#endif
         }
     }
     SLOG_STEP(&song, bar, st, evs, n);
@@ -702,7 +748,8 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
 {
     uint32_t i = 0, k;
 #if VNL_UI_RUNTIME
-    uint32_t m_t0 = M_US();
+    uint32_t m_t0 = M_T();
+    uint8_t m_cause_t0 = m_cause_main;   /* (what the main loop was doing as the block began) */
     cg_pre((uint32_t)vx_active());       /* the CPU guard (the FM-1's: app_init turns it on) */
 #endif
     float gain = (float)master_q12 * (8388607.0f / 4096.0f);   /* MASTER, read once a block: float -> 24-bit */
@@ -721,14 +768,8 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     }
     if (rs == RS_WAIT && mb_full && kit_ready_next(n)) {
         kit_wait = 0;
-        song_begin();
+        song_begin(n);
     }
-#if UI_RT
-    if (rs == RS_SONG) {                 /* the jump's fast-forward, the roll's look-ahead: a few 16ths a block */
-        jump_prepare();
-        roll_generate();
-    }
-#endif
     memset(mix_l, 0, sizeof(float) * n);
     memset(mix_r, 0, sizeof(float) * n);
     while (i < n) {
@@ -769,6 +810,16 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
         SLOG_TIME(seg);
         i += seg;
     }
+#if UI_RT
+    if (rs == RS_SONG && !bar_ticked) {  /* the jump's fast-forward, the roll's look-ahead: a few 16ths a block, at
+                                            most one bar's first 16th (the costly one: its generation) each, and none
+                                            in a block whose song generated a bar of its own */
+        jump_prepare();
+        if (!(ab_flags & AB_ROLL))
+            roll_generate();
+    }
+    bar_ticked = 0;
+#endif
     for (k = 0; k < n; k++) {
         gain_now += (gain - gain_now) * 0.004f;   /* ~5 ms: turning MASTER does not click */
         float a = mix_l[k] * gain_now, b = mix_r[k] * gain_now;
@@ -778,15 +829,37 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     publish();
 #if VNL_UI_RUNTIME
     {
-        uint32_t dt = M_US() - m_t0, blk = n * 1000000u / 44100u;
+        uint32_t dt = M_DT(m_t0), blk = n * 1000000u / 44100u, c;
+        if (dt >= M_SANE_US)
+            dt = 0;                      /* (no reading: none of the figures below, nor the guard, take it) */
         if (dt > m_render_max)
             m_render_max = dt;
-        if (dt > blk)
+        if (dt > blk) {
             m_late++;
+            c = m_cause | m_cause_main | m_cause_t0;
+            for (k = 0; k < MC_OTHER; k++)
+                m_late_by[k] += c >> k & 1u;
+            m_late_by[MC_OTHER] += !c;
+        }
+#if defined(PLAT_HOST) && !defined(PLAT_WEB)
+        {                                /* VNL_SLOW=x (the simulator): each block over x times the running mean, its
+                                            causes (the host's clock: what makes a block heavy, not how late) */
+            static float mean;
+            static const char *sl = (const char *)1;
+            if (sl == (const char *)1)
+                sl = getenv("VNL_SLOW");
+            if (sl && mean > 0.0f && (float)dt > (float)atof(sl) * mean)
+                printf("slow block: %u us (mean %.0f) bar %d step %u causes %02X main %02X\n", (unsigned)dt, mean,
+                       song.bar, (unsigned)(r_tick & 15u), m_cause, (unsigned)(m_cause_main | m_cause_t0));
+            mean = mean > 0.0f ? mean + ((float)dt - mean) * 0.01f : (float)dt;
+        }
+#endif
+        m_cause = 0;
         m_load_now = blk ? dt * 100u / blk : 0u;
         if (m_load_now > m_load_peak)
             m_load_peak = m_load_now;
-        cg_post(blk ? dt * 256u / blk : 0u);   /* (its load: 1/256 of the block's time) */
+        if (blk && dt)
+            cg_post(dt * 256u / blk);    /* (its load: 1/256 of the block's time) */
     }
 #endif
 }
@@ -986,6 +1059,9 @@ static uint32_t bank_rx(uint32_t len)
     panic_now = 1;
     for (t0 = plat_ms(); panic_now && plat_ms() - t0 < 100u;)
         plat_yield();
+#if VNL_UI_RUNTIME
+    m_cause_main |= 1u << MC_FLASH;      /* (cleared by the next live-state reset: the bank's write is a stop) */
+#endif
     for (off = 0; off < SMP_HEAD + smp_split(); off += 0x1000u)
         if (plat_data_erase(APP_BANK_LO + off))
             return BK_E_ERASE;
@@ -1325,6 +1401,7 @@ static void rm_leave(void)
 
 #if UI_RT
 static void live_reply(void);
+static void live_reset(void);
 #endif
 
 int app_sysex(const uint8_t *p, uint32_t n)
@@ -1332,8 +1409,18 @@ int app_sysex(const uint8_t *p, uint32_t n)
     if (n < 4u || p[0] != RM_PFX0 || p[1] != RM_PFX1 || p[2] != RM_PFX2)
         return 0;
 #if UI_RT
-    if (p[3] == 0x04u) {                 /* the live state (below): answered at once, the remote on or not */
+    if (p[3] == 0x04u) {                 /* the live state (below): answered at once, the remote on or not; 04 01:
+                                            then its measures back to zero */
+        if (n >= 6u && p[4] == 0x02u) {   /* 04 02 ff: the A/B switches (AB_*), then the answer */
+            ab_flags = (uint8_t)(p[5] & 0x0Fu);
+#if VNL_UI_RUNTIME && !defined(PLAT_HOST)
+            cg_on(!(ab_flags & AB_GUARD), 218u, 204u, 256u);
+#endif
+            drums_wait = 1;              /* (the lanes again at the next 16th: drums_apply) */
+        }
         live_reply();
+        if (n >= 5u && p[4] == 0x01u)
+            live_reset();
         return 1;
     }
 #endif
@@ -1898,15 +1985,35 @@ static uint32_t live_state(char *o, uint32_t cap)
     jbk(&b, "late"); jbi(&b, (int32_t)m_late);
     jbk(&b, "redraw_us"); jbi(&b, (int32_t)m_draw_max);
     jbk(&b, "render_us"); jbi(&b, (int32_t)m_render_max);
+    jbk(&b, "ab"); jbi(&b, ab_flags);    /* the A/B switches (app.c AB_*: 1 guard off, 2 roll off, 4 kit render off,
+                                            8 lanes off) */
     jbk(&b, "guard"); jbi(&b, cg_level());
     jbk(&b, "guard_steps"); jbi(&b, (int32_t)g->steps);
-    jb(&b, "}}");
+    jbk(&b, "late_by"); jb(&b, "{");   /* what the late blocks had going on (live_state's causes, app.c MC_*) */
+    {
+        static const char *const MC[MC_N] = {"song", "row", "jump", "roll", "draw", "kit", "flash", "other"};
+        for (i = 0; i < MC_N; i++) {
+            jbk(&b, MC[i]);
+            jbi(&b, (int32_t)m_late_by[i]);
+        }
+    }
+    jb(&b, "}}}");
     return b.n;
 }
 
 #if defined(PLAT_HOST) && !defined(PLAT_WEB)
 static char live_sent[16384];            /* the simulator's: the frames, hex ("live" prints them) */
 #endif
+
+/* the measures back to zero (the request's 04 01: measure one event at a time): the peak, the late blocks and
+   their causes, the slowest render and redraw, the guard's steps */
+static void live_reset(void)
+{
+    m_load_peak = m_late = m_render_max = m_draw_max = 0;
+    memset(m_late_by, 0, sizeof m_late_by);
+    m_cause_main &= (uint8_t)~(1u << MC_FLASH);
+    cg_stats_reset();
+}
 
 /* the answer, LIVE_CHUNK bytes a frame */
 static void live_reply(void)
@@ -1994,6 +2101,8 @@ void app_ui_init(void)
 static void kit_render(const snap_t *s)
 {
     wb_drums_t d;
+    if (ab_flags & AB_KIT)
+        return;
     int k = (s->has_song || s->held) ? s->rows[ROW_KIT] : -1;
     if (!(k >= SONG_KIT_PRESET && wb_drums_preset(&d, k - SONG_KIT_PRESET) && !wb_drums_ready(&d))) {
         int nx = mb_full ? ui_kit_pick(&mb_roll, smp_ready()) : -1;
@@ -2002,7 +2111,9 @@ static void kit_render(const snap_t *s)
                 return;
     }
     wb_drums_want(&d);
+    m_cause_main |= 1u << MC_KIT;
     wb_drums_work(KIT_SLICE, 0);
+    m_cause_main &= (uint8_t)~(1u << MC_KIT);
 }
 
 void app_frame(void)
@@ -2019,7 +2130,12 @@ void app_frame(void)
     if (s.has_song != ui.shown.has_song || s.stopped != ui.shown.stopped || s.ready != ui.shown.ready
         || s.held != ui.shown.held || s.bar != ui.shown.bar
         || s.section != ui.shown.section || s.pend_field != ui.shown.pend_field || s.pend_bars != ui.shown.pend_bars
-        || memcmp(&s.roll, &ui.shown.roll, sizeof s.roll) || memcmp(s.req_val, ui.shown.req_val, sizeof s.req_val))
+        || memcmp(&s.roll, &ui.shown.roll, sizeof s.roll) || memcmp(s.req_val, ui.shown.req_val, sizeof s.req_val)
+#if UI_RT
+        || s.changes != ui.shown.changes || memcmp(s.rows, ui.shown.rows, sizeof s.rows)   /* (a row landed: an
+                                            instrument, an override, the kit: shown at once, not at the next bar) */
+#endif
+        )
         ui.redraw = 1;
 #if VNL_UI_RUNTIME
     {                                    /* no sample bank: said at boot and as each song starts */
@@ -2038,21 +2154,23 @@ void app_frame(void)
         ui.redraw = 1;
     }
     if (ui.redraw) {
+#if VNL_UI_RUNTIME
+        uint32_t m_t0 = M_T(), dt;
+        m_cause_main |= 1u << MC_DRAW;
+#endif
         ui.redraw = 0;
 #if defined(PLAT_HOST) && !defined(PLAT_WEB)
-        if (ui_host >= 0) {
-#if VNL_UI_RUNTIME
-            uint32_t m_t0 = M_US(), dt;
+        if (ui_host >= 0)
             ui_host_draw();
-            dt = M_US() - m_t0;
-            if (dt > m_draw_max)
-                m_draw_max = dt;
-#else
-            ui_host_draw();
-#endif
-        } else
+        else
 #endif
             draw();
+#if VNL_UI_RUNTIME
+        m_cause_main &= (uint8_t)~(1u << MC_DRAW);
+        dt = M_DT(m_t0);                 /* (the FM-1's too: before, only the simulator's was timed) */
+        if (dt < M_SANE_US && dt > m_draw_max)
+            m_draw_max = dt;
+#endif
     }
 }
 
@@ -2184,11 +2302,11 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
             ui_host_draw();
         return 1;
     }
-    if (!strcmp(cmd, "live")) {          /* live: the live state asked for as over USB (F0 7D 56 4E 04 F7); its frames,
-                                            hex (tools/fm1_state.py's test reads them) */
-        static const uint8_t ASK[4] = {RM_PFX0, RM_PFX1, RM_PFX2, 0x04u};
+    if (!strcmp(cmd, "live")) {          /* live [reset]: the live state asked for as over USB (F0 7D 56 4E 04 [01] F7);
+                                            its frames, hex (tools/fm1_state.py's test reads them) */
+        static const uint8_t ASK[5] = {RM_PFX0, RM_PFX1, RM_PFX2, 0x04u, 0x01u};
         live_sent[0] = 0;
-        app_sysex(ASK, sizeof ASK);
+        app_sysex(ASK, !strcmp(a, "reset") ? 5u : 4u);
         printf("live %s\n", live_sent);
         return 1;
     }
