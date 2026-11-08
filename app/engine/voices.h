@@ -160,5 +160,9 @@ int vx_active(void);
 /* Anything still to hear: voices, or the chain (the bed open or fading, the plate's tail). The app renders while
    this is nonzero and clears the engine (vx_init) at a song's start only when it is 0. */
 int vx_sounding(void);
+/* The live state's causes (app.c): the events started so far (a count that wraps), and 1 while a section filter or
+   the master gain still ramps (a section's moves, a fade) */
+uint32_t vx_fires(void);
+int vx_ramping(void);
 
 #endif

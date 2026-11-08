@@ -79,6 +79,13 @@ void song_start(song_t *s, const song_roll_t *r);           /* the plan; bar 0, 
 /* song_start with the kit row at kit from the start (-1: as rolled): the song's set its own, as a kit request makes
    it, before the plan, as the workbench stages a kit before its song starts */
 void song_start_kit(song_t *s, const song_roll_t *r, int kit);
+/* The first bar's planning (the loop's voicings, part 0; the bar's voicings, 1; the lead's plan, 2; the pad group, 3),
+   each in its own call before the first tick, a block apart (the render's): song_first_bar_later(1) leaves it out of
+   song_start, then song_first_bar(s, 0..SONG_FIRST_BAR_PARTS - 1) in turn. The same events either way (a part
+   missed: the downbeat makes it itself) */
+#define SONG_FIRST_BAR_PARTS 4
+void song_first_bar_later(int on);
+void song_first_bar(song_t *s, int part);
 /* One 16th: its events sorted by delay; 0 once ended. Events beyond max are dropped: pass max >= 64. */
 int song_tick(song_t *s, song_ev_t *out, int max);
 float song_step_samples(const song_t *s);                   /* 44100 * 60 / (tempo * 4), following a tempo glide */

@@ -2,8 +2,9 @@
 /* The song engine's worst tick (tools/tick-bench.sh): song_tick and song_start run in the audio interrupt, so their
    worst case matters, not their mean. Over seeds 2..N, each song played R times, each tick's time its least over the
    R plays (the host's noise filtered out), then the most over all ticks: strummed songs (CS_STRUM) and the rest
-   apart. Also the worst song_start, plan_build and groove_ride (the ride's extra plan builds at a song's start), and
-   a hash of every event (strummed and other songs apart), the same before and after a change that keeps the music.
+   apart. Also the worst song_start (its block's: the start, or a part of the first bar's planning, each a block of
+   its own), plan_build and groove_ride (the ride's extra plan builds at a song's start), and a hash of every event
+   (strummed and other songs apart), the same before and after a change that keeps the music.
    Also the lead loop's filter (song_lead_lp_at, once per step after the tick, as app.c's step): its worst and mean
    per step, timed alike (each step's 200 calls in a batch: the host clock's 1 us).
    A third argument forces a lead_style (override.h: 2 + LS_*, a lead style) on every song, a fourth a comping style
@@ -52,6 +53,7 @@ int main(int argc, char **argv)
     }
     if (getenv("VNL_LEAD_LOOP") && *getenv("VNL_LEAD_LOOP") == '1') o.lead_loop = 1;
     song_override(&o);
+    song_first_bar_later(1);
     for (seed = 2; seed <= hi; seed++) {
         song_roll_t r;
         int st, rep, nt = 0, blk;
@@ -61,9 +63,17 @@ int main(int argc, char **argv)
         songs[st]++;
         for (i = 0; i < 4096; i++) tk[i] = lk[i] = 1e9;
         for (rep = 0; rep < reps; rep++) {
-            double t0 = now_us(), t;
+            double t0 = now_us(), t, piece;
+            int part;
             song_start(&s, &r);
             t = now_us() - t0;
+            for (part = 0; part < SONG_FIRST_BAR_PARTS; part++) {   /* the first bar's planning, a part a block
+                                                                       (app.c's song start) */
+                t0 = now_us();
+                song_first_bar(&s, part);
+                piece = now_us() - t0;
+                if (piece > t) t = piece;
+            }
             if (t < best) best = t;
             t0 = now_us();
             plan_build(&r, &p);

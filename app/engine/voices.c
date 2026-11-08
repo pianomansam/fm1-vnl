@@ -369,6 +369,7 @@ static int lvl_unity(void)
     return 1;
 }
 static uint32_t gain_n;
+static uint32_t fires;                  /* the events started (vx_fires) */
 static vx_config_t cfg;
 static const vx_patch_t *role_pt[V_PAD + 1]; /* the configured patch per pitched role, NULL for none */
 static vx_patch_t mute_pt; /* a sampled chords patch muted (p[3] 1): the strum's chucks (a V_CHORD event's pad 1) */
@@ -2585,9 +2586,10 @@ void vx_render(float *l, float *r, uint32_t n)
             uint32_t seg = c - pos;
             t_on = clk + pos;
             for (i = 0; i < qn; i++) { /* start what is due, keeping the order of the rest */
-                if (q[i].rem == 0)
+                if (q[i].rem == 0) {
                     fire(&q[i].e);
-                else
+                    fires++;
+                } else
                     q[w++] = q[i];
             }
             qn = w;
@@ -2663,6 +2665,17 @@ int vx_active(void)
 int vx_sounding(void)
 {
     return vx_active() + fx_active();
+}
+
+uint32_t vx_fires(void) { return fires; }
+
+int vx_ramping(void)
+{
+    int k;
+    for (k = 0; k < NBUS; k++)
+        if (bus[k].a != bus[k].at || bus[k].h != bus[k].ht)
+            return 1;
+    return gain_n != 0;
 }
 
 void vx_set_kit(int kit)

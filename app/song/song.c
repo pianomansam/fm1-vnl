@@ -215,17 +215,21 @@ static void merge_plan(song_t *s, int B)
 
 /* ---- the ride (groove_ride): the bars whose hats go to it ---- */
 
-static void ride_for(song_t *s)
+static void ride_for(song_t *s, const song_plan_t *own)
 {
     int blk, ride = groove_ride(&s->roll, &blk);
     s->ride_lo = s->ride_hi = 0;
     if (ride == RIDE_ALL) {
         s->ride_hi = s->roll.v[RF_BARS];
     } else if (ride == RIDE_SECTION) {
-        song_plan_t p;                              /* groove_ride's plan: the roll's own (after a merge, from B on) */
-        plan_build(&s->roll, &p);
-        s->ride_lo = p.b[blk].start;
-        s->ride_hi = (int16_t)(p.b[blk].start + p.b[blk].bars);
+        song_plan_t p;                              /* groove_ride's plan: the roll's own (after a merge, from B on;
+                                                       own: already built from the roll, at the start) */
+        if (!own) {
+            plan_build(&s->roll, &p);
+            own = &p;
+        }
+        s->ride_lo = own->b[blk].start;
+        s->ride_hi = (int16_t)(own->b[blk].start + own->b[blk].bars);
     }
 }
 
@@ -386,7 +390,7 @@ static void apply_requests(song_t *s, int B)
         set = -1;                                     /* an instrument, the kit or an override: as a set change (the
                                                          lead's style and band, the keys' window, the ride) */
     if (re) merge_plan(s, B);
-    if (set != s->roll.v[RF_SET] || motion != s->roll.v[RF_MOTION] || map != s->roll.v[RF_MAP]) ride_for(s);
+    if (set != s->roll.v[RF_SET] || motion != s->roll.v[RF_MOTION] || map != s->roll.v[RF_MAP]) ride_for(s, 0);
     if (set != s->roll.v[RF_SET]) {                  /* another lead instrument: its style (kept where it plays it), its
                                                        band */
         style_for(s, 1);
@@ -511,6 +515,7 @@ static void stage_voice(song_t *s, int B);
 static void stage_lead(song_t *s, int B);
 static void stage_pads(song_t *s, int B);
 static int stage_off;                    /* (song_start_kit's first start: its song is started again) */
+static int stage_later;                  /* song_first_bar_later */
 
 void song_start(song_t *s, const song_roll_t *r)
 {
@@ -522,23 +527,47 @@ void song_start(song_t *s, const song_roll_t *r)
     s->kit_preset = -1;
     s->stg_bar = -1;
     s->roll = *r;
+    if (stage_off)
+        return;                                      /* (only what own_set and apply_row read: started again) */
     plan_build(&s->roll, &s->plan);
     s->glide_to = s->glide_from = s->ss = ss_of(s->roll.v[RF_TEMPO] > 0 ? s->roll.v[RF_TEMPO] : 80);
     s->glide_t0 = -64;
     s->state = s->roll.v[RF_BARS] > 0 ? SS_PLAYING : SS_ENDED;
-    ride_for(s);
+    ride_for(s, &s->plan);
     s->lead.rolled = leads_style_roll(&s->roll) + 1;
     s->lead.style = leads_style(&s->roll) + 1;
     keys_win_for(s);
-    if (s->state == SS_PLAYING && !stage_off) {      /* the first bar's planning now too (the start's block, not its
-                                                        first downbeat's), under the window its tick would set */
-        style_for(s, 0);
-        harmony_keys_window(0, s->keys_win);
-        stage_voice(s, 0);
-        stage_lead(s, 0);
-        stage_pads(s, 0);
-        harmony_keys_window(0, 0);
+    if (!stage_later) {                              /* the first bar's planning now too (the start's block, not its
+                                                        first downbeat's) */
+        int part;
+        for (part = 0; part < SONG_FIRST_BAR_PARTS; part++)
+            song_first_bar(s, part);
     }
+}
+
+void song_first_bar_later(int on) { stage_later = on; }
+
+void song_first_bar(song_t *s, int part)
+{
+    if (s->state != SS_PLAYING || s->bar || s->step)
+        return;
+    own_install(s);                                  /* (under what its first tick would have in force) */
+    style_for(s, 0);
+    if (song_ov()->lead_oct != s->win_oct || s->lead.style != s->win_style)
+        keys_win_for(s);
+    harmony_keys_window(0, s->keys_win);
+    if (part == 0) {                                 /* the loop's voicings worked out (stage_voice's first voicing,
+                                                        then a lookup: the same, in its cache) */
+        int keys[4];
+        harmony_voicing_at(&s->roll, 0, 1, &s->voicing, keys);
+    } else if (part == 1) {
+        stage_voice(s, 0);
+    } else if (part == 2) {
+        stage_lead(s, 0);
+    } else {
+        stage_pads(s, 0);
+    }
+    harmony_keys_window(0, 0);
 }
 
 void song_start_kit(song_t *s, const song_roll_t *r, int kit)

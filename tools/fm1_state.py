@@ -15,9 +15,12 @@ late blocks and their causes, the slowest render and redraw, the guard's steps: 
 reflash. FLAGS, added together: 1 the CPU guard off, 2 the Parts roll's look-ahead off, 4 the kit voice render paused,
 8 the shipped kits' lanes off, 16 the chorus and delay off, 32 the plate off, 64 every voice at the full rate.
 FLAGS2: 1 the bed off, 2 the buses' filters off, 4 the drums' compressor off, 8 the glue off, 16 the mud high-pass
-off, 64 the output summed to mono. The late blocks' causes (cpu.late_by): song (a new song), row (a change landing), jump, roll (the Parts roll's
-look-ahead), draw, kit (the kit voices rendering), flash, other. Coexists with the browser remote (its other commands are
-left alone). Uses fm1-base's tools (base/tools: fm1_install.py's port lookup); needs mido with python-rtmidi.
+off, 64 the output summed to mono. The late blocks' causes (cpu.late_by, the first that applies): song (a new song, its
+first bar's planning, its end, a resume), row (a change landing), jump, roll (the Parts roll's look-ahead), bar (the
+downbeat), cmd (a mute, solo, level, jump or A/B command), guard (it stepped), ramp (a section's filters or the fade
+moving), step (a 16th ticked), notes (notes starting), draw, kit (the kit voices rendering), flash, usb (a SysEx, this
+tool's answers among them), next (the next song rolled), voices (only the voices and effects sounding), other.
+Coexists with the browser remote (its other commands are left alone). Uses fm1-base's tools (base/tools: fm1_install.py's port lookup); needs mido with python-rtmidi.
 Exit codes: 0 done, 1 no answer, 3 FM-1 not found.
 """
 import argparse
