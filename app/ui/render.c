@@ -252,7 +252,8 @@ static void ui_faders(const ui_bag_t *b, const ui_item_t *it)
         const char *ms;
         ui_nth(tags, i, tag, sizeof tag);
         /* highlighted: the picked column, or (the knobs layout) the columns this page's knobs drive */
-        if (ui_true(b, UV_I(i, UVK_I_SEL)) || tag[0]) cv_rect(cx + 1, y, cw - 2, h, UI_COLORS[UC_LINE]);
+        if (tag[0]) cv_rect(cx, y, cw, h, UI_COLORS[UC_LINE]);                    /* one block, no gaps */
+        else if (ui_true(b, UV_I(i, UVK_I_SEL))) cv_rect(cx + 1, y, cw - 2, h, UI_COLORS[UC_LINE]);
         ui_part_icon(p, mid - 4, y + 2, off ? UI_COLORS[UC_DIM] : col);
         if (ui_nth(labels, i, name, sizeof name)[0])           /* its name under the icon */
             cv_text(mid - text_w(&FONT_T, name) / 2, y + 11, &FONT_T, name, off ? UI_COLORS[UC_DIM] : col);

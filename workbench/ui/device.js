@@ -306,7 +306,8 @@ export function drawScreen(lcd, screen, bag, data, C = colors(THEME, data.colors
           const cx = x + i * cw, part = p === "keys" ? "comp" : p, col = C[part.toUpperCase()] ?? C.WHITE;
           const off = act?.solo ? act.solo !== p : act?.mute?.includes(p), db = bag.levels?.[p] ?? 0, mid = cx + Math.floor(cw / 2);
           // highlighted: the picked column, or (the knobs layout) the columns this page's knobs drive (Sam, 2026-11-08)
-          if (bag[`sel${i}`] || it.tags?.[i]) lcd.rect(cx + 1, y, cw - 2, h, C.LINE);
+          if (it.tags?.[i]) lcd.rect(cx, y, cw, h, C.LINE);          // the knobs' columns: one block, no gaps
+          else if (bag[`sel${i}`]) lcd.rect(cx + 1, y, cw - 2, h, C.LINE);
           if (data.icons?.[part]) data.icons[part].forEach((row, j) => [...row].forEach((c, k) => { if (c === "#") lcd.rect(mid - 4 + k, y + 2 + j, 1, 1, off ? C.DIM : col); }));
           if (it.labels?.[i]) lcd.text(mid - Math.floor(textW(f, it.labels[i]) / 2), y + 11, f, it.labels[i], off ? C.DIM : col);
           lcd.rect(mid - 2, top, 4, tH, C.DIM);                          // the track
