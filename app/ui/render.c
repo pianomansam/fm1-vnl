@@ -250,7 +250,9 @@ static void ui_faders(const ui_bag_t *b, const ui_item_t *it)
         uint16_t col = UI_COLORS[UI_PART_LOOK[p].color], gray = UI_COLORS[UC_GRAY];
         char t[6], name[12], tag[8];
         const char *ms;
-        if (ui_true(b, UV_I(i, UVK_I_SEL))) cv_rect(cx + 1, y, cw - 2, h, UI_COLORS[UC_LINE]);
+        ui_nth(tags, i, tag, sizeof tag);
+        /* highlighted: the picked column, or (the knobs layout) the columns this page's knobs drive */
+        if (ui_true(b, UV_I(i, UVK_I_SEL)) || tag[0]) cv_rect(cx + 1, y, cw - 2, h, UI_COLORS[UC_LINE]);
         ui_part_icon(p, mid - 4, y + 2, off ? UI_COLORS[UC_DIM] : col);
         if (ui_nth(labels, i, name, sizeof name)[0])           /* its name under the icon */
             cv_text(mid - text_w(&FONT_T, name) / 2, y + 11, &FONT_T, name, off ? UI_COLORS[UC_DIM] : col);
@@ -266,7 +268,6 @@ static void ui_faders(const ui_bag_t *b, const ui_item_t *it)
         t[k] = 0;
         cv_text(mid - text_w(&FONT_T, t) / 2, y + h - 18, &FONT_T, t, off ? UI_COLORS[UC_DIM] : UI_COLORS[UC_WHITE]);
         ms = act && act->solo == p ? "S" : act && act->mute >> p & 1u ? "M" : "";
-        ui_nth(tags, i, tag, sizeof tag);
         {                                                       /* under it: its knob, and M or S */
             char both[16];
             int32_t x0, pen;
