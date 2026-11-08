@@ -2712,7 +2712,7 @@ console.log("the busy-lead thinning row (on by default; off, the existing compin
 console.log("the choir: a pad layer a song may draw (1 in 4), and a choice on the pad row");
 {
   const { replay, wav } = await import("./replay.mjs");
-  const CHOIR = ins("Choir"), WARM = insSym("INS_WARM_PAD"), STR = ins("Strings"), ORGAN = ins("Organ");
+  const CHOIR = ins("Vox"), WARM = insSym("INS_WARM_PAD"), STR = ins("Strings"), ORGAN = ins("Organ");
   const PERC = ["Rhodes", "Felt piano", "Piano"].map(ins);
   const ex = await load(), call = caller(ex);
   ex.wb_seed(1);
@@ -2721,7 +2721,7 @@ console.log("the choir: a pad layer a song may draw (1 in 4), and a choice on th
   await desk.read(true);
   // the pad row: offered, approved, the dice's pick now and then (either family: it fits both)
   const o = optionsFor(row("pad"), desk.state, OPTS).find((x) => x.value === CHOIR);
-  check(o && o.name === "Choir" && o.status === "approved", "the pad row offers the choir, approved");
+  check(o && o.name === "Vox" && o.status === "approved", "the pad row offers the choir, approved");
   let picked = 0;
   for (let i = 0; i < 200; i++)
     picked += pickFor(row("pad"), { values: { pad: i & 2 ? WARM : STR, family: i & 1 ? "synth" : "acoustic" }, locks: new Set() },

@@ -92,14 +92,14 @@ export default {
       ".........",
       ".........",
     ],
-    lead: [   // a note
-      ".....#...",
-      ".....##..",
-      ".....#.#.",
-      ".....#...",
-      "..####...",
-      ".#####...",
-      "..###....",
+    lead: [   // a handheld mic, tilted right (Sam, 2026-11-07)
+      "......##.",
+      ".....####",
+      ".....###",
+      "....##..",
+      "...#.....",
+      "..#......",
+      ".#.......",
     ],
     texture: [   // dust
       "#.....#..",
@@ -261,7 +261,6 @@ export default {
       // ALGO picks the part (the convention); SELECT too, the main screen having no pages (Sam, 2026-11-06)
       controls: {
         ALGO: { do: "cursor" }, SELECT: { do: "cursor" }, EDIT: { go: "cursor" },
-        HOME: { go: "mixer" },   // HOME steps main -> Parts -> Mixer -> main (Sam, 2026-11-07: a trial)
         // the highlighted part's instrument (or kit), a request as a knob's (Sam, 2026-11-06): a field a menu line
         // (null: nothing there)
         PRESET: { do: "turn", byCursor: [null, "drumKit", "bassIns", "compIns", "leadIns", "padIns", null], step: 1 },
@@ -301,12 +300,11 @@ export default {
         { y: 196, h: 44, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
           { text: "KEY MUTE   HOLD KEY SOLO   ALGO PICK", font: "T", x: 8, y: 8, color: "DIM" },
-          { text: "ARP BACK   FX MIXER   HOME MIXER", font: "T", x: 8, y: 24, color: "DIM" },
+          { text: "ARP BACK   FX MIXER   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
       controls: {
         ALGO: { do: "cursor" }, SELECT: { do: "cursor" }, K1: { do: "mute" }, K2: { do: "solo" }, ARP: { go: "back" },
-        HOME: { go: "levels" },
       },
       say: ["PARTS. ", { when: "song", text: "{section}, BAR {bar} OF {bars}" }],
     },
@@ -330,7 +328,7 @@ export default {
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
         { y: 50, h: 140, draw: [
-          { faders: [6, 0, 228, 140], parts: ["drums", "bass", "keys", "lead", "pad", "texture"], labels: ["DRUMS", "BASS", "COMP", "LEAD", "PAD", "TEXT"] },
+          { faders: [6, 0, 228, 140], parts: ["drums", "bass", "keys", "lead", "pad", "texture"], labels: ["DRUMS", "BASS", "COMP", "LEAD", "PAD", "TXTR"] },
         ] },
         { y: 196, h: 44, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
@@ -365,12 +363,12 @@ export default {
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
         { y: 50, h: 140, draw: [
-          { faders: [6, 0, 228, 140], parts: ["drums", "bass", "keys", "lead", "pad", "texture"], labels: ["DRUMS", "BASS", "COMP", "LEAD", "PAD", "TEXT"],
+          { faders: [6, 0, 228, 140], parts: ["drums", "bass", "keys", "lead", "pad", "texture"], labels: ["DRUMS", "BASS", "COMP", "LEAD", "PAD", "TXTR"],
             tags: ["K1", "K2", "K3", "K4", "", ""] },
         ] },
         { y: 196, h: 44, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
-          { text: "K1-K4 LEVEL   SELECT PAD/TEXT   KEY MUTE/SOLO", font: "T", x: 8, y: 8, color: "DIM" },
+          { text: "K1-K4 LEVEL   SELECT PAD/TXTR   KEY MUTE/SOLO", font: "T", x: 8, y: 8, color: "DIM" },
           { text: "FX BACK   ARP PARTS   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
@@ -400,7 +398,7 @@ export default {
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
         { y: 50, h: 140, draw: [
-          { faders: [6, 0, 228, 140], parts: ["drums", "bass", "keys", "lead", "pad", "texture"], labels: ["DRUMS", "BASS", "COMP", "LEAD", "PAD", "TEXT"],
+          { faders: [6, 0, 228, 140], parts: ["drums", "bass", "keys", "lead", "pad", "texture"], labels: ["DRUMS", "BASS", "COMP", "LEAD", "PAD", "TXTR"],
             tags: ["", "", "", "", "K1", "K2"] },
         ] },
         { y: 196, h: 44, draw: [

@@ -336,13 +336,13 @@
    ".#######."
   ],
   "lead": [
-   ".....#...",
-   ".....##..",
-   ".....#.#.",
-   ".....#...",
-   "..####...",
-   ".#####...",
-   "..###...."
+   "......##.",
+   ".....####",
+   ".....####",
+   "....###..",
+   "...##....",
+   "..##.....",
+   ".##......"
   ],
   "pad": [
    ".........",
@@ -502,7 +502,7 @@
         "COMP",
         "LEAD",
         "PAD",
-        "TEXT"
+        "TXTR"
        ],
        "parts": [
         "drums",
@@ -690,7 +690,7 @@
         "COMP",
         "LEAD",
         "PAD",
-        "TEXT"
+        "TXTR"
        ],
        "parts": [
         "drums",
@@ -727,7 +727,7 @@
       {
        "color": "DIM",
        "font": "T",
-       "text": "K1-K4 LEVEL   SELECT PAD/TEXT   KEY MUTE/SOLO",
+       "text": "K1-K4 LEVEL   SELECT PAD/TXTR   KEY MUTE/SOLO",
        "x": 8,
        "y": 8
       },
@@ -892,7 +892,7 @@
         "COMP",
         "LEAD",
         "PAD",
-        "TEXT"
+        "TXTR"
        ],
        "parts": [
         "drums",
@@ -1434,9 +1434,6 @@
     "EDIT": {
      "go": "cursor"
     },
-    "HOME": {
-     "go": "mixer"
-    },
     "OCT+": {
      "by": 1,
      "byCursor": [
@@ -1663,7 +1660,7 @@
       {
        "color": "DIM",
        "font": "T",
-       "text": "ARP BACK   FX MIXER   HOME MIXER",
+       "text": "ARP BACK   FX MIXER   HOME MAIN",
        "x": 8,
        "y": 24
       }
@@ -1678,9 +1675,6 @@
     },
     "ARP": {
      "go": "back"
-    },
-    "HOME": {
-     "go": "levels"
     },
     "K1": {
      "do": "mute"

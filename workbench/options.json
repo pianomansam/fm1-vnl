@@ -36,7 +36,7 @@
     { "id": 26, "sym": "INS_EMILY", "name": "Electric guitar", "roles": ["keys"], "family": "acoustic", "status": "approved" },
     { "id": 27, "sym": "INS_STR_LEAD", "name": "String lead", "roles": ["lead"], "family": "synth", "status": "retired" },
     { "id": 28, "sym": "INS_CELLO", "name": "Cello", "roles": ["lead"], "family": "acoustic", "status": "retired" },
-    { "id": 29, "sym": "INS_CHOIR", "name": "Choir", "roles": ["pad"], "family": "any", "status": "approved" },
+    { "id": 29, "sym": "INS_CHOIR", "name": "Vox", "roles": ["pad"], "family": "any", "status": "approved" },
     { "id": 30, "sym": "INS_NONE", "name": "None", "roles": [], "family": "any", "status": "approved" }
   ],
   "kits": [
