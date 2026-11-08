@@ -92,14 +92,14 @@ export default {
       ".........",
       ".........",
     ],
-    lead: [   // a handheld mic, upright (Sam, 2026-11-07)
+    lead: [   // an SM57-style mic: the mesh grille, then the slim body tapering to the plug (Sam, 2026-11-07)
       "..#####..",
-      ".#######.",
-      ".#######.",
+      "..#.#.#..",
       "..#####..",
       "...###...",
       "...###...",
       "...###...",
+      "....#....",
     ],
     texture: [   // dust
       "#.....#..",
