@@ -2099,7 +2099,7 @@ console.log("parts: re-rolls, history, locks, reactions (Task 5)");
   // a lead roll that moves the keys gives the keys-room reason (a seed whose lead rolls move the keys' comping)
   {
     const said = [];
-    for (let seed = 2; seed <= 12 && !said.length; seed++) {
+    for (let seed = 2; seed <= 40 && !said.length; seed++) {
       const { desk } = await deskOn(seed, lcg(37));
       for (let i = 0; i < 8 && !said.length; i++) {
         const r = await desk.reroll("lead");

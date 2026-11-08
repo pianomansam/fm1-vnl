@@ -56,7 +56,10 @@ got a riff bar and a pitch floor ("I guess this is better. Keep the change").
   - before a section change, 50%: the whole last bar out, or its last 2 beats;
   - the stuck-note stutter: on the turnaround's hook bar 40%, on a block's last bar 30%, never in the first lead
     pass; one note 55%, 2 notes 30%, 3 notes 15%; repeats 2-4 (fragments 2-3) in 16ths or 8ths, each 12% softer;
-    then the phrase resumes where it would have been. About 0.75 stutters per song.
+    then the phrase resumes where it would have been. About 0.75 stutters per song. Made bolder and more frequent
+    (Sam, 2026-11-05; leads/loop.c): 70% and 50%, not where the section already filters the lead; a note 4-7 more
+    16ths (its last beat in 32nds 1 in 3), a fragment to about 2 beats; full level, the lead's low-pass closing to
+    0.75 by the last repeat. About 0.86 a song, 36% of songs none (was 0.68 and 49%).
 - **The lead filter:** a low-pass on the lead bus driven by the song (the prototype's `song_lead_lp` hook, one line
   each in app.c and wb.c).
 
@@ -90,7 +93,7 @@ recording signature (phrase seed, key, mode, chords, set, style) already does th
 - On: replayed bars equal their recorded slot except for harmony moves, drops, cuts and the moves above.
 - No replayed note fails the legality check; the moved/dropped rates stay near the prototype's (300 songs: about
   169 nudged, 1 dropped).
-- Stutter count per song near 0.75 and never two stutters in adjacent bars; none in the first lead pass.
+- Stutter count per song near 0.75 (0.75-1.0 since the bolder stutter) and never two stutters in adjacent bars; none in the first lead pass.
 - Styles other than Jazz-Hop and Ambient are unaffected by the switch.
 
 ## Left to the builder
