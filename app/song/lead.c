@@ -15,7 +15,6 @@ int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b,
     for (i = 0; i < 16; i++) ls->on[i] = 0;
     ls->acc = 0;
     ls->ring = 0;
-    ls->roll = 0;
     for (i = 0; i < 16; i++) ls->vel[i] = 0;
     for (i = 0; i < 16; i++) ls->dl[i] = 0;
     ls->active = ls->tied;
@@ -39,14 +38,5 @@ int lead_step(const lead_state_t *ls, int step, float step_samples, song_ev_t *o
     out->pad = (uint8_t)((ls->ring >> step) & 1);      /* 1: a push, ringing past the bar (and the 4-bar line) */
     out->delay = (uint32_t)((float)ls->dl[step] * step_samples / 3.0f);   /* a style's triplet: late by thirds */
     out->len = len > 1.0f ? (uint32_t)len : 1u;
-    if (((ls->roll >> step) & 1u) && max > 1) {          /* a 32nd roll: struck again half a 16th later */
-        float h = step_samples * 0.5f;
-        out[1] = out[0];
-        out[1].delay += (uint32_t)h;
-        out[1].len = len - h > 1.0f ? (uint32_t)(len - h) : 1u;
-        out[0].len = h - 200.0f > 1.0f ? (uint32_t)(h - 200.0f) : 1u;
-        out[0].pad = 0;
-        return 2;
-    }
     return 1;
 }

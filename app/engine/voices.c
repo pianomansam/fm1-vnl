@@ -2549,6 +2549,67 @@ static void duck_chunk(uint32_t c)
 /* The mix, in chunks: the voices and drums (event starts sample-accurate) into the chunk's buses, the mix, then the
    lo-fi chain (fx.c: chorus and delay, dust, ducking by the kick's envelope at the chunk's end, the plate, the clip,
    the bed). */
+
+/* The whole-mix stutter (Sam, 2026-11-09; after Cut-A-Dor's captured-slice stutter, cad.c, GPL-3.0-only: a slice
+   of the mix caught, then repeated with short edge fades): vx_stutter. The slice is kept mono at half rate in int16
+   (ST_N: an 8th at 70 BPM, the slowest rolled tempo; a longer one is cut to fit), played back with linear
+   interpolation; each switch crossfades over ST_F samples, as do the slice's edges. */
+#define ST_N 9600
+#define ST_F 220.0f
+static int16_t st_buf[ST_N] VX_POOL;
+static uint32_t st_len = 2u, st_pos, st_rec;    /* in samples at the full rate; st_rec: halves caught */
+static float st_k, st_acc;
+static int st_mode;
+
+void vx_stutter(int mode, uint32_t len)
+{
+    if (mode == 1) {
+        st_len = len < 2u ? 2u : len > 2u * ST_N ? 2u * ST_N : len;   /* ponytail: cut, not resampled, below 70 BPM */
+        st_rec = st_pos = 0;
+        st_acc = 0.0f;
+    } else if (mode == 3) {
+        st_len = len < 2u ? 2u : len < 2u * st_rec ? len : 2u * st_rec;
+        mode = 2;
+    }
+    if (mode == 2) {
+        st_pos = 0;
+        if (st_rec < 2u) mode = 0;                 /* nothing caught (a song started mid-bar): live */
+    }
+    st_mode = mode;
+}
+
+int vx_stuttering(void) { return st_mode == 2 || st_k > 0.0f; }
+
+static void stutter_block(float *l, float *r, uint32_t n)
+{
+    uint32_t i;
+    if (!st_mode && st_k <= 0.0f) return;
+    for (i = 0; i < n; i++) {
+        float y = 0.0f, t = st_mode == 2 ? 1.0f : 0.0f;
+        if (st_mode == 1 && st_rec < st_len / 2u) {   /* catch: the pair's mono average */
+            float m = 0.25f * (l[i] + r[i]);
+            if ((st_pos++ & 1u) == 0u) st_acc = m;
+            else {
+                float v = (st_acc + m) * 32767.0f;
+                st_buf[st_rec++] = (int16_t)(v > 32767.0f ? 32767.0f : v < -32767.0f ? -32767.0f : v);
+            }
+        }
+        st_k += t > st_k ? 1.0f / ST_F : t < st_k ? -1.0f / ST_F : 0.0f;
+        st_k = st_k < 0.0f ? 0.0f : st_k > 1.0f ? 1.0f : st_k;
+        if (st_k > 0.0f && st_mode != 1) {
+            uint32_t p = st_pos % st_len, h = p >> 1, h1 = h + 1u < st_rec ? h + 1u : h;
+            float e = 1.0f, a = (float)st_buf[h < st_rec ? h : 0] * (1.0f / 32767.0f);
+            if (p & 1u) a = 0.5f * (a + (float)st_buf[h1] * (1.0f / 32767.0f));
+            if ((float)p < ST_F) e = (float)p / ST_F;
+            else if ((float)(st_len - p) < ST_F) e = (float)(st_len - p) / ST_F;
+            y = a * e;
+            st_pos++;
+        }
+        l[i] = l[i] * (1.0f - st_k) + y * st_k;
+        r[i] = r[i] * (1.0f - st_k) + y * st_k;
+    }
+}
+
 void vx_render(float *l, float *r, uint32_t n)
 {
     uint32_t done = 0, c, k;
@@ -2622,6 +2683,7 @@ void vx_render(float *l, float *r, uint32_t n)
             l[done + k] += ch_m[k];
             r[done + k] += ch_s[k];
         }
+        stutter_block(l + done, r + done, c);
         done += c;
     }
 }
@@ -2636,6 +2698,8 @@ void vx_release_all(void)
     }
     drums_release();
     qn = 0;
+    st_mode = 0;
+    st_k = 0.0f;
     fx_close(); /* the bed fades out; the plate rings on */
 }
 

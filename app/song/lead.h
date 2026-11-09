@@ -19,7 +19,6 @@ typedef struct {
     uint8_t vel[16];              /* the onsets' velocities (25-110) */
     unsigned acc;                 /* accented onsets (a style's landings) */
     unsigned ring;                /* onsets that ring across the bar line (pushes) */
-    unsigned roll;                /* onsets struck twice, a 32nd apart (the loop's stutter: leads/loop.c) */
     int last;                     /* the last note sung (0: none yet) */
     int style;                    /* the style the lead plays, LS_* + 1 (0: not resolved: leads_style): the
                                      workbench's forced one, else the song's rolled one */
@@ -58,9 +57,8 @@ typedef struct {
                                               1: dropped, the next bar records again (not a live change) */
         uint32_t sig;             /* what it was recorded for (a new song, key, mode, chords, set or style: anew) */
         int16_t from;             /* the bar a live change re-recorded from, + 1 (0: none): a new entry there */
-        int16_t sbar;             /* the bar of the last stutter, + 1 (0: none), and its steps: the stuck note, the
-                                     last repeat, the phrase's return (16: the bar's end), for its filter */
-        uint8_t s0, s1, s2;
+        int16_t sbar;             /* a bar whose last 2 beats the whole mix stutters, + 1 (0: none): app.c's
+                                     vx_stutter */
 #ifdef LEADS_LOOP_STATS
         int stat[4];              /* bars replayed, notes nudged, notes dropped, stutters (leads_loop_stat) */
 #endif

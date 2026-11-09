@@ -611,6 +611,15 @@ static void step(void)
         n = song_tick(&song, evs, 64);
         llp = song_lead_lp_at(&song, bar, st);   /* the lead loop's filter, for the 16th just played */
         vx_set_filter(PM_LEAD, lp[PM_LEAD] < llp ? llp : lp[PM_LEAD]);   /* before its events */
+        {                                 /* the whole-mix stutter on a bar the lead loop marks: an 8th caught on
+                                             beat 3, repeated, then its first 16th on beat 4; the downbeat live */
+            static int stut;
+            float q = song_step_samples(&song);
+            if (st == 0 && stut) { vx_stutter(0, 0); stut = 0; }
+            if (song.lead.loop.sbar == bar + 1 && st == 8) { vx_stutter(1, (uint32_t)(2.0f * q)); stut = 1; }
+            else if (stut && st == 10) vx_stutter(2, 0);
+            else if (stut && st == 14) vx_stutter(3, (uint32_t)q);
+        }
         vx_set_pad_level(song_pad_level(&song));   /* the pad layer's fade over a section line */
         /* sounding notes keep their patches; dust and bed changes ramp, the delay's time glides to a new tempo */
         if (vx_reconfigures(&before, &song.roll) || song.changes != changes) {

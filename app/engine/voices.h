@@ -80,6 +80,10 @@ float vx_kick_env(void);
    18 kHz down to 200 Hz. vx_set_hp's runs 0 (off) to 1 (a one-pole high-pass at about 600 Hz). A change lands in
    about 50 ms (a high-pass opening, in about 3 ms); with nothing sounding, at once. */
 void vx_set_filter(int role, float amount);
+/* the whole-mix stutter (voices.c): 1 catches the next len samples of the mix, 2 repeats them, 3 repeats their first
+   len, 0 live again (crossfaded); vx_release_all ends it */
+void vx_stutter(int mode, uint32_t len);
+int vx_stuttering(void);
 void vx_set_hp(int role, float amount);
 /* The song's pump (VX_PUMP_*): the kick ducking at about 1, 3 or 6 dB. vx_configure picks it per song (the seed's
    stream 170, a third each). */

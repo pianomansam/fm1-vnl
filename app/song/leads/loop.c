@@ -11,7 +11,7 @@
    Harmony: each replayed note is checked against the bar it plays over (the section's own chord, keys and bass:
    leads_legal, a chord tone on beats 1 and 3, the bar's range); one that would rub moves to the nearest note that
    passes (a scale or pentatonic step, 2 scale steps at most; where the bar meets the hook floor, 3 pitches over a 4th,
-   one that keeps it first), else drops. A note ringing over the bar line (a stutter's last repeat too) is cut at it
+   one that keeps it first), else drops. A note ringing over the bar line is cut at it
    where it would rub over the next bar's chord.
    The producer's moves on the loop (no new notes), all drawn from the song's phrase seed:
      - the lead's entry (a block that starts a run of lead blocks): the song's first 40% filtered in (low-pass 0.75,
@@ -22,17 +22,13 @@
      - a bar muted: 12% of 8-bar passes, one hook bar (the pass's bar 3 or 5); never the first pass
      - the drop before a section change: the last bar of a lead block with a block after it, 50%: half of them the
        whole bar out, half its last 2 beats
-     - the stuck-note stutter (bolder: Sam, 2026-11-05): on the turnaround's hook bar (bar 7 of an 8-bar pass) 70%,
-       on a block's last bar 50% (not dropped); never in the song's first lead pass, nor in the bar right after a
-       stutter, nor where the section already moves the lead's filter (an entry filtered in, a break's last bar, a
-       drum drop, a swell, an intro or outro). One note (55%), or 2 (30%) or 3 (15%) quick notes (a quarter at most)
-       of the bar, gets stuck: a note repeats every 16th 4-7 more times, a fragment back to back to about 2 beats
-       (2-3 more times), at full level, while the lead's low-pass closes to the entry filter's 0.75 (about 600 Hz) by
-       the last repeat; a single note on the grid (not a triplet's late one) rolls its last beat in 32nds in 1 of 3.
-       Then the phrase carries on where it would have been (the notes under the stutter are skipped, the last repeat
-       rings for the stuck note's own length), the filter open again there. A note-level move, not a captured audio
-       slice: a re-struck chop (as a sampler plays one) costs no audio buffer, and the repeats stay the motif's
-       notes, checked against the bar's chord. */
+     - the stutter (Sam, 2026-11-09: the whole mix, after Cut-A-Dor's captured slice; the melody-only stutters, notes
+       or audio, didn't work): on the turnaround's hook bar (bar 7 of an 8-bar pass) 58%, on a block's last bar 42%
+       (not dropped); never in the song's first lead pass, nor in the bar right after a stutter, nor where the
+       section already moves the lead's filter (an entry filtered in, a break's last bar, a drum drop, a swell, an
+       intro or outro). The lead's notes stay as recorded: the bar is marked (ls->loop.sbar) and the engine stutters
+       the whole mix over its last 2 beats (app.c, vx_stutter: an 8th caught on beat 3 repeats, then its first 16th
+       on beat 4), the next bar's downbeat live. */
 #include <stdint.h>
 #include "harmony.h"
 #include "leads.h"
@@ -124,7 +120,7 @@ static void moves(const song_roll_t *r, const lead_state_t *ls, const plan_block
                     ((b->flags & (PB_DROP_LAST | PB_DROP2)) == (PB_DROP_LAST | PB_DROP2) && k == b->bars - 2);
         rng_seed(&g, seed ^ ((uint32_t)bar * 0xC2B2AE35u), 613);
         x = rng_int(&g, 100);
-        if (!quiet && ((bip == 6 && x < 70) || (lastbar && x < 50))) m->stut = 1;
+        if (!quiet && ((bip == 6 && x < 58) || (lastbar && x < 42))) m->stut = 1;
     }
     if (m->stut && bar > 0) {                         /* none in the bar right after a stutter (the draws kept: no
                                                          other bar's move shifts) */
@@ -139,8 +135,6 @@ float leads_loop_lp(const song_roll_t *r, const lead_state_t *ls, const plan_blo
 {
     lm_t m;
     if (!leads_loop_plays(style) || !b) return 0.0f;
-    if (ls->loop.sbar == bar + 1 && step >= ls->loop.s0 && step < ls->loop.s2)   /* the stutter's: closing */
-        return step >= ls->loop.s1 ? 0.75f : 0.75f * (float)(step - ls->loop.s0) / (float)(ls->loop.s1 - ls->loop.s0);
     moves(r, ls, b, bar, &m);
     return m.lp0 + (m.lp1 - m.lp0) * (float)(step + 1) * (1.0f / 16.0f);
 }
@@ -238,81 +232,6 @@ static int widen(lead_state_t *ls, const leads_ctx_t *c, int last)
     return np >= need && hi - lo >= 5;
 }
 
-/* the stuck-note stutter on the bar in ls (its notes already checked; c: the bar's context, a repeat on beat 1 or 3
-   a chord tone, else an earlier note stutters) */
-static int stutter(lead_state_t *ls, const leads_ctx_t *c, int bar)
-{
-    const song_roll_t *r = c->r;
-    int t[16], n = 0, i, j, k, f, S = 0, N = 0, t0 = 0, x, ok = 0, w, fn[3], fo[3], fl[3], fv[3], fd[3], fr[3];
-    rng_t g;
-    for (i = 0; i < 16; i++) if (ls->on[i] > 0) t[n++] = i;
-    if (!n) return 0;
-    rng_seed(&g, song_ov_phrase_seed(r->seed) ^ ((uint32_t)bar * 0x2545F491u), 614);
-    k = rng_int(&g, n);
-    x = rng_int(&g, 100);
-    f = x < 55 ? 1 : x < 85 ? 2 : 3;
-    x = rng_int(&g, 3) == 0;                          /* a single note: its last beat in 32nds (1 in 3) */
-    w = rng_int(&g, 4);
-    for (; k >= 0 && !ok; k--) {                      /* the chosen note, else an earlier one that fits */
-        int ff = f > n - k ? n - k : f;
-        t0 = t[k];
-        if (ff > 1) {
-            S = (k + ff < n ? t[k + ff] : t[k + ff - 1] + 2) - t0;
-            if (S > 4) ff = 1;
-        }
-        if (ff == 1) S = 1;
-        N = ff == 1 ? 4 + w : 8 / S - 1 < 2 ? 2 : 8 / S - 1;
-        while (N > (ff == 1 ? 4 : 2) && t0 + S * (N + 1) > 16) N--;
-        if (t0 + S * (N + 1) <= 16) {
-            int q, e;
-            ok = 1;
-            for (q = 1; q <= N && ok; q++)            /* a repeat on beat 1 or 3: a chord tone */
-                for (e = 0; e < ff; e++) {
-                    int p = t0 + q * S + t[k + e] - t0;
-                    if (p < 16 && p % 8 == 0 && !leads_is_ct(ls->on[t[k + e]], c->pcs, c->np)) ok = 0;
-                }
-            if (ok) f = ff;
-        }
-    }
-    if (!ok) return 0;
-    k++;
-    for (i = 0; i < f; i++) {                         /* the fragment */
-        int s = t[k + i];
-        fn[i] = ls->on[s]; fo[i] = s - t0; fl[i] = ls->len[s]; fv[i] = ls->vel[s]; fd[i] = ls->dl[s];
-        fr[i] = (ls->ring >> s) & 1u;
-    }
-    w = t0 + S * (N + 1);
-    for (i = 0; i < 16; i++) {                        /* under the stutter: skipped; a note into it cut */
-        if (ls->on[i] <= 0) continue;
-        if (i >= t0 && i < w) { ls->on[i] = 0; ls->vel[i] = 0; ls->dl[i] = 0; ls->ring &= ~(1u << i); }
-        else if (i < t0 && i + ls->len[i] > t0) { ls->len[i] = t0 - i; ls->ring &= ~(1u << i); }
-    }
-    for (j = 0; j <= N; j++) {
-        for (i = 0; i < f; i++) {
-            int p = t0 + j * S + fo[i], len = S - fo[i];
-            if (len > fl[i]) len = fl[i];
-            if (j == N && i == f - 1 && p + fl[i] > p + len) {   /* the last repeat: its own length (to the next
-                                                                    note; past the next bar line never) */
-                int e = p + fl[i] < 32 ? p + fl[i] : 32, q;
-                for (q = p + 1; q < 16 && q < e; q++)
-                    if (ls->on[q] > 0) { e = q; break; }
-                len = e - p;
-                if (fr[i] && e == (p + fl[i] < 32 ? p + fl[i] : 32)) ls->ring |= 1u << p;
-            }
-            if (p > 15 || len < 1) continue;
-            ls->on[p] = fn[i]; ls->len[p] = len; ls->dl[p] = (uint8_t)fd[i]; ls->vel[p] = (uint8_t)fv[i];
-            if (x && f == 1 && !fd[0] && j && p / 4 == (t0 + N) / 4) ls->roll |= 1u << p;   /* the last beat's 32nds */
-        }
-    }
-    for (i = w; i < 16 && ls->on[i] <= 0; i++) {}     /* the filter: closing to the last repeat, open where the phrase
-                                                         returns */
-    ls->loop.sbar = (int16_t)(bar + 1);
-    ls->loop.s0 = (uint8_t)t0;
-    ls->loop.s1 = (uint8_t)(t0 + S * N + fo[f - 1]);
-    ls->loop.s2 = (uint8_t)i;
-    return 1;
-}
-
 void leads_loop_bar(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b, int bar, const leads_next_t *nx,
                     int style, void (*plan)(lead_state_t *, const leads_ctx_t *, const plan_block_t *, int,
                                             const leads_next_t *))
@@ -388,18 +307,8 @@ void leads_loop_bar(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *
         }
     }
     moves(c->r, ls, b, bar, &m);
-    ls->loop.sbar = 0;
-    if (m.stut && stutter(ls, c, bar)) {
-        COUNT(ls, 3);
-        for (i = 0; i < 16; i++)                      /* a last repeat rung past the bar line: cut at it where it
-                                                         would rub over the next bar's chord, as any note, or where
-                                                         it wasn't a tie */
-            if (ls->on[i] > 0 && i + ls->len[i] > 16 && (!((ls->ring >> i) & 1u) ||
-                !(c->can_push && nx->np > 0 && leads_legal(c->r, ls->on[i], nx->pcs, nx->np, nx->bass)))) {
-                ls->len[i] = 16 - i;
-                ls->ring &= ~(1u << i);
-            }
-    } else m.stut = 0;
+    ls->loop.sbar = m.stut ? (int16_t)(bar + 1) : 0;
+    if (m.stut) COUNT(ls, 3);
     if (nb) moves(c->r, ls, nb, bar + 1, &mn);
     else mn.mute = 0;
     for (i = 0; i < 16; i++) {                        /* the mutes; a note into a muted step cut there */
