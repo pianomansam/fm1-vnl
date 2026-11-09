@@ -60,6 +60,9 @@ got a riff bar and a pitch floor ("I guess this is better. Keep the change").
     (Sam, 2026-11-05; leads/loop.c): 70% and 50%, not where the section already filters the lead; a note 4-7 more
     16ths (its last beat in 32nds 1 in 3), a fragment to about 2 beats; full level, the lead's low-pass closing to
     0.75 by the last repeat. About 0.86 a song, 36% of songs none (was 0.68 and 49%).
+    Replaced (Sam, 2026-11-09: "the melody-only stutter doesn't work"): the whole mix stutters instead, on the same
+    bars (58% and 42%, keeping 0.85 a song): an 8th caught on beat 3 repeats, then its first 16th on beat 4, the
+    downbeat live (voices.c vx_stutter, after Cut-A-Dor's captured slice; 19 KB pool buffer). The lead's notes stay.
 - **The lead filter:** a low-pass on the lead bus driven by the song (the prototype's `song_lead_lp` hook, one line
   each in app.c and wb.c).
 
