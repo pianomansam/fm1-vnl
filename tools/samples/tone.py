@@ -13,8 +13,9 @@
 #   body_hz, body_db, body_q   the cabinet's body: a peaking bump (Hz, dB, Q)
 #   cab_hz      the cabinet's roll-off (Hz), cab_order poles (Butterworth)
 #   out_db      the note's peak out (dBFS)
-# Audition (any WAV in, a 32-bit float WAV out; settings as name=value after the bank's):
-#   python3 -I tools/samples/tone.py SB_JAZZ IN.wav OUT.wav [drive=2 tone_hz=1800 ...]
+# Audition (any WAV in, a 32-bit float WAV out; settings as name=value over the bank's, or its variant's: BANK:NAME,
+# else the one it uses):
+#   python3 -I tools/samples/tone.py SB_JAZZ:chain IN.wav OUT.wav [drive=2 tone_hz=1800 ...]
 import json
 import math
 import os
@@ -76,7 +77,10 @@ def main():
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from pack import load_manifest, read_wav  # noqa: E402
     from scipy.io import wavfile
-    bank = next(b for b in load_manifest()['banks'] if b['id'] == a[0])
+    bid, _, var = a[0].partition(':')
+    bank = next(b for b in load_manifest()['banks'] if b['id'] == bid)
+    if 'variants' in bank:
+        bank = dict(bank, **bank['variants'][var or bank['use']])
     tone = dict(bank.get('tone', {}))
     for kv in a[3:]:
         k, v = kv.split('=', 1)

@@ -9,7 +9,10 @@
 #   Kit pieces (the workbench's sampled kits): resampled, cut to length with a cosine fade over the last 40%,
 #   peak-normalized.
 #   A bank with a "tone" (manifest.json) shapes its notes first, before the onset trim: tone.py's chain, its settings
-#   by name. A bank marked "after_kits" is laid out after the kits (first fit, as theirs), so the zones before it
+#   by name. A bank with "variants" packs the one "use" names (its keys over the bank's: another source, another
+#   tone), the others kept to re-pack. A "take" source is one local recording (not fetched: SCRATCH/dl_<source>/<take>)
+#   holding a bank's notes one after another, in "order" (the zones' file names): split at its onsets (each from
+#   silence), the count and every note's pitch checked (within 0.3 semitone of its hint). A bank marked "after_kits" is laid out after the kits (first fit, as theirs), so the zones before it
 #   keep their places.
 #   Every zone: 4-bit IMA ADPCM from (0, idx0), idx0 the starting step index that encodes the zone best (the first 5 ms
 #   weigh most: a poor start smears a hit's attack), never decoding to the clamp (the zone scaled down 3% at a time
@@ -214,16 +217,48 @@ def load_manifest():
         return json.load(f)
 
 
+def variants(b):
+    """every version of bank b (its "variants" over it, the one in use first); a bank without: itself"""
+    if 'variants' not in b:
+        return [b]
+    names = [b['use']] + sorted(k for k in b['variants'] if k != b['use'])
+    return [dict(b, **b['variants'][k]) for k in names]
+
+
+def split_take(x, rate, n, hop=0.005, on_db=-30.0, off_db=-50.0):
+    """x (float mono) cut into its n notes: a note starts where the 5 ms envelope rises over on_db (re the take's
+    peak) after falling under off_db; each runs to the next one's start (its own natural start: the cut is at the
+    hop before the note, so the onset trim finds it as in a file of its own)"""
+    h = int(hop * rate)
+    env = np.array([np.max(np.abs(x[i:i + h])) for i in range(0, len(x) - h, h)])
+    db = 20 * np.log10(env / (env.max() + 1e-12) + 1e-12)
+    ons, armed = [], True
+    for i, v in enumerate(db):
+        if armed and v > on_db:
+            ons.append(max(0, (i - 1) * h))
+            armed = False
+        elif not armed and v < off_db:
+            armed = True
+    if len(ons) != n:
+        sys.exit('take: %d onsets (at %s s), wanted %d: not split' % (len(ons), ', '.join('%.2f' % (o / rate)
+                                                                                         for o in ons), n))
+    return [x[a:b] for a, b in zip(ons, ons[1:] + [len(x)])]
+
+
 def downloads(m):
-    """(dir, url, path) for every file to fetch; an archive source is one file, its name the URL's."""
+    """(dir, url, path) for every file to fetch (every bank's versions'; a take is local, never fetched); an archive
+    source is one file, its name the URL's."""
     out = []
     for key in sorted(m['sources']):
         s = m['sources'][key]
+        if 'take' in s:
+            continue
         if 'archive' in s:
             out.append(('dl_' + key, s['archive'], os.path.basename(s['archive'])))
             continue
         out.append(('dl_' + key, s['raw'] + quote(s['license']), s['license']))
-    files = [(b['src'], z['file']) for b in m['banks'] for z in b.get('zones', [])]
+    files = [(v['src'], z['file']) for b in m['banks'] for v in variants(b) for z in v.get('zones', [])
+             if 'take' not in m['sources'][v['src']]]
     seen = set()
     for src, p in files:
         if (src, p) not in seen:
@@ -413,6 +448,7 @@ def pack(scratch, out, kits_dir):
     rate = m.get('rate', 16000)
     banks, log = [], []
     for b in m['banks']:
+        b = variants(b)[0]
         zs = []
         r = b.get('rate', rate)
         tag = b['id'][3:].lower()
@@ -429,12 +465,22 @@ def pack(scratch, out, kits_dir):
                     log.append('%s %s: root %.2f' % (b['id'], z['name'], root_f))
             assert seen == set(b['roots']), '%s: roots missing from the SF2: %s' % (b['id'], set(b['roots']) - seen)
         else:
+            src = m['sources'][b['src']]
+            if 'take' in src:                      # one recording, the notes in order
+                sr, x = read_wav(os.path.join(scratch, 'dl_' + b['src'], src['take']))
+                notes = dict(zip(src['order'], split_take(x, sr, len(src['order']))))
             for zm in b['zones']:
-                sr, x = read_wav(wav_path(scratch, b['src'], zm['file']))
+                if 'take' in src:
+                    x = notes[zm['file']]
+                else:
+                    sr, x = read_wav(wav_path(scratch, b['src'], zm['file']))
                 if 'tone' in b:
                     x = tone.chain(x, sr, b['tone'])
                 x = onset_trim(x / (np.max(np.abs(x)) + 1e-12), sr)
                 root_f = midi_of(measure_f0(x, sr, zm['hint']))
+                if 'take' in src and abs(root_f - zm['hint']) > 0.3:
+                    sys.exit('take: %s measures %.2f, wanted %d: the take\'s order is off' % (zm['file'], root_f,
+                                                                                             zm['hint']))
                 zs.append(make_zone('', x, sr, root_f, b['attack'], b['loop'], r))
                 log.append('%s %s: hint %d measured %.2f' % (b['id'], os.path.basename(zm['file']), zm['hint'], root_f))
         zs.sort(key=lambda z: z.root)
@@ -469,7 +515,7 @@ def main():
             print('%s\t%s\t%s' % (d, url, p))
     elif a[:1] == ['licenses']:
         m = load_manifest()
-        for key in sorted(m['sources']):
+        for key in sorted(k for k in m['sources'] if 'take' not in m['sources'][k]):
             print('dl_%s\t%s\t%s' % (key, m['sources'][key]['url'], m['sources'][key]['license']))
         print('sha256\t%s' % m['license_sha256'])
     elif a[:1] == ['pack'] and len(a) in (3, 4):
