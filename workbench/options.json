@@ -57,7 +57,7 @@
     { "id": 21, "sym": "WB_KIT_BRUSHES", "name": "Room - brushes", "family": "acoustic", "status": "approved", "ride": true, "set": 2 },
     { "id": 22, "sym": "WB_KIT_OPTBOOMBAP", "name": "Boom-bap machine", "family": "synth", "status": "approved" },
     { "id": 23, "sym": "WB_KIT_OPTJAZZ", "name": "Jazz machine", "family": "synth", "status": "approved" },
-    { "id": 24, "sym": "WB_KIT_OPTPHONK", "name": "Phonk machine", "family": "synth", "status": "approved" }
+    { "id": 24, "sym": "WB_KIT_OPTPHONK", "name": "Phonk machine", "family": "synth", "status": "retired" }
   ],
   "comping": [
     { "id": 2, "sym": "CS_OFFBEATS", "name": "Offbeats", "status": "retired", "notKeys": [3, 26] },

@@ -543,8 +543,8 @@ console.log("options.json");
         "every kit's id is its enum's (library.h's KIT_*, wb_drums.h's presets past WB_KIT_PRESET)");
   const synth = presets.filter((k) => k.set === undefined), sampled = presets.filter((k) => k.set !== undefined);
   check(synth.length === 6 && synth.every((k) => k.family === "synth" && !k.ride &&
-                                              k.status === "approved"),
-        "the six synth presets are synth kits with no ride, approved");
+                                              k.status === (k.sym === "WB_KIT_OPTPHONK" ? "retired" : "approved")),
+        "the six synth presets are synth kits with no ride, approved but the Phonk machine (retired: Sam, 2026-11-10)");
   check(sampled.length === 3 && sampled.every((k, i) => k.family === "acoustic" && k.status === "approved" && k.ride &&
                                                         k.set === i && k.id === C.DRUMS.PRESET + C.DRUMS.GOGODZE + i),
         "the three shipped sampled kits are approved acoustic kits with a ride, their sets in order");
@@ -1409,10 +1409,10 @@ console.log("drum screen: the grid");
           !offered.some((s) => REMOVED.test(`${s.name} ${s.kitName}`)),
         `the lane pickers offer ${offered.length} approved sounds, none removed`);
   const kits = new Set(offered.map((s) => s.kitName));
-  check(["808", "CR-78", "Crunchy machine", "Boom-bap machine", "Jazz machine", "Phonk machine", "Dusty", "Room - big",
+  check(["808", "CR-78", "Crunchy machine", "Boom-bap machine", "Jazz machine", "Dusty", "Room - big",
          "Room - brushes", "Soft brushes"].every((k) => kits.has(k)),
         `from every approved kit (${[...kits].join(", ")})`);
-  check(retired.length > offered.length && retired.filter((s) => s.status === "retired").every((s) => /Dusty|Soft|Our 808/.test(s.name)),
+  check(retired.length > offered.length && retired.filter((s) => s.status === "retired").every((s) => /Dusty|Soft|Our 808|Phonk/.test(s.name)),
         `"show retired" adds the retired synth kits' (${retired.length - offered.length})`);
   const cow = ALL.find((s) => s.kind === SRC.OPT && s.a === 0 && s.b === 12);
   check(cow?.name === "Crunchy machine cowbell", `Crunchy machine's lane 12 is "${cow?.name}"`);
@@ -1422,8 +1422,8 @@ console.log("drum screen: the grid");
   const ok = await load();
   check(ALL.every((s) => s.kind === SRC.SAMPLE || ok.wb_lane_src(0, s.kind, s.a, s.b) === 1), "every synth sound is a source the engine takes");
   const rnd = lcg(7), picks = new Set([...Array(40)].map(() => pickSound(ALL, 0, null, "synth", rnd)?.kitName));
-  check([...picks].every((k) => ["808", "CR-78", "Crunchy machine", "Boom-bap machine", "Jazz machine", "Phonk machine"].includes(k)) &&
-          picks.size === 6,
+  check([...picks].every((k) => ["808", "CR-78", "Crunchy machine", "Boom-bap machine", "Jazz machine"].includes(k)) &&
+          picks.size === 5,
         `a synth song's kick 🎲 picks the synth kits' kicks (${[...picks].join(", ")})`);
   {
     const ex = await load(), call = caller(ex);

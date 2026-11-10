@@ -411,6 +411,8 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
      sounds (the blown-out long 808, the melodic cowbell) are lanes our songs don't play, and in a song it measures
      close to the 808's color. BOOMBAP was cut on 2026-10-28 ("get rid of the 909, boombap, and vintage") and is back
      on the 2026-11-07 short list. Costs in docs/cost.md.
+     **Phonk machine retired (Sam, 2026-11-10: "i'm changing my mind about phonk machine. get rid of it"):** the
+     kit row keeps its value (a saved song on it falls back like any retired kit); not rolled, not offered.
      **Rejected (Sam, 2026-11-10: "none of these 4 nor their 808 or CR-78 are good"):** Optimist's AMBIENT,
      SYNTHWV, MINIMAL and LATIN, and its 808 and VINTAGE (ours, FOMAJAM's, stay). Built and heard on the
      branch kept at `rejected-kits-0d857f8`; not to be offered again. Optimist's other kits are club styles.
