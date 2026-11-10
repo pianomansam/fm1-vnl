@@ -543,8 +543,8 @@ console.log("options.json");
         "every kit's id is its enum's (library.h's KIT_*, wb_drums.h's presets past WB_KIT_PRESET)");
   const synth = presets.filter((k) => k.set === undefined), sampled = presets.filter((k) => k.set !== undefined);
   check(synth.length === 6 && synth.every((k) => k.family === "synth" && !k.ride &&
-                                              k.status === (k.sym === "WB_KIT_OPTPHONK" ? "candidate" : "approved")),
-        "the six synth presets are synth kits with no ride, approved but the Phonk machine (a candidate)");
+                                              k.status === "approved"),
+        "the six synth presets are synth kits with no ride, approved");
   check(sampled.length === 3 && sampled.every((k, i) => k.family === "acoustic" && k.status === "approved" && k.ride &&
                                                         k.set === i && k.id === C.DRUMS.PRESET + C.DRUMS.GOGODZE + i),
         "the three shipped sampled kits are approved acoustic kits with a ride, their sets in order");
@@ -1405,10 +1405,9 @@ console.log("drum screen: the grid");
   const ALL = sounds(C, OPTS);
   const offered = soundOptions(ALL, "", false), retired = soundOptions(ALL, "", true);
   const REMOVED = /upright|x0x|909|vintage|synth|our 808|warm|dark|gentle|clean|mixed/i;
-  check(offered.length > 40 && offered.every((s) => s.status === "approved" || s.status === "candidate") &&
-          offered.filter((s) => s.status === "candidate").every((s) => s.kitName === "Phonk machine") &&
+  check(offered.length > 40 && offered.every((s) => s.status === "approved") &&
           !offered.some((s) => REMOVED.test(`${s.name} ${s.kitName}`)),
-        `the lane pickers offer ${offered.length} approved sounds (the Phonk machine's candidates), none removed`);
+        `the lane pickers offer ${offered.length} approved sounds, none removed`);
   const kits = new Set(offered.map((s) => s.kitName));
   check(["808", "CR-78", "Crunchy machine", "Boom-bap machine", "Jazz machine", "Phonk machine", "Dusty", "Room - big",
          "Room - brushes", "Soft brushes"].every((k) => kits.has(k)),

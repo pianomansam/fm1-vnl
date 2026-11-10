@@ -578,7 +578,11 @@ void score_song(const song_t *s, float now)
     }
     {
         int kit = lib_song_kit(r), blk, ride = groove_ride(r, &blk);
-        fprintf(logf, "kit %s; %s", kit >= 0 && kit < KIT_N ? KIT[kit] : "?",
+        static const char *PRESET[SONG_KIT_PRESETS] = {"808", "CR-78", "Crunchy machine", "Dusty", "Room - big",
+                                                       "Room - brushes", "Boom-bap machine", "Jazz machine",
+                                                       "Phonk machine"};   /* (options.json's kit rows 16-24) */
+        fprintf(logf, "kit %s; %s", s->kit_preset >= 0 && s->kit_preset < SONG_KIT_PRESETS ? PRESET[s->kit_preset]
+                                    : kit >= 0 && kit < KIT_N ? KIT[kit] : "?",
                 ride == RIDE_ALL ? "ride throughout\n" : ride == RIDE_SECTION ? "ride in block " : "hats\n");
         if (ride == RIDE_SECTION) fprintf(logf, "%d (bars %d-%d)\n", blk + 1, plan.b[blk].start + 1,
                                           plan.b[blk].start + plan.b[blk].bars);

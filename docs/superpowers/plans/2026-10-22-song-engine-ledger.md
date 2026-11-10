@@ -401,10 +401,10 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
      edge fades, gate, reverse, brake; our closing filter added.
   2. **New drums:** Optimist's kit recipes (`tools/gen_drumkits.py`: BOOMBAP, LO-FI, JAZZ, PHONK), Cut-A-Dor's
      boom-bap drum generator (patterns and kick phrases), PERF-1's LOFI genre, zp12's 12-bit grit.
-     **Optimist's kits in (2026-11-10, to judge by ear):** BOOMBAP, JAZZ and PHONK on the Crunchy machine's engine
-     (data only), as the Boom-bap, Jazz and Phonk machine (kit rows 22-24, appended past the sampled kits). Boom-bap
-     and Jazz are approved synth kits: a synth-family song (today the chillwave sets 5 and 10) rolls one of the five
-     synth kits. Phonk is a candidate (offered, never rolled): built aggressive (driven kick and snare); its defining
+     **Optimist's kits in (2026-11-10; all three approved by ear, Sam: "both of these sound nice", Phonk "adds variety"):** BOOMBAP, JAZZ and PHONK on the Crunchy machine's engine
+     (data only), as the Boom-bap, Jazz and Phonk machine (kit rows 22-24, appended past the sampled kits). All three
+     are approved synth kits: a synth-family song (today the chillwave sets 5 and 10) rolls one of the six synth
+     kits. Phonk is built aggressive (driven kick and snare); its defining
      sounds (the blown-out long 808, the melodic cowbell) are lanes our songs don't play, and in a song it measures
      close to the 808's color. BOOMBAP was cut on 2026-10-28 ("get rid of the 909, boombap, and vintage") and is back
      on the 2026-11-07 short list. Costs in docs/cost.md.
