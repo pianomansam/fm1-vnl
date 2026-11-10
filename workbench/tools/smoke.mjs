@@ -1184,9 +1184,13 @@ console.log("drums: sampled kits, the first lane edit");
         }
       // the reduced pack keeps each kit's level: kick and snare (seed 21 kick, snare, seed 77 kick, snare) within 1 dB of
       // what the full files gave over Soft brushes', by the same measure (2026-11-07, before the bank held them)
-      const FULL = { 0: [2.82, 3.26, 2.81, 3.19], 1: [2.77, 3.21, 2.79, 3.33], 2: [2.77, 3.28, 2.79, 2.73] }[k.set];
+      // (Soft brushes' snare tightened and darkened, Sam 2026-11-10: its level over these songs fell 2.80 and 2.86 dB,
+      // so each snare's reference rises by that)
+      const BR_SNARE = [0, 2.80, 0, 2.86];
+      const FULL = { 0: [2.82, 3.26, 2.81, 3.19], 1: [2.77, 3.21, 2.79, 3.33], 2: [2.77, 3.28, 2.79, 2.73] }[k.set]
+        .map((f, i) => f + BR_SNARE[i]);
       check(got.every((g, i) => Math.abs(g - FULL[i]) <= 1),
-            `${k.name}: kick and snare each within 1 dB of the full files' level over Soft brushes' on seeds ${SEEDS.join(", ")} (${got.map((g, i) => `${g >= 0 ? "+" : ""}${g.toFixed(2)} for ${FULL[i]}`).join(", ")} dB)`);
+            `${k.name}: kick and snare each within 1 dB of the full files' level over Soft brushes' on seeds ${SEEDS.join(", ")} (${got.map((g, i) => `${g >= 0 ? "+" : ""}${g.toFixed(2)} for ${FULL[i].toFixed(2)}`).join(", ")} dB)`);
     }
     // the ride section plays on them: a song where it does, and the ride lane heard
     {

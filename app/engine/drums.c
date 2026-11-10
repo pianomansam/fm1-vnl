@@ -48,9 +48,11 @@ static const dk_t kits[4][ND] = {
       { 0.31f, 0.50f, 0, 0, 0, 0, 0, 0.60f, 0 },
       { 0.135f, 0.12f, 0, 0, 0, 0, 0, 0.60f, 0.04f },
       { 0.33f, 0.06f, 0, 0, 0, 0, 0, 0.55f, 0.18f } },
-    { /* KIT_BRUSHES: a swishy snare with no body, a soft kick */
+    { /* KIT_BRUSHES: a swishy snare with no body, a soft kick. The snare: a tight, dark swish (Sam, 2026-11-10: half
+         the tail, 0.45 to 0.22 s; its brightest hiss off, low-pass 0.30 to 0.18, about 2.5 to 1.4 kHz; its level up
+         to hold the attack) */
       { 0.30f, 0.35f, 100.0f, 52.0f, 0.020f, 0, 0, 0, 0 },
-      { 0.31f, 0.45f, 0, 0, 0, 0, 0, 0.30f, 0.06f },
+      { 0.44f, 0.22f, 0, 0, 0, 0, 0, 0.18f, 0.05f },
       { 0.17f, 0.15f, 0, 0, 0, 0, 0, 0.35f, 0 },
       { 0.135f, 0.70f, 0, 0, 0, 0, 0, 0.35f, 0 },
       { 0.08f, 0.30f, 0, 0, 0, 0, 0, 0.40f, 0.03f },
