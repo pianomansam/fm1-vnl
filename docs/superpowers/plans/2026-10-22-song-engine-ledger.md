@@ -545,6 +545,24 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
 
 ### Leads (Sam: not happy with the current leads; start here when we revisit them)
 
+- **Motifs start on beat 1 more often (Sam, 2026-11-10: "I'm good with your proposal"; about a third on beat 1 in
+  the off-beat styles, syncopated starts still the majority).** Phrase heads on beat 1, over 2,000 songs a style
+  (lead loop on): Jazz-Hop 20 to 36% (hook start weights beat 1 / and-of-1 / 16th before 2 / and-of-2 / 16th after
+  1 from 15/35/15/25/10 to 30/30/12/18/10; the loop's riff answer chops the hook's first note half the time),
+  Ambient 40 to 52% (start weights 20/25/35/20 to 30/25/30/15), Bossa 15 to 35% (the 2-note cell keeps its beat-1
+  note; the beat-1 cell's weight 20 to 40), '60s Jazz 0 to 25% (two rhythms whose run-in begins on 1, 37% of songs;
+  a beat-1 run-in note off the chord moves to a chord tone 4 semitones or less away instead of dropping), Modal 0
+  to 29% (a beat-1 start at weight 30), Impressionism 5 to 29% (40% of songs build the arabesque forward from a
+  chord tone on 1, the landing right behind the run). Romanticism (98%) and Film Score (57%) unchanged.
+- **A restatement flips the motif's start (Sam, 2026-11-10: "the motif doesn't seem to use the opposite note on beat
+  or off beat as a way to vary the second or third bar. If the motif did not start on the downbeat, the second bar
+  could. Or vice versa.").** A head off beat 1 restates from beat 1, one on beat 1 restates off it (an 8th later, or
+  the style's own syncopated spot); same pitches, contour and rhythm, only the start moved (leads_flip, about a third
+  of restatements; '60s Jazz folds it into its displacement draw, Modal into its one-change draw). Restatements whose
+  start is opposite their head's, before to after (lead loop on): Impressionism 10 to 34%, '60s Jazz 2 to 37%, Modal
+  9 to 35%, Jazz-Hop 10 to 26% (its riffs and turnarounds count, unflipped), Bossa 9 to 33%, Ambient 5 to 32%.
+  Romanticism (its cell on 1 every bar) and Film Score left as they are.
+
 - **The Impressionism lead (Sam, 2026-10-29: this impressionist lead "sounds fantastic").** A new lead style: 4-bar
   phrases (arabesque, float, varied arabesque, falling sigh), 3-5-note pentatonic/modal arabesques in 16ths or 8th
   triplets, landings behind the beat on color tones (9th/13th over major, 11th over minor) often tied over the bar,

@@ -2,10 +2,13 @@
 /* Impressionism (lead-styles design, 2026-10-29; ported unchanged from its spike but for the shared register): a
    4-bar phrase, twice per 8 (question, answer), in four roles:
      bar 1  the arabesque: 3-5 quick notes (16ths or 8th triplets) curling into a long color note (a 9th, 13th or
-            11th where legal, the root least), landing behind the beat, often tied over the bar line
+            11th where legal, the root least), landing behind the beat, often tied over the bar line. In 40% of
+            songs (Sam, 2026-11-10) it starts from the downbeat: its first note a chord tone on 1, the rest
+            in its own spacing after it, the landing right behind them (still after the beat)
      bar 2  the float: the held note, then a sigh (a step down), a pickup, or nothing (long notes)
      bar 3  the arabesque again, varied (extended, shifted, re-timed, or a whole-tone tetrachord over a dominant),
-            landing on the phrase's peak (the question) or lower (the answer)
+            landing on the phrase's peak (the question) or lower (the answer); about a third of the time its start
+            flipped (leads_flip, Sam 2026-11-10): from the downbeat where the head wasn't, else as drawn
      bar 4  the fall: a descending sigh into a resting note, then at least 6 16ths of silence
    Pentatonic-leaning (the mode's pentatonic), the mode's color note in modal songs. Every note passes leads_legal();
    a strong-beat onset (steps 0, 8) is a chord tone. Planned a bar at a time from (seed, run, pass). */
@@ -18,7 +21,8 @@ enum { SH_TURN, SH_RISE, SH_FALL, SH_CURL, SH_N };
 static const int8_t SHAPE[SH_N][6] = {
     {-1, 0, +1, 0, +1, -1}, {-6, -5, -4, -3, -2, -1}, {+6, +5, +4, +3, +2, +1}, {-3, -2, -1, +1, +2, +1}};
 
-typedef struct { int shape, trip, n, land, modal; } im_song_t;
+typedef struct { int shape, trip, n, land, modal, from1; } im_song_t;
+#define IM_FROM1 40   /* percent of songs whose heads start from the downbeat */
 typedef struct { int var, float_kind, tie, late, shift; } im_pass_t;
 enum { DV_SAME, DV_EXT, DV_SHIFT, DV_UNIT, DV_WT };
 
@@ -35,7 +39,12 @@ static void im_song(uint32_t seed, int motion, im_song_t *s)
     if (motion > 70 && s->n < 5) s->n++;
     s->land = LAND[rng_weighted(&g, LW, 4)];
     s->modal = rng_int(&g, 100) < 35;
+    s->from1 = rng_int(&g, 100) < IM_FROM1;
 }
+
+/* the landing of an arabesque from the downbeat: n notes u thirds apart from 1, the landing on the next 16th after
+   them */
+static int im_down_at(int n, int u) { return (n * u + 2) / 3; }
 
 static void im_pass(uint32_t seed, int run, int pass, int half, im_pass_t *p)
 {
@@ -99,11 +108,12 @@ static int im_wt(const leads_ctx_t *c, int tgt, int strong, unsigned scale, int 
     return best;
 }
 
-/* the arabesque into a landing at 16th `at`, its notes from 16th `from` on */
+/* the arabesque into a landing at 16th `at`, its notes from 16th `from` on; down: from the downbeat (its first note
+   on 1, a chord tone: moved to the nearest one where the shape's isn't) */
 static void im_arabesque(lead_state_t *ls, const leads_ctx_t *c, int shape, int n, int trip, int at, int land,
-                         int from, unsigned coll, int wt, int v0)
+                         int from, unsigned coll, int wt, int v0, int down)
 {
-    int u = trip ? 4 : 3, k, p, prev = 0, notes[8], ps[8], m = 0;
+    int u = trip ? 4 : 3, k, p, prev = 0, notes[8], ps[8], m = 0, lead = down ? at * 3 - n * u : 0;
     if (wt) {   /* wt: the tetrachord's first note, its direction from where it sits against the landing */
         int dir = land > wt ? 1 : -1;
         for (k = 0; k < 4; k++) {
@@ -113,7 +123,7 @@ static void im_arabesque(lead_state_t *ls, const leads_ctx_t *c, int shape, int 
     }
     if (!m) {   /* the shape, or its mirror where more of it fits (the range's edge), walked over the collection's
                    legal notes only (a note that would rub is stepped past, not leapt over) */
-        int v, mm[4], nn[4][8], pp[4][8], sc[4], bv = 0;
+        int v, mm[4], nn[4][8], pp[4][8], sc[4], bv = 0, one[4] = {0, 0, 0, 0}, q;
         unsigned lg = leads_legal_pcs(c->r, c->pcs, c->np, c->bass), cl[2];
         cl[0] = coll & lg;                                   /* the pentatonic first, the scale where it's smoother */
         cl[1] = lg;                                          /* (legal: the scale and the chord's own tones) */
@@ -123,14 +133,31 @@ static void im_arabesque(lead_state_t *ls, const leads_ctx_t *c, int shape, int 
             mm[v] = 0;
             if (!cm) { sc[v] = -999; continue; }
             for (k = n - 1; k >= 0; k--) {                   /* backward from the landing: the gaps it leaves */
-                int off = SHAPE[shape][6 - n + k] * (flip ? -1 : 1), note = leads_coll_step(cm, land, off);
-                p = at * 3 - (n - k) * u;
-                if (p < from * 3 || !leads_ok(c, note, p % 24 == 0) || note == land) continue;
-                if (note - prevn > 4 || prevn - note > 4) { big++; break; }   /* a gap: it starts after it */
+                int off = SHAPE[shape][6 - n + k] * (flip ? -1 : 1), note = leads_coll_step(cm, land, off), d;
+                p = at * 3 - lead - (n - k) * u;
+                if (p < from * 3) continue;
+                if (down && (p == 0 || !leads_ok(c, note, p % 24 == 0) || note == land)) {
+                    int alt = 0;                             /* from the downbeat: the nearest note that sounds
+                                                                (on 1 a chord tone), a 5th from the next at most */
+                    for (d = p == 0 ? 0 : 1; d <= (p == 0 ? 4 : 2) && !alt; d++)
+                        for (q = -1; q <= 1 && !alt; q += 2)
+                            if (leads_ok(c, note + q * d, p == 0) && note + q * d != land && note + q * d != prevn &&
+                                (note + q * d > prevn ? note + q * d - prevn : prevn - note - q * d) <= 7)
+                                alt = note + q * d;
+                    if (!alt) continue;
+                    note = alt;
+                    one[v] |= p == 0;
+                }
+                if (!leads_ok(c, note, p % 24 == 0) || note == land) continue;
+                if (note - prevn > (down ? 7 : 4) || prevn - note > (down ? 7 : 4)) {   /* a gap: it starts after
+                                                                                          it */
+                    big++;
+                    break;
+                }
                 nn[v][mm[v]] = note; pp[v][mm[v]] = p; mm[v]++;
                 prevn = note;
             }
-            sc[v] = mm[v] * 10 - big * 12 - (v & 1) * 6 - (v >> 1) * 4;
+            sc[v] = mm[v] * 10 - big * 12 - (v & 1) * 6 - (v >> 1) * 4 + one[v] * 20;
             if (sc[v] > sc[bv]) bv = v;
         }
         for (k = mm[bv] - 1; k >= 0; k--) { notes[m] = nn[bv][k]; ps[m] = pp[bv][k]; m++; }
@@ -169,7 +196,7 @@ void impressionism_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block
     switch (role) {
     case 0:   /* the arabesque into a long color note */
     case 2: {
-        int n = s.n, trip = s.trip, wt = 0, la = s.land, shape = s.shape;
+        int n = s.n, trip = s.trip, wt = 0, la = s.land, shape = s.shape, down;
         if (role == 0 && (half || pass) && p.var != DV_SAME) {   /* the head after the first: varied (re-timed,
                                                                      extended by one, or turned) */
             if (p.var == DV_SHIFT) la = la + p.shift < 4 ? 4 : la + p.shift > 10 ? 10 : la + p.shift;
@@ -183,6 +210,8 @@ void impressionism_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block
             if (p.var == DV_UNIT) trip = !trip;
             if (p.var == DV_WT) wt = 1;
         }
+        down = !from && !wt && (role == 0 ? s.from1 : s.from1 != leads_flip(seed, run, pass, bip));
+        if (down) la = im_down_at(n, trip ? 4 : 3);
         tgt = leads_coll_step(scale, anchor, role == 0 ? 0 : half ? -1 : 2);
         at = la;
         if (at < from + 2) at = from + 2;
@@ -199,7 +228,7 @@ void impressionism_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block
         if (!land) land = im_color(c, tgt, at % 8 == 0, p.tie && role == 0 ? x : 0, prev, coll);
         if (!land && p.tie) land = im_color(c, tgt, at % 8 == 0, 0, prev, coll);
         if (!land) break;
-        im_arabesque(ls, c, shape, n, trip, at, land, from, coll, wt, 56);
+        im_arabesque(ls, c, shape, n, trip, at, land, from, coll, wt, 56, down);
         if (role == 0 && p.tie && x && leads_legal(c->r, land, x->pcs, x->np, x->bass) && land >= c->lo_x) {
             end = 16 + (p.float_kind == 2 ? 12 : 6);
             ls->ring |= 1u << at;
@@ -280,8 +309,9 @@ void impressionism_motif(const song_roll_t *r, lead_motif_t *m)
     int at[7], len[7], si[7], k, n = 0, u, p0 = -1;
     im_song(song_ov_phrase_seed(r->seed), r->v[RF_MOTION], &s);
     u = s.trip ? 4 : 3;
+    if (s.from1) s.land = im_down_at(s.n, u);
     for (k = 0; k <= s.n; k++) {
-        int p = k < s.n ? s.land * 3 - (s.n - k) * u : s.land * 3;
+        int p = k < s.n ? (s.from1 ? k * u : s.land * 3 - (s.n - k) * u) : s.land * 3;
         if (p < 0) continue;                                 /* before the bar: the plan leaves it out too */
         if (p0 < 0) p0 = p / 3;
         at[n] = p / 3 - p0;

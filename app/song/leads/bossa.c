@@ -3,14 +3,16 @@
    conversational line: one note repeated on the off-beats while the harmony moves under it, then a step to a long
    note struck on the "and" of 4 (anticipating the next bar) and held over the bar line, so the next chord re-colors
    it. A 4-bar phrase, twice per 8 (question, answer):
-     bar 1  the motif: 2-4 repeated notes on a syncopated cell, a step (up or down, per song) into the long note on
+     bar 1  the motif: 2-4 repeated notes on a syncopated cell (or one from beat 1: about a third of songs, Sam
+            2026-11-10), a step (up or down, per song) into the long note on
             the "and" of 4, held into bar 2 where it is legal over the next chord too
      bar 2  the held note, then a reply a step the other way, or a breath; where the held note would rub against
             the new chord it isn't held: the line moves by step onto the nearest legal note instead. Where the chord
             changes into bar 3, mostly a pickup: bar 3's repeated note struck early on the "and" of 4 and tied over
             the change (legal over both chords), so the new chord re-colors it
      bar 3  the motif again: the same cell and contour, its repeated note the same pitch where the new chord allows
-            (one note re-colored), else a step down or up (a sequence), per song
+            (one note re-colored), else a step down or up (a sequence), per song; about a third of the time its
+            start flipped (leads_flip, Sam 2026-11-10): from beat 1 where the head began off it, else an 8th later
      bar 4  the close: a step down onto a resting note, now and then after a leap of a 6th up (gap-fill); then the
             next head's pickup on the "and" of 4 (a breath instead at the 8-bar answer's end, half the time)
    Every head restates the motif's rhythm and contour; one thing varies per phrase (an earlier start, another pitch
@@ -31,11 +33,11 @@ static const int8_t BN_RHY[5][3] = {{2, 6, 10}, {0, 3, 6}, {2, 4, 8}, {3, 6, 10}
 enum { BV_SAME, BV_SHIFT, BV_LEVEL, BV_WIDE, BV_N };
 enum { BS_ONE, BS_DOWN, BS_UP };
 
-typedef struct { int rhy, n, on[4], dir, iv, seq, leap6; } bn_song_t;
+typedef struct { int rhy, n, on[4], dir, iv, seq, leap6, flip; } bn_song_t;
 
 static void bn_song(uint32_t seed, int motion, bn_song_t *s)
 {
-    static const uint8_t RW[5] = {25, 20, 20, 20, 15}, QW[3] = {60, 25, 15};
+    static const uint8_t RW[5] = {20, 40, 15, 15, 10}, QW[3] = {60, 25, 15};
     rng_t g;
     int k;
     rng_seed(&g, seed, 220);
@@ -46,7 +48,9 @@ static void bn_song(uint32_t seed, int motion, bn_song_t *s)
     s->leap6 = 20 + rng_int(&g, 20);                   /* percent of closes */
     s->n = motion < 35 ? 2 : motion > 65 ? 4 : 3;
     for (k = 0; k < 3; k++) s->on[k] = BN_RHY[s->rhy][k];
-    if (s->n == 2) { s->on[0] = s->on[1]; s->on[1] = s->on[2]; }
+    if (s->n == 2 && s->on[0]) { s->on[0] = s->on[1]; s->on[1] = s->on[2]; }   /* its last two; a cell on beat 1 */
+    else if (s->n == 2) s->on[1] = s->on[2];                                    /* keeps it (Sam, 2026-11-10) */
+    s->flip = 0;
     if (s->n == 4) s->on[3] = (s->on[2] + 14) / 2 & ~1;  /* one more, between the last and the long note */
     if (s->n == 4 && s->on[3] <= s->on[2]) s->on[3] = s->on[2] + 2;
 }
@@ -97,17 +101,26 @@ static int bn_fit(const leads_ctx_t *c, const leads_next_t *x, const int *on, in
     return best;
 }
 
-/* the statement's onsets under var; returns 0 where the shift was undone (the rhythm stays exact) */
+/* the statement's onsets under var; returns 0 where the shift was undone (the rhythm stays exact). A restatement with
+   its start flipped (s->flip, leads_flip) then moves onto beat 1 where the head began off it, else an 8th later, the
+   long note kept on 14 */
 static int bn_onsets(const bn_song_t *s, int var, int *on)
 {
-    int k, n = s->n, d;
+    int k, n = s->n, d, r = 0;
     for (k = 0; k < n; k++) on[k] = s->on[k];
-    if (var != BV_SHIFT) return 0;
-    d = on[0] >= 2 ? -2 : 2;                            /* an 8th earlier (later where it can't) */
-    for (k = 0; k < n; k++) on[k] += d;
-    if (on[n - 1] < 14) return 1;
-    for (k = 0; k < n; k++) on[k] -= d;
-    return 0;
+    if (var == BV_SHIFT) {
+        d = on[0] >= 2 ? -2 : 2;                        /* an 8th earlier (later where it can't) */
+        for (k = 0; k < n; k++) on[k] += d;
+        r = on[n - 1] < 14;
+        if (!r)
+            for (k = 0; k < n; k++) on[k] -= d;
+    }
+    if (s->flip) {
+        d = on[0] ? -on[0] : 2;
+        if (on[n - 1] + d < 14)
+            for (k = 0; k < n; k++) on[k] += d;
+    }
+    return r;
 }
 
 static int bn_var(uint32_t seed, int run, int pass, int half)
@@ -237,9 +250,11 @@ void bossa_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b, i
     }
     case 2: { /* the motif again: one note re-colored, or a step along the scale */
         int head = ls->anchor ? ls->anchor : anchor, want = 0, t = head;
+        bn_song_t s2 = s;
+        s2.flip = leads_flip(seed, run, pass, bip);
         if (seq == BS_ONE) want = head;
         else t = head + (seq == BS_DOWN ? -2 : 2);
-        i = bn_state(ls, c, nh, &s, var == BV_LEVEL ? BV_SAME : var, t, want, want ? 0 : head, pick, from, 0, &rep);
+        i = bn_state(ls, c, nh, &s2, var == BV_LEVEL ? BV_SAME : var, t, want, want ? 0 : head, pick, from, 0, &rep);
         if (i) prev = i;
         break;
     }
@@ -257,8 +272,10 @@ void bossa_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b, i
             }
         }
         if (chg && rng_int(&g, 10) < 8) {
-            bn_onsets(&s, var == BV_LEVEL ? BV_SAME : var, on);
-            pk = bn_pickup(ls, c, nx, &s, on, seq == BS_ONE ? head : head + (seq == BS_DOWN ? -2 : 2),
+            bn_song_t s2 = s;
+            s2.flip = leads_flip(seed, run, pass, bip + 1);   /* bar 3's start, as it will sing it */
+            bn_onsets(&s2, var == BV_LEVEL ? BV_SAME : var, on);
+            pk = bn_pickup(ls, c, nx, &s2, on, seq == BS_ONE ? head : head + (seq == BS_DOWN ? -2 : 2),
                            seq == BS_ONE ? head : 0, seq == BS_ONE ? 0 : head, from);
         }
         if (!pk && rng_int(&g, 10) < 6 && from <= 10) {

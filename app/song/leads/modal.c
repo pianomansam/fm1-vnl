@@ -2,10 +2,12 @@
 /* Modal Jazz (lead-styles design, 2026-10-29; ported unchanged from its spike but for the shared register): a modal,
    spare lead: one motif per song (2-4 notes into a long held tone), lines from the song's mode (the scale walked by
    steps, not the chord arpeggiated), lots of space. A 4-bar unit, twice per 8 (call, answer):
-     bar 1  the head: the motif, starting late (after 1), landing on a held chord or color tone, tied over the bar
+     bar 1  the head: the motif, mostly starting late (after 1; on 1 about a third of songs: Sam, 2026-11-10),
+            landing on a held chord or color tone, tied over the bar
      bar 2  the hold, then a fall-off (a short note a step or two down) or nothing
-     bar 3  the answer: the motif again with ONE thing changed (a beat later, its tail only, a note added, or its
-            last interval turned), landing lower
+     bar 3  the answer: the motif again with ONE thing changed (a beat later, its tail only, a note added, its
+            last interval turned, or its start flipped: from beat 1 where the head began after it, an 8th later where
+            it began on it; Sam, 2026-11-10), landing lower
      bar 4  silence (or the hold's fall-off; at motion 40+ sometimes the motif's tail as an echo)
    Every head restates the motif's rhythm and contour exactly, fitted to the chord by pitch level only. Middle
    register, soft, understated. Every note passes leads_legal(). */
@@ -18,21 +20,21 @@
 static const int8_t CONT[6][3] = {   /* scale steps from the held tone, earliest first (the last n used) */
     {+1, +2, +1}, {0, -1, +1}, {+2, +1, -1}, {+1, +3, +1}, {-3, -2, -1}, {+4, +2, +2}};
 static const int8_t GAP[5][3] = {{2, 2, 2}, {4, 2, 2}, {3, 3, 2}, {2, 4, 4}, {4, 4, 4}};
-enum { AV_SAME, AV_LATE, AV_TAIL, AV_EXT, AV_TURN, AV_N };
+enum { AV_SAME, AV_LATE, AV_TAIL, AV_EXT, AV_TURN, AV_FLIP, AV_N };
 
 typedef struct { int cont, gap, npre, first, la, hold, echo; } mo_song_t;
 
 static void mo_song(uint32_t seed, int motion, mo_song_t *s)
 {
-    static const uint8_t FW[4] = {25, 35, 25, 15}, CW[6] = {22, 16, 16, 16, 14, 16}, GW[5] = {25, 20, 20, 15, 20};
-    static const int8_t FIRST[4] = {2, 4, 6, 8};
+    static const uint8_t FW[5] = {30, 20, 25, 15, 10}, CW[6] = {22, 16, 16, 16, 14, 16}, GW[5] = {25, 20, 20, 15, 20};
+    static const int8_t FIRST[5] = {0, 2, 4, 6, 8};
     int tot, k;
     rng_t g;
     rng_seed(&g, seed, 300);
     s->cont = rng_weighted(&g, CW, 6);
     s->gap = rng_weighted(&g, GW, 5);
     s->npre = (motion < 40 ? 1 : 2) + rng_int(&g, 2);
-    s->first = FIRST[rng_weighted(&g, FW, 4)];
+    s->first = FIRST[rng_weighted(&g, FW, 5)];
     s->hold = 4 + 2 * rng_int(&g, 4);                    /* how far the held tone rings into bar 2 (16ths) */
     s->echo = rng_int(&g, 100) < (motion >= 40 ? 25 : 0);
     for (tot = 0, k = 3 - s->npre; k < 3; k++) tot += GAP[s->gap][k];
@@ -155,9 +157,14 @@ void modal_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b, i
     if (role == 0 || role == 2) {
         int off[6], on[6], len[6], n, var = AV_SAME, la = s.la, tgt, end, land, tie;
         if (role == 2) {
-            static const uint8_t AW[AV_N] = {25, 25, 15, 15, 20};
+            static const uint8_t AW[AV_N] = {20, 18, 12, 12, 16, 22};   /* (the flip: Sam, 2026-11-10) */
             var = rng_weighted(&g, AW, AV_N);
             if (var == AV_LATE) la = la + 4 <= 13 ? la + 4 : la + 2 <= 13 ? la + 2 : la;
+            if (var == AV_FLIP) {                        /* the head's start (la less its run-in) flipped */
+                int st = la;
+                for (i = 3 - s.npre; i < 3; i++) st -= GAP[s.gap][i];
+                la = st ? la - st : la + 2 <= 13 ? la + 2 : la;
+            }
         }
         n = mo_motif(&s, var, la, off, on, len);
         /* (the heads of every other 8 bars restated a 3rd higher: the pitch level only) */

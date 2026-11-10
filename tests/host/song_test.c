@@ -3740,8 +3740,9 @@ static void test_pushes(void)
     }
     printf("pushes: %ld, %ld end before the bar line; %ld request bars, %ld rung into\n", pushes, short_push,
            req_bars, into_req);
-    CHECK(pushes > 170 && short_push == 0, "%ld of %ld pushes end before the bar line", short_push,
-          pushes);   /* (377 pushes before the style roll, 190 with it: lead styles Task 7) */
+    CHECK(pushes > 140 && short_push == 0, "%ld of %ld pushes end before the bar line", short_push,
+          pushes);   /* (377 pushes before the style roll, 190 with it: lead styles Task 7; 149 since motifs start
+                        on beat 1 more often and restatements flip their start, Sam 2026-11-10) */
     printf("pushes: the sustained lead tied %ld notes over a bar line, %ld over a 4-bar line (where requests land); "
            "%ld request bars in sustained-lead songs\n", sties, sties_line, sreq);
     CHECK(sties > 100 && sreq > 20, "sustained ties: %ld; %ld request bars", sties, sreq);
@@ -6965,13 +6966,19 @@ static void test_lead_over_keys(void)
    until their keys retired, 2026-11-04: set 6 seed 9 is set 33's song, the same lead bus on b9653f4, -28.90; for
    set 8's, set 2 seed 12 measured there, -30.93: seed 11 on a vibes set left reads +1.02 dB looped, 12 the next.)
    The songs keep the drum pattern they were measured with (ls_old_pattern: the pattern's draw leans on the motion
-   since 2026-11-05, and the lead plays around its snare). */
+   since 2026-11-05, and the lead plays around its snare).
+   Re-pinned (Sam 2026-11-10: beat-1 starts, flipped restatements): the three songs' leads play other notes, so
+   each pin moved by what the same modeled vibes measured before and after on its song, per mode (the loop's and the
+   phrase's apart): off -28.90, -26.48, -30.93 to -26.77, -27.62, -27.84; looped to -26.66, -26.40, -27.35, the
+   modeled vibes' offsets from the sample kept (off -0.19, -0.56, -0.16; looped +0.16, -0.63, -0.19). Set 2 seed 12's
+   lead now starts notes in 6 bars (was 11): 6 at least. */
 static int ls_old_pattern(const song_roll_t *r);
 static void vibes_level(int loop)
 {
     static const int set[3] = {6, 4, 2};
     static const uint32_t seed[3] = {9u, 14u, 12u};
-    static const double pin[3] = {-28.90, -26.48, -30.93};
+    static const double pins[2][3] = {{-26.77, -27.62, -27.84}, {-26.66, -26.40, -27.35}};
+    const double *pin = pins[loop ? 1 : 0];
     double all = 0.0;
     int i, b, n, c;
     song_ov_t off = ov_none();
@@ -6996,7 +7003,7 @@ static void vibes_level(int loop)
         all += x / 3.0;
         printf("%s: set %d seed %u: the lead bus %+.2f dB from the sample's over %d bars\n", tag, set[i],
                (unsigned)seed[i], x, c);
-        CHECK(c >= 8 && x >= -1.0 && x <= 1.0, "%s: set %d seed %u %+.2f dB from the sample's (%d bars)",
+        CHECK(c >= 6 && x >= -1.0 && x <= 1.0, "%s: set %d seed %u %+.2f dB from the sample's (%d bars)",
               tag, set[i], (unsigned)seed[i], x, c);
     }
     printf("%s: %+.2f dB from the sample's, the mean\n", tag, all);
@@ -8591,9 +8598,10 @@ static void test_strum_same(void)
        songs): were 6cd3cd86 and dd41f6e5. Re-pinned (Sam 2026-11-05: bolder, more frequent lead stutters): were
        4d0cbf47 and 567123f0. Re-pinned (Sam 2026-11-09: the stutter is the whole mix's, the lead's notes untouched):
        were 2f6f8c1b and d41d203e. Re-pinned (Sam 2026-11-10: Cut-A-Dor's drum pocket, kick phrases and hat
-       figures): were 08d037f4 and dc0eed26 */
-    CHECK(a == 0xfce3990fu, "strum same: the strummed songs hash %08x, wanted fce3990f", (unsigned)a);
-    CHECK(b == 0x5a45eefdu, "strum same: with set changes %08x, wanted 5a45eefd", (unsigned)b);
+       figures): were 08d037f4 and dc0eed26. Re-pinned (Sam 2026-11-10: beat-1 starts, flipped restatements): were
+       fce3990f and 5a45eefd */
+    CHECK(a == 0x1be763b7u, "strum same: the strummed songs hash %08x, wanted 1be763b7", (unsigned)a);
+    CHECK(b == 0xb465f94cu, "strum same: with set changes %08x, wanted b465f94c", (unsigned)b);
     v = (uint32_t)sf_last_bad();
     CHECK(v == 0, "strum same: %u strummed bars left the keys' last voicing behind", (unsigned)v);
 }
@@ -8801,8 +8809,8 @@ static void test_wb_off(void)
     uint32_t a, b;
     lib_set_wb(NULL, 0); lib_pattern_wb(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0xfce3990fu, "wb off: the strummed songs hash %08x, wanted fce3990f", (unsigned)a);
-    CHECK(b == 0x5a45eefdu, "wb off: with set changes %08x, wanted 5a45eefd", (unsigned)b);
+    CHECK(a == 0x1be763b7u, "wb off: the strummed songs hash %08x, wanted 1be763b7", (unsigned)a);
+    CHECK(b == 0xb465f94cu, "wb off: with set changes %08x, wanted b465f94c", (unsigned)b);
 }
 /* The workbench's mute (vx_mute, default off). mt_song: a song's first 20 s as the app plays it, its samples hashed
    (mute: vx_mute(0) called first, as the workbench's wb_init does) */
@@ -8849,8 +8857,8 @@ static void test_vx_mute_off(void)
     CHECK(a == b, "vx mute off: vx_mute(0) changed the samples (%08x, wanted %08x)", (unsigned)b, (unsigned)a);
     vx_mute(0);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0xfce3990fu, "vx mute off: the strummed songs hash %08x, wanted fce3990f", (unsigned)a);
-    CHECK(b == 0x5a45eefdu, "vx mute off: with set changes %08x, wanted 5a45eefd", (unsigned)b);
+    CHECK(a == 0x1be763b7u, "vx mute off: the strummed songs hash %08x, wanted 1be763b7", (unsigned)a);
+    CHECK(b == 0xb465f94cu, "vx mute off: with set changes %08x, wanted b465f94c", (unsigned)b);
 }
 /* Review Focus 2 (Task 2): a bus muted mid-note is silent after the chunk it goes out in (and a quantum for the
    chain's own filters), its voice still playing (the duck follows it); unmuted, the notes struck while muted end at
@@ -8961,7 +8969,7 @@ static void test_vx_level(void)
     b = mt_song(0);
     CHECK(a == b, "vx level: 0 dB changed the samples (%08x, wanted %08x)", (unsigned)b, (unsigned)a);
     a = sf_songs(0);
-    CHECK(a == 0xfce3990fu, "vx level: the strummed songs hash %08x at 0 dB, wanted fce3990f", (unsigned)a);
+    CHECK(a == 0x1be763b7u, "vx level: the strummed songs hash %08x at 0 dB, wanted 1be763b7", (unsigned)a);
     for (i = 0; i < (int)(sizeof P / sizeof P[0]); i++) {
         for (k = 0; k < 2; k++)
             ref[k] = mx_song(P[i].seed[k], P[i].role);
@@ -10480,9 +10488,12 @@ typedef struct {
     int rt, ct, ht, st;
 } ls_spike_t;
 static const ls_spike_t LS_SPIKE[] = {
-    {LS_IMPRESSIONISM, INS_FLUTE, 300, 14434, 5726, 3922, 1190, 351, 753, 3861, 622, 1263, 0, 0, 0, 0},
-    {LS_IMPRESSIONISM, INS_VIBES, 300, 14501, 5732, 3916, 1191, 354, 754, 3868, 631, 1277, 0, 0, 0, 0},
-    {LS_IMPRESSIONISM, INS_FELT_PIANO, 278, 13471, 5302, 3608, 1104, 329, 707, 3582, 583, 1182, 0, 0, 0, 0},
+    /* (re-baselined, Sam 2026-11-10: beat-1 starts, flipped restatements: Impressionism contour
+       flute 0.998, vibes 0.986, felt 0.9997; Jazz-Hop felt contour 0.977; Ambient contour felt 0.996, vibes 0.998,
+       Knight 0.999: were held to 1.00, 1.00, 1.00, 0.98, 1.00, 1.00, 1.00) */
+    {LS_IMPRESSIONISM, INS_FLUTE, 300, 14434, 5726, 3922, 1190, 351, 753, 3861, 622, 1263, 0, 99, 0, 0},
+    {LS_IMPRESSIONISM, INS_VIBES, 300, 14501, 5732, 3916, 1191, 354, 754, 3868, 631, 1277, 0, 98, 0, 0},
+    {LS_IMPRESSIONISM, INS_FELT_PIANO, 278, 13471, 5302, 3608, 1104, 329, 707, 3582, 583, 1182, 0, 99, 0, 0},
     {LS_ROMANTICISM, INS_FLUTE, 300, 16860, 6128, 4602, 1232, 641, 317, 4296, 1487, 790, 0, 0, 0, 75},   /* 0.82 */
     {LS_ROMANTICISM, INS_FELT_PIANO, 278, 15661, 5668, 4253, 1139, 611, 289, 3973, 1410, 737, 0, 0, 0, 0},
     /* (lead-styles Task 3; the port's measured ratios where under the defaults: flute heads 0.845, span 0.839;
@@ -10498,7 +10509,7 @@ static const ls_spike_t LS_SPIKE[] = {
        0.989; felt rhythm 0.999, contour 0.997; vibes rhythm 0.998, contour 0.988; Film Score contour: flute 0.976,
        felt 0.976, Knight 0.971; 0.967 once the keys never voice a minor 2nd or 9th, 2026-10-30) */
     {LS_JAZZHOP, INS_FLUTE, 300, 13529, 3773, 2513, 1232, 1232, 1216, 3252, 2069, 1995, 99, 98, 0, 0},
-    {LS_JAZZHOP, INS_FELT_PIANO, 278, 12491, 3481, 2301, 1139, 1139, 1123, 3001, 1903, 1831, 99, 98, 0, 0},
+    {LS_JAZZHOP, INS_FELT_PIANO, 278, 12491, 3481, 2301, 1139, 1139, 1123, 3001, 1903, 1831, 99, 97, 0, 0},
     /* (re-baselined, Sam 2026-11-05: drums pattern 9 approved, the songs roll other patterns: Jazz-Hop felt contour
        0.986, was held to 0.99) */
     {LS_JAZZHOP, INS_VIBES, 300, 13528, 3773, 2513, 1232, 1232, 1216, 3252, 2069, 1993, 99, 98, 0, 0},
@@ -10514,9 +10525,9 @@ static const ls_spike_t LS_SPIKE[] = {
     {LS_BOSSA, INS_FELT_PIANO, 278, 14183, 5131, 3204, 1139, 846, 1136, 3744, 1972, 2553, 0, 99, 0, 76},
     {LS_BOSSA, INS_VIBES, 300, 15351, 5561, 3436, 1232, 927, 1229, 4044, 2156, 2761, 0, 99, 0, 81},
     {LS_AMBIENT, INS_FLUTE, 300, 12748, 3636, 1912, 1232, 1221, 1201, 3190, 2193, 1887, 0, 0, 0, 0},
-    {LS_AMBIENT, INS_FELT_PIANO, 278, 11741, 3340, 1791, 1139, 1125, 1113, 2910, 2034, 1760, 0, 0, 0, 0},
-    {LS_AMBIENT, INS_VIBES, 300, 12676, 3603, 1937, 1232, 1218, 1204, 3139, 2193, 1903, 0, 0, 0, 0},
-    {LS_AMBIENT, INS_KNIGHT, 238, 10171, 2861, 1554, 984, 970, 959, 2498, 1723, 1500, 0, 0, 0, 0},
+    {LS_AMBIENT, INS_FELT_PIANO, 278, 11741, 3340, 1791, 1139, 1125, 1113, 2910, 2034, 1760, 0, 99, 0, 0},
+    {LS_AMBIENT, INS_VIBES, 300, 12676, 3603, 1937, 1232, 1218, 1204, 3139, 2193, 1903, 0, 99, 0, 0},
+    {LS_AMBIENT, INS_KNIGHT, 238, 10171, 2861, 1554, 984, 970, 959, 2498, 1723, 1500, 0, 99, 0, 0},
 };
 
 static const ls_spike_t *ls_spike(int style, int ins)
@@ -10563,14 +10574,18 @@ static const char *ls_ins(int ins)
 typedef struct { uint8_t banded; uint16_t ly_notes, ly_silent, mw_silent, mw_notes; } ls_hard_t;
 static const ls_hard_t LS_HARD[LS_N] = {
     {0, 995, 1000, 1020, 1000},  {0, 1000, 1000, 1000, 1000},
-    {0, 1000, 1000, 1000, 1000}, {1, 1000, 1003, 1000, 1000},     /* ('60s Jazz: see above; Modal Jazz Lydian
+    {0, 979, 1450, 2830, 963},   {1, 1000, 1008, 1000, 1000},     /* ('60s Jazz: see above; Modal Jazz Lydian
                                                                      silent 1.0028, was held to 1.000: no phrase
                                                                      ends on a dominant's 7th, Sam 2026-11-05) */
+    /* (re-baselined, Sam 2026-11-10: motifs start on beat 1 more often, restatements flip their start: '60s Jazz's
+       statements from 1 land inside the bar, so more bars between them rest: Lydian notes 0.9797, silent 1.4412; m9
+       silent 2.8219, notes 0.9637, were held to the spike's; Modal Jazz Lydian silent 1.0066, was 1.003; Ambient
+       Lydian notes 0.9900, silent 1.0206, were 0.999 and 1.004) */
     {1, 991, 1026, 1000, 1000},  {1, 1000, 1000, 1000, 1000},     /* (Jazz-Hop Lydian notes 0.9985; re-baselined,
                                                                      Sam 2026-11-05: drums pattern 9 approved, the
                                                                      songs roll other patterns: Lydian notes 0.9917,
                                                                      silent 1.0258, were held to 0.998 and 1.000) */
-    {1, 1000, 1000, 1000, 987},  {1, 999, 1004, 1024, 933},      /* (Bossa Nova m9 notes 0.9876; Ambient Lydian
+    {1, 1000, 1000, 1000, 987},  {1, 989, 1021, 1024, 933},      /* (Bossa Nova m9 notes 0.9876; Ambient Lydian
                                                                      notes 0.9991, silent 1.0039, m9 silent 1.0233,
                                                                      notes 0.9337) */
 };
@@ -10691,10 +10706,13 @@ static void ls_shape(int style, const int *ins, int nins, const double *ab_nbar,
         sspan = (double)sp->span / (double)sp->songs;
         printf("%s shape on the %s: %.2f notes a bar (spike %.2f), span %.1f (spike %.1f)\n", ls_name(style),
                ls_ins(ins[i]), nb, snb, span, sspan);
-        CHECK(nb >= snb * 0.85 && nb <= snb * 1.15, "%s shape on the %s: %.2f notes a bar, spike %.2f", ls_name(style),
-              ls_ins(ins[i]), nb, snb);
-        /* (Jazz-Hop's hook floor, 3 pitches a 4th or wider, widens its span: to 1.30 of the spike's) */
-        CHECK(span >= sspan * lo && span <= sspan * (style == LS_JAZZHOP ? 1.30 : 1.15),
+        /* ('60s Jazz from the downbeat, Sam 2026-11-10: a statement from 1 into beat 3 or the next 1 sits in fewer
+           bars, so its sounding bars are denser: 1.22 of the spike's, to 1.25) */
+        CHECK(nb >= snb * 0.85 && nb <= snb * (style == LS_JAZZ60S ? 1.25 : 1.15),
+              "%s shape on the %s: %.2f notes a bar, spike %.2f", ls_name(style), ls_ins(ins[i]), nb, snb);
+        /* (Jazz-Hop's hook floor, 3 pitches a 4th or wider, widens its span: to 1.30 of the spike's; 1.32 once its
+           hooks start on beat 1 more often, Sam 2026-11-10: to 1.35) */
+        CHECK(span >= sspan * lo && span <= sspan * (style == LS_JAZZHOP ? 1.35 : 1.15),
               "%s shape on the %s: span %.1f, spike %.1f", ls_name(style),
               ls_ins(ins[i]), span, sspan);
     }
@@ -10907,8 +10925,10 @@ static void test_romanticism_motif(void)
 }
 static void test_impressionism_shape(void)
 {
-    static const int INS3[3] = {INS_FLUTE, INS_VIBES, INS_FELT_PIANO}, MED[5] = {79, 77, 76, 80, 80};
-    static const double NB[5] = {2.35, 2.46, 3.06, 2.58, 2.35};
+    /* (re-baselined, Sam 2026-11-10: beat-1 starts, flipped restatements: songs 4 and 5 now start their
+       heads from the downbeat, 3.26 and 3.47 notes a bar, median 81 (were the spike's 2.58 and 2.35, 80)) */
+    static const int INS3[3] = {INS_FLUTE, INS_VIBES, INS_FELT_PIANO}, MED[5] = {79, 77, 76, 80, 81};
+    static const double NB[5] = {2.35, 2.46, 3.06, 3.26, 3.47};
     ls_shape(LS_IMPRESSIONISM, INS3, 3, NB, MED, 0);
 }
 static void test_romanticism_shape(void)
@@ -10946,14 +10966,18 @@ static void test_modal_motif(void)
    into a low target lost all but its last note or two); its lead-ins kept (2026-11-04), 2.43 */
 static void test_jazz60s_shape(void)
 {
-    static const int INS4[4] = {INS_FLUTE, INS_FELT_PIANO, INS_VIBES, INS_KNIGHT}, MED[5] = {82, 80, 78, 77, 81};
-    static const double NB[5] = {2.06, 1.94, 2.50, 2.43, 2.32};
+    /* (re-baselined, Sam 2026-11-10: beat-1 starts, flipped restatements: songs 1-3 draw other
+       rhythms or flips, 2.79, 3.62 and 1.95 notes a bar, median 80 for song 3 (were 2.06, 1.94, 2.50, 78)) */
+    static const int INS4[4] = {INS_FLUTE, INS_FELT_PIANO, INS_VIBES, INS_KNIGHT}, MED[5] = {82, 80, 80, 77, 81};
+    static const double NB[5] = {2.79, 3.62, 1.95, 2.43, 2.32};
     ls_shape(LS_JAZZ60S, INS4, 4, NB, MED, 0);
 }
 static void test_modal_shape(void)
 {
-    static const int INS2[2] = {INS_FLUTE, INS_FELT_PIANO}, MED[5] = {82, 77, 76, 82, 76};
-    static const double NB[5] = {3.18, 3.00, 2.38, 2.55, 2.50};
+    /* (re-baselined, Sam 2026-11-10: beat-1 starts, flipped restatements: song 1 starts on beat 1, 3.27
+       notes a bar, median 86 (were 3.18, 82)) */
+    static const int INS2[2] = {INS_FLUTE, INS_FELT_PIANO}, MED[5] = {86, 77, 76, 82, 76};
+    static const double NB[5] = {3.27, 3.00, 2.38, 2.55, 2.50};
     ls_shape(LS_MODAL, INS2, 2, NB, MED, 0);
 }
 /* the spike's, as above, and the songs' silent bars: Lydian, m9 over the walk {notes on the hard bars, those silent,
@@ -11113,8 +11137,10 @@ static void test_bossa_shape(void)
 }
 static void test_ambient_shape(void)
 {
-    static const int INS4[4] = {INS_FLUTE, INS_FELT_PIANO, INS_VIBES, INS_KNIGHT}, MED[5] = {77, 75, 80, 82, 78};
-    static const double NB[5] = {3.20, 2.88, 3.80, 3.04, 3.24};
+    /* (re-baselined, Sam 2026-11-10: beat-1 starts, flipped restatements: songs 1 and 4 draw other
+       starts, 2.40 and 3.81 notes a bar, median 80 for song 4 (were 3.20, 3.04, 82)) */
+    static const int INS4[4] = {INS_FLUTE, INS_FELT_PIANO, INS_VIBES, INS_KNIGHT}, MED[5] = {77, 75, 80, 80, 78};
+    static const double NB[5] = {2.40, 2.88, 3.80, 3.81, 3.24};
     ls_shape(LS_AMBIENT, INS4, 4, NB, MED, 0);
 }
 static void test_bossa_hard(void)
@@ -11231,7 +11257,7 @@ static void test_ov_part_salts(void)
                       NAME[j], moved[j]);
     }
     song_override(NULL);
-    CHECK(sf_songs(0) == 0xfce3990fu && sf_songs(1) == 0x5a45eefdu, "ov part salts: the pinned hashes moved");
+    CHECK(sf_songs(0) == 0x1be763b7u && sf_songs(1) == 0xb465f94cu, "ov part salts: the pinned hashes moved");
 }
 /* Task 1b (Sam, 2026-10-29): "Remove the ear candy part completely"; "Make it possible for the pad part to not be in
    a song. And update the seeds to not always have it"; "add the ability for the pad part to drop out of certain song
@@ -11508,8 +11534,8 @@ static void test_ov_off(void)
     CHECK(o && o->comp == -1 && o->lead_style == -1 && o->pad_place == -1 && o->ride == -1 && !o->keys_oct &&
           !o->lead_oct && !o->voicing_salt && !o->phrase_salt, "ov off: the default override forces something");
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0xfce3990fu, "ov off: the strummed songs hash %08x, wanted fce3990f", (unsigned)a);
-    CHECK(b == 0x5a45eefdu, "ov off: with set changes %08x, wanted 5a45eefd", (unsigned)b);
+    CHECK(a == 0x1be763b7u, "ov off: the strummed songs hash %08x, wanted 1be763b7", (unsigned)a);
+    CHECK(b == 0xb465f94cu, "ov off: with set changes %08x, wanted b465f94c", (unsigned)b);
 }
 /* a steal of a damped string (the final review): six strings struck, the first two re-struck at once (their last
    notes damped on the 2 spare voices), then a plain chord note (no string: a stab after a set change) while they
@@ -12494,8 +12520,8 @@ static void test_drums_hook(void)
     CHECK(quiet_bad == 0, "drums hook: a silent source still sounds at %d steps", quiet_bad);
     drums_hook(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0xfce3990fu, "drums hook off: the strummed songs hash %08x, wanted fce3990f", (unsigned)a);
-    CHECK(b == 0x5a45eefdu, "drums hook off: with set changes %08x, wanted 5a45eefd", (unsigned)b);
+    CHECK(a == 0x1be763b7u, "drums hook off: the strummed songs hash %08x, wanted 1be763b7", (unsigned)a);
+    CHECK(b == 0xb465f94cu, "drums hook off: with set changes %08x, wanted b465f94c", (unsigned)b);
     dh_on = 0;
     vx_init();
     {
@@ -12752,7 +12778,8 @@ static uint32_t ll_hash(uint32_t h, const song_roll_t *r, int style, int loop)
    were f1ed957f (-1) and e0865680 (0). Re-pinned (Sam 2026-11-06: more drum drops, a section without the comp):
    were 3f87c951 (-1) and e7597b5f (0). Re-pinned (Sam 2026-11-05: bolder, more frequent stutters): was 939545e9 (-1).
    Re-pinned (Sam 2026-11-10: Cut-A-Dor's drum pocket, kick phrases and hat figures): were 30b6a2dd (-1) and
-   f0ae3f5d (0) */
+   f0ae3f5d (0). Re-pinned (Sam 2026-11-10: beat-1 starts, flipped restatements): were a3f62eeb (-1) and
+   427828b3 (0) */
 static void test_lead_loop_off_identical(void)
 {
     uint32_t seed, h[2] = {2166136261u, 2166136261u};
@@ -12764,8 +12791,8 @@ static void test_lead_loop_off_identical(void)
             for (k = 0; k < 2; k++) h[k] = ll_hash(h[k], &r, st, k - 1);
     }
     printf("lead loop off: events %08x (lead_loop -1), %08x (0)\n", (unsigned)h[0], (unsigned)h[1]);
-    CHECK(h[0] == 0xa3f62eebu, "lead loop default: lead_loop -1 hashes %08x, wanted a3f62eeb", (unsigned)h[0]);
-    CHECK(h[1] == 0x427828b3u, "lead loop off: lead_loop 0 hashes %08x, wanted 427828b3", (unsigned)h[1]);
+    CHECK(h[0] == 0xfeba4ec4u, "lead loop default: lead_loop -1 hashes %08x, wanted feba4ec4", (unsigned)h[0]);
+    CHECK(h[1] == 0x23854a09u, "lead loop off: lead_loop 0 hashes %08x, wanted 23854a09", (unsigned)h[1]);
 }
 
 typedef struct {
@@ -12954,9 +12981,10 @@ static void test_lead_loop_replays(void)
     printf("lead loop: %ld of %ld replayed bars at the hook floor as recorded fall under it\n", ll_acc.folded,
            ll_acc.floor_bars);
     /* a nudge keeps a bar's hook floor where a note within its 2 steps can (0.91% of them fell under it before it
-       did; what's left has no such note) */
-    CHECK(ll_acc.folded * 400 <= ll_acc.floor_bars * 3, "lead loop: %ld of %ld replayed bars nudged under the hook "
-          "floor (0.75%% at most)", ll_acc.folded, ll_acc.floor_bars);
+       did; what's left has no such note). 0.72%, held to 0.75%, until motifs started on beat 1 more often and
+       restatements flipped their start (Sam 2026-11-10): 0.84%, a beat-1 note a chord tone over another chord */
+    CHECK(ll_acc.folded * 1000 <= ll_acc.floor_bars * 9, "lead loop: %ld of %ld replayed bars nudged under the hook "
+          "floor (0.9%% at most)", ll_acc.folded, ll_acc.floor_bars);
 }
 
 /* Bossa records a riff with the loop on (bossa.c): its looped phrase about as dense as Jazz-Hop's (2.9 a bar), not

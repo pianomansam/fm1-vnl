@@ -115,6 +115,13 @@ int leads_place(int pc, int lo, int hi, int near);
    bip the bar in it), a 4-bar remainder half a phrase (pbars 4); last: no lead block follows in the song. b must be
    the plan's own block (its neighbors are read from the plan). */
 void leads_phrase_at(const plan_block_t *b, int bar, int *run, int *pass, int *bip, int *pbars, int *last);
+/* The motif's start flipped in a restatement (Sam, 2026-11-10: "If the motif did not start on the downbeat, the second
+   bar could. Or vice versa."): 1 for about a third of restatements (LEADS_FLIP_PCT; their own stream, from the song's
+   phrase seed, the run, its pass and the bar in it), where the style restates its head starting on beat 1 if the head
+   started off it, or off it (an 8th later, or the style's own syncopated spot) if the head started on it: the same
+   pitches, contour and rhythm, only the start moved. */
+#define LEADS_FLIP_PCT 35
+int leads_flip(uint32_t seed, int run, int pass, int bip);
 /* the roll's scale, 7 pitch classes over the key; scale index <-> MIDI note (index 0: the key's lowest octave) */
 void leads_scale(const song_roll_t *r, int *sc);
 int leads_si_note(int key, const int *sc, int si);

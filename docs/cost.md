@@ -1403,3 +1403,14 @@ Room kits, whose lanes play every hit; their own hits are now silent.
   half-band history)**; the pool 304,956 B unchanged (`./build.sh`, against 2aadd63).
 - CPU: none on the shipped kits (their hits never reached `skits.c`); `drums_render` no longer runs the empty
   sampled-voice pass each block.
+
+### Lead motifs start on beat 1 more often; restatements flip their start (2026-11-10)
+
+Weight tables, two '60s Jazz rhythm rows, Impressionism's arabesque from the downbeat and one draw per restatement
+(`leads_flip`). Integer math; no doubles, no heap. (The Soft brushes snare before it, 5cdc08f: new table values
+only, nothing to measure.)
+
+- Flash: image 288,812 to **289,852 B (+1,040 B)** (`./build.sh`, against 5cdc08f). RAM .data+.bss 74,660 B and the
+  pool 304,956 B unchanged.
+- CPU (`tick_bench 1000 3`, host, old and new built side by side): worst tick 14.0 to 14.0 us (others), 25.0 to
+  21.0 us (strummed: noise); the mean 16th 0.16 to 0.16 us, the downbeat 0.47 to 0.47 us.

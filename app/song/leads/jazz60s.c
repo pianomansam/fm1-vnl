@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* '60s Jazz (lead-styles design, 2026-10-29; ported unchanged from its spike but for the shared register): a 4-bar
    unit, twice per 8 (question, answer), of two statements of one song motif:
-     bars 1-2  the motif: 2-4 8th-note onsets starting off the beat, running over the bar line into a target on the
-               next chord (its 3rd, 7th, 9th or 13th, the root least) on 1, the "and" of 1 or beat 2; then space
+     bars 1-2  the motif: 2-4 8th-note onsets starting off the beat (from beat 1 in about a third of songs: Sam,
+               2026-11-10), running over the bar line into a target on the next chord (its 3rd, 7th, 9th or 13th,
+               the root least) on 1, the "and" of 1 or beat 2 (or inside the bar, on beat 3); then space
      bars 3-4  the motif again, sequenced (same contour in legal scale steps, re-anchored on bar 4's chord, its
                target a step from the last one: a guide-tone line) and often displaced (an 8th or a beat later or
-               earlier); the answer's last target rests lower, on a chord tone
+               earlier, or its start flipped: from beat 1 where the head began off it, else off it; Sam, 2026-11-10);
+               the answer's last target rests lower, on a chord tone
    Every note passes leads_legal() over the chord it sounds in (and the next one when it rings over the bar line);
    onsets on steps 0 and 8 are chord tones. No chromatic approach notes: they rub. A target the range leaves no room
    to run into (near its floor under a rise, near its top under a fall) moves away from that edge, so the statement
@@ -16,13 +18,15 @@
 #include "rng.h"
 #include "override.h"
 
-enum { JR_N = 5, JC_N = 4 };
+enum { JR_N = 7, JC_N = 4 };
 static const int8_t RHY[JR_N][5] = {    /* onsets in 16ths from the statement's bar (target last, over the bar line) */
     {4, 6, 8, 12, 16},      /* 2, &2, 3, 4 -> 1 */
     {6, 8, 10, 14, 18},     /* &2, 3, &3, &4 -> &1 (the late arrival) */
     {2, 6, 10, 14, 18},     /* off-beat quarters: &1 &2 &3 &4 -> &1 */
     {2, 8, 14, 20, -1},     /* dotted quarters: 3 against 4 (the hemiola) -> 2 */
-    {10, 12, 14, 16, 20}};  /* &3, 4, &4, 1 -> 2: a late start */
+    {10, 12, 14, 16, 20},   /* &3, 4, &4, 1 -> 2: a late start */
+    {0, 2, 6, 8, -1},       /* 1, &1, &2 -> 3: from the downbeat (Sam, 2026-11-10) */
+    {0, 6, 10, 16, -1}};    /* 1, &2, &3 -> 1 */
 static const int8_t CON[JC_N][4] = {    /* the notes before the target, in legal scale steps from it */
     {+4, +3, +2, +1}, {+1, +3, +2, +1}, {-4, -3, -2, -1}, {+2, +3, +1, -1}};   /* fall, turn, rise, enclosure */
 
@@ -30,7 +34,7 @@ typedef struct { int rhy, con, n, trip; } jz_song_t;
 
 static void jz_song(uint32_t seed, int motion, jz_song_t *s)
 {
-    static const uint8_t RW[JR_N] = {25, 25, 15, 15, 20}, CW[JC_N] = {35, 25, 20, 20};
+    static const uint8_t RW[JR_N] = {17, 17, 8, 8, 13, 19, 18}, CW[JC_N] = {35, 25, 20, 20};
     rng_t g;
     rng_seed(&g, seed, 210);
     s->rhy = rng_weighted(&g, RW, JR_N);
@@ -121,6 +125,16 @@ static int jz_runin(const leads_ctx_t *c, const leads_next_t *x, const int *pos,
             else if (leads_is_ct(dn, pp, np) && note - dn <= 3) note = dn;
             else break;
         }
+        if (at % 16 == 0 && !leads_is_ct(note, pp, np)) {   /* a beat 1 still off the chord: the nearest chord
+                                                               tone a legal note 4 semitones or less away (Sam,
+                                                               2026-11-10: a run-in from the downbeat keeps it) */
+            int d, s2, alt = 0;
+            for (d = 1; d <= 4 && !alt; d++)
+                for (s2 = -1; s2 <= 1 && !alt; s2 += 2)
+                    if (leads_is_ct(note + s2 * d, pp, np) && ((lg >> ((note + s2 * d) % 12)) & 1u))
+                        alt = note + s2 * d;
+            if (alt) note = alt;
+        }
         if (note < (nt ? c->lo_x : c->lo) || note > c->hi) {
             *out = note > c->hi ? 1 : -1;
             break;
@@ -195,6 +209,47 @@ static void jz_statement(lead_state_t *ls, const leads_ctx_t *c, const leads_nex
     ls->st.jz.tgt = tgt;
 }
 
+/* the first onset a statement sings (16ths; its rhythm's notes before the target, n of them, those in the bar), at
+   shift; *idx its index in the rhythm */
+static int jz_first(int rhy, int n, int shift, int *idx)
+{
+    int m = 0, k;
+    while (m < 5 && RHY[rhy][m] >= 0) m++;
+    k = m - 1 - (n < m - 1 ? n : m - 1);
+    *idx = k;
+    return RHY[rhy][k] + shift;
+}
+
+/* a statement's displacement (16ths), its notes before the target and its contour, drawn from (run, pass, bip): the
+   head of the first 4 bars as the motif, a later head displaced, extended or re-contoured now and then; bar 3's
+   restatement displaced (none 26, an 8th later 23, an 8th earlier 11, a beat later 15) or its start flipped against
+   its head's (25: from beat 1 where the head began off it, else off it; Sam, 2026-11-10: about a third of bar 3s
+   start opposite their head, the flips some displacements already make among them), or re-contoured */
+static void jz_disp(uint32_t seed, int run, int pass, int bip, const jz_song_t *s, int *shift, int *n, int *con)
+{
+    static const uint8_t DW[4] = {35, 30, 15, 20}, RDW[5] = {26, 23, 11, 15, 25};
+    static const int8_t DS[4] = {0, 2, -2, 4};
+    int role = bip % 4, half = bip / 4, idx, lastpos;
+    rng_t g;
+    rng_seed(&g, seed ^ ((uint32_t)run * 0x27D4EB2Fu) ^ ((uint32_t)(pass * 4 + bip + 1) * 0x165667B1u), 211);
+    *shift = 0;
+    *n = s->n;
+    *con = s->con;
+    if (role == 2) {
+        int d = rng_weighted(&g, RDW, 5);
+        if (d < 4) *shift = DS[d];
+        else {                                            /* the start flipped against the head's */
+            int hs, hn, hc, f2 = jz_first(s->rhy, s->n, 0, &idx);
+            jz_disp(seed, run, pass, bip - 2, s, &hs, &hn, &hc);
+            *shift = jz_first(s->rhy, hn, hs, &idx) == 0 ? (f2 == 0 ? 2 : 0) : -f2;
+        }
+    } else if (half || pass) *shift = DS[rng_weighted(&g, DW, 4)];   /* restatements: displaced */
+    if (role == 0 && (half || pass) && rng_int(&g, 100) < 30) *n = *n + 1 > 4 ? 4 : *n + 1;   /* extended */
+    if ((role == 2 || half || pass) && rng_int(&g, 100) < 25) *con = (*con + 1) % JC_N;      /* re-contoured */
+    lastpos = RHY[s->rhy][4] >= 0 ? RHY[s->rhy][4] : RHY[s->rhy][3];
+    if (jz_first(s->rhy, *n, *shift, &idx) < 0 || lastpos + *shift >= 32) *shift = 0;
+}
+
 void jazz60s_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b, int bar, const leads_next_t *nx)
 {
     int run, pass, bip, pbars, last, role, half, i, key = c->r->v[RF_KEY], center, anchor;
@@ -225,16 +280,8 @@ void jazz60s_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b,
     if (!anchor) anchor = center;
     if (bip == 0 && pass == 0) ls->st.jz.tgt = 0;
     if (role == 0 || role == 2) {
-        static const uint8_t DW[4] = {35, 30, 15, 20};
-        static const int8_t DS[4] = {0, 2, -2, 4};
-        rng_t g;
-        int shift = 0, rhy = s.rhy, con = s.con, n = s.n, near, closing = role == 2 && half, lastpos;
-        rng_seed(&g, seed ^ ((uint32_t)run * 0x27D4EB2Fu) ^ ((uint32_t)(pass * 4 + bip + 1) * 0x165667B1u), 211);
-        if (role == 2 || half || pass) shift = DS[rng_weighted(&g, DW, 4)];   /* restatements: displaced */
-        if (role == 0 && (half || pass) && rng_int(&g, 100) < 30) n = n + 1 > 4 ? 4 : n + 1;   /* extended */
-        if ((role == 2 || half || pass) && rng_int(&g, 100) < 25) con = (con + 1) % JC_N;     /* re-contoured */
-        lastpos = RHY[rhy][4] >= 0 ? RHY[rhy][4] : RHY[rhy][3];
-        if (RHY[rhy][0] + shift < 0 || lastpos + shift >= 32) shift = 0;
+        int shift, rhy = s.rhy, con, n, near, closing = role == 2 && half;
+        jz_disp(seed, run, pass, bip, &s, &shift, &n, &con);
         near = ls->st.jz.tgt ? ls->st.jz.tgt + (role == 2 ? (half ? -2 : 1) : 0) : anchor;
         if (closing) near = anchor - 3;
         jz_statement(ls, c, x, bar, &s, rhy, con, n, shift, near, closing, 64);

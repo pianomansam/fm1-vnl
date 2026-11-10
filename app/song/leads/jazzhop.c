@@ -2,12 +2,15 @@
 /* Jazz-Hop (lead-styles design, 2026-10-29; ported unchanged from its spike but for the shared register): a
    sampled-loop hook: one short hook per song (2-4 quick notes into a held tone, all in one bar), restated every
    2 bars like a looped record, the drums answering in the bar between. A 2-bar unit, four per 8 bars:
-     bar 1  the hook: syncopated, mostly off beat 1, its onsets stepped off the snare (the line speaks between the
-            backbeats), landing on a held tone by step 11 at the latest
+     bar 1  the hook: syncopated, off beat 1 in about two thirds of songs (Sam, 2026-11-10: a third on it), its
+            onsets stepped off the snare (the line speaks between the backbeats), landing on a held tone by step 11
+            at the latest
      bar 2  the answer: the drums (the held tone ringing on, or silence), or the hook's tail echoed, softer, lower
    Units 1-3 of each 8 bars restate the hook exactly (rhythm and contour; the same target pitch every time, so over
-   the same chord it is the same notes: the loop). Unit 4 is the turnaround, with ONE change: the held tone a step
-   up, the first note stuttered into two 16ths, the first note chopped off, or the whole hook an 8th late. After
+   the same chord it is the same notes: the loop). Unit 2 sometimes flips the hook's start (leads_flip: Sam,
+   2026-11-10): a hook off beat 1 restated from beat 1, one on beat 1 an 8th later. Unit 4 is the turnaround, with
+   ONE change: the held tone a step up, the first note stuttered into two 16ths, the first note chopped off, or the
+   whole hook an 8th late. After
    the first 8 bars, unit 2 sometimes takes the same change (sparse variation over a long loop). Notes step through
    the mode's pentatonic (2nds and 3rds) in a narrow band, a 6th at most. Every note passes leads_legal().
    The hook floor (Sam 2026-11-03): every hook statement plays 3 pitches or more, a perfect 4th or wider: the
@@ -15,7 +18,7 @@
    (jh_spread).
    With the lead loop on (leads/loop.c), Jazz-Hop records a riff, not its sparse phrase: the hook stays in its bar (no
    tie over), and bar 2 of each 4 restates the hook a pentatonic step under its held tone (never on it), softer, its
-   first note chopped where it has 3+. */
+   first note chopped half the time where it has 3+ (Sam, 2026-11-10: more of them start where the hook did). */
 #include <stdint.h>
 #include "leads.h"
 #include "library.h"
@@ -30,7 +33,7 @@ typedef struct { int n, on[JH_MAX], len[JH_MAX], off[JH_MAX], la, ans; } jh_hook
 
 static void jh_song(uint32_t seed, int motion, unsigned snare, jh_hook_t *h)
 {
-    static const uint8_t SW[5] = {15, 35, 15, 25, 10}, GW[4] = {15, 45, 25, 15}, KW[JS_N] = {35, 15, 30, 20},
+    static const uint8_t SW[5] = {30, 30, 12, 18, 10}, GW[4] = {15, 45, 25, 15}, KW[JS_N] = {35, 15, 30, 20},
                          AW[JA_N] = {40, 35, 25};
     static const int8_t START[5] = {0, 2, 3, 6, 1};
     int npre, k, t = 0, tries, kind, cur;
@@ -134,6 +137,15 @@ static int jh_vary(const jh_hook_t *h, int *var, int *on, int *len, int *off, in
         *la += 2;
     }
     return n;
+}
+
+/* the hook's start flipped (leads_flip): one off beat 1 moved to it, one on it an 8th later where the held tone still
+   lands by 13; the rhythm's shape kept */
+static void jh_flip(int *on, int n, int *la)
+{
+    int d = on[0] ? -on[0] : *la + 2 <= 13 ? 2 : 0, k;
+    for (k = 0; k < n; k++) on[k] += d;
+    *la += d;
 }
 
 /* the hook floor (Sam 2026-11-03): the floor's measure of a hook's pitches p[0..n] (0: a dropped note): its
@@ -298,6 +310,7 @@ void jazzhop_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b,
         int on[JH_MAX], len[JH_MAX], off[JH_MAX], la, n, v = unit == 3 || (unit == 1 && vary1) ? var : JV_SAME;
         int land = 0, tie;
         n = jh_vary(&h, &v, on, len, off, &la);
+        if (v == JV_SAME && bip % 4 == 2 && leads_flip(seed, run, pass, bip)) jh_flip(on, n, &la);
         tie = h.ans == JA_HOLD && unit != 3 && v != JV_UP && !leads_loop_plays(LS_JAZZHOP);
         if (tie && x) land = jh_fit(ls, c, off, on, len, n, la, anchor, 16 + 6, x, prev, v0, 0, pent, scale, 0, 1);
         if (land && land >= c->lo_x) {
@@ -313,9 +326,12 @@ void jazzhop_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b,
         if (land) prev = land;
     } else if (leads_loop_plays(LS_JAZZHOP) && bip % 4 == 1 && !from) {
         /* the loop's riff (only its recording plans here): units 1 and 3 answer with the hook again, its first note
-           chopped (3+ notes), landing a step under the hook's held tone, never on it (where the band floors it,
-           elsewhere), softer; units 2 and 4 answer as before */
-        int on[JH_MAX], len[JH_MAX], off[JH_MAX], la, n, v = h.n >= 3 ? JV_DROP : JV_SAME;
+           chopped (3+ notes) half the time, landing a step under the hook's held tone, never on it (where the band
+           floors it, elsewhere), softer; units 2 and 4 answer as before */
+        int on[JH_MAX], len[JH_MAX], off[JH_MAX], la, n, v;
+        rng_t g2;
+        rng_seed(&g2, seed ^ ((uint32_t)run * 0x27D4EB2Fu) ^ ((uint32_t)(pass * 8 + bip) * 0x165667B1u), 402);
+        v = h.n >= 3 && rng_int(&g2, 2) ? JV_DROP : JV_SAME;
         n = jh_vary(&h, &v, on, len, off, &la);
         i = jh_fit(ls, c, off, on, len, n, la, leads_coll_step(pent, prev ? prev : anchor, -1), 15, 0, prev, v0 - 8, 0,
                    pent, scale, prev, 1);

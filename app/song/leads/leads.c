@@ -229,6 +229,13 @@ void leads_phrase_at(const plan_block_t *b, int bar, int *run, int *pass, int *b
     *pbars = end - (f->start + *pass * 8) >= 8 ? 8 : 4;
 }
 
+int leads_flip(uint32_t seed, int run, int pass, int bip)
+{
+    rng_t g;
+    rng_seed(&g, seed ^ ((uint32_t)run * 0x27D4EB2Fu) ^ ((uint32_t)(pass * 8 + bip) * 0x165667B1u), 700);
+    return rng_int(&g, 100) < LEADS_FLIP_PCT;
+}
+
 void leads_scale(const song_roll_t *r, int *sc)
 {
     unsigned pool = th_mode_pool(r->v[RF_MODE]);

@@ -3,12 +3,15 @@
    pentatonic motif (3-5 notes, 8ths at the quickest, mostly quarters, in a high calm register) restated every 2 bars
    at the SAME pitches while the chords shift under it, so each chord re-colors it (the 9th over one chord is the 5th
    over the next). A 2-bar unit, four per 8 bars:
-     bar 1  the motif: mostly entering after beat 1 (the chord sounds first), legato, the last note let ring
+     bar 1  the motif: mostly entering after beat 1 (the chord sounds first; on it about a third of songs: Sam,
+            2026-11-10), legato, the last note let ring
      bar 2  the answer: the last note ringing on into it (where it is legal over the next chord), or the motif's last
             two notes echoed softer at the same pitches (an ostinato's afterimage)
    The motif's level is chosen once per song, from the progression: the pentatonic level whose notes are legal over
    the most of the loop's chords, so the re-coloring is designed, not hoped for. A note that would rub over this
-   chord moves a step (direction kept where it can) or drops. Units 1-3 of each 8 bars restate the motif; unit 4
+   chord moves a step (direction kept where it can) or drops. Units 1-3 of each 8 bars restate the motif (unit 2
+   sometimes with its start flipped, leads_flip: from beat 1 where the motif entered after it, an 8th later where it
+   entered on it; Sam, 2026-11-10); unit 4
    changes ONE thing: a passing note added, a note dropped, or the last note a step lower. After the first 8 bars,
    unit 2 sometimes takes the same change. */
 #include <stdint.h>
@@ -27,7 +30,7 @@ typedef struct { int n, on[AM_MAX], off[AM_MAX], ans; } am_motif_t;
 
 static void am_song(uint32_t seed, int motion, am_motif_t *m)
 {
-    static const uint8_t SW[4] = {20, 25, 35, 20}, GW[4] = {15, 50, 25, 10}, KW[AS_N] = {30, 20, 20, 30};
+    static const uint8_t SW[4] = {30, 25, 30, 15}, GW[4] = {15, 50, 25, 10}, KW[AS_N] = {30, 20, 20, 30};
     static const int8_t START[4] = {0, 2, 4, 6}, GAP[4] = {2, 4, 6, 8};
     int k, t, tries, kind;
     rng_t g;
@@ -108,6 +111,10 @@ void ambient_plan(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *b,
         int v = unit == 3 || (unit == 1 && vary1) ? var : AV_SAME, n = m.n, on[AM_MAX], tgt[AM_MAX], pl[AM_MAX];
         int add = -1, prevn = 0, lastk = -1;
         for (k = 0; k < n; k++) { on[k] = m.on[k]; tgt[k] = leads_coll_step(pent, ls->st.am.lvl, m.off[k]); }
+        if (v == AV_SAME && bip % 4 == 2 && leads_flip(seed, run, pass, bip)) {   /* the start flipped */
+            int d = on[0] ? -on[0] : on[n - 1] + 2 <= 12 ? 2 : 0;
+            for (k = 0; k < n; k++) on[k] += d;
+        }
         if (v == AV_DROP && n < 3) v = AV_END;
         if (v == AV_ADD) {                            /* a passing (or neighbor) note an 8th before a later note */
             for (k = n - 1; k > 0 && add < 0; k--)
