@@ -146,6 +146,9 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
 
 ## To revisit (Sam, after listening)
 
+- **Cut-A-Dor's hat pocket may be too loose (Sam, 2026-11-10, seed 560: "a little too loose on this render, but
+  maybe they'll sound better on others, so don't worry about it").** Approved and merged as is; if it comes up
+  again, the per-song amount (0.5-1.0) or the off-16th lag (4 ticks, ~47 ms average) is the knob.
 - **Parked (Sam, 2026-11-03: "Let's forget about them and see if I ask about similar things later").** The
   listening set and its switches were deleted. Don't raise these again unless Sam asks about something similar:
   - The lead's level under the styles: median 6.2 dB over the keys (was 8-10); set 28 seed 12 at -0.7 dB.
