@@ -7,6 +7,12 @@
   "drums": {
     "9": "approved"
   },
+  "kick-phrases": {
+    "k7": "approved",
+    "k8": "approved",
+    "k9": "approved",
+    "k10": "approved"
+  },
   "strum": {
     "6": "approved",
     "7": "approved",

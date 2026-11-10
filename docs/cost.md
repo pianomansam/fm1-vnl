@@ -1372,3 +1372,17 @@ its packed table (`felucca_drumkits.h`, 12 B a sound) and 22 rare rows, each kit
 - In a song (`VNL_KIT=<row> bench --forced 20`, the heaviest roll, one run each on a busy host, load 4): Crunchy
   1.004 / 1.027 forced (again: 0.993 / 1.017), Boom-bap 0.986 / 1.012, Jazz 0.990 / 1.010, Phonk 0.942 / 0.957: none
   heavier than Crunchy's.
+
+### Cut-A-Dor's drum programming: the pocket, kick phrases and hat figures (2026-11-10)
+
+Sequencing only (no new voice or sound): per-drum timing in `groove_step`, and `lib_song_hits` reading the song's kick
+phrase or hat figure where the parts read the pattern's lanes. Float timing math, integer table lookups; no doubles, no
+heap.
+
+- Flash: image 294,460 to **295,500 B (+1,040 B)** (`./build.sh`, against 6032be4): the nine kick phrases (4 B and a
+  status byte each), the eight hat bars (16 B), the draws and the kick row's choices. RAM .data+.bss 78,548 B and the
+  pool 304,956 B unchanged. The build's checks pass (no 64-bit multiply beside a load, no soft-double).
+- CPU (`tools/tick-bench.sh 1000 3`, host, old and new built side by side, two runs each): worst tick 13.0 to 14.0 us
+  (others), 19.0 to 19.0 us (strummed); the mean 16th 0.16 to 0.17 us, the downbeat 0.46 to 0.50 us. `groove_step`
+  alone (300 songs, 64 bars): 0.150 to 0.179 us a 16th. About 0.01-0.03 us a step, a few times a second: not
+  measurable in the audio.

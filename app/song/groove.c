@@ -31,9 +31,9 @@ static int clampi(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v;
 static uint32_t bass_seed(uint32_t seed) { return song_ov_salted(seed, song_ov()->bass_salt); }
 
 /* the onsets a bass style plays in a bar over pattern p, fills and ghosts aside */
-static unsigned bass_rhythm(int style, const lib_pattern_t *p)
+static unsigned bass_rhythm(const song_roll_t *r, int style, const lib_pattern_t *p)
 {
-    unsigned kick = p ? lib_lane_hits(p, D_KICK, 0) : 1u;
+    unsigned kick = p ? lib_song_hits(r, p, D_KICK, 0) : 1u;
     switch (style) {
     case BS_PEDAL: return 1u;
     case BS_WALK: return 0x1111u;
@@ -74,7 +74,7 @@ static int bass_style_of(const song_roll_t *r, uint32_t seed)
     }
     /* never the keys' rhythm when it is more than a note on 1 (Sam): the stabs, wherever they fall, or the half notes on 1 and 3 */
     keys = harmony_comp_steps(r);
-    for (i = 0, first = style; keys && i < 3 && bass_rhythm(style, p) == keys; i++) style = ALT[first][i];
+    for (i = 0, first = style; keys && i < 3 && bass_rhythm(r, style, p) == keys; i++) style = ALT[first][i];
     return style;
 }
 
@@ -175,7 +175,7 @@ static int bass_note(const song_roll_t *r, int style, const lib_pattern_t *p, in
         }
     }
     default:                              /* BS_ROOTS: the root on kick hits */
-        return (lib_lane_hits(p, D_KICK, bar) >> step) & 1 ? root : 0;
+        return (lib_song_hits(r, p, D_KICK, bar) >> step) & 1 ? root : 0;
     }
 }
 
@@ -238,8 +238,8 @@ int groove_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, 
     static const uint8_t lane_layer[6] = {L_KICK, L_SNARE, L_HATS, L_HATS, L_HATS, L_SNARE};
     const lib_pattern_t *p = lib_pattern_by_id((uint8_t)r->v[RF_PATTERN]);
     rng_t g;
-    float snare_base, hat_base, swing_f;
-    uint32_t swing = 0, dsalt = song_ov_salted(salt, song_ov()->drums_salt);
+    float snare_base, hat_base, swing_f, pocket, tick_ms;
+    uint32_t swing = 0, kick_late, dsalt = song_ov_salted(salt, song_ov()->drums_salt);
     int n = 0, lane, last_bar, drop, fill, style, eighths;
 
     if (!p || !b || step < 0 || step > 15) return 0;
@@ -254,6 +254,16 @@ int groove_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, 
     snare_base = 13.0f + 14.0f * rng_float(&g);
     rng_seed(&g, r->seed, 111);
     hat_base = 40.0f * rng_float(&g);
+    /* The drum pocket (Sam, 2026-11-10; Cut-A-Dor's lo-fi style, cad.c cad_step_tick, by Kid Bunka, GPL-3.0-only):
+       per-drum timing in 96-PPQN ticks (24 a 16th) over the swing, times the song's pocket amount (0.5-1.0; its
+       HUMAN, 0.65 by default; seed stream 232). A kick off the beat lays back 2 ticks (on the beat it stays firm), and
+       the bass's roots on it with it; the closed hat leans 1 tick ahead on the beat and 3 on the and, and sits 4 behind
+       on an off 16th. Ahead is against the hat's own lateness, its base raised to at least 3 ticks (a delay is late
+       only). The snare's lay-back is ours (13-27 ms: its 6 ticks at 0.65 are about the same). */
+    rng_seed(&g, mix(r->seed, 232, 0, 0), 232);
+    pocket = 0.5f + 0.5f * rng_float(&g);
+    tick_ms = step_samples * (1.0f / (24.0f * 44.1f));
+    kick_late = step & 3 ? to_samples(2.0f * pocket * tick_ms) : 0u;
 
     if (step & 1) {
         swing_f = ((float)r->v[RF_SWING] * 0.001f - 0.5f) * 2.0f * step_samples;
@@ -272,8 +282,8 @@ int groove_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, 
                 hit = (bar * 16 + step) % 3 == 0;
                 ghost = 0;
             } else {
-                hit = (lib_lane_hits(p, lane, bar) >> step) & 1;
-                ghost = !hit && ((lib_lane_ghosts(p, lane, bar) >> step) & 1);
+                hit = (lib_song_hits(r, p, lane, bar) >> step) & 1;
+                ghost = !hit && ((lib_song_ghosts(r, p, lane, bar) >> step) & 1);
             }
             /* calm songs thin the hats (Sam, 2026-11-05): rolled below motion 35, the closed hat drops its ghosts
                (below 25, song.c drops the hats altogether, after the ride takes its share) */
@@ -292,8 +302,13 @@ int groove_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, 
             }
             if (lane == D_SNARE || lane == D_RIM)
                 late = to_samples(snare_base + (jit2 * 6.0f - 3.0f));
-            else if (lane != D_KICK) {
-                float ms = hat_base + (jit2 * 16.0f - 8.0f);
+            else if (lane == D_KICK)
+                late = kick_late;
+            else {
+                float t = pocket * tick_ms, ms = hat_base + (jit2 * 16.0f - 8.0f);
+                if (lane == D_HAT)
+                    ms = (hat_base > 3.0f * t ? hat_base : 3.0f * t) + (jit2 * 16.0f - 8.0f)
+                         + (float)((step & 3) == 0 ? -1 : (step & 3) == 2 ? -3 : 4) * t;
                 late = to_samples(ms < 0.0f ? 0.0f : ms > 70.0f ? 70.0f : ms);
             }
             n = push(out, n, max, lane_voice[lane], 0, vel, swing + late, 0);
@@ -305,7 +320,7 @@ int groove_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, 
         if (b->layers & L_SNARE)
             n = push(out, n, max, V_SNARE, 0, 60 + (step - 12) * 10, swing + late, 0);
         if ((b->layers & L_KICK) && step == 14)
-            n = push(out, n, max, V_KICK, 0, 96, swing, 0);
+            n = push(out, n, max, V_KICK, 0, 96, swing + kick_late, 0);
     }
 
     if ((b->layers & L_BASS) && chord_pcs && npcs > 0) {
@@ -325,7 +340,7 @@ int groove_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, 
                 while (d < 4 && !bass_note(r, style, p, bar, (step + d) & 15, chord_pcs, npcs, bpc, nr)) d++;
                 len = (uint32_t)((float)d * step_samples);
             }
-            n = push(out, n, max, V_BASS, note, vel, swing, len);
+            n = push(out, n, max, V_BASS, note, vel, swing + (style == BS_ROOTS ? kick_late : 0u), len);
         }
     }
     return n;

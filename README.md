@@ -78,6 +78,7 @@ is GPL-3.0-only (as the workbench's wasm is); VNL-1's own source stays GPL-3.0-o
 | The lo-fi chain's reverb and chorus, adapted from [Mutable Instruments Rings](https://github.com/pichenettes/eurorack) (`rings/dsp/fx/reverb.h`, `chorus.h`, `fx_engine.h`) by Emilie Gillet | MIT (below) | `app/engine/rings_fx.c`, `rings_fx.h` |
 | The 808 and CR-78 kits' voices, FOMAJAM's modeled drum machines (by FOMAJAM's authors; ported from poketrack's trommelsynthesizer by David Konsumer, zlib: `LICENSE.poketrack`), altered | GPL-3.0-only (`app/drums/fomajam/LICENSE`) | `app/drums/fomajam/` |
 | The Crunchy machine kit, [Optimist](https://github.com/w0ts/optimist)'s synth drum engine by Leo Kuroshita (@kurogedelic), Hügelton Instruments, and the Optimist contributors (as is) | GPL-3.0-only (`app/drums/optimist/LICENSE`) | `app/drums/optimist/` |
+| The drum pocket, four kick phrases and eight hat bars, from [Cut-A-Dor](https://github.com/kidbee85-beep/cut-a-dor-release)'s rhythm engine (`firmware/src/dsp/cad.c`: `cad_step_tick`'s lo-fi timing, `kick_a`/`kick_b`, `hats`) by Kid Bunka, v1.2.1, adapted | GPL-3.0-only | `app/song/groove.c` (the pocket), `app/song/roll.c` (`HAT_FIG`, the draws), `patterns/kick-phrases/k7`-`k10` |
 
 The MIT notice for the Rings code, which the firmware contains:
 

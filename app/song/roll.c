@@ -420,3 +420,65 @@ int song_pad_on(const song_roll_t *r)
     rng_seed(&g, mix(r->seed, 0x9AD0u), 195);
     return rng_int(&g, 100) < 67;
 }
+
+/* Cut-A-Dor's eight hat bars (cad.c's hats[], by Kid Bunka, GPL-3.0-only; bit i = step i): straight 8ths (0 and 4,
+   so a figure may keep one bar plain), the hat under the backbeat dropped (1, 2), with a 16th pickup (3, 7), 16th
+   pairs (5), the and of 3 moved a 16th later (6). Figure f plays bar f in bar A and bar (f + 3) % 8 in bar B, as
+   cad_generate pairs them. */
+static const uint16_t HAT_FIG[8] = {0x5555, 0x4545, 0x5545, 0x454D, 0x5555, 0x6565, 0x5955, 0x555D};
+
+/* the hat figure's seed: the song's, or the drums' re-roll (drums_salt), hashed apart */
+static uint32_t drums_seed(const song_roll_t *r, uint32_t k)
+{
+    return mix(song_ov_salted(r->seed, song_ov()->drums_salt), k);
+}
+
+static const lib_pattern_t *boombap(const song_roll_t *r)
+{
+    const lib_pattern_t *p = lib_pattern_by_id((uint8_t)r->v[RF_PATTERN]);
+    return p && p->id != LIB_PATTERN_WB && p->family == PF_BOOMBAP && !p->two_bar ? p : NULL;
+}
+
+int lib_song_kick(const song_roll_t *r)
+{
+    rng_t g;
+    int i, n = 0, k = song_ov()->kick;
+    if (k == 1) return -1;                                   /* forced: the pattern's own */
+    if (k >= 2) return k - 2 < KICK_NPHRASE ? k - 2 : -1;    /* forced: a phrase, approved or candidate */
+    if (!boombap(r)) return -1;
+    rng_seed(&g, mix(r->seed, 0x1C4Bu), 230);       /* (the song's seed: the bass's roots follow the kick) */
+    if (rng_int(&g, 100) >= LIB_KICK_PCT) return -1;
+    for (i = 0; i < KICK_NPHRASE; i++) n += KICK_PHRASE_STATUS[i] == 1;
+    if (!n) return -1;
+    n = rng_int(&g, n);
+    for (i = 0; i < KICK_NPHRASE; i++)
+        if (KICK_PHRASE_STATUS[i] == 1 && n-- == 0) return i;
+    return -1;
+}
+
+int lib_song_hat_figure(const song_roll_t *r)
+{
+    rng_t g;
+    if (!boombap(r)) return -1;
+    rng_seed(&g, drums_seed(r, 0x4A75u), 231);
+    if (rng_int(&g, 100) >= LIB_HATS_PCT) return -1;
+    return rng_int(&g, 8);
+}
+
+unsigned lib_song_hits(const song_roll_t *r, const lib_pattern_t *p, int lane, int bar)
+{
+    int k, f;
+    if (p->id != LIB_PATTERN_WB) {
+        if (lane == D_KICK && (k = lib_song_kick(r)) >= 0)
+            return bar & 1 ? KICK_PHRASE[k].b : KICK_PHRASE[k].a;
+        if (lane == D_HAT && (f = lib_song_hat_figure(r)) >= 0)
+            return HAT_FIG[(bar & 1 ? f + 3 : f) & 7];
+    }
+    return lib_lane_hits(p, lane, bar);
+}
+
+unsigned lib_song_ghosts(const song_roll_t *r, const lib_pattern_t *p, int lane, int bar)
+{
+    if (p->id != LIB_PATTERN_WB && lane == D_KICK && lib_song_kick(r) >= 0) return 0u;   /* a phrase is unghosted */
+    return lib_lane_ghosts(p, lane, bar);
+}

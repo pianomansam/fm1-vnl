@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
 #include "theory.h"
 #include "library.h"
 #include "roll.h"
@@ -433,7 +434,7 @@ static void test_ov_salts(void)
 {
     static song_t s;
     static const int8_t KO[9] = {0, 0, 1, -1, 0, 0, 0, 0, 0}, LO[9] = {0, 0, 0, 0, 1, -1, 0, 0, 0};
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0, 0};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0, 0, 0};
     song_roll_t r;
     int i, k;
     for (k = 0; k < 9; k++) {
@@ -551,6 +552,17 @@ static void test_tempo_edges(void)
     CHECK(song_pending(&s, &f, &left) == 0, "the next song starts with nothing pending");
 }
 
+/* a step's events in a canonical order (tick, voice, note, lane): within a step the order they sound in follows their
+   delays, and the drum pocket's are in ticks of the tempo while the hats' and snare's base lateness is in ms */
+static int rev_cmp(const void *x, const void *y)
+{
+    const rev_t *a = x, *b = y;
+    if (a->tick != b->tick) return a->tick - b->tick;
+    if (a->voice != b->voice) return a->voice - b->voice;
+    if (a->note != b->note) return a->note - b->note;
+    return a->lane - b->lane;
+}
+
 /* sample x as a position in steps on a run's grid */
 static float grid_pos(const rec_t *rec, uint32_t x)
 {
@@ -601,6 +613,8 @@ static void test_tempo_glide(void)
         song_start(&s, &r);
         run(&s, &R2, NULL, NULL, NULL);
         CHECK(R1.ne == R2.ne, "70->90: %d events, %d at a steady tempo", R1.ne, R2.ne);
+        qsort(R1.ev, (size_t)R1.ne, sizeof R1.ev[0], rev_cmp);
+        qsort(R2.ev, (size_t)R2.ne, sizeof R2.ev[0], rev_cmp);
         for (k = 0; k < R1.ne && k < R2.ne; k++) {
             const rev_t *a = &R1.ev[k], *b = &R2.ev[k];
             CHECK(a->tick == b->tick && a->voice == b->voice && a->note == b->note, "70->90: event %d differs", k);
@@ -844,7 +858,7 @@ static void style_rules(int style, const char *name, int per_song)
     static song_t s;
     static const int INS[4] = {INS_FLUTE, INS_FELT_PIANO, INS_VIBES, INS_KNIGHT};
     static const char *NM[4] = {"flute", "felt piano", "vibes", "Knight"};
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0, 0};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0, 0, 0};
     long before = fails, rub0 = rubs[0][0] + rubs[0][1] + rubs[0][2] + rubs[0][3] + rubs[1][0] + rubs[1][1] +
                                 rubs[1][2] + rubs[1][3];
     int k, i, oct;
@@ -929,7 +943,7 @@ static const lib_set_t *old_draw(const song_roll_t *r)
 static void style_hard(int style, const char *name, const int *ins, int nins, long m9_notes)
 {
     static song_t s;
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, 0, 0, 0};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, 0, 0, 0, 0};
     long before = fails;
     int k;
     o.lead_style = (int8_t)(2 + style);
@@ -1045,7 +1059,7 @@ static void test_comp_new(void)
     static song_t s;
     static const int NEW[2] = {CS_HELD2, CS_HELD24};
     static const char *const NAME[2] = {"held on 2", "held on 2 and 4"};
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0, 0};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0, 0, 0};
     int k, before = fails;
     uint32_t i;
     for (k = 0; k < 2; k++) {

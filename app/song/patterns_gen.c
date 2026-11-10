@@ -110,3 +110,16 @@ const uint8_t STRUM_PAT_BUSY[STRUM_NPAT] = {1, 2, 1, 0, 2, 2, 0, 1, 1, 1, 1, 1, 
 const char STRUM_BALLAD_FILL[] = "D.....u.d.......";
 const char *const STRUM_FILL_STEP[STRUM_NFILL] = {"D...............", "B..............."};
 const char *const STRUM_FILL_DRIVE[STRUM_NFILL] = {"D.u..du..dU..du.", "B.P.T.P.T.P.T.P."};
+
+const patterns_kick_t KICK_PHRASE[KICK_NPHRASE] = {
+    {0x0401, 0x0401},   /* k2 */
+    {0x0481, 0x0481},   /* k3 */
+    {0x0141, 0x0141},   /* k4 */
+    {0x0401, 0x0481},   /* k5 */
+    {0x0041, 0x0409},   /* k6 */
+    {0x0441, 0x4481},   /* k7 */
+    {0x0101, 0x8401},   /* k8 */
+    {0x4009, 0x0489},   /* k9 */
+    {0x0841, 0x4009},   /* k10 */
+};
+const uint8_t KICK_PHRASE_STATUS[KICK_NPHRASE] = {1, 1, 1, 1, 1, 1, 1, 1, 1};

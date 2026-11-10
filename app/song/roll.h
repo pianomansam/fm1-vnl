@@ -57,6 +57,25 @@ int lib_song_organ(const song_roll_t *r);
    workbench's pad_on override (override.h) forces it. A pure function of the seed. */
 int song_pad_on(const song_roll_t *r);
 
+/* The drums' two-bar conversations (after Cut-A-Dor's rhythm families, cad.c, GPL-3.0-only; Sam, 2026-11-10: vary,
+   not replace). A boom-bap song (pattern family PF_BOOMBAP) plays, in place of its pattern's own:
+   - a kick phrase (patterns_gen.h's KICK_PHRASE: Sam's k2-k6 and four of Cut-A-Dor's, k7-k10) in LIB_KICK_PCT% of
+     songs, an approved one at even odds (seed stream 230), its kick unghosted; the bass's roots follow it;
+   - a hat figure in LIB_HATS_PCT% of songs (stream 231): one of Cut-A-Dor's eight hat bars over its 8ths (a hat
+     dropped under the backbeat, a 16th pickup, an 8th moved a 16th later) in bar A and another in bar B.
+   Drawn apart: about one boom-bap song in thirteen has both, and over half keep the pattern as written. The kick
+   phrase is drawn from the song's seed, as the pattern is (the bass follows it); the hat figure from the drums' (the
+   song's, or the drums' re-roll: override.h's drums_salt). The kick override forces the kick (the pattern's own or
+   any phrase, on any pattern). The workbench's custom pattern (LIB_PATTERN_WB) plays as edited: neither applies.
+   Pure functions. */
+enum { LIB_KICK_PCT = 30, LIB_HATS_PCT = 25 };
+int lib_song_kick(const song_roll_t *r);          /* a KICK_PHRASE index, -1 the pattern's own */
+int lib_song_hat_figure(const song_roll_t *r);    /* 0-7, -1 the pattern's own hats */
+/* the song's lane hits and ghosts in `bar` over pattern p (lib_lane_hits and lib_lane_ghosts with the above): what
+   the groove plays and every part that reads the kick (the bass's roots, the comp's and the strum's fit) */
+unsigned lib_song_hits(const song_roll_t *r, const lib_pattern_t *p, int lane, int bar);
+unsigned lib_song_ghosts(const song_roll_t *r, const lib_pattern_t *p, int lane, int bar);
+
 /* Test only: the progression table the roll draws from (default LIB_PROGS); NULL restores it. */
 void roll_use_progs(const lib_prog_t *progs, int n);
 

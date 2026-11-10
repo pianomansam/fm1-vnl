@@ -411,6 +411,20 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
      **Rejected (Sam, 2026-11-10: "none of these 4 nor their 808 or CR-78 are good"):** Optimist's AMBIENT,
      SYNTHWV, MINIMAL and LATIN, and its 808 and VINTAGE (ours, FOMAJAM's, stay). Built and heard on the
      branch kept at `rejected-kits-0d857f8`; not to be offered again. Optimist's other kits are club styles.
+     **Cut-A-Dor's drum programming in (2026-11-10; to judge by ear):** three pieces, each narrowed to what we
+     lacked. (1) The drum pocket: its lo-fi `cad_step_tick` timing over our swing, times a per-song amount of 0.5-1.0
+     (its HUMAN, 0.65 by default): a kick off the beat 2 ticks of 96 PPQN late, the bass's roots with it; the closed
+     hat 1 tick ahead on the beat, 3 on the and, 4 behind on an off 16th. Its snare (+6) and its random human timing
+     we had (our snare 13-27 ms, our per-hit jitter). (2) Kick phrases: Sam's k2-k6 were the workbench's only; now a
+     boom-bap song (patterns 1-3) plays an approved phrase in 30% of songs, and four of Cut-A-Dor's sixteen two-bar
+     conversations join them (k7 0,6,10 | 0,7,10,14; k8 0,8 | 0,10,15; k9 0,3,14 | 0,3,7,10; k10 0,6,11 | 0,3,14;
+     the rest are busier, double kicks or kick on the backbeat). The device's KICK row forces one (OV_KICK). (3) Its
+     rhythm families: for the boom-bap/lo-fi styles they are the kick conversations plus eight hat bars; a boom-bap
+     song plays a hat figure (bar A and B) in 25% of songs. Over 4000 songs: 1316 boom-bap, a phrase in 28%, a hat
+     figure in 24%, both 8%, the pattern as written 55%. Not taken: its other styles (funk break, fast break, half
+     time, hip-hop), its evolving mutation (random kicks every 4 bars), its fills (ours) and its CC0 samples (the
+     bank is full; its Virtuosity Drums vintage kick, snare and closed hat, about 10 KB as our ADPCM, are a possible
+     future swap).
   Also copyable, not on the short list: Optimist's load guard (`system/cpuguard.c`: steps quality down before a late
   block), its spring reverb (`fx/spring/spring.c`), SLOOP's synth engines (the two-engine spike: code, not just preset
   values), Optimist's dual-core split (`system/dual.c`; CPU1 is unreliable on some units).
@@ -791,7 +805,7 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
 - **Drum patterns ignore the set (found in the rule-docs refresh, 2026-10-30; to revisit).** Each of the 8 engine
   patterns is equally likely in every set, flavor and family (the motion's tilt aside, 2026-11-05). Sam's two-bar kick phrases (k2-k6) exist only in the
   workbench, and no engine pattern is two bars long. Decide per-set or per-flavor pattern weights, and bring the
-  kick phrases into the engine.
+  kick phrases into the engine. (Kick phrases in the engine since 2026-11-10: boom-bap songs, 30%; above.)
 - **Drums, 2026-11-04:**
   - **CR-78 rim:** Sam: "i don't like the cr-78 rimshot sound." The CR-78 kit's rim lane plays its cymbal (45ffa71).
   - **Saved patterns:** a pattern Sam saves in the workbench becomes a drums candidate on the next import

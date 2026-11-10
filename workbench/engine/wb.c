@@ -252,6 +252,7 @@ EXPORT void wb_render(uint32_t n)
 EXPORT void wb_seed(uint32_t seed)
 {
     roll_song(0, seed, &st.roll);
+    song_ov_set(&st.ov, OV_KICK, -1);   /* (the kick row isn't an override row: a kept kick phrase is staged again) */
 }
 
 /* the lead loop's log per bar (leads/loop.c's leads_loop_log) and the playing song's counters (leads_loop_stat: 0
@@ -542,33 +543,50 @@ EXPORT void wb_audition(int lane, int vel)
         wb_drums_audition_kit(wb_kit_get(), lane, vel);
 }
 
-/* the staged custom pattern, the song's library pattern copied into it (bar B as bar A) on the first edit
-   (RF_PATTERN switches to LIB_PATTERN_WB); NULL if the song's pattern is unknown */
+/* library pattern p as the staged song plays it (roll.h's lib_song_hits: a rolled kick phrase or hat figure, or the
+   kick override's), both bars spelled out (two_bar); a static copy. The custom pattern (or NULL) as it is. */
+static const lib_pattern_t *as_played(const lib_pattern_t *p)
+{
+    static lib_pattern_t e;
+    int i;
+    if (!p || p->id == LIB_PATTERN_WB)
+        return p;
+    song_override(&st.ov);
+    e = *p;
+    e.two_bar = 1;
+    for (i = 0; i < 6; i++) {
+        e.hit[i] = (uint16_t)lib_song_hits(&st.roll, p, i, 0);
+        e.ghost[i] = (uint16_t)lib_song_ghosts(&st.roll, p, i, 0);
+        e.hit_b[i] = (uint16_t)lib_song_hits(&st.roll, p, i, 1);
+        e.ghost_b[i] = (uint16_t)lib_song_ghosts(&st.roll, p, i, 1);
+    }
+    song_override(&live.ov);
+    return &e;
+}
+
+/* the staged custom pattern, the song's library pattern copied into it as the song plays it (as_played: bar B too)
+   on the first edit (RF_PATTERN switches to LIB_PATTERN_WB); NULL if the song's pattern is unknown */
 static lib_pattern_t *custom_pat(void)
 {
     const lib_pattern_t *p;
-    int i;
     if (st.roll.v[RF_PATTERN] == LIB_PATTERN_WB)
         return &st.pat;
     if (!(p = lib_pattern_by_id((uint8_t)st.roll.v[RF_PATTERN])))
         return NULL;
-    st.pat = *p;
+    st.pat = *as_played(p);
     st.pat.id = LIB_PATTERN_WB;
-    st.pat.two_bar = 1;
-    for (i = 0; i < 6; i++) {
-        st.pat.hit_b[i] = (uint16_t)lib_lane_hits(p, i, 1);
-        st.pat.ghost_b[i] = (uint16_t)lib_lane_ghosts(p, i, 1);
-    }
     st.pat_base = p->id;
     st.grid = 0;
     st.roll.v[RF_PATTERN] = LIB_PATTERN_WB;
     return &st.pat;
 }
 
-/* the staged pattern the song plays (the custom one, or its library pattern) */
+/* the staged pattern as the song plays it (the custom one, or its library pattern as_played) */
 static const lib_pattern_t *staged_pat(void)
 {
-    return st.roll.v[RF_PATTERN] == LIB_PATTERN_WB ? &st.pat : lib_pattern_by_id((uint8_t)st.roll.v[RF_PATTERN]);
+    if (st.roll.v[RF_PATTERN] == LIB_PATTERN_WB)
+        return &st.pat;
+    return as_played(lib_pattern_by_id((uint8_t)st.roll.v[RF_PATTERN]));
 }
 
 /* a step of p's lane in bar 0 (A) or 1 (B): 0 empty, 1 hit, 2 ghost (groove.c's reading: a hit over a ghost; a poly3
@@ -604,13 +622,15 @@ static void lane_masks(const lib_pattern_t *p, int lane, unsigned m[4])
 }
 
 /* A two-bar kick phrase (step masks for bars A and B) on the staged pattern's kick lane, unghosted; 0, 0: the library
-   pattern's own kick (and the library pattern itself if the grid hasn't edited the custom one) */
+   pattern's own kick, over a rolled phrase too (the kick override; and the library pattern itself if the grid hasn't
+   edited the custom one) */
 EXPORT void wb_kick_phrase(int a, int b)
 {
     lib_pattern_t *p;
     unsigned m[4];
     if (!a && !b) {
         const lib_pattern_t *base = lib_pattern_by_id(st.pat_base);
+        song_ov_set(&st.ov, OV_KICK, 0);
         if (st.roll.v[RF_PATTERN] != LIB_PATTERN_WB || !base)
             return;
         if (!st.grid) {
@@ -1063,7 +1083,7 @@ EXPORT const char *wb_consts(void)
         {"PHRASE_SALT", WB_OV_PHRASE_SALT}, {"BASS_SALT", WB_OV_BASS_SALT}, {"PAD_SALT", WB_OV_PAD_SALT},
         {"DRUMS_SALT", WB_OV_DRUMS_SALT}, {"PAD_ON", WB_OV_PAD_ON}, {"STRUM_PAT", WB_OV_STRUM_PAT},
         {"NO_BUSY_THIN", WB_OV_NO_BUSY_THIN}, {"LEAD_LOOP", WB_OV_LEAD_LOOP},
-        {"STRUM_FILL", WB_OV_STRUM_FILL}, {"COMP_PAT", WB_OV_COMP_PAT}, {"N", WB_OV_N}}, V[] = {
+        {"STRUM_FILL", WB_OV_STRUM_FILL}, {"COMP_PAT", WB_OV_COMP_PAT}, {"KICK", WB_OV_KICK}, {"N", WB_OV_N}}, V[] = {
         {"CHORD", V_CHORD}, {"BASS", V_BASS}, {"LEAD", V_LEAD}, {"PAD", V_PAD}, {"KICK", V_KICK}, {"SNARE", V_SNARE},
         {"HAT", V_HAT}, {"OHAT", V_OHAT}, {"SHAKER", V_SHAKER}, {"RIM", V_RIM}, {"RIDE", V_RIDE}}, SRC[] = {
         {"NONE", WB_SRC_NONE}, {"PT", WB_SRC_PT}, {"OPT", WB_SRC_OPT}, {"SAMPLE", WB_SRC_SAMPLE},

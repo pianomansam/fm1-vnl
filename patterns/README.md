@@ -89,7 +89,8 @@ byte.
   suite ("approved drums 9"); if only the pin checks failed it exits 3 with their new values, and any other failure
   is a real one (exit 1). After listening, `tools/patterns/import.sh --repin` rewrites the pins in
   `tests/host/song_test.c` with a comment naming the approval(s) and reruns the suite; nothing is re-pinned without
-  it. Kick phrases are the workbench's (`workbench/options.json`), so they never move them.
+  it. Approving a kick phrase moves them too: a boom-bap song draws an approved one now and then (`roll.h`'s
+  `lib_song_kick`).
 - **Keep one approved:** a `status.json` that would leave a drawn table (the drum patterns, strum patterns) with no
   approved entry, or a mood with no approved progression, is refused.
 - **No emcc:** `import.sh` warns loudly when it can't rebuild the workbench (its engine keeps the old tables).

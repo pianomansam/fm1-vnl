@@ -94,4 +94,13 @@ extern const char STRUM_BALLAD_FILL[];
 extern const char *const STRUM_FILL_STEP[STRUM_NFILL];
 extern const char *const STRUM_FILL_DRIVE[STRUM_NFILL];
 
+/* The kick phrases (patterns/kick-phrases; options.json's kickPhrases, in its order): two bars of
+   kick, bit i = step i, bar A then bar B. A boom-bap song plays one in place of its pattern's kick now
+   and then (roll.h's lib_song_kick); the workbench and the device's kick row force one, approved or
+   candidate. */
+typedef struct { uint16_t a, b; } patterns_kick_t;
+#define KICK_NPHRASE 9
+extern const patterns_kick_t KICK_PHRASE[KICK_NPHRASE];
+extern const uint8_t KICK_PHRASE_STATUS[KICK_NPHRASE];
+
 #endif

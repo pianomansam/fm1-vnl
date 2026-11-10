@@ -99,7 +99,8 @@ def choices(row, opts):
     """the row's every choice, as rows.js's allOptions (unfiltered: the device filters retired, hidden and unfitting
        ones as optionsFor does): [(value, NAME, status, flags, keys or None, notKeys)]. Names as the device writes
        them: upper case, a bass's short name. A kick phrase's value is its place (0 the pattern's own, 1.. the
-       options.json kickPhrases in order), the C side having no strings for values."""
+       options.json kickPhrases in order: override.h's OV_KICK; shown as the song plays it, a rolled phrase too),
+       the C side having no strings for values."""
     src = row.get("source")
     def lst(names, start=0):
         return [(i + start, n) for i, n in enumerate(names)]
@@ -215,7 +216,7 @@ def shown_rows(data):
 
 def song_row(r):
     """the song's request on a row (song.h's song_request_row): SR_ROLL + RF_*, SR_ROLE + V_*, SR_OV + OV_*, SR_KIT;
-       -1 where the song takes none (the seed, the family, the screens' own rows, a kick phrase: not on the device yet)"""
+       -1 where the song takes none (the seed, the family, the screens' own rows)"""
     kind = r.get("kind")
     if kind == "roll":
         return f"SR_ROLL + RF_{r['field']}"
@@ -224,7 +225,7 @@ def song_row(r):
     if kind in ("ov", "reroll"):
         return f"SR_OV + OV_{r['key']}"
     if kind == "drum":
-        return {"kit": "SR_KIT", "pattern": "SR_ROLL + RF_PATTERN"}.get(r.get("key"), "-1")
+        return {"kit": "SR_KIT", "pattern": "SR_ROLL + RF_PATTERN", "kick": "SR_OV + OV_KICK"}.get(r.get("key"), "-1")
     return "-1"
 
 
@@ -255,9 +256,9 @@ def gen_choices(rows, opts, shown):
     h = [HEAD, "#ifndef UI_CHOICES_GEN_H\n#define UI_CHOICES_GEN_H\n#include <stdint.h>\n\n",
          "/* The rows, in workbench/rows.json's order, then the screens' own (rhythm: the Comp part's one Rhythm row, comp\n"
          "   or strumPat as ch_rhythm_row says; loop: the Loop section switch). A row's value is the workbench's (a kick\n"
-         "   phrase's: 0 the pattern's own, 1.. options.json's kickPhrases in order). Rows with no table here (seed,\n"
-         "   map, prog, family, the re-rolls, and any row no screen names): ch_count 0, ch_name NULL; the engine's\n"
-         "   library or a number names them. */\n",
+         "   phrase's: 0 the pattern's own, 1.. options.json's kickPhrases in order). Rows with no\n"
+         "   table here (seed, map, prog, family, the re-rolls, and any row no screen names): ch_count 0, ch_name\n"
+         "   NULL; the engine's library or a number names them. */\n",
          "enum {\n" + "".join(f"    ROW_{ident(r['id'])},\n" for r in rows) + "    ROW_N\n};\n\n",
          "/* a choice's flags (ch_flags): its status in the low 2 bits (0 approved, 1 candidate, 2 retired: behind\n"
          "   \"show retired\", 3 removed: never offered), CH_HIDDEN never offered itself (shown as the current value\n"

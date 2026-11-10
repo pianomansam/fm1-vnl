@@ -37,6 +37,12 @@ GPL-3.0-only, as is FOMAJAM's, so the firmware binary as a whole is GPL-3.0-only
 | Optimist's predictive CPU guard (`cpuguard.c`, after Flowstate's guard by Zakaria Chowdhury), at 8a91efd | GPL-3.0-only (`app/drums/optimist/LICENSE`) | https://github.com/w0ts/optimist | `app/drums/cpuguard.c` (altered: our ladder, a learned voice cost) |
 | Optimist's synth drum engine (`drum_synth.c`) and four of its kits (LO-FI, BOOMBAP, JAZZ, PHONK: the recipes and levels of its `tools/gen_drumkits.py`), by Leo Kuroshita (@kurogedelic), Hügelton Instruments, and the Optimist contributors, at 915fd8a | GPL-3.0-only (`app/drums/optimist/LICENSE`) | https://github.com/w0ts/optimist | `app/drums/optimist/` (as is, its SPDX header and copyright kept) |
 
+The drums' timing and two of their rhythm tables follow Cut-A-Dor (by Kid Bunka, v1.2.1, GPL-3.0-only,
+https://github.com/kidbee85-beep/cut-a-dor-release), from its rhythm engine `firmware/src/dsp/cad.c`: the drum pocket
+(`cad_step_tick`'s lo-fi per-drum timing: `app/song/groove.c`), four of its sixteen two-bar kick conversations
+(`kick_a`/`kick_b`, families 0, 2, 12 and 6: `patterns/kick-phrases/k7`-`k10`) and its eight hat bars (`hats`:
+`app/song/roll.c`'s `HAT_FIG`), adapted to our groove and drawn per song.
+
 The shipped sampled kits (Dusty, Room - big, Room - brushes) play recordings dedicated to the public domain under CC0
 1.0, fetched and mixed by `workbench/tools/prep_kits.py` (which checks each `LICENSE`) into `workbench/samples/`
 (git-ignored), then reduced by `tools/samples/pack.py` into the sample bank (the firmware's and the workbench's). No

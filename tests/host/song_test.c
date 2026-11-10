@@ -835,8 +835,8 @@ static void test_calm_hats(void)
         eighths = r.v[RF_SWING] < 550 && lib_kit_sampled(lib_song_kit(&r));
         for (bar = 0; bar < 4; bar++)
             for (st = 0; st < 16; st++) {
-                int hat = 0, ohat = 0, h = (lib_lane_hits(p, D_HAT, bar) >> st) & 1;
-                int g = (lib_lane_ghosts(p, D_HAT, bar) >> st) & 1, oh = (lib_lane_hits(p, D_OHAT, bar) >> st) & 1;
+                int hat = 0, ohat = 0, h = (lib_song_hits(&r, p, D_HAT, bar) >> st) & 1;
+                int g = (lib_song_ghosts(&r, p, D_HAT, bar) >> st) & 1, oh = (lib_lane_hits(p, D_OHAT, bar) >> st) & 1;
                 int og = (lib_lane_ghosts(p, D_OHAT, bar) >> st) & 1;
                 n = groove_step(&r, &all, bar, st, SPS, NULL, 0, (uint32_t)seed, ev, 16);
                 for (i = 0; i < n; i++) {
@@ -863,7 +863,7 @@ static void test_calm_hats(void)
             int b0 = s.bar, s0 = s.step;
             n = song_tick(&s, ev, 64);
             for (i = 0; i < n; i++) {
-                int ghost_step = !((lib_lane_hits(p, D_HAT, b0) >> s0) & 1);
+                int ghost_step = !((lib_song_hits(&r, p, D_HAT, b0) >> s0) & 1);
                 if (ev[i].voice == V_HAT || ev[i].voice == V_OHAT || ev[i].voice == V_RIDE) hats++;
                 if (ev[i].voice == V_RIDE && mo < 25) rides++;
                 if (mo < 25 && (ev[i].voice == V_HAT || ev[i].voice == V_OHAT))
@@ -885,6 +885,110 @@ static void test_calm_hats(void)
     CHECK(quiet_hi == 0, "calm hats: %d songs at motion 25 and up with no hats", quiet_hi);
     CHECK(songs[0] > 10 && songs[1] > 10 && songs[2] > 10, "calm hats: songs %d, %d, %d per band", songs[0], songs[1],
           songs[2]);
+}
+
+/* Cut-A-Dor's drum programming (Sam, 2026-11-10; roll.h's lib_song_kick and lib_song_hat_figure, groove.c's pocket):
+   over 4000 rolled songs, a boom-bap song plays a kick phrase about LIB_KICK_PCT% of the time and a hat figure about
+   LIB_HATS_PCT%, every approved phrase and every figure drawn, no other family either; the pattern's own stays the
+   majority; the kick override forces either way. The pocket over the swing: a kick off the beat 1-2 ticks late, on it
+   firm; the closed hat on the and ahead of the hat on the beat, an off 16th behind it. */
+static void test_drum_conversations(void)
+{
+    static const plan_block_t all = {0, 64, SEC_GROOVE, 0xFF, 0};
+    int seed, i, n, bb = 0, kick = 0, hats = 0, both = 0, other = 0, per[KICK_NPHRASE] = {0}, fig[8] = {0};
+    int approved = 0, missing = 0, bad_ov = 0, bad_kick = 0, hat_n[3] = {0, 0, 0}, kick_n = 0;
+    double hat_ms[3] = {0, 0, 0}, kick_ms = 0, kick_lo = 1e9, kick_hi = 0;
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0, 0, 0};
+    song_ev_t ev[16];
+    for (seed = 1; seed <= 4000; seed++) {
+        song_roll_t r;
+        const lib_pattern_t *p;
+        int k, f;
+        roll_song(NULL, (uint32_t)seed, &r);
+        p = lib_pattern_by_id((uint8_t)r.v[RF_PATTERN]);
+        k = lib_song_kick(&r);
+        f = lib_song_hat_figure(&r);
+        if (p->family != PF_BOOMBAP) { other += k >= 0 || f >= 0; continue; }
+        bb++;
+        kick += k >= 0;
+        hats += f >= 0;
+        both += k >= 0 && f >= 0;
+        if (k >= 0) {
+            per[k]++;
+            bad_kick += (lib_song_hits(&r, p, D_KICK, 0) != KICK_PHRASE[k].a) +
+                        (lib_song_hits(&r, p, D_KICK, 1) != KICK_PHRASE[k].b) +
+                        (lib_song_ghosts(&r, p, D_KICK, 0) != 0);
+        } else {
+            bad_kick += lib_song_hits(&r, p, D_KICK, 1) != lib_lane_hits(p, D_KICK, 1);
+        }
+        if (f >= 0) fig[f]++;
+        if (seed <= 400) {                     /* the pocket at 85 BPM, 56% swing */
+            int bar, step;
+            r.v[RF_TEMPO] = 85;
+            r.v[RF_SWING] = 560;
+            for (bar = 0; bar < 2; bar++)
+                for (step = 0; step < 16; step++) {
+                    uint32_t sw = step & 1 ? (uint32_t)(0.12f * SPS + 0.5f) : 0u;
+                    n = groove_step(&r, &all, bar, step, SPS, NULL, 0, 3, ev, 16);
+                    for (i = 0; i < n; i++) {
+                        double ms = (double)(ev[i].delay - sw) / 44.1;
+                        if (ev[i].voice == V_HAT && ev[i].delay >= sw) {
+                            int c = (step & 3) == 0 ? 0 : (step & 3) == 2 ? 1 : 2;
+                            hat_ms[c] += ms;
+                            hat_n[c]++;
+                        }
+                        if (ev[i].voice == V_KICK && (step & 3)) {
+                            kick_ms += ms;
+                            kick_n++;
+                            kick_lo = ms < kick_lo ? ms : kick_lo;
+                            kick_hi = ms > kick_hi ? ms : kick_hi;
+                        }
+                        if (ev[i].voice == V_KICK && !(step & 3) && ev[i].delay) bad_kick++;
+                    }
+                }
+        }
+        if (seed <= 200) {                     /* the kick override */
+            o.kick = 1;
+            song_override(&o);
+            bad_ov += lib_song_kick(&r) != -1;
+            o.kick = (int8_t)(2 + seed % KICK_NPHRASE);
+            song_override(&o);
+            bad_ov += lib_song_kick(&r) != seed % KICK_NPHRASE;
+            o.kick = 0;
+            song_override(NULL);
+            bad_ov += lib_song_kick(&r) != k;
+        }
+    }
+    printf("drum conversations: %d boom-bap songs of 4000: kick phrase %d (%.0f%%), hat figure %d (%.0f%%), both %d "
+           "(%.0f%%), neither %.0f%%\n", bb, kick, 100.0 * kick / bb, hats, 100.0 * hats / bb, both, 100.0 * both / bb,
+           100.0 * (bb - kick - hats + both) / bb);
+    printf("drum conversations: phrases");
+    for (i = 0; i < KICK_NPHRASE; i++) {
+        printf(" %d", per[i]);
+        approved += KICK_PHRASE_STATUS[i] == 1;
+        missing += KICK_PHRASE_STATUS[i] == 1 && per[i] == 0;
+    }
+    printf("; figures");
+    for (i = 0; i < 8; i++) printf(" %d", fig[i]);
+    printf("\npocket at 85 BPM: off-beat kick %.1f ms late (%.1f-%.1f, %d hits); closed hat %.1f ms on the beat, "
+           "%.1f on the and, %.1f on an off 16th\n", kick_ms / kick_n, kick_lo, kick_hi, kick_n, hat_ms[0] / hat_n[0],
+           hat_ms[1] / hat_n[1], hat_ms[2] / hat_n[2]);
+    CHECK(other == 0, "drum conversations: %d songs of another pattern family with a phrase or figure", other);
+    CHECK(bb > 800, "drum conversations: only %d boom-bap songs", bb);
+    CHECK(kick * 100 > bb * (LIB_KICK_PCT - 5) && kick * 100 < bb * (LIB_KICK_PCT + 5), "kick phrases in %d of %d",
+          kick, bb);
+    CHECK(hats * 100 > bb * (LIB_HATS_PCT - 5) && hats * 100 < bb * (LIB_HATS_PCT + 5), "hat figures in %d of %d", hats,
+          bb);
+    CHECK((bb - kick - hats + both) * 2 > bb, "drum conversations: the pattern's own in only %d of %d",
+          bb - kick - hats + both, bb);
+    CHECK(approved >= 9 && missing == 0, "drum conversations: %d approved phrases never drawn", missing);
+    for (i = 0; i < 8; i++) CHECK(fig[i] > 0, "hat figure %d never drawn", i);
+    CHECK(bad_kick == 0, "drum conversations: %d kick lanes wrong", bad_kick);
+    CHECK(bad_ov == 0, "drum conversations: the kick override wrong %d times", bad_ov);
+    CHECK(kick_n > 0 && kick_lo >= (double)SPS / 24.0 / 44.1 - 0.1 && kick_hi <= (double)SPS / 12.0 / 44.1 + 0.1,
+          "pocket: off-beat kick %.1f-%.1f ms", kick_lo, kick_hi);
+    CHECK(hat_ms[1] / hat_n[1] + 3.0 < hat_ms[0] / hat_n[0] && hat_ms[2] / hat_n[2] > hat_ms[0] / hat_n[0] + 10.0,
+          "pocket: hats %.1f / %.1f / %.1f ms", hat_ms[0] / hat_n[0], hat_ms[1] / hat_n[1], hat_ms[2] / hat_n[2]);
 }
 
 static void test_groove(void)
@@ -919,13 +1023,15 @@ static void test_groove(void)
                         if (ev[i].vel >= 50) { snare_sum += ev[i].vel; snare_n++; }
                     } else if (!ok || late > (uint32_t)(70.0f * 44.1f) + 1) bad_hat++;
                     if (ev[i].voice == V_HAT) { hat_sum += ev[i].vel; hat_n++; }
-                } else if (ev[i].voice == V_KICK) {
-                    if (d + 1 < base || d > base + 1) { if (step & 1) bad_odd++; else bad_even++; }
+                } else if (ev[i].voice == V_KICK) {   /* the swing, and off the beat the pocket's 1-2 ticks */
+                    uint32_t lo = base + (step & 3 ? (uint32_t)(SPS / 24.0f) - 2u : 0u);
+                    uint32_t hi = base + (step & 3 ? (uint32_t)(SPS / 12.0f) + 2u : 0u);
+                    if (d + 1 < lo || d > hi + 1) { if (step & 1) bad_odd++; else bad_even++; }
                 }
             }
-            /* on-beat 16ths: no swing at all on the kick and bass */
+            /* on the beat: no swing and no pocket on the kick and bass */
             for (i = 0; i < n; i++)
-                if ((step & 1) == 0 && (ev[i].voice == V_KICK || ev[i].voice == V_BASS) && ev[i].delay != 0) bad_even++;
+                if ((step & 3) == 0 && (ev[i].voice == V_KICK || ev[i].voice == V_BASS) && ev[i].delay != 0) bad_even++;
             n = groove_step(&r, &nokick, bar, step, SPS, chord, 3, 99, ev, 16);
             for (i = 0; i < n; i++) if (ev[i].voice == V_KICK) kicks++;
         }
@@ -939,14 +1045,19 @@ static void test_groove(void)
           snare_sum, snare_n);
     CHECK(kicks == 0, "groove: %d kicks in a block without L_KICK", kicks);
 
-    /* an off-16th kick (pattern 1 has kick on step 6? use pattern 2, step 7) carries exactly the swing delay */
+    /* an off-16th bass note carries the swing, and on the kick's roots the kick's pocket too (1-2 ticks) */
     {
-        int found = 0, wrong = 0;
+        int found = 0, wrong = 0, roots = groove_bass_style(&r) == BS_ROOTS;
+        uint32_t lo = sw + (roots ? (uint32_t)(SPS / 24.0f) - 2u : 0u);
+        uint32_t hi = sw + (roots ? (uint32_t)(SPS / 12.0f) + 2u : 0u);
         for (s = 0; s < 16; s += 1) {
             int chord[3] = {0, 4, 7};
             n = groove_step(&r, &all, 0, s, SPS, chord, 3, 5, ev, 16);
             for (i = 0; i < n; i++)
-                if ((s & 1) && ev[i].voice == V_BASS) { found++; if (ev[i].delay + 1 < sw || ev[i].delay > sw + 1) wrong++; }
+                if ((s & 1) && ev[i].voice == V_BASS) {
+                    found++;
+                    if (ev[i].delay + 1 < lo || ev[i].delay > hi + 1) wrong++;
+                }
         }
         CHECK(wrong == 0, "groove: off-16th bass swing delay wrong");
         (void)found;
@@ -6896,8 +7007,8 @@ static void test_vibes_level(void)
    dB): each set's mean and median 7-11 dB under, and no song under 4.5 dB or over 13. */
 static void test_pad_level(void)
 {
-    static const song_ov_t pads = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, -1, 0, 0, 0, 0};   /* every song with a pad
-                                                                                                 (the lead loop off) */
+    /* every song with a pad (the lead loop off) */
+    static const song_ov_t pads = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, -1, 0, 0, 0, 0, 0};
     float d[LIB_NSETS_MAX * LK_PER], sorted[LIB_NSETS_MAX * LK_PER], med;
     int k, n = 0, sets = 0;
     song_override(&pads);
@@ -7015,7 +7126,7 @@ static void test_pad_level(void)
    choir held to its input's power, so its level is its patch's (patch.c). */
 static void test_choir_level(void)
 {
-    static const song_ov_t pads = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, -1, 0, -1, 0, 0};
+    static const song_ov_t pads = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, -1, 0, -1, 0, 0, 0};
     static const uint32_t SEED[3] = {319u, 152u, 1u};
     static const int SET[3] = {31, 32, 21};
     int k;
@@ -7420,7 +7531,7 @@ static pd_rec_t pd_a, pd_b;
    so they keep their samples; NULL (0) restores the roll's */
 static void pd_all_pads(int on)
 {
-    static const song_ov_t all = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, -1, 0, -1, 0, 0};
+    static const song_ov_t all = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, -1, 0, -1, 0, 0, 0};
     song_override(on ? &all : NULL);
 }
 static int pd_part(const song_t *s, int blk, int sus)
@@ -8469,9 +8580,10 @@ static void test_strum_same(void)
        b029afb6. Re-pinned (Sam 2026-11-06: more drum drops, 1 or 2 bars, and a section without the comp in some
        songs): were 6cd3cd86 and dd41f6e5. Re-pinned (Sam 2026-11-05: bolder, more frequent lead stutters): were
        4d0cbf47 and 567123f0. Re-pinned (Sam 2026-11-09: the stutter is the whole mix's, the lead's notes untouched):
-       were 2f6f8c1b and d41d203e */
-    CHECK(a == 0x08d037f4u, "strum same: the strummed songs hash %08x, wanted 08d037f4", (unsigned)a);
-    CHECK(b == 0xdc0eed26u, "strum same: with set changes %08x, wanted dc0eed26", (unsigned)b);
+       were 2f6f8c1b and d41d203e. Re-pinned (Sam 2026-11-10: Cut-A-Dor's drum pocket, kick phrases and hat
+       figures): were 08d037f4 and dc0eed26 */
+    CHECK(a == 0xfce3990fu, "strum same: the strummed songs hash %08x, wanted fce3990f", (unsigned)a);
+    CHECK(b == 0x5a45eefdu, "strum same: with set changes %08x, wanted 5a45eefd", (unsigned)b);
     v = (uint32_t)sf_last_bad();
     CHECK(v == 0, "strum same: %u strummed bars left the keys' last voicing behind", (unsigned)v);
 }
@@ -8679,8 +8791,8 @@ static void test_wb_off(void)
     uint32_t a, b;
     lib_set_wb(NULL, 0); lib_pattern_wb(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x08d037f4u, "wb off: the strummed songs hash %08x, wanted 08d037f4", (unsigned)a);
-    CHECK(b == 0xdc0eed26u, "wb off: with set changes %08x, wanted dc0eed26", (unsigned)b);
+    CHECK(a == 0xfce3990fu, "wb off: the strummed songs hash %08x, wanted fce3990f", (unsigned)a);
+    CHECK(b == 0x5a45eefdu, "wb off: with set changes %08x, wanted 5a45eefd", (unsigned)b);
 }
 /* The workbench's mute (vx_mute, default off). mt_song: a song's first 20 s as the app plays it, its samples hashed
    (mute: vx_mute(0) called first, as the workbench's wb_init does) */
@@ -8727,8 +8839,8 @@ static void test_vx_mute_off(void)
     CHECK(a == b, "vx mute off: vx_mute(0) changed the samples (%08x, wanted %08x)", (unsigned)b, (unsigned)a);
     vx_mute(0);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x08d037f4u, "vx mute off: the strummed songs hash %08x, wanted 08d037f4", (unsigned)a);
-    CHECK(b == 0xdc0eed26u, "vx mute off: with set changes %08x, wanted dc0eed26", (unsigned)b);
+    CHECK(a == 0xfce3990fu, "vx mute off: the strummed songs hash %08x, wanted fce3990f", (unsigned)a);
+    CHECK(b == 0x5a45eefdu, "vx mute off: with set changes %08x, wanted 5a45eefd", (unsigned)b);
 }
 /* Review Focus 2 (Task 2): a bus muted mid-note is silent after the chunk it goes out in (and a quantum for the
    chain's own filters), its voice still playing (the duck follows it); unmuted, the notes struck while muted end at
@@ -8839,7 +8951,7 @@ static void test_vx_level(void)
     b = mt_song(0);
     CHECK(a == b, "vx level: 0 dB changed the samples (%08x, wanted %08x)", (unsigned)b, (unsigned)a);
     a = sf_songs(0);
-    CHECK(a == 0x08d037f4u, "vx level: the strummed songs hash %08x at 0 dB, wanted 08d037f4", (unsigned)a);
+    CHECK(a == 0xfce3990fu, "vx level: the strummed songs hash %08x at 0 dB, wanted fce3990f", (unsigned)a);
     for (i = 0; i < (int)(sizeof P / sizeof P[0]); i++) {
         for (k = 0; k < 2; k++)
             ref[k] = mx_song(P[i].seed[k], P[i].role);
@@ -8952,7 +9064,7 @@ static void ov_run(const song_roll_t *r, const song_ov_t *ov, ov_rec_t *o)
 }
 static song_ov_t ov_none(void)
 {
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0, 0};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0, 0, 0};
     return o;
 }
 static void test_ov_comp(void)
@@ -9488,7 +9600,7 @@ static void test_comp_pat(void)
             r.v[RF_SET] = LIB_SET_WB;
             song_override(&o);
             pp = lib_pattern_by_id((uint8_t)r.v[RF_PATTERN]);
-            on_kick = pp && (lib_lane_hits(pp, D_KICK, 0) & 0xFFFFu) == want;
+            on_kick = pp && (lib_song_hits(&r, pp, D_KICK, 0) & 0xFFFFu) == want;
             held += on_kick;
             bad_style += harmony_style(&r) != CS_PAT || harmony_comp_pat(&r) != k ||
                          harmony_comp_steps(&r) != (on_kick ? 0u : want);
@@ -11109,7 +11221,7 @@ static void test_ov_part_salts(void)
                       NAME[j], moved[j]);
     }
     song_override(NULL);
-    CHECK(sf_songs(0) == 0x08d037f4u && sf_songs(1) == 0xdc0eed26u, "ov part salts: the pinned hashes moved");
+    CHECK(sf_songs(0) == 0xfce3990fu && sf_songs(1) == 0x5a45eefdu, "ov part salts: the pinned hashes moved");
 }
 /* Task 1b (Sam, 2026-10-29): "Remove the ear candy part completely"; "Make it possible for the pad part to not be in
    a song. And update the seeds to not always have it"; "add the ability for the pad part to drop out of certain song
@@ -11386,8 +11498,8 @@ static void test_ov_off(void)
     CHECK(o && o->comp == -1 && o->lead_style == -1 && o->pad_place == -1 && o->ride == -1 && !o->keys_oct &&
           !o->lead_oct && !o->voicing_salt && !o->phrase_salt, "ov off: the default override forces something");
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x08d037f4u, "ov off: the strummed songs hash %08x, wanted 08d037f4", (unsigned)a);
-    CHECK(b == 0xdc0eed26u, "ov off: with set changes %08x, wanted dc0eed26", (unsigned)b);
+    CHECK(a == 0xfce3990fu, "ov off: the strummed songs hash %08x, wanted fce3990f", (unsigned)a);
+    CHECK(b == 0x5a45eefdu, "ov off: with set changes %08x, wanted 5a45eefd", (unsigned)b);
 }
 /* a steal of a damped string (the final review): six strings struck, the first two re-struck at once (their last
    notes damped on the 2 spare voices), then a plain chord note (no string: a stab after a set change) while they
@@ -11614,7 +11726,7 @@ static unsigned sf_fig(const char *p, int bar)
 static int sf_ok(const song_roll_t *r, int bar, unsigned m, unsigned fig)
 {
     const lib_pattern_t *dp = lib_pattern_by_id((uint8_t)r->v[RF_PATTERN]);
-    unsigned kick = dp ? lib_lane_hits(dp, D_KICK, bar) & 0xFFFFu : 0u, extra = m & ~fig;
+    unsigned kick = dp ? lib_song_hits(r, dp, D_KICK, bar) & 0xFFFFu : 0u, extra = m & ~fig;
     return m == fig || (fig == kick && fig != 1u && (m & fig) == fig && extra && !(extra & ~0x4444u) &&
                         !(extra & (extra - 1u)));
 }
@@ -12686,8 +12798,8 @@ static void test_drums_hook(void)
     CHECK(quiet_bad == 0, "drums hook: a silent source still sounds at %d steps", quiet_bad);
     drums_hook(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x08d037f4u, "drums hook off: the strummed songs hash %08x, wanted 08d037f4", (unsigned)a);
-    CHECK(b == 0xdc0eed26u, "drums hook off: with set changes %08x, wanted dc0eed26", (unsigned)b);
+    CHECK(a == 0xfce3990fu, "drums hook off: the strummed songs hash %08x, wanted fce3990f", (unsigned)a);
+    CHECK(b == 0x5a45eefdu, "drums hook off: with set changes %08x, wanted 5a45eefd", (unsigned)b);
     dh_on = 0;
     vx_init();
     {
@@ -12958,7 +13070,9 @@ static uint32_t ll_hash(uint32_t h, const song_roll_t *r, int style, int loop)
    instrument strikes its chord together like the piano; then the modes restored, the move to major or minor undone):
    were b06a36a1 (-1) and 8b298449 (0). Re-pinned (Sam 2026-11-06: leads evened, sets 22, 27, 30, 32, 34, 37 re-led):
    were f1ed957f (-1) and e0865680 (0). Re-pinned (Sam 2026-11-06: more drum drops, a section without the comp):
-   were 3f87c951 (-1) and e7597b5f (0). Re-pinned (Sam 2026-11-05: bolder, more frequent stutters): was 939545e9 (-1) */
+   were 3f87c951 (-1) and e7597b5f (0). Re-pinned (Sam 2026-11-05: bolder, more frequent stutters): was 939545e9 (-1).
+   Re-pinned (Sam 2026-11-10: Cut-A-Dor's drum pocket, kick phrases and hat figures): were 30b6a2dd (-1) and
+   f0ae3f5d (0) */
 static void test_lead_loop_off_identical(void)
 {
     uint32_t seed, h[2] = {2166136261u, 2166136261u};
@@ -12970,8 +13084,8 @@ static void test_lead_loop_off_identical(void)
             for (k = 0; k < 2; k++) h[k] = ll_hash(h[k], &r, st, k - 1);
     }
     printf("lead loop off: events %08x (lead_loop -1), %08x (0)\n", (unsigned)h[0], (unsigned)h[1]);
-    CHECK(h[0] == 0x30b6a2ddu, "lead loop default: lead_loop -1 hashes %08x, wanted 30b6a2dd", (unsigned)h[0]);
-    CHECK(h[1] == 0xf0ae3f5du, "lead loop off: lead_loop 0 hashes %08x, wanted f0ae3f5d", (unsigned)h[1]);
+    CHECK(h[0] == 0xa3f62eebu, "lead loop default: lead_loop -1 hashes %08x, wanted a3f62eeb", (unsigned)h[0]);
+    CHECK(h[1] == 0x427828b3u, "lead loop off: lead_loop 0 hashes %08x, wanted 427828b3", (unsigned)h[1]);
 }
 
 typedef struct {
@@ -13667,6 +13781,7 @@ int main(int argc, char **argv)
     RUN(test_break_hats);
     RUN(test_calm_hats);
     RUN(test_groove);
+    RUN(test_drum_conversations);
     RUN(test_harmony);
     RUN(test_voices);
     RUN(test_voices_fix);

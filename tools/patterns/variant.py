@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Test only (tests/candidates.sh): the generated tables (patterns_gen.c and .h) from patterns/model.json with one
    entry added to every family the engine draws (a drum pattern, two progressions (one for a mood and mode no
-   approved progression suits), a strum pattern, a comp rhythm; a kick phrase too, the workbench's), each unlike every
+   approved progression suits), a strum pattern, a comp rhythm, a kick phrase), each unlike every
    entry before it, as candidates or approved. files: the same entries as new .mid files in a copy of patterns/, for
    import.py to import (the workbench's smoke over tables with candidates: workbench/tools/candidates_smoke.sh).
 
@@ -73,8 +73,8 @@ def main(argv):
     if argv[1] == "files":
         return write_files(Path(argv[2]))
     root = Path(__file__).resolve().parent.parent.parent
-    tables, _ = imp.rows_from_model(variant(json.loads((root / "patterns/model.json").read_text()), argv[1]))
-    c_text, h_text = imp.gen_c(tables)
+    tables, kicks = imp.rows_from_model(variant(json.loads((root / "patterns/model.json").read_text()), argv[1]))
+    c_text, h_text = imp.gen_c(tables, kicks)
     out = Path(argv[2])
     (out / "patterns_gen.c").write_text(c_text)
     (out / "patterns_gen.h").write_text(h_text)

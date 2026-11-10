@@ -7,9 +7,9 @@
 
 /* The rows, in workbench/rows.json's order, then the screens' own (rhythm: the Comp part's one Rhythm row, comp
    or strumPat as ch_rhythm_row says; loop: the Loop section switch). A row's value is the workbench's (a kick
-   phrase's: 0 the pattern's own, 1.. options.json's kickPhrases in order). Rows with no table here (seed,
-   map, prog, family, the re-rolls, and any row no screen names): ch_count 0, ch_name NULL; the engine's
-   library or a number names them. */
+   phrase's: 0 the pattern's own, 1.. options.json's kickPhrases in order). Rows with no
+   table here (seed, map, prog, family, the re-rolls, and any row no screen names): ch_count 0, ch_name
+   NULL; the engine's library or a number names them. */
 enum {
     ROW_SEED,
     ROW_KEY,

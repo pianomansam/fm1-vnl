@@ -507,7 +507,7 @@ unsigned harmony_stab_steps(const song_roll_t *r)
 {
     const patterns_stabs_t *s = &COMP_STABS;
     const lib_pattern_t *p = lib_pattern_by_id((uint8_t)r->v[RF_PATTERN]);
-    unsigned kick = p ? lib_lane_hits(p, D_KICK, 0) : 0u;
+    unsigned kick = p ? lib_song_hits(r, p, D_KICK, 0) : 0u;
     int i, hits = 0;
     for (i = 0; i < 16; i++) hits += (kick >> i) & 1u;
     if (hits > s->busy_over) return s->busy_steps;
@@ -539,7 +539,7 @@ static int row_held(const song_roll_t *r, int i)
     const lib_pattern_t *p;
     if (i < 0 || !(COMP[i].rules & CR_HOLD)) return 0;
     p = lib_pattern_by_id((uint8_t)r->v[RF_PATTERN]);
-    return keys_sustained(r) || (p && (lib_lane_hits(p, D_KICK, 0) & 0xFFFFu) == comp_mask(&COMP[i]));
+    return keys_sustained(r) || (p && (lib_song_hits(r, p, D_KICK, 0) & 0xFFFFu) == comp_mask(&COMP[i]));
 }
 
 /* the steps the keys strike when they are more than a note on 1 (stabs, half notes, held on 2 (and 4), a comp

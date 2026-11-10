@@ -4,7 +4,7 @@
 #include "choices_gen.h"
 #include "song.h"
 
-const char CH_STR[1269] =
+const char CH_STR[1298] =
     "7THS\000"
     "9THS\000"
     "RICH (9/11/13)\000"
@@ -109,6 +109,10 @@ const char CH_STR[1269] =
     "KICK 4\000"
     "KICK 5\000"
     "KICK 6\000"
+    "KICK 7\000"
+    "KICK 8\000"
+    "KICK 9\000"
+    "KICK 10\000"
     "NONE\000"
     "THROUGHOUT\000"
     "ONE SECTION\000"
@@ -152,7 +156,7 @@ const int8_t CH_SONG_ROW[ROW_N] = {
     SR_OV + OV_DRUMS_SALT,   /* drumsVar */
     SR_KIT,   /* kit */
     SR_ROLL + RF_PATTERN,   /* pattern */
-    -1,   /* kick */
+    SR_OV + OV_KICK,   /* kick */
     SR_OV + OV_RIDE,   /* ride */
     SR_ROLL + RF_DUST,   /* dust */
     SR_ROLL + RF_NOISE,   /* noise */
@@ -163,7 +167,7 @@ const int8_t CH_SONG_ROW[ROW_N] = {
 };
 const char *const CH_ROW_ID[ROW_N] = {"seed", "key", "mode", "tempo", "swing", "mood", "motion", "map", "prog", "color", "family", "keys", "comp", "lead", "bass", "pad", "padOn", "phrase", "leadStyle", "leadLoop", "leadOct", "busyThin", "voicings", "keysOct", "strumPat", "strumFill", "padPlace", "bassLine", "padNotes", "drumsVar", "kit", "pattern", "kick", "ride", "dust", "noise", "ambience", "rhythm", "loop", "endless"};
 typedef struct { int8_t value; uint8_t flags; uint16_t name; } ch_entry_t;   /* 4 bytes */
-static const ch_entry_t CH_E[139] = {
+static const ch_entry_t CH_E[143] = {
     {0, 0, 0},
     {1, 0, 5},
     {2, 0, 10},
@@ -286,19 +290,23 @@ static const ch_entry_t CH_E[139] = {
     {3, 0, 1184},
     {4, 0, 1191},
     {5, 0, 1198},
+    {6, 0, 1205},
+    {7, 0, 1212},
+    {8, 0, 1219},
+    {9, 0, 1226},
     {-1, 8, 94},
-    {0, 0, 1205},
-    {1, 0, 1210},
-    {2, 0, 1221},
-    {0, 0, 1205},
-    {1, 0, 1233},
-    {2, 0, 1239},
-    {3, 0, 1246},
-    {0, 0, 1205},
-    {1, 0, 1252},
-    {2, 0, 1258},
-    {0, 0, 1205},
-    {1, 0, 1263},
+    {0, 0, 1234},
+    {1, 0, 1239},
+    {2, 0, 1250},
+    {0, 0, 1234},
+    {1, 0, 1262},
+    {2, 0, 1268},
+    {3, 0, 1275},
+    {0, 0, 1234},
+    {1, 0, 1281},
+    {2, 0, 1287},
+    {0, 0, 1234},
+    {1, 0, 1292},
     {0, 0, 330},
     {1, 0, 334},
     {0, 0, 330},
@@ -337,14 +345,14 @@ static const uint8_t CH_SPAN[ROW_N][2] = {
     {89, 0},   /* drumsVar */
     {89, 18},   /* kit */
     {107, 9},   /* pattern */
-    {116, 6},   /* kick */
-    {122, 4},   /* ride */
-    {126, 4},   /* dust */
-    {130, 3},   /* noise */
-    {133, 2},   /* ambience */
-    {135, 0},   /* rhythm */
-    {135, 2},   /* loop */
-    {137, 2},   /* endless */
+    {116, 10},   /* kick */
+    {126, 4},   /* ride */
+    {130, 4},   /* dust */
+    {134, 3},   /* noise */
+    {137, 2},   /* ambience */
+    {139, 0},   /* rhythm */
+    {139, 2},   /* loop */
+    {141, 2},   /* endless */
 };
 static const uint32_t CH_COMP_FIT[14][2] = {
     {4294967295u, 0u},

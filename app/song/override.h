@@ -32,13 +32,18 @@ typedef struct {
                                initializer, it stays the draw), 1 step back, 2 drive */
     int8_t comp_pat;        /* a comp rhythm forced (the keys play CS_PAT where they can): 0 none (left out of an
                                initializer, it stays none), else 1 + its COMP_PAT index, approved or candidate */
+    int8_t kick;            /* the song's kick phrase (roll.h's lib_song_kick): 0 rolled (left out of an initializer,
+                               it stays rolled), 1 the pattern's own, else 2 + its KICK_PHRASE index (patterns_gen.h),
+                               approved or candidate */
 } song_ov_t;
 
 /* The overrides by key (the workbench's rows: rows.json's ov and reroll keys), as wb_ov_set / wb_ov_get see them:
-   strum_fill -1 the song's draw, 0 step back, 1 drive; comp_pat -1 none, else a COMP_PAT index; no_busy_thin 0/1 */
+   strum_fill -1 the song's draw, 0 step back, 1 drive; comp_pat -1 none, else a COMP_PAT index; no_busy_thin 0/1;
+   kick -1 rolled, 0 the pattern's own, else 1 + a KICK_PHRASE index (the device's kick row: options.json's
+   kickPhrases in order) */
 enum { OV_COMP, OV_LEAD_STYLE, OV_PAD_PLACE, OV_RIDE, OV_KEYS_OCT, OV_LEAD_OCT, OV_VOICING_SALT, OV_PHRASE_SALT,
        OV_BASS_SALT, OV_PAD_SALT, OV_DRUMS_SALT, OV_PAD_ON, OV_STRUM_PAT, OV_NO_BUSY_THIN, OV_LEAD_LOOP, OV_STRUM_FILL,
-       OV_COMP_PAT, OV_N };
+       OV_COMP_PAT, OV_KICK, OV_N };
 void song_ov_set(song_ov_t *o, int key, int value);
 int song_ov_get(const song_ov_t *o, int key);
 

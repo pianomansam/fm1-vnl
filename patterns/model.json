@@ -460,6 +460,67 @@
       ],
       "status": "approved",
       "file": "kick-phrases/k6-0-6-then-0-3-10"
+    },
+    "k7": {
+      "id": "k7",
+      "a": [
+        0,
+        6,
+        10
+      ],
+      "b": [
+        0,
+        7,
+        10,
+        14
+      ],
+      "status": "approved",
+      "file": "kick-phrases/k7-0-6-10-then-0-7-10-14"
+    },
+    "k8": {
+      "id": "k8",
+      "a": [
+        0,
+        8
+      ],
+      "b": [
+        0,
+        10,
+        15
+      ],
+      "status": "approved",
+      "file": "kick-phrases/k8-0-8-then-0-10-15"
+    },
+    "k9": {
+      "id": "k9",
+      "a": [
+        0,
+        3,
+        14
+      ],
+      "b": [
+        0,
+        3,
+        7,
+        10
+      ],
+      "status": "approved",
+      "file": "kick-phrases/k9-0-3-14-then-0-3-7-10"
+    },
+    "k10": {
+      "id": "k10",
+      "a": [
+        0,
+        6,
+        11
+      ],
+      "b": [
+        0,
+        3,
+        14
+      ],
+      "status": "approved",
+      "file": "kick-phrases/k10-0-6-11-then-0-3-14"
     }
   },
   "progressions": {

@@ -591,6 +591,8 @@ void ui_song_rows(const song_roll_t *r, int16_t rows[ROW_N])
         rows[i] = (int16_t)v;
     }
     if (o->comp_pat > 0) rows[ROW_COMP] = (int16_t)(100 + o->comp_pat - 1);   /* a comp rhythm: the comp row's 100 + */
+    if (rows[ROW_KICK] < 0) rows[ROW_KICK] = (int16_t)(lib_song_kick(r) + 1);   /* rolled: the phrase it plays, as
+                                                                                   the workbench shows it */
     rows[ROW_RHYTHM] = rows[ch_rhythm_row(rows[ROW_KEYS], rows[ROW_COMP]) == ROW_COMP ? ROW_COMP : ROW_STRUM_PAT];
 }
 

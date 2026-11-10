@@ -299,7 +299,7 @@ static int bass_twin(const song_roll_t *r, const plan_block_t *b, int bar, const
     const lib_prog_t *pr = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
     int loop = pr && pr->n ? pr->n * (pr->bars_per_chord ? pr->bars_per_chord : 1) : 4, pcs[5], np, i;
     const lib_pattern_t *dp = lib_pattern_by_id((uint8_t)r->v[RF_PATTERN]);
-    unsigned km = 0, bm = 0, dm = dp ? lib_lane_hits(dp, D_KICK, bar) & 0xFFFFu : 0u;
+    unsigned km = 0, bm = 0, dm = dp ? lib_song_hits(r, dp, D_KICK, bar) & 0xFFFFu : 0u;
     if (cbar == bar && cseed == r->seed && cps == ps) return cstep;
     cbar = bar;
     cseed = r->seed;

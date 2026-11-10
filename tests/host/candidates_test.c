@@ -26,7 +26,7 @@ static int fails;
         }                                                                                                          \
     } while (0)
 
-static const song_ov_t NONE = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0, 0};
+static const song_ov_t NONE = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0, 0, 0};
 
 static int prog_index(int id)
 {
@@ -80,7 +80,7 @@ static uint32_t songs_hash(void)
 }
 
 /* what the roll and the parts draw over 1000 chained seeds, counted per table entry */
-typedef struct { int prog[256], pattern[256], strum[64], comp[64]; } drawn_t;
+typedef struct { int prog[256], pattern[256], strum[64], comp[64], kick[64]; } drawn_t;
 
 static void draw_all(drawn_t *d)
 {
@@ -105,6 +105,7 @@ static void draw_all(drawn_t *d)
             d->prog[prog_index(t.v[RF_PROG])]++;
         }
         d->strum[strum_pattern(&r, &slow)]++;
+        if (lib_song_kick(&r) >= 0) d->kick[lib_song_kick(&r)]++;
         if (harmony_style(&r) == CS_PAT && harmony_comp_pat(&r) >= 0) d->comp[harmony_comp_pat(&r)]++;
     }
 }
@@ -117,6 +118,9 @@ static void test_never(void)
     for (i = 0; i < LIB_NPROGS; i++) CHECK(LIB_PROGS_STATUS[i] == 1 || !d.prog[i], "candidate prog %d drawn %d times", LIB_PROGS[i].id, d.prog[i]);
     for (i = 0; i < LIB_NPATTERNS; i++) CHECK(LIB_PATTERNS_STATUS[i] == 1 || !d.pattern[i], "candidate pattern %d drawn", LIB_PATTERNS[i].id);
     for (i = 0; i < STRUM_NPAT; i++) CHECK(STRUM_PAT_STATUS[i] == 1 || !d.strum[i], "candidate strum %d drawn", i);
+    for (i = 0; i < KICK_NPHRASE; i++)
+        CHECK(KICK_PHRASE_STATUS[i] == 1 || !d.kick[i], "candidate kick phrase %d drawn", i);
+    for (i = 0; i < KICK_NPHRASE; i++) n += KICK_PHRASE_STATUS[i] != 1;
     for (i = 0; i < LIB_NPROGS; i++) n += LIB_PROGS_STATUS[i] != 1;
     for (i = 0; i < LIB_NPATTERNS; i++) n += LIB_PATTERNS_STATUS[i] != 1;
     for (i = 0; i < STRUM_NPAT; i++) n += STRUM_PAT_STATUS[i] != 1;
@@ -124,7 +128,8 @@ static void test_never(void)
     for (i = 0; i < COMP_NPAT; i++) CHECK(COMP_PAT_APPROVED(i) || !d.comp[i], "candidate comp rhythm %d drawn", i);
     for (i = 0; i < COMP_NPAT; i++) n += !COMP_PAT_APPROVED(i);
 #endif
-    printf("never: %d candidate(s), none drawn over 1000 seeds (the roll, the dice, the strum, the comping)\n", n);
+    printf("never: %d candidate(s), none drawn over 1000 seeds (the roll, the dice, the strum, the comping, the "
+           "kick)\n", n);
 }
 
 /* a seed whose song strums (style) */
@@ -204,6 +209,18 @@ static void test_forced(void)
         }
     }
 #endif
+    for (i = 0; i < KICK_NPHRASE; i++) {   /* a kick phrase: forced (the kick override), on any pattern */
+        if (KICK_PHRASE_STATUS[i] == 1) continue;
+        roll_song(NULL, 5, &r);
+        base = song_hash(&r, 1u << V_KICK);
+        o = NONE;
+        o.kick = (int8_t)(2 + i);
+        song_override(&o);
+        CHECK(lib_song_kick(&r) == i, "kick phrase %d forced", i);
+        CHECK(song_hash(&r, 1u << V_KICK) != base, "kick phrase %d plays", i);
+        song_override(NULL);
+        forced++;
+    }
     printf("forced: %d candidate(s) picked and heard\n", forced);
 }
 
@@ -219,8 +236,11 @@ static void test_drawn(void)
     CHECK(COMP_PAT_APPROVED(COMP_NPAT - 1) && d.comp[COMP_NPAT - 1] > 0, "the last comp rhythm drawn %d times",
           d.comp[COMP_NPAT - 1]);
 #endif
-    printf("drawn: prog %d, pattern %d, strum %d, comp rhythm %d (of 1000 seeds)\n", d.prog[LIB_NPROGS - 1],
-           d.pattern[LIB_NPATTERNS - 1], d.strum[STRUM_NPAT - 1], COMP_NPAT ? d.comp[COMP_NPAT - 1] : 0);
+    CHECK(KICK_PHRASE_STATUS[KICK_NPHRASE - 1] == 1 && d.kick[KICK_NPHRASE - 1] > 0,
+          "the last kick phrase drawn %d times", d.kick[KICK_NPHRASE - 1]);
+    printf("drawn: prog %d, pattern %d, strum %d, comp rhythm %d, kick phrase %d (of 1000 seeds)\n",
+           d.prog[LIB_NPROGS - 1], d.pattern[LIB_NPATTERNS - 1], d.strum[STRUM_NPAT - 1],
+           COMP_NPAT ? d.comp[COMP_NPAT - 1] : 0, d.kick[KICK_NPHRASE - 1]);
 }
 
 int main(int argc, char **argv)

@@ -2118,8 +2118,9 @@ console.log("parts: re-rolls, history, locks, reactions (Task 5)");
   }
 
   // Final review 1: a roll whose only difference is velocity (or order within a step) sounds the same: not a new roll.
-  // A bass salt that moves only the bass's velocities is never committed; the drums with their kick locked (the drums
-  // salt is velocity and lateness jitter only) are refused, saying why
+  // A bass salt that moves only the bass's velocities is never committed; the drums with their kick and pattern locked
+  // are refused, saying why, where the drums salt is velocity and lateness jitter only (a boom-bap pattern's draws its
+  // hat figure too)
   {
     const e = (bar, step, role, note, vel, len) => ({ bar, step, role, note, vel, len });
     check(notesOf([e(0, 0, 1, 40, 80, 4), e(0, 0, 2, 60, 90, 2)]) === notesOf([e(0, 0, 2, 60, 70, 2), e(0, 0, 1, 40, 99, 4)]) &&
@@ -2150,17 +2151,39 @@ console.log("parts: re-rolls, history, locks, reactions (Task 5)");
     const rm = await dm.reroll("bass");
     check(moves && rm.ok && dm.values.bassLine === moves && dm.parts.bass.history.length === 2,
           `... the 🎲 skips it and commits the next salt that moves notes (${dm.values.bassLine}, wanted ${moves})`);
-    const { desk: dd } = await deskOn(21);
+    const { desk: dd } = await deskOn(23);   // pattern 6, sparse: no hat figure, so the drums salt is jitter only
     dd.lock("kick", true);
     dd.lock("pattern", true);
     const rd2 = await dd.reroll("drums");
     check(!rd2.ok && /no other variation fits this pattern/.test(rd2.message) && dd.values.drumsVar === 0 && dd.parts.drums.history.length === 1,
-          `seed 21's drums with the kick and the pattern locked (jitter only): refused ("${rd2.message}")`);
+          `seed 23's drums with the kick and the pattern locked (jitter only): refused ("${rd2.message}")`);
+    const { desk: dh } = await deskOn(21);   // pattern 1, boom-bap: the salt draws its hat figure too (Cut-A-Dor's)
+    dh.lock("kick", true);
+    dh.lock("pattern", true);
+    const p1 = dh.values.pattern, rh = await dh.reroll("drums");
+    check(rh.ok && dh.values.pattern === p1 && dh.values.drumsVar !== 0 && dh.parts.drums.history.length === 2,
+          `seed 21's drums (boom-bap) with the kick and the pattern locked: a new hat figure (salt ${dh.values.drumsVar})`);
     const { desk: dp } = await deskOn(21);   // the kick locked, the pattern free: the drums' roll draws a new pattern
     dp.lock("kick", true);
     const p0 = dp.values.pattern, rd3 = await dp.reroll("drums");
     check(rd3.ok && dp.values.pattern !== p0 && dp.parts.drums.history.length === 2,
           `the drums' roll draws a new pattern too (${p0} → ${dp.values.pattern}), the kick locked`);
+  }
+
+  // A rolled kick phrase (Cut-A-Dor's drums, 2026-11-10: seed 560 draws k9 on its boom-bap pattern) shows in the kick
+  // row and the grid; "the pattern's own" plays the pattern's kick over it, staying on the library pattern
+  {
+    const { desk } = await deskOn(560);
+    const k9 = OPTS.kickPhrases.find((k) => k.id === "k9"), mask = (st) => st.reduce((m, i) => m | (1 << i), 0);
+    const lane = () => desk.drums?.grid?.lanes?.[0];
+    await desk.read();
+    check(desk.values.kick === "k9" && lane()?.[0] === mask(k9.a) && lane()?.[2] === mask(k9.b),
+          `seed 560's rolled kick phrase shows: ${desk.values.kick}, grid ${JSON.stringify(lane())}`);
+    const pat = desk.values.pattern;
+    await desk.set("kick", "");
+    await desk.read();
+    check(desk.values.kick === "" && desk.values.pattern === pat && lane()?.[0] !== mask(k9.a),
+          `... the pattern's own kick over it: ${JSON.stringify(desk.values.kick)}, pattern ${desk.values.pattern}, grid ${JSON.stringify(lane())}`);
   }
 
   // Final review 2: a locked drums part keeps its kick phrase through a new seed and re-roll all; the kick row

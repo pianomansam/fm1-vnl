@@ -50,7 +50,7 @@ engine would not make: zero tolerance for semitone rubs, no substitutions, diato
 | Tempo | 70–90 BPM. Weights rise from 1 at 70 to 10 at 79, 11 for 80–84, then fall from 6 at 85 to 1 at 90 (80–84 BPM: about 42% of songs). | genre | **Done** (`roll.c`) | *genre* §1.2 |
 | Meter | 4/4 only; triplet feel through swing. | genre | **Done** | *genre* §1.3 |
 | Swing | 52–62% on 16ths, a triangle peaking at 52.5%, mean about 55.5%. | genre | **Done** (`roll.c`, `groove.c`) | *genre* §3.2; *midi* §5 |
-| Lateness | Snare 10–30 ms late, hats 0–70 ms, kick on the grid (numbers in [general.md §4](general.md#4-rhythm-and-humanization)). | genre | **Done** (`groove.c`, R13) | *genre* §3.3 |
+| Lateness | Snare 10–30 ms late, hats 0–70 ms, kick on the grid on the beat (off it, the drum pocket below; numbers in [general.md §4](general.md#4-rhythm-and-humanization)). | genre | **Done** (`groove.c`, R13) | *genre* §3.3 |
 | Lead swing, lead phrase starts | Lead rules: not refreshed (lead rewrite). | — | — | R16; ledger |
 
 ## Form
@@ -141,7 +141,9 @@ equally likely, whatever the set, mood or kit** (12.5% each). All are one bar, r
 | Fills | Only at the last bar of a block whose next block changes kick, snare or bass: snare 16ths on beat 4 (velocity 60 to 90), a kick on the "and" of 4. No crashes, no tom fills, no rolls into drops. | genre + taste (nothing startling) | **Partial** | R13 |
 | 1-bar drops | The last bar of an 8-bar block with no layer change, 40% × Motion of the eligible blocks; never in Slow bloom or Straight in. | genre | **Done** (`plan.c`) | *audio* §4.4 |
 | Polymeter | A 3-against-4 shaker in pattern 5. | **Sam** (approved) | **Done** (`poly3`) | spec |
-| Kick phrases | Sam's two-bar kick phrases k2–k6 (2026-10-28) exist in the workbench only; no engine pattern is two-bar. | **Sam**: "k2-k6 could all work" | **Not yet** in the engine | ledger |
+| Kick phrases | Two-bar kick phrases: Sam's k2–k6 (2026-10-28) and four of Cut-A-Dor's conversations (k7–k10). A boom-bap song plays one in place of its pattern's kick 30% of the time, an approved one at even odds; the bass's roots follow it. The device's kick row and the workbench force one. | **Sam**: "k2-k6 could all work"; Cut-A-Dor's (2026-11-10) to judge | **Done** (`roll.c`, `KICK_PHRASE`) | ledger |
+| Hat figures | A boom-bap song plays one of Cut-A-Dor's eight hat bars over its 8ths 25% of the time (bar A and bar B differ): a hat dropped under the backbeat, a 16th pickup, 16th pairs, the and of 3 a 16th later. | Cut-A-Dor (2026-11-10) to judge | **Done** (`roll.c`, `HAT_FIG`) | ledger |
+| Drum pocket | Over the swing, per song (0.5-1.0 of Cut-A-Dor's lo-fi values): a kick off the beat 2 ticks of 96 PPQN late (about 7-15 ms), with the bass's roots on it; the closed hat 1 tick ahead on the beat, 3 on the and, 4 behind on an off 16th. | Cut-A-Dor (2026-11-10) to judge | **Done** (`groove.c`) | ledger |
 
 ### Kits
 
@@ -316,5 +318,5 @@ keys' semitone check, are in [general.md](general.md#open-questions-for-sam).)
    the lead still moves up over them. Should strums (and sustained keys) voice under the lead too?
 5. **Drum patterns ignore the set and the family.** Any of the 8 patterns plays with any set and kit, equally
    likely (a bossa pattern under a synth set, the brushes pattern with the 808). The ledger left open "should the
-   drum patterns split by family too". Your two-bar kick phrases (k2–k6, 2026-10-28) are workbench-only; no engine
-   pattern is two-bar. Tie patterns to family or flavor, and bring the kick phrases in?
+   drum patterns split by family too". Your two-bar kick phrases (k2–k6, 2026-10-28) are in the engine since
+   2026-11-10 (boom-bap songs, 30%). Tie patterns to family or flavor?
