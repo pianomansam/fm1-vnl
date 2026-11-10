@@ -508,7 +508,8 @@ def option_blocks(model, text):
 
     def indexed(fam, kind):
         es = sorted((x for x in model[fam].items() if x[1].get("kind") == kind), key=lambda x: x[1]["index"])
-        return [f'    {{ "id": "{k}", "index": {e["index"]}, "name": {name(e)}{st(e)} }}' for k, e in es]
+        bare = lambda e: json.dumps(re.sub(r"^\d+-", "", e["file"].split("/", 1)[1]))  # noqa: E731  (Sam: no numbers)
+        return [f'    {{ "id": "{k}", "index": {e["index"]}, "name": {bare(e)}{st(e)} }}' for k, e in es]
     return {"patterns": drums, "kickPhrases": kicks, "strumPats": indexed("strum", "pattern"),
             "compRhythms": comp_rhythms(model)}
 

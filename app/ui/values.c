@@ -292,6 +292,11 @@ static const char *label(const ui_bag_t *b, int row, char *t)
     int r = real_row(b, row), v = value_of_row(b, r), fl;
     const char *n = choice_name(r, v, nb), *x;
     t[0] = 0;
+    if (row == ROW_PAD) {                                   /* the pad off (rolled or set): "OFF", not its instrument
+                                                               (Sam, 2026-11-10) */
+        const char *o = label(b, ROW_PAD_ON, rn);
+        if (o[0] == 'O' && o[1] == 'F' && o[2] == 'F' && !o[3]) return cat(t, "OFF");
+    }
     fl = ch_flags(r, v);
     if (fl >= 0 && (fl & CH_ROLLED) && (x = rolled_name(b, row, rn)) != 0) return cat(t, x);
     if (n) return cat(t, n);

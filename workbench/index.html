@@ -189,7 +189,9 @@
           const o = optionsFor(r, desk.state, desk.opts, { showRetired: true, lib }).find((y) => String(y.value) === String(v));
           const n = String(o?.short ?? o?.name ?? v ?? "").toUpperCase();
           return o?.rolled && rn[as] ? rn[as] : n; };   // the main screen's tiles: what plays
-        return { ...Object.fromEntries(ROWS.map((r) => [r.id, name(r.id)])), rhythm: name(rhythmRow(desk.state, desk.opts), "rhythm") };
+        const L = { ...Object.fromEntries(ROWS.map((r) => [r.id, name(r.id)])), rhythm: name(rhythmRow(desk.state, desk.opts), "rhythm") };
+        if (L.padOn === "OFF") L.pad = "OFF";   // the pad off (rolled or set): the main screen's tile says so (Sam, 2026-11-10)
+        return L;
       };
       // the rows a screen's knobs can set: each row's value and its choices ({ value, name }, as the device writes
       // them); "rhythm" is the comp's one Rhythm row
