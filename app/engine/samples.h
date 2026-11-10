@@ -29,9 +29,10 @@ typedef struct { uint32_t off, len, loop_start, loop_len; uint16_t rate; uint8_t
                  uint8_t idx0; float gain; } smp_zone_t;   /* off: in the payload; loop_len 0 = one-shot; idx0 0..88 */
 typedef struct { const smp_zone_t *z; uint8_t n; } smp_bank_t;  /* zones sorted by root */
 
-/* Pitched banks: the Knight upright (VCSL), the FreePats Spanish classical nylon, the Karoryfer Emilyguitar (the
-   VCSL vibraphone went 2026-11-03: the vibes are modeled, modal.h). */
-enum { SB_KNIGHT, SB_NYLON, SB_EMILY, SB_N };
+/* Pitched banks: the Knight upright (VCSL), the FreePats Spanish classical nylon, the Karoryfer Emilyguitar, the
+   jazz guitar (the Karoryfer Shinyguitar's pickup, through tools/samples/tone.py's chain; a candidate lead, 2026-11-10)
+   (the VCSL vibraphone went 2026-11-03: the vibes are modeled, modal.h). */
+enum { SB_KNIGHT, SB_NYLON, SB_EMILY, SB_JAZZ, SB_N };
 
 /* The workbench's sampled kits (wb_drums.c; prep_kits.py's files, reduced): a piece keeps SK_VL of its layers; each of
    its velocity ranges (hi: their tops, ascending, n of them) plays kept layer use at lvl (its own recording's level

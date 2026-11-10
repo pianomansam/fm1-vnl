@@ -31,10 +31,23 @@ static const smp_zone_t B_emily[8] = {
     {109331u, 12794u, 11200u, 1594u, 16000u, 75, 80, 3.400526e+00f},
     {115728u, 12800u, 11200u, 1600u, 16000u, 81, 88, 6.696971e+00f},
 };
+static const smp_zone_t B_jazz[10] = {
+    {272064u, 8400u, 7200u, 1200u, 12000u, 57, 76, 3.048943e+00f},
+    {276264u, 8392u, 7200u, 1192u, 12000u, 60, 72, 3.088928e+00f},
+    {280460u, 8396u, 7200u, 1196u, 12000u, 63, 72, 2.929868e+00f},
+    {284658u, 8400u, 7200u, 1200u, 12000u, 66, 64, 3.750270e+00f},
+    {288858u, 8400u, 7200u, 1200u, 12000u, 69, 60, 3.119133e+00f},
+    {293058u, 8392u, 7200u, 1192u, 12000u, 72, 84, 2.669480e+00f},
+    {297254u, 8396u, 7200u, 1196u, 12000u, 75, 76, 3.733203e+00f},
+    {301452u, 8400u, 7200u, 1200u, 12000u, 78, 76, 3.552295e+00f},
+    {305652u, 8400u, 7200u, 1200u, 12000u, 81, 80, 2.689344e+00f},
+    {309852u, 8404u, 7200u, 1204u, 12000u, 84, 84, 3.094213e+00f},
+};
 static const smp_bank_t BANKS[SB_N] = {
     [SB_KNIGHT] = {B_knight, 6},
     [SB_NYLON] = {B_nylon, 7},
     [SB_EMILY] = {B_emily, 8},
+    [SB_JAZZ] = {B_jazz, 10},
 };
 static const smp_zone_t KZ[20] = {
     {122128u, 12126u, 0u, 0u, 22050u, 60, 36, 1.444970e-01f},
@@ -84,6 +97,6 @@ const smp_piece_t *smp_piece(int set, int p)
 {
     return smp_ready() && set >= 0 && set < SK_N && p >= 0 && p < SK_P_N && PIECES[set][p].n ? &PIECES[set][p] : 0;
 }
-uint32_t smp_bytes(void) { return 272064u; }
-uint32_t smp_split(void) { return 272064u; }
-uint32_t smp_crc(void) { return 0x4083E0FDu; }
+uint32_t smp_bytes(void) { return 314054u; }
+uint32_t smp_split(void) { return 297254u; }
+uint32_t smp_crc(void) { return 0xC0CBB73Fu; }

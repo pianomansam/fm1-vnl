@@ -14,6 +14,12 @@
       "raw": "https://raw.githubusercontent.com/sfzinstruments/karoryfer.emilyguitar/master/",
       "license": "LICENSE"
     },
+    "shiny": {
+      "name": "Karoryfer Shinyguitar",
+      "url": "https://github.com/sfzinstruments/karoryfer.shinyguitar",
+      "raw": "https://raw.githubusercontent.com/sfzinstruments/karoryfer.shinyguitar/master/",
+      "license": "LICENSE"
+    },
     "freepats_nylon": {
       "name": "FreePats Spanish Classical Guitar 2019-06-18 (SF2)",
       "url": "https://freepats.zenvoid.org/Guitar/acoustic-guitar.html",
@@ -53,6 +59,24 @@
         {"file": "notes/a4_mf_rr1.wav", "hint": 69},
         {"file": "notes/eb5_mf_rr1.wav", "hint": 75},
         {"file": "notes/a5_mf_rr1.wav", "hint": 81}
+      ]
+    },
+    {
+      "id": "SB_JAZZ", "src": "shiny", "rate": 12000, "attack": 0.6, "loop": 0.1, "after_kits": true,
+      "comment": "The jazz guitar (a candidate lead, 2026-11-10): the Shinyguitar archtop's magnetic pickup (electric), vl2 (velocities 33-64: jazz is played soft), rr1, every minor 3rd A3-C6 (the lead's register); standard pitch (the SFZ's keycenters). Through tone.py's chain before packing: a warm, round, dark jazz box (re-amped notes: \"bypass\": true). At 12 kHz (the cabinet rolls off above 4.5 kHz); laid out after the kits (after_kits), so every other zone keeps its place.",
+      "tone": {"in_db": -6.0, "tone_hz": 2200.0, "tone_order": 1, "drive": 1.5, "hp_hz": 90.0,
+               "body_hz": 350.0, "body_db": 3.0, "body_q": 0.9, "cab_hz": 4500.0, "cab_order": 4, "out_db": -1.0},
+      "zones": [
+        {"file": "Samples/electric/a3_vl2_rr1_2.wav", "hint": 57},
+        {"file": "Samples/electric/c4_vl2_rr1_2.wav", "hint": 60},
+        {"file": "Samples/electric/eb4_vl2_rr1_2.wav", "hint": 63},
+        {"file": "Samples/electric/gb4_vl2_rr1_2.wav", "hint": 66},
+        {"file": "Samples/electric/a4_vl2_rr1_2.wav", "hint": 69},
+        {"file": "Samples/electric/c5_vl2_rr1_2.wav", "hint": 72},
+        {"file": "Samples/electric/eb5_vl2_rr1_2.wav", "hint": 75},
+        {"file": "Samples/electric/gb5_vl2_rr1_2.wav", "hint": 78},
+        {"file": "Samples/electric/a5_vl2_rr1_2.wav", "hint": 81},
+        {"file": "Samples/electric/c6_vl2_rr1_2.wav", "hint": 84}
       ]
     }
   ],

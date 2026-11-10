@@ -1414,3 +1414,19 @@ only, nothing to measure.)
   pool 304,956 B unchanged.
 - CPU (`tick_bench 1000 3`, host, old and new built side by side): worst tick 14.0 to 14.0 us (others), 25.0 to
   21.0 us (strummed: noise); the mean 16th 0.16 to 0.16 us, the downbeat 0.47 to 0.47 us.
+
+### The jazz guitar: a sampled lead on trial (2026-11-10)
+
+A candidate lead (INS_JAZZ_GTR, workbench-only until approved): the Karoryfer Shinyguitar archtop's magnetic pickup,
+ten notes A3-C6 (`vl2`, `rr1`), shaped offline by `tools/samples/tone.py` (tone knob, light tube, cabinet) and packed
+at 12 kHz. It plays on the sampler every sampled instrument uses (M_SAMP); no new code runs per sample, no doubles, no
+heap.
+
+- Bank (`tools/samples/pack.py`): payload 272,064 to **314,054 B (+41,990)**, laid out after the kits
+  (`after_kits`): the old payload is the new one's first 272,064 bytes, byte for byte, so every other zone keeps its
+  offset, table fields and ADPCM. Area 0 297,270 of 299,008 B, area 1 16,800 of 94,208 B: **79,146 B free**.
+- Flash: image 289,852 to **290,316 B (+464)**: the zone table, the patch, its name. RAM .data+.bss 74,660 B and the
+  pool 304,956 B unchanged (`./build.sh`, against 90efddd).
+- CPU (`tools/cost-bench.sh --parts`, host, lead rows): jazz guitar 28.1 ms net, ratio 0.207 (the Knight 0.225, the
+  flute 0.238, the felt piano 0.176, the vibes 0.151): a 12 kHz zone decodes fewer ADPCM samples a second than the
+  Knight's 16 kHz.

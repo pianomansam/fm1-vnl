@@ -8,6 +8,9 @@
 #   crossfaded; the sampler's envelope does the decay), peak-normalized.
 #   Kit pieces (the workbench's sampled kits): resampled, cut to length with a cosine fade over the last 40%,
 #   peak-normalized.
+#   A bank with a "tone" (manifest.json) shapes its notes first, before the onset trim: tone.py's chain, its settings
+#   by name. A bank marked "after_kits" is laid out after the kits (first fit, as theirs), so the zones before it
+#   keep their places.
 #   Every zone: 4-bit IMA ADPCM from (0, idx0), idx0 the starting step index that encodes the zone best (the first 5 ms
 #   weigh most: a poor start smears a hit's attack), never decoding to the clamp (the zone scaled down 3% at a time
 #   until it doesn't), and a gain that brings the first 150 ms to unit RMS.
@@ -36,6 +39,7 @@ from scipy.signal import resample_poly
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import sf2  # noqa: E402
+import tone  # noqa: E402
 
 STEP = [7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 31, 34, 37, 41, 45, 50, 55, 60, 66, 73, 80, 88, 97,
         107, 118, 130, 143, 157, 173, 190, 209, 230, 253, 279, 307, 337, 371, 408, 449, 494, 544, 598, 658, 724, 796,
@@ -293,8 +297,9 @@ def layout(first, kit):
         pad[id(z)] = pad.get(id(z), 0) + 1
 
 
-def write(banks, kits, out):
-    """banks [(id, tag, [Zone])], kits [[piece or None]] (a piece: ([Zone], [hi], curve, vel))
+def write(banks, kits, out, late=()):
+    """banks [(id, tag, [Zone])], kits [[piece or None]] (a piece: ([Zone], [hi], curve, vel)), late: the ids of the
+    banks laid out after the kits
     -> out/samples_blob.c (the bank) and out/samples_data.c (the tables); each zone's offset (z.off) set. The bank:
     the head (magic, format, the payload's length and CRC-32, little-endian), then the payload, every zone's ADPCM
     (layout's order). Returns (the payload's length, split)."""
@@ -304,7 +309,8 @@ def write(banks, kits, out):
             for z in pc[0] if pc else []:
                 if all(z is not k for k in kz):
                     kz.append(z)
-    payload, split = layout([z for _, _, zs in banks for z in zs], kz)
+    payload, split = layout([z for bid, _, zs in banks if bid not in late for z in zs],
+                            kz + [z for bid, _, zs in banks if bid in late for z in zs])
     crc = zlib.crc32(payload) & 0xFFFFFFFF
     blob = MAGIC + struct.pack('<III', FORMAT, len(payload), crc) + payload
     gen = ['/* SPDX-License-Identifier: GPL-3.0-or-later */\n',
@@ -425,6 +431,8 @@ def pack(scratch, out, kits_dir):
         else:
             for zm in b['zones']:
                 sr, x = read_wav(wav_path(scratch, b['src'], zm['file']))
+                if 'tone' in b:
+                    x = tone.chain(x, sr, b['tone'])
                 x = onset_trim(x / (np.max(np.abs(x)) + 1e-12), sr)
                 root_f = midi_of(measure_f0(x, sr, zm['hint']))
                 zs.append(make_zone('', x, sr, root_f, b['attack'], b['loop'], r))
@@ -432,7 +440,7 @@ def pack(scratch, out, kits_dir):
         zs.sort(key=lambda z: z.root)
         banks.append((b['id'], tag, zs))
     kits = pack_kits(m, kits_dir)
-    total, split = write(banks, kits, out)
+    total, split = write(banks, kits, out, {b['id'] for b in m['banks'] if b.get('after_kits')})
 
     print('%-10s %5s %6s %7s %5s %6s %7s %6s %4s' % ('bank', 'zone', 'root', 'bytes', 'len_s', 'loop', 'snr_dB', 'gain',
                                                    'idx0'))

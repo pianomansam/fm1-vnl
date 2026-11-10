@@ -21,6 +21,8 @@ enum { INS_RHODES, INS_WURLI, INS_FELT_PIANO, INS_NYLON, INS_PAD, INS_UPRIGHT, I
        INS_CHOIR,                 /* the formant choir: a pad layer the song draws over its set's (lib_song_pad), and
                                      one of the pad's solo voices (pads_solo_voice). The vox pad (INS_VOX_PAD) it
                                      replaced is removed (Sam, 2026-10-31): no patch, no set; its id never reused */
+       INS_JAZZ_GTR,              /* sampled (M_SAMP): the jazz guitar, an archtop's pickup (a candidate lead,
+                                     2026-11-10) */
        INS_NONE }; /* append new ones before INS_NONE */
 /* the synth kits (drums.c), then the mixed sampled kits (retired; their hits left the bank 2026-11-10: the ids stay, a
    sampled kit's song's mark under a shipped sampled kit, song.c; their own hits are silent, drums.c) */
@@ -72,7 +74,8 @@ int lib_lead_approved(int ins);
 int lib_bass_approved(int ins);
 /* a removed keys (the Wurli, the DX EP: 2026-11-04): the Rhodes in its place; else ins */
 int lib_keys_approved(int ins);
-/* 1: a sampled struck-string instrument (the Knight, the nylon, the Emilyguitar): stabs and strums suit it */
+/* 1: a sampled struck-string instrument (the Knight, the nylon, the Emilyguitar, the jazz guitar): stabs and strums
+   suit it (on the keys); none plays without the sample bank */
 int lib_ins_sampled_struck(int ins);
 /* the sample bank (engine/samples.h): 1 mounted (the default), 0 none (the app's boot, or a bank being written). With
    none the songs keep to synth instruments: no set with sampled keys, bass or lead is drawn or taken, a set's kit is

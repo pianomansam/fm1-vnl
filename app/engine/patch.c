@@ -29,7 +29,7 @@
      low-pass (two one-poles); the ensemble's width is the chorus's (the patch's chorus: the pad bus's send into it).
      p[0] the partner's detune in cents (up), p[1] its level, p[2] the low-pass's cutoff in Hz plus p[3] times the
      note's frequency, p[4] 1 for the choir: its voices sing through the formant bank (voices.c's choir_run).
-   M_SAMP (the Knight upright, the nylon, the Emilyguitar; sampler.c): the bank's nearest zone
+   M_SAMP (the Knight upright, the nylon, the Emilyguitar, the jazz guitar; sampler.c): the bank's nearest zone
      (samples.h) retuned, through a one-pole tone, on its own envelope (att, dec, sus, rel as every model's).
      p[0] the bank (SB_*), p[1] the tone's cutoff in Hz at full velocity plus p[8] times the note's frequency (both 0:
      no tone; at most 7.5 kHz), p[2] velocity to tone (0-1: the cutoff at velocity 0 is 1 - p[2] of it), p[3] 1 for a
@@ -105,6 +105,11 @@ static const vx_patch_t PATCHES[INS_NONE] = {
                     0.35f, 0.571f, 0.1f, 0.06f},
     [INS_EMILY] = {M_SAMP, {SB_EMILY, 300.0f, 0.55f, 0.0f, 0.0f, 0.5f, 0.6f, 1.0f, 12.0f}, 0.001f, 5.0f, 0.0f, 0.12f,
                    0.648f, 0.3f, 0.1f},
+    /* the jazz guitar (the Shinyguitar's pickup, Karoryfer, CC0; a candidate lead, 2026-11-10): its tone baked in
+       before packing (tools/samples/tone.py: the tone knob, a light tube, a cabinet), so the sampler's tone only
+       takes the pick's edge off (8x the note, falling to 60%) and keeps the ADPCM's hiss under it; no vibrato */
+    [INS_JAZZ_GTR] = {M_SAMP, {SB_JAZZ, 300.0f, 0.5f, 0.0f, 0.0f, 0.5f, 0.6f, 0.8f, 8.0f}, 0.001f, 4.5f, 0.0f, 0.15f,
+                      0.648f, 0.0f, 0.1f},
 };
 
 /* The organ's keys (Sam's picks, 2026-10-31): the slow rotary (horn 25%, Doppler 0.2%), a click, a 3 ms attack and an

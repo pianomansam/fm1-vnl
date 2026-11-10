@@ -109,11 +109,12 @@ static const float CP_THR_KIT[KIT_N] = {0.095f, 0.090f, 0.084f, 0.162f, 0.110f, 
                              loses 2.1 dB to their partial cancellation) */
 #define TW_SC_PAD 0.7182f /* (the pad's organ, its 4' nearer the comb's first notch: matched to the warm pad) */
 #define TW_SC_XF 0.06f    /* the pad's scanner switching on or off by section: a crossfade (s) */
-/* a sampled instrument (M_SAMP) on the lead, over its level on the keys, per bank (Knight, nylon, Emilyguitar): its
-   patch's level matches the Rhodes on the keys; the nylon +7 dB (the flute's level on the lead), the Knight +3.85 and
-   the Emilyguitar +3.5, tuned on their sets' lead over keys (test_lead_over_keys: a struck lead reads 8-10 dB over the
-   keys at about 4 dB under the flute's bar energy) */
-static const float SAMP_LEAD[SB_N] = {1.5578f, 2.239f, 1.4962f};
+/* a sampled instrument (M_SAMP) on the lead, over its level on the keys, per bank (Knight, nylon, Emilyguitar, jazz
+   guitar): its patch's level matches the Rhodes on the keys; the nylon +7 dB (the flute's level on the lead), the
+   Knight +3.85 and the Emilyguitar +3.5, tuned on their sets' lead over keys (test_lead_over_keys: a struck lead reads
+   8-10 dB over the keys at about 4 dB under the flute's bar energy); the jazz guitar (a candidate, no set) +3.2, the
+   Knight's level on the lead in test_samp's songs */
+static const float SAMP_LEAD[SB_N] = {1.5578f, 2.239f, 1.4962f, 1.4454f};
 
 /* big zero-initialised buffers go in the device's .pool RAM region (fm1-base's PLAT_POOL; a Mach-O host has no such
    section) */

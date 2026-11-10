@@ -1391,7 +1391,8 @@ static void test_comp_styles(void)
     song_roll_t r;
     int k, i, seed, n = 500, bad_old = 0, bad_gtr = 0;
     CHECK(lib_ins_sampled_struck(INS_KNIGHT) && lib_ins_sampled_struck(INS_NYLON) &&
-          lib_ins_sampled_struck(INS_EMILY) && !lib_ins_sampled_struck(INS_RHODES) &&
+          lib_ins_sampled_struck(INS_EMILY) && lib_ins_sampled_struck(INS_JAZZ_GTR) &&
+          !lib_ins_sampled_struck(INS_RHODES) &&
           !lib_ins_sampled_struck(INS_PAD), "comp styles: lib_ins_sampled_struck");
     CHECK(CS_STRUM > CS_HALF, "comp styles: CS_STRUM appended after CS_HALF");
     for (seed = 1; seed <= n; seed++) {
@@ -2176,9 +2177,10 @@ static void test_chip(void)
           INS_FM_BASS - INS_VOX_PAD);
     CHECK(INS_STRINGS == INS_FM_BASS + 1 && INS_WARM_PAD == INS_FM_BASS + 2 && INS_KNIGHT == INS_FM_BASS + 3 &&
               INS_EMILY == INS_FM_BASS + 4 && INS_STR_LEAD == INS_FM_BASS + 5 && INS_CELLO == INS_FM_BASS + 6 &&
-              INS_CHOIR == INS_FM_BASS + 7 && INS_NONE == INS_FM_BASS + 8,
+              INS_CHOIR == INS_FM_BASS + 7 && INS_JAZZ_GTR == INS_FM_BASS + 8 && INS_NONE == INS_FM_BASS + 9,
           "instruments: %d after the six synths, wanted the pad layer's two (strings, warm pad), the Knight, the "
-          "Emilyguitar, the string synth's high lead and cello (removed 2026-10-29; their ids kept), then the choir",
+          "Emilyguitar, the string synth's high lead and cello (removed 2026-10-29; their ids kept), the choir, then "
+          "the jazz guitar",
           INS_NONE - INS_FM_BASS - 1);
     { /* the triangle at note 36 (674 samples a cycle): its plateaus' levels in one cycle from 0.5 s, clustered */
         static float lv[1024];
@@ -11901,8 +11903,8 @@ static void check_zone(const smp_zone_t *z, const char *what, int id, int k)
           k);
     CHECK(z->loop_start + z->loop_len <= z->len, "%s %d zone %d: loop %u+%u past %u", what, id, k,
           (unsigned)z->loop_start, (unsigned)z->loop_len, (unsigned)z->len);
-    CHECK(z->rate == 16000 || z->rate == 22050 || z->rate == 32000, "%s %d zone %d: rate %u", what, id, k,
-          (unsigned)z->rate);
+    CHECK(z->rate == 12000 || z->rate == 16000 || z->rate == 22050 || z->rate == 32000, "%s %d zone %d: rate %u", what,
+          id, k, (unsigned)z->rate);
     CHECK(z->gain > 0.0f, "%s %d zone %d: gain %g", what, id, k, (double)z->gain);
     CHECK(z->idx0 <= 88, "%s %d zone %d: idx0 %d", what, id, k, z->idx0);
 }
@@ -11985,9 +11987,11 @@ static void test_samples_bank(void)
     memcpy(bad, smp_blob, SMP_HEAD + smp_split());  /* in two areas, as the FM-1 keeps it */
     memset(bad + SMP_HEAD + smp_split(), 0xFF, smp_bytes() - smp_split());
     memcpy(more, smp_blob + SMP_HEAD + smp_split(), smp_bytes() - smp_split());
-    if (smp_bytes() > smp_split()) {
+    if (smp_bytes() > smp_split()) {              /* (the jazz guitar's top zone, laid out last: in the second area) */
         CHECK(smp_mount(bad, SMP_HEAD + smp_split(), more, sizeof more) == 0 &&
-                  smp_piece(SK_BRUSHES, SK_RIDE)->z[1]->off >= smp_split() &&
+                  smp_bank(SB_JAZZ)->z[smp_bank(SB_JAZZ)->n - 1].off >= smp_split() &&
+                  smp_data(&smp_bank(SB_JAZZ)->z[smp_bank(SB_JAZZ)->n - 1])[0] ==
+                      smp_blob[SMP_HEAD + smp_bank(SB_JAZZ)->z[smp_bank(SB_JAZZ)->n - 1].off] &&
                   smp_data(smp_piece(SK_BRUSHES, SK_RIDE)->z[1])[0] ==
                       smp_blob[SMP_HEAD + smp_piece(SK_BRUSHES, SK_RIDE)->z[1]->off],
               "bank: two areas do not mount, or a zone reads from the wrong one");
@@ -12064,7 +12068,7 @@ static void test_samples_bank(void)
 }
 
 /* ------------------------------------------------------------------------------ the sampler voice (M_SAMP) --- */
-static const int SP_INS[SB_N] = {INS_KNIGHT, INS_NYLON, INS_EMILY}; /* each bank's patch */
+static const int SP_INS[SB_N] = {INS_KNIGHT, INS_NYLON, INS_EMILY, INS_JAZZ_GTR}; /* each bank's patch */
 #define SP_LEN (4u * 44100u)
 static float sp_a[SP_LEN], sp_b[SP_LEN];
 
@@ -12203,11 +12207,16 @@ static void test_samp(void)
         /* out of range: the end zones, the decoder in bounds, finite; the low note in tune */
         {
             float hz = 440.0f * fm_exp2f((20.0f - 69.0f) / 12.0f), c;
+            uint32_t at;
             v.dv = 1.0f;
             samp_start(&v, p, 20.0f, 0.8f);
             CHECK(v.d.z == &b->z[0], "samp: bank %d note 20 not on its lowest zone", bk);
             CHECK(sp_run(&v, sp_a, SP_LEN), "samp: bank %d note 20 read past its zone or went NaN", bk);
-            c = sp_cents(sp_a, (uint32_t)((float)v.d.z->loop_start / v.step) + 882u, 22050u, 44100.0f / hz);
+            at = (uint32_t)((float)v.d.z->loop_start / v.step) + 882u;
+            if (at > SP_LEN - 22050u - 2u * 1700u) /* (a zone far above note 20, the jazz guitar's A3: its attack runs
+                                                      past the render; the window and its lags kept in it) */
+                at = SP_LEN - 22050u - 2u * 1700u;
+            c = sp_cents(sp_a, at, 22050u, 44100.0f / hz);
             CHECK(fm_fabsf(c) <= 3.0f, "samp: bank %d note 20 %+.2f cents off", bk, (double)c);
             v.dv = 1.0f;
             samp_start(&v, p, 110.0f, 0.8f);

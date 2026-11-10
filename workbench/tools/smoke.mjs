@@ -559,8 +559,9 @@ console.log("options.json");
   const leads = optionsFor(row("lead"), { values: {} }, OPTS).map((o) => o.name).sort();
   check(retired(OPTS.instruments, ["Kalimba", "Saw lead", "Synth pluck"]) &&
         JSON.stringify(OPTS.instruments.find((i) => i.name === "Electric guitar").roles) === '["keys"]' &&
-        JSON.stringify(leads) === JSON.stringify(["Felt piano", "Flute", "Piano", "Vibes"]),
-        `the lead styles build: the lead row offers the four (${leads.join(", ")}); the kalimba, saw lead and synth pluck retired, the Electric guitar on the keys only`);
+        JSON.stringify(leads) === JSON.stringify(["Felt piano", "Flute", "Jazz guitar", "Piano", "Vibes"]) &&
+        OPTS.instruments.find((i) => i.name === "Jazz guitar").status === "candidate",
+        `the lead styles build: the lead row offers the four and the jazz guitar, a candidate (${leads.join(", ")}); the kalimba, saw lead and synth pluck retired, the Electric guitar on the keys only`);
   check(retired(OPTS.instruments, ["Upright bass"]) && retired(OPTS.comping, ["Arpeggio", "Offbeats"]) &&
         retired(OPTS.kits, ["Dusty (synth)", "Soft (synth)", "Our 808"]),
         "the removed sounds are retired (upright, our synth kits, arpeggio, offbeats)");
@@ -2853,10 +2854,11 @@ console.log("lead loop end to end (Jazz-Hop, the Lead loop row On)");
 }
 
 console.log("options.json: statuses");
-check(!OPTS.instruments.some((i) => i.status === "candidate") &&
+check(OPTS.instruments.filter((i) => i.status === "candidate").map((i) => i.sym).join() === "INS_JAZZ_GTR" &&
       ["INS_PAD", "INS_CHOIR"].every((n) => OPTS.instruments.find((i) => i.sym === n).status === "approved") &&
       OPTS.instruments.find((i) => i.name === "Vox pad").status === "retired",
-      "no candidates among the instruments (the chillwave pad and the choir approved, the vox pad retired)");
+      "the jazz guitar the one candidate among the instruments (the chillwave pad and the choir approved, the vox pad " +
+      "retired)");
 {
   const { inactive } = await import("../rows.js");
   const st = (kit) => ({ values: { kit } });

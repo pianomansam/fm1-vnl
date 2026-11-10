@@ -44,7 +44,8 @@ int lead_motif_to(const lead_motif_t *m, int si0, int *at, int *len, int *si)
 
 /* The styles each lead instrument plays (the spec's fits, bit LS_*): the flute any of the eight; the felt piano '60s
    Jazz, Jazz-Hop, Film Score, Ambient; the vibes Impressionism, '60s Jazz, Jazz-Hop, Bossa Nova, Ambient; the Knight
-   '60s Jazz, Film Score, Ambient. Any other instrument on the lead (a workbench pick) takes the flute's. */
+   '60s Jazz, Film Score, Ambient; the jazz guitar (a candidate) '60s Jazz, Modal Jazz, Jazz-Hop, Bossa Nova. Any other
+   instrument on the lead (a workbench pick) takes the flute's. */
 #define LSB(s) (1u << (s))
 static unsigned style_fit(int ins)
 {
@@ -52,6 +53,7 @@ static unsigned style_fit(int ins)
     if (ins == INS_VIBES)
         return LSB(LS_IMPRESSIONISM) | LSB(LS_JAZZ60S) | LSB(LS_JAZZHOP) | LSB(LS_BOSSA) | LSB(LS_AMBIENT);
     if (ins == INS_KNIGHT) return LSB(LS_JAZZ60S) | LSB(LS_FILMSCORE) | LSB(LS_AMBIENT);
+    if (ins == INS_JAZZ_GTR) return LSB(LS_JAZZ60S) | LSB(LS_MODAL) | LSB(LS_JAZZHOP) | LSB(LS_BOSSA);
     return LSB(LS_N) - 1u;
 }
 
