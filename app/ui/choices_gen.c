@@ -88,12 +88,12 @@ const char CH_STR[1298] =
     "808\000"
     "CR-78\000"
     "CRUNCHY MACHINE\000"
-    "DUSTY\000"
-    "ROOM - BIG\000"
-    "ROOM - BRUSHES\000"
     "BOOM-BAP MACHINE\000"
     "JAZZ MACHINE\000"
     "PHONK MACHINE\000"
+    "DUSTY\000"
+    "ROOM - BIG\000"
+    "ROOM - BRUSHES\000"
     "BOOM BAP - STEADY\000"
     "BOOM BAP - SKIP\000"
     "BOOM BAP - SHAKER\000"
@@ -269,12 +269,12 @@ static const ch_entry_t CH_E[143] = {
     {16, 32, 913},
     {17, 32, 917},
     {18, 32, 923},
-    {19, 16, 939},
-    {20, 16, 945},
-    {21, 16, 956},
-    {22, 32, 971},
-    {23, 32, 988},
-    {24, 34, 1001},
+    {22, 32, 939},
+    {23, 32, 956},
+    {24, 34, 969},
+    {19, 16, 983},
+    {20, 16, 989},
+    {21, 16, 1000},
     {1, 0, 1015},
     {2, 0, 1033},
     {3, 0, 1049},

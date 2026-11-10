@@ -52,12 +52,12 @@
     { "id": 16, "sym": "WB_KIT_PT808", "name": "808", "family": "synth", "status": "approved" },
     { "id": 17, "sym": "WB_KIT_PTCR78", "name": "CR-78", "family": "synth", "status": "approved" },
     { "id": 18, "sym": "WB_KIT_OPTLOFI", "name": "Crunchy machine", "family": "synth", "status": "approved" },
-    { "id": 19, "sym": "WB_KIT_GOGODZE", "name": "Dusty", "family": "acoustic", "status": "approved", "ride": true, "set": 0 },
-    { "id": 20, "sym": "WB_KIT_RUSTY", "name": "Room - big", "family": "acoustic", "status": "approved", "ride": true, "set": 1 },
-    { "id": 21, "sym": "WB_KIT_BRUSHES", "name": "Room - brushes", "family": "acoustic", "status": "approved", "ride": true, "set": 2 },
     { "id": 22, "sym": "WB_KIT_OPTBOOMBAP", "name": "Boom-bap machine", "family": "synth", "status": "approved" },
     { "id": 23, "sym": "WB_KIT_OPTJAZZ", "name": "Jazz machine", "family": "synth", "status": "approved" },
-    { "id": 24, "sym": "WB_KIT_OPTPHONK", "name": "Phonk machine", "family": "synth", "status": "retired" }
+    { "id": 24, "sym": "WB_KIT_OPTPHONK", "name": "Phonk machine", "family": "synth", "status": "retired" },
+    { "id": 19, "sym": "WB_KIT_GOGODZE", "name": "Dusty", "family": "acoustic", "status": "approved", "ride": true, "set": 0 },
+    { "id": 20, "sym": "WB_KIT_RUSTY", "name": "Room - big", "family": "acoustic", "status": "approved", "ride": true, "set": 1 },
+    { "id": 21, "sym": "WB_KIT_BRUSHES", "name": "Room - brushes", "family": "acoustic", "status": "approved", "ride": true, "set": 2 }
   ],
   "comping": [
     { "id": 2, "sym": "CS_OFFBEATS", "name": "Offbeats", "status": "retired", "notKeys": [3, 26] },
