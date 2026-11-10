@@ -676,7 +676,8 @@ class Import(unittest.TestCase):
         new = self.opts.read_text()
         self.assertIn('{ "id": "k3", "a": [0, 7, 10], "b": [0, 7, 11] }', new)
         self.assertEqual(new.replace('"b": [0, 7, 11]', '"b": [0, 7, 10]', 1), old)
-        self.assertNotIn("will move", so)                                    # the workbench's, not the firmware's
+        self.assertIn("will move", so)                                       # the engine plays kick phrases too
+        self.assertIn("import: pins move: changed approved kick-phrases k3", so)
 
     def test_check_writes_nothing(self):
         e = self.model["drums"]["1"]
