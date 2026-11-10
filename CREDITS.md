@@ -26,7 +26,8 @@ went with the string and cello leads, 2026-10-29). Two of its models follow GPL-
 values, with no code taken: the tonewheel organ (M_TW) after SLOOP's WHEEL engine, and the modeled vibraphone
 (M_MODAL, `app/engine/modal.h`; it replaced the VCSL vibraphone sample, 2026-11-03) after Ravel_FM1's TINE marimba.
 
-The drum lanes (`app/drums/`: the shipped kits 808, CR-78 and Crunchy machine, in the firmware and the workbench) build
+The drum lanes (`app/drums/`: the shipped kits 808, CR-78, Crunchy machine, Boom-bap machine, Jazz machine and Phonk
+machine, in the firmware and the workbench) build
 with two drum engines, credited here; their licenses and the files taken are in `app/drums/LICENSES.md`. Optimist's is
 GPL-3.0-only, as is FOMAJAM's, so the firmware binary as a whole is GPL-3.0-only (the README's "Credits and licenses"):
 
@@ -34,7 +35,7 @@ GPL-3.0-only, as is FOMAJAM's, so the firmware binary as a whole is GPL-3.0-only
 | --- | --- | --- | --- |
 | FOMAJAM's modeled drum machines (the 808 and CR-78; the 909 and SDS-V there, unused), integer tables of poketrack's trommelsynthesizer (by David Konsumer, zlib), by FOMAJAM's authors, at 138c5d9 | GPL-3.0-only (`app/drums/fomajam/LICENSE`; the upstream's zlib notice in `LICENSE.poketrack`) | https://github.com/konsumer/fomajam | `app/drums/fomajam/` (altered: the modeled machines only, a voice a slot) |
 | Optimist's predictive CPU guard (`cpuguard.c`, after Flowstate's guard by Zakaria Chowdhury), at 8a91efd | GPL-3.0-only (`app/drums/optimist/LICENSE`) | https://github.com/w0ts/optimist | `app/drums/cpuguard.c` (altered: our ladder, a learned voice cost) |
-| Optimist's synth drum engine (`drum_synth.c`) and its LO-FI kit, by Leo Kuroshita (@kurogedelic), Hügelton Instruments, and the Optimist contributors, at 915fd8a | GPL-3.0-only (`app/drums/optimist/LICENSE`) | https://github.com/w0ts/optimist | `app/drums/optimist/` (as is, its SPDX header and copyright kept) |
+| Optimist's synth drum engine (`drum_synth.c`) and four of its kits (LO-FI, BOOMBAP, JAZZ, PHONK: the recipes and levels of its `tools/gen_drumkits.py`), by Leo Kuroshita (@kurogedelic), Hügelton Instruments, and the Optimist contributors, at 915fd8a | GPL-3.0-only (`app/drums/optimist/LICENSE`) | https://github.com/w0ts/optimist | `app/drums/optimist/` (as is, its SPDX header and copyright kept) |
 
 The shipped sampled kits (Dusty, Room - big, Room - brushes) play recordings dedicated to the public domain under CC0
 1.0, fetched and mixed by `workbench/tools/prep_kits.py` (which checks each `LICENSE`) into `workbench/samples/`

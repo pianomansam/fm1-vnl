@@ -30,9 +30,12 @@
 
 /* the sources' levels (linear): a preset's kick and snare (RMS over a song, before the drums' compressor) at the
    Brushes kit's, the middle of their range over six songs (unity: 808 +11.3..+14.3 dB, CR-78 +8.8..+10.5, LO-FI
-   +14.7..+15.5; smoke.mjs checks two within 2 dB); the built-in's is its own */
+   +14.7..+15.5; smoke.mjs checks two within 2 dB); the built-in's is its own. The Optimist kits added later
+   (2026-11-10) at LO-FI's by the same measure over six songs (seeds 21, 77, 5, 34, 101, 150: their mid-range
+   against LO-FI's) */
 static const float PT_G[2] = {0.2281f, 0.3308f};    /* M_808 -12.8 dB, M_CR78 -9.6 dB (FOMAJAM's voices) */
-static const float OPT_G[WB_OPT_N] = {0.1758f};     /* LO-FI -15.1 dB */
+/* LO-FI -15.1 dB, BOOMBAP -16.6, JAZZ -10.1, PHONK -16.5 */
+static const float OPT_G[WB_OPT_N] = {0.1758f, 0.1474f, 0.3123f, 0.1488f};
 /* a sampled kit's level in dB (its snare at the Brushes kit's snare, by the same measure), and its kick's against
    that (the kick at Brushes' kick): as shipped (the SFZ programs' default mic mixes, the files as prep_kits.py makes
    them) the Gogodze kick sits 6.3 dB further over its snare than Brushes' does (its room mics), Big Rusty's sticks'
@@ -361,9 +364,9 @@ int wb_drums_preset(wb_drums_t *d, int id)
             int p = SMP_P[id - WB_KIT_GOGODZE][i];
             if (p >= 0)
                 *s = (wb_src_t){WB_SRC_SAMPLE, (uint8_t)(id - WB_KIT_GOGODZE), (uint8_t)p, 0.0f};
-        } else if (id == WB_KIT_OPTLOFI) {
+        } else if (id == WB_KIT_OPTLOFI || id >= WB_KIT_OPTBOOMBAP) {
             s->kind = WB_SRC_OPT;
-            s->a = WB_OPT_LOFI;
+            s->a = (uint8_t)(id == WB_KIT_OPTLOFI ? WB_OPT_LOFI : WB_OPT_BOOMBAP + (id - WB_KIT_OPTBOOMBAP));
             s->b = OPT_L[i];
         } else {
             s->kind = WB_SRC_PT;

@@ -401,6 +401,13 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
      edge fades, gate, reverse, brake; our closing filter added.
   2. **New drums:** Optimist's kit recipes (`tools/gen_drumkits.py`: BOOMBAP, LO-FI, JAZZ, PHONK), Cut-A-Dor's
      boom-bap drum generator (patterns and kick phrases), PERF-1's LOFI genre, zp12's 12-bit grit.
+     **Optimist's kits in (2026-11-10, to judge by ear):** BOOMBAP, JAZZ and PHONK on the Crunchy machine's engine
+     (data only), as the Boom-bap, Jazz and Phonk machine (kit rows 22-24, appended past the sampled kits). Boom-bap
+     and Jazz are approved synth kits: a synth-family song (today the chillwave sets 5 and 10) rolls one of the five
+     synth kits. Phonk is a candidate (offered, never rolled): built aggressive (driven kick and snare); its defining
+     sounds (the blown-out long 808, the melodic cowbell) are lanes our songs don't play, and in a song it measures
+     close to the 808's color. BOOMBAP was cut on 2026-10-28 ("get rid of the 909, boombap, and vintage") and is back
+     on the 2026-11-07 short list. Costs in docs/cost.md.
   Also copyable, not on the short list: Optimist's load guard (`system/cpuguard.c`: steps quality down before a late
   block), its spring reverb (`fx/spring/spring.c`), SLOOP's synth engines (the two-engine spike: code, not just preset
   values), Optimist's dual-core split (`system/dual.c`; CPU1 is unreliable on some units).

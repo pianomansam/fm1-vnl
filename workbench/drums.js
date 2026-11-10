@@ -14,8 +14,8 @@ export const cellOf = (m, bar, step) => ((m[bar * 2] >> step) & 1 ? 1 : (m[bar *
 export const cycle = (state) => (state + 1) % 3;
 
 // Each kit's sounds: [name, voice or lane, the lane it plays as shipped (-1: an extra)]. the modeled machines' are their
-// voices (C.PT); Optimist's the LO-FI kit's lanes (drum_synth.c DS_LANES: lane 12's sound is named BOOMBAP COWBELL
-// upstream, a removed kit's name: here it's the LO-FI cowbell); the sampled kits' their pieces (C.SMP; Gogodze has no
+// voices (C.PT); Optimist's kits (LO-FI, BOOMBAP, JAZZ, PHONK) their sixteen lanes each (drum_synth.c DS_LANES; the
+// LO-FI cowbell is the BOOMBAP one upstream); the sampled kits' their pieces (C.SMP; Gogodze has no
 // ride, the brushes' rim is the brush snare played lightly); the engine's synth kits their six lanes.
 const PT_808 = [["kick", "BD", 0], ["snare", "SD", 1], ["closed hat", "CH", 2], ["open hat", "OH", 3], ["maracas", "MA", 4],
   ["rimshot", "RS", 5], ["clap", "CP", -1], ["low tom", "LT", -1], ["mid tom", "MT", -1], ["high tom", "HT", -1],
@@ -24,7 +24,7 @@ const PT_808 = [["kick", "BD", 0], ["snare", "SD", 1], ["closed hat", "CH", 2], 
 const PT_CR78 = [["kick", "BD", 0], ["snare", "SD", 1], ["closed hat", "CH", 2], ["open hat", "OH", 3], ["maracas", "MA", 4],
   ["rimshot", "RS", -1], ["cymbal", "CY", 5], ["cowbell", "CB", -1], ["tambourine", "TB", -1], ["low bongo", "MC", -1],
   ["high bongo", "HC", -1], ["claves", "CL", -1]];
-const OPT_LOFI = [["kick", 0, 0], ["snare", 1, 1], ["clap", 2, -1], ["closed hat", 3, 2], ["open hat", 4, 3], ["low tom", 5, -1],
+const OPT_LANES = [["kick", 0, 0], ["snare", 1, 1], ["clap", 2, -1], ["closed hat", 3, 2], ["open hat", 4, 3], ["low tom", 5, -1],
   ["high tom", 6, -1], ["crash", 7, -1], ["ride", 8, RIDE], ["shaker", 9, 4], ["conga", 10, -1], ["rim", 11, 5],
   ["cowbell", 12, -1], ["clave", 13, -1], ["kick 2", 14, -1], ["snare 2", 15, -1]];
 const SMP = { 0: [["kick", "KICK", 0], ["snare", "SNARE", 1], ["sidestick", "RIM", 5], ["closed hat", "HAT", 2], ["open hat", "OHAT", 3]],
@@ -32,6 +32,9 @@ const SMP = { 0: [["kick", "KICK", 0], ["snare", "SNARE", 1], ["sidestick", "RIM
   2: [["kick", "KICK", 0], ["snare", "SNARE", 1], ["snare, light (rim)", "RIM", 5], ["closed hat", "HAT", 2], ["open hat", "OHAT", 3], ["ride", "RIDE", RIDE]] };
 const BUILTIN = [["kick", 0, 0], ["snare", 1, 1], ["closed hat", 2, 2], ["open hat", 3, 3], ["shaker", 4, 4], ["rim", 5, 5]];
 const SYNTH_KITS = ["KIT_DUSTY", "KIT_SOFT", "KIT_808", "KIT_BRUSHES"];   // the engine's (BUILTIN: a is the kit id)
+
+// a preset's Optimist kit (wb_drums.h WB_OPT_*: LO-FI, then BOOMBAP, JAZZ, PHONK as appended), or -1
+const OPT_KIT = (D, p) => (p === D.OPTLOFI ? 0 : p === D.OPTBOOMBAP ? 1 : p === D.OPTJAZZ ? 2 : p === D.OPTPHONK ? 3 : -1);
 
 export const soundKey = (kind, a, b) => `${kind}:${a}:${b}`;
 
@@ -45,7 +48,8 @@ export function sounds(C, opts, unavailable = new Set()) {
     const preset = k.id - DRUMS.PRESET;
     if (preset === DRUMS.PT808) for (const [n, v, l] of PT_808) add(k, SRC.PT, PT.M808, PT[v], `${k.name} ${n}`, l);
     else if (preset === DRUMS.PTCR78) for (const [n, v, l] of PT_CR78) add(k, SRC.PT, PT.MCR78, PT[v], `${k.name} ${n}`, l);
-    else if (preset === DRUMS.OPTLOFI) for (const [n, v, l] of OPT_LOFI) add(k, SRC.OPT, 0, v, `${k.name} ${n}`, l);
+    else if (OPT_KIT(DRUMS, preset) >= 0)
+      for (const [n, v, l] of OPT_LANES) add(k, SRC.OPT, OPT_KIT(DRUMS, preset), v, `${k.name} ${n}`, l);
     else if (k.set !== undefined) for (const [n, p, l] of SMP[k.set]) add(k, SRC.SAMPLE, k.set, P[p], `${k.name} ${n}`, l);
     // (a retired synth kit's sounds keep "synth": "Dusty synth kick", not the sampled Dusty's "Dusty kick")
     else if (SYNTH_KITS.includes(k.sym)) for (const [n, b, l] of BUILTIN) add(k, SRC.BUILTIN, k.id, b, `${k.name.replace(/ \(synth\)$/, " synth")} ${n}`, l);

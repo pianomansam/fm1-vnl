@@ -484,7 +484,7 @@ static void parts(double amb)
     }
     for (k = 0; k < WB_KIT_PRESETS; k++) {   /* the shipped kits (the lanes over the set's kit: wb.c's wb_kit_preset) */
         static const char *const PN[WB_KIT_PRESETS] = {"808", "cr-78", "crunchy", "dusty (bank)", "room big (bank)",
-                                                        "room brushes (bank)"};
+                                                        "room brushes (bank)", "boom-bap", "jazz", "phonk"};
         p = part_of(P_DRUMS);
         p.kit = WB_KIT_SAMPLED(k) ? KIT_S_RUSTY : KIT_BRUSHES;
         p.preset = (int)k;

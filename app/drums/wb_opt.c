@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Optimist's synth drums for the workbench (wb_opt.h): drum_synth.c as Optimist ships it, over its dependencies
-   (optimist/ds_deps.h) and the LO-FI kit's table. A voice renders a block of CTL samples at a time (its envelopes step
-   per block, ds_control) into a buffer the lane reads from; a hit starts the next block at its sample. */
+   (optimist/ds_deps.h) and its kits' table (LO-FI, BOOMBAP, JAZZ, PHONK). A voice renders a block of CTL samples at
+   a time (its envelopes step per block, ds_control) into a buffer the lane reads from; a hit starts the next block at
+   its sample. */
 #include "wb_opt.h"
 #include "optimist/ds_deps.h"
 #include "optimist/drum_synth.c"

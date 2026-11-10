@@ -542,8 +542,9 @@ console.log("options.json");
         presets.every((k) => PRE[k.id - C.DRUMS.PRESET] === k.sym) && presets.length === PRE.length - 1,
         "every kit's id is its enum's (library.h's KIT_*, wb_drums.h's presets past WB_KIT_PRESET)");
   const synth = presets.filter((k) => k.set === undefined), sampled = presets.filter((k) => k.set !== undefined);
-  check(synth.length === 3 && synth.every((k) => k.family === "synth" && k.status === "approved" && !k.ride),
-        "the three synth presets are approved synth kits with no ride");
+  check(synth.length === 6 && synth.every((k) => k.family === "synth" && !k.ride &&
+                                              k.status === (k.sym === "WB_KIT_OPTPHONK" ? "candidate" : "approved")),
+        "the six synth presets are synth kits with no ride, approved but the Phonk machine (a candidate)");
   check(sampled.length === 3 && sampled.every((k, i) => k.family === "acoustic" && k.status === "approved" && k.ride &&
                                                         k.set === i && k.id === C.DRUMS.PRESET + C.DRUMS.GOGODZE + i),
         "the three shipped sampled kits are approved acoustic kits with a ride, their sets in order");
@@ -1008,9 +1009,12 @@ console.log("drums: synth presets and lanes");
     return { ex, out, lane, all: ex.wb_drum_meter(L) };
   }
   const only = (ex, keep) => { for (let i = 0; i < L; i++) if (!keep.includes(i)) ex.wb_lane_src(i, SRC.NONE, 0, 0); };
-  const NAMES = ["808", "CR-78", "Crunchy machine"];
+  // the synth presets (the Optimist kits past the sampled ones: appended)
+  const SYNTHP = [DRUMS.PT808, DRUMS.PTCR78, DRUMS.OPTLOFI, DRUMS.OPTBOOMBAP, DRUMS.OPTJAZZ, DRUMS.OPTPHONK];
+  const NAMES = { [DRUMS.PT808]: "808", [DRUMS.PTCR78]: "CR-78", [DRUMS.OPTLOFI]: "Crunchy machine",
+                  [DRUMS.OPTBOOMBAP]: "Boom-bap machine", [DRUMS.OPTJAZZ]: "Jazz machine", [DRUMS.OPTPHONK]: "Phonk machine" };
 
-  for (let p = 0; p < DRUMS.GOGODZE; p++) {
+  for (const p of SYNTHP) {
     const r = await song(21, (ex) => ex.wb_kit_set(DRUMS.PRESET + p), 60);   // (seed 21's drums come in at bar 8)
     const d = lanesOf(r.ex);
     check(d.preset === p && JSON.parse(cstr(r.ex, r.ex.wb_state())).kit === DRUMS.PRESET + p && d.lanes.every((l) => l[0] !== SRC.NONE),
@@ -1035,12 +1039,12 @@ console.log("drums: synth presets and lanes");
   for (const seed of SEEDS) {
     const br = await song(seed, (ex) => { ex.wb_kit_set(3); ex.wb_lane_src(0, SRC.BUILTIN, 3, 0); only(ex, [0, 1]); }, 60);
     const got = [];
-    for (let p = 0; p < DRUMS.GOGODZE; p++) {
+    for (const p of SYNTHP) {
       const r = await song(seed, (ex) => { ex.wb_kit_preset(p); only(ex, [0, 1]); }, 60);
       got.push(toDb(r.all) - toDb(br.all));
     }
     check(br.all > 1e-6 && got.every((g) => Math.abs(g) <= 2),
-          `seed ${seed}: each preset's kick + snare within 2 dB of Soft brushes' (${got.map((g, p) => `${NAMES[p]} ${g >= 0 ? "+" : ""}${g.toFixed(2)}`).join(", ")} dB)`);
+          `seed ${seed}: each preset's kick + snare within 2 dB of Soft brushes' (${got.map((g, i) => `${NAMES[SYNTHP[i]]} ${g >= 0 ? "+" : ""}${g.toFixed(2)}`).join(", ")} dB)`);
   }
 
   // an audition: heard at once, stopped or playing, and the song doesn't move
@@ -1400,15 +1404,18 @@ console.log("drum screen: the grid");
   console.log("drum screen: lane sounds");
   const ALL = sounds(C, OPTS);
   const offered = soundOptions(ALL, "", false), retired = soundOptions(ALL, "", true);
-  const REMOVED = /upright|x0x|909|boombap|vintage|synth|our 808|warm|dark|gentle|clean|mixed/i;
-  check(offered.length > 40 && offered.every((s) => s.status === "approved") && !offered.some((s) => REMOVED.test(`${s.name} ${s.kitName}`)),
-        `the lane pickers offer ${offered.length} approved sounds, none removed`);
+  const REMOVED = /upright|x0x|909|vintage|synth|our 808|warm|dark|gentle|clean|mixed/i;
+  check(offered.length > 40 && offered.every((s) => s.status === "approved" || s.status === "candidate") &&
+          offered.filter((s) => s.status === "candidate").every((s) => s.kitName === "Phonk machine") &&
+          !offered.some((s) => REMOVED.test(`${s.name} ${s.kitName}`)),
+        `the lane pickers offer ${offered.length} approved sounds (the Phonk machine's candidates), none removed`);
   const kits = new Set(offered.map((s) => s.kitName));
-  check(["808", "CR-78", "Crunchy machine", "Dusty", "Room - big", "Room - brushes", "Soft brushes"].every((k) => kits.has(k)),
+  check(["808", "CR-78", "Crunchy machine", "Boom-bap machine", "Jazz machine", "Phonk machine", "Dusty", "Room - big",
+         "Room - brushes", "Soft brushes"].every((k) => kits.has(k)),
         `from every approved kit (${[...kits].join(", ")})`);
   check(retired.length > offered.length && retired.filter((s) => s.status === "retired").every((s) => /Dusty|Soft|Our 808/.test(s.name)),
         `"show retired" adds the retired synth kits' (${retired.length - offered.length})`);
-  const cow = ALL.find((s) => s.kind === SRC.OPT && s.b === 12);
+  const cow = ALL.find((s) => s.kind === SRC.OPT && s.a === 0 && s.b === 12);
   check(cow?.name === "Crunchy machine cowbell", `Crunchy machine's lane 12 is "${cow?.name}"`);
   const twice = ALL.map((s) => s.name).filter((n, i, xs) => xs.indexOf(n) !== i);
   check(!twice.length && ALL.some((s) => s.name === "Dusty kick") && ALL.some((s) => s.name === "Dusty synth kick"),
@@ -1416,7 +1423,8 @@ console.log("drum screen: the grid");
   const ok = await load();
   check(ALL.every((s) => s.kind === SRC.SAMPLE || ok.wb_lane_src(0, s.kind, s.a, s.b) === 1), "every synth sound is a source the engine takes");
   const rnd = lcg(7), picks = new Set([...Array(40)].map(() => pickSound(ALL, 0, null, "synth", rnd)?.kitName));
-  check([...picks].every((k) => ["808", "CR-78", "Crunchy machine"].includes(k)) && picks.size === 3,
+  check([...picks].every((k) => ["808", "CR-78", "Crunchy machine", "Boom-bap machine", "Jazz machine"].includes(k)) &&
+          picks.size === 5,
         `a synth song's kick 🎲 picks the synth kits' kicks (${[...picks].join(", ")})`);
   {
     const ex = await load(), call = caller(ex);

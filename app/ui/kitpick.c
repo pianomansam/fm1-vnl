@@ -22,7 +22,7 @@ int ui_kit_pick(const song_roll_t *r, int sampled_ok)
     for (i = 0; i < ch_count(ROW_KIT) && n < 16; i++) {   /* approved, of the family (a kit has its own: no electric) */
         int v = ch_value(ROW_KIT, i), f = ch_flags(ROW_KIT, v);
         if (CH_STATUS(f) == 0 && !(f & CH_HIDDEN) && v != kit && CH_FAM(f) == fam &&
-            (sampled_ok || v < SONG_KIT_PRESET + SONG_KIT_SAMPLED))
+            (sampled_ok || !SONG_KIT_IS_SAMPLED(v - SONG_KIT_PRESET)))
             xs[n++] = v;
     }
     if (!n)

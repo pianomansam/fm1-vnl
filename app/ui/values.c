@@ -127,7 +127,7 @@ static const char *choice_name(int row, int v, char *buf)
 static int kit_ok(int v)
 {
     return (v >= 0 && v < KIT_N) || (v >= SONG_KIT_PRESET && v < SONG_KIT_PRESET + SONG_KIT_PRESETS &&
-                                     (v < SONG_KIT_PRESET + SONG_KIT_SAMPLED || lib_samples()));
+                                     (!SONG_KIT_IS_SAMPLED(v - SONG_KIT_PRESET) || lib_samples()));
 }
 
 /* rows.js's optionsFor, filtered as index.html's rows() does: the choices the device offers, in order (retired,

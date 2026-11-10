@@ -279,13 +279,22 @@ static void voices_begin(void)
     drums_apply();
 }
 
+#if UI_RT
+static int kit_override = -1;            /* VNL_KIT (host): every song's kit row value (bench.c's), else the pick */
+/* a song's kit: the seeded pick (ui_kit_pick: a retired rolled kit swapped), or VNL_KIT's on the host */
+static int kit_pick(const song_roll_t *r)
+{
+    return kit_override >= 0 ? kit_override : ui_kit_pick(r, smp_ready());
+}
+#endif
+
 static uint8_t first_part = SONG_FIRST_BAR_PARTS;   /* the new song's first bar's planning: the next part (a block
                                             each, after its start's) */
 
 static void song_begin(uint32_t n)
 {
 #if UI_RT
-    song_start_kit(&song, &mb_roll, ui_kit_pick(&mb_roll, smp_ready()));   /* no retired kit (desk.js's approvedKit) */
+    song_start_kit(&song, &mb_roll, kit_pick(&mb_roll));   /* no retired kit (desk.js's approvedKit) */
 #else
     song_start(&song, &mb_roll);
 #endif
@@ -801,7 +810,7 @@ static void publish(void)
         if (snap.has_song || snap.held) {   /* the kit row: a shipped kit's value; the next song's, as it will pick */
             if (song.kit_preset >= 0)
                 snap.rows[ROW_KIT] = (int16_t)(SONG_KIT_PRESET + song.kit_preset);
-        } else if ((i = ui_kit_pick(&snap.roll, smp_ready())) >= 0) {
+        } else if ((i = kit_pick(&snap.roll)) >= 0) {
             snap.rows[ROW_KIT] = (int16_t)i;
         }
         snap.n_secs = 0;
@@ -1073,6 +1082,11 @@ void app_init(void)
             const char *st = getenv("VNL_SET");    /* VNL_SET=4: the first song on that set (a render of one the roll
                                                       seldom picks first) */
             set_override = st ? atoi(st) : 0;
+        }
+        {
+            const char *kt = getenv("VNL_KIT");    /* VNL_KIT=22: every song on that kit (the kit row's value: 16 +
+                                                      wb_drums.h's WB_KIT_*), as bench.c's */
+            kit_override = kt && *kt ? atoi(kt) : -1;
         }
         {
             const char *cp = getenv("VNL_COMP");   /* VNL_COMP=<CS_*>: every song comps in that style (6 held on 2,
@@ -2233,7 +2247,7 @@ static void kit_render(const snap_t *s)
         return;
     int k = (s->has_song || s->held) ? s->rows[ROW_KIT] : -1;
     if (!(k >= SONG_KIT_PRESET && wb_drums_preset(&d, k - SONG_KIT_PRESET) && !wb_drums_ready(&d))) {
-        int nx = mb_full ? ui_kit_pick(&mb_roll, smp_ready()) : -1;
+        int nx = mb_full ? kit_pick(&mb_roll) : -1;
         if (!(nx >= SONG_KIT_PRESET && wb_drums_preset(&d, nx - SONG_KIT_PRESET)))
             if (!(k >= SONG_KIT_PRESET && wb_drums_preset(&d, k - SONG_KIT_PRESET)))
                 return;

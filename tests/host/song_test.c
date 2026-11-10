@@ -13624,6 +13624,9 @@ static void test_start_kit(void)
     song_start_kit(&s, &r, SONG_KIT_PRESET + SONG_KIT_SAMPLED + 2);
     CHECK(s.kit_preset == SONG_KIT_SAMPLED + 2 && lib_song_kit(&s.roll) == KIT_S_RUSTY,
           "start_kit Room - brushes: preset %d, kit %d", s.kit_preset, lib_song_kit(&s.roll));
+    song_start_kit(&s, &r, SONG_KIT_PRESET + SONG_KIT_SAMPLED_END);   /* (a synth kit past the sampled ones) */
+    CHECK(s.kit_preset == SONG_KIT_SAMPLED_END && lib_song_kit(&s.roll) == KIT_BRUSHES,
+          "start_kit Boom-bap machine: preset %d, kit %d", s.kit_preset, lib_song_kit(&s.roll));
     song_start_kit(&s, &r, KIT_BRUSHES);
     CHECK(s.kit_preset == -1 && lib_song_kit(&s.roll) == KIT_BRUSHES, "start_kit Soft brushes: no preset");
     CHECK(song_request_row(&s, SR_KIT, SONG_KIT_PRESET + SONG_KIT_PRESETS - 1) &&

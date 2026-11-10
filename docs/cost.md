@@ -1357,3 +1357,18 @@ size (the organ's is the largest; the vibraphone's state is 76 B), and voices.o'
   and the pool 124,472 B unchanged.
 - CPU (`tools/tick-bench.sh 1000 3`, host): worst tick 28.0 us (others) and 30.0 us (strummed), against 27.0 and 32.0
   us with major or minor (other songs: noise). The mode's scale is a table lookup again; not measurable.
+
+### Optimist's BOOMBAP, JAZZ and PHONK kits: Boom-bap, Jazz and Phonk machine (2026-11-10)
+
+Three more kits on the Crunchy machine's engine (Optimist's `drum_synth.c`, unchanged): data only, 40 more sounds in
+its packed table (`felucca_drumkits.h`, 12 B a sound) and 22 rare rows, each kit's level a float (`wb_drums.c` OPT_G).
+
+- Flash: image 293,608 to **294,460 B (+852 B for the three; about 280 B a kit)** (`./build.sh`, against bb1c2f7). RAM
+  .data+.bss 78,548 B and the pool 304,956 B unchanged: the voices are the engine's fixed pool (`wb_opt.c`, 8), shared.
+  The build's checks pass (no 64-bit multiply beside a load, no soft-double): no new code.
+- CPU (`bench --parts`, the shipped kits' rows: every lane, over Brushes; two runs, AMB-1 140-142 ms): Crunchy machine
+  **0.196 / 0.200**, Boom-bap **0.176 / 0.181**, Jazz **0.203 / 0.213**, Phonk **0.149 / 0.152** (808 0.223-0.229,
+  CR-78 0.342-0.357). Jazz costs about Crunchy's (its cymbal hats ring longer); the others less.
+- In a song (`VNL_KIT=<row> bench --forced 20`, the heaviest roll, one run each on a busy host, load 4): Crunchy
+  1.004 / 1.027 forced (again: 0.993 / 1.017), Boom-bap 0.986 / 1.012, Jazz 0.990 / 1.010, Phonk 0.942 / 0.957: none
+  heavier than Crunchy's.

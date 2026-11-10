@@ -69,10 +69,13 @@ typedef struct {
     pads_state_t stg_p;
 } song_t;
 /* the kit row's shipped kits (the drum lanes': wb_drums.h WB_KIT_PRESET..), past the engine's KIT_*: the synth
-   machines', then from SONG_KIT_SAMPLED the sampled ones (the sample bank's) */
+   machines', the sampled ones (the sample bank's: SONG_KIT_SAMPLED to SONG_KIT_SAMPLED_END - 1), then more synth
+   machines' (appended 2026-11-10); SONG_KIT_IS_SAMPLED(p) for a preset p (the row's value - SONG_KIT_PRESET) */
 #define SONG_KIT_PRESET 16
-#define SONG_KIT_PRESETS 6
+#define SONG_KIT_PRESETS 9
 #define SONG_KIT_SAMPLED 3
+#define SONG_KIT_SAMPLED_END 6
+#define SONG_KIT_IS_SAMPLED(p) ((p) >= SONG_KIT_SAMPLED && (p) < SONG_KIT_SAMPLED_END)
 enum { SONG_OWN_OV = 1, SONG_OWN_SET = 2 };
 
 void song_start(song_t *s, const song_roll_t *r);           /* the plan; bar 0, step 0 */

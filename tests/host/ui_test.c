@@ -449,7 +449,8 @@ static void test_kit_pick(void)
             CHECK(k >= 0 && CH_STATUS(ch_flags(ROW_KIT, k)) == 0 &&
                       CH_FAM(ch_flags(ROW_KIT, k)) == CH_FAM(ch_flags(ROW_KIT, nb)),
                   "seed %u: retired kit %d picks %d (no bank: %d)", (unsigned)seed, was, k, nb);
-            CHECK(nb >= 0 && nb < SONG_KIT_PRESET + SONG_KIT_SAMPLED, "seed %u: no bank, yet kit %d", (unsigned)seed, nb);
+            CHECK(nb >= 0 && !SONG_KIT_IS_SAMPLED(nb - SONG_KIT_PRESET), "seed %u: no bank, yet kit %d", (unsigned)seed,
+                  nb);
             moved++;
         } else {
             CHECK(k == -1 && nb == -1, "seed %u: approved kit %d moved to %d", (unsigned)seed, was, k);

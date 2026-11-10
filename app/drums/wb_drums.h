@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The workbench's drums: seven lanes (kick, snare, closed hat, open hat, shaker, rim, ride: V_KICK..V_RIDE's order),
    each playing a sound from a source: FOMAJAM's modeled 808 and CR-78 (fomajam/, GPL-3.0-only), Optimist's synth kits
-   (optimist/, GPL-3.0-only: LO-FI), the engine's built-in synth kits (Brushes; Dusty, Soft and our 808 when a song
-   has one), or the shipped sampled kits (Karoryfer's Gogodze and Big Rusty, CC0: reduced into the sample bank,
-   samples.h smp_piece). Installed with
-   drums_hook while any lane has a source, so the lanes go through the song's own drum bus, compressor, filters and
-   ducking; with none, the song's own kit plays as before. Float out, no allocation after wb_drums_init. */
+   (optimist/, GPL-3.0-only: LO-FI, BOOMBAP, JAZZ, PHONK), the engine's built-in synth kits (Brushes; Dusty, Soft and
+   our 808 when a song has one), or the shipped sampled kits (Karoryfer's Gogodze and Big Rusty, CC0: reduced into
+   the sample bank, samples.h smp_piece). Installed with drums_hook while any lane has a source, so the lanes go
+   through the song's own drum bus, compressor, filters and ducking; with none, the song's own kit plays as before.
+   Float out, no allocation after wb_drums_init. */
 #ifndef WB_DRUMS_H
 #define WB_DRUMS_H
 #include <stdint.h>
@@ -21,15 +21,17 @@ enum {
     WB_SRC_BUILTIN, /* a: a synth kit (KIT_DUSTY..KIT_BRUSHES), b: its lane (0 kick .. 5 rim) */
     WB_SRC_N
 };
-enum { WB_OPT_LOFI, WB_OPT_N };                 /* optimist/felucca_drumkits.h's kits */
+enum { WB_OPT_LOFI, WB_OPT_BOOMBAP, WB_OPT_JAZZ, WB_OPT_PHONK, WB_OPT_N };   /* optimist/felucca_drumkits.h's kits */
 /* the sample sets (samples/kits.json's ids; samples.h SK_*) and their pieces (SK_KICK..) */
 enum { WB_SMP_GOGODZE, WB_SMP_RUSTY, WB_SMP_BRUSHES, WB_SMP_N };
 enum { WB_P_KICK, WB_P_SNARE, WB_P_RIM, WB_P_HAT, WB_P_OHAT, WB_P_RIDE, WB_P_N };
 /* the shipped kits (wb_drums_preset); the kit row's value for one is WB_KIT_PRESET + its id, past the engine's KIT_*:
-   the synth machines' kits, then the sampled kits (a sample set each, in WB_SMP_* order) */
-enum { WB_KIT_PT808, WB_KIT_PTCR78, WB_KIT_OPTLOFI, WB_KIT_GOGODZE, WB_KIT_RUSTY, WB_KIT_BRUSHES, WB_KIT_PRESETS };
+   the synth machines' kits, the sampled kits (a sample set each, in WB_SMP_* order), then the Optimist kits added
+   after them (2026-11-10: appended, so the ids before them, a snapshot's kit row, stay) */
+enum { WB_KIT_PT808, WB_KIT_PTCR78, WB_KIT_OPTLOFI, WB_KIT_GOGODZE, WB_KIT_RUSTY, WB_KIT_BRUSHES,
+       WB_KIT_OPTBOOMBAP, WB_KIT_OPTJAZZ, WB_KIT_OPTPHONK, WB_KIT_PRESETS };
 #define WB_KIT_PRESET 16
-#define WB_KIT_SAMPLED(id) ((id) >= WB_KIT_GOGODZE && (id) < WB_KIT_PRESETS)
+#define WB_KIT_SAMPLED(id) ((id) >= WB_KIT_GOGODZE && (id) <= WB_KIT_BRUSHES)
 
 typedef struct { uint8_t kind; uint8_t a, b; float gain_db; } wb_src_t;
 /* a song's drums (in the workbench's stage): the lanes, and the preset they came from (-1: none) */

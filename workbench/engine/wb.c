@@ -1070,6 +1070,7 @@ EXPORT const char *wb_consts(void)
         {"BUILTIN", WB_SRC_BUILTIN}}, KIT[] = {
         {"PRESET", WB_KIT_PRESET}, {"PT808", WB_KIT_PT808}, {"PTCR78", WB_KIT_PTCR78}, {"OPTLOFI", WB_KIT_OPTLOFI},
         {"GOGODZE", WB_KIT_GOGODZE}, {"RUSTY", WB_KIT_RUSTY}, {"BRUSHES", WB_KIT_BRUSHES},
+        {"OPTBOOMBAP", WB_KIT_OPTBOOMBAP}, {"OPTJAZZ", WB_KIT_OPTJAZZ}, {"OPTPHONK", WB_KIT_OPTPHONK},
         {"PRESETS", WB_KIT_PRESETS}, {"LANES", WB_LANES}}, PT[] = {
         {"M808", M_808}, {"MCR78", M_CR78}, {"BD", V_BD}, {"SD", V_SD}, {"RS", V_RS}, {"CP", V_CP}, {"LT", V_LT},
         {"MT", V_MT}, {"HT", V_HT}, {"CH", V_CH}, {"OH", V_OH}, {"CY", V_CY}, {"CB", V_CB}, {"TB", V_TB},

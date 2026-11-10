@@ -349,7 +349,7 @@ static void apply_row(song_t *s, int row, int v)
         song_ov_set(&s->ov, row - SR_OV, v);
         song_override(&s->ov);
     } else if (!lib_samples() &&
-               (row == SR_KIT ? lib_kit_sampled(v) || v >= SONG_KIT_PRESET + SONG_KIT_SAMPLED
+               (row == SR_KIT ? lib_kit_sampled(v) || SONG_KIT_IS_SAMPLED(v - SONG_KIT_PRESET)
                               : row >= SR_ROLE && row < SR_OV && lib_ins_sampled_struck(v))) {
         /* (no sample bank: a sampled instrument or kit refused) */
     } else if ((set = own_set(s)) != 0) {
@@ -360,7 +360,7 @@ static void apply_row(song_t *s, int row, int v)
         case SR_ROLE + V_PAD: set->pad = (uint8_t)v; break;
         case SR_KIT:
             s->kit_preset = (int8_t)(v >= SONG_KIT_PRESET ? v - SONG_KIT_PRESET : -1);
-            if (s->kit_preset >= SONG_KIT_SAMPLED)
+            if (SONG_KIT_IS_SAMPLED(s->kit_preset))
                 v = KIT_S_RUSTY;          /* (under a shipped kit: a sampled kit's song, the ride section, the hats) */
             else if (s->kit_preset >= 0)
                 v = KIT_BRUSHES;          /* (a synth kit's song: no ride section, its compressor) */
