@@ -1422,8 +1422,8 @@ console.log("drum screen: the grid");
   const ok = await load();
   check(ALL.every((s) => s.kind === SRC.SAMPLE || ok.wb_lane_src(0, s.kind, s.a, s.b) === 1), "every synth sound is a source the engine takes");
   const rnd = lcg(7), picks = new Set([...Array(40)].map(() => pickSound(ALL, 0, null, "synth", rnd)?.kitName));
-  check([...picks].every((k) => ["808", "CR-78", "Crunchy machine", "Boom-bap machine", "Jazz machine"].includes(k)) &&
-          picks.size === 5,
+  check([...picks].every((k) => ["808", "CR-78", "Crunchy machine", "Boom-bap machine", "Jazz machine", "Phonk machine"].includes(k)) &&
+          picks.size === 6,
         `a synth song's kick 🎲 picks the synth kits' kicks (${[...picks].join(", ")})`);
   {
     const ex = await load(), call = caller(ex);
