@@ -1386,3 +1386,20 @@ heap.
   (others), 19.0 to 19.0 us (strummed); the mean 16th 0.16 to 0.17 us, the downbeat 0.46 to 0.50 us. `groove_step`
   alone (300 songs, 64 bars): 0.150 to 0.179 us a 16th. About 0.01-0.03 us a step, a few times a second: not
   measurable in the audio.
+
+### The sample bank trimmed: the mixed kits' hits and Dusty go (2026-11-10)
+
+The 15 drum hits the five mixed sampled kits (KIT_S_*, retired, now removed) played, and with them `skits.c` (their
+voices, buses and half-rate path), left the bank; so did Dusty's pieces (the Gogodze set, retired: its index kept,
+empty). The KIT_S_* ids stay as a sampled kit's song's mark (the ride section, the hats' eighths) under the shipped
+Room kits, whose lanes play every hit; their own hits are now silent.
+
+- Bank (`tools/samples/pack.py`): payload 386,114 to **272,064 B (-114,050)**: the hits 46,800 B, Dusty's pieces
+  67,250 B. Everything now fits the first area (272,080 B with the head, of 299,008); the second area is empty, so
+  121,136 B are free in all. Every kept zone (the Knight, nylon and Emilyguitar banks, Room - big's and Room -
+  brushes' pieces) has the same table fields and ADPCM bytes as before, and the songs scenario renders bit for bit
+  the same on both Room kits.
+- Flash: image 295,500 to **288,812 B (-6,688)**; RAM .data+.bss 78,548 to **74,660 B (-3,888: the hits' voices and
+  half-band history)**; the pool 304,956 B unchanged (`./build.sh`, against 2aadd63).
+- CPU: none on the shipped kits (their hits never reached `skits.c`); `drums_render` no longer runs the empty
+  sampled-voice pass each block.

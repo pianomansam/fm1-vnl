@@ -10,7 +10,7 @@ int ui_kit_pick(const song_roll_t *r, int sampled_ok)
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
     int kit = lib_song_kit(r), fam = CH_ACOUSTIC, n = 0, i, xs[16];
     uint32_t x = r->seed ? r->seed : 1u, q;
-    if (ch_flags(ROW_KIT, kit) < 0 || CH_STATUS(ch_flags(ROW_KIT, kit)) != 2)
+    if (ch_flags(ROW_KIT, kit) < 0 || CH_STATUS(ch_flags(ROW_KIT, kit)) < 2)   /* (retired or removed: swapped) */
         return -1;
     if (set) {
         int fk = CH_FAM(ch_flags(ROW_KEYS, set->chords)), fl = CH_FAM(ch_flags(ROW_LEAD, set->lead));

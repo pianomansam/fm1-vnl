@@ -23,7 +23,8 @@ def refused(b, s):
 
 for at in (B.AREA0 + 0x2000 + 0xF06, B.AREA1 + 0x3000 + 0xF06):   # in XDATA0, in XDATA1
     o = at - B.AREA0 if at < B.AREA1 else B.HEAD + split + at - B.AREA1
-    assert refused(bank[:o] + b"AT" + bank[o + 2:], split), hex(at)
+    b = bank + bytes(max(0, o + 2 - len(bank)))   # (the second area reached: the bank padded where it ends sooner)
+    assert refused(b[:o] + b"AT" + b[o + 2:], split), hex(at)
 o = 0x5000 + 0xF06                                                  # the main data area: no rule there
 assert not refused(bank[:o] + b"AT" + bank[o + 2:], split)
 assert refused(bank, split + 0x20000)                               # a first part past its area

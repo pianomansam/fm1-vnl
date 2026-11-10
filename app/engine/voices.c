@@ -25,7 +25,6 @@
 #include "library.h"
 #include "voices.h"
 #include "drums.h"
-#include "skits.h"
 #include "fx.h"
 #include "rng.h"
 #include "harmony.h"
@@ -2794,7 +2793,6 @@ void vx_set_pump(int pump)
 void vx_fx_off(unsigned mask)
 {
     fx_off = mask;
-    skits_half(!(mask & VX_OFF_HALF));
     fx_wet_off((mask & VX_OFF_DELAY) != 0);
     fx_glue_off((mask & VX_OFF_GLUE) != 0);
     vx_assign(V_CHORD, cfg.chords); /* the sends and the chorus's depth again */
@@ -2935,7 +2933,7 @@ int vx_tiny(void)
 {
     int r, c = vx_tiny_of(&mud_z[0][0], (int)(sizeof mud_z / sizeof(float))) +
                vx_tiny_of(&mud_zh[0][0], (int)(sizeof mud_zh / sizeof(float))) + vx_tiny_of(&cp_env, 1) +
-               vx_tiny_of(&cp_g, 1) + vx_tiny_of(&dk_env, 1) + skits_tiny();
+               vx_tiny_of(&cp_g, 1) + vx_tiny_of(&dk_env, 1);
     for (r = 0; r < NBUS; r++)
         c += vx_tiny_of(&bus[r].y, 1) + vx_tiny_of(&bus[r].z, 1) + vx_tiny_of(&bus[r].hm, 1);
     c += vx_tiny_of(pq_mz, 2) + vx_tiny_of(&pq0, 1) + vx_tiny_of(&pq1, 1) + vx_tiny_of(&pb_y, 1) + vx_tiny_of(&pb_z, 1);

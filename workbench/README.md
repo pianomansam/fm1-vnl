@@ -39,8 +39,8 @@ AudioWorklet. Local only; not the FM-1, so it may exceed the device's budgets.
   thread (`wb.js`'s probe), never on the audio thread.
 - The drums: a kit row value from 16 is a preset over the drum lanes (`app/drums/wb_drums.c`): the synth kits (808 and
   CR-78, FOMAJAM's modeled machines; Crunchy, Boom-bap, Jazz and Phonk machine, from Optimist's LO-FI, BOOMBAP, JAZZ
-  and PHONK kits: the Phonk machine a candidate, never rolled) and the shipped sampled kits (Dusty, from
-  Gogodze; Room - big and Room - brushes, from Big Rusty's sticks and brushes), reduced into the sample bank the
+  and PHONK kits: the Phonk machine a candidate, never rolled) and the shipped sampled kits (Room - big and Room - brushes, from
+  Big Rusty's sticks and brushes; Dusty, from Gogodze, retired 2026-11-10 and out of the bank), reduced into the sample bank the
   device plays (`tools/samples/pack.py`, from the files `tools/prep_kits.py` makes into `samples/`: see
   `samples/README.md`), compiled into wb.wasm with the rest of the bank, so the page and the FM-1 play the same.
 - Costs (the workbench's own; `docs/cost.md` is the firmware's): a song's drums, any kit, take under 1% of real time

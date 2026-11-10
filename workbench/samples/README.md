@@ -15,8 +15,9 @@ reuses it), and writes the float32 mono 44.1 kHz files here (about 110 MB) and `
 FLAC: the script decodes them with `flac`, or with macOS's `afconvert`. Its test: `python3 -I
 workbench/tools/test_prep_kits.py`.
 
-- **Gogodze** (the page's Dusty): kick, snare, sidestick (the rim lane), closed and open hat. No ride: the ride lane
-  plays its closed hat. No shaker.
+- **Gogodze** (the page's Dusty, retired 2026-11-10): kick, snare, sidestick (the rim lane), closed and open hat. Still
+  made here (`kits.json` keeps its set's index), but the packer leaves it out of the sample bank, so neither the page
+  nor the FM-1 plays it.
 - **Big Rusty (sticks)** (the page's Room - big): kick, snare, sidestick, closed and open hat, the 22" ride. No shaker.
 - **Big Rusty (brushes)** (the page's Room - brushes): the same kick, the brush snare, hats and ride; no brush
   sidestick, so the rim lane plays the brush snare at 45% of the velocity. No shaker.

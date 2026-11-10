@@ -367,11 +367,11 @@ export class Desk {
     return { ok, message, moved: [...this.moved] };
   }
 
-  // A song that landed on a retired kit (most seeds roll one) gets an approved kit of its family instead, the seed's
-  // own pick. Staged only; the note saying so, or null when the kit is approved (or nothing fits).
+  // A song that landed on a retired or removed kit (most seeds roll one) gets an approved kit of its family instead,
+  // the seed's own pick. Staged only; the note saying so, or null when the kit is approved (or nothing fits).
   async approvedKit() {
     const was = this.opts.kits.find((k) => k.id === this.values.kit);
-    if (was?.status !== "retired") return null;
+    if (was?.status !== "retired" && was?.status !== "removed") return null;
     const no = new Set();   // a kit the engine didn't take
     for (;;) {
       const v = pickFor(row("kit"), { ...this.state, unavailable: no }, this.opts, seeded(this.values.seed), this.lib);

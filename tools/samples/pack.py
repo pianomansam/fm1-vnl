@@ -6,9 +6,9 @@
 #   Pitched zones: mono, onset trimmed, pitch measured, retuned to the nearest whole MIDI note while resampled to
 #   the zone's rate, cut to an attack plus a short loop of whole periods (the loop's decay flattened, its seam
 #   crossfaded; the sampler's envelope does the decay), peak-normalized.
-#   Drum hits: the listed mic files of one take summed, an optional high-pass, onset trimmed (1 ms kept), resampled,
-#   cut to length with a cosine fade over the last 40%, peak-normalized.
-#   Both: 4-bit IMA ADPCM from (0, idx0), idx0 the starting step index that encodes the zone best (the first 5 ms
+#   Kit pieces (the workbench's sampled kits): resampled, cut to length with a cosine fade over the last 40%,
+#   peak-normalized.
+#   Every zone: 4-bit IMA ADPCM from (0, idx0), idx0 the starting step index that encodes the zone best (the first 5 ms
 #   weigh most: a poor start smears a hit's attack), never decoding to the clamp (the zone scaled down 3% at a time
 #   until it doesn't), and a gain that brings the first 150 ms to unit RMS.
 # The output is deterministic: the same inputs give a byte-identical file.
@@ -31,7 +31,7 @@ from urllib.parse import quote
 
 import numpy as np
 from scipy.io import wavfile
-from scipy.signal import butter, resample_poly, sosfilt
+from scipy.signal import resample_poly
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -157,7 +157,7 @@ def midi_of(f):
 
 
 class Zone:
-    """One packed zone or hit: int16 PCM, its ADPCM bytes and the table fields."""
+    """One packed zone: int16 PCM, its ADPCM bytes and the table fields."""
 
     def __init__(self, name, pcm, rate, root, ls, ll):
         while True:  # a decode that overshoots to the clamp: the zone 3% quieter until none does
@@ -205,29 +205,6 @@ def make_zone(name, x, rate, root_f, attack, loop, out_rate):
     return Zone(name, np.round(y * 32767).astype(np.int16), out_rate, root, a, L)
 
 
-def make_hit(name, parts, length, hp, out_rate):
-    """parts: [(rate, float mono, weight)] the mics of one take (sample-aligned), summed."""
-    rate = parts[0][0]
-    n = max(len(d) for r, d, w in parts)
-    x = np.zeros(n)
-    for r, d, w in parts:
-        assert r == rate, name + ': mic files at different rates'
-        x[:len(d)] += w * d
-    if hp:
-        x = sosfilt(butter(4, hp, 'highpass', fs=rate, output='sos'), x)
-    x = onset_trim(x, rate, 0.05, 0.001)
-    y = resample(x, rate, out_rate)
-    L = int(length * out_rate) & ~1
-    if len(y) < L:
-        y = np.concatenate([y, np.zeros(L - len(y))])
-    y = y[:L].copy()
-    pk = np.max(np.abs(y)) + 1e-12
-    F = int(0.4 * L)
-    y[L - F:] *= 0.5 + 0.5 * np.cos(np.pi * np.arange(F) / F)
-    y = y / pk * 0.95
-    return Zone(name, np.round(y * 32767).astype(np.int16), out_rate, 60, 0, 0)
-
-
 def load_manifest():
     with open(os.path.join(HERE, 'manifest.json')) as f:
         return json.load(f)
@@ -243,7 +220,6 @@ def downloads(m):
             continue
         out.append(('dl_' + key, s['raw'] + quote(s['license']), s['license']))
     files = [(b['src'], z['file']) for b in m['banks'] for z in b.get('zones', [])]
-    files += [(h['src'], p) for h in m['hits'] for p, w in h['files']]
     seen = set()
     for src, p in files:
         if (src, p) not in seen:
@@ -258,7 +234,9 @@ MAGIC, FORMAT, HEAD = b'VNLB', 2, 16   # samples.h: SMP_MAGIC, SMP_FORMAT, SMP_H
 # PLAT_XDATA1: the whole second) never have "AT" at their bytes 0xF06..0xF07 (an update record's mark)
 AREA0, AREA0_END, AREA1, AREA1_END = 0x93000, 0xDC000, 0xE5000, 0xFC000
 XDATA0_END = 0x97000
-KIT_SETS = ['gogodze', 'rusty', 'brushes']                      # samples.h SK_*: wb_drums.h WB_SMP_*
+# samples.h SK_*: wb_drums.h WB_SMP_*; None: a set kept empty, its index held (SK_GOGODZE: Dusty, retired 2026-11-10,
+# its pieces out of the bank)
+KIT_SETS = [None, 'rusty', 'brushes']
 KIT_PIECES = ['kick', 'snare', 'rim', 'hat', 'ohat', 'ride']     # wb_drums.h WB_P_*
 
 
@@ -315,8 +293,8 @@ def layout(first, kit):
         pad[id(z)] = pad.get(id(z), 0) + 1
 
 
-def write(banks, hits, kits, out):
-    """banks [(id, tag, [Zone])], hits [(id, Zone)], kits [[piece or None]] (a piece: ([Zone], [hi], curve, vel))
+def write(banks, kits, out):
+    """banks [(id, tag, [Zone])], kits [[piece or None]] (a piece: ([Zone], [hi], curve, vel))
     -> out/samples_blob.c (the bank) and out/samples_data.c (the tables); each zone's offset (z.off) set. The bank:
     the head (magic, format, the payload's length and CRC-32, little-endian), then the payload, every zone's ADPCM
     (layout's order). Returns (the payload's length, split)."""
@@ -326,7 +304,7 @@ def write(banks, hits, kits, out):
             for z in pc[0] if pc else []:
                 if all(z is not k for k in kz):
                     kz.append(z)
-    payload, split = layout([z for _, _, zs in banks for z in zs] + [z for _, z in hits], kz)
+    payload, split = layout([z for _, _, zs in banks for z in zs], kz)
     crc = zlib.crc32(payload) & 0xFFFFFFFF
     blob = MAGIC + struct.pack('<III', FORMAT, len(payload), crc) + payload
     gen = ['/* SPDX-License-Identifier: GPL-3.0-or-later */\n',
@@ -347,8 +325,6 @@ def write(banks, hits, kits, out):
         o.append('static const smp_zone_t B_%s[%d] = {\n%s};\n' % (tag, len(zs), ''.join('    %s,\n' % c_zone(z) for z in zs)))
     o.append('static const smp_bank_t BANKS[SB_N] = {\n')
     o.extend('    [%s] = {B_%s, %d},\n' % (bid, tag, len(zs)) for bid, tag, zs in banks)
-    o.append('};\nstatic const smp_zone_t HITS[SH_N] = {\n')
-    o.extend('    [%s] = %s,\n' % (hid, c_zone(z)) for hid, z in hits)
     o.append('};\nstatic const smp_zone_t KZ[%d] = {\n%s};\n' % (len(kz), ''.join('    %s,\n' % c_zone(z) for z in kz)))
     o.append('static const smp_piece_t PIECES[SK_N][SK_P_N] = {\n')
     for pieces in kits:
@@ -360,7 +336,6 @@ def write(banks, hits, kits, out):
             if pc else '{{0}, {0}, {0}, {0}, 0, 0, 0}' for pc in pieces))
     o.append('};\n\n')
     o.append('const smp_bank_t *smp_bank(int id) { return smp_ready() && id >= 0 && id < SB_N ? &BANKS[id] : 0; }\n')
-    o.append('const smp_zone_t *smp_hit(int id) { return smp_ready() && id >= 0 && id < SH_N ? &HITS[id] : 0; }\n')
     o.append('const smp_piece_t *smp_piece(int set, int p)\n{\n    return smp_ready() && set >= 0 && set < SK_N && p >= 0 && '
              'p < SK_P_N && PIECES[set][p].n ? &PIECES[set][p] : 0;\n}\n')
     o.append('uint32_t smp_bytes(void) { return %du; }\n' % len(payload))
@@ -395,6 +370,9 @@ def pack_kits(m, kits_dir):
         kj = {kit['name']: kit for kit in json.load(f)['kits']}
     made, out = {}, []
     for name in KIT_SETS:
+        if name is None:
+            out.append([None] * len(KIT_PIECES))
+            continue
         by_id = {p['id']: p for p in kj[name]['pieces']}
         row = []
         for pid, pname in enumerate(KIT_PIECES):
@@ -427,7 +405,7 @@ def pack_kits(m, kits_dir):
 def pack(scratch, out, kits_dir):
     m = load_manifest()
     rate = m.get('rate', 16000)
-    banks, hits, log = [], [], []
+    banks, log = [], []
     for b in m['banks']:
         zs = []
         r = b.get('rate', rate)
@@ -453,14 +431,8 @@ def pack(scratch, out, kits_dir):
                 log.append('%s %s: hint %d measured %.2f' % (b['id'], os.path.basename(zm['file']), zm['hint'], root_f))
         zs.sort(key=lambda z: z.root)
         banks.append((b['id'], tag, zs))
-    for h in m['hits']:
-        parts = []
-        for p, w in h['files']:
-            sr, d = read_wav(wav_path(scratch, h['src'], p))
-            parts.append((sr, d, w))
-        hits.append((h['id'], make_hit('', parts, h['len'], h.get('hp', 0), h.get('rate', rate))))
     kits = pack_kits(m, kits_dir)
-    total, split = write(banks, hits, kits, out)
+    total, split = write(banks, kits, out)
 
     print('%-10s %5s %6s %7s %5s %6s %7s %6s %4s' % ('bank', 'zone', 'root', 'bytes', 'len_s', 'loop', 'snr_dB', 'gain',
                                                    'idx0'))
@@ -469,11 +441,9 @@ def pack(scratch, out, kits_dir):
             print('%-10s %5d %6d %7d %5.2f %6d %7.1f %6.2f %4d' % (bid, k, z.root, len(z.data), len(z.pcm) / z.rate, z.ll,
                                                                  z.snr, z.gain, z.idx0))
         print('%-10s total %d B' % (bid, sum(len(z.data) for z in zs)))
-    print('%-13s %7s %5s %7s %6s %4s' % ('hit', 'bytes', 'len_s', 'snr_dB', 'gain', 'idx0'))
-    for hid, z in hits:
-        print('%-13s %7d %5.2f %7.1f %6.2f %4d' % (hid, len(z.data), len(z.pcm) / z.rate, z.snr, z.gain, z.idx0))
-    print('hits total %d B' % sum(len(z.data) for _, z in hits))
     for name, row in zip(KIT_SETS, kits):
+        if name is None:
+            continue
         for pname, pc in zip(KIT_PIECES, row):
             if pc:
                 print('kit %-8s %-6s %s; tops %s plays %s at %s; vel %d' % (

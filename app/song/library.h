@@ -22,7 +22,8 @@ enum { INS_RHODES, INS_WURLI, INS_FELT_PIANO, INS_NYLON, INS_PAD, INS_UPRIGHT, I
                                      one of the pad's solo voices (pads_solo_voice). The vox pad (INS_VOX_PAD) it
                                      replaced is removed (Sam, 2026-10-31): no patch, no set; its id never reused */
        INS_NONE }; /* append new ones before INS_NONE */
-/* the synth kits (drums.c), then the sampled kits (skits.c: one pool of hits, processed per kit at playback) */
+/* the synth kits (drums.c), then the mixed sampled kits (retired; their hits left the bank 2026-11-10: the ids stay, a
+   sampled kit's song's mark under a shipped sampled kit, song.c; their own hits are silent, drums.c) */
 enum { KIT_DUSTY, KIT_SOFT, KIT_808, KIT_BRUSHES, KIT_S_WARM, KIT_S_DARK, KIT_S_RUSTY, KIT_S_GENTLE, KIT_S_CLEAN, KIT_N };
 enum { FL_LOFI, FL_BOSSA, FL_CITYPOP, FL_NEOSOUL, FL_CHILLWAVE };
 enum { D_KICK, D_SNARE, D_HAT, D_OHAT, D_SHAKER, D_RIM };

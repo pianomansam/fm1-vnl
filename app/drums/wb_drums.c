@@ -346,7 +346,8 @@ int wb_drums_preset(wb_drums_t *d, int id)
     /* kick, snare, closed hat, open hat, shaker, rim, ride (the closed hat) */
     static const uint8_t PT_V[WB_LANES] = {V_BD, V_SD, V_CH, V_OH, V_MA, V_RS, V_CH};
     static const uint8_t OPT_L[WB_LANES] = {0, 1, 3, 4, 9, 11, 3};
-    /* the sampled kits' (kits.json's lanes): no shaker; Gogodze has no ride (its closed hat) */
+    /* the sampled kits' (kits.json's lanes): no shaker; Gogodze has no ride (its closed hat). Gogodze (Dusty) is retired:
+       its pieces are out of the bank, so piece_ok refuses its preset */
     static const int8_t SMP_P[WB_SMP_N][WB_LANES] = {
         {WB_P_KICK, WB_P_SNARE, WB_P_HAT, WB_P_OHAT, -1, WB_P_RIM, WB_P_HAT},
         {WB_P_KICK, WB_P_SNARE, WB_P_HAT, WB_P_OHAT, -1, WB_P_RIM, WB_P_RIDE},

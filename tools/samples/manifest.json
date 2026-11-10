@@ -1,5 +1,5 @@
 {
-  "comment": "VNL-1 sample set: sources, the files fetch.sh downloads and what pack.py makes of them. Picks, layers, mics and weights from the instrument spike (docs/research/instrument-spike-2026-10-24.md on spike/instruments, rounds 1-5). Lengths and seconds are in s, hp in Hz.",
+  "comment": "VNL-1 sample set: sources, the files fetch.sh downloads and what pack.py makes of them. Picks and layers from the instrument spike (docs/research/instrument-spike-2026-10-24.md on spike/instruments, rounds 1-5). Lengths and seconds are in s.",
   "license_sha256": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499",
   "sources": {
     "vcsl": {
@@ -7,24 +7,6 @@
       "url": "https://github.com/sgossner/VCSL",
       "raw": "https://raw.githubusercontent.com/sgossner/VCSL/master/",
       "license": "LICENSE"
-    },
-    "gogodze": {
-      "name": "Karoryfer Gogodze Phu Vol II",
-      "url": "https://github.com/sfzinstruments/karoryfer.gogodze-phu-vol-ii",
-      "raw": "https://raw.githubusercontent.com/sfzinstruments/karoryfer.gogodze-phu-vol-ii/master/",
-      "license": "LICENSE"
-    },
-    "rusty": {
-      "name": "Karoryfer Big Rusty Drums",
-      "url": "https://github.com/sfzinstruments/karoryfer.big-rusty-drums",
-      "raw": "https://raw.githubusercontent.com/sfzinstruments/karoryfer.big-rusty-drums/main/",
-      "license": "LICENSE"
-    },
-    "franken": {
-      "name": "Karoryfer Frankensnare",
-      "url": "https://github.com/sfzinstruments/karoryfer.frankensnare",
-      "raw": "https://raw.githubusercontent.com/sfzinstruments/karoryfer.frankensnare/main/",
-      "license": "license"
     },
     "emily": {
       "name": "Karoryfer Emilyguitar",
@@ -74,36 +56,7 @@
       ]
     }
   ],
-  "hits": [
-    {"id": "SH_GG_KICK", "src": "gogodze", "len": 0.45, "files": [["Samples/retro_mic/ks_vl4_rr1.wav", 1.0]]},
-    {"id": "SH_BR_KICK", "src": "rusty", "len": 0.45,
-     "files": [["Samples/kick_24/kick/kick/k_vl8_rr1.flac", 1.0], ["Samples/kick_24/kick/oh/k_vl8_rr1.flac", 0.6]]},
-    {"id": "SH_GG_SIDE", "src": "gogodze", "len": 0.25, "files": [["Samples/retro_mic/ss_vl2_rr1.wav", 1.0]]},
-    {"id": "SH_GG_SNARE", "src": "gogodze", "len": 0.40, "files": [["Samples/retro_mic/sc_vl4_rr1.wav", 1.0]]},
-    {"id": "SH_FS_POPLAR", "src": "franken", "len": 0.40,
-     "files": [["Samples/20_basic/top/sn_vl3_rr1.flac", 1.0], ["Samples/20_basic/btm/sn_vl3_rr1.flac", 0.3],
-               ["Samples/20_basic/oh/sn_vl3_rr1.flac", 0.6]]},
-    {"id": "SH_VC_ROPE", "src": "vcsl", "len": 0.40,
-     "files": [["Membranophones/Struck Membranophones/Snare Drum, Rope Tension/Low/RopeSnare_low_ns_Main_vl2_rr1.wav", 1.0]]},
-    {"id": "SH_GG_HAT", "src": "gogodze", "len": 0.15, "files": [["Samples/retro_mic/hc_vl3_rr1.wav", 1.0]]},
-    {"id": "SH_GG_OHAT", "src": "gogodze", "len": 0.40, "files": [["Samples/retro_mic/ho_vl2_rr1.wav", 1.0]]},
-    {"id": "SH_BR_CHICK", "src": "rusty", "len": 0.15,
-     "files": [["Samples/hihat_14/chik/cl/ht_chik_vl2_rr1.flac", 1.0], ["Samples/hihat_14/chik/oh/ht_chik_vl2_rr1.flac", 0.5]]},
-    {"id": "SH_BR_OHAT", "src": "rusty", "len": 0.40,
-     "files": [["Samples/hihat_14/open/cl/ht_open_vl2_rr1.flac", 1.0], ["Samples/hihat_14/open/oh/ht_open_vl2_rr1.flac", 0.5]]},
-    {"id": "SH_VC_PEDAL", "src": "vcsl", "len": 0.15,
-     "files": [["Idiophones/Struck Idiophones/Hi-Hat Cymbal/HiHat_Close_rr1_Mid.wav", 1.0]]},
-    {"id": "SH_VC_HAT", "src": "vcsl", "len": 0.15,
-     "files": [["Idiophones/Struck Idiophones/Hi-Hat Cymbal/HiHat_HitC_v1_rr1_Mid.wav", 1.0]]},
-    {"id": "SH_VC_OHAT", "src": "vcsl", "len": 0.40,
-     "files": [["Idiophones/Struck Idiophones/Hi-Hat Cymbal/HiHat_HitO_rr1_Mid.wav", 1.0]]},
-    {"id": "SH_VC_SHAKER", "src": "vcsl", "len": 0.20, "hp": 400,
-     "files": [["Idiophones/Struck Idiophones/Shaker, Small/Mid_ShakerHighFaster_Down_rr1.wav", 1.0]]},
-    {"id": "SH_RIDE", "src": "rusty", "len": 1.50,
-     "files": [["Samples/ride_22/rd/cl/rd_vl5_rr1.flac", 1.0], ["Samples/ride_22/rd/oh/rd_vl5_rr1.flac", 0.7]]}
-  ],
-  "kits_comment": "The workbench's sampled kits (wb_drums.c), reduced: from workbench/samples (prep_kits.py's files and kits.json), each piece's layers picked (kits.json's layer indices: the second and the top), the first round robin, at rate, cut to len s (a new hit restarts a lane, so a tail only shows at a phrase's end).",
+  "kits_comment": "The workbench's sampled kits (wb_drums.c), reduced: from workbench/samples (prep_kits.py's files and kits.json), each piece's layers picked (kits.json's layer indices: the second and the top), the first round robin, at rate, cut to len s (a new hit restarts a lane, so a tail only shows at a phrase's end). Dusty (gogodze) is retired (2026-11-10) and not packed: pack.py keeps its set's index, empty.",
   "kits": {"rate": 22050, "layers": [1, 3],
-           "len": {"kick": 0.55, "snare": 0.6, "rim": 0.45, "hat": 0.4, "ohat": 0.9, "ride": 1.0},
-           "kit_len": {"gogodze": {"kick": 0.7}}}
+           "len": {"kick": 0.55, "snare": 0.6, "rim": 0.45, "hat": 0.4, "ohat": 0.9, "ride": 1.0}}
 }

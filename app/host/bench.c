@@ -447,9 +447,7 @@ static void parts(double amb)
                                   {"organ", INS_ORGAN}};
     static const named_t SOL[] = {{"choir", INS_CHOIR}, {"flute", INS_FLUTE}, {"organ", INS_ORGAN},
                                   {"strings", INS_STRINGS}};
-    static const named_t KT[] = {{"dusty", KIT_DUSTY}, {"soft", KIT_SOFT}, {"808", KIT_808}, {"brushes", KIT_BRUSHES},
-                                 {"s-warm", KIT_S_WARM}, {"s-dark", KIT_S_DARK}, {"s-rusty", KIT_S_RUSTY},
-                                 {"s-gentle", KIT_S_GENTLE}, {"s-clean", KIT_S_CLEAN}};
+    static const named_t KT[] = {{"dusty", KIT_DUSTY}, {"soft", KIT_SOFT}, {"808", KIT_808}, {"brushes", KIT_BRUSHES}};
     static const uint32_t sd[4] = {20, 100, 128, 183};
     part_t p = part_of(P_IDLE), q;
     double base = best_part(&p), src, plate, t, b = 1e30;
@@ -482,9 +480,13 @@ static void parts(double amb)
         p.kit = KT[k].ins;
         row("drums", KT[k].n, best_part(&p), base, amb);
     }
-    for (k = 0; k < WB_KIT_PRESETS; k++) {   /* the shipped kits (the lanes over the set's kit: wb.c's wb_kit_preset) */
+    for (k = 0; k < WB_KIT_PRESETS; k++) {   /* the shipped kits (the lanes over the set's kit: wb.c's wb_kit_preset;
+                                                Dusty's samples are out of the bank: no row) */
+        wb_drums_t dk;
         static const char *const PN[WB_KIT_PRESETS] = {"808", "cr-78", "crunchy", "dusty (bank)", "room big (bank)",
                                                         "room brushes (bank)", "boom-bap", "jazz", "phonk"};
+        if (!wb_drums_preset(&dk, (int)k))
+            continue;
         p = part_of(P_DRUMS);
         p.kit = WB_KIT_SAMPLED(k) ? KIT_S_RUSTY : KIT_BRUSHES;
         p.preset = (int)k;

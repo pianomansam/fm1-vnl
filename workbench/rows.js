@@ -131,8 +131,9 @@ function allOptions(r, state, opts, lib) {
     case "onOffInverted": return [{ value: 0, name: "On" }, { value: 1, name: "Off" }];   // the engine's flag turns it off
     case "padPlaces": return [ROLLED, ...list(["Below the lead", "With the lead", "Above the lead"])];
     case "rides": return [ROLLED, ...list(["None", "Throughout", "One section"])];
-    case "kits": return opts.kits.map((k) => ({ value: k.id, name: k.name, status: k.status, family: k.family,
-                                                unavailable: !!state.unavailable?.has(k.id) }));
+    case "kits":   // a removed kit (the mixed sampled ones: their hits left the bank) never offered, shown only as current
+      return opts.kits.map((k) => ({ value: k.id, name: k.name, status: k.status, family: k.family,
+                                     unavailable: !!state.unavailable?.has(k.id), ...(k.status === "removed" ? { hidden: true } : {}) }));
     case "patterns": return opts.patterns.map((p) => ({ value: p.id, name: p.name, status: p.status, key: String(p.id) }));
     case "strumPats":   // a table index (the override forces it)
       return [ROLLED, ...(opts[r.source] || []).map((p) => ({ value: p.index, name: p.name, status: p.status, key: p.id }))];

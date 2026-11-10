@@ -15,8 +15,8 @@ export const cycle = (state) => (state + 1) % 3;
 
 // Each kit's sounds: [name, voice or lane, the lane it plays as shipped (-1: an extra)]. the modeled machines' are their
 // voices (C.PT); Optimist's kits (LO-FI, BOOMBAP, JAZZ, PHONK) their sixteen lanes each (drum_synth.c DS_LANES; the
-// LO-FI cowbell is the BOOMBAP one upstream); the sampled kits' their pieces (C.SMP; Gogodze has no
-// ride, the brushes' rim is the brush snare played lightly); the engine's synth kits their six lanes.
+// LO-FI cowbell is the BOOMBAP one upstream); the sampled kits' their pieces (C.SMP; the brushes' rim is the brush
+// snare played lightly); the engine's synth kits their six lanes.
 const PT_808 = [["kick", "BD", 0], ["snare", "SD", 1], ["closed hat", "CH", 2], ["open hat", "OH", 3], ["maracas", "MA", 4],
   ["rimshot", "RS", 5], ["clap", "CP", -1], ["low tom", "LT", -1], ["mid tom", "MT", -1], ["high tom", "HT", -1],
   ["cymbal", "CY", -1], ["cowbell", "CB", -1], ["low conga", "LC", -1], ["mid conga", "MC", -1], ["high conga", "HC", -1],
@@ -27,7 +27,7 @@ const PT_CR78 = [["kick", "BD", 0], ["snare", "SD", 1], ["closed hat", "CH", 2],
 const OPT_LANES = [["kick", 0, 0], ["snare", 1, 1], ["clap", 2, -1], ["closed hat", 3, 2], ["open hat", 4, 3], ["low tom", 5, -1],
   ["high tom", 6, -1], ["crash", 7, -1], ["ride", 8, RIDE], ["shaker", 9, 4], ["conga", 10, -1], ["rim", 11, 5],
   ["cowbell", 12, -1], ["clave", 13, -1], ["kick 2", 14, -1], ["snare 2", 15, -1]];
-const SMP = { 0: [["kick", "KICK", 0], ["snare", "SNARE", 1], ["sidestick", "RIM", 5], ["closed hat", "HAT", 2], ["open hat", "OHAT", 3]],
+const SMP = { 0: [],   // Dusty (Gogodze): retired, its pieces out of the sample bank (2026-11-10): no sources
   1: [["kick", "KICK", 0], ["snare", "SNARE", 1], ["sidestick", "RIM", 5], ["closed hat", "HAT", 2], ["open hat", "OHAT", 3], ["ride", "RIDE", RIDE]],
   2: [["kick", "KICK", 0], ["snare", "SNARE", 1], ["snare, light (rim)", "RIM", 5], ["closed hat", "HAT", 2], ["open hat", "OHAT", 3], ["ride", "RIDE", RIDE]] };
 const BUILTIN = [["kick", 0, 0], ["snare", 1, 1], ["closed hat", 2, 2], ["open hat", 3, 3], ["shaker", 4, 4], ["rim", 5, 5]];

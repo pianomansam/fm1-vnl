@@ -22,11 +22,21 @@
 #include "sampler.h"
 #include "strum.h"
 #include "drums.h"
-#include "skits.h"
 #include "override.h"
 #include "rolled.h"
 #include "patterns_gen.h"
 #include "leads/leads.h"
+
+/* A mixed sampled kit's song (KIT_S_*: retired, their hits out of the bank, so drums.c plays none) renders here on Soft
+   brushes' lanes, the engine kit kept (its compressor, the ride section's events): the FM-1 never plays one bare (a
+   rolled one becomes an approved kit, ui_kit_pick; a Room kit's lanes, app/drums, not linked here, play over it). */
+static void vx_song_kit(const song_roll_t *r)
+{
+    vx_song(r);
+    if (lib_kit_sampled(lib_song_kit(r)))
+        drums_set_kit(KIT_BRUSHES);
+}
+#define vx_song vx_song_kit
 
 static int fails;
 #define CHECK(c, ...)                                                                                              \
@@ -11888,16 +11898,11 @@ static void test_samples_table(void)
             sum += (b->z[k].len + 1) / 2;
         }
     }
-    for (id = 0; id < SH_N; id++) {
-        const smp_zone_t *h = smp_hit(id);
-        CHECK(h != NULL, "hit %d missing", id);
-        if (!h)
-            continue;
-        check_zone(h, "hit", id, 0);
-        sum += (h->len + 1) / 2;
-    }
     CHECK(smp_bank(-1) == NULL && smp_bank(SB_N) == NULL, "bank out of range not NULL");
-    CHECK(smp_hit(-1) == NULL && smp_hit(SH_N) == NULL, "hit out of range not NULL");
+    for (k = 0; k < SK_P_N; k++)                  /* Dusty (retired) out of the bank; the Room kits' pieces in it */
+        CHECK(smp_piece(SK_GOGODZE, k) == NULL && smp_piece(SK_RUSTY, k) != NULL && smp_piece(SK_BRUSHES, k) != NULL,
+              "kit pieces %d: Dusty %p, Room - big %p, Room - brushes %p", k, (const void *)smp_piece(SK_GOGODZE, k),
+              (const void *)smp_piece(SK_RUSTY, k), (const void *)smp_piece(SK_BRUSHES, k));
     {                                             /* the kits' pieces: each zone once (pieces share some) */
         const smp_zone_t *seen[SK_N * SK_P_N * SK_VL];
         int ns = 0, set, pc, l, j;
@@ -11954,17 +11959,26 @@ static void test_samples_bank(void)
     memcpy(bad, smp_blob, SMP_HEAD + smp_split());  /* in two areas, as the FM-1 keeps it */
     memset(bad + SMP_HEAD + smp_split(), 0xFF, smp_bytes() - smp_split());
     memcpy(more, smp_blob + SMP_HEAD + smp_split(), smp_bytes() - smp_split());
-    CHECK(smp_mount(bad, SMP_HEAD + smp_split(), more, sizeof more) == 0 &&
-              smp_piece(SK_BRUSHES, SK_RIDE)->z[1]->off >= smp_split() && smp_data(smp_piece(SK_BRUSHES, SK_RIDE)->z[1])[0] ==
-                  smp_blob[SMP_HEAD + smp_piece(SK_BRUSHES, SK_RIDE)->z[1]->off],
-          "bank: two areas do not mount, or a zone reads from the wrong one");
-    CHECK(smp_mount(bad, SMP_HEAD + smp_split(), more, smp_bytes() - smp_split() - 1u) != 0,
-          "bank: a short second area mounts");
-    more[7] ^= 1u;
-    CHECK(smp_mount(bad, SMP_HEAD + smp_split(), more, sizeof more) != 0, "bank: a damaged second area mounts");
+    if (smp_bytes() > smp_split()) {
+        CHECK(smp_mount(bad, SMP_HEAD + smp_split(), more, sizeof more) == 0 &&
+                  smp_piece(SK_BRUSHES, SK_RIDE)->z[1]->off >= smp_split() &&
+                  smp_data(smp_piece(SK_BRUSHES, SK_RIDE)->z[1])[0] ==
+                      smp_blob[SMP_HEAD + smp_piece(SK_BRUSHES, SK_RIDE)->z[1]->off],
+              "bank: two areas do not mount, or a zone reads from the wrong one");
+        CHECK(smp_mount(bad, SMP_HEAD + smp_split(), more, smp_bytes() - smp_split() - 1u) != 0,
+              "bank: a short second area mounts");
+        more[7] ^= 1u;
+        CHECK(smp_mount(bad, SMP_HEAD + smp_split(), more, sizeof more) != 0, "bank: a damaged second area mounts");
+    } else {                                      /* (the whole bank in the first area: the second's part empty) */
+        CHECK(smp_mount(bad, SMP_HEAD + smp_split(), more, 0u) == 0 &&
+                  smp_data(smp_piece(SK_BRUSHES, SK_RIDE)->z[1])[0] ==
+                      smp_blob[SMP_HEAD + smp_piece(SK_BRUSHES, SK_RIDE)->z[1]->off],
+              "bank: the first area alone does not mount, or a zone reads from the wrong place");
+        CHECK(smp_mount(bad, SMP_HEAD + smp_split() - 1u, more, 0u) != 0, "bank: a short first area mounts");
+    }
     memset(bad, 0xFF, n);                         /* erased flash: never written, or cut short (the head last) */
     CHECK(smp_mount(bad, n, NULL, 0) != 0 && !smp_ready(), "bank: erased flash mounts");
-    CHECK(smp_bank(SB_KNIGHT) == NULL && smp_hit(SH_GG_KICK) == NULL, "bank: none, yet tables given");
+    CHECK(smp_bank(SB_KNIGHT) == NULL && smp_piece(SK_RUSTY, SK_KICK) == NULL, "bank: none, yet tables given");
 
     lib_set_samples(0);                           /* as app_init with no bank */
     for (i = 0; i < 3000u; i++) {                 /* the chain of songs: never a sampled instrument or kit */
@@ -11998,13 +12012,6 @@ static void test_samples_bank(void)
     v.dv = 1.0f;
     samp_start(&v, &p, 60.0f, 1.0f);
     CHECK(!v.on, "no bank: a sampled note sounds");
-    skits_clear();
-    skits_set(KIT_S_WARM);
-    memset(&e, 0, sizeof e);
-    e.voice = V_KICK;
-    e.vel = 120;
-    skits_on(&e);
-    CHECK(skits_active() == 0, "no bank: a sampled hit sounds");
     vx_init();                                    /* and a sampled set forced on the voices renders silence */
     vx_assign(V_CHORD, INS_KNIGHT);
     vx_set_kit(KIT_S_WARM);
@@ -12123,12 +12130,12 @@ static void test_samp(void)
     int bk, k, bad = 0;
     float worst = 0.0f;
 
-    /* the data: decoded RMS (as -1..1) at least 0.01, no sample at the clamp, hits one-shot */
-    for (bk = 0; bk < SB_N + SH_N; bk++) {
-        const smp_bank_t *b = bk < SB_N ? smp_bank(bk) : NULL;
-        int nz = b ? b->n : 1;
+    /* the data: decoded RMS (as -1..1) at least 0.01, no sample at the clamp */
+    for (bk = 0; bk < SB_N; bk++) {
+        const smp_bank_t *b = smp_bank(bk);
+        int nz = b ? b->n : 0;
         for (k = 0; k < nz; k++) {
-            const smp_zone_t *z = b ? &b->z[k] : smp_hit(bk - SB_N);
+            const smp_zone_t *z = &b->z[k];
             smp_dec_t d;
             double e = 0.0;
             uint32_t i, clip = 0;
@@ -12139,10 +12146,8 @@ static void test_samp(void)
                 clip += y >= 32767 || y <= -32768;
             }
             e = e / z->len / (32768.0 * 32768.0);
-            CHECK(e >= 1e-4 && clip == 0, "samples: %s %d zone %d decodes to RMS %.4f, %u at the clamp",
-                  b ? "bank" : "hit", b ? bk : bk - SB_N, k, (double)fm_sqrtf((float)e), (unsigned)clip);
-            if (!b)
-                CHECK(z->loop_len == 0, "samples: hit %d loops", bk - SB_N);
+            CHECK(e >= 1e-4 && clip == 0, "samples: bank %d zone %d decodes to RMS %.4f, %u at the clamp", bk, k,
+                  (double)fm_sqrtf((float)e), (unsigned)clip);
         }
     }
 
@@ -12369,31 +12374,7 @@ static void test_samp(void)
     }
 }
 
-/* Task 7, the sampled kits (skits.h): every kit's lanes sound; the hi-hat choke; the kits' levels against each other
-   and the synth Dusty kit; extreme velocities finite and denormal-free; a kit change mid-song leaves sounding hits on
-   their kit, and every hit ends within its sample's length. */
-#define SK_SR 44100
-static float sk_buf[7 * SK_SR]; /* (the pattern: 2 bars at 80 BPM, 6 s) */
-
-/* n samples of the drums (drums.h: the synth kits and, routed by the kit, the sampled ones) into sk_buf + at */
-static void sk_run(int at, int n)
-{
-    int i;
-    for (i = 0; i < n; i++)
-        sk_buf[at + i] = drums_sample();
-}
-
-static float sk_rms(const float *x, int n)
-{
-    double s = 0.0;
-    int i;
-    for (i = 0; i < n; i++)
-        s += (double)x[i] * (double)x[i];
-    return n > 0 ? fm_sqrtf((float)(s / (double)n)) : 0.0f;
-}
-
-static float sk_db(float x) { return 6.0206f * fm_log2f(x + 1e-12f); }
-
+/* a drum hit (drums.h) on voice at vel */
 static void sk_hit(int voice, int vel)
 {
     song_ev_t e;
@@ -12403,301 +12384,16 @@ static void sk_hit(int voice, int vel)
     drums_on(&e);
 }
 
-/* the fixed pattern (the bench's boom-bap: kick, snare, hats on 8ths, an open hat, shaker 16ths, rims), 2 bars at
-   80 BPM; ride 1 plays the ride on the 8ths in place of the hats */
-static float sk_pattern(int kit, int ride)
-{
-    int step, st = SK_SR * 60 / 80 / 4, at = 0;
-    drums_song(0u);
-    drums_set_kit(kit);
-    for (step = 0; step < 32; step++) {
-        int s = step & 15;
-        if (s == 0 || s == 10) sk_hit(V_KICK, 110);
-        if (s == 4 || s == 12) sk_hit(V_SNARE, 105);
-        if (!(s & 1)) sk_hit(ride ? V_RIDE : V_HAT, 80);
-        if (s == 14 && !ride) sk_hit(V_OHAT, 85);
-        if (s & 1) sk_hit(V_SHAKER, 60);
-        if (s == 6 || s == 15) sk_hit(V_RIM, 70);
-        sk_run(at, st);
-        at += st;
-    }
-    return sk_rms(sk_buf, at);
-}
-
-/* x's energy per octave band (125 Hz to 8 kHz: 7 bands, the top one 5.6-8 kHz), in dB: Goertzel at every 4th DFT
-   bin of n samples */
-static void sk_bands(const float *x, int n, float *db)
-{
-    int b, k, i;
-    for (b = 0; b < 7; b++) {
-        float lo = 88.4f * (float)(1 << b), hi = b == 6 ? 8000.0f : 2.0f * lo;
-        double e = 0.0;
-        for (k = (int)(lo * (float)n / 44100.0f); k < (int)(hi * (float)n / 44100.0f); k += 4) {
-            float c = 2.0f * fm_cosf(6.2831853f * (float)k / (float)n), s1 = 0.0f, s2 = 0.0f;
-            for (i = 0; i < n; i++) {
-                float s0 = x[i] + c * s1 - s2;
-                s2 = s1;
-                s1 = s0;
-            }
-            e += (double)(s1 * s1 + s2 * s2 - c * s1 * s2);
-        }
-        db[b] = 4.3429448f * fm_logf((float)e + 1e-20f);
-    }
-}
-
-static void test_skits(void)
-{
-    int k, v, i, bad = 0;
-    float db[KIT_S_CLEAN + 1], dusty, lo = 1e9f, hi = -1e9f;
-
-    for (k = 0; k <= KIT_S_CLEAN; k++)
-        CHECK(lib_kit_sampled(k) == (k >= KIT_S_WARM), "kit %d: sampled %d", k, lib_kit_sampled(k));
-
-    /* every lane of every sampled kit sounds when struck: RMS over the hit's first 50 ms above -40 dBFS (the synth
-       Dusty kit's lanes printed beside them) */
-    for (k = KIT_DUSTY; k <= KIT_S_CLEAN; k++) {
-        if (k > KIT_DUSTY && k < KIT_S_WARM)
-            continue;
-        printf("skits: kit %d lanes (dBFS, 50 ms):", k);
-        for (v = V_KICK; v <= V_RIDE; v++) {
-            float r;
-            drums_song(0u);
-            drums_set_kit(k);
-            sk_hit(v, 100);
-            sk_run(0, 2205);
-            r = sk_rms(sk_buf, 2205);
-            printf(" %.1f", (double)sk_db(r));
-            CHECK(k == KIT_DUSTY || r > 0.01f, "kit %d voice %d: RMS %.4f, wanted over -40 dBFS", k, v, (double)r);
-        }
-        printf("\n");
-    }
-
-    /* velocity 127 (Review Focus 5, the final review): every lane of every sampled kit, through its bus and drive,
-       peaks (over 0.7 s) no higher than the loudest synth kit lane at 127 (today's limit), finite and sounding */
-    {
-        float lim = 0.0f, pk[KIT_N][V_RIDE - V_KICK + 1];
-        for (k = KIT_DUSTY; k <= KIT_S_CLEAN; k++)
-            for (v = V_KICK; v <= (k >= KIT_S_WARM ? V_RIDE : V_RIM); v++) {
-                float m = 0.0f;
-                int nan = 0;
-                drums_song(0u);
-                drums_set_kit(k);
-                sk_hit(v, 127);
-                sk_run(0, 30000);
-                for (i = 0; i < 30000; i++) {
-                    nan += sk_buf[i] != sk_buf[i];
-                    m = fm_maxf(m, sk_buf[i] < 0.0f ? -sk_buf[i] : sk_buf[i]);
-                }
-                CHECK(nan == 0, "skits: kit %d voice %d at 127: %d NaN samples", k, v, nan);
-                pk[k][v - V_KICK] = m;
-                if (k < KIT_S_WARM) lim = fm_maxf(lim, m);
-            }
-        printf("skits: velocity 127 peaks (the synth kits' loudest lane %.3f):", (double)lim);
-        for (k = KIT_S_WARM; k <= KIT_S_CLEAN; k++)
-            for (v = V_KICK; v <= V_RIDE; v++) {
-                float m = pk[k][v - V_KICK];
-                printf(" %.3f", (double)m);
-                CHECK(m > 0.0f && m <= lim, "skits: kit %d voice %d peaks %.3f at velocity 127, over the synth kits' %.3f",
-                      k, v, (double)m, (double)lim);
-            }
-        printf("\n");
-    }
-
-    /* the choke: an open hat, then a closed hat 100 ms later; the open hat's remainder (the pair less the closed hat
-       alone) is 40 dB under the open hat's level by 10 ms after the closed hit, where unchoked it still sounds */
-    for (k = KIT_S_WARM; k <= KIT_S_CLEAN; k++) {
-        static float pair[8820], alone[8820];
-        int t = 4410, w = 441;
-        float before, rest, open_on;
-        drums_song(0u);
-        drums_set_kit(k);
-        sk_hit(V_OHAT, 100);
-        sk_run(0, t);
-        before = sk_rms(sk_buf + t - w, w);
-        sk_run(t, w * 2);
-        open_on = sk_rms(sk_buf + t + w, w); /* (no closed hit: the open hat rings on) */
-        drums_song(0u);
-        drums_set_kit(k);
-        sk_hit(V_OHAT, 100);
-        sk_run(0, t);
-        sk_hit(V_HAT, 100);
-        sk_run(t, w * 2);
-        memcpy(pair, sk_buf, sizeof pair);
-        drums_song(0u);
-        drums_set_kit(k);
-        memset(sk_buf, 0, sizeof pair);
-        sk_hit(V_HAT, 100);
-        sk_run(t, w * 2);
-        memcpy(alone, sk_buf, sizeof alone);
-        for (i = t + w; i < t + 2 * w; i++)
-            pair[i] -= alone[i];
-        rest = sk_rms(pair + t + w, w);
-        printf("skits: kit %d choke: open hat %.1f dB, unchoked 10 ms on %.1f dB, choked %.1f dB\n", k,
-               (double)sk_db(before), (double)sk_db(open_on),
-               (double)sk_db(rest));
-        CHECK(open_on > 0.1f * before, "kit %d: the open hat should still ring unchoked (%.4f of %.4f)", k,
-              (double)open_on, (double)before);
-        CHECK(rest < 0.01f * before, "kit %d: the choked open hat at %.4f, wanted 40 dB under %.4f", k, (double)rest,
-              (double)before);
-    }
-
-    /* the levels on a fixed pattern: every sampled kit within 1.5 dB of each other and of the synth Dusty kit (the
-       ride pattern too) */
-    dusty = sk_db(sk_pattern(KIT_DUSTY, 0));
-    for (k = KIT_S_WARM; k <= KIT_S_CLEAN; k++) {
-        float rd = sk_db(sk_pattern(k, 1));
-        db[k] = sk_db(sk_pattern(k, 0));
-        lo = db[k] < lo ? db[k] : lo;
-        hi = db[k] > hi ? db[k] : hi;
-        printf("skits: kit %d pattern %.2f dB (ride %.2f), Dusty %.2f dB\n", k, (double)db[k], (double)rd,
-               (double)dusty);
-        CHECK(fm_fabsf(db[k] - dusty) <= 1.5f, "kit %d: %.2f dB against Dusty's %.2f", k, (double)db[k],
-              (double)dusty);
-        CHECK(fm_fabsf(rd - dusty) <= 1.5f, "kit %d ride: %.2f dB against Dusty's %.2f", k, (double)rd, (double)dusty);
-    }
-    CHECK(hi - lo <= 1.5f, "sampled kits span %.2f dB, wanted within 1.5", (double)(hi - lo));
-
-    /* velocity 1 and 127 through the voices: finite, no denormals */
-    for (k = KIT_S_WARM; k <= KIT_S_CLEAN; k++) {
-        int c, vel;
-        vx_init();
-        vx_set_gain(1.0f);
-        vx_set_kit(k);
-        for (vel = 1; vel <= 127; vel += 126)
-            for (c = 0; c < 12; c++) {
-                for (v = V_KICK; v <= V_RIDE; v++)
-                    if (c % 4 == 0 || v == V_HAT)
-                        vt_ev(v, 0, vel, 0, 0);
-                vx_render(vt_l, vt_r, 4096);
-                for (i = 0; i < 4096; i++)
-                    bad += vt_l[i] != vt_l[i] || fm_fabsf(vt_l[i]) > 1e30f || vt_r[i] != vt_r[i];
-                bad += vx_tiny() != 0;
-            }
-    }
-    CHECK(bad == 0, "skits: %d non-finite samples or denormal states", bad);
-
-    /* a kit change keeps sounding hits on their kit: the same output as with no change (both ways) */
-    {
-        static const int PAIRS[4][2] = {{KIT_DUSTY, KIT_S_RUSTY}, {KIT_S_RUSTY, KIT_DUSTY}, /* synth, sampled */
-                                        {KIT_S_WARM, KIT_S_RUSTY}, {KIT_S_RUSTY, KIT_S_WARM}}; /* bus, none */
-        static float a[8000];
-        int p, diff;
-        for (p = 0; p < 4; p++) {
-            drums_song(0u);
-            drums_set_kit(PAIRS[p][0]);
-            for (v = V_KICK; v <= V_RIDE; v++)
-                if (v != V_HAT)
-                    sk_hit(v, 110);
-            sk_run(0, 2000);
-            sk_run(2000, 6000);
-            memcpy(a, sk_buf, sizeof a);
-            drums_song(0u);
-            drums_set_kit(PAIRS[p][0]);
-            for (v = V_KICK; v <= V_RIDE; v++)
-                if (v != V_HAT)
-                    sk_hit(v, 110);
-            sk_run(0, 2000);
-            drums_set_kit(PAIRS[p][1]);
-            CHECK(drums_active() > 0, "kit %d to %d: the hits should still sound", PAIRS[p][0], PAIRS[p][1]);
-            sk_run(2000, 6000);
-            for (i = 0, diff = 0; i < 8000; i++)
-                diff += sk_buf[i] != a[i];
-            CHECK(diff == 0, "kit %d to %d: %d samples changed by the kit change", PAIRS[p][0], PAIRS[p][1], diff);
-        }
-        /* mid-song through the voices, Dusty to Rusty and back with hits sounding: finite */
-        vx_init();
-        vx_set_gain(1.0f);
-        bad = 0;
-        for (p = 0; p < 6; p++) {
-            vx_set_kit(p & 1 ? KIT_S_RUSTY : KIT_DUSTY);
-            for (v = V_KICK; v <= V_RIDE; v++)
-                vt_ev(v, 0, 100, (uint32_t)(v * 200), 0);
-            vx_render(vt_l, vt_r, 4096);
-            for (i = 0; i < 4096; i++)
-                bad += vt_l[i] != vt_l[i] || fm_fabsf(vt_l[i]) > 1e30f || vt_r[i] != vt_r[i];
-        }
-        CHECK(bad == 0 && vx_tiny() == 0, "skits: kit changes mid-song: %d non-finite, tiny %d", bad, vx_tiny());
-    }
-
-    /* half the rate (Task 9's cut, the default) against the full rate (skits_half(0)), per kit and lane, a hit at
-       velocity 100, the half-rate one less its 14-sample half-band latency. The level within 0.3 dB (RMS, the first
-       150 ms) and every octave band from 125 Hz to 8 kHz within 1 dB (bands within 40 dB of the hit's loudest): the
-       half-band is flat within 0.01 dB to 8 kHz, the hits hold nothing above it, and the low-passes are matched
-       (skits.c's lp_coef; their phase differs a little, so the waveforms are not compared on a filtered lane). An
-       unfiltered lane's waveform within 20 dB of the full rate's: only the interpolator's images above 8 kHz differ
-       (the full rate keeps them, about -25 dB on a hat; the half-band takes them), where a wrong pitch, step or
-       start would differ by about 0 dB. */
-    for (k = KIT_S_WARM; k <= KIT_S_CLEAN; k++)
-        for (v = V_KICK; v <= V_RIDE; v++) {
-            static float full[6615];
-            const skit_t *kt = skits_kit(k);
-            int n = 6615, lat = 14, j, raw = kt->lp_hz <= 0.0f && kt->drive <= 0.0f && !kt->llp[v - V_KICK];
-            double e = 0.0, d = 0.0;
-            float rf, rh, bf[7], bh[7], top = -1e9f, worst = 0.0f;
-            skits_half(0);
-            drums_song(0u);
-            drums_set_kit(k);
-            sk_hit(v, 100);
-            sk_run(0, n);
-            memcpy(full, sk_buf, sizeof full);
-            skits_half(1);
-            drums_song(0u);
-            drums_set_kit(k);
-            sk_hit(v, 100);
-            sk_run(0, n + lat);
-            rf = sk_rms(full, n);
-            rh = sk_rms(sk_buf + lat, n);
-            for (i = 0; i < n; i++) {
-                e += (double)full[i] * (double)full[i];
-                d += (double)(sk_buf[i + lat] - full[i]) * (double)(sk_buf[i + lat] - full[i]);
-            }
-            sk_bands(full, n, bf);
-            sk_bands(sk_buf + lat, n, bh);
-            for (j = 0; j < 7; j++)
-                top = fm_maxf(top, bf[j]);
-            for (j = 0; j < 7; j++)
-                if (bf[j] > top - 40.0f && fm_fabsf(bh[j] - bf[j]) > fm_fabsf(worst))
-                    worst = bh[j] - bf[j];
-            printf("skits: kit %d voice %d half rate: level %+.2f dB, worst band %+.2f dB, difference %.1f dB under%s\n",
-                   k, v, (double)(sk_db(rh) - sk_db(rf)), (double)worst,
-                   (double)sk_db(fm_sqrtf((float)(e / (d + 1e-30)))), raw ? "" : " (filtered)");
-            CHECK(fm_fabsf(sk_db(rh) - sk_db(rf)) <= 0.3f, "kit %d voice %d: half rate %.2f dB off the full rate", k,
-                  v, (double)(sk_db(rh) - sk_db(rf)));
-            CHECK(fm_fabsf(worst) <= 1.0f, "kit %d voice %d: half rate's band %.2f dB off the full rate", k, v,
-                  (double)worst);
-            CHECK(!raw || d * 100.0 <= e, "kit %d voice %d: half rate differs %.1f dB under the full rate, wanted 20",
-                  k, v, (double)sk_db(fm_sqrtf((float)(e / (d + 1e-30)))));
-        }
-
-    /* no read past a table: each hit ends within its sample's length at its pitch (plus the interpolator's few and
-       the kit bus's ring) */
-    for (k = KIT_S_WARM; k <= KIT_S_CLEAN; k++)
-        for (v = V_KICK; v <= V_RIDE; v++) {
-            int n = 0;
-            drums_song(0u);
-            drums_set_kit(k);
-            sk_hit(v, 127);
-            while (drums_active() && n < 7 * SK_SR) {
-                (void)drums_sample();
-                n++;
-            }
-            CHECK(n <= skits_lane_len(k, v) + 64, "kit %d voice %d: sounded %d samples, its hit %d", k, v, n,
-                  skits_lane_len(k, v));
-        }
-}
-
 /* Task 9's block rendering: the drums render a segment at a time (drums_render, 1-256 samples), which must give
-   exactly what a sample at a time (drums_sample) gives, at half the rate (blocks starting on odd samples too) and at
-   the full rate: the same random stream of hits (every lane, velocities 1-127), releases and kit changes (the five
-   sampled kits and a synth kit, hits left sounding across a change), rendered both ways; the audio and the kick's
-   envelope (the duck's source, read at every block's end) bit for bit. Also: no sampled kit pitches a hit up (the
-   half rate keeps a 16 kHz hit's band only while its step stays under 1 at 22.05 kHz). */
+   exactly what a sample at a time (drums_sample) gives (blocks starting on odd samples too): the same random stream of hits (every lane, velocities 1-127), releases and kit changes (the synth
+   kits and a mixed sampled one, silent since its hits left the bank, hits left sounding across a change), rendered
+   both ways; the audio and the kick's envelope (the duck's source, read at every block's end) bit for bit. */
 #define DB_N 400000
 static float db_a[DB_N], db_b[DB_N], db_ka[DB_N / 2], db_kb[DB_N / 2];
 
 static int db_stream(float *o, float *ko, int blocky, uint32_t seed)
 {
-    static const int KITS[6] = {KIT_S_WARM, KIT_S_DARK, KIT_S_RUSTY, KIT_S_GENTLE, KIT_S_CLEAN, KIT_DUSTY};
+    static const int KITS[6] = {KIT_DUSTY, KIT_SOFT, KIT_808, KIT_BRUSHES, KIT_S_RUSTY, KIT_DUSTY};
     uint32_t x = seed;
     int pos = 0, nk = 0, i;
     drums_song(0u);
@@ -12818,40 +12514,24 @@ static void test_drums_hook(void)
 
 static void test_drums_blocks(void)
 {
-    int h, k, l, i;
-    for (k = KIT_S_WARM; k <= KIT_S_CLEAN; k++) /* no kit pitches a hit up */
-        for (l = 0; l <= V_RIDE - V_KICK; l++) {
-            const skit_t *kt = skits_kit(k);
-            int id = kt->hit[l] < 0 && l == 3 ? kt->hit[2] : kt->hit[l];
-            const smp_zone_t *z = smp_hit(id);
-            if (!z)
-                continue;
-            CHECK(kt->semis + (float)kt->lsemis[l] <= 0.0f && z->rate <= 16000u,
-                  "kit %d lane %d: %.0f semitones at %u Hz: a half-rate step over 1", k, l,
-                  (double)(kt->semis + (float)kt->lsemis[l]), (unsigned)z->rate);
+    uint32_t seed;
+    int i;
+    for (seed = 1; seed <= 6u; seed++) {
+        int n, d = 0, dk = 0, live = 0;
+        n = db_stream(db_a, db_ka, 0, seed * 7919u);
+        db_stream(db_b, db_kb, 1, seed * 7919u);
+        for (i = 0; i < DB_N; i++) {
+            d += memcmp(&db_a[i], &db_b[i], sizeof(float)) != 0;
+            live += db_a[i] != 0.0f;
         }
-    for (h = 1; h >= 0; h--) {
-        uint32_t seed;
-        for (seed = 1; seed <= 6u; seed++) {
-            int n, d = 0, dk = 0, live = 0;
-            skits_half(h);
-            n = db_stream(db_a, db_ka, 0, seed * 7919u);
-            db_stream(db_b, db_kb, 1, seed * 7919u);
-            for (i = 0; i < DB_N; i++) {
-                d += memcmp(&db_a[i], &db_b[i], sizeof(float)) != 0;
-                live += db_a[i] != 0.0f;
-            }
-            for (i = 0; i < n; i++)
-                dk += memcmp(&db_ka[i], &db_kb[i], sizeof(float)) != 0;
-            printf("drums blocks: half %d stream %u: %d blocks, %d of %d samples sounding; %d samples, %d kick "
-                   "envelopes differ\n", h, (unsigned)seed, n, live, DB_N, d, dk);
-            CHECK(d == 0 && dk == 0, "drums blocks: half %d stream %u: %d samples, %d kick envelopes differ", h,
-                  (unsigned)seed, d, dk);
-            CHECK(live > DB_N / 2, "drums blocks: half %d stream %u: only %d samples sounding", h, (unsigned)seed,
-                  live);
-        }
+        for (i = 0; i < n; i++)
+            dk += memcmp(&db_ka[i], &db_kb[i], sizeof(float)) != 0;
+        printf("drums blocks: stream %u: %d blocks, %d of %d samples sounding; %d samples, %d kick envelopes differ\n",
+               (unsigned)seed, n, live, DB_N, d, dk);
+        CHECK(d == 0 && dk == 0, "drums blocks: stream %u: %d samples, %d kick envelopes differ", (unsigned)seed, d,
+              dk);
+        CHECK(live > DB_N / 2, "drums blocks: stream %u: only %d samples sounding", (unsigned)seed, live);
     }
-    skits_half(1);
 }
 
 /* Sampled instruments Task 8: the kit per song and the ride roll. Each set keeps its synth kit and names a sampled
@@ -13897,7 +13577,6 @@ int main(int argc, char **argv)
     RUN(test_samp_seams);
     RUN(test_samp);
     RUN(test_comp_styles);
-    RUN(test_skits);
     RUN(test_drums_blocks);
     RUN(test_drums_hook);
     RUN(test_kit_roll);

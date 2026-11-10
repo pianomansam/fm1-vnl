@@ -2,8 +2,8 @@
 /* The workbench's drums: seven lanes (kick, snare, closed hat, open hat, shaker, rim, ride: V_KICK..V_RIDE's order),
    each playing a sound from a source: FOMAJAM's modeled 808 and CR-78 (fomajam/, GPL-3.0-only), Optimist's synth kits
    (optimist/, GPL-3.0-only: LO-FI, BOOMBAP, JAZZ, PHONK), the engine's built-in synth kits (Brushes; Dusty, Soft and
-   our 808 when a song has one), or the shipped sampled kits (Karoryfer's Gogodze and Big Rusty, CC0: reduced into
-   the sample bank, samples.h smp_piece). Installed with drums_hook while any lane has a source, so the lanes go
+   our 808 when a song has one), or the shipped sampled kits (Karoryfer's Big Rusty, CC0: reduced into the sample
+   bank, samples.h smp_piece; Dusty, the Gogodze set, is retired and out of the bank, 2026-11-10: its preset refused). Installed with drums_hook while any lane has a source, so the lanes go
    through the song's own drum bus, compressor, filters and ducking; with none, the song's own kit plays as before.
    Float out, no allocation after wb_drums_init. */
 #ifndef WB_DRUMS_H
@@ -23,7 +23,7 @@ enum {
 };
 enum { WB_OPT_LOFI, WB_OPT_BOOMBAP, WB_OPT_JAZZ, WB_OPT_PHONK, WB_OPT_N };   /* optimist/felucca_drumkits.h's kits */
 /* the sample sets (samples/kits.json's ids; samples.h SK_*) and their pieces (SK_KICK..) */
-enum { WB_SMP_GOGODZE, WB_SMP_RUSTY, WB_SMP_BRUSHES, WB_SMP_N };
+enum { WB_SMP_GOGODZE, WB_SMP_RUSTY, WB_SMP_BRUSHES, WB_SMP_N };   /* (GOGODZE: retired, no pieces; its index kept) */
 enum { WB_P_KICK, WB_P_SNARE, WB_P_RIM, WB_P_HAT, WB_P_OHAT, WB_P_RIDE, WB_P_N };
 /* the shipped kits (wb_drums_preset); the kit row's value for one is WB_KIT_PRESET + its id, past the engine's KIT_*:
    the synth machines' kits, the sampled kits (a sample set each, in WB_SMP_* order), then the Optimist kits added

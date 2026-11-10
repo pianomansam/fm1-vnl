@@ -432,8 +432,8 @@ static void test_nav_sections(void)
     CHECK(n.jump_i < 0, "it clears once the song has moved on, back too");
 }
 
-/* ui_kit_pick (desk.js's approvedKit; smoke.mjs holds it to the page's over 300 seeds): only a retired rolled kit
-   moves, onto an approved kit of the song's family; with no bank never onto a sampled shipped kit */
+/* ui_kit_pick (desk.js's approvedKit; smoke.mjs holds it to the page's over 300 seeds): only a retired or removed
+   rolled kit (the mixed sampled kits: removed 2026-11-10) moves, onto an approved kit of the song's family; with no bank never onto a sampled shipped kit */
 static void test_kit_pick(void)
 {
     uint32_t seed;
@@ -445,10 +445,10 @@ static void test_kit_pick(void)
         was = lib_song_kit(&r);
         k = ui_kit_pick(&r, 1);
         nb = ui_kit_pick(&r, 0);
-        if (CH_STATUS(ch_flags(ROW_KIT, was)) == 2) {
+        if (CH_STATUS(ch_flags(ROW_KIT, was)) >= 2) {
             CHECK(k >= 0 && CH_STATUS(ch_flags(ROW_KIT, k)) == 0 &&
                       CH_FAM(ch_flags(ROW_KIT, k)) == CH_FAM(ch_flags(ROW_KIT, nb)),
-                  "seed %u: retired kit %d picks %d (no bank: %d)", (unsigned)seed, was, k, nb);
+                  "seed %u: retired or removed kit %d picks %d (no bank: %d)", (unsigned)seed, was, k, nb);
             CHECK(nb >= 0 && !SONG_KIT_IS_SAMPLED(nb - SONG_KIT_PRESET), "seed %u: no bank, yet kit %d", (unsigned)seed,
                   nb);
             moved++;

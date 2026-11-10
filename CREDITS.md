@@ -12,12 +12,9 @@ with thanks. `tools/samples/manifest.json` lists the exact files; `tools/samples
 
 | Source | Used for | License | URL |
 | --- | --- | --- | --- |
-| Versilian Community Sample Library (VCSL), Versilian Studios; the Knight upright sampled by Simon Dalzell (Ivy Audio) | Knight upright piano (`Upright Piano, Knight`, `vl2`); rope-tension snare (low, snares off); hi-hat pedal close, closed (softest) and open; small shaker (high, fast) | CC0 1.0 (`LICENSE`) | https://github.com/sgossner/VCSL |
+| Versilian Community Sample Library (VCSL), Versilian Studios; the Knight upright sampled by Simon Dalzell (Ivy Audio) | Knight upright piano (`Upright Piano, Knight`, `vl2`) | CC0 1.0 (`LICENSE`) | https://github.com/sgossner/VCSL |
 | FreePats Spanish Classical Guitar 2019-06-18 (SF2), by roberto@zenvoid.org | nylon guitar | CC0 1.0 (`cc0.txt`, `readme.txt`) | https://freepats.zenvoid.org/Guitar/acoustic-guitar.html |
 | Karoryfer Samples (D. Smolken, Brian Wood): Emilyguitar | electric guitar (`mf`) | CC0 1.0 (`LICENSE`) | https://github.com/sfzinstruments/karoryfer.emilyguitar |
-| Karoryfer Samples: Gogodze Phu Vol II | kick, sidestick, snare (center), closed and open hi-hat (retro mic) | CC0 1.0 (`LICENSE`) | https://github.com/sfzinstruments/karoryfer.gogodze-phu-vol-ii |
-| Karoryfer Samples: Big Rusty Drums | kick, hi-hat foot chick and open, 22" ride | CC0 1.0 (`LICENSE`) | https://github.com/sfzinstruments/karoryfer.big-rusty-drums |
-| Karoryfer Samples: Frankensnare | 20x6 poplar snare | CC0 1.0 (`license`) | https://github.com/sfzinstruments/karoryfer.frankensnare |
 
 ## Code
 
@@ -43,12 +40,11 @@ https://github.com/kidbee85-beep/cut-a-dor-release), from its rhythm engine `fir
 (`kick_a`/`kick_b`, families 0, 2, 12 and 6: `patterns/kick-phrases/k7`-`k10`) and its eight hat bars (`hats`:
 `app/song/roll.c`'s `HAT_FIG`), adapted to our groove and drawn per song.
 
-The shipped sampled kits (Dusty, Room - big, Room - brushes) play recordings dedicated to the public domain under CC0
+The shipped sampled kits (Room - big, Room - brushes) play recordings dedicated to the public domain under CC0
 1.0, fetched and mixed by `workbench/tools/prep_kits.py` (which checks each `LICENSE`) into `workbench/samples/`
 (git-ignored), then reduced by `tools/samples/pack.py` into the sample bank (the firmware's and the workbench's). No
 attribution is required; it is given with thanks:
 
 | Source | Used for | License | URL |
 | --- | --- | --- | --- |
-| Karoryfer Samples: Gogodze Phu Vol II, at 69a0274 | the Gogodze kit (`Programs/Kit.sfz` as shipped: kick, snare, sidestick, closed and open hi-hat, every mic at its default mix) | CC0 1.0 (`LICENSE`) | https://github.com/sfzinstruments/karoryfer.gogodze-phu-vol-ii |
 | Karoryfer Samples: Big Rusty Drums, at f07ce00 | the Big Rusty kits (`Programs/02-basic.sfz` as shipped, and with its brush maps: kick, snare, sidestick, hi-hat, 22" ride) | CC0 1.0 (`LICENSE`) | https://github.com/sfzinstruments/karoryfer.big-rusty-drums |
