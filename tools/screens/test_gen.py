@@ -112,7 +112,7 @@ class Gen(unittest.TestCase):
             printf("%s\n", ch_name(ROW_BASS, 7));
             printf("%s\n", ch_name(ROW_COMP, 101));
             printf("%s\n", ch_name(ROW_KIT, 99) ? "named" : "NULL");
-            printf("%d %d\n", ch_is_retired(ROW_KIT, 6), ch_is_retired(ROW_KIT, 19));
+            printf("%d %d\n", ch_is_retired(ROW_KIT, 6), ch_is_retired(ROW_KIT, 20));
             printf("%d %d %d\n", ch_fits(ROW_COMP, 5, 3), ch_fits(ROW_COMP, 5, 0), ch_fits(ROW_COMP, 0, 26));
             int n = ch_count(ROW_KIT);
             printf("%d %d\n", n, ch_value(ROW_KIT, n - 1));""").splitlines()
@@ -122,7 +122,7 @@ class Gen(unittest.TestCase):
         self.assertEqual(out[1], sub["short"].upper())
         self.assertEqual(out[2], "TRESILLO")
         self.assertEqual(out[3], "NULL")
-        self.assertEqual(out[4], "1 0")         # kit 6 retired, 19 approved
+        self.assertEqual(out[4], "1 0")         # kit 6 retired, 20 (Room - big) approved (19, Dusty, retired 2026-11-10)
         self.assertEqual(out[5], "1 0 0")       # strum: the guitars only; held: never the guitars
         self.assertEqual(out[6], f"{len(opts['kits'])} {opts['kits'][-1]['id']}")
 
