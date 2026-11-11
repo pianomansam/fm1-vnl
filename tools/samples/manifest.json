@@ -71,9 +71,19 @@
       ]
     },
     {
-      "id": "SB_JAZZ", "rate": 12000, "attack": 0.6, "loop": 0.1, "after_kits": true, "use": "reamp",
-      "comment": "The jazz guitar (a candidate lead, 2026-11-10): the Shinyguitar archtop's magnetic pickup (electric), vl2 (velocities 33-64: jazz is played soft), rr1, every minor 3rd A3-C6 (the lead's register); standard pitch (the SFZ's keycenters). At 12 kHz; laid out after the kits (after_kits), so every other zone keeps its place. Two versions (variants; use: the one packed): reamp, Sam's re-amp of the raw notes through his amp and cabinet (the tone: tone.py bypassed), packed; its cut 0.55 s and a 0.15 s loop (0.1 s put a loop seam on Eb4 and, at 0.12 s, C4), at 12 kHz (16 and 22.05 kHz with the codes searched, 4-8 dB less ADPCM noise, made no difference Sam could hear to the buzz he hears: back to 12 kHz, the bank's room kept for a cello); chain, the raw notes through tone.py's chain (a warm, round, dark jazz box), the first version (2026-11-10).",
+      "id": "SB_JAZZ", "rate": 12000, "attack": 0.6, "loop": 0.1, "after_kits": true, "use": "reamp_pcm",
+      "comment": "The jazz guitar (a candidate lead, 2026-11-10): the Shinyguitar archtop's magnetic pickup (electric), vl2 (velocities 33-64: jazz is played soft), rr1, every minor 3rd A3-C6 (the lead's register); standard pitch (the SFZ's keycenters). At 12 kHz; laid out after the kits (after_kits), so every other zone keeps its place. Three versions (variants; use: the one packed): reamp_pcm, packed (its own note); reamp, Sam's re-amp of the raw notes through his amp and cabinet (the tone: tone.py bypassed) as ADPCM in the bank, ten zones; its cut 0.55 s and a 0.15 s loop (0.1 s put a loop seam on Eb4 and, at 0.12 s, C4), at 12 kHz (16 and 22.05 kHz with the codes searched, 4-8 dB less ADPCM noise, made no difference Sam could hear to the buzz he hears: back to 12 kHz, the bank's room kept for a cello); chain, the raw notes through tone.py's chain (a warm, round, dark jazz box), the first version (2026-11-10).",
       "variants": {
+        "reamp_pcm": {"src": "jazz_reamp", "tone": {"bypass": true}, "store": "pcm16", "attack": 0.38, "loop": 0.12,
+                      "comment": "Sam, 2026-11-10: every 4-bit version sounded sub-par next to the plain PCM: the re-amp uncompressed, 16-bit PCM at 12 kHz in the firmware's image (out of the bank: room for a cello), six zones every 6 semitones (A3 C4 Gb4 C5 Gb5 C6: Eb5's attack grit left out), each note within 3 semitones of one from F#3 to Eb6, 0.5 s each (a 0.38 s attack, a 0.12 s loop).",
+                      "zones": [
+            {"file": "Samples/electric/a3_vl2_rr1_2.wav", "hint": 57},
+            {"file": "Samples/electric/c4_vl2_rr1_2.wav", "hint": 60},
+            {"file": "Samples/electric/gb4_vl2_rr1_2.wav", "hint": 66},
+            {"file": "Samples/electric/c5_vl2_rr1_2.wav", "hint": 72},
+            {"file": "Samples/electric/gb5_vl2_rr1_2.wav", "hint": 78},
+            {"file": "Samples/electric/c6_vl2_rr1_2.wav", "hint": 84}
+                      ]},
         "reamp": {"src": "jazz_reamp", "tone": {"bypass": true}, "attack": 0.55, "loop": 0.15},
         "chain": {"src": "shiny",
                   "tone": {"in_db": -6.0, "tone_hz": 2200.0, "tone_order": 1, "drive": 1.5, "hp_hz": 90.0,

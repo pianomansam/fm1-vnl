@@ -26,12 +26,15 @@
 #include <stdint.h>
 
 typedef struct { uint32_t off, len, loop_start, loop_len; uint16_t rate; uint8_t root;
-                 uint8_t idx0; float gain; } smp_zone_t;   /* off: in the payload; loop_len 0 = one-shot; idx0 0..88 */
+                 uint8_t idx0; float gain; } smp_zone_t;   /* off: in the payload; loop_len 0 = one-shot; idx0 0..88
+                                                              (SMP_PCM16: the image's 16-bit PCM, off in samples) */
 typedef struct { const smp_zone_t *z; uint8_t n; } smp_bank_t;  /* zones sorted by root */
 
 /* Pitched banks: the Knight upright (VCSL), the FreePats Spanish classical nylon, the Karoryfer Emilyguitar, the
-   jazz guitar (the Karoryfer Shinyguitar's pickup, through tools/samples/tone.py's chain; a candidate lead, 2026-11-10)
-   (the VCSL vibraphone went 2026-11-03: the vibes are modeled, modal.h). */
+   jazz guitar (the Karoryfer Shinyguitar's pickup, re-amped by Sam; a candidate lead, 2026-11-10) (the VCSL vibraphone
+   went 2026-11-03: the vibes are modeled, modal.h). The jazz guitar's zones are not in the bank: 16-bit PCM in the
+   firmware's image (smp_pcm16, samples_pcm.c: const, in flash), each zone's idx0 SMP_PCM16 and its off in samples
+   (Sam, 2026-11-10: every 4-bit version of it sounded sub-par). They play as the bank's do, the bank mounted. */
 enum { SB_KNIGHT, SB_NYLON, SB_EMILY, SB_JAZZ, SB_N };
 
 /* The workbench's sampled kits (wb_drums.c; prep_kits.py's files, reduced): a piece keeps SK_VL of its layers; each of
@@ -51,6 +54,9 @@ uint32_t smp_split(void);             /* the payload's bytes in the first area (
 uint32_t smp_bytes(void);             /* the payload's length (the tables') */
 uint32_t smp_crc(void);               /* the payload's CRC-32 (the tables') */
 
+#define SMP_PCM16 255u                /* a zone's idx0: 16-bit PCM in the image (smp_pcm16), not the bank's ADPCM */
+extern const int16_t smp_pcm16[];     /* the image's PCM zones (samples_pcm.c) */
+uint32_t smp_pcm16_len(void);         /* its samples */
 #define SMP_MAGIC 0x424C4E56u         /* "VNLB" */
 #define SMP_FORMAT 2u
 #define SMP_HEAD 16u

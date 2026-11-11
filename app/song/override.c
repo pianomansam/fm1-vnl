@@ -28,8 +28,9 @@ void song_ov_range(int ins, int *lo, int *hi)
     case INS_FELT_PIANO: case INS_KNIGHT: *lo = 21; *hi = 108; break;     /* A0-C8 */
     case INS_NYLON: *lo = 40; *hi = 83; break;                            /* E2-B5 */
     case INS_EMILY: *lo = 40; *hi = 86; break;                            /* E2-D6 */
-    case INS_JAZZ_GTR: *lo = 40; *hi = 88; break;                         /* E2-E6 (its zones A3-C6; it leads an
-                                                                             octave low, leads.c) */
+    case INS_JAZZ_GTR: *lo = 54; *hi = 87; break;                         /* F#3-Eb6: its zones A3-C6, 3
+                                                                             semitones either way (it leads an octave
+                                                                             low, leads.c) */
     case INS_FLUTE: *lo = 60; *hi = 96; break;                            /* C4-C7 */
     case INS_VIBES: *lo = 53; *hi = 89; break;                            /* F3-F6 */
     default: *lo = 24; *hi = 108; break;

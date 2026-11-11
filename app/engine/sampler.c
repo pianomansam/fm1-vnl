@@ -26,7 +26,7 @@ const int8_t SMP_IDXT[8] = {-1, -1, -1, -1, 2, 4, 6, 8};
 void smp_dec_init(smp_dec_t *d, const smp_zone_t *z)
 {
     d->z = z;
-    d->p = smp_data(z);
+    d->p = z->idx0 == SMP_PCM16 ? (const uint8_t *)(const void *)(smp_pcm16 + z->off) : smp_data(z);
     d->ni = 0;
     d->pred = 0;
     d->idx = z->idx0 > 88 ? 88 : z->idx0;

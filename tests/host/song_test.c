@@ -11899,14 +11899,18 @@ static void test_samp_seams(void)
    well formed, the byte count adds up, and the whole set fits its flash share. */
 static void check_zone(const smp_zone_t *z, const char *what, int id, int k)
 {
-    CHECK(z->len > 0 && z->off + (z->len + 1) / 2 <= smp_bytes(), "%s %d zone %d: empty or past the bank", what, id,
-          k);
+    if (z->idx0 == SMP_PCM16) /* the image's 16-bit PCM (samples_pcm.c) */
+        CHECK(z->len > 0 && z->off + z->len <= smp_pcm16_len(), "%s %d zone %d: empty or past the image's PCM", what,
+              id, k);
+    else
+        CHECK(z->len > 0 && z->off + (z->len + 1) / 2 <= smp_bytes(), "%s %d zone %d: empty or past the bank", what,
+              id, k);
     CHECK(z->loop_start + z->loop_len <= z->len, "%s %d zone %d: loop %u+%u past %u", what, id, k,
           (unsigned)z->loop_start, (unsigned)z->loop_len, (unsigned)z->len);
     CHECK(z->rate == 12000 || z->rate == 16000 || z->rate == 22050 || z->rate == 32000, "%s %d zone %d: rate %u", what,
           id, k, (unsigned)z->rate);
     CHECK(z->gain > 0.0f, "%s %d zone %d: gain %g", what, id, k, (double)z->gain);
-    CHECK(z->idx0 <= 88, "%s %d zone %d: idx0 %d", what, id, k, z->idx0);
+    CHECK(z->idx0 <= 88 || z->idx0 == SMP_PCM16, "%s %d zone %d: idx0 %d", what, id, k, z->idx0);
 }
 
 static void test_samples_table(void)
@@ -11923,7 +11927,7 @@ static void test_samples_table(void)
             check_zone(&b->z[k], "bank", id, k);
             CHECK(k == 0 || b->z[k].root > b->z[k - 1].root, "bank %d zone %d: root %d after %d", id, k,
                   b->z[k].root, k ? b->z[k - 1].root : 0);
-            sum += (b->z[k].len + 1) / 2;
+            sum += b->z[k].idx0 == SMP_PCM16 ? 0u : (b->z[k].len + 1) / 2;   /* (the image's PCM: not the bank's) */
         }
     }
     CHECK(smp_bank(-1) == NULL && smp_bank(SB_N) == NULL, "bank out of range not NULL");
@@ -11987,11 +11991,9 @@ static void test_samples_bank(void)
     memcpy(bad, smp_blob, SMP_HEAD + smp_split());  /* in two areas, as the FM-1 keeps it */
     memset(bad + SMP_HEAD + smp_split(), 0xFF, smp_bytes() - smp_split());
     memcpy(more, smp_blob + SMP_HEAD + smp_split(), smp_bytes() - smp_split());
-    if (smp_bytes() > smp_split()) {              /* (the jazz guitar's top zone, laid out last: in the second area) */
+    if (smp_bytes() > smp_split()) {
         CHECK(smp_mount(bad, SMP_HEAD + smp_split(), more, sizeof more) == 0 &&
-                  smp_bank(SB_JAZZ)->z[smp_bank(SB_JAZZ)->n - 1].off >= smp_split() &&
-                  smp_data(&smp_bank(SB_JAZZ)->z[smp_bank(SB_JAZZ)->n - 1])[0] ==
-                      smp_blob[SMP_HEAD + smp_bank(SB_JAZZ)->z[smp_bank(SB_JAZZ)->n - 1].off] &&
+                  smp_piece(SK_BRUSHES, SK_RIDE)->z[1]->off >= smp_split() &&
                   smp_data(smp_piece(SK_BRUSHES, SK_RIDE)->z[1])[0] ==
                       smp_blob[SMP_HEAD + smp_piece(SK_BRUSHES, SK_RIDE)->z[1]->off],
               "bank: two areas do not mount, or a zone reads from the wrong one");

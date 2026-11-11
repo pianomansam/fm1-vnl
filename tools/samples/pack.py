@@ -14,6 +14,8 @@
 #   holding a bank's notes one after another, in "order" (the zones' file names): split at its onsets (each from
 #   silence), the count and every note's pitch checked (within 0.3 semitone of its hint). A bank marked "after_kits" is laid out after the kits (first fit, as theirs), so the zones before it
 #   keep their places.
+#   A bank stored "pcm16" is not in the bank at all: its zones are 16-bit PCM in the firmware's image
+#   (samples_pcm.c, smp_pcm16: const data in flash), their tables' offsets in samples, idx0 SMP_PCM16 (255).
 #   A bank with "search" true encodes its zones' codes by a beam search (adpcm_search: the same format, decoded the
 #   same, closer to the source: about 1.5-2 dB).
 #   Every zone: 4-bit IMA ADPCM from (0, idx0), idx0 the starting step index that encodes the zone best (the first 5 ms
@@ -26,7 +28,7 @@
 #                                legal code's hash every license file must match
 #   pack.py pack SCRATCH DIR [KITS]  pack from SCRATCH (fetch.sh's dl_* directories) and KITS (the workbench's
 #                                sampled kits: workbench/tools/prep_kits.py's folder, default workbench/samples) into
-#                                DIR's samples_data.c and samples_blob.c (DIR: app/engine)
+#                                DIR's samples_data.c, samples_blob.c and samples_pcm.c (DIR: app/engine)
 # Input files are untrusted data: only parsed as RIFF/WAVE or SF2 sample data.
 import json
 import math
@@ -197,7 +199,15 @@ class Zone:
     """One packed zone: int16 PCM, its ADPCM bytes and the table fields (search: the codes by adpcm_search, from the
     idx0 the one-at-a-time encoder chose, where that decodes closer)."""
 
-    def __init__(self, name, pcm, rate, root, ls, ll, search=False):
+    def __init__(self, name, pcm, rate, root, ls, ll, search=False, pcm16=False):
+        if pcm16:   # stored as it is: no ADPCM (the image's 16-bit PCM)
+            z = pcm.astype(np.float64)
+            self.name, self.pcm, self.rate, self.root, self.ls, self.ll = name, pcm, rate, root, ls, ll
+            self.idx0, self.data, self.snr = PCM16, pcm.astype('<i2').tobytes(), float('inf')
+            w = int(0.15 * rate)
+            self.loud = float(np.sqrt(np.mean((z[:w] / 32768.0) ** 2)))
+            self.gain = 1.0 / max(self.loud, 1e-6)
+            return
         while True:  # a decode that overshoots to the clamp: the zone 3% quieter until none does
             z = pcm.astype(np.float64)
             best = None
@@ -224,7 +234,10 @@ class Zone:
         self.gain = 1.0 / max(self.loud, 1e-6)
 
 
-def make_zone(name, x, rate, root_f, attack, loop, out_rate, search=False):
+PCM16 = 255   # samples.h SMP_PCM16: a zone's idx0 when it is the image's 16-bit PCM
+
+
+def make_zone(name, x, rate, root_f, attack, loop, out_rate, search=False, pcm16=False):
     """x float mono at `rate`, onset-trimmed, sounding MIDI `root_f`: retuned to the nearest whole note, cut to an
     attack and a loop of whole periods, the loop flattened and crossfaded (search: Zone's)."""
     root = int(round(root_f))
@@ -246,7 +259,7 @@ def make_zone(name, x, rate, root_f, attack, loop, out_rate, search=False):
         e = a + L
         y[e - X:e] = y[e - X:e] * (1 - f) + y[a - X:a] * f
     y = y / (np.max(np.abs(y)) + 1e-12) * 0.95
-    return Zone(name, np.round(y * 32767).astype(np.int16), out_rate, root, a, L, search)
+    return Zone(name, np.round(y * 32767).astype(np.int16), out_rate, root, a, L, search, pcm16)
 
 
 def load_manifest():
@@ -369,7 +382,7 @@ def layout(first, kit):
         pad[id(z)] = pad.get(id(z), 0) + 1
 
 
-def write(banks, kits, out, late=()):
+def write(banks, kits, out, late=(), image=()):
     """banks [(id, tag, [Zone])], kits [[piece or None]] (a piece: ([Zone], [hi], curve, vel)), late: the ids of the
     banks laid out after the kits
     -> out/samples_blob.c (the bank) and out/samples_data.c (the tables); each zone's offset (z.off) set. The bank:
@@ -381,8 +394,15 @@ def write(banks, kits, out, late=()):
             for z in pc[0] if pc else []:
                 if all(z is not k for k in kz):
                     kz.append(z)
-    payload, split = layout([z for bid, _, zs in banks if bid not in late for z in zs],
-                            kz + [z for bid, _, zs in banks if bid in late for z in zs])
+    payload, split = layout([z for bid, _, zs in banks if bid not in late and bid not in image for z in zs],
+                            kz + [z for bid, _, zs in banks if bid in late and bid not in image for z in zs])
+    pcm, n = [], 0          # the image's zones: their samples, one array; each zone's offset in samples
+    for bid, _, zs in banks:
+        for z in zs if bid in image else []:
+            z.off = n
+            pcm.append(z.pcm.astype(np.int64))
+            n += len(z.pcm)
+    pcm = np.concatenate(pcm) if pcm else np.zeros(1, np.int64)
     crc = zlib.crc32(payload) & 0xFFFFFFFF
     blob = MAGIC + struct.pack('<III', FORMAT, len(payload), crc) + payload
     gen = ['/* SPDX-License-Identifier: GPL-3.0-or-later */\n',
@@ -395,6 +415,13 @@ def write(banks, kits, out, late=()):
                'const uint8_t smp_blob[%d] = {\n%s};\n' % (len(blob), c_rows(blob)),
                '#endif\n']
     with open(os.path.join(out, 'samples_blob.c'), 'w', newline='\n') as f:
+        f.write(''.join(o))
+    o = gen + ['   The zones stored as 16-bit PCM in the firmware\'s image (const: in flash, never RAM), not in the sample\n',
+               '   bank: their tables (samples_data.c) give each one\'s offset here in samples and idx0 SMP_PCM16. */\n',
+               '#include "samples.h"\n\n',
+               'const int16_t smp_pcm16[%d] = {\n%s};\n' % (len(pcm), c_rows([int(v) for v in pcm])),
+               'uint32_t smp_pcm16_len(void) { return %du; }\n' % len(pcm)]
+    with open(os.path.join(out, 'samples_pcm.c'), 'w', newline='\n') as f:
         f.write(''.join(o))
     o = gen + ['   The zones\' tables: offsets into the sample bank\'s payload (samples_blob.c; the format is in samples.h;\n',
                '   the sources and their licenses in CREDITS.md). */\n',
@@ -489,6 +516,7 @@ def pack(scratch, out, kits_dir):
         zs = []
         r = b.get('rate', rate)
         tag = b['id'][3:].lower()
+        p16 = b.get('store') == 'pcm16'
         if 'sf2' in b:
             sf = sf2.SF2(os.path.join(scratch, 'dl_' + b['src'], b['sf2']))
             seen = set()
@@ -518,12 +546,13 @@ def pack(scratch, out, kits_dir):
                 if 'take' in src and abs(root_f - zm['hint']) > 0.3:
                     sys.exit('take: %s measures %.2f, wanted %d: the take\'s order is off' % (zm['file'], root_f,
                                                                                              zm['hint']))
-                zs.append(make_zone('', x, sr, root_f, b['attack'], b['loop'], r, b.get('search', False)))
+                zs.append(make_zone('', x, sr, root_f, b['attack'], b['loop'], r, b.get('search', False), p16))
                 log.append('%s %s: hint %d measured %.2f' % (b['id'], os.path.basename(zm['file']), zm['hint'], root_f))
         zs.sort(key=lambda z: z.root)
         banks.append((b['id'], tag, zs))
     kits = pack_kits(m, kits_dir)
-    total, split = write(banks, kits, out, {b['id'] for b in m['banks'] if b.get('after_kits')})
+    total, split = write(banks, kits, out, {b['id'] for b in m['banks'] if b.get('after_kits')},
+                         {b['id'] for b in m['banks'] if variants(b)[0].get('store') == 'pcm16'})
 
     print('%-10s %5s %6s %7s %5s %6s %7s %6s %4s' % ('bank', 'zone', 'root', 'bytes', 'len_s', 'loop', 'snr_dB', 'gain',
                                                    'idx0'))

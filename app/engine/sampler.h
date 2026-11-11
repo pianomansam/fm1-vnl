@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The sampler voice (M_SAMP): every sampled pitched instrument (the Knight, the nylon, the Emilyguitar) on one model.
-   A note plays its bank's nearest zone (samples.h) retuned by the step: ADPCM decoded as it goes, 4-point Hermite
+   A note plays its bank's nearest zone (samples.h) retuned by the step: ADPCM decoded as it goes (or a 16-bit PCM
+   zone read as it is), 4-point Hermite
    between the decoded samples, a one-pole tone (velocity darkens it), its own envelope (a linear attack, a decay to
    the sustain and a release, the patch's times to -60 dB) and an optional delayed vibrato. p[] as patch.c documents.
    Float only, no tables of its own but the IMA ADPCM steps; ISR-safe; state per voice about 120 B. */
@@ -15,7 +16,7 @@
    those at the loop's start (restored at each wrap). */
 typedef struct {
     const smp_zone_t *z;
-    const uint8_t *p;             /* the zone's bytes */
+    const uint8_t *p;             /* the zone's bytes (a 16-bit PCM zone's: its samples, SMP_PCM16) */
     uint32_t ni;
     int32_t pred, idx, lpred, lidx;
 } smp_dec_t;
@@ -58,6 +59,14 @@ static inline int smp_dec_fast(smp_dec_t *d)
 {
     const smp_zone_t *z = d->z;
     int code, step, diff;
+    if (z->idx0 == SMP_PCM16) { /* a 16-bit PCM zone (the image's): the sample itself, the same wrap and end */
+        if (z->loop_len) {
+            if (d->ni >= z->loop_start + z->loop_len)
+                d->ni = z->loop_start;
+        } else if (d->ni >= z->len)
+            return 0;
+        return ((const int16_t *)(const void *)d->p)[d->ni++];
+    }
     if (z->loop_len) {
         if (d->ni >= z->loop_start + z->loop_len) { /* the wrap: the loop's start state again */
             d->ni = z->loop_start;

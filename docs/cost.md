@@ -1463,3 +1463,19 @@ cleaner than the decode there).
 Then back to 12 kHz (Sam: "nothing you've done to fix the buzzing has helped": the 12 and 22.05 kHz renders "match"):
 the bank's room kept for a sampled cello. The jazz guitar **41,982 B** again (ce3f404's zones); payload **314,046 B**,
 **79,154 B free**. The beam search stays in `pack.py` (a bank's "search"), unused.
+
+### The jazz guitar uncompressed, in the firmware image (2026-11-10)
+
+Sam: every 4-bit version of the guitar sounded sub-par next to the plain PCM (the bisect: the fuzz enters at the
+ADPCM; the 12 kHz resampling and the sampler's playback are clean). Its re-amp is now 16-bit PCM at 12 kHz in the
+image (`samples_pcm.c`, const: flash), six zones (A3 C4 Gb4 C5 Gb5 C6, 0.38 s plus a 0.12 s loop), out of the bank.
+The sampler reads such a zone (idx0 SMP_PCM16) as it is; the ADPCM path and every other instrument and kit render
+bit for bit as before (whole songs: the Knight's keys and lead, the nylon, the Emilyguitar, Room - big and Room -
+brushes).
+
+- Bank: back to the pre-guitar payload, **272,064 B, byte-identical** (90efddd's): **121,136 B free**.
+- Flash: image 290,752 to **362,640 B (+71,888; of 409,600: 46,960 left)**; RAM .data+.bss unchanged (the PCM is const).
+- CPU (`tools/cost-bench.sh --parts`, lead rows): the jazz guitar 0.203 (the Knight 0.234, the flute 0.236). A PCM
+  zone's sample is a 16-bit load where an ADPCM one is a nibble's decode (a load, shifts, a table lookup, adds, two
+  clamps); the ADPCM path gains one test of the zone's idx0 a decoded sample. 12 kHz x 2 B is 24 KB/s of flash per sounding
+  voice, sequential.

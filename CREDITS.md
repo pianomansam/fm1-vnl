@@ -8,7 +8,8 @@ This file lists the recorded material the firmware contains.
 Every sample in the sample bank (`app/engine/samples_blob.c`) comes from a source dedicated to the public domain under
 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). Each source's license file was checked against the
 CC0 1.0 legal code (`tools/samples/fetch.sh` checks it on every fetch). No attribution is required; it is given here
-with thanks. `tools/samples/manifest.json` lists the exact files; `tools/samples/pack.py` turns them into the bank.
+with thanks. `tools/samples/manifest.json` lists the exact files; `tools/samples/pack.py` turns them into the bank
+(and the jazz guitar's notes into the firmware image's 16-bit PCM, `app/engine/samples_pcm.c`).
 
 | Source | Used for | License | URL |
 | --- | --- | --- | --- |
