@@ -810,6 +810,14 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
     note under D3 (the lowest F3). Medians F3-G4: seed 105 lands where Sam first heard it (Db4-Ab4), the ceiling A4
     giving its Ambient line room; a Gb4 ceiling measured medians F3-C4 (105 Ab3-Eb4), rendered as the alternative.
     Its level over its keys (loop) +9.2 Knight and cello, +8.1 Rhodes and cello. Renders: scratchpad cello-fix2/.
+  - **Done (Sam, 2026-11-11, on the Gb4-ceiling render: "the cello has the correct register now"):** the ceiling Gb4
+    (the Bb3 center and the D3 floor stay). Measured from the audio (10-90% / median / top): seed 105 Ab3-Eb4 / Ab3 /
+    Eb4; 101 F3-C4 / F3 / F4; 102 Gb3-D4 / A3 / Gb4; 103 G3-E4 / B3 / E4; 106 A3-B3 / A3 / D4; 107 F3-Eb4 / C4 / F4;
+    108 F3-C4 / G3 / F4; 111 G3-D4 / B3 / D4; 113 Ab3-Db4 / Bb3 / Eb4; 114 F3-C4 / G3 / C4; 115 A3-Db4 / B3 / Db4;
+    119 G3-C4 / C4 / Db4; seed 114 on set 1 G3-C4 / Bb3 / F4. Medians F3-C4, tops Db4-Gb4, nothing under F3. Seed
+    105 renders bit for bit as the alternative Sam heard. The lift clears (test_jazz_lift: 0 bars); over its keys
+    (loop) +9.2 Knight and cello, +8.1 Rhodes and cello. The lead loop's hashes a19e0ce1/7bfb417c to
+    bcb028dd/02b479c0.
 - **Done (Sam, 2026-11-11): the jazz guitar approved for songs.** Three sets lead with it, one per flavor its styles
   weigh most, over struck keys the lift raises: 38 Rhodes and jazz guitar (neo-soul, wistful/warm), 39 Knight and
   jazz guitar (lofi, sad/wistful), 40 Bossa Rhodes and jazz guitar (bossa, warm/sunny). About 10% of songs (20,000

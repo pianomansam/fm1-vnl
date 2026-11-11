@@ -133,7 +133,8 @@ static const uint8_t CENTER[LS_N][5] = {
 
 /* The cello's register, whatever the style (Sam, 2026-11-11: "the cello is an octave too high!" on seed 105, its line
    Db4-Ab4 where two octaves under the flute's style center floated it; then G3's center too low, under G3 a cello
-   reads as bass): centered on Bb3, its band E3-E4, its ceiling A4 (range_bar), a hard floor at D3 (CELLO_LO: the
+   reads as bass): centered on Bb3, its band E3-E4, its ceiling Gb4 (range_bar; Sam: "the correct register", A4 let
+   seed 105 climb to Db4-Ab4), a hard floor at D3 (CELLO_LO: the
    range's and, for any note a style still puts under it, an octave up in plan_bar), a cello's melody D3-A4 */
 #define CELLO_C 58
 #define CELLO_LO 50
@@ -165,8 +166,8 @@ static void range_bar(const song_roll_t *r, int style, const int keys[4], const 
 {
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
     int top = 0, ntop = 0, i, blo, bhi, il, ih, ko = harmony_keys_oct(r);
-    int drop = set ? lib_lead_drop(set->lead) : 0, e6 = drop > 12 ? 69 : drop ? 76 : 88;   /* the ceiling: E6; a low
-                                                                                            lead's E5, a cello's A4 */
+    int drop = set ? lib_lead_drop(set->lead) : 0, e6 = drop > 12 ? 66 : drop ? 76 : 88;   /* the ceiling: E6; a low
+                                                                                            lead's E5, a cello's Gb4 */
     int lift = set && lib_lead_lift(set->lead);          /* the keys lift over it (the jazz guitar, the cello) */
     for (i = 0; i < 4; i++) {
         if (keys[i] > top) top = keys[i];

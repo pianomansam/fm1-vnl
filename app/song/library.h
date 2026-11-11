@@ -91,7 +91,7 @@ int lib_ins_sampled(int ins);
    flute's, its line in a synth lead's C4-C6 with the motif's room over the keys); the sampled cello 24, which marks
    it: its center is its own, Bb3 whatever the style, its floor D3 (leads.c's CELLO_C, CELLO_LO; Sam 2026-11-11: "an
    octave too high" where the style's floated it, then G3 too low), a cello's melody D3-A4. lib_lead_low: 1 for any of
-   them (its ceiling down, E5 or A4; its patch's chorus its send into the keys', voices.c) */
+   them (its ceiling down, E5 or Gb4; its patch's chorus its send into the keys', voices.c) */
 int lib_lead_drop(int ins);
 int lib_lead_low(int ins);
 /* 1: a low lead the keys lift over (the jazz guitar, the sampled cello; not the soft synth lead, pushed a 4th over the

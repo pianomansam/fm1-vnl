@@ -12916,7 +12916,8 @@ static uint32_t ll_hash(uint32_t h, const song_roll_t *r, int style, int loop)
    23854a09 (0). Re-pinned (Sam 2026-11-11: the harp and the sampled cello approved, sets 41-45): were 6ec226d2
    (-1) and 572d1848 (0). Re-pinned (Sam 2026-11-11: the cello an octave down, its own center): were 3df1a20a (-1)
    and 616b00b8 (0). Re-pinned (Sam 2026-11-11: the cello up to Bb3, the whistle approved, sets 46-48): were
-   617710c3 (-1) and 6f39f64e (0) */
+   617710c3 (-1) and 6f39f64e (0). Re-pinned (Sam 2026-11-11: the cello's ceiling Gb4): were a19e0ce1 (-1) and
+   7bfb417c (0) */
 static void test_lead_loop_off_identical(void)
 {
     uint32_t seed, h[2] = {2166136261u, 2166136261u};
@@ -12928,8 +12929,8 @@ static void test_lead_loop_off_identical(void)
             for (k = 0; k < 2; k++) h[k] = ll_hash(h[k], &r, st, k - 1);
     }
     printf("lead loop off: events %08x (lead_loop -1), %08x (0)\n", (unsigned)h[0], (unsigned)h[1]);
-    CHECK(h[0] == 0xa19e0ce1u, "lead loop default: lead_loop -1 hashes %08x, wanted a19e0ce1", (unsigned)h[0]);
-    CHECK(h[1] == 0x7bfb417cu, "lead loop off: lead_loop 0 hashes %08x, wanted 7bfb417c", (unsigned)h[1]);
+    CHECK(h[0] == 0xbcb028ddu, "lead loop default: lead_loop -1 hashes %08x, wanted bcb028dd", (unsigned)h[0]);
+    CHECK(h[1] == 0x02b479c0u, "lead loop off: lead_loop 0 hashes %08x, wanted 02b479c0", (unsigned)h[1]);
 }
 
 typedef struct {
