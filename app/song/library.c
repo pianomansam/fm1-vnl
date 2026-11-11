@@ -59,6 +59,15 @@ const lib_set_t LIB_SETS[] = {
     {38, "Rhodes and jazz guitar", INS_RHODES, INS_ELEC_BASS, INS_JAZZ_GTR, INS_NONE, INS_STRINGS, KIT_SOFT, KIT_S_WARM, FL_NEOSOUL, MOOD_WISTFUL | MOOD_WARM, "Sam approved the jazz guitar (2026-11-11): set 11 (Rhodes neo-soul)'s keys, bass and kits"},
     {39, "Knight and jazz guitar", INS_KNIGHT, INS_ELEC_BASS, INS_JAZZ_GTR, INS_NONE, INS_STRINGS, KIT_DUSTY, KIT_S_DARK, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "Sam approved the jazz guitar (2026-11-11): set 21 (Knight and flute)'s keys, bass and kits"},
     {40, "Bossa Rhodes and jazz guitar", INS_RHODES, INS_SUB, INS_JAZZ_GTR, INS_NONE, INS_STRINGS, KIT_BRUSHES, KIT_N, FL_BOSSA, MOOD_WARM | MOOD_SUNNY, "Sam approved the jazz guitar (2026-11-11): set 37 (Bossa vibes and piano)'s bass and kit, the Rhodes on the keys"},
+    /* the harp leads (Sam approved it, 2026-11-11): gentle and dreamy sets, the felt, the pad and the Rhodes under it;
+       the sampled cello (approved the same day): sad and wistful sets, a low lead over struck keys the lift raises
+       (the Knight, the Rhodes), the warm pad under it (the strings would double it). Kits and pads as the sets they
+       follow */
+    {41, "Felt and harp", INS_FELT_PIANO, INS_SUB, INS_HARP, INS_NONE, INS_STRINGS, KIT_SOFT, KIT_S_GENTLE, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "Sam approved the harp (2026-11-11): set 7 (Felt and flute)'s keys, bass and kits"},
+    {42, "Pad and harp", INS_PAD, INS_SUB, INS_HARP, INS_NONE, INS_STRINGS, KIT_808, KIT_N, FL_CHILLWAVE, MOOD_WISTFUL | MOOD_WARM, "Sam approved the harp (2026-11-11): set 5 (Chillwave pad)'s keys, bass and kit"},
+    {43, "Rhodes and harp", INS_RHODES, INS_ELEC_BASS, INS_HARP, INS_NONE, INS_STRINGS, KIT_SOFT, KIT_S_CLEAN, FL_CITYPOP, MOOD_WARM | MOOD_SUNNY, "Sam approved the harp (2026-11-11): set 6 (City pop Rhodes)'s keys, bass and kits"},
+    {44, "Knight and cello", INS_KNIGHT, INS_ELEC_BASS, INS_SAMP_CELLO, INS_NONE, INS_WARM_PAD, KIT_BRUSHES, KIT_N, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "Sam approved the sampled cello (2026-11-11): set 32 (Knight, vibes and brushes)'s keys, kit and pad"},
+    {45, "Rhodes and cello", INS_RHODES, INS_SUB, INS_SAMP_CELLO, INS_NONE, INS_WARM_PAD, KIT_DUSTY, KIT_S_DARK, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "Sam approved the sampled cello (2026-11-11): set 31 (Rhodes and felt)'s keys, kits and pad"},
 };
 const int LIB_NSETS = (int)(sizeof LIB_SETS / sizeof LIB_SETS[0]);
 

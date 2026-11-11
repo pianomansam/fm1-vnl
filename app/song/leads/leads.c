@@ -45,7 +45,7 @@ int lead_motif_to(const lead_motif_t *m, int si0, int *at, int *len, int *si)
 /* The styles each lead instrument plays (the spec's fits, bit LS_*): the flute any of the eight; the felt piano '60s
    Jazz, Jazz-Hop, Film Score, Ambient; the vibes Impressionism, '60s Jazz, Jazz-Hop, Bossa Nova, Ambient; the Knight
    '60s Jazz, Film Score, Ambient; the jazz guitar '60s Jazz, Modal Jazz, Jazz-Hop, Bossa Nova; the
-   sampled cello and the harp (candidates) Impressionism, Romanticism, Film Score, Ambient. Any other instrument on the lead
+   sampled cello and the harp Impressionism, Romanticism, Film Score, Ambient. Any other instrument on the lead
    (a workbench pick) takes the flute's. */
 #define LSB(s) (1u << (s))
 static unsigned style_fit(int ins)

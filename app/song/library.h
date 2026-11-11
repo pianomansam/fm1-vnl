@@ -23,7 +23,7 @@ enum { INS_RHODES, INS_WURLI, INS_FELT_PIANO, INS_NYLON, INS_PAD, INS_UPRIGHT, I
                                      replaced is removed (Sam, 2026-10-31): no patch, no set; its id never reused */
        INS_JAZZ_GTR,              /* sampled (M_SAMP): the jazz guitar, an archtop's pickup (a lead, a candidate
                                      2026-11-10, approved 2026-11-11: sets 38-40) */
-       INS_SAMP_CELLO,            /* candidate leads (2026-11-11): the sampled cello (M_SAMP, the Karoryfer x Bigcat
+       INS_SAMP_CELLO,            /* leads (2026-11-11, approved: sets 41-45): the sampled cello (M_SAMP, the Karoryfer x Bigcat
                                      cello's bowing; the synth cello parked 2026-11-11: no id), */
        INS_HARP,                  /* the harp (M_SAMP: VSCO-2 CE's concert harp; the modal retone gone) */
        INS_NONE }; /* append new ones before INS_NONE */
@@ -83,7 +83,7 @@ int lib_ins_sampled_struck(int ins);
 /* 1: a sampled instrument (lib_ins_sampled_struck's, the sampled cello, the harp): none plays without the bank */
 int lib_ins_sampled(int ins);
 /* A lead under the others' register: the semitones its style centers sit under the flute's (leads.c), 0 for none:
-   the jazz guitar 12 (Sam 2026-11-10: "this octave does work"), the sampled cello 24 (a candidate; Sam 2026-11-11: an
+   the jazz guitar 12 (Sam 2026-11-10: "this octave does work"), the sampled cello 24 (Sam 2026-11-11: an
    octave under round 1's, a cello's melody G2-E4, its top A4). lib_lead_low: 1 for any of them (its ceiling down,
    E5 or A4; its patch's chorus its send into the keys', voices.c) */
 int lib_lead_drop(int ins);

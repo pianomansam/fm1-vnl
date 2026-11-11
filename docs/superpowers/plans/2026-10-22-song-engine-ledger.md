@@ -741,6 +741,20 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
     option (nothing else used them); restore from 2f51a53 (`INS_SYNTH_CELLO`, patch.c, voices.c's wind_sample and
     wind_start's blend clamp, options.json). Sam: "better" after round 1c's brightening; the real one "still has
     better wood resonance". Idea for when it comes back: 2-3 body resonances around 200-600 Hz.
+- **Done (Sam, 2026-11-11): the harp (round 1d) and the sampled cello approved for songs.** Five sets: the harp
+  over gentle keys, 41 Felt and harp (lofi, sad/wistful), 42 Pad and harp (chillwave, wistful/warm), 43 Rhodes and
+  harp (city pop, warm/sunny); the cello over struck keys the lift raises, the warm pad under it, 44 Knight and cello
+  and 45 Rhodes and cello (lofi, sad/wistful). Their styles: Impressionism, Romanticism, Film Score, Ambient (about a
+  quarter each). Shares over 20,000 rolls: harp 8.8%, cello 5.5%; the others flute 18.9% (22.6), vibes 20.8% (24.1),
+  Knight 19.1% (21.7), felt 17.8% (21.3), jazz guitar 9.1% (10.4). The cello's register rules hold over 80 songs on
+  its sets (test_jazz_lift, now over all five lift sets: its top never over the keys' lowest note, the keys in their
+  own register outside its blocks); measured from the audio, it sounds Db4-Ab4 at most on rolled songs (bodies
+  A3-C4, B3-Eb4, Db4-F4), the harp Eb4-C6 (Eb5-Bb5 over struck keys, Eb4-C5 over the pad). The cello's lead level
+  3.2 dB down: at the flute's it read 12-13 dB over its sets' keys (the mix's 1.5-10.5): now 8.4-9.5. Pinned
+  hashes moved (seeds draw other sets): strum_same's 89d868ef/ee29ff88 to 47d257cc/7e94dc42, the lead loop's
+  6ec226d2/572d1848 to 3df1a20a/616b00b8, song_rolled at seeds 21 and 140. Thresholds: the synth sets' share 2.8%
+  to 2.4%, the pad chord's common pitches 4000 to 3700, ov oct's seed 3 (now the felt over the Rhodes) held to half,
+  the lead loop octave's dropped notes 1 in 250 to 1 in 200; smoke's lead-down seed 5 to 2.
 - **Done (Sam, 2026-11-11): the jazz guitar approved for songs.** Three sets lead with it, one per flavor its styles
   weigh most, over struck keys the lift raises: 38 Rhodes and jazz guitar (neo-soul, wistful/warm), 39 Knight and
   jazz guitar (lofi, sad/wistful), 40 Bossa Rhodes and jazz guitar (bossa, warm/sunny). About 10% of songs (20,000

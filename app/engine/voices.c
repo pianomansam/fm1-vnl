@@ -114,9 +114,10 @@ static const float CP_THR_KIT[KIT_N] = {0.095f, 0.090f, 0.084f, 0.162f, 0.110f, 
    the Knight +3.85 and the Emilyguitar +3.5, tuned on their sets' lead over keys (test_lead_over_keys: a struck lead
    reads 8-10 dB over the keys at about 4 dB under the flute's bar energy); the jazz guitar (sets 38-40)
    +5.21, an octave low with its chorus (its dry 2.5 dB down for it), its zones 16-bit PCM: the Knight's level on the
-   lead in test_samp's songs; the sampled cello (a candidate) +8.8 dB: a held lead about the flute's level; the harp (a
-   candidate) +5.3, the struck leads' level (dry: no echo) */
-static const float SAMP_LEAD[SB_N] = {1.5578f, 2.239f, 1.4962f, 1.8216f, 2.756f, 1.845f};
+   lead in test_samp's songs; the sampled cello (sets 44-45) +5.6 dB, its sets' lead over keys (8.8 read 12-13 dB over them: a held bow's
+   energy); the harp (sets
+   41-43) +5.3, the struck leads' level (dry: no echo) */
+static const float SAMP_LEAD[SB_N] = {1.5578f, 2.239f, 1.4962f, 1.8216f, 1.906f, 1.845f};
 
 /* big zero-initialised buffers go in the device's .pool RAM region (fm1-base's PLAT_POOL; a Mach-O host has no such
    section) */
@@ -270,7 +271,7 @@ static int dr_live;          /* a drum sounded in the chunk (else the drums' bus
 static const float sendp[NBUS] = {[V_CHORD] = 0.30f, [V_BASS] = 0.0f, [V_LEAD] = 0.35f, [V_CANDY] = 0.45f,
                                   [V_PAD] = 0.40f, [DRB] = SEND_DRUMS}; /* (the bass's 0 is not summed) */
 static float dsend[NBUS];   /* the delay's per-bus send: the role's patch's delay */
-/* the lead's plate send: sendp's, the harp's less (a candidate, 2026-11-11, Sam: "the delay/reverb is a bit too long
+/* the lead's plate send: sendp's, the harp's less (2026-11-11, Sam: "the delay/reverb is a bit too long
    on it": HARP_PLATE, -7.4 dB) */
 #define HARP_PLATE 0.15f
 static float lead_sp = 0.35f;

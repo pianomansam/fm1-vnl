@@ -59,7 +59,7 @@
 #include "patch.h"
 #include "samples.h"
 
-#define CELLO_SAMP_LVL 0.2122f /* the candidates' levels (patch.c's table) */
+#define CELLO_SAMP_LVL 0.2122f /* the cello's and the harp's levels (patch.c's table) */
 #define HARP_LVL 0.5064f
 
 /* model, {p[0..15]}, att, dec, sus, rel, level, chorus, delay. The chorus (on the chords' bus): the electric keys and
@@ -117,7 +117,7 @@ static const vx_patch_t PATCHES[INS_NONE] = {
        2026-11-10: "even more chorus"; it had none on the lead) */
     [INS_JAZZ_GTR] = {M_SAMP, {SB_JAZZ, 300.0f, 0.5f, 0.0f, 0.0f, 0.5f, 0.6f, 0.8f, 8.0f}, 0.001f, 4.5f, 0.0f, 0.15f,
                       0.6289f, 0.5f, 0.1f},
-    /* Candidate leads (2026-11-11), each level-matched on the lead (voices.c's SAMP_LEAD for the sampled one).
+    /* Leads added 2026-11-11 (candidates, approved the same day: sets 41-45), each level-matched on the lead (voices.c's SAMP_LEAD for the sampled one).
        The sampled cello (the Karoryfer x Bigcat cello's sustained bowing, CC0): held as long as the note (sustain
        1), a 60 ms swell over the take's own bow start, a delayed vibrato (10 cents: the take is straight), the tone
        14x the note (darker at a soft bow; its line G2-E4, where 6x muffled it); a low lead, its chorus 0.5 the send
