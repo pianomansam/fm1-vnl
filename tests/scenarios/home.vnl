@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # The two homes (Sam, 2026-11-11): boot shows the splash, then the main screen; HOME there opens the now-playing
 # screen, the home from then on (a new song, HOME from elsewhere); the device keeps it through a reboot, the splash
-# flowing into it; HOME again the main screen, kept too.
+# flowing into it; HOME again the main screen, kept too. A change while a song plays is kept only once all is silent
+# (stopped, the tails over): a flash save stalls the audio (a crackle, Sam 2026-11-11).
 expect splash 1
 wait 1400
 expect splash 0
@@ -30,6 +31,11 @@ shot home-now-playing.png
 tap HOME
 wait 50
 expect home_now 0
+wait 2000
+expect home_kept 0
+tap PLAY
+wait 2000
+expect home_kept 1
 reboot
 wait 1400
 expect home_now 0

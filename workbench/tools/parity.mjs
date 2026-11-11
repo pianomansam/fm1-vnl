@@ -239,7 +239,8 @@ const SEED = 72;
     { fade: 8 }, { check: "fade-now-8", expect: (st) => is("fade", v(st).fade, 8) },
     { fade: 16 }, { check: "fade-now-16" }, { fade: 0 }, { check: "fade-now-0" },
     { screen: "splash" }, { fade: 4 }, { check: "fade-splash-4" }, { fade: 12 }, { check: "fade-splash-12" },
-    { screen: "main" }, { wait: 1000 }, { press: "HOME" }, { wait: 100 }, { reboot: true },
+    { screen: "main" }, { wait: 1000 }, { press: "HOME" }, { wait: 100 },
+    { press: "PLAY" }, { wait: 2000 }, { reboot: true },   // (stopped: the home is kept once all is silent, app.c set_keep)
     { wait: 1190 }, { check: "boot-fade-out", expect: (st) => is("screen", st.screen, "splash") || (v(st).fade > 0 && v(st).fade < 16 ? "" : `fade ${v(st).fade}`) },
     { wait: 120 }, { check: "boot-fade-in", expect: (st) => is("screen", st.screen, "now") || (v(st).fade > 0 && v(st).fade < 16 ? "" : `fade ${v(st).fade}`) },
     { wait: 300 }, { check: "boot-faded-in", expect: (st) => is("screen", st.screen, "now") || is("fade", v(st).fade, 0) },

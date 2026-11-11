@@ -388,6 +388,8 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
     and the song's in (Sam: 150 ms each, 4 steps, a screen's `fade` and {fade}; the text's columns alone redrawn,
     host 27 us a step; the splash 1.45 s in all). Into the main screen it stays a cut. The turn redraws the label's box alone (host: 7 us a
     frame against 116 us for the main screen's full draw; the device's in the live state's spin_us).
+    - **Fixed (Sam, 2026-11-11: a crackle switching the homes while playing):** the save erased a flash sector at
+      once (IRQs off, the audio buffer zeroed); it now waits until nothing sounds (stopped, or between songs).
 - **From other FM-1 firmwares (Sam, 2026-11-05: on the short list, not started).** Evaluated setBfree-fm1
   (github.com/R-Jeb/setBfree-fm1), Cut-A-Dor (github.com/kidbee85-beep/cut-a-dor-release) and the B1 Drawbar Organ
   (github.com/SikkenWorks/B1-Drawbar-Organ). License per item: GPL-2.0-or-later code may be copied (credit it);

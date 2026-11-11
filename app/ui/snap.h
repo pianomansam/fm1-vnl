@@ -13,6 +13,7 @@ enum { SNAP_SECS = 24 };                  /* the plan's blocks a song has at mos
 typedef struct {
     uint8_t playing, has_song, stopped;
     uint8_t ready, held;                 /* stopped, a song ready (roll); held: one to continue (bar, section) */
+    uint8_t silent;                      /* no song and nothing sounding (tails, the bed's fade): the flash may erase */
     uint8_t req_set[RF_N];               /* a knob's request waiting for the boundary, and its value */
     int16_t req_val[RF_N];
     int32_t songs, bar, section, flags, pend_field, pend_bars, voices;

@@ -792,6 +792,7 @@ static void publish(void)
         snap.section = -1;
     }
     snap.held = rs == RS_STOP && held;
+    snap.silent = rs != RS_SONG && !vx_sounding();
     snap.ready = snap.held || (rs == RS_STOP && mb_full);   /* (the main loop writes mb_roll only while it's empty) */
     if (snap.held) {                     /* the song held, at the bar it continues from */
         b = plan_at(&mark.plan, mark.bar);
@@ -2326,7 +2327,9 @@ void app_splash(void)
 
 #if VNL_UI_RUNTIME
 /* the settings kept in the flash (OBJ_SETTINGS): which home was used last (HOME on the main and now-playing screens),
-   so boot lands there. Saved when it changes */
+   so boot lands there. Saved when it changes, but only while nothing sounds (stopped or between songs, the tails
+   over): a save erases a 4 KB sector with the interrupts off and the audio buffer zeroed (base's st_erase), tens of
+   ms of silence that a playing song hears as a crackle (Sam, 2026-11-11, switching the homes while playing) */
 #define SET_MAGIC 0x564E4C31u            /* "VNL1" */
 enum { SET_HOME_MAIN, SET_HOME_NOW };
 typedef struct { uint32_t magic; uint8_t home, pad[3]; } vnl_set_t;
@@ -2340,15 +2343,19 @@ static void set_load(void)
     ui_hnav.stack[0] = ui_hnav.home = (uint8_t)(set_home == SET_HOME_NOW ? US_NOW : UI_HOME);
 }
 
-static void set_keep(void)               /* the home changed: kept (a failed write: tried at the next change) */
+static uint8_t set_tried = 0xFFu;        /* the home a failed write was for: tried again at the next change */
+
+static void set_keep(void)               /* the home changed: kept once all is silent */
 {
     uint8_t h = ui_hnav.home == US_NOW ? SET_HOME_NOW : SET_HOME_MAIN;
     vnl_set_t v;
-    if (h == set_home) return;
+    if (h == set_home) set_tried = 0xFFu;
+    if (h == set_home || h == set_tried || !ui.shown.silent) return;
     memset(&v, 0, sizeof v);
     v.magic = SET_MAGIC;
     v.home = h;
     if (plat_store_save(OBJ_SETTINGS, &v, sizeof v) == 0) set_home = h;
+    else set_tried = h;
 }
 #endif
 
@@ -2522,6 +2529,8 @@ int app_expect(const char *what, int *got)
         *got = ui_hnav.stack[ui_hnav.depth - 1] == ui_hnav.home;
     else if (!strcmp(what, "home_now"))  /* the home is the now-playing screen (1) or the main screen (0) */
         *got = ui_hnav.home == US_NOW;
+    else if (!strcmp(what, "home_kept"))  /* the home in the flash is the one in use (0: its save waits for silence) */
+        *got = (ui_hnav.home == US_NOW ? SET_HOME_NOW : SET_HOME_MAIN) == set_home;
     else if (!strcmp(what, "splash"))    /* the boot splash showing */
         *got = splash_on;
     else if (!strcmp(what, "key_lit")) {   /* the keys lit, bit k key k (blinking ones not counted) */
