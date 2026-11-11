@@ -26,6 +26,14 @@
       "raw": "https://raw.githubusercontent.com/sfzinstruments/karoryfer-bigcat.cello/master/",
       "license": "LICENSE"
     },
+    "vsco": {
+      "name": "Versilian Studios Chamber Orchestra 2 Community Edition (VSCO-2 CE)",
+      "url": "https://github.com/sgossner/VSCO-2-CE",
+      "raw": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/master/",
+      "license": "LICENSE",
+      "license_sha256": "36ffd9dc085d529a7e60e1276d73ae5a030b020313e6c5408593a6ae2af39673",
+      "license_comment": "CC0 1.0 Universal as plain text (the Statement of Purpose and sections 1-4, word for word the legal code's, without its header's disclaimer): another file than the other sources' copy, so its own hash"
+    },
     "jazz_reamp": {
       "name": "the Shinyguitar's ten SB_JAZZ notes (shiny, as fetched), re-amped by Sam through a jazz amp and cabinet (2026-11-10: the second take; the first held the raw notes 12 dB down, unprocessed)",
       "take": "Sampled-Guitar.wav",
@@ -111,13 +119,26 @@
     },
     {
       "id": "SB_CELLO", "src": "bigcat", "rate": 16000, "attack": 0.4, "loop": 0.3, "after_kits": true,
-      "comment": "The sampled cello (a candidate lead, 2026-11-11): the Karoryfer x Bigcat cello's sustained bowing (sus), mp (velocities 33-64), the first round robin (_d), Gb3, C4, Gb4, C5 and Eb5 (a cello lead sits C3-A4, a low lead's band from about Bb3, its ceiling E5: Eb3 to F#5 within 3 semitones of a zone; C3's file left out, its fundamental too weak for the pitch measure; Gb5's, its pitch rising 5 cents into the loop). The file names are an octave under standard pitch (measured: Gb2_mp_d.wav sounds Gb3, MIDI 54; the SFZ's keycenters say 42). Straight tone (no vibrato in the take: the sampler's delayed vibrato sings it), so a 0.3 s loop of whole periods holds the bow's sustain. Laid out after the kits (after_kits), so every other zone keeps its place.",
+      "comment": "The sampled cello (a candidate lead, 2026-11-11): the Karoryfer x Bigcat cello's sustained bowing (sus), mp (velocities 33-64), the first round robin (_d), every tritone A2-A4 (Sam, after round 1: an octave down, a cello's melody G2-E4, its top A4: F#2 to C5 within 3 semitones of a zone). The file names are an octave under standard pitch (measured: A1_mp_d.wav sounds A2, MIDI 45; the SFZ's keycenters say 33). Straight tone (no vibrato in the take: the sampler's delayed vibrato sings it), so a 0.3 s loop of whole periods holds the bow's sustain. Laid out after the kits (after_kits), so every other zone keeps its place.",
       "zones": [
-        {"file": "Samples/sus/Gb2_mp_d.wav", "hint": 54},
-        {"file": "Samples/sus/C3_mp_d.wav", "hint": 60},
-        {"file": "Samples/sus/Gb3_mp_d.wav", "hint": 66},
-        {"file": "Samples/sus/C4_mp_d.wav", "hint": 72},
-        {"file": "Samples/sus/Eb4_mp_d.wav", "hint": 75}
+        {"file": "Samples/sus/A1_mp_d.wav", "hint": 45},
+        {"file": "Samples/sus/Eb2_mp_d.wav", "hint": 51},
+        {"file": "Samples/sus/A2_mp_d.wav", "hint": 57},
+        {"file": "Samples/sus/Eb3_mp_d.wav", "hint": 63},
+        {"file": "Samples/sus/A3_mp_d.wav", "hint": 69}
+      ]
+    },
+    {
+      "id": "SB_HARP", "src": "vsco", "rate": 16000, "attack": 0.6, "loop": 0.1, "after_kits": true,
+      "comment": "The sampled harp (a candidate lead, 2026-11-11, in place of round 1's modal retone: Sam heard an electric piano): VSCO-2 CE's concert harp, mf, every third F4-D6 (the lead's register, Bb4-E6 on the styles' bands: every note within 2 semitones of a zone); standard pitch (measured: A4 sounds 437 Hz). Its attack the pluck and the first 0.6 s of ring, then a short loop the sampler's envelope decays (the harp's own ring: patch.c).",
+      "zones": [
+        {"file": "Strings/Harp/KSHarp_F4_mf.wav", "hint": 65},
+        {"file": "Strings/Harp/KSHarp_A4_mf.wav", "hint": 69},
+        {"file": "Strings/Harp/KSHarp_C5_mf.wav", "hint": 72},
+        {"file": "Strings/Harp/KSHarp_E5_mf.wav", "hint": 76},
+        {"file": "Strings/Harp/KSHarp_G5_mf.wav", "hint": 79},
+        {"file": "Strings/Harp/KSHarp_B5_mf.wav", "hint": 83},
+        {"file": "Strings/Harp/KSHarp_D6_mf.wav", "hint": 86}
       ]
     }
   ],

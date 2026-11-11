@@ -12159,7 +12159,7 @@ static void test_samples_bank(void)
 }
 
 /* ------------------------------------------------------------------------------ the sampler voice (M_SAMP) --- */
-static const int SP_INS[SB_N] = {INS_KNIGHT, INS_NYLON, INS_EMILY, INS_JAZZ_GTR, INS_SAMP_CELLO}; /* each bank's */
+static const int SP_INS[SB_N] = {INS_KNIGHT, INS_NYLON, INS_EMILY, INS_JAZZ_GTR, INS_SAMP_CELLO, INS_HARP};
 #define SP_LEN (4u * 44100u)
 static float sp_a[SP_LEN], sp_b[SP_LEN];
 

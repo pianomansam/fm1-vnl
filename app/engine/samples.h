@@ -35,8 +35,9 @@ typedef struct { const smp_zone_t *z; uint8_t n; } smp_bank_t;  /* zones sorted 
    went 2026-11-03: the vibes are modeled, modal.h). The jazz guitar's zones are not in the bank: 16-bit PCM in the
    firmware's image (smp_pcm16, samples_pcm.c: const, in flash), each zone's idx0 SMP_PCM16 and its off in samples
    (Sam, 2026-11-10: every 4-bit version of it sounded sub-par). They play as the bank's do, the bank mounted. Then
-   the cello (the Karoryfer x Bigcat cello's sustained bowing; a candidate lead, 2026-11-11), in the bank. */
-enum { SB_KNIGHT, SB_NYLON, SB_EMILY, SB_JAZZ, SB_CELLO, SB_N };
+   the cello (the Karoryfer x Bigcat cello's sustained bowing) and the harp (VSCO-2 CE's), candidate leads
+   (2026-11-11), in the bank. */
+enum { SB_KNIGHT, SB_NYLON, SB_EMILY, SB_JAZZ, SB_CELLO, SB_HARP, SB_N };
 
 /* The workbench's sampled kits (wb_drums.c; prep_kits.py's files, reduced): a piece keeps SK_VL of its layers; each of
    its velocity ranges (hi: their tops, ascending, n of them) plays kept layer use at lvl (its own recording's level

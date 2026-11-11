@@ -31,7 +31,7 @@ void song_ov_range(int ins, int *lo, int *hi)
     case INS_JAZZ_GTR: *lo = 54; *hi = 87; break;                         /* F#3-Eb6: its zones A3-C6, 3
                                                                              semitones either way (it leads an octave
                                                                              low, leads.c) */
-    case INS_SAMP_CELLO: *lo = 51; *hi = 78; break;                       /* Eb3-F#5: its zones Gb3-Eb5, 3
+    case INS_SAMP_CELLO: *lo = 42; *hi = 72; break;                       /* F#2-C5: its zones A2-A4, 3
                                                                              semitones either way (a low lead) */
     case INS_SYNTH_CELLO: *lo = 36; *hi = 81; break;                      /* C2-A5: a cello's (a low lead) */
     case INS_HARP: *lo = 24; *hi = 103; break;                            /* C1-G7: a concert harp's */

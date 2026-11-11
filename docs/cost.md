@@ -1497,3 +1497,17 @@ brushes, Room - big, Room - brushes), the jazz guitar's seed 127, and seed 114 o
 - CPU (`tools/cost-bench.sh --parts`, lead rows): the sampled cello **0.240** (at half the rate on the lead: its
   zones' 8 kHz band fits; 0.302 at the full rate), the synth cello **0.261**, the harp **0.156** (the flute 0.245, the
   Knight 0.236, the vibes 0.163, the jazz guitar 0.206).
+
+### Candidate leads, round 1b: the cellos an octave down, a sampled harp (2026-11-11)
+
+The sampled cello's zones moved down (A2 Eb3 A3 Eb4 A4, 16 kHz ADPCM, 0.4 s plus a 0.3 s loop); the harp is VSCO-2
+CE's concert harp (seven zones F4-D6, 16 kHz ADPCM, 0.6 s plus a 0.1 s loop the envelope decays) in place of the
+modal retone. Every other instrument renders bit for bit as at 90c83b6 (17 whole songs, the jazz guitar's seed 127).
+
+- Bank: payload 300,031 to **339,265 B** (the cello 28,008, the harp 39,193; the old payload the new one's prefix):
+  area 0 294,488 of 299,008 B, area 1 44,793 of 94,208 B: **53,951 B free**.
+- Flash: image 364,880 to **365,120 B (+240)**; RAM .data+.bss 74,676 B and the pool 304,956 B unchanged.
+- CPU (`tools/cost-bench.sh --parts`, lead rows): the harp **0.220** (the Knight 0.235); the synth cello **0.256**;
+  the sampled cello **0.305** on the bench's lead part, whose notes sit over its zones (C5 and up: full rate); in its
+  own register (G2-E4) every note is within 3 semitones of a zone, so it renders at half the rate (round 1, which
+  the bench could play at half, measured 0.240).

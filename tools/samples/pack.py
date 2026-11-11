@@ -24,8 +24,9 @@
 # The output is deterministic: the same inputs give a byte-identical file.
 # Usage (with a Python that has numpy and scipy; run it with -I):
 #   pack.py list                 the files to download: "dir<TAB>url<TAB>path" (fetch.sh reads this)
-#   pack.py licenses             each source's license file: "dir<TAB>url<TAB>path", then "sha256<TAB>" the CC0 1.0
-#                                legal code's hash every license file must match
+#   pack.py licenses             each source's license file: "dir<TAB>url<TAB>path<TAB>sha256" (the CC0 1.0 legal
+#                                code's hash, or the source's own copy's: VSCO-2 CE's plain-text CC0 1.0), then
+#                                "sha256<TAB>" the legal code's
 #   pack.py pack SCRATCH DIR [KITS]  pack from SCRATCH (fetch.sh's dl_* directories) and KITS (the workbench's
 #                                sampled kits: workbench/tools/prep_kits.py's folder, default workbench/samples) into
 #                                DIR's samples_data.c, samples_blob.c and samples_pcm.c (DIR: app/engine)
@@ -582,7 +583,8 @@ def main():
     elif a[:1] == ['licenses']:
         m = load_manifest()
         for key in sorted(k for k in m['sources'] if 'take' not in m['sources'][k]):
-            print('dl_%s\t%s\t%s' % (key, m['sources'][key]['url'], m['sources'][key]['license']))
+            src = m['sources'][key]   # (a 4th column: a source whose CC0 1.0 text is another copy's, its own hash)
+            print('dl_%s\t%s\t%s\t%s' % (key, src['url'], src['license'], src.get('license_sha256', m['license_sha256'])))
         print('sha256\t%s' % m['license_sha256'])
     elif a[:1] == ['pack'] and len(a) in (3, 4):
         pack(a[1], a[2], a[3] if len(a) == 4 else os.path.join(HERE, '..', '..', 'workbench', 'samples'))

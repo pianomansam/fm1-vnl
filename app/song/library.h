@@ -27,7 +27,7 @@ enum { INS_RHODES, INS_WURLI, INS_FELT_PIANO, INS_NYLON, INS_PAD, INS_UPRIGHT, I
                                      cello's bowing), */
        INS_SYNTH_CELLO,           /* the synth cello (M_WIND: a saw, low and dark, the string synth's cello voicing
                                      Sam passed re-expressed; INS_CELLO's own patch and model stay gone), */
-       INS_HARP,                  /* the harp (M_MODAL: three harmonic modes, a soft finger, a long ring) */
+       INS_HARP,                  /* the harp (M_SAMP: VSCO-2 CE's concert harp; the modal retone gone) */
        INS_NONE }; /* append new ones before INS_NONE */
 /* the synth kits (drums.c), then the mixed sampled kits (retired; their hits left the bank 2026-11-10: the ids stay, a
    sampled kit's song's mark under a shipped sampled kit, song.c; their own hits are silent, drums.c) */
@@ -82,16 +82,17 @@ int lib_keys_approved(int ins);
 /* 1: a sampled struck-string instrument (the Knight, the nylon, the Emilyguitar, the jazz guitar): stabs and strums
    suit it (on the keys); none plays without the sample bank */
 int lib_ins_sampled_struck(int ins);
-/* 1: a sampled instrument (lib_ins_sampled_struck's, and the sampled cello): none plays without the sample bank */
+/* 1: a sampled instrument (lib_ins_sampled_struck's, the sampled cello, the harp): none plays without the bank */
 int lib_ins_sampled(int ins);
-/* 1: a lead that sits an octave under the others' register (the jazz guitar, Sam 2026-11-10: "this octave does
-   work"; the two cellos, candidates 2026-11-11: a cello lead sits C3-A4): its style centers and its ceiling an octave
-   down (leads.c), its patch's chorus its send into the keys' (voices.c) */
+/* A lead under the others' register: the semitones its style centers sit under the flute's (leads.c), 0 for none:
+   the jazz guitar 12 (Sam 2026-11-10: "this octave does work"), the two cellos 24 (candidates; Sam 2026-11-11: an
+   octave under round 1's, a cello's melody G2-E4, its top A4). lib_lead_low: 1 for any of them (its ceiling down,
+   E5 or A4; its patch's chorus its send into the keys', voices.c) */
+int lib_lead_drop(int ins);
 int lib_lead_low(int ins);
-/* 1: a low lead the keys lift over (the jazz guitar): in its blocks the keys and the pad's chord part an octave up
-   where the workbench leaves the keys' register as rolled (harmony_keys_lift; Sam: "the other instruments should have
-   gone up an octave"), the lead not pushed over the keys (leads.c's range_bar). The cellos don't: the keys stay under
-   them as under any lead (seed 114: lifted, the keys would have landed on the cello's own notes, E4-D5) */
+/* 1: a low lead the keys lift over (the jazz guitar, the cellos): in its blocks the keys and the pad's chord part an
+   octave up where the workbench leaves the keys' register as rolled (harmony_keys_lift; Sam: "the other instruments
+   should have gone up an octave"), the lead's top under the keys' lowest note (leads.c's range_bar) */
 int lib_lead_lift(int ins);
 /* the sample bank (engine/samples.h): 1 mounted (the default), 0 none (the app's boot, or a bank being written). With
    none the songs keep to synth instruments: no set with sampled keys, bass or lead is drawn or taken, a set's kit is

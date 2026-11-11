@@ -29,9 +29,9 @@
      low-pass (two one-poles); the ensemble's width is the chorus's (the patch's chorus: the pad bus's send into it).
      p[0] the partner's detune in cents (up), p[1] its level, p[2] the low-pass's cutoff in Hz plus p[3] times the
      note's frequency, p[4] 1 for the choir: its voices sing through the formant bank (voices.c's choir_run).
-   M_SAMP (the Knight upright, the nylon, the Emilyguitar, the jazz guitar, the sampled cello; sampler.c): the bank's
-     nearest zone (samples.h) retuned, through a one-pole tone, on its own envelope (att, dec, sus, rel as every
-     model's).
+   M_SAMP (the Knight upright, the nylon, the Emilyguitar, the jazz guitar, the sampled cello, the harp; sampler.c):
+     the bank's nearest zone (samples.h) retuned, through a one-pole tone, on its own envelope (att, dec, sus, rel
+     as every model's).
      p[0] the bank (SB_*), p[1] the tone's cutoff in Hz at full velocity plus p[8] times the note's frequency (both 0:
      no tone; at most 7.5 kHz), p[2] velocity to tone (0-1: the cutoff at velocity 0 is 1 - p[2] of it), p[3] 1 for a
      muted note (the strum's chuck: the cutoff at 2.5 times the note, gone in 60 ms, released in 30), p[4] a delayed
@@ -45,7 +45,7 @@
      (s), p[11] the key click's level, p[12] 1 for the slow rotary, p[13] the horn's amplitude depth (the drum's
      half), p[14] the horn's Doppler (a fraction of the pitch; the drum's a quarter), p[15] semitones added to the
      note (12: the keys an octave up, within C7).
-   M_MODAL (the modeled vibraphone, the harp; modal.h): three decaying modes, a mallet and the tube's bloom (no
+   M_MODAL (the modeled vibraphone; modal.h): three decaying modes, a mallet and the tube's bloom (no
      motor). The fundamental's -60 dB time is dec (shorter up the keys by p[9] octaves of time per octave); the common
      envelope only gates it (att the mallet's contact, rel the release).
      p[0], p[1] the 2nd and 3rd modes' ratios, p[2], p[3] their levels (over the fundamental's full) before the mallet,
@@ -59,9 +59,9 @@
 #include "patch.h"
 #include "samples.h"
 
-#define CELLO_SAMP_LVL 0.3098f /* the candidates' levels (patch.c's table) */
-#define CELLO_SYN_LVL 1.3335f
-#define HARP_LVL 0.639f
+#define CELLO_SAMP_LVL 0.2122f /* the candidates' levels (patch.c's table) */
+#define CELLO_SYN_LVL 1.188f
+#define HARP_LVL 0.5064f
 
 /* model, {p[0..15]}, att, dec, sus, rel, level, chorus, delay. The chorus (on the chords' bus): the electric keys and
    the pads deep, the felt piano and the nylon a touch. The delay's send: leads and ear candy wet, keys a little,
@@ -121,21 +121,24 @@ static const vx_patch_t PATCHES[INS_NONE] = {
     /* Candidate leads (2026-11-11), each level-matched on the lead (voices.c's SAMP_LEAD for the sampled one).
        The sampled cello (the Karoryfer x Bigcat cello's sustained bowing, CC0): held as long as the note (sustain
        1), a 60 ms swell over the take's own bow start, a delayed vibrato (10 cents: the take is straight), the tone
-       6x the note (darker at a soft bow); a low lead, its chorus 0.5 the send into the keys' chorus (as the jazz
-       guitar's). Its level matches the Rhodes on the keys, as every sampled instrument's (test_samp). */
-    [INS_SAMP_CELLO] = {M_SAMP, {SB_CELLO, 300.0f, 0.4f, 0.0f, 10.0f, 0.0f, 0.0f, 0.0f, 6.0f}, 0.06f, 7.0f, 1.0f,
+       14x the note (darker at a soft bow; its line G2-E4, where 6x muffled it); a low lead, its chorus 0.5 the send
+       into the keys' chorus (as the jazz guitar's). Its level matches the Rhodes on the keys, as every sampled
+       instrument's (test_samp). */
+    [INS_SAMP_CELLO] = {M_SAMP, {SB_CELLO, 300.0f, 0.4f, 0.0f, 10.0f, 0.0f, 0.0f, 0.0f, 14.0f}, 0.06f, 7.0f, 1.0f,
                         0.35f, CELLO_SAMP_LVL, 0.5f, 0.2f},
     /* The synth cello: the string synth's cello voicing Sam passed (2026-10-25, demo 2c "low and dark": saws, a
        1.4 kHz top, a 120 ms swell, a 0.7 s release, the ensemble) re-expressed on the wind model: a saw (p[0] 3)
-       under a low-pass 3.5x the note, a faint bow noise for the breath, the winds' delayed vibrato (12 cents); the
-       ensemble the keys' chorus (a low lead's send, 0.6) */
-    [INS_SYNTH_CELLO] = {M_WIND, {3.0f, 0.5f, 3.5f, 0.03f, 1500.0f, 12.0f, 0.0f, 0.0f}, 0.12f, 7.0f, 1.0f, 0.7f,
+       under a low-pass 8x the note (its line G2-E4, where 3.5x muffled it), a faint bow noise for the breath, the
+       winds' delayed vibrato (12 cents); the ensemble the keys' chorus (a low lead's send, 0.6) */
+    [INS_SYNTH_CELLO] = {M_WIND, {3.0f, 0.5f, 8.0f, 0.03f, 1500.0f, 12.0f, 0.0f, 0.0f}, 0.12f, 7.0f, 1.0f, 0.7f,
                          CELLO_SYN_LVL, 0.6f, 0.2f},
-    /* The harp: the vibraphone's model retoned as a plucked string, three harmonic modes (1 : 2 : 3), a soft finger
-       (the mallet's roll-off at 1.8 kHz: no pick noise), no tube (p[10] 1), a long ring (6 s to -60 dB at C4, the
-       upper modes sooner) and a 1.5 s release (a harp's strings ring on) */
-    [INS_HARP] = {M_MODAL, {2.0f, 3.0f, 0.45f, 0.2f, 1800.0f, 0.5f, 2.5f, 1.2f, 0.7f, 0.5f, 1.0f, 0.03f}, 0.002f,
-                  6.0f, 1.0f, 1.5f, HARP_LVL, 0.0f, 0.3f},
+    /* The harp (VSCO-2 CE's concert harp, CC0; in place of round 1's modal retone, Sam: "sounds like an electric
+       piano"): its zones the pluck and the ring's start, the sampler's envelope the rest of the ring (6 s to -60 dB at
+       C4, half an octave of time shorter per octave up), a 0.9 s release (a harp's strings ring on); the tone 10x
+       the note, falling to 70% over 0.5 s (the ring darkens), darker at a soft pluck; no vibrato. Its level matches
+       the Rhodes on the keys, as every sampled instrument's (test_samp); on the lead voices.c's SAMP_LEAD */
+    [INS_HARP] = {M_SAMP, {SB_HARP, 300.0f, 0.5f, 0.0f, 0.0f, 0.5f, 0.7f, 0.5f, 10.0f}, 0.002f, 6.0f, 0.0f, 0.9f,
+                  HARP_LVL, 0.1f, 0.3f},
 };
 
 /* The organ's keys (Sam's picks, 2026-10-31): the slow rotary (horn 25%, Doppler 0.2%), a click, a 3 ms attack and an

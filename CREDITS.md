@@ -18,6 +18,7 @@ with thanks. `tools/samples/manifest.json` lists the exact files; `tools/samples
 | Karoryfer Samples (D. Smolken, Brian Wood): Emilyguitar | electric guitar (`mf`) | CC0 1.0 (`LICENSE`) | https://github.com/sfzinstruments/karoryfer.emilyguitar |
 | Karoryfer Samples (D. Smolken): Shinyguitar, an archtop | jazz guitar (the magnetic pickup's `electric` notes, `vl2`, re-amped by Sam through his amp and cabinet; or shaped by `tools/samples/tone.py`) | CC0 1.0 (`LICENSE`) | https://github.com/sfzinstruments/karoryfer.shinyguitar |
 | Karoryfer Samples x Bigcat Instruments: the open-source cello | sampled cello, a candidate lead (sustained bowing, `sus`, `mp`, the first round robin) | CC0 1.0 (`LICENSE`) | https://github.com/sfzinstruments/karoryfer-bigcat.cello |
+| Versilian Studios Chamber Orchestra 2 Community Edition (VSCO-2 CE) | harp, a candidate lead (`Strings/Harp`, `mf`) | CC0 1.0 (`LICENSE`: the CC0 1.0 text without the legal code's header) | https://github.com/sgossner/VSCO-2-CE |
 
 ## Code
 

@@ -114,8 +114,9 @@ static const float CP_THR_KIT[KIT_N] = {0.095f, 0.090f, 0.084f, 0.162f, 0.110f, 
    the Knight +3.85 and the Emilyguitar +3.5, tuned on their sets' lead over keys (test_lead_over_keys: a struck lead
    reads 8-10 dB over the keys at about 4 dB under the flute's bar energy); the jazz guitar (sets 38-40)
    +5.21, an octave low with its chorus (its dry 2.5 dB down for it), its zones 16-bit PCM: the Knight's level on the
-   lead in test_samp's songs; the sampled cello (a candidate) +8 dB: a held lead at the flute's level */
-static const float SAMP_LEAD[SB_N] = {1.5578f, 2.239f, 1.4962f, 1.8216f, 2.505f};
+   lead in test_samp's songs; the sampled cello (a candidate) +8.8 dB: a held lead about the flute's level; the harp (a
+   candidate) +4.5, the struck leads' level */
+static const float SAMP_LEAD[SB_N] = {1.5578f, 2.239f, 1.4962f, 1.8216f, 2.756f, 1.683f};
 
 /* big zero-initialised buffers go in the device's .pool RAM region (fm1-base's PLAT_POOL; a Mach-O host has no such
    section) */
@@ -321,6 +322,7 @@ static int pad_force = INS_NONE;         /* vx_pad_ins: the pad layer's instrume
    states); b0 = 0 with no patch. VX_OFF_MUD leaves it out. */
 #define MUD_HZ 135.0f
 #define MUD_PAD_HZ 150.0f
+#define MUD_CELLO_HZ 70.0f /* (a cello lead, its line from G2, 98 Hz: under its fundamental, over the bass's E1-B1) */
 static float mud_c[V_PAD + 1][2][3];               /* [role][full, half][b0, a1, a2] */
 static float mud_z[V_PAD + 1][2], mud_zh[V_PAD + 1][2]; /* the states, full rate and half */
 static void mud_coefs(float *c, float hz, float sr)
@@ -502,7 +504,10 @@ static void assign_pt(int voice, const vx_patch_t *p)
     dsend[voice] = role_pt[voice] && voice != V_BASS && !(fx_off & VX_OFF_DELAY) ? role_pt[voice]->delay : 0.0f;
     if (voice != V_BASS) {
         int m = role_pt[voice] ? role_pt[voice]->model : -1;
-        float hz = m == M_PAD || m == M_ENS || (voice == V_PAD && m == M_TW) ? MUD_PAD_HZ : MUD_HZ;
+        float hz = m == M_PAD || m == M_ENS || (voice == V_PAD && m == M_TW) ? MUD_PAD_HZ
+                   : voice == V_LEAD && p && (p == vx_patch(INS_SAMP_CELLO) || p == vx_patch(INS_SYNTH_CELLO))
+                       ? MUD_CELLO_HZ
+                       : MUD_HZ;
         mud_coefs(mud_c[voice][0], hz, SR);
         mud_coefs(mud_c[voice][1], hz, 0.5f * SR);
         if (voice == V_PAD) /* (and the pad layer's at a quarter) */

@@ -142,15 +142,19 @@ int lib_set_walks(const lib_set_t *s)
     return s && (set_key(s) == 1 || set_key(s) == 4 || set_key(s) == 9);
 }
 
-int lib_lead_low(int ins) { return ins == INS_JAZZ_GTR || ins == INS_SAMP_CELLO || ins == INS_SYNTH_CELLO; }
-int lib_lead_lift(int ins) { return ins == INS_JAZZ_GTR; }
+int lib_lead_drop(int ins)
+{
+    return ins == INS_JAZZ_GTR ? 12 : ins == INS_SAMP_CELLO || ins == INS_SYNTH_CELLO ? 24 : 0;
+}
+int lib_lead_low(int ins) { return lib_lead_drop(ins) > 0; }
+int lib_lead_lift(int ins) { return lib_lead_low(ins); }
 
 int lib_ins_sampled_struck(int ins)
 {
     return ins == INS_KNIGHT || ins == INS_NYLON || ins == INS_EMILY || ins == INS_JAZZ_GTR;
 }
 
-int lib_ins_sampled(int ins) { return lib_ins_sampled_struck(ins) || ins == INS_SAMP_CELLO; }
+int lib_ins_sampled(int ins) { return lib_ins_sampled_struck(ins) || ins == INS_SAMP_CELLO || ins == INS_HARP; }
 
 static uint8_t samples_on = 1;
 void lib_set_samples(int on) { samples_on = on != 0; }

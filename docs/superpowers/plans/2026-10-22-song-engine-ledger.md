@@ -711,6 +711,17 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
     Levels within 1 dB of the flute (cellos) and between the vibes and the piano (harp). Renders: seed 114 (G minor,
     86 BPM, Rhodes, electric bass, strings, Soft brushes; Film Score forced), lead 0:22-0:43, 1:29-2:14, 2:58-3:10.
     To judge by ear; the whistle and the soft synth lead wait for round 2.
+    **Round 1b (Sam, 2026-11-11: "the harp definitely sounds like an electric piano. the two cellos are an octave too
+    high"):** the cellos two octaves under the flute's band (lib_lead_drop 24; the jazz guitar 12), ceiling A4, and
+    the keys and pad lift over them as over the jazz guitar (their top under the keys' lowest note); the lead bus's
+    mud high-pass at 70 Hz under a cello (135 elsewhere). Measured from the rendered audio on seed 114 (set 1, Film
+    Score): both cellos sound F3-D4, the body F3-C4 (a cello's melody: G2-E4, its top to A4), under the lifted keys
+    (Eb4-D5). The sampled cello's zones moved to A2 Eb3 A3 Eb4 A4 (the files an octave under their names; ADPCM floor
+    -50 to -66 dB between the harmonics), its tone opened (14x the note); the synth cello's low-pass 8x the note (3.5x
+    muffled it down there). The harp is sampled now: VSCO-2 CE's concert harp (CC0, its license the CC0 text without
+    the legal code's header: its own hash in the manifest), seven zones F4-D6, 16 kHz ADPCM (floor -55 to -68 dB, its
+    source -77 to -99: far from the jazz guitar's audible -35), the sampler's envelope the ring; it sounds F5-D6 on
+    the song (body F5-C6), the flute's register. Renders: scratchpad round1b/.
 - **Done (Sam, 2026-11-11): the jazz guitar approved for songs.** Three sets lead with it, one per flavor its styles
   weigh most, over struck keys the lift raises: 38 Rhodes and jazz guitar (neo-soul, wistful/warm), 39 Knight and
   jazz guitar (lofi, sad/wistful), 40 Bossa Rhodes and jazz guitar (bossa, warm/sunny). About 10% of songs (20,000

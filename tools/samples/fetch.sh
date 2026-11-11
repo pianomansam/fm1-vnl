@@ -28,10 +28,11 @@ done
 
 "$PY" -I "$HERE/pack.py" licenses > "$D/licenses.tsv"
 WANT=$(grep '^sha256' "$D/licenses.tsv" | cut -f2)
-grep -v '^sha256' "$D/licenses.tsv" | while IFS="$TAB" read -r dir url path; do
+grep -v '^sha256' "$D/licenses.tsv" | while IFS="$TAB" read -r dir url path want; do
     f="$D/$dir/$path"
+    [ -n "$want" ] || want=$WANT        # (a source's own copy of the CC0 1.0 text: its hash, in the manifest)
     [ -s "$f" ] || { echo "fetch.sh: $dir: no license file ($path)"; exit 1; }
-    [ "$(sha256 "$f")" = "$WANT" ] || { echo "fetch.sh: $dir: $path is not the CC0 1.0 legal code ($url); stopping"; exit 1; }
+    [ "$(sha256 "$f")" = "$want" ] || { echo "fetch.sh: $dir: $path is not the CC0 1.0 legal code ($url); stopping"; exit 1; }
     echo "  CC0 1.0  $dir ($url)"
 done
 

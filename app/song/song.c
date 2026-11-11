@@ -242,8 +242,8 @@ static void keys_win_for(song_t *s)
     const lib_set_t *set = lib_set_by_id((uint8_t)s->roll.v[RF_SET]);
     int lo, hi;
     leads_band_for(&s->roll, s->lead.style - 1, &lo, &hi);
-    /* (a low lead's band, an octave down, would squeeze the voicer under C4: none; the keys lift over the jazz
-       guitar in its blocks, and a cello goes a 4th over them, leads.c's range_bar) */
+    /* (a low lead's band, an octave or two down, would squeeze the voicer under C4: none; the keys lift over it in
+       its blocks) */
     s->keys_win = set && lib_lead_low(set->lead) ? 0 : lo - 1;
     s->win_oct = song_ov()->lead_oct;
     s->win_style = (int8_t)s->lead.style;
