@@ -14,6 +14,8 @@
 #   holding a bank's notes one after another, in "order" (the zones' file names): split at its onsets (each from
 #   silence), the count and every note's pitch checked (within 0.3 semitone of its hint). A bank marked "after_kits" is laid out after the kits (first fit, as theirs), so the zones before it
 #   keep their places.
+#   A bank with "search" true encodes its zones' codes by a beam search (adpcm_search: the same format, decoded the
+#   same, closer to the source: about 1.5-2 dB).
 #   Every zone: 4-bit IMA ADPCM from (0, idx0), idx0 the starting step index that encodes the zone best (the first 5 ms
 #   weigh most: a poor start smears a hit's attack), never decoding to the clamp (the zone scaled down 3% at a time
 #   until it doesn't), and a gain that brings the first 150 ms to unit RMS.
@@ -163,10 +165,39 @@ def midi_of(f):
     return 69 + 12 * math.log2(f / 440.0)
 
 
-class Zone:
-    """One packed zone: int16 PCM, its ADPCM bytes and the table fields."""
+def adpcm_search(x, idx0, beam=16):
+    """x int16 array: the same IMA ADPCM stream format (adpcm_decode reads it), its codes found by a beam search
+    instead of one sample at a time: every path kept (beam of them, the cheapest; one per decoder state) tries every
+    code, the cost the squared error (the first 80 samples 4x, as the zone's idx0 is chosen). Returns the bytes."""
+    st_t, ix_t, codes = np.array(STEP, np.int64), np.array(IDX * 2, np.int64), np.arange(16, dtype=np.int64)[None, :]
+    pred, idx, cost = np.zeros(1, np.int64), np.full(1, idx0, np.int64), np.zeros(1)
+    back = []
+    for n, s in enumerate(x.astype(np.int64)):
+        st = st_t[idx][:, None]
+        diff = ((st >> 3) + np.where(codes & 4, st, 0) + np.where(codes & 2, st >> 1, 0) +
+                np.where(codes & 1, st >> 2, 0))
+        p = np.clip(np.where(codes & 8, pred[:, None] - diff, pred[:, None] + diff), -32768, 32767).ravel()
+        ni = np.clip(idx[:, None] + ix_t[codes], 0, 88).ravel()
+        c = (cost[:, None] + (p.reshape(-1, 16) - s) ** 2 * (4.0 if n < 80 else 1.0)).ravel()
+        order = np.argsort(c, kind='stable')
+        _, first = np.unique((p * 128 + ni)[order], return_index=True)
+        keep = order[np.sort(first)][:beam]
+        back.append(keep)
+        pred, idx, cost = p[keep], ni[keep], c[keep]
+    out, j = np.zeros(len(x), np.int64), 0
+    for t in range(len(x) - 1, -1, -1):
+        out[t] = back[t][j] % 16
+        j = back[t][j] // 16
+    if len(out) % 2:
+        out = np.append(out, 0)
+    return bytes((out[0::2] | (out[1::2] << 4)).astype(np.uint8))
 
-    def __init__(self, name, pcm, rate, root, ls, ll):
+
+class Zone:
+    """One packed zone: int16 PCM, its ADPCM bytes and the table fields (search: the codes by adpcm_search, from the
+    idx0 the one-at-a-time encoder chose, where that decodes closer)."""
+
+    def __init__(self, name, pcm, rate, root, ls, ll, search=False):
         while True:  # a decode that overshoots to the clamp: the zone 3% quieter until none does
             z = pcm.astype(np.float64)
             best = None
@@ -176,6 +207,12 @@ class Zone:
                 e = np.sum((z[:80] - d[:80]) ** 2) * 4 + np.sum((z - d) ** 2)
                 if best is None or e < best[0]:
                     best = (e, idx0, b, d)
+            if search:
+                b = adpcm_search(pcm, best[1])
+                d = adpcm_decode(b, len(pcm), best[1])
+                e = np.sum((z[:80] - d[:80]) ** 2) * 4 + np.sum((z - d) ** 2)
+                if e < best[0] and np.max(d) < 32767 and np.min(d) > -32768:
+                    best = (e, best[1], b, d)
             if np.max(best[3]) < 32767 and np.min(best[3]) > -32768:
                 break
             pcm = np.round(z * 0.97).astype(np.int16)
@@ -187,9 +224,9 @@ class Zone:
         self.gain = 1.0 / max(self.loud, 1e-6)
 
 
-def make_zone(name, x, rate, root_f, attack, loop, out_rate):
+def make_zone(name, x, rate, root_f, attack, loop, out_rate, search=False):
     """x float mono at `rate`, onset-trimmed, sounding MIDI `root_f`: retuned to the nearest whole note, cut to an
-    attack and a loop of whole periods, the loop flattened and crossfaded."""
+    attack and a loop of whole periods, the loop flattened and crossfaded (search: Zone's)."""
     root = int(round(root_f))
     y = resample(x, rate, out_rate, root - root_f)
     a = int(attack * out_rate) & ~1
@@ -209,7 +246,7 @@ def make_zone(name, x, rate, root_f, attack, loop, out_rate):
         e = a + L
         y[e - X:e] = y[e - X:e] * (1 - f) + y[a - X:a] * f
     y = y / (np.max(np.abs(y)) + 1e-12) * 0.95
-    return Zone(name, np.round(y * 32767).astype(np.int16), out_rate, root, a, L)
+    return Zone(name, np.round(y * 32767).astype(np.int16), out_rate, root, a, L, search)
 
 
 def load_manifest():
@@ -481,7 +518,7 @@ def pack(scratch, out, kits_dir):
                 if 'take' in src and abs(root_f - zm['hint']) > 0.3:
                     sys.exit('take: %s measures %.2f, wanted %d: the take\'s order is off' % (zm['file'], root_f,
                                                                                              zm['hint']))
-                zs.append(make_zone('', x, sr, root_f, b['attack'], b['loop'], r))
+                zs.append(make_zone('', x, sr, root_f, b['attack'], b['loop'], r, b.get('search', False)))
                 log.append('%s %s: hint %d measured %.2f' % (b['id'], os.path.basename(zm['file']), zm['hint'], root_f))
         zs.sort(key=lambda z: z.root)
         banks.append((b['id'], tag, zs))

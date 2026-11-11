@@ -136,6 +136,8 @@ int lib_set_walks(const lib_set_t *s)
     return s && (set_key(s) == 1 || set_key(s) == 4 || set_key(s) == 9);
 }
 
+int lib_lead_low(int ins) { return ins == INS_JAZZ_GTR; }
+
 int lib_ins_sampled_struck(int ins)
 {
     return ins == INS_KNIGHT || ins == INS_NYLON || ins == INS_EMILY || ins == INS_JAZZ_GTR;

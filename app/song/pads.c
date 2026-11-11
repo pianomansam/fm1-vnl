@@ -154,16 +154,17 @@ static void consider(pick_t *b, const int *v, const int *pen, int m, int root, i
 int pads_chord(const song_roll_t *r, const int keys[6], const int *pcs, int np, unsigned bass_pc,
                const int *lead_notes, int nlead, const int prev[3], int out[3])
 {
+    const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
     int cand[24], pen[24], nc = 0, have3 = 0, have7 = 0, p[3], i, j, k, m;
+    int sh = set && lib_lead_low(set->lead) ? -12 : 0;   /* under a low lead (the jazz guitar): an octave down */
     pick_t b;
-    (void)r;
     memcpy(p, prev, sizeof p);
     b.cost = 1 << 30;
-    for (k = LO; k <= HI; k++)                           /* the chord's tones but the root (the bass's) */
+    for (k = LO + sh; k <= HI + sh; k++)    /* the chord's tones but the root (the bass's) */
         for (i = 1; i < np && nc < 24; i++) {
             int iv = mod12(pcs[i] - pcs[0]);
-            have3 |= k == LO && (iv == 3 || iv == 4);
-            have7 |= k == LO && (iv == 10 || iv == 11);
+            have3 |= k == LO + sh && (iv == 3 || iv == 4);
+            have7 |= k == LO + sh && (iv == 10 || iv == 11);
             if (mod12(k) != mod12(pcs[i]) || !clear_of(k, keys, lead_notes, nlead, (int)bass_pc)) continue;
             /* 0 a guide tone, 1 the 5th or 9th, 2 another color (an 11th, a 13th) */
             pen[nc] = iv == 3 || iv == 4 || iv == 10 || iv == 11 ? 0 : iv == 2 || (iv >= 6 && iv <= 8) ? 1 : 2;

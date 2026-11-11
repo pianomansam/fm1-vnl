@@ -108,7 +108,8 @@ int leads_style_keep(const song_roll_t *r, int prev)
 /* The centers: each style's median lead pitch in its spike's five A/B songs (seeds 101-105: 1 flute G Aeolian,
    2 flute Db Lydian, 3 vibes B Dorian, 4 felt piano Ab Mixolydian, 5 flute A Ionian; the renders' json "lead" notes,
    app/build/new, 2026-10-29), per lead instrument; a half rounded down ('60s Jazz on the flute, 80.5). No spike put
-   the Knight on the lead: it takes the style's flute center, as does any other lead instrument.
+   the Knight on the lead: it takes the style's flute center, as does any other lead instrument; a low lead
+   (lib_lead_low: the jazz guitar) the flute's an octave down.
 
                       flute  felt   vibes  Knight  other   (notes measured: flute / felt / vibes)
      Impressionism     79     80     76     79      79      119 /  80 / 49
@@ -127,7 +128,7 @@ static const uint8_t CENTER[LS_N][5] = {
 int leads_center(int style, int ins)
 {
     int col = ins == INS_FLUTE ? 0 : ins == INS_FELT_PIANO ? 1 : ins == INS_VIBES ? 2 : ins == INS_KNIGHT ? 3 : 4;
-    int c = CENTER[style >= 0 && style < LS_N ? style : 0][col], lo, hi;
+    int c = CENTER[style >= 0 && style < LS_N ? style : 0][col] - (lib_lead_low(ins) ? 12 : 0), lo, hi;
     song_ov_range(ins, &lo, &hi);
     return c < lo + 6 ? lo + 6 : c > hi - 6 ? hi - 6 : c;
 }
@@ -149,6 +150,7 @@ static void range_bar(const song_roll_t *r, int style, const int keys[4], const 
 {
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
     int top = 0, ntop = 0, i, blo, bhi, il, ih, ko = harmony_keys_oct(r);
+    int e6 = set && lib_lead_low(set->lead) ? 76 : 88;  /* the ceiling: E6, a low lead's E5 */
     for (i = 0; i < 4; i++) {
         if (keys[i] > top) top = keys[i];
         if (nkeys[i] > ntop) ntop = nkeys[i];
@@ -157,9 +159,9 @@ static void range_bar(const song_roll_t *r, int style, const int keys[4], const 
     leads_band_for(r, style, &blo, &bhi);
     *lo = top >= blo ? top + 5 : blo;                    /* the keys reach in: a 4th over them */
     *lo_x = ntop >= blo && ntop + 5 > *lo ? ntop + 5 : *lo;
-    *hi = 88 + 12 * song_ov()->lead_oct;                 /* E6, or the workbench's octave off it */
-    if (ko > 0 && 88 + ko > *hi) *hi = 88 + ko;          /* the workbench's keys raised: the ceiling with them */
-    if (*hi > ih) *hi = ih > 88 ? ih : 88;               /* in the instrument's range (or E6 at least: as before) */
+    *hi = e6 + 12 * song_ov()->lead_oct;                 /* E6, or the workbench's octave off it */
+    if (ko > 0 && e6 + ko > *hi) *hi = e6 + ko;          /* the workbench's keys raised: the ceiling with them */
+    if (*hi > ih) *hi = ih > e6 ? ih : e6;               /* in the instrument's range (or E6 at least: as before) */
     if (*hi < bhi) *hi = bhi;                            /* an octave down: the band's top at least */
 }
 
@@ -481,11 +483,12 @@ static void plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t 
     c.pad = set && lib_ins_sustained(set->chords);
     c.vibes = set && set->lead == INS_VIBES;
     if (c.pad) {                                         /* a pad: the octave doesn't matter (Sam), its place does */
+        int d = 12 * song_ov()->lead_oct - (set && lib_lead_low(set->lead) ? 12 : 0);   /* (a low lead: down one) */
         c.lo = c.lo_x = 60;
         c.hi = harmony_pad_place(r) == PL_ABOVE ? 72 : 83;
-        if (song_ov()->lead_oct && set) {                /* the workbench's octave, in the instrument's range; left
+        if (d && set) {                                  /* the workbench's octave, in the instrument's range; left
                                                             where under an octave would remain */
-            int d = 12 * song_ov()->lead_oct, lo, hi, nlo = c.lo + d, nhi = c.hi + d;
+            int lo, hi, nlo = c.lo + d, nhi = c.hi + d;
             song_ov_range(set->lead, &lo, &hi);
             if (nlo < lo) nlo = lo;
             if (nhi > hi) nhi = hi;

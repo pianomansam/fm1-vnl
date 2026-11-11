@@ -311,11 +311,14 @@ int harmony_pad_place(const song_roll_t *r)
 }
 
 /* the workbench's keys_oct: the keys an octave up or down where the instrument's range holds the whole register
-   the voicer (C3-E5) or the strum (E2-E5) can reach, else where they were; one shift for the song */
+   the voicer (C3-E5) or the strum (E2-E5) can reach, else where they were; one shift for the song. Left as rolled
+   under a low lead (lib_lead_low), down an octave. */
 int harmony_keys_oct(const song_roll_t *r)
 {
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
     int d = 12 * song_ov()->keys_oct, lo, hi, sh, strum;
+    if (!d && set && lib_lead_low(set->lead)) /* a low lead (the jazz guitar): the keys under it, an octave down */
+        d = -12;
     if (!d || !set || set->chords == INS_VIBES) return 0;   /* (the vibes: their register is the bars' own, F3 up,
                                                                place_keys) */
     strum = harmony_style(r) == CS_STRUM;

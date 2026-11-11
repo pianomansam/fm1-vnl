@@ -112,9 +112,9 @@ static const float CP_THR_KIT[KIT_N] = {0.095f, 0.090f, 0.084f, 0.162f, 0.110f, 
 /* a sampled instrument (M_SAMP) on the lead, over its level on the keys, per bank (Knight, nylon, Emilyguitar, jazz
    guitar): its patch's level matches the Rhodes on the keys; the nylon +7 dB (the flute's level on the lead), the
    Knight +3.85 and the Emilyguitar +3.5, tuned on their sets' lead over keys (test_lead_over_keys: a struck lead reads
-   8-10 dB over the keys at about 4 dB under the flute's bar energy); the jazz guitar (a candidate, no set) +3.2, the
-   Knight's level on the lead in test_samp's songs */
-static const float SAMP_LEAD[SB_N] = {1.5578f, 2.239f, 1.4962f, 1.4454f};
+   8-10 dB over the keys at about 4 dB under the flute's bar energy); the jazz guitar (a candidate, no set) +5.33, an
+   octave low with its chorus (its dry 2.5 dB down for it): the Knight's level on the lead in test_samp's songs */
+static const float SAMP_LEAD[SB_N] = {1.5578f, 2.239f, 1.4962f, 1.8469f};
 
 /* big zero-initialised buffers go in the device's .pool RAM region (fm1-base's PLAT_POOL; a Mach-O host has no such
    section) */
@@ -276,6 +276,14 @@ static float csend;         /* the pad layer's send into the chorus */
 static float pd_dep;        /* the depth that send gives it */
 static float pdg = 1.0f, pdg0, pdgd; /* its dry scale: eased toward fx_chorus_dry_at(pd_dep); this chunk's ramp */
 static float pd_lvl = 1.0f;          /* the pad layer's level (vx_set_pad_level), folded into pdg's target */
+/* A low lead's chorus (lib_lead_low: the jazz guitar; Sam, 2026-11-10: "even more chorus on it"): the lead bus sent
+   into the same chorus as the pad is, its patch's chorus its depth over the chords' (at most PAD_CH_MAX times; 0 with
+   no chorus on the keys), its dry scaled for it as the chords' is (fx_chorus_dry_at that depth, set each chunk). Any
+   other lead sends nothing (its patch's chorus is the keys' depth when it plays the keys). */
+static uint8_t lead_ch;     /* the lead is a low lead (vx_assign) */
+static float lsend;         /* its send into the chorus */
+static float ld_dep;        /* the depth that send gives it */
+static float lg = 1.0f;     /* its dry scale this chunk */
 /* The formant choir (INS_CHOIR: an M_ENS patch with p[4] set, on the pad layer or its solo lane): its voices sum
    apart from the other ensemble voices, at the quarter rate, into one formant bank (one bank, not one per voice: the
    choir sings one vowel), then join the layer's sum. The bank: Klatt's two-pole resonators (Klatt 1980), F1 and F2 in
@@ -511,6 +519,12 @@ static void assign_pt(int voice, const vx_patch_t *p)
         csend = cd > 0.0f ? fm_minf(pd / cd, PAD_CH_MAX) : 0.0f;
         pd_dep = csend * cd;
     }
+    if (voice == V_CHORD || voice == V_LEAD) { /* a low lead's send, likewise */
+        float cd = role_pt[V_CHORD] && !(fx_off & VX_OFF_CHORUS) ? role_pt[V_CHORD]->chorus : 0.0f;
+        float ld = lead_ch && role_pt[V_LEAD] && !(fx_off & VX_OFF_CHORUS) ? role_pt[V_LEAD]->chorus : 0.0f;
+        lsend = cd > 0.0f ? fm_minf(ld / cd, PAD_CH_MAX) : 0.0f;
+        ld_dep = lsend * cd;
+    }
 }
 
 void vx_assign_patch(int voice, const vx_patch_t *p)
@@ -523,6 +537,8 @@ void vx_assign(int voice, int ins)
 {
     if (voice < V_CHORD || voice > V_PAD)
         return;
+    if (voice == V_LEAD)
+        lead_ch = (uint8_t)lib_lead_low(ins);
     /* the organ: the song's registration and register on the keys, the one-stop 4' on the pad layer */
     assign_pt(voice, ins == INS_VIBES && voice == V_CHORD ? vx_vibes_keys()   /* the vibes on the keys */
                      : ins != INS_ORGAN ? vx_patch(ins)
@@ -2085,7 +2101,7 @@ static void render_seg(uint32_t pos, uint32_t n, int filt)
     uint32_t ih = 0;
     float c0 = sendp[V_CHORD], c2 = sendp[V_LEAD], c3 = sendp[V_CANDY], c4 = sendp[V_PAD]; /* (the bass is dry) */
     float g = kg0 + kgd * (float)pos, dg = kgd; /* the keys' gain, ramping over the chunk */
-    float d0 = dsend[V_CHORD], d2 = dsend[V_LEAD], d3 = dsend[V_CANDY], d4 = dsend[V_PAD], e4 = csend;
+    float d0 = dsend[V_CHORD], d2 = dsend[V_LEAD], d3 = dsend[V_CANDY], d4 = dsend[V_PAD], e4 = csend, e2 = lsend;
     float as = ts, ac = tc, ad = td;
     int hw_on;
     int dr = drums_active(); /* (a drum starts only at a segment's start, as a voice does) */
@@ -2200,6 +2216,10 @@ static void render_seg(uint32_t pos, uint32_t n, int filt)
                 pa += pq_buf[i]; /* the quarter-rate sum (no section filters here: they are open) */
             g += dg;
             c *= g;
+            if (e2 > 0.0f) { /* a low lead's chorus: its dry scaled, its send */
+                l *= lg;
+                ac += l * e2;
+            }
             ch_m[i] = c + b + l + k + pa;
             as += c * c0 + l * c2 + k * c3 + pa * c4;
             ac += c + pa * e4;
@@ -2266,10 +2286,12 @@ static void hx_mix(uint32_t c, int filt)
                 bb[r][i] += hup[i];
             continue;
         }
-        gl = r == V_CHORD ? kg0 : 1.0f; /* the keys' gain (the chorus's dry scale, the duck), ramping */
+        gl = r == V_CHORD ? kg0 : r == V_LEAD && lsend > 0.0f ? lg : 1.0f; /* the keys' gain (the chorus's dry scale,
+                                                                              the duck), ramping; a low lead's */
         dgl = r == V_CHORD ? kgd : 0.0f;
         sp = sendp[r];
-        sc = r == V_CHORD ? 1.0f : r == V_PAD ? csend : 0.0f; /* the chorus's input: the keys, the pad's send */
+        sc = r == V_CHORD ? 1.0f : r == V_PAD ? csend : r == V_LEAD ? lsend : 0.0f; /* the chorus's input: the keys,
+                                                                                   the pad's send, a low lead's */
         sd = dsend[r];
         for (i = 0; i < c; i++) {
             float x = hup[i] * (gl += dgl);
@@ -2434,7 +2456,7 @@ static void mix_chunk(uint32_t c, int filt, unsigned live)
             comp(d, n, &g, &dg);
         if (filt) {
             float s0 = sendp[V_CHORD], s2 = sendp[V_LEAD], s3 = sendp[V_CANDY], s4 = sendp[V_PAD];
-            float cgl = kg0 + kgd * (float)o, cs = csend;
+            float cgl = kg0 + kgd * (float)o, cs = csend, ls = lsend, lgl = lg;
             float e0 = dsend[V_CHORD], e2 = dsend[V_LEAD], e3 = dsend[V_CANDY], e4 = dsend[V_PAD];
             const float *b0 = bb[V_CHORD] + o, *b1 = bb[V_BASS] + o, *b2 = bb[V_LEAD] + o, *b3 = bb[V_CANDY] + o;
             const float *b4 = bb[V_PAD] + o;
@@ -2463,11 +2485,15 @@ static void mix_chunk(uint32_t c, int filt, unsigned live)
                 level_block(c, o, n);
             for (i = 0; i < n; i++) {
                 float x = b0[i] * (cgl += kgd);
-                float p4 = b4[i] + q4[i];
-                ch_m[o + i] = x + b1[i] + b2[i] + b3[i] + p4 + d[i];
-                as += x * s0 + b2[i] * s2 + b3[i] * s3 + p4 * s4 + d[i] * SEND_DRUMS;
+                float p4 = b4[i] + q4[i], l2 = b2[i];
+                if (ls > 0.0f) { /* a low lead's chorus: its dry scaled, its send */
+                    l2 *= lgl;
+                    ac += l2 * ls;
+                }
+                ch_m[o + i] = x + b1[i] + l2 + b3[i] + p4 + d[i];
+                as += x * s0 + l2 * s2 + b3[i] * s3 + p4 * s4 + d[i] * SEND_DRUMS;
                 ac += x + p4 * cs;
-                ad += x * e0 + b2[i] * e2 + b3[i] * e3 + p4 * e4;
+                ad += x * e0 + l2 * e2 + b3[i] * e3 + p4 * e4;
                 if (++k3 == FX_PAIR) {
                     t_s[t3] += as;
                     t_c[t3] += ac;
@@ -2640,6 +2666,7 @@ void vx_render(float *l, float *r, uint32_t n)
             pdg += (cd - pdg) * 0.25f;
             pdg = fm_fabsf(pdg - cd) < 1e-6f ? cd : pdg;
             pdgd = (pdg - pdg0) / (float)c;
+            lg = lsend > 0.0f ? fx_chorus_dry_at(ld_dep) : 1.0f;
         }
         duck_chunk(c);
         while (pos < c) {

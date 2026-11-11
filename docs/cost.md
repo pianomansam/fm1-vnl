@@ -1431,3 +1431,17 @@ heap.
 - CPU (`tools/cost-bench.sh --parts`, host, lead rows): jazz guitar 28.1 ms net, ratio 0.207 (the Knight 0.225, the
   flute 0.238, the felt piano 0.176, the vibes 0.151): a 12 kHz zone decodes fewer ADPCM samples a second than the
   Knight's 16 kHz.
+
+### The jazz guitar an octave low, cleaner and with chorus (2026-11-10)
+
+A low lead (`lib_lead_low`: the jazz guitar only): its style centers and ceiling an octave down, the keys an octave
+down under it where the workbench leaves their register as rolled, the pad's chord part an octave down; its patch's
+chorus (0.5, none before on the lead) its send into the keys' chorus, its dry scaled for it. The bank's re-amp zones at
+16 kHz with their ADPCM codes found by a beam search (`pack.py`'s `adpcm_search`: the same format and decoder), 4-5 dB
+less noise between the harmonics on the upper notes (the fuzz Sam heard was the 12 kHz encoding's, not his take).
+
+- Bank: the jazz guitar 41,982 to **55,976 B (+13,994)**; payload **328,040 B**, area 0 294,469 of 299,008 B, area 1
+  33,587 of 94,208 B: **65,160 B free**. Every other zone unchanged (the old payload the new one's prefix).
+- Flash: image 290,316 to **290,384 B (+68)**; RAM .data+.bss 74,660 to **74,676 B (+16)**; the pool unchanged.
+- CPU (`tools/cost-bench.sh --parts`, lead rows, a busier host run: every row higher): jazz guitar ratio 0.199 (the
+  Knight 0.250, the flute 0.239): a multiply and an add a sample for the chorus send, only under a low lead.

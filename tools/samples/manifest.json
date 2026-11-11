@@ -72,9 +72,10 @@
     },
     {
       "id": "SB_JAZZ", "rate": 12000, "attack": 0.6, "loop": 0.1, "after_kits": true, "use": "reamp",
-      "comment": "The jazz guitar (a candidate lead, 2026-11-10): the Shinyguitar archtop's magnetic pickup (electric), vl2 (velocities 33-64: jazz is played soft), rr1, every minor 3rd A3-C6 (the lead's register); standard pitch (the SFZ's keycenters). At 12 kHz; laid out after the kits (after_kits), so every other zone keeps its place. Two versions (variants; use: the one packed): reamp, Sam's re-amp of the raw notes through his amp and cabinet (the tone: tone.py bypassed), packed; its cut 0.55 s and a 0.15 s loop (0.1 s put a loop seam on Eb4 and, at 0.12 s, C4); chain, the raw notes through tone.py's chain (a warm, round, dark jazz box), the first version (2026-11-10).",
+      "comment": "The jazz guitar (a candidate lead, 2026-11-10): the Shinyguitar archtop's magnetic pickup (electric), vl2 (velocities 33-64: jazz is played soft), rr1, every minor 3rd A3-C6 (the lead's register); standard pitch (the SFZ's keycenters). At 12 kHz (the reamp: 16 kHz); laid out after the kits (after_kits), so every other zone keeps its place. Two versions (variants; use: the one packed): reamp, Sam's re-amp of the raw notes through his amp and cabinet (the tone: tone.py bypassed), packed; its cut 0.55 s and a 0.15 s loop (0.1 s put a loop seam on Eb4 and, at 0.12 s, C4), at 16 kHz with the codes searched (search): the 12 kHz greedy encoding's noise read as fuzz on the upper notes (Sam), 4-5 dB less this way; chain, the raw notes through tone.py's chain (a warm, round, dark jazz box), the first version (2026-11-10).",
       "variants": {
-        "reamp": {"src": "jazz_reamp", "tone": {"bypass": true}, "attack": 0.55, "loop": 0.15},
+        "reamp": {"src": "jazz_reamp", "tone": {"bypass": true}, "attack": 0.55, "loop": 0.15, "rate": 16000,
+                  "search": true},
         "chain": {"src": "shiny",
                   "tone": {"in_db": -6.0, "tone_hz": 2200.0, "tone_order": 1, "drive": 1.5, "hp_hz": 90.0,
                            "body_hz": 350.0, "body_db": 3.0, "body_q": 0.9, "cab_hz": 4500.0, "cab_order": 4,

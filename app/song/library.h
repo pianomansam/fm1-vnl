@@ -77,6 +77,10 @@ int lib_keys_approved(int ins);
 /* 1: a sampled struck-string instrument (the Knight, the nylon, the Emilyguitar, the jazz guitar): stabs and strums
    suit it (on the keys); none plays without the sample bank */
 int lib_ins_sampled_struck(int ins);
+/* 1: a lead that sits an octave under the others' register (the jazz guitar, Sam 2026-11-10: "this octave does
+   work"): its style centers an octave down (leads.c), and under it the keys an octave down where the workbench leaves
+   their register as rolled (harmony_keys_oct) and the pad's chord part an octave down (pads_chord) */
+int lib_lead_low(int ins);
 /* the sample bank (engine/samples.h): 1 mounted (the default), 0 none (the app's boot, or a bank being written). With
    none the songs keep to synth instruments: no set with sampled keys, bass or lead is drawn or taken, a set's kit is
    its synth one, and a sampled instrument or kit asked for by hand is refused */
