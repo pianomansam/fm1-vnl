@@ -26,10 +26,10 @@ enum { INS_RHODES, INS_WURLI, INS_FELT_PIANO, INS_NYLON, INS_PAD, INS_UPRIGHT, I
        INS_SAMP_CELLO,            /* leads (2026-11-11, approved: sets 41-45): the sampled cello (M_SAMP, the Karoryfer x Bigcat
                                      cello's bowing; the synth cello parked 2026-11-11: no id), */
        INS_HARP,                  /* the harp (M_SAMP: VSCO-2 CE's concert harp; the modal retone gone) */
-       INS_WHISTLE,               /* candidate leads (2026-11-11, round 2; no set): the whistle (M_WIND: a sine, a
-                                     breath, a slow vibrato), */
+       INS_WHISTLE,               /* leads of round 2 (2026-11-11): the whistle (M_WIND: a sine, a breath, a slow
+                                     vibrato; approved the same day: sets 46-48), */
        INS_SOFT_SYNTH,            /* the soft synth lead (M_WIND: a rounded triangle-square, vibrato, a glide; a low
-                                     lead the keys don't lift over) */
+                                     lead the keys don't lift over; a candidate: no set) */
        INS_NONE }; /* append new ones before INS_NONE */
 /* the synth kits (drums.c), then the mixed sampled kits (retired; their hits left the bank 2026-11-10: the ids stay, a
    sampled kit's song's mark under a shipped sampled kit, song.c; their own hits are silent, drums.c) */
@@ -89,9 +89,9 @@ int lib_ins_sampled(int ins);
 /* A lead under the others' register: the semitones its style centers sit under the flute's (leads.c), 0 for none:
    the jazz guitar 12 (Sam 2026-11-10: "this octave does work"); the soft synth lead 7 (a candidate: a 5th under the
    flute's, its line in a synth lead's C4-C6 with the motif's room over the keys); the sampled cello 24, which marks
-   it: its center is its own, G3 whatever the style (leads.c's CELLO_C; Sam 2026-11-11: "an octave too high" where
-   the style's floated it), a cello's melody G2-E4. lib_lead_low: 1 for any of them (its ceiling down, E5 or E4; its
-   patch's chorus its send into the keys', voices.c) */
+   it: its center is its own, Bb3 whatever the style, its floor D3 (leads.c's CELLO_C, CELLO_LO; Sam 2026-11-11: "an
+   octave too high" where the style's floated it, then G3 too low), a cello's melody D3-A4. lib_lead_low: 1 for any of
+   them (its ceiling down, E5 or A4; its patch's chorus its send into the keys', voices.c) */
 int lib_lead_drop(int ins);
 int lib_lead_low(int ins);
 /* 1: a low lead the keys lift over (the jazz guitar, the sampled cello; not the soft synth lead, pushed a 4th over the

@@ -137,8 +137,8 @@ static const vx_patch_t PATCHES[INS_NONE] = {
        the Rhodes on the keys, as every sampled instrument's (test_samp); on the lead voices.c's SAMP_LEAD */
     [INS_HARP] = {M_SAMP, {SB_HARP, 300.0f, 0.5f, 0.0f, 0.0f, 0.5f, 0.7f, 0.5f, 10.0f}, 0.002f, 6.0f, 0.0f, 0.6f,
                   HARP_LVL, 0.1f, 0.0f},
-    /* Candidate leads, round 2 (2026-11-11; offered, never rolled, no set), the flute's wind model retoned. The
-       whistle: a pure sine (the blend 0) with a breath of air over it (a wide band at 2.6 kHz), a slow, wide vibrato
+    /* Leads of round 2 (2026-11-11), the flute's wind model retoned; the whistle approved the same day (sets 46-48),
+       the soft synth lead a candidate (offered, never rolled, no set). The whistle: a pure sine (the blend 0) with a breath of air over it (a wide band at 2.6 kHz), a slow, wide vibrato
        (4 Hz, 20 cents, delayed as the flute's), a quick onset and a short release; held as the flute is. It plays
        in the flute's band (a whistler's lower register, F5-D6 on the A/B song). */
     [INS_WHISTLE] = {M_WIND, {0.0f, 0.5f, 4.0f, 0.06f, 2600.0f, 20.0f, 0.0f, 0.0f, 4.0f}, 0.04f, 7.0f, 0.8f, 0.1f,

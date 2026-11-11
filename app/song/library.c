@@ -68,6 +68,12 @@ const lib_set_t LIB_SETS[] = {
     {43, "Rhodes and harp", INS_RHODES, INS_ELEC_BASS, INS_HARP, INS_NONE, INS_STRINGS, KIT_SOFT, KIT_S_CLEAN, FL_CITYPOP, MOOD_WARM | MOOD_SUNNY, "Sam approved the harp (2026-11-11): set 6 (City pop Rhodes)'s keys, bass and kits"},
     {44, "Knight and cello", INS_KNIGHT, INS_ELEC_BASS, INS_SAMP_CELLO, INS_NONE, INS_WARM_PAD, KIT_BRUSHES, KIT_N, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "Sam approved the sampled cello (2026-11-11): set 32 (Knight, vibes and brushes)'s keys, kit and pad"},
     {45, "Rhodes and cello", INS_RHODES, INS_SUB, INS_SAMP_CELLO, INS_NONE, INS_WARM_PAD, KIT_DUSTY, KIT_S_DARK, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "Sam approved the sampled cello (2026-11-11): set 31 (Rhodes and felt)'s keys, kits and pad"},
+    /* the whistle leads (Sam approved it, 2026-11-11): a held, breathy lead as the flute is, in the flute's moods and
+       flavors (wistful, warm, sunny; lofi, bossa, chillwave), one set per flavor, each from a flute set's keys, bass,
+       pad and kits */
+    {46, "Rhodes and whistle", INS_RHODES, INS_ELEC_BASS, INS_WHISTLE, INS_NONE, INS_STRINGS, KIT_DUSTY, KIT_S_WARM, FL_LOFI, MOOD_WISTFUL | MOOD_WARM, "Sam approved the whistle (2026-11-11): set 1 (Rhodes dusty)'s keys, bass, pad and kits"},
+    {47, "Nylon and whistle", INS_NYLON, INS_ELEC_BASS, INS_WHISTLE, INS_NONE, INS_STRINGS, KIT_BRUSHES, KIT_N, FL_BOSSA, MOOD_WARM | MOOD_SUNNY, "Sam approved the whistle (2026-11-11): set 9 (Nylon and flute)'s keys, bass, pad and kit, its moods warm and sunny"},
+    {48, "Pad and whistle", INS_PAD, INS_ELEC_BASS, INS_WHISTLE, INS_NONE, INS_STRINGS, KIT_808, KIT_N, FL_CHILLWAVE, MOOD_WISTFUL | MOOD_WARM, "Sam approved the whistle (2026-11-11): set 10 (Pad and flute)'s keys, bass, pad and kit, its moods wistful and warm"},
 };
 const int LIB_NSETS = (int)(sizeof LIB_SETS / sizeof LIB_SETS[0]);
 

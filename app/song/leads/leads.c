@@ -45,8 +45,8 @@ int lead_motif_to(const lead_motif_t *m, int si0, int *at, int *len, int *si)
 /* The styles each lead instrument plays (the spec's fits, bit LS_*): the flute any of the eight; the felt piano '60s
    Jazz, Jazz-Hop, Film Score, Ambient; the vibes Impressionism, '60s Jazz, Jazz-Hop, Bossa Nova, Ambient; the Knight
    '60s Jazz, Film Score, Ambient; the jazz guitar '60s Jazz, Modal Jazz, Jazz-Hop, Bossa Nova; the
-   sampled cello and the harp Impressionism, Romanticism, Film Score, Ambient. Any other instrument on the lead
-   (a workbench pick; the whistle and the soft synth lead, candidates) takes the flute's. */
+   sampled cello and the harp Impressionism, Romanticism, Film Score, Ambient; the whistle all but '60s Jazz and Modal
+   Jazz. Any other instrument on the lead (a workbench pick; the soft synth lead, a candidate) takes the flute's. */
 #define LSB(s) (1u << (s))
 static unsigned style_fit(int ins)
 {
@@ -57,6 +57,8 @@ static unsigned style_fit(int ins)
     if (ins == INS_JAZZ_GTR) return LSB(LS_JAZZ60S) | LSB(LS_MODAL) | LSB(LS_JAZZHOP) | LSB(LS_BOSSA);
     if (ins == INS_SAMP_CELLO || ins == INS_HARP)
         return LSB(LS_IMPRESSIONISM) | LSB(LS_ROMANTICISM) | LSB(LS_FILMSCORE) | LSB(LS_AMBIENT);
+    if (ins == INS_WHISTLE) /* (not the jazz styles' runs: a whistled line is a tune) */
+        return (LSB(LS_N) - 1u) & ~(LSB(LS_JAZZ60S) | LSB(LS_MODAL));
     return LSB(LS_N) - 1u;
 }
 
@@ -113,7 +115,7 @@ int leads_style_keep(const song_roll_t *r, int prev)
    app/build/new, 2026-10-29), per lead instrument; a half rounded down ('60s Jazz on the flute, 80.5). No spike put
    the Knight on the lead: it takes the style's flute center, as does any other lead instrument; a low lead
    (lib_lead_drop: the jazz guitar) the flute's an octave down, the soft synth lead's a 5th; the cello (a drop of 24)
-   its own, CELLO_C.
+   its own, CELLO_C (Bb3).
 
                       flute  felt   vibes  Knight  other   (notes measured: flute / felt / vibes)
      Impressionism     79     80     76     79      79      119 /  80 / 49
@@ -129,10 +131,12 @@ static const uint8_t CENTER[LS_N][5] = {
     {76, 80, 76, 76, 76}, {78, 80, 76, 78, 78}, {82, 80, 79, 82, 82}, {77, 82, 80, 77, 77},
 };
 
-/* The cello's center, whatever the style (Sam, 2026-11-11: "the cello is an octave too high!" on seed 105, its line
-   Db4-Ab4 where two octaves under the flute's style center floated it): G3, its band Db3-Db4, its ceiling E4
-   (range_bar), so its line's body sits about G2-D4, as a cello's melody does */
-#define CELLO_C 55
+/* The cello's register, whatever the style (Sam, 2026-11-11: "the cello is an octave too high!" on seed 105, its line
+   Db4-Ab4 where two octaves under the flute's style center floated it; then G3's center too low, under G3 a cello
+   reads as bass): centered on Bb3, its band E3-E4, its ceiling A4 (range_bar), a hard floor at D3 (CELLO_LO: the
+   range's and, for any note a style still puts under it, an octave up in plan_bar), a cello's melody D3-A4 */
+#define CELLO_C 58
+#define CELLO_LO 50
 
 int leads_center(int style, int ins)
 {
@@ -161,8 +165,8 @@ static void range_bar(const song_roll_t *r, int style, const int keys[4], const 
 {
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
     int top = 0, ntop = 0, i, blo, bhi, il, ih, ko = harmony_keys_oct(r);
-    int drop = set ? lib_lead_drop(set->lead) : 0, e6 = drop > 12 ? 64 : drop ? 76 : 88;   /* the ceiling: E6; a low
-                                                                                            lead's E5, a cello's E4 */
+    int drop = set ? lib_lead_drop(set->lead) : 0, e6 = drop > 12 ? 69 : drop ? 76 : 88;   /* the ceiling: E6; a low
+                                                                                            lead's E5, a cello's A4 */
     int lift = set && lib_lead_lift(set->lead);          /* the keys lift over it (the jazz guitar, the cello) */
     for (i = 0; i < 4; i++) {
         if (keys[i] > top) top = keys[i];
@@ -188,6 +192,10 @@ static void range_bar(const song_roll_t *r, int style, const int keys[4], const 
             if (*lo > *hi - 9) *lo = *hi - 9 > il ? *hi - 9 : il;
             if (*lo_x < *lo || *lo_x > *hi) *lo_x = *lo;
         }
+    }
+    if (drop > 12 && *hi >= CELLO_LO + 5) {               /* the cello's floor, D3 */
+        if (*lo < CELLO_LO) *lo = CELLO_LO;
+        if (*lo_x < *lo) *lo_x = *lo;
     }
 }
 
@@ -539,6 +547,9 @@ static void plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t 
     if (leads_loop_plays(s)) leads_loop_bar(ls, &c, b, bar, &nx, s, PLAN[s]);
     else PLAN[s](ls, &c, b, bar, &nx);
     if (settle) end_off_b7(ls, &c, &nx, nb, bar, s, prev, nkeys);
+    if (set && lib_lead_drop(set->lead) > 12)            /* the cello: never under D3 (an octave up) */
+        for (i = 0; i < 16; i++)
+            if (ls->on[i] > 0 && ls->on[i] < CELLO_LO) ls->on[i] += 12;
 }
 
 void leads_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b, int bar, const int keys[4],

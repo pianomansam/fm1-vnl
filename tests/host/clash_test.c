@@ -1038,7 +1038,7 @@ static void test_jazzhop_rules(void)
 static void test_filmscore_rules(void)
 {
     static const int INS3[3] = {INS_FLUTE, INS_FELT_PIANO, INS_KNIGHT};
-    style_rules(LS_FILMSCORE, "Film Score", 40);     /* (43.0, the Knight an octave down) */
+    style_rules(LS_FILMSCORE, "Film Score", 37);     /* (38.8, the Knight an octave down: 43.0 before the whistle's sets) */
     style_hard(LS_FILMSCORE, "Film Score", INS3, 3, 180);   /* (203 m9 notes, the felt piano) */
 }
 

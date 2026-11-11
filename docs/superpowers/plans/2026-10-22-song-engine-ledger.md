@@ -754,6 +754,24 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
     option (nothing else used them); restore from 2f51a53 (`INS_SYNTH_CELLO`, patch.c, voices.c's wind_sample and
     wind_start's blend clamp, options.json). Sam: "better" after round 1c's brightening; the real one "still has
     better wood resonance". Idea for when it comes back: 2-3 body resonances around 200-600 Hz.
+- **Done (Sam, 2026-11-11): the whistle approved for songs** (the soft synth lead stays a candidate, manual only).
+  Three sets, one per flute-like flavor, each from a flute set's keys, bass, pad and kits: 46 Rhodes and whistle
+  (lofi, wistful/warm, set 1's), 47 Nylon and whistle (bossa, warm/sunny, set 9's), 48 Pad and whistle (chillwave,
+  wistful/warm, set 10's). Its styles: the flute's but '60s Jazz and Modal Jazz (a whistled line is a tune, not a
+  run). Shares over 20,000 rolls: whistle 7.5%; the others flute 17.8% (18.9), vibes 19.2% (20.8), Knight 17.4%
+  (19.1), felt 16.6% (17.8), jazz guitar 8.0% (9.1), harp 8.0% (8.8), cello 5.4% (5.5). Measured from the audio on
+  rolled songs: seed 25 (set 46, G Mixolydian, 84 BPM, Jazz-Hop) body C5-Ab5, median D5, top A5; seed 32 (set 47, Db
+  Mixolydian, 87 BPM, Bossa Nova) Bb5-Eb6, median C6; seed 1 (set 48, Ab Dorian, 79 BPM, Ambient, over the pad)
+  Db5-Ab5 by its notes. Pinned hashes moved (the seeds draw other sets): strum_same's and its six echoes
+  47d257cc/7e94dc42 to 796fd966/8d04939b; the lead loop's 617710c3/6f39f64e to a19e0ce1/7bfb417c (with the cello's
+  move); song_rolled at seeds 72 and 140. Eased: clash's Film Score floor 40 to 37 notes a song (the Knight an octave
+  down: 38.8), the pushes' count 140 to 80 (92), the synth sets' share 2.4% to 2.1% (Organ and felt 2.3%), the pad
+  chord's smooth top voice 80% to 79% (79.6), task 1b's pad_on 40 of 40 to 39 (seed 23 now rolls set 5, the
+  chillwave pad's sustained keys, whose solo note no section draws: pad_on can't force it; to revisit). The stab
+  test counts a bar's kick as played (seed chain 5353's set-29 song: a kick phrase's 4th hit made the bar busy, where
+  the rule allows the stab on it). The sampled-sets test lets the whistle's sets in. Smoke's lead-down and lead-only
+  seed 2 to 7 and 14 (seed 2 now the vibes over the Emilyguitar); parity's rules step on seed 72 (now the nylon and
+  the whistle) sets the lead to the piano first. Renders: scratchpad cello-fix2/.
 - **Done (Sam, 2026-11-11): the harp (round 1d) and the sampled cello approved for songs.** Five sets: the harp
   over gentle keys, 41 Felt and harp (lofi, sad/wistful), 42 Pad and harp (chillwave, wistful/warm), 43 Rhodes and
   harp (city pop, warm/sunny); the cello over struck keys the lift raises, the warm pad under it, 44 Knight and cello
@@ -782,6 +800,16 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
     +4.65 dB), test_lead_over_keys (loop) +9.4 Knight and cello, +8.4 Rhodes and cello (were 9.5, 8.4). Every other
     lead renders bit for bit as before. The lead loop's hashes 3df1a20a/616b00b8 to 617710c3/6f39f64e. Renders:
     scratchpad cello-fix/.
+  - **Moved up (Sam, 2026-11-11: a cello's melody sits about D3-A4, peaking at D5; under G3 it reads as bass, and G3's
+    center put seed 105 at Db3-F3):** the center Bb3 (CELLO_C 58), the ceiling A4, a hard floor at D3 (CELLO_LO: the
+    range's floor, and any note a style still puts under it an octave up). The lift as before (test_jazz_lift: 0 bars
+    with the keys' lowest under the cello's top). Measured from the audio (10-90% / median / top): seed 105 Db4-F4 /
+    Eb4 / Ab4; 101 F3-C4 / F3 / F4; 102 Gb3-D4 / A3 / Ab4; 103 G3-E4 / B3 / E4; 106 A3-B3 / A3 / D4; 107 F3-F4 / Eb4
+    / G4; 108 F3-A4 / G4 / A4 (Impressionism's wide arpeggios, A3-A4 sweeps); 111 G3-D4 / B3 / D4; 113 Ab3-Db4 / Bb3
+    / Eb4; 114 F3-C4 / G3 / C4; 115 A3-E4 / Db4 / E4; 119 G3-C4 / C4 / Db4; seed 114 on set 1 G3-C4 / Bb3 / F4. No
+    note under D3 (the lowest F3). Medians F3-G4: seed 105 lands where Sam first heard it (Db4-Ab4), the ceiling A4
+    giving its Ambient line room; a Gb4 ceiling measured medians F3-C4 (105 Ab3-Eb4), rendered as the alternative.
+    Its level over its keys (loop) +9.2 Knight and cello, +8.1 Rhodes and cello. Renders: scratchpad cello-fix2/.
 - **Done (Sam, 2026-11-11): the jazz guitar approved for songs.** Three sets lead with it, one per flavor its styles
   weigh most, over struck keys the lift raises: 38 Rhodes and jazz guitar (neo-soul, wistful/warm), 39 Knight and
   jazz guitar (lofi, sad/wistful), 40 Bossa Rhodes and jazz guitar (bossa, warm/sunny). About 10% of songs (20,000

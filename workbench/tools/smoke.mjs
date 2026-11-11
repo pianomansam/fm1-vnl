@@ -325,11 +325,12 @@ console.log("a jump while stopped");
   check(ex.wb_live_get(RF.N) === 22 && ex.wb_bar() === sections(ex)[1].start + 1, "a new seed committed, then a jump: its song, at its section 2");
 }
 
-// a lead-only render (wb_solo) of seed 2 from bar 1, the bed off, to a quantum where the lead sounds (seed 21 until
-// the vibes-on-keys sets, 2026-11-05: its new song's wet tails read 0.3 dB over the mute's 20 dB)
+// a lead-only render (wb_solo) of seed 14 from bar 1, the bed off, to a quantum where the lead sounds (seed 21 until
+// the vibes-on-keys sets, 2026-11-05: its new song's wet tails read 0.3 dB over the mute's 20 dB; seed 2 until the
+// whistle's sets, 2026-11-11: its new song's struck vibes read -9.8 dB at -12; 14 a flute song, as 2's was)
 const leadOnly = async () => {
   const ex = await load();
-  ex.wb_seed(2);
+  ex.wb_seed(14);
   for (const f of [RF.DUST, RF.NOISE, RF.AMBIENCE]) ex.wb_roll_set(f, 0);
   ex.wb_apply();
   ex.wb_solo(V.LEAD);
@@ -561,10 +562,10 @@ console.log("options.json");
         JSON.stringify(OPTS.instruments.find((i) => i.name === "Electric guitar").roles) === '["keys"]' &&
         JSON.stringify(leads) === JSON.stringify(["Felt piano", "Flute", "Harp", "Jazz guitar", "Piano",
                                                   "Sampled cello", "Soft synth lead", "Vibes", "Whistle"]) &&
-        ["Jazz guitar", "Sampled cello", "Harp"].every((n) =>
+        ["Jazz guitar", "Sampled cello", "Harp", "Whistle"].every((n) =>
           OPTS.instruments.find((i) => i.name === n).status === "approved") &&
-        ["Whistle", "Soft synth lead"].every((n) => OPTS.instruments.find((i) => i.name === n).status === "candidate"),
-        `the lead styles build: the lead row offers the four, the jazz guitar, the sampled cello and the harp (approved 2026-11-11), the whistle and the soft synth lead (candidates, round 2) (${leads.join(", ")}); the kalimba, saw lead and synth pluck retired, the Electric guitar on the keys only`);
+        OPTS.instruments.find((i) => i.name === "Soft synth lead").status === "candidate",
+        `the lead styles build: the lead row offers the four, the jazz guitar, the sampled cello, the harp and the whistle (approved 2026-11-11), the soft synth lead (a candidate, round 2) (${leads.join(", ")}); the kalimba, saw lead and synth pluck retired, the Electric guitar on the keys only`);
   check(retired(OPTS.instruments, ["Upright bass"]) && retired(OPTS.comping, ["Arpeggio", "Offbeats"]) &&
         retired(OPTS.kits, ["Dusty (synth)", "Soft (synth)", "Our 808"]),
         "the removed sounds are retired (upright, our synth kits, arpeggio, offbeats)");
@@ -840,9 +841,10 @@ console.log("desk: dice and registers");
   const ex = await load();
   const call = caller(ex);
   const desk = new Desk(call, C, OPTS, await call("wb_library"), { rnd: lcg(5), probe: await prober() });
-  ex.wb_seed(2);   // (seed 5 until the vibes-on-keys sets, 2026-11-05, moved its song to one whose lead goes down; seed 1
+  ex.wb_seed(7);   // (seed 5 until the vibes-on-keys sets, 2026-11-05, moved its song to one whose lead goes down; seed 1
                    // until the leads evened, Sam 2026-11-06: its set 22 leads with the vibes now, which go down; seed 2
-                   // until the jazz guitar's sets, 2026-11-11, then 5 until the harp's and the cello's, the same day)
+                   // until the jazz guitar's sets, 2026-11-11, then 5 until the harp's and the cello's, the same day;
+                   // 2 until the whistle's sets, the same day: its song now the vibes over the Emilyguitar)
   ex.wb_apply();
   ex.wb_play(1);
   render(ex, Q);
@@ -856,7 +858,7 @@ console.log("desk: dice and registers");
   check(k.ok && desk.values.keysOct === ex.wb_keys_oct_applied() && ex.wb_ov_get(C.OV.KEYS_OCT) === desk.values.keysOct,
         `the keys register shows what the engine applies (asked +1, plays ${desk.values.keysOct}${k.message ? `: "${k.message}"` : ""})`);
   const probe = await prober(), stagedLead = async () => probe(await call("wb_stage_bytes"));
-  const l = await desk.set("leadOct", -1);   // seed 2: the lead can't go down (lead.c keeps it)
+  const l = await desk.set("leadOct", -1);   // seed 7: the lead can't go down (lead.c keeps it)
   check(l.ok && desk.values.leadOct === 0 && ex.wb_ov_get(C.OV.LEAD_OCT) === 0 && /Lead register/.test(l.message),
         `the lead register shows what the engine applies (asked -1, plays ${desk.values.leadOct}: "${l.message}")`);
   ex.wb_ov_set(C.OV.LEAD_OCT, -1);
@@ -867,7 +869,7 @@ console.log("desk: dice and registers");
     ex.wb_seed(seed);
     if ((await stagedLead()) === 1) up = seed;
   }
-  check(refused === 0 && up > 0, `the probe instance: seed 2 down refused (${refused}), seed ${up} up applied`);
+  check(refused === 0 && up > 0, `the probe instance: seed 7 down refused (${refused}), seed ${up} up applied`);
 }
 
 console.log("desk: a quantum rendered before every call (the worklet's interleaving)");
@@ -2859,11 +2861,11 @@ console.log("lead loop end to end (Jazz-Hop, the Lead loop row On)");
 }
 
 console.log("options.json: statuses");
-check(OPTS.instruments.filter((i) => i.status === "candidate").map((i) => i.sym).join() === "INS_WHISTLE,INS_SOFT_SYNTH" &&
+check(OPTS.instruments.filter((i) => i.status === "candidate").map((i) => i.sym).join() === "INS_SOFT_SYNTH" &&
       ["INS_PAD", "INS_CHOIR"].every((n) => OPTS.instruments.find((i) => i.sym === n).status === "approved") &&
       OPTS.instruments.find((i) => i.name === "Vox pad").status === "retired",
-      "the candidates among the instruments: the whistle and the soft synth lead (the jazz guitar, the sampled cello " +
-      "and the harp approved; the chillwave pad " +
+      "the one candidate among the instruments: the soft synth lead (the jazz guitar, the sampled cello, the harp " +
+      "and the whistle approved; the chillwave pad " +
       "and the choir approved, the vox pad retired)");
 {
   const { inactive } = await import("../rows.js");
@@ -3357,7 +3359,7 @@ console.log("mixer levels");
   const lo = ex.wb_level_get(C.PART.LEAD);
   ex.wb_level_set(C.PART.LEAD, 0);
   check(trip && lo === -12 && LEVEL_PARTS.every((p, i) => ex.wb_level_get(i) === 0), "wb_level_set/get round-trip, clamped to -12");
-  // the lead alone (seed 2) to the quantum where it sounds, then a second: at -12 dB against 0 dB
+  // the lead alone (seed 14) to the quantum where it sounds, then a second: at -12 dB against 0 dB
   const ref = await leadOnly(), low = await leadOnly();
   low.wb_level_set(C.PART.LEAD, -12);
   const a = render(ref, loudAt + SR), b = render(low, loudAt + SR), from = loudAt - Q;

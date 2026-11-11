@@ -200,8 +200,12 @@ const SEED = 72;
     { check: "mixer-knobs-2", expect: (st) => is("screen", st.screen, "levelsKnobs2") || is("pad level", v(st).levels.pad, 2) },
     { keydown: 4 }, { keyup: 4 }, { screen: "levels" },
     // the instrument rules on a part change (rows.js's conflicts, on the device's requests): seed 72's comp plays the
-    // vibes and its lead the piano; the comp to the piano too moves the lead to another instrument, landing together
-    { screen: "pComp" }, { spin: ["K1", 2] },
+    // nylon and its lead the whistle (the vibes and the piano until the whistle's sets, 2026-11-11): the lead to the
+    // piano first; then the comp to the piano too moves the lead to another instrument, landing together
+    { screen: "pLead" }, { spin: ["K1", -4] },
+    { check: "rules-lead", expect: (st) => is("leadIns", v(st).leadIns, "*PIANO") },
+    { wait: 16000 },
+    { screen: "pComp" }, { spin: ["K1", 4] },
     { check: "rules-asked", expect: (st) => is("compIns", v(st).compIns, "*PIANO") },
     { wait: 16000 }, { check: "rules-landed", expect: (st) => is("compIns", v(st).compIns, "PIANO") ||
                                                               (v(st).lead !== "PIANO" ? "" : "the lead still plays the piano") },
