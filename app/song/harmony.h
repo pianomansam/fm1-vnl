@@ -86,6 +86,12 @@ int harmony_pad_place(const song_roll_t *r);
 void harmony_keys_window(int lo, int hi);
 /* semitones the workbench's keys_oct moves the keys (override.h; 0 when unset or out of the instrument's range) */
 int harmony_keys_oct(const song_roll_t *r);
+/* The lift over a low lead (library.h lib_lead_low): 12 in a bar of the plan's lead blocks where the keys go an
+   octave up over it (the keys and the pad's chord part: the lead in, the workbench's keys register as rolled, the
+   keys' range holding it), else 0. It reads the plan harmony_keys_plan names: song_tick's (set while it ticks, as
+   the keys' window is; NULL: none, no lift). */
+int harmony_keys_lift(const song_roll_t *r, int bar);
+void harmony_keys_plan(const song_plan_t *p);
 /* The voicing this bar's chord sounds with (what harmony_step strikes), without striking it: vs->last is unchanged
    (its loop cache may fill). Lets the lead plan a bar over the keys before they strike. A strummed song: the top 4
    notes of its guitar shape, ascending (0 first where the shape has fewer; its shape cache may fill). */

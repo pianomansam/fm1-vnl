@@ -1450,3 +1450,12 @@ The same day, Sam: "the other instruments should have gone up an octave instead 
 an octave up (the workbench's keys-octave path, its guard for a lead on top passed by) and the pad's chord part an
 octave up (67-84); the lead never pushed over the keys, its ceiling not raised with them. Image 290,384 to
 **290,448 B (+64)**; RAM unchanged.
+
+Then (Sam: "in their normal octave while the lead isn't playing, then jump up when the lead does"; "I also still hear
+some buzzing"): the lift by the plan's lead blocks (harmony_keys_lift, from the plan song_tick names), and the re-amp
+zones at 22.05 kHz, still searched: the ADPCM noise on F4 and up 3.5-4.5 dB lower again (the take is 15-20 dB
+cleaner than the decode there).
+
+- Bank: the jazz guitar 55,976 to **77,138 B (+21,162)**; payload **349,202 B**, area 0 295,231 of 299,008 B, area 1
+  53,987 of 94,208 B: **43,998 B free**. Every other zone unchanged.
+- Flash: image 290,448 to **290,752 B (+304)**; RAM unchanged.

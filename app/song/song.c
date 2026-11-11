@@ -396,6 +396,7 @@ static void apply_requests(song_t *s, int B)
         style_for(s, 1);
         keys_win_for(s);
         harmony_keys_window(0, s->keys_win);
+        harmony_keys_plan(&s->plan);
     }
 }
 
@@ -451,13 +452,14 @@ static void pads_group(song_t *s, const plan_block_t *b, int B)
             int cs = harmony_style(&s->roll);
             for (i = 0; i < 4; i++)                      /* the keys strike it (the vibes' as voiced: place_keys
                                                             lifts their low notes alone) */
-                vs.last[i] = vibes ? raw[i] : keys[i] ? keys[i] - up - harmony_keys_oct(&s->roll) : 0;
+                vs.last[i] = vibes ? raw[i] : keys[i] ? keys[i] - up - harmony_keys_oct(&s->roll) -
+                                                      harmony_keys_lift(&s->roll, bar) : 0;
             if (chord_on && pads_double && (cs == CS_HELD || cs == CS_STRUM))   /* a strum sustains as held does:
                                                                                   its guitar shape's top doubled */
                 pads_double_keys(keys, s->pads.chord);
             else if (chord_on)
                 pads_chord(&s->roll, all, spcs, nsp, (unsigned)pcs[0], lead, k ? 0 : nlead, s->pads.chord,
-                           s->pads.chord);
+                           harmony_keys_lift(&s->roll, bar), s->pads.chord);
         }
         for (i = 0; i < 3; i++) {
             s->pads.note[k][i] = s->pads.chord[i];
@@ -556,6 +558,7 @@ void song_first_bar(song_t *s, int part)
     if (song_ov()->lead_oct != s->win_oct || s->lead.style != s->win_style)
         keys_win_for(s);
     harmony_keys_window(0, s->keys_win);
+    harmony_keys_plan(&s->plan);
     if (part == 0) {                                 /* the loop's voicings worked out (stage_voice's first voicing,
                                                         then a lookup: the same, in its cache) */
         int keys[4];
@@ -568,6 +571,7 @@ void song_first_bar(song_t *s, int part)
         stage_pads(s, 0);
     }
     harmony_keys_window(0, 0);
+    harmony_keys_plan(0);
 }
 
 void song_start_kit(song_t *s, const song_roll_t *r, int kit)
@@ -709,6 +713,7 @@ int song_tick(song_t *s, song_ev_t *out, int max)
     if (song_ov()->lead_oct != s->win_oct || s->lead.style != s->win_style)
         keys_win_for(s);                            /* the workbench moved the lead's band */
     harmony_keys_window(0, s->keys_win);           /* this song's, while it ticks (cleared below) */
+    harmony_keys_plan(&s->plan);                   /* (the lift over a low lead: its lead blocks) */
     bar = s->bar;
     step = s->step;
     idx = bar * 16 + step;
@@ -816,6 +821,7 @@ int song_tick(song_t *s, song_ev_t *out, int max)
         if (++s->bar >= s->roll.v[RF_BARS]) s->state = SS_ENDED;
     }
     harmony_keys_window(0, 0);
+    harmony_keys_plan(0);
     return n;
 }
 

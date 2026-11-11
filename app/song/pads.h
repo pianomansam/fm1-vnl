@@ -42,7 +42,7 @@ int pads_rub(int a, int b);
 
 /* The chord part for a chord (pcs, root first): its notes by lane into out (lane k+1; 0 silent), voice-led from prev
    (the same, all 0 for none). 2 notes (budget cut (c)): the guide tones first (3rd and 7th), then the 5th or the 9th;
-   MIDI 55-72 (67-84 over a low lead, lib_lead_low); common tones held,
+   MIDI 55-72, moved sh semitones (12 over a low lead in its blocks: harmony_keys_lift); common tones held,
    the rest moving to the nearest legal tone, the top voice smoothest. No note rubs a keys note (keys: 6, 0 none:
    harmony_keys_notes_at's, a strummed guitar's whole shape) or a
    lead note, or sits a minor 9th over the bass (bass_pc), nor two of its own. out may be prev. Returns the count: 2
@@ -51,7 +51,7 @@ int pads_rub(int a, int b);
    chord part's avoidance of the lead rests on its notes being chord tones while the lead keeps to the chord-scale
    (the clash test enforces it). */
 int pads_chord(const song_roll_t *r, const int keys[6], const int *pcs, int np, unsigned bass_pc,
-               const int *lead_notes, int nlead, const int prev[3], int out[3]);
+               const int *lead_notes, int nlead, const int prev[3], int sh, int out[3]);
 
 /* The A/B switch's chord part (song_set_pads_double): the keys' voicing doubled, its notes in the chord part's range
    (MIDI 55-72; one outside it is skipped) by voice position, the lowest on lane 1, the top 3 where 4 fit; a pitch

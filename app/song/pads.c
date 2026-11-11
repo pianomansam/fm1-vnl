@@ -152,12 +152,11 @@ static void consider(pick_t *b, const int *v, const int *pen, int m, int root, i
 }
 
 int pads_chord(const song_roll_t *r, const int keys[6], const int *pcs, int np, unsigned bass_pc,
-               const int *lead_notes, int nlead, const int prev[3], int out[3])
+               const int *lead_notes, int nlead, const int prev[3], int sh, int out[3])
 {
-    const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
     int cand[24], pen[24], nc = 0, have3 = 0, have7 = 0, p[3], i, j, k, m;
-    int sh = set && lib_lead_low(set->lead) ? 12 : 0;    /* over a low lead (the jazz guitar): an octave up */
     pick_t b;
+    (void)r;
     memcpy(p, prev, sizeof p);
     b.cost = 1 << 30;
     for (k = LO + sh; k <= HI + sh; k++)    /* the chord's tones but the root (the bass's) */

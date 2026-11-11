@@ -310,15 +310,12 @@ int harmony_pad_place(const song_roll_t *r)
     return rng_int(&g, 3);
 }
 
-/* the workbench's keys_oct: the keys an octave up or down where the instrument's range holds the whole register
-   the voicer (C3-E5) or the strum (E2-E5) can reach, else where they were; one shift for the song. Left as rolled
-   over a low lead (lib_lead_low), up an octave. */
-int harmony_keys_oct(const song_roll_t *r)
+/* the keys moved d semitones (an octave up or down) where the instrument's range holds the whole register the
+   voicer (C3-E5) or the strum (E2-E5) can reach: d, else 0 */
+static int keys_oct_ok(const song_roll_t *r, int d)
 {
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
-    int d = 12 * song_ov()->keys_oct, lo, hi, sh, strum;
-    if (!d && set && lib_lead_low(set->lead)) /* a low lead (the jazz guitar): the keys over it, an octave up */
-        d = 12;
+    int lo, hi, sh, strum;
     if (!d || !set || set->chords == INS_VIBES) return 0;   /* (the vibes: their register is the bars' own, F3 up,
                                                                place_keys) */
     strum = harmony_style(r) == CS_STRUM;
@@ -329,6 +326,29 @@ int harmony_keys_oct(const song_roll_t *r)
                        (lead.c); a low lead sits under them */
     song_ov_range(set->chords, &lo, &hi);
     return (strum ? 40 : 48) + sh + d >= lo && 76 + sh + d <= hi ? d : 0;
+}
+
+/* the workbench's keys_oct: the keys an octave up or down (keys_oct_ok), else where they were; one shift for the
+   song */
+int harmony_keys_oct(const song_roll_t *r) { return keys_oct_ok(r, 12 * song_ov()->keys_oct); }
+
+/* The lift over a low lead (lib_lead_low: the jazz guitar; Sam, 2026-11-10: "in their normal octave while the lead
+   isn't playing, then jump up when the lead does"): the keys and the pad's chord part an octave up in the bars of the
+   plan's lead blocks (lead_plays's: the lead in, the keys in, not an intro or outro), where the workbench leaves the
+   keys' register as rolled and their range holds it (keys_oct_ok). The plan: the ticking song's (harmony_keys_plan,
+   set and cleared as the keys' window is); none outside a tick (no lift). */
+static const song_plan_t *lift_plan;
+void harmony_keys_plan(const song_plan_t *p) { lift_plan = p; }
+
+int harmony_keys_lift(const song_roll_t *r, int bar)
+{
+    const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
+    const plan_block_t *b;
+    if (!lift_plan || !set || !lib_lead_low(set->lead) || song_ov()->keys_oct) return 0;
+    b = plan_at(lift_plan, bar);
+    if (!b || b->section == SEC_INTRO || b->section == SEC_OUTRO || !(b->layers & L_KEYS) || !(b->layers & L_LEAD))
+        return 0;
+    return keys_oct_ok(r, 12);
 }
 
 /* The keys' window (harmony.h), and the voicer's top under it for this song: C5 (72) where it doesn't bind or can't
@@ -359,21 +379,21 @@ static int strum_hi(const song_roll_t *r)
     return win_hi >= 64 && win_hi < 76 ? win_hi : 76;
 }
 
-static void keys_oct(const song_roll_t *r, int *notes, int n)
+static void keys_oct(const song_roll_t *r, int bar, int *notes, int n)
 {
-    int i, d = harmony_keys_oct(r);
+    int i, d = harmony_keys_oct(r) + harmony_keys_lift(r, bar);
     for (i = 0; i < n && d; i++)
         if (notes[i]) notes[i] += d;
 }
 
-static void place_keys(const song_roll_t *r, int *notes)  /* a pad with or above the lead: an octave up */
+static void place_keys(const song_roll_t *r, int bar, int *notes)  /* a pad with or above the lead: an octave up */
 {
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
     int i, sh = lib_set_keys_shift(set);
     if (harmony_pad_place(r) != PL_BELOW) sh += 12;
     for (i = 0; i < 4; i++)
         if (notes[i]) notes[i] += sh;
-    keys_oct(r, notes, 4);
+    keys_oct(r, bar, notes, 4);
     if (set && set->chords == INS_VIBES) {   /* the vibes: four mallets in the bars' range, a note under F3 an octave
                                                 up; one a semitone under another (the lift's) up again, a 7th over it */
         int j, k;
@@ -419,7 +439,7 @@ void harmony_voicing_raw_at(const song_roll_t *r, int bar, int pass, harmony_voi
     if (harmony_style(r) == CS_STRUM) {                  /* the guitar shape's top 4 */
         int shape[6], i, k = 4;
         strum_shape(r, bar, pass, vs, shape);
-        keys_oct(r, shape, 6);
+        keys_oct(r, bar, shape, 6);
         memset(out4, 0, 4 * sizeof(int));
         for (i = 5; i >= 0 && k > 0; i--)
             if (shape[i]) out4[--k] = shape[i];
@@ -430,7 +450,7 @@ void harmony_voicing_raw_at(const song_roll_t *r, int bar, int pass, harmony_voi
     voice_chord(r, bar, pcs, n, vs, out4);
     memcpy(vs->last, keep, sizeof keep);                 /* a peek: the strike still voices from the same last */
     if (raw4) memcpy(raw4, out4, 4 * sizeof(int));
-    place_keys(r, out4);
+    place_keys(r, bar, out4);
 }
 
 void harmony_keys_notes_at(const song_roll_t *r, int bar, int pass, harmony_voicing_t *vs, int out6[6])
@@ -438,7 +458,7 @@ void harmony_keys_notes_at(const song_roll_t *r, int bar, int pass, harmony_voic
     out6[4] = out6[5] = 0;
     if (harmony_style(r) == CS_STRUM) {                  /* the whole guitar shape, its low strings too */
         strum_shape(r, bar, pass, vs, out6);
-        keys_oct(r, out6, 6);
+        keys_oct(r, bar, out6, 6);
         return;
     }
     harmony_voicing_at(r, bar, pass, vs, out6);
@@ -616,7 +636,7 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
                                                            harmony_voicing_at's), so a set change voice-leads on */
         for (i = 5; i >= 0 && k > 0; i--)
             if (shape[i]) vs->last[--k] = shape[i];
-        keys_oct(r, shape, 6);
+        keys_oct(r, bar, shape, 6);
         return strum_step(r, b, bar, step, step_samples, shape, out, max);
     }
     switch (style) {
@@ -681,7 +701,7 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
                                                              room for that one) */
     else
         voice_chord(r, bar, pcs, n, vs, notes);
-    place_keys(r, notes);
+    place_keys(r, bar, notes);
     if (style == CS_ARP) {
         k = ARP[(bar * 16 + step) % 6];
         one = notes[k];
