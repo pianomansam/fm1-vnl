@@ -39,11 +39,19 @@ static const smp_zone_t B_jazz[6] = {
     {23950u, 6002u, 4560u, 1442u, 12000u, 78, 255, 2.360493e+00f},
     {29952u, 6004u, 4560u, 1444u, 12000u, 84, 255, 3.681037e+00f},
 };
+static const smp_zone_t B_cello[5] = {
+    {272064u, 11156u, 6400u, 4756u, 16000u, 54, 60, 4.542260e+00f},
+    {277642u, 11170u, 6400u, 4770u, 16000u, 60, 32, 3.316018e+00f},
+    {283227u, 11200u, 6400u, 4800u, 16000u, 66, 72, 2.865666e+00f},
+    {288827u, 11200u, 6400u, 4800u, 16000u, 72, 68, 3.029378e+00f},
+    {294427u, 11208u, 6400u, 4808u, 16000u, 75, 76, 2.496926e+00f},
+};
 static const smp_bank_t BANKS[SB_N] = {
     [SB_KNIGHT] = {B_knight, 6},
     [SB_NYLON] = {B_nylon, 7},
     [SB_EMILY] = {B_emily, 8},
     [SB_JAZZ] = {B_jazz, 6},
+    [SB_CELLO] = {B_cello, 5},
 };
 static const smp_zone_t KZ[20] = {
     {122128u, 12126u, 0u, 0u, 22050u, 60, 36, 1.444970e-01f},
@@ -93,6 +101,6 @@ const smp_piece_t *smp_piece(int set, int p)
 {
     return smp_ready() && set >= 0 && set < SK_N && p >= 0 && p < SK_P_N && PIECES[set][p].n ? &PIECES[set][p] : 0;
 }
-uint32_t smp_bytes(void) { return 272064u; }
-uint32_t smp_split(void) { return 272064u; }
-uint32_t smp_crc(void) { return 0x4083E0FDu; }
+uint32_t smp_bytes(void) { return 300031u; }
+uint32_t smp_split(void) { return 294427u; }
+uint32_t smp_crc(void) { return 0x4514AC1Cu; }

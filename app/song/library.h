@@ -23,6 +23,11 @@ enum { INS_RHODES, INS_WURLI, INS_FELT_PIANO, INS_NYLON, INS_PAD, INS_UPRIGHT, I
                                      replaced is removed (Sam, 2026-10-31): no patch, no set; its id never reused */
        INS_JAZZ_GTR,              /* sampled (M_SAMP): the jazz guitar, an archtop's pickup (a candidate lead,
                                      2026-11-10) */
+       INS_SAMP_CELLO,            /* candidate leads (2026-11-11): the sampled cello (M_SAMP, the Karoryfer x Bigcat
+                                     cello's bowing), */
+       INS_SYNTH_CELLO,           /* the synth cello (M_WIND: a saw, low and dark, the string synth's cello voicing
+                                     Sam passed re-expressed; INS_CELLO's own patch and model stay gone), */
+       INS_HARP,                  /* the harp (M_MODAL: three harmonic modes, a soft finger, a long ring) */
        INS_NONE }; /* append new ones before INS_NONE */
 /* the synth kits (drums.c), then the mixed sampled kits (retired; their hits left the bank 2026-11-10: the ids stay, a
    sampled kit's song's mark under a shipped sampled kit, song.c; their own hits are silent, drums.c) */
@@ -64,8 +69,8 @@ void lib_pattern_wb(const lib_pattern_t *p);
 unsigned lib_lane_hits(const lib_pattern_t *p, int lane, int bar);
 unsigned lib_lane_ghosts(const lib_pattern_t *p, int lane, int bar);
 const lib_set_t *lib_set_by_id(uint8_t id);
-/* 1: slow attack, held breath or a held tone (pads, the flute, the organ, the strings, the choir); 0: struck, plucked,
-   the triangle bass, the FM bass */
+/* 1: slow attack, held breath or a held tone (pads, the flute, the organ, the strings, the choir, the cellos); 0:
+   struck, plucked, the triangle bass, the FM bass */
 int lib_ins_sustained(int ins);
 /* a removed or retired lead (the muted trumpet, sax, guitar lick, string lead, cello; the kalimba, saw lead, synth
    pluck and Emilyguitar as leads): the flute or the vibes in its place; else ins */
@@ -77,11 +82,17 @@ int lib_keys_approved(int ins);
 /* 1: a sampled struck-string instrument (the Knight, the nylon, the Emilyguitar, the jazz guitar): stabs and strums
    suit it (on the keys); none plays without the sample bank */
 int lib_ins_sampled_struck(int ins);
+/* 1: a sampled instrument (lib_ins_sampled_struck's, and the sampled cello): none plays without the sample bank */
+int lib_ins_sampled(int ins);
 /* 1: a lead that sits an octave under the others' register (the jazz guitar, Sam 2026-11-10: "this octave does
-   work"): its style centers an octave down (leads.c), and over it, in its blocks, the keys and the pad's chord part
-   an octave up where the workbench leaves the keys' register as rolled (harmony_keys_lift; Sam: "the other
-   instruments should have gone up an octave"), the lead not pushed over the keys (leads.c's range_bar) */
+   work"; the two cellos, candidates 2026-11-11: a cello lead sits C3-A4): its style centers and its ceiling an octave
+   down (leads.c), its patch's chorus its send into the keys' (voices.c) */
 int lib_lead_low(int ins);
+/* 1: a low lead the keys lift over (the jazz guitar): in its blocks the keys and the pad's chord part an octave up
+   where the workbench leaves the keys' register as rolled (harmony_keys_lift; Sam: "the other instruments should have
+   gone up an octave"), the lead not pushed over the keys (leads.c's range_bar). The cellos don't: the keys stay under
+   them as under any lead (seed 114: lifted, the keys would have landed on the cello's own notes, E4-D5) */
+int lib_lead_lift(int ins);
 /* the sample bank (engine/samples.h): 1 mounted (the default), 0 none (the app's boot, or a bank being written). With
    none the songs keep to synth instruments: no set with sampled keys, bass or lead is drawn or taken, a set's kit is
    its synth one, and a sampled instrument or kit asked for by hand is refused */

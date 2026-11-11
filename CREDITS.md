@@ -17,6 +17,7 @@ with thanks. `tools/samples/manifest.json` lists the exact files; `tools/samples
 | FreePats Spanish Classical Guitar 2019-06-18 (SF2), by roberto@zenvoid.org | nylon guitar | CC0 1.0 (`cc0.txt`, `readme.txt`) | https://freepats.zenvoid.org/Guitar/acoustic-guitar.html |
 | Karoryfer Samples (D. Smolken, Brian Wood): Emilyguitar | electric guitar (`mf`) | CC0 1.0 (`LICENSE`) | https://github.com/sfzinstruments/karoryfer.emilyguitar |
 | Karoryfer Samples (D. Smolken): Shinyguitar, an archtop | jazz guitar (the magnetic pickup's `electric` notes, `vl2`, re-amped by Sam through his amp and cabinet; or shaped by `tools/samples/tone.py`) | CC0 1.0 (`LICENSE`) | https://github.com/sfzinstruments/karoryfer.shinyguitar |
+| Karoryfer Samples x Bigcat Instruments: the open-source cello | sampled cello, a candidate lead (sustained bowing, `sus`, `mp`, the first round robin) | CC0 1.0 (`LICENSE`) | https://github.com/sfzinstruments/karoryfer-bigcat.cello |
 
 ## Code
 

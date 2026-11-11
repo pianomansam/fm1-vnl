@@ -2177,10 +2177,11 @@ static void test_chip(void)
           INS_FM_BASS - INS_VOX_PAD);
     CHECK(INS_STRINGS == INS_FM_BASS + 1 && INS_WARM_PAD == INS_FM_BASS + 2 && INS_KNIGHT == INS_FM_BASS + 3 &&
               INS_EMILY == INS_FM_BASS + 4 && INS_STR_LEAD == INS_FM_BASS + 5 && INS_CELLO == INS_FM_BASS + 6 &&
-              INS_CHOIR == INS_FM_BASS + 7 && INS_JAZZ_GTR == INS_FM_BASS + 8 && INS_NONE == INS_FM_BASS + 9,
+              INS_CHOIR == INS_FM_BASS + 7 && INS_JAZZ_GTR == INS_FM_BASS + 8 && INS_SAMP_CELLO == INS_FM_BASS + 9 &&
+              INS_SYNTH_CELLO == INS_FM_BASS + 10 && INS_HARP == INS_FM_BASS + 11 && INS_NONE == INS_FM_BASS + 12,
           "instruments: %d after the six synths, wanted the pad layer's two (strings, warm pad), the Knight, the "
           "Emilyguitar, the string synth's high lead and cello (removed 2026-10-29; their ids kept), the choir, then "
-          "the jazz guitar",
+          "the jazz guitar, then the candidate cellos and harp",
           INS_NONE - INS_FM_BASS - 1);
     { /* the triangle at note 36 (674 samples a cycle): its plateaus' levels in one cycle from 0.5 s, clustered */
         static float lv[1024];
@@ -11991,9 +11992,11 @@ static void test_samples_bank(void)
     memcpy(bad, smp_blob, SMP_HEAD + smp_split());  /* in two areas, as the FM-1 keeps it */
     memset(bad + SMP_HEAD + smp_split(), 0xFF, smp_bytes() - smp_split());
     memcpy(more, smp_blob + SMP_HEAD + smp_split(), smp_bytes() - smp_split());
-    if (smp_bytes() > smp_split()) {
-        CHECK(smp_mount(bad, SMP_HEAD + smp_split(), more, sizeof more) == 0 &&
-                  smp_piece(SK_BRUSHES, SK_RIDE)->z[1]->off >= smp_split() &&
+    if (smp_bytes() > smp_split()) { /* (the sampled cello's top zone, laid out last: in the second area) */
+        int ok = smp_mount(bad, SMP_HEAD + smp_split(), more, sizeof more) == 0;
+        const smp_zone_t *zc = ok ? &smp_bank(SB_CELLO)->z[smp_bank(SB_CELLO)->n - 1] : NULL;
+        CHECK(ok && zc->off >= smp_split() &&
+                  smp_data(zc)[0] == smp_blob[SMP_HEAD + zc->off] &&
                   smp_data(smp_piece(SK_BRUSHES, SK_RIDE)->z[1])[0] ==
                       smp_blob[SMP_HEAD + smp_piece(SK_BRUSHES, SK_RIDE)->z[1]->off],
               "bank: two areas do not mount, or a zone reads from the wrong one");
@@ -12070,7 +12073,7 @@ static void test_samples_bank(void)
 }
 
 /* ------------------------------------------------------------------------------ the sampler voice (M_SAMP) --- */
-static const int SP_INS[SB_N] = {INS_KNIGHT, INS_NYLON, INS_EMILY, INS_JAZZ_GTR}; /* each bank's patch */
+static const int SP_INS[SB_N] = {INS_KNIGHT, INS_NYLON, INS_EMILY, INS_JAZZ_GTR, INS_SAMP_CELLO}; /* each bank's */
 #define SP_LEN (4u * 44100u)
 static float sp_a[SP_LEN], sp_b[SP_LEN];
 
@@ -12192,13 +12195,16 @@ static void test_samp(void)
         if (!p || p->model != M_SAMP)
             continue;
         /* pitch: 200 ms after the attack (from 20 ms into the loop: a plucked string's attack runs sharp, the nylon's
-           up to 16 cents on one zone), full rate and half */
+           up to 16 cents on one zone), full rate and half; the zone's own (a delayed vibrato, the sampled cello's,
+           off) */
         for (dv = 1; dv <= 2; dv++)
             for (k = 0; k < 7; k++) {
                 float sr = 44100.0f / (float)dv, hz = 440.0f * fm_exp2f(((float)NOTES[k] - 69.0f) / 12.0f), c;
                 uint32_t at;
+                vx_patch_t pv = *p;
+                pv.p[4] = 0.0f;
                 v.dv = (float)dv;
-                samp_start(&v, p, (float)NOTES[k], 0.8f);
+                samp_start(&v, &pv, (float)NOTES[k], 0.8f);
                 at = (uint32_t)((float)v.d.z->loop_start / v.step + 0.02f * sr);
                 bad |= !sp_run(&v, sp_a, at + (uint32_t)(0.25f * sr) + 2000u);
                 c = sp_cents(sp_a, at, (uint32_t)(0.2f * sr), sr / hz);
@@ -12373,7 +12379,8 @@ static void test_samp(void)
             /* the Knight and the Emilyguitar lead about 4 dB under the flute's bar energy (SAMP_LEAD: their sets'
                lead over keys, test_lead_over_keys, sets them; a struck lead reads over its keys at less energy) */
             CHECK(dk[k] >= -1.5 && dk[k] <= 1.5 &&
-                      (SP_INS[k] == INS_NYLON ? dl[k] >= -1.5 && dl[k] <= 1.5 : dl[k] >= -6.0 && dl[k] <= -2.5),
+                      (SP_INS[k] == INS_NYLON || SP_INS[k] == INS_SAMP_CELLO ? dl[k] >= -1.5 && dl[k] <= 1.5
+                                                                              : dl[k] >= -6.0 && dl[k] <= -2.5),
                   "%s: ins %d's level: keys %+.2f dB from the Rhodes, lead %+.2f from the flute", tag, SP_INS[k],
                   dk[k], dl[k]);
         }

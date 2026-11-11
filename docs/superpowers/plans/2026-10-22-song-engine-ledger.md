@@ -700,6 +700,17 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   - **Whistle:** a sine with breath noise and slow vibrato; sustained, on the phrase planner like the flute.
   - **Soft synth lead:** a rounded triangle or square with vibrato and glide; the synth family has no lead now (the
     saw lead and synth pluck were cut, 2026-10-29).
+  - **Candidates, round 1 (2026-11-11; workbench candidates, never rolled, no set):** the sampled cello
+    (`INS_SAMP_CELLO`: the Karoryfer x Bigcat cello's sustained bowing, CC0, five zones Gb3-Eb5 in the bank, ADPCM),
+    the synth cello (`INS_SYNTH_CELLO`: the string synth's "low and dark" cello voicing re-expressed on the wind
+    model with a saw; the string synth itself stays gone) and the harp (`INS_HARP`: the vibraphone's modal model
+    retoned, three harmonic modes, a soft finger, a long ring; the plucked-string model went 2026-10-31, and its
+    Karplus-Strong lines would need RAM the pool no longer has). The cellos are low leads (an octave under the
+    flute's band, ceiling E5) but the keys don't lift over them as over the jazz guitar: on the A/B song (seed 114)
+    the lift would have put the keys on the cello's own notes, so the cello goes a 4th over the keys as any lead.
+    Levels within 1 dB of the flute (cellos) and between the vibes and the piano (harp). Renders: seed 114 (G minor,
+    86 BPM, Rhodes, electric bass, strings, Soft brushes; Film Score forced), lead 0:22-0:43, 1:29-2:14, 2:58-3:10.
+    To judge by ear; the whistle and the soft synth lead wait for round 2.
 - **The slow arpeggio as a lead.** One chord tone per 8th, up then down, sounded *melodic* rather than like
   accompaniment when it was a comping style (it's now in 16ths for comping). Use that 8th-note arpeggio, drawn from
   the song's voicings, as lead material.

@@ -110,12 +110,12 @@ static const float CP_THR_KIT[KIT_N] = {0.095f, 0.090f, 0.084f, 0.162f, 0.110f, 
 #define TW_SC_PAD 0.7182f /* (the pad's organ, its 4' nearer the comb's first notch: matched to the warm pad) */
 #define TW_SC_XF 0.06f    /* the pad's scanner switching on or off by section: a crossfade (s) */
 /* a sampled instrument (M_SAMP) on the lead, over its level on the keys, per bank (Knight, nylon, Emilyguitar, jazz
-   guitar): its patch's level matches the Rhodes on the keys; the nylon +7 dB (the flute's level on the lead), the
-   Knight +3.85 and the Emilyguitar +3.5, tuned on their sets' lead over keys (test_lead_over_keys: a struck lead reads
-   8-10 dB over the keys at about 4 dB under the flute's bar energy); the jazz guitar (a candidate, no set) +5.21, an
-   octave low with its chorus (its dry 2.5 dB down for it), its zones 16-bit PCM: the Knight's level on the lead in
-   test_samp's songs */
-static const float SAMP_LEAD[SB_N] = {1.5578f, 2.239f, 1.4962f, 1.8216f};
+   guitar, cello): its patch's level matches the Rhodes on the keys; the nylon +7 dB (the flute's level on the lead),
+   the Knight +3.85 and the Emilyguitar +3.5, tuned on their sets' lead over keys (test_lead_over_keys: a struck lead
+   reads 8-10 dB over the keys at about 4 dB under the flute's bar energy); the jazz guitar (a candidate, no set)
+   +5.21, an octave low with its chorus (its dry 2.5 dB down for it), its zones 16-bit PCM: the Knight's level on the
+   lead in test_samp's songs; the sampled cello (a candidate) +8 dB: a held lead at the flute's level */
+static const float SAMP_LEAD[SB_N] = {1.5578f, 2.239f, 1.4962f, 1.8216f, 2.505f};
 
 /* big zero-initialised buffers go in the device's .pool RAM region (fm1-base's PLAT_POOL; a Mach-O host has no such
    section) */
@@ -915,7 +915,7 @@ static void wind_start(voice_t *v, const song_ev_t *e)
     v->m.wd.ph = 0.0f;
     v->m.wd.inc = v->m.wd.f0 = f;
     v->m.wd.pw = fm_clampf(p->p[1], 0.05f, 0.5f);
-    v->m.wd.shp = fm_clampf(p->p[0], 0.0f, 2.0f);
+    v->m.wd.shp = fm_clampf(p->p[0], 0.0f, 3.0f);
     v->m.wd.a0 = k_lp1(WIND_LP_LO * p->p[2] * f * SR);
     v->m.wd.a1 = hi - v->m.wd.a0;
     v->m.wd.l1 = v->m.wd.l2 = 0.0f;
@@ -1181,11 +1181,12 @@ static int half_ok(const voice_t *v, const vx_patch_t *p, const song_ev_t *e)
         return v->role == V_PAD && p->p[2] * hz < HR_TOP;
     else if (p->model == M_ENS) /* half where its low-pass is too high for a quarter */
         return p->p[2] + p->p[3] * hz > ENS_QR_TOP;
-    else if (p->model == M_SAMP) { /* the keys: half while the zone's band, retuned, stays under the half rate's
-                                      Nyquist (no fold; the upsampler's edge only darkens its top) */
+    else if (p->model == M_SAMP) { /* the keys (and the sampled cello's held lead): half while the zone's band,
+                                      retuned, stays under the half rate's Nyquist (no fold; the upsampler's edge only
+                                      darkens its top) */
         const smp_bank_t *b = smp_bank((int)p->p[0]);
         const smp_zone_t *z = b ? samp_zone(b, (float)e->note) : NULL;
-        return v->role == V_CHORD && z &&
+        return (v->role == V_CHORD || (int)p->p[0] == SB_CELLO) && z &&
                0.5f * (float)z->rate * fm_exp2f(((float)e->note - (float)z->root) * (1.0f / 12.0f)) < 0.25f * SR;
     } else
         return 0;
@@ -1450,12 +1451,17 @@ VX_INLINE float wind_sample(voice_t *v)
     }
     if (s < 1.0f) /* sine to triangle */
         x = (1.0f - s) * fm_sin_turns(t) + s * (1.0f - 4.0f * fm_fabsf(t - 0.5f));
-    else { /* triangle to pulse: a saw less a saw a width later, each with its polyBLEP */
+    else if (s <= 2.0f) { /* triangle to pulse: a saw less a saw a width later, each with its polyBLEP */
         float t2 = t + v->m.wd.pw;
         if (t2 >= 1.0f)
             t2 -= 1.0f;
         x = (2.0f - s) * (1.0f - 4.0f * fm_fabsf(t - 0.5f)) +
             (s - 1.0f) * (saw_blep(t, v->m.wd.inc) - saw_blep(t2, v->m.wd.inc));
+    } else { /* pulse to saw (the synth cello: a bowed string's saw) */
+        float t2 = t + v->m.wd.pw, sw = saw_blep(t, v->m.wd.inc);
+        if (t2 >= 1.0f)
+            t2 -= 1.0f;
+        x = (3.0f - s) * (sw - saw_blep(t2, v->m.wd.inc)) + (s - 2.0f) * sw;
     }
     v->m.wd.ph = t + v->m.wd.inc;
     if (v->m.wd.ph >= 1.0f)

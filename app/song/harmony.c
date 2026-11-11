@@ -109,7 +109,8 @@ int harmony_chord_at(const song_roll_t *r, int bar, int pass, int dark, int *pcs
 static int is_guitar(int ins) { return ins == INS_NYLON || ins == INS_EMILY; }
 
 /* the keys ins (an INS_*, INS_NONE at most: under 32) play COMP's row i (its keys, patterns/comp-rhythms) */
-static int row_ok(int ins, int i) { return COMP[i].keys >> ins & 1u; }
+/* (keys: a 32-bit mask of keys instruments; an id past it, a candidate lead's, plays the rows for all keys, CK_ALL) */
+static int row_ok(int ins, int i) { return ins >= 0 && (ins < 32 ? COMP[i].keys >> ins & 1u : COMP[i].keys == CK_ALL); }
 
 /* The keys' comping rhythm, one per song (seed stream 121): every comping rhythm is a row of one table (COMP,
    patterns/comp-rhythms: Sam, 2026-11-05, "I think of all comping rhythms the same"), drawn from the approved rows
@@ -321,7 +322,7 @@ static int keys_oct_ok(const song_roll_t *r, int d)
     strum = harmony_style(r) == CS_STRUM;
     sh = strum ? 0 : lib_set_keys_shift(set) + (harmony_pad_place(r) != PL_BELOW ? 12 : 0);
     song_ov_range(set->lead, &lo, &hi);
-    if (d > 0 && !keys_sustained(r) && hi < 94 && !lib_lead_low(set->lead))
+    if (d > 0 && !keys_sustained(r) && hi < 94 && !lib_lead_lift(set->lead))
         return 0;   /* the lead sits a 4th over percussive keys: raised, they need a lead whose ceiling can rise with them
                        (lead.c); a low lead sits under them */
     song_ov_range(set->chords, &lo, &hi);
@@ -332,7 +333,7 @@ static int keys_oct_ok(const song_roll_t *r, int d)
    song */
 int harmony_keys_oct(const song_roll_t *r) { return keys_oct_ok(r, 12 * song_ov()->keys_oct); }
 
-/* The lift over a low lead (lib_lead_low: the jazz guitar; Sam, 2026-11-10: "in their normal octave while the lead
+/* The lift over a low lead (lib_lead_lift: the jazz guitar; Sam, 2026-11-10: "in their normal octave while the lead
    isn't playing, then jump up when the lead does"): the keys and the pad's chord part an octave up in the bars of the
    plan's lead blocks (lead_plays's: the lead in, the keys in, not an intro or outro), where the workbench leaves the
    keys' register as rolled and their range holds it (keys_oct_ok). The plan: the ticking song's (harmony_keys_plan,
@@ -344,7 +345,7 @@ int harmony_keys_lift(const song_roll_t *r, int bar)
 {
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
     const plan_block_t *b;
-    if (!lift_plan || !set || !lib_lead_low(set->lead) || song_ov()->keys_oct) return 0;
+    if (!lift_plan || !set || !lib_lead_lift(set->lead) || song_ov()->keys_oct) return 0;
     b = plan_at(lift_plan, bar);
     if (!b || b->section == SEC_INTRO || b->section == SEC_OUTRO || !(b->layers & L_KEYS) || !(b->layers & L_LEAD))
         return 0;

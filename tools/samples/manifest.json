@@ -20,6 +20,12 @@
       "raw": "https://raw.githubusercontent.com/sfzinstruments/karoryfer.shinyguitar/master/",
       "license": "LICENSE"
     },
+    "bigcat": {
+      "name": "Karoryfer Samples x Bigcat Instruments cello",
+      "url": "https://github.com/sfzinstruments/karoryfer-bigcat.cello",
+      "raw": "https://raw.githubusercontent.com/sfzinstruments/karoryfer-bigcat.cello/master/",
+      "license": "LICENSE"
+    },
     "jazz_reamp": {
       "name": "the Shinyguitar's ten SB_JAZZ notes (shiny, as fetched), re-amped by Sam through a jazz amp and cabinet (2026-11-10: the second take; the first held the raw notes 12 dB down, unprocessed)",
       "take": "Sampled-Guitar.wav",
@@ -101,6 +107,17 @@
         {"file": "Samples/electric/gb5_vl2_rr1_2.wav", "hint": 78},
         {"file": "Samples/electric/a5_vl2_rr1_2.wav", "hint": 81},
         {"file": "Samples/electric/c6_vl2_rr1_2.wav", "hint": 84}
+      ]
+    },
+    {
+      "id": "SB_CELLO", "src": "bigcat", "rate": 16000, "attack": 0.4, "loop": 0.3, "after_kits": true,
+      "comment": "The sampled cello (a candidate lead, 2026-11-11): the Karoryfer x Bigcat cello's sustained bowing (sus), mp (velocities 33-64), the first round robin (_d), Gb3, C4, Gb4, C5 and Eb5 (a cello lead sits C3-A4, a low lead's band from about Bb3, its ceiling E5: Eb3 to F#5 within 3 semitones of a zone; C3's file left out, its fundamental too weak for the pitch measure; Gb5's, its pitch rising 5 cents into the loop). The file names are an octave under standard pitch (measured: Gb2_mp_d.wav sounds Gb3, MIDI 54; the SFZ's keycenters say 42). Straight tone (no vibrato in the take: the sampler's delayed vibrato sings it), so a 0.3 s loop of whole periods holds the bow's sustain. Laid out after the kits (after_kits), so every other zone keeps its place.",
+      "zones": [
+        {"file": "Samples/sus/Gb2_mp_d.wav", "hint": 54},
+        {"file": "Samples/sus/C3_mp_d.wav", "hint": 60},
+        {"file": "Samples/sus/Gb3_mp_d.wav", "hint": 66},
+        {"file": "Samples/sus/C4_mp_d.wav", "hint": 72},
+        {"file": "Samples/sus/Eb4_mp_d.wav", "hint": 75}
       ]
     }
   ],

@@ -1479,3 +1479,21 @@ brushes).
   zone's sample is a 16-bit load where an ADPCM one is a nibble's decode (a load, shifts, a table lookup, adds, two
   clamps); the ADPCM path gains one test of the zone's idx0 a decoded sample. 12 kHz x 2 B is 24 KB/s of flash per sounding
   voice, sequential.
+
+### Candidate leads, round 1: the sampled cello, the synth cello, the harp (2026-11-11)
+
+Three workbench candidates (never rolled, no set). The sampled cello is the Karoryfer x Bigcat cello's sustained
+bowing (CC0): five zones (Gb3 C4 Gb4 C5 Eb5), 16 kHz ADPCM, 0.4 s plus a 0.3 s loop, in the bank after the kits. The
+synth cello re-expresses the string synth's "low and dark" cello voicing on the wind model (M_WIND), with a saw
+added to its blend. The harp retones the modal model (M_MODAL). Every other instrument renders bit for bit as before:
+17 whole songs (flute, felt, vibes, Knight leads; Rhodes, Knight, vibes, felt, nylon, Emilyguitar keys; Soft
+brushes, Room - big, Room - brushes), the jazz guitar's seed 127, and seed 114 on each approved lead.
+
+- Bank: payload 272,064 to **300,031 B (+27,967)**, the old payload the new one's prefix byte for byte; area 0
+  294,443 of 299,008 B, area 1 5,604 of 94,208 B: **93,185 B free**. The ADPCM's floor between the harmonics sits at
+  -49 to -55 dB under the strongest (the source's -59 to -66): the jazz guitar's audible fuzz was at -35.
+- Flash: image 362,640 to **364,448 B (+1,808)**: three patches, the zone table, the saw in the wind model, the
+  half-rate test, the cellos' register (a low lead the keys don't lift over), the names and choices. RAM .data+.bss 74,676 B and the pool 304,956 B unchanged.
+- CPU (`tools/cost-bench.sh --parts`, lead rows): the sampled cello **0.240** (at half the rate on the lead: its
+  zones' 8 kHz band fits; 0.302 at the full rate), the synth cello **0.261**, the harp **0.156** (the flute 0.245, the
+  Knight 0.236, the vibes 0.163, the jazz guitar 0.206).
