@@ -333,7 +333,7 @@ static int keys_oct_ok(const song_roll_t *r, int d)
    song */
 int harmony_keys_oct(const song_roll_t *r) { return keys_oct_ok(r, 12 * song_ov()->keys_oct); }
 
-/* The lift over a low lead (lib_lead_lift: the jazz guitar, the cellos; Sam, 2026-11-10: "in their normal octave
+/* The lift over a low lead (lib_lead_lift: the jazz guitar, the sampled cello; Sam, 2026-11-10: "in their normal octave
    while the lead isn't playing, then jump up when the lead does"): the keys and the pad's chord part an octave up in the bars of the
    plan's lead blocks (lead_plays's: the lead in, the keys in, not an intro or outro), where the workbench leaves the
    keys' register as rolled and their range holds it (keys_oct_ok). The plan: the ticking song's (harmony_keys_plan,

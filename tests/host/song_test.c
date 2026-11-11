@@ -2179,10 +2179,10 @@ static void test_chip(void)
     CHECK(INS_STRINGS == INS_FM_BASS + 1 && INS_WARM_PAD == INS_FM_BASS + 2 && INS_KNIGHT == INS_FM_BASS + 3 &&
               INS_EMILY == INS_FM_BASS + 4 && INS_STR_LEAD == INS_FM_BASS + 5 && INS_CELLO == INS_FM_BASS + 6 &&
               INS_CHOIR == INS_FM_BASS + 7 && INS_JAZZ_GTR == INS_FM_BASS + 8 && INS_SAMP_CELLO == INS_FM_BASS + 9 &&
-              INS_SYNTH_CELLO == INS_FM_BASS + 10 && INS_HARP == INS_FM_BASS + 11 && INS_NONE == INS_FM_BASS + 12,
+              INS_HARP == INS_FM_BASS + 10 && INS_NONE == INS_FM_BASS + 11,
           "instruments: %d after the six synths, wanted the pad layer's two (strings, warm pad), the Knight, the "
           "Emilyguitar, the string synth's high lead and cello (removed 2026-10-29; their ids kept), the choir, then "
-          "the jazz guitar, then the candidate cellos and harp",
+          "the jazz guitar, then the candidate cello and harp",
           INS_NONE - INS_FM_BASS - 1);
     { /* the triangle at note 36 (674 samples a cycle): its plateaus' levels in one cycle from 0.5 s, clustered */
         static float lv[1024];

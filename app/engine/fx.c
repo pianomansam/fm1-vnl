@@ -177,9 +177,6 @@ static float dl_t, dl_tt = 0.75f * DR - DL_LAT, dl_y, dl_ws, dl_wc = 1.0f;
 /* the line's level: a peak hold of what is written, falling no faster than the loop loses (9 dB a pass, 0.35's): above
    PL_QUIET the tail still rings */
 static float dl_peak, dl_k = 0.99993f;
-/* the delay's feel (fx_delay_feel): its time in beats (a dotted 8th) and its feedback; the harp's a quarter, less fed */
-static float dl_beats = 0.75f, dl_fb = DL_FB;
-static float dl_k_of(float t) { return fm_expf((dl_fb == DL_FB ? -1.05f : fm_logf(dl_fb)) / fm_maxf(t, 1.0f)); }
 static float w_ac, w_ad;                 /* the chorus's and the delay's input sums */
 static float w_ml, w_sl;                 /* their return's mid and side, through the dust's low-pass */
 static uint8_t w_ph, dl_off, dl_land; /* the wet loop's phase: samples into its 12-sample cycle */
@@ -337,7 +334,7 @@ static void delay_clear(void)
     dl_w = 0;
     dl_y = dl_ws = dl_peak = 0.0f;
     dl_wc = 1.0f;
-    dl_k = dl_k_of(dl_tt); /* ln(1 / 0.35) per pass */
+    dl_k = fm_expf(-1.05f / fm_maxf(dl_tt, 1.0f)); /* ln(1 / 0.35) per pass */
     dl_t = dl_tt;
     w_ad = w_ml = w_sl = w_el0 = w_el1 = w_er0 = w_er1 = 0.0f;
 }
@@ -527,22 +524,16 @@ void fx_rings(int on)
     }
 }
 
-void fx_delay_feel(float beats, float fb)
-{
-    dl_beats = beats;
-    dl_fb = fb;
-}
-
 void fx_tempo(float bpm)
 {
-    dl_tt = fm_clampf(dl_beats * 60.0f / fm_maxf(bpm, 1.0f) * DR - DL_LAT, 2.0f, (float)DL_N - 8.0f);
+    dl_tt = fm_clampf(0.75f * 60.0f / fm_maxf(bpm, 1.0f) * DR - DL_LAT, 2.0f, (float)DL_N - 8.0f);
     /* a song's start lands the time at its tempo (the same seed, the same samples) rather than gliding: a delay tail
        still ringing from the last song jumps to the new time, its repeats re-spaced (heard, rarely: the gap is 2-4 s);
        the trade for determinism */
     if (dl_land || dl_peak <= PL_QUIET)
         dl_t = dl_tt;
     dl_land = 0;
-    dl_k = dl_k_of(fm_minf(dl_t, dl_tt));
+    dl_k = fm_expf(-1.05f / fm_maxf(fm_minf(dl_t, dl_tt), 1.0f));
 }
 
 void fx_wet_off(int delay_off)
@@ -959,7 +950,7 @@ static void wet_run(float *l, float *r, const float *s2, const float *c2, const 
         evr = er0 + (er1 - er0) * f6;
     }
     float cs = ch_s, cc = ch_c, dep = ch_dep, dt = dl_t, ws = dl_ws, wc = dl_wc, y = dl_y, dpk = dl_peak;
-    float kp = dl_k, open = pl_open ? 1.0f : 0.0f, mu = gl_mu, pin = g_plate ? 0.0f : open, ppk = 0.0f, fb = dl_fb;
+    float kp = dl_k, open = pl_open ? 1.0f : 0.0f, mu = gl_mu, pin = g_plate ? 0.0f : open, ppk = 0.0f;
     int plate = g_plate ? pl_pp > PL_QUIET : pl_open || pl_peak > PL_QUIET;   /* (the guard's: its tail, then none) */
     int chorus = dep > 0.0f || ch_dep_t > 0.0f;
     int delay = !dl_off && (pl_open || dpk > PL_QUIET);
@@ -1026,7 +1017,7 @@ static void wet_run(float *l, float *r, const float *s2, const float *c2, const 
                     dt += (dl_tt - dt) * DL_GLIDE;
                     y = fm_flush(y + DL_LPK * (rd(dl_buf, DL_N - 1u, dw, dt + DL_WOW * ws) - y));
                     dw = (dw + 1u) & (DL_N - 1u);
-                    x = fm_flush((open * (1.0f / 6.0f)) * ad + fb * y);
+                    x = fm_flush((open * (1.0f / 6.0f)) * ad + DL_FB * y);
                     dl_buf[dw] = x;
                     dpk = fm_maxf(fm_fabsf(x), dpk * kp);
                 }

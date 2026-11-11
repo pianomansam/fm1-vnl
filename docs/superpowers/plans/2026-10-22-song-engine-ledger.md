@@ -730,6 +730,17 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
     an 80 ms swell (120): its centroid 326 to 552 Hz (the sample's 453), 1-2 kHz -17 to -10 dB of the whole (the
     sample's -10), 2-4 kHz -29 to -21 (-20); level re-matched (within 0.1 dB of the flute). Sounding octaves
     unchanged (cellos F3-D4, harp F5-D6). Renders: scratchpad round1c/.
+    **Round 1d (Sam, 2026-11-11):** the harp with no echo (its delay send 0; the harp-only quarter-note delay of
+    round 1c removed: every song's delay one feel again), its plate send kept small (0.15), its lead level +0.8 dB
+    for the echo's energy (4.2 dB under the flute over six songs). The sampled cello kept. Renders: scratchpad
+    round1d/.
+  - **Parked (Sam, 2026-11-11: "in our back pocket"): the synth cello.** The string synth's "low and dark" cello
+    voicing re-expressed on the wind model: a saw added to M_WIND's blend (p[0] 3), a low-pass 18x the note, the
+    mute's band-pass as a 1 kHz body resonance, bow noise at 2.5 kHz, an 80 ms swell, the keys' chorus as its
+    ensemble; a low lead two octaves under the flute's band like the sampled cello. Removed with its id and the saw
+    option (nothing else used them); restore from 2f51a53 (`INS_SYNTH_CELLO`, patch.c, voices.c's wind_sample and
+    wind_start's blend clamp, options.json). Sam: "better" after round 1c's brightening; the real one "still has
+    better wood resonance". Idea for when it comes back: 2-3 body resonances around 200-600 Hz.
 - **Done (Sam, 2026-11-11): the jazz guitar approved for songs.** Three sets lead with it, one per flavor its styles
   weigh most, over struck keys the lift raises: 38 Rhodes and jazz guitar (neo-soul, wistful/warm), 39 Knight and
   jazz guitar (lofi, sad/wistful), 40 Bossa Rhodes and jazz guitar (bossa, warm/sunny). About 10% of songs (20,000

@@ -45,7 +45,7 @@ int lead_motif_to(const lead_motif_t *m, int si0, int *at, int *len, int *si)
 /* The styles each lead instrument plays (the spec's fits, bit LS_*): the flute any of the eight; the felt piano '60s
    Jazz, Jazz-Hop, Film Score, Ambient; the vibes Impressionism, '60s Jazz, Jazz-Hop, Bossa Nova, Ambient; the Knight
    '60s Jazz, Film Score, Ambient; the jazz guitar '60s Jazz, Modal Jazz, Jazz-Hop, Bossa Nova; the
-   cellos and the harp (candidates) Impressionism, Romanticism, Film Score, Ambient. Any other instrument on the lead
+   sampled cello and the harp (candidates) Impressionism, Romanticism, Film Score, Ambient. Any other instrument on the lead
    (a workbench pick) takes the flute's. */
 #define LSB(s) (1u << (s))
 static unsigned style_fit(int ins)
@@ -55,7 +55,7 @@ static unsigned style_fit(int ins)
         return LSB(LS_IMPRESSIONISM) | LSB(LS_JAZZ60S) | LSB(LS_JAZZHOP) | LSB(LS_BOSSA) | LSB(LS_AMBIENT);
     if (ins == INS_KNIGHT) return LSB(LS_JAZZ60S) | LSB(LS_FILMSCORE) | LSB(LS_AMBIENT);
     if (ins == INS_JAZZ_GTR) return LSB(LS_JAZZ60S) | LSB(LS_MODAL) | LSB(LS_JAZZHOP) | LSB(LS_BOSSA);
-    if (ins == INS_SAMP_CELLO || ins == INS_SYNTH_CELLO || ins == INS_HARP)
+    if (ins == INS_SAMP_CELLO || ins == INS_HARP)
         return LSB(LS_IMPRESSIONISM) | LSB(LS_ROMANTICISM) | LSB(LS_FILMSCORE) | LSB(LS_AMBIENT);
     return LSB(LS_N) - 1u;
 }
@@ -112,7 +112,7 @@ int leads_style_keep(const song_roll_t *r, int prev)
    2 flute Db Lydian, 3 vibes B Dorian, 4 felt piano Ab Mixolydian, 5 flute A Ionian; the renders' json "lead" notes,
    app/build/new, 2026-10-29), per lead instrument; a half rounded down ('60s Jazz on the flute, 80.5). No spike put
    the Knight on the lead: it takes the style's flute center, as does any other lead instrument; a low lead
-   (lib_lead_drop: the jazz guitar, the cellos) the flute's an octave down (the cellos two).
+   (lib_lead_drop: the jazz guitar, the sampled cello) the flute's an octave down (the cello two).
 
                       flute  felt   vibes  Knight  other   (notes measured: flute / felt / vibes)
      Impressionism     79     80     76     79      79      119 /  80 / 49
@@ -155,7 +155,7 @@ static void range_bar(const song_roll_t *r, int style, const int keys[4], const 
     int top = 0, ntop = 0, i, blo, bhi, il, ih, ko = harmony_keys_oct(r);
     int drop = set ? lib_lead_drop(set->lead) : 0, e6 = drop > 12 ? 69 : drop ? 76 : 88;   /* the ceiling: E6; a low
                                                                                             lead's E5, a cello's A4 */
-    int lift = set && lib_lead_lift(set->lead);          /* the keys lift over it (the jazz guitar, the cellos) */
+    int lift = set && lib_lead_lift(set->lead);          /* the keys lift over it (the jazz guitar, the cello) */
     for (i = 0; i < 4; i++) {
         if (keys[i] > top) top = keys[i];
         if (nkeys[i] > ntop) ntop = nkeys[i];

@@ -560,9 +560,9 @@ console.log("options.json");
   check(retired(OPTS.instruments, ["Kalimba", "Saw lead", "Synth pluck"]) &&
         JSON.stringify(OPTS.instruments.find((i) => i.name === "Electric guitar").roles) === '["keys"]' &&
         JSON.stringify(leads) === JSON.stringify(["Felt piano", "Flute", "Harp", "Jazz guitar", "Piano",
-                                                  "Sampled cello", "Synth cello", "Vibes"]) &&
+                                                  "Sampled cello", "Vibes"]) &&
         OPTS.instruments.find((i) => i.name === "Jazz guitar").status === "approved" &&
-        ["Sampled cello", "Synth cello", "Harp"].every((n) =>
+        ["Sampled cello", "Harp"].every((n) =>
           OPTS.instruments.find((i) => i.name === n).status === "candidate"),
         `the lead styles build: the lead row offers the four, the jazz guitar (approved 2026-11-11) and the candidates (${leads.join(", ")}); the kalimba, saw lead and synth pluck retired, the Electric guitar on the keys only`);
   check(retired(OPTS.instruments, ["Upright bass"]) && retired(OPTS.comping, ["Arpeggio", "Offbeats"]) &&
@@ -2860,10 +2860,10 @@ console.log("lead loop end to end (Jazz-Hop, the Lead loop row On)");
 
 console.log("options.json: statuses");
 check(OPTS.instruments.filter((i) => i.status === "candidate").map((i) => i.sym).join() ===
-        "INS_SAMP_CELLO,INS_SYNTH_CELLO,INS_HARP" &&
+        "INS_SAMP_CELLO,INS_HARP" &&
       ["INS_PAD", "INS_CHOIR"].every((n) => OPTS.instruments.find((i) => i.sym === n).status === "approved") &&
       OPTS.instruments.find((i) => i.name === "Vox pad").status === "retired",
-      "the candidates among the instruments: the cellos and the harp (the jazz guitar approved; the chillwave pad " +
+      "the candidates among the instruments: the sampled cello and the harp (the jazz guitar approved; the chillwave pad " +
       "and the choir approved, the vox pad retired)");
 {
   const { inactive } = await import("../rows.js");

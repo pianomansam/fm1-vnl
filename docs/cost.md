@@ -1522,3 +1522,13 @@ resonance at 1 kHz) and a wider low-pass. Every other instrument renders bit for
   the lead's plate send; the pool and the bank unchanged.
 - CPU (`tools/cost-bench.sh --parts`, lead rows): the synth cello **0.281** (0.256: the band-pass), the harp 0.226,
   the sampled cello 0.302 (the flute 0.238, the Knight 0.232).
+
+### Candidate leads, round 1d: the harp dry, the synth cello parked (2026-11-11)
+
+The harp's delay send 0 (no echo), its plate send kept small; round 1c's harp-only delay feel removed (fx.c as at
+4dc55ca). The synth cello parked: its id, patch and the wind model's saw option gone. Every other instrument renders
+bit for bit as at 2f51a53.
+
+- Flash: image 365,316 to **364,580 B (-736)**; RAM .data+.bss 74,708 to **74,692 B**; the pool and the bank
+  (339,265 B, 53,951 free) unchanged.
+- CPU (`tools/cost-bench.sh --parts`, lead rows): the harp 0.225, the sampled cello 0.300 (the flute 0.240).

@@ -115,8 +115,8 @@ static const float CP_THR_KIT[KIT_N] = {0.095f, 0.090f, 0.084f, 0.162f, 0.110f, 
    reads 8-10 dB over the keys at about 4 dB under the flute's bar energy); the jazz guitar (sets 38-40)
    +5.21, an octave low with its chorus (its dry 2.5 dB down for it), its zones 16-bit PCM: the Knight's level on the
    lead in test_samp's songs; the sampled cello (a candidate) +8.8 dB: a held lead about the flute's level; the harp (a
-   candidate) +4.5, the struck leads' level */
-static const float SAMP_LEAD[SB_N] = {1.5578f, 2.239f, 1.4962f, 1.8216f, 2.756f, 1.683f};
+   candidate) +5.3, the struck leads' level (dry: no echo) */
+static const float SAMP_LEAD[SB_N] = {1.5578f, 2.239f, 1.4962f, 1.8216f, 2.756f, 1.845f};
 
 /* big zero-initialised buffers go in the device's .pool RAM region (fm1-base's PLAT_POOL; a Mach-O host has no such
    section) */
@@ -509,7 +509,7 @@ static void assign_pt(int voice, const vx_patch_t *p)
     if (voice != V_BASS) {
         int m = role_pt[voice] ? role_pt[voice]->model : -1;
         float hz = m == M_PAD || m == M_ENS || (voice == V_PAD && m == M_TW) ? MUD_PAD_HZ
-                   : voice == V_LEAD && p && (p == vx_patch(INS_SAMP_CELLO) || p == vx_patch(INS_SYNTH_CELLO))
+                   : voice == V_LEAD && p && p == vx_patch(INS_SAMP_CELLO)
                        ? MUD_CELLO_HZ
                        : MUD_HZ;
         mud_coefs(mud_c[voice][0], hz, SR);
@@ -654,9 +654,6 @@ void vx_configure(const song_roll_t *r)
         vx_set_pump(rng_int(&g, VX_PUMP_N));
     }
     fx_configure(cfg.dust, cfg.noise, cfg.ambience, cfg.flavor);
-    /* the delay's feel: a dotted 8th fed back at 0.35; under the harp (a struck lead's echo heard plainly, Sam: "the
-       echo doesn't time well") a quarter, on the beat whatever the swing, fed back at 0.2: fewer repeats */
-    fx_delay_feel(cfg.lead == INS_HARP ? 1.0f : 0.75f, cfg.lead == INS_HARP ? 0.2f : 0.35f);
     fx_tempo((float)r->v[RF_TEMPO]);
     if (!vx_active()) /* nothing to hear the dust ramp on */
         fx_land();
@@ -929,7 +926,7 @@ static void wind_start(voice_t *v, const song_ev_t *e)
     v->m.wd.ph = 0.0f;
     v->m.wd.inc = v->m.wd.f0 = f;
     v->m.wd.pw = fm_clampf(p->p[1], 0.05f, 0.5f);
-    v->m.wd.shp = fm_clampf(p->p[0], 0.0f, 3.0f);
+    v->m.wd.shp = fm_clampf(p->p[0], 0.0f, 2.0f);
     v->m.wd.a0 = k_lp1(WIND_LP_LO * p->p[2] * f * SR);
     v->m.wd.a1 = hi - v->m.wd.a0;
     v->m.wd.l1 = v->m.wd.l2 = 0.0f;
@@ -1465,17 +1462,12 @@ VX_INLINE float wind_sample(voice_t *v)
     }
     if (s < 1.0f) /* sine to triangle */
         x = (1.0f - s) * fm_sin_turns(t) + s * (1.0f - 4.0f * fm_fabsf(t - 0.5f));
-    else if (s <= 2.0f) { /* triangle to pulse: a saw less a saw a width later, each with its polyBLEP */
+    else { /* triangle to pulse: a saw less a saw a width later, each with its polyBLEP */
         float t2 = t + v->m.wd.pw;
         if (t2 >= 1.0f)
             t2 -= 1.0f;
         x = (2.0f - s) * (1.0f - 4.0f * fm_fabsf(t - 0.5f)) +
             (s - 1.0f) * (saw_blep(t, v->m.wd.inc) - saw_blep(t2, v->m.wd.inc));
-    } else { /* pulse to saw (the synth cello: a bowed string's saw) */
-        float t2 = t + v->m.wd.pw, sw = saw_blep(t, v->m.wd.inc);
-        if (t2 >= 1.0f)
-            t2 -= 1.0f;
-        x = (3.0f - s) * (sw - saw_blep(t2, v->m.wd.inc)) + (s - 2.0f) * sw;
     }
     v->m.wd.ph = t + v->m.wd.inc;
     if (v->m.wd.ph >= 1.0f)
