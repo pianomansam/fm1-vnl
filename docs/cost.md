@@ -1422,7 +1422,8 @@ ten notes A3-C6 (`vl2`, `rr1`), shaped offline by `tools/samples/tone.py` (tone 
 at 12 kHz. It plays on the sampler every sampled instrument uses (M_SAMP); no new code runs per sample, no doubles, no
 heap.
 
-- Bank (`tools/samples/pack.py`): payload 272,064 to **314,054 B (+41,990)**, laid out after the kits
+- Bank (`tools/samples/pack.py`): payload 272,064 to **314,054 B (+41,990)** (Sam's re-amp in its place, the same
+  day: its cut 0.55 s plus a 0.15 s loop, **314,046 B (+41,982), 79,154 B free**), laid out after the kits
   (`after_kits`): the old payload is the new one's first 272,064 bytes, byte for byte, so every other zone keeps its
   offset, table fields and ADPCM. Area 0 297,270 of 299,008 B, area 1 16,800 of 94,208 B: **79,146 B free**.
 - Flash: image 289,852 to **290,316 B (+464)**: the zone table, the patch, its name. RAM .data+.bss 74,660 B and the

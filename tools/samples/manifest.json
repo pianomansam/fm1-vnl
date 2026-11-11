@@ -21,7 +21,7 @@
       "license": "LICENSE"
     },
     "jazz_reamp": {
-      "name": "the Shinyguitar's ten SB_JAZZ notes (shiny, as fetched), re-amped by Sam through a jazz amp and cabinet (2026-11-10)",
+      "name": "the Shinyguitar's ten SB_JAZZ notes (shiny, as fetched), re-amped by Sam through a jazz amp and cabinet (2026-11-10: the second take; the first held the raw notes 12 dB down, unprocessed)",
       "take": "Sampled-Guitar.wav",
       "comment": "One local recording (not fetched: copy it to SCRATCH/dl_jazz_reamp/): 44.1 kHz, 16-bit, its two channels identical (summed to mono), the notes in the raw files' alphabetical order, each from silence.",
       "order": ["Samples/electric/a3_vl2_rr1_2.wav", "Samples/electric/a4_vl2_rr1_2.wav", "Samples/electric/a5_vl2_rr1_2.wav",
@@ -71,10 +71,10 @@
       ]
     },
     {
-      "id": "SB_JAZZ", "rate": 12000, "attack": 0.6, "loop": 0.1, "after_kits": true, "use": "chain",
-      "comment": "The jazz guitar (a candidate lead, 2026-11-10): the Shinyguitar archtop's magnetic pickup (electric), vl2 (velocities 33-64: jazz is played soft), rr1, every minor 3rd A3-C6 (the lead's register); standard pitch (the SFZ's keycenters). At 12 kHz; laid out after the kits (after_kits), so every other zone keeps its place. Two versions (variants; use: the one packed): chain, the raw notes through tone.py's chain (a warm, round, dark jazz box), packed; reamp, Sam's re-amp of the raw notes (his amp and cabinet the tone: tone.py bypassed), waiting on a take: the first (2026-11-10) held the raw notes 12.0 dB down, no amp or cabinet on them (within -55 dB).",
+      "id": "SB_JAZZ", "rate": 12000, "attack": 0.6, "loop": 0.1, "after_kits": true, "use": "reamp",
+      "comment": "The jazz guitar (a candidate lead, 2026-11-10): the Shinyguitar archtop's magnetic pickup (electric), vl2 (velocities 33-64: jazz is played soft), rr1, every minor 3rd A3-C6 (the lead's register); standard pitch (the SFZ's keycenters). At 12 kHz; laid out after the kits (after_kits), so every other zone keeps its place. Two versions (variants; use: the one packed): reamp, Sam's re-amp of the raw notes through his amp and cabinet (the tone: tone.py bypassed), packed; its cut 0.55 s and a 0.15 s loop (0.1 s put a loop seam on Eb4 and, at 0.12 s, C4); chain, the raw notes through tone.py's chain (a warm, round, dark jazz box), the first version (2026-11-10).",
       "variants": {
-        "reamp": {"src": "jazz_reamp", "tone": {"bypass": true}},
+        "reamp": {"src": "jazz_reamp", "tone": {"bypass": true}, "attack": 0.55, "loop": 0.15},
         "chain": {"src": "shiny",
                   "tone": {"in_db": -6.0, "tone_hz": 2200.0, "tone_order": 1, "drive": 1.5, "hp_hz": 90.0,
                            "body_hz": 350.0, "body_db": 3.0, "body_q": 0.9, "cab_hz": 4500.0, "cab_order": 4,
