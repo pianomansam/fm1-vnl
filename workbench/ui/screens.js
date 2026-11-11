@@ -210,26 +210,31 @@ export default {
     // Now playing (Sam, 2026-11-11): the simple home, the splash's record with the song beside it. HOME on the main
     // screen opens it and HOME here goes back; whichever was used last is the home (HOME's, a new song's) and the
     // device remembers it, so boot lands there (the splash flows into it: the record stays, the text changes). The
-    // song's name (its map's, big; a smaller face when too wide), its key, where it is and its map, the tempo; the
-    // record turns while the song plays (33 1/3) and eases to a stop when it stops. Everything else as everywhere.
+    // song's name (its map's, big; a smaller face when too wide), its key, the chord, where it is, its map, the
+    // tempo; the record turns while the song plays (33 1/3) and eases to a stop when it stops. Everything else as
+    // everywhere.
     now: {
       title: "Now playing",
       bands: [
-        { y: 0, h: 64, draw: [{ record: [0, 120, 104], value: "spin", color: "AMB", back: "VINYL", past: "LINE" }] },
-        { y: 64, h: 120, draw: [
-          { record: [0, 56, 104], value: "spin", color: "AMB", back: "VINYL", past: "LINE" },
-          { when: "known", text: "{map}", font: "M", fit: [122, "B"], x: 112, y: 6, color: "WHITE" },
-          { when: "known", text: "{key} {mode}", font: "B", x: 112, y: 32, color: "HI" },
-          { when: "song", text: "{section} {bar}/{bars}", font: "XS", x: 112, y: 52, color: "GRAY" },
-          { when: "!song", text: "{idle}", font: "XS", x: 112, y: 52, color: "GRAY" },
-          { sections: [112, 72, 122, 3], color: "AMB", back: "LINE", past: "DIM" },
-          { when: "known", text: "{tempo}", font: "M", x: 112, y: 84, color: "HI" },
-          { when: "known", text: "BPM", font: "XS", after: 4, y: 92, color: "GRAY" },
+        { y: 0, h: 56, draw: [{ record: [0, 120, 104], value: "spin", color: "AMB", back: "VINYL", past: "LINE" }] },
+        // the song beside it, centred on the record (rows 61-180): the name, key and mode, the chord playing (Sam,
+        // 2026-11-11: "I still want the current chord to show"; the longest the engine names, A#maj#11, 67 px in B),
+        // where it is, its map, the tempo
+        { y: 56, h: 128, draw: [
+          { record: [0, 64, 104], value: "spin", color: "AMB", back: "VINYL", past: "LINE" },
+          { when: "known", text: "{map}", font: "M", fit: [122, "B"], x: 112, y: 5, color: "WHITE" },
+          { when: "known", text: "{key} {mode}", font: "B", x: 112, y: 31, color: "HI" },
+          { when: "song", text: "{chord}", font: "B", x: 112, y: 49, color: "WHITE" },
+          { when: "song", text: "{section} {bar}/{bars}", font: "XS", x: 112, y: 69, color: "GRAY" },
+          { when: "!song", text: "{idle}", font: "XS", x: 112, y: 69, color: "GRAY" },
+          { sections: [112, 89, 122, 3], color: "AMB", back: "LINE", past: "DIM" },
+          { when: "known", text: "{tempo}", font: "M", x: 112, y: 100, color: "HI" },
+          { when: "known", text: "BPM", font: "XS", after: 4, y: 108, color: "GRAY" },
         ] },
         { y: 184, h: 56, draw: [{ record: [0, -64, 104], value: "spin", color: "AMB", back: "VINYL", past: "LINE" }] },
       ],
       controls: { HOME: { go: "main", home: true } },
-      say: [{ when: "known", text: "{map}. {key} {mode}. " }, { when: "song", text: "{section}, BAR {bar} OF {bars}" },
+      say: [{ when: "known", text: "{map}. {key} {mode}. " }, { when: "song", text: "CHORD {chord}. {section}, BAR {bar} OF {bars}" },
             { when: "!song", text: "{idle}" }, { when: "known", text: ", {tempo} BPM" }],
     },
 

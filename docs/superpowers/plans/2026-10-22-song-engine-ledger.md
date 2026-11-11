@@ -379,7 +379,8 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   workbench's device mock are candidates for either.
   - **Done (Sam, 2026-11-11): the simple one, Now playing (screens.js's now).** The splash's record, turning at 33 1/3
     while the song plays (easing to a stop and back up), and beside it the song's name (its map's, M; B when too
-    wide), key and mode, section and bar, its map, the tempo. HOME on the main screen opens it, HOME there goes back;
+    wide), key and mode, the chord playing (Sam: "I still want the current chord to show"; B, cream), section and
+    bar, its map, the tempo. HOME on the main screen opens it, HOME there goes back;
     the one used last is the home (HOME's from elsewhere, a new song's) and is kept in the flash (OBJ_SETTINGS), so
     boot's splash flows straight into it, the record staying put. The turn redraws the label's box alone (host: 7 us a
     frame against 116 us for the main screen's full draw; the device's in the live state's spin_us).
