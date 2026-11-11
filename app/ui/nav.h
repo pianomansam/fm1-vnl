@@ -31,6 +31,8 @@ typedef struct {
 
 typedef struct {
     uint8_t stack[UI_STACK], depth;      /* the breadcrumb: stack[depth - 1] the screen shown (depth >= 1) */
+    uint8_t home;                        /* the home (HOME's, a new song's): UI_HOME, or a go's with home (the app keeps it) */
+    uint8_t spin;                        /* a record's turn, 1/256 turns (the app's: {spin}) */
     int8_t cursor[UI_MAX_SCREENS];       /* each screen's highlighted line (a menu, the lanes, the sections) */
     int8_t off[UI_MAX_SCREENS];          /* a scrolling list's first line shown (listOff) */
     int16_t req_val[UI_N_FIELDS];        /* a field's change waiting (the mock's req): its value, the bar it lands on */
@@ -56,7 +58,7 @@ typedef struct {
     const ui_engine_t *eng;
 } ui_nav_t;
 
-void ui_nav_init(ui_nav_t *n);           /* the home screen, nothing waiting */
+void ui_nav_init(ui_nav_t *n);           /* the home screen (UI_HOME), nothing waiting */
 /* the song as the screen sees it now (the mock's Device.update): requests sent in the bar before their boundary,
    done past it; a new song back to the main screen, nothing waiting; the time (ms) */
 void ui_update(ui_nav_t *n, const snap_t *s, uint32_t ms);

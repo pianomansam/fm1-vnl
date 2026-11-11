@@ -8,6 +8,7 @@
 
 #define APP_NAME "VNL-1"
 #define APP_SPLASH_RGB RGB(242, 120, 72)
+#define APP_PALETTE 5u                   /* base/device/gfx.c's PALETTES: ESPRESSO (dark roast, amber, cream white) */
 #define APP_BLOCK 256u                   /* frames per audio block: 5.8 ms at 44.1 kHz */
 
 /* The device's UI: 1 the screens' runtime (app/ui: the workbench's screens, generated;
@@ -41,6 +42,10 @@ void app_init(void);                     /* boot: the voices, and the first song
 void app_render(int32_t *lr, uint32_t n, uint32_t master_q12);   /* audio interrupt: n stereo frames, 24-bit */
 void app_panic(void);                    /* silence now (before an update rewrites the flash) */
 void app_ui_init(void);                  /* the first screen, after the splash */
+#if VNL_UI_RUNTIME
+#define APP_SPLASH
+void app_splash(void);                   /* power-on: the splash (screens.js's), before the engine starts */
+#endif
 void app_frame(void);                    /* the UI: input and a redraw, about 60 times a second */
 void app_input_only(void);               /* between frames: input only */
 void app_say(const char *a, const char *b);   /* a short message on the screen and to a screen reader */

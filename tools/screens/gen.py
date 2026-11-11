@@ -70,13 +70,17 @@ class Strings:
 
 # ------------------------------------------------------------------------------------------------- the inputs ---
 def theme_colors():
-    """gfx.c's palette for fm1b_config.h's APP_PALETTE (as device.js's colors()): name -> RGB565"""
+    """gfx.c's palette for APP_PALETTE (app/app.h's, else fm1b_config.h's), as device.js's colors(): name -> RGB565.
+    A palette is {"NAME", {five steps}, background, white} (INK: black and white)"""
     gfx = (ROOT / "base/device/gfx.c").read_text()
     rgb = lambda s: [rgb565(*map(int, m)) for m in re.findall(r"RGB\((\d+), (\d+), (\d+)\)", s)]
-    neutrals = rgb(re.search(r"#define NEUTRALS (.*)", gfx).group(1))
-    pals = [neutrals + rgb(m) for m in re.findall(r'\{"\w+", \{NEUTRALS, (RGB[^}]*)\}\}', gfx)]
-    p = pals[int(re.search(r"#define APP_PALETTE (\d+)u", (ROOT / "base/include/fm1b_config.h").read_text()).group(1))]
-    return {"BLACK": 0x0000, "WHITE": 0xFFFF, "LINE": p[0], "DIM": p[1], "GRAY": p[2], "AMB": p[3], "HI": p[4]}
+    neutrals = re.search(r"#define NEUTRALS (.*)", gfx).group(1)
+    pals = []
+    for steps, bw in re.findall(r'\{"\w+", \{([^}]*)\},\s*([^}]*?)\},', gfx):
+        bw = [0x0000, 0xFFFF] if bw.strip() == "INK" else rgb(bw)
+        pals.append(bw + rgb(steps.replace("NEUTRALS", neutrals)))
+    conf = (ROOT / "app/app.h").read_text() + (ROOT / "base/include/fm1b_config.h").read_text()
+    return dict(zip(THEME, pals[int(re.search(r"#define APP_PALETTE (\d+)u", conf).group(1))]))
 
 
 def font_names():
@@ -484,6 +488,7 @@ def gen_screens(data, vocab, rows, all_parts=None):
                 arg = screens.index(a["go"])
             else:
                 errs.append(f'{where}: no screen "{a["go"]}"')
+            by = 1 if a.get("home") else 0                      # the screen becomes the home
         elif kind in ("turn", "nudge"):
             if a.get("byCursor") is not None:
                 lis = lst(NONE8 if f is None else field(where, f) for f in a["byCursor"])
@@ -518,6 +523,8 @@ def gen_screens(data, vocab, rows, all_parts=None):
         if kind == "text":
             fnt, col, ref = font(where, it.get("font")), color(where, it.get("color")), tpl(where, it["text"])
             y = it.get("y", 0)
+            if "fit" in it:                                     # [w, FONT]: wider than w, drawn in FONT
+                w, back = it["fit"][0], 1 + font(where, it["fit"][1])
             if "right" in it:
                 pos, x = 1, it["right"]
             elif "after" in it:
@@ -534,6 +541,16 @@ def gen_screens(data, vocab, rows, all_parts=None):
                 if lt not in lones:
                     lones.append(lt)
                 past = 1 + lones.index(lt)
+        elif kind == "record":                                  # [cx, cy, r]: cy a signed byte
+            x, y, w = it["record"]
+            if not -128 <= y <= 127:
+                errs.append(f"{where}: a record's cy {y} doesn't fit a signed byte")
+            y &= 0xFF
+            col, back, past = color(where, it["color"]), color(where, it["back"]), color(where, it["past"])
+            if it.get("value") not in vid:
+                errs.append(f'{where}: no value "{it.get("value")}"')
+            else:
+                ref = vid[it["value"]]
         elif kind == "icon":
             if it["icon"] not in icons:
                 errs.append(f"{where}: no icon {it['icon']}")
@@ -578,9 +595,11 @@ def gen_screens(data, vocab, rows, all_parts=None):
         for v in (x, y, w, h, arrows_right):
             if not 0 <= v <= 255:
                 errs.append(f"{where}: {v} doesn't fit a byte")
-        if col > 15 or back > 15 or fnt > 7 or len(kinds) > 8:
+        if col > 15 or back > 15 or fnt > 15 or len(kinds) > 16:
             errs.append(f"{where}: more colors, faces or kinds than an item packs")
-        return (kinds.index(kind), fnt, pos, col, back, x & 0xFF, y & 0xFF, w & 0xFF, h & 0xFF,
+        if kind == "text":
+            h = pos                                             # (a text's h: where its x is)
+        return (kinds.index(kind), fnt, col, back, x & 0xFF, y & 0xFF, w & 0xFF, h & 0xFF,
                 when(where, it.get("when")), past, ref)
 
     def band(where, b):
@@ -716,11 +735,13 @@ def gen_screens(data, vocab, rows, all_parts=None):
         "extern const char UI_STRINGS[];\n#define UI_STR(id) (UI_STRINGS + (id))\n\n"
         "/* a text's x: UI_POS_X the pen's left, UI_POS_RIGHT its right end, UI_POS_AFTER past the previous item's end */\n"
         "enum { UI_POS_X, UI_POS_RIGHT, UI_POS_AFTER };\n"
-        "/* a draw item. ref: a text's template (UI_STR), an icon (UI_ICONS), a meter's value id, a knobs' style\n"
-        "   (UI_KNOB_STYLES), lanes' or faders' (UI_LANE_ITEMS). x y w h: an icon's or text's pen (x, y), a geometry's\n"
-        "   [x, y, w, h], in the band. color back past: ui_color (sections: the playing one, those to come, those\n"
-        "   played; meter: fill and back). A lone text's arrows: UI_LONES. when: UI_WHENS. 10 bytes */\n"
-        "typedef struct {\n    uint8_t kind : 3, font : 3, pos : 2;\n    uint8_t color : 4, back : 4;\n"
+        "/* a draw item. ref: a text's template (UI_STR), an icon (UI_ICONS), a meter's or record's value id, a knobs'\n"
+        "   style (UI_KNOB_STYLES), lanes' or faders' (UI_LANE_ITEMS). x y w h: an icon's or text's pen (x, y), a\n"
+        "   geometry's [x, y, w, h], in the band; a text's h its UI_POS_*, w its fit (0 none: wider, it is drawn in face\n"
+        "   back - 1); a record's [cx, cy, r] (cy signed). color back past: ui_color (sections: the playing one, those to\n"
+        "   come, those played; meter: fill and back; record: label, disc, grooves). A lone text's arrows: UI_LONES.\n"
+        "   when: UI_WHENS. 10 bytes */\n"
+        "typedef struct {\n    uint8_t kind : 4, font : 4;\n    uint8_t color : 4, back : 4;\n"
         "    uint8_t x, y, w, h, when, past;\n    uint16_t ref;\n} ui_item_t;\n"
         "/* a condition: up to 3 value ids, each true (non-empty, non-zero); negative: false. 0 ends it */\n"
         "typedef int16_t ui_when_t[3];\n"
@@ -734,7 +755,8 @@ def gen_screens(data, vocab, rows, all_parts=None):
         "typedef struct { uint8_t parts, label, row_h, window; uint16_t keys, tags; uint8_t live; } ui_lanes_t;\n"
         "/* an action. arg: a go's screen (or UI_GO_*), a turn's or nudge's field, a jump's section (255: the cursor's),\n"
         "   a mute's, solo's, reroll's or level's part (255: the highlighted lane's, or the song); by: a turn's step or\n"
-        "   a nudge's amount; lng: the long press's action (0 none); list: a turn's byCursor fields (255: none there) */\n"
+        "   a nudge's amount (a go's: 1 the screen becomes the home); lng: the long press's action (0 none); list: a\n"
+        "   turn's byCursor fields (255: none there) */\n"
         "typedef struct { uint8_t kind, arg; int8_t by; uint8_t lng, list; } ui_action_t;\n"
         f"#define UI_GO_BACK {GO_SPECIAL['back']}\n#define UI_GO_HOME {GO_SPECIAL['home']}\n#define UI_GO_CURSOR {GO_SPECIAL['cursor']}\n"
         "#define UI_NONE 255\n"

@@ -167,7 +167,7 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
       const data = withMixer((await import(`./screens.js?t=${Date.now()}`)).default), bad_ = problems(data);
       bad.textContent = bad_.length ? `screens.js:\n${bad_.join("\n")}` : "";
       if (bad_.length && dev) return;
-      if (dev) dev.load(data); else dev = new Device(data, engine);
+      if (dev) dev.load(data); else { dev = new Device(data, engine); dev.splash(); }   // the boot splash, as the FM-1
       took = null;
       panel();
       refresh(true);
@@ -186,7 +186,7 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
       for (let k = 0; k < 27; k++) { const b = ctl.get(`KEY${k}`); b?.classList.toggle("lit", L.on.has(k)); b?.classList.toggle("blink", L.blink.has(k)); }
     }
     usb?.lights?.(L.on, L.blink);
-    if (dev.id !== shownId) { lcd.fill(0); shownId = dev.id; }   // a new screen: cleared first, as an app would (lcd_fill)
+    if (dev.showing !== shownId) { lcd.fill(); shownId = dev.showing; }   // a new screen: cleared first, as an app would (lcd_fill)
     dev.draw(lcd);
     ctx.putImageData(new ImageData(lcd.rgba(img.data), W, H), 0, 0);
     say.replaceChildren(el("b", { textContent: "Screen reader: " }), dev.said || "–");
@@ -255,6 +255,10 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
     act(c, e.shiftKey ? -1 : 1);
   });
   setInterval(() => { dev?.tick(); draw(); }, 100);
+  // a record turning (the splash, the now-playing screen): drawn each frame while it shows
+  const turning = () => dev?.data.screens[dev.showing]?.bands?.some((b) => b.draw?.some((it) => it.record));
+  const spin = () => { if (!box.hidden && turning()) draw(); requestAnimationFrame(spin); };
+  requestAnimationFrame(spin);
   // the live state for Claude: posted about once a second when it changes (an older server without /state: ignored)
   let sentState = "";
   setInterval(() => {

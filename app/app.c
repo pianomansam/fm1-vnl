@@ -49,6 +49,7 @@
 #include "ui/kitpick.c"
 #include "ui/nav.c"
 #include "render.h"
+#include "ui/font_mark.h"                /* the splash's wordmark face (FONT_MARK: workbench/tools/export_font.py) */
 #include "ui/render.c"
 #else
 #define UI_RT 0
@@ -192,6 +193,7 @@ static song_ev_t evs[64];
 /* What it costs, readable on the device (SAVE shows it in the header): the longest redraw (a frame's drawing), the
    longest render of an audio block and the blocks whose render took longer than the block lasts (late) */
 static uint32_t m_draw_max, m_render_max, m_late;
+static uint32_t m_spin_max;              /* the record's turn: its label's redraw, the longest (us) */
 static uint32_t m_load_now, m_load_peak; /* the render's load, % of its block: the last block's, the highest */
 /* what a late block had going on (its first cause in this order counts it, one each; none: other), for the live state: the render's own
    (a new song, its first bar's planning or its end, a stop's resume; a row's request landing; a jump's fast-forward
@@ -1241,6 +1243,7 @@ static struct {
     uint32_t btn;                        /* held at the last input */
     snap_t shown;                        /* what the screen shows */
     uint8_t redraw;
+    uint8_t redraw_input;                /* an encoder turned (input: the splash ends) */
 } ui;
 
 /* the browser's remote (below) */
@@ -1814,21 +1817,64 @@ static void ui_host_snap(void)
     ui_update(&ui_hnav, &ui_hsnap, plat_ms());
 }
 
+/* the boot splash (screens.js's splash): shown from app_splash until SPLASH_MS after app_ui_init, its record still,
+   spinning up, slowing and settling at its first pose after two turns (SPLASH_TURN_MS); the engine, USB and the input
+   run all along (a control pressed ends it). Then the home: the now-playing screen shares the record, so only its text
+   changes */
+#define SPLASH_MS 1300u
+#define SPLASH_TURN_MS 1150u
+static uint32_t splash_t0;
+static uint8_t splash_on;
+
+/* the screen shown: the splash, or the navigator's */
+static int ui_shown_id(void) { return splash_on ? US_SPLASH : ui_hnav.stack[ui_hnav.depth - 1]; }
+
 static void ui_host_draw(void)
 {
     static int last = -1;
-    int id;
+    int id, bi, cover = 0;
     ui_bag_t b;
     ui_host_snap();
-    id = ui_hnav.stack[ui_hnav.depth - 1];
-    if (id != last) {                    /* another screen: what its bands leave uncovered, cleared */
-        lcd_fill(0, 0, 240, 240, C_BLACK);
+    id = ui_shown_id();
+    for (bi = 0; bi < UI_SCREENS[id].n_bands; bi++) cover += UI_BANDS[UI_SCREENS[id].bands + bi].h;
+    if (id != last) {                    /* another screen: what its bands leave uncovered, cleared (none: every row is
+                                            drawn over, so a record two screens share stays put) */
+        if (cover < 240) lcd_fill(0, 0, 240, 240, C_BLACK);
         ui_draw_all();
     }
     last = id;
     ui_values(&ui_hsnap, &ui_hnav, &b);
+    b.screen = id;
     b.act = ui_activity();
     ui_draw(&UI_SCREENS[id], &b, 0xFFFFFFFFu);
+}
+
+/* the record's turn (ui_hnav.spin, 1/256 turns): the splash's; else 33 1/3 turns a minute while a song plays, easing
+   to a stop when it stops and back up on play. Only a screen with a record redraws for it, its label alone */
+static float spin_turns, spin_speed;      /* turns, turns a ms */
+static uint32_t spin_at;
+static void spin_tick(uint32_t now)
+{
+    float dt = spin_at ? (float)(now - spin_at < 100u ? now - spin_at : 100u) : 0.0f, want;
+    spin_at = now;
+    if (splash_on) {
+        float u = (float)(now - splash_t0) / (float)SPLASH_TURN_MS;
+        if (now - splash_t0 >= SPLASH_MS) {
+            splash_on = 0;
+            ui.redraw = 1;
+        }
+        if (u > 1.0f) u = 1.0f;
+        spin_turns = 0.0f;
+        spin_speed = 0.0f;
+        ui_hnav.spin = (uint8_t)((int)(512.0f * (u * u * (3.0f - 2.0f * u))) & 255);
+        return;
+    }
+    want = ui.shown.has_song ? 100.0f / 3.0f / 60000.0f : 0.0f;
+    spin_speed += (want - spin_speed) * (dt < 400.0f ? dt / 400.0f : 1.0f);
+    if (want == 0.0f && spin_speed < 1e-6f) spin_speed = 0.0f;
+    spin_turns += spin_speed * dt;
+    spin_turns -= (float)(int)spin_turns;
+    ui_hnav.spin = (uint8_t)((int)(spin_turns * 256.0f) & 255);
 }
 
 /* the controls to the navigator: a button's press, an encoder's detents, a key down or up; the lights */
@@ -1866,7 +1912,7 @@ static void ui_host_input(uint32_t btn)
         int32_t d = plat_enc(e);
         if (d) {
             ui_press(&ui_hnav, UI_CTL_ENCODER(e), (int)d);
-            ui.redraw = 1;
+            ui.redraw = ui.redraw_input = 1;
         }
     }
     for (k = 0; k < UI_KEYS; k++)
@@ -2225,13 +2271,28 @@ static void speak(void)
 }
 #endif
 
+#if VNL_UI_RUNTIME
+/* power-on (fm1-base's APP_SPLASH, before the engine starts): the splash, still; app_ui_init sets it turning */
+void app_splash(void)
+{
+    ui_bag_t b;
+    memset(&b, 0, sizeof b);
+    b.s = &ui_hsnap;                     /* (empty yet: the splash's items read no song) */
+    b.screen = US_SPLASH;
+    ui_draw(&UI_SCREENS[US_SPLASH], &b, 0xFFFFFFFFu);
+}
+#endif
+
 void app_ui_init(void)
 {
-    lcd_fill(0, 0, 240, 240, C_BLACK);
     ui.redraw = 1;
 #if VNL_UI_RUNTIME
     ui_nav_init(&ui_hnav);               /* the main screen (the runtime's) */
     ui_hnav.eng = &UI_HENG;
+    splash_on = 1;                       /* (app_splash drew it: the screen stays, its record starts turning) */
+    splash_t0 = plat_ms();
+#else
+    lcd_fill(0, 0, 240, 240, C_BLACK);
 #endif
     if (!smp_ready())
         app_say("NO SAMPLES", "SYNTHS ONLY");   /* no sample bank (tools/fm1_bank.py writes it) */
@@ -2299,11 +2360,31 @@ void app_frame(void)
 #endif
     ui.shown = s;
     input();
+#if VNL_UI_RUNTIME
+    if (splash_on && (ui.btn || plat_keys() || ui.redraw_input)) {   /* a control pressed: the splash ends */
+        splash_on = 0;
+        ui.redraw = 1;
+    }
+    ui.redraw_input = 0;
+#endif
     speak();
     if (ui.msg_until && now >= ui.msg_until) {
         ui.msg_until = 0;
         ui.redraw = 1;
     }
+#if UI_RT
+    {                                    /* the record turns: its label alone, unless the screen is drawn anyway */
+        uint8_t was = ui_hnav.spin;
+        spin_tick(now);
+        if (ui_hnav.spin != was && !ui.redraw && !rm.on && ui_host >= 0) {
+            uint32_t m_t0 = M_T(), dt;
+            ui_record_turn(&UI_SCREENS[ui_shown_id()], ui_hnav.spin);
+            dt = M_DT(m_t0);
+            if (dt < M_SANE_US && dt > m_spin_max)
+                m_spin_max = dt;
+        }
+    }
+#endif
     if (ui.redraw) {
 #if VNL_UI_RUNTIME
         uint32_t m_t0 = M_T(), dt;
@@ -2360,8 +2441,8 @@ int app_expect(const char *what, int *got)
 #endif
     }
 #if VNL_UI_RUNTIME
-    else if (!strcmp(what, "home"))     /* the main screen shown (1) or another (0) */
-        *got = ui_hnav.stack[ui_hnav.depth - 1] == UI_HOME;
+    else if (!strcmp(what, "home"))     /* the home shown (1: the main or now-playing screen in use) or another (0) */
+        *got = ui_hnav.stack[ui_hnav.depth - 1] == ui_hnav.home;
     else if (!strcmp(what, "key_lit")) {   /* the keys lit, bit k key k (blinking ones not counted) */
         uint32_t blink;
         *got = (int)ui_key_lights(&ui_hnav, &s, &blink);
@@ -2403,6 +2484,7 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
             return 1;
         }
         ui_host = i;
+        splash_on = 0;
         ui_nav_init(&ui_hnav);
         ui_hnav.eng = &UI_HENG;
         ui_hnav.stack[0] = (uint8_t)i;

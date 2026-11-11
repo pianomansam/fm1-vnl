@@ -365,6 +365,14 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
 - **The song's energy over time (Sam, 2026-11-06: an idea, not started).** A curve of how busy and loud the song is
   through its sections (the intro builds, the break drops out), shown as an envelope for the whole song, with knobs
   for a flatter or more dramatic arc. A generative player's own page; where it lives on the device is open.
+- **Done (Sam, 2026-11-11): the Espresso theme and the boot splash (design C1).** The screen's background is dark
+  roast (#211710), its neutrals warm, its white cream; amber stays (fm1-base's gfx.c palette ESPRESSO, VNL-1's
+  APP_PALETTE 5; other fm1-base apps keep black and white). No THEME setting on VNL-1: it is built in. At power-on
+  half a record enters from the left (screens.js's splash, a `record` draw item: grooves, an amber label with a cream
+  dot and a wedge of light so the turn shows), the wordmark "vnl-1" (its own small face, MARK), an amber rule, LO-FI
+  GENERATOR. The record is still while the platform boots, then spins up, slows and settles over 1.3 s with the engine
+  and USB already running (nothing starts later); any control ends it. No reduced-motion setting exists yet
+  (Settings' MOVEMENT is a placeholder): the splash turns regardless.
 - **A simplified and an expanded main screen (Sam, 2026-11-06: an idea, part of the screens work).** Two main
   screens: a simple one (e.g. the chord and where the song is) and an expanded one (the song and every part's rolls);
   the expanded one opens from the simple one, and the user sets which is the default (HOME's). Mockups A-C in the

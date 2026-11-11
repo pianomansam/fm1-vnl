@@ -9,21 +9,25 @@ import VOCAB from "./vocab.json" with { type: "json" };
 export const W = 240, H = 240;
 const CV_MAX = 240 * 144;   // gfx.c's APP_CANVAS_PX default: a band is at most this many pixels (cv_begin cuts its height)
 export const RGB = (r, g, b) => ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
-const NEUTRALS = [RGB(34, 34, 40), RGB(74, 74, 82), RGB(150, 150, 158)];
+const NEUTRALS = [RGB(34, 34, 40), RGB(74, 74, 82), RGB(150, 150, 158)], INK = [0x0000, 0xffff];
+// each theme's five steps, then its background and white (gfx.c's PALETTES: INK black and white)
 export const PALETTES = {
-  GREEN: [...NEUTRALS, RGB(80, 220, 120), RGB(150, 255, 175)],
-  AMBER: [...NEUTRALS, RGB(232, 136, 30), RGB(255, 184, 70)],
-  CYAN: [...NEUTRALS, RGB(60, 180, 235), RGB(150, 225, 255)],
-  RED: [...NEUTRALS, RGB(232, 76, 60), RGB(255, 132, 112)],
-  MONO: [...NEUTRALS, RGB(196, 196, 202), RGB(236, 236, 240)],
+  GREEN: [...NEUTRALS, RGB(80, 220, 120), RGB(150, 255, 175), ...INK],
+  AMBER: [...NEUTRALS, RGB(232, 136, 30), RGB(255, 184, 70), ...INK],
+  CYAN: [...NEUTRALS, RGB(60, 180, 235), RGB(150, 225, 255), ...INK],
+  RED: [...NEUTRALS, RGB(232, 76, 60), RGB(255, 132, 112), ...INK],
+  MONO: [...NEUTRALS, RGB(196, 196, 202), RGB(236, 236, 240), ...INK],
+  ESPRESSO: [RGB(53, 39, 29), RGB(107, 84, 64), RGB(180, 156, 128), RGB(232, 136, 30), RGB(255, 184, 70),
+             RGB(33, 23, 16), RGB(244, 230, 200)],
 };
-export const THEME = "AMBER";   // fm1b_config.h's APP_PALETTE 1 (VNL-1 doesn't set its own)
+export const THEME = "ESPRESSO";   // app.h's APP_PALETTE 5
 // the theme's colors, plus the screen data's own (`colors`: { NAME: [r, g, b] }, e.g. a color per part)
 export const colors = (theme = THEME, extra = {}) => {
   const p = PALETTES[theme];
-  return { BLACK: 0x0000, WHITE: 0xffff, LINE: p[0], DIM: p[1], GRAY: p[2], AMB: p[3], HI: p[4],
+  return { BLACK: p[5], WHITE: p[6], LINE: p[0], DIM: p[1], GRAY: p[2], AMB: p[3], HI: p[4],
            ...Object.fromEntries(Object.entries(extra).map(([k, [r, g, b]]) => [k, RGB(r, g, b)])) };
 };
+export const BG = colors().BLACK;   // the screen's background (an app's lcd_fill)
 
 const decoded = new Map();
 export function font(name) {   // a face of ui/fonts.js, its packed glyphs as bytes
@@ -50,8 +54,8 @@ export function textW(f, s) {
 
 // The screen's pixels (RGB565, as plat_host's fbdump has them) and the canvas a band is drawn in
 export class Lcd {
-  constructor() { this.fb = new Uint16Array(W * H); }
-  fill(c = 0) { this.fb.fill(c); }
+  constructor() { this.fb = new Uint16Array(W * H).fill(BG); }
+  fill(c = BG) { this.fb.fill(c); }
   begin(w, h, bg) {
     if (w * h > CV_MAX) h = Math.floor(CV_MAX / w);
     Object.assign(this, { w, h, px: new Uint16Array(w * h).fill(bg) });
@@ -87,6 +91,11 @@ export class Lcd {
       x += f.adv[gi];
     }
     return x;
+  }
+  blend(at, c, a) {   // c over the canvas pixel at, coverage a (0..15): cv_text's blend
+    const bg = this.px[at], r = c >> 11, g = (c >> 5) & 63, b = c & 31;
+    this.px[at] = (Math.floor((r * a + (bg >> 11) * (15 - a)) / 15) << 11) |
+                  (Math.floor((g * a + ((bg >> 5) & 63) * (15 - a)) / 15) << 5) | Math.floor((b * a + (bg & 31) * (15 - a)) / 15);
   }
   blit(x, y) {   // lcd_blit: the canvas onto the screen, clipped
     for (let j = 0; j < this.h; j++)
@@ -175,7 +184,7 @@ export function valuesOf(s, data) {
     APP: APP_NAME, song, stopped: !!s.stopped, idle: s.stopped ? "STOPPED" : "NEXT SONG",
     msg: !!s.msg, msg0: s.msg?.[0] ?? "", msg1: s.msg?.[1] ?? "",
     map: (s.map ?? "").toUpperCase(), section: SEC_NAME[s.section] ?? "", bar: (s.bar ?? 0) + 1, bars: r.bars,
-    chord: s.chord ?? "", pending: "",
+    chord: s.chord ?? "", pending: "", spin: s.spin ?? 0,
   };
   for (const [k, def] of Object.entries(f)) {
     const v = fieldValue(def, k, r, s.rows);
@@ -247,6 +256,47 @@ export function valuesOf(s, data) {
   return bag;
 }
 
+// ---------------------------------------------------------------------------------- the record (render.c's) ---
+// sine in Q12, a quarter turn in 64 steps (render.c's UI_SIN_Q, the same numbers)
+const SIN_Q = [0, 101, 201, 301, 401, 501, 601, 700, 799, 897, 995, 1092, 1189, 1285, 1380, 1474, 1567, 1660, 1751, 1842, 1931, 2019, 2106, 2191, 2276, 2359, 2440, 2520, 2598, 2675, 2751, 2824, 2896, 2967, 3035, 3102, 3166, 3229, 3290, 3349, 3406, 3461, 3513, 3564, 3612, 3659, 3703, 3745, 3784, 3822, 3857, 3889, 3920, 3948, 3973, 3996, 4017, 4036, 4052, 4065, 4076, 4085, 4091, 4095, 4096];
+const sin256 = (u) => { const i = u & 63, k = (u >> 6) & 3, v = SIN_Q[k & 1 ? 64 - i : i]; return k & 2 ? -v : v; };
+const cos256 = (u) => sin256(u + 64);
+const idiv = (a, b) => Math.trunc(a / b);   // C's integer division
+// a record centred at (cx, cy) on the canvas: the disc (its edge smoothed), five grooves, the label (r * 5 / 13), and on
+// it, turned by spin (1/256 turns, counter-clockwise), a cream dot and opposite a wedge of light; the spindle's hole
+export function drawRecord(lcd, cx, cy, r, C, label, disc, groove, spin) {
+  const rl = idiv(r * 5, 13), outer = (2 * r + 1) ** 2, inner = (2 * rl + 1) ** 2, dist = idiv(rl * 3, 4);
+  const dotx = (dist * cos256(spin) + 2048) >> 12, doty = -((dist * sin256(spin) + 2048) >> 12);
+  const ax = cos256(spin + 118), ay = sin256(spin + 118), bx = cos256(spin + 138), by = sin256(spin + 138);
+  for (let y = Math.max(0, cy - r - 1); y <= Math.min(lcd.h - 1, cy + r + 1); y++) {
+    const dy = y - cy;
+    for (let x = Math.max(0, cx - r - 1); x <= Math.min(lcd.w - 1, cx + r + 1); x++) {
+      const dx = x - cx, d4 = 4 * (dx * dx + dy * dy), e = outer - d4, el = inner - d4, at = y * lcd.w + x;
+      if (e <= 0) continue;
+      let c = disc;
+      for (let k = 1; k <= 5; k++) { const g = r - 10 * k; if (d4 >= (2 * g - 1) ** 2 && d4 < (2 * g + 1) ** 2) c = groove; }
+      if (el > 0) {
+        const mx = dx - dotx, my = dy - doty;
+        let l = label;
+        if (d4 >= 4 * 144 && ax * -dy - ay * dx >= 0 && dx * by + dy * bx >= 0) l = C.HI;
+        if (mx * mx + my * my <= 10) l = C.WHITE;
+        if (d4 <= 36) l = C.BLACK;
+        if (el >= 8 * rl) c = l;
+        else { lcd.px[at] = c; lcd.blend(at, l, idiv(15 * el, 8 * rl)); continue; }
+      }
+      if (e >= 8 * r) lcd.px[at] = c;
+      else lcd.blend(at, c, idiv(15 * e, 8 * r));
+    }
+  }
+}
+
+// the splash's turn, ms after it began (app.c's splash_spin): still, spinning up, slowing, settled at 0 after two turns
+export const SPLASH_MS = 1300, SPLASH_TURN_MS = 1150;
+export function splashSpin(t) {
+  const u = Math.min(1, Math.max(0, t / SPLASH_TURN_MS));
+  return Math.floor(512 * (u * u * (3 - 2 * u))) & 255;
+}
+
 // a screen's bands onto lcd, from its values (app.c's draw(), as data)
 export function drawScreen(lcd, screen, bag, data, C = colors(THEME, data.colors)) {
   for (const band of screen.bands) {
@@ -255,6 +305,7 @@ export function drawScreen(lcd, screen, bag, data, C = colors(THEME, data.colors
     for (const it of band.draw) {
       if (!holds(it.when, bag)) continue;
       if (it.rect) lcd.rect(...it.rect, C[it.color]);
+      else if (it.record) drawRecord(lcd, it.record[0], it.record[1], it.record[2], C, C[it.color], C[it.back], C[it.past], (Number(bag[it.value]) || 0) & 255);
       else if (it.icon) {   // a 1-bit icon from the data's `icons` (rows of "#" and "."): { icon, x, y, color }
         (data.icons?.[it.icon] ?? []).forEach((row, j) => [...row].forEach((c, i) => { if (c === "#") lcd.rect(it.x + i, it.y + j, 1, 1, C[it.color]); }));
       }
@@ -355,7 +406,7 @@ export function drawScreen(lcd, screen, bag, data, C = colors(THEME, data.colors
           }
         });
       } else {
-        const f = font(it.font), s = fill(it.text, bag);
+        const s = fill(it.text, bag), f = it.fit && textW(font(it.font), s) > it.fit[0] ? font(it.fit[1]) : font(it.font);
         const x = it.right !== undefined ? it.right - textW(f, s) : it.after !== undefined ? pen + it.after : it.x;
         const lone = /^\{(\w+)\}$/.exec(it.text)?.[1];   // a value alone: the pending color while it waits
         const col = C[lone && bag[`${lone}Pend`] && C.PENDING !== undefined ? "PENDING" : it.color];
@@ -453,10 +504,11 @@ export function problems(data, vocab = VOCAB) {
         if (!kind) { out.push(`${w}: no draw item ${Object.keys(it).find((k) => k !== "when") ?? "(empty)"}`); continue; }
         for (const k of Object.keys(it)) if (!vocab.items[kind].includes(k)) out.push(`${w}: ${kind} has no key ${k}`);
         cond(w, it.when);
-        const faces = it.knobs ? [it.knobs.label.font, it.knobs.value.font] : it.text !== undefined ? [it.font] : [];
+        const faces = it.knobs ? [it.knobs.label.font, it.knobs.value.font] : it.text !== undefined ? [it.font, ...(it.fit ? [it.fit[1]] : [])] : [];
         for (const f of faces) if (!FONTS[f]) out.push(`${w}: no font ${f}`);
         if (it.meter) cond(w, it.value);
-        if (it.sections) for (const c of [it.color, it.back, it.past]) if (!(c in C)) out.push(`${w}: no color ${c}`);
+        if (it.sections || it.record) for (const c of [it.color, it.back, it.past]) if (!(c in C)) out.push(`${w}: no color ${c}`);
+        if (it.record) { cond(w, it.value); if (!(it.record[1] >= -128 && it.record[1] <= 127)) out.push(`${w}: a record's cy outside -128..127`); }
         if (it.icon && !data.icons?.[it.icon]) out.push(`${w}: no icon ${it.icon}`);
         for (const c of it.lanes || it.faders ? [] : it.knobs ? [it.knobs.label.color, it.knobs.value.color, ...(it.knobs.bar ? [it.knobs.bar.color, it.knobs.bar.back] : [])]
                         : [it.color, ...(it.back ? [it.back] : [])])
@@ -483,7 +535,8 @@ export function problems(data, vocab = VOCAB) {
 // pending, then goes to the engine in the bar before it (the workbench lands a change at the next bar line).
 export class Device {
   constructor(data, engine, now = () => Date.now()) {
-    Object.assign(this, { data, engine, now, stack: [data.home], cursor: {}, held: {}, req: {}, msg: null, said: "", live: null });
+    Object.assign(this, { data, engine, now, home: data.home, stack: [data.home], cursor: {}, held: {}, req: {}, msg: null, said: "",
+                          live: null, spin: 0, turns: 0, speed: 0, spunAt: null });
   }
   get id() { return this.stack[this.stack.length - 1]; }
   get screen() { return this.data.screens[this.id]; }
@@ -493,7 +546,8 @@ export class Device {
   load(data) {
     this.data = data;
     this.stack = this.stack.filter((id) => data.screens[id]);
-    if (this.stack[0] !== data.home) this.stack = [data.home, ...this.stack.filter((id) => id !== data.home)];
+    if (!data.screens[this.home]) this.home = data.home;
+    if (this.stack[0] !== this.home) this.stack = [this.home, ...this.stack.filter((id) => id !== this.home)];
   }
 
   update(live) {
@@ -516,7 +570,7 @@ export class Device {
       else if (!jr.sent && bar >= jr.at - 1) { jr.sent = true; jr.sentBar = bar; this.engine.jump?.(jr.start, jr.name); }
     }
     if (was && was.seed !== live.seed && this.stack.length > 1) {   // a new song (rolled or the next one): back to the
-      this.stack = [this.data.home];                                  // main screen (Sam, 2026-11-06)
+      this.stack = [this.home];                                       // main screen (Sam, 2026-11-06)
       this.speak();
     }
     const bar = live.bar - 1;
@@ -551,8 +605,31 @@ export class Device {
              activity: l.activity, levels: l.levels,
              barPos: song ? bar + Math.min(0.999, (this.now() - (this.barT ?? this.now())) / (240000 / Math.max(40, l.roll?.tempo ?? 80))) : bar, pend, msg: this.msg && this.now() < this.msg.until ? this.msg.text : null };
   }
-  values() { return valuesOf(this.shown(), this.data); }
-  draw(lcd) { drawScreen(lcd, this.screen, this.values(), this.data); }
+  values() { return valuesOf({ ...this.shown(), spin: this.spin }, this.data); }
+  // the record's turn (app.c's spin_tick): 33 1/3 turns a minute while a song plays, easing to a stop (and back up);
+  // ms: now. The spin in 1/256 turns
+  turn(ms = this.now()) {
+    const dt = this.spunAt === null ? 0 : Math.min(100, ms - this.spunAt), want = this.hasSong() ? 100 / 3 / 60000 : 0;
+    this.spunAt = ms;
+    this.speed += (want - this.speed) * Math.min(1, dt / 400);
+    if (Math.abs(this.speed) < 1e-6 && !want) this.speed = 0;
+    this.turns = (this.turns + this.speed * dt) % 1;
+    return (this.spin = Math.floor(this.turns * 256) & 255);
+  }
+  // the boot splash (app.c's): splash() starts it (the page, at load), a control ends it; showing: the screen drawn
+  splash() { if (this.data.screens.splash) this.splashAt = this.now(); }
+  get splashing() { return this.splashAt !== undefined && this.now() - this.splashAt < SPLASH_MS; }
+  get showing() { return this.splashing ? "splash" : this.id; }
+  draw(lcd) {
+    if (this.splashing) {
+      this.spin = splashSpin(this.now() - this.splashAt);
+      this.spunAt = null;
+      drawScreen(lcd, this.data.screens.splash, this.values(), this.data);
+    } else {
+      this.turn();
+      drawScreen(lcd, this.screen, this.values(), this.data);
+    }
+  }
 
   say(a, b = "") {   // app_say: the header for 1.3 s, and the screen reader
     this.msg = { text: [a.slice(0, 23), b.slice(0, 23)], until: this.now() + 1300 };
@@ -565,6 +642,7 @@ export class Device {
   // soon (a press) or once held LONG_MS (its long action: Sam, 2026-11-06: press = mute, long press = solo); others act
   // as they go down
   keyDown(control) {
+    this.splashAt = undefined;
     const a = actionOf(this.data, this.id, control);
     if (!a?.long) return this.press(control);
     this.held[control] = { t: this.now(), fired: false, a };
@@ -629,6 +707,7 @@ export class Device {
   }
 
   press(control, detents = 1, a = actionOf(this.data, this.id, control)) {
+    this.splashAt = undefined;   // (a control ends the splash)
     if (!a) return null;
     if (a.do === "part" || a.do === "page") {   // ALGO: the next part (data.parts, at its first page); SELECT: the next page
       const list = a.do === "part" ? this.data.parts ?? [] : this.screen.pages ?? [], from = this.id;
@@ -693,7 +772,8 @@ export class Device {
       const from = this.id, to = a.go === "cursor" ? this.screen.menu?.[this.cursor[this.id] ?? 0] : a.go;
       if (!to) return null;
       if (to === "back") { if (this.stack.length > 1) this.stack.pop(); }
-      else if (to === "home") this.stack = [this.data.home];
+      else if (to === "home") this.stack = [this.home];
+      else if (a.home) { this.stack = [to]; this.home = to; }   // the screen becomes the home (HOME on the main screens)
       else if (to !== this.id) this.stack.push(to);
       if (this.id !== from) this.speak();
       return { from, control, to: this.id };

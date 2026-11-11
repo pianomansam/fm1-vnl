@@ -294,7 +294,8 @@ static int32_t ui_text_item(const ui_bag_t *b, const ui_item_t *it, int32_t pen)
     int col = it->color;
     const ui_lone_t *lone = it->past ? &UI_LONES[it->past - 1] : 0;
     ui_fill(b, UI_STR(it->ref), s, sizeof s);
-    x = it->pos == UI_POS_RIGHT ? it->x - text_w(f, s) : it->pos == UI_POS_AFTER ? pen + it->x : it->x;
+    if (it->w && it->back && text_w(f, s) > it->w) f = UI_FONT(it->back - 1);   /* too wide: its fit's face */
+    x = it->h == UI_POS_RIGHT ? it->x - text_w(f, s) : it->h == UI_POS_AFTER ? pen + it->x : it->x;
     if (lone && UI_PENDING_COLOR >= 0 && lone->pend && ui_true(b, lone->pend)) col = UI_PENDING_COLOR;
     pen = cv_text(x, it->y, f, s, UI_COLORS[col]);
     if (lone && lone->color) {            /* "<  >" at the line's right end: an arrow only where the list goes on */
@@ -304,6 +305,79 @@ static int32_t ui_text_item(const ui_bag_t *b, const ui_item_t *it, int32_t pen)
         if (!(lone->first && ui_true(b, lone->first))) cv_text(r - text_w(f, ">") - text_w(f, "  <"), it->y, f, "<", ac);
     }
     return pen;
+}
+
+/* ---------------------------------------------------------------------------------------------- the record --- */
+/* sine in Q12, a quarter turn in 64 steps (round(4096 sin(pi/2 i/64)): device.js's SIN_Q, the same numbers) */
+static const int16_t UI_SIN_Q[65] = {0,101,201,301,401,501,601,700,799,897,995,1092,1189,1285,1380,1474,1567,1660,1751,1842,1931,2019,2106,2191,2276,2359,2440,2520,2598,2675,2751,2824,2896,2967,3035,3102,3166,3229,3290,3349,3406,3461,3513,3564,3612,3659,3703,3745,3784,3822,3857,3889,3920,3948,3973,3996,4017,4036,4052,4065,4076,4085,4091,4095,4096};
+static int32_t ui_sin256(int u)                  /* sin(u / 256 turns), Q12 */
+{
+    int i = u & 63, q = (u >> 6) & 3;
+    int32_t v = UI_SIN_Q[q & 1 ? 64 - i : i];
+    return q & 2 ? -v : v;
+}
+#define UI_COS256(u) ui_sin256((u) + 64)
+
+/* c over the canvas pixel at i, coverage a (0..15): cv_text's blend */
+static void ui_blend(uint32_t i, uint16_t c, uint32_t a)
+{
+    uint32_t bg = swap16(cv_px[i]), r = c >> 11, g = (c >> 5) & 63u, bl = c & 31u;
+    uint32_t nr = (r * a + (bg >> 11) * (15u - a)) / 15u, ng = (g * a + ((bg >> 5) & 63u) * (15u - a)) / 15u,
+             nb = (bl * a + (bg & 31u) * (15u - a)) / 15u;
+    cv_px[i] = swap16((nr << 11) | (ng << 5) | nb);
+}
+
+/* a record, centred at (cx, cy) on the canvas (clipped to it): the disc in back with its edge smoothed, five grooves
+   in past (r - 10 .. r - 50), the label (r * 5 / 13) in color, smoothed, and on it, turned by spin (1/256 turns,
+   counter-clockwise): a cream dot (WHITE) and, opposite, a wedge of light (HI); the spindle's hole. Whole numbers
+   only (the mock's, pixel for pixel) */
+static void ui_record_at(int32_t cx, int32_t cy, int32_t r, uint16_t label, uint16_t disc, uint16_t groove, int spin)
+{
+    int32_t rl = r * 5 / 13, x0 = cx - r - 1, x1 = cx + r + 1, y0 = cy - r - 1, y1 = cy + r + 1, x, y, k;
+    int32_t outer = (2 * r + 1) * (2 * r + 1), inner = (2 * rl + 1) * (2 * rl + 1), hole = 4 * 9, sheen = 4 * 12 * 12;
+    int32_t dc = UI_COS256(spin), ds = ui_sin256(spin), dist = rl * 3 / 4;
+    int32_t dotx = (dist * dc + 2048) >> 12, doty = -((dist * ds + 2048) >> 12);
+    int32_t ax = UI_COS256(spin + 118), ay = ui_sin256(spin + 118), bx = UI_COS256(spin + 138), by = ui_sin256(spin + 138);
+    uint16_t white = UI_COLORS[UC_WHITE], hi = UI_COLORS[UC_HI], bg = UI_COLORS[UC_BLACK];
+    if (x0 < 0) x0 = 0;
+    if (y0 < 0) y0 = 0;
+    if (x1 > (int32_t)cv_w - 1) x1 = (int32_t)cv_w - 1;
+    if (y1 > (int32_t)cv_h - 1) y1 = (int32_t)cv_h - 1;
+    for (y = y0; y <= y1; y++) {
+        int32_t dy = y - cy;
+        for (x = x0; x <= x1; x++) {
+            int32_t dx = x - cx, d4 = 4 * (dx * dx + dy * dy), e = outer - d4, el = inner - d4;
+            uint32_t i = (uint32_t)y * cv_w + (uint32_t)x;
+            uint16_t c = disc;
+            if (e <= 0) continue;                                    /* outside the disc */
+            for (k = 1; k <= 5; k++) {                               /* a groove: a pixel wide */
+                int32_t g = r - 10 * k;
+                if (d4 >= (2 * g - 1) * (2 * g - 1) && d4 < (2 * g + 1) * (2 * g + 1)) c = groove;
+            }
+            if (el > 0) {                                            /* the label */
+                int32_t mx = dx - dotx, my = dy - doty;
+                uint16_t l = label;
+                if (d4 >= sheen && ax * -dy - ay * dx >= 0 && dx * by + dy * bx >= 0) l = hi;   /* p = (dx, -dy) */
+                if (mx * mx + my * my <= 10) l = white;
+                if (d4 <= hole) l = bg;
+                if (el >= 8 * rl) c = l;
+                else {
+                    cv_px[i] = swap16(c);
+                    ui_blend(i, l, (uint32_t)(15 * el / (8 * rl)));
+                    continue;
+                }
+            }
+            if (e >= 8 * r) cv_px[i] = swap16(c);
+            else ui_blend(i, c, (uint32_t)(15 * e / (8 * r)));     /* the disc's edge, over the band */
+        }
+    }
+}
+
+static void ui_record(const ui_bag_t *b, const ui_item_t *it)
+{
+    int den;
+    ui_record_at(it->x, (int8_t)it->y, it->w, UI_COLORS[it->color], UI_COLORS[it->back], UI_COLORS[it->past],
+                 ui_value_num(b, it->ref, &den) & 255);
 }
 
 /* the panel's pixels as last sent, a sum each strip of UI_STRIP rows (by the screen row it starts on): only the
@@ -346,6 +420,35 @@ static void ui_send(uint32_t y)
         lcd_blit(0, y + at, cv_w, cv_h - at, cv_px + at * cv_w);
 }
 
+/* the screen's record turned to spin, its label alone: a box around the label drawn and sent (the rest of the screen
+   as it was); its rows' sums forgotten, so the next full draw sends them again. 0: no record on the screen */
+int ui_record_turn(const ui_screen_t *sc, int spin)
+{
+    int bi, ii;
+    for (bi = 0; bi < sc->n_bands; bi++) {
+        const ui_band_t *band = &UI_BANDS[sc->bands + bi];
+        for (ii = 0; ii < band->n_items; ii++) {
+            const ui_item_t *it = &UI_ITEMS[band->first_item + ii];
+            int32_t cx, cy, rl, x0, y0, y1, x1, y;
+            if (it->kind != UI_RECORD) continue;
+            cx = it->x;
+            cy = band->y + (int8_t)it->y;
+            rl = it->w * 5 / 13 + 1;
+            x0 = cx - rl < 0 ? 0 : cx - rl;
+            x1 = cx + rl > 239 ? 239 : cx + rl;
+            y0 = cy - rl < 0 ? 0 : cy - rl;
+            y1 = cy + rl > 239 ? 239 : cy + rl;
+            if (x1 < x0 || y1 < y0) return 1;
+            cv_begin((uint32_t)(x1 - x0 + 1), (uint32_t)(y1 - y0 + 1), UI_COLORS[band->bg]);
+            ui_record_at(cx - x0, cy - y0, it->w, UI_COLORS[it->color], UI_COLORS[it->back], UI_COLORS[it->past], spin);
+            cv_blit((uint32_t)x0, (uint32_t)y0);
+            for (y = y0; y <= y1; y++) ui_sum_ok[y] = 0;
+            return 1;
+        }
+    }
+    return 0;
+}
+
 void ui_draw(const ui_screen_t *sc, const ui_bag_t *b, uint32_t band_mask)
 {
     int bi, ii;
@@ -370,6 +473,7 @@ void ui_draw(const ui_screen_t *sc, const ui_bag_t *b, uint32_t band_mask)
             case UI_SECTIONS: ui_sections(b, it); break;
             case UI_LANES: ui_lanes(b, it); break;
             case UI_FADERS: ui_faders(b, it); break;
+            case UI_RECORD: ui_record(b, it); break;
             default: break;
             }
         }

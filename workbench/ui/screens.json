@@ -39,6 +39,11 @@
    186,
    168,
    138
+  ],
+  "VINYL": [
+   14,
+   9,
+   6
   ]
  },
  "defaults": {
@@ -5407,6 +5412,88 @@
     }
    ],
    "title": "Sections"
+  },
+  "splash": {
+   "bands": [
+    {
+     "draw": [
+      {
+       "back": "VINYL",
+       "color": "AMB",
+       "past": "LINE",
+       "record": [
+        0,
+        120,
+        104
+       ],
+       "value": "spin"
+      }
+     ],
+     "h": 64,
+     "y": 0
+    },
+    {
+     "draw": [
+      {
+       "back": "VINYL",
+       "color": "AMB",
+       "past": "LINE",
+       "record": [
+        0,
+        56,
+        104
+       ],
+       "value": "spin"
+      },
+      {
+       "color": "WHITE",
+       "font": "MARK",
+       "text": "vnl-1",
+       "x": 118,
+       "y": 21
+      },
+      {
+       "color": "AMB",
+       "rect": [
+        120,
+        64,
+        90,
+        2
+       ]
+      },
+      {
+       "color": "GRAY",
+       "font": "XS",
+       "text": "LO-FI GENERATOR",
+       "x": 120,
+       "y": 75
+      }
+     ],
+     "h": 120,
+     "y": 64
+    },
+    {
+     "draw": [
+      {
+       "back": "VINYL",
+       "color": "AMB",
+       "past": "LINE",
+       "record": [
+        0,
+        -64,
+        104
+       ],
+       "value": "spin"
+      }
+     ],
+     "h": 56,
+     "y": 184
+    }
+   ],
+   "say": [
+    "{APP}"
+   ],
+   "title": "Splash"
   }
  }
 }

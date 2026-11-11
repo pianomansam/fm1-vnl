@@ -12,7 +12,7 @@ import { mkdtempSync, readFileSync, writeFileSync, existsSync, mkdirSync } from 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { deflateSync } from "node:zlib";
-import { Lcd, W, H, drawScreen } from "../ui/device.js";
+import { Lcd, W, H, BG, drawScreen } from "../ui/device.js";
 import data from "../ui/screens.js";
 import { ROWS } from "../rows.js";
 
@@ -93,7 +93,7 @@ function compare(c, extra = "") {
   const screen = data.screens[c.state.screen], inBand = new Uint8Array(H);
   for (const b of screen.bands) for (let y = b.y; y < b.y + b.h; y++) inBand[y] = 1;
   let outside = 0;
-  for (let y = 0; y < H; y++) if (!inBand[y]) for (let x = 0; x < W; x++) outside += c.fb[y * W + x] !== 0;
+  for (let y = 0; y < H; y++) if (!inBand[y]) for (let x = 0; x < W; x++) outside += c.fb[y * W + x] !== BG;
   const wrong = c.expect ? c.expect(c.state) : "";
   const good = same === W * H && !outside && !wrong;
   console.log(`  ${good ? "ok  " : "FAIL"} ${c.name}: ${((100 * same) / (W * H)).toFixed(3)}% of pixels match` +

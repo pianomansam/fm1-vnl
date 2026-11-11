@@ -332,7 +332,7 @@ int ui_value_kind(int id)
     int k;
     switch (id) {
     case UV_SONG: case UV_STOPPED: case UV_MSG: case UV_READY: case UV_KNOWN: case UV_LOOPING: return UI_VK_BOOL;
-    case UV_BAR: case UV_BARS: case UV_SEC_COUNT: case UV_PROGRESS: return UI_VK_NUM;
+    case UV_BAR: case UV_BARS: case UV_SEC_COUNT: case UV_PROGRESS: case UV_SPIN: return UI_VK_NUM;
     default: break;
     }
     if (id >= UV_I0 && id < UV_I(UV_I_COUNT, 0)) {
@@ -440,6 +440,7 @@ const char *ui_value(const ui_bag_t *b, int id, int index, char *t)
     case UV_READY: return s->ready ? "1" : "";
     case UV_KNOWN: return known ? "1" : "";
     case UV_SEC_COUNT: return cat_int(t, s->n_secs);
+    case UV_SPIN: return cat_int(t, n ? n->spin : 0);
     case UV_LOOPING: return s->rows[ROW_LOOP] == 1 ? "1" : "";
     case UV_SEC_RANGE: {                                    /* "1-7 OF 9": a list longer than its lines */
         int rows = UI_SCREENS[b->screen].rows ? UI_SCREENS[b->screen].rows : MENU_MAX, off = list_off(b);
@@ -540,6 +541,7 @@ int ui_value_num(const ui_bag_t *b, int id, int *den)
     int f, k;
     char t[UI_VALUE_MAX];
     *den = 1;
+    if (id == UV_SPIN) return b->n ? b->n->spin : 0;
     if (id == UV_PROGRESS) {
         if (!s->has_song || !s->roll.v[RF_BARS]) return 0;
         *den = s->roll.v[RF_BARS];

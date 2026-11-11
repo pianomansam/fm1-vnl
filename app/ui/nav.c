@@ -102,7 +102,7 @@ void ui_nav_init(ui_nav_t *n)
 {
     int i;
     memset(n, 0, sizeof *n);
-    n->stack[0] = (uint8_t)UI_HOME;
+    n->stack[0] = n->home = (uint8_t)UI_HOME;
     n->depth = 1;
     for (i = 0; i < UI_N_FIELDS; i++)
         n->req_at[i] = -1;
@@ -111,7 +111,7 @@ void ui_nav_init(ui_nav_t *n)
 
 void ui_new_song(ui_nav_t *n)
 {
-    n->stack[0] = (uint8_t)UI_HOME;
+    n->stack[0] = n->home;
     n->depth = 1;
     ui_speak(n);
 }
@@ -362,7 +362,10 @@ static void act(ui_nav_t *n, int ai, int detents)
         if (to == UI_GO_BACK) {
             if (n->depth > 1) n->depth--;
         } else if (to == UI_GO_HOME) {
-            n->stack[0] = (uint8_t)UI_HOME;
+            n->stack[0] = n->home;
+            n->depth = 1;
+        } else if (a->by) {                           /* the screen becomes the home */
+            n->stack[0] = n->home = (uint8_t)to;
             n->depth = 1;
         } else if (to != id && n->depth < UI_STACK)
             n->stack[n->depth++] = (uint8_t)to;

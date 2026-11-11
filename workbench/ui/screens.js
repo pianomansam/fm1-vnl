@@ -11,7 +11,7 @@
 //     text   a template: {name} is a value below (or a line in `lines`)
 //     font   T, XS, S, B, M or L (the device's, at their real metrics: ui/fonts.js)
 //     x      the pen's left; right: the text ends there (measured); after: this many px past the previous item's end
-//     color  BLACK, WHITE, LINE, DIM, GRAY, AMB, HI (gfx.c's palette, amber: APP_PALETTE)
+//     color  BLACK, WHITE, LINE, DIM, GRAY, AMB, HI (gfx.c's palette for app.h's APP_PALETTE: ESPRESSO)
 //     when   a value that must be true (non-empty, non-zero), "!value" for false, or a list of them (all must hold)
 //   { rect: [x, y, w, h], color, when }
 //   { knobs: { x, dx, label: { y, font, color }, value: { y, font, color, when } } }: the screen's four knobs, K1 at x,
@@ -42,6 +42,8 @@ export default {
     PAD: [96, 164, 240], LEAD: [236, 124, 184], TEXTURE: [186, 168, 138],
     // a change made but not live yet: its value at once, "*" in front, in this color (Sam, 2026-11-06)
     PENDING: [250, 226, 90],
+    // the record's disc on the splash and the now-playing screen (Sam's splash C1, 2026-11-11: near-black, warm)
+    VINYL: [14, 9, 6],
   },
 
   // 1-bit icons, 9 px wide, rows of "#" (lit) and "." (the main screen's): one per part, drawn in its color
@@ -186,6 +188,25 @@ export default {
   keyLeds: { lanes: [0, 2, 4, 6, 7], parts: ["drums", "bass", "keys", "lead", "pad"] },
 
   screens: {
+    // The boot splash (Sam, 2026-11-11: design C1): half a record entering from the left, its label amber with a cream
+    // dot, the wordmark, an amber rule, the tagline. app.c shows it at power-on, the record spinning up from still,
+    // slowing and settling (about 1.3 s, the engine and USB already running), then the home; the now-playing screen
+    // shares its record, so the splash flows into it with only the text changing. Not on any control.
+    splash: {
+      title: "Splash",
+      bands: [
+        { y: 0, h: 64, draw: [{ record: [0, 120, 104], value: "spin", color: "AMB", back: "VINYL", past: "LINE" }] },
+        { y: 64, h: 120, draw: [
+          { record: [0, 56, 104], value: "spin", color: "AMB", back: "VINYL", past: "LINE" },
+          { text: "vnl-1", font: "MARK", x: 118, y: 21, color: "WHITE" },     // its baseline at y 118
+          { rect: [120, 64, 90, 2], color: "AMB" },
+          { text: "LO-FI GENERATOR", font: "XS", x: 120, y: 75, color: "GRAY" },
+        ] },
+        { y: 184, h: 56, draw: [{ record: [0, -64, 104], value: "spin", color: "AMB", back: "VINYL", past: "LINE" }] },
+      ],
+      say: ["{APP}"],
+    },
+
     // The main screen (Sam, 2026-11-06: mockup B3, chosen over A-C; the FM-1 conventions from
     // docs/research/fm1-screens-2026-11-06.md): a thin status bar (where the song is, tempo top right), the song as
     // the hero (the chord, the key, a progress bar through the song, a pill for a change on its way), six part tiles

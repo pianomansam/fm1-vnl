@@ -3,7 +3,8 @@
 # (its key line); PLAY; ALGO to Comp, EDIT opens it and the reader says so; the G key mutes the bass, its light dark;
 # HOME; SEL, ARP, FX and GLO open Sections, the Parts roll, the Mixer and Settings, and each goes back.
 listen
-wait 600
+# past the boot splash (1.3 s)
+wait 1400
 said STOPPED
 where
 wait 50

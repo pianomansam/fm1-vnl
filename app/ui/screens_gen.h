@@ -6,7 +6,7 @@
 #include <stdint.h>
 
 /* the vocabulary (workbench/ui/vocab.json), in its order */
-enum ui_item_kind { UI_TEXT, UI_RECT, UI_ICON, UI_METER, UI_KNOBS, UI_SECTIONS, UI_LANES, UI_FADERS };
+enum ui_item_kind { UI_TEXT, UI_RECT, UI_ICON, UI_METER, UI_KNOBS, UI_SECTIONS, UI_LANES, UI_FADERS, UI_RECORD };
 enum ui_action { UA_NONE, UA_GO, UA_PLAY, UA_NUDGE, UA_TURN, UA_CURSOR, UA_PAGE, UA_PART, UA_JUMP, UA_REROLL, UA_MUTE, UA_SOLO, UA_LEVEL };
 
 /* the controls an action a screen: plat.h's buttons (B_*), the encoders (EN_SELECT, EN_ALGO, EN_PRESET), the
@@ -20,15 +20,15 @@ enum { UC_IN_FX, UC_IN_SEL, UC_IN_ENV, UC_IN_LFO, UC_IN_EDIT, UC_IN_GLO, UC_IN_H
 
 /* fonts (ui/fonts.js's faces: gfx's FONT_*), colors (UI_COLORS: the theme's, gfx.c's palette for APP_PALETTE,
    then the screens' own), icons, parts (the lanes', keys', mute's and solo's), screens, fields */
-enum ui_font { UI_FONT_T, UI_FONT_XS, UI_FONT_S, UI_FONT_B, UI_FONT_M, UI_FONT_L };
-#define UI_FONT_TABLE {&FONT_T, &FONT_XS, 0, &FONT_B, 0, 0}   /* gfx's faces the screens use (0: none) */
-enum ui_color { UC_BLACK, UC_WHITE, UC_LINE, UC_DIM, UC_GRAY, UC_AMB, UC_HI, UC_BASS, UC_COMP, UC_DRUMS, UC_LEAD, UC_PAD, UC_PENDING, UC_SONG, UC_TEXTURE };
+enum ui_font { UI_FONT_T, UI_FONT_XS, UI_FONT_S, UI_FONT_B, UI_FONT_M, UI_FONT_L, UI_FONT_MARK };
+#define UI_FONT_TABLE {&FONT_T, &FONT_XS, 0, &FONT_B, 0, 0, &FONT_MARK}   /* gfx's faces the screens use (0: none) */
+enum ui_color { UC_BLACK, UC_WHITE, UC_LINE, UC_DIM, UC_GRAY, UC_AMB, UC_HI, UC_BASS, UC_COMP, UC_DRUMS, UC_LEAD, UC_PAD, UC_PENDING, UC_SONG, UC_TEXTURE, UC_VINYL };
 #define UC_N_THEME 7
 #define UI_PENDING_COLOR UC_PENDING   /* a value waiting (-1: none) */
 enum ui_icon { UI_ICON_BASS, UI_ICON_COMP, UI_ICON_DRUMS, UI_ICON_LEAD, UI_ICON_PAD, UI_ICON_SONG, UI_ICON_TEXTURE };
 enum ui_part { UI_PART_DRUMS, UI_PART_BASS, UI_PART_KEYS, UI_PART_PAD, UI_PART_LEAD, UI_PART_TEXTURE };
-enum ui_screen_id { US_LEVELS, US_LEVELS_KNOBS, US_LEVELS_KNOBS2, US_MAIN, US_MIXER, US_P_BASS, US_P_COMP, US_P_COMP_MORE, US_P_DRUMS, US_P_DRUMS_MORE, US_P_LEAD, US_P_LEAD_MORE, US_P_PAD, US_P_SONG, US_P_SONG3, US_P_SONG_MORE, US_P_TEXTURE, US_PREFS, US_SECTIONS };
-#define UI_MAX_SCREENS 19
+enum ui_screen_id { US_LEVELS, US_LEVELS_KNOBS, US_LEVELS_KNOBS2, US_MAIN, US_MIXER, US_P_BASS, US_P_COMP, US_P_COMP_MORE, US_P_DRUMS, US_P_DRUMS_MORE, US_P_LEAD, US_P_LEAD_MORE, US_P_PAD, US_P_SONG, US_P_SONG3, US_P_SONG_MORE, US_P_TEXTURE, US_PREFS, US_SECTIONS, US_SPLASH };
+#define UI_MAX_SCREENS 20
 enum ui_field { UFLD_BASS_INS, UFLD_BASS_LINE, UFLD_COMP_FILL, UFLD_COMP_INS, UFLD_COMP_REG, UFLD_COMP_RHYTHM, UFLD_COMP_THIN, UFLD_COMP_VOICING, UFLD_DRUM_KICK, UFLD_DRUM_KIT, UFLD_DRUM_PATTERN, UFLD_DRUM_RIDE, UFLD_DRUM_VAR, UFLD_ENDLESS, UFLD_KEY, UFLD_LEAD_INS, UFLD_LEAD_LOOP_SET, UFLD_LEAD_PHRASE, UFLD_LEAD_REG, UFLD_LEAD_STYLE_SET, UFLD_LOOP, UFLD_MODE, UFLD_MOOD, UFLD_MOTION, UFLD_PAD_INS, UFLD_PAD_NOTES, UFLD_PAD_ON_SET, UFLD_PAD_PLACE_SET, UFLD_SONG_COLOR, UFLD_SONG_MAP, UFLD_SONG_PROG, UFLD_SONG_SWING, UFLD_TEMPO, UFLD_TEX_AMB, UFLD_TEX_DUST, UFLD_TEX_NOISE };
 #define UI_N_FIELDS 36
 
@@ -57,25 +57,26 @@ enum ui_value {
     UV_SEC_COUNT,
     UV_LOOPING,
     UV_SEC_RANGE,
+    UV_SPIN,
     UV_N_FIXED
 };
 enum { UVK_I_SEL, UVK_I_SEC, UVK_I_SEC_BARS, UVK_I_SEC_NOW, UVK_I_SEC_PEND, UVK_I_SEC_KEY, UVK_I_N };   /* sel{0-9}, sec{0-9}, sec{0-9}Bars, sec{0-9}Now, sec{0-9}Pend, sec{0-9}Key */
-#define UV_I0 22
+#define UV_I0 23
 #define UV_I(i, k) (UV_I0 + (i) * UVK_I_N + (k))
 #define UV_I_COUNT 10
 enum { UVK_FIELD_VALUE, UVK_FIELD_FRAC, UVK_FIELD_PEND, UVK_FIELD_FIRST, UVK_FIELD_LAST, UVK_FIELD_N };   /* {field}, {field}Frac, {field}Pend, {field}First, {field}Last */
-#define UV_FIELD0 82
+#define UV_FIELD0 83
 #define UV_FIELD(i, k) (UV_FIELD0 + (i) * UVK_FIELD_N + (k))
 #define UV_FIELD_COUNT 36
 enum { UVK_ROW_VALUE, UVK_ROW_PEND, UVK_ROW_N };   /* {row}, {row}Pend */
-#define UV_ROW0 262
+#define UV_ROW0 263
 #define UV_ROW(i, k) (UV_ROW0 + (i) * UVK_ROW_N + (k))
 #define UV_ROW_COUNT 37
 enum { UVK_LINE_VALUE, UVK_LINE_N };   /* {line} */
-#define UV_LINE0 336
+#define UV_LINE0 337
 #define UV_LINE(i, k) (UV_LINE0 + (i) * UVK_LINE_N + (k))
 #define UV_LINE_COUNT 2
-#define UI_N_VALUES 338
+#define UI_N_VALUES 339
 
 /* a template: text with a value at each UI_TPL_VAL byte, its id in the next two (UI_TPL_ID); never a NUL */
 #define UI_TPL_VAL 1
@@ -85,12 +86,14 @@ extern const char UI_STRINGS[];
 
 /* a text's x: UI_POS_X the pen's left, UI_POS_RIGHT its right end, UI_POS_AFTER past the previous item's end */
 enum { UI_POS_X, UI_POS_RIGHT, UI_POS_AFTER };
-/* a draw item. ref: a text's template (UI_STR), an icon (UI_ICONS), a meter's value id, a knobs' style
-   (UI_KNOB_STYLES), lanes' or faders' (UI_LANE_ITEMS). x y w h: an icon's or text's pen (x, y), a geometry's
-   [x, y, w, h], in the band. color back past: ui_color (sections: the playing one, those to come, those
-   played; meter: fill and back). A lone text's arrows: UI_LONES. when: UI_WHENS. 10 bytes */
+/* a draw item. ref: a text's template (UI_STR), an icon (UI_ICONS), a meter's or record's value id, a knobs'
+   style (UI_KNOB_STYLES), lanes' or faders' (UI_LANE_ITEMS). x y w h: an icon's or text's pen (x, y), a
+   geometry's [x, y, w, h], in the band; a text's h its UI_POS_*, w its fit (0 none: wider, it is drawn in face
+   back - 1); a record's [cx, cy, r] (cy signed). color back past: ui_color (sections: the playing one, those to
+   come, those played; meter: fill and back; record: label, disc, grooves). A lone text's arrows: UI_LONES.
+   when: UI_WHENS. 10 bytes */
 typedef struct {
-    uint8_t kind : 3, font : 3, pos : 2;
+    uint8_t kind : 4, font : 4;
     uint8_t color : 4, back : 4;
     uint8_t x, y, w, h, when, past;
     uint16_t ref;
@@ -109,7 +112,8 @@ typedef struct {
 typedef struct { uint8_t parts, label, row_h, window; uint16_t keys, tags; uint8_t live; } ui_lanes_t;
 /* an action. arg: a go's screen (or UI_GO_*), a turn's or nudge's field, a jump's section (255: the cursor's),
    a mute's, solo's, reroll's or level's part (255: the highlighted lane's, or the song); by: a turn's step or
-   a nudge's amount; lng: the long press's action (0 none); list: a turn's byCursor fields (255: none there) */
+   a nudge's amount (a go's: 1 the screen becomes the home); lng: the long press's action (0 none); list: a
+   turn's byCursor fields (255: none there) */
 typedef struct { uint8_t kind, arg; int8_t by; uint8_t lng, list; } ui_action_t;
 #define UI_GO_BACK 253
 #define UI_GO_HOME 254

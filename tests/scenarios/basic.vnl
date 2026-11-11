@@ -3,7 +3,8 @@
 # knobs are heard and read out.
 #   ./build.sh --host, then app/build/host/vnl_host tests/scenarios/basic.vnl app/build/scenarios
 listen
-wait 600
+# past the boot splash (1.3 s)
+wait 1400
 said STOPPED
 # the song ready: its key line
 where
