@@ -1445,3 +1445,8 @@ less noise between the harmonics on the upper notes (the fuzz Sam heard was the 
 - Flash: image 290,316 to **290,384 B (+68)**; RAM .data+.bss 74,660 to **74,676 B (+16)**; the pool unchanged.
 - CPU (`tools/cost-bench.sh --parts`, lead rows, a busier host run: every row higher): jazz guitar ratio 0.199 (the
   Knight 0.250, the flute 0.239): a multiply and an add a sample for the chorus send, only under a low lead.
+
+The same day, Sam: "the other instruments should have gone up an octave instead of down": over the low lead the keys
+an octave up (the workbench's keys-octave path, its guard for a lead on top passed by) and the pad's chord part an
+octave up (67-84); the lead never pushed over the keys, its ceiling not raised with them. Image 290,384 to
+**290,448 B (+64)**; RAM unchanged.

@@ -42,7 +42,7 @@ int pads_rub(int a, int b);
 
 /* The chord part for a chord (pcs, root first): its notes by lane into out (lane k+1; 0 silent), voice-led from prev
    (the same, all 0 for none). 2 notes (budget cut (c)): the guide tones first (3rd and 7th), then the 5th or the 9th;
-   MIDI 55-72 (43-60 under a low lead, lib_lead_low); common tones held,
+   MIDI 55-72 (67-84 over a low lead, lib_lead_low); common tones held,
    the rest moving to the nearest legal tone, the top voice smoothest. No note rubs a keys note (keys: 6, 0 none:
    harmony_keys_notes_at's, a strummed guitar's whole shape) or a
    lead note, or sits a minor 9th over the bass (bass_pc), nor two of its own. out may be prev. Returns the count: 2

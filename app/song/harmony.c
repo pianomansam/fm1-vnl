@@ -312,20 +312,21 @@ int harmony_pad_place(const song_roll_t *r)
 
 /* the workbench's keys_oct: the keys an octave up or down where the instrument's range holds the whole register
    the voicer (C3-E5) or the strum (E2-E5) can reach, else where they were; one shift for the song. Left as rolled
-   under a low lead (lib_lead_low), down an octave. */
+   over a low lead (lib_lead_low), up an octave. */
 int harmony_keys_oct(const song_roll_t *r)
 {
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
     int d = 12 * song_ov()->keys_oct, lo, hi, sh, strum;
-    if (!d && set && lib_lead_low(set->lead)) /* a low lead (the jazz guitar): the keys under it, an octave down */
-        d = -12;
+    if (!d && set && lib_lead_low(set->lead)) /* a low lead (the jazz guitar): the keys over it, an octave up */
+        d = 12;
     if (!d || !set || set->chords == INS_VIBES) return 0;   /* (the vibes: their register is the bars' own, F3 up,
                                                                place_keys) */
     strum = harmony_style(r) == CS_STRUM;
     sh = strum ? 0 : lib_set_keys_shift(set) + (harmony_pad_place(r) != PL_BELOW ? 12 : 0);
     song_ov_range(set->lead, &lo, &hi);
-    if (d > 0 && !keys_sustained(r) && hi < 94) return 0;   /* the lead sits a 4th over percussive keys: raised, they
-                                                               need a lead whose ceiling can rise with them (lead.c) */
+    if (d > 0 && !keys_sustained(r) && hi < 94 && !lib_lead_low(set->lead))
+        return 0;   /* the lead sits a 4th over percussive keys: raised, they need a lead whose ceiling can rise with them
+                       (lead.c); a low lead sits under them */
     song_ov_range(set->chords, &lo, &hi);
     return (strum ? 40 : 48) + sh + d >= lo && 76 + sh + d <= hi ? d : 0;
 }

@@ -150,17 +150,18 @@ static void range_bar(const song_roll_t *r, int style, const int keys[4], const 
 {
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
     int top = 0, ntop = 0, i, blo, bhi, il, ih, ko = harmony_keys_oct(r);
-    int e6 = set && lib_lead_low(set->lead) ? 76 : 88;  /* the ceiling: E6, a low lead's E5 */
+    int low = set && lib_lead_low(set->lead), e6 = low ? 76 : 88;   /* the ceiling: E6, a low lead's E5 */
     for (i = 0; i < 4; i++) {
         if (keys[i] > top) top = keys[i];
         if (nkeys[i] > ntop) ntop = nkeys[i];
     }
     song_ov_range(set ? set->lead : INS_FLUTE, &il, &ih);
     leads_band_for(r, style, &blo, &bhi);
-    *lo = top >= blo ? top + 5 : blo;                    /* the keys reach in: a 4th over them */
-    *lo_x = ntop >= blo && ntop + 5 > *lo ? ntop + 5 : *lo;
+    *lo = top >= blo && !low ? top + 5 : blo;            /* the keys reach in: a 4th over them (a low lead under
+                                                            them: its band, the keys raised over it) */
+    *lo_x = ntop >= blo && ntop + 5 > *lo && !low ? ntop + 5 : *lo;
     *hi = e6 + 12 * song_ov()->lead_oct;                 /* E6, or the workbench's octave off it */
-    if (ko > 0 && e6 + ko > *hi) *hi = e6 + ko;          /* the workbench's keys raised: the ceiling with them */
+    if (ko > 0 && e6 + ko > *hi && !low) *hi = e6 + ko;  /* the workbench's keys raised: the ceiling with them */
     if (*hi > ih) *hi = ih > e6 ? ih : e6;               /* in the instrument's range (or E6 at least: as before) */
     if (*hi < bhi) *hi = bhi;                            /* an octave down: the band's top at least */
 }

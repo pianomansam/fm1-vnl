@@ -156,7 +156,7 @@ int pads_chord(const song_roll_t *r, const int keys[6], const int *pcs, int np, 
 {
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
     int cand[24], pen[24], nc = 0, have3 = 0, have7 = 0, p[3], i, j, k, m;
-    int sh = set && lib_lead_low(set->lead) ? -12 : 0;   /* under a low lead (the jazz guitar): an octave down */
+    int sh = set && lib_lead_low(set->lead) ? 12 : 0;    /* over a low lead (the jazz guitar): an octave up */
     pick_t b;
     memcpy(p, prev, sizeof p);
     b.cost = 1 << 30;
