@@ -755,6 +755,20 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   6ec226d2/572d1848 to 3df1a20a/616b00b8, song_rolled at seeds 21 and 140. Thresholds: the synth sets' share 2.8%
   to 2.4%, the pad chord's common pitches 4000 to 3700, ov oct's seed 3 (now the felt over the Rhodes) held to half,
   the lead loop octave's dropped notes 1 in 250 to 1 in 200; smoke's lead-down seed 5 to 2.
+  - **Fixed (Sam, 2026-11-11: "the cello is an octave too high!", seed 105, set 44, Bb minor, 76 BPM):** its band
+    was two octaves under the flute's style center, which floats with the style (Ambient's and its ceiling A4 put
+    seed 105's line at Db4-Ab4). Now an absolute register: the cello's center G3 whatever the style (leads.c's
+    CELLO_C), its ceiling E4 (A4); the lift (keys and pad +12 in its blocks, its top under the keys' lowest) as
+    before. Measured from the audio (10-90% / median / top) on 13 songs of sets 44-45 across its four styles:
+    seed 105 Db3-F3 / Eb3 / Ab3 (was Db4-F4, top Ab4); 101 F3-C4 / F3 / Eb4; 102 Gb3-D4 / A3 / D4; 103 E3-Db4 / A3
+    / Db4; 106 G3-A3 / G3 / C4; 107 F3-D4 / Bb3 / D4; 108 F3-C4 / G3 / D4; 111 (Film Score) G3-D4 / A3 / D4; 113
+    Ab3-Db4 / Bb3 / Eb4; 114 F3-C4 / G3 / C4; 115 A3-Db4 / A3 / E4; 119 G3-C4 / C4 / Db4. Seed 114 on set 1 (Sam's
+    OK) unchanged, F3-C4. In seed 105's lead blocks the keys lift to Eb4-Eb5 over the cello's Db3-Ab3, back at
+    Eb3-Eb4 outside; test_jazz_lift holds. Its zones (A2-A4) cover the line, the 70 Hz lead high-pass sits under its
+    lowest note (F#2, 92 Hz). Lower, it read about 1 dB louder over its keys: its lead level 0.95 dB down (SAMP_LEAD
+    +4.65 dB), test_lead_over_keys (loop) +9.4 Knight and cello, +8.4 Rhodes and cello (were 9.5, 8.4). Every other
+    lead renders bit for bit as before. The lead loop's hashes 3df1a20a/616b00b8 to 617710c3/6f39f64e. Renders:
+    scratchpad cello-fix/.
 - **Done (Sam, 2026-11-11): the jazz guitar approved for songs.** Three sets lead with it, one per flavor its styles
   weigh most, over struck keys the lift raises: 38 Rhodes and jazz guitar (neo-soul, wistful/warm), 39 Knight and
   jazz guitar (lofi, sad/wistful), 40 Bossa Rhodes and jazz guitar (bossa, warm/sunny). About 10% of songs (20,000

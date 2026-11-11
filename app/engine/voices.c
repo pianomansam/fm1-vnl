@@ -114,10 +114,10 @@ static const float CP_THR_KIT[KIT_N] = {0.095f, 0.090f, 0.084f, 0.162f, 0.110f, 
    the Knight +3.85 and the Emilyguitar +3.5, tuned on their sets' lead over keys (test_lead_over_keys: a struck lead
    reads 8-10 dB over the keys at about 4 dB under the flute's bar energy); the jazz guitar (sets 38-40)
    +5.21, an octave low with its chorus (its dry 2.5 dB down for it), its zones 16-bit PCM: the Knight's level on the
-   lead in test_samp's songs; the sampled cello (sets 44-45) +5.6 dB, its sets' lead over keys (8.8 read 12-13 dB over them: a held bow's
-   energy); the harp (sets
+   lead in test_samp's songs; the sampled cello (sets 44-45) +4.65 dB, its sets' lead over keys (8.8 read 12-13 dB
+   over them: a held bow's energy; 5.6 read 9.3-10.4 once its line went down an octave, 2026-11-11); the harp (sets
    41-43) +5.3, the struck leads' level (dry: no echo) */
-static const float SAMP_LEAD[SB_N] = {1.5578f, 2.239f, 1.4962f, 1.8216f, 1.906f, 1.845f};
+static const float SAMP_LEAD[SB_N] = {1.5578f, 2.239f, 1.4962f, 1.8216f, 1.7085f, 1.845f};
 
 /* big zero-initialised buffers go in the device's .pool RAM region (fm1-base's PLAT_POOL; a Mach-O host has no such
    section) */

@@ -112,7 +112,7 @@ int leads_style_keep(const song_roll_t *r, int prev)
    2 flute Db Lydian, 3 vibes B Dorian, 4 felt piano Ab Mixolydian, 5 flute A Ionian; the renders' json "lead" notes,
    app/build/new, 2026-10-29), per lead instrument; a half rounded down ('60s Jazz on the flute, 80.5). No spike put
    the Knight on the lead: it takes the style's flute center, as does any other lead instrument; a low lead
-   (lib_lead_drop: the jazz guitar, the sampled cello) the flute's an octave down (the cello two).
+   (lib_lead_drop: the jazz guitar) the flute's an octave down; the cello (a drop of 24) its own, CELLO_C.
 
                       flute  felt   vibes  Knight  other   (notes measured: flute / felt / vibes)
      Impressionism     79     80     76     79      79      119 /  80 / 49
@@ -128,10 +128,17 @@ static const uint8_t CENTER[LS_N][5] = {
     {76, 80, 76, 76, 76}, {78, 80, 76, 78, 78}, {82, 80, 79, 82, 82}, {77, 82, 80, 77, 77},
 };
 
+/* The cello's center, whatever the style (Sam, 2026-11-11: "the cello is an octave too high!" on seed 105, its line
+   Db4-Ab4 where two octaves under the flute's style center floated it): G3, its band Db3-Db4, its ceiling E4
+   (range_bar), so its line's body sits about G2-D4, as a cello's melody does */
+#define CELLO_C 55
+
 int leads_center(int style, int ins)
 {
     int col = ins == INS_FLUTE ? 0 : ins == INS_FELT_PIANO ? 1 : ins == INS_VIBES ? 2 : ins == INS_KNIGHT ? 3 : 4;
-    int c = CENTER[style >= 0 && style < LS_N ? style : 0][col] - lib_lead_drop(ins), lo, hi;
+    int c = lib_lead_drop(ins) > 12 ? CELLO_C
+                                    : CENTER[style >= 0 && style < LS_N ? style : 0][col] - lib_lead_drop(ins);
+    int lo, hi;
     song_ov_range(ins, &lo, &hi);
     return c < lo + 6 ? lo + 6 : c > hi - 6 ? hi - 6 : c;
 }
@@ -153,8 +160,8 @@ static void range_bar(const song_roll_t *r, int style, const int keys[4], const 
 {
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
     int top = 0, ntop = 0, i, blo, bhi, il, ih, ko = harmony_keys_oct(r);
-    int drop = set ? lib_lead_drop(set->lead) : 0, e6 = drop > 12 ? 69 : drop ? 76 : 88;   /* the ceiling: E6; a low
-                                                                                            lead's E5, a cello's A4 */
+    int drop = set ? lib_lead_drop(set->lead) : 0, e6 = drop > 12 ? 64 : drop ? 76 : 88;   /* the ceiling: E6; a low
+                                                                                            lead's E5, a cello's E4 */
     int lift = set && lib_lead_lift(set->lead);          /* the keys lift over it (the jazz guitar, the cello) */
     for (i = 0; i < 4; i++) {
         if (keys[i] > top) top = keys[i];

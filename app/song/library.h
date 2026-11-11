@@ -83,9 +83,10 @@ int lib_ins_sampled_struck(int ins);
 /* 1: a sampled instrument (lib_ins_sampled_struck's, the sampled cello, the harp): none plays without the bank */
 int lib_ins_sampled(int ins);
 /* A lead under the others' register: the semitones its style centers sit under the flute's (leads.c), 0 for none:
-   the jazz guitar 12 (Sam 2026-11-10: "this octave does work"), the sampled cello 24 (Sam 2026-11-11: an
-   octave under round 1's, a cello's melody G2-E4, its top A4). lib_lead_low: 1 for any of them (its ceiling down,
-   E5 or A4; its patch's chorus its send into the keys', voices.c) */
+   the jazz guitar 12 (Sam 2026-11-10: "this octave does work"); the sampled cello 24, which marks it: its center is
+   its own, G3 whatever the style (leads.c's CELLO_C; Sam 2026-11-11: "an octave too high" where the style's floated
+   it), a cello's melody G2-E4. lib_lead_low: 1 for any of them (its ceiling down, E5 or E4; its patch's chorus its
+   send into the keys', voices.c) */
 int lib_lead_drop(int ins);
 int lib_lead_low(int ins);
 /* 1: a low lead the keys lift over (the jazz guitar, the sampled cello): in its blocks the keys and the pad's chord part an
