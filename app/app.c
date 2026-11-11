@@ -194,6 +194,7 @@ static song_ev_t evs[64];
    longest render of an audio block and the blocks whose render took longer than the block lasts (late) */
 static uint32_t m_draw_max, m_render_max, m_late;
 static uint32_t m_spin_max;              /* the record's turn: its label's redraw, the longest (us) */
+static uint32_t m_fade_max;              /* a fade's step: the text's columns' redraw, the longest (us) */
 static uint32_t m_load_now, m_load_peak; /* the render's load, % of its block: the last block's, the highest */
 /* what a late block had going on (its first cause in this order counts it, one each; none: other), for the live state: the render's own
    (a new song, its first bar's planning or its end, a stop's resume; a row's request landing; a jump's fast-forward
@@ -1817,14 +1818,16 @@ static void ui_host_snap(void)
     ui_update(&ui_hnav, &ui_hsnap, plat_ms());
 }
 
-/* the boot splash (screens.js's splash): shown from app_splash until SPLASH_MS after app_ui_init, its record still,
-   spinning up, slowing and settling at its first pose after two turns (SPLASH_TURN_MS); the engine, USB and the input
-   run all along (a control pressed ends it). Then the home: the now-playing screen shares the record, so only its text
-   changes */
+/* the boot splash (screens.js's splash): shown from app_splash, its record still, then from app_ui_init spinning up,
+   slowing and settling at its first pose after two turns (SPLASH_TURN_MS); the engine, USB and the input run all along
+   (a control pressed ends it, the home as it is). Then the home: the main screen at SPLASH_MS (a cut); now playing,
+   which shares the record (Sam, 2026-11-11), a fade: the splash's text out into the background, the song's in
+   (SPLASH_FADE_MS each, 4 steps of {fade}), only the text's columns redrawn, the record staying */
 #define SPLASH_MS 1300u
 #define SPLASH_TURN_MS 1150u
+#define SPLASH_FADE_MS 150u
 static uint32_t splash_t0;
-static uint8_t splash_on;
+static uint8_t splash_on, splash_fading;  /* the splash shown; now playing's text fading in after it */
 
 /* the screen shown: the splash, or the navigator's */
 static int ui_shown_id(void) { return splash_on ? US_SPLASH : ui_hnav.stack[ui_hnav.depth - 1]; }
@@ -1849,17 +1852,52 @@ static void ui_host_draw(void)
     ui_draw(&UI_SCREENS[id], &b, 0xFFFFFFFFu);
 }
 
+/* the screen's text alone (a fade's step: right of its records) */
+static void ui_host_text(void)
+{
+    int id = ui_shown_id();
+    ui_bag_t b;
+    ui_values(&ui_hsnap, &ui_hnav, &b);
+    b.screen = id;
+    b.act = ui_activity();
+    ui_draw_text(&UI_SCREENS[id], &b);
+}
+
 /* the record's turn (ui_hnav.spin, 1/256 turns): the splash's; else 33 1/3 turns a minute while a song plays, easing
    to a stop when it stops and back up on play. Only a screen with a record redraws for it, its label alone */
 static float spin_turns, spin_speed;      /* turns, turns a ms */
 static uint32_t spin_at;
+/* the fade's step at u ms into a SPLASH_FADE_MS half: 1..4 */
+static int fade_step(uint32_t u) { return (int)(u * 4u / SPLASH_FADE_MS) + 1 > 4 ? 4 : (int)(u * 4u / SPLASH_FADE_MS) + 1; }
+
+/* the splash's end, a control pressed: the home as it is */
+static void splash_end(void)
+{
+    splash_on = splash_fading = 0;
+    ui_hnav.fade = 0;
+    ui.redraw = 1;
+}
+
 static void spin_tick(uint32_t now)
 {
     float dt = spin_at ? (float)(now - spin_at < 100u ? now - spin_at : 100u) : 0.0f, want;
+    uint32_t t = now - splash_t0;
+    int fading = ui_hnav.home == US_NOW && UI_SCREENS[US_NOW].fade;
     spin_at = now;
+    if (splash_on && fading && t >= SPLASH_TURN_MS + SPLASH_FADE_MS) {
+        splash_on = 0;                   /* now playing, its text gone into the background: fading in */
+        splash_fading = 1;
+    }
+    if (splash_fading) {
+        uint32_t u = t - SPLASH_TURN_MS - SPLASH_FADE_MS;
+        if (u >= SPLASH_FADE_MS) splash_fading = 0;
+        ui_hnav.fade = (uint8_t)(splash_fading ? 16 - 4 * fade_step(u) : 0);
+    }
     if (splash_on) {
-        float u = (float)(now - splash_t0) / (float)SPLASH_TURN_MS;
-        if (now - splash_t0 >= SPLASH_MS) {
+        float u = (float)t / (float)SPLASH_TURN_MS;
+        if (fading)                      /* the splash's text fading out */
+            ui_hnav.fade = (uint8_t)(t < SPLASH_TURN_MS ? 0 : 4 * fade_step(t - SPLASH_TURN_MS));
+        else if (t >= SPLASH_MS) {
             splash_on = 0;
             ui.redraw = 1;
         }
@@ -1959,6 +1997,7 @@ static void ui_host_state(void)
     char t[UI_VALUE_MAX];
     int i, j, first = 1;
     ui_values(&ui_hsnap, &ui_hnav, &b);
+    b.screen = ui_shown_id();            /* (the splash while it shows) */
     printf("uistate {\"said\":");
     ui_json_str(ui_hnav.said);
     printf(",\"msg\":");
@@ -2171,6 +2210,7 @@ static uint32_t live_state(char *o, uint32_t cap)
     jbk(&b, "late"); jbi(&b, (int32_t)m_late);
     jbk(&b, "redraw_us"); jbi(&b, (int32_t)m_draw_max);
     jbk(&b, "spin_us"); jbi(&b, (int32_t)m_spin_max);   /* the record's turn: a frame's label redraw, the longest */
+    jbk(&b, "fade_us"); jbi(&b, (int32_t)m_fade_max);   /* a fade's step: the text's redraw, the longest */
     jbk(&b, "render_us"); jbi(&b, (int32_t)m_render_max);
     jbk(&b, "ab"); jbi(&b, ab_flags);
     jbk(&b, "ab2"); jbi(&b, ab_flags2);    /* the A/B switches (app.c AB_*: 1 guard off, 2 roll off, 4 kit render off,
@@ -2198,7 +2238,7 @@ static char live_sent[16384];            /* the simulator's: the frames, hex ("l
    their causes, the slowest render and redraw, the guard's steps */
 static void live_reset(void)
 {
-    m_load_peak = m_late = m_render_max = m_draw_max = m_spin_max = 0;
+    m_load_peak = m_late = m_render_max = m_draw_max = m_spin_max = m_fade_max = 0;
     memset(m_late_by, 0, sizeof m_late_by);
     cg_stats_reset();
 }
@@ -2391,10 +2431,8 @@ void app_frame(void)
     ui.shown = s;
     input();
 #if VNL_UI_RUNTIME
-    if (splash_on && (ui.btn || plat_keys() || ui.redraw_input)) {   /* a control pressed: the splash ends */
-        splash_on = 0;
-        ui.redraw = 1;
-    }
+    if ((splash_on || splash_fading) && (ui.btn || plat_keys() || ui.redraw_input))   /* a control pressed */
+        splash_end();
     ui.redraw_input = 0;
     set_keep();
 #endif
@@ -2404,9 +2442,17 @@ void app_frame(void)
         ui.redraw = 1;
     }
 #if UI_RT
-    {                                    /* the record turns: its label alone, unless the screen is drawn anyway */
-        uint8_t was = ui_hnav.spin;
+    {                                    /* the record turns: its label alone, unless the screen is drawn anyway; a
+                                            fade's step: the text alone */
+        uint8_t was = ui_hnav.spin, was_fade = ui_hnav.fade, was_on = splash_on;
         spin_tick(now);
+        if ((ui_hnav.fade != was_fade || splash_on != was_on) && !ui.redraw && !rm.on && ui_host >= 0) {
+            uint32_t m_t0 = M_T(), dt;
+            ui_host_text();
+            dt = M_DT(m_t0);
+            if (dt < M_SANE_US && dt > m_fade_max)
+                m_fade_max = dt;
+        }
         if (ui_hnav.spin != was && !ui.redraw && !rm.on && ui_host >= 0) {
             uint32_t m_t0 = M_T(), dt;
             ui_record_turn(&UI_SCREENS[ui_shown_id()], ui_hnav.spin);
@@ -2519,7 +2565,7 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
             return 1;
         }
         ui_host = i;
-        splash_on = 0;
+        splash_on = splash_fading = 0;
         ui_nav_init(&ui_hnav);
         ui_hnav.eng = &UI_HENG;
         ui_hnav.stack[0] = (uint8_t)i;
@@ -2555,8 +2601,21 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
             for (k = 0; k < 256; k++)
                 ui_record_turn(&UI_SCREENS[US_NOW], k);
             printf("uibench spin %d us (a turn's frame, the host's)\n", (int)((clock() - t0) * 1000000.0 / CLOCKS_PER_SEC / 256));
+            t0 = clock();
+            ui_hnav.stack[ui_hnav.depth - 1] = (uint8_t)US_NOW;
+            for (k = 0; k < 64; k++) {
+                ui_hnav.fade = (uint8_t)(k & 15);
+                ui_host_text();
+            }
+            ui_hnav.fade = 0;
+            printf("uibench fade %d us (a fade's step, the host's)\n", (int)((clock() - t0) * 1000000.0 / CLOCKS_PER_SEC / 64));
         }
         ui_hnav.stack[ui_hnav.depth - 1] = (uint8_t)keep;
+        return 1;
+    }
+    if (!strcmp(cmd, "uifade")) {        /* uifade N: the screen's text redrawn alone at {fade} N (a fade's step) */
+        ui_hnav.fade = (uint8_t)atoi(a);
+        if (ui_host >= 0) ui_host_text();
         return 1;
     }
     if (!strcmp(cmd, "uistate")) {       /* uistate: the bag and the stack the runtime's screen was drawn from, JSON */

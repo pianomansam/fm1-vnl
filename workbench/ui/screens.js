@@ -194,6 +194,7 @@ export default {
     // shares its record, so the splash flows into it with only the text changing. Not on any control.
     splash: {
       title: "Splash",
+      fade: true,   // its text fades out into now playing's (app.c), the record staying
       bands: [
         { y: 0, h: 64, draw: [{ record: [0, 120, 104], value: "spin", color: "AMB", back: "VINYL", past: "LINE" }] },
         { y: 64, h: 120, draw: [
@@ -215,6 +216,7 @@ export default {
     // everywhere.
     now: {
       title: "Now playing",
+      fade: true,   // its text fades in from the splash's (app.c)
       bands: [
         { y: 0, h: 56, draw: [{ record: [0, 120, 104], value: "spin", color: "AMB", back: "VINYL", past: "LINE" }] },
         // the song beside it, centred on the record (rows 61-180): the name, key and mode, the chord playing (Sam,

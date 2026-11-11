@@ -668,7 +668,8 @@ def gen_screens(data, vocab, rows, all_parts=None):
                         lanes=lst(part(p) for p in sc.get("lanes", [])),
                         list=1 if sc.get("list") == "sections" else 0,
                         key_leds=key_leds(f"{sid}.keyLeds", sc.get("keyLeds")) or default_kl,
-                        say=say0, n_say=len(says) - say0, placeholder=1 if sc.get("placeholder") else 0, rows=sc.get("rows", 0)))
+                        say=say0, n_say=len(says) - say0, placeholder=1 if sc.get("placeholder") else 0, rows=sc.get("rows", 0),
+                        fade=1 if sc.get("fade") else 0))
     line_tpl = [tpl(f"lines.{k}", t) for k, t in data.get("lines", {}).items()]
     part_screens = lst(screens.index(p) for p in data.get("parts", []) if p in screens)
     if data["home"] not in screens:
@@ -777,10 +778,11 @@ def gen_screens(data, vocab, rows, all_parts=None):
         "typedef struct { uint8_t field, step; } ui_knob_t;\n"
         "/* a screen. bands: its first in UI_BANDS; knobs: UI_NONE none; controls: an action (UI_ACTIONS) each\n"
         "   (UC_IN_*); menu, pages, lanes: lists; list: 1 the song's sections; key_leds: UI_KEY_LEDS + 1 (0 none);\n"
-        "   say: its first part in UI_SAYS; rows: a list's lines that fit (0: all; more scroll with the highlight) */\n"
+        "   say: its first part in UI_SAYS; rows: a list's lines that fit (0: all; more scroll with the highlight); fade:\n"
+        "   1 its items but records fade into the band's background by {fade} (0 none .. 16 gone) */\n"
         "typedef struct {\n    uint16_t title;\n    uint8_t bands, n_bands;\n    ui_knob_t knobs[4];\n"
         "    uint8_t controls[UI_CTL_KEY(0)];\n    uint8_t keys, menu, pages, lanes, list, key_leds, placeholder, rows;\n"
-        "    uint8_t say, n_say;\n} ui_screen_t;\n\n"
+        "    uint8_t say, n_say, fade;\n} ui_screen_t;\n\n"
         "extern const ui_screen_t UI_SCREENS[];\nextern const int UI_N_SCREENS, UI_HOME;\n"
         "extern const uint8_t UI_KEYMAPS[][UI_N_CONTROLS - UI_CTL_KEY(0)];   /* the keys' actions: a screen's keys map */\n"
         "/* a control's action on a screen (UC_IN_*: a button, an encoder, a knob, a key) */\n"
@@ -868,7 +870,7 @@ def gen_screens(data, vocab, rows, all_parts=None):
                  "{" + ", ".join(f"{{{f}, {st}}}" for f, st in x["knobs"]) + "},\n      {" +
                  ", ".join(map(str, x["controls"][:nk])) + "},\n      "
                  f"{x['keys']}, {x['menu']}, {x['pages']}, {x['lanes']}, {x['list']}, {x['key_leds']}, {x['placeholder']}, {x['rows']}, "
-                 f"{x['say']}, {x['n_say']}}},\n")
+                 f"{x['say']}, {x['n_say']}, {x['fade']}}},\n")
     c.append("};\n")
     vs = Strings()
     names = [vs("")] + [vs(v) for v in values]

@@ -58,25 +58,26 @@ enum ui_value {
     UV_LOOPING,
     UV_SEC_RANGE,
     UV_SPIN,
+    UV_FADE,
     UV_N_FIXED
 };
 enum { UVK_I_SEL, UVK_I_SEC, UVK_I_SEC_BARS, UVK_I_SEC_NOW, UVK_I_SEC_PEND, UVK_I_SEC_KEY, UVK_I_N };   /* sel{0-9}, sec{0-9}, sec{0-9}Bars, sec{0-9}Now, sec{0-9}Pend, sec{0-9}Key */
-#define UV_I0 23
+#define UV_I0 24
 #define UV_I(i, k) (UV_I0 + (i) * UVK_I_N + (k))
 #define UV_I_COUNT 10
 enum { UVK_FIELD_VALUE, UVK_FIELD_FRAC, UVK_FIELD_PEND, UVK_FIELD_FIRST, UVK_FIELD_LAST, UVK_FIELD_N };   /* {field}, {field}Frac, {field}Pend, {field}First, {field}Last */
-#define UV_FIELD0 83
+#define UV_FIELD0 84
 #define UV_FIELD(i, k) (UV_FIELD0 + (i) * UVK_FIELD_N + (k))
 #define UV_FIELD_COUNT 36
 enum { UVK_ROW_VALUE, UVK_ROW_PEND, UVK_ROW_N };   /* {row}, {row}Pend */
-#define UV_ROW0 263
+#define UV_ROW0 264
 #define UV_ROW(i, k) (UV_ROW0 + (i) * UVK_ROW_N + (k))
 #define UV_ROW_COUNT 37
 enum { UVK_LINE_VALUE, UVK_LINE_N };   /* {line} */
-#define UV_LINE0 337
+#define UV_LINE0 338
 #define UV_LINE(i, k) (UV_LINE0 + (i) * UVK_LINE_N + (k))
 #define UV_LINE_COUNT 2
-#define UI_N_VALUES 339
+#define UI_N_VALUES 340
 
 /* a template: text with a value at each UI_TPL_VAL byte, its id in the next two (UI_TPL_ID); never a NUL */
 #define UI_TPL_VAL 1
@@ -140,14 +141,15 @@ typedef struct {
 typedef struct { uint8_t field, step; } ui_knob_t;
 /* a screen. bands: its first in UI_BANDS; knobs: UI_NONE none; controls: an action (UI_ACTIONS) each
    (UC_IN_*); menu, pages, lanes: lists; list: 1 the song's sections; key_leds: UI_KEY_LEDS + 1 (0 none);
-   say: its first part in UI_SAYS; rows: a list's lines that fit (0: all; more scroll with the highlight) */
+   say: its first part in UI_SAYS; rows: a list's lines that fit (0: all; more scroll with the highlight); fade:
+   1 its items but records fade into the band's background by {fade} (0 none .. 16 gone) */
 typedef struct {
     uint16_t title;
     uint8_t bands, n_bands;
     ui_knob_t knobs[4];
     uint8_t controls[UI_CTL_KEY(0)];
     uint8_t keys, menu, pages, lanes, list, key_leds, placeholder, rows;
-    uint8_t say, n_say;
+    uint8_t say, n_say, fade;
 } ui_screen_t;
 
 extern const ui_screen_t UI_SCREENS[];

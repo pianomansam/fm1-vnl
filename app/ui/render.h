@@ -13,5 +13,7 @@ void ui_draw(const ui_screen_t *sc, const ui_bag_t *b, uint32_t band_mask);
 void ui_draw_all(void);                  /* the next draw sends every band (the panel was cleared) */
 /* the screen's record (its first) turned to spin (1/256 turns): its label redrawn and sent alone; 0: none there */
 int ui_record_turn(const ui_screen_t *sc, int spin);
+/* the screen's text alone (right of its records): drawn and sent, the records left as they are (a fade's frame) */
+void ui_draw_text(const ui_screen_t *sc, const ui_bag_t *b);
 
 #endif

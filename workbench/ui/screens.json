@@ -1842,6 +1842,7 @@
      "home": true
     }
    },
+   "fade": true,
    "say": [
     {
      "text": "{map}. {key} {mode}. ",
@@ -5645,6 +5646,7 @@
      "y": 184
     }
    ],
+   "fade": true,
    "say": [
     "{APP}"
    ],

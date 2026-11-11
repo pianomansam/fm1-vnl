@@ -4,6 +4,20 @@
    canvas and blitted; what is drawn outside a band is clipped by the canvas. */
 #include "render.h"
 
+/* a fading screen's mix toward its band's background (0 none; ui_draw sets them) and the canvas's left column on the
+   screen (ui_draw_text: the text's columns alone) */
+static int ui_fade;
+static uint16_t ui_fade_bg;
+static int32_t ui_ox;
+static uint16_t ui_col(int c)                  /* a color index, faded: each channel (c (16 - f) + bg f) / 16 */
+{
+    uint32_t v = UI_COLORS[c], g = ui_fade_bg, f = (uint32_t)ui_fade;
+    if (!f) return (uint16_t)v;
+    return (uint16_t)((((v >> 11) * (16u - f) + (g >> 11) * f) / 16u) << 11 |
+                      ((((v >> 5) & 63u) * (16u - f) + ((g >> 5) & 63u) * f) / 16u) << 5 |
+                      (((v & 31u) * (16u - f) + (g & 31u) * f) / 16u));
+}
+
 /* the faces the screens use (screens_gen.h's UI_FONT_TABLE: the others not linked in) */
 static const felucca_font_t *const UI_FONTS[] = UI_FONT_TABLE;
 #define UI_FONT(i) (UI_FONTS[i] ? UI_FONTS[i] : &FONT_T)
@@ -93,17 +107,17 @@ static void ui_sections(const ui_bag_t *b, const ui_item_t *it)
 {
     const snap_t *s = b->s;
     int den;
-    int32_t at = it->x, total = 0, bar = (int32_t)ui_value_num(b, UV_BAR, &den), i;
+    int32_t at = it->x - ui_ox, total = 0, bar = (int32_t)ui_value_num(b, UV_BAR, &den), i;
     for (i = 0; i < s->n_secs; i++) total += s->secs[i].bars;
     for (i = 0; i < s->n_secs; i++) {
         int32_t start = s->secs[i].start, bars = s->secs[i].bars;
         int32_t sw = (2 * it->w * bars + (total ? total : 1)) / (2 * (total ? total : 1)) - 2;   /* Math.round */
         int now = bar > start && bar <= start + bars, done = bar > start + bars;
         if (sw < 2) sw = 2;
-        cv_rect(at, it->y, sw, it->h, UI_COLORS[done ? it->past : it->back]);
+        cv_rect(at, it->y, sw, it->h, ui_col(done ? it->past : it->back));
         if (now && ui_true(b, UV_SONG)) {
             int32_t w = ui_round_frac(sw, bar - start, bars);
-            cv_rect(at, it->y, w < 1 ? 1 : w, it->h, UI_COLORS[it->color]);
+            cv_rect(at, it->y, w < 1 ? 1 : w, it->h, ui_col(it->color));
         }
         at += sw + 2;
     }
@@ -295,12 +309,12 @@ static int32_t ui_text_item(const ui_bag_t *b, const ui_item_t *it, int32_t pen)
     const ui_lone_t *lone = it->past ? &UI_LONES[it->past - 1] : 0;
     ui_fill(b, UI_STR(it->ref), s, sizeof s);
     if (it->w && it->back && text_w(f, s) > it->w) f = UI_FONT(it->back - 1);   /* too wide: its fit's face */
-    x = it->h == UI_POS_RIGHT ? it->x - text_w(f, s) : it->h == UI_POS_AFTER ? pen + it->x : it->x;
+    x = it->h == UI_POS_RIGHT ? it->x - ui_ox - text_w(f, s) : it->h == UI_POS_AFTER ? pen + it->x : it->x - ui_ox;
     if (lone && UI_PENDING_COLOR >= 0 && lone->pend && ui_true(b, lone->pend)) col = UI_PENDING_COLOR;
-    pen = cv_text(x, it->y, f, s, UI_COLORS[col]);
+    pen = cv_text(x, it->y, f, s, ui_col(col));
     if (lone && lone->color) {            /* "<  >" at the line's right end: an arrow only where the list goes on */
-        uint16_t ac = UI_COLORS[lone->color - 1];
-        int32_t r = lone->right;
+        uint16_t ac = ui_col(lone->color - 1);
+        int32_t r = lone->right - ui_ox;
         if (!(lone->last && ui_true(b, lone->last))) cv_text(r - text_w(f, ">"), it->y, f, ">", ac);
         if (!(lone->first && ui_true(b, lone->first))) cv_text(r - text_w(f, ">") - text_w(f, "  <"), it->y, f, "<", ac);
     }
@@ -449,34 +463,83 @@ int ui_record_turn(const ui_screen_t *sc, int spin)
     return 0;
 }
 
-void ui_draw(const ui_screen_t *sc, const ui_bag_t *b, uint32_t band_mask)
+/* a band's items onto the canvas (records only when with_records), faded by the screen's fade */
+static void ui_band_items(const ui_screen_t *sc, const ui_band_t *band, const ui_bag_t *b, int with_records)
 {
-    int bi, ii;
-    for (bi = 0; bi < sc->n_bands; bi++) {
-        const ui_band_t *band = &UI_BANDS[sc->bands + bi];
-        int32_t pen = 0;
-        if (!(band_mask >> bi & 1u)) continue;
-        cv_begin(240, band->h, UI_COLORS[band->bg]);
-        for (ii = 0; ii < band->n_items; ii++) {
-            const ui_item_t *it = &UI_ITEMS[band->first_item + ii];
-            if (it->when && !ui_holds(b, it->when)) continue;
+    int ii, den;
+    int32_t pen = 0;
+    ui_fade = sc->fade ? ui_value_num(b, UV_FADE, &den) : 0;
+    if (ui_fade > 16) ui_fade = 16;
+    ui_fade_bg = UI_COLORS[band->bg];
+    for (ii = 0; ii < band->n_items; ii++) {
+        const ui_item_t *it = &UI_ITEMS[band->first_item + ii];
+        if (it->when && !ui_holds(b, it->when)) continue;
+        if (it->kind == UI_RECORD) {
+            if (with_records) {
+                int f = ui_fade;
+                ui_fade = 0;                      /* (a record never fades) */
+                ui_record(b, it);
+                ui_fade = f;
+            }
+            continue;
+        }
+        {
             switch (it->kind) {
             case UI_TEXT: pen = ui_text_item(b, it, pen); break;
-            case UI_RECT: cv_rect(it->x, it->y, it->w, it->h, UI_COLORS[it->color]); break;
-            case UI_ICON: ui_icon(it->ref, it->x, it->y, UI_COLORS[it->color]); break;
+            case UI_RECT: cv_rect(it->x - ui_ox, it->y, it->w, it->h, ui_col(it->color)); break;
+            case UI_ICON: ui_icon(it->ref, it->x - ui_ox, it->y, ui_col(it->color)); break;
             case UI_METER:
                 if (it->past) break;              /* a choice's field: no bar */
-                if (it->back) cv_rect(it->x, it->y, it->w, it->h, UI_COLORS[it->back]);
-                cv_rect(it->x, it->y, ui_frac_of(b, it->ref, it->w), it->h, UI_COLORS[it->color]);
+                if (it->back) cv_rect(it->x - ui_ox, it->y, it->w, it->h, ui_col(it->back));
+                cv_rect(it->x - ui_ox, it->y, ui_frac_of(b, it->ref, it->w), it->h, ui_col(it->color));
                 break;
             case UI_KNOBS: ui_knobs(b, sc, &UI_KNOB_STYLES[it->ref]); break;
             case UI_SECTIONS: ui_sections(b, it); break;
             case UI_LANES: ui_lanes(b, it); break;
             case UI_FADERS: ui_faders(b, it); break;
-            case UI_RECORD: ui_record(b, it); break;
             default: break;
             }
         }
+    }
+    ui_fade = 0;
+}
+
+void ui_draw(const ui_screen_t *sc, const ui_bag_t *b, uint32_t band_mask)
+{
+    int bi;
+    for (bi = 0; bi < sc->n_bands; bi++) {
+        const ui_band_t *band = &UI_BANDS[sc->bands + bi];
+        if (!(band_mask >> bi & 1u)) continue;
+        cv_begin(240, band->h, UI_COLORS[band->bg]);
+        ui_band_items(sc, band, b, 1);
         ui_send((uint32_t)band->y);
+    }
+}
+
+/* the screen's text alone: every band's columns right of its records (their discs and a pixel), its items but records
+   drawn there and sent (a fade's frame: the records as they are); those rows' sums forgotten */
+void ui_draw_text(const ui_screen_t *sc, const ui_bag_t *b)
+{
+    int bi, ii;
+    int32_t x0 = 0, y;
+    for (bi = 0; bi < sc->n_bands; bi++) {
+        const ui_band_t *band = &UI_BANDS[sc->bands + bi];
+        for (ii = 0; ii < band->n_items; ii++) {
+            const ui_item_t *it = &UI_ITEMS[band->first_item + ii];
+            if (it->kind == UI_RECORD && it->x + it->w + 2 > x0) x0 = it->x + it->w + 2;
+        }
+    }
+    if (x0 >= 240) return;
+    for (bi = 0; bi < sc->n_bands; bi++) {
+        const ui_band_t *band = &UI_BANDS[sc->bands + bi];
+        int any = 0;
+        for (ii = 0; ii < band->n_items; ii++) any |= UI_ITEMS[band->first_item + ii].kind != UI_RECORD;
+        if (!any) continue;
+        cv_begin((uint32_t)(240 - x0), band->h, UI_COLORS[band->bg]);
+        ui_ox = x0;
+        ui_band_items(sc, band, b, 0);
+        ui_ox = 0;
+        cv_blit((uint32_t)x0, band->y);
+        for (y = band->y; y < band->y + band->h && y < 240; y++) ui_sum_ok[y] = 0;
     }
 }

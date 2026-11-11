@@ -184,7 +184,7 @@ export function valuesOf(s, data) {
     APP: APP_NAME, song, stopped: !!s.stopped, idle: s.stopped ? "STOPPED" : "NEXT SONG",
     msg: !!s.msg, msg0: s.msg?.[0] ?? "", msg1: s.msg?.[1] ?? "",
     map: (s.map ?? "").toUpperCase(), section: SEC_NAME[s.section] ?? "", bar: (s.bar ?? 0) + 1, bars: r.bars,
-    chord: s.chord ?? "", pending: "", spin: s.spin ?? 0,
+    chord: s.chord ?? "", pending: "", spin: s.spin ?? 0, fade: s.fade ?? 0,
   };
   for (const [k, def] of Object.entries(f)) {
     const v = fieldValue(def, k, r, s.rows);
@@ -290,24 +290,42 @@ export function drawRecord(lcd, cx, cy, r, C, label, disc, groove, spin) {
   }
 }
 
-// the splash's turn, ms after it began (app.c's splash_spin): still, spinning up, slowing, settled at 0 after two turns
-export const SPLASH_MS = 1300, SPLASH_TURN_MS = 1150;
+// the splash's turn, ms after it began (app.c's): still, spinning up, slowing, settled at 0 after two turns
+// (SPLASH_TURN_MS); then the main screen (a cut, SPLASH_MS), or into now playing a fade (SPLASH_FADE_MS each way, 4
+// steps): the splash's text out into the background, the song's in
+export const SPLASH_MS = 1300, SPLASH_TURN_MS = 1150, SPLASH_FADE_MS = 150;
 export function splashSpin(t) {
   const u = Math.min(1, Math.max(0, t / SPLASH_TURN_MS));
   return Math.floor(512 * (u * u * (3 - 2 * u))) & 255;
 }
+// at t ms: { screen: "splash" or null (the home), fade 0..16 } (fading: the home is now playing)
+export function splashPhase(t, fading) {
+  const end = SPLASH_TURN_MS + (fading ? 2 * SPLASH_FADE_MS : SPLASH_MS - SPLASH_TURN_MS);
+  if (t >= end) return { screen: null, fade: 0, done: true };
+  if (!fading || t < SPLASH_TURN_MS) return { screen: "splash", fade: 0 };
+  const u = t - SPLASH_TURN_MS, step = Math.min(4, Math.floor((u % SPLASH_FADE_MS) * 4 / SPLASH_FADE_MS) + 1);
+  return u < SPLASH_FADE_MS ? { screen: "splash", fade: 4 * step } : { screen: null, fade: 16 - 4 * step };
+}
+
+// the colors mixed toward bg by f (0..16): each channel (c (16 - f) + bg f) / 16, rounded down
+const mix565 = (v, g, f) => ((((v >> 11) * (16 - f) + (g >> 11) * f) >> 4) << 11) |
+  (((((v >> 5) & 63) * (16 - f) + ((g >> 5) & 63) * f) >> 4) << 5) | ((((v & 31) * (16 - f) + (g & 31) * f) >> 4));
+const fadeColors = (C, bg, f) => Object.fromEntries(Object.entries(C).map(([k, v]) => [k, mix565(v, bg, f)]));
 
 // a screen's bands onto lcd, from its values (app.c's draw(), as data)
 export function drawScreen(lcd, screen, bag, data, C = colors(THEME, data.colors)) {
   for (const band of screen.bands) {
     lcd.begin(W, band.h, C[band.bg ?? "BLACK"]);
+    // a fading screen (fade: true): its items but records mixed toward the band's background by {fade} (render.c's ui_col)
+    const f = screen.fade ? Math.min(16, Number(bag.fade) || 0) : 0;
+    const K = f ? fadeColors(C, C[band.bg ?? "BLACK"], f) : C;
     let pen = 0;
     for (const it of band.draw) {
       if (!holds(it.when, bag)) continue;
-      if (it.rect) lcd.rect(...it.rect, C[it.color]);
+      if (it.rect) lcd.rect(...it.rect, K[it.color]);
       else if (it.record) drawRecord(lcd, it.record[0], it.record[1], it.record[2], C, C[it.color], C[it.back], C[it.past], (Number(bag[it.value]) || 0) & 255);
       else if (it.icon) {   // a 1-bit icon from the data's `icons` (rows of "#" and "."): { icon, x, y, color }
-        (data.icons?.[it.icon] ?? []).forEach((row, j) => [...row].forEach((c, i) => { if (c === "#") lcd.rect(it.x + i, it.y + j, 1, 1, C[it.color]); }));
+        (data.icons?.[it.icon] ?? []).forEach((row, j) => [...row].forEach((c, i) => { if (c === "#") lcd.rect(it.x + i, it.y + j, 1, 1, K[it.color]); }));
       }
       else if (it.lanes) {   // { lanes: [x, y, w, h], parts, label, rowH, window }: the workbench's piano roll, small: a
         // lane a part, its notes by time (x) and pitch (y; a drum lane one row a drum), brighter for louder; `window`
@@ -323,27 +341,27 @@ export function drawScreen(lcd, screen, bag, data, C = colors(THEME, data.colors
         const height = it.parts.length * rowH - 2;
         if (bag.song) {   // the bar playing, highlighted whole (Sam, 2026-11-06: not a line in front of it)
           const b0 = Math.floor(pos), xa = Math.max(lx, Math.round(X(b0))), xb = Math.min(lx + lw, Math.round(X(b0 + 1)));
-          lcd.rect(xa, y, xb - xa, height, C.LINE);
+          lcd.rect(xa, y, xb - xa, height, K.LINE);
         }
-        for (let b = Math.ceil(from); b <= from + span; b++) lcd.rect(Math.round(X(b)), y, 1, height, C.LINE);   // bar lines
-        for (const sb of act?.sections ?? []) if (sb > from && sb < from + span) lcd.rect(Math.round(X(sb)), y, 1, height, C.DIM);
+        for (let b = Math.ceil(from); b <= from + span; b++) lcd.rect(Math.round(X(b)), y, 1, height, K.LINE);   // bar lines
+        for (const sb of act?.sections ?? []) if (sb > from && sb < from + span) lcd.rect(Math.round(X(sb)), y, 1, height, K.DIM);
         it.parts.forEach((p, i) => {
-          const ry = y + i * rowH, part = p === "keys" ? "comp" : p, col = C[part.toUpperCase()] ?? C.WHITE;
+          const ry = y + i * rowH, part = p === "keys" ? "comp" : p, col = K[part.toUpperCase()] ?? K.WHITE;
           const off = act?.solo ? act.solo !== p : act?.mute?.includes(p), sel = bag[`sel${i}`];
-          if (sel) lcd.rect(x - 4, ry, lx - x, rowH - 2, C.LINE);
-          if (data.icons?.[part]) data.icons[part].forEach((row, j) => [...row].forEach((c, k) => { if (c === "#") lcd.rect(x + k, ry + 4 + j, 1, 1, off ? C.DIM : col); }));
-          lcd.text(x, ry + 13, f, part.toUpperCase().slice(0, 7), off ? C.DIM : col);
-          if (it.keys?.[i]) lcd.text(x + 32, ry + 2, f, it.keys[i], C.DIM);   // its key (press mutes, hold solos)
-          if (act?.mute?.includes(p)) lcd.text(x + 12, ry + 2, f, "M", C.HI);
-          if (act?.solo === p) lcd.text(x + 12, ry + 2, f, "S", C.HI);
-          lcd.rect(lx, ry + rowH - 2, lw, 1, C.LINE);
+          if (sel) lcd.rect(x - 4, ry, lx - x, rowH - 2, K.LINE);
+          if (data.icons?.[part]) data.icons[part].forEach((row, j) => [...row].forEach((c, k) => { if (c === "#") lcd.rect(x + k, ry + 4 + j, 1, 1, off ? K.DIM : col); }));
+          lcd.text(x, ry + 13, f, part.toUpperCase().slice(0, 7), off ? K.DIM : col);
+          if (it.keys?.[i]) lcd.text(x + 32, ry + 2, f, it.keys[i], K.DIM);   // its key (press mutes, hold solos)
+          if (act?.mute?.includes(p)) lcd.text(x + 12, ry + 2, f, "M", K.HI);
+          if (act?.solo === p) lcd.text(x + 12, ry + 2, f, "S", K.HI);
+          lcd.rect(lx, ry + rowH - 2, lw, 1, K.LINE);
           for (const [nx, nw, ny, nh, shade] of act?.notes?.[p] ?? []) {
             if (nx + nw < from || nx > from + span) continue;
             const x0 = Math.max(lx, Math.round(X(nx))), x1 = Math.min(lx + lw, Math.round(X(nx + nw)));
             // reduced motion (the default, Sam 2026-11-06): no note lights as it sounds, and played vs to come changes a
             // bar at a time; `live` (more movement) lights the sounding notes and colors them as they pass
             const now = it.live && bag.song && nx <= pos && pos < nx + Math.max(nw, 0.06);
-            const base = off ? C.DIM : now ? C.WHITE : nx < (it.live ? pos : Math.floor(pos) + 1) ? col : C.GRAY;   // played or this bar: its color (Sam: only bars to come gray)
+            const base = off ? K.DIM : now ? K.WHITE : nx < (it.live ? pos : Math.floor(pos) + 1) ? col : K.GRAY;   // played or this bar: its color (Sam: only bars to come gray)
             lcd.rect(x0, ry + 1 + Math.round(ny * (rowH - 4)), Math.max(1, x1 - x0 - 1), Math.max(1, Math.round(nh * (rowH - 4))),
                      now && !off ? base : dim(base, 0.45 + 0.55 * shade));
           }
@@ -354,24 +372,24 @@ export function drawScreen(lcd, screen, bag, data, C = colors(THEME, data.colors
         const [x, y, w, h] = it.faders, n = it.parts.length, cw = Math.floor(w / n), act = bag.activity, f = font("T");
         const top = y + (it.labels ? 25 : 14), tH = h - (it.labels ? 45 : 34), at = (db) => top + Math.round(((6 - db) / 18) * tH);
         it.parts.forEach((p, i) => {
-          const cx = x + i * cw, part = p === "keys" ? "comp" : p, col = C[part.toUpperCase()] ?? C.WHITE;
+          const cx = x + i * cw, part = p === "keys" ? "comp" : p, col = K[part.toUpperCase()] ?? K.WHITE;
           const off = act?.solo ? act.solo !== p : act?.mute?.includes(p), db = bag.levels?.[p] ?? 0, mid = cx + Math.floor(cw / 2);
           // highlighted: the picked column, or (the knobs layout) the columns this page's knobs drive (Sam, 2026-11-08)
-          if (it.tags?.[i]) lcd.rect(cx, y, cw, h, C.LINE);          // the knobs' columns: one block, no gaps
-          else if (bag[`sel${i}`]) lcd.rect(cx + 1, y, cw - 2, h, C.LINE);
-          if (data.icons?.[part]) data.icons[part].forEach((row, j) => [...row].forEach((c, k) => { if (c === "#") lcd.rect(mid - 4 + k, y + 2 + j, 1, 1, off ? C.DIM : col); }));
-          if (it.labels?.[i]) lcd.text(mid - Math.floor(textW(f, it.labels[i]) / 2), y + 11, f, it.labels[i], off ? C.DIM : col);
-          lcd.rect(mid - 2, top, 4, tH, C.DIM);                          // the track
-          lcd.rect(mid - 2, at(db), 4, top + tH - at(db), off ? C.GRAY : col);   // the level, from the bottom
-          lcd.rect(mid - 6, at(0), 12, 1, C.WHITE);                       // 0 dB
-          lcd.rect(mid - 7, at(db) - 1, 14, 3, off ? C.GRAY : C.WHITE);   // the fader's cap
+          if (it.tags?.[i]) lcd.rect(cx, y, cw, h, K.LINE);          // the knobs' columns: one block, no gaps
+          else if (bag[`sel${i}`]) lcd.rect(cx + 1, y, cw - 2, h, K.LINE);
+          if (data.icons?.[part]) data.icons[part].forEach((row, j) => [...row].forEach((c, k) => { if (c === "#") lcd.rect(mid - 4 + k, y + 2 + j, 1, 1, off ? K.DIM : col); }));
+          if (it.labels?.[i]) lcd.text(mid - Math.floor(textW(f, it.labels[i]) / 2), y + 11, f, it.labels[i], off ? K.DIM : col);
+          lcd.rect(mid - 2, top, 4, tH, K.DIM);                          // the track
+          lcd.rect(mid - 2, at(db), 4, top + tH - at(db), off ? K.GRAY : col);   // the level, from the bottom
+          lcd.rect(mid - 6, at(0), 12, 1, K.WHITE);                       // 0 dB
+          lcd.rect(mid - 7, at(db) - 1, 14, 3, off ? K.GRAY : K.WHITE);   // the fader's cap
           const t = `${db > 0 ? "+" : ""}${db}`;
-          lcd.text(mid - Math.floor(textW(f, t) / 2), y + h - 18, f, t, off ? C.DIM : C.WHITE);
+          lcd.text(mid - Math.floor(textW(f, t) / 2), y + h - 18, f, t, off ? K.DIM : K.WHITE);
           // under it: its knob (tags), and M or S
           const ms = act?.solo === p ? "S" : act?.mute?.includes(p) ? "M" : "", tag = it.tags?.[i] ?? "";
           const both = tag ? `${tag}${ms ? ` ${ms}` : ""}` : ms, x0 = mid - Math.floor(textW(f, both) / 2);
-          const pen = tag ? lcd.text(x0, y + h - 8, f, tag, C.GRAY) : x0;
-          if (ms) lcd.text(tag ? pen + textW(f, " ") : x0, y + h - 8, f, ms, C.HI);
+          const pen = tag ? lcd.text(x0, y + h - 8, f, tag, K.GRAY) : x0;
+          if (ms) lcd.text(tag ? pen + textW(f, " ") : x0, y + h - 8, f, ms, K.HI);
         });
       }
       else if (it.sections) {   // the song's map: a segment per section (by its bars), the one playing filled to
@@ -381,8 +399,8 @@ export function drawScreen(lcd, screen, bag, data, C = colors(THEME, data.colors
         secs.forEach((sec, i) => {
           const sw = Math.max(2, Math.round((w * sec.bars) / (total || 1)) - 2), bar = bag.bar ?? 0;
           const now = bar > sec.start && bar <= sec.start + sec.bars, done = bar > sec.start + sec.bars;
-          lcd.rect(at, y, sw, h, C[done ? it.past : it.back]);
-          if (now && bag.song) lcd.rect(at, y, Math.max(1, Math.round((sw * (bar - sec.start)) / sec.bars)), h, C[it.color]);
+          lcd.rect(at, y, sw, h, K[done ? it.past : it.back]);
+          if (now && bag.song) lcd.rect(at, y, Math.max(1, Math.round((sw * (bar - sec.start)) / sec.bars)), h, K[it.color]);
           at += sw + 2;
         });
       }
@@ -390,29 +408,29 @@ export function drawScreen(lcd, screen, bag, data, C = colors(THEME, data.colors
         const [x, y, w, h] = it.meter, v = Math.max(0, Math.min(1, Number(bag[it.value]) || 0));
         const fd = data.fields?.[String(it.value).replace(/Frac$/, "")];
         if (fd && !hasBar(fd)) continue;   // a field's bar: numbers only
-        if (it.back) lcd.rect(x, y, w, h, C[it.back]);
-        lcd.rect(x, y, Math.round(w * v), h, C[it.color]);
+        if (it.back) lcd.rect(x, y, w, h, K[it.back]);
+        lcd.rect(x, y, Math.round(w * v), h, K[it.color]);
       }
       else if (it.knobs) {
         const k = it.knobs;
         (screen.knobs ?? []).forEach((kn, i) => {
           const x = k.x + i * k.dx;
-          lcd.text(x, k.label.y, font(k.label.font), kn.label ?? data.fields[kn.field].name, C[k.label.color]);
+          lcd.text(x, k.label.y, font(k.label.font), kn.label ?? data.fields[kn.field].name, K[k.label.color]);
           if (holds(k.value.when, bag))
-            lcd.text(x, k.value.y, font(k.value.font), String(bag[kn.field] ?? ""), C[bag[`${kn.field}Pend`] && C.PENDING !== undefined ? "PENDING" : k.value.color]);
+            lcd.text(x, k.value.y, font(k.value.font), String(bag[kn.field] ?? ""), K[bag[`${kn.field}Pend`] && K.PENDING !== undefined ? "PENDING" : k.value.color]);
           if (k.bar && hasBar(data.fields[kn.field]) && holds(k.value.when, bag)) {   // { y, w, h, color, back }: the knob's place in its range
-            lcd.rect(x, k.bar.y, k.bar.w, k.bar.h, C[k.bar.back]);
-            lcd.rect(x, k.bar.y, Math.round(k.bar.w * Math.max(0, Math.min(1, bag[`${kn.field}Frac`] ?? 0))), k.bar.h, C[k.bar.color]);
+            lcd.rect(x, k.bar.y, k.bar.w, k.bar.h, K[k.bar.back]);
+            lcd.rect(x, k.bar.y, Math.round(k.bar.w * Math.max(0, Math.min(1, bag[`${kn.field}Frac`] ?? 0))), k.bar.h, K[k.bar.color]);
           }
         });
       } else {
         const s = fill(it.text, bag), f = it.fit && textW(font(it.font), s) > it.fit[0] ? font(it.fit[1]) : font(it.font);
         const x = it.right !== undefined ? it.right - textW(f, s) : it.after !== undefined ? pen + it.after : it.x;
         const lone = /^\{(\w+)\}$/.exec(it.text)?.[1];   // a value alone: the pending color while it waits
-        const col = C[lone && bag[`${lone}Pend`] && C.PENDING !== undefined ? "PENDING" : it.color];
+        const col = K[lone && bag[`${lone}Pend`] && K.PENDING !== undefined ? "PENDING" : it.color];
         pen = lcd.text(x, it.y, f, s, col);
         if (it.arrows && lone) {   // "<  >" at the line's right end (Sam, 2026-11-06): an arrow only where the list goes on
-          const ac = C[it.arrows === true ? "DIM" : it.arrows], r = it.arrowsRight ?? 232;
+          const ac = K[it.arrows === true ? "DIM" : it.arrows], r = it.arrowsRight ?? 232;
           if (!bag[`${lone}Last`]) lcd.text(r - textW(f, ">"), it.y, f, ">", ac);
           if (!bag[`${lone}First`]) lcd.text(r - textW(f, ">") - textW(f, "  <"), it.y, f, "<", ac);
         }
@@ -605,7 +623,7 @@ export class Device {
              activity: l.activity, levels: l.levels,
              barPos: song ? bar + Math.min(0.999, (this.now() - (this.barT ?? this.now())) / (240000 / Math.max(40, l.roll?.tempo ?? 80))) : bar, pend, msg: this.msg && this.now() < this.msg.until ? this.msg.text : null };
   }
-  values() { return valuesOf({ ...this.shown(), spin: this.spin }, this.data); }
+  values() { return valuesOf({ ...this.shown(), spin: this.spin, fade: this.fade ?? 0 }, this.data); }
   // the record's turn (app.c's spin_tick): 33 1/3 turns a minute while a song plays, easing to a stop (and back up);
   // ms: now. The spin in 1/256 turns
   turn(ms = this.now()) {
@@ -618,10 +636,16 @@ export class Device {
   }
   // the boot splash (app.c's): splash() starts it (the page, at load), a control ends it; showing: the screen drawn
   splash() { if (this.data.screens.splash) this.splashAt = this.now(); }
-  get splashing() { return this.splashAt !== undefined && this.now() - this.splashAt < SPLASH_MS; }
-  get showing() { return this.splashing ? "splash" : this.id; }
+  phase() {
+    return this.splashAt === undefined ? { screen: null, fade: 0, done: true }
+      : splashPhase(this.now() - this.splashAt, this.home !== this.data.home && this.data.screens[this.home]?.fade);
+  }
+  get splashing() { return !this.phase().done; }
+  get showing() { return this.phase().screen ?? this.id; }
   draw(lcd) {
-    if (this.splashing) {
+    const ph = this.phase();
+    this.fade = ph.fade;
+    if (ph.screen) {
       this.spin = splashSpin(this.now() - this.splashAt);
       this.spunAt = null;
       drawScreen(lcd, this.data.screens.splash, this.values(), this.data);

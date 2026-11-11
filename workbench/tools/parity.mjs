@@ -4,7 +4,8 @@
 // (ui/device.js's drawScreen) draws the same screen from that bag. Every pixel must match. Steps of a script:
 //   { press: CONTROL } | { turn: [CONTROL, DETENTS] } | { key: [N, MS] } | { wait: MS } | { screen: ID } |
 //   { row: [ROW, VALUE] } (a row's value forced in the snapshot shown: the longest names) | { spin: [ENC, N] } (N detents
-//   at once) | { keydown: K } | { keyup: K } | { check: NAME, expect: (state) => "" or what is wrong }
+//   at once) | { keydown: K } | { keyup: K } | { fade: N } (the text redrawn alone at {fade} N) | { reboot: true } |
+//   { check: NAME, expect: (state) => "" or what is wrong }
 // Every screen: the main and part screens, Sections, the Parts roll, the Mixer, Settings.
 //   ./build.sh --host && node workbench/tools/parity.mjs [OUTDIR]
 import { execFileSync } from "node:child_process";
@@ -39,6 +40,8 @@ function run(seed, steps) {
     else if (s.wait) lines.push(`wait ${s.wait}`);
     else if (s.screen) lines.push(`uiscreen ${s.screen}`, "wait 20");
     else if (s.row) lines.push(`uirow ${s.row[0]} ${s.row[1]}`, "wait 20");
+    else if (s.fade !== undefined) lines.push(`uifade ${s.fade}`);
+    else if (s.reboot) lines.push("reboot");
     else if (s.check) { lines.push("wait 20", "uistate", `fbdump ${checks.length}.raw`); checks.push(s); }
   }
   writeFileSync(join(dir, "s.vnl"), lines.join("\n") + "\n");
@@ -225,6 +228,21 @@ const SEED = 72;
     { spin: ["K2", 1] }, { check: "sections-stay", expect: (st) => is("endless", v(st).endless, "ON") },
     { wait: 20000 }, { check: "sections-looping", expect: (st) => is("looping", v(st).looping, true) },
     { spin: ["K1", 1] }, { spin: ["K2", 1] }, { check: "sections-off", expect: (st) => is("looping", v(st).looping, false) },
+  ];
+  for (const c of run(SEED, steps)) compare(c);
+}
+{   // the splash into now playing (the home): its text fading out, the song's in, the record as it is; a step's text
+  // redrawn alone (uifade) and the boot's own steps (the device's timing: 1150 ms turning, 150 out, 150 in)
+  const v = (st) => st.values, is = (what, got, want) => (got === want ? "" : `${what} ${JSON.stringify(got)}, not ${JSON.stringify(want)}`);
+  const steps = [
+    { press: "PLAY" }, { wait: 5000 }, { screen: "now" },
+    { fade: 8 }, { check: "fade-now-8", expect: (st) => is("fade", v(st).fade, 8) },
+    { fade: 16 }, { check: "fade-now-16" }, { fade: 0 }, { check: "fade-now-0" },
+    { screen: "splash" }, { fade: 4 }, { check: "fade-splash-4" }, { fade: 12 }, { check: "fade-splash-12" },
+    { screen: "main" }, { wait: 1000 }, { press: "HOME" }, { wait: 100 }, { reboot: true },
+    { wait: 1190 }, { check: "boot-fade-out", expect: (st) => is("screen", st.screen, "splash") || (v(st).fade > 0 && v(st).fade < 16 ? "" : `fade ${v(st).fade}`) },
+    { wait: 120 }, { check: "boot-fade-in", expect: (st) => is("screen", st.screen, "now") || (v(st).fade > 0 && v(st).fade < 16 ? "" : `fade ${v(st).fade}`) },
+    { wait: 300 }, { check: "boot-faded-in", expect: (st) => is("screen", st.screen, "now") || is("fade", v(st).fade, 0) },
   ];
   for (const c of run(SEED, steps)) compare(c);
 }
