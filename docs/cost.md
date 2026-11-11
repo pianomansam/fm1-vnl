@@ -1511,3 +1511,14 @@ modal retone. Every other instrument renders bit for bit as at 90c83b6 (17 whole
   the sampled cello **0.305** on the bench's lead part, whose notes sit over its zones (C5 and up: full rate); in its
   own register (G2-E4) every note is within 3 semitones of a zone, so it renders at half the rate (round 1, which
   the bench could play at half, measured 0.240).
+
+### Candidate leads, round 1c: the harp's echo and plate, a brighter synth cello (2026-11-11)
+
+Under the harp only: the tape delay a quarter note fed back at 0.2 (fx_delay_feel; every other lead the dotted 8th at
+0.35), the lead's plate send 0.15 (0.35). The synth cello gains the wind model's band-pass (the mute's: a body
+resonance at 1 kHz) and a wider low-pass. Every other instrument renders bit for bit as at 4dc55ca.
+
+- Flash: image 365,120 to **365,316 B (+196)**; RAM .data+.bss 74,676 to **74,708 B (+32)**: the delay's feel and
+  the lead's plate send; the pool and the bank unchanged.
+- CPU (`tools/cost-bench.sh --parts`, lead rows): the synth cello **0.281** (0.256: the band-pass), the harp 0.226,
+  the sampled cello 0.302 (the flute 0.238, the Knight 0.232).

@@ -60,7 +60,7 @@
 #include "samples.h"
 
 #define CELLO_SAMP_LVL 0.2122f /* the candidates' levels (patch.c's table) */
-#define CELLO_SYN_LVL 1.188f
+#define CELLO_SYN_LVL 1.585f
 #define HARP_LVL 0.5064f
 
 /* model, {p[0..15]}, att, dec, sus, rel, level, chorus, delay. The chorus (on the chords' bus): the electric keys and
@@ -128,16 +128,20 @@ static const vx_patch_t PATCHES[INS_NONE] = {
                         0.35f, CELLO_SAMP_LVL, 0.5f, 0.2f},
     /* The synth cello: the string synth's cello voicing Sam passed (2026-10-25, demo 2c "low and dark": saws, a
        1.4 kHz top, a 120 ms swell, a 0.7 s release, the ensemble) re-expressed on the wind model: a saw (p[0] 3)
-       under a low-pass 8x the note (its line G2-E4, where 3.5x muffled it), a faint bow noise for the breath, the
-       winds' delayed vibrato (12 cents); the ensemble the keys' chorus (a low lead's send, 0.6) */
-    [INS_SYNTH_CELLO] = {M_WIND, {3.0f, 0.5f, 8.0f, 0.03f, 1500.0f, 12.0f, 0.0f, 0.0f}, 0.12f, 7.0f, 1.0f, 0.7f,
+       under a low-pass 18x the note, a body resonance (the mute's band-pass: 1 kHz, Q 0.6), bow noise at 2.5 kHz,
+       the winds' delayed vibrato (12 cents), an 80 ms swell; the ensemble the keys' chorus (a low lead's send, 0.6).
+       Round 1c (Sam: "less mellow ... closer to the sample"): its spectrum moved to the sampled cello's on seed 114,
+       the centroid 326 to 552 Hz (the sample's 453), 1-2 kHz -17 to -10 dB of the whole (the sample's -10), 2-4 kHz
+       -29 to -21 (-20) */
+    [INS_SYNTH_CELLO] = {M_WIND, {3.0f, 0.5f, 18.0f, 0.04f, 2500.0f, 12.0f, 1000.0f, 1.6f}, 0.08f, 7.0f, 1.0f, 0.7f,
                          CELLO_SYN_LVL, 0.6f, 0.2f},
     /* The harp (VSCO-2 CE's concert harp, CC0; in place of round 1's modal retone, Sam: "sounds like an electric
        piano"): its zones the pluck and the ring's start, the sampler's envelope the rest of the ring (6 s to -60 dB at
-       C4, half an octave of time shorter per octave up), a 0.9 s release (a harp's strings ring on); the tone 10x
-       the note, falling to 70% over 0.5 s (the ring darkens), darker at a soft pluck; no vibrato. Its level matches
+       C4, half an octave of time shorter per octave up), a 0.6 s release (0.9 to 2026-11-11's round 1c: Sam, "the
+       delay/reverb is a bit too long on it"; its plate send and the delay's feel: voices.c); the tone 10x the
+       note, falling to 70% over 0.5 s (the ring darkens), darker at a soft pluck; no vibrato. Its level matches
        the Rhodes on the keys, as every sampled instrument's (test_samp); on the lead voices.c's SAMP_LEAD */
-    [INS_HARP] = {M_SAMP, {SB_HARP, 300.0f, 0.5f, 0.0f, 0.0f, 0.5f, 0.7f, 0.5f, 10.0f}, 0.002f, 6.0f, 0.0f, 0.9f,
+    [INS_HARP] = {M_SAMP, {SB_HARP, 300.0f, 0.5f, 0.0f, 0.0f, 0.5f, 0.7f, 0.5f, 10.0f}, 0.002f, 6.0f, 0.0f, 0.6f,
                   HARP_LVL, 0.1f, 0.3f},
 };
 

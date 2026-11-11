@@ -270,6 +270,10 @@ static int dr_live;          /* a drum sounded in the chunk (else the drums' bus
 static const float sendp[NBUS] = {[V_CHORD] = 0.30f, [V_BASS] = 0.0f, [V_LEAD] = 0.35f, [V_CANDY] = 0.45f,
                                   [V_PAD] = 0.40f, [DRB] = SEND_DRUMS}; /* (the bass's 0 is not summed) */
 static float dsend[NBUS];   /* the delay's per-bus send: the role's patch's delay */
+/* the lead's plate send: sendp's, the harp's less (a candidate, 2026-11-11, Sam: "the delay/reverb is a bit too long
+   on it": HARP_PLATE, -7.4 dB) */
+#define HARP_PLATE 0.15f
+static float lead_sp = 0.35f;
 /* The pad layer's chorus: one chorus at the chords' patch's depth, so the pad's send into it is its own patch's depth
    over the chords' (at most PAD_CH_MAX times; 0 with no chorus), its wet then as deep as its patch asks; its dry is
    scaled as the chords' is for their chorus (fx_chorus_dry_at its depth), eased as theirs. */
@@ -543,8 +547,10 @@ void vx_assign(int voice, int ins)
 {
     if (voice < V_CHORD || voice > V_PAD)
         return;
-    if (voice == V_LEAD)
+    if (voice == V_LEAD) {
         lead_ch = (uint8_t)lib_lead_low(ins);
+        lead_sp = ins == INS_HARP ? HARP_PLATE : sendp[V_LEAD];
+    }
     /* the organ: the song's registration and register on the keys, the one-stop 4' on the pad layer */
     assign_pt(voice, ins == INS_VIBES && voice == V_CHORD ? vx_vibes_keys()   /* the vibes on the keys */
                      : ins != INS_ORGAN ? vx_patch(ins)
@@ -648,6 +654,9 @@ void vx_configure(const song_roll_t *r)
         vx_set_pump(rng_int(&g, VX_PUMP_N));
     }
     fx_configure(cfg.dust, cfg.noise, cfg.ambience, cfg.flavor);
+    /* the delay's feel: a dotted 8th fed back at 0.35; under the harp (a struck lead's echo heard plainly, Sam: "the
+       echo doesn't time well") a quarter, on the beat whatever the swing, fed back at 0.2: fewer repeats */
+    fx_delay_feel(cfg.lead == INS_HARP ? 1.0f : 0.75f, cfg.lead == INS_HARP ? 0.2f : 0.35f);
     fx_tempo((float)r->v[RF_TEMPO]);
     if (!vx_active()) /* nothing to hear the dust ramp on */
         fx_land();
@@ -2111,7 +2120,7 @@ static void render_seg(uint32_t pos, uint32_t n, int filt)
     int j;
     unsigned live, mf, mh, pg, pf, ph;
     uint32_t ih = 0;
-    float c0 = sendp[V_CHORD], c2 = sendp[V_LEAD], c3 = sendp[V_CANDY], c4 = sendp[V_PAD]; /* (the bass is dry) */
+    float c0 = sendp[V_CHORD], c2 = lead_sp, c3 = sendp[V_CANDY], c4 = sendp[V_PAD]; /* (the bass is dry) */
     float g = kg0 + kgd * (float)pos, dg = kgd; /* the keys' gain, ramping over the chunk */
     float d0 = dsend[V_CHORD], d2 = dsend[V_LEAD], d3 = dsend[V_CANDY], d4 = dsend[V_PAD], e4 = csend, e2 = lsend;
     float as = ts, ac = tc, ad = td;
@@ -2301,7 +2310,7 @@ static void hx_mix(uint32_t c, int filt)
         gl = r == V_CHORD ? kg0 : r == V_LEAD && lsend > 0.0f ? lg : 1.0f; /* the keys' gain (the chorus's dry scale,
                                                                               the duck), ramping; a low lead's */
         dgl = r == V_CHORD ? kgd : 0.0f;
-        sp = sendp[r];
+        sp = r == V_LEAD ? lead_sp : sendp[r];
         sc = r == V_CHORD ? 1.0f : r == V_PAD ? csend : r == V_LEAD ? lsend : 0.0f; /* the chorus's input: the keys,
                                                                                    the pad's send, a low lead's */
         sd = dsend[r];
@@ -2467,7 +2476,7 @@ static void mix_chunk(uint32_t c, int filt, unsigned live)
         } else if (!(fx_off & VX_OFF_COMP))
             comp(d, n, &g, &dg);
         if (filt) {
-            float s0 = sendp[V_CHORD], s2 = sendp[V_LEAD], s3 = sendp[V_CANDY], s4 = sendp[V_PAD];
+            float s0 = sendp[V_CHORD], s2 = lead_sp, s3 = sendp[V_CANDY], s4 = sendp[V_PAD];
             float cgl = kg0 + kgd * (float)o, cs = csend, ls = lsend, lgl = lg;
             float e0 = dsend[V_CHORD], e2 = dsend[V_LEAD], e3 = dsend[V_CANDY], e4 = dsend[V_PAD];
             const float *b0 = bb[V_CHORD] + o, *b1 = bb[V_BASS] + o, *b2 = bb[V_LEAD] + o, *b3 = bb[V_CANDY] + o;

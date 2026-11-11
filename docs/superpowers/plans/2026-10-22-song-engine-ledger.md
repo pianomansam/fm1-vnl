@@ -722,6 +722,14 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
     the legal code's header: its own hash in the manifest), seven zones F4-D6, 16 kHz ADPCM (floor -55 to -68 dB, its
     source -77 to -99: far from the jazz guitar's audible -35), the sampler's envelope the ring; it sounds F5-D6 on
     the song (body F5-C6), the flute's register. Renders: scratchpad round1b/.
+    **Round 1c (Sam: the harp "sounds nice. The delay/reverb is a bit too long on it, though. The echo doesn't time
+    well"; the cellos "sound nice too. Can the synth cello be less mellow?"):** under the harp only, the tape delay a
+    quarter note (was a dotted 8th, which crosses the beat and the swing) fed back at 0.2 (0.35: about 3 echoes over
+    -40 dB, was 5), its plate send 0.15 (0.35: -7.4 dB), its release 0.6 s (0.9). The synth cello moved to the
+    sampled one's spectrum on seed 114: a low-pass 18x the note (8x), a body band-pass at 1 kHz, bow noise at 2.5 kHz,
+    an 80 ms swell (120): its centroid 326 to 552 Hz (the sample's 453), 1-2 kHz -17 to -10 dB of the whole (the
+    sample's -10), 2-4 kHz -29 to -21 (-20); level re-matched (within 0.1 dB of the flute). Sounding octaves
+    unchanged (cellos F3-D4, harp F5-D6). Renders: scratchpad round1c/.
 - **Done (Sam, 2026-11-11): the jazz guitar approved for songs.** Three sets lead with it, one per flavor its styles
   weigh most, over struck keys the lift raises: 38 Rhodes and jazz guitar (neo-soul, wistful/warm), 39 Knight and
   jazz guitar (lofi, sad/wistful), 40 Bossa Rhodes and jazz guitar (bossa, warm/sunny). About 10% of songs (20,000

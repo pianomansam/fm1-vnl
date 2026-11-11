@@ -51,6 +51,9 @@ float fx_chorus_dry(void);
 float fx_chorus_dry_at(float depth);
 /* The song's tempo in BPM: the tape delay's time, a dotted 8th (it glides if a tail rings, else lands). */
 void fx_tempo(float bpm);
+/* The delay's feel from the next fx_tempo: its time in beats (0.75, a dotted 8th) and its feedback (0.35); the harp
+   (a candidate lead, 2026-11-11, Sam: "the echo doesn't time well") a quarter, fed back at 0.2 (vx_configure) */
+void fx_delay_feel(float beats, float fb);
 /* Tests and the cost bench: the delay off (not run; its input ignored). Kept through fx_init. */
 void fx_wet_off(int delay_off);
 /* The reverb and chorus: Rings' (rings_fx.c; 1, the default) or, on the host only, our plate and chorus (0, VNL_FX=ours,
