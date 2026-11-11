@@ -13,12 +13,14 @@
      octave down. On the bass role a retrigger of the same patch is legato.
      p[0] modulator ratio, p[1] the settled index, p[2] the index added at the strike at full velocity, p[3] its fall
      to -60 dB (s), p[4] the sub-octave sine's level.
-   M_WIND (the flute; voices.c wind_*): an oscillator blend into a two-pole low-pass that opens with
-     the envelope, a mute, breath noise and a delayed vibrato (5 Hz, after 0.3 s, faded in over 0.6 s).
+   M_WIND (the flute, the whistle, the soft synth lead; voices.c wind_*): an oscillator blend into a two-pole low-pass
+     that opens with the envelope, a mute, breath noise and a delayed vibrato (after 0.3 s, faded in over 0.6 s).
      p[0] the blend (0 sine, 1 triangle, 2 pulse, crossfaded between), p[1] the pulse's width, p[2] the low-pass
      cutoff at full envelope and velocity, as a multiple of the note's frequency (60% of it at velocity 0, 30% at
      envelope 0), p[3] the breath's level, p[4] its band's center in Hz, p[5] the vibrato's depth in cents, p[6] the
-     mute: a band-pass center in Hz (0 for none), p[7] its damping k (1/Q: small is narrow).
+     mute: a band-pass center in Hz (0 for none), p[7] its damping k (1/Q: small is narrow), p[8] the vibrato's rate
+     in Hz (0: 5 Hz), p[9] on the lead, a glide's time in seconds (0: none): a note that starts where the last one
+     ends slides to its pitch from that one's (voices.c's pool_on).
    M_CHIP (the triangle bass; voices.c chip_*): a NES-style triangle channel at full rate (the dust colors it), stepped
      to 16 levels, pitch on the semitone, a gentle low-pass after its crush.
      p[0] the bit crush: the voice's output (after its envelope) rounded to this many bits over its own full level
@@ -61,6 +63,8 @@
 
 #define CELLO_SAMP_LVL 0.2122f /* the cello's and the harp's levels (patch.c's table) */
 #define HARP_LVL 0.5064f
+#define WHISTLE_LVL 0.7842f /* the round-2 candidates' (2026-11-11): level-matched to the flute on the lead */
+#define SOFT_SYNTH_LVL 1.3743f
 
 /* model, {p[0..15]}, att, dec, sus, rel, level, chorus, delay. The chorus (on the chords' bus): the electric keys and
    the pads deep, the felt piano and the nylon a touch. The delay's send: leads and ear candy wet, keys a little,
@@ -133,6 +137,18 @@ static const vx_patch_t PATCHES[INS_NONE] = {
        the Rhodes on the keys, as every sampled instrument's (test_samp); on the lead voices.c's SAMP_LEAD */
     [INS_HARP] = {M_SAMP, {SB_HARP, 300.0f, 0.5f, 0.0f, 0.0f, 0.5f, 0.7f, 0.5f, 10.0f}, 0.002f, 6.0f, 0.0f, 0.6f,
                   HARP_LVL, 0.1f, 0.0f},
+    /* Candidate leads, round 2 (2026-11-11; offered, never rolled, no set), the flute's wind model retoned. The
+       whistle: a pure sine (the blend 0) with a breath of air over it (a wide band at 2.6 kHz), a slow, wide vibrato
+       (4 Hz, 20 cents, delayed as the flute's), a quick onset and a short release; held as the flute is. It plays
+       in the flute's band (a whistler's lower register, F5-D6 on the A/B song). */
+    [INS_WHISTLE] = {M_WIND, {0.0f, 0.5f, 4.0f, 0.06f, 2600.0f, 20.0f, 0.0f, 0.0f, 4.0f}, 0.04f, 7.0f, 0.8f, 0.1f,
+                     WHISTLE_LVL, 0.0f, 0.3f},
+    /* The soft synth lead: the triangle blended a third of the way to a square (p[0] 1.35), under a low-pass 4x the
+       note that opens with the envelope (rounded: no buzz), no breath, the delayed vibrato (12 cents at 5 Hz), a 60 ms
+       glide between joined notes (p[9]); a low lead a 5th under the flute's band (library.c's lib_lead_drop: G4-D5
+       on the A/B song), its chorus 0.3 the send into the keys' chorus. */
+    [INS_SOFT_SYNTH] = {M_WIND, {1.35f, 0.5f, 4.0f, 0.0f, 1800.0f, 12.0f, 0.0f, 0.0f, 0.0f, 0.06f}, 0.015f, 6.0f,
+                        0.8f, 0.25f, SOFT_SYNTH_LVL, 0.3f, 0.3f},
 };
 
 /* The organ's keys (Sam's picks, 2026-10-31): the slow rotary (horn 25%, Doppler 0.2%), a click, a 3 ms attack and an

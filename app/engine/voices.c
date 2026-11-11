@@ -82,7 +82,8 @@ static const float CP_THR_KIT[KIT_N] = {0.095f, 0.090f, 0.084f, 0.162f, 0.110f, 
 #define IDX_K 0.02f      /* the electric bass's index slew per sample (about 1 ms): a legato restrike doesn't step */
 #define WIND_CR 32       /* the winds' control rate: the vibrato updates every 32 samples */
 #define WIND_LP_LO 0.3f  /* a wind's low-pass at envelope 0, as a fraction of its cutoff at full */
-#define VIB_RATE 5.0f    /* the winds' vibrato: 5 Hz, waiting 0.3 s, then fading in over 0.6 s */
+#define VIB_RATE 5.0f    /* the winds' vibrato: 5 Hz (the patch's p[8] else), waiting 0.3 s, then fading in over
+                            0.6 s */
 #define VIB_DELAY 0.3f
 #define VIB_FADE 0.6f
 #define BREATH_K 1.4f    /* the breath's band-pass damping (1/Q): a wide band */
@@ -711,6 +712,13 @@ static float loop_lead_g(void)
     return lib_ins_sustained(cfg.lead) ? LOOP_LEAD_SUS_G : LOOP_LEAD_G;
 }
 
+/* 1: a lead voice on a wind patch with a glide (p[9]: the soft synth lead): its joined notes slide (pool_on,
+   lane_legato) and its level slews, as the solo lane's */
+static int lead_glides(const voice_t *v, const vx_patch_t *p)
+{
+    return v->role == V_LEAD && p->model == M_WIND && p->p[9] > 0.0f;
+}
+
 /* the solo lane's level trim: lane 4's voice on its own patch (SOLO_TRIM), else 1 */
 static float solo_lvl(const voice_t *v, const vx_patch_t *p)
 {
@@ -742,7 +750,7 @@ static void env_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int l
                (p->model == M_SAMP && v->role == V_LEAD ? SAMP_LEAD[(int)p->p[0] % SB_N] : 1.0f) *
                (v->role == V_LEAD ? (cfg.lead == INS_FELT_PIANO ? FELT_LEAD_G : 1.0f) * loop_lead_g() : 1.0f);
     /* (the solo lane's own voice slews, so its legato notes ramp to their velocity's level: lane_legato) */
-    v->slew = (uint8_t)(v->role == V_BASS || (v->role == V_PAD && p->model != M_ENS));
+    v->slew = (uint8_t)(v->role == V_BASS || (v->role == V_PAD && p->model != M_ENS) || lead_glides(v, p));
     if (p->model == M_SAMP) { /* the sampler's envelope is its own (sampler.c): the gate only steals and stops */
         v->nk = v->sus = v->ka = 1.0f;
         v->kr = 0.0f;
@@ -986,15 +994,18 @@ static void chip_start(voice_t *v, const song_ev_t *e)
    the same pitch extends the note; another glides to it over ENS_GLIDE in even steps of pitch, the envelope, the
    filter's state and the breath going on (no restrike; a wind's low-pass follows the new note at once), or (the
    organ) its wheels move to the new key at once; the level slews to the new velocity's (env_start's slew). The voice
-   keeps its rate. */
-static void lane_legato(voice_t *v, const song_ev_t *e)
+   keeps its rate. The gliding lead's (lead_glides) likewise, over gt (its patch's p[9]; a lane's ENS_GLIDE), its
+   level the lead's (env_start's). */
+static void lane_legato(voice_t *v, const song_ev_t *e, float gt)
 {
     const vx_patch_t *p = v->pt;
-    float dv = step_len(v), f = note_inc(e->note), n = fm_maxf(ENS_GLIDE * SR / dv, 1.0f), r;
+    float dv = step_len(v), f = note_inc(e->note), n = fm_maxf(gt * SR / dv, 1.0f), r;
     v->gate = (e->len + (uint32_t)dv - 1u) / (uint32_t)dv;
     v->held = 1;
     v->off = t_on + e->len;
     v->amp_t = ROLES[v->role].gain * p->level * (float)e->vel * (1.0f / 127.0f) * solo_lvl(v, p);
+    if (v->role == V_LEAD)
+        v->amp_t *= loop_lead_g();
     if (e->note == v->note)
         return;
     v->note = e->note;
@@ -1255,7 +1266,7 @@ static void pool_on(const song_ev_t *e, int role)
             if (p->model == M_ENS)
                 ens_legato(v, e); /* held (or just ended): extended, or gliding */
             else
-                lane_legato(v, e);
+                lane_legato(v, e, ENS_GLIDE);
             return;
         }
         if (!v->on) {
@@ -1268,6 +1279,19 @@ static void pool_on(const song_ev_t *e, int role)
             v->pend = 1;
         }
         return;
+    }
+    if (role == V_LEAD && p->model == M_WIND && p->p[9] > 0.0f) {
+        /* a gliding lead (lead_glides): a note starting where the last one ends (within LEG_GAP either way; not over
+           a rest, not a second note at once) slides from it, on its voice */
+        for (i = first; i < first + count; i++)
+            if (fv[i].on && !fv[i].pend && fv[i].pt == p && t_on - fv[i].off + LEG_GAP < 2u * LEG_GAP &&
+                (pick < 0 || fv[i].age > fv[pick].age))
+                pick = i;
+        if (pick >= 0) {
+            fv[pick].age = ++age_ctr;
+            lane_legato(&fv[pick], e, p->p[9]);
+            return;
+        }
     }
     if (role == V_CHORD && p->model == M_SAMP && (e->pad & 1))
         p = &mute_pt; /* a chuck: the sampler's muted note */
@@ -1456,7 +1480,7 @@ VX_INLINE float wind_sample(voice_t *v)
         v->m.wd.cc = 0;
         if (r > 0.0f) {
             v->m.wd.inc = v->m.wd.f0 * (1.0f + fm_minf(r, 1.0f) * v->m.wd.vd * fm_sin_turns(v->m.wd.vp));
-            v->m.wd.vp += VIB_RATE * WIND_CR * INV_SR;
+            v->m.wd.vp += (v->pt->p[8] > 0.0f ? v->pt->p[8] : VIB_RATE) * WIND_CR * INV_SR;
             if (v->m.wd.vp >= 1.0f)
                 v->m.wd.vp -= 1.0f;
         }

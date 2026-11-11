@@ -1,5 +1,5 @@
 {
- "_note": "ROWS, SECTIONS and the comp fit answers as rows.js had them before rows.json (2026-11-06): smoke.mjs checks rows.json keeps them. compFits: per instrument id, options.json compRhythms then comping, 1 fits; rhythmRow: per instrument id, comp -1 then each of those ids. SECTIONS follows the parts' order of 2026-11-07 (lead before pad). Id 30 the jazz guitar from 2026-11-10 (a lead: as None); None moved to 31. Ids 31-32 the sampled cello and the harp from 2026-11-11 (leads: as None); None moved to 33.",
+ "_note": "ROWS, SECTIONS and the comp fit answers as rows.js had them before rows.json (2026-11-06): smoke.mjs checks rows.json keeps them. compFits: per instrument id, options.json compRhythms then comping, 1 fits; rhythmRow: per instrument id, comp -1 then each of those ids. SECTIONS follows the parts' order of 2026-11-07 (lead before pad). Id 30 the jazz guitar from 2026-11-10 (a lead: as None); None moved to 31. Ids 31-32 the sampled cello and the harp from 2026-11-11 (leads: as None); None moved to 33. Ids 33-34 the whistle and the soft synth lead from 2026-11-11 (round 2 candidate leads: as None); None moved to 35.",
  "ROWS": [
   {
    "id": "seed",
@@ -875,6 +875,36 @@
    0,
    1,
    0
+  ],
+  "34": [
+   1,
+   1,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   1,
+   1,
+   0,
+   1,
+   0
+  ],
+  "35": [
+   1,
+   1,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   1,
+   1,
+   0,
+   1,
+   0
   ]
  },
  "rhythmRow": {
@@ -1407,6 +1437,38 @@
    "comp"
   ],
   "33": [
+   "comp",
+   "comp",
+   "comp",
+   "comp",
+   "comp",
+   "comp",
+   "comp",
+   "comp",
+   "comp",
+   "comp",
+   "comp",
+   "comp",
+   "comp",
+   "comp"
+  ],
+  "34": [
+   "comp",
+   "comp",
+   "comp",
+   "comp",
+   "comp",
+   "comp",
+   "comp",
+   "comp",
+   "comp",
+   "comp",
+   "comp",
+   "comp",
+   "comp",
+   "comp"
+  ],
+  "35": [
    "comp",
    "comp",
    "comp",

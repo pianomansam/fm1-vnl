@@ -242,9 +242,9 @@ static void keys_win_for(song_t *s)
     const lib_set_t *set = lib_set_by_id((uint8_t)s->roll.v[RF_SET]);
     int lo, hi;
     leads_band_for(&s->roll, s->lead.style - 1, &lo, &hi);
-    /* (a low lead's band, an octave or two down, would squeeze the voicer under C4: none; the keys lift over it in
-       its blocks) */
-    s->keys_win = set && lib_lead_low(set->lead) ? 0 : lo - 1;
+    /* (a low lead's band, an octave or two down, would squeeze the voicer under C4: none, the keys lift over it in
+       its blocks; one they don't lift over, the soft synth lead, voiced as under the flute: its band undropped) */
+    s->keys_win = set && lib_lead_lift(set->lead) ? 0 : lo - 1 + (set ? lib_lead_drop(set->lead) : 0);
     s->win_oct = song_ov()->lead_oct;
     s->win_style = (int8_t)s->lead.style;
 }

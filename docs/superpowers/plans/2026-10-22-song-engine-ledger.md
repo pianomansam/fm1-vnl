@@ -734,6 +734,19 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
     round 1c removed: every song's delay one feel again), its plate send kept small (0.15), its lead level +0.8 dB
     for the echo's energy (4.2 dB under the flute over six songs). The sampled cello kept. Renders: scratchpad
     round1d/.
+  - **Candidates, round 2 (2026-11-11; workbench candidates, never rolled, no set): the whistle and the soft synth
+    lead,** both the flute's wind model retoned (no new DSP; the synth cello's saw stays removed). The whistle
+    (`INS_WHISTLE`): a pure sine, a breath of air (a wide band at 2.6 kHz), a slow, wide vibrato (4 Hz, 20 cents: the
+    model's vibrato rate now per patch), held as the flute; in the flute's band, which on the A/B song is a
+    whistler's lower register (measured F5-D6, body F5-C6): an octave down (F4-D5) would sit under a real whistle's
+    floor (about A4-C5) and read as a sine, an octave up piercing. The soft synth lead (`INS_SOFT_SYNTH`, the synth
+    family's only lead): the triangle a third of the way to a square under a low-pass 4x the note, the delayed
+    vibrato (12 cents), a 60 ms glide between joined notes (the solo lane's glide, on the lead); a low lead a 5th
+    under the flute's band (lib_lead_drop 7: an octave down put its floor a 4th over the keys and cut the motif's
+    shape), the keys as under the flute (not lifted): measured G4-D5 (body G4-C5), in a synth lead's C4-C6. Both
+    take the flute's styles. Levels matched to the flute over six songs (within 0.1 dB on average; the synth's
+    spread about 1 dB). Renders: seed 114 (set 1, Film Score: G minor, 86 BPM), lead 0:22-0:43, 1:29-2:14,
+    2:58-3:09; scratchpad round2/.
   - **Parked (Sam, 2026-11-11: "in our back pocket"): the synth cello.** The string synth's "low and dark" cello
     voicing re-expressed on the wind model: a saw added to M_WIND's blend (p[0] 3), a low-pass 18x the note, the
     mute's band-pass as a 1 kHz body resonance, bow noise at 2.5 kHz, an 80 ms swell, the keys' chorus as its

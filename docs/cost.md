@@ -1532,3 +1532,17 @@ bit for bit as at 2f51a53.
 - Flash: image 365,316 to **364,580 B (-736)**; RAM .data+.bss 74,708 to **74,692 B**; the pool and the bank
   (339,265 B, 53,951 free) unchanged.
 - CPU (`tools/cost-bench.sh --parts`, lead rows): the harp 0.225, the sampled cello 0.300 (the flute 0.240).
+
+### Candidate leads, round 2: the whistle and the soft synth lead (2026-11-11)
+
+Two workbench candidates (never rolled, no set), both the flute's wind model (M_WIND) retoned: no new DSP, no
+samples. The model gains a vibrato rate per patch (p[8]; 0 keeps the 5 Hz) and, on the lead, a glide between joined
+notes (p[9]: the solo lane's glide reused, its level slewing as the solo lane's). Every other instrument renders bit
+for bit as before: 21 whole songs (seed 114 on each approved lead; rolled seeds 1-40 across the flute, vibes, felt,
+Knight, jazz guitar leads; sets 41, 44, 38, 7, 5, 23).
+
+- Flash: image 364,580 to **365,412 B (+832)**: two patches, the vibrato rate and the lead's glide, the register
+  rules (a low lead the keys don't lift over), the names and choices. RAM .data+.bss 74,692 B and the pool 304,956 B
+  unchanged; the sample bank unchanged (339,281 B).
+- CPU (`tools/cost-bench.sh --parts`, lead rows): the whistle **0.229**, the soft synth lead **0.256** (its blend
+  past the triangle runs the polyBLEP pulse); the flute 0.237, the sampled cello 0.297, the harp 0.208.

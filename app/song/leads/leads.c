@@ -46,7 +46,7 @@ int lead_motif_to(const lead_motif_t *m, int si0, int *at, int *len, int *si)
    Jazz, Jazz-Hop, Film Score, Ambient; the vibes Impressionism, '60s Jazz, Jazz-Hop, Bossa Nova, Ambient; the Knight
    '60s Jazz, Film Score, Ambient; the jazz guitar '60s Jazz, Modal Jazz, Jazz-Hop, Bossa Nova; the
    sampled cello and the harp Impressionism, Romanticism, Film Score, Ambient. Any other instrument on the lead
-   (a workbench pick) takes the flute's. */
+   (a workbench pick; the whistle and the soft synth lead, candidates) takes the flute's. */
 #define LSB(s) (1u << (s))
 static unsigned style_fit(int ins)
 {
@@ -112,7 +112,8 @@ int leads_style_keep(const song_roll_t *r, int prev)
    2 flute Db Lydian, 3 vibes B Dorian, 4 felt piano Ab Mixolydian, 5 flute A Ionian; the renders' json "lead" notes,
    app/build/new, 2026-10-29), per lead instrument; a half rounded down ('60s Jazz on the flute, 80.5). No spike put
    the Knight on the lead: it takes the style's flute center, as does any other lead instrument; a low lead
-   (lib_lead_drop: the jazz guitar) the flute's an octave down; the cello (a drop of 24) its own, CELLO_C.
+   (lib_lead_drop: the jazz guitar) the flute's an octave down, the soft synth lead's a 5th; the cello (a drop of 24)
+   its own, CELLO_C.
 
                       flute  felt   vibes  Knight  other   (notes measured: flute / felt / vibes)
      Impressionism     79     80     76     79      79      119 /  80 / 49

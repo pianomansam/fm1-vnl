@@ -153,10 +153,10 @@ int lib_set_walks(const lib_set_t *s)
 
 int lib_lead_drop(int ins)
 {
-    return ins == INS_JAZZ_GTR ? 12 : ins == INS_SAMP_CELLO ? 24 : 0;
+    return ins == INS_JAZZ_GTR ? 12 : ins == INS_SAMP_CELLO ? 24 : ins == INS_SOFT_SYNTH ? 7 : 0;
 }
 int lib_lead_low(int ins) { return lib_lead_drop(ins) > 0; }
-int lib_lead_lift(int ins) { return lib_lead_low(ins); }
+int lib_lead_lift(int ins) { return ins == INS_JAZZ_GTR || ins == INS_SAMP_CELLO; }
 
 int lib_ins_sampled_struck(int ins)
 {
@@ -177,7 +177,7 @@ int lib_set_playable(const lib_set_t *s)
 int lib_ins_sustained(int ins)
 {
     return ins == INS_PAD || ins == INS_FLUTE || ins == INS_ORGAN || ins == INS_STRINGS || ins == INS_WARM_PAD ||
-           ins == INS_CHOIR || ins == INS_SAMP_CELLO;
+           ins == INS_CHOIR || ins == INS_SAMP_CELLO || ins == INS_WHISTLE || ins == INS_SOFT_SYNTH;
 }
 
 /* The leads Sam removed (2026-10-29: "i only liked the felt piano and vibraphones"; the lead styles build: the

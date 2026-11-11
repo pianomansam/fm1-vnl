@@ -26,6 +26,10 @@ enum { INS_RHODES, INS_WURLI, INS_FELT_PIANO, INS_NYLON, INS_PAD, INS_UPRIGHT, I
        INS_SAMP_CELLO,            /* leads (2026-11-11, approved: sets 41-45): the sampled cello (M_SAMP, the Karoryfer x Bigcat
                                      cello's bowing; the synth cello parked 2026-11-11: no id), */
        INS_HARP,                  /* the harp (M_SAMP: VSCO-2 CE's concert harp; the modal retone gone) */
+       INS_WHISTLE,               /* candidate leads (2026-11-11, round 2; no set): the whistle (M_WIND: a sine, a
+                                     breath, a slow vibrato), */
+       INS_SOFT_SYNTH,            /* the soft synth lead (M_WIND: a rounded triangle-square, vibrato, a glide; a low
+                                     lead the keys don't lift over) */
        INS_NONE }; /* append new ones before INS_NONE */
 /* the synth kits (drums.c), then the mixed sampled kits (retired; their hits left the bank 2026-11-10: the ids stay, a
    sampled kit's song's mark under a shipped sampled kit, song.c; their own hits are silent, drums.c) */
@@ -67,8 +71,8 @@ void lib_pattern_wb(const lib_pattern_t *p);
 unsigned lib_lane_hits(const lib_pattern_t *p, int lane, int bar);
 unsigned lib_lane_ghosts(const lib_pattern_t *p, int lane, int bar);
 const lib_set_t *lib_set_by_id(uint8_t id);
-/* 1: slow attack, held breath or a held tone (pads, the flute, the organ, the strings, the choir, the sampled cello); 0:
-   struck, plucked, the triangle bass, the FM bass */
+/* 1: slow attack, held breath or a held tone (pads, the flute, the organ, the strings, the choir, the sampled cello,
+   the whistle, the soft synth lead); 0: struck, plucked, the triangle bass, the FM bass */
 int lib_ins_sustained(int ins);
 /* a removed or retired lead (the muted trumpet, sax, guitar lick, string lead, cello; the kalimba, saw lead, synth
    pluck and Emilyguitar as leads): the flute or the vibes in its place; else ins */
@@ -83,15 +87,17 @@ int lib_ins_sampled_struck(int ins);
 /* 1: a sampled instrument (lib_ins_sampled_struck's, the sampled cello, the harp): none plays without the bank */
 int lib_ins_sampled(int ins);
 /* A lead under the others' register: the semitones its style centers sit under the flute's (leads.c), 0 for none:
-   the jazz guitar 12 (Sam 2026-11-10: "this octave does work"); the sampled cello 24, which marks it: its center is
-   its own, G3 whatever the style (leads.c's CELLO_C; Sam 2026-11-11: "an octave too high" where the style's floated
-   it), a cello's melody G2-E4. lib_lead_low: 1 for any of them (its ceiling down, E5 or E4; its patch's chorus its
-   send into the keys', voices.c) */
+   the jazz guitar 12 (Sam 2026-11-10: "this octave does work"); the soft synth lead 7 (a candidate: a 5th under the
+   flute's, its line in a synth lead's C4-C6 with the motif's room over the keys); the sampled cello 24, which marks
+   it: its center is its own, G3 whatever the style (leads.c's CELLO_C; Sam 2026-11-11: "an octave too high" where
+   the style's floated it), a cello's melody G2-E4. lib_lead_low: 1 for any of them (its ceiling down, E5 or E4; its
+   patch's chorus its send into the keys', voices.c) */
 int lib_lead_drop(int ins);
 int lib_lead_low(int ins);
-/* 1: a low lead the keys lift over (the jazz guitar, the sampled cello): in its blocks the keys and the pad's chord part an
-   octave up where the workbench leaves the keys' register as rolled (harmony_keys_lift; Sam: "the other instruments
-   should have gone up an octave"), the lead's top under the keys' lowest note (leads.c's range_bar) */
+/* 1: a low lead the keys lift over (the jazz guitar, the sampled cello; not the soft synth lead, pushed a 4th over the
+   keys as any lead, the keys voiced as under the flute: song.c's keys_win): in its blocks the keys and the pad's
+   chord part an octave up where the workbench leaves the keys' register as rolled (harmony_keys_lift; Sam: "the other
+   instruments should have gone up an octave"), the lead's top under the keys' lowest note (leads.c's range_bar) */
 int lib_lead_lift(int ins);
 /* the sample bank (engine/samples.h): 1 mounted (the default), 0 none (the app's boot, or a bank being written). With
    none the songs keep to synth instruments: no set with sampled keys, bass or lead is drawn or taken, a set's kit is

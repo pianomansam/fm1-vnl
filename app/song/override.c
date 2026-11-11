@@ -34,6 +34,10 @@ void song_ov_range(int ins, int *lo, int *hi)
     case INS_SAMP_CELLO: *lo = 42; *hi = 72; break;                       /* F#2-C5: its zones A2-A4, 3
                                                                              semitones either way (a low lead) */
     case INS_HARP: *lo = 24; *hi = 103; break;                            /* C1-G7: a concert harp's */
+    case INS_WHISTLE: *lo = 69; *hi = 96; break;                          /* A4-C7: a whistler's (its floor
+                                                                             about A4-C5) */
+    case INS_SOFT_SYNTH: *lo = 48; *hi = 96; break;                       /* C3-C7 (a low lead: its melody
+                                                                             C4-C6) */
     case INS_FLUTE: *lo = 60; *hi = 96; break;                            /* C4-C7 */
     case INS_VIBES: *lo = 53; *hi = 89; break;                            /* F3-F6 */
     default: *lo = 24; *hi = 108; break;
