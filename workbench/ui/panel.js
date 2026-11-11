@@ -167,7 +167,12 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
       const data = withMixer((await import(`./screens.js?t=${Date.now()}`)).default), bad_ = problems(data);
       bad.textContent = bad_.length ? `screens.js:\n${bad_.join("\n")}` : "";
       if (bad_.length && dev) return;
-      if (dev) dev.load(data); else { dev = new Device(data, engine); dev.splash(); }   // the boot splash, as the FM-1
+      if (dev) dev.load(data);
+      else {   // the home used last (the FM-1 keeps it in its flash; here this browser's), then the boot splash
+        dev = new Device(data, engine);
+        try { const h = localStorage.getItem(HOME_KEY); if (h && data.screens[h]) dev.stack = [dev.home = h]; } catch {}
+        dev.splash();
+      }
       took = null;
       panel();
       refresh(true);
@@ -177,9 +182,11 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
   }
 
   // the screen and what the reader said
-  let lightsKey = "";
+  let lightsKey = "", keptHome = null;
+  const HOME_KEY = "vnl1.home";
   function draw() {
     if (!dev) return;
+    if (dev.home !== keptHome) { keptHome = dev.home; try { localStorage.setItem(HOME_KEY, dev.home); } catch {} }
     const L = dev.keyLights(), lk = [...L.on].join() + "|" + [...L.blink].join();   // the keys' lights, here and on the FM-1
     if (lk !== lightsKey) {
       lightsKey = lk;

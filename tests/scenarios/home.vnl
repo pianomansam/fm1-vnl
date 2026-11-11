@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# The two homes (Sam, 2026-11-11): boot shows the splash, then the main screen; HOME there opens the now-playing
+# screen, the home from then on (a new song, HOME from elsewhere); the device keeps it through a reboot, the splash
+# flowing into it; HOME again the main screen, kept too.
+expect splash 1
+wait 1400
+expect splash 0
+expect home_now 0
+expect home 1
+tap HOME
+wait 50
+expect home_now 1
+expect home 1
+shot home-now.png
+tap GLO
+wait 50
+expect home 0
+tap HOME
+wait 50
+expect home_now 1
+expect home 1
+reboot
+expect splash 1
+wait 1400
+expect home_now 1
+expect home 1
+tap PLAY
+wait 3000
+shot home-now-playing.png
+tap HOME
+wait 50
+expect home_now 0
+reboot
+wait 1400
+expect home_now 0
+expect home 1

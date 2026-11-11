@@ -2170,6 +2170,7 @@ static uint32_t live_state(char *o, uint32_t cap)
     jbk(&b, "peak"); jbi(&b, (int32_t)m_load_peak);
     jbk(&b, "late"); jbi(&b, (int32_t)m_late);
     jbk(&b, "redraw_us"); jbi(&b, (int32_t)m_draw_max);
+    jbk(&b, "spin_us"); jbi(&b, (int32_t)m_spin_max);   /* the record's turn: a frame's label redraw, the longest */
     jbk(&b, "render_us"); jbi(&b, (int32_t)m_render_max);
     jbk(&b, "ab"); jbi(&b, ab_flags);
     jbk(&b, "ab2"); jbi(&b, ab_flags2);    /* the A/B switches (app.c AB_*: 1 guard off, 2 roll off, 4 kit render off,
@@ -2197,7 +2198,7 @@ static char live_sent[16384];            /* the simulator's: the frames, hex ("l
    their causes, the slowest render and redraw, the guard's steps */
 static void live_reset(void)
 {
-    m_load_peak = m_late = m_render_max = m_draw_max = 0;
+    m_load_peak = m_late = m_render_max = m_draw_max = m_spin_max = 0;
     memset(m_late_by, 0, sizeof m_late_by);
     cg_stats_reset();
 }
@@ -2283,12 +2284,41 @@ void app_splash(void)
 }
 #endif
 
+#if VNL_UI_RUNTIME
+/* the settings kept in the flash (OBJ_SETTINGS): which home was used last (HOME on the main and now-playing screens),
+   so boot lands there. Saved when it changes */
+#define SET_MAGIC 0x564E4C31u            /* "VNL1" */
+enum { SET_HOME_MAIN, SET_HOME_NOW };
+typedef struct { uint32_t magic; uint8_t home, pad[3]; } vnl_set_t;
+static uint8_t set_home = SET_HOME_MAIN;
+
+static void set_load(void)
+{
+    vnl_set_t v;
+    if (plat_store_load(OBJ_SETTINGS, &v, sizeof v) == (int)sizeof v && v.magic == SET_MAGIC && v.home <= SET_HOME_NOW)
+        set_home = v.home;
+    ui_hnav.stack[0] = ui_hnav.home = (uint8_t)(set_home == SET_HOME_NOW ? US_NOW : UI_HOME);
+}
+
+static void set_keep(void)               /* the home changed: kept (a failed write: tried at the next change) */
+{
+    uint8_t h = ui_hnav.home == US_NOW ? SET_HOME_NOW : SET_HOME_MAIN;
+    vnl_set_t v;
+    if (h == set_home) return;
+    memset(&v, 0, sizeof v);
+    v.magic = SET_MAGIC;
+    v.home = h;
+    if (plat_store_save(OBJ_SETTINGS, &v, sizeof v) == 0) set_home = h;
+}
+#endif
+
 void app_ui_init(void)
 {
     ui.redraw = 1;
 #if VNL_UI_RUNTIME
-    ui_nav_init(&ui_hnav);               /* the main screen (the runtime's) */
+    ui_nav_init(&ui_hnav);               /* the home (the runtime's): the main screen, or now playing if used last */
     ui_hnav.eng = &UI_HENG;
+    set_load();
     splash_on = 1;                       /* (app_splash drew it: the screen stays, its record starts turning) */
     splash_t0 = plat_ms();
 #else
@@ -2366,6 +2396,7 @@ void app_frame(void)
         ui.redraw = 1;
     }
     ui.redraw_input = 0;
+    set_keep();
 #endif
     speak();
     if (ui.msg_until && now >= ui.msg_until) {
@@ -2443,6 +2474,10 @@ int app_expect(const char *what, int *got)
 #if VNL_UI_RUNTIME
     else if (!strcmp(what, "home"))     /* the home shown (1: the main or now-playing screen in use) or another (0) */
         *got = ui_hnav.stack[ui_hnav.depth - 1] == ui_hnav.home;
+    else if (!strcmp(what, "home_now"))  /* the home is the now-playing screen (1) or the main screen (0) */
+        *got = ui_hnav.home == US_NOW;
+    else if (!strcmp(what, "splash"))    /* the boot splash showing */
+        *got = splash_on;
     else if (!strcmp(what, "key_lit")) {   /* the keys lit, bit k key k (blinking ones not counted) */
         uint32_t blink;
         *got = (int)ui_key_lights(&ui_hnav, &s, &blink);
@@ -2515,6 +2550,12 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
                 worst = us, at = i;
         }
         printf("uibench worst %s %d us (the host's)\n", UI_SCREEN_NAME[at], worst);
+        {                                /* the record's turn: its label's box alone (ui_record_turn) */
+            clock_t t0 = clock();
+            for (k = 0; k < 256; k++)
+                ui_record_turn(&UI_SCREENS[US_NOW], k);
+            printf("uibench spin %d us (a turn's frame, the host's)\n", (int)((clock() - t0) * 1000000.0 / CLOCKS_PER_SEC / 256));
+        }
         ui_hnav.stack[ui_hnav.depth - 1] = (uint8_t)keep;
         return 1;
     }

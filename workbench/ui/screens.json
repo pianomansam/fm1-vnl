@@ -1439,6 +1439,10 @@
     "EDIT": {
      "go": "cursor"
     },
+    "HOME": {
+     "go": "now",
+     "home": true
+    },
     "OCT+": {
      "by": 1,
      "byCursor": [
@@ -1706,6 +1710,149 @@
     }
    ],
    "title": "Parts"
+  },
+  "now": {
+   "bands": [
+    {
+     "draw": [
+      {
+       "back": "VINYL",
+       "color": "AMB",
+       "past": "LINE",
+       "record": [
+        0,
+        120,
+        104
+       ],
+       "value": "spin"
+      }
+     ],
+     "h": 64,
+     "y": 0
+    },
+    {
+     "draw": [
+      {
+       "back": "VINYL",
+       "color": "AMB",
+       "past": "LINE",
+       "record": [
+        0,
+        56,
+        104
+       ],
+       "value": "spin"
+      },
+      {
+       "color": "WHITE",
+       "fit": [
+        122,
+        "B"
+       ],
+       "font": "M",
+       "text": "{map}",
+       "when": "known",
+       "x": 112,
+       "y": 6
+      },
+      {
+       "color": "HI",
+       "font": "B",
+       "text": "{key} {mode}",
+       "when": "known",
+       "x": 112,
+       "y": 32
+      },
+      {
+       "color": "GRAY",
+       "font": "XS",
+       "text": "{section} {bar}/{bars}",
+       "when": "song",
+       "x": 112,
+       "y": 52
+      },
+      {
+       "color": "GRAY",
+       "font": "XS",
+       "text": "{idle}",
+       "when": "!song",
+       "x": 112,
+       "y": 52
+      },
+      {
+       "back": "LINE",
+       "color": "AMB",
+       "past": "DIM",
+       "sections": [
+        112,
+        72,
+        122,
+        3
+       ]
+      },
+      {
+       "color": "HI",
+       "font": "M",
+       "text": "{tempo}",
+       "when": "known",
+       "x": 112,
+       "y": 84
+      },
+      {
+       "after": 4,
+       "color": "GRAY",
+       "font": "XS",
+       "text": "BPM",
+       "when": "known",
+       "y": 92
+      }
+     ],
+     "h": 120,
+     "y": 64
+    },
+    {
+     "draw": [
+      {
+       "back": "VINYL",
+       "color": "AMB",
+       "past": "LINE",
+       "record": [
+        0,
+        -64,
+        104
+       ],
+       "value": "spin"
+      }
+     ],
+     "h": 56,
+     "y": 184
+    }
+   ],
+   "controls": {
+    "HOME": {
+     "go": "main",
+     "home": true
+    }
+   },
+   "say": [
+    {
+     "text": "{map}. {key} {mode}. ",
+     "when": "known"
+    },
+    {
+     "text": "{section}, BAR {bar} OF {bars}",
+     "when": "song"
+    },
+    {
+     "text": "{idle}",
+     "when": "!song"
+    },
+    {
+     "text": ", {tempo} BPM",
+     "when": "known"
+    }
+   ],
+   "title": "Now playing"
   },
   "pBass": {
    "bands": [

@@ -69,7 +69,7 @@ def summary(s):
             f"(cursor {s.get('cursor')}); keys {name('keys')}, lead {name('lead')}, kit {name('kit')}; "
             f"mute {','.join(s.get('mute', [])) or '-'} solo {s.get('solo') or '-'}; "
             f"cpu {cpu.get('load')}% (peak {cpu.get('peak')}%), late {cpu.get('late')}, render {cpu.get('render_us')} us, "
-            f"redraw {cpu.get('redraw_us')} us, guard {guard[cpu.get('guard', 0)] if cpu.get('guard', 0) < 4 else '?'} "
+            f"redraw {cpu.get('redraw_us')} us, record turn {cpu.get('spin_us')} us, guard {guard[cpu.get('guard', 0)] if cpu.get('guard', 0) < 4 else '?'} "
             f"x{cpu.get('guard_steps')}; late by {' '.join(f'{k} {v}' for k, v in cpu.get('late_by', {}).items() if v) or '-'}"
             f"{'; A/B ' + str(cpu.get('ab')) + ',' + str(cpu.get('ab2')) if cpu.get('ab') or cpu.get('ab2') else ''}")
 
