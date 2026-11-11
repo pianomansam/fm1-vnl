@@ -72,10 +72,9 @@
     },
     {
       "id": "SB_JAZZ", "rate": 12000, "attack": 0.6, "loop": 0.1, "after_kits": true, "use": "reamp",
-      "comment": "The jazz guitar (a candidate lead, 2026-11-10): the Shinyguitar archtop's magnetic pickup (electric), vl2 (velocities 33-64: jazz is played soft), rr1, every minor 3rd A3-C6 (the lead's register); standard pitch (the SFZ's keycenters). At 12 kHz (the reamp: 22.05 kHz); laid out after the kits (after_kits), so every other zone keeps its place. Two versions (variants; use: the one packed): reamp, Sam's re-amp of the raw notes through his amp and cabinet (the tone: tone.py bypassed), packed; its cut 0.55 s and a 0.15 s loop (0.1 s put a loop seam on Eb4 and, at 0.12 s, C4), at 22.05 kHz with the codes searched (search): the 12 kHz greedy encoding's noise read as fuzz on the upper notes (Sam), 4-5 dB less at 16 kHz searched, 3.5-4.5 dB less again at 22.05 kHz (Sam still heard a buzz); chain, the raw notes through tone.py's chain (a warm, round, dark jazz box), the first version (2026-11-10).",
+      "comment": "The jazz guitar (a candidate lead, 2026-11-10): the Shinyguitar archtop's magnetic pickup (electric), vl2 (velocities 33-64: jazz is played soft), rr1, every minor 3rd A3-C6 (the lead's register); standard pitch (the SFZ's keycenters). At 12 kHz; laid out after the kits (after_kits), so every other zone keeps its place. Two versions (variants; use: the one packed): reamp, Sam's re-amp of the raw notes through his amp and cabinet (the tone: tone.py bypassed), packed; its cut 0.55 s and a 0.15 s loop (0.1 s put a loop seam on Eb4 and, at 0.12 s, C4), at 12 kHz (16 and 22.05 kHz with the codes searched, 4-8 dB less ADPCM noise, made no difference Sam could hear to the buzz he hears: back to 12 kHz, the bank's room kept for a cello); chain, the raw notes through tone.py's chain (a warm, round, dark jazz box), the first version (2026-11-10).",
       "variants": {
-        "reamp": {"src": "jazz_reamp", "tone": {"bypass": true}, "attack": 0.55, "loop": 0.15, "rate": 22050,
-                  "search": true},
+        "reamp": {"src": "jazz_reamp", "tone": {"bypass": true}, "attack": 0.55, "loop": 0.15},
         "chain": {"src": "shiny",
                   "tone": {"in_db": -6.0, "tone_hz": 2200.0, "tone_order": 1, "drive": 1.5, "hp_hz": 90.0,
                            "body_hz": 350.0, "body_db": 3.0, "body_q": 0.9, "cab_hz": 4500.0, "cab_order": 4,

@@ -1459,3 +1459,7 @@ cleaner than the decode there).
 - Bank: the jazz guitar 55,976 to **77,138 B (+21,162)**; payload **349,202 B**, area 0 295,231 of 299,008 B, area 1
   53,987 of 94,208 B: **43,998 B free**. Every other zone unchanged.
 - Flash: image 290,448 to **290,752 B (+304)**; RAM unchanged.
+
+Then back to 12 kHz (Sam: "nothing you've done to fix the buzzing has helped": the 12 and 22.05 kHz renders "match"):
+the bank's room kept for a sampled cello. The jazz guitar **41,982 B** again (ce3f404's zones); payload **314,046 B**,
+**79,154 B free**. The beam search stays in `pack.py` (a bank's "search"), unused.
