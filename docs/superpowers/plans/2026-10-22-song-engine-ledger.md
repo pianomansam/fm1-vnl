@@ -373,6 +373,8 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   GENERATOR. The record is still while the platform boots, then spins up, slows and settles over 1.3 s with the engine
   and USB already running (nothing starts later); any control ends it. No reduced-motion setting exists yet
   (Settings' MOVEMENT is a placeholder): the splash turns regardless.
+  - **Darker (Sam, 2026-11-11, on the device: "the backlight washes it out and makes it look gray"):** background
+    #18110b (565 0x1881), LINE #2c2018 (0x2903, the same step over it), the record #080503 (0x0820).
 - **A simplified and an expanded main screen (Sam, 2026-11-06: an idea, part of the screens work).** Two main
   screens: a simple one (e.g. the chord and where the song is) and an expanded one (the song and every part's rolls);
   the expanded one opens from the simple one, and the user sets which is the default (HOME's). Mockups A-C in the

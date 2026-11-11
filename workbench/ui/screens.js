@@ -42,8 +42,9 @@ export default {
     PAD: [96, 164, 240], LEAD: [236, 124, 184], TEXTURE: [186, 168, 138],
     // a change made but not live yet: its value at once, "*" in front, in this color (Sam, 2026-11-06)
     PENDING: [250, 226, 90],
-    // the record's disc on the splash and the now-playing screen (Sam's splash C1, 2026-11-11: near-black, warm)
-    VINYL: [14, 9, 6],
+    // the record's disc on the splash and the now-playing screen (Sam's splash C1: near-black, warm;
+    // darkened with the background, 2026-11-11)
+    VINYL: [8, 5, 3],
   },
 
   // 1-bit icons, 9 px wide, rows of "#" (lit) and "." (the main screen's): one per part, drawn in its color

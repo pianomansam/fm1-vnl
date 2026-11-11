@@ -17,8 +17,8 @@ export const PALETTES = {
   CYAN: [...NEUTRALS, RGB(60, 180, 235), RGB(150, 225, 255), ...INK],
   RED: [...NEUTRALS, RGB(232, 76, 60), RGB(255, 132, 112), ...INK],
   MONO: [...NEUTRALS, RGB(196, 196, 202), RGB(236, 236, 240), ...INK],
-  ESPRESSO: [RGB(53, 39, 29), RGB(107, 84, 64), RGB(180, 156, 128), RGB(232, 136, 30), RGB(255, 184, 70),
-             RGB(33, 23, 16), RGB(244, 230, 200)],
+  ESPRESSO: [RGB(44, 32, 24), RGB(107, 84, 64), RGB(180, 156, 128), RGB(232, 136, 30), RGB(255, 184, 70),
+             RGB(24, 17, 11), RGB(244, 230, 200)],
 };
 export const THEME = "ESPRESSO";   // app.h's APP_PALETTE 5
 // the theme's colors, plus the screen data's own (`colors`: { NAME: [r, g, b] }, e.g. a color per part)
