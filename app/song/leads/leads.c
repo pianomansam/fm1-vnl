@@ -44,7 +44,7 @@ int lead_motif_to(const lead_motif_t *m, int si0, int *at, int *len, int *si)
 
 /* The styles each lead instrument plays (the spec's fits, bit LS_*): the flute any of the eight; the felt piano '60s
    Jazz, Jazz-Hop, Film Score, Ambient; the vibes Impressionism, '60s Jazz, Jazz-Hop, Bossa Nova, Ambient; the Knight
-   '60s Jazz, Film Score, Ambient; the jazz guitar (a candidate) '60s Jazz, Modal Jazz, Jazz-Hop, Bossa Nova; the
+   '60s Jazz, Film Score, Ambient; the jazz guitar '60s Jazz, Modal Jazz, Jazz-Hop, Bossa Nova; the
    cellos and the harp (candidates) Impressionism, Romanticism, Film Score, Ambient. Any other instrument on the lead
    (a workbench pick) takes the flute's. */
 #define LSB(s) (1u << (s))
@@ -171,6 +171,18 @@ static void range_bar(const song_roll_t *r, int style, const int keys[4], const 
     if (low && !lift && *hi < *lo + 7)                   /* a low lead pushed over the keys (the cellos): a 5th of
                                                             room over its floor at least, in its range */
         *hi = *lo + 7 < ih ? *lo + 7 : ih;
+    if (lift) {                                          /* the keys lifted over it (the jazz guitar): its top at
+                                                            their lowest note (Sam: the keys' lowest never under the
+                                                            guitar's top), a 6th of room under it in its range */
+        int bot = 999;
+        for (i = 0; i < 4; i++)
+            if (keys[i] && keys[i] < bot) bot = keys[i];
+        if (bot < *hi && bot >= il + 5) {               /* (keys left low, the lift refused: as before) */
+            *hi = bot;
+            if (*lo > *hi - 9) *lo = *hi - 9 > il ? *hi - 9 : il;
+            if (*lo_x < *lo || *lo_x > *hi) *lo_x = *lo;
+        }
+    }
 }
 
 void leads_range_bar(const song_roll_t *r, int style, const int keys[4], const int nkeys[4], int *lo, int *lo_x,

@@ -21,8 +21,8 @@ enum { INS_RHODES, INS_WURLI, INS_FELT_PIANO, INS_NYLON, INS_PAD, INS_UPRIGHT, I
        INS_CHOIR,                 /* the formant choir: a pad layer the song draws over its set's (lib_song_pad), and
                                      one of the pad's solo voices (pads_solo_voice). The vox pad (INS_VOX_PAD) it
                                      replaced is removed (Sam, 2026-10-31): no patch, no set; its id never reused */
-       INS_JAZZ_GTR,              /* sampled (M_SAMP): the jazz guitar, an archtop's pickup (a candidate lead,
-                                     2026-11-10) */
+       INS_JAZZ_GTR,              /* sampled (M_SAMP): the jazz guitar, an archtop's pickup (a lead, a candidate
+                                     2026-11-10, approved 2026-11-11: sets 38-40) */
        INS_SAMP_CELLO,            /* candidate leads (2026-11-11): the sampled cello (M_SAMP, the Karoryfer x Bigcat
                                      cello's bowing), */
        INS_SYNTH_CELLO,           /* the synth cello (M_WIND: a saw, low and dark, the string synth's cello voicing

@@ -98,6 +98,10 @@ static void check_step(const song_t *s, int bar, int step, const song_ev_t *ev, 
     const plan_block_t *b = plan_at(&s->plan, bar);
     int loop = pr ? pr->n * pr->bars_per_chord : 4, pass = bar / loop + 1, dark = b && (b->flags & PB_DARK);
     int pcs[5], np, i, j, key = s->roll.v[RF_KEY], mode = s->roll.v[RF_MODE];
+    const lib_set_t *ls = lib_set_by_id((uint8_t)s->roll.v[RF_SET]);
+    /* the jazz guitar's sets (2026-11-11): the keys and the pad's chord part an octave up in its lead blocks
+       (harmony_keys_lift), the guitar under them from F#3 (a low lead) */
+    int lift = ls && lib_lead_lift(ls->lead) && b && lead_plays(b) ? 12 : 0, low = ls && lib_lead_low(ls->lead);
     np = harmony_chord_at(&s->roll, bar, pass, dark, pcs);
     for (i = 0; i < n; i++) {
         const song_ev_t *e = &ev[i];
@@ -117,7 +121,7 @@ static void check_step(const song_t *s, int bar, int step, const song_ev_t *ev, 
             int up = (harmony_pad_place(&s->roll) == PL_BELOW ? 0 : 12) +
                      lib_set_keys_shift(lib_set_by_id((uint8_t)s->roll.v[RF_SET])) +   /* the Chillwave pad an octave down (Sam) */
                      harmony_keys_oct(&s->roll);                                       /* the workbench's register */
-            CHECK(e->note >= 48 + up && e->note <= 76 + up, "seed %u: chord note %d", seed, e->note);
+            CHECK(e->note >= 48 + up && e->note <= 76 + up + lift, "seed %u: chord note %d", seed, e->note);
             break;
         }
         case V_BASS: CHECK(e->note >= 28 && e->note <= 47, "seed %u: bass note %d", seed, e->note); break;
@@ -130,6 +134,10 @@ static void check_step(const song_t *s, int bar, int step, const song_ev_t *ev, 
                 CHECK(e->note >= (lo < 59 ? lo : 59) && e->note <= (hi > 88 ? hi : 88),   /* (or the rolled range,
                                                                                             where it stays) */
                       "seed %u: lead note %d (registers moved)", seed, e->note);
+            } else if (low) {
+                int lo, hi;
+                song_ov_range(st->lead, &lo, &hi);
+                CHECK(e->note >= lo && e->note <= 88, "seed %u: lead note %d (a low lead)", seed, e->note);
             } else
                 CHECK(e->note >= 60 && e->note <= 88, "seed %u: lead note %d", seed, e->note);
             break;
@@ -138,7 +146,7 @@ static void check_step(const song_t *s, int bar, int step, const song_ev_t *ev, 
                                             range: the strings 84-96, the others 72-84) */
             int lo = pads_solo_lo(pads_solo_voice(&s->roll));
             CHECK(e->pad >= 1 && e->pad <= 4, "seed %u: pad lane %d", seed, e->pad);
-            CHECK(e->pad == 4 ? e->note >= lo && e->note <= lo + 12 : e->note >= 55 && e->note <= 72,
+            CHECK(e->pad == 4 ? e->note >= lo && e->note <= lo + 12 : e->note >= 55 && e->note <= 72 + lift,
                   "seed %u: pad note %d on lane %d", seed, e->note, e->pad);
             break;
         }

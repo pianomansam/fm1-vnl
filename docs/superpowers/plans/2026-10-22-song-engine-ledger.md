@@ -711,6 +711,21 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
     Levels within 1 dB of the flute (cellos) and between the vibes and the piano (harp). Renders: seed 114 (G minor,
     86 BPM, Rhodes, electric bass, strings, Soft brushes; Film Score forced), lead 0:22-0:43, 1:29-2:14, 2:58-3:10.
     To judge by ear; the whistle and the soft synth lead wait for round 2.
+- **Done (Sam, 2026-11-11): the jazz guitar approved for songs.** Three sets lead with it, one per flavor its styles
+  weigh most, over struck keys the lift raises: 38 Rhodes and jazz guitar (neo-soul, wistful/warm), 39 Knight and
+  jazz guitar (lofi, sad/wistful), 40 Bossa Rhodes and jazz guitar (bossa, warm/sunny). About 10% of songs (20,000
+  rolls: 3.1/3.4/3.8% by set); its styles there: Jazz-Hop 34%, Bossa Nova 23%, '60s Jazz 22%, Modal Jazz 22%. The
+  other leads: flute 22.6%, vibes 24.1%, Knight 21.7%, felt 21.3% (each about a quarter before). Its register rules
+  hold (low lead; the keys and the pad's chord part +12 in its lead blocks where the keys' register is as rolled).
+  Rolled songs showed what seed 127 hadn't: the guitar's band (to E5) ran over the lifted keys in 71% of lead bars,
+  so its top is now capped at the keys' lowest note (Sam: "the keys' lowest note never under the guitar's top"),
+  and a low lead sets no keys window (it squeezed set 40's Rhodes into clusters, F#3 G3 A3 B3). Seed 127 keeps its
+  ranges (guitar C4-G4, keys G4-F5 in the lead blocks), a few notes moved. Pinned hashes moved (seeds draw other
+  sets): strum_same's (1be763b7/b465f94c to 89d868ef/ee29ff88), the lead loop's (feba4ec4/23854a09 to
+  6ec226d2/572d1848), song_rolled at seeds 140 and 300. Thresholds eased by the new sets' share: synth set Pad and
+  flute 3% to 2.8%, the pad solo's 3000 notes to 2900, glue seeds 26 and 43 (now Vibes and felt, 0.88 dB) held to
+  0.85; the voicing, pad-chord and keys-window tests leave the jazz guitar's songs to test_jazz_lift (the octave
+  lift is by design). To hear: songs on sets 38-40.
 - **The slow arpeggio as a lead.** One chord tone per 8th, up then down, sounded *melodic* rather than like
   accompaniment when it was a comping style (it's now in 16ths for comping). Use that 8th-note arpeggio, drawn from
   the song's voicings, as lead material.

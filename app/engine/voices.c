@@ -112,7 +112,7 @@ static const float CP_THR_KIT[KIT_N] = {0.095f, 0.090f, 0.084f, 0.162f, 0.110f, 
 /* a sampled instrument (M_SAMP) on the lead, over its level on the keys, per bank (Knight, nylon, Emilyguitar, jazz
    guitar, cello): its patch's level matches the Rhodes on the keys; the nylon +7 dB (the flute's level on the lead),
    the Knight +3.85 and the Emilyguitar +3.5, tuned on their sets' lead over keys (test_lead_over_keys: a struck lead
-   reads 8-10 dB over the keys at about 4 dB under the flute's bar energy); the jazz guitar (a candidate, no set)
+   reads 8-10 dB over the keys at about 4 dB under the flute's bar energy); the jazz guitar (sets 38-40)
    +5.21, an octave low with its chorus (its dry 2.5 dB down for it), its zones 16-bit PCM: the Knight's level on the
    lead in test_samp's songs; the sampled cello (a candidate) +8 dB: a held lead at the flute's level */
 static const float SAMP_LEAD[SB_N] = {1.5578f, 2.239f, 1.4962f, 1.8216f, 2.505f};

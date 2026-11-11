@@ -561,9 +561,10 @@ console.log("options.json");
         JSON.stringify(OPTS.instruments.find((i) => i.name === "Electric guitar").roles) === '["keys"]' &&
         JSON.stringify(leads) === JSON.stringify(["Felt piano", "Flute", "Harp", "Jazz guitar", "Piano",
                                                   "Sampled cello", "Synth cello", "Vibes"]) &&
-        ["Jazz guitar", "Sampled cello", "Synth cello", "Harp"].every((n) =>
+        OPTS.instruments.find((i) => i.name === "Jazz guitar").status === "approved" &&
+        ["Sampled cello", "Synth cello", "Harp"].every((n) =>
           OPTS.instruments.find((i) => i.name === n).status === "candidate"),
-        `the lead styles build: the lead row offers the four and the jazz guitar, a candidate (${leads.join(", ")}); the kalimba, saw lead and synth pluck retired, the Electric guitar on the keys only`);
+        `the lead styles build: the lead row offers the four, the jazz guitar (approved 2026-11-11) and the candidates (${leads.join(", ")}); the kalimba, saw lead and synth pluck retired, the Electric guitar on the keys only`);
   check(retired(OPTS.instruments, ["Upright bass"]) && retired(OPTS.comping, ["Arpeggio", "Offbeats"]) &&
         retired(OPTS.kits, ["Dusty (synth)", "Soft (synth)", "Our 808"]),
         "the removed sounds are retired (upright, our synth kits, arpeggio, offbeats)");
@@ -839,8 +840,9 @@ console.log("desk: dice and registers");
   const ex = await load();
   const call = caller(ex);
   const desk = new Desk(call, C, OPTS, await call("wb_library"), { rnd: lcg(5), probe: await prober() });
-  ex.wb_seed(2);   // (seed 5 until the vibes-on-keys sets, 2026-11-05, moved its song to one whose lead goes down; seed 1
-                   // until the leads evened, Sam 2026-11-06: its set 22 leads with the vibes now, which go down)
+  ex.wb_seed(5);   // (seed 5 until the vibes-on-keys sets, 2026-11-05, moved its song to one whose lead goes down; seed 1
+                   // until the leads evened, Sam 2026-11-06: its set 22 leads with the vibes now, which go down; seed 2
+                   // until the jazz guitar's sets, 2026-11-11)
   ex.wb_apply();
   ex.wb_play(1);
   render(ex, Q);
@@ -854,7 +856,7 @@ console.log("desk: dice and registers");
   check(k.ok && desk.values.keysOct === ex.wb_keys_oct_applied() && ex.wb_ov_get(C.OV.KEYS_OCT) === desk.values.keysOct,
         `the keys register shows what the engine applies (asked +1, plays ${desk.values.keysOct}${k.message ? `: "${k.message}"` : ""})`);
   const probe = await prober(), stagedLead = async () => probe(await call("wb_stage_bytes"));
-  const l = await desk.set("leadOct", -1);   // seed 2: the lead can't go down (lead.c keeps it)
+  const l = await desk.set("leadOct", -1);   // seed 5: the lead can't go down (lead.c keeps it)
   check(l.ok && desk.values.leadOct === 0 && ex.wb_ov_get(C.OV.LEAD_OCT) === 0 && /Lead register/.test(l.message),
         `the lead register shows what the engine applies (asked -1, plays ${desk.values.leadOct}: "${l.message}")`);
   ex.wb_ov_set(C.OV.LEAD_OCT, -1);
@@ -865,7 +867,7 @@ console.log("desk: dice and registers");
     ex.wb_seed(seed);
     if ((await stagedLead()) === 1) up = seed;
   }
-  check(refused === 0 && up > 0, `the probe instance: seed 2 down refused (${refused}), seed ${up} up applied`);
+  check(refused === 0 && up > 0, `the probe instance: seed 5 down refused (${refused}), seed ${up} up applied`);
 }
 
 console.log("desk: a quantum rendered before every call (the worklet's interleaving)");
@@ -1552,10 +1554,11 @@ console.log("whole-branch review fixes");
   };
   const LANES808 = ["BD", "SD", "CH", "OH", "MA", "RS", "CH"].map((v) => [SRC.PT, PT.M808, PT[v], 0]);
 
-  // 1: a kit's lanes on a song whose kit is a retired mixed sampled kit (Clean, seed 18: 16 until the DX's sets
-  // retired, 2026-11-04, then 17 until the vibes-on-keys sets, 2026-11-05): refused, nothing staged
+  // 1: a kit's lanes on a song whose kit is a retired mixed sampled kit (Clean, seed 29: 16 until the DX's sets
+  // retired, 2026-11-04, then 17 until the vibes-on-keys sets, 2026-11-05, then 18 until the jazz guitar's sets,
+  // 2026-11-11): refused, nothing staged
   {
-    const { ex, desk } = await fresh(18);
+    const { ex, desk } = await fresh(29);
     const before = cstr(ex, ex.wb_state()), was = desk.values.kit;
     const r = await desk.loadKit({ name: "x", lanes: LANES808 });
     check(was === 8 && !r.ok && /Clean/.test(r.message) && cstr(ex, ex.wb_state()) === before && !ex.wb_pending() && !desk.hand.has("kit"),
@@ -1563,7 +1566,7 @@ console.log("whole-branch review fixes");
     const r2 = await desk.loadKit({ name: "y", from: "808", lanes: LANES808 });
     check(r2.ok && desk.values.kit === DRUMS.PRESET + DRUMS.PT808 && JSON.stringify(desk.drums.lanes) === JSON.stringify(LANES808),
           `a kit file saved from the 808: the kit row shows 808 after loading (${desk.values.kit})`);
-    const { desk: d3 } = await fresh(18);
+    const { desk: d3 } = await fresh(29);
     d3.lock("kit", true);
     const r3 = await d3.loadKit({ name: "y", from: "808", lanes: LANES808 });
     check(!r3.ok && /Kit is locked/.test(r3.message) && d3.values.kit === 8, `... with the kit locked: blocked ("${r3.message}")`);
@@ -2857,12 +2860,11 @@ console.log("lead loop end to end (Jazz-Hop, the Lead loop row On)");
 
 console.log("options.json: statuses");
 check(OPTS.instruments.filter((i) => i.status === "candidate").map((i) => i.sym).join() ===
-        "INS_JAZZ_GTR,INS_SAMP_CELLO,INS_SYNTH_CELLO,INS_HARP" &&
+        "INS_SAMP_CELLO,INS_SYNTH_CELLO,INS_HARP" &&
       ["INS_PAD", "INS_CHOIR"].every((n) => OPTS.instruments.find((i) => i.sym === n).status === "approved") &&
       OPTS.instruments.find((i) => i.name === "Vox pad").status === "retired",
-      "the candidates among the instruments: the jazz guitar, the cellos and the harp (the chillwave pad and the " +
-      "choir approved, the vox pad " +
-      "retired)");
+      "the candidates among the instruments: the cellos and the harp (the jazz guitar approved; the chillwave pad " +
+      "and the choir approved, the vox pad retired)");
 {
   const { inactive } = await import("../rows.js");
   const st = (kit) => ({ values: { kit } });

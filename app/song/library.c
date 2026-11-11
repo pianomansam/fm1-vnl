@@ -53,6 +53,12 @@ const lib_set_t LIB_SETS[] = {
     {35, "Vibes and Knight", INS_VIBES, INS_ELEC_BASS, INS_KNIGHT, INS_NONE, INS_STRINGS, KIT_SOFT, KIT_S_WARM, FL_NEOSOUL, MOOD_WISTFUL | MOOD_WARM, "vibes on the keys: set 22 (Knight and felt), the Knight leading"},
     {36, "Vibes and felt", INS_VIBES, INS_FM_BASS, INS_FELT_PIANO, INS_NONE, INS_STRINGS, KIT_DUSTY, KIT_S_DARK, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "vibes on the keys: set 31 (Rhodes and felt), the felt leading"},
     {37, "Bossa vibes and piano", INS_VIBES, INS_SUB, INS_KNIGHT, INS_NONE, INS_STRINGS, KIT_BRUSHES, KIT_N, FL_BOSSA, MOOD_WARM | MOOD_SUNNY, "vibes on the keys: set 2 (Bossa nylon), the flute leading; the leads evened out (Sam, 2026-11-06: each of the four about a quarter of songs; the synth sets keep theirs)"},
+    /* the jazz guitar leads (Sam approved it, 2026-11-11), a low lead over struck keys the lift raises (never a
+       guitar's: they only strum), one set per flavor its styles weigh most ('60s Jazz, Modal Jazz, Jazz-Hop, Bossa
+       Nova): about 1 song in 10, two moods each as every set; kits and pads as the sets they follow */
+    {38, "Rhodes and jazz guitar", INS_RHODES, INS_ELEC_BASS, INS_JAZZ_GTR, INS_NONE, INS_STRINGS, KIT_SOFT, KIT_S_WARM, FL_NEOSOUL, MOOD_WISTFUL | MOOD_WARM, "Sam approved the jazz guitar (2026-11-11): set 11 (Rhodes neo-soul)'s keys, bass and kits"},
+    {39, "Knight and jazz guitar", INS_KNIGHT, INS_ELEC_BASS, INS_JAZZ_GTR, INS_NONE, INS_STRINGS, KIT_DUSTY, KIT_S_DARK, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "Sam approved the jazz guitar (2026-11-11): set 21 (Knight and flute)'s keys, bass and kits"},
+    {40, "Bossa Rhodes and jazz guitar", INS_RHODES, INS_SUB, INS_JAZZ_GTR, INS_NONE, INS_STRINGS, KIT_BRUSHES, KIT_N, FL_BOSSA, MOOD_WARM | MOOD_SUNNY, "Sam approved the jazz guitar (2026-11-11): set 37 (Bossa vibes and piano)'s bass and kit, the Rhodes on the keys"},
 };
 const int LIB_NSETS = (int)(sizeof LIB_SETS / sizeof LIB_SETS[0]);
 

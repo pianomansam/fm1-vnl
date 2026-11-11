@@ -31,7 +31,7 @@ typedef struct { uint32_t off, len, loop_start, loop_len; uint16_t rate; uint8_t
 typedef struct { const smp_zone_t *z; uint8_t n; } smp_bank_t;  /* zones sorted by root */
 
 /* Pitched banks: the Knight upright (VCSL), the FreePats Spanish classical nylon, the Karoryfer Emilyguitar, the
-   jazz guitar (the Karoryfer Shinyguitar's pickup, re-amped by Sam; a candidate lead, 2026-11-10) (the VCSL vibraphone
+   jazz guitar (the Karoryfer Shinyguitar's pickup, re-amped by Sam; a lead, approved 2026-11-11) (the VCSL vibraphone
    went 2026-11-03: the vibes are modeled, modal.h). The jazz guitar's zones are not in the bank: 16-bit PCM in the
    firmware's image (smp_pcm16, samples_pcm.c: const, in flash), each zone's idx0 SMP_PCM16 and its off in samples
    (Sam, 2026-11-10: every 4-bit version of it sounded sub-par). They play as the bank's do, the bank mounted. Then

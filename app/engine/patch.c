@@ -110,7 +110,7 @@ static const vx_patch_t PATCHES[INS_NONE] = {
                     0.35f, 0.571f, 0.1f, 0.06f},
     [INS_EMILY] = {M_SAMP, {SB_EMILY, 300.0f, 0.55f, 0.0f, 0.0f, 0.5f, 0.6f, 1.0f, 12.0f}, 0.001f, 5.0f, 0.0f, 0.12f,
                    0.648f, 0.3f, 0.1f},
-    /* the jazz guitar (the Shinyguitar's pickup, Karoryfer, CC0; a candidate lead, 2026-11-10): its tone baked in
+    /* the jazz guitar (the Shinyguitar's pickup, Karoryfer, CC0; a lead, approved 2026-11-11): its tone baked in
        before packing (Sam's re-amp through his amp and cabinet; or tools/samples/tone.py's chain, the manifest's
        other variant), so the sampler's tone only takes the pick's edge off (8x the note, falling to 60%) and keeps
        the ADPCM's hiss under it; no vibrato. Its level 0.26 dB under the Emilyguitar's (its lead level: voices.c's
