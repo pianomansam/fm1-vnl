@@ -9,11 +9,13 @@ The first public release: a generative lo-fi hip hop firmware for the M-VAVE FM-
 - **Six parts:** drums (eight kits, two of them sampled), bass (four), comp (eight instruments, eight rhythms, strummed
   guitars), lead (eight instruments, eight styles, looped like a sample), pad, and texture (dust, noise bed, room).
 - **Sampled instruments:** piano, nylon, electric and jazz guitar, cello, harp and two room kits, from CC0 libraries, in
-  a sample bank written once with `tools/fm1_bank.py`.
+  a sample bank written once, by the browser installer or `tools/fm1_bank.py`.
 - **A lo-fi mix:** wow and flutter, saturation, grit, chorus, delay, plate reverb, kick ducking and a whole-mix stutter.
 - **On the device:** a boot splash, a now-playing screen, a main screen, a page per part, Parts, Sections and Mixer
   screens; mute and solo from the keys; every change landing on the next four-bar line; a screen reader; USB audio.
 - **A CPU guard** that sheds reverb tails and quiet voices before the audio can glitch.
+- **A site with a browser installer** (Chrome or Edge): the firmware, then the sample bank; the emulator and the
+  manual beside it.
 - **For developers:** the host simulator, the browser emulator, the workbench, and patterns as MIDI and MusicXML.
 
 Known limits: no Bluetooth, so no velocity or pressure from the keys. The Settings screen is a placeholder. See

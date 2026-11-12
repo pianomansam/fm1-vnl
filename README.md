@@ -83,6 +83,11 @@ Every change to the song lands on its next four-bar line, and the screen shows i
 
 At your own risk: this replaces the FM-1's firmware. You can always go back to M-VAVE's.
 
+**From the browser:** open [VNL-1's site](https://pianomansam.github.io/fm1-vnl/) in Chrome or Edge, connect the
+FM-1 by USB and press Install. It writes the firmware, then offers the sample bank.
+
+**From a terminal:**
+
 1. Get the source with its submodule, and a Python with `mido` and `python-rtmidi`:
 
        git clone --recursive https://github.com/pianomansam/fm1-vnl
@@ -149,6 +154,22 @@ pattern files in `patterns/README.md`, the samples in `tools/samples/`.
   Pillow. `build.sh` uses `.venv/bin/python` when it exists; `PYTHON=...` overrides.
 - **Live state:** `tools/fm1_state.py` reads the running FM-1's state over USB (CPU by stage, late blocks, the song).
 - `ref/` (git-ignored) holds read-only clones of other FM-1 firmwares, for reference only.
+
+### The site
+
+`tools/site.sh VERSION` makes the GitHub Pages site in `app/build/site`: the release build, the browser emulator,
+fm1-base's `tools/make_site.py` (the front page from `app/site/landing.md`, the web installer, the manual from
+`app/docs/MANUAL.md`), and the sample bank beside the package, which the installer writes after the firmware
+(`app/web/install_app.js`). Serve it with `python3 -m http.server -d app/build/site`. `tools/site.sh VERSION --publish`
+also pushes it to the `gh-pages` branch, replacing what was there. The site's text is in `app/site/landing.md`; its
+screenshots in `app/site/img/` and `app/docs/img/` come from the host simulator (`shot FILE.png` in a script).
+
+### Keeping docs current
+
+When a firmware feature is added, changed or removed, update in the same change: this README's Features and
+Controls, `CHANGELOG.md`, the site's `app/site/landing.md` and the manual `app/docs/MANUAL.md` (and their
+screenshots when a screen changes), and `ROADMAP.md` when an item ships or is dropped. List only approved features,
+and no artist or composer names.
 
 ## Credits and licenses
 

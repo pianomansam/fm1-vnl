@@ -1,128 +1,120 @@
-# TEMPLATE
+# VNL
 
-TEMPLATE is the smallest complete firmware for the M-VAVE FM-1, made to be copied. Every control shows on the
-screen by its name as you use it, the keys play a simple voice with velocity and pressure, and a few controls do
-something: the octave, the wave, the volume and saving. MIDI goes out over USB and Bluetooth. It installs, updates, runs in the browser and speaks to a screen reader, as a finished
-firmware does.
+VNL-1 is a lo-fi hip hop machine for the M-VAVE FM-1. It writes and plays its own songs, one after another, each with
+its own key, tempo, chords, layout and band. You can leave it running, or steer it: change the key, the tempo, the
+mood, any part's instrument, or jump between sections. Every change lands on the next four-bar line, and the screen
+shows it waiting until then.
 
-This manual is also an example: copy it with the template and write your firmware's own.
-
-![The TEMPLATE screen at rest: the name at the top, the 14 buttons in four rows, the seven knobs with their counts, the keys, then OCT +0, PRESET SINE, VOL 50%](img/screen-ready.png "TEMPLATE at rest")
+![The now-playing screen: a spinning record beside the song's layout, its key, the chord, where it is and the tempo](img/nowplaying.png "Now playing")
 
 ---
 
 ## Contents
 
 1. Install
-2. The screen
-3. Controls
-4. Saving
-5. MIDI and audio
-6. The screen reader
-7. Troubleshooting
+2. The sample bank
+3. The screens
+4. Controls
+5. The parts
+6. Troubleshooting
 
 ---
 
 ## 1. Install
 
-**Try it first:** the emulator runs the same code in the browser, with sound, played with the mouse, a touch
-screen or the computer keyboard.
+**Try it first:** the emulator runs the same code in the browser, with sound.
 
-**Install from the browser:** in Chrome or Edge, connect the FM-1 by USB, open the installer and press Install.
-The browser asks once to allow MIDI: allow it. Don't unplug the cable while it writes.
+**Install from the browser:** in Chrome or Edge, connect the FM-1 by USB, open the installer and press Install. The
+browser asks once to allow MIDI: allow it. Don't unplug the cable while it writes. After the firmware, the installer
+offers to write the sample bank (section 2).
 
-**Install from a terminal:** `python3 tools/fm1_install.py template-VERSION.fwsc`.
+**Install from a terminal:** from the source, with a Python that has `mido` and `python-rtmidi`:
+`python3 base/tools/fm1_install.py vnl-VERSION.fwsc`, then `python3 tools/fm1_bank.py`.
 
-**Back to the stock firmware:** the installer's last section writes M-VAVE's own firmware back. An FM-1 that
-doesn't start can be recovered too. For details, see felucca-bsp's `tools/fm1_rescue.sh`.
+**Update mode:** hold REC while switching the FM-1 on.
 
----
-
-## 2. The screen
-
-![TEMPLATE while a key is held: C4 in the header with V 90 P 64, FX lit among the buttons, K3 at 3, the key filled on the keyboard](img/screen-playing.png "A key held, FX pressed, K3 turned")
-
-| Part | What it shows |
-| --- | --- |
-| Header | The name, and BLE: lit while a computer or tablet is connected over Bluetooth. While a key plays, its note, the velocity it landed at (V) and how hard it's pressed (P). A message for a moment after a change. |
-| Buttons | All 14, by their names. A button lights while it's held. |
-| Knobs | The seven encoders, each with a count of its turns. A knob lights for a moment as it turns. |
-| Keys | The 27 keys, black above white. A held key fills to its velocity, and white over that shows its pressure. |
-| Bottom line | The octave, the wave (on PRESET) and the volume (MASTER). |
+**Back to the stock firmware:** the installer's last section writes M-VAVE's own firmware back.
 
 ---
 
-## 3. Controls
+## 2. The sample bank
+
+VNL-1's sampled instruments (piano, nylon, electric and jazz guitar, cello, harp and the two room kits) live in a
+sample bank, in a part of the flash that a firmware update doesn't touch. Write it once, and again only when a release
+says the samples changed. The browser installer offers it after the firmware; from a terminal, `tools/fm1_bank.py`
+writes it. VNL-1 must be stopped while the bank is written.
+
+Without the bank, VNL-1 says NO SAMPLES and plays its synth instruments only.
+
+---
+
+## 3. The screens
+
+**Now playing** (above): the song's layout, its key and mode, the chord playing, the section and bar, and the tempo.
+HOME switches between it and the main screen; the one you used last is where HOME goes back to.
+
+![The main screen: the section and tempo, the chord and key, a tile per part with its instrument, and the key, tempo, motion and mood on the four knobs](img/main.png "The main screen")
+
+**The main screen:** the song's progress, a tile per part with its instrument and rhythm, and the four knobs: key,
+tempo, motion and mood.
+
+![The comp's page: instrument, rhythm, voicings and register on the four knobs](img/comp.png "A part's page")
+
+**A part's page:** ALGO picks a part, EDIT opens its page, SELECT steps its pages. The four knobs change that page's
+settings; SEQ re-rolls only that part.
+
+![The Parts screen: each part's notes scrolling over the song](img/parts.png "Parts (ARP)")
+
+**Parts (ARP):** each part's notes scrolling over the song.
+
+![The Sections screen: the song's sections with their lengths, the one playing marked, Loop and Stay on song below](img/sections.png "Sections (SEL)")
+
+**Sections (SEL):** the song's sections. EDIT or a section's key jumps there; K1 loops the section; K2 stays on the
+song instead of moving to the next one.
+
+![The Mixer: a level per part, with mute and solo](img/mixer.png "The Mixer (FX)")
+
+**The Mixer (FX):** a level per part, with mute and solo.
+
+---
+
+## 4. Controls
 
 | Control | What it does |
 | --- | --- |
-| Keys | Play the voice, louder the harder they land, and send the note over USB and Bluetooth on channel 1, with its velocity. Pressing a held key harder sends aftertouch. The last key pressed sounds. |
-| OCT− · OCT+ | The octave, from −2 to +2. |
-| PRESET | The wave: sine or triangle. |
-| MASTER | The volume. |
-| SAVE | Saves the octave, the wave and Bluetooth on or off. SAVE lights while there's something to save. |
-| REC | Press: find and connect a Bluetooth MIDI device. Hold a second: Bluetooth off or on. For details, see MIDI and audio. |
-| Every other button and knob | Shows its name on the screen, and nothing else. This is where a firmware wires its own. |
+| PLAY | Play or stop. After a stop, PLAY carries on from the bar it stopped in. |
+| SEQ | A new song. On a part's page, re-rolls only that part. |
+| K1-K4 | On the main screen: key, tempo, motion, mood. On a part's page: that page's settings. |
+| ALGO | Picks a part. EDIT opens its page; SELECT steps its pages. |
+| PRESET | The highlighted part's instrument (or kit). |
+| OCT- / OCT+ | The comp's or the lead's register. |
+| SEL | Sections. |
+| ARP | Parts. |
+| FX | The Mixer. |
+| HOME | Switches between the now-playing screen and the main screen. |
+| Lowest white keys (F G A B C) | Drums, bass, comp, lead, pad: press to mute, hold to solo. The keys' lights show which parts are playing. |
 
 ---
 
-## 4. Saving
+## 5. The parts
 
-Press SAVE to keep the octave, the wave and whether Bluetooth is on. They come back the next time the FM-1 starts. SAVE stays lit while
-there are changes to save.
-
-![After OCT+ and PRESET: OCT +1 and PRESET TRIANGLE, SAVE waiting](img/screen-settings.png "OCT+ and PRESET changed, not saved yet")
-
----
-
-## 5. MIDI and audio
-
-MIDI comes in over USB, Bluetooth and the TRS jack. A note on any channel plays the voice; a note off releases it.
-The keys send notes, with their velocity, and poly aftertouch out over USB and Bluetooth.
-
-Over Bluetooth, TEMPLATE advertises as "FM-1". On a Mac, open Audio MIDI Setup, choose Window > Show MIDI Studio,
-click the Bluetooth button, then Connect next to FM-1. On an iPad or iPhone, connect from a music app's Bluetooth
-MIDI settings.
-
-To switch Bluetooth off, hold REC for a second: the screen says BLUETOOTH OFF, and the FM-1 stops advertising
-and drops any connection. Hold REC again to switch it back on. Press SAVE to keep the choice: it stays so the next
-time the FM-1 starts.
-
-To connect TEMPLATE to a Bluetooth MIDI device, such as a keyboard or a controller, put the device in its pairing or
-advertising mode, then press REC: the screen says BLE SCANNING. Turn ALGORITHM to pick the device by its name, and
-press REC again to connect. DEV in the header lights while it's connected, and the bottom line shows the last
-message it sent. Press REC once more to disconnect.
-
-The keys sense how hard they're played, with no change to the FM-1. The 20 lowest keys
-(F3 to C5) give velocity and pressure; the top seven give velocity only.
-
-Over the USB cable the FM-1 is also a sound card. A computer can record what it plays (an input named
-"TEMPLATE FM-1"), and can play through it: choose "TEMPLATE FM-1" as the output, and its sound comes out of the
-FM-1's speaker and headphones, mixed with the FM-1's own, at MASTER's volume.
+- **Drums:** eight kits: 808 and CR-78 (modeled machines), Crunchy, Boom-bap and Jazz machine (synth drums), Soft
+  brushes, and two sampled room kits. Eight patterns and nine two-bar kick phrases.
+- **Bass:** electric, sub, triangle and FM bass, with walking lines and lines that lead into the next chord.
+- **Comp:** Rhodes, piano, felt piano, vibes, organ, pad, nylon guitar and electric guitar, in eight rhythms; the
+  guitars strum.
+- **Lead:** flute, whistle, piano, felt piano, vibes, jazz guitar, cello and harp, in eight styles. The lead states a
+  motif and loops it, with mutes, filter sweeps and drop-outs.
+- **Pad:** strings, a warm synth pad, organ or a vox choir, in about two songs out of three.
+- **Texture:** dust, a noise bed (vinyl or tape surface, rain) and room ambience.
 
 ---
 
-## 6. The screen reader
+## 6. Troubleshooting
 
-TEMPLATE tells a screen reader what's on its screen, through the
-[FM-1 Screen Reader](https://charlesvestal.github.io/fm1-reader/): the name and the settings when the reader
-starts listening, then each change as it happens. The emulator does the same, with your own screen reader or
-with its built-in voice.
+- **NO SAMPLES:** the sample bank isn't on the FM-1, or it's from another build. Write it again (section 2).
+- **STOP FIRST** while writing the bank: VNL-1 was playing. Press PLAY to stop it, then write again.
+- **The installer can't find the FM-1:** use Chrome or Edge, a data USB cable, and allow MIDI when asked.
+- **An FM-1 that won't start:** the source's README describes the rescue (`base/bsp/tools/fm1_rescue.sh`).
 
----
-
-## 7. Troubleshooting
-
-**No sound:** turn MASTER up. The voice plays only while a key is held.
-
-**The installer doesn't find the FM-1:** use Chrome or Edge, allow MIDI when asked, and close other programs
-that use the FM-1's MIDI port.
-
-**The FM-1 doesn't start after an install:** after two failed starts it shows SAFE MODE: no sound, but USB works,
-so the web installer can reach it. Install again, or put the stock firmware back from the same page. PLAY tries the
-firmware again. If safe mode fails twice too, the FM-1 waits in the chip's own update mode.
-
-**Update mode:** hold REC while you switch the FM-1 on. With m-bootloader installed (the web installer offers it),
-the installer reaches the FM-1 from there, and PLAY held instead opens m-bootloader's recovery menu. Without it, REC
-starts the chip's own update mode, which only the rescue reaches. For details, see felucca-bsp's
-`tools/fm1_rescue.sh`.
+VNL-1 has no Bluetooth, so the keys send no velocity or pressure.

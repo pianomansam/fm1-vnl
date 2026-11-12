@@ -11,8 +11,15 @@ font_trim = true               # fm1-base's font packing: each glyph its lit box
 font_pack = true               # about 43 KB less flash than unpacked, 6 KB less than our old run-length packing)
 ble = false                    # no radio: neither target (lo-fi, dub) needs it; saves ~130 KB flash
 ble_central = false
-# the site (tools/make_site.py, tools/publish_site.sh)
+# the site and firmware hubs (fm1-base tools/make_site.py, firmware.json; ours: tools/site.sh)
 tagline = "A lo-fi hip hop machine for the FM-1"
 repo = "https://github.com/pianomansam/fm1-vnl"
-licence = "GPL-3.0-or-later"
-credits = "Built on fm1-base and felucca-bsp, from Felucca by Leo Kuroshita (Hügelton Instruments). Reverb and chorus adapted from Mutable Instruments Rings by Emilie Gillet (MIT, Copyright 2014 Emilie Gillet; notice in the README)."
+licence = "GPL-3.0-only"        # the binary's (the GPL-3.0-only drum engines); the source is GPL-3.0-or-later (README)
+credits = "Built on fm1-base and felucca-bsp, from Felucca by Leo Kuroshita (Hügelton Instruments); drum engines from FOMAJAM and Optimist (GPL-3.0-only); reverb and chorus adapted from Mutable Instruments Rings by Emilie Gillet (MIT, Copyright 2014 Emilie Gillet; notice in the README)."
+author = "pianomansam"
+description = "VNL-1 writes and plays endless lo-fi hip hop songs on the FM-1, each with its own key, tempo, chords, layout and band: drums, bass, comp, lead, pad and texture, through tape wobble, dust and a plate. Steer it from the knobs (key, tempo, mood, any part's instrument, sections) and every change lands on the next four-bar line. Sampled piano, guitars, cello, harp and room kits sit in a sample bank beside the firmware."
+tags = ["generative", "groovebox"]
+site = "https://pianomansam.github.io/fm1-vnl/"
+install = "https://pianomansam.github.io/fm1-vnl/install/"
+install_app = "web/install_app.js"   # the installer writes the sample bank after the firmware (tools/site.sh puts it beside the package)
+screenshot = "app/site/img/nowplaying.png"
