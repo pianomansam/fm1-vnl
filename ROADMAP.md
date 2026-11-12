@@ -6,6 +6,8 @@ ideas that still need a reason.
 
 ## Near-term
 
+- **Sampled sax and trumpet leads:** a sampled sax and a muted trumpet as leads, from CC0 or GPL-compatible libraries, in their real registers.
+- **Harp on the comp:** the sampled harp as a comp instrument, its chords arpeggiated or held.
 - **Saved songs:** SAVE on the Song screen keeps the song (its seed, rolled values and changes) in one of 16 slots.
 - **Changes land while looping:** a change waiting past a looped section's end lands when the loop wraps.
 - **A fade between the two home screens:** HOME cross-fades the now-playing and main screens, as the splash fades in.
@@ -36,7 +38,7 @@ ideas that still need a reason.
 
 - **Synth cello:** parked; it could come back with body resonances.
 - **More sampled instruments:** marimba, kalimba, harmonica, hand percussion, from CC0 libraries.
-- **More leads:** a string ensemble, the Rhodes or nylon guitar as leads, sampled trumpet, sax or violin.
+- **More leads:** a string ensemble, the Rhodes or nylon guitar as leads, or a sampled violin.
 - **Texture:** birdsong in the bed, tape warble per instrument.
 - **Effects:** a spring reverb, a rotary speaker for the organ comp.
 - **Drum details:** phrase-end fills, a three-against-four shaker, hats that skip now and then, swing tied to tempo.
