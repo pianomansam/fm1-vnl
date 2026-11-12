@@ -20,11 +20,14 @@
        re-records from its bar, a later entry there (held back 20%, its 4 bars muted where 8 of its block remain, else
        filtered in; filtered in 35%), in place of the block's own entry over those 4 bars
      - a bar muted: 12% of 8-bar passes, one hook bar (the pass's bar 3 or 5); never the first pass
-     - the drop before a section change: the last bar of a lead block with a block after it, 50%: half of them the
-       whole bar out, half its last 2 beats
+     - the drop before a section change: the last bar of a lead block with a block after it, 50% where it doesn't
+       stutter: half of them the whole bar out, half its last 2 beats
      - the stutter (Sam, 2026-11-09: the whole mix, after Cut-A-Dor's captured slice; the melody-only stutters, notes
-       or audio, didn't work): on the turnaround's hook bar (bar 7 of an 8-bar pass) 58%, on a block's last bar 42%
-       (not dropped); never in the song's first lead pass, nor in the bar right after a stutter, nor where the
+       or audio, didn't work). Mostly on the last bar of a group as the screen shows it (Sam, 2026-11-12: 4 of 4, 8 of
+       8; a group 8 bars from the block's start, a block's 4-bar tail its own group), sometimes the turnaround's bar
+       7 of 8, now and then another: a group's last bar 58%, bar 7 of 8 14%, any other bar but a group's first 1.5%
+       (about 0.8 a song: 75% of them on a group's last bar, 15% on bar 7 of 8, 10% elsewhere); never in the song's
+       first lead pass, nor in the bar right after a stutter, nor in a muted bar, nor where the
        section already moves the lead's filter (an entry filtered in, a break's last bar, a drum drop, a swell, an
        intro or outro). The lead's notes stay as recorded: the bar is marked (ls->loop.sbar) and the engine stutters
        the whole mix over its last 2 beats (app.c, vx_stutter: an 8th caught on beat 3 repeats, then its first 16th
@@ -57,6 +60,7 @@ int leads_loop_log(int bar) { return bar >= 0 && bar < 256 ? lg[bar] : 0; }
 #endif
 
 enum { LE_NONE, LE_FILTER, LE_HOLD };
+enum { ST_LAST = 580, ST_TURN = 140, ST_ELSE = 15 };   /* the stutter's odds in 1000, as the header says */
 typedef struct { unsigned mute; int stut; float lp0, lp1; int entry, hold; } lm_t;
 
 static int lead_before(const plan_block_t *b)
@@ -106,10 +110,6 @@ static void moves(const song_roll_t *r, const lead_state_t *ls, const plan_block
         m->lp0 = ke < 2 ? 0.75f : ke == 2 ? 0.75f : 0.375f;
         m->lp1 = ke < 2 ? 0.75f : ke == 2 ? 0.375f : 0.0f;
     }
-    if (lastbar && nb) {                              /* the drop before the section change */
-        rng_seed(&g, seed ^ ((uint32_t)bar * 0x85EBCA6Bu), 611);
-        if (rng_int(&g, 100) < 50) m->mute |= rng_int(&g, 2) ? 0xFFFFu : 0xFF00u;
-    }
     if (!fp && !m->mute && k >= 4) {
         rng_seed(&g, seed ^ ((uint32_t)run * 0x27D4EB2Fu) ^ ((uint32_t)pass * 0x165667B1u), 612);
         if (rng_int(&g, 100) < 12 && bip == 2 + 2 * rng_int(&g, 2)) m->mute = 0xFFFFu;   /* a bar out */
@@ -118,15 +118,23 @@ static void moves(const song_roll_t *r, const lead_state_t *ls, const plan_block
         int quiet = (b->flags & PB_DARK) || m->lp0 > 0.0f ||
                     (lastbar && (b->section == SEC_BREAK || (b->flags & (PB_DROP_LAST | PB_SWELL)))) ||
                     ((b->flags & (PB_DROP_LAST | PB_DROP2)) == (PB_DROP_LAST | PB_DROP2) && k == b->bars - 2);
+        int g8 = b->bars - (k & ~7) >= 8, pos = g8 ? k & 7 : k & 3;   /* the bar in its group (as the screen's
+                                                                          blocks show it) */
+        int odds = pos == (g8 ? 7 : 3) ? ST_LAST : g8 && pos == 6 ? ST_TURN : pos ? ST_ELSE : 0;
         rng_seed(&g, seed ^ ((uint32_t)bar * 0xC2B2AE35u), 613);
-        x = rng_int(&g, 100);
-        if (!quiet && ((bip == 6 && x < 58) || (lastbar && x < 42))) m->stut = 1;
+        x = rng_int(&g, 1000);
+        if (!quiet && x < odds) m->stut = 1;
     }
     if (m->stut && bar > 0) {                         /* none in the bar right after a stutter (the draws kept: no
                                                          other bar's move shifts) */
         lm_t p;
         moves(r, ls, bar - 1 >= b->start ? b : b - 1, bar - 1, &p);
         if (p.stut) m->stut = 0;
+    }
+    if (lastbar && nb && !m->stut) {                  /* the drop before the section change: a stutter keeps its
+                                                         bar */
+        rng_seed(&g, seed ^ ((uint32_t)bar * 0x85EBCA6Bu), 611);
+        if (rng_int(&g, 100) < 50) m->mute |= rng_int(&g, 2) ? 0xFFFFu : 0xFF00u;
     }
 }
 
