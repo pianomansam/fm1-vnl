@@ -254,21 +254,21 @@ export default {
       fade: true,   // its text fades in from the splash's (app.c)
       bands: [
         { y: 0, h: 56, draw: [{ record: [0, 120, 104], value: "spin", color: "AMB", back: "VINYL", past: "LINE" }] },
-        // the song beside it, centred on the record (rows 61-180): the name, key and mode, the chord playing (Sam,
-        // 2026-11-11: "I still want the current chord to show"; the longest the engine names, A#maj#11, 67 px in B),
-        // where it is, its map, the tempo, the mood
+        // the song beside it, centred on the record (its ink rows 61-180): the name, key and mode, the chord playing
+        // (Sam, 2026-11-11: "I still want the current chord to show"; the longest the engine names, A#maj#11, 67 px in
+        // B), where it is, its map, the tempo, the mood
         { y: 56, h: 128, draw: [
           { record: [0, 64, 104], value: "spin", color: "AMB", back: "VINYL", past: "LINE" },
-          { when: "known", text: "{map}", font: "M", fit: [122, "B"], x: 112, y: 5, color: "WHITE" },
-          { when: "known", text: "{key} {mode}", font: "B", x: 112, y: 31, color: "HI" },
-          { when: "song", text: "{chord}", font: "B", x: 112, y: 49, color: "WHITE" },
-          { when: "song", text: "{section} {bar}/{bars}", font: "XS", x: 112, y: 69, color: "GRAY" },
-          { when: "!song", text: "{idle}", font: "XS", x: 112, y: 69, color: "GRAY" },
-          { sections: [112, 89, 122, 3], color: "AMB", back: "LINE", past: "DIM" },
-          { when: "known", text: "{tempo}", font: "M", x: 112, y: 100, color: "HI" },
-          { when: "known", text: "BPM", font: "XS", after: 4, y: 108, color: "GRAY" },
-          // the mood, small, in the values' amber (Sam, 2026-11-12: "to the right of the bpm"; WISTFUL ends at 213)
-          { when: "known", text: "{mood}", font: "XS", after: 10, y: 108, color: "HI" },
+          { when: "known", text: "{map}", font: "M", fit: [122, "B"], x: 112, y: 2, color: "WHITE" },
+          { when: "known", text: "{key} {mode}", font: "B", x: 112, y: 26, color: "HI" },
+          { when: "song", text: "{chord}", font: "B", x: 112, y: 44, color: "WHITE" },
+          { when: "song", text: "{section} {bar}/{bars}", font: "XS", x: 112, y: 64, color: "GRAY" },
+          { when: "!song", text: "{idle}", font: "XS", x: 112, y: 64, color: "GRAY" },
+          { sections: [112, 82, 122, 3], color: "AMB", back: "LINE", past: "DIM" },
+          { when: "known", text: "{tempo}", font: "M", x: 112, y: 90, color: "HI" },
+          { when: "known", text: "BPM", font: "XS", after: 4, y: 98, color: "GRAY" },
+          // the mood, small, in the values' amber, on its own line under the tempo (Sam, 2026-11-12)
+          { when: "known", text: "{mood}", font: "XS", x: 112, y: 113, color: "HI" },
         ] },
         { y: 184, h: 56, draw: [{ record: [0, -64, 104], value: "spin", color: "AMB", back: "VINYL", past: "LINE" }] },
       ],
