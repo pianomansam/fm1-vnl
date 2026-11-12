@@ -442,7 +442,7 @@ static void test_ov_salts(void)
 {
     static song_t s;
     static const int8_t KO[9] = {0, 0, 1, -1, 0, 0, 0, 0, 0}, LO[9] = {0, 0, 0, 0, 1, -1, 0, 0, 0};
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0, 0, 0};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0, 0, 0, 0};
     song_roll_t r;
     int i, k;
     for (k = 0; k < 9; k++) {
@@ -866,7 +866,7 @@ static void style_rules(int style, const char *name, int per_song)
     static song_t s;
     static const int INS[4] = {INS_FLUTE, INS_FELT_PIANO, INS_VIBES, INS_KNIGHT};
     static const char *NM[4] = {"flute", "felt piano", "vibes", "Knight"};
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0, 0, 0};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0, 0, 0, 0};
     long before = fails, rub0 = rubs[0][0] + rubs[0][1] + rubs[0][2] + rubs[0][3] + rubs[1][0] + rubs[1][1] +
                                 rubs[1][2] + rubs[1][3];
     int k, i, oct;
@@ -951,7 +951,7 @@ static const lib_set_t *old_draw(const song_roll_t *r)
 static void style_hard(int style, const char *name, const int *ins, int nins, long m9_notes)
 {
     static song_t s;
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, 0, 0, 0, 0};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, 0, 0, 0, 0, 0};
     long before = fails;
     int k;
     o.lead_style = (int8_t)(2 + style);
@@ -1067,7 +1067,7 @@ static void test_comp_new(void)
     static song_t s;
     static const int NEW[2] = {CS_HELD2, CS_HELD24};
     static const char *const NAME[2] = {"held on 2", "held on 2 and 4"};
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0, 0, 0};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0, 0, 0, 0};
     int k, before = fails;
     uint32_t i;
     for (k = 0; k < 2; k++) {

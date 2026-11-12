@@ -23,6 +23,7 @@
   {"id":"leadLoop","label":"Lead loop","short":"Loop","kind":"ov","key":"LEAD_LOOP","source":"leadLoop"},
   {"id":"leadOct","label":"Lead register","short":"Register","kind":"ov","key":"LEAD_OCT","source":"registers"},
   {"id":"busyThin","label":"Busy lead thins the comp","kind":"ov","key":"NO_BUSY_THIN","source":"onOffInverted"},
+  {"id":"keysWith","label":"Comp over a low lead","kind":"ov","key":"KEYS_WITH","source":"lowLeadPlaces"},
   {"id":"voicings","label":"Comp voicings","short":"Voicings","kind":"reroll","key":"VOICING_SALT","part":"keys"},
   {"id":"keysOct","label":"Comp register","short":"Register","kind":"ov","key":"KEYS_OCT","source":"registers"},
   {"id":"strumPat","label":"Strum pattern","short":"Rhythm","kind":"ov","key":"STRUM_PAT","source":"strumPats"},
@@ -43,7 +44,7 @@
   {"name":"Song","main":["seed","key","tempo","mood","motion"],"more":["mode","swing","map","prog","color","family"]},
   {"name":"Drums","part":"drums","main":["kit","pattern"],"more":["kick","ride","drumsVar"]},
   {"name":"Bass","part":"bass","main":["bass","bassLine"],"more":[]},
-  {"name":"Comp","part":"keys","main":["keys","comp","strumPat"],"more":["strumFill","voicings","keysOct","busyThin"]},
+  {"name":"Comp","part":"keys","main":["keys","comp","strumPat"],"more":["strumFill","voicings","keysOct","busyThin","keysWith"]},
   {"name":"Lead","part":"lead","main":["lead","leadStyle"],"more":["phrase","leadLoop","leadOct"]},
   {"name":"Pad","part":"pad","main":["pad","padOn"],"more":["padPlace","padNotes"]},
   {"name":"Texture","main":["dust","noise","ambience"],"more":[]}

@@ -1083,7 +1083,8 @@ EXPORT const char *wb_consts(void)
         {"PHRASE_SALT", WB_OV_PHRASE_SALT}, {"BASS_SALT", WB_OV_BASS_SALT}, {"PAD_SALT", WB_OV_PAD_SALT},
         {"DRUMS_SALT", WB_OV_DRUMS_SALT}, {"PAD_ON", WB_OV_PAD_ON}, {"STRUM_PAT", WB_OV_STRUM_PAT},
         {"NO_BUSY_THIN", WB_OV_NO_BUSY_THIN}, {"LEAD_LOOP", WB_OV_LEAD_LOOP},
-        {"STRUM_FILL", WB_OV_STRUM_FILL}, {"COMP_PAT", WB_OV_COMP_PAT}, {"KICK", WB_OV_KICK}, {"N", WB_OV_N}}, V[] = {
+        {"STRUM_FILL", WB_OV_STRUM_FILL}, {"COMP_PAT", WB_OV_COMP_PAT}, {"KICK", WB_OV_KICK},
+        {"KEYS_WITH", WB_OV_KEYS_WITH}, {"N", WB_OV_N}}, V[] = {
         {"CHORD", V_CHORD}, {"BASS", V_BASS}, {"LEAD", V_LEAD}, {"PAD", V_PAD}, {"KICK", V_KICK}, {"SNARE", V_SNARE},
         {"HAT", V_HAT}, {"OHAT", V_OHAT}, {"SHAKER", V_SHAKER}, {"RIM", V_RIM}, {"RIDE", V_RIDE}}, SRC[] = {
         {"NONE", WB_SRC_NONE}, {"PT", WB_SRC_PT}, {"OPT", WB_SRC_OPT}, {"SAMPLE", WB_SRC_SAMPLE},

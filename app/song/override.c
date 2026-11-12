@@ -2,8 +2,8 @@
 #include "override.h"
 #include "library.h"
 
-static const song_ov_t NONE = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0, 0, 0};
-static song_ov_t cur = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0, 0, 0};
+static const song_ov_t NONE = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0, 0, 0, 0};
+static song_ov_t cur = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0, 0, 0, 0};
 
 void song_override(const song_ov_t *ov) { cur = ov ? *ov : NONE; }
 
@@ -65,6 +65,7 @@ void song_ov_set(song_ov_t *o, int key, int value)
     case OV_STRUM_FILL: o->strum_fill = (int8_t)(value == 0 || value == 1 ? value + 1 : 0); break;   /* -1: drawn */
     case OV_COMP_PAT: o->comp_pat = (int8_t)(value >= 0 && value < 127 ? value + 1 : 0); break;   /* -1: none */
     case OV_KICK: o->kick = (int8_t)(value >= 0 && value < 126 ? value + 1 : 0); break;   /* -1: rolled */
+    case OV_KEYS_WITH: o->keys_with = (int8_t)(value == 1); break;
     default: break;
     }
 }
@@ -90,6 +91,7 @@ int song_ov_get(const song_ov_t *o, int key)
     case OV_STRUM_FILL: return o->strum_fill - 1;   /* -1 the song's draw, 0 step back, 1 drive */
     case OV_COMP_PAT: return o->comp_pat - 1;       /* -1 none, else a COMP_PAT index */
     case OV_KICK: return o->kick - 1;               /* -1 rolled, 0 the pattern's own, else 1 + a KICK_PHRASE index */
+    case OV_KEYS_WITH: return o->keys_with;
     default: return 0;
     }
 }

@@ -462,7 +462,7 @@ static void pads_group(song_t *s, const plan_block_t *b, int B)
                 pads_double_keys(keys, s->pads.chord);
             else if (chord_on)
                 pads_chord(&s->roll, all, spcs, nsp, (unsigned)pcs[0], lead, k ? 0 : nlead, s->pads.chord,
-                           harmony_keys_lift(&s->roll, bar), s->pads.chord);
+                           harmony_pad_lift(&s->roll, bar), s->pads.chord);
         }
         for (i = 0; i < 3; i++) {
             s->pads.note[k][i] = s->pads.chord[i];
@@ -767,7 +767,8 @@ int song_tick(song_t *s, song_ev_t *out, int max)
                 if (buf[i].voice != V_HAT && buf[i].voice != V_OHAT) buf[j++] = buf[i];
             n = j;
         }
-        n += harmony_step(&s->roll, b, bar, step, pass, gs, &s->voicing, s->lead.onsets >= 4, salt, buf + n,
+        n += harmony_step(&s->roll, b, bar, step, pass, gs, &s->voicing,
+                          (s->lead.onsets >= 4 ? HS_BUSY : 0) | (s->lead.active ? HS_LEAD : 0), salt, buf + n,
                           BUF - n);
         n += lead_step(&s->lead, step, gs, buf + n, BUF - n);
         if (step == 0) n += pads_step(s, bar, buf + n, BUF - n);

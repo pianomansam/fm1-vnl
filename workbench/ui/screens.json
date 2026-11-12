@@ -154,6 +154,11 @@
    "name": "VOICINGS",
    "row": "voicings"
   },
+  "compWith": {
+   "name": "OVER A LOW LEAD",
+   "options": true,
+   "row": "keysWith"
+  },
   "drumKick": {
    "name": "KICK",
    "options": true,
@@ -2501,6 +2506,32 @@
         2
        ],
        "value": "compThinFrac"
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "K3  OVER A LOW LEAD",
+       "x": 8,
+       "y": 75
+      },
+      {
+       "arrows": true,
+       "color": "WHITE",
+       "font": "B",
+       "text": "{compWith}",
+       "x": 8,
+       "y": 86
+      },
+      {
+       "back": "LINE",
+       "color": "COMP",
+       "meter": [
+        8,
+        105,
+        224,
+        2
+       ],
+       "value": "compWithFrac"
       }
      ],
      "h": 144,
@@ -2574,6 +2605,10 @@
     {
      "field": "compThin",
      "step": 1
+    },
+    {
+     "field": "compWith",
+     "step": 1
     }
    ],
    "pages": [
@@ -2581,7 +2616,7 @@
     "pCompMore"
    ],
    "say": [
-    "COMP, PAGE {page}. STRUM FILL {compFill}. BUSY LEAD THINS {compThin}."
+    "COMP, PAGE {page}. STRUM FILL {compFill}. BUSY LEAD THINS {compThin}. OVER A LOW LEAD {compWith}."
    ],
    "title": "Comp: more"
   },

@@ -131,6 +131,7 @@ export default {
     compReg: { row: "keysOct", name: "REGISTER", options: true },
     compFill: { row: "strumFill", name: "STRUM FILL", options: true },
     compThin: { row: "busyThin", name: "BUSY LEAD THINS", options: true },
+    compWith: { row: "keysWith", name: "OVER A LOW LEAD", options: true },
     songSwing: { row: "swing", name: "SWING", options: true },
     songMap: { row: "map", name: "LAYOUT", options: true },
     songProg: { row: "prog", name: "CHORDS", options: true },
@@ -917,6 +918,9 @@ export default {
           { text: "K2  BUSY LEAD THINS", font: "T", x: 8, y: 39, color: "GRAY" },
           { text: "{compThin}", font: "B", x: 8, y: 50, color: "WHITE", arrows: true },
           { meter: [8, 69, 224, 2], value: "compThinFrac", color: "COMP", back: "LINE" },
+          { text: "K3  OVER A LOW LEAD", font: "T", x: 8, y: 75, color: "GRAY" },
+          { text: "{compWith}", font: "B", x: 8, y: 86, color: "WHITE", arrows: true },
+          { meter: [8, 105, 224, 2], value: "compWithFrac", color: "COMP", back: "LINE" },
         ] },
         { y: 200, h: 40, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
@@ -924,14 +928,14 @@ export default {
           { text: "EDIT BACK   HOME MAIN   SEQ RE-ROLL", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
-      knobs: [{ field: "compFill", step: 1 }, { field: "compThin", step: 1 }],
+      knobs: [{ field: "compFill", step: 1 }, { field: "compThin", step: 1 }, { field: "compWith", step: 1 }],
       controls: {
         PRESET: { do: "turn", field: "compIns", step: 1 },   // browse its instrument (Sam, 2026-11-06)
         SEQ: { do: "reroll", part: "keys" },   // this part re-rolls (its 🎲), on the 4-bar boundary (Sam, 2026-11-06)
         ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
         "OCT-": { do: "nudge", field: "compReg", by: -1 }, "OCT+": { do: "nudge", field: "compReg", by: 1 },
       },
-      say: ["COMP, PAGE {page}. STRUM FILL {compFill}. BUSY LEAD THINS {compThin}."],
+      say: ["COMP, PAGE {page}. STRUM FILL {compFill}. BUSY LEAD THINS {compThin}. OVER A LOW LEAD {compWith}."],
     },
     pPad: {
       title: "Pad",

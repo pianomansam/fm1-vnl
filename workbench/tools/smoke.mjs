@@ -2762,6 +2762,53 @@ console.log("the busy-lead thinning row (on by default; off, the existing compin
   check(desk.values.busyThin === 0 && ex.wb_ov_get(OV.NO_BUSY_THIN) === 0, "and back on");
 }
 
+console.log("the comp over a low lead: lifted over it (the default) or with it");
+{
+  const { readEvents } = await import("../wb.js");
+  const ex = await load(), call = caller(ex);
+  ex.wb_seed(3);
+  ex.wb_apply();
+  const desk = new Desk(call, C, OPTS, await call("wb_library"), { rnd: lcg(9) });
+  await desk.read(true);
+  const r = row("keysWith"), names = optionsFor(r, desk.state, OPTS).map((o) => o.name);
+  check(r && r.kind === "ov" && r.key === "KEYS_WITH" && JSON.stringify(names) === JSON.stringify(["Lift over it", "With the lead"]) &&
+        desk.values.keysWith === 0 && ex.wb_ov_get(OV.KEYS_WITH) === 0,
+        `a "Comp over a low lead" row: ${names.join(", ")}; a new song's lifts`);
+  // the cello's set (44, Knight and cello), seed 3: lifted, the keys reach an octave over where they sit with it,
+  // where the lead plays they strike fewer notes
+  const keysOf = async (w) => {
+    const play = await load();
+    play.wb_seed(3);
+    play.wb_roll_set(C.RF.SET, 44);
+    play.wb_ov_set(OV.KEYS_WITH, w);
+    play.wb_apply();
+    const pex = await load();
+    new Uint8Array(pex.memory.buffer, pex.wb_commit_ptr(), pex.wb_stage_size())
+      .set(new Uint8Array(play.memory.buffer, play.wb_commit_ptr(), play.wb_stage_size()));
+    pex.wb_events(0);
+    return readEvents(pex).filter((e) => e.role === V.CHORD);
+  };
+  const lift = await keysOf(0), withIt = await keysOf(1), top = (es) => Math.max(...es.map((e) => e.note));
+  check(lift.length && withIt.length && top(lift) >= top(withIt) + 7 && withIt.length < lift.length,
+        `with the lead: the keys' top ${top(withIt)} (lifted ${top(lift)}), ${withIt.length} notes (lifted ${lift.length})`);
+  const t = await desk.set("keysWith", 1);
+  check(t.ok !== false && desk.values.keysWith === 1 && ex.wb_ov_get(OV.KEYS_WITH) === 1, "the row puts them with the lead");
+  const snap = await desk.snapshot();
+  const e2 = await load(), d2 = new Desk(caller(e2), C, OPTS, await caller(e2)("wb_library"));
+  const miss = await d2.restore(snap);
+  check(snap.rows.keysWith === 1 && !miss.length && d2.values.keysWith === 1 && e2.wb_ov_get(OV.KEYS_WITH) === 1,
+        `a snapshot keeps it (mismatch: ${miss.join(", ") || "none"})`);
+  const old = JSON.parse(JSON.stringify(snap));
+  delete old.rows.keysWith;
+  old.locks = [];
+  const e3 = await load(), d3 = new Desk(caller(e3), C, OPTS, await caller(e3)("wb_library"));
+  const miss3 = await d3.restore(old);
+  check(!miss3.length && d3.values.keysWith === 0 && e3.wb_ov_get(OV.KEYS_WITH) === 0,
+        `an older snapshot (no such row) restores the lift (mismatch: ${miss3.join(", ") || "none"})`);
+  const s = JSON.parse(cstr(ex, ex.wb_state()));
+  check(fromEngine({ ...s, ov: s.ov.slice(0, C.OV.KEYS_WITH) }, C, OPTS).keysWith === 0, "a shorter ov list reads the lift");
+}
+
 console.log("the choir: a pad layer a song may draw (1 in 4), and a choice on the pad row");
 {
   const { replay, wav } = await import("./replay.mjs");
@@ -2887,7 +2934,7 @@ console.log("the page by part: sections, part headers, the folded rows, summarie
     Song: [["seed", "key", "tempo", "mood", "motion"], ["mode", "swing", "map", "prog", "color", "family"]],
     Drums: [["kit", "pattern"], ["kick", "ride", "drumsVar"]],
     Bass: [["bass", "bassLine"], []],
-    Comp: [["keys", "comp", "strumPat"], ["strumFill", "voicings", "keysOct", "busyThin"]],
+    Comp: [["keys", "comp", "strumPat"], ["strumFill", "voicings", "keysOct", "busyThin", "keysWith"]],
     Pad: [["pad", "padOn"], ["padPlace", "padNotes"]],
     Lead: [["lead", "leadStyle"], ["phrase", "leadLoop", "leadOct"]],
     Texture: [["dust", "noise", "ambience"], []],

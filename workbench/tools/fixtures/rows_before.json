@@ -164,6 +164,13 @@
    "source": "onOffInverted"
   },
   {
+   "id": "keysWith",
+   "label": "Comp over a low lead",
+   "kind": "ov",
+   "key": "KEYS_WITH",
+   "source": "lowLeadPlaces"
+  },
+  {
    "id": "voicings",
    "label": "Comp voicings",
    "short": "Voicings",
@@ -327,7 +334,8 @@
     "strumFill",
     "voicings",
     "keysOct",
-    "busyThin"
+    "busyThin",
+    "keysWith"
    ]
   },
   {

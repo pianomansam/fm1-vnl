@@ -33,6 +33,7 @@ enum {
     ROW_LEAD_LOOP,
     ROW_LEAD_OCT,
     ROW_BUSY_THIN,
+    ROW_KEYS_WITH,
     ROW_VOICINGS,
     ROW_KEYS_OCT,
     ROW_STRUM_PAT,

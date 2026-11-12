@@ -1154,6 +1154,21 @@ void app_init(void)
                 song_override(&o);
             }
         }
+        {
+            const char *kw = getenv("VNL_KEYS_WITH");   /* VNL_KEYS_WITH=1: the keys with a low lead, not lifted
+                                                           over it (the workbench's keys_with) */
+            if (kw && kw[0] == '1' && !kw[1]) {
+                song_ov_t o = *song_ov();
+                o.keys_with = 1;
+                song_override(&o);
+            }
+        }
+        {
+            const char *mt = getenv("VNL_MUTE");   /* VNL_MUTE=<mask>: those buses out of the mix (vx_mute's bits, as
+                                                      C_MUTE's: 1 << V_CHORD the keys), to isolate a part by
+                                                      subtracting renders */
+            mute_user = mt ? (unsigned)strtoul(mt, 0, 0) : 0u;
+        }
         while (w && *w) {                /* VNL_SWAP="Eb3 G3 Db4 F4=Db3 G3 Eb4 F4;...": hear an alternative voicing */
             int v[8], k = 0;
             while (*w && *w != ';' && k < 8) {

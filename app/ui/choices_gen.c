@@ -4,7 +4,7 @@
 #include "choices_gen.h"
 #include "song.h"
 
-const char CH_STR[1300] =
+const char CH_STR[1313] =
     "7THS\000"
     "9THS\000"
     "RICH (9/11/13)\000"
@@ -62,6 +62,8 @@ const char CH_STR[1300] =
     "DEFAULT\000"
     "DOWN AN OCTAVE\000"
     "UP AN OCTAVE\000"
+    "LIFT OVER IT\000"
+    "WITH THE LEAD\000"
     "D-DU-UDU\000"
     "CHUCK\000"
     "BOSSA\000"
@@ -78,7 +80,6 @@ const char CH_STR[1300] =
     "STEP BACK\000"
     "DRIVE\000"
     "BELOW THE LEAD\000"
-    "WITH THE LEAD\000"
     "ABOVE THE LEAD\000"
     "DUSTY (SYNTH)\000"
     "SOFT (SYNTH)\000"
@@ -149,6 +150,7 @@ const int8_t CH_SONG_ROW[ROW_N] = {
     SR_OV + OV_LEAD_LOOP,   /* leadLoop */
     SR_OV + OV_LEAD_OCT,   /* leadOct */
     SR_OV + OV_NO_BUSY_THIN,   /* busyThin */
+    SR_OV + OV_KEYS_WITH,   /* keysWith */
     SR_OV + OV_VOICING_SALT,   /* voicings */
     SR_OV + OV_KEYS_OCT,   /* keysOct */
     SR_OV + OV_STRUM_PAT,   /* strumPat */
@@ -168,9 +170,9 @@ const int8_t CH_SONG_ROW[ROW_N] = {
     -1,   /* loop */
     -1,   /* endless */
 };
-const char *const CH_ROW_ID[ROW_N] = {"seed", "key", "mode", "tempo", "swing", "mood", "motion", "map", "prog", "color", "family", "keys", "comp", "lead", "bass", "pad", "padOn", "phrase", "leadStyle", "leadLoop", "leadOct", "busyThin", "voicings", "keysOct", "strumPat", "strumFill", "padPlace", "bassLine", "padNotes", "drumsVar", "kit", "pattern", "kick", "ride", "dust", "noise", "ambience", "rhythm", "loop", "endless"};
+const char *const CH_ROW_ID[ROW_N] = {"seed", "key", "mode", "tempo", "swing", "mood", "motion", "map", "prog", "color", "family", "keys", "comp", "lead", "bass", "pad", "padOn", "phrase", "leadStyle", "leadLoop", "leadOct", "busyThin", "keysWith", "voicings", "keysOct", "strumPat", "strumFill", "padPlace", "bassLine", "padNotes", "drumsVar", "kit", "pattern", "kick", "ride", "dust", "noise", "ambience", "rhythm", "loop", "endless"};
 typedef struct { int8_t value; uint8_t flags; uint16_t name; } ch_entry_t;   /* 4 bytes */
-static const ch_entry_t CH_E[148] = {
+static const ch_entry_t CH_E[150] = {
     {0, 0, 0},
     {1, 0, 5},
     {2, 0, 10},
@@ -240,81 +242,83 @@ static const ch_entry_t CH_E[148] = {
     {1, 0, 521},
     {0, 0, 387},
     {1, 0, 383},
+    {0, 0, 534},
+    {1, 0, 547},
     {-1, 0, 506},
     {0, 8, 94},
     {1, 0, 521},
     {-1, 8, 94},
-    {0, 0, 534},
-    {1, 0, 543},
-    {2, 0, 549},
-    {3, 0, 555},
-    {4, 0, 562},
-    {5, 0, 576},
-    {6, 0, 592},
+    {0, 0, 561},
+    {1, 0, 570},
+    {2, 0, 576},
+    {3, 0, 582},
+    {4, 0, 589},
+    {5, 0, 603},
+    {6, 0, 619},
     {7, 0, 152},
-    {8, 1, 605},
-    {9, 1, 616},
-    {10, 1, 633},
-    {11, 1, 646},
-    {12, 1, 663},
-    {13, 1, 679},
+    {8, 1, 632},
+    {9, 1, 643},
+    {10, 1, 660},
+    {11, 1, 673},
+    {12, 1, 690},
+    {13, 1, 706},
     {-1, 8, 498},
-    {0, 0, 696},
-    {1, 0, 706},
+    {0, 0, 723},
+    {1, 0, 733},
     {-1, 8, 94},
-    {0, 0, 712},
-    {1, 0, 727},
-    {2, 0, 741},
-    {0, 34, 756},
-    {1, 34, 770},
-    {2, 34, 783},
-    {3, 16, 799},
-    {4, 19, 812},
-    {5, 19, 833},
-    {6, 19, 854},
-    {7, 19, 876},
-    {8, 19, 899},
-    {16, 32, 921},
-    {17, 32, 925},
-    {18, 32, 931},
-    {22, 32, 947},
-    {23, 32, 964},
-    {24, 34, 977},
-    {19, 18, 991},
-    {20, 16, 997},
-    {21, 16, 1008},
-    {1, 0, 1023},
-    {2, 0, 1041},
-    {3, 0, 1057},
-    {4, 0, 1075},
-    {5, 0, 1085},
-    {6, 0, 1104},
-    {7, 0, 1126},
-    {8, 3, 549},
-    {9, 0, 1134},
-    {0, 0, 1154},
-    {1, 0, 1172},
-    {2, 0, 1179},
-    {3, 0, 1186},
-    {4, 0, 1193},
-    {5, 0, 1200},
-    {6, 0, 1207},
-    {7, 0, 1214},
-    {8, 0, 1221},
-    {9, 0, 1228},
+    {0, 0, 739},
+    {1, 0, 547},
+    {2, 0, 754},
+    {0, 34, 769},
+    {1, 34, 783},
+    {2, 34, 796},
+    {3, 16, 812},
+    {4, 19, 825},
+    {5, 19, 846},
+    {6, 19, 867},
+    {7, 19, 889},
+    {8, 19, 912},
+    {16, 32, 934},
+    {17, 32, 938},
+    {18, 32, 944},
+    {22, 32, 960},
+    {23, 32, 977},
+    {24, 34, 990},
+    {19, 18, 1004},
+    {20, 16, 1010},
+    {21, 16, 1021},
+    {1, 0, 1036},
+    {2, 0, 1054},
+    {3, 0, 1070},
+    {4, 0, 1088},
+    {5, 0, 1098},
+    {6, 0, 1117},
+    {7, 0, 1139},
+    {8, 3, 576},
+    {9, 0, 1147},
+    {0, 0, 1167},
+    {1, 0, 1185},
+    {2, 0, 1192},
+    {3, 0, 1199},
+    {4, 0, 1206},
+    {5, 0, 1213},
+    {6, 0, 1220},
+    {7, 0, 1227},
+    {8, 0, 1234},
+    {9, 0, 1241},
     {-1, 8, 94},
-    {0, 0, 1236},
-    {1, 0, 1241},
-    {2, 0, 1252},
-    {0, 0, 1236},
-    {1, 0, 1264},
-    {2, 0, 1270},
-    {3, 0, 1277},
-    {0, 0, 1236},
-    {1, 0, 1283},
-    {2, 0, 1289},
-    {0, 0, 1236},
-    {1, 0, 1294},
+    {0, 0, 1249},
+    {1, 0, 1254},
+    {2, 0, 1265},
+    {0, 0, 1249},
+    {1, 0, 1277},
+    {2, 0, 1283},
+    {3, 0, 1290},
+    {0, 0, 1249},
+    {1, 0, 1296},
+    {2, 0, 1302},
+    {0, 0, 1249},
+    {1, 0, 1307},
     {0, 0, 383},
     {1, 0, 387},
     {0, 0, 383},
@@ -343,24 +347,25 @@ static const uint8_t CH_SPAN[ROW_N][2] = {
     {61, 3},   /* leadLoop */
     {64, 3},   /* leadOct */
     {67, 2},   /* busyThin */
-    {69, 0},   /* voicings */
-    {69, 3},   /* keysOct */
-    {72, 15},   /* strumPat */
-    {87, 3},   /* strumFill */
-    {90, 4},   /* padPlace */
-    {94, 0},   /* bassLine */
-    {94, 0},   /* padNotes */
-    {94, 0},   /* drumsVar */
-    {94, 18},   /* kit */
-    {112, 9},   /* pattern */
-    {121, 10},   /* kick */
-    {131, 4},   /* ride */
-    {135, 4},   /* dust */
-    {139, 3},   /* noise */
-    {142, 2},   /* ambience */
-    {144, 0},   /* rhythm */
-    {144, 2},   /* loop */
-    {146, 2},   /* endless */
+    {69, 2},   /* keysWith */
+    {71, 0},   /* voicings */
+    {71, 3},   /* keysOct */
+    {74, 15},   /* strumPat */
+    {89, 3},   /* strumFill */
+    {92, 4},   /* padPlace */
+    {96, 0},   /* bassLine */
+    {96, 0},   /* padNotes */
+    {96, 0},   /* drumsVar */
+    {96, 18},   /* kit */
+    {114, 9},   /* pattern */
+    {123, 10},   /* kick */
+    {133, 4},   /* ride */
+    {137, 4},   /* dust */
+    {141, 3},   /* noise */
+    {144, 2},   /* ambience */
+    {146, 0},   /* rhythm */
+    {146, 2},   /* loop */
+    {148, 2},   /* endless */
 };
 static const uint32_t CH_COMP_FIT[14][2] = {
     {4294967295u, 0u},

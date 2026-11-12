@@ -89,8 +89,10 @@ int harmony_keys_oct(const song_roll_t *r);
 /* The lift over a low lead (library.h lib_lead_low): 12 in a bar of the plan's lead blocks where the keys go an
    octave up over it (the keys and the pad's chord part: the lead in, the workbench's keys register as rolled, the
    keys' range holding it), else 0. It reads the plan harmony_keys_plan names: song_tick's (set while it ticks, as
-   the keys' window is; NULL: none, no lift). */
+   the keys' window is; NULL: none, no lift). The keys' is 0 where the workbench puts them with the lead (keys_with:
+   their own register all song); the pad's chord part's lifts either way. */
 int harmony_keys_lift(const song_roll_t *r, int bar);
+int harmony_pad_lift(const song_roll_t *r, int bar);
 void harmony_keys_plan(const song_plan_t *p);
 /* The voicing this bar's chord sounds with (what harmony_step strikes), without striking it: vs->last is unchanged
    (its loop cache may fill). Lets the lead plan a bar over the keys before they strike. A strummed song: the top 4
@@ -108,10 +110,12 @@ void harmony_keys_notes_at(const song_roll_t *r, int bar, int pass, harmony_voic
    at 64, 4 at 65). The organ keys go up an octave unless they sit high (vx_configure). */
 enum { HV_HIGH = 65 };
 int harmony_keys_high(const song_roll_t *r);
-/* One step of the keys. busy: the lead has 4+ onsets this bar, so stabs strike on 1 only, offbeats on 6 and 14, the
-   arpeggio on even steps, half notes on step 0 of every bar, held a bar (held comping, held on 2 (and 4), light
-   eighths and sustained keys unchanged); the voicing never changes. */
+/* One step of the keys. lead: HS_* flags of the lead's bar. HS_BUSY: it has 4+ onsets, so stabs strike on 1 only,
+   offbeats on 6 and 14, the arpeggio on even steps, half notes on step 0 of every bar, held a bar (held comping, held
+   on 2 (and 4), light eighths and sustained keys unchanged); the voicing never changes. HS_LEAD: it sounds (an onset
+   or a note tied in), where keys with a low lead (the workbench's keys_with) thin and soften. */
+enum { HS_BUSY = 1, HS_LEAD = 2 };
 int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, int pass, float step_samples,
-                 harmony_voicing_t *vs, int busy, uint32_t salt, song_ev_t *out, int max);
+                 harmony_voicing_t *vs, int lead, uint32_t salt, song_ev_t *out, int max);
 
 #endif

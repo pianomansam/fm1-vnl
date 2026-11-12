@@ -1006,7 +1006,7 @@ static void test_drum_conversations(void)
     int seed, i, n, bb = 0, kick = 0, hats = 0, both = 0, other = 0, per[KICK_NPHRASE] = {0}, fig[8] = {0};
     int approved = 0, missing = 0, bad_ov = 0, bad_kick = 0, hat_n[3] = {0, 0, 0}, kick_n = 0;
     double hat_ms[3] = {0, 0, 0}, kick_ms = 0, kick_lo = 1e9, kick_hi = 0;
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0, 0, 0};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0, 0, 0, 0};
     song_ev_t ev[16];
     for (seed = 1; seed <= 4000; seed++) {
         song_roll_t r;
@@ -7148,7 +7148,7 @@ static void test_vibes_level(void)
 static void test_pad_level(void)
 {
     /* every song with a pad (the lead loop off) */
-    static const song_ov_t pads = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, -1, 0, 0, 0, 0, 0};
+    static const song_ov_t pads = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, -1, 0, 0, 0, 0, 0, 0};
     float d[LIB_NSETS_MAX * LK_PER], sorted[LIB_NSETS_MAX * LK_PER], med;
     int k, n = 0, sets = 0;
     song_override(&pads);
@@ -7266,7 +7266,7 @@ static void test_pad_level(void)
    choir held to its input's power, so its level is its patch's (patch.c). */
 static void test_choir_level(void)
 {
-    static const song_ov_t pads = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, -1, 0, -1, 0, 0, 0};
+    static const song_ov_t pads = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, -1, 0, -1, 0, 0, 0, 0};
     static const uint32_t SEED[3] = {319u, 152u, 1u};
     static const int SET[3] = {31, 32, 21};
     int k;
@@ -7673,7 +7673,7 @@ static pd_rec_t pd_a, pd_b;
    so they keep their samples; NULL (0) restores the roll's */
 static void pd_all_pads(int on)
 {
-    static const song_ov_t all = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, -1, 0, -1, 0, 0, 0};
+    static const song_ov_t all = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, 1, -1, 0, -1, 0, 0, 0, 0};
     song_override(on ? &all : NULL);
 }
 static int pd_part(const song_t *s, int blk, int sus)
@@ -9216,7 +9216,7 @@ static void ov_run(const song_roll_t *r, const song_ov_t *ov, ov_rec_t *o)
 }
 static song_ov_t ov_none(void)
 {
-    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0, 0, 0};
+    song_ov_t o = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1, 0, 0, 0, 0};
     return o;
 }
 static void test_ov_comp(void)

@@ -337,11 +337,12 @@ int harmony_keys_oct(const song_roll_t *r) { return keys_oct_ok(r, 12 * song_ov(
    while the lead isn't playing, then jump up when the lead does"): the keys and the pad's chord part an octave up in the bars of the
    plan's lead blocks (lead_plays's: the lead in, the keys in, not an intro or outro), where the workbench leaves the
    keys' register as rolled and their range holds it (keys_oct_ok). The plan: the ticking song's (harmony_keys_plan,
-   set and cleared as the keys' window is); none outside a tick (no lift). */
+   set and cleared as the keys' window is); none outside a tick (no lift). The workbench's keys_with (with_lead)
+   leaves the keys in their register: the pad's chord part alone lifts (harmony_pad_lift). */
 static const song_plan_t *lift_plan;
 void harmony_keys_plan(const song_plan_t *p) { lift_plan = p; }
 
-int harmony_keys_lift(const song_roll_t *r, int bar)
+int harmony_pad_lift(const song_roll_t *r, int bar)
 {
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
     const plan_block_t *b;
@@ -351,6 +352,8 @@ int harmony_keys_lift(const song_roll_t *r, int bar)
         return 0;
     return keys_oct_ok(r, 12);
 }
+
+int harmony_keys_lift(const song_roll_t *r, int bar) { return song_ov()->keys_with ? 0 : harmony_pad_lift(r, bar); }
 
 /* The keys' window (harmony.h), and the voicer's top under it for this song: C5 (72) where it doesn't bind or can't
    hold (the top under C4, the voicer's lowest notes (C3, as placed) under the keys instrument's range or the
@@ -608,15 +611,38 @@ static int comp_strike(const patterns_comp_t *c, int step, int *held)
     return k;
 }
 
+/* With the lead (the workbench's keys_with, over a low lead: lib_lead_lift; Sam, 2026-11-12: "the piano is either
+   really high or way low. nothing in the middle"): the keys keep their own register all song, unlifted (about
+   C3-C5, the cello's D3-Gb4 inside it). In a bar the lead plays (HS_LEAD) they make room: the voicing's inner voice
+   under its top left out (the one in the lead's middle; its outer voices keep the chord's shape), and under a held
+   lead note the voices' duck dips them 6 dB, not 3 (voices.c's DUCK_WITH). The voicing itself (vs->last) is
+   untouched. Returns the notes kept, compacted (n as given where it doesn't apply). */
+static int with_lead(const song_roll_t *r, int lead, int *notes, int n)
+{
+    const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
+    int i, k = 0, top = -1, in = -1;
+    if (!(lead & HS_LEAD) || !song_ov()->keys_with || !set || !lib_lead_lift(set->lead)) return n;
+    for (i = 0; i < n; i++)
+        if (notes[i]) notes[k++] = notes[i];
+    if (k < 3) return k;
+    for (i = 0; i < k; i++)
+        if (top < 0 || notes[i] > notes[top]) top = i;
+    for (i = 0; i < k; i++)
+        if (i != top && (in < 0 || notes[i] > notes[in])) in = i;
+    for (i = in; i + 1 < k; i++) notes[i] = notes[i + 1];
+    return k - 1;
+}
+
 int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, int pass, float step_samples,
-                 harmony_voicing_t *vs, int busy, uint32_t salt, song_ev_t *out, int max)
+                 harmony_voicing_t *vs, int lead, uint32_t salt, song_ev_t *out, int max)
 {
 
     static const uint8_t ARP[6] = {0, 1, 2, 3, 2, 1};
+    const int busy = lead & HS_BUSY;
     const lib_prog_t *p;
     int style, row, pcs[5], n, dark, lo, hi, k = 0, held = 0;
     uint32_t len, gap;
-    int notes[4], one, rs, first = 0, later = 100;
+    int notes[4], one, rs, first = 0, later = 100, nn;
     if (!(b->layers & L_KEYS) || max <= 0) return 0;
     p = prog_of(r);
     row = harmony_comp_row(r);
@@ -708,14 +734,15 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
         one = notes[k];
         return emit_chord(&one, 1, 0, lo, hi, len, dark, salt, bar, step, out, max);
     }
+    nn = with_lead(r, lead, notes, 4);
     /* every keys instrument strikes its chord together, 0-8 ms in all (Sam, 2026-11-06: "no roll", after the Rhodes'
        10-60 ms a note smeared a tresillo; the piano and the vibes struck together already) */
     gap = (mix(salt, (uint32_t)bar, r->seed, 50) % 9u) * 441u / 10u / 3u;
     if (later < 100) {                    /* a rhythm's later strikes (half notes' beat 3, held on 2 and 4's beat 4):
                                              softer than the first (the same draw) */
-        int c = emit_chord(notes, 4, gap, lo, hi, len, dark, salt, bar, first, out, max), i;
+        int c = emit_chord(notes, nn, gap, lo, hi, len, dark, salt, bar, first, out, max), i;
         for (i = 0; i < c; i++) out[i].vel = (uint8_t)clampi(out[i].vel * later / 100, 25, 110);
         return c;
     }
-    return emit_chord(notes, 4, gap, lo, hi, len, dark, salt, bar, step, out, max);
+    return emit_chord(notes, nn, gap, lo, hi, len, dark, salt, bar, step, out, max);
 }
