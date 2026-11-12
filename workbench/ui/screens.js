@@ -117,7 +117,7 @@ export default {
       "...#.#...",
       ".#.....#.",
     ],
-    lock: [   // a padlock: a part locked (SEQ held on its screen), on its tile and by its name
+    lock: [   // a padlock: a part locked (SEQ held on its screen), on its tile
       "...###...",
       "..#...#..",
       "..#...#..",
@@ -125,6 +125,23 @@ export default {
       ".###.###.",
       ".###.###.",
       ".#######.",
+    ],
+    // the padlock by a part's name on its screen, as tall as the name's capitals (11 rows: an icon is 8 at most, so
+    // two, its shackle over its body; Sam, 2026-11-12: "make the lock bigger")
+    lockTop: [
+      "..#####..",
+      ".##...##.",
+      ".##...##.",
+      ".##...##.",
+    ],
+    lockBody: [
+      "#########",
+      "#########",
+      "####.####",
+      "####.####",
+      "####.####",
+      "#########",
+      "#########",
     ],
   },
 
@@ -757,7 +774,8 @@ export default {
           { icon: "drums", x: 10, y: 9, color: "DRUMS" },
           { text: "DRUMS", font: "B", x: 23, y: 4, color: "DRUMS" },
           { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
-          { when: "lockDrums", icon: "lock", x: 93, y: 9, color: "HI" },   // locked: the padlock by its name
+          { when: "lockDrums", icon: "lockTop", x: 94, y: 6, color: "HI" },   // locked: the padlock by its name, its
+          { when: "lockDrums", icon: "lockBody", x: 94, y: 10, color: "HI" },  // capitals' height, on their baseline
           { when: ["song", "!pending"], text: "{chord}", font: "XS", right: 232, y: 5, color: "WHITE" },
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
@@ -804,7 +822,8 @@ export default {
           { icon: "drums", x: 10, y: 9, color: "DRUMS" },
           { text: "DRUMS", font: "B", x: 23, y: 4, color: "DRUMS" },
           { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
-          { when: "lockDrums", icon: "lock", x: 93, y: 9, color: "HI" },   // locked: the padlock by its name
+          { when: "lockDrums", icon: "lockTop", x: 94, y: 6, color: "HI" },   // locked: the padlock by its name, its
+          { when: "lockDrums", icon: "lockBody", x: 94, y: 10, color: "HI" },  // capitals' height, on their baseline
           { when: ["song", "!pending"], text: "{chord}", font: "XS", right: 232, y: 5, color: "WHITE" },
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
@@ -842,7 +861,8 @@ export default {
           { icon: "bass", x: 10, y: 9, color: "BASS" },
           { text: "BASS", font: "B", x: 23, y: 4, color: "BASS" },
           { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
-          { when: "lockBass", icon: "lock", x: 63, y: 9, color: "HI" },   // locked: the padlock by its name
+          { when: "lockBass", icon: "lockTop", x: 64, y: 6, color: "HI" },   // locked: the padlock by its name, its
+          { when: "lockBass", icon: "lockBody", x: 64, y: 10, color: "HI" },  // capitals' height, on their baseline
           { when: ["song", "!pending"], text: "{chord}", font: "XS", right: 232, y: 5, color: "WHITE" },
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
@@ -887,7 +907,8 @@ export default {
           { icon: "comp", x: 10, y: 9, color: "COMP" },
           { text: "COMP", font: "B", x: 23, y: 4, color: "COMP" },
           { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
-          { when: "lockComp", icon: "lock", x: 85, y: 9, color: "HI" },   // locked: the padlock by its name
+          { when: "lockComp", icon: "lockTop", x: 86, y: 6, color: "HI" },   // locked: the padlock by its name, its
+          { when: "lockComp", icon: "lockBody", x: 86, y: 10, color: "HI" },  // capitals' height, on their baseline
           { when: ["song", "!pending"], text: "{chord}", font: "XS", right: 232, y: 5, color: "WHITE" },
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
@@ -935,7 +956,8 @@ export default {
           { icon: "comp", x: 10, y: 9, color: "COMP" },
           { text: "COMP", font: "B", x: 23, y: 4, color: "COMP" },
           { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
-          { when: "lockComp", icon: "lock", x: 85, y: 9, color: "HI" },   // locked: the padlock by its name
+          { when: "lockComp", icon: "lockTop", x: 86, y: 6, color: "HI" },   // locked: the padlock by its name, its
+          { when: "lockComp", icon: "lockBody", x: 86, y: 10, color: "HI" },  // capitals' height, on their baseline
           { when: ["song", "!pending"], text: "{chord}", font: "XS", right: 232, y: 5, color: "WHITE" },
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
@@ -980,7 +1002,8 @@ export default {
           { icon: "pad", x: 10, y: 9, color: "PAD" },
           { text: "PAD", font: "B", x: 23, y: 4, color: "PAD" },
           { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
-          { when: "lockPad", icon: "lock", x: 55, y: 9, color: "HI" },   // locked: the padlock by its name
+          { when: "lockPad", icon: "lockTop", x: 56, y: 6, color: "HI" },   // locked: the padlock by its name, its
+          { when: "lockPad", icon: "lockBody", x: 56, y: 10, color: "HI" },  // capitals' height, on their baseline
           { when: ["song", "!pending"], text: "{chord}", font: "XS", right: 232, y: 5, color: "WHITE" },
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
@@ -1027,7 +1050,8 @@ export default {
           { icon: "lead", x: 10, y: 9, color: "LEAD" },
           { text: "LEAD", font: "B", x: 23, y: 4, color: "LEAD" },
           { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
-          { when: "lockLead", icon: "lock", x: 84, y: 9, color: "HI" },   // locked: the padlock by its name
+          { when: "lockLead", icon: "lockTop", x: 85, y: 6, color: "HI" },   // locked: the padlock by its name, its
+          { when: "lockLead", icon: "lockBody", x: 85, y: 10, color: "HI" },  // capitals' height, on their baseline
           { when: ["song", "!pending"], text: "{chord}", font: "XS", right: 232, y: 5, color: "WHITE" },
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
@@ -1075,7 +1099,8 @@ export default {
           { icon: "lead", x: 10, y: 9, color: "LEAD" },
           { text: "LEAD", font: "B", x: 23, y: 4, color: "LEAD" },
           { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
-          { when: "lockLead", icon: "lock", x: 84, y: 9, color: "HI" },   // locked: the padlock by its name
+          { when: "lockLead", icon: "lockTop", x: 85, y: 6, color: "HI" },   // locked: the padlock by its name, its
+          { when: "lockLead", icon: "lockBody", x: 85, y: 10, color: "HI" },  // capitals' height, on their baseline
           { when: ["song", "!pending"], text: "{chord}", font: "XS", right: 232, y: 5, color: "WHITE" },
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
@@ -1114,7 +1139,8 @@ export default {
           { icon: "texture", x: 10, y: 9, color: "TEXTURE" },
           { text: "TEXTURE", font: "B", x: 23, y: 4, color: "TEXTURE" },
           { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
-          { when: "lockTexture", icon: "lock", x: 86, y: 9, color: "HI" },   // locked: the padlock by its name
+          { when: "lockTexture", icon: "lockTop", x: 87, y: 6, color: "HI" },   // locked: the padlock by its name, its
+          { when: "lockTexture", icon: "lockBody", x: 87, y: 10, color: "HI" },  // capitals' height, on their baseline
           { when: ["song", "!pending"], text: "{chord}", font: "XS", right: 232, y: 5, color: "WHITE" },
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },

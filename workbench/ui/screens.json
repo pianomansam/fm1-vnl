@@ -363,6 +363,21 @@
    ".###.###.",
    ".#######."
   ],
+  "lockBody": [
+   "#########",
+   "#########",
+   "####.####",
+   "####.####",
+   "####.####",
+   "#########",
+   "#########"
+  ],
+  "lockTop": [
+   "..#####..",
+   ".##...##.",
+   ".##...##.",
+   ".##...##."
+  ],
   "pad": [
    ".........",
    ".##......",
@@ -1991,10 +2006,17 @@
       },
       {
        "color": "HI",
-       "icon": "lock",
+       "icon": "lockTop",
        "when": "lockBass",
-       "x": 63,
-       "y": 9
+       "x": 64,
+       "y": 6
+      },
+      {
+       "color": "HI",
+       "icon": "lockBody",
+       "when": "lockBass",
+       "x": 64,
+       "y": 10
       },
       {
        "color": "WHITE",
@@ -2215,10 +2237,17 @@
       },
       {
        "color": "HI",
-       "icon": "lock",
+       "icon": "lockTop",
        "when": "lockComp",
-       "x": 85,
-       "y": 9
+       "x": 86,
+       "y": 6
+      },
+      {
+       "color": "HI",
+       "icon": "lockBody",
+       "when": "lockComp",
+       "x": 86,
+       "y": 10
       },
       {
        "color": "WHITE",
@@ -2513,10 +2542,17 @@
       },
       {
        "color": "HI",
-       "icon": "lock",
+       "icon": "lockTop",
        "when": "lockComp",
-       "x": 85,
-       "y": 9
+       "x": 86,
+       "y": 6
+      },
+      {
+       "color": "HI",
+       "icon": "lockBody",
+       "when": "lockComp",
+       "x": 86,
+       "y": 10
       },
       {
        "color": "WHITE",
@@ -2781,10 +2817,17 @@
       },
       {
        "color": "HI",
-       "icon": "lock",
+       "icon": "lockTop",
        "when": "lockDrums",
-       "x": 93,
-       "y": 9
+       "x": 94,
+       "y": 6
+      },
+      {
+       "color": "HI",
+       "icon": "lockBody",
+       "when": "lockDrums",
+       "x": 94,
+       "y": 10
       },
       {
        "color": "WHITE",
@@ -3069,10 +3112,17 @@
       },
       {
        "color": "HI",
-       "icon": "lock",
+       "icon": "lockTop",
        "when": "lockDrums",
-       "x": 93,
-       "y": 9
+       "x": 94,
+       "y": 6
+      },
+      {
+       "color": "HI",
+       "icon": "lockBody",
+       "when": "lockDrums",
+       "x": 94,
+       "y": 10
       },
       {
        "color": "WHITE",
@@ -3267,10 +3317,17 @@
       },
       {
        "color": "HI",
-       "icon": "lock",
+       "icon": "lockTop",
        "when": "lockLead",
-       "x": 84,
-       "y": 9
+       "x": 85,
+       "y": 6
+      },
+      {
+       "color": "HI",
+       "icon": "lockBody",
+       "when": "lockLead",
+       "x": 85,
+       "y": 10
       },
       {
        "color": "WHITE",
@@ -3565,10 +3622,17 @@
       },
       {
        "color": "HI",
-       "icon": "lock",
+       "icon": "lockTop",
        "when": "lockLead",
-       "x": 84,
-       "y": 9
+       "x": 85,
+       "y": 6
+      },
+      {
+       "color": "HI",
+       "icon": "lockBody",
+       "when": "lockLead",
+       "x": 85,
+       "y": 10
       },
       {
        "color": "WHITE",
@@ -3773,10 +3837,17 @@
       },
       {
        "color": "HI",
-       "icon": "lock",
+       "icon": "lockTop",
        "when": "lockPad",
-       "x": 55,
-       "y": 9
+       "x": 56,
+       "y": 6
+      },
+      {
+       "color": "HI",
+       "icon": "lockBody",
+       "when": "lockPad",
+       "x": 56,
+       "y": 10
       },
       {
        "color": "WHITE",
@@ -4762,10 +4833,17 @@
       },
       {
        "color": "HI",
-       "icon": "lock",
+       "icon": "lockTop",
        "when": "lockTexture",
-       "x": 86,
-       "y": 9
+       "x": 87,
+       "y": 6
+      },
+      {
+       "color": "HI",
+       "icon": "lockBody",
+       "when": "lockTexture",
+       "x": 87,
+       "y": 10
       },
       {
        "color": "WHITE",
