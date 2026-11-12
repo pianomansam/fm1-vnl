@@ -11,7 +11,7 @@
 //     text   a template: {name} is a value below (or a line in `lines`)
 //     font   T, XS, S, B, M or L (the device's, at their real metrics: ui/fonts.js)
 //     x      the pen's left; right: the text ends there (measured); after: this many px past the previous item's end
-//     color  BLACK, WHITE, LINE, DIM, GRAY, AMB, HI (gfx.c's palette for app.h's APP_PALETTE: ESPRESSO)
+//     color  BLACK, WHITE, LINE, DIM, GRAY, AMB, HI (gfx.c's palette for app.h's APP_PALETTE: TEAL)
 //     when   a value that must be true (non-empty, non-zero), "!value" for false, or a list of them (all must hold)
 //   { rect: [x, y, w, h], color, when }
 //   { knobs: { x, dx, label: { y, font, color }, value: { y, font, color, when } } }: the screen's four knobs, K1 at x,
@@ -47,9 +47,9 @@ export default {
     PAD: [96, 164, 240], LEAD: [236, 124, 184], TEXTURE: [186, 168, 138],
     // a change made but not live yet: its value at once, "*" in front, in this color (Sam, 2026-11-06)
     PENDING: [250, 226, 90],
-    // the record's disc on the splash and the now-playing screen (Sam's splash C1: near-black, warm;
-    // darkened with the background, 2026-11-11)
-    VINYL: [8, 5, 3],
+    // the record's disc on the splash and the now-playing screen (Sam's splash C1): a teal-black, about 55% of the
+    // background (TEAL's #0c1d1e)
+    VINYL: [7, 16, 17],
   },
 
   // 1-bit icons, 9 px wide, rows of "#" (lit) and "." (the main screen's): one per part, drawn in its color

@@ -343,8 +343,8 @@ static void ui_blend(uint32_t i, uint16_t c, uint32_t a)
 
 /* a record, centred at (cx, cy) on the canvas (clipped to it): the disc in back with its edge smoothed, five grooves
    in past (r - 10 .. r - 50), the label (r * 5 / 13) in color, smoothed, and on it, turned by spin (1/256 turns,
-   counter-clockwise): a cream dot (WHITE) and, opposite, a wedge of light (HI); the spindle's hole. Whole numbers
-   only (the mock's, pixel for pixel) */
+   counter-clockwise): a dot in the theme's white (WHITE) and, opposite, a wedge of light (HI); the spindle's hole.
+   Whole numbers only (the mock's, pixel for pixel) */
 static void ui_record_at(int32_t cx, int32_t cy, int32_t r, uint16_t label, uint16_t disc, uint16_t groove, int spin)
 {
     int32_t rl = r * 5 / 13, x0 = cx - r - 1, x1 = cx + r + 1, y0 = cy - r - 1, y1 = cy + r + 1, x, y, k;

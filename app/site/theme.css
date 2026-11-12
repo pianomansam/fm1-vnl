@@ -1,0 +1,41 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+   VNL-1's site in the device's colors: base/device/gfx.c's TEAL palette (app.h APP_PALETTE 6u). tools/site.sh
+   puts this in every page fm1-base's tools/make_site.py writes (the front page, the manual, the installer), after
+   their own styles, so it wins. Contrast on the background #0c1d1e (WCAG AA wants 4.5:1 for text):
+     sand #f4ecdb 14.8:1 (body text), tangerine #ff8a3d 7.4:1 (links, underlined), sage #9fbdb3 8.6:1 (secondary
+     text), bright tangerine #ffb877 10.2:1 (hover, focus), rose #ff8094 7.2:1 (errors); on the code and callout
+     tile #16302f the lowest is 5.9:1. The rule #2f5856 (2.2:1) draws rules and borders only, never text. */
+:root, :root:not([data-theme="light"]), :root[data-theme] {
+  /* the palette: background, its five steps, white (sand) */
+  --vnl-bg: #0c1d1e; --vnl-tile: #16302f; --vnl-rule: #2f5856; --vnl-label: #9fbdb3;
+  --vnl-accent: #ff8a3d; --vnl-hi: #ffb877; --vnl-text: #f4ecdb;
+  /* the manual and the front page (base/tools/manual_html.py) */
+  --paper: var(--vnl-bg); --sheet: var(--vnl-tile); --rule: var(--vnl-rule); --ink: var(--vnl-text);
+  --muted: var(--vnl-label); --hot: var(--vnl-accent); --hot-t: rgba(255, 138, 61, .16); --cool: var(--vnl-accent);
+  --cool-t: var(--vnl-tile); --hot-ink: var(--vnl-hi);
+  /* the installer (base/web/installer.html) */
+  --bg: var(--vnl-bg); --fg: var(--vnl-text); --dim: var(--vnl-label); --accent: var(--vnl-accent);
+  --on-accent: var(--vnl-bg); --bad: #ff8094; --focus: var(--vnl-hi);
+  color-scheme: dark;
+}
+body { background: var(--vnl-bg); color: var(--vnl-text); }
+a { color: var(--vnl-accent); text-decoration-color: currentColor; }
+a:hover { color: var(--vnl-hi); }
+:focus-visible { outline-color: var(--vnl-hi); }
+/* the manual and the front page: tangerine where the device puts it, rules in the device's rule step */
+.page h1 { color: var(--vnl-hi); }
+.page h2 { border-top: 1px solid var(--vnl-rule); }
+.page th { border-bottom-color: var(--vnl-rule); }
+.page .site { border-bottom-color: var(--vnl-accent); }
+.page .site .home, .page a.home { color: var(--vnl-hi); }
+.page .site nav a { color: var(--vnl-text); text-decoration-color: var(--vnl-accent); }
+.page .site nav a:hover { color: var(--vnl-hi); }
+.page .site nav a[aria-current] { color: var(--vnl-hi); }
+.page main > a.home { color: var(--vnl-label); }
+.page figure.shot img { box-shadow: 0 0 0 1px var(--vnl-rule); }
+.skip { background: var(--vnl-accent); color: var(--vnl-bg); }
+/* the installer: the log's and the text box's borders in the rule step */
+#log { border-color: var(--vnl-rule); }
+textarea { border-color: var(--vnl-rule); }
+button.plain { border-color: var(--vnl-label); }
+dialog { background: var(--vnl-tile); }

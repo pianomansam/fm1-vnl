@@ -24,7 +24,9 @@ The first public release: a generative lo-fi hip hop firmware for the M-VAVE FM-
   keeps that part (its instrument, rhythm or style, register and variations) while the rest rolls. The song line
   locks too (key and scale, tempo, motion, mood).
 - **A CPU guard** that sheds reverb tails and quiet voices before the audio can glitch.
-- **A site with a browser installer** (Chrome or Edge), in the screens' espresso colors: the firmware
+- **Tangerine on teal:** the screens, the workbench's device mock and the site share one palette (deep teal,
+  tangerine, sand white); fm1-base also carries an olive and mustard one.
+- **A site with a browser installer** (Chrome or Edge), in the screens' colors: the firmware
   (`vnl-1-0.9.0.fwsc`), then the sample bank; the emulator and the manual beside it.
 - **For developers:** the host simulator, the browser emulator, the workbench, and patterns as MIDI and MusicXML.
 

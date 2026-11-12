@@ -15,19 +15,19 @@ sh build.sh --release "$V"
 sh build.sh --web --release "$V"
 "$PY" base/tools/make_site.py app "app/build/vnl-1-$V.fwsc" "$V" "$OUT"
 rm -rf "$OUT/emu/o2"                  # the emulator build's object files (make_site copies all of app/build/emu)
-# the device's colors (app/site/espresso.css): make_site has no styling hook, so its pages get the sheet inlined after
+# the device's colors (app/site/theme.css): make_site has no styling hook, so its pages get the sheet inlined after
 # their own <style>, just before </head>
 "$PY" - "$OUT" <<'EOF'
 import pathlib, sys
-out, css = pathlib.Path(sys.argv[1]), pathlib.Path("app/site/espresso.css").read_text(encoding="utf-8")
+out, css = pathlib.Path(sys.argv[1]), pathlib.Path("app/site/theme.css").read_text(encoding="utf-8")
 for p in ("index.html", "install/index.html", "manual/index.html"):
     f = out / p
     if f.exists():
         h = f.read_text(encoding="utf-8")
         if h.count("</head>") != 1:
-            sys.exit(f"{f}: no single </head> to put the espresso sheet before")
-        f.write_text(h.replace("</head>", f'<style id="espresso">\n{css}</style>\n</head>'), encoding="utf-8")
-        print(f"espresso {f}")
+            sys.exit(f"{f}: no single </head> to put the theme sheet before")
+        f.write_text(h.replace("</head>", f'<style id="theme">\n{css}</style>\n</head>'), encoding="utf-8")
+        print(f"theme    {f}")
 EOF
 # the manual's HTML comments (its note to contributors): fm1-base's manual_html.py would print them as text
 "$PY" -c '

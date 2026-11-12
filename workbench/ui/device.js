@@ -19,8 +19,12 @@ export const PALETTES = {
   MONO: [...NEUTRALS, RGB(196, 196, 202), RGB(236, 236, 240), ...INK],
   ESPRESSO: [RGB(44, 32, 24), RGB(107, 84, 64), RGB(180, 156, 128), RGB(232, 136, 30), RGB(255, 184, 70),
              RGB(24, 17, 11), RGB(244, 230, 200)],
+  TEAL: [RGB(22, 48, 47), RGB(47, 88, 86), RGB(159, 189, 179), RGB(255, 138, 61), RGB(255, 184, 119),
+         RGB(12, 29, 30), RGB(244, 236, 219)],
+  OLIVE: [RGB(35, 40, 24), RGB(74, 83, 48), RGB(178, 185, 143), RGB(227, 179, 48), RGB(246, 211, 107),
+          RGB(20, 23, 12), RGB(245, 240, 220)],
 };
-export const THEME = "ESPRESSO";   // app.h's APP_PALETTE 5
+export const THEME = "TEAL";   // app.h's APP_PALETTE 6
 // the theme's colors, plus the screen data's own (`colors`: { NAME: [r, g, b] }, e.g. a color per part)
 export const colors = (theme = THEME, extra = {}) => {
   const p = PALETTES[theme];
