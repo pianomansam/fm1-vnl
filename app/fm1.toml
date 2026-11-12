@@ -1,5 +1,5 @@
 # VNL-1's build settings (fm1-base's tools/build.py: ./build.sh)
-name = "VNL"                    # the build's files: vnl.fwsc, vnl-X.Y.fwsc
+name = "VNL-1"                  # the name people see; the build's files: vnl-1.fwsc, vnl-1-X.Y.fwsc, vnl-1_host
 id_prefix = "FM-1_22"          # dev FM-1_2200, releases FM-1_22XXYYZZ (taken: 0 default, 6 CTL-1, 7 AMB-1, 8 dub, 11 template, 13 Radio)
 usb_manufacturer = "VNL-1"
 usb_product = "VNL-1 FM-1"

@@ -9,7 +9,7 @@ set -eu
 cd "$(dirname "$0")/.."
 PY=.venv/bin/python
 STOCK=${FM1_STOCK:-ref/fm1_open/sdk/firmware/FM-1_015.fwsc}
-VNL=app/build/vnl.fwsc
+VNL=app/build/vnl-1.fwsc
 
 for f in "$STOCK" "$VNL"; do [ -f "$f" ] || { echo "missing: $f" >&2; exit 2; }; done
 [ "$(shasum -a 256 "$STOCK" | cut -c1-64)" = db1642b2b6fa5c2cccb11ffd13878068bb28601678d3644049f99dc40e7edb8a ] \

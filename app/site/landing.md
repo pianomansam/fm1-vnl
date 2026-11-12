@@ -1,4 +1,4 @@
-# VNL
+# VNL-1
 
 VNL-1 turns the M-VAVE FM-1 into a lo-fi hip hop machine. It writes and plays its own songs, one after another: each
 has its own key, tempo, chords, layout and band, played through a lo-fi chain of tape wobble, dust and a plate. Press

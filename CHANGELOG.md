@@ -14,8 +14,8 @@ The first public release: a generative lo-fi hip hop firmware for the M-VAVE FM-
 - **On the device:** a boot splash, a now-playing screen, a main screen, a page per part, Parts, Sections and Mixer
   screens; mute and solo from the keys; every change landing on the next four-bar line; a screen reader; USB audio.
 - **A CPU guard** that sheds reverb tails and quiet voices before the audio can glitch.
-- **A site with a browser installer** (Chrome or Edge): the firmware, then the sample bank; the emulator and the
-  manual beside it.
+- **A site with a browser installer** (Chrome or Edge), in the screens' espresso colors: the firmware
+  (`vnl-1-0.9.0.fwsc`), then the sample bank; the emulator and the manual beside it.
 - **For developers:** the host simulator, the browser emulator, the workbench, and patterns as MIDI and MusicXML.
 
 Known limits: no Bluetooth, so no velocity or pressure from the keys. The Settings screen is a placeholder. See

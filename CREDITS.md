@@ -12,7 +12,7 @@ from and where it lives here. The licenses themselves are summarized at the end 
 | [felucca-bsp](https://github.com/hugelton/felucca-bsp): the FM-1's board support (drivers, loader, rescue), from [Felucca](https://github.com/hugelton/Felucca) | Leo Kuroshita ([@kurogedelic](https://github.com/kurogedelic)), Hügelton Instruments | MPL-2.0 | `base/bsp/` |
 | fm1-base's template: VNL-1 started from it; `app/app.c`, `app/app.h`, `app/words.tsv`, `build.sh` and `tests/run_tests.sh` keep its MPL-2.0 notice | Charles Vestal | MPL-2.0 (`LICENSES/MPL-2.0.txt`) | those files |
 | The fonts, packed into the firmware's bitmaps by fm1-base: Barlow Semi Condensed (also the splash's wordmark, `app/ui/font_mark.h`) and Terminus | The Barlow Project Authors; Dimitar Toshkov Zhekov | SIL OFL 1.1 (`base/assets/fonts/`) | the firmware image |
-| The JieLi AC79 SDK's boot files every FM-1 package carries (`uboot.boot`, `cfg_tool.bin`, `eq_cfg_hw.bin`), read from the SDK at build time | Zhuhai Jieli Technology | Apache-2.0 | `vnl.fwsc` |
+| The JieLi AC79 SDK's boot files every FM-1 package carries (`uboot.boot`, `cfg_tool.bin`, `eq_cfg_hw.bin`), read from the SDK at build time | Zhuhai Jieli Technology | Apache-2.0 | `vnl-1.fwsc` |
 
 ## Code in the firmware
 

@@ -4,7 +4,7 @@
 # (the first song's 6 or so: past its 5.8 ms), so the guard climbs the whole ladder while the song plays on, loud;
 # stopped, it comes back down a level at a time after 20 s of calm. (Which voices it cuts is song_test's
 # test_guard_voices: these held chords have no release tails to cut.) Writes guard.wav.
-#   app/build/host/vnl_host tests/scenarios/guard.vnl app/build/scenarios
+#   app/build/host/vnl-1_host tests/scenarios/guard.vnl app/build/scenarios
 wav guard.wav
 master 4096
 heavy 0

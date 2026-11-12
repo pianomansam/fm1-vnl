@@ -46,7 +46,7 @@ run livestate python3 -I tools/test_fm1_state.py   # the live state: the simulat
 mkdir -p $B/scenarios
 for f in tests/scenarios/*.vnl; do      # the app in the host simulator; outputs (songs.wav, shots) in app/build/scenarios
     name=$(basename "$f" .vnl)         # its song log, MIDI and MusicXML beside its outputs (songs.log, songs-1.mid ... go with songs.wav)
-    run "scenario-$name" env VNL_SCORE=$B/scenarios/$name $B/host/vnl_host "$f" $B/scenarios
+    run "scenario-$name" env VNL_SCORE=$B/scenarios/$name $B/host/vnl-1_host "$f" $B/scenarios
 done
 if command -v emcc >/dev/null 2>&1; then
     run emu sh build.sh --web

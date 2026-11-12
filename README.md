@@ -95,7 +95,7 @@ FM-1 by USB and press Install. It writes the firmware, then offers the sample ba
 
 2. Connect the FM-1 by USB and install the firmware (from the release, or your own build):
 
-       .venv/bin/python base/tools/fm1_install.py vnl-VERSION.fwsc
+       .venv/bin/python base/tools/fm1_install.py vnl-1-VERSION.fwsc
 
 3. With VNL-1 running and stopped, write the sample bank (once; again only when a release says the samples changed):
 
@@ -127,10 +127,10 @@ SDK: `git clone --depth 1 --branch AC79NN_SDK_V1.2.1_2023-12-13 https://gitee.co
 
 ### Build and run
 
-    ./build.sh                    # app/build/vnl.fwsc (firmware + update loader), identity FM-1_2200
-    ./build.sh --release 0.9.0    # app/build/vnl-0.9.0.fwsc, identity FM-1_22000900
+    ./build.sh                    # app/build/vnl-1.fwsc (firmware + update loader), identity FM-1_2200
+    ./build.sh --release 0.9.0    # app/build/vnl-1-0.9.0.fwsc, identity FM-1_22000900
     ./build.sh --host             # host simulator, then:
-    app/build/host/vnl_host tests/scenarios/songs.vnl app/build/scenarios   # a song, the gap, the next: songs.wav
+    app/build/host/vnl-1_host tests/scenarios/songs.vnl app/build/scenarios   # a song, the gap, the next: songs.wav
     sh tests/run_tests.sh         # unit tests, the host build, every tests/scenarios/*.vnl, the emulator build
     ./build.sh --web              # browser emulator in app/build/emu/ (serve it: python3 -m http.server -d app/build/emu)
     sh workbench/build.sh && python3 workbench/server.py   # the workbench at http://localhost:8732/

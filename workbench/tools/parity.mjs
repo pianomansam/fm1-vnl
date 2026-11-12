@@ -18,7 +18,7 @@ import data from "../ui/screens.js";
 import { ROWS } from "../rows.js";
 
 const root = new URL("../../", import.meta.url).pathname;
-const HOST = join(root, "app/build/host/vnl_host");
+const HOST = join(root, "app/build/host/vnl-1_host");
 if (!existsSync(HOST)) { console.log(`parity: no ${HOST} (./build.sh --host first)`); process.exit(1); }
 const outDir = process.argv[2];
 if (outDir) mkdirSync(outDir, { recursive: true });

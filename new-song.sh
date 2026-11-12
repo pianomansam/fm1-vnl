@@ -16,7 +16,7 @@ seed=${1:-$(od -An -N4 -tu4 /dev/urandom | tr -d ' ')}
 out=app/build/new/$seed
 ./build.sh --host >/dev/null
 mkdir -p "$out"
-VNL_SEED=$seed VNL_BASS=${BASS:-1} VNL_BED=${BED:-1} VNL_SET=${SET:-0} VNL_PADS=${PADS:-} VNL_SCORE=$out/song app/build/host/vnl_host new-song.vnl "$out" >/dev/null
+VNL_SEED=$seed VNL_BASS=${BASS:-1} VNL_BED=${BED:-1} VNL_SET=${SET:-0} VNL_PADS=${PADS:-} VNL_SCORE=$out/song app/build/host/vnl-1_host new-song.vnl "$out" >/dev/null
 rm -f "$out"/song-2* "$out"/now.png "$out"/midi_out.txt
 .venv/bin/python - "$out" <<'PY'
 import re, sys, wave

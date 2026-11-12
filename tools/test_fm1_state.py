@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""The live state end to end, without a device: the simulator (app/build/host/vnl_host, ./build.sh --host) plays a
+"""The live state end to end, without a device: the simulator (app/build/host/vnl-1_host, ./build.sh --host) plays a
 song and answers the state request ("live": the frames as the FM-1 sends them over USB), and fm1_state.py's decode
 reads them; the frames out of order, among the browser remote's, still decode; one missing does not.
     python3 -I tools/test_fm1_state.py"""
@@ -18,7 +18,7 @@ with tempfile.TemporaryDirectory() as d:
     sc = os.path.join(d, "live.vnl")
     with open(sc, "w") as f:
         f.write("tap PLAY\nwait 3000\nlive reset\nlive\n")
-    out = subprocess.run([os.path.join(ROOT, "app", "build", "host", "vnl_host"), sc, d], capture_output=True,
+    out = subprocess.run([os.path.join(ROOT, "app", "build", "host", "vnl-1_host"), sc, d], capture_output=True,
                          text=True, check=True).stdout
 lines = [l for l in out.splitlines() if l.startswith("live ")]
 frames = [bytes.fromhex(h) for h in lines[0].split()[1:]]
