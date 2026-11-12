@@ -26,6 +26,7 @@ four-bar line, in time. VNL-1 is free software (GPL), built on [fm1-base](https:
   bass but the sub is gently saturated, so its line carries on small speakers.
 - **Comp:** Rhodes, piano, felt piano, vibes, organ, pad, nylon guitar and electric guitar. Eight comp rhythms (held,
   half notes, stabs, held on 2, held on 2 and 4, charleston, tresillo, late one); the guitars strum, in eight patterns.
+  Over a low lead (jazz guitar, cello) the comp shares the lead's register, thinning where it plays, or lifts over it.
 - **Lead:** flute, whistle, piano, felt piano, vibes, jazz guitar, cello and harp, in eight styles: Impressionism,
   Romanticism, '60s Jazz, Modal Jazz, Jazz-Hop, Film Score, Bossa Nova and Ambient. The lead states a motif and loops
   it the way a producer loops a sample, with mutes, filter sweeps and drop-outs.

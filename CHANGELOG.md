@@ -11,6 +11,9 @@ The first public release: a generative lo-fi hip hop firmware for the M-VAVE FM-
 - **Sampled instruments:** piano, nylon, electric and jazz guitar, cello, harp and two room kits, from CC0 libraries, in
   a sample bank written once, by the browser installer or `tools/fm1_bank.py`.
 - **A lo-fi mix:** wow and flutter, saturation, grit, chorus, delay, plate reverb, kick ducking and a whole-mix stutter.
+- **The comp over a low lead:** with the jazz guitar or the cello leading, the comp keeps its own register with the
+  lead (a note fewer and a dip where the lead sounds) in three songs out of four, or lifts an octave over it; the
+  Comp screen's page 2 (K3, Over a low lead) forces either.
 - **Bass that carries on small speakers:** every bass but the sub adds gentle harmonics (a parallel saturation)
   in the register it plays, so laptop and phone speakers hear its line; the sub stays clean.
 - **On the device:** a boot splash, a now-playing screen, a main screen, a page per part, Parts, Sections and Mixer
