@@ -7,6 +7,8 @@ include = ["song", "engine", "host", "ui", "drums"]   # the song engine, the voi
 o2 = ["song/*.c", "song/leads/*.c", "engine/*.c", "drums/*.c", "drums/fomajam/*.c", "host/*.c"]   # compiled apart at -O2 (the app's DSP; host/ is empty on the device)
 device_include = ["inc"]       # the firmware's <string.h> (the toolchain is freestanding)
 words = "words.tsv"
+font_trim = true               # fm1-base's font packing: each glyph its lit box, Huffman-coded (the same pixels;
+font_pack = true               # about 43 KB less flash than unpacked, 6 KB less than our old run-length packing)
 ble = false                    # no radio: neither target (lo-fi, dub) needs it; saves ~130 KB flash
 ble_central = false
 # the site (tools/make_site.py, tools/publish_site.sh)

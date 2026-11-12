@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 """The device's fonts for the workbench's screen mock: base/tools/gen_font.py's header (FONT_T, XS, S, B, M, L, as the
-firmware build makes it, base/ as it stands) turned into workbench/ui/fonts.js, the same run-length packed glyphs and
-metrics, so the mock draws (and measures) text as gfx.c's cv_text and text_w do. Plus VNL-1's own face, MARK: the
-splash's wordmark "vnl-1" (MARK_TEXT's characters only, the rest empty), rendered by gen_font the same way, into
-fonts.js and app/ui/font_mark.h (FONT_MARK, for the screens' runtime).
+firmware build makes it, base/ as it stands) turned into workbench/ui/fonts.js, the same stored glyphs (fm1.toml
+font_trim, font_pack) and metrics, so the mock draws (and measures) text as gfx.c's cv_text and text_w do. Plus
+VNL-1's own face, MARK: the splash's wordmark "vnl-1" (MARK_TEXT's characters only, the rest empty), rendered by
+gen_font the same way, into fonts.js and app/ui/font_mark.h (FONT_MARK, for the screens' runtime).
     .venv/bin/python3 -I workbench/tools/export_font.py      (needs Pillow, as ./build.sh does)
 Reads base/ only; writes workbench/ui/fonts.js and app/ui/font_mark.h."""
 import json
@@ -22,19 +22,41 @@ MARK = ("BarlowSemiCondensed-Bold.ttf", 42)   # the wordmark's face and size (Sa
 MARK_TEXT = "vnl-1"
 
 
+def face_data(gen_font, h, glyphs):
+    """(data, offsets, bitmap widths) of a face's glyphs as base/tools/gen_font.py's main() lays them out (its TRIM and
+    PACK, from fm1.toml's font_trim and font_pack)"""
+    data, offs, bws, boxes = [], [], [], []
+    for _, bw, g in glyphs:
+        offs.append(len(data))
+        x0, y0, w, n = 0, 0, bw, h
+        if gen_font.TRIM:
+            x0, y0, w, n = gen_font.lit_box(g, bw, h)
+            data += [x0, y0, n]
+        bws.append(w)
+        boxes.append(([x0, y0, n], [a for y in range(y0, y0 + n) for a in g[y * bw + x0:y * bw + x0 + w]]))
+        for y in range(y0, y0 + n):
+            row = g[y * bw + x0:y * bw + x0 + w] + [0]
+            for x in range(0, w, 2):
+                data.append((row[x] << 4) | row[x + 1])
+    if gen_font.PACK:
+        data, offs = gen_font.pack_face(boxes)
+    return data, offs, bws
+
+
 def mark_face(gen_font):
     """MARK: gen_font's glyphs for MARK_TEXT's characters, every other one in its range empty (no pixels, no advance)"""
     first, last = min(map(ord, MARK_TEXT)), max(map(ord, MARK_TEXT))
     h, glyphs = gen_font.render(MARK[0], MARK[1], 1, False, first, last)
-    adv, bw, off, data = [], [], [], []
-    for c, (a, w, px) in zip(range(first, last + 1), glyphs):
-        keep = chr(c) in MARK_TEXT
-        off.append(len(data))
-        adv.append(a if keep else 0)
-        bw.append(w if keep else 0)
-        if keep:
-            data += gen_font.pack(px)
-    return {"h": h, "pad": gen_font.PAD, "first": first, "last": last, "adv": adv, "bw": bw, "off": off, "data": bytes(data).hex()}
+    keep = [chr(c) in MARK_TEXT for c in range(first, last + 1)]
+    glyphs = [(a, w, px) if k else (0, 0, []) for k, (a, w, px) in zip(keep, glyphs)]
+    data, off, bw = face_data(gen_font, h, glyphs)
+    return {"h": h, "pad": gen_font.PAD, "first": first, "last": last, "adv": [a for a, _, _ in glyphs], "bw": bw,
+            "off": off, "data": bytes(data).hex(), **fmt(gen_font)}
+
+
+def fmt(gen_font):
+    """how a face's glyphs are stored (gfx.c's FONT_TRIM, FONT_PACK), for the mock's decoder"""
+    return {"trim": int(gen_font.TRIM), "pack": gen_font.HUF_LEN if gen_font.PACK else 0}
 
 
 def mark_header(f):
@@ -54,6 +76,8 @@ def mark_header(f):
 def main():
     conf = tomllib.loads((REPO / "app" / "fm1.toml").read_text(encoding="utf-8"))
     os.environ["FM1_FONT_FULL"] = " ".join(conf.get("font_full", []))   # as base/tools/build.py's generate()
+    os.environ["FM1_FONT_TRIM"] = "1" if conf.get("font_trim") else ""
+    os.environ["FM1_FONT_PACK"] = "1" if conf.get("font_pack") else ""
     sys.path.insert(0, str(REPO / "base" / "tools"))
     import gen_font                                                      # noqa: E402 (reads the env at import)
     with tempfile.TemporaryDirectory() as d:
@@ -66,7 +90,8 @@ def main():
     for m in re.finditer(r"felucca_font_t FONT_(\w+) = \{ (\d+), (\d+), (\d+), (\d+),", src):
         name, h, pad, first, last = m.group(1), *map(int, m.groups()[1:])
         fonts[name] = {"h": h, "pad": pad, "first": first, "last": last, "adv": arr(f"{name}_ADV"),
-                       "bw": arr(f"{name}_BW"), "off": arr(f"{name}_OFF"), "data": bytes(arr(f"{name}_DATA")).hex()}
+                       "bw": arr(f"{name}_BW"), "off": arr(f"{name}_OFF"), "data": bytes(arr(f"{name}_DATA")).hex(),
+                       **fmt(gen_font)}
     fonts["MARK"] = mark_face(gen_font)
     MARK_H.write_text(mark_header(fonts["MARK"]))
     OUT.parent.mkdir(exist_ok=True)

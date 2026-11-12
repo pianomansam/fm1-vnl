@@ -30,7 +30,7 @@ export const colors = (theme = THEME, extra = {}) => {
 export const BG = colors().BLACK;   // the screen's background (an app's lcd_fill)
 
 const decoded = new Map();
-export function font(name) {   // a face of ui/fonts.js, its packed glyphs as bytes
+export function font(name) {   // a face of ui/fonts.js, its stored glyphs as bytes
   if (!decoded.has(name)) {
     const f = FONTS[name];
     if (!f) throw new Error(`no font ${name}`);
@@ -64,22 +64,35 @@ export class Lcd {
     for (let j = Math.max(y, 0); j < Math.min(y + h, this.h); j++)
       for (let i = Math.max(x, 0); i < Math.min(x + w, this.w); i++) this.px[j * this.w + i] = c;
   }
-  // cv_text: each pixel's coverage (0..15) blended over the canvas; the pen's end
+  // cv_text: each pixel's coverage (0..15) blended over the canvas; the pen's end. A glyph as gen_font stores it: with
+  // f.trim its lit box (left, top, rows, then those rows), with f.pack (the longest code) its alphas Huffman-coded,
+  // each by one of three codes at the face's start (after a 0, after a 15, after anything else)
   text(x, y, f, s, c) {
-    const r = c >> 11, g = (c >> 5) & 63, b = c & 31, d = f.bytes;
+    const r = c >> 11, g = (c >> 5) & 63, b = c & 31, d = f.bytes, L = f.pack, SZ = L + 16;
     for (const ch of utf8(s)) {
-      const gi = glyph(f, ch), w = f.bw[gi], base = f.off[gi];
-      let ni = 0, run = 0, a = 0;
-      const nib = () => { const v = (ni & 1) ? d[base + (ni >> 1)] & 15 : d[base + (ni >> 1)] >> 4; ni++; return v; };
-      for (let gy = 0; gy < f.h; gy++)
+      const gi = glyph(f, ch), w = f.bw[gi], bpr = (w + 1) >> 1;
+      let p = f.off[gi], bx = x - f.pad, by = y, rows = f.h, bit = 0, prev = 0;
+      if (f.trim) { bx += d[p]; by += d[p + 1]; rows = d[p + 2]; p += 3; }
+      const alpha = () => {   // gfx.c's font_alpha: the next code's alpha, by the code for the one before
+        const t = SZ * (prev === 0 ? 0 : prev === 15 ? 1 : 2);
+        let code = 0, first = 0, at = 0;
+        for (let len = 0; len < L; len++) {
+          const n = d[t + len];
+          code |= (d[p + (bit >> 3)] >> (7 - (bit & 7))) & 1;
+          bit++;
+          if (code - first < n) return d[t + L + at + code - first];
+          at += n;
+          first = (first + n) << 1;
+          code <<= 1;
+        }
+        return 0;
+      };
+      for (let gy = 0; gy < rows; gy++)
         for (let gx = 0; gx < w; gx++) {
-          const px = x - f.pad + gx, py = y + gy;
-          if (!run) {
-            a = nib();
-            run = 1;
-            if (a === 0 || a === 15) run += nib();
-          }
-          run--;
+          const px = bx + gx, py = by + gy;
+          let a;
+          if (L) a = prev = alpha();
+          else { a = d[p + gy * bpr + (gx >> 1)]; a = (gx & 1) ? a & 15 : a >> 4; }
           if (!a || px < 0 || px >= this.w || py < 0 || py >= this.h) continue;
           const at = py * this.w + px;
           if (a === 15) { this.px[at] = c; continue; }

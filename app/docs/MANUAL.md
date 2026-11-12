@@ -118,5 +118,11 @@ with its built-in voice.
 **The installer doesn't find the FM-1:** use Chrome or Edge, allow MIDI when asked, and close other programs
 that use the FM-1's MIDI port.
 
-**The FM-1 doesn't start after an install:** after two failed starts it waits in the chip's update mode. Put
-the stock firmware back, then install again. For details, see felucca-bsp's `tools/fm1_rescue.sh`.
+**The FM-1 doesn't start after an install:** after two failed starts it shows SAFE MODE: no sound, but USB works,
+so the web installer can reach it. Install again, or put the stock firmware back from the same page. PLAY tries the
+firmware again. If safe mode fails twice too, the FM-1 waits in the chip's own update mode.
+
+**Update mode:** hold REC while you switch the FM-1 on. With m-bootloader installed (the web installer offers it),
+the installer reaches the FM-1 from there, and PLAY held instead opens m-bootloader's recovery menu. Without it, REC
+starts the chip's own update mode, which only the rescue reaches. For details, see felucca-bsp's
+`tools/fm1_rescue.sh`.

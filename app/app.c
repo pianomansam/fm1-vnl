@@ -42,6 +42,7 @@
    has it either way (uiscreen: workbench/tools/parity.mjs) */
 #if VNL_UI_RUNTIME || defined(PLAT_HOST)
 #define UI_RT 1
+#undef UA_JUMP                  /* felucca-bsp's usb.c, earlier in the unity, has a macro of that name; ours: an enum */
 #include "values.h"
 #include "ui/choices_gen.c"
 #include "ui/screens_gen.c"

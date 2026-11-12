@@ -40,8 +40,8 @@ The sampled instruments and kits live outside the firmware, in the flash's data 
 them (once, and again only when the samples change; an update leaves them). Without a bank that matches the firmware,
 VNL-1 says NO SAMPLES and plays its synth instruments only.
 
-At your own risk. Hold OCT- and OCT+ for 5 s for update mode. If the FM-1 won't boot but shows up as `4C4A:8057`
-on USB, `base/bsp/tools/fm1_rescue.sh` restores stock firmware.
+At your own risk. Hold REC while switching the FM-1 on for update mode. If the FM-1 won't boot but shows up as
+`4C4A:8057` on USB, `base/bsp/tools/fm1_rescue.sh` restores stock firmware.
 
 ## Notes
 
