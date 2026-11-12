@@ -417,6 +417,8 @@ static song_t jsong UI_POOL;
 static int16_t j_target = -1, j_from;    /* the bar the song jumps to (-1: none), the bar it was asked in */
 static uint8_t j_ready, loop_on, endless_on;
 static uint8_t j_first;                  /* the restarted song's first bar's planning: the next part (a block each) */
+static uint8_t j_part;                   /* its target bar's planning again (requests changed): the next part, 0 none */
+static uint32_t j_req;                   /* the song's requests as last carried into it (req_hash) */
 static song_ev_t j_evs[64];
 enum { J_TICKS = 24 };                    /* 16ths fast-forwarded a block */
 static uint8_t bar_ticked;               /* the song ticked a costly 16th in this block (step): a bar's first (its
@@ -425,6 +427,18 @@ static uint8_t bar_ticked;               /* the song ticked a costly 16th in thi
 static uint8_t roll_line_due;            /* a bar line passed: the Parts roll's copy waits for a light block */
 /* a song's 16th that costs (the song's planning or its downbeat): st, the 16th it ticks */
 #define HEAVY_16TH(st) ((st) == 0 || ((st) >= 12 && (st) <= 14))
+
+/* the requests waiting in s (a hash: song_carry_requests carries the same from the same) */
+static uint32_t req_hash(const song_t *s)
+{
+    uint32_t h = 2166136261u;
+    int i;
+    for (i = 0; i < RF_N; i++)
+        h = (h ^ (uint32_t)(s->pend[i] ? 1 + s->pend_bar[i] * 31 + s->pend_val[i] * 65599 : 0)) * 16777619u;
+    for (i = 0; i < s->rq_n; i++)
+        h = (h ^ (uint32_t)(s->rq[i].row * 65599 + s->rq[i].val * 31 + s->rq[i].bar)) * 16777619u;
+    return (h ^ (uint32_t)s->rq_n) * 16777619u;
+}
 
 static void jump_ask(int bar)
 {
@@ -445,12 +459,19 @@ static void jump_ask(int bar)
     j_from = (int16_t)song.bar;
     j_ready = 0;
     j_first = 0;
+    j_part = 0;
+    j_req = ~req_hash(&song);            /* (none carried yet) */
 }
+
+static void jump_carry(int b);
 
 static void jump_prepare(void)
 {
     int k;
     if (j_target >= 0 && !j_ready && j_first < SONG_FIRST_BAR_PARTS) {
+        if (j_first == 0 && j_target == 0)
+            jump_carry(0);               /* (the requests landing there, carried ahead: its first bar planned with
+                                            them, not on its downbeat; jump_land carries them again as they are) */
         song_first_bar(&jsong, j_first++);   /* (all in its first tick, a block's render 2-3 times its usual) */
 #if VNL_UI_RUNTIME
         m_cause |= 1u << MC_JUMP;
@@ -462,6 +483,9 @@ static void jump_prepare(void)
             j_ready = 1;
         } else {
             int heavy = HEAVY_16TH(jsong.step);
+            if (jsong.bar == j_target - 1 && jsong.step == 12)
+                jump_carry(j_target);    /* (likewise: the target bar's planning ahead, from here, with them; they
+                                            land past the fast-forward, so its ticks keep theirs) */
             song_tick(&jsong, j_evs, 64);
 #if VNL_UI_RUNTIME
             m_cause |= 1u << MC_JUMP;
@@ -472,28 +496,51 @@ static void jump_prepare(void)
     }
     if (j_target >= 0 && jsong.bar >= j_target)
         j_ready = 1;
+    if (j_target >= 0 && j_ready && k == 0 && jsong.state == SS_PLAYING && !jsong.step) {
+        if (req_hash(&song) != j_req) {   /* waiting to land, the requests changed since carried: carried again, */
+            jump_carry(jsong.bar);       /* its bar planned again with them, a part a block (song_first_bar) */
+            j_part = 1;
+        } else if (j_part) {
+            song_first_bar(&jsong, j_part);
+            j_part = (uint8_t)(j_part + 1 < SONG_FIRST_BAR_PARTS ? j_part + 1 : 0);
+#if VNL_UI_RUNTIME
+            m_cause |= 1u << MC_JUMP;
+#endif
+        }
+    }
 }
 
-/* a carried request's bar in the song jumped to: the next 4-bar boundary there if its own has gone by; a jump back
-   (Loop, Stay on song, an earlier section) lands it at once, as the song restarts there (its own bar, at or past the
-   bar the jump left, may never come: a loop goes back before it) */
-static int16_t jump_rebar(int bar)
+/* a carried request's bar in the song jumped to, landing from its bar b: the next 4-bar boundary there if its own has
+   gone by; a jump back (Loop, Stay on song, an earlier section) lands it at once, as the song restarts there (its own
+   bar, at or past the bar the jump left, may never come: a loop goes back before it) */
+static int16_t jump_rebar(int bar, int b)
 {
-    int b = jsong.bar;
     if (b < song.bar)
         return (int16_t)b;
     return (int16_t)(bar >= b ? bar : b % 4 == 0 ? b : (b / 4 + 1) * 4);
 }
 
-static void jump_land(void)
+/* the song's requests waiting, carried into the song jumped to (its own: none), landing from its bar b there */
+static void jump_carry(int b)
 {
     int f, i;
+    jsong.rq_n = 0;
+    memset(jsong.rq, 0, sizeof jsong.rq);
+    memset(jsong.pend, 0, sizeof jsong.pend);
+    memset(jsong.pend_val, 0, sizeof jsong.pend_val);
+    memset(jsong.pend_bar, 0, sizeof jsong.pend_bar);
     song_carry_requests(&jsong, &song);
     for (f = 0; f < RF_N; f++)
         if (jsong.pend[f])
-            jsong.pend_bar[f] = jump_rebar(jsong.pend_bar[f]);
+            jsong.pend_bar[f] = jump_rebar(jsong.pend_bar[f], b);
     for (i = 0; i < jsong.rq_n; i++)
-        jsong.rq[i].bar = jump_rebar(jsong.rq[i].bar);
+        jsong.rq[i].bar = jump_rebar(jsong.rq[i].bar, b);
+    j_req = req_hash(&song);
+}
+
+static void jump_land(void)
+{
+    jump_carry(jsong.bar);               /* (as they are now: any carried ahead put back first) */
     song = jsong;
     j_target = -1;
     vx_release_all();

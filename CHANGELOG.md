@@ -45,6 +45,10 @@ Fixes:
 
 - **Changes while a section loops:** a change due at the looping section's end used to wait forever (the loop went
   back first); it now lands as the loop starts again. Stay on song alike.
+- **Crackles as a change lands:** the bar a change lands on (an instrument, rhythm, style, the kit, the key or mood)
+  was worked out on its own downbeat, a block over three times its usual. It is now worked out ahead with the change
+  in, a part a block, as every other bar is, also when a looping section carries the change round. The music is the
+  same, sample for sample. A change made in the last four 16ths before its line still lands the old way.
 - **Saved songs through `tools/flash.sh`:** its stock V15 step erased them (stock claims that flash as its own); it now
   exports them first and writes them back after. `tools/fm1_songs.py list` tags each song `[flash]` or `[RAM only]`,
   and tells a failed flash write from one waiting for silence.

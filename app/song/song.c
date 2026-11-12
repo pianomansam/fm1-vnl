@@ -10,7 +10,8 @@
    notes, even when the request came after those notes were emitted.
 
    Requests: one slot per field, landing on the next 4-bar boundary, applied at that boundary's first tick (Mood
-   first, then by field). What each field rebuilds:
+   first, then by field); that bar is planned ahead with them applied, as any bar (stage_part). What each field
+   rebuilds:
      RF_KEY      the roll's key (the lead's style plans in it from the boundary on)
      RF_TEMPO    a linear glide of step samples over 2 bars; RF_BARS is kept
      RF_MOTION,  plan_build again; blocks before the boundary stay, the new plan's blocks from it on
@@ -20,6 +21,7 @@
    A boundary rebuilds at most one plan (a bounded loop).
      RF_BARS     ignored: the bar count never changes
      the rest    roll_set only (set, pattern, swing, dust, noise, ambience take effect from the boundary) */
+#include <stddef.h>
 #include <stdint.h>
 
 #include <string.h>
@@ -519,6 +521,7 @@ static int pads_step(const song_t *s, int bar, song_ev_t *out, int max)
 static void stage_voice(song_t *s, int B);
 static void stage_lead(song_t *s, int B);
 static void stage_pads(song_t *s, int B);
+static void stage_part(song_t *s, int B, void (*part)(song_t *, int));
 static int stage_off;                    /* (song_start_kit's first start: its song is started again) */
 static int stage_later;                  /* song_first_bar_later */
 
@@ -554,7 +557,7 @@ void song_first_bar_later(int on) { stage_later = on; }
 
 void song_first_bar(song_t *s, int part)
 {
-    if (s->state != SS_PLAYING || s->bar || s->step)
+    if (s->state != SS_PLAYING || s->step || (s->bar && part == 0))
         return;
     own_install(s);                                  /* (under what its first tick would have in force) */
     style_for(s, 0);
@@ -567,11 +570,11 @@ void song_first_bar(song_t *s, int part)
         int keys[4];
         harmony_voicing_at(&s->roll, 0, 1, &s->voicing, keys);
     } else if (part == 1) {
-        stage_voice(s, 0);
+        stage_part(s, s->bar, stage_voice);          /* (a request landing on it: a jump's, carried in) */
     } else if (part == 2) {
-        stage_lead(s, 0);
-    } else {
-        stage_pads(s, 0);
+        stage_part(s, s->bar, stage_lead);
+    } else if (s->bar % 4 == 0) {
+        stage_part(s, s->bar, stage_pads);
     }
     harmony_keys_window(0, 0);
     harmony_keys_plan(0);
@@ -655,9 +658,32 @@ uint32_t song_key(const song_t *s)
     }
     return h;
 }
-static uint32_t stage_key(const song_t *s) { return (song_key(s) ^ (uint32_t)s->keys_win) * 16777619u; }
+/* song_key's for bar B's planning: of the requests waiting, only those landing on B (applied there) and a roll
+   field's landing on B + 1 (the lead's push into it), so one asked for a later line leaves the stage be; and the
+   keys' window */
+static uint32_t stage_key(const song_t *s, int B)
+{
+    uint32_t h = 2166136261u ^ s->roll.seed;
+    int i;
+    for (i = 0; i < RF_N; i++)
+        if (s->pend[i] && (s->pend_bar[i] == B || s->pend_bar[i] == B + 1))
+            h = (h ^ (uint32_t)(i * 65599 + s->pend_bar[i] * 31 + s->pend_val[i])) * 16777619u;
+    for (i = 0; i < s->rq_n; i++)
+        if (s->rq[i].bar == B)
+            h = (h ^ (uint32_t)(s->rq[i].row * 65599 + s->rq[i].val * 31 + s->rq[i].bar)) * 16777619u;
+    for (i = 0; i < RF_N; i++)
+        h = (h ^ (uint32_t)s->roll.v[i]) * 16777619u;
+    h = (h ^ (uint32_t)s->changes) * 16777619u;
+    {
+        const unsigned char *o = (const unsigned char *)song_ov();
+        size_t j;
+        for (j = 0; j < sizeof(song_ov_t); j++)
+            h = (h ^ o[j]) * 16777619u;
+    }
+    return (h ^ (uint32_t)s->keys_win) * 16777619u;
+}
 
-/* a request lands on bar B (its planning waits for the downbeat, after it) */
+/* a request lands on bar B */
 static int lands_on(const song_t *s, int B)
 {
     int i;
@@ -668,6 +694,45 @@ static int lands_on(const song_t *s, int B)
     return 0;
 }
 
+/* the requests landing on bar B land, as its downbeat lands them: a push into it cut at the line, then each applied */
+static void land(song_t *s, int B)
+{
+    int i;
+    for (i = 0; i < RF_N; i++)
+        if (s->pend[i] && s->pend_bar[i] == B) s->lead.tied = 0;
+    apply_requests(s, B);
+}
+
+/* A part of bar B's planning ahead (stage_voice, stage_lead, stage_pads). Where requests land on B (a 4-bar line), the
+   part is made on the song as they will leave it: they land here as the downbeat lands them, from the same states,
+   then the song is put back (its fields before the stage's own, the overrides in force, own_by's). The downbeat
+   lands them again, the same, and takes the stage: its planning not left to it. (The set lib_set_wb installed for
+   a song that made its set its own here stays: only a song owning its set reads LIB_SET_WB, and own_install puts
+   its own back every tick.) */
+static unsigned char stage_was[offsetof(song_t, stg_bar)];   /* (static: no stack burden on the device) */
+
+static void stage_part(song_t *s, int B, void (*part)(song_t *, int))
+{
+    song_ov_t ov, before;
+    const song_t *by;
+    if (B % 4 || B >= s->roll.v[RF_BARS] || !lands_on(s, B)) {
+        part(s, B);
+        return;
+    }
+    ov = *song_ov();
+    before = own_ov_before;
+    by = own_by;
+    memcpy(stage_was, s, sizeof stage_was);
+    land(s, B);
+    part(s, B);
+    memcpy(s, stage_was, sizeof stage_was);
+    song_override(&ov);
+    own_ov_before = before;
+    own_by = by;
+    harmony_keys_window(0, s->keys_win);
+    harmony_keys_plan(&s->plan);
+}
+
 /* bar B's voicings, from the states now, into the stage (the downbeat's own work, ahead) */
 static void stage_voice(song_t *s, int B)
 {
@@ -675,14 +740,14 @@ static void stage_voice(song_t *s, int B)
     int pass;
     s->stg_bar = -1;
     if (!b || B >= s->roll.v[RF_BARS] || (B % 4 == 0 && lands_on(s, B)))
-        return;
+        return;                                     /* (a request landing on B: stage_part lands it first) */
     pass = B / loop_bars(&s->roll) + 1;
     s->stg_np = (int8_t)harmony_chord_at(&s->roll, B, pass, (b->flags & PB_DARK) != 0, s->stg_pcs);
     s->stg_v0 = s->voicing;
     s->stg_v = s->voicing;
     harmony_voicing_at(&s->roll, B, pass, &s->stg_v, s->stg_keys);
     harmony_voicing_at(&s->roll, B + 1, (B + 1) / loop_bars(&s->roll) + 1, &s->stg_v, s->stg_nkeys);
-    s->stg_key = stage_key(s);
+    s->stg_key = stage_key(s, B);
     s->stg_bar = (int16_t)B;
     s->stg_stage = 0;
 }
@@ -692,7 +757,7 @@ static void stage_lead(song_t *s, int B)
 {
     const plan_block_t *b = plan_at(&s->plan, B);
     int i, k;
-    if (s->stg_bar != B || s->stg_stage != 0 || !b || s->stg_key != stage_key(s)) {
+    if (s->stg_bar != B || s->stg_stage != 0 || !b || s->stg_key != stage_key(s, B)) {
         s->stg_bar = -1;
         return;
     }
@@ -711,8 +776,8 @@ static void stage_pads(song_t *s, int B)
     lead_state_t l = s->lead;
     pads_state_t p = s->pads;
     const plan_block_t *b = plan_at(&s->plan, B);
-    if (s->stg_bar != B || s->stg_stage != 1 || !b)
-        return;
+    if (s->stg_bar != B || s->stg_stage != 1 || !b || s->stg_key != stage_key(s, B))
+        return;                                     /* (a request since the voicings: made on the downbeat) */
     s->voicing = s->stg_v;
     s->lead = s->stg_l;
     pads_group(s, b, B);
@@ -727,7 +792,7 @@ static void stage_pads(song_t *s, int B)
 /* the stage for bar B is what the downbeat would make now: made from the same states, under the same requests */
 static int staged(const song_t *s, int B)
 {
-    return s->stg_bar == B && s->stg_stage >= 1 && (B % 4 != 0 || s->stg_stage == 2) && s->stg_key == stage_key(s) &&
+    return s->stg_bar == B && s->stg_stage >= 1 && (B % 4 != 0 || s->stg_stage == 2) && s->stg_key == stage_key(s, B) &&
            !memcmp(&s->voicing, &s->stg_v0, sizeof s->voicing) && !memcmp(&s->lead, &s->stg_l0, sizeof s->lead);
 }
 
@@ -749,9 +814,7 @@ int song_tick(song_t *s, song_ev_t *out, int max)
     step = s->step;
     idx = bar * 16 + step;
     if (step == 0 && bar % 4 == 0) {
-        for (i = 0; i < RF_N; i++)                  /* a request lands: a push into this bar was cut at the line */
-            if (s->pend[i] && s->pend_bar[i] == bar) s->lead.tied = 0;
-        apply_requests(s, bar);
+        land(s, bar);
         find_edge(s, idx);
     }
     s->ss = ss_at(s, idx);
@@ -841,12 +904,12 @@ int song_tick(song_t *s, song_ev_t *out, int max)
     if (n) memcpy(out, buf, sizeof(song_ev_t) * (size_t)n);
     if (step == 0)
         s->stg_bar = -1;
-    else if (step == 12)                            /* the next bar's planning ahead, a part a 16th: its voicings, the */
-        stage_voice(s, bar + 1);                    /* lead's plan, the pad group (each a tick of its own) */
-    else if (step == 13)
-        stage_lead(s, bar + 1);
+    else if (step == 12)                /* the next bar's planning ahead, a part a 16th: its voicings, the lead's */
+        stage_part(s, bar + 1, stage_voice);   /* plan, the pad group (each a tick of its own; where a request */
+    else if (step == 13)                       /* lands on it, on the song as the request will leave it) */
+        stage_part(s, bar + 1, stage_lead);
     else if (step == 14 && (bar + 1) % 4 == 0)
-        stage_pads(s, bar + 1);
+        stage_part(s, bar + 1, stage_pads);
     advance(&s->pos, &s->frac, s->ss);
     if (++s->step == 16) {
         s->step = 0;

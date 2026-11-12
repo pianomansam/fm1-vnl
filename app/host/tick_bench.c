@@ -10,6 +10,9 @@
    A third argument forces a lead_style (override.h: 2 + LS_*, a lead style) on every song, a fourth a comping style
    (CS_*; -1 for none), held where the keys can't play it. VNL_LEAD_LOOP=1 turns the lead loop on (lead_loop 1) for
    every song.
+   VNL_REQ=1 lands a row's request on every 4-bar line from bar 4 (an instrument for each part, the kit, the comp's
+   rhythm, the lead's style, a mood or key; a kind a line, the next the next line), asked on the group's second bar
+   (VNL_REQ_AT=k: k 16ths before the line instead, a late one); the landings' downbeats timed apart, by kind.
    Built only with -DVNL_BENCH, otherwise this file is empty (as bench.c: the firmware globs take host/). */
 #ifdef VNL_BENCH
 #define _POSIX_C_SOURCE 199309L
@@ -22,6 +25,7 @@
 #include "groove.h"
 #include "plan.h"
 #include "override.h"
+#include "leads/leads.h"
 
 static double now_us(void)
 {
@@ -31,6 +35,31 @@ static double now_us(void)
 }
 
 static double tk[4096], lk[4096];
+static uint8_t tkl[4096];                /* the tick was a landing's downbeat: 1 + its kind */
+
+/* the requests VNL_REQ lands, a kind a line (row, values cycled by line) */
+enum { RQ_KINDS = 9 };
+static const char *const rq_name[RQ_KINDS] = {"comp ins", "bass ins", "lead ins", "pad ins", "kit", "comp rhythm",
+                                              "lead style", "mood", "key"};
+static void rq_ask(song_t *s, int kind, int line)
+{
+    static const int keys[] = {INS_RHODES, INS_FELT_PIANO, INS_ORGAN, INS_SYNTH_PLUCK, INS_KNIGHT, INS_NYLON};
+    static const int bass[] = {INS_UPRIGHT, INS_ELEC_BASS, INS_SUB, INS_FM_BASS};
+    static const int lead[] = {INS_FLUTE, INS_VIBES, INS_SAW_LEAD, INS_JAZZ_GTR, INS_WHISTLE, INS_SAMP_CELLO};
+    static const int pad[] = {INS_STRINGS, INS_WARM_PAD, INS_CHOIR};
+    static const int kit[] = {KIT_DUSTY, KIT_SOFT, KIT_808, SONG_KIT_PRESET, SONG_KIT_PRESET + 3, SONG_KIT_PRESET + 7};
+    switch (kind) {
+    case 0: song_request_row(s, SR_ROLE + V_CHORD, keys[line % 6]); break;
+    case 1: song_request_row(s, SR_ROLE + V_BASS, bass[line % 4]); break;
+    case 2: song_request_row(s, SR_ROLE + V_LEAD, lead[line % 6]); break;
+    case 3: song_request_row(s, SR_ROLE + V_PAD, pad[line % 3]); break;
+    case 4: song_request_row(s, SR_KIT, kit[line % 6]); break;
+    case 5: song_request_row(s, SR_OV + OV_COMP, line % 5); break;
+    case 6: song_request_row(s, SR_OV + OV_LEAD_STYLE, 2 + line % LS_N); break;
+    case 7: song_request_row(s, SR_ROLL + RF_MOOD, 1 << (line % 4)); break;
+    default: song_request_row(s, SR_ROLL + RF_KEY, (s->roll.v[RF_KEY] + 5) % 12); break;
+    }
+}
 static uint8_t tk0[4096];                /* the tick was a bar's first 16th (the downbeat's generation) */
 
 int main(int argc, char **argv)
@@ -44,7 +73,11 @@ int main(int argc, char **argv)
     double mx[2] = {0, 0}, smx[2] = {0, 0}, pb = 0, gr = 0, lmx = 0, lsum = 0, dmx = 0, omx = 0, dsum = 0, osum = 0;
     long dn = 0, on = 0;
     uint32_t dws = 0;
-    long lsteps = 0;
+    long lsteps = 0, ln[RQ_KINDS] = {0};
+    double lmax[RQ_KINDS] = {0}, lsumk[RQ_KINDS] = {0}, amax[RQ_KINDS] = {0};
+    uint32_t lseed[RQ_KINDS] = {0};
+    int req = getenv("VNL_REQ") && *getenv("VNL_REQ") == '1';
+    int req_at = getenv("VNL_REQ_AT") ? atoi(getenv("VNL_REQ_AT")) : 0;
     uint32_t lws = 0;
     song_ov_t o = *song_ov();
     if (argc > 3) {
@@ -85,13 +118,21 @@ int main(int argc, char **argv)
             if (rep == reps - 1 && t > gr) gr = t;
             nt = 0;
             while (s.state == SS_PLAYING && nt < 4096) {
-                int n, b0 = s.bar, s0 = s.step, k;
+                int n, b0 = s.bar, s0 = s.step, k, land = 0;
                 volatile float lp;
+                if (req) {                       /* a request asked: on the group's second bar, or req_at 16ths early */
+                    int at = b0 * 16 + s0, line = req_at > 0 ? (at + req_at) / 64 : (at - 16) / 64 + 1;
+                    if (line >= 1 && (req_at > 0 ? (at + req_at) % 64 == 0 : (at - 16) % 64 == 0))
+                        rq_ask(&s, (int)((seed + (uint32_t)line) % RQ_KINDS), line);
+                    if (s0 == 0 && b0 % 4 == 0 && b0 >= 4)
+                        land = 1 + (int)((seed + (uint32_t)(b0 / 4)) % RQ_KINDS);
+                }
                 t0 = now_us();
                 n = song_tick(&s, ev, 64);
                 t = now_us() - t0;
                 if (t < tk[nt]) tk[nt] = t;
                 tk0[nt] = (uint8_t)(s0 == 0);
+                tkl[nt] = (uint8_t)land;
                 t0 = now_us();
                 for (k = 0; k < 200; k++) lp = song_lead_lp_at(&s, b0, s0);   /* the host clock's 1 us: a batch */
                 t = (now_us() - t0) / 200.0;
@@ -108,6 +149,14 @@ int main(int argc, char **argv)
         }
         for (i = 0; i < nt; i++) {
             if (tk[i] > mx[st]) { mx[st] = tk[i]; ws[st] = seed; }
+            if (tkl[i]) {
+                int q = tkl[i] - 1, a;
+                if (tk[i] > lmax[q]) { lmax[q] = tk[i]; lseed[q] = seed; }
+                lsumk[q] += tk[i];
+                ln[q]++;
+                for (a = 2; a <= 4 && a <= i; a++)   /* the bar before's 13th to 15th 16ths: its planning ahead */
+                    amax[q] = tk[i - a] > amax[q] ? tk[i - a] : amax[q];
+            }
             if (tk0[i]) {
                 if (tk[i] > dmx) { dmx = tk[i]; dws = seed; }
                 dsum += tk[i];
@@ -129,6 +178,11 @@ int main(int argc, char **argv)
     printf("plan_build worst %.1f us, groove_ride worst %.1f us (one play: noisier)\n", pb, gr);
     printf("a bar's first 16th (the downbeat): worst %.1f us (seed %u), mean %.2f us; the other 16ths: worst %.1f us, mean "
            "%.2f us\n", dmx, (unsigned)dws, dn ? dsum / (double)dn : 0.0, omx, on ? osum / (double)on : 0.0);
+    if (req)
+        for (i = 0; i < RQ_KINDS; i++)
+            printf("landing %-11s: worst %5.1f us (seed %u), mean %5.2f us over %ld; the bar before's planning ahead "
+                   "worst %5.1f us\n", rq_name[i], lmax[i], (unsigned)lseed[i], ln[i] ? lsumk[i] / (double)ln[i] : 0.0,
+                   ln[i], amax[i]);
     printf("lead loop filter per step: worst %.2f us (seed %u), mean %.3f us over %ld steps\n", lmx, (unsigned)lws,
            lsteps ? lsum / (double)lsteps : 0.0, lsteps);
     return 0;

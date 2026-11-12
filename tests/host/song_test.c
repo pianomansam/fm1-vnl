@@ -13783,6 +13783,62 @@ static void test_request_row_lands(void)
     song_override(NULL);
 }
 
+/* every event from here to the song's end, hashed (the overrides as rolled while it plays, then put back) */
+static uint32_t rest_hash(song_t *s)
+{
+    song_ev_t ev[64];
+    uint32_t h = 2166136261u;
+    song_override(NULL);
+    while (s->state == SS_PLAYING) {
+        int n = song_tick(s, ev, 64), i;
+        size_t j;
+        for (i = 0; i < n; i++)
+            for (j = 0; j < sizeof ev[i]; j++)
+                h = (h ^ ((const unsigned char *)&ev[i])[j]) * 16777619u;
+    }
+    song_override(NULL);
+    return h;
+}
+
+/* A bar where requests land is planned ahead with them in, a part a 16th, as any bar (its downbeat lands them and
+   takes the plan: no planning of its own); a jump's song waiting to land plans it the same (song_first_bar, parts 1 to
+   3). The events from there on are those of the downbeat planning the bar itself, as before */
+static void test_landing_planned_ahead(void)
+{
+    static const uint32_t seeds[] = {72, 5, 130, 211, 977};
+    unsigned k;
+    for (k = 0; k < sizeof seeds / sizeof seeds[0]; k++) {
+        song_roll_t r;
+        static song_t s, t, u;
+        int keys, part;
+        uint32_t ha, hb, hc;
+        song_override(NULL);
+        roll_song(NULL, seeds[k], &r);
+        song_start(&s, &r);
+        tick_to(&s, 1);
+        keys = lib_set_by_id((uint8_t)s.roll.v[RF_SET])->chords;
+        song_request_row(&s, SR_ROLE + V_CHORD, keys == INS_RHODES ? INS_FELT_PIANO : INS_RHODES);
+        song_request_row(&s, SR_OV + OV_LEAD_STYLE, 2 + (int)(seeds[k] % LS_N));
+        song_request(&s, RF_KEY, (s.roll.v[RF_KEY] + 3) % 12);
+        tick_to(&s, 4);
+        CHECK(s.stg_bar == 4 && s.stg_stage == 2, "seed %u: bar 4, where the requests land, planned ahead (bar %d, "
+              "part %d)", (unsigned)seeds[k], s.stg_bar, s.stg_stage);
+        t = s;
+        t.stg_bar = -1;                              /* (the downbeat plans it itself) */
+        u = t;
+        for (part = 1; part < SONG_FIRST_BAR_PARTS; part++)
+            song_first_bar(&u, part);                /* (a jump's song, waiting at the bar) */
+        CHECK(u.stg_bar == 4 && u.stg_stage == 2, "seed %u: song_first_bar plans bar 4 with the requests in",
+              (unsigned)seeds[k]);
+        ha = rest_hash(&s);
+        hb = rest_hash(&t);
+        hc = rest_hash(&u);
+        CHECK(ha == hb && hc == hb, "seed %u: the same events planned ahead (%08x, %08x) as on the downbeat (%08x)",
+              (unsigned)seeds[k], ha, hc, hb);
+    }
+    song_override(NULL);
+}
+
 /* song_start_kit: a shipped kit from the start: the song's own set, the set's kit under it (Brushes, or the mixed
    Rusty for a sampled one), the preset kept; a plain kit no preset; -1 the song as rolled. Refused kit rows: none. */
 static void test_start_kit(void)
@@ -13974,6 +14030,7 @@ int main(int argc, char **argv)
     RUN(test_lead_loop_octave);
     RUN(test_rolled_matches_wb);
     RUN(test_request_row_lands);
+    RUN(test_landing_planned_ahead);
     RUN(test_start_kit);
     RUN(test_guard_voices);
     if (fails) {

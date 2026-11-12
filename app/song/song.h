@@ -89,7 +89,8 @@ void song_start_rows(song_t *s, const song_roll_t *r, int kit, const int16_t *ro
 /* The first bar's planning (the loop's voicings, part 0; the bar's voicings, 1; the lead's plan, 2; the pad group, 3),
    each in its own call before the first tick, a block apart (the render's): song_first_bar_later(1) leaves it out of
    song_start, then song_first_bar(s, 0..SONG_FIRST_BAR_PARTS - 1) in turn. The same events either way (a part
-   missed: the downbeat makes it itself) */
+   missed: the downbeat makes it itself). Parts 1 to 3 also plan any bar not yet begun (step 0: a jump's song waiting
+   to land, its requests carried in), with the requests landing on it applied as its downbeat will apply them */
 #define SONG_FIRST_BAR_PARTS 4
 void song_first_bar_later(int on);
 void song_first_bar(song_t *s, int part);
