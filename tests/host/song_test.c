@@ -8742,9 +8742,11 @@ static void test_strum_same(void)
        46-48): were 47d257cc and 7e94dc42 */
     /* re-pinned (tools/patterns/import.sh --repin, 2026-11-11: removed drums 8 (the bossa pattern, Sam 2026-11-11)): the strummed songs was 796fd966, with set changes was 8d04939b */
     /* re-pinned (Sam 2026-11-11: the drum patterns weighted by the set's flavor, roll.c's FAMILY_W; with the even
-       draw restored the old hashes come back): were a0269072 and fa28410b */
-    CHECK(a == 0x93fd7910u, "strum same: the strummed songs hash %08x, wanted 93fd7910", (unsigned)a);
-    CHECK(b == 0xcb92be0eu, "strum same: with set changes %08x, wanted cb92be0e", (unsigned)b);
+       draw restored the old hashes come back): were a0269072 and fa28410b. Re-pinned (Sam 2026-11-12: the stutter
+       mostly on a group's last bar, 8569681; with loop.c before it the old hashes come back, the comp over a low
+       lead, the bass harmonics and the part locks moving neither): were 93fd7910 and cb92be0e */
+    CHECK(a == 0x6af15467u, "strum same: the strummed songs hash %08x, wanted 6af15467", (unsigned)a);
+    CHECK(b == 0x2630e2aau, "strum same: with set changes %08x, wanted 2630e2aa", (unsigned)b);
     v = (uint32_t)sf_last_bad();
     CHECK(v == 0, "strum same: %u strummed bars left the keys' last voicing behind", (unsigned)v);
 }
@@ -8952,8 +8954,8 @@ static void test_wb_off(void)
     uint32_t a, b;
     lib_set_wb(NULL, 0); lib_pattern_wb(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x93fd7910u, "wb off: the strummed songs hash %08x, wanted 93fd7910", (unsigned)a);
-    CHECK(b == 0xcb92be0eu, "wb off: with set changes %08x, wanted cb92be0e", (unsigned)b);
+    CHECK(a == 0x6af15467u, "wb off: the strummed songs hash %08x, wanted 6af15467", (unsigned)a);
+    CHECK(b == 0x2630e2aau, "wb off: with set changes %08x, wanted 2630e2aa", (unsigned)b);
 }
 /* The workbench's mute (vx_mute, default off). mt_song: a song's first 20 s as the app plays it, its samples hashed
    (mute: vx_mute(0) called first, as the workbench's wb_init does) */
@@ -9000,8 +9002,8 @@ static void test_vx_mute_off(void)
     CHECK(a == b, "vx mute off: vx_mute(0) changed the samples (%08x, wanted %08x)", (unsigned)b, (unsigned)a);
     vx_mute(0);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x93fd7910u, "vx mute off: the strummed songs hash %08x, wanted 93fd7910", (unsigned)a);
-    CHECK(b == 0xcb92be0eu, "vx mute off: with set changes %08x, wanted cb92be0e", (unsigned)b);
+    CHECK(a == 0x6af15467u, "vx mute off: the strummed songs hash %08x, wanted 6af15467", (unsigned)a);
+    CHECK(b == 0x2630e2aau, "vx mute off: with set changes %08x, wanted 2630e2aa", (unsigned)b);
 }
 /* Review Focus 2 (Task 2): a bus muted mid-note is silent after the chunk it goes out in (and a quantum for the
    chain's own filters), its voice still playing (the duck follows it); unmuted, the notes struck while muted end at
@@ -9112,7 +9114,7 @@ static void test_vx_level(void)
     b = mt_song(0);
     CHECK(a == b, "vx level: 0 dB changed the samples (%08x, wanted %08x)", (unsigned)b, (unsigned)a);
     a = sf_songs(0);
-    CHECK(a == 0x93fd7910u, "vx level: the strummed songs hash %08x at 0 dB, wanted 93fd7910", (unsigned)a);
+    CHECK(a == 0x6af15467u, "vx level: the strummed songs hash %08x at 0 dB, wanted 6af15467", (unsigned)a);
     for (i = 0; i < (int)(sizeof P / sizeof P[0]); i++) {
         for (k = 0; k < 2; k++)
             ref[k] = mx_song(P[i].seed[k], P[i].role);
@@ -11567,7 +11569,7 @@ static void test_ov_part_salts(void)
                       NAME[j], moved[j]);
     }
     song_override(NULL);
-    CHECK(sf_songs(0) == 0x93fd7910u && sf_songs(1) == 0xcb92be0eu, "ov part salts: the pinned hashes moved");
+    CHECK(sf_songs(0) == 0x6af15467u && sf_songs(1) == 0x2630e2aau, "ov part salts: the pinned hashes moved");
 }
 /* Task 1b (Sam, 2026-10-29): "Remove the ear candy part completely"; "Make it possible for the pad part to not be in
    a song. And update the seeds to not always have it"; "add the ability for the pad part to drop out of certain song
@@ -11849,8 +11851,8 @@ static void test_ov_off(void)
     CHECK(o && o->comp == -1 && o->lead_style == -1 && o->pad_place == -1 && o->ride == -1 && !o->keys_oct &&
           !o->lead_oct && !o->voicing_salt && !o->phrase_salt, "ov off: the default override forces something");
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x93fd7910u, "ov off: the strummed songs hash %08x, wanted 93fd7910", (unsigned)a);
-    CHECK(b == 0xcb92be0eu, "ov off: with set changes %08x, wanted cb92be0e", (unsigned)b);
+    CHECK(a == 0x6af15467u, "ov off: the strummed songs hash %08x, wanted 6af15467", (unsigned)a);
+    CHECK(b == 0x2630e2aau, "ov off: with set changes %08x, wanted 2630e2aa", (unsigned)b);
 }
 /* a steal of a damped string (the final review): six strings struck, the first two re-struck at once (their last
    notes damped on the 2 spare voices), then a plain chord note (no string: a stab after a set change) while they
@@ -12689,11 +12691,16 @@ static void test_samp(void)
             printf("%s: ins %d on the keys %+.2f dB from the Rhodes, on the lead %+.2f dB from the flute\n", tag,
                    SP_INS[k], dk[k], dl[k]);
             /* the Knight and the Emilyguitar lead about 4 dB under the flute's bar energy (SAMP_LEAD: their sets'
-               lead over keys, test_lead_over_keys, sets them; a struck lead reads over its keys at less energy) */
+               lead over keys, test_lead_over_keys, sets them; a struck lead reads over its keys at less energy).
+               Looped, -2.0 at most (-2.5 until the stutter moved to a group's last bar, 8569681, Sam 2026-11-12: the
+               stutter's bars moved and the drop before a section change skips a stuttering bar, so the loop's lead
+               bars changed (the stutter itself is app.c's, not rendered here); every
+               lead, nylon and vibes too, read 0.2-0.3 dB nearer the flute, the keys and the unlooped levels the
+               same; ins 25 -2.57 to -2.32, ins 26 -2.71 to -2.44; with loop.c before it the old levels come back) */
             CHECK(dk[k] >= -1.5 && dk[k] <= 1.5 &&
                       (SP_INS[k] == INS_NYLON ? dl[k] >= -1.5 && dl[k] <= 1.5   /* (the cello as the struck: its sets'
                                                                                    lead over keys, 2026-11-11) */
-                                                                              : dl[k] >= -6.0 && dl[k] <= -2.5),
+                                              : dl[k] >= -6.0 && dl[k] <= (bk ? -2.0 : -2.5)),
                   "%s: ins %d's level: keys %+.2f dB from the Rhodes, lead %+.2f from the flute", tag, SP_INS[k],
                   dk[k], dl[k]);
         }
@@ -12851,8 +12858,8 @@ static void test_drums_hook(void)
     CHECK(quiet_bad == 0, "drums hook: a silent source still sounds at %d steps", quiet_bad);
     drums_hook(NULL);
     a = sf_songs(0); b = sf_songs(1);
-    CHECK(a == 0x93fd7910u, "drums hook off: the strummed songs hash %08x, wanted 93fd7910", (unsigned)a);
-    CHECK(b == 0xcb92be0eu, "drums hook off: with set changes %08x, wanted cb92be0e", (unsigned)b);
+    CHECK(a == 0x6af15467u, "drums hook off: the strummed songs hash %08x, wanted 6af15467", (unsigned)a);
+    CHECK(b == 0x2630e2aau, "drums hook off: with set changes %08x, wanted 2630e2aa", (unsigned)b);
     dh_on = 0;
     vx_init();
     {
@@ -13128,10 +13135,13 @@ static void test_lead_loop_off_identical(void)
             for (k = 0; k < 2; k++) h[k] = ll_hash(h[k], &r, st, k - 1);
     }
     printf("lead loop off: events %08x (lead_loop -1), %08x (0)\n", (unsigned)h[0], (unsigned)h[1]);
-    CHECK(h[0] == 0x8390a846u, "lead loop default: lead_loop -1 hashes %08x, wanted 8390a846", (unsigned)h[0]);
+    CHECK(h[0] == 0xf1ce83e9u, "lead loop default: lead_loop -1 hashes %08x, wanted f1ce83e9", (unsigned)h[0]);
     CHECK(h[1] == 0xbeda6e35u, "lead loop off: lead_loop 0 hashes %08x, wanted beda6e35", (unsigned)h[1]);
     /* (02c5852d until the comp over a low lead's draw, 2026-11-12: its songs on the jazz guitar's and the cello's
        sets with the keys with the lead; the draw forced to the lift gives 02c5852d again) */
+    /* (lead_loop -1: re-pinned, Sam 2026-11-12: the stutter mostly on a group's last bar, 8569681, and the comp
+       over a low lead's draw, cd8a211; were 8390a846. With loop.c before 8569681 it reads 0785fa6e, with the comp's
+       commits reverted bd3ab7ea, with both reverted 8390a846 again) */
 }
 
 typedef struct {
