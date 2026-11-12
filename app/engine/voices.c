@@ -552,6 +552,29 @@ void vx_assign_patch(int voice, const vx_patch_t *p)
         assign_pt(voice, p);
 }
 
+/* The bass's harmonics (Sam, 2026-11-12, a candidate against moving the bass up): a small speaker loses a low
+   bass's fundamental, so every bass but the sub (kept clean) adds harmonics in parallel, under the dry, in the
+   register it plays: of the bass normalized to its usual peak (x), |x| (its even harmonics at a fixed ratio, the 2nd
+   about 7 dB under the fundamental, rolling off to 700 Hz and past), x^2 (more 2nd as it plays harder) and less x^3
+   (a soft clip's 3rd), their DC blocked at about 20 Hz. The dry bass's full-band RMS within 0.1 dB (seed 107), so no
+   make-up. Per sample of the one bass voice while it sounds: a few multiplies. */
+#define BSAT_D 14.0f    /* 1 / the bass bus's usual peak (0.065-0.07 on the electric, FM and triangle basses) */
+#define BSAT_ABS 1.0f   /* |x| */
+#define BSAT_SQ 0.8f    /* x^2 */
+#define BSAT_CUBE 0.2f  /* x^3, subtracted */
+#define BSAT_R 0.99715f /* the DC block's pole: 1 - 2 pi 20 Hz / SR */
+static uint8_t bsat_on; /* the song's bass is not the sub */
+static float bsat_x1, bsat_y1;
+
+static inline float bass_sat(float b)
+{
+    float x = fm_clampf(b * BSAT_D, -1.5f, 1.5f), x2 = x * x;
+    float h = BSAT_ABS * fm_fabsf(x) + x2 * (BSAT_SQ - BSAT_CUBE * x), y = h - bsat_x1 + BSAT_R * bsat_y1;
+    bsat_x1 = h;
+    bsat_y1 = fm_flush(y);
+    return b + y * (1.0f / BSAT_D);
+}
+
 void vx_assign(int voice, int ins)
 {
     if (voice < V_CHORD || voice > V_PAD)
@@ -569,7 +592,10 @@ void vx_assign(int voice, int ins)
     ins = role_pt[voice] ? ins : INS_NONE;
     switch (voice) {
     case V_CHORD: cfg.chords = (uint8_t)ins; break;
-    case V_BASS: cfg.bass = (uint8_t)ins; break;
+    case V_BASS:
+        cfg.bass = (uint8_t)ins;
+        bsat_on = (uint8_t)(ins != INS_SUB && ins != INS_NONE);
+        break;
     case V_LEAD: cfg.lead = (uint8_t)ins; break;
     case V_PAD: cfg.pad = (uint8_t)ins; break;
     default: cfg.candy = (uint8_t)ins; break;
@@ -2290,7 +2316,7 @@ static void render_seg(uint32_t pos, uint32_t n, int filt)
             else if (j < NFM)
                 k += y;
             else
-                b += y;
+                b += bsat_on ? bass_sat(y) : y; /* (the one bass voice, while it sounds) */
         }
         if (i == pv)
             pf_v_end(n);
