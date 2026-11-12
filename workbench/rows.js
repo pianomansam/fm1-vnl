@@ -134,7 +134,9 @@ function allOptions(r, state, opts, lib) {
     case "kits":   // a removed kit (the mixed sampled ones: their hits left the bank) never offered, shown only as current
       return opts.kits.map((k) => ({ value: k.id, name: k.name, status: k.status, family: k.family,
                                      unavailable: !!state.unavailable?.has(k.id), ...(k.status === "removed" ? { hidden: true } : {}) }));
-    case "patterns": return opts.patterns.map((p) => ({ value: p.id, name: p.name, status: p.status, key: String(p.id) }));
+    case "patterns":   // a removed pattern (the bossa, 2026-11-11) never offered, shown only as current
+      return opts.patterns.map((p) => ({ value: p.id, name: p.name, status: p.status, key: String(p.id),
+                                         ...(p.status === "removed" ? { hidden: true } : {}) }));
     case "strumPats":   // a table index (the override forces it)
       return [ROLLED, ...(opts[r.source] || []).map((p) => ({ value: p.index, name: p.name, status: p.status, key: p.id }))];
     case "strumFills":   // the fill bars' figure (the song's draw by default; the ballad keeps its own fill)

@@ -228,6 +228,9 @@ export class Desk {
     const comp = id === "comp" ? compOption(this.opts, value) : null;
     if (comp?.status === "removed")   // (light eighths, 2026-11-05: rows.js never offers it)
       return this.done(false, `${comp.name} comping is removed.`);
+    const pat = id === "pattern" ? this.opts.patterns.find((p) => p.id === value) : null;
+    if (pat?.status === "removed")   // (the bossa, 2026-11-11: rows.js never offers it)
+      return this.done(false, `${pat.name} pattern is removed.`);
     if (comp && !compFits(comp, this.values.keys)) {   // a style these keys can't play (rows.js offers it not)
       const name = (k) => this.opts.instruments.find((i) => i.id === k)?.name ?? `instrument ${k}`;
       return this.done(false, `${comp.name} comping doesn't suit the ${name(this.values.keys)}: ` +
@@ -572,6 +575,8 @@ export class Desk {
     // a removed comping style (light eighths: Sam, 2026-11-05) restores as held: said, not a mismatch
     const compGone = this.opts.comping.find((c) => c.id === snap.rows.comp && c.status === "removed");
     if (compGone) snap = { ...snap, rows: { ...snap.rows, comp: 0 } };   // (held: CS_HELD)
+    // a removed drum pattern (the bossa: Sam, 2026-11-11) restores as the song's rolled one: said, not a mismatch
+    const patGone = this.opts.patterns.find((p) => p.id === snap.rows.pattern && p.status === "removed");
     // a retired lead style (the phrase planner, the hybrid: lead styles, 2026-10-31) restores as rolled: said, not a
     // mismatch
     const style = this.opts.leadStyles.find((s) => s.id === snap.rows.leadStyle);
@@ -579,7 +584,8 @@ export class Desk {
     if (styleGone) snap = { ...snap, rows: { ...snap.rows, leadStyle: rolled(row("leadStyle")) } };
     await this.call("wb_stage_mark");
     await this.stage("seed", snap.rows.seed);
-    for (const r of ROWS) if (r.kind !== "seed" && r.kind !== "family") await this.stage(r.id, snap.rows[r.id]);
+    for (const r of ROWS)
+      if (r.kind !== "seed" && r.kind !== "family" && !(patGone && r.id === "pattern")) await this.stage(r.id, snap.rows[r.id]);
     const d = await this.stageDrums(snap.drums), missing = d.refused ? [...d.missing, "drums (the kit row's kit can't take lanes)"] : d.missing;
     await this.call("wb_apply");
     this.listen = { mute: new Set(snap.listen?.mute), solo: snap.listen?.solo ?? null };   // an older snapshot: none
@@ -618,10 +624,11 @@ export class Desk {
                     bassSwapped ? `Bass: ${wasBass.name} is retired; the song plays ${name(this.values.bass)} instead.` : "",
                     keysSwapped ? `Comp: ${wasKeys.name} is retired; the song plays ${name(this.values.keys)} instead.` : "",
                     styleGone ? `Lead style: ${style.name} is retired; the song plays a rolled style instead.` : "",
-                    compGone ? `Comp rhythm: ${compGone.name} is removed; the song plays Held instead.` : ""]
+                    compGone ? `Comp rhythm: ${compGone.name} is removed; the song plays Held instead.` : "",
+                    patGone ? `Pattern: ${patGone.name} is removed; the song plays its rolled pattern instead.` : ""]
       .filter(Boolean).join(" ");
     return [...ROWS.filter((r) => !(swapped && r.id === "lead") && !(bassSwapped && r.id === "bass") &&
-                                  !(keysSwapped && r.id === "keys") &&
+                                  !(keysSwapped && r.id === "keys") && !(patGone && r.id === "pattern") &&
                                   String(this.values[r.id]) !== String(snap.rows[r.id])).map((r) => r.id), ...missing];
   }
 

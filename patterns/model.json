@@ -302,49 +302,6 @@
       "busy": 1,
       "file": "drums/7-brushes"
     },
-    "8": {
-      "id": 8,
-      "status": "approved",
-      "family": "PF_BOSSA",
-      "hit": [
-        "0x0909",
-        "0x1000",
-        "0x5555",
-        "0x0000",
-        "0x0000",
-        "0x1449"
-      ],
-      "ghost": [
-        "0x0000",
-        "0x0010",
-        "0xAAAA",
-        "0x0000",
-        "0x0000",
-        "0x0000"
-      ],
-      "half_time": 0,
-      "poly3": 0,
-      "src": "lofi-hip-hop.md 3 bossa feel; 3-2 clave on the rim lane",
-      "two_bar": 0,
-      "hit_b": [
-        "0x0000",
-        "0x0000",
-        "0x0000",
-        "0x0000",
-        "0x0000",
-        "0x0000"
-      ],
-      "ghost_b": [
-        "0x0000",
-        "0x0000",
-        "0x0000",
-        "0x0000",
-        "0x0000",
-        "0x0000"
-      ],
-      "busy": 2,
-      "file": "drums/8-bossa"
-    },
     "9": {
       "id": 9,
       "status": "approved",

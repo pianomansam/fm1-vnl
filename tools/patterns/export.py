@@ -23,8 +23,8 @@ TICKS = 120                                     # a 16th at PPQ 480
 DRUM_TICKS = 60                                 # score.c's drum note length
 HIT_VEL, GHOST_VEL = 90, 40                     # a drum hit (> 60) and a ghost (<= 60)
 
-PF = ["PF_BOOMBAP", "PF_HALFTIME", "PF_SPARSE", "PF_BRUSHES", "PF_BOSSA"]
-PF_SLUG = ["boombap", "half-time", "sparse", "brushes", "bossa"]
+PF = ["PF_BOOMBAP", "PF_HALFTIME", "PF_SPARSE", "PF_BRUSHES"]   # (PF_BOSSA removed, 2026-11-11)
+PF_SLUG = ["boombap", "half-time", "sparse", "brushes"]
 PK = ["PK_VAMP", "PK_LOOP", "PK_JAZZY"]
 Q = ["Q_DIATONIC", "Q_MIN7", "Q_DOM7", "Q_MAJ7"]
 MOODS = ["MOOD_SAD", "MOOD_WISTFUL", "MOOD_WARM", "MOOD_SUNNY"]

@@ -100,7 +100,10 @@ byte.
 
 ## drums
 
-`LIB_PATTERNS` (8; `app/song/patterns_gen.c`, declared in `library.h`). Two bars, the GM drum map: kick 36, snare 38, closed hat 42, open hat 46,
+`LIB_PATTERNS` (8: ids 1-7 and 9; `app/song/patterns_gen.c`, declared in `library.h`). The bossa (8, its family
+PF_BOSSA) is removed (Sam, 2026-11-11): its files, model entry and table row are gone, its id is never reused, and
+options.json keeps it as "removed" (never offered; a snapshot on it restores as rolled: import.py's REMOVED_DRUMS).
+Two bars, the GM drum map: kick 36, snare 38, closed hat 42, open hat 46,
 shaker 70, rim 37 (the drum staff: kick F4, rim B4 x, snare C5, shaker E5 triangle, closed hat G5 x, open hat A5
 circle-x). Velocity > 60 is a hit (written 90), ≤ 60 a ghost (written 40, head in parentheses). Bar 2 is bar B of a
 two-bar pattern, else bar A again. Pattern 5's shaker is a period-3 polymeter (`poly3`: a hit every 3rd 16th, counted
@@ -112,8 +115,8 @@ polymeter runs on, so it doesn't make the pattern two-bar (`two_bar` stays 0; th
 `busy` (model.json; Sam edits it there, import.sh regenerates `LIB_PATTERNS_BUSY`): 0 sparse, 1 middle, 2 busy. The
 roll draws the song's pattern from the approved ones evenly, tilted by the motion the song was rolled with and the
 pattern's `busy`, as the comping is (`roll.h`'s `motion_tilt`; Sam, 2026-11-05: "motion roll -> informed busy-ness
-roll"). Judged from the grid (kick and snare density, ghost notes, 16th hats or shaker): boom-bap 1-3 and the bossa
-(8) 2; the brushes (7) 1; the half-times (4, 5), the sparse (6) and half-time-2-shaker-2 (9) 0. A new pattern takes 1.
+roll"). Judged from the grid (kick and snare density, ghost notes, 16th hats or shaker): boom-bap 1-3
+2; the brushes (7) 1; the half-times (4, 5), the sparse (6) and half-time-2-shaker-2 (9) 0. A new pattern takes 1.
 
 ## kick-phrases
 

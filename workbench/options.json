@@ -91,7 +91,7 @@
     { "id": 5, "name": "Half-time - shaker", "status": "approved" },
     { "id": 6, "name": "Sparse - quarter hats", "status": "approved" },
     { "id": 7, "name": "Brushes", "status": "approved" },
-    { "id": 8, "name": "Bossa", "status": "approved" },
+    { "id": 8, "name": "Bossa", "status": "removed" },
     { "id": 9, "name": "Half-time - two-bar", "status": "approved" }
   ],
   "kickPhrases": [

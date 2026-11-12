@@ -31,6 +31,7 @@
 #include "override.h"
 #include "theory.h"
 #include "library.h"
+#include "patterns_gen.h"
 #include "voices.h"
 #include "fx.h"
 #include "samples.h"
@@ -1790,8 +1791,15 @@ static void ui_e_reroll_part(int p)
     static const int ROW[] = {ROW_DRUMS_VAR, ROW_BASS_LINE, ROW_VOICINGS, ROW_PAD_NOTES, ROW_PHRASE};
     if (p < 0 || p > UI_PART_LEAD) return;
     post(C_ROW, ROW[p], 1 + (int)(plat_ms() % 99u));
-    if (p == UI_PART_DRUMS)              /* the drums' re-roll draws a new pattern too (desk.js) */
-        post(C_ROW, ROW_PATTERN, ui_hsnap.rows[ROW_PATTERN] % LIB_NPATTERNS + 1);
+    if (p == UI_PART_DRUMS) {            /* the drums' re-roll draws a new pattern too (desk.js): the next approved one
+                                            in the table (ids have gaps: the bossa's 8, removed) */
+        int i, at = 0;
+        for (i = 0; i < LIB_NPATTERNS; i++)
+            if (LIB_PATTERNS[i].id == ui_hsnap.rows[ROW_PATTERN]) at = i;
+        for (i = 1; i <= LIB_NPATTERNS; i++)
+            if (LIB_PATTERNS_STATUS[(at + i) % LIB_NPATTERNS] == 1) break;
+        post(C_ROW, ROW_PATTERN, LIB_PATTERNS[(at + i) % LIB_NPATTERNS].id);
+    }
 }
 /* the listening to the render (C_MUTE: vx_mute's bits; a solo mutes every other bus, the mutes set aside while it
    lasts, as wb.c's listen()): the voices' state is the render's, so it changes between blocks, never during one */

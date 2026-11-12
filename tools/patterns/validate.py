@@ -6,7 +6,7 @@
 import re
 from pathlib import Path
 
-PF = ["PF_BOOMBAP", "PF_HALFTIME", "PF_SPARSE", "PF_BRUSHES", "PF_BOSSA"]
+PF = ["PF_BOOMBAP", "PF_HALFTIME", "PF_SPARSE", "PF_BRUSHES"]   # (PF_BOSSA removed, 2026-11-11)
 PK = ["PK_VAMP", "PK_LOOP", "PK_JAZZY"]
 Q = ["Q_DIATONIC", "Q_MIN7", "Q_DOM7", "Q_MAJ7"]
 MOODS = ["MOOD_SAD", "MOOD_WISTFUL", "MOOD_WARM", "MOOD_SUNNY"]

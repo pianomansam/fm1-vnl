@@ -34,6 +34,9 @@ FAMS = ["drums", "kick-phrases", "progressions", "comp-rhythms", "strum"]
 # 2026-10-31): a file in one is refused, naming why
 REMOVED = {"lead-arp": "the lead styles replaced the hybrid lead's arpeggio",
            "melody-cells": "the lead styles replaced the struck melody"}
+# drum patterns removed (their files, model entry and table row gone): options.json keeps each as "removed" (never
+# offered; a snapshot on one restores as rolled), and its id is never reused
+REMOVED_DRUMS = {8: "Bossa"}   # (Sam, 2026-11-11: "I haven't been impressed with the bossa drum patterns")
 LANE_FAMS = {"drums", "kick-phrases", "strum"}
 EXTS = (".mid", ".musicxml")
 DERIVED = ("status", "file", "symbols", "symbols_mode", "onsets")
@@ -503,8 +506,10 @@ def option_blocks(model, text):
     name = lambda e: json.dumps(e["file"].split("/", 1)[1])  # noqa: E731
     kicks = [f'    {{ "id": "{e["id"]}", "a": {json.dumps(e["a"])}, "b": {json.dumps(e["b"])}'
              f'{st(e) if e["status"] != "approved" else ""} }}' for e in model["kick-phrases"].values()]
-    drums = [f'    {{ "id": {e["id"]}, "name": {json.dumps(old[e["id"]]) if e["id"] in old else name(e)}{st(e)} }}'
+    drums = [(e["id"], f'    {{ "id": {e["id"]}, "name": {json.dumps(old[e["id"]]) if e["id"] in old else name(e)}{st(e)} }}')
              for e in model["drums"].values()]
+    drums = [s for _i, s in sorted(drums + [(i, f'    {{ "id": {i}, "name": {json.dumps(n)}, "status": "removed" }}')
+                                            for i, n in REMOVED_DRUMS.items()], key=lambda x: x[0])]
 
     def indexed(fam, kind):
         es = sorted((x for x in model[fam].items() if x[1].get("kind") == kind), key=lambda x: x[1]["index"])
@@ -561,7 +566,7 @@ def defaults(fam, stem, model, meta):
     es = model[fam]
     src = f"imported from patterns/{stem}"
     if fam in ("drums", "progressions"):
-        nid = max((e["id"] for e in es.values()), default=0) + 1
+        nid = max([e["id"] for e in es.values()] + (list(REMOVED_DRUMS) if fam == "drums" else []), default=0) + 1
         if fam == "drums":
             slug = stem.split("/", 1)[1].lower()
             fam_name = next((validate.PF[i] for i, s in enumerate(export.PF_SLUG) if s in slug), "PF_BOOMBAP")

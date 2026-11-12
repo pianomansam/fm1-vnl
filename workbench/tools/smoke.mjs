@@ -1292,12 +1292,12 @@ console.log("drum screen: the grid");
   const { sounds, soundOptions, pickSound, cellOf, cycle, patternFile, kitFile, save, listSaved, getSaved, laneSources } = await import("../drums.js");
   const grid = (ex) => JSON.parse(cstr(ex, ex.wb_state())).drums.grid;
   const KICK = 0, STEP = 6;
-  // seed 74 from bar 1 on the 808 kit (the lanes' meters), played to the middle of bar 5; edit: staged there (its
-  // pattern, boom-bap 2, leaves the kick's step 7 free: seed 77 until the pattern leaned on the motion, then 72 until
-  // pattern 9 was approved, 2026-11-05)
+  // seed 20 from bar 1 on the 808 kit (the lanes' meters), played to the middle of bar 5; edit: staged there (its
+  // pattern, boom-bap 2, leaves the kick's step 7 free: seed 77 until the pattern leaned on the motion, 72 until
+  // pattern 9 was approved, 2026-11-05, then 74 until the bossa pattern was removed, 2026-11-11)
   const run = async (edit) => {
     const ex = await load(), call = caller(ex);
-    ex.wb_seed(74);
+    ex.wb_seed(20);
     ex.wb_kit_preset(DRUMS.PT808);
     ex.wb_apply();
     ex.wb_play(1);
@@ -1322,7 +1322,7 @@ console.log("drum screen: the grid");
     return { ex, desk, bars };
   };
   const ref = await run(false), ed = await run(true);
-  check(ref.bars[5].ms > 1e-6, `seed 74's kick plays in bar 5 (${(10 * Math.log10(ref.bars[5].ms)).toFixed(1)} dB)`);
+  check(ref.bars[5].ms > 1e-6, `seed 20's kick plays in bar 5 (${(10 * Math.log10(ref.bars[5].ms)).toFixed(1)} dB)`);
   check(ed.ex.wb_pat_get(KICK, 1, STEP) === 1 && ed.ex.wb_pat_get(KICK, 0, STEP) === 0 && grid(ed.ex).edited === 1,
         "the edit is in the custom pattern's bar B only (wb_pat_get)");
   check(ed.bars[5].hash === ref.bars[5].hash, "edited in bar 5: bar 5's kick lane is untouched");
@@ -2173,18 +2173,19 @@ console.log("parts: re-rolls, history, locks, reactions (Task 5)");
     const rm = await dm.reroll("bass");
     check(moves && rm.ok && dm.values.bassLine === moves && dm.parts.bass.history.length === 2,
           `... the 🎲 skips it and commits the next salt that moves notes (${dm.values.bassLine}, wanted ${moves})`);
-    const { desk: dd } = await deskOn(23);   // pattern 6, sparse: no hat figure, so the drums salt is jitter only
+    const { desk: dd } = await deskOn(23);   // pattern 7, brushes: no hat figure, so the drums salt is jitter only
     dd.lock("kick", true);
     dd.lock("pattern", true);
     const rd2 = await dd.reroll("drums");
     check(!rd2.ok && /no other variation fits this pattern/.test(rd2.message) && dd.values.drumsVar === 0 && dd.parts.drums.history.length === 1,
           `seed 23's drums with the kick and the pattern locked (jitter only): refused ("${rd2.message}")`);
-    const { desk: dh } = await deskOn(21);   // pattern 1, boom-bap: the salt draws its hat figure too (Cut-A-Dor's)
+    const { desk: dh } = await deskOn(26);   // pattern 1, boom-bap: the salt draws its hat figure too (Cut-A-Dor's;
+                                             // seed 21 until the bossa pattern was removed, 2026-11-11)
     dh.lock("kick", true);
     dh.lock("pattern", true);
     const p1 = dh.values.pattern, rh = await dh.reroll("drums");
     check(rh.ok && dh.values.pattern === p1 && dh.values.drumsVar !== 0 && dh.parts.drums.history.length === 2,
-          `seed 21's drums (boom-bap) with the kick and the pattern locked: a new hat figure (salt ${dh.values.drumsVar})`);
+          `seed 26's drums (boom-bap) with the kick and the pattern locked: a new hat figure (salt ${dh.values.drumsVar})`);
     const { desk: dp } = await deskOn(21);   // the kick locked, the pattern free: the drums' roll draws a new pattern
     dp.lock("kick", true);
     const p0 = dp.values.pattern, rd3 = await dp.reroll("drums");

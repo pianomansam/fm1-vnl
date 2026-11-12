@@ -996,6 +996,11 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   patterns is equally likely in every set, flavor and family (the motion's tilt aside, 2026-11-05). Sam's two-bar kick phrases (k2-k6) exist only in the
   workbench, and no engine pattern is two bars long. Decide per-set or per-flavor pattern weights, and bring the
   kick phrases into the engine. (Kick phrases in the engine since 2026-11-10: boom-bap songs, 30%; above.)
+- **Bossa drum pattern removed (Sam, 2026-11-11: "I haven't been impressed with the bossa drum patterns. Can we pull
+  them out?"):** pattern 8 and its family (PF_BOSSA) are gone: files, model entry, table row. Its id is never
+  reused; the workbench and the device keep it as "removed" (never offered; a snapshot on it restores as rolled). The
+  bossa flavor, the bossa strum and the Bossa Nova lead style stay. The roll draws over 8 patterns, so songs moved
+  (the pins, re-pinned).
 - **Drums, 2026-11-04:**
   - **CR-78 rim:** Sam: "i don't like the cr-78 rimshot sound." The CR-78 kit's rim lane plays its cymbal (45ffa71).
   - **Saved patterns:** a pattern Sam saves in the workbench becomes a drums candidate on the next import
