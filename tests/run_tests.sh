@@ -1,5 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: MPL-2.0
+# Copyright (C) 2026 pianomansam (VNL-1's changes)
 # VNL-1's tests: the song engine's unit tests, the host simulator build and its scenarios, the browser emulator build.
 # Adapted from AMB-1's runner (MPL-2.0). Outputs go under app/build/tests.
 #   tests/run_tests.sh

@@ -1,4 +1,5 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: MPL-2.0
+ * Copyright (C) 2026 pianomansam (VNL-1's changes) */
 /* TPT SVF adapted from AMB-1 (fm1-amb), MPL-2.0. */
 /* Voices and mix (see voices.h). The pitched roles are pools of voices: chords 4 (8 for a pad or a sampler), lead 2,
    candy 2, the bass, a mono pool of 1 whose level slews (AMP_K) and whose M_BASS retriggers are legato, and the pad

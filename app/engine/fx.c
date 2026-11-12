@@ -1,4 +1,5 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+/* SPDX-License-Identifier: MPL-2.0
+ * Copyright (C) 2026 pianomansam (VNL-1's changes) */
 /* Plate reverb adapted from AMB-1 (fm1-amb, app/dsp/amb.c), after Dattorro 1997, MPL-2.0. */
 /* The lo-fi chain and the bed (see fx.h). Per call, in this order:
      the music (mono, already through the role buses' filters and the song gain, voices.c)

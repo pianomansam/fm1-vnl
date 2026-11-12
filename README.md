@@ -173,38 +173,29 @@ and no artist or composer names.
 
 ## Credits and licenses
 
-VNL-1 is GPL-3.0-or-later (`LICENSE`); up to the tag `mpl-final` it was MPL-2.0. It is built on
-[fm1-base](https://github.com/charlesvestal/fm1-base) by Charles Vestal and
+VNL-1 is Copyright (C) 2026 pianomansam and GPL-3.0-or-later (`LICENSE`, `NOTICE`); up to the tag `mpl-final` it was
+MPL-2.0. It is built on [fm1-base](https://github.com/charlesvestal/fm1-base) by Charles Vestal and
 [felucca-bsp](https://github.com/hugelton/felucca-bsp), from [Felucca](https://github.com/hugelton/Felucca) by Leo
 Kuroshita (Hügelton Instruments), both MPL-2.0, which allows combining with GPL code. Files adapted from fm1-base and
 AMB-1 (`app/app.c`, `app/app.h`, `app/words.tsv`, `app/engine/fx.c`, `app/engine/voices.c`, `build.sh`,
-`tests/run_tests.sh`) keep their MPL-2.0 notice (`LICENSES/MPL-2.0.txt`).
+`tests/run_tests.sh`) keep their MPL-2.0 notice and Charles Vestal's copyright (`LICENSES/MPL-2.0.txt`); VNL-1's
+changes to them are Copyright (C) 2026 pianomansam, under the same MPL-2.0.
 
 The firmware includes GPL-3.0-only code: the drum engines of FOMAJAM and Optimist, Optimist's CPU guard and Cut-A-Dor's
 rhythm tables. So the firmware binary as a whole (and the workbench's wasm) is GPL-3.0-only; VNL-1's own source stays
-GPL-3.0-or-later. The reverb and chorus are adapted from Mutable Instruments Rings by Emilie Gillet (MIT; the notice is
-below). The fonts are SIL OFL 1.1, the package's JieLi boot files Apache-2.0, and every sample CC0 1.0.
+GPL-3.0-or-later. The other licenses, each text in `LICENSES/`:
+
+- The reverb and chorus, adapted from Mutable Instruments Rings by Emilie Gillet: MIT (`LICENSES/MIT.txt`, and in
+  `app/engine/rings_fx.c`).
+- The Barlow font, packed into the firmware: SIL OFL 1.1 (`LICENSES/OFL-1.1-Barlow.txt`). fm1-base also ships the
+  Terminus font (`LICENSES/OFL-1.1-Terminus.txt`); VNL-1's build doesn't use it.
+- The JieLi AC79 SDK's boot files in the firmware package: Apache-2.0 (`LICENSES/Apache-2.0.txt`). No JieLi library is
+  linked into the firmware: VNL-1 builds without Bluetooth.
+- The samples: CC0 1.0, but for the jazz guitar's re-amp recording, which is Copyright (C) 2026 pianomansam and
+  GPL-3.0-or-later.
 
 Everything borrowed, with its author, license and place in the source, is in [`CREDITS.md`](CREDITS.md); the drum
 engines' files in `app/drums/LICENSES.md`.
-
-The MIT notice for the Rings code, which the firmware contains:
-
-    Copyright 2014 Emilie Gillet.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
-    documentation files (the "Software"), to deal in the Software without restriction, including without limitation
-    the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and
-    to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of
-    the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
-    THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
-    CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-    IN THE SOFTWARE.
 
 M-VAVE and FM-1 are trademarks of their owners. VNL-1 is not affiliated with or endorsed by M-VAVE, Mutable
 Instruments or Hügelton Instruments.

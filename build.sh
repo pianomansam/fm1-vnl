@@ -1,6 +1,7 @@
 #!/bin/sh
 # SPDX-License-Identifier: MPL-2.0
 # Copyright (C) 2026 Charles Vestal
+# Copyright (C) 2026 pianomansam (VNL-1's changes)
 # Build our FM-1 firmware with fm1-base (base/, a git submodule).
 #   ./build.sh [--release X.Y] [--host | --web]
 #   JIELI_TOOLCHAIN  JieLi Linux toolchain (default: ~/.jieli/toolchain)

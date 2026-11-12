@@ -37,6 +37,8 @@
     "jazz_reamp": {
       "name": "the Shinyguitar's ten SB_JAZZ notes (shiny, as fetched), re-amped by Sam through a jazz amp and cabinet (2026-11-10: the second take; the first held the raw notes 12 dB down, unprocessed)",
       "take": "Sampled-Guitar.wav",
+      "license_spdx": "GPL-3.0-or-later",
+      "license_comment": "Sam's re-amp recording (Copyright (C) 2026 pianomansam) is GPL-3.0-or-later, as VNL-1's own code (LICENSE); the notes it re-amps are the Shinyguitar's, CC0 1.0 (shiny).",
       "comment": "One local recording (not fetched: copy it to SCRATCH/dl_jazz_reamp/): 44.1 kHz, 16-bit, its two channels identical (summed to mono), the notes in the raw files' alphabetical order, each from silence.",
       "order": ["Samples/electric/a3_vl2_rr1_2.wav", "Samples/electric/a4_vl2_rr1_2.wav", "Samples/electric/a5_vl2_rr1_2.wav",
                 "Samples/electric/c4_vl2_rr1_2.wav", "Samples/electric/c5_vl2_rr1_2.wav", "Samples/electric/c6_vl2_rr1_2.wav",
