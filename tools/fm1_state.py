@@ -8,9 +8,10 @@ Asks the FM-1 (the browser-remote prefix's command 04: F0 7D 56 4E 04 F7) and re
 F0 7D 56 4E 14 pp nn <text> F7 (frame pp of nn; app/app.c live_state): the screen and its cursor, the song (seed,
 key, mode, tempo, section, bar), each row's value and name, what waits, mutes, solo, levels, the transport, and its
 CPU (the render's load now and its peak in % of a block, late blocks, the slowest redraw and block render in us, the
-CPU guard's level and steps). Writes app/build/live/device.json (as the workbench writes workbench.json) and prints a
+CPU guard's level, its steps up and levels come off, the highest, the voices it cut, and the platform's blocks over
+90 %). Writes app/build/live/device.json (as the workbench writes workbench.json) and prints a
 summary. --watch N: again every N seconds until Ctrl-C. --reset: each answer then zeroes the measures (the peak, the
-late blocks and their causes, the slowest render and redraw, the guard's steps: 04 01), to measure one event at a time.
+late blocks and their causes, the slowest render and redraw, the guard's counts: 04 01), to measure one event at a time.
 --ab FLAGS[,FLAGS2]: set the A/B switches first (04 02 ff gg; 0 all as built), to find a drop-out or a sound without a
 reflash. FLAGS, added together: 1 the CPU guard off, 2 the Parts roll's look-ahead off, 4 the kit voice render paused,
 8 the shipped kits' lanes off, 16 the chorus and delay off, 32 the plate off, 64 every voice at the full rate.
@@ -68,14 +69,18 @@ def summary(s):
     rows = s.get("rows", {})
     name = lambda r: (rows.get(r) or [None, ""])[-1]
     cpu = s.get("cpu", {})
-    guard = ["off", "tails", "bed", "plate"]
+    guard = ["off", "tails", "bed", "plate", "voices", "thin"]   # (app/drums/cpuguard.h CG_*)
+    gname = lambda k: guard[cpu.get(k, 0)] if 0 <= cpu.get(k, 0) < len(guard) else '?'
     return (f"{'playing' if s.get('playing') else 'stopped'} seed {s.get('seed')} bar {s.get('bar')}/{s.get('bars')} "
             f"{s.get('section') or '-'}; {s.get('key')} {s.get('mode')} {s.get('tempo')} BPM; screen {s.get('screen')} "
             f"(cursor {s.get('cursor')}); keys {name('keys')}, lead {name('lead')}, kit {name('kit')}; "
             f"mute {','.join(s.get('mute', [])) or '-'} solo {s.get('solo') or '-'}; "
             f"cpu {cpu.get('load')}% (peak {cpu.get('peak')}%), late {cpu.get('late')}, render {cpu.get('render_us')} us, "
-            f"redraw {cpu.get('redraw_us')} us, record turn {cpu.get('spin_us')} us, fade {cpu.get('fade_us')} us, guard {guard[cpu.get('guard', 0)] if cpu.get('guard', 0) < 4 else '?'} "
-            f"x{cpu.get('guard_steps')}; late by {' '.join(f'{k} {v}' for k, v in cpu.get('late_by', {}).items() if v) or '-'}"
+            f"redraw {cpu.get('redraw_us')} us, record turn {cpu.get('spin_us')} us, fade {cpu.get('fade_us')} us, "
+            f"guard {gname('guard')} "
+            f"(top {gname('guard_top')}, {cpu.get('guard_steps')} up, {cpu.get('guard_recov', 0)} back, "
+            f"{cpu.get('shed', 0)} voices cut, {cpu.get('over90', 0)} over 90%); "
+            f"late by {' '.join(f'{k} {v}' for k, v in cpu.get('late_by', {}).items() if v) or '-'}"
             f"{'; A/B ' + str(cpu.get('ab')) + ',' + str(cpu.get('ab2')) if cpu.get('ab') or cpu.get('ab2') else ''}")
 
 

@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# The CPU guard (app/drums/cpuguard.h) on the host's clock, as on the FM-1. Under the host's own load (far under a
+# block's 5.8 ms) it never steps. Then a forced overload: "heavy 1000" makes each block take 1 ms a sounding voice
+# (the first song's 6 or so: past its 5.8 ms), so the guard climbs the whole ladder while the song plays on, loud;
+# stopped, it comes back down a level at a time after 20 s of calm. (Which voices it cuts is song_test's
+# test_guard_voices: these held chords have no release tails to cut.) Writes guard.wav.
+#   app/build/host/vnl_host tests/scenarios/guard.vnl app/build/scenarios
+wav guard.wav
+master 4096
+heavy 0
+tap PLAY
+wait 10000
+expect playing 1
+expect guard 0
+heavy 1000
+wait 8000
+# up the ladder, a level at a time, to the top
+expect guard_top 5
+peakreset
+wait 4000
+expect playing 1
+expect peak_db_min -20
+# stopped: calm, so the levels come off, the first after 20 s, then one each 2 s
+tap PLAY
+wait 15000
+expect guard 5
+wait 21000
+expect guard 0
+expect guard_recov 5
+heavy 0 off
+wavstop

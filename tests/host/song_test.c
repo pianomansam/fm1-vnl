@@ -901,6 +901,100 @@ static void test_calm_hats(void)
           songs[2]);
 }
 
+/* 40 s of seed's song with the CPU guard's voice rungs at g (vx_guard), solo bus (-1: the whole mix): the output's
+   energy, the mean voices sounding a block, *bad: samples not finite; *hash: the output's bits (FNV-1a) */
+static double guard_render(uint32_t seed, int g, int solo, double *voices, int *bad, uint32_t *hash)
+{
+    static song_t s;
+    static float l[256], r[256];
+    song_roll_t roll;
+    song_ev_t ev[64];
+    uint32_t done = 0, nb = 0, h = 2166136261u;
+    double e = 0.0, v = 0.0;
+    *bad = 0;
+    roll_song(NULL, seed, &roll);
+    vx_init();
+    vx_solo(solo);
+    vx_guard(g);
+    song_start(&s, &roll);
+    vx_song(&s.roll);
+    while (done < 44100u * 40u && s.state == SS_PLAYING) {
+        int n = song_tick(&s, ev, 64), i;
+        uint32_t left = (uint32_t)song_step_samples(&s);
+        for (i = 0; i < n; i++)
+            vx_event(&ev[i]);
+        done += left;
+        while (left) {
+            uint32_t b = left < 256u ? left : 256u, k;
+            memset(l, 0, sizeof l);
+            memset(r, 0, sizeof r);
+            vx_render(l, r, b);
+            for (k = 0; k < b; k++) {
+                uint32_t u;
+                *bad += !(l[k] == l[k] && l[k] - l[k] == 0.0f);
+                e += (double)(l[k] * l[k]) + (double)(r[k] * r[k]);
+                memcpy(&u, &l[k], 4);
+                h = (h ^ u) * 16777619u;
+            }
+            v += vx_active();
+            nb++;
+            left -= b;
+        }
+    }
+    vx_guard(0);
+    vx_solo(-1);
+    *voices = nb ? v / nb : 0.0;
+    *hash = h;
+    return e;
+}
+
+/* The CPU guard's voice rungs (voices.h vx_guard; app/drums/cpuguard.h CG_VOICES, CG_THIN): 0 renders as with no
+   guard; at 1 release tails go (voices cut, fewer sounding) and the mix stays within 0.5 dB, the bass's bus and the
+   drums' bit for bit (never cut); at 2 more go; every sample finite. */
+static void test_guard_voices(void)
+{
+    static const uint32_t SEEDS[] = {1, 2, 6, 7, 10, 11, 20, 155};
+    double v0 = 0.0, v1 = 0.0, v2 = 0.0, worst = 0.0;
+    uint32_t i, cut1 = 0, cut2 = 0, h0, h1;
+    int bad = 0, b;
+    for (i = 0; i < sizeof SEEDS / sizeof SEEDS[0]; i++) {
+        double a, x, y, va, vx, vy, db;
+        uint32_t c = vx_shed();
+        a = guard_render(SEEDS[i], 0, -1, &va, &b, &h0);
+        bad += b;
+        CHECK(vx_shed() == c, "guard voices: seed %u cut %u voices at 0", (unsigned)SEEDS[i],
+              (unsigned)(vx_shed() - c));
+        c = vx_shed();
+        x = guard_render(SEEDS[i], 1, -1, &vx, &b, &h1);
+        bad += b;
+        cut1 += vx_shed() - c;
+        c = vx_shed();
+        y = guard_render(SEEDS[i], 2, -1, &vy, &b, &h1);
+        bad += b;
+        cut2 += vx_shed() - c;
+        v0 += va, v1 += vx, v2 += vy;
+        db = 10.0 * log10((x + 1e-9) / (a + 1e-9));
+        worst = fabs(db) > fabs(worst) ? db : worst;
+        printf("guard voices: seed %u: voices %.2f / %.2f / %.2f, the mix %+.3f dB (1), %+.3f dB (2)\n",
+               (unsigned)SEEDS[i], va, vx, vy, db, 10.0 * log10((y + 1e-9) / (a + 1e-9)));
+        if (i < 3) {
+            int k, roles[2] = {V_BASS, V_KICK};
+            for (k = 0; k < 2; k++) {
+                guard_render(SEEDS[i], 0, roles[k], &va, &b, &h0);
+                guard_render(SEEDS[i], 2, roles[k], &va, &b, &h1);
+                CHECK(h0 == h1, "guard voices: seed %u: the %s's bus changed under the guard", (unsigned)SEEDS[i],
+                      k ? "drums" : "bass");
+            }
+        }
+    }
+    printf("guard voices: cut %u (1), %u (2); voices a block %.2f -> %.2f -> %.2f\n", (unsigned)cut1,
+           (unsigned)cut2, v0 / 8.0, v1 / 8.0, v2 / 8.0);
+    CHECK(bad == 0, "guard voices: %d samples not finite", bad);
+    CHECK(cut1 > 100u && cut2 > cut1, "guard voices: cut %u at 1, %u at 2", (unsigned)cut1, (unsigned)cut2);
+    CHECK(v1 < v0 && v2 < v1, "guard voices: voices a block %.2f, %.2f, %.2f", v0, v1, v2);
+    CHECK(fabs(worst) < 0.5, "guard voices: the mix moved %.2f dB at the tails' rung", worst);
+}
+
 /* Cut-A-Dor's drum programming (Sam, 2026-11-10; roll.h's lib_song_kick and lib_song_hat_figure, groove.c's pocket):
    over 4000 rolled songs, a boom-bap song plays a kick phrase about LIB_KICK_PCT% of the time and a hat figure about
    LIB_HATS_PCT%, every approved phrase and every figure drawn, no other family either; the pattern's own stays the
@@ -13764,6 +13858,7 @@ int main(int argc, char **argv)
     RUN(test_rolled_matches_wb);
     RUN(test_request_row_lands);
     RUN(test_start_kit);
+    RUN(test_guard_voices);
     if (fails) {
         printf("%d check(s) failed\n", fails);
         return 1;

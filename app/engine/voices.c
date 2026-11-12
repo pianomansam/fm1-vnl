@@ -235,6 +235,11 @@ static uint32_t age_ctr, rng = 0x1234567u;
 static uint32_t clk;  /* the engine's clock at the chunk's start */
 static uint32_t t_on; /* the engine's clock (samples since vx_init) at the events firing now (vx_render) */
 static uint32_t n_steal; /* tests (vx_steals): chord voices stolen while still sounding */
+static uint8_t gd_v;      /* vx_guard's level: 0 none, 1 the tails, 2 thinner */
+static uint32_t n_shed;   /* vx_shed: the voices it cut */
+#define SHED_TAIL 0.063f  /* a released note under -24 dB of its own level goes (CG_VOICES) */
+#define SHED_LEAD 0.25f   /* a released lead note under -12 dB, while the lead's next sounds */
+#define THIN_KEYS 3       /* the keys' held notes at most (CG_THIN) */
 static float gain, gain_tgt, gain_step;
 static float ch_m[CHUNK], ch_s[CHUNK]; /* a chunk's music (into fx_process_pairs) and its right channel (out) */
 static float bb[NBUS][CHUNK];          /* the chunk's role buses (the drums' always; the others while filtering) */
@@ -1261,9 +1266,11 @@ static void pool_on(const song_ev_t *e, int role)
     else if (!p || (first >= PD ? p->model != M_ENS && p->model != M_TW : p->model == M_ENS))
         return; /* no instrument on this role; the pad layer plays M_ENS or the organ (pad_seg), M_ENS only it */
     if (role == V_PAD && e->pad >= 1 && e->pad <= NPD) { /* a lane (voices.h): its own voice */
+        if (gd_v > 1 && e->pad == NPD)
+            return; /* (the guard's thinner rung: no solo lane) */
         v = &fv[PD + e->pad - 1];
         v->age = ++age_ctr;
-        if (v->on && !v->pend && v->pt == p && (v->held || t_on - v->off < LEG_GAP)) {
+        if (v->on && !v->pend && !v->damp && v->pt == p && (v->held || t_on - v->off < LEG_GAP)) {
             if (p->model == M_ENS)
                 ens_legato(v, e); /* held (or just ended): extended, or gliding */
             else
@@ -1285,7 +1292,7 @@ static void pool_on(const song_ev_t *e, int role)
         /* a gliding lead (lead_glides): a note starting where the last one ends (within LEG_GAP either way; not over
            a rest, not a second note at once) slides from it, on its voice */
         for (i = first; i < first + count; i++)
-            if (fv[i].on && !fv[i].pend && fv[i].pt == p && t_on - fv[i].off + LEG_GAP < 2u * LEG_GAP &&
+            if (fv[i].on && !fv[i].pend && !fv[i].damp && fv[i].pt == p && t_on - fv[i].off + LEG_GAP < 2u * LEG_GAP &&
                 (pick < 0 || fv[i].age > fv[pick].age))
                 pick = i;
         if (pick >= 0) {
@@ -1356,10 +1363,74 @@ static void pool_on(const song_ev_t *e, int role)
     }
 }
 
+/* The CPU guard's voice rungs (vx_guard). The idea, a load guard's voice shedding (the quietest released voice, then
+   the oldest held; a part's own note kept), after Felucca's audio.c shed_voice (Leo Kuroshita, GPL-3.0-only); the
+   code is ours. A cut voice fades out as a steal does (damp: about 4 ms), never a click. */
+static void shed(voice_t *v)
+{
+    v->damp = 1;
+    v->held = 0;
+    n_shed++;
+}
+
+/* each chunk at the guard's rungs: the release tails that go early, and the keys' pool's cap */
+static void guard_tails(void)
+{
+    int i, n, pick, lead = 0;
+    for (i = NCH; i < NCH + NLD; i++)
+        lead |= fv[i].on && fv[i].held && !fv[i].pend && !fv[i].damp;
+    for (i = 0; i < NV; i++) {
+        voice_t *v = &fv[i];
+        if (i == VB || !v->on || v->pend || v->damp)
+            continue;
+        if (i == SOLO_V && gd_v > 1)
+            shed(v); /* (the thinner rung: no solo lane, held or not) */
+        else if (v->held)
+            continue;
+        else if (i >= NCH && i < NCH + NLD) {
+            if (lead && gate_lvl(v) < SHED_LEAD)
+                shed(v); /* (the lead's next note sounds over it) */
+        } else if (gate_lvl(v) < SHED_TAIL && (i < PD || clk - v->off >= LEG_GAP))
+            shed(v);     /* (a pad lane past its legato window: a note there now starts fresh) */
+    }
+    for (;;) { /* the keys' pool: at most NCH_KEYS sounding, the quietest released first */
+        for (i = n = 0, pick = -1; i < NCH; i++)
+            if (fv[i].on && !fv[i].damp) {
+                n++;
+                if (!fv[i].held && !fv[i].pend && (pick < 0 || gate_lvl(&fv[i]) < gate_lvl(&fv[pick])))
+                    pick = i;
+            }
+        if (n <= NCH_KEYS || pick < 0)
+            break;
+        shed(&fv[pick]);
+    }
+}
+
+/* the thinner rung, after a keys note: past THIN_KEYS held, the oldest held fades (a chord's first: its lowest) */
+static void guard_thin(void)
+{
+    int i, n = 0, pick = -1;
+    for (i = 0; i < NCH; i++)
+        if (fv[i].on && fv[i].held && !fv[i].pend && !fv[i].damp) {
+            n++;
+            if (pick < 0 || fv[i].age < fv[pick].age)
+                pick = i;
+        }
+    if (n > THIN_KEYS)
+        shed(&fv[pick]);
+}
+
+void vx_guard(int level) { gd_v = (uint8_t)(level < 0 ? 0 : level > 2 ? 2 : level); }
+uint32_t vx_shed(void) { return n_shed; }
+
 static void fire(const song_ev_t *e)
 {
     switch (e->voice) {
     case V_CHORD:
+        pool_on(e, V_CHORD);
+        if (gd_v > 1)
+            guard_thin();
+        break;
     case V_LEAD:
     case V_CANDY:
     case V_PAD:
@@ -1824,7 +1895,7 @@ static void ens_run(voice_t *v, float *xq, uint32_t nq)
 {
     uint32_t j = 0;
     while (j < nq && v->on && v->qr && v->pt->model == M_ENS) { /* (a steal's new note may leave the ensemble) */
-        if (v->pend || v->m.en.gn || v->m.en.an) {
+        if (v->pend || v->damp || v->m.en.gn || v->m.en.an) {
             xq[j++] += ens_tick(v);
             continue;
         }
@@ -2727,6 +2798,8 @@ void vx_render(float *l, float *r, uint32_t n)
             lg = lsend > 0.0f ? fx_chorus_dry_at(ld_dep) : 1.0f;
         }
         duck_chunk(c);
+        if (gd_v)
+            guard_tails();
         while (pos < c) {
             int i, w = 0;
             uint32_t seg = c - pos;

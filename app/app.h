@@ -33,6 +33,8 @@ enum { OBJ_SETTINGS, OBJ_PANEL, OBJ_BLE, OBJ_NOBJ };
 #define APP_BANK1_LO 0xE5000u            /* PLAT_XDATA1_LO.._HI */
 #define APP_BANK1_HI 0xFC000u
 #ifndef PLAT_HOST
+#define APP_OVERLOAD                     /* the platform: a block over 90 % of its time (the live state counts them) */
+void app_overload(void);
 #define APP_USB_CMD
 void app_usb_cmd(const uint8_t *d, uint32_t n);
 #endif

@@ -26,6 +26,9 @@ The firmware adapts no third-party code beyond what the README lists (the string
 went with the string and cello leads, 2026-10-29). Two of its models follow GPL-3.0 FM-1 firmwares' approach and
 values, with no code taken: the tonewheel organ (M_TW) after SLOOP's WHEEL engine, and the modeled vibraphone
 (M_MODAL, `app/engine/modal.h`; it replaced the VCSL vibraphone sample, 2026-11-03) after Ravel_FM1's TINE marimba.
+The CPU guard's voice shedding (`app/engine/voices.c` vx_guard: the quietest released voice first, a part's own note
+kept) follows the approach of Felucca's `shed_voice` (`firmware/src/audio.c`, by Leo Kuroshita, GPL-3.0-only), with
+no code taken.
 
 The drum lanes (`app/drums/`: the shipped kits 808, CR-78, Crunchy machine, Boom-bap machine, Jazz machine and Phonk
 machine, in the firmware and the workbench) build

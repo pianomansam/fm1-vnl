@@ -454,6 +454,19 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   Also copyable, not on the short list: Optimist's load guard (`system/cpuguard.c`: steps quality down before a late
   block), its spring reverb (`fx/spring/spring.c`), SLOOP's synth engines (the two-engine spike: code, not just preset
   values), Optimist's dual-core split (`system/dual.c`; CPU1 is unreliable on some units).
+  **Load shedding (2026-11-11; built, to verify on the device).** The CPU guard (`app/drums/cpuguard.c`, from
+  Optimist's, on since 2026-11-07 with three rungs) gains two voice rungs and a slower recovery. Its ladder, in the
+  order a lo-fi mix hides best: 1 the drum lanes' tails, 2 the bed, 3 the plate's input, **4 the release tails**
+  (a released keys, pad or lead note fades out in 4 ms once under -24 dB, -12 dB for a lead note under the next;
+  the keys' pool keeps 4 sounding; never a held note, the bass or the drums), **5 thinner** (the keys hold 3 notes, a
+  chord's lowest going; the pad's solo lane silent). The voice shedding's idea is Felucca's `shed_voice` (GPL-3.0-only;
+  our code). It steps on the block's own render time against its 5.8 ms (two late blocks in a run over 94 %, as
+  before), not `plat_cpu_pct`. Recovery: the first level off after 20 s of calm, then one each 2 s (PERF-1's pace;
+  was 2 s each). Live state (`tools/fm1_state.py`): `guard`, `guard_top`, `guard_steps`, `guard_recov`, `shed` (voices
+  cut), `over90` (the platform's `APP_OVERLOAD`: blocks over 90 % with USB audio's work, a cross-check). Host:
+  `heavy N` in the simulator (`tests/scenarios/guard.vnl`), `VNL_GUARD=0.7` and `VNL_GUARD_PIN=n` in the cost bench,
+  song_test's test_guard_voices (rung 4 moves the mix under 0.05 dB). Level 0 renders bit for bit as before.
+  To revisit: whether rung 4's cut tails or rung 5's thinning are heard when they fire on the device.
 - **A "B" section in the song planner (Sam, 2026-11-08: ledger, not started).** Today's maps vary arrangement
   (intro, groove, lead, break, outro, drops, a section without the comp) over one progression. A B section is a
   contrasting part with its own progression (and maybe its own voicing color, comp rhythm or drum pattern variation),

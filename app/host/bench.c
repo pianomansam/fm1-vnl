@@ -74,6 +74,12 @@ static int solo_env(void)
 
 static double g_amb_ms;                 /* AMB-1's heaviest piece, once known: the guard's budget (VNL_GUARD) */
 
+static double guard_x(void)             /* VNL_GUARD's x (0: off) */
+{
+    const char *e = getenv("VNL_GUARD");
+    return e ? atof(e) : 0.0;
+}
+
 static double now_ns(void)
 {
     struct timespec t;
@@ -106,9 +112,13 @@ static double run_vnl(uint32_t seed, int render, long *events, int force)
     }
     rings_switch();
     vx_init();
-    /* VNL_GUARD=1: the CPU guard (cpuguard.h) on, each block's render time against the budget AMB-1's heaviest
-       piece sets (ratio 1.0: 256), stepping down over it and back under 240 */
-    cg_on(getenv("VNL_GUARD") && atoi(getenv("VNL_GUARD")) && g_amb_ms > 0.0, 256u, 240u, 512u);   /* (late: twice the budget, a host block's noise never) */
+    /* VNL_GUARD=x: the CPU guard (cpuguard.h) on, each block's render time against x times the budget AMB-1's
+       heaviest piece sets (1: ratio 1.0 is 256; under 1, an overload forced), stepping down over it and back under
+       240. VNL_GUARD_PIN=n: the guard's level held at n (its rungs on; cpuguard.h CG_*), to time each rung */
+    cg_on(guard_x() > 0.0 && g_amb_ms > 0.0, 256u, 240u, 512u);   /* (late: twice the budget, a host block's noise
+                                                                     never) */
+    if (getenv("VNL_GUARD_PIN"))
+        cg_pin(atoi(getenv("VNL_GUARD_PIN")));
     {                                   /* the kit as the FM-1 plays it: the seeded pick (a retired kit swapped,
                                            values.h ui_kit_pick), or VNL_KIT's kit row value; a shipped kit's lanes,
                                            a modeled machine's voices rendered first (the main loop's work on the
@@ -156,12 +166,12 @@ static double run_vnl(uint32_t seed, int render, long *events, int force)
         for (left = step; left; ) {
             uint32_t b = left < BLK ? left : BLK, k;
             for (k = 0; k < b; k++) l[k] = r[k] = 0.0f;
-            if (g_amb_ms > 0.0 && getenv("VNL_GUARD")) {
+            if (g_amb_ms > 0.0 && guard_x() > 0.0) {
                 double tb;
                 cg_pre((uint32_t)vx_active());
                 tb = now_ns();
                 vx_render(l, r, b);
-                gl[gi++ % 16u] = (now_ns() - tb) * 256.0 / (g_amb_ms * 1e6 / (SR * SECS) * b);
+                gl[gi++ % 16u] = (now_ns() - tb) * 256.0 / (guard_x() * g_amb_ms * 1e6 / (SR * SECS) * b);
                 {                       /* (the mean of the last 16 blocks, 93 ms: a host block's own noise, an
                                            interrupt in its 40 us, is no load; the FM-1 gives the guard each block) */
                     double m = 0.0;
@@ -176,15 +186,17 @@ static double run_vnl(uint32_t seed, int render, long *events, int force)
         }
         done += step;
     }
-    if (render && getenv("VNL_GUARD")) {
+    if (render && guard_x() > 0.0 && g_amb_ms > 0.0) {
         const cg_stats_t *g = cg_stats();
         uint32_t all = 0, k;
         for (k = 0; k < CG_LEVELS; k++)
             all += g->blocks[k];
-        printf("(guard, seed %u: top level %d, %u steps (%u early); time at off/tails/bed/plate %.1f/%.1f/%.1f/%.1f %%)\n",
-               (unsigned)seed, g->top, (unsigned)g->steps, (unsigned)g->early, 100.0 * g->blocks[0] / (all ? all : 1),
-               100.0 * g->blocks[1] / (all ? all : 1), 100.0 * g->blocks[2] / (all ? all : 1),
-               100.0 * g->blocks[3] / (all ? all : 1));
+        printf("(guard, seed %u: top level %d, %u steps (%u early), %u back, %u late; time at off/tails/bed/plate/"
+               "voices/thin %.1f/%.1f/%.1f/%.1f/%.1f/%.1f %%)\n",
+               (unsigned)seed, g->top, (unsigned)g->steps, (unsigned)g->early, (unsigned)g->recov, (unsigned)g->late,
+               100.0 * g->blocks[0] / (all ? all : 1), 100.0 * g->blocks[1] / (all ? all : 1),
+               100.0 * g->blocks[2] / (all ? all : 1), 100.0 * g->blocks[3] / (all ? all : 1),
+               100.0 * g->blocks[4] / (all ? all : 1), 100.0 * g->blocks[5] / (all ? all : 1));
     }
     return now_ms() - t0;
 }

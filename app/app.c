@@ -212,6 +212,13 @@ enum { MC_SONG, MC_ROW, MC_JUMP, MC_ROLL, MC_BAR, MC_CMD, MC_GUARD, MC_RAMP, MC_
        MC_FLASH, MC_USB, MC_NEXT, MC_VOICES, MC_OTHER, MC_N };   /* (MC_BAR: the song generated its next bar in
                                             the block) */
 static uint32_t m_late_by[MC_N];
+static uint32_t m_shed0;                 /* vx_shed at the last reset: the voices the guard cut since then */
+static volatile uint32_t m_over90;       /* blocks the platform found over 90 % of their time (APP_OVERLOAD: its whole
+                                            render, USB audio's included; a cross-check of the render's own late) */
+#if defined(PLAT_HOST) && !defined(PLAT_WEB)
+static uint32_t heavy_us;                /* the simulator's "heavy N": N us of busy work a sounding voice, each block,
+                                            the guard on (the FM-1's settings): an overload for the guard's test */
+#endif
 static uint16_t m_cause;                 /* the render's, this block */
 static volatile uint16_t m_cause_main;   /* the main loop's, while it lasts */
 static volatile uint16_t m_cause_seen;   /* the main loop's brief ones, since the last block (the render clears it) */
@@ -951,6 +958,13 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     publish();
 #if VNL_UI_RUNTIME
     pf_block_end();
+#if defined(PLAT_HOST) && !defined(PLAT_WEB)
+    if (heavy_us) {                      /* (the host's block made as slow as the voices sounding: what the guard cuts
+                                            lightens it) */
+        uint32_t until = heavy_us * (uint32_t)vx_active();
+        while (M_DT(m_t0) < until) {}
+    }
+#endif
     {
         uint32_t dt = M_DT(m_t0), blk = n * 1000000u / 44100u, c;
         if (dt >= M_SANE_US)
@@ -999,6 +1013,15 @@ void app_panic(void)
 {
     panic_now = 1;
 }
+
+#ifdef APP_OVERLOAD
+void app_overload(void)
+{
+#if VNL_UI_RUNTIME
+    m_over90++;
+#endif
+}
+#endif
 
 /* --------------------------------------------------------- the roller --- */
 static song_roll_t last_roll;
@@ -1943,7 +1966,7 @@ static void ui_host_input(uint32_t btn)
         text_cat(a, "REDRAW ");
         int_text((int32_t)m_draw_max, v);
         text_cat(a, v);
-        text_cat(a, " US G");             /* the CPU guard: its level now (0 off, 1 tails, 2 bed, 3 plate), its steps */
+        text_cat(a, " US G");             /* the CPU guard: its level now (0 off .. 5 thin), its steps */
         int_text((int32_t)cg_level(), v);
         text_cat(a, v);
         text_cat(a, " X");
@@ -2216,7 +2239,7 @@ static uint32_t live_state(char *o, uint32_t cap)
         jbi(&b, act->level[i]);
     }
     jb(&b, "}");
-    jbk(&b, "cpu"); jb(&b, "{");       /* % of a block; microseconds; the guard (cpuguard.h: 0 off .. 3 plate) */
+    jbk(&b, "cpu"); jb(&b, "{");       /* % of a block; microseconds; the guard (cpuguard.h: 0 off .. 5 thin) */
     jbk(&b, "load"); jbi(&b, (int32_t)m_load_now);
     jbk(&b, "peak"); jbi(&b, (int32_t)m_load_peak);
     jbk(&b, "late"); jbi(&b, (int32_t)m_late);
@@ -2228,7 +2251,13 @@ static uint32_t live_state(char *o, uint32_t cap)
     jbk(&b, "ab2"); jbi(&b, ab_flags2);    /* the A/B switches (app.c AB_*: 1 guard off, 2 roll off, 4 kit render off,
                                             8 lanes off) */
     jbk(&b, "guard"); jbi(&b, cg_level());
-    jbk(&b, "guard_steps"); jbi(&b, (int32_t)g->steps);
+    jbk(&b, "guard_steps"); jbi(&b, (int32_t)g->steps);   /* (since the reset: its steps up, its levels come off,
+                                                              the highest, the voices it cut; the platform's blocks
+                                                              over 90 %) */
+    jbk(&b, "guard_recov"); jbi(&b, (int32_t)g->recov);
+    jbk(&b, "guard_top"); jbi(&b, g->top);
+    jbk(&b, "shed"); jbi(&b, (int32_t)(vx_shed() - m_shed0));
+    jbk(&b, "over90"); jbi(&b, (int32_t)m_over90);
     jbk(&b, "late_by"); jb(&b, "{");   /* what the late blocks had going on (live_state's causes, app.c MC_*) */
     {
         static const char *const MC[MC_N] = {"song", "row", "jump", "roll", "bar", "cmd", "guard", "ramp", "step",
@@ -2290,6 +2319,8 @@ static void live_reset(void)
     pf_reset();
     m_ui_us = m_kit_us = 0;
     m_prof_ms = plat_ms();
+    m_shed0 = vx_shed();
+    m_over90 = 0;
     cg_stats_reset();
 }
 
@@ -2600,6 +2631,19 @@ int app_expect(const char *what, int *got)
 #endif
     else if (!strcmp(what, "voices"))
         *got = s.voices;
+#if VNL_UI_RUNTIME
+    else if (!strcmp(what, "guard"))     /* the CPU guard: its level now (cpuguard.h CG_*), the highest since the live
+                                            state's reset, the levels come off, the voices cut; the late blocks */
+        *got = cg_level();
+    else if (!strcmp(what, "guard_top"))
+        *got = cg_stats()->top;
+    else if (!strcmp(what, "guard_recov"))
+        *got = (int)cg_stats()->recov;
+    else if (!strcmp(what, "shed"))
+        *got = (int)(vx_shed() - m_shed0);
+    else if (!strcmp(what, "late"))
+        *got = (int)m_late;
+#endif
     else if (!strcmp(what, "remote"))
         *got = rm.on;
     else if (!strcmp(what, "same_song"))   /* the song playing or ready is the one remembered (1), another (0); none:
@@ -2706,6 +2750,14 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
         ui_hrow_set[r] = 1;
         if (ui_host >= 0)
             ui_host_draw();
+        return 1;
+    }
+    if (!strcmp(cmd, "heavy")) {         /* heavy N [off]: each block N us of busy work a sounding voice, and the CPU
+                                            guard on as on the FM-1, on the host's clock (off: the guard off, as the
+                                            simulator boots) */
+        heavy_us = (uint32_t)atoi(a);
+        cg_on(strcmp(b, "off") != 0, 240u, 204u, 256u);
+        cg_need_late(2);
         return 1;
     }
     if (!strcmp(cmd, "live")) {          /* live [reset]: the live state asked for as over USB (F0 7D 56 4E 04 [01] F7);

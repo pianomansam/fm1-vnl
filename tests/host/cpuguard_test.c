@@ -6,6 +6,7 @@
 int cg_selftest(void);
 void fx_guard(int plate_off, int bed_off) { (void)plate_off, (void)bed_off; }
 void wb_drums_guard(int tails) { (void)tails; }
+void vx_guard(int level) { (void)level; }
 int main(void)
 {
     int bad = cg_selftest();

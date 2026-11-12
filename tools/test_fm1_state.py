@@ -29,6 +29,7 @@ assert s["source"] == "device" and s["playing"] is True and s["bar"] >= 0 and s[
 assert s["screen"] and isinstance(s["rows"], dict) and "kit" in s["rows"] and "cpu" in s and "guard" in s["cpu"], s
 assert S.summary(s)
 assert "late_by" in s["cpu"] and "ab" in s["cpu"] and after["cpu"]["guard_steps"] == 0 and after["cpu"]["late"] == 0
+assert all(after["cpu"][k] == 0 for k in ("guard", "guard_recov", "guard_top", "shed", "over90")), after["cpu"]
 assert after["cpu"]["render_us"] <= max(s["cpu"]["render_us"], 1000000)
 p = after["prof"]   # (the CPU by stage: the blocks since the reset, a figure a stage, the table)
 assert p["blocks"] > 0 and len(p["stages"]) == len(p["us"]) == len(p["worst"]) and "bass" in p["stages"], p

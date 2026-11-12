@@ -127,6 +127,15 @@ const vx_patch_t *vx_pad_lane_patch(int lane);
 /* Tests: the chords' pool's steals of a voice still sounding (held, or in its release; a string re-struck with no
    spare voice free counts) since vx_init (0 for any other role). */
 uint32_t vx_steals(int role);
+/* The CPU guard's voice rungs (app/drums/cpuguard.h CG_VOICES, CG_THIN). 0 (the default): none, sample for sample as
+   before. 1, the release tails go early, each fading out over about 4 ms (as a steal): a released note of the keys,
+   the ear candy or the pad layer once under -24 dB of its note, the keys' pool past 4 voices sounding (the quietest
+   released first), a released lead note under -12 dB while the lead's next note sounds. Never a held note, the bass
+   or the drums. 2, also thinner: the keys hold at most 3 notes (a 4th struck fades the oldest held: a chord's lowest,
+   which the bass has), the pad layer's solo lane (lane 4) is silent. Kept through vx_init. vx_shed: the voices cut,
+   since boot. */
+void vx_guard(int level);
+uint32_t vx_shed(void);
 /* Tests: the keys' duck under the lead now, in dB (0 at rest, negative while ducked). */
 float vx_duck_db(void);
 /* Tests: the mix's stored states (the mud high-pass, the drums' compressor, the buses' filters) that are neither 0
