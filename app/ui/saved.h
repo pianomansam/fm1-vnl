@@ -45,6 +45,7 @@ int sv_put(int slot, const sv_song_t *sg, int silent);
 int sv_erase(int slot, int silent);               /* 0, UI_SAVE_EMPTY, UI_SAVE_BUSY */
 int sv_flush(int silent);                         /* what waits written, while silent: 1 written, 0 none, < 0 failed */
 int sv_waiting(void);                             /* a save or delete waits for silence */
+int sv_failed(void);                              /* what waits failed to write: in RAM only, until the next save */
 /* a record as bytes, for the USB tool (tools/fm1_songs.py): a slot's, or into a slot (an empty record: deleted) */
 int sv_get_bytes(int slot, uint8_t *b);           /* 0, or UI_SAVE_EMPTY (b zeroed) */
 int sv_put_bytes(int slot, const uint8_t *b, int silent);   /* the slot, or UI_SAVE_* (-5: not a record) */

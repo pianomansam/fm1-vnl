@@ -39,6 +39,9 @@ Fixes:
 
 - **Changes while a section loops:** a change due at the looping section's end used to wait forever (the loop went
   back first); it now lands as the loop starts again. Stay on song alike.
+- **Saved songs through `tools/flash.sh`:** its stock V15 step erased them (stock claims that flash as its own); it now
+  exports them first and writes them back after. `tools/fm1_songs.py list` tags each song `[flash]` or `[RAM only]`,
+  and tells a failed flash write from one waiting for silence.
 
 Known limits: no Bluetooth, so no velocity or pressure from the keys. The Settings screen is a placeholder. See
 `ROADMAP.md` for what's next.

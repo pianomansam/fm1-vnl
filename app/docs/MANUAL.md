@@ -285,6 +285,11 @@ four-bar line is saved as if it had landed.
 - **What isn't saved:** the locks, mutes, solos and mixer levels, and the Sections screen's Loop and Stay on song
   switches.
 - **Over USB:** a backup holds the saved songs and the home screen (see USB and the screen reader).
+  `tools/fm1_songs.py list` tags each song `[flash]` (written, kept through power-off) or `[RAM only: ...]` (not
+  yet written: its save waits for silence, or its write failed and needs saving again).
+- **Firmware updates:** a VNL-1 update (`fm1_install.py` with a VNL-1 package) keeps the saved songs. Going back to
+  M-VAVE's stock firmware erases them (it takes that part of the memory for its own). `tools/flash.sh`, which
+  installs stock first, exports the songs before it starts (into `backups/`) and writes them back at the end.
 
 ### Drums
 

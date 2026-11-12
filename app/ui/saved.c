@@ -151,6 +151,7 @@ void sv_boot(void)
 
 const ui_slot_t *sv_slots(void) { return slots; }
 int sv_waiting(void) { return pend_slot >= 0 || pend_del; }
+int sv_failed(void) { return failed && sv_waiting(); }
 
 int sv_get_bytes(int slot, uint8_t *b)
 {

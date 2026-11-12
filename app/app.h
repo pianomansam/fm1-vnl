@@ -22,7 +22,9 @@
 /* the store: the app's objects (the panel calibration the platform's), and their flash offsets. OBJ_SONGS, the saved
  * songs (app/ui/saved.c, 1348 B), has the pair that was Bluetooth's OBJ_BLE (number 2 at 0xDE000): VNL-1 has never
  * built the radio (fm1.toml ble = false), so nothing of its own was ever written there, and a record of another
- * firmware's reads as no songs (its magic). A build with the radio needs another pair for OBJ_BLE */
+ * firmware's reads as no songs (its magic). A build with the radio needs another pair for OBJ_BLE. A VNL-1 update
+ * keeps it (the loader writes 0x4000..0x93000); stock V15 does not (its package's VM is 0x93000..0xE8FFF): the panel
+ * pair and the songs go, OBJ_SETTINGS (0xFC000) stays. tools/flash.sh exports the songs around its stock step */
 enum { OBJ_SETTINGS, OBJ_PANEL, OBJ_SONGS, OBJ_NOBJ };
 
 /* backup and restore over USB (fm1.toml backup = true; base/web/backup, tools/fm1_backup.py): the home and the saved

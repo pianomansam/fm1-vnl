@@ -17,8 +17,11 @@ overrides, re-rolls). A live-state dump has all of it but, from firmware older t
 "set" field) and the motion's live move ("motion_moved", taken as 0): the set is then found from the dump's bass, lead
 and pad instruments and its mood among the library's sets (app/song/library.c), or given with --set (refused when
 none or several fit). Commands (app/app.c song_slot_cmd), prefix F0 7D 56 4E: 05 ss asks slot ss (answer 15 ss st
-<168 nibbles>), 06 ss <168 nibbles> writes it (answer 16 ss rc: 0 written, 1 kept until the music stops: the FM-1
-writes its flash only while silent, 2 refused: another save waits, 3 refused: not a record).
+<168 nibbles>, st: 0 empty, 1 in flash, 2 in RAM only until the music stops, 3 in RAM only: the flash write failed),
+06 ss <168 nibbles> writes it (answer 16 ss rc: 0 written to flash, 1 in RAM only until the music stops: the FM-1
+writes its flash only while silent, 2 refused: another save waits, 3 refused: not a record, 4 in RAM only: the flash
+write failed). The list tags every song: [flash] is in the flash and survives power-off; [RAM ...] is not yet.
+tools/flash.sh exports the songs before it flashes and imports them after (its stock V15 step erases them).
 Uses fm1-base's tools (base/tools: fm1_install.py's port lookup); needs mido with python-rtmidi.
 Exit codes: 0 done, 1 no answer or refused, 2 bad input, 3 FM-1 not found.
 """
@@ -44,7 +47,7 @@ ROWS = ["keys", "comp", "lead", "bass", "pad", "padOn", "phrase", "leadStyle", "
 AS_ROLLED = {"keysWith": -1}
 MODES = ["Ionian", "Dorian", "Phrygian", "Lydian", "Mixolydian", "Aeolian"]
 KEYS = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"]
-STATE = ["empty", "kept", "waiting for silence"]
+STATE = ["empty", "flash", "RAM only: written once the music stops", "RAM only: the flash write failed"]
 
 
 # ------------------------------------------------------------------------------------------------- records ---
@@ -185,6 +188,9 @@ def main(argv=None):
                 data["roll"], dict) else from_state(data, a.set))]
         elif a.cmd == "import":
             todo = [(int(k) - 1, r) for k, r in json.load(open(a.args[0]))["slots"].items() if r]
+            if not todo:
+                print(f"{a.args[0]}: no songs in it, nothing to write")
+                return 0
         elif a.cmd == "delete":
             todo = [(int(a.args[0]) - 1, None)]
         elif a.cmd == "export" and not a.args:
@@ -211,9 +217,12 @@ def main(argv=None):
         if todo:
             for s, r in todo:
                 rc = put(dev.link, s, r)
-                print(f"slot {s + 1}: " + {None: "no answer", 0: "written", 1: "kept; written once the music stops",
+                print(f"slot {s + 1}: " + {None: "no answer", 0: "written to flash",
+                                           1: "in RAM only; written to flash once the music stops",
                                            2: "refused: another save waits (stop the music)",
-                                           3: "refused: not a record"}.get(rc, f"answer {rc}"))
+                                           3: "refused: not a record",
+                                           4: "in RAM only: the flash write failed (save again)"}.get(
+                                               rc, f"answer {rc}"))
                 if rc not in (0, 1):
                     return 1
             return 0
@@ -224,7 +233,8 @@ def main(argv=None):
                 print("error: the FM-1 did not answer (a VNL-1 without saved songs?)", file=sys.stderr)
                 return 1
             out[str(s + 1)] = rec
-            print(f"{s + 1:2d}  {describe(rec) + ('' if st == 1 else ' (' + STATE[st] + ')') if rec else 'empty'}")
+            tag = STATE[st] if st < len(STATE) else f"state {st}"
+            print(f"{s + 1:2d}  {f'[{tag}] ' + describe(rec) if rec else 'empty'}")
         if a.cmd == "export":
             with open(a.args[0], "w") as f:
                 json.dump({"format": "vnl-1 saved songs", "version": VERSION, "slots": out}, f, indent=1)

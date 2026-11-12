@@ -113,7 +113,8 @@ FM-1 by USB and press Install. It writes the firmware, then offers the sample ba
 
 **Back to stock, or a stuck FM-1:** if the FM-1 won't boot but shows up on USB as `4C4A:8057`,
 `base/bsp/tools/fm1_rescue.sh` restores M-VAVE's firmware. `tools/flash.sh` does a clean install in one go: stock V15,
-then VNL-1, then the sample bank (it needs M-VAVE's V15 package, which isn't in this repository).
+then VNL-1, then the sample bank (it needs M-VAVE's V15 package, which isn't in this repository). Stock erases the
+saved songs, so flash.sh exports them first (into `backups/`) and writes them back at the end.
 
 ## Build (developers)
 

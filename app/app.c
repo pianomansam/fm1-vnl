@@ -1931,10 +1931,12 @@ static void live_reply(void);
 static void live_reset(void);
 
 /* the saved songs over USB (tools/fm1_songs.py), each record as 2 * SV_BYTES nibbles, high first (saved.h's format):
- *   05 ss         slot ss's record -> 15 ss st <nibbles>   st: 0 empty (the record all zero), 1 kept in the flash,
- *                                                          2 its save waiting for silence
- *   06 ss <nib>   into slot ss (a record all zero: the slot deleted) -> 16 ss rc   rc: 0 written to the flash, 1 kept
- *                 and waiting for silence (the music playing), 2 refused: another save waits, 3 refused: not a record
+ *   05 ss         slot ss's record -> 15 ss st <nibbles>   st: 0 empty (the record all zero), 1 written to the flash,
+ *                                                          2 in RAM only, its save waiting for silence, 3 in RAM
+ *                                                          only, its flash write failed (until the next save)
+ *   06 ss <nib>   into slot ss (a record all zero: the slot deleted) -> 16 ss rc   rc: 0 written to the flash, 1 in RAM
+ *                 only, waiting for silence (the music playing), 2 refused: another save waits, 3 refused: not a
+ *                 record, 4 in RAM only: the flash write failed
  * The flash is written only while all is silent, as a save on the device is. Main loop (ota_frame_get) */
 #define SONG_GET 0x05u
 #define SONG_PUT 0x06u
@@ -1953,6 +1955,8 @@ static void song_slot_cmd(const uint8_t *p, uint32_t n)
     if (p[3] == SONG_GET) {
         f[4] = SONG_GET + 0x10u;
         f[6] = (uint8_t)(sv_get_bytes(slot, rec) ? 0 : sv_slots()[slot].state);
+        if (f[6] == UI_SLOT_WAITING && sv_failed())
+            f[6] = 3u;
         for (i = 0; i < SV_BYTES; i++) {
             f[7 + 2 * i] = (uint8_t)(rec[i] >> 4);
             f[8 + 2 * i] = (uint8_t)(rec[i] & 15u);
@@ -1967,7 +1971,7 @@ static void song_slot_cmd(const uint8_t *p, uint32_t n)
         for (i = 0; i < SV_BYTES; i++)
             rec[i] = (uint8_t)((p[5 + 2 * i] & 15u) << 4 | (p[6 + 2 * i] & 15u));
         rc = sv_put_bytes(slot, rec, may_write());
-        rc = rc == UI_SAVE_BUSY ? 2 : rc < 0 && rc != UI_SAVE_EMPTY ? 3 : sv_waiting() ? 1 : 0;
+        rc = rc == UI_SAVE_BUSY ? 2 : rc < 0 && rc != UI_SAVE_EMPTY ? 3 : sv_failed() ? 4 : sv_waiting() ? 1 : 0;
         ui.redraw = 1;
     }
     f[4] = SONG_PUT + 0x10u;
