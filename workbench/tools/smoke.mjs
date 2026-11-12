@@ -3109,7 +3109,7 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
         "the mock's key, scale, mood and section names and APP_NAME are app.c's and app.h's");
   const rgb = (s) => s.match(/RGB\(\d+, \d+, \d+\)/g).map((x) => D.RGB(...x.match(/\d+/g).map(Number)));
   const neutrals = gfx.match(/#define NEUTRALS (.*)/)[1];   // a palette: {"NAME", {five steps}, background, white}
-  const pal = Object.fromEntries([...gfx.matchAll(/\{"([\w+]+)", \{([^}]*)\},\s*([^}]*?)\},/g)].map((m) =>
+  const pal = Object.fromEntries([...gfx.matchAll(/\{"([\w+ ]+)", \{([^}]*)\},\s*([^}]*?)\},/g)].map((m) =>
     [m[1], [...rgb(m[2].replace("NEUTRALS", neutrals)), ...(m[3].trim() === "INK" ? [0x0000, 0xffff] : rgb(m[3]))]]));
   const theme = Object.keys(pal)[+(src("../../app/app.h") + src("../../base/include/fm1b_config.h")).match(/#define APP_PALETTE (\d+)u/)[1]];
   check(JSON.stringify(pal) === JSON.stringify(D.PALETTES) && theme === D.THEME,

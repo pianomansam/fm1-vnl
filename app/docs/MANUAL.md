@@ -185,9 +185,9 @@ them from song to song. The knob that moves a fader is named under it.
 ![The Settings screen: MOVEMENT, SCREEN READER, KEY LIGHTS, BRIGHTNESS, MAIN SCREEN and ADVANCED RULES, marked PLACEHOLDER](img/vnl-settings.png "Settings")
 
 **THEME** works: turn SELECT or ALGO to step through the screen's color themes (PLUM+, the default, then OXBLOOD,
-OXBLOOD+, the black ones GREEN to MONO, ESPRESSO, TEAL, OLIVE and PLUM). Every screen changes at once, the splash
-too. The device keeps the theme through power-off (written once nothing is playing, as the home is) and a USB backup
-holds it.
+OXBLOOD+, the darker reds GARNET, GARNET+ and BLACK CHERRY, the black ones GREEN to MONO, ESPRESSO, TEAL, OLIVE and
+PLUM). Every screen changes at once, the splash too. The device keeps the theme through power-off (written once
+nothing is playing, as the home is) and a USB backup holds it.
 
 **BASS SATURATION** works: ON (the default) gives every bass but the sub its gentle harmonics, so the line carries on
 small speakers; OFF leaves the bass clean, for good speakers, where the harmonics can sound buzzy. Press EDIT or turn

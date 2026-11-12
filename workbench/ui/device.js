@@ -31,6 +31,14 @@ export const PALETTES = {
             RGB(26, 10, 15), RGB(251, 232, 227)],
   "OXBLOOD+": [RGB(57, 3, 22), RGB(115, 7, 46), RGB(201, 154, 160), RGB(255, 122, 89), RGB(255, 173, 143),
                RGB(33, 4, 14), RGB(251, 232, 227)],
+  // darker reds, kept saturated (green 0, a blue step: the backlight greys dark low-chroma ones); the rule lit to
+  // about 2.6:1, as it is the dim text too
+  GARNET: [RGB(44, 4, 18), RGB(160, 16, 70), RGB(201, 154, 160), RGB(255, 122, 89), RGB(255, 173, 143),
+           RGB(24, 0, 8), RGB(251, 232, 227)],
+  "GARNET+": [RGB(46, 4, 32), RGB(165, 18, 95), RGB(201, 154, 160), RGB(255, 122, 89), RGB(255, 173, 143),
+              RGB(26, 0, 18), RGB(251, 232, 227)],
+  "BLACK CHERRY": [RGB(34, 3, 12), RGB(152, 26, 68), RGB(201, 154, 160), RGB(255, 122, 89), RGB(255, 173, 143),
+                   RGB(16, 0, 8), RGB(251, 232, 227)],
 };
 export const THEME = "PLUM+";   // app.h's APP_PALETTE 9: the theme until Settings' THEME picks another ({theme})
 // the record's disc (VINYL): about 55% of the theme's background, each RGB565 channel (c 55 + 50) / 100 (app.c's)

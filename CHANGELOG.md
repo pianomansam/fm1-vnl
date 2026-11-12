@@ -32,7 +32,9 @@ The first public release: a generative lo-fi hip hop firmware for the M-VAVE FM-
   songs, the home, the theme and the bass saturation; `tools/fm1_songs.py` reads and writes single songs.
 - **Themes on the device:** Settings (GLO) has a working THEME: SELECT or ALGO steps through every palette fm1-base
   carries, at once and kept through power-off, so the colors can be judged on the FM-1's own screen. PLUM+ (peach on
-  a saturated plum) is the default; PLUM, OXBLOOD and OXBLOOD+ are new beside teal, olive and espresso.
+  a saturated plum) is the default; PLUM, OXBLOOD and OXBLOOD+ are new beside teal, olive and espresso, and so are
+  three darker reds that stay saturated for the backlight: GARNET (red-black), GARNET+ (a touch more blue) and BLACK
+  CHERRY (darker still).
 - **A CPU guard** that sheds reverb tails and quiet voices before the audio can glitch.
 - **Tangerine on teal:** the screens, the workbench's device mock and the site share one palette (deep teal,
   tangerine, sand white); fm1-base also carries an olive and mustard one.

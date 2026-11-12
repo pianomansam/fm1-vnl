@@ -77,7 +77,7 @@ def theme_colors():
     rgb = lambda s: [rgb565(*map(int, m)) for m in re.findall(r"RGB\((\d+), (\d+), (\d+)\)", s)]
     neutrals = re.search(r"#define NEUTRALS (.*)", gfx).group(1)
     pals = []
-    for steps, bw in re.findall(r'\{"[\w+]+", \{([^}]*)\},\s*([^}]*?)\},', gfx):
+    for steps, bw in re.findall(r'\{"[\w+ ]+", \{([^}]*)\},\s*([^}]*?)\},', gfx):
         bw = [0x0000, 0xFFFF] if bw.strip() == "INK" else rgb(bw)
         pals.append(bw + rgb(steps.replace("NEUTRALS", neutrals)))
     conf = (ROOT / "app/app.h").read_text() + (ROOT / "base/include/fm1b_config.h").read_text()

@@ -310,15 +310,17 @@ const SEED = 72;
   for (const c of run(SEED, steps)) compare(c);
 }
 {   // the themes (Settings' THEME: SELECT steps through gfx.c's palettes, at once): the splash, now playing, the main
-  // screen, Settings and a part screen in each of the four plum and oxblood ones; a reboot keeps it (stopped)
+  // screen, Settings and a part screen in each of the plum, oxblood, garnet and black cherry ones; a reboot keeps it
+  // (stopped)
   const v = (st) => st.values, is = (what, got, want) => (got === want ? "" : `${what} ${JSON.stringify(got)}, not ${JSON.stringify(want)}`);
   const steps = [{ press: "PLAY" }, { wait: 5000 }];
-  for (const [d, name] of [[-1, "PLUM"], [1, "PLUM+"], [1, "OXBLOOD"], [1, "OXBLOOD+"]]) {
+  for (const [d, name] of [[-1, "PLUM"], [1, "PLUM+"], [1, "OXBLOOD"], [1, "OXBLOOD+"], [1, "GARNET"], [1, "GARNET+"],
+                           [1, "BLACK CHERRY"]]) {
     steps.push({ screen: "prefs" }, { spin: ["SELECT", d] }, { check: `theme-${name}-prefs`, expect: (st) => is("theme", v(st).theme, name) });
     for (const id of ["splash", "now", "main", "pComp"]) steps.push({ screen: id }, { check: `theme-${name}-${id}` });
   }
   steps.push({ press: "PLAY" }, { wait: 2000 }, { reboot: true }, { wait: 1500 },
-             { check: "theme-kept", expect: (st) => is("theme", v(st).theme, "OXBLOOD+") });
+             { check: "theme-kept", expect: (st) => is("theme", v(st).theme, "BLACK CHERRY") });
   for (const c of run(SEED, steps)) compare(c);
 }
 {   // bass saturation (Settings' BASS SATURATION: EDIT or PRESET flips it): Settings on, off, on again by PRESET; a
