@@ -407,13 +407,15 @@ static void gap_begin(void)
 #else
 #define UI_POOL __attribute__((section(".pool")))
 #endif
-/* Section jumps (the Sections screen, Loop, Stay on song): the song started again and fast-forwarded silently, a few
-   16ths a block (the workbench's landing, spread over the bar before), then put in at the next bar line with the
-   changes still waiting carried over. Loop: the section playing, from its last bar, back to its start; Stay on song:
-   the bar before the last section (or inside it, at a 4-bar line) back to the section after the intro (index.html's) */
+/* Section jumps (the Sections screen, Loop, Stay on song): the song started again, its first bar planned a part a
+   block (as a new song's: song_begin), and fast-forwarded silently, a few 16ths a block (the workbench's landing,
+   spread over the bar before), then put in at the next bar line with the changes still waiting carried over. Loop:
+   the section playing, from its last bar, back to its start; Stay on song: the bar before the last section (or
+   inside it, at a 4-bar line) back to the section after the intro (index.html's) */
 static song_t jsong UI_POOL;
 static int16_t j_target = -1, j_from;    /* the bar the song jumps to (-1: none), the bar it was asked in */
 static uint8_t j_ready, loop_on, endless_on;
+static uint8_t j_first;                  /* the restarted song's first bar's planning: the next part (a block each) */
 static song_ev_t j_evs[64];
 enum { J_TICKS = 24 };                    /* 16ths fast-forwarded a block */
 static uint8_t bar_ticked;               /* the song ticked a costly 16th in this block (step): a bar's first (its
@@ -433,14 +435,27 @@ static void jump_ask(int bar)
     jsong.set = song.set;
     jsong.set_base = song.set_base;
     jsong.changes = song.changes;
+    memcpy(jsong.voicing.loop, song.voicing.loop, sizeof jsong.voicing.loop);   /* the loop's voicings: kept where
+                                            its harmony is the same (their sig), not worked out again (its first
+                                            bar's costliest part); else worked out as before */
+    jsong.voicing.nloop = song.voicing.nloop;
+    jsong.voicing.sig = song.voicing.sig;
     j_target = (int16_t)bar;
     j_from = (int16_t)song.bar;
     j_ready = 0;
+    j_first = 0;
 }
 
 static void jump_prepare(void)
 {
     int k;
+    if (j_target >= 0 && !j_ready && j_first < SONG_FIRST_BAR_PARTS) {
+        song_first_bar(&jsong, j_first++);   /* (all in its first tick, a block's render 2-3 times its usual) */
+#if VNL_UI_RUNTIME
+        m_cause |= 1u << MC_JUMP;
+#endif
+        return;
+    }
     for (k = 0; k < J_TICKS && j_target >= 0 && !j_ready; k++) {
         if (jsong.bar >= j_target || jsong.state != SS_PLAYING) {
             j_ready = 1;
@@ -929,6 +944,7 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
 #if UI_RT
                 else if (loop_on || endless_on) {   /* looping or staying: the song again, no next one */
                     jump_ask(0);
+                    j_first = SONG_FIRST_BAR_PARTS;   /* (at once: its downbeat plans its first bar itself) */
                     jump_prepare();
                     if (j_ready)
                         jump_land();
