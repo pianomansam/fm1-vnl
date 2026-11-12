@@ -8,13 +8,10 @@ ideas that still need a reason.
 
 - **Sampled sax and trumpet leads:** a sampled sax and a muted trumpet as leads, from CC0 or GPL-compatible libraries, in their real registers.
 - **Harp on the comp:** the sampled harp as a comp instrument, its chords arpeggiated or held.
-- **Saved songs:** SAVE on the Song screen keeps the song (its seed, rolled values and changes) in one of 16 slots.
-- **Changes land while looping:** a change waiting past a looped section's end lands when the loop wraps.
 - **A fade between the two home screens:** HOME cross-fades the now-playing and main screens, as the splash fades in.
 - **A stutter where no lead plays:** the comp catches the stutter in sections without a lead.
 - **Broken-chord piano comp:** a climbing broken chord for the acoustic piano, in place of a strum.
 - **Soft synth lead:** a candidate lead for the synth sets, waiting on a listen.
-- **Smoother section jumps:** spread a jump's catch-up work over several audio blocks, so none arrives late.
 - **Settings screen:** reduced motion, the screen reader, key lights, brightness and the default home screen.
 - **Device checks:** confirm the CPU guard's voice rungs and the per-stage CPU meter on the FM-1 itself.
 
