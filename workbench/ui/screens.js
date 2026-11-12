@@ -292,8 +292,10 @@ export default {
           { when: ["song", "looping"], text: "LOOP", font: "T", after: 8, y: 2, color: "HI" },
           { when: "!song", text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
           { when: "known", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
-          // the firmware's name, as the splash spells it, small and quiet in the bar's free middle (Sam, 2026-11-12)
-          { text: "vnl-1", font: "XS", x: 108, y: 0, color: "DIM" },
+          // the firmware's name in capitals (the splash's wordmark alone is lower case), in the bar's face, quiet,
+          // centred in its free middle (Sam, 2026-11-12): x 108-133, the longest left text (GROOVE 56/56 LOOP)
+          // ending at 94
+          { text: "VNL-1", font: "T", x: 108, y: 2, color: "DIM" },
         ] },
         { y: 18, h: 46, draw: [
           { when: "sel0", rect: [2, 0, 236, 46], color: "LINE" },

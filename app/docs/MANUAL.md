@@ -115,7 +115,7 @@ each section, the tempo and, on its own line under the tempo, the mood.
 
 ### The main screen
 
-![The main screen: a status bar with INTRO 4/56 and 81 BPM; the song tile with the chord Abmaj7, Db LYDIAN and SLOW BLOOM; six part tiles; the knob strip KEY Db, TEMPO 81, MOTION 30, MOOD SUNNY](img/vnl-main.png "The main screen")
+![The main screen: a status bar with INTRO 4/56, VNL-1 and 81 BPM; the song tile with the chord Abmaj7, Db LYDIAN and SLOW BLOOM; six part tiles; the knob strip KEY Db, TEMPO 81, MOTION 30, MOOD SUNNY](img/vnl-main.png "The main screen")
 
 - **Status bar:** the section, the bar and the song's length in bars, LOOP while a section loops, and the tempo.
 - **Song tile:** the chord playing, the key and scale, the layout name, a change on its way, and a strip of the
