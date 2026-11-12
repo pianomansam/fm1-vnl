@@ -499,6 +499,8 @@ def gen_screens(data, vocab, rows, all_parts=None):
             by = a.get("by", 0) if kind == "nudge" else a.get("step", 1)
         elif kind == "jump":
             arg = a.get("i", -1)
+        elif kind == "lock" and a.get("byCursor") is not None:   # the highlighted line's part (None: nothing)
+            lis = lst(NONE8 if p is None else part(p) for p in a["byCursor"])
         elif "part" in a:
             arg = part(a["part"])
         if a.get("long"):

@@ -1562,6 +1562,21 @@
     },
     "SELECT": {
      "do": "cursor"
+    },
+    "SEQ": {
+     "do": "reroll",
+     "long": {
+      "byCursor": [
+       null,
+       "drums",
+       "bass",
+       "keys",
+       "lead",
+       "pad",
+       "texture"
+      ],
+      "do": "lock"
+     }
     }
    },
    "knobs": [

@@ -3249,6 +3249,20 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
     dl.press("SAVE");
     check(!dl.values().lockComp, "SAVE on a part's screen locks nothing");
   }
+  {   // on the main screen SEQ held locks the highlighted tile's part (never also a new song); on the song's line
+      // nothing; a short SEQ there is a new song
+    let tt = 0;
+    const got = [], dm = new D.Device(data, { set() {}, play() {}, reroll: () => got.push("song"), lockPart: (p, on) => got.push([p, on]) }, () => tt);
+    const hold = (c, ms) => { dm.keyDown(c); tt += ms; dm.tick(); dm.keyUp(c); };
+    dm.update(live(2)); dm.stack = ["main"]; dm.press("ALGO", 4);   // the lead's tile
+    hold("SEQ", D.HOLD_MS + 10);
+    const said = dm.said, on = dm.values().lockLead;
+    dm.press("ALGO", 3);   // (round to the song's line)
+    hold("SEQ", D.HOLD_MS + 10);
+    hold("SEQ", 100);
+    check(on && said === "LEAD LOCKED" && JSON.stringify(got) === '[["lead",true],"song"]',
+          `SEQ held on the main screen locks the lead's tile ("${said}"), the song's line nothing, a short SEQ a new song (${JSON.stringify(got)})`);
+  }
   {   // the Parts screen: K1 mutes the highlighted lane's part, K2 solos it (again: off), at once
     const got = [], dm = new D.Device(data, { set() {}, play() {}, mute: (p, on) => got.push(["mute", p, on]), solo: (p) => got.push(["solo", p]) }, () => t);
     dm.update({ ...live(3), activity: { bars: 64, lanes: {}, mute: [], solo: null } });

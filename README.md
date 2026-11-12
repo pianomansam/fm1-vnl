@@ -68,7 +68,7 @@ four-bar line, in time. VNL-1 is free software (GPL), built on [fm1-base](https:
 | Control | What it does |
 | --- | --- |
 | PLAY | Play or stop. After a stop, PLAY carries on from the bar it stopped in. |
-| SEQ | A new song. On a part's page, re-rolls only that part; hold it there (0.6 s) to lock the part (a padlock by its name and on its main-screen tile; hold again to unlock). A locked part plays on unchanged in every new song (its instrument, rhythm or style, register and variations; the drums' kit, pattern, kick, ride and variation; the texture's dust, noise and room) while the rest rolls. Locks last until unlocked or power-off. |
+| SEQ | A new song. On a part's page, re-rolls only that part; hold it there (0.6 s) to lock the part (a padlock by its name and on its main-screen tile; hold again to unlock); on the main screen, hold it to lock the highlighted part. A locked part plays on unchanged in every new song (its instrument, rhythm or style, register and variations; the drums' kit, pattern, kick, ride and variation; the texture's dust, noise and room) while the rest rolls. Locks last until unlocked or power-off. |
 | K1-K4 | On the main screen: key, tempo, motion, mood. On a part's page: that page's settings. |
 | ALGO | Picks a part. EDIT opens its page; SELECT steps its pages. |
 | PRESET | The highlighted part's instrument (or kit). |

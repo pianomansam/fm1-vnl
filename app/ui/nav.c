@@ -294,14 +294,21 @@ static void act(ui_nav_t *n, int ai, int detents)
         }
         return;
     }
-    case UA_LOCK: {                                   /* SEQ held on a part's screen: the part locked (again: unlocked),
+    case UA_LOCK: {                                   /* SEQ held on a part's screen (or the main screen, its
+                                                         highlighted tile's): the part locked (again: unlocked),
                                                          at once; a new song keeps it (app.c) */
         char name[UI_MSG];
-        int on;
-        if (a->arg == UI_NONE) return;
-        on = !(n->locks >> a->arg & 1u);
-        n->locks = (uint8_t)(on ? n->locks | 1u << a->arg : n->locks & ~(1u << a->arg));
-        title_name(sc, name);
+        int on, p = a->arg;
+        if (a->list)                                  /* the main screen: the highlighted tile's part (the song's line:
+                                                         none) */
+            p = n->cursor[id] < list(a->list)->n ? list_at(a->list, n->cursor[id]) : UI_NONE;
+        if (p == UI_NONE) return;
+        on = !(n->locks >> p & 1u);
+        n->locks = (uint8_t)(on ? n->locks | 1u << p : n->locks & ~(1u << p));
+        if (a->list)
+            copy(name, part_name(p, 1), UI_MSG);
+        else
+            title_name(sc, name);
         say(n, name, on ? "LOCKED" : "UNLOCKED");
         return;
     }

@@ -29,6 +29,7 @@
 //   { do: "turn", byCursor: [field | null, ...], step }  the field of the highlighted menu line (null: nothing)
 //   { do: "lock", part }   the part locked, or unlocked (a new song keeps a locked part: app.c's locks; values
 //                          lockDrums ... lockTexture say which are)
+//   { do: "lock", byCursor: [part | null, ...] }  the highlighted menu line's part (null: nothing)
 //   long: { ... }      on a key or a button, the action when held (a key 500 ms, a button 600 ms); let go sooner,
 //                      the action itself
 // `defaults` apply on every screen unless the screen maps that control itself (null: the control does nothing there).
@@ -362,6 +363,9 @@ export default {
         "OCT-": { do: "nudge", byCursor: [null, null, null, "compReg", "leadReg", null, null], by: -1 },
         "OCT+": { do: "nudge", byCursor: [null, null, null, "compReg", "leadReg", null, null], by: 1 },
         HOME: { go: "now", home: true },   // the now-playing screen, the home from then on (Sam, 2026-11-11)
+        // a press: a new song (the defaults'); held: the highlighted tile's part locked, or unlocked (Sam, 2026-11-12;
+        // on the song's line, nothing)
+        SEQ: { do: "reroll", long: { do: "lock", byCursor: [null, "drums", "bass", "keys", "lead", "pad", "texture"] } },
       },
       say: [{ when: "song", text: "CHORD {chord}. {section}, BAR {bar} OF {bars}" }, { when: "!song", text: "{idle}" },
             { when: "ready", text: ". {key} {mode}, {tempo} BPM" },

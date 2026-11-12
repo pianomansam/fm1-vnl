@@ -3,7 +3,8 @@
 # drums (the padlock by its name; no re-roll waits: a hold never also re-rolls), a short SEQ there no longer re-rolls
 # them; the main screen's drums tile shows the lock. SEQ there rolls a new song: the drums play as before (kit,
 # pattern, kick, ride, variation), the other parts rolled anew, no block late. SEQ held again unlocks them, and the
-# next song rolls the drums too. SAVE on a part's screen is the measures again, not a lock.
+# next song rolls the drums too. SAVE on a part's screen is the measures again, not a lock. On the main screen SEQ held
+# locks the highlighted tile's part.
 listen
 wait 1400
 tap PLAY
@@ -60,3 +61,29 @@ wait 6000
 expect songs 3
 expect same_song 0
 expect same_drums 0
+# on the main screen SEQ held locks the highlighted tile's part (the bass), with no new song; on the song's line a
+# hold does nothing; a short SEQ there is a new song, which keeps the bass
+spin ALGO 1
+wait 50
+press SEQ
+wait 700
+release SEQ
+wait 50
+said BASS LOCKED
+expect locks 2
+expect songs 3
+shot main-hold-lock.png
+spin ALGO -2
+press SEQ
+wait 700
+release SEQ
+wait 50
+expect locks 2
+expect songs 3
+remember
+tap SEQ
+wait 6000
+expect songs 4
+expect same_song 0
+expect same_bass 1
+expect late 0

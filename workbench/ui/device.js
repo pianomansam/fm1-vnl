@@ -523,6 +523,8 @@ export function problems(data, vocab = VOCAB) {
       else for (const f of a.byCursor) if (f !== null && !data.fields?.[f]) out.push(`${where}: no field "${f}"`);
     }
     else if (kind === "nudge" || kind === "turn") { if (!data.fields?.[a.field]) out.push(`${where}: no field "${a.field}"`); }
+    else if (kind === "lock" && a.byCursor !== undefined && (!Array.isArray(a.byCursor) || a.part !== undefined))
+      out.push(`${where}: a lock's byCursor is a list of parts, without part`);
     if (a.long) act(`${where}.long`, a.long);
   };
   for (const [k, t] of Object.entries(data.lines ?? {})) tpl(`lines.${k}`, t);
@@ -773,10 +775,14 @@ export class Device {
       }
       return null;
     }
-    if (a.do === "lock") {   // SAVE on a part's screen: the part locked (again: unlocked), at once; a new song keeps it
-      const on = !this.locks.has(a.part), name = String(this.screen.title?.split(":")[0] ?? a.part).toUpperCase();
-      if (on) this.locks.add(a.part); else this.locks.delete(a.part);
-      this.engine.lockPart?.(a.part, on);
+    if (a.do === "lock") {   // SEQ held: the part locked (again: unlocked), at once; a new song keeps it. On a part's
+      // screen its own; on the main screen the highlighted tile's (byCursor; the song's line: nothing)
+      const part = a.byCursor ? a.byCursor[this.cursor[this.id] ?? 0] : a.part;
+      if (!part) return null;
+      const name = a.byCursor ? (part === "keys" ? "COMP" : part.toUpperCase())
+                              : String(this.screen.title?.split(":")[0] ?? part).toUpperCase(), on = !this.locks.has(part);
+      if (on) this.locks.add(part); else this.locks.delete(part);
+      this.engine.lockPart?.(part, on);
       this.say(name, on ? "LOCKED" : "UNLOCKED");
       return null;
     }

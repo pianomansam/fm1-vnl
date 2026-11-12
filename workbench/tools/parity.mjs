@@ -246,6 +246,11 @@ const SEED = 72;
                                        { press: "HOME" }]),
     { check: "lock-main-all", expect: (st) => ["lockDrums", "lockBass", "lockComp", "lockLead", "lockPad", "lockTexture"]
                                                 .map((k) => is(k, v(st)[k], true)).join("") },
+    // on the main screen SEQ held unlocks (and locks) the highlighted tile's part, with no new song
+    { hold: ["SEQ", 700] }, { check: "lock-main-hold", expect: (st) => is("lockTexture", v(st).lockTexture, false) ||
+                                                                     is("said", st.said, "TEXTURE UNLOCKED") || is("songs", v(st).song, true) },
+    { spin: ["ALGO", -2] }, { hold: ["SEQ", 700] }, { check: "lock-main-hold-lead", expect: (st) => is("lockLead", v(st).lockLead, false) ||
+                                                                                                  is("said", st.said, "LEAD UNLOCKED") },
   ];
   for (const c of run(SEED, steps)) compare(c);
 }
