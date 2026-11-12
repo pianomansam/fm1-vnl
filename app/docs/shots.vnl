@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# The manual's screenshots (app/docs/MANUAL.md); not a test. After ./build.sh --host:
+#   app/build/host/vnl-1_host app/docs/shots.vnl app/build/shots
+# then copy app/build/shots/vnl-*.png to app/docs/img/, saved as palette PNGs (each has under 256 colors: lossless).
+wait 600
+shot vnl-splash.png
+wait 1000
+tap PLAY
+wait 9000
+shot vnl-main.png
+tap HOME
+wait 50
+shot vnl-now.png
+tap HOME
+wait 50
+# a change waiting for the next four-bar line
+spin K2 3
+wait 50
+shot vnl-pending.png
+tap EDIT
+wait 50
+shot vnl-song.png
+spin SELECT 1
+spin SELECT 1
+spin ALGO 1
+wait 50
+shot vnl-drums.png
+spin ALGO 1
+wait 50
+shot vnl-bass.png
+spin ALGO 1
+wait 50
+shot vnl-comp.png
+spin SELECT 1
+spin ALGO 1
+wait 50
+shot vnl-lead.png
+spin ALGO 1
+wait 50
+shot vnl-pad.png
+spin ALGO 1
+wait 50
+shot vnl-texture.png
+tap HOME
+wait 50
+tap SEL
+wait 50
+shot vnl-sections.png
+tap SEL
+tap ARP
+wait 2000
+shot vnl-parts.png
+tap ARP
+tap FX
+wait 50
+shot vnl-mixer.png
+tap FX
+tap GLO
+wait 50
+shot vnl-settings.png

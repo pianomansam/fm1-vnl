@@ -29,6 +29,13 @@ for p in ("index.html", "install/index.html", "manual/index.html"):
         f.write_text(h.replace("</head>", f'<style id="espresso">\n{css}</style>\n</head>'), encoding="utf-8")
         print(f"espresso {f}")
 EOF
+# the manual's HTML comments (its note to contributors): fm1-base's manual_html.py would print them as text
+"$PY" -c '
+import re, sys
+p = sys.argv[1]
+s = open(p, encoding="utf-8").read()
+open(p, "w", encoding="utf-8").write(re.sub(r"<p>&lt;!--.*?--&gt;</p>\n?", "", s, flags=re.S))
+' "$OUT/manual/index.html"
 "$PY" -c '
 import sys
 sys.path.insert(0, "tools")
