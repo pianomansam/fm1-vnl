@@ -314,7 +314,7 @@ const SEED = 72;
   // (stopped)
   const v = (st) => st.values, is = (what, got, want) => (got === want ? "" : `${what} ${JSON.stringify(got)}, not ${JSON.stringify(want)}`);
   const steps = [{ press: "PLAY" }, { wait: 5000 }];
-  for (const [d, name] of [[-1, "PLUM"], [1, "PLUM+"], [1, "OXBLOOD"], [1, "OXBLOOD+"], [1, "GARNET"], [1, "GARNET+"],
+  for (const [d, name] of [[-4, "PLUM"], [1, "PLUM+"], [1, "OXBLOOD"], [1, "OXBLOOD+"], [1, "GARNET"], [1, "GARNET+"],
                            [1, "BLACK CHERRY"]]) {
     steps.push({ screen: "prefs" }, { spin: ["SELECT", d] }, { check: `theme-${name}-prefs`, expect: (st) => is("theme", v(st).theme, name) });
     for (const id of ["splash", "now", "main", "pComp"]) steps.push({ screen: id }, { check: `theme-${name}-${id}` });

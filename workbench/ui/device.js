@@ -40,7 +40,7 @@ export const PALETTES = {
   "BLACK CHERRY": [RGB(34, 3, 12), RGB(152, 26, 68), RGB(201, 154, 160), RGB(255, 122, 89), RGB(255, 173, 143),
                    RGB(16, 0, 8), RGB(251, 232, 227)],
 };
-export const THEME = "PLUM+";   // app.h's APP_PALETTE 9: the theme until Settings' THEME picks another ({theme})
+export const THEME = "GARNET";   // app.h's APP_PALETTE 12: the theme until Settings' THEME picks another ({theme})
 // the record's disc (VINYL): about 55% of the theme's background, each RGB565 channel (c 55 + 50) / 100 (app.c's)
 export const vinyl = (bg) => {
   const k = (c) => Math.floor((c * 55 + 50) / 100);

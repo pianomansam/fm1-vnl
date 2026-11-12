@@ -50,8 +50,8 @@ export default {
     // a change made but not live yet: its value at once, "*" in front, in this color (Sam, 2026-11-06)
     PENDING: [250, 226, 90],
     // the record's disc on the splash and the now-playing screen (Sam's splash C1): about 55% of the theme's
-    // background (device.js's vinyl and app.c's, per theme: this is the default PLUM+'s, #1f072e)
-    VINYL: [16, 4, 24],
+    // background (device.js's vinyl and app.c's, per theme: this is the default GARNET's, #180008)
+    VINYL: [16, 0, 8],
   },
 
   // 1-bit icons, 9 px wide, rows of "#" (lit) and "." (the main screen's): one per part, drawn in its color

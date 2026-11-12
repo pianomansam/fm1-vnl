@@ -1,37 +1,37 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # The theme (Sam, 2026-11-12: comparing palettes on the FM-1 without a flash each): Settings (GLO), SELECT or ALGO
-# steps through base's palettes at once, PLUM+ by default; the device keeps the choice through a reboot, the splash in
-# it. A change while a song plays is kept only once all is silent, as the home is (a flash save stalls the audio).
+# steps through base's palettes at once, GARNET by default; the device keeps the choice through a reboot, the splash
+# in it. A change while a song plays is kept only once all is silent, as the home is (a flash save stalls the audio).
 listen
 wait 1400
-expect theme 9
+expect theme 12
 tap GLO
 wait 50
-said SETTINGS. THEME PLUM+
+said SETTINGS. THEME GARNET
 shot theme-settings.png
 spin SELECT -1
 wait 50
-said THEME PLUM
-expect theme 8
+said THEME OXBLOOD+
+expect theme 11
 spin ALGO 2
 wait 50
-said THEME OXBLOOD
-expect theme 10
+said THEME GARNET+
+expect theme 13
 wait 100
 expect theme_kept 1
 reboot
 expect splash 1
-expect theme 10
+expect theme 13
 wait 100
 shot theme-splash.png
 wait 1400
-expect theme 10
+expect theme 13
 tap PLAY
 wait 3000
 tap GLO
 spin SELECT 1
 wait 50
-said THEME OXBLOOD+
+said THEME BLACK CHERRY
 wait 2000
 expect theme_kept 0
 tap PLAY
@@ -39,24 +39,25 @@ wait 2000
 expect theme_kept 1
 reboot
 wait 1400
-expect theme 11
+expect theme 14
 tap GLO
-spin SELECT -2
+spin SELECT -6
 wait 50
+said THEME PLUM
+expect theme 8
+spin SELECT 1
+wait 50
+said THEME PLUM+
 expect theme 9
-spin SELECT 3
+spin ALGO 1
+wait 50
+said THEME OXBLOOD
+expect theme 10
+spin SELECT 2
 wait 50
 said THEME GARNET
 expect theme 12
-spin ALGO 1
-wait 50
-said THEME GARNET+
-expect theme 13
-spin SELECT 1
-wait 50
-said THEME BLACK CHERRY
-expect theme 14
-spin SELECT 1
+spin SELECT 3
 wait 50
 said THEME GREEN
 expect theme 0

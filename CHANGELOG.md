@@ -31,13 +31,12 @@ The first public release: a generative lo-fi hip hop firmware for the M-VAVE FM-
   for the stop). SAVE held on the Song screen shows the measures SAVE shows elsewhere. A USB backup holds the saved
   songs, the home, the theme and the bass saturation; `tools/fm1_songs.py` reads and writes single songs.
 - **Themes on the device:** Settings (GLO) has a working THEME: SELECT or ALGO steps through every palette fm1-base
-  carries, at once and kept through power-off, so the colors can be judged on the FM-1's own screen. PLUM+ (peach on
-  a saturated plum) is the default; PLUM, OXBLOOD and OXBLOOD+ are new beside teal, olive and espresso, and so are
-  three darker reds that stay saturated for the backlight: GARNET (red-black), GARNET+ (a touch more blue) and BLACK
-  CHERRY (darker still).
+  carries, at once and kept through power-off, so the colors can be judged on the FM-1's own screen. GARNET is the
+  default; GARNET+ (a touch more blue), BLACK CHERRY (darker still), OXBLOOD, OXBLOOD+, PLUM and PLUM+ are new beside
+  teal, olive, espresso and the black ones.
 - **A CPU guard** that sheds reverb tails and quiet voices before the audio can glitch.
-- **Tangerine on teal:** the screens, the workbench's device mock and the site share one palette (deep teal,
-  tangerine, sand white); fm1-base also carries an olive and mustard one.
+- **Coral on garnet:** the screens, the workbench's device mock and the site share one palette, GARNET (a
+  red-black like a dark wine, coral, blush white); Settings' THEME offers the others.
 - **A site with a browser installer** (Chrome or Edge), in the screens' colors: the firmware
   (`vnl-1-0.9.0.fwsc`), then the sample bank; the emulator and the manual beside it.
 - **For developers:** the host simulator, the browser emulator, the workbench, and patterns as MIDI and MusicXML.

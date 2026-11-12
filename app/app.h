@@ -9,7 +9,7 @@
 
 #define APP_NAME "VNL-1"
 #define APP_SPLASH_RGB RGB(242, 120, 72)
-#define APP_PALETTE 9u                   /* base/device/gfx.c's PALETTES: PLUM+ until Settings' THEME picks another */
+#define APP_PALETTE 12u                  /* base/device/gfx.c's PALETTES: GARNET until Settings' THEME picks another */
 #define APP_BLOCK 256u                   /* frames per audio block: 5.8 ms at 44.1 kHz */
 
 /* The device's UI: 1 the screens' runtime (app/ui: the workbench's screens, generated;

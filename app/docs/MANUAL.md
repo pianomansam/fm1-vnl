@@ -56,7 +56,7 @@ SYNTHS ONLY, and every part plays a synth or modeled instrument instead. Write t
 
 ## 2. How VNL-1 plays
 
-![The splash: half a record on the left with a tangerine label, the wordmark vnl-1 and LO-FI GENERATOR](img/vnl-splash.png "The splash")
+![The splash: half a record on the left with a coral label, the wordmark vnl-1 and LO-FI GENERATOR](img/vnl-splash.png "The splash")
 
 At power-on the splash shows for about a second while the record spins up, then the home screen. Press any control
 to skip it. VNL-1 starts stopped, with a song ready. Press PLAY.
@@ -182,12 +182,12 @@ them from song to song. The knob that moves a fader is named under it.
 
 ### Settings (GLO)
 
-![The Settings screen: MOVEMENT, SCREEN READER, KEY LIGHTS, BRIGHTNESS, MAIN SCREEN and ADVANCED RULES, marked PLACEHOLDER](img/vnl-settings.png "Settings")
+![The Settings screen: two working rows, THEME GARNET and BASS SATURATION ON; under NOT WORKING YET, MOVEMENT, SCREEN READER, KEY LIGHTS, BRIGHTNESS, MAIN SCREEN and ADVANCED RULES](img/vnl-settings.png "Settings")
 
-**THEME** works: turn SELECT or ALGO to step through the screen's color themes (PLUM+, the default, then OXBLOOD,
-OXBLOOD+, the darker reds GARNET, GARNET+ and BLACK CHERRY, the black ones GREEN to MONO, ESPRESSO, TEAL, OLIVE and
-PLUM). Every screen changes at once, the splash too. The device keeps the theme through power-off (written once
-nothing is playing, as the home is) and a USB backup holds it.
+**THEME** works: turn SELECT or ALGO to step through the screen's color themes (GARNET, the default: coral on a
+red-black; then GARNET+, BLACK CHERRY, the black ones GREEN, AMBER, CYAN, RED and MONO, then ESPRESSO, TEAL, OLIVE,
+PLUM, PLUM+, OXBLOOD and OXBLOOD+). Every screen changes at once, the splash too. The device keeps the theme through
+power-off (written once nothing is playing, as the home is) and a USB backup holds it.
 
 **BASS SATURATION** works: ON (the default) gives every bass but the sub its gentle harmonics, so the line carries on
 small speakers; OFF leaves the bass clean, for good speakers, where the harmonics can sound buzzy. Press EDIT or turn
