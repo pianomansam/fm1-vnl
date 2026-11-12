@@ -360,7 +360,8 @@ export default {
         ALGO: { do: "cursor" }, SELECT: { do: "cursor" }, EDIT: { go: "cursor" },
         // the highlighted part's instrument (or kit), a request as a knob's (Sam, 2026-11-06): a field a menu line
         // (null: nothing there)
-        PRESET: { do: "turn", byCursor: [null, "drumKit", "bassIns", "compIns", "leadIns", "padIns", null], step: 1 },
+        PRESET: { do: "turn", byCursor: [null, "drumKit", "bassIns", "compIns", "leadIns", "padIns", null], step: 1,
+                  wrap: true },   // past the list's last, its first, and back (Sam, 2026-11-12); a part's K1 stops
         // OCT-/OCT+: the highlighted part's register, as on its own screen (Sam, 2026-11-06): the comp's and the lead's
         "OCT-": { do: "nudge", byCursor: [null, null, null, "compReg", "leadReg", null, null], by: -1 },
         "OCT+": { do: "nudge", byCursor: [null, null, null, "compReg", "leadReg", null, null], by: 1 },

@@ -170,8 +170,9 @@ void ui_update(ui_nav_t *n, const snap_t *s, uint32_t ms)
     ui_list_off(n);
 }
 
-/* fieldMove: an options field steps through its choices (a switch wraps, the rest stop at the ends), else fieldStep */
-static int field_move(ui_nav_t *n, int f, int v, int d)
+/* fieldMove: an options field steps through its choices (a switch wraps, the rest stop at the ends; wrap: this
+   control's turn wraps them too), else fieldStep */
+static int field_move(ui_nav_t *n, int f, int v, int d, int wrap)
 {
     const ui_field_t *def = &UI_FIELDS[f];
     if (def->kind == UI_FK_OPTIONS) {
@@ -182,7 +183,7 @@ static int field_move(ui_nav_t *n, int f, int v, int d)
         for (i = 0; i < len && o[i] != v; i++) {}
         if (i == len) i = 0;
         if (!len) return v;
-        if (def->wrap) return o[(((i + d) % len) + len) % len];
+        if (def->wrap || wrap) return o[(((i + d) % len) + len) % len];
         i += d;
         return o[i < 0 ? 0 : i >= len ? len - 1 : i];
     }
@@ -193,7 +194,7 @@ static int field_move(ui_nav_t *n, int f, int v, int d)
 
 /* a knob's request: from the value waiting, else the song's; on the next 4-bar boundary (unless the song ends first);
    turning back to what plays undoes it (one already sent is set back); a `now` switch acts at once */
-static void request(ui_nav_t *n, int f, int d)
+static void request(ui_nav_t *n, int f, int d, int wrap)
 {
     const ui_field_t *def = &UI_FIELDS[f];
     ui_bag_t b;
@@ -203,7 +204,7 @@ static void request(ui_nav_t *n, int f, int d)
     bag(n, &b);
     playing = ui_field_now(&b, f);
     from = n->req_at[f] >= 0 ? n->req_val[f] : playing;
-    v = field_move(n, f, from, d);
+    v = field_move(n, f, from, d, wrap);
     if (def->now) {
         if (v != from && n->eng && n->eng->set) n->eng->set(def->row, v);
         say(n, UI_STR(def->name), ui_field_text(&b, f, v, t));
@@ -410,7 +411,7 @@ static void act(ui_nav_t *n, int ai, int detents)
     case UA_TURN:
     case UA_NUDGE: {                                  /* byCursor: the highlighted line's field */
         int f = a->list ? (n->cursor[id] < list(a->list)->n ? list_at(a->list, n->cursor[id]) : UI_NONE) : a->arg;
-        if (f != UI_NONE) request(n, f, a->kind == UA_TURN ? detents * a->by : a->by);
+        if (f != UI_NONE) request(n, f, a->kind == UA_TURN ? detents * a->by : a->by, a->wrap);
         return;
     }
     default:

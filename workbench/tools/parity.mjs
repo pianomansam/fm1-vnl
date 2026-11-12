@@ -232,6 +232,17 @@ const SEED = 72;
   ];
   for (const c of run(SEED, steps)) compare(c);
 }
+{   // the main screen's PRESET wraps: the bass's K1 turned down to its list's first (it stops there), then PRESET
+  // back one on the main screen: its last
+  const v = (st) => st.values, is = (what, got, want) => (got === want ? "" : `${what} ${JSON.stringify(got)}, not ${JSON.stringify(want)}`);
+  const steps = [
+    { press: "PLAY" }, { wait: 5000 }, { screen: "main" }, { spin: ["ALGO", 2] }, { press: "EDIT" }, { spin: ["K1", -12] },
+    { check: "preset-first", expect: (st) => is("bassInsFirst", !!v(st).bassInsFirst, true) },
+    { press: "HOME" }, { spin: ["PRESET", -1] },
+    { check: "preset-wrap", expect: (st) => is("bassInsLast", !!v(st).bassInsLast, true) || is("bassInsFirst", !!v(st).bassInsFirst, false) },
+  ];
+  for (const c of run(SEED, steps)) compare(c);
+}
 {   // a part's lock: SEQ held on its screen (the padlock by its name), the padlock on its main-screen tile, a short SEQ
   // there refused; every part locked: each tile marked
   const v = (st) => st.values, is = (what, got, want) => (got === want ? "" : `${what} ${JSON.stringify(got)}, not ${JSON.stringify(want)}`);

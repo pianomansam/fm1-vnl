@@ -130,7 +130,7 @@ each section, and the tempo.
 | K4 | Mood: sad, wistful, warm or sunny. |
 | ALGO or SELECT | Move the highlight through the song tile and the part tiles. |
 | EDIT | Open the highlighted tile's screen. |
-| PRESET | The highlighted part's instrument (the drums' kit). Nothing on the song or texture tile. |
+| PRESET | The highlighted part's instrument (the drums' kit). Past the last one it goes round to the first, and back. Nothing on the song or texture tile. |
 | OCT- / OCT+ | The highlighted part's register: the comp's or the lead's. |
 | SEQ, held | Lock or unlock the highlighted part, or the song line on the song tile (see Locking). A short press is a new song. |
 | HOME | The now-playing screen, which becomes the home. |

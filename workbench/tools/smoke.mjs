@@ -3220,6 +3220,19 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
     const k = dj.values();
     check(k.pending === "GO TO GROOVE IN 4 BARS" && k.sec1 === "*GROOVE", `the second white key on the song map: "${k.pending}"`);
   }
+  {   // the main screen's PRESET wraps the highlighted part's instrument list (past the last, the first; before the
+      // first, the last); the bass screen's K1 stops at its ends
+    const opts = [{ value: 5, name: "UPRIGHT" }, { value: 6, name: "ELECTRIC" }, { value: 7, name: "SUB" }];
+    const rows = (v) => ({ values: { bass: v }, live: { bass: v }, options: { bass: opts } });
+    const dw = new D.Device(data, { set() {}, play() {} }, () => t);
+    dw.update({ ...live(2), rows: rows(7) }); dw.stack = ["main"]; dw.press("ALGO", 2); dw.press("PRESET", 1);
+    const up = dw.req.bassIns?.val;
+    dw.req = {}; dw.update({ ...live(2), rows: rows(5) }); dw.press("PRESET", -1);
+    const down = dw.req.bassIns?.val;
+    dw.req = {}; dw.stack = ["main", "pBass"]; dw.update({ ...live(2), rows: rows(7) }); dw.press("K1", 1);
+    check(up === 5 && down === 7 && dw.req.bassIns === undefined,
+          `PRESET on the main screen wraps the bass list (SUB +1: ${up}, UPRIGHT -1: ${down}); K1 on Bass stops at SUB`);
+  }
   {   // SEQ on a part's screen re-rolls that part on the 4-bar boundary; on the main screen, a new song
     const got = [], dr = new D.Device(data, { set() {}, play() {}, rerollPart: (p) => got.push(p), reroll: () => got.push("song") }, () => t);
     dr.update(live(2)); dr.stack = ["main", "pBass"]; dr.press("SEQ");

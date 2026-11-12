@@ -184,11 +184,12 @@ const fieldFrac = (def, v, rows) => {
   return o.length > 1 && i >= 0 ? i / (o.length - 1) : 0;
 };
 // a step of d from v: an options field steps through its row's options (no wrap), else fieldStep
-export function fieldMove(def, v, d, rows) {
+// (wrap: this control's turn wraps a list's choices too: the main screen's PRESET)
+export function fieldMove(def, v, d, rows, wrap = false) {
   if (!def.options) return fieldStep(def, v, d);
   const o = rows?.options?.[def.row] ?? [], i = o.findIndex((x) => String(x.value) === String(v));
   if (!o.length) return v;
-  if (def.wrap) return o[((((i < 0 ? 0 : i) + d) % o.length) + o.length) % o.length].value;   // a switch: either way flips it
+  if (def.wrap || wrap) return o[((((i < 0 ? 0 : i) + d) % o.length) + o.length) % o.length].value;   // a switch: either way flips it
   return o[Math.min(Math.max((i < 0 ? 0 : i) + d, 0), o.length - 1)].value;
 }
 // the lock values (a part locked: SAVE on its screen) and their parts (nav.h's locks)
@@ -842,17 +843,17 @@ export class Device {
       this.engine.play();
     } else if (a.do === "turn" || a.do === "nudge") {
       const field = a.byCursor ? a.byCursor[this.cursor[this.id] ?? 0] : a.field;   // byCursor: the highlighted line's
-      if (field) this.request(field, a.do === "turn" ? detents * (a.step ?? 1) : a.by);
+      if (field) this.request(field, a.do === "turn" ? detents * (a.step ?? 1) : a.by, !!a.wrap);
     }
     return null;
   }
 
   // a knob's request (app.c's input() and command()): from the value waiting, else the song's; on the next 4-bar
   // boundary (unless the song ends first)
-  request(f, d) {
+  request(f, d, wrap = false) {
     const def = this.data.fields[f];
     if (!this.hasSong()) return;
-    const l = this.live, bar = l.bar - 1, from = this.req[f]?.val ?? fieldValue(def, f, l.roll, l.rows), v = fieldMove(def, from, d, l.rows);
+    const l = this.live, bar = l.bar - 1, from = this.req[f]?.val ?? fieldValue(def, f, l.roll, l.rows), v = fieldMove(def, from, d, l.rows, wrap);
     if (def.now) {   // a switch that acts at once (the loop): no waiting for a 4-bar boundary
       if (v !== from) { this.engine.set(def.row, v); if (l.rows?.values) l.rows.values[def.row] = v; }
       this.say(def.name, fieldText(def, v, l.roll.mode ?? 0, l.rows));

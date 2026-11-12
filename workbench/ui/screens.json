@@ -1579,7 +1579,8 @@
       null
      ],
      "do": "turn",
-     "step": 1
+     "step": 1,
+     "wrap": true
     },
     "SELECT": {
      "do": "cursor"

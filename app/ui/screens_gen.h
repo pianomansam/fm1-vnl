@@ -121,8 +121,8 @@ typedef struct { uint8_t parts, label, row_h, window; uint16_t keys, tags; uint8
 /* an action. arg: a go's screen (or UI_GO_*), a turn's or nudge's field, a jump's section (255: the cursor's),
    a mute's, solo's, reroll's or level's part (255: the highlighted lane's, or the song); by: a turn's step or
    a nudge's amount (a go's: 1 the screen becomes the home); lng: the long press's action (0 none); list: a
-   turn's byCursor fields (255: none there) */
-typedef struct { uint8_t kind, arg; int8_t by; uint8_t lng, list; } ui_action_t;
+   turn's byCursor fields (255: none there); wrap: a turn's choices wrap around at their ends */
+typedef struct { uint8_t kind, arg; int8_t by; uint8_t lng, list, wrap; } ui_action_t;
 #define UI_GO_BACK 253
 #define UI_GO_HOME 254
 #define UI_GO_CURSOR 252

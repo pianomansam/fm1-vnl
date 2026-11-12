@@ -505,7 +505,7 @@ def gen_screens(data, vocab, rows, all_parts=None):
             arg = part(a["part"])
         if a.get("long"):
             lng = action(f"{where}.long", a["long"])
-        t = (akinds.index(kind) + 1, arg & 0xFF if arg >= 0 else NONE8, by, lng, lis)
+        t = (akinds.index(kind) + 1, arg & 0xFF if arg >= 0 else NONE8, by, lng, lis, 1 if a.get("wrap") else 0)
         if t not in actions:
             actions.append(t)
         return actions.index(t)
@@ -761,8 +761,8 @@ def gen_screens(data, vocab, rows, all_parts=None):
         "/* an action. arg: a go's screen (or UI_GO_*), a turn's or nudge's field, a jump's section (255: the cursor's),\n"
         "   a mute's, solo's, reroll's or level's part (255: the highlighted lane's, or the song); by: a turn's step or\n"
         "   a nudge's amount (a go's: 1 the screen becomes the home); lng: the long press's action (0 none); list: a\n"
-        "   turn's byCursor fields (255: none there) */\n"
-        "typedef struct { uint8_t kind, arg; int8_t by; uint8_t lng, list; } ui_action_t;\n"
+        "   turn's byCursor fields (255: none there); wrap: a turn's choices wrap around at their ends */\n"
+        "typedef struct { uint8_t kind, arg; int8_t by; uint8_t lng, list, wrap; } ui_action_t;\n"
         f"#define UI_GO_BACK {GO_SPECIAL['back']}\n#define UI_GO_HOME {GO_SPECIAL['home']}\n#define UI_GO_CURSOR {GO_SPECIAL['cursor']}\n"
         "#define UI_NONE 255\n"
         "/* a list (UI_LISTS): its bytes in UI_LIST_DATA; list 0 is empty */\n"
@@ -850,7 +850,7 @@ def gen_screens(data, vocab, rows, all_parts=None):
              "    {" + ", ".join(map(str, k)) + "},\n" for k in knob_styles) + "};\n",
          f"const ui_lanes_t UI_LANE_ITEMS[{max(1, len(lane_items))}] = {{\n" + "".join(
              "    {" + ", ".join(map(str, k)) + "},\n" for k in lane_items) + "};\n",
-         f"const ui_action_t UI_ACTIONS[{len(actions)}] = {{\n    {{0, {NONE8}, 0, 0, 0}},\n" + "".join(
+         f"const ui_action_t UI_ACTIONS[{len(actions)}] = {{\n    {{0, {NONE8}, 0, 0, 0, 0}},\n" + "".join(
              "    {" + ", ".join(map(str, a)) + "},\n" for a in actions[1:]) + "};\n",
          f"const ui_list_t UI_LISTS[{len(lists)}] = {{" + ", ".join(f"{{{a}, {n}}}" for a, n in list_off) + "};\n",
          f"const uint8_t UI_LIST_DATA[{max(1, len(flat))}] = {{" + ", ".join(map(str, flat or [0])) + "};\n",
