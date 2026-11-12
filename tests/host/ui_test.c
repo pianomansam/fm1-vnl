@@ -433,11 +433,12 @@ static void test_nav_sections(void)
 }
 
 /* ui_kit_pick (desk.js's approvedKit; smoke.mjs holds it to the page's over 300 seeds): only a retired or removed
-   rolled kit (the mixed sampled kits: removed 2026-11-10) moves, onto an approved kit of the song's family; with no bank never onto a sampled shipped kit */
+   rolled kit (the mixed sampled kits: removed 2026-11-10) moves, onto an approved kit of the song's family; with no
+   bank never onto a sampled shipped kit; onto Room - brushes only in a sunny song (Sam, 2026-11-12) */
 static void test_kit_pick(void)
 {
     uint32_t seed;
-    int moved = 0, kept = 0;
+    int moved = 0, kept = 0, room_br = 0;
     for (seed = 1; seed <= 300; seed++) {
         song_roll_t r;
         int was, k, nb;
@@ -451,6 +452,10 @@ static void test_kit_pick(void)
                   "seed %u: retired or removed kit %d picks %d (no bank: %d)", (unsigned)seed, was, k, nb);
             CHECK(nb >= 0 && !SONG_KIT_IS_SAMPLED(nb - SONG_KIT_PRESET), "seed %u: no bank, yet kit %d", (unsigned)seed,
                   nb);
+            CHECK(k != SONG_KIT_PRESET + SONG_KIT_SAMPLED + 2 || r.v[RF_MOOD] == 3,
+                  "seed %u: Room - brushes in a song of mood %d (sunny only: Sam, 2026-11-12)", (unsigned)seed,
+                  r.v[RF_MOOD]);
+            room_br += k == SONG_KIT_PRESET + SONG_KIT_SAMPLED + 2;
             moved++;
         } else {
             CHECK(k == -1 && nb == -1, "seed %u: approved kit %d moved to %d", (unsigned)seed, was, k);
@@ -458,6 +463,7 @@ static void test_kit_pick(void)
         }
     }
     CHECK(moved > 0, "no seed in 300 rolled a retired kit (%d kept)", kept);
+    CHECK(room_br > 0, "no sunny song in 300 picked Room - brushes");
 }
 
 int main(int argc, char **argv)

@@ -394,11 +394,14 @@ export class Desk {
     if (was?.status !== "retired" && was?.status !== "removed") return null;
     const no = new Set();   // a kit the engine didn't take
     for (;;) {
-      const v = pickFor(row("kit"), { ...this.state, unavailable: no }, this.opts, seeded(this.values.seed), this.lib);
-      if (v === null) return null;
+      const p = pickFor(row("kit"), { ...this.state, unavailable: no }, this.opts, seeded(this.values.seed), this.lib);
+      if (p === null) return null;
+      // Room - brushes is for sunny songs (Sam, 2026-11-12): another mood's plays Soft brushes (kitpick.c's)
+      const k = this.opts.kits.find((x) => x.id === p);
+      const v = k?.moods && !k.moods.includes(this.values.mood) ? k.otherwise : p;
       if ((await this.stage("kit", v)) !== false && (await this.read()).kit === v)
-        return `Kit: ${was.name} is retired; the song plays ${this.opts.kits.find((k) => k.id === v)?.name} instead.`;
-      no.add(v);
+        return `Kit: ${was.name} is retired; the song plays ${this.opts.kits.find((x) => x.id === v)?.name} instead.`;
+      no.add(v).add(p);
     }
   }
 

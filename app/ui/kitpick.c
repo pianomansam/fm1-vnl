@@ -5,6 +5,11 @@
 #include "choices_gen.h"
 #include "library.h"
 
+/* Room - brushes (the kit row's value) is for sunny songs (Sam, 2026-11-12): a song of another mood the pick lands it
+   on plays Soft brushes, the gentler brushes, instead; its mood as rolled (a live mood change keeps the kit) */
+#define KIT_ROOM_BRUSHES (SONG_KIT_PRESET + SONG_KIT_SAMPLED + 2)
+#define MOOD_IX_SUNNY 3                  /* (RF_MOOD: LIB_MOODS' index) */
+
 int ui_kit_pick(const song_roll_t *r, int sampled_ok)
 {
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
@@ -29,5 +34,7 @@ int ui_kit_pick(const song_roll_t *r, int sampled_ok)
         return -1;
     x = x * 1103515245u + 12345u;        /* floor(x / 2^32 * n), exactly, in 32 bits */
     q = ((x >> 16) * (uint32_t)n + (((x & 0xFFFFu) * (uint32_t)n) >> 16)) >> 16;
+    if (xs[q % (uint32_t)n] == KIT_ROOM_BRUSHES && r->v[RF_MOOD] != MOOD_IX_SUNNY)
+        return KIT_BRUSHES;
     return xs[q % (uint32_t)n];
 }

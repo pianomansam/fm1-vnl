@@ -1124,7 +1124,7 @@ console.log("kits: the device's pick is the page's");
 {
   const ex = await load(), call = caller(ex);
   const desk = new Desk(call, C, OPTS, await call("wb_library"));
-  const diff = [], picked = new Set();
+  const diff = [], picked = new Set(), roomBr = { sunny: 0, other: 0 };
   let swapped = 0;
   for (let seed = 1; seed <= 300; seed++) {
     ex.wb_seed(seed);
@@ -1132,8 +1132,11 @@ console.log("kits: the device's pick is the page's");
     const was = desk.values.kit, c = ex.wb_kit_pick();
     await desk.approvedKit();
     if (c >= 0) { swapped++; picked.add(c); }
+    if (c === C.DRUMS.PRESET + C.DRUMS.BRUSHES) roomBr[desk.values.mood === 3 ? "sunny" : "other"]++;
     if ((c < 0 ? was : c) !== desk.values.kit) diff.push(`${seed}: ${was} -> page ${desk.values.kit}, device ${c}`);
   }
+  check(roomBr.sunny > 0 && !roomBr.other,
+        `Room - brushes is picked for sunny songs only (Sam, 2026-11-12: ${roomBr.sunny} sunny, ${roomBr.other} not)`);
   check(!diff.length && swapped > 50 && picked.size === OPTS.kits.filter((k) => k.status === "approved").length,
         `seeds 1-300: the device picks the page's kit for every retired one (${swapped} swapped, onto ${[...picked].sort((x, y) => x - y).join(" ")})${diff.length ? `; differ: ${diff.slice(0, 5).join(", ")}` : ""}`);
 }

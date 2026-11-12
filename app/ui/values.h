@@ -49,8 +49,8 @@ int ui_true(const ui_bag_t *b, int cond_id);
 void ui_song_rows(const song_roll_t *r, int16_t rows[ROW_N]);
 /* desk.js's approvedKit: a song rolled on a retired kit plays an approved kit of its family instead (rows.js's
    familyOf: the keys', else the lead's, else acoustic), the seed's pick (pickFor's choice with desk.js's seeded
-   generator), a sampled shipped kit only with sampled_ok (the bank). The kit row's value, or -1: the rolled kit is
-   approved (or none fits) */
+   generator), a sampled shipped kit only with sampled_ok (the bank); Room - brushes only in a sunny song (another
+   mood's plays Soft brushes: Sam, 2026-11-12). The kit row's value, or -1: the rolled kit is approved (or none fits) */
 int ui_kit_pick(const song_roll_t *r, int sampled_ok);
 /* for the navigator: a field's text for value v (the mock's fieldText), its value as the song plays it, its choices
    in order (the device's options: values into out, UI_OPTS_MAX at most; the count) */

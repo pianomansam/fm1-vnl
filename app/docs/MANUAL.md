@@ -313,7 +313,7 @@ four-bar line is saved as if it had landed.
 
 | Page | K1 | K2 | K3 | K4 |
 | --- | --- | --- | --- | --- |
-| 1 | Kit: Soft brushes, 808, CR-78, Crunchy machine, Boom-bap machine, Jazz machine, Room - big, Room - brushes | Pattern: three boom bap patterns, two half-time, a sparse one, brushes, a two-bar half-time | Kick: the pattern's own, or one of nine two-bar kick phrases | Ride: as rolled, none, throughout, or one section (the sampled kits) |
+| 1 | Kit: Soft brushes, 808, CR-78, Crunchy machine, Boom-bap machine, Jazz machine, Room - big, Room - brushes (a new song lands on it only when its mood is sunny; any other mood plays Soft brushes in its place; picked here, it plays in any mood) | Pattern: three boom bap patterns, two half-time, a sparse one, brushes, a two-bar half-time | Kick: the pattern's own, or one of nine two-bar kick phrases | Ride: as rolled, none, throughout, or one section (the sampled kits) |
 | 2 | Variation: a re-roll of the drums' details | | | |
 
 ### Bass

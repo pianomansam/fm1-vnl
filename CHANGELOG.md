@@ -6,8 +6,9 @@ The first public release: a generative lo-fi hip hop firmware for the M-VAVE FM-
 
 - **Endless songs:** each from a seed, with its own key, mode, tempo, chords, layout and band; a short silence, then
   the next. 37 instrument sets in five flavors, 44 progressions, five song layouts, four moods.
-- **Six parts:** drums (eight kits, two of them sampled), bass (four), comp (eight instruments, eight rhythms, strummed
-  guitars), lead (eight instruments, eight styles, looped like a sample), pad, and texture (dust, noise bed, room).
+- **Six parts:** drums (eight kits, two of them sampled; Room - brushes only in sunny songs), bass (four), comp
+  (eight instruments, eight rhythms, strummed guitars), lead (eight instruments, eight styles, looped like a sample),
+  pad, and texture (dust, noise bed, room).
 - **Sampled instruments:** piano, nylon, electric and jazz guitar, cello, harp and two room kits, from CC0 libraries, in
   a sample bank written once, by the browser installer or `tools/fm1_bank.py`.
 - **A lo-fi mix:** wow and flutter, saturation, grit, chorus, delay, plate reverb, kick ducking and a whole-mix stutter.
