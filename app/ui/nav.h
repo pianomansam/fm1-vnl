@@ -31,7 +31,21 @@ typedef struct {
     int (*soloed)(void);                 /* the part soloed, -1 none */
     void (*level)(int part, int db);
     int (*level_get)(int part);
+    /* the saved songs (app/ui/saved.c): the song shown saved into a slot (-1: the first free one): the slot, or
+       UI_SAVE_*; a slot's song the next one (0, UI_SAVE_EMPTY); a slot deleted (0, UI_SAVE_EMPTY); the device's
+       measures in the header (SAVE held on the Song screen) */
+    int (*save)(int slot);
+    int (*recall)(int slot);
+    int (*erase)(int slot);
+    void (*readout)(void);
 } ui_engine_t;
+
+/* the saved songs' slots as the list shows them (saved.c keeps them; the flash holds the songs): state UI_SLOT_*,
+   the song's layout (its map's id), key, mode and tempo, a hash of its record (the same song saved again: its slot) */
+enum { UI_SLOTS = 16, UI_SLOT_EMPTY = 0, UI_SLOT_KEPT, UI_SLOT_WAITING };   /* (WAITING: its save waits for silence) */
+/* no free slot, no song, another save waits, an empty slot */
+enum { UI_SAVE_FULL = -1, UI_SAVE_NONE = -2, UI_SAVE_BUSY = -3, UI_SAVE_EMPTY = -4 };
+typedef struct { uint8_t state, map, key, mode, tempo; uint16_t hash; } ui_slot_t;
 
 typedef struct {
     uint8_t stack[UI_STACK], depth;      /* the breadcrumb: stack[depth - 1] the screen shown (depth >= 1) */
@@ -63,6 +77,7 @@ typedef struct {
     uint32_t seed;                       /* the song last seen (a new one: home, nothing waits) */
     uint8_t seen;
     const snap_t *live;                  /* the snapshot last seen (ui_update) */
+    const ui_slot_t *slots;              /* the saved songs' slots (UI_SLOTS; NULL: none) */
     const ui_engine_t *eng;
 } ui_nav_t;
 

@@ -4116,7 +4116,10 @@
        "color": "GRAY",
        "font": "T",
        "text": "{section}  {bar}/{bars}",
-       "when": "song",
+       "when": [
+        "song",
+        "!msg"
+       ],
        "x": 8,
        "y": 2
       },
@@ -4124,7 +4127,10 @@
        "color": "GRAY",
        "font": "T",
        "text": "{idle}",
-       "when": "!song",
+       "when": [
+        "!song",
+        "!msg"
+       ],
        "x": 8,
        "y": 2
       },
@@ -4133,7 +4139,26 @@
        "font": "T",
        "right": 232,
        "text": "{tempo} BPM",
-       "when": "known",
+       "when": [
+        "known",
+        "!msg"
+       ],
+       "y": 2
+      },
+      {
+       "color": "WHITE",
+       "font": "T",
+       "text": "{msg0}",
+       "when": "msg",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "after": 6,
+       "color": "HI",
+       "font": "T",
+       "text": "{msg1}",
+       "when": "msg",
        "y": 2
       }
      ],
@@ -4332,7 +4357,7 @@
       {
        "color": "DIM",
        "font": "T",
-       "text": "ALGO PART   SELECT PAGE",
+       "text": "ALGO PART   SELECT PAGE   SAVE   REC SAVED",
        "x": 8,
        "y": 8
       },
@@ -4354,6 +4379,15 @@
     },
     "EDIT": {
      "go": "back"
+    },
+    "REC": {
+     "go": "saved"
+    },
+    "SAVE": {
+     "do": "save",
+     "long": {
+      "do": "readout"
+     }
     },
     "SELECT": {
      "do": "page"
@@ -4406,7 +4440,10 @@
        "color": "GRAY",
        "font": "T",
        "text": "{section}  {bar}/{bars}",
-       "when": "song",
+       "when": [
+        "song",
+        "!msg"
+       ],
        "x": 8,
        "y": 2
       },
@@ -4414,7 +4451,10 @@
        "color": "GRAY",
        "font": "T",
        "text": "{idle}",
-       "when": "!song",
+       "when": [
+        "!song",
+        "!msg"
+       ],
        "x": 8,
        "y": 2
       },
@@ -4423,7 +4463,26 @@
        "font": "T",
        "right": 232,
        "text": "{tempo} BPM",
-       "when": "known",
+       "when": [
+        "known",
+        "!msg"
+       ],
+       "y": 2
+      },
+      {
+       "color": "WHITE",
+       "font": "T",
+       "text": "{msg0}",
+       "when": "msg",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "after": 6,
+       "color": "HI",
+       "font": "T",
+       "text": "{msg1}",
+       "when": "msg",
        "y": 2
       }
      ],
@@ -4544,7 +4603,7 @@
       {
        "color": "DIM",
        "font": "T",
-       "text": "ALGO PART   SELECT PAGE",
+       "text": "ALGO PART   SELECT PAGE   SAVE   REC SAVED",
        "x": 8,
        "y": 8
       },
@@ -4566,6 +4625,15 @@
     },
     "EDIT": {
      "go": "back"
+    },
+    "REC": {
+     "go": "saved"
+    },
+    "SAVE": {
+     "do": "save",
+     "long": {
+      "do": "readout"
+     }
     },
     "SELECT": {
      "do": "page"
@@ -4606,7 +4674,10 @@
        "color": "GRAY",
        "font": "T",
        "text": "{section}  {bar}/{bars}",
-       "when": "song",
+       "when": [
+        "song",
+        "!msg"
+       ],
        "x": 8,
        "y": 2
       },
@@ -4614,7 +4685,10 @@
        "color": "GRAY",
        "font": "T",
        "text": "{idle}",
-       "when": "!song",
+       "when": [
+        "!song",
+        "!msg"
+       ],
        "x": 8,
        "y": 2
       },
@@ -4623,7 +4697,26 @@
        "font": "T",
        "right": 232,
        "text": "{tempo} BPM",
-       "when": "known",
+       "when": [
+        "known",
+        "!msg"
+       ],
+       "y": 2
+      },
+      {
+       "color": "WHITE",
+       "font": "T",
+       "text": "{msg0}",
+       "when": "msg",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "after": 6,
+       "color": "HI",
+       "font": "T",
+       "text": "{msg1}",
+       "when": "msg",
        "y": 2
       }
      ],
@@ -4822,7 +4915,7 @@
       {
        "color": "DIM",
        "font": "T",
-       "text": "ALGO PART   SELECT PAGE",
+       "text": "ALGO PART   SELECT PAGE   SAVE   REC SAVED",
        "x": 8,
        "y": 8
       },
@@ -4844,6 +4937,15 @@
     },
     "EDIT": {
      "go": "back"
+    },
+    "REC": {
+     "go": "saved"
+    },
+    "SAVE": {
+     "do": "save",
+     "long": {
+      "do": "readout"
+     }
     },
     "SELECT": {
      "do": "page"
@@ -5335,6 +5437,454 @@
     "SETTINGS, A PLACEHOLDER"
    ],
    "title": "Settings (placeholder)"
+  },
+  "saved": {
+   "bands": [
+    {
+     "draw": [
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{section}  {bar}/{bars}",
+       "when": [
+        "song",
+        "!msg"
+       ],
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{idle}",
+       "when": [
+        "!song",
+        "!msg"
+       ],
+       "x": 8,
+       "y": 2
+      },
+      {
+       "color": "HI",
+       "font": "T",
+       "right": 232,
+       "text": "{tempo} BPM",
+       "when": [
+        "known",
+        "!msg"
+       ],
+       "y": 2
+      },
+      {
+       "color": "WHITE",
+       "font": "T",
+       "text": "{msg0}",
+       "when": "msg",
+       "x": 8,
+       "y": 2
+      },
+      {
+       "after": 6,
+       "color": "HI",
+       "font": "T",
+       "text": "{msg1}",
+       "when": "msg",
+       "y": 2
+      }
+     ],
+     "h": 16,
+     "y": 0
+    },
+    {
+     "draw": [
+      {
+       "color": "SONG",
+       "rect": [
+        2,
+        0,
+        2,
+        26
+       ]
+      },
+      {
+       "color": "SONG",
+       "icon": "song",
+       "x": 10,
+       "y": 9
+      },
+      {
+       "color": "SONG",
+       "font": "B",
+       "text": "SAVED",
+       "x": 23,
+       "y": 4
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "right": 232,
+       "text": "{map}",
+       "when": "known",
+       "y": 5
+      }
+     ],
+     "h": 36,
+     "y": 18
+    },
+    {
+     "draw": [
+      {
+       "color": "LINE",
+       "rect": [
+        4,
+        0,
+        232,
+        17
+       ],
+       "when": "sel0"
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "{slot0Num}",
+       "when": "slot0Num",
+       "x": 12,
+       "y": 3
+      },
+      {
+       "color": "DIM",
+       "font": "XS",
+       "text": "EMPTY",
+       "when": "slot0Empty",
+       "x": 30,
+       "y": 1
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "text": "{slot0}",
+       "x": 30,
+       "y": 1
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "right": 232,
+       "text": "{slot0Info}",
+       "y": 3
+      },
+      {
+       "color": "LINE",
+       "rect": [
+        4,
+        18,
+        232,
+        17
+       ],
+       "when": "sel1"
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "{slot1Num}",
+       "when": "slot1Num",
+       "x": 12,
+       "y": 21
+      },
+      {
+       "color": "DIM",
+       "font": "XS",
+       "text": "EMPTY",
+       "when": "slot1Empty",
+       "x": 30,
+       "y": 19
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "text": "{slot1}",
+       "x": 30,
+       "y": 19
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "right": 232,
+       "text": "{slot1Info}",
+       "y": 21
+      },
+      {
+       "color": "LINE",
+       "rect": [
+        4,
+        36,
+        232,
+        17
+       ],
+       "when": "sel2"
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "{slot2Num}",
+       "when": "slot2Num",
+       "x": 12,
+       "y": 39
+      },
+      {
+       "color": "DIM",
+       "font": "XS",
+       "text": "EMPTY",
+       "when": "slot2Empty",
+       "x": 30,
+       "y": 37
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "text": "{slot2}",
+       "x": 30,
+       "y": 37
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "right": 232,
+       "text": "{slot2Info}",
+       "y": 39
+      },
+      {
+       "color": "LINE",
+       "rect": [
+        4,
+        54,
+        232,
+        17
+       ],
+       "when": "sel3"
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "{slot3Num}",
+       "when": "slot3Num",
+       "x": 12,
+       "y": 57
+      },
+      {
+       "color": "DIM",
+       "font": "XS",
+       "text": "EMPTY",
+       "when": "slot3Empty",
+       "x": 30,
+       "y": 55
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "text": "{slot3}",
+       "x": 30,
+       "y": 55
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "right": 232,
+       "text": "{slot3Info}",
+       "y": 57
+      },
+      {
+       "color": "LINE",
+       "rect": [
+        4,
+        72,
+        232,
+        17
+       ],
+       "when": "sel4"
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "{slot4Num}",
+       "when": "slot4Num",
+       "x": 12,
+       "y": 75
+      },
+      {
+       "color": "DIM",
+       "font": "XS",
+       "text": "EMPTY",
+       "when": "slot4Empty",
+       "x": 30,
+       "y": 73
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "text": "{slot4}",
+       "x": 30,
+       "y": 73
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "right": 232,
+       "text": "{slot4Info}",
+       "y": 75
+      },
+      {
+       "color": "LINE",
+       "rect": [
+        4,
+        90,
+        232,
+        17
+       ],
+       "when": "sel5"
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "{slot5Num}",
+       "when": "slot5Num",
+       "x": 12,
+       "y": 93
+      },
+      {
+       "color": "DIM",
+       "font": "XS",
+       "text": "EMPTY",
+       "when": "slot5Empty",
+       "x": 30,
+       "y": 91
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "text": "{slot5}",
+       "x": 30,
+       "y": 91
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "right": 232,
+       "text": "{slot5Info}",
+       "y": 93
+      },
+      {
+       "color": "LINE",
+       "rect": [
+        4,
+        108,
+        232,
+        17
+       ],
+       "when": "sel6"
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "{slot6Num}",
+       "when": "slot6Num",
+       "x": 12,
+       "y": 111
+      },
+      {
+       "color": "DIM",
+       "font": "XS",
+       "text": "EMPTY",
+       "when": "slot6Empty",
+       "x": 30,
+       "y": 109
+      },
+      {
+       "color": "WHITE",
+       "font": "XS",
+       "text": "{slot6}",
+       "x": 30,
+       "y": 109
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "right": 232,
+       "text": "{slot6Info}",
+       "y": 111
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
+       "text": "{slotRange}",
+       "when": "slotRange",
+       "x": 12,
+       "y": 130
+      }
+     ],
+     "h": 144,
+     "y": 56
+    },
+    {
+     "draw": [
+      {
+       "color": "LINE",
+       "rect": [
+        8,
+        0,
+        224,
+        1
+       ]
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "EDIT LOAD   SAVE SAVE HERE   HOLD SAVE DELETE",
+       "x": 8,
+       "y": 8
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "text": "ALGO PICK   REC BACK   HOME MAIN",
+       "x": 8,
+       "y": 24
+      }
+     ],
+     "h": 40,
+     "y": 200
+    }
+   ],
+   "controls": {
+    "ALGO": {
+     "do": "cursor"
+    },
+    "EDIT": {
+     "do": "recall"
+    },
+    "REC": {
+     "go": "back"
+    },
+    "SAVE": {
+     "do": "save",
+     "long": {
+      "do": "erase"
+     }
+    },
+    "SELECT": {
+     "do": "cursor"
+    }
+   },
+   "list": "saved",
+   "rows": 7,
+   "say": [
+    "SAVED SONGS",
+    {
+     "text": ", {slotRange}",
+     "when": "slotRange"
+    }
+   ],
+   "title": "Saved songs"
   },
   "sections": {
    "bands": [

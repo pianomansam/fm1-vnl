@@ -173,6 +173,10 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
       else {   // the home used last (the FM-1 keeps it in its flash; here this browser's), then the boot splash
         dev = new Device(data, engine);
         try { const h = localStorage.getItem(HOME_KEY); if (h && data.screens[h]) dev.stack = [dev.home = h]; } catch {}
+        try {   // the saved songs (the FM-1 keeps them in its flash; here this browser's)
+          const s = JSON.parse(localStorage.getItem(SAVED_KEY) ?? "null");
+          if (Array.isArray(s)) s.slice(0, dev.slots.length).forEach((x, i) => { dev.slots[i] = x ?? null; });
+        } catch {}
         dev.splash();
       }
       took = null;
@@ -184,11 +188,13 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
   }
 
   // the screen and what the reader said
-  let lightsKey = "", keptHome = null;
-  const HOME_KEY = "vnl1.home";
+  let lightsKey = "", keptHome = null, keptSaved = null;
+  const HOME_KEY = "vnl1.home", SAVED_KEY = "vnl1.saved";
   function draw() {
     if (!dev) return;
     if (dev.home !== keptHome) { keptHome = dev.home; try { localStorage.setItem(HOME_KEY, dev.home); } catch {} }
+    const saved = JSON.stringify(dev.slots);
+    if (saved !== keptSaved) { keptSaved = saved; try { localStorage.setItem(SAVED_KEY, saved); } catch {} }
     const L = dev.keyLights(), lk = [...L.on].join() + "|" + [...L.blink].join();   // the keys' lights, here and on the FM-1
     if (lk !== lightsKey) {
       lightsKey = lk;

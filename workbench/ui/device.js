@@ -163,6 +163,7 @@ const holds = (when, bag) => [].concat(when ?? []).every((w) => (w[0] === "!" ? 
 // The values a screen's templates read, from what the screen shows (Device.shown(): app.c's snap_t, as the UI holds
 // it). app.c's line_pending is `pending`
 const MENU_MAX = 10;
+export const SLOTS = 16;   // the saved songs' slots (nav.h's UI_SLOTS)
 const SEC_KEYS = "FGABCDEFGA";   // the white keys from F3, a section each (the Sections screen's jumps)
 // a field's value as a share of its range (0..1): a knob's fill bar. Only a number has one (Sam, 2026-11-06: tempo,
 // motion); a choice from a list (a key, a mood, an instrument) doesn't: its place in the list means little
@@ -225,6 +226,19 @@ export function valuesOf(s, data) {
     bag[`sec${i}Key`] = SEC_KEYS[off + i] ?? "";
   });
   bag.secRange = secs.length > shownN ? `${off + 1}-${Math.min(off + shownN, secs.length)} OF ${secs.length}` : "";
+  // the saved songs' slots (a list: "saved" screen; app/ui/saved.c on the device): each line's slot, the song's name
+  // (its layout), key, mode and tempo; empty, or its save waiting for silence (the flash written only then)
+  bag.slotRange = "";
+  if (s.list === "saved") {
+    const slots = s.slots ?? [];
+    for (let i = 0; i < Math.min(shownN, MENU_MAX) && off + i < SLOTS; i++) {
+      const x = slots[off + i];
+      bag[`slot${i}Num`] = String(off + i + 1); bag[`slot${i}Empty`] = !x; bag[`slot${i}Pend`] = !!x?.waiting;
+      bag[`slot${i}`] = x ? `${x.waiting ? "*" : ""}${String(x.map ?? "SONG").toUpperCase()}` : "";
+      bag[`slot${i}Info`] = x ? `${KEY_NAME[x.mode % 6][x.key % 12]} ${MODE_NAME[x.mode % 6]} ${x.tempo} BPM` : "";
+    }
+    if (SLOTS > shownN) bag.slotRange = `${off + 1}-${off + shownN} OF ${SLOTS}`;
+  }
   bag.looping = String(s.rows?.values?.loop) === "1";
   for (const [k, part] of Object.entries(LOCK_VALUES)) bag[k] = !!s.locks?.includes(part);   // a part locked (SAVE)
   bag.activity = s.activity ?? null;
@@ -539,6 +553,7 @@ export function problems(data, vocab = VOCAB) {
   }
   for (const [id, s] of Object.entries(data.screens ?? {})) {
     for (const m of [...(s.menu ?? []), ...(s.pages ?? [])]) if (!ids.includes(m)) out.push(`${id}: no screen "${m}"`);
+    if (s.list !== undefined && !["sections", "saved"].includes(s.list)) out.push(`${id}: no list "${s.list}"`);
     for (const [i, b] of (s.bands ?? []).entries()) {
       const w = `${id}.bands[${i}]`;
       if (!(b.y >= 0 && b.h > 0 && b.y + b.h <= H)) out.push(`${w}: outside the screen (y ${b.y}, h ${b.h})`);
@@ -580,7 +595,8 @@ export function problems(data, vocab = VOCAB) {
 export class Device {
   constructor(data, engine, now = () => Date.now()) {
     Object.assign(this, { data, engine, now, home: data.home, stack: [data.home], cursor: {}, held: {}, req: {}, msg: null, said: "",
-                          live: null, spin: 0, turns: 0, speed: 0, spunAt: null, locks: new Set() });
+                          live: null, spin: 0, turns: 0, speed: 0, spunAt: null, locks: new Set(),
+                          slots: Array(SLOTS).fill(null) });
   }
   get id() { return this.stack[this.stack.length - 1]; }
   get screen() { return this.data.screens[this.id]; }
@@ -647,7 +663,7 @@ export class Device {
              jump: this.jumpReq && song ? { name: this.jumpReq.name, i: this.jumpReq.i, at: this.jumpReq.at, bars: this.jumpReq.at - bar } : null,
              page: this.screen?.pages?.length > 1 ? `${this.screen.pages.indexOf(this.id) + 1}/${this.screen.pages.length}` : "",
              cursor: this.screen?.menu || this.screen?.list || this.screen?.lanes ? (this.cursor[this.id] ?? 0) - this.listOff() : -1,
-             secOff: this.listOff(), secRows: this.screen?.rows, sections: l.sections,
+             secOff: this.listOff(), secRows: this.screen?.rows, sections: l.sections, list: this.screen?.list, slots: this.slots,
              activity: l.activity, levels: l.levels, locks: [...this.locks],
              barPos: song ? bar + Math.min(0.999, (this.now() - (this.barT ?? this.now())) / (240000 / Math.max(40, l.roll?.tempo ?? 80))) : bar, pend, msg: this.msg && this.now() < this.msg.until ? this.msg.text : null };
   }
@@ -725,7 +741,7 @@ export class Device {
   listOff() {
     const rows = this.screen?.rows;
     if (!rows) return 0;
-    const cur = this.cursor[this.id] ?? 0, n = this.live?.sections?.length ?? 0;
+    const cur = this.cursor[this.id] ?? 0, n = this.screen.list === "saved" ? SLOTS : this.live?.sections?.length ?? 0;
     let off = this.off?.[this.id] ?? 0;
     if (cur < off) off = cur;
     if (cur >= off + rows) off = cur - rows + 1;
@@ -830,10 +846,29 @@ export class Device {
     }
     if (a.do === "cursor") {   // a menu: the highlight moves (wraps)
       const n = this.screen.menu?.length ?? (this.screen.list === "sections" ? Math.min(this.live?.sections?.length ?? 0, MENU_MAX)
-        : this.screen.lanes?.length ?? 0);
+        : this.screen.list === "saved" ? SLOTS : this.screen.lanes?.length ?? 0);
       if (n) this.cursor[this.id] = (((this.cursor[this.id] ?? 0) + detents) % n + n) % n;
       return null;
     }
+    if (a.do === "save" || a.do === "recall" || a.do === "erase") {   // the saved songs (app/ui/saved.c on the device)
+      const list = this.screen.list === "saved", l = this.live, num = (k) => String(k + 1);
+      let slot = list ? this.cursor[this.id] ?? 0 : -1;
+      if (a.do === "save") {   // the song shown: into the highlighted slot on the list, else the first free one
+        if (!this.hasSong() && !(l?.roll?.key !== undefined && !l?.playing)) { this.say("NO SONG", "TO SAVE"); return null; }
+        if (slot < 0) slot = this.slots.findIndex((x) => !x);
+        if (slot < 0) { this.say("NO FREE SLOT", "DELETE ONE FIRST"); return null; }
+        const r = l.roll ?? {};
+        this.slots[slot] = { seed: l.seed, map: l.facts?.map ?? "", key: r.key ?? 0, mode: r.mode ?? 0, tempo: r.tempo ?? 0,
+                             rows: { ...(l.rows?.values ?? {}) } };
+        this.engine.saved?.(slot, this.slots[slot]);
+        this.say(`SAVED TO ${num(slot)}`);
+      } else if (!list) return null;
+      else if (!this.slots[slot]) this.say(`SLOT ${num(slot)}`, "IS EMPTY");
+      else if (a.do === "recall") { this.engine.recall?.(this.slots[slot]); this.say(`SLOT ${num(slot)}`, "IS NEXT"); }
+      else { this.slots[slot] = null; this.engine.saved?.(slot, null); this.say(`SLOT ${num(slot)}`, "DELETED"); }
+      return null;
+    }
+    if (a.do === "readout") { this.engine.readout?.(); return null; }   // the device's measures (SAVE held: Song)
     if (a.go) {
       const from = this.id, to = a.go === "cursor" ? this.screen.menu?.[this.cursor[this.id] ?? 0] : a.go;
       if (!to) return null;

@@ -94,7 +94,7 @@ These work the same on every screen, unless a screen below says otherwise.
 | F, G, A, B, C (the five lowest white keys) | Drums, bass, comp, lead, pad. Press to mute that part; press again to unmute. Hold to solo it; press again to unsolo. Not on the Sections screen, where the keys jump. |
 | Key lights | A part's key is lit while the part plays, dark while it's muted, and blinks while it's soloed. |
 | MASTER | The volume. |
-| SAVE | Shows a line of measures for a moment (the screen's redraw time, the CPU guard's level and steps, late audio blocks). Useful in a bug report. |
+| SAVE | On the Song screen, saves the song (see Saving songs). Anywhere else, shows a line of measures for a moment (the screen's redraw time, the CPU guard's level and steps, late audio blocks); on the Song screen, hold SAVE for them. Useful in a bug report. |
 
 The other keys don't play notes. VNL-1 plays its own songs.
 
@@ -249,6 +249,43 @@ SEQ for new songs around it. The song line locks too: the key and scale, tempo, 
 
 A change of layout or chords is a bigger change than the others. It still lands on the next four-bar line.
 
+On the Song screen (every page), besides the controls above:
+
+| Control | What it does |
+| --- | --- |
+| SAVE | Save the song into the first free slot. The header says SAVED TO 3 for a moment. |
+| SAVE, held | The line of measures (what SAVE shows on other screens). A hold never saves. |
+| REC | The Saved list (see Saving songs). |
+
+### Saving songs
+
+![The Song screen after SAVE: SAVED TO 1 in the header](img/vnl-saved-to.png "Saved")
+
+![The Saved list: slot 1 SLOW BLOOM, Db LYDIAN 84 BPM, in yellow while its save waits; slots 2-7 EMPTY](img/vnl-saved.png "The Saved list")
+
+VNL-1 keeps 16 songs. A saved song comes back exactly as it was: its seed and every rolled choice (key, scale, tempo,
+motion, mood, swing, layout, chords, chord color, the band's set, drum pattern, texture, length), and every change
+you made to its parts (instruments, kit, rhythms, styles, registers, re-rolls). A change still waiting for its
+four-bar line is saved as if it had landed.
+
+- **Save:** press SAVE on the Song screen. The song goes into the first free slot; the header says SAVED TO 3. The
+  same song saved again goes back into its own slot. With all 16 slots full, the header says NO FREE SLOT: delete
+  one first.
+- **The Saved list:** press REC on the Song screen (REC again goes back). Each line shows the slot, the song's name
+  (its layout), its key and scale, and its tempo, or EMPTY. ALGO or SELECT moves the highlight.
+- **Load:** highlight a song and press EDIT. It becomes the next song: while a song plays, that song gives way and
+  the saved one starts after the usual short gap; when stopped, it is ready and PLAY starts it. The header says
+  SLOT 3 IS NEXT.
+- **Save into a chosen slot:** on the Saved list, highlight a slot and press SAVE. A song already there is replaced.
+- **Delete:** on the Saved list, highlight a song and hold SAVE. The header says SLOT 3 DELETED.
+- **While a song plays:** the FM-1 writes its memory only when everything is quiet (writing it while music plays
+  makes a crackle). A song saved while music plays shows at once, in yellow with a `*`, and is written as soon as
+  the music stops (or at the silence between two songs). One save can wait at a time: a second one into another slot
+  says A SAVE WAITS, STOP TO SAVE MORE. Don't switch the FM-1 off before the save is written.
+- **What isn't saved:** the locks, mutes, solos and mixer levels, and the Sections screen's Loop and Stay on song
+  switches.
+- **Over USB:** a backup holds the saved songs and the home screen (see USB and the screen reader).
+
 ### Drums
 
 ![The Drums screen, page 1/2: K1 KIT ROOM - BIG, K2 PATTERN BOOM BAP - SKIP, K3 KICK THE PATTERN'S OWN, K4 RIDE AS ROLLED (ONE SECTION)](img/vnl-drums.png "Drums")
@@ -341,6 +378,10 @@ input named "VNL-1 FM-1".
 **Screen reader:** VNL-1 tells a screen reader what's on its screen, through the
 [FM-1 Screen Reader](https://charlesvestal.github.io/fm1-reader/): each screen as it opens, each knob's new value,
 and messages such as NO SAMPLES. The browser emulator does the same.
+
+**Backup:** fm1-base's backup page (or `tools/fm1_backup.py`) saves the saved songs and the home screen to a
+`.vnl1songs` file on a computer, and restores them. Stop the music first: a restore is refused while anything plays.
+`tools/fm1_songs.py` lists, exports and writes single saved songs over USB.
 
 **No Bluetooth:** VNL-1 is built without Bluetooth, so there is no Bluetooth MIDI or audio.
 

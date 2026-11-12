@@ -11,6 +11,9 @@ font_trim = true               # fm1-base's font packing: each glyph its lit box
 font_pack = true               # about 43 KB less flash than unpacked, 6 KB less than our old run-length packing)
 ble = false                    # no radio: neither target (lo-fi, dub) needs it; saves ~130 KB flash
 ble_central = false
+backup = true                  # the saved songs and the home over USB (base/web/backup, tools/fm1_backup.py): OBJ_SETTINGS, OBJ_SONGS
+backup_ext = "vnl1songs"
+backup_holds = "the saved songs and the home screen"
 # the site and firmware hubs (fm1-base tools/make_site.py, firmware.json; ours: tools/site.sh)
 tagline = "A lo-fi hip hop machine for the FM-1"
 repo = "https://github.com/pianomansam/fm1-vnl"

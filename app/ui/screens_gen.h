@@ -7,7 +7,7 @@
 
 /* the vocabulary (workbench/ui/vocab.json), in its order */
 enum ui_item_kind { UI_TEXT, UI_RECT, UI_ICON, UI_METER, UI_KNOBS, UI_SECTIONS, UI_LANES, UI_FADERS, UI_RECORD };
-enum ui_action { UA_NONE, UA_GO, UA_PLAY, UA_NUDGE, UA_TURN, UA_CURSOR, UA_PAGE, UA_PART, UA_JUMP, UA_REROLL, UA_MUTE, UA_SOLO, UA_LEVEL, UA_LOCK };
+enum ui_action { UA_NONE, UA_GO, UA_PLAY, UA_NUDGE, UA_TURN, UA_CURSOR, UA_PAGE, UA_PART, UA_JUMP, UA_REROLL, UA_MUTE, UA_SOLO, UA_LEVEL, UA_LOCK, UA_SAVE, UA_READOUT, UA_RECALL, UA_ERASE };
 
 /* the controls an action a screen: plat.h's buttons (B_*), the encoders (EN_SELECT, EN_ALGO, EN_PRESET), the
    knobs K1-K4, the keys 0-26 */
@@ -27,8 +27,8 @@ enum ui_color { UC_BLACK, UC_WHITE, UC_LINE, UC_DIM, UC_GRAY, UC_AMB, UC_HI, UC_
 #define UI_PENDING_COLOR UC_PENDING   /* a value waiting (-1: none) */
 enum ui_icon { UI_ICON_BASS, UI_ICON_COMP, UI_ICON_DRUMS, UI_ICON_LEAD, UI_ICON_LOCK, UI_ICON_LOCK_BODY, UI_ICON_LOCK_TOP, UI_ICON_PAD, UI_ICON_SONG, UI_ICON_TEXTURE };
 enum ui_part { UI_PART_DRUMS, UI_PART_BASS, UI_PART_KEYS, UI_PART_PAD, UI_PART_LEAD, UI_PART_TEXTURE, UI_PART_SONG };
-enum ui_screen_id { US_LEVELS, US_LEVELS_KNOBS, US_LEVELS_KNOBS2, US_MAIN, US_MIXER, US_NOW, US_P_BASS, US_P_COMP, US_P_COMP_MORE, US_P_DRUMS, US_P_DRUMS_MORE, US_P_LEAD, US_P_LEAD_MORE, US_P_PAD, US_P_SONG, US_P_SONG3, US_P_SONG_MORE, US_P_TEXTURE, US_PREFS, US_SECTIONS, US_SPLASH };
-#define UI_MAX_SCREENS 21
+enum ui_screen_id { US_LEVELS, US_LEVELS_KNOBS, US_LEVELS_KNOBS2, US_MAIN, US_MIXER, US_NOW, US_P_BASS, US_P_COMP, US_P_COMP_MORE, US_P_DRUMS, US_P_DRUMS_MORE, US_P_LEAD, US_P_LEAD_MORE, US_P_PAD, US_P_SONG, US_P_SONG3, US_P_SONG_MORE, US_P_TEXTURE, US_PREFS, US_SAVED, US_SECTIONS, US_SPLASH };
+#define UI_MAX_SCREENS 22
 enum ui_field { UFLD_BASS_INS, UFLD_BASS_LINE, UFLD_COMP_FILL, UFLD_COMP_INS, UFLD_COMP_REG, UFLD_COMP_RHYTHM, UFLD_COMP_THIN, UFLD_COMP_VOICING, UFLD_COMP_WITH, UFLD_DRUM_KICK, UFLD_DRUM_KIT, UFLD_DRUM_PATTERN, UFLD_DRUM_RIDE, UFLD_DRUM_VAR, UFLD_ENDLESS, UFLD_KEY, UFLD_LEAD_INS, UFLD_LEAD_LOOP_SET, UFLD_LEAD_PHRASE, UFLD_LEAD_REG, UFLD_LEAD_STYLE_SET, UFLD_LOOP, UFLD_MODE, UFLD_MOOD, UFLD_MOTION, UFLD_PAD_INS, UFLD_PAD_NOTES, UFLD_PAD_ON_SET, UFLD_PAD_PLACE_SET, UFLD_SONG_COLOR, UFLD_SONG_MAP, UFLD_SONG_PROG, UFLD_SONG_SWING, UFLD_TEMPO, UFLD_TEX_AMB, UFLD_TEX_DUST, UFLD_TEX_NOISE };
 #define UI_N_FIELDS 37
 
@@ -66,25 +66,26 @@ enum ui_value {
     UV_LOCK_PAD,
     UV_LOCK_TEXTURE,
     UV_LOCK_SONG,
+    UV_SLOT_RANGE,
     UV_N_FIXED
 };
-enum { UVK_I_SEL, UVK_I_SEC, UVK_I_SEC_BARS, UVK_I_SEC_NOW, UVK_I_SEC_PEND, UVK_I_SEC_KEY, UVK_I_N };   /* sel{0-9}, sec{0-9}, sec{0-9}Bars, sec{0-9}Now, sec{0-9}Pend, sec{0-9}Key */
-#define UV_I0 31
+enum { UVK_I_SEL, UVK_I_SEC, UVK_I_SEC_BARS, UVK_I_SEC_NOW, UVK_I_SEC_PEND, UVK_I_SEC_KEY, UVK_I_SLOT, UVK_I_SLOT_NUM, UVK_I_SLOT_INFO, UVK_I_SLOT_EMPTY, UVK_I_SLOT_PEND, UVK_I_N };   /* sel{0-9}, sec{0-9}, sec{0-9}Bars, sec{0-9}Now, sec{0-9}Pend, sec{0-9}Key, slot{0-9}, slot{0-9}Num, slot{0-9}Info, slot{0-9}Empty, slot{0-9}Pend */
+#define UV_I0 32
 #define UV_I(i, k) (UV_I0 + (i) * UVK_I_N + (k))
 #define UV_I_COUNT 10
 enum { UVK_FIELD_VALUE, UVK_FIELD_FRAC, UVK_FIELD_PEND, UVK_FIELD_FIRST, UVK_FIELD_LAST, UVK_FIELD_N };   /* {field}, {field}Frac, {field}Pend, {field}First, {field}Last */
-#define UV_FIELD0 91
+#define UV_FIELD0 142
 #define UV_FIELD(i, k) (UV_FIELD0 + (i) * UVK_FIELD_N + (k))
 #define UV_FIELD_COUNT 37
 enum { UVK_ROW_VALUE, UVK_ROW_PEND, UVK_ROW_N };   /* {row}, {row}Pend */
-#define UV_ROW0 276
+#define UV_ROW0 327
 #define UV_ROW(i, k) (UV_ROW0 + (i) * UVK_ROW_N + (k))
 #define UV_ROW_COUNT 38
 enum { UVK_LINE_VALUE, UVK_LINE_N };   /* {line} */
-#define UV_LINE0 352
+#define UV_LINE0 403
 #define UV_LINE(i, k) (UV_LINE0 + (i) * UVK_LINE_N + (k))
 #define UV_LINE_COUNT 2
-#define UI_N_VALUES 354
+#define UI_N_VALUES 405
 
 /* a template: text with a value at each UI_TPL_VAL byte, its id in the next two (UI_TPL_ID); never a NUL */
 #define UI_TPL_VAL 1
@@ -147,9 +148,10 @@ typedef struct {
 } ui_field_t;
 typedef struct { uint8_t field, step; } ui_knob_t;
 /* a screen. bands: its first in UI_BANDS; knobs: UI_NONE none; controls: an action (UI_ACTIONS) each
-   (UC_IN_*); menu, pages, lanes: lists; list: 1 the song's sections; key_leds: UI_KEY_LEDS + 1 (0 none);
+   (UC_IN_*); menu, pages, lanes: lists; list: UI_LIST_*; key_leds: UI_KEY_LEDS + 1 (0 none);
    say: its first part in UI_SAYS; rows: a list's lines that fit (0: all; more scroll with the highlight); fade:
    1 its items but records fade into the band's background by {fade} (0 none .. 16 gone) */
+enum { UI_LIST_NONE, UI_LIST_SECTIONS, UI_LIST_SAVED };   /* a screen's list: none, the song's sections, the saved songs' slots */
 typedef struct {
     uint16_t title;
     uint8_t bands, n_bands;

@@ -44,6 +44,7 @@ run screens-gen-test python3 -I tools/screens/test_gen.py
 run host-build sh build.sh --host
 run parity node workbench/tools/parity.mjs $B/tests/parity   # the device's screens (app/ui) against the mock's, pixel for pixel
 run livestate python3 -I tools/test_fm1_state.py   # the live state: the simulator answers as the FM-1, fm1_state.py decodes
+run savedsongs python3 -I tools/test_fm1_songs.py   # the saved songs over USB: the record a dump makes is the FM-1's own
 mkdir -p $B/scenarios
 for f in tests/scenarios/*.vnl; do      # the app in the host simulator; outputs (songs.wav, shots) in app/build/scenarios
     name=$(basename "$f" .vnl)         # its song log, MIDI and MusicXML beside its outputs (songs.log, songs-1.mid ... go with songs.wav)

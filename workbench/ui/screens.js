@@ -30,6 +30,8 @@
 //   { do: "lock", part }   the part locked, or unlocked (a new song keeps a locked part: app.c's locks; values
 //                          lockDrums ... lockTexture say which are)
 //   { do: "lock", byCursor: [part | null, ...] }  the highlighted menu line's part (null: nothing)
+//   { do: "save" }     the song saved (the highlighted slot on a list: "saved" screen, else the first free one);
+//   { do: "recall" } the highlighted saved song the next one; { do: "erase" } deleted; { do: "readout" } the measures
 //   long: { ... }      on a key or a button, the action when held (a key 500 ms, a button 600 ms); let go sooner,
 //                      the action itself
 // `defaults` apply on every screen unless the screen maps that control itself (null: the control does nothing there).
@@ -647,14 +649,94 @@ export default {
       say: ["SECTIONS. {section}, BAR {bar} OF {bars}", { when: "looping", text: ", LOOPING" }],
     },
 
+    // The saved songs (Sam, 2026-11-12: "just plain SAVE on the song screen"): REC from the Song screen. Sixteen
+    // slots kept in the flash (app/ui/saved.c), one line each: its number, the song's name (its layout), key, mode and
+    // tempo; an empty slot says so, a save still waiting for silence (the flash is written only then) shows in the
+    // pending color. ALGO or SELECT moves the highlight, EDIT loads the song (it starts as a new song does: the song
+    // playing gives way, or stopped, PLAY starts it), SAVE saves the song playing into the highlighted slot, SAVE held
+    // deletes it (its message confirms), REC goes back.
+    saved: {
+      title: "Saved songs",
+      list: "saved",
+      rows: 7,   // lines that fit; the other slots scroll with the highlight
+      bands: [
+        { y: 0, h: 16, draw: [
+          { when: ["song", "!msg"], text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
+          { when: ["!song", "!msg"], text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
+          { when: ["known", "!msg"], text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
+          // a message for a moment in its place ("SAVED TO 3", the measures: app_say's two parts)
+          { when: "msg", text: "{msg0}", font: "T", x: 8, y: 2, color: "WHITE" },
+          { when: "msg", text: "{msg1}", font: "T", after: 6, y: 2, color: "HI" },
+        ] },
+        { y: 18, h: 36, draw: [
+          { rect: [2, 0, 2, 26], color: "SONG" },
+          { icon: "song", x: 10, y: 9, color: "SONG" },
+          { text: "SAVED", font: "B", x: 23, y: 4, color: "SONG" },
+          { when: "known", text: "{map}", font: "XS", right: 232, y: 5, color: "WHITE" },
+        ] },
+        { y: 56, h: 144, draw: [
+          { when: "sel0", rect: [4, 0, 232, 17], color: "LINE" },
+          { when: "slot0Num", text: "{slot0Num}", font: "T", x: 12, y: 3, color: "DIM" },
+          { when: "slot0Empty", text: "EMPTY", font: "XS", x: 30, y: 1, color: "DIM" },
+          { text: "{slot0}", font: "XS", x: 30, y: 1, color: "WHITE" },
+          { text: "{slot0Info}", font: "T", right: 232, y: 3, color: "GRAY" },
+          { when: "sel1", rect: [4, 18, 232, 17], color: "LINE" },
+          { when: "slot1Num", text: "{slot1Num}", font: "T", x: 12, y: 21, color: "DIM" },
+          { when: "slot1Empty", text: "EMPTY", font: "XS", x: 30, y: 19, color: "DIM" },
+          { text: "{slot1}", font: "XS", x: 30, y: 19, color: "WHITE" },
+          { text: "{slot1Info}", font: "T", right: 232, y: 21, color: "GRAY" },
+          { when: "sel2", rect: [4, 36, 232, 17], color: "LINE" },
+          { when: "slot2Num", text: "{slot2Num}", font: "T", x: 12, y: 39, color: "DIM" },
+          { when: "slot2Empty", text: "EMPTY", font: "XS", x: 30, y: 37, color: "DIM" },
+          { text: "{slot2}", font: "XS", x: 30, y: 37, color: "WHITE" },
+          { text: "{slot2Info}", font: "T", right: 232, y: 39, color: "GRAY" },
+          { when: "sel3", rect: [4, 54, 232, 17], color: "LINE" },
+          { when: "slot3Num", text: "{slot3Num}", font: "T", x: 12, y: 57, color: "DIM" },
+          { when: "slot3Empty", text: "EMPTY", font: "XS", x: 30, y: 55, color: "DIM" },
+          { text: "{slot3}", font: "XS", x: 30, y: 55, color: "WHITE" },
+          { text: "{slot3Info}", font: "T", right: 232, y: 57, color: "GRAY" },
+          { when: "sel4", rect: [4, 72, 232, 17], color: "LINE" },
+          { when: "slot4Num", text: "{slot4Num}", font: "T", x: 12, y: 75, color: "DIM" },
+          { when: "slot4Empty", text: "EMPTY", font: "XS", x: 30, y: 73, color: "DIM" },
+          { text: "{slot4}", font: "XS", x: 30, y: 73, color: "WHITE" },
+          { text: "{slot4Info}", font: "T", right: 232, y: 75, color: "GRAY" },
+          { when: "sel5", rect: [4, 90, 232, 17], color: "LINE" },
+          { when: "slot5Num", text: "{slot5Num}", font: "T", x: 12, y: 93, color: "DIM" },
+          { when: "slot5Empty", text: "EMPTY", font: "XS", x: 30, y: 91, color: "DIM" },
+          { text: "{slot5}", font: "XS", x: 30, y: 91, color: "WHITE" },
+          { text: "{slot5Info}", font: "T", right: 232, y: 93, color: "GRAY" },
+          { when: "sel6", rect: [4, 108, 232, 17], color: "LINE" },
+          { when: "slot6Num", text: "{slot6Num}", font: "T", x: 12, y: 111, color: "DIM" },
+          { when: "slot6Empty", text: "EMPTY", font: "XS", x: 30, y: 109, color: "DIM" },
+          { text: "{slot6}", font: "XS", x: 30, y: 109, color: "WHITE" },
+          { text: "{slot6Info}", font: "T", right: 232, y: 111, color: "GRAY" },
+          { when: "slotRange", text: "{slotRange}", font: "T", x: 12, y: 130, color: "GRAY" },   // the pager
+        ] },
+        { y: 200, h: 40, draw: [
+          { rect: [8, 0, 224, 1], color: "LINE" },
+          { text: "EDIT LOAD   SAVE SAVE HERE   HOLD SAVE DELETE", font: "T", x: 8, y: 8, color: "DIM" },
+          { text: "ALGO PICK   REC BACK   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
+        ] },
+      ],
+      controls: {
+        ALGO: { do: "cursor" }, SELECT: { do: "cursor" }, EDIT: { do: "recall" }, REC: { go: "back" },
+        // a press: the song playing saved here (over what was); held: the slot deleted, never also saved
+        SAVE: { do: "save", long: { do: "erase" } },
+      },
+      say: ["SAVED SONGS", { when: "slotRange", text: ", {slotRange}" }],
+    },
+
     pSong: {
       title: "Song",
       pages: ["pSong", "pSongMore", "pSong3"],
       bands: [
         { y: 0, h: 16, draw: [
-          { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
-          { when: "!song", text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
-          { when: "known", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
+          { when: ["song", "!msg"], text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
+          { when: ["!song", "!msg"], text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
+          { when: ["known", "!msg"], text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
+          // a message for a moment in its place ("SAVED TO 3", the measures: app_say's two parts)
+          { when: "msg", text: "{msg0}", font: "T", x: 8, y: 2, color: "WHITE" },
+          { when: "msg", text: "{msg1}", font: "T", after: 6, y: 2, color: "HI" },
         ] },
         { y: 18, h: 28, draw: [
           { rect: [2, 0, 2, 26], color: "SONG" },
@@ -682,7 +764,7 @@ export default {
         ] },
         { y: 200, h: 40, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
-          { text: "ALGO PART   SELECT PAGE", font: "T", x: 8, y: 8, color: "DIM" },
+          { text: "ALGO PART   SELECT PAGE   SAVE   REC SAVED", font: "T", x: 8, y: 8, color: "DIM" },
           { text: "EDIT BACK   HOME MAIN   SEQ NEW SONG   HOLD LOCK", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
@@ -692,6 +774,9 @@ export default {
         // unlocked: a new song keeps it (Sam, 2026-11-12)
         SEQ: { do: "reroll", long: { do: "lock", part: "song" } },
         ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
+        // a press: the song saved into the first free slot ("SAVED TO 3"); held: the device's measures, as SAVE shows
+        // them elsewhere (Sam, 2026-11-12: "just plain SAVE on the song screen"); REC: the saved songs
+        SAVE: { do: "save", long: { do: "readout" } }, REC: { go: "saved" },
       },
       say: ["SONG, PAGE {page}. KEY {key}. SCALE {mode}. TEMPO {tempo}. MOOD {mood}.", { when: "lockSong", text: " LOCKED." }],
     },
@@ -700,9 +785,12 @@ export default {
       pages: ["pSong", "pSongMore", "pSong3"],
       bands: [
         { y: 0, h: 16, draw: [
-          { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
-          { when: "!song", text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
-          { when: "known", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
+          { when: ["song", "!msg"], text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
+          { when: ["!song", "!msg"], text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
+          { when: ["known", "!msg"], text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
+          // a message for a moment in its place ("SAVED TO 3", the measures: app_say's two parts)
+          { when: "msg", text: "{msg0}", font: "T", x: 8, y: 2, color: "WHITE" },
+          { when: "msg", text: "{msg1}", font: "T", after: 6, y: 2, color: "HI" },
         ] },
         { y: 18, h: 28, draw: [
           { rect: [2, 0, 2, 26], color: "SONG" },
@@ -730,7 +818,7 @@ export default {
         ] },
         { y: 200, h: 40, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
-          { text: "ALGO PART   SELECT PAGE", font: "T", x: 8, y: 8, color: "DIM" },
+          { text: "ALGO PART   SELECT PAGE   SAVE   REC SAVED", font: "T", x: 8, y: 8, color: "DIM" },
           { text: "EDIT BACK   HOME MAIN   SEQ NEW SONG   HOLD LOCK", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
@@ -740,6 +828,9 @@ export default {
         // unlocked: a new song keeps it (Sam, 2026-11-12)
         SEQ: { do: "reroll", long: { do: "lock", part: "song" } },
         ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
+        // a press: the song saved into the first free slot ("SAVED TO 3"); held: the device's measures, as SAVE shows
+        // them elsewhere (Sam, 2026-11-12: "just plain SAVE on the song screen"); REC: the saved songs
+        SAVE: { do: "save", long: { do: "readout" } }, REC: { go: "saved" },
       },
       say: ["SONG, PAGE {page}. MOTION {motion}. SWING {songSwing}. LAYOUT {songMap}. CHORDS {songProg}.", { when: "lockSong", text: " LOCKED." }],
     },
@@ -751,9 +842,12 @@ export default {
       pages: ["pSong", "pSongMore", "pSong3"],
       bands: [
         { y: 0, h: 16, draw: [
-          { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
-          { when: "!song", text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
-          { when: "known", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
+          { when: ["song", "!msg"], text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
+          { when: ["!song", "!msg"], text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
+          { when: ["known", "!msg"], text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
+          // a message for a moment in its place ("SAVED TO 3", the measures: app_say's two parts)
+          { when: "msg", text: "{msg0}", font: "T", x: 8, y: 2, color: "WHITE" },
+          { when: "msg", text: "{msg1}", font: "T", after: 6, y: 2, color: "HI" },
         ] },
         { y: 18, h: 28, draw: [
           { rect: [2, 0, 2, 26], color: "SONG" },
@@ -772,7 +866,7 @@ export default {
         ] },
         { y: 200, h: 40, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
-          { text: "ALGO PART   SELECT PAGE", font: "T", x: 8, y: 8, color: "DIM" },
+          { text: "ALGO PART   SELECT PAGE   SAVE   REC SAVED", font: "T", x: 8, y: 8, color: "DIM" },
           { text: "EDIT BACK   HOME MAIN   SEQ NEW SONG   HOLD LOCK", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
@@ -782,6 +876,9 @@ export default {
         // unlocked: a new song keeps it (Sam, 2026-11-12)
         SEQ: { do: "reroll", long: { do: "lock", part: "song" } },
         ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
+        // a press: the song saved into the first free slot ("SAVED TO 3"); held: the device's measures, as SAVE shows
+        // them elsewhere (Sam, 2026-11-12: "just plain SAVE on the song screen"); REC: the saved songs
+        SAVE: { do: "save", long: { do: "readout" } }, REC: { go: "saved" },
       },
       say: ["SONG, PAGE {page}. CHORD COLOR {songColor}.", { when: "lockSong", text: " LOCKED." }],
     },

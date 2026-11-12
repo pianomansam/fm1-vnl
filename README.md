@@ -50,6 +50,8 @@ four-bar line, in time. VNL-1 is free software (GPL), built on [fm1-base](https:
 - A Parts screen with each part's notes scrolling over the song; a Sections screen to jump, loop a section or stay on
   the song; a Mixer with a level, mute and solo per part.
 - The keys' lights show which parts are playing; the lowest white keys mute (press) or solo (hold) a part.
+- Saved songs: SAVE on the Song page keeps the song (16 slots, through power-off); REC lists them, EDIT loads one.
+  A backup over USB holds them.
 - A screen reader, through the [FM-1 Screen Reader](https://charlesvestal.github.io/fm1-reader/).
 - USB audio in and out: record VNL-1 on a computer, or play the computer through the FM-1.
 - A CPU guard that eases off reverb tails and quiet voices before the audio can glitch.
@@ -77,6 +79,8 @@ four-bar line, in time. VNL-1 is free software (GPL), built on [fm1-base](https:
 | ARP | Parts: each part's notes over the song. |
 | FX | The Mixer. |
 | HOME | Switches between the now-playing screen and the main screen; the last one used is the home. |
+| SAVE | On the Song page, saves the song into the first free slot (SAVED TO 3); held there, or anywhere else, a line of measures for a bug report. |
+| REC | On the Song page, the Saved list: EDIT loads the highlighted song (the next song), SAVE saves into that slot, SAVE held deletes it. A save made while music plays is written to the flash when it stops. |
 | Lowest white keys (F G A B C) | Drums, bass, comp, lead, pad: press to mute, hold to solo. |
 
 Every change to the song lands on its next four-bar line, and the screen shows it waiting until then.
@@ -155,6 +159,8 @@ pattern files in `patterns/README.md`, the samples in `tools/samples/`.
 - **Why the venv:** `brew install emscripten` pulls in a newer Homebrew Python and repoints `python3` to one without
   Pillow. `build.sh` uses `.venv/bin/python` when it exists; `PYTHON=...` overrides.
 - **Live state:** `tools/fm1_state.py` reads the running FM-1's state over USB (CPU by stage, late blocks, the song).
+- **Saved songs:** `tools/fm1_songs.py` lists, exports and writes the FM-1's saved songs over USB (read-only without
+  `--write`); `put SLOT DUMP.json` saves a song from a live-state dump.
 - `ref/` (git-ignored) holds read-only clones of other FM-1 firmwares, for reference only.
 
 ### The site

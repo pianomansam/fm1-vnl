@@ -89,7 +89,7 @@ int ui_list_off(ui_nav_t *n)
     int id = nav_id(n), rows = UI_SCREENS[id].rows, cur, len, off;
     if (!rows) return n->off[id] = 0;
     cur = n->cursor[id];
-    len = n->live ? n->live->n_secs : 0;
+    len = UI_SCREENS[id].list == UI_LIST_SAVED ? UI_SLOTS : n->live ? n->live->n_secs : 0;
     off = n->off[id];
     if (cur < off) off = cur;
     if (cur >= off + rows) off = cur - rows + 1;
@@ -380,6 +380,7 @@ static void act(ui_nav_t *n, int ai, int detents)
     }
     case UA_CURSOR: {                                 /* a menu: the highlight moves (wraps) */
         int len = list(sc->menu)->n ? list(sc->menu)->n
+                  : sc->list == UI_LIST_SAVED ? UI_SLOTS
                   : sc->list ? (n->live ? (n->live->n_secs < NAV_MENU_MAX ? n->live->n_secs : NAV_MENU_MAX) : 0)
                   : list(sc->lanes)->n;
         if (len) n->cursor[id] = (int8_t)((((n->cursor[id] + detents) % len) + len) % len);
@@ -407,6 +408,36 @@ static void act(ui_nav_t *n, int ai, int detents)
         ui_list_off(n);
         return;
     }
+    case UA_SAVE:                                     /* the song saved: into the highlighted slot on the saved
+                                                         songs' list, else the first free one */
+    case UA_RECALL:                                   /* the highlighted slot's song: the next song */
+    case UA_ERASE: {                                  /* the highlighted slot deleted */
+        int slot = sc->list == UI_LIST_SAVED ? n->cursor[id] : -1, r;
+        const ui_engine_t *e = n->eng;
+        char num[4] = {0, 0, 0, 0};
+        if (a->kind == UA_SAVE)
+            r = e && e->save ? e->save(slot) : UI_SAVE_NONE;
+        else if (slot < 0)
+            return;
+        else
+            r = a->kind == UA_RECALL ? (e && e->recall ? e->recall(slot) : UI_SAVE_EMPTY)
+                                     : (e && e->erase ? e->erase(slot) : UI_SAVE_EMPTY);
+        if (a->kind == UA_SAVE && r >= 0) slot = r;
+        if (slot >= 9) num[0] = '1', num[1] = (char)('0' + slot - 9);
+        else if (slot >= 0) num[0] = (char)('1' + slot);
+        if (r == UI_SAVE_NONE) say(n, "NO SONG", "TO SAVE");
+        else if (r == UI_SAVE_FULL) say(n, "NO FREE SLOT", "DELETE ONE FIRST");
+        else if (r == UI_SAVE_BUSY) say(n, "A SAVE WAITS", "STOP TO SAVE MORE");
+        else {
+            join(t, join(t, 0, a->kind == UA_SAVE && r >= 0 ? "SAVED TO " : "SLOT ", sizeof t), num, sizeof t);
+            say(n, t, r == UI_SAVE_EMPTY ? "IS EMPTY" : a->kind == UA_RECALL ? "IS NEXT" : a->kind == UA_ERASE
+                ? "DELETED" : "");
+        }
+        return;
+    }
+    case UA_READOUT:
+        if (n->eng && n->eng->readout) n->eng->readout();
+        return;
     case UA_PLAY:
         say(n, n->live && n->live->playing ? "STOP" : "PLAY", "");
         if (n->eng && n->eng->play) n->eng->play();

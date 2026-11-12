@@ -24,6 +24,7 @@ KNOBS = ["K1", "K2", "K3", "K4"]
 KEYS = [f"KEY{i}" for i in range(27)]
 CONTROLS = BUTTONS + ENCODERS + KNOBS + KEYS           # plat.h's B_* order, then EN_SELECT..EN_PRESET, the knobs, keys
 THEME = ["BLACK", "WHITE", "LINE", "DIM", "GRAY", "AMB", "HI"]
+UI_LIST_KINDS = [None, "sections", "saved"]              # a screen's list: none, the song's sections, the saved songs
 GO_SPECIAL = {"back": 253, "home": 254, "cursor": 252}   # a go action's target past the screens
 NONE8 = 255
 
@@ -663,6 +664,8 @@ def gen_screens(data, vocab, rows, all_parts=None):
         for p in sc.get("say", []):
             says.append((tpl(f"{sid}.say", p), 0) if isinstance(p, str) else
                         (tpl(f"{sid}.say", p["text"]), when(f"{sid}.say", p.get("when"))))
+        if sc.get("list") is not None and sc.get("list") not in UI_LIST_KINDS:
+            errs.append(f'{sid}: no list "{sc["list"]}"')
         for m in sc.get("menu", []) + sc.get("pages", []):
             if m not in screens:
                 errs.append(f'{sid}: no screen "{m}"')
@@ -670,7 +673,7 @@ def gen_screens(data, vocab, rows, all_parts=None):
                         menu=lst(screens.index(m) for m in sc.get("menu", []) if m in screens),
                         pages=lst(screens.index(m) for m in sc.get("pages", []) if m in screens),
                         lanes=lst(part(p) for p in sc.get("lanes", [])),
-                        list=1 if sc.get("list") == "sections" else 0,
+                        list=UI_LIST_KINDS.index(sc.get("list")) if sc.get("list") in UI_LIST_KINDS else 0,
                         key_leds=key_leds(f"{sid}.keyLeds", sc.get("keyLeds")) or default_kl,
                         say=say0, n_say=len(says) - say0, placeholder=1 if sc.get("placeholder") else 0, rows=sc.get("rows", 0),
                         fade=1 if sc.get("fade") else 0))
@@ -781,9 +784,11 @@ def gen_screens(data, vocab, rows, all_parts=None):
         "    uint8_t wrap, step, format, now, as_row;\n} ui_field_t;\n"
         "typedef struct { uint8_t field, step; } ui_knob_t;\n"
         "/* a screen. bands: its first in UI_BANDS; knobs: UI_NONE none; controls: an action (UI_ACTIONS) each\n"
-        "   (UC_IN_*); menu, pages, lanes: lists; list: 1 the song's sections; key_leds: UI_KEY_LEDS + 1 (0 none);\n"
+        "   (UC_IN_*); menu, pages, lanes: lists; list: UI_LIST_*; key_leds: UI_KEY_LEDS + 1 (0 none);\n"
         "   say: its first part in UI_SAYS; rows: a list's lines that fit (0: all; more scroll with the highlight); fade:\n"
         "   1 its items but records fade into the band's background by {fade} (0 none .. 16 gone) */\n"
+        "enum { " + ", ".join("UI_LIST_" + ident(k or "none") for k in UI_LIST_KINDS) +
+        " };   /* a screen's list: none, the song's sections, the saved songs' slots */\n"
         "typedef struct {\n    uint16_t title;\n    uint8_t bands, n_bands;\n    ui_knob_t knobs[4];\n"
         "    uint8_t controls[UI_CTL_KEY(0)];\n    uint8_t keys, menu, pages, lanes, list, key_leds, placeholder, rows;\n"
         "    uint8_t say, n_say, fade;\n} ui_screen_t;\n\n"

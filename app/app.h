@@ -19,9 +19,26 @@
 #define VNL_UI_RUNTIME 1
 #endif
 
-/* the store: the app's objects, the panel calibration (the platform's) and Bluetooth's address and pairing among
- * them, and their flash offsets */
-enum { OBJ_SETTINGS, OBJ_PANEL, OBJ_BLE, OBJ_NOBJ };
+/* the store: the app's objects (the panel calibration the platform's), and their flash offsets. OBJ_SONGS, the saved
+ * songs (app/ui/saved.c, 1348 B), has the pair that was Bluetooth's OBJ_BLE (number 2 at 0xDE000): VNL-1 has never
+ * built the radio (fm1.toml ble = false), so nothing of its own was ever written there, and a record of another
+ * firmware's reads as no songs (its magic). A build with the radio needs another pair for OBJ_BLE */
+enum { OBJ_SETTINGS, OBJ_PANEL, OBJ_SONGS, OBJ_NOBJ };
+
+/* backup and restore over USB (fm1.toml backup = true; base/web/backup, tools/fm1_backup.py): the home and the saved
+ * songs. A restore is refused while a song plays (STOP FIRST); it borrows the live state's buffer (main loop only, used
+ * within a call) instead of 3840 B of the pool */
+#define APP_BACKUP_OBJS {OBJ_SETTINGS, OBJ_SONGS}
+#define APP_BACKUP_MAGIC 0x4B42534Eu     /* "NSBK" */
+#define APP_BACKUP_VERSION 1
+#define APP_BACKUP_WHAT "replaces saved songs"
+#if VNL_UI_RUNTIME
+#define APP_BACKUP_BUF live_buf
+#endif
+int app_backup_playing(void);            /* 1: no restore now (STOP FIRST) */
+void app_backup_flush(void);             /* a backup starts: what waits for silence written (stopped) */
+void app_backup_hold(int on);            /* no flash writes while a backup streams */
+void app_backup_restored(void);          /* everything from the flash again */
 #define APP_STORE_MAP {0xFC000u, 0xDC000u, 0xDE000u}
 
 /* the sample bank (engine/samples.h) in two areas: PLAT_XDATA0 and the data area below the store's objects (one run:

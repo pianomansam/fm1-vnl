@@ -341,7 +341,8 @@ int ui_value_kind(int id)
     }
     if (id >= UV_I0 && id < UV_I(UV_I_COUNT, 0)) {
         k = (id - UV_I0) % UVK_I_N;
-        return k == UVK_I_SEL || k == UVK_I_SEC_NOW || k == UVK_I_SEC_PEND ? UI_VK_BOOL
+        return k == UVK_I_SEL || k == UVK_I_SEC_NOW || k == UVK_I_SEC_PEND || k == UVK_I_SLOT_EMPTY ||
+               k == UVK_I_SLOT_PEND ? UI_VK_BOOL
                : k == UVK_I_SEC_BARS ? UI_VK_NUM : UI_VK_STR;
     }
     {
@@ -463,15 +464,47 @@ const char *ui_value(const ui_bag_t *b, int id, int index, char *t)
         cat(t, " OF ");
         return cat_int(t, s->n_secs);
     }
+    case UV_SLOT_RANGE: {                                   /* the saved songs' pager: "1-7 OF 16" */
+        int rows = list_rows(b), off = list_off(b);
+        if (UI_SCREENS[b->screen].list != UI_LIST_SAVED || UI_SLOTS <= rows) return "";
+        cat_int(t, off + 1);
+        cat(t, "-");
+        cat_int(t, off + rows);
+        cat(t, " OF ");
+        return cat_int(t, UI_SLOTS);
+    }
     default: break;
     }
-    if (id >= UV_I0 && id < UV_I(UV_I_COUNT, 0)) {        /* sel{i}, sec{i}... */
+    if (id >= UV_I0 && id < UV_I(UV_I_COUNT, 0)) {        /* sel{i}, sec{i}..., slot{i}... */
         const ui_screen_t *sc = &UI_SCREENS[b->screen];
         int i = (id - UV_I0) / UVK_I_N, off = list_off(b), at = off + i;
         k = (id - UV_I0) % UVK_I_N;
         if (k == UVK_I_SEL) {
             int has = UI_LISTS[sc->menu].n || sc->list || UI_LISTS[sc->lanes].n;
             return has && n && n->cursor[b->screen] - off == i ? "1" : "";
+        }
+        if (k >= UVK_I_SLOT) {                              /* a saved song's line: slot off + i */
+            const ui_slot_t *x = n && n->slots && at < UI_SLOTS ? &n->slots[at] : 0;
+            if (!x || sc->list != UI_LIST_SAVED || i >= list_rows(b)) return "";
+            switch (k) {
+            case UVK_I_SLOT_NUM: return cat_int(t, at + 1);
+            case UVK_I_SLOT_EMPTY: return x->state == UI_SLOT_EMPTY ? "1" : "";
+            case UVK_I_SLOT_PEND: return x->state == UI_SLOT_WAITING ? "1" : "";
+            case UVK_I_SLOT: {
+                const lib_map_t *m = x->state != UI_SLOT_EMPTY ? lib_map_by_id(x->map) : 0;
+                if (x->state == UI_SLOT_EMPTY) return "";
+                if (x->state == UI_SLOT_WAITING) cat(t, "*");
+                return m ? upper_cat(t, m->name) : cat(t, "SONG");
+            }
+            default:                                        /* slot{i}Info: its key, mode and tempo */
+                if (x->state == UI_SLOT_EMPTY) return "";
+                cat(t, UI_KEY_NAME[x->mode % MODE_N][x->key % 12]);
+                cat(t, " ");
+                cat(t, UI_MODE_NAME[x->mode % MODE_N]);
+                cat(t, " ");
+                cat_int(t, x->tempo);
+                return cat(t, " BPM");
+            }
         }
         if (at >= s->n_secs || i >= list_rows(b)) return "";
         switch (k) {

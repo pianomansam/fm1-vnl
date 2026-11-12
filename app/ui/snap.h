@@ -22,6 +22,8 @@ typedef struct {
     uint8_t n_secs;                      /* the plan's blocks: their first bar (from 0), length and SEC_* */
     struct { uint8_t start, bars, section; } secs[SNAP_SECS];
     uint16_t changes;                    /* song_t's: a row request landed */
+    uint8_t set_base;                    /* the song's library set: roll.v[RF_SET], or the one its own set (LIB_SET_WB:
+                                            an instrument or kit changed) was copied from (a saved song keeps it) */
 } snap_t;
 
 #endif

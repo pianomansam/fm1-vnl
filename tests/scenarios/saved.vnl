@@ -1,0 +1,105 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Saved songs (Sam, 2026-11-12: "just plain SAVE on the song screen"). A part changed (the comp's instrument), then
+# SAVE on the Song screen: "SAVED TO 1", the change waiting for its boundary saved as if landed; SAVE held there is
+# the measures, never a save. While the song plays the flash is not written (an erase stalls the audio); stopped, it
+# is, and the song survives a reboot. Two new songs later the Saved list (REC on the Song screen) loads it: EDIT,
+# then PLAY: the same seed, the same roll (every rolled value), every part's rows as they played. Loaded while
+# another song plays, it comes in as a new song does.
+listen
+wait 1400
+tap PLAY
+wait 3000
+expect saved 0
+# the comp's instrument: two steps on (the main screen's comp tile, EDIT, K1)
+spin ALGO 3
+tap EDIT
+wait 50
+said COMP, PAGE 1/2
+spin K1 2
+wait 50
+# the Song screen: SAVE saves into the first free slot
+tap HOME
+spin ALGO -3
+tap EDIT
+wait 50
+said SONG, PAGE 1/3
+tap SAVE
+wait 50
+said SAVED TO 1
+expect saved 1
+expect save_waits 1
+expect store_writes 0
+shot saved-to.png
+# held: the measures, and no second save
+press SAVE
+wait 700
+release SAVE
+wait 50
+said REDRAW
+expect saved 1
+# SAVE again on the same song: the slot it is in, no second slot (the reader says nothing new: the same words)
+tap SAVE
+wait 50
+expect saved 1
+# the comp's change lands (a 4-bar boundary at most 4 bars on); remembered as it plays
+wait 15000
+expect pending -1
+remember
+# two new songs: still no flash write while the music plays
+tap SEQ
+wait 6000
+expect songs 2
+expect same_song 0
+tap SEQ
+wait 6000
+expect songs 3
+expect store_writes 0
+expect save_waits 1
+# stopped, the tails over: written
+tap PLAY
+wait 3000
+expect save_waits 0
+expect store_writes 1
+# kept through a power-off
+reboot
+wait 1400
+expect saved 1
+# the Saved list: REC on the Song screen; EDIT loads the highlighted slot (the first), PLAY plays it
+tap EDIT
+wait 50
+said SONG, PAGE 1/3
+tap REC
+wait 50
+said SAVED SONGS, 1-7 OF 16
+shot saved-list.png
+# stopped: the song ready is the saved one, shown as a new song is (the main screen)
+tap EDIT
+wait 50
+expect home 1
+expect same_song 1
+tap PLAY
+wait 3000
+expect same_song 1
+expect same_roll 1
+expect same_drums 1
+expect same_bass 1
+expect same_comp 1
+expect same_pad 1
+expect same_lead 1
+expect same_texture 1
+expect same_songline 1
+# a new song; then loaded again while it plays: it comes in as the next song does
+tap SEQ
+wait 6000
+expect same_song 0
+tap EDIT
+tap REC
+wait 50
+tap EDIT
+wait 50
+said SLOT 1 IS NEXT
+wait 6000
+expect same_song 1
+expect same_roll 1
+expect same_comp 1
+expect late 0

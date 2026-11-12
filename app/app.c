@@ -52,6 +52,7 @@
 #include "ui/values.c"
 #include "ui/kitpick.c"
 #include "ui/nav.c"
+#include "ui/saved.c"                    /* the saved songs: their records and slots (OBJ_SONGS) */
 #include "render.h"
 #include "ui/font_mark.h"                /* the splash's wordmark face (FONT_MARK: workbench/tools/export_font.py) */
 #include "ui/render.c"
@@ -856,6 +857,8 @@ static void publish(void)
     }
     snap.pend_field = f;
     snap.pend_bars = bars;
+    snap.set_base = (uint8_t)((snap.has_song || snap.held) && (song.own & SONG_OWN_SET) ? song.set_base
+                                                                                       : snap.roll.v[RF_SET]);
 #if UI_RT
     if (snap.has_song || snap.ready) {   /* the screens' values: each row's, the plan's sections */
         const song_plan_t *p = snap.held ? &mark.plan : snap.has_song ? &song.plan : 0;
@@ -1144,6 +1147,7 @@ static uint32_t mb_seed;                /* the first seed it tried, and the roll
 static song_roll_t mb_prev;
 static uint8_t mb_prev_any;
 static uint8_t mb_msg;                  /* a lock the mailbox's song can't keep: 1 the lead's instrument, 2 the pad's */
+static uint8_t mb_recalled;             /* the mailbox holds a saved song recalled (sv_recall): the locks leave it be */
 static int32_t lk_songs;                /* the songs started, as last seen */
 
 static uint8_t lk_mask(void) { return (uint8_t)(ui_hnav.locks & lk_have); }
@@ -1325,7 +1329,8 @@ static void lk_frame(void)
     if (m && (s.has_song || s.held))
         lk_read(&s, m);
     taken = songs_started;
-    if (mb_full && lk_sig() != mb_sig) {   /* rolled again, from the same seed, unless the render took it meanwhile */
+    if (mb_full && !mb_recalled && lk_sig() != mb_sig) {   /* rolled again, from the same seed, unless the render took
+                                            it meanwhile (a saved song recalled: never) */
         mb_full = 0;
         BARRIER();
         if (songs_started == taken) {
@@ -1373,9 +1378,53 @@ static void roll_next(void)             /* main loop: keep the mailbox full */
     last_roll = mb_roll;
     rolled_any = 1;
     next_seed = seed_next(next_seed);
+#if UI_RT
+    mb_recalled = 0;
+#endif
     BARRIER();
     mb_full = 1;
 }
+
+#if UI_RT
+/* a saved song recalled (the Saved list's EDIT): the next song, in the mailbox in place of the one rolled; its roll
+   as saved, and the rows that differ from what that roll plays handed to the render as the locks' are (song_start_rows
+   from its first bar: an instrument or the kit then makes its set its own, as a change made while it played did).
+   Playing (or held), it comes in as a new song does (C_NEW: the song playing gives way, the gap, then it); stopped,
+   PLAY starts it. The chain of seeds goes on after it as before */
+static void sv_recall(const sv_song_t *sg, int playing)   /* playing: or held */
+{
+    lk_box_t *b = &mb_lk;
+    int i, kit_rolled;
+    mb_full = 0;                         /* (the render takes no song meanwhile) */
+    BARRIER();
+    mb_roll = sg->roll;
+    kit_rolled = kit_pick(&mb_roll);
+    if (kit_rolled < 0) kit_rolled = lib_song_kit(&mb_roll);
+    b->kit = -1;
+    b->n = b->nshow = 0;
+    mb_msg = 0;
+    for (i = 0; i < SV_NROWS; i++) {
+        int row = SV_ROWS[i], v = sg->rows[i];
+        if (v == sv_rolled(sg, i, kit_rolled)) continue;
+        if (row == ROW_KIT) {
+            b->kit = (int16_t)v;
+            lk_add(b, row, -1, v);
+        } else if (row == ROW_COMP) {    /* a comp rhythm (from 100): the COMP_PAT override; else COMP (command()) */
+            lk_add(b, row, SR_OV + OV_COMP, v >= 100 ? -1 : v);
+            lk_add(b, -1, SR_OV + OV_COMP_PAT, v >= 100 ? v - 100 : -1);
+        } else
+            lk_add(b, row, CH_SONG_ROW[row], v);
+    }
+    last_roll = mb_roll;                 /* (the next song's novelty: against this one) */
+    rolled_any = 1;
+    mb_sig = lk_sig();
+    mb_recalled = 1;
+    BARRIER();
+    mb_full = 1;
+    if (playing)
+        post(C_NEW, 0, 0);
+}
+#endif
 
 void app_init(void)
 {
@@ -1880,6 +1929,52 @@ static void rm_leave(void)
 #if UI_RT
 static void live_reply(void);
 static void live_reset(void);
+
+/* the saved songs over USB (tools/fm1_songs.py), each record as 2 * SV_BYTES nibbles, high first (saved.h's format):
+ *   05 ss         slot ss's record -> 15 ss st <nibbles>   st: 0 empty (the record all zero), 1 kept in the flash,
+ *                                                          2 its save waiting for silence
+ *   06 ss <nib>   into slot ss (a record all zero: the slot deleted) -> 16 ss rc   rc: 0 written to the flash, 1 kept
+ *                 and waiting for silence (the music playing), 2 refused: another save waits, 3 refused: not a record
+ * The flash is written only while all is silent, as a save on the device is. Main loop (ota_frame_get) */
+#define SONG_GET 0x05u
+#define SONG_PUT 0x06u
+static uint8_t backup_held;             /* a backup streams: no flash writes (app_backup_hold) */
+/* the flash may be written now: all silent (a write stalls the audio), no backup streaming */
+static int may_write(void) { return ui.shown.silent && !backup_held; }
+static void song_slot_cmd(const uint8_t *p, uint32_t n)
+{
+    uint8_t rec[SV_BYTES], f[8 + 2 * SV_BYTES];
+    int slot = p[4], i, rc;
+    f[0] = 0xF0u;
+    f[1] = RM_PFX0;
+    f[2] = RM_PFX1;
+    f[3] = RM_PFX2;
+    f[5] = (uint8_t)slot;
+    if (p[3] == SONG_GET) {
+        f[4] = SONG_GET + 0x10u;
+        f[6] = (uint8_t)(sv_get_bytes(slot, rec) ? 0 : sv_slots()[slot].state);
+        for (i = 0; i < SV_BYTES; i++) {
+            f[7 + 2 * i] = (uint8_t)(rec[i] >> 4);
+            f[8 + 2 * i] = (uint8_t)(rec[i] & 15u);
+        }
+        f[7 + 2 * SV_BYTES] = 0xF7u;
+        plat_sysex_send(f, 8u + 2u * SV_BYTES);
+        return;
+    }
+    if (n < 5u + 2u * SV_BYTES)
+        rc = 3;
+    else {
+        for (i = 0; i < SV_BYTES; i++)
+            rec[i] = (uint8_t)((p[5 + 2 * i] & 15u) << 4 | (p[6 + 2 * i] & 15u));
+        rc = sv_put_bytes(slot, rec, may_write());
+        rc = rc == UI_SAVE_BUSY ? 2 : rc < 0 && rc != UI_SAVE_EMPTY ? 3 : sv_waiting() ? 1 : 0;
+        ui.redraw = 1;
+    }
+    f[4] = SONG_PUT + 0x10u;
+    f[6] = (uint8_t)rc;
+    f[7] = 0xF7u;
+    plat_sysex_send(f, 8u);
+}
 #endif
 
 int app_sysex(const uint8_t *p, uint32_t n)
@@ -1905,6 +2000,10 @@ int app_sysex(const uint8_t *p, uint32_t n)
         live_reply();
         if (n >= 5u && p[4] == 0x01u)
             live_reset();
+        return 1;
+    }
+    if ((p[3] == SONG_GET || p[3] == SONG_PUT) && n >= 5u && p[4] < UI_SLOTS) {   /* the saved songs (below) */
+        song_slot_cmd(p, n);
         return 1;
     }
 #endif
@@ -2129,8 +2228,26 @@ static void ui_e_level(int p, int db)
 }
 static int ui_e_level_get(int p) { return p >= 0 && p < VX_PART_N ? ui_hlevel[p] : 0; }
 static void ui_e_jump(int start, int i) { (void)i; post(C_JUMP, 0, start); }
+/* the saved songs (app/ui/saved.c): the song shown (ui.shown, the navigator's changes waiting landed in it) into a
+   slot, the flash written now only while all is silent; a slot's song the next one; a slot deleted */
+static int ui_e_save(int slot)
+{
+    sv_song_t sg;
+    if (sv_capture(&ui.shown, &ui_hnav, &sg)) return UI_SAVE_NONE;
+    return sv_put(slot, &sg, may_write());
+}
+static int ui_e_recall(int slot)
+{
+    sv_song_t sg;
+    if (sv_load(slot, &sg)) return UI_SAVE_EMPTY;
+    sv_recall(&sg, ui.shown.playing || ui.shown.held);
+    return 0;
+}
+static int ui_e_erase(int slot) { return sv_erase(slot, may_write()); }
+static void m_readout(void);
 static const ui_engine_t UI_HENG = {ui_e_set, ui_e_play, ui_e_reroll, ui_e_reroll_part, ui_e_jump, ui_e_mute,
-                                    ui_e_solo, ui_e_muted, ui_e_soloed, ui_e_level, ui_e_level_get};
+                                    ui_e_solo, ui_e_muted, ui_e_soloed, ui_e_level, ui_e_level_get,
+                                    ui_e_save, ui_e_recall, ui_e_erase, m_readout};
 
 /* what the Parts roll and the Mixer show: the render's notes (the buffer it isn't writing), the listening, levels */
 static const ui_activity_t *ui_activity(void)
@@ -2264,38 +2381,46 @@ static void spin_tick(uint32_t now)
     ui_hnav.spin = (uint8_t)((int)(spin_turns * 256.0f) & 255);
 }
 
+/* the measures in the header: the longest redraw, the CPU guard's level and steps, the late blocks, the longest
+   render (SAVE where no screen maps it; SAVE held on the Song screen) */
+static void m_readout(void)
+{
+#if VNL_UI_RUNTIME
+    char a[UI_MSG], c[UI_MSG], v[12];
+    a[0] = c[0] = 0;
+    text_cat(a, "REDRAW ");
+    int_text((int32_t)m_draw_max, v);
+    text_cat(a, v);
+    text_cat(a, " US G");                /* the CPU guard: its level now (0 off .. 5 thin), its steps */
+    int_text((int32_t)cg_level(), v);
+    text_cat(a, v);
+    text_cat(a, " X");
+    int_text((int32_t)cg_stats()->steps, v);
+    text_cat(a, v);
+    text_cat(c, "LATE ");
+    int_text((int32_t)m_late, v);
+    text_cat(c, v);
+    text_cat(c, " MAX ");
+    int_text((int32_t)m_render_max, v);
+    text_cat(c, v);
+    app_say(a, c);
+#endif
+}
+
 /* the controls to the navigator: a button's press, an encoder's detents, a key down or up; the lights */
 static void ui_host_input(uint32_t btn)
 {
     uint32_t keys = plat_keys(), now = plat_ms(), blink, on;
-    int b, e, k;
+    int b, e, k, save_free;
     ui_host_snap();
+    save_free = !ui_control(&UI_SCREENS[ui_shown_id()], UI_CTL_BUTTON(B_SAVE));   /* (the screen it was pressed on) */
     for (b = 0; b < NB; b++)             /* down and up: a button whose action has a long press (SEQ on a part's
                                             screen) acts on release, or once held (ui_tick) */
         if ((btn ^ ui.btn) >> b & 1u)
             ui_button(&ui_hnav, b, (int)(btn >> b & 1u), now);
-#if VNL_UI_RUNTIME
-    if ((btn >> B_SAVE & 1u) && !(ui.btn >> B_SAVE & 1u)) {   /* SAVE: the measures (no screen maps it) */
-        char a[UI_MSG], c[UI_MSG], v[12];
-        a[0] = c[0] = 0;
-        text_cat(a, "REDRAW ");
-        int_text((int32_t)m_draw_max, v);
-        text_cat(a, v);
-        text_cat(a, " US G");             /* the CPU guard: its level now (0 off .. 5 thin), its steps */
-        int_text((int32_t)cg_level(), v);
-        text_cat(a, v);
-        text_cat(a, " X");
-        int_text((int32_t)cg_stats()->steps, v);
-        text_cat(a, v);
-        text_cat(c, "LATE ");
-        int_text((int32_t)m_late, v);
-        text_cat(c, v);
-        text_cat(c, " MAX ");
-        int_text((int32_t)m_render_max, v);
-        text_cat(c, v);
-        app_say(a, c);
-    }
-#endif
+    if (save_free && (btn >> B_SAVE & 1u) && !(ui.btn >> B_SAVE & 1u))   /* SAVE where no screen maps it (the Song
+                                            screen saves; held there, these) */
+        m_readout();
     for (e = 0; e < NE; e++) {
         int32_t d = plat_enc(e);
         if (d) {
@@ -2433,7 +2558,7 @@ static void ui_host_state(void)
 #define LIVE_CMD 0x04u
 #define LIVE_REPLY 0x14u
 #define LIVE_CHUNK 100u
-static char live_buf[6144] UI_POOL;
+uint8_t live_buf[6144] UI_POOL __attribute__((aligned(4)));   /* (lent to a restore too: app.h APP_BACKUP_BUF) */
 typedef struct { char *p; uint32_t n, cap; } jb_t;
 static void jb(jb_t *b, const char *s)
 {
@@ -2502,6 +2627,10 @@ static uint32_t live_state(char *o, uint32_t cap)
     jbk(&b, "key"); jbs(&b, KEY[(unsigned)s.roll.v[RF_KEY] % 12u]);
     jbk(&b, "mode"); jbs(&b, MODE[(unsigned)s.roll.v[RF_MODE] % 6u]);
     jbk(&b, "tempo"); jbi(&b, s.roll.v[RF_TEMPO]);
+    /* the roll's values no row shows (a saved song needs them: tools/fm1_songs.py): the library set (its own copy's
+       origin), the length, the motion's live move */
+    jbk(&b, "set"); jbi(&b, s.set_base);
+    jbk(&b, "motion_moved"); jbi(&b, s.roll.motion_moved);
     jbk(&b, "loop"); jb(&b, s.rows[ROW_LOOP] ? "true" : "false");
     jbk(&b, "stay"); jb(&b, s.rows[ROW_ENDLESS] ? "true" : "false");
     jbk(&b, "screen"); jbs(&b, UI_SCREEN_NAME[scr]);
@@ -2649,7 +2778,7 @@ static void live_reset(void)
 /* the answer, LIVE_CHUNK bytes a frame */
 static void live_reply(void)
 {
-    uint32_t n = live_state(live_buf, sizeof live_buf), parts = (n + LIVE_CHUNK - 1u) / LIVE_CHUNK, k, i;
+    uint32_t n = live_state((char *)live_buf, sizeof live_buf), parts = (n + LIVE_CHUNK - 1u) / LIVE_CHUNK, k, i;
     uint8_t f[8 + LIVE_CHUNK + 1];
     parts = parts ? parts : 1u;
     for (k = 0; k < parts && k < 128u; k++) {
@@ -2752,13 +2881,35 @@ static void set_keep(void)               /* the home changed: kept once all is s
     uint8_t h = ui_hnav.home == US_NOW ? SET_HOME_NOW : SET_HOME_MAIN;
     vnl_set_t v;
     if (h == set_home) set_tried = 0xFFu;
-    if (h == set_home || h == set_tried || !ui.shown.silent) return;
+    if (h == set_home || h == set_tried || !may_write()) return;
     memset(&v, 0, sizeof v);
     v.magic = SET_MAGIC;
     v.home = h;
     if (plat_store_save(OBJ_SETTINGS, &v, sizeof v) == 0) set_home = h;
     else set_tried = h;
 }
+
+/* backup and restore over USB (app.h): the home and the saved songs. Nothing is restored while anything sounds (a
+   flash write stalls the audio); a backup first writes what waits (stopped), and nothing is written while it streams */
+int app_backup_playing(void) { return ui.shown.playing || !ui.shown.silent; }
+void app_backup_flush(void)
+{
+    set_keep();
+    sv_flush(may_write());
+}
+void app_backup_hold(int on) { backup_held = (uint8_t)(on != 0); }
+void app_backup_restored(void)
+{
+    set_load();
+    sv_boot();
+    ui_hnav.slots = sv_slots();
+    ui.redraw = 1;
+}
+#else
+int app_backup_playing(void) { return 1; }   /* (the old screen: no saved songs; no restore) */
+void app_backup_flush(void) {}
+void app_backup_hold(int on) { (void)on; }
+void app_backup_restored(void) {}
 #endif
 
 void app_ui_init(void)
@@ -2768,6 +2919,8 @@ void app_ui_init(void)
     ui_nav_init(&ui_hnav);               /* the home (the runtime's): the main screen, or now playing if used last */
     ui_hnav.eng = &UI_HENG;
     set_load();
+    sv_boot();                           /* the saved songs' slots, from the flash */
+    ui_hnav.slots = sv_slots();
     splash_on = 1;                       /* (app_splash drew it: the screen stays, its record starts turning) */
     splash_t0 = plat_ms();
 #else
@@ -2855,6 +3008,8 @@ void app_frame(void)
         splash_end();
     ui.redraw_input = 0;
     set_keep();
+    if (sv_flush(may_write()) > 0)        /* a save made while the music played: written now all is silent */
+        ui.redraw = 1;
 #endif
     speak();
     if (ui.msg_until && now >= ui.msg_until) {
@@ -2910,6 +3065,7 @@ void app_frame(void)
 #ifdef PLAT_HOST
 static int32_t rem_bar = -1;             /* "remember": the song shown then (its seed) and its bar */
 static uint32_t rem_seed;
+static song_roll_t rem_roll;             /* (and its roll, the set its library one: expect same_roll) */
 #if UI_RT
 static int16_t rem_rows[ROW_N];          /* (and its rows, "as rolled" as they played: expect same_<part>,
                                             parts_moved) */
@@ -2986,8 +3142,8 @@ int app_expect(const char *what, int *got)
         *got = (int)m_late;
 #endif
 #if UI_RT
-    else if (!strncmp(what, "same_", 5) && strcmp(what, "same_song")) {   /* same_drums .. same_texture,
-                                                     same_songline: the part's rows as remembered (1), not (0) */
+    else if (!strncmp(what, "same_", 5) && strcmp(what, "same_song") && strcmp(what, "same_roll")) {
+        /* same_drums .. same_texture, same_songline: the part's rows as remembered (1), not (0) */
         static const char *const PN[] = {"drums", "bass", "comp", "pad", "lead", "texture", "songline"};
         int p;
         for (p = 0; p < 7 && strcmp(what + 5, PN[p]); p++) {}
@@ -3000,13 +3156,24 @@ int app_expect(const char *what, int *got)
             *got += !(ui_hnav.locks >> p & 1u) && !part_same(&s, p);
     } else if (!strcmp(what, "locks"))   /* the parts locked, bit UI_PART_* */
         *got = ui_hnav.locks;
+    else if (!strcmp(what, "saved")) {   /* the saved songs' slots holding a song */
+        int k;
+        *got = 0;
+        for (k = 0; k < UI_SLOTS; k++)
+            *got += sv_slots()[k].state != UI_SLOT_EMPTY;
+    } else if (!strcmp(what, "save_waits"))   /* a save or delete waits for silence to be written (1) */
+        *got = sv_waiting();
 #endif
     else if (!strcmp(what, "remote"))
         *got = rm.on;
     else if (!strcmp(what, "same_song"))   /* the song playing or ready is the one remembered (1), another (0); none:
                                               -1 */
         *got = (s.has_song || s.ready) && rem_bar >= 0 ? s.roll.seed == rem_seed : -1;
-    else if (!strcmp(what, "bars_on"))     /* the bar playing (or held), less the one remembered (the same song) */
+    else if (!strcmp(what, "same_roll")) {   /* its roll is the one remembered: seed, every rolled value, the set */
+        song_roll_t r = s.roll;
+        r.v[RF_SET] = s.set_base;
+        *got = (s.has_song || s.ready) && rem_bar >= 0 ? !memcmp(&r, &rem_roll, sizeof r) : -1;
+    } else if (!strcmp(what, "bars_on"))     /* the bar playing (or held), less the one remembered (the same song) */
         *got = (s.has_song || s.held) && rem_bar >= 0 && s.roll.seed == rem_seed ? s.bar - rem_bar : -99;
     else
         return 0;
@@ -3039,6 +3206,7 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
         splash_on = splash_fading = 0;
         ui_nav_init(&ui_hnav);
         ui_hnav.eng = &UI_HENG;
+        ui_hnav.slots = sv_slots();
         ui_hnav.stack[0] = (uint8_t)i;
         ui_hkeys = plat_keys();
         lcd_fill(0, 0, 240, 240, C_BLACK);
@@ -3131,6 +3299,8 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
         snap_read(&s);
         rem_bar = s.has_song ? s.bar : -1;
         rem_seed = s.roll.seed;
+        rem_roll = s.roll;
+        rem_roll.v[RF_SET] = s.set_base;
 #if UI_RT
         lk_resolve(&s, 0x7F, rem_rows);
 #endif

@@ -23,6 +23,11 @@ The first public release: a generative lo-fi hip hop firmware for the M-VAVE FM-
 - **Part locks:** hold SEQ on a part's screen, or on the main screen with its tile highlighted, and every new song
   keeps that part (its instrument, rhythm or style, register and variations) while the rest rolls. The song line
   locks too (key and scale, tempo, motion, mood).
+- **Saved songs:** SAVE on the Song screen keeps the song in one of 16 slots (its whole roll and every change made
+  to its parts), through power-off; REC opens the Saved list, where EDIT loads a song as the next one, SAVE saves into
+  a chosen slot and SAVE held deletes. The flash is written only while all is silent (a save while music plays waits
+  for the stop). SAVE held on the Song screen shows the measures SAVE shows elsewhere. A USB backup holds the saved
+  songs and the home; `tools/fm1_songs.py` reads and writes single songs.
 - **A CPU guard** that sheds reverb tails and quiet voices before the audio can glitch.
 - **Tangerine on teal:** the screens, the workbench's device mock and the site share one palette (deep teal,
   tangerine, sand white); fm1-base also carries an olive and mustard one.

@@ -78,3 +78,10 @@ release SEQ
 tap EDIT
 wait 50
 shot vnl-lock-song.png
+# saving the song (Saving songs): SAVE on the Song screen ("SAVED TO 1" in the header), then REC: the Saved list
+tap SAVE
+wait 50
+shot vnl-saved-to.png
+tap REC
+wait 50
+shot vnl-saved.png

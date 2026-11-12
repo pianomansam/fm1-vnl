@@ -271,6 +271,26 @@ const SEED = 72;
   ];
   for (const c of run(SEED, steps)) compare(c);
 }
+{   // the saved songs: SAVE on the Song screen ("SAVED TO 1" in the header, the save waiting for silence while the song
+  // plays), SAVE held there the measures; REC the Saved list (the waiting one in the pending color), SAVE on another
+  // line refused while one waits; stopped, written, saved straight; the list scrolled to its last slots; one deleted
+  const v = (st) => st.values, is = (what, got, want) => (got === want ? "" : `${what} ${JSON.stringify(got)}, not ${JSON.stringify(want)}`);
+  const steps = [
+    { press: "PLAY" }, { wait: 5000 }, { screen: "main" }, { press: "EDIT" }, { press: "SAVE" },
+    { check: "saved-msg", expect: (st) => is("screen", st.screen, "pSong") || is("msg0", v(st).msg0, "SAVED TO 1") },
+    { hold: ["SAVE", 700] }, { check: "saved-readout", expect: (st) => (/^REDRAW /.test(v(st).msg0) ? "" : `msg0 ${v(st).msg0}`) },
+    { press: "REC" }, { check: "saved-list", expect: (st) => is("screen", st.screen, "saved") || is("slot0Pend", v(st).slot0Pend, true) ||
+                                                                is("slot1Empty", v(st).slot1Empty, true) },
+    { spin: ["ALGO", 1] }, { press: "SAVE" }, { check: "saved-busy", expect: (st) => is("msg0", v(st).msg0, "A SAVE WAITS") },
+    { press: "PLAY" }, { wait: 3000 }, { press: "SAVE" },
+    { check: "saved-kept", expect: (st) => is("slot0Pend", v(st).slot0Pend, false) || is("slot1Empty", v(st).slot1Empty, false) ||
+                                           is("msg0", v(st).msg0, "SAVED TO 2") },
+    { spin: ["SELECT", -2] }, { check: "saved-scrolled", expect: (st) => is("slotRange", v(st).slotRange, "10-16 OF 16") },
+    { spin: ["ALGO", 2] }, { hold: ["SAVE", 700] },
+    { check: "saved-deleted", expect: (st) => is("slot0Empty", v(st).slot0Empty, true) || is("msg0", v(st).msg0, "SLOT 2") },
+  ];
+  for (const c of run(SEED, steps)) compare(c);
+}
 {   // the splash into now playing (the home): its text fading out, the song's in, the record as it is; a step's text
   // redrawn alone (uifade) and the boot's own steps (the device's timing: 1150 ms turning, 150 out, 150 in)
   const v = (st) => st.values, is = (what, got, want) => (got === want ? "" : `${what} ${JSON.stringify(got)}, not ${JSON.stringify(want)}`);

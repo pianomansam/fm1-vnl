@@ -3262,6 +3262,30 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
     dl.press("SAVE");
     check(!dl.values().lockComp, "SAVE on a part's screen locks nothing");
   }
+  {   // the saved songs: SAVE on the Song screen saves into the first free slot (held: the measures, never a save);
+      // REC the Saved list, its lines; EDIT loads the highlighted slot, SAVE held deletes it, an empty slot says so
+    let tt = 0;
+    const got = [], ds = new D.Device(data, { set() {}, play() {}, saved: (k, r) => got.push(["saved", k, !!r]),
+                                              recall: (r) => got.push(["recall", r.seed]), readout: () => got.push("readout") }, () => tt);
+    const hold = (c, ms) => { ds.keyDown(c); tt += ms; ds.tick(); ds.keyUp(c); };
+    ds.update(live(2)); ds.stack = ["main", "pSong"];
+    hold("SAVE", 100);
+    const said = ds.said;
+    hold("SAVE", D.HOLD_MS + 10);
+    ds.press("REC");
+    const list = ds.values(), on = ds.id;
+    hold("EDIT", 50);
+    const loaded = ds.said;
+    hold("SAVE", D.HOLD_MS + 10);
+    const deleted = ds.said, empty = ds.values().slot0Empty;
+    ds.press("EDIT");
+    check(said === "SAVED TO 1" && on === "saved" && list.slot0Num === "1" && list.slot0 !== "" && !list.slot0Empty &&
+          list.slot1Empty && list.slotRange === "1-7 OF 16" && loaded === "SLOT 1 IS NEXT" && deleted === "SLOT 1 DELETED" &&
+          empty && ds.said === "SLOT 1 IS EMPTY" &&
+          JSON.stringify(got) === `[["saved",0,true],"readout",["recall",${JSON.stringify(live(2).seed)}],["saved",0,false]]`,
+          `SAVE on the Song screen ("${said}"), held the measures; the Saved list (${list.slot0} ${list.slot0Info}); EDIT ` +
+          `("${loaded}"), SAVE held ("${deleted}"), EDIT on the empty slot ("${ds.said}") (${JSON.stringify(got)})`);
+  }
   {   // on the main screen SEQ held locks the highlighted tile's part (never also a new song); on the song's line
       // the song line; a short SEQ there is a new song; SEQ held on the Song screen unlocks the song line
     let tt = 0;

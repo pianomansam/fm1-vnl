@@ -53,6 +53,7 @@ int song_ov_get(const song_ov_t *o, int key);
 
 void song_override(const song_ov_t *ov);   /* NULL: none (default); the struct is copied */
 const song_ov_t *song_ov(void);            /* never NULL: a static all-rolled struct when none */
+const song_ov_t *song_ov_none(void);       /* the overrides as rolled (none set): what song_override(NULL) installs */
 
 /* seed itself when salt is 0, else a hash of the two: a part's re-rolled seed */
 uint32_t song_ov_salted(uint32_t seed, uint32_t salt);

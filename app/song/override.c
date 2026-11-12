@@ -8,6 +8,7 @@ static song_ov_t cur = {-1, -1, -1, -1, 0, 0, 0u, 0u, 0u, 0u, 0u, -1, -1, 0, -1,
 void song_override(const song_ov_t *ov) { cur = ov ? *ov : NONE; }
 
 const song_ov_t *song_ov(void) { return &cur; }
+const song_ov_t *song_ov_none(void) { return &NONE; }
 
 uint32_t song_ov_salted(uint32_t seed, uint32_t salt)
 {

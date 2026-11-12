@@ -236,6 +236,10 @@
           mute: (part, on) => run(() => desk.mute(part, on)).then(() => device?.redraw()),   // listening only, at once
           solo: (part) => run(() => desk.solo(part)).then(() => device?.redraw()),
           level: (part, db) => desk.setLevel?.(part, db),   // the mixer (desk.setLevel: the engine's level, at once)
+          // the saved songs (SAVE on the Song screen, the Saved list): a slot keeps the desk's snapshot of the song,
+          // EDIT on the list restores it (the device keeps its own record in its flash: app/ui/saved.c)
+          saved: (slot, rec) => rec && run(async () => { rec.snap = await desk.snapshot(); }),
+          recall: (rec) => rec?.snap && run(() => desk.restore(rec.snap)),
           // SAVE on a part's screen: the device's lock, its section's rows (instrument, rhythm or style, salts: app.c's
           // locks keep the same; the page's own 🔒 locks the salt alone)
           lockPart: (part, on) => run(() => {

@@ -1,0 +1,78 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Saved songs while the music plays: a save waits in RAM for silence (a flash erase stalls the audio: a crackle, Sam
+# 2026-11-11), the list showing it at once in the pending color; one waits at a time (another slot: refused until the
+# music stops). On the Saved list SAVE saves into the highlighted slot, SAVE held deletes it (never also saves), EDIT
+# on an empty slot says so. Stopped, the waiting save is written, and a save goes straight to the flash.
+listen
+wait 1400
+tap PLAY
+wait 3000
+tap EDIT
+wait 50
+said SONG, PAGE 1/3
+tap SAVE
+wait 50
+said SAVED TO 1
+expect save_waits 1
+tap REC
+wait 50
+said SAVED SONGS, 1-7 OF 16
+shot saved-waiting.png
+# held on the first slot: deleted, nothing saved
+press SAVE
+wait 700
+release SAVE
+wait 50
+said SLOT 1 DELETED
+expect saved 0
+# SAVE on the second slot: saved there
+spin ALGO 1
+tap SAVE
+wait 50
+said SAVED TO 2
+expect saved 1
+# a third slot while that one waits: refused
+spin ALGO 1
+tap SAVE
+wait 50
+said A SAVE WAITS STOP TO SAVE MORE
+expect saved 1
+# EDIT on an empty slot
+tap EDIT
+wait 50
+said SLOT 3 IS EMPTY
+# twenty seconds of music: the flash never written
+wait 20000
+expect store_writes 0
+expect save_waits 1
+expect playing 1
+# stopped, the tails over: written once
+tap PLAY
+wait 3000
+expect save_waits 0
+expect store_writes 1
+# stopped: a save goes to the flash at once
+tap SAVE
+wait 50
+said SAVED TO 3
+expect save_waits 0
+expect store_writes 2
+expect saved 2
+shot saved-kept.png
+# a backup over USB holds them (and the home): one deleted after it, a restore brings it back; refused while playing
+backup out:saved.bak
+press SAVE
+wait 700
+release SAVE
+wait 50
+said SLOT 3 DELETED
+expect saved 1
+tap PLAY
+wait 1000
+restore out:saved.bak
+expect restore_rc 10
+tap PLAY
+wait 3000
+restore out:saved.bak
+expect restore_rc 0
+expect saved 2

@@ -584,13 +584,16 @@ void song_start_rows(song_t *s, const song_roll_t *r, int kit, const int16_t *ro
     static lib_set_t set;                /* (the set the plan reads while song_start clears s) */
     static song_ov_t ov, before;
     song_roll_t own;
-    int base, preset, i, mine;
+    int base = 0, preset, i, mine, need_set = kit >= 0;
+    for (i = 0; i < n; i++)              /* (overrides alone leave the song its library set: a saved song recalled
+                                            plays as it was rolled, its set's id and all) */
+        need_set |= rows[i] >= SR_ROLE && rows[i] < SR_OV;
     stage_off = kit >= 0 || n > 0;       /* (started again below: planned then) */
     song_start(s, r);
     stage_off = 0;
     if (kit < 0 && n <= 0)
         return;
-    if (!own_set(s)) {
+    if (need_set && !own_set(s)) {
         song_start(s, r);                /* (no set to make its own: as rolled, planned now) */
         return;
     }
@@ -613,13 +616,16 @@ void song_start_rows(song_t *s, const song_roll_t *r, int kit, const int16_t *ro
         own_by = 0;
         song_override(&ov);
     }
-    lib_set_wb(&set, base);
+    if (need_set)
+        lib_set_wb(&set, base);
     song_start(s, &own);                 /* (as the workbench's: its stage's set and roll, its song from them) */
-    s->set = set;
-    s->set_base = (uint8_t)base;
-    s->own = (uint8_t)(SONG_OWN_SET | mine);
+    if (need_set) {
+        s->set = set;
+        s->set_base = (uint8_t)base;
+        lib_set_wb(&s->set, base);
+    }
+    s->own = (uint8_t)((need_set ? SONG_OWN_SET : 0) | mine);
     s->kit_preset = (int8_t)preset;
-    lib_set_wb(&s->set, base);
     if (mine) {
         s->ov = ov;
         own_ov_before = before;
