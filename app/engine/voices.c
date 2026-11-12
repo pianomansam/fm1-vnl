@@ -365,9 +365,10 @@ static float keys_g = 1.0f; /* the song's keys level for its comping (keys_gain)
    DUCK_DB, a follower at the chunk rate (a one-pole toward 1 with a note held, else 0: about 25 ms in, 400 ms out,
    so a run of notes holds it down and a rest lets the keys back), the keys' gain ramped linearly over each chunk. */
 #define DUCK_DEPTH 0.29205f /* 1 - 10^(-3/20): 3 dB down at full duck */
-#define DUCK_WITH 0.49881f  /* 1 - 10^(-6/20): 6 dB, the keys with a low lead (the workbench's keys_with: harmony.c's
+#define DUCK_WITH 0.49881f  /* 1 - 10^(-6/20): 6 dB, the keys with a low lead (harmony_keys_with: harmony.c's
                                with_lead), in its register */
 static uint8_t duck_low;    /* the set's lead is one the keys lift over or sit with (lib_lead_lift) */
+static uint8_t duck_draw;   /* the song's draw, the keys with it (harmony_keys_draw; the workbench's keys_with wins) */
 /* The pad layer dips with them, 1 dB (Task 1b: it plays more of its bars under the lead now, where the keys duck, and
    stays 5 dB or more under them; the full 3 dB would sink it past 11 dB under in the grooves' sets) */
 #define DUCK_PAD 0.10875f   /* 1 - 10^(-1/20) */
@@ -586,6 +587,7 @@ void vx_assign(int voice, int ins)
     if (voice == V_LEAD) {
         lead_ch = (uint8_t)lib_lead_low(ins);
         lead_sp = ins == INS_HARP ? HARP_PLATE : sendp[V_LEAD];
+        duck_low = (uint8_t)lib_lead_lift(ins);
     }
     /* the organ: the song's registration and register on the keys, the one-stop 4' on the pad layer */
     assign_pt(voice, ins == INS_VIBES && voice == V_CHORD ? vx_vibes_keys()   /* the vibes on the keys */
@@ -676,7 +678,7 @@ void vx_configure(const song_roll_t *r)
         vx_assign(V_CHORD, s->chords);
         vx_assign(V_BASS, s->bass);
         vx_assign(V_LEAD, s->lead);
-        duck_low = (uint8_t)lib_lead_lift(s->lead);
+        duck_draw = (uint8_t)harmony_keys_draw(r);
         vx_assign(V_CANDY, INS_NONE); /* no ear candy (Sam, 2026-10-29): the set's candy goes unplayed */
         vx_assign(V_PAD, pad_force != INS_NONE ? pad_force : lib_song_pad(r)); /* the set's, or the choir drawn */
         vx_set_kit(lib_song_kit(r)); /* the song's: the set's synth kit or its sampled one */
@@ -2729,7 +2731,8 @@ static void duck_chunk(uint32_t c)
         dk_env += (1.0f - dk_env) * DUCK_KA;
     else if (dk_env > 0.0f)
         dk_env = dk_env < 1e-5f ? 0.0f : dk_env * (1.0f - DUCK_KR);
-    t = cg * (1.0f - (duck_low && song_ov()->keys_with ? DUCK_WITH : DUCK_DEPTH) * dk_env);
+    k = song_ov_get(song_ov(), OV_KEYS_WITH);
+    t = cg * (1.0f - (duck_low && (k >= 0 ? k : duck_draw) ? DUCK_WITH : DUCK_DEPTH) * dk_env);
     kg0 = kg;
     kgd = (t - kg) / (float)c;
     kg = t;

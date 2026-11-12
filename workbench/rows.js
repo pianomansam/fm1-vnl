@@ -130,7 +130,7 @@ function allOptions(r, state, opts, lib) {
     case "padOn": return [ROLLED, ...list(["Off", "On"])];
     case "onOffInverted": return [{ value: 0, name: "On" }, { value: 1, name: "Off" }];   // the engine's flag turns it off
     case "padPlaces": return [ROLLED, ...list(["Below the lead", "With the lead", "Above the lead"])];
-    case "lowLeadPlaces": return list(["Lift over it", "With the lead"]);   // the keys over a low lead (keys_with)
+    case "lowLeadPlaces": return [ROLLED, ...list(["Lift over it", "With the lead"])];   // over a low lead (keys_with)
     case "rides": return [ROLLED, ...list(["None", "Throughout", "One section"])];
     case "kits":   // a removed kit (the mixed sampled ones: their hits left the bank) never offered, shown only as current
       return opts.kits.map((k) => ({ value: k.id, name: k.name, status: k.status, family: k.family,
@@ -243,10 +243,9 @@ export function conflicts(r, value, state, opts, rnd = Math.random, lib) {
   return out;
 }
 
-// an override row's "as rolled" value (the registers', the switches' (the keys over a low lead's too) and the re-rolls' 0,
-// the others' -1)
+// an override row's "as rolled" value (the registers', the switches' and the re-rolls' 0, the others' -1)
 export const rolled = (r) => (r.source === "registers" || r.source === "onOffInverted" ||
-                               r.source === "lowLeadPlaces" || r.kind === "reroll" ? 0 : -1);
+                               r.kind === "reroll" ? 0 : -1);
 
 // The page's values from wb_state() (C: wb_consts()); the family is the page's, so it isn't here. A shorter ov list
 // (an older engine's state) leaves its newer overrides as rolled.

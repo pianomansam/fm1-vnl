@@ -182,7 +182,7 @@ static void range_bar(const song_roll_t *r, int style, const int keys[4], const 
     if (ko > 0 && e6 + ko > *hi && !lift) *hi = e6 + ko; /* the workbench's keys raised: the ceiling with them */
     if (*hi > ih) *hi = ih > e6 ? ih : e6;               /* in the instrument's range (or E6 at least: as before) */
     if (*hi < bhi) *hi = bhi;                            /* an octave down: the band's top at least */
-    if (lift && !song_ov()->keys_with) {                 /* the keys lifted over it (the jazz guitar): its top at
+    if (lift && !harmony_keys_with(r)) {                 /* the keys lifted over it (the jazz guitar): its top at
                                                             their lowest note (Sam: the keys' lowest never under the
                                                             guitar's top), a 6th of room under it in its range */
         int bot = 999;
@@ -193,7 +193,7 @@ static void range_bar(const song_roll_t *r, int style, const int keys[4], const 
             if (*lo > *hi - 9) *lo = *hi - 9 > il ? *hi - 9 : il;
             if (*lo_x < *lo || *lo_x > *hi) *lo_x = *lo;
         }
-    }                                                    /* (the keys with it, the workbench's keys_with: its band
+    }                                                    /* (the keys with it, harmony_keys_with: its band
                                                             as it is, the keys thinned where it plays: harmony.c) */
     if (drop > 12 && *hi >= CELLO_LO + 5) {               /* the cello's floor, D3 */
         if (*lo < CELLO_LO) *lo = CELLO_LO;

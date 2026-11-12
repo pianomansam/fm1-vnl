@@ -31,6 +31,7 @@ export function rolledNames(x, state, opts) {
     bassLine: ["ROOTS", "WALKING", "PEDAL"][x.bass_style],
     ride: ["NONE", "THROUGHOUT", "ONE SECTION"][x.ride],
     keysOct: x.keys_high === undefined ? undefined : x.keys_high ? "HIGH" : "UNDER THE LEAD",
+    keysWith: ["LIFT OVER IT", "WITH THE LEAD"][x.keys_with],
     leadOct: x.lead_lo > 0 && x.lead_hi > 0 ? `${note(x.lead_lo)}-${note(x.lead_hi)}` : undefined,
   };
 }

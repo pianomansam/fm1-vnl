@@ -337,8 +337,8 @@ int harmony_keys_oct(const song_roll_t *r) { return keys_oct_ok(r, 12 * song_ov(
    while the lead isn't playing, then jump up when the lead does"): the keys and the pad's chord part an octave up in the bars of the
    plan's lead blocks (lead_plays's: the lead in, the keys in, not an intro or outro), where the workbench leaves the
    keys' register as rolled and their range holds it (keys_oct_ok). The plan: the ticking song's (harmony_keys_plan,
-   set and cleared as the keys' window is); none outside a tick (no lift). The workbench's keys_with (with_lead)
-   leaves the keys in their register: the pad's chord part alone lifts (harmony_pad_lift). */
+   set and cleared as the keys' window is); none outside a tick (no lift). A song with the keys with the lead
+   (harmony_keys_with: with_lead) leaves them in their register: the pad's chord part alone lifts (harmony_pad_lift). */
 static const song_plan_t *lift_plan;
 void harmony_keys_plan(const song_plan_t *p) { lift_plan = p; }
 
@@ -353,7 +353,22 @@ int harmony_pad_lift(const song_roll_t *r, int bar)
     return keys_oct_ok(r, 12);
 }
 
-int harmony_keys_lift(const song_roll_t *r, int bar) { return song_ov()->keys_with ? 0 : harmony_pad_lift(r, bar); }
+/* The keys over a low lead, drawn per song (Sam, 2026-11-12, after hearing both: with the lead 3 in 4, the lift 1 in
+   4), on its own seed stream (no other draw moves); the workbench's keys_with forces either */
+int harmony_keys_draw(const song_roll_t *r)
+{
+    rng_t g;
+    rng_seed(&g, r->seed, 162);
+    return rng_int(&g, 100) < 75;
+}
+
+int harmony_keys_with(const song_roll_t *r)
+{
+    int o = song_ov_get(song_ov(), OV_KEYS_WITH);
+    return o >= 0 ? o : harmony_keys_draw(r);
+}
+
+int harmony_keys_lift(const song_roll_t *r, int bar) { return harmony_keys_with(r) ? 0 : harmony_pad_lift(r, bar); }
 
 /* The keys' window (harmony.h), and the voicer's top under it for this song: C5 (72) where it doesn't bind or can't
    hold (the top under C4, the voicer's lowest notes (C3, as placed) under the keys instrument's range or the
@@ -611,7 +626,7 @@ static int comp_strike(const patterns_comp_t *c, int step, int *held)
     return k;
 }
 
-/* With the lead (the workbench's keys_with, over a low lead: lib_lead_lift; Sam, 2026-11-12: "the piano is either
+/* With the lead (harmony_keys_with, over a low lead: lib_lead_lift; Sam, 2026-11-12: "the piano is either
    really high or way low. nothing in the middle"): the keys keep their own register all song, unlifted (about
    C3-C5, the cello's D3-Gb4 inside it). In a bar the lead plays (HS_LEAD) they make room: the voicing's inner voice
    under its top left out (the one in the lead's middle; its outer voices keep the chord's shape), and under a held
@@ -621,7 +636,7 @@ static int with_lead(const song_roll_t *r, int lead, int *notes, int n)
 {
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
     int i, k = 0, top = -1, in = -1;
-    if (!(lead & HS_LEAD) || !song_ov()->keys_with || !set || !lib_lead_lift(set->lead)) return n;
+    if (!(lead & HS_LEAD) || !set || !lib_lead_lift(set->lead) || !harmony_keys_with(r)) return n;
     for (i = 0; i < n; i++)
         if (notes[i]) notes[k++] = notes[i];
     if (k < 3) return k;

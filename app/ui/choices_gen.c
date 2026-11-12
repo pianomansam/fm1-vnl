@@ -172,7 +172,7 @@ const int8_t CH_SONG_ROW[ROW_N] = {
 };
 const char *const CH_ROW_ID[ROW_N] = {"seed", "key", "mode", "tempo", "swing", "mood", "motion", "map", "prog", "color", "family", "keys", "comp", "lead", "bass", "pad", "padOn", "phrase", "leadStyle", "leadLoop", "leadOct", "busyThin", "keysWith", "voicings", "keysOct", "strumPat", "strumFill", "padPlace", "bassLine", "padNotes", "drumsVar", "kit", "pattern", "kick", "ride", "dust", "noise", "ambience", "rhythm", "loop", "endless"};
 typedef struct { int8_t value; uint8_t flags; uint16_t name; } ch_entry_t;   /* 4 bytes */
-static const ch_entry_t CH_E[150] = {
+static const ch_entry_t CH_E[151] = {
     {0, 0, 0},
     {1, 0, 5},
     {2, 0, 10},
@@ -242,6 +242,7 @@ static const ch_entry_t CH_E[150] = {
     {1, 0, 521},
     {0, 0, 387},
     {1, 0, 383},
+    {-1, 8, 94},
     {0, 0, 534},
     {1, 0, 547},
     {-1, 0, 506},
@@ -347,25 +348,25 @@ static const uint8_t CH_SPAN[ROW_N][2] = {
     {61, 3},   /* leadLoop */
     {64, 3},   /* leadOct */
     {67, 2},   /* busyThin */
-    {69, 2},   /* keysWith */
-    {71, 0},   /* voicings */
-    {71, 3},   /* keysOct */
-    {74, 15},   /* strumPat */
-    {89, 3},   /* strumFill */
-    {92, 4},   /* padPlace */
-    {96, 0},   /* bassLine */
-    {96, 0},   /* padNotes */
-    {96, 0},   /* drumsVar */
-    {96, 18},   /* kit */
-    {114, 9},   /* pattern */
-    {123, 10},   /* kick */
-    {133, 4},   /* ride */
-    {137, 4},   /* dust */
-    {141, 3},   /* noise */
-    {144, 2},   /* ambience */
-    {146, 0},   /* rhythm */
-    {146, 2},   /* loop */
-    {148, 2},   /* endless */
+    {69, 3},   /* keysWith */
+    {72, 0},   /* voicings */
+    {72, 3},   /* keysOct */
+    {75, 15},   /* strumPat */
+    {90, 3},   /* strumFill */
+    {93, 4},   /* padPlace */
+    {97, 0},   /* bassLine */
+    {97, 0},   /* padNotes */
+    {97, 0},   /* drumsVar */
+    {97, 18},   /* kit */
+    {115, 9},   /* pattern */
+    {124, 10},   /* kick */
+    {134, 4},   /* ride */
+    {138, 4},   /* dust */
+    {142, 3},   /* noise */
+    {145, 2},   /* ambience */
+    {147, 0},   /* rhythm */
+    {147, 2},   /* loop */
+    {149, 2},   /* endless */
 };
 static const uint32_t CH_COMP_FIT[14][2] = {
     {4294967295u, 0u},

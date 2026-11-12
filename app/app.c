@@ -1155,11 +1155,11 @@ void app_init(void)
             }
         }
         {
-            const char *kw = getenv("VNL_KEYS_WITH");   /* VNL_KEYS_WITH=1: the keys with a low lead, not lifted
-                                                           over it (the workbench's keys_with) */
-            if (kw && kw[0] == '1' && !kw[1]) {
+            const char *kw = getenv("VNL_KEYS_WITH");   /* VNL_KEYS_WITH=1: the keys with a low lead, 0 lifted
+                                                           over it (the workbench's keys_with); unset, the draw */
+            if (kw && (kw[0] == '0' || kw[0] == '1') && !kw[1]) {
                 song_ov_t o = *song_ov();
-                o.keys_with = 1;
+                song_ov_set(&o, OV_KEYS_WITH, kw[0] - '0');
                 song_override(&o);
             }
         }

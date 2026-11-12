@@ -2762,7 +2762,7 @@ console.log("the busy-lead thinning row (on by default; off, the existing compin
   check(desk.values.busyThin === 0 && ex.wb_ov_get(OV.NO_BUSY_THIN) === 0, "and back on");
 }
 
-console.log("the comp over a low lead: lifted over it (the default) or with it");
+console.log("the comp over a low lead: lifted over it or with it (rolled, 3 in 4 with it)");
 {
   const { readEvents } = await import("../wb.js");
   const ex = await load(), call = caller(ex);
@@ -2771,9 +2771,11 @@ console.log("the comp over a low lead: lifted over it (the default) or with it")
   const desk = new Desk(call, C, OPTS, await call("wb_library"), { rnd: lcg(9) });
   await desk.read(true);
   const r = row("keysWith"), names = optionsFor(r, desk.state, OPTS).map((o) => o.name);
-  check(r && r.kind === "ov" && r.key === "KEYS_WITH" && JSON.stringify(names) === JSON.stringify(["Lift over it", "With the lead"]) &&
-        desk.values.keysWith === 0 && ex.wb_ov_get(OV.KEYS_WITH) === 0,
-        `a "Comp over a low lead" row: ${names.join(", ")}; a new song's lifts`);
+  const x = await call("wb_rolled");
+  check(r && r.kind === "ov" && r.key === "KEYS_WITH" &&
+        JSON.stringify(names) === JSON.stringify(["As rolled", "Lift over it", "With the lead"]) &&
+        desk.values.keysWith === -1 && ex.wb_ov_get(OV.KEYS_WITH) === -1 && (x.keys_with === 0 || x.keys_with === 1),
+        `a "Comp over a low lead" row: ${names.join(", ")}; a new song's as rolled (${["lift", "with the lead"][x.keys_with]})`);
   // the cello's set (44, Knight and cello), seed 3: lifted, the keys reach an octave over where they sit with it,
   // where the lead plays they strike fewer notes
   const keysOf = async (w) => {
@@ -2803,10 +2805,10 @@ console.log("the comp over a low lead: lifted over it (the default) or with it")
   old.locks = [];
   const e3 = await load(), d3 = new Desk(caller(e3), C, OPTS, await caller(e3)("wb_library"));
   const miss3 = await d3.restore(old);
-  check(!miss3.length && d3.values.keysWith === 0 && e3.wb_ov_get(OV.KEYS_WITH) === 0,
-        `an older snapshot (no such row) restores the lift (mismatch: ${miss3.join(", ") || "none"})`);
+  check(!miss3.length && d3.values.keysWith === -1 && e3.wb_ov_get(OV.KEYS_WITH) === -1,
+        `an older snapshot (no such row) restores it as rolled (mismatch: ${miss3.join(", ") || "none"})`);
   const s = JSON.parse(cstr(ex, ex.wb_state()));
-  check(fromEngine({ ...s, ov: s.ov.slice(0, C.OV.KEYS_WITH) }, C, OPTS).keysWith === 0, "a shorter ov list reads the lift");
+  check(fromEngine({ ...s, ov: s.ov.slice(0, C.OV.KEYS_WITH) }, C, OPTS).keysWith === -1, "a shorter ov list reads it as rolled");
 }
 
 console.log("the choir: a pad layer a song may draw (1 in 4), and a choice on the pad row");

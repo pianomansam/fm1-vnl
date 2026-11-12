@@ -7061,9 +7061,10 @@ static void lead_over_keys(int loop)
         printf("%s: %-21s mean %+.1f median %+.1f (%+.1f..%+.1f) dB\n", tag, t->name, (double)mean,
                (double)smed, (double)lo, (double)hi);
         /* (10.5 until the bossa pattern was removed, 2026-11-11: Emilyguitar and vibes and Knight and jazz guitar sat
-           at 10.5 in the loop before it, and just over after) */
-        CHECK(mean >= 1.5f && mean <= 11.0f, "%s: %s's mean %.1f dB, wanted 1.5-11", tag, t->name,
-              (double)mean);
+           at 10.5 in the loop before it, and just over after; 13 over a low lead since the keys sit with it in 3
+           songs in 4, ducked 6 dB under it: harmony_keys_with, 2026-11-12) */
+        CHECK(mean >= 1.5f && mean <= (lib_lead_lift(t->lead) ? 13.0f : 11.0f), "%s: %s's mean %.1f dB, wanted 1.5-%d",
+              tag, t->name, (double)mean, lib_lead_lift(t->lead) ? 13 : 11);
     }
     memcpy(sorted, d, (size_t)n * sizeof sorted[0]);
     qsort(sorted, (size_t)n, sizeof sorted[0], lk_cmp_f);
@@ -7585,10 +7586,15 @@ static void test_sampled_sets(void)
             CHECK(may_lp > 40 && led_lp * 100 >= may_lp * 60, "sampled sets: %s's looped struck lead sang in %ld of %ld "
                   "bars (60%% at least)", t->name, led_lp, may_lp);
         }
-        {   /* the duck with this set's keys and lead (test_keys_duck's measure) */
-            int pass, i;
+        {   /* the duck with this set's keys and lead (test_keys_duck's measure): 2-4 dB; over a low lead, with the
+               keys lifted (forced), and 5-7 with them with it (the comp over a low lead) */
+            int pass, i, w;
             uint32_t tt;
             float dip;
+            song_ov_t ov = *song_ov();
+            for (w = 0; w < (lib_lead_lift(t->lead) ? 2 : 1); w++) {
+            song_ov_set(&ov, OV_KEYS_WITH, w);
+            song_override(&ov);
             for (pass = 0; pass < 2; pass++) {
                 float *out = pass ? sb_x : sb_l;
                 vx_init();
@@ -7608,9 +7614,12 @@ static void test_sampled_sets(void)
             }
             vx_solo(-1);
             dip = db_of(lk_win(sb_x, 66150u, 88200u) / lk_win(sb_l, 66150u, 88200u));
-            printf("sampled sets: %-24s the keys duck %.1f dB under the lead\n", t->name, (double)-dip);
-            CHECK(dip <= -2.0f && dip >= -4.0f, "sampled sets: %s's keys duck %.1f dB, wanted 2-4", t->name,
-                  (double)-dip);
+            printf("sampled sets: %-24s the keys duck %.1f dB under the lead%s\n", t->name, (double)-dip,
+                   w ? " (with it)" : "");
+            CHECK(w ? dip <= -5.0f && dip >= -7.0f : dip <= -2.0f && dip >= -4.0f,
+                  "sampled sets: %s's keys duck %.1f dB, wanted %s", t->name, (double)-dip, w ? "5-7" : "2-4");
+            }
+            song_override(NULL);
         }
     }
 }
@@ -10204,7 +10213,8 @@ static void test_style_roll(void)
    bars of its lead blocks (harmony_keys_lift: the lead under them, so the voicing tests leave these songs out) and
    in their own register elsewhere; in the lead blocks the guitar's top at or under the keys' lowest note (Sam: "the
    keys' lowest note never under the guitar's top"; leads.c's range_bar caps it there) in 9 bars of 10 or more, and
-   never more than a 3rd over it. */
+   never more than a 3rd over it. The lift forced (the comp over a low lead: a song draws it 1 in 4,
+   harmony_keys_with; with the lead, the keys stay in their register). */
 static void test_jazz_lift(void)
 {
     static song_t s;
@@ -10212,6 +10222,9 @@ static void test_jazz_lift(void)
     song_ev_t ev[64];
     long bars = 0, under = 0, far = 0, lifted = 0, low_out = 0, out_bars = 0, songs = 0;
     int k;
+    song_ov_t lift = *song_ov();
+    song_ov_set(&lift, OV_KEYS_WITH, 0);
+    song_override(&lift);
     for (k = 0; k < 5; k++) {
         uint32_t seed;
         int got = 0;
@@ -10265,6 +10278,7 @@ static void test_jazz_lift(void)
     CHECK(far == 0, "jazz lift: the guitar more than a 3rd over the keys' bottom in %ld bars", far);
     CHECK(out_bars > 1000 && low_out == out_bars, "jazz lift: %ld of %ld bars outside the lead blocks lifted",
           out_bars - low_out, out_bars);
+    song_override(NULL);
 }
 
 /* The sets' leads (lead styles Task 7; the spec's "Lost sets' new leads"): every set leads with the flute, felt piano,
@@ -13115,7 +13129,9 @@ static void test_lead_loop_off_identical(void)
     }
     printf("lead loop off: events %08x (lead_loop -1), %08x (0)\n", (unsigned)h[0], (unsigned)h[1]);
     CHECK(h[0] == 0x8390a846u, "lead loop default: lead_loop -1 hashes %08x, wanted 8390a846", (unsigned)h[0]);
-    CHECK(h[1] == 0x02c5852du, "lead loop off: lead_loop 0 hashes %08x, wanted 02c5852d", (unsigned)h[1]);
+    CHECK(h[1] == 0xbeda6e35u, "lead loop off: lead_loop 0 hashes %08x, wanted beda6e35", (unsigned)h[1]);
+    /* (02c5852d until the comp over a low lead's draw, 2026-11-12: its songs on the jazz guitar's and the cello's
+       sets with the keys with the lead; the draw forced to the lift gives 02c5852d again) */
 }
 
 typedef struct {

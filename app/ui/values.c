@@ -201,6 +201,7 @@ static const char *rolled_name(const ui_bag_t *b, int row, char *t)
     case ROW_BASS_LINE: return x->bass_style >= 0 && x->bass_style < 3 ? BASS[x->bass_style] : 0;
     case ROW_RIDE: return x->ride >= 0 && x->ride < 3 ? RIDE[x->ride] : 0;
     case ROW_KEYS_OCT: return x->keys_high ? "HIGH" : "UNDER THE LEAD";
+    case ROW_KEYS_WITH: return x->keys_with ? "WITH THE LEAD" : "LIFT OVER IT";
     case ROW_LEAD_OCT:
         if (x->lead_lo <= 0 || x->lead_hi <= 0) return 0;
         note_name(x->lead_lo, t);

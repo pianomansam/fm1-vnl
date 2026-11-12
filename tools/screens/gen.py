@@ -164,7 +164,7 @@ def choices(row, opts):
     if src == "onOffInverted":
         return [(0, "ON", 0, 0, None, None), (1, "OFF", 0, 0, None, None)]
     if src == "lowLeadPlaces":
-        return [(0, "LIFT OVER IT", 0, 0, None, None), (1, "WITH THE LEAD", 0, 0, None, None)]
+        return with_rolled(["Lift over it", "With the lead"])
     if src == "padPlaces":
         return with_rolled(["Below the lead", "With the lead", "Above the lead"])
     if src == "rides":

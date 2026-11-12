@@ -20,6 +20,7 @@ typedef struct {
     int ride;          /* RIDE_* */
     int keys_high;     /* the keys sit high (harmony_keys_high) */
     int lead_lo, lead_hi;   /* the lead's band, MIDI (leads_band_for) */
+    int keys_with;     /* the keys over a low lead: 1 with the lead, 0 lifted (harmony_keys_draw) */
 } song_rolled_t;
 
 void song_rolled(const song_roll_t *r, song_rolled_t *out);

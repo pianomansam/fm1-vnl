@@ -21,4 +21,5 @@ void song_rolled(const song_roll_t *r, song_rolled_t *out)
     out->ride = groove_ride(r, &blk);
     out->keys_high = harmony_keys_high(r);
     leads_band_for(r, out->lead_style, &out->lead_lo, &out->lead_hi);
+    out->keys_with = harmony_keys_draw(r);
 }
