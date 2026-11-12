@@ -4,7 +4,7 @@ VNL-1 turns the M-VAVE FM-1 into a lo-fi hip hop machine. It writes and plays it
 has its own key, tempo, chords, layout and band, played through a lo-fi chain of tape wobble, dust and a plate. Press
 PLAY and leave it running, or steer it from the knobs. Every change lands on the next four-bar line, in time.
 
-![The now-playing screen: a spinning record beside the song's layout (Slow bloom), its key (Db Lydian), the chord (Eb9), where it is (intro, bar 3 of 56) and the tempo (81 BPM)](img/nowplaying.png "Now playing")
+![The now-playing screen: a spinning record beside the song's layout (Slow bloom), its key (Db Lydian), the chord (Abmaj7), where it is (intro, bar 4 of 56), the tempo (81 BPM) and the mood (sunny)](img/nowplaying.png "Now playing")
 
 ## [Install in your browser](install/)
 

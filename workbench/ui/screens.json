@@ -1928,6 +1928,14 @@
        "text": "BPM",
        "when": "known",
        "y": 108
+      },
+      {
+       "after": 10,
+       "color": "HI",
+       "font": "XS",
+       "text": "{mood}",
+       "when": "known",
+       "y": 108
       }
      ],
      "h": 128,
@@ -1972,7 +1980,7 @@
      "when": "!song"
     },
     {
-     "text": ", {tempo} BPM",
+     "text": ", {tempo} BPM. MOOD {mood}",
      "when": "known"
     }
    ],

@@ -245,7 +245,7 @@ export default {
     // screen opens it and HOME here goes back; whichever was used last is the home (HOME's, a new song's) and the
     // device remembers it, so boot lands there (the splash flows into it: the record stays, the text changes). The
     // song's name (its map's, big; a smaller face when too wide), its key, the chord, where it is, its map, the
-    // tempo; the record turns while the song plays (33 1/3) and eases to a stop when it stops. Everything else as
+    // tempo and the mood; the record turns while the song plays (33 1/3) and eases to a stop when it stops. Everything else as
     // everywhere.
     now: {
       title: "Now playing",
@@ -254,7 +254,7 @@ export default {
         { y: 0, h: 56, draw: [{ record: [0, 120, 104], value: "spin", color: "AMB", back: "VINYL", past: "LINE" }] },
         // the song beside it, centred on the record (rows 61-180): the name, key and mode, the chord playing (Sam,
         // 2026-11-11: "I still want the current chord to show"; the longest the engine names, A#maj#11, 67 px in B),
-        // where it is, its map, the tempo
+        // where it is, its map, the tempo, the mood
         { y: 56, h: 128, draw: [
           { record: [0, 64, 104], value: "spin", color: "AMB", back: "VINYL", past: "LINE" },
           { when: "known", text: "{map}", font: "M", fit: [122, "B"], x: 112, y: 5, color: "WHITE" },
@@ -265,12 +265,15 @@ export default {
           { sections: [112, 89, 122, 3], color: "AMB", back: "LINE", past: "DIM" },
           { when: "known", text: "{tempo}", font: "M", x: 112, y: 100, color: "HI" },
           { when: "known", text: "BPM", font: "XS", after: 4, y: 108, color: "GRAY" },
+          // the mood, small, in the values' amber (Sam, 2026-11-12: "to the right of the bpm"; WISTFUL ends at 213)
+          { when: "known", text: "{mood}", font: "XS", after: 10, y: 108, color: "HI" },
         ] },
         { y: 184, h: 56, draw: [{ record: [0, -64, 104], value: "spin", color: "AMB", back: "VINYL", past: "LINE" }] },
       ],
       controls: { HOME: { go: "main", home: true } },
-      say: [{ when: "known", text: "{map}. {key} {mode}. " }, { when: "song", text: "CHORD {chord}. {section}, BAR {bar} OF {bars}" },
-            { when: "!song", text: "{idle}" }, { when: "known", text: ", {tempo} BPM" }],
+      say: [{ when: "known", text: "{map}. {key} {mode}. " },
+            { when: "song", text: "CHORD {chord}. {section}, BAR {bar} OF {bars}" },
+            { when: "!song", text: "{idle}" }, { when: "known", text: ", {tempo} BPM. MOOD {mood}" }],
     },
 
     // The main screen (Sam, 2026-11-06: mockup B3, chosen over A-C; the FM-1 conventions from
