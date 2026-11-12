@@ -24,7 +24,7 @@ export const PALETTES = {
   OLIVE: [RGB(35, 40, 24), RGB(74, 83, 48), RGB(178, 185, 143), RGB(227, 179, 48), RGB(246, 211, 107),
           RGB(20, 23, 12), RGB(245, 240, 220)],
 };
-export const THEME = "TEAL";   // app.h's APP_PALETTE 6
+export const THEME = "OLIVE";   // app.h's APP_PALETTE 7
 // the theme's colors, plus the screen data's own (`colors`: { NAME: [r, g, b] }, e.g. a color per part)
 export const colors = (theme = THEME, extra = {}) => {
   const p = PALETTES[theme];

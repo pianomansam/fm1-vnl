@@ -51,7 +51,7 @@ export default {
     PENDING: [250, 226, 90],
     // the record's disc on the splash and the now-playing screen (Sam's splash C1): a teal-black, about 55% of the
     // background (TEAL's #0c1d1e)
-    VINYL: [7, 16, 17],
+    VINYL: [11, 13, 7],
   },
 
   // 1-bit icons, 9 px wide, rows of "#" (lit) and "." (the main screen's): one per part, drawn in its color
