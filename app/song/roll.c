@@ -111,6 +111,30 @@ static uint32_t tri(int x, int a, int m, int b)
     return x <= m ? (uint32_t)(x - a + 1) * (uint32_t)(b - m) : (uint32_t)(b - x + 1) * (uint32_t)(m - a);
 }
 
+/* The drum pattern's draw by the set's flavor (spike, 2026-11-11): each family's share in percent, split evenly over
+   its approved patterns, then tilted by the motion (motion_tilt). No zero: every family stays possible ("vary, not
+   avoid"). The bossa pattern is removed (Sam, 2026-11-11): the bossa sets lean on the brushes, then the sparse
+   and the half-time.         boom-bap  half-time  sparse  brushes */
+static const uint8_t FAMILY_W[5][4] = {
+    /* lofi: boom-bap's home; half-time for the slow, sad side */           {45, 30, 10, 15},
+    /* bossa: the brushes, then space */                                    {5, 18, 22, 55},
+    /* city pop: the busy, bright grooves */                                {50, 25, 10, 15},
+    /* neo-soul: boom-bap with ghost notes, half-time, the brushes */       {47, 25, 10, 18},
+    /* chillwave: the 808 half-time and sparse; little swing */             {17, 52, 28, 3},
+};
+#define BRUSH_KIT_X 3   /* a non-bossa set on the brushes kit (29, 32, 44): the brushes pattern x3 */
+
+static uint32_t pattern_w(const song_roll_t *r, int i)
+{
+    const lib_set_t *s = lib_set_by_id((uint8_t)r->v[RF_SET]);
+    int fl = s && s->flavor < 5 ? s->flavor : FL_LOFI, fam = LIB_PATTERNS[i].family, j, n = 0;
+    uint32_t w;
+    for (j = 0; j < LIB_NPATTERNS; j++) n += LIB_PATTERNS_STATUS[j] == 1 && LIB_PATTERNS[j].family == fam;
+    w = FAMILY_W[fl][fam] * 840u / (uint32_t)(n ? n : 1);
+    if (fam == PF_BRUSHES && s && s->kit == KIT_BRUSHES && fl != FL_BOSSA) w *= BRUSH_KIT_X;
+    return w;
+}
+
 /* Every legal value of field f for roll r, with its weight. */
 static void cands(const song_roll_t *r, int f, cands_t *c)
 {
@@ -141,10 +165,10 @@ static void cands(const song_roll_t *r, int f, cands_t *c)
         for (i = 0; i < LIB_NSETS; i++)
             if ((LIB_SETS[i].moods & (1 << mood)) && lib_set_playable(&LIB_SETS[i])) add(c, LIB_SETS[i].id, 1);
         break;
-    case RF_PATTERN:   /* evenly, leaning on the song's motion by each pattern's busyness (motion_tilt) */
+    case RF_PATTERN:   /* by the set's flavor (FAMILY_W), leaning on the song's motion by each pattern's busyness */
         for (i = 0; i < LIB_NPATTERNS; i++)
             if (LIB_PATTERNS_STATUS[i] == 1)
-                add(c, LIB_PATTERNS[i].id, motion_tilt(1, LIB_PATTERNS_BUSY[i], roll_motion(r)));
+                add(c, LIB_PATTERNS[i].id, motion_tilt((int)pattern_w(r, i), LIB_PATTERNS_BUSY[i], roll_motion(r)));
         break;
     case RF_SWING: for (i = 520; i <= 620; i++) add(c, i, tri(i, 520, 525, 620)); break;   /* mean 555, median ~551 */
     case RF_DUST: for (i = 0; i <= 3; i++) add(c, i, 1); break;

@@ -14,8 +14,8 @@ enum { RF_KEY, RF_TEMPO, RF_MOTION, RF_MOOD, RF_MODE, RF_MAP, RF_PROG, RF_COLOR,
    RF_NOISE 0 none / 1 vinyl / 2 tape; RF_AMBIENCE 0 none / 1 rain; RF_BARS 36-76, a multiple of 4, with
    RF_BARS * 240 / RF_TEMPO within 120-210 s. A progression is legal only if it suits both the mood and the mode.
    Progressions and drum patterns are drawn (roll_song, roll_dice, the novelty passes) from the approved entries only
-   (patterns_gen.h's *_STATUS 1), the drum patterns evenly, tilted by the rolled motion (LIB_PATTERNS_BUSY,
-   motion_tilt); roll_set takes a candidate too (the workbench's way to hear one), and a mode only a candidate
+   (patterns_gen.h's *_STATUS 1), the drum patterns by the set's flavor (roll.c's FAMILY_W), tilted by the rolled
+   motion (LIB_PATTERNS_BUSY, motion_tilt); roll_set takes a candidate too (the workbench's way to hear one), and a mode only a candidate
    progression suits (that progression then, unless the song's suits it). */
 /* motion_moved: how far a live Motion request (song.c's, from a 4-bar boundary) moved v[RF_MOTION] from the motion the
    song was rolled (or staged) with; 0 in any roll that was never live-changed. roll_motion reads the rolled one. */
