@@ -1,0 +1,64 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Bass saturation (Sam, 2026-11-12: the bass's harmonics buzz on nice speakers): Settings (GLO), EDIT or PRESET turns
+# them off or on. Off, the bass bypasses the shaper entirely; the engine switches at the next fresh bass note (never
+# mid-note: no click). The device keeps the choice through a reboot, written once all is silent, as the theme is.
+# (The first song plays the sub, which is never saturated; SEQ's next one an electric bass.)
+listen
+wait 1400
+expect bass_sat 1
+expect bass_sat_live 1
+tap GLO
+wait 50
+said SETTINGS. THEME PLUM+. BASS SATURATION ON
+shot bass-sat-on.png
+tap PLAY
+wait 2000
+tap SEQ
+wait 8000
+expect bass_shaped 1
+tap GLO
+wait 50
+said SETTINGS. THEME PLUM+. BASS SATURATION ON
+tap EDIT
+wait 50
+said BASS SATURATION OFF
+expect bass_sat 0
+shot bass-sat-off.png
+wait 5000
+expect bass_sat_live 0
+expect bass_shaped 1
+wait 5000
+expect bass_shaped 0
+expect bass_sat_kept 0
+tap PLAY
+wait 2500
+expect bass_sat_kept 1
+reboot
+wait 1400
+expect bass_sat 0
+expect theme 9
+tap PLAY
+wait 2000
+tap SEQ
+wait 8000
+expect bass_sat_live 0
+expect bass_shaped 0
+tap GLO
+wait 50
+said SETTINGS. THEME PLUM+. BASS SATURATION OFF
+spin PRESET 1
+wait 50
+said BASS SATURATION ON
+expect bass_sat 1
+wait 8000
+expect bass_sat_live 1
+expect bass_shaped 1
+spin PRESET 2
+wait 50
+expect bass_sat 1
+tap PLAY
+wait 2500
+expect bass_sat_kept 1
+reboot
+wait 1400
+expect bass_sat 1

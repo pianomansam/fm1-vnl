@@ -40,6 +40,9 @@ typedef struct {
     void (*readout)(void);
     /* the theme (Settings' THEME): moved by detents through base's palettes (0: as it is), at once; its name */
     const char *(*theme)(int detents);
+    /* the bass's harmonics (Settings' BASS SATURATION): an odd number of detents flips it (0: as it is); "ON" or
+       "OFF" */
+    const char *(*bass_sat)(int detents);
 } ui_engine_t;
 
 /* the saved songs' slots as the list shows them (saved.c keeps them; the flash holds the songs): state UI_SLOT_*,

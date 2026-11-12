@@ -15,7 +15,8 @@ The first public release: a generative lo-fi hip hop firmware for the M-VAVE FM-
   lead (a note fewer and a dip where the lead sounds) in three songs out of four, or lifts an octave over it; the
   Comp screen's page 2 (K3, Over a low lead) forces either.
 - **Bass that carries on small speakers:** every bass but the sub adds gentle harmonics (a parallel saturation)
-  in the register it plays, so laptop and phone speakers hear its line; the sub stays clean.
+  in the register it plays, so laptop and phone speakers hear its line; the sub stays clean. Settings' BASS
+  SATURATION turns it off for good speakers (at the next bass note, kept through power-off).
 - **On the device:** a boot splash, a now-playing screen, a main screen, a page per part, Parts, Sections and Mixer
   screens; mute and solo from the keys; every change landing on the next four-bar line; a screen reader; USB audio.
 - **The mood on now playing:** the now-playing screen shows the song's mood (SAD, WISTFUL, WARM or SUNNY) on its
@@ -27,7 +28,7 @@ The first public release: a generative lo-fi hip hop firmware for the M-VAVE FM-
   to its parts), through power-off; REC opens the Saved list, where EDIT loads a song as the next one, SAVE saves into
   a chosen slot and SAVE held deletes. The flash is written only while all is silent (a save while music plays waits
   for the stop). SAVE held on the Song screen shows the measures SAVE shows elsewhere. A USB backup holds the saved
-  songs, the home and the theme; `tools/fm1_songs.py` reads and writes single songs.
+  songs, the home, the theme and the bass saturation; `tools/fm1_songs.py` reads and writes single songs.
 - **Themes on the device:** Settings (GLO) has a working THEME: SELECT or ALGO steps through every palette fm1-base
   carries, at once and kept through power-off, so the colors can be judged on the FM-1's own screen. PLUM+ (peach on
   a saturated plum) is the default; PLUM, OXBLOOD and OXBLOOD+ are new beside teal, olive and espresso.
@@ -46,6 +47,6 @@ Fixes:
   exports them first and writes them back after. `tools/fm1_songs.py list` tags each song `[flash]` or `[RAM only]`,
   and tells a failed flash write from one waiting for silence.
 
-Known limits: no Bluetooth, so no velocity or pressure from the keys. The Settings screen's only working setting
-is THEME. See
+Known limits: no Bluetooth, so no velocity or pressure from the keys. The Settings screen's only working settings
+are THEME and BASS SATURATION. See
 `ROADMAP.md` for what's next.

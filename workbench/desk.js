@@ -26,6 +26,14 @@ export function loadLevels(storage = () => globalThis.localStorage) {
   return Object.fromEntries(LEVEL_PARTS.map((p) => [p, levelOf(saved[p])]));
 }
 
+// Settings' BASS SATURATION (the device's; Sam, 2026-11-12: the bass's harmonics buzz on nice speakers): on (the
+// default) or off, per viewer (BASS_SAT_KEY, the device mock's too), across songs; the engine takes it at the next
+// fresh bass note (wb_bass_sat)
+export const BASS_SAT_KEY = "vnl1.bassSat";
+export function loadBassSat(storage = () => globalThis.localStorage) {
+  try { return storage()?.getItem(BASS_SAT_KEY) !== "0"; } catch { return true; }
+}
+
 // each part's salt row (rows.js's part: its 🎲 sets it), and its name in messages
 export const PART_ROW = Object.fromEntries(ROWS.filter((r) => r.part).map((r) => [r.part, r.id]));
 export const PART_NAME = { drums: "Drums", bass: "Bass", keys: "Comp", lead: "Lead", pad: "Pad" };
@@ -102,6 +110,8 @@ export class Desk {
     Object.assign(this, { call, C, opts, lib, rnd, probe, position, events, storage });
     this.levels = loadLevels(storage);   // the mixer's dB by part (LEVEL_PARTS), restored into the engine at once
     this.levelsReady = this.applyLevels().catch(() => {});
+    this.bassSat = loadBassSat(storage);   // Settings' BASS SATURATION, restored into the engine at once
+    this.bassSatReady = (async () => this.call("wb_bass_sat", this.bassSat ? 1 : 0))().catch(() => {});
     this.changes = [];         // every applied change: { seconds, bar, row, from, to }
     this.values = {};
     this.locks = new Set();
@@ -362,6 +372,13 @@ export class Desk {
   }
   async applyLevels() {
     for (const [i, p] of LEVEL_PARTS.entries()) await this.call("wb_level_set", i, this.levels[p]);
+  }
+  // the bass's harmonics on or off (Settings' BASS SATURATION), saved for this viewer; taken at the next bass note
+  async setBassSat(on) {
+    this.bassSat = !!on;
+    try { this.storage()?.setItem(BASS_SAT_KEY, on ? "1" : "0"); } catch { /* kept for this visit only */ }
+    await this.call("wb_bass_sat", on ? 1 : 0);
+    return this.bassSat;
   }
 
   done(ok, message) {

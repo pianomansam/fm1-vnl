@@ -7,7 +7,7 @@
 
 /* the vocabulary (workbench/ui/vocab.json), in its order */
 enum ui_item_kind { UI_TEXT, UI_RECT, UI_ICON, UI_METER, UI_KNOBS, UI_SECTIONS, UI_LANES, UI_FADERS, UI_RECORD };
-enum ui_action { UA_NONE, UA_GO, UA_PLAY, UA_NUDGE, UA_TURN, UA_CURSOR, UA_PAGE, UA_PART, UA_JUMP, UA_REROLL, UA_MUTE, UA_SOLO, UA_LEVEL, UA_LOCK, UA_SAVE, UA_READOUT, UA_RECALL, UA_ERASE, UA_THEME };
+enum ui_action { UA_NONE, UA_GO, UA_PLAY, UA_NUDGE, UA_TURN, UA_CURSOR, UA_PAGE, UA_PART, UA_JUMP, UA_REROLL, UA_MUTE, UA_SOLO, UA_LEVEL, UA_LOCK, UA_SAVE, UA_READOUT, UA_RECALL, UA_ERASE, UA_THEME, UA_BASS_SAT };
 
 /* the controls an action a screen: plat.h's buttons (B_*), the encoders (EN_SELECT, EN_ALGO, EN_PRESET), the
    knobs K1-K4, the keys 0-26 */
@@ -69,25 +69,26 @@ enum ui_value {
     UV_LOCK_SONG,
     UV_SLOT_RANGE,
     UV_THEME,
+    UV_BASS_SAT,
     UV_N_FIXED
 };
 enum { UVK_I_SEL, UVK_I_SEC, UVK_I_SEC_BARS, UVK_I_SEC_NOW, UVK_I_SEC_PEND, UVK_I_SEC_KEY, UVK_I_SLOT, UVK_I_SLOT_NUM, UVK_I_SLOT_INFO, UVK_I_SLOT_EMPTY, UVK_I_SLOT_PEND, UVK_I_N };   /* sel{0-9}, sec{0-9}, sec{0-9}Bars, sec{0-9}Now, sec{0-9}Pend, sec{0-9}Key, slot{0-9}, slot{0-9}Num, slot{0-9}Info, slot{0-9}Empty, slot{0-9}Pend */
-#define UV_I0 33
+#define UV_I0 34
 #define UV_I(i, k) (UV_I0 + (i) * UVK_I_N + (k))
 #define UV_I_COUNT 10
 enum { UVK_FIELD_VALUE, UVK_FIELD_FRAC, UVK_FIELD_PEND, UVK_FIELD_FIRST, UVK_FIELD_LAST, UVK_FIELD_N };   /* {field}, {field}Frac, {field}Pend, {field}First, {field}Last */
-#define UV_FIELD0 143
+#define UV_FIELD0 144
 #define UV_FIELD(i, k) (UV_FIELD0 + (i) * UVK_FIELD_N + (k))
 #define UV_FIELD_COUNT 37
 enum { UVK_ROW_VALUE, UVK_ROW_PEND, UVK_ROW_N };   /* {row}, {row}Pend */
-#define UV_ROW0 328
+#define UV_ROW0 329
 #define UV_ROW(i, k) (UV_ROW0 + (i) * UVK_ROW_N + (k))
 #define UV_ROW_COUNT 38
 enum { UVK_LINE_VALUE, UVK_LINE_N };   /* {line} */
-#define UV_LINE0 404
+#define UV_LINE0 405
 #define UV_LINE(i, k) (UV_LINE0 + (i) * UVK_LINE_N + (k))
 #define UV_LINE_COUNT 2
-#define UI_N_VALUES 406
+#define UI_N_VALUES 407
 
 /* a template: text with a value at each UI_TPL_VAL byte, its id in the next two (UI_TPL_ID); never a NUL */
 #define UI_TPL_VAL 1

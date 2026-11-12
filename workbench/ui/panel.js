@@ -174,6 +174,7 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
         dev = new Device(data, engine);
         try { const h = localStorage.getItem(HOME_KEY); if (h && data.screens[h]) dev.stack = [dev.home = h]; } catch {}
         try { const t = localStorage.getItem(THEME_KEY); if (t && PALETTES[t]) dev.theme = t; } catch {}   // (Settings' THEME)
+        try { dev.bassSat = localStorage.getItem(BASS_SAT_KEY) !== "0"; } catch {}   // (BASS SATURATION: desk.js keeps it)
         try {   // the saved songs (the FM-1 keeps them in its flash; here this browser's)
           const s = JSON.parse(localStorage.getItem(SAVED_KEY) ?? "null");
           if (Array.isArray(s)) s.slice(0, dev.slots.length).forEach((x, i) => { dev.slots[i] = x ?? null; });
@@ -190,7 +191,7 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
 
   // the screen and what the reader said
   let lightsKey = "", keptHome = null, keptSaved = null, keptTheme = null;
-  const HOME_KEY = "vnl1.home", SAVED_KEY = "vnl1.saved", THEME_KEY = "vnl1.theme";
+  const HOME_KEY = "vnl1.home", SAVED_KEY = "vnl1.saved", THEME_KEY = "vnl1.theme", BASS_SAT_KEY = "vnl1.bassSat";
   function draw() {
     if (!dev) return;
     if (dev.home !== keptHome) { keptHome = dev.home; try { localStorage.setItem(HOME_KEY, dev.home); } catch {} }
@@ -293,5 +294,6 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
     position(p, on) { pos = p; playing = on; refresh(); },   // each position the engine reports, and the transport
     changed() { refresh(true); },                            // after a change on the page
     redraw() { refresh(true); },                             // (the loop switch)
+    bassSat(on) { if (dev) dev.bassSat = !!on; refresh(true); },   // the page's bass Sat switch (Settings' row follows)
   };
 }

@@ -174,7 +174,7 @@ static int e_soloed(void) { return eng_solo; }
 static void e_level(int p, int db) { eng_level[p] = db; logf_("level", p, db); }
 static int e_level_get(int p) { return eng_level[p]; }
 static const ui_engine_t ENG = {e_set, e_play, e_reroll, e_reroll_part, e_jump, e_mute, e_solo, e_muted, e_soloed,
-                                e_level, e_level_get, 0, 0, 0, 0, 0};   /* (the saved songs, the theme: none here) */
+                                e_level, e_level_get, 0, 0, 0, 0, 0, 0};   /* (the saved songs, the settings: none) */
 
 static void nav_fresh(ui_nav_t *n, snap_t *s, int bar)
 {

@@ -568,11 +568,26 @@ void vx_assign_patch(int voice, const vx_patch_t *p)
 #define BSAT_SQ 0.8f    /* x^2 */
 #define BSAT_CUBE 0.2f  /* x^3, subtracted */
 #define BSAT_R 0.99715f /* the DC block's pole: 1 - 2 pi 20 Hz / SR */
-static uint8_t bsat_on; /* the song's bass is not the sub */
+static uint8_t bsat_on;                      /* the song's bass is not the sub */
+static uint8_t bsat_want = 1, bsat_live = 1; /* Settings' BASS SATURATION: asked for, and taken at a fresh bass note */
 static float bsat_x1, bsat_y1;
+#ifdef PLAT_HOST
+static uint32_t bsat_n;
+uint32_t vx_bass_shaped(void)
+{
+    uint32_t n = bsat_n;
+    bsat_n = 0;
+    return n;
+}
+#endif
+void vx_bass_sat(int on) { bsat_want = (uint8_t)(on != 0); }
+int vx_bass_sat_live(void) { return bsat_live; }
 
 static inline float bass_sat(float b)
 {
+#ifdef PLAT_HOST
+    bsat_n++;
+#endif
     float x = fm_clampf(b * BSAT_D, -1.5f, 1.5f), x2 = x * x;
     float h = BSAT_ABS * fm_fabsf(x) + x2 * (BSAT_SQ - BSAT_CUBE * x), y = h - bsat_x1 + BSAT_R * bsat_y1;
     bsat_x1 = h;
@@ -1262,8 +1277,11 @@ static void voice_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int
     v->qr = (uint8_t)((p->model == M_ENS || (p->model == M_TW && v->role == V_PAD)) && !(fx_off & VX_OFF_HALF) &&
                       !v->hr);
     env_start(v, p, e, legato);
-    if (v->role == V_BASS && !legato) /* the bass's harmonics start clean with the note (a song after another the same) */
+    if (v->role == V_BASS && !legato) { /* the bass's harmonics start clean with the note (a song after another the
+                                           same); Settings' BASS SATURATION switches here, never mid-note */
         bsat_x1 = bsat_y1 = 0.0f;
+        bsat_live = bsat_want;
+    }
     switch (p->model) {
     case M_EP: ep_start(v, e); break;
     case M_PAD: pad_start(v, e); break;
@@ -2325,7 +2343,7 @@ static void render_seg(uint32_t pos, uint32_t n, int filt)
             else if (j < NFM)
                 k += y;
             else
-                b += bsat_on ? bass_sat(y) : y; /* (the one bass voice, while it sounds) */
+                b += bsat_on & bsat_live ? bass_sat(y) : y; /* (the one bass voice, while it sounds) */
         }
         if (i == pv)
             pf_v_end(n);

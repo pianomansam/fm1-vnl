@@ -1426,6 +1426,12 @@ static void sv_recall(const sv_song_t *sg, int playing)   /* playing: or held */
 }
 #endif
 
+/* Settings' BASS SATURATION: on (1, the default) or off, the engine's (vx_bass_sat); host renders may force it
+   (VNL_BASS_SAT=0 or 1: bass_sat_env, over the setting kept) */
+static uint8_t bass_sat = 1;
+static int8_t bass_sat_env = -1;
+static inline void bass_sat_engine(void) { vx_bass_sat(bass_sat_env >= 0 ? bass_sat_env : bass_sat); }
+
 void app_init(void)
 {
     song_first_bar_later(1);             /* (a new song's first bar planned a part a block: song_begin, app_render) */
@@ -1449,6 +1455,12 @@ void app_init(void)
         {
             const char *bd = getenv("VNL_BED");    /* VNL_BED=0: no surface noise or rain, to hear the music */
             vx_bed_off(bd && *bd == '0');
+        }
+        {
+            const char *bs = getenv("VNL_BASS_SAT");   /* VNL_BASS_SAT=0: the bass's harmonics off (Settings' BASS
+                                                          SATURATION), 1 on, whatever the setting kept */
+            bass_sat_env = (int8_t)(bs && (*bs == '0' || *bs == '1') && !bs[1] ? *bs - '0' : -1);
+            bass_sat_engine();
         }
         {
             const char *sd = getenv("VNL_SEED");   /* the first song's seed, as a log prints it: replay or roll anew */
@@ -2278,9 +2290,20 @@ static const char *ui_e_theme(int detents)
     }
     return PALETTES[theme].name;
 }
+/* the bass's harmonics (Settings' BASS SATURATION, PRESET there: Sam, 2026-11-12, buzzy on nice speakers): on (the
+   default) or off, each detent flipping it; the engine takes it at the next fresh bass note (vx_bass_sat), the device
+   keeps it with the home (set_keep) */
+static const char *ui_e_bass_sat(int detents)
+{
+    if (detents & 1) {
+        bass_sat = (uint8_t)!bass_sat;
+        bass_sat_engine();
+    }
+    return bass_sat ? "ON" : "OFF";
+}
 static const ui_engine_t UI_HENG = {ui_e_set, ui_e_play, ui_e_reroll, ui_e_reroll_part, ui_e_jump, ui_e_mute,
                                     ui_e_solo, ui_e_muted, ui_e_soloed, ui_e_level, ui_e_level_get,
-                                    ui_e_save, ui_e_recall, ui_e_erase, m_readout, ui_e_theme};
+                                    ui_e_save, ui_e_recall, ui_e_erase, m_readout, ui_e_theme, ui_e_bass_sat};
 
 /* what the Parts roll and the Mixer show: the render's notes (the buffer it isn't writing), the listening, levels */
 static const ui_activity_t *ui_activity(void)
@@ -2894,14 +2917,15 @@ void app_splash(void)
 
 #if VNL_UI_RUNTIME
 /* the settings kept in the flash (OBJ_SETTINGS): which home was used last (HOME on the main and now-playing screens),
-   so boot lands there, and the theme (Settings' THEME: its palette + 1, 0 none; a record from before it: pad, 0, so
-   APP_PALETTE). Saved when it changes, but only while nothing sounds (stopped or between songs, the tails
+   so boot lands there, the theme (Settings' THEME: its palette + 1, 0 none; a record from before it: pad, 0, so
+   APP_PALETTE) and the bass's harmonics (Settings' BASS SATURATION: bsat_off 1 off; a record from before it: pad, 0,
+   so on). Saved when it changes, but only while nothing sounds (stopped or between songs, the tails
    over): a save erases a 4 KB sector with the interrupts off and the audio buffer zeroed (base's st_erase), tens of
    ms of silence that a playing song hears as a crackle (Sam, 2026-11-11, switching the homes while playing) */
 #define SET_MAGIC 0x564E4C31u            /* "VNL1" */
 enum { SET_HOME_MAIN, SET_HOME_NOW };
-typedef struct { uint32_t magic; uint8_t home, theme, pad[2]; } vnl_set_t;
-static uint8_t set_home = SET_HOME_MAIN, set_theme = APP_PALETTE % NPALETTES;
+typedef struct { uint32_t magic; uint8_t home, theme, bsat_off, pad; } vnl_set_t;
+static uint8_t set_home = SET_HOME_MAIN, set_theme = APP_PALETTE % NPALETTES, set_bsat = 1;
 
 static int set_read(vnl_set_t *v)
 {
@@ -2921,26 +2945,33 @@ static void set_theme_boot(void)         /* the theme kept (at power-on: the spl
 static void set_load(void)
 {
     vnl_set_t v;
-    if (set_read(&v))
+    set_bsat = 1;
+    if (set_read(&v)) {
         set_home = v.home;
+        set_bsat = v.bsat_off != 1u;
+    }
     set_theme_boot();
+    bass_sat = set_bsat;
+    bass_sat_engine();
     ui_hnav.stack[0] = ui_hnav.home = (uint8_t)(set_home == SET_HOME_NOW ? US_NOW : UI_HOME);
 }
 
-static uint16_t set_tried = 0xFFFFu;     /* the home and theme a failed write was for: tried again at the next change */
+static uint32_t set_tried = 0xFFFFFFFFu; /* the settings a failed write was for: tried again at the next change */
 
-static void set_keep(void)               /* the home or the theme changed: kept once all is silent */
+static void set_keep(void)               /* the home, the theme or the bass's harmonics changed: kept once all is silent */
 {
     uint8_t h = ui_hnav.home == US_NOW ? SET_HOME_NOW : SET_HOME_MAIN;
-    uint16_t want = (uint16_t)(h << 8 | theme);
+    uint32_t want = (uint32_t)h << 16 | (uint32_t)theme << 8 | bass_sat;
+    int same = h == set_home && theme == set_theme && bass_sat == set_bsat;
     vnl_set_t v;
-    if (h == set_home && theme == set_theme) set_tried = 0xFFFFu;
-    if ((h == set_home && theme == set_theme) || want == set_tried || !may_write()) return;
+    if (same) set_tried = 0xFFFFFFFFu;
+    if (same || want == set_tried || !may_write()) return;
     memset(&v, 0, sizeof v);
     v.magic = SET_MAGIC;
     v.home = h;
     v.theme = (uint8_t)(theme + 1u);
-    if (plat_store_save(OBJ_SETTINGS, &v, sizeof v) == 0) set_home = h, set_theme = theme;
+    v.bsat_off = (uint8_t)!bass_sat;
+    if (plat_store_save(OBJ_SETTINGS, &v, sizeof v) == 0) set_home = h, set_theme = theme, set_bsat = bass_sat;
     else set_tried = want;
 }
 
@@ -3178,6 +3209,16 @@ int app_expect(const char *what, int *got)
         *got = theme;
     else if (!strcmp(what, "theme_kept"))   /* the theme in the flash is the one in use (0: its save waits) */
         *got = theme == set_theme;
+    else if (!strcmp(what, "bass_sat"))  /* Settings' BASS SATURATION: 1 on, 0 off */
+        *got = bass_sat;
+    else if (!strcmp(what, "bass_sat_kept"))   /* the bass saturation in the flash is the one in use (0: it waits) */
+        *got = bass_sat == set_bsat;
+    else if (!strcmp(what, "bass_sat_live"))   /* what the bass plays with now (the engine's: a fresh note takes it) */
+        *got = vx_bass_sat_live();
+#ifdef PLAT_HOST
+    else if (!strcmp(what, "bass_shaped"))     /* the bass's harmonics ran since the last asked (1) or not (0) */
+        *got = vx_bass_shaped() > 0u;
+#endif
     else if (!strcmp(what, "splash"))    /* the boot splash showing */
         *got = splash_on;
     else if (!strcmp(what, "key_lit")) {   /* the keys lit, bit k key k (blinking ones not counted) */

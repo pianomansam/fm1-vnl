@@ -3347,6 +3347,19 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
     check(JSON.stringify(got) === '[["mute","bass"],["mute","bass"]]' && dk.jumpReq?.name === "groove" && [...dk.keyLights().on].join() === "0,2,4,6,7",
           `G mutes the bass on the main and Comp screens, jumps on Sections (${JSON.stringify(got)}, jump ${dk.jumpReq?.name}; Sections lit [${lit}])`);
   }
+  {   // Settings' BASS SATURATION: EDIT flips it (the engine told, the reader says it), PRESET a detent at a time
+    const got = [], dq = new D.Device(data, { set() {}, play() {}, bassSat: (on) => got.push(on) }, () => t);
+    dq.update(live(3));
+    dq.stack = ["main", "prefs"];
+    check(dq.values().bassSat === "ON", "bass saturation: ON by default");
+    dq.press("EDIT");
+    check(dq.values().bassSat === "OFF" && got.join() === "false" && dq.said.includes("BASS SATURATION OFF"),
+          `EDIT on Settings: bass saturation OFF (${dq.values().bassSat}, ${got}, ${dq.said})`);
+    dq.press("PRESET", 2);
+    check(dq.values().bassSat === "OFF" && got.length === 1, "PRESET two detents: as it was");
+    dq.press("PRESET", -1);
+    check(dq.values().bassSat === "ON" && got.join() === "false,true", "PRESET a detent: ON again");
+  }
   {   // the Mixer: K1 sets the highlighted part's level, and the next bar's refresh (the engine's levels) keeps it
     const store = { drums: 0, bass: 0, keys: 0, pad: 0, lead: 0, texture: 0 };
     const dv = new D.Device(data, { set() {}, play() {}, level: (p, db) => { store[p] = db; } }, () => t);
@@ -3479,7 +3492,7 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
 // ---- the mixer's levels (wb_level_set, desk.levels): mixer state, back to 0 dB on a new song ----
 console.log("mixer levels");
 {
-  const { LEVEL_PARTS, LEVEL_KEY } = await import("../desk.js");
+  const { LEVEL_PARTS, LEVEL_KEY, BASS_SAT_KEY } = await import("../desk.js");
   check(LEVEL_PARTS.every((p, i) => C.PART[p.toUpperCase()] === i) && C.PART.N === 6 && C.PART.MIN === -12 && C.PART.MAX === 6,
         `the desk's parts are wb_consts' PART, in order (${LEVEL_PARTS.join(", ")})`);
   const ex = await load();
@@ -3541,6 +3554,14 @@ console.log("mixer levels");
   await priv.levelsReady;
   check(LEVEL_PARTS.every((p) => priv.levels[p] === 0) && (await priv.setLevel("bass", -3)) === -3,
         "storage blocked: 0 dB, and a level still sets (this visit only)");
+  // Settings' BASS SATURATION on the desk: on by default, off saved for the viewer and restored on a page load
+  check(desk.bassSat === true && priv.bassSat === true, "bass saturation: on by default (and with storage blocked)");
+  await desk.setBassSat(false);
+  const dex3 = await load(), third = new Desk(caller(dex3), C, OPTS, await caller(dex3)("wb_library"), { storage });
+  await third.bassSatReady;
+  check(saved.get(BASS_SAT_KEY) === "0" && third.bassSat === false, "bass saturation off: saved, and a page load keeps it");
+  await third.setBassSat(true);
+  check(saved.get(BASS_SAT_KEY) === "1" && third.bassSat === true, "bass saturation back on: saved");
 }
 
 console.log(failed ? `smoke: ${failed} FAILED` : "smoke: all passed");

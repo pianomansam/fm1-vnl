@@ -448,6 +448,7 @@ const char *ui_value(const ui_bag_t *b, int id, int index, char *t)
     case UV_SPIN: return cat_int(t, n ? n->spin : 0);
     case UV_FADE: return cat_int(t, n ? n->fade : 0);
     case UV_THEME: return n && n->eng && n->eng->theme ? n->eng->theme(0) : "";   /* (Settings' THEME) */
+    case UV_BASS_SAT: return n && n->eng && n->eng->bass_sat ? n->eng->bass_sat(0) : "";   /* (BASS SATURATION) */
     case UV_LOOPING: return s->rows[ROW_LOOP] == 1 ? "1" : "";
     case UV_LOCK_DRUMS: return n && n->locks >> UI_PART_DRUMS & 1u ? "1" : "";   /* a part locked (nav.h) */
     case UV_LOCK_BASS: return n && n->locks >> UI_PART_BASS & 1u ? "1" : "";

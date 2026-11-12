@@ -321,5 +321,16 @@ const SEED = 72;
              { check: "theme-kept", expect: (st) => is("theme", v(st).theme, "OXBLOOD+") });
   for (const c of run(SEED, steps)) compare(c);
 }
+{   // bass saturation (Settings' BASS SATURATION: EDIT or PRESET flips it): Settings on, off, on again by PRESET; a
+  // reboot keeps it (stopped)
+  const v = (st) => st.values, is = (what, got, want) => (got === want ? "" : `${what} ${JSON.stringify(got)}, not ${JSON.stringify(want)}`);
+  const steps = [{ press: "PLAY" }, { wait: 3000 }, { screen: "prefs" },
+                 { check: "bassSat-on", expect: (st) => is("bassSat", v(st).bassSat, "ON") },
+                 { press: "EDIT" }, { check: "bassSat-off", expect: (st) => is("bassSat", v(st).bassSat, "OFF") },
+                 { spin: ["PRESET", 1] }, { check: "bassSat-preset", expect: (st) => is("bassSat", v(st).bassSat, "ON") },
+                 { press: "EDIT" }, { press: "PLAY" }, { wait: 2000 }, { reboot: true }, { wait: 1500 }, { screen: "prefs" },
+                 { check: "bassSat-kept", expect: (st) => is("bassSat", v(st).bassSat, "OFF") }];
+  for (const c of run(SEED, steps)) compare(c);
+}
 console.log(ok ? "parity: all match" : "parity: FAILED");
 process.exit(ok ? 0 : 1);

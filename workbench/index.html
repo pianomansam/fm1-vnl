@@ -236,6 +236,8 @@
           mute: (part, on) => run(() => desk.mute(part, on)).then(() => device?.redraw()),   // listening only, at once
           solo: (part) => run(() => desk.solo(part)).then(() => device?.redraw()),
           level: (part, db) => desk.setLevel?.(part, db),   // the mixer (desk.setLevel: the engine's level, at once)
+          // Settings' BASS SATURATION (desk.setBassSat: the engine's at the next bass note; the bass header's Sat too)
+          bassSat: (on) => desk.setBassSat(on).then(() => renderParts()),
           // the saved songs (SAVE on the Song screen, the Saved list): a slot keeps the desk's snapshot of the song,
           // EDIT on the list restores it (the device keeps its own record in its flash: app/ui/saved.c)
           saved: (slot, rec) => rec && run(async () => { rec.snap = await desk.snapshot(); }),
@@ -382,7 +384,12 @@
                                () => feedback(`part:${p}`, rating), "fb");
     el.append(h, sum, mute, solo, back, dice, fwd, roll, lock, fb("up"), fb("down"));
     if (p === "drums") el.append(btn("Edit kit & pattern", "The drum screen: each lane's sound and level, the pattern grid", () => screen(true)));
-    partEls.set(p, Object.assign(el, { sum, roll, mute, solo, back, dice, fwd, lock }));
+    // the bass's harmonics on or off (the device's Settings: BASS SATURATION), to A/B on good speakers; from the next
+    // bass note
+    const sat = p === "bass" ? btn("Sat", "Bass saturation (every bass but the sub): on or off, from the next bass note; the device's Settings row too",
+                                   () => run(async () => { await desk.setBassSat(!desk.bassSat); device?.bassSat?.(desk.bassSat); }), "part") : null;
+    if (sat) el.append(sat);
+    partEls.set(p, Object.assign(el, { sum, roll, mute, solo, back, dice, fwd, lock, sat }));
     return el;
   }
   function renderParts() {
@@ -394,6 +401,7 @@
       el.mute.setAttribute("aria-pressed", String(desk.listen.mute.has(p)));
       el.solo.setAttribute("aria-pressed", String(desk.listen.solo === p));
       el.lock.setAttribute("aria-pressed", String(x.locked));
+      el.sat?.setAttribute("aria-pressed", String(!!desk.bassSat));
       el.classList.toggle("locked", x.locked);
       el.dice.title = why || `${PART_NAME[p]}: new notes (this part only; it lands at the next bar)`;
       el.dice.disabled = !!why;

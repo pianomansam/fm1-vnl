@@ -27,6 +27,14 @@ void vx_configure(const song_roll_t *r);
 /* 1 if roll b differs from a in a field vx_configure reads (a request that landed mid-song needs it again). */
 int vx_reconfigures(const song_roll_t *a, const song_roll_t *b);
 void vx_bed_off(int on);                 /* 1: no surface noise or rain (host renders, VNL_BED=0) */
+/* Settings' BASS SATURATION (Sam, 2026-11-12: buzzy on nice speakers): 0 bypasses the bass's harmonics entirely (no
+   shaper run), 1 (the default) every bass but the sub has them. Taken at the next fresh bass note (no click mid-note);
+   kept through vx_init. vx_bass_sat_live: what the bass plays with now. */
+void vx_bass_sat(int on);
+int vx_bass_sat_live(void);
+#ifdef PLAT_HOST
+uint32_t vx_bass_shaped(void);           /* (host tests) samples through the shaper since the last call */
+#endif
 /* Tests and the cost bench: the pad layer's instrument (INS_STRINGS, INS_WARM_PAD, INS_CHOIR or INS_ORGAN) in place
    of the song's (lib_song_pad) from the next vx_configure on; INS_NONE (the default, or any other) the song's. Kept
    through vx_init. */

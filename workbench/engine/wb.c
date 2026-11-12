@@ -312,6 +312,9 @@ EXPORT void wb_solo(int role)
 /* mixer state, not the song's: kept across landings, new songs and wb_init (vx_init keeps it) */
 EXPORT void wb_level_set(int part, int db) { vx_level_set(part, db); }
 EXPORT int wb_level_get(int part) { return vx_level_get(part); }
+/* Settings' BASS SATURATION (the device mock's, the bass header's Sat): 0 the bass's harmonics off, 1 on, taken at the
+   next fresh bass note; kept through wb_init too */
+EXPORT void wb_bass_sat(int on) { vx_bass_sat(on); }
 
 /* effects off (VX_OFF_*), for vibes_keys.mjs's lead-over-keys measure (the glue off, as the test) */
 EXPORT void wb_fx_off(unsigned mask) { vx_fx_off(mask); }

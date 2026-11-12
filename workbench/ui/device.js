@@ -221,6 +221,7 @@ export function valuesOf(s, data) {
     msg: !!s.msg, msg0: s.msg?.[0] ?? "", msg1: s.msg?.[1] ?? "",
     map: (s.map ?? "").toUpperCase(), section: SEC_NAME[s.section] ?? "", bar: (s.bar ?? 0) + 1, bars: r.bars,
     chord: s.chord ?? "", pending: "", spin: s.spin ?? 0, fade: s.fade ?? 0, theme: s.theme ?? "",   // (theme: the Device's; none, THEME)
+    bassSat: s.bassSat === undefined ? "" : s.bassSat ? "ON" : "OFF",   // (Settings' BASS SATURATION: the Device's)
   };
   for (const [k, def] of Object.entries(f)) {
     const v = fieldValue(def, k, r, s.rows);
@@ -610,7 +611,7 @@ export class Device {
   constructor(data, engine, now = () => Date.now()) {
     Object.assign(this, { data, engine, now, home: data.home, stack: [data.home], cursor: {}, held: {}, req: {}, msg: null, said: "",
                           live: null, spin: 0, turns: 0, speed: 0, spunAt: null, locks: new Set(),
-                          slots: Array(SLOTS).fill(null), theme: THEME });
+                          slots: Array(SLOTS).fill(null), theme: THEME, bassSat: true });
   }
   get id() { return this.stack[this.stack.length - 1]; }
   get screen() { return this.data.screens[this.id]; }
@@ -681,7 +682,8 @@ export class Device {
              activity: l.activity, levels: l.levels, locks: [...this.locks],
              barPos: song ? bar + Math.min(0.999, (this.now() - (this.barT ?? this.now())) / (240000 / Math.max(40, l.roll?.tempo ?? 80))) : bar, pend, msg: this.msg && this.now() < this.msg.until ? this.msg.text : null };
   }
-  values() { return valuesOf({ ...this.shown(), spin: this.spin, fade: this.fade ?? 0, theme: this.theme }, this.data); }
+  values() { return valuesOf({ ...this.shown(), spin: this.spin, fade: this.fade ?? 0, theme: this.theme,
+                                          bassSat: this.bassSat }, this.data); }
   // the record's turn (app.c's spin_tick): 33 1/3 turns a minute while a song plays, easing to a stop (and back up);
   // ms: now. The spin in 1/256 turns
   turn(ms = this.now()) {
@@ -887,6 +889,14 @@ export class Device {
       const names = Object.keys(PALETTES), n = names.length, i = names.indexOf(this.theme);
       this.theme = names[(((i < 0 ? 0 : i) + detents) % n + n) % n];
       this.say("THEME", this.theme);
+      return null;
+    }
+    if (a.do === "bassSat") {   // Settings' BASS SATURATION: each detent flips it (a button: once); the engine takes it
+      if (detents % 2) {        // at the next fresh bass note
+        this.bassSat = !this.bassSat;
+        this.engine.bassSat?.(this.bassSat);
+      }
+      this.say("BASS SATURATION", this.bassSat ? "ON" : "OFF");
       return null;
     }
     if (a.go) {

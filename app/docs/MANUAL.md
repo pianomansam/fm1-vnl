@@ -187,11 +187,19 @@ them from song to song. The knob that moves a fader is named under it.
 **THEME** works: turn SELECT or ALGO to step through the screen's color themes (PLUM+, the default, then OXBLOOD,
 OXBLOOD+, the black ones GREEN to MONO, ESPRESSO, TEAL, OLIVE and PLUM). Every screen changes at once, the splash
 too. The device keeps the theme through power-off (written once nothing is playing, as the home is) and a USB backup
-holds it. The rest of the list is planned for a later version and does nothing yet. GLO goes back.
+holds it.
+
+**BASS SATURATION** works: ON (the default) gives every bass but the sub its gentle harmonics, so the line carries on
+small speakers; OFF leaves the bass clean, for good speakers, where the harmonics can sound buzzy. Press EDIT or turn
+PRESET to switch it. The bass changes at its next note (never in the middle of one, so it never clicks), and the
+device keeps the setting through power-off, as it keeps the theme.
+
+The rows under NOT WORKING YET are planned for a later version and do nothing yet. GLO goes back.
 
 | Control | What it does |
 |---|---|
 | SELECT or ALGO | The next theme (turned back, the one before). |
+| EDIT or PRESET | Bass saturation on or off. |
 | GLO | Back. |
 
 ---
@@ -316,7 +324,8 @@ four-bar line is saved as if it had landed.
 | --- | --- |
 | Instrument: electric, sub, triangle or FM | Line: a re-roll of the bass line |
 
-Every bass but the sub is gently saturated, so its line carries on small speakers; the sub stays clean.
+Every bass but the sub is gently saturated, so its line carries on small speakers; the sub stays clean. On good
+speakers you can turn the saturation off: Settings (GLO), BASS SATURATION.
 
 ### Comp
 
