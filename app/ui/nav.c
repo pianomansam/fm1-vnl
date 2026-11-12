@@ -159,8 +159,11 @@ void ui_update(ui_nav_t *n, const snap_t *s, uint32_t ms)
         if (row == ROW_RHYTHM)                        /* (the comp's row or the strum patterns', as values.c real_row) */
             row = ch_rhythm_row(s->rows[ROW_KEYS], s->rows[ROW_COMP]);
         /* done once the song plays it (its row shows the value), or a bar past its boundary (refused, or a value the
-           row writes otherwise): the change lands a 16th after the bar line, and the old value never shows between */
-        if (bar >= n->req_at[f] && (s->rows[row] == n->req_val[f] || bar >= n->req_at[f] + 1))
+           row writes otherwise): the change lands a 16th after the bar line, and the old value never shows between;
+           or, sent, once the song went back before the bar it was sent in (Loop, Stay on song, a jump: app.c lands it
+           as the song restarts there) */
+        if ((bar >= n->req_at[f] && (s->rows[row] == n->req_val[f] || bar >= n->req_at[f] + 1)) ||
+            (n->req_sent[f] && bar < n->req_at[f] - 1))
             n->req_at[f] = -1;
         else if (!n->req_sent[f] && bar >= n->req_at[f] - 1) {
             n->req_sent[f] = 1;

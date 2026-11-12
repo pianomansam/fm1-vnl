@@ -458,10 +458,14 @@ static void jump_prepare(void)
         j_ready = 1;
 }
 
-/* a carried request's bar in the song jumped to: the next 4-bar boundary there if its own has gone by */
+/* a carried request's bar in the song jumped to: the next 4-bar boundary there if its own has gone by; a jump back
+   (Loop, Stay on song, an earlier section) lands it at once, as the song restarts there (its own bar, at or past the
+   bar the jump left, may never come: a loop goes back before it) */
 static int16_t jump_rebar(int bar)
 {
     int b = jsong.bar;
+    if (b < song.bar)
+        return (int16_t)b;
     return (int16_t)(bar >= b ? bar : b % 4 == 0 ? b : (b / 4 + 1) * 4);
 }
 

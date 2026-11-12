@@ -617,9 +617,11 @@ export class Device {
     for (const [f, q] of Object.entries(this.req)) {
       // done once the song plays it (its row shows the value), or a bar past its boundary (refused, or a value the row
       // writes otherwise): a change lands a moment after the bar line, and the old value never shows between (app/ui
-      // nav.c alike)
+      // nav.c alike); or, sent, once the song went back before the bar it was sent in (Loop, Stay on song, a jump:
+      // the change lands as the song restarts there)
       const def = this.data.fields[f], now = fieldValue(def, f, live.roll, live.rows);
-      if (bar >= q.at && (String(now) === String(q.val) || bar >= q.at + 1)) delete this.req[f];
+      if ((bar >= q.at && (String(now) === String(q.val) || bar >= q.at + 1)) || (q.sent && bar < q.at - 1))
+        delete this.req[f];
       else if (!q.sent && bar >= q.at - 1) {
         q.sent = true;
         this.engine.set(this.data.fields[f].row, q.val);

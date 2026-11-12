@@ -28,5 +28,10 @@ The first public release: a generative lo-fi hip hop firmware for the M-VAVE FM-
   (`vnl-1-0.9.0.fwsc`), then the sample bank; the emulator and the manual beside it.
 - **For developers:** the host simulator, the browser emulator, the workbench, and patterns as MIDI and MusicXML.
 
+Fixes:
+
+- **Changes while a section loops:** a change due at the looping section's end used to wait forever (the loop went
+  back first); it now lands as the loop starts again. Stay on song alike.
+
 Known limits: no Bluetooth, so no velocity or pressure from the keys. The Settings screen is a placeholder. See
 `ROADMAP.md` for what's next.

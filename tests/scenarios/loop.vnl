@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# A change waiting while a section loops lands as the loop goes round. The first song's intro is 8 bars at 81 BPM
+# (2963 ms a bar): Loop on (Sections, K1), the comp's instrument changed from the main screen (PRESET turned on the comp
+# tile) in the intro's sixth bar. Its 4-bar line is the intro's end, which the loop never reaches: it lands at the
+# loop's restart instead, the intro's first bar.
+listen
+wait 1400
+tap PLAY
+wait 1000
+tap SEL
+wait 50
+said SECTIONS
+turn K1 1
+wait 50
+said LOOP ON
+tap SEL
+wait 50
+expect home 1
+spin ALGO 3
+wait 50
+# bar 6 of 8 (from 0: 5), about 15.8 s in
+wait 14800
+expect bar 5
+remember
+turn PRESET 1
+wait 50
+expect pending >0
+# round the loop (the wrap 23.7 s in): the intro again, the change in
+wait 9000
+expect section 0
+expect bar 0
+expect pending -1
+expect same_comp 0
+expect same_song 1

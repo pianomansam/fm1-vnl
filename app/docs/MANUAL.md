@@ -66,6 +66,8 @@ to skip it. VNL-1 starts stopped, with a song ready. Press PLAY.
 - **Changes wait for the line:** a knob or button that changes the song doesn't act at once. The change lands on the
   song's next four-bar line. Until then the screen shows the new value with a `*` in front, in yellow, and a note
   such as TEMPO 84 IN 1 BAR. Mutes, solos, levels and the Sections screen's Loop and Stay on song act at once.
+  While a section loops (or Stay on song goes back), a change due at the line where the song goes back lands as
+  it starts again.
 - **Stop and play:** PLAY stops the music at once. PLAY again continues the same song from the start of the bar it
   stopped in.
 - **A new song:** SEQ rolls a new song. While playing, it comes after the usual silence. While stopped, it waits,
