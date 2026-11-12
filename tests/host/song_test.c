@@ -2192,8 +2192,10 @@ static void test_vx_plucks_basses(void)
         b3 = vt_bright(13230, w);
         printf("basses: electric note %d brightness attack %.4f, 100 ms %.4f, 300 ms %.4f\n", note, (double)b0,
                (double)b1, (double)b3);
-        CHECK(b0 > 1.5f * b3, "electric bass note %d: attack %.4f not brighter than %.4f settled", note, (double)b0,
-              (double)b3);
+        /* at A1 (note 33) 1.4x: the bass's parallel saturation (Sam approved, 2026-11-12) brightens the settled tone
+           more than the attack there: 1.52x before it, 1.43x with it (40 and 47: 1.67x to 1.65x, 1.81x to 1.73x) */
+        CHECK(b0 > (note == 33 ? 1.4f : 1.5f) * b3, "electric bass note %d: attack %.4f not brighter than %.4f settled",
+              note, (double)b0, (double)b3);
         CHECK(fm_fabsf(b1 - b3) < 0.1f * b3, "electric bass note %d: not settled at 100 ms (%.4f vs %.4f)", note,
               (double)b1, (double)b3);
     }

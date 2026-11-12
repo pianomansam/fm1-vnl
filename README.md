@@ -22,7 +22,8 @@ four-bar line, in time. VNL-1 is free software (GPL), built on [fm1-base](https:
 - **Drums:** eight kits: 808 and CR-78 (modeled machines), Crunchy, Boom-bap and Jazz machine (synth drums), Soft
   brushes, and two sampled room kits (Room - big, Room - brushes). Eight patterns (boom bap, half-time, sparse,
   brushes), nine two-bar kick phrases, a ride section on the sampled kits, and a per-drum lo-fi pocket.
-- **Bass:** electric, sub, triangle and FM bass, with walking lines and lines that lead into the next chord.
+- **Bass:** electric, sub, triangle and FM bass, with walking lines and lines that lead into the next chord. Every
+  bass but the sub is gently saturated, so its line carries on small speakers.
 - **Comp:** Rhodes, piano, felt piano, vibes, organ, pad, nylon guitar and electric guitar. Eight comp rhythms (held,
   half notes, stabs, held on 2, held on 2 and 4, charleston, tresillo, late one); the guitars strum, in eight patterns.
 - **Lead:** flute, whistle, piano, felt piano, vibes, jazz guitar, cello and harp, in eight styles: Impressionism,

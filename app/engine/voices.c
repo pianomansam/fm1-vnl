@@ -1255,6 +1255,8 @@ static void voice_start(voice_t *v, const vx_patch_t *p, const song_ev_t *e, int
     v->qr = (uint8_t)((p->model == M_ENS || (p->model == M_TW && v->role == V_PAD)) && !(fx_off & VX_OFF_HALF) &&
                       !v->hr);
     env_start(v, p, e, legato);
+    if (v->role == V_BASS && !legato) /* the bass's harmonics start clean with the note (a song after another the same) */
+        bsat_x1 = bsat_y1 = 0.0f;
     switch (p->model) {
     case M_EP: ep_start(v, e); break;
     case M_PAD: pad_start(v, e); break;
