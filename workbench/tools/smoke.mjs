@@ -3250,7 +3250,7 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
     check(!dl.values().lockComp, "SAVE on a part's screen locks nothing");
   }
   {   // on the main screen SEQ held locks the highlighted tile's part (never also a new song); on the song's line
-      // nothing; a short SEQ there is a new song
+      // the song line; a short SEQ there is a new song; SEQ held on the Song screen unlocks the song line
     let tt = 0;
     const got = [], dm = new D.Device(data, { set() {}, play() {}, reroll: () => got.push("song"), lockPart: (p, on) => got.push([p, on]) }, () => tt);
     const hold = (c, ms) => { dm.keyDown(c); tt += ms; dm.tick(); dm.keyUp(c); };
@@ -3259,9 +3259,14 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
     const said = dm.said, on = dm.values().lockLead;
     dm.press("ALGO", 3);   // (round to the song's line)
     hold("SEQ", D.HOLD_MS + 10);
+    const song = dm.said, songOn = dm.values().lockSong;
     hold("SEQ", 100);
-    check(on && said === "LEAD LOCKED" && JSON.stringify(got) === '[["lead",true],"song"]',
-          `SEQ held on the main screen locks the lead's tile ("${said}"), the song's line nothing, a short SEQ a new song (${JSON.stringify(got)})`);
+    dm.stack = ["main", "pSong"];
+    hold("SEQ", D.HOLD_MS + 10);
+    check(on && said === "LEAD LOCKED" && song === "SONG LOCKED" && songOn && dm.said === "SONG UNLOCKED" && !dm.values().lockSong &&
+          JSON.stringify(got) === '[["lead",true],["song",true],"song",["song",false]]',
+          `SEQ held on the main screen locks the lead's tile ("${said}"), the song line ("${song}"), a short SEQ a new song; ` +
+          `held on the Song screen unlocks it (${JSON.stringify(got)})`);
   }
   {   // the Parts screen: K1 mutes the highlighted lane's part, K2 solos it (again: off), at once
     const got = [], dm = new D.Device(data, { set() {}, play() {}, mute: (p, on) => got.push(["mute", p, on]), solo: (p) => got.push(["solo", p]) }, () => t);

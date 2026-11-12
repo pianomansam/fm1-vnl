@@ -193,7 +193,7 @@ export function fieldMove(def, v, d, rows) {
 }
 // the lock values (a part locked: SAVE on its screen) and their parts (nav.h's locks)
 const LOCK_VALUES = { lockDrums: "drums", lockBass: "bass", lockComp: "keys", lockLead: "lead", lockPad: "pad",
-                      lockTexture: "texture" };
+                      lockTexture: "texture", lockSong: "song" };
 export function valuesOf(s, data) {
   const r = s.roll ?? {}, f = data.fields, song = !!s.hasSong;
   const bag = {
@@ -776,7 +776,7 @@ export class Device {
       return null;
     }
     if (a.do === "lock") {   // SEQ held: the part locked (again: unlocked), at once; a new song keeps it. On a part's
-      // screen its own; on the main screen the highlighted tile's (byCursor; the song's line: nothing)
+      // screen its own; on the main screen the highlighted tile's (byCursor), the song line's too
       const part = a.byCursor ? a.byCursor[this.cursor[this.id] ?? 0] : a.part;
       if (!part) return null;
       const name = a.byCursor ? (part === "keys" ? "COMP" : part.toUpperCase())

@@ -83,7 +83,7 @@ These work the same on every screen, unless a screen below says otherwise.
 | Control | What it does |
 | --- | --- |
 | PLAY | Play or stop. |
-| SEQ | A new song. On a part's screen, it re-rolls only that part. Hold it to lock a part (see Locking a part). |
+| SEQ | A new song. On a part's screen, it re-rolls only that part. Hold it to lock a part or the song line (see Locking). |
 | HOME | Go to the home screen. On the main screen and the now-playing screen, it switches between the two. |
 | SEL | The Sections screen. SEL again goes back. |
 | ARP | The Parts screen. ARP again goes back. |
@@ -132,7 +132,7 @@ each section, and the tempo.
 | EDIT | Open the highlighted tile's screen. |
 | PRESET | The highlighted part's instrument (the drums' kit). Nothing on the song or texture tile. |
 | OCT- / OCT+ | The highlighted part's register: the comp's or the lead's. |
-| SEQ, held | Lock or unlock the highlighted part (see Locking a part). Nothing on the song tile. A short press is a new song. |
+| SEQ, held | Lock or unlock the highlighted part, or the song line on the song tile (see Locking). A short press is a new song. |
 | HOME | The now-playing screen, which becomes the home. |
 
 ### Sections (SEL)
@@ -199,22 +199,25 @@ On every part's screen:
 | SELECT | The next page, on parts that have more than one. |
 | ALGO | The next part, in this order: song, drums, bass, comp, lead, pad, texture. |
 | PRESET | This part's instrument (the drums' kit). |
-| SEQ | Re-roll this part only, on the next four-bar line. On the song screen, a new song; on the texture screen, nothing. Held, it locks or unlocks this part (see Locking a part). |
+| SEQ | Re-roll this part only, on the next four-bar line. On the song screen, a new song; on the texture screen, nothing. Held, it locks or unlocks this part; on the song screen, the song line (see Locking). |
 | OCT- / OCT+ | The register, on the comp's and the lead's screens. |
 | EDIT | Back to the main screen. |
 
-### Locking a part
+### Locking
 
 A locked part stays as it is when a new song rolls, while everything else changes. Lock a part you like, then press
-SEQ for new songs around it.
+SEQ for new songs around it. The song line locks too: the key and scale, tempo, motion and mood.
+
+![The Song screen, locked: a padlock beside SONG 1/3](img/vnl-lock-song.png "The song line locked")
 
 ![The Drums screen, locked: a padlock beside DRUMS 1/2](img/vnl-lock.png "A locked part")
 
 - **Lock or unlock:** hold SEQ for about half a second, on the part's screen or on the main screen with the part's
-  tile highlighted. Hold again to unlock. A short press still re-rolls the part (on its screen) or rolls a new song
-  (on the main screen).
-- **Shown:** a padlock beside the part's name on its screen and on its tile on the main screen. The header says
-  DRUMS LOCKED or DRUMS UNLOCKED for a moment, and the screen reader says it too.
+  tile highlighted. For the song line, hold it on the Song screen or with the song tile highlighted. Hold again to
+  unlock. A short press still re-rolls the part (on its screen) or rolls a new song (on the main and Song screens).
+- **Shown:** a padlock beside the part's name on its screen and on its tile on the main screen (the song line's on
+  the song tile and beside SONG). The header says DRUMS LOCKED or DRUMS UNLOCKED for a moment, and the screen reader
+  says it too.
 - **What it keeps:**
   - Drums: kit, pattern, kick, ride and variation.
   - Bass: instrument and line. Its style (roots, walking, pedal) can still change with the song.
@@ -222,6 +225,8 @@ SEQ for new songs around it.
   - Lead: instrument, style, phrase, register and loop.
   - Pad: instrument, on or off, place and notes.
   - Texture: dust, noise and room.
+  - The song line: key and scale, tempo, motion and mood. The chords, layout, swing and chord color still change, to
+    ones that suit the kept scale and mood.
 - **Changing a locked part:** the knobs still change it, and the lock keeps the change. SEQ on its screen won't
   re-roll it: the header says DRUMS IS LOCKED.
 - **Instruments that can't be shared:** the felt piano, the piano and the vibes play one part a song, and organ keys

@@ -294,7 +294,9 @@ export default {
           { when: "sel0", rect: [2, 0, 236, 46], color: "LINE" },
           { when: "sel0", rect: [2, 0, 2, 46], color: "SONG" },
           { when: "song", text: "{chord}", font: "B", x: 8, y: 2, color: "WHITE" },
-          { when: "song", text: "{key} {mode}", font: "XS", right: 232, y: 2, color: "HI" },
+          { when: ["song", "!lockSong"], text: "{key} {mode}", font: "XS", right: 232, y: 2, color: "HI" },
+          { when: ["song", "lockSong"], text: "{key} {mode}", font: "XS", right: 220, y: 2, color: "HI" },   // (room for:)
+          { when: "lockSong", icon: "lock", x: 226, y: 4, color: "HI" },   // the song line locked (Sam, 2026-11-12)
           { when: "song", icon: "song", x: 8, y: 26, color: "SONG" },
           { when: "song", text: "{map}", font: "T", x: 21, y: 24, color: "GRAY" },
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 24, color: "HI" },   // as on a part's screen (Sam)
@@ -363,9 +365,9 @@ export default {
         "OCT-": { do: "nudge", byCursor: [null, null, null, "compReg", "leadReg", null, null], by: -1 },
         "OCT+": { do: "nudge", byCursor: [null, null, null, "compReg", "leadReg", null, null], by: 1 },
         HOME: { go: "now", home: true },   // the now-playing screen, the home from then on (Sam, 2026-11-11)
-        // a press: a new song (the defaults'); held: the highlighted tile's part locked, or unlocked (Sam, 2026-11-12;
-        // on the song's line, nothing)
-        SEQ: { do: "reroll", long: { do: "lock", byCursor: [null, "drums", "bass", "keys", "lead", "pad", "texture"] } },
+        // a press: a new song (the defaults'); held: the highlighted tile's part locked, or unlocked, the song line too
+        // (Sam, 2026-11-12)
+        SEQ: { do: "reroll", long: { do: "lock", byCursor: ["song", "drums", "bass", "keys", "lead", "pad", "texture"] } },
       },
       say: [{ when: "song", text: "CHORD {chord}. {section}, BAR {bar} OF {bars}" }, { when: "!song", text: "{idle}" },
             { when: "ready", text: ". {key} {mode}, {tempo} BPM" },
@@ -655,6 +657,8 @@ export default {
           { icon: "song", x: 10, y: 9, color: "SONG" },
           { text: "SONG", font: "B", x: 23, y: 4, color: "SONG" },
           { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
+          { when: "lockSong", icon: "lockTop", x: 86, y: 6, color: "HI" },   // the song line locked: the padlock by
+          { when: "lockSong", icon: "lockBody", x: 86, y: 10, color: "HI" },  // its name, its capitals' height
           { when: ["song", "!pending"], text: "{chord}", font: "XS", right: 232, y: 5, color: "WHITE" },
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
@@ -675,14 +679,17 @@ export default {
         { y: 200, h: 40, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
           { text: "ALGO PART   SELECT PAGE", font: "T", x: 8, y: 8, color: "DIM" },
-          { text: "EDIT BACK   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
+          { text: "EDIT BACK   HOME MAIN   SEQ NEW SONG   HOLD LOCK", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
       knobs: [{ field: "key", step: 1 }, { field: "mode", step: 1 }, { field: "tempo", step: 1 }, { field: "mood", step: 1 }],
       controls: {
+        // a press: a new song (the defaults'); held: the song line (key, scale, tempo, motion, mood) locked, or
+        // unlocked: a new song keeps it (Sam, 2026-11-12)
+        SEQ: { do: "reroll", long: { do: "lock", part: "song" } },
         ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
       },
-      say: ["SONG, PAGE {page}. KEY {key}. SCALE {mode}. TEMPO {tempo}. MOOD {mood}."],
+      say: ["SONG, PAGE {page}. KEY {key}. SCALE {mode}. TEMPO {tempo}. MOOD {mood}.", { when: "lockSong", text: " LOCKED." }],
     },
     pSongMore: {
       title: "Song: more",
@@ -698,6 +705,8 @@ export default {
           { icon: "song", x: 10, y: 9, color: "SONG" },
           { text: "SONG", font: "B", x: 23, y: 4, color: "SONG" },
           { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
+          { when: "lockSong", icon: "lockTop", x: 86, y: 6, color: "HI" },   // the song line locked: the padlock by
+          { when: "lockSong", icon: "lockBody", x: 86, y: 10, color: "HI" },  // its name, its capitals' height
           { when: ["song", "!pending"], text: "{chord}", font: "XS", right: 232, y: 5, color: "WHITE" },
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
@@ -718,14 +727,17 @@ export default {
         { y: 200, h: 40, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
           { text: "ALGO PART   SELECT PAGE", font: "T", x: 8, y: 8, color: "DIM" },
-          { text: "EDIT BACK   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
+          { text: "EDIT BACK   HOME MAIN   SEQ NEW SONG   HOLD LOCK", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
       knobs: [{ field: "motion", step: 1 }, { field: "songSwing", step: 1 }, { field: "songMap", step: 1 }, { field: "songProg", step: 1 }],
       controls: {
+        // a press: a new song (the defaults'); held: the song line (key, scale, tempo, motion, mood) locked, or
+        // unlocked: a new song keeps it (Sam, 2026-11-12)
+        SEQ: { do: "reroll", long: { do: "lock", part: "song" } },
         ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
       },
-      say: ["SONG, PAGE {page}. MOTION {motion}. SWING {songSwing}. LAYOUT {songMap}. CHORDS {songProg}."],
+      say: ["SONG, PAGE {page}. MOTION {motion}. SWING {songSwing}. LAYOUT {songMap}. CHORDS {songProg}.", { when: "lockSong", text: " LOCKED." }],
     },
     // the Song part's third page (Sam, 2026-11-06): the chord color. The Family row isn't a field: its values are the
     // page's own strings (acoustic, synth), not an engine field the device can step (choices_gen has no table for it).
@@ -744,6 +756,8 @@ export default {
           { icon: "song", x: 10, y: 9, color: "SONG" },
           { text: "SONG", font: "B", x: 23, y: 4, color: "SONG" },
           { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
+          { when: "lockSong", icon: "lockTop", x: 86, y: 6, color: "HI" },   // the song line locked: the padlock by
+          { when: "lockSong", icon: "lockBody", x: 86, y: 10, color: "HI" },  // its name, its capitals' height
           { when: ["song", "!pending"], text: "{chord}", font: "XS", right: 232, y: 5, color: "WHITE" },
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
@@ -755,14 +769,17 @@ export default {
         { y: 200, h: 40, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
           { text: "ALGO PART   SELECT PAGE", font: "T", x: 8, y: 8, color: "DIM" },
-          { text: "EDIT BACK   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
+          { text: "EDIT BACK   HOME MAIN   SEQ NEW SONG   HOLD LOCK", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
       knobs: [{ field: "songColor", step: 1 }],
       controls: {
+        // a press: a new song (the defaults'); held: the song line (key, scale, tempo, motion, mood) locked, or
+        // unlocked: a new song keeps it (Sam, 2026-11-12)
+        SEQ: { do: "reroll", long: { do: "lock", part: "song" } },
         ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
       },
-      say: ["SONG, PAGE {page}. CHORD COLOR {songColor}."],
+      say: ["SONG, PAGE {page}. CHORD COLOR {songColor}.", { when: "lockSong", text: " LOCKED." }],
     },
     pDrums: {
       title: "Drums",

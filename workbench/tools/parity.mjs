@@ -251,6 +251,12 @@ const SEED = 72;
                                                                      is("said", st.said, "TEXTURE UNLOCKED") || is("songs", v(st).song, true) },
     { spin: ["ALGO", -2] }, { hold: ["SEQ", 700] }, { check: "lock-main-hold-lead", expect: (st) => is("lockLead", v(st).lockLead, false) ||
                                                                                                   is("said", st.said, "LEAD UNLOCKED") },
+    // the song line: SEQ held on its line of the main screen, and on the Song screen
+    { spin: ["ALGO", -4] }, { hold: ["SEQ", 700] }, { check: "lock-main-song", expect: (st) => is("lockSong", v(st).lockSong, true) ||
+                                                                                             is("said", st.said, "SONG LOCKED") },
+    { press: "EDIT" }, { check: "lock-song", expect: (st) => is("screen", st.screen, "pSong") || is("lockSong", v(st).lockSong, true) },
+    { spin: ["SELECT", 1] }, { check: "lock-song-more", expect: (st) => is("screen", st.screen, "pSongMore") },
+    { hold: ["SEQ", 700] }, { check: "lock-song-off", expect: (st) => is("lockSong", v(st).lockSong, false) || is("said", st.said, "SONG UNLOCKED") },
   ];
   for (const c of run(SEED, steps)) compare(c);
 }

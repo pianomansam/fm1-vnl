@@ -1104,7 +1104,9 @@ static void seed_boot(void)
    song starts. Never saved: power-off forgets them (no flash write while playing). */
 static ui_nav_t ui_hnav;
 enum { LK_TRIES = 20 };
-/* each part's rows, in UI_PART_* order (drums, bass, keys, pad, lead, texture), -1 ending each */
+/* each part's rows, in UI_PART_* order (drums, bass, keys, pad, lead, texture, then the song line), -1 ending each.
+   The song line's: its mood first (roll_set fits the scale and chords to it), then the scale (one the mood allows:
+   it was), the key, tempo and motion; a locked key without its scale would be another key's song */
 static const int8_t LK_ROWS[] = {
     ROW_KIT, ROW_PATTERN, ROW_KICK, ROW_RIDE, ROW_DRUMS_VAR, -1,
     ROW_BASS, ROW_BASS_LINE, -1,
@@ -1112,6 +1114,7 @@ static const int8_t LK_ROWS[] = {
     ROW_PAD, ROW_PAD_ON, ROW_PAD_PLACE, ROW_PAD_NOTES, -1,
     ROW_LEAD, ROW_LEAD_STYLE, ROW_PHRASE, ROW_LEAD_OCT, ROW_LEAD_LOOP, -1,
     ROW_DUST, ROW_NOISE, ROW_AMBIENCE, -1,
+    ROW_MOOD, ROW_MODE, ROW_KEY, ROW_TEMPO, ROW_MOTION, -1,
 };
 static int16_t lk_val[ROW_N];           /* each locked row's value, read off the song playing */
 static uint8_t lk_have;                 /* the parts read (bit UI_PART_*): one locked before any song played keeps
@@ -1251,14 +1254,34 @@ static void lk_fill(song_roll_t *r)
         if (row == ROW_KIT) {
             b->kit = (int16_t)v;
             lk_add(b, row, -1, v);
-        } else if (sr >= SR_ROLL && sr < SR_ROLL + RF_N) {   /* the pattern, the texture: the roll's own */
-            roll_set(r, sr - SR_ROLL, v);
+        } else if (sr >= SR_ROLL && sr < SR_ROLL + RF_N) {   /* the pattern, the texture, the song line: the roll's
+                                                                own (lk_rolls) */
         } else if (row == ROW_COMP) {    /* a comp rhythm (from 100): the COMP_PAT override; else COMP (command()) */
             lk_add(b, row, SR_OV + OV_COMP, v >= 100 ? -1 : v);
             lk_add(b, -1, SR_OV + OV_COMP_PAT, v >= 100 ? v - 100 : -1);
         } else
             lk_add(b, row, sr, v);
     }
+}
+
+/* the locked roll fields (the drums' pattern, the texture, the song line) set in the song rolled r, in LK_ROWS'
+   order: 1 each holds (roll_set took it), 0 one didn't (another seed is tried) */
+static int lk_rolls(song_roll_t *r)
+{
+    int i, p = 0, held = 1;
+    uint8_t m = lk_mask();
+    for (i = 0; i < (int)sizeof LK_ROWS; i++) {
+        int row = LK_ROWS[i], sr;
+        if (row < 0) {
+            p++;
+            continue;
+        }
+        sr = CH_SONG_ROW[row];
+        if ((m >> p & 1u) && sr >= SR_ROLL && sr < SR_ROLL + RF_N &&
+            roll_set(r, sr - SR_ROLL, lk_val[row]) != lk_val[row])
+            held = 0;
+    }
+    return held;
 }
 
 /* each frame, before the mailbox is filled: the locks read off the song playing; a song started that couldn't keep
@@ -1314,6 +1337,10 @@ static void roll_next(void)             /* main loop: keep the mailbox full */
             roll_set(&mb_roll, RF_SET, set_override);
 #endif
 #if UI_RT
+        if (!lk_rolls(&mb_roll) && t + 1 < LK_TRIES) {   /* (a roll field it can't take) */
+            next_seed = seed_next(next_seed);
+            continue;
+        }
         if (t + 1 < LK_TRIES && lk_clash(&mb_roll)) {
             next_seed = seed_next(next_seed);
             continue;
@@ -2501,11 +2528,11 @@ static uint32_t live_state(char *o, uint32_t cap)
         }
     jb(&b, "]");
     jbk(&b, "solo"); if (act->solo >= 0) jbs(&b, PART[act->solo % 6]); else jb(&b, "null");
-    jbk(&b, "locks"); jb(&b, "[");     /* the parts locked (a new song keeps them) */
-    for (i = 0; i < 6; i++)
+    jbk(&b, "locks"); jb(&b, "[");     /* the parts locked (a new song keeps them), the song line's too */
+    for (i = 0; i < 7; i++)
         if (ui_hnav.locks >> i & 1u) {
             if (b.p[b.n - 1] != '[') jb(&b, ",");
-            jbs(&b, PART[i]);
+            jbs(&b, i < 6 ? PART[i] : "song");
         }
     jb(&b, "]");
     jbk(&b, "levels"); jb(&b, "{");
@@ -2871,7 +2898,7 @@ static int part_same(const snap_t *s, int part)
 {
     int16_t now[ROW_N];
     int i, p = 0, same = 1;
-    lk_resolve(s, 0x3F, now);
+    lk_resolve(s, 0x7F, now);
     for (i = 0; i < (int)sizeof LK_ROWS; i++) {
         if (LK_ROWS[i] < 0) p++;
         else if (p == part && now[LK_ROWS[i]] != rem_rows[LK_ROWS[i]]) same = 0;
@@ -2939,17 +2966,17 @@ int app_expect(const char *what, int *got)
         *got = (int)m_late;
 #endif
 #if UI_RT
-    else if (!strncmp(what, "same_", 5) && strcmp(what, "same_song")) {   /* same_drums .. same_texture: the
-                                                                             part's rows as remembered (1), not (0) */
-        static const char *const PN[] = {"drums", "bass", "comp", "pad", "lead", "texture"};
+    else if (!strncmp(what, "same_", 5) && strcmp(what, "same_song")) {   /* same_drums .. same_texture,
+                                                     same_songline: the part's rows as remembered (1), not (0) */
+        static const char *const PN[] = {"drums", "bass", "comp", "pad", "lead", "texture", "songline"};
         int p;
-        for (p = 0; p < 6 && strcmp(what + 5, PN[p]); p++) {}
-        if (p == 6) return 0;
+        for (p = 0; p < 7 && strcmp(what + 5, PN[p]); p++) {}
+        if (p == 7) return 0;
         *got = part_same(&s, p);
     } else if (!strcmp(what, "parts_moved")) {   /* the unlocked parts whose rows differ from the ones remembered */
         int p;
         *got = 0;
-        for (p = 0; p < 6; p++)
+        for (p = 0; p < 7; p++)
             *got += !(ui_hnav.locks >> p & 1u) && !part_same(&s, p);
     } else if (!strcmp(what, "locks"))   /* the parts locked, bit UI_PART_* */
         *got = ui_hnav.locks;
@@ -3085,7 +3112,7 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
         rem_bar = s.has_song ? s.bar : -1;
         rem_seed = s.roll.seed;
 #if UI_RT
-        lk_resolve(&s, 0x3F, rem_rows);
+        lk_resolve(&s, 0x7F, rem_rows);
 #endif
         printf("remember: %s\n", s.has_song ? "the song playing" : "no song playing");
         return 1;

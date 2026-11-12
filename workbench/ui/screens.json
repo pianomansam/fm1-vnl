@@ -1099,8 +1099,29 @@
        "font": "XS",
        "right": 232,
        "text": "{key} {mode}",
-       "when": "song",
+       "when": [
+        "song",
+        "!lockSong"
+       ],
        "y": 2
+      },
+      {
+       "color": "HI",
+       "font": "XS",
+       "right": 220,
+       "text": "{key} {mode}",
+       "when": [
+        "song",
+        "lockSong"
+       ],
+       "y": 2
+      },
+      {
+       "color": "HI",
+       "icon": "lock",
+       "when": "lockSong",
+       "x": 226,
+       "y": 4
       },
       {
        "color": "SONG",
@@ -1567,7 +1588,7 @@
      "do": "reroll",
      "long": {
       "byCursor": [
-       null,
+       "song",
        "drums",
        "bass",
        "keys",
@@ -4142,6 +4163,20 @@
        "y": 8
       },
       {
+       "color": "HI",
+       "icon": "lockTop",
+       "when": "lockSong",
+       "x": 86,
+       "y": 6
+      },
+      {
+       "color": "HI",
+       "icon": "lockBody",
+       "when": "lockSong",
+       "x": 86,
+       "y": 10
+      },
+      {
        "color": "WHITE",
        "font": "XS",
        "right": 232,
@@ -4295,7 +4330,7 @@
       {
        "color": "DIM",
        "font": "T",
-       "text": "EDIT BACK   HOME MAIN",
+       "text": "EDIT BACK   HOME MAIN   SEQ NEW SONG   HOLD LOCK",
        "x": 8,
        "y": 24
       }
@@ -4313,6 +4348,13 @@
     },
     "SELECT": {
      "do": "page"
+    },
+    "SEQ": {
+     "do": "reroll",
+     "long": {
+      "do": "lock",
+      "part": "song"
+     }
     }
    },
    "knobs": [
@@ -4339,7 +4381,11 @@
     "pSong3"
    ],
    "say": [
-    "SONG, PAGE {page}. KEY {key}. SCALE {mode}. TEMPO {tempo}. MOOD {mood}."
+    "SONG, PAGE {page}. KEY {key}. SCALE {mode}. TEMPO {tempo}. MOOD {mood}.",
+    {
+     "text": " LOCKED.",
+     "when": "lockSong"
+    }
    ],
    "title": "Song"
   },
@@ -4405,6 +4451,20 @@
        "font": "T",
        "text": "{page}",
        "y": 8
+      },
+      {
+       "color": "HI",
+       "icon": "lockTop",
+       "when": "lockSong",
+       "x": 86,
+       "y": 6
+      },
+      {
+       "color": "HI",
+       "icon": "lockBody",
+       "when": "lockSong",
+       "x": 86,
+       "y": 10
       },
       {
        "color": "WHITE",
@@ -4482,7 +4542,7 @@
       {
        "color": "DIM",
        "font": "T",
-       "text": "EDIT BACK   HOME MAIN",
+       "text": "EDIT BACK   HOME MAIN   SEQ NEW SONG   HOLD LOCK",
        "x": 8,
        "y": 24
       }
@@ -4500,6 +4560,13 @@
     },
     "SELECT": {
      "do": "page"
+    },
+    "SEQ": {
+     "do": "reroll",
+     "long": {
+      "do": "lock",
+      "part": "song"
+     }
     }
    },
    "knobs": [
@@ -4514,7 +4581,11 @@
     "pSong3"
    ],
    "say": [
-    "SONG, PAGE {page}. CHORD COLOR {songColor}."
+    "SONG, PAGE {page}. CHORD COLOR {songColor}.",
+    {
+     "text": " LOCKED.",
+     "when": "lockSong"
+    }
    ],
    "title": "Song: color"
   },
@@ -4580,6 +4651,20 @@
        "font": "T",
        "text": "{page}",
        "y": 8
+      },
+      {
+       "color": "HI",
+       "icon": "lockTop",
+       "when": "lockSong",
+       "x": 86,
+       "y": 6
+      },
+      {
+       "color": "HI",
+       "icon": "lockBody",
+       "when": "lockSong",
+       "x": 86,
+       "y": 10
       },
       {
        "color": "WHITE",
@@ -4735,7 +4820,7 @@
       {
        "color": "DIM",
        "font": "T",
-       "text": "EDIT BACK   HOME MAIN",
+       "text": "EDIT BACK   HOME MAIN   SEQ NEW SONG   HOLD LOCK",
        "x": 8,
        "y": 24
       }
@@ -4753,6 +4838,13 @@
     },
     "SELECT": {
      "do": "page"
+    },
+    "SEQ": {
+     "do": "reroll",
+     "long": {
+      "do": "lock",
+      "part": "song"
+     }
     }
    },
    "knobs": [
@@ -4779,7 +4871,11 @@
     "pSong3"
    ],
    "say": [
-    "SONG, PAGE {page}. MOTION {motion}. SWING {songSwing}. LAYOUT {songMap}. CHORDS {songProg}."
+    "SONG, PAGE {page}. MOTION {motion}. SWING {songSwing}. LAYOUT {songMap}. CHORDS {songProg}.",
+    {
+     "text": " LOCKED.",
+     "when": "lockSong"
+    }
    ],
    "title": "Song: more"
   },

@@ -240,7 +240,9 @@
           // locks keep the same; the page's own 🔒 locks the salt alone)
           lockPart: (part, on) => run(() => {
             const s = SECTIONS.find((x) => (x.part ?? x.name.toLowerCase()) === part);
-            for (const id of [...(s?.main ?? []), ...(s?.more ?? [])]) desk.lock(id, on);
+            const ids = part === "song" ? ["key", "mode", "tempo", "motion", "mood"]   // the song line (never the seed)
+              : [...(s?.main ?? []), ...(s?.more ?? [])];
+            for (const id of ids) desk.lock(id, on);
           }),
         } });
     } catch (e) { $("devbox").textContent = `The device mock didn't load: ${e}`; }

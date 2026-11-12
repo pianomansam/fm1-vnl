@@ -58,7 +58,7 @@ tap FX
 tap GLO
 wait 50
 shot vnl-settings.png
-# a locked part (Locking a part): the drums' tile highlighted, SEQ held, then its screen
+# a locked part (Locking): the drums' tile highlighted, SEQ held, then its screen
 tap GLO
 wait 50
 spin ALGO 1
@@ -68,3 +68,13 @@ release SEQ
 tap EDIT
 wait 50
 shot vnl-lock.png
+# the song line locked (the song tile highlighted, SEQ held), then its screen
+tap EDIT
+wait 50
+spin ALGO -1
+press SEQ
+wait 700
+release SEQ
+tap EDIT
+wait 50
+shot vnl-lock-song.png

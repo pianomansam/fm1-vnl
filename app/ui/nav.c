@@ -230,7 +230,7 @@ static void request(ui_nav_t *n, int f, int d)
 /* a part's name as the mock writes it (part.toUpperCase(); the mixer writes keys as COMP) */
 static const char *part_name(int p, int mixer)
 {
-    static const char *const NAME[] = {"DRUMS", "BASS", "KEYS", "PAD", "LEAD", "TEXTURE"};
+    static const char *const NAME[] = {"DRUMS", "BASS", "KEYS", "PAD", "LEAD", "TEXTURE", "SONG"};
     if (mixer && p == UI_PART_KEYS) return "COMP";
     return p >= 0 && p < (int)(sizeof NAME / sizeof NAME[0]) ? NAME[p] : "";
 }
@@ -299,8 +299,8 @@ static void act(ui_nav_t *n, int ai, int detents)
                                                          at once; a new song keeps it (app.c) */
         char name[UI_MSG];
         int on, p = a->arg;
-        if (a->list)                                  /* the main screen: the highlighted tile's part (the song's line:
-                                                         none) */
+        if (a->list)                                  /* the main screen: the highlighted tile's part (or the song
+                                                         line) */
             p = n->cursor[id] < list(a->list)->n ? list_at(a->list, n->cursor[id]) : UI_NONE;
         if (p == UI_NONE) return;
         on = !(n->locks >> p & 1u);

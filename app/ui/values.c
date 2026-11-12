@@ -334,6 +334,7 @@ int ui_value_kind(int id)
     switch (id) {
     case UV_SONG: case UV_STOPPED: case UV_MSG: case UV_READY: case UV_KNOWN: case UV_LOOPING:
     case UV_LOCK_DRUMS: case UV_LOCK_BASS: case UV_LOCK_COMP: case UV_LOCK_LEAD: case UV_LOCK_PAD: case UV_LOCK_TEXTURE:
+    case UV_LOCK_SONG:
         return UI_VK_BOOL;
     case UV_BAR: case UV_BARS: case UV_SEC_COUNT: case UV_PROGRESS: case UV_SPIN: case UV_FADE: return UI_VK_NUM;
     default: break;
@@ -452,6 +453,7 @@ const char *ui_value(const ui_bag_t *b, int id, int index, char *t)
     case UV_LOCK_LEAD: return n && n->locks >> UI_PART_LEAD & 1u ? "1" : "";
     case UV_LOCK_PAD: return n && n->locks >> UI_PART_PAD & 1u ? "1" : "";
     case UV_LOCK_TEXTURE: return n && n->locks >> UI_PART_TEXTURE & 1u ? "1" : "";
+    case UV_LOCK_SONG: return n && n->locks >> UI_PART_SONG & 1u ? "1" : "";   /* the song line */
     case UV_SEC_RANGE: {                                    /* "1-7 OF 9": a list longer than its lines */
         int rows = UI_SCREENS[b->screen].rows ? UI_SCREENS[b->screen].rows : MENU_MAX, off = list_off(b);
         if (s->n_secs <= rows) return "";

@@ -19,7 +19,8 @@ The first public release: a generative lo-fi hip hop firmware for the M-VAVE FM-
 - **On the device:** a boot splash, a now-playing screen, a main screen, a page per part, Parts, Sections and Mixer
   screens; mute and solo from the keys; every change landing on the next four-bar line; a screen reader; USB audio.
 - **Part locks:** hold SEQ on a part's screen, or on the main screen with its tile highlighted, and every new song
-  keeps that part (its instrument, rhythm or style, register and variations) while the rest rolls.
+  keeps that part (its instrument, rhythm or style, register and variations) while the rest rolls. The song line
+  locks too (key and scale, tempo, motion, mood).
 - **A CPU guard** that sheds reverb tails and quiet voices before the audio can glitch.
 - **A site with a browser installer** (Chrome or Edge), in the screens' espresso colors: the firmware
   (`vnl-1-0.9.0.fwsc`), then the sample bank; the emulator and the manual beside it.
