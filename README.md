@@ -1,84 +1,171 @@
 # VNL-1
 
-A lo-fi hip hop firmware for the M-VAVE FM-1, built as an app on [fm1-base](https://github.com/charlesvestal/fm1-base)
-(`base/`, a git submodule, with [felucca-bsp](https://github.com/hugelton/felucca-bsp) inside it at `base/bsp/`).
-Same layout as [fm1-amb](https://github.com/charlesvestal/fm1-amb): our code lives in `app/`, started from fm1-base's
-template.
+A lo-fi hip hop machine for the M-VAVE FM-1. VNL-1 writes and plays its own songs, one after another: every song
+has its own key, tempo, chords, layout and band (drums, bass, comp, lead, pad and texture), played through a lo-fi
+chain of tape wobble, dust and a plate. Press PLAY and leave it running, or steer it from the FM-1's knobs: change
+the key, the tempo, the mood, any part's instrument, or jump between sections, and every change lands on the next
+four-bar line, in time. VNL-1 is free software (GPL), built on [fm1-base](https://github.com/charlesvestal/fm1-base).
+
+## Features
+
+**Songs**
+
+- Endless generated songs, each from a seed, with a 2-4 s silence between them; or stay on one song as long as you like.
+- 37 instrument sets in five flavors: lo-fi, bossa, city pop, neo-soul and chillwave.
+- 44 chord progressions in six modes (Ionian to Aeolian), any of 12 keys, 70-90 BPM, swing, and a chord color that
+  makes later passes richer.
+- Four moods (sad, wistful, warm, sunny) and a Motion control from calm to busy.
+- Five song layouts (Classic, Slow bloom, Straight in, Breather, Drift) with intros, breaks, drum drops and endings.
+
+**Parts**
+
+- **Drums:** eight kits: 808 and CR-78 (modeled machines), Crunchy, Boom-bap and Jazz machine (synth drums), Soft
+  brushes, and two sampled room kits (Room - big, Room - brushes). Eight patterns (boom bap, half-time, sparse,
+  brushes), nine two-bar kick phrases, a ride section on the sampled kits, and a per-drum lo-fi pocket.
+- **Bass:** electric, sub, triangle and FM bass, with walking lines and lines that lead into the next chord.
+- **Comp:** Rhodes, piano, felt piano, vibes, organ, pad, nylon guitar and electric guitar. Eight comp rhythms (held,
+  half notes, stabs, held on 2, held on 2 and 4, charleston, tresillo, late one); the guitars strum, in eight patterns.
+- **Lead:** flute, whistle, piano, felt piano, vibes, jazz guitar, cello and harp, in eight styles: Impressionism,
+  Romanticism, '60s Jazz, Modal Jazz, Jazz-Hop, Film Score, Bossa Nova and Ambient. The lead states a motif and loops
+  it the way a producer loops a sample, with mutes, filter sweeps and drop-outs.
+- **Pad:** strings, a warm synth pad, organ or a vox choir, in about two songs out of three.
+- **Texture:** dust, a noise bed (vinyl or tape surface, rain) and room ambience.
+- **The mix:** wow and flutter, saturation, grit, chorus, delay, a plate reverb, the kick ducking the mix, and a
+  whole-mix stutter at turnarounds.
+
+**Sounds**
+
+- Sampled piano, nylon guitar, electric guitar, jazz guitar (re-amped through a real amp), cello, harp and two drum
+  kits, all from CC0 libraries; modeled vibes; a tonewheel organ; FM and analog-style synths.
+- With no sample bank on the FM-1, VNL-1 says NO SAMPLES and plays its synth instruments only.
+
+**On the FM-1**
+
+- A boot splash with a spinning record that flows into the now-playing screen: the song, its key, the chord playing,
+  where it is, its tempo.
+- A main screen with the song's progress and a tile per part; a page per part for its instrument, rhythm, register and
+  re-rolls.
+- A Parts screen with each part's notes scrolling over the song; a Sections screen to jump, loop a section or stay on
+  the song; a Mixer with a level, mute and solo per part.
+- The keys' lights show which parts are playing; the lowest white keys mute (press) or solo (hold) a part.
+- A screen reader, through the [FM-1 Screen Reader](https://charlesvestal.github.io/fm1-reader/).
+- USB audio in and out: record VNL-1 on a computer, or play the computer through the FM-1.
+- A CPU guard that eases off reverb tails and quiet voices before the audio can glitch.
+
+**For tinkerers**
+
+- **The workbench:** a local web page that plays the same engine. Change any decision or re-roll one part, lock
+  parts, edit drum kits and patterns, and save feedback with a snapshot of the song. It can also drive the FM-1's
+  screens over USB.
+- **The host simulator:** renders songs to WAV, with a song log, MIDI and MusicXML of what each part played.
+- **Patterns as files:** drum, kick, strum, comp and chord patterns as MIDI and MusicXML in `patterns/`; edit them in
+  a DAW or MuseScore and import them back.
+
+## Controls
+
+| Control | What it does |
+| --- | --- |
+| PLAY | Play or stop. After a stop, PLAY carries on from the bar it stopped in. |
+| SEQ | A new song. On a part's page, re-rolls only that part. |
+| K1-K4 | On the main screen: key, tempo, motion, mood. On a part's page: that page's settings. |
+| ALGO | Picks a part. EDIT opens its page; SELECT steps its pages. |
+| PRESET | The highlighted part's instrument (or kit). |
+| OCT- / OCT+ | The comp's or the lead's register. |
+| SEL | Sections: jump to a section (EDIT, or its key), loop it (K1), stay on the song (K2). |
+| ARP | Parts: each part's notes over the song. |
+| FX | The Mixer. |
+| HOME | Switches between the now-playing screen and the main screen; the last one used is the home. |
+| Lowest white keys (F G A B C) | Drums, bass, comp, lead, pad: press to mute, hold to solo. |
+
+Every change to the song lands on its next four-bar line, and the screen shows it waiting until then.
+
+## Install (FM-1 owners)
+
+At your own risk: this replaces the FM-1's firmware. You can always go back to M-VAVE's.
+
+1. Get the source with its submodule, and a Python with `mido` and `python-rtmidi`:
+
+       git clone --recursive https://github.com/pianomansam/fm1-vnl
+       python3 -m venv .venv && .venv/bin/pip install mido python-rtmidi
+
+2. Connect the FM-1 by USB and install the firmware (from the release, or your own build):
+
+       .venv/bin/python base/tools/fm1_install.py vnl-VERSION.fwsc
+
+3. With VNL-1 running and stopped, write the sample bank (once; again only when a release says the samples changed):
+
+       .venv/bin/python tools/fm1_bank.py
+
+   A firmware update leaves the bank in place. Without it, VNL-1 plays its synth instruments only.
+
+**Update mode:** hold REC while switching the FM-1 on.
+
+**Back to stock, or a stuck FM-1:** if the FM-1 won't boot but shows up on USB as `4C4A:8057`,
+`base/bsp/tools/fm1_rescue.sh` restores M-VAVE's firmware. `tools/flash.sh` does a clean install in one go: stock V15,
+then VNL-1, then the sample bank (it needs M-VAVE's V15 package, which isn't in this repository).
+
+## Build (developers)
 
     git submodule update --init --recursive
 
-## Toolchain (macOS, Apple silicon)
+### Toolchain (macOS, Apple silicon)
 
 | Piece | Where | Used for |
 | --- | --- | --- |
 | Docker Desktop (running) | | JieLi's toolchain is Linux x86-64 only; the build runs it in a `linux/amd64` container (Rosetta) |
 | JieLi toolchain (clang 4.0.1, pi32v2) | `~/.jieli/toolchain` (`base/tools/get_toolchain.sh`) | firmware build |
-| JieLi AC79 SDK `AC79NN_SDK_V1.2.1_2023-12-13` | `~/fw-AC79_AIoT_SDK` | package boot files (and BLE/WiFi libs, unused) |
+| JieLi AC79 SDK `AC79NN_SDK_V1.2.1_2023-12-13` | `~/fw-AC79_AIoT_SDK` | package boot files |
 | Python venv: `python3.14 -m venv .venv && .venv/bin/pip install Pillow mido python-rtmidi` | `.venv/` (`build.sh` prefers it) | fonts (Pillow needs raqm), USB-MIDI install |
-| Emscripten (`brew install emscripten`) | | browser emulator |
+| Emscripten (`brew install emscripten`) | | browser emulator, workbench |
 
 SDK: `git clone --depth 1 --branch AC79NN_SDK_V1.2.1_2023-12-13 https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git ~/fw-AC79_AIoT_SDK`
 
-## Build and run
+### Build and run
 
-    ./build.sh                    # app/build/vnl.fwsc (firmware + update loader)
+    ./build.sh                    # app/build/vnl.fwsc (firmware + update loader), identity FM-1_2200
+    ./build.sh --release 0.9.0    # app/build/vnl-0.9.0.fwsc, identity FM-1_22000900
     ./build.sh --host             # host simulator, then:
     app/build/host/vnl_host tests/scenarios/songs.vnl app/build/scenarios   # a song, the gap, the next: songs.wav
-    sh tests/run_tests.sh         # unit tests, the host build and every tests/scenarios/*.vnl, the emulator build
+    sh tests/run_tests.sh         # unit tests, the host build, every tests/scenarios/*.vnl, the emulator build
     ./build.sh --web              # browser emulator in app/build/emu/ (serve it: python3 -m http.server -d app/build/emu)
+    sh workbench/build.sh && python3 workbench/server.py   # the workbench at http://localhost:8732/
     sh base/tests/run_tests.sh    # fm1-base's own tests
 
-The host simulator is the fast loop: scripted keys/MIDI in, audio, screenshots and screen-reader text out.
-Script commands are listed at the top of `base/host/plat_host.c`.
+The host simulator is the fast loop: scripted keys and MIDI in, audio, screenshots and screen-reader text out. Script
+commands are listed at the top of `base/host/plat_host.c`. The workbench is described in `workbench/README.md`, the
+pattern files in `patterns/README.md`, the samples in `tools/samples/`.
 
-## Install on the device
+### Notes
 
-    .venv/bin/python base/tools/fm1_install.py app/build/vnl.fwsc
-    .venv/bin/python tools/fm1_bank.py            # the sample bank, with VNL-1 running and stopped
-
-The sampled instruments and kits live outside the firmware, in the flash's data area: `tools/fm1_bank.py` writes
-them (once, and again only when the samples change; an update leaves them). Without a bank that matches the firmware,
-VNL-1 says NO SAMPLES and plays its synth instruments only.
-
-At your own risk. Hold REC while switching the FM-1 on for update mode. If the FM-1 won't boot but shows up as
-`4C4A:8057` on USB, `base/bsp/tools/fm1_rescue.sh` restores stock firmware.
-
-## Notes
-
-- `app/fm1.toml`: Bluetooth is off (neither the lo-fi nor dub direction needs it; saves ~130 KB flash), so the
-  app has no Bluetooth (no velocity either: APP_TOUCH and APP_BTDEV are gone).
-- Identity `FM-1_22` (dev builds FM-1_2200; V is the 22nd letter). Taken by others: 0 (default), 6 CTL-1, 7 AMB-1,
-  8 dub, 11 template, 13 Radio. The installer checks it, so never reuse another firmware's.
-- Why the venv: `brew install emscripten` pulls in a newer Homebrew Python and repoints `python3` to one without
+- **Size:** the image is 381,164 B against VNL-1's own budget of 409,600 B (the FM-1's app slot is 581 KB); RAM
+  `.data`+`.bss` 74,764 B of 98,304 B; buffer pool 304,956 B of 344,064 B; no external RAM. The sample bank
+  (339,281 B) lives in the flash's data area, outside the image. `tools/mem-check.sh` checks the budgets.
+- **No radio:** `app/fm1.toml` builds without Bluetooth (no Bluetooth MIDI or audio, and so no velocity or pressure
+  from the keys); it saves about 130 KB of flash. USB MIDI, USB audio and the screen reader are in.
+- **Identity:** `FM-1_22` (V is the 22nd letter): dev builds are FM-1_2200, releases FM-1_22XXYYZZ. Taken by others:
+  0 (default), 6 CTL-1, 7 AMB-1, 8 dub, 11 template, 13 Radio. The installer checks it, so never reuse another
+  firmware's.
+- **Why the venv:** `brew install emscripten` pulls in a newer Homebrew Python and repoints `python3` to one without
   Pillow. `build.sh` uses `.venv/bin/python` when it exists; `PYTHON=...` overrides.
-- Status: VNL-1 plays generated songs, one after another, on placeholder voices (111 KB image, 31 KB RAM); it
-  passes in the simulator and runs in the browser emulator. Not yet installed on a real FM-1. Minimal controls:
-  it boots stopped with a song ready; PLAY stops / plays (after a stop, the same song from the bar it stopped in),
-  SEQ rolls a new song, K1-K4 key, tempo, motion, mood (each lands on the next 4-bar boundary).
-- Budget: 581 KB flash app slot, 96 KB RAM, 336 KB buffer pool, no external RAM.
-- `ref/` (git-ignored) holds read-only clones: `fm1_open` (M-VAVE's official V14, Windows toolchain, binary engine
-  SDK, GPLv3), `fm1-base`, `felucca-bsp`, `fm1-amb` and `fm1-dub` (the two direction references).
+- **Live state:** `tools/fm1_state.py` reads the running FM-1's state over USB (CPU by stage, late blocks, the song).
+- `ref/` (git-ignored) holds read-only clones of other FM-1 firmwares, for reference only.
 
 ## Credits and licenses
 
-VNL-1 is GPL-3.0-or-later (`LICENSE`), so it can reuse the many GPL FM-1 firmwares instead of reinventing them.
-It is built on [fm1-base](https://github.com/charlesvestal/fm1-base) and
+VNL-1 is GPL-3.0-or-later (`LICENSE`); up to the tag `mpl-final` it was MPL-2.0. It is built on
+[fm1-base](https://github.com/charlesvestal/fm1-base) by Charles Vestal and
 [felucca-bsp](https://github.com/hugelton/felucca-bsp), from [Felucca](https://github.com/hugelton/Felucca) by Leo
-Kuroshita (Hügelton Instruments), both MPL-2.0, which allows combining with GPL code. Files adapted from fm1-base
-and AMB-1 (`app/app.c`, `app/app.h`, `app/words.tsv`, `app/engine/fx.c`, `app/engine/voices.c`, `build.sh`,
-`tests/run_tests.sh`) keep their MPL-2.0 notice (`LICENSES/MPL-2.0.txt`). Up to the tag `mpl-final`, all of VNL-1 is
-MPL-2.0. The firmware binary includes GPL-3.0-only drum code (Optimist's drum synth, `app/drums/optimist/`, the Crunchy
-machine kit; FOMAJAM's modeled machines, `app/drums/fomajam/`, the 808 and CR-78), so the binary as a whole
-is GPL-3.0-only (as the workbench's wasm is); VNL-1's own source stays GPL-3.0-or-later. The drum engines' notices are in `app/drums/LICENSES.md`.
+Kuroshita (Hügelton Instruments), both MPL-2.0, which allows combining with GPL code. Files adapted from fm1-base and
+AMB-1 (`app/app.c`, `app/app.h`, `app/words.tsv`, `app/engine/fx.c`, `app/engine/voices.c`, `build.sh`,
+`tests/run_tests.sh`) keep their MPL-2.0 notice (`LICENSES/MPL-2.0.txt`).
 
-### Third-party material
+The firmware includes GPL-3.0-only code: the drum engines of FOMAJAM and Optimist, Optimist's CPU guard and Cut-A-Dor's
+rhythm tables. So the firmware binary as a whole (and the workbench's wasm) is GPL-3.0-only; VNL-1's own source stays
+GPL-3.0-or-later. The reverb and chorus are adapted from Mutable Instruments Rings by Emilie Gillet (MIT; the notice is
+below). The fonts are SIL OFL 1.1, the package's JieLi boot files Apache-2.0, and every sample CC0 1.0.
 
-| What | Licence | Where |
-| --- | --- | --- |
-| The lo-fi chain's reverb and chorus, adapted from [Mutable Instruments Rings](https://github.com/pichenettes/eurorack) (`rings/dsp/fx/reverb.h`, `chorus.h`, `fx_engine.h`) by Emilie Gillet | MIT (below) | `app/engine/rings_fx.c`, `rings_fx.h` |
-| The 808 and CR-78 kits' voices, FOMAJAM's modeled drum machines (by FOMAJAM's authors; ported from poketrack's trommelsynthesizer by David Konsumer, zlib: `LICENSE.poketrack`), altered | GPL-3.0-only (`app/drums/fomajam/LICENSE`) | `app/drums/fomajam/` |
-| The Crunchy machine kit, [Optimist](https://github.com/w0ts/optimist)'s synth drum engine by Leo Kuroshita (@kurogedelic), Hügelton Instruments, and the Optimist contributors (as is) | GPL-3.0-only (`app/drums/optimist/LICENSE`) | `app/drums/optimist/` |
-| The drum pocket, four kick phrases and eight hat bars, from [Cut-A-Dor](https://github.com/kidbee85-beep/cut-a-dor-release)'s rhythm engine (`firmware/src/dsp/cad.c`: `cad_step_tick`'s lo-fi timing, `kick_a`/`kick_b`, `hats`) by Kid Bunka, v1.2.1, adapted | GPL-3.0-only | `app/song/groove.c` (the pocket), `app/song/roll.c` (`HAT_FIG`, the draws), `patterns/kick-phrases/k7`-`k10` |
+Everything borrowed, with its author, license and place in the source, is in [`CREDITS.md`](CREDITS.md); the drum
+engines' files in `app/drums/LICENSES.md`.
 
 The MIT notice for the Rings code, which the firmware contains:
 
@@ -98,7 +185,7 @@ The MIT notice for the Rings code, which the firmware contains:
     CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
     IN THE SOFTWARE.
 
-The samples (piano, guitars, drums) are CC0 1.0; their sources are listed in `CREDITS.md`.
+M-VAVE and FM-1 are trademarks of their owners. VNL-1 is not affiliated with or endorsed by M-VAVE, Mutable
+Instruments or Hügelton Instruments.
 
-M-VAVE and FM-1 are trademarks of their owners. VNL-1 is not affiliated with M-VAVE, Mutable Instruments or Hügelton
-Instruments.
+See also [`ROADMAP.md`](ROADMAP.md) for what may come next and [`CHANGELOG.md`](CHANGELOG.md) for releases.
