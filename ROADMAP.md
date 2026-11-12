@@ -15,7 +15,6 @@ ideas that still need a reason.
 - **Drum patterns by flavor:** each set's flavor (lo-fi, bossa, city pop, neo-soul, chillwave) weighs the patterns.
 - **Smoother section jumps:** spread a jump's catch-up work over several audio blocks, so none arrives late.
 - **Settings screen:** reduced motion, the screen reader, key lights, brightness and the default home screen.
-- **Part locks on the device:** keep a part as it is while SEQ rolls everything else.
 - **Device checks:** confirm the CPU guard's voice rungs and the per-stage CPU meter on the FM-1 itself.
 
 ## Later

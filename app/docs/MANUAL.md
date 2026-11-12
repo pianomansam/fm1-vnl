@@ -83,7 +83,7 @@ These work the same on every screen, unless a screen below says otherwise.
 | Control | What it does |
 | --- | --- |
 | PLAY | Play or stop. |
-| SEQ | A new song. On a part's screen, it re-rolls only that part. |
+| SEQ | A new song. On a part's screen, it re-rolls only that part. Hold it to lock a part (see Locking a part). |
 | HOME | Go to the home screen. On the main screen and the now-playing screen, it switches between the two. |
 | SEL | The Sections screen. SEL again goes back. |
 | ARP | The Parts screen. ARP again goes back. |
@@ -132,6 +132,7 @@ each section, and the tempo.
 | EDIT | Open the highlighted tile's screen. |
 | PRESET | The highlighted part's instrument (the drums' kit). Nothing on the song or texture tile. |
 | OCT- / OCT+ | The highlighted part's register: the comp's or the lead's. |
+| SEQ, held | Lock or unlock the highlighted part (see Locking a part). Nothing on the song tile. A short press is a new song. |
 | HOME | The now-playing screen, which becomes the home. |
 
 ### Sections (SEL)
@@ -198,9 +199,36 @@ On every part's screen:
 | SELECT | The next page, on parts that have more than one. |
 | ALGO | The next part, in this order: song, drums, bass, comp, lead, pad, texture. |
 | PRESET | This part's instrument (the drums' kit). |
-| SEQ | Re-roll this part only, on the next four-bar line. On the song screen, a new song; on the texture screen, nothing. |
+| SEQ | Re-roll this part only, on the next four-bar line. On the song screen, a new song; on the texture screen, nothing. Held, it locks or unlocks this part (see Locking a part). |
 | OCT- / OCT+ | The register, on the comp's and the lead's screens. |
 | EDIT | Back to the main screen. |
+
+### Locking a part
+
+A locked part stays as it is when a new song rolls, while everything else changes. Lock a part you like, then press
+SEQ for new songs around it.
+
+![The Drums screen, locked: a padlock beside DRUMS 1/2](img/vnl-lock.png "A locked part")
+
+- **Lock or unlock:** hold SEQ for about half a second, on the part's screen or on the main screen with the part's
+  tile highlighted. Hold again to unlock. A short press still re-rolls the part (on its screen) or rolls a new song
+  (on the main screen).
+- **Shown:** a padlock beside the part's name on its screen and on its tile on the main screen. The header says
+  DRUMS LOCKED or DRUMS UNLOCKED for a moment, and the screen reader says it too.
+- **What it keeps:**
+  - Drums: kit, pattern, kick, ride and variation.
+  - Bass: instrument and line. Its style (roots, walking, pedal) can still change with the song.
+  - Comp: instrument, rhythm (strum pattern and fill too), voicings, register, and whether a busy lead thins it.
+  - Lead: instrument, style, phrase, register and loop.
+  - Pad: instrument, on or off, place and notes.
+  - Texture: dust, noise and room.
+- **Changing a locked part:** the knobs still change it, and the lock keeps the change. SEQ on its screen won't
+  re-roll it: the header says DRUMS IS LOCKED.
+- **Instruments that can't be shared:** the felt piano, the piano and the vibes play one part a song, and organ keys
+  never play under an organ pad. When a new song would clash with a lock, VNL-1 rolls another one. If both clashing
+  parts are locked, the second one's instrument isn't kept for that song, and the header says LEAD LOCK, INSTRUMENT
+  NOT KEPT (or PAD LOCK).
+- **How long:** until you unlock it or switch the FM-1 off. Locks are never saved.
 
 ### Song
 
