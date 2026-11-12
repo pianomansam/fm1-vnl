@@ -1281,3 +1281,16 @@ To judge by ear:
   quiet in their second bar), and the kick rule.
 - The keys' new levels per comping: held one-bar songs up 1.75 dB, arpeggios down 1.25 dB.
 - Renders (one per set with and without the bed, plus half-note songs): .superpowers/sdd/2026-10-24-pads-rev2/task-4-report.md.
+
+### fm1-base update and the device CPU meter (2026-11-11)
+
+- **fm1-base 865bc2f → f66ac4a** (the survey's item 1; latest upstream, not d8ff8f4), merged with our palette commits
+  (base bf167c6). Gains: memset/memcpy 7-9x, `plat_cpu_pct` accurate, 360 MHz set at boot, `plat_ticks24`. Upstream's
+  `font_trim` + `font_pack` replace our run-length packing (screens pixel-identical, image 6 KB smaller than ours would
+  be). Image 375,988 → 377,272 B, RAM 74,772 → 74,360 B; host audio bit-identical on 12 seeds. Update mode is REC held
+  at power-on (README, MANUAL). Not yet on the device.
+- **CPU meter by stage** (the survey's item 8, DUB-1's EN_PROF idea, our code: `app/engine/prof.c`): drums, bass,
+  comp, lead, pad, texture, bus, fx, control, then the main loop's ui and kit voices, as us a block, % of the CPU and
+  the heaviest block's breakdown: `python3 -I tools/fm1_state.py` (`--reset` to start a window). The voices' parts
+  are sampled (one sample a segment timed part by part). Image +2,944 B, RAM +372 B; no change to a sample. To read on
+  the device with Sam's OK.

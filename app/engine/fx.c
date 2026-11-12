@@ -38,6 +38,7 @@
 #include "library.h"
 #include "fx.h"
 #include "rings_fx.h"
+#include "prof.h"
 
 /* our plate and chorus, kept on the host for comparison (fx_rings) */
 #if (defined PLAT_HOST || defined __APPLE__) && !defined PLAT_WEB
@@ -1109,8 +1110,15 @@ void fx_process_pairs(float *l, float *r, const float *s2, const float *c2, cons
         pl_peak = dl_peak = 0.0f;
         w_ml = w_sl = w_el0 = w_el1 = w_er0 = w_er1 = 0.0f;
     }
-    if ((bo > 0.0f || bo_t > 0.0f) && !(g_bed && bg == 0.0f))   /* (the guard's: once faded, not run) */
+    if ((bo > 0.0f || bo_t > 0.0f) && !(g_bed && bg == 0.0f)) { /* (the guard's: once faded, not run) */
+        uint32_t t = PF_T();
         bed(l, r, n);
+        if (pf_clock) { /* the CPU meter (prof.h): the bed is the texture's, out of the fx's (voices.c adds it whole) */
+            t = pf_clock() - t;
+            pf_add(PF_TEXTURE, t);
+            pf_add(PF_FX, 0u - t);
+        }
+    }
 }
 
 void fx_process_buses(float *l, float *r, const float *ch, const float *dl, uint32_t n, float duck)

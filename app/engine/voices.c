@@ -33,6 +33,7 @@
 #include "sampler.h"
 #include "modal.h"
 #include "leads/leads.h"
+#include "prof.h"
 
 #define QN 64
 #define NCH 8 /* chord voices: a held pad uses all 8 (its release crosses the next chord's swell), the rest the first 4 */
@@ -2143,6 +2144,7 @@ static void render_seg(uint32_t pos, uint32_t n, int filt)
     float as = ts, ac = tc, ad = td;
     int hw_on;
     int dr = drums_active(); /* (a drum starts only at a segment's start, as a voice does) */
+    uint32_t pt = PF_T(), pv = pf_v_pick(pos, n); /* (the CPU meter, prof.h: its clock; the probe's sample) */
     /* the mud high-pass: its coefficients and states in locals; run per role and rate only while it has voices there
        or its states still ring */
     int mud = !(fx_off & VX_OFF_MUD);
@@ -2158,7 +2160,17 @@ static void render_seg(uint32_t pos, uint32_t n, int filt)
         drums_render(bb[DRB] + pos, n);
     else
         memset(bb[DRB] + pos, 0, n * sizeof(float));
+    if (pf_clock) {
+        uint32_t t = pf_clock();
+        pf_add(PF_DRUMS, t - pt);
+        pt = t;
+    }
     pg = pad_seg(pos, n);
+    if (pf_clock) {
+        uint32_t t = pf_clock();
+        pf_add(PF_PAD, t - pt);
+        pt = t;
+    }
     pf = pg & PAD_F ? 1u << PD : 0u; /* the pad layer's full- and half-rate voices, as voice bits for mud_on */
     ph = pg & PAD_H ? 1u << PD : 0u;
     mh = seg_mask(&mf, &live);
@@ -2176,6 +2188,8 @@ static void render_seg(uint32_t pos, uint32_t n, int filt)
             pa = pd_f[i - pos]; /* (the full-rate voices' mud high-pass below; the quarter-rate sum's had its own) */
         if (ph && !odd)
             hpa = pd_h[ih++];
+        if (i == pv)
+            pf_v_begin();
         /* (exact by construction: the same voices in the same ascending order, so the same sums, as the walk over
            all PD voices testing each bit) */
         for (mm = msk; mm; mm &= mm - 1u) { /* the voices sounding here, lowest first (one call site, so
@@ -2186,6 +2200,8 @@ static void render_seg(uint32_t pos, uint32_t n, int filt)
             h = (int)(mh >> j) & 1;
             if (!fv[j].on)
                 continue;
+            if (i == pv) /* (the probe: each part's voices timed) */
+                pf_v_mark(j < NCH ? PF_COMP : j < NCH + NLD ? PF_LEAD : j < NFM ? PF_TEXTURE : PF_BASS);
             y = voice_sample(&fv[j]);
             moved |= fv[j].hr != h; /* a steal's new note at the other rate */
             if (h) {
@@ -2204,6 +2220,8 @@ static void render_seg(uint32_t pos, uint32_t n, int filt)
             else
                 b += y;
         }
+        if (i == pv)
+            pf_v_end(n);
         if (moved) {
             unsigned hb;
             mh = seg_mask(&mf, &hb);
@@ -2297,6 +2315,8 @@ static void render_seg(uint32_t pos, uint32_t n, int filt)
     if (hw_on)
         hw = m;
     hr_live |= live;
+    if (pf_clock)
+        pf_loop(pf_clock() - pt);
 }
 
 /* the half-rate roles of the chunk (c samples) to the full rate, into their buses (filt) or straight into the music
@@ -2676,7 +2696,7 @@ static void stutter_block(float *l, float *r, uint32_t n)
 
 void vx_render(float *l, float *r, uint32_t n)
 {
-    uint32_t done = 0, c, k;
+    uint32_t done = 0, c, k, pt;
     while (done < n) {
         uint32_t pos = 0;
         int filt = filtering();
@@ -2732,6 +2752,7 @@ void vx_render(float *l, float *r, uint32_t n)
             t_c[tt] += tc;
             t_d[tt] += td;
         }
+        pt = PF_T();
         hx_mix(c, filt);
         hpar ^= c & 1u;
         clk += c;
@@ -2743,12 +2764,19 @@ void vx_render(float *l, float *r, uint32_t n)
             memcpy(lvl_g, lvl_t, sizeof lvl_g);
             lvl_on = lvl_unity() ? 0u : 1u;
         }
+        if (pf_clock) {
+            uint32_t t = pf_clock();
+            pf_add(PF_BUS, t - pt);
+            pt = t;
+        }
         fx_process_pairs(ch_m, ch_s, t_s, t_c, t_d, c, drums_kick_env());
         for (k = 0; k < c; k++) {
             l[done + k] += ch_m[k];
             r[done + k] += ch_s[k];
         }
         stutter_block(l + done, r + done, c);
+        if (pf_clock)
+            pf_add(PF_FX, pf_clock() - pt); /* (the bed's ticks fx.c took out of it: the texture's) */
         done += c;
     }
 }

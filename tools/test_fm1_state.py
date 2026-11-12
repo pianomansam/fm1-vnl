@@ -30,6 +30,9 @@ assert s["screen"] and isinstance(s["rows"], dict) and "kit" in s["rows"] and "c
 assert S.summary(s)
 assert "late_by" in s["cpu"] and "ab" in s["cpu"] and after["cpu"]["guard_steps"] == 0 and after["cpu"]["late"] == 0
 assert after["cpu"]["render_us"] <= max(s["cpu"]["render_us"], 1000000)
+p = after["prof"]   # (the CPU by stage: the blocks since the reset, a figure a stage, the table)
+assert p["blocks"] > 0 and len(p["stages"]) == len(p["us"]) == len(p["worst"]) and "bass" in p["stages"], p
+assert S.prof_table(after)[0].startswith("CPU by stage")
 remote = bytes([0xF0, 0x7D, 0x56, 0x4E, 0x11, 0x00, 0x01, 0xF7])   # (the remote's ack among them)
 assert S.decode([remote] + frames[::-1]) == s
 assert S.decode(frames[:-1]) is None

@@ -1546,3 +1546,17 @@ Knight, jazz guitar leads; sets 41, 44, 38, 7, 5, 23).
   unchanged; the sample bank unchanged (339,281 B).
 - CPU (`tools/cost-bench.sh --parts`, lead rows): the whistle **0.229**, the soft synth lead **0.256** (its blend
   past the triangle runs the polyBLEP pulse); the flute 0.237, the sampled cello 0.297, the harp 0.208.
+
+## fm1-base f66ac4a and the CPU meter (2026-11-11)
+
+| Build | Image (B) | RAM .data+.bss (B) | Pool (B) |
+|---|---|---|---|
+| Before (fm1-base 865bc2f + our font packing) | 375,988 | 74,772 | 304,956 |
+| fm1-base f66ac4a, its `font_trim` + `font_pack` | 377,272 | 74,360 | 304,956 |
+| + the CPU meter by stage (`app/engine/prof.c`) | 380,216 | 74,732 | 304,956 |
+
+Our run-length packing on the new base would be about 383 KB (the fonts 24.6 KB against upstream's 17.5 KB). Text
+drawing with `font_pack` costs more instructions (host `uibench`: a fade's step 26 → 34 us, the worst full draw 99 →
+102 us); `font_trim` alone is about 8 KB bigger and as cheap as unpacked. The meter's host cost (cost bench, seeds 20
+and 155, meter on vs off) is within the bench's noise. The device's figures come from the meter itself
+(`tools/fm1_state.py`), once installed.

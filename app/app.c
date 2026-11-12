@@ -36,6 +36,7 @@
 #include "samples.h"
 #include "wb_drums.h"
 #include "cpuguard.h"
+#include "prof.h"
 #include "snap.h"
 /* The screens' runtime (app/ui: the workbench's screens as tables, their values, their drawing, the navigator): the
    device's UI with VNL_UI_RUNTIME (app.h; Task 8 turns it on), else today's hand-drawn screen below; the simulator
@@ -197,6 +198,10 @@ static uint32_t m_draw_max, m_render_max, m_late;
 static uint32_t m_spin_max;              /* the record's turn: its label's redraw, the longest (us) */
 static uint32_t m_fade_max;              /* a fade's step: the text's columns' redraw, the longest (us) */
 static uint32_t m_load_now, m_load_peak; /* the render's load, % of its block: the last block's, the highest */
+/* the CPU meter's main-loop side (prof.h has the render's): the redraws' and the kit voices' time, less the render
+   that interrupted them, in us since the reset (m_prof_ms: plat_ms then) */
+static uint32_t m_ui_us, m_kit_us, m_prof_ms;
+#define M_OWN(t0, r0) (M_DT(t0) - (pf_render_us() - (r0)))   /* a main-loop span's own time (us) */
 /* what a late block had going on (its first cause in this order counts it, one each; none: other), for the live state: the render's own
    (a new song, its first bar's planning or its end, a stop's resume; a row's request landing; a jump's fast-forward
    or landing; the Parts roll's look-ahead; the downbeat; a command: a mute, a solo, a level, a jump, the A/B
@@ -842,6 +847,7 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     uint16_t m_cause_t0 = m_cause_main;  /* (what the main loop was doing as the block began) */
     uint32_t m_fires = vx_fires();
     static int m_guard;
+    pf_block_begin();
     cg_pre((uint32_t)vx_active());       /* the CPU guard (the FM-1's: app_init turns it on) */
     if (cg_level() != m_guard) {         /* (a step: since the last block's end, or now) */
         m_guard = cg_level();
@@ -944,6 +950,7 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     }
     publish();
 #if VNL_UI_RUNTIME
+    pf_block_end();
     {
         uint32_t dt = M_DT(m_t0), blk = n * 1000000u / 44100u, c;
         if (dt >= M_SANE_US)
@@ -1154,6 +1161,9 @@ void app_init(void)
                                             quality down (cpuguard.h), back under 80 %; the host simulator and the
                                             workbench never (their time isn't the FM-1's) */
     cg_need_late(2);
+#endif
+#if VNL_UI_RUNTIME
+    pf_init(plat_ticks24, PLAT_TICKS_PER_US);   /* the CPU meter by stage (prof.h; the live state's "prof") */
 #endif
 }
 
@@ -2228,7 +2238,42 @@ static uint32_t live_state(char *o, uint32_t cap)
             jbi(&b, (int32_t)m_late_by[i]);
         }
     }
-    jb(&b, "}}}");
+    jb(&b, "}}");
+    {                                  /* the CPU by stage since the reset (prof.h; tools/fm1_state.py's table): the
+                                          time (ms), the blocks rendered and a block's time (us), each stage's us in
+                                          all and in the heaviest block, that block's us, the main loop's redraws and
+                                          kit voices (us in all, the render that interrupted them taken out) */
+        static const char *const PFN[PF_N] = PF_NAMES;
+        pf_stats_t p;
+        pf_read(&p);
+        jbk(&b, "prof"); jb(&b, "{");
+        jbk(&b, "ms"); jbu(&b, plat_ms() - m_prof_ms);
+        jbk(&b, "blocks"); jbu(&b, p.blocks);
+        jbk(&b, "block_us"); jbu(&b, APP_BLOCK * 1000000u / 44100u);
+        jbk(&b, "stages"); jb(&b, "[");
+        for (i = 0; i < PF_N; i++) {
+            if (i) jb(&b, ",");
+            jbs(&b, PFN[i]);
+        }
+        jb(&b, "]");
+        jbk(&b, "us"); jb(&b, "[");
+        for (i = 0; i < PF_N; i++) {
+            if (i) jb(&b, ",");
+            jbu(&b, p.sum_us[i]);
+        }
+        jb(&b, "]");
+        jbk(&b, "worst"); jb(&b, "[");
+        for (i = 0; i < PF_N; i++) {
+            if (i) jb(&b, ",");
+            jbu(&b, p.worst_us[i]);
+        }
+        jb(&b, "]");
+        jbk(&b, "worst_us"); jbu(&b, p.worst_total_us);
+        jbk(&b, "ui_us"); jbu(&b, m_ui_us);
+        jbk(&b, "kit_us"); jbu(&b, m_kit_us);
+        jb(&b, "}");
+    }
+    jb(&b, "}");
     return b.n;
 }
 
@@ -2242,6 +2287,9 @@ static void live_reset(void)
 {
     m_load_peak = m_late = m_render_max = m_draw_max = m_spin_max = m_fade_max = 0;
     memset(m_late_by, 0, sizeof m_late_by);
+    pf_reset();
+    m_ui_us = m_kit_us = 0;
+    m_prof_ms = plat_ms();
     cg_stats_reset();
 }
 
@@ -2394,7 +2442,15 @@ static void kit_render(const snap_t *s)
     wb_drums_want(&d);
     m_cause_main |= 1u << MC_KIT;
     M_SEEN(MC_KIT);
+#if VNL_UI_RUNTIME
+    {
+        uint32_t m_t0 = M_T(), m_r0 = pf_render_us();
+        wb_drums_work(KIT_SLICE, 0);
+        m_kit_us += M_OWN(m_t0, m_r0);
+    }
+#else
     wb_drums_work(KIT_SLICE, 0);
+#endif
     m_cause_main &= (uint16_t)~(1u << MC_KIT);
 }
 
@@ -2455,24 +2511,26 @@ void app_frame(void)
         uint8_t was = ui_hnav.spin, was_fade = ui_hnav.fade, was_on = splash_on;
         spin_tick(now);
         if ((ui_hnav.fade != was_fade || splash_on != was_on) && !ui.redraw && !rm.on && ui_host >= 0) {
-            uint32_t m_t0 = M_T(), dt;
+            uint32_t m_t0 = M_T(), m_r0 = pf_render_us(), dt;
             ui_host_text();
             dt = M_DT(m_t0);
             if (dt < M_SANE_US && dt > m_fade_max)
                 m_fade_max = dt;
+            m_ui_us += M_OWN(m_t0, m_r0);
         }
         if (ui_hnav.spin != was && !ui.redraw && !rm.on && ui_host >= 0) {
-            uint32_t m_t0 = M_T(), dt;
+            uint32_t m_t0 = M_T(), m_r0 = pf_render_us(), dt;
             ui_record_turn(&UI_SCREENS[ui_shown_id()], ui_hnav.spin);
             dt = M_DT(m_t0);
             if (dt < M_SANE_US && dt > m_spin_max)
                 m_spin_max = dt;
+            m_ui_us += M_OWN(m_t0, m_r0);
         }
     }
 #endif
     if (ui.redraw) {
 #if VNL_UI_RUNTIME
-        uint32_t m_t0 = M_T(), dt;
+        uint32_t m_t0 = M_T(), m_r0 = pf_render_us(), dt;
         m_cause_main |= 1u << MC_DRAW;
         M_SEEN(MC_DRAW);
 #endif
@@ -2488,6 +2546,7 @@ void app_frame(void)
         dt = M_DT(m_t0);                 /* (the FM-1's too: before, only the simulator's was timed) */
         if (dt < M_SANE_US && dt > m_draw_max)
             m_draw_max = dt;
+        m_ui_us += M_OWN(m_t0, m_r0);
 #endif
     }
 }

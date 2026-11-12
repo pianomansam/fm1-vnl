@@ -20,6 +20,11 @@ first bar's planning, its end, a resume), row (a change landing), jump, roll (th
 downbeat), cmd (a mute, solo, level, jump or A/B command), guard (it stepped), ramp (a section's filters or the fade
 moving), step (a 16th ticked), notes (notes starting), draw, kit (the kit voices rendering), flash, usb (a SysEx, this
 tool's answers among them), next (the next song rolled), voices (only the voices and effects sounding), other.
+Then the CPU by stage since the last reset (prof, app/engine/prof.h): each stage of the audio render (drums, bass,
+comp, lead, pad, texture: the bed, bus: the buses' filters and mix, fx: dust, chorus, delay, reverb, control: the
+song's steps, notes starting, the output) as us a block on average, % of the CPU, and its share of the heaviest block;
+then the main loop's redraws (ui) and kit voices, and what is left (the rest of the main loop, and idle). The voices'
+parts are sampled (a sample a segment timed part by part), so read them over a few seconds or more.
 Coexists with the browser remote (its other commands are left alone). Uses fm1-base's tools (base/tools: fm1_install.py's port lookup); needs mido with python-rtmidi.
 Exit codes: 0 done, 1 no answer, 3 FM-1 not found.
 """
@@ -74,6 +79,30 @@ def summary(s):
             f"{'; A/B ' + str(cpu.get('ab')) + ',' + str(cpu.get('ab2')) if cpu.get('ab') or cpu.get('ab2') else ''}")
 
 
+def prof_table(s):
+    """the CPU by stage (the live state's prof), as lines; [] when there is none"""
+    p = s.get("prof")
+    if not p or not p.get("blocks"):
+        return []
+    n, blk, ms = p["blocks"], p["block_us"], max(p["ms"], 1)
+    wall = ms * 1000.0                                   # us the window lasted
+    render = sum(p["us"])
+    worst = p.get("worst_us", 0)
+    pct = lambda us: 100.0 * us / wall               # noqa: E731
+    out = [f"CPU by stage over {ms / 1000:.1f} s ({n} audio blocks of {blk} us; since the last reset):",
+           f"  {'stage':<9} {'us/block':>9} {'% CPU':>7}   {'heaviest block (us)':>19}"]
+    for name, us, w in zip(p["stages"], p["us"], p["worst"]):
+        out.append(f"  {name:<9} {us / n:9.0f} {pct(us):6.1f}%   {w:19d}")
+    out.append(f"  {'render':<9} {render / n:9.0f} {pct(render):6.1f}%   {worst:19d}  "
+               f"(heaviest {100.0 * worst / blk:.0f}% of its block)")
+    ui, kit = p.get("ui_us", 0), p.get("kit_us", 0)
+    out.append(f"  {'ui':<9} {'':9} {pct(ui):6.1f}%   redraws (longest {s.get('cpu', {}).get('redraw_us')} us)")
+    out.append(f"  {'kit':<9} {'':9} {pct(kit):6.1f}%   the kit voices, rendered ahead in the main loop")
+    out.append(f"  {'rest':<9} {'':9} {max(0.0, 100.0 - pct(render + ui + kit)):6.1f}%   the rest of the main loop, "
+               "and idle")
+    return out
+
+
 def ask(link, timeout=2.0, pkt=ASK):
     link.drain()
     if not link.send(pkt):
@@ -118,6 +147,7 @@ def main(argv=None):
             with open(OUT, "w") as f:
                 json.dump(s, f, indent=1)
             print(summary(s))
+            print("\n".join(prof_table(s)))
             if not a.watch:
                 return 0
             time.sleep(a.watch)
