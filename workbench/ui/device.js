@@ -191,6 +191,9 @@ export function fieldMove(def, v, d, rows) {
   if (def.wrap) return o[((((i < 0 ? 0 : i) + d) % o.length) + o.length) % o.length].value;   // a switch: either way flips it
   return o[Math.min(Math.max((i < 0 ? 0 : i) + d, 0), o.length - 1)].value;
 }
+// the lock values (a part locked: SAVE on its screen) and their parts (nav.h's locks)
+const LOCK_VALUES = { lockDrums: "drums", lockBass: "bass", lockComp: "keys", lockLead: "lead", lockPad: "pad",
+                      lockTexture: "texture" };
 export function valuesOf(s, data) {
   const r = s.roll ?? {}, f = data.fields, song = !!s.hasSong;
   const bag = {
@@ -218,6 +221,7 @@ export function valuesOf(s, data) {
   });
   bag.secRange = secs.length > shownN ? `${off + 1}-${Math.min(off + shownN, secs.length)} OF ${secs.length}` : "";
   bag.looping = String(s.rows?.values?.loop) === "1";
+  for (const [k, part] of Object.entries(LOCK_VALUES)) bag[k] = !!s.locks?.includes(part);   // a part locked (SAVE)
   bag.activity = s.activity ?? null;
   bag.levels = s.levels ?? {};
   bag.barPos = s.barPos ?? (s.bar ?? 0);   // bars from 0, with the fraction of the bar playing
@@ -461,7 +465,9 @@ export const sayOf = (screen, bag) =>
 export const BUTTONS = ["FX", "SEL", "ENV", "LFO", "EDIT", "GLO", "HOME", "SAVE", "ARP", "SEQ", "PLAY", "REC", "OCT-", "OCT+"];
 export const ENCODERS = ["SELECT", "ALGO", "PRESET"];
 export const KNOBS = ["K1", "K2", "K3", "K4"];
-export const LONG_MS = 500;   // a long press
+export const LONG_MS = 500;   // a long press (a key)
+export const HOLD_MS = 600;   // a button held (SEQ on a part's screen: its lock; nav.h's UI_HOLD_MS)
+const holdMs = (control) => (control.startsWith("KEY") ? LONG_MS : HOLD_MS);
 
 // A control's action on a screen (the screen's own, else the defaults'; null: none)
 export function actionOf(data, id, control) {
@@ -567,7 +573,7 @@ export function problems(data, vocab = VOCAB) {
 export class Device {
   constructor(data, engine, now = () => Date.now()) {
     Object.assign(this, { data, engine, now, home: data.home, stack: [data.home], cursor: {}, held: {}, req: {}, msg: null, said: "",
-                          live: null, spin: 0, turns: 0, speed: 0, spunAt: null });
+                          live: null, spin: 0, turns: 0, speed: 0, spunAt: null, locks: new Set() });
   }
   get id() { return this.stack[this.stack.length - 1]; }
   get screen() { return this.data.screens[this.id]; }
@@ -633,7 +639,7 @@ export class Device {
              page: this.screen?.pages?.length > 1 ? `${this.screen.pages.indexOf(this.id) + 1}/${this.screen.pages.length}` : "",
              cursor: this.screen?.menu || this.screen?.list || this.screen?.lanes ? (this.cursor[this.id] ?? 0) - this.listOff() : -1,
              secOff: this.listOff(), secRows: this.screen?.rows, sections: l.sections,
-             activity: l.activity, levels: l.levels,
+             activity: l.activity, levels: l.levels, locks: [...this.locks],
              barPos: song ? bar + Math.min(0.999, (this.now() - (this.barT ?? this.now())) / (240000 / Math.max(40, l.roll?.tempo ?? 80))) : bar, pend, msg: this.msg && this.now() < this.msg.until ? this.msg.text : null };
   }
   values() { return valuesOf({ ...this.shown(), spin: this.spin, fade: this.fade ?? 0 }, this.data); }
@@ -699,7 +705,8 @@ export class Device {
       source: "workbench", at: new Date(this.now()).toISOString(), seed: l.seed, playing: !!l.playing, bar: l.bar, bars: l.bars,
       section: v.section, chord: v.chord, screen: this.id, title: this.screen?.title, stack: [...this.stack],
       cursor: this.cursor[this.id] ?? null, values, rows: l.rows?.values ?? {}, rolled: l.rows?.rolled ?? {},
-      levels: l.levels ?? {}, mute: l.activity?.mute ?? [], solo: l.activity?.solo ?? null, sections: l.sections ?? [],
+      levels: l.levels ?? {}, mute: l.activity?.mute ?? [], solo: l.activity?.solo ?? null, locks: [...this.locks],
+      sections: l.sections ?? [],
       waiting: { changes: Object.fromEntries(Object.entries(this.req).map(([f, q]) => [f, { value: q.val, at: q.at }])),
                  jump: this.jumpReq ? { section: this.jumpReq.name, at: this.jumpReq.at } : null,
                  reroll: this.rollReq ? { part: this.rollReq.part, at: this.rollReq.at } : null },
@@ -738,9 +745,9 @@ export class Device {
     }
     return { on, blink };
   }
-  tick() {   // a held key past LONG_MS: its long action, once
+  tick() {   // a held key past LONG_MS (a button HOLD_MS): its long action, once
     for (const [c, h] of Object.entries(this.held))
-      if (!h.fired && this.now() - h.t >= LONG_MS) { h.fired = true; this.press(c, 1, h.a.long); }
+      if (!h.fired && this.now() - h.t >= holdMs(c)) { h.fired = true; this.press(c, 1, h.a.long); }
   }
 
   press(control, detents = 1, a = actionOf(this.data, this.id, control)) {
@@ -766,9 +773,18 @@ export class Device {
       }
       return null;
     }
+    if (a.do === "lock") {   // SAVE on a part's screen: the part locked (again: unlocked), at once; a new song keeps it
+      const on = !this.locks.has(a.part), name = String(this.screen.title?.split(":")[0] ?? a.part).toUpperCase();
+      if (on) this.locks.add(a.part); else this.locks.delete(a.part);
+      this.engine.lockPart?.(a.part, on);
+      this.say(name, on ? "LOCKED" : "UNLOCKED");
+      return null;
+    }
     if (a.do === "reroll" && a.part) {   // SEQ on a part's screen: that part re-rolls (its 🎲), on the 4-bar boundary
+      if (a.part === "texture") return null;   // (nothing to re-roll: SEQ held there locks it)
       if (this.hasSong()) {
         const l = this.live, bar = l.bar - 1, at = (Math.floor(bar / 4) + 1) * 4, name = this.screen.title?.split(":")[0] ?? a.part;
+        if (this.locks.has(a.part)) { this.say(String(name).toUpperCase(), "IS LOCKED"); return null; }   // (desk.js: "is locked")
         if (at < l.bars) {
           this.rollReq = { part: a.part, name: String(name).toUpperCase(), at, sent: false };
           if (bar >= at - 1) this.update(l);

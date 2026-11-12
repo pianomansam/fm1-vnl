@@ -54,8 +54,8 @@ export async function connect({ act, key, onState = () => {}, request, timers = 
     if ("ack" in m) {
       if (m.ack) { heard = now(); set("connected"); } else if (!closed) set("waiting");
     } else if (m.detents) act(m.control, m.detents);
-    else if (key && m.control.startsWith("KEY")) key(m.control, m.down);   // a key: down and up (a long press)
-    else if (m.down) act(m.control, 1);   // a button acts as it goes down
+    else if (key) key(m.control, m.down);   // a key or a button: down and up (a long press)
+    else if (m.down) act(m.control, 1);   // (no key handler: a button acts as it goes down)
   };
   let lit = "";   // the lights last sent (03)
   const find = (ports) => [...ports.values()].find((p) => p.name?.includes(PORT_NAME) && p.state !== "disconnected") ?? null;

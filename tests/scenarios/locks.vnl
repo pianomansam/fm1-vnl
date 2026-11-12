@@ -1,0 +1,62 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# A part's lock (SEQ held on its screen, 600 ms): a new song keeps it. PLAY; ALGO to Drums, EDIT, SEQ held locks the
+# drums (the padlock by its name; no re-roll waits: a hold never also re-rolls), a short SEQ there no longer re-rolls
+# them; the main screen's drums tile shows the lock. SEQ there rolls a new song: the drums play as before (kit,
+# pattern, kick, ride, variation), the other parts rolled anew, no block late. SEQ held again unlocks them, and the
+# next song rolls the drums too. SAVE on a part's screen is the measures again, not a lock.
+listen
+wait 1400
+tap PLAY
+wait 3000
+spin ALGO 1
+tap EDIT
+wait 50
+said DRUMS, PAGE 1/2
+# SAVE: the measures, as everywhere
+tap SAVE
+wait 50
+said REDRAW
+expect locks 0
+# held 700 ms: locked, and no re-roll of the drums waits
+press SEQ
+wait 700
+release SEQ
+wait 50
+said DRUMS LOCKED
+expect locks 1
+expect pending -1
+shot drums-locked.png
+# a short press: the drums' own re-roll, refused while locked
+tap SEQ
+wait 50
+said DRUMS IS LOCKED
+expect pending -1
+tap HOME
+wait 50
+expect home 1
+shot main-locked.png
+remember
+# a new song (after the gap: 2-4 s)
+tap SEQ
+wait 6000
+expect songs 2
+expect same_song 0
+expect same_drums 1
+expect parts_moved >2
+expect late 0
+# unlocked (back on its screen: a new song went home, the drums still highlighted), the next song rolls them too
+tap EDIT
+wait 50
+press SEQ
+wait 700
+release SEQ
+wait 50
+said DRUMS UNLOCKED
+expect locks 0
+tap HOME
+remember
+tap SEQ
+wait 6000
+expect songs 3
+expect same_song 0
+expect same_drums 0

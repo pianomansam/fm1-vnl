@@ -2,7 +2,7 @@
 // The device's screens against the mock's, pixel for pixel: the host simulator draws a screen with the UI runtime
 // (app/ui: the generated tables, the value bag, render.c) and prints the bag it drew from (uistate); the mock
 // (ui/device.js's drawScreen) draws the same screen from that bag. Every pixel must match. Steps of a script:
-//   { press: CONTROL } | { turn: [CONTROL, DETENTS] } | { key: [N, MS] } | { wait: MS } | { screen: ID } |
+//   { press: CONTROL } | { hold: [BUTTON, MS] } | { turn: [CONTROL, DETENTS] } | { key: [N, MS] } | { wait: MS } | { screen: ID } |
 //   { row: [ROW, VALUE] } (a row's value forced in the snapshot shown: the longest names) | { spin: [ENC, N] } (N detents
 //   at once) | { keydown: K } | { keyup: K } | { fade: N } (the text redrawn alone at {fade} N) | { reboot: true } |
 //   { check: NAME, expect: (state) => "" or what is wrong }
@@ -37,6 +37,7 @@ function run(seed, steps) {
     else if (s.spin) lines.push(`spin ${s.spin[0]} ${s.spin[1]}`);
     else if (s.keydown !== undefined) lines.push(`key ${s.keydown} down`);
     else if (s.keyup !== undefined) lines.push(`key ${s.keyup} up`);
+    else if (s.hold) lines.push(`press ${s.hold[0]}`, `wait ${s.hold[1]}`, `release ${s.hold[0]}`);
     else if (s.wait) lines.push(`wait ${s.wait}`);
     else if (s.screen) lines.push(`uiscreen ${s.screen}`, "wait 20");
     else if (s.row) lines.push(`uirow ${s.row[0]} ${s.row[1]}`, "wait 20");
@@ -228,6 +229,23 @@ const SEED = 72;
     { spin: ["K2", 1] }, { check: "sections-stay", expect: (st) => is("endless", v(st).endless, "ON") },
     { wait: 20000 }, { check: "sections-looping", expect: (st) => is("looping", v(st).looping, true) },
     { spin: ["K1", 1] }, { spin: ["K2", 1] }, { check: "sections-off", expect: (st) => is("looping", v(st).looping, false) },
+  ];
+  for (const c of run(SEED, steps)) compare(c);
+}
+{   // a part's lock: SEQ held on its screen (the padlock by its name), the padlock on its main-screen tile, a short SEQ
+  // there refused; every part locked: each tile marked
+  const v = (st) => st.values, is = (what, got, want) => (got === want ? "" : `${what} ${JSON.stringify(got)}, not ${JSON.stringify(want)}`);
+  const steps = [
+    { press: "PLAY" }, { wait: 5000 }, { screen: "main" }, { spin: ["ALGO", 1] }, { press: "EDIT" }, { hold: ["SEQ", 700] },
+    { check: "lock-drums", expect: (st) => is("lockDrums", v(st).lockDrums, true) || is("said", st.said, "DRUMS LOCKED") ||
+                                           is("pending", v(st).pending, "") },
+    { press: "SEQ" }, { check: "lock-seq", expect: (st) => is("said", st.said, "DRUMS IS LOCKED") || is("pending", v(st).pending, "") },
+    { spin: ["SELECT", 1] }, { check: "lock-drums-more", expect: (st) => is("screen", st.screen, "pDrumsMore") },
+    { press: "HOME" }, { check: "lock-main", expect: (st) => is("lockDrums", v(st).lockDrums, true) || is("lockBass", v(st).lockBass, false) },
+    ...[1, 2, 3, 4, 5].flatMap((i) => [{ spin: ["ALGO", 1] }, { press: "EDIT" }, { hold: ["SEQ", 700] }, { check: `lock-part-${i}` },
+                                       { press: "HOME" }]),
+    { check: "lock-main-all", expect: (st) => ["lockDrums", "lockBass", "lockComp", "lockLead", "lockPad", "lockTexture"]
+                                                .map((k) => is(k, v(st)[k], true)).join("") },
   ];
   for (const c of run(SEED, steps)) compare(c);
 }

@@ -3227,6 +3227,28 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
     dr.update(live(4)); dr.stack = ["main"]; dr.press("SEQ");
     check(w === "BASS: NEW ROLL IN 3 BARS" && JSON.stringify(got) === '["bass","song"]', `SEQ on Bass: "${w}", then sent; on the main screen a new song (${got})`);
   }
+  {   // SEQ held on a part's screen (HOLD_MS) locks it (the padlock by its name and on its tile), never also re-rolling
+      // it; a short SEQ there is then refused; held again unlocks it; a short SEQ on an unlocked part still re-rolls it
+    let tt = 0;
+    const got = [], dl = new D.Device(data, { set() {}, play() {}, rerollPart: (p) => got.push(p), lockPart: (p, on) => got.push([p, on]) }, () => tt);
+    const hold = (c, ms) => { dl.keyDown(c); tt += ms; dl.tick(); dl.keyUp(c); };
+    dl.update(live(2)); dl.stack = ["main", "pComp"];
+    hold("SEQ", D.HOLD_MS + 10);
+    const on = dl.values(), said = dl.said, waits = !!dl.rollReq;
+    hold("SEQ", 100);
+    const refused = dl.said, waits2 = !!dl.rollReq;
+    dl.stack = ["main"];
+    const tile = dl.values().lockComp;
+    dl.stack = ["main", "pComp"]; hold("SEQ", D.HOLD_MS + 10);
+    const off = !dl.values().lockComp;
+    hold("SEQ", 100);
+    check(on.lockComp && !on.lockDrums && said === "COMP LOCKED" && !waits && refused === "COMP IS LOCKED" && !waits2 && tile &&
+          off && dl.rollReq?.part === "keys" && JSON.stringify(got) === '[["keys",true],["keys",false]]',
+          `SEQ held on Comp locks it ("${said}", no re-roll waiting), a short SEQ refused ("${refused}"), the tile marked; ` +
+          `held again unlocked, a short SEQ re-rolls (${JSON.stringify(got)})`);
+    dl.press("SAVE");
+    check(!dl.values().lockComp, "SAVE on a part's screen locks nothing");
+  }
   {   // the Parts screen: K1 mutes the highlighted lane's part, K2 solos it (again: off), at once
     const got = [], dm = new D.Device(data, { set() {}, play() {}, mute: (p, on) => got.push(["mute", p, on]), solo: (p) => got.push(["solo", p]) }, () => t);
     dm.update({ ...live(3), activity: { bars: 64, lanes: {}, mute: [], solo: null } });

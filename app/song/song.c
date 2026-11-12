@@ -577,32 +577,54 @@ void song_first_bar(song_t *s, int part)
     harmony_keys_plan(0);
 }
 
-void song_start_kit(song_t *s, const song_roll_t *r, int kit)
+void song_start_kit(song_t *s, const song_roll_t *r, int kit) { song_start_rows(s, r, kit, 0, 0, 0); }
+
+void song_start_rows(song_t *s, const song_roll_t *r, int kit, const int16_t *rows, const int16_t *vals, int n)
 {
     static lib_set_t set;                /* (the set the plan reads while song_start clears s) */
+    static song_ov_t ov, before;
     song_roll_t own;
-    int base, preset;
-    stage_off = kit >= 0;                /* (started again below: planned then) */
+    int base, preset, i, mine;
+    stage_off = kit >= 0 || n > 0;       /* (started again below: planned then) */
     song_start(s, r);
     stage_off = 0;
-    if (kit < 0)
+    if (kit < 0 && n <= 0)
         return;
     if (!own_set(s)) {
         song_start(s, r);                /* (no set to make its own: as rolled, planned now) */
         return;
     }
-    apply_row(s, SR_KIT, kit);
+    if (kit >= 0)
+        apply_row(s, SR_KIT, kit);
+    for (i = 0; i < n; i++)              /* (a row the device refuses as a request: refused here too) */
+        if (song_request_row(s, rows[i], vals[i])) {
+            s->rq_n = 0;
+            apply_row(s, rows[i], vals[i]);
+        }
     set = s->set;
     base = s->set_base;
     own = s->roll;
     preset = s->kit_preset;
+    mine = s->own & SONG_OWN_OV;
+    if (mine) {                          /* the overrides the song made its own: in force while it is planned (not the
+                                            ones before it, which song_start would put back) */
+        ov = s->ov;
+        before = own_ov_before;
+        own_by = 0;
+        song_override(&ov);
+    }
     lib_set_wb(&set, base);
     song_start(s, &own);                 /* (as the workbench's: its stage's set and roll, its song from them) */
     s->set = set;
     s->set_base = (uint8_t)base;
-    s->own = SONG_OWN_SET;
+    s->own = (uint8_t)(SONG_OWN_SET | mine);
     s->kit_preset = (int8_t)preset;
     lib_set_wb(&s->set, base);
+    if (mine) {
+        s->ov = ov;
+        own_ov_before = before;
+        own_by = s;
+    }
 }
 
 /* what the next bar's planning depends on that a tick between could change: the requests waiting and what has landed

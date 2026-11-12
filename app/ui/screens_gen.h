@@ -7,7 +7,7 @@
 
 /* the vocabulary (workbench/ui/vocab.json), in its order */
 enum ui_item_kind { UI_TEXT, UI_RECT, UI_ICON, UI_METER, UI_KNOBS, UI_SECTIONS, UI_LANES, UI_FADERS, UI_RECORD };
-enum ui_action { UA_NONE, UA_GO, UA_PLAY, UA_NUDGE, UA_TURN, UA_CURSOR, UA_PAGE, UA_PART, UA_JUMP, UA_REROLL, UA_MUTE, UA_SOLO, UA_LEVEL };
+enum ui_action { UA_NONE, UA_GO, UA_PLAY, UA_NUDGE, UA_TURN, UA_CURSOR, UA_PAGE, UA_PART, UA_JUMP, UA_REROLL, UA_MUTE, UA_SOLO, UA_LEVEL, UA_LOCK };
 
 /* the controls an action a screen: plat.h's buttons (B_*), the encoders (EN_SELECT, EN_ALGO, EN_PRESET), the
    knobs K1-K4, the keys 0-26 */
@@ -25,7 +25,7 @@ enum ui_font { UI_FONT_T, UI_FONT_XS, UI_FONT_S, UI_FONT_B, UI_FONT_M, UI_FONT_L
 enum ui_color { UC_BLACK, UC_WHITE, UC_LINE, UC_DIM, UC_GRAY, UC_AMB, UC_HI, UC_BASS, UC_COMP, UC_DRUMS, UC_LEAD, UC_PAD, UC_PENDING, UC_SONG, UC_TEXTURE, UC_VINYL };
 #define UC_N_THEME 7
 #define UI_PENDING_COLOR UC_PENDING   /* a value waiting (-1: none) */
-enum ui_icon { UI_ICON_BASS, UI_ICON_COMP, UI_ICON_DRUMS, UI_ICON_LEAD, UI_ICON_PAD, UI_ICON_SONG, UI_ICON_TEXTURE };
+enum ui_icon { UI_ICON_BASS, UI_ICON_COMP, UI_ICON_DRUMS, UI_ICON_LEAD, UI_ICON_LOCK, UI_ICON_PAD, UI_ICON_SONG, UI_ICON_TEXTURE };
 enum ui_part { UI_PART_DRUMS, UI_PART_BASS, UI_PART_KEYS, UI_PART_PAD, UI_PART_LEAD, UI_PART_TEXTURE };
 enum ui_screen_id { US_LEVELS, US_LEVELS_KNOBS, US_LEVELS_KNOBS2, US_MAIN, US_MIXER, US_NOW, US_P_BASS, US_P_COMP, US_P_COMP_MORE, US_P_DRUMS, US_P_DRUMS_MORE, US_P_LEAD, US_P_LEAD_MORE, US_P_PAD, US_P_SONG, US_P_SONG3, US_P_SONG_MORE, US_P_TEXTURE, US_PREFS, US_SECTIONS, US_SPLASH };
 #define UI_MAX_SCREENS 21
@@ -59,25 +59,31 @@ enum ui_value {
     UV_SEC_RANGE,
     UV_SPIN,
     UV_FADE,
+    UV_LOCK_DRUMS,
+    UV_LOCK_BASS,
+    UV_LOCK_COMP,
+    UV_LOCK_LEAD,
+    UV_LOCK_PAD,
+    UV_LOCK_TEXTURE,
     UV_N_FIXED
 };
 enum { UVK_I_SEL, UVK_I_SEC, UVK_I_SEC_BARS, UVK_I_SEC_NOW, UVK_I_SEC_PEND, UVK_I_SEC_KEY, UVK_I_N };   /* sel{0-9}, sec{0-9}, sec{0-9}Bars, sec{0-9}Now, sec{0-9}Pend, sec{0-9}Key */
-#define UV_I0 24
+#define UV_I0 30
 #define UV_I(i, k) (UV_I0 + (i) * UVK_I_N + (k))
 #define UV_I_COUNT 10
 enum { UVK_FIELD_VALUE, UVK_FIELD_FRAC, UVK_FIELD_PEND, UVK_FIELD_FIRST, UVK_FIELD_LAST, UVK_FIELD_N };   /* {field}, {field}Frac, {field}Pend, {field}First, {field}Last */
-#define UV_FIELD0 84
+#define UV_FIELD0 90
 #define UV_FIELD(i, k) (UV_FIELD0 + (i) * UVK_FIELD_N + (k))
 #define UV_FIELD_COUNT 37
 enum { UVK_ROW_VALUE, UVK_ROW_PEND, UVK_ROW_N };   /* {row}, {row}Pend */
-#define UV_ROW0 269
+#define UV_ROW0 275
 #define UV_ROW(i, k) (UV_ROW0 + (i) * UVK_ROW_N + (k))
 #define UV_ROW_COUNT 38
 enum { UVK_LINE_VALUE, UVK_LINE_N };   /* {line} */
-#define UV_LINE0 345
+#define UV_LINE0 351
 #define UV_LINE(i, k) (UV_LINE0 + (i) * UVK_LINE_N + (k))
 #define UV_LINE_COUNT 2
-#define UI_N_VALUES 347
+#define UI_N_VALUES 353
 
 /* a template: text with a value at each UI_TPL_VAL byte, its id in the next two (UI_TPL_ID); never a NUL */
 #define UI_TPL_VAL 1

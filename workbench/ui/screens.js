@@ -27,6 +27,10 @@
 //   { do: "nudge", field, by }   a button: the field `by` steps (a request, landing as a knob's does)
 //   { do: "turn", field, step }  an encoder: each detent `step` (a request)
 //   { do: "turn", byCursor: [field | null, ...], step }  the field of the highlighted menu line (null: nothing)
+//   { do: "lock", part }   the part locked, or unlocked (a new song keeps a locked part: app.c's locks; values
+//                          lockDrums ... lockTexture say which are)
+//   long: { ... }      on a key or a button, the action when held (a key 500 ms, a button 600 ms); let go sooner,
+//                      the action itself
 // `defaults` apply on every screen unless the screen maps that control itself (null: the control does nothing there).
 // A knob: { field, step, label } (label: the field's name if left out). A knob's or nudge's change is a request: it
 // lands on the song's next 4-bar boundary, and the screen shows it waiting (`pending`), as app.c's requests do.
@@ -112,6 +116,15 @@ export default {
       "#.......#",
       "...#.#...",
       ".#.....#.",
+    ],
+    lock: [   // a padlock: a part locked (SEQ held on its screen), on its tile and by its name
+      "...###...",
+      "..#...#..",
+      "..#...#..",
+      ".#######.",
+      ".###.###.",
+      ".###.###.",
+      ".#######.",
     ],
   },
 
@@ -278,34 +291,40 @@ export default {
           { when: "sel1", rect: [2, 0, 2, 46], color: "DRUMS" },
           { icon: "drums", x: 8, y: 5, color: "DRUMS" },
           { text: "DRUMS", font: "T", x: 21, y: 3, color: "DRUMS" },
+          { when: "lockDrums", icon: "lock", x: 106, y: 4, color: "HI" },   // locked (Sam, 2026-11-12)
           { text: "{kit}", font: "XS", x: 8, y: 15, color: "WHITE" },
           { text: "{pattern}", font: "T", x: 8, y: 32, color: "GRAY" },
           { when: "sel2", rect: [122, 0, 116, 46], color: "LINE" },
           { when: "sel2", rect: [122, 0, 2, 46], color: "BASS" },
           { icon: "bass", x: 128, y: 5, color: "BASS" },
           { text: "BASS", font: "T", x: 141, y: 3, color: "BASS" },
+          { when: "lockBass", icon: "lock", x: 226, y: 4, color: "HI" },   // locked (Sam, 2026-11-12)
           { text: "{bass}", font: "XS", x: 128, y: 15, color: "WHITE" },
           { when: "sel3", rect: [2, 48, 116, 46], color: "LINE" },
           { when: "sel3", rect: [2, 48, 2, 46], color: "COMP" },
           { icon: "comp", x: 8, y: 53, color: "COMP" },
           { text: "COMP", font: "T", x: 21, y: 51, color: "COMP" },
+          { when: "lockComp", icon: "lock", x: 106, y: 52, color: "HI" },   // locked (Sam, 2026-11-12)
           { text: "{keys}", font: "XS", x: 8, y: 63, color: "WHITE" },
           { text: "{rhythm}", font: "T", x: 8, y: 80, color: "GRAY" },
           { when: "sel4", rect: [122, 48, 116, 46], color: "LINE" },
           { when: "sel4", rect: [122, 48, 2, 46], color: "LEAD" },
           { icon: "lead", x: 128, y: 53, color: "LEAD" },
           { text: "LEAD", font: "T", x: 141, y: 51, color: "LEAD" },
+          { when: "lockLead", icon: "lock", x: 226, y: 52, color: "HI" },   // locked (Sam, 2026-11-12)
           { text: "{lead}", font: "XS", x: 128, y: 63, color: "WHITE" },
           { text: "{leadStyle}", font: "T", x: 128, y: 80, color: "GRAY" },
           { when: "sel5", rect: [2, 96, 116, 46], color: "LINE" },
           { when: "sel5", rect: [2, 96, 2, 46], color: "PAD" },
           { icon: "pad", x: 8, y: 101, color: "PAD" },
           { text: "PAD", font: "T", x: 21, y: 99, color: "PAD" },
+          { when: "lockPad", icon: "lock", x: 106, y: 100, color: "HI" },   // locked (Sam, 2026-11-12)
           { text: "{pad}", font: "XS", x: 8, y: 111, color: "WHITE" },
           { when: "sel6", rect: [122, 96, 116, 46], color: "LINE" },
           { when: "sel6", rect: [122, 96, 2, 46], color: "TEXTURE" },
           { icon: "texture", x: 128, y: 101, color: "TEXTURE" },
           { text: "TEXTURE", font: "T", x: 141, y: 99, color: "TEXTURE" },
+          { when: "lockTexture", icon: "lock", x: 226, y: 100, color: "HI" },   // locked (Sam, 2026-11-12)
           { text: "DUST {dust}", font: "XS", x: 128, y: 111, color: "WHITE" },
           { text: "NOISE {noise}  ROOM {ambience}", font: "T", x: 128, y: 128, color: "GRAY" },
         ] },
@@ -738,6 +757,7 @@ export default {
           { icon: "drums", x: 10, y: 9, color: "DRUMS" },
           { text: "DRUMS", font: "B", x: 23, y: 4, color: "DRUMS" },
           { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
+          { when: "lockDrums", icon: "lock", x: 93, y: 9, color: "HI" },   // locked: the padlock by its name
           { when: ["song", "!pending"], text: "{chord}", font: "XS", right: 232, y: 5, color: "WHITE" },
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
@@ -758,16 +778,17 @@ export default {
         { y: 200, h: 40, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
           { text: "ALGO PART   SELECT PAGE", font: "T", x: 8, y: 8, color: "DIM" },
-          { text: "EDIT BACK   HOME MAIN   SEQ RE-ROLL", font: "T", x: 8, y: 24, color: "DIM" },
+          { text: "EDIT BACK   HOME MAIN   SEQ RE-ROLL   HOLD LOCK", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
       knobs: [{ field: "drumKit", step: 1 }, { field: "drumPattern", step: 1 }, { field: "drumKick", step: 1 }, { field: "drumRide", step: 1 }],
       controls: {
         PRESET: { do: "turn", field: "drumKit", step: 1 },   // browse its instrument (Sam, 2026-11-06)
-        SEQ: { do: "reroll", part: "drums" },   // this part re-rolls (its 🎲), on the 4-bar boundary (Sam, 2026-11-06)
+        SEQ: { do: "reroll", part: "drums", long: { do: "lock", part: "drums" } },   // a press: this part re-rolls (its 🎲), on
+        // the 4-bar boundary (Sam, 2026-11-06); held: locked, a new song keeps it (Sam, 2026-11-12; again: unlocked)
         ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
       },
-      say: ["DRUMS, PAGE {page}. KIT {drumKit}. PATTERN {drumPattern}. KICK {drumKick}. RIDE {drumRide}."],
+      say: ["DRUMS, PAGE {page}. KIT {drumKit}. PATTERN {drumPattern}. KICK {drumKick}. RIDE {drumRide}.", { when: "lockDrums", text: " LOCKED." }],
     },
     pDrumsMore: {
       title: "Drums: more",
@@ -783,6 +804,7 @@ export default {
           { icon: "drums", x: 10, y: 9, color: "DRUMS" },
           { text: "DRUMS", font: "B", x: 23, y: 4, color: "DRUMS" },
           { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
+          { when: "lockDrums", icon: "lock", x: 93, y: 9, color: "HI" },   // locked: the padlock by its name
           { when: ["song", "!pending"], text: "{chord}", font: "XS", right: 232, y: 5, color: "WHITE" },
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
@@ -794,16 +816,17 @@ export default {
         { y: 200, h: 40, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
           { text: "ALGO PART   SELECT PAGE", font: "T", x: 8, y: 8, color: "DIM" },
-          { text: "EDIT BACK   HOME MAIN   SEQ RE-ROLL", font: "T", x: 8, y: 24, color: "DIM" },
+          { text: "EDIT BACK   HOME MAIN   SEQ RE-ROLL   HOLD LOCK", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
       knobs: [{ field: "drumVar", step: 1 }],
       controls: {
         PRESET: { do: "turn", field: "drumKit", step: 1 },   // browse its instrument (Sam, 2026-11-06)
-        SEQ: { do: "reroll", part: "drums" },   // this part re-rolls (its 🎲), on the 4-bar boundary (Sam, 2026-11-06)
+        SEQ: { do: "reroll", part: "drums", long: { do: "lock", part: "drums" } },   // a press: this part re-rolls (its 🎲), on
+        // the 4-bar boundary (Sam, 2026-11-06); held: locked, a new song keeps it (Sam, 2026-11-12; again: unlocked)
         ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
       },
-      say: ["DRUMS, PAGE {page}. VARIATION {drumVar}."],
+      say: ["DRUMS, PAGE {page}. VARIATION {drumVar}.", { when: "lockDrums", text: " LOCKED." }],
     },
     pBass: {
       title: "Bass",
@@ -819,6 +842,7 @@ export default {
           { icon: "bass", x: 10, y: 9, color: "BASS" },
           { text: "BASS", font: "B", x: 23, y: 4, color: "BASS" },
           { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
+          { when: "lockBass", icon: "lock", x: 63, y: 9, color: "HI" },   // locked: the padlock by its name
           { when: ["song", "!pending"], text: "{chord}", font: "XS", right: 232, y: 5, color: "WHITE" },
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
@@ -833,16 +857,17 @@ export default {
         { y: 200, h: 40, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
           { text: "ALGO PART", font: "T", x: 8, y: 8, color: "DIM" },
-          { text: "EDIT BACK   HOME MAIN   SEQ RE-ROLL", font: "T", x: 8, y: 24, color: "DIM" },
+          { text: "EDIT BACK   HOME MAIN   SEQ RE-ROLL   HOLD LOCK", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
       knobs: [{ field: "bassIns", step: 1 }, { field: "bassLine", step: 1 }],
       controls: {
         PRESET: { do: "turn", field: "bassIns", step: 1 },   // browse its instrument (Sam, 2026-11-06)
-        SEQ: { do: "reroll", part: "bass" },   // this part re-rolls (its 🎲), on the 4-bar boundary (Sam, 2026-11-06)
+        SEQ: { do: "reroll", part: "bass", long: { do: "lock", part: "bass" } },   // a press: this part re-rolls (its 🎲), on
+        // the 4-bar boundary (Sam, 2026-11-06); held: locked, a new song keeps it (Sam, 2026-11-12; again: unlocked)
         ALGO: { do: "part" }, EDIT: { go: "back" },
       },
-      say: ["BASS. INSTRUMENT {bassIns}. LINE {bassLine}."],
+      say: ["BASS. INSTRUMENT {bassIns}. LINE {bassLine}.", { when: "lockBass", text: " LOCKED." }],
     },
     // The Comp part (the part-screen template, 2026-11-06): the status bar as on the main screen, the part's name in
     // its color with its icon and the page (SELECT steps the pages), then one row per knob (K1-K4: its name, its
@@ -862,6 +887,7 @@ export default {
           { icon: "comp", x: 10, y: 9, color: "COMP" },
           { text: "COMP", font: "B", x: 23, y: 4, color: "COMP" },
           { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
+          { when: "lockComp", icon: "lock", x: 85, y: 9, color: "HI" },   // locked: the padlock by its name
           { when: ["song", "!pending"], text: "{chord}", font: "XS", right: 232, y: 5, color: "WHITE" },
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
@@ -882,17 +908,18 @@ export default {
         { y: 200, h: 40, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
           { text: "ALGO PART   SELECT PAGE   OCT REGISTER", font: "T", x: 8, y: 8, color: "DIM" },
-          { text: "EDIT BACK   HOME MAIN   SEQ RE-ROLL", font: "T", x: 8, y: 24, color: "DIM" },
+          { text: "EDIT BACK   HOME MAIN   SEQ RE-ROLL   HOLD LOCK", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
       knobs: [{ field: "compIns", step: 1 }, { field: "compRhythm", step: 1 }, { field: "compVoicing", step: 1 }, { field: "compReg", step: 1 }],
       controls: {
         PRESET: { do: "turn", field: "compIns", step: 1 },   // browse its instrument (Sam, 2026-11-06)
-        SEQ: { do: "reroll", part: "keys" },   // this part re-rolls (its 🎲), on the 4-bar boundary (Sam, 2026-11-06)
+        SEQ: { do: "reroll", part: "keys", long: { do: "lock", part: "keys" } },   // a press: this part re-rolls (its 🎲), on
+        // the 4-bar boundary (Sam, 2026-11-06); held: locked, a new song keeps it (Sam, 2026-11-12; again: unlocked)
         ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
         "OCT-": { do: "nudge", field: "compReg", by: -1 }, "OCT+": { do: "nudge", field: "compReg", by: 1 },
       },
-      say: ["COMP, PAGE {page}. INSTRUMENT {compIns}. RHYTHM {compRhythm}. VOICINGS {compVoicing}. REGISTER {compReg}."],
+      say: ["COMP, PAGE {page}. INSTRUMENT {compIns}. RHYTHM {compRhythm}. VOICINGS {compVoicing}. REGISTER {compReg}.", { when: "lockComp", text: " LOCKED." }],
     },
     pCompMore: {
       title: "Comp: more",
@@ -908,6 +935,7 @@ export default {
           { icon: "comp", x: 10, y: 9, color: "COMP" },
           { text: "COMP", font: "B", x: 23, y: 4, color: "COMP" },
           { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
+          { when: "lockComp", icon: "lock", x: 85, y: 9, color: "HI" },   // locked: the padlock by its name
           { when: ["song", "!pending"], text: "{chord}", font: "XS", right: 232, y: 5, color: "WHITE" },
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
@@ -925,17 +953,18 @@ export default {
         { y: 200, h: 40, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
           { text: "ALGO PART   SELECT PAGE   OCT REGISTER", font: "T", x: 8, y: 8, color: "DIM" },
-          { text: "EDIT BACK   HOME MAIN   SEQ RE-ROLL", font: "T", x: 8, y: 24, color: "DIM" },
+          { text: "EDIT BACK   HOME MAIN   SEQ RE-ROLL   HOLD LOCK", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
       knobs: [{ field: "compFill", step: 1 }, { field: "compThin", step: 1 }, { field: "compWith", step: 1 }],
       controls: {
         PRESET: { do: "turn", field: "compIns", step: 1 },   // browse its instrument (Sam, 2026-11-06)
-        SEQ: { do: "reroll", part: "keys" },   // this part re-rolls (its 🎲), on the 4-bar boundary (Sam, 2026-11-06)
+        SEQ: { do: "reroll", part: "keys", long: { do: "lock", part: "keys" } },   // a press: this part re-rolls (its 🎲), on
+        // the 4-bar boundary (Sam, 2026-11-06); held: locked, a new song keeps it (Sam, 2026-11-12; again: unlocked)
         ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
         "OCT-": { do: "nudge", field: "compReg", by: -1 }, "OCT+": { do: "nudge", field: "compReg", by: 1 },
       },
-      say: ["COMP, PAGE {page}. STRUM FILL {compFill}. BUSY LEAD THINS {compThin}. OVER A LOW LEAD {compWith}."],
+      say: ["COMP, PAGE {page}. STRUM FILL {compFill}. BUSY LEAD THINS {compThin}. OVER A LOW LEAD {compWith}.", { when: "lockComp", text: " LOCKED." }],
     },
     pPad: {
       title: "Pad",
@@ -951,6 +980,7 @@ export default {
           { icon: "pad", x: 10, y: 9, color: "PAD" },
           { text: "PAD", font: "B", x: 23, y: 4, color: "PAD" },
           { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
+          { when: "lockPad", icon: "lock", x: 55, y: 9, color: "HI" },   // locked: the padlock by its name
           { when: ["song", "!pending"], text: "{chord}", font: "XS", right: 232, y: 5, color: "WHITE" },
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
@@ -971,16 +1001,17 @@ export default {
         { y: 200, h: 40, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
           { text: "ALGO PART", font: "T", x: 8, y: 8, color: "DIM" },
-          { text: "EDIT BACK   HOME MAIN   SEQ RE-ROLL", font: "T", x: 8, y: 24, color: "DIM" },
+          { text: "EDIT BACK   HOME MAIN   SEQ RE-ROLL   HOLD LOCK", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
       knobs: [{ field: "padIns", step: 1 }, { field: "padOnSet", step: 1 }, { field: "padPlaceSet", step: 1 }, { field: "padNotes", step: 1 }],
       controls: {
         PRESET: { do: "turn", field: "padIns", step: 1 },   // browse its instrument (Sam, 2026-11-06)
-        SEQ: { do: "reroll", part: "pad" },   // this part re-rolls (its 🎲), on the 4-bar boundary (Sam, 2026-11-06)
+        SEQ: { do: "reroll", part: "pad", long: { do: "lock", part: "pad" } },   // a press: this part re-rolls (its 🎲), on
+        // the 4-bar boundary (Sam, 2026-11-06); held: locked, a new song keeps it (Sam, 2026-11-12; again: unlocked)
         ALGO: { do: "part" }, EDIT: { go: "back" },
       },
-      say: ["PAD. INSTRUMENT {padIns}. ON/OFF {padOnSet}. PLACE {padPlaceSet}. NOTES {padNotes}."],
+      say: ["PAD. INSTRUMENT {padIns}. ON/OFF {padOnSet}. PLACE {padPlaceSet}. NOTES {padNotes}.", { when: "lockPad", text: " LOCKED." }],
     },
     pLead: {
       title: "Lead",
@@ -996,6 +1027,7 @@ export default {
           { icon: "lead", x: 10, y: 9, color: "LEAD" },
           { text: "LEAD", font: "B", x: 23, y: 4, color: "LEAD" },
           { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
+          { when: "lockLead", icon: "lock", x: 84, y: 9, color: "HI" },   // locked: the padlock by its name
           { when: ["song", "!pending"], text: "{chord}", font: "XS", right: 232, y: 5, color: "WHITE" },
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
@@ -1016,17 +1048,18 @@ export default {
         { y: 200, h: 40, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
           { text: "ALGO PART   SELECT PAGE   OCT REGISTER", font: "T", x: 8, y: 8, color: "DIM" },
-          { text: "EDIT BACK   HOME MAIN   SEQ RE-ROLL", font: "T", x: 8, y: 24, color: "DIM" },
+          { text: "EDIT BACK   HOME MAIN   SEQ RE-ROLL   HOLD LOCK", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
       knobs: [{ field: "leadIns", step: 1 }, { field: "leadStyleSet", step: 1 }, { field: "leadPhrase", step: 1 }, { field: "leadReg", step: 1 }],
       controls: {
         PRESET: { do: "turn", field: "leadIns", step: 1 },   // browse its instrument (Sam, 2026-11-06)
-        SEQ: { do: "reroll", part: "lead" },   // this part re-rolls (its 🎲), on the 4-bar boundary (Sam, 2026-11-06)
+        SEQ: { do: "reroll", part: "lead", long: { do: "lock", part: "lead" } },   // a press: this part re-rolls (its 🎲), on
+        // the 4-bar boundary (Sam, 2026-11-06); held: locked, a new song keeps it (Sam, 2026-11-12; again: unlocked)
         ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
         "OCT-": { do: "nudge", field: "leadReg", by: -1 }, "OCT+": { do: "nudge", field: "leadReg", by: 1 },
       },
-      say: ["LEAD, PAGE {page}. INSTRUMENT {leadIns}. STYLE {leadStyleSet}. PHRASE {leadPhrase}. REGISTER {leadReg}."],
+      say: ["LEAD, PAGE {page}. INSTRUMENT {leadIns}. STYLE {leadStyleSet}. PHRASE {leadPhrase}. REGISTER {leadReg}.", { when: "lockLead", text: " LOCKED." }],
     },
     pLeadMore: {
       title: "Lead: more",
@@ -1042,6 +1075,7 @@ export default {
           { icon: "lead", x: 10, y: 9, color: "LEAD" },
           { text: "LEAD", font: "B", x: 23, y: 4, color: "LEAD" },
           { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
+          { when: "lockLead", icon: "lock", x: 84, y: 9, color: "HI" },   // locked: the padlock by its name
           { when: ["song", "!pending"], text: "{chord}", font: "XS", right: 232, y: 5, color: "WHITE" },
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
@@ -1053,17 +1087,18 @@ export default {
         { y: 200, h: 40, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
           { text: "ALGO PART   SELECT PAGE   OCT REGISTER", font: "T", x: 8, y: 8, color: "DIM" },
-          { text: "EDIT BACK   HOME MAIN   SEQ RE-ROLL", font: "T", x: 8, y: 24, color: "DIM" },
+          { text: "EDIT BACK   HOME MAIN   SEQ RE-ROLL   HOLD LOCK", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
       knobs: [{ field: "leadLoopSet", step: 1 }],
       controls: {
         PRESET: { do: "turn", field: "leadIns", step: 1 },   // browse its instrument (Sam, 2026-11-06)
-        SEQ: { do: "reroll", part: "lead" },   // this part re-rolls (its 🎲), on the 4-bar boundary (Sam, 2026-11-06)
+        SEQ: { do: "reroll", part: "lead", long: { do: "lock", part: "lead" } },   // a press: this part re-rolls (its 🎲), on
+        // the 4-bar boundary (Sam, 2026-11-06); held: locked, a new song keeps it (Sam, 2026-11-12; again: unlocked)
         ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
         "OCT-": { do: "nudge", field: "leadReg", by: -1 }, "OCT+": { do: "nudge", field: "leadReg", by: 1 },
       },
-      say: ["LEAD, PAGE {page}. LOOP {leadLoopSet}."],
+      say: ["LEAD, PAGE {page}. LOOP {leadLoopSet}.", { when: "lockLead", text: " LOCKED." }],
     },
     pTexture: {
       title: "Texture",
@@ -1079,6 +1114,7 @@ export default {
           { icon: "texture", x: 10, y: 9, color: "TEXTURE" },
           { text: "TEXTURE", font: "B", x: 23, y: 4, color: "TEXTURE" },
           { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
+          { when: "lockTexture", icon: "lock", x: 86, y: 9, color: "HI" },   // locked: the padlock by its name
           { when: ["song", "!pending"], text: "{chord}", font: "XS", right: 232, y: 5, color: "WHITE" },
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
@@ -1096,15 +1132,16 @@ export default {
         { y: 200, h: 40, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
           { text: "ALGO PART", font: "T", x: 8, y: 8, color: "DIM" },
-          { text: "EDIT BACK   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
+          { text: "EDIT BACK   HOME MAIN   HOLD SEQ LOCK", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
       knobs: [{ field: "texDust", step: 1 }, { field: "texNoise", step: 1 }, { field: "texAmb", step: 1 }],
       controls: {
-        SEQ: null,   // nothing to re-roll here (rather than a whole new song by surprise)
+        // a press: nothing to re-roll here (rather than a whole new song by surprise); held: the texture locked
+        SEQ: { do: "reroll", part: "texture", long: { do: "lock", part: "texture" } },
         ALGO: { do: "part" }, EDIT: { go: "back" },
       },
-      say: ["TEXTURE. DUST {texDust}. NOISE {texNoise}. AMBIENCE {texAmb}."],
+      say: ["TEXTURE. DUST {texDust}. NOISE {texNoise}. AMBIENCE {texAmb}.", { when: "lockTexture", text: " LOCKED." }],
     },
   },
 };

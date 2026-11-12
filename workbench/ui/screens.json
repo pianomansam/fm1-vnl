@@ -354,6 +354,15 @@
    ".#####...",
    "..###...."
   ],
+  "lock": [
+   "...###...",
+   "..#...#..",
+   "..#...#..",
+   ".#######.",
+   ".###.###.",
+   ".###.###.",
+   ".#######."
+  ],
   "pad": [
    ".........",
    ".##......",
@@ -1175,6 +1184,13 @@
        "y": 3
       },
       {
+       "color": "HI",
+       "icon": "lock",
+       "when": "lockDrums",
+       "x": 106,
+       "y": 4
+      },
+      {
        "color": "WHITE",
        "font": "XS",
        "text": "{kit}",
@@ -1222,6 +1238,13 @@
        "y": 3
       },
       {
+       "color": "HI",
+       "icon": "lock",
+       "when": "lockBass",
+       "x": 226,
+       "y": 4
+      },
+      {
        "color": "WHITE",
        "font": "XS",
        "text": "{bass}",
@@ -1260,6 +1283,13 @@
        "text": "COMP",
        "x": 21,
        "y": 51
+      },
+      {
+       "color": "HI",
+       "icon": "lock",
+       "when": "lockComp",
+       "x": 106,
+       "y": 52
       },
       {
        "color": "WHITE",
@@ -1309,6 +1339,13 @@
        "y": 51
       },
       {
+       "color": "HI",
+       "icon": "lock",
+       "when": "lockLead",
+       "x": 226,
+       "y": 52
+      },
+      {
        "color": "WHITE",
        "font": "XS",
        "text": "{lead}",
@@ -1356,6 +1393,13 @@
        "y": 99
       },
       {
+       "color": "HI",
+       "icon": "lock",
+       "when": "lockPad",
+       "x": 106,
+       "y": 100
+      },
+      {
        "color": "WHITE",
        "font": "XS",
        "text": "{pad}",
@@ -1394,6 +1438,13 @@
        "text": "TEXTURE",
        "x": 141,
        "y": 99
+      },
+      {
+       "color": "HI",
+       "icon": "lock",
+       "when": "lockTexture",
+       "x": 226,
+       "y": 100
       },
       {
        "color": "WHITE",
@@ -1939,6 +1990,13 @@
        "y": 8
       },
       {
+       "color": "HI",
+       "icon": "lock",
+       "when": "lockBass",
+       "x": 63,
+       "y": 9
+      },
+      {
        "color": "WHITE",
        "font": "XS",
        "right": 232,
@@ -2040,7 +2098,7 @@
       {
        "color": "DIM",
        "font": "T",
-       "text": "EDIT BACK   HOME MAIN   SEQ RE-ROLL",
+       "text": "EDIT BACK   HOME MAIN   SEQ RE-ROLL   HOLD LOCK",
        "x": 8,
        "y": 24
       }
@@ -2063,6 +2121,10 @@
     },
     "SEQ": {
      "do": "reroll",
+     "long": {
+      "do": "lock",
+      "part": "bass"
+     },
      "part": "bass"
     }
    },
@@ -2080,7 +2142,11 @@
     "pBass"
    ],
    "say": [
-    "BASS. INSTRUMENT {bassIns}. LINE {bassLine}."
+    "BASS. INSTRUMENT {bassIns}. LINE {bassLine}.",
+    {
+     "text": " LOCKED.",
+     "when": "lockBass"
+    }
    ],
    "title": "Bass"
   },
@@ -2146,6 +2212,13 @@
        "font": "T",
        "text": "{page}",
        "y": 8
+      },
+      {
+       "color": "HI",
+       "icon": "lock",
+       "when": "lockComp",
+       "x": 85,
+       "y": 9
       },
       {
        "color": "WHITE",
@@ -2301,7 +2374,7 @@
       {
        "color": "DIM",
        "font": "T",
-       "text": "EDIT BACK   HOME MAIN   SEQ RE-ROLL",
+       "text": "EDIT BACK   HOME MAIN   SEQ RE-ROLL   HOLD LOCK",
        "x": 8,
        "y": 24
       }
@@ -2337,6 +2410,10 @@
     },
     "SEQ": {
      "do": "reroll",
+     "long": {
+      "do": "lock",
+      "part": "keys"
+     },
      "part": "keys"
     }
    },
@@ -2363,7 +2440,11 @@
     "pCompMore"
    ],
    "say": [
-    "COMP, PAGE {page}. INSTRUMENT {compIns}. RHYTHM {compRhythm}. VOICINGS {compVoicing}. REGISTER {compReg}."
+    "COMP, PAGE {page}. INSTRUMENT {compIns}. RHYTHM {compRhythm}. VOICINGS {compVoicing}. REGISTER {compReg}.",
+    {
+     "text": " LOCKED.",
+     "when": "lockComp"
+    }
    ],
    "title": "Comp"
   },
@@ -2429,6 +2510,13 @@
        "font": "T",
        "text": "{page}",
        "y": 8
+      },
+      {
+       "color": "HI",
+       "icon": "lock",
+       "when": "lockComp",
+       "x": 85,
+       "y": 9
       },
       {
        "color": "WHITE",
@@ -2558,7 +2646,7 @@
       {
        "color": "DIM",
        "font": "T",
-       "text": "EDIT BACK   HOME MAIN   SEQ RE-ROLL",
+       "text": "EDIT BACK   HOME MAIN   SEQ RE-ROLL   HOLD LOCK",
        "x": 8,
        "y": 24
       }
@@ -2594,6 +2682,10 @@
     },
     "SEQ": {
      "do": "reroll",
+     "long": {
+      "do": "lock",
+      "part": "keys"
+     },
      "part": "keys"
     }
    },
@@ -2616,7 +2708,11 @@
     "pCompMore"
    ],
    "say": [
-    "COMP, PAGE {page}. STRUM FILL {compFill}. BUSY LEAD THINS {compThin}. OVER A LOW LEAD {compWith}."
+    "COMP, PAGE {page}. STRUM FILL {compFill}. BUSY LEAD THINS {compThin}. OVER A LOW LEAD {compWith}.",
+    {
+     "text": " LOCKED.",
+     "when": "lockComp"
+    }
    ],
    "title": "Comp: more"
   },
@@ -2682,6 +2778,13 @@
        "font": "T",
        "text": "{page}",
        "y": 8
+      },
+      {
+       "color": "HI",
+       "icon": "lock",
+       "when": "lockDrums",
+       "x": 93,
+       "y": 9
       },
       {
        "color": "WHITE",
@@ -2837,7 +2940,7 @@
       {
        "color": "DIM",
        "font": "T",
-       "text": "EDIT BACK   HOME MAIN   SEQ RE-ROLL",
+       "text": "EDIT BACK   HOME MAIN   SEQ RE-ROLL   HOLD LOCK",
        "x": 8,
        "y": 24
       }
@@ -2863,6 +2966,10 @@
     },
     "SEQ": {
      "do": "reroll",
+     "long": {
+      "do": "lock",
+      "part": "drums"
+     },
      "part": "drums"
     }
    },
@@ -2889,7 +2996,11 @@
     "pDrumsMore"
    ],
    "say": [
-    "DRUMS, PAGE {page}. KIT {drumKit}. PATTERN {drumPattern}. KICK {drumKick}. RIDE {drumRide}."
+    "DRUMS, PAGE {page}. KIT {drumKit}. PATTERN {drumPattern}. KICK {drumKick}. RIDE {drumRide}.",
+    {
+     "text": " LOCKED.",
+     "when": "lockDrums"
+    }
    ],
    "title": "Drums"
   },
@@ -2955,6 +3066,13 @@
        "font": "T",
        "text": "{page}",
        "y": 8
+      },
+      {
+       "color": "HI",
+       "icon": "lock",
+       "when": "lockDrums",
+       "x": 93,
+       "y": 9
       },
       {
        "color": "WHITE",
@@ -3032,7 +3150,7 @@
       {
        "color": "DIM",
        "font": "T",
-       "text": "EDIT BACK   HOME MAIN   SEQ RE-ROLL",
+       "text": "EDIT BACK   HOME MAIN   SEQ RE-ROLL   HOLD LOCK",
        "x": 8,
        "y": 24
       }
@@ -3058,6 +3176,10 @@
     },
     "SEQ": {
      "do": "reroll",
+     "long": {
+      "do": "lock",
+      "part": "drums"
+     },
      "part": "drums"
     }
    },
@@ -3072,7 +3194,11 @@
     "pDrumsMore"
    ],
    "say": [
-    "DRUMS, PAGE {page}. VARIATION {drumVar}."
+    "DRUMS, PAGE {page}. VARIATION {drumVar}.",
+    {
+     "text": " LOCKED.",
+     "when": "lockDrums"
+    }
    ],
    "title": "Drums: more"
   },
@@ -3138,6 +3264,13 @@
        "font": "T",
        "text": "{page}",
        "y": 8
+      },
+      {
+       "color": "HI",
+       "icon": "lock",
+       "when": "lockLead",
+       "x": 84,
+       "y": 9
       },
       {
        "color": "WHITE",
@@ -3293,7 +3426,7 @@
       {
        "color": "DIM",
        "font": "T",
-       "text": "EDIT BACK   HOME MAIN   SEQ RE-ROLL",
+       "text": "EDIT BACK   HOME MAIN   SEQ RE-ROLL   HOLD LOCK",
        "x": 8,
        "y": 24
       }
@@ -3329,6 +3462,10 @@
     },
     "SEQ": {
      "do": "reroll",
+     "long": {
+      "do": "lock",
+      "part": "lead"
+     },
      "part": "lead"
     }
    },
@@ -3355,7 +3492,11 @@
     "pLeadMore"
    ],
    "say": [
-    "LEAD, PAGE {page}. INSTRUMENT {leadIns}. STYLE {leadStyleSet}. PHRASE {leadPhrase}. REGISTER {leadReg}."
+    "LEAD, PAGE {page}. INSTRUMENT {leadIns}. STYLE {leadStyleSet}. PHRASE {leadPhrase}. REGISTER {leadReg}.",
+    {
+     "text": " LOCKED.",
+     "when": "lockLead"
+    }
    ],
    "title": "Lead"
   },
@@ -3421,6 +3562,13 @@
        "font": "T",
        "text": "{page}",
        "y": 8
+      },
+      {
+       "color": "HI",
+       "icon": "lock",
+       "when": "lockLead",
+       "x": 84,
+       "y": 9
       },
       {
        "color": "WHITE",
@@ -3498,7 +3646,7 @@
       {
        "color": "DIM",
        "font": "T",
-       "text": "EDIT BACK   HOME MAIN   SEQ RE-ROLL",
+       "text": "EDIT BACK   HOME MAIN   SEQ RE-ROLL   HOLD LOCK",
        "x": 8,
        "y": 24
       }
@@ -3534,6 +3682,10 @@
     },
     "SEQ": {
      "do": "reroll",
+     "long": {
+      "do": "lock",
+      "part": "lead"
+     },
      "part": "lead"
     }
    },
@@ -3548,7 +3700,11 @@
     "pLeadMore"
    ],
    "say": [
-    "LEAD, PAGE {page}. LOOP {leadLoopSet}."
+    "LEAD, PAGE {page}. LOOP {leadLoopSet}.",
+    {
+     "text": " LOCKED.",
+     "when": "lockLead"
+    }
    ],
    "title": "Lead: more"
   },
@@ -3614,6 +3770,13 @@
        "font": "T",
        "text": "{page}",
        "y": 8
+      },
+      {
+       "color": "HI",
+       "icon": "lock",
+       "when": "lockPad",
+       "x": 55,
+       "y": 9
       },
       {
        "color": "WHITE",
@@ -3769,7 +3932,7 @@
       {
        "color": "DIM",
        "font": "T",
-       "text": "EDIT BACK   HOME MAIN   SEQ RE-ROLL",
+       "text": "EDIT BACK   HOME MAIN   SEQ RE-ROLL   HOLD LOCK",
        "x": 8,
        "y": 24
       }
@@ -3792,6 +3955,10 @@
     },
     "SEQ": {
      "do": "reroll",
+     "long": {
+      "do": "lock",
+      "part": "pad"
+     },
      "part": "pad"
     }
    },
@@ -3817,7 +3984,11 @@
     "pPad"
    ],
    "say": [
-    "PAD. INSTRUMENT {padIns}. ON/OFF {padOnSet}. PLACE {padPlaceSet}. NOTES {padNotes}."
+    "PAD. INSTRUMENT {padIns}. ON/OFF {padOnSet}. PLACE {padPlaceSet}. NOTES {padNotes}.",
+    {
+     "text": " LOCKED.",
+     "when": "lockPad"
+    }
    ],
    "title": "Pad"
   },
@@ -4590,6 +4761,13 @@
        "y": 8
       },
       {
+       "color": "HI",
+       "icon": "lock",
+       "when": "lockTexture",
+       "x": 86,
+       "y": 9
+      },
+      {
        "color": "WHITE",
        "font": "XS",
        "right": 232,
@@ -4717,7 +4895,7 @@
       {
        "color": "DIM",
        "font": "T",
-       "text": "EDIT BACK   HOME MAIN",
+       "text": "EDIT BACK   HOME MAIN   HOLD SEQ LOCK",
        "x": 8,
        "y": 24
       }
@@ -4733,7 +4911,14 @@
     "EDIT": {
      "go": "back"
     },
-    "SEQ": null
+    "SEQ": {
+     "do": "reroll",
+     "long": {
+      "do": "lock",
+      "part": "texture"
+     },
+     "part": "texture"
+    }
    },
    "knobs": [
     {
@@ -4753,7 +4938,11 @@
     "pTexture"
    ],
    "say": [
-    "TEXTURE. DUST {texDust}. NOISE {texNoise}. AMBIENCE {texAmb}."
+    "TEXTURE. DUST {texDust}. NOISE {texNoise}. AMBIENCE {texAmb}.",
+    {
+     "text": " LOCKED.",
+     "when": "lockTexture"
+    }
    ],
    "title": "Texture"
   },

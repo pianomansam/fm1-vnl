@@ -102,7 +102,9 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
   };
   const encs = el("div", { className: "encs" }, ...ENCODERS.map(knob)), knobs = el("div", { className: "encs" }, ...KNOBS.map(knob));
   const rows = ROWS.map((r) => el("div", { className: "ctl" }, ...r.map((id) => {
-    const b = el("button", { onclick: () => act(id) }, id, el("i", { textContent: KEY_OF[id] }));
+    // down and up: a button whose action has `long` acts when let go, or once held (Device.tick)
+    const b = el("button", { onpointerdown: (e) => { e.preventDefault(); keyAct(id, true); }, onpointerup: () => keyAct(id, false),
+                             onpointerleave: () => keyAct(id, false) }, id, el("i", { textContent: KEY_OF[id] }));
     ctl.set(id, b);
     return b;
   })));
@@ -259,8 +261,10 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
     const c = KEYS[e.code];
     if (!c || box.hidden || e.ctrlKey || e.metaKey || e.altKey || /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
     e.preventDefault();
-    act(c, e.shiftKey ? -1 : 1);
+    if (BUTTONS.includes(c)) { if (!e.repeat) keyAct(c, true); }   // a button: held until its key comes up
+    else act(c, e.shiftKey ? -1 : 1);
   });
+  addEventListener("keyup", (e) => { const c = KEYS[e.code]; if (c && BUTTONS.includes(c)) keyAct(c, false); });
   setInterval(() => { dev?.tick(); draw(); }, 100);
   // a record turning (the splash, the now-playing screen): drawn each frame while it shows
   const turning = () => dev?.data.screens[dev.showing]?.bands?.some((b) => b.draw?.some((it) => it.record));

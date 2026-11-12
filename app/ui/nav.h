@@ -10,11 +10,15 @@
 #include "screens_gen.h"
 #include "snap.h"
 
-enum { UI_STACK = 8, UI_MSG = 24, UI_SAID = 160, UI_LONG_MS = 500, UI_KEYS = 27 };
+/* UI_LONG_MS a key's long press, UI_HOLD_MS a button's (SEQ held on a part's screen: its lock); UI_HOLDS the controls
+   that may be held: the keys, then the buttons (plat.h's B_*) */
+enum { UI_STACK = 8, UI_MSG = 24, UI_SAID = 160, UI_LONG_MS = 500, UI_HOLD_MS = 600, UI_KEYS = 27, UI_BUTTONS = 14,
+       UI_HOLDS = UI_KEYS + UI_BUTTONS };
 
 /* the mock's engine: a row's change (sent in the bar before its boundary, as the mock sends it; the song lands it
    there), play / stop, a new song, a part's re-roll, a jump to a section's first bar, the listening (mute, solo:
-   -1 none) and the mixer (levels, dB). Parts are UI_PART_*. Any may be NULL. */
+   -1 none) and the mixer (levels, dB). A part's lock is the navigator's own (locks: app.c reads
+   it). Parts are UI_PART_*. Any may be NULL. */
 typedef struct {
     void (*set)(int row, int value);
     void (*play)(void);
@@ -43,12 +47,15 @@ typedef struct {
     int8_t roll_part;                    /* a part's re-roll waiting (SEQ on its screen): UI_PART_*, -1 none */
     int16_t roll_at;
     uint8_t roll_screen, roll_sent;      /* the screen it was asked on (its title names it) */
+    uint8_t locks;                       /* the parts locked (SEQ held on a part's screen), bit UI_PART_*: a new song
+                                            keeps them (app.c); until unlocked or power-off (never saved) */
     int8_t jump_i;                       /* a section jump waiting: the section, -1 none */
     int16_t jump_at, jump_start, jump_sent_bar;
     uint8_t jump_sent;
-    uint8_t held_action[UI_KEYS];        /* a key held whose action has a long press: its action (0: none), when */
-    uint8_t held_fired[UI_KEYS];         /* it went down, whether the long press acted */
-    uint32_t held_t[UI_KEYS];
+    uint8_t held_action[UI_HOLDS];       /* a key (or a button: UI_KEYS + b) held whose action has a long press: its
+                                            action (0: none), when it went down, whether the long press acted */
+    uint8_t held_fired[UI_HOLDS];
+    uint32_t held_t[UI_HOLDS];
     char msg[2][UI_MSG];                 /* the header's message (app_say), until msg_until (ms; 0 none) */
     uint32_t msg_until;
     uint32_t now;                        /* ms, as last told */
@@ -64,8 +71,12 @@ void ui_nav_init(ui_nav_t *n);           /* the home screen (UI_HOME), nothing w
    done past it; a new song back to the main screen, nothing waiting; the time (ms) */
 void ui_update(ui_nav_t *n, const snap_t *s, uint32_t ms);
 void ui_press(ui_nav_t *n, int control, int detents);     /* a button (detents 1) or an encoder turned */
+/* a button (plat.h's B_*) down or up: one whose action has a long press acts on release when let go before
+   UI_HOLD_MS, else its long action once held that long (ui_tick), never both; others act as they go down */
+void ui_button(ui_nav_t *n, int button, int down, uint32_t ms);
 void ui_key(ui_nav_t *n, int key, int down, uint32_t ms); /* a key (0..26) down or up */
-void ui_tick(ui_nav_t *n, uint32_t ms);                   /* a key held past UI_LONG_MS: its long action, once */
+void ui_tick(ui_nav_t *n, uint32_t ms);                   /* a key held past UI_LONG_MS (a button UI_HOLD_MS): its
+                                                            long action, once */
 void ui_new_song(ui_nav_t *n);                            /* back to the main screen */
 /* the keys lit (the return) and blinking (*blink), bit k key k, on the screen shown */
 uint32_t ui_key_lights(const ui_nav_t *n, const snap_t *s, uint32_t *blink);

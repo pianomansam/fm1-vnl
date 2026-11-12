@@ -244,6 +244,16 @@ static int lane_part(const ui_nav_t *n, const ui_action_t *a)
     return c < list(sc->lanes)->n ? list_at(sc->lanes, c) : -1;
 }
 
+/* a part screen's name, as its title starts (up to a ':'), upper case: the reroll's and the lock's messages */
+static void title_name(const ui_screen_t *sc, char *name)
+{
+    const char *title = UI_STR(sc->title);
+    int k;
+    for (k = 0; title[k] && title[k] != ':' && k < UI_MSG - 1; k++)
+        name[k] = title[k] >= 'a' && title[k] <= 'z' ? (char)(title[k] - 32) : title[k];
+    name[k] = 0;
+}
+
 static void act(ui_nav_t *n, int ai, int detents)
 {
     const ui_action_t *a = &UI_ACTIONS[ai];
@@ -284,15 +294,28 @@ static void act(ui_nav_t *n, int ai, int detents)
         }
         return;
     }
+    case UA_LOCK: {                                   /* SEQ held on a part's screen: the part locked (again: unlocked),
+                                                         at once; a new song keeps it (app.c) */
+        char name[UI_MSG];
+        int on;
+        if (a->arg == UI_NONE) return;
+        on = !(n->locks >> a->arg & 1u);
+        n->locks = (uint8_t)(on ? n->locks | 1u << a->arg : n->locks & ~(1u << a->arg));
+        title_name(sc, name);
+        say(n, name, on ? "LOCKED" : "UNLOCKED");
+        return;
+    }
     case UA_REROLL:
         if (a->arg != UI_NONE) {                      /* SEQ on a part's screen: that part, on the 4-bar boundary */
+            if (a->arg == UI_PART_TEXTURE) return;    /* (nothing to re-roll: SEQ held there locks it) */
             if (has_song(n)) {
-                const char *title = UI_STR(sc->title);
                 char name[UI_MSG];
-                int at = boundary(bar), k;
-                for (k = 0; title[k] && title[k] != ':' && k < UI_MSG - 1; k++)
-                    name[k] = title[k] >= 'a' && title[k] <= 'z' ? (char)(title[k] - 32) : title[k];
-                name[k] = 0;
+                int at = boundary(bar);
+                title_name(sc, name);
+                if (n->locks >> a->arg & 1u) {        /* locked: no roll (desk.js's "is locked") */
+                    say(n, name, "IS LOCKED");
+                    return;
+                }
                 if (at < bars_of(n)) {
                     n->roll_part = (int8_t)a->arg;
                     n->roll_at = (int16_t)at;
@@ -394,35 +417,45 @@ void ui_press(ui_nav_t *n, int control, int detents)
     act(n, ui_control(nav_screen(n), control), detents);
 }
 
-/* a key whose action has a long press acts on release when let go soon, or once held UI_LONG_MS (its long action);
-   others act as they go down */
-void ui_key(ui_nav_t *n, int key, int down, uint32_t ms)
+/* a control that may be held (slot: a key's number, or UI_KEYS + a button's) down or up: one whose action has a long
+   press acts on release when let go soon, or once held its time (ui_tick: its long action); others act as they go
+   down */
+static void hold(ui_nav_t *n, int slot, int control, int down, uint32_t ms)
 {
     int ai;
-    if (key < 0 || key >= UI_KEYS) return;
     n->now = ms;
     if (down) {
-        ai = ui_control(nav_screen(n), UI_CTL_KEY(key));
+        ai = ui_control(nav_screen(n), control);
         if (!ai || !UI_ACTIONS[ai].lng) {
             act(n, ai, 1);
             return;
         }
-        n->held_action[key] = (uint8_t)ai;
-        n->held_fired[key] = 0;
-        n->held_t[key] = ms;
+        n->held_action[slot] = (uint8_t)ai;
+        n->held_fired[slot] = 0;
+        n->held_t[slot] = ms;
     } else {
-        ai = n->held_action[key];
-        n->held_action[key] = 0;
-        if (ai && !n->held_fired[key]) act(n, ai, 1);
+        ai = n->held_action[slot];
+        n->held_action[slot] = 0;
+        if (ai && !n->held_fired[slot]) act(n, ai, 1);
     }
+}
+
+void ui_key(ui_nav_t *n, int key, int down, uint32_t ms)
+{
+    if (key >= 0 && key < UI_KEYS) hold(n, key, UI_CTL_KEY(key), down, ms);
+}
+
+void ui_button(ui_nav_t *n, int button, int down, uint32_t ms)
+{
+    if (button >= 0 && button < UI_BUTTONS) hold(n, UI_KEYS + button, UI_CTL_BUTTON(button), down, ms);
 }
 
 void ui_tick(ui_nav_t *n, uint32_t ms)
 {
     int k;
     n->now = ms;
-    for (k = 0; k < UI_KEYS; k++)
-        if (n->held_action[k] && !n->held_fired[k] && ms - n->held_t[k] >= UI_LONG_MS) {
+    for (k = 0; k < UI_HOLDS; k++)
+        if (n->held_action[k] && !n->held_fired[k] && ms - n->held_t[k] >= (k < UI_KEYS ? UI_LONG_MS : UI_HOLD_MS)) {
             n->held_fired[k] = 1;
             act(n, UI_ACTIONS[n->held_action[k]].lng, 1);
         }

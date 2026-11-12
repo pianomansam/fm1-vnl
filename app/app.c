@@ -115,6 +115,20 @@ static int field_step(int f, int v, int d)
 /* the next song, rolled by the main loop: full until the render takes it */
 static song_roll_t mb_roll;
 static volatile uint8_t mb_full;
+#if UI_RT
+/* and what the locks keep in it (written with mb_roll, while the mailbox is empty): its kit row (-1: the seeded
+   pick), the rows song_start_rows sets from its start (SR_ROLE, SR_OV), and the locked rows as the screens show them
+   (ROW_*: the song ready shows them before it plays) */
+enum { LK_MAX = 28 };
+typedef struct {
+    int16_t kit;
+    uint8_t n, nshow;
+    int16_t row[LK_MAX], val[LK_MAX];
+    int8_t show[LK_MAX];
+    int16_t show_val[LK_MAX];
+} lk_box_t;
+static lk_box_t mb_lk = {-1, 0, 0, {0}, {0}, {0}, {0}};
+#endif
 
 /* the button that rolls a new song (one constant: remap it here) */
 #define B_NEW B_SEQ
@@ -312,7 +326,9 @@ static uint8_t first_part = SONG_FIRST_BAR_PARTS;   /* the new song's first bar'
 static void song_begin(uint32_t n)
 {
 #if UI_RT
-    song_start_kit(&song, &mb_roll, kit_pick(&mb_roll));   /* no retired kit (desk.js's approvedKit) */
+    song_start_rows(&song, &mb_roll, mb_lk.kit >= 0 ? mb_lk.kit : kit_pick(&mb_roll),   /* no retired kit
+                                            (desk.js's approvedKit); a locked part's rows from the start */
+                    mb_lk.row, mb_lk.val, mb_lk.n);
 #else
     song_start(&song, &mb_roll);
 #endif
@@ -674,7 +690,7 @@ static void step(void)
    seed, as the workbench's dice would) */
 static int one_part(int ins) { return ins == INS_KNIGHT || ins == INS_FELT_PIANO || ins == INS_VIBES; }
 
-static int row_other(int row, int avoid)
+static int row_other(int row, int avoid, uint32_t seed)
 {
     int i, n = ch_count(row), k = 0, pick;
     for (i = 0; i < n; i++) {
@@ -682,7 +698,7 @@ static int row_other(int row, int avoid)
         if (v != avoid && (f & 15) == 0) k++;   /* approved, not hidden, not the engine's own choice */
     }
     if (!k) return avoid;
-    pick = (int)(song.roll.seed % (uint32_t)k);
+    pick = (int)(seed % (uint32_t)k);
     for (i = 0; i < n; i++) {
         int v = ch_value(row, i), f = ch_flags(row, v);
         if (v != avoid && (f & 15) == 0 && !pick--) return v;
@@ -699,9 +715,9 @@ static void row_rules(int row, int v, const int16_t *rows)
             song_request_row(&song, SR_OV + OV_COMP_PAT, -1);
         }
         if (one_part(v) && rows[ROW_LEAD] == v)
-            song_request_row(&song, CH_SONG_ROW[ROW_LEAD], row_other(ROW_LEAD, v));
+            song_request_row(&song, CH_SONG_ROW[ROW_LEAD], row_other(ROW_LEAD, v, song.roll.seed));
     } else if (row == ROW_LEAD && one_part(v) && rows[ROW_KEYS] == v)
-        song_request_row(&song, CH_SONG_ROW[ROW_KEYS], row_other(ROW_KEYS, v));
+        song_request_row(&song, CH_SONG_ROW[ROW_KEYS], row_other(ROW_KEYS, v, song.roll.seed));
 }
 #endif
 
@@ -829,8 +845,14 @@ static void publish(void)
         if (snap.has_song || snap.held) {   /* the kit row: a shipped kit's value; the next song's, as it will pick */
             if (song.kit_preset >= 0)
                 snap.rows[ROW_KIT] = (int16_t)(SONG_KIT_PRESET + song.kit_preset);
-        } else if ((i = kit_pick(&snap.roll)) >= 0) {
-            snap.rows[ROW_KIT] = (int16_t)i;
+        } else {
+            if ((i = mb_lk.kit >= 0 ? mb_lk.kit : kit_pick(&snap.roll)) >= 0)
+                snap.rows[ROW_KIT] = (int16_t)i;
+            for (i = 0; i < mb_lk.nshow; i++)    /* (the song ready: its locked parts as it will play them) */
+                snap.rows[mb_lk.show[i]] = mb_lk.show_val[i];
+            if (mb_lk.nshow)
+                snap.rows[ROW_RHYTHM] = snap.rows[ch_rhythm_row(snap.rows[ROW_KEYS], snap.rows[ROW_COMP]) == ROW_COMP
+                                                  ? ROW_COMP : ROW_STRUM_PAT];
         }
         snap.n_secs = 0;
         for (i = 0; p && i < p->n && i < SNAP_SECS; i++) {
@@ -1068,18 +1090,239 @@ static void seed_boot(void)
 #endif
 }
 
+#if UI_RT
+/* ---- the locks (SEQ held on a part's screen: the navigator's ui_hnav.locks): a new song keeps a locked part ----
+   A locked part keeps, into each new song (SEQ's, or a song's end), what it plays now: its instrument, its rhythm or
+   style, its register and its re-rolls' salts (desk.js's locks, by part); the drums their kit, pattern, kick phrase,
+   ride and variation; the texture its dust, noise and room. The rest rolls as ever. The main loop reads them off the
+   song playing (or held), "as rolled" resolved to what plays, so a change made to a locked part is kept too, and
+   hands them to the render with the next song (the mailbox; song_start_rows sets them from its first bar); a change
+   to them after the next song was rolled rolls it again, from the same seed. A song that can't hold them (a felt
+   piano, Knight or vibes the comp keeps while the new lead plays it too: they play one part a song; organ keys under
+   an organ pad) is passed over for the chain's next seed, LK_TRIES at most (desk.js's SEED_TRIES); none: the last,
+   its unlocked part moved off the clash, or with both parts locked the second's instrument not kept, and said as the
+   song starts. Never saved: power-off forgets them (no flash write while playing). */
+static ui_nav_t ui_hnav;
+enum { LK_TRIES = 20 };
+/* each part's rows, in UI_PART_* order (drums, bass, keys, pad, lead, texture), -1 ending each */
+static const int8_t LK_ROWS[] = {
+    ROW_KIT, ROW_PATTERN, ROW_KICK, ROW_RIDE, ROW_DRUMS_VAR, -1,
+    ROW_BASS, ROW_BASS_LINE, -1,
+    ROW_KEYS, ROW_COMP, ROW_STRUM_PAT, ROW_STRUM_FILL, ROW_VOICINGS, ROW_KEYS_OCT, ROW_BUSY_THIN, -1,
+    ROW_PAD, ROW_PAD_ON, ROW_PAD_PLACE, ROW_PAD_NOTES, -1,
+    ROW_LEAD, ROW_LEAD_STYLE, ROW_PHRASE, ROW_LEAD_OCT, ROW_LEAD_LOOP, -1,
+    ROW_DUST, ROW_NOISE, ROW_AMBIENCE, -1,
+};
+static int16_t lk_val[ROW_N];           /* each locked row's value, read off the song playing */
+static uint8_t lk_have;                 /* the parts read (bit UI_PART_*): one locked before any song played keeps
+                                           nothing until one does */
+static uint32_t mb_sig;                 /* the locks the mailbox's song was rolled under (lk_sig) */
+static uint32_t mb_seed;                /* the first seed it tried, and the roll before it: to roll it again */
+static song_roll_t mb_prev;
+static uint8_t mb_prev_any;
+static uint8_t mb_msg;                  /* a lock the mailbox's song can't keep: 1 the lead's instrument, 2 the pad's */
+static int32_t lk_songs;                /* the songs started, as last seen */
+
+static uint8_t lk_mask(void) { return (uint8_t)(ui_hnav.locks & lk_have); }
+
+static int lk_part(int row)             /* the part a row belongs to (UI_PART_*), -1 none */
+{
+    int i, p = 0;
+    for (i = 0; i < (int)sizeof LK_ROWS; i++) {
+        if (LK_ROWS[i] < 0) p++;
+        else if (LK_ROWS[i] == row) return p;
+    }
+    return -1;
+}
+
+static int lk_locked(int row) { int p = lk_part(row); return p >= 0 && (lk_mask() >> p & 1u); }
+
+/* the rows of parts m (bit UI_PART_*) from the song shown, into out: the row's value, "as rolled" as it plays */
+static void lk_resolve(const snap_t *s, uint8_t m, int16_t *out)
+{
+    song_rolled_t r;
+    int i, p = 0;
+    song_rolled(&s->roll, &r);
+    for (i = 0; i < (int)sizeof LK_ROWS; i++) {
+        int row = LK_ROWS[i], v;
+        if (row < 0) {
+            p++;
+            continue;
+        }
+        if (!(m >> p & 1u)) continue;
+        v = s->rows[row];
+        switch (row) {
+        case ROW_COMP: if (v < 0) v = r.comp_pat >= 0 ? 100 + r.comp_pat : r.comp; break;
+        case ROW_STRUM_PAT: if (v < 0) v = r.strum_pat; break;
+        case ROW_STRUM_FILL: if (v < 0) v = r.strum_fill; break;
+        case ROW_LEAD_STYLE: if (v < 2) v = 2 + r.lead_style; break;
+        case ROW_PAD_ON: if (v < 0) v = r.pad_on; break;
+        case ROW_PAD_PLACE: if (v < 0) v = r.pad_place; break;
+        case ROW_RIDE: if (v < 0) v = r.ride; break;
+        default: break;
+        }
+        out[row] = (int16_t)v;
+    }
+}
+
+/* the locked parts' rows from the song playing (or held) */
+static void lk_read(const snap_t *s, uint8_t m)
+{
+    lk_resolve(s, m, lk_val);
+    lk_have |= m;
+}
+
+static uint32_t lk_sig(void)            /* the locks and what they keep, hashed */
+{
+    uint32_t h = 2166136261u ^ lk_mask();
+    int i;
+    for (i = 0; i < (int)sizeof LK_ROWS; i++)
+        if (LK_ROWS[i] >= 0 && lk_locked(LK_ROWS[i]))
+            h = (h ^ (uint16_t)lk_val[LK_ROWS[i]]) * 16777619u;
+    return h;
+}
+
+/* the instrument a song rolled r plays on a role's row (ROW_KEYS, ROW_LEAD, ROW_PAD): a locked one's, else its set's */
+static int lk_ins(const song_roll_t *r, int row)
+{
+    const lib_set_t *set;
+    if (lk_locked(row)) return lk_val[row];
+    set = lib_set_by_id((uint8_t)r->v[RF_SET]);
+    if (!set) return -1;
+    return row == ROW_KEYS ? lib_keys_approved(set->chords) : row == ROW_LEAD ? lib_lead_approved(set->lead)
+                                                                                : lib_song_pad(r);
+}
+
+/* the song rolled r against the locks: 0 it holds them, 1 the comp and the lead on one instrument that plays one part
+   a song, 2 organ keys under an organ pad (lib_song_pad's rule) */
+static int lk_clash(const song_roll_t *r)
+{
+    int k;
+    if (!lk_mask()) return 0;
+    k = lk_ins(r, ROW_KEYS);
+    if ((lk_locked(ROW_KEYS) || lk_locked(ROW_LEAD)) && one_part(k) && k == lk_ins(r, ROW_LEAD)) return 1;
+    if ((lk_locked(ROW_KEYS) || lk_locked(ROW_PAD)) && k == INS_ORGAN && lk_ins(r, ROW_PAD) == INS_ORGAN) return 2;
+    return 0;
+}
+
+static void lk_add(lk_box_t *b, int row, int sr, int v)   /* a row the song starts with, and shows when ready */
+{
+    if (sr >= 0 && b->n < LK_MAX) {
+        b->row[b->n] = (int16_t)sr;
+        b->val[b->n++] = (int16_t)v;
+    }
+    if (row >= 0 && b->nshow < LK_MAX) {
+        b->show[b->nshow] = (int8_t)row;
+        b->show_val[b->nshow++] = (int16_t)v;
+    }
+}
+
+/* the mailbox's locks for the song rolled r (its roll fields set in r itself): a clash still there moves the unlocked
+   part off it (another approved instrument, from the song's seed: row_rules' way), or drops the second lock */
+static void lk_fill(song_roll_t *r)
+{
+    lk_box_t *b = &mb_lk;
+    int i, p = 0, clash = lk_clash(r), drop = -1;
+    uint8_t m = lk_mask();
+    b->kit = -1;
+    b->n = b->nshow = 0;
+    mb_msg = 0;
+    if (clash == 1 && !lk_locked(ROW_LEAD))
+        lk_add(b, ROW_LEAD, SR_ROLE + V_LEAD, row_other(ROW_LEAD, lk_val[ROW_KEYS], r->seed));
+    else if (clash == 1 && !lk_locked(ROW_KEYS))
+        lk_add(b, ROW_KEYS, SR_ROLE + V_CHORD, row_other(ROW_KEYS, lk_val[ROW_LEAD], r->seed));
+    else if (clash == 2 && !lk_locked(ROW_PAD))
+        lk_add(b, ROW_PAD, SR_ROLE + V_PAD, row_other(ROW_PAD, INS_ORGAN, r->seed));
+    else if (clash == 2 && !lk_locked(ROW_KEYS))
+        lk_add(b, ROW_KEYS, SR_ROLE + V_CHORD, row_other(ROW_KEYS, INS_ORGAN, r->seed));
+    else if (clash) {
+        drop = clash == 1 ? ROW_LEAD : ROW_PAD;
+        mb_msg = (uint8_t)clash;
+    }
+    for (i = 0; i < (int)sizeof LK_ROWS; i++) {
+        int row = LK_ROWS[i], v, sr;
+        if (row < 0) {
+            p++;
+            continue;
+        }
+        if (!(m >> p & 1u) || row == drop) continue;
+        v = lk_val[row];
+        sr = CH_SONG_ROW[row];
+        if (row == ROW_KIT) {
+            b->kit = (int16_t)v;
+            lk_add(b, row, -1, v);
+        } else if (sr >= SR_ROLL && sr < SR_ROLL + RF_N) {   /* the pattern, the texture: the roll's own */
+            roll_set(r, sr - SR_ROLL, v);
+        } else if (row == ROW_COMP) {    /* a comp rhythm (from 100): the COMP_PAT override; else COMP (command()) */
+            lk_add(b, row, SR_OV + OV_COMP, v >= 100 ? -1 : v);
+            lk_add(b, -1, SR_OV + OV_COMP_PAT, v >= 100 ? v - 100 : -1);
+        } else
+            lk_add(b, row, sr, v);
+    }
+}
+
+/* each frame, before the mailbox is filled: the locks read off the song playing; a song started that couldn't keep
+   one, said; the mailbox's song rolled again when the locks changed since it was rolled */
+static void lk_frame(void)
+{
+    snap_t s;
+    int32_t taken;
+    uint8_t m = ui_hnav.locks;
+    if (!m && !lk_have && !mb_msg)
+        return;
+    snap_read(&s);
+    if (s.songs != lk_songs) {
+        if (mb_msg && !mb_full)
+            app_say(mb_msg == 1 ? "LEAD LOCK" : "PAD LOCK", "INSTRUMENT NOT KEPT");
+        if (!mb_full)
+            mb_msg = 0;
+        lk_songs = s.songs;
+    }
+    lk_have &= m;                        /* (a part unlocked keeps nothing: read again when locked again) */
+    if (m && (s.has_song || s.held))
+        lk_read(&s, m);
+    taken = songs_started;
+    if (mb_full && lk_sig() != mb_sig) {   /* rolled again, from the same seed, unless the render took it meanwhile */
+        mb_full = 0;
+        BARRIER();
+        if (songs_started == taken) {
+            last_roll = mb_prev;
+            rolled_any = mb_prev_any;
+            next_seed = mb_seed;
+        }
+    }
+}
+#endif
+
 static void roll_next(void)             /* main loop: keep the mailbox full */
 {
+    int t;
     if (mb_full || !seeded)
         return;
 #if VNL_UI_RUNTIME
     M_SEEN(MC_NEXT);
 #endif
-    roll_song(rolled_any ? &last_roll : 0, next_seed, &mb_roll);
-#if defined(PLAT_HOST) && !defined(PLAT_WEB)
-    if (set_override && !rolled_any)
-        roll_set(&mb_roll, RF_SET, set_override);
+#if UI_RT
+    mb_prev = last_roll;
+    mb_prev_any = rolled_any;
+    mb_seed = next_seed;
 #endif
+    for (t = 0;; t++) {                  /* (with locks: a seed whose song can't hold them passed over) */
+        roll_song(rolled_any ? &last_roll : 0, next_seed, &mb_roll);
+#if defined(PLAT_HOST) && !defined(PLAT_WEB)
+        if (set_override && !rolled_any)
+            roll_set(&mb_roll, RF_SET, set_override);
+#endif
+#if UI_RT
+        if (t + 1 < LK_TRIES && lk_clash(&mb_roll)) {
+            next_seed = seed_next(next_seed);
+            continue;
+        }
+        lk_fill(&mb_roll);
+        mb_sig = lk_sig();
+#endif
+        break;
+    }
     last_roll = mb_roll;
     rolled_any = 1;
     next_seed = seed_next(next_seed);
@@ -1980,9 +2223,10 @@ static void ui_host_input(uint32_t btn)
     uint32_t keys = plat_keys(), now = plat_ms(), blink, on;
     int b, e, k;
     ui_host_snap();
-    for (b = 0; b < NB; b++)
-        if ((btn >> b & 1u) && !(ui.btn >> b & 1u))
-            ui_press(&ui_hnav, UI_CTL_BUTTON(b), 1);
+    for (b = 0; b < NB; b++)             /* down and up: a button whose action has a long press (SEQ on a part's
+                                            screen) acts on release, or once held (ui_tick) */
+        if ((btn ^ ui.btn) >> b & 1u)
+            ui_button(&ui_hnav, b, (int)(btn >> b & 1u), now);
 #if VNL_UI_RUNTIME
     if ((btn >> B_SAVE & 1u) && !(ui.btn >> B_SAVE & 1u)) {   /* SAVE: the measures (no screen maps it) */
         char a[UI_MSG], c[UI_MSG], v[12];
@@ -2018,7 +2262,7 @@ static void ui_host_input(uint32_t btn)
     if (keys != ui_hkeys || btn != ui.btn)   /* (a key or a button: the screen may change) */
         ui.redraw = 1;
     ui_hkeys = keys;
-    if (keys)                            /* a key held: its long press may act */
+    if (keys || btn)                     /* a key or a button held: its long press may act */
         ui.redraw = 1;
     ui_tick(&ui_hnav, now);
     if (ui_hnav.msg_until && now >= ui_hnav.msg_until) {   /* the header's message gone */
@@ -2257,6 +2501,13 @@ static uint32_t live_state(char *o, uint32_t cap)
         }
     jb(&b, "]");
     jbk(&b, "solo"); if (act->solo >= 0) jbs(&b, PART[act->solo % 6]); else jb(&b, "null");
+    jbk(&b, "locks"); jb(&b, "[");     /* the parts locked (a new song keeps them) */
+    for (i = 0; i < 6; i++)
+        if (ui_hnav.locks >> i & 1u) {
+            if (b.p[b.n - 1] != '[') jb(&b, ",");
+            jbs(&b, PART[i]);
+        }
+    jb(&b, "]");
     jbk(&b, "levels"); jb(&b, "{");
     for (i = 0; i < VX_PART_N && i < 6; i++) {
         jbk(&b, PART[i]);
@@ -2489,7 +2740,7 @@ static void kit_render(const snap_t *s)
         return;
     int k = (s->has_song || s->held) ? s->rows[ROW_KIT] : -1;
     if (!(k >= SONG_KIT_PRESET && wb_drums_preset(&d, k - SONG_KIT_PRESET) && !wb_drums_ready(&d))) {
-        int nx = mb_full ? kit_pick(&mb_roll) : -1;
+        int nx = mb_full ? (mb_lk.kit >= 0 ? mb_lk.kit : kit_pick(&mb_roll)) : -1;
         if (!(nx >= SONG_KIT_PRESET && wb_drums_preset(&d, nx - SONG_KIT_PRESET)))
             if (!(k >= SONG_KIT_PRESET && wb_drums_preset(&d, k - SONG_KIT_PRESET)))
                 return;
@@ -2515,6 +2766,9 @@ void app_frame(void)
     uint32_t now = plat_ms();
     if (!seeded)
         seed_boot();
+#if UI_RT
+    lk_frame();
+#endif
     roll_next();
     snap_read(&s);
 #if UI_RT
@@ -2609,6 +2863,22 @@ void app_frame(void)
 #ifdef PLAT_HOST
 static int32_t rem_bar = -1;             /* "remember": the song shown then (its seed) and its bar */
 static uint32_t rem_seed;
+#if UI_RT
+static int16_t rem_rows[ROW_N];          /* (and its rows, "as rolled" as they played: expect same_<part>,
+                                            parts_moved) */
+/* a part's rows (LK_ROWS') as the song shown plays them against the ones remembered: 1 all alike */
+static int part_same(const snap_t *s, int part)
+{
+    int16_t now[ROW_N];
+    int i, p = 0, same = 1;
+    lk_resolve(s, 0x3F, now);
+    for (i = 0; i < (int)sizeof LK_ROWS; i++) {
+        if (LK_ROWS[i] < 0) p++;
+        else if (p == part && now[LK_ROWS[i]] != rem_rows[LK_ROWS[i]]) same = 0;
+    }
+    return same;
+}
+#endif
 int app_expect(const char *what, int *got)
 {
     snap_t s;
@@ -2668,6 +2938,22 @@ int app_expect(const char *what, int *got)
     else if (!strcmp(what, "late"))
         *got = (int)m_late;
 #endif
+#if UI_RT
+    else if (!strncmp(what, "same_", 5) && strcmp(what, "same_song")) {   /* same_drums .. same_texture: the
+                                                                             part's rows as remembered (1), not (0) */
+        static const char *const PN[] = {"drums", "bass", "comp", "pad", "lead", "texture"};
+        int p;
+        for (p = 0; p < 6 && strcmp(what + 5, PN[p]); p++) {}
+        if (p == 6) return 0;
+        *got = part_same(&s, p);
+    } else if (!strcmp(what, "parts_moved")) {   /* the unlocked parts whose rows differ from the ones remembered */
+        int p;
+        *got = 0;
+        for (p = 0; p < 6; p++)
+            *got += !(ui_hnav.locks >> p & 1u) && !part_same(&s, p);
+    } else if (!strcmp(what, "locks"))   /* the parts locked, bit UI_PART_* */
+        *got = ui_hnav.locks;
+#endif
     else if (!strcmp(what, "remote"))
         *got = rm.on;
     else if (!strcmp(what, "same_song"))   /* the song playing or ready is the one remembered (1), another (0); none:
@@ -2688,7 +2974,8 @@ int app_expect(const char *what, int *got)
  *   remote_sent HEX...                    each message (F0 .. F7) was sent since the last remote_sent / remote_none
  *   remote_none                           nothing was sent since then
  * and for the transport (tests/scenarios/stop.vnl):
- *   remember                              the song playing and its bar, for "expect same_song" and "bars_on" */
+ *   remember                              the song playing and its bar, for "expect same_song" and "bars_on", and
+ *                                         its rows, for "expect same_<part>" and "parts_moved" (tests/scenarios/locks.vnl) */
 static int rm_fails;
 int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, const char *d)
 {
@@ -2797,6 +3084,9 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
         snap_read(&s);
         rem_bar = s.has_song ? s.bar : -1;
         rem_seed = s.roll.seed;
+#if UI_RT
+        lk_resolve(&s, 0x3F, rem_rows);
+#endif
         printf("remember: %s\n", s.has_song ? "the song playing" : "no song playing");
         return 1;
     }

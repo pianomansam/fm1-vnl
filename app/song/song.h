@@ -82,6 +82,10 @@ void song_start(song_t *s, const song_roll_t *r);           /* the plan; bar 0, 
 /* song_start with the kit row at kit from the start (-1: as rolled): the song's set its own, as a kit request makes
    it, before the plan, as the workbench stages a kit before its song starts */
 void song_start_kit(song_t *s, const song_roll_t *r, int kit);
+/* song_start_kit with rows set from the start too (the device's locks: a locked part's instrument, overrides and
+   salts kept into a new song): each (rows[i], vals[i]) as song_request_row takes it (SR_ROLE, SR_OV; a roll field is
+   the caller's, in r), landed before the plan, the song's set and overrides its own from bar 0 */
+void song_start_rows(song_t *s, const song_roll_t *r, int kit, const int16_t *rows, const int16_t *vals, int n);
 /* The first bar's planning (the loop's voicings, part 0; the bar's voicings, 1; the lead's plan, 2; the pad group, 3),
    each in its own call before the first tick, a block apart (the render's): song_first_bar_later(1) leaves it out of
    song_start, then song_first_bar(s, 0..SONG_FIRST_BAR_PARTS - 1) in turn. The same events either way (a part
