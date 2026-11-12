@@ -455,7 +455,7 @@ static void parts(double amb)
                                  {"triangle bass", INS_CHIP_BASS}, {"fm bass", INS_FM_BASS}};
     static const named_t LD[] = {{"flute", INS_FLUTE}, {"vibes", INS_VIBES}, {"felt piano", INS_FELT_PIANO},
                                  {"knight", INS_KNIGHT}, {"jazz guitar", INS_JAZZ_GTR},
-                                 {"sampled cello", INS_SAMP_CELLO},
+                                 {"cello", INS_SAMP_CELLO},
                                  {"harp", INS_HARP}, {"whistle", INS_WHISTLE},
                                  {"soft synth lead", INS_SOFT_SYNTH}};
     static const named_t PDL[] = {{"strings", INS_STRINGS}, {"warm pad", INS_WARM_PAD}, {"choir", INS_CHOIR},

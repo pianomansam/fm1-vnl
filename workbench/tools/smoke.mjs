@@ -553,19 +553,19 @@ console.log("options.json");
   check(engine.filter((k) => k.sym.startsWith("KIT_S_")).every((k) => k.status === "removed"),
         "the five mixed sampled kits are removed (their hits left the sample bank, 2026-11-10)");
   const retired = (xs, names) => names.every((n) => xs.find((x) => x.name.startsWith(n))?.status === "retired");
-  check(retired(OPTS.instruments, ["Muted trumpet", "Sax", "Guitar lick", "String lead", "Cello"]) &&
+  check(retired(OPTS.instruments, ["Muted trumpet", "Sax", "Guitar lick", "String lead", "Synth cello"]) &&
         ["Felt piano", "Vibes"].every((n) => OPTS.instruments.find((i) => i.name.startsWith(n))?.roles.includes("lead") &&
                                              OPTS.instruments.find((i) => i.name.startsWith(n)).status === "approved"),
         "leads (Sam, 2026-10-29): the felt piano and the vibes offered, the trumpet, sax, guitar lick, string lead and cello retired");
   const leads = optionsFor(row("lead"), { values: {} }, OPTS).map((o) => o.name).sort();
   check(retired(OPTS.instruments, ["Kalimba", "Saw lead", "Synth pluck"]) &&
         JSON.stringify(OPTS.instruments.find((i) => i.name === "Electric guitar").roles) === '["keys"]' &&
-        JSON.stringify(leads) === JSON.stringify(["Felt piano", "Flute", "Harp", "Jazz guitar", "Piano",
-                                                  "Sampled cello", "Soft synth lead", "Vibes", "Whistle"]) &&
-        ["Jazz guitar", "Sampled cello", "Harp", "Whistle"].every((n) =>
+        JSON.stringify(leads) === JSON.stringify(["Cello", "Felt piano", "Flute", "Harp", "Jazz guitar", "Piano",
+                                                  "Soft synth lead", "Vibes", "Whistle"]) &&
+        ["Jazz guitar", "Cello", "Harp", "Whistle"].every((n) =>
           OPTS.instruments.find((i) => i.name === n).status === "approved") &&
         OPTS.instruments.find((i) => i.name === "Soft synth lead").status === "candidate",
-        `the lead styles build: the lead row offers the four, the jazz guitar, the sampled cello, the harp and the whistle (approved 2026-11-11), the soft synth lead (a candidate, round 2) (${leads.join(", ")}); the kalimba, saw lead and synth pluck retired, the Electric guitar on the keys only`);
+        `the lead styles build: the lead row offers the four, the jazz guitar, the cello, the harp and the whistle (approved 2026-11-11), the soft synth lead (a candidate, round 2) (${leads.join(", ")}); the kalimba, saw lead and synth pluck retired, the Electric guitar on the keys only`);
   check(retired(OPTS.instruments, ["Upright bass"]) && retired(OPTS.comping, ["Arpeggio", "Offbeats"]) &&
         retired(OPTS.kits, ["Dusty (synth)", "Soft (synth)", "Our 808"]),
         "the removed sounds are retired (upright, our synth kits, arpeggio, offbeats)");
