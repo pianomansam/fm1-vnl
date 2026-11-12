@@ -184,7 +184,15 @@ them from song to song. The knob that moves a fader is named under it.
 
 ![The Settings screen: MOVEMENT, SCREEN READER, KEY LIGHTS, BRIGHTNESS, MAIN SCREEN and ADVANCED RULES, marked PLACEHOLDER](img/vnl-settings.png "Settings")
 
-A placeholder: it lists the settings planned for a later version. Nothing on it works yet. GLO goes back.
+**THEME** works: turn SELECT or ALGO to step through the screen's color themes (PLUM+, the default, then OXBLOOD,
+OXBLOOD+, the black ones GREEN to MONO, ESPRESSO, TEAL, OLIVE and PLUM). Every screen changes at once, the splash
+too. The device keeps the theme through power-off (written once nothing is playing, as the home is) and a USB backup
+holds it. The rest of the list is planned for a later version and does nothing yet. GLO goes back.
+
+| Control | What it does |
+|---|---|
+| SELECT or ALGO | The next theme (turned back, the one before). |
+| GLO | Back. |
 
 ---
 

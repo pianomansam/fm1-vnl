@@ -77,7 +77,7 @@ def theme_colors():
     rgb = lambda s: [rgb565(*map(int, m)) for m in re.findall(r"RGB\((\d+), (\d+), (\d+)\)", s)]
     neutrals = re.search(r"#define NEUTRALS (.*)", gfx).group(1)
     pals = []
-    for steps, bw in re.findall(r'\{"\w+", \{([^}]*)\},\s*([^}]*?)\},', gfx):
+    for steps, bw in re.findall(r'\{"[\w+]+", \{([^}]*)\},\s*([^}]*?)\},', gfx):
         bw = [0x0000, 0xFFFF] if bw.strip() == "INK" else rgb(bw)
         pals.append(bw + rgb(steps.replace("NEUTRALS", neutrals)))
     conf = (ROOT / "app/app.h").read_text() + (ROOT / "base/include/fm1b_config.h").read_text()
@@ -719,8 +719,9 @@ def gen_screens(data, vocab, rows, all_parts=None):
          E("", CONTROLS, "UC_IN_"),
          f"#define UI_N_CONTROLS {len(CONTROLS)}\n#define UI_CTL_BUTTON(b) (b)\n#define UI_CTL_ENCODER(e) ({len(BUTTONS)} + (e))\n"
          f"#define UI_CTL_KNOB(k) ({len(BUTTONS) + len(ENCODERS)} + (k))\n#define UI_CTL_KEY(k) ({len(BUTTONS) + len(ENCODERS) + len(KNOBS)} + (k))\n\n",
-         "/* fonts (ui/fonts.js's faces: gfx's FONT_*), colors (UI_COLORS: the theme's, gfx.c's palette for APP_PALETTE,\n"
-         "   then the screens' own), icons, parts (the lanes', keys', mute's and solo's), screens, fields */\n",
+         "/* fonts (ui/fonts.js's faces: gfx's FONT_*), colors (UI_COLORS: the theme's, gfx.c's palette for APP_PALETTE until\n"
+         "   app.c sets its theme entries and VINYL from Settings' THEME, then the screens' own), icons, parts (the\n"
+         "   lanes', keys', mute's and solo's), screens, fields */\n",
          E("ui_font", fonts, "UI_FONT_"),
          "#define UI_FONT_TABLE {" + ", ".join(f"&FONT_{f}" if f in used_fonts else "0" for f in fonts) +
          "}   /* gfx's faces the screens use (0: none) */\n", E("ui_color", colors, "UC_"), f"#define UC_N_THEME {len(THEME)}\n",
@@ -802,7 +803,7 @@ def gen_screens(data, vocab, rows, all_parts=None):
         "extern const ui_knob_style_t UI_KNOB_STYLES[];\nextern const ui_lanes_t UI_LANE_ITEMS[];\n"
         "extern const ui_action_t UI_ACTIONS[];\nextern const ui_list_t UI_LISTS[];\nextern const uint8_t UI_LIST_DATA[];\n"
         "extern const ui_key_leds_t UI_KEY_LEDS[];\nextern const ui_say_t UI_SAYS[];\nextern const ui_field_t UI_FIELDS[];\n"
-        "extern const uint16_t UI_COLORS[];\nextern const uint16_t UI_ICONS[][8];\nextern const uint8_t UI_ICON_ROWS[];\n"
+        "extern uint16_t UI_COLORS[];\nextern const uint16_t UI_ICONS[][8];\nextern const uint8_t UI_ICON_ROWS[];\n"
         "/* a part as the Parts roll and the Mixer draw it (the mock's): its color and icon (the keys are the Comp's;\n"
         "   UI_NONE: none) and its name (upper case, at most 7 letters: UI_STR) */\n"
         "typedef struct { uint8_t color, icon; uint16_t name; } ui_part_look_t;\n"
@@ -835,7 +836,7 @@ def gen_screens(data, vocab, rows, all_parts=None):
     c = [HEAD, '#include "screens_gen.h"\n#include "choices_gen.h"\n\n', s.c("UI_STRINGS"), "\n",
          f"const int UI_N_SCREENS = {len(screens)}, UI_HOME = {screens.index(data['home'])};\n",
          f"const uint8_t UI_PART_SCREENS = {part_screens};\n",
-         f"const uint16_t UI_COLORS[{len(colors)}] = {{" + ", ".join(f"0x{v:04x}" for v in color_val) + "};\n",
+         f"uint16_t UI_COLORS[{len(colors)}] = {{" + ", ".join(f"0x{v:04x}" for v in color_val) + "};\n",
          f"const uint16_t UI_ICONS[{max(1, len(icons))}][8] = {{\n" +
          "".join("    {" + ", ".join(f"0x{v:03x}" for v in r) + "},\n" for r in icon_rows) + "};\n",
          f"const uint8_t UI_ICON_ROWS[{max(1, len(icons))}] = {{" + ", ".join(str(len(r)) for r in icon_rows) + "};\n",

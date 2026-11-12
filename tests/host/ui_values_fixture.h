@@ -185,6 +185,7 @@ static const ui_fx_val_t UI_FX_MAIN[] = {
     {"texNoiseFirst", 1, "", 0},
     {"texNoiseFrac", 2, "", 1},
     {"texNoiseLast", 1, "", 1},
+    {"theme", 0, "", 0},
 };
 static const ui_fx_val_t UI_FX_PENDING[] = {
     {"ambience", 0, "RAIN", 0},
@@ -370,6 +371,7 @@ static const ui_fx_val_t UI_FX_PENDING[] = {
     {"texNoiseFirst", 1, "", 0},
     {"texNoiseFrac", 2, "", 1},
     {"texNoiseLast", 1, "", 1},
+    {"theme", 0, "", 0},
 };
 static const ui_fx_val_t UI_FX_COMP[] = {
     {"ambience", 0, "RAIN", 0},
@@ -555,6 +557,7 @@ static const ui_fx_val_t UI_FX_COMP[] = {
     {"texNoiseFirst", 1, "", 0},
     {"texNoiseFrac", 2, "", 1},
     {"texNoiseLast", 1, "", 1},
+    {"theme", 0, "", 0},
 };
 static const ui_fx_val_t UI_FX_COMP_MORE[] = {
     {"ambience", 0, "RAIN", 0},
@@ -739,6 +742,7 @@ static const ui_fx_val_t UI_FX_COMP_MORE[] = {
     {"texNoiseFirst", 1, "", 0},
     {"texNoiseFrac", 2, "", 1},
     {"texNoiseLast", 1, "", 1},
+    {"theme", 0, "", 0},
 };
 static const ui_fx_val_t UI_FX_DRUMS[] = {
     {"ambience", 0, "RAIN", 0},
@@ -923,6 +927,7 @@ static const ui_fx_val_t UI_FX_DRUMS[] = {
     {"texNoiseFirst", 1, "", 0},
     {"texNoiseFrac", 2, "", 1},
     {"texNoiseLast", 1, "", 1},
+    {"theme", 0, "", 0},
 };
 static const ui_fx_val_t UI_FX_SONG_MORE[] = {
     {"ambience", 0, "RAIN", 0},
@@ -1107,6 +1112,7 @@ static const ui_fx_val_t UI_FX_SONG_MORE[] = {
     {"texNoiseFirst", 1, "", 0},
     {"texNoiseFrac", 2, "", 1},
     {"texNoiseLast", 1, "", 1},
+    {"theme", 0, "", 0},
 };
 static const ui_fx_val_t UI_FX_SONG3[] = {
     {"ambience", 0, "RAIN", 0},
@@ -1291,6 +1297,7 @@ static const ui_fx_val_t UI_FX_SONG3[] = {
     {"texNoiseFirst", 1, "", 0},
     {"texNoiseFrac", 2, "", 1},
     {"texNoiseLast", 1, "", 1},
+    {"theme", 0, "", 0},
 };
 static const ui_fx_val_t UI_FX_LEAD[] = {
     {"ambience", 0, "RAIN", 0},
@@ -1475,6 +1482,7 @@ static const ui_fx_val_t UI_FX_LEAD[] = {
     {"texNoiseFirst", 1, "", 0},
     {"texNoiseFrac", 2, "", 1},
     {"texNoiseLast", 1, "", 1},
+    {"theme", 0, "", 0},
 };
 static const ui_fx_val_t UI_FX_STOPPED[] = {
     {"ambience", 0, "RAIN", 0},
@@ -1659,15 +1667,16 @@ static const ui_fx_val_t UI_FX_STOPPED[] = {
     {"texNoiseFirst", 1, "", 0},
     {"texNoiseFrac", 2, "", 1},
     {"texNoiseLast", 1, "", 1},
+    {"theme", 0, "", 0},
 };
 static const ui_fx_case_t UI_FX_CASES[] = {
-    {"main", US_MAIN, 1, 2, 0, {{0, 0, 0}}, UI_FX_MAIN, 182},
-    {"pending", US_MAIN, 1, 0, 1, {{UFLD_TEMPO, 86, 16}}, UI_FX_PENDING, 183},
-    {"comp", US_P_COMP, 1, 0, 1, {{UFLD_COMP_REG, 1, 16}}, UI_FX_COMP, 183},
-    {"comp_more", US_P_COMP_MORE, 1, 0, 0, {{0, 0, 0}}, UI_FX_COMP_MORE, 182},
-    {"drums", US_P_DRUMS, 1, 0, 0, {{0, 0, 0}}, UI_FX_DRUMS, 182},
-    {"song_more", US_P_SONG_MORE, 1, 0, 0, {{0, 0, 0}}, UI_FX_SONG_MORE, 182},
-    {"song3", US_P_SONG3, 1, 0, 0, {{0, 0, 0}}, UI_FX_SONG3, 182},
-    {"lead", US_P_LEAD, 1, 0, 0, {{0, 0, 0}}, UI_FX_LEAD, 182},
-    {"stopped", US_MAIN, 0, 0, 0, {{0, 0, 0}}, UI_FX_STOPPED, 182},
+    {"main", US_MAIN, 1, 2, 0, {{0, 0, 0}}, UI_FX_MAIN, 183},
+    {"pending", US_MAIN, 1, 0, 1, {{UFLD_TEMPO, 86, 16}}, UI_FX_PENDING, 184},
+    {"comp", US_P_COMP, 1, 0, 1, {{UFLD_COMP_REG, 1, 16}}, UI_FX_COMP, 184},
+    {"comp_more", US_P_COMP_MORE, 1, 0, 0, {{0, 0, 0}}, UI_FX_COMP_MORE, 183},
+    {"drums", US_P_DRUMS, 1, 0, 0, {{0, 0, 0}}, UI_FX_DRUMS, 183},
+    {"song_more", US_P_SONG_MORE, 1, 0, 0, {{0, 0, 0}}, UI_FX_SONG_MORE, 183},
+    {"song3", US_P_SONG3, 1, 0, 0, {{0, 0, 0}}, UI_FX_SONG3, 183},
+    {"lead", US_P_LEAD, 1, 0, 0, {{0, 0, 0}}, UI_FX_LEAD, 183},
+    {"stopped", US_MAIN, 0, 0, 0, {{0, 0, 0}}, UI_FX_STOPPED, 183},
 };

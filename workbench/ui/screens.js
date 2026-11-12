@@ -11,7 +11,7 @@
 //     text   a template: {name} is a value below (or a line in `lines`)
 //     font   T, XS, S, B, M or L (the device's, at their real metrics: ui/fonts.js)
 //     x      the pen's left; right: the text ends there (measured); after: this many px past the previous item's end
-//     color  BLACK, WHITE, LINE, DIM, GRAY, AMB, HI (gfx.c's palette for app.h's APP_PALETTE: TEAL)
+//     color  BLACK, WHITE, LINE, DIM, GRAY, AMB, HI (gfx.c's palette: app.h's APP_PALETTE, or Settings' THEME)
 //     when   a value that must be true (non-empty, non-zero), "!value" for false, or a list of them (all must hold)
 //   { rect: [x, y, w, h], color, when }
 //   { knobs: { x, dx, label: { y, font, color }, value: { y, font, color, when } } }: the screen's four knobs, K1 at x,
@@ -49,9 +49,9 @@ export default {
     PAD: [96, 164, 240], LEAD: [236, 124, 184], TEXTURE: [186, 168, 138],
     // a change made but not live yet: its value at once, "*" in front, in this color (Sam, 2026-11-06)
     PENDING: [250, 226, 90],
-    // the record's disc on the splash and the now-playing screen (Sam's splash C1): a teal-black, about 55% of the
-    // background (TEAL's #0c1d1e)
-    VINYL: [11, 13, 7],
+    // the record's disc on the splash and the now-playing screen (Sam's splash C1): about 55% of the theme's
+    // background (device.js's vinyl and app.c's, per theme: this is the default PLUM+'s, #1f072e)
+    VINYL: [16, 4, 24],
   },
 
   // 1-bit icons, 9 px wide, rows of "#" (lit) and "." (the main screen's): one per part, drawn in its color
@@ -523,11 +523,13 @@ export default {
       say: ["MIXER, PAGE {page}. ", { when: "song", text: "{section}, BAR {bar} OF {bars}" }],
     },
 
-    // PLACEHOLDER: the user's settings, GLO (Sam, 2026-11-06): what goes here (reduced movement, the
-    // screen reader, the key lights, brightness, which main screen is the default, the Advanced rules) is listed, not
-    // working yet.
+    // The user's settings, GLO (Sam, 2026-11-06). THEME works (Sam, 2026-11-12: comparing the palettes on the FM-1
+    // itself, whose backlight greys dark, low-chroma backgrounds): SELECT or ALGO steps through base's gfx.c palettes,
+    // at once, and the device keeps the choice (app.c's settings, written while all is silent). The rest (reduced
+    // movement, the screen reader, the key lights, brightness, which main screen is the default, the Advanced rules)
+    // is listed, not working yet.
     prefs: {
-      title: "Settings (placeholder)",
+      title: "Settings (theme only)",
       placeholder: true,
       bands: [
         { y: 0, h: 16, draw: [
@@ -538,24 +540,25 @@ export default {
         { y: 18, h: 28, draw: [
           { rect: [2, 0, 2, 26], color: "WHITE" },
           { text: "SETTINGS", font: "B", x: 10, y: 4, color: "WHITE" },
-          { text: "PLACEHOLDER", font: "T", right: 232, y: 8, color: "DIM" },
         ] },
         { y: 50, h: 140, draw: [
-          { text: "MOVEMENT", font: "T", x: 8, y: 4, color: "GRAY" }, { text: "LESS (A BAR AT A TIME)", font: "XS", right: 232, y: 2, color: "DIM" },
-          { text: "SCREEN READER", font: "T", x: 8, y: 24, color: "GRAY" }, { text: "ON", font: "XS", right: 232, y: 22, color: "DIM" },
-          { text: "KEY LIGHTS", font: "T", x: 8, y: 44, color: "GRAY" }, { text: "ON", font: "XS", right: 232, y: 42, color: "DIM" },
-          { text: "BRIGHTNESS", font: "T", x: 8, y: 64, color: "GRAY" }, { text: "HIGH", font: "XS", right: 232, y: 62, color: "DIM" },
-          { text: "MAIN SCREEN", font: "T", x: 8, y: 84, color: "GRAY" }, { text: "EXPANDED", font: "XS", right: 232, y: 82, color: "DIM" },
-          { text: "ADVANCED RULES", font: "T", x: 8, y: 104, color: "GRAY" }, { text: "...", font: "XS", right: 232, y: 102, color: "DIM" },
+          { rect: [2, 0, 236, 20], color: "LINE" },
+          { text: "THEME", font: "T", x: 8, y: 6, color: "WHITE" }, { text: "{theme}", font: "XS", right: 232, y: 4, color: "HI" },
+          { text: "MOVEMENT", font: "T", x: 8, y: 26, color: "GRAY" }, { text: "LESS (A BAR AT A TIME)", font: "XS", right: 232, y: 24, color: "DIM" },
+          { text: "SCREEN READER", font: "T", x: 8, y: 44, color: "GRAY" }, { text: "ON", font: "XS", right: 232, y: 42, color: "DIM" },
+          { text: "KEY LIGHTS", font: "T", x: 8, y: 62, color: "GRAY" }, { text: "ON", font: "XS", right: 232, y: 60, color: "DIM" },
+          { text: "BRIGHTNESS", font: "T", x: 8, y: 80, color: "GRAY" }, { text: "HIGH", font: "XS", right: 232, y: 78, color: "DIM" },
+          { text: "MAIN SCREEN", font: "T", x: 8, y: 98, color: "GRAY" }, { text: "EXPANDED", font: "XS", right: 232, y: 96, color: "DIM" },
+          { text: "ADVANCED RULES", font: "T", x: 8, y: 116, color: "GRAY" }, { text: "...", font: "XS", right: 232, y: 114, color: "DIM" },
         ] },
         { y: 196, h: 44, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
-          { text: "NOT WORKING YET: WHAT GOES HERE", font: "T", x: 8, y: 8, color: "DIM" },
+          { text: "SELECT THEME   THE REST: NOT WORKING YET", font: "T", x: 8, y: 8, color: "DIM" },
           { text: "GLO BACK   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
-      controls: { GLO: { go: "back" } },
-      say: ["SETTINGS, A PLACEHOLDER"],
+      controls: { GLO: { go: "back" }, SELECT: { do: "theme" }, ALGO: { do: "theme" } },
+      say: ["SETTINGS. THEME {theme}"],
     },
 
     // The song's map (Sam, 2026-11-06: where we are in the map, jump to a section, loop the one playing): SEL from

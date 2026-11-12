@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# The theme (Sam, 2026-11-12: comparing palettes on the FM-1 without a flash each): Settings (GLO), SELECT or ALGO
+# steps through base's palettes at once, PLUM+ by default; the device keeps the choice through a reboot, the splash in
+# it. A change while a song plays is kept only once all is silent, as the home is (a flash save stalls the audio).
+listen
+wait 1400
+expect theme 9
+tap GLO
+wait 50
+said SETTINGS. THEME PLUM+
+shot theme-settings.png
+spin SELECT -1
+wait 50
+said THEME PLUM
+expect theme 8
+spin ALGO 2
+wait 50
+said THEME OXBLOOD
+expect theme 10
+wait 100
+expect theme_kept 1
+reboot
+expect splash 1
+expect theme 10
+wait 100
+shot theme-splash.png
+wait 1400
+expect theme 10
+tap PLAY
+wait 3000
+tap GLO
+spin SELECT 1
+wait 50
+said THEME OXBLOOD+
+wait 2000
+expect theme_kept 0
+tap PLAY
+wait 2000
+expect theme_kept 1
+reboot
+wait 1400
+expect theme 11
+tap GLO
+spin SELECT -2
+wait 50
+expect theme 9

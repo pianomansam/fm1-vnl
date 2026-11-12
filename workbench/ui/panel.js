@@ -3,7 +3,7 @@
 // controls by printed label (clickable, and keys), what the screen reader says, and the flow between the screens with
 // the breadcrumb. It plays the workbench's song: a knob's change goes through the rows' own calls (Desk.set), PLAY is
 // the page's Play. Served from workbench/ui/ as it is on disk: edit screens.js, then "Reload screens" (or reload).
-import { Lcd, Device, W, H, BUTTONS, ENCODERS, KNOBS, actionOf, transitions, problems } from "./device.js";
+import { Lcd, Device, W, H, BUTTONS, ENCODERS, KNOBS, PALETTES, colors, actionOf, transitions, problems } from "./device.js";
 import { connect } from "./usb.js";
 
 // the panel's keys (the page's, not the device's): a knob or encoder clockwise, with Shift counter-clockwise
@@ -173,6 +173,7 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
       else {   // the home used last (the FM-1 keeps it in its flash; here this browser's), then the boot splash
         dev = new Device(data, engine);
         try { const h = localStorage.getItem(HOME_KEY); if (h && data.screens[h]) dev.stack = [dev.home = h]; } catch {}
+        try { const t = localStorage.getItem(THEME_KEY); if (t && PALETTES[t]) dev.theme = t; } catch {}   // (Settings' THEME)
         try {   // the saved songs (the FM-1 keeps them in its flash; here this browser's)
           const s = JSON.parse(localStorage.getItem(SAVED_KEY) ?? "null");
           if (Array.isArray(s)) s.slice(0, dev.slots.length).forEach((x, i) => { dev.slots[i] = x ?? null; });
@@ -188,11 +189,12 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
   }
 
   // the screen and what the reader said
-  let lightsKey = "", keptHome = null, keptSaved = null;
-  const HOME_KEY = "vnl1.home", SAVED_KEY = "vnl1.saved";
+  let lightsKey = "", keptHome = null, keptSaved = null, keptTheme = null;
+  const HOME_KEY = "vnl1.home", SAVED_KEY = "vnl1.saved", THEME_KEY = "vnl1.theme";
   function draw() {
     if (!dev) return;
     if (dev.home !== keptHome) { keptHome = dev.home; try { localStorage.setItem(HOME_KEY, dev.home); } catch {} }
+    if (dev.theme !== keptTheme) { keptTheme = dev.theme; shownId = null; try { localStorage.setItem(THEME_KEY, dev.theme); } catch {} }
     const saved = JSON.stringify(dev.slots);
     if (saved !== keptSaved) { keptSaved = saved; try { localStorage.setItem(SAVED_KEY, saved); } catch {} }
     const L = dev.keyLights(), lk = [...L.on].join() + "|" + [...L.blink].join();   // the keys' lights, here and on the FM-1
@@ -201,7 +203,8 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
       for (let k = 0; k < 27; k++) { const b = ctl.get(`KEY${k}`); b?.classList.toggle("lit", L.on.has(k)); b?.classList.toggle("blink", L.blink.has(k)); }
     }
     usb?.lights?.(L.on, L.blink);
-    if (dev.showing !== shownId) { lcd.fill(); shownId = dev.showing; }   // a new screen: cleared first, as an app would (lcd_fill)
+    if (dev.showing !== shownId) { lcd.fill(colors(dev.theme).BLACK); shownId = dev.showing; }   // a new screen (or theme): cleared
+    // first, as an app would (lcd_fill)
     dev.draw(lcd);
     ctx.putImageData(new ImageData(lcd.rgba(img.data), W, H), 0, 0);
     say.replaceChildren(el("b", { textContent: "Screen reader: " }), dev.said || "–");

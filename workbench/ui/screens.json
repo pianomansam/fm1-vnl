@@ -41,9 +41,9 @@
    138
   ],
   "VINYL": [
-   11,
-   13,
-   7
+   16,
+   4,
+   24
   ]
  },
  "defaults": {
@@ -5295,13 +5295,6 @@
        "text": "SETTINGS",
        "x": 10,
        "y": 4
-      },
-      {
-       "color": "DIM",
-       "font": "T",
-       "right": 232,
-       "text": "PLACEHOLDER",
-       "y": 8
       }
      ],
      "h": 28,
@@ -5310,37 +5303,46 @@
     {
      "draw": [
       {
+       "color": "LINE",
+       "rect": [
+        2,
+        0,
+        236,
+        20
+       ]
+      },
+      {
+       "color": "WHITE",
+       "font": "T",
+       "text": "THEME",
+       "x": 8,
+       "y": 6
+      },
+      {
+       "color": "HI",
+       "font": "XS",
+       "right": 232,
+       "text": "{theme}",
+       "y": 4
+      },
+      {
        "color": "GRAY",
        "font": "T",
        "text": "MOVEMENT",
        "x": 8,
-       "y": 4
+       "y": 26
       },
       {
        "color": "DIM",
        "font": "XS",
        "right": 232,
        "text": "LESS (A BAR AT A TIME)",
-       "y": 2
+       "y": 24
       },
       {
        "color": "GRAY",
        "font": "T",
        "text": "SCREEN READER",
-       "x": 8,
-       "y": 24
-      },
-      {
-       "color": "DIM",
-       "font": "XS",
-       "right": 232,
-       "text": "ON",
-       "y": 22
-      },
-      {
-       "color": "GRAY",
-       "font": "T",
-       "text": "KEY LIGHTS",
        "x": 8,
        "y": 44
       },
@@ -5354,44 +5356,58 @@
       {
        "color": "GRAY",
        "font": "T",
+       "text": "KEY LIGHTS",
+       "x": 8,
+       "y": 62
+      },
+      {
+       "color": "DIM",
+       "font": "XS",
+       "right": 232,
+       "text": "ON",
+       "y": 60
+      },
+      {
+       "color": "GRAY",
+       "font": "T",
        "text": "BRIGHTNESS",
        "x": 8,
-       "y": 64
+       "y": 80
       },
       {
        "color": "DIM",
        "font": "XS",
        "right": 232,
        "text": "HIGH",
-       "y": 62
+       "y": 78
       },
       {
        "color": "GRAY",
        "font": "T",
        "text": "MAIN SCREEN",
        "x": 8,
-       "y": 84
+       "y": 98
       },
       {
        "color": "DIM",
        "font": "XS",
        "right": 232,
        "text": "EXPANDED",
-       "y": 82
+       "y": 96
       },
       {
        "color": "GRAY",
        "font": "T",
        "text": "ADVANCED RULES",
        "x": 8,
-       "y": 104
+       "y": 116
       },
       {
        "color": "DIM",
        "font": "XS",
        "right": 232,
        "text": "...",
-       "y": 102
+       "y": 114
       }
      ],
      "h": 140,
@@ -5411,7 +5427,7 @@
       {
        "color": "DIM",
        "font": "T",
-       "text": "NOT WORKING YET: WHAT GOES HERE",
+       "text": "SELECT THEME   THE REST: NOT WORKING YET",
        "x": 8,
        "y": 8
       },
@@ -5428,15 +5444,21 @@
     }
    ],
    "controls": {
+    "ALGO": {
+     "do": "theme"
+    },
     "GLO": {
      "go": "back"
+    },
+    "SELECT": {
+     "do": "theme"
     }
    },
    "placeholder": true,
    "say": [
-    "SETTINGS, A PLACEHOLDER"
+    "SETTINGS. THEME {theme}"
    ],
-   "title": "Settings (placeholder)"
+   "title": "Settings (theme only)"
   },
   "saved": {
    "bands": [

@@ -7,7 +7,7 @@
 
 /* the vocabulary (workbench/ui/vocab.json), in its order */
 enum ui_item_kind { UI_TEXT, UI_RECT, UI_ICON, UI_METER, UI_KNOBS, UI_SECTIONS, UI_LANES, UI_FADERS, UI_RECORD };
-enum ui_action { UA_NONE, UA_GO, UA_PLAY, UA_NUDGE, UA_TURN, UA_CURSOR, UA_PAGE, UA_PART, UA_JUMP, UA_REROLL, UA_MUTE, UA_SOLO, UA_LEVEL, UA_LOCK, UA_SAVE, UA_READOUT, UA_RECALL, UA_ERASE };
+enum ui_action { UA_NONE, UA_GO, UA_PLAY, UA_NUDGE, UA_TURN, UA_CURSOR, UA_PAGE, UA_PART, UA_JUMP, UA_REROLL, UA_MUTE, UA_SOLO, UA_LEVEL, UA_LOCK, UA_SAVE, UA_READOUT, UA_RECALL, UA_ERASE, UA_THEME };
 
 /* the controls an action a screen: plat.h's buttons (B_*), the encoders (EN_SELECT, EN_ALGO, EN_PRESET), the
    knobs K1-K4, the keys 0-26 */
@@ -18,8 +18,9 @@ enum { UC_IN_FX, UC_IN_SEL, UC_IN_ENV, UC_IN_LFO, UC_IN_EDIT, UC_IN_GLO, UC_IN_H
 #define UI_CTL_KNOB(k) (17 + (k))
 #define UI_CTL_KEY(k) (21 + (k))
 
-/* fonts (ui/fonts.js's faces: gfx's FONT_*), colors (UI_COLORS: the theme's, gfx.c's palette for APP_PALETTE,
-   then the screens' own), icons, parts (the lanes', keys', mute's and solo's), screens, fields */
+/* fonts (ui/fonts.js's faces: gfx's FONT_*), colors (UI_COLORS: the theme's, gfx.c's palette for APP_PALETTE until
+   app.c sets its theme entries and VINYL from Settings' THEME, then the screens' own), icons, parts (the
+   lanes', keys', mute's and solo's), screens, fields */
 enum ui_font { UI_FONT_T, UI_FONT_XS, UI_FONT_S, UI_FONT_B, UI_FONT_M, UI_FONT_L, UI_FONT_MARK };
 #define UI_FONT_TABLE {&FONT_T, &FONT_XS, 0, &FONT_B, &FONT_M, 0, &FONT_MARK}   /* gfx's faces the screens use (0: none) */
 enum ui_color { UC_BLACK, UC_WHITE, UC_LINE, UC_DIM, UC_GRAY, UC_AMB, UC_HI, UC_BASS, UC_COMP, UC_DRUMS, UC_LEAD, UC_PAD, UC_PENDING, UC_SONG, UC_TEXTURE, UC_VINYL };
@@ -67,25 +68,26 @@ enum ui_value {
     UV_LOCK_TEXTURE,
     UV_LOCK_SONG,
     UV_SLOT_RANGE,
+    UV_THEME,
     UV_N_FIXED
 };
 enum { UVK_I_SEL, UVK_I_SEC, UVK_I_SEC_BARS, UVK_I_SEC_NOW, UVK_I_SEC_PEND, UVK_I_SEC_KEY, UVK_I_SLOT, UVK_I_SLOT_NUM, UVK_I_SLOT_INFO, UVK_I_SLOT_EMPTY, UVK_I_SLOT_PEND, UVK_I_N };   /* sel{0-9}, sec{0-9}, sec{0-9}Bars, sec{0-9}Now, sec{0-9}Pend, sec{0-9}Key, slot{0-9}, slot{0-9}Num, slot{0-9}Info, slot{0-9}Empty, slot{0-9}Pend */
-#define UV_I0 32
+#define UV_I0 33
 #define UV_I(i, k) (UV_I0 + (i) * UVK_I_N + (k))
 #define UV_I_COUNT 10
 enum { UVK_FIELD_VALUE, UVK_FIELD_FRAC, UVK_FIELD_PEND, UVK_FIELD_FIRST, UVK_FIELD_LAST, UVK_FIELD_N };   /* {field}, {field}Frac, {field}Pend, {field}First, {field}Last */
-#define UV_FIELD0 142
+#define UV_FIELD0 143
 #define UV_FIELD(i, k) (UV_FIELD0 + (i) * UVK_FIELD_N + (k))
 #define UV_FIELD_COUNT 37
 enum { UVK_ROW_VALUE, UVK_ROW_PEND, UVK_ROW_N };   /* {row}, {row}Pend */
-#define UV_ROW0 327
+#define UV_ROW0 328
 #define UV_ROW(i, k) (UV_ROW0 + (i) * UVK_ROW_N + (k))
 #define UV_ROW_COUNT 38
 enum { UVK_LINE_VALUE, UVK_LINE_N };   /* {line} */
-#define UV_LINE0 403
+#define UV_LINE0 404
 #define UV_LINE(i, k) (UV_LINE0 + (i) * UVK_LINE_N + (k))
 #define UV_LINE_COUNT 2
-#define UI_N_VALUES 405
+#define UI_N_VALUES 406
 
 /* a template: text with a value at each UI_TPL_VAL byte, its id in the next two (UI_TPL_ID); never a NUL */
 #define UI_TPL_VAL 1
@@ -181,7 +183,7 @@ extern const uint8_t UI_LIST_DATA[];
 extern const ui_key_leds_t UI_KEY_LEDS[];
 extern const ui_say_t UI_SAYS[];
 extern const ui_field_t UI_FIELDS[];
-extern const uint16_t UI_COLORS[];
+extern uint16_t UI_COLORS[];
 extern const uint16_t UI_ICONS[][8];
 extern const uint8_t UI_ICON_ROWS[];
 /* a part as the Parts roll and the Mixer draw it (the mock's): its color and icon (the keys are the Comp's;

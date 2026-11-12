@@ -23,13 +23,27 @@ export const PALETTES = {
          RGB(12, 29, 30), RGB(244, 236, 219)],
   OLIVE: [RGB(35, 40, 24), RGB(74, 83, 48), RGB(178, 185, 143), RGB(227, 179, 48), RGB(246, 211, 107),
           RGB(20, 23, 12), RGB(245, 240, 220)],
+  PLUM: [RGB(43, 28, 56), RGB(85, 64, 106), RGB(182, 162, 200), RGB(255, 154, 98), RGB(255, 196, 154),
+         RGB(26, 16, 34), RGB(246, 236, 230)],
+  "PLUM+": [RGB(50, 13, 75), RGB(95, 46, 135), RGB(182, 162, 200), RGB(255, 154, 98), RGB(255, 196, 154),
+            RGB(31, 7, 46), RGB(246, 236, 230)],
+  OXBLOOD: [RGB(46, 18, 25), RGB(94, 42, 53), RGB(201, 154, 160), RGB(255, 122, 89), RGB(255, 173, 143),
+            RGB(26, 10, 15), RGB(251, 232, 227)],
+  "OXBLOOD+": [RGB(57, 3, 22), RGB(115, 7, 46), RGB(201, 154, 160), RGB(255, 122, 89), RGB(255, 173, 143),
+               RGB(33, 4, 14), RGB(251, 232, 227)],
 };
-export const THEME = "OLIVE";   // app.h's APP_PALETTE 7
-// the theme's colors, plus the screen data's own (`colors`: { NAME: [r, g, b] }, e.g. a color per part)
+export const THEME = "PLUM+";   // app.h's APP_PALETTE 9: the theme until Settings' THEME picks another ({theme})
+// the record's disc (VINYL): about 55% of the theme's background, each RGB565 channel (c 55 + 50) / 100 (app.c's)
+export const vinyl = (bg) => {
+  const k = (c) => Math.floor((c * 55 + 50) / 100);
+  return (k(bg >> 11) << 11) | (k((bg >> 5) & 63) << 5) | k(bg & 31);
+};
+// the theme's colors, plus the screen data's own (`colors`: { NAME: [r, g, b] }, e.g. a color per part; VINYL the
+// theme's, from its background)
 export const colors = (theme = THEME, extra = {}) => {
-  const p = PALETTES[theme];
+  const p = PALETTES[theme] ?? PALETTES[THEME];
   return { BLACK: p[5], WHITE: p[6], LINE: p[0], DIM: p[1], GRAY: p[2], AMB: p[3], HI: p[4],
-           ...Object.fromEntries(Object.entries(extra).map(([k, [r, g, b]]) => [k, RGB(r, g, b)])) };
+           ...Object.fromEntries(Object.entries(extra).map(([k, [r, g, b]]) => [k, k === "VINYL" ? vinyl(p[5]) : RGB(r, g, b)])) };
 };
 export const BG = colors().BLACK;   // the screen's background (an app's lcd_fill)
 
@@ -206,7 +220,7 @@ export function valuesOf(s, data) {
     APP: APP_NAME, song, stopped: !!s.stopped, idle: s.stopped ? "STOPPED" : "NEXT SONG",
     msg: !!s.msg, msg0: s.msg?.[0] ?? "", msg1: s.msg?.[1] ?? "",
     map: (s.map ?? "").toUpperCase(), section: SEC_NAME[s.section] ?? "", bar: (s.bar ?? 0) + 1, bars: r.bars,
-    chord: s.chord ?? "", pending: "", spin: s.spin ?? 0, fade: s.fade ?? 0,
+    chord: s.chord ?? "", pending: "", spin: s.spin ?? 0, fade: s.fade ?? 0, theme: s.theme ?? "",   // (theme: the Device's; none, THEME)
   };
   for (const [k, def] of Object.entries(f)) {
     const v = fieldValue(def, k, r, s.rows);
@@ -349,7 +363,7 @@ const mix565 = (v, g, f) => ((((v >> 11) * (16 - f) + (g >> 11) * f) >> 4) << 11
 const fadeColors = (C, bg, f) => Object.fromEntries(Object.entries(C).map(([k, v]) => [k, mix565(v, bg, f)]));
 
 // a screen's bands onto lcd, from its values (app.c's draw(), as data)
-export function drawScreen(lcd, screen, bag, data, C = colors(THEME, data.colors)) {
+export function drawScreen(lcd, screen, bag, data, C = colors(bag.theme || THEME, data.colors)) {
   for (const band of screen.bands) {
     lcd.begin(W, band.h, C[band.bg ?? "BLACK"]);
     // a fading screen (fade: true): its items but records mixed toward the band's background by {fade} (render.c's ui_col)
@@ -596,7 +610,7 @@ export class Device {
   constructor(data, engine, now = () => Date.now()) {
     Object.assign(this, { data, engine, now, home: data.home, stack: [data.home], cursor: {}, held: {}, req: {}, msg: null, said: "",
                           live: null, spin: 0, turns: 0, speed: 0, spunAt: null, locks: new Set(),
-                          slots: Array(SLOTS).fill(null) });
+                          slots: Array(SLOTS).fill(null), theme: THEME });
   }
   get id() { return this.stack[this.stack.length - 1]; }
   get screen() { return this.data.screens[this.id]; }
@@ -667,7 +681,7 @@ export class Device {
              activity: l.activity, levels: l.levels, locks: [...this.locks],
              barPos: song ? bar + Math.min(0.999, (this.now() - (this.barT ?? this.now())) / (240000 / Math.max(40, l.roll?.tempo ?? 80))) : bar, pend, msg: this.msg && this.now() < this.msg.until ? this.msg.text : null };
   }
-  values() { return valuesOf({ ...this.shown(), spin: this.spin, fade: this.fade ?? 0 }, this.data); }
+  values() { return valuesOf({ ...this.shown(), spin: this.spin, fade: this.fade ?? 0, theme: this.theme }, this.data); }
   // the record's turn (app.c's spin_tick): 33 1/3 turns a minute while a song plays, easing to a stop (and back up);
   // ms: now. The spin in 1/256 turns
   turn(ms = this.now()) {
@@ -869,6 +883,12 @@ export class Device {
       return null;
     }
     if (a.do === "readout") { this.engine.readout?.(); return null; }   // the device's measures (SAVE held: Song)
+    if (a.do === "theme") {   // Settings' THEME: the next of gfx.c's palettes (detents of them, wrapping), at once
+      const names = Object.keys(PALETTES), n = names.length, i = names.indexOf(this.theme);
+      this.theme = names[(((i < 0 ? 0 : i) + detents) % n + n) % n];
+      this.say("THEME", this.theme);
+      return null;
+    }
     if (a.go) {
       const from = this.id, to = a.go === "cursor" ? this.screen.menu?.[this.cursor[this.id] ?? 0] : a.go;
       if (!to) return null;

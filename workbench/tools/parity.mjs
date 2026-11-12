@@ -13,7 +13,7 @@ import { mkdtempSync, readFileSync, writeFileSync, existsSync, mkdirSync } from 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { deflateSync } from "node:zlib";
-import { Lcd, W, H, BG, drawScreen } from "../ui/device.js";
+import { Lcd, W, H, colors, drawScreen } from "../ui/device.js";
 import data from "../ui/screens.js";
 import { ROWS } from "../rows.js";
 
@@ -60,6 +60,7 @@ function run(seed, steps) {
 // the mock's screen from the device's bag
 function mock(state) {
   const lcd = new Lcd();
+  lcd.fill(colors(state.values.theme).BLACK);   // (the theme's background: Settings' THEME)
   const screen = data.screens[state.screen];
   drawScreen(lcd, screen, state.values, data);
   return lcd.fb;
@@ -97,7 +98,8 @@ function compare(c, extra = "") {
   const screen = data.screens[c.state.screen], inBand = new Uint8Array(H);
   for (const b of screen.bands) for (let y = b.y; y < b.y + b.h; y++) inBand[y] = 1;
   let outside = 0;
-  for (let y = 0; y < H; y++) if (!inBand[y]) for (let x = 0; x < W; x++) outside += c.fb[y * W + x] !== BG;
+  const bg = colors(c.state.values.theme).BLACK;
+  for (let y = 0; y < H; y++) if (!inBand[y]) for (let x = 0; x < W; x++) outside += c.fb[y * W + x] !== bg;
   const wrong = c.expect ? c.expect(c.state) : "";
   const good = same === W * H && !outside && !wrong;
   console.log(`  ${good ? "ok  " : "FAIL"} ${c.name}: ${((100 * same) / (W * H)).toFixed(3)}% of pixels match` +
@@ -305,6 +307,18 @@ const SEED = 72;
     { wait: 120 }, { check: "boot-fade-in", expect: (st) => is("screen", st.screen, "now") || (v(st).fade > 0 && v(st).fade < 16 ? "" : `fade ${v(st).fade}`) },
     { wait: 300 }, { check: "boot-faded-in", expect: (st) => is("screen", st.screen, "now") || is("fade", v(st).fade, 0) },
   ];
+  for (const c of run(SEED, steps)) compare(c);
+}
+{   // the themes (Settings' THEME: SELECT steps through gfx.c's palettes, at once): the splash, now playing, the main
+  // screen, Settings and a part screen in each of the four plum and oxblood ones; a reboot keeps it (stopped)
+  const v = (st) => st.values, is = (what, got, want) => (got === want ? "" : `${what} ${JSON.stringify(got)}, not ${JSON.stringify(want)}`);
+  const steps = [{ press: "PLAY" }, { wait: 5000 }];
+  for (const [d, name] of [[-1, "PLUM"], [1, "PLUM+"], [1, "OXBLOOD"], [1, "OXBLOOD+"]]) {
+    steps.push({ screen: "prefs" }, { spin: ["SELECT", d] }, { check: `theme-${name}-prefs`, expect: (st) => is("theme", v(st).theme, name) });
+    for (const id of ["splash", "now", "main", "pComp"]) steps.push({ screen: id }, { check: `theme-${name}-${id}` });
+  }
+  steps.push({ press: "PLAY" }, { wait: 2000 }, { reboot: true }, { wait: 1500 },
+             { check: "theme-kept", expect: (st) => is("theme", v(st).theme, "OXBLOOD+") });
   for (const c of run(SEED, steps)) compare(c);
 }
 console.log(ok ? "parity: all match" : "parity: FAILED");

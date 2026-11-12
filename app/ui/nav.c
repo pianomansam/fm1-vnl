@@ -438,6 +438,9 @@ static void act(ui_nav_t *n, int ai, int detents)
     case UA_READOUT:
         if (n->eng && n->eng->readout) n->eng->readout();
         return;
+    case UA_THEME:                                    /* the next palette (a turn: detents of them), at once */
+        if (n->eng && n->eng->theme) say(n, "THEME", n->eng->theme(detents));
+        return;
     case UA_PLAY:
         say(n, n->live && n->live->playing ? "STOP" : "PLAY", "");
         if (n->eng && n->eng->play) n->eng->play();

@@ -2249,9 +2249,38 @@ static int ui_e_recall(int slot)
 }
 static int ui_e_erase(int slot) { return sv_erase(slot, may_write()); }
 static void m_readout(void);
+
+/* the theme (Settings' THEME, SELECT or ALGO there): any of base's gfx.c palettes, switched at once (palette_set,
+   the screens' theme colors and the record's disc, the whole screen redrawn) and kept with the home (set_keep).
+   APP_PALETTE until one is picked */
+static uint8_t theme = APP_PALETTE % NPALETTES;
+static void theme_apply(uint32_t i)
+{
+    uint32_t k;
+    uint16_t bg;
+    theme = (uint8_t)(i % NPALETTES);
+    palette_set(theme);
+    UI_COLORS[UC_BLACK] = pal_bg;
+    UI_COLORS[UC_WHITE] = pal_white;
+    for (k = 0; k < 5u; k++)
+        UI_COLORS[UC_LINE + k] = pal[k];
+    bg = pal_bg;                         /* the disc: about 55% of the background, each RGB565 channel (device.js's) */
+    UI_COLORS[UC_VINYL] = (uint16_t)((((bg >> 11) * 55u + 50u) / 100u) << 11 |
+                                     ((((bg >> 5) & 63u) * 55u + 50u) / 100u) << 5 | ((bg & 31u) * 55u + 50u) / 100u);
+}
+static const char *ui_e_theme(int detents)
+{
+    if (detents) {
+        theme_apply((uint32_t)(((int)theme + detents) % (int)NPALETTES + (int)NPALETTES));
+        lcd_fill(0, 0, 240, 240, C_BLACK);
+        ui_draw_all();
+        ui.redraw = 1;
+    }
+    return PALETTES[theme].name;
+}
 static const ui_engine_t UI_HENG = {ui_e_set, ui_e_play, ui_e_reroll, ui_e_reroll_part, ui_e_jump, ui_e_mute,
                                     ui_e_solo, ui_e_muted, ui_e_soloed, ui_e_level, ui_e_level_get,
-                                    ui_e_save, ui_e_recall, ui_e_erase, m_readout};
+                                    ui_e_save, ui_e_recall, ui_e_erase, m_readout, ui_e_theme};
 
 /* what the Parts roll and the Mixer show: the render's notes (the buffer it isn't writing), the listening, levels */
 static const ui_activity_t *ui_activity(void)
@@ -2849,48 +2878,70 @@ static void speak(void)
 #endif
 
 #if VNL_UI_RUNTIME
-/* power-on (fm1-base's APP_SPLASH, before the engine starts): the splash, still; app_ui_init sets it turning */
+static void set_theme_boot(void);
+/* power-on (fm1-base's APP_SPLASH, before the engine starts): the splash, still, in the theme kept (its bands cover
+   the screen); app_ui_init sets it turning */
 void app_splash(void)
 {
     ui_bag_t b;
     memset(&b, 0, sizeof b);
     b.s = &ui_hsnap;                     /* (empty yet: the splash's items read no song) */
     b.screen = US_SPLASH;
+    set_theme_boot();
     ui_draw(&UI_SCREENS[US_SPLASH], &b, 0xFFFFFFFFu);
 }
 #endif
 
 #if VNL_UI_RUNTIME
 /* the settings kept in the flash (OBJ_SETTINGS): which home was used last (HOME on the main and now-playing screens),
-   so boot lands there. Saved when it changes, but only while nothing sounds (stopped or between songs, the tails
+   so boot lands there, and the theme (Settings' THEME: its palette + 1, 0 none; a record from before it: pad, 0, so
+   APP_PALETTE). Saved when it changes, but only while nothing sounds (stopped or between songs, the tails
    over): a save erases a 4 KB sector with the interrupts off and the audio buffer zeroed (base's st_erase), tens of
    ms of silence that a playing song hears as a crackle (Sam, 2026-11-11, switching the homes while playing) */
 #define SET_MAGIC 0x564E4C31u            /* "VNL1" */
 enum { SET_HOME_MAIN, SET_HOME_NOW };
-typedef struct { uint32_t magic; uint8_t home, pad[3]; } vnl_set_t;
-static uint8_t set_home = SET_HOME_MAIN;
+typedef struct { uint32_t magic; uint8_t home, theme, pad[2]; } vnl_set_t;
+static uint8_t set_home = SET_HOME_MAIN, set_theme = APP_PALETTE % NPALETTES;
+
+static int set_read(vnl_set_t *v)
+{
+    return plat_store_load(OBJ_SETTINGS, v, sizeof *v) == (int)sizeof *v && v->magic == SET_MAGIC &&
+           v->home <= SET_HOME_NOW;
+}
+
+static void set_theme_boot(void)         /* the theme kept (at power-on: the splash's colors) */
+{
+    vnl_set_t v;
+    set_theme = APP_PALETTE % NPALETTES;
+    if (set_read(&v) && v.theme && v.theme <= NPALETTES)
+        set_theme = (uint8_t)(v.theme - 1u);
+    theme_apply(set_theme);
+}
 
 static void set_load(void)
 {
     vnl_set_t v;
-    if (plat_store_load(OBJ_SETTINGS, &v, sizeof v) == (int)sizeof v && v.magic == SET_MAGIC && v.home <= SET_HOME_NOW)
+    if (set_read(&v))
         set_home = v.home;
+    set_theme_boot();
     ui_hnav.stack[0] = ui_hnav.home = (uint8_t)(set_home == SET_HOME_NOW ? US_NOW : UI_HOME);
 }
 
-static uint8_t set_tried = 0xFFu;        /* the home a failed write was for: tried again at the next change */
+static uint16_t set_tried = 0xFFFFu;     /* the home and theme a failed write was for: tried again at the next change */
 
-static void set_keep(void)               /* the home changed: kept once all is silent */
+static void set_keep(void)               /* the home or the theme changed: kept once all is silent */
 {
     uint8_t h = ui_hnav.home == US_NOW ? SET_HOME_NOW : SET_HOME_MAIN;
+    uint16_t want = (uint16_t)(h << 8 | theme);
     vnl_set_t v;
-    if (h == set_home) set_tried = 0xFFu;
-    if (h == set_home || h == set_tried || !may_write()) return;
+    if (h == set_home && theme == set_theme) set_tried = 0xFFFFu;
+    if ((h == set_home && theme == set_theme) || want == set_tried || !may_write()) return;
     memset(&v, 0, sizeof v);
     v.magic = SET_MAGIC;
     v.home = h;
-    if (plat_store_save(OBJ_SETTINGS, &v, sizeof v) == 0) set_home = h;
-    else set_tried = h;
+    v.theme = (uint8_t)(theme + 1u);
+    if (plat_store_save(OBJ_SETTINGS, &v, sizeof v) == 0) set_home = h, set_theme = theme;
+    else set_tried = want;
 }
 
 /* backup and restore over USB (app.h): the home and the saved songs. Nothing is restored while anything sounds (a
@@ -3123,6 +3174,10 @@ int app_expect(const char *what, int *got)
         *got = ui_hnav.home == US_NOW;
     else if (!strcmp(what, "home_kept"))  /* the home in the flash is the one in use (0: its save waits for silence) */
         *got = (ui_hnav.home == US_NOW ? SET_HOME_NOW : SET_HOME_MAIN) == set_home;
+    else if (!strcmp(what, "theme"))     /* the theme: base's palette (Settings' THEME) */
+        *got = theme;
+    else if (!strcmp(what, "theme_kept"))   /* the theme in the flash is the one in use (0: its save waits) */
+        *got = theme == set_theme;
     else if (!strcmp(what, "splash"))    /* the boot splash showing */
         *got = splash_on;
     else if (!strcmp(what, "key_lit")) {   /* the keys lit, bit k key k (blinking ones not counted) */
