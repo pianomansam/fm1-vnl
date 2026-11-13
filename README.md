@@ -4,7 +4,7 @@ A generative lo-fi groovebox for the M-VAVE FM-1. VNL-1 writes and plays its own
 has its own key, tempo, chords, layout and band, played through a lo-fi
 chain of tape wobble, dust and a plate. Press PLAY and leave it running, or steer it from the FM-1's knobs: change
 the key, the tempo, the mood, any part's instrument, or jump between sections, and every change lands on the next
-four-bar line, in time.
+four-bar line.
 
 VNL-1 is free software (GPL), built on [fm1-base](https://github.com/charlesvestal/fm1-base).
 
