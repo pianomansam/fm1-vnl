@@ -19,7 +19,7 @@ VNL-1 is free software (GPL), built on [fm1-base](https://github.com/charlesvest
 - **Ten sound engines:** a sampler, FM electric piano, FM bass, a wind voice (flute, whistle), an analog-style saw
   pad, an ensemble for strings and choir, a tonewheel organ, a modeled vibraphone, a chip triangle and the drum
   synths.
-- **Effects:** tape wow and flutter, dust (saturation and a darkening low-pass), grit, a chorus and plate reverb
+- **Ten effects:** tape wow and flutter, dust (saturation and a darkening low-pass), grit, a chorus and plate reverb
   (adapted from Mutable Instruments Rings), a tape delay, bass saturation, kick ducking, filter sweeps on section
   changes and a whole-mix stutter, over a noise bed of vinyl, tape or rain.
 - **Hands on:** change the key, tempo, mood or any part from the knobs, re-roll or lock a part, jump to or loop a
