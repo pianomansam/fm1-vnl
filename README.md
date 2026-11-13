@@ -14,8 +14,8 @@ VNL-1 is free software (GPL), built on [fm1-base](https://github.com/charlesvest
   sets in five flavors, 44 chord progressions, four moods and five song layouts.
 - **[A six-part band](#parts):** drums (8 kits), bass (4 instruments), comp (9 instruments), lead (8 instruments in 8 styles),
   pad and texture.
-- **[A comp engine](#parts):** voice-led chords in eight comping rhythms, guitars strummed string by string in
-  eight patterns, and a harp that strums or rolls its chords; the comp keeps out of the lead's way.
+- **[An accompaniment engine](#parts):** voice-led chords in eight comping rhythms, guitars strummed string by string in
+  eight patterns, and a harp that strums or rolls its chords
 - **[Real and synth sounds](#sounds):** sampled piano, guitars, cello, harp and drum kits from CC0 libraries, beside modeled and
   synth instruments.
 - **[Ten sound engines](#sounds):** a sampler, FM electric piano, FM bass, a wind voice (flute, whistle), an analog-style saw
@@ -31,6 +31,22 @@ VNL-1 is free software (GPL), built on [fm1-base](https://github.com/charlesvest
   editable files.
 
 See [Features in detail](#features-in-detail) for everything each part can do.
+
+## What sets VNL-1 apart
+
+Checked against the 40 FM-1 firmwares we follow and a survey of 277 more (October 2026):
+
+- **Only in VNL-1:** it plays one fully generated song after another, forever, each with its own key, mode, tempo,
+  progression, band and arrangement, a real ending, then a short silence, and each different from the one before.
+- **Only in VNL-1:** every part it plays can be written out as MusicXML (and MIDI) for a score editor, and its drum,
+  strum, comp and chord patterns live as MIDI and MusicXML files that build into the firmware.
+- **Found nowhere else:** a comp that makes room for the lead, thinning or lifting over a low one.
+- **Found nowhere else:** a browser workbench where you change or re-roll any single decision of a song.
+
+Other firmwares generate music too, some with arrangements, motifs, part locks or saved songs. Where VNL-1 goes
+further is the planning: a whole song laid out before it plays (a layout, sections, where each part enters and
+drops out, fills, swells, breaks and an ending), and each part's next bar planned ahead, so a change from the knobs
+lands on the next four-bar line in time.
 
 ## Controls
 
