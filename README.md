@@ -34,15 +34,29 @@ See [Features in detail](#features-in-detail) for everything each part can do.
 
 ## Unique to VNL-1
 
+Music theory drives VNL-1's decisions, from the key of the next song to the last note of a phrase.
+
 - **Endless songs:** one fully generated song after another, forever, each with its own key, mode, tempo,
   progression, band and arrangement, a real ending, then a short silence, and each different from the one before.
+  Each new song starts in a related key: a fifth away, or the relative major or minor.
+- **Chords voiced like a jazz player's:** the bass takes the root, the keys keep the 3rd and 7th, and each chord moves
+  to the next by the smallest step, with the top note moving least, even from the loop's last chord back to its
+  first. Dominants always carry a 9th or 13th, notes that clash with the chord are left out, and later passes add
+  color one chord at a time.
+- **Parts that listen to each other:** no part rubs against another. The pad, the lead and the walking bass skip any
+  note a half step or a minor 9th from what the others play, and the accompaniment makes room for the lead, thinning
+  under it or lifting over a low one.
+- **Leads built from real melodies:** eight lead styles drawn from studies of how melodies work: a motif stated and
+  then sequenced, chord tones on the strong beats, a bossa line held across the chord change, and phrases that never
+  end on a dominant's 7th.
+- **A guitarist's strumming:** VNL-1 is the only FM-1 firmware we found that writes its own strummed guitar part. It
+  voices each chord as a real hand shape on six strings (the root on a low string, fretted notes within four frets,
+  open strings where they fit) and plays it with down and up strokes, muted chucks and a bossa thumb and pinch.
 - **Deep song planning:** each song is laid out before it plays: a layout, sections, where each part enters and
   drops out, fills, swells, breaks and an ending. No two sections are alike. The seeds and patterns are a starting
   point and the engine reshapes them so every song is its own.
 - **Parts planned ahead:** each part's next bar is planned before it plays, so a change from the knobs lands on the
-  next four-bar line, in time.
-- **Sophisticated part playing:** voice leading, development driven by music theory, and parts that stay out of each
-  other's way: the accompaniment makes room for the lead, thinning under it or lifting over a low one.
+  next four-bar line, in time, with that bar already planned in the new setting.
 - **Scores, not just sound:** every part can be written out as MusicXML (and MIDI) for a score editor, and the drum,
   strum, accompaniment and chord patterns live as MIDI and MusicXML files that build into the firmware.
 
