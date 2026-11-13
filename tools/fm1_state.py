@@ -78,7 +78,7 @@ def summary(s):
             f"{s.get('section') or '-'}; {s.get('key')} {s.get('mode')} {s.get('tempo')} BPM; screen {s.get('screen')} "
             f"(cursor {s.get('cursor')}); keys {name('keys')}, lead {name('lead')}, kit {name('kit')}; "
             f"mute {','.join(s.get('mute', [])) or '-'} solo {s.get('solo') or '-'}; "
-            f"cpu {cpu.get('load')}% (peak {cpu.get('peak')}%), late {cpu.get('late')}, render {cpu.get('render_us')} us, "
+            f"cpu {cpu.get('load')}% (peak {cpu.get('peak')}%), late {cpu.get('late')}, dropped {cpu.get('xruns', '-')}, render {cpu.get('render_us')} us, "
             f"redraw {cpu.get('redraw_us')} us, record turn {cpu.get('spin_us')} us, fade {cpu.get('fade_us')} us, "
             f"guard {gname('guard')} "
             f"(top {gname('guard_top')}, {cpu.get('guard_steps')} up, {cpu.get('guard_recov', 0)} back, "

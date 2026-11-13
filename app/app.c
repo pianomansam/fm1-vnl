@@ -2845,6 +2845,8 @@ static uint32_t live_state(char *o, uint32_t cap)
     jbk(&b, "load"); jbi(&b, (int32_t)m_load_now);
     jbk(&b, "peak"); jbi(&b, (int32_t)m_load_peak);
     jbk(&b, "late"); jbi(&b, (int32_t)m_late);
+    jbk(&b, "xruns"); jbi(&b, (int32_t)plat_xruns());   /* halves the audio actually dropped (with audio_ahead, a late
+                                                           block alone is caught up; two in a row drop a half) */
     jbk(&b, "redraw_us"); jbi(&b, (int32_t)m_draw_max);
     jbk(&b, "spin_us"); jbi(&b, (int32_t)m_spin_max);   /* the record's turn: a frame's label redraw, the longest */
     jbk(&b, "fade_us"); jbi(&b, (int32_t)m_fade_max);   /* a fade's step: the text's redraw, the longest */
