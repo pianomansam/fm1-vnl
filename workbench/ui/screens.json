@@ -1021,11 +1021,11 @@
       {
        "back": "VINYL",
        "color": "AMB",
-       "past": "DIM",
+       "past": "LINE",
        "record": [
-        230,
+        224,
         8,
-        7
+        30
        ],
        "value": "spin"
       },
@@ -1059,7 +1059,7 @@
       {
        "color": "HI",
        "font": "T",
-       "right": 220,
+       "right": 190,
        "text": "{tempo} BPM",
        "when": "known",
        "y": 2
@@ -1072,7 +1072,7 @@
        "y": 2
       }
      ],
-     "h": 16,
+     "h": 18,
      "y": 0
     },
     {
@@ -1098,6 +1098,17 @@
        "when": "sel0"
       },
       {
+       "back": "VINYL",
+       "color": "AMB",
+       "past": "LINE",
+       "record": [
+        224,
+        -10,
+        30
+       ],
+       "value": "spin"
+      },
+      {
        "color": "WHITE",
        "font": "B",
        "text": "{chord}",
@@ -1108,7 +1119,7 @@
       {
        "color": "HI",
        "font": "XS",
-       "right": 232,
+       "right": 190,
        "text": "{key} {mode}",
        "when": [
         "song",
@@ -1119,7 +1130,7 @@
       {
        "color": "HI",
        "font": "XS",
-       "right": 220,
+       "right": 176,
        "text": "{key} {mode}",
        "when": [
         "song",
@@ -1131,7 +1142,7 @@
        "color": "HI",
        "icon": "lock",
        "when": "lockSong",
-       "x": 226,
+       "x": 182,
        "y": 4
       },
       {

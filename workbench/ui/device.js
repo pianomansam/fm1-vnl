@@ -323,14 +323,15 @@ const sin256 = (u) => { const i = u & 63, k = (u >> 6) & 3, v = SIN_Q[k & 1 ? 64
 const cos256 = (u) => sin256(u + 64);
 const idiv = (a, b) => Math.trunc(a / b);   // C's integer division
 // a record centred at (cx, cy) on the canvas: the disc (its edge smoothed), five grooves, the label (r * 5 / 13), and on
-// it, turned by spin (1/256 turns, counter-clockwise), a cream dot and opposite a wedge of light; the spindle's hole.
-// A small one (r under REC_SMALL: the main screen's, in its top band) to the pixel instead: its label (r * 3 + 3) / 7,
+// it, turned by spin (1/256 turns, counter-clockwise), a cream dot and opposite a wedge of light (from 3/10 of the
+// label out); the spindle's hole.
+// A small one (r under REC_SMALL, e.g. r 7 in a status bar) to the pixel instead: its label (r * 3 + 3) / 7,
 // one groove (r - 2), the dot a single pixel a pixel in from the label's edge, no wedge, the hole a single pixel
 export const REC_SMALL = 16;
 export const recordLabel = (r) => (r < REC_SMALL ? idiv(r * 3 + 3, 7) : idiv(r * 5, 13));
 export function drawRecord(lcd, cx, cy, r, C, label, disc, groove, spin) {
   const small = r < REC_SMALL, rl = recordLabel(r), outer = (2 * r + 1) ** 2, inner = (2 * rl + 1) ** 2;
-  const dist = small ? rl - 1 : idiv(rl * 3, 4), hole = small ? 0 : 36, sheen = small ? inner : 4 * 144;
+  const dist = small ? rl - 1 : idiv(rl * 3, 4), hole = small ? 0 : 36, sheen = small ? inner : 4 * idiv(rl * 3, 10) ** 2;
   const spot = small ? 0 : 10;
   const dotx = (dist * cos256(spin) + 2048) >> 12, doty = -((dist * sin256(spin) + 2048) >> 12);
   const ax = cos256(spin + 118), ay = sin256(spin + 118), bx = cos256(spin + 138), by = sin256(spin + 138);
