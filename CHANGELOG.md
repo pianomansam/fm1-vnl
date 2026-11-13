@@ -14,7 +14,7 @@ The first public release: a generative lo-fi hip hop firmware for the M-VAVE FM-
 - **The harp on the comp:** in three sets (harp and flute, bossa harp and vibes, harp and felt), the sampled harp
   strums in half its songs (ballad, bossa or charleston, each stroke a quick roll up the strings) and rolls held or
   half-note chords in the rest, each roll centered on the beat.
-- **A lo-fi mix:** wow and flutter, saturation, grit, chorus, delay, plate reverb, kick ducking and a whole-mix stutter.
+- **A lo-fi mix:** wow and flutter, saturation, grit, chorus, delay, plate reverb, kick ducking and a whole-mix stutter on the last bar of a 4- or 8-bar group.
 - **The comp over a low lead:** with the jazz guitar or the cello leading, the comp keeps its own register with the
   lead (a note fewer and a dip where the lead sounds) in three songs out of four, or lifts an octave over it; the
   Comp screen's page 2 (K3, Over a low lead) forces either.

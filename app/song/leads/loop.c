@@ -23,10 +23,9 @@
      - the drop before a section change: the last bar of a lead block with a block after it, 50% where it doesn't
        stutter: half of them the whole bar out, half its last 2 beats
      - the stutter (Sam, 2026-11-09: the whole mix, after Cut-A-Dor's captured slice; the melody-only stutters, notes
-       or audio, didn't work). Mostly on the last bar of a group as the screen shows it (Sam, 2026-11-12: 4 of 4, 8 of
-       8; a group 8 bars from the block's start, a block's 4-bar tail its own group), sometimes the turnaround's bar
-       7 of 8, now and then another: a group's last bar 58%, bar 7 of 8 14%, any other bar but a group's first 1.5%
-       (about 0.8 a song: 75% of them on a group's last bar, 15% on bar 7 of 8, 10% elsewhere); never in the song's
+       or audio, didn't work). Only on the last bar of a group as the screen shows it (Sam, 2026-11-13: 4 of 4, 8 of
+       8, never another bar; a group 8 bars from the block's start, a block's 4-bar tail its own group): 70% of those
+       bars (about 0.6 a song); never in the song's
        first lead pass, nor in the bar right after a stutter, nor in a muted bar, nor where the
        section already moves the lead's filter (an entry filtered in, a break's last bar, a drum drop, a swell, an
        intro or outro). The lead's notes stay as recorded: the bar is marked (ls->loop.sbar) and the engine stutters
@@ -60,7 +59,7 @@ int leads_loop_log(int bar) { return bar >= 0 && bar < 256 ? lg[bar] : 0; }
 #endif
 
 enum { LE_NONE, LE_FILTER, LE_HOLD };
-enum { ST_LAST = 580, ST_TURN = 140, ST_ELSE = 15 };   /* the stutter's odds in 1000, as the header says */
+enum { ST_LAST = 700 };   /* the stutter's odds in 1000 on a group's last bar, as the header says */
 typedef struct { unsigned mute; int stut; float lp0, lp1; int entry, hold; } lm_t;
 
 static int lead_before(const plan_block_t *b)
@@ -120,7 +119,7 @@ static void moves(const song_roll_t *r, const lead_state_t *ls, const plan_block
                     ((b->flags & (PB_DROP_LAST | PB_DROP2)) == (PB_DROP_LAST | PB_DROP2) && k == b->bars - 2);
         int g8 = b->bars - (k & ~7) >= 8, pos = g8 ? k & 7 : k & 3;   /* the bar in its group (as the screen's
                                                                           blocks show it) */
-        int odds = pos == (g8 ? 7 : 3) ? ST_LAST : g8 && pos == 6 ? ST_TURN : pos ? ST_ELSE : 0;
+        int odds = pos == (g8 ? 7 : 3) ? ST_LAST : 0;
         rng_seed(&g, seed ^ ((uint32_t)bar * 0xC2B2AE35u), 613);
         x = rng_int(&g, 1000);
         if (!quiet && x < odds) m->stut = 1;

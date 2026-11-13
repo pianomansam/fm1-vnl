@@ -36,7 +36,7 @@ four-bar line, in time. VNL-1 is free software (GPL), built on [fm1-base](https:
 - **Pad:** strings, a warm synth pad, organ or a vox choir, in about two songs out of three.
 - **Texture:** dust, a noise bed (vinyl or tape surface, rain) and room ambience.
 - **The mix:** wow and flutter, saturation, grit, chorus, delay, a plate reverb, the kick ducking the mix, and a
-  whole-mix stutter at turnarounds.
+  whole-mix stutter on the last bar of a 4- or 8-bar group.
 
 **Sounds**
 

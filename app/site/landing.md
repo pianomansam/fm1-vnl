@@ -35,7 +35,7 @@ Other ways in:
 - **Sampled instruments:** piano, nylon, electric and jazz guitar, cello, harp and two room kits, all from CC0
   libraries; plus vibes, a tonewheel organ and FM and analog-style synths.
 - **A lo-fi mix:** wow and flutter, saturation, grit, chorus, delay, a plate reverb, the kick ducking the mix, and a
-  whole-mix stutter at turnarounds.
+  whole-mix stutter on the last bar of a 4- or 8-bar group.
 - **On the FM-1:** a now-playing screen, a main screen with a tile per part, a page per part, a Parts roll, Sections
   and a Mixer; mute or solo a part from the keys; a screen reader; USB audio in and out.
 
