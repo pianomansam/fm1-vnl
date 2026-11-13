@@ -14,6 +14,8 @@ VNL-1 is free software (GPL), built on [fm1-base](https://github.com/charlesvest
   sets in five flavors, 44 chord progressions, four moods and five song layouts.
 - **[A six-part band](#parts):** drums (8 kits), bass (4 instruments), comp (9 instruments), lead (8 instruments in 8 styles),
   pad and texture.
+- **[A comp engine](#parts):** voice-led chords in eight comping rhythms, guitars strummed string by string in
+  eight patterns, and a harp that strums or rolls its chords; the comp keeps out of the lead's way.
 - **[Real and synth sounds](#sounds):** sampled piano, guitars, cello, harp and drum kits from CC0 libraries, beside modeled and
   synth instruments.
 - **[Ten sound engines](#sounds):** a sampler, FM electric piano, FM bass, a wind voice (flute, whistle), an analog-style saw
