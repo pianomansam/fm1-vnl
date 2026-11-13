@@ -34,9 +34,11 @@ See [Features in detail](#features-in-detail) for everything each part can do.
 
 ## Unique to VNL-1
 
+- **Endless songs:** one fully generated song after another, forever, each with its own key, mode, tempo,
+  progression, band and arrangement, a real ending, then a short silence, and each different from the one before.
 - **Deep song planning:** each song is laid out before it plays: a layout, sections, where each part enters and
-  drops out, fills, swells, breaks and an ending. No two sections are alike: the seeds and patterns are a starting
-  point, and the engine reshapes them so every song is its own.
+  drops out, fills, swells, breaks and an ending. No two sections are alike. The seeds and patterns are a starting
+  point and the engine reshapes them so every song is its own.
 - **Parts planned ahead:** each part's next bar is planned before it plays, so a change from the knobs lands on the
   next four-bar line, in time.
 - **Sophisticated part playing:** voice leading, development driven by music theory, and parts that stay out of each
