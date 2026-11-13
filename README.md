@@ -85,14 +85,14 @@ Every change to the song lands on its next four-bar line, and the screen shows i
 
 Ten, in a lo-fi chain: tape wow and flutter, dust (saturation and a darkening low-pass), grit, a chorus and plate
 reverb (adapted from Mutable Instruments Rings), a tape delay, bass saturation, kick ducking, filter sweeps on section
-changes, and a whole-mix stutter on the last bar of a 4- or 8-bar group (after Cut-A-Dor's). The host simulator's
-plate follows AMB-1's, after Dattorro's design.
+changes, and a whole-mix stutter on the last bar of a 4- or 8-bar group (inspired by Cut-A-Dor's). The host simulator's
+plate is adapted from AMB-1's, inspired by Dattorro's design.
 
 ### Sounds
 
 - Sampled piano, nylon guitar, electric guitar, jazz guitar (re-amped through a real amp), cello, harp and two drum
   kits, all from CC0 libraries (the Versilian Community Sample Library, VSCO-2 CE, Karoryfer Samples and FreePats);
-  modeled vibes (after Ravel_FM1's marimba); a tonewheel organ (after SLOOP's); FM and analog-style synths.
+  modeled vibes (inspired by Ravel_FM1's marimba); a tonewheel organ (inspired by SLOOP's); FM and analog-style synths.
 - Ten sound engines: a sampler, FM electric piano, FM bass, a wind voice (flute, whistle), an analog-style saw
   pad, an ensemble for strings and choir, a tonewheel organ, a modeled vibraphone, a chip triangle and the drum
   synths.
@@ -114,7 +114,7 @@ plate follows AMB-1's, after Dattorro's design.
 - A screen reader, through the [FM-1 Screen Reader](https://charlesvestal.github.io/fm1-reader/).
 - USB audio in and out: record VNL-1 on a computer, or play the computer through the FM-1.
 - A CPU guard that eases off reverb tails and quiet voices before the audio can glitch (adapted from Optimist's,
-  after Flowstate's).
+  inspired by Flowstate's).
 - Built on fm1-base (with Felucca's board support), in the Barlow font.
 
 ### For tinkerers
