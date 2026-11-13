@@ -1,6 +1,9 @@
 # VNL-1
 
-VNL-1 turns the M-VAVE FM-1 into a lo-fi hip hop machine. It writes and plays its own songs, one after another: each
+A generative lo-fi DJ groovebox for the M-VAVE FM-1. Let it play in auto mode as a backdrop to your day, or be the DJ
+and shape your own songs.
+
+VNL-1 writes and plays its own songs, one after another: each
 has its own key, tempo, chords, layout and band, played through a lo-fi chain of tape wobble, dust and a plate. Press
 PLAY and leave it running, or steer it from the knobs. Every change lands on the next four-bar line, in time.
 
