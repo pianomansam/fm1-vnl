@@ -32,21 +32,17 @@ VNL-1 is free software (GPL), built on [fm1-base](https://github.com/charlesvest
 
 See [Features in detail](#features-in-detail) for everything each part can do.
 
-## What sets VNL-1 apart
+## Unique to VNL-1
 
-Checked against the 40 FM-1 firmwares we follow and a survey of 277 more (October 2026):
-
-- **Only in VNL-1:** it plays one fully generated song after another, forever, each with its own key, mode, tempo,
-  progression, band and arrangement, a real ending, then a short silence, and each different from the one before.
-- **Only in VNL-1:** every part it plays can be written out as MusicXML (and MIDI) for a score editor, and its drum,
+- **Deep song planning:** each song is laid out before it plays: a layout, sections, where each part enters and
+  drops out, fills, swells, breaks and an ending. No two sections are alike: the seeds and patterns are a starting
+  point, and the engine reshapes them so every song is its own.
+- **Parts planned ahead:** each part's next bar is planned before it plays, so a change from the knobs lands on the
+  next four-bar line, in time.
+- **Sophisticated part playing:** voice leading, development driven by music theory, and parts that stay out of each
+  other's way: the accompaniment makes room for the lead, thinning under it or lifting over a low one.
+- **Scores, not just sound:** every part can be written out as MusicXML (and MIDI) for a score editor, and the drum,
   strum, accompaniment and chord patterns live as MIDI and MusicXML files that build into the firmware.
-- **Found nowhere else:** an accompaniment that makes room for the lead, thinning or lifting over a low one.
-- **Found nowhere else:** a browser workbench where you change or re-roll any single decision of a song.
-
-Other firmwares generate music too, some with arrangements, motifs, part locks or saved songs. Where VNL-1 goes
-further is the planning: a whole song laid out before it plays (a layout, sections, where each part enters and
-drops out, fills, swells, breaks and an ending), and each part's next bar planned ahead, so a change from the knobs
-lands on the next four-bar line in time.
 
 ## Controls
 
