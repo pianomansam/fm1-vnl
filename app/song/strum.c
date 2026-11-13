@@ -29,6 +29,10 @@ static uint32_t strum_draw(const song_roll_t *r)
     return harmony_mix(rng_next(&g), r->seed, 194u, 1u);
 }
 
+/* the harp's trial figure, forced only (the workbench's strum_pat; never drawn): the charleston, STRUM_PAT[7]
+   ("D.....U.........": a stroke on 1, the top strings on the and of 2; song_test checks the index) */
+#define SP_HARP_TRY 7
+
 /* the harp on the keys (a candidate: harmony.c's is_harp) */
 static int harp(const song_roll_t *r)
 {
@@ -43,7 +47,7 @@ int strum_pattern(const song_roll_t *r, int *slow)
     if (harp(r)) {        /* the harp: the ballad or the bossa only (no up-and-down strumming, no chucks), drawn on the
                              same hash leaning on the motion as the guitars' draw; its spread its own (strum_step) */
         uint32_t wb = motion_tilt(1, STRUM_PAT_BUSY[SP_BALLAD], m), wo = motion_tilt(1, STRUM_PAT_BUSY[SP_BOSSA], m);
-        p = f == SP_BALLAD || f == SP_BOSSA ? f : h % (wb + wo) < wb ? SP_BALLAD : SP_BOSSA;
+        p = f == SP_BALLAD || f == SP_BOSSA || f == SP_HARP_TRY ? f : h % (wb + wo) < wb ? SP_BALLAD : SP_BOSSA;
         if (slow) *slow = 0;
         return p;
     }

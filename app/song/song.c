@@ -431,6 +431,8 @@ static void pads_group(song_t *s, const plan_block_t *b, int B)
     int part = pad_part(s, bi);
     const lib_set_t *set = lib_set_by_id((uint8_t)s->roll.v[RF_SET]);
     int vibes = set && set->chords == INS_VIBES;
+    int harp = set && set->chords == INS_HARP && harmony_style(&s->roll) != CS_STRUM;   /* (rolled: voiced
+                                                                     transposed, harmony.c's keys_chord_at) */
     int chord_on = part == 1, solo_on = part == 2, lo = pads_solo_lo(pads_solo_voice(&s->roll));
     harmony_voicing_t vs = s->voicing;
     for (i = 0; i < 16; i++)
@@ -457,7 +459,7 @@ static void pads_group(song_t *s, const plan_block_t *b, int B)
             int cs = harmony_style(&s->roll);
             for (i = 0; i < 4; i++)                      /* the keys strike it (the vibes' as voiced: place_keys
                                                             lifts their low notes alone) */
-                vs.last[i] = vibes ? raw[i] : keys[i] ? keys[i] - up - harmony_keys_oct(&s->roll) -
+                vs.last[i] = vibes || harp ? raw[i] : keys[i] ? keys[i] - up - harmony_keys_oct(&s->roll) -
                                                       harmony_keys_lift(&s->roll, bar) : 0;
             if (chord_on && pads_double && (cs == CS_HELD || cs == CS_STRUM))   /* a strum sustains as held does:
                                                                                   its guitar shape's top doubled */

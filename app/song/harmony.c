@@ -89,10 +89,19 @@ int harmony_sound_pcs(int *pcs, int n)
     return th_dom_b7(pcs, n) >= 0 ? drop_iv(pcs, n, 10) : n;
 }
 
-/* the chord as the keys voice it: a dominant without its 7th */
+/* The harp's rolled chords sit HARP_UP semitones over the voicer's register (Sam: round 1's "too low", round 2's an
+   octave up "too high"): they are voiced transposed down by it, in the voicer's own register and rules, and placed
+   back up (keys_shift): Ab3-C5 over 24 songs, the median E4 */
+#define HARP_UP 7
+static int harp_rolls(const song_roll_t *r);
+
+/* the chord as the keys voice it: a dominant without its 7th (the harp's rolled chords transposed: HARP_UP) */
 static int keys_chord_at(const song_roll_t *r, int bar, int pass, int dark, int *pcs)
 {
-    return harmony_sound_pcs(pcs, harmony_chord_at(r, bar, pass, dark, pcs));
+    int n = harmony_sound_pcs(pcs, harmony_chord_at(r, bar, pass, dark, pcs)), i;
+    if (harp_rolls(r))
+        for (i = 0; i < n; i++) pcs[i] = ((pcs[i] - HARP_UP) % 12 + 12) % 12;
+    return n;
 }
 
 int harmony_chord_at(const song_roll_t *r, int bar, int pass, int dark, int *pcs)
@@ -319,12 +328,11 @@ int harmony_pad_place(const song_roll_t *r)
     return rng_int(&g, 3);
 }
 
-/* the semitones the keys sit from their usual octave: the set's (lib_set_keys_shift), and the harp's rolled chords an
-   octave up (Sam, round 2: "rolled sounds too low"; its zones F4 up), voiced under E4 (voice_hi): about C4-E5 */
-static int harp_rolls(const song_roll_t *r);
+/* the semitones the keys sit from their usual octave: the set's (lib_set_keys_shift), and the harp's rolled chords
+   HARP_UP over it (voiced transposed: keys_chord_at), their top C5 at most (voice_hi) */
 static int keys_shift(const song_roll_t *r, const lib_set_t *set)
 {
-    return lib_set_keys_shift(set) + (harp_rolls(r) ? 12 : 0);
+    return lib_set_keys_shift(set) + (harp_rolls(r) ? HARP_UP : 0);
 }
 
 /* the keys moved d semitones (an octave up or down) where the instrument's range holds the whole register the
@@ -406,11 +414,11 @@ static int voice_hi_win(const song_roll_t *r)
     return h >= 72 || h < 60 || 48 + sh < lo || 48 + sh < win_lo ? 72 : h;
 }
 
-/* (the harp's rolled chords, an octave up: voiced with their top at E4 at most, so they sound at E5 at most) */
+/* (the harp's rolled chords, HARP_UP over the voicer: their top at C5 at most) */
 static int voice_hi(const song_roll_t *r)
 {
     int h = voice_hi_win(r);
-    return harp_rolls(r) && h > 64 ? 64 : h;
+    return harp_rolls(r) && h > 72 - HARP_UP ? 72 - HARP_UP : h;
 }
 
 /* a strum's top under the window (Sam: the guitar makes room for the lead too): E5 where it doesn't bind, or where

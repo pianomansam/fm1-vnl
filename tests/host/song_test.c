@@ -14040,8 +14040,8 @@ static void test_harp_keys(void)
         printf("harp keys: %d of %d songs strum (ballad %d, bossa %d), the rest roll held or half notes; strummed "
                "MIDI %d-%d (median %d), rolled %d-%d (median %d); %d strikes centered on the beat, %d on time\n",
                strums, n, pat[SP_BALLAD], pat[SP_BOSSA], lo, hi, med[0], rlo, rhi, med[1], tcen, tont);
-        CHECK(rlo >= 55 && rhi <= 79 && med[1] >= 65, "harp keys: rolled MIDI %d-%d (median %d), wanted about "
-              "G3-E5, its bulk F4 and over", rlo, rhi, med[1]);
+        CHECK(rlo >= 55 && rhi <= 72 && med[1] >= 62 && med[1] <= 66, "harp keys: rolled MIDI %d-%d (median %d), "
+              "wanted about G3-C5, the bulk around E4", rlo, rhi, med[1]);
     }
     CHECK(strums * 100 >= n * 40 && strums * 100 <= n * 60, "harp keys: %d of %d strum, wanted about half", strums, n);
     CHECK(pat[SP_BALLAD] > strums / 4 && pat[SP_BOSSA] > strums / 4, "harp keys: ballad %d, bossa %d", pat[SP_BALLAD],
@@ -14063,6 +14063,10 @@ static void test_harp_keys(void)
         o.strum_pat = SP_BOSSA;
         song_override(&o);
         CHECK(strum_pattern(&r, &slow) == SP_BOSSA, "harp keys: the bossa forced");
+        o.strum_pat = 7;        /* (the harp's trial figure: strum.c's SP_HARP_TRY, the charleston, forced only) */
+        song_override(&o);
+        CHECK(strum_pattern(&r, &slow) == 7 && !strcmp(STRUM_PAT[7], "D.....U........."),
+              "harp keys: the charleston forced (STRUM_PAT[7] %s)", STRUM_PAT[7]);
         o.strum_pat = -1;
         o.comp = CS_HALF;
         song_override(&o);
