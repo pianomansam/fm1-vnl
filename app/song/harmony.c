@@ -117,9 +117,10 @@ int harmony_chord_at(const song_roll_t *r, int bar, int pass, int dark, int *pcs
 
 static int is_guitar(int ins) { return ins == INS_NYLON || ins == INS_EMILY; }
 
-/* The harp on the keys (a candidate, 2026-11-13: Sam, "re-use the guitar strumming ... or just rolled piano chords"):
-   half its songs strum (strum.c: the ballad or the bossa only, every stroke rolled up), half roll their chords on held
-   or half notes (harmony_step: low to high, 25-60 ms a note). The split is its own hash of the seed: no draw moves. */
+/* The harp on the keys (Sam, 2026-11-13: "re-use the guitar strumming ... or just rolled piano chords"; approved the
+   same day, sets 49-51): half its songs strum (strum.c: the ballad, the bossa or the charleston, every stroke rolled
+   up), half roll their chords on held or half notes (harmony_step: low to high, 20-40 ms a note, a 5th over the
+   voicer's register: HARP_UP). The split is its own hash of the seed: no draw moves. */
 static int is_harp(int ins) { return ins == INS_HARP; }
 static int harp_strums(uint32_t seed) { return (int)(mix(seed, 203u, 1u, 203u) >> 16 & 1u); }
 

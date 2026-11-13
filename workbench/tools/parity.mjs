@@ -109,7 +109,7 @@ function compare(c, extra = "") {
 }
 
 console.log(`parity: the device's screens (the simulator, app/ui) against the mock's: ${PHASE1.join(", ")}`);
-const SEED = 72;
+const SEED = 47;
 {   // every phase-1 screen at bar 13 or so, playing; then stopped (held); then between songs; and at boot (ready)
   const steps = [];
   for (const id of PHASE1) steps.push({ screen: id }, { check: `boot-${id}` });
@@ -205,8 +205,8 @@ const SEED = 72;
     { spin: ["SELECT", 1] }, { spin: ["K1", 2] },
     { check: "mixer-knobs-2", expect: (st) => is("screen", st.screen, "levelsKnobs2") || is("pad level", v(st).levels.pad, 2) },
     { keydown: 4 }, { keyup: 4 }, { screen: "levels" },
-    // the instrument rules on a part change (rows.js's conflicts, on the device's requests): seed 72's comp plays the
-    // nylon and its lead the whistle (the vibes and the piano until the whistle's sets, 2026-11-11): the lead to the
+    // the instrument rules on a part change (rows.js's conflicts, on the device's requests): the seed's comp plays the
+    // nylon and its lead the whistle (seed 72's until the harp's comp sets, 2026-11-13, seed 47 since): the lead to the
     // piano first; then the comp to the piano too moves the lead to another instrument, landing together
     { screen: "pLead" }, { spin: ["K1", -4] },
     { check: "rules-lead", expect: (st) => is("leadIns", v(st).leadIns, "*PIANO") },

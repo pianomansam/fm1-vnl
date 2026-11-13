@@ -187,6 +187,12 @@ static void check_step(const song_t *s, int bar, int step, const song_ev_t *ev, 
      a semitone above or below it (a hard failure, tested first, so a pitch class heard elsewhere excuses nothing). On
      steps 0 and 8, whether it is one of them is only counted: the voicing may leave out a color tone (a 9th) that the
      lead then plays; check_step holds onsets to harmony's chord tones. */
+/* the song's keys are the harp (sets 49-51): it rolls across the beat, a strike's first notes in the 16th before it
+   (harmony_step's anticipation), so its strikes overlap by design (song_test's test_harp_keys checks them) */
+static int clash_harp;
+/* (and its next bar's first notes, in a bar's last 16th, are the next chord's, pushed: checked against the next bar
+   as they sound into it, not against this bar's lead, pad or bass) */
+#define ANTIC(x) (clash_harp && (x)->voice == V_CHORD && (x)->tick == t && st == 15)
 static void check_sounding(const rec_t *rec, uint32_t seed)
 {
     static uint32_t strike[MAXT + 1];
@@ -198,7 +204,7 @@ static void check_sounding(const rec_t *rec, uint32_t seed)
             if (rec->ev[k].voice == V_CHORD && rec->ev[k].start < on) on = rec->ev[k].start;
         strike[t] = on;
         for (k = rec->first[t]; k < rec->first[t + 1]; k++)
-            if (rec->ev[k].voice == V_CHORD && nxt >= 0)
+            if (rec->ev[k].voice == V_CHORD && nxt >= 0 && !clash_harp)
                 CHECK(rec->ev[k].end <= strike[nxt], "seed %u step %d: chord note %d sounds %u samples into the next "
                       "strike", seed, t, rec->ev[k].note, rec->ev[k].end - strike[nxt]);
         if (on != none) nxt = t;
@@ -218,6 +224,7 @@ static void check_sounding(const rec_t *rec, uint32_t seed)
                 const rev_t *x = &rec->ev[j];
                 if (x->voice != V_CHORD && x->voice != V_BASS) continue;
                 if (x->end <= m || (x->start > m && x->tick != t)) continue;
+                if (ANTIC(x)) continue;
                 mask |= 1u << (x->note % 12);
                 if (x->voice == V_CHORD) cmask |= 1u << (x->note % 12);
             }
@@ -251,6 +258,7 @@ static void check_sounding(const rec_t *rec, uint32_t seed)
                 const rev_t *x = &rec->ev[j];
                 int r, d;
                 if (x->end <= m || (x->start > m && x->tick != t)) continue;
+                if (ANTIC(x)) continue;
                 d = ((e->note - x->note) % 12 + 12) % 12;
                 if (x->voice == V_CHORD || (x->voice == V_LEAD && e->lane != 4)) r = pads_rub(e->note, x->note);
                 else if (x->voice == V_BASS) r = d == 1 || (d == 11 && x->note % 12 != rec->root[t]);
@@ -273,6 +281,7 @@ static void check_sounding(const rec_t *rec, uint32_t seed)
             for (j = rec->first[lo]; j < rec->first[t + 1]; j++) {
                 const rev_t *x = &rec->ev[j];
                 if (x->voice != V_CHORD || x->end <= m || (x->start > m && x->tick != t)) continue;
+                if (ANTIC(x)) continue;
                 cmask |= 1u << (x->note % 12);
             }
             near = 1u << ((e->note + 1) % 12);
@@ -297,6 +306,7 @@ static void run(song_t *s, rec_t *rec, hook_t hook, void *ctx, song_t *other)
     int t, n, i;
     rec->ticks = rec->ne = rec->ended = 0;
     rec->hash = 2166136261u;
+    clash_harp = 0;
     for (t = 0; t < MAXT + 8 && s->state != SS_ENDED; t++) {
         int bar, step;
         float adv;
@@ -306,6 +316,8 @@ static void run(song_t *s, rec_t *rec, hook_t hook, void *ctx, song_t *other)
         bar = s->bar;
         step = s->step;
         n = song_tick(s, ev, 64);
+        clash_harp |= lib_set_by_id((uint8_t)s->roll.v[RF_SET]) &&   /* (the harp at any point: a request's set) */
+                      lib_set_by_id((uint8_t)s->roll.v[RF_SET])->chords == INS_HARP;
         if (t < MAXT) {
             rec->ss[t] = song_step_samples(s);
             rec->at[t] = pos;

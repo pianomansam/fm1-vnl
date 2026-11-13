@@ -22,7 +22,7 @@
 enum { CS_HELD, CS_STABS, CS_OFFBEATS, CS_ARP, CS_HALF, CS_STRUM, CS_HELD2, CS_LIGHT8_GONE, CS_HELD24, CS_PAT, CS_N };
 /* 0 where the chords instrument ins can't play comping style cs: a rhythm's row's keys (COMP: held and half notes all
    keys, stabs the Knight, held on 2 (and 4) and the added rhythms the percussive keys and the vibes); the guitars only
-   strum; the harp (a candidate on the keys) strum, held and half notes only; CS_LIGHT8_GONE none; strum, offbeats
+   strum; the harp (on the keys) strum, held and half notes only; CS_LIGHT8_GONE none; strum, offbeats
    and the arpeggio (forced) any keys but the vibes. A forced style the keys can't play holds instead (the guitars
    strum) */
 int harmony_comp_ok(int ins, int cs);
@@ -45,7 +45,7 @@ uint32_t harmony_mix(uint32_t a, uint32_t b, uint32_t c, uint32_t d);
    arpeggio) */
 int harmony_comp_row(const song_roll_t *r);
 /* CS_*, per song: the row's style; the guitars (the nylon, the Emilyguitar) always strum, under any lead (Sam,
-   2026-11-04); the harp on the keys (a candidate) strums in half its songs (harmony.c's harp_strums), else rolls
+   2026-11-04); the harp on the keys (sets 49-51) strums in half its songs (harmony.c's harp_strums), else rolls
    held or half notes */
 int harmony_style(const song_roll_t *r);
 int harmony_style_ins(int ins, uint32_t seed, int motion);   /* the draw for a chords instrument at a motion */

@@ -25,8 +25,8 @@ enum { INS_RHODES, INS_WURLI, INS_FELT_PIANO, INS_NYLON, INS_PAD, INS_UPRIGHT, I
                                      2026-11-10, approved 2026-11-11: sets 38-40) */
        INS_SAMP_CELLO,            /* leads (2026-11-11, approved: sets 41-45): the sampled cello (M_SAMP, the Karoryfer x Bigcat
                                      cello's bowing; the synth cello parked 2026-11-11: no id), */
-       INS_HARP,                  /* the harp (M_SAMP: VSCO-2 CE's concert harp; the modal retone gone); a candidate
-                                     on the keys (2026-11-13: strummed or rolled, harmony.c; no set) */
+       INS_HARP,                  /* the harp (M_SAMP: VSCO-2 CE's concert harp; the modal retone gone); on the keys
+                                     too (approved 2026-11-13, sets 49-51: strummed or rolled, harmony.c) */
        INS_WHISTLE,               /* leads of round 2 (2026-11-11): the whistle (M_WIND: a sine, a breath, a slow
                                      vibrato; approved the same day: sets 46-48), */
        INS_SOFT_SYNTH,            /* the soft synth lead (M_WIND: a rounded triangle-square, vibrato, a glide; a low

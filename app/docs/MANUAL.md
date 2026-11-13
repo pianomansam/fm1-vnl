@@ -333,11 +333,16 @@ speakers you can turn the saturation off: Settings (GLO), BASS SATURATION.
 
 | Page | K1 | K2 | K3 | K4 |
 | --- | --- | --- | --- | --- |
-| 1 | Instrument: Rhodes, felt piano, nylon guitar, pad, vibes, organ, piano, electric guitar | Rhythm: held, half notes, stabs, held on 2, held on 2 and 4, charleston, tresillo, late one, strum | Voicings: a re-roll of the chord voicings | Register: down an octave, as rolled, up an octave |
+| 1 | Instrument: Rhodes, felt piano, nylon guitar, pad, vibes, organ, piano, electric guitar, harp | Rhythm: held, half notes, stabs, held on 2, held on 2 and 4, charleston, tresillo, late one, strum | Voicings: a re-roll of the chord voicings | Register: down an octave, as rolled, up an octave |
 | 2 | Strum fill: default, step back or drive (the guitars' strums) | Busy lead thins: on or off. On, the comp plays less while the lead is busy | Over a low lead: as rolled, lift over it or with the lead (the jazz guitar's and the cello's sets) | |
 
 With a guitar on the comp, Rhythm picks a strum pattern instead: D-DU-UDU, chuck, bossa, ballad, offbeat-skank,
 syncopated-push, anticipation or charleston. OCT- and OCT+ step the register too.
+
+The harp strums in half its songs (ballad, bossa or charleston, each stroke a quick roll up the strings) and rolls
+held or half-note chords in the rest; every roll is centered on the beat, its first notes a little ahead. Its Rhythm
+offers held, half notes and strum (the strum's pattern is drawn). The harp plays the comp or the lead in a song, never
+both.
 
 Over a low lead (the jazz guitar or the cello), the comp either lifts an octave while the lead plays or stays in its
 own register with the lead, leaving out a note and dipping under it where the lead sounds. A song rolls with the

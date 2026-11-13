@@ -15,8 +15,8 @@ enum { SP_DDU, SP_CHUCK, SP_BOSSA, SP_BALLAD, SP_N };
 /* The song's pattern, a STRUM_PAT index (patterns_gen.h): drawn on seed stream 194 over the approved patterns, equal
    weights tilted by the rolled motion and each pattern's busyness (STRUM_PAT_BUSY, roll.h's motion_tilt; a live Motion
    change never re-draws it; a candidate only when the strum_pat override forces it); *slow (may be NULL) is 1 for a
-   slow ballad (half of them), 0 for every other pattern. The harp on the keys (a candidate) plays the ballad or the
-   bossa only, from the same hash, every stroke rolled low to high, 12-25 ms a string (a forced other pattern: its
+   slow ballad (half of them), 0 for every other pattern. The harp on the keys plays the ballad, the bossa or the
+   charleston only, drawn alike, every stroke rolled low to high, 12-25 ms a string (a forced other pattern: its
    draw); harmony_step centers each stroke on its beat. */
 int strum_pattern(const song_roll_t *r, int *slow);
 

@@ -6,8 +6,6 @@ ideas that still need a reason.
 
 ## Near-term
 
-- **Harp on the comp:** the sampled harp as a candidate comp instrument, its chords strummed or rolled, waiting on a
-  listen.
 - **A fade between the two home screens:** HOME cross-fades the now-playing and main screens, as the splash fades in.
 - **A stutter where no lead plays:** the comp catches the stutter in sections without a lead.
 - **Broken-chord piano comp:** a climbing broken chord for the acoustic piano, in place of a strum.

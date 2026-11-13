@@ -566,8 +566,8 @@ console.log("options.json");
           OPTS.instruments.find((i) => i.name === n).status === "approved") &&
         OPTS.instruments.find((i) => i.name === "Soft synth lead").status === "candidate",
         `the lead styles build: the lead row offers the four, the jazz guitar, the cello, the harp and the whistle (approved 2026-11-11), the soft synth lead (a candidate, round 2) (${leads.join(", ")}); the kalimba, saw lead and synth pluck retired, the Electric guitar on the keys only`);
-  {   // the harp on the keys (a candidate, 2026-11-13): offered marked, the dice skip it; its Rhythm row the comp row,
-      // held, half notes or strum (the strum patterns the engine's ballad or bossa)
+  {   // the harp on the keys (approved 2026-11-13): offered, a die may pick it; its Rhythm row the comp row, held,
+      // half notes or strum (the strum patterns the engine's ballad, bossa or charleston)
     const harp = OPTS.instruments.find((i) => i.name === "Harp").id, kst = { values: { keys: 0, lead: 8 } };
     const ko = optionsFor(row("keys"), kst, OPTS).find((o) => o.value === harp);
     const lo = optionsFor(row("lead"), kst, OPTS).find((o) => o.value === harp);
@@ -575,12 +575,12 @@ console.log("options.json");
     const hc = optionsFor(row("comp"), { values: { keys: harp, comp: -1 } }, OPTS).filter((o) => !o.rolled)
       .map((o) => o.name);
     const { rhythmRow } = await import("../rows.js");
-    check(ko?.status === "candidate" && lo?.status === "approved" && !picks.has(harp) &&
+    check(ko?.status === "approved" && lo?.status === "approved" && picks.has(harp) &&
           rhythmRow({ values: { keys: harp, comp: -1 } }, OPTS) === "comp" &&
           JSON.stringify(hc) === JSON.stringify(["Held", "Half notes", "Strum"]) &&
           conflicts(row("keys"), harp, { values: { keys: 0, lead: harp }, locks: [] }, OPTS, () => 0.5).forced
             .some((f) => f.row === "lead" && f.to !== harp),
-          `the harp on the keys: a candidate (the lead's approved), never the dice's; Rhythm ${hc.join(", ")}; ` +
+          `the harp on the keys and the lead approved, a die's pick; Rhythm ${hc.join(", ")}; ` +
           "never the keys and the lead");
   }
   check(retired(OPTS.instruments, ["Upright bass"]) && retired(OPTS.comping, ["Arpeggio", "Offbeats"]) &&
@@ -1578,9 +1578,9 @@ console.log("whole-branch review fixes");
 
   // 1: a kit's lanes on a song whose kit is a retired mixed sampled kit (Clean, seed 29: 16 until the DX's sets
   // retired, 2026-11-04, then 17 until the vibes-on-keys sets, 2026-11-05, then 18 until the jazz guitar's sets,
-  // 2026-11-11): refused, nothing staged
+  // 2026-11-11; seed 30 since the harp-on-the-keys sets, 2026-11-13): refused, nothing staged
   {
-    const { ex, desk } = await fresh(29);
+    const { ex, desk } = await fresh(30);
     const before = cstr(ex, ex.wb_state()), was = desk.values.kit;
     const r = await desk.loadKit({ name: "x", lanes: LANES808 });
     check(was === 8 && !r.ok && /Clean/.test(r.message) && cstr(ex, ex.wb_state()) === before && !ex.wb_pending() && !desk.hand.has("kit"),
@@ -1588,7 +1588,7 @@ console.log("whole-branch review fixes");
     const r2 = await desk.loadKit({ name: "y", from: "808", lanes: LANES808 });
     check(r2.ok && desk.values.kit === DRUMS.PRESET + DRUMS.PT808 && JSON.stringify(desk.drums.lanes) === JSON.stringify(LANES808),
           `a kit file saved from the 808: the kit row shows 808 after loading (${desk.values.kit})`);
-    const { desk: d3 } = await fresh(29);
+    const { desk: d3 } = await fresh(30);
     d3.lock("kit", true);
     const r3 = await d3.loadKit({ name: "y", from: "808", lanes: LANES808 });
     check(!r3.ok && /Kit is locked/.test(r3.message) && d3.values.kit === 8, `... with the kit locked: blocked ("${r3.message}")`);

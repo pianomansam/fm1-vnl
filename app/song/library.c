@@ -74,6 +74,11 @@ const lib_set_t LIB_SETS[] = {
     {46, "Rhodes and whistle", INS_RHODES, INS_ELEC_BASS, INS_WHISTLE, INS_NONE, INS_STRINGS, KIT_DUSTY, KIT_S_WARM, FL_LOFI, MOOD_WISTFUL | MOOD_WARM, "Sam approved the whistle (2026-11-11): set 1 (Rhodes dusty)'s keys, bass, pad and kits"},
     {47, "Nylon and whistle", INS_NYLON, INS_ELEC_BASS, INS_WHISTLE, INS_NONE, INS_STRINGS, KIT_BRUSHES, KIT_N, FL_BOSSA, MOOD_WARM | MOOD_SUNNY, "Sam approved the whistle (2026-11-11): set 9 (Nylon and flute)'s keys, bass, pad and kit, its moods warm and sunny"},
     {48, "Pad and whistle", INS_PAD, INS_ELEC_BASS, INS_WHISTLE, INS_NONE, INS_STRINGS, KIT_808, KIT_N, FL_CHILLWAVE, MOOD_WISTFUL | MOOD_WARM, "Sam approved the whistle (2026-11-11): set 10 (Pad and flute)'s keys, bass, pad and kit, its moods wistful and warm"},
+    /* the harp on the keys (Sam approved it, 2026-11-13: strummed, the ballad, bossa or charleston, or rolled), never
+       under the harp lead: gentle sets, each from a set it names, its keys the harp */
+    {49, "Harp and flute", INS_HARP, INS_SUB, INS_FLUTE, INS_NONE, INS_STRINGS, KIT_SOFT, KIT_S_GENTLE, FL_LOFI, MOOD_SAD | MOOD_WISTFUL, "Sam approved the harp on the keys (2026-11-13): set 7 (Felt and flute)'s bass, lead, pad and kits"},
+    {50, "Bossa harp and vibes", INS_HARP, INS_SUB, INS_VIBES, INS_NONE, INS_STRINGS, KIT_BRUSHES, KIT_N, FL_BOSSA, MOOD_WARM | MOOD_SUNNY, "Sam approved the harp on the keys (2026-11-13): set 2 (Bossa nylon)'s bass, lead, pad and kit"},
+    {51, "Harp and felt", INS_HARP, INS_ELEC_BASS, INS_FELT_PIANO, INS_NONE, INS_STRINGS, KIT_DUSTY, KIT_S_DARK, FL_LOFI, MOOD_WISTFUL | MOOD_WARM, "Sam approved the harp on the keys (2026-11-13): set 4 (Felt and vibes)'s bass, pad and kits, the felt leading, its moods wistful and warm"},
 };
 const int LIB_NSETS = (int)(sizeof LIB_SETS / sizeof LIB_SETS[0]);
 

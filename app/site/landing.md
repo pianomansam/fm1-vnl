@@ -25,12 +25,12 @@ Other ways in:
 ## What it does
 
 - **Endless songs**, each from a seed, with a short silence between them; or stay on one song as long as you like.
-- **37 instrument sets** in five flavors: lo-fi, bossa, city pop, neo-soul and chillwave.
+- **40 instrument sets** in five flavors: lo-fi, bossa, city pop, neo-soul and chillwave.
 - **44 chord progressions** in six modes, any of 12 keys, 70-90 BPM, swing, and chords that grow richer on later
   passes.
 - **Four moods** (sad, wistful, warm, sunny), a Motion control from calm to busy, and five song layouts with intros,
   breaks, drum drops and endings.
-- **Six parts:** drums (eight kits, two of them sampled), bass, comp (keys, organ, strummed guitars), lead (eight
+- **Six parts:** drums (eight kits, two of them sampled), bass, comp (keys, organ, strummed guitars, harp), lead (eight
   instruments, eight styles, looped like a sample), pad, and texture (dust, vinyl, tape, rain, room).
 - **Sampled instruments:** piano, nylon, electric and jazz guitar, cello, harp and two room kits, all from CC0
   libraries; plus vibes, a tonewheel organ and FM and analog-style synths.

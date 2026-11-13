@@ -11,7 +11,7 @@ four-bar line, in time. VNL-1 is free software (GPL), built on [fm1-base](https:
 **Songs**
 
 - Endless generated songs, each from a seed, with a 2-4 s silence between them; or stay on one song as long as you like.
-- 37 instrument sets in five flavors: lo-fi, bossa, city pop, neo-soul and chillwave.
+- 40 instrument sets in five flavors: lo-fi, bossa, city pop, neo-soul and chillwave.
 - 44 chord progressions in six modes (Ionian to Aeolian), any of 12 keys, 70-90 BPM, swing, and a chord color that
   makes later passes richer.
 - Four moods (sad, wistful, warm, sunny) and a Motion control from calm to busy.
@@ -26,8 +26,9 @@ four-bar line, in time. VNL-1 is free software (GPL), built on [fm1-base](https:
 - **Bass:** electric, sub, triangle and FM bass, with walking lines and lines that lead into the next chord. Every
   bass but the sub is gently saturated, so its line carries on small speakers (Settings' BASS SATURATION turns it
   off for good speakers).
-- **Comp:** Rhodes, piano, felt piano, vibes, organ, pad, nylon guitar and electric guitar. Eight comp rhythms (held,
-  half notes, stabs, held on 2, held on 2 and 4, charleston, tresillo, late one); the guitars strum, in eight patterns.
+- **Comp:** Rhodes, piano, felt piano, vibes, organ, pad, nylon guitar, electric guitar and harp. Eight comp rhythms
+  (held, half notes, stabs, held on 2, held on 2 and 4, charleston, tresillo, late one); the guitars strum, in eight
+  patterns; the harp strums (ballad, bossa, charleston) or rolls its chords, centered on the beat.
   Over a low lead (jazz guitar, cello) the comp shares the lead's register, thinning where it plays, or lifts over it.
 - **Lead:** flute, whistle, piano, felt piano, vibes, jazz guitar, cello and harp, in eight styles: Impressionism,
   Romanticism, '60s Jazz, Modal Jazz, Jazz-Hop, Film Score, Bossa Nova and Ambient. The lead states a motif and loops
