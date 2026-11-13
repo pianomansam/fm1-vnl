@@ -410,7 +410,7 @@ export function drawScreen(lcd, screen, bag, data, C = colors(bag.theme || THEME
           const off = act?.solo ? act.solo !== p : act?.mute?.includes(p), sel = bag[`sel${i}`];
           if (sel) lcd.rect(x - 4, ry, lx - x, rowH - 2, K.LINE);
           if (data.icons?.[part]) data.icons[part].forEach((row, j) => [...row].forEach((c, k) => { if (c === "#") lcd.rect(x + k, ry + 4 + j, 1, 1, off ? K.DIM : col); }));
-          lcd.text(x, ry + 13, f, part.toUpperCase().slice(0, 7), off ? K.DIM : col);
+          lcd.text(x, ry + 13, f, part === "comp" ? "ACCOMP" : part.toUpperCase().slice(0, 7), off ? K.DIM : col);
           if (it.keys?.[i]) lcd.text(x + 32, ry + 2, f, it.keys[i], K.DIM);   // its key (press mutes, hold solos)
           if (act?.mute?.includes(p)) lcd.text(x + 12, ry + 2, f, "M", K.HI);
           if (act?.solo === p) lcd.text(x + 12, ry + 2, f, "S", K.HI);
@@ -827,7 +827,7 @@ export class Device {
       // screen its own; on the main screen the highlighted tile's (byCursor), the song line's too
       const part = a.byCursor ? a.byCursor[this.cursor[this.id] ?? 0] : a.part;
       if (!part) return null;
-      const name = a.byCursor ? (part === "keys" ? "COMP" : part.toUpperCase())
+      const name = a.byCursor ? (part === "keys" ? "ACCOMP" : part.toUpperCase())
                               : String(this.screen.title?.split(":")[0] ?? part).toUpperCase(), on = !this.locks.has(part);
       if (on) this.locks.add(part); else this.locks.delete(part);
       this.engine.lockPart?.(part, on);

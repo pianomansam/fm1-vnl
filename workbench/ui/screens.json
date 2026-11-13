@@ -533,7 +533,7 @@
        "labels": [
         "DRUMS",
         "BASS",
-        "COMP",
+        "ACCOMP",
         "LEAD",
         "PAD",
         "TXTR"
@@ -721,7 +721,7 @@
        "labels": [
         "DRUMS",
         "BASS",
-        "COMP",
+        "ACCOMP",
         "LEAD",
         "PAD",
         "TXTR"
@@ -923,7 +923,7 @@
        "labels": [
         "DRUMS",
         "BASS",
-        "COMP",
+        "ACCOMP",
         "LEAD",
         "PAD",
         "TXTR"
@@ -1316,7 +1316,7 @@
       {
        "color": "COMP",
        "font": "T",
-       "text": "COMP",
+       "text": "ACCOMP",
        "x": 21,
        "y": 51
       },
@@ -2269,7 +2269,7 @@
       {
        "color": "COMP",
        "font": "B",
-       "text": "COMP",
+       "text": "ACCOMP",
        "x": 23,
        "y": 4
       },
@@ -2514,13 +2514,13 @@
     "pCompMore"
    ],
    "say": [
-    "COMP, PAGE {page}. INSTRUMENT {compIns}. RHYTHM {compRhythm}. VOICINGS {compVoicing}. REGISTER {compReg}.",
+    "ACCOMP, PAGE {page}. INSTRUMENT {compIns}. RHYTHM {compRhythm}. VOICINGS {compVoicing}. REGISTER {compReg}.",
     {
      "text": " LOCKED.",
      "when": "lockComp"
     }
    ],
-   "title": "Comp"
+   "title": "Accomp"
   },
   "pCompMore": {
    "bands": [
@@ -2574,7 +2574,7 @@
       {
        "color": "COMP",
        "font": "B",
-       "text": "COMP",
+       "text": "ACCOMP",
        "x": 23,
        "y": 4
       },
@@ -2789,13 +2789,13 @@
     "pCompMore"
    ],
    "say": [
-    "COMP, PAGE {page}. STRUM FILL {compFill}. BUSY LEAD THINS {compThin}. OVER A LOW LEAD {compWith}.",
+    "ACCOMP, PAGE {page}. STRUM FILL {compFill}. BUSY LEAD THINS {compThin}. OVER A LOW LEAD {compWith}.",
     {
      "text": " LOCKED.",
      "when": "lockComp"
     }
    ],
-   "title": "Comp: more"
+   "title": "Accomp: more"
   },
   "pDrums": {
    "bands": [

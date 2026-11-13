@@ -231,11 +231,11 @@ static void request(ui_nav_t *n, int f, int d, int wrap)
     say(n, UI_STR(def->name), ui_field_text(&b, f, v, t));
 }
 
-/* a part's name as the mock writes it (part.toUpperCase(); the mixer writes keys as COMP) */
+/* a part's name as the mock writes it (part.toUpperCase(); the mixer writes keys as ACCOMP) */
 static const char *part_name(int p, int mixer)
 {
     static const char *const NAME[] = {"DRUMS", "BASS", "KEYS", "PAD", "LEAD", "TEXTURE", "SONG"};
-    if (mixer && p == UI_PART_KEYS) return "COMP";
+    if (mixer && p == UI_PART_KEYS) return "ACCOMP";
     return p >= 0 && p < (int)(sizeof NAME / sizeof NAME[0]) ? NAME[p] : "";
 }
 

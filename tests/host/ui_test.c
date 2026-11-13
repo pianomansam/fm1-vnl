@@ -202,7 +202,7 @@ static void test_nav_main_to_comp(void)
     CHECK(n.cursor[US_MAIN] == 3, "ALGO 3 highlights Comp (%d)", n.cursor[US_MAIN]);
     ui_press(&n, UC_IN_EDIT, 1);
     CHECK(shown(&n) == US_P_COMP && n.depth == 2, "EDIT opens Comp (%d, depth %d)", shown(&n), n.depth);
-    CHECK(strstr(n.said, "COMP, PAGE 1/2") == n.said, "the reader hears Comp: %s", n.said);
+    CHECK(strstr(n.said, "ACCOMP, PAGE 1/2") == n.said, "the reader hears Comp: %s", n.said);
     ui_press(&n, UC_IN_K1, 1);
     CHECK(n.req_at[UFLD_COMP_INS] == 4, "K1 asks for another comp instrument at bar 4 (%d)", n.req_at[UFLD_COMP_INS]);
     ui_press(&n, UC_IN_OCT_PLUS, 1);

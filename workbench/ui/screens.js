@@ -331,7 +331,7 @@ export default {
           { when: "sel3", rect: [2, 48, 116, 46], color: "LINE" },
           { when: "sel3", rect: [2, 48, 2, 46], color: "COMP" },
           { icon: "comp", x: 8, y: 53, color: "COMP" },
-          { text: "COMP", font: "T", x: 21, y: 51, color: "COMP" },
+          { text: "ACCOMP", font: "T", x: 21, y: 51, color: "COMP" },
           { when: "lockComp", icon: "lock", x: 106, y: 52, color: "HI" },   // locked (Sam, 2026-11-12)
           { text: "{keys}", font: "XS", x: 8, y: 63, color: "WHITE" },
           { text: "{rhythm}", font: "T", x: 8, y: 80, color: "GRAY" },
@@ -438,7 +438,7 @@ export default {
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
         { y: 50, h: 140, draw: [
-          { faders: [6, 0, 228, 140], parts: ["drums", "bass", "keys", "lead", "pad", "texture"], labels: ["DRUMS", "BASS", "COMP", "LEAD", "PAD", "TXTR"] },
+          { faders: [6, 0, 228, 140], parts: ["drums", "bass", "keys", "lead", "pad", "texture"], labels: ["DRUMS", "BASS", "ACCOMP", "LEAD", "PAD", "TXTR"] },
         ] },
         { y: 196, h: 44, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
@@ -473,7 +473,7 @@ export default {
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
         { y: 50, h: 140, draw: [
-          { faders: [6, 0, 228, 140], parts: ["drums", "bass", "keys", "lead", "pad", "texture"], labels: ["DRUMS", "BASS", "COMP", "LEAD", "PAD", "TXTR"],
+          { faders: [6, 0, 228, 140], parts: ["drums", "bass", "keys", "lead", "pad", "texture"], labels: ["DRUMS", "BASS", "ACCOMP", "LEAD", "PAD", "TXTR"],
             tags: ["K1", "K2", "K3", "K4", "", ""] },
         ] },
         { y: 196, h: 44, draw: [
@@ -508,7 +508,7 @@ export default {
           { when: "pending", text: "{pending}", font: "T", right: 232, y: 8, color: "HI" },
         ] },
         { y: 50, h: 140, draw: [
-          { faders: [6, 0, 228, 140], parts: ["drums", "bass", "keys", "lead", "pad", "texture"], labels: ["DRUMS", "BASS", "COMP", "LEAD", "PAD", "TXTR"],
+          { faders: [6, 0, 228, 140], parts: ["drums", "bass", "keys", "lead", "pad", "texture"], labels: ["DRUMS", "BASS", "ACCOMP", "LEAD", "PAD", "TXTR"],
             tags: ["", "", "", "", "K1", "K2"] },
         ] },
         { y: 196, h: 44, draw: [
@@ -1034,7 +1034,7 @@ export default {
     // value large, a fill bar in the part's color), and a hint line naming the buttons. ALGO moves to the next part,
     // OCT-/OCT+ step the register (Sam: the octave buttons move register dropdowns), EDIT goes back.
     pComp: {
-      title: "Comp",
+      title: "Accomp",
       pages: ["pComp", "pCompMore"],
       bands: [
         { y: 0, h: 16, draw: [
@@ -1045,7 +1045,7 @@ export default {
         { y: 18, h: 28, draw: [
           { rect: [2, 0, 2, 26], color: "COMP" },
           { icon: "comp", x: 10, y: 9, color: "COMP" },
-          { text: "COMP", font: "B", x: 23, y: 4, color: "COMP" },
+          { text: "ACCOMP", font: "B", x: 23, y: 4, color: "COMP" },
           { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
           { when: "lockComp", icon: "lockTop", x: 86, y: 6, color: "HI" },   // locked: the padlock by its name, its
           { when: "lockComp", icon: "lockBody", x: 86, y: 10, color: "HI" },  // capitals' height, on their baseline
@@ -1080,10 +1080,10 @@ export default {
         ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
         "OCT-": { do: "nudge", field: "compReg", by: -1 }, "OCT+": { do: "nudge", field: "compReg", by: 1 },
       },
-      say: ["COMP, PAGE {page}. INSTRUMENT {compIns}. RHYTHM {compRhythm}. VOICINGS {compVoicing}. REGISTER {compReg}.", { when: "lockComp", text: " LOCKED." }],
+      say: ["ACCOMP, PAGE {page}. INSTRUMENT {compIns}. RHYTHM {compRhythm}. VOICINGS {compVoicing}. REGISTER {compReg}.", { when: "lockComp", text: " LOCKED." }],
     },
     pCompMore: {
-      title: "Comp: more",
+      title: "Accomp: more",
       pages: ["pComp", "pCompMore"],
       bands: [
         { y: 0, h: 16, draw: [
@@ -1094,7 +1094,7 @@ export default {
         { y: 18, h: 28, draw: [
           { rect: [2, 0, 2, 26], color: "COMP" },
           { icon: "comp", x: 10, y: 9, color: "COMP" },
-          { text: "COMP", font: "B", x: 23, y: 4, color: "COMP" },
+          { text: "ACCOMP", font: "B", x: 23, y: 4, color: "COMP" },
           { text: "{page}", font: "T", after: 8, y: 8, color: "GRAY" },
           { when: "lockComp", icon: "lockTop", x: 86, y: 6, color: "HI" },   // locked: the padlock by its name, its
           { when: "lockComp", icon: "lockBody", x: 86, y: 10, color: "HI" },  // capitals' height, on their baseline
@@ -1126,7 +1126,7 @@ export default {
         ALGO: { do: "part" }, SELECT: { do: "page" }, EDIT: { go: "back" },
         "OCT-": { do: "nudge", field: "compReg", by: -1 }, "OCT+": { do: "nudge", field: "compReg", by: 1 },
       },
-      say: ["COMP, PAGE {page}. STRUM FILL {compFill}. BUSY LEAD THINS {compThin}. OVER A LOW LEAD {compWith}.", { when: "lockComp", text: " LOCKED." }],
+      say: ["ACCOMP, PAGE {page}. STRUM FILL {compFill}. BUSY LEAD THINS {compThin}. OVER A LOW LEAD {compWith}.", { when: "lockComp", text: " LOCKED." }],
     },
     pPad: {
       title: "Pad",

@@ -333,7 +333,7 @@ four-bar line is saved as if it had landed.
 Every bass but the sub is gently saturated, so its line carries on small speakers; the sub stays clean. On good
 speakers you can turn the saturation off: Settings (GLO), BASS SATURATION.
 
-### Accompaniment (COMP on the screen)
+### Accompaniment (ACCOMP on the screen)
 
 ![The Accompaniment screen, page 1/2: K1 INSTRUMENT RHODES, K2 RHYTHM AS ROLLED (HELD), K3 VOICINGS ORIGINAL, K4 REGISTER AS ROLLED (UNDER THE LEAD)](img/vnl-comp.png "Comp")
 

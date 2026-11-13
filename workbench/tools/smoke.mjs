@@ -3276,7 +3276,7 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
     dl.stack = ["main", "pComp"]; hold("SEQ", D.HOLD_MS + 10);
     const off = !dl.values().lockComp;
     hold("SEQ", 100);
-    check(on.lockComp && !on.lockDrums && said === "COMP LOCKED" && !waits && refused === "COMP IS LOCKED" && !waits2 && tile &&
+    check(on.lockComp && !on.lockDrums && said === "ACCOMP LOCKED" && !waits && refused === "ACCOMP IS LOCKED" && !waits2 && tile &&
           off && dl.rollReq?.part === "keys" && JSON.stringify(got) === '[["keys",true],["keys",false]]',
           `SEQ held on Comp locks it ("${said}", no re-roll waiting), a short SEQ refused ("${refused}"), the tile marked; ` +
           `held again unlocked, a short SEQ re-rolls (${JSON.stringify(got)})`);

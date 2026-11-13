@@ -21,7 +21,7 @@ expect saved 0
 spin ALGO 3
 tap EDIT
 wait 50
-said COMP, PAGE 1/2
+said ACCOMP, PAGE 1/2
 spin K1 2
 wait 50
 # the Song screen: SAVE saves into the first free slot

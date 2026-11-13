@@ -24,7 +24,7 @@ said PLAY
 spin ALGO 3
 tap EDIT
 wait 50
-said COMP, PAGE 1/2
+said ACCOMP, PAGE 1/2
 shot comp.png
 # the five lowest white keys: a part's key lit while it plays
 expect key_lit 213

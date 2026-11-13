@@ -857,7 +857,7 @@ def gen_screens(data, vocab, rows, all_parts=None):
          f"const uint8_t UI_ICON_ROWS[{max(1, len(icons))}] = {{" + ", ".join(str(len(r)) for r in icon_rows) + "};\n",
          f"const ui_part_look_t UI_PART_LOOK[{max(1, len(parts))}] = {{" + ", ".join(
              "{%d, %d, %d}" % (colors.index(nm.upper()) if nm.upper() in colors else colors.index("WHITE"),
-                               icons.index(nm) if nm in icons else NONE8, s(nm.upper()[:7]))
+                               icons.index(nm) if nm in icons else NONE8, s("ACCOMP" if nm == "comp" else nm.upper()[:7]))
              for nm in ("comp" if x == "keys" else x for x in parts)) + "};\n",
          f"const uint16_t UI_LINES[{max(1, len(line_tpl))}] = {{" + ", ".join(map(str, line_tpl)) + "};\n",
          f"const ui_lone_t UI_LONES[{max(1, len(lones))}] = {{" + ", ".join("{%d, %d, %d, %d, %d}" % t for t in lones) + "};\n",

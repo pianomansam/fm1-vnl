@@ -152,7 +152,7 @@ const SEED = 47;
     // nav_main_to_comp: ALGO 3, EDIT, K1 +1, OCT+, SELECT, ALGO 1, HOME
     { spin: ["ALGO", 3] }, { check: "nav-algo3", expect: (st) => is("sel3", v(st).sel3, true) },
     { press: "EDIT" }, { check: "nav-edit", expect: (st) => is("screen", st.screen, "pComp") || is("stack", st.stack.join(), "main,pComp") ||
-                                                       (st.said.startsWith("COMP, PAGE 1/2") ? "" : `said ${st.said}`) },
+                                                       (st.said.startsWith("ACCOMP, PAGE 1/2") ? "" : `said ${st.said}`) },
     { spin: ["K1", 1] }, { check: "nav-k1", expect: (st) => is("compInsPend", v(st).compInsPend, true) || (v(st).compIns.startsWith("*") ? "" : `compIns ${v(st).compIns}`) },
     { press: "OCT+" }, { check: "nav-oct", expect: (st) => is("compRegPend", v(st).compRegPend, true) || is("msg", st.msg, "REGISTER") },
     { spin: ["SELECT", 1] }, { check: "nav-select", expect: (st) => is("screen", st.screen, "pCompMore") },
