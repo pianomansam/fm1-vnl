@@ -6,7 +6,6 @@ ideas that still need a reason.
 
 ## Near-term
 
-- **Sampled sax and trumpet leads:** a sampled sax and a muted trumpet as leads, from CC0 or GPL-compatible libraries, in their real registers.
 - **Harp on the comp:** the sampled harp as a comp instrument, its chords arpeggiated or held.
 - **A fade between the two home screens:** HOME cross-fades the now-playing and main screens, as the splash fades in.
 - **A stutter where no lead plays:** the comp catches the stutter in sections without a lead.
@@ -34,6 +33,9 @@ ideas that still need a reason.
 ## Maybe
 
 - **Synth cello:** parked; it could come back with body resonances.
+- **Sampled sax and trumpet leads:** parked (2026-11-13). Three rounds from CC0 libraries (a tenor and an alto sax;
+  Harmon, straight-mute and open trumpets; soft and loud takes) all sounded too mellow, not reedy or brassy enough,
+  in the few kilobytes a lead gets in the sample bank. They could come back with more sample space.
 - **More sampled instruments:** marimba, kalimba, harmonica, hand percussion, from CC0 libraries.
 - **More leads:** a string ensemble, the Rhodes or nylon guitar as leads, or a sampled violin.
 - **Texture:** birdsong in the bed, tape warble per instrument.
