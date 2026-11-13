@@ -295,6 +295,77 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   is built, use it for at least the Knight under a sustained lead (set 30's situation), and consider it for the
   electric pianos too.
 
+
+### From other firmwares (survey 2026-11-13, and the depth comparison; prioritized, not started)
+
+Details, paths and licenses: `docs/research/fm1-firmware-update-2026-11-13.md` (427 new repos, 27 of `ref/` changed).
+GPL-3.0-only sources make the image GPL-3.0-only if copied; MIT and MPL ones don't. Borrow before building (Sam,
+2026-10-30), credit in CREDITS.md.
+
+**Priority 1: the audio drops (now).** After the planning fix (0172c74) is checked on the device with
+`fm1_state`'s "last late":
+1. **Render a block ahead:** `audio_ahead = true` in `app/fm1.toml` (fm1-base, ours). A block may run up to two
+   halves long without a drop; 2 KiB RAM (we have ~4 KiB), 5.8 ms more latency. One line; the first thing to try if
+   late blocks remain.
+2. **Slower input scan:** `input_hz = 5000` (fm1-base). Frees ~4% of core 0 (estimate); VNL-1 isn't played from the
+   keys. 2000 frees ~6.5% but loses fast knob flicks and the key lights' dim levels.
+3. **The mix rounds to nearest, never floors:** SLOOP and FMEL-1 both fixed distortion at notes' ends from flooring
+   the mix. Check ours (a housekeeping read, no cost).
+4. **Load ceiling** (Tessera `voice.c` 149-210, GPL): after an emergency shed, admit no more voices than were
+   sounding, one back every ~250 ms under 60% load. Fixes our guard's admit-shed-admit clicks.
+5. **396 MHz** (`cpu_clock = 396`): past JieLi's rating; only after a long soak on Sam's unit, never in a release.
+
+**Priority 2: roadmap items with a model to borrow.**
+6. **Broken-chord piano comp** (near-term): JAMTRACK's voice-index patterns over a voice-led chord (`ARPEGGIO`,
+   `RIPPLE`, `FINGERPICK`, `TRAVIS`; `app/dsp/styles.h` 232-244, MIT). Exactly the mechanism; our voicing feeds it.
+7. **Subtler stutters / on-demand stutter / a stutter where no lead plays** (near-term): Felucca's 16 gate and
+   stutter masks per part, STUT looping the last live step with a windowed crossfade (`slicer.c` 28-152, GPL).
+   Simple masks at the gentle end of the range, ours as the most complex.
+8. **Steady sample loops** (the parked sampled horns): erik37's build-time `steady_loop` + `spectral_crossfade`
+   (`tools/build_bank.py`, MPL). Short loops stop pulsing, so zones can be smaller; the route back to a sax or
+   trumpet that fits the bank. Build tool only, no firmware cost.
+
+**Priority 3: song shape (a real ending, intros, energy).**
+9. **Intro and outro loudness curves** measured from records (DUB-1 1.4.3 `amb.c` 2185-2190, GPL): intros -11.5,
+   -6.8, -3.8 dB over their first bars; outros -2.4 halfway, -6.5 at 3/4, -20 in the last 4 bars, the kick last out.
+10. **A slowing ending:** a ritardando over the outro's last 4 bars, the last chord rolled and left ringing into the
+    gap (FM-1 Song Box `gen_outro`, MIT). Some songs, not all (vary, not avoid).
+11. **Drums by energy 0-4, and fills before a change of part** (JAMTRACK `seq.h`, MIT): the barest level keeps kick
+    and snare; the beat dropping out for the fill in hip hop. For the drummer layer and song energy.
+12. **Song energy over time:** Makohai's energy arc (build, break, peak, drop; `arc_at` ~347) and PERF-1's Smart DJ
+    shapes ("break when the groove goes stale"). Makohai's arrangement is more dramatic than ours (depth
+    comparison, 2026-11-13).
+13. **A and B parts** (JAMTRACK `part_switch`, MIT): the B section restarts its voicing, bass and line from home so
+    A sounds like A again after B. For the later B-section item.
+
+**Priority 4: harmony and melody depth (check each against "no substitutions" first).** The depth comparison found
+Tuna and PERF-1 ahead of us here; VNL-1 leads in voicing, voice leading, clash avoidance and strumming.
+14. **Tuna's functional-harmony grammar** (`tuna_gen.c` `plan_period` 599-765): tonic, subdominant and dominant
+    functions, half cadences, V-I or plagal endings. As a check on our progression library, not a generator: our
+    chords stay curated. Its applied chords, side-slips and deceptive endings are substitutions: out.
+15. **Modulation between related keys** (Tuna `style_modulate` 554, pivot chords): our songs change key only
+    between songs (a fifth or the relative). A pivot inside a long song is an idea; Sam to judge.
+16. **Tuna's melody devices** (`melody_tick` 1287-1660): question and answer, cadence approach, suspensions,
+    appoggiaturas, turns, leap recovery. Some of our styles have one or two; compare per style when leads are
+    revisited.
+17. **PERF-1's secondary-dominant chains and borrowed bVI/bVII:** substitutions; **out** under "no
+    substitutions" unless Sam reopens it.
+
+**Later / ideas.**
+- JAMTRACK bass approach and passing notes, half step into the next root (check against no substitutions; ours is
+  diatonic by design). RAKT: the bass locking to the kick; per-part Hold while the rest evolves.
+- Tuna's FM flute and sax patches (they freed 62 KB of samples): a synth horn for the synth sets while sampled horns
+  stay parked (an extra option, not a replacement).
+- AMB-1's battery in the header (MPL, ~0.5 KB): for Settings and home.
+- erik37's static audio budget from the disassembly (MPL, tool only): beside `tools/cost-gate.sh`.
+- Tuna's share codes and favourites: a song as a short code or link (with saved songs).
+- USB audio stems (`usb_audio_channels`, fm1-base): each part on its own channel, for recording.
+- Makohai's "my style" that learns from the user's bars; TRIO's small networks (a walking bass, a swing drummer).
+  Far ideas for "learning from likes".
+- Second core (ChoralRoot's drums on core 1, frodhes' flash-cache lesson): headroom only; some units misread.
+- Strumline's shape scorer (GPL): a cross-check for our hand shapes across tunings.
+- The resource region in the package (fm1-base c8e0599): only if the sample bank ever fits one.
+
 ### General
 
 - **Direction: the workbench becomes a device UI in the browser (Sam, 2026-11-05).** "Eventually we'll probably do
