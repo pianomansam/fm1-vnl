@@ -12,9 +12,9 @@ VNL-1 is free software (GPL), built on [fm1-base](https://github.com/charlesvest
 
 - **[Endless songs](#songs):** each one generated from a seed, with its own key, tempo, chords, layout and band; 40 instrument
   sets in five flavors, 44 chord progressions, four moods and five song layouts.
-- **[A six-part band](#parts):** drums (8 kits), bass (4 instruments), comp (9 instruments), lead (8 instruments in 8 styles),
+- **[A six-part band](#parts):** drums (8 kits), bass (4 instruments), comp (the accompaniment's chords, 9 instruments), lead (8 instruments in 8 styles),
   pad and texture.
-- **[An accompaniment engine](#parts):** voice-led chords in eight comping rhythms, guitars strummed string by string in
+- **[An accompaniment engine](#parts):** voice-led chords in eight rhythms, guitars strummed string by string in
   eight patterns, and a harp that strums or rolls its chords
 - **[Real and synth sounds](#sounds):** sampled piano, guitars, cello, harp and drum kits from CC0 libraries, beside modeled and
   synth instruments.
@@ -40,7 +40,7 @@ Checked against the 40 FM-1 firmwares we follow and a survey of 277 more (Octobe
   progression, band and arrangement, a real ending, then a short silence, and each different from the one before.
 - **Only in VNL-1:** every part it plays can be written out as MusicXML (and MIDI) for a score editor, and its drum,
   strum, comp and chord patterns live as MIDI and MusicXML files that build into the firmware.
-- **Found nowhere else:** a comp that makes room for the lead, thinning or lifting over a low one.
+- **Found nowhere else:** an accompaniment that makes room for the lead, thinning or lifting over a low one.
 - **Found nowhere else:** a browser workbench where you change or re-roll any single decision of a song.
 
 Other firmwares generate music too, some with arrangements, motifs, part locks or saved songs. Where VNL-1 goes
@@ -89,7 +89,7 @@ Every change to the song lands on its next four-bar line, and the screen shows i
 - **Bass:** electric, sub, triangle and FM bass, with walking lines and lines that lead into the next chord. Every
   bass but the sub is gently saturated, so its line carries on small speakers (Settings' BASS SATURATION turns it
   off for good speakers).
-- **Comp:** Rhodes, piano, felt piano, vibes, organ, pad, nylon guitar, electric guitar and harp. Eight comp rhythms
+- **Comp** (the accompaniment: the chords under the lead): Rhodes, piano, felt piano, vibes, organ, pad, nylon guitar, electric guitar and harp. Eight comp rhythms
   (held, half notes, stabs, held on 2, held on 2 and 4, charleston, tresillo, late one); the guitars strum, in eight
   patterns; the harp strums (ballad, bossa, charleston) or rolls its chords, centered on the beat.
   Over a low lead (jazz guitar, cello) the comp shares the lead's register, thinning where it plays, or lifts over it.

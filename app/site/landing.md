@@ -30,7 +30,7 @@ Other ways in:
   passes.
 - **Four moods** (sad, wistful, warm, sunny), a Motion control from calm to busy, and five song layouts with intros,
   breaks, drum drops and endings.
-- **Six parts:** drums (eight kits, two of them sampled), bass, comp (keys, organ, strummed guitars, harp), lead (eight
+- **Six parts:** drums (eight kits, two of them sampled), bass, comp (the accompaniment's chords: keys, organ, strummed guitars, harp), lead (eight
   instruments, eight styles, looped like a sample), pad, and texture (dust, vinyl, tape, rain, room).
 - **Sampled instruments:** piano, nylon, electric and jazz guitar, cello, harp and two room kits, all from CC0
   libraries; plus vibes, a tonewheel organ and FM and analog-style synths.

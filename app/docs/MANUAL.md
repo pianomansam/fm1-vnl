@@ -3,7 +3,7 @@
 # VNL-1
 
 VNL-1 is a lo-fi hip hop machine for the M-VAVE FM-1. It writes and plays its own songs, one after another. Each song
-has its own key, tempo, chords, layout and band: drums, bass, comp, lead, pad and texture. You can leave it running,
+has its own key, tempo, chords, layout and band: drums, bass, comp (the accompaniment: the chords under the lead), lead, pad and texture. You can leave it running,
 or steer it from the FM-1's knobs and buttons. Every change to the song lands on its next four-bar line, in time.
 
 ![The now-playing screen: half a record turning on the left; beside it the song's layout (SLOW BLOOM), its key (Db LYDIAN), the chord (Abmaj7), INTRO 4/56, a strip of the song's sections, 81 BPM and, on its own line under it, the mood (SUNNY)](img/vnl-now.png "Now playing")
