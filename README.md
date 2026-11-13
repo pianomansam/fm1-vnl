@@ -8,9 +8,9 @@ chain effects. Press PLAY and leave it running, or steer it from the FM-1's knob
 the key, the tempo, the mood, any part's instrument, or jump between sections, and every change lands on the next
 four-bar line.
 
-VNL-1 was created as an experiment in generative music.
+VNL-1 is as an experiment in generative music using music theory concepts, applied to lo-fi hip hop, for creating relaxing radio-quality tracks.
 
-Written by pianomansam, a classically-trained jazz pianist turned web developer.
+VNL-1 is written by pianomansam, a classically-trained jazz pianist turned web developer.
 
 
 VNL-1 is free software (GPL), built on [fm1-base](https://github.com/charlesvestal/fm1-base).
