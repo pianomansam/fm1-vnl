@@ -10,22 +10,22 @@ VNL-1 is free software (GPL), built on [fm1-base](https://github.com/charlesvest
 
 ## Features
 
-- **Endless songs:** each one generated from a seed, with its own key, tempo, chords, layout and band; 40 instrument
+- **[Endless songs](#songs):** each one generated from a seed, with its own key, tempo, chords, layout and band; 40 instrument
   sets in five flavors, 44 chord progressions, four moods and five song layouts.
-- **A six-part band:** drums (8 kits), bass (4 instruments), comp (9 instruments), lead (8 instruments in 8 styles),
+- **[A six-part band](#parts):** drums (8 kits), bass (4 instruments), comp (9 instruments), lead (8 instruments in 8 styles),
   pad and texture.
-- **Real and synth sounds:** sampled piano, guitars, cello, harp and drum kits from CC0 libraries, beside modeled and
+- **[Real and synth sounds](#sounds):** sampled piano, guitars, cello, harp and drum kits from CC0 libraries, beside modeled and
   synth instruments.
-- **Ten sound engines:** a sampler, FM electric piano, FM bass, a wind voice (flute, whistle), an analog-style saw
+- **[Ten sound engines](#sounds):** a sampler, FM electric piano, FM bass, a wind voice (flute, whistle), an analog-style saw
   pad, an ensemble for strings and choir, a tonewheel organ, a modeled vibraphone, a chip triangle and the drum
   synths.
-- **Ten effects** in a lo-fi chain.
-- **Hands on:** change the key, tempo, mood or any part from the knobs, re-roll or lock a part, jump to or loop a
+- **[Ten effects](#effects)** in a lo-fi chain.
+- **[Hands on](#controls):** change the key, tempo, mood or any part from the knobs, re-roll or lock a part, jump to or loop a
   section, mute and solo, and save up to 16 songs; every change lands in time.
-- **Fifteen themes.**
-- **On the FM-1:** a now-playing screen, a detailed main screen, a page per part, a screen reader and
+- **[Fifteen themes](#on-the-fm-1).**
+- **[On the FM-1](#on-the-fm-1):** a now-playing screen, a detailed main screen, a page per part, a screen reader and
   USB audio in and out.
-- **For tinkerers:** a workbench web page, a host simulator that renders WAV, MIDI and MusicXML, and patterns as
+- **[For tinkerers](#for-tinkerers):** a workbench web page, a host simulator that renders WAV, MIDI and MusicXML, and patterns as
   editable files.
 
 See [Features in detail](#features-in-detail) for everything each part can do.
@@ -52,7 +52,7 @@ Every change to the song lands on its next four-bar line, and the screen shows i
 
 ## Features in detail
 
-**Songs**
+### Songs
 
 - Endless generated songs, each from a seed, with a 2-4 s silence between them; or stay on one song as long as you like.
 - 40 instrument sets in five flavors: lo-fi, bossa, city pop, neo-soul and chillwave.
@@ -61,7 +61,7 @@ Every change to the song lands on its next four-bar line, and the screen shows i
 - Four moods (sad, wistful, warm, sunny) and a Motion control from calm to busy.
 - Five song layouts (Classic, Slow bloom, Straight in, Breather, Drift) with intros, breaks, drum drops and endings.
 
-**Parts**
+### Parts
 
 - **Drums:** eight kits: 808 and CR-78 (modeled machines), Crunchy, Boom-bap and Jazz machine (synth drums), Soft
   brushes, and two sampled room kits (Room - big, and Room - brushes for sunny songs). Eight patterns (boom bap,
@@ -79,17 +79,23 @@ Every change to the song lands on its next four-bar line, and the screen shows i
   it the way a producer loops a sample, with mutes, filter sweeps and drop-outs.
 - **Pad:** strings, a warm synth pad, organ or a vox choir, in about two songs out of three.
 - **Texture:** dust, a noise bed (vinyl or tape surface, rain) and room ambience.
-- **The mix, ten effects:** tape wow and flutter, dust (saturation and a darkening low-pass), grit, a chorus and
-  plate reverb (adapted from Mutable Instruments Rings), a tape delay, bass saturation, kick ducking, filter sweeps on
-  section changes, and a whole-mix stutter on the last bar of a 4- or 8-bar group.
 
-**Sounds**
+### Effects
+
+Ten, in a lo-fi chain: tape wow and flutter, dust (saturation and a darkening low-pass), grit, a chorus and plate
+reverb (adapted from Mutable Instruments Rings), a tape delay, bass saturation, kick ducking, filter sweeps on section
+changes, and a whole-mix stutter on the last bar of a 4- or 8-bar group.
+
+### Sounds
 
 - Sampled piano, nylon guitar, electric guitar, jazz guitar (re-amped through a real amp), cello, harp and two drum
   kits, all from CC0 libraries; modeled vibes; a tonewheel organ; FM and analog-style synths.
+- Ten sound engines: a sampler, FM electric piano, FM bass, a wind voice (flute, whistle), an analog-style saw
+  pad, an ensemble for strings and choir, a tonewheel organ, a modeled vibraphone, a chip triangle and the drum
+  synths.
 - With no sample bank on the FM-1, VNL-1 says NO SAMPLES and plays its synth instruments only.
 
-**On the FM-1**
+### On the FM-1
 
 - A boot splash with a spinning record that flows into the now-playing screen: the song, its key, the chord playing,
   where it is, its tempo.
@@ -100,11 +106,13 @@ Every change to the song lands on its next four-bar line, and the screen shows i
 - The keys' lights show which parts are playing; the lowest white keys mute (press) or solo (hold) a part.
 - Saved songs: SAVE on the Song page keeps the song (16 slots, through power-off); REC lists them, EDIT loads one.
   A backup over USB holds them.
+- Fifteen color themes (Settings, GLO): GARNET by default, plus GARNET+, BLACK CHERRY, OXBLOOD, OXBLOOD+, PLUM,
+  PLUM+, ESPRESSO, TEAL, OLIVE and the black GREEN, AMBER, CYAN, RED and MONO.
 - A screen reader, through the [FM-1 Screen Reader](https://charlesvestal.github.io/fm1-reader/).
 - USB audio in and out: record VNL-1 on a computer, or play the computer through the FM-1.
 - A CPU guard that eases off reverb tails and quiet voices before the audio can glitch.
 
-**For tinkerers**
+### For tinkerers
 
 - **The workbench:** a local web page that plays the same engine. Change any decision or re-roll one part, lock
   parts, edit drum kits and patterns, and save feedback with a snapshot of the song. It can also drive the FM-1's
