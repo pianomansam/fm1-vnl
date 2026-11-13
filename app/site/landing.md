@@ -1,11 +1,8 @@
 # VNL-1
 
-A generative lo-fi DJ groovebox for the M-VAVE FM-1. Let it play in auto mode as a backdrop to your day, or be the DJ
-and shape your own songs.
+A generative lo-fi DJ groovebox for the M-VAVE FM-1.
 
-VNL-1 writes and plays its own songs, one after another: each
-has its own key, tempo, chords, layout and band, played through a lo-fi chain of tape wobble, dust and a plate. Press
-PLAY and leave it running, or steer it from the knobs. Every change lands on the next four-bar line, in time.
+VNL-1 is an experiment in generative music using music theory concepts to create relaxing, realistic lo-fi tracks. Let it play in auto mode as a backdrop to your day, or be the DJ and shape your own songs.
 
 ![The now-playing screen: a spinning record beside the song's layout (Slow bloom), its key (Db Lydian), the chord (Abmaj7), where it is (intro, bar 4 of 56), the tempo (81 BPM) and the mood (sunny)](img/nowplaying.png "Now playing")
 
@@ -27,20 +24,53 @@ Other ways in:
 
 ## What it does
 
-- **Endless songs**, each from a seed, with a short silence between them; or stay on one song as long as you like.
-- **40 instrument sets** in five flavors: lo-fi, bossa, city pop, neo-soul and chillwave.
-- **44 chord progressions** in six modes, any of 12 keys, 70-90 BPM, swing, and chords that grow richer on later
-  passes.
-- **Four moods** (sad, wistful, warm, sunny), a Motion control from calm to busy, and five song layouts with intros,
-  breaks, drum drops and endings.
-- **Six parts:** drums (eight kits, two of them sampled), bass, accompaniment (keys, organ, strummed guitars, harp), lead (eight
-  instruments, eight styles, looped like a sample), pad, and texture (dust, vinyl, tape, rain, room).
-- **Sampled instruments:** piano, nylon, electric and jazz guitar, cello, harp and two room kits, all from CC0
-  libraries; plus vibes, a tonewheel organ and FM and analog-style synths.
-- **A lo-fi mix:** wow and flutter, saturation, grit, chorus, delay, a plate reverb, the kick ducking the mix, and a
-  whole-mix stutter on the last bar of a 4- or 8-bar group.
-- **On the FM-1:** a now-playing screen, a main screen with a tile per part, a page per part, a Parts roll, Sections
-  and a Mixer; mute or solo a part from the keys; a screen reader; USB audio in and out.
+- **Endless songs:** each one generated from a seed, with its own key, tempo, chords, layout and band; 40 instrument
+  sets in five flavors, 44 chord progressions, four moods and five song layouts.
+- **A six-part band:** drums (8 kits), bass (4 instruments), accompaniment (9 instruments), lead (8 instruments in 8 styles),
+  pad and texture.
+- **An accompaniment engine:** voice-led chords in eight rhythms, guitars strummed string by string in
+  eight patterns, and a harp that strums or rolls its chords.
+- **Real and synth sounds:** sampled piano, guitars, cello, harp and drum kits from CC0 libraries, beside modeled and
+  synth instruments.
+- **Ten sound engines:** a sampler, FM electric piano, FM bass, a wind voice (flute, whistle), an analog-style saw
+  pad, an ensemble for strings and choir, a tonewheel organ, a modeled vibraphone, a chip triangle and the drum
+  synths.
+- **Ten effects** in a lo-fi chain.
+- **Hands on:** change the key, tempo, mood or any part from the knobs, re-roll or lock a part, jump to or loop a
+  section, mute and solo, and save up to 16 songs; every change lands in time.
+- **Fifteen themes:** color schemes for every screen, picked in Settings.
+- **On the FM-1:** a now-playing screen, a detailed main screen, a page per part, a screen reader and
+  USB audio in and out.
+- **For tinkerers:** a workbench web page, a host simulator that renders WAV, MIDI and MusicXML, and patterns as
+  editable files.
+
+## Unique to VNL-1
+
+Music theory drives VNL-1's decisions, from the key of the next song to the last note of a phrase.
+
+- **Endless songs:** complete songs with real endings, written on the FM-1 itself, one after another, forever, each with its own key, mode, tempo,
+  progression, band and arrangement, a real ending, then a short silence, and each different from the one before.
+  Each new song starts in a related key: a fifth away, or the relative major or minor.
+- **Chords voiced like a jazz player's:** the bass takes the root, the keys keep the 3rd and 7th, and each chord moves
+  to the next by the smallest step, with the top note moving least, even from the loop's last chord back to its
+  first. Dominants always carry a 9th or 13th, notes that clash with the chord are left out, and later passes add
+  color one chord at a time.
+- **Parts that listen to each other:** no part rubs against another. The pad, the lead and the walking bass skip any
+  note a half step or a minor 9th from what the others play, and the accompaniment makes room for the lead, thinning
+  under it or lifting over a low one.
+- **Leads built from real melodies:** eight lead styles drawn from studies of how melodies work: a motif stated and
+  then sequenced, chord tones on the strong beats, a bossa line held across the chord change, and phrases that never
+  end on a dominant's 7th.
+- **A guitarist's strumming:** VNL-1 writes its own strummed guitar part inside each song it generates. It
+  voices each chord as a real hand shape on six strings (the root on a low string, fretted notes within four frets,
+  open strings where they fit) and plays it with down and up strokes, muted chucks and a bossa thumb and pinch.
+- **Deep song planning:** each song is laid out before it plays: a layout, sections, where each part enters and
+  drops out, fills, swells, breaks and an ending. No two sections are alike. The seeds and patterns are a starting
+  point and the engine reshapes them so every song is its own.
+- **Parts planned ahead:** each part's next bar is planned before it plays, so a change from the knobs lands on the
+  next four-bar line, in time, with that bar already planned in the new setting.
+- **Scores, not just sound:** every part can be written out as MusicXML (and MIDI) for a score editor, and the drum,
+  strum, accompaniment and chord patterns live as MIDI and MusicXML files that build into the firmware.
 
 ## Screens
 

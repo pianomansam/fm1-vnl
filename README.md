@@ -2,13 +2,13 @@
 
 A generative lo-fi DJ groovebox for the M-VAVE FM-1.
 
+VNL-1 is an experiment in generative music using music theory concepts to create relaxing, realistic lo-fi tracks. Let it play in auto mode as a backdrop to your day, or be the DJ and shape your own songs.
+
 <p align="center">
   <img src="app/docs/img/vnl-splash.png" width="240" alt="The splash: half a turning record and the wordmark vnl-1, Generative LO-FI">
   <img src="app/docs/img/vnl-now.png" width="240" alt="The now-playing screen: a spinning record beside the song, its key, chord, section and tempo">
   <img src="app/docs/img/vnl-main.png" width="240" alt="The main screen: the chord and key beside half a turning record, a tile per part, and the four knobs">
 </p>
-
-VNL-1 is as an experiment in generative music using music theory concepts to create relaxing, realistic lo-fi tracks. Let it play in auto mode as a backdrop to your day, or be the DJ and shape your own songs.
 
 VNL-1 is written by pianomansam, a classically-trained jazz pianist turned web developer.
 
@@ -21,7 +21,7 @@ VNL-1 is free software (GPL), built on [fm1-base](https://github.com/charlesvest
 - **[A six-part band](#parts):** drums (8 kits), bass (4 instruments), accompaniment (9 instruments), lead (8 instruments in 8 styles),
   pad and texture.
 - **[An accompaniment engine](#parts):** voice-led chords in eight rhythms, guitars strummed string by string in
-  eight patterns, and a harp that strums or rolls its chords
+  eight patterns, and a harp that strums or rolls its chords.
 - **[Real and synth sounds](#sounds):** sampled piano, guitars, cello, harp and drum kits from CC0 libraries, beside modeled and
   synth instruments.
 - **[Ten sound engines](#sounds):** a sampler, FM electric piano, FM bass, a wind voice (flute, whistle), an analog-style saw
