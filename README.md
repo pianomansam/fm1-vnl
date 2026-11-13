@@ -1,10 +1,12 @@
 # VNL-1
 
-A lo-fi hip hop machine for the M-VAVE FM-1. VNL-1 writes and plays its own songs, one after another: every song
-has its own key, tempo, chords, layout and band (drums, bass, comp, lead, pad and texture), played through a lo-fi
+A generative lo-fi groovebox for the M-VAVE FM-1. VNL-1 writes and plays its own songs, one after another: every song
+has its own key, tempo, chords, layout and band, played through a lo-fi
 chain of tape wobble, dust and a plate. Press PLAY and leave it running, or steer it from the FM-1's knobs: change
 the key, the tempo, the mood, any part's instrument, or jump between sections, and every change lands on the next
-four-bar line, in time. VNL-1 is free software (GPL), built on [fm1-base](https://github.com/charlesvestal/fm1-base).
+four-bar line, in time.
+
+VNL-1 is free software (GPL), built on [fm1-base](https://github.com/charlesvestal/fm1-base).
 
 ## Features
 
@@ -14,10 +16,14 @@ four-bar line, in time. VNL-1 is free software (GPL), built on [fm1-base](https:
   pad and texture.
 - **Real and synth sounds:** sampled piano, guitars, cello, harp and drum kits from CC0 libraries, beside modeled and
   synth instruments.
+- **Ten sound engines:** a sampler, FM electric piano, FM bass, a wind voice (flute, whistle), an analog-style saw
+  pad, an ensemble for strings and choir, a tonewheel organ, a modeled vibraphone, a chip triangle and the drum
+  synths.
 - **A lo-fi mix:** tape wobble, saturation, dust, a plate reverb, kick ducking and an occasional whole-mix stutter.
 - **Hands on:** change the key, tempo, mood or any part from the knobs, re-roll or lock a part, jump to or loop a
   section, mute and solo, and save up to 16 songs; every change lands in time.
-- **On the FM-1:** a now-playing screen, a detailed main screen, a page per part, 15 color themes, a screen reader and
+- **15 themes.**
+- **On the FM-1:** a now-playing screen, a detailed main screen, a page per part, a screen reader and
   USB audio in and out.
 - **For tinkerers:** a workbench web page, a host simulator that renders WAV, MIDI and MusicXML, and patterns as
   editable files.
