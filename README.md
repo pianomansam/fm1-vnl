@@ -4,11 +4,7 @@ A generative lo-fi DJ groovebox for the M-VAVE FM-1.
 
 VNL-1 is an experiment in generative music using music theory concepts to create relaxing, realistic lo-fi tracks. Let it play in auto mode as a backdrop to your day, or be the DJ and shape your own songs.
 
-<p align="center">
-  <img src="app/docs/img/vnl-splash.png" width="240" alt="The splash: half a turning record and the wordmark vnl-1, Generative LO-FI">
-  <img src="app/docs/img/vnl-now.png" width="240" alt="The now-playing screen: a spinning record beside the song, its key, chord, section and tempo">
-  <img src="app/docs/img/vnl-main.png" width="240" alt="The main screen: the chord and key beside half a turning record, a tile per part, and the four knobs">
-</p>
+<img src="app/docs/img/vnl-now.png" width="240" alt="The now-playing screen: a spinning record beside the song, its key, chord, section and tempo">
 
 VNL-1 is written by pianomansam, a classically-trained jazz pianist turned web developer.
 
