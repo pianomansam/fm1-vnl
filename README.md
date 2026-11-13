@@ -22,7 +22,8 @@ VNL-1 is free software (GPL), built on [fm1-base](https://github.com/charlesvest
 - **[Ten effects](#effects)** in a lo-fi chain.
 - **[Hands on](#controls):** change the key, tempo, mood or any part from the knobs, re-roll or lock a part, jump to or loop a
   section, mute and solo, and save up to 16 songs; every change lands in time.
-- **[Fifteen themes](#on-the-fm-1).**
+- **[Fifteen themes](#on-the-fm-1):** wine reds, plums and warm browns made for the FM-1's backlit screen, plus
+  classic black-background displays; pick one in Settings and it changes every screen at once.
 - **[On the FM-1](#on-the-fm-1):** a now-playing screen, a detailed main screen, a page per part, a screen reader and
   USB audio in and out.
 - **[For tinkerers](#for-tinkerers):** a workbench web page, a host simulator that renders WAV, MIDI and MusicXML, and patterns as
