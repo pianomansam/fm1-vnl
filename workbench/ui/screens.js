@@ -293,44 +293,40 @@ export default {
       title: "Main",
       menu: ["pSong", "pDrums", "pBass", "pComp", "pLead", "pPad", "pTexture"],
       bands: [
-        // now playing's record in the top right corner (Sam, 2026-11-13: "a small spinning version of the record ...
-        // top row corner?", then "more like the splash screen or simplified home"): the same drawing, r 30, its label
-        // whole (the cream dot, the wedge, the hole), the disc running off the top and the right into the song tile
-        // (an item a band, as now playing's). It turns as that one does (33 1/3 while a song plays, easing to a
-        // stop), its label alone redrawn (render.c's ui_record_turn: a 25 x 21 box). The status bar 18 tall, so no
-        // gap runs through the disc. The tempo and the key move left of it. The other placements Sam was shown:
-        // a quarter on the corner ([240, 0, 32]), half a record cut by the right edge in the song tile
-        // ([240, 23, 22], the tile's right-hand text at 212), a quarter on the top left ([0, 0, 32]), and small
-        // whole or cut ones (r 7-8: render.c's small record)
-        { y: 0, h: 18, draw: [
-          { record: [224, 8, 30], value: "spin", color: "AMB", back: "VINYL", past: "LINE" },
+        { y: 0, h: 16, draw: [
           { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
           { when: ["song", "looping"], text: "LOOP", font: "T", after: 8, y: 2, color: "HI" },
           { when: "!song", text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
-          // (the longest, a tempo waiting, *84 BPM: x 158-190; the disc from 194)
-          { when: "known", text: "{tempo} BPM", font: "T", right: 190, y: 2, color: "HI" },
+          { when: "known", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
           // the firmware's name in capitals (the splash's wordmark alone is lower case), in the bar's face, quiet,
           // centred in its free middle (Sam, 2026-11-12): x 108-133, the longest left text (GROOVE 56/56 LOOP)
           // ending at 94
           { text: "VNL-1", font: "T", x: 108, y: 2, color: "DIM" },
         ] },
-        { y: 18, h: 46, draw: [
-          { when: "sel0", rect: [2, 0, 236, 46], color: "LINE" },
-          { when: "sel0", rect: [2, 0, 2, 46], color: "SONG" },
-          { record: [224, -10, 30], value: "spin", color: "AMB", back: "VINYL", past: "LINE" },   // (its lower part)
-          { when: "song", text: "{chord}", font: "B", x: 8, y: 2, color: "WHITE" },
-          // left of the record (F# MIXOLYDIAN, the longest, x 114-190; the longest chord ends at 89)
-          { when: ["song", "!lockSong"], text: "{key} {mode}", font: "XS", right: 190, y: 2, color: "HI" },
-          { when: ["song", "lockSong"], text: "{key} {mode}", font: "XS", right: 176, y: 2, color: "HI" },   // (room for:)
-          { when: "lockSong", icon: "lock", x: 182, y: 4, color: "HI" },   // the song line locked (Sam, 2026-11-12)
-          { when: "song", icon: "song", x: 8, y: 26, color: "SONG" },
-          { when: "song", text: "{map}", font: "T", x: 21, y: 24, color: "GRAY" },
-          { when: "pending", text: "{pending}", font: "T", right: 232, y: 24, color: "HI" },   // as on a part's screen (Sam)
+        // the song tile, from y 16 to 65 (the rows between the bands its own, so the record has them: the tile's
+        // highlight still 18-63). Half of now playing's record cut by the left edge, as the splash's and now
+        // playing's are (Sam, 2026-11-13: "since the splash and simple home have the record on the left, I think we
+        // should too"): the same drawing, r 26, centred on x 0 at y 41, its label 10 px; it turns as that one does
+        // (33 1/3 while a song plays, easing to a stop), its label alone redrawn (render.c's ui_record_turn, a 12 x 23
+        // box). The tile's left-hand text starts at x 31, clear of the disc; the right-hand text where it was. The
+        // record covers the highlight's colored edge (x 2): highlighted, the tile shows by its fill.
+        { y: 16, h: 50, draw: [
+          { when: "sel0", rect: [2, 2, 236, 46], color: "LINE" },
+          { when: "sel0", rect: [2, 2, 2, 46], color: "SONG" },
+          { record: [0, 25, 26], value: "spin", color: "AMB", back: "VINYL", past: "LINE" },
+          // (the longest chord, Abmaj13#11, x 31-112; the longest key and scale, F# MIXOLYDIAN, from 156)
+          { when: "song", text: "{chord}", font: "B", x: 31, y: 4, color: "WHITE" },
+          { when: ["song", "!lockSong"], text: "{key} {mode}", font: "XS", right: 232, y: 4, color: "HI" },
+          { when: ["song", "lockSong"], text: "{key} {mode}", font: "XS", right: 220, y: 4, color: "HI" },   // (room for:)
+          { when: "lockSong", icon: "lock", x: 226, y: 6, color: "HI" },   // the song line locked (Sam, 2026-11-12)
+          { when: "song", icon: "song", x: 31, y: 28, color: "SONG" },
+          { when: "song", text: "{map}", font: "T", x: 44, y: 26, color: "GRAY" },
+          { when: "pending", text: "{pending}", font: "T", right: 232, y: 26, color: "HI" },   // as on a part's screen (Sam)
           // stopped with a song ready: its key (Sam, 2026-11-06), STOPPED only once (the status bar's)
-          { when: "ready", text: "{key} {mode}", font: "B", x: 8, y: 2, color: "WHITE" },
-          { when: "ready", icon: "song", x: 8, y: 26, color: "SONG" },
-          { when: "ready", text: "{map}", font: "T", x: 21, y: 24, color: "GRAY" },
-          { sections: [8, 40, 224, 3], color: "AMB", back: "LINE", past: "DIM" },   // the song's map, a segment a section
+          { when: "ready", text: "{key} {mode}", font: "B", x: 31, y: 4, color: "WHITE" },
+          { when: "ready", icon: "song", x: 31, y: 28, color: "SONG" },
+          { when: "ready", text: "{map}", font: "T", x: 44, y: 26, color: "GRAY" },
+          { sections: [31, 42, 201, 3], color: "AMB", back: "LINE", past: "DIM" },   // the song's map, a segment a section
         ] },
         { y: 66, h: 144, draw: [
           { when: "sel1", rect: [2, 0, 116, 46], color: "LINE" },

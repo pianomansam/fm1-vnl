@@ -42,7 +42,7 @@ Other ways in:
 - **On the FM-1:** a now-playing screen, a main screen with a tile per part, a page per part, a Parts roll, Sections
   and a Mixer; mute or solo a part from the keys; a screen reader; USB audio in and out.
 
-![The main screen: the section, tempo and a turning record in the corner, the chord and key, a tile per part with its instrument (drums, bass, accompaniment, lead, pad, texture), and the key, tempo, motion and mood on the four knobs](img/main.png "The main screen")
+![The main screen: the section and tempo at the top, half a turning record beside the chord and key, a tile per part with its instrument (drums, bass, accompaniment, lead, pad, texture), and the key, tempo, motion and mood on the four knobs](img/main.png "The main screen")
 
 ![The accompaniment's page: its instrument (Rhodes), rhythm, voicings and register on the four knobs, with the controls' hints below](img/comp.png "A part's page")
 

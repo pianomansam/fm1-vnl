@@ -1019,17 +1019,6 @@
     {
      "draw": [
       {
-       "back": "VINYL",
-       "color": "AMB",
-       "past": "LINE",
-       "record": [
-        224,
-        8,
-        30
-       ],
-       "value": "spin"
-      },
-      {
        "color": "GRAY",
        "font": "T",
        "text": "{section}  {bar}/{bars}",
@@ -1059,7 +1048,7 @@
       {
        "color": "HI",
        "font": "T",
-       "right": 190,
+       "right": 232,
        "text": "{tempo} BPM",
        "when": "known",
        "y": 2
@@ -1072,7 +1061,7 @@
        "y": 2
       }
      ],
-     "h": 18,
+     "h": 16,
      "y": 0
     },
     {
@@ -1081,7 +1070,7 @@
        "color": "LINE",
        "rect": [
         2,
-        0,
+        2,
         236,
         46
        ],
@@ -1091,7 +1080,7 @@
        "color": "SONG",
        "rect": [
         2,
-        0,
+        2,
         2,
         46
        ],
@@ -1102,9 +1091,9 @@
        "color": "AMB",
        "past": "LINE",
        "record": [
-        224,
-        -10,
-        30
+        0,
+        25,
+        26
        ],
        "value": "spin"
       },
@@ -1113,52 +1102,52 @@
        "font": "B",
        "text": "{chord}",
        "when": "song",
-       "x": 8,
-       "y": 2
+       "x": 31,
+       "y": 4
       },
       {
        "color": "HI",
        "font": "XS",
-       "right": 190,
+       "right": 232,
        "text": "{key} {mode}",
        "when": [
         "song",
         "!lockSong"
        ],
-       "y": 2
+       "y": 4
       },
       {
        "color": "HI",
        "font": "XS",
-       "right": 176,
+       "right": 220,
        "text": "{key} {mode}",
        "when": [
         "song",
         "lockSong"
        ],
-       "y": 2
+       "y": 4
       },
       {
        "color": "HI",
        "icon": "lock",
        "when": "lockSong",
-       "x": 182,
-       "y": 4
+       "x": 226,
+       "y": 6
       },
       {
        "color": "SONG",
        "icon": "song",
        "when": "song",
-       "x": 8,
-       "y": 26
+       "x": 31,
+       "y": 28
       },
       {
        "color": "GRAY",
        "font": "T",
        "text": "{map}",
        "when": "song",
-       "x": 21,
-       "y": 24
+       "x": 44,
+       "y": 26
       },
       {
        "color": "HI",
@@ -1166,45 +1155,45 @@
        "right": 232,
        "text": "{pending}",
        "when": "pending",
-       "y": 24
+       "y": 26
       },
       {
        "color": "WHITE",
        "font": "B",
        "text": "{key} {mode}",
        "when": "ready",
-       "x": 8,
-       "y": 2
+       "x": 31,
+       "y": 4
       },
       {
        "color": "SONG",
        "icon": "song",
        "when": "ready",
-       "x": 8,
-       "y": 26
+       "x": 31,
+       "y": 28
       },
       {
        "color": "GRAY",
        "font": "T",
        "text": "{map}",
        "when": "ready",
-       "x": 21,
-       "y": 24
+       "x": 44,
+       "y": 26
       },
       {
        "back": "LINE",
        "color": "AMB",
        "past": "DIM",
        "sections": [
-        8,
-        40,
-        224,
+        31,
+        42,
+        201,
         3
        ]
       }
      ],
-     "h": 46,
-     "y": 18
+     "h": 50,
+     "y": 16
     },
     {
      "draw": [
