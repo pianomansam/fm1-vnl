@@ -6,6 +6,8 @@ ideas that still need a reason.
 
 ## Near-term
 
+- **A small spinning record on the main screen:** the splash's record, small, turning in a corner of the top row
+  of the detailed home screen.
 - **A fade between the two home screens:** HOME cross-fades the now-playing and main screens, as the splash fades in.
 - **A stutter on demand:** on the Sections screen, a control queues a stutter for the next group's last bar.
 - **Subtler stutters:** several stutter figures from simple to complex (a single repeated 16th up to today's
