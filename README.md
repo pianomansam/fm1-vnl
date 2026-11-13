@@ -145,6 +145,8 @@ plate is adapted from AMB-1, inspired by Dattorro.
   PLUM+, ESPRESSO, TEAL, OLIVE and fm1-base's black GREEN, AMBER, CYAN, RED and MONO.
 - A screen reader, through the [FM-1 Screen Reader](https://charlesvestal.github.io/fm1-reader/).
 - USB audio in and out: record VNL-1 on a computer, or play the computer through the FM-1.
+- No Bluetooth: VNL-1 is built without the radio (no Bluetooth audio or MIDI) to leave room for its songs and
+  sounds. Use USB, headphones or the speaker.
 - A CPU guard that eases off reverb tails and quiet voices before the audio can glitch (adapted from Optimist,
   inspired by Flowstate).
 - Built on fm1-base (with Felucca's board support), in the Barlow font.
