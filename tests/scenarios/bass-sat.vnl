@@ -40,6 +40,11 @@ expect bass_sat 0
 expect theme 12
 tap PLAY
 wait 2000
+# (two songs on: the first SEQ's draws a sub since the harp's sets came in, 2026-11-13)
+tap SEQ
+wait 2000
+tap SEQ
+wait 2000
 tap SEQ
 wait 8000
 expect bass_sat_live 0
