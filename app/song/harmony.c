@@ -319,6 +319,14 @@ int harmony_pad_place(const song_roll_t *r)
     return rng_int(&g, 3);
 }
 
+/* the semitones the keys sit from their usual octave: the set's (lib_set_keys_shift), and the harp's rolled chords an
+   octave up (Sam, round 2: "rolled sounds too low"; its zones F4 up), voiced under E4 (voice_hi): about C4-E5 */
+static int harp_rolls(const song_roll_t *r);
+static int keys_shift(const song_roll_t *r, const lib_set_t *set)
+{
+    return lib_set_keys_shift(set) + (harp_rolls(r) ? 12 : 0);
+}
+
 /* the keys moved d semitones (an octave up or down) where the instrument's range holds the whole register the
    voicer (C3-E5) or the strum (E2-E5) can reach: d, else 0 */
 static int keys_oct_ok(const song_roll_t *r, int d)
@@ -328,7 +336,7 @@ static int keys_oct_ok(const song_roll_t *r, int d)
     if (!d || !set || set->chords == INS_VIBES) return 0;   /* (the vibes: their register is the bars' own, F3 up,
                                                                place_keys) */
     strum = harmony_style(r) == CS_STRUM;
-    sh = strum ? 0 : lib_set_keys_shift(set) + (harmony_pad_place(r) != PL_BELOW ? 12 : 0);
+    sh = strum ? 0 : keys_shift(r, set) + (harmony_pad_place(r) != PL_BELOW ? 12 : 0);
     song_ov_range(set->lead, &lo, &hi);
     if (d > 0 && !keys_sustained(r) && hi < 94 && !lib_lead_lift(set->lead))
         return 0;   /* the lead sits a 4th over percussive keys: raised, they need a lead whose ceiling can rise with them
@@ -386,16 +394,23 @@ int harmony_keys_lift(const song_roll_t *r, int bar) { return harmony_keys_with(
 static int win_lo, win_hi;
 void harmony_keys_window(int lo, int hi) { win_lo = lo; win_hi = hi; }
 
-static int voice_hi(const song_roll_t *r)
+static int voice_hi_win(const song_roll_t *r)
 {
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
     int sh, h, lo, hi;
     if (!win_hi || !set || harmony_pad_place(r) != PL_BELOW || harmony_style(r) == CS_STRUM || harmony_keys_oct(r))
         return 72;
-    sh = lib_set_keys_shift(set);
+    sh = keys_shift(r, set);
     h = win_hi - sh;
     song_ov_range(set->chords, &lo, &hi);
     return h >= 72 || h < 60 || 48 + sh < lo || 48 + sh < win_lo ? 72 : h;
+}
+
+/* (the harp's rolled chords, an octave up: voiced with their top at E4 at most, so they sound at E5 at most) */
+static int voice_hi(const song_roll_t *r)
+{
+    int h = voice_hi_win(r);
+    return harp_rolls(r) && h > 64 ? 64 : h;
 }
 
 /* a strum's top under the window (Sam: the guitar makes room for the lead too): E5 where it doesn't bind, or where
@@ -416,7 +431,7 @@ static void keys_oct(const song_roll_t *r, int bar, int *notes, int n)
 static void place_keys(const song_roll_t *r, int bar, int *notes)  /* a pad with or above the lead: an octave up */
 {
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
-    int i, sh = lib_set_keys_shift(set);
+    int i, sh = keys_shift(r, set);
     if (harmony_pad_place(r) != PL_BELOW) sh += 12;
     for (i = 0; i < 4; i++)
         if (notes[i]) notes[i] += sh;
@@ -550,6 +565,8 @@ static int keys_harp(const song_roll_t *r)
     return set && is_harp(set->chords);
 }
 
+static int harp_rolls(const song_roll_t *r) { return keys_harp(r) && harmony_style(r) != CS_STRUM; }
+
 static int keys_sustained(const song_roll_t *r)
 {
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
@@ -662,8 +679,8 @@ static int with_lead(const song_roll_t *r, int lead, int *notes, int n)
     return k - 1;
 }
 
-int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, int pass, float step_samples,
-                 harmony_voicing_t *vs, int lead, uint32_t salt, song_ev_t *out, int max)
+static int step_raw(const song_roll_t *r, const plan_block_t *b, int bar, int step, int pass, float step_samples,
+                    harmony_voicing_t *vs, int lead, uint32_t salt, song_ev_t *out, int max)
 {
 
     static const uint8_t ARP[6] = {0, 1, 2, 3, 2, 1};
@@ -767,8 +784,9 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
     /* every keys instrument strikes its chord together, 0-8 ms in all (Sam, 2026-11-06: "no roll", after the Rhodes'
        10-60 ms a note smeared a tresillo; the piano and the vibes struck together already) */
     gap = (mix(salt, (uint32_t)bar, r->seed, 50) % 9u) * 441u / 10u / 3u;
-    if (keys_harp(r))                     /* the harp rolls its chords, low to high: 25-60 ms a note */
-        gap = (25u + mix(salt, (uint32_t)bar, r->seed, 51) % 36u) * 441u / 10u;
+    if (keys_harp(r))                     /* the harp rolls its chords, low to high: 20-40 ms a note (25-60 sounded
+                                             lazy centered on the beat: harmony_step) */
+        gap = (20u + mix(salt, (uint32_t)bar, r->seed, 51) % 21u) * 441u / 10u;
     if (later < 100) {                    /* a rhythm's later strikes (half notes' beat 3, held on 2 and 4's beat 4):
                                              softer than the first (the same draw) */
         int c = emit_chord(notes, nn, gap, lo, hi, len, dark, salt, bar, first, out, max), i;
@@ -776,4 +794,64 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
         return c;
     }
     return emit_chord(notes, nn, gap, lo, hi, len, dark, salt, bar, step, out, max);
+}
+
+/* The harp anticipates (Sam, round 2: "maybe anticipate the beat?"): each strike's roll, strummed or rolled, centered
+   on its grid point, its first notes ahead of it, the last after it. The 16th before a strike plays its early notes
+   (a strike's own 16th, the rest), each note ending where it did. Across a bar line only inside a 4-bar group and a
+   plan block, and not while a section jump waits (harmony_antic: the song jumps at a bar line, its next bar never
+   coming): the requests land, the plan's blocks begin and the jumps land on those lines, so a strike there starts on
+   time, as the song's first; vs->ant says the downbeat's early notes were played (a stop's resume clears it) */
+static uint8_t antic_on = 1;
+void harmony_antic(int on) { antic_on = (uint8_t)(on != 0); }
+
+static uint32_t antic_shift(const song_ev_t *e, int n)
+{
+    uint32_t lo = 0xFFFFFFFFu, hi = 0u;
+    int i;
+    for (i = 0; i < n; i++) {
+        lo = e[i].delay < lo ? e[i].delay : lo;
+        hi = e[i].delay > hi ? e[i].delay : hi;
+    }
+    return n > 1 ? (hi - lo) / 2u : 0u;
+}
+
+int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, int pass, float step_samples,
+                 harmony_voicing_t *vs, int lead, uint32_t salt, song_ev_t *out, int max)
+{
+    enum { HN = 16 };
+    song_ev_t e[HN];
+    harmony_voicing_t pv;
+    const plan_block_t *nb = b;
+    int n, i, m = 0, nbar = bar, nstep = step + 1, npass = pass, early;
+    uint32_t a;
+    if (!keys_harp(r) || !(b->layers & L_KEYS) || max <= 0)
+        return step_raw(r, b, bar, step, pass, step_samples, vs, lead, salt, out, max);
+    early = step > 0 || (vs->ant && vs->ant == bar + 1);
+    n = step_raw(r, b, bar, step, pass, step_samples, vs, lead & HS_BUSY, salt, e, HN);
+    a = early ? antic_shift(e, n) : 0u;
+    for (i = 0; i < n && m < max; i++) {
+        if (e[i].delay < a) continue;                      /* (played the 16th before) */
+        e[i].delay -= a;
+        e[i].len += a;
+        out[m++] = e[i];
+    }
+    if (step == 15) {                                      /* the next bar's downbeat */
+        nbar = bar + 1;
+        nstep = 0;
+        nb = antic_on && nbar % 4 && lift_plan && nbar < lift_plan->bars ? plan_at(lift_plan, nbar) : NULL;
+        if (nb != b) return m;
+        npass = nbar / (prog_of(r)->n * prog_of(r)->bars_per_chord) + 1;
+        vs->ant = (int16_t)(nbar + 1);
+    }
+    pv = *vs;
+    n = step_raw(r, nb, nbar, nstep, npass, step_samples, &pv, lead & HS_BUSY, salt, e, HN);
+    a = antic_shift(e, n);
+    for (i = 0; i < n && m < max; i++)
+        if (e[i].delay < a) {
+            e[i].len += a;
+            e[i].delay = (uint32_t)step_samples + e[i].delay - a;
+            out[m++] = e[i];
+        }
+    return m;
 }

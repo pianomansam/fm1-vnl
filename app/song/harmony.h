@@ -71,7 +71,11 @@ enum { HV_SHAPES = 16 };
 typedef struct {
     int last[4]; int loop[4][4]; int nloop; uint32_t sig;
     uint8_t gtab[HV_SHAPES][6]; uint32_t gsig[HV_SHAPES]; int gn;
+    int16_t ant;   /* the harp's anticipation: 1 + the bar whose downbeat's early notes were played (0 none) */
 } harmony_voicing_t;
+/* The harp's anticipation across a bar line (harmony_step): on by default; the app turns it off while a section jump
+   waits (the song jumps at a bar line: its next bar may never come) */
+void harmony_antic(int on);
 /* the loop lock above, on by default; off, each chord is voiced from the last sounded (VNL_LOOPLOCK=0 in renders) */
 void harmony_set_loop_lock(int on);
 /* Where sustained keys (a pad) sit against the lead, one per song (seed stream 160, equal weights): below (as

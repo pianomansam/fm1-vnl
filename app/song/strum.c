@@ -41,10 +41,10 @@ int strum_pattern(const song_roll_t *r, int *slow)
     uint32_t h = strum_draw(r), n = 0, k, w;
     int i, p = 0, f = song_ov()->strum_pat, m = roll_motion(r);
     if (harp(r)) {        /* the harp: the ballad or the bossa only (no up-and-down strumming, no chucks), drawn on the
-                             same hash leaning on the motion as the guitars' draw; always slow: a harp's roll */
+                             same hash leaning on the motion as the guitars' draw; its spread its own (strum_step) */
         uint32_t wb = motion_tilt(1, STRUM_PAT_BUSY[SP_BALLAD], m), wo = motion_tilt(1, STRUM_PAT_BUSY[SP_BOSSA], m);
         p = f == SP_BALLAD || f == SP_BOSSA ? f : h % (wb + wo) < wb ? SP_BALLAD : SP_BOSSA;
-        if (slow) *slow = 1;
+        if (slow) *slow = 0;
         return p;
     }
     for (i = 0; i < STRUM_NPAT; i++)   /* the approved, evenly, leaning on the rolled motion by busyness */
@@ -61,11 +61,11 @@ int strum_pattern(const song_roll_t *r, int *slow)
     return p;
 }
 
-/* the song's spread between strings, in ms: quick 7-12, slow 40-70 */
+/* the song's spread between strings, in ms: quick 7-12, slow 40-70; the harp's (slow 2) 12-25 */
 static float strum_gap_ms(const song_roll_t *r, int slow)
 {
     float u = (float)(strum_draw(r) >> 16) * (1.0f / 65536.0f);
-    return slow ? 40.0f + 30.0f * u : 7.0f + 5.0f * u;
+    return slow == 2 ? 12.0f + 13.0f * u : slow ? 40.0f + 30.0f * u : 7.0f + 5.0f * u;
 }
 
 /* the ballad in a drum fill's bar (its kick on 1, 3 and the and of 4 would be the ballad's own rhythm, Sam: the keys
@@ -360,9 +360,16 @@ int strum_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, f
     case 'P': vel = 54; lo = 2; pinch = 1; fac = 0.6f; break;
     default: vel = 54; lo = 2; thumb = pinch = 1; fac = 0.6f; break;   /* B */
     }
-    if (harp(r)) dir = 1;                                /* the harp: every stroke rolled up, low to high */
-    gap = strum_gap_ms(r, slow) * fac;
-    gap = slow ? (gap < 32.0f ? 32.0f : gap > 78.0f ? 78.0f : gap) : (gap < 6.0f ? 6.0f : gap > 14.0f ? 14.0f : gap);
+    if (harp(r)) {                                       /* the harp: every stroke rolled up, low to high, 12-25 ms a
+                                                            string (Sam, round 2: the slow spread "too slow") */
+        dir = 1;
+        gap = strum_gap_ms(r, 2) * fac;
+        gap = gap < 12.0f ? 12.0f : gap > 25.0f ? 25.0f : gap;
+    } else {
+        gap = strum_gap_ms(r, slow) * fac;
+        gap = slow ? (gap < 32.0f ? 32.0f : gap > 78.0f ? 78.0f : gap)
+                   : (gap < 6.0f ? 6.0f : gap > 14.0f ? 14.0f : gap);
+    }
     gap *= 44.1f;                                        /* in samples */
     dark = (b->flags & PB_DARK) ? -6 : !(b->layers & (L_KICK | L_LEAD)) ? 6 : 0;
     if (step & 1) {                                      /* an odd 16th swings as the bass does */

@@ -13897,43 +13897,84 @@ static void hk_harp(song_roll_t *r, int base)
     r->v[RF_SET] = LIB_SET_WB;
 }
 
-/* the song's keys events, strike by strike (a 16th's V_CHORD events): the gaps between a strike's notes in order of
-   their start (*glo, *ghi: the least and most, samples), notes not rising (*down), chucks (*chuck); the lowest and
-   highest note */
+/* the song's keys events, strike by strike: their start times in the song (samples), a strike's notes those less
+   than 50 ms apart. The gaps between a strike's notes in order of start (*glo, *ghi: the least and most, samples),
+   notes not rising (*down), chucks (*chuck); the lowest and highest note (lo, hi) and every note's count (hist);
+   strikes centered on a 16th's grid point within 6 ms (*centered: the anticipation), their first note on one within
+   6 ms (*ontime: a downbeat on a 4-bar line, the song's first), and the rest (*off) */
+static uint32_t hk_t[8192];
+static uint8_t hk_n[8192];
 static void hk_strikes(const song_roll_t *r, uint32_t *glo, uint32_t *ghi, int *down, int *chuck, int *lo, int *hi,
-                       int *strikes)
+                       int *strikes, int *centered, int *ontime, int *off, int *hist)
 {
     static song_t s;
+    static uint32_t grid[4096], swung[4096];
     song_ev_t ev[64];
+    uint32_t pos = 0;
+    float frac = 0.0f;
+    int nt = 0, ng = 0, i, j, k;
     *glo = 1u << 30;
     *ghi = 0u;
-    *down = *chuck = *strikes = 0;
+    *down = *chuck = *strikes = *centered = *ontime = *off = 0;
     song_start(&s, r);
-    while (s.state == SS_PLAYING) {
-        int n = song_tick(&s, ev, 64), i, last = -1, k = 0;
-        for (i = 0; i < n; i++) {
-            if (ev[i].voice != V_CHORD) continue;
-            *lo = ev[i].note < *lo ? ev[i].note : *lo;
-            *hi = ev[i].note > *hi ? ev[i].note : *hi;
-            *chuck += ev[i].pad & 1;
-            if (last >= 0) {
-                uint32_t g = ev[i].delay - ev[last].delay;
-                *glo = g < *glo ? g : *glo;
-                *ghi = g > *ghi ? g : *ghi;
-                *down += ev[i].note <= ev[last].note;
+    while (s.state == SS_PLAYING && ng < 4096) {
+        int n = song_tick(&s, ev, 64);
+        float adv = song_step_samples(&s) + frac;
+        swung[ng] = pos + ((ng & 1) && r->v[RF_SWING] > 500 ?   /* (an odd 16th swings: strum.c) */
+                           (uint32_t)(((float)r->v[RF_SWING] * 0.001f - 0.5f) * 2.0f * song_step_samples(&s)) : 0u);
+        grid[ng++] = pos;
+        for (i = 0; i < n && nt < 8192; i++)
+            if (ev[i].voice == V_CHORD) {
+                hk_t[nt] = pos + ev[i].delay;
+                hk_n[nt++] = ev[i].note;
+                *chuck += ev[i].pad & 1;
             }
-            last = i;
-            k++;
+        pos += (uint32_t)adv;
+        frac = adv - (float)(uint32_t)adv;
+    }
+    for (i = 1; i < nt; i++)                                /* by start */
+        for (j = i; j > 0 && hk_t[j] < hk_t[j - 1]; j--) {
+            uint32_t t = hk_t[j];
+            uint8_t u = hk_n[j];
+            hk_t[j] = hk_t[j - 1]; hk_t[j - 1] = t;
+            hk_n[j] = hk_n[j - 1]; hk_n[j - 1] = u;
         }
-        *strikes += k > 1;
+    for (i = 0; i < nt; i = j) {
+        uint32_t mid, best = 1u << 30, bf = 1u << 30;
+        for (j = i + 1; j < nt && hk_t[j] - hk_t[j - 1] < 2205u; j++) {
+            uint32_t g = hk_t[j] - hk_t[j - 1];
+            *glo = g < *glo ? g : *glo;
+            *ghi = g > *ghi ? g : *ghi;
+            *down += hk_n[j] <= hk_n[j - 1];
+        }
+        for (k = i; k < j; k++) {
+            *lo = hk_n[k] < *lo ? hk_n[k] : *lo;
+            *hi = hk_n[k] > *hi ? hk_n[k] : *hi;
+            hist[hk_n[k]]++;
+        }
+        mid = hk_t[i] + (hk_t[j - 1] - hk_t[i]) / 2u;
+        for (k = 0; k < ng; k++) {
+            uint32_t d = mid > grid[k] ? mid - grid[k] : grid[k] - mid, df = hk_t[i] > grid[k] ? hk_t[i] - grid[k]
+                                                                                              : grid[k] - hk_t[i];
+            best = d < best ? d : best;
+            d = mid > swung[k] ? mid - swung[k] : swung[k] - mid;
+            best = d < best ? d : best;
+            if (k % 64 == 0) bf = df < bf ? df : bf;
+        }
+        *strikes += j - i > 1;
+        if (j - i < 2) continue;
+        if (best <= 265u) (*centered)++;
+        else if (bf <= 265u) (*ontime)++;
+        else (*off)++;
     }
 }
 
+static int hk_hs[128], hk_hr[128];
 static void test_harp_keys(void)
 {
     static const int BASES[3] = {7, 41, 1};   /* Felt and flute, Felt and harp's keys (the lead the harp: here the
                                                  keys' rules only), Rhodes dusty */
-    int seed, strums = 0, n = 0, pat[SP_N] = {0}, lo = 127, hi = 0, k;
+    int seed, strums = 0, n = 0, pat[SP_N] = {0}, lo = 127, hi = 0, rlo = 127, rhi = 0, k, tcen = 0, tont = 0;
     double lv[3] = {0.0, 0.0, 0.0};
     int lvn[3] = {0, 0, 0};
     song_ov_t o = ov_none();
@@ -13968,29 +14009,44 @@ static void test_harp_keys(void)
             strums++;
             p = strum_pattern(&r, &slow);
             pat[p]++;
-            CHECK((p == SP_BALLAD || p == SP_BOSSA) && slow, "harp keys: seed %d strums pattern %d (slow %d)", seed, p,
-                  slow);
+            CHECK(p == SP_BALLAD || p == SP_BOSSA, "harp keys: seed %d strums pattern %d", seed, p);
         } else
             CHECK(st == CS_HELD || st == CS_HALF, "harp keys: seed %d rolls comping style %d", seed, st);
-        if (seed <= 24) {      /* the strikes: rolled up, the gaps in range, no chuck */
+        if (seed <= 24) {      /* the strikes: rolled up, the gaps in range, no chuck, centered on the beat */
             uint32_t glo, ghi;
-            int down, chuck, ns;
-            hk_strikes(&r, &glo, &ghi, &down, &chuck, &lo, &hi, &ns);
+            int down, chuck, ns, cen, ont, off, *lh = st == CS_STRUM ? hk_hs : hk_hr;
+            hk_strikes(&r, &glo, &ghi, &down, &chuck, st == CS_STRUM ? &lo : &rlo, st == CS_STRUM ? &hi : &rhi, &ns,
+                       &cen, &ont, &off, lh);
             if (st == CS_STRUM)
-                CHECK(!down && !chuck && glo >= 1323u && ghi <= 3528u + 90u, "harp keys: seed %d strums %d down, %d "
-                      "chucks, gaps %.1f-%.1f ms", seed, down, chuck, (double)glo / 44.1, (double)ghi / 44.1);
+                CHECK(!down && !chuck && glo >= 529u - 45u && ghi <= 1103u + 45u, "harp keys: seed %d strums %d "
+                      "down, %d chucks, gaps %.1f-%.1f ms", seed, down, chuck, (double)glo / 44.1, (double)ghi / 44.1);
             else
-                CHECK(!down && !chuck && glo >= 1102u && ghi <= 2646u, "harp keys: seed %d rolls %d down, gaps "
+                CHECK(!down && !chuck && glo >= 880u && ghi <= 1766u, "harp keys: seed %d rolls %d down, gaps "
                       "%.1f-%.1f ms", seed, down, (double)glo / 44.1, (double)ghi / 44.1);
-            CHECK(ns > 0, "harp keys: seed %d: no strike of two notes or more", seed);
+            CHECK(ns > 0 && !off && cen >= ont, "harp keys: seed %d: %d strikes, %d centered, %d on time, %d "
+                  "neither", seed, ns, cen, ont, off);
+            tcen += cen;
+            tont += ont;
         }
     }
-    printf("harp keys: %d of %d songs strum (ballad %d, bossa %d), the rest roll held or half notes; its notes "
-           "MIDI %d-%d\n", strums, n, pat[SP_BALLAD], pat[SP_BOSSA], lo, hi);
+    {
+        int med[2] = {0, 0}, c, tot, i;
+        for (k = 0; k < 2; k++) {
+            int *h = k ? hk_hr : hk_hs;
+            for (tot = 0, c = 0; c < 128; c++) tot += h[c];
+            for (c = 0, i = 0; c < 128 && i * 2 < tot; c++) i += h[c];
+            med[k] = c - 1;
+        }
+        printf("harp keys: %d of %d songs strum (ballad %d, bossa %d), the rest roll held or half notes; strummed "
+               "MIDI %d-%d (median %d), rolled %d-%d (median %d); %d strikes centered on the beat, %d on time\n",
+               strums, n, pat[SP_BALLAD], pat[SP_BOSSA], lo, hi, med[0], rlo, rhi, med[1], tcen, tont);
+        CHECK(rlo >= 55 && rhi <= 79 && med[1] >= 65, "harp keys: rolled MIDI %d-%d (median %d), wanted about "
+              "G3-E5, its bulk F4 and over", rlo, rhi, med[1]);
+    }
     CHECK(strums * 100 >= n * 40 && strums * 100 <= n * 60, "harp keys: %d of %d strum, wanted about half", strums, n);
     CHECK(pat[SP_BALLAD] > strums / 4 && pat[SP_BOSSA] > strums / 4, "harp keys: ballad %d, bossa %d", pat[SP_BALLAD],
           pat[SP_BOSSA]);
-    CHECK(lo >= 48 && hi <= 79, "harp keys: notes MIDI %d-%d, outside C3-G5 (a concert harp's middle)", lo, hi);
+    CHECK(lo >= 48 && hi <= 79, "harp keys: strummed MIDI %d-%d, outside C3-G5 (a concert harp's middle)", lo, hi);
     /* the overrides: strum, held, half forced; another rhythm holds; a guitar's pattern forced plays the harp's */
     {
         song_roll_t r;
@@ -14006,7 +14062,7 @@ static void test_harp_keys(void)
         CHECK(k == SP_BALLAD || k == SP_BOSSA, "harp keys: d-du-udu forced plays %d", k);
         o.strum_pat = SP_BOSSA;
         song_override(&o);
-        CHECK(strum_pattern(&r, &slow) == SP_BOSSA && slow, "harp keys: the bossa forced");
+        CHECK(strum_pattern(&r, &slow) == SP_BOSSA, "harp keys: the bossa forced");
         o.strum_pat = -1;
         o.comp = CS_HALF;
         song_override(&o);
@@ -14060,20 +14116,63 @@ static void test_harp_keys(void)
     /* the voices: a strum's strings each on a voice of their own, a rolled chord's 4 notes: no ringing voice stolen */
     {
         int peak = 0, pk;
-        uint32_t stl = 0;
-        for (seed = 1; seed <= 6; seed++) {
+        uint32_t stl[2] = {0, 0};
+        for (seed = 1; seed <= 12; seed++) {
             song_roll_t r;
             roll_song(NULL, (uint32_t)seed, &r);
             hk_harp(&r, 7);
             o = ov_none();
             o.comp = seed & 1 ? CS_STRUM : CS_HALF;
             song_override(&o);
-            stl += st_render(&r, &pk);
+            stl[seed & 1] += st_render(&r, &pk);
             peak = pk > peak ? pk : peak;
         }
         song_override(NULL);
-        printf("harp keys: 6 renders (24 bars each): %u chord voices stolen, %d voices (all roles) at most\n",
-               (unsigned)stl, peak);
+        printf("harp keys: 12 renders (24 bars each): %u chord voices stolen strummed, %u rolled; %d voices (all "
+               "roles) at most\n", (unsigned)stl[1], (unsigned)stl[0], peak);
+    }
+    /* the anticipation over a bar line: bar 1's downbeat strike (inside a block and a 4-bar group) starts in bar 0's
+       last 16th, the rest on its own; the same strike whole and on time where it wasn't (a stop's resume: the copy's
+       ant cleared), and none early while a jump waits (harmony_antic 0) */
+    for (k = 0; k < 2; k++) {
+        static song_t a, c;
+        song_ev_t ev[64];
+        int got = 0, early = 0, own = 0, whole = 0, blocked = 0, i;
+        uint32_t first = 0;
+        for (seed = 1; seed < 200 && !got; seed++) {
+            song_roll_t r;
+            roll_song(NULL, (uint32_t)seed, &r);
+            hk_harp(&r, 7);
+            o = ov_none();
+            o.comp = k ? CS_HALF : CS_STRUM;
+            o.strum_pat = SP_BALLAD;
+            song_override(&o);
+            song_start(&a, &r);
+            if (!plan_at(&a.plan, 1) || plan_at(&a.plan, 1) != plan_at(&a.plan, 0) ||
+                !(plan_at(&a.plan, 1)->layers & L_KEYS))
+                continue;
+            got = 1;
+            while (a.bar == 0 && a.step < 15) song_tick(&a, ev, 64);
+            c = a;                                         /* (bar 0's last 16th, a jump waiting: none early) */
+            harmony_antic(0);
+            for (i = 0, n = song_tick(&c, ev, 64); i < n; i++) blocked += ev[i].voice == V_CHORD;
+            harmony_antic(1);
+            for (i = 0, n = song_tick(&a, ev, 64); i < n; i++) early += ev[i].voice == V_CHORD;
+            c = a;                                         /* (a stop at bar 1: resumed from its start) */
+            c.voicing.ant = 0;
+            for (i = 0, n = song_tick(&a, ev, 64); i < n; i++) own += ev[i].voice == V_CHORD;
+            for (i = 0, n = song_tick(&c, ev, 64); i < n; i++)
+                if (ev[i].voice == V_CHORD) {
+                    if (!whole++) first = ev[i].delay;
+                }
+        }
+        song_override(NULL);
+        printf("harp keys: %s, bar 1's downbeat: %d notes early, %d on it; resumed there %d, the first %.1f ms after "
+               "it; a jump waiting %d early\n", k ? "rolled" : "strummed", early, own, whole, (double)first / 44.1,
+               blocked);
+        CHECK(got && early > 0 && own > 0 && whole == early + own && first < 265u && blocked == 0,
+              "harp keys: the anticipation over bar 1's line (%s): %d early, %d on it, %d resumed, %d with a jump",
+              k ? "rolled" : "strummed", early, own, whole, blocked);
     }
     lib_set_wb(NULL, 0);
 }

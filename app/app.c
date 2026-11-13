@@ -368,6 +368,7 @@ static void song_resume(void)
 {
     song_carry_requests(&mark, &song);
     song = mark;
+    song.voicing.ant = 0;                /* (the harp's anticipated notes went before the stop: its downbeat whole) */
     r_now = r_pos = mark_pos;
     r_frac = mark_frac;
     r_tick = mark_tick;
@@ -542,6 +543,7 @@ static void jump_land(void)
 {
     jump_carry(jsong.bar);               /* (as they are now: any carried ahead put back first) */
     song = jsong;
+    song.voicing.ant = 0;                /* (fast-forwarded silently: the harp's downbeat whole, on time) */
     j_target = -1;
     vx_release_all();
     vx_configure(&song.roll);            /* (the bed reopens, as the workbench's landing) */
@@ -718,6 +720,9 @@ static void step(void)
     {                                     /* a request that lands here on what the voices read reaches them */
         song_roll_t before = song.roll;
         uint16_t changes = song.changes;  /* a row request (an instrument, the kit) landing: song_request_row */
+#if UI_RT
+        harmony_antic(j_target < 0);      /* (no anticipation over a bar line a jump may leave from) */
+#endif
         n = song_tick(&song, evs, 64);
         llp = song_lead_lp_at(&song, bar, st);   /* the lead loop's filter, for the 16th just played */
         vx_set_filter(PM_LEAD, lp[PM_LEAD] < llp ? llp : lp[PM_LEAD]);   /* before its events */

@@ -827,7 +827,9 @@ int song_tick(song_t *s, song_ev_t *out, int max)
         int pcs[5], np, pass = bar / loop_bars(&s->roll) + 1, dark = (b->flags & PB_DARK) != 0;
         np = harmony_chord_at(&s->roll, bar, pass, dark, pcs);
         if (step == 0 && staged(s, bar)) {          /* planned ahead (stage_plan, stage_pads): the same, taken */
+            int16_t ant = s->voicing.ant;           /* (the harp's anticipation, played after the stage) */
             s->voicing = s->stg_v;
+            s->voicing.ant = ant;
             s->lead = s->stg_l;
             if (bar % 4 == 0) s->pads = s->stg_p;
         } else if (step == 0) {                     /* the lead plans its bar first: the comping makes room for it */

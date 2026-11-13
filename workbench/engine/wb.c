@@ -107,6 +107,7 @@ static void land(int target, int fresh)
         song_tick(&song, evs, 64);
         pos += advance();
     }
+    song.voicing.ant = 0;               /* (the ticks silent: the harp's downbeat whole, on time; harmony_step) */
     if (fresh) {
         if (vx_sounding())
             vx_release_all();
@@ -158,6 +159,7 @@ static void tick(void)
         int len = last->bars * 16, at = (bar - last->start) * 16 + st + 1;
         vx_set_gain(1.0f - (float)at / (float)len);
     }
+    harmony_antic(!apply_pend);         /* (a commit lands at the next bar line, the song started again there) */
     n = song_tick(&song, evs, 64);
     llp = song_lead_lp_at(&song, bar, st);   /* the lead loop's filter, for the 16th just played */
     vx_set_filter(PM_LEAD, lp[PM_LEAD] < llp ? llp : lp[PM_LEAD]);   /* before its events */
