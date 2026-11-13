@@ -8,6 +8,8 @@ ideas that still need a reason.
 
 - **A fade between the two home screens:** HOME cross-fades the now-playing and main screens, as the splash fades in.
 - **A stutter on demand:** on the Sections screen, a control queues a stutter for the next group's last bar.
+- **Subtler stutters:** several stutter figures from simple to complex (a single repeated 16th up to today's
+  whole-mix stutter, the most complex), drawn per song or per group.
 - **A stutter where no lead plays:** the comp catches the stutter in sections without a lead.
 - **Broken-chord piano comp:** a climbing broken chord for the acoustic piano, in place of a strum.
 - **Soft synth lead:** a candidate lead for the synth sets, waiting on a listen.
