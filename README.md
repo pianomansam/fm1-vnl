@@ -63,10 +63,11 @@ Every change to the song lands on its next four-bar line, and the screen shows i
 
 ### Parts
 
-- **Drums:** eight kits: 808 and CR-78 (modeled machines), Crunchy, Boom-bap and Jazz machine (synth drums), Soft
-  brushes, and two sampled room kits (Room - big, and Room - brushes for sunny songs). Eight patterns (boom bap,
+- **Drums:** eight kits: 808 and CR-78 (modeled machines, from FOMAJAM), Crunchy, Boom-bap and Jazz machine (Optimist's
+  synth drums), Soft brushes, and two sampled room kits (Room - big, and Room - brushes for sunny songs, from
+  Karoryfer's Big Rusty Drums). Eight patterns (boom bap,
   half-time, sparse, brushes), nine two-bar kick phrases, a ride section on the sampled kits, and a per-drum lo-fi
-  pocket.
+  pocket (the pocket and four kick phrases adapted from Cut-A-Dor).
 - **Bass:** electric, sub, triangle and FM bass, with walking lines and lines that lead into the next chord. Every
   bass but the sub is gently saturated, so its line carries on small speakers (Settings' BASS SATURATION turns it
   off for good speakers).
@@ -84,12 +85,14 @@ Every change to the song lands on its next four-bar line, and the screen shows i
 
 Ten, in a lo-fi chain: tape wow and flutter, dust (saturation and a darkening low-pass), grit, a chorus and plate
 reverb (adapted from Mutable Instruments Rings), a tape delay, bass saturation, kick ducking, filter sweeps on section
-changes, and a whole-mix stutter on the last bar of a 4- or 8-bar group.
+changes, and a whole-mix stutter on the last bar of a 4- or 8-bar group (after Cut-A-Dor's). The host simulator's
+plate follows AMB-1's, after Dattorro's design.
 
 ### Sounds
 
 - Sampled piano, nylon guitar, electric guitar, jazz guitar (re-amped through a real amp), cello, harp and two drum
-  kits, all from CC0 libraries; modeled vibes; a tonewheel organ; FM and analog-style synths.
+  kits, all from CC0 libraries (the Versilian Community Sample Library, VSCO-2 CE, Karoryfer Samples and FreePats);
+  modeled vibes (after Ravel_FM1's marimba); a tonewheel organ (after SLOOP's); FM and analog-style synths.
 - Ten sound engines: a sampler, FM electric piano, FM bass, a wind voice (flute, whistle), an analog-style saw
   pad, an ensemble for strings and choir, a tonewheel organ, a modeled vibraphone, a chip triangle and the drum
   synths.
@@ -107,10 +110,12 @@ changes, and a whole-mix stutter on the last bar of a 4- or 8-bar group.
 - Saved songs: SAVE on the Song page keeps the song (16 slots, through power-off); REC lists them, EDIT loads one.
   A backup over USB holds them.
 - Fifteen color themes (Settings, GLO): GARNET by default, plus GARNET+, BLACK CHERRY, OXBLOOD, OXBLOOD+, PLUM,
-  PLUM+, ESPRESSO, TEAL, OLIVE and the black GREEN, AMBER, CYAN, RED and MONO.
+  PLUM+, ESPRESSO, TEAL, OLIVE and fm1-base's black GREEN, AMBER, CYAN, RED and MONO.
 - A screen reader, through the [FM-1 Screen Reader](https://charlesvestal.github.io/fm1-reader/).
 - USB audio in and out: record VNL-1 on a computer, or play the computer through the FM-1.
-- A CPU guard that eases off reverb tails and quiet voices before the audio can glitch.
+- A CPU guard that eases off reverb tails and quiet voices before the audio can glitch (adapted from Optimist's,
+  after Flowstate's).
+- Built on fm1-base (with Felucca's board support), in the Barlow font.
 
 ### For tinkerers
 
