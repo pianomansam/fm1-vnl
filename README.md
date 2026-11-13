@@ -8,6 +8,44 @@ four-bar line, in time. VNL-1 is free software (GPL), built on [fm1-base](https:
 
 ## Features
 
+- **Endless songs:** each one generated from a seed, with its own key, tempo, chords, layout and band; 40 instrument
+  sets in five flavors, 44 chord progressions, four moods and five song layouts.
+- **A six-part band:** drums (8 kits), bass (4 instruments), comp (9 instruments), lead (8 instruments in 8 styles),
+  pad and texture.
+- **Real and synth sounds:** sampled piano, guitars, cello, harp and drum kits from CC0 libraries, beside modeled and
+  synth instruments.
+- **A lo-fi mix:** tape wobble, saturation, dust, a plate reverb, kick ducking and an occasional whole-mix stutter.
+- **Hands on:** change the key, tempo, mood or any part from the knobs, re-roll or lock a part, jump to or loop a
+  section, mute and solo, and save up to 16 songs; every change lands in time.
+- **On the FM-1:** a now-playing screen, a detailed main screen, a page per part, color themes, a screen reader and
+  USB audio in and out.
+- **For tinkerers:** a workbench web page, a host simulator that renders WAV, MIDI and MusicXML, and patterns as
+  editable files.
+
+See [Features in detail](#features-in-detail) for everything each part can do.
+
+## Controls
+
+| Control | What it does |
+| --- | --- |
+| PLAY | Play or stop. After a stop, PLAY carries on from the bar it stopped in. |
+| SEQ | A new song. On a part's page, re-rolls only that part; hold it there (0.6 s) to lock the part (a padlock by its name and on its main-screen tile; hold again to unlock); on the main screen, hold it to lock the highlighted part, or on the song tile (or the Song page) the song line: key and scale, tempo, motion and mood. A locked part plays on unchanged in every new song (its instrument, rhythm or style, register and variations; the drums' kit, pattern, kick, ride and variation; the texture's dust, noise and room) while the rest rolls. Locks last until unlocked or power-off. |
+| K1-K4 | On the main screen: key, tempo, motion, mood. On a part's page: that page's settings. |
+| ALGO | Picks a part. EDIT opens its page; SELECT steps its pages. |
+| PRESET | The highlighted part's instrument (or kit). |
+| OCT- / OCT+ | The comp's or the lead's register. |
+| SEL | Sections: jump to a section (EDIT, or its key), loop it (K1), stay on the song (K2). |
+| ARP | Parts: each part's notes over the song. |
+| FX | The Mixer. |
+| HOME | Switches between the now-playing screen and the main screen; the last one used is the home. |
+| SAVE | On the Song page, saves the song into the first free slot (SAVED TO 3); held there, or anywhere else, a line of measures for a bug report. |
+| REC | On the Song page, the Saved list: EDIT loads the highlighted song (the next song), SAVE saves into that slot, SAVE held deletes it. A save made while music plays is written to the flash when it stops. |
+| Lowest white keys (F G A B C) | Drums, bass, comp, lead, pad: press to mute, hold to solo. |
+
+Every change to the song lands on its next four-bar line, and the screen shows it waiting until then.
+
+## Features in detail
+
 **Songs**
 
 - Endless generated songs, each from a seed, with a 2-4 s silence between them; or stay on one song as long as you like.
@@ -67,26 +105,6 @@ four-bar line, in time. VNL-1 is free software (GPL), built on [fm1-base](https:
 - **The host simulator:** renders songs to WAV, with a song log, MIDI and MusicXML of what each part played.
 - **Patterns as files:** drum, kick, strum, comp and chord patterns as MIDI and MusicXML in `patterns/`; edit them in
   a DAW or MuseScore and import them back.
-
-## Controls
-
-| Control | What it does |
-| --- | --- |
-| PLAY | Play or stop. After a stop, PLAY carries on from the bar it stopped in. |
-| SEQ | A new song. On a part's page, re-rolls only that part; hold it there (0.6 s) to lock the part (a padlock by its name and on its main-screen tile; hold again to unlock); on the main screen, hold it to lock the highlighted part, or on the song tile (or the Song page) the song line: key and scale, tempo, motion and mood. A locked part plays on unchanged in every new song (its instrument, rhythm or style, register and variations; the drums' kit, pattern, kick, ride and variation; the texture's dust, noise and room) while the rest rolls. Locks last until unlocked or power-off. |
-| K1-K4 | On the main screen: key, tempo, motion, mood. On a part's page: that page's settings. |
-| ALGO | Picks a part. EDIT opens its page; SELECT steps its pages. |
-| PRESET | The highlighted part's instrument (or kit). |
-| OCT- / OCT+ | The comp's or the lead's register. |
-| SEL | Sections: jump to a section (EDIT, or its key), loop it (K1), stay on the song (K2). |
-| ARP | Parts: each part's notes over the song. |
-| FX | The Mixer. |
-| HOME | Switches between the now-playing screen and the main screen; the last one used is the home. |
-| SAVE | On the Song page, saves the song into the first free slot (SAVED TO 3); held there, or anywhere else, a line of measures for a bug report. |
-| REC | On the Song page, the Saved list: EDIT loads the highlighted song (the next song), SAVE saves into that slot, SAVE held deletes it. A save made while music plays is written to the flash when it stops. |
-| Lowest white keys (F G A B C) | Drums, bass, comp, lead, pad: press to mute, hold to solo. |
-
-Every change to the song lands on its next four-bar line, and the screen shows it waiting until then.
 
 ## Install (FM-1 owners)
 
