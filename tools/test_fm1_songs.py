@@ -40,7 +40,9 @@ other = dict(rec, seed=12345)
 with tempfile.TemporaryDirectory() as d:
     sc = os.path.join(d, "songs.vnl")
     with open(sc, "w") as f:
-        f.write("wait 1400\ntap PLAY\nwait 3000\nspin ALGO 3\ntap EDIT\nspin K1 2\nwait 15000\ntap HOME\nspin ALGO -3\n"
+        # (the home: the main screen first, Settings' HOME SCREEN DETAILED; a fresh device's is now playing)
+        f.write("wait 1400\ntap GLO\nwait 50\nspin SELECT 2\nturn K1 1\ntap GLO\nwait 50\n"
+                "tap PLAY\nwait 3000\nspin ALGO 3\ntap EDIT\nspin K1 2\nwait 15000\ntap HOME\nspin ALGO -3\n"
                 "tap EDIT\nwait 50\ntap SAVE\nwait 50\nlive\nsysex_out\n"
                 "sysex F0 7D 56 4E 05 00 F7\nsysex_out\n"
                 f"sysex {hexs(T.PFX + bytes([T.PUT, 1]) + T.nibbles(T.pack(other)) + bytes([0xF7]))}\n"

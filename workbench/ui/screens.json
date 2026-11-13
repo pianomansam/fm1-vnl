@@ -316,7 +316,7 @@
    "row": "noise"
   }
  },
- "home": "main",
+ "home": "now",
  "icons": {
   "bass": [
    "##.......",
@@ -1540,7 +1540,7 @@
     },
     "HOME": {
      "go": "now",
-     "home": true
+     "root": true
     },
     "OCT+": {
      "by": 1,
@@ -1962,7 +1962,7 @@
    "controls": {
     "HOME": {
      "go": "main",
-     "home": true
+     "root": true
     }
    },
    "fade": true,
@@ -5371,98 +5371,118 @@
        "y": 26
       },
       {
+       "color": "LINE",
+       "rect": [
+        2,
+        44,
+        236,
+        20
+       ],
+       "when": "sel2"
+      },
+      {
+       "color": "AMB",
+       "rect": [
+        2,
+        44,
+        2,
+        20
+       ],
+       "when": "sel2"
+      },
+      {
+       "color": "WHITE",
+       "font": "T",
+       "text": "HOME SCREEN",
+       "x": 8,
+       "y": 50
+      },
+      {
+       "color": "HI",
+       "font": "XS",
+       "right": 232,
+       "text": "{homeScreen}",
+       "y": 48
+      },
+      {
        "color": "DIM",
        "font": "T",
        "text": "NOT WORKING YET",
        "x": 8,
-       "y": 50
+       "y": 68
       },
       {
        "color": "GRAY",
        "font": "T",
        "text": "MOVEMENT",
        "x": 8,
-       "y": 64
+       "y": 82
       },
       {
        "color": "DIM",
        "font": "XS",
        "right": 232,
        "text": "LESS (A BAR AT A TIME)",
-       "y": 62
+       "y": 80
       },
       {
        "color": "GRAY",
        "font": "T",
        "text": "SCREEN READER",
        "x": 8,
-       "y": 77
+       "y": 95
       },
       {
        "color": "DIM",
        "font": "XS",
        "right": 232,
        "text": "ON",
-       "y": 75
+       "y": 93
       },
       {
        "color": "GRAY",
        "font": "T",
        "text": "KEY LIGHTS",
        "x": 8,
-       "y": 90
+       "y": 108
       },
       {
        "color": "DIM",
        "font": "XS",
        "right": 232,
        "text": "ON",
-       "y": 88
+       "y": 106
       },
       {
        "color": "GRAY",
        "font": "T",
        "text": "BRIGHTNESS",
        "x": 8,
-       "y": 103
+       "y": 121
       },
       {
        "color": "DIM",
        "font": "XS",
        "right": 232,
        "text": "HIGH",
-       "y": 101
-      },
-      {
-       "color": "GRAY",
-       "font": "T",
-       "text": "MAIN SCREEN",
-       "x": 8,
-       "y": 116
-      },
-      {
-       "color": "DIM",
-       "font": "XS",
-       "right": 232,
-       "text": "EXPANDED",
-       "y": 114
+       "y": 119
       },
       {
        "color": "GRAY",
        "font": "T",
        "text": "ADVANCED RULES",
        "x": 8,
-       "y": 129
+       "y": 134
       },
       {
        "color": "DIM",
        "font": "XS",
        "right": 232,
        "text": "...",
-       "y": 127
+       "y": 132
       }
      ],
-     "h": 140,
+     "h": 146,
      "y": 50
     },
     {
@@ -5505,28 +5525,32 @@
     "K1": {
      "byCursor": [
       "theme",
-      "bassSat"
+      "bassSat",
+      "homeScreen"
      ],
      "do": "setting"
     },
     "K2": {
      "byCursor": [
       "theme",
-      "bassSat"
+      "bassSat",
+      "homeScreen"
      ],
      "do": "setting"
     },
     "K3": {
      "byCursor": [
       "theme",
-      "bassSat"
+      "bassSat",
+      "homeScreen"
      ],
      "do": "setting"
     },
     "K4": {
      "byCursor": [
       "theme",
-      "bassSat"
+      "bassSat",
+      "homeScreen"
      ],
      "do": "setting"
     },
@@ -5538,11 +5562,11 @@
     }
    },
    "placeholder": true,
-   "rows": 2,
+   "rows": 3,
    "say": [
-    "SETTINGS. THEME {theme}. BASS SATURATION {bassSat}"
+    "SETTINGS. THEME {theme}. BASS SATURATION {bassSat}. HOME SCREEN {homeScreen}"
    ],
-   "title": "Settings (theme, bass saturation)"
+   "title": "Settings (theme, bass saturation, home screen)"
   },
   "saved": {
    "bands": [

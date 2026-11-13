@@ -174,12 +174,13 @@ static int e_soloed(void) { return eng_solo; }
 static void e_level(int p, int db) { eng_level[p] = db; logf_("level", p, db); }
 static int e_level_get(int p) { return eng_level[p]; }
 static const ui_engine_t ENG = {e_set, e_play, e_reroll, e_reroll_part, e_jump, e_mute, e_solo, e_muted, e_soloed,
-                                e_level, e_level_get, 0, 0, 0, 0, 0, 0};   /* (the saved songs, the settings: none) */
+                                e_level, e_level_get, 0, 0, 0, 0, 0, 0, 0};   /* (saved songs, settings: none) */
 
 static void nav_fresh(ui_nav_t *n, snap_t *s, int bar)
 {
     snap_for(s, UI_FX_SEED, bar, 1);
     ui_nav_init(n);
+    n->stack[0] = n->home = (uint8_t)US_MAIN;   /* (Settings' HOME SCREEN DETAILED: the app's, set_load) */
     n->eng = &ENG;
     eng_log[0] = 0;
     memset(eng_muted, 0, sizeof eng_muted);
@@ -322,6 +323,25 @@ static void test_nav_new_song(void)
     ui_update(&n, &s, 0);
     CHECK(shown(&n) == US_MAIN && n.depth == 1 && n.req_at[UFLD_COMP_INS] < 0, "a new song: the main screen, nothing "
           "waits (%d)", shown(&n));
+}
+
+/* HOME on the main screen: now playing, alone on the breadcrumb; the home stays the main screen (Settings' alone
+   changes it): HOME again, a new song, HOME from elsewhere all land on the main screen */
+static void test_nav_home_root(void)
+{
+    ui_nav_t n;
+    snap_t s;
+    nav_fresh(&n, &s, 2);
+    ui_press(&n, UC_IN_HOME, 1);
+    CHECK(shown(&n) == US_NOW && n.depth == 1 && n.home == US_MAIN, "HOME: now playing, the home kept (%d, %d)",
+          shown(&n), n.home);
+    ui_press(&n, UC_IN_GLO, 1);
+    ui_press(&n, UC_IN_HOME, 1);
+    CHECK(shown(&n) == US_MAIN && n.depth == 1, "HOME on Settings: the home, the main screen (%d)", shown(&n));
+    ui_press(&n, UC_IN_HOME, 1);
+    s.roll.seed++;
+    ui_update(&n, &s, 0);
+    CHECK(shown(&n) == US_MAIN && n.depth == 1, "a new song: the home, the main screen (%d)", shown(&n));
 }
 
 /* PRESET on the main screen: the highlighted part's instrument; SEQ on Bass: its re-roll, sent in the bar before */
@@ -478,6 +498,7 @@ int main(int argc, char **argv)
     RUN(test_nav_pending_order);
     RUN(test_nav_stopped);
     RUN(test_nav_new_song);
+    RUN(test_nav_home_root);
     RUN(test_nav_preset_seq);
     RUN(test_nav_fast_keys);
     RUN(test_nav_switch_mixer);

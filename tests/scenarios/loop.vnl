@@ -5,6 +5,13 @@
 # loop's restart instead, the intro's first bar.
 listen
 wait 1400
+# the home: DETAILED, the main screen (Settings' HOME SCREEN, its third line; a fresh device's is now playing)
+tap GLO
+wait 50
+spin SELECT 2
+turn K1 1
+tap GLO
+wait 50
 tap PLAY
 wait 1000
 tap SEL

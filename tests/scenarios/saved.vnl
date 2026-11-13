@@ -7,6 +7,13 @@
 # another song plays, it comes in as a new song does.
 listen
 wait 1400
+# the home: DETAILED, the main screen (Settings' HOME SCREEN, its third line; a fresh device's is now playing)
+tap GLO
+wait 50
+spin SELECT 2
+turn K1 1
+tap GLO
+wait 50
 tap PLAY
 wait 3000
 expect saved 0
@@ -28,7 +35,8 @@ wait 50
 said SAVED TO 1
 expect saved 1
 expect save_waits 1
-expect store_writes 0
+# (one write before: the home set at the start)
+expect store_writes 1
 shot saved-to.png
 # held: the measures, and no second save
 press SAVE
@@ -53,13 +61,13 @@ expect same_song 0
 tap SEQ
 wait 6000
 expect songs 3
-expect store_writes 0
+expect store_writes 1
 expect save_waits 1
 # stopped, the tails over: written
 tap PLAY
 wait 3000
 expect save_waits 0
-expect store_writes 1
+expect store_writes 2
 # kept through a power-off
 reboot
 wait 1400

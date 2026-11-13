@@ -3113,7 +3113,8 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
         [0, 1].includes(x.strum_fill) && x.pad_place >= 0 && x.pad_place <= 2, `wb_rolled: ${JSON.stringify(x)}`);
 }
 {
-  const D = await import("../ui/device.js"), data = (await import("../ui/screens.js")).default;
+  const D = await import("../ui/device.js"), shipped = (await import("../ui/screens.js")).default;
+  const data = { ...shipped, home: "main" };   // (the home: the main screen, HOME SCREEN DETAILED: these drive it)
   await import("../ui/panel.js");   // the page's side loads (a syntax error there blanks the mock)
   const src = (rel) => readFileSync(new URL(rel, import.meta.url), "utf8");
   const app = src("../../app/app.c"), gfx = src("../../base/device/gfx.c");
@@ -3131,14 +3132,14 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
   const theme = Object.keys(pal)[+(src("../../app/app.h") + src("../../base/include/fm1b_config.h")).match(/#define APP_PALETTE (\d+)u/)[1]];
   check(JSON.stringify(pal) === JSON.stringify(D.PALETTES) && theme === D.THEME,
         `the palette is gfx.c's, the theme app.h's APP_PALETTE (${theme})`);
-  const knobs = data.screens[data.home].knobs, KF = ["RF_KEY", "RF_TEMPO", "RF_MOTION", "RF_MOOD"];
+  const knobs = data.screens.main.knobs, KF = ["RF_KEY", "RF_TEMPO", "RF_MOTION", "RF_MOOD"];
   const arr = (name) => app.match(new RegExp(`${name}\\[4\\] = \\{([^}]*)\\}`))[1].split(",").map((x) => x.trim().replace(/"/g, ""));
   check(JSON.stringify(arr("KNOB_FIELD")) === JSON.stringify(knobs.map((k) => KF[["key", "tempo", "motion", "mood"].indexOf(k.field)])) &&
         JSON.stringify(arr("KNOB_STEP").map(Number)) === JSON.stringify(knobs.map((k) => k.step)) &&
         JSON.stringify(arr("KNOB_NAME")) === JSON.stringify(knobs.map((k) => data.fields[k.field].name)) &&
         D.fieldStep(data.fields.key, 11, 1) === 0 && D.fieldStep(data.fields.key, 0, -1) === 11 &&
         D.fieldStep(data.fields.tempo, 90, 1) === 90 && D.fieldStep(data.fields.motion, 3, -5) === 0 && D.fieldStep(data.fields.mood, 3, 1) === 3,
-        "the home screen's knobs are app.c's (fields, steps, names); a field steps as field_step does");
+        "the main screen's knobs are app.c's (fields, steps, names); a field steps as field_step does");
   const bad = D.problems(data);
   check(!bad.length, `ui/screens.js has no problems${bad.length ? `: ${bad.join("; ")}` : ""}`);
   const broken = { ...data, screens: { ...data.screens, main: { ...data.screens.main, controls: { EDIT: { go: "nowhere" }, K9: { do: "play" } } } } };
@@ -3387,6 +3388,32 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
     dq.press("K3", -1);
     check(dq.values().bassSat === "ON" && got.join() === "false,true", "K3 a detent: ON again");
   }
+  {   // Settings' HOME SCREEN (Sam, 2026-11-13): SIMPLE (now playing) on a fresh device; HOME switches between the two
+      // views and leaves the home; the third line's knob flips it, GLO back and a new song landing on it
+    const dh = new D.Device(shipped, { set() {}, play() {} }, () => t);
+    dh.update(live(3));
+    check(dh.id === "now" && dh.home === "now", `a fresh device: now playing, the home (${dh.id}, ${dh.home})`);
+    dh.press("HOME");
+    check(dh.id === "main" && dh.stack.length === 1 && dh.home === "now",
+          `HOME: the main screen, the home kept (${dh.home})`);
+    dh.press("GLO");
+    check(dh.values().homeScreen === "SIMPLE" && dh.said.includes("HOME SCREEN SIMPLE"),
+          `Settings says it (${dh.said})`);
+    dh.press("SELECT", 2);
+    check(dh.values().sel2 && !dh.values().sel0, "SELECT 2: HOME SCREEN highlighted");
+    dh.press("K2", 2);
+    check(dh.home === "now", "two detents: as it was");
+    dh.press("K1", 1);
+    check(dh.home === "main" && dh.values().homeScreen === "DETAILED" && dh.said.includes("HOME SCREEN DETAILED"),
+          `K1: DETAILED (${dh.home}, ${dh.said})`);
+    dh.press("K4", -1);
+    dh.press("GLO");
+    check(dh.home === "now" && dh.id === "now" && dh.stack.length === 1,
+          `back to SIMPLE, GLO back lands on it (${dh.stack})`);
+    dh.press("HOME");
+    dh.update({ ...live(3), seed: 8 });
+    check(dh.id === "now", `a new song from the main screen: the home, now playing (${dh.id})`);
+  }
   {   // the Mixer: K1 sets the highlighted part's level, and the next bar's refresh (the engine's levels) keeps it
     const store = { drums: 0, bass: 0, keys: 0, pad: 0, lead: 0, texture: 0 };
     const dv = new D.Device(data, { set() {}, play() {}, level: (p, db) => { store[p] = db; } }, () => t);
@@ -3443,7 +3470,8 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
 }
 
 {   // the real FM-1 as the mock's controls (ui/usb.js, app.c's remote): a fake Web MIDI with the FM-1's two ports
-  const U = await import("../ui/usb.js"), D = await import("../ui/device.js"), data = (await import("../ui/screens.js")).default;
+  const U = await import("../ui/usb.js"), D = await import("../ui/device.js");
+  const data = { ...(await import("../ui/screens.js")).default, home: "main" };   // (HOME SCREEN DETAILED)
   const hex = (m) => [...m].map((b) => b.toString(16).padStart(2, "0")).join("").toUpperCase();
   let t = 0, tick = null;
   const timers = { setInterval: (f) => (tick = f, 1), clearInterval: () => { tick = null; } };

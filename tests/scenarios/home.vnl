@@ -1,42 +1,81 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# The two homes (Sam, 2026-11-11): boot shows the splash, then the main screen; HOME there opens the now-playing
-# screen, the home from then on (a new song, HOME from elsewhere); the device keeps it through a reboot, the splash
-# flowing into it; HOME again the main screen, kept too. A change while a song plays is kept only once all is silent
-# (stopped, the tails over): a flash save stalls the audio (a crackle, Sam 2026-11-11).
+# The home (Sam, 2026-11-13: "expose the favorite home screen in the global settings ... default to simple"): boot
+# shows the splash, then the home, on a fresh device the now-playing screen (Settings' HOME SCREEN SIMPLE). HOME on
+# now playing or the main screen switches between the two but leaves the home as it is; only Settings' HOME SCREEN
+# (its third line, any of K1-K4) changes it: DETAILED, the main screen. The home is where boot, a new song and HOME
+# from elsewhere land; the device keeps it through a reboot. A change while a song plays is kept only once all is
+# silent (stopped, the tails over): a flash save stalls the audio (a crackle, Sam 2026-11-11).
+listen
 expect splash 1
 wait 1400
 expect splash 0
-expect home_now 0
-expect home 1
-tap HOME
-wait 50
 expect home_now 1
 expect home 1
 shot home-now.png
-tap GLO
+# HOME: the main screen, the home still now playing; HOME again: back
+tap HOME
 wait 50
+expect home_now 1
 expect home 0
 tap HOME
 wait 50
-expect home_now 1
 expect home 1
+# HOME on the main screen, then GLO, then HOME: the home, now playing
+tap HOME
+tap GLO
+wait 50
+said HOME SCREEN SIMPLE
+tap HOME
+wait 50
+expect home 1
+expect home_now 1
+# Settings: HOME SCREEN DETAILED; GLO back lands on the new home, kept at once (stopped)
+tap GLO
+wait 50
+spin SELECT 2
+turn K1 1
+wait 50
+said HOME SCREEN DETAILED
+expect home_now 0
+tap GLO
+wait 50
+expect home 1
+expect home_kept 1
 reboot
 expect splash 1
 wait 1400
-expect home_now 1
+expect home_now 0
 expect home 1
+# while a song plays: back to SIMPLE (an even number of detents: no change), kept only once stopped
 tap PLAY
 wait 3000
-shot home-now-playing.png
-tap HOME
+tap GLO
+wait 50
+spin SELECT 2
+turn K3 2
 wait 50
 expect home_now 0
+turn K4 -1
+wait 50
+said HOME SCREEN SIMPLE
+expect home_now 1
 wait 2000
 expect home_kept 0
+tap HOME
+wait 50
+expect home 1
+shot home-now-playing.png
+# HOME: the main screen; a new song lands on the home, now playing
+tap HOME
+wait 50
+expect home 0
+tap SEQ
+wait 3000
+expect home 1
 tap PLAY
 wait 2000
 expect home_kept 1
 reboot
 wait 1400
-expect home_now 0
+expect home_now 1
 expect home 1

@@ -105,9 +105,10 @@ The other keys don't play notes. VNL-1 plays its own songs.
 ### The home: now playing or main
 
 VNL-1 has two home screens. The main screen shows everything and starts the most. The now-playing screen is the
-simple one. HOME on either switches to the other. The one you used last becomes the home: HOME from any other screen
-goes there, and the FM-1 remembers it through a power-off. (It saves the choice once the music is silent, so the
-save never interrupts the audio.)
+simple one. HOME on either switches to the other. Which one is the home is a setting: Settings (GLO), HOME SCREEN,
+SIMPLE (now playing, the default) or DETAILED (the main screen). The FM-1 starts there after the splash, and each
+new song and HOME from any other screen go there. The FM-1 keeps the setting through a power-off. (It saves the
+choice once the music is silent, so the save never interrupts the audio.)
 
 **Now playing** (top of this manual): the record turns while a song plays and eases to a stop when it stops. Beside
 it: the song's layout name, its key and scale, the chord playing, the section and bar, a strip with a segment for
@@ -135,7 +136,7 @@ each section, the tempo and, on its own line under the tempo, the mood.
 | PRESET | The highlighted part's instrument (the drums' kit). Past the last one it goes round to the first, and back. Nothing on the song or texture tile. |
 | OCT- / OCT+ | The highlighted part's register: the comp's or the lead's. |
 | SEQ, held | Lock or unlock the highlighted part, or the song line on the song tile (see Locking). A short press is a new song. |
-| HOME | The now-playing screen, which becomes the home. |
+| HOME | The now-playing screen (the home stays as Settings has it). |
 
 ### Sections (SEL)
 
@@ -182,7 +183,7 @@ them from song to song. The knob that moves a fader is named under it.
 
 ### Settings (GLO)
 
-![The Settings screen: two working rows, THEME GARNET (highlighted) and BASS SATURATION ON; under NOT WORKING YET, MOVEMENT, SCREEN READER, KEY LIGHTS, BRIGHTNESS, MAIN SCREEN and ADVANCED RULES](img/vnl-settings.png "Settings")
+![The Settings screen: three working rows, THEME GARNET, BASS SATURATION ON and HOME SCREEN SIMPLE (highlighted); under NOT WORKING YET, MOVEMENT, SCREEN READER, KEY LIGHTS, BRIGHTNESS and ADVANCED RULES](img/vnl-settings.png "Settings")
 
 **THEME** works: with it highlighted, turn any of K1-K4 to step through the screen's color themes (GARNET, the default: coral on a
 red-black; then GARNET+, BLACK CHERRY, the black ones GREEN, AMBER, CYAN, RED and MONO, then ESPRESSO, TEAL, OLIVE,
@@ -194,12 +195,17 @@ small speakers; OFF leaves the bass clean, for good speakers, where the harmonic
 turn any of K1-K4 to switch it. The bass changes at its next note (never in the middle of one, so it never clicks), and the
 device keeps the setting through power-off, as it keeps the theme.
 
+**HOME SCREEN** works: SIMPLE (the default) makes the now-playing screen the home, DETAILED the main screen. The home
+is where the FM-1 starts after the splash, where each new song lands and where HOME goes from any other screen.
+Highlight it and turn any of K1-K4 to switch it; GLO then goes back to the new home. The device keeps it through
+power-off, as it keeps the theme, and a USB backup holds it.
+
 The rows under NOT WORKING YET are planned for a later version and do nothing yet. GLO goes back.
 
 | Control | What it does |
 |---|---|
-| SELECT, PRESET or ALGO | Moves the highlight between THEME and BASS SATURATION. |
-| K1-K4 | Changes the highlighted setting: the next theme (turned back, the one before), or bass saturation on or off. |
+| SELECT, PRESET or ALGO | Moves the highlight between THEME, BASS SATURATION and HOME SCREEN. |
+| K1-K4 | Changes the highlighted setting: the next theme (turned back, the one before), bass saturation on or off, or the home screen SIMPLE or DETAILED. |
 | GLO | Back. |
 
 ---

@@ -40,7 +40,7 @@
 // `say`: what the screen reader says for the screen (app.c's speak()): parts, each a template or { text, when }.
 
 export default {
-  home: "main",
+  home: "now",   // the home on a fresh device (Settings' HOME SCREEN: SIMPLE; Sam, 2026-11-13)
 
   // colors of the screens' own, over the theme's (BLACK WHITE LINE DIM GRAY AMB HI): a color per part (the main screen's;
   // the firmware's palette would need them too). [r, g, b]
@@ -244,8 +244,9 @@ export default {
     },
 
     // Now playing (Sam, 2026-11-11): the simple home, the splash's record with the song beside it. HOME on the main
-    // screen opens it and HOME here goes back; whichever was used last is the home (HOME's, a new song's) and the
-    // device remembers it, so boot lands there (the splash flows into it: the record stays, the text changes). The
+    // screen opens it and HOME here opens the main screen; the home itself (where boot, a new song and HOME from
+    // elsewhere land) is Settings' HOME SCREEN, SIMPLE (this one, the default) or DETAILED (the main screen; Sam,
+    // 2026-11-13), the splash flowing into this one when it is the home (the record stays, the text changes). The
     // song's name (its map's, big; a smaller face when too wide), its key, the chord, where it is, its map, the
     // tempo and the mood; the record turns while the song plays (33 1/3) and eases to a stop when it stops. Everything else as
     // everywhere.
@@ -272,7 +273,7 @@ export default {
         ] },
         { y: 184, h: 56, draw: [{ record: [0, -64, 104], value: "spin", color: "AMB", back: "VINYL", past: "LINE" }] },
       ],
-      controls: { HOME: { go: "main", home: true } },
+      controls: { HOME: { go: "main", root: true } },
       say: [{ when: "known", text: "{map}. {key} {mode}. " },
             { when: "song", text: "CHORD {chord}. {section}, BAR {bar} OF {bars}" },
             { when: "!song", text: "{idle}" }, { when: "known", text: ", {tempo} BPM. MOOD {mood}" }],
@@ -372,7 +373,7 @@ export default {
         // OCT-/OCT+: the highlighted part's register, as on its own screen (Sam, 2026-11-06): the comp's and the lead's
         "OCT-": { do: "nudge", byCursor: [null, null, null, "compReg", "leadReg", null, null], by: -1 },
         "OCT+": { do: "nudge", byCursor: [null, null, null, "compReg", "leadReg", null, null], by: 1 },
-        HOME: { go: "now", home: true },   // the now-playing screen, the home from then on (Sam, 2026-11-11)
+        HOME: { go: "now", root: true },   // the now-playing screen (Sam, 2026-11-11); the home is Settings'
         // a press: a new song (the defaults'); held: the highlighted tile's part locked, or unlocked, the song line too
         // (Sam, 2026-11-12)
         SEQ: { do: "reroll", long: { do: "lock", byCursor: ["song", "drums", "bass", "keys", "lead", "pad", "texture"] } },
@@ -528,14 +529,15 @@ export default {
     // The user's settings, GLO (Sam, 2026-11-06). THEME works (Sam, 2026-11-12: comparing the palettes on the FM-1
     // itself, whose backlight greys dark, low-chroma backgrounds): base's gfx.c palettes, at once. BASS SATURATION
     // works (Sam, 2026-11-12: the bass's harmonics buzz on nice speakers): off or on, the engine taking it at the next
-    // fresh bass note. SELECT, PRESET or ALGO moves the highlight, any of K1-K4 changes the highlighted line's value
-    // (Sam, 2026-11-13). The device keeps both (app.c's settings,
-    // written while all is silent). The rest (reduced movement, the screen reader, the key lights, brightness, which
-    // main screen is the default, the Advanced rules) is listed under NOT WORKING YET.
+    // fresh bass note. HOME SCREEN works (Sam, 2026-11-13: "just let the user set one"): the home, SIMPLE (now
+    // playing, the default) or DETAILED (the main screen). SELECT, PRESET or ALGO moves the highlight, any of K1-K4
+    // changes the highlighted line's value (Sam, 2026-11-13). The device keeps all three (app.c's settings, written
+    // while all is silent). The rest (reduced movement, the screen reader, the key lights, brightness, the Advanced
+    // rules) is listed under NOT WORKING YET.
     prefs: {
-      title: "Settings (theme, bass saturation)",
+      title: "Settings (theme, bass saturation, home screen)",
       placeholder: true,
-      rows: 2,   // the lines the highlight moves over (the working ones)
+      rows: 3,   // the lines the highlight moves over (the working ones)
       bands: [
         { y: 0, h: 16, draw: [
           { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
@@ -546,18 +548,19 @@ export default {
           { rect: [2, 0, 2, 26], color: "WHITE" },
           { text: "SETTINGS", font: "B", x: 10, y: 4, color: "WHITE" },
         ] },
-        { y: 50, h: 140, draw: [
+        { y: 50, h: 146, draw: [
           { when: "sel0", rect: [2, 0, 236, 20], color: "LINE" }, { when: "sel0", rect: [2, 0, 2, 20], color: "AMB" },
           { text: "THEME", font: "T", x: 8, y: 6, color: "WHITE" }, { text: "{theme}", font: "XS", right: 232, y: 4, color: "HI" },
           { when: "sel1", rect: [2, 22, 236, 20], color: "LINE" }, { when: "sel1", rect: [2, 22, 2, 20], color: "AMB" },
           { text: "BASS SATURATION", font: "T", x: 8, y: 28, color: "WHITE" }, { text: "{bassSat}", font: "XS", right: 232, y: 26, color: "HI" },
-          { text: "NOT WORKING YET", font: "T", x: 8, y: 50, color: "DIM" },
-          { text: "MOVEMENT", font: "T", x: 8, y: 64, color: "GRAY" }, { text: "LESS (A BAR AT A TIME)", font: "XS", right: 232, y: 62, color: "DIM" },
-          { text: "SCREEN READER", font: "T", x: 8, y: 77, color: "GRAY" }, { text: "ON", font: "XS", right: 232, y: 75, color: "DIM" },
-          { text: "KEY LIGHTS", font: "T", x: 8, y: 90, color: "GRAY" }, { text: "ON", font: "XS", right: 232, y: 88, color: "DIM" },
-          { text: "BRIGHTNESS", font: "T", x: 8, y: 103, color: "GRAY" }, { text: "HIGH", font: "XS", right: 232, y: 101, color: "DIM" },
-          { text: "MAIN SCREEN", font: "T", x: 8, y: 116, color: "GRAY" }, { text: "EXPANDED", font: "XS", right: 232, y: 114, color: "DIM" },
-          { text: "ADVANCED RULES", font: "T", x: 8, y: 129, color: "GRAY" }, { text: "...", font: "XS", right: 232, y: 127, color: "DIM" },
+          { when: "sel2", rect: [2, 44, 236, 20], color: "LINE" }, { when: "sel2", rect: [2, 44, 2, 20], color: "AMB" },
+          { text: "HOME SCREEN", font: "T", x: 8, y: 50, color: "WHITE" }, { text: "{homeScreen}", font: "XS", right: 232, y: 48, color: "HI" },
+          { text: "NOT WORKING YET", font: "T", x: 8, y: 68, color: "DIM" },
+          { text: "MOVEMENT", font: "T", x: 8, y: 82, color: "GRAY" }, { text: "LESS (A BAR AT A TIME)", font: "XS", right: 232, y: 80, color: "DIM" },
+          { text: "SCREEN READER", font: "T", x: 8, y: 95, color: "GRAY" }, { text: "ON", font: "XS", right: 232, y: 93, color: "DIM" },
+          { text: "KEY LIGHTS", font: "T", x: 8, y: 108, color: "GRAY" }, { text: "ON", font: "XS", right: 232, y: 106, color: "DIM" },
+          { text: "BRIGHTNESS", font: "T", x: 8, y: 121, color: "GRAY" }, { text: "HIGH", font: "XS", right: 232, y: 119, color: "DIM" },
+          { text: "ADVANCED RULES", font: "T", x: 8, y: 134, color: "GRAY" }, { text: "...", font: "XS", right: 232, y: 132, color: "DIM" },
         ] },
         { y: 196, h: 44, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
@@ -566,9 +569,11 @@ export default {
         ] },
       ],
       controls: { GLO: { go: "back" }, SELECT: { do: "cursor" }, PRESET: { do: "cursor" }, ALGO: { do: "cursor" },
-                  K1: { do: "setting", byCursor: ["theme", "bassSat"] }, K2: { do: "setting", byCursor: ["theme", "bassSat"] },
-                  K3: { do: "setting", byCursor: ["theme", "bassSat"] }, K4: { do: "setting", byCursor: ["theme", "bassSat"] } },
-      say: ["SETTINGS. THEME {theme}. BASS SATURATION {bassSat}"],
+                  K1: { do: "setting", byCursor: ["theme", "bassSat", "homeScreen"] },
+                  K2: { do: "setting", byCursor: ["theme", "bassSat", "homeScreen"] },
+                  K3: { do: "setting", byCursor: ["theme", "bassSat", "homeScreen"] },
+                  K4: { do: "setting", byCursor: ["theme", "bassSat", "homeScreen"] } },
+      say: ["SETTINGS. THEME {theme}. BASS SATURATION {bassSat}. HOME SCREEN {homeScreen}"],
     },
 
     // The song's map (Sam, 2026-11-06: where we are in the map, jump to a section, loop the one playing): SEL from

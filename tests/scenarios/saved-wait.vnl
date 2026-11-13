@@ -5,6 +5,13 @@
 # on an empty slot says so. Stopped, the waiting save is written, and a save goes straight to the flash.
 listen
 wait 1400
+# the home: DETAILED, the main screen (Settings' HOME SCREEN, its third line; a fresh device's is now playing)
+tap GLO
+wait 50
+spin SELECT 2
+turn K1 1
+tap GLO
+wait 50
 tap PLAY
 wait 3000
 tap EDIT
@@ -43,20 +50,21 @@ wait 50
 said SLOT 3 IS EMPTY
 # twenty seconds of music: the flash never written
 wait 20000
-expect store_writes 0
+# (one write before: the home set at the start)
+expect store_writes 1
 expect save_waits 1
 expect playing 1
 # stopped, the tails over: written once
 tap PLAY
 wait 3000
 expect save_waits 0
-expect store_writes 1
+expect store_writes 2
 # stopped: a save goes to the flash at once
 tap SAVE
 wait 50
 said SAVED TO 3
 expect save_waits 0
-expect store_writes 2
+expect store_writes 3
 expect saved 2
 shot saved-kept.png
 # a backup over USB holds them (and the home): one deleted after it, a restore brings it back; refused while playing

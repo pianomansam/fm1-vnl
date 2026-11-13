@@ -7,12 +7,16 @@ shot vnl-splash.png
 wait 1000
 tap PLAY
 wait 9000
-shot vnl-main.png
-tap HOME
-wait 50
 shot vnl-now.png
-tap HOME
+# the home set to the main screen (Settings' HOME SCREEN DETAILED; a fresh device's is now playing), for the shots
+# that follow
+tap GLO
 wait 50
+spin SELECT 2
+turn K1 1
+tap GLO
+wait 50
+shot vnl-main.png
 # a change waiting for the next four-bar line
 spin K2 3
 wait 50
@@ -57,7 +61,11 @@ shot vnl-mixer.png
 tap FX
 tap GLO
 wait 50
+# HOME SCREEN (highlighted) at its default for the shot, SIMPLE; then DETAILED again
+turn K1 1
+wait 50
 shot vnl-settings.png
+turn K1 1
 # a locked part (Locking): the drums' tile highlighted, SEQ held, then its screen
 tap GLO
 wait 50

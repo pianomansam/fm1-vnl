@@ -2356,9 +2356,22 @@ static const char *ui_e_bass_sat(int detents)
     }
     return bass_sat ? "ON" : "OFF";
 }
+/* the home (Settings' HOME SCREEN: Sam, 2026-11-13, "just let the user set one"): SIMPLE, the now-playing screen
+   (the default), or DETAILED, the main screen, each detent flipping it; where boot, a new song and HOME from
+   elsewhere land (HOME on those two only switches between them). The screen shown stays, the breadcrumb under it
+   now from the new home (GLO back lands there); kept by set_keep */
+static const char *ui_e_home_screen(int detents)
+{
+    if (detents & 1) {
+        ui_hnav.home = (uint8_t)(ui_hnav.home == US_NOW ? US_MAIN : US_NOW);
+        if (ui_hnav.depth > 1) ui_hnav.stack[0] = ui_hnav.home;
+    }
+    return ui_hnav.home == US_NOW ? "SIMPLE" : "DETAILED";
+}
 static const ui_engine_t UI_HENG = {ui_e_set, ui_e_play, ui_e_reroll, ui_e_reroll_part, ui_e_jump, ui_e_mute,
                                     ui_e_solo, ui_e_muted, ui_e_soloed, ui_e_level, ui_e_level_get,
-                                    ui_e_save, ui_e_recall, ui_e_erase, m_readout, ui_e_theme, ui_e_bass_sat};
+                                    ui_e_save, ui_e_recall, ui_e_erase, m_readout, ui_e_theme, ui_e_bass_sat,
+                                    ui_e_home_screen};
 
 /* what the Parts roll and the Mixer show: the render's notes (the buffer it isn't writing), the listening, levels */
 static const ui_activity_t *ui_activity(void)
@@ -2971,16 +2984,17 @@ void app_splash(void)
 #endif
 
 #if VNL_UI_RUNTIME
-/* the settings kept in the flash (OBJ_SETTINGS): which home was used last (HOME on the main and now-playing screens),
-   so boot lands there, the theme (Settings' THEME: its palette + 1, 0 none; a record from before it: pad, 0, so
-   APP_PALETTE) and the bass's harmonics (Settings' BASS SATURATION: bsat_off 1 off; a record from before it: pad, 0,
-   so on). Saved when it changes, but only while nothing sounds (stopped or between songs, the tails
-   over): a save erases a 4 KB sector with the interrupts off and the audio buffer zeroed (base's st_erase), tens of
-   ms of silence that a playing song hears as a crackle (Sam, 2026-11-11, switching the homes while playing) */
+/* the settings kept in the flash (OBJ_SETTINGS): the home (Settings' HOME SCREEN: the now-playing screen, the
+   default, or the main screen; a record from before it keeps the home used last), where boot lands, the theme
+   (Settings' THEME: its palette + 1, 0 none; a record from before it: pad, 0, so APP_PALETTE) and the bass's
+   harmonics (Settings' BASS SATURATION: bsat_off 1 off; a record from before it: pad, 0, so on). Saved when it
+   changes, but only while nothing sounds (stopped or between songs, the tails over): a save erases a 4 KB sector
+   with the interrupts off and the audio buffer zeroed (base's st_erase), tens of ms of silence that a playing song
+   hears as a crackle (Sam, 2026-11-11, switching the homes while playing) */
 #define SET_MAGIC 0x564E4C31u            /* "VNL1" */
 enum { SET_HOME_MAIN, SET_HOME_NOW };
 typedef struct { uint32_t magic; uint8_t home, theme, bsat_off, pad; } vnl_set_t;
-static uint8_t set_home = SET_HOME_MAIN, set_theme = APP_PALETTE % NPALETTES, set_bsat = 1;
+static uint8_t set_home = SET_HOME_NOW, set_theme = APP_PALETTE % NPALETTES, set_bsat = 1;
 
 static int set_read(vnl_set_t *v)
 {
@@ -3000,6 +3014,7 @@ static void set_theme_boot(void)         /* the theme kept (at power-on: the spl
 static void set_load(void)
 {
     vnl_set_t v;
+    set_home = SET_HOME_NOW;
     set_bsat = 1;
     if (set_read(&v)) {
         set_home = v.home;
@@ -3008,7 +3023,7 @@ static void set_load(void)
     set_theme_boot();
     bass_sat = set_bsat;
     bass_sat_engine();
-    ui_hnav.stack[0] = ui_hnav.home = (uint8_t)(set_home == SET_HOME_NOW ? US_NOW : UI_HOME);
+    ui_hnav.stack[0] = ui_hnav.home = (uint8_t)(set_home == SET_HOME_NOW ? US_NOW : US_MAIN);
 }
 
 static uint32_t set_tried = 0xFFFFFFFFu; /* the settings a failed write was for: tried again at the next change */
@@ -3057,7 +3072,7 @@ void app_ui_init(void)
 {
     ui.redraw = 1;
 #if VNL_UI_RUNTIME
-    ui_nav_init(&ui_hnav);               /* the home (the runtime's): the main screen, or now playing if used last */
+    ui_nav_init(&ui_hnav);               /* the home (the runtime's): now playing, until set_load reads Settings' */
     ui_hnav.eng = &UI_HENG;
     set_load();
     sv_boot();                           /* the saved songs' slots, from the flash */
@@ -3351,6 +3366,7 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
     (void)c, (void)d;
     if (!strcmp(cmd, "uiscreen")) {     /* uiscreen ID: the UI runtime shows that screen (workbench/ui/screens.js's id) */
         int i;
+        uint8_t home = ui_hnav.home;     /* (Settings' HOME SCREEN as it is) */
         for (i = 0; i < UI_N_SCREENS && strcmp(UI_SCREEN_NAME[i], a); i++) {}
         if (i == UI_N_SCREENS) {
             printf("uiscreen: no screen %s\n", a);
@@ -3360,6 +3376,7 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
         ui_host = i;
         splash_on = splash_fading = 0;
         ui_nav_init(&ui_hnav);
+        ui_hnav.home = home;
         ui_hnav.eng = &UI_HENG;
         ui_hnav.slots = sv_slots();
         ui_hnav.stack[0] = (uint8_t)i;

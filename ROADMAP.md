@@ -13,7 +13,7 @@ ideas that still need a reason.
 - **A stutter where no lead plays:** the comp catches the stutter in sections without a lead.
 - **Broken-chord piano comp:** a climbing broken chord for the acoustic piano, in place of a strum.
 - **Soft synth lead:** a candidate lead for the synth sets, waiting on a listen.
-- **Settings screen:** reduced motion, the screen reader, key lights, brightness and the default home screen.
+- **Settings screen:** reduced motion, the screen reader, key lights and brightness.
 - **Device checks:** confirm the CPU guard's voice rungs and the per-stage CPU meter on the FM-1 itself.
 
 ## Later

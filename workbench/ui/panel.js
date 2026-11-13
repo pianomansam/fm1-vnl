@@ -170,7 +170,7 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
       bad.textContent = bad_.length ? `screens.js:\n${bad_.join("\n")}` : "";
       if (bad_.length && dev) return;
       if (dev) dev.load(data);
-      else {   // the home used last (the FM-1 keeps it in its flash; here this browser's), then the boot splash
+      else {   // the home (Settings' HOME SCREEN: the FM-1 keeps it in its flash; here this browser's), then the splash
         dev = new Device(data, engine);
         try { const h = localStorage.getItem(HOME_KEY); if (h && data.screens[h]) dev.stack = [dev.home = h]; } catch {}
         try { const t = localStorage.getItem(THEME_KEY); if (t && PALETTES[t]) dev.theme = t; } catch {}   // (Settings' THEME)

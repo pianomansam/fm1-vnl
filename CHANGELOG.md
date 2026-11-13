@@ -38,6 +38,10 @@ The first public release: a generative lo-fi hip hop firmware for the M-VAVE FM-
   K1-K4 changes it; THEME steps through every palette fm1-base carries, at once and kept through power-off, so the
   colors can be judged on the FM-1's own screen. GARNET is the default; GARNET+ (a touch more blue), BLACK CHERRY
   (darker still), OXBLOOD, OXBLOOD+, PLUM and PLUM+ are new beside teal, olive, espresso and the black ones.
+- **The home screen in Settings:** HOME SCREEN picks the home, SIMPLE (the now-playing screen, the default) or
+  DETAILED (the main screen): where the FM-1 starts after the splash, where each new song and HOME from any other
+  screen land. Kept through power-off and in a USB backup. HOME on the now-playing or main screen still switches
+  between the two, but no longer changes the home.
 - **A CPU guard** that sheds reverb tails and quiet voices before the audio can glitch.
 - **Coral on garnet:** the screens, the workbench's device mock and the site share one palette, GARNET (a
   red-black like a dark wine, coral, blush white); Settings' THEME offers the others.
@@ -58,5 +62,5 @@ Fixes:
   and tells a failed flash write from one waiting for silence.
 
 Known limits: no Bluetooth, so no velocity or pressure from the keys. The Settings screen's only working settings
-are THEME and BASS SATURATION. See
+are THEME, BASS SATURATION and HOME SCREEN. See
 `ROADMAP.md` for what's next.

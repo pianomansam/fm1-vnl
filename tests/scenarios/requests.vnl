@@ -1,5 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # A knob's change waits for the next 4-bar boundary, then lands.
+wait 1400
+# the home: DETAILED, the main screen (Settings' HOME SCREEN, its third line; a fresh device's is now playing)
+tap GLO
+wait 50
+spin SELECT 2
+turn K1 1
+tap GLO
+wait 50
 tap PLAY
 wait 2000
 expect pending -1

@@ -5,6 +5,13 @@
 listen
 # past the boot splash (1.3 s)
 wait 1400
+# the home: DETAILED, the main screen (Settings' HOME SCREEN, its third line; a fresh device's is now playing)
+tap GLO
+wait 50
+spin SELECT 2
+turn K1 1
+tap GLO
+wait 50
 said STOPPED
 where
 wait 50
@@ -35,6 +42,7 @@ said LEAD SOLO
 key 6 down
 wait 50
 key 6 up
+wait 50
 said LEAD SOLO OFF
 tap HOME
 wait 50

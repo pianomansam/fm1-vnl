@@ -7,6 +7,13 @@
 # locks the highlighted tile's part, or the song line; on the Song screen, the song line.
 listen
 wait 1400
+# the home: DETAILED, the main screen (Settings' HOME SCREEN, its third line; a fresh device's is now playing)
+tap GLO
+wait 50
+spin SELECT 2
+turn K1 1
+tap GLO
+wait 50
 tap PLAY
 wait 3000
 spin ALGO 1

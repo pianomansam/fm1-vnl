@@ -28,6 +28,10 @@ const PHASE1 = Object.keys(data.screens);   // (every screen now)
 
 const CONTROL = { press: "tap", turn: "turn", wait: "wait" };
 // a script on the simulator: its checks' frames and bags, in order
+// the home set to the main screen (Settings' HOME SCREEN DETAILED; a fresh device's is now playing): for the scripts
+// that come back to the main screen by HOME or a new song (past the splash: a press there only ends it)
+const DETAILED = [{ wait: 1500 }, { press: "GLO" }, { wait: 50 }, { spin: ["SELECT", 2] }, { spin: ["K1", 1] },
+                  { press: "GLO" }];
 function run(seed, steps) {
   const dir = mkdtempSync(join(tmpdir(), "vnl-parity-"));
   const lines = [], checks = [];
@@ -144,7 +148,7 @@ const SEED = 47;
   // and compared, and what it should have done checked
   const v = (st) => st.values, is = (what, got, want) => (got === want ? "" : `${what} ${JSON.stringify(got)}, not ${JSON.stringify(want)}`);
   const steps = [
-    { press: "PLAY" }, { wait: 5000 }, { screen: "main" },
+    ...DETAILED, { press: "PLAY" }, { wait: 5000 }, { screen: "main" },
     // nav_main_to_comp: ALGO 3, EDIT, K1 +1, OCT+, SELECT, ALGO 1, HOME
     { spin: ["ALGO", 3] }, { check: "nav-algo3", expect: (st) => is("sel3", v(st).sel3, true) },
     { press: "EDIT" }, { check: "nav-edit", expect: (st) => is("screen", st.screen, "pComp") || is("stack", st.stack.join(), "main,pComp") ||
@@ -238,6 +242,7 @@ const SEED = 47;
   // back one on the main screen: its last
   const v = (st) => st.values, is = (what, got, want) => (got === want ? "" : `${what} ${JSON.stringify(got)}, not ${JSON.stringify(want)}`);
   const steps = [
+    ...DETAILED,
     { press: "PLAY" }, { wait: 5000 }, { screen: "main" }, { spin: ["ALGO", 2] }, { press: "EDIT" }, { spin: ["K1", -12] },
     { check: "preset-first", expect: (st) => is("bassInsFirst", !!v(st).bassInsFirst, true) },
     { press: "HOME" }, { spin: ["PRESET", -1] },
@@ -249,6 +254,7 @@ const SEED = 47;
   // there refused; every part locked: each tile marked
   const v = (st) => st.values, is = (what, got, want) => (got === want ? "" : `${what} ${JSON.stringify(got)}, not ${JSON.stringify(want)}`);
   const steps = [
+    ...DETAILED,
     { press: "PLAY" }, { wait: 5000 }, { screen: "main" }, { spin: ["ALGO", 1] }, { press: "EDIT" }, { hold: ["SEQ", 700] },
     { check: "lock-drums", expect: (st) => is("lockDrums", v(st).lockDrums, true) || is("said", st.said, "DRUMS LOCKED") ||
                                            is("pending", v(st).pending, "") },
@@ -302,7 +308,7 @@ const SEED = 47;
     { fade: 16 }, { check: "fade-now-16" }, { fade: 0 }, { check: "fade-now-0" },
     { screen: "splash" }, { fade: 4 }, { check: "fade-splash-4" }, { fade: 12 }, { check: "fade-splash-12" },
     { screen: "main" }, { wait: 1000 }, { press: "HOME" }, { wait: 100 },
-    { press: "PLAY" }, { wait: 2000 }, { reboot: true },   // (stopped: the home is kept once all is silent, app.c set_keep)
+    { press: "PLAY" }, { wait: 2000 }, { reboot: true },   // (stopped; the home: now playing, a fresh device's)
     { wait: 1190 }, { check: "boot-fade-out", expect: (st) => is("screen", st.screen, "splash") || (v(st).fade > 0 && v(st).fade < 16 ? "" : `fade ${v(st).fade}`) },
     { wait: 120 }, { check: "boot-fade-in", expect: (st) => is("screen", st.screen, "now") || (v(st).fade > 0 && v(st).fade < 16 ? "" : `fade ${v(st).fade}`) },
     { wait: 300 }, { check: "boot-faded-in", expect: (st) => is("screen", st.screen, "now") || is("fade", v(st).fade, 0) },
@@ -332,6 +338,21 @@ const SEED = 47;
                  { spin: ["K2", 1] }, { check: "bassSat-preset", expect: (st) => is("bassSat", v(st).bassSat, "ON") },
                  { spin: ["K3", 1] }, { press: "PLAY" }, { wait: 2000 }, { reboot: true }, { wait: 1500 }, { screen: "prefs" },
                  { check: "bassSat-kept", expect: (st) => is("bassSat", v(st).bassSat, "OFF") }];
+  for (const c of run(SEED, steps)) compare(c);
+}
+{   // the home (Settings' HOME SCREEN, highlighted by SELECT: a knob flips it): SIMPLE on a fresh device, DETAILED;
+  // GLO back lands on the new home, HOME switches to now playing and leaves it; a reboot keeps it (stopped)
+  const v = (st) => st.values, is = (what, got, want) => (got === want ? "" : `${what} ${JSON.stringify(got)}, not ${JSON.stringify(want)}`);
+  const steps = [{ wait: 1500 }, { check: "home-boot", expect: (st) => is("screen", st.screen, "now") },
+                 { press: "GLO" }, { spin: ["SELECT", 2] },
+                 { check: "home-simple",
+                   expect: (st) => is("homeScreen", v(st).homeScreen, "SIMPLE") || is("sel2", v(st).sel2, true) },
+                 { spin: ["K2", 1] },
+                 { check: "home-detailed", expect: (st) => is("homeScreen", v(st).homeScreen, "DETAILED") },
+                 { press: "GLO" }, { check: "home-back", expect: (st) => is("stack", st.stack.join(), "main") },
+                 { press: "HOME" }, { check: "home-switch", expect: (st) => is("stack", st.stack.join(), "now") },
+                 { wait: 500 }, { reboot: true }, { wait: 1500 },
+                 { check: "home-kept", expect: (st) => is("stack", st.stack.join(), "main") }];
   for (const c of run(SEED, steps)) compare(c);
 }
 console.log(ok ? "parity: all match" : "parity: FAILED");

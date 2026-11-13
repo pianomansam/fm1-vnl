@@ -151,7 +151,7 @@ void ui_update(ui_nav_t *n, const snap_t *s, uint32_t ms)
             if (n->eng && n->eng->jump) n->eng->jump(n->jump_start, n->jump_i);
         }
     }
-    if (was && seed_moved && n->depth > 1)            /* a new song: back to the main screen */
+    if (was && seed_moved && (n->depth > 1 || n->stack[0] != n->home))   /* a new song: back to the home */
         ui_new_song(n);
     for (f = 0; f < UI_N_FIELDS; f++) {
         int row = UI_FIELDS[f].row;
@@ -402,8 +402,8 @@ static void act(ui_nav_t *n, int ai, int detents)
         } else if (to == UI_GO_HOME) {
             n->stack[0] = n->home;
             n->depth = 1;
-        } else if (a->by) {                           /* the screen becomes the home */
-            n->stack[0] = n->home = (uint8_t)to;
+        } else if (a->by) {                           /* the screen alone on the breadcrumb (the home as it is) */
+            n->stack[0] = (uint8_t)to;
             n->depth = 1;
         } else if (to != id && n->depth < UI_STACK)
             n->stack[n->depth++] = (uint8_t)to;
@@ -446,6 +446,9 @@ static void act(ui_nav_t *n, int ai, int detents)
         return;
     case UA_BASS_SAT:                                 /* the bass's harmonics on or off (each detent flips them) */
         if (n->eng && n->eng->bass_sat) say(n, "BASS SATURATION", n->eng->bass_sat(detents));
+        return;
+    case UA_HOME_SCREEN:                              /* the home: now playing or the main screen (each detent flips) */
+        if (n->eng && n->eng->home_screen) say(n, "HOME SCREEN", n->eng->home_screen(detents));
         return;
     case UA_PLAY:
         say(n, n->live && n->live->playing ? "STOP" : "PLAY", "");

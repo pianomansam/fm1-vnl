@@ -501,7 +501,7 @@ def gen_screens(data, vocab, rows, all_parts=None):
                 arg = screens.index(a["go"])
             else:
                 errs.append(f'{where}: no screen "{a["go"]}"')
-            by = 1 if a.get("home") else 0                      # the screen becomes the home
+            by = 1 if a.get("root") else 0                      # the screen alone on the breadcrumb
         elif kind in ("turn", "nudge"):
             if a.get("byCursor") is not None:
                 lis = lst(NONE8 if f is None else field(where, f) for f in a["byCursor"])
@@ -779,7 +779,7 @@ def gen_screens(data, vocab, rows, all_parts=None):
         "typedef struct { uint8_t parts, label, row_h, window; uint16_t keys, tags; uint8_t live; } ui_lanes_t;\n"
         "/* an action. arg: a go's screen (or UI_GO_*), a turn's or nudge's field, a jump's section (255: the cursor's),\n"
         "   a mute's, solo's, reroll's or level's part (255: the highlighted lane's, or the song); by: a turn's step or\n"
-        "   a nudge's amount (a go's: 1 the screen becomes the home); lng: the long press's action (0 none); list: a\n"
+        "   a nudge's amount (a go's: 1 alone on the breadcrumb); lng: the long press's action (0 none); list: a\n"
         "   turn's byCursor fields (255: none there); wrap: a turn's choices wrap around at their ends */\n"
         "typedef struct { uint8_t kind, arg; int8_t by; uint8_t lng, list, wrap; } ui_action_t;\n"
         f"#define UI_GO_BACK {GO_SPECIAL['back']}\n#define UI_GO_HOME {GO_SPECIAL['home']}\n#define UI_GO_CURSOR {GO_SPECIAL['cursor']}\n"

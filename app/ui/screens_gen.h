@@ -7,7 +7,7 @@
 
 /* the vocabulary (workbench/ui/vocab.json), in its order */
 enum ui_item_kind { UI_TEXT, UI_RECT, UI_ICON, UI_METER, UI_KNOBS, UI_SECTIONS, UI_LANES, UI_FADERS, UI_RECORD };
-enum ui_action { UA_NONE, UA_GO, UA_PLAY, UA_NUDGE, UA_TURN, UA_CURSOR, UA_PAGE, UA_PART, UA_JUMP, UA_REROLL, UA_MUTE, UA_SOLO, UA_LEVEL, UA_LOCK, UA_SAVE, UA_READOUT, UA_RECALL, UA_ERASE, UA_THEME, UA_BASS_SAT, UA_SETTING };
+enum ui_action { UA_NONE, UA_GO, UA_PLAY, UA_NUDGE, UA_TURN, UA_CURSOR, UA_PAGE, UA_PART, UA_JUMP, UA_REROLL, UA_MUTE, UA_SOLO, UA_LEVEL, UA_LOCK, UA_SAVE, UA_READOUT, UA_RECALL, UA_ERASE, UA_THEME, UA_BASS_SAT, UA_SETTING, UA_HOME_SCREEN };
 
 /* the controls an action a screen: plat.h's buttons (B_*), the encoders (EN_SELECT, EN_ALGO, EN_PRESET), the
    knobs K1-K4, the keys 0-26 */
@@ -70,25 +70,26 @@ enum ui_value {
     UV_SLOT_RANGE,
     UV_THEME,
     UV_BASS_SAT,
+    UV_HOME_SCREEN,
     UV_N_FIXED
 };
 enum { UVK_I_SEL, UVK_I_SEC, UVK_I_SEC_BARS, UVK_I_SEC_NOW, UVK_I_SEC_PEND, UVK_I_SEC_KEY, UVK_I_SLOT, UVK_I_SLOT_NUM, UVK_I_SLOT_INFO, UVK_I_SLOT_EMPTY, UVK_I_SLOT_PEND, UVK_I_N };   /* sel{0-9}, sec{0-9}, sec{0-9}Bars, sec{0-9}Now, sec{0-9}Pend, sec{0-9}Key, slot{0-9}, slot{0-9}Num, slot{0-9}Info, slot{0-9}Empty, slot{0-9}Pend */
-#define UV_I0 34
+#define UV_I0 35
 #define UV_I(i, k) (UV_I0 + (i) * UVK_I_N + (k))
 #define UV_I_COUNT 10
 enum { UVK_FIELD_VALUE, UVK_FIELD_FRAC, UVK_FIELD_PEND, UVK_FIELD_FIRST, UVK_FIELD_LAST, UVK_FIELD_N };   /* {field}, {field}Frac, {field}Pend, {field}First, {field}Last */
-#define UV_FIELD0 144
+#define UV_FIELD0 145
 #define UV_FIELD(i, k) (UV_FIELD0 + (i) * UVK_FIELD_N + (k))
 #define UV_FIELD_COUNT 37
 enum { UVK_ROW_VALUE, UVK_ROW_PEND, UVK_ROW_N };   /* {row}, {row}Pend */
-#define UV_ROW0 329
+#define UV_ROW0 330
 #define UV_ROW(i, k) (UV_ROW0 + (i) * UVK_ROW_N + (k))
 #define UV_ROW_COUNT 38
 enum { UVK_LINE_VALUE, UVK_LINE_N };   /* {line} */
-#define UV_LINE0 405
+#define UV_LINE0 406
 #define UV_LINE(i, k) (UV_LINE0 + (i) * UVK_LINE_N + (k))
 #define UV_LINE_COUNT 2
-#define UI_N_VALUES 407
+#define UI_N_VALUES 408
 
 /* a template: text with a value at each UI_TPL_VAL byte, its id in the next two (UI_TPL_ID); never a NUL */
 #define UI_TPL_VAL 1
@@ -124,7 +125,7 @@ typedef struct {
 typedef struct { uint8_t parts, label, row_h, window; uint16_t keys, tags; uint8_t live; } ui_lanes_t;
 /* an action. arg: a go's screen (or UI_GO_*), a turn's or nudge's field, a jump's section (255: the cursor's),
    a mute's, solo's, reroll's or level's part (255: the highlighted lane's, or the song); by: a turn's step or
-   a nudge's amount (a go's: 1 the screen becomes the home); lng: the long press's action (0 none); list: a
+   a nudge's amount (a go's: 1 alone on the breadcrumb); lng: the long press's action (0 none); list: a
    turn's byCursor fields (255: none there); wrap: a turn's choices wrap around at their ends */
 typedef struct { uint8_t kind, arg; int8_t by; uint8_t lng, list, wrap; } ui_action_t;
 #define UI_GO_BACK 253

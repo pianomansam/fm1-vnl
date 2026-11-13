@@ -43,7 +43,7 @@ See [Features in detail](#features-in-detail) for everything each part can do.
 | SEL | Sections: jump to a section (EDIT, or its key), loop it (K1), stay on the song (K2). |
 | ARP | Parts: each part's notes over the song. |
 | FX | The Mixer. |
-| HOME | Switches between the now-playing screen and the main screen; the last one used is the home. |
+| HOME | The home screen, set in Settings (GLO): HOME SCREEN SIMPLE, the now-playing screen (the default), or DETAILED, the main screen. On either of those two, HOME switches to the other. |
 | SAVE | On the Song page, saves the song into the first free slot (SAVED TO 3); held there, or anywhere else, a line of measures for a bug report. |
 | REC | On the Song page, the Saved list: EDIT loads the highlighted song (the next song), SAVE saves into that slot, SAVE held deletes it. A save made while music plays is written to the flash when it stops. |
 | Lowest white keys (F G A B C) | Drums, bass, comp, lead, pad: press to mute, hold to solo. |

@@ -230,6 +230,7 @@ export function valuesOf(s, data) {
     map: (s.map ?? "").toUpperCase(), section: SEC_NAME[s.section] ?? "", bar: (s.bar ?? 0) + 1, bars: r.bars,
     chord: s.chord ?? "", pending: "", spin: s.spin ?? 0, fade: s.fade ?? 0, theme: s.theme ?? "",   // (theme: the Device's; none, THEME)
     bassSat: s.bassSat === undefined ? "" : s.bassSat ? "ON" : "OFF",   // (Settings' BASS SATURATION: the Device's)
+    homeScreen: s.home === undefined ? "" : s.home === "now" ? "SIMPLE" : "DETAILED",   // (Settings' HOME SCREEN)
   };
   for (const [k, def] of Object.entries(f)) {
     const v = fieldValue(def, k, r, s.rows);
@@ -652,8 +653,8 @@ export class Device {
       if (bar >= jr.at || (jr.sent && bar !== jr.sentBar)) this.jumpReq = null;
       else if (!jr.sent && bar >= jr.at - 1) { jr.sent = true; jr.sentBar = bar; this.engine.jump?.(jr.start, jr.name); }
     }
-    if (was && was.seed !== live.seed && this.stack.length > 1) {   // a new song (rolled or the next one): back to the
-      this.stack = [this.home];                                       // main screen (Sam, 2026-11-06)
+    if (was && was.seed !== live.seed && (this.stack.length > 1 || this.stack[0] !== this.home)) {   // a new song: the
+      this.stack = [this.home];   // home (Sam, 2026-11-06; Settings' HOME SCREEN, 2026-11-13)
       this.speak();
     }
     const bar = live.bar - 1;
@@ -691,7 +692,7 @@ export class Device {
              barPos: song ? bar + Math.min(0.999, (this.now() - (this.barT ?? this.now())) / (240000 / Math.max(40, l.roll?.tempo ?? 80))) : bar, pend, msg: this.msg && this.now() < this.msg.until ? this.msg.text : null };
   }
   values() { return valuesOf({ ...this.shown(), spin: this.spin, fade: this.fade ?? 0, theme: this.theme,
-                                          bassSat: this.bassSat }, this.data); }
+                                          bassSat: this.bassSat, home: this.home }, this.data); }
   // the record's turn (app.c's spin_tick): 33 1/3 turns a minute while a song plays, easing to a stop (and back up);
   // ms: now. The spin in 1/256 turns
   turn(ms = this.now()) {
@@ -706,7 +707,7 @@ export class Device {
   splash() { if (this.data.screens.splash) this.splashAt = this.now(); }
   phase() {
     return this.splashAt === undefined ? { screen: null, fade: 0, done: true }
-      : splashPhase(this.now() - this.splashAt, this.home !== this.data.home && this.data.screens[this.home]?.fade);
+      : splashPhase(this.now() - this.splashAt, !!this.data.screens[this.home]?.fade);
   }
   get splashing() { return !this.phase().done; }
   get showing() { return this.phase().screen ?? this.id; }
@@ -911,12 +912,20 @@ export class Device {
       this.say("BASS SATURATION", this.bassSat ? "ON" : "OFF");
       return null;
     }
+    if (a.do === "homeScreen") {   // Settings' HOME SCREEN: each detent flips the home between now playing (SIMPLE)
+      if (detents % 2) {           // and the main screen (DETAILED); the breadcrumb under the screen from it (GLO back)
+        this.home = this.home === "now" ? "main" : "now";
+        if (this.stack.length > 1) this.stack[0] = this.home;
+      }
+      this.say("HOME SCREEN", this.home === "now" ? "SIMPLE" : "DETAILED");
+      return null;
+    }
     if (a.go) {
       const from = this.id, to = a.go === "cursor" ? this.screen.menu?.[this.cursor[this.id] ?? 0] : a.go;
       if (!to) return null;
       if (to === "back") { if (this.stack.length > 1) this.stack.pop(); }
       else if (to === "home") this.stack = [this.home];
-      else if (a.home) { this.stack = [to]; this.home = to; }   // the screen becomes the home (HOME on the main screens)
+      else if (a.root) this.stack = [to];   // the screen alone on the breadcrumb (HOME between the two main screens)
       else if (to !== this.id) this.stack.push(to);
       if (this.id !== from) this.speak();
       return { from, control, to: this.id };

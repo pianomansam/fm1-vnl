@@ -43,6 +43,9 @@ typedef struct {
     /* the bass's harmonics (Settings' BASS SATURATION): an odd number of detents flips it (0: as it is); "ON" or
        "OFF" */
     const char *(*bass_sat)(int detents);
+    /* the home (Settings' HOME SCREEN): an odd number of detents flips it between now playing and the main screen
+       (0: as it is); "SIMPLE" or "DETAILED" */
+    const char *(*home_screen)(int detents);
 } ui_engine_t;
 
 /* the saved songs' slots as the list shows them (saved.c keeps them; the flash holds the songs): state UI_SLOT_*,
@@ -54,7 +57,7 @@ typedef struct { uint8_t state, map, key, mode, tempo; uint16_t hash; } ui_slot_
 
 typedef struct {
     uint8_t stack[UI_STACK], depth;      /* the breadcrumb: stack[depth - 1] the screen shown (depth >= 1) */
-    uint8_t home;                        /* the home (HOME's, a new song's): UI_HOME, or a go's with home (the app keeps it) */
+    uint8_t home;                        /* the home (boot's, HOME's, a new song's): Settings' (the app's) */
     uint8_t spin;                        /* a record's turn, 1/256 turns (the app's: {spin}) */
     uint8_t fade;                        /* a fading screen's text toward its background, 0..16 (the app's: {fade}) */
     int8_t cursor[UI_MAX_SCREENS];       /* each screen's highlighted line (a menu, the lanes, the sections) */
