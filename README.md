@@ -19,12 +19,10 @@ VNL-1 is free software (GPL), built on [fm1-base](https://github.com/charlesvest
 - **Ten sound engines:** a sampler, FM electric piano, FM bass, a wind voice (flute, whistle), an analog-style saw
   pad, an ensemble for strings and choir, a tonewheel organ, a modeled vibraphone, a chip triangle and the drum
   synths.
-- **Ten effects:** tape wow and flutter, dust (saturation and a darkening low-pass), grit, a chorus and plate reverb
-  (adapted from Mutable Instruments Rings), a tape delay, bass saturation, kick ducking, filter sweeps on section
-  changes and a whole-mix stutter, over a noise bed of vinyl, tape or rain.
+- **Ten effects** in a lo-fi chain.
 - **Hands on:** change the key, tempo, mood or any part from the knobs, re-roll or lock a part, jump to or loop a
   section, mute and solo, and save up to 16 songs; every change lands in time.
-- **15 themes.**
+- **Fifteen themes.**
 - **On the FM-1:** a now-playing screen, a detailed main screen, a page per part, a screen reader and
   USB audio in and out.
 - **For tinkerers:** a workbench web page, a host simulator that renders WAV, MIDI and MusicXML, and patterns as
@@ -81,8 +79,9 @@ Every change to the song lands on its next four-bar line, and the screen shows i
   it the way a producer loops a sample, with mutes, filter sweeps and drop-outs.
 - **Pad:** strings, a warm synth pad, organ or a vox choir, in about two songs out of three.
 - **Texture:** dust, a noise bed (vinyl or tape surface, rain) and room ambience.
-- **The mix:** wow and flutter, saturation, grit, chorus, delay, a plate reverb, the kick ducking the mix, and a
-  whole-mix stutter on the last bar of a 4- or 8-bar group.
+- **The mix, ten effects:** tape wow and flutter, dust (saturation and a darkening low-pass), grit, a chorus and
+  plate reverb (adapted from Mutable Instruments Rings), a tape delay, bass saturation, kick ducking, filter sweeps on
+  section changes, and a whole-mix stutter on the last bar of a 4- or 8-bar group.
 
 **Sounds**
 
