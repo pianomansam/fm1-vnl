@@ -3458,6 +3458,11 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
             for (k = 0; k < 256; k++)
                 ui_record_turn(&UI_SCREENS[US_NOW], k);
             printf("uibench spin %d us (a turn's frame, the host's)\n", (int)((clock() - t0) * 1000000.0 / CLOCKS_PER_SEC / 256));
+            t0 = clock();                /* the main screen's, small in its top band */
+            for (k = 0; k < 256 * 16; k++)
+                ui_record_turn(&UI_SCREENS[US_MAIN], k & 255);
+            printf("uibench spin-main %.2f us (a turn's frame, the host's)\n",
+                   (clock() - t0) * 1000000.0 / CLOCKS_PER_SEC / (256 * 16));
             t0 = clock();
             ui_hnav.stack[ui_hnav.depth - 1] = (uint8_t)US_NOW;
             for (k = 0; k < 64; k++) {

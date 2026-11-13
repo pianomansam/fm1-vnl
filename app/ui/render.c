@@ -341,15 +341,25 @@ static void ui_blend(uint32_t i, uint16_t c, uint32_t a)
     cv_px[i] = swap16((nr << 11) | (ng << 5) | nb);
 }
 
+/* a small record (r under UI_REC_SMALL, e.g. r 7 in a status bar), drawn to the pixel instead: its label
+   (r * 3 + 3) / 7, one groove (r - 2), the dot a single pixel a pixel in from the label's edge, no wedge, the hole a
+   single pixel */
+#define UI_REC_SMALL 16
+static int32_t ui_record_rl(int32_t r) { return r < UI_REC_SMALL ? (r * 3 + 3) / 7 : r * 5 / 13; }
+
 /* a record, centred at (cx, cy) on the canvas (clipped to it): the disc in back with its edge smoothed, five grooves
    in past (r - 10 .. r - 50), the label (r * 5 / 13) in color, smoothed, and on it, turned by spin (1/256 turns,
-   counter-clockwise): a dot in the theme's white (WHITE) and, opposite, a wedge of light (HI); the spindle's hole.
+   counter-clockwise): a dot in the theme's white (WHITE) and, opposite, a wedge of light (HI) from 3/10 of the
+   label's radius out (12 px on the splash's); the spindle's hole.
    Whole numbers only (the mock's, pixel for pixel) */
 static void ui_record_at(int32_t cx, int32_t cy, int32_t r, uint16_t label, uint16_t disc, uint16_t groove, int spin)
 {
-    int32_t rl = r * 5 / 13, x0 = cx - r - 1, x1 = cx + r + 1, y0 = cy - r - 1, y1 = cy + r + 1, x, y, k;
-    int32_t outer = (2 * r + 1) * (2 * r + 1), inner = (2 * rl + 1) * (2 * rl + 1), hole = 4 * 9, sheen = 4 * 12 * 12;
-    int32_t dc = UI_COS256(spin), ds = ui_sin256(spin), dist = rl * 3 / 4;
+    int small = r < UI_REC_SMALL;
+    int32_t rl = ui_record_rl(r), x0 = cx - r - 1, x1 = cx + r + 1, y0 = cy - r - 1, y1 = cy + r + 1, x, y, k;
+    int32_t outer = (2 * r + 1) * (2 * r + 1), inner = (2 * rl + 1) * (2 * rl + 1), hole = small ? 0 : 4 * 9;
+    int32_t sheen = small ? inner : 4 * (rl * 3 / 10) * (rl * 3 / 10);       /* (the wedge from 3/10 of the label) */
+    int32_t spot = small ? 0 : 10, grooves = small ? 1 : 5;
+    int32_t dc = UI_COS256(spin), ds = ui_sin256(spin), dist = small ? rl - 1 : rl * 3 / 4;
     int32_t dotx = (dist * dc + 2048) >> 12, doty = -((dist * ds + 2048) >> 12);
     int32_t ax = UI_COS256(spin + 118), ay = ui_sin256(spin + 118), bx = UI_COS256(spin + 138), by = ui_sin256(spin + 138);
     uint16_t white = UI_COLORS[UC_WHITE], hi = UI_COLORS[UC_HI], bg = UI_COLORS[UC_BLACK];
@@ -364,15 +374,15 @@ static void ui_record_at(int32_t cx, int32_t cy, int32_t r, uint16_t label, uint
             uint32_t i = (uint32_t)y * cv_w + (uint32_t)x;
             uint16_t c = disc;
             if (e <= 0) continue;                                    /* outside the disc */
-            for (k = 1; k <= 5; k++) {                               /* a groove: a pixel wide */
-                int32_t g = r - 10 * k;
+            for (k = 1; k <= grooves; k++) {                         /* a groove: a pixel wide */
+                int32_t g = small ? r - 2 : r - 10 * k;
                 if (d4 >= (2 * g - 1) * (2 * g - 1) && d4 < (2 * g + 1) * (2 * g + 1)) c = groove;
             }
             if (el > 0) {                                            /* the label */
                 int32_t mx = dx - dotx, my = dy - doty;
                 uint16_t l = label;
                 if (d4 >= sheen && ax * -dy - ay * dx >= 0 && dx * by + dy * bx >= 0) l = hi;   /* p = (dx, -dy) */
-                if (mx * mx + my * my <= 10) l = white;
+                if (mx * mx + my * my <= spot) l = white;
                 if (d4 <= hole) l = bg;
                 if (el >= 8 * rl) c = l;
                 else {
@@ -447,7 +457,7 @@ int ui_record_turn(const ui_screen_t *sc, int spin)
             if (it->kind != UI_RECORD) continue;
             cx = it->x;
             cy = band->y + (int8_t)it->y;
-            rl = it->w * 5 / 13 + 1;
+            rl = ui_record_rl(it->w) + 1;
             x0 = cx - rl < 0 ? 0 : cx - rl;
             x1 = cx + rl > 239 ? 239 : cx + rl;
             y0 = cy - rl < 0 ? 0 : cy - rl;

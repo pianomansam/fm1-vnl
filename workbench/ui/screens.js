@@ -303,21 +303,30 @@ export default {
           // ending at 94
           { text: "VNL-1", font: "T", x: 108, y: 2, color: "DIM" },
         ] },
-        { y: 18, h: 46, draw: [
-          { when: "sel0", rect: [2, 0, 236, 46], color: "LINE" },
-          { when: "sel0", rect: [2, 0, 2, 46], color: "SONG" },
-          { when: "song", text: "{chord}", font: "B", x: 8, y: 2, color: "WHITE" },
-          { when: ["song", "!lockSong"], text: "{key} {mode}", font: "XS", right: 232, y: 2, color: "HI" },
-          { when: ["song", "lockSong"], text: "{key} {mode}", font: "XS", right: 220, y: 2, color: "HI" },   // (room for:)
-          { when: "lockSong", icon: "lock", x: 226, y: 4, color: "HI" },   // the song line locked (Sam, 2026-11-12)
-          { when: "song", icon: "song", x: 8, y: 26, color: "SONG" },
-          { when: "song", text: "{map}", font: "T", x: 21, y: 24, color: "GRAY" },
-          { when: "pending", text: "{pending}", font: "T", right: 232, y: 24, color: "HI" },   // as on a part's screen (Sam)
+        // the song tile, from y 16 to 65 (the rows between the bands its own, so the record has them: the tile's
+        // highlight still 18-63). Half of now playing's record cut by the left edge, as the splash's and now
+        // playing's are (Sam, 2026-11-13: "since the splash and simple home have the record on the left, I think we
+        // should too"): the same drawing, r 26, centred on x 0 at y 41, its label 10 px; it turns as that one does
+        // (33 1/3 while a song plays, easing to a stop), its label alone redrawn (render.c's ui_record_turn, a 12 x 23
+        // box). The tile's left-hand text starts at x 31, clear of the disc; the right-hand text where it was. The
+        // record covers the highlight's colored edge (x 2): highlighted, the tile shows by its fill.
+        { y: 16, h: 50, draw: [
+          { when: "sel0", rect: [2, 2, 236, 46], color: "LINE" },
+          { when: "sel0", rect: [2, 2, 2, 46], color: "SONG" },
+          { record: [0, 25, 26], value: "spin", color: "AMB", back: "VINYL", past: "LINE" },
+          // (the longest chord, Abmaj13#11, x 31-112; the longest key and scale, F# MIXOLYDIAN, from 156)
+          { when: "song", text: "{chord}", font: "B", x: 31, y: 4, color: "WHITE" },
+          { when: ["song", "!lockSong"], text: "{key} {mode}", font: "XS", right: 232, y: 4, color: "HI" },
+          { when: ["song", "lockSong"], text: "{key} {mode}", font: "XS", right: 220, y: 4, color: "HI" },   // (room for:)
+          { when: "lockSong", icon: "lock", x: 226, y: 6, color: "HI" },   // the song line locked (Sam, 2026-11-12)
+          { when: "song", icon: "song", x: 31, y: 28, color: "SONG" },
+          { when: "song", text: "{map}", font: "T", x: 44, y: 26, color: "GRAY" },
+          { when: "pending", text: "{pending}", font: "T", right: 232, y: 26, color: "HI" },   // as on a part's screen (Sam)
           // stopped with a song ready: its key (Sam, 2026-11-06), STOPPED only once (the status bar's)
-          { when: "ready", text: "{key} {mode}", font: "B", x: 8, y: 2, color: "WHITE" },
-          { when: "ready", icon: "song", x: 8, y: 26, color: "SONG" },
-          { when: "ready", text: "{map}", font: "T", x: 21, y: 24, color: "GRAY" },
-          { sections: [8, 40, 224, 3], color: "AMB", back: "LINE", past: "DIM" },   // the song's map, a segment a section
+          { when: "ready", text: "{key} {mode}", font: "B", x: 31, y: 4, color: "WHITE" },
+          { when: "ready", icon: "song", x: 31, y: 28, color: "SONG" },
+          { when: "ready", text: "{map}", font: "T", x: 44, y: 26, color: "GRAY" },
+          { sections: [31, 42, 201, 3], color: "AMB", back: "LINE", past: "DIM" },   // the song's map, a segment a section
         ] },
         { y: 66, h: 144, draw: [
           { when: "sel1", rect: [2, 0, 116, 46], color: "LINE" },

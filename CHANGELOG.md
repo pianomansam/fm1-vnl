@@ -29,6 +29,10 @@ The first public release: a generative lo-fi hip hop firmware for the M-VAVE FM-
   screens; mute and solo from the keys; every change landing on the next four-bar line; a screen reader; USB audio.
 - **The mood on now playing:** the now-playing screen shows the song's mood (SAD, WISTFUL, WARM or SUNNY) on its
   own line under the tempo, and the screen reader says it.
+- **A record on the main screen:** the now-playing screen's record, smaller, half of it showing at the left edge of
+  the main screen's song tile as on the splash and now playing, turning while a song plays and easing to a stop
+  when it stops; the chord, the layout and the section strip move right to make room. Only its label is redrawn
+  as it turns (a 12 x 23 pixel box).
 - **Part locks:** hold SEQ on a part's screen, or on the main screen with its tile highlighted, and every new song
   keeps that part (its instrument, rhythm or style, register and variations) while the rest rolls. The song line
   locks too (key and scale, tempo, motion, mood).

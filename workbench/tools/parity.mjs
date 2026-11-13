@@ -315,6 +315,20 @@ const SEED = 47;
   ];
   for (const c of run(SEED, steps)) compare(c);
 }
+{   // the main screen's small record (Sam, 2026-11-13): turning while a song plays, its label alone redrawn between
+  // the screen's full draws (render.c's ui_record_turn), the frame as the mock draws it whole; at rest once stopped
+  const v = (st) => st.values;
+  let was = -1;
+  const turned = (st) => { const s = v(st).spin, bad = s === was ? `spin ${s} again` : ""; was = s; return bad; };
+  const steps = [{ press: "PLAY" }, { wait: 3000 }, { screen: "main" },
+                 { wait: 333 }, { check: "main-record-1", expect: turned },
+                 { wait: 450 }, { check: "main-record-2", expect: turned },
+                 { wait: 450 }, { check: "main-record-3", expect: turned },
+                 { press: "PLAY" }, { wait: 3000 }, { check: "main-record-rest", expect: (st) => { was = v(st).spin; return ""; } },
+                 { wait: 500 },
+                 { check: "main-record-still", expect: (st) => (v(st).spin === was ? "" : `spin ${v(st).spin}, not ${was}`) }];
+  for (const c of run(SEED, steps)) compare(c);
+}
 {   // the themes (Settings' THEME: a knob steps through gfx.c's palettes, at once): the splash, now playing, the main
   // screen, Settings and a part screen in each of the plum, oxblood, garnet and black cherry ones; a reboot keeps it
   // (stopped)
