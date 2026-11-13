@@ -17,7 +17,7 @@ import fm1_state as S  # noqa: E402
 with tempfile.TemporaryDirectory() as d:
     sc = os.path.join(d, "live.vnl")
     with open(sc, "w") as f:
-        f.write("tap PLAY\nwait 3000\nlive reset\nlive\n")
+        f.write("tap PLAY\nwait 3000\nlive reset\nlive\nheavy 3000\nwait 400\nlive\n")
     out = subprocess.run([os.path.join(ROOT, "app", "build", "host", "vnl-1_host"), sc, d], capture_output=True,
                          text=True, check=True).stdout
 lines = [l for l in out.splitlines() if l.startswith("live ")]
@@ -34,6 +34,13 @@ assert after["cpu"]["render_us"] <= max(s["cpu"]["render_us"], 1000000)
 p = after["prof"]   # (the CPU by stage: the blocks since the reset, a figure a stage, the table)
 assert p["blocks"] > 0 and len(p["stages"]) == len(p["us"]) == len(p["worst"]) and "bass" in p["stages"], p
 assert S.prof_table(after)[0].startswith("CPU by stage")
+late = S.decode([bytes.fromhex(h) for h in lines[2].split()[1:]])["cpu"]   # (busy work a voice: blocks late)
+assert late["late"] > 0 and 0 < len(late["late_at"]) <= 4 and "plan" in late["late_by"], late
+assert all(len(e) == 5 and e[0] >= 0 and (e[1] < 16 or e[1] == 255) and 0 <= e[2] <= 7 and e[3] > 0 and e[4] > 0
+           for e in late["late_at"]), late["late_at"]
+assert S.late_at(late) != "-" and S.late_at(after["cpu"]) == "-" and after["cpu"]["late_at"] == []
+assert S.late_at({"late_by": {"song": 0, "row": 0, "jump": 0, "roll": 0, "bar": 0, "plan": 0},
+                  "late_at": [[9, 13, 5, 6100, 1 << 5]]}) == "10:14 pad bar 2 6100 us (plan)"
 remote = bytes([0xF0, 0x7D, 0x56, 0x4E, 0x11, 0x00, 0x01, 0xF7])   # (the remote's ack among them)
 assert S.decode([remote] + frames[::-1]) == s
 assert S.decode(frames[:-1]) is None

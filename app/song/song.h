@@ -54,11 +54,11 @@ typedef struct {
     uint16_t changes;             /* bumps as a row request lands: the voices read the instruments again */
     int8_t kit_preset;            /* the shipped kit the drum lanes play (SONG_KIT_PRESET + it is the kit row's value:
                                      app/drums/wb_drums.h's WB_KIT_*), -1 none */
-    /* the next bar's planning, done ahead (song_tick: its voicings at the bar's 13th 16th, the lead's plan at its 14th,
-       the pad group's at its 15th; a song's first bar at its start) so the downbeat's tick carries only its own
-       events: the states it started from (v0, l0), what it made, the bar it is for (-1 none), how far it got (0
-       voiced, 1 planned, 2 the pad group too) and the requests and window it was made under (a change between: made
-       again on the downbeat, as before) */
+    /* the next bar's planning, done ahead (song_tick: a piece a 16th from the bar's 10th, song_plans_at; a song's
+       first bar at its start) so the downbeat's tick carries only its own events: the states it started from (v0,
+       l0), what it made, the bar it is for (-1 none), how far it got (song.c SG_*: voiced, planned, the pad group's
+       bars) and the requests and window it was made under (a change between: made again on the downbeat, as
+       before); the pad group's voicings' last and loop signature as it began (put back, checked, as it ends) */
     int16_t stg_bar;
     uint8_t stg_stage;
     int8_t stg_np;
@@ -67,6 +67,8 @@ typedef struct {
     harmony_voicing_t stg_v0, stg_v;
     lead_state_t stg_l0, stg_l;
     pads_state_t stg_p;
+    int stg_last[4];
+    uint32_t stg_sig;
 } song_t;
 /* the kit row's shipped kits (the drum lanes': wb_drums.h WB_KIT_PRESET..), past the engine's KIT_*: the synth
    machines', the sampled ones (the sample bank's: SONG_KIT_SAMPLED to SONG_KIT_SAMPLED_END - 1), then more synth
@@ -95,6 +97,10 @@ void song_start_rows(song_t *s, const song_roll_t *r, int kit, const int16_t *ro
 void song_first_bar_later(int on);
 void song_first_bar(song_t *s, int part);
 /* One 16th: its events sorted by delay; 0 once ended. Events beyond max are dropped: pass max >= 64. */
+/* the piece of the next bar's planning the tick of bar's 16th step makes (1 its voicing, 2 the next bar's, 3 the
+   lead's plan, 4-7 the pad group's bars on a 4-bar line), 0 none: a 16th that costs more than most */
+int song_plans_at(int bar, int step);
+#define SONG_STAGED 7             /* stg_stage once a bar's planning ahead is all made, a 4-bar line's pad group too */
 int song_tick(song_t *s, song_ev_t *out, int max);
 float song_step_samples(const song_t *s);                   /* 44100 * 60 / (tempo * 4), following a tempo glide */
 /* The pad layer's level (0-1) for the step song_tick last played, for vx_set_pad_level: 0 where the layer is silent

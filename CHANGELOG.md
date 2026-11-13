@@ -57,7 +57,14 @@ Fixes:
 - **Crackles as a change lands:** the bar a change lands on (an instrument, rhythm, style, the kit, the key or mood)
   was worked out on its own downbeat, a block over three times its usual. It is now worked out ahead with the change
   in, a part a block, as every other bar is, also when a looping section carries the change round. The music is the
-  same, sample for sample. A change made in the last four 16ths before its line still lands the old way.
+  same, sample for sample. A change made in the last seven 16ths before its line still lands the old way.
+- **Drop-outs mid-song:** the next bar's planning ran in three 16ths (its voicings, the lead's plan, the four-bar pad
+  group), and the heaviest outran an audio block now and then (about one a minute or two on the FM-1). The bass line
+  the planners read is now worked out a bar at a time (the lead's plan in a quarter of the time), and the planning is
+  spread over seven 16ths, a piece each: the bar's voicing, the next bar's, the lead's plan, then the pad group a bar
+  at a time. Songs with the harp on the comp now take that planning too (their downbeats planned the bar again). The
+  same music, sample for sample. `tools/fm1_state.py` shows the last late blocks, each with its bar, 16th, the
+  planning piece it made and all its causes (a new cause, plan).
 - **Saved songs through `tools/flash.sh`:** its stock V15 step erased them (stock claims that flash as its own); it now
   exports them first and writes them back after. `tools/fm1_songs.py list` tags each song `[flash]` or `[RAM only]`,
   and tells a failed flash write from one waiting for silence.

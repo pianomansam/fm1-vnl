@@ -221,14 +221,27 @@ static uint32_t m_ui_us, m_kit_us, m_prof_ms;
 #define M_OWN(t0, r0) (M_DT(t0) - (pf_render_us() - (r0)))   /* a main-loop span's own time (us) */
 /* what a late block had going on (its first cause in this order counts it, one each; none: other), for the live state: the render's own
    (a new song, its first bar's planning or its end, a stop's resume; a row's request landing; a jump's fast-forward
-   or landing; the Parts roll's look-ahead; the downbeat; a command: a mute, a solo, a level, a jump, the A/B
+   or landing; the Parts roll's look-ahead; the downbeat; a piece of the next bar's planning (song_plans_at); a
+   command: a mute, a solo, a level, a jump, the A/B
    switches' plate and bed; the guard stepping; a section's filters or the fade ramping; a 16th ticked; notes
    starting) and the main loop's around it (a redraw, the kit's voices rendering, a flash write, a SysEx: the live
    state's answer; the next song rolled); else the voices and effects sounding, nothing else going on */
-enum { MC_SONG, MC_ROW, MC_JUMP, MC_ROLL, MC_BAR, MC_CMD, MC_GUARD, MC_RAMP, MC_STEP, MC_NOTES, MC_DRAW, MC_KIT,
-       MC_FLASH, MC_USB, MC_NEXT, MC_VOICES, MC_OTHER, MC_N };   /* (MC_BAR: the song generated its next bar in
+enum { MC_SONG, MC_ROW, MC_JUMP, MC_ROLL, MC_BAR, MC_PLAN, MC_CMD, MC_GUARD, MC_RAMP, MC_STEP, MC_NOTES, MC_DRAW,
+       MC_KIT, MC_FLASH, MC_USB, MC_NEXT, MC_VOICES, MC_OTHER, MC_N };   /* (MC_BAR: the song generated its next bar in
                                             the block) */
 static uint32_t m_late_by[MC_N];
+/* the last late blocks (a ring, M_LATE_AT of them, m_late_n since the reset), each the 16th the block ticked (its bar
+   and step; step 255: none, the bar the song is in), the piece of the next bar's planning that tick made
+   (song_plans_at, 0 none), the block's render (us) and its causes (MC_* bits): the live state's late_at */
+enum { M_LATE_AT = 4 };
+static struct {
+    uint16_t bar, us;
+    uint8_t step, piece;
+    uint32_t causes;
+} m_late_at[M_LATE_AT];
+static uint32_t m_late_n;
+static uint16_t m_tick_bar = 0xFFFFu;    /* this block's 16th (step: its bar, step and piece; none yet: 0xFFFF) */
+static uint8_t m_tick_step, m_tick_piece;
 static uint32_t m_shed0;                 /* vx_shed at the last reset: the voices the guard cut since then */
 static volatile uint32_t m_over90;       /* blocks the platform found over 90 % of their time (APP_OVERLOAD: its whole
                                             render, USB audio's included; a cross-check of the render's own late) */
@@ -236,10 +249,10 @@ static volatile uint32_t m_over90;       /* blocks the platform found over 90 % 
 static uint32_t heavy_us;                /* the simulator's "heavy N": N us of busy work a sounding voice, each block,
                                             the guard on (the FM-1's settings): an overload for the guard's test */
 #endif
-static uint16_t m_cause;                 /* the render's, this block */
-static volatile uint16_t m_cause_main;   /* the main loop's, while it lasts */
-static volatile uint16_t m_cause_seen;   /* the main loop's brief ones, since the last block (the render clears it) */
-#define M_SEEN(mc) (m_cause_seen |= (uint16_t)(1u << (mc)))
+static uint32_t m_cause;                 /* the render's, this block */
+static volatile uint32_t m_cause_main;   /* the main loop's, while it lasts */
+static volatile uint32_t m_cause_seen;   /* the main loop's brief ones, since the last block (the render clears it) */
+#define M_SEEN(mc) (m_cause_seen |= 1u << (mc))
 #ifdef PLAT_HOST
 #include <time.h>
 static uint32_t m_us_host(void)          /* (the simulator: the host's clock, for the live state's figures) */
@@ -423,11 +436,11 @@ static uint32_t j_req;                   /* the song's requests as last carried 
 static song_ev_t j_evs[64];
 enum { J_TICKS = 24 };                    /* 16ths fast-forwarded a block */
 static uint8_t bar_ticked;               /* the song ticked a costly 16th in this block (step): a bar's first (its
-                                            events, a request landing) or one of the next bar's planning (song.c:
-                                            the 13th to 15th) */
+                                            events, a request landing) or one making a piece of the next bar's
+                                            planning (song_plans_at) */
 static uint8_t roll_line_due;            /* a bar line passed: the Parts roll's copy waits for a light block */
-/* a song's 16th that costs (the song's planning or its downbeat): st, the 16th it ticks */
-#define HEAVY_16TH(st) ((st) == 0 || ((st) >= 12 && (st) <= 14))
+/* a song's 16th that costs (its downbeat, or a piece of its planning): the 16th it ticks, st of bar */
+#define HEAVY_16TH(bar, st) ((st) == 0 || song_plans_at(bar, st))
 
 /* the requests waiting in s (a hash: song_carry_requests carries the same from the same) */
 static uint32_t req_hash(const song_t *s)
@@ -483,8 +496,8 @@ static void jump_prepare(void)
         if (jsong.bar >= j_target || jsong.state != SS_PLAYING) {
             j_ready = 1;
         } else {
-            int heavy = HEAVY_16TH(jsong.step);
-            if (jsong.bar == j_target - 1 && jsong.step == 12)
+            int heavy = HEAVY_16TH(jsong.bar, jsong.step);
+            if (jsong.bar == j_target - 1 && song_plans_at(jsong.bar, jsong.step) == 1)
                 jump_carry(j_target);    /* (likewise: the target bar's planning ahead, from here, with them; they
                                             land past the fast-forward, so its ticks keep theirs) */
             song_tick(&jsong, j_evs, 64);
@@ -648,7 +661,7 @@ static void roll_generate(void)
             e->part = (uint8_t)p;
             roll_buf[back].n++;
         }
-        if (HEAVY_16TH(st))
+        if (HEAVY_16TH(bar, st))
             break;                       /* (a bar's generation or planning: one a block) */
     }
 }
@@ -694,8 +707,15 @@ static void step(void)
             jump_land();
         jump_rules();
     }
-    if (st >= 12 && st <= 14)
-        bar_ticked = 1;                  /* (the next bar's planning in this 16th's tick: song.c) */
+    if (song_plans_at(song.bar, st))
+        bar_ticked = 1;                  /* (a piece of the next bar's planning in this 16th's tick: song.c) */
+#endif
+#if VNL_UI_RUNTIME
+    m_tick_bar = (uint16_t)song.bar;
+    m_tick_step = (uint8_t)st;
+    m_tick_piece = (uint8_t)song_plans_at(song.bar, st);
+    if (m_tick_piece)
+        m_cause |= 1u << MC_PLAN;
 #endif
     last = &song.plan.b[song.plan.n ? song.plan.n - 1 : 0];
     bar = song.bar;
@@ -952,7 +972,7 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     uint32_t i = 0, k;
 #if VNL_UI_RUNTIME
     uint32_t m_t0 = M_T();
-    uint16_t m_cause_t0 = m_cause_main;  /* (what the main loop was doing as the block began) */
+    uint32_t m_cause_t0 = m_cause_main;  /* (what the main loop was doing as the block began) */
     uint32_t m_fires = vx_fires();
     static int m_guard;
     pf_block_begin();
@@ -1085,6 +1105,12 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
             for (k = 0; k < MC_OTHER && !(c >> k & 1u); k++) {}
             m_late_by[k]++;              /* (the first cause, in MC_*'s order: the render's own before the main
                                             loop's around it; none: other) */
+            k = m_late_n++ % M_LATE_AT;
+            m_late_at[k].bar = m_tick_bar != 0xFFFFu ? m_tick_bar : (uint16_t)song.bar;
+            m_late_at[k].step = m_tick_bar != 0xFFFFu ? m_tick_step : 255u;
+            m_late_at[k].piece = m_tick_bar != 0xFFFFu ? m_tick_piece : 0u;
+            m_late_at[k].us = (uint16_t)(dt > 65535u ? 65535u : dt);
+            m_late_at[k].causes = c;
         }
 #if defined(PLAT_HOST) && !defined(PLAT_WEB)
         {                                /* VNL_SLOW=x (the simulator): each block over x times the running mean, its
@@ -1094,14 +1120,15 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
             if (sl == (const char *)1)
                 sl = getenv("VNL_SLOW");
             if (sl && mean > 0.0f && (float)dt > (float)atof(sl) * mean)
-                printf("slow block: %u us (mean %.0f) bar %d step %u causes %04X main %04X\n", (unsigned)dt, mean,
-                       song.bar, (unsigned)(r_tick & 15u), m_cause,
+                printf("slow block: %u us (mean %.0f) bar %d step %u causes %05X main %05X\n", (unsigned)dt, mean,
+                       song.bar, (unsigned)(r_tick & 15u), (unsigned)m_cause,
                        (unsigned)(m_cause_main | m_cause_t0 | m_cause_seen));
             mean = mean > 0.0f ? mean + ((float)dt - mean) * 0.01f : (float)dt;
         }
 #endif
         m_cause = 0;
         m_cause_seen = 0;
+        m_tick_bar = 0xFFFFu;
         m_load_now = blk ? dt * 100u / blk : 0u;
         if (m_load_now > m_load_peak)
             m_load_peak = m_load_now;
@@ -1686,7 +1713,7 @@ void app_usb_cmd(const uint8_t *d, uint32_t n)
         return;
     rc = bank_rx(d[6] | (uint32_t)d[7] << 8 | (uint32_t)d[8] << 16 | (uint32_t)d[9] << 24);
 #if VNL_UI_RUNTIME
-    m_cause_main &= (uint16_t)~(1u << MC_FLASH);   /* (the write over: before, the cause stayed set until a reset) */
+    m_cause_main &= ~(1u << MC_FLASH);   /* (the write over: before, the cause stayed set until a reset) */
 #endif
     lib_set_samples(smp_ready());
     plat_host_read(rc ? BANK_FAIL | rc : BANK_OK, ack, sizeof ack);
@@ -2835,14 +2862,32 @@ static uint32_t live_state(char *o, uint32_t cap)
     jbk(&b, "over90"); jbi(&b, (int32_t)m_over90);
     jbk(&b, "late_by"); jb(&b, "{");   /* what the late blocks had going on (live_state's causes, app.c MC_*) */
     {
-        static const char *const MC[MC_N] = {"song", "row", "jump", "roll", "bar", "cmd", "guard", "ramp", "step",
-                                                  "notes", "draw", "kit", "flash", "usb", "next", "voices", "other"};
+        static const char *const MC[MC_N] = {"song", "row", "jump", "roll", "bar", "plan", "cmd", "guard", "ramp",
+                                             "step", "notes", "draw", "kit", "flash", "usb", "next", "voices",
+                                             "other"};
         for (i = 0; i < MC_N; i++) {
             jbk(&b, MC[i]);
             jbi(&b, (int32_t)m_late_by[i]);
         }
     }
-    jb(&b, "}}");
+    jb(&b, "}");
+    jbk(&b, "late_at"); jb(&b, "[");   /* the last late blocks, oldest first: [bar, step (255 none), the planning's
+                                          piece (song_plans_at), us, causes (bits in late_by's order)] */
+    {
+        uint32_t n = m_late_n < M_LATE_AT ? m_late_n : M_LATE_AT, j;
+        for (j = 0; j < n; j++) {
+            uint32_t k = (m_late_n - n + j) % M_LATE_AT;
+            if (j) jb(&b, ",");
+            jb(&b, "[");
+            jbu(&b, m_late_at[k].bar); jb(&b, ",");
+            jbu(&b, m_late_at[k].step); jb(&b, ",");
+            jbu(&b, m_late_at[k].piece); jb(&b, ",");
+            jbu(&b, m_late_at[k].us); jb(&b, ",");
+            jbu(&b, m_late_at[k].causes);
+            jb(&b, "]");
+        }
+    }
+    jb(&b, "]}");
     {                                  /* the CPU by stage since the reset (prof.h; tools/fm1_state.py's table): the
                                           time (ms), the blocks rendered and a block's time (us), each stage's us in
                                           all and in the heaviest block, that block's us, the main loop's redraws and
@@ -2891,6 +2936,7 @@ static void live_reset(void)
 {
     m_load_peak = m_late = m_render_max = m_draw_max = m_spin_max = m_fade_max = 0;
     memset(m_late_by, 0, sizeof m_late_by);
+    m_late_n = 0;
     pf_reset();
     m_ui_us = m_kit_us = 0;
     m_prof_ms = plat_ms();
@@ -3113,7 +3159,7 @@ static void kit_render(const snap_t *s)
 #else
     wb_drums_work(KIT_SLICE, 0);
 #endif
-    m_cause_main &= (uint16_t)~(1u << MC_KIT);
+    m_cause_main &= ~(1u << MC_KIT);
 }
 
 void app_frame(void)
@@ -3209,7 +3255,7 @@ void app_frame(void)
 #endif
             draw();
 #if VNL_UI_RUNTIME
-        m_cause_main &= (uint16_t)~(1u << MC_DRAW);
+        m_cause_main &= ~(1u << MC_DRAW);
         dt = M_DT(m_t0);                 /* (the FM-1's too: before, only the simulator's was timed) */
         if (dt < M_SANE_US && dt > m_draw_max)
             m_draw_max = dt;

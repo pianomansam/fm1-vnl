@@ -325,7 +325,7 @@ static int bass_twin(const song_roll_t *r, const plan_block_t *b, int bar, const
     static int cbar = -1, cstep = -1;
     static const char *cps;
     const lib_prog_t *pr = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
-    int loop = pr && pr->n ? pr->n * (pr->bars_per_chord ? pr->bars_per_chord : 1) : 4, pcs[5], np, i;
+    int loop = pr && pr->n ? pr->n * (pr->bars_per_chord ? pr->bars_per_chord : 1) : 4, pcs[5], np, i, bn[16];
     const lib_pattern_t *dp = lib_pattern_by_id((uint8_t)r->v[RF_PATTERN]);
     unsigned km = 0, bm = 0, dm = dp ? lib_song_hits(r, dp, D_KICK, bar) & 0xFFFFu : 0u;
     if (cbar == bar && cseed == r->seed && cps == ps) return cstep;
@@ -334,9 +334,10 @@ static int bass_twin(const song_roll_t *r, const plan_block_t *b, int bar, const
     cps = ps;
     cstep = -1;
     np = harmony_chord_at(r, bar, bar / loop + 1, 0, pcs);
+    groove_bass_bar(r, b, bar, pcs, np, bn);
     for (i = 0; i < 16; i++) {
         if (hit_at(ps, bar, i) != '.') km |= 1u << i;
-        if (groove_bass_note(r, b, bar, i, pcs, np)) bm |= 1u << i;
+        if (bn[i]) bm |= 1u << i;
     }
     if ((km != bm && km != dm) || km == 1u) return cstep;
     for (i = 2; i < 16 && cstep < 0; i += 4)

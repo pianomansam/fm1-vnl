@@ -163,7 +163,8 @@ int main(int argc, char **argv)
                 if (tk[i] > lmax[q]) { lmax[q] = tk[i]; lseed[q] = seed; }
                 lsumk[q] += tk[i];
                 ln[q]++;
-                for (a = 2; a <= 4 && a <= i; a++)   /* the bar before's 13th to 15th 16ths: its planning ahead */
+                for (a = 1; a <= 15 && a <= i; a++)   /* the bar before's 16ths making its planning ahead */
+                    if (song_plans_at(i / 16 - 1, 16 - a))
                     amax[q] = tk[i - a] > amax[q] ? tk[i - a] : amax[q];
             }
             if (tk0[i]) {

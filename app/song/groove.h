@@ -25,6 +25,9 @@ int groove_bass_style(const song_roll_t *r);
 /* The bass note (MIDI, 0 = none) struck at this step of `bar` over chord_pcs (root first), by the same rule
    groove_step plays: 0 unless the block has L_BASS. Lets the lead keep clear of what the bass sounds. */
 int groove_bass_note(const song_roll_t *r, const plan_block_t *b, int bar, int step, const int *chord_pcs, int npcs);
+/* The same for all 16 steps of `bar` at once (out[step]), the bar's root, style and kick worked out once: the
+   planners' whole-bar reads (the lead's context, the pad's solo) at a fraction of 16 calls' cost */
+void groove_bass_bar(const song_roll_t *r, const plan_block_t *b, int bar, const int *chord_pcs, int npcs, int out[16]);
 
 /* Drum and bass events of one 16th step (bar from 0, step 0-15); step_samples is one 16th in samples.
    chord_pcs: the bar's chord, root first. Returns the number of events written (at most max).

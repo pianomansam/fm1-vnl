@@ -152,11 +152,11 @@ static int root_place(const song_roll_t *r, int pc, int bar)
     return n;
 }
 
-/* the bass note (MIDI) on this step, 0 when none; style is the effective one (walk already resolved) */
-static int bass_note(const song_roll_t *r, int style, const lib_pattern_t *p, int bar, int step, const int *pcs,
-                     int npcs, int bpc, int next_root)
+/* the bass note (MIDI) on this step, 0 when none; style is the effective one (walk already resolved); root: the
+   chord's (root_place), kick: the bar's kick hits (BS_ROOTS's) */
+static int bass_note_at(const song_roll_t *r, int style, int bar, int step, const int *pcs, int npcs, int bpc,
+                        int next_root, int root, unsigned kick)
 {
-    int root = root_place(r, pcs[0], bar);
     switch (style) {
     case BS_PEDAL:                        /* R21: the root at every chord change, held to the next */
         return step == 0 && bar % bpc == 0 ? root : 0;
@@ -175,8 +175,15 @@ static int bass_note(const song_roll_t *r, int style, const lib_pattern_t *p, in
         }
     }
     default:                              /* BS_ROOTS: the root on kick hits */
-        return (lib_song_hits(r, p, D_KICK, bar) >> step) & 1 ? root : 0;
+        return (kick >> step) & 1 ? root : 0;
     }
+}
+
+static int bass_note(const song_roll_t *r, int style, const lib_pattern_t *p, int bar, int step, const int *pcs,
+                     int npcs, int bpc, int next_root)
+{
+    return bass_note_at(r, style, bar, step, pcs, npcs, bpc, next_root, root_place(r, pcs[0], bar),
+                        style == BS_ROOTS ? lib_song_hits(r, p, D_KICK, bar) : 0u);
 }
 
 /* the root (pitch class) of the chord before `bar`'s chord, -1 at the song's start */
@@ -217,6 +224,24 @@ int groove_bass_note(const song_roll_t *r, const plan_block_t *b, int bar, int s
     int bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1;
     if (!p || !b || !(b->layers & L_BASS) || !chord_pcs || npcs <= 0 || step < 0 || step > 15) return 0;
     return bass_note(r, bass_style_at(r, bar), p, bar, step, chord_pcs, npcs, bpc, next_root_of(r, bar));
+}
+
+void groove_bass_bar(const song_roll_t *r, const plan_block_t *b, int bar, const int *chord_pcs, int npcs, int out[16])
+{
+    const lib_pattern_t *p = lib_pattern_by_id((uint8_t)r->v[RF_PATTERN]);
+    const lib_prog_t *pr = lib_prog_by_id((uint8_t)r->v[RF_PROG]);
+    int bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1, style, nr, root, i;
+    unsigned kick;
+    if (!p || !b || !(b->layers & L_BASS) || !chord_pcs || npcs <= 0) {
+        for (i = 0; i < 16; i++) out[i] = 0;
+        return;
+    }
+    style = bass_style_at(r, bar);
+    nr = next_root_of(r, bar);
+    root = root_place(r, chord_pcs[0], bar);
+    kick = style == BS_ROOTS ? lib_song_hits(r, p, D_KICK, bar) : 0u;
+    for (i = 0; i < 16; i++)
+        out[i] = bass_note_at(r, style, bar, i, chord_pcs, npcs, bpc, nr, root, kick);
 }
 
 static int push(song_ev_t *out, int n, int max, int voice, int note, int vel, uint32_t delay, uint32_t len)

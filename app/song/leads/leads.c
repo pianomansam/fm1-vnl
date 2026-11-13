@@ -512,7 +512,7 @@ static void plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t 
     const plan_block_t *nb = bar + 1 < b->start + b->bars ? b
                            : (b + 1)->bars && (b + 1)->start == b->start + b->bars ? b + 1 : 0;
     int s = ls->style ? ls->style - 1 : leads_style(r), bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1;
-    int loop = pr && pr->n ? pr->n * bpc : 4, npcs[5], i, prev;
+    int loop = pr && pr->n ? pr->n * bpc : 4, npcs[5], i, prev, bn[16];
     leads_ctx_t c;
     leads_next_t nx;
     c.r = r; c.keys = keys; c.pcs = pcs; c.np = np; c.bass = 0; c.can_push = can_push;
@@ -533,17 +533,17 @@ static void plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t 
     } else {
         range_bar(r, s, keys, nkeys, &c.lo, &c.lo_x, &c.hi);
     }
-    for (i = 0; i < 16; i++) {
-        int bn = groove_bass_note(r, b, bar, i, pcs, np);
-        if (bn) c.bass |= 1u << (bn % 12);
-    }
+    groove_bass_bar(r, b, bar, pcs, np, bn);
+    for (i = 0; i < 16; i++)
+        if (bn[i]) c.bass |= 1u << (bn[i] % 12);
     nx.np = harmony_chord_at(r, bar + 1, (bar + 1) / loop + 1, 0, npcs);
     nx.pcs = npcs;
     nx.bass = 0;
     if (!nb) nx.np = 0;
-    for (i = 0; nb && i < 16; i++) {
-        int bn = groove_bass_note(r, nb, bar + 1, i, npcs, nx.np);
-        if (bn) nx.bass |= 1u << (bn % 12);
+    if (nb) {
+        groove_bass_bar(r, nb, bar + 1, npcs, nx.np, bn);
+        for (i = 0; i < 16; i++)
+            if (bn[i]) nx.bass |= 1u << (bn[i] % 12);
     }
     prev = ls->last;
     if (leads_loop_plays(s)) leads_loop_bar(ls, &c, b, bar, &nx, s, PLAN[s]);

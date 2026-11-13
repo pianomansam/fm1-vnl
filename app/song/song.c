@@ -82,8 +82,8 @@ static void sb_plan(song_t *s, const plan_block_t *b, int bar, int bpc, const in
     if (bass_spike >= 2 && bass_spike <= 5) cell = bass_spike - 2;
     legato = rng_int(&g, 2);
     ghosts = rng_int(&g, 100) < 60;
+    groove_bass_bar(&s->roll, b, bar, pcs, np, tone);
     for (i = 0; i < 16; i++) {
-        tone[i] = groove_bass_note(&s->roll, b, bar, i, pcs, np);
         if (tone[i]) on |= 1u << i;
         sb_on[i] = 0;
     }
@@ -418,73 +418,91 @@ static int pad_part(const song_t *s, int i)
     return pads_section_part(&s->roll, i, s->plan.b[i].section, !set || lib_ins_sustained(set->chords));
 }
 
-/* The pad layer for the 4 bars from B, a 4-bar boundary (roll and plan hold until the next, and a block covers the
-   whole group): only where the keys play, the block's part (pads_section_part) alone: the chord part at each chord
-   change over percussive keys, voice-led from the last, or the solo note in each bar, in its voice's range. The keys' voicings are followed as they will
-   strike. The lead's notes are known for bar B only; the chord part's notes are chord tones and the lead keeps to the
-   chord-scale, so the later bars' lead never rubs them. */
-static void pads_group(song_t *s, const plan_block_t *b, int B)
+/* the pad group's start: its notes cleared, the fades over a section line */
+static void pads_begin(song_t *s, const plan_block_t *b, int B)
 {
-    const lib_prog_t *pr = lib_prog_by_id((uint8_t)s->roll.v[RF_PROG]);
-    int bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1, k, i, lead[16], nlead = 0, bi = (int)(b - s->plan.b);
-    int up = harmony_pad_place(&s->roll) == PL_BELOW ? 0 : 12, keys_on = (b->layers & L_KEYS) != 0;
-    int part = pad_part(s, bi);
-    const lib_set_t *set = lib_set_by_id((uint8_t)s->roll.v[RF_SET]);
-    int vibes = set && set->chords == INS_VIBES;
-    int harp = set && set->chords == INS_HARP && harmony_style(&s->roll) != CS_STRUM;   /* (rolled: voiced
-                                                                     transposed, harmony.c's keys_chord_at) */
-    int chord_on = part == 1, solo_on = part == 2, lo = pads_solo_lo(pads_solo_voice(&s->roll));
-    harmony_voicing_t vs = s->voicing;
-    for (i = 0; i < 16; i++)
-        if (s->lead.on[i] > 0) lead[nlead++] = s->lead.on[i];
+    int bi = (int)(b - s->plan.b), part = pad_part(s, bi);
     memset(s->pads.note, 0, sizeof s->pads.note);
     memset(s->pads.fade, part ? PF_ON : PF_SILENT, sizeof s->pads.fade);
-    if (!chord_on) memset(s->pads.chord, 0, sizeof s->pads.chord);
+    if (part != 1) memset(s->pads.chord, 0, sizeof s->pads.chord);
     if (part) {   /* the fade over a section line: in over the first bar back after a block without the pad, out over
                      the last bar before one */
         if (B == b->start && bi > 0 && !pad_part(s, bi - 1)) s->pads.fade[0] = PF_IN;
         if (b->start + b->bars - 1 - B < 4 && bi + 1 < s->plan.n && !pad_part(s, bi + 1))
             s->pads.fade[b->start + b->bars - 1 - B] = PF_OUT;
     }
-    for (k = 0; keys_on && k < 4 && B + k < s->roll.v[RF_BARS]; k++) {
-        int bar = B + k, pass = bar / loop_bars(&s->roll) + 1, pcs[5], np, spcs[5], nsp, keys[4], all[6], top = 0,
-            raw[4] = {0, 0, 0, 0};
-        np = harmony_chord_at(&s->roll, bar, pass, 0, pcs);
-        memcpy(spcs, pcs, sizeof pcs);                   /* the chord part sounds a dominant as the keys do: no 7th */
-        nsp = harmony_sound_pcs(spcs, np);
-        harmony_voicing_raw_at(&s->roll, bar, pass, &vs, keys, raw);
-        harmony_keys_notes_at(&s->roll, bar, pass, &vs, all);   /* (what the pad must not rub: a strum's low strings
-                                                                   too) */
-        if (bar % bpc == 0) {
-            int cs = harmony_style(&s->roll);
-            for (i = 0; i < 4; i++)                      /* the keys strike it (the vibes' as voiced: place_keys
-                                                            lifts their low notes alone) */
-                vs.last[i] = vibes || harp ? raw[i] : keys[i] ? keys[i] - up - harmony_keys_oct(&s->roll) -
-                                                      harmony_keys_lift(&s->roll, bar) : 0;
-            if (chord_on && pads_double && (cs == CS_HELD || cs == CS_STRUM))   /* a strum sustains as held does:
-                                                                                  its guitar shape's top doubled */
-                pads_double_keys(keys, s->pads.chord);
-            else if (chord_on)
-                pads_chord(&s->roll, all, spcs, nsp, (unsigned)pcs[0], lead, k ? 0 : nlead, s->pads.chord,
-                           harmony_pad_lift(&s->roll, bar), s->pads.chord);
-        }
-        for (i = 0; i < 3; i++) {
-            s->pads.note[k][i] = s->pads.chord[i];
-            if (s->pads.chord[i] > top) top = s->pads.chord[i];
-        }
-        if (solo_on) {
-            int bass[16], nb = 0, st, n;
-            for (st = 0; st < 16; st++) {                /* the bar's bass notes, as the groove strikes them */
-                int x = groove_bass_note(&s->roll, b, bar, st, pcs, np);
-                for (i = 0; i < nb && bass[i] != x; i++) {}
-                if (x && i == nb) bass[nb++] = x;
-            }
-            n = pads_solo(&s->roll, s->roll.v[RF_KEY], s->roll.v[RF_MODE], pcs, np, all, bass, nb, top, lo,
-                          s->pads.solo);
-            if (n) s->pads.solo = n;
-            s->pads.note[k][3] = n;
-        }
+}
+
+/* the group's bar B + k (k 0-3, in turn: each voice-led from the last), the keys' voicings followed in vs */
+static void pads_bar(song_t *s, const plan_block_t *b, int B, int k, harmony_voicing_t *vs)
+{
+    const lib_prog_t *pr = lib_prog_by_id((uint8_t)s->roll.v[RF_PROG]);
+    int bpc = pr && pr->bars_per_chord ? pr->bars_per_chord : 1, i, lead[16], nlead = 0, bi = (int)(b - s->plan.b);
+    int up = harmony_pad_place(&s->roll) == PL_BELOW ? 0 : 12, part;
+    const lib_set_t *set = lib_set_by_id((uint8_t)s->roll.v[RF_SET]);
+    int vibes = set && set->chords == INS_VIBES;
+    int harp = set && set->chords == INS_HARP && harmony_style(&s->roll) != CS_STRUM;   /* (rolled: voiced
+                                                                     transposed, harmony.c's keys_chord_at) */
+    int chord_on, solo_on, lo = pads_solo_lo(pads_solo_voice(&s->roll));
+    int bar = B + k, pass = bar / loop_bars(&s->roll) + 1, pcs[5], np, spcs[5], nsp, keys[4], all[6], top = 0,
+        raw[4] = {0, 0, 0, 0};
+    if (!(b->layers & L_KEYS) || k < 0 || k > 3 || bar >= s->roll.v[RF_BARS])
+        return;
+    part = pad_part(s, bi);
+    chord_on = part == 1;
+    solo_on = part == 2;
+    for (i = 0; i < 16; i++)
+        if (s->lead.on[i] > 0) lead[nlead++] = s->lead.on[i];
+    np = harmony_chord_at(&s->roll, bar, pass, 0, pcs);
+    memcpy(spcs, pcs, sizeof pcs);                   /* the chord part sounds a dominant as the keys do: no 7th */
+    nsp = harmony_sound_pcs(spcs, np);
+    harmony_voicing_raw_at(&s->roll, bar, pass, vs, keys, raw);
+    harmony_keys_notes_at(&s->roll, bar, pass, vs, all);   /* (what the pad must not rub: a strum's low strings
+                                                               too) */
+    if (bar % bpc == 0) {
+        int cs = harmony_style(&s->roll);
+        for (i = 0; i < 4; i++)                      /* the keys strike it (the vibes' as voiced: place_keys
+                                                        lifts their low notes alone) */
+            vs->last[i] = vibes || harp ? raw[i] : keys[i] ? keys[i] - up - harmony_keys_oct(&s->roll) -
+                                                  harmony_keys_lift(&s->roll, bar) : 0;
+        if (chord_on && pads_double && (cs == CS_HELD || cs == CS_STRUM))   /* a strum sustains as held does:
+                                                                              its guitar shape's top doubled */
+            pads_double_keys(keys, s->pads.chord);
+        else if (chord_on)
+            pads_chord(&s->roll, all, spcs, nsp, (unsigned)pcs[0], lead, k ? 0 : nlead, s->pads.chord,
+                       harmony_pad_lift(&s->roll, bar), s->pads.chord);
     }
+    for (i = 0; i < 3; i++) {
+        s->pads.note[k][i] = s->pads.chord[i];
+        if (s->pads.chord[i] > top) top = s->pads.chord[i];
+    }
+    if (solo_on) {
+        int bass[16], bn[16], nb = 0, st, n;
+        groove_bass_bar(&s->roll, b, bar, pcs, np, bn);
+        for (st = 0; st < 16; st++) {                /* the bar's bass notes, as the groove strikes them */
+            int x = bn[st];
+            for (i = 0; i < nb && bass[i] != x; i++) {}
+            if (x && i == nb) bass[nb++] = x;
+        }
+        n = pads_solo(&s->roll, s->roll.v[RF_KEY], s->roll.v[RF_MODE], pcs, np, all, bass, nb, top, lo,
+                      s->pads.solo);
+        if (n) s->pads.solo = n;
+        s->pads.note[k][3] = n;
+    }
+}
+
+/* The pad layer for the 4 bars from B, a 4-bar boundary (roll and plan hold until the next, and a block covers the
+   whole group): only where the keys play, the block's part (pads_section_part) alone: the chord part at each chord
+   change over percussive keys, voice-led from the last, or the solo note in each bar, in its voice's range. The keys'
+   voicings are followed as they will strike. The lead's notes are known for bar B only; the chord part's notes are chord tones and the lead keeps to the
+   chord-scale, so the later bars' lead never rubs them. */
+static void pads_group(song_t *s, const plan_block_t *b, int B)
+{
+    harmony_voicing_t vs = s->voicing;
+    int k;
+    pads_begin(s, b, B);
+    for (k = 0; k < 4; k++)
+        pads_bar(s, b, B, k, &vs);
     /* a strummed song's shapes found here are the ones its bars would find (in the same order, from the same last
        shape): kept, so the voicer never runs twice for a chord */
     memcpy(s->voicing.gtab, vs.gtab, sizeof vs.gtab);
@@ -735,8 +753,15 @@ static void stage_part(song_t *s, int B, void (*part)(song_t *, int))
     harmony_keys_plan(&s->plan);
 }
 
-/* bar B's voicings, from the states now, into the stage (the downbeat's own work, ahead) */
-static void stage_voice(song_t *s, int B)
+/* The stage's pieces (stg_stage counts those made, SG_*), each a few us on the host at most, so each 16th carries
+   one: bar B's voicings (its chord's, then the next bar's: each may run the voicer), the lead's plan on them, then
+   the pad group a bar a piece (each bar's voicings followed from the last). A piece that finds the stage not where
+   it left it (another bar's, or a request since) leaves it be or drops it: the downbeat makes what is missing. */
+enum { SG_V1 = 1, SG_V, SG_L, SG_P = SG_L + 4 };   /* (SG_L + k: the group's first k bars made too) */
+typedef char sg_staged_check[SG_P == SONG_STAGED ? 1 : -1];
+
+/* bar B's chord and voicing, from the states now, into the stage (the downbeat's own work, ahead) */
+static void stage_v1(song_t *s, int B)
 {
     const plan_block_t *b = plan_at(&s->plan, B);
     int pass;
@@ -748,54 +773,111 @@ static void stage_voice(song_t *s, int B)
     s->stg_v0 = s->voicing;
     s->stg_v = s->voicing;
     harmony_voicing_at(&s->roll, B, pass, &s->stg_v, s->stg_keys);
-    harmony_voicing_at(&s->roll, B + 1, (B + 1) / loop_bars(&s->roll) + 1, &s->stg_v, s->stg_nkeys);
     s->stg_key = stage_key(s, B);
     s->stg_bar = (int16_t)B;
-    s->stg_stage = 0;
+    s->stg_stage = SG_V1;
+}
+
+/* the stage at piece `at` for bar B, under the same requests and window (else dropped) */
+static int stage_at(song_t *s, int B, int at)
+{
+    if (s->stg_bar == B && s->stg_stage == at && plan_at(&s->plan, B) && s->stg_key == stage_key(s, B))
+        return 1;
+    s->stg_bar = -1;
+    return 0;
+}
+
+/* then the next bar's voicing, for the lead's push */
+static void stage_v2(song_t *s, int B)
+{
+    if (!stage_at(s, B, SG_V1))
+        return;
+    harmony_voicing_at(&s->roll, B + 1, (B + 1) / loop_bars(&s->roll) + 1, &s->stg_v, s->stg_nkeys);
+    s->stg_stage = SG_V;
+}
+
+static void stage_voice(song_t *s, int B)
+{
+    stage_v1(s, B);
+    stage_v2(s, B);
 }
 
 /* then the lead's plan of bar B, on those voicings' keys */
 static void stage_lead(song_t *s, int B)
 {
-    const plan_block_t *b = plan_at(&s->plan, B);
     int i, k;
-    if (s->stg_bar != B || s->stg_stage != 0 || !b || s->stg_key != stage_key(s, B)) {
-        s->stg_bar = -1;
+    if (!stage_at(s, B, SG_V))
         return;
-    }
     for (i = 0, k = B + 1 < s->plan.bars; i < RF_N; i++)
         if (s->pend[i] && s->pend_bar[i] == B + 1) k = 0;
     s->stg_l0 = s->lead;
     s->stg_l = s->lead;
-    lead_plan_bar(&s->stg_l, &s->roll, b, B, s->stg_keys, s->stg_nkeys, s->stg_pcs, s->stg_np, k);
-    s->stg_stage = 1;
+    lead_plan_bar(&s->stg_l, &s->roll, plan_at(&s->plan, B), B, s->stg_keys, s->stg_nkeys, s->stg_pcs, s->stg_np, k);
+    s->stg_stage = SG_L;
 }
 
-/* the pad group bar B begins, on the stage's voicings and lead (pads_group reads them, and the voicings' gn moves) */
-static void stage_pads(song_t *s, int B)
+/* then the pad group bar B begins, a bar a piece (pads_group's, on the stage's voicings and lead: the voicings
+   followed in the stage's own, their last put back and their strum shapes kept once the group is done, as
+   pads_group keeps them; the loop's voicings worked out again on the way, which pads_group would not keep: dropped) */
+static void stage_pad(song_t *s, int B)
 {
     harmony_voicing_t v = s->voicing;
     lead_state_t l = s->lead;
     pads_state_t p = s->pads;
     const plan_block_t *b = plan_at(&s->plan, B);
-    if (s->stg_bar != B || s->stg_stage != 1 || !b || s->stg_key != stage_key(s, B))
+    int k = s->stg_stage - SG_L;
+    if (s->stg_bar != B || k < 0 || k > 3 || !b || s->stg_key != stage_key(s, B))
         return;                                     /* (a request since the voicings: made on the downbeat) */
     s->voicing = s->stg_v;
     s->lead = s->stg_l;
-    pads_group(s, b, B);
+    if (k)
+        s->pads = s->stg_p;                         /* (the group so far; its first bar from the pads now) */
+    if (k == 0) {
+        memcpy(s->stg_last, s->stg_v.last, sizeof s->stg_last);
+        s->stg_sig = s->stg_v.sig;
+        pads_begin(s, b, B);
+    }
+    pads_bar(s, b, B, k, &s->voicing);
     s->stg_v = s->voicing;
     s->stg_p = s->pads;
     s->voicing = v;
     s->lead = l;
     s->pads = p;
-    s->stg_stage = 2;
+    s->stg_stage++;
+    if (k == 3) {
+        memcpy(s->stg_v.last, s->stg_last, sizeof s->stg_last);
+        if (s->stg_v.sig != s->stg_sig)
+            s->stg_bar = -1;
+    }
 }
 
-/* the stage for bar B is what the downbeat would make now: made from the same states, under the same requests */
+static void stage_pads(song_t *s, int B)
+{
+    int k;
+    for (k = 0; k < 4; k++)
+        stage_pad(s, B);
+}
+
+/* each 16th's piece of the next bar's planning (its tick's last work), from the 10th: the voicings (2), the lead's
+   plan, then on a 4-bar line the pad group (4); 0 none */
+static void (*const STAGE[])(song_t *, int) = {stage_v1, stage_v2, stage_lead, stage_pad, stage_pad, stage_pad,
+                                               stage_pad};
+#define STAGE_FROM 9
+static int stage_piece(int B, int step)
+{
+    int i = step - STAGE_FROM;
+    return i < 0 || i >= (B % 4 ? SG_L : SG_P) ? 0 : 1 + i;
+}
+
+int song_plans_at(int bar, int step) { return step > 0 && step < 16 ? stage_piece(bar + 1, step) : 0; }
+
+/* the stage for bar B is what the downbeat would make now: made from the same states, under the same requests (the
+   harp's anticipation aside: the downbeat keeps its own, and no plan reads it) */
 static int staged(const song_t *s, int B)
 {
-    return s->stg_bar == B && s->stg_stage >= 1 && (B % 4 != 0 || s->stg_stage == 2) && s->stg_key == stage_key(s, B) &&
-           !memcmp(&s->voicing, &s->stg_v0, sizeof s->voicing) && !memcmp(&s->lead, &s->stg_l0, sizeof s->lead);
+    return s->stg_bar == B && s->stg_stage >= SG_L && (B % 4 != 0 || s->stg_stage == SG_P) &&
+           s->stg_key == stage_key(s, B) && !memcmp(&s->lead, &s->stg_l0, sizeof s->lead) &&
+           !memcmp(&s->voicing, &s->stg_v0, offsetof(harmony_voicing_t, ant));   /* (ant: the last field) */
 }
 
 int song_tick(song_t *s, song_ev_t *out, int max)
@@ -908,12 +990,9 @@ int song_tick(song_t *s, song_ev_t *out, int max)
     if (n) memcpy(out, buf, sizeof(song_ev_t) * (size_t)n);
     if (step == 0)
         s->stg_bar = -1;
-    else if (step == 12)                /* the next bar's planning ahead, a part a 16th: its voicings, the lead's */
-        stage_part(s, bar + 1, stage_voice);   /* plan, the pad group (each a tick of its own; where a request */
-    else if (step == 13)                       /* lands on it, on the song as the request will leave it) */
-        stage_part(s, bar + 1, stage_lead);
-    else if (step == 14 && (bar + 1) % 4 == 0)
-        stage_part(s, bar + 1, stage_pads);
+    else if ((i = stage_piece(bar + 1, step)) > 0)   /* the next bar's planning ahead, a piece a 16th (where a
+                                                        request lands on it, on the song as it will leave it) */
+        stage_part(s, bar + 1, STAGE[i - 1]);
     advance(&s->pos, &s->frac, s->ss);
     if (++s->step == 16) {
         s->step = 0;

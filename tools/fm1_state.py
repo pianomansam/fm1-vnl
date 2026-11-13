@@ -18,9 +18,12 @@ reflash. FLAGS, added together: 1 the CPU guard off, 2 the Parts roll's look-ahe
 FLAGS2: 1 the bed off, 2 the buses' filters off, 4 the drums' compressor off, 8 the glue off, 16 the mud high-pass
 off, 64 the output summed to mono. The late blocks' causes (cpu.late_by, the first that applies): song (a new song, its
 first bar's planning, its end, a resume), row (a change landing), jump, roll (the Parts roll's look-ahead), bar (the
-downbeat), cmd (a mute, solo, level, jump or A/B command), guard (it stepped), ramp (a section's filters or the fade
-moving), step (a 16th ticked), notes (notes starting), draw, kit (the kit voices rendering), flash, usb (a SysEx, this
-tool's answers among them), next (the next song rolled), voices (only the voices and effects sounding), other.
+downbeat), plan (a piece of the next bar's planning: its voicings, the lead's plan, a bar of the pad group), cmd (a
+mute, solo, level, jump or A/B command), guard (it stepped), ramp (a section's filters or the fade moving), step (a
+16th ticked), notes (notes starting), draw, kit (the kit voices rendering), flash, usb (a SysEx, this tool's answers
+among them), next (the next song rolled), voices (only the voices and effects sounding), other. Then the last late
+blocks (cpu.late_at, up to 4, oldest first): the bar and 16th each ticked (bar:step, from 1; "-" none), the
+planning's piece that 16th made, the block's render in us and all its causes.
 Then the CPU by stage since the last reset (prof, app/engine/prof.h): each stage of the audio render (drums, bass,
 comp, lead, pad, texture: the bed, bus: the buses' filters and mix, fx: dust, chorus, delay, reverb, control: the
 song's steps, notes starting, the output) as us a block on average, % of the CPU, and its share of the heaviest block;
@@ -80,8 +83,24 @@ def summary(s):
             f"guard {gname('guard')} "
             f"(top {gname('guard_top')}, {cpu.get('guard_steps')} up, {cpu.get('guard_recov', 0)} back, "
             f"{cpu.get('shed', 0)} voices cut, {cpu.get('over90', 0)} over 90%); "
-            f"late by {' '.join(f'{k} {v}' for k, v in cpu.get('late_by', {}).items() if v) or '-'}"
+            f"late by {' '.join(f'{k} {v}' for k, v in cpu.get('late_by', {}).items() if v) or '-'}; "
+            f"last late {late_at(cpu)}"
             f"{'; A/B ' + str(cpu.get('ab')) + ',' + str(cpu.get('ab2')) if cpu.get('ab') or cpu.get('ab2') else ''}")
+
+
+PIECES = ["", "voicing", "next voicing", "lead plan", "pad bar 1", "pad bar 2", "pad bar 3", "pad bar 4"]
+
+
+def late_at(cpu):
+    """the last late blocks (cpu.late_at), as text: bar:16th (from 1), the planning's piece, us, causes"""
+    names = list(cpu.get("late_by", {}))             # (the causes' bits, in late_by's order: app.c MC_*)
+    out = []
+    for bar, step, piece, us, causes in cpu.get("late_at", []):
+        where = f"{bar + 1}:{step + 1}" if step < 16 else f"{bar + 1}:-"
+        why = ",".join(n for i, n in enumerate(names) if causes >> i & 1) or "-"
+        what = f" {PIECES[piece]}" if 0 < piece < len(PIECES) else (f" piece {piece}" if piece else "")
+        out.append(f"{where}{what} {us} us ({why})")
+    return "; ".join(out) or "-"
 
 
 def prof_table(s):

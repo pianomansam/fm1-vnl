@@ -13861,14 +13861,14 @@ static void test_landing_planned_ahead(void)
         song_request_row(&s, SR_OV + OV_LEAD_STYLE, 2 + (int)(seeds[k] % LS_N));
         song_request(&s, RF_KEY, (s.roll.v[RF_KEY] + 3) % 12);
         tick_to(&s, 4);
-        CHECK(s.stg_bar == 4 && s.stg_stage == 2, "seed %u: bar 4, where the requests land, planned ahead (bar %d, "
-              "part %d)", (unsigned)seeds[k], s.stg_bar, s.stg_stage);
+        CHECK(s.stg_bar == 4 && s.stg_stage == SONG_STAGED, "seed %u: bar 4, where the requests land, planned ahead "
+              "(bar %d, part %d)",(unsigned)seeds[k], s.stg_bar, s.stg_stage);
         t = s;
         t.stg_bar = -1;                              /* (the downbeat plans it itself) */
         u = t;
         for (part = 1; part < SONG_FIRST_BAR_PARTS; part++)
             song_first_bar(&u, part);                /* (a jump's song, waiting at the bar) */
-        CHECK(u.stg_bar == 4 && u.stg_stage == 2, "seed %u: song_first_bar plans bar 4 with the requests in",
+        CHECK(u.stg_bar == 4 && u.stg_stage == SONG_STAGED, "seed %u: song_first_bar plans bar 4 with the requests in",
               (unsigned)seeds[k]);
         ha = rest_hash(&s);
         hb = rest_hash(&t);
@@ -13877,6 +13877,47 @@ static void test_landing_planned_ahead(void)
               (unsigned)seeds[k], ha, hc, hb);
     }
     song_override(NULL);
+}
+
+/* The next bar's planning, a piece a 16th (song_plans_at: one at most a tick, 3 a bar, 7 before a 4-bar line), is
+   taken on every downbeat: all made, from the states the downbeat finds (the harp's anticipation aside, which no plan
+   reads). And the planners' whole-bar bass read (groove_bass_bar) is the groove's note for note */
+static void test_planned_ahead_taken(void)
+{
+    static song_t s;
+    song_ev_t ev[64];
+    uint32_t seed;
+    int bar, st, n = 0, taken = 0, pieces;
+    for (bar = 0; bar < 8; bar++) {
+        for (st = pieces = 0; st < 16; st++)
+            pieces += song_plans_at(bar, st) > 0;
+        CHECK(pieces == ((bar + 1) % 4 ? 3 : 7), "bar %d: %d pieces of the next bar's planning", bar, pieces);
+    }
+    song_override(NULL);
+    for (seed = 1; seed <= 60; seed++) {
+        song_roll_t r;
+        roll_song(NULL, seed, &r);
+        song_start(&s, &r);
+        while (s.state == SS_PLAYING) {
+            const plan_block_t *b = plan_at(&s.plan, s.bar);
+            if (s.step == 0 && s.bar > 0) {
+                harmony_voicing_t v = s.voicing;
+                v.ant = s.stg_v0.ant;
+                n++;
+                taken += s.stg_bar == s.bar && (s.bar % 4 ? s.stg_stage >= 3 : s.stg_stage == SONG_STAGED) &&
+                         !memcmp(&v, &s.stg_v0, sizeof v) && !memcmp(&s.lead, &s.stg_l0, sizeof s.lead);
+            }
+            if (b && s.step == 0) {
+                int pcs[5], np = harmony_chord_at(&s.roll, s.bar, s.bar / 4 + 1, 0, pcs), bn[16], k;
+                groove_bass_bar(&s.roll, b, s.bar, pcs, np, bn);
+                for (k = 0; k < 16; k++)
+                    CHECK(bn[k] == groove_bass_note(&s.roll, b, s.bar, k, pcs, np), "seed %u bar %d step %d: bass bar",
+                          (unsigned)seed, s.bar, k);
+            }
+            song_tick(&s, ev, 64);
+        }
+    }
+    CHECK(n > 2000 && taken == n, "planned ahead: %d of %d downbeats take it", taken, n);
 }
 
 /* song_start_kit: a shipped kit from the start: the song's own set, the set's kit under it (Brushes, or the mixed
@@ -14409,6 +14450,7 @@ int main(int argc, char **argv)
     RUN(test_rolled_matches_wb);
     RUN(test_request_row_lands);
     RUN(test_landing_planned_ahead);
+    RUN(test_planned_ahead_taken);
     RUN(test_start_kit);
     RUN(test_guard_voices);
     if (fails) {
