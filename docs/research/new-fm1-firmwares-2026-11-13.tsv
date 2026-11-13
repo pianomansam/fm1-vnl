@@ -1,0 +1,428 @@
+repo	updated	license	what
+https://github.com/xMagElonx/fm1-guitar	2026-11-13	other	Guitar strumming firmware for the M-VAVE FM-1 - play chords, plucks and rhythm bars on the 27-key panel. GP...
+https://github.com/WisestWizard/deepfield	2026-11-13	mpl-2.0	DEEP FIELD: an ambient drone machine for the M-VAVE FM-1 (and Pocket Poly), on fm1-base
+https://github.com/superposition/91	2026-11-13	gpl-3.0	NAIWAN 91 — city pop and coastal firmware for the M-VAVE FM-1
+https://github.com/stets43/Manifold	2026-11-13	mpl-2.0	Generative Synthesis + Firmware for the M-VAVE FM-1
+https://github.com/stephencummins/fx1-aisling	2026-11-13	gpl-3.0	AISLING FX-1: M-VAVE FM-1 firmware that puts sound from a computer, over USB, through AISLING's effects (a...
+https://github.com/stephencummins/fm1-aisling	2026-11-13	gpl-3.0	AISLING: an Irish ambient drone firmware for the M-VAVE FM-1 (a fork of NACHTFAHRT, GPL-3.0-only)
+https://github.com/sparky480v/hadal-1	2026-11-13	mpl-2.0	Generative dark ambient firmware for the M-VAVE FM-1. Works on both flash chips.
+https://github.com/soundbydrp-art/Fm1-keys	2026-11-13	none	
+https://github.com/SikkenWorks/RUPTURE	2026-11-13	gpl-3.0	Cycle Exchange Synthesis mono bass for the FM1
+https://github.com/shan-sherif/fm-1-midi-mania	2026-11-13	gpl-3.0	Use FM1 to play Midi songs
+https://github.com/SeattleUser0/classic-tabby	2026-11-13	other	Classic Tabby: performance-oriented fork of M-VAVE SMK37 Open for the SMK-37 Pro (Linux build)
+https://github.com/romainguy/adrift	2026-11-13	mpl-2.0	Adrift is a 6-part/16-voice BBD resonator synthesizer for M-VAVE FM-1
+https://github.com/profikid/fm1-violioliolol	2026-11-13	none	
+https://github.com/Plieuw/hawk-chua	2026-11-13	gpl-3.0	hawk chua an modeling synth for mvave fm1
+https://github.com/piotrwozniak/piterfly	2026-11-13	gpl-3.0	piterfly firmware for M-VAVE FM-1 — cleaned source tree with preserved upstream credits and licences.
+https://github.com/Philip-Bos/echofield-fm1	2026-11-13	mit	A free, open-source granular sampler firmware for the M-VAVE FM-1: a few seconds of any sound become clouds...
+https://github.com/perawoga2-coder/fm1bridge	2026-11-13	none	Public
+https://github.com/pbarilla/drumlab	2026-11-13	gpl-3.0	Microtonic and PO-32 drum machine for the FM-1
+https://github.com/oscillr/LRRY	2026-11-13	gpl-3.0	L/RRY: Stereo-Field Morphing Synthesizer for the M-VAVE FM-1, by OSCILL/R
+https://github.com/orianbsilva/obssynth-fm1	2026-11-13	gpl-3.0	ObsSynth FM-1: a synthesizer firmware for the M-VAVE FM-1, with a web simulator (GPL-3.0)
+https://github.com/nzimas/lilliput	2026-11-13	gpl-3.0	Lilliput: a firmware for the M-VAVE FM-1 that turns it into a no-input mixer -- six channels feeding back i...
+https://github.com/node56/fm1-maestro	2026-11-13	gpl-3.0	Maestro: Duolingo-style music lessons on the M-VAVE FM-1. No phone needed.
+https://github.com/NateTalley/felucca-lane	2026-11-13	gpl-3.0	
+https://github.com/mwedmark/fm1-sf2	2026-11-13	other	
+https://github.com/mordf0kas/drelva-vave	2026-11-13	none	Drelva Vave - custom firmware + emulator for the M-Vave FM-1 (GPL-3.0)
+https://github.com/mongio/grana-fm1	2026-11-13	gpl-3.0	Granulatore di campioni per M-VAVE FM-1 / Granular sample player firmware for the M-VAVE FM-1
+https://github.com/MishaMashinaMM/jiant-live-drums	2026-11-13	gpl-3.0	M-vave FM1 Jiant FW edition with drums in focus
+https://github.com/MichaelAPerry/ASTRA-FM-1	2026-11-13	gpl-3.0	Firmware for the M-VAVE FM-1 that works out planetary positions and turns your birth chart into an FM patch.
+https://github.com/maxravedj/fm1-audio-router	2026-11-13	mpl-2.0	USB audio interface and Bluetooth audio receiver firmware for M-VAVE FM-1
+https://github.com/MammothCheese/quartet	2026-11-13	gpl-3.0	A four-track MVAVE FM1 groovebox firmware built around traditional instruments and effects pedals that simu...
+https://github.com/MammothCheese/clavioline	2026-11-13	gpl-3.0	A recreation of the 1947 Clavioline for the MVAVE FM1, an early electronic analog synthesizer, rebuilt from...
+https://github.com/LIkst4/skiff-atlatl	2026-11-13	gpl-3.0	Built from Skiff, Wavetable Osc,Obervave Functions,Moog Port OSC, Additive Osc, Devilfish Functions, Custom...
+https://github.com/kurogedelic/FM-1_CFW_Database	2026-11-13	none	
+https://github.com/konsumer/fm1addons	2026-11-13	none	Some 3D model addons for MVave FM1
+https://github.com/kidbee85-beep/mutable-dreams	2026-11-13	gpl-3.0	Mutable Dreams 2.0 for M-VAVE FM-1. Six-track generative synthesis with 272 Biomes, 632 tones, Journey Arra...
+https://github.com/kevinelliott/fm-1-agent-deck	2026-11-13	gpl-3.0	Custom M-VAVE FM-1 firmware that turns the synth into a hardware control surface for CLI coding agents (Cla...
+https://github.com/jvitkauskas/m-unbricker	2026-11-13	mit	Revive a bricked M-VAVE FM-1 or SMK-37 with a second, working one and a USB-C cable
+https://github.com/jvitkauskas/cardputer-synth-rescue	2026-11-13	mit	Unbrick an M-VAVE FM-1 or SMK-37 with only an M5Stack Cardputer ADV and a USB-C cable
+https://github.com/junelac/fm1-theory	2026-11-13	none	In theory, it can help you learn music.
+https://github.com/JoshCowley/MODFM1	2026-11-13	gpl-3.0	FM1 Rack 1.0: sound-design firmware design for the M-VAVE FM-1 (browser build)
+https://github.com/joshbartlettband-web/album-fm1	2026-11-13	mit	Album FM1 project
+https://github.com/Josh-McFarlin/boopbox	2026-11-13	gpl-3.0	A live groovebox firmware for the M-VAVE FM-1
+https://github.com/joakimskurk/fm1vavehero	2026-11-13	gpl-3.0	
+https://github.com/joakimskurk/fm1stardistroyer	2026-11-13	gpl-3.0	
+https://github.com/joakimskurk/fm1roboseq	2026-11-13	gpl-3.0	
+https://github.com/joakimskurk/fm1orbitrix	2026-11-13	gpl-3.0	
+https://github.com/joakimskurk/fm1mello	2026-11-13	gpl-3.0	
+https://github.com/joakimskurk/fm1clock	2026-11-13	gpl-3.0	
+https://github.com/joakimskurk/fm1bioforge	2026-11-13	gpl-3.0	
+https://github.com/jeanlucmouton30-jpg/AETHER-FM1	2026-11-13	gpl-3.0	AETHER-FM1 firmware ambient pour m-vave FM1
+https://github.com/JavierIng/fm1-epicyklos	2026-11-13	gpl-3.0	
+https://github.com/hugelton/Lorcha	2026-11-13	mpl-2.0	M-VAVE's FM/SMK/PA CFW Templete
+https://github.com/hamperj/rhytm-sec-1	2026-11-13	gpl-3.0	Generative drums and bass for the M-VAVE FM-1: 19 styles, breaks and fills, a DJ filter, MIDI clock and USB...
+https://github.com/hacha/paperlagoon	2026-11-13	gpl-3.0	PaperLagoon: A generative ambient firmware. FM voices through a tape echo and a plate play by themselves in...
+https://github.com/Guillel51/Quantum-GammaWave	2026-11-13	gpl-3.0	Quantum GammaWave is an enhanced open-source firmware fork of Pocket GammaWave for the M-VAVE FM-1. It expa...
+https://github.com/guiatihe333/cortex	2026-11-13	mpl-2.0	CORTEX: generative FM firmware for the M-VAVE FM-1, with a video synth, MIDI-file songs and a browser simul...
+https://github.com/gobbajogger/x0x37-for-Loopy-Pro_nightly	2026-11-13	gpl-3.0	DnBOX nightly/beta firmware channel for the SMK-37 Elite and Pro. Untested builds; 0.0.26 was withdrawn.
+https://github.com/gobbajogger/X0X37-for-Loopy-Pro	2026-11-13	gpl-3.0	DnBOX — groovebox firmware for the M-VAVE SMK-37 Elite and SMK-37 Pro, with Loopy Pro clip control.
+https://github.com/genkigenki/smk37	2026-11-13	none	SMK-37 firmwares, installed from the browser
+https://github.com/GenericJam/fmutate	2026-11-13	gpl-3.0	Run M-VAVE FM-1 community firmwares on Android, with a playable, rearrangeable touch surface (Elixir + Mob)
+https://github.com/galfaroth/veffbox	2026-11-13	gpl-3.0	Veffbox: resampling sound-design firmware for the M-VAVE FM-1
+https://github.com/FLEXOR-R/loaf-breaker	2026-11-13	mpl-2.0	LOAF BREAKER: hardcore break chopper firmware for the M-VAVE FM-1, built on CHOPPAH
+https://github.com/ferluht/fm1-sampler	2026-11-13	none	
+https://github.com/fc79/drumtonic	2026-11-13	gpl-3.0	A synthesis drum machine firmware for the M-VAVE FM-1 (GPL-3.0)
+https://github.com/FartyPants/fm1-nachtbar	2026-11-13	gpl-3.0	FM-1 NACHTBAR: a tenor sax over a night-bar backing that plays itself, for the M-VAVE FM-1 (early test build)
+https://github.com/Exmachia/fm1	2026-11-13	none	Réplica web del sintetizador M-VAVE FM-1 para aprender a tocarlo
+https://github.com/Execode765/vapor-loop	2026-11-13	gpl-3.0	Development of an original musical instrument firmware for the M-VAVE FM-1, with AI-assisted coding and doc...
+https://github.com/ericdahl-dev/fm1-8p	2026-11-13	gpl-3.0	Original analog-style polysynth firmware for the M-VAVE FM-1
+https://github.com/emilystgeist/fiendbox	2026-11-13	gpl-3.0	FIENDBOX: a demon synth firmware for the M-VAVE FM-1. A fork of GHOULBOX and Felucca, with ideas from JIANT...
+https://github.com/echoe/argo_fm1	2026-11-13	gpl-3.0	This custom firmware for the M-VAVE FM-1 is a Felucca modification written via free LLM. It adds 8 sequence...
+https://github.com/EberonLtd/stallion-fm1	2026-11-13	gpl-3.0	Stallion: synthesizer firmware for the M-VAVE FM-1 and SMK-37 Pro, grown out of Clipper, SLOOP and Felucca....
+https://github.com/eatyourgreensstudio-dotcom/karma-fm1	2026-11-13	gpl-3.0	KARMA: A four-track groovebox: an acid bass or a Juno-style poly, physical modelling, two dozen synthesis m...
+https://github.com/dustekin/plissken	2026-11-13	mpl-2.0	Repository for Plissken Firmware Project For FM1 Vave
+https://github.com/Dr-John-8bits/rhizome	2026-11-13	gpl-3.0	Rhizome : firmware ambient pour le M-VAVE FM-1 (séquenceur orbital, granulaire, hall, delay à bande), dériv...
+https://github.com/delirioux/sardine	2026-11-13	gpl-3.0	A mainstream live mixing groovebox, sardines packed in a can.
+https://github.com/davidpryan/terrace-8	2026-11-13	mpl-2.0	M-VAVE FM-1 firmware: stages that last: pulses, gates, ratchets, slides
+https://github.com/davidpryan/spool-4	2026-11-13	mpl-2.0	M-VAVE FM-1 firmware: four loops you record by playing
+https://github.com/davidpryan/regent-4	2026-11-13	mpl-2.0	M-VAVE FM-1 firmware: play chords; four parts follow them
+https://github.com/davidpryan/mycel-8	2026-11-13	mpl-2.0	M-VAVE FM-1 firmware: eight generative parts: Euclid rhythms, Turing pitch
+https://github.com/davidpryan/ledger-4	2026-11-13	mpl-2.0	M-VAVE FM-1 firmware: a tracker: song, chain, phrase, commands
+https://github.com/davidpryan/gloam	2026-11-13	mpl-2.0	M-VAVE FM-1 firmware: a groovebox for witch house and melodic dubstep (choir, wobble, rain, a flexible arra...
+https://github.com/davidpryan/canon-4	2026-11-13	mpl-2.0	M-VAVE FM-1 firmware: one phrase, four playheads: a canon
+https://github.com/chinotto1/guru-600-usb-playback	2026-11-13	none	Guru-600 1.0.3 build that plays iPad and computer audio through the FM-1
+https://github.com/chasedeanda/rakt-fm1	2026-11-13	gpl-3.0	Generate a band. Play it live. RAKT brings four parts that stay in sync and play off each other to the M-VA...
+https://github.com/cds879/FM1-Kids-Firmware	2026-11-13	other	
+https://github.com/bk40-home/M-vance	2026-11-13	gpl-3.0	Jt port for FM-1
+https://github.com/bit-wmike/fm1-companion	2026-11-13	gpl-3.0	Desktop companion & studio for the M-VAVE FM-1 (unofficial): backups, firmware, studio twin (Melodee), MIDI...
+https://github.com/beowulf-audio/fm1-lab	2026-11-13	mit	
+https://github.com/beowulf-audio/fm1-inspect	2026-11-13	mit	
+https://github.com/arrastao/baile-fm1	2026-11-13	other	BAILE by Mulú — Brazilian rhythm kits for M-VAVE FM-1. Experimental firmware and simulator.
+https://github.com/Armstrod/fm1-lite	2026-11-13	gpl-3.0	Fm1 android app
+https://github.com/antfriend/MVAVE-FM1-Verbalizer	2026-11-13	other	MVAVE FM1 Verbalizer
+https://github.com/amaaov/amaaov.github.io	2026-11-13	other	
+https://github.com/altessproduction/sloop-dub-fm1	2026-11-13	gpl-3.0	Reggae dub firmware and web emulator for the M-VAVE FM-1, based on SLOOP
+https://github.com/altessproduction/MT-40-FM1	2026-11-13	none	
+https://github.com/albinoIguana/FM1-Lab	2026-11-13	none	My FM1 firmware project
+https://github.com/4t59m4f784-creator/SMKTRON	2026-11-13	gpl-3.0	A lo-fi Mellotron for M-VAVE SMK-37 based on FMEL for FM1.
+https://github.com/Xforsa/kriechstrom	2026-11-12	gpl-3.0	Dark industrial and EBM firmware for the M-VAVE FM-1, built on Felucca
+https://github.com/woolydawg5/wulzie	2026-11-12	gpl-3.0	Custom GPL-3.0 firmware for the M-VAVE FM-1: a bass-heavy, space-bending groovebox. In planning, nothing to...
+https://github.com/wav0902/wav-fm1	2026-11-12	gpl-3.0	
+https://github.com/THEGREATCJPark/SMK37-Firmware-Drawer	2026-11-12	gpl-3.0	
+https://github.com/TexasRADIO/smk37-elite-firmware	2026-11-12	gpl-3.0	The 101. The 303. On your SMK-37.
+https://github.com/TexasRADIO/bb-bob-firmware	2026-11-12	gpl-3.0	Big Beat Studio BB-BOB firmware for the M-VAVE FM-1
+https://github.com/Spunkmeyer77/FM1-emulator	2026-11-12	mit	FM-1 emulator by Transistor Labs: free AU/VST3 plugin that emulates the M-VAVE FM-1 pocket synth. Based on...
+https://github.com/soundbydrp-art/slicebox-fm1-emu	2026-11-12	none	
+https://github.com/sgmk/FM-1-Parametric-Vintage-Case-for-Lasercutting	2026-11-12	cc-by-sa-4.0	Parametric OpenSCAD vintage laser-cut wooden case with tilted faceplate, thick side cheeks, and reconstruct...
+https://github.com/scottkollarik/OSR-1-trs	2026-11-12	gpl-3.0	FM-1 OSR-1 trs enabled build
+https://github.com/samuelsousaaraujo/smk37-pro-custom	2026-11-12	other	
+https://github.com/S3ptikus/cardputer-fm1-manager	2026-11-12	none	
+https://github.com/RudimentSeq/RudimentSeq-FM1	2026-11-12	gpl-3.0	RudimentSeq for the M-VAVE FM-1: a Felucca fork that plays drum rudiments. GPL-3.0.
+https://github.com/robtron-byte/FM1-Electro-one	2026-11-12	other	
+https://github.com/Quixotic7/RemoteFM1FW	2026-11-12	none	
+https://github.com/pedronogueiranunes/fm1-rescue	2026-11-12	mit	Desktop UI/UX wrapper for Quixotic7/MvaveFM1Unbricker and the FM-1 Transporter recovery process
+https://github.com/OriolFF/FM1_ios	2026-11-12	none	
+https://github.com/Omnipotard/Granular-FM1	2026-11-12	other	
+https://github.com/oikoaudio/tack	2026-11-12	gpl-3.0	A digital drum synth: firmware for the M-VAVE FM-1, and CLAP, VST3 and Audio Unit plugins.
+https://github.com/OCKM-STUDIO/SATIE-1	2026-11-12	gpl-3.0	An evolving soundtrack from early-1900s piano pieces, with drums and atmosphere (OCKM Studio)
+https://github.com/ocean/cleansweep	2026-11-12	mpl-2.0	A data cleanup utility firmware for the FM-1. No sound.
+https://github.com/nilselathome/fm1-flasher	2026-11-12	mit	Native iOS app for flashing community firmware onto the Vave FM-1 over USB MIDI
+https://github.com/MPASTEAU/FM-Stud1o-FM-1-Firmware	2026-11-12	gpl-3.0	FM Stud1o: custom firmware for the M-VAVE FM-1 synthesizer — an 8-track groovebox (piano roll, drum grid, s...
+https://github.com/MikeMaven/MWAVE-FM1-Rumiboard	2026-11-12	gpl-3.0	Rumiboard: a lofi-focused synth, sampler and groovebox (a Melodee fork)
+https://github.com/MikeeTeevee/ferrum	2026-11-12	none	The Interloper Ferrum is a firmware for the M-VAVE FM1 device. The software is an emulated tape looper. Cho...
+https://github.com/Mighty-stack444/Chords-fm1	2026-11-12	gpl-3.0	
+https://github.com/MidiHax/fm1-midi-processor	2026-11-12	none	"MIDI processor firmware for the M-VAVE FM-1: monitor, map, filter and re-channelize MIDI without a computer.
+https://github.com/meierdvd-cyber/FM1	2026-11-12	none	
+https://github.com/marwanfarha/dubengine	2026-11-12	gpl-3.0	Custom Firmware for M Vave FM1
+https://github.com/MarcoCasanova00/FM-23	2026-11-12	gpl-3.0	FM-23: mental tekno / tribe groovebox firmware for the M-VAVE FM-1 (self-contained, custom)
+https://github.com/MarcGoudy/guru-600	2026-11-12	gpl-3.0	Guru-600: a Prophet-600 emulator firmware for the M-VAVE FM-1.
+https://github.com/MammothCheese/SPLITMILK	2026-11-12	gpl-3.0	A performance-focused firmware for the MVAVE FM1 that separates the keyboard into two independent instrumen...
+https://github.com/konsumer/mutantcloud	2026-11-12	mit	The FM1 / SMK-37 firmware + tools hub at mutant.cloud
+https://github.com/kong8la/xianqiang-fm1	2026-11-12	gpl-3.0	
+https://github.com/KHAVld/ARTIHIVE	2026-11-12	gpl-3.0	Eight-voice drone and polyphonic synthesizer firmware for the M-VAVE FM-1
+https://github.com/keuller-clone/crawl	2026-11-12	gpl-3.0	Crawl: dark generative ambient firmware for the M-VAVE FM-1
+https://github.com/kartun83/oscuro-firmware	2026-11-12	other	Website for Oscuro, open firmware for M-Vave keyboards (generated; the source lives elsewhere)
+https://github.com/kadraman/beatbax-fm1	2026-11-12	apache-2.0	
+https://github.com/JulesMarecaille/mrc-synth	2026-11-12	gpl-3.0	MRC Synth: custom firmware for the M-VAVE FM-1, a modified version of Felucca (GPL-3.0)
+https://github.com/joshbartlettband-web/Amethyst	2026-11-12	gpl-3.0	CFW FM-1
+https://github.com/joshbartlettband-web/album-02-fm1	2026-11-12	mit	The repository for Album 02
+https://github.com/jonludwig1234/stack-trace-arcade-rat-fm1	2026-11-12	none	ARCADE RAT v1.0 · Bare-Metal M-VAVE FM-1 Custom Firmware, 5-Chip Synth Studio, Tracker & 8 Arcade Cores by...
+https://github.com/JazzyRhythmer/Rhythmer	2026-11-12	gpl-3.0	Sound into motion. An open-source FM-1 groovebox for building patterns, swapping drum sounds and performing...
+https://github.com/JazzyRhythmer/Jazzy	2026-11-12	gpl-3.0	Explore the unheard. Open-source FM-1 firmware with 31 synth, drum and Break engines, over 1,200 factory so...
+https://github.com/HistoryOfSky/m-pyre	2026-11-12	gpl-3.0	M-PYRE: A riffbox for rock and metal: real guitar, bass and drum samples, an amp engine with cabinet IRs, p...
+https://github.com/guushamann/fm1-midi-controller-daw-features	2026-11-12	none	raspberry pi midi bridge between a fm-1 and a midi controller with daw support via usb
+https://github.com/Guizmoh/K-Glitch	2026-11-12	gpl-3.0	FM1 Firmware Glitch machine and chaos generator
+https://github.com/GuinanNo1/fm1-gio	2026-11-12	mpl-2.0	GIO-1, A generative electronic disco firmware for the M-VAVE FM-1
+https://github.com/gruvious/ding	2026-11-12	gpl-3.0	A meditation timer for the FM-1
+https://github.com/gfcalvi/meighty-fm1	2026-11-12	bsd-3-clause	Meighty 1.00 — suite offline Tiffany per FM-1: installazione, backup, conversione e otto slot.
+https://github.com/futumixxx/universynth-fm1	2026-11-12	gpl-3.0	UNIVERSYNTH: a Felucca-based custom firmware for the M-VAVE FM-1
+https://github.com/doohinkus/kris-jangle	2026-11-12	mpl-2.0	Kris Jangle is a Christmas song game for the M-VAVE FM-1. It plays the start of a public-domain carol (choo...
+https://github.com/dhilowitz/GalaxiaSDK	2026-11-12	mpl-2.0	A set of tools for writing your own algorithms for M-WAVE Galaxia pedals
+https://github.com/davidpryan/drum-8	2026-11-12	mpl-2.0	Mixing hortator's drum engines and presets with Loom-8 UI and sequencing
+https://github.com/davidamomusic/fm-fam	2026-11-12	mpl-2.0	An MPL-2.0 base and template for M-VAVE FM-1 firmware, on felucca-bsp: platform, host simulator, browser em...
+https://github.com/chasedeanda/cord-fm1	2026-11-12	gpl-3.0	CORD: Pick a chord progression, press Play, and play along with drums, bass and chords. Adjust the progress...
+https://github.com/capitanplaneta80-create/vegetal-1.8.1-v3	2026-11-12	gpl-3.0	VEGETAL: la familia vegetal (filotaxis, sistemas L, tropismos, raíces) como firmware para el M-VAVE FM-1 (s...
+https://github.com/capitanplaneta80-create/AAAVEGETAL	2026-11-12	gpl-3.0	VEGETAL: la familia vegetal (filotaxis, sistemas L, tropismos, raíces) como firmware para el M-VAVE FM-1 (s...
+https://github.com/animatek/FM1-Animatek	2026-11-12	gpl-3.0	Firmwares de Animatek para el M-VAVE FM-1 (ATEK303) e investigación de la plataforma
+https://github.com/altessproduction/DUB-BOX-FM1	2026-11-12	mpl-2.0	A dub station firmware for the M-VAVE FM-1 — the USB/BT audio router with the siren, the tape echo, the DJ...
+https://github.com/4t59m4f784-creator/SMKSYNTH	2026-11-12	gpl-3.0	Performance-focused firmware for the M-VAVE SMK-37 Pro, combining OberVave synthesis and JIANT DRUM-X.
+https://github.com/xoxoaudiolabs/FM-1-Companion	2026-11-11	gpl-3.0	A studio sidekick for the M-VAVE FM-1 running SLOOP: Bluetooth audio and MIDI, a mixer, recorder, sample ed...
+https://github.com/TexasRADIO/compas-firmware	2026-11-11	gpl-3.0	Public Compás firmware releases
+https://github.com/stravo1/fm1-touch	2026-11-11	mit	
+https://github.com/stevexfer/FM1_Locus	2026-11-11	gpl-3.0	
+https://github.com/stevexfer/FM1_AudioBase	2026-11-11	gpl-3.0	Audio IO with BasicVis
+https://github.com/Saintpid/FM1-Switch	2026-11-11	gpl-3.0	
+https://github.com/RahelPuest/jungle-os-fm1	2026-11-11	mpl-2.0	Two M-VAVE FM-1 firmwares for a drum & bass live rig: BREAK SURGEON (breaks and synthesized drums) and ABYS...
+https://github.com/Philip-Bos/jamtrack-fm1	2026-11-11	mit	A backing band for the M-VAVE FM-1: drums, bass, chords and synth follow a chord progression in any key, in...
+https://github.com/Ninjathune-Human/Fm1	2026-11-11	mit	FM1 + firmwares
+https://github.com/NickCulbertson/FM1-Mighty-Arp	2026-11-11	mpl-2.0	Mighty Arp is custom firmware for the M-VAVE FM-1: a 4-op FM and subtractive hybrid synth built around a ch...
+https://github.com/mongio/virgo-fm1	2026-11-11	gpl-3.0	VIRGO: gravitational-wave synth firmware for the M-VAVE FM-1
+https://github.com/mikejohnsonbeats/OG-Synth-source	2026-11-11	mpl-2.0	OG Synth (FM-1 firmware): source of the MPL-2.0 part. Site, installer, manual: https://ogsynth.cc
+https://github.com/MarcoCasanova00/compas-tekno	2026-11-11	gpl-3.0	Tekno conversion of Compás (M-VAVE FM-1 rhythm firmware): UFO French/tribe bank, Tribal Tekno study @155 BP...
+https://github.com/little-scale/esp32s3-rnbo	2026-11-11	other	Native RNBO compiler, module runtime and FM1-style UI for ESP32-S3 AMOLED V2
+https://github.com/leonardolopezchavira/sq80-fm1	2026-11-11	mit	
+https://github.com/larkindom/fm1-switcher	2026-11-11	gpl-3.0	One-click firmware swaps for the M-VAVE FM-1 over USB-C (Web MIDI)
+https://github.com/jvitkauskas/fm1-backup	2026-11-11	none	Full flash backup of my M-VAVE FM-1 (stock bootloader, factory firmware 015)
+https://github.com/juan-ms2lab/playa	2026-11-11	gpl-3.0	PLAYA: a performance firmware for the M-VAVE FM-1, based on Optimist
+https://github.com/jcroft/fm1-windsynth	2026-11-11	gpl-3.0	
+https://github.com/IanP06/bocjuhn	2026-11-11	gpl-3.0	An experimental six-track instrument for M-VAVE FM1: eight sound engines, free loops, clocked play and livi...
+https://github.com/IanButterworth/mf-1	2026-11-11	mit	A native macOS emulator of the M-VAVE FM-1 pocket FM synthesizer, with special modes and a switching firmwa...
+https://github.com/hvemnd/spooky-stable-v2	2026-11-11	mpl-2.0	v2 of peas vibeslop fm1 firmware
+https://github.com/FartyPants/fm1-piano	2026-11-11	none	FM-1 PIANO: a hybrid physically modelled piano firmware for the M-VAVE FM-1. In development: please do not...
+https://github.com/elpabl0/pocketband	2026-11-11	gpl-3.0	Pocket Band: A band in your FM-1. Pick a spot on a map of 16 genre towns and it writes a four-piece sketch:...
+https://github.com/DocRuzzy/dubwise-fm	2026-11-11	gpl-3.0	
+https://github.com/deamonSLINKY/PERF-1-SMK	2026-11-11	gpl-3.0	BETA test builds: PERF-1 on the M-Vave SMK-37 Pro (the generative live-performance groovebox, with follower...
+https://github.com/criapix/fm1droid	2026-11-11	other	FM1 Droid: native Android emulator for the M-VAVE FM-1 synth (wraps fm1-emu; runs stock and community .fwsc...
+https://github.com/CodingSlapfu/KIRA-9	2026-11-11	other	A cybernetic AI-inspired vocal synthesizer for the M-VAVE FM-1. Expressive English singing, animated cybern...
+https://github.com/CodingSlapfu/AQUORA	2026-11-11	other	M-VAVE FM-1 Generative Sound Sanctuary
+https://github.com/broecker/fm1-revive	2026-11-11	mit	Revives a bricked FM1 using a Raspberry PI
+https://github.com/briksquared/fm1-emulator	2026-11-11	mit	Welcome, this is my FM-1 project there are many like this and yes,I know there's already an emulator. This...
+https://github.com/blobz1800/koiffeur-fm	2026-11-11	mit	some odd little firmware, made for the mvave fm1
+https://github.com/aviron3/fm-1	2026-11-11	gpl-3.0	dub wise fm1 firmware
+https://github.com/andiogenes/roland	2026-11-11	gpl-3.0	Drum-only firmware for the M-VAVE FM-1, built on Felucca (GPL-3.0-only)
+https://github.com/altessproduction/ASS-ID_FM1	2026-11-11	gpl-3.0	ASS-ID: The ATEK303 acid groovebox plus a drum track on the same clock: eight synthesized TR-808/909/707 vo...
+https://github.com/adamcharleswilsonmusic-code/RAMBEAVER	2026-11-11	gpl-3.0	A beaver-versus-robots action platformer for the M-VAVE FM-1, with firmware, source, and a quick-start guide.
+https://github.com/theowecker/fm1-moss	2026-11-10	mpl-2.0	MOSS-1: ambient firmware for the M-VAVE FM-1. Lofi, nature scenes and generative loops.
+https://github.com/sparky480v/Dark-1	2026-11-10	gpl-3.0	DARK-1: dark-music firmware for the M-VAVE FM-1. 21 dark genres, 210 pieces, and a Wander mode that evolves...
+https://github.com/SoulandCode69/sfa-fm1	2026-11-10	gpl-3.0	
+https://github.com/s0fx2/YamahaDX7_to_FM-1	2026-11-10	gpl-3.0	Split Yamaha DX7 32-voice bank (.syx) to M-VAVE FM-1's third-party firmware can import.
+https://github.com/Quixotic7/RemoteFM1Android	2026-11-10	gpl-3.0	
+https://github.com/Quixotic7/FM1Backups	2026-11-10	none	
+https://github.com/profikid/fm1-hardware-inspector	2026-11-10	none	Read only web app to display hardware information from a m-vave
+https://github.com/pfkellogg/fm1-mirror-spyglass-android	2026-11-10	gpl-3.0	The M-VAVE FM-1's screen big on an Android tablet, plus playing it from a USB keyboard and a note spyglass....
+https://github.com/pfkellogg/fm1-mirror	2026-11-10	gpl-3.0	The M-VAVE FM-1's screen, big, on Mac, Windows and Linux
+https://github.com/NjamesZ/nja-tack-fm1	2026-11-10	gpl-3.0	Nja TAK FM-1 Firmware
+https://github.com/mx57/Mvave-Fm1-firmware-hub-flasher-unbricker	2026-11-10	none	Mvave Fm1 firmware hub/flacher/unbricker
+https://github.com/mrjoshida/noice-voice	2026-11-10	gpl-3.0	Physical modeling acoustic waveguide vocal synth and speech sequencer for the M-VAVE FM-1
+https://github.com/MichaelAPerry/MIKU-FM1	2026-11-10	gpl-3.0	A singing songwriter firmware for the M-VAVE FM-1: a pixel singer sings your songs in Japanese, writes her...
+https://github.com/MattKuebrich/patchwerk	2026-11-10	gpl-3.0	a modular synth for the FM-1
+https://github.com/GoodPerson42/FM1-Unbricking-For-Dummies	2026-11-10	none	Unbricking MVave FM1 For Dummies with rp2040-zero
+https://github.com/esbenvb/fm1-dx747	2026-11-10	other	DX747: An eight-part multitimbral DX7 module. Every part has its own MIDI channel and up to eight layered D...
+https://github.com/epidex/beat-it	2026-11-10	gpl-3.0	Beat It: custom FM-1 firmware (drums + FM, scope, MIDI, experimental Bluetooth MIDI), based on SLOOP
+https://github.com/elyal2/synthfm1-mcp	2026-11-10	mit	MCP servers for the M-VAVE FM-1 synth: Felucca firmware (live MIDI playback, songs, presets) and experiment...
+https://github.com/dzwerg/keySTEP-ONE	2026-11-10	mpl-2.0	keySTEP ONE - M-VAVE FM-1 four-track arranger, LIVE PLAY and USB/BLE MIDI (community beta)
+https://github.com/dzwerg/analogBEAST	2026-11-10	gpl-3.0	M-VAVE FM-1 synth firmware: two DSP routings, Steiner-Parker filter, 128 patterns, SONG and ALBUM modes.
+https://github.com/distraub/glitchdrums-fm1	2026-11-10	gpl-3.0	GlitchDrums-inspired drum machine firmware for the M-VAVE FM-1. Emulator-tested; hardware validation pending.
+https://github.com/designloves2/DCS-FM1	2026-11-10	gpl-3.0	The M-VAVE FM-1 is used as the auxiliary systems panel controller for the DCS World F/A-18C.
+https://github.com/copych/FM1-Ear-Trainer	2026-11-10	gpl-3.0	Press HOME+PLAY to run ear-training game for the M-VAVE FM-1, built on Melodee FM6, with a browser emulator...
+https://github.com/chinotto1/tack-ipad-headphones	2026-11-10	none	Firmware package for the FM-1
+https://github.com/CaptainChronosis/XENOLITH	2026-11-10	gpl-3.0	XENOLITH_V1
+https://github.com/BlackKittenDevices/kitten-rack	2026-11-10	gpl-3.0	Kitten Rack: A Eurorack-style modular synth: 56 modules (VCOs, a Moog-style ladder, a Moog 960-style sequen...
+https://github.com/AVIGDOR-BERMAN/fm1-Hebrew	2026-11-10	none	M-VAVE FM-1-Hebrew
+https://github.com/apiel/fm1-lila	2026-11-10	gpl-3.0	
+https://github.com/adamcharleswilsonmusic-code/Hungry-Travis	2026-11-10	gpl-3.0	A spoon-feeding balance game for the M-VAVE FM-1: a grumpy 3D baby, rainbow rewards, character voices and a...
+https://github.com/28spawn/Pocket-Onyx	2026-11-10	gpl-3.0	Custom open-source firmware (Onyx) for M-VAVE / Donner Pocket Amp
+https://github.com/WisestWizard/pocketpoly	2026-11-09	mpl-2.0	A stereo polysynth with a discovery engine for the M-VAVE FM-1
+https://github.com/WisestWizard/gnomnom	2026-11-09	mpl-2.0	A rhythm game where a gnome eats mushrooms that play the tune, for the M-VAVE FM-1
+https://github.com/vandalismcode/grus	2026-11-09	gpl-3.0	A Fm-1 Groovebox
+https://github.com/SikkenWorks/FM1recovery	2026-11-09	gpl-3.0	Quick and easy softbrick recovery on Windows
+https://github.com/SikkenWorks/BEETLE-BLUE	2026-11-09	gpl-3.0	The drum-oriented tracker for the FM1
+https://github.com/saulofilho/coqui-fm1	2026-11-09	gpl-3.0	A Latin and Caribbean groovebox firmware for the M-VAVE FM-1. Salsa, bomba, plena, perreo, merengue, cumbia...
+https://github.com/Quixotic7/RemoteFM1IOS	2026-11-09	gpl-3.0	
+https://github.com/productpartho/aj-box	2026-11-09	none	Kid-Friendly Synth for FM-1
+https://github.com/pjac1810/zeus80	2026-11-09	gpl-3.0	ZEUS-80: 8-voice analogue-style polysynth module (MKS-80 style) for the M-VAVE FM-1, with arpeggiator and 6...
+https://github.com/pjac1810/twin10	2026-11-09	gpl-3.0	TWIN-10: two synths, four drums, patch panel and X/Y pad (DS-10 style) for the M-VAVE FM-1, with arpeggiato...
+https://github.com/pfkellogg/fm1-mirror-bluetooth	2026-11-09	mit	The M-VAVE FM-1's screen, big, on an Android tablet or phone over Bluetooth. Leaves the FM-1's USB free. Fr...
+https://github.com/nasonliu/retrodash	2026-11-09	gpl-3.0	Pixel-art rhythm-game firmware for M-VAVE FM-1 with SPC sample playback and per-song art projects
+https://github.com/MMI-Studios/tlbx1-animate-smk37	2026-11-09	gpl-3.0	A port of the Animate engine from the TLBX-1 audio toolbox (standalone app and plugin) to the M-VAVE SMK-37...
+https://github.com/MishaMashinaMM/jiant-live	2026-11-09	gpl-3.0	M-vave FM1 Jiant FW edition
+https://github.com/larkindom/fm1-botanica	2026-11-09	none	Generative garden for the M-VAVE FM-1: DX7 voices, long reverb, pixel-art screen
+https://github.com/jvitkauskas/m-apps	2026-11-09	mit	Programs that run from RAM on the M-VAVE FM-1 and SMK-37
+https://github.com/joehard4712/Helio-FM1	2026-11-09	none	
+https://github.com/HanzVolt/form	2026-11-09	gpl-3.0	FORM: vocal synthesizer firmware for the M-VAVE FM-1. A 6-operator formant-FM engine sings vowels and conso...
+https://github.com/hamperj/pro-fm-78	2026-11-09	gpl-3.0	PRO-FM-78: a vintage polysynth for the FM-1, with a chord generator, arpeggiator and loop recorder (fm1-doc...
+https://github.com/GuinanNo1/FMtribe	2026-11-09	mpl-2.0	A M-Vave FM-1 firmware created as a homage to the Korg Monotribe. Developed as a clean room project without...
+https://github.com/gfcalvi/bloomy-fm1	2026-11-09	none	Bloomy 1.0 per M-VAVE FM-1: installazione, backup e restore, conversione salvataggi e gestione progetti. St...
+https://github.com/ELENICK97/TeenTaal-FM1	2026-11-09	apache-2.0	An Indian classical music practice firmware for the M-VAVE FM-1 pocket synth
+https://github.com/edlawes-create/undertone-fm1	2026-11-09	other	
+https://github.com/DimmKirr/setup-fm1-emulator	2026-11-09	mit	Setup fm1 Emulator on Github Acitons
+https://github.com/DimmKirr/modd	2026-11-09	gpl-3.0	Modd: A Modular Firmware for FM1
+https://github.com/delirioux/makohai	2026-11-09	gpl-3.0	Generative tracker grooves for the FM-1, razor sharp.
+https://github.com/camikib/orelle-fm1	2026-11-09	gpl-3.0	
+https://github.com/bunglesociety/modular-koi	2026-11-09	gpl-3.0	Free firmware that turns the M-VAVE FM-1 into a steel tongue drum, played with the thumbs over a pond of koi.
+https://github.com/beatcult/CULTBOX	2026-11-09	gpl-3.0	. : B E A T C U L T ::: C U L T B O X : .
+https://github.com/andiogenes/frown-of-misery-1	2026-11-09	gpl-3.0	Mutable Instruments' Braids, Rings and Clouds as a firmware for the M-VAVE FM-1.
+https://github.com/zymeck/FM1SloopMirror	2026-11-08	none	Mirror the Sloop Firmware for the M-Vav eFM1 on your Android phone
+https://github.com/Zerbo505/zerbo505.github.io	2026-11-08	none	Turn the M-VAVE FM-1 into an Omnichord-style chord harp with strum plate, chord buttons, organ bass, and sy...
+https://github.com/Zerbo505/fm1-fomni	2026-11-08	gpl-3.0	Turn your M-VAVE FM-1 into an Omnichord-style chord harp with strummed chords, auto bass sync, and ten rhyt...
+https://github.com/saboraldea/cumbia	2026-11-08	none	a cumbia groovebox for the m vave fm1
+https://github.com/raspberrypi66/fm1-songbox	2026-11-08	mit	ESP32-S3 touchscreen box that plays MIDI songs and an endless rule-based lo-fi generator on an M-VAVE FM-1...
+https://github.com/mlwilki/FM1-Hero	2026-11-08	gpl-3.0	A Guitar Hero-style rhythm game for the M-VAVE FM-1 with custom MIDI file import support
+https://github.com/konsumer/dumbmidi	2026-11-08	gpl-3.0	A really nice MIDI controller firmware for the M-VAVE SMK-37 and FM-1: big chord display, screen mapping, B...
+https://github.com/jimm7/FM1-Companion	2026-11-08	mit	Open-source Android companion app for the M-VAVE FM-1 synthesizer, featuring Bluetooth connectivity, MIDI c...
+https://github.com/jartificer/fm1-trax	2026-11-08	gpl-3.0	Custom firmware that turns the M-VAVE FM-1 into a Mega Drive music tracker
+https://github.com/hatch-blip/Fm1	2026-11-08	mpl-2.0	Messing around
+https://github.com/gggguto/ReVo	2026-11-08	gpl-3.0	ReVo — Generative Soundscapes. Bioma and Atolls, experimental firmware for the M-VAVE FM-1.
+https://github.com/ejtb76/amenity	2026-11-08	other	Amenity: a live jungle firmware for the M-VAVE FM-1, built on FM1 Open
+https://github.com/dagnazty/PERF-1	2026-11-08	gpl-3.0	Live-performance firmware for the M-VAVE FM-1. Ten genres of self-playing music you steer in real time: aut...
+https://github.com/charlesvestal/fm1-ripple	2026-11-08	mpl-2.0	Ripple: droplets (Lua) and currents (Faust, Pd or C) for the M-VAVE FM-1, added over a USB drive without re...
+https://github.com/chancehouston/skiff-fm1	2026-11-08	mit	Research, tooling and custom firmware for the M-VAVE FM-1 pocket FM synth
+https://github.com/capitanplaneta80-create/vegetal-fm1	2026-11-08	gpl-3.0	VEGETAL: la familia vegetal (filotaxis, sistemas L, tropismos, raíces) como firmware para el M-VAVE FM-1 (s...
+https://github.com/AudrenThibault/OPLBend-Tracker	2026-11-08	gpl-3.0	LSDJ-style tracker for the M-VAVE FM-1, with an OPL3-style FM engine (not cycle-accurate), circuit bending...
+https://github.com/zvenson/vibe-link	2026-11-07	gpl-3.0	VIBE FM Link: Play the VIBE FM VST plugin with your FM-1. Install this and the FM-1 is the controller: the...
+https://github.com/vv7r/sloop-fm1-emulator	2026-11-07	gpl-3.0	Émulateur M-VAVE FM-1 avec Sloop 2.8.5 et tutoriel écrit en français
+https://github.com/StillMrEv/Lyrebird	2026-11-07	gpl-3.0	Firmware for the FM-1 by M-Vave
+https://github.com/stephencummins/smk37-aisling	2026-11-07	gpl-3.0	AISLING ported to the M-VAVE SMK-37 Elite. Stage 1: host-tested only, not yet run on hardware. FM-1 build u...
+https://github.com/spinnicholas/lvm-wanderer-fm1	2026-11-07	gpl-3.0	Wanderer 1.4: a hardware-tested event-memory synth for M-VAVE FM-1, designed with low-vision musicians in m...
+https://github.com/saulofilho/synth-firmware	2026-11-07	none	A Claude Code plugin for building a firmware for the M-VAVE FM-1 groovebox — the JieLi AC791N chip on the F...
+https://github.com/profikid/fm1-anatomix-voxinator	2026-11-07	mpl-2.0	ANATOMIX VOXINATOR: a vocal anatomy laboratory and experimental vocal synthesizer for the M-VAVE FM-1
+https://github.com/Peeeweee/Project_FM1	2026-11-07	gpl-3.0	
+https://github.com/Kayman18/FM1-VStation	2026-11-07	none	A port of the Old Abandend Novation V-Station VST
+https://github.com/Kayman18/FM1-genAMB	2026-11-07	none	Generative FM1 Firmware Based on AMB-1
+https://github.com/Jelipon542/jelipon542.github.io	2026-11-07	none	Turn the M-VAVE FM-1 into a live four-track groovebox: three synths, a drum machine, 153 sounds, 37 kits, s...
+https://github.com/gybe808-dotcom/GabberBuddy	2026-11-07	gpl-3.0	GabberBuddy is based off Felucca and XOX, for the M-Vave FM-1
+https://github.com/glamcoder/fm1-field	2026-11-07	mit	
+https://github.com/eldontyrellcorp/Mini-Grain	2026-11-07	none	A granular engine firmware for the M-Vave FM1
+https://github.com/Cocoblood9527/fm1rSwitch-zh-patch	2026-11-07	none	
+https://github.com/capitanplaneta80-create/enjambre-fm1	2026-11-07	gpl-3.0	ENJAMBRE: insectos como agentes en un campo orbital / cuántico, firmware para el M-VAVE FM-1 (sobre Felucca)
+https://github.com/CallieSchmallie/Beetroot-tempura	2026-11-07	other	Stinky
+https://github.com/stefanolofsson/pinktrombone-fm1	2026-11-06	gpl-3.0	Pink Trombone voice synth as custom firmware for the M-VAVE FM-1 (fm1-dock module)
+https://github.com/NicoPrieto-CuentaMe/sintesis-fm1	2026-11-06	none	Curso interactivo de síntesis para el M-VAVE FM-1 con firmware JIANT
+https://github.com/matttallison/quadro-fm1	2026-11-06	gpl-3.0	Arp Quatdra Synthesizer Firmware for the M-Vave FM1
+https://github.com/Kayman18/FM1-wTABLES	2026-11-06	none	6 Voice Wavetable Synth Using Adventure Kid Wavetables
+https://github.com/Kayman18/FM1-NovationBassStation	2026-11-06	none	A port of the Old Abandend Novation Bass Station VST
+https://github.com/Jelipon542/sloop-fm1	2026-11-06	gpl-3.0	Turn the M-VAVE FM-1 into a live four-track groovebox: three synths, a drum machine, 153 sounds, song mode,...
+https://github.com/isod89/siren-fm1	2026-11-06	gpl-3.0	SIREN: a rave that writes itself. A firmware for the M-VAVE FM-1 (from Clipper and SLOOP, based on Felucca)
+https://github.com/hatbox-ghost/FM1-Minimal	2026-11-06	none	
+https://github.com/fiamn2026dev/fm-1-project	2026-11-06	none	
+https://github.com/elviocauchi-spec/SielOpera6-FM1	2026-11-06	gpl-3.0	
+https://github.com/davidpryan/FM1Mirror	2026-11-06	none	The M-VAVE FM-1's screen live on an iPhone or iPad over USB-C (Core MIDI; fm1-base's mirror protocol, LOOM-...
+https://github.com/davidpryan/fm1-relay	2026-11-06	mpl-2.0	RELAY-16: a sequencer-first firmware for the M-VAVE FM-1 and SMK-37 that plays other instruments over USB,...
+https://github.com/DanimanX/ReplicantFM1	2026-11-06	gpl-3.0	Hard techno firmware for the M-VAVE FM-1 — custom GPL-3.0 firmware (fork of Felucca) with kick/drum/bass/hi...
+https://github.com/dagnazty/phreak-fm1	2026-11-06	gpl-3.0	A live groovebox firmware for the M-VAVE FM-1
+https://github.com/charlesvestal/fm1-ocarina	2026-11-06	mpl-2.0	OCA-1: an ocarina for the M-VAVE FM-1, for games that listen (Switch 2 Ocarina of Time)
+https://github.com/chadthornton/outrigger	2026-11-06	gpl-3.0	USB MIDI host for the M-VAVE FM-1 on ESP32-S3 touchscreen boards (Waveshare 1.69", 3.5"), with safe firmwar...
+https://github.com/zshelby/WAMMY	2026-11-05	gpl-3.0	A guitar firmware for the FM-1
+https://github.com/victorysvensson-dev/blonda-fm1	2026-11-05	gpl-3.0	
+https://github.com/VadikSpaceman/Rodri-gotchi	2026-11-05	none	A virtual-pet game firmware for the M-VAVE FM-1, with a Costa Rican twist
+https://github.com/Traxsuit/grain-fm1	2026-11-05	gpl-3.0	
+https://github.com/slowphase/sloop-gently	2026-11-05	other	An illustrated beginner's guide to making music with SLOOP on the M-VAVE FM-1. Atmospheres first, drums later.
+https://github.com/skufee/fm1-drum-os	2026-11-05	gpl-3.0	A drum-focused sampler and sequencer for the M-VAVE FM-1.
+https://github.com/SikkenWorks/FM1-RP2024-Auto-Restore	2026-11-05	other	Auto Restore Your FM1 to V15
+https://github.com/Reytian/fm1-trio	2026-11-05	mpl-2.0	TRIO: a jazz trio in your M-VAVE FM-1. You play the chords; small neural networks on the FM-1's chip walk t...
+https://github.com/Quixotic7/TransitFM1	2026-11-05	gpl-3.0	
+https://github.com/Plieuw/voicetest	2026-11-05	none	mvave fm1 voice processor
+https://github.com/Plieuw/voice	2026-11-05	none	your voice proccesing center direct on fm1
+https://github.com/Philip-Bos/fm1-relay-studio	2026-11-05	mit	Browser control centre for M-VAVE FM-1s on open-source firmware: clock, sequencer, sound editor, mixer, rec...
+https://github.com/Philip-Bos/echofield-smk37	2026-11-05	other	ECHOFIELD for the M-VAVE SMK-37 Pro / Elite (UNTESTED on hardware): a granular sampler firmware, ported fro...
+https://github.com/odshech/microton	2026-11-05	none	microtonal fm1
+https://github.com/Moon1ord/fm_1_aq_1	2026-11-05	mpl-2.0	
+https://github.com/Manzanita-Research/bliss-box	2026-11-05	mpl-2.0	A dreamy cosmic new age firmware for the M-VAVE FM-1: self-playing Grove beds, stings, nine voices, a casse...
+https://github.com/MadMooneyham/Ombak	2026-11-05	gpl-3.0	Firmware for the M-VAVE FM-1
+https://github.com/konsumer/mdsmk	2026-11-05	gpl-3.0	Mutable Dreams for the M-VAVE FM-1 and SMK-37, built by CI
+https://github.com/Joolo09/noct-fm	2026-11-05	mpl-2.0	NOCT FM — atmospheric pixel MIDI controller firmware for M-VAVE FM-1, with FL Studio and Ableton Live profi...
+https://github.com/CamilloGF/Voice-from-Jiant-for-Vcv	2026-11-05	gpl-3.0	The voice engine out of the fm1 jiant firmware as a vcv rack module
+https://github.com/TEG-Lizard-Man/cyma-1	2026-11-04	mpl-2.0	CYMA-1 by Team EG & Lizard_Man
+https://github.com/pjac1810/miaou	2026-11-04	gpl-3.0	MIAOU: a kitty keyboard (Meowsic style) for the M-VAVE FM-1, with arpeggiator and 6-track sequencer
+https://github.com/Philip-Bos/fm1-relay	2026-11-04	mit	MIDI clock master for M-VAVE FM-1s running open-source firmware: web app (installable) and iPad app
+https://github.com/onceanqagh/FM1	2026-11-04	none	
+https://github.com/mykeln/fm1-rift	2026-11-04	gpl-3.0	Experimental M-VAVE FM-1 firmware by mykeln: nine-mode drone synthesizer based on Felucca. GPL-3.0-only; fu...
+https://github.com/MichaelAPerry/MPFM1	2026-11-04	mit	Mario Paint-style music composer firmware for the M-VAVE FM-1: stamp characters on a staff with 31 Mario Pa...
+https://github.com/johnskiller/fm1-wave	2026-11-04	mpl-2.0	A polyphonic wavetable synth for the M-VAVE FM-1, on fm1-base
+https://github.com/isod89/abyss	2026-11-04	gpl-3.0	ABYSS: ambient that writes itself (cinematic, cosmic, dark). Web version of the FM-1 generator.
+https://github.com/ipf/synth	2026-11-04	gpl-3.0	FM1-Mods
+https://github.com/HuskiePJN/fm1-mac-recovery	2026-11-04	mit	Unbrick an M-VAVE FM-1 on macOS: back up and restore the flash over the chip's USB download mode, with only...
+https://github.com/fc79/smk37-base	2026-11-04	gpl-3.0	The smallest firmware for the M-Vave SMK-37 to build your own on (Dinghy / Felucca platform, GPL-3.0)
+https://github.com/diegocapoccitti/fm1-juce	2026-11-04	mit	The M-VAVE FM-1 emulated (fm1-emu) as an AU / VST3 / AAX / Standalone instrument and an iOS app + AUv3, in...
+https://github.com/dagnazty/fm1-esp32-unbrick	2026-11-04	other	
+https://github.com/ColdChrome/Chrome-Boy-Studio-Portable	2026-11-04	none	Chrome Boy Studio Portable is playful, chaotic custom firmware for the M-VAVE FM1. Spin the ALGORITHM knob...
+https://github.com/CodingSlapfu/FM-1-Firmware-Projects	2026-11-04	none	My FM-1 Firmware Projects
+https://github.com/zeptosecond-dsp/Quorum	2026-11-03	gpl-3.0	A generative additive synthesizer for the M-Vave FM1. Code by Claude, creative direction by Zeptosecond DSP
+https://github.com/zeptosecond-dsp/Arcturus-S6	2026-11-03	gpl-3.0	A generative wavetable synthesizer for the M-Vave FM1.
+https://github.com/tskorbenko/riddim-roots-fm1	2026-11-03	other	RIDDIM ROOTS — generative reggae/dub band firmware for M-VAVE FM-1 (FM1 Open SDK)
+https://github.com/shalafidragon/smk37-ableton-session	2026-11-03	none	Ableton Live Session View controller with RGB pad feedback for M-VAVE SMK-37 Pro on stock firmware.
+https://github.com/ryancraigmartin/fretted-fm1	2026-11-03	gpl-3.0	
+https://github.com/PedroS36/french-touch-fm1	2026-11-03	gpl-3.0	
+https://github.com/OSR-Experiment/OSR-1	2026-11-03	gpl-3.0	Blop: Explore sound with your Blop: one-finger chords from 38 grids, chord rhythms, a bass with its own rif...
+https://github.com/nzimas/tonitor-smk37	2026-11-03	gpl-3.0	Tonitor for the M-VAVE SMK-37 Pro: an alternative firmware for electroacoustic experimentation, live ambien...
+https://github.com/nzimas/quasar	2026-11-03	gpl-3.0	Quasar: a firmware for the M-VAVE FM-1 for experimental IDM, after the SOMA Pulsar-23, with an audio engine...
+https://github.com/Mighty-stack444/Strumline-fm1	2026-11-03	gpl-3.0	
+https://github.com/KingXeryus/SynthMaven	2026-11-03	gpl-3.0	An FM-1 firmware for oriental live musicians, turning the standard M-VAVE FM-1 into an oriental groove box.
+https://github.com/jvitkauskas/m-card	2026-11-03	cc0-1.0	microSD add-on board for the M-VAVE FM-1: no soldering to the device (CC0)
+https://github.com/judahn/fm1-qseq	2026-11-03	other	
+https://github.com/Joolo09/amen-fm1	2026-11-03	gpl-3.0	
+https://github.com/johnskiller/driftseq-fm1base	2026-11-03	mpl-2.0	DriftSeq polymetric sequencer on the FM-1 base (felucca-bsp): one-finger chords, SCALE page, GM/EAS synth
+https://github.com/jaeggerr/moondaw-fm1	2026-11-03	gpl-3.0	A tracker for you and your LLM — firmware for the M-VAVE FM-1
+https://github.com/Ignignot/fouroboros-v1-installer	2026-11-03	none	FOUROBOROS V1 installer page for the M-VAVE FM-1 (WebMIDI, https)
+https://github.com/hed0rah/sqrl-1	2026-11-03	gpl-3.0	SQRL-1 Firmware for the M-VAVE FM-1
+https://github.com/fabiomorena/fm1-klassik	2026-11-03	mpl-2.0	
+https://github.com/davidpryan/witchbox-1	2026-11-03	gpl-3.0	
+https://github.com/clickysteve/clatter-pocket	2026-11-03	gpl-3.0	CLATTER's LXR-02 drum synthesis as custom firmware for the M-VAVE FM-1
+https://github.com/646timur-cell/pulhra_main	2026-11-03	gpl-3.0	**Pulhra** is a hard fork of Feluca firmware for the M-VAVE FM-1. A minimalist groovebox featuring an Elekt...
+https://github.com/stephencarr/UNDERGROWTH	2026-11-02	none	
+https://github.com/pokidokiman/fm1-dub	2026-11-02	gpl-3.0	DUB-1 fork: engine v2 (darker, denser dub sound)
+https://github.com/pjac1810/lax32	2026-11-02	gpl-3.0	LAX-32: module de sons multitimbral LA (style MT-32)pour M-VAVE FM-1
+https://github.com/nickgudauskas/fm1-chipsynth	2026-11-02	other	FM1 Open V14 with chipsynth, an NES / Game Boy style voice engine
+https://github.com/mrluisoff/Fm1	2026-11-02	none	TheOFFSFM1Firmware
+https://github.com/mpancia/fmfm	2026-11-02	gpl-3.0	Generative music firmware for the M-VAVE FM-1, written in Lean 4 with 313 theorems about it
+https://github.com/keyboy250/fm1-x0x-acultur8	2026-11-02	gpl-3.0	Acultur8 X0X Extended Edition for M-VAVE FM-1: experimental firmware 0.1.5-beta1, matching source, searchab...
+https://github.com/karlalex732-dotcom/RED-MASS-VAMPIRE-OS-FOR-M-VAVE-FM1	2026-11-02	gpl-3.0	RED MASS VAMPIRE OS FOR M-VAVE FM1 with a lot of new features
+https://github.com/joe-cavalry/FM-1-VST3	2026-11-02	none	the compiled version of FM-1 Emulator by joakimeriksson
+https://github.com/JimmyKaps/tr707c-fm1	2026-11-02	gpl-3.0	
+https://github.com/jefersomusic-del/worship-smk37	2026-11-02	gpl-3.0	
+https://github.com/Co-oscillator/Loom-FM-1	2026-11-02	gpl-3.0	5-track polyphonic synthesizer, sampler, and groovebox firmware for the M-VAVE FM-1
+https://github.com/1andesc/fm1-firmware-downloader	2026-11-02	mit	FM-1 firmware downloader, UC25HQ80 flash-support patch, and M-Flasher recovery guide for M-VAVE FM-1.
+https://github.com/yvesk/fm1-recovery	2026-11-01	none	
+https://github.com/wave00066/theory1	2026-11-01	mpl-2.0	Music theory firmware for the M-VAVE FM-1: lessons, quizzes and a chord lab (scales, modes, chords, harmony...
+https://github.com/swe24-phon/fm1-fbsp-base	2026-11-01	none	
+https://github.com/Prado-Design/fm1-pocket	2026-11-01	none	
+https://github.com/NorfolkHacker/braindancer	2026-11-01	gpl-3.0	ACID FM: IDM / braindance firmware for the M-VAVE FM-1 (a fork of JIANT FM)
+https://github.com/mxpln/fm1	2026-11-01	none	
+https://github.com/Maggismo/fm1-gator	2026-11-01	gpl-3.0	
+https://github.com/hagan66/uranus88	2026-11-01	none	URANUS 88: an eight-voice analog-style polysynth firmware for the M-VAVE FM-1, on fm1-dock
+https://github.com/ferluht/fm1-lofi-sampler	2026-11-01	gpl-3.0	Lo-fi 2-bit sampler firmware + web editor for the M-VAVE FM-1
+https://github.com/darrenjaworski/fm-1-impressionism	2026-11-01	gpl-3.0	mvave-fm1 impressionism firmware
+https://github.com/ajsoriar/FM-1-Firmware-Tool	2026-11-01	mit	Firmware recovery tool for the M-VAVE FM-1 when the device becomes stuck or unresponsive.
+https://github.com/little-scale/fm1-rnbo	2026-10-31	mit	RNBO instruments, loadable DSP patches, and a custom RNBO Player for FM1.
+https://github.com/KONStudioPro/LAMA-FLOW	2026-10-31	none	LAMA FLOW — Custom vocal synthesizer firmware for the M-VAVE FM-1 by The King Of Noise
+https://github.com/jose-no/Fm1-jungle	2026-10-31	gpl-3.0	
+https://github.com/joao420rech/Fm1-Psy	2026-10-31	gpl-3.0	
+https://github.com/DedrichVonDorn/wt2-fm1-firmware	2026-10-31	gpl-3.0	WT-2: wavetable synth firmware for the M-Vave FM-1 (GPL-3.0)
+https://github.com/darosh/fm1-experiments	2026-10-31	none	
+https://github.com/codemtm/FM1-Atmosphere-OS	2026-10-31	gpl-3.0	Ambient & Deep Dub Techno custom firmware for M-VAVE FM-1.
+https://github.com/1bitfromdend/Felucca-KONTROL-MIDI	2026-10-31	none	
+https://github.com/strijar/fm1-chordbot	2026-10-30	gpl-3.0	
+https://github.com/snpwball/fm1-aeolus	2026-10-30	none	Inspired by https://github.com/Organnery/aeolus
+https://github.com/Plieuw/fm1pokoe	2026-10-30	gpl-3.0	
+https://github.com/pewsheen/foom1	2026-10-30	none	FM-1 but DOOM
+https://github.com/OSR-Experiment/FM1_IGLOO_OSR	2026-10-30	gpl-3.0	
+https://github.com/JanSchulten/FM1-Firmware-VibeCoding-Template	2026-10-30	gpl-3.0	This is a repo-template to start your own firmware with claude code or codex.
+https://github.com/gravkode/gravkode-fm1	2026-10-30	mpl-2.0	
+https://github.com/ForrestPanda/fm1-midi-bridge	2026-10-30	other	
+https://github.com/bryanf2311/fm1-tape	2026-10-30	other	
+https://github.com/1000Errors-Labs/keep-it-random	2026-10-30	none	FM1 sequencer emulator — live browser build
+https://github.com/tumult2k4/vizz-firmware	2026-10-29	none	Vizz: Skiff fork for the M-VAVE FM-1 (SEQ MIDI OUT, mute/solo CC 103)
+https://github.com/THEGREATCJPark/smk37-velvet-ep90	2026-10-29	gpl-3.0	
+https://github.com/pjac1810/fm1-ios	2026-10-29	none	FM-1 pour iPhone : emulation du synthe M-VAVE FM-1, le firmware d'origine V15 tourne sans modification
+https://github.com/Mighty-stack444/Bassline-fm1	2026-10-29	gpl-3.0	Bass and 808s
+https://github.com/LXXero/oplbox	2026-10-29	gpl-3.0	OPLBOX: custom firmware turning the M-VAVE FM-1 into an AdLib — OPL2 emulation, SoundFX Macs Opera player a...
+https://github.com/Keitark/fm1-tracker	2026-10-29	none	ProTracker-style four-channel tracker for M-VAVE FM-1: editing, samples, USB audio/video, and hardware rese...
+https://github.com/JoshCowley/MODFM	2026-10-29	gpl-3.0	for the FM1 synth
+https://github.com/fabioribeiroengbr-cmd/SMK37-Pro-Firmware-Recovery	2026-10-29	other	Documentação experimental da tentativa de recuperação do M-VAVE SMK-37 Pro após atualização de firmware int...
+https://github.com/Euljirow/nightbus	2026-10-29	none	8-bit chord/pad firmware prototype for the M-VAVE FM-1. Lush chords, dreamy arp and 2-step drums for DnB /...
+https://github.com/Cocoblood9527/fm1stNDS-zh-patch	2026-10-29	none	
+https://github.com/ankitpaul9/akira	2026-10-29	none	m-vave-fm1-akira
+https://github.com/alfonsogordon/FM1-Open-Plus	2026-10-29	none	
+https://github.com/mattb/fm1-base-review	2026-10-28	mpl-2.0	Review copies of proposed fm1-base changes; upstream is charlesvestal/fm1-base
+https://github.com/joakimeriksson/fm1-sid	2026-10-26	gpl-3.0	C64 music on the M-VAVE FM-1: a cycle-exact 6510, reSID, GoatTracker songs and editor; runs as an fm1-dock...
+https://github.com/chmess/fm1-keyboard-academy	2026-10-24	other	Beginner-first learning firmware for the M-VAVE FM-1: guided lessons, illuminated keys, scoring and 30 melo...
+https://github.com/kclack/acid-fm1	2026-10-23	agpl-3.0	
+https://github.com/fabiomassimopasquazzi/dinghy	2026-10-19	gpl-3.0	The smallest firmware for the M-VAVE FM-1 to build your own on: the plumbing done and documented (updates,...
+https://github.com/kidbee85-beep/bunker-evolved	2026-10-18	gpl-3.0	Free generative ambient firmware for the M-VAVE FM-1. Four editable layers, 64 sounds, 24 worlds, GROW, sca...
+https://github.com/justynroberts/fm1-finton	2026-10-18	gpl-3.0	Finton: six-track trance firmware for the M-VAVE FM-1, with a Web MIDI flasher
+https://github.com/synthi/fm1-1971	2026-10-15	gpl-3.0	1971 — generative ambient firmware for the M-VAVE FM-1 (fork of keremimo/melodee v1.3.5)
+https://github.com/renebohne/sloop-fm1	2026-10-09	gpl-3.0	A live groovebox firmware for the M-VAVE FM-1
+https://github.com/majnikool/sloop-fm1	2026-10-09	gpl-3.0	A live groovebox firmware for the M-VAVE FM-1
+https://github.com/bettergovph/open-congress-data	2025-10-15	cc0-1.0	Open data for the Philippine Congress: track representatives, senators, bills, and voting records. Transpar...
+https://github.com/teryox77/ondadream-fm1		not found	Listed in 2bbb/fm1-firmware-collection; repo deleted or private

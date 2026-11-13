@@ -36,7 +36,7 @@ See [Features in detail](#features-in-detail) for everything each part can do.
 
 Music theory drives VNL-1's decisions, from the key of the next song to the last note of a phrase.
 
-- **Endless songs:** one fully generated song after another, forever, each with its own key, mode, tempo,
+- **Endless songs:** complete songs with real endings, written on the FM-1 itself, one after another, forever, each with its own key, mode, tempo,
   progression, band and arrangement, a real ending, then a short silence, and each different from the one before.
   Each new song starts in a related key: a fifth away, or the relative major or minor.
 - **Chords voiced like a jazz player's:** the bass takes the root, the keys keep the 3rd and 7th, and each chord moves
@@ -49,7 +49,7 @@ Music theory drives VNL-1's decisions, from the key of the next song to the last
 - **Leads built from real melodies:** eight lead styles drawn from studies of how melodies work: a motif stated and
   then sequenced, chord tones on the strong beats, a bossa line held across the chord change, and phrases that never
   end on a dominant's 7th.
-- **A guitarist's strumming:** VNL-1 is the only FM-1 firmware we found that writes its own strummed guitar part. It
+- **A guitarist's strumming:** VNL-1 writes its own strummed guitar part inside each song it generates. It
   voices each chord as a real hand shape on six strings (the root on a low string, fretted notes within four frets,
   open strings where they fit) and plays it with down and up strokes, muted chucks and a bossa thumb and pinch.
 - **Deep song planning:** each song is laid out before it plays: a layout, sections, where each part enters and
