@@ -4,7 +4,7 @@
 
 The first public release: a generative lo-fi hip hop firmware for the M-VAVE FM-1.
 
-- **The splash's tagline:** Generative / LO-FI DJ Groovebox on two lines (was LO-FI GENERATOR), as the README describes VNL-1.
+- **The splash's tagline:** Generative LO-FI (was LO-FI GENERATOR).
 - **Newer FM-1 units:** runs on the units with the UC25HQ80 flash chip (sold since autumn 2026), with saving, the sample bank and updates, through fm1-base.
 - **ACCOMP:** the screens and the screen reader name the accompaniment part ACCOMP (was COMP).
 - **Endless songs:** each from a seed, with its own key, mode, tempo, chords, layout and band; a short silence, then

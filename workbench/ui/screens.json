@@ -6745,25 +6745,11 @@
        "y": 75
       },
       {
+       "after": 6,
        "color": "GRAY",
        "font": "XS",
        "text": "LO-FI",
-       "x": 120,
-       "y": 89
-      },
-      {
-       "after": 6,
-       "color": "GRAY",
-       "font": "XS",
-       "text": "DJ",
-       "y": 89
-      },
-      {
-       "after": 6,
-       "color": "GRAY",
-       "font": "XS",
-       "text": "Groovebox",
-       "y": 89
+       "y": 75
       }
      ],
      "h": 120,
