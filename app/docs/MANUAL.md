@@ -56,7 +56,7 @@ SYNTHS ONLY, and every part plays a synth or modeled instrument instead. Write t
 
 ## 2. How VNL-1 plays
 
-![The splash: half a record on the left with a coral label, the wordmark vnl-1 and LO-FI DJ GROOVEBOX](img/vnl-splash.png "The splash")
+![The splash: half a record on the left with a coral label, the wordmark vnl-1 and Generative / LO-FI DJ Groovebox](img/vnl-splash.png "The splash")
 
 At power-on the splash shows for about a second while the record spins up, then the home screen. Press any control
 to skip it. VNL-1 starts stopped, with a song ready. Press PLAY.
