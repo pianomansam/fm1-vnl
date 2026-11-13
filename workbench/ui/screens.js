@@ -236,7 +236,11 @@ export default {
           { record: [0, 56, 104], value: "spin", color: "AMB", back: "VINYL", past: "LINE" },
           { text: "vnl-1", font: "MARK", x: 118, y: 21, color: "WHITE" },     // its baseline at y 118
           { rect: [120, 64, 90, 2], color: "AMB" },
-          { text: "LO-FI GENERATOR", font: "XS", x: 120, y: 75, color: "GRAY" },
+          // the tagline, the README's "lo-fi DJ groovebox" (Sam, 2026-11-13); three words 6 px apart (the face's space is
+          // 2 px, and LO-FI DJ ran together)
+          { text: "LO-FI", font: "XS", x: 120, y: 75, color: "GRAY" },
+          { text: "DJ", font: "XS", after: 6, y: 75, color: "GRAY" },
+          { text: "GROOVEBOX", font: "XS", after: 6, y: 75, color: "GRAY" },
         ] },
         { y: 184, h: 56, draw: [{ record: [0, -64, 104], value: "spin", color: "AMB", back: "VINYL", past: "LINE" }] },
       ],

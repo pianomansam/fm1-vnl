@@ -6729,8 +6729,22 @@
       {
        "color": "GRAY",
        "font": "XS",
-       "text": "LO-FI GENERATOR",
+       "text": "LO-FI",
        "x": 120,
+       "y": 75
+      },
+      {
+       "after": 6,
+       "color": "GRAY",
+       "font": "XS",
+       "text": "DJ",
+       "y": 75
+      },
+      {
+       "after": 6,
+       "color": "GRAY",
+       "font": "XS",
+       "text": "GROOVEBOX",
        "y": 75
       }
      ],
