@@ -323,9 +323,15 @@ const sin256 = (u) => { const i = u & 63, k = (u >> 6) & 3, v = SIN_Q[k & 1 ? 64
 const cos256 = (u) => sin256(u + 64);
 const idiv = (a, b) => Math.trunc(a / b);   // C's integer division
 // a record centred at (cx, cy) on the canvas: the disc (its edge smoothed), five grooves, the label (r * 5 / 13), and on
-// it, turned by spin (1/256 turns, counter-clockwise), a cream dot and opposite a wedge of light; the spindle's hole
+// it, turned by spin (1/256 turns, counter-clockwise), a cream dot and opposite a wedge of light; the spindle's hole.
+// A small one (r under REC_SMALL: the main screen's, in its top band) to the pixel instead: its label (r * 3 + 3) / 7,
+// one groove (r - 2), the dot a single pixel a pixel in from the label's edge, no wedge, the hole a single pixel
+export const REC_SMALL = 16;
+export const recordLabel = (r) => (r < REC_SMALL ? idiv(r * 3 + 3, 7) : idiv(r * 5, 13));
 export function drawRecord(lcd, cx, cy, r, C, label, disc, groove, spin) {
-  const rl = idiv(r * 5, 13), outer = (2 * r + 1) ** 2, inner = (2 * rl + 1) ** 2, dist = idiv(rl * 3, 4);
+  const small = r < REC_SMALL, rl = recordLabel(r), outer = (2 * r + 1) ** 2, inner = (2 * rl + 1) ** 2;
+  const dist = small ? rl - 1 : idiv(rl * 3, 4), hole = small ? 0 : 36, sheen = small ? inner : 4 * 144;
+  const spot = small ? 0 : 10;
   const dotx = (dist * cos256(spin) + 2048) >> 12, doty = -((dist * sin256(spin) + 2048) >> 12);
   const ax = cos256(spin + 118), ay = sin256(spin + 118), bx = cos256(spin + 138), by = sin256(spin + 138);
   for (let y = Math.max(0, cy - r - 1); y <= Math.min(lcd.h - 1, cy + r + 1); y++) {
@@ -334,13 +340,16 @@ export function drawRecord(lcd, cx, cy, r, C, label, disc, groove, spin) {
       const dx = x - cx, d4 = 4 * (dx * dx + dy * dy), e = outer - d4, el = inner - d4, at = y * lcd.w + x;
       if (e <= 0) continue;
       let c = disc;
-      for (let k = 1; k <= 5; k++) { const g = r - 10 * k; if (d4 >= (2 * g - 1) ** 2 && d4 < (2 * g + 1) ** 2) c = groove; }
+      for (let k = 1; k <= (small ? 1 : 5); k++) {
+        const g = small ? r - 2 : r - 10 * k;
+        if (d4 >= (2 * g - 1) ** 2 && d4 < (2 * g + 1) ** 2) c = groove;
+      }
       if (el > 0) {
         const mx = dx - dotx, my = dy - doty;
         let l = label;
-        if (d4 >= 4 * 144 && ax * -dy - ay * dx >= 0 && dx * by + dy * bx >= 0) l = C.HI;
-        if (mx * mx + my * my <= 10) l = C.WHITE;
-        if (d4 <= 36) l = C.BLACK;
+        if (d4 >= sheen && ax * -dy - ay * dx >= 0 && dx * by + dy * bx >= 0) l = C.HI;
+        if (mx * mx + my * my <= spot) l = C.WHITE;
+        if (d4 <= hole) l = C.BLACK;
         if (el >= 8 * rl) c = l;
         else { lcd.px[at] = c; lcd.blend(at, l, idiv(15 * el, 8 * rl)); continue; }
       }

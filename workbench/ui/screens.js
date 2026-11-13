@@ -294,10 +294,20 @@ export default {
       menu: ["pSong", "pDrums", "pBass", "pComp", "pLead", "pPad", "pTexture"],
       bands: [
         { y: 0, h: 16, draw: [
+          // now playing's record, small, in the top right corner (Sam, 2026-11-13: "a small spinning version of the
+          // record ... top row corner?"): it turns as that one does (33 1/3 while a song plays, easing to a stop),
+          // its label alone redrawn (render.c's ui_record_turn). Its groove DIM, not LINE: this small, a LINE groove
+          // vanishes into the background and the record reads as a dot. The other three placements Sam was shown,
+          // each this record's line and the numbers beside it:
+          //   left, whole:  [9, 8, 7]   the left texts' x 20, LOOP's after 5 (GROOVE 56/56 LOOP ending at 103)
+          //   left, cut:    [0, 8, 8]   the left texts' x 13 (half the record off the screen, as now playing's is)
+          //   right, cut:   [239, 8, 8] the tempo's right 226
+          { record: [230, 8, 7], value: "spin", color: "AMB", back: "VINYL", past: "DIM" },
           { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
           { when: ["song", "looping"], text: "LOOP", font: "T", after: 8, y: 2, color: "HI" },
           { when: "!song", text: "{idle}", font: "T", x: 8, y: 2, color: "GRAY" },
-          { when: "known", text: "{tempo} BPM", font: "T", right: 232, y: 2, color: "HI" },
+          // (the longest, a tempo waiting, *84 BPM: x 188-220)
+          { when: "known", text: "{tempo} BPM", font: "T", right: 220, y: 2, color: "HI" },
           // the firmware's name in capitals (the splash's wordmark alone is lower case), in the bar's face, quiet,
           // centred in its free middle (Sam, 2026-11-12): x 108-133, the longest left text (GROOVE 56/56 LOOP)
           // ending at 94

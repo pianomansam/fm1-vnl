@@ -1019,6 +1019,17 @@
     {
      "draw": [
       {
+       "back": "VINYL",
+       "color": "AMB",
+       "past": "DIM",
+       "record": [
+        230,
+        8,
+        7
+       ],
+       "value": "spin"
+      },
+      {
        "color": "GRAY",
        "font": "T",
        "text": "{section}  {bar}/{bars}",
@@ -1048,7 +1059,7 @@
       {
        "color": "HI",
        "font": "T",
-       "right": 232,
+       "right": 220,
        "text": "{tempo} BPM",
        "when": "known",
        "y": 2

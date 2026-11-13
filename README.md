@@ -139,8 +139,8 @@ plate is adapted from AMB-1, inspired by Dattorro.
 
 - A boot splash with a spinning record that flows into the now-playing screen: the song, its key, the chord playing,
   where it is, its tempo.
-- A main screen with the song's progress and a tile per part; a page per part for its instrument, rhythm, register and
-  re-rolls.
+- A main screen with the song's progress, a small record turning in its corner and a tile per part; a page per part
+  for its instrument, rhythm, register and re-rolls.
 - A Parts screen with each part's notes scrolling over the song; a Sections screen to jump, loop a section or stay on
   the song; a Mixer with a level, mute and solo per part.
 - The keys' lights show which parts are playing; the lowest white keys mute (press) or solo (hold) a part.
