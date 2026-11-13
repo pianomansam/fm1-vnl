@@ -1,3 +1,4 @@
 [submodule "base"]
 	path = base
-	url = https://github.com/charlesvestal/fm1-base
+	url = https://github.com/pianomansam/fm1-base
+	branch = vnl-1
