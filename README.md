@@ -17,7 +17,7 @@ four-bar line, in time. VNL-1 is free software (GPL), built on [fm1-base](https:
 - **A lo-fi mix:** tape wobble, saturation, dust, a plate reverb, kick ducking and an occasional whole-mix stutter.
 - **Hands on:** change the key, tempo, mood or any part from the knobs, re-roll or lock a part, jump to or loop a
   section, mute and solo, and save up to 16 songs; every change lands in time.
-- **On the FM-1:** a now-playing screen, a detailed main screen, a page per part, color themes, a screen reader and
+- **On the FM-1:** a now-playing screen, a detailed main screen, a page per part, 15 color themes, a screen reader and
   USB audio in and out.
 - **For tinkerers:** a workbench web page, a host simulator that renders WAV, MIDI and MusicXML, and patterns as
   editable files.
