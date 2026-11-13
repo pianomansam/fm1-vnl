@@ -1,8 +1,8 @@
 # VNL-1
 
-A generative lo-fi groovebox for the M-VAVE FM-1. VNL-1 writes and plays its own songs, one after another: every song
+A generative lo-fi groovebox for the M-VAVE FM-1. VNL-1 writes and plays its own songs, one after another. Every song
 has its own key, tempo, chords, layout and band, played through a lo-fi
-chain of tape wobble, dust and a plate. Press PLAY and leave it running, or steer it from the FM-1's knobs: change
+chain effects. Press PLAY and leave it running, or steer it from the FM-1's knobs. Change
 the key, the tempo, the mood, any part's instrument, or jump between sections, and every change lands on the next
 four-bar line.
 
@@ -158,7 +158,10 @@ plate is adapted from AMB-1, inspired by Dattorro.
 
 ## Install (FM-1 owners)
 
-At your own risk: this replaces the FM-1's firmware. You can always go back to M-VAVE's.
+VNL-1 runs on both FM-1 versions: the original, and the units sold since autumn 2026 with a different flash chip
+(the UC25HQ80), where saving, the sample bank and updates all work.
+
+Install at your own risk. This replaces the FM-1's firmware. You can always go back to M-VAVE's.
 
 **From the browser:** open [VNL-1's site](https://pianomansam.github.io/fm1-vnl/) in Chrome or Edge, connect the
 FM-1 by USB and press Install. It writes the firmware, then offers the sample bank.

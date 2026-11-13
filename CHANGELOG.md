@@ -4,6 +4,7 @@
 
 The first public release: a generative lo-fi hip hop firmware for the M-VAVE FM-1.
 
+- **Newer FM-1 units:** runs on the units with the UC25HQ80 flash chip (sold since autumn 2026), with saving, the sample bank and updates, through fm1-base.
 - **ACCOMP:** the screens and the screen reader name the accompaniment part ACCOMP (was COMP).
 - **Endless songs:** each from a seed, with its own key, mode, tempo, chords, layout and band; a short silence, then
   the next, never with the last song's comp and lead together. 40 instrument sets in five flavors, 44 progressions,
