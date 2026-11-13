@@ -1,17 +1,16 @@
 # VNL-1
 
-A generative lo-fi DJ groovebox for the M-VAVE FM-1. Let it play in auto mode as a backdrop to your day, or be the DJ and shape your own songs.
+A generative lo-fi DJ groovebox for the M-VAVE FM-1.
 
-By default, VNL-1 writes and plays its own songs, one after another. Each one different than the last. Every song
-has its own key, tempo, chords, layout and band, played through a lo-fi
-chain effects. Press PLAY and leave it running, or steer it from the FM-1's knobs. Change
-the key, the tempo, the mood, any part's instrument, or jump between sections, and every change lands on the next
-four-bar line.
+<p align="center">
+  <img src="app/docs/img/vnl-splash.png" width="240" alt="The splash: half a turning record and the wordmark vnl-1, Generative LO-FI">
+  <img src="app/docs/img/vnl-now.png" width="240" alt="The now-playing screen: a spinning record beside the song, its key, chord, section and tempo">
+  <img src="app/docs/img/vnl-main.png" width="240" alt="The main screen: the chord and key beside half a turning record, a tile per part, and the four knobs">
+</p>
 
-VNL-1 is as an experiment in generative music using music theory concepts, applied to lo-fi hip hop, for creating relaxing radio-quality tracks.
+VNL-1 is as an experiment in generative music using music theory concepts to create relaxing, realistic lo-fi tracks. Let it play in auto mode as a backdrop to your day, or be the DJ and shape your own songs.
 
 VNL-1 is written by pianomansam, a classically-trained jazz pianist turned web developer.
-
 
 VNL-1 is free software (GPL), built on [fm1-base](https://github.com/charlesvestal/fm1-base).
 
@@ -139,8 +138,8 @@ plate is adapted from AMB-1, inspired by Dattorro.
 
 - A boot splash with a spinning record that flows into the now-playing screen: the song, its key, the chord playing,
   where it is, its tempo.
-- A main screen with the song's progress, a record turning beside the song and a tile per part; a page per part
-  for its instrument, rhythm, register and re-rolls.
+- A main screen with the song's progress and a tile per part; a page per part for its instrument, rhythm, register and
+  re-rolls.
 - A Parts screen with each part's notes scrolling over the song; a Sections screen to jump, loop a section or stay on
   the song; a Mixer with a level, mute and solo per part.
 - The keys' lights show which parts are playing; the lowest white keys mute (press) or solo (hold) a part.
