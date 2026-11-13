@@ -755,7 +755,10 @@ static void step(void)
    instrument that can't play the comp rhythm set: the rhythm back to as rolled; the felt piano, the piano and the
    vibes play the comp or the lead, never both: the other part takes another approved instrument (from the song's
    seed, as the workbench's dice would) */
-static int one_part(int ins) { return ins == INS_KNIGHT || ins == INS_FELT_PIANO || ins == INS_VIBES; }
+static int one_part(int ins)
+{
+    return ins == INS_KNIGHT || ins == INS_FELT_PIANO || ins == INS_VIBES || ins == INS_HARP;
+}
 
 static int row_other(int row, int avoid, uint32_t seed)
 {

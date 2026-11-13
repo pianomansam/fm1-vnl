@@ -29,10 +29,24 @@ static uint32_t strum_draw(const song_roll_t *r)
     return harmony_mix(rng_next(&g), r->seed, 194u, 1u);
 }
 
+/* the harp on the keys (a candidate: harmony.c's is_harp) */
+static int harp(const song_roll_t *r)
+{
+    const lib_set_t *s = lib_set_by_id((uint8_t)r->v[RF_SET]);
+    return s && s->chords == INS_HARP;
+}
+
 int strum_pattern(const song_roll_t *r, int *slow)
 {
     uint32_t h = strum_draw(r), n = 0, k, w;
     int i, p = 0, f = song_ov()->strum_pat, m = roll_motion(r);
+    if (harp(r)) {        /* the harp: the ballad or the bossa only (no up-and-down strumming, no chucks), drawn on the
+                             same hash leaning on the motion as the guitars' draw; always slow: a harp's roll */
+        uint32_t wb = motion_tilt(1, STRUM_PAT_BUSY[SP_BALLAD], m), wo = motion_tilt(1, STRUM_PAT_BUSY[SP_BOSSA], m);
+        p = f == SP_BALLAD || f == SP_BOSSA ? f : h % (wb + wo) < wb ? SP_BALLAD : SP_BOSSA;
+        if (slow) *slow = 1;
+        return p;
+    }
     for (i = 0; i < STRUM_NPAT; i++)   /* the approved, evenly, leaning on the rolled motion by busyness */
         if (STRUM_PAT_STATUS[i] == 1) n += motion_tilt(1, STRUM_PAT_BUSY[i], m);
     k = n ? h % n : 0;
@@ -346,6 +360,7 @@ int strum_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, f
     case 'P': vel = 54; lo = 2; pinch = 1; fac = 0.6f; break;
     default: vel = 54; lo = 2; thumb = pinch = 1; fac = 0.6f; break;   /* B */
     }
+    if (harp(r)) dir = 1;                                /* the harp: every stroke rolled up, low to high */
     gap = strum_gap_ms(r, slow) * fac;
     gap = slow ? (gap < 32.0f ? 32.0f : gap > 78.0f ? 78.0f : gap) : (gap < 6.0f ? 6.0f : gap > 14.0f ? 14.0f : gap);
     gap *= 44.1f;                                        /* in samples */

@@ -566,6 +566,23 @@ console.log("options.json");
           OPTS.instruments.find((i) => i.name === n).status === "approved") &&
         OPTS.instruments.find((i) => i.name === "Soft synth lead").status === "candidate",
         `the lead styles build: the lead row offers the four, the jazz guitar, the cello, the harp and the whistle (approved 2026-11-11), the soft synth lead (a candidate, round 2) (${leads.join(", ")}); the kalimba, saw lead and synth pluck retired, the Electric guitar on the keys only`);
+  {   // the harp on the keys (a candidate, 2026-11-13): offered marked, the dice skip it; its Rhythm row the comp row,
+      // held, half notes or strum (the strum patterns the engine's ballad or bossa)
+    const harp = OPTS.instruments.find((i) => i.name === "Harp").id, kst = { values: { keys: 0, lead: 8 } };
+    const ko = optionsFor(row("keys"), kst, OPTS).find((o) => o.value === harp);
+    const lo = optionsFor(row("lead"), kst, OPTS).find((o) => o.value === harp);
+    const picks = new Set(Array.from({ length: 200 }, (_, k) => pickFor(row("keys"), kst, OPTS, () => k / 200)));
+    const hc = optionsFor(row("comp"), { values: { keys: harp, comp: -1 } }, OPTS).filter((o) => !o.rolled)
+      .map((o) => o.name);
+    const { rhythmRow } = await import("../rows.js");
+    check(ko?.status === "candidate" && lo?.status === "approved" && !picks.has(harp) &&
+          rhythmRow({ values: { keys: harp, comp: -1 } }, OPTS) === "comp" &&
+          JSON.stringify(hc) === JSON.stringify(["Held", "Half notes", "Strum"]) &&
+          conflicts(row("keys"), harp, { values: { keys: 0, lead: harp }, locks: [] }, OPTS, () => 0.5).forced
+            .some((f) => f.row === "lead" && f.to !== harp),
+          `the harp on the keys: a candidate (the lead's approved), never the dice's; Rhythm ${hc.join(", ")}; ` +
+          "never the keys and the lead");
+  }
   check(retired(OPTS.instruments, ["Upright bass"]) && retired(OPTS.comping, ["Arpeggio", "Offbeats"]) &&
         retired(OPTS.kits, ["Dusty (synth)", "Soft (synth)", "Our 808"]),
         "the removed sounds are retired (upright, our synth kits, arpeggio, offbeats)");

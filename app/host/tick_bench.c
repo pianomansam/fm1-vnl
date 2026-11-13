@@ -9,7 +9,8 @@
    per step, timed alike (each step's 200 calls in a batch: the host clock's 1 us).
    A third argument forces a lead_style (override.h: 2 + LS_*, a lead style) on every song, a fourth a comping style
    (CS_*; -1 for none), held where the keys can't play it. VNL_LEAD_LOOP=1 turns the lead loop on (lead_loop 1) for
-   every song.
+   every song. VNL_KEYS=<INS_*> puts those keys in every song's set (a custom set: the harp on the keys, 32, a
+   candidate no set has).
    VNL_REQ=1 lands a row's request on every 4-bar line from bar 4 (an instrument for each part, the kit, the comp's
    rhythm, the lead's style, a mood or key; a kind a line, the next the next line), asked on the group's second bar
    (VNL_REQ_AT=k: k 16ths before the line instead, a late one); the landings' downbeats timed apart, by kind.
@@ -78,6 +79,7 @@ int main(int argc, char **argv)
     uint32_t lseed[RQ_KINDS] = {0};
     int req = getenv("VNL_REQ") && *getenv("VNL_REQ") == '1';
     int req_at = getenv("VNL_REQ_AT") ? atoi(getenv("VNL_REQ_AT")) : 0;
+    int keys = getenv("VNL_KEYS") ? atoi(getenv("VNL_KEYS")) : -1;
     uint32_t lws = 0;
     song_ov_t o = *song_ov();
     if (argc > 3) {
@@ -92,6 +94,13 @@ int main(int argc, char **argv)
         int st, rep, nt = 0, blk;
         double best = 1e9;
         roll_song(NULL, seed, &r);
+        if (keys >= 0) {                 /* VNL_KEYS: the song's set with those keys (the workbench's custom set) */
+            static lib_set_t ks;
+            ks = *lib_set_by_id((uint8_t)r.v[RF_SET]);
+            ks.chords = (uint8_t)keys;
+            lib_set_wb(&ks, (uint8_t)r.v[RF_SET]);
+            r.v[RF_SET] = LIB_SET_WB;
+        }
         st = harmony_style(&r) == CS_STRUM;
         songs[st]++;
         for (i = 0; i < 4096; i++) tk[i] = lk[i] = 1e9;

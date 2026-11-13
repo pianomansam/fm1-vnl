@@ -73,8 +73,9 @@ int ch_is_retired(int row, int value);            /* retired or removed */
 /* a choice fits the comp instrument keys_ins: a comping style (ROW_COMP) iff (!keys || keys contains it) and
    !(notKeys contains it) (rows.json's fits.comping); every other row's always */
 int ch_fits(int row, int value, int keys_ins);
-/* rows.js's rhythmRow: ROW_STRUM_PAT when the strum style fits keys_ins and comp (a ROW_COMP value) is as
-   rolled, strum or a style that fits; else ROW_COMP */
+/* rows.js's rhythmRow: ROW_STRUM_PAT when keys_ins only strums (the strum style fits it, no comp
+   rhythm does: the guitars) and comp (a ROW_COMP value) is as rolled, strum or a style that fits; else
+   ROW_COMP */
 int ch_rhythm_row(int keys_ins, int comp);
 /* each row's request on the song (song.h's song_request_row: SR_ROLL + RF_*, SR_ROLE + V_*, SR_OV + OV_*,
    SR_KIT), -1 where it takes none. The comp row's value is the workbench's: a comp rhythm (from 100) is the

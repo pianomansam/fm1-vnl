@@ -108,6 +108,12 @@ int harmony_chord_at(const song_roll_t *r, int bar, int pass, int dark, int *pcs
 
 static int is_guitar(int ins) { return ins == INS_NYLON || ins == INS_EMILY; }
 
+/* The harp on the keys (a candidate, 2026-11-13: Sam, "re-use the guitar strumming ... or just rolled piano chords"):
+   half its songs strum (strum.c: the ballad or the bossa only, every stroke rolled up), half roll their chords on held
+   or half notes (harmony_step: low to high, 25-60 ms a note). The split is its own hash of the seed: no draw moves. */
+static int is_harp(int ins) { return ins == INS_HARP; }
+static int harp_strums(uint32_t seed) { return (int)(mix(seed, 203u, 1u, 203u) >> 16 & 1u); }
+
 /* the keys ins (an INS_*, INS_NONE at most: under 32) play COMP's row i (its keys, patterns/comp-rhythms) */
 /* (keys: a 32-bit mask of keys instruments; an id past it, a candidate lead's, plays the rows for all keys, CK_ALL) */
 static int row_ok(int ins, int i) { return ins >= 0 && (ins < 32 ? COMP[i].keys >> ins & 1u : COMP[i].keys == CK_ALL); }
@@ -143,13 +149,14 @@ static int row_draw(int ins, uint32_t seed, int motion)
 
 int harmony_style_ins(int ins, uint32_t seed, int motion)
 {
-    return is_guitar(ins) ? CS_STRUM : COMP[row_draw(ins, seed, motion)].style;
+    return is_guitar(ins) || (is_harp(ins) && harp_strums(seed)) ? CS_STRUM : COMP[row_draw(ins, seed, motion)].style;
 }
 
 int harmony_comp_ok(int ins, int cs)
 {
     int i, ok = -1;
     if (is_guitar(ins)) return cs == CS_STRUM;          /* the guitars only strum */
+    if (is_harp(ins)) return cs == CS_STRUM || cs == CS_HELD || cs == CS_HALF;   /* the harp: strum, or roll held */
     for (i = 0; i < COMP_N; i++)                        /* a rhythm: the keys its row names (CS_PAT: any added one's) */
         if (COMP[i].style == cs) ok = ok > 0 || row_ok(ins, i);
     if (ok >= 0) return ok;
@@ -187,6 +194,7 @@ int harmony_comp_row(const song_roll_t *r)
             if (COMP[i].style == cs) return i;
         return -1;                        /* offbeats, the arpeggio, strum: their own code */
     }
+    if (is_harp(ins) && harp_strums(r->seed)) return -1;   /* (a strummed harp) */
     return row_draw(ins, r->seed, roll_motion(r));   /* the rolled motion: a live Motion request leaves it */
 }
 
@@ -195,7 +203,7 @@ static int row_style(const song_roll_t *r, int row)
     const lib_set_t *s;
     if (row >= 0) return COMP[row].style;
     s = lib_set_by_id((uint8_t)r->v[RF_SET]);
-    return s && is_guitar(s->chords) ? CS_STRUM : song_ov()->comp;
+    return s && (is_guitar(s->chords) || (is_harp(s->chords) && song_ov()->comp < 0)) ? CS_STRUM : song_ov()->comp;
 }
 
 /* (never inlined: called from six places here, it would grow each; flash is tight) */
@@ -536,6 +544,12 @@ static int emit_chord(const int *notes, int n, uint32_t gap, int lo, int hi, uin
     return cnt;
 }
 
+static int keys_harp(const song_roll_t *r)
+{
+    const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
+    return set && is_harp(set->chords);
+}
+
 static int keys_sustained(const song_roll_t *r)
 {
     const lib_set_t *set = lib_set_by_id((uint8_t)r->v[RF_SET]);
@@ -753,6 +767,8 @@ int harmony_step(const song_roll_t *r, const plan_block_t *b, int bar, int step,
     /* every keys instrument strikes its chord together, 0-8 ms in all (Sam, 2026-11-06: "no roll", after the Rhodes'
        10-60 ms a note smeared a tresillo; the piano and the vibes struck together already) */
     gap = (mix(salt, (uint32_t)bar, r->seed, 50) % 9u) * 441u / 10u / 3u;
+    if (keys_harp(r))                     /* the harp rolls its chords, low to high: 25-60 ms a note */
+        gap = (25u + mix(salt, (uint32_t)bar, r->seed, 51) % 36u) * 441u / 10u;
     if (later < 100) {                    /* a rhythm's later strikes (half notes' beat 3, held on 2 and 4's beat 4):
                                              softer than the first (the same draw) */
         int c = emit_chord(notes, nn, gap, lo, hi, len, dark, salt, bar, first, out, max), i;

@@ -679,6 +679,10 @@ static float keys_gain(const song_roll_t *r)
                                      the motor on): +0.5 dB, the pad layer's chord part 7.8-9.5 dB under them, the
                                      lead 4.6-6.0 over them by set (test_lead_over_keys, test_pad_level; 2026-11-05) */
         db += 0.5f;
+    if (ins == INS_HARP)          /* the harp on the keys (a candidate): strummed +0.75 dB, rolled and held -0.5, its
+                                     level the Rhodes' within 0.5 dB (song_test's test_harp_keys; half notes as they
+                                     are) */
+        db += style == CS_STRUM ? 0.75f : style == CS_HELD ? -0.5f : 0.0f;
     return fm_db2lin(db);
 }
 

@@ -140,7 +140,8 @@ def choices(row, opts):
         return [(v, n.upper(), 0, 0, None, None) for v, n in plain]
     if src == "instruments":
         role = {"CHORD": "keys", "LEAD": "lead", "BASS": "bass", "PAD": "pad"}[row["role"]]
-        return [(i["id"], ((row["role"] == "BASS" and i.get("short")) or i["name"]).upper(), ST[i["status"]],
+        return [(i["id"], ((row["role"] == "BASS" and i.get("short")) or i["name"]).upper(),
+                 ST[i.get("roleStatus", {}).get(role, i["status"])],   # (one role's status: the harp's keys)
                  FAM[i.get("family")] << 4, None, None) for i in opts["instruments"] if role in i["roles"]]
     if src == "comping":
         out.append(rolled + (None, None))
@@ -192,8 +193,8 @@ def choices(row, opts):
 def mask(ids, what):
     m = 0
     for i in ids:
-        if not 0 <= i < 32:
-            raise Refused(f"{what}: instrument {i} doesn't fit a 32-bit mask")
+        if not 0 <= i < 64:
+            raise Refused(f"{what}: instrument {i} doesn't fit a 64-bit mask")
         m |= 1 << i
     return m
 
@@ -258,8 +259,13 @@ def gen_choices(rows, opts, shown):
     strum = next(c for c in opts["comping"] if c["sym"] == fits["rhythmRow"]["strumSym"])
     ids = {r["id"]: i for i, r in enumerate(rows)}
     first, n = spans[comp_row]
-    fit_masks = [(mask(e[3], "comping") if e[3] is not None else 0xFFFFFFFF, mask(e[4] or [], "comping"))
+    fit_masks = [(mask(e[3], "comping") if e[3] is not None else 0xFFFFFFFFFFFFFFFF, mask(e[4] or [], "comping"))
                  for e in entries[first:first + n]]
+    def fits_ins(c, i):
+        return (c.get("keys") is None or i in c["keys"]) and i not in (c.get("notKeys") or [])
+    # the instruments that only strum (the guitars): the strum fits them and no comp rhythm does (rows.js's rhythmRow)
+    strum_only = mask([i["id"] for i in opts["instruments"] if fits_ins(strum, i["id"]) and not any(
+        fits_ins(c, i["id"]) for c in opts.get("compRhythms", []) if c["status"] != "removed")], "comping")
     h = [HEAD, "#ifndef UI_CHOICES_GEN_H\n#define UI_CHOICES_GEN_H\n#include <stdint.h>\n\n",
          "/* The rows, in workbench/rows.json's order, then the screens' own (rhythm: the Comp part's one Rhythm row, comp\n"
          "   or strumPat as ch_rhythm_row says; loop: the Loop section switch). A row's value is the workbench's (a kick\n"
@@ -281,8 +287,9 @@ def gen_choices(rows, opts, shown):
          "/* a choice fits the comp instrument keys_ins: a comping style (ROW_COMP) iff (!keys || keys contains it) and\n"
          "   !(notKeys contains it) (rows.json's fits.comping); every other row's always */\n",
          "int ch_fits(int row, int value, int keys_ins);\n",
-         "/* rows.js's rhythmRow: ROW_STRUM_PAT when the strum style fits keys_ins and comp (a ROW_COMP value) is as\n"
-         "   rolled, strum or a style that fits; else ROW_COMP */\n",
+         "/* rows.js's rhythmRow: ROW_STRUM_PAT when keys_ins only strums (the strum style fits it, no comp\n"
+         "   rhythm does: the guitars) and comp (a ROW_COMP value) is as rolled, strum or a style that fits; else\n"
+         "   ROW_COMP */\n",
          "int ch_rhythm_row(int keys_ins, int comp);\n",
          "/* each row's request on the song (song.h's song_request_row: SR_ROLL + RF_*, SR_ROLE + V_*, SR_OV + OV_*,\n"
          "   SR_KIT), -1 where it takes none. The comp row's value is the workbench's: a comp rhythm (from 100) is the\n"
@@ -297,8 +304,9 @@ def gen_choices(rows, opts, shown):
          "".join(f"    {{{v}, {fl}, {nm}}},\n" for v, nm, fl, _, _ in entries) + "};\n",
          f"static const uint8_t CH_SPAN[ROW_N][2] = {{\n" + "".join(f"    {{{a}, {b}}},   /* {r['id']} */\n"
                                                                 for (a, b), r in zip(spans, rows)) + "};\n",
-         f"static const uint32_t CH_COMP_FIT[{max(1, n)}][2] = {{\n" +
-         "".join(f"    {{{a}u, {b}u}},\n" for a, b in fit_masks) + "};\n\n",
+         f"static const uint64_t CH_COMP_FIT[{max(1, n)}][2] = {{\n" +
+         "".join(f"    {{{a}ull, {b}ull}},\n" for a, b in fit_masks) + "};\n",
+         f"static const uint64_t CH_STRUM_ONLY = {strum_only}ull;   /* the instruments that only strum */\n\n",
          "static int find(int row, int value) {\n"
          "    if (row < 0 || row >= ROW_N) return -1;\n"
          "    for (int i = 0; i < CH_SPAN[row][1]; i++)\n"
@@ -328,14 +336,16 @@ def gen_choices(rows, opts, shown):
          "    return i < 0 ? -1 : CH_E[i].flags;\n}\n"
          "int ch_is_retired(int row, int value) { int f = ch_flags(row, value); return f >= 0 && CH_STATUS(f) >= 2; }\n\n"
          "int ch_fits(int row, int value, int keys_ins) {\n"
-         f"    if (row != ROW_{ident(rows[comp_row]['id'])} || keys_ins < 0 || keys_ins >= 32) return 1;\n"
+         f"    if (row != ROW_{ident(rows[comp_row]['id'])} || keys_ins < 0 || keys_ins >= 64) return 1;\n"
          "    int i = find(row, value);\n"
          "    if (i < 0) return 1;\n"
          "    i -= CH_SPAN[row][0];\n"
          "    return ((CH_COMP_FIT[i][0] >> keys_ins) & 1u) && !((CH_COMP_FIT[i][1] >> keys_ins) & 1u);\n}\n\n"
          "int ch_rhythm_row(int keys_ins, int comp) {\n"
          f"    const int comp_row = ROW_{ident(rows[comp_row]['id'])}, strum = {strum['id']};\n"
-         f"    if (!ch_fits(comp_row, strum, keys_ins)) return ROW_{ident(fits['rhythmRow']['compRow'])};\n"
+         "    if (!ch_fits(comp_row, strum, keys_ins) || keys_ins < 0 || keys_ins >= 64 ||\n"
+         "        !((CH_STRUM_ONLY >> keys_ins) & 1u))\n"
+         f"        return ROW_{ident(fits['rhythmRow']['compRow'])};\n"
          "    if (comp >= 0 && find(comp_row, comp) >= 0 && comp != strum && !ch_fits(comp_row, comp, keys_ins))\n"
          f"        return ROW_{ident(fits['rhythmRow']['compRow'])};\n"
          f"    return ROW_{ident(fits['rhythmRow']['strumRow'])};\n}}\n"]

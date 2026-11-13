@@ -13866,6 +13866,218 @@ static void test_start_kit(void)
     song_start(&s, &r);
 }
 
+/* The harp on the keys (a candidate, 2026-11-13; harmony.c's is_harp): on a set whose keys are the harp (a custom set:
+   no set has it), half the songs strum (strum.c: the ballad or the bossa, nothing else, always slow; every stroke's
+   strings low to high, 30-80 ms apart, no chuck), half roll their chords on held or half notes (low to high, 25-60 ms
+   a note). The workbench's comp override forces either (strum; held, half: a rhythm the harp can't play holds); a
+   forced strum pattern other than the two plays the harp's draw. Its octave: each zone sounds its root (its energy at
+   the root's fundamental, none an octave under it), and the comp's notes sit in a concert harp's middle (C3-E5 of its
+   C1-G7). Its level on the keys (strummed and rolled, as the song plays them) within 1.5 dB of the Rhodes' in the same
+   songs (test_samp's measure: the keys' bars' mean energy). */
+static double hk_goertzel(const float *x, uint32_t n, float hz)
+{
+    double w = 2.0 * 3.14159265358979 * (double)hz / 44100.0, c = 2.0 * cos(w), s0, s1 = 0.0, s2 = 0.0;
+    uint32_t i;
+    for (i = 0; i < n; i++) {
+        s0 = (double)x[i] * (0.5 - 0.5 * cos(2.0 * 3.14159265358979 * (double)i / (double)n)) + c * s1 - s2;
+        s2 = s1;
+        s1 = s0;
+    }
+    return s1 * s1 + s2 * s2 - c * s1 * s2;
+}
+
+static lib_set_t hk_set;
+/* r on set base's instruments with the harp on the keys (LIB_SET_WB) */
+static void hk_harp(song_roll_t *r, int base)
+{
+    hk_set = *lib_set_by_id((uint8_t)base);
+    hk_set.chords = INS_HARP;
+    hk_set.id = LIB_SET_WB;
+    lib_set_wb(&hk_set, (uint8_t)base);
+    r->v[RF_SET] = LIB_SET_WB;
+}
+
+/* the song's keys events, strike by strike (a 16th's V_CHORD events): the gaps between a strike's notes in order of
+   their start (*glo, *ghi: the least and most, samples), notes not rising (*down), chucks (*chuck); the lowest and
+   highest note */
+static void hk_strikes(const song_roll_t *r, uint32_t *glo, uint32_t *ghi, int *down, int *chuck, int *lo, int *hi,
+                       int *strikes)
+{
+    static song_t s;
+    song_ev_t ev[64];
+    *glo = 1u << 30;
+    *ghi = 0u;
+    *down = *chuck = *strikes = 0;
+    song_start(&s, r);
+    while (s.state == SS_PLAYING) {
+        int n = song_tick(&s, ev, 64), i, last = -1, k = 0;
+        for (i = 0; i < n; i++) {
+            if (ev[i].voice != V_CHORD) continue;
+            *lo = ev[i].note < *lo ? ev[i].note : *lo;
+            *hi = ev[i].note > *hi ? ev[i].note : *hi;
+            *chuck += ev[i].pad & 1;
+            if (last >= 0) {
+                uint32_t g = ev[i].delay - ev[last].delay;
+                *glo = g < *glo ? g : *glo;
+                *ghi = g > *ghi ? g : *ghi;
+                *down += ev[i].note <= ev[last].note;
+            }
+            last = i;
+            k++;
+        }
+        *strikes += k > 1;
+    }
+}
+
+static void test_harp_keys(void)
+{
+    static const int BASES[3] = {7, 41, 1};   /* Felt and flute, Felt and harp's keys (the lead the harp: here the
+                                                 keys' rules only), Rhodes dusty */
+    int seed, strums = 0, n = 0, pat[SP_N] = {0}, lo = 127, hi = 0, k;
+    double lv[3] = {0.0, 0.0, 0.0};
+    int lvn[3] = {0, 0, 0};
+    song_ov_t o = ov_none();
+    /* the octave: every zone's root fundamental present, nothing an octave under it (an octave error either way) */
+    {
+        const smp_bank_t *b = smp_bank(SB_HARP);
+        for (k = 0; b && k < b->n; k++) {
+            smp_voice_t v;
+            float hz = 440.0f * fm_exp2f(((float)b->z[k].root - 69.0f) / 12.0f);
+            double f0, sub, f2;
+            v.dv = 1.0f;
+            samp_start(&v, vx_patch(INS_HARP), (float)b->z[k].root, 0.8f);
+            sp_run(&v, sp_a, 22050u);
+            f0 = hk_goertzel(sp_a + 2205, 16384u, hz);
+            sub = hk_goertzel(sp_a + 2205, 16384u, 0.5f * hz);
+            f2 = hk_goertzel(sp_a + 2205, 16384u, 2.0f * hz);
+            printf("harp keys: zone %d (MIDI %d, %.1f Hz): the fundamental %+.1f dB, an octave under %+.1f, an octave "
+                   "over %+.1f (from the fundamental)\n", k, b->z[k].root, (double)hz, 0.0,
+                   10.0 * log10(sub / f0 + 1e-30), 10.0 * log10(f2 / f0 + 1e-30));
+            CHECK(sub < 0.01 * f0 && f0 > 0.1 * f2, "harp keys: zone %d (MIDI %d) not at its root's octave", k,
+                  b->z[k].root);
+        }
+    }
+    for (seed = 1; seed <= 400; seed++) {
+        song_roll_t r;
+        int slow, p, st;
+        roll_song(NULL, (uint32_t)seed, &r);
+        hk_harp(&r, BASES[seed % 3]);
+        st = harmony_style(&r);
+        n++;
+        if (st == CS_STRUM) {
+            strums++;
+            p = strum_pattern(&r, &slow);
+            pat[p]++;
+            CHECK((p == SP_BALLAD || p == SP_BOSSA) && slow, "harp keys: seed %d strums pattern %d (slow %d)", seed, p,
+                  slow);
+        } else
+            CHECK(st == CS_HELD || st == CS_HALF, "harp keys: seed %d rolls comping style %d", seed, st);
+        if (seed <= 24) {      /* the strikes: rolled up, the gaps in range, no chuck */
+            uint32_t glo, ghi;
+            int down, chuck, ns;
+            hk_strikes(&r, &glo, &ghi, &down, &chuck, &lo, &hi, &ns);
+            if (st == CS_STRUM)
+                CHECK(!down && !chuck && glo >= 1323u && ghi <= 3528u + 90u, "harp keys: seed %d strums %d down, %d "
+                      "chucks, gaps %.1f-%.1f ms", seed, down, chuck, (double)glo / 44.1, (double)ghi / 44.1);
+            else
+                CHECK(!down && !chuck && glo >= 1102u && ghi <= 2646u, "harp keys: seed %d rolls %d down, gaps "
+                      "%.1f-%.1f ms", seed, down, (double)glo / 44.1, (double)ghi / 44.1);
+            CHECK(ns > 0, "harp keys: seed %d: no strike of two notes or more", seed);
+        }
+    }
+    printf("harp keys: %d of %d songs strum (ballad %d, bossa %d), the rest roll held or half notes; its notes "
+           "MIDI %d-%d\n", strums, n, pat[SP_BALLAD], pat[SP_BOSSA], lo, hi);
+    CHECK(strums * 100 >= n * 40 && strums * 100 <= n * 60, "harp keys: %d of %d strum, wanted about half", strums, n);
+    CHECK(pat[SP_BALLAD] > strums / 4 && pat[SP_BOSSA] > strums / 4, "harp keys: ballad %d, bossa %d", pat[SP_BALLAD],
+          pat[SP_BOSSA]);
+    CHECK(lo >= 48 && hi <= 79, "harp keys: notes MIDI %d-%d, outside C3-G5 (a concert harp's middle)", lo, hi);
+    /* the overrides: strum, held, half forced; another rhythm holds; a guitar's pattern forced plays the harp's */
+    {
+        song_roll_t r;
+        int slow;
+        roll_song(NULL, 3u, &r);
+        hk_harp(&r, 7);
+        o.comp = CS_STRUM;
+        song_override(&o);
+        CHECK(harmony_style(&r) == CS_STRUM, "harp keys: a forced strum");
+        o.strum_pat = SP_DDU;
+        song_override(&o);
+        k = strum_pattern(&r, &slow);
+        CHECK(k == SP_BALLAD || k == SP_BOSSA, "harp keys: d-du-udu forced plays %d", k);
+        o.strum_pat = SP_BOSSA;
+        song_override(&o);
+        CHECK(strum_pattern(&r, &slow) == SP_BOSSA && slow, "harp keys: the bossa forced");
+        o.strum_pat = -1;
+        o.comp = CS_HALF;
+        song_override(&o);
+        CHECK(harmony_style(&r) == CS_HALF, "harp keys: half notes forced");
+        o.comp = CS_HELD2;
+        song_override(&o);
+        CHECK(harmony_style(&r) == CS_HELD, "harp keys: held on 2 forced holds");
+        o.comp = CS_STABS;
+        song_override(&o);
+        CHECK(harmony_style(&r) == CS_HELD, "harp keys: stabs forced hold");
+        o.comp = -1;
+        o.comp_pat = 1;
+        song_override(&o);
+        CHECK(harmony_comp_pat(&r) < 0, "harp keys: a comp rhythm forced plays as rolled");
+        o = ov_none();
+        song_override(NULL);
+    }
+    /* the level: the harp strummed, rolled held and rolled half notes against the Rhodes as rolled, in Rhodes dusty
+       songs (the keys bus soloed, the glue and the bed off) */
+    {
+        uint32_t s;
+        int got = 0;
+        for (s = 1u; got < 4 && s < 600u; s++) {
+            song_roll_t r, h;
+            float ref;
+            roll_song(NULL, s, &r);
+            if (roll_set(&r, RF_SET, 1) != 1) continue;
+            got++;
+            o = ov_none();
+            o.lead_loop = 0;
+            song_override(&o);
+            ref = sp_lk_mean(&r, V_CHORD, INS_NONE, INS_NONE);
+            for (k = 0; k < 3; k++) {
+                static const int8_t CS3[3] = {CS_STRUM, CS_HELD, CS_HALF};
+                h = r;
+                hk_harp(&h, 1);
+                o.comp = CS3[k];
+                song_override(&o);
+                lv[k] += (double)(sp_lk_mean(&h, V_CHORD, INS_NONE, INS_NONE) - ref);
+                lvn[k]++;
+            }
+            song_override(NULL);
+        }
+        for (k = 0; k < 3; k++) {
+            lv[k] /= lvn[k] ? lvn[k] : 1;
+            printf("harp keys: %s %+.2f dB from the Rhodes (as rolled), %d songs\n",
+                   k == 0 ? "strummed" : k == 1 ? "rolled, held" : "rolled, half notes", lv[k], lvn[k]);
+            CHECK(lv[k] >= -1.5 && lv[k] <= 1.5, "harp keys: style %d %+.2f dB from the Rhodes", k, lv[k]);
+        }
+    }
+    /* the voices: a strum's strings each on a voice of their own, a rolled chord's 4 notes: no ringing voice stolen */
+    {
+        int peak = 0, pk;
+        uint32_t stl = 0;
+        for (seed = 1; seed <= 6; seed++) {
+            song_roll_t r;
+            roll_song(NULL, (uint32_t)seed, &r);
+            hk_harp(&r, 7);
+            o = ov_none();
+            o.comp = seed & 1 ? CS_STRUM : CS_HALF;
+            song_override(&o);
+            stl += st_render(&r, &pk);
+            peak = pk > peak ? pk : peak;
+        }
+        song_override(NULL);
+        printf("harp keys: 6 renders (24 bars each): %u chord voices stolen, %d voices (all roles) at most\n",
+               (unsigned)stl, peak);
+    }
+    lib_set_wb(NULL, 0);
+}
+
 int main(int argc, char **argv)
 {
     const char *only = argc > 1 ? argv[1] : NULL;
@@ -14014,6 +14226,7 @@ int main(int argc, char **argv)
     RUN(test_samples_bank);
     RUN(test_samp_seams);
     RUN(test_samp);
+    RUN(test_harp_keys);
     RUN(test_comp_styles);
     RUN(test_drums_blocks);
     RUN(test_drums_hook);

@@ -16,6 +16,7 @@ const char CH_STR[1313] =
     "ORGAN\000"
     "PIANO\000"
     "ELECTRIC GUITAR\000"
+    "HARP\000"
     "AS ROLLED\000"
     "HELD\000"
     "HALF NOTES\000"
@@ -38,7 +39,6 @@ const char CH_STR[1313] =
     "SYNTH CELLO\000"
     "JAZZ GUITAR\000"
     "CELLO\000"
-    "HARP\000"
     "WHISTLE\000"
     "SOFT SYNTH LEAD\000"
     "ELECTRIC\000"
@@ -172,7 +172,7 @@ const int8_t CH_SONG_ROW[ROW_N] = {
 };
 const char *const CH_ROW_ID[ROW_N] = {"seed", "key", "mode", "tempo", "swing", "mood", "motion", "map", "prog", "color", "family", "keys", "comp", "lead", "bass", "pad", "padOn", "phrase", "leadStyle", "leadLoop", "leadOct", "busyThin", "keysWith", "voicings", "keysOct", "strumPat", "strumFill", "padPlace", "bassLine", "padNotes", "drumsVar", "kit", "pattern", "kick", "ride", "dust", "noise", "ambience", "rhythm", "loop", "endless"};
 typedef struct { int8_t value; uint8_t flags; uint16_t name; } ch_entry_t;   /* 4 bytes */
-static const ch_entry_t CH_E[151] = {
+static const ch_entry_t CH_E[152] = {
     {0, 0, 0},
     {1, 0, 5},
     {2, 0, 10},
@@ -184,32 +184,33 @@ static const ch_entry_t CH_E[151] = {
     {18, 48, 66},
     {25, 16, 72},
     {26, 16, 78},
-    {-1, 8, 94},
-    {0, 0, 104},
-    {4, 0, 109},
-    {1, 0, 120},
-    {6, 0, 126},
-    {8, 0, 136},
-    {100, 0, 152},
-    {101, 0, 163},
-    {102, 0, 172},
-    {2, 2, 181},
-    {3, 2, 190},
-    {5, 0, 199},
-    {7, 3, 205},
-    {9, 4, 219},
+    {32, 17, 94},
+    {-1, 8, 99},
+    {0, 0, 109},
+    {4, 0, 114},
+    {1, 0, 125},
+    {6, 0, 131},
+    {8, 0, 141},
+    {100, 0, 157},
+    {101, 0, 168},
+    {102, 0, 177},
+    {2, 2, 186},
+    {3, 2, 195},
+    {5, 0, 204},
+    {7, 3, 210},
+    {9, 4, 224},
     {2, 16, 32},
-    {8, 16, 239},
-    {9, 18, 245},
-    {10, 18, 259},
+    {8, 16, 244},
+    {9, 18, 250},
+    {10, 18, 264},
     {11, 48, 60},
-    {13, 50, 263},
+    {13, 50, 268},
     {25, 16, 72},
-    {27, 34, 275},
-    {28, 18, 287},
-    {30, 48, 299},
-    {31, 16, 311},
-    {32, 16, 317},
+    {27, 34, 280},
+    {28, 18, 292},
+    {30, 48, 304},
+    {31, 16, 316},
+    {32, 16, 94},
     {33, 16, 322},
     {34, 33, 330},
     {6, 48, 346},
@@ -220,10 +221,10 @@ static const ch_entry_t CH_E[151] = {
     {23, 16, 371},
     {24, 32, 56},
     {29, 64, 379},
-    {-1, 8, 94},
+    {-1, 8, 99},
     {0, 0, 383},
     {1, 0, 387},
-    {-1, 8, 94},
+    {-1, 8, 99},
     {0, 2, 390},
     {1, 2, 405},
     {2, 0, 412},
@@ -238,17 +239,17 @@ static const ch_entry_t CH_E[151] = {
     {0, 0, 383},
     {1, 0, 387},
     {-1, 0, 506},
-    {0, 8, 94},
+    {0, 8, 99},
     {1, 0, 521},
     {0, 0, 387},
     {1, 0, 383},
-    {-1, 8, 94},
+    {-1, 8, 99},
     {0, 0, 534},
     {1, 0, 547},
     {-1, 0, 506},
-    {0, 8, 94},
+    {0, 8, 99},
     {1, 0, 521},
-    {-1, 8, 94},
+    {-1, 8, 99},
     {0, 0, 561},
     {1, 0, 570},
     {2, 0, 576},
@@ -256,7 +257,7 @@ static const ch_entry_t CH_E[151] = {
     {4, 0, 589},
     {5, 0, 603},
     {6, 0, 619},
-    {7, 0, 152},
+    {7, 0, 157},
     {8, 1, 632},
     {9, 1, 643},
     {10, 1, 660},
@@ -266,7 +267,7 @@ static const ch_entry_t CH_E[151] = {
     {-1, 8, 498},
     {0, 0, 723},
     {1, 0, 733},
-    {-1, 8, 94},
+    {-1, 8, 99},
     {0, 0, 739},
     {1, 0, 547},
     {2, 0, 754},
@@ -307,7 +308,7 @@ static const ch_entry_t CH_E[151] = {
     {7, 0, 1227},
     {8, 0, 1234},
     {9, 0, 1241},
-    {-1, 8, 94},
+    {-1, 8, 99},
     {0, 0, 1249},
     {1, 0, 1254},
     {2, 0, 1265},
@@ -337,53 +338,54 @@ static const uint8_t CH_SPAN[ROW_N][2] = {
     {0, 0},   /* prog */
     {0, 3},   /* color */
     {3, 0},   /* family */
-    {3, 8},   /* keys */
-    {11, 14},   /* comp */
-    {25, 14},   /* lead */
-    {39, 4},   /* bass */
-    {43, 4},   /* pad */
-    {47, 3},   /* padOn */
-    {50, 0},   /* phrase */
-    {50, 11},   /* leadStyle */
-    {61, 3},   /* leadLoop */
-    {64, 3},   /* leadOct */
-    {67, 2},   /* busyThin */
-    {69, 3},   /* keysWith */
-    {72, 0},   /* voicings */
-    {72, 3},   /* keysOct */
-    {75, 15},   /* strumPat */
-    {90, 3},   /* strumFill */
-    {93, 4},   /* padPlace */
-    {97, 0},   /* bassLine */
-    {97, 0},   /* padNotes */
-    {97, 0},   /* drumsVar */
-    {97, 18},   /* kit */
-    {115, 9},   /* pattern */
-    {124, 10},   /* kick */
-    {134, 4},   /* ride */
-    {138, 4},   /* dust */
-    {142, 3},   /* noise */
-    {145, 2},   /* ambience */
-    {147, 0},   /* rhythm */
-    {147, 2},   /* loop */
-    {149, 2},   /* endless */
+    {3, 9},   /* keys */
+    {12, 14},   /* comp */
+    {26, 14},   /* lead */
+    {40, 4},   /* bass */
+    {44, 4},   /* pad */
+    {48, 3},   /* padOn */
+    {51, 0},   /* phrase */
+    {51, 11},   /* leadStyle */
+    {62, 3},   /* leadLoop */
+    {65, 3},   /* leadOct */
+    {68, 2},   /* busyThin */
+    {70, 3},   /* keysWith */
+    {73, 0},   /* voicings */
+    {73, 3},   /* keysOct */
+    {76, 15},   /* strumPat */
+    {91, 3},   /* strumFill */
+    {94, 4},   /* padPlace */
+    {98, 0},   /* bassLine */
+    {98, 0},   /* padNotes */
+    {98, 0},   /* drumsVar */
+    {98, 18},   /* kit */
+    {116, 9},   /* pattern */
+    {125, 10},   /* kick */
+    {135, 4},   /* ride */
+    {139, 4},   /* dust */
+    {143, 3},   /* noise */
+    {146, 2},   /* ambience */
+    {148, 0},   /* rhythm */
+    {148, 2},   /* loop */
+    {150, 2},   /* endless */
 };
-static const uint32_t CH_COMP_FIT[14][2] = {
-    {4294967295u, 0u},
-    {4294967295u, 67108872u},
-    {4294967295u, 67108872u},
-    {33554432u, 0u},
-    {33556485u, 0u},
-    {33556485u, 0u},
-    {33556485u, 0u},
-    {33556485u, 0u},
-    {33556485u, 0u},
-    {4294967295u, 67108872u},
-    {4294967295u, 67108872u},
-    {67108872u, 0u},
-    {4294967295u, 0u},
-    {33556485u, 0u},
+static const uint64_t CH_COMP_FIT[14][2] = {
+    {18446744073709551615ull, 0ull},
+    {18446744073709551615ull, 67108872ull},
+    {18446744073709551615ull, 67108872ull},
+    {33554432ull, 0ull},
+    {33556485ull, 0ull},
+    {33556485ull, 0ull},
+    {33556485ull, 0ull},
+    {33556485ull, 0ull},
+    {33556485ull, 0ull},
+    {18446744073709551615ull, 4362076168ull},
+    {18446744073709551615ull, 4362076168ull},
+    {4362076168ull, 0ull},
+    {18446744073709551615ull, 0ull},
+    {33556485ull, 0ull},
 };
+static const uint64_t CH_STRUM_ONLY = 67108872ull;   /* the instruments that only strum */
 
 static int find(int row, int value) {
     if (row < 0 || row >= ROW_N) return -1;
@@ -424,7 +426,7 @@ int ch_flags(int row, int value)
 int ch_is_retired(int row, int value) { int f = ch_flags(row, value); return f >= 0 && CH_STATUS(f) >= 2; }
 
 int ch_fits(int row, int value, int keys_ins) {
-    if (row != ROW_COMP || keys_ins < 0 || keys_ins >= 32) return 1;
+    if (row != ROW_COMP || keys_ins < 0 || keys_ins >= 64) return 1;
     int i = find(row, value);
     if (i < 0) return 1;
     i -= CH_SPAN[row][0];
@@ -433,7 +435,9 @@ int ch_fits(int row, int value, int keys_ins) {
 
 int ch_rhythm_row(int keys_ins, int comp) {
     const int comp_row = ROW_COMP, strum = 5;
-    if (!ch_fits(comp_row, strum, keys_ins)) return ROW_COMP;
+    if (!ch_fits(comp_row, strum, keys_ins) || keys_ins < 0 || keys_ins >= 64 ||
+        !((CH_STRUM_ONLY >> keys_ins) & 1u))
+        return ROW_COMP;
     if (comp >= 0 && find(comp_row, comp) >= 0 && comp != strum && !ch_fits(comp_row, comp, keys_ins))
         return ROW_COMP;
     return ROW_STRUM_PAT;

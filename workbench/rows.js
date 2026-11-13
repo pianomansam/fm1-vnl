@@ -28,14 +28,16 @@ export const SECTIONS = DATA.sections;
 export const sectionOf = (id) => SECTIONS.find((s) => s.main.includes(id) || s.more.includes(id));
 
 // The Comp part's one Rhythm row (Sam, 2026-11-05): the comp rhythms (the comp row) on keys, the strum patterns (the
-// strumPat row) on the guitars, which only strum. The page shows the row this names and hides the other; both stay
+// strumPat row) on the guitars, which only strum (keys that also strum, the harp, keep the comp row: strum is one of
+// its choices there). The page shows the row this names and hides the other; both stay
 // rows of their own (their overrides, locks and snapshot values unchanged). A comp rhythm a guitar can't play, left by a
 // snapshot or the engine, keeps the comp row in view (greyed, open to change).
 const RR = DATA.fits.rhythmRow;   // { strumSym, compRow, strumRow }
 export const RHYTHM_ROWS = [RR.compRow, RR.strumRow];
 export function rhythmRow(state, opts) {
   const strum = opts.comping.find((c) => c.sym === RR.strumSym), v = state.values;
-  if (!strum || !compFits(strum, v.keys)) return RR.compRow;
+  if (!strum || !compFits(strum, v.keys) ||
+      (opts.compRhythms || []).some((c) => c.status !== "removed" && compFits(c, v.keys))) return RR.compRow;
   const c = v.comp >= 0 ? compOption(opts, v.comp) : null;
   return c && c.sym !== RR.strumSym && !compFits(c, v.keys) ? RR.compRow : RR.strumRow;
 }
@@ -69,8 +71,9 @@ const ROLLED = { value: -1, name: "As rolled", rolled: true };   // the engine's
 const ROLE = { CHORD: "keys", LEAD: "lead", BASS: "bass", PAD: "pad" };
 // INS_KNIGHT, INS_FELT_PIANO: one per song, keys or lead (Sam; the felt never leads over itself, 2026-10-29). (The
 // Emilyguitar plays the keys only since the lead styles build.)
-// INS_VIBES too (on the keys from 2026-11-05: never the vibes on the keys and the lead in one song)
-const ONE_PART = new Set([25, 2, 11]);
+// INS_VIBES too (on the keys from 2026-11-05: never the vibes on the keys and the lead in one song); INS_HARP (a
+// candidate on the keys, 2026-11-13: never the harp on both)
+const ONE_PART = new Set([25, 2, 11, 32]);
 
 // a comping style the keys can play: options.json's keys (only these) and notKeys (never these: the guitars only strum,
 // Sam 2026-11-04)
@@ -112,8 +115,10 @@ function allOptions(r, state, opts, lib) {
     case "colors": return list(["7ths", "9ths", "Rich (9/11/13)"]);
     case "families": return ["acoustic", "synth"].map((f) => ({ value: f, name: opts.families[f].name }));
     case "instruments":
+      // (roleStatus: one role's status over the instrument's: the harp's keys, a candidate)
       return opts.instruments.filter((i) => i.roles.includes(ROLE[r.role]))
-        .map((i) => ({ value: i.id, name: (r.role === "BASS" && i.short) || i.name, status: i.status, family: i.family }));
+        .map((i) => ({ value: i.id, name: (r.role === "BASS" && i.short) || i.name,
+                       status: i.roleStatus?.[ROLE[r.role]] ?? i.status, family: i.family }));
     case "comping": {   // every rhythm (on the keys its data names), then strum and the retired styles. CS_PAT alone
                         // (an old snapshot's "a drawn comp rhythm") is never offered: shown only as the current value;
                         // a removed style (light eighths) never
