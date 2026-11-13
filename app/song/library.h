@@ -67,6 +67,7 @@ const lib_prog_t *lib_prog_by_id(uint8_t id);        /* all four: NULL if unknow
 /* the workbench's custom set and pattern (default off: NULL); lib_*_by_id(LIB_*_WB) return them */
 enum { LIB_SET_WB = 255, LIB_PATTERN_WB = 255 };
 void lib_set_wb(const lib_set_t *s, uint8_t base_id);   /* base_id: the set whose id-keyed rules (walking bass, keys shift) it keeps */
+const lib_set_t *lib_set_wb_get(uint8_t *base_id);         /* the one installed (NULL: none), its base_id */
 void lib_pattern_wb(const lib_pattern_t *p);
 /* a lane's hit and ghost masks in `bar`: bar B's on odd bars of a two-bar pattern, else bar A's */
 unsigned lib_lane_hits(const lib_pattern_t *p, int lane, int bar);

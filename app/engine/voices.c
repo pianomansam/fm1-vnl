@@ -491,7 +491,7 @@ static void voices_clear(uint32_t seed)
 void vx_init(void)
 {
     int i;
-    for (i = 0; i < 1024; i++) /* the organ's wheels' sine */
+    for (i = tw_sin[256] ? 1024 : 0; i < 1024; i++) /* the organ's wheels' sine (once: its peak, set, marks it made) */
         tw_sin[i] = (int16_t)fm_floorf(32767.0f * fm_sin_turns((float)i * (1.0f / 1024.0f)) + 0.5f);
     voices_clear(0u); /* (the kit: vx_set_kit below) */
     gain = gain_tgt = 1.0f;

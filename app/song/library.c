@@ -110,6 +110,7 @@ static const lib_set_t *wb_set;
 static uint8_t wb_base;
 static const lib_pattern_t *wb_pattern;
 void lib_set_wb(const lib_set_t *s, uint8_t base_id) { wb_set = s; wb_base = base_id; }
+const lib_set_t *lib_set_wb_get(uint8_t *base_id) { *base_id = wb_base; return wb_set; }
 static int set_key(const lib_set_t *s) { return s == wb_set ? wb_base : s->id; }
 void lib_pattern_wb(const lib_pattern_t *p) { wb_pattern = p; }
 

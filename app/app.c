@@ -116,6 +116,7 @@ static int field_step(int f, int v, int d)
 /* the next song, rolled by the main loop: full until the render takes it */
 static song_roll_t mb_roll;
 static volatile uint8_t mb_full;
+static volatile uint8_t mb_gen;          /* +1 each time the main loop fills it (song_prepare: is it still the one) */
 #if UI_RT
 /* and what the locks keep in it (written with mb_roll, while the mailbox is empty): its kit row (-1: the seeded
    pick), the rows song_start_rows sets from its start (SR_ROLE, SR_OV), and the locked rows as the screens show them
@@ -337,14 +338,83 @@ static int kit_pick(const song_roll_t *r)
 static uint8_t first_part = SONG_FIRST_BAR_PARTS;   /* the new song's first bar's planning: the next part (a block
                                             each, after its start's) */
 
+#if UI_RT
+#ifdef PLAT_HOST
+#define UI_POOL
+#else
+#define UI_POOL __attribute__((section(".pool")))   /* (the big zeroed buffers' RAM, not the app's own) */
+#endif
+/* The next song started early, in the gap (song_prepare): `song` (the last one's, unread in the gap) started from the
+   mailbox, then its first bar's planning a piece a block (song_first_bar_piece), in the order song_begin would have;
+   the song's start then only starts the voices. Around each piece the song engine's state outside a song (song_ctx)
+   is the prepared song's; after it, the last song's again, as the screens read it in the gap (that song's own set
+   from a copy: its `song` prepared over). The mailbox's song as prepared: its generation (mb_gen) and kit; either
+   changed since (a lock, a saved song recalled, the samples ready), it starts again from the mailbox, from the
+   engine as the last song left it */
+static uint8_t pre_n;                    /* pieces done: 0 none, 1 started, 1 + k its first bar's first k pieces */
+static uint8_t pre_gen;
+static int16_t pre_kit;
+static uint8_t pre_had;                  /* gap_was taken (this gap's) */
+static uint8_t pre_wait;                 /* blocks until the next piece: one every PRE_EVERY, so no two pieces (each up
+                                            to a voicing or guitar-shape search, as the bar's planning ahead mid-song)
+                                            in blocks one after the other */
+#define PRE_EVERY 4
+static song_ctx_t gap_was UI_POOL, gap_pre UI_POOL;
+static lib_set_t gap_set UI_POOL;
+
+/* the mailbox's song's kit: the locks', else the seeded pick (no retired kit: desk.js's approvedKit) */
+static int mb_kit(void) { return mb_lk.kit >= 0 ? mb_lk.kit : kit_pick(&mb_roll); }
+
+static void song_prepare(void)
+{
+    if (!pre_had) {
+        song_ctx_get(&gap_was);
+        gap_set = song.set;
+        pre_had = 1;
+    }
+    if (pre_n && pre_gen != mb_gen)
+        pre_n = 0;                       /* (the mailbox's song changed: the new one from its start) */
+    if (!pre_n) {
+        pre_gen = mb_gen;
+        pre_kit = (int16_t)mb_kit();
+        song_ctx_set(&gap_was);
+        song_start_rows(&song, &mb_roll, pre_kit, mb_lk.row, mb_lk.val, mb_lk.n);   /* (a locked part's rows from
+                                            the start) */
+    } else {
+        song_ctx_set(&gap_pre);
+        song_first_bar_piece(&song, pre_n - 1);
+    }
+    pre_n++;
+    pre_wait = PRE_EVERY - 1;
+    song_ctx_get(&gap_pre);
+    song_ctx_set(&gap_was);              /* (the last song's set: its copy) */
+    if (gap_was.wb == &song.set)
+        lib_set_wb(&gap_set, gap_was.wb_base);
+#if VNL_UI_RUNTIME
+    m_cause |= 1u << MC_SONG;
+#endif
+}
+#endif
+
 static void song_begin(uint32_t n)
 {
 #if UI_RT
-    song_start_rows(&song, &mb_roll, mb_lk.kit >= 0 ? mb_lk.kit : kit_pick(&mb_roll),   /* no retired kit
-                                            (desk.js's approvedKit); a locked part's rows from the start */
-                    mb_lk.row, mb_lk.val, mb_lk.n);
+    int kit = mb_kit();
+    if (pre_n && pre_gen == mb_gen && pre_kit == kit) {   /* prepared in the gap: the parts left (one some of whose
+                                            pieces are made makes the rest) */
+        static const uint8_t LEFT[1 + SONG_FIRST_BAR_PIECES] = {0, 1, 1, 2, 3, 3, 3, 3, SONG_FIRST_BAR_PARTS};
+        song_ctx_set(&gap_pre);
+        first_part = LEFT[pre_n - 1];
+    } else {
+        if (pre_had)
+            song_ctx_set(&gap_was);
+        song_start_rows(&song, &mb_roll, kit, mb_lk.row, mb_lk.val, mb_lk.n);
+        first_part = 0;
+    }
+    pre_n = pre_had = pre_wait = 0;
 #else
     song_start(&song, &mb_roll);
+    first_part = 0;
 #endif
     BARRIER();
     mb_full = 0;                         /* the main loop rolls the next one */
@@ -356,8 +426,8 @@ static void song_begin(uint32_t n)
 #endif
     r_now = r_tick = 0;
     r_pos = n * (1u + SONG_FIRST_BAR_PARTS);   /* (its first 16th after its first bar's planning, a part a block:
-                                            the song's setup and that planning not in one block's render) */
-    first_part = 0;
+                                            the song's setup and that planning not in one block's render; the
+                                            same when the gap prepared it: these blocks then light) */
     r_frac = 0.0f;
     memset(req_set, 0, sizeof req_set);
 #if VNL_UI_RUNTIME
@@ -403,7 +473,8 @@ static void stop_here(void)
     rs = RS_STOP;
 }
 
-/* the silence between songs: 2-4 s, from the song's seed (at its end, or cut short by B_NEW) */
+/* the silence between songs: 2-4 s, from the song's seed (at its end, or cut short by B_NEW); the next song started
+   in it (song_prepare) */
 static void gap_begin(void)
 {
     uint32_t h = song.roll.seed * 2654435761u;
@@ -417,11 +488,6 @@ static void gap_begin(void)
 }
 
 #if UI_RT
-#ifdef PLAT_HOST
-#define UI_POOL
-#else
-#define UI_POOL __attribute__((section(".pool")))
-#endif
 /* Section jumps (the Sections screen, Loop, Stay on song): the song started again, its first bar planned a part a
    block (as a new song's: song_begin), and fast-forwarded silently, a few 16ths a block (the workbench's landing,
    spread over the bar before), then put in at the next bar line with the changes still waiting carried over. Loop:
@@ -1005,6 +1071,15 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
         m_cause |= 1u << MC_SONG;
 #endif
     }
+#if UI_RT
+    if (rs == RS_GAP && mb_full && pre_n < 1 + SONG_FIRST_BAR_PIECES && !vx_active()) {   /* (the notes' releases
+                                            over: the effects' tails alone render meanwhile) */
+        if (pre_wait)
+            pre_wait--;
+        else
+            song_prepare();
+    }
+#endif
     if (rs == RS_WAIT && mb_full)
         song_begin(n);
 #if UI_RT
@@ -1463,6 +1538,7 @@ static void roll_next(void)             /* main loop: keep the mailbox full */
 #if UI_RT
     mb_recalled = 0;
 #endif
+    mb_gen++;
     BARRIER();
     mb_full = 1;
 }
@@ -1501,6 +1577,7 @@ static void sv_recall(const sv_song_t *sg, int playing)   /* playing: or held */
     rolled_any = 1;
     mb_sig = lk_sig();
     mb_recalled = 1;
+    mb_gen++;
     BARRIER();
     mb_full = 1;
     if (playing)

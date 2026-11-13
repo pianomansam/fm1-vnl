@@ -4,7 +4,8 @@
 
 The first public release: a generative lo-fi hip hop firmware for the M-VAVE FM-1.
 
-- **Steadier audio:** the next bar's planning spread across the bar's last 16ths (no more mid-song drop-outs), and
+- **Steadier audio:** the next bar's planning spread across the bar's last 16ths (no more mid-song drop-outs), a new
+  song set up and its first bar planned during the silence before it (no more late blocks as a song starts), and
   each audio block rendered a block ahead, giving a heavy block (a new song's first notes) twice the time.
 - **The splash's tagline:** Generative LO-FI (was LO-FI GENERATOR).
 - **Newer FM-1 units:** runs on the units with the UC25HQ80 flash chip (sold since autumn 2026), with saving, the sample bank and updates, through fm1-base.

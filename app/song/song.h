@@ -96,6 +96,24 @@ void song_start_rows(song_t *s, const song_roll_t *r, int kit, const int16_t *ro
 #define SONG_FIRST_BAR_PARTS 4
 void song_first_bar_later(int on);
 void song_first_bar(song_t *s, int part);
+/* The same in finer pieces, for a song not yet begun (no request landing on its first bar): the loop's voicings
+   (piece 0), the bar's voicing then the next bar's (1, 2: part 1), the lead's plan (3), the pad group a bar a piece
+   (4-7: part 3), song_first_bar_piece(s, 0..SONG_FIRST_BAR_PIECES - 1) in turn; a part only some of whose pieces
+   were made then makes the rest (part 1 its first voicing again: the same) */
+#define SONG_FIRST_BAR_PIECES 8
+void song_first_bar_piece(song_t *s, int piece);
+/* What the song engine keeps outside a song, which a song's start and planning change: the overrides in force, the
+   set LIB_SET_WB reads, and what a song that made the overrides its own puts back at the next start. Taken and put
+   back, a song can be started ahead out of the way (app.c's gap: the screens meanwhile read the engine as the last
+   song left it) */
+typedef struct {
+    song_ov_t ov, own_before;
+    const song_t *own_by;
+    const lib_set_t *wb;
+    uint8_t wb_base;
+} song_ctx_t;
+void song_ctx_get(song_ctx_t *c);
+void song_ctx_set(const song_ctx_t *c);
 /* One 16th: its events sorted by delay; 0 once ended. Events beyond max are dropped: pass max >= 64. */
 /* the piece of the next bar's planning the tick of bar's 16th step makes (1 its voicing, 2 the next bar's, 3 the
    lead's plan, 4-7 the pad group's bars on a 4-bar line), 0 none: a 16th that costs more than most */

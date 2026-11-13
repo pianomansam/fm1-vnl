@@ -541,6 +541,9 @@ static int pads_step(const song_t *s, int bar, song_ev_t *out, int max)
 static void stage_voice(song_t *s, int B);
 static void stage_lead(song_t *s, int B);
 static void stage_pads(song_t *s, int B);
+static void stage_v1(song_t *s, int B);
+static void stage_v2(song_t *s, int B);
+static void stage_pad(song_t *s, int B);
 static void stage_part(song_t *s, int B, void (*part)(song_t *, int));
 static int stage_off;                    /* (song_start_kit's first start: its song is started again) */
 static int stage_later;                  /* song_first_bar_later */
@@ -575,29 +578,56 @@ void song_start(song_t *s, const song_roll_t *r)
 
 void song_first_bar_later(int on) { stage_later = on; }
 
-void song_first_bar(song_t *s, int part)
+/* a part of the first bar's planning (or a piece of one: song_first_bar_piece), under what its first tick would have
+   in force; part NULL: the loop's voicings worked out (stage_voice's first voicing, then a lookup: the same, in its
+   cache) */
+static void first_bar(song_t *s, void (*part)(song_t *, int))
 {
-    if (s->state != SS_PLAYING || s->step || (s->bar && part == 0))
+    if (s->state != SS_PLAYING || s->step || (s->bar && !part))
         return;
-    own_install(s);                                  /* (under what its first tick would have in force) */
+    own_install(s);
     style_for(s, 0);
     if (song_ov()->lead_oct != s->win_oct || s->lead.style != s->win_style)
         keys_win_for(s);
     harmony_keys_window(0, s->keys_win);
     harmony_keys_plan(&s->plan);
-    if (part == 0) {                                 /* the loop's voicings worked out (stage_voice's first voicing,
-                                                        then a lookup: the same, in its cache) */
+    if (!part) {
         int keys[4];
         harmony_voicing_at(&s->roll, 0, 1, &s->voicing, keys);
-    } else if (part == 1) {
-        stage_part(s, s->bar, stage_voice);          /* (a request landing on it: a jump's, carried in) */
-    } else if (part == 2) {
-        stage_part(s, s->bar, stage_lead);
-    } else if (s->bar % 4 == 0) {
-        stage_part(s, s->bar, stage_pads);
+    } else if ((part != stage_pads && part != stage_pad) || s->bar % 4 == 0) {
+        stage_part(s, s->bar, part);                 /* (a request landing on it: a jump's, carried in) */
     }
     harmony_keys_window(0, 0);
     harmony_keys_plan(0);
+}
+
+void song_ctx_get(song_ctx_t *c)
+{
+    c->ov = *song_ov();
+    c->own_before = own_ov_before;
+    c->own_by = own_by;
+    c->wb = lib_set_wb_get(&c->wb_base);
+}
+
+void song_ctx_set(const song_ctx_t *c)
+{
+    song_override(&c->ov);
+    own_ov_before = c->own_before;
+    own_by = c->own_by;
+    lib_set_wb(c->wb, c->wb_base);
+}
+
+void song_first_bar(song_t *s, int part)
+{
+    static void (*const PART[SONG_FIRST_BAR_PARTS])(song_t *, int) = {0, stage_voice, stage_lead, stage_pads};
+    first_bar(s, PART[part]);
+}
+
+void song_first_bar_piece(song_t *s, int piece)
+{
+    static void (*const PIECE[SONG_FIRST_BAR_PIECES])(song_t *, int) = {0, stage_v1, stage_v2, stage_lead, stage_pad,
+                                                                         stage_pad, stage_pad, stage_pad};
+    first_bar(s, PIECE[piece]);
 }
 
 void song_start_kit(song_t *s, const song_roll_t *r, int kit) { song_start_rows(s, r, kit, 0, 0, 0); }

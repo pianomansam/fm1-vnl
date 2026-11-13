@@ -250,7 +250,7 @@ static int loop_cycle(const song_roll_t *r, int top, int bottom, int hi, int out
     const int *prev = NULL;
     for (i = 0; i < nch; i++)
         np[i] = keys_chord_at(r, i * p->bars_per_chord, 1, 0, pcs[i]);
-    for (k = 0; k < PASSES; k++)
+    for (k = 0; k < PASSES; k++) {
         for (i = 0; i < nch; i++) {
             if (!prev && top)
                 th_voice_spread(pcs[i], np[i], v[k][i], hi, 1, top, bottom);
@@ -258,6 +258,16 @@ static int loop_cycle(const song_roll_t *r, int top, int bottom, int hi, int out
                 th_voice_range(pcs[i], np[i], prev, v[k][i], hi, 1);
             prev = v[k][i];
         }
+        for (i = 0; i < k && memcmp(v[k][nch - 1], v[i][nch - 1], sizeof v[k][0]); i++) {}
+        if (i < k) {                                     /* it repeats: pass k ended where pass i did, so each pass
+                                                            after it voices as the one k - i before it did (copied,
+                                                            not worked out again: the same voicings, the same pick) */
+            int per = k - i;
+            for (i = k + 1; i < PASSES; i++)
+                memcpy(v[i], v[i - per], sizeof v[i]);
+            break;
+        }
+    }
     for (k = 1; k < PASSES; k++) {                       /* (pass 0 began from nothing) */
         int c = 0;
         for (i = 0; i < nch; i++)
