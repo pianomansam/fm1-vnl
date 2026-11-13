@@ -30,7 +30,7 @@ Other ways in:
   passes.
 - **Four moods** (sad, wistful, warm, sunny), a Motion control from calm to busy, and five song layouts with intros,
   breaks, drum drops and endings.
-- **Six parts:** drums (eight kits, two of them sampled), bass, comp (the accompaniment's chords: keys, organ, strummed guitars, harp), lead (eight
+- **Six parts:** drums (eight kits, two of them sampled), bass, accompaniment (keys, organ, strummed guitars, harp), lead (eight
   instruments, eight styles, looped like a sample), pad, and texture (dust, vinyl, tape, rain, room).
 - **Sampled instruments:** piano, nylon, electric and jazz guitar, cello, harp and two room kits, all from CC0
   libraries; plus vibes, a tonewheel organ and FM and analog-style synths.
@@ -39,9 +39,9 @@ Other ways in:
 - **On the FM-1:** a now-playing screen, a main screen with a tile per part, a page per part, a Parts roll, Sections
   and a Mixer; mute or solo a part from the keys; a screen reader; USB audio in and out.
 
-![The main screen: the section and tempo at the top, the chord and key, a tile per part with its instrument (drums, bass, comp, lead, pad, texture), and the key, tempo, motion and mood on the four knobs](img/main.png "The main screen")
+![The main screen: the section and tempo at the top, the chord and key, a tile per part with its instrument (drums, bass, accompaniment, lead, pad, texture), and the key, tempo, motion and mood on the four knobs](img/main.png "The main screen")
 
-![The comp's page: its instrument (Rhodes), rhythm, voicings and register on the four knobs, with the controls' hints below](img/comp.png "A part's page")
+![The accompaniment's page: its instrument (Rhodes), rhythm, voicings and register on the four knobs, with the controls' hints below](img/comp.png "A part's page")
 
 ## More
 

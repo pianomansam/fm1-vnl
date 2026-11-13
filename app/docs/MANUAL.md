@@ -3,7 +3,7 @@
 # VNL-1
 
 VNL-1 is a lo-fi hip hop machine for the M-VAVE FM-1. It writes and plays its own songs, one after another. Each song
-has its own key, tempo, chords, layout and band: drums, bass, comp (the accompaniment: the chords under the lead), lead, pad and texture. You can leave it running,
+has its own key, tempo, chords, layout and band: drums, bass, accompaniment, lead, pad and texture. You can leave it running,
 or steer it from the FM-1's knobs and buttons. Every change to the song lands on its next four-bar line, in time.
 
 ![The now-playing screen: half a record turning on the left; beside it the song's layout (SLOW BLOOM), its key (Db LYDIAN), the chord (Abmaj7), INTRO 4/56, a strip of the song's sections, 81 BPM and, on its own line under it, the mood (SUNNY)](img/vnl-now.png "Now playing")
@@ -91,7 +91,7 @@ These work the same on every screen, unless a screen below says otherwise.
 | ARP | The Parts screen. ARP again goes back. |
 | FX | The Mixer. FX again goes back. |
 | GLO | The Settings screen. GLO again goes back. |
-| F, G, A, B, C (the five lowest white keys) | Drums, bass, comp, lead, pad. Press to mute that part; press again to unmute. Hold to solo it; press again to unsolo. Not on the Sections screen, where the keys jump. |
+| F, G, A, B, C (the five lowest white keys) | Drums, bass, accompaniment, lead, pad. Press to mute that part; press again to unmute. Hold to solo it; press again to unsolo. Not on the Sections screen, where the keys jump. |
 | Key lights | A part's key is lit while the part plays, dark while it's muted, and blinks while it's soloed. |
 | MASTER | The volume. |
 | SAVE | On the Song screen, saves the song (see Saving songs). Anywhere else, shows a line of measures for a moment (the screen's redraw time, the CPU guard's level and steps, late audio blocks); on the Song screen, hold SAVE for them. Useful in a bug report. |
@@ -121,7 +121,7 @@ each section, the tempo and, on its own line under the tempo, the mood.
 - **Status bar:** the section, the bar and the song's length in bars, LOOP while a section loops, and the tempo.
 - **Song tile:** the chord playing, the key and scale, the layout name, a change on its way, and a strip of the
   song's sections.
-- **Part tiles:** drums (kit and pattern), bass (instrument), comp (instrument and rhythm), lead (instrument and
+- **Part tiles:** drums (kit and pattern), bass (instrument), accompaniment (instrument and rhythm), lead (instrument and
   style), pad (instrument) and texture (dust, noise and room). Each in its own color.
 - **Knob strip:** K1-K4 and their values, with a fill bar each.
 
@@ -134,7 +134,7 @@ each section, the tempo and, on its own line under the tempo, the mood.
 | ALGO or SELECT | Move the highlight through the song tile and the part tiles. |
 | EDIT | Open the highlighted tile's screen. |
 | PRESET | The highlighted part's instrument (the drums' kit). Past the last one it goes round to the first, and back. Nothing on the song or texture tile. |
-| OCT- / OCT+ | The highlighted part's register: the comp's or the lead's. |
+| OCT- / OCT+ | The highlighted part's register: the accompaniment's or the lead's. |
 | SEQ, held | Lock or unlock the highlighted part, or the song line on the song tile (see Locking). A short press is a new song. |
 | HOME | The now-playing screen (the home stays as Settings has it). |
 
@@ -156,9 +156,9 @@ letter of the key that jumps to it. Seven lines fit; a longer song scrolls with 
 
 ### Parts (ARP)
 
-![The Parts screen: a lane each for drums, bass, comp, lead and pad, with their notes over eight bars and the playhead](img/vnl-parts.png "Parts")
+![The Parts screen: a lane each for drums, bass, accompaniment, lead and pad, with their notes over eight bars and the playhead](img/vnl-parts.png "Parts")
 
-A lane for each part: drums, bass, comp, lead and pad, with the key that mutes it. Each lane shows the part's notes
+A lane for each part: drums, bass, accompaniment, lead and pad, with the key that mutes it. Each lane shows the part's notes
 over eight bars, scrolling with the song. Notes already played are in the part's color.
 
 | Control | What it does |
@@ -170,14 +170,14 @@ over eight bars, scrolling with the song. Notes already played are in the part's
 
 ### Mixer (FX)
 
-![The Mixer, page 1/2: a fader each for drums, bass, comp, lead, pad and texture, with K1-K4 under the first four](img/vnl-mixer.png "The Mixer")
+![The Mixer, page 1/2: a fader each for drums, bass, accompaniment, lead, pad and texture, with K1-K4 under the first four](img/vnl-mixer.png "The Mixer")
 
-A fader for each part: drums, bass, comp, lead, pad and texture. The levels go from -12 to +6 dB and stay as you set
+A fader for each part: drums, bass, accompaniment, lead, pad and texture. The levels go from -12 to +6 dB and stay as you set
 them from song to song. The knob that moves a fader is named under it.
 
 | Control | What it does |
 | --- | --- |
-| K1-K4 | Page 1: the drums', bass's, comp's and lead's levels. Page 2: K1 the pad's, K2 the texture's. |
+| K1-K4 | Page 1: the drums', bass's, accompaniment's and lead's levels. Page 2: K1 the pad's, K2 the texture's. |
 | SELECT or ALGO | The other page. |
 | FX | Back. |
 
@@ -221,10 +221,10 @@ On every part's screen:
 | --- | --- |
 | K1-K4 | The settings on this page (below). Most step through choices; AS ROLLED is the song's own choice. A re-roll setting (variation, line, voicings, phrase, notes) steps through new versions of the part; its first value, ORIGINAL or AS ROLLED, is the song's own. |
 | SELECT | The next page, on parts that have more than one. |
-| ALGO | The next part, in this order: song, drums, bass, comp, lead, pad, texture. |
+| ALGO | The next part, in this order: song, drums, bass, accompaniment, lead, pad, texture. |
 | PRESET | This part's instrument (the drums' kit). |
 | SEQ | Re-roll this part only, on the next four-bar line. On the song screen, a new song; on the texture screen, nothing. Held, it locks or unlocks this part; on the song screen, the song line (see Locking). |
-| OCT- / OCT+ | The register, on the comp's and the lead's screens. |
+| OCT- / OCT+ | The register, on the accompaniment's and the lead's screens. |
 | EDIT | Back to the main screen. |
 
 ### Locking
@@ -245,7 +245,7 @@ SEQ for new songs around it. The song line locks too: the key and scale, tempo, 
 - **What it keeps:**
   - Drums: kit, pattern, kick, ride and variation.
   - Bass: instrument and line. Its style (roots, walking, pedal) can still change with the song.
-  - Comp: instrument, rhythm (strum pattern and fill too), voicings, register, and whether a busy lead thins it.
+  - Accompaniment: instrument, rhythm (strum pattern and fill too), voicings, register, and whether a busy lead thins it.
   - Lead: instrument, style, phrase, register and loop.
   - Pad: instrument, on or off, place and notes.
   - Texture: dust, noise and room.
@@ -333,24 +333,24 @@ four-bar line is saved as if it had landed.
 Every bass but the sub is gently saturated, so its line carries on small speakers; the sub stays clean. On good
 speakers you can turn the saturation off: Settings (GLO), BASS SATURATION.
 
-### Comp
+### Accompaniment (COMP on the screen)
 
-![The Comp screen, page 1/2: K1 INSTRUMENT RHODES, K2 RHYTHM AS ROLLED (HELD), K3 VOICINGS ORIGINAL, K4 REGISTER AS ROLLED (UNDER THE LEAD)](img/vnl-comp.png "Comp")
+![The Accompaniment screen, page 1/2: K1 INSTRUMENT RHODES, K2 RHYTHM AS ROLLED (HELD), K3 VOICINGS ORIGINAL, K4 REGISTER AS ROLLED (UNDER THE LEAD)](img/vnl-comp.png "Comp")
 
 | Page | K1 | K2 | K3 | K4 |
 | --- | --- | --- | --- | --- |
 | 1 | Instrument: Rhodes, felt piano, nylon guitar, pad, vibes, organ, piano, electric guitar, harp | Rhythm: held, half notes, stabs, held on 2, held on 2 and 4, charleston, tresillo, late one, strum | Voicings: a re-roll of the chord voicings | Register: down an octave, as rolled, up an octave |
-| 2 | Strum fill: default, step back or drive (the guitars' strums) | Busy lead thins: on or off. On, the comp plays less while the lead is busy | Over a low lead: as rolled, lift over it or with the lead (the jazz guitar's and the cello's sets) | |
+| 2 | Strum fill: default, step back or drive (the guitars' strums) | Busy lead thins: on or off. On, the accompaniment plays less while the lead is busy | Over a low lead: as rolled, lift over it or with the lead (the jazz guitar's and the cello's sets) | |
 
-With a guitar on the comp, Rhythm picks a strum pattern instead: D-DU-UDU, chuck, bossa, ballad, offbeat-skank,
+With a guitar on the accompaniment, Rhythm picks a strum pattern instead: D-DU-UDU, chuck, bossa, ballad, offbeat-skank,
 syncopated-push, anticipation or charleston. OCT- and OCT+ step the register too.
 
 The harp strums in half its songs (ballad, bossa or charleston, each stroke a quick roll up the strings) and rolls
 held or half-note chords in the rest; every roll is centered on the beat, its first notes a little ahead. Its Rhythm
-offers held, half notes and strum (the strum's pattern is drawn). The harp plays the comp or the lead in a song, never
+offers held, half notes and strum (the strum's pattern is drawn). The harp plays the accompaniment or the lead in a song, never
 both.
 
-Over a low lead (the jazz guitar or the cello), the comp either lifts an octave while the lead plays or stays in its
+Over a low lead (the jazz guitar or the cello), the accompaniment either lifts an octave while the lead plays or stays in its
 own register with the lead, leaving out a note and dipping under it where the lead sounds. A song rolls with the
 lead three times in four; Over a low lead forces either.
 
@@ -395,8 +395,8 @@ falls behind, it lowers the quality one step at a time, in the order a lo-fi mix
 1. The drums' ringing tails end sooner.
 2. The noise bed (vinyl, tape, rain) fades out.
 3. The plate reverb stops taking new sound and lets its tail ring out.
-4. Released notes on the comp, pad and lead fade sooner.
-5. The comp holds three notes instead of four (the bass still has the root).
+4. Released notes on the accompaniment, pad and lead fade sooner.
+5. The accompaniment holds three notes instead of four (the bass still has the root).
 
 It acts only after the sound actually falls behind, not on a guess. After 20 seconds of calm it takes back one step,
 then another every 2 seconds, so the quality returns gradually. Most songs never need it. SAVE shows its level.

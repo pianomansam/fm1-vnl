@@ -12,7 +12,7 @@ VNL-1 is free software (GPL), built on [fm1-base](https://github.com/charlesvest
 
 - **[Endless songs](#songs):** each one generated from a seed, with its own key, tempo, chords, layout and band; 40 instrument
   sets in five flavors, 44 chord progressions, four moods and five song layouts.
-- **[A six-part band](#parts):** drums (8 kits), bass (4 instruments), comp (the accompaniment's chords, 9 instruments), lead (8 instruments in 8 styles),
+- **[A six-part band](#parts):** drums (8 kits), bass (4 instruments), accompaniment (9 instruments), lead (8 instruments in 8 styles),
   pad and texture.
 - **[An accompaniment engine](#parts):** voice-led chords in eight rhythms, guitars strummed string by string in
   eight patterns, and a harp that strums or rolls its chords
@@ -39,7 +39,7 @@ Checked against the 40 FM-1 firmwares we follow and a survey of 277 more (Octobe
 - **Only in VNL-1:** it plays one fully generated song after another, forever, each with its own key, mode, tempo,
   progression, band and arrangement, a real ending, then a short silence, and each different from the one before.
 - **Only in VNL-1:** every part it plays can be written out as MusicXML (and MIDI) for a score editor, and its drum,
-  strum, comp and chord patterns live as MIDI and MusicXML files that build into the firmware.
+  strum, accompaniment and chord patterns live as MIDI and MusicXML files that build into the firmware.
 - **Found nowhere else:** an accompaniment that makes room for the lead, thinning or lifting over a low one.
 - **Found nowhere else:** a browser workbench where you change or re-roll any single decision of a song.
 
@@ -57,14 +57,14 @@ lands on the next four-bar line in time.
 | K1-K4 | On the main screen: key, tempo, motion, mood. On a part's page: that page's settings. |
 | ALGO | Picks a part. EDIT opens its page; SELECT steps its pages. |
 | PRESET | The highlighted part's instrument (or kit). |
-| OCT- / OCT+ | The comp's or the lead's register. |
+| OCT- / OCT+ | The accompaniment's or the lead's register. |
 | SEL | Sections: jump to a section (EDIT, or its key), loop it (K1), stay on the song (K2). |
 | ARP | Parts: each part's notes over the song. |
 | FX | The Mixer. |
 | HOME | The home screen, set in Settings (GLO): HOME SCREEN SIMPLE, the now-playing screen (the default), or DETAILED, the main screen. On either of those two, HOME switches to the other. |
 | SAVE | On the Song page, saves the song into the first free slot (SAVED TO 3); held there, or anywhere else, a line of measures for a bug report. |
 | REC | On the Song page, the Saved list: EDIT loads the highlighted song (the next song), SAVE saves into that slot, SAVE held deletes it. A save made while music plays is written to the flash when it stops. |
-| Lowest white keys (F G A B C) | Drums, bass, comp, lead, pad: press to mute, hold to solo. |
+| Lowest white keys (F G A B C) | Drums, bass, accompaniment, lead, pad: press to mute, hold to solo. |
 
 Every change to the song lands on its next four-bar line, and the screen shows it waiting until then.
 
@@ -89,10 +89,10 @@ Every change to the song lands on its next four-bar line, and the screen shows i
 - **Bass:** electric, sub, triangle and FM bass, with walking lines and lines that lead into the next chord. Every
   bass but the sub is gently saturated, so its line carries on small speakers (Settings' BASS SATURATION turns it
   off for good speakers).
-- **Comp** (the accompaniment: the chords under the lead): Rhodes, piano, felt piano, vibes, organ, pad, nylon guitar, electric guitar and harp. Eight comp rhythms
+- **Accompaniment:** Rhodes, piano, felt piano, vibes, organ, pad, nylon guitar, electric guitar and harp. Eight rhythms
   (held, half notes, stabs, held on 2, held on 2 and 4, charleston, tresillo, late one); the guitars strum, in eight
   patterns; the harp strums (ballad, bossa, charleston) or rolls its chords, centered on the beat.
-  Over a low lead (jazz guitar, cello) the comp shares the lead's register, thinning where it plays, or lifts over it.
+  Over a low lead (jazz guitar, cello) the accompaniment shares the lead's register, thinning where it plays, or lifts over it.
 - **Lead:** flute, whistle, piano, felt piano, vibes, jazz guitar, cello and harp, in eight styles: Impressionism,
   Romanticism, '60s Jazz, Modal Jazz, Jazz-Hop, Film Score, Bossa Nova and Ambient. The lead states a motif and loops
   it the way a producer loops a sample, with mutes, filter sweeps and drop-outs.
@@ -141,7 +141,7 @@ plate is adapted from AMB-1, inspired by Dattorro.
   parts, edit drum kits and patterns, and save feedback with a snapshot of the song. It can also drive the FM-1's
   screens over USB.
 - **The host simulator:** renders songs to WAV, with a song log, MIDI and MusicXML of what each part played.
-- **Patterns as files:** drum, kick, strum, comp and chord patterns as MIDI and MusicXML in `patterns/`; edit them in
+- **Patterns as files:** drum, kick, strum, accompaniment and chord patterns as MIDI and MusicXML in `patterns/`; edit them in
   a DAW or MuseScore and import them back.
 
 ## Install (FM-1 owners)
