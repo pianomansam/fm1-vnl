@@ -5,7 +5,8 @@
 The first public release: a generative lo-fi hip hop firmware for the M-VAVE FM-1.
 
 - **Endless songs:** each from a seed, with its own key, mode, tempo, chords, layout and band; a short silence, then
-  the next. 40 instrument sets in five flavors, 44 progressions, five song layouts, four moods.
+  the next, never with the last song's comp and lead together. 40 instrument sets in five flavors, 44 progressions,
+  five song layouts, four moods.
 - **Six parts:** drums (eight kits, two of them sampled; Room - brushes only in sunny songs), bass (four), comp
   (nine instruments, eight rhythms, strummed guitars), lead (eight instruments, eight styles, looped like a sample),
   pad, and texture (dust, noise bed, room).

@@ -14222,11 +14222,32 @@ static void test_harp_keys(void)
     lib_set_wb(NULL, 0);
 }
 
+/* The next song never keeps the last one's band (Sam, 2026-11-13: two songs running with the same comp and lead):
+   over a chain of 5000 songs, no neighbors share both their set's comp instrument and its lead */
+static void test_roll_new_band(void)
+{
+    song_roll_t p, r;
+    uint32_t s = 12345u;
+    int i, both = 0;
+    roll_song(NULL, s, &p);
+    for (i = 0; i < 5000; i++) {
+        const lib_set_t *a, *b;
+        s = s * 1664525u + 1013904223u;
+        roll_song(&p, s, &r);
+        a = lib_set_by_id((uint8_t)p.v[RF_SET]);
+        b = lib_set_by_id((uint8_t)r.v[RF_SET]);
+        both += a->chords == b->chords && a->lead == b->lead;
+        p = r;
+    }
+    CHECK(both == 0, "roll new band: %d of 5000 songs kept the last one's comp and lead", both);
+}
+
 int main(int argc, char **argv)
 {
     const char *only = argc > 1 ? argv[1] : NULL;
 #define RUN(t) do { if (!only || strstr(#t, only)) t(); } while (0)
     RUN(test_rng);
+    RUN(test_roll_new_band);
     RUN(test_voice_leading);
     RUN(test_no_chord_clusters);
     RUN(test_bass_and_roots);

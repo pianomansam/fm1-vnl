@@ -179,6 +179,14 @@ static void cands(const song_roll_t *r, int f, cands_t *c)
     }
 }
 
+/* 1 when sets a and b (ids) put the same instruments on the comp and the lead: the same band to the ear, whatever
+   else differs (Sam, 2026-11-13: two songs running with the same comp and lead) */
+static int same_band(int a, int b)
+{
+    const lib_set_t *x = lib_set_by_id((uint8_t)a), *y = lib_set_by_id((uint8_t)b);
+    return a == b || (x && y && x->chords == y->chords && x->lead == y->lead);
+}
+
 /* Drop candidates that fail the keep rule against ref. */
 static void filter(cands_t *c, int f, int keep, int ref)
 {
@@ -189,7 +197,8 @@ static void filter(cands_t *c, int f, int keep, int ref)
         case KEEP_NE: ok = v != ref; break;
         case KEEP_FAR2: ok = d >= 2 || d <= -2; break;
         case KEEP_FAR6: ok = d >= 6 || d <= -6; break;
-        case KEEP_OTHER_FAMILY: ok = f == RF_PATTERN ? family_of(v) != family_of(ref) : v != ref; break;
+        case KEEP_OTHER_FAMILY: ok = f == RF_PATTERN ? family_of(v) != family_of(ref) : f == RF_SET ? !same_band(v, ref)
+                                     : v != ref; break;
         default: ok = 1; break;
         }
         if (ok) {
@@ -341,6 +350,10 @@ void roll_song(const song_roll_t *prev_in, uint32_t seed, song_roll_t *out)
         if (!prog_ok(prog_find(r.v[RF_PROG]), r.v[RF_MOOD], r.v[RF_MODE]))
             draw(&r, RF_PROG, s, keep, prev.v[RF_PROG]);
     }
+    /* never the last song's band again (its comp and lead both): another set, of any band but that one (any legal
+       set if the mood has no other) */
+    if (prev_in && same_band(r.v[RF_SET], prev.v[RF_SET]))
+        draw(&r, RF_SET, mix(seed, 0xBA4Du), KEEP_OTHER_FAMILY, prev.v[RF_SET]);
     *out = r;
 }
 
