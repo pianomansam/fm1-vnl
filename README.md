@@ -63,8 +63,8 @@ Every change to the song lands on its next four-bar line, and the screen shows i
 
 ### Parts
 
-- **Drums:** eight kits: 808 and CR-78 (modeled machines, from FOMAJAM), Crunchy, Boom-bap and Jazz machine (Optimist's
-  synth drums), Soft brushes, and two sampled room kits (Room - big, and Room - brushes for sunny songs, from
+- **Drums:** eight kits: 808 and CR-78 (modeled machines, from FOMAJAM), Crunchy, Boom-bap and Jazz machine (synth
+  drums adapted from Optimist), Soft brushes, and two sampled room kits (Room - big, and Room - brushes for sunny songs, from
   Karoryfer's Big Rusty Drums). Eight patterns (boom bap,
   half-time, sparse, brushes), nine two-bar kick phrases, a ride section on the sampled kits, and a per-drum lo-fi
   pocket (the pocket and four kick phrases adapted from Cut-A-Dor).
@@ -86,7 +86,7 @@ Every change to the song lands on its next four-bar line, and the screen shows i
 Ten, in a lo-fi chain: tape wow and flutter, dust (saturation and a darkening low-pass), grit, a chorus and plate
 reverb (adapted from Mutable Instruments Rings), a tape delay, bass saturation, kick ducking, filter sweeps on section
 changes, and a whole-mix stutter on the last bar of a 4- or 8-bar group (inspired by Cut-A-Dor). The host simulator's
-plate is adapted from AMB-1's, inspired by Dattorro.
+plate is adapted from AMB-1, inspired by Dattorro.
 
 ### Sounds
 
@@ -113,7 +113,7 @@ plate is adapted from AMB-1's, inspired by Dattorro.
   PLUM+, ESPRESSO, TEAL, OLIVE and fm1-base's black GREEN, AMBER, CYAN, RED and MONO.
 - A screen reader, through the [FM-1 Screen Reader](https://charlesvestal.github.io/fm1-reader/).
 - USB audio in and out: record VNL-1 on a computer, or play the computer through the FM-1.
-- A CPU guard that eases off reverb tails and quiet voices before the audio can glitch (adapted from Optimist's,
+- A CPU guard that eases off reverb tails and quiet voices before the audio can glitch (adapted from Optimist,
   inspired by Flowstate).
 - Built on fm1-base (with Felucca's board support), in the Barlow font.
 
