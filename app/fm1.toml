@@ -11,6 +11,8 @@ font_trim = true               # fm1-base's font packing: each glyph its lit box
 font_pack = true               # about 43 KB less flash than unpacked, 6 KB less than our old run-length packing)
 ble = false                    # no radio: neither target (lo-fi, dub) needs it; saves ~130 KB flash
 ble_central = false
+audio_ahead = true             # a block rendered ahead (fm1-base): a render may run up to two halves long without a
+                               # drop (a new song's first notes, 6.0-6.6 ms of a 5.8 ms block on the FM-1); 2 KiB RAM, 5.8 ms latency
 backup = true                  # the saved songs and the home over USB (base/web/backup, tools/fm1_backup.py): OBJ_SETTINGS, OBJ_SONGS
 backup_ext = "vnl1songs"
 backup_holds = "the saved songs and the home screen"

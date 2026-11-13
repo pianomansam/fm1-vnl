@@ -36,8 +36,8 @@ pattern files in `patterns/README.md`, the samples in `tools/samples/`.
 
 ## Notes
 
-- **Size:** the image is 398,884 B against VNL-1's own budget of 409,600 B (the FM-1's app slot is 581 KB); RAM
-  `.data`+`.bss` 77,436 B of 98,304 B; buffer pool 304,980 B of 344,064 B; no external RAM. The sample bank
+- **Size:** the image is 400,708 B against VNL-1's own budget of 409,600 B (the FM-1's app slot is 581 KB); RAM
+  `.data`+`.bss` 79,612 B of 98,304 B; buffer pool 305,020 B of 344,064 B; no external RAM. The sample bank
   (339,281 B) lives in the flash's data area, outside the image. `tools/mem-check.sh` checks the budgets.
 - **No radio:** `app/fm1.toml` builds without Bluetooth (no Bluetooth MIDI or audio, and so no velocity or pressure
   from the keys); it saves about 130 KB of flash. USB MIDI, USB audio and the screen reader are in.

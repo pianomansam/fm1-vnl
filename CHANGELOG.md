@@ -1,9 +1,11 @@
 # Changelog
 
-## 0.9.0 (unreleased)
+## 0.9.0 (2026-11-13)
 
 The first public release: a generative lo-fi hip hop firmware for the M-VAVE FM-1.
 
+- **Steadier audio:** the next bar's planning spread across the bar's last 16ths (no more mid-song drop-outs), and
+  each audio block rendered a block ahead, so a new song's first notes never click.
 - **The splash's tagline:** Generative LO-FI (was LO-FI GENERATOR).
 - **Newer FM-1 units:** runs on the units with the UC25HQ80 flash chip (sold since autumn 2026), with saving, the sample bank and updates, through fm1-base.
 - **ACCOMP:** the screens and the screen reader name the accompaniment part ACCOMP (was COMP).
