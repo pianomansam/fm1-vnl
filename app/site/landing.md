@@ -42,9 +42,31 @@ Other ways in:
 - **On the FM-1:** a now-playing screen, a main screen with a tile per part, a page per part, a Parts roll, Sections
   and a Mixer; mute or solo a part from the keys; a screen reader; USB audio in and out.
 
+## Screens
+
+**The main screen:** the chord and key beside the turning record, a tile per part, and the four knobs.
+
 ![The main screen: the section and tempo at the top, half a turning record beside the chord and key, a tile per part with its instrument (drums, bass, accompaniment, lead, pad, texture), and the key, tempo, motion and mood on the four knobs](img/main.png "The main screen")
 
+**A part's page:** its instrument, rhythm, voicings and register on the knobs.
+
 ![The accompaniment's page: its instrument (Rhodes), rhythm, voicings and register on the four knobs, with the controls' hints below](img/comp.png "A part's page")
+
+**Parts:** each part's notes scrolling over the song.
+
+![The Parts screen: a lane each for drums, bass, accompaniment, lead and pad, with their notes over eight bars and the playhead](img/parts.png "Parts")
+
+**Sections:** jump to a section, loop it, or stay on the song.
+
+![The Sections screen: a list of the song's sections with their lengths, the one playing marked; LOOP OFF and STAY ON SONG OFF at the bottom](img/sections.png "Sections")
+
+**The Mixer:** a level, mute and solo per part.
+
+![The Mixer: a fader each for drums, bass, accompaniment, lead, pad and texture](img/mixer.png "The Mixer")
+
+**Settings:** the color theme, the bass's saturation and the home screen.
+
+![The Settings screen: THEME GARNET, BASS SATURATION ON and HOME SCREEN SIMPLE](img/settings.png "Settings")
 
 ## More
 
