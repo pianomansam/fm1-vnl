@@ -482,7 +482,7 @@ const char *ui_value(const ui_bag_t *b, int id, int index, char *t)
         int i = (id - UV_I0) / UVK_I_N, off = list_off(b), at = off + i;
         k = (id - UV_I0) % UVK_I_N;
         if (k == UVK_I_SEL) {
-            int has = UI_LISTS[sc->menu].n || sc->list || UI_LISTS[sc->lanes].n;
+            int has = UI_LISTS[sc->menu].n || sc->list || UI_LISTS[sc->lanes].n || sc->rows;
             return has && n && n->cursor[b->screen] - off == i ? "1" : "";
         }
         if (k >= UVK_I_SLOT) {                              /* a saved song's line: slot off + i */

@@ -526,14 +526,16 @@ export default {
     },
 
     // The user's settings, GLO (Sam, 2026-11-06). THEME works (Sam, 2026-11-12: comparing the palettes on the FM-1
-    // itself, whose backlight greys dark, low-chroma backgrounds): SELECT or ALGO steps through base's gfx.c palettes,
-    // at once. BASS SATURATION works (Sam, 2026-11-12: the bass's harmonics buzz on nice speakers): EDIT or PRESET
-    // turns them off or on, the engine taking it at the next fresh bass note. The device keeps both (app.c's settings,
+    // itself, whose backlight greys dark, low-chroma backgrounds): base's gfx.c palettes, at once. BASS SATURATION
+    // works (Sam, 2026-11-12: the bass's harmonics buzz on nice speakers): off or on, the engine taking it at the next
+    // fresh bass note. SELECT, PRESET or ALGO moves the highlight, any of K1-K4 changes the highlighted line's value
+    // (Sam, 2026-11-13). The device keeps both (app.c's settings,
     // written while all is silent). The rest (reduced movement, the screen reader, the key lights, brightness, which
     // main screen is the default, the Advanced rules) is listed under NOT WORKING YET.
     prefs: {
       title: "Settings (theme, bass saturation)",
       placeholder: true,
+      rows: 2,   // the lines the highlight moves over (the working ones)
       bands: [
         { y: 0, h: 16, draw: [
           { when: "song", text: "{section}  {bar}/{bars}", font: "T", x: 8, y: 2, color: "GRAY" },
@@ -545,9 +547,9 @@ export default {
           { text: "SETTINGS", font: "B", x: 10, y: 4, color: "WHITE" },
         ] },
         { y: 50, h: 140, draw: [
-          { rect: [2, 0, 236, 20], color: "LINE" },
+          { when: "sel0", rect: [2, 0, 236, 20], color: "LINE" }, { when: "sel0", rect: [2, 0, 2, 20], color: "AMB" },
           { text: "THEME", font: "T", x: 8, y: 6, color: "WHITE" }, { text: "{theme}", font: "XS", right: 232, y: 4, color: "HI" },
-          { rect: [2, 22, 236, 20], color: "LINE" },
+          { when: "sel1", rect: [2, 22, 236, 20], color: "LINE" }, { when: "sel1", rect: [2, 22, 2, 20], color: "AMB" },
           { text: "BASS SATURATION", font: "T", x: 8, y: 28, color: "WHITE" }, { text: "{bassSat}", font: "XS", right: 232, y: 26, color: "HI" },
           { text: "NOT WORKING YET", font: "T", x: 8, y: 50, color: "DIM" },
           { text: "MOVEMENT", font: "T", x: 8, y: 64, color: "GRAY" }, { text: "LESS (A BAR AT A TIME)", font: "XS", right: 232, y: 62, color: "DIM" },
@@ -559,12 +561,13 @@ export default {
         ] },
         { y: 196, h: 44, draw: [
           { rect: [8, 0, 224, 1], color: "LINE" },
-          { text: "SELECT THEME   EDIT BASS SATURATION", font: "T", x: 8, y: 8, color: "DIM" },
+          { text: "SELECT PICK   K1-K4 CHANGE", font: "T", x: 8, y: 8, color: "DIM" },
           { text: "GLO BACK   HOME MAIN", font: "T", x: 8, y: 24, color: "DIM" },
         ] },
       ],
-      controls: { GLO: { go: "back" }, SELECT: { do: "theme" }, ALGO: { do: "theme" },
-                  EDIT: { do: "bassSat" }, PRESET: { do: "bassSat" } },
+      controls: { GLO: { go: "back" }, SELECT: { do: "cursor" }, PRESET: { do: "cursor" }, ALGO: { do: "cursor" },
+                  K1: { do: "setting", byCursor: ["theme", "bassSat"] }, K2: { do: "setting", byCursor: ["theme", "bassSat"] },
+                  K3: { do: "setting", byCursor: ["theme", "bassSat"] }, K4: { do: "setting", byCursor: ["theme", "bassSat"] } },
       say: ["SETTINGS. THEME {theme}. BASS SATURATION {bassSat}"],
     },
 

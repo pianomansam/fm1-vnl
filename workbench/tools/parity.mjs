@@ -309,28 +309,28 @@ const SEED = 72;
   ];
   for (const c of run(SEED, steps)) compare(c);
 }
-{   // the themes (Settings' THEME: SELECT steps through gfx.c's palettes, at once): the splash, now playing, the main
+{   // the themes (Settings' THEME: a knob steps through gfx.c's palettes, at once): the splash, now playing, the main
   // screen, Settings and a part screen in each of the plum, oxblood, garnet and black cherry ones; a reboot keeps it
   // (stopped)
   const v = (st) => st.values, is = (what, got, want) => (got === want ? "" : `${what} ${JSON.stringify(got)}, not ${JSON.stringify(want)}`);
   const steps = [{ press: "PLAY" }, { wait: 5000 }];
   for (const [d, name] of [[-4, "PLUM"], [1, "PLUM+"], [1, "OXBLOOD"], [1, "OXBLOOD+"], [1, "GARNET"], [1, "GARNET+"],
                            [1, "BLACK CHERRY"]]) {
-    steps.push({ screen: "prefs" }, { spin: ["SELECT", d] }, { check: `theme-${name}-prefs`, expect: (st) => is("theme", v(st).theme, name) });
+    steps.push({ screen: "prefs" }, { spin: ["K1", d] }, { check: `theme-${name}-prefs`, expect: (st) => is("theme", v(st).theme, name) });
     for (const id of ["splash", "now", "main", "pComp"]) steps.push({ screen: id }, { check: `theme-${name}-${id}` });
   }
   steps.push({ press: "PLAY" }, { wait: 2000 }, { reboot: true }, { wait: 1500 },
              { check: "theme-kept", expect: (st) => is("theme", v(st).theme, "BLACK CHERRY") });
   for (const c of run(SEED, steps)) compare(c);
 }
-{   // bass saturation (Settings' BASS SATURATION: EDIT or PRESET flips it): Settings on, off, on again by PRESET; a
+{   // bass saturation (Settings' BASS SATURATION, highlighted by SELECT: a knob flips it): Settings on, off, on again by PRESET; a
   // reboot keeps it (stopped)
   const v = (st) => st.values, is = (what, got, want) => (got === want ? "" : `${what} ${JSON.stringify(got)}, not ${JSON.stringify(want)}`);
   const steps = [{ press: "PLAY" }, { wait: 3000 }, { screen: "prefs" },
                  { check: "bassSat-on", expect: (st) => is("bassSat", v(st).bassSat, "ON") },
-                 { press: "EDIT" }, { check: "bassSat-off", expect: (st) => is("bassSat", v(st).bassSat, "OFF") },
-                 { spin: ["PRESET", 1] }, { check: "bassSat-preset", expect: (st) => is("bassSat", v(st).bassSat, "ON") },
-                 { press: "EDIT" }, { press: "PLAY" }, { wait: 2000 }, { reboot: true }, { wait: 1500 }, { screen: "prefs" },
+                 { spin: ["SELECT", 1] }, { spin: ["K1", 1] }, { check: "bassSat-off", expect: (st) => is("bassSat", v(st).bassSat, "OFF") },
+                 { spin: ["K2", 1] }, { check: "bassSat-preset", expect: (st) => is("bassSat", v(st).bassSat, "ON") },
+                 { spin: ["K3", 1] }, { press: "PLAY" }, { wait: 2000 }, { reboot: true }, { wait: 1500 }, { screen: "prefs" },
                  { check: "bassSat-kept", expect: (st) => is("bassSat", v(st).bassSat, "OFF") }];
   for (const c of run(SEED, steps)) compare(c);
 }

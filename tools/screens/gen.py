@@ -502,6 +502,11 @@ def gen_screens(data, vocab, rows, all_parts=None):
             arg = a.get("i", -1)
         elif kind == "lock" and a.get("byCursor") is not None:   # the highlighted line's part (None: nothing)
             lis = lst(NONE8 if p is None else part(p) for p in a["byCursor"])
+        elif kind == "setting":                                 # the highlighted line's action kind (None: nothing)
+            for k in a.get("byCursor") or []:
+                if k is not None and k not in akinds:
+                    errs.append(f"{where}: unknown action {k}")
+            lis = lst(NONE8 if k is None or k not in akinds else akinds.index(k) + 1 for k in a.get("byCursor") or [])
         elif "part" in a:
             arg = part(a["part"])
         if a.get("long"):

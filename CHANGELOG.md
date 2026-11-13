@@ -30,10 +30,10 @@ The first public release: a generative lo-fi hip hop firmware for the M-VAVE FM-
   a chosen slot and SAVE held deletes. The flash is written only while all is silent (a save while music plays waits
   for the stop). SAVE held on the Song screen shows the measures SAVE shows elsewhere. A USB backup holds the saved
   songs, the home, the theme and the bass saturation; `tools/fm1_songs.py` reads and writes single songs.
-- **Themes on the device:** Settings (GLO) has a working THEME: SELECT or ALGO steps through every palette fm1-base
-  carries, at once and kept through power-off, so the colors can be judged on the FM-1's own screen. GARNET is the
-  default; GARNET+ (a touch more blue), BLACK CHERRY (darker still), OXBLOOD, OXBLOOD+, PLUM and PLUM+ are new beside
-  teal, olive, espresso and the black ones.
+- **Themes on the device:** Settings (GLO) has a working THEME: SELECT, PRESET or ALGO highlights a setting and any of
+  K1-K4 changes it; THEME steps through every palette fm1-base carries, at once and kept through power-off, so the
+  colors can be judged on the FM-1's own screen. GARNET is the default; GARNET+ (a touch more blue), BLACK CHERRY
+  (darker still), OXBLOOD, OXBLOOD+, PLUM and PLUM+ are new beside teal, olive, espresso and the black ones.
 - **A CPU guard** that sheds reverb tails and quiet voices before the audio can glitch.
 - **Coral on garnet:** the screens, the workbench's device mock and the site share one palette, GARNET (a
   red-black like a dark wine, coral, blush white); Settings' THEME offers the others.

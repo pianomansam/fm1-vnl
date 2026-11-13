@@ -264,8 +264,11 @@ static void act(ui_nav_t *n, int ai, int detents)
     const ui_screen_t *sc = nav_screen(n);
     int id = nav_id(n), bar = bar_now(n);
     char t[UI_VALUE_MAX];
+    int kind = a->kind;
     if (!ai) return;
-    switch (a->kind) {
+    if (kind == UA_SETTING)                           /* the highlighted line's action (Settings' knobs) */
+        kind = n->cursor[id] < list(a->list)->n ? list_at(a->list, n->cursor[id]) : UA_NONE;
+    switch (kind) {
     case UA_PART:                                     /* ALGO: the next part (at its first page); SELECT: next page */
     case UA_PAGE: {
         int l = a->kind == UA_PART ? UI_PART_SCREENS : sc->pages, len = list(l)->n, here = -1, i;
@@ -382,7 +385,7 @@ static void act(ui_nav_t *n, int ai, int detents)
         int len = list(sc->menu)->n ? list(sc->menu)->n
                   : sc->list == UI_LIST_SAVED ? UI_SLOTS
                   : sc->list ? (n->live ? (n->live->n_secs < NAV_MENU_MAX ? n->live->n_secs : NAV_MENU_MAX) : 0)
-                  : list(sc->lanes)->n;
+                  : list(sc->lanes)->n ? list(sc->lanes)->n : sc->rows;   /* rows alone: a plain menu's lines */
         if (len) n->cursor[id] = (int8_t)((((n->cursor[id] + detents) % len) + len) % len);
         ui_list_off(n);
         return;

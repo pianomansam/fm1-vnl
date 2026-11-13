@@ -3350,18 +3350,25 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
     check(JSON.stringify(got) === '[["mute","bass"],["mute","bass"]]' && dk.jumpReq?.name === "groove" && [...dk.keyLights().on].join() === "0,2,4,6,7",
           `G mutes the bass on the main and Comp screens, jumps on Sections (${JSON.stringify(got)}, jump ${dk.jumpReq?.name}; Sections lit [${lit}])`);
   }
-  {   // Settings' BASS SATURATION: EDIT flips it (the engine told, the reader says it), PRESET a detent at a time
+  {   // Settings: SELECT highlights BASS SATURATION, any knob flips it (the engine told, the reader says it), a detent
+      // at a time; on THEME, a knob steps the palette
     const got = [], dq = new D.Device(data, { set() {}, play() {}, bassSat: (on) => got.push(on) }, () => t);
     dq.update(live(3));
     dq.stack = ["main", "prefs"];
     check(dq.values().bassSat === "ON", "bass saturation: ON by default");
-    dq.press("EDIT");
-    check(dq.values().bassSat === "OFF" && got.join() === "false" && dq.said.includes("BASS SATURATION OFF"),
-          `EDIT on Settings: bass saturation OFF (${dq.values().bassSat}, ${got}, ${dq.said})`);
-    dq.press("PRESET", 2);
-    check(dq.values().bassSat === "OFF" && got.length === 1, "PRESET two detents: as it was");
-    dq.press("PRESET", -1);
-    check(dq.values().bassSat === "ON" && got.join() === "false,true", "PRESET a detent: ON again");
+    const theme = dq.values().theme;
+    dq.press("K2", 1);
+    check(dq.values().theme !== theme && dq.values().bassSat === "ON", `K2 on THEME: the next palette (${dq.values().theme})`);
+    dq.press("K2", -1);
+    dq.press("SELECT", 1);
+    check(dq.values().sel1 && !dq.values().sel0, "SELECT: BASS SATURATION highlighted");
+    dq.press("K1", 1);
+    check(dq.values().bassSat === "OFF" && got.join() === "false" && dq.said.includes("BASS SATURATION OFF") && dq.values().theme === theme,
+          `K1 on BASS SATURATION: OFF (${dq.values().bassSat}, ${got}, ${dq.said})`);
+    dq.press("K4", 2);
+    check(dq.values().bassSat === "OFF" && got.length === 1, "K4 two detents: as it was");
+    dq.press("K3", -1);
+    check(dq.values().bassSat === "ON" && got.join() === "false,true", "K3 a detent: ON again");
   }
   {   // the Mixer: K1 sets the highlighted part's level, and the next bar's refresh (the engine's levels) keeps it
     const store = { drums: 0, bass: 0, keys: 0, pad: 0, lead: 0, texture: 0 };

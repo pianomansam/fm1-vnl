@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Bass saturation (Sam, 2026-11-12: the bass's harmonics buzz on nice speakers): Settings (GLO), EDIT or PRESET turns
-# them off or on. Off, the bass bypasses the shaper entirely; the engine switches at the next fresh bass note (never
+# Bass saturation (Sam, 2026-11-12: the bass's harmonics buzz on nice speakers): Settings (GLO), SELECT to its line,
+# any of K1-K4 turns them off or on. Off, the bass bypasses the shaper entirely; the engine switches at the next fresh bass note (never
 # mid-note: no click). The device keeps the choice through a reboot, written once all is silent, as the theme is.
 # (The first song plays the sub, which is never saturated; SEQ's next one an electric bass.)
 listen
@@ -19,7 +19,8 @@ expect bass_shaped 1
 tap GLO
 wait 50
 said SETTINGS. THEME GARNET. BASS SATURATION ON
-tap EDIT
+spin SELECT 1
+turn K1 1
 wait 50
 said BASS SATURATION OFF
 expect bass_sat 0
@@ -46,14 +47,15 @@ expect bass_shaped 0
 tap GLO
 wait 50
 said SETTINGS. THEME GARNET. BASS SATURATION OFF
-spin PRESET 1
+spin SELECT 1
+turn K2 1
 wait 50
 said BASS SATURATION ON
 expect bass_sat 1
 wait 8000
 expect bass_sat_live 1
 expect bass_shaped 1
-spin PRESET 2
+turn K3 2
 wait 50
 expect bass_sat 1
 tap PLAY

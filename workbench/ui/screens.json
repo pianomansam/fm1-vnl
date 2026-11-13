@@ -5309,7 +5309,18 @@
         0,
         236,
         20
-       ]
+       ],
+       "when": "sel0"
+      },
+      {
+       "color": "AMB",
+       "rect": [
+        2,
+        0,
+        2,
+        20
+       ],
+       "when": "sel0"
       },
       {
        "color": "WHITE",
@@ -5332,7 +5343,18 @@
         22,
         236,
         20
-       ]
+       ],
+       "when": "sel1"
+      },
+      {
+       "color": "AMB",
+       "rect": [
+        2,
+        22,
+        2,
+        20
+       ],
+       "when": "sel1"
       },
       {
        "color": "WHITE",
@@ -5457,7 +5479,7 @@
       {
        "color": "DIM",
        "font": "T",
-       "text": "SELECT THEME   EDIT BASS SATURATION",
+       "text": "SELECT PICK   K1-K4 CHANGE",
        "x": 8,
        "y": 8
       },
@@ -5475,22 +5497,48 @@
    ],
    "controls": {
     "ALGO": {
-     "do": "theme"
-    },
-    "EDIT": {
-     "do": "bassSat"
+     "do": "cursor"
     },
     "GLO": {
      "go": "back"
     },
+    "K1": {
+     "byCursor": [
+      "theme",
+      "bassSat"
+     ],
+     "do": "setting"
+    },
+    "K2": {
+     "byCursor": [
+      "theme",
+      "bassSat"
+     ],
+     "do": "setting"
+    },
+    "K3": {
+     "byCursor": [
+      "theme",
+      "bassSat"
+     ],
+     "do": "setting"
+    },
+    "K4": {
+     "byCursor": [
+      "theme",
+      "bassSat"
+     ],
+     "do": "setting"
+    },
     "PRESET": {
-     "do": "bassSat"
+     "do": "cursor"
     },
     "SELECT": {
-     "do": "theme"
+     "do": "cursor"
     }
    },
    "placeholder": true,
+   "rows": 2,
    "say": [
     "SETTINGS. THEME {theme}. BASS SATURATION {bassSat}"
    ],

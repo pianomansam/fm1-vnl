@@ -182,24 +182,24 @@ them from song to song. The knob that moves a fader is named under it.
 
 ### Settings (GLO)
 
-![The Settings screen: two working rows, THEME GARNET and BASS SATURATION ON; under NOT WORKING YET, MOVEMENT, SCREEN READER, KEY LIGHTS, BRIGHTNESS, MAIN SCREEN and ADVANCED RULES](img/vnl-settings.png "Settings")
+![The Settings screen: two working rows, THEME GARNET (highlighted) and BASS SATURATION ON; under NOT WORKING YET, MOVEMENT, SCREEN READER, KEY LIGHTS, BRIGHTNESS, MAIN SCREEN and ADVANCED RULES](img/vnl-settings.png "Settings")
 
-**THEME** works: turn SELECT or ALGO to step through the screen's color themes (GARNET, the default: coral on a
+**THEME** works: with it highlighted, turn any of K1-K4 to step through the screen's color themes (GARNET, the default: coral on a
 red-black; then GARNET+, BLACK CHERRY, the black ones GREEN, AMBER, CYAN, RED and MONO, then ESPRESSO, TEAL, OLIVE,
 PLUM, PLUM+, OXBLOOD and OXBLOOD+). Every screen changes at once, the splash too. The device keeps the theme through
 power-off (written once nothing is playing, as the home is) and a USB backup holds it.
 
 **BASS SATURATION** works: ON (the default) gives every bass but the sub its gentle harmonics, so the line carries on
-small speakers; OFF leaves the bass clean, for good speakers, where the harmonics can sound buzzy. Press EDIT or turn
-PRESET to switch it. The bass changes at its next note (never in the middle of one, so it never clicks), and the
+small speakers; OFF leaves the bass clean, for good speakers, where the harmonics can sound buzzy. Highlight it and
+turn any of K1-K4 to switch it. The bass changes at its next note (never in the middle of one, so it never clicks), and the
 device keeps the setting through power-off, as it keeps the theme.
 
 The rows under NOT WORKING YET are planned for a later version and do nothing yet. GLO goes back.
 
 | Control | What it does |
 |---|---|
-| SELECT or ALGO | The next theme (turned back, the one before). |
-| EDIT or PRESET | Bass saturation on or off. |
+| SELECT, PRESET or ALGO | Moves the highlight between THEME and BASS SATURATION. |
+| K1-K4 | Changes the highlighted setting: the next theme (turned back, the one before), or bass saturation on or off. |
 | GLO | Back. |
 
 ---

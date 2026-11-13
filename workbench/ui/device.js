@@ -602,7 +602,7 @@ export function problems(data, vocab = VOCAB) {
     if ((s.knobs ?? []).length > 4) out.push(`${id}: more than four knobs`);
     for (const k of s.knobs ?? []) if (!data.fields?.[k.field]) out.push(`${id}.knobs: no field "${k.field}"`);
     for (const [c, a] of Object.entries(s.controls ?? {})) {
-      if (![...BUTTONS, ...ENCODERS].includes(c) && !/^KEY([0-9]|1[0-9]|2[0-6])$/.test(c) && !(KNOBS.includes(c) && ["mute", "solo", "level"].includes(a?.do))) out.push(`${id}.controls: no control ${c} (K1-K4 are knobs; keys KEY0-KEY26)`);
+      if (![...BUTTONS, ...ENCODERS].includes(c) && !/^KEY([0-9]|1[0-9]|2[0-6])$/.test(c) && !(KNOBS.includes(c) && ["mute", "solo", "level", "setting"].includes(a?.do))) out.push(`${id}.controls: no control ${c} (K1-K4 are knobs; keys KEY0-KEY26)`);
       act(`${id}.controls.${c}`, a);
     }
     for (const p of s.say ?? []) typeof p === "string" ? tpl(`${id}.say`, p) : (tpl(`${id}.say`, p.text), cond(`${id}.say`, p.when));
@@ -685,7 +685,7 @@ export class Device {
              partRoll: this.rollReq && song ? { name: this.rollReq.name, at: this.rollReq.at, bars: this.rollReq.at - bar } : null,
              jump: this.jumpReq && song ? { name: this.jumpReq.name, i: this.jumpReq.i, at: this.jumpReq.at, bars: this.jumpReq.at - bar } : null,
              page: this.screen?.pages?.length > 1 ? `${this.screen.pages.indexOf(this.id) + 1}/${this.screen.pages.length}` : "",
-             cursor: this.screen?.menu || this.screen?.list || this.screen?.lanes ? (this.cursor[this.id] ?? 0) - this.listOff() : -1,
+             cursor: this.screen?.menu || this.screen?.list || this.screen?.lanes || this.screen?.rows ? (this.cursor[this.id] ?? 0) - this.listOff() : -1,
              secOff: this.listOff(), secRows: this.screen?.rows, sections: l.sections, list: this.screen?.list, slots: this.slots,
              activity: l.activity, levels: l.levels, locks: [...this.locks],
              barPos: song ? bar + Math.min(0.999, (this.now() - (this.barT ?? this.now())) / (240000 / Math.max(40, l.roll?.tempo ?? 80))) : bar, pend, msg: this.msg && this.now() < this.msg.until ? this.msg.text : null };
@@ -870,7 +870,7 @@ export class Device {
     }
     if (a.do === "cursor") {   // a menu: the highlight moves (wraps)
       const n = this.screen.menu?.length ?? (this.screen.list === "sections" ? Math.min(this.live?.sections?.length ?? 0, MENU_MAX)
-        : this.screen.list === "saved" ? SLOTS : this.screen.lanes?.length ?? 0);
+        : this.screen.list === "saved" ? SLOTS : this.screen.lanes?.length ?? this.screen.rows ?? 0);   // rows: a plain menu's lines
       if (n) this.cursor[this.id] = (((this.cursor[this.id] ?? 0) + detents) % n + n) % n;
       return null;
     }
@@ -893,6 +893,10 @@ export class Device {
       return null;
     }
     if (a.do === "readout") { this.engine.readout?.(); return null; }   // the device's measures (SAVE held: Song)
+    if (a.do === "setting") {   // the highlighted line's action (Settings: a knob changes the line's value)
+      const kind = a.byCursor[this.cursor[this.id] ?? 0];
+      return kind ? this.press(control, detents, { do: kind }) : null;
+    }
     if (a.do === "theme") {   // Settings' THEME: the next of gfx.c's palettes (detents of them, wrapping), at once
       const names = Object.keys(PALETTES), n = names.length, i = names.indexOf(this.theme);
       this.theme = names[(((i < 0 ? 0 : i) + detents) % n + n) % n];
