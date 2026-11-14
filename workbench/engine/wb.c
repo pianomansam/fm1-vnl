@@ -17,6 +17,7 @@
 #include "lead.h"
 #include "leads/leads.h"
 #include "voices.h"
+#include "sthold.h"
 #include "harmony.h"
 #include "strum.h"
 #include "groove.h"
@@ -146,6 +147,9 @@ static int ev_note(const song_ev_t *e)
     return e->voice >= V_KICK ? e->voice - V_KICK : e->note;
 }
 
+/* the held stutter (the device mock's G5: app.c's, engine/sthold.c): the key down, a press not yet taken by a 16th */
+static sthold_t sth;
+
 /* one 16th (app.c's step) */
 static void tick(void)
 {
@@ -166,6 +170,7 @@ static void tick(void)
     n = song_tick(&song, evs, 64);
     llp = song_lead_lp_at(&song, bar, st);   /* the lead loop's filter, for the 16th just played */
     vx_set_filter(PM_LEAD, lp[PM_LEAD] < llp ? llp : lp[PM_LEAD]);   /* before its events */
+    sthold_song(&sth, &song, bar, st);   /* G5 held: before the song's own, which wait while it holds */
     vx_stutter_fig(song.lead.loop.sbar == bar + 1 ? song.lead.loop.sfig : 0, st,   /* the song's stutter */
                    song_step_samples(&song));
     vx_set_pad_level(song_pad_level(&song));   /* the pad layer's fade over a section line */
@@ -319,6 +324,13 @@ EXPORT void wb_solo(int role)
 {
     solo = role >= 0 && role < V_N && (WB_BUSES >> (role >= V_KICK ? V_KICK : role)) & 1u ? role : -1;
     listen();
+}
+
+/* G5 held (1) or let go (0): the held stutter, from the next 16th (a press only while playing) */
+EXPORT void wb_stutter_hold(int on)
+{
+    if (!on || (playing && !in_gap))
+        sthold_key(&sth, on);
 }
 
 /* mixer state, not the song's: kept across landings, new songs and wb_init (vx_init keeps it) */

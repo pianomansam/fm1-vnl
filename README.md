@@ -28,7 +28,7 @@ VNL-1 is free software (GPL), built on [fm1-base](https://github.com/charlesvest
   synths.
 - **[Ten effects](#effects)** in a lo-fi chain.
 - **[Hands on](#controls):** change the key, tempo, mood or any part from the knobs, re-roll or lock a part, jump to or loop a
-  section, mute and solo, and save up to 16 songs; every change lands in time.
+  section, mute and solo, stutter the whole mix by holding G5, and save up to 16 songs; every change lands in time.
 - **[Fifteen themes](#on-the-fm-1):** color schemes for every screen, picked in Settings.
 - **[On the FM-1](#on-the-fm-1):** a now-playing screen, a detailed main screen, a page per part, a screen reader and
   USB audio in and out.
@@ -82,6 +82,7 @@ Music theory drives VNL-1's decisions, from the key of the next song to the last
 | SAVE | On the Song page, saves the song into the first free slot (SAVED TO 3); held there, or anywhere else, a line of measures for a bug report. |
 | REC | On the Song page, the Saved list: EDIT loads the highlighted song (the next song), SAVE saves into that slot, SAVE held deletes it. A save made while music plays is written to the flash when it stops. |
 | Lowest white keys (F G A B C) | Drums, bass, accompaniment, lead, pad: press to mute, hold to solo. |
+| Top white key (G5) | Hold to stutter the whole mix: an 8th repeated from the next 16th, faster on each beat (16ths, 32nds, then 64ths) and darker as it tightens; let go and the mix comes back on the next 16th. Lit while it plays; only while a song plays. It overrides the song's stutters and one queued on K3 (that one waits for the next group's last bar). |
 
 Every change to the song lands on its next four-bar line, and the screen shows it waiting until then.
 
@@ -123,7 +124,8 @@ reverb (adapted from Mutable Instruments Rings), a tape delay, bass saturation, 
 changes, and a whole-mix stutter on the last bar of a 4- or 8-bar group in any groove or lead section, with the lead
 or without it (inspired by Cut-A-Dor): about one simple figure a song (a repeated 8th or a 16th roll) and about every
 other song one complex one (a roll that speeds up into the downbeat, or a 2-beat catch). The Sections screen's K3
-queues one on demand. The host simulator's plate is adapted from AMB-1, inspired by Dattorro.
+queues one on demand. Holding G5 stutters the mix live, from an 8th to 64ths, a low-pass closing as it speeds up; the
+song's stutters wait while it holds. The host simulator's plate is adapted from AMB-1, inspired by Dattorro.
 
 ### Sounds
 
@@ -143,7 +145,8 @@ queues one on demand. The host simulator's plate is adapted from AMB-1, inspired
   re-rolls.
 - A Parts screen with each part's notes scrolling over the song; a Sections screen to jump, loop a section, stay on
   the song or queue a stutter; a Mixer with a level, mute and solo per part.
-- The keys' lights show which parts are playing; the lowest white keys mute (press) or solo (hold) a part.
+- The keys' lights show which parts are playing; the lowest white keys mute (press) or solo (hold) a part; the top
+  white key (G5), held, stutters the whole mix and is lit while it does.
 - Saved songs: SAVE on the Song page keeps the song (16 slots, through power-off); REC lists them, EDIT loads one.
   A backup over USB holds them.
 - Fifteen color themes (Settings, GLO): GARNET by default, plus GARNET+, BLACK CHERRY, OXBLOOD, OXBLOOD+, PLUM,

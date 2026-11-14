@@ -3368,6 +3368,22 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
     check(JSON.stringify(got) === '[["mute","bass"],["mute","bass"]]' && dk.jumpReq?.name === "groove" && [...dk.keyLights().on].join() === "0,2,4,6,7",
           `G mutes the bass on the main and Comp screens, jumps on Sections (${JSON.stringify(got)}, jump ${dk.jumpReq?.name}; Sections lit [${lit}])`);
   }
+  {   // G5 held: the stutter on while down (said once, lit), off when let go on another screen; stopped, nothing
+    let tt = 0;
+    const got = [], ds = new D.Device(data, { set() {}, play() {}, stutterHold: (on) => got.push(on) }, () => tt);
+    ds.update({ ...live(3), activity: { bars: 64, lanes: {}, mute: [], solo: null } });
+    ds.stack = ["main"];
+    ds.keyDown("KEY26"); tt += D.LONG_MS + 10; ds.tick();
+    const lit = ds.keyLights().on.has(26), said = ds.said;
+    ds.stack = ["main", "sections"];
+    const litSec = ds.keyLights().on.has(26);
+    ds.keyUp("KEY26");
+    const after = ds.keyLights().on.has(26);
+    ds.update({ ...live(3), playing: false });
+    ds.keyDown("KEY26"); ds.keyUp("KEY26");
+    check(JSON.stringify(got) === "[true,false]" && lit && litSec && !after && said === "STUTTER",
+          `G5: the stutter held and let go (${JSON.stringify(got)}), lit [${lit}, Sections ${litSec}, after ${after}], said ${said}`);
+  }
   {   // Settings: SELECT highlights BASS SATURATION, any knob flips it (the engine told, the reader says it), a detent
       // at a time; on THEME, a knob steps the palette
     const got = [], dq = new D.Device(data, { set() {}, play() {}, bassSat: (on) => got.push(on) }, () => t);

@@ -7,7 +7,7 @@
 
 /* the vocabulary (workbench/ui/vocab.json), in its order */
 enum ui_item_kind { UI_TEXT, UI_RECT, UI_ICON, UI_METER, UI_KNOBS, UI_SECTIONS, UI_LANES, UI_FADERS, UI_RECORD };
-enum ui_action { UA_NONE, UA_GO, UA_PLAY, UA_NUDGE, UA_TURN, UA_CURSOR, UA_PAGE, UA_PART, UA_JUMP, UA_REROLL, UA_MUTE, UA_SOLO, UA_LEVEL, UA_LOCK, UA_SAVE, UA_READOUT, UA_RECALL, UA_ERASE, UA_THEME, UA_BASS_SAT, UA_SETTING, UA_HOME_SCREEN };
+enum ui_action { UA_NONE, UA_GO, UA_PLAY, UA_NUDGE, UA_TURN, UA_CURSOR, UA_PAGE, UA_PART, UA_JUMP, UA_REROLL, UA_MUTE, UA_SOLO, UA_LEVEL, UA_LOCK, UA_SAVE, UA_READOUT, UA_RECALL, UA_ERASE, UA_THEME, UA_BASS_SAT, UA_SETTING, UA_HOME_SCREEN, UA_STUTTER };
 
 /* the controls an action a screen: plat.h's buttons (B_*), the encoders (EN_SELECT, EN_ALGO, EN_PRESET), the
    knobs K1-K4, the keys 0-26 */

@@ -38,7 +38,7 @@ Other ways in:
   synths.
 - **Ten effects** in a lo-fi chain.
 - **Hands on:** change the key, tempo, mood or any part from the knobs, re-roll or lock a part, jump to or loop a
-  section, mute and solo, and save up to 16 songs; every change lands in time.
+  section, mute and solo, stutter the whole mix by holding G5, and save up to 16 songs; every change lands in time.
 - **Fifteen themes:** color schemes for every screen, picked in Settings.
 - **On the FM-1:** a now-playing screen, a detailed main screen, a page per part, a screen reader and
   USB audio in and out.

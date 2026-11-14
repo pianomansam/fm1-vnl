@@ -1568,3 +1568,15 @@ drawing with `font_pack` costs more instructions (host `uibench`: a fade's step 
 102 us); `font_trim` alone is about 8 KB bigger and as cheap as unpacked. The meter's host cost (cost bench, seeds 20
 and 155, meter on vs off) is within the bench's noise. The device's figures come from the meter itself
 (`tools/fm1_state.py`), once installed.
+
+## The held stutter on G5 (2026-11-14)
+
+G5 held stutters the whole mix (`app/engine/sthold.c`: the schedule; `voices.c`: the lock on the song's own
+stutters and a one-pole low-pass on the repeats). No new buffer: it reuses the stutter's slice (`st_buf`, ST_N).
+
+- Flash: image 403,288 to **404,828 B (+1,540)** (`tools/mem-check.sh`, against 5a56798, the stutters on demand);
+  RAM .data+.bss 79,628 to **79,644 B (+16)**; the pool 305,212 B unchanged.
+- CPU (host, the workbench engine natively, seed 12345 and 7, 60 s each, best of 5; G5 held from 1 s, so 64ths from
+  about 3 s on): the held stutter adds about 4.4 ns a sample, 6-7% of the host render, all of it the stutter's own
+  replay (the same path the song's stutters take for a beat at most); its low-pass is within the noise (the same
+  run with the filter open: the same figure). The voices keep rendering underneath while it holds.

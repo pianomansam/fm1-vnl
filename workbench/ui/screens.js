@@ -222,6 +222,9 @@ export default {
     KEY4: { do: "mute", part: "keys", long: { do: "solo", part: "keys" } },
     KEY6: { do: "mute", part: "lead", long: { do: "solo", part: "lead" } },
     KEY7: { do: "mute", part: "pad", long: { do: "solo", part: "pad" } },
+    // the top white key (G5), on every screen: held, the whole mix stutters, an 8th repeated, faster each beat to 64ths,
+    // darker as it tightens; let go, live on the next 16th (engine/sthold.c; Sam, 2026-11-14). Lit while it plays
+    KEY26: { do: "stutter" },
   },
   // the keys' lights on every screen but one with its own (Sections): a part's key lit while it plays, blinking soloed
   keyLeds: { lanes: [0, 2, 4, 6, 7], parts: ["drums", "bass", "keys", "lead", "pad"] },

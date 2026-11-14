@@ -747,6 +747,10 @@ export class Device {
   keyDown(control) {
     this.splashAt = undefined;
     const a = actionOf(this.data, this.id, control);
+    if (a?.do === "stutter") {   // held, and let go (whatever the screen by then: nav.c's hold)
+      this.held[control] = { t: this.now(), fired: true, a };
+      return this.press(control, 1, a);
+    }
     if (!a?.long) return this.press(control);
     this.held[control] = { t: this.now(), fired: false, a };
     return null;
@@ -754,6 +758,7 @@ export class Device {
   keyUp(control) {
     const h = this.held[control];
     delete this.held[control];
+    if (h?.a.do === "stutter") return this.press(control, 0, h.a);
     return h && !h.fired ? this.press(control, 1, h.a) : null;
   }
   // the live state for Claude (docs/superpowers/plans/2026-11-06-device-screens.md, "Live state"): what plays and what
@@ -803,6 +808,8 @@ export class Device {
         if (this.jumpReq?.i === i) blink.add(key);
       });
     }
+    if (this.stutterOn && this.live?.playing)   // on any screen: a stutter's key (G5) lit while it plays
+      for (let i = 0; i < 27; i++) if (actionOf(this.data, this.id, `KEY${i}`)?.do === "stutter") on.add(i);
     return { on, blink };
   }
   tick() {   // a held key past LONG_MS (a button HOLD_MS): its long action, once
@@ -904,6 +911,11 @@ export class Device {
       return null;
     }
     if (a.do === "readout") { this.engine.readout?.(); return null; }   // the device's measures (SAVE held: Song)
+    if (a.do === "stutter") {   // G5 held (detents 1 down, 0 up): the whole mix stutters, only while a song plays
+      if (!detents) { if (this.stutterOn) this.engine.stutterHold?.(false); this.stutterOn = false; }
+      else if (this.live?.playing) { this.engine.stutterHold?.(true); this.stutterOn = true; this.say("STUTTER"); }
+      return null;
+    }
     if (a.do === "setting") {   // the highlighted line's action (Settings: a knob changes the line's value)
       const kind = a.byCursor[this.cursor[this.id] ?? 0];
       return kind ? this.press(control, detents, { do: kind }) : null;
@@ -942,6 +954,7 @@ export class Device {
     }
     if (a.do === "play") {
       this.say(this.live?.playing ? "STOP" : "PLAY");
+      this.stutterOn = false;   // (a stop ends a held stutter; a fresh press starts one: app.c's)
       this.engine.play();
     } else if (a.do === "turn" || a.do === "nudge") {
       const field = a.byCursor ? a.byCursor[this.cursor[this.id] ?? 0] : a.field;   // byCursor: the highlighted line's

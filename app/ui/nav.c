@@ -450,6 +450,14 @@ static void act(ui_nav_t *n, int ai, int detents)
     case UA_HOME_SCREEN:                              /* the home: now playing or the main screen (each detent flips) */
         if (n->eng && n->eng->home_screen) say(n, "HOME SCREEN", n->eng->home_screen(detents));
         return;
+    case UA_STUTTER:                                  /* held (hold: detents 1 down, 0 up): only while a song plays */
+        if (!detents) {
+            if (n->eng && n->eng->stutter) n->eng->stutter(0);
+        } else if (n->live && n->live->playing) {
+            if (n->eng && n->eng->stutter) n->eng->stutter(1);
+            say(n, "STUTTER", "");
+        }
+        return;
     case UA_PLAY:
         say(n, n->live && n->live->playing ? "STOP" : "PLAY", "");
         if (n->eng && n->eng->play) n->eng->play();
@@ -480,6 +488,12 @@ static void hold(ui_nav_t *n, int slot, int control, int down, uint32_t ms)
     n->now = ms;
     if (down) {
         ai = ui_control(nav_screen(n), control);
+        if (ai && UI_ACTIONS[ai].kind == UA_STUTTER) {   /* held, and let go (whatever the screen by then) */
+            n->held_action[slot] = (uint8_t)ai;
+            n->held_fired[slot] = 1;
+            act(n, ai, 1);
+            return;
+        }
         if (!ai || !UI_ACTIONS[ai].lng) {
             act(n, ai, 1);
             return;
@@ -490,7 +504,8 @@ static void hold(ui_nav_t *n, int slot, int control, int down, uint32_t ms)
     } else {
         ai = n->held_action[slot];
         n->held_action[slot] = 0;
-        if (ai && !n->held_fired[slot]) act(n, ai, 1);
+        if (ai && UI_ACTIONS[ai].kind == UA_STUTTER) act(n, ai, 0);
+        else if (ai && !n->held_fired[slot]) act(n, ai, 1);
     }
 }
 
@@ -516,7 +531,7 @@ void ui_tick(ui_nav_t *n, uint32_t ms)
 }
 
 /* the screen's keyLeds (else the defaults'): lanes, a part's key lit while it plays, blinking soloed; sections, the
-   playing section's key lit, a jump waiting blinking */
+   playing section's key lit, a jump waiting blinking; and on any screen, a stutter's key (G5) lit while it plays */
 uint32_t ui_key_lights(const ui_nav_t *n, const snap_t *s, uint32_t *blink)
 {
     const ui_screen_t *sc = nav_screen(n);
@@ -524,7 +539,10 @@ uint32_t ui_key_lights(const ui_nav_t *n, const snap_t *s, uint32_t *blink)
     uint32_t on = 0, bl = 0;
     int i, kl = sc->key_leds;
     *blink = 0;
-    if (!kl) return 0;
+    if (n->eng && n->eng->stuttering && n->eng->stuttering())
+        for (i = 0; i < UI_KEYS; i++)
+            if (UI_ACTIONS[ui_control(sc, UI_CTL_KEY(i))].kind == UA_STUTTER) on |= 1u << i;
+    if (!kl) return on;
     k = &UI_KEY_LEDS[kl - 1];
     if (k->kind == UI_KL_LANES) {
         int parts = k->parts ? k->parts : sc->lanes, solo = n->eng && n->eng->soloed ? n->eng->soloed() : -1;

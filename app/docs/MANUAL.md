@@ -93,11 +93,12 @@ These work the same on every screen, unless a screen below says otherwise.
 | FX | The Mixer. FX again goes back. |
 | GLO | The Settings screen. GLO again goes back. |
 | F, G, A, B, C (the five lowest white keys) | Drums, bass, accompaniment, lead, pad. Press to mute that part; press again to unmute. Hold to solo it; press again to unsolo. Not on the Sections screen, where the keys jump. |
-| Key lights | A part's key is lit while the part plays, dark while it's muted, and blinks while it's soloed. |
+| G (the top white key, G5) | Hold it while a song plays to stutter the whole mix. On the next 16th it catches an 8th of the music and repeats it; on each beat after that the repeat gets faster (16ths, then 32nds, then 64ths, where it stays) and a little darker. Let go and the music comes back on the next 16th. The screen shows STUTTER (the screen reader says it). The song's own stutters and one queued with K3 wait while you hold it (see Sections). Works on every screen, the Sections screen too; does nothing while stopped. |
+| Key lights | A part's key is lit while the part plays, dark while it's muted, and blinks while it's soloed. G5 is lit while its stutter plays. |
 | MASTER | The volume. |
 | SAVE | On the Song screen, saves the song (see Saving songs). Anywhere else, shows a line of measures for a moment (the screen's redraw time, the CPU guard's level and steps, late audio blocks); on the Song screen, hold SAVE for them. Useful in a bug report. |
 
-The other keys don't play notes. VNL-1 plays its own songs.
+No key plays notes: VNL-1 plays its own songs. The keys not in this table do nothing.
 
 ---
 
@@ -165,7 +166,9 @@ beat 3) about every other song, never twice. They come in any groove or lead sec
 never in an intro, an ending or a break, and not in the song's first 8 bars of lead, or of the first section without
 it. K3 adds one of your own: it lands on the next group's last bar that isn't in the intro or the ending, in place
 of the song's own stutter there, even where the song wouldn't stutter. Queued before the middle of a group's last
-bar, it plays in that bar. With no group end left in the song, it is dropped.
+bar, it plays in that bar. With no group end left in the song, it is dropped. Holding G5 overrides both: a song's
+stutter whose bar the hold touches is skipped, and one of yours that the hold keeps from playing waits for the next
+group's last bar (SIMPLE or COMPLEX stays up meanwhile).
 
 ### Parts (ARP)
 

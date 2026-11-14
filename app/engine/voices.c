@@ -2776,9 +2776,14 @@ static int16_t st_buf[ST_N] VX_POOL;
 static uint32_t st_len = 2u, st_pos, st_rec;    /* in samples at the full rate; st_rec: halves caught */
 static float st_k, st_acc;
 static int st_mode;
+/* a held stutter's (G5: vx_stutter_hold, sthold.c): the song's own calls ignored while st_hold; its low-pass on the
+   repeats, a one-pole (st_lpa its coefficient, 1 open: the song's own stutters never filtered) */
+static int st_hold;
+static float st_lpa = 1.0f, st_lpz;
 
 void vx_stutter(int mode, uint32_t len)
 {
+    if (st_hold) return;
     if (mode == 1) {
         st_len = len < 2u ? 2u : len > 2u * ST_N ? 2u * ST_N : len;   /* ponytail: cut, not resampled, below 70 BPM */
         st_rec = st_pos = 0;
@@ -2795,6 +2800,19 @@ void vx_stutter(int mode, uint32_t len)
 }
 
 int vx_stuttering(void) { return st_mode == 2 || st_k > 0.0f; }
+
+void vx_stutter_hold(int mode, uint32_t len, float lp_hz)
+{
+    float a = lp_hz > 0.0f ? k_lp1(lp_hz) : 1.0f;
+    if (a != st_lpa) st_lpz = 0.0f;              /* (a step lands on the slice's fade-in from silence) */
+    st_lpa = a;
+    st_hold = 0;
+    vx_stutter(mode, len);
+    st_hold = 1;
+}
+
+void vx_stutter_free(void) { st_hold = 0; }
+int vx_stutter_held(void) { return st_hold; }
 
 void vx_stutter_fig(int fig, int st, float step_samples)
 {
@@ -2819,7 +2837,10 @@ void vx_stutter_fig(int fig, int st, float step_samples)
 static void stutter_block(float *l, float *r, uint32_t n)
 {
     uint32_t i;
-    if (!st_mode && st_k <= 0.0f) return;
+    if (!st_mode && st_k <= 0.0f) {
+        st_lpa = 1.0f;                           /* live: a held stutter's low-pass open again */
+        return;
+    }
     for (i = 0; i < n; i++) {
         float y = 0.0f, t = st_mode == 2 ? 1.0f : 0.0f;
         if (st_mode == 1 && st_rec < st_len / 2u) {   /* catch: the pair's mono average */
@@ -2839,6 +2860,7 @@ static void stutter_block(float *l, float *r, uint32_t n)
             if ((float)p < ST_F) e = (float)p / ST_F;
             else if ((float)(st_len - p) < ST_F) e = (float)(st_len - p) / ST_F;
             y = a * e;
+            if (st_lpa < 1.0f) y = st_lpz += st_lpa * (y - st_lpz);
             st_pos++;
         }
         l[i] = l[i] * (1.0f - st_k) + y * st_k;
@@ -2947,6 +2969,7 @@ void vx_release_all(void)
     qn = 0;
     st_mode = 0;
     st_k = 0.0f;
+    st_hold = 0;
     fx_close(); /* the bed fades out; the plate rings on */
 }
 

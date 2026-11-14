@@ -75,6 +75,9 @@
    },
    "part": "bass"
   },
+  "KEY26": {
+   "do": "stutter"
+  },
   "KEY4": {
    "do": "mute",
    "long": {

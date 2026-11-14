@@ -1,0 +1,82 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# G5 held: the whole mix stutters (engine/sthold.c). The first song is at 81 BPM (a 16th 185 ms, a beat 741 ms, a bar
+# 2963 ms). Held for about 2 bars: the catch on the next 16th, an 8th repeated, then a step faster on each beat line
+# (16th, 32nd, 64th, where it stays), G5 lit meanwhile; let go, live on the next 16th. A stutter on demand (Sections
+# K3, queued in the intro: tests/scenarios/stutter.vnl's song, its first landing bar 16, from 0: 15) that a hold keeps
+# from its catch waits for the next group's last bar (bar 24, from 0: 23). Stopped, G5 does nothing.
+listen
+wait 1400
+tap PLAY
+wait 3900
+expect playing 1
+tap SEL
+wait 50
+spin K3 1
+wait 50
+said STUTTER COMPLEX
+expect stutter 2
+key 26 down
+wait 30
+said STUTTER
+wait 250
+expect hold 0
+expect hold_in 0
+expect key_lit >67108863
+# the 8th's first step on the first beat line once it has repeated whole (4-7 16ths), then a beat each
+wait 6000
+expect hold 3
+expect hold_1 >3
+expect hold_1 <8
+expect hold_2 4
+expect hold_3 4
+expect hold_offbeat 0
+key 26 up
+wait 250
+expect hold -1
+expect hold_out 0
+expect key_lit <67108864
+said_none
+# a short hold (about a beat): the catch, the 8th repeated, live again
+wait 2000
+key 26 down
+wait 700
+expect hold 0
+key 26 up
+wait 250
+expect hold -1
+expect hold_out 0
+# held over the on-demand stutter's bar (bar 16, from 0: 15; 45.9-48.9 s): from its 4th 16th into the next bar
+wait 31820
+expect bar 15
+expect stutter_fig >2
+key 26 down
+wait 2700
+expect bar 16
+expect hold >1
+expect stutter 2
+expect stutter_bar -1
+key 26 up
+wait 250
+expect hold -1
+# queued again: it lands on the next group's last bar (bar 24, from 0: 23; about 68.6-71.6 s)
+wait 21500
+expect bar 23
+expect stutter_bar 23
+expect stutter_fig >2
+wait 300
+expect stuttering 1
+wait 2000
+expect bar 24
+expect stutter 0
+# stopped: nothing
+tap PLAY
+wait 200
+expect playing 0
+said STOP
+key 26 down
+wait 400
+expect hold -1
+expect key_lit <67108864
+said_none
+key 26 up
+wait 100

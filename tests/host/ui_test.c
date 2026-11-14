@@ -10,6 +10,8 @@
 #include "song.h"
 #include "plan.h"
 #include "override.h"
+#include "voices.h"
+#include "sthold.h"
 
 typedef struct { const char *name; int kind; const char *str; double num; } ui_fx_val_t;
 typedef struct { int field, val, at; } ui_fx_req_t;
@@ -173,8 +175,12 @@ static int e_muted(int p) { return eng_muted[p]; }
 static int e_soloed(void) { return eng_solo; }
 static void e_level(int p, int db) { eng_level[p] = db; logf_("level", p, db); }
 static int e_level_get(int p) { return eng_level[p]; }
+static int eng_stut;
+static void e_stutter(int on) { logf_("stutter", on, 0); }
+static int e_stuttering(void) { return eng_stut; }
 static const ui_engine_t ENG = {e_set, e_play, e_reroll, e_reroll_part, e_jump, e_mute, e_solo, e_muted, e_soloed,
-                                e_level, e_level_get, 0, 0, 0, 0, 0, 0, 0};   /* (saved songs, settings: none) */
+                                e_level, e_level_get, 0, 0, 0, 0, 0, 0, 0,   /* (saved songs, settings: none) */
+                                e_stutter, e_stuttering};
 
 static void nav_fresh(ui_nav_t *n, snap_t *s, int bar)
 {
@@ -486,6 +492,110 @@ static void test_kit_pick(void)
     CHECK(room_br > 0, "no sunny song in 300 picked Room - brushes");
 }
 
+/* G5 (key 26) held: the stutter on while down, off when let go (on whatever screen by then); said once; lit while
+   the engine says it plays; stopped, nothing */
+static void test_nav_stutter(void)
+{
+    ui_nav_t n;
+    snap_t s;
+    uint32_t on, blink;
+    nav_fresh(&n, &s, 2);
+    eng_stut = 0;
+    n.said[0] = 0;
+    ui_key(&n, 26, 1, 1000);
+    CHECK(!strcmp(eng_log, "stutter 1 0") && !strcmp(n.said, "STUTTER"), "G5 down: %s, said %s", eng_log, n.said);
+    ui_tick(&n, 2000);                         /* held long: no long action */
+    on = ui_key_lights(&n, &s, &blink);
+    CHECK(!(on >> 26 & 1u), "G5 dark until the engine's stutter plays (%x)", on);
+    eng_stut = 1;
+    on = ui_key_lights(&n, &s, &blink);
+    CHECK(on >> 26 & 1u, "G5 lit while it plays (%x)", on);
+    ui_press(&n, UC_IN_SEL, 1);                /* to Sections (its keys jump; G5 still the stutter's) */
+    on = ui_key_lights(&n, &s, &blink);
+    CHECK(shown(&n) == US_SECTIONS && (on >> 26 & 1u), "Sections: G5 lit too (%x)", on);
+    eng_log[0] = 0;
+    n.said[0] = 0;
+    ui_key(&n, 26, 0, 2500);
+    CHECK(!strcmp(eng_log, "stutter 0 0") && !n.said[0], "G5 up on another screen: %s, said %s", eng_log, n.said);
+    eng_stut = 0;
+    snap_for(&s, UI_FX_SEED, 2, 0);            /* stopped */
+    ui_update(&n, &s, 3000);
+    eng_log[0] = 0;
+    n.said[0] = 0;
+    ui_key(&n, 26, 1, 3000);
+    CHECK(!eng_log[0] && !n.said[0], "stopped, G5 does nothing: %s, said %s", eng_log, n.said);
+    ui_key(&n, 26, 0, 3100);
+}
+
+/* the held stutter's schedule (sthold.c): from each place in a bar, the catch on the press's 16th, the repeat 2
+   16ths on, the first step faster on the first beat line 4 or more on, then one a beat to the 64th; let go, live on
+   that 16th, the song's own stutters free at the next bar line */
+static void test_sthold_schedule(void)
+{
+    int st0, k, r;
+    for (st0 = 0; st0 < 16; st0++) {
+        sthold_t h;
+        int first = -1, steps = 0, lvl_ok = 1, live = -1, freed = -1;
+        memset(&h, 0, sizeof h);
+        for (k = 0; k < 48; k++) {
+            int st = (st0 + k) % 16, down = k < 30;
+            r = sthold_tick(&h, down, st);
+            if (k == 0) CHECK(r == STH_CATCH && h.level == 0, "st %d: the catch first (%x)", st0, r);
+            if (k == 2) CHECK(r == STH_REPLAY, "st %d: the repeat 2 16ths on (%x)", st0, r);
+            if (r & STH_STEP) {
+                if (first < 0) first = k;
+                CHECK(st % 4 == 0, "st %d: a step off the beat (16th %d)", st0, st);
+                if (h.level != ++steps) lvl_ok = 0;
+            }
+            if (r & STH_LIVE) live = k;
+            if (r & STH_FREE) freed = k;
+        }
+        CHECK(first >= 4 && first < 8, "st %d: the first step %d 16ths on", st0, first);
+        CHECK(steps == STH_LEVELS - 1 && lvl_ok && h.level == 3, "st %d: %d steps to level %d", st0, steps, h.level);
+        CHECK(live == 30 && !h.on, "st %d: live on the release's 16th (%d)", st0, live);
+        CHECK(freed >= 30 && (st0 + freed) % 16 == 0 && !h.lock, "st %d: freed at the bar line (%d)", st0, freed);
+    }
+    {                                          /* a press shorter than the first step: no step, live, and the lock to
+                                                  the bar line */
+        sthold_t h;
+        memset(&h, 0, sizeof h);
+        CHECK(sthold_tick(&h, 1, 0) == STH_CATCH, "the catch");
+        CHECK(sthold_tick(&h, 0, 1) == STH_LIVE && h.lock, "a 16th later: live, the lock kept");
+        for (k = 2; k < 16; k++) CHECK(sthold_tick(&h, 0, k) == 0, "nothing in the bar (16th %d)", k);
+        CHECK(sthold_tick(&h, 0, 0) == STH_FREE && !h.lock, "freed at the bar line");
+    }
+    CHECK(sthold_lp(0) == 0.0f && sthold_lp(1) > sthold_lp(2) && sthold_lp(2) > sthold_lp(3) && sthold_lp(3) >= 500.0f,
+          "the low-pass open on the 8th, closing a step each level, never below 500 Hz");
+}
+
+/* the lock: while a held stutter holds, the song's own vx_stutter calls do nothing; freed, they act again */
+static void test_sthold_lock(void)
+{
+    static float l[256], r[256];
+    int i;
+    vx_init();
+    vx_stutter_hold(1, 2000, 0.0f);            /* an 8th caught (2000 samples) */
+    for (i = 0; i < 8; i++) {
+        memset(l, 0, sizeof l);
+        memset(r, 0, sizeof r);
+        vx_render(l, r, 256);
+    }
+    vx_stutter_hold(2, 0, 0.0f);
+    CHECK(vx_stutter_held() && vx_stuttering(), "held: repeating");
+    vx_stutter(0, 0);                          /* the song's: ignored */
+    vx_stutter(1, 500);
+    CHECK(vx_stuttering(), "the song's own calls ignored while held");
+    vx_stutter_hold(0, 0, 1600.0f);
+    vx_stutter_free();
+    CHECK(!vx_stutter_held(), "freed");
+    vx_stutter(1, 500);                        /* the song's: a catch, live while it catches */
+    for (i = 0; i < 4; i++) vx_render(l, r, 256);
+    CHECK(!vx_stuttering(), "freed: the song's call acts (a catch)");
+    vx_stutter_hold(1, 2000, 0.0f);
+    vx_release_all();
+    CHECK(!vx_stutter_held(), "a stop lets go of the lock");
+}
+
 int main(int argc, char **argv)
 {
     const char *only = argc > 1 ? argv[1] : NULL;
@@ -503,6 +613,9 @@ int main(int argc, char **argv)
     RUN(test_nav_fast_keys);
     RUN(test_nav_switch_mixer);
     RUN(test_nav_sections);
+    RUN(test_nav_stutter);
+    RUN(test_sthold_schedule);
+    RUN(test_sthold_lock);
     RUN(test_kit_pick);
     if (fails) {
         printf("%d check(s) failed\n", fails);

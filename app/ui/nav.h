@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The screens' navigator: the mock's Device (workbench/ui/device.js) in C. The screen stack, the cursors and pages,
    the controls' actions, the changes waiting for their 4-bar boundary (marked at once), a part's re-roll and a
-   section jump waiting, the keys (a press mutes, a long press solos) and their lights, the header's message and what
+   section jump waiting, the keys (a press mutes, a long press solos; G5 held stutters) and their lights, the header's message and what
    the screen reader says. What the mock asks of the workbench's engine it asks of ui_engine_t (app.c: the song's
    requests, the voices' mute, solo and levels). The value bag (values.h) reads its state. */
 #ifndef UI_NAV_H
@@ -46,6 +46,9 @@ typedef struct {
     /* the home (Settings' HOME SCREEN): an odd number of detents flips it between now playing and the main screen
        (0: as it is); "SIMPLE" or "DETAILED" */
     const char *(*home_screen)(int detents);
+    /* the held stutter (G5): the key down (1) or up (0); whether it plays now (G5's light) */
+    void (*stutter)(int on);
+    int (*stuttering)(void);
 } ui_engine_t;
 
 /* the saved songs' slots as the list shows them (saved.c keeps them; the flash holds the songs): state UI_SLOT_*,

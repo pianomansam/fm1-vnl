@@ -122,7 +122,8 @@
     "setting": [
       "byCursor"
     ],
-    "homeScreen": []
+    "homeScreen": [],
+    "stutter": []
   },
   "values": {
     "fixed": [

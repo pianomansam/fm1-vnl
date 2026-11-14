@@ -35,6 +35,7 @@
 #include "library.h"
 #include "patterns_gen.h"
 #include "voices.h"
+#include "sthold.h"
 #include "fx.h"
 #include "samples.h"
 #include "wb_drums.h"
@@ -138,8 +139,9 @@ static lk_box_t mb_lk = {-1, 0, 0, {0}, {0}, {0}, {0}};
 
 /* commands, drained at a block's start (AMB-1's pattern) */
 /* C_ROW a row's request (the UI runtime's: song_request_row), C_JUMP a section jump, C_MUTE / C_SOLO / C_LEVEL the
-   listening and the mixer (the voices' state the render reads: set here, between blocks) */
-enum { C_PLAY, C_REQ, C_STOP, C_NEW, C_ROW, C_JUMP, C_MUTE, C_SOLO, C_LEVEL, C_AB };
+   listening and the mixer (the voices' state the render reads: set here, between blocks), C_STUT G5 down (1) or up (0):
+   the held stutter */
+enum { C_PLAY, C_REQ, C_STOP, C_NEW, C_ROW, C_JUMP, C_MUTE, C_SOLO, C_LEVEL, C_AB, C_STUT };
 #define QN 32u
 static uint32_t q[QN];
 static volatile uint32_t q_w, q_r;
@@ -746,6 +748,31 @@ static void roll_clear(void)
 }
 #endif
 
+/* the held stutter (G5: sthold.c), the render's; whether it plays (G5's light, read by the main loop) */
+static sthold_t sth;
+static volatile uint8_t sth_lit;
+#ifdef PLAT_HOST
+/* the simulator's record (expect stutter_*): the 16th (r_tick) the press and the release reached the render, the
+   catch and each step faster, the live mix back; the steps off a beat line */
+static uint32_t sth_t_down, sth_t_up, sth_t[STH_LEVELS], sth_t_live;
+static int sth_offbeat;
+#endif
+static void stutter_hold_step(int bar, int st)
+{
+    int r = sthold_song(&sth, &song, bar, st);
+    sth_lit = sth.on;
+#ifdef PLAT_HOST
+    if (r & STH_CATCH) sth_t[0] = r_tick;
+    if (r & STH_STEP) {
+        sth_t[sth.level] = r_tick;
+        sth_offbeat += st % 4 != 0;
+    }
+    if (r & STH_LIVE) sth_t_live = r_tick;
+#else
+    (void)r;
+#endif
+}
+
 /* one 16th: the fade (if the song's last block fades), the section moves (each role bus's filters, plan_moves), the
    requests' slots, the step's events to the voices and the pad layer's level (song_pad_level) */
 static void step(void)
@@ -819,6 +846,7 @@ static void step(void)
         n = song_tick(&song, evs, 64);
         llp = song_lead_lp_at(&song, bar, st);   /* the lead loop's filter, for the 16th just played */
         vx_set_filter(PM_LEAD, lp[PM_LEAD] < llp ? llp : lp[PM_LEAD]);   /* before its events */
+        stutter_hold_step(bar, st);       /* G5 held: before the song's own, which wait while it holds */
         vx_stutter_fig(song.lead.loop.sbar == bar + 1 ? song.lead.loop.sfig : 0, st,   /* the song's stutter */
                        song_step_samples(&song));
         vx_set_pad_level(song_pad_level(&song));   /* the pad layer's fade over a section line */
@@ -911,6 +939,13 @@ static void command(uint32_t c)
             else
                 mb_full = 0;             /* the one ready dropped: the main loop rolls the next */
         }                                /* (in the gap or waiting: a new song is already coming) */
+    } else if (op == C_STUT) {           /* G5: a press while the song plays, at its next 16th; let go, the next 16th */
+        if (!b || (rs == RS_SONG && song.state == SS_PLAYING))
+            sthold_key(&sth, b);
+#ifdef PLAT_HOST
+        if (b) sth_t_down = r_tick;
+        else sth_t_up = r_tick;
+#endif
 #if UI_RT
     } else if (op == C_ROW && (a == ROW_LOOP || a == ROW_ENDLESS)) {   /* the switches: at once */
         if (a == ROW_LOOP)
@@ -2411,6 +2446,8 @@ static void ui_e_level(int p, int db)
     post(C_LEVEL, p, db);
 }
 static int ui_e_level_get(int p) { return p >= 0 && p < VX_PART_N ? ui_hlevel[p] : 0; }
+static void ui_e_stutter(int on) { post(C_STUT, 0, on); }
+static int ui_e_stuttering(void) { return sth_lit && vx_stutter_held(); }   /* (a stop: off at once) */
 static void ui_e_jump(int start, int i) { (void)i; post(C_JUMP, 0, start); }
 /* the saved songs (app/ui/saved.c): the song shown (ui.shown, the navigator's changes waiting landed in it) into a
    slot, the flash written now only while all is silent; a slot's song the next one; a slot deleted */
@@ -2484,7 +2521,7 @@ static const char *ui_e_home_screen(int detents)
 static const ui_engine_t UI_HENG = {ui_e_set, ui_e_play, ui_e_reroll, ui_e_reroll_part, ui_e_jump, ui_e_mute,
                                     ui_e_solo, ui_e_muted, ui_e_soloed, ui_e_level, ui_e_level_get,
                                     ui_e_save, ui_e_recall, ui_e_erase, m_readout, ui_e_theme, ui_e_bass_sat,
-                                    ui_e_home_screen};
+                                    ui_e_home_screen, ui_e_stutter, ui_e_stuttering};
 
 /* what the Parts roll and the Mixer show: the render's notes (the buffer it isn't writing), the listening, levels */
 static const ui_activity_t *ui_activity(void)
@@ -3430,6 +3467,20 @@ int app_expect(const char *what, int *got)
         *got = (int)ui_key_lights(&ui_hnav, &s, &blink);
     }
 #endif
+    else if (!strcmp(what, "hold"))   /* G5's stutter: its repeat now (0 an 8th .. 3 a 64th), -1 none */
+        *got = sth.on ? sth.level : -1;
+    else if (!strcmp(what, "hold_in"))   /* 16ths from the press reaching the render to the catch (0: the next) */
+        *got = (int)(sth_t[0] - sth_t_down);
+    else if (!strcmp(what, "hold_out"))   /* and from the release to the live mix back */
+        *got = (int)(sth_t_live - sth_t_up);
+    else if (!strcmp(what, "hold_1") || !strcmp(what, "hold_2") || !strcmp(what, "hold_3")) {   /* 16ths from the
+                                            level before to this one's step (the last hold's) */
+        int l = what[5] - '0';
+        *got = (int)(sth_t[l] - sth_t[l - 1]);
+    } else if (!strcmp(what, "hold_offbeat"))   /* steps faster off a beat line, every hold's */
+        *got = sth_offbeat;
+    else if (!strcmp(what, "hold_requeue"))   /* a stutter on demand the hold kept from its bar, to queue again */
+        *got = sth.requeue;
     else if (!strcmp(what, "voices"))
         *got = s.voices;
 #if VNL_UI_RUNTIME

@@ -95,6 +95,11 @@ int vx_stuttering(void);
 /* the song's stutter figure fig (stutter.h's 1-4; 0 none) at 16th st (0-15) of its bar, after that 16th's tick:
    its catch and replays on their 16ths (step_samples: a 16th's), the next downbeat live again */
 void vx_stutter_fig(int fig, int st, float step_samples);
+/* a held stutter (sthold.c): vx_stutter's modes, its repeats through a one-pole low-pass at lp_hz (0: open); the song's
+   own vx_stutter calls ignored from then until vx_stutter_free (or vx_release_all) */
+void vx_stutter_hold(int mode, uint32_t len, float lp_hz);
+void vx_stutter_free(void);
+int vx_stutter_held(void);                /* the lock on (0: freed, or vx_release_all since) */
 void vx_set_hp(int role, float amount);
 /* The song's pump (VX_PUMP_*): the kick ducking at about 1, 3 or 6 dB. vx_configure picks it per song (the seed's
    stream 170, a third each). */

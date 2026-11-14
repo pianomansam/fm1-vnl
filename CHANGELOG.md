@@ -14,6 +14,11 @@
   for a simple one, right for a complex one, back to the middle to cancel. It skips intros and endings, plays even
   where the song's own wouldn't, takes the place of the song's own on that bar, and shows SIMPLE or COMPLEX until it
   has played. Like Loop and Stay on song, it isn't saved with the song.
+- **Hold G5 to stutter:** the top white key, held on any screen while a song plays, catches an 8th of the whole mix
+  on the next 16th and repeats it, faster on each beat (16ths, 32nds, then 64ths), a low-pass closing a little at
+  each step; let go and the mix comes back on the next 16th. G5 is lit while it plays and the screen reader says
+  STUTTER. It overrides the song's stutters: one whose bar the hold touches is skipped, and one queued on K3 that
+  the hold keeps from playing waits for the next group's last bar. Songs are unchanged.
 
 ## 0.9.1 (2026-11-14)
 

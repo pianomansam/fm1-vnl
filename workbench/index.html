@@ -238,6 +238,7 @@
           jump: (start, name) => run(() => desk.jumpTo(start, name)),
           mute: (part, on) => run(() => desk.mute(part, on)).then(() => device?.redraw()),   // listening only, at once
           solo: (part) => run(() => desk.solo(part)).then(() => device?.redraw()),
+          stutterHold: (on) => desk.stutterHold(on).then(() => device?.redraw()),   // G5 held: at once, not queued behind a run
           level: (part, db) => desk.setLevel?.(part, db),   // the mixer (desk.setLevel: the engine's level, at once)
           // Settings' BASS SATURATION (desk.setBassSat: the engine's at the next bass note; the bass header's Sat too)
           bassSat: (on) => desk.setBassSat(on).then(() => renderParts()),
