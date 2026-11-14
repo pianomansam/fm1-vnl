@@ -1,0 +1,10 @@
+{
+  "what": "A generative lo-fi DJ groovebox: endless, complete songs built with music theory, each with its own key, chords, layout and six-part band (drums, bass, accompaniment, lead, pad, texture). Let it play, or shape the songs live.",
+  "author": "pianomansam",
+  "kinds": ["groove"],
+  "play": "https://samoltz.com/fm1-vnl/emu/",
+  "cheat": "https://samoltz.com/fm1-vnl/manual/",
+  "image": "app/docs/img/vnl-now.png",
+  "color": "#FF7A59",
+  "sounds": "licensed: VCSL, VSCO-2 CE, FreePats and Karoryfer samples, CC0 1.0; one Karoryfer guitar re-amped by the author, GPL-3.0-or-later"
+}
