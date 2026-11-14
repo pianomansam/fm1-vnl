@@ -604,6 +604,25 @@ Tuna and PERF-1 ahead of us here; VNL-1 leads in voicing, voice leading, clash a
   how the B progression relates to A (same key, relative or a neighbor key), and whether the lead's motif carries
   over or answers it, and how B pairs with the break sections (a break before or after B, B in
   place of a break, or a break inside B).
+  **Every part in A/B pairs (Sam, 2026-11-14):** to do a B section, everything the song draws has to come as a pair,
+  an A choice and its B counterpart: progression, comp (instrument, rhythm, approach, register), lead (instrument,
+  style, motif), bass style, drum pattern, kit or hats-to-ride, pad and texture, and the stutter and fill draws.
+  The planner rolls both halves up front, so B is planned, not improvised, and A returns exactly. **Half-time as a B
+  move (Sam, 2026-11-14: "separate but interesting"):** the drums (and maybe the bass) switch to half time for B,
+  the progression's harmonic rhythm unchanged; one of the B pair's drum choices, not a performance effect.
+- **Performance effects, by hand (Sam, 2026-11-14: ledger, not started).** Turned down as automatic moves in the songs
+  ("startling for a study radio": docs/music/ideas-from-other-apps.md, none in the 19 measured tracks), but they may
+  fit as effects the player triggers, next to G5's hold stutter and Sections K3/K4. All but the record skip can
+  reuse the stutter's slice buffer (voices.c, `stutter_block`) and its closing filter:
+  - **Brake / tape stop:** the mix slows to a stop (Cut-A-Dor `cad.c`'s brake, GPL-3.0-only, copyable).
+  - **Reverse:** the caught slice played backward (`cad.c`).
+  - **Gate:** the mix chopped on and off in a 16th rhythm (`cad.c`'s gate; Felucca's 16-step gate masks).
+  - **Backspin:** a fast reverse with a rising pitch, then the downbeat live.
+  - **Record skip:** the mix jumps back a beat once, as a needle would.
+  - **Per-part gate and stutter masks** (Felucca `slicer.c` 28-152, GPL): chop one part, not the whole mix.
+  - **Filter close:** a low-pass closing over the last bars, as some measured tails do (optional color).
+  Not: build-then-drop and risers (the anti-goals). Open questions: which control (a knob on a screen, or a key
+  near G5), and whether any should ever appear in songs on their own.
 - **CC0 sample libraries to mine (2026-10-25): VCSL and VSCO-2 CE (sgossner, both CC0).** Beyond the spike's piano
   (VCSL Kawai grand; also Steinway B, Knight and Yamaha uprights) and strings (VSCO-2 CE Violin, Viola and Cello
   Sections): sampled vibraphone, marimba, glockenspiel, several kalimbas and mbiras (could replace our FM vibes and
