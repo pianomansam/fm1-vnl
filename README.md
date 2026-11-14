@@ -10,6 +10,8 @@ VNL-1 is written by pianomansam, a classically-trained jazz pianist turned web d
 
 VNL-1 is free software (GPL), built on [fm1-base](https://github.com/charlesvestal/fm1-base).
 
+VNL-1 was tested on real FM-1 hardware. It should be compatible with the new chip, but that hasn't been verified.
+
 ## Features
 
 - **[Endless songs](#songs):** each one generated from a seed, with its own key, tempo, chords, layout and band; 40 instrument
