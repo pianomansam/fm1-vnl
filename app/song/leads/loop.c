@@ -24,13 +24,17 @@
        stutter: half of them the whole bar out, half its last 2 beats
      - the stutter (Sam, 2026-11-09: the whole mix, after Cut-A-Dor's captured slice; the melody-only stutters, notes
        or audio, didn't work). Only on the last bar of a group as the screen shows it (Sam, 2026-11-13: 4 of 4, 8 of
-       8, never another bar; a group 8 bars from the block's start, a block's 4-bar tail its own group): 70% of those
-       bars (about 0.6 a song); never in the song's
-       first lead pass, nor in the bar right after a stutter, nor in a muted bar, nor where the
-       section already moves the lead's filter (an entry filtered in, a break's last bar, a drum drop, a swell, an
-       intro or outro). The lead's notes stay as recorded: the bar is marked (ls->loop.sbar) and the engine stutters
-       the whole mix over its last 2 beats (app.c, vx_stutter: an 8th caught on beat 3 repeats, then its first 16th
-       on beat 4), the next bar's downbeat live. */
+       8, never another bar; a group 8 bars from the block's start, a block's 4-bar tail its own group); never in the
+       song's first lead pass, nor in the bar right after a stutter, nor in a muted bar. Two kinds (Sam, 2026-11-14),
+       one a bar at most:
+         complex (4 an accelerating roll, 5 the 2-beat catch; evenly): one a song at most, about 0.5 a song: 60% of
+         songs draw one, on a bar drawn evenly from the song's group-last bars where the section doesn't already move
+         the lead's filter (an entry filtered in, a break's last bar, a drum drop, a swell, an intro or outro)
+         simple (1 a 16th repeat, 2 an 8th repeat, 3 a 16th roll; evenly): 65% of the other group-last bars, the
+         filtered ones too (about 1 a song)
+       The lead's notes stay as recorded: the bar is marked (ls->loop.sbar, its figure ls->loop.sfig) and the engine
+       stutters the whole mix at the bar's end in that figure (app.c's table, vx_stutter), the next bar's downbeat
+       live. */
 #include <stdint.h>
 #include "harmony.h"
 #include "leads.h"
@@ -50,7 +54,7 @@ int leads_loop_plays(int style)
 static uint8_t lg[256];
 int leads_loop_stat(const lead_state_t *ls, int which)
 {
-    return which >= 0 && which < 4 ? ls->loop.stat[which] : 0;
+    return which >= 0 && which < 5 ? ls->loop.stat[which] : 0;
 }
 int leads_loop_log(int bar) { return bar >= 0 && bar < 256 ? lg[bar] : 0; }
 #define COUNT(ls, i) ((ls)->loop.stat[i]++)
@@ -59,8 +63,16 @@ int leads_loop_log(int bar) { return bar >= 0 && bar < 256 ? lg[bar] : 0; }
 #endif
 
 enum { LE_NONE, LE_FILTER, LE_HOLD };
-enum { ST_LAST = 700 };   /* the stutter's odds in 1000 on a group's last bar, as the header says */
-typedef struct { unsigned mute; int stut; float lp0, lp1; int entry, hold; } lm_t;
+/* the stutters' odds, as the header says: a simple one's in 1000 on a group's last bar; a song's one complex one's
+   in 1000 */
+enum { ST_SIMPLE = 650, ST_COMPLEX = 600 };
+/* stut: the stutter's figure (0 none); cand: 1 a group's last bar a simple stutter may take, 2 a complex one too */
+typedef struct { unsigned mute; int stut; float lp0, lp1; int entry, hold, cand; } lm_t;
+
+#ifdef LEADS_LOOP_STATS
+static int st_force;   /* a test hook (leads_loop_force_stutter), never in the firmware */
+void leads_loop_force_stutter(int on) { st_force = on; }
+#endif
 
 static int lead_before(const plan_block_t *b)
 {
@@ -71,9 +83,43 @@ static int lead_before(const plan_block_t *b)
     return 0;
 }
 
+static void moves(const song_roll_t *r, const lead_state_t *ls, const plan_block_t *b, int bar, lm_t *m, int stut);
+
+/* the song's group-last bars (b: any of its plan's blocks) a stutter may take (moves' cand >= need: 1 a simple one,
+   2 a complex one) into cb, in order; returns how many */
+static int candidates(const song_roll_t *r, const lead_state_t *ls, const plan_block_t *b, int need, uint8_t *cb)
+{
+    const plan_block_t *p = b, *q;
+    int n = 0, i, j;
+    lm_t t;
+    while (p->start > 0) p--;
+    for (i = 0, q = p; i < 25 && q->bars && (q == p || q->start == (q - 1)->start + (q - 1)->bars); i++, q++) {
+        if (!lead_plays(q)) continue;
+        for (j = 3; j < q->bars && n < 64; j += 4) {  /* each group's last bar: 8-bar groups, then a 4-bar tail */
+            if (q->bars - (j & ~7) >= 8 && (j & 7) != 7) continue;
+            moves(r, ls, q, q->start + j, &t, 0);
+            if (t.cand >= need) cb[n++] = (uint8_t)(q->start + j);
+        }
+    }
+    return n;
+}
+
+/* the song's complex stutter's bar: ST_COMPLEX in 1000 of songs draw one, evenly from the bars a complex stutter may
+   take; -1 none. One a song at most. */
+static int complex_bar(const song_roll_t *r, const lead_state_t *ls, const plan_block_t *b, uint32_t seed)
+{
+    uint8_t cb[64];                                   /* (a group is 4 bars or more) */
+    int n;
+    rng_t g;
+    rng_seed(&g, seed, 614);
+    if (rng_int(&g, 1000) >= ST_COMPLEX) return -1;
+    n = candidates(r, ls, b, 2, cb);
+    return n ? cb[rng_int(&g, n)] : -1;
+}
+
 /* the moves on bar (b: its plan block; ls: the loop, for the bar a live change re-recorded from), as the header
-   says */
-static void moves(const song_roll_t *r, const lead_state_t *ls, const plan_block_t *b, int bar, lm_t *m)
+   says; stut 0: no stutter drawn (the filter's moves, a complex stutter's candidates) */
+static void moves(const song_roll_t *r, const lead_state_t *ls, const plan_block_t *b, int bar, lm_t *m, int stut)
 {
     uint32_t seed = song_ov_phrase_seed(r->seed);
     const plan_block_t *nb = (b + 1)->bars && (b + 1)->start == b->start + b->bars ? b + 1 : 0;
@@ -86,6 +132,7 @@ static void moves(const song_roll_t *r, const lead_state_t *ls, const plan_block
     m->lp0 = m->lp1 = 0.0f;
     m->entry = LE_NONE;
     m->hold = 0;
+    m->cand = 0;
     if (!lead_plays(b)) return;
     leads_phrase_at(b, bar, &run, &pass, &bip, &pbars, &last);
     while (rb->start > run) rb--;
@@ -113,21 +160,36 @@ static void moves(const song_roll_t *r, const lead_state_t *ls, const plan_block
         rng_seed(&g, seed ^ ((uint32_t)run * 0x27D4EB2Fu) ^ ((uint32_t)pass * 0x165667B1u), 612);
         if (rng_int(&g, 100) < 12 && bip == 2 + 2 * rng_int(&g, 2)) m->mute = 0xFFFFu;   /* a bar out */
     }
-    if (!m->mute && !fp) {                            /* the stutter */
+    if (!m->mute && !fp) {                            /* the stutters, on a group's last bar */
         int quiet = (b->flags & PB_DARK) || m->lp0 > 0.0f ||
                     (lastbar && (b->section == SEC_BREAK || (b->flags & (PB_DROP_LAST | PB_SWELL)))) ||
                     ((b->flags & (PB_DROP_LAST | PB_DROP2)) == (PB_DROP_LAST | PB_DROP2) && k == b->bars - 2);
         int g8 = b->bars - (k & ~7) >= 8, pos = g8 ? k & 7 : k & 3;   /* the bar in its group (as the screen's
                                                                           blocks show it) */
-        int odds = pos == (g8 ? 7 : 3) ? ST_LAST : 0;
-        rng_seed(&g, seed ^ ((uint32_t)bar * 0xC2B2AE35u), 613);
-        x = rng_int(&g, 1000);
-        if (!quiet && x < odds) m->stut = 1;
+        if (pos == (g8 ? 7 : 3)) m->cand = quiet ? 1 : 2;
+    }
+    if (stut && m->cand) {
+        if (m->cand == 2 && bar == complex_bar(r, ls, b, seed)) {   /* the complex one wins the bar: 4 or 5 */
+            rng_seed(&g, seed, 616);
+            m->stut = 4 + rng_int(&g, 2);
+        } else {                                      /* a simple one: 1, 2 or 3 */
+            rng_seed(&g, seed ^ ((uint32_t)bar * 0xC2B2AE35u), 613);
+            x = rng_int(&g, 1000);
+            if (x < ST_SIMPLE) m->stut = 1 + rng_int(&g, 3);
+        }
+#ifdef LEADS_LOOP_STATS
+        if (st_force) {                               /* every one, the figures in turn */
+            uint8_t cb[64];
+            int n = candidates(r, ls, b, 1, cb), i;
+            for (i = 0; i < n && cb[i] != bar; i++) {}
+            m->stut = 1 + i % 5;
+        }
+#endif
     }
     if (m->stut && bar > 0) {                         /* none in the bar right after a stutter (the draws kept: no
                                                          other bar's move shifts) */
         lm_t p;
-        moves(r, ls, bar - 1 >= b->start ? b : b - 1, bar - 1, &p);
+        moves(r, ls, bar - 1 >= b->start ? b : b - 1, bar - 1, &p, 1);
         if (p.stut) m->stut = 0;
     }
     if (lastbar && nb && !m->stut) {                  /* the drop before the section change: a stutter keeps its
@@ -142,7 +204,7 @@ float leads_loop_lp(const song_roll_t *r, const lead_state_t *ls, const plan_blo
 {
     lm_t m;
     if (!leads_loop_plays(style) || !b) return 0.0f;
-    moves(r, ls, b, bar, &m);
+    moves(r, ls, b, bar, &m, 0);
     return m.lp0 + (m.lp1 - m.lp0) * (float)(step + 1) * (1.0f / 16.0f);
 }
 
@@ -313,10 +375,12 @@ void leads_loop_bar(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *
             ls->ring &= ~(1u << i);
         }
     }
-    moves(c->r, ls, b, bar, &m);
-    ls->loop.sbar = m.stut ? (int16_t)(bar + 1) : 0;
+    moves(c->r, ls, b, bar, &m, 1);
+    ls->loop.sbar = m.stut ? (unsigned)(bar + 1) & 0xFFFu : 0u;
+    ls->loop.sfig = (unsigned)m.stut & 15u;
     if (m.stut) COUNT(ls, 3);
-    if (nb) moves(c->r, ls, nb, bar + 1, &mn);
+    if (m.stut >= 4) COUNT(ls, 4);
+    if (nb) moves(c->r, ls, nb, bar + 1, &mn, 1);
     else mn.mute = 0;
     for (i = 0; i < 16; i++) {                        /* the mutes; a note into a muted step cut there */
         int e = i + ls->len[i], q;
@@ -335,7 +399,7 @@ void leads_loop_bar(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *
     ls->tie_end = te;
 #ifdef LEADS_LOOP_STATS
     if (bar >= 0 && bar < 256)
-        lg[bar] = (uint8_t)((m.stut ? 1 : 0) | (m.mute == 0xFFFFu ? 2 : m.mute ? 4 : 0) | (m.lp0 > 0.0f ? 8 : 0) |
-                            (m.hold ? 16 : 0));
+        lg[bar] = (uint8_t)((m.stut ? 1 | m.stut << 5 : 0) | (m.mute == 0xFFFFu ? 2 : m.mute ? 4 : 0) |
+                            (m.lp0 > 0.0f ? 8 : 0) | (m.hold ? 16 : 0));
 #endif
 }

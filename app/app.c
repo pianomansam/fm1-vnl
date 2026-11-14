@@ -812,14 +812,25 @@ static void step(void)
         n = song_tick(&song, evs, 64);
         llp = song_lead_lp_at(&song, bar, st);   /* the lead loop's filter, for the 16th just played */
         vx_set_filter(PM_LEAD, lp[PM_LEAD] < llp ? llp : lp[PM_LEAD]);   /* before its events */
-        {                                 /* the whole-mix stutter on a bar the lead loop marks: an 8th caught on
-                                             beat 3, repeated, then its first 16th on beat 4; the downbeat live */
+        {                                 /* the whole-mix stutter on a bar the lead loop marks, in its figure
+                                             (lead.h's sfig): per figure {step, vx_stutter mode, length in 32nds};
+                                             the next downbeat live */
+            static const uint8_t FIG[5][3][3] = {
+                {{14, 1, 2}, {15, 2, 0}},              /* 1: the bar's last 16th, twice */
+                {{12, 1, 4}, {14, 2, 0}},              /* 2: beat 4's first 8th, again on its "and" */
+                {{12, 1, 2}, {13, 2, 0}},              /* 3: beat 4's first 16th, 4 times */
+                {{12, 1, 4}, {14, 3, 2}, {15, 3, 1}},  /* 4: beat 4 as an 8th, its 16th, then 32nds */
+                {{8, 1, 4}, {10, 2, 0}, {14, 3, 2}}};  /* 5: an 8th on beat 3, repeated, then its 16th on beat 4 */
             static int stut;
-            float q = song_step_samples(&song);
+            float h = 0.5f * song_step_samples(&song);
+            int f = song.lead.loop.sfig - 1, k;
             if (st == 0 && stut) { vx_stutter(0, 0); stut = 0; }
-            if (song.lead.loop.sbar == bar + 1 && st == 8) { vx_stutter(1, (uint32_t)(2.0f * q)); stut = 1; }
-            else if (stut && st == 10) vx_stutter(2, 0);
-            else if (stut && st == 14) vx_stutter(3, (uint32_t)q);
+            if (song.lead.loop.sbar == bar + 1 && f >= 0 && f < 5)
+                for (k = 0; k < 3; k++)
+                    if (FIG[f][k][1] && FIG[f][k][0] == st && (stut || FIG[f][k][1] == 1)) {
+                        vx_stutter(FIG[f][k][1], (uint32_t)((float)FIG[f][k][2] * h));
+                        stut = 1;
+                    }
         }
         vx_set_pad_level(song_pad_level(&song));   /* the pad layer's fade over a section line */
         /* sounding notes keep their patches; dust and bed changes ramp, the delay's time glides to a new tempo */
@@ -1678,6 +1689,11 @@ void app_init(void)
                                                       C_MUTE's: 1 << V_CHORD the keys), to isolate a part by
                                                       subtracting renders */
             mute_user = mt ? (unsigned)strtoul(mt, 0, 0) : 0u;
+        }
+        {
+            const char *sf = getenv("VNL_STUT");   /* VNL_STUT=1: every group's last bar a simple stutter may take
+                                                      stutters, the figures 1-5 in turn (a listening demo) */
+            leads_loop_force_stutter(sf && *sf == '1');
         }
         while (w && *w) {                /* VNL_SWAP="Eb3 G3 Db4 F4=Db3 G3 Eb4 F4;...": hear an alternative voicing */
             int v[8], k = 0;

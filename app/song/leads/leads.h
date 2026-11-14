@@ -82,8 +82,9 @@ int leads_loop_plays(int style);
 float leads_loop_lp(const song_roll_t *r, const lead_state_t *ls, const plan_block_t *b, int bar, int step,
                     int style);
 #ifdef LEADS_LOOP_STATS
-/* the song's counters (0 bars replayed, 1 notes nudged, 2 notes dropped, 3 stutters); the log per bar of the song
-   last recorded (1 a stutter, 2 the bar muted, 4 its last 2 beats muted, 8 filtered, 16 a held-back entry) */
+/* the song's counters (0 bars replayed, 1 notes nudged, 2 notes dropped, 3 stutters, 4 complex stutters); the log
+   per bar of the song last recorded (1 a stutter, its figure 1-5 in bits 5-7; 2 the bar muted, 4 its last 2 beats
+   muted, 8 filtered, 16 a held-back entry) */
 int leads_loop_stat(const lead_state_t *ls, int which);
 int leads_loop_log(int bar);
 #endif

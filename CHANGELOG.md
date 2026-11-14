@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- **Subtler stutters:** the whole-mix stutter now has five figures in two kinds. About once a song a simple one ends
+  a group: the bar's last 16th repeated, beat 4's first 8th repeated, or a 16th roll across beat 4. About every
+  other song, once at most, a complex one: beat 4 rolling from an 8th through a 16th to 32nds, or the 2-beat catch
+  from before. The simple ones may also land where a section is filtering the lead; the complex ones still don't.
+
 ## 0.9.1 (2026-11-14)
 
 - **Progressions:** a duplicate of the ii7-V7-Imaj7-VI7 loop was removed (43 progressions now), so each progression
