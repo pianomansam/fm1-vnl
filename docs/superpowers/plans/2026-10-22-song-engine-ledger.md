@@ -295,6 +295,61 @@ across families; a song's family chooses its drum kit only. (Replaces "supportin
   is built, use it for at least the Knight under a sustained lead (set 30's situation), and consider it for the
   electric pianos too.
 
+### From other firmwares (survey 2026-10-30, not started; Sam: font packing and update first)
+
+**Since (2026-11-13):** items 1 and 2 are done (fm1-base updated; the font packing committed, now on the
+pianomansam/fm1-base fork), and item 8, the per-stage CPU meter, shipped (`tools/fm1_state.py`). The open items carry
+on, reprioritized, in the 11-13 section below.
+
+**Order (Sam, 2026-10-30): font packing before the update.** The image doesn't fit today (`app/build/vnl.bin`
+425,808 B, 16,208 B over 409,600), so no device install, and the update's device check, can happen until item 2
+lands. Packing takes it to about 10 KB under budget.
+
+Details, paths and licenses: `docs/research/fm1-firmware-update-2026-10-30.md`. Most sources are GPL-3.0-only
+(copying makes the shipped image GPL-3.0-only); Haunted FM-1 and lunar-modulator are MIT.
+
+1. **Update fm1-base 865bc2f → d8ff8f4 (first).** Fast-forward, no API breaks for us. Gains: memset/memcpy 7–9x
+   faster (our mix-buffer clears), `plat_cpu_pct` accurate (read up to 6 points low), clock forced to 360 MHz at
+   boot, `plat_ticks24` timer, `plat_cpu2_*` (absent at our pin; use `cpu2_fallback = true` if ever tried). Then fix
+   `README.md:38` and the MANUAL recovery section (update mode is now REC held at power-on). Verify with a build, the
+   host tests and one install on Sam's unit.
+2. **Font run-length packing — done 2026-10-30 (uncommitted, in `base/`):** image 425,808 → 399,536 B, 10 KB under;
+   screens pixel-identical; first device install the same day. Open: how `base/` carries it (fork or upstream PR).
+   Was: fm1-gm `tools/gen_font.py pack()` + `gfx.c cv_text`: our four fonts measured
+   44.1 → 17.8 KB, about −26 KB flash, covering the lead-styles plan's 16.2 KB overage. Pixel-identical; lives in
+   `base/` (rewrite or propose upstream).
+3. **Load shedding.** VNL-1 does nothing on a late block (`APP_OVERLOAD` unused). PERF-1 steps a shed level 0–3 on
+   dropouts or late renders and recovers after 20 s calm; Tessera / lunar-modulator (MIT) for the voice cap.
+4. **Per-pass loop variation.** Haunted FM-1 `worn-tape` `rebuild(age)` (MIT; erosion, regrowth, memory from a
+   seed), DUB-1 phrase plan (A A A B, per-phrase velocity and timing), Tessera `vary.c` (one change byte per note;
+   its repeat byte is the stuck-note stutter). Serves "Variation speed" (Not yet), Fills and the lead loop toggle.
+5. **Drift** for automation arcs: DUB-1's slow random walk with smoothstep glides (~25 lines).
+6. **Darker intro**: DUB-1's filter opening across the intro, staggered fades, bed first; Haunted FM-1's
+   density-shape song maps. Entries stay on 4/8-bar lines.
+7. **Drum pocket and density**: Cut-A-Dor per-drum timing (lofi: snare laid back, off-beat hats pushed), two-bar
+   kick "conversations"; PERF-1 thin/fill by step importance, ghost masks.
+8. **Device CPU meter per stage** (DUB-1 `EN_PROF`), on `plat_ticks24`; the Plan 2 device bench.
+9. **Audible-or-cut A/Bs, in songs**: DUB-1 dissolving echo, zp12 12-bit drum grit, frodhes tape movement
+   (drifting speed instead of fixed sines).
+10. **Tools**: frodhes render click detector. (demake's 64-bit-multiply check is not needed: fm1-base's build
+    already runs one, "no 64-bit multiply inlined beside a load".)
+11. **Borrow before building (Sam, 2026-10-30: "all for borrowing something instead of rebuilding it").** Before
+    building any item above, take the source's code first (credited in CREDITS.md), adapting only what our rules
+    need. New firmwares to draw on, cloned 2026-10-30 (re-clone into `ref/` when used):
+    - **PERF-1** (github.com/deamonSLINKY/PERF-1, GPL-3.0-only): 16-genre self-playing groovebox with a LOFI genre;
+      load shedding, drum thinning by step importance, ghost and comp masks, auto-DJ arc, lofi drum palettes.
+    - **Haunted FM-1** (github.com/davidpryan/haunted-fm1, **MIT**, on fm1-base): Worn Tape's per-pass loop wear tied
+      to tape media; Midnight Route's density-shape song maps. First choice where it fits (no license cost).
+    - **Cut-A-Dor** (github.com/kidbee85-beep/cut-a-dor-release, GPL-3.0-only): boom-bap / lo-fi drum generator,
+      per-drum pocket timing, two-bar kick conversations, anchor-safe mutation.
+    - **zp12** (github.com/zvenson/zp12, GPL-3.0-only): SP-1200-style 12-bit drum grit.
+    - Weaker: HERA (comp rhythms captured from J-6 presets: ideas only, don't copy tables), Daurade and Sill (intro
+      build, song form), Clipper (EP patch cross-check).
+    Underlying libraries: felucca-bsp's 23 commits arrive with item 1; Felucca 1.7 (TRS MIDI and clock fixes, ADPCM
+    engine) matters only if VNL-1 takes MIDI in; fm1_open unchanged.
+12. **Ideas only**: PERF-1 chord graph with phrase cadence (check against no substitutions), Tessera section
+    develop / GRAVITY, unequal loops {5,7,11,13} for Ambient, vibes motor as tremolo, `vnl_memmove` word-at-a-time.
+
 
 ### From other firmwares (survey 2026-11-13, and the depth comparison; prioritized, not started)
 

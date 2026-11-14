@@ -1085,6 +1085,14 @@ all three; worst song_start 6-11 us. Film Score sits a little over the rest (eac
 scan of the bar's range), within Impressionism's 27-33 us; the unforced events hash is unchanged (7dbc0885,
 936e9bb7).
 
+### Packed fonts (2026-10-30; since committed in base/, now on the pianomansam/fm1-base fork's vnl-1 branch)
+
+Run-length nibble packing of the font bitmaps (`base/tools/gen_font.py: pack`, `base/device/gfx.c: cv_text`; the
+scheme follows fm1-gm b2853d9): image **425808 → 399536 B (−26272)**, now **10064 B under** 409600. RAM and pool
+unchanged. Lossless: gen_font asserts every glyph unpacks to its pixels; the three scenario screenshots are
+pixel-identical. CPU: screen drawing only (one extra branch per pixel), none in audio. First device install the same
+day: FM-1_2200 installed and running.
+
 ### Lead styles, Task 5: Bossa Nova and Ambient (2026-10-30)
 
 Two style files (app/song/leads/bossa.c, ambient.c); Ambient keeps one int across bars (its motif's level, in
