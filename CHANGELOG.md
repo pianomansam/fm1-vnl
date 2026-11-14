@@ -1,9 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.9.1 (2026-11-14)
 
 - **Progressions:** a duplicate of the ii7-V7-Imaj7-VI7 loop was removed (43 progressions now), so each progression
   is drawn equally often.
+- **For developers:** `tools/size_report.py` breaks the flash, SRAM and sample bank down by part.
 
 ## 0.9.0 (2026-11-13)
 
