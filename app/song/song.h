@@ -151,6 +151,17 @@ uint32_t song_key(const song_t *s);
 enum { SR_ROLL = 0, SR_ROLE = 32, SR_OV = 64, SR_KIT = 96 };
 int song_request_row(song_t *s, int row, int value);
 
+/* A stutter on demand (the Sections screen's K3; stutter.c): kind STUT_SIMPLE or STUT_COMPLEX queued for the next
+   group's last bar that isn't an intro's or an outro's (the song's own rules aside), in place of the song's own there,
+   its figure drawn evenly within the kind; the bar playing itself where it is one and its 9th 16th (the earliest
+   figure's catch) hasn't played. Again while one waits: the new kind. 0 cancels the one waiting, or one landed on the
+   bar playing (the song's own back there). A kind with no such bar left in the song is dropped. Live: a new song starts
+   with none. Returns song_stutter_shown's. */
+int song_stutter_queue(song_t *s, int kind);
+/* the stutter on demand as the Sections screen shows it: its kind (STUT_*) while it waits or lands on the bar
+   playing, else 0 */
+int song_stutter_shown(const song_t *s);
+
 /* SPIKE: bass rhythm: 1 a cell per song, 2 the kick's, 3 half notes on 1 and 3, 4 beats 1 and 2,
    5 beats 1, 2 and 4; 0 off */
 void song_set_bass_spike(int mode);

@@ -127,7 +127,7 @@ const SEED = 47;
 }
 {   // Review Focus 1: each options row at its longest choice name, on its part screen: clipped at the band, as the mock
   const steps = [{ press: "PLAY" }, { wait: 4000 }];
-  const fields = Object.entries(data.fields).filter(([, d]) => d.options && !["loop", "endless"].includes(d.row));
+  const fields = Object.entries(data.fields).filter(([, d]) => d.options && !["loop", "endless", "stutter"].includes(d.row));
   const screenOf = (k) => PHASE1.find((id) => (data.screens[id].knobs ?? []).some((kn) => kn.field === k));
   for (const [k, d] of fields) {
     const id = screenOf(k);
@@ -235,6 +235,10 @@ const SEED = 47;
     { spin: ["K2", 1] }, { check: "sections-stay", expect: (st) => is("endless", v(st).endless, "ON") },
     { wait: 20000 }, { check: "sections-looping", expect: (st) => is("looping", v(st).looping, true) },
     { spin: ["K1", 1] }, { spin: ["K2", 1] }, { check: "sections-off", expect: (st) => is("looping", v(st).looping, false) },
+    // K3 a stutter on demand: right a complex one, left past the middle a simple one, back to the middle none
+    { spin: ["K3", 1] }, { check: "sections-stutter", expect: (st) => is("stutter", v(st).stutter, "COMPLEX") },
+    { spin: ["K3", -2] }, { check: "sections-stutter-simple", expect: (st) => is("stutter", v(st).stutter, "SIMPLE") },
+    { spin: ["K3", 1] }, { check: "sections-stutter-off", expect: (st) => is("stutter", v(st).stutter, "OFF") },
   ];
   for (const c of run(SEED, steps)) compare(c);
 }

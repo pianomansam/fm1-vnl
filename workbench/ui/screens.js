@@ -192,6 +192,10 @@ export default {
     loop: { row: "loop", name: "LOOP", options: true, now: true, wrap: 2 },   // turning either way flips it (Sam)
     // never end (Sam, 2026-11-06): where the outro would start, back to the section after the intro; no next song
     endless: { row: "endless", name: "STAY ON SONG", options: true, now: true, wrap: 2 },   // off by default (Sam)
+    // a stutter on demand (Sam, 2026-11-14): left queues a simple one, right a complex one, for the next group's last
+    // bar (not an intro's or an outro's); back to the middle cancels it. Its kind shows while it waits and plays, then
+    // OFF again (the choices in turning order: SIMPLE, OFF, COMPLEX); acts at once, never saved with the song
+    stutter: { row: "stutter", name: "STUTTER", options: true, now: true },
   },
 
   // the parts, in ALGO's order (Sam, 2026-11-07: drums, bass, comp, lead, pad, texture, everywhere parts are listed) (on a part's screen ALGO moves to the next one, at its first page)
@@ -589,7 +593,8 @@ export default {
 
     // The song's map (Sam, 2026-11-06: where we are in the map, jump to a section, loop the one playing): SEL from
     // the main screen. One line a section (the one playing marked), ALGO or SELECT moves the highlight, EDIT goes
-    // there (at the next bar line), K1 loops the section playing; the strip under the header is the main screen's.
+    // there (at the next bar line), K1 loops the section playing, K2 stays on the song, K3 queues a stutter; the strip
+    // under the header is the main screen's.
     sections: {
       title: "Sections",
       list: "sections",
@@ -663,12 +668,12 @@ export default {
           { when: "secRange", text: "{secRange}", font: "T", x: 12, y: 130, color: "GRAY" },   // the pager, under the list, left (Sam)
         ] },
         { y: 202, h: 38, draw: [
-          { knobs: { x: 8, dx: 58, label: { y: 0, font: "T", color: "GRAY" }, value: { y: 11, font: "XS", color: "HI", when: "song" } } },
-          { text: "EDIT OR ITS KEY: GO THERE", font: "T", right: 232, y: 2, color: "DIM" },
+          { knobs: { x: 8, dx: 62, label: { y: 0, font: "T", color: "GRAY" }, value: { y: 11, font: "XS", color: "HI", when: "song" } } },
+          { text: "EDIT: GO THERE", font: "T", right: 232, y: 2, color: "DIM" },
           { text: "SEL BACK", font: "T", right: 232, y: 16, color: "DIM" },
         ] },
       ],
-      knobs: [{ field: "loop", step: 1 }, { field: "endless", step: 1 }],
+      knobs: [{ field: "loop", step: 1 }, { field: "endless", step: 1 }, { field: "stutter", step: 1 }],
       controls: {
         ALGO: { do: "cursor" }, SELECT: { do: "cursor" }, EDIT: { do: "jump" }, SEL: { go: "back" },
         // the lowest white keys jump straight to a section, first key the first section (Sam, 2026-11-06); the dim

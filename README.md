@@ -75,7 +75,7 @@ Music theory drives VNL-1's decisions, from the key of the next song to the last
 | ALGO | Picks a part. EDIT opens its page; SELECT steps its pages. |
 | PRESET | The highlighted part's instrument (or kit). |
 | OCT- / OCT+ | The accompaniment's or the lead's register. |
-| SEL | Sections: jump to a section (EDIT, or its key), loop it (K1), stay on the song (K2). |
+| SEL | Sections: jump to a section (EDIT, or its key), loop it (K1), stay on the song (K2), queue a stutter (K3). |
 | ARP | Parts: each part's notes over the song. |
 | FX | The Mixer. |
 | HOME | The home screen, set in Settings (GLO): HOME SCREEN SIMPLE, the now-playing screen (the default), or DETAILED, the main screen. On either of those two, HOME switches to the other. |
@@ -120,9 +120,10 @@ Every change to the song lands on its next four-bar line, and the screen shows i
 
 Ten, in a lo-fi chain: tape wow and flutter, dust (saturation and a darkening low-pass), grit, a chorus and plate
 reverb (adapted from Mutable Instruments Rings), a tape delay, bass saturation, kick ducking, filter sweeps on section
-changes, and a whole-mix stutter on the last bar of a 4- or 8-bar group (inspired by Cut-A-Dor): about one simple
-figure a song (a repeated 8th or a 16th roll) and about every other song one complex one (a roll that speeds
-up into the downbeat, or a 2-beat catch). The host simulator's plate is adapted from AMB-1, inspired by Dattorro.
+changes, and a whole-mix stutter on the last bar of a 4- or 8-bar group in any groove or lead section, with the lead
+or without it (inspired by Cut-A-Dor): about one simple figure a song (a repeated 8th or a 16th roll) and about every
+other song one complex one (a roll that speeds up into the downbeat, or a 2-beat catch). The Sections screen's K3
+queues one on demand. The host simulator's plate is adapted from AMB-1, inspired by Dattorro.
 
 ### Sounds
 
@@ -140,8 +141,8 @@ up into the downbeat, or a 2-beat catch). The host simulator's plate is adapted 
   where it is, its tempo.
 - A main screen with the song's progress and a tile per part; a page per part for its instrument, rhythm, register and
   re-rolls.
-- A Parts screen with each part's notes scrolling over the song; a Sections screen to jump, loop a section or stay on
-  the song; a Mixer with a level, mute and solo per part.
+- A Parts screen with each part's notes scrolling over the song; a Sections screen to jump, loop a section, stay on
+  the song or queue a stutter; a Mixer with a level, mute and solo per part.
 - The keys' lights show which parts are playing; the lowest white keys mute (press) or solo (hold) a part.
 - Saved songs: SAVE on the Song page keeps the song (16 slots, through power-off); REC lists them, EDIT loads one.
   A backup over USB holds them.

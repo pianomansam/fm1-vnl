@@ -294,6 +294,12 @@
    "options": true,
    "row": "swing"
   },
+  "stutter": {
+   "name": "STUTTER",
+   "now": true,
+   "options": true,
+   "row": "stutter"
+  },
   "tempo": {
    "max": 90,
    "min": 70,
@@ -6566,7 +6572,7 @@
      "draw": [
       {
        "knobs": {
-        "dx": 58,
+        "dx": 62,
         "label": {
          "color": "GRAY",
          "font": "T",
@@ -6585,7 +6591,7 @@
        "color": "DIM",
        "font": "T",
        "right": 232,
-       "text": "EDIT OR ITS KEY: GO THERE",
+       "text": "EDIT: GO THERE",
        "y": 2
       },
       {
@@ -6675,6 +6681,10 @@
     },
     {
      "field": "endless",
+     "step": 1
+    },
+    {
+     "field": "stutter",
      "step": 1
     }
    ],

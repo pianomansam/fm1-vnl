@@ -2768,8 +2768,8 @@ static void duck_chunk(uint32_t c)
    of the mix caught, then repeated with short edge fades): vx_stutter. The slice is kept mono at half rate in int16
    (ST_N: an 8th at 70 BPM, the slowest rolled tempo; a longer one is cut to fit), played back with linear
    interpolation; each switch crossfades over ST_F samples, as do the slice's edges. A replay loops the slice (or its
-   head) until the next call: app.c's four figures, from an 8th repeated to an 8th rolled down to 32nds, are just
-   catch and replay points. */
+   head) until the next call: the four figures (vx_stutter_fig), from an 8th repeated to an 8th rolled down to 32nds,
+   are just catch and replay points. */
 #define ST_N 9600
 #define ST_F 220.0f
 static int16_t st_buf[ST_N] VX_POOL;
@@ -2795,6 +2795,26 @@ void vx_stutter(int mode, uint32_t len)
 }
 
 int vx_stuttering(void) { return st_mode == 2 || st_k > 0.0f; }
+
+void vx_stutter_fig(int fig, int st, float step_samples)
+{
+    /* per figure {step, vx_stutter mode, length in 32nds} (Sam, 2026-11-14) */
+    static const uint8_t FIG[4][3][3] = {
+        {{12, 1, 4}, {14, 2, 0}},              /* 1: beat 4's first 8th, again on its "and" */
+        {{12, 1, 2}, {13, 2, 0}},              /* 2: beat 4's first 16th, 4 times */
+        {{12, 1, 4}, {14, 3, 2}, {15, 3, 1}},  /* 3: beat 4 as an 8th, its 16th, then 32nds */
+        {{8, 1, 4}, {10, 2, 0}, {14, 3, 2}}};  /* 4: an 8th on beat 3, repeated, then its 16th on beat 4 */
+    static int on;                             /* a figure caught this bar */
+    float h = 0.5f * step_samples;
+    int k;
+    if (st == 0 && on) { vx_stutter(0, 0); on = 0; }
+    if (fig >= 1 && fig <= 4)
+        for (k = 0; k < 3; k++)
+            if (FIG[fig - 1][k][1] && FIG[fig - 1][k][0] == st && (on || FIG[fig - 1][k][1] == 1)) {
+                vx_stutter(FIG[fig - 1][k][1], (uint32_t)((float)FIG[fig - 1][k][2] * h));
+                on = 1;
+            }
+}
 
 static void stutter_block(float *l, float *r, uint32_t n)
 {

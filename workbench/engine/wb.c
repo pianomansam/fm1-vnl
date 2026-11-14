@@ -87,6 +87,7 @@ static void hooks(const stage_t *s)
    restarted from the seed (vx_song). */
 static void land(int target, int fresh)
 {
+    int sq = cur_bar >= 0 && !fresh ? song.lead.loop.sq : 0;   /* a stutter queued on demand: on in the same song */
     if (jump >= 0)
         target = jump;                  /* (a jump: the page's bar, in the committed song) */
     else if (com.roll.seed != live.roll.seed || com.roll.v[RF_MAP] != live.roll.v[RF_MAP])
@@ -108,6 +109,8 @@ static void land(int target, int fresh)
         pos += advance();
     }
     song.voicing.ant = 0;               /* (the ticks silent: the harp's downbeat whole, on time; harmony_step) */
+    if (sq)
+        song_stutter_queue(&song, sq);
     if (fresh) {
         if (vx_sounding())
             vx_release_all();
@@ -163,6 +166,8 @@ static void tick(void)
     n = song_tick(&song, evs, 64);
     llp = song_lead_lp_at(&song, bar, st);   /* the lead loop's filter, for the 16th just played */
     vx_set_filter(PM_LEAD, lp[PM_LEAD] < llp ? llp : lp[PM_LEAD]);   /* before its events */
+    vx_stutter_fig(song.lead.loop.sbar == bar + 1 ? song.lead.loop.sfig : 0, st,   /* the song's stutter */
+                   song_step_samples(&song));
     vx_set_pad_level(song_pad_level(&song));   /* the pad layer's fade over a section line */
     for (i = 0; i < n; i++) {
         vx_event(&evs[i]);
@@ -261,6 +266,11 @@ EXPORT void wb_seed(uint32_t seed)
    bars replayed, 1 notes nudged, 2 notes dropped, 3 stutters) */
 EXPORT int wb_lead_loop_log(int bar) { return leads_loop_log(bar); }
 EXPORT int wb_lead_loop_stat(int i) { return leads_loop_stat(&song.lead, i); }
+
+/* a stutter on demand (the device's Sections K3: song_stutter_queue; kind 1 simple, 2 complex, 0 cancel) on the song
+   playing, and the kind the screen shows (song_stutter_shown) */
+EXPORT int wb_stutter(int kind) { return cur_bar >= 0 ? song_stutter_queue(&song, kind) : 0; }
+EXPORT int wb_stutter_shown(void) { return cur_bar >= 0 ? song_stutter_shown(&song) : 0; }
 
 EXPORT void wb_play(int on)
 {

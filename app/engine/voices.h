@@ -92,6 +92,9 @@ void vx_set_filter(int role, float amount);
    len, 0 live again (crossfaded); vx_release_all ends it */
 void vx_stutter(int mode, uint32_t len);
 int vx_stuttering(void);
+/* the song's stutter figure fig (stutter.h's 1-4; 0 none) at 16th st (0-15) of its bar, after that 16th's tick:
+   its catch and replays on their 16ths (step_samples: a 16th's), the next downbeat live again */
+void vx_stutter_fig(int fig, int st, float step_samples);
 void vx_set_hp(int role, float amount);
 /* The song's pump (VX_PUMP_*): the kick ducking at about 1, 3 or 6 dB. vx_configure picks it per song (the seed's
    stream 170, a third each). */

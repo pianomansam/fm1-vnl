@@ -45,6 +45,7 @@ static char chord[MAXBARS][16];
 static int section[MAXBARS], newblock[MAXBARS];
 /* the log's line for the bar in progress, and why its chord is voiced as it is (on chord changes) */
 static int lbar = -1, lnn, llead, lcandy, lnotes[4], lwhy_ok, lchanged;
+static int lstut;                                       /* the bar's stutter figure (stutter.c), + 8 on demand */
 static char lline[160];
 static th_why_t why_live, lwhy;
 
@@ -148,7 +149,11 @@ static void log_flush(void)
     fputs(lline, logf);
     for (i = 0; i < lnn; i++)
         fprintf(logf, "%s%s%d", i ? " " : "  ", pc_name(lnotes[i]), lnotes[i] / 12 - 1);
-    fprintf(logf, "%s%s\n", llead ? "  +lead" : "", lcandy ? "  +candy" : "");
+    fprintf(logf, "%s%s", llead ? "  +lead" : "", lcandy ? "  +candy" : "");
+    if (lstut & 7)                                       /* the whole-mix stutter at the bar's end */
+        fprintf(logf, "  stutter %d (%s%s)", lstut & 7, (lstut & 7) >= 3 ? "complex" : "simple",
+                lstut & 8 ? ", on demand" : "");
+    fputc('\n', logf);
     if (lchanged && lwhy_ok)
         log_why(&lwhy);
     lbar = -1;
@@ -616,10 +621,12 @@ void score_step(const song_t *s, int bar, int st, const song_ev_t *ev, int n, fl
         snprintf(lline, sizeof lline, "%6.2fs  bar %2d  %-6s  %-8s", (double)now, bar + 1,
                  b ? plan_section_name(b->section) : "?", chord[bar]);
         lbar = bar;
-        lnn = llead = lcandy = 0;
+        lnn = llead = lcandy = lstut = 0;
         lwhy_ok = 0;
         lchanged = !bar || strcmp(chord[bar], chord[bar - 1]);
     }
+    if (s->lead.loop.sbar == bar + 1)                    /* (one on demand may land mid-bar) */
+        lstut = s->lead.loop.sfig | (s->lead.loop.sod ? 8 : 0);
     for (i = 0; i < n && !lwhy_ok; i++)                  /* the bar's first chord strike: its voicing's why */
         if (ev[i].voice == V_CHORD) {
             lwhy = why_live;

@@ -30,6 +30,7 @@
 #include "song.h"
 #include "harmony.h"
 #include "override.h"
+#include "stutter.h"
 #include "theory.h"
 #include "library.h"
 #include "patterns_gen.h"
@@ -620,8 +621,14 @@ static void jump_carry(int b)
 
 static void jump_land(void)
 {
+    int sq = song.lead.loop.sq;          /* a stutter queued on demand */
     jump_carry(jsong.bar);               /* (as they are now: any carried ahead put back first) */
     song = jsong;
+    if (sq) {                            /* waits on in the song jumped to (a section's first bar never takes it, so
+                                            its plan made ahead stands: the queue put in it too) */
+        song_stutter_queue(&song, sq);
+        song.stg_l0.loop.sq = song.stg_l.loop.sq = song.lead.loop.sq;
+    }
     song.voicing.ant = 0;                /* (fast-forwarded silently: the harp's downbeat whole, on time) */
     j_target = -1;
     vx_release_all();
@@ -812,25 +819,8 @@ static void step(void)
         n = song_tick(&song, evs, 64);
         llp = song_lead_lp_at(&song, bar, st);   /* the lead loop's filter, for the 16th just played */
         vx_set_filter(PM_LEAD, lp[PM_LEAD] < llp ? llp : lp[PM_LEAD]);   /* before its events */
-        {                                 /* the whole-mix stutter on a bar the lead loop marks, in its figure
-                                             (lead.h's sfig): per figure {step, vx_stutter mode, length in 32nds};
-                                             the next downbeat live */
-            static const uint8_t FIG[4][3][3] = {
-                {{12, 1, 4}, {14, 2, 0}},              /* 1: beat 4's first 8th, again on its "and" */
-                {{12, 1, 2}, {13, 2, 0}},              /* 2: beat 4's first 16th, 4 times */
-                {{12, 1, 4}, {14, 3, 2}, {15, 3, 1}},  /* 3: beat 4 as an 8th, its 16th, then 32nds */
-                {{8, 1, 4}, {10, 2, 0}, {14, 3, 2}}};  /* 4: an 8th on beat 3, repeated, then its 16th on beat 4 */
-            static int stut;
-            float h = 0.5f * song_step_samples(&song);
-            int f = song.lead.loop.sfig - 1, k;
-            if (st == 0 && stut) { vx_stutter(0, 0); stut = 0; }
-            if (song.lead.loop.sbar == bar + 1 && f >= 0 && f < 4)
-                for (k = 0; k < 3; k++)
-                    if (FIG[f][k][1] && FIG[f][k][0] == st && (stut || FIG[f][k][1] == 1)) {
-                        vx_stutter(FIG[f][k][1], (uint32_t)((float)FIG[f][k][2] * h));
-                        stut = 1;
-                    }
-        }
+        vx_stutter_fig(song.lead.loop.sbar == bar + 1 ? song.lead.loop.sfig : 0, st,   /* the song's stutter */
+                       song_step_samples(&song));
         vx_set_pad_level(song_pad_level(&song));   /* the pad layer's fade over a section line */
         /* sounding notes keep their patches; dust and bed changes ramp, the delay's time glides to a new tempo */
         if (vx_reconfigures(&before, &song.roll) || song.changes != changes) {
@@ -927,6 +917,9 @@ static void command(uint32_t c)
             loop_on = (uint8_t)(b == 1);
         else
             endless_on = (uint8_t)(b == 1);
+    } else if (op == C_ROW && a == ROW_STUTTER) {   /* a stutter on demand: queued (its kind), or cancelled (0) */
+        if (rs == RS_SONG)
+            song_stutter_queue(&song, b);
     } else if (op == C_JUMP) {
         jump_ask(b);
     } else if (op == C_MUTE) {
@@ -1038,6 +1031,7 @@ static void publish(void)
     }
     snap.rows[ROW_LOOP] = loop_on;
     snap.rows[ROW_ENDLESS] = endless_on;
+    snap.rows[ROW_STUTTER] = (int16_t)(snap.has_song ? song_stutter_shown(&song) : 0);
 #endif
     BARRIER();
     snap_seq++;
@@ -1692,7 +1686,7 @@ void app_init(void)
         {
             const char *sf = getenv("VNL_STUT");   /* VNL_STUT=1: every group's last bar a simple stutter may take
                                                       stutters, the figures 1-4 in turn (a listening demo) */
-            leads_loop_force_stutter(sf && *sf == '1');
+            stutter_force(sf && *sf == '1');
         }
         while (w && *w) {                /* VNL_SWAP="Eb3 G3 Db4 F4=Db3 G3 Eb4 F4;...": hear an alternative voicing */
             int v[8], k = 0;
@@ -3474,6 +3468,15 @@ int app_expect(const char *what, int *got)
     } else if (!strcmp(what, "save_waits"))   /* a save or delete waits for silence to be written (1) */
         *got = sv_waiting();
 #endif
+    else if (!strcmp(what, "stutter"))   /* a stutter on demand as the Sections screen shows it: 1 simple, 2 complex
+                                            (waiting, or landed on the bar playing), 0 none */
+        *got = rs == RS_SONG ? song_stutter_shown(&song) : 0;
+    else if (!strcmp(what, "stutter_bar"))   /* the bar last planned, from 0, where it has a stutter on demand; -1 */
+        *got = rs == RS_SONG && song.lead.loop.sod && song.lead.loop.sbar ? (int)song.lead.loop.sbar - 1 : -1;
+    else if (!strcmp(what, "stutter_fig"))   /* the figure (1-4) the bar last planned stutters in, 0 none */
+        *got = rs == RS_SONG && song.lead.loop.sbar ? (int)song.lead.loop.sfig : 0;
+    else if (!strcmp(what, "stuttering"))   /* the whole mix replays a caught slice now (vx_stuttering) */
+        *got = vx_stuttering();
     else if (!strcmp(what, "remote"))
         *got = rm.on;
     else if (!strcmp(what, "same_song"))   /* the song playing or ready is the one remembered (1), another (0); none:

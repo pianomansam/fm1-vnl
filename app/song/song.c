@@ -28,6 +28,7 @@
 #include "song.h"
 #include "harmony.h"
 #include "override.h"
+#include "stutter.h"
 #include "library.h"
 #include "theory.h"
 #include "rng.h"
@@ -1034,6 +1035,41 @@ int song_tick(song_t *s, song_ev_t *out, int max)
 }
 
 float song_step_samples(const song_t *s) { return s->ss; }
+
+int song_stutter_shown(const song_t *s)
+{
+    const lead_state_t *ls = &s->lead;
+    if (s->state != SS_PLAYING) return 0;
+    if (ls->loop.sq) return ls->loop.sq;
+    return ls->loop.sod && ls->loop.sbar == s->bar + (s->step ? 1 : 0) ? (ls->loop.sfig >= 3 ? STUT_COMPLEX
+                                                                                                : STUT_SIMPLE) : 0;
+}
+
+int song_stutter_queue(song_t *s, int kind)
+{
+    lead_state_t *ls;
+    const plan_block_t *b;
+    int bar, f, B;
+    if (!s || s->state != SS_PLAYING) return 0;
+    kind = kind == STUT_COMPLEX ? STUT_COMPLEX : kind ? STUT_SIMPLE : 0;
+    ls = &s->lead;
+    bar = s->bar;                                   /* (s->step 0: its downbeat to come, planned then) */
+    b = plan_at(&s->plan, bar);
+    ls->loop.sq = 0;
+    if (s->step > 0 && kind && s->step <= 8 && stutter_lands(b, bar))
+        f = stutter_draw(&s->roll, kind, bar);      /* this bar, before its figure's earliest catch */
+    else if (s->step > 0 && !kind && ls->loop.sod && ls->loop.sbar == bar + 1)
+        f = stutter_song(&s->roll, ls, b, bar);     /* one landed here cancelled: the song's own */
+    else {
+        for (B = s->step ? bar + 1 : bar; kind && B < s->plan.bars && !stutter_lands(plan_at(&s->plan, B), B); B++) {}
+        if (kind && B < s->plan.bars) ls->loop.sq = (unsigned)kind & 3u;   /* lands when its bar is planned */
+        return song_stutter_shown(s);
+    }
+    ls->loop.sbar = f ? (unsigned)(bar + 1) & 0x1FFu : 0u;
+    ls->loop.sfig = (unsigned)f & 7u;
+    ls->loop.sod = kind != 0;
+    return song_stutter_shown(s);
+}
 
 float song_pad_level(const song_t *s) { return s->pad_level; }
 

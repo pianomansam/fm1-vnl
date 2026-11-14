@@ -65,7 +65,8 @@ to skip it. VNL-1 starts stopped, with a song ready. Press PLAY.
   ends, 2-4 seconds of silence follow, then the next song starts.
 - **Changes wait for the line:** a knob or button that changes the song doesn't act at once. The change lands on the
   song's next four-bar line. Until then the screen shows the new value with a `*` in front, in yellow, and a note
-  such as TEMPO 84 IN 1 BAR. Mutes, solos, levels and the Sections screen's Loop and Stay on song act at once.
+  such as TEMPO 84 IN 1 BAR. Mutes, solos, levels and the Sections screen's Loop and Stay on song act at once; its
+  Stutter waits for the next group's last bar instead.
   While a section loops (or Stay on song goes back), a change due at the line where the song goes back lands as
   it starts again.
 - **Stop and play:** PLAY stops the music at once. PLAY again continues the same song from the start of the bar it
@@ -142,7 +143,7 @@ each section, the tempo and, on its own line under the tempo, the mood.
 
 ### Sections (SEL)
 
-![The Sections screen: SECTIONS, a list of INTRO, GROOVE, GROOVE, GROOVE, GROOVE, LEAD, LEAD with 8 BARS each, INTRO marked PLAYING; LOOP OFF and STAY ON SONG OFF at the bottom](img/vnl-sections.png "Sections")
+![The Sections screen: SECTIONS, a list of INTRO, GROOVE, GROOVE, GROOVE, GROOVE, LEAD, LEAD with 8 BARS each, INTRO marked PLAYING; LOOP OFF, STAY ON SONG OFF and STUTTER OFF at the bottom](img/vnl-sections.png "Sections")
 
 The song's sections, one a line, with their lengths. The section playing is marked PLAYING. Each line starts with the
 letter of the key that jumps to it. Seven lines fit; a longer song scrolls with the highlight.
@@ -154,7 +155,17 @@ letter of the key that jumps to it. Seven lines fit; a longer song scrolls with 
 | The white keys from F up (F G A B C D E F G A) | Jump straight to the first to tenth section. The playing section's key is lit; a jump on its way blinks. |
 | K1 | Loop: the section playing repeats instead of moving on. Turn either way to switch it. |
 | K2 | Stay on song: the song never ends. Where the ending would start, it goes back to the section after the intro. Off by default. |
+| K3 | Stutter: queue a stutter for the next group's last bar. Turn left for a simple one, right for a complex one; back to the middle (OFF) cancels it. It shows SIMPLE or COMPLEX until it has played. |
 | SEL | Back. |
+
+**The stutter:** at the end of some groups (the last bar of a 4- or 8-bar group), the whole mix catches a slice of
+itself and repeats it into the next downbeat. A simple one (beat 4's first 8th repeated, or a 16th roll across beat
+4) comes about once a song; a complex one (beat 4 rolling from an 8th through a 16th to 32nds, or a 2-beat catch from
+beat 3) about every other song, never twice. They come in any groove or lead section, with the lead or without it,
+never in an intro, an ending or a break, and not in the song's first 8 bars of lead, or of the first section without
+it. K3 adds one of your own: it lands on the next group's last bar that isn't in the intro or the ending, in place
+of the song's own stutter there, even where the song wouldn't stutter. Queued before the middle of a group's last
+bar, it plays in that bar. With no group end left in the song, it is dropped.
 
 ### Parts (ARP)
 
@@ -307,7 +318,7 @@ four-bar line is saved as if it had landed.
   the music stops (or at the silence between two songs). One save can wait at a time: a second one into another slot
   says A SAVE WAITS, STOP TO SAVE MORE. Don't switch the FM-1 off before the save is written.
 - **What isn't saved:** the locks, mutes, solos and mixer levels, and the Sections screen's Loop and Stay on song
-  switches.
+  switches and a stutter queued with K3.
 - **Over USB:** a backup holds the saved songs and the home screen (see USB and the screen reader).
   `tools/fm1_songs.py list` tags each song `[flash]` (written, kept through power-off) or `[RAM only: ...]` (not
   yet written: its save waits for silence, or its write failed and needs saving again).

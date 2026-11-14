@@ -44,10 +44,11 @@ const choices = (id, as = id) => optionsFor(row(id), state, opts, { lib })
   .filter((o) => !(row(id).source === "kits" && state.unavailable.has(o.value)))
   .map((o) => { const n = String(o.short ?? o.name).toUpperCase(); return { value: o.value, name: o.rolled && rn[as] ? `${n} (${rn[as]})` : n }; });
 const rh = rhythmRow(state, opts), ids = ROWS.filter((r) => r.kind !== "seed" && r.kind !== "reroll").map((r) => r.id);
-const rows = { values: { ...values, rhythm: values[rh], loop: 0, endless: 0 }, rolled: rn,
+const rows = { values: { ...values, rhythm: values[rh], loop: 0, endless: 0, stutter: 0 }, rolled: rn,
                options: { ...Object.fromEntries(ids.map((id) => [id, choices(id)])), rhythm: choices(rh, "rhythm"),
                           loop: [{ value: 0, name: "OFF" }, { value: 1, name: "ON" }],
-                          endless: [{ value: 0, name: "OFF" }, { value: 1, name: "ON" }] } };
+                          endless: [{ value: 0, name: "OFF" }, { value: 1, name: "ON" }],
+                          stutter: [{ value: 1, name: "SIMPLE" }, { value: 0, name: "OFF" }, { value: 2, name: "COMPLEX" }] } };
 const roll = Object.fromEntries(["KEY", "TEMPO", "MOTION", "MOOD", "MODE", "BARS"].map((k) => [k.toLowerCase(), st.roll[C.RF[k]]]));
 const sections = json(ex.wb_sections(0));
 

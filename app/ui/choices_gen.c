@@ -4,7 +4,7 @@
 #include "choices_gen.h"
 #include "song.h"
 
-const char CH_STR[1313] =
+const char CH_STR[1328] =
     "7THS\000"
     "9THS\000"
     "RICH (9/11/13)\000"
@@ -125,7 +125,9 @@ const char CH_STR[1313] =
     "HEAVY\000"
     "VINYL\000"
     "TAPE\000"
-    "RAIN\000";
+    "RAIN\000"
+    "SIMPLE\000"
+    "COMPLEX\000";
 
 const int8_t CH_SONG_ROW[ROW_N] = {
     -1,   /* seed */
@@ -169,10 +171,11 @@ const int8_t CH_SONG_ROW[ROW_N] = {
     -1,   /* rhythm */
     -1,   /* loop */
     -1,   /* endless */
+    -1,   /* stutter */
 };
-const char *const CH_ROW_ID[ROW_N] = {"seed", "key", "mode", "tempo", "swing", "mood", "motion", "map", "prog", "color", "family", "keys", "comp", "lead", "bass", "pad", "padOn", "phrase", "leadStyle", "leadLoop", "leadOct", "busyThin", "keysWith", "voicings", "keysOct", "strumPat", "strumFill", "padPlace", "bassLine", "padNotes", "drumsVar", "kit", "pattern", "kick", "ride", "dust", "noise", "ambience", "rhythm", "loop", "endless"};
+const char *const CH_ROW_ID[ROW_N] = {"seed", "key", "mode", "tempo", "swing", "mood", "motion", "map", "prog", "color", "family", "keys", "comp", "lead", "bass", "pad", "padOn", "phrase", "leadStyle", "leadLoop", "leadOct", "busyThin", "keysWith", "voicings", "keysOct", "strumPat", "strumFill", "padPlace", "bassLine", "padNotes", "drumsVar", "kit", "pattern", "kick", "ride", "dust", "noise", "ambience", "rhythm", "loop", "endless", "stutter"};
 typedef struct { int8_t value; uint8_t flags; uint16_t name; } ch_entry_t;   /* 4 bytes */
-static const ch_entry_t CH_E[152] = {
+static const ch_entry_t CH_E[155] = {
     {0, 0, 0},
     {1, 0, 5},
     {2, 0, 10},
@@ -325,6 +328,9 @@ static const ch_entry_t CH_E[152] = {
     {1, 0, 387},
     {0, 0, 383},
     {1, 0, 387},
+    {1, 0, 1312},
+    {0, 0, 383},
+    {2, 0, 1319},
 };
 static const uint8_t CH_SPAN[ROW_N][2] = {
     {0, 0},   /* seed */
@@ -368,6 +374,7 @@ static const uint8_t CH_SPAN[ROW_N][2] = {
     {148, 0},   /* rhythm */
     {148, 2},   /* loop */
     {150, 2},   /* endless */
+    {152, 3},   /* stutter */
 };
 static const uint64_t CH_COMP_FIT[14][2] = {
     {18446744073709551615ull, 0ull},

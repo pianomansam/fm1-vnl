@@ -97,9 +97,9 @@ Music theory drives VNL-1's decisions, from the key of the next song to the last
 
 ![The Parts screen: a lane each for drums, bass, accompaniment, lead and pad, with their notes over eight bars and the playhead](img/parts.png "Parts")
 
-**Sections:** jump to a section, loop it, or stay on the song.
+**Sections:** jump to a section, loop it, stay on the song, or queue a stutter.
 
-![The Sections screen: a list of the song's sections with their lengths, the one playing marked; LOOP OFF and STAY ON SONG OFF at the bottom](img/sections.png "Sections")
+![The Sections screen: a list of the song's sections with their lengths, the one playing marked; LOOP OFF, STAY ON SONG OFF and STUTTER OFF at the bottom](img/sections.png "Sections")
 
 **The Mixer:** a level, mute and solo per part.
 

@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include "lead.h"
 #include "leads/leads.h"
+#include "stutter.h"
 
 int lead_plays(const plan_block_t *b)
 {
@@ -19,6 +20,7 @@ int lead_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b,
     for (i = 0; i < 16; i++) ls->dl[i] = 0;
     ls->active = ls->tied;
     ls->onsets = 0;
+    stutter_plan_bar(ls, r, b, bar);                   /* the song's stutter, every bar's (stutter.c) */
     if (!lead_plays(b) || np <= 0) { ls->tied = 0; return 0; }
     leads_plan_bar(ls, r, b, bar, keys, nkeys, pcs, np, can_push);   /* the song's style */
     for (i = 0; i < 16; i++) n += ls->on[i] > 0;
