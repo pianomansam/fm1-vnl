@@ -8,7 +8,7 @@ The first public release: a generative lo-fi hip hop firmware for the M-VAVE FM-
   song set up and its first bar planned during the silence before it (far fewer heavy blocks as a song starts), and
   each audio block rendered a block ahead, giving a heavy block (a new song's first notes) twice the time.
 - **The splash's tagline:** Generative LO-FI (was LO-FI GENERATOR).
-- **Newer FM-1 units:** runs on the units with the UC25HQ80 flash chip (sold since autumn 2026), with saving, the sample bank and updates, through fm1-base.
+- **Newer FM-1 units:** should work on the units with the UC25HQ80 flash chip (sold since autumn 2026), through fm1-base's support for it; not yet verified on one.
 - **ACCOMP:** the screens and the screen reader name the accompaniment part ACCOMP (was COMP).
 - **Endless songs:** each from a seed, with its own key, mode, tempo, chords, layout and band; a short silence, then
   the next, never with the last song's comp and lead together. 40 instrument sets in five flavors, 44 progressions,

@@ -164,8 +164,8 @@ plate is adapted from AMB-1, inspired by Dattorro.
 
 ## Install (FM-1 owners)
 
-VNL-1 runs on both FM-1 versions: the original, and the units sold since autumn 2026 with a different flash chip
-(the UC25HQ80), where saving, the sample bank and updates all work.
+VNL-1 was tested on the original FM-1. It should also work on the units sold since autumn 2026 with a different
+flash chip (the UC25HQ80), through fm1-base's support for it, but that hasn't been verified on one.
 
 Install at your own risk. This replaces the FM-1's firmware. You can always go back to M-VAVE's.
 
