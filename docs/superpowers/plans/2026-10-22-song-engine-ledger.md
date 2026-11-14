@@ -740,6 +740,12 @@ Tuna and PERF-1 ahead of us here; VNL-1 leads in voicing, voice leading, clash a
   lines (short pentatonic phrases ringing into the delay); (8) '60s Western-film whistling (a style for the
   whistle); (9) '60s exotica and lounge vibes; (10) gospel (call and response over held chords). Poor fits: blues
   (blue notes rub: the diatonic rule) and bebop (dense, chromatic approaches). Genre names only, no artists.
+  **Away from pentatonics (Sam, 2026-11-14: "they start sounding similar after a while"; explore when this item
+  starts).** Four of the eight styles build on the mode's pentatonic (leads.c's shared mask): Ambient, Film Score and
+  Jazz-Hop throughout, Impressionism leaning on it. The pentatonic drops the mode's two most characteristic notes (the
+  4th and 7th in major modes, the 2nd and 6th in minor ones), so every mode sounds alike. Explore: the full mode with
+  its color note (Dorian's 6th, Lydian's #4, Mixolydian's b7) placed on purpose, guide tones (3rds and 7ths), chord-
+  tone arpeggios with diatonic passing tones, and for the new styles, lines that don't start from a pentatonic at all.
 
 - **Motifs start on beat 1 more often (Sam, 2026-11-10: "I'm good with your proposal"; about a third on beat 1 in
   the off-beat styles, syncopated starts still the majority).** Phrase heads on beat 1, over 2,000 songs a style
