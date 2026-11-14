@@ -72,6 +72,16 @@ Music theory drives VNL-1's decisions, from the key of the next song to the last
 - **Scores, not just sound:** every part can be written out as MusicXML (and MIDI) for a score editor, and the drum,
   strum, accompaniment and chord patterns live as MIDI and MusicXML files that build into the firmware.
 
+## Videos
+
+**A demo:** VNL-1 walked through on the FM-1.
+
+{{YOUTUBE JQvidnI_M0s VNL-1 demo}}
+
+**Just the music:** VNL-1 playing, no talking.
+
+{{YOUTUBE Gj_xqsksJJs VNL-1, no talking}}
+
 ## Screens
 
 **The main screen:** the chord and key beside the turning record, a tile per part, and the four knobs.

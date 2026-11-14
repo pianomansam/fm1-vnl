@@ -18,7 +18,7 @@ rm -rf "$OUT/emu/o2"                  # the emulator build's object files (make_
 # the device's colors (app/site/theme.css): make_site has no styling hook, so its pages get the sheet inlined after
 # their own <style>, just before </head>
 "$PY" - "$OUT" <<'EOF'
-import pathlib, sys
+import pathlib, re, sys
 out, css = pathlib.Path(sys.argv[1]), pathlib.Path("app/site/theme.css").read_text(encoding="utf-8")
 for p in ("index.html", "install/index.html", "manual/index.html"):
     f = out / p
@@ -26,6 +26,11 @@ for p in ("index.html", "install/index.html", "manual/index.html"):
         h = f.read_text(encoding="utf-8")
         if h.count("</head>") != 1:
             sys.exit(f"{f}: no single </head> to put the theme sheet before")
+        # a YouTube video: a line {{YOUTUBE <id> <title>}} in the page's markdown (its converter escapes raw HTML)
+        h = re.sub(r"<p>\{\{YOUTUBE ([\w-]{11}) ([^}<]+)\}\}</p>", lambda m:
+                   f'<div class="video"><iframe src="https://www.youtube-nocookie.com/embed/{m[1]}" title="{m[2]}" '
+                   'loading="lazy" allow="encrypted-media; picture-in-picture; fullscreen" allowfullscreen '
+                   'referrerpolicy="strict-origin-when-cross-origin"></iframe></div>', h)
         f.write_text(h.replace("</head>", f'<style id="theme">\n{css}</style>\n</head>'), encoding="utf-8")
         print(f"theme    {f}")
 EOF

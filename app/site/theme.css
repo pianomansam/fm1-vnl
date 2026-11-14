@@ -40,3 +40,7 @@ a:hover { color: var(--vnl-hi); }
 textarea { border-color: var(--vnl-rule); }
 button.plain { border-color: var(--vnl-label); }
 dialog { background: var(--vnl-tile); }
+/* a YouTube video (tools/site.sh: {{YOUTUBE id title}} in landing.md): full width, 16:9 */
+.video { margin: 1em 0 1.5em; }
+.video iframe { display: block; width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 6px;
+                box-shadow: 0 0 0 1px var(--vnl-rule); }
