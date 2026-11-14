@@ -731,6 +731,15 @@ Tuna and PERF-1 ahead of us here; VNL-1 leads in voicing, voice leading, clash a
   the genres lo-fi samples (piano, horn, vocal and flute lines). Study lo-fi top lines themselves: how busy they are,
   their register, how much they repeat, how they sit against the keys loop, and how often a track has none. Then
   compare with the eight styles and propose changes or a new style.
+- **Candidate lead styles to study (2026-11-14: ledger, not started; pair with the top-line study above, which may
+  show what lo-fi borrows most).** Strong fits: (1) '70s soul and 2000s neo-soul (vocal hooks, pentatonic runs into
+  held notes, call and response with the keys); (2) '80s city pop (lyrical lines over major 7ths; goes with the
+  roadmap's city-pop groove); (3) '90s-2000s game and anime soundtracks (short singable loops built to repeat);
+  (4) minimalism (small cells repeated and shifted: loop music, fits "stay on the motif"); (5) lullaby and music box
+  (simple, stepwise, narrow). Good fits: (6) '50s cool jazz (relaxed, mid-register, lots of space); (7) dub melodica
+  lines (short pentatonic phrases ringing into the delay); (8) '60s Western-film whistling (a style for the
+  whistle); (9) '60s exotica and lounge vibes; (10) gospel (call and response over held chords). Poor fits: blues
+  (blue notes rub: the diatonic rule) and bebop (dense, chromatic approaches). Genre names only, no artists.
 
 - **Motifs start on beat 1 more often (Sam, 2026-11-10: "I'm good with your proposal"; about a third on beat 1 in
   the off-beat styles, syncopated starts still the majority).** Phrase heads on beat 1, over 2,000 songs a style
