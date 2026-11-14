@@ -28,8 +28,9 @@ enum { CS_HELD, CS_STABS, CS_OFFBEATS, CS_ARP, CS_HALF, CS_STRUM, CS_HELD2, CS_L
 int harmony_comp_ok(int ins, int cs);
 
 /* Pitch classes (root first, up to 5) of the chord at `bar` (from 0). pass is 1-based: 1 = the first time through
-   the loop (bar / (n * bars_per_chord) + 1). Passes >= 2 may recolor or substitute exactly one chord of the pass
-   (per-song chance 25-50%); dark (intro, outro) changes nothing here: it is a sound, not a chord. Returns the count. */
+   the loop (bar / (n * bars_per_chord) + 1). Passes >= 2 may recolor exactly one chord of the pass, never substitute
+   it (per-song chance 25-50%); dark (intro, outro) changes nothing here: it is a sound, not a chord. Returns the
+   count. */
 int harmony_chord_at(const song_roll_t *r, int bar, int pass, int dark, int *pcs);
 /* The chord as the keys and the pad sound it, in place: a dominant without its minor 7th (Sam 2026-11-04: the 7th
    sounds cheesy there), its major triad with its colors (C9 sounds as C-E-G-D, an add9);
@@ -58,8 +59,9 @@ int harmony_half_strikes(const song_roll_t *r);   /* 1 when the song really play
 unsigned harmony_comp_steps(const song_roll_t *r);
 
 /* Chord-part events of one 16th step (bar and step from 0). Writes nothing unless the block has L_KEYS.
-   voicing_state: the previous chord's 4 notes (all 0 = none), updated here for voice leading. Chords are rolled:
-   notes 10-60 ms apart, bottom up (not for CS_ARP). Returns the number of events written (at most max). */
+   voicing_state: the previous chord's 4 notes (all 0 = none), updated here for voice leading. The keys strike a
+   chord together: 0-2.7 ms a note, bottom up, about 0-8 ms in all; only the harp rolls it, 20-40 ms a note (not for
+   CS_ARP: one note a step). Returns the number of events written (at most max). */
 /* The chord part's voicing state: the last voicing sounded, and the loop's voicings, worked out once per song (and
    again when the harmony changes) as a cycle that voice-leads smoothly all the way around, wrap included. Every pass
    plays them (Sam: one voicing per chord through the song); a chord recolored on a pass is voiced on its own.

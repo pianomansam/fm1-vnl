@@ -24,7 +24,6 @@ const lib_prog_t LIB_PROGS[] = {
     {12, PK_JAZZY, 4, 1, {{1, 0, Q_MIN7}, {4, 0, Q_DOM7}, {0, 0, Q_MAJ7}, {5, 0, Q_DOM7}}, MOOD_WARM | MOOD_SUNNY, (1 << MODE_IONIAN), "lofi-hip-hop.md 2, bossa ii7-V7-Imaj7-VI7 (bossa flavor); R25: borrows, so jazzy"},
     {13, PK_JAZZY, 4, 1, {{3, 0, Q_MAJ7}, {2, 0, Q_DOM7}, {5, 0, Q_MIN7}, {0, 0, Q_DOM7}}, MOOD_WISTFUL | MOOD_SUNNY, (1 << MODE_IONIAN), "brainstorm: city pop IVmaj7-III7-vi7-I7 (city pop flavor); R25: borrows, so jazzy"},
     {14, PK_JAZZY, 4, 1, {{3, 0, Q_MAJ7}, {3, 0, Q_MIN7}, {2, 0, Q_MIN7}, {5, 0, Q_DOM7}}, MOOD_SAD | MOOD_WISTFUL, (1 << MODE_IONIAN) | (1 << MODE_MIXOLYDIAN), "lofi-hip-hop.md 2, IVmaj7-iv7-iii7-VI7 borrowed iv"},
-    {15, PK_JAZZY, 4, 1, {{1, 0, Q_MIN7}, {4, 0, Q_DOM7}, {0, 0, Q_MAJ7}, {5, 0, Q_DOM7}}, MOOD_WARM | MOOD_SUNNY, (1 << MODE_IONIAN), "lofi-hip-hop.md 2, ii9-V13-Imaj9-VI7 turnaround (was a ii-bII7-I tritone sub: none, Sam)"},
     {16, PK_JAZZY, 4, 1, {{0, 0, Q_MAJ7}, {0, 0, Q_DOM7}, {3, 0, Q_MAJ7}, {3, 0, Q_MIN7}}, MOOD_WISTFUL | MOOD_WARM, (1 << MODE_IONIAN) | (1 << MODE_MIXOLYDIAN), "lofi-hip-hop.md 2, Imaj7-I7-IVmaj7-iv7"},
     {17, PK_VAMP, 2, 2, {{0, 0, Q_MIN7}, {3, 0, Q_DOM7}, {0, 0, 0}, {0, 0, 0}}, MOOD_WISTFUL | MOOD_WARM | MOOD_SUNNY, (1 << MODE_DORIAN), "brainstorm: Dorian i7-IV7 vamp (Cm7 F7 in C)"},
     {18, PK_JAZZY, 4, 1, {{0, 0, Q_MIN7}, {6, 0, Q_DOM7}, {5, 0, Q_MAJ7}, {4, 0, Q_DOM7}}, MOOD_SAD | MOOD_WISTFUL, (1 << MODE_AEOLIAN), "brainstorm: Aeolian i7-bVII7-bVImaj7-V7 (Cm7 Bb7 Abmaj7 G7); R25: borrows, so jazzy"},
@@ -56,7 +55,7 @@ const lib_prog_t LIB_PROGS[] = {
     {44, PK_LOOP, 4, 1, {{0, 0, Q_DIATONIC}, {3, 0, Q_DIATONIC}, {2, 0, Q_DIATONIC}, {1, 0, Q_DIATONIC}}, MOOD_SAD | MOOD_WISTFUL, (1 << MODE_DORIAN), "R25: Dorian i7-IV7-bIIImaj7-ii7 loop (Cm7 F7 Ebmaj7 Dm7)"},
 };
 const int LIB_NPROGS = (int)(sizeof LIB_PROGS / sizeof LIB_PROGS[0]);
-const uint8_t LIB_PROGS_STATUS[] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+const uint8_t LIB_PROGS_STATUS[] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
 
 /* Lanes: kick, snare, hat, open hat, shaker, rim. 16 steps, bit i = step i. */
 const lib_pattern_t LIB_PATTERNS[] = {

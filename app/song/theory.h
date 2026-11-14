@@ -38,6 +38,9 @@ typedef struct {
     th_cand_t best[3];
 } th_why_t;
 void th_set_why(th_why_t *w);
+th_why_t *th_get_why(void);                    /* the one th_set_why installed (NULL: none) */
+/* the voicer's penalty for two notes a semitone apart, or a minor 9th: so high only a chord with no other fit has one */
+enum { TH_CLUSTER_COST = 10000 };
 
 /* hearing an alternative (host renders only): wherever the voicer would choose `from`, play `to` (4 notes, MIDI) */
 void th_add_swap(const int *from, const int *to);

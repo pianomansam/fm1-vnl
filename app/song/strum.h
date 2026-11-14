@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* The strum engine: the guitars' strummed comping (CS_STRUM). A guitar shape (up to 6 strings, low to high, E2-E5)
-   struck per 16th step in one of four patterns from the instrument spike: down strokes low to high, up strokes high to
-   low on the "and"s (the top 3 or 4 strings), muted chucks on every string, a bossa thumb and pinches. The strings of
-   a stroke 5-15 ms apart (quick) or 30-80 ms (slow: only the ballad, in half its songs). Pure functions. */
+/* The strum engine: the guitars' strummed comping (CS_STRUM). A guitar shape (up to 6 strings, low to high; notes
+   C3-E5, the root C3-B3 on the low E, A or D string) struck per 16th step in one of four patterns from the instrument
+   spike: down strokes low to high, up strokes high to low on the "and"s (the top 3 or 4 strings), muted chucks on
+   every string, a bossa thumb and pinches. The strings of a stroke 6-12 ms apart (quick) or 32-70 ms (slow: only the
+   ballad, in half its songs): the song's spread (7-12 or 40-70 ms), shorter on up strokes (x0.8), chucks and pinches
+   (x0.6), clamped to 6-14 or 32-78 ms. Pure functions. */
 #ifndef SONG_STRUM_H
 #define SONG_STRUM_H
 #include "roll.h"
@@ -28,7 +30,8 @@ int strum_pattern(const song_roll_t *r, int *slow);
 int strum_fill_drive(const song_roll_t *r);
 
 /* A guitar shape for the chord (pcs, root first; npcs of them): out[s] is string s's note (s 0 the low E string, 0
-   a string not played), ascending, E2-E5 (MIDI 40-76). Chord tones only, the root on the lowest string, the 3rd and
+   a string not played), ascending, C3-E5 (MIDI 48-76: the strings are tuned from E2, but C3 is the keys' floor;
+   the root C3-B3). Chord tones only, the root on the lowest string, the 3rd and
    the 7th covered first; no note a semitone over another (pads_rub: a minor 2nd or 9th) or over the root; a movable
    hand shape (fretted notes within 4 frets, open strings free). Voice-led from prev (all 0: none): the top note moves
    the least; no note over hi (76 = E5 for the whole neck; lower where the keys make room for the lead). Returns the

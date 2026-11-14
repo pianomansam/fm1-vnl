@@ -15,7 +15,7 @@ VNL-1 is free software (GPL), built on [fm1-base](https://github.com/charlesvest
 ## Features
 
 - **[Endless songs](#songs):** each one generated from a seed, with its own key, tempo, chords, layout and band; 40 instrument
-  sets in five flavors, 44 chord progressions, four moods and five song layouts.
+  sets in five flavors, 43 chord progressions, four moods and five song layouts.
 - **[A six-part band](#parts):** drums (8 kits), bass (4 instruments), accompaniment (9 instruments), lead (8 instruments in 8 styles),
   pad and texture.
 - **[An accompaniment engine](#parts):** voice-led chords in eight rhythms, guitars strummed string by string in
@@ -90,7 +90,7 @@ Every change to the song lands on its next four-bar line, and the screen shows i
 
 - Endless generated songs, each from a seed, with a 2-4 s silence between them; or stay on one song as long as you like.
 - 40 instrument sets in five flavors: lo-fi, bossa, city pop, neo-soul and chillwave.
-- 44 chord progressions in six modes (Ionian to Aeolian), any of 12 keys, 70-90 BPM, swing, and a chord color that
+- 43 chord progressions in six modes (Ionian to Aeolian), any of 12 keys, 70-90 BPM, swing, and a chord color that
   makes later passes richer.
 - Four moods (sad, wistful, warm, sunny) and a Motion control from calm to busy.
 - Five song layouts (Classic, Slow bloom, Straight in, Breather, Drift) with intros, breaks, drum drops and endings.

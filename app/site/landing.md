@@ -25,7 +25,7 @@ Other ways in:
 ## What it does
 
 - **Endless songs:** each one generated from a seed, with its own key, tempo, chords, layout and band; 40 instrument
-  sets in five flavors, 44 chord progressions, four moods and five song layouts.
+  sets in five flavors, 43 chord progressions, four moods and five song layouts.
 - **A six-part band:** drums (8 kits), bass (4 instruments), accompaniment (9 instruments), lead (8 instruments in 8 styles),
   pad and texture.
 - **An accompaniment engine:** voice-led chords in eight rhythms, guitars strummed string by string in

@@ -244,10 +244,10 @@ class Import(unittest.TestCase):
         self.refused(self.write("drums", "1", {**e, "hit": hit, "ghost": ghost}, ".mid"), 1, "snare")
 
     def test_a_substitution_is_refused(self):
-        chords = copy.deepcopy(self.model["progressions"]["15"]["chords"])
+        chords = copy.deepcopy(self.model["progressions"]["12"]["chords"])
         chords[3] = {"degree": 1, "alter": -1, "quality": "Q_DOM7"}          # VI7 -> bII7 (Db7): a tritone sub
-        e = entry(self.model, "progressions", "15", chords=chords)
-        self.refused(self.write("progressions", "15", e, ".musicxml"), 4, "tritone substitution")
+        e = entry(self.model, "progressions", "12", chords=chords)
+        self.refused(self.write("progressions", "12", e, ".musicxml"), 4, "tritone substitution")
 
     def test_a_borrowed_chord_in_a_loop_is_refused(self):
         chords = copy.deepcopy(self.model["progressions"]["7"]["chords"])

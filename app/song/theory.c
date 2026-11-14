@@ -184,6 +184,7 @@ void th_set_drop2(int on) { drop2 = on != 0; }
 
 static th_why_t *why;
 void th_set_why(th_why_t *w) { why = w; }
+th_why_t *th_get_why(void) { return why; }
 
 /* Hearing an alternative (host renders only): wherever the voicer would choose `from`, it plays `to` instead */
 static int swaps, swap_from[4][4], swap_to[4][4];
@@ -318,10 +319,10 @@ int th_voice_range(const int *pcs, int n, const int *prev, int *out4, int hi, in
                    if (o[v] > 69) c_range += 4 * (o[v] - 69);
                }
                for (v = 0; v < 3; v++) {
-                   if (o[v + 1] - o[v] == 1) c_clus += 10000; /* no semitone rubs (unless nothing else fits) */
+                   if (o[v + 1] - o[v] == 1) c_clus += TH_CLUSTER_COST; /* no semitone rubs (unless nothing else fits) */
                    if (o[v + 1] - o[v] == 2 && o[v] < 55) c_low2 += 3;   /* no tight seconds low down */
                    for (w = v + 1; w < 4; w++)
-                       if (o[w] - o[v] == 13) c_clus += 10000;  /* nor a minor 9th */
+                       if (o[w] - o[v] == 13) c_clus += TH_CLUSTER_COST;  /* nor a minor 9th */
                }
                c += c_move + c_top + c_common + c_range + c_low2 + c_clus;
                if (why) {

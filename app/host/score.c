@@ -529,8 +529,11 @@ static int ready(void)
                       "  top                8 per semitone the top voice moves, +6 if it leaps more than a step\n"
                       "  common-tone-moved  6 for each note shared with the last chord that didn't stay where it was\n"
                       "  range              4 per semitone below E3 or above A4, 1 per semitone the top is below C4\n"
-                      "  low-second         3 for a whole step below G3; semitone 100 for two notes a semitone apart\n",
+                      "  low-second         3 for a whole step below G3\n",
                       logf);
+            if (logf)
+                fprintf(logf, "  semitone           %d for two notes a semitone apart, or a minor 9th\n",
+                        TH_CLUSTER_COST);
             recs = malloc(sizeof *recs * MAXREC);
             th_set_why(&why_live);                       /* the voicer records why, for the log */
             atexit(finish_partial);                      /* a song the run stops in the middle of */
@@ -621,6 +624,8 @@ void score_step(const song_t *s, int bar, int st, const song_ev_t *ev, int n, fl
         if (ev[i].voice == V_CHORD) {
             lwhy = why_live;
             lwhy_ok = 1;
+            why_live.nbest = 0;                          /* used: a bar the voicer didn't voice (a guitar's
+                                                            strum) logs no why, never an older chord's */
         }
     for (i = 0; i < n; i++) {
         if (nrec < MAXREC)

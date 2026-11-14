@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **Progressions:** a duplicate of the ii7-V7-Imaj7-VI7 loop was removed (43 progressions now), so each progression
+  is drawn equally often.
+
 ## 0.9.0 (2026-11-13)
 
 The first public release: a generative lo-fi hip hop firmware for the M-VAVE FM-1.

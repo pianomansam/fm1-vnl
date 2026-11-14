@@ -258,7 +258,7 @@ static void test_library(void)
     }
     {   /* spot-check the claimed chords by name */
         static const struct { int id, mode; const char *want; } sp[] = {
-            {9, MODE_IONIAN, "Fmaj7 G7 Em7 Am7"}, {15, MODE_IONIAN, "Dm7 G7 Cmaj7 A7"},
+            {9, MODE_IONIAN, "Fmaj7 G7 Em7 Am7"}, {12, MODE_IONIAN, "Dm7 G7 Cmaj7 A7"},
             {6, MODE_DORIAN, "Cm7 Bb7"}, {18, MODE_AEOLIAN, "Cm7 Bb7 Abmaj7 G7"}, {13, MODE_IONIAN, "Fmaj7 E7 Am7 C7"},
             {22, MODE_AEOLIAN, "Cm7 Fm7 Abmaj7 G7"}, {24, MODE_DORIAN, "Cm7 Dbmaj7"},
             {25, MODE_DORIAN, "Cm7 F7 Bbmaj7 Ebmaj7"}, {26, MODE_DORIAN, "Cm7 Dm7 Ebmaj7 F7"},
@@ -13172,8 +13172,10 @@ static void test_lead_loop_off_identical(void)
             for (k = 0; k < 2; k++) h[k] = ll_hash(h[k], &r, st, k - 1);
     }
     printf("lead loop off: events %08x (lead_loop -1), %08x (0)\n", (unsigned)h[0], (unsigned)h[1]);
-    CHECK(h[0] == 0xd561b4b5u, "lead loop default: lead_loop -1 hashes %08x, wanted d561b4b5", (unsigned)h[0]);
-    CHECK(h[1] == 0x4d1174fau, "lead loop off: lead_loop 0 hashes %08x, wanted 4d1174fa", (unsigned)h[1]);
+    CHECK(h[0] == 0x1701beb8u, "lead loop default: lead_loop -1 hashes %08x, wanted 1701beb8", (unsigned)h[0]);
+    CHECK(h[1] == 0x59e84b7cu, "lead loop off: lead_loop 0 hashes %08x, wanted 59e84b7c", (unsigned)h[1]);
+    /* (re-pinned 2026-11-14: the duplicate ii7-V7-Imaj7-VI7, progression 15, removed, so the warm and sunny Ionian
+       songs draw their jazzy progression from one fewer: were d561b4b5 (-1) and 4d1174fa (0)) */
     /* (02c5852d until the comp over a low lead's draw, 2026-11-12: its songs on the jazz guitar's and the cello's
        sets with the keys with the lead; the draw forced to the lift gives 02c5852d again) */
     /* (lead_loop -1: re-pinned, Sam 2026-11-13: the stutter only on a group's last bar, 70%: was 14d6a52a) */

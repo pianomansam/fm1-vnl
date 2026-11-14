@@ -284,15 +284,23 @@ static int loop_cycle(const song_roll_t *r, int top, int bottom, int hi, int out
 static int voice_hi(const song_roll_t *r);
 static int strum_hi(const song_roll_t *r);
 
+/* the loop's voicings' top at most: the keys' window, or 72 where a loop chord doesn't fit under it */
+static int loop_hi(const song_roll_t *r)
+{
+    const lib_prog_t *p = prog_of(r);
+    int v[4], t, nch = p->n < 4 ? p->n : 4, hi = voice_hi(r);
+    for (t = 0; t < nch && hi < 72; t++) {               /* the keys' window: every loop chord must fit under it */
+        int pcs[5], n = keys_chord_at(r, t * p->bars_per_chord, 1, 0, pcs);
+        if (!th_voice_range(pcs, n, NULL, v, hi, 1)) hi = 72;   /* one doesn't: the window is ignored */
+    }
+    return hi;
+}
+
 static void loop_voicings(const song_roll_t *r, harmony_voicing_t *vs)
 {
     const lib_prog_t *p = prog_of(r);
-    int rolled[4][4], v[4][4], t, nch = p->n < 4 ? p->n : 4, hi = voice_hi(r);
+    int rolled[4][4], v[4][4], t, nch = p->n < 4 ? p->n : 4, hi = loop_hi(r);
     uint32_t salt = song_ov()->voicing_salt;
-    for (t = 0; t < nch && hi < 72; t++) {               /* the keys' window: every loop chord must fit under it */
-        int pcs[5], n = keys_chord_at(r, t * p->bars_per_chord, 1, 0, pcs);
-        if (!th_voice_range(pcs, n, NULL, v[0], hi, 1)) hi = 72;   /* one doesn't: the window is ignored */
-    }
     loop_cycle(r, 0, 0, hi, rolled, NULL);
     memcpy(vs->loop, rolled, sizeof(int) * 4 * (size_t)nch);
     for (t = 0; salt && t < 8; t++) {
@@ -497,6 +505,7 @@ void harmony_voicing_at(const song_roll_t *r, int bar, int pass, harmony_voicing
 void harmony_voicing_raw_at(const song_roll_t *r, int bar, int pass, harmony_voicing_t *vs, int out4[4], int raw4[4])
 {
     int pcs[5], n, keep[4];
+    th_why_t *why;
     if (harmony_style(r) == CS_STRUM) {                  /* the guitar shape's top 4 */
         int shape[6], i, k = 4;
         strum_shape(r, bar, pass, vs, shape);
@@ -508,7 +517,10 @@ void harmony_voicing_raw_at(const song_roll_t *r, int bar, int pass, harmony_voi
     }
     n = keys_chord_at(r, bar, pass, 0, pcs);
     memcpy(keep, vs->last, sizeof keep);
+    why = th_get_why();
+    th_set_why(NULL);                                    /* a peek: the song log's why stays the last strike's */
     voice_chord(r, bar, pcs, n, vs, out4);
+    th_set_why(why);
     memcpy(vs->last, keep, sizeof keep);                 /* a peek: the strike still voices from the same last */
     if (raw4) memcpy(raw4, out4, 4 * sizeof(int));
     place_keys(r, bar, out4);
@@ -550,9 +562,16 @@ static void voice_chord(const song_roll_t *r, int bar, const int *pcs, int n, ha
         vs->sig = harmony_sig(r);
     }
     nb = keys_chord_at(r, bar, 1, 0, base);
-    if (lock_loop && idx < vs->nloop && nb == n && !memcmp(base, pcs, sizeof(int) * (size_t)n))
+    if (lock_loop && idx < vs->nloop && nb == n && !memcmp(base, pcs, sizeof(int) * (size_t)n)) {
         memcpy(sound, vs->loop[idx], 4 * sizeof(int));
-    else if (!th_voice_range(pcs, n, have ? vs->last : NULL, sound, voice_hi(r), 1))
+        if (th_get_why()) {                              /* (the host's song log only: the voicer's why for this
+                                                            chord, voiced from the loop's chord before it, as the
+                                                            cycle voiced it; else the log shows the last chord the
+                                                            voicer worked out) */
+            int again[4];
+            th_voice_range(pcs, n, vs->loop[(idx + vs->nloop - 1) % vs->nloop], again, loop_hi(r), 1);
+        }
+    } else if (!th_voice_range(pcs, n, have ? vs->last : NULL, sound, voice_hi(r), 1))
         th_voice_range(pcs, n, have ? vs->last : NULL, sound, 72, 1);   /* no fit under the keys' window */
     memcpy(vs->last, sound, 4 * sizeof(int));
 }
