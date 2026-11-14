@@ -27,11 +27,11 @@
        8, never another bar; a group 8 bars from the block's start, a block's 4-bar tail its own group); never in the
        song's first lead pass, nor in the bar right after a stutter, nor in a muted bar. Two kinds (Sam, 2026-11-14),
        one a bar at most:
-         complex (4 an accelerating roll, 5 the 2-beat catch; evenly): one a song at most, about 0.5 a song: 60% of
+         complex (3 an accelerating roll, 4 the 2-beat catch; evenly): one a song at most, about 0.5 a song: 60% of
          songs draw one, on a bar drawn evenly from the song's group-last bars where the section doesn't already move
          the lead's filter (an entry filtered in, a break's last bar, a drum drop, a swell, an intro or outro)
-         simple (1 a 16th repeat, 2 an 8th repeat, 3 a 16th roll; evenly): 65% of the other group-last bars, the
-         filtered ones too (about 1 a song)
+         simple (1 an 8th repeat, 2 a 16th roll; evenly): 65% of the other group-last bars, the filtered ones too
+         (about 1 a song). (A lone repeated 16th was too subtle: Sam, 2026-11-14, cut.)
        The lead's notes stay as recorded: the bar is marked (ls->loop.sbar, its figure ls->loop.sfig) and the engine
        stutters the whole mix at the bar's end in that figure (app.c's table, vx_stutter), the next bar's downbeat
        live. */
@@ -169,20 +169,20 @@ static void moves(const song_roll_t *r, const lead_state_t *ls, const plan_block
         if (pos == (g8 ? 7 : 3)) m->cand = quiet ? 1 : 2;
     }
     if (stut && m->cand) {
-        if (m->cand == 2 && bar == complex_bar(r, ls, b, seed)) {   /* the complex one wins the bar: 4 or 5 */
+        if (m->cand == 2 && bar == complex_bar(r, ls, b, seed)) {   /* the complex one wins the bar: 3 or 4 */
             rng_seed(&g, seed, 616);
-            m->stut = 4 + rng_int(&g, 2);
-        } else {                                      /* a simple one: 1, 2 or 3 */
+            m->stut = 3 + rng_int(&g, 2);
+        } else {                                      /* a simple one: 1 or 2 */
             rng_seed(&g, seed ^ ((uint32_t)bar * 0xC2B2AE35u), 613);
             x = rng_int(&g, 1000);
-            if (x < ST_SIMPLE) m->stut = 1 + rng_int(&g, 3);
+            if (x < ST_SIMPLE) m->stut = 1 + rng_int(&g, 2);
         }
 #ifdef LEADS_LOOP_STATS
         if (st_force) {                               /* every one, the figures in turn */
             uint8_t cb[64];
             int n = candidates(r, ls, b, 1, cb), i;
             for (i = 0; i < n && cb[i] != bar; i++) {}
-            m->stut = 1 + i % 5;
+            m->stut = 1 + i % 4;
         }
 #endif
     }
@@ -379,7 +379,7 @@ void leads_loop_bar(lead_state_t *ls, const leads_ctx_t *c, const plan_block_t *
     ls->loop.sbar = m.stut ? (unsigned)(bar + 1) & 0xFFFu : 0u;
     ls->loop.sfig = (unsigned)m.stut & 15u;
     if (m.stut) COUNT(ls, 3);
-    if (m.stut >= 4) COUNT(ls, 4);
+    if (m.stut >= 3) COUNT(ls, 4);
     if (nb) moves(c->r, ls, nb, bar + 1, &mn, 1);
     else mn.mute = 0;
     for (i = 0; i < 16; i++) {                        /* the mutes; a note into a muted step cut there */

@@ -58,8 +58,8 @@ typedef struct {
         uint32_t sig;             /* what it was recorded for (a new song, key, mode, chords, set or style: anew) */
         int16_t from;             /* the bar a live change re-recorded from, + 1 (0: none): a new entry there */
         uint16_t sbar : 12;       /* a bar the whole mix stutters at its end, + 1 (0: none): app.c's vx_stutter */
-        uint16_t sfig : 4;        /* its figure: 1-3 simple (a 16th repeat, an 8th repeat, a 16th roll), 4-5
-                                     complex (an accelerating roll, the 2-beat catch); in sbar's 2 bytes */
+        uint16_t sfig : 4;        /* its figure: 1-2 simple (an 8th repeat, a 16th roll), 3-4 complex (an
+                                     accelerating roll, the 2-beat catch); in sbar's 2 bytes */
 #ifdef LEADS_LOOP_STATS
         int stat[5];              /* bars replayed, notes nudged, notes dropped, stutters, the complex ones of them
                                      (leads_loop_stat) */
@@ -68,7 +68,7 @@ typedef struct {
 } lead_state_t;
 
 #ifdef LEADS_LOOP_STATS
-/* a test hook (host renders: VNL_STUT=1): 1 stutters every group's last bar a simple stutter may take, figures 1-5
+/* a test hook (host renders: VNL_STUT=1): 1 stutters every group's last bar a simple stutter may take, figures 1-4
    in turn; 0 the draws (leads/loop.c) */
 void leads_loop_force_stutter(int on);
 #endif

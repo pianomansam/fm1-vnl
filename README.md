@@ -121,7 +121,7 @@ Every change to the song lands on its next four-bar line, and the screen shows i
 Ten, in a lo-fi chain: tape wow and flutter, dust (saturation and a darkening low-pass), grit, a chorus and plate
 reverb (adapted from Mutable Instruments Rings), a tape delay, bass saturation, kick ducking, filter sweeps on section
 changes, and a whole-mix stutter on the last bar of a 4- or 8-bar group (inspired by Cut-A-Dor): about one simple
-figure a song (a repeated 16th or 8th, or a 16th roll) and about every other song one complex one (a roll that speeds
+figure a song (a repeated 8th or a 16th roll) and about every other song one complex one (a roll that speeds
 up into the downbeat, or a 2-beat catch). The host simulator's plate is adapted from AMB-1, inspired by Dattorro.
 
 ### Sounds

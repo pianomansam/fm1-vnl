@@ -2768,7 +2768,7 @@ static void duck_chunk(uint32_t c)
    of the mix caught, then repeated with short edge fades): vx_stutter. The slice is kept mono at half rate in int16
    (ST_N: an 8th at 70 BPM, the slowest rolled tempo; a longer one is cut to fit), played back with linear
    interpolation; each switch crossfades over ST_F samples, as do the slice's edges. A replay loops the slice (or its
-   head) until the next call: app.c's five figures, from a 16th repeated to an 8th rolled down to 32nds, are just
+   head) until the next call: app.c's four figures, from an 8th repeated to an 8th rolled down to 32nds, are just
    catch and replay points. */
 #define ST_N 9600
 #define ST_F 220.0f

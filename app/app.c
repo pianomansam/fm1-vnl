@@ -815,17 +815,16 @@ static void step(void)
         {                                 /* the whole-mix stutter on a bar the lead loop marks, in its figure
                                              (lead.h's sfig): per figure {step, vx_stutter mode, length in 32nds};
                                              the next downbeat live */
-            static const uint8_t FIG[5][3][3] = {
-                {{14, 1, 2}, {15, 2, 0}},              /* 1: the bar's last 16th, twice */
-                {{12, 1, 4}, {14, 2, 0}},              /* 2: beat 4's first 8th, again on its "and" */
-                {{12, 1, 2}, {13, 2, 0}},              /* 3: beat 4's first 16th, 4 times */
-                {{12, 1, 4}, {14, 3, 2}, {15, 3, 1}},  /* 4: beat 4 as an 8th, its 16th, then 32nds */
-                {{8, 1, 4}, {10, 2, 0}, {14, 3, 2}}};  /* 5: an 8th on beat 3, repeated, then its 16th on beat 4 */
+            static const uint8_t FIG[4][3][3] = {
+                {{12, 1, 4}, {14, 2, 0}},              /* 1: beat 4's first 8th, again on its "and" */
+                {{12, 1, 2}, {13, 2, 0}},              /* 2: beat 4's first 16th, 4 times */
+                {{12, 1, 4}, {14, 3, 2}, {15, 3, 1}},  /* 3: beat 4 as an 8th, its 16th, then 32nds */
+                {{8, 1, 4}, {10, 2, 0}, {14, 3, 2}}};  /* 4: an 8th on beat 3, repeated, then its 16th on beat 4 */
             static int stut;
             float h = 0.5f * song_step_samples(&song);
             int f = song.lead.loop.sfig - 1, k;
             if (st == 0 && stut) { vx_stutter(0, 0); stut = 0; }
-            if (song.lead.loop.sbar == bar + 1 && f >= 0 && f < 5)
+            if (song.lead.loop.sbar == bar + 1 && f >= 0 && f < 4)
                 for (k = 0; k < 3; k++)
                     if (FIG[f][k][1] && FIG[f][k][0] == st && (stut || FIG[f][k][1] == 1)) {
                         vx_stutter(FIG[f][k][1], (uint32_t)((float)FIG[f][k][2] * h));
@@ -1692,7 +1691,7 @@ void app_init(void)
         }
         {
             const char *sf = getenv("VNL_STUT");   /* VNL_STUT=1: every group's last bar a simple stutter may take
-                                                      stutters, the figures 1-5 in turn (a listening demo) */
+                                                      stutters, the figures 1-4 in turn (a listening demo) */
             leads_loop_force_stutter(sf && *sf == '1');
         }
         while (w && *w) {                /* VNL_SWAP="Eb3 G3 Db4 F4=Db3 G3 Eb4 F4;...": hear an alternative voicing */
