@@ -4,7 +4,8 @@ A generative lo-fi DJ groovebox for the M-VAVE FM-1.
 
 VNL-1 is an experiment in generative music using music theory to create relaxing, realistic lo-fi tracks. Let it play in auto mode as a backdrop to your day, or be the DJ and shape your own songs.
 
-![The now-playing screen: a spinning record beside the song's layout (Slow bloom), its key (Db Lydian), the chord (Abmaj7), where it is (intro, bar 4 of 56), the tempo (81 BPM) and the mood (sunny)](img/nowplaying.png "Now playing")
+![The now-playing screen: a spinning record beside the song's layout (Slow bloom), its key (Db Lydian), the chord (Abmaj7), where it is (intro, bar 4 of 56), the tempo (81 BPM) and the mood (sunny)](img/nowplaying.png "The simple home screen")
+![The detailed home screen: the chord and key beside a turning record, a tile per part with its instrument (drums, bass, accompaniment, lead, pad, texture), and the key, tempo, motion and mood on the four knobs](img/main.png "The detailed home screen")
 
 ## [Install in your browser](install/)
 
