@@ -9,6 +9,8 @@ ideas that still need a reason.
 - **A fade between the two home screens:** HOME cross-fades the now-playing and main screens, as the splash fades in.
 - **Broken-chord piano comp:** a climbing broken chord for the acoustic piano, in place of a strum.
 - **Soft synth lead:** a candidate lead for the synth sets, waiting on a listen.
+- **More song shapes:** layouts beyond today's five (Classic, Slow bloom, Straight in, Breather, Drift), so songs
+  vary more in where the lead, breaks, drops and endings fall.
 - **Settings screen:** reduced motion, the screen reader, key lights and brightness.
 - **Device checks:** confirm the CPU guard's voice rungs and the per-stage CPU meter on the FM-1 itself.
 
