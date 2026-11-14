@@ -724,6 +724,14 @@ Tuna and PERF-1 ahead of us here; VNL-1 leads in voicing, voice leading, clash a
 
 ### Leads (Sam: not happy with the current leads; start here when we revisit them)
 
+- **A study of lo-fi top lines (Sam, 2026-11-14: ledger, not started).** The lo-fi research (lofi-hip-hop.md,
+  lofi-audio-arrangements.md, lofi-midi-arrangements.md) covered form, harmony, rhythm and sound, not how lo-fi
+  melodies are written; the audio study only caught a top line brighter than the chords and intermittent. Of the
+  eight lead styles only Jazz-Hop comes from lo-fi practice (the producer's looped hook); the other seven come from
+  the genres lo-fi samples (piano, horn, vocal and flute lines). Study lo-fi top lines themselves: how busy they are,
+  their register, how much they repeat, how they sit against the keys loop, and how often a track has none. Then
+  compare with the eight styles and propose changes or a new style.
+
 - **Motifs start on beat 1 more often (Sam, 2026-11-10: "I'm good with your proposal"; about a third on beat 1 in
   the off-beat styles, syncopated starts still the majority).** Phrase heads on beat 1, over 2,000 songs a style
   (lead loop on): Jazz-Hop 20 to 36% (hook start weights beat 1 / and-of-1 / 16th before 2 / and-of-2 / 16th after
