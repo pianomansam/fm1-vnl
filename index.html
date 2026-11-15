@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VNL-1 · A generative lo-fi DJ groovebox for the FM-1</title>
+<meta name="description" content="VNL-1, A generative lo-fi DJ groovebox for the FM-1 for VNL-1, a firmware for the M-VAVE FM-1.">
+<style>
+/* paper and ink: warm white paper, ink-blue type, vermilion for what is played, mustard for asides; a shade of the
+   paper for code and callouts (CTL-1's; a firmware may restyle its site) */
+:root {
+  --paper: #fbf8f1; --sheet: #efe9dc; --rule: #ddd4c2; --ink: #1e2b5a; --muted: #5d6585;
+  --hot: #e5482e; --hot-t: #f8d3c9; --cool: #d9a21b; --cool-t: #f5e4b8;
+  --hot-ink: #c23a22;                                 /* the vermilion as text: 4.5:1 on the paper */
+  color-scheme: light;
+}
+body {
+  background: var(--paper); color: var(--ink); margin: 0;
+  font: 400 17px/1.6 "Helvetica Neue", Helvetica, Arial, sans-serif;
+  padding-inline: 16px; padding-block: 32px 64px;
+}
+main { max-width: 46rem; margin: 0 auto; }
+.page > .site { max-width: 46rem; margin-inline: auto; }
+main:focus { outline: none; }
+h1, h2, h3 { font-family: inherit; text-wrap: balance; line-height: 1.2; }
+h1 { font-size: 2.2rem; font-weight: 700; margin: 0 0 .4rem; letter-spacing: .02em; }
+h2 { font-size: 1.3rem; font-weight: 700; margin: 3rem 0 .8rem; padding-top: .8rem; border-top: 2px solid var(--ink); }
+h2 .num { color: var(--hot); margin-right: .5em; font-variant-numeric: tabular-nums; }
+h3 { font-size: 1.1rem; font-weight: 700; margin: 2rem 0 .5rem; }
+p, li { max-width: 65ch; }
+p { margin: 0 0 1rem; }
+ul, ol { padding-left: 1.3rem; margin: 0 0 1rem; }
+li { margin: .2rem 0; }
+li::marker { color: var(--hot); }
+strong { font-weight: 700; }
+a { color: var(--ink); text-decoration-color: var(--hot); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+a:hover { background: var(--hot-t); }
+:focus-visible { outline: 3px solid var(--hot-ink); outline-offset: 2px; }
+.skip { position: absolute; left: 16px; top: -100px; background: var(--ink); color: var(--paper); padding: 8px 14px; border-radius: 0 0 6px 6px; z-index: 1; }
+.skip:focus { top: 0; }
+code, pre { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .86em; }
+code { background: var(--sheet); padding: .08em .35em; border-radius: 3px; }
+pre { background: var(--sheet); border-radius: 6px; padding: 14px 16px; overflow-x: auto; line-height: 1.45; margin: 0 0 1.2rem; }
+pre code { background: none; padding: 0; font-size: inherit; }
+hr { display: none; }
+.table { overflow-x: auto; margin: 0 0 1.3rem; }
+table { border-collapse: collapse; width: 100%; font-size: .95rem; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; vertical-align: top; padding: .45rem .7rem .45rem 0; border-bottom: 1px solid var(--rule); }
+th { font-weight: 700; text-transform: uppercase; letter-spacing: .06em; font-size: .78rem; color: var(--muted); border-bottom: 2px solid var(--ink); }
+td:first-child { white-space: nowrap; }
+.lede { margin-bottom: 1.6rem; }
+.status { background: var(--sheet); border-radius: 6px; padding: 12px 16px; }
+.status p { margin: 0; }
+.site { display: flex; flex-wrap: wrap; align-items: baseline; gap: .3rem 1.2rem; margin: 0 0 1.6rem; padding-bottom: .5rem; border-bottom: 2px solid var(--ink); }
+.site .home { font-size: 1.1rem; font-weight: 700; letter-spacing: .04em; color: var(--ink); text-decoration: none; }
+.site .home:hover { color: var(--hot-ink); background: none; }
+.site nav { margin-left: auto; display: flex; flex-wrap: wrap; gap: .2rem 1rem; font-size: .92rem; }
+.site nav a { color: var(--ink); text-underline-offset: 3px; }
+.site nav a[aria-current] { text-decoration: none; color: var(--hot-ink); }
+a.home { color: inherit; text-decoration: none; }
+a.home:hover { background: none; color: var(--hot-ink); }
+main > a.home { display: inline-block; font-size: .9rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 .4rem; }
+.callout { border-left: 4px solid var(--cool); background: var(--cool-t); padding: 10px 16px; margin: 0 0 1.2rem; max-width: 65ch; border-radius: 0 6px 6px 0; }
+.callout p { margin: 0; }
+details { background: var(--sheet); border-radius: 6px; padding: 0 16px; margin: 0 0 1.2rem; }
+details > summary { cursor: pointer; padding: 10px 0; }
+details[open] > summary { margin-bottom: .4rem; }
+details > :last-child { margin-bottom: 1rem; }
+.swatch { display: inline-block; width: .7em; height: .7em; margin-right: .4em; vertical-align: .02em; }
+nav.contents ol { columns: 2 14rem; column-gap: 2rem; padding-left: 1.3rem; }
+.figs { display: flex; flex-wrap: wrap; gap: 20px; margin: .4rem 0 1.6rem; }
+figure { margin: 0; flex: 0 1 auto; }
+figure img { display: block; max-width: 100%; height: auto; }
+figure.shot img { width: 300px; image-rendering: pixelated; border-radius: 4px; box-shadow: 0 0 0 1px var(--rule); }
+figure.wide { flex-basis: 100%; }
+figure.wide img { width: 100%; }
+figcaption { color: var(--muted); font-size: .88rem; margin-top: .4rem; max-width: 300px; }
+figure.wide figcaption { max-width: none; }
+nav.contents li { break-inside: avoid; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+<style id="theme">
+/* SPDX-License-Identifier: GPL-3.0-or-later
+   VNL-1's site in the device's colors: base/device/gfx.c's GARNET palette (app.h APP_PALETTE 12u). tools/site.sh
+   puts this in every page fm1-base's tools/make_site.py writes (the front page, the manual, the installer), after
+   their own styles, so it wins. Contrast on the background #180008 (WCAG AA wants 4.5:1 for text):
+     blush #fbe8e3 17.0:1 (body text), coral #ff7a59 7.9:1 (links, underlined; the skip link's background under
+     #180008 text), rose #c99aa0 8.3:1 (secondary text), bright coral #ffad8f 11.2:1 (hover, focus; 8.9:1 on the
+     hover tint), butter #ffd166 14.0:1 (errors, apart from coral); on the code and callout tile #2c0412 the lowest is
+     5.6:1 (coral on the tile's hover tint). The rule #a01046 (2.6:1) draws rules and borders only, never text. */
+:root, :root:not([data-theme="light"]), :root[data-theme] {
+  /* the palette: background, its five steps, white (blush) */
+  --vnl-bg: #180008; --vnl-tile: #2c0412; --vnl-rule: #a01046; --vnl-label: #c99aa0;
+  --vnl-accent: #ff7a59; --vnl-hi: #ffad8f; --vnl-text: #fbe8e3;
+  /* the manual and the front page (base/tools/manual_html.py) */
+  --paper: var(--vnl-bg); --sheet: var(--vnl-tile); --rule: var(--vnl-rule); --ink: var(--vnl-text);
+  --muted: var(--vnl-label); --hot: var(--vnl-accent); --hot-t: rgba(255, 122, 89, .16); --cool: var(--vnl-accent);
+  --cool-t: var(--vnl-tile); --hot-ink: var(--vnl-hi);
+  /* the installer (base/web/installer.html) */
+  --bg: var(--vnl-bg); --fg: var(--vnl-text); --dim: var(--vnl-label); --accent: var(--vnl-accent);
+  --on-accent: var(--vnl-bg); --bad: #ffd166; --focus: var(--vnl-hi);
+  color-scheme: dark;
+}
+body { background: var(--vnl-bg); color: var(--vnl-text); }
+a { color: var(--vnl-accent); text-decoration-color: currentColor; }
+a:hover { color: var(--vnl-hi); }
+:focus-visible { outline-color: var(--vnl-hi); }
+/* the manual and the front page: coral where the device puts it, rules in the device's rule step */
+.page h1 { color: var(--vnl-hi); }
+.page h2 { border-top: 1px solid var(--vnl-rule); }
+.page th { border-bottom-color: var(--vnl-rule); }
+.page .site { border-bottom-color: var(--vnl-accent); }
+.page .site .home, .page a.home { color: var(--vnl-hi); }
+.page .site nav a { color: var(--vnl-text); text-decoration-color: var(--vnl-accent); }
+.page .site nav a:hover { color: var(--vnl-hi); }
+.page .site nav a[aria-current] { color: var(--vnl-hi); }
+.page main > a.home { color: var(--vnl-label); }
+.page figure.shot img { box-shadow: 0 0 0 1px var(--vnl-rule); }
+.skip { background: var(--vnl-accent); color: var(--vnl-bg); }
+/* the installer: the log's and the text box's borders in the rule step */
+#log { border-color: var(--vnl-rule); }
+textarea { border-color: var(--vnl-rule); }
+button.plain { border-color: var(--vnl-label); }
+dialog { background: var(--vnl-tile); }
+/* a YouTube video (tools/site.sh: {{YOUTUBE id title}} in landing.md): full width, 16:9 */
+.video { margin: 1em 0 1.5em; }
+.video iframe { display: block; width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 6px;
+                box-shadow: 0 0 0 1px var(--vnl-rule); }
+/* VNL-1's copyright and license line (tools/site.sh), at the foot of every page */
+.vnl-foot { max-width: 46rem; margin: 3em auto 0; padding: 1em 16px 2em; border-top: 1px solid var(--vnl-rule);
+  color: var(--vnl-label); font-size: .85em; text-align: center; }
+</style>
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<div class="page">
+<header class="site"><a class="home" href="./" aria-current="page">VNL-1</a><nav><a href="emu/">Emulator</a><a href="install/">Install</a><a href="manual/">Manual</a><a href="https://github.com/pianomansam/fm1-vnl">Source</a></nav></header>
+<main id="content" tabindex="-1"><h1>VNL-1</h1>
+<p class="lede">A generative lo-fi DJ groovebox for the M-VAVE FM-1.</p>
+<p>VNL-1 is an experiment in generative music using music theory to create relaxing, realistic lo-fi tracks. Let it play in auto mode as a backdrop to your day, or be the DJ and shape your own songs.</p>
+<div class="figs"><figure class="shot"><img src="img/nowplaying.png" alt="The now-playing screen: a spinning record beside the song&#x27;s layout (Slow bloom), its key (Db Lydian), the chord (Abmaj7), where it is (intro, bar 4 of 56), the tempo (81 BPM) and the mood (sunny)" loading="lazy"><figcaption>The simple home screen</figcaption></figure><figure class="shot"><img src="img/main.png" alt="The detailed home screen: the chord and key beside a turning record, a tile per part with its instrument (drums, bass, accompaniment, lead, pad, texture), and the key, tempo, motion and mood on the four knobs" loading="lazy"><figcaption>The detailed home screen</figcaption></figure></div>
+<h2 id="install-in-your-browser-install"><a href="install/">Install in your browser</a></h2>
+<p>Version 0.9.2. In Chrome or Edge, connect the FM-1 by USB and open the installer. It writes the firmware, then the sample bank (VNL-1's sampled instruments). Installing is at your own risk; the installer can also put M-VAVE's own firmware back.</p>
+<p><strong>The sample bank</strong> lives in its own part of the flash, and a firmware update leaves it in place. The installer offers to write it after the firmware: say yes on a first install, or when a release says the samples changed. Without it, VNL-1 shows NO SAMPLES and plays its synth instruments only.</p>
+<p>Other ways in:</p>
+<ul><li><a href="emu/">Try it in the browser</a>: the same code the FM-1 runs, with sound. No FM-1 needed.</li><li><a href="firmware/vnl-1-0.9.2.fwsc">Download vnl-1-0.9.2.fwsc</a> for the command-line installer: <code>python3 base/tools/fm1_install.py vnl-1-0.9.2.fwsc</code>, then <code>python3 tools/fm1_bank.py</code> for the sample bank (both from the source, with <code>mido</code> and <code>python-rtmidi</code>).</li></ul>
+<h2 id="what-it-does">What it does</h2>
+<ul><li><strong>Endless songs:</strong> each one generated from a seed, with its own key, tempo, chords, layout and band; 40 instrument sets in five flavors, 43 chord progressions, four moods and five song layouts.</li><li><strong>A six-part band:</strong> drums (8 kits), bass (4 instruments), accompaniment (9 instruments), lead (8 instruments in 8 styles), pad and texture.</li><li><strong>An accompaniment engine:</strong> voice-led chords in eight rhythms, guitars strummed string by string in eight patterns, and a harp that strums or rolls its chords.</li><li><strong>Real and synth sounds:</strong> sampled piano, guitars, cello, harp and drum kits from CC0 libraries, beside modeled and synth instruments.</li><li><strong>Ten sound engines:</strong> a sampler, FM electric piano, FM bass, a wind voice (flute, whistle), an analog-style saw pad, an ensemble for strings and choir, a tonewheel organ, a modeled vibraphone, a chip triangle and the drum synths.</li><li><strong>Ten effects</strong> in a lo-fi chain.</li><li><strong>Hands on:</strong> change the key, tempo, mood or any part from the knobs, re-roll or lock a part, jump to or loop a section, queue a fill or a stutter for the section's end, mute and solo, hold G5 to stutter live, and save up to 16 songs; every change lands in time.</li><li><strong>Fifteen themes:</strong> color schemes for every screen, picked in Settings.</li><li><strong>On the FM-1:</strong> a now-playing screen, a detailed main screen, a page per part, a screen reader and USB audio in and out.</li><li><strong>For tinkerers:</strong> a workbench web page, a host simulator that renders WAV, MIDI and MusicXML, and patterns as editable files.</li></ul>
+<h2 id="unique-to-vnl-1">Unique to VNL-1</h2>
+<p>Music theory drives VNL-1's decisions, from the key of the next song to the last note of a phrase.</p>
+<ul><li><strong>Endless songs:</strong> complete songs with real endings, written on the FM-1 itself, one after another, forever, each with its own key, mode, tempo, progression, band and arrangement, a real ending, then a short silence, and each different from the one before. Each new song starts in a related key: a fifth away, or the relative major or minor.</li><li><strong>Chords voiced like a jazz player's:</strong> the bass takes the root, the keys keep the 3rd and 7th, and each chord moves to the next by the smallest step, with the top note moving least, even from the loop's last chord back to its first. Dominants always carry a 9th or 13th, notes that clash with the chord are left out, and later passes add color one chord at a time.</li><li><strong>Parts that listen to each other:</strong> no part rubs against another. The pad, the lead and the walking bass skip any note a half step or a minor 9th from what the others play, and the accompaniment makes room for the lead, thinning under it or lifting over a low one.</li><li><strong>Leads built from real melodies:</strong> eight lead styles drawn from studies of how melodies work: a motif stated and then sequenced, chord tones on the strong beats, a bossa line held across the chord change, and phrases that never end on a dominant's 7th.</li><li><strong>A guitarist's strumming:</strong> VNL-1 writes its own strummed guitar part inside each song it generates. It voices each chord as a real hand shape on six strings (the root on a low string, fretted notes within four frets, open strings where they fit) and plays it with down and up strokes, muted chucks and a bossa thumb and pinch.</li><li><strong>Deep song planning:</strong> each song is laid out before it plays: a layout, sections, where each part enters and drops out, fills, swells, breaks and an ending. No two sections are alike. The seeds and patterns are a starting point and the engine reshapes them so every song is its own.</li><li><strong>Parts planned ahead:</strong> each part's next bar is planned before it plays, so a change from the knobs lands on the next four-bar line, in time, with that bar already planned in the new setting.</li><li><strong>Scores, not just sound:</strong> every part can be written out as MusicXML (and MIDI) for a score editor, and the drum, strum, accompaniment and chord patterns live as MIDI and MusicXML files that build into the firmware.</li></ul>
+<h2 id="videos">Videos</h2>
+<p><strong>A demo:</strong> VNL-1 walked through on the FM-1.</p>
+<div class="video"><iframe src="https://www.youtube-nocookie.com/embed/JQvidnI_M0s" title="VNL-1 demo" loading="lazy" allow="encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
+<p><strong>Just the music:</strong> VNL-1 playing, no talking.</p>
+<div class="video"><iframe src="https://www.youtube-nocookie.com/embed/Gj_xqsksJJs" title="VNL-1, no talking" loading="lazy" allow="encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
+<h2 id="screens">Screens</h2>
+<p><strong>The main screen:</strong> the chord and key beside the turning record, a tile per part, and the four knobs.</p>
+<div class="figs"><figure class="shot"><img src="img/main.png" alt="The main screen: the section and tempo at the top, half a turning record beside the chord and key, a tile per part with its instrument (drums, bass, accompaniment, lead, pad, texture), and the key, tempo, motion and mood on the four knobs" loading="lazy"><figcaption>The main screen</figcaption></figure></div>
+<p><strong>A part's page:</strong> its instrument, rhythm, voicings and register on the knobs.</p>
+<div class="figs"><figure class="shot"><img src="img/comp.png" alt="The accompaniment&#x27;s page: its instrument (Rhodes), rhythm, voicings and register on the four knobs, with the controls&#x27; hints below" loading="lazy"><figcaption>A part's page</figcaption></figure></div>
+<p><strong>Parts:</strong> each part's notes scrolling over the song.</p>
+<div class="figs"><figure class="shot"><img src="img/parts.png" alt="The Parts screen: a lane each for drums, bass, accompaniment, lead and pad, with their notes over eight bars and the playhead" loading="lazy"><figcaption>Parts</figcaption></figure></div>
+<p><strong>Sections:</strong> jump to a section, loop it, stay on the song, or queue a fill or a stutter for the section's end.</p>
+<div class="figs"><figure class="shot"><img src="img/sections.png" alt="The Sections screen: a list of the song&#x27;s sections with their lengths, the one playing marked; LOOP OFF, STAY ON SONG OFF and END OFF at the bottom" loading="lazy"><figcaption>Sections</figcaption></figure></div>
+<p><strong>The Mixer:</strong> a level, mute and solo per part.</p>
+<div class="figs"><figure class="shot"><img src="img/mixer.png" alt="The Mixer: a fader each for drums, bass, accompaniment, lead, pad and texture" loading="lazy"><figcaption>The Mixer</figcaption></figure></div>
+<p><strong>Settings:</strong> the color theme, the bass's saturation and the home screen.</p>
+<div class="figs"><figure class="shot"><img src="img/settings.png" alt="The Settings screen: THEME GARNET, BASS SATURATION ON and HOME SCREEN SIMPLE" loading="lazy"><figcaption>Settings</figcaption></figure></div>
+<h2 id="more">More</h2>
+<ul><li><a href="manual/">Manual</a>: the screens, the controls, the sample bank.</li><li><a href="https://github.com/pianomansam/fm1-vnl">Source</a>: the firmware, the host simulator, the workbench and the patterns.</li><li><a href="https://github.com/pianomansam/fm1-vnl/blob/main/ROADMAP.md">Roadmap</a> and <a href="https://github.com/pianomansam/fm1-vnl/blob/main/CHANGELOG.md">changelog</a>.</li><li><a href="https://github.com/pianomansam/fm1-vnl/blob/main/CREDITS.md">Credits</a>: everything borrowed, with its author and license.</li></ul>
+<p>VNL-1 is free software. Its source is GPL-3.0-or-later; the firmware binary is GPL-3.0-only, because it includes GPL-3.0-only drum engines. It is built on fm1-base and felucca-bsp, from Felucca by Leo Kuroshita (Hügelton Instruments). The reverb and chorus are adapted from Mutable Instruments Rings by Emilie Gillet (MIT). The samples are CC0.</p>
+<p>M-VAVE and FM-1 are trademarks of their owners. VNL-1 is not affiliated with or endorsed by M-VAVE, Mutable Instruments or Hügelton Instruments.</p>
+</main>
+</div>
+<footer class="vnl-foot">VNL-1 &copy; 2026 Sam Oltz &middot; <a href="https://www.gnu.org/licenses/gpl-3.0.html">GPL-3.0-or-later</a> &middot; <a href="https://github.com/pianomansam/fm1-vnl">Source on GitHub</a></footer>
+</body>
+</html>

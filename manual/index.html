@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manual · VNL-1</title>
+<meta name="description" content="The manual for VNL-1, a firmware for the M-VAVE FM-1.">
+<style>
+/* paper and ink: warm white paper, ink-blue type, vermilion for what is played, mustard for asides; a shade of the
+   paper for code and callouts (CTL-1's; a firmware may restyle its site) */
+:root {
+  --paper: #fbf8f1; --sheet: #efe9dc; --rule: #ddd4c2; --ink: #1e2b5a; --muted: #5d6585;
+  --hot: #e5482e; --hot-t: #f8d3c9; --cool: #d9a21b; --cool-t: #f5e4b8;
+  --hot-ink: #c23a22;                                 /* the vermilion as text: 4.5:1 on the paper */
+  color-scheme: light;
+}
+body {
+  background: var(--paper); color: var(--ink); margin: 0;
+  font: 400 17px/1.6 "Helvetica Neue", Helvetica, Arial, sans-serif;
+  padding-inline: 16px; padding-block: 32px 64px;
+}
+main { max-width: 46rem; margin: 0 auto; }
+.page > .site { max-width: 46rem; margin-inline: auto; }
+main:focus { outline: none; }
+h1, h2, h3 { font-family: inherit; text-wrap: balance; line-height: 1.2; }
+h1 { font-size: 2.2rem; font-weight: 700; margin: 0 0 .4rem; letter-spacing: .02em; }
+h2 { font-size: 1.3rem; font-weight: 700; margin: 3rem 0 .8rem; padding-top: .8rem; border-top: 2px solid var(--ink); }
+h2 .num { color: var(--hot); margin-right: .5em; font-variant-numeric: tabular-nums; }
+h3 { font-size: 1.1rem; font-weight: 700; margin: 2rem 0 .5rem; }
+p, li { max-width: 65ch; }
+p { margin: 0 0 1rem; }
+ul, ol { padding-left: 1.3rem; margin: 0 0 1rem; }
+li { margin: .2rem 0; }
+li::marker { color: var(--hot); }
+strong { font-weight: 700; }
+a { color: var(--ink); text-decoration-color: var(--hot); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+a:hover { background: var(--hot-t); }
+:focus-visible { outline: 3px solid var(--hot-ink); outline-offset: 2px; }
+.skip { position: absolute; left: 16px; top: -100px; background: var(--ink); color: var(--paper); padding: 8px 14px; border-radius: 0 0 6px 6px; z-index: 1; }
+.skip:focus { top: 0; }
+code, pre { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .86em; }
+code { background: var(--sheet); padding: .08em .35em; border-radius: 3px; }
+pre { background: var(--sheet); border-radius: 6px; padding: 14px 16px; overflow-x: auto; line-height: 1.45; margin: 0 0 1.2rem; }
+pre code { background: none; padding: 0; font-size: inherit; }
+hr { display: none; }
+.table { overflow-x: auto; margin: 0 0 1.3rem; }
+table { border-collapse: collapse; width: 100%; font-size: .95rem; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; vertical-align: top; padding: .45rem .7rem .45rem 0; border-bottom: 1px solid var(--rule); }
+th { font-weight: 700; text-transform: uppercase; letter-spacing: .06em; font-size: .78rem; color: var(--muted); border-bottom: 2px solid var(--ink); }
+td:first-child { white-space: nowrap; }
+.lede { margin-bottom: 1.6rem; }
+.status { background: var(--sheet); border-radius: 6px; padding: 12px 16px; }
+.status p { margin: 0; }
+.site { display: flex; flex-wrap: wrap; align-items: baseline; gap: .3rem 1.2rem; margin: 0 0 1.6rem; padding-bottom: .5rem; border-bottom: 2px solid var(--ink); }
+.site .home { font-size: 1.1rem; font-weight: 700; letter-spacing: .04em; color: var(--ink); text-decoration: none; }
+.site .home:hover { color: var(--hot-ink); background: none; }
+.site nav { margin-left: auto; display: flex; flex-wrap: wrap; gap: .2rem 1rem; font-size: .92rem; }
+.site nav a { color: var(--ink); text-underline-offset: 3px; }
+.site nav a[aria-current] { text-decoration: none; color: var(--hot-ink); }
+a.home { color: inherit; text-decoration: none; }
+a.home:hover { background: none; color: var(--hot-ink); }
+main > a.home { display: inline-block; font-size: .9rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 .4rem; }
+.callout { border-left: 4px solid var(--cool); background: var(--cool-t); padding: 10px 16px; margin: 0 0 1.2rem; max-width: 65ch; border-radius: 0 6px 6px 0; }
+.callout p { margin: 0; }
+details { background: var(--sheet); border-radius: 6px; padding: 0 16px; margin: 0 0 1.2rem; }
+details > summary { cursor: pointer; padding: 10px 0; }
+details[open] > summary { margin-bottom: .4rem; }
+details > :last-child { margin-bottom: 1rem; }
+.swatch { display: inline-block; width: .7em; height: .7em; margin-right: .4em; vertical-align: .02em; }
+nav.contents ol { columns: 2 14rem; column-gap: 2rem; padding-left: 1.3rem; }
+.figs { display: flex; flex-wrap: wrap; gap: 20px; margin: .4rem 0 1.6rem; }
+figure { margin: 0; flex: 0 1 auto; }
+figure img { display: block; max-width: 100%; height: auto; }
+figure.shot img { width: 300px; image-rendering: pixelated; border-radius: 4px; box-shadow: 0 0 0 1px var(--rule); }
+figure.wide { flex-basis: 100%; }
+figure.wide img { width: 100%; }
+figcaption { color: var(--muted); font-size: .88rem; margin-top: .4rem; max-width: 300px; }
+figure.wide figcaption { max-width: none; }
+nav.contents li { break-inside: avoid; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+<style id="theme">
+/* SPDX-License-Identifier: GPL-3.0-or-later
+   VNL-1's site in the device's colors: base/device/gfx.c's GARNET palette (app.h APP_PALETTE 12u). tools/site.sh
+   puts this in every page fm1-base's tools/make_site.py writes (the front page, the manual, the installer), after
+   their own styles, so it wins. Contrast on the background #180008 (WCAG AA wants 4.5:1 for text):
+     blush #fbe8e3 17.0:1 (body text), coral #ff7a59 7.9:1 (links, underlined; the skip link's background under
+     #180008 text), rose #c99aa0 8.3:1 (secondary text), bright coral #ffad8f 11.2:1 (hover, focus; 8.9:1 on the
+     hover tint), butter #ffd166 14.0:1 (errors, apart from coral); on the code and callout tile #2c0412 the lowest is
+     5.6:1 (coral on the tile's hover tint). The rule #a01046 (2.6:1) draws rules and borders only, never text. */
+:root, :root:not([data-theme="light"]), :root[data-theme] {
+  /* the palette: background, its five steps, white (blush) */
+  --vnl-bg: #180008; --vnl-tile: #2c0412; --vnl-rule: #a01046; --vnl-label: #c99aa0;
+  --vnl-accent: #ff7a59; --vnl-hi: #ffad8f; --vnl-text: #fbe8e3;
+  /* the manual and the front page (base/tools/manual_html.py) */
+  --paper: var(--vnl-bg); --sheet: var(--vnl-tile); --rule: var(--vnl-rule); --ink: var(--vnl-text);
+  --muted: var(--vnl-label); --hot: var(--vnl-accent); --hot-t: rgba(255, 122, 89, .16); --cool: var(--vnl-accent);
+  --cool-t: var(--vnl-tile); --hot-ink: var(--vnl-hi);
+  /* the installer (base/web/installer.html) */
+  --bg: var(--vnl-bg); --fg: var(--vnl-text); --dim: var(--vnl-label); --accent: var(--vnl-accent);
+  --on-accent: var(--vnl-bg); --bad: #ffd166; --focus: var(--vnl-hi);
+  color-scheme: dark;
+}
+body { background: var(--vnl-bg); color: var(--vnl-text); }
+a { color: var(--vnl-accent); text-decoration-color: currentColor; }
+a:hover { color: var(--vnl-hi); }
+:focus-visible { outline-color: var(--vnl-hi); }
+/* the manual and the front page: coral where the device puts it, rules in the device's rule step */
+.page h1 { color: var(--vnl-hi); }
+.page h2 { border-top: 1px solid var(--vnl-rule); }
+.page th { border-bottom-color: var(--vnl-rule); }
+.page .site { border-bottom-color: var(--vnl-accent); }
+.page .site .home, .page a.home { color: var(--vnl-hi); }
+.page .site nav a { color: var(--vnl-text); text-decoration-color: var(--vnl-accent); }
+.page .site nav a:hover { color: var(--vnl-hi); }
+.page .site nav a[aria-current] { color: var(--vnl-hi); }
+.page main > a.home { color: var(--vnl-label); }
+.page figure.shot img { box-shadow: 0 0 0 1px var(--vnl-rule); }
+.skip { background: var(--vnl-accent); color: var(--vnl-bg); }
+/* the installer: the log's and the text box's borders in the rule step */
+#log { border-color: var(--vnl-rule); }
+textarea { border-color: var(--vnl-rule); }
+button.plain { border-color: var(--vnl-label); }
+dialog { background: var(--vnl-tile); }
+/* a YouTube video (tools/site.sh: {{YOUTUBE id title}} in landing.md): full width, 16:9 */
+.video { margin: 1em 0 1.5em; }
+.video iframe { display: block; width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 6px;
+                box-shadow: 0 0 0 1px var(--vnl-rule); }
+/* VNL-1's copyright and license line (tools/site.sh), at the foot of every page */
+.vnl-foot { max-width: 46rem; margin: 3em auto 0; padding: 1em 16px 2em; border-top: 1px solid var(--vnl-rule);
+  color: var(--vnl-label); font-size: .85em; text-align: center; }
+</style>
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<div class="page">
+<main id="content" tabindex="-1">
+<header class="site"><a class="home" href="../">VNL-1</a><nav><a href="../emu/">Emulator</a><a href="../install/">Install</a><a href="../manual/" aria-current="page">Manual</a><a href="https://github.com/pianomansam/fm1-vnl">Source</a></nav></header>
+<h1>Manual</h1>
+<p class="lede">VNL-1 is a lo-fi hip hop machine for the M-VAVE FM-1. It writes and plays its own songs, one after another. Each song has its own key, tempo, chords, layout and band: drums, bass, accompaniment, lead, pad and texture. You can leave it running, or steer it from the FM-1's knobs and buttons. Every change to the song lands on its next four-bar line, in time.</p>
+<div class="figs"><figure class="shot"><img src="img/vnl-now.png" alt="The now-playing screen: half a record turning on the left; beside it the song&#x27;s layout (SLOW BLOOM), its key (Db LYDIAN), the chord (Abmaj7), INTRO 4/56, a strip of the song&#x27;s sections, 81 BPM and, on its own line under it, the mood (SUNNY)" loading="lazy"><figcaption>Now playing</figcaption></figure></div>
+<hr>
+<nav class="contents" aria-label="Contents"><h2 id="contents">Contents</h2>
+<ol><li><a href="#s1">Getting started</a></li><li><a href="#s2">How VNL-1 plays</a></li><li><a href="#s3">Controls on every screen</a></li><li><a href="#s4">The screens</a></li><li><a href="#s5">The parts' screens</a></li><li><a href="#s6">The CPU guard</a></li><li><a href="#s7">USB and the screen reader</a></li><li><a href="#s8">Safe mode and update mode</a></li><li><a href="#s9">Troubleshooting</a></li><li><a href="#s10">The workbench</a></li></ol>
+</nav>
+<hr>
+<h2 id="s1"><span class="num">1</span>Getting started</h2>
+<p>VNL-1 has two pieces: the firmware and the sample bank. The sample bank holds the sampled instruments (piano, nylon guitar, electric guitar, jazz guitar, cello, harp and the two room kits). It lives in a part of the flash that a firmware update doesn't touch, so you write it once, and again only when a release says the samples changed.</p>
+<p><strong>Try it first:</strong> the browser emulator runs the same code, with sound, played with the mouse or the computer keyboard.</p>
+<p><strong>Install from the browser:</strong> in Chrome or Edge, connect the FM-1 by USB and open the installer. Choose "Firmware and sample bank" the first time, then press Install. The browser asks once to allow MIDI: allow it. Don't unplug the cable while it writes.</p>
+<p><strong>Install from a terminal:</strong> from the source, with a Python that has <code>mido</code> and <code>python-rtmidi</code>:</p>
+<pre tabindex="0" role="region" aria-label="Command: Getting started"><code>python3 base/tools/fm1_install.py vnl-1-VERSION.fwsc
+python3 tools/fm1_bank.py</code></pre>
+<p>Write the bank while VNL-1 is running and stopped. If it's playing, the screen says STOP FIRST and nothing is written. When the bank is written, the screen says SAMPLES WRITTEN.</p>
+<p><strong>Without the sample bank:</strong> VNL-1 still works. At power-on and as each song starts, the screen says NO SAMPLES, SYNTHS ONLY, and every part plays a synth or modeled instrument instead. Write the bank to get the sampled ones.</p>
+<p><strong>Back to the stock firmware:</strong> the installer's last section writes M-VAVE's own firmware back.</p>
+<hr>
+<h2 id="s2"><span class="num">2</span>How VNL-1 plays</h2>
+<div class="figs"><figure class="shot"><img src="img/vnl-splash.png" alt="The splash: half a record on the left with a coral label, the wordmark vnl-1 and Generative LO-FI" loading="lazy"><figcaption>The splash</figcaption></figure></div>
+<p>At power-on the splash shows for about a second while the record spins up, then the home screen. Press any control to skip it. VNL-1 starts stopped, with a song ready. Press PLAY.</p>
+<ul><li><strong>Songs:</strong> each song has a layout of sections (intro, grooves, a lead section, breaks, an ending). When a song ends, 2-4 seconds of silence follow, then the next song starts.</li><li><strong>Changes wait for the line:</strong> a knob or button that changes the song doesn't act at once. The change lands on the song's next four-bar line. Until then the screen shows the new value with a <code>*</code> in front, in yellow, and a note such as TEMPO 84 IN 1 BAR. Mutes, solos, levels and the Sections screen's Loop and Stay on song act at once; a move for the section's end (K3, or F#3) waits for the last bar of the section playing instead. While a section loops (or Stay on song goes back), a change due at the line where the song goes back lands as it starts again.</li><li><strong>Stop and play:</strong> PLAY stops the music at once. PLAY again continues the same song from the start of the bar it stopped in.</li><li><strong>A new song:</strong> SEQ rolls a new song. While playing, it comes after the usual silence. While stopped, it waits, ready, until you press PLAY.</li><li><strong>While stopped:</strong> the knobs don't change the song. Start it first.</li></ul>
+<div class="figs"><figure class="shot"><img src="img/vnl-pending.png" alt="The main screen with a change waiting: TEMPO shows *84 and the hero says TEMPO 84 IN 1 BAR" loading="lazy"><figcaption>A change waiting for the next four-bar line</figcaption></figure></div>
+<hr>
+<h2 id="s3"><span class="num">3</span>Controls on every screen</h2>
+<p>These work the same on every screen, unless a screen below says otherwise.</p>
+<div class="table" tabindex="0" role="region" aria-label="Table: Controls on every screen (Control, What it does)"><table><thead><tr><th>Control</th><th>What it does</th></tr></thead><tbody><tr><td>PLAY</td><td>Play or stop.</td></tr><tr><td>SEQ</td><td>A new song. On a part's screen, it re-rolls only that part. Hold it to lock a part or the song line (see Locking).</td></tr><tr><td>HOME</td><td>Go to the home screen. On the main screen and the now-playing screen, it switches between the two.</td></tr><tr><td>SEL</td><td>The Sections screen. SEL again goes back.</td></tr><tr><td>ARP</td><td>The Parts screen. ARP again goes back.</td></tr><tr><td>FX</td><td>The Mixer. FX again goes back.</td></tr><tr><td>GLO</td><td>The Settings screen. GLO again goes back.</td></tr><tr><td>F, G, A, B, C (the five lowest white keys)</td><td>Drums, bass, accompaniment, lead, pad. Press to mute that part; press again to unmute. Hold to solo it; press again to unsolo. Not on the Sections screen, where the keys jump.</td></tr><tr><td>F# (the lowest black key, F#3)</td><td>The move for the section's end, as the Sections screen's K3 sets it: each press the next, a simple stutter, a complex one, the drum fill, the comp fill, then off; the screen reader says each (STUTTER SIMPLE, STUTTER COMPLEX, DRUM FILL, COMP FILL, OFF). See Sections for where it lands. A press while stopped queues one for when the song plays. Works on every screen, the Sections screen too.</td></tr><tr><td>G (the top white key, G5)</td><td>Hold it while a song plays to stutter the whole mix. On the next 16th it catches an 8th of the music and repeats it; on each beat after that the repeat gets faster (16ths, then 32nds, then 64ths, where it stays) and a little darker. Let go and the music comes back on the next 16th. The screen shows STUTTER (the screen reader says it). The song's own stutters and a queued one wait while you hold it; a hold leaves a queued move as it is. Works on every screen, the Sections screen too; does nothing while stopped. A tap does nothing more.</td></tr><tr><td>Key lights</td><td>A part's key is lit while the part plays, dark while it's muted, and blinks while it's soloed. F#3 blinks while a move for the section's end waits, and goes dark once it has played.</td></tr><tr><td>MASTER</td><td>The volume.</td></tr><tr><td>SAVE</td><td>On the Song screen, saves the song (see Saving songs). Anywhere else, shows a line of measures for a moment (the screen's redraw time, the CPU guard's level and steps, late audio blocks); on the Song screen, hold SAVE for them. Useful in a bug report.</td></tr></tbody></table></div>
+<p>No key plays notes: VNL-1 plays its own songs. The keys not in this table do nothing.</p>
+<hr>
+<h2 id="s4"><span class="num">4</span>The screens</h2>
+<h3 id="the-home-now-playing-or-main">The home: now playing or main</h3>
+<p>VNL-1 has two home screens. The main screen shows everything and starts the most. The now-playing screen is the simple one. HOME on either switches to the other. Which one is the home is a setting: Settings (GLO), HOME SCREEN, SIMPLE (now playing, the default) or DETAILED (the main screen). The FM-1 starts there after the splash, and each new song and HOME from any other screen go there. The FM-1 keeps the setting through a power-off. (It saves the choice once the music is silent, so the save never interrupts the audio.)</p>
+<p><strong>Now playing</strong> (top of this manual): the record turns while a song plays and eases to a stop when it stops. Beside it: the song's layout name, its key and scale, the chord playing, the section and bar, a strip with a segment for each section, the tempo and, on its own line under the tempo, the mood.</p>
+<h3 id="the-main-screen">The main screen</h3>
+<div class="figs"><figure class="shot"><img src="img/vnl-main.png" alt="The main screen: a status bar with INTRO 4/56, VNL-1 and 81 BPM; the song tile with half a record turning at its left edge, the chord Abmaj7, Db LYDIAN and SLOW BLOOM; six part tiles; the knob strip KEY Db, TEMPO 81, MOTION 30, MOOD SUNNY" loading="lazy"><figcaption>The main screen</figcaption></figure></div>
+<ul><li><strong>Status bar:</strong> the section, the bar and the song's length in bars, LOOP while a section loops, and the tempo.</li><li><strong>Record:</strong> half of the now-playing screen's record, smaller, at the song tile's left edge; it turns while a song plays and eases to a stop when it stops.</li><li><strong>Song tile:</strong> the chord playing, the key and scale, the layout name, a change on its way, and a strip of the song's sections.</li><li><strong>Part tiles:</strong> drums (kit and pattern), bass (instrument), accompaniment (instrument and rhythm), lead (instrument and style), pad (instrument) and texture (dust, noise and room). Each in its own color.</li><li><strong>Knob strip:</strong> K1-K4 and their values, with a fill bar each.</li></ul>
+<div class="table" tabindex="0" role="region" aria-label="Table: The main screen (Control, What it does)"><table><thead><tr><th>Control</th><th>What it does</th></tr></thead><tbody><tr><td>K1</td><td>Key: up or down a semitone.</td></tr><tr><td>K2</td><td>Tempo: 70 to 90 BPM.</td></tr><tr><td>K3</td><td>Motion: from calm (0) to busy (100), in steps of 5.</td></tr><tr><td>K4</td><td>Mood: sad, wistful, warm or sunny.</td></tr><tr><td>ALGO or SELECT</td><td>Move the highlight through the song tile and the part tiles.</td></tr><tr><td>EDIT</td><td>Open the highlighted tile's screen.</td></tr><tr><td>PRESET</td><td>The highlighted part's instrument (the drums' kit). Past the last one it goes round to the first, and back. Nothing on the song or texture tile.</td></tr><tr><td>OCT- / OCT+</td><td>The highlighted part's register: the accompaniment's or the lead's.</td></tr><tr><td>SEQ, held</td><td>Lock or unlock the highlighted part, or the song line on the song tile (see Locking). A short press is a new song.</td></tr><tr><td>HOME</td><td>The now-playing screen (the home stays as Settings has it).</td></tr></tbody></table></div>
+<h3 id="sections-sel">Sections (SEL)</h3>
+<div class="figs"><figure class="shot"><img src="img/vnl-sections.png" alt="The Sections screen: SECTIONS, a list of INTRO, GROOVE, GROOVE, GROOVE, GROOVE, LEAD, LEAD with 8 BARS each, INTRO marked PLAYING; LOOP OFF, STAY ON SONG OFF and END OFF at the bottom, the hints EDIT: GO THERE and SEL: BACK under the list" loading="lazy"><figcaption>Sections</figcaption></figure></div>
+<p>The song's sections, one a line, with their lengths. The section playing is marked PLAYING. Each line starts with the letter of the key that jumps to it. Seven lines fit; a longer song scrolls with the highlight.</p>
+<div class="table" tabindex="0" role="region" aria-label="Table: Sections (SEL) (Control, What it does)"><table><thead><tr><th>Control</th><th>What it does</th></tr></thead><tbody><tr><td>ALGO or SELECT</td><td>Move the highlight.</td></tr><tr><td>EDIT</td><td>Jump to the highlighted section.</td></tr><tr><td>The white keys from F up (F G A B C D E F G A)</td><td>Jump straight to the first to tenth section. The playing section's key is lit; a jump on its way blinks.</td></tr><tr><td>K1</td><td>Loop: the section playing repeats instead of moving on. Turn either way to switch it.</td></tr><tr><td>K2</td><td>Stay on song: the song never ends. Where the ending would start, it goes back to the section after the intro. Off by default.</td></tr><tr><td>K3</td><td>End: queue a move for the last bar of the section playing. Turn left for the accompaniment's fill (COMP FILL), further for the drums' (DRUM FILL); right for a simple stutter (STUTTER SIMPLE), further for a complex one (STUTTER COMPLEX); back to the middle (OFF) cancels it. One at a time: a new choice replaces the one waiting. It shows until the move plays, then OFF. F#3 steps it too, on any screen.</td></tr><tr><td>SEL</td><td>Back.</td></tr></tbody></table></div>
+<p><strong>The stutter:</strong> at the end of some groups (the last bar of a 4- or 8-bar group), the whole mix catches a slice of itself and repeats it into the next downbeat. A simple one (beat 4's first 8th repeated, or a 16th roll across beat 4) comes about once a song; a complex one (beat 4 rolling from an 8th through a 16th to 32nds, or a 2-beat catch from beat 3) about every other song, never twice. They come in any groove or lead section, with the lead or without it, never in an intro, an ending or a break, and not in the song's first 8 bars of lead, or of the first section without it. K3 (or F#3, on any screen) adds one of your own, on the last bar of the section playing, as the fill below: in place of the song's own stutter there, even where the song wouldn't stutter. Queued once it would have started in that bar (beat 4, or beat 3 for the 2-beat catch), it waits for the next section's last bar. Never in the ending; with no section's end left before it, it is dropped. Holding G5 overrides both: a song's stutter whose bar the hold touches is skipped, and one of yours that the hold keeps from playing waits for the next section's last bar (F#3 keeps blinking meanwhile).</p>
+<p><strong>The fill:</strong> the song plays a drum fill of its own at some section changes. K3 (or F#3) adds one where you want it, on the last bar of the section playing: the drums play their fill on beat 4 (a snare roll getting louder, a kick on its "and"), or the accompaniment plays one from beat 3, pushing into the next section. A guitar plays the drive strum (down on the "a"s, up on the "and"s); the piano, Rhodes, felt piano, vibes, organ, pad and harp run up the chord they are playing, one note an 8th, each ringing into the change; a strummed harp strums like the guitars. Only that bar's drums or accompaniment change; everything else in the song stays as it was. The fill plays even on a drum drop (the roll comes in out of the silence) or in a section without the drums or the accompaniment. Queued once that bar's fill has started (the drums' beat 4, the accompaniment's beat 3), it waits for the next section's last bar. Never in the ending; in the intro it's fine. With Loop on, it lands at the end of the section looping. A fill or a stutter waiting stays queued through Loop, Stay on song and a jump to another section. Only one waits at a time.</p>
+<h3 id="parts-arp">Parts (ARP)</h3>
+<div class="figs"><figure class="shot"><img src="img/vnl-parts.png" alt="The Parts screen: a lane each for drums, bass, accompaniment, lead and pad, with their notes over eight bars and the playhead" loading="lazy"><figcaption>Parts</figcaption></figure></div>
+<p>A lane for each part: drums, bass, accompaniment, lead and pad, with the key that mutes it. Each lane shows the part's notes over eight bars, scrolling with the song. Notes already played are in the part's color.</p>
+<div class="table" tabindex="0" role="region" aria-label="Table: Parts (ARP) (Control, What it does)"><table><thead><tr><th>Control</th><th>What it does</th></tr></thead><tbody><tr><td>ALGO or SELECT</td><td>Pick a lane.</td></tr><tr><td>K1</td><td>Mute the picked part (again: unmute).</td></tr><tr><td>K2</td><td>Solo the picked part (again: unsolo).</td></tr><tr><td>ARP</td><td>Back.</td></tr></tbody></table></div>
+<h3 id="mixer-fx">Mixer (FX)</h3>
+<div class="figs"><figure class="shot"><img src="img/vnl-mixer.png" alt="The Mixer, page 1/2: a fader each for drums, bass, accompaniment, lead, pad and texture, with K1-K4 under the first four" loading="lazy"><figcaption>The Mixer</figcaption></figure></div>
+<p>A fader for each part: drums, bass, accompaniment, lead, pad and texture. The levels go from -12 to +6 dB and stay as you set them from song to song. The knob that moves a fader is named under it.</p>
+<div class="table" tabindex="0" role="region" aria-label="Table: Mixer (FX) (Control, What it does)"><table><thead><tr><th>Control</th><th>What it does</th></tr></thead><tbody><tr><td>K1-K4</td><td>Page 1: the drums', bass's, accompaniment's and lead's levels. Page 2: K1 the pad's, K2 the texture's.</td></tr><tr><td>SELECT or ALGO</td><td>The other page.</td></tr><tr><td>FX</td><td>Back.</td></tr></tbody></table></div>
+<h3 id="settings-glo">Settings (GLO)</h3>
+<div class="figs"><figure class="shot"><img src="img/vnl-settings.png" alt="The Settings screen: three working rows, THEME GARNET, BASS SATURATION ON and HOME SCREEN SIMPLE (highlighted); under NOT WORKING YET, MOVEMENT, SCREEN READER, KEY LIGHTS, BRIGHTNESS and ADVANCED RULES" loading="lazy"><figcaption>Settings</figcaption></figure></div>
+<p><strong>THEME</strong> works: with it highlighted, turn any of K1-K4 to step through the screen's color themes (GARNET, the default: coral on a red-black; then GARNET+, BLACK CHERRY, the black ones GREEN, AMBER, CYAN, RED and MONO, then ESPRESSO, TEAL, OLIVE, PLUM, PLUM+, OXBLOOD and OXBLOOD+). Every screen changes at once, the splash too. The device keeps the theme through power-off (written once nothing is playing, as the home is) and a USB backup holds it.</p>
+<p><strong>BASS SATURATION</strong> works: ON (the default) gives every bass but the sub its gentle harmonics, so the line carries on small speakers; OFF leaves the bass clean, for good speakers, where the harmonics can sound buzzy. Highlight it and turn any of K1-K4 to switch it. The bass changes at its next note (never in the middle of one, so it never clicks), and the device keeps the setting through power-off, as it keeps the theme.</p>
+<p><strong>HOME SCREEN</strong> works: SIMPLE (the default) makes the now-playing screen the home, DETAILED the main screen. The home is where the FM-1 starts after the splash, where each new song lands and where HOME goes from any other screen. Highlight it and turn any of K1-K4 to switch it; GLO then goes back to the new home. The device keeps it through power-off, as it keeps the theme, and a USB backup holds it.</p>
+<p>The rows under NOT WORKING YET are planned for a later version and do nothing yet. GLO goes back.</p>
+<div class="table" tabindex="0" role="region" aria-label="Table: Settings (GLO) (Control, What it does)"><table><thead><tr><th>Control</th><th>What it does</th></tr></thead><tbody><tr><td>SELECT, PRESET or ALGO</td><td>Moves the highlight between THEME, BASS SATURATION and HOME SCREEN.</td></tr><tr><td>K1-K4</td><td>Changes the highlighted setting: the next theme (turned back, the one before), bass saturation on or off, or the home screen SIMPLE or DETAILED.</td></tr><tr><td>GLO</td><td>Back.</td></tr></tbody></table></div>
+<hr>
+<h2 id="s5"><span class="num">5</span>The parts' screens</h2>
+<p>Open a part's screen from the main screen: highlight its tile with ALGO, then press EDIT. Each screen shows the part's name and page, then a row for each knob: its name, its value, and a bar. A hint line at the bottom names the buttons.</p>
+<p>On every part's screen:</p>
+<div class="table" tabindex="0" role="region" aria-label="Table: The parts&#x27; screens (Control, What it does)"><table><thead><tr><th>Control</th><th>What it does</th></tr></thead><tbody><tr><td>K1-K4</td><td>The settings on this page (below). Most step through choices; AS ROLLED is the song's own choice. A re-roll setting (variation, line, voicings, phrase, notes) steps through new versions of the part; its first value, ORIGINAL or AS ROLLED, is the song's own.</td></tr><tr><td>SELECT</td><td>The next page, on parts that have more than one.</td></tr><tr><td>ALGO</td><td>The next part, in this order: song, drums, bass, accompaniment, lead, pad, texture.</td></tr><tr><td>PRESET</td><td>This part's instrument (the drums' kit).</td></tr><tr><td>SEQ</td><td>Re-roll this part only, on the next four-bar line. On the song screen, a new song; on the texture screen, nothing. Held, it locks or unlocks this part; on the song screen, the song line (see Locking).</td></tr><tr><td>OCT- / OCT+</td><td>The register, on the accompaniment's and the lead's screens.</td></tr><tr><td>EDIT</td><td>Back to the main screen.</td></tr></tbody></table></div>
+<h3 id="locking">Locking</h3>
+<p>A locked part stays as it is when a new song rolls, while everything else changes. Lock a part you like, then press SEQ for new songs around it. The song line locks too: the key and scale, tempo, motion and mood.</p>
+<div class="figs"><figure class="shot"><img src="img/vnl-lock-song.png" alt="The Song screen, locked: a padlock beside SONG 1/3" loading="lazy"><figcaption>The song line locked</figcaption></figure><figure class="shot"><img src="img/vnl-lock.png" alt="The Drums screen, locked: a padlock beside DRUMS 1/2" loading="lazy"><figcaption>A locked part</figcaption></figure></div>
+<ul><li><strong>Lock or unlock:</strong> hold SEQ for about half a second, on the part's screen or on the main screen with the part's tile highlighted. For the song line, hold it on the Song screen or with the song tile highlighted. Hold again to unlock. A short press still re-rolls the part (on its screen) or rolls a new song (on the main and Song screens).</li><li><strong>Shown:</strong> a padlock beside the part's name on its screen and on its tile on the main screen (the song line's on the song tile and beside SONG). The header says DRUMS LOCKED or DRUMS UNLOCKED for a moment, and the screen reader says it too.</li><li><strong>What it keeps:</strong> - Drums: kit, pattern, kick, ride and variation. - Bass: instrument and line. Its style (roots, walking, pedal) can still change with the song. - Accompaniment: instrument, rhythm (strum pattern and fill too), voicings, register, and whether a busy lead thins it. - Lead: instrument, style, phrase, register and loop. - Pad: instrument, on or off, place and notes. - Texture: dust, noise and room. - The song line: key and scale, tempo, motion and mood. The chords, layout, swing and chord color still change, to ones that suit the kept scale and mood.</li><li><strong>Changing a locked part:</strong> the knobs still change it, and the lock keeps the change. SEQ on its screen won't re-roll it: the header says DRUMS IS LOCKED.</li><li><strong>Instruments that can't be shared:</strong> the felt piano, the piano and the vibes play one part a song, and organ keys never play under an organ pad. When a new song would clash with a lock, VNL-1 rolls another one. If both clashing parts are locked, the second one's instrument isn't kept for that song, and the header says LEAD LOCK, INSTRUMENT NOT KEPT (or PAD LOCK).</li><li><strong>How long:</strong> until you unlock it or switch the FM-1 off. Locks are never saved.</li></ul>
+<h3 id="song">Song</h3>
+<div class="figs"><figure class="shot"><img src="img/vnl-song.png" alt="The Song screen, page 1/3: K1 KEY Db, K2 SCALE LYDIAN, K3 TEMPO *84, K4 MOOD SUNNY" loading="lazy"><figcaption>Song</figcaption></figure></div>
+<div class="table" tabindex="0" role="region" aria-label="Table: Song (Page, K1, K2, K3, K4)"><table><thead><tr><th>Page</th><th>K1</th><th>K2</th><th>K3</th><th>K4</th></tr></thead><tbody><tr><td>1</td><td>Key: 12 keys</td><td>Scale: six modes, from Ionian to Aeolian</td><td>Tempo: 70-90 BPM</td><td>Mood: sad, wistful, warm, sunny</td></tr><tr><td>2</td><td>Motion: 0-100, calm to busy</td><td>Swing: 52-62 %</td><td>Layout: Classic, Slow bloom, Straight in, Breather or Drift</td><td>Chords: the chord progression, by number and its chords</td></tr><tr><td>3</td><td>Chord color: 7ths, 9ths or rich (9ths, 11ths, 13ths)</td><td></td><td></td><td></td></tr></tbody></table></div>
+<p>A change of layout or chords is a bigger change than the others. It still lands on the next four-bar line.</p>
+<p>On the Song screen (every page), besides the controls above:</p>
+<div class="table" tabindex="0" role="region" aria-label="Table: Song (Control, What it does)"><table><thead><tr><th>Control</th><th>What it does</th></tr></thead><tbody><tr><td>SAVE</td><td>Save the song into the first free slot. The header says SAVED TO 3 for a moment.</td></tr><tr><td>SAVE, held</td><td>The line of measures (what SAVE shows on other screens). A hold never saves.</td></tr><tr><td>REC</td><td>The Saved list (see Saving songs).</td></tr></tbody></table></div>
+<h3 id="saving-songs">Saving songs</h3>
+<div class="figs"><figure class="shot"><img src="img/vnl-saved-to.png" alt="The Song screen after SAVE: SAVED TO 1 in the header" loading="lazy"><figcaption>Saved</figcaption></figure><figure class="shot"><img src="img/vnl-saved.png" alt="The Saved list: slot 1 SLOW BLOOM, Db LYDIAN 84 BPM, in yellow while its save waits; slots 2-7 EMPTY" loading="lazy"><figcaption>The Saved list</figcaption></figure></div>
+<p>VNL-1 keeps 16 songs. A saved song comes back exactly as it was: its seed and every rolled choice (key, scale, tempo, motion, mood, swing, layout, chords, chord color, the band's set, drum pattern, texture, length), and every change you made to its parts (instruments, kit, rhythms, styles, registers, re-rolls). A change still waiting for its four-bar line is saved as if it had landed.</p>
+<ul><li><strong>Save:</strong> press SAVE on the Song screen. The song goes into the first free slot; the header says SAVED TO 3. The same song saved again goes back into its own slot. With all 16 slots full, the header says NO FREE SLOT: delete one first.</li><li><strong>The Saved list:</strong> press REC on the Song screen (REC again goes back). Each line shows the slot, the song's name (its layout), its key and scale, and its tempo, or EMPTY. ALGO or SELECT moves the highlight.</li><li><strong>Load:</strong> highlight a song and press EDIT. It becomes the next song: while a song plays, that song gives way and the saved one starts after the usual short gap; when stopped, it is ready and PLAY starts it. The header says SLOT 3 IS NEXT.</li><li><strong>Save into a chosen slot:</strong> on the Saved list, highlight a slot and press SAVE. A song already there is replaced.</li><li><strong>Delete:</strong> on the Saved list, highlight a song and hold SAVE. The header says SLOT 3 DELETED.</li><li><strong>While a song plays:</strong> the FM-1 writes its memory only when everything is quiet (writing it while music plays makes a crackle). A song saved while music plays shows at once, in yellow with a <code>*</code>, and is written as soon as the music stops (or at the silence between two songs). One save can wait at a time: a second one into another slot says A SAVE WAITS, STOP TO SAVE MORE. Don't switch the FM-1 off before the save is written.</li><li><strong>What isn't saved:</strong> the locks, mutes, solos and mixer levels, and the Sections screen's Loop and Stay on song switches, and a fill or stutter queued with K3 or F#3.</li><li><strong>Over USB:</strong> a backup holds the saved songs and the home screen (see USB and the screen reader). <code>tools/fm1_songs.py list</code> tags each song <code>[flash]</code> (written, kept through power-off) or <code>[RAM only: ...]</code> (not yet written: its save waits for silence, or its write failed and needs saving again).</li><li><strong>Firmware updates:</strong> a VNL-1 update (<code>fm1_install.py</code> with a VNL-1 package) keeps the saved songs. Going back to M-VAVE's stock firmware erases them (it takes that part of the memory for its own). <code>tools/flash.sh</code>, which installs stock first, exports the songs before it starts (into <code>backups/</code>) and writes them back at the end.</li></ul>
+<h3 id="drums">Drums</h3>
+<div class="figs"><figure class="shot"><img src="img/vnl-drums.png" alt="The Drums screen, page 1/2: K1 KIT ROOM - BIG, K2 PATTERN BOOM BAP - SKIP, K3 KICK THE PATTERN&#x27;S OWN, K4 RIDE AS ROLLED (ONE SECTION)" loading="lazy"><figcaption>Drums</figcaption></figure></div>
+<div class="table" tabindex="0" role="region" aria-label="Table: Drums (Page, K1, K2, K3, K4)"><table><thead><tr><th>Page</th><th>K1</th><th>K2</th><th>K3</th><th>K4</th></tr></thead><tbody><tr><td>1</td><td>Kit: Soft brushes, 808, CR-78, Crunchy machine, Boom-bap machine, Jazz machine, Room - big, Room - brushes (a new song lands on it only when its mood is sunny; any other mood plays Soft brushes in its place; picked here, it plays in any mood)</td><td>Pattern: three boom bap patterns, two half-time, a sparse one, brushes, a two-bar half-time</td><td>Kick: the pattern's own, or one of nine two-bar kick phrases</td><td>Ride: as rolled, none, throughout, or one section (the sampled kits)</td></tr><tr><td>2</td><td>Variation: a re-roll of the drums' details</td><td></td><td></td><td></td></tr></tbody></table></div>
+<h3 id="bass">Bass</h3>
+<div class="figs"><figure class="shot"><img src="img/vnl-bass.png" alt="The Bass screen: K1 INSTRUMENT ELECTRIC, K2 LINE AS ROLLED (ROOTS)" loading="lazy"><figcaption>Bass</figcaption></figure></div>
+<div class="table" tabindex="0" role="region" aria-label="Table: Bass (K1, K2)"><table><thead><tr><th>K1</th><th>K2</th></tr></thead><tbody><tr><td>Instrument: electric, sub, triangle or FM</td><td>Line: a re-roll of the bass line</td></tr></tbody></table></div>
+<p>Every bass but the sub is gently saturated, so its line carries on small speakers; the sub stays clean. On good speakers you can turn the saturation off: Settings (GLO), BASS SATURATION.</p>
+<h3 id="accompaniment-accomp-on-the-screen">Accompaniment (ACCOMP on the screen)</h3>
+<div class="figs"><figure class="shot"><img src="img/vnl-comp.png" alt="The Accompaniment screen, page 1/2: K1 INSTRUMENT RHODES, K2 RHYTHM AS ROLLED (HELD), K3 VOICINGS ORIGINAL, K4 REGISTER AS ROLLED (UNDER THE LEAD)" loading="lazy"><figcaption>Comp</figcaption></figure></div>
+<div class="table" tabindex="0" role="region" aria-label="Table: Accompaniment (ACCOMP on the screen) (Page, K1, K2, K3, K4)"><table><thead><tr><th>Page</th><th>K1</th><th>K2</th><th>K3</th><th>K4</th></tr></thead><tbody><tr><td>1</td><td>Instrument: Rhodes, felt piano, nylon guitar, pad, vibes, organ, piano, electric guitar, harp</td><td>Rhythm: held, half notes, stabs, held on 2, held on 2 and 4, charleston, tresillo, late one, strum</td><td>Voicings: a re-roll of the chord voicings</td><td>Register: down an octave, as rolled, up an octave</td></tr><tr><td>2</td><td>Strum fill: default, step back or drive (the guitars' strums)</td><td>Busy lead thins: on or off. On, the accompaniment plays less while the lead is busy</td><td>Over a low lead: as rolled, lift over it or with the lead (the jazz guitar's and the cello's sets)</td><td></td></tr></tbody></table></div>
+<p>With a guitar on the accompaniment, Rhythm picks a strum pattern instead: D-DU-UDU, chuck, bossa, ballad, offbeat-skank, syncopated-push, anticipation or charleston. OCT- and OCT+ step the register too.</p>
+<p>The harp strums in half its songs (ballad, bossa or charleston, each stroke a quick roll up the strings) and rolls held or half-note chords in the rest; every roll is centered on the beat, its first notes a little ahead. Its Rhythm offers held, half notes and strum (the strum's pattern is drawn). The harp plays the accompaniment or the lead in a song, never both.</p>
+<p>Over a low lead (the jazz guitar or the cello), the accompaniment either lifts an octave while the lead plays or stays in its own register with the lead, leaving out a note and dipping under it where the lead sounds. A song rolls with the lead three times in four; Over a low lead forces either.</p>
+<h3 id="lead">Lead</h3>
+<div class="figs"><figure class="shot"><img src="img/vnl-lead.png" alt="The Lead screen, page 1/2: K1 INSTRUMENT HARP, K2 STYLE AS ROLLED (FILM SCORE), K3 PHRASE ORIGINAL, K4 REGISTER AS ROLLED (C5-C6)" loading="lazy"><figcaption>Lead</figcaption></figure></div>
+<div class="table" tabindex="0" role="region" aria-label="Table: Lead (Page, K1, K2, K3, K4)"><table><thead><tr><th>Page</th><th>K1</th><th>K2</th><th>K3</th><th>K4</th></tr></thead><tbody><tr><td>1</td><td>Instrument: felt piano, flute, vibes, piano, jazz guitar, cello, harp, whistle</td><td>Style: Impressionism, Romanticism, '60s Jazz, Modal Jazz, Jazz-Hop, Film Score, Bossa Nova, Ambient</td><td>Phrase: a re-roll of the lead's motif</td><td>Register: down an octave, as rolled, up an octave</td></tr><tr><td>2</td><td>Loop: default, off or on. On, the lead loops its motif the way a producer loops a sample</td><td></td><td></td><td></td></tr></tbody></table></div>
+<p>The lead plays in the song's lead sections. It states a motif and comes back to it. OCT- and OCT+ step the register too.</p>
+<h3 id="pad">Pad</h3>
+<div class="figs"><figure class="shot"><img src="img/vnl-pad.png" alt="The Pad screen: K1 INSTRUMENT STRINGS, K2 ON/OFF AS ROLLED (ON), K3 PLACE AS ROLLED (BELOW THE LEAD), K4 NOTES ORIGINAL" loading="lazy"><figcaption>Pad</figcaption></figure></div>
+<div class="table" tabindex="0" role="region" aria-label="Table: Pad (K1, K2, K3, K4)"><table><thead><tr><th>K1</th><th>K2</th><th>K3</th><th>K4</th></tr></thead><tbody><tr><td>Instrument: organ, strings, pad or vox</td><td>On/off: as rolled, off or on. About two songs out of three have a pad</td><td>Place: as rolled, below, with or above the lead</td><td>Notes: a re-roll of the pad's notes</td></tr></tbody></table></div>
+<h3 id="texture">Texture</h3>
+<div class="figs"><figure class="shot"><img src="img/vnl-texture.png" alt="The Texture screen: K1 DUST NONE, K2 NOISE VINYL, K3 AMBIENCE RAIN" loading="lazy"><figcaption>Texture</figcaption></figure></div>
+<div class="table" tabindex="0" role="region" aria-label="Table: Texture (K1, K2, K3)"><table><thead><tr><th>K1</th><th>K2</th><th>K3</th></tr></thead><tbody><tr><td>Dust: none, light, medium or heavy</td><td>Noise: none, vinyl or tape surface</td><td>Ambience: none or rain</td></tr></tbody></table></div>
+<p>The noise bed fades in as a song starts and out as it ends.</p>
+<hr>
+<h2 id="s6"><span class="num">6</span>The CPU guard</h2>
+<p>The FM-1 has a fixed amount of processing time for each slice of sound. A busy moment, such as many notes ringing over a full kit, can run past it, and the sound drops out for an instant. The CPU guard prevents that. When VNL-1 falls behind, it lowers the quality one step at a time, in the order a lo-fi mix hides best:</p>
+<ol><li>The drums' ringing tails end sooner.</li><li>The noise bed (vinyl, tape, rain) fades out.</li><li>The plate reverb stops taking new sound and lets its tail ring out.</li><li>Released notes on the accompaniment, pad and lead fade sooner.</li><li>The accompaniment holds three notes instead of four (the bass still has the root).</li></ol>
+<p>It acts only after the sound actually falls behind, not on a guess. After 20 seconds of calm it takes back one step, then another every 2 seconds, so the quality returns gradually. Most songs never need it. SAVE shows its level.</p>
+<hr>
+<h2 id="s7"><span class="num">7</span>USB and the screen reader</h2>
+<p><strong>USB audio:</strong> over the USB cable the FM-1 is also a sound card. A computer can record what VNL-1 plays: choose the input named "VNL-1 FM-1".</p>
+<p><strong>Screen reader:</strong> VNL-1 tells a screen reader what's on its screen, through the <a href="https://charlesvestal.github.io/fm1-reader/">FM-1 Screen Reader</a>: each screen as it opens, each knob's new value, and messages such as NO SAMPLES. The browser emulator does the same.</p>
+<p><strong>Backup:</strong> fm1-base's backup page (or <code>tools/fm1_backup.py</code>) saves the saved songs and the home screen to a <code>.vnl1songs</code> file on a computer, and restores them. Stop the music first: a restore is refused while anything plays. <code>tools/fm1_songs.py</code> lists, exports and writes single saved songs over USB.</p>
+<p><strong>No Bluetooth:</strong> VNL-1 is built without Bluetooth, so there is no Bluetooth MIDI or audio.</p>
+<hr>
+<h2 id="s8"><span class="num">8</span>Safe mode and update mode</h2>
+<p><strong>Safe mode:</strong> if the FM-1 fails to start twice after an install, it shows SAFE MODE. There is no sound, but USB works, so the web installer can reach it. Install again, or put the stock firmware back from the same page. PLAY tries the firmware again. If safe mode fails twice too, the FM-1 waits in the chip's own update mode.</p>
+<p><strong>Update mode:</strong> hold REC while you switch the FM-1 on. With m-bootloader installed (the web installer offers it), the installer reaches the FM-1 from there, and holding PLAY instead opens m-bootloader's recovery menu. Without it, REC starts the chip's own update mode, which only the rescue tool reaches (<code>base/bsp/tools/fm1_rescue.sh</code>, described in the README).</p>
+<hr>
+<h2 id="s9"><span class="num">9</span>Troubleshooting</h2>
+<p><strong>No sound:</strong> turn MASTER up. Check the five lowest keys' lights: a dark key is a muted part, a blinking one is soloed (and the others are silent). Press PLAY if the screen says STOPPED.</p>
+<p><strong>A knob did nothing:</strong> the change is waiting for the next four-bar line; the <code>*</code> and the yellow note show it. While stopped, the knobs don't change the song: press PLAY first.</p>
+<p><strong>NO SAMPLES, SYNTHS ONLY:</strong> the sample bank isn't on the FM-1, or it's from another build. Write it again (section 1).</p>
+<p><strong>STOP FIRST while writing the bank:</strong> VNL-1 was playing. Press PLAY to stop it, then write again.</p>
+<p><strong>BROWSER on the screen:</strong> the workbench in a browser has the controls (section 10). The FM-1 is silent and its own controls do nothing. Close the workbench's connection; 3 seconds after the browser lets go, the screen says BROWSER DISCONNECTED and VNL-1 waits, stopped, until you press PLAY.</p>
+<p><strong>The installer doesn't find the FM-1:</strong> use Chrome or Edge, a USB cable that carries data, and allow MIDI when asked. Close other programs that use the FM-1's MIDI port.</p>
+<p><strong>The FM-1 doesn't start after an install:</strong> see section 8.</p>
+<hr>
+<h2 id="s10"><span class="num">10</span>The workbench</h2>
+<p>The workbench is a page for developers and the curious, run from the source (<code>workbench/README.md</code>). It plays the same song engine in the browser, with every decision laid out by part, a piano roll of what each part plays, and a mock of the FM-1's screens that runs the same screen definitions as the device. With an FM-1 connected by USB (Chrome or Edge), the FM-1's controls can drive the mock; while they do, the FM-1 shows BROWSER and stays silent.</p>
+</main>
+</div>
+<footer class="vnl-foot">VNL-1 &copy; 2026 Sam Oltz &middot; <a href="https://www.gnu.org/licenses/gpl-3.0.html">GPL-3.0-or-later</a> &middot; <a href="https://github.com/pianomansam/fm1-vnl">Source on GitHub</a></footer>
+</body>
+</html>
