@@ -3368,44 +3368,44 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
     check(JSON.stringify(got) === '[["mute","bass"],["mute","bass"]]' && dk.jumpReq?.name === "groove" && [...dk.keyLights().on].join() === "0,2,4,6,7",
           `G mutes the bass on the main and Comp screens, jumps on Sections (${JSON.stringify(got)}, jump ${dk.jumpReq?.name}; Sections lit [${lit}])`);
   }
-  {   // G5 held past the tap window: the stutter on while down (said once, lit), off when let go on another screen;
-      // stopped, the engine told the key went up only
+  {   // G5 held: the stutter on while down (said at once), off when let go on another screen; stopped, the engine
+      // told the key went up only; never lit (its LED doesn't work); a tap does nothing more
     let tt = 0;
-    const got = [], ds = new D.Device(data, { set() {}, play() {}, stutterHold: (on) => got.push(on) }, () => tt);
+    const got = [], sets = [], ds = new D.Device(data, { set: (id, v) => sets.push([id, v]), play() {}, stutterHold: (on) => got.push(on) }, () => tt);
     ds.update({ ...live(3), activity: { bars: 64, lanes: {}, mute: [], solo: null } });
     ds.stack = ["main"];
-    ds.keyDown("KEY26"); tt += D.LONG_MS + 10; ds.tick();
-    const lit = ds.keyLights().on.has(26), said = ds.said;
+    ds.keyDown("KEY26");
+    const said = ds.said;
+    tt += D.LONG_MS + 10; ds.tick();
+    const lit = ds.keyLights().on.has(26);
     ds.stack = ["main", "sections"];
-    const litSec = ds.keyLights().on.has(26);
     ds.keyUp("KEY26");
-    const after = ds.keyLights().on.has(26);
     ds.update({ ...live(3), playing: false });
     ds.keyDown("KEY26"); ds.keyUp("KEY26");
-    check(JSON.stringify(got) === "[true,false,false]" && lit && litSec && !after && said === "STUTTER",
-          `G5: the stutter held and let go (${JSON.stringify(got)}), lit [${lit}, Sections ${litSec}, after ${after}], said ${said}`);
+    check(JSON.stringify(got) === "[true,false,false]" && !lit && said === "STUTTER" && !sets.length,
+          `G5: the stutter held and let go (${JSON.stringify(got)}), lit ${lit}, said ${said}, sets ${JSON.stringify(sets)}`);
   }
-  {   // G5 tapped (let go within the tap window: 80, 150, 250 ms presses): each tap the next stutter on demand (SIMPLE,
-      // COMPLEX, OFF), said; G5 blinks while one waits, slowly for a simple one, quickly for a complex one; a tap while
-      // stopped queues too
+  {   // F#3 (KEY1): each press the next move at the section's end (OFF, STUTTER SIMPLE, STUTTER COMPLEX, DRUM FILL,
+      // COMP FILL, OFF), said, on the main screen and Sections; it blinks while one waits; a press while stopped too
     let tt = 0;
     const sets = [], dt = new D.Device(data, { set: (id, v) => sets.push([id, v]), play() {}, stutterHold() {} }, () => tt);
-    const lv = { ...live(3), rows: { values: { stutter: 0 } } };
+    const lv = { ...live(3), rows: { values: { move: 0 } } };
     dt.update(lv);
     dt.stack = ["main"];
-    const said = [], tap = (ms) => { dt.keyDown("KEY26"); tt += ms; dt.tick(); dt.keyUp("KEY26"); said.push(dt.said); tt += 20; };
-    tap(80); tap(150); tap(250);
-    dt.update({ ...lv, rows: { values: { stutter: 1 } } });
-    const slow = dt.stutterBlink();
-    dt.update({ ...lv, rows: { values: { stutter: 2 } } });
-    const quick = dt.stutterBlink(), lit = [0, 1, 2, 3].map((k) => { tt = 1000 + k * 125; return dt.keyLights().on.has(26); });
-    dt.update({ ...lv, playing: false, rows: { values: { stutter: 0 } } });
+    const said = [], press = () => { dt.keyDown("KEY1"); dt.keyUp("KEY1"); said.push(dt.said); tt += 20; };
+    press(); press(); dt.stack = ["main", "sections"]; press(); press(); press();
+    const dark = dt.keyLights().blink.has(1);
+    dt.update({ ...lv, rows: { values: { move: 3 } } });
+    const blinkSec = dt.keyLights().blink.has(1);
+    dt.stack = ["main"];
+    const blinkMain = dt.keyLights().blink.has(1);
+    dt.update({ ...lv, playing: false, rows: { values: { move: 0 } } });
     tt += 1000;
-    tap(80);
-    check(JSON.stringify(sets) === '[["stutter",1],["stutter",2],["stutter",0],["stutter",1]]' &&
-          said.join() === "STUTTER SIMPLE,STUTTER COMPLEX,STUTTER OFF,STUTTER SIMPLE" && slow === 400 && quick === 125 &&
-          lit.join() === "false,true,false,true",
-          `G5 tapped: ${JSON.stringify(sets)}, said ${said.join()}, blink ${slow} / ${quick} ms (${lit.join()})`);
+    press();
+    check(JSON.stringify(sets) === '[["move",3],["move",4],["move",1],["move",2],["move",0],["move",3]]' &&
+          said.join() === "END STUTTER SIMPLE,END STUTTER COMPLEX,END DRUM FILL,END COMP FILL,END OFF,END STUTTER SIMPLE" &&
+          !dark && blinkSec && blinkMain,
+          `F#3: ${JSON.stringify(sets)}, said ${said.join()}, blink ${dark} / ${blinkSec} / ${blinkMain}`);
   }
   {   // Settings: SELECT highlights BASS SATURATION, any knob flips it (the engine told, the reader says it), a detent
       // at a time; on THEME, a knob steps the palette

@@ -1,35 +1,24 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# G5 held past the tap window (sthold.h's STH_TAP_MS, 300 ms, and the engine's 20 ms margin): the whole mix stutters
-# (engine/sthold.c). The first song is at 81 BPM (a 16th 185 ms, a beat 741 ms, a bar 2963 ms). Held for about 2 bars:
-# "STUTTER" said once past the window, the catch on the first 16th line 320 ms or more after the press (hold_ms, under
-# 320 ms and a 16th), an 8th repeated, then a step faster on each beat line (16th, 32nd, 64th, where it stays), G5 lit
-# meanwhile; let go, live on the next 16th. A stutter on demand (G5
-# tapped twice: a complex one, queued in the intro: tests/scenarios/stutter.vnl's song, its first landing bar 16, from 0: 15) that a hold keeps
-# from its catch waits for the next group's last bar (bar 24, from 0: 23). Stopped, G5 held does nothing.
+# G5 held: the whole mix stutters (engine/sthold.c). The first song is at 81 BPM (a 16th 185 ms, a beat 741 ms, a bar
+# 2963 ms). Held for about 2 bars: "STUTTER" said as it goes down, the catch on the next 16th, an 8th repeated, then a
+# step faster on each beat line (16th, 32nd, 64th, where it stays); let go, live on the next 16th. G5 is never lit (its
+# LED doesn't work on the hardware). A tap queues nothing (the moves at the section's end are F#3's and K3's). A complex
+# stutter queued with F#3 (tests/scenarios/stutter.vnl's song: the intro's last bar, bar 8, from 0: 7) that a hold
+# keeps from its catch waits for the next section's last bar (bar 16, from 0: 15). Stopped, G5 does nothing.
 listen
 wait 1400
 tap PLAY
 wait 3900
 expect playing 1
-tapkey 26
-tapkey 26
-wait 1
-said STUTTER COMPLEX
-expect stutter 2
 key 26 down
-wait 280
-said_none
-expect hold -1
-wait 270
+wait 30
 said STUTTER
+wait 250
 expect hold 0
-expect hold_in >0
-expect hold_in <3
-expect hold_ms >319
-expect hold_ms <506
-expect key_lit >67108863
+expect hold_in 0
+expect key_lit <67108864
 # the 8th's first step on the first beat line once it has repeated whole (4-7 16ths), then a beat each
-wait 5730
+wait 6000
 expect hold 3
 expect hold_1 >3
 expect hold_1 <8
@@ -40,8 +29,7 @@ key 26 up
 wait 250
 expect hold -1
 expect hold_out 0
-# the complex one still waits: G5 blinks quickly again (the held stutter's light off)
-expect stutter_blink 125
+expect key_lit <67108864
 said_none
 # a short hold (about a beat): the catch, the 8th repeated, live again
 wait 2000
@@ -52,29 +40,42 @@ key 26 up
 wait 250
 expect hold -1
 expect hold_out 0
-# held over the on-demand stutter's bar (bar 16, from 0: 15; 45.9-48.9 s): from its 4th 16th into the next bar
-wait 31820
-expect bar 15
+# a tap: no move queued
+tapkey 26
+wait 300
+expect move 0
+expect key_blink 0
+expect hold -1
+# F#3 twice: a complex stutter, for the intro's last bar
+tapkey 1
+tapkey 1
+said END STUTTER COMPLEX
+expect move 4
+expect move_at 7
+# held over that bar (22.2-25.2 s): from its 4th 16th into the next bar
+wait 7510
+expect bar 7
 expect stutter_fig >2
 key 26 down
 wait 2700
-expect bar 16
+expect bar 8
 expect hold >1
-expect stutter 2
+expect move 4
 expect stutter_bar -1
 key 26 up
 wait 250
 expect hold -1
-# queued again: it lands on the next group's last bar (bar 24, from 0: 23; about 68.6-71.6 s)
-wait 21500
-expect bar 23
-expect stutter_bar 23
+# queued again: it lands on the next section's last bar (bar 16, from 0: 15; about 45.9-48.9 s)
+expect move_at 15
+wait 20600
+expect bar 15
+expect stutter_bar 15
 expect stutter_fig >2
-wait 300
+wait 2200
 expect stuttering 1
-wait 2000
-expect bar 24
-expect stutter 0
+wait 1000
+expect bar 16
+expect move 0
 # stopped: nothing
 tap PLAY
 wait 200

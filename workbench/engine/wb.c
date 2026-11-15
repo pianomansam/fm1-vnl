@@ -88,8 +88,8 @@ static void hooks(const stage_t *s)
    restarted from the seed (vx_song). */
 static void land(int target, int fresh)
 {
-    int sq = cur_bar >= 0 && !fresh ? song.lead.loop.sq : 0;   /* a stutter queued on demand: on in the same song */
-    int fq = cur_bar >= 0 && !fresh ? song.fill_q : 0;         /* a fill too */
+    int mq = cur_bar >= 0 && !fresh ? song_move_waiting(&song) : 0;   /* a move queued for the section's end: on in
+                                                                       the same song */
     if (jump >= 0)
         target = jump;                  /* (a jump: the page's bar, in the committed song) */
     else if (com.roll.seed != live.roll.seed || com.roll.v[RF_MAP] != live.roll.v[RF_MAP])
@@ -111,10 +111,8 @@ static void land(int target, int fresh)
         pos += advance();
     }
     song.voicing.ant = 0;               /* (the ticks silent: the harp's downbeat whole, on time; harmony_step) */
-    if (sq)
-        song_stutter_queue(&song, sq);
-    if (fq)
-        song_fill_queue(&song, fq);
+    if (mq)
+        song_move_queue(&song, mq);
     if (fresh) {
         if (vx_sounding())
             vx_release_all();
@@ -152,7 +150,7 @@ static int ev_note(const song_ev_t *e)
 
 /* the held stutter (the device mock's G5: app.c's, engine/sthold.c): the key down, a press not yet taken by a 16th */
 static sthold_t sth;
-static uint8_t stut_pend;               /* a stutter on demand tapped while stopped: its kind (wb_stutter) */
+static uint8_t mv_pend;                 /* a move at the section's end asked for while stopped (wb_move) */
 
 /* one 16th (app.c's step) */
 static void tick(void)
@@ -174,10 +172,10 @@ static void tick(void)
     n = song_tick(&song, evs, 64);
     llp = song_lead_lp_at(&song, bar, st);   /* the lead loop's filter, for the 16th just played */
     vx_set_filter(PM_LEAD, lp[PM_LEAD] < llp ? llp : lp[PM_LEAD]);   /* before its events */
-    sthold_song(&sth, &song, bar, st, pos);   /* G5 held: before the song's own, which wait while it holds */
-    if (stut_pend) {                     /* a G5 tap while stopped: queued as the song plays */
-        song_stutter_queue(&song, stut_pend);
-        stut_pend = 0;
+    sthold_song(&sth, &song, bar, st);  /* G5 held: before the song's own, which wait while it holds */
+    if (mv_pend) {                       /* a move asked for while stopped: queued as the song plays */
+        song_move_queue(&song, mv_pend);
+        mv_pend = 0;
     }
     vx_stutter_fig(song.lead.loop.sbar == bar + 1 ? song.lead.loop.sfig : 0, st,   /* the song's stutter */
                    song_step_samples(&song));
@@ -280,23 +278,19 @@ EXPORT void wb_seed(uint32_t seed)
 EXPORT int wb_lead_loop_log(int bar) { return leads_loop_log(bar); }
 EXPORT int wb_lead_loop_stat(int i) { return leads_loop_stat(&song.lead, i); }
 
-/* a stutter on demand (the device's G5 tapped: song_stutter_queue; kind 1 simple, 2 complex, 0 cancel) on the song
-   playing (none playing: queued as one plays, app.c's), and the kind G5's blink shows (song_stutter_shown) */
-EXPORT int wb_stutter(int kind)
+/* the move at the section's end (the device's Sections K3 and F#3: song_move_queue; song.h's MOVE_*, 0 cancel) on
+   the song playing (none playing: queued as one plays, app.c's), and the move the screen shows (song_move_shown) */
+EXPORT int wb_move(int move)
 {
+    mv_pend = (uint8_t)(move > 0 && move <= MOVE_COMPLEX ? move : 0);
     if (playing && !in_gap && cur_bar >= 0) {
-        stut_pend = 0;
-        return song_stutter_queue(&song, kind);
+        move = song_move_queue(&song, mv_pend);
+        mv_pend = 0;
+        return move;
     }
-    stut_pend = (uint8_t)(kind == 2 ? 2 : kind ? 1 : 0);
-    return stut_pend;
+    return mv_pend;
 }
-EXPORT int wb_stutter_shown(void) { return stut_pend ? stut_pend : cur_bar >= 0 ? song_stutter_shown(&song) : 0; }
-
-/* a fill on demand (the device's Sections K3: song_fill_queue; kind 1 the drums, 2 the comp, 0 cancel) on the song
-   playing, and the kind the screen shows (song_fill_shown) */
-EXPORT int wb_fill(int kind) { return cur_bar >= 0 ? song_fill_queue(&song, kind) : 0; }
-EXPORT int wb_fill_shown(void) { return cur_bar >= 0 ? song_fill_shown(&song) : 0; }
+EXPORT int wb_move_shown(void) { return mv_pend ? mv_pend : cur_bar >= 0 ? song_move_shown(&song) : 0; }
 
 EXPORT void wb_play(int on)
 {
@@ -352,7 +346,7 @@ EXPORT void wb_solo(int role)
 EXPORT void wb_stutter_hold(int on)
 {
     if (!on || (playing && !in_gap))
-        sthold_key(&sth, on, pos);
+        sthold_key(&sth, on);
 }
 
 /* mixer state, not the song's: kept across landings, new songs and wb_init (vx_init keeps it) */

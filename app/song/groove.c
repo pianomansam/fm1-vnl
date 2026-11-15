@@ -272,7 +272,7 @@ int groove_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, 
     eighths = r->v[RF_SWING] < 550 && lib_kit_sampled(lib_song_kit(r));
     last_bar = bar == b->start + b->bars - 1;
     drop = (b->flags & PB_DROP_LAST) && (last_bar || ((b->flags & PB_DROP2) && bar == b->start + b->bars - 2));   /* 1 or 2 bars */
-    forced = last_bar && (b->flags & PB_FILL_DRUMS);   /* one asked for (Sections K3): heard on a drop too, its
+    forced = last_bar && (b->flags & PB_FILL_DRUMS);   /* one asked for (song_move_queue): heard on a drop too, its
                                                           snare and kick whatever the block's layers */
     fill = last_bar && (((b->flags & PB_FILL_LAST) && !drop) || forced);
 

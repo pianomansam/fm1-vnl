@@ -38,7 +38,7 @@ Other ways in:
   synths.
 - **Ten effects** in a lo-fi chain.
 - **Hands on:** change the key, tempo, mood or any part from the knobs, re-roll or lock a part, jump to or loop a
-  section, queue a fill, mute and solo, tap G5 to queue a stutter or hold it to stutter live, and save up to 16
+  section, queue a fill or a stutter for the section's end, mute and solo, hold G5 to stutter live, and save up to 16
   songs; every change lands in time.
 - **Fifteen themes:** color schemes for every screen, picked in Settings.
 - **On the FM-1:** a now-playing screen, a detailed main screen, a page per part, a screen reader and
@@ -98,9 +98,9 @@ Music theory drives VNL-1's decisions, from the key of the next song to the last
 
 ![The Parts screen: a lane each for drums, bass, accompaniment, lead and pad, with their notes over eight bars and the playhead](img/parts.png "Parts")
 
-**Sections:** jump to a section, loop it, stay on the song, or queue a fill.
+**Sections:** jump to a section, loop it, stay on the song, or queue a fill or a stutter for the section's end.
 
-![The Sections screen: a list of the song's sections with their lengths, the one playing marked; LOOP OFF, STAY ON SONG OFF and FILL OFF at the bottom](img/sections.png "Sections")
+![The Sections screen: a list of the song's sections with their lengths, the one playing marked; LOOP OFF, STAY ON SONG OFF and END OFF at the bottom](img/sections.png "Sections")
 
 **The Mixer:** a level, mute and solo per part.
 

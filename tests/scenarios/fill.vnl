@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# A fill on demand (the Sections screen's K3): left queues the drums' fill, right the comp's, the middle none; it plays
-# on the last bar of the section playing (the drums' from beat 4, the comp's from beat 3), then K3 shows OFF again;
-# queued once that bar's fill has begun, the next section's last bar. tests/scenarios/stutter.vnl's song: 56 bars at
-# 81 BPM (2963 ms a bar, a 16th 185 ms, bar 1 from about 1.46 s): an 8-bar intro, four 8-bar grooves, two lead blocks.
+# The move at the section's end, its fills (the Sections screen's K3, or F#3): K3 turned left of OFF queues the comp's
+# fill, further left the drums', right of OFF a simple stutter, then a complex one; the screen reader says each. A fill
+# plays on the last bar of the section playing (the drums' from beat 4, the comp's from beat 3), shown until it
+# begins, then OFF again; queued once that bar's fill has begun, the next section's last bar. tests/scenarios/stutter.vnl's
+# song: 56 bars at 81 BPM (2963 ms a bar, a 16th 185 ms, bar 1 from about 1.46 s): an 8-bar intro, four 8-bar grooves,
+# two lead blocks.
 listen
 wait 1400
 tap PLAY
@@ -10,68 +12,104 @@ wait 3000
 tap SEL
 wait 50
 said SECTIONS
-expect fill 0
-# left: the drums', for the intro's last bar (bar 8, from 0: 7)
+expect move 0
+# K3 through all five values, each said: left, the comp's fill, then the drums'; right through OFF to the stutters
 spin K3 -1
 wait 50
-said FILL DRUMS
-expect fill 1
-expect fill_at 7
+said END COMP FILL
+expect move 2
+spin K3 -1
+wait 50
+said END DRUM FILL
+expect move 1
+spin K3 1
+wait 50
+said END COMP FILL
+spin K3 1
+wait 50
+said END OFF
+expect move 0
+expect move_at -1
+spin K3 1
+wait 50
+said END STUTTER SIMPLE
+expect move 3
+spin K3 1
+wait 50
+said END STUTTER COMPLEX
+expect move 4
+# back left to the drums' fill (a new choice replaces the one waiting): for the intro's last bar (bar 8, from 0: 7)
+spin K3 -1
+wait 50
+spin K3 -1
+wait 50
+spin K3 -1
+wait 50
+spin K3 -1
+wait 50
+said END DRUM FILL
+expect move 1
+expect move_at 7
 expect fill_bar -1
-expect stutter 0
+expect key_blink 2
 shot fill-queued.png
-# the intro's last bar, its beat 4 (24.4-25.2 s): the fill plays, K3 still shows it
-wait 19850
+# the intro's last bar, before its beat 4 (22.2-24.4 s): landed, shown until it begins
+wait 18380
+expect bar 7
+expect move 1
+# its beat 4 (24.4-25.2 s): the fill plays, K3 back to OFF, F#3 dark
+wait 1200
 expect bar 7
 expect fill_bar 7
-expect fill 1
-# the next bar: played, OFF again, nothing waiting
+expect move 0
+expect key_blink 0
+# the next bar: played, nothing waiting
 wait 1500
 expect bar 8
-expect fill 0
 expect fill_bar -1
-expect fill_at -1
-# right: the comp's, for the first groove's last bar (bar 16, from 0: 15); back to the middle, cancelled; right again
-spin K3 1
+expect move_at -1
+# F#3 four times (STUTTER SIMPLE, STUTTER COMPLEX, DRUM FILL, COMP FILL): the comp's, for the first groove's last bar
+# (bar 16, from 0: 15)
+tapkey 1
+tapkey 1
+tapkey 1
+tapkey 1
 wait 50
-said FILL COMP
-expect fill 2
-expect fill_at 15
-spin K3 -1
-wait 50
-said FILL OFF
-expect fill 0
-expect fill_at -1
-spin K3 1
-wait 50
-said FILL COMP
-expect fill 2
-expect fill_at 15
+said END COMP FILL
+expect move 2
+expect move_at 15
 # the first groove's last bar, past its beat 3 (47.6-48.9 s): the comp's fill plays
-wait 21500
+wait 21100
 expect bar 15
 expect fill_bar 15
-expect fill 2
+expect move 0
 shot fill-playing.png
-# past that bar's beat 4 (its 14th 16th, about 48.4 s), turned left past the middle (through OFF: the rest of the comp's
-# cancelled), the drums': theirs has begun there, so they wait for the next section's last bar (bar 24, from 0: 23),
-# shown meanwhile
+# past that bar's beat 4 (its 14th 16th, about 48.4 s), turned left twice (the drums'): theirs has begun there, so they
+# wait for the next section's last bar (bar 24, from 0: 23), shown meanwhile
 wait 650
 turn K3 -2 20
 wait 50
-said FILL DRUMS
+said END DRUM FILL
 expect bar 15
-expect fill 1
-expect fill_at 23
-expect fill_bar -1
+expect move 1
+expect move_at 23
 wait 1000
 expect bar 16
-expect fill 1
+expect move 1
 # bar 24's beat 4 (71.8-72.6 s)
-wait 22560
+wait 22500
 expect bar 23
 expect fill_bar 23
-expect fill 1
-wait 1500
+expect move 0
+wait 2060
 expect bar 24
-expect fill 0
+expect move 0
+# the song's last section (bars 49-56, from 0: 48-55): no section's end left before the ending, so a move is dropped
+wait 73500
+expect bar 49
+spin K3 -1
+wait 50
+said END COMP FILL
+expect move 0
+expect move_at -1
+expect key_blink 0

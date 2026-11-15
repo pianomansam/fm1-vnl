@@ -54,29 +54,28 @@ int sthold_run(sthold_t *h, int down, int st, float s16)
     return r;
 }
 
-void sthold_key(sthold_t *h, int down, uint32_t pos)
+void sthold_key(sthold_t *h, int down)
 {
-    if (down && !h->down) h->t_down = pos;
-    h->down = (uint8_t)(down != 0);
+    if (down) h->press = h->down = 1;
+    else h->down = 0;
 }
 
-int sthold_song(sthold_t *h, song_t *s, int bar, int st, uint32_t pos)
+int sthold_song(sthold_t *h, song_t *s, int bar, int st)
 {
     const lead_state_t *ls = &s->lead;
-    int r, kind = h->requeue;
+    int r, move = h->requeue;
     if (h->lock && !vx_stutter_held()) {          /* stopped or ended since: a fresh press starts it */
         memset(h, 0, sizeof *h);
-        kind = 0;
+        move = 0;
     }
-    /* held: the tap window (and its margin) past the press (a tap, shorter, never catches: it queues one instead), or
-       holding on */
-    r = sthold_run(h, h->down && (h->on || (uint32_t)(pos - h->t_down) >= STH_TAP_SAMPLES), st, song_step_samples(s));
-    if (kind && st == 0) {                        /* the bar after one kept from its catch: queued again (unless
-                                                     another was queued since: the newer stands) */
+    r = sthold_run(h, h->down || h->press, st, song_step_samples(s));
+    h->press = 0;
+    if (move && st == 0) {                        /* the bar after one kept from its catch: queued again (unless
+                                                     another move was queued since: the newer stands) */
         h->requeue = 0;
-        if (!ls->loop.sq) song_stutter_queue(s, kind);
+        if (!song_move_shown(s)) song_move_queue(s, move);
     }
-    if (h->lock && ls->loop.sod && ls->loop.sbar == (unsigned)(bar + 1) && st == (ls->loop.sfig == 4 ? 8 : 12))
-        h->requeue = ls->loop.sfig >= 3 ? STUT_COMPLEX : STUT_SIMPLE;   /* its catch kept out by the hold */
+    if (h->lock && ls->loop.sod && ls->loop.sbar == (unsigned)(bar + 1) && st == stutter_catch(ls->loop.sfig))
+        h->requeue = ls->loop.sfig >= 3 ? MOVE_COMPLEX : MOVE_SIMPLE;   /* its catch kept out by the hold */
     return r;
 }

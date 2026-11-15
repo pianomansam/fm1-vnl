@@ -94,8 +94,8 @@ def font_names():
 RUNTIME_SOURCES = {"maps", "progs", "families", None}
 # Rows the screens name that rows.json lacks (the page builds them): rhythm, the Comp part's one Rhythm row (comp or
 # strumPat by fits.rhythmRow: ch_rhythm_row), loop (the workbench's Loop section switch), endless (Stay on song) and
-# stutter (a stutter on demand: the kind waiting), fill (a fill on demand: the kind waiting)
-VIRTUAL = ["rhythm", "loop", "endless", "stutter", "fill"]
+# move (the move at the section's end: song.h's MOVE_*, the one waiting)
+VIRTUAL = ["rhythm", "loop", "endless", "move"]
 ST = {"approved": 0, "candidate": 1, "retired": 2, "removed": 3}
 CH_HIDDEN, CH_ROLLED = 4, 8
 FAM = {None: 0, "acoustic": 1, "synth": 2, "electric": 3, "any": 4}   # CH_FAM: an instrument's or kit's family
@@ -137,10 +137,8 @@ def choices(row, opts):
         plain = lst(["None", "Rain"])
     elif src == "offOn":
         plain = lst(["Off", "On"])
-    elif src == "stutter":   # in turning order: left a simple one, the middle none, right a complex one (STUT_*)
-        plain = [(1, "Simple"), (0, "Off"), (2, "Complex")]
-    elif src == "fill":   # in turning order: left the drums, the middle none, right the comp (song.h's FILL_*)
-        plain = [(1, "Drums"), (0, "Off"), (2, "Comp")]
+    elif src == "move":   # in turning order: left the fills, the middle none, right the stutters (song.h's MOVE_*)
+        plain = [(1, "Drum fill"), (2, "Comp fill"), (0, "Off"), (3, "Stutter simple"), (4, "Stutter complex")]
     if plain is not None:
         return [(v, n.upper(), 0, 0, None, None) for v, n in plain]
     if src == "instruments":
@@ -245,8 +243,7 @@ def song_row(r):
 def gen_choices(rows, opts, shown):
     rows = rows["rows"] + [{"id": "rhythm", "kind": "virtual"}, {"id": "loop", "kind": "virtual", "source": "offOn"},
                             {"id": "endless", "kind": "virtual", "source": "offOn"},
-                            {"id": "stutter", "kind": "virtual", "source": "stutter"},
-                            {"id": "fill", "kind": "virtual", "source": "fill"}]
+                            {"id": "move", "kind": "virtual", "source": "move"}]
     fits = json.loads((WB / "rows.json").read_text())["fits"]
     s = Strings()
     entries, spans, fit_rows = [], [], []

@@ -13574,20 +13574,44 @@ static void test_lead_loop_stutters_same(void)
     CHECK(figs > 30 && diff == 0, "lead loop stutters same: %d bars differ (%d stutters)", diff, figs);
 }
 
-/* A stutter on demand (song_stutter_queue: G5 tapped): seeds 1-300, a kind queued at a bar and 16th
-   of the song drawn from the seed. It lands on the next group's last bar that isn't an intro's or an outro's (the bar
-   playing where it is one and its 9th 16th hasn't played), the queued kind's figure, and nowhere else; the screen
-   shows the kind until that bar ends, then nothing; with no such bar left it is dropped. Queued again before it
-   lands, the second kind plays; cancelled (0), none plays. */
+/* the bar (from 0) a move queued at bar at, 16th step (the next to play) lands on, worked out apart from song.c: the
+   section's last bar (never the outro's nor the song's last), at itself while the move's first 16th (the drums' 12,
+   the comp's 8, the stutter figure's catch) is still to come; -1 none */
+static int move_want(const song_t *s, int move, int at, int step)
+{
+    int B;
+    for (B = at; B < s->plan.bars; B++) {
+        const plan_block_t *b = plan_at(&s->plan, B);
+        int from = move == MOVE_DRUM_FILL ? 12 : move == MOVE_COMP_FILL ? 8
+                   : stutter_draw(&s->roll, move - 2, B) == 4 ? 8 : 12;
+        if (B == b->start + b->bars - 1 && b->section != SEC_OUTRO && B + 1 < s->plan.bars && (B > at || step <= from))
+            return B;
+    }
+    return -1;
+}
+
+/* the move's first 16th on bar (as move_want) */
+static int move_from_t(const song_t *s, int move, int bar)
+{
+    return move == MOVE_DRUM_FILL ? 12 : move == MOVE_COMP_FILL ? 8 : stutter_catch(stutter_draw(&s->roll, move - 2, bar));
+}
+
+/* A stutter queued as the move at the section's end (song_move_queue: Sections K3, F#3): seeds 1-300, a kind queued at
+   a bar and 16th of the song drawn from the seed. It lands on the section's last bar (never the outro's nor the
+   song's last; the bar playing where it is one and its figure's catch hasn't played), the queued kind's figure, and
+   nowhere else; the screen shows it until it catches, then nothing; with no such bar left it is dropped. A fill or the
+   other stutter queued first is replaced; cancelled (0), none plays. */
 static void test_stutter_on_demand(void)
 {
     static song_t s;
     song_ev_t ev[64];
     uint32_t seed;
-    long tried = 0, landed = 0, wrong = 0, shown = 0, dropped = 0, cancelled = 0, early = 0, kinds[3] = {0, 0, 0};
+    long tried = 0, landed = 0, wrong = 0, shown = 0, dropped = 0, cancelled = 0, early = 0, crossed = 0;
+    long kinds[3] = {0, 0, 0};
     for (seed = 1; seed <= 300; seed++) {
         song_roll_t r;
-        int at, step = (int)(seed * 7u % 16u), kind = 1 + (int)(seed % 2u), want = -1, got = -1, B, cancel;
+        int at, step = (int)(seed * 7u % 16u), kind = 1 + (int)(seed % 2u), move = kind + 2, want, got = -1, cancel;
+        int from;
         roll_song(NULL, seed, &r);
         song_start(&s, &r);
         at = (int)(seed * 13u % (unsigned)s.plan.bars);
@@ -13595,19 +13619,20 @@ static void test_stutter_on_demand(void)
         while (s.state == SS_PLAYING && !(s.bar == at && s.step == step)) song_tick(&s, ev, 64);
         if (s.state != SS_PLAYING) continue;
         tried++;
-        if (s.step > 0 && s.step <= 8 && stutter_lands(plan_at(&s.plan, at), at)) want = at;
-        for (B = s.step ? at + 1 : at; want < 0 && B < s.plan.bars; B++)
-            if (stutter_lands(plan_at(&s.plan, B), B)) want = B;
-        if (seed % 5u == 0) song_stutter_queue(&s, 3 - kind);   /* the other kind first: changed */
-        if (song_stutter_queue(&s, kind) != (want >= 0 ? kind : 0)) shown++;
-        if (cancel && song_stutter_queue(&s, 0) != 0) shown++;
+        want = move_want(&s, move, at, step);
+        if (seed % 5u == 0) song_move_queue(&s, 7 - move);   /* the other stutter first: replaced */
+        if (seed % 5u == 1) song_move_queue(&s, 1 + (int)(seed / 5u % 2u));   /* a fill first: replaced */
+        if (song_move_queue(&s, move) != (want >= 0 ? move : 0) || song_move_bar(&s, move) != want) shown++;
+        if (cancel && song_move_queue(&s, 0) != 0) shown++;
         if (want < 0) { dropped++; continue; }
+        from = move_from_t(&s, move, want);
+        crossed += want > at && plan_at(&s.plan, at)->start + plan_at(&s.plan, at)->bars - 1 == at;
         while (s.state == SS_PLAYING) {
-            int bar = s.bar, st = s.step, sh = song_stutter_shown(&s);
-            if (!cancel && bar <= want && sh != kind && !(bar == want && st == 0 && sh == 0)) shown++;
-            if ((bar > want || cancel) && st > 0 && sh != 0) shown++;
+            int bar = s.bar, st = s.step, sh = song_move_shown(&s);
+            if (sh != (!cancel && (bar < want || (bar == want && st <= from)) ? move : 0)) shown++;
             song_tick(&s, ev, 64);
-            if (st != 0 && !(bar == at && st == step)) continue;
+            if (s.fill_kind || s.fill_q) wrong++;            /* (the fill queued first: never plays) */
+            if (st != 15) continue;
             if (s.lead.loop.sod && s.lead.loop.sbar == bar + 1) {   /* a stutter on demand on this bar */
                 if (got >= 0 || bar != want || cancel) wrong++;
                 got = bar;
@@ -13619,20 +13644,22 @@ static void test_stutter_on_demand(void)
         else if (got == want) landed++;
         else { wrong++; if (got < 0) early++; }
     }
-    printf("stutter on demand: %ld queued: %ld landed where wanted, %ld cancelled, %ld dropped (none left); %ld wrong, "
-           "%ld shown wrong; kinds %ld simple, %ld complex\n", tried, landed, cancelled, dropped, wrong, shown,
-           kinds[1], kinds[2]);
-    CHECK(tried > 250 && landed > 150 && cancelled > 20 && wrong == 0 && shown == 0 && kinds[1] > 50 && kinds[2] > 50,
-          "stutter on demand: %ld queued, %ld landed, %ld cancelled, %ld wrong (%ld missed), %ld shown wrong", tried,
-          landed, cancelled, wrong, early, shown);
+    printf("stutter on demand: %ld queued: %ld landed where wanted (%ld past the catch: the next section's), %ld "
+           "cancelled, %ld dropped (none left); %ld wrong, %ld shown wrong; kinds %ld simple, %ld complex\n", tried,
+           landed, crossed, cancelled, dropped, wrong, shown, kinds[1], kinds[2]);
+    CHECK(tried > 250 && landed > 150 && cancelled > 20 && wrong == 0 && shown == 0 && kinds[1] > 50 && kinds[2] > 50 &&
+          crossed > 3, "stutter on demand: %ld queued, %ld landed, %ld cancelled, %ld wrong (%ld missed), %ld shown "
+          "wrong, %ld crossed", tried, landed, cancelled, wrong, early, shown, crossed);
 }
 
-/* A fill on demand (song_fill_queue: the Sections screen's K3), drums and comp: each song played as it stands, then
-   again with a fill queued at a bar and 16th drawn from the seed, the kind's part (the drums, or the comp) hashed per
-   bar apart from the rest. Only the bar song_fill_bar named when it was queued (the section's last; the next section's
-   where its fill had begun) changes, and there only the kind's part: every other bar's events, and the other parts'
-   there, the same. The comp's fill notes are its chord's tones. The screen shows the kind from the queue to that
-   bar's end, then nothing. Songs 1-160, then 6 on each set whose comp is approved (the set forced). */
+/* A move at the section's end (song_move_queue), each of the four: each song played as it stands, then again with the
+   move queued at a bar and 16th drawn from the seed, the move's own part (the drums, the comp, or the bar's stutter
+   figure) hashed per bar apart from the rest. Only the bar move_want names (the section's last; the next section's
+   where the move would have begun) changes, and there only the move's part (a stutter: the rest may move in that bar
+   alone, the lead loop's drop before a section change skipping a stuttering bar, and so the lead's push into it from
+   the bar before): every other bar's events and stutters, and for a fill the other parts' there, the same. It lands where song_move_bar said. The comp's fill notes
+   are its chord's tones. The screen shows the move from the queue until it begins, then nothing. Songs 1-240, then 6
+   on each set whose comp is approved (the set forced). */
 static uint32_t fill_hash(uint32_t h, const song_ev_t *e, int st)
 {
     h = (h ^ (uint32_t)(st * 131 + e->voice)) * 16777619u;
@@ -13641,32 +13668,40 @@ static uint32_t fill_hash(uint32_t h, const song_ev_t *e, int st)
     return (h ^ e->len) * 16777619u;
 }
 
-/* the song played (queued: kind at bar at, 16th step), into part[bar][0] the kind's part, [1] the rest; returns the
-   bar song_fill_bar named (-1 none, or not queued); *landed the bar it landed on */
-static int fill_play(song_t *s, const song_roll_t *r, int queue, int at, int step, int kind, uint32_t part[][2],
+/* the song played (queued: move at bar at, 16th step), into part[bar][0] the move's part, [1] the rest, [2] the
+   lead's notes where a stutter is queued (else in the rest); returns the
+   bar song_move_bar named (-1 none, or not queued; *shown_bad counted where move_want differs); *landed the bar it
+   landed on */
+static int move_play(song_t *s, const song_roll_t *r, int queue, int at, int step, int move, uint32_t part[][3],
                      int *landed, int *shown_bad, int *off_chord)
 {
     song_ev_t ev[64];
-    int i, want = -1, asked = 0;
+    int i, want = -1, asked = 0, from = 99;
     const lib_prog_t *pr;
     song_start(s, r);
     pr = lib_prog_by_id((uint8_t)s->roll.v[RF_PROG]);
-    for (i = 0; i < 256; i++) part[i][0] = part[i][1] = 2166136261u;
+    for (i = 0; i < 256; i++) part[i][0] = part[i][1] = part[i][2] = 2166136261u;
     *landed = -1;
     while (s->state == SS_PLAYING) {
         int bar = s->bar, st = s->step, n;
         if (queue && bar == at && st == step) {
-            want = song_fill_bar(s, kind);
+            want = song_move_bar(s, move);
             asked = 1;
-            if (song_fill_queue(s, kind) != (want >= 0 ? kind : 0)) ++*shown_bad;
+            if (want != move_want(s, move, at, step)) ++*shown_bad;
+            if (song_move_queue(s, move) != (want >= 0 ? move : 0)) ++*shown_bad;
+            if (want >= 0) from = move_from_t(s, move, want);
         }
-        if (asked && song_fill_shown(s) != (bar <= want ? kind : 0)) ++*shown_bad;
+        if (asked && song_move_shown(s) != (bar < want || (bar == want && st <= from) ? move : 0)) ++*shown_bad;
         n = song_tick(s, ev, 64);
-        if (s->fill_kind && s->fill_bar == bar + 1) *landed = bar;
+        if (move < MOVE_SIMPLE ? s->fill_kind && s->fill_bar == bar + 1
+                               : st == 15 && s->lead.loop.sod && s->lead.loop.sbar == bar + 1) *landed = bar;
+        if (st == 15 && bar < 256 && move >= MOVE_SIMPLE)   /* the bar's stutter, as planned */
+            part[bar][0] = (part[bar][0] ^ (s->lead.loop.sbar == bar + 1 ? s->lead.loop.sfig : 0u)) * 16777619u;
         for (i = 0; i < n && bar < 256; i++) {
-            int mine = kind == FILL_COMP ? ev[i].voice == V_CHORD : ev[i].voice >= V_KICK;
-            part[bar][mine ? 0 : 1] = fill_hash(part[bar][mine ? 0 : 1], &ev[i], st);
-            if (queue && kind == FILL_COMP && mine && bar == want && st >= 8) {   /* the fill's notes: chord tones */
+            int mine = move == MOVE_COMP_FILL ? ev[i].voice == V_CHORD : move == MOVE_DRUM_FILL && ev[i].voice >= V_KICK;
+            int slot = mine ? 0 : move >= MOVE_SIMPLE && ev[i].voice == V_LEAD ? 2 : 1;
+            part[bar][slot] = fill_hash(part[bar][slot], &ev[i], st);
+            if (queue && move == MOVE_COMP_FILL && mine && bar == want && st >= 8) {   /* the fill's notes: chord tones */
                 int pcs[5], np, j, in = 0, loop = pr && pr->n * pr->bars_per_chord ? pr->n * pr->bars_per_chord : 4;
                 np = harmony_chord_at(&s->roll, bar, bar / loop + 1, 0, pcs);
                 for (j = 0; j < np; j++) in |= (ev[i].note - pcs[j] + 120) % 12 == 0;
@@ -13677,23 +13712,23 @@ static int fill_play(song_t *s, const song_roll_t *r, int queue, int at, int ste
     return want;
 }
 
-static void test_fill_on_demand(void)
+static void test_move_on_demand(void)
 {
     static song_t s;
-    static uint32_t ref[256][2], got[256][2];
-    long tried[3] = {0, 0, 0}, landed[3] = {0, 0, 0}, heard[3] = {0, 0, 0}, moved = 0, crossed = 0, wrong = 0;
-    long dropped = 0, owned[3] = {0, 0, 0};
+    static uint32_t ref[256][3], got[256][3];
+    long tried[5] = {0}, landed[5] = {0}, heard[5] = {0}, owned[5] = {0}, moved = 0, crossed = 0, wrong = 0;
+    long dropped = 0;
     int shown = 0, off_chord = 0, ins_n[INS_NONE + 1], ins_heard[INS_NONE + 1], i, k;
     memset(ins_n, 0, sizeof ins_n);
     memset(ins_heard, 0, sizeof ins_heard);
-    for (k = 0; k < 160 + LIB_NSETS * 6; k++) {
-        uint32_t seed = k < 160 ? (uint32_t)k + 1u : 9000u + (uint32_t)k;
+    for (k = 0; k < 240 + LIB_NSETS * 6; k++) {
+        uint32_t seed = k < 240 ? (uint32_t)k + 1u : 9000u + (uint32_t)k;
         song_roll_t r;
         const lib_set_t *set;
-        int at, step, kind, l, ign = 0, want, bar, ch;
+        int at, step, move, l, ign = 0, want, bar, ch;
         roll_song(NULL, seed, &r);
-        if (k >= 160) {
-            set = &LIB_SETS[(k - 160) / 6];
+        if (k >= 240) {
+            set = &LIB_SETS[(k - 240) / 6];
             if (set->chords >= INS_NONE || lib_keys_approved(set->chords) != set->chords || !lib_set_playable(set))
                 continue;
             r.v[RF_SET] = set->id;
@@ -13703,10 +13738,10 @@ static void test_fill_on_demand(void)
         song_start(&s, &r);
         at = (int)(seed * 13u % (unsigned)s.plan.bars);
         step = (int)(seed * 7u % 16u);
-        kind = 1 + (int)(seed % 2u);
-        fill_play(&s, &r, 0, 0, 0, kind, ref, &l, &ign, &ign);
-        want = fill_play(&s, &r, 1, at, step, kind, got, &l, &shown, &off_chord);
-        tried[kind]++;
+        move = k >= 240 ? MOVE_COMP_FILL : 1 + (int)(seed % 4u);
+        move_play(&s, &r, 0, 0, 0, move, ref, &l, &ign, &ign);
+        want = move_play(&s, &r, 1, at, step, move, got, &l, &shown, &off_chord);
+        tried[move]++;
         if (want < 0) {
             dropped++;
             wrong += l >= 0;
@@ -13714,34 +13749,42 @@ static void test_fill_on_demand(void)
         }
         {
             const plan_block_t *b = plan_at(&s.plan, at), *w = plan_at(&s.plan, want);
-            int own = (w->flags & (PB_FILL_LAST | PB_DROP_LAST)) == PB_FILL_LAST &&   /* the song's own fill there */
-                      (kind == FILL_DRUMS || (harmony_style(&s.roll) == CS_STRUM && strum_fill_drive(&s.roll)));
+            int own = move < MOVE_SIMPLE && (w->flags & (PB_FILL_LAST | PB_DROP_LAST)) == PB_FILL_LAST &&   /* the
+                                                                                     song's own fill there */
+                      (move == FILL_DRUMS || (harmony_style(&s.roll) == CS_STRUM && strum_fill_drive(&s.roll)));
             int h = got[want][0] != ref[want][0];
-            crossed += at == b->start + b->bars - 1 && want != at;   /* its fill begun: the next section's */
-            if (l == want) landed[kind]++;
+            crossed += at == b->start + b->bars - 1 && want != at;   /* begun there: the next section's */
+            if (l == want) landed[move]++;
             else wrong++;
             for (bar = 0; bar < s.plan.bars; bar++)
-                moved += got[bar][1] != ref[bar][1] || (bar != want && got[bar][0] != ref[bar][0]);
-            heard[kind] += h || own;
-            owned[kind] += !h && own;
-            if (kind == FILL_COMP) {
+                moved += (bar != want && (got[bar][1] != ref[bar][1] || got[bar][0] != ref[bar][0])) ||
+                         (bar != want && bar + 1 != want && got[bar][2] != ref[bar][2]);
+            if (move < MOVE_SIMPLE) moved += got[want][1] != ref[want][1];
+            if (move >= MOVE_SIMPLE) own = !h;           /* the song's own stutter there was the same figure */
+            heard[move] += h || own;
+            owned[move] += !h && own;
+            if (move == MOVE_COMP_FILL) {
                 ins_n[ch]++;
                 ins_heard[ch] += h || own;
             }
         }
     }
-    printf("fill on demand: drums %ld queued, %ld landed, %ld heard (%ld the song's own fill already); comp %ld, %ld, "
-           "%ld (%ld); %ld in the next section (begun), %ld dropped; %ld wrong, %ld bars or parts moved, %d shown "
-           "wrong, %d comp notes off the chord\n  comp heard by instrument:", tried[1], landed[1], heard[1], owned[1],
-           tried[2], landed[2], heard[2], owned[2], crossed, dropped, wrong, moved, shown, off_chord);
+    printf("move on demand: drum fill %ld queued, %ld landed, %ld heard (%ld the song's own already); comp fill %ld, "
+           "%ld, %ld (%ld); simple stutter %ld, %ld, %ld (%ld); complex stutter %ld, %ld, %ld (%ld); %ld in the next "
+           "section (begun), %ld dropped; %ld wrong, %ld bars or parts moved, %d shown wrong, %d comp notes off the "
+           "chord\n  comp heard by instrument:", tried[1], landed[1], heard[1], owned[1], tried[2], landed[2],
+           heard[2], owned[2], tried[3], landed[3], heard[3], owned[3], tried[4], landed[4], heard[4], owned[4],
+           crossed, dropped, wrong, moved, shown, off_chord);
     for (i = 0; i <= INS_NONE; i++)
         if (ins_n[i]) printf(" %d %d/%d", i, ins_heard[i], ins_n[i]);
     printf("\n");
-    CHECK(tried[1] > 100 && tried[2] > 100 && wrong == 0 && moved == 0 && shown == 0 && off_chord == 0,
-          "fill on demand: %ld wrong, %ld moved, %d shown wrong, %d off the chord", wrong, moved, shown, off_chord);
-    CHECK(heard[1] == landed[1] && heard[2] == landed[2] && crossed > 3,
-          "fill on demand: heard %ld of %ld drum fills, %ld of %ld comp fills; %ld in the next section", heard[1],
-          landed[1], heard[2], landed[2], crossed);
+    CHECK(tried[1] > 40 && tried[2] > 100 && tried[3] > 40 && tried[4] > 40 && wrong == 0 && moved == 0 && shown == 0 &&
+          off_chord == 0, "move on demand: %ld wrong, %ld moved, %d shown wrong, %d off the chord", wrong, moved,
+          shown, off_chord);
+    CHECK(heard[1] == landed[1] && heard[2] == landed[2] && heard[3] == landed[3] && heard[4] == landed[4] &&
+          crossed > 3, "move on demand: heard %ld of %ld drum fills, %ld of %ld comp fills, %ld of %ld simple, %ld of "
+          "%ld complex stutters; %ld in the next section", heard[1], landed[1], heard[2], landed[2], heard[3],
+          landed[3], heard[4], landed[4], crossed);
 }
 
 /* A live change re-records: (a) a key change (song_request): once it lands, the lead's notes are in the new key's
@@ -14726,7 +14769,7 @@ int main(int argc, char **argv)
     RUN(test_lead_loop_moves);
     RUN(test_lead_loop_stutters_same);
     RUN(test_stutter_on_demand);
-    RUN(test_fill_on_demand);
+    RUN(test_move_on_demand);
     RUN(test_lead_loop_rerecords);
     RUN(test_lead_loop_entry_step0);
     RUN(test_lead_loop_jazzhop_riff);

@@ -14,9 +14,9 @@
      entry)
      simple (1 an 8th repeat, 2 a 16th roll; evenly): ST_SIMPLE in 1000 of the other group-last bars, the filtered
      ones too (about 1 a song)
-   On demand (G5 tapped): a kind queued (lead_state_t's loop.sq) plays, its figure drawn evenly within
-   the kind, on the next group's last bar that isn't an intro's or an outro's (the rules above aside), in place of
-   the song's own there; queued before a group's last bar's 9th 16th, that bar (song_stutter_queue).
+   On demand (a move at the section's end: Sections K3, F#3): a kind queued (lead_state_t's loop.sq) plays, its figure
+   drawn evenly within the kind, on a section's last bar (move_lands; the rules above aside), in place of the song's
+   own there (song_move_queue: that bar itself before its figure's catch).
    A stuttering bar's notes play as planned (the lead loop's drop before a section change skips it); the engine
    stutters the whole mix at the bar's end in the figure (voices.c's vx_stutter_fig), the next downbeat live. */
 #include <stdint.h>
@@ -43,10 +43,12 @@ int stutter_group_last(const plan_block_t *b, int bar)
     return (g8 ? k & 7 : k & 3) == (g8 ? 7 : 3);
 }
 
-int stutter_lands(const plan_block_t *b, int bar)
+int move_lands(const plan_block_t *b, int bar)
 {
-    return stutter_group_last(b, bar) && b->section != SEC_INTRO && b->section != SEC_OUTRO;
+    return b && bar == b->start + b->bars - 1 && b->section != SEC_OUTRO && b[1].bars;
 }
+
+int stutter_catch(int fig) { return fig == 4 ? 8 : 12; }
 
 /* bar's block's neighbor b may be bar's own or the one before (bar - 1 crossing a block line) */
 static const plan_block_t *block_of(const plan_block_t *b, int bar)
@@ -141,14 +143,14 @@ int stutter_draw(const song_roll_t *r, int kind, int bar)
 int stutter_at(const song_roll_t *r, const lead_state_t *ls, const plan_block_t *b, int bar)
 {
     if (ls->loop.sbar == bar + 1) return ls->loop.sfig;   /* planned already */
-    if (ls->loop.sq && stutter_lands(b, bar)) return stutter_draw(r, ls->loop.sq, bar);
+    if (ls->loop.sq && move_lands(b, bar)) return stutter_draw(r, ls->loop.sq, bar);
     return stutter_song(r, ls, b, bar);
 }
 
 void stutter_plan_bar(lead_state_t *ls, const song_roll_t *r, const plan_block_t *b, int bar)
 {
     int f;
-    if (ls->loop.sq && stutter_lands(b, bar)) {     /* the one queued lands */
+    if (ls->loop.sq && move_lands(b, bar)) {     /* the one queued lands */
         f = stutter_draw(r, ls->loop.sq, bar);
         ls->loop.sq = 0;
         ls->loop.sod = 1;

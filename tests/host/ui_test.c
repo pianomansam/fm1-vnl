@@ -175,12 +175,10 @@ static int e_muted(int p) { return eng_muted[p]; }
 static int e_soloed(void) { return eng_solo; }
 static void e_level(int p, int db) { eng_level[p] = db; logf_("level", p, db); }
 static int e_level_get(int p) { return eng_level[p]; }
-static int eng_stut;
 static void e_stutter(int on) { logf_("stutter", on, 0); }
-static int e_stuttering(void) { return eng_stut; }
 static const ui_engine_t ENG = {e_set, e_play, e_reroll, e_reroll_part, e_jump, e_mute, e_solo, e_muted, e_soloed,
                                 e_level, e_level_get, 0, 0, 0, 0, 0, 0, 0,   /* (saved songs, settings: none) */
-                                e_stutter, e_stuttering};
+                                e_stutter};
 
 static void nav_fresh(ui_nav_t *n, snap_t *s, int bar)
 {
@@ -492,70 +490,59 @@ static void test_kit_pick(void)
     CHECK(room_br > 0, "no sunny song in 300 picked Room - brushes");
 }
 
-/* G5 (key 26) held past the tap window (STH_TAP_MS): the stutter on while down (the engine told at once; it times
-   the window itself), off when let go (on whatever screen by then); said once held; lit while the engine says it
-   plays. Tapped (let go within the window: 80, 150 and 250 ms presses, read a 90 ms frame apart as the FM-1 reads its
-   keys): each tap the next stutter on demand (set ROW_STUTTER: 1 simple, 2 complex, 0 none), said; G5 blinks while
-   one waits, slowly for simple, quickly for complex. Stopped, a tap queues too (the engine's hold isn't told) */
+/* G5 (key 26) held: the stutter on while down (the engine told at once, said), off when let go (on whatever screen by
+   then); a short press the same, no move queued; never lit (its LED doesn't work). F#3 (key 1), on any screen: each
+   press the next move at the section's end (set ROW_MOVE: 3 simple stutter, 4 complex, 1 drum fill, 2 comp fill, 0
+   off), said; it blinks while one waits (the shared blink: *blink), on Sections too; stopped, a press queues too */
 static void test_nav_stutter(void)
 {
     ui_nav_t n;
     snap_t s;
-    static const uint32_t DOWN[3] = {3000, 3100, 3260}, LEN[3] = {80, 150, 250};
-    uint32_t on, blink, t, f;
+    static const int NEXT[6] = {3, 4, 1, 2, 0, 3};
+    static const char *const SAID[6] = {"END STUTTER SIMPLE", "END STUTTER COMPLEX", "END DRUM FILL", "END COMP FILL",
+                                        "END OFF", "END STUTTER SIMPLE"};
+    uint32_t on, blink, t;
     char want[96];
     nav_fresh(&n, &s, 2);
-    eng_stut = 0;
     n.said[0] = 0;
     ui_key(&n, 26, 1, 1000);
-    CHECK(!strcmp(eng_log, "stutter 1 0") && !n.said[0], "G5 down: %s, said %s", eng_log, n.said);
-    ui_tick(&n, 1000 + 15000u / (uint32_t)s.roll.v[RF_TEMPO] + 5u);
-    CHECK(!n.said[0], "past a 16th (the old threshold), within the window: undecided (said %s)", n.said);
-    ui_tick(&n, 1000 + STH_TAP_MS - 5u);
-    CHECK(!n.said[0], "not yet the window: undecided (said %s)", n.said);
-    ui_tick(&n, 2000);                         /* held past the window: the held stutter, said */
-    CHECK(!strcmp(n.said, "STUTTER"), "G5 held: said %s", n.said);
+    CHECK(!strcmp(eng_log, "stutter 1 0") && !strcmp(n.said, "STUTTER"), "G5 down: %s, said %s", eng_log, n.said);
+    ui_tick(&n, 2000);
     on = ui_key_lights(&n, &s, &blink);
-    CHECK(!(on >> 26 & 1u), "G5 dark until the engine's stutter plays (%x)", on);
-    eng_stut = 1;
-    on = ui_key_lights(&n, &s, &blink);
-    CHECK(on >> 26 & 1u, "G5 lit while it plays (%x)", on);
+    CHECK(!(on >> 26 & 1u) && !(blink >> 26 & 1u), "G5 never lit (%x, %x)", on, blink);
     ui_press(&n, UC_IN_SEL, 1);                /* to Sections (its keys jump; G5 still the stutter's) */
-    on = ui_key_lights(&n, &s, &blink);
-    CHECK(shown(&n) == US_SECTIONS && (on >> 26 & 1u), "Sections: G5 lit too (%x)", on);
     eng_log[0] = 0;
     n.said[0] = 0;
     ui_key(&n, 26, 0, 2500);
     CHECK(!strcmp(eng_log, "stutter 0 0") && !n.said[0], "G5 up on another screen: %s, said %s", eng_log, n.said);
-    eng_stut = 0;
-    for (t = 0; t < 3; t++) {                  /* three taps: simple, complex, none */
-        static const char *const SAID[3] = {"STUTTER SIMPLE", "STUTTER COMPLEX", "STUTTER OFF"};
+    eng_log[0] = 0;
+    ui_key(&n, 26, 1, 2600);
+    ui_key(&n, 26, 0, 2680);
+    CHECK(!strcmp(eng_log, "stutter 1 0; stutter 0 0"), "G5 tapped: the hold only (%s)", eng_log);
+    for (t = 0; t < 6; t++) {                  /* F#3: the moves in turn (3 on the main screen, 3 on Sections) */
+        if (t == 3) ui_press(&n, UC_IN_SEL, 1);
         eng_log[0] = 0;
-        ui_key(&n, 26, 1, DOWN[t]);
-        for (f = 90; f < LEN[t]; f += 90) ui_tick(&n, DOWN[t] + f);   /* the frames while it's down */
-        ui_key(&n, 26, 0, DOWN[t] + LEN[t]);
-        snprintf(want, sizeof want, "stutter 1 0; stutter 0 0; set %d %d", ROW_STUTTER, (int)(t + 1) % 3);
-        CHECK(!strcmp(eng_log, want) && !strcmp(n.said, SAID[t]), "G5 tap %u: %s, said %s", t + 1, eng_log, n.said);
+        ui_key(&n, 1, 1, 3000 + t * 100);
+        ui_key(&n, 1, 0, 3050 + t * 100);
+        snprintf(want, sizeof want, "set %d %d", ROW_MOVE, NEXT[t]);
+        CHECK(!strcmp(eng_log, want) && !strcmp(n.said, SAID[t]), "F#3 press %u: %s, said %s", t + 1, eng_log, n.said);
     }
-    s.rows[ROW_STUTTER] = 1;                   /* a simple one waits: G5 blinks slowly, a complex one quickly */
-    CHECK(ui_stutter_blink(&n, &s) == 400, "simple: %d ms", ui_stutter_blink(&n, &s));
-    ui_tick(&n, 4400);
+    s.rows[ROW_MOVE] = 0;
     on = ui_key_lights(&n, &s, &blink);
-    ui_tick(&n, 4800);
-    CHECK((on >> 26 & 1u) && !(ui_key_lights(&n, &s, &blink) >> 26 & 1u), "simple: G5 on, then off");
-    s.rows[ROW_STUTTER] = 2;
-    CHECK(ui_stutter_blink(&n, &s) == 125, "complex: %d ms", ui_stutter_blink(&n, &s));
-    eng_stut = 1;
-    CHECK(ui_stutter_blink(&n, &s) == 0, "the held stutter playing: lit, not blinking");
-    eng_stut = 0;
-    snap_for(&s, UI_FX_SEED, 2, 0);            /* stopped: a tap queues (for when the song plays) */
+    CHECK(!(blink & 2u) && !(on & 2u), "nothing waiting: F#3 dark (%x, %x)", on, blink);
+    s.rows[ROW_MOVE] = MOVE_DRUM_FILL;         /* one waits: F#3 blinks, here and on Sections */
+    on = ui_key_lights(&n, &s, &blink);
+    CHECK((blink & 2u) && !(on & 2u), "a move waiting: F#3 blinks (%x, %x)", on, blink);
+    ui_press(&n, UC_IN_SEL, 1);
+    on = ui_key_lights(&n, &s, &blink);
+    CHECK(shown(&n) == US_SECTIONS && (blink & 2u), "Sections: F#3 blinks too (%x)", blink);
+    snap_for(&s, UI_FX_SEED, 2, 0);            /* stopped: a press queues (for when the song plays) */
     ui_update(&n, &s, 6000);
     eng_log[0] = 0;
-    n.said[0] = 0;
-    ui_key(&n, 26, 1, 6000);
-    ui_key(&n, 26, 0, 6050);
-    snprintf(want, sizeof want, "stutter 0 0; set %d 1", ROW_STUTTER);
-    CHECK(!strcmp(eng_log, want) && !strcmp(n.said, "STUTTER SIMPLE"), "stopped, G5 tapped: %s, said %s", eng_log,
+    ui_key(&n, 1, 1, 6000);
+    ui_key(&n, 1, 0, 6050);
+    snprintf(want, sizeof want, "set %d 3", ROW_MOVE);
+    CHECK(!strcmp(eng_log, want) && !strcmp(n.said, "END STUTTER SIMPLE"), "stopped, F#3: %s, said %s", eng_log,
           n.said);
 }
 

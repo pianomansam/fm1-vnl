@@ -520,7 +520,9 @@ export const ENCODERS = ["SELECT", "ALGO", "PRESET"];
 export const KNOBS = ["K1", "K2", "K3", "K4"];
 export const LONG_MS = 500;   // a long press (a key)
 export const HOLD_MS = 600;   // a button held (SEQ on a part's screen: its lock; nav.h's UI_HOLD_MS)
-export const TAP_MS = 300;   // G5's tap window: let go within it, a tap; held past it, the hold (sthold.h's STH_TAP_MS)
+// the moves at the section's end by value (song.h's MOVE_*, the move row's names), and F#3's next from each
+export const MOVES = ["OFF", "DRUM FILL", "COMP FILL", "STUTTER SIMPLE", "STUTTER COMPLEX"];
+const MOVE_NEXT = [3, 2, 0, 4, 1];
 const holdMs = (control) => (control.startsWith("KEY") ? LONG_MS : HOLD_MS);
 
 // A control's action on a screen (the screen's own, else the defaults'; null: none)
@@ -748,8 +750,8 @@ export class Device {
   keyDown(control) {
     this.splashAt = undefined;
     const a = actionOf(this.data, this.id, control);
-    if (a?.do === "stutter") {   // tapped or held, and let go (whatever the screen by then: nav.c's hold); fired once
-      this.held[control] = { t: this.now(), fired: false, a };   // held past the tap window (tick)
+    if (a?.do === "stutter") {   // held, and let go (whatever the screen by then: nav.c's hold)
+      this.held[control] = { t: this.now(), fired: true, a };
       return this.press(control, 1, a);
     }
     if (!a?.long) return this.press(control);
@@ -759,11 +761,7 @@ export class Device {
   keyUp(control) {
     const h = this.held[control];
     delete this.held[control];
-    if (h?.a.do === "stutter") {
-      const r = this.press(control, 0, h.a);
-      if (!h.fired && this.now() - h.t < TAP_MS) this.stutterTap();   // let go within the tap window: a tap
-      return r;
-    }
+    if (h?.a.do === "stutter") return this.press(control, 0, h.a);
     return h && !h.fired ? this.press(control, 1, h.a) : null;
   }
   // the live state for Claude (docs/superpowers/plans/2026-11-06-device-screens.md, "Live state"): what plays and what
@@ -813,36 +811,14 @@ export class Device {
         if (this.jumpReq?.i === i) blink.add(key);
       });
     }
-    // on any screen: a stutter's key (G5) lit while the held stutter plays, blinking while one on demand waits
-    // (stutterBlink: slow for a simple one, quick for a complex one)
-    const sb = this.stutterBlink();
-    if ((this.stutterOn && this.live?.playing) || (sb && Math.floor(this.now() / sb) % 2))
-      for (let i = 0; i < 27; i++) if (actionOf(this.data, this.id, `KEY${i}`)?.do === "stutter") on.add(i);
+    // on any screen: the move key (F#3) blinking while a move at the section's end waits
+    if (this.live?.rows?.values?.move)
+      for (let i = 0; i < 27; i++) if (actionOf(this.data, this.id, `KEY${i}`)?.do === "move") blink.add(i);
     return { on, blink };
   }
-  // G5's blink while a stutter on demand waits: its half period (ms), 0 none (nav.c's ui_stutter_blink)
-  stutterBlink() {
-    const k = this.live?.rows?.values?.stutter ?? 0;
-    return this.stutterOn && this.live?.playing ? 0 : k === 1 ? 400 : k === 2 ? 125 : 0;
-  }
-  // G5 tapped: a stutter on demand for the next group's last bar, each tap the next kind: SIMPLE, COMPLEX, OFF
-  stutterTap() {
-    const now = this.now(), cur = this.stutSent && now - this.stutSent.t < 300 ? this.stutSent.k : this.live?.rows?.values?.stutter ?? 0;
-    const next = cur === 1 ? 2 : cur === 2 ? 0 : 1;
-    this.stutSent = { k: next, t: now };
-    this.engine.set("stutter", next);
-    this.say("STUTTER", ["OFF", "SIMPLE", "COMPLEX"][next]);
-  }
-  tick() {   // a held key past LONG_MS (a button HOLD_MS): its long action, once; G5 past the tap window: the hold
-    for (const [c, h] of Object.entries(this.held)) {
-      if (h.fired) continue;
-      if (h.a.do === "stutter") {
-        if (this.now() - h.t >= TAP_MS) {
-          h.fired = true;
-          if (this.live?.playing) { this.stutterOn = true; this.say("STUTTER"); }
-        }
-      } else if (this.now() - h.t >= holdMs(c)) { h.fired = true; this.press(c, 1, h.a.long); }
-    }
+  tick() {   // a held key past LONG_MS (a button HOLD_MS): its long action, once
+    for (const [c, h] of Object.entries(this.held))
+      if (!h.fired && this.now() - h.t >= holdMs(c)) { h.fired = true; this.press(c, 1, h.a.long); }
   }
 
   press(control, detents = 1, a = actionOf(this.data, this.id, control)) {
@@ -940,8 +916,16 @@ export class Device {
     }
     if (a.do === "readout") { this.engine.readout?.(); return null; }   // the device's measures (SAVE held: Song)
     if (a.do === "stutter") {   // G5 held (detents 1 down, 0 up): the whole mix stutters, only while a song plays
-      if (!detents) { this.engine.stutterHold?.(false); this.stutterOn = false; }
-      else if (this.live?.playing) this.engine.stutterHold?.(true);   // (the engine's hold from the window on: tick)
+      if (!detents) this.engine.stutterHold?.(false);
+      else if (this.live?.playing) { this.engine.stutterHold?.(true); this.say("STUTTER"); }
+      return null;
+    }
+    if (a.do === "move") {   // F#3: the next move at the section's end (nav.c's UA_MOVE), said; any screen, even stopped
+      const now = this.now(), cur = this.moveSent && now - this.moveSent.t < 300 ? this.moveSent.k : this.live?.rows?.values?.move ?? 0;
+      const next = MOVE_NEXT[cur] ?? 3;
+      this.moveSent = { k: next, t: now };
+      this.engine.set("move", next);
+      this.say("END", MOVES[next]);
       return null;
     }
     if (a.do === "setting") {   // the highlighted line's action (Settings: a knob changes the line's value)
@@ -982,7 +966,6 @@ export class Device {
     }
     if (a.do === "play") {
       this.say(this.live?.playing ? "STOP" : "PLAY");
-      this.stutterOn = false;   // (a stop ends a held stutter; a fresh press starts one: app.c's)
       this.engine.play();
     } else if (a.do === "turn" || a.do === "nudge") {
       const field = a.byCursor ? a.byCursor[this.cursor[this.id] ?? 0] : a.field;   // byCursor: the highlighted line's

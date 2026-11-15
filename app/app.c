@@ -623,14 +623,13 @@ static void jump_carry(int b)
 
 static void jump_land(void)
 {
-    int sq = song.lead.loop.sq, fq = song.fill_q;   /* a stutter, a fill queued on demand */
+    int mq = song_move_waiting(&song);   /* a move queued for the section's end */
     jump_carry(jsong.bar);               /* (as they are now: any carried ahead put back first) */
     song = jsong;
-    if (fq)                              /* waits on too: the song jumped to's section's last bar */
-        song_fill_queue(&song, fq);
-    if (sq) {                            /* waits on in the song jumped to (a section's first bar never takes it, so
-                                            its plan made ahead stands: the queue put in it too) */
-        song_stutter_queue(&song, sq);
+    if (mq) {                            /* waits on in the song jumped to, for its section's last bar (a section's
+                                            first bar never takes it, so its plan made ahead stands: the queue put in
+                                            it too) */
+        song_move_queue(&song, mq);
         song.stg_l0.loop.sq = song.stg_l.loop.sq = song.lead.loop.sq;
     }
     song.voicing.ant = 0;                /* (fast-forwarded silently: the harp's downbeat whole, on time) */
@@ -750,31 +749,25 @@ static void roll_clear(void)
 }
 #endif
 
-/* the held stutter (G5: sthold.c), the render's; whether it plays (G5's light, read by the main loop) */
+/* the held stutter (G5: sthold.c), the render's */
 static sthold_t sth;
-static volatile uint8_t sth_lit;
 #ifdef PLAT_HOST
 /* the simulator's record (expect stutter_*): the 16th (r_tick) the press and the release reached the render, the
    catch and each step faster, the live mix back; the steps off a beat line */
 static uint32_t sth_t_down, sth_t_up, sth_t[STH_LEVELS], sth_t_live;
 static int sth_offbeat;
-static uint32_t sth_catch_ms;            /* the last catch: ms from the press reaching the render (expect hold_ms) */
 #endif
-static uint8_t stut_pend;                /* a stutter on demand tapped (G5) while no song played: its kind, queued on
-                                            the song's first 16th that plays */
+static uint8_t mv_pend;                  /* a move asked for (F#3, Sections K3) while no song played: queued on the
+                                            song's first 16th that plays */
 static void stutter_hold_step(int bar, int st)
 {
-    int r = sthold_song(&sth, &song, bar, st, r_pos);
-    if (stut_pend) {
-        song_stutter_queue(&song, stut_pend);
-        stut_pend = 0;
+    int r = sthold_song(&sth, &song, bar, st);
+    if (mv_pend) {
+        song_move_queue(&song, mv_pend);
+        mv_pend = 0;
     }
-    sth_lit = sth.on;
 #ifdef PLAT_HOST
-    if (r & STH_CATCH) {
-        sth_t[0] = r_tick;
-        sth_catch_ms = (r_pos - sth.t_down) * 10u / 441u;
-    }
+    if (r & STH_CATCH) sth_t[0] = r_tick;
     if (r & STH_STEP) {
         sth_t[sth.level] = r_tick;
         sth_offbeat += st % 4 != 0;
@@ -951,10 +944,9 @@ static void command(uint32_t c)
             else
                 mb_full = 0;             /* the one ready dropped: the main loop rolls the next */
         }                                /* (in the gap or waiting: a new song is already coming) */
-    } else if (op == C_STUT) {           /* G5: down while the song plays (the hold from the first 16th line past the
-                                            tap window: a shorter press is a tap, the navigator's queue), or up */
+    } else if (op == C_STUT) {           /* G5: a press while the song plays, at its next 16th; let go, the next 16th */
         if (!b || (rs == RS_SONG && song.state == SS_PLAYING))
-            sthold_key(&sth, b, r_now);
+            sthold_key(&sth, b);
 #ifdef PLAT_HOST
         if (b) sth_t_down = r_tick;
         else sth_t_up = r_tick;
@@ -965,16 +957,13 @@ static void command(uint32_t c)
             loop_on = (uint8_t)(b == 1);
         else
             endless_on = (uint8_t)(b == 1);
-    } else if (op == C_ROW && a == ROW_STUTTER) {   /* a stutter on demand (G5 tapped): queued (its kind), or
-                                                       cancelled (0); with no song playing, queued as it starts */
+    } else if (op == C_ROW && a == ROW_MOVE) {   /* a move at the section's end (song_move_queue's), or cancelled
+                                                    (0); with no song playing, queued as it starts */
+        mv_pend = (uint8_t)(b > 0 && b <= MOVE_COMPLEX ? b : 0);
         if (rs == RS_SONG && song.state == SS_PLAYING) {
-            song_stutter_queue(&song, b);
-            stut_pend = 0;
-        } else
-            stut_pend = (uint8_t)(b == STUT_COMPLEX ? STUT_COMPLEX : b ? STUT_SIMPLE : 0);
-    } else if (op == C_ROW && a == ROW_FILL) {   /* a fill on demand: queued (its kind), or cancelled (0) */
-        if (rs == RS_SONG)
-            song_fill_queue(&song, b);
+            song_move_queue(&song, mv_pend);
+            mv_pend = 0;
+        }
     } else if (op == C_JUMP) {
         jump_ask(b);
     } else if (op == C_MUTE) {
@@ -1086,8 +1075,7 @@ static void publish(void)
     }
     snap.rows[ROW_LOOP] = loop_on;
     snap.rows[ROW_ENDLESS] = endless_on;
-    snap.rows[ROW_STUTTER] = (int16_t)(stut_pend ? stut_pend : snap.has_song ? song_stutter_shown(&song) : 0);
-    snap.rows[ROW_FILL] = (int16_t)(snap.has_song ? song_fill_shown(&song) : 0);
+    snap.rows[ROW_MOVE] = (int16_t)(mv_pend ? mv_pend : snap.has_song ? song_move_shown(&song) : 0);
 #endif
     BARRIER();
     snap_seq++;
@@ -2472,7 +2460,6 @@ static void ui_e_level(int p, int db)
 }
 static int ui_e_level_get(int p) { return p >= 0 && p < VX_PART_N ? ui_hlevel[p] : 0; }
 static void ui_e_stutter(int on) { post(C_STUT, 0, on); }
-static int ui_e_stuttering(void) { return sth_lit && vx_stutter_held(); }   /* (a stop: off at once) */
 static void ui_e_jump(int start, int i) { (void)i; post(C_JUMP, 0, start); }
 /* the saved songs (app/ui/saved.c): the song shown (ui.shown, the navigator's changes waiting landed in it) into a
    slot, the flash written now only while all is silent; a slot's song the next one; a slot deleted */
@@ -2546,7 +2533,7 @@ static const char *ui_e_home_screen(int detents)
 static const ui_engine_t UI_HENG = {ui_e_set, ui_e_play, ui_e_reroll, ui_e_reroll_part, ui_e_jump, ui_e_mute,
                                     ui_e_solo, ui_e_muted, ui_e_soloed, ui_e_level, ui_e_level_get,
                                     ui_e_save, ui_e_recall, ui_e_erase, m_readout, ui_e_theme, ui_e_bass_sat,
-                                    ui_e_home_screen, ui_e_stutter, ui_e_stuttering};
+                                    ui_e_home_screen, ui_e_stutter};
 
 /* what the Parts roll and the Mixer show: the render's notes (the buffer it isn't writing), the listening, levels */
 static const ui_activity_t *ui_activity(void)
@@ -3496,15 +3483,16 @@ int app_expect(const char *what, int *got)
     else if (!strcmp(what, "key_lit")) {   /* the keys lit, bit k key k (blinking ones not counted) */
         uint32_t blink;
         *got = (int)ui_key_lights(&ui_hnav, &s, &blink);
-    } else if (!strcmp(what, "stutter_blink"))   /* G5's blink: its half period (ms) while one waits, 0 none */
-        *got = ui_stutter_blink(&ui_hnav, &s);
+    } else if (!strcmp(what, "key_blink")) {   /* the keys blinking, bit k key k */
+        uint32_t blink;
+        ui_key_lights(&ui_hnav, &s, &blink);
+        *got = (int)blink;
+    }
 #endif
     else if (!strcmp(what, "hold"))   /* G5's stutter: its repeat now (0 an 8th .. 3 a 64th), -1 none */
         *got = sth.on ? sth.level : -1;
     else if (!strcmp(what, "hold_in"))   /* 16ths from the press reaching the render to the catch (0: the next) */
         *got = (int)(sth_t[0] - sth_t_down);
-    else if (!strcmp(what, "hold_ms"))   /* ms from the press reaching the render to the catch (the last hold's) */
-        *got = (int)sth_catch_ms;
     else if (!strcmp(what, "hold_out"))   /* and from the release to the live mix back */
         *got = (int)(sth_t_live - sth_t_up);
     else if (!strcmp(what, "hold_1") || !strcmp(what, "hold_2") || !strcmp(what, "hold_3")) {   /* 16ths from the
@@ -3553,21 +3541,18 @@ int app_expect(const char *what, int *got)
     } else if (!strcmp(what, "save_waits"))   /* a save or delete waits for silence to be written (1) */
         *got = sv_waiting();
 #endif
-    else if (!strcmp(what, "stutter"))   /* a stutter on demand as G5's light shows it: 1 simple, 2 complex (waiting,
-                                            or landed on the bar playing; or tapped with no song playing), 0 none */
-        *got = stut_pend ? stut_pend : rs == RS_SONG ? song_stutter_shown(&song) : 0;
+    else if (!strcmp(what, "move"))   /* the move at the section's end as the screen shows it (song_move_shown; or
+                                         asked for with no song playing): 1 drum fill .. 4 complex stutter, 0 none */
+        *got = mv_pend ? mv_pend : rs == RS_SONG ? song_move_shown(&song) : 0;
+    else if (!strcmp(what, "move_at"))   /* the bar, from 0, the move waiting will land on; -1 */
+        *got = rs == RS_SONG ? song_move_bar(&song, song_move_waiting(&song)) : -1;
     else if (!strcmp(what, "stutter_bar"))   /* the bar last planned, from 0, where it has a stutter on demand; -1 */
         *got = rs == RS_SONG && song.lead.loop.sod && song.lead.loop.sbar ? (int)song.lead.loop.sbar - 1 : -1;
     else if (!strcmp(what, "stutter_fig"))   /* the figure (1-4) the bar last planned stutters in, 0 none */
         *got = rs == RS_SONG && song.lead.loop.sbar ? (int)song.lead.loop.sfig : 0;
-    else if (!strcmp(what, "fill"))   /* a fill on demand as the Sections screen shows it: 1 drums, 2 comp (waiting, or
-                                         playing on the bar it landed on), 0 none */
-        *got = rs == RS_SONG ? song_fill_shown(&song) : 0;
     else if (!strcmp(what, "fill_bar"))   /* the bar, from 0, a fill on demand plays on (landed: from a 16th before its
                                              first to the bar's end); -1 */
         *got = rs == RS_SONG && song.fill_kind && song.step && song.fill_bar == song.bar + 1 ? song.fill_bar - 1 : -1;
-    else if (!strcmp(what, "fill_at"))   /* the bar, from 0, the fill waiting will land on; -1 */
-        *got = rs == RS_SONG && song.fill_q ? song_fill_bar(&song, song.fill_q) : -1;
     else if (!strcmp(what, "stuttering"))   /* the whole mix replays a caught slice now (vx_stuttering) */
         *got = vx_stuttering();
     else if (!strcmp(what, "remote"))

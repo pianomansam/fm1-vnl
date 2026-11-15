@@ -1609,3 +1609,16 @@ navigator calls a tap never catches). No new state; the tempo lookup in `nav.c` 
 - Flash: image 406,972 to **406,876 B (-96)** (`tools/mem-check.sh`, against ffb1cb6); RAM .data+.bss 79,692 B and
   the pool 305,220 B unchanged.
 - CPU: none to speak of (a constant compare where a tempo division and a float compare were).
+
+## One move at the section's end: Sections K3 and F#3 (2026-11-14)
+
+The fill queue (Sections K3) and the stutter queue (G5 taps) become one: `song_move_queue` takes a drum fill, a comp
+fill or a simple or complex stutter for the section's last bar, one at a time, and `song_move_shown` / `song_move_bar`
+replace each queue's own pair. Both land by the fill's rule (`stutter.c`'s `move_lands`); the stutter's group search
+and the G5 tap window go, the hold catching on the next 16th again (`sthold.c` back to its press flag). F#3 steps the
+move on every screen and blinks with the shared blink (`nav.c`'s `ui_key_lights`); G5's own light, its tap and its blink
+go (`ui_stutter_blink`, the engine's `stuttering` hook). One snapshot row where there were two.
+
+- Flash: image 406,876 to **406,252 B (-624)** (`tools/mem-check.sh`, against a2b0844); RAM .data+.bss 79,692 to
+  **79,660 B (-32)**; the pool 305,220 B unchanged.
+- CPU: none to speak of (the landing test per 16th is the fill's, as before; the hold's per-16th sample compare goes).

@@ -915,13 +915,6 @@ static int staged(const song_t *s, int B)
 /* a fill on demand's first 16th: the drums' on beat 4, the comp's on beat 3 */
 static int fill_from(int kind) { return kind == FILL_DRUMS ? 12 : 8; }
 
-/* bar takes a fill on demand: a section's last bar, not the outro's (nor the song's last) */
-static int fill_lands(const song_plan_t *p, int bar)
-{
-    const plan_block_t *b = plan_at(p, bar);
-    return b && bar == b->start + b->bars - 1 && b->section != SEC_OUTRO && bar + 1 < p->bars;
-}
-
 int song_tick(song_t *s, song_ev_t *out, int max)
 {
     song_ev_t buf[BUF];
@@ -952,7 +945,7 @@ int song_tick(song_t *s, song_ev_t *out, int max)
     b = gb = hb = plan_at(&s->plan, bar);
     if (step == 0)
         s->fill_kind = 0;
-    if (s->fill_q && step >= fill_from(s->fill_q) - 1 && step <= fill_from(s->fill_q) && fill_lands(&s->plan, bar)) {
+    if (s->fill_q && step >= fill_from(s->fill_q) - 1 && step <= fill_from(s->fill_q) && move_lands(b, bar)) {
         s->fill_kind = s->fill_q;                   /* a fill on demand lands (a 16th early: the harp's anticipation
                                                        of its first strike sees it) */
         s->fill_bar = (int16_t)(bar + 1);
@@ -1062,67 +1055,67 @@ int song_tick(song_t *s, song_ev_t *out, int max)
 
 float song_step_samples(const song_t *s) { return s->ss; }
 
-int song_stutter_shown(const song_t *s)
+/* a move's first 16th on bar: the fill's, or the catch of the stutter's figure there */
+static int move_from(const song_t *s, int move, int bar)
+{
+    return move >= MOVE_SIMPLE ? stutter_catch(stutter_draw(&s->roll, move - 2, bar)) : fill_from(move);
+}
+
+/* the move landed on the bar playing that hasn't begun yet (its first 16th still to come), 0 none */
+static int move_landed(const song_t *s)
 {
     const lead_state_t *ls = &s->lead;
-    if (s->state != SS_PLAYING) return 0;
-    if (ls->loop.sq) return ls->loop.sq;
-    return ls->loop.sod && ls->loop.sbar == s->bar + (s->step ? 1 : 0) ? (ls->loop.sfig >= 3 ? STUT_COMPLEX
-                                                                                                : STUT_SIMPLE) : 0;
+    if (!s->step) return 0;
+    if (s->fill_kind && s->fill_bar == s->bar + 1 && s->step <= fill_from(s->fill_kind)) return s->fill_kind;
+    if (ls->loop.sod && ls->loop.sbar == s->bar + 1 && s->step <= stutter_catch(ls->loop.sfig))
+        return ls->loop.sfig >= 3 ? MOVE_COMPLEX : MOVE_SIMPLE;
+    return 0;
 }
 
-int song_stutter_queue(song_t *s, int kind)
-{
-    lead_state_t *ls;
-    const plan_block_t *b;
-    int bar, f, B;
-    if (!s || s->state != SS_PLAYING) return 0;
-    kind = kind == STUT_COMPLEX ? STUT_COMPLEX : kind ? STUT_SIMPLE : 0;
-    ls = &s->lead;
-    bar = s->bar;                                   /* (s->step 0: its downbeat to come, planned then) */
-    b = plan_at(&s->plan, bar);
-    ls->loop.sq = 0;
-    if (s->step > 0 && kind && s->step <= 8 && stutter_lands(b, bar))
-        f = stutter_draw(&s->roll, kind, bar);      /* this bar, before its figure's earliest catch */
-    else if (s->step > 0 && !kind && ls->loop.sod && ls->loop.sbar == bar + 1)
-        f = stutter_song(&s->roll, ls, b, bar);     /* one landed here cancelled: the song's own */
-    else {
-        for (B = s->step ? bar + 1 : bar; kind && B < s->plan.bars && !stutter_lands(plan_at(&s->plan, B), B); B++) {}
-        if (kind && B < s->plan.bars) ls->loop.sq = (unsigned)kind & 3u;   /* lands when its bar is planned */
-        return song_stutter_shown(s);
-    }
-    ls->loop.sbar = f ? (unsigned)(bar + 1) & 0x1FFu : 0u;
-    ls->loop.sfig = (unsigned)f & 7u;
-    ls->loop.sod = kind != 0;
-    return song_stutter_shown(s);
-}
-
-int song_fill_bar(const song_t *s, int kind)
+int song_move_bar(const song_t *s, int move)
 {
     int B;
-    if (!s || s->state != SS_PLAYING || !kind) return -1;
+    if (!s || s->state != SS_PLAYING || move <= 0 || move > MOVE_COMPLEX) return -1;
     for (B = s->bar; B < s->plan.bars; B++)
-        if (fill_lands(&s->plan, B) && (B > s->bar || s->step <= fill_from(kind))) return B;
+        if (move_lands(plan_at(&s->plan, B), B) && (B > s->bar || s->step <= move_from(s, move, B))) return B;
     return -1;
 }
 
-int song_fill_shown(const song_t *s)
+int song_move_shown(const song_t *s)
 {
     if (!s || s->state != SS_PLAYING) return 0;
-    if (s->fill_q) return s->fill_q;
-    return s->fill_kind && s->step && s->fill_bar == s->bar + 1 ? s->fill_kind : 0;
+    return s->fill_q ? s->fill_q : s->lead.loop.sq ? s->lead.loop.sq + 2 : move_landed(s);
 }
 
-int song_fill_queue(song_t *s, int kind)
+int song_move_queue(song_t *s, int move)
 {
+    lead_state_t *ls;
+    int bar, f, B;
     if (!s || s->state != SS_PLAYING) return 0;
-    kind = kind == FILL_COMP ? FILL_COMP : kind ? FILL_DRUMS : 0;
+    ls = &s->lead;
+    bar = s->bar;
+    f = move_landed(s);                             /* one landed here, not begun: undone */
+    if (f && f < MOVE_SIMPLE)
+        s->fill_kind = 0;
+    else if (f) {                                   /* the song's own stutter back there */
+        f = stutter_song(&s->roll, ls, plan_at(&s->plan, bar), bar);
+        ls->loop.sbar = f ? (unsigned)(bar + 1) & 0x1FFu : 0u;
+        ls->loop.sfig = (unsigned)f & 7u;
+        ls->loop.sod = 0;
+    }
     s->fill_q = 0;
-    if (!kind) {
-        if (s->step && s->fill_bar == s->bar + 1) s->fill_kind = 0;   /* one playing: the rest of its bar as it was */
-    } else if (song_fill_bar(s, kind) >= 0)
-        s->fill_q = (uint8_t)kind;
-    return song_fill_shown(s);
+    ls->loop.sq = 0;
+    B = song_move_bar(s, move);
+    if (B == bar && s->step && move >= MOVE_SIMPLE) {   /* the bar playing, planned already: it lands now */
+        f = stutter_draw(&s->roll, move - 2, bar);
+        ls->loop.sbar = (unsigned)(bar + 1) & 0x1FFu;
+        ls->loop.sfig = (unsigned)f & 7u;
+        ls->loop.sod = 1;
+    } else if (B >= 0 && move >= MOVE_SIMPLE)
+        ls->loop.sq = (unsigned)(move - 2) & 3u;    /* lands as its bar is planned (stutter_plan_bar) */
+    else if (B >= 0)
+        s->fill_q = (uint8_t)move;                  /* lands as its bar ticks (song_tick) */
+    return song_move_shown(s);
 }
 
 float song_pad_level(const song_t *s) { return s->pad_level; }

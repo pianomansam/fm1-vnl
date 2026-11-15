@@ -65,8 +65,8 @@ to skip it. VNL-1 starts stopped, with a song ready. Press PLAY.
   ends, 2-4 seconds of silence follow, then the next song starts.
 - **Changes wait for the line:** a knob or button that changes the song doesn't act at once. The change lands on the
   song's next four-bar line. Until then the screen shows the new value with a `*` in front, in yellow, and a note
-  such as TEMPO 84 IN 1 BAR. Mutes, solos, levels and the Sections screen's Loop and Stay on song act at once; its
-  Stutter waits for the next group's last bar instead.
+  such as TEMPO 84 IN 1 BAR. Mutes, solos, levels and the Sections screen's Loop and Stay on song act at once; a move
+  for the section's end (K3, or F#3) waits for the last bar of the section playing instead.
   While a section loops (or Stay on song goes back), a change due at the line where the song goes back lands as
   it starts again.
 - **Stop and play:** PLAY stops the music at once. PLAY again continues the same song from the start of the bar it
@@ -93,8 +93,9 @@ These work the same on every screen, unless a screen below says otherwise.
 | FX | The Mixer. FX again goes back. |
 | GLO | The Settings screen. GLO again goes back. |
 | F, G, A, B, C (the five lowest white keys) | Drums, bass, accompaniment, lead, pad. Press to mute that part; press again to unmute. Hold to solo it; press again to unsolo. Not on the Sections screen, where the keys jump. |
-| G (the top white key, G5) | Give it a short tap to queue a stutter of your own for the next group's last bar: once for a simple one, again for a complex one, a third time to cancel; the screen reader says STUTTER SIMPLE, STUTTER COMPLEX or STUTTER OFF (see Sections for where it lands). A tap while stopped queues one for when the song plays. Hold it while a song plays to stutter the whole mix. On the next 16th it catches an 8th of the music and repeats it; on each beat after that the repeat gets faster (16ths, then 32nds, then 64ths, where it stays) and a little darker. Let go and the music comes back on the next 16th. The screen shows STUTTER (the screen reader says it). The song's own stutters and a tapped one wait while you hold it; a hold leaves a tapped one queued. Works on every screen, the Sections screen too; does nothing while stopped. |
-| Key lights | A part's key is lit while the part plays, dark while it's muted, and blinks while it's soloed. G5 is lit while its held stutter plays, and blinks while a tapped one waits: slowly for a simple one, quickly for a complex one. |
+| F# (the lowest black key, F#3) | The move for the section's end, as the Sections screen's K3 sets it: each press the next, a simple stutter, a complex one, the drum fill, the comp fill, then off; the screen reader says each (STUTTER SIMPLE, STUTTER COMPLEX, DRUM FILL, COMP FILL, OFF). See Sections for where it lands. A press while stopped queues one for when the song plays. Works on every screen, the Sections screen too. |
+| G (the top white key, G5) | Hold it while a song plays to stutter the whole mix. On the next 16th it catches an 8th of the music and repeats it; on each beat after that the repeat gets faster (16ths, then 32nds, then 64ths, where it stays) and a little darker. Let go and the music comes back on the next 16th. The screen shows STUTTER (the screen reader says it). The song's own stutters and a queued one wait while you hold it; a hold leaves a queued move as it is. Works on every screen, the Sections screen too; does nothing while stopped. A tap does nothing more. |
+| Key lights | A part's key is lit while the part plays, dark while it's muted, and blinks while it's soloed. F#3 blinks while a move for the section's end waits, and goes dark once it has played. |
 | MASTER | The volume. |
 | SAVE | On the Song screen, saves the song (see Saving songs). Anywhere else, shows a line of measures for a moment (the screen's redraw time, the CPU guard's level and steps, late audio blocks); on the Song screen, hold SAVE for them. Useful in a bug report. |
 
@@ -144,7 +145,7 @@ each section, the tempo and, on its own line under the tempo, the mood.
 
 ### Sections (SEL)
 
-![The Sections screen: SECTIONS, a list of INTRO, GROOVE, GROOVE, GROOVE, GROOVE, LEAD, LEAD with 8 BARS each, INTRO marked PLAYING; LOOP OFF, STAY ON SONG OFF and FILL OFF at the bottom](img/vnl-sections.png "Sections")
+![The Sections screen: SECTIONS, a list of INTRO, GROOVE, GROOVE, GROOVE, GROOVE, LEAD, LEAD with 8 BARS each, INTRO marked PLAYING; LOOP OFF, STAY ON SONG OFF and END OFF at the bottom, the hints EDIT: GO THERE and SEL: BACK under the list](img/vnl-sections.png "Sections")
 
 The song's sections, one a line, with their lengths. The section playing is marked PLAYING. Each line starts with the
 letter of the key that jumps to it. Seven lines fit; a longer song scrolls with the highlight.
@@ -156,7 +157,7 @@ letter of the key that jumps to it. Seven lines fit; a longer song scrolls with 
 | The white keys from F up (F G A B C D E F G A) | Jump straight to the first to tenth section. The playing section's key is lit; a jump on its way blinks. |
 | K1 | Loop: the section playing repeats instead of moving on. Turn either way to switch it. |
 | K2 | Stay on song: the song never ends. Where the ending would start, it goes back to the section after the intro. Off by default. |
-| K3 | Fill: queue a fill for the last bar of the section playing. Turn left for the drums, right for the accompaniment (COMP); back to the middle (OFF) cancels it. It shows DRUMS or COMP until it has played. |
+| K3 | End: queue a move for the last bar of the section playing. Turn left for the accompaniment's fill (COMP FILL), further for the drums' (DRUM FILL); right for a simple stutter (STUTTER SIMPLE), further for a complex one (STUTTER COMPLEX); back to the middle (OFF) cancels it. One at a time: a new choice replaces the one waiting. It shows until the move plays, then OFF. F#3 steps it too, on any screen. |
 | SEL | Back. |
 
 **The stutter:** at the end of some groups (the last bar of a 4- or 8-bar group), the whole mix catches a slice of
@@ -164,13 +165,14 @@ itself and repeats it into the next downbeat. A simple one (beat 4's first 8th r
 4) comes about once a song; a complex one (beat 4 rolling from an 8th through a 16th to 32nds, or a 2-beat catch from
 beat 3) about every other song, never twice. They come in any groove or lead section, with the lead or without it,
 never in an intro, an ending or a break, and not in the song's first 8 bars of lead, or of the first section without
-it. A tap on G5 adds one of your own (on any screen): it lands on the next group's last bar that isn't in the intro or the ending, in place
-of the song's own stutter there, even where the song wouldn't stutter. Queued before the middle of a group's last
-bar, it plays in that bar. With no group end left in the song, it is dropped. Holding G5 overrides both: a song's
-stutter whose bar the hold touches is skipped, and one of yours that the hold keeps from playing waits for the next
-group's last bar (G5 keeps blinking meanwhile).
+it. K3 (or F#3, on any screen) adds one of your own, on the last bar of the section playing, as the fill below: in
+place of the song's own stutter there, even where the song wouldn't stutter. Queued once it would have started in
+that bar (beat 4, or beat 3 for the 2-beat catch), it waits for the next section's last bar. Never in the ending;
+with no section's end left before it, it is dropped. Holding G5 overrides both: a song's stutter whose bar the hold
+touches is skipped, and one of yours that the hold keeps from playing waits for the next section's last bar (F#3
+keeps blinking meanwhile).
 
-**The fill:** the song plays a drum fill of its own at some section changes. K3 adds one where you want it, on the
+**The fill:** the song plays a drum fill of its own at some section changes. K3 (or F#3) adds one where you want it, on the
 last bar of the section playing: the drums play their fill on beat 4 (a snare roll getting louder, a kick on its
 "and"), or the accompaniment plays one from beat 3, pushing into the next section. A guitar plays the drive strum
 (down on the "a"s, up on the "and"s); the piano, Rhodes, felt piano, vibes, organ, pad and harp run up the chord
@@ -178,8 +180,8 @@ they are playing, one note an 8th, each ringing into the change; a strummed harp
 bar's drums or accompaniment change; everything else in the song stays as it was. The fill plays even on a drum drop
 (the roll comes in out of the silence) or in a section without the drums or the accompaniment. Queued once that
 bar's fill has started (the drums' beat 4, the accompaniment's beat 3), it waits for the next section's last bar.
-Never in the ending; in the intro it's fine. With Loop on, it lands at the end of the section looping. A fill
-waiting stays queued through Loop, Stay on song and a jump to another section.
+Never in the ending; in the intro it's fine. With Loop on, it lands at the end of the section looping. A fill or a
+stutter waiting stays queued through Loop, Stay on song and a jump to another section. Only one waits at a time.
 
 ### Parts (ARP)
 
@@ -332,7 +334,7 @@ four-bar line is saved as if it had landed.
   the music stops (or at the silence between two songs). One save can wait at a time: a second one into another slot
   says A SAVE WAITS, STOP TO SAVE MORE. Don't switch the FM-1 off before the save is written.
 - **What isn't saved:** the locks, mutes, solos and mixer levels, and the Sections screen's Loop and Stay on song
-  switches, a fill queued with K3 and a stutter queued with G5.
+  switches, and a fill or stutter queued with K3 or F#3.
 - **Over USB:** a backup holds the saved songs and the home screen (see USB and the screen reader).
   `tools/fm1_songs.py list` tags each song `[flash]` (written, kept through power-off) or `[RAM only: ...]` (not
   yet written: its save waits for silence, or its write failed and needs saving again).

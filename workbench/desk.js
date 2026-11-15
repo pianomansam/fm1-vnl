@@ -354,7 +354,7 @@ export class Desk {
     await this.hear();
     return this.done(true, "");
   }
-  // G5 held (true) or let go: past the tap window the whole mix stutters (wb_stutter_hold: only while playing)
+  // G5 held (true) or let go: from the next 16th the whole mix stutters (wb_stutter_hold: only while playing)
   stutterHold(on) { return this.call("wb_stutter_hold", on ? 1 : 0); }
 
   // the mixer: part (LEVEL_PARTS) to db (clamped to LEVEL_MIN..LEVEL_MAX, whole dB), heard at once, saved for this

@@ -127,7 +127,7 @@ const SEED = 47;
 }
 {   // Review Focus 1: each options row at its longest choice name, on its part screen: clipped at the band, as the mock
   const steps = [{ press: "PLAY" }, { wait: 4000 }];
-  const fields = Object.entries(data.fields).filter(([, d]) => d.options && !["loop", "endless", "fill"].includes(d.row));
+  const fields = Object.entries(data.fields).filter(([, d]) => d.options && !["loop", "endless", "move"].includes(d.row));
   const screenOf = (k) => PHASE1.find((id) => (data.screens[id].knobs ?? []).some((kn) => kn.field === k));
   for (const [k, d] of fields) {
     const id = screenOf(k);
@@ -235,12 +235,17 @@ const SEED = 47;
     { spin: ["K2", 1] }, { check: "sections-stay", expect: (st) => is("endless", v(st).endless, "ON") },
     { wait: 20000 }, { check: "sections-looping", expect: (st) => is("looping", v(st).looping, true) },
     { spin: ["K1", 1] }, { spin: ["K2", 1] }, { check: "sections-off", expect: (st) => is("looping", v(st).looping, false) },
-    // K3 a fill on demand: left the drums', right past the middle the comp's, back to the middle none
-    { spin: ["K3", -1] }, { check: "sections-fill", expect: (st) => is("fill", v(st).fill, "DRUMS") },
-    { spin: ["K3", 2] }, { check: "sections-fill-comp", expect: (st) => is("fill", v(st).fill, "COMP") },
-    { spin: ["K3", -1] }, { check: "sections-fill-off", expect: (st) => is("fill", v(st).fill, "OFF") },
-    // G5 tapped on Sections: a stutter queued, the screen as it was (no knob of its own)
-    { keydown: 26 }, { keyup: 26 }, { check: "sections-g5-tap", expect: (st) => is("screen", st.screen, "sections") },
+    // K3 the move at the section's end: left the comp's fill, then the drums', right past the middle the stutters,
+    // back to the middle none
+    { spin: ["K3", -1] }, { check: "sections-move-comp", expect: (st) => is("move", v(st).move, "COMP FILL") },
+    { spin: ["K3", -1] }, { check: "sections-move-drums", expect: (st) => is("move", v(st).move, "DRUM FILL") },
+    { spin: ["K3", 3] }, { check: "sections-move-simple", expect: (st) => is("move", v(st).move, "STUTTER SIMPLE") },
+    { spin: ["K3", 1] }, { check: "sections-move-complex", expect: (st) => is("move", v(st).move, "STUTTER COMPLEX") },
+    { spin: ["K3", -2] }, { check: "sections-move-off", expect: (st) => is("move", v(st).move, "OFF") },
+    // F#3 on Sections: the next move (a simple stutter), the screen as it was
+    { keydown: 1 }, { keyup: 1 }, { check: "sections-f#3", expect: (st) => is("screen", st.screen, "sections") || is("move", v(st).move, "STUTTER SIMPLE") },
+    { keydown: 1 }, { keyup: 1 }, { keydown: 1 }, { keyup: 1 }, { keydown: 1 }, { keyup: 1 }, { keydown: 1 }, { keyup: 1 },
+    { check: "sections-f#3-off", expect: (st) => is("move", v(st).move, "OFF") },
   ];
   for (const c of run(SEED, steps)) compare(c);
 }

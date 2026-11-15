@@ -28,7 +28,7 @@ VNL-1 is free software (GPL), built on [fm1-base](https://github.com/charlesvest
   synths.
 - **[Ten effects](#effects)** in a lo-fi chain.
 - **[Hands on](#controls):** change the key, tempo, mood or any part from the knobs, re-roll or lock a part, jump to or loop a
-  section, queue a fill, mute and solo, tap G5 to queue a stutter or hold it to stutter live, and save up to 16
+  section, queue a fill or a stutter for the section's end, mute and solo, hold G5 to stutter live, and save up to 16
   songs; every change lands in time.
 - **[Fifteen themes](#on-the-fm-1):** color schemes for every screen, picked in Settings.
 - **[On the FM-1](#on-the-fm-1):** a now-playing screen, a detailed main screen, a page per part, a screen reader and
@@ -76,14 +76,15 @@ Music theory drives VNL-1's decisions, from the key of the next song to the last
 | ALGO | Picks a part. EDIT opens its page; SELECT steps its pages. |
 | PRESET | The highlighted part's instrument (or kit). |
 | OCT- / OCT+ | The accompaniment's or the lead's register. |
-| SEL | Sections: jump to a section (EDIT, or its key), loop it (K1), stay on the song (K2), queue a fill (K3). |
+| SEL | Sections: jump to a section (EDIT, or its key), loop it (K1), stay on the song (K2), queue a move for the section's end (K3: a drum or comp fill, or a simple or complex stutter). |
 | ARP | Parts: each part's notes over the song. |
 | FX | The Mixer. |
 | HOME | The home screen, set in Settings (GLO): HOME SCREEN SIMPLE, the now-playing screen (the default), or DETAILED, the main screen. On either of those two, HOME switches to the other. |
 | SAVE | On the Song page, saves the song into the first free slot (SAVED TO 3); held there, or anywhere else, a line of measures for a bug report. |
 | REC | On the Song page, the Saved list: EDIT loads the highlighted song (the next song), SAVE saves into that slot, SAVE held deletes it. A save made while music plays is written to the flash when it stops. |
 | Lowest white keys (F G A B C) | Drums, bass, accompaniment, lead, pad: press to mute, hold to solo. |
-| Top white key (G5) | Give it a short tap to queue a stutter for the next group's last bar: once simple, again complex, a third time off; it blinks while one waits (slowly simple, quickly complex). Hold it to stutter the whole mix: an 8th repeated from the next 16th, faster on each beat (16ths, 32nds, then 64ths) and darker as it tightens; let go and the mix comes back on the next 16th. Lit while it plays; only while a song plays. It overrides the song's stutters and a tapped one (that one waits for the next group's last bar). |
+| Lowest black key (F#3) | On any screen, steps the move for the section's end, as K3 on Sections does: a simple stutter, a complex one, a drum fill, a comp fill, then off. It blinks while one waits and goes dark once it has played. |
+| Top white key (G5) | Hold it to stutter the whole mix: an 8th repeated from the next 16th, faster on each beat (16ths, 32nds, then 64ths) and darker as it tightens; let go and the mix comes back on the next 16th. Only while a song plays. It overrides the song's stutters and a queued one (that one waits for the next section's end). |
 
 Every change to the song lands on its next four-bar line, and the screen shows it waiting until then.
 
@@ -124,8 +125,8 @@ Ten, in a lo-fi chain: tape wow and flutter, dust (saturation and a darkening lo
 reverb (adapted from Mutable Instruments Rings), a tape delay, bass saturation, kick ducking, filter sweeps on section
 changes, and a whole-mix stutter on the last bar of a 4- or 8-bar group in any groove or lead section, with the lead
 or without it (inspired by Cut-A-Dor): about one simple figure a song (a repeated 8th or a 16th roll) and about every
-other song one complex one (a roll that speeds up into the downbeat, or a 2-beat catch). A tap on G5
-queues one on demand. Holding G5 stutters the mix live, from an 8th to 64ths, a low-pass closing as it speeds up; the
+other song one complex one (a roll that speeds up into the downbeat, or a 2-beat catch). F#3 or Sections K3
+queues one for the section's end. Holding G5 stutters the mix live, from an 8th to 64ths, a low-pass closing as it speeds up; the
 song's stutters wait while it holds. The host simulator's plate is adapted from AMB-1, inspired by Dattorro.
 
 ### Sounds
@@ -145,10 +146,10 @@ song's stutters wait while it holds. The host simulator's plate is adapted from 
 - A main screen with the song's progress and a tile per part; a page per part for its instrument, rhythm, register and
   re-rolls.
 - A Parts screen with each part's notes scrolling over the song; a Sections screen to jump, loop a section, stay on
-  the song or queue a fill; a Mixer with a level, mute and solo per part.
-- The keys' lights show which parts are playing; the lowest white keys mute (press) or solo (hold) a part; the top
-  white key (G5), tapped, queues a stutter (blinking while it waits), and held, stutters the whole mix and is lit
-  while it does.
+  the song or queue a fill or a stutter for the section's end; a Mixer with a level, mute and solo per part.
+- The keys' lights show which parts are playing; the lowest white keys mute (press) or solo (hold) a part; the
+  lowest black key (F#3) steps the move for the section's end, blinking while one waits; the top white key (G5),
+  held, stutters the whole mix.
 - Saved songs: SAVE on the Song page keeps the song (16 slots, through power-off); REC lists them, EDIT loads one.
   A backup over USB holds them.
 - Fifteen color themes (Settings, GLO): GARNET by default, plus GARNET+, BLACK CHERRY, OXBLOOD, OXBLOOD+, PLUM,

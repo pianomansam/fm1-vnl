@@ -192,11 +192,12 @@ export default {
     loop: { row: "loop", name: "LOOP", options: true, now: true, wrap: 2 },   // turning either way flips it (Sam)
     // never end (Sam, 2026-11-06): where the outro would start, back to the section after the intro; no next song
     endless: { row: "endless", name: "STAY ON SONG", options: true, now: true, wrap: 2 },   // off by default (Sam)
-    // a fill on demand (Sam, 2026-11-14): left the drums' fill, right the comp's, on the last bar of the section
-    // playing (the next section's where its fill has begun; never the outro's); back to the middle cancels it. Its
-    // kind shows while it waits and plays, then OFF again (the choices in turning order: DRUMS, OFF, COMP); acts at
+    // the move at the section's end (Sam, 2026-11-14: one queue): left the comp's fill, then the drums', right a simple
+    // stutter, then a complex one, on the last bar of the section playing (the next section's where it would have
+    // begun already; never into the ending); the middle cancels it. It shows while it waits, then OFF again once it
+    // plays (in turning order: DRUM FILL, COMP FILL, OFF, STUTTER SIMPLE, STUTTER COMPLEX); F#3 steps it too. Acts at
     // once, never saved with the song
-    fill: { row: "fill", name: "FILL", options: true, now: true },
+    move: { row: "move", name: "END", options: true, now: true },
   },
 
   // the parts, in ALGO's order (Sam, 2026-11-07: drums, bass, comp, lead, pad, texture, everywhere parts are listed) (on a part's screen ALGO moves to the next one, at its first page)
@@ -223,11 +224,13 @@ export default {
     KEY4: { do: "mute", part: "keys", long: { do: "solo", part: "keys" } },
     KEY6: { do: "mute", part: "lead", long: { do: "solo", part: "lead" } },
     KEY7: { do: "mute", part: "pad", long: { do: "solo", part: "pad" } },
-    // the top white key (G5), on every screen (Sam, 2026-11-14): tapped (let go within the tap window, sthold.h's
-    // STH_TAP_MS), a stutter on demand queued for the next group's last bar, each tap the next kind: SIMPLE, COMPLEX,
-    // OFF; it blinks while one waits, slowly for simple, quickly for complex (a tap while stopped waits for the song).
-    // Held past the window: from the next 16th the whole mix stutters, an 8th repeated, faster each beat to 64ths,
-    // darker as it tightens; let go, live on the next 16th (engine/sthold.c). Lit while that plays
+    // the lowest black key (F#3), on every screen (Sam, 2026-11-14): the move at the section's end (the move row),
+    // each press the next: OFF, STUTTER SIMPLE, STUTTER COMPLEX, DRUM FILL, COMP FILL; it blinks while one waits (a
+    // press while stopped waits for the song)
+    KEY1: { do: "move" },
+    // the top white key (G5), on every screen (Sam, 2026-11-14): held, from the next 16th the whole mix stutters, an
+    // 8th repeated, faster each beat to 64ths, darker as it tightens; let go, live on the next 16th (engine/sthold.c).
+    // A tap does nothing more; no light (G5's LED doesn't work on the hardware)
     KEY26: { do: "stutter" },
   },
   // the keys' lights on every screen but one with its own (Sections): a part's key lit while it plays, blinking soloed
@@ -600,8 +603,8 @@ export default {
 
     // The song's map (Sam, 2026-11-06: where we are in the map, jump to a section, loop the one playing): SEL from
     // the main screen. One line a section (the one playing marked), ALGO or SELECT moves the highlight, EDIT goes
-    // there (at the next bar line), K1 loops the section playing, K2 stays on the song, K3 queues a fill (a
-    // stutter on demand is G5's tap, on every screen); the strip under the header is the main screen's.
+    // there (at the next bar line), K1 loops the section playing, K2 stays on the song, K3 queues the move at the
+    // section's end (a fill or a stutter; F#3 too, on every screen); the strip under the header is the main screen's.
     sections: {
       title: "Sections",
       list: "sections",
@@ -673,14 +676,14 @@ export default {
           { when: "sec6Now", text: "PLAYING", font: "T", after: 8, y: 111, color: "AMB" },
           { when: "sec6", text: "{sec6Bars} BARS", font: "T", right: 232, y: 111, color: "GRAY" },
           { when: "secRange", text: "{secRange}", font: "T", x: 12, y: 130, color: "GRAY" },   // the pager, under the list, left (Sam)
+          // the hints, under the list, right (the knob strip's K3 value, STUTTER COMPLEX at its longest, needs the room)
+          { text: "EDIT: GO THERE   SEL: BACK", font: "T", right: 232, y: 130, color: "DIM" },
         ] },
         { y: 202, h: 38, draw: [
           { knobs: { x: 8, dx: 62, label: { y: 0, font: "T", color: "GRAY" }, value: { y: 11, font: "XS", color: "HI", when: "song" } } },
-          { text: "EDIT: GO THERE", font: "T", right: 232, y: 2, color: "DIM" },
-          { text: "SEL BACK", font: "T", right: 232, y: 16, color: "DIM" },
         ] },
       ],
-      knobs: [{ field: "loop", step: 1 }, { field: "endless", step: 1 }, { field: "fill", step: 1 }],
+      knobs: [{ field: "loop", step: 1 }, { field: "endless", step: 1 }, { field: "move", step: 1 }],
       controls: {
         ALGO: { do: "cursor" }, SELECT: { do: "cursor" }, EDIT: { do: "jump" }, SEL: { go: "back" },
         // the lowest white keys jump straight to a section, first key the first section (Sam, 2026-11-06); the dim

@@ -67,6 +67,9 @@
    },
    "part": "drums"
   },
+  "KEY1": {
+   "do": "move"
+  },
   "KEY2": {
    "do": "mute",
    "long": {
@@ -196,12 +199,6 @@
    "row": "endless",
    "wrap": 2
   },
-  "fill": {
-   "name": "FILL",
-   "now": true,
-   "options": true,
-   "row": "fill"
-  },
   "key": {
    "format": "key",
    "name": "KEY",
@@ -260,6 +257,12 @@
    "min": 0,
    "name": "MOTION",
    "row": "motion"
+  },
+  "move": {
+   "name": "END",
+   "now": true,
+   "options": true,
+   "row": "move"
   },
   "padIns": {
    "name": "INSTRUMENT",
@@ -6566,6 +6569,13 @@
        "when": "secRange",
        "x": 12,
        "y": 130
+      },
+      {
+       "color": "DIM",
+       "font": "T",
+       "right": 232,
+       "text": "EDIT: GO THERE   SEL: BACK",
+       "y": 130
       }
      ],
      "h": 144,
@@ -6589,20 +6599,6 @@
         },
         "x": 8
        }
-      },
-      {
-       "color": "DIM",
-       "font": "T",
-       "right": 232,
-       "text": "EDIT: GO THERE",
-       "y": 2
-      },
-      {
-       "color": "DIM",
-       "font": "T",
-       "right": 232,
-       "text": "SEL BACK",
-       "y": 16
       }
      ],
      "h": 38,
@@ -6687,7 +6683,7 @@
      "step": 1
     },
     {
-     "field": "fill",
+     "field": "move",
      "step": 1
     }
    ],

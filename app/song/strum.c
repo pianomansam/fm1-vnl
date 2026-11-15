@@ -107,7 +107,7 @@ static char hit_at(const char *p, int bar, int step)
     return p[(p[16] ? bar & 1 : 0) * 16 + step];          /* a bar, or two (the bossa) */
 }
 
-/* the bar's stroke at step: from beat 3 the drive figure dr where a fill was asked for (Sections K3), else the bar's */
+/* the bar's stroke at step: from beat 3 the drive figure dr where a fill was asked for (song_move_queue), else the bar's */
 static char stroke_at(const char *ps, const char *dr, int bar, int step)
 {
     return dr && step >= 8 ? dr[step] : hit_at(ps, bar, step);

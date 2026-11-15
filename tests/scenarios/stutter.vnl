@@ -1,154 +1,108 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# A stutter on demand: G5 tapped (let go within the tap window), on any screen. Each tap the next kind: a simple one,
-# a complex one, none; G5 blinks while one waits, slowly for a simple one (400 ms), quickly for a complex one
-# (125 ms). It plays on the next group's last bar that isn't an intro's or an outro's, then G5 goes dark. The first
-# song is 56 bars at 81 BPM (2963 ms a bar): an 8-bar intro, four 8-bar grooves (no lead), two lead blocks. Queued in
-# the intro's second bar, it waits out the intro and lands on the first groove's last bar (bar 16, from 0: 15), a bar
-# the song's own stutters skip (its first pass without the lead).
+# The move at the section's end, its stutters, from F#3 (the lowest black key, key 1), on any screen: each press the
+# next move (STUTTER SIMPLE, STUTTER COMPLEX, DRUM FILL, COMP FILL, OFF), said; F#3 blinks while one waits (the shared
+# 250 ms blink: key_blink, bit 1), dark once it has played. A stutter plays on the last bar of the section playing, in
+# place of the song's own there; queued past its figure's catch there, the next section's. The first song is 56 bars at
+# 81 BPM (2963 ms a bar, a 16th 185 ms): an 8-bar intro (bar 8, from 0: 7, about 22.2-25.2 s), four 8-bar grooves (no
+# lead), two lead blocks.
 listen
 wait 1400
 tap PLAY
 wait 3000
-expect stutter 0
-expect stutter_blink 0
-# a tap: a simple one
-tapkey 26
-wait 50
-said STUTTER SIMPLE
-expect stutter 1
-expect stutter_blink 400
+expect move 0
+expect key_blink 0
+# F#3 through all five, each said; the stutters and fills wait for the intro's last bar
+tapkey 1
+said END STUTTER SIMPLE
+expect move 3
+expect move_at 7
+expect key_blink 2
 expect hold -1
-# again while it waits: a complex one
-tapkey 26
-wait 50
-said STUTTER COMPLEX
-expect stutter 2
-expect stutter_blink 125
-# a third: cancelled, G5 dark
-tapkey 26
-wait 50
-said STUTTER OFF
-expect stutter 0
-expect stutter_blink 0
-expect key_lit <67108864
-# on another screen too (Sections): twice, a complex one
+tapkey 1
+said END STUTTER COMPLEX
+expect move 4
+tapkey 1
+said END DRUM FILL
+expect move 1
+tapkey 1
+said END COMP FILL
+expect move 2
+tapkey 1
+said END OFF
+expect move 0
+expect move_at -1
+expect key_blink 0
+# on Sections too: twice, a complex stutter
 tap SEL
 wait 50
 said SECTIONS
-tapkey 26
+tapkey 1
+tapkey 1
 wait 50
-tapkey 26
-wait 50
-said STUTTER COMPLEX
-expect stutter 2
+said END STUTTER COMPLEX
+expect move 4
+expect move_at 7
+expect key_blink 2
 shot stutter-queued.png
-# the intro passes; it waits, G5 blinking (bar 12, from 0: 11, about 34.6 s in)
-wait 29496
-expect section 1
-expect stutter 2
-expect stutter_blink 125
-expect stutter_bar -1
-# the first groove's last bar (bar 16, from 0: 15; 45.9-48.9 s): it lands there, a complex figure
-wait 12800
-expect bar 15
-expect stutter_bar 15
+# the intro's last bar, early (about 22.6 s): it landed there, a complex figure, still shown (it hasn't caught yet)
+wait 17310
+expect bar 7
+expect stutter_bar 7
 expect stutter_fig >2
-expect stutter 2
-# its replays (the bar's 15th 16th, about 48.6 s): the mix stutters
-wait 1050
+expect move 4
+expect key_blink 2
+# its replays (the bar's 16th, about 25.0 s): the mix stutters, K3 back to OFF, F#3 dark
+wait 2250
+expect bar 7
 expect stuttering 1
-# the next bar: played, OFF again, nothing waiting
-wait 2000
-expect bar 16
-expect stutter 0
+expect move 0
+expect key_blink 0
+wait 1000
+expect bar 8
 expect stutter_bar -1
-expect stutter_blink 0
 shot stutter-played.png
-# stopped, a tap queues one all the same (G5 blinks); PLAY: the song goes on from there, the stutter waiting in it
+# the first groove's last bar (bar 16, from 0: 15; 45.9-48.9 s), past a simple figure's catch (its 14th 16th, about
+# 48.3 s): it rolls to the next section's last bar (bar 24, from 0: 23)
+wait 22300
+expect bar 15
+tapkey 1
+wait 50
+said END STUTTER SIMPLE
+expect bar 15
+expect move 3
+expect move_at 23
+# bar 24, early (about 70.0 s): landed, a simple figure
+wait 21560
+expect bar 23
+expect stutter_bar 23
+expect stutter_fig <3
+expect move 3
+wait 2200
+expect bar 23
+expect stuttering 1
+expect move 0
+expect key_blink 0
+# stopped, a press queues one all the same (F#3 blinks); PLAY: the song goes on from the bar it stopped in (bar 24, from
+# 0: 23, its start), a section's last: the stutter lands there again, shown until it catches
 tap PLAY
 wait 300
 expect playing 0
-tapkey 26
-wait 50
-said STUTTER SIMPLE
-expect stutter 1
-expect stutter_blink 400
+tapkey 1
+said END STUTTER SIMPLE
+expect move 3
+expect key_blink 2
 tap PLAY
 wait 1500
 expect playing 1
-expect stutter 1
-# pressed as a finger does (Sam, 2026-11-14: a 16th at the song's tempo, 185 ms here, was shorter than a real tap):
-# let go within the tap window (sthold.h's STH_TAP_MS), each press a tap, the next kind, said; the hold never caught
-# (hold_in < 0: no catch since that press)
-wait 400
-key 26 down
-wait 80
-key 26 up
-wait 50
-said STUTTER COMPLEX
-expect stutter 2
-expect hold -1
-expect hold_in <0
-wait 400
-key 26 down
-wait 150
-key 26 up
-wait 50
-said STUTTER OFF
-expect stutter 0
-expect hold_in <0
-wait 400
-key 26 down
-wait 250
-key 26 up
-wait 50
-said STUTTER SIMPLE
-expect stutter 1
-expect hold_in <0
-# held 400 ms: the hold (STUTTER said once past the window), nothing queued: still the simple one
-wait 400
-key 26 down
-wait 400
-said STUTTER
-key 26 up
-wait 300
-expect stutter 1
-expect hold -1
-# at the FM-1's pace: the keys read only between redraws, about 90 ms apart (uiframe), so a press measures up to a
-# frame longer, or shorter (80 ms: from a frame's middle, seen down for one frame). The same taps; held 600 ms, the hold
-uiframe 90
-wait 45
-key 26 down
-wait 80
-key 26 up
-wait 200
-said STUTTER COMPLEX
-expect stutter 2
-expect hold_in <0
-wait 400
-key 26 down
-wait 150
-key 26 up
-wait 200
-said STUTTER OFF
-expect stutter 0
-expect hold_in <0
-wait 400
-key 26 down
-wait 250
-key 26 up
-wait 200
-said STUTTER SIMPLE
-expect stutter 1
-expect hold_in <0
-wait 400
-key 26 down
-wait 600
-said STUTTER
-expect hold 0
-expect hold_ms >319
-key 26 up
-wait 300
-expect stutter 1
-expect hold -1
-uiframe 0
+expect move 3
+expect bar 23
+expect stutter_bar 23
+expect move_at -1
+# four more presses (COMPLEX, DRUM FILL, COMP FILL, OFF): cancelled
+tapkey 1
+tapkey 1
+tapkey 1
+tapkey 1
+said END OFF
+expect move 0
+expect key_blink 0

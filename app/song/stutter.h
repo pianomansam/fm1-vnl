@@ -12,8 +12,11 @@ enum { STUT_SIMPLE = 1, STUT_COMPLEX = 2 };   /* the kinds (ls->loop.sq: a stutt
 /* 1 where bar (b: its plan block) is the last bar of a group as the screen shows it (8-bar groups from the block's
    start, a 4-bar tail its own) */
 int stutter_group_last(const plan_block_t *b, int bar);
-/* 1 where a stutter queued on demand may land on bar: a group's last bar, not an intro or outro */
-int stutter_lands(const plan_block_t *b, int bar);
+/* 1 where a move at the section's end (a fill or a stutter on demand) may land on bar (b: its plan block, in the
+   plan's array): its section's last bar, never the outro's nor the song's last */
+int move_lands(const plan_block_t *b, int bar);
+/* a figure's catch: the 16th (0-15) of its bar it starts on (vx_stutter_fig's first step) */
+int stutter_catch(int fig);
 /* the figure the song's own draws give bar (b: its plan block, of the song's plan), 0 none */
 int stutter_song(const song_roll_t *r, const lead_state_t *ls, const plan_block_t *b, int bar);
 /* the figure bar will play as the song stands: the one queued (ls->loop.sq) where it lands there, else the song's */

@@ -16,7 +16,7 @@ enum {
     PB_FADE = 8,        /* fade over the block */
     PB_SWELL = 16,      /* a swell before the next block (sound in Plan 3) */
     PB_DROP2 = 32,      /* with PB_DROP_LAST: the drop is the block's last 2 bars (Sam, 2026-11-06) */
-    /* a fill asked for on the Sections screen (song_fill_queue): never in a plan, only on the copy of a block song_tick
+    /* a fill asked for (song_move_queue: Sections K3, F#3): never in a plan, only on the copy of a block song_tick
        hands the drums or the comp on the bar it lands on (the block's last), so nothing else in the song moves */
     PB_FILL_DRUMS = 64, /* the drum fill there (groove_step), even on a drop or without the kick and snare */
     PB_FILL_COMP = 128  /* the comp's fill there from beat 3 (harmony_step: the strum's drive, the keys' run) */

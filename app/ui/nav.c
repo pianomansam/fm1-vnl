@@ -5,7 +5,6 @@
 #include "nav.h"
 #include "values.h"
 #include "choices_gen.h"
-#include "sthold.h"                      /* STH_TAP_MS: G5's tap window, the engine's too */
 
 enum { NAV_MENU_MAX = 10 };
 
@@ -451,14 +450,26 @@ static void act(ui_nav_t *n, int ai, int detents)
     case UA_HOME_SCREEN:                              /* the home: now playing or the main screen (each detent flips) */
         if (n->eng && n->eng->home_screen) say(n, "HOME SCREEN", n->eng->home_screen(detents));
         return;
-    case UA_STUTTER:                                  /* G5 (hold: detents 1 down, 0 up; held past the tap window,
-                                                         said in ui_tick); the engine's hold only while a song plays */
+    case UA_STUTTER:                                  /* held (hold: detents 1 down, 0 up): only while a song plays */
         if (!detents) {
             if (n->eng && n->eng->stutter) n->eng->stutter(0);
         } else if (n->live && n->live->playing) {
             if (n->eng && n->eng->stutter) n->eng->stutter(1);
+            say(n, "STUTTER", "");
         }
         return;
+    case UA_MOVE: {                                   /* F#3: the next move at the section's end (song_move_queue's
+                                                         values): off, simple stutter, complex stutter, drum fill,
+                                                         comp fill, off */
+        static const uint8_t NEXT[5] = {3, 2, 0, 4, 1};
+        int cur = n->mv_sent && n->now - n->mv_at < 300u ? n->mv_sent - 1 : n->live ? n->live->rows[ROW_MOVE] : 0;
+        int next = NEXT[cur >= 0 && cur < 5 ? cur : 0];
+        if (n->eng && n->eng->set) n->eng->set(ROW_MOVE, next);
+        n->mv_sent = (uint8_t)(next + 1);
+        n->mv_at = n->now;
+        say(n, "END", ch_name(ROW_MOVE, next));
+        return;
+    }
     case UA_PLAY:
         say(n, n->live && n->live->playing ? "STOP" : "PLAY", "");
         if (n->eng && n->eng->play) n->eng->play();
@@ -480,19 +491,6 @@ void ui_press(ui_nav_t *n, int control, int detents)
     act(n, ui_control(nav_screen(n), control), detents);
 }
 
-/* G5 tapped (Sam, 2026-11-14): a stutter on demand queued for the next group's last bar, each tap the next kind:
-   simple, complex, none (song_stutter_queue's: 1, 2, 0) */
-static void stutter_tap(ui_nav_t *n)
-{
-    static const char *const KIND[3] = {"OFF", "SIMPLE", "COMPLEX"};
-    int cur = n->stut_sent && n->now - n->stut_at < 300u ? n->stut_sent - 1 : n->live ? n->live->rows[ROW_STUTTER] : 0;
-    int next = cur == 1 ? 2 : cur == 2 ? 0 : 1;
-    if (n->eng && n->eng->set) n->eng->set(ROW_STUTTER, next);
-    n->stut_sent = (uint8_t)(next + 1);
-    n->stut_at = n->now;
-    say(n, "STUTTER", KIND[next]);
-}
-
 /* a control that may be held (slot: a key's number, or UI_KEYS + a button's) down or up: one whose action has a long
    press acts on release when let go soon, or once held its time (ui_tick: its long action); others act as they go
    down */
@@ -502,11 +500,9 @@ static void hold(ui_nav_t *n, int slot, int control, int down, uint32_t ms)
     n->now = ms;
     if (down) {
         ai = ui_control(nav_screen(n), control);
-        if (ai && UI_ACTIONS[ai].kind == UA_STUTTER) {   /* tapped or held, and let go (whatever the screen by
-                                                            then): held_fired once held past the tap window (ui_tick) */
+        if (ai && UI_ACTIONS[ai].kind == UA_STUTTER) {   /* held, and let go (whatever the screen by then) */
             n->held_action[slot] = (uint8_t)ai;
-            n->held_fired[slot] = 0;
-            n->held_t[slot] = ms;
+            n->held_fired[slot] = 1;
             act(n, ai, 1);
             return;
         }
@@ -520,10 +516,8 @@ static void hold(ui_nav_t *n, int slot, int control, int down, uint32_t ms)
     } else {
         ai = n->held_action[slot];
         n->held_action[slot] = 0;
-        if (ai && UI_ACTIONS[ai].kind == UA_STUTTER) {
-            act(n, ai, 0);
-            if (!n->held_fired[slot] && ms - n->held_t[slot] < STH_TAP_MS) stutter_tap(n);   /* let go within it */
-        } else if (ai && !n->held_fired[slot]) act(n, ai, 1);
+        if (ai && UI_ACTIONS[ai].kind == UA_STUTTER) act(n, ai, 0);
+        else if (ai && !n->held_fired[slot]) act(n, ai, 1);
     }
 }
 
@@ -542,40 +536,25 @@ void ui_tick(ui_nav_t *n, uint32_t ms)
     int k;
     n->now = ms;
     for (k = 0; k < UI_HOLDS; k++)
-        if (n->held_action[k] && !n->held_fired[k] && UI_ACTIONS[n->held_action[k]].kind == UA_STUTTER) {
-            if (ms - n->held_t[k] >= STH_TAP_MS) {   /* G5 held past the tap window: the held stutter (the engine's,
-                                                        from its first 16th line past the window) */
-                n->held_fired[k] = 1;
-                if (n->live && n->live->playing) say(n, "STUTTER", "");
-            }
-        } else if (n->held_action[k] && !n->held_fired[k] &&
-                   ms - n->held_t[k] >= (k < UI_KEYS ? UI_LONG_MS : UI_HOLD_MS)) {
+        if (n->held_action[k] && !n->held_fired[k] && ms - n->held_t[k] >= (k < UI_KEYS ? UI_LONG_MS : UI_HOLD_MS)) {
             n->held_fired[k] = 1;
             act(n, UI_ACTIONS[n->held_action[k]].lng, 1);
         }
 }
 
-int ui_stutter_blink(const ui_nav_t *n, const snap_t *s)
-{
-    int k = s ? s->rows[ROW_STUTTER] : 0;
-    if (n->eng && n->eng->stuttering && n->eng->stuttering()) return 0;
-    return k == 1 ? 400 : k == 2 ? 125 : 0;
-}
-
 /* the screen's keyLeds (else the defaults'): lanes, a part's key lit while it plays, blinking soloed; sections, the
-   playing section's key lit, a jump waiting blinking; and on any screen, a stutter's key (G5) lit while the held
-   stutter plays, blinking at its own rate while a stutter on demand waits (ui_stutter_blink) */
+   playing section's key lit, a jump waiting blinking; and on any screen, the move key (F#3) blinking while a move
+   at the section's end waits */
 uint32_t ui_key_lights(const ui_nav_t *n, const snap_t *s, uint32_t *blink)
 {
     const ui_screen_t *sc = nav_screen(n);
     const ui_key_leds_t *k;
     uint32_t on = 0, bl = 0;
     int i, kl = sc->key_leds;
-    *blink = 0;
-    i = ui_stutter_blink(n, s);
-    if ((n->eng && n->eng->stuttering && n->eng->stuttering()) || (i && (n->now / (uint32_t)i) & 1u))
+    if (s && s->rows[ROW_MOVE])
         for (i = 0; i < UI_KEYS; i++)
-            if (UI_ACTIONS[ui_control(sc, UI_CTL_KEY(i))].kind == UA_STUTTER) on |= 1u << i;
+            if (UI_ACTIONS[ui_control(sc, UI_CTL_KEY(i))].kind == UA_MOVE) bl |= 1u << i;
+    *blink = bl;
     if (!kl) return on;
     k = &UI_KEY_LEDS[kl - 1];
     if (k->kind == UI_KL_LANES) {

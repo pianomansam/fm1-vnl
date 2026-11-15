@@ -257,8 +257,7 @@ export function mountDevice(box, { call, C, engine, labels = () => ({}), rows: r
       const s = await call("wb_live_state"), facts = pos.bar > 0 ? await call("wb_screen", pos.bar - 1) : {};
       const rolled = await call("wb_rolled").catch(() => null);   // what the "as rolled" rows play
       const sections = await call("wb_sections", 1).catch(() => []);   // the song's map, as it plays
-      s.stutter = await call("wb_stutter_shown").catch(() => 0);   // a stutter on demand waiting or playing (G5 tapped)
-      s.fill = await call("wb_fill_shown").catch(() => 0);   // a fill on demand waiting or playing (Sections K3)
+      s.move = await call("wb_move_shown").catch(() => 0);   // the move at the section's end waiting (K3, F#3)
       const r = (f) => s.roll[C.RF[f]];
       dev.update({ playing, gap: pos.gap, bar: pos.bar, bars: pos.bars || r("BARS"), seed: s.seed, facts, labels: labels(rolled), rows: rowsOf(rolled, s), sections, activity: activity(), levels: levels(),
                    roll: { key: r("KEY"), tempo: r("TEMPO"), motion: r("MOTION"), mood: r("MOOD"), mode: r("MODE") } });
