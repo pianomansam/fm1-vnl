@@ -6,6 +6,9 @@ ideas that still need a reason.
 
 ## Near-term
 
+- **Accompaniment fills:** every comp instrument plays its own fill at a section's end in the songs themselves (a
+  run, a pickup or a push into the next chord), drawn like the drum fills (today only the guitars have fill
+  figures, and Sections K3 forces a minimal one).
 - **A fade between the two home screens:** HOME cross-fades the now-playing and main screens, as the splash fades in.
 - **Broken-chord piano comp:** a climbing broken chord for the acoustic piano, in place of a strum.
 - **Soft synth lead:** a candidate lead for the synth sets, waiting on a listen.
@@ -26,8 +29,6 @@ ideas that still need a reason.
 - **Sound pages:** ENV opens a part's sound (filter, envelope, effects) on the device.
 - **Organ controls:** drawbars, percussion, key click and rotary speed; then the organ as a lead.
 - **Lead refinements:** color tones on strong beats, contour shapes, a cap on busy passages, two leads in A-B-A.
-- **Accompaniment fills:** every comp instrument plays its own fill at a section's end in the songs themselves (a
-  run, a pickup or a push into the next chord), drawn like the drum fills, not only when Sections K3 forces one.
 - **Comping refinements:** a slow top line in the keys, chord changes that land a little late, cells varied per pass.
 - **Browser device UI:** the FM-1's screens in the browser over USB, replacing the workbench in the long run.
 - **Advanced rules:** a settings page that switches the engine's rules on and off.
