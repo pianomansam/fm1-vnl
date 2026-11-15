@@ -5,7 +5,7 @@ sample libraries. This file lists all of it, with thanks. Each entry names the a
 from and where it lives here. The licenses themselves are summarized at the end and in the README; their texts are in
 `LICENSE` and `LICENSES/`.
 
-VNL-1's own code, and its changes to the files it adapted, are Copyright (C) 2026 pianomansam (`NOTICE`).
+VNL-1's own code, and its changes to the files it adapted, are Copyright (C) 2026 Sam Oltz (`NOTICE`).
 
 ## The platform
 
@@ -13,7 +13,7 @@ VNL-1's own code, and its changes to the files it adapted, are Copyright (C) 202
 | --- | --- | --- | --- |
 | [fm1-base](https://github.com/charlesvestal/fm1-base): the FM-1 platform VNL-1 is an app on (the device layer, the build, the installer, the host simulator, the browser emulator, the screen reader's firmware side, the fonts' packing). Its own credits are in `base/CREDITS.md` and `base/LICENSING.md` | Charles Vestal, with code from Leo Kuroshita, Kerem Kilic and Chris Farrell (permissions in `base/LICENSING.md`) | MPL-2.0 | `base/` (a git submodule, from [pianomansam/fm1-base](https://github.com/pianomansam/fm1-base)'s `vnl-1` branch: fm1-base with VNL-1's theme palettes, font packing and a package fix) |
 | [felucca-bsp](https://github.com/hugelton/felucca-bsp): the FM-1's board support (drivers, loader, rescue), from [Felucca](https://github.com/hugelton/Felucca) | Leo Kuroshita ([@kurogedelic](https://github.com/kurogedelic)), Hügelton Instruments | MPL-2.0 | `base/bsp/` |
-| fm1-base's template: VNL-1 started from it; `app/app.c`, `app/app.h`, `app/words.tsv`, `build.sh` and `tests/run_tests.sh` keep its MPL-2.0 notice and Charles Vestal's copyright (VNL-1's changes: Copyright (C) 2026 pianomansam, MPL-2.0 too) | Charles Vestal | MPL-2.0 (`LICENSES/MPL-2.0.txt`) | those files |
+| fm1-base's template: VNL-1 started from it; `app/app.c`, `app/app.h`, `app/words.tsv`, `build.sh` and `tests/run_tests.sh` keep its MPL-2.0 notice and Charles Vestal's copyright (VNL-1's changes: Copyright (C) 2026 Sam Oltz, MPL-2.0 too) | Charles Vestal | MPL-2.0 (`LICENSES/MPL-2.0.txt`) | those files |
 | The font, packed into the firmware's bitmaps by fm1-base: Barlow Semi Condensed (also the splash's wordmark, `app/ui/font_mark.h`, and the workbench's `workbench/ui/fonts.js`) | Copyright 2017 The Barlow Project Authors | SIL OFL 1.1 (`LICENSES/OFL-1.1-Barlow.txt`) | the firmware image |
 | Terminus, fm1-base's other font set (`base/assets/fonts/`); VNL-1's build packs Barlow only | Copyright (C) 2020 Dimitar Toshkov Zhekov, with Reserved Font Name "Terminus Font" | SIL OFL 1.1 (`LICENSES/OFL-1.1-Terminus.txt`) | not in the firmware |
 | The JieLi AC79 SDK's boot files every FM-1 package carries (`uboot.boot`, `cfg_tool.bin`, `eq_cfg_hw.bin`), read from the SDK at build time | Zhuhai Jieli Technology | Apache-2.0 (`LICENSES/Apache-2.0.txt`) | `vnl-1.fwsc` |
@@ -54,7 +54,7 @@ style, written for VNL-1 (`patterns/`).
 
 Every sample VNL-1 plays comes from a source dedicated to the public domain under
 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). No attribution is required; it is given here with
-thanks. The one exception is Sam's re-amp of the jazz guitar's notes: that recording is Copyright (C) 2026 pianomansam
+thanks. The one exception is Sam's re-amp of the jazz guitar's notes: that recording is Copyright (C) 2026 Sam Oltz
 and GPL-3.0-or-later, as VNL-1's code. `tools/samples/fetch.sh` checks each source's license file against CC0 1.0 on every fetch;
 `tools/samples/manifest.json` lists the exact files, and `tools/samples/pack.py` turns them into the sample bank
 (`app/engine/samples_blob.c`, written to the FM-1 by `tools/fm1_bank.py`) and the jazz guitar's notes into the
@@ -65,7 +65,7 @@ firmware image (`app/engine/samples_pcm.c`).
 | Versilian Community Sample Library (VCSL), Versilian Studios: the Knight upright, sampled by Simon Dalzell (Ivy Audio) | Piano | CC0 1.0 | https://github.com/sgossner/VCSL |
 | FreePats Spanish Classical Guitar (SF2, 2019-06-18), by roberto@zenvoid.org | Nylon guitar | CC0 1.0 | https://freepats.zenvoid.org/Guitar/acoustic-guitar.html |
 | Karoryfer Samples (D. Smolken, Brian Wood): Emilyguitar | Electric guitar | CC0 1.0 | https://github.com/sfzinstruments/karoryfer.emilyguitar |
-| Karoryfer Samples (D. Smolken): Shinyguitar, an archtop's pickup, re-amped by Sam through his amp and cabinet | Jazz guitar | CC0 1.0 (the source); the re-amp recording: GPL-3.0-or-later, Copyright (C) 2026 pianomansam | https://github.com/sfzinstruments/karoryfer.shinyguitar |
+| Karoryfer Samples (D. Smolken): Shinyguitar, an archtop's pickup, re-amped by Sam through his amp and cabinet | Jazz guitar | CC0 1.0 (the source); the re-amp recording: GPL-3.0-or-later, Copyright (C) 2026 Sam Oltz | https://github.com/sfzinstruments/karoryfer.shinyguitar |
 | Karoryfer Samples x Bigcat Instruments: the open-source cello (sustained bowing) | Cello | CC0 1.0 | https://github.com/sfzinstruments/karoryfer-bigcat.cello |
 | Versilian Studios Chamber Orchestra 2 Community Edition (VSCO-2 CE): concert harp | Harp | CC0 1.0 | https://github.com/sgossner/VSCO-2-CE |
 | Karoryfer Samples: Big Rusty Drums, at f07ce00 (sticks and brushes) | The Room - big and Room - brushes kits | CC0 1.0 | https://github.com/sfzinstruments/karoryfer.big-rusty-drums |
@@ -85,7 +85,7 @@ retired Dusty kit; it is not in the sample bank and VNL-1 doesn't play it.
 
 ## Licenses at a glance
 
-- VNL-1's own code: Copyright (C) 2026 pianomansam, GPL-3.0-or-later (`LICENSE`, `NOTICE`). Up to the tag
+- VNL-1's own code: Copyright (C) 2026 Sam Oltz, GPL-3.0-or-later (`LICENSE`, `NOTICE`). Up to the tag
   `mpl-final` it was MPL-2.0.
 - Files from fm1-base and AMB-1: MPL-2.0 (`LICENSES/MPL-2.0.txt`), which allows combining with GPL code.
 - The drum engines and the CPU guard (FOMAJAM, Optimist, Cut-A-Dor's tables): GPL-3.0-only, so the firmware binary

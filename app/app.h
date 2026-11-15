@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MPL-2.0
  * Copyright (C) 2026 Charles Vestal
- * Copyright (C) 2026 pianomansam (VNL-1's changes) */
+ * Copyright (C) 2026 Sam Oltz (VNL-1's changes) */
 /* VNL-1: a generative lo-fi hip hop machine. This header is the app's half of the contract with the platform
  * (device/unity.c, host/plat_host.c); started from fm1-base's template. */
 #pragma once

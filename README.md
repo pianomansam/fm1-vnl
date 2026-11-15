@@ -220,13 +220,13 @@ The toolchain, the budgets, the site and the rule for keeping the docs current a
 
 ## Credits and licenses
 
-VNL-1 is Copyright (C) 2026 pianomansam and GPL-3.0-or-later (`LICENSE`, `NOTICE`); up to the tag `mpl-final` it was
+VNL-1 is Copyright (C) 2026 Sam Oltz and GPL-3.0-or-later (`LICENSE`, `NOTICE`); up to the tag `mpl-final` it was
 MPL-2.0. It is built on [fm1-base](https://github.com/charlesvestal/fm1-base) by Charles Vestal and
 [felucca-bsp](https://github.com/hugelton/felucca-bsp), from [Felucca](https://github.com/hugelton/Felucca) by Leo
 Kuroshita (Hügelton Instruments), both MPL-2.0, which allows combining with GPL code. Files adapted from fm1-base and
 AMB-1 (`app/app.c`, `app/app.h`, `app/words.tsv`, `app/engine/fx.c`, `app/engine/voices.c`, `build.sh`,
 `tests/run_tests.sh`) keep their MPL-2.0 notice and Charles Vestal's copyright (`LICENSES/MPL-2.0.txt`); VNL-1's
-changes to them are Copyright (C) 2026 pianomansam, under the same MPL-2.0.
+changes to them are Copyright (C) 2026 Sam Oltz, under the same MPL-2.0.
 
 The firmware includes GPL-3.0-only code: the drum engines of FOMAJAM and Optimist, Optimist's CPU guard and Cut-A-Dor's
 rhythm tables. So the firmware binary as a whole (and the workbench's wasm) is GPL-3.0-only; VNL-1's own source stays
@@ -238,7 +238,7 @@ GPL-3.0-or-later. The other licenses, each text in `LICENSES/`:
   Terminus font (`LICENSES/OFL-1.1-Terminus.txt`); VNL-1's build doesn't use it.
 - The JieLi AC79 SDK's boot files in the firmware package: Apache-2.0 (`LICENSES/Apache-2.0.txt`). No JieLi library is
   linked into the firmware: VNL-1 builds without Bluetooth.
-- The samples: CC0 1.0, but for the jazz guitar's re-amp recording, which is Copyright (C) 2026 pianomansam and
+- The samples: CC0 1.0, but for the jazz guitar's re-amp recording, which is Copyright (C) 2026 Sam Oltz and
   GPL-3.0-or-later.
 
 Everything borrowed, with its author, license and place in the source, is in [`CREDITS.md`](CREDITS.md); the drum

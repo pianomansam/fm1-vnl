@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MPL-2.0
  * Copyright (C) 2026 Charles Vestal (fm1-base's template, which this started from)
- * Copyright (C) 2026 pianomansam (VNL-1's changes) */
+ * Copyright (C) 2026 Sam Oltz (VNL-1's changes) */
 /* VNL-1 on the platform: generated songs, one after another, with a 2-4 s silence between them.
  *
  * Two contexts. The main loop (app_frame) rolls the next song (roll_song, chained seed) and hands it over through a
