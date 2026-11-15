@@ -83,7 +83,7 @@ Music theory drives VNL-1's decisions, from the key of the next song to the last
 | SAVE | On the Song page, saves the song into the first free slot (SAVED TO 3); held there, or anywhere else, a line of measures for a bug report. |
 | REC | On the Song page, the Saved list: EDIT loads the highlighted song (the next song), SAVE saves into that slot, SAVE held deletes it. A save made while music plays is written to the flash when it stops. |
 | Lowest white keys (F G A B C) | Drums, bass, accompaniment, lead, pad: press to mute, hold to solo. |
-| Top white key (G5) | Tap to queue a stutter for the next group's last bar: once simple, again complex, a third time off; it blinks while one waits (slowly simple, quickly complex). Hold past a 16th to stutter the whole mix: an 8th repeated from the next 16th, faster on each beat (16ths, 32nds, then 64ths) and darker as it tightens; let go and the mix comes back on the next 16th. Lit while it plays; only while a song plays. It overrides the song's stutters and a tapped one (that one waits for the next group's last bar). |
+| Top white key (G5) | Give it a short tap to queue a stutter for the next group's last bar: once simple, again complex, a third time off; it blinks while one waits (slowly simple, quickly complex). Hold it to stutter the whole mix: an 8th repeated from the next 16th, faster on each beat (16ths, 32nds, then 64ths) and darker as it tightens; let go and the mix comes back on the next 16th. Lit while it plays; only while a song plays. It overrides the song's stutters and a tapped one (that one waits for the next group's last bar). |
 
 Every change to the song lands on its next four-bar line, and the screen shows it waiting until then.
 

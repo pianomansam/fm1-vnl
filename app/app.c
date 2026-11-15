@@ -758,6 +758,7 @@ static volatile uint8_t sth_lit;
    catch and each step faster, the live mix back; the steps off a beat line */
 static uint32_t sth_t_down, sth_t_up, sth_t[STH_LEVELS], sth_t_live;
 static int sth_offbeat;
+static uint32_t sth_catch_ms;            /* the last catch: ms from the press reaching the render (expect hold_ms) */
 #endif
 static uint8_t stut_pend;                /* a stutter on demand tapped (G5) while no song played: its kind, queued on
                                             the song's first 16th that plays */
@@ -770,7 +771,10 @@ static void stutter_hold_step(int bar, int st)
     }
     sth_lit = sth.on;
 #ifdef PLAT_HOST
-    if (r & STH_CATCH) sth_t[0] = r_tick;
+    if (r & STH_CATCH) {
+        sth_t[0] = r_tick;
+        sth_catch_ms = (r_pos - sth.t_down) * 10u / 441u;
+    }
     if (r & STH_STEP) {
         sth_t[sth.level] = r_tick;
         sth_offbeat += st % 4 != 0;
@@ -947,8 +951,8 @@ static void command(uint32_t c)
             else
                 mb_full = 0;             /* the one ready dropped: the main loop rolls the next */
         }                                /* (in the gap or waiting: a new song is already coming) */
-    } else if (op == C_STUT) {           /* G5: down while the song plays (the hold from the 16th line a 16th on: a
-                                            shorter press is a tap, the navigator's queue), or up */
+    } else if (op == C_STUT) {           /* G5: down while the song plays (the hold from the first 16th line past the
+                                            tap window: a shorter press is a tap, the navigator's queue), or up */
         if (!b || (rs == RS_SONG && song.state == SS_PLAYING))
             sthold_key(&sth, b, r_now);
 #ifdef PLAT_HOST
@@ -2416,6 +2420,10 @@ static snap_t ui_hsnap;
 static int16_t ui_hrow[ROW_N];
 static uint8_t ui_hrow_set[ROW_N];
 static uint32_t ui_hkeys;                /* the keys down, as last read */
+#if defined(PLAT_HOST) && !defined(PLAT_WEB)
+static uint32_t ui_hframe, ui_hframe_at; /* uiframe MS: the controls read MS ms apart at most (0: every ms), as the
+                                            FM-1 reads them only between redraws (up to about 90 ms each) */
+#endif
 static unsigned ui_hmute;                /* the engine's listening: the parts muted (bit UI_PART_*), soloed */
 static int ui_hsolo = -1;
 static int8_t ui_hlevel[VX_PART_N];      /* the mixer's levels, dB (the render's, as last asked) */
@@ -2703,6 +2711,12 @@ static void ui_host_input(uint32_t btn)
 {
     uint32_t keys = plat_keys(), now = plat_ms(), blink, on;
     int b, e, k, save_free;
+#if defined(PLAT_HOST) && !defined(PLAT_WEB)
+    if (ui_hframe) {                     /* (uiframe) a redraw under way: the controls wait for the next frame */
+        if (now - ui_hframe_at < ui_hframe) return;
+        ui_hframe_at = now;
+    }
+#endif
     ui_host_snap();
     save_free = !ui_control(&UI_SCREENS[ui_shown_id()], UI_CTL_BUTTON(B_SAVE));   /* (the screen it was pressed on) */
     for (b = 0; b < NB; b++)             /* down and up: a button whose action has a long press (SEQ on a part's
@@ -3489,6 +3503,8 @@ int app_expect(const char *what, int *got)
         *got = sth.on ? sth.level : -1;
     else if (!strcmp(what, "hold_in"))   /* 16ths from the press reaching the render to the catch (0: the next) */
         *got = (int)(sth_t[0] - sth_t_down);
+    else if (!strcmp(what, "hold_ms"))   /* ms from the press reaching the render to the catch (the last hold's) */
+        *got = (int)sth_catch_ms;
     else if (!strcmp(what, "hold_out"))   /* and from the release to the live mix back */
         *got = (int)(sth_t_live - sth_t_up);
     else if (!strcmp(what, "hold_1") || !strcmp(what, "hold_2") || !strcmp(what, "hold_3")) {   /* 16ths from the
@@ -3577,6 +3593,8 @@ int app_expect(const char *what, int *got)
  *   remote on | remote off | remote HEX   a SysEx message from the browser (HEX: the bytes between F0 and F7)
  *   remote_sent HEX...                    each message (F0 .. F7) was sent since the last remote_sent / remote_none
  *   remote_none                           nothing was sent since then
+ *   uiframe MS                            the UI runtime reads the controls MS ms apart (0: every ms, the default):
+ *                                         the FM-1's frames, a redraw each (tests/scenarios/stutter.vnl's tap lengths)
  * and for the transport (tests/scenarios/stop.vnl):
  *   remember                              the song playing and its bar, for "expect same_song" and "bars_on", and
  *                                         its rows, for "expect same_<part>" and "parts_moved" (tests/scenarios/locks.vnl) */
@@ -3584,6 +3602,11 @@ static int rm_fails;
 int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, const char *d)
 {
     (void)c, (void)d;
+    if (!strcmp(cmd, "uiframe")) {
+        ui_hframe = (uint32_t)atoi(a);
+        ui_hframe_at = plat_ms();
+        return 1;
+    }
     if (!strcmp(cmd, "uiscreen")) {     /* uiscreen ID: the UI runtime shows that screen (workbench/ui/screens.js's id) */
         int i;
         uint8_t home = ui_hnav.home;     /* (Settings' HOME SCREEN as it is) */

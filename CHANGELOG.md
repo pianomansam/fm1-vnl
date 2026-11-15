@@ -10,14 +10,14 @@
   without it, at the same rate a song (about one simple, about every other song one complex). Never in an intro, an
   ending or a break, nor before the song has found its feet: the lead's first 8 bars, or the first 8 bars of the
   first section without it.
-- **A stutter on demand:** tap G5, the top white key, on any screen to queue a stutter for the next group's last
+- **A stutter on demand:** give G5, the top white key, a short tap on any screen to queue a stutter for the next group's last
   bar: once for a simple one, again for a complex one, a third time to cancel (the screen reader says STUTTER
   SIMPLE, STUTTER COMPLEX or STUTTER OFF). G5 blinks while it waits, slowly for a simple one, quickly for a complex
   one, and goes dark once it has played. It skips intros and endings, plays even where the song's own wouldn't, and
   takes the place of the song's own on that bar. A tap while stopped queues one for when the song plays. Like Loop
   and Stay on song, it isn't saved with the song.
-- **Hold G5 to stutter:** the top white key, held past a 16th on any screen while a song plays, catches an 8th of
-  the whole mix on the next 16th and repeats it, faster on each beat (16ths, 32nds, then 64ths), a low-pass closing a
+- **Hold G5 to stutter:** hold the top white key on any screen while a song plays and it catches an 8th of the
+  whole mix on the next 16th and repeats it, faster on each beat (16ths, 32nds, then 64ths), a low-pass closing a
   little at each step; let go and the mix comes back on the next 16th. G5 is lit while it plays and the screen reader
   says STUTTER. It overrides the song's stutters: one whose bar the hold touches is skipped, and a tapped one that
   the hold keeps from playing waits for the next group's last bar. A hold leaves a tapped one queued. Songs are

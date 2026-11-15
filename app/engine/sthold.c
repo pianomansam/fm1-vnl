@@ -68,9 +68,9 @@ int sthold_song(sthold_t *h, song_t *s, int bar, int st, uint32_t pos)
         memset(h, 0, sizeof *h);
         kind = 0;
     }
-    /* held: past a 16th from the press (a tap, shorter, never catches: it queues one instead), or holding on */
-    r = sthold_run(h, h->down && (h->on || (float)(uint32_t)(pos - h->t_down) + 0.5f >= song_step_samples(s)), st,
-                   song_step_samples(s));
+    /* held: the tap window (and its margin) past the press (a tap, shorter, never catches: it queues one instead), or
+       holding on */
+    r = sthold_run(h, h->down && (h->on || (uint32_t)(pos - h->t_down) >= STH_TAP_SAMPLES), st, song_step_samples(s));
     if (kind && st == 0) {                        /* the bar after one kept from its catch: queued again (unless
                                                      another was queued since: the newer stands) */
         h->requeue = 0;

@@ -223,11 +223,11 @@ export default {
     KEY4: { do: "mute", part: "keys", long: { do: "solo", part: "keys" } },
     KEY6: { do: "mute", part: "lead", long: { do: "solo", part: "lead" } },
     KEY7: { do: "mute", part: "pad", long: { do: "solo", part: "pad" } },
-    // the top white key (G5), on every screen (Sam, 2026-11-14): tapped (let go within a 16th), a stutter on demand
-    // queued for the next group's last bar, each tap the next kind: SIMPLE, COMPLEX, OFF; it blinks while one waits,
-    // slowly for simple, quickly for complex (a tap while stopped waits for the song). Held past a 16th: from the next
-    // 16th the whole mix stutters, an 8th repeated, faster each beat to 64ths, darker as it tightens; let go, live on
-    // the next 16th (engine/sthold.c). Lit while that plays
+    // the top white key (G5), on every screen (Sam, 2026-11-14): tapped (let go within the tap window, sthold.h's
+    // STH_TAP_MS), a stutter on demand queued for the next group's last bar, each tap the next kind: SIMPLE, COMPLEX,
+    // OFF; it blinks while one waits, slowly for simple, quickly for complex (a tap while stopped waits for the song).
+    // Held past the window: from the next 16th the whole mix stutters, an 8th repeated, faster each beat to 64ths,
+    // darker as it tightens; let go, live on the next 16th (engine/sthold.c). Lit while that plays
     KEY26: { do: "stutter" },
   },
   // the keys' lights on every screen but one with its own (Sections): a part's key lit while it plays, blinking soloed

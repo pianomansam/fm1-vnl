@@ -520,6 +520,7 @@ export const ENCODERS = ["SELECT", "ALGO", "PRESET"];
 export const KNOBS = ["K1", "K2", "K3", "K4"];
 export const LONG_MS = 500;   // a long press (a key)
 export const HOLD_MS = 600;   // a button held (SEQ on a part's screen: its lock; nav.h's UI_HOLD_MS)
+export const TAP_MS = 300;   // G5's tap window: let go within it, a tap; held past it, the hold (sthold.h's STH_TAP_MS)
 const holdMs = (control) => (control.startsWith("KEY") ? LONG_MS : HOLD_MS);
 
 // A control's action on a screen (the screen's own, else the defaults'; null: none)
@@ -748,7 +749,7 @@ export class Device {
     this.splashAt = undefined;
     const a = actionOf(this.data, this.id, control);
     if (a?.do === "stutter") {   // tapped or held, and let go (whatever the screen by then: nav.c's hold); fired once
-      this.held[control] = { t: this.now(), fired: false, a };   // held past a 16th (tick)
+      this.held[control] = { t: this.now(), fired: false, a };   // held past the tap window (tick)
       return this.press(control, 1, a);
     }
     if (!a?.long) return this.press(control);
@@ -760,7 +761,7 @@ export class Device {
     delete this.held[control];
     if (h?.a.do === "stutter") {
       const r = this.press(control, 0, h.a);
-      if (!h.fired && this.now() - h.t < this.s16()) this.stutterTap();   // let go within a 16th: a tap
+      if (!h.fired && this.now() - h.t < TAP_MS) this.stutterTap();   // let go within the tap window: a tap
       return r;
     }
     return h && !h.fired ? this.press(control, 1, h.a) : null;
@@ -824,8 +825,6 @@ export class Device {
     const k = this.live?.rows?.values?.stutter ?? 0;
     return this.stutterOn && this.live?.playing ? 0 : k === 1 ? 400 : k === 2 ? 125 : 0;
   }
-  // a 16th of the song's tempo, ms (80 BPM with none): a G5 press let go sooner is a tap
-  s16() { return Math.floor(15000 / (this.live?.roll?.tempo > 0 ? this.live.roll.tempo : 80)); }
   // G5 tapped: a stutter on demand for the next group's last bar, each tap the next kind: SIMPLE, COMPLEX, OFF
   stutterTap() {
     const now = this.now(), cur = this.stutSent && now - this.stutSent.t < 300 ? this.stutSent.k : this.live?.rows?.values?.stutter ?? 0;
@@ -834,11 +833,11 @@ export class Device {
     this.engine.set("stutter", next);
     this.say("STUTTER", ["OFF", "SIMPLE", "COMPLEX"][next]);
   }
-  tick() {   // a held key past LONG_MS (a button HOLD_MS): its long action, once; G5 past a 16th: the held stutter
+  tick() {   // a held key past LONG_MS (a button HOLD_MS): its long action, once; G5 past the tap window: the hold
     for (const [c, h] of Object.entries(this.held)) {
       if (h.fired) continue;
       if (h.a.do === "stutter") {
-        if (this.now() - h.t >= this.s16()) {
+        if (this.now() - h.t >= TAP_MS) {
           h.fired = true;
           if (this.live?.playing) { this.stutterOn = true; this.say("STUTTER"); }
         }
@@ -942,7 +941,7 @@ export class Device {
     if (a.do === "readout") { this.engine.readout?.(); return null; }   // the device's measures (SAVE held: Song)
     if (a.do === "stutter") {   // G5 held (detents 1 down, 0 up): the whole mix stutters, only while a song plays
       if (!detents) { this.engine.stutterHold?.(false); this.stutterOn = false; }
-      else if (this.live?.playing) this.engine.stutterHold?.(true);   // (the engine's hold from a 16th on: tick)
+      else if (this.live?.playing) this.engine.stutterHold?.(true);   // (the engine's hold from the window on: tick)
       return null;
     }
     if (a.do === "setting") {   // the highlighted line's action (Settings: a knob changes the line's value)

@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# G5 held past a 16th: the whole mix stutters (engine/sthold.c). The first song is at 81 BPM (a 16th 185 ms, a beat
-# 741 ms, a bar 2963 ms). Held for about 2 bars: the catch on the first 16th line a 16th or more after the press (the
-# 2nd 16th line at most), an 8th repeated, then a step faster on each beat line
-# (16th, 32nd, 64th, where it stays), G5 lit meanwhile; let go, live on the next 16th. A stutter on demand (G5
+# G5 held past the tap window (sthold.h's STH_TAP_MS, 300 ms, and the engine's 20 ms margin): the whole mix stutters
+# (engine/sthold.c). The first song is at 81 BPM (a 16th 185 ms, a beat 741 ms, a bar 2963 ms). Held for about 2 bars:
+# "STUTTER" said once past the window, the catch on the first 16th line 320 ms or more after the press (hold_ms, under
+# 320 ms and a 16th), an 8th repeated, then a step faster on each beat line (16th, 32nd, 64th, where it stays), G5 lit
+# meanwhile; let go, live on the next 16th. A stutter on demand (G5
 # tapped twice: a complex one, queued in the intro: tests/scenarios/stutter.vnl's song, its first landing bar 16, from 0: 15) that a hold keeps
 # from its catch waits for the next group's last bar (bar 24, from 0: 23). Stopped, G5 held does nothing.
 listen
@@ -16,16 +17,19 @@ wait 1
 said STUTTER COMPLEX
 expect stutter 2
 key 26 down
-wait 30
+wait 280
 said_none
-wait 420
+expect hold -1
+wait 270
 said STUTTER
 expect hold 0
 expect hold_in >0
 expect hold_in <3
+expect hold_ms >319
+expect hold_ms <506
 expect key_lit >67108863
 # the 8th's first step on the first beat line once it has repeated whole (4-7 16ths), then a beat each
-wait 5830
+wait 5730
 expect hold 3
 expect hold_1 >3
 expect hold_1 <8

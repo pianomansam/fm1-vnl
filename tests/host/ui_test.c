@@ -492,24 +492,28 @@ static void test_kit_pick(void)
     CHECK(room_br > 0, "no sunny song in 300 picked Room - brushes");
 }
 
-/* G5 (key 26) held past a 16th: the stutter on while down (the engine told at once; it waits the 16th itself), off
-   when let go (on whatever screen by then); said once held; lit while the engine says it plays. Tapped (let go within
-   a 16th): each tap the next stutter on demand (set ROW_STUTTER: 1 simple, 2 complex, 0 none), said; G5 blinks while
+/* G5 (key 26) held past the tap window (STH_TAP_MS): the stutter on while down (the engine told at once; it times
+   the window itself), off when let go (on whatever screen by then); said once held; lit while the engine says it
+   plays. Tapped (let go within the window: 80, 150 and 250 ms presses, read a 90 ms frame apart as the FM-1 reads its
+   keys): each tap the next stutter on demand (set ROW_STUTTER: 1 simple, 2 complex, 0 none), said; G5 blinks while
    one waits, slowly for simple, quickly for complex. Stopped, a tap queues too (the engine's hold isn't told) */
 static void test_nav_stutter(void)
 {
     ui_nav_t n;
     snap_t s;
-    uint32_t on, blink, t;
+    static const uint32_t DOWN[3] = {3000, 3100, 3260}, LEN[3] = {80, 150, 250};
+    uint32_t on, blink, t, f;
     char want[96];
     nav_fresh(&n, &s, 2);
     eng_stut = 0;
     n.said[0] = 0;
     ui_key(&n, 26, 1, 1000);
     CHECK(!strcmp(eng_log, "stutter 1 0") && !n.said[0], "G5 down: %s, said %s", eng_log, n.said);
-    ui_tick(&n, 1000 + 15000u / (uint32_t)s.roll.v[RF_TEMPO] - 5u);
-    CHECK(!n.said[0], "not yet a 16th: undecided (said %s)", n.said);
-    ui_tick(&n, 2000);                         /* held past a 16th: the held stutter, said */
+    ui_tick(&n, 1000 + 15000u / (uint32_t)s.roll.v[RF_TEMPO] + 5u);
+    CHECK(!n.said[0], "past a 16th (the old threshold), within the window: undecided (said %s)", n.said);
+    ui_tick(&n, 1000 + STH_TAP_MS - 5u);
+    CHECK(!n.said[0], "not yet the window: undecided (said %s)", n.said);
+    ui_tick(&n, 2000);                         /* held past the window: the held stutter, said */
     CHECK(!strcmp(n.said, "STUTTER"), "G5 held: said %s", n.said);
     on = ui_key_lights(&n, &s, &blink);
     CHECK(!(on >> 26 & 1u), "G5 dark until the engine's stutter plays (%x)", on);
@@ -527,9 +531,9 @@ static void test_nav_stutter(void)
     for (t = 0; t < 3; t++) {                  /* three taps: simple, complex, none */
         static const char *const SAID[3] = {"STUTTER SIMPLE", "STUTTER COMPLEX", "STUTTER OFF"};
         eng_log[0] = 0;
-        ui_key(&n, 26, 1, 3000 + 100 * t);
-        ui_tick(&n, 3000 + 100 * t + 40);
-        ui_key(&n, 26, 0, 3000 + 100 * t + 60);
+        ui_key(&n, 26, 1, DOWN[t]);
+        for (f = 90; f < LEN[t]; f += 90) ui_tick(&n, DOWN[t] + f);   /* the frames while it's down */
+        ui_key(&n, 26, 0, DOWN[t] + LEN[t]);
         snprintf(want, sizeof want, "stutter 1 0; stutter 0 0; set %d %d", ROW_STUTTER, (int)(t + 1) % 3);
         CHECK(!strcmp(eng_log, want) && !strcmp(n.said, SAID[t]), "G5 tap %u: %s, said %s", t + 1, eng_log, n.said);
     }

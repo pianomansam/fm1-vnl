@@ -5,6 +5,7 @@
 #include "nav.h"
 #include "values.h"
 #include "choices_gen.h"
+#include "sthold.h"                      /* STH_TAP_MS: G5's tap window, the engine's too */
 
 enum { NAV_MENU_MAX = 10 };
 
@@ -450,8 +451,8 @@ static void act(ui_nav_t *n, int ai, int detents)
     case UA_HOME_SCREEN:                              /* the home: now playing or the main screen (each detent flips) */
         if (n->eng && n->eng->home_screen) say(n, "HOME SCREEN", n->eng->home_screen(detents));
         return;
-    case UA_STUTTER:                                  /* G5 (hold: detents 1 down, 0 up; held past a 16th, said in
-                                                         ui_tick); the engine's hold only while a song plays */
+    case UA_STUTTER:                                  /* G5 (hold: detents 1 down, 0 up; held past the tap window,
+                                                         said in ui_tick); the engine's hold only while a song plays */
         if (!detents) {
             if (n->eng && n->eng->stutter) n->eng->stutter(0);
         } else if (n->live && n->live->playing) {
@@ -479,13 +480,6 @@ void ui_press(ui_nav_t *n, int control, int detents)
     act(n, ui_control(nav_screen(n), control), detents);
 }
 
-/* a 16th of the song's tempo, ms (80 BPM with none): a G5 press let go sooner is a tap */
-static uint32_t s16_ms(const ui_nav_t *n)
-{
-    int t = n->live ? n->live->roll.v[RF_TEMPO] : 0;
-    return 15000u / (uint32_t)(t > 0 ? t : 80);
-}
-
 /* G5 tapped (Sam, 2026-11-14): a stutter on demand queued for the next group's last bar, each tap the next kind:
    simple, complex, none (song_stutter_queue's: 1, 2, 0) */
 static void stutter_tap(ui_nav_t *n)
@@ -509,7 +503,7 @@ static void hold(ui_nav_t *n, int slot, int control, int down, uint32_t ms)
     if (down) {
         ai = ui_control(nav_screen(n), control);
         if (ai && UI_ACTIONS[ai].kind == UA_STUTTER) {   /* tapped or held, and let go (whatever the screen by
-                                                            then): held_fired once held past a 16th (ui_tick) */
+                                                            then): held_fired once held past the tap window (ui_tick) */
             n->held_action[slot] = (uint8_t)ai;
             n->held_fired[slot] = 0;
             n->held_t[slot] = ms;
@@ -528,7 +522,7 @@ static void hold(ui_nav_t *n, int slot, int control, int down, uint32_t ms)
         n->held_action[slot] = 0;
         if (ai && UI_ACTIONS[ai].kind == UA_STUTTER) {
             act(n, ai, 0);
-            if (!n->held_fired[slot] && ms - n->held_t[slot] < s16_ms(n)) stutter_tap(n);
+            if (!n->held_fired[slot] && ms - n->held_t[slot] < STH_TAP_MS) stutter_tap(n);   /* let go within it */
         } else if (ai && !n->held_fired[slot]) act(n, ai, 1);
     }
 }
@@ -549,8 +543,8 @@ void ui_tick(ui_nav_t *n, uint32_t ms)
     n->now = ms;
     for (k = 0; k < UI_HOLDS; k++)
         if (n->held_action[k] && !n->held_fired[k] && UI_ACTIONS[n->held_action[k]].kind == UA_STUTTER) {
-            if (ms - n->held_t[k] >= s16_ms(n)) {   /* G5 held past a 16th: the held stutter (the engine's, from its
-                                                       next 16th line) */
+            if (ms - n->held_t[k] >= STH_TAP_MS) {   /* G5 held past the tap window: the held stutter (the engine's,
+                                                        from its first 16th line past the window) */
                 n->held_fired[k] = 1;
                 if (n->live && n->live->playing) say(n, "STUTTER", "");
             }

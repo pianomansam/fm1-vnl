@@ -1597,3 +1597,15 @@ past a 16th is the held stutter, from the next 16th line (`sthold.c` times the p
 - CPU (host, song_tick alone, seeds 2-300, best of 5 plays, a fill queued at the start of each): the fill bar's
   ticks at most 5 us (drums) and 4 us (comp), means 0.6-0.7 us, against a worst tick elsewhere of 12-13 us; the
   voices render the fill's few extra notes like any others.
+
+## G5's tap window: a fixed 300 ms, not a 16th (2026-11-14)
+
+A real tap on G5 fired the hold: the tap/hold line was a 16th at the song's tempo (168 ms at 89 BPM), and the FM-1
+reads its keys only between redraws (up to 93 ms each, `tools/fm1_state.py`), so a 100-150 ms tap measured two frames
+or more. Now one fixed window, `sthold.h`'s `STH_TAP_MS` (300 ms, a calibration knob), for the navigator and the
+engine; the engine catches on the first 16th line 320 ms or more after the press (a 20 ms margin, so a press the
+navigator calls a tap never catches). No new state; the tempo lookup in `nav.c` goes.
+
+- Flash: image 406,972 to **406,876 B (-96)** (`tools/mem-check.sh`, against ffb1cb6); RAM .data+.bss 79,692 B and
+  the pool 305,220 B unchanged.
+- CPU: none to speak of (a constant compare where a tempo division and a float compare were).

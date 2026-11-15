@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# A stutter on demand: G5 tapped (let go within a 16th), on any screen. Each tap the next kind: a simple one, a complex
-# one, none; G5 blinks while one waits, slowly for a simple one (400 ms), quickly for a complex one (125 ms). It plays
-# on the next group's last bar that isn't an intro's or an outro's, then G5 goes dark. The first song is 56 bars at
-# 81 BPM (2963 ms a bar): an 8-bar intro, four 8-bar grooves (no lead), two lead blocks. Queued in the intro's second
-# bar, it waits out the intro and lands on the first groove's last bar (bar 16, from 0: 15), a bar the song's own
-# stutters skip (its first pass without the lead).
+# A stutter on demand: G5 tapped (let go within the tap window), on any screen. Each tap the next kind: a simple one,
+# a complex one, none; G5 blinks while one waits, slowly for a simple one (400 ms), quickly for a complex one
+# (125 ms). It plays on the next group's last bar that isn't an intro's or an outro's, then G5 goes dark. The first
+# song is 56 bars at 81 BPM (2963 ms a bar): an 8-bar intro, four 8-bar grooves (no lead), two lead blocks. Queued in
+# the intro's second bar, it waits out the intro and lands on the first groove's last bar (bar 16, from 0: 15), a bar
+# the song's own stutters skip (its first pass without the lead).
 listen
 wait 1400
 tap PLAY
@@ -77,3 +77,78 @@ tap PLAY
 wait 1500
 expect playing 1
 expect stutter 1
+# pressed as a finger does (Sam, 2026-11-14: a 16th at the song's tempo, 185 ms here, was shorter than a real tap):
+# let go within the tap window (sthold.h's STH_TAP_MS), each press a tap, the next kind, said; the hold never caught
+# (hold_in < 0: no catch since that press)
+wait 400
+key 26 down
+wait 80
+key 26 up
+wait 50
+said STUTTER COMPLEX
+expect stutter 2
+expect hold -1
+expect hold_in <0
+wait 400
+key 26 down
+wait 150
+key 26 up
+wait 50
+said STUTTER OFF
+expect stutter 0
+expect hold_in <0
+wait 400
+key 26 down
+wait 250
+key 26 up
+wait 50
+said STUTTER SIMPLE
+expect stutter 1
+expect hold_in <0
+# held 400 ms: the hold (STUTTER said once past the window), nothing queued: still the simple one
+wait 400
+key 26 down
+wait 400
+said STUTTER
+key 26 up
+wait 300
+expect stutter 1
+expect hold -1
+# at the FM-1's pace: the keys read only between redraws, about 90 ms apart (uiframe), so a press measures up to a
+# frame longer, or shorter (80 ms: from a frame's middle, seen down for one frame). The same taps; held 600 ms, the hold
+uiframe 90
+wait 45
+key 26 down
+wait 80
+key 26 up
+wait 200
+said STUTTER COMPLEX
+expect stutter 2
+expect hold_in <0
+wait 400
+key 26 down
+wait 150
+key 26 up
+wait 200
+said STUTTER OFF
+expect stutter 0
+expect hold_in <0
+wait 400
+key 26 down
+wait 250
+key 26 up
+wait 200
+said STUTTER SIMPLE
+expect stutter 1
+expect hold_in <0
+wait 400
+key 26 down
+wait 600
+said STUTTER
+expect hold 0
+expect hold_ms >319
+key 26 up
+wait 300
+expect stutter 1
+expect hold -1
+uiframe 0

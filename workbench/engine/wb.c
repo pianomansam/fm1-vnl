@@ -347,7 +347,8 @@ EXPORT void wb_solo(int role)
     listen();
 }
 
-/* G5 held (1) or let go (0): the held stutter, from the next 16th (a press only while playing) */
+/* G5 held (1) or let go (0): the held stutter, from the first 16th line past the tap window (a press only while
+   playing) */
 EXPORT void wb_stutter_hold(int on)
 {
     if (!on || (playing && !in_gap))
