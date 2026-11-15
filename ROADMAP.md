@@ -11,6 +11,7 @@ ideas that still need a reason.
 - **Soft synth lead:** a candidate lead for the synth sets, waiting on a listen.
 - **More song shapes:** layouts beyond today's five (Classic, Slow bloom, Straight in, Breather, Drift), so songs
   vary more in where the lead, breaks, drops and endings fall.
+- **A battery meter:** the battery's charge in the status bar (and on Settings), a plug while USB powers the FM-1.
 - **Settings screen:** reduced motion, the screen reader, key lights and brightness.
 - **Device checks:** confirm the CPU guard's voice rungs and the per-stage CPU meter on the FM-1 itself.
 
