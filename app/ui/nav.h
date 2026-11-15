@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The screens' navigator: the mock's Device (workbench/ui/device.js) in C. The screen stack, the cursors and pages,
    the controls' actions, the changes waiting for their 4-bar boundary (marked at once), a part's re-roll and a
-   section jump waiting, the keys (a press mutes, a long press solos; G5 held stutters) and their lights, the header's message and what
+   section jump waiting, the keys (a press mutes, a long press solos; G5 tapped queues a stutter, held stutters) and
+   their lights, the header's message and what
    the screen reader says. What the mock asks of the workbench's engine it asks of ui_engine_t (app.c: the song's
    requests, the voices' mute, solo and levels). The value bag (values.h) reads its state. */
 #ifndef UI_NAV_H
@@ -46,7 +47,8 @@ typedef struct {
     /* the home (Settings' HOME SCREEN): an odd number of detents flips it between now playing and the main screen
        (0: as it is); "SIMPLE" or "DETAILED" */
     const char *(*home_screen)(int detents);
-    /* the held stutter (G5): the key down (1) or up (0); whether it plays now (G5's light) */
+    /* G5: the key down (1) or up (0), the held stutter's (a tap's queue goes to set: ROW_STUTTER); whether the held
+       stutter plays now (G5's light) */
     void (*stutter)(int on);
     int (*stuttering)(void);
 } ui_engine_t;
@@ -87,6 +89,9 @@ typedef struct {
     char said[UI_SAID];                  /* what the screen reader was last given */
     uint32_t seed;                       /* the song last seen (a new one: home, nothing waits) */
     uint8_t seen;
+    uint8_t stut_sent;                   /* the stutter kind a G5 tap last queued + 1 (0: none), and when: read for the
+                                            next tap until the snapshot has it */
+    uint32_t stut_at;
     const snap_t *live;                  /* the snapshot last seen (ui_update) */
     const ui_slot_t *slots;              /* the saved songs' slots (UI_SLOTS; NULL: none) */
     const ui_engine_t *eng;
@@ -106,6 +111,9 @@ void ui_tick(ui_nav_t *n, uint32_t ms);                   /* a key held past UI_
 void ui_new_song(ui_nav_t *n);                            /* back to the main screen */
 /* the keys lit (the return) and blinking (*blink), bit k key k, on the screen shown */
 uint32_t ui_key_lights(const ui_nav_t *n, const snap_t *s, uint32_t *blink);
+/* G5's blink while a stutter on demand waits: its half period, ms (slow for a simple one, quick for a complex one),
+   0 none (or the held stutter playing: lit) */
+int ui_stutter_blink(const ui_nav_t *n, const snap_t *s);
 void ui_speak(ui_nav_t *n);                               /* the screen's say, into said */
 int ui_list_off(ui_nav_t *n);                             /* the list's first line shown (it follows the highlight) */
 

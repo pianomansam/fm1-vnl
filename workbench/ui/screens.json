@@ -196,6 +196,12 @@
    "row": "endless",
    "wrap": 2
   },
+  "fill": {
+   "name": "FILL",
+   "now": true,
+   "options": true,
+   "row": "fill"
+  },
   "key": {
    "format": "key",
    "name": "KEY",
@@ -296,12 +302,6 @@
    "name": "SWING",
    "options": true,
    "row": "swing"
-  },
-  "stutter": {
-   "name": "STUTTER",
-   "now": true,
-   "options": true,
-   "row": "stutter"
   },
   "tempo": {
    "max": 90,
@@ -6687,7 +6687,7 @@
      "step": 1
     },
     {
-     "field": "stutter",
+     "field": "fill",
      "step": 1
     }
    ],

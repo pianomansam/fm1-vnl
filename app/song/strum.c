@@ -107,6 +107,12 @@ static char hit_at(const char *p, int bar, int step)
     return p[(p[16] ? bar & 1 : 0) * 16 + step];          /* a bar, or two (the bossa) */
 }
 
+/* the bar's stroke at step: from beat 3 the drive figure dr where a fill was asked for (Sections K3), else the bar's */
+static char stroke_at(const char *ps, const char *dr, int bar, int step)
+{
+    return dr && step >= 8 ? dr[step] : hit_at(ps, bar, step);
+}
+
 /* ------------------------------------------------------------------------------------------------- the voicer */
 static const int TUNE[6] = {40, 45, 50, 55, 59, 64};   /* E2 A2 D3 G3 B3 E4 */
 enum {
@@ -349,7 +355,7 @@ static int bass_twin(const song_roll_t *r, const plan_block_t *b, int bar, const
 int strum_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, float step_samples, const int shape[6],
                song_ev_t *out, int max)
 {
-    const char *ps;
+    const char *ps, *dr;
     int slow, pat, fill, lo = 0, dir = 1, vel, mute = 0, thumb = 0, pinch = 0, i, k, n = 0, dark, next, low = -1, tw;
     char c;
     float gap, fac = 1.0f, span;
@@ -358,12 +364,16 @@ int strum_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, f
     pat = strum_pattern(r, &slow);
     fill = bar == b->start + b->bars - 1 && (b->flags & PB_FILL_LAST) && !(b->flags & PB_DROP_LAST);
     ps = fill ? fill_figure(r, pat) : STRUM_PAT[pat];
-    c = hit_at(ps, bar, step);
+    /* a fill asked for (PB_FILL_COMP, the block's last bar): its second half the drive figure's, pushing into the
+       change (the bossa its thumb-and-pinch one) */
+    dr = (b->flags & PB_FILL_COMP) && bar == b->start + b->bars - 1 ? STRUM_FILL_DRIVE[pat == SP_BOSSA] : 0;
+    c = stroke_at(ps, dr, bar, step);
     tw = bass_twin(r, b, bar, ps);                      /* (-1 none) */
+    if (dr && tw >= 8) tw = -1;
     if (c == '.' && step == tw) c = 'u';
     if (c == '.') return 0;
-    for (next = step + 1; next < 16 && next != tw && hit_at(ps, bar, next) == '.'; next++) {}   /* the next stroke (a
-                                                                                    bar's step 0 always strikes) */
+    for (next = step + 1; next < 16 && next != tw && stroke_at(ps, dr, bar, next) == '.'; next++) {}   /* the next
+                                                                         stroke (a bar's step 0 always strikes) */
     span = (float)(next - step) * step_samples;
     switch (c) {
     case 'D': vel = 76; break;

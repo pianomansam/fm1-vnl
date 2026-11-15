@@ -747,8 +747,8 @@ export class Device {
   keyDown(control) {
     this.splashAt = undefined;
     const a = actionOf(this.data, this.id, control);
-    if (a?.do === "stutter") {   // held, and let go (whatever the screen by then: nav.c's hold)
-      this.held[control] = { t: this.now(), fired: true, a };
+    if (a?.do === "stutter") {   // tapped or held, and let go (whatever the screen by then: nav.c's hold); fired once
+      this.held[control] = { t: this.now(), fired: false, a };   // held past a 16th (tick)
       return this.press(control, 1, a);
     }
     if (!a?.long) return this.press(control);
@@ -758,7 +758,11 @@ export class Device {
   keyUp(control) {
     const h = this.held[control];
     delete this.held[control];
-    if (h?.a.do === "stutter") return this.press(control, 0, h.a);
+    if (h?.a.do === "stutter") {
+      const r = this.press(control, 0, h.a);
+      if (!h.fired && this.now() - h.t < this.s16()) this.stutterTap();   // let go within a 16th: a tap
+      return r;
+    }
     return h && !h.fired ? this.press(control, 1, h.a) : null;
   }
   // the live state for Claude (docs/superpowers/plans/2026-11-06-device-screens.md, "Live state"): what plays and what
@@ -808,13 +812,38 @@ export class Device {
         if (this.jumpReq?.i === i) blink.add(key);
       });
     }
-    if (this.stutterOn && this.live?.playing)   // on any screen: a stutter's key (G5) lit while it plays
+    // on any screen: a stutter's key (G5) lit while the held stutter plays, blinking while one on demand waits
+    // (stutterBlink: slow for a simple one, quick for a complex one)
+    const sb = this.stutterBlink();
+    if ((this.stutterOn && this.live?.playing) || (sb && Math.floor(this.now() / sb) % 2))
       for (let i = 0; i < 27; i++) if (actionOf(this.data, this.id, `KEY${i}`)?.do === "stutter") on.add(i);
     return { on, blink };
   }
-  tick() {   // a held key past LONG_MS (a button HOLD_MS): its long action, once
-    for (const [c, h] of Object.entries(this.held))
-      if (!h.fired && this.now() - h.t >= holdMs(c)) { h.fired = true; this.press(c, 1, h.a.long); }
+  // G5's blink while a stutter on demand waits: its half period (ms), 0 none (nav.c's ui_stutter_blink)
+  stutterBlink() {
+    const k = this.live?.rows?.values?.stutter ?? 0;
+    return this.stutterOn && this.live?.playing ? 0 : k === 1 ? 400 : k === 2 ? 125 : 0;
+  }
+  // a 16th of the song's tempo, ms (80 BPM with none): a G5 press let go sooner is a tap
+  s16() { return Math.floor(15000 / (this.live?.roll?.tempo > 0 ? this.live.roll.tempo : 80)); }
+  // G5 tapped: a stutter on demand for the next group's last bar, each tap the next kind: SIMPLE, COMPLEX, OFF
+  stutterTap() {
+    const now = this.now(), cur = this.stutSent && now - this.stutSent.t < 300 ? this.stutSent.k : this.live?.rows?.values?.stutter ?? 0;
+    const next = cur === 1 ? 2 : cur === 2 ? 0 : 1;
+    this.stutSent = { k: next, t: now };
+    this.engine.set("stutter", next);
+    this.say("STUTTER", ["OFF", "SIMPLE", "COMPLEX"][next]);
+  }
+  tick() {   // a held key past LONG_MS (a button HOLD_MS): its long action, once; G5 past a 16th: the held stutter
+    for (const [c, h] of Object.entries(this.held)) {
+      if (h.fired) continue;
+      if (h.a.do === "stutter") {
+        if (this.now() - h.t >= this.s16()) {
+          h.fired = true;
+          if (this.live?.playing) { this.stutterOn = true; this.say("STUTTER"); }
+        }
+      } else if (this.now() - h.t >= holdMs(c)) { h.fired = true; this.press(c, 1, h.a.long); }
+    }
   }
 
   press(control, detents = 1, a = actionOf(this.data, this.id, control)) {
@@ -912,8 +941,8 @@ export class Device {
     }
     if (a.do === "readout") { this.engine.readout?.(); return null; }   // the device's measures (SAVE held: Song)
     if (a.do === "stutter") {   // G5 held (detents 1 down, 0 up): the whole mix stutters, only while a song plays
-      if (!detents) { if (this.stutterOn) this.engine.stutterHold?.(false); this.stutterOn = false; }
-      else if (this.live?.playing) { this.engine.stutterHold?.(true); this.stutterOn = true; this.say("STUTTER"); }
+      if (!detents) { this.engine.stutterHold?.(false); this.stutterOn = false; }
+      else if (this.live?.playing) this.engine.stutterHold?.(true);   // (the engine's hold from a 16th on: tick)
       return null;
     }
     if (a.do === "setting") {   // the highlighted line's action (Settings: a knob changes the line's value)

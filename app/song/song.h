@@ -52,6 +52,9 @@ typedef struct {
     song_ov_t ov;
     lib_set_t set;
     uint16_t changes;             /* bumps as a row request lands: the voices read the instruments again */
+    uint8_t fill_q, fill_kind;    /* a fill asked for (song_fill_queue): the kind waiting (FILL_*, 0 none); the kind
+                                     landed on bar fill_bar - 1 (0 none: cleared at each downbeat) */
+    int16_t fill_bar;
     int8_t kit_preset;            /* the shipped kit the drum lanes play (SONG_KIT_PRESET + it is the kit row's value:
                                      app/drums/wb_drums.h's WB_KIT_*), -1 none */
     /* the next bar's planning, done ahead (song_tick: a piece a 16th from the bar's 10th, song_plans_at; a song's
@@ -151,7 +154,7 @@ uint32_t song_key(const song_t *s);
 enum { SR_ROLL = 0, SR_ROLE = 32, SR_OV = 64, SR_KIT = 96 };
 int song_request_row(song_t *s, int row, int value);
 
-/* A stutter on demand (the Sections screen's K3; stutter.c): kind STUT_SIMPLE or STUT_COMPLEX queued for the next
+/* A stutter on demand (G5 tapped, on any screen; stutter.c): kind STUT_SIMPLE or STUT_COMPLEX queued for the next
    group's last bar that isn't an intro's or an outro's (the song's own rules aside), in place of the song's own there,
    its figure drawn evenly within the kind; the bar playing itself where it is one and its 9th 16th (the earliest
    figure's catch) hasn't played. Again while one waits: the new kind. 0 cancels the one waiting, or one landed on the
@@ -161,6 +164,22 @@ int song_stutter_queue(song_t *s, int kind);
 /* the stutter on demand as the Sections screen shows it: its kind (STUT_*) while it waits or lands on the bar
    playing, else 0 */
 int song_stutter_shown(const song_t *s);
+
+/* A fill on demand (the Sections screen's K3; Sam, 2026-11-14): kind FILL_DRUMS (the drum fill groove.c plays on a
+   block's last bar, from beat 4) or FILL_COMP (the comp's, from beat 3: the strum's drive figure, the keys' run up the
+   bar's voicing; harmony.c) queued for the last bar of the section (plan block) playing, never the outro's (the
+   ending; nor the song's last bar); where that bar's fill has begun before the 16th it is queued on (the drums' 13th
+   16th, the comp's 9th), the next section's. It lands there as the song's own draws stand: only that bar's drums or
+   comp change (PB_FILL_DRUMS, PB_FILL_COMP on a copy of its block). Again while one waits: the new kind. 0 cancels the
+   one waiting, or the rest of one playing. With no such bar left it is dropped. Live: a new song starts with none.
+   Returns song_fill_shown's. */
+enum { FILL_DRUMS = 1, FILL_COMP = 2 };
+int song_fill_queue(song_t *s, int kind);
+/* the fill on demand as the Sections screen shows it: its kind while it waits or plays (the bar it lands on, from its
+   first 16th to its last), else 0 */
+int song_fill_shown(const song_t *s);
+/* the bar (from 0) a fill of kind queued now would land on, -1 none */
+int song_fill_bar(const song_t *s, int kind);
 
 /* SPIKE: bass rhythm: 1 a cell per song, 2 the kick's, 3 half notes on 1 and 3, 4 beats 1 and 2,
    5 beats 1, 2 and 4; 0 off */

@@ -717,8 +717,8 @@ static int with_lead(const song_roll_t *r, int lead, int *notes, int n)
     return k - 1;
 }
 
-static int step_raw(const song_roll_t *r, const plan_block_t *b, int bar, int step, int pass, float step_samples,
-                    harmony_voicing_t *vs, int lead, uint32_t salt, song_ev_t *out, int max)
+static int step_comp(const song_roll_t *r, const plan_block_t *b, int bar, int step, int pass, float step_samples,
+                     harmony_voicing_t *vs, int lead, uint32_t salt, song_ev_t *out, int max)
 {
 
     static const uint8_t ARP[6] = {0, 1, 2, 3, 2, 1};
@@ -832,6 +832,65 @@ static int step_raw(const song_roll_t *r, const plan_block_t *b, int bar, int st
         return c;
     }
     return emit_chord(notes, nn, gap, lo, hi, len, dark, salt, bar, step, out, max);
+}
+
+/* A fill asked for on the Sections screen (PB_FILL_COMP, on the block's last bar; Sam, 2026-11-14), from beat 3:
+   the keys (every comp instrument that doesn't strum) run up the bar's own voicing, the arpeggio's one chord tone a
+   strike re-timed to 8ths (beat 3, its "and", beat 4, its "and"), low to high, each ringing into the change, louder as
+   it climbs: chord tones of the bar's chord only. Their own strikes there give way, the state they leave the same (so
+   the bars after are as they were); a section without the comp has the run all the same (its state untouched). The
+   strummed comp plays the drive figure's second half (strum.c). */
+static int fill_run(const song_roll_t *r, const plan_block_t *b, int bar, int step, int pass, float step_samples,
+                    const harmony_voicing_t *vs, harmony_voicing_t *peek, uint32_t salt, song_ev_t *out, int max)
+{
+    int pcs[5], notes[4], n, i, j, k = 0, v, dark, lo;
+    uint32_t len;
+    if (step & 1) return 0;
+    dark = (b->flags & PB_DARK) ? 1 : !(b->layers & (L_KICK | L_LEAD)) ? 2 : 0;
+    n = keys_chord_at(r, bar, pass, dark, pcs);
+    if (last_is_chord(vs, pcs, n)) {                    /* the voicing the bar struck (one voicing per chord) */
+        memcpy(notes, vs->last, sizeof notes);
+        place_keys(r, bar, notes);
+    } else {                                            /* (not struck yet this bar, or a section without the comp):
+                                                           voiced on a copy (peek: vs itself where it is one) */
+        if (peek != vs) *peek = *vs;
+        harmony_voicing_at(r, bar, pass, peek, notes);
+    }
+    for (i = 0; i < 4; i++)                             /* low to high, the empty ones left out */
+        if ((v = notes[i]) > 0) {
+            for (j = k; j > 0 && notes[j - 1] > v; j--) notes[j] = notes[j - 1];
+            notes[j] = v;
+            k++;
+        }
+    i = (step - 8) / 2;
+    if (k == 0 || i >= k) return 0;
+    len = (uint32_t)((float)(16 - step) * step_samples);
+    len = len > 441u ? len - 441u : 1u;
+    lo = 52 + 6 * i;
+    return emit_chord(&notes[i], 1, 0, lo, lo + 6, len, dark, salt, bar, step, out, max);
+}
+
+static int step_raw(const song_roll_t *r, const plan_block_t *b, int bar, int step, int pass, float step_samples,
+                    harmony_voicing_t *vs, int lead, uint32_t salt, song_ev_t *out, int max)
+{
+    harmony_voicing_t cp;                               /* (one copy: the stack's in the audio interrupt) */
+    plan_block_t kb;
+    int strum;
+    if (!(b->flags & PB_FILL_COMP) || step < 8 || bar != b->start + b->bars - 1 || max <= 0)
+        return step_comp(r, b, bar, step, pass, step_samples, vs, lead, salt, out, max);
+    strum = harmony_style(r) == CS_STRUM;
+    if (!(b->layers & L_KEYS)) {                        /* a section without the comp: in for the fill, on copies */
+        cp = *vs;
+        vs = &cp;
+        kb = *b;
+        kb.layers |= L_KEYS;
+        b = &kb;
+        if (strum) return step_comp(r, b, bar, step, pass, step_samples, vs, lead, salt, out, max);
+    } else if (strum)
+        return step_comp(r, b, bar, step, pass, step_samples, vs, lead, salt, out, max);
+    else                                                /* its own strike, for the state; its notes give way */
+        step_comp(r, b, bar, step, pass, step_samples, vs, lead, salt, out, max);
+    return fill_run(r, b, bar, step, pass, step_samples, vs, &cp, salt, out, max);
 }
 
 /* The harp anticipates (Sam, round 2: "maybe anticipate the beat?"): each strike's roll, strummed or rolled, centered

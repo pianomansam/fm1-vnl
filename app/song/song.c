@@ -701,6 +701,7 @@ uint32_t song_key(const song_t *s)
     for (i = 0; i < RF_N; i++)                       /* (and what landed since: a request is cleared as it lands) */
         h = (h ^ (uint32_t)s->roll.v[i]) * 16777619u;
     h = (h ^ (uint32_t)s->changes) * 16777619u;
+    h = (h ^ (uint32_t)(s->fill_q | s->fill_kind << 2 | s->fill_bar << 4)) * 16777619u;   /* a fill asked for */
     {                                                /* the overrides in force (the workbench may set them itself) */
         const unsigned char *o = (const unsigned char *)song_ov();
         size_t j;
@@ -911,10 +912,21 @@ static int staged(const song_t *s, int B)
            !memcmp(&s->voicing, &s->stg_v0, offsetof(harmony_voicing_t, ant));   /* (ant: the last field) */
 }
 
+/* a fill on demand's first 16th: the drums' on beat 4, the comp's on beat 3 */
+static int fill_from(int kind) { return kind == FILL_DRUMS ? 12 : 8; }
+
+/* bar takes a fill on demand: a section's last bar, not the outro's (nor the song's last) */
+static int fill_lands(const song_plan_t *p, int bar)
+{
+    const plan_block_t *b = plan_at(p, bar);
+    return b && bar == b->start + b->bars - 1 && b->section != SEC_OUTRO && bar + 1 < p->bars;
+}
+
 int song_tick(song_t *s, song_ev_t *out, int max)
 {
     song_ev_t buf[BUF];
-    const plan_block_t *b;
+    const plan_block_t *b, *gb, *hb;
+    plan_block_t fb;
     int bar, step, idx, n = 0, i, j, k;
     uint32_t salt;
     float gs;
@@ -937,7 +949,21 @@ int song_tick(song_t *s, song_ev_t *out, int max)
        they get the glide's target and held notes end early rather than late */
     gs = s->ss < s->glide_to ? s->ss : s->glide_to;
     salt = s->roll.seed;
-    b = plan_at(&s->plan, bar);
+    b = gb = hb = plan_at(&s->plan, bar);
+    if (step == 0)
+        s->fill_kind = 0;
+    if (s->fill_q && step >= fill_from(s->fill_q) - 1 && step <= fill_from(s->fill_q) && fill_lands(&s->plan, bar)) {
+        s->fill_kind = s->fill_q;                   /* a fill on demand lands (a 16th early: the harp's anticipation
+                                                       of its first strike sees it) */
+        s->fill_bar = (int16_t)(bar + 1);
+        s->fill_q = 0;
+    }
+    if (b && s->fill_kind && s->fill_bar == bar + 1) {   /* its drums or comp: the block's copy marked, nothing else */
+        fb = *b;
+        fb.flags |= s->fill_kind == FILL_DRUMS ? PB_FILL_DRUMS : PB_FILL_COMP;
+        if (s->fill_kind == FILL_DRUMS) gb = &fb;
+        else hb = &fb;
+    }
     if (b) {
         int pcs[5], np, pass = bar / loop_bars(&s->roll) + 1, dark = (b->flags & PB_DARK) != 0;
         np = harmony_chord_at(&s->roll, bar, pass, dark, pcs);
@@ -957,7 +983,7 @@ int song_tick(song_t *s, song_ev_t *out, int max)
             if (bar % 4 == 0) pads_group(s, b, bar);
         }
         k = n;
-        n += groove_step(&s->roll, b, bar, step, gs, pcs, np, salt, buf + n, BUF - n);
+        n += groove_step(&s->roll, gb, bar, step, gs, pcs, np, salt, buf + n, BUF - n);
         if (bar >= s->ride_lo && bar < s->ride_hi) {    /* a ride block: the hats to the ride on the beat (quarter
                                                            notes at most), open hats its accents */
             for (i = j = k; i < n; i++) {
@@ -975,7 +1001,7 @@ int song_tick(song_t *s, song_ev_t *out, int max)
                 if (buf[i].voice != V_HAT && buf[i].voice != V_OHAT) buf[j++] = buf[i];
             n = j;
         }
-        n += harmony_step(&s->roll, b, bar, step, pass, gs, &s->voicing,
+        n += harmony_step(&s->roll, hb, bar, step, pass, gs, &s->voicing,
                           (s->lead.onsets >= 4 ? HS_BUSY : 0) | (s->lead.active ? HS_LEAD : 0), salt, buf + n,
                           BUF - n);
         n += lead_step(&s->lead, step, gs, buf + n, BUF - n);
@@ -1069,6 +1095,34 @@ int song_stutter_queue(song_t *s, int kind)
     ls->loop.sfig = (unsigned)f & 7u;
     ls->loop.sod = kind != 0;
     return song_stutter_shown(s);
+}
+
+int song_fill_bar(const song_t *s, int kind)
+{
+    int B;
+    if (!s || s->state != SS_PLAYING || !kind) return -1;
+    for (B = s->bar; B < s->plan.bars; B++)
+        if (fill_lands(&s->plan, B) && (B > s->bar || s->step <= fill_from(kind))) return B;
+    return -1;
+}
+
+int song_fill_shown(const song_t *s)
+{
+    if (!s || s->state != SS_PLAYING) return 0;
+    if (s->fill_q) return s->fill_q;
+    return s->fill_kind && s->step && s->fill_bar == s->bar + 1 ? s->fill_kind : 0;
+}
+
+int song_fill_queue(song_t *s, int kind)
+{
+    if (!s || s->state != SS_PLAYING) return 0;
+    kind = kind == FILL_COMP ? FILL_COMP : kind ? FILL_DRUMS : 0;
+    s->fill_q = 0;
+    if (!kind) {
+        if (s->step && s->fill_bar == s->bar + 1) s->fill_kind = 0;   /* one playing: the rest of its bar as it was */
+    } else if (song_fill_bar(s, kind) >= 0)
+        s->fill_q = (uint8_t)kind;
+    return song_fill_shown(s);
 }
 
 float song_pad_level(const song_t *s) { return s->pad_level; }

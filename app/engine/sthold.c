@@ -54,13 +54,13 @@ int sthold_run(sthold_t *h, int down, int st, float s16)
     return r;
 }
 
-void sthold_key(sthold_t *h, int down)
+void sthold_key(sthold_t *h, int down, uint32_t pos)
 {
-    if (down) h->press = h->down = 1;
-    else h->down = 0;
+    if (down && !h->down) h->t_down = pos;
+    h->down = (uint8_t)(down != 0);
 }
 
-int sthold_song(sthold_t *h, song_t *s, int bar, int st)
+int sthold_song(sthold_t *h, song_t *s, int bar, int st, uint32_t pos)
 {
     const lead_state_t *ls = &s->lead;
     int r, kind = h->requeue;
@@ -68,8 +68,9 @@ int sthold_song(sthold_t *h, song_t *s, int bar, int st)
         memset(h, 0, sizeof *h);
         kind = 0;
     }
-    r = sthold_run(h, h->down || h->press, st, song_step_samples(s));
-    h->press = 0;
+    /* held: past a 16th from the press (a tap, shorter, never catches: it queues one instead), or holding on */
+    r = sthold_run(h, h->down && (h->on || (float)(uint32_t)(pos - h->t_down) + 0.5f >= song_step_samples(s)), st,
+                   song_step_samples(s));
     if (kind && st == 0) {                        /* the bar after one kept from its catch: queued again (unless
                                                      another was queued since: the newer stands) */
         h->requeue = 0;

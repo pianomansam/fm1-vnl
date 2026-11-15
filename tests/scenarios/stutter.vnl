@@ -1,40 +1,52 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# A stutter on demand (the Sections screen's K3): right queues a complex one, left a simple one, the middle none; it
-# plays on the next group's last bar that isn't an intro's or an outro's, then K3 shows OFF again. The first song is
-# 56 bars at 81 BPM (2963 ms a bar): an 8-bar intro, four 8-bar grooves (no lead), two lead blocks. Queued in the
-# intro's second bar, it waits out the intro and lands on the first groove's last bar (bar 16, from 0: 15), a bar the
-# song's own stutters skip (its first pass without the lead).
+# A stutter on demand: G5 tapped (let go within a 16th), on any screen. Each tap the next kind: a simple one, a complex
+# one, none; G5 blinks while one waits, slowly for a simple one (400 ms), quickly for a complex one (125 ms). It plays
+# on the next group's last bar that isn't an intro's or an outro's, then G5 goes dark. The first song is 56 bars at
+# 81 BPM (2963 ms a bar): an 8-bar intro, four 8-bar grooves (no lead), two lead blocks. Queued in the intro's second
+# bar, it waits out the intro and lands on the first groove's last bar (bar 16, from 0: 15), a bar the song's own
+# stutters skip (its first pass without the lead).
 listen
 wait 1400
 tap PLAY
 wait 3000
-tap SEL
-wait 50
-said SECTIONS
 expect stutter 0
-spin K3 1
-wait 50
-said STUTTER COMPLEX
-expect stutter 2
-# back to the middle: cancelled
-spin K3 -1
-wait 50
-said STUTTER OFF
-expect stutter 0
-# left: a simple one; right past the middle: a complex one instead
-spin K3 -1
+expect stutter_blink 0
+# a tap: a simple one
+tapkey 26
 wait 50
 said STUTTER SIMPLE
 expect stutter 1
-spin K3 2
+expect stutter_blink 400
+expect hold -1
+# again while it waits: a complex one
+tapkey 26
+wait 50
+said STUTTER COMPLEX
+expect stutter 2
+expect stutter_blink 125
+# a third: cancelled, G5 dark
+tapkey 26
+wait 50
+said STUTTER OFF
+expect stutter 0
+expect stutter_blink 0
+expect key_lit <67108864
+# on another screen too (Sections): twice, a complex one
+tap SEL
+wait 50
+said SECTIONS
+tapkey 26
+wait 50
+tapkey 26
 wait 50
 said STUTTER COMPLEX
 expect stutter 2
 shot stutter-queued.png
-# the intro passes; it waits (bar 12, from 0: 11, about 34.6 s in)
-wait 30000
+# the intro passes; it waits, G5 blinking (bar 12, from 0: 11, about 34.6 s in)
+wait 29496
 expect section 1
 expect stutter 2
+expect stutter_blink 125
 expect stutter_bar -1
 # the first groove's last bar (bar 16, from 0: 15; 45.9-48.9 s): it lands there, a complex figure
 wait 12800
@@ -50,4 +62,18 @@ wait 2000
 expect bar 16
 expect stutter 0
 expect stutter_bar -1
+expect stutter_blink 0
 shot stutter-played.png
+# stopped, a tap queues one all the same (G5 blinks); PLAY: the song goes on from there, the stutter waiting in it
+tap PLAY
+wait 300
+expect playing 0
+tapkey 26
+wait 50
+said STUTTER SIMPLE
+expect stutter 1
+expect stutter_blink 400
+tap PLAY
+wait 1500
+expect playing 1
+expect stutter 1

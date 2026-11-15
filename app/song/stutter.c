@@ -14,7 +14,7 @@
      entry)
      simple (1 an 8th repeat, 2 a 16th roll; evenly): ST_SIMPLE in 1000 of the other group-last bars, the filtered
      ones too (about 1 a song)
-   On demand (the Sections screen's K3): a kind queued (lead_state_t's loop.sq) plays, its figure drawn evenly within
+   On demand (G5 tapped): a kind queued (lead_state_t's loop.sq) plays, its figure drawn evenly within
    the kind, on the next group's last bar that isn't an intro's or an outro's (the rules above aside), in place of
    the song's own there; queued before a group's last bar's 9th 16th, that bar (song_stutter_queue).
    A stuttering bar's notes play as planned (the lead loop's drop before a section change skips it); the engine

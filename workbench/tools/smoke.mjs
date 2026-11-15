@@ -3368,7 +3368,8 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
     check(JSON.stringify(got) === '[["mute","bass"],["mute","bass"]]' && dk.jumpReq?.name === "groove" && [...dk.keyLights().on].join() === "0,2,4,6,7",
           `G mutes the bass on the main and Comp screens, jumps on Sections (${JSON.stringify(got)}, jump ${dk.jumpReq?.name}; Sections lit [${lit}])`);
   }
-  {   // G5 held: the stutter on while down (said once, lit), off when let go on another screen; stopped, nothing
+  {   // G5 held past a 16th: the stutter on while down (said once, lit), off when let go on another screen; stopped,
+      // the engine told the key went up only
     let tt = 0;
     const got = [], ds = new D.Device(data, { set() {}, play() {}, stutterHold: (on) => got.push(on) }, () => tt);
     ds.update({ ...live(3), activity: { bars: 64, lanes: {}, mute: [], solo: null } });
@@ -3381,8 +3382,29 @@ console.log("the device mock (ui/): the device's words, palette and knobs; the s
     const after = ds.keyLights().on.has(26);
     ds.update({ ...live(3), playing: false });
     ds.keyDown("KEY26"); ds.keyUp("KEY26");
-    check(JSON.stringify(got) === "[true,false]" && lit && litSec && !after && said === "STUTTER",
+    check(JSON.stringify(got) === "[true,false,false]" && lit && litSec && !after && said === "STUTTER",
           `G5: the stutter held and let go (${JSON.stringify(got)}), lit [${lit}, Sections ${litSec}, after ${after}], said ${said}`);
+  }
+  {   // G5 tapped (let go within a 16th): each tap the next stutter on demand (SIMPLE, COMPLEX, OFF), said; G5 blinks
+      // while one waits, slowly for a simple one, quickly for a complex one; a tap while stopped queues too
+    let tt = 0;
+    const sets = [], dt = new D.Device(data, { set: (id, v) => sets.push([id, v]), play() {}, stutterHold() {} }, () => tt);
+    const lv = { ...live(3), rows: { values: { stutter: 0 } } };
+    dt.update(lv);
+    dt.stack = ["main"];
+    const said = [], tap = () => { dt.keyDown("KEY26"); tt += 60; dt.tick(); dt.keyUp("KEY26"); said.push(dt.said); tt += 100; };
+    tap(); tap(); tap();
+    dt.update({ ...lv, rows: { values: { stutter: 1 } } });
+    const slow = dt.stutterBlink();
+    dt.update({ ...lv, rows: { values: { stutter: 2 } } });
+    const quick = dt.stutterBlink(), lit = [0, 1, 2, 3].map((k) => { tt = 1000 + k * 125; return dt.keyLights().on.has(26); });
+    dt.update({ ...lv, playing: false, rows: { values: { stutter: 0 } } });
+    tt += 1000;
+    tap();
+    check(JSON.stringify(sets) === '[["stutter",1],["stutter",2],["stutter",0],["stutter",1]]' &&
+          said.join() === "STUTTER SIMPLE,STUTTER COMPLEX,STUTTER OFF,STUTTER SIMPLE" && slow === 400 && quick === 125 &&
+          lit.join() === "false,true,false,true",
+          `G5 tapped: ${JSON.stringify(sets)}, said ${said.join()}, blink ${slow} / ${quick} ms (${lit.join()})`);
   }
   {   // Settings: SELECT highlights BASS SATURATION, any knob flips it (the engine told, the reader says it), a detent
       // at a time; on THEME, a knob steps the palette
