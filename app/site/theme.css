@@ -44,3 +44,6 @@ dialog { background: var(--vnl-tile); }
 .video { margin: 1em 0 1.5em; }
 .video iframe { display: block; width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 6px;
                 box-shadow: 0 0 0 1px var(--vnl-rule); }
+/* VNL-1's copyright and license line (tools/site.sh), at the foot of every page */
+.vnl-foot { max-width: 46rem; margin: 3em auto 0; padding: 1em 16px 2em; border-top: 1px solid var(--vnl-rule);
+  color: var(--vnl-label); font-size: .85em; text-align: center; }

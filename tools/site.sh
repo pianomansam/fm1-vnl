@@ -31,6 +31,12 @@ for p in ("index.html", "install/index.html", "manual/index.html"):
                    f'<div class="video"><iframe src="https://www.youtube-nocookie.com/embed/{m[1]}" title="{m[2]}" '
                    'loading="lazy" allow="encrypted-media; picture-in-picture; fullscreen" allowfullscreen '
                    'referrerpolicy="strict-origin-when-cross-origin"></iframe></div>', h)
+        # VNL-1's own copyright and license, at the foot of every page
+        if h.count("</body>") != 1:
+            sys.exit(f"{f}: no single </body> to put the footer before")
+        h = h.replace("</body>", '<footer class="vnl-foot">VNL-1 &copy; 2026 Sam Oltz &middot; '
+                      '<a href="https://www.gnu.org/licenses/gpl-3.0.html">GPL-3.0-or-later</a> &middot; '
+                      '<a href="https://github.com/pianomansam/fm1-vnl">Source on GitHub</a></footer>\n</body>')
         f.write_text(h.replace("</head>", f'<style id="theme">\n{css}</style>\n</head>'), encoding="utf-8")
         print(f"theme    {f}")
 EOF
