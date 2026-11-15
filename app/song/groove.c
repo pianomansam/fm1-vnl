@@ -265,14 +265,16 @@ int groove_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, 
     rng_t g;
     float snare_base, hat_base, swing_f, pocket, tick_ms;
     uint32_t swing = 0, kick_late, dsalt = song_ov_salted(salt, song_ov()->drums_salt);
-    int n = 0, lane, last_bar, drop, fill, style, eighths;
+    int n = 0, lane, last_bar, drop, fill, forced, style, eighths;
 
     if (!p || !b || step < 0 || step > 15) return 0;
     /* a sampled kit's hats and shaker in 16ths at a light swing march (Sam, set 26): there, 8ths only */
     eighths = r->v[RF_SWING] < 550 && lib_kit_sampled(lib_song_kit(r));
     last_bar = bar == b->start + b->bars - 1;
     drop = (b->flags & PB_DROP_LAST) && (last_bar || ((b->flags & PB_DROP2) && bar == b->start + b->bars - 2));   /* 1 or 2 bars */
-    fill = last_bar && (b->flags & PB_FILL_LAST) && !drop;
+    forced = last_bar && (b->flags & PB_FILL_DRUMS);   /* one asked for (Sections K3): heard on a drop too, its
+                                                          snare and kick whatever the block's layers */
+    fill = last_bar && (((b->flags & PB_FILL_LAST) && !drop) || forced);
 
     /* per-song lateness bases; the snare range leaves room for its +-3 ms so every snare stays within 10-30 ms */
     rng_seed(&g, r->seed, 110);
@@ -339,12 +341,12 @@ int groove_step(const song_roll_t *r, const plan_block_t *b, int bar, int step, 
             n = push(out, n, max, lane_voice[lane], 0, vel, swing + late, 0);
         }
 
-    if (fill && step >= 12 && (b->layers & (L_SNARE | L_KICK))) {
+    if (fill && step >= 12 && ((b->layers & (L_SNARE | L_KICK)) || forced)) {
         float jit2 = frand(mix(dsalt, bar, step, 20));
         uint32_t late = to_samples(snare_base + (jit2 * 6.0f - 3.0f));
-        if (b->layers & L_SNARE)
+        if ((b->layers & L_SNARE) || forced)
             n = push(out, n, max, V_SNARE, 0, 60 + (step - 12) * 10, swing + late, 0);
-        if ((b->layers & L_KICK) && step == 14)
+        if (((b->layers & L_KICK) || forced) && step == 14)
             n = push(out, n, max, V_KICK, 0, 96, swing + kick_late, 0);
     }
 

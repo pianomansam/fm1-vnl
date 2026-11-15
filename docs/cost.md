@@ -1580,3 +1580,20 @@ stutters and a one-pole low-pass on the repeats). No new buffer: it reuses the s
   about 3 s on): the held stutter adds about 4.4 ns a sample, 6-7% of the host render, all of it the stutter's own
   replay (the same path the song's stutters take for a beat at most); its low-pass is within the noise (the same
   run with the filter open: the same figure). The voices keep rendering underneath while it holds.
+
+## The fill on demand on Sections K3, the stutter on demand on G5 (2026-11-14)
+
+K3 queues a fill for the section's last bar (`song_fill_queue`): the drum fill groove.c already plays, the strum's
+drive figure from beat 3, or the keys' run up the bar's voicing (`harmony.c`'s `fill_run`). No new buffer: 4 bytes in
+`song_t` (its three copies: the song, the jump's, the Parts roll's) and one `harmony_voicing_t` on the stack in the
+fill bar's comp ticks only.
+
+The stutter on demand moves from its Sections knob to G5: a tap (let go within a 16th) queues the next kind, a hold
+past a 16th is the held stutter, from the next 16th line (`sthold.c` times the press in samples: 4 bytes more in
+`sthold_t`); G5 blinks while one waits (`nav.c`'s `ui_stutter_blink`).
+
+- Flash: image 404,828 to **406,972 B (+2,144)** (`tools/mem-check.sh`, against 90ca04a; the fill alone +1,648, the
+  G5 tap +496); RAM .data+.bss 79,644 to **79,692 B (+48)**; the pool 305,212 to **305,220 B (+8)**.
+- CPU (host, song_tick alone, seeds 2-300, best of 5 plays, a fill queued at the start of each): the fill bar's
+  ticks at most 5 us (drums) and 4 us (comp), means 0.6-0.7 us, against a worst tick elsewhere of 12-13 us; the
+  voices render the fill's few extra notes like any others.

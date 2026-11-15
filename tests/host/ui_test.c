@@ -492,19 +492,25 @@ static void test_kit_pick(void)
     CHECK(room_br > 0, "no sunny song in 300 picked Room - brushes");
 }
 
-/* G5 (key 26) held: the stutter on while down, off when let go (on whatever screen by then); said once; lit while
-   the engine says it plays; stopped, nothing */
+/* G5 (key 26) held past a 16th: the stutter on while down (the engine told at once; it waits the 16th itself), off
+   when let go (on whatever screen by then); said once held; lit while the engine says it plays. Tapped (let go within
+   a 16th): each tap the next stutter on demand (set ROW_STUTTER: 1 simple, 2 complex, 0 none), said; G5 blinks while
+   one waits, slowly for simple, quickly for complex. Stopped, a tap queues too (the engine's hold isn't told) */
 static void test_nav_stutter(void)
 {
     ui_nav_t n;
     snap_t s;
-    uint32_t on, blink;
+    uint32_t on, blink, t;
+    char want[96];
     nav_fresh(&n, &s, 2);
     eng_stut = 0;
     n.said[0] = 0;
     ui_key(&n, 26, 1, 1000);
-    CHECK(!strcmp(eng_log, "stutter 1 0") && !strcmp(n.said, "STUTTER"), "G5 down: %s, said %s", eng_log, n.said);
-    ui_tick(&n, 2000);                         /* held long: no long action */
+    CHECK(!strcmp(eng_log, "stutter 1 0") && !n.said[0], "G5 down: %s, said %s", eng_log, n.said);
+    ui_tick(&n, 1000 + 15000u / (uint32_t)s.roll.v[RF_TEMPO] - 5u);
+    CHECK(!n.said[0], "not yet a 16th: undecided (said %s)", n.said);
+    ui_tick(&n, 2000);                         /* held past a 16th: the held stutter, said */
+    CHECK(!strcmp(n.said, "STUTTER"), "G5 held: said %s", n.said);
     on = ui_key_lights(&n, &s, &blink);
     CHECK(!(on >> 26 & 1u), "G5 dark until the engine's stutter plays (%x)", on);
     eng_stut = 1;
@@ -518,13 +524,35 @@ static void test_nav_stutter(void)
     ui_key(&n, 26, 0, 2500);
     CHECK(!strcmp(eng_log, "stutter 0 0") && !n.said[0], "G5 up on another screen: %s, said %s", eng_log, n.said);
     eng_stut = 0;
-    snap_for(&s, UI_FX_SEED, 2, 0);            /* stopped */
-    ui_update(&n, &s, 3000);
+    for (t = 0; t < 3; t++) {                  /* three taps: simple, complex, none */
+        static const char *const SAID[3] = {"STUTTER SIMPLE", "STUTTER COMPLEX", "STUTTER OFF"};
+        eng_log[0] = 0;
+        ui_key(&n, 26, 1, 3000 + 100 * t);
+        ui_tick(&n, 3000 + 100 * t + 40);
+        ui_key(&n, 26, 0, 3000 + 100 * t + 60);
+        snprintf(want, sizeof want, "stutter 1 0; stutter 0 0; set %d %d", ROW_STUTTER, (int)(t + 1) % 3);
+        CHECK(!strcmp(eng_log, want) && !strcmp(n.said, SAID[t]), "G5 tap %u: %s, said %s", t + 1, eng_log, n.said);
+    }
+    s.rows[ROW_STUTTER] = 1;                   /* a simple one waits: G5 blinks slowly, a complex one quickly */
+    CHECK(ui_stutter_blink(&n, &s) == 400, "simple: %d ms", ui_stutter_blink(&n, &s));
+    ui_tick(&n, 4400);
+    on = ui_key_lights(&n, &s, &blink);
+    ui_tick(&n, 4800);
+    CHECK((on >> 26 & 1u) && !(ui_key_lights(&n, &s, &blink) >> 26 & 1u), "simple: G5 on, then off");
+    s.rows[ROW_STUTTER] = 2;
+    CHECK(ui_stutter_blink(&n, &s) == 125, "complex: %d ms", ui_stutter_blink(&n, &s));
+    eng_stut = 1;
+    CHECK(ui_stutter_blink(&n, &s) == 0, "the held stutter playing: lit, not blinking");
+    eng_stut = 0;
+    snap_for(&s, UI_FX_SEED, 2, 0);            /* stopped: a tap queues (for when the song plays) */
+    ui_update(&n, &s, 6000);
     eng_log[0] = 0;
     n.said[0] = 0;
-    ui_key(&n, 26, 1, 3000);
-    CHECK(!eng_log[0] && !n.said[0], "stopped, G5 does nothing: %s, said %s", eng_log, n.said);
-    ui_key(&n, 26, 0, 3100);
+    ui_key(&n, 26, 1, 6000);
+    ui_key(&n, 26, 0, 6050);
+    snprintf(want, sizeof want, "stutter 0 0; set %d 1", ROW_STUTTER);
+    CHECK(!strcmp(eng_log, want) && !strcmp(n.said, "STUTTER SIMPLE"), "stopped, G5 tapped: %s, said %s", eng_log,
+          n.said);
 }
 
 /* the held stutter's schedule (sthold.c): from each place in a bar, the catch on the press's 16th, the repeat 2

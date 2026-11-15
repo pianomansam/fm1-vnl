@@ -10,15 +10,25 @@
   without it, at the same rate a song (about one simple, about every other song one complex). Never in an intro, an
   ending or a break, nor before the song has found its feet: the lead's first 8 bars, or the first 8 bars of the
   first section without it.
-- **A stutter on demand:** on the Sections screen, K3 queues a stutter for the next group's last bar: turn it left
-  for a simple one, right for a complex one, back to the middle to cancel. It skips intros and endings, plays even
-  where the song's own wouldn't, takes the place of the song's own on that bar, and shows SIMPLE or COMPLEX until it
-  has played. Like Loop and Stay on song, it isn't saved with the song.
-- **Hold G5 to stutter:** the top white key, held on any screen while a song plays, catches an 8th of the whole mix
-  on the next 16th and repeats it, faster on each beat (16ths, 32nds, then 64ths), a low-pass closing a little at
-  each step; let go and the mix comes back on the next 16th. G5 is lit while it plays and the screen reader says
-  STUTTER. It overrides the song's stutters: one whose bar the hold touches is skipped, and one queued on K3 that
-  the hold keeps from playing waits for the next group's last bar. Songs are unchanged.
+- **A stutter on demand:** tap G5, the top white key, on any screen to queue a stutter for the next group's last
+  bar: once for a simple one, again for a complex one, a third time to cancel (the screen reader says STUTTER
+  SIMPLE, STUTTER COMPLEX or STUTTER OFF). G5 blinks while it waits, slowly for a simple one, quickly for a complex
+  one, and goes dark once it has played. It skips intros and endings, plays even where the song's own wouldn't, and
+  takes the place of the song's own on that bar. A tap while stopped queues one for when the song plays. Like Loop
+  and Stay on song, it isn't saved with the song.
+- **Hold G5 to stutter:** the top white key, held past a 16th on any screen while a song plays, catches an 8th of
+  the whole mix on the next 16th and repeats it, faster on each beat (16ths, 32nds, then 64ths), a low-pass closing a
+  little at each step; let go and the mix comes back on the next 16th. G5 is lit while it plays and the screen reader
+  says STUTTER. It overrides the song's stutters: one whose bar the hold touches is skipped, and a tapped one that
+  the hold keeps from playing waits for the next group's last bar. A hold leaves a tapped one queued. Songs are
+  unchanged.
+- **A fill on demand:** on the Sections screen, K3 queues a fill for the last bar of the section playing: turn it
+  left for the drums (their snare roll and kick on beat 4), right for the accompaniment (from beat 3: a guitar
+  pushes into the change with the drive strum, the keys, harp, vibes, organ and pad run up the chord they're
+  playing), back to the middle to cancel. Queued once that bar's fill has started, it waits for the next section's
+  last bar. Never in the ending; the intro is fine. Only that bar's drums or accompaniment change, nothing else in
+  the song, and it plays even on a drum drop or in a section without the drums or the accompaniment. It shows DRUMS or
+  COMP until it has played, and isn't saved with the song.
 
 ## 0.9.1 (2026-11-14)
 

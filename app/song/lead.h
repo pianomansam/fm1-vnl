@@ -62,7 +62,7 @@ typedef struct {
         uint16_t sbar : 9;        /* the bar planned, + 1, where it stutters at its end (0: none): vx_stutter_fig */
         uint16_t sfig : 3;        /* its figure: 1-2 simple (an 8th repeat, a 16th roll), 3-4 complex (an
                                      accelerating roll, the 2-beat catch) */
-        uint16_t sod : 1;         /* 1: that figure came on demand (the Sections screen's K3) */
+        uint16_t sod : 1;         /* 1: that figure came on demand (G5 tapped) */
         uint16_t sq : 2;          /* a stutter queued on demand, its kind (STUT_SIMPLE, STUT_COMPLEX; 0 none): it
                                      lands on the next group's last bar planned (stutter_plan_bar) */
 #ifdef LEADS_LOOP_STATS

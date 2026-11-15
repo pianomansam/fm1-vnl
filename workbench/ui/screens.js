@@ -192,10 +192,11 @@ export default {
     loop: { row: "loop", name: "LOOP", options: true, now: true, wrap: 2 },   // turning either way flips it (Sam)
     // never end (Sam, 2026-11-06): where the outro would start, back to the section after the intro; no next song
     endless: { row: "endless", name: "STAY ON SONG", options: true, now: true, wrap: 2 },   // off by default (Sam)
-    // a stutter on demand (Sam, 2026-11-14): left queues a simple one, right a complex one, for the next group's last
-    // bar (not an intro's or an outro's); back to the middle cancels it. Its kind shows while it waits and plays, then
-    // OFF again (the choices in turning order: SIMPLE, OFF, COMPLEX); acts at once, never saved with the song
-    stutter: { row: "stutter", name: "STUTTER", options: true, now: true },
+    // a fill on demand (Sam, 2026-11-14): left the drums' fill, right the comp's, on the last bar of the section
+    // playing (the next section's where its fill has begun; never the outro's); back to the middle cancels it. Its
+    // kind shows while it waits and plays, then OFF again (the choices in turning order: DRUMS, OFF, COMP); acts at
+    // once, never saved with the song
+    fill: { row: "fill", name: "FILL", options: true, now: true },
   },
 
   // the parts, in ALGO's order (Sam, 2026-11-07: drums, bass, comp, lead, pad, texture, everywhere parts are listed) (on a part's screen ALGO moves to the next one, at its first page)
@@ -222,8 +223,11 @@ export default {
     KEY4: { do: "mute", part: "keys", long: { do: "solo", part: "keys" } },
     KEY6: { do: "mute", part: "lead", long: { do: "solo", part: "lead" } },
     KEY7: { do: "mute", part: "pad", long: { do: "solo", part: "pad" } },
-    // the top white key (G5), on every screen: held, the whole mix stutters, an 8th repeated, faster each beat to 64ths,
-    // darker as it tightens; let go, live on the next 16th (engine/sthold.c; Sam, 2026-11-14). Lit while it plays
+    // the top white key (G5), on every screen (Sam, 2026-11-14): tapped (let go within a 16th), a stutter on demand
+    // queued for the next group's last bar, each tap the next kind: SIMPLE, COMPLEX, OFF; it blinks while one waits,
+    // slowly for simple, quickly for complex (a tap while stopped waits for the song). Held past a 16th: from the next
+    // 16th the whole mix stutters, an 8th repeated, faster each beat to 64ths, darker as it tightens; let go, live on
+    // the next 16th (engine/sthold.c). Lit while that plays
     KEY26: { do: "stutter" },
   },
   // the keys' lights on every screen but one with its own (Sections): a part's key lit while it plays, blinking soloed
@@ -596,8 +600,8 @@ export default {
 
     // The song's map (Sam, 2026-11-06: where we are in the map, jump to a section, loop the one playing): SEL from
     // the main screen. One line a section (the one playing marked), ALGO or SELECT moves the highlight, EDIT goes
-    // there (at the next bar line), K1 loops the section playing, K2 stays on the song, K3 queues a stutter; the strip
-    // under the header is the main screen's.
+    // there (at the next bar line), K1 loops the section playing, K2 stays on the song, K3 queues a fill (a
+    // stutter on demand is G5's tap, on every screen); the strip under the header is the main screen's.
     sections: {
       title: "Sections",
       list: "sections",
@@ -676,7 +680,7 @@ export default {
           { text: "SEL BACK", font: "T", right: 232, y: 16, color: "DIM" },
         ] },
       ],
-      knobs: [{ field: "loop", step: 1 }, { field: "endless", step: 1 }, { field: "stutter", step: 1 }],
+      knobs: [{ field: "loop", step: 1 }, { field: "endless", step: 1 }, { field: "fill", step: 1 }],
       controls: {
         ALGO: { do: "cursor" }, SELECT: { do: "cursor" }, EDIT: { do: "jump" }, SEL: { go: "back" },
         // the lowest white keys jump straight to a section, first key the first section (Sam, 2026-11-06); the dim

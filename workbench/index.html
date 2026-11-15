@@ -204,12 +204,12 @@
         const live = heard ? fromEngine(heard, wb.C, desk.opts) : null;
         if (live) live.rhythm = live[rh];
         return { values: { ...desk.state.values, rhythm: desk.state.values[rh], loop: $("loop").checked ? 1 : 0,
-                           endless: $("endless").checked ? 1 : 0, stutter: heard?.stutter ?? 0 }, live, rolled: rn,
+                           endless: $("endless").checked ? 1 : 0, stutter: heard?.stutter ?? 0, fill: heard?.fill ?? 0 }, live, rolled: rn,
                  options: { ...Object.fromEntries(ids.map((id) => [id, choices(id)])), rhythm: choices(rh, "rhythm"),
                             loop: [{ value: 0, name: "OFF" }, { value: 1, name: "ON" }],
                             endless: [{ value: 0, name: "OFF" }, { value: 1, name: "ON" }],
-                            // a stutter on demand (wb_stutter: the engine's queue), in turning order
-                            stutter: [{ value: 1, name: "SIMPLE" }, { value: 0, name: "OFF" }, { value: 2, name: "COMPLEX" }] } };
+                            // a fill on demand (wb_fill: the engine's queue), in turning order
+                            fill: [{ value: 1, name: "DRUMS" }, { value: 0, name: "OFF" }, { value: 2, name: "COMP" }] } };
       };
       // each part's notes a bar (from the roll's layout: the song as committed) and what is muted or soloed, for the
       // device's Parts screen
@@ -231,6 +231,7 @@
           set: (id, v) => id === "loop" ? ($("loop").checked = !!v, $("loop").onchange(), device?.redraw())
             : id === "endless" ? ($("endless").checked = !!v, device?.redraw())
             : id === "stutter" ? wb.call("wb_stutter", v).then(() => device?.redraw())
+            : id === "fill" ? wb.call("wb_fill", v).then(() => device?.redraw())
             : run(() => desk.set(id === "rhythm" ? rhythmRow(desk.state, desk.opts) : id, v)),
           play: () => $("play").click(),
           reroll: () => $("all").click(),   // SEQ: Re-roll all unlocked (the device: a new song)
