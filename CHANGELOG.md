@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.9.2 (2026-11-14)
 
 - **Subtler stutters:** the whole-mix stutter now has four figures in two kinds. About once a song a simple one ends
   a group: beat 4's first 8th repeated, or a 16th roll across beat 4. About every
